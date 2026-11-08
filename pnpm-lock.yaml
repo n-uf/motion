@@ -8,7 +8,7 @@ importers:
 
   .: {}
 
-  packages/vusyk:
+  packages/motion:
     dependencies:
       alien-signals:
         specifier: ^3.2.1

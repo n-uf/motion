@@ -1,7 +1,7 @@
 name: Release
 
 # Calendar versions (YY.M.R, the same scheme as @n-uf/hypr-tiling and
-# @n-uf/debugsy). A PR bumps packages/vusyk/package.json with
+# @n-uf/debugsy). A PR bumps packages/motion/package.json with
 # `pnpm version:bump` and adds a CHANGELOG entry; merging it to main
 # publishes that version to npmjs (public, with provenance) and to GitHub
 # Packages, tags it v<version> and notifies finfactory/pdf-n-uf. Each
@@ -19,7 +19,7 @@ name: Release
 # Credentials:
 # - npmjs: trusted publishing, no stored token. npm swaps this job's GitHub
 #   OIDC token (id-token: write) for a one-time publish token, as set up on
-#   npmjs.com for @n-uf/vusyk (Trusted Publisher: GitHub Actions, n-uf/vusyk,
+#   npmjs.com for @n-uf/motion (Trusted Publisher: GitHub Actions, n-uf/motion,
 #   release.yml; `npm trust github`). It needs npm 11.5.1+ (Node 22 ships npm
 #   10, so the job installs npm 11) and adds provenance by itself.
 # - GITHUB_TOKEN: publishes to GitHub Packages.
@@ -94,7 +94,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          version=$(jq -r .version packages/vusyk/package.json)
+          version=$(jq -r .version packages/motion/package.json)
           if ! echo "$version" | grep -qE '^[0-9]{2}\.([1-9]|1[0-2])\.[0-9]+$'; then
             echo "::error::$version is not a calendar version (YY.M.R)"
             exit 1
@@ -104,9 +104,9 @@ jobs:
           # is_new <registry> <output name>: true when the version isn't there yet
           is_new() {
             local out
-            if out=$(npm view "@n-uf/vusyk@$version" version --registry "$1" --@n-uf:registry="$1" 2>&1); then
+            if out=$(npm view "@n-uf/motion@$version" version --registry "$1" --@n-uf:registry="$1" 2>&1); then
               echo "$2=false" >> "$GITHUB_OUTPUT"
-              echo "::notice::@n-uf/vusyk@$version is already on $1."
+              echo "::notice::@n-uf/motion@$version is already on $1."
             elif echo "$out" | grep -qE 'E404|No match found|is not in this registry'; then
               echo "$2=true" >> "$GITHUB_OUTPUT"
             else
@@ -138,7 +138,7 @@ jobs:
           dest="$RUNNER_TEMP/package"
           mkdir -p "$dest"
           # prepack builds dist/ and checks it (scripts/check-dist.mjs)
-          pnpm --filter @n-uf/vusyk pack --pack-destination "$dest"
+          pnpm --filter @n-uf/motion pack --pack-destination "$dest"
           tarball=$(ls "$dest"/*.tgz)
           echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
           tar -tzf "$tarball"
@@ -189,5 +189,5 @@ jobs:
             exit 0
           fi
           jq -n -c --arg v "$VERSION" --arg sha "$(git rev-parse HEAD)" \
-            '{event_type: "lib-released", client_payload: {source: "n-uf/vusyk", sha: $sha, packages: [{name: "@n-uf/vusyk", version: $v}]}}' \
+            '{event_type: "lib-released", client_payload: {source: "n-uf/motion", sha: $sha, packages: [{name: "@n-uf/motion", version: $v}]}}' \
             | gh api repos/finfactory/pdf-n-uf/dispatches --method POST --input -

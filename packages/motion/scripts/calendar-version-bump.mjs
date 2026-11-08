@@ -1,4 +1,4 @@
-// Calendar version bump for `@n-uf/vusyk` (`YY.M.R`, the same policy as
+// Calendar version bump for `@n-uf/motion` (`YY.M.R`, the same policy as
 // `@n-uf/hypr-tiling`; see the README's "Versions" section). `YY.M` is derived from TODAY's date — `M` is
 // the calendar month of the release, never "the last month + 1". `R` continues
 // within the same year/month and resets to `0` when the month changes, then
@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 
 /**
  * Version numbers that exist on a registry's reservation list but not in its
- * published list — never propose them again. None for vusyk yet. (It starts
+ * published list — never propose them again. None for motion yet. (It starts
  * at 0.0.0, which sorts below every `YY.M.R`; the first `--apply` gives the
  * month's `.0`.)
  */

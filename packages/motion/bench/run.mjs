@@ -1,4 +1,4 @@
-// Signals timing: bench/cases.ts on vusyk, alien-signals and
+// Signals timing: bench/cases.ts on motion, alien-signals and
 // @preact/signals-core. Each library gets its own bundle of the cases (so
 // no function is shared between libraries) and its own Node process (so no
 // JIT state or heap is shared either). Prints median and best µs per
@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const adapters = {
-  vusyk: `
+  motion: `
     import * as s from "./src/signals/index.ts";
     export const lib = {
       signal: (v) => { const x = s.signal(v); return { get: () => x.value, set: (n) => { x.value = n; } }; },

@@ -116,7 +116,7 @@ class SignalNode<T> implements Signal<T>, SourceNode {
 
   set value(next: T) {
     if (activeObserver !== null && activeObserver.kind === COMPUTED) {
-      throw new Error("vusyk: a computed value can't write a signal");
+      throw new Error("motion: a computed value can't write a signal");
     }
     if (this.equals !== false && this.equals(this.current, next)) return;
     this.current = next;
@@ -171,7 +171,7 @@ class ComputedNode<T> implements ReadonlySignal<T>, SourceNode, ObserverNode {
 
   /** Bring the value up to date, recomputing only if a source really changed. */
   refresh(): void {
-    if (this.running) throw new Error("vusyk: a computed value depends on itself");
+    if (this.running) throw new Error("motion: a computed value depends on itself");
     if (this.observers.length > 0) {
       if (this.flags === CLEAN) return;
     } else if (this.seen === globalVersion) {
@@ -434,7 +434,7 @@ function flushEffects(): void {
   while (effectQueue.length > 0) {
     if (++rounds > MAX_FLUSH_ROUNDS) {
       effectQueue.length = 0;
-      throw new Error(`vusyk: effects kept re-triggering each other (more than ${MAX_FLUSH_ROUNDS} rounds)`);
+      throw new Error(`motion: effects kept re-triggering each other (more than ${MAX_FLUSH_ROUNDS} rounds)`);
     }
     const pending = effectQueue.splice(0, effectQueue.length);
     batchDepth++;

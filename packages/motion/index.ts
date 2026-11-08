@@ -1,8 +1,8 @@
 /**
- * `@n-uf/vusyk`: one frame loop with an injected clock, signals, springs and
+ * `@n-uf/motion`: one frame loop with an injected clock, signals, springs and
  * tweens, and a DOM-free gesture recogniser. No DOM, no framework, no
- * globals: the host passes a clock in (`@n-uf/vusyk/browser` has the browser
- * one). `@n-uf/vusyk/clock`, `/signals`, `/values` and `/gestures` are the
+ * globals: the host passes a clock in (`@n-uf/motion/browser` has the browser
+ * one). `@n-uf/motion/clock`, `/signals`, `/values` and `/gestures` are the
  * same folders on their own.
  */
 export * from "./src/clock";

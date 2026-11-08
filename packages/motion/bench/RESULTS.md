@@ -1,6 +1,6 @@
 # Signals: the choice and the benchmark
 
-**Choice: alien-signals' core (`alien-signals/system`) under vusyk's own API.**
+**Choice: alien-signals' core (`alien-signals/system`) under motion's own API.**
 One small MIT runtime dependency; everything else in the package is ours.
 
 ## Candidates
@@ -10,7 +10,7 @@ One small MIT runtime dependency; everything else in the package is ours.
 | hand-written | A push-pull graph written for this package (kept as `bench/handwritten-signals.ts`, not shipped). |
 | alien-signals 3.2.1 | Its public `signal`/`computed`/`effect`. |
 | @preact/signals-core 1.14.5 | Its public API. |
-| **vusyk** (shipped) | `src/signals/signals.ts`: alien-signals' published core, `createReactiveSystem`, with vusyk's surface on top. |
+| **motion** (shipped) | `src/signals/signals.ts`: alien-signals' published core, `createReactiveSystem`, with motion's surface on top. |
 
 ## Why
 
@@ -61,7 +61,7 @@ up to 10 times from load, so the best times carry the comparison.
 
 µs per write (per build-and-dispose for churn): **best** (median).
 
-| case | vusyk | hand-written | alien-signals | preact |
+| case | motion | hand-written | alien-signals | preact |
 |---|---|---|---|---|
 | fan-out: 1 signal → 2000 computeds → 2000 effects | **320** (719) | 496 (2204) | 344 (759) | 342 (597) |
 | deep chain: 1 signal → 1000 computeds in a row → 1 effect | **108** (152) | 163 (269) | 105 (154) | 130 (174) |
@@ -76,7 +76,7 @@ minified; depth is the longest chain of computeds a first read survives.
 
 | | minified | gzip | brotli | depth |
 |---|---|---|---|---|
-| vusyk | 5487 | 2092 | 1929 | 4500 |
+| motion | 5487 | 2092 | 1929 | 4500 |
 | hand-written | 4274 | 1537 | 1400 | 4250 (1750 in an earlier run) |
 | alien-signals | 4602 | 1735 | 1636 | 8000 |
 | preact-signals-core | 4566 | 1676 | 1560 | 4500 |

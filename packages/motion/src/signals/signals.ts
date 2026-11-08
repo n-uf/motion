@@ -142,7 +142,7 @@ class SignalNode<T> implements Signal<T>, Node {
 
   set value(next: T) {
     if (activeSub !== undefined && activeSub.kind === COMPUTED) {
-      throw new Error("vusyk: a computed value can't write a signal");
+      throw new Error("motion: a computed value can't write a signal");
     }
     if (this.equals !== false && this.equals(this.pending, next)) return;
     this.pending = next;
@@ -203,7 +203,7 @@ class ComputedNode<T> implements ReadonlySignal<T>, Node {
 
 function refreshComputed<T>(node: ComputedNode<T>): void {
   const flags = node.flags;
-  if (flags & RECURSED_CHECK) throw new Error("vusyk: a computed value depends on itself");
+  if (flags & RECURSED_CHECK) throw new Error("motion: a computed value depends on itself");
   if (flags & DIRTY || (flags & PENDING && (checkDirty(node.deps!, node) || ((node.flags = flags & ~PENDING), false)))) {
     if (updateComputed(node)) {
       const subs = node.subs;
@@ -383,7 +383,7 @@ function flush(): void {
         if (++node.runsInFlush > MAX_RUNS_PER_FLUSH) {
           // Leave it watching so a later change still reaches it.
           node.flags |= WATCHING | RECURSED;
-          throw new Error(`vusyk: effects kept re-triggering each other (one ran more than ${MAX_RUNS_PER_FLUSH} times)`);
+          throw new Error(`motion: effects kept re-triggering each other (one ran more than ${MAX_RUNS_PER_FLUSH} times)`);
         }
         runEffect(node);
       } catch (caught) {

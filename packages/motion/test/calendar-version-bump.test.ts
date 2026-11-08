@@ -3,7 +3,7 @@
  * `pnpm release:next-version` / `pnpm version:bump`. `M` must be the
  * calendar month of the release date, `R` continues within a month and
  * resets in a new one. Ported from hypr-tiling's test of the same script;
- * vusyk has no burned versions, so its October 2026 starts at `.0`.
+ * motion has no burned versions, so its October 2026 starts at `.0`.
  */
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";

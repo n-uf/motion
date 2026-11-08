@@ -1,5 +1,5 @@
 /**
- * `@n-uf/vusyk/browser`: the clock on requestAnimationFrame, performance.now
+ * `@n-uf/motion/browser`: the clock on requestAnimationFrame, performance.now
  * and setTimeout, and the reduced-motion media query. The core entry has no
  * host access at all; this is the one place that touches the global.
  */

@@ -1,5 +1,5 @@
 {
-  "name": "@n-uf/vusyk",
+  "name": "@n-uf/motion",
   "version": "0.0.0",
   "description": "One frame loop with an injected clock, fine-grained signals, springs and tweens, and a DOM-free gesture recogniser. No DOM, no framework.",
   "keywords": [
@@ -27,12 +27,12 @@
   "license": "LicenseRef-PolyForm-Perimeter-1.0.1",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/n-uf/vusyk.git",
-    "directory": "packages/vusyk"
+    "url": "git+https://github.com/n-uf/motion.git",
+    "directory": "packages/motion"
   },
-  "homepage": "https://github.com/n-uf/vusyk#readme",
+  "homepage": "https://github.com/n-uf/motion#readme",
   "bugs": {
-    "url": "https://github.com/n-uf/vusyk/issues"
+    "url": "https://github.com/n-uf/motion/issues"
   },
   "type": "module",
   "sideEffects": false,

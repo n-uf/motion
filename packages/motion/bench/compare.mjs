@@ -16,7 +16,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const libs = [
   {
-    name: "vusyk",
+    name: "motion",
     entry: `export { signal, computed, effect, batch } from "./src/signals/index.ts";`,
     chain: (lib, depth) => {
       const source = lib.signal(0);

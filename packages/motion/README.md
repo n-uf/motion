@@ -1,11 +1,11 @@
-# @n-uf/vusyk
+# @n-uf/motion
 
 One frame loop with an injected clock, fine-grained signals, springs and
 tweens, and a DOM-free gesture recogniser. No DOM, no framework, no globals:
 the host hands in a clock, and tests hand in a fake one.
 
 ```sh
-npm i @n-uf/vusyk
+npm i @n-uf/motion
 ```
 
 - **clock/**: one frame loop that runs tasks in phases (input → update →
@@ -20,17 +20,17 @@ npm i @n-uf/vusyk
   press, pinch, scroll, zoom, recovery from lost releases), a frame coalescer,
   and a dwell (spring-load) machine.
 
-One package, six entries: `@n-uf/vusyk` (everything in the core), its four
-folders on their own (`@n-uf/vusyk/clock`, `/signals`, `/values`,
-`/gestures`), and `@n-uf/vusyk/browser`, the clock on
+One package, six entries: `@n-uf/motion` (everything in the core), its four
+folders on their own (`@n-uf/motion/clock`, `/signals`, `/values`,
+`/gestures`), and `@n-uf/motion/browser`, the clock on
 `requestAnimationFrame` and the reduced-motion media query. The core entries
 touch no host; importing several of them still gives one signal graph.
 
 ## One frame
 
 ```ts
-import { computed, createFrameCoalescer, createFrameLoop, effect, signal, springValue } from "@n-uf/vusyk";
-import { createBrowserClock, prefersReducedMotion } from "@n-uf/vusyk/browser";
+import { computed, createFrameCoalescer, createFrameLoop, effect, signal, springValue } from "@n-uf/motion";
+import { createBrowserClock, prefersReducedMotion } from "@n-uf/motion/browser";
 
 const el = document.querySelector<HTMLElement>("#box")!;
 const loop = createFrameLoop({ clock: createBrowserClock() });
@@ -75,7 +75,7 @@ one-shots they queued for that phase. A task queued for a later phase runs in
 the same frame; one queued for an earlier phase runs in the next.
 
 ```ts
-import { createFakeClock, createFrameLoop } from "@n-uf/vusyk";
+import { createFakeClock, createFrameLoop } from "@n-uf/motion";
 
 const clock = createFakeClock();
 const loop = createFrameLoop({ clock, budgetMs: 8 });
@@ -102,7 +102,7 @@ of hanging. The graph algorithm is
 [bench/RESULTS.md](./bench/RESULTS.md) has the comparison behind that choice.
 
 ```ts
-import { computed, createFakeClock, createFrameLoop, effect, signal } from "@n-uf/vusyk";
+import { computed, createFakeClock, createFrameLoop, effect, signal } from "@n-uf/motion";
 
 const loop = createFrameLoop({ clock: createFakeClock() });
 const width = signal(800);
@@ -138,7 +138,7 @@ one-shot tasks: a target set in input, update or layout moves the value in
 the same frame, and `write` sees it.
 
 ```ts
-import { createFakeClock, createFrameLoop, springValue } from "@n-uf/vusyk";
+import { createFakeClock, createFrameLoop, springValue } from "@n-uf/motion";
 
 const clock = createFakeClock();
 const loop = createFrameLoop({ clock });
@@ -171,7 +171,7 @@ are a clock (any `ClockPort`), used for the long press. Hit testing and
 routing (what is under a point, who gets the gesture) are the host's.
 
 ```ts
-import { createFakeClock, createRecognizer } from "@n-uf/vusyk";
+import { createFakeClock, createRecognizer } from "@n-uf/motion";
 
 const clock = createFakeClock();
 const recognizer = createRecognizer({ toCanvas: (p) => p, timers: clock }, (g) => console.log(g.type));
@@ -181,7 +181,7 @@ clock.tick(500); // longPress
 recognizer.feed({ ...finger, type: "pointerup", buttons: 0, time: clock.now() }); // release, click: false
 ```
 
-## @n-uf/vusyk/browser
+## @n-uf/motion/browser
 
 | | |
 |---|---|

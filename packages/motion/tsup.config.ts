@@ -8,7 +8,7 @@ import { defineConfig } from "tsup";
  * - `browser` is the adapter onto requestAnimationFrame, performance.now,
  *   setTimeout and matchMedia; it imports only types from the core.
  * - One build with code splitting: code two entries share lives in one
- *   chunk, so importing `@n-uf/vusyk/signals` and `@n-uf/vusyk/values`
+ *   chunk, so importing `@n-uf/motion/signals` and `@n-uf/motion/values`
  *   together still gives one signal graph (scripts/check-dist.mjs checks it).
  * - ES module only: the signal graph has module state (the tracking context
  *   and the batch depth), and an app that loaded an ES and a CommonJS copy

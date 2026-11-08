@@ -4,7 +4,7 @@
  *
  * The shape is hypr-tiling's `SchedulerPort` (engine/scheduler-port.ts), so a
  * port built for one is a valid port for the other. Use
- * `createBrowserClock()` from `@n-uf/vusyk/browser` in an app and
+ * `createBrowserClock()` from `@n-uf/motion/browser` in an app and
  * {@link createFakeClock} in tests.
  */
 export interface ClockPort {

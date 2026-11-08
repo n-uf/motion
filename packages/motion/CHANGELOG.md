@@ -1,4 +1,4 @@
-# @n-uf/vusyk
+# @n-uf/motion
 
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
@@ -27,6 +27,6 @@ First version: the motion package of the surface's layout-and-motion concept.
   timer on a `ClockPort`. Beside it `createFrameCoalescer`, the dwell
   (spring-load) reducer, and `createMachine` to run a reducer with its
   timers on a clock.
-- `@n-uf/vusyk/browser`: `createBrowserClock` and `prefersReducedMotion`.
+- `@n-uf/motion/browser`: `createBrowserClock` and `prefersReducedMotion`.
 - One package with entries for the whole core and for each folder
   (`/clock`, `/signals`, `/values`, `/gestures`), plus `/browser`.
