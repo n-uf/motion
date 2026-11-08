@@ -18,12 +18,13 @@
 
 import type { ClockPort } from "../clock/port";
 import type { Point } from "../shapes";
-import { isHeld, toModifiers } from "./modifiers";
+import { isHeld, platformButton, toModifiers } from "./modifiers";
 import type {
   CancelReason,
   InputGesture,
   ModifierDrag,
   ModifierKey,
+  Platform,
   PointerKind,
   RawInputEvent,
   RawPointerEvent,
@@ -43,6 +44,8 @@ export interface RecognizerOptions {
   timers?: RecognizerTimers;
   /** The drag modifier, resolved (see resolveDragModifier); null = off */
   dragModifier?: ModifierKey | null;
+  /** "mac": a mouse Ctrl+press is the secondary button, as the system has it (platformButton); default "other" */
+  platform?: Platform;
   /** Click vs drag: a press becomes a drag after travelling more than this many screen px */
   thresholds?: Partial<Record<PointerKind, number>>;
   longPress?: { ms?: number; kinds?: readonly PointerKind[] };
@@ -126,6 +129,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
   const timers = options.timers;
   const staleMs = options.staleMs ?? 1000;
   let dragModifier: ModifierKey | null = options.dragModifier ?? null;
+  const platform: Platform = options.platform ?? "other";
 
   let press: Press | null = null;
   let pinch: Pinch | null = null;
@@ -277,7 +281,9 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
   };
 
   const onDown = (e: RawPointerEvent) => {
-    const pointer = pointerOf(e);
+    const down = pointerOf(e);
+    // The press's button as the platform means it (macOS: Ctrl+click is a secondary click)
+    const pointer: SurfacePointer = { ...down, button: platformButton(down, platform, dragModifier) };
     dropMissedUps(e, pointer.kind);
     if (pointer.kind === "touch") {
       touches.set(e.pointerId, { screen: pointer.screen, time: pointer.time });

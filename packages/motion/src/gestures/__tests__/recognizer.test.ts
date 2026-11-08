@@ -194,6 +194,48 @@ describe("recognizer: the drag modifier", () => {
   });
 });
 
+describe("recognizer: macOS Ctrl+click is a secondary click", () => {
+  it("on mac a mouse press with Ctrl held is button 2: its click is a secondary click", () => {
+    const t = setup({ platform: "mac", dragModifier: "meta" });
+    t.feed(t.ev("pointerdown", 1, 40, 40, { modifiers: { ctrl: true } }));
+    expect(last(t.out, "press").pointer.button).toBe(2);
+    t.feed(t.ev("pointerup", 1, 40, 40));
+    expect(last(t.out, "release")).toMatchObject({ click: true });
+    expect(last(t.out, "release").origin.button).toBe(2);
+  });
+
+  it("on mac Cmd+Ctrl+drag resizes, as Cmd+right-drag does", () => {
+    const t = setup({ platform: "mac", dragModifier: "meta" });
+    t.feed(t.ev("pointerdown", 1, 0, 0, { modifiers: { ctrl: true, meta: true } }));
+    expect(last(t.out, "press").modifierDrag).toBe("resize");
+  });
+
+  it("not when Ctrl is the drag modifier: Ctrl+drag moves the window", () => {
+    const t = setup({ platform: "mac", dragModifier: "ctrl" });
+    t.feed(t.ev("pointerdown", 1, 0, 0, { modifiers: { ctrl: true } }));
+    expect(last(t.out, "press").pointer.button).toBe(0);
+    expect(last(t.out, "press").modifierDrag).toBe("move");
+  });
+
+  it("not elsewhere, nor for a pen or a finger, nor for another button", () => {
+    const other = setup({ platform: "other", dragModifier: "alt" });
+    other.feed(other.ev("pointerdown", 1, 0, 0, { modifiers: { ctrl: true } }));
+    expect(last(other.out, "press").pointer.button).toBe(0);
+    const unset = setup({ dragModifier: "alt" });
+    unset.feed(unset.ev("pointerdown", 1, 0, 0, { modifiers: { ctrl: true } }));
+    expect(last(unset.out, "press").pointer.button).toBe(0);
+    const pen = setup({ platform: "mac" });
+    pen.feed(pen.ev("pointerdown", 1, 0, 0, { kind: "pen", modifiers: { ctrl: true } }));
+    expect(last(pen.out, "press").pointer.button).toBe(0);
+    const finger = setup({ platform: "mac" });
+    finger.feed(finger.ev("pointerdown", 1, 0, 0, { kind: "touch", modifiers: { ctrl: true } }));
+    expect(last(finger.out, "press").pointer.button).toBe(0);
+    const middle = setup({ platform: "mac" });
+    middle.feed(middle.ev("pointerdown", 1, 0, 0, { button: 1, buttons: 4, modifiers: { ctrl: true } }));
+    expect(last(middle.out, "press").pointer.button).toBe(1);
+  });
+});
+
 describe("recognizer: pen", () => {
   it("drags past its own threshold and carries pressure", () => {
     const t = setup();
