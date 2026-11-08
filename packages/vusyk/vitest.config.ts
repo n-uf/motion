@@ -3,6 +3,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["test/**/*.test.ts"],
+    // src/gestures/__tests__ holds the recogniser's tests as they were in the
+    // surface, so they run unchanged.
+    include: ["test/**/*.test.ts", "src/**/__tests__/**/*.test.ts"],
   },
 });

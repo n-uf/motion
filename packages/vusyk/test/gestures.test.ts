@@ -1,30 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFakeClock, createFrameLoop } from "../src/clock";
 import {
-  classifyPress,
-  createDragMachine,
   createDwellMachine,
   createFrameCoalescer,
   createMachine,
-  createPressMachine,
-  DRAG_DEFAULTS,
-  DRAG_IDLE,
-  dragDeadline,
-  dragOffset,
-  dragReducer,
+  createRecognizer,
   DWELL_IDLE,
   dwellDeadline,
   dwellReducer,
-  hasCrossedThreshold,
-  PRESS_IDLE,
-  pressDeadline,
-  pressReducer,
-  resolveTouchMove,
-  type DragInput,
-  type DragState,
   type DwellState,
-  type PressInput,
-  type PressState,
+  type InputGesture,
+  type RawPointerEvent,
 } from "../src/gestures";
 import { effect } from "../src/signals";
 
@@ -101,230 +87,50 @@ describe("frame coalescer", () => {
   });
 });
 
-describe("drag machine: geometry helpers", () => {
-  it("measures travel against the threshold", () => {
-    expect(hasCrossedThreshold(at(0), at(3, 4), 5)).toBe(true);
-    expect(hasCrossedThreshold(at(0), at(3, 3), 5)).toBe(false);
+describe("recognizer on motion's clock", () => {
+  const pointer = (
+    type: RawPointerEvent["type"],
+    x: number,
+    time: number,
+    pointerType: "mouse" | "touch" = "mouse",
+  ): RawPointerEvent => ({
+    type,
+    pointerId: 1,
+    pointerType,
+    button: type === "pointermove" ? -1 : 0,
+    buttons: type === "pointerup" ? 0 : 1,
+    screen: at(x),
+    time,
   });
 
-  it("classifies a touch move: jitter, drag, or a scroll handed to the page", () => {
-    expect(resolveTouchMove(at(0), at(2, 2))).toBe("hold");
-    expect(resolveTouchMove(at(0), at(8, 1))).toBe("pickup");
-    expect(resolveTouchMove(at(0), at(1, 12))).toBe("scroll-escape");
-    expect(resolveTouchMove(at(0), at(12, 1), { ...DRAG_DEFAULTS, scrollAxis: "horizontal" })).toBe("scroll-escape");
-    expect(resolveTouchMove(at(0), at(1, 12), { ...DRAG_DEFAULTS, scrollAxis: "none" })).toBe("pickup");
-  });
-});
-
-describe("drag machine: transitions", () => {
-  type S = DragState<string>;
-  type E = DragInput<string>;
-  const reduce = (state: S, event: E): S => dragReducer(state, event);
-  const down = (t = 0, pointer: "mouse" | "touch" = "mouse", pointerId = 1): E => ({
-    type: "down",
-    t,
-    pointerId,
-    pointer,
-    point: at(0),
-    data: "pane-a",
-  });
-  const move = (t: number, x: number, y = 0, pointerId = 1): E => ({ type: "move", t, pointerId, point: at(x, y) });
-  const armedMouse = reduce(DRAG_IDLE, down());
-  const dragging = reduce(armedMouse, move(16, 10));
-
-  it("idle: down arms; rearm starts dragging; anything else is ignored", () => {
-    expect(armedMouse).toEqual({
-      phase: "armed",
-      pointerId: 1,
-      pointer: "mouse",
-      data: "pane-a",
-      origin: at(0),
-      point: at(0),
-      downAt: 0,
-    });
-    const rearmed = reduce(DRAG_IDLE, { type: "rearm", t: 5, pointerId: 2, pointer: "touch", point: at(7, 7), data: "b" });
-    expect(rearmed).toMatchObject({ phase: "dragging", via: "rearm", pointerId: 2, origin: at(7, 7), startedAt: 5 });
-    for (const event of [move(1, 50), { type: "up", t: 1, pointerId: 1 }, { type: "cancel", t: 1, reason: "blur" }, { type: "long-press", t: 1, pointerId: 1 }, { type: "settled", t: 1 }] as E[]) {
-      expect(reduce(DRAG_IDLE, event)).toBe(DRAG_IDLE);
-    }
-  });
-
-  it("armed (mouse): stays armed below the threshold, drags past it", () => {
-    const jitter = reduce(armedMouse, move(5, 3, 3));
-    expect(jitter).toMatchObject({ phase: "armed", point: at(3, 3) });
-    expect(dragging).toMatchObject({ phase: "dragging", via: "threshold", point: at(10), startedAt: 16, lastAt: 16, velocity: at(0) });
-  });
-
-  it("armed: up is a click and cancel is nothing (both back to idle); a mouse ignores long-press", () => {
-    expect(reduce(armedMouse, { type: "up", t: 50, pointerId: 1 })).toBe(DRAG_IDLE);
-    expect(reduce(armedMouse, { type: "cancel", t: 50, reason: "escape" })).toBe(DRAG_IDLE);
-    expect(reduce(armedMouse, { type: "long-press", t: 220, pointerId: 1 })).toBe(armedMouse);
-    expect(reduce(armedMouse, { type: "settled", t: 1 })).toBe(armedMouse);
-  });
-
-  it("armed: a second down of the same pointer re-arms; another pointer is ignored", () => {
-    const again = reduce(armedMouse, { ...down(40), point: at(5, 5) } as E);
-    expect(again).toMatchObject({ phase: "armed", origin: at(5, 5), downAt: 40 });
-    expect(reduce(armedMouse, down(40, "mouse", 2))).toBe(armedMouse);
-    expect(reduce(armedMouse, move(40, 100, 0, 2))).toBe(armedMouse);
-  });
-
-  it("armed (touch): jitter holds, scroll-axis travel escapes, other travel or a long-press drags", () => {
-    const armedTouch = reduce(DRAG_IDLE, down(0, "touch"));
-    expect(reduce(armedTouch, move(10, 2, 3))).toMatchObject({ phase: "armed", point: at(2, 3) });
-    expect(reduce(armedTouch, move(10, 1, 15))).toBe(DRAG_IDLE);
-    expect(reduce(armedTouch, move(10, 9, 2))).toMatchObject({ phase: "dragging", via: "threshold" });
-    const held = reduce(reduce(armedTouch, move(100, 2, 2)), { type: "long-press", t: 220, pointerId: 1 });
-    expect(held).toMatchObject({ phase: "dragging", via: "long-press", point: at(2, 2), startedAt: 220 });
-  });
-
-  it("dragging: moves track the point and a smoothed velocity", () => {
-    let state = dragging;
-    for (let i = 1; i <= 10; i++) state = reduce(state, move(16 + i * 16, 10 + i * 16));
-    // 16 px every 16 ms is 1000 px/s; with a 40 ms time constant, ten moves
-    // get within 1 - e^(-160/40) of it.
-    expect(state.phase).toBe("dragging");
-    if (state.phase !== "dragging") return;
-    expect(state.velocity.x).toBeCloseTo(1000 * (1 - Math.exp(-4)), 6);
-    expect(state.velocity.x).toBeLessThanOrEqual(1000);
-    expect(state.velocity.y).toBe(0);
-    expect(dragOffset(state)).toEqual(at(170));
-    expect(reduce(state, move(500, 0, 0)).phase).toBe("dragging");
-  });
-
-  it("dragging: up commits by default, carrying the release velocity", () => {
-    const moving = reduce(dragging, move(32, 26));
-    const released = reduce(moving, { type: "up", t: 40, pointerId: 1 });
-    expect(released).toMatchObject({ phase: "settling", outcome: "commit", reason: null, data: "pane-a", point: at(26), endedAt: 40 });
-    if (released.phase !== "settling") return;
-    expect(released.velocity.x).toBeGreaterThan(0);
-  });
-
-  it("dragging: a still release has no velocity; the release point wins over the last move", () => {
-    const moving = reduce(dragging, move(32, 26));
-    const still = reduce(moving, { type: "up", t: 32 + DRAG_DEFAULTS.stillMs + 1, pointerId: 1, point: at(30) });
-    expect(still).toMatchObject({ phase: "settling", point: at(30), velocity: at(0) });
-  });
-
-  it("dragging: claimed and non-committable releases, and cancels with their reason", () => {
-    expect(reduce(dragging, { type: "up", t: 20, pointerId: 1, claimed: true })).toMatchObject({ outcome: "claimed" });
-    expect(reduce(dragging, { type: "up", t: 20, pointerId: 1, commit: false })).toMatchObject({ outcome: "cancel", reason: null });
-    for (const reason of ["pointer-cancel", "escape", "blur", "hidden", "lost-capture"] as const) {
-      expect(reduce(dragging, { type: "cancel", t: 20, reason })).toMatchObject({ phase: "settling", outcome: "cancel", reason });
-    }
-  });
-
-  it("dragging: another pointer, a long-press or a down can't touch it", () => {
-    expect(reduce(dragging, { type: "up", t: 20, pointerId: 9 })).toBe(dragging);
-    expect(reduce(dragging, move(20, 99, 0, 9))).toBe(dragging);
-    expect(reduce(dragging, { type: "cancel", t: 20, pointerId: 9, reason: "blur" })).toBe(dragging);
-    expect(reduce(dragging, { type: "long-press", t: 220, pointerId: 1 })).toBe(dragging);
-    expect(reduce(dragging, down(20))).toBe(dragging);
-    expect(reduce(dragging, { type: "settled", t: 20 })).toBe(dragging);
-  });
-
-  it("settling: settled returns to idle, a new down cuts it short, the rest waits", () => {
-    const settling = reduce(dragging, { type: "up", t: 20, pointerId: 1 });
-    expect(reduce(settling, { type: "settled", t: 200 })).toBe(DRAG_IDLE);
-    expect(reduce(settling, down(100, "mouse", 3))).toMatchObject({ phase: "armed", pointerId: 3, downAt: 100 });
-    expect(reduce(settling, move(30, 5))).toBe(settling);
-    expect(reduce(settling, { type: "up", t: 30, pointerId: 1 })).toBe(settling);
-  });
-
-  it("asks for a long-press timer while a touch is armed, and a watchdog while dragging when set", () => {
-    expect(dragDeadline(armedMouse)).toBeNull();
-    const armedTouch = reduce(DRAG_IDLE, down(100, "touch"));
-    const deadline = dragDeadline(armedTouch);
-    expect(deadline?.at).toBe(320);
-    expect(deadline?.event(320)).toEqual({ type: "long-press", t: 320, pointerId: 1 });
-    expect(dragDeadline(dragging)).toBeNull();
-    const watchdog = dragDeadline(dragging, { ...DRAG_DEFAULTS, idleTimeoutMs: 1000 });
-    expect(watchdog?.at).toBe(1016);
-    expect(watchdog?.event(1016)).toEqual({ type: "cancel", t: 1016, pointerId: 1, reason: "watchdog" });
-  });
-});
-
-describe("drag machine on a clock", () => {
-  it("a held touch becomes a drag when the long-press timer fires", () => {
+  it("takes a clock as its timers: the long press fires on the clock", () => {
     const clock = createFakeClock();
-    const drag = createDragMachine<string>({ clock });
-    drag.send({ type: "down", t: clock.now(), pointerId: 1, pointer: "touch", point: at(0), data: "x" });
-    expect(clock.pendingTimers).toBe(1);
-    clock.tick(219);
-    expect(drag.state.phase).toBe("armed");
+    const out: InputGesture["type"][] = [];
+    createRecognizer({ toCanvas: (p) => p, timers: clock }, (g) => out.push(g.type)).feed(
+      pointer("pointerdown", 0, clock.now(), "touch"),
+    );
+    clock.tick(499);
+    expect(out).toEqual(["press"]);
     clock.tick(1);
-    expect(drag.state).toMatchObject({ phase: "dragging", via: "long-press", startedAt: 220 });
+    expect(out).toEqual(["press", "longPress"]);
     expect(clock.pendingTimers).toBe(0);
   });
 
-  it("a tap clears the long-press timer", () => {
+  it("gets its moves through a coalescer in the input phase; a flush before the up keeps the last move", () => {
     const clock = createFakeClock();
-    const drag = createDragMachine({ clock });
-    drag.send({ type: "down", t: 0, pointerId: 1, pointer: "touch", point: at(0), data: null });
-    clock.tick(100);
-    drag.send({ type: "up", t: clock.now(), pointerId: 1 });
-    expect(drag.state).toBe(DRAG_IDLE);
-    expect(clock.pendingTimers).toBe(0);
-  });
-
-  it("the watchdog cancels a drag that went quiet, and moves keep pushing it back", () => {
-    const clock = createFakeClock();
-    const drag = createDragMachine({ clock, config: { idleTimeoutMs: 500 } });
-    drag.send({ type: "down", t: 0, pointerId: 1, pointer: "mouse", point: at(0), data: null });
-    drag.send({ type: "move", t: 0, pointerId: 1, point: at(20) });
-    clock.tick(400);
-    drag.send({ type: "move", t: clock.now(), pointerId: 1, point: at(40) });
-    clock.tick(400);
-    expect(drag.state.phase).toBe("dragging");
-    clock.tick(100);
-    expect(drag.state).toMatchObject({ phase: "settling", outcome: "cancel", reason: "watchdog", endedAt: 900 });
-  });
-});
-
-describe("press machine", () => {
-  const reduce = (state: PressState, event: PressInput): PressState => pressReducer(state, event);
-  const pressed = reduce(PRESS_IDLE, { type: "down", t: 0, pointerId: 1, point: at(0) });
-  const held = reduce(pressed, { type: "long-press", t: 500, pointerId: 1 });
-
-  it("goes through every transition", () => {
-    expect(pressed).toEqual({ phase: "pressed", pointerId: 1, origin: at(0), downAt: 0 });
-    expect(reduce(PRESS_IDLE, { type: "up", t: 0, pointerId: 1 })).toBe(PRESS_IDLE);
-    expect(reduce(pressed, { type: "move", t: 10, pointerId: 1, point: at(5, 5) })).toBe(pressed);
-    expect(reduce(pressed, { type: "move", t: 10, pointerId: 1, point: at(11) })).toBe(PRESS_IDLE);
-    expect(held).toEqual({ phase: "held", pointerId: 1, origin: at(0), downAt: 0, heldAt: 500 });
-    expect(reduce(pressed, { type: "up", t: 100, pointerId: 1 })).toBe(PRESS_IDLE);
-    expect(reduce(pressed, { type: "cancel", t: 100 })).toBe(PRESS_IDLE);
-    expect(reduce(held, { type: "move", t: 600, pointerId: 1, point: at(80) })).toBe(held);
-    expect(reduce(held, { type: "up", t: 700, pointerId: 1 })).toBe(PRESS_IDLE);
-    expect(reduce(held, { type: "cancel", t: 700 })).toBe(PRESS_IDLE);
-    expect(reduce(pressed, { type: "down", t: 1, pointerId: 1, point: at(0) })).toBe(pressed);
-    expect(reduce(pressed, { type: "up", t: 1, pointerId: 2 })).toBe(pressed);
-  });
-
-  it("names what a transition meant", () => {
-    const up: PressInput = { type: "up", t: 1, pointerId: 1 };
-    expect(classifyPress(pressed, PRESS_IDLE, up)).toBe("tap");
-    expect(classifyPress(pressed, held, { type: "long-press", t: 500, pointerId: 1 })).toBe("long-press");
-    expect(classifyPress(held, PRESS_IDLE, up)).toBe("release");
-    expect(classifyPress(pressed, PRESS_IDLE, { type: "move", t: 1, pointerId: 1, point: at(50) })).toBe("cancel");
-    expect(classifyPress(PRESS_IDLE, pressed, { type: "down", t: 0, pointerId: 1, point: at(0) })).toBeNull();
-  });
-
-  it("asks for the long-press timer while pressed, and the runner fires it", () => {
-    expect(pressDeadline(pressed)?.at).toBe(500);
-    expect(pressDeadline(held)).toBeNull();
-    const clock = createFakeClock();
-    const press = createPressMachine({ clock, config: { longPressMs: 300 } });
-    const outcomes: (string | null)[] = [];
-    press.subscribe((next, previous, event) => outcomes.push(classifyPress(previous, next, event)));
-    press.send({ type: "down", t: 0, pointerId: 1, point: at(0) });
-    clock.tick(300);
-    press.send({ type: "up", t: clock.now(), pointerId: 1 });
-    press.send({ type: "down", t: clock.now(), pointerId: 1, point: at(0) });
-    clock.tick(50);
-    press.send({ type: "up", t: clock.now(), pointerId: 1 });
-    expect(outcomes).toEqual([null, "long-press", "release", null, "tap"]);
-    expect(clock.pendingTimers).toBe(0);
+    const loop = createFrameLoop({ clock });
+    const out: InputGesture["type"][] = [];
+    const recognizer = createRecognizer({ toCanvas: (p) => p, timers: loop.clock }, (g) => out.push(g.type));
+    const moves = createFrameCoalescer((e: RawPointerEvent) => recognizer.feed(e), loop.frames("input"));
+    recognizer.feed(pointer("pointerdown", 0, 0));
+    for (let i = 1; i <= 10; i++) moves.schedule(pointer("pointermove", i * 3, i));
+    clock.frame();
+    // Ten moves, one delivery: past the threshold at once.
+    expect(out).toEqual(["press", "dragStart"]);
+    moves.schedule(pointer("pointermove", 40, 20));
+    moves.flush();
+    recognizer.feed(pointer("pointerup", 40, 21));
+    expect(out).toEqual(["press", "dragStart", "move", "release"]);
   });
 });
 

@@ -22,5 +22,6 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["index.ts", "browser.ts", "src"]
+  "include": ["index.ts", "browser.ts", "src"],
+  "exclude": ["src/**/__tests__"]
 }

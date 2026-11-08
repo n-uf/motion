@@ -1,31 +1,25 @@
+export * from "./types";
+export { defaultDragModifier, isHeld, modHeld, resolveDragModifier, toModifiers } from "./modifiers";
+export {
+  classifyWheel,
+  dampWheelPan,
+  WHEEL_DEFAULTS,
+  WHEEL_PAN_DEFAULTS,
+  wheelDeltaPx,
+  type WheelIntent,
+  type WheelOptions,
+  type WheelPanOptions,
+} from "./wheel";
+export {
+  createRecognizer,
+  RECOGNIZER_DEFAULTS,
+  type Recognizer,
+  type RecognizerOptions,
+  type RecognizerTimers,
+} from "./recognizer";
 export { createFrameCoalescer } from "./coalescer";
 export type { CoalescerOptions, FrameCoalescer } from "./coalescer";
 export { createMachine } from "./machine";
 export type { Deadline, Machine, MachineOptions } from "./machine";
-export {
-  createDragMachine,
-  DRAG_DEFAULTS,
-  DRAG_IDLE,
-  dragDeadline,
-  dragOffset,
-  dragReducer,
-  hasCrossedThreshold,
-  resolveDragConfig,
-  resolveTouchMove,
-} from "./drag";
-export type {
-  DragCancelReason,
-  DragConfig,
-  DragInput,
-  DragMachineOptions,
-  DragOutcome,
-  DragStart,
-  DragState,
-  PointerKind,
-  ScrollAxis,
-  TouchMoveResolution,
-} from "./drag";
-export { classifyPress, createPressMachine, PRESS_DEFAULTS, PRESS_IDLE, pressDeadline, pressReducer } from "./press";
-export type { PressConfig, PressInput, PressMachineOptions, PressOutcome, PressState } from "./press";
 export { createDwellMachine, DWELL_DEFAULTS, DWELL_IDLE, dwellDeadline, dwellReducer } from "./dwell";
 export type { DwellConfig, DwellInput, DwellMachineOptions, DwellState } from "./dwell";
