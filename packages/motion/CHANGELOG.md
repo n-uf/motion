@@ -3,6 +3,16 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.1
+
+- The recogniser takes the platform (`platform`, default `"other"`). On
+  `"mac"`, a mouse press with Ctrl held is a secondary click (button 2), as
+  macOS has it, so Ctrl+click works like a right-click and Cmd+Ctrl+drag
+  resizes like Cmd+right-drag. Not when Ctrl is the drag modifier (Ctrl+drag
+  moves), and not for a pen, a finger or another platform.
+  `platformButton(press, platform, dragModifier)` is the rule on its own.
+  Ported from the pdfized surface's input session, with its tests.
+
 ## 26.11.0
 
 First version: the motion package of the surface's layout-and-motion concept.
