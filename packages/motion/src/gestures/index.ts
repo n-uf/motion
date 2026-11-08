@@ -1,5 +1,5 @@
 export * from "./types";
-export { defaultDragModifier, isHeld, modHeld, resolveDragModifier, toModifiers } from "./modifiers";
+export { defaultDragModifier, isHeld, modHeld, platformButton, resolveDragModifier, toModifiers } from "./modifiers";
 export {
   classifyWheel,
   dampWheelPan,
