@@ -20,10 +20,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Version numbers that exist on npm's reservation list but not in its
- * published list — never propose them again. None for vusyk yet. (The
- * workspace starts at 0.0.0, which sorts below every `YY.M.R`; the first
- * `--apply` gives the month's `.0`.)
+ * Version numbers that exist on a registry's reservation list but not in its
+ * published list — never propose them again. None for vusyk yet. (It starts
+ * at 0.0.0, which sorts below every `YY.M.R`; the first `--apply` gives the
+ * month's `.0`.)
  */
 const BURNED_VERSIONS = new Set([]);
 

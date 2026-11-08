@@ -1,0 +1,193 @@
+name: Release
+
+# Calendar versions (YY.M.R, the same scheme as @n-uf/hypr-tiling and
+# @n-uf/debugsy). A PR bumps packages/vusyk/package.json with
+# `pnpm version:bump` and adds a CHANGELOG entry; merging it to main
+# publishes that version to npmjs (public, with provenance) and to GitHub
+# Packages, tags it v<version> and notifies finfactory/pdf-n-uf. Each
+# registry is checked on its own: a run publishes only where the version is
+# missing, so re-runs are safe, and a push whose version is everywhere
+# already does nothing.
+#
+# Two jobs: `verify` is read-only; `publish` has write access and only runs
+# after `verify` passed. `publish` packs one tarball with pnpm (which applies
+# publishConfig: the published exports point at dist/) and publishes that
+# same file to both registries: npmjs first, so a refusal there (the trusted
+# publisher missing, an OIDC hiccup) leaves nothing published and a re-run
+# is clean; then GitHub Packages, the tag and the pdf-n-uf notice.
+#
+# Credentials:
+# - npmjs: trusted publishing, no stored token. npm swaps this job's GitHub
+#   OIDC token (id-token: write) for a one-time publish token, as set up on
+#   npmjs.com for @n-uf/vusyk (Trusted Publisher: GitHub Actions, n-uf/vusyk,
+#   release.yml; `npm trust github`). It needs npm 11.5.1+ (Node 22 ships npm
+#   10, so the job installs npm 11) and adds provenance by itself.
+# - GITHUB_TOKEN: publishes to GitHub Packages.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Check types, test, build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Check types, test, build the package
+        run: pnpm check
+
+  publish:
+    name: Publish the version where it's new
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write # npm trusted publishing (OIDC) and provenance
+    env:
+      HAS_DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN != '' }}
+      NPMJS: https://registry.npmjs.org
+      GHPKG: https://npm.pkg.github.com
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: "@n-uf"
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Version
+        id: version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(jq -r .version packages/vusyk/package.json)
+          if ! echo "$version" | grep -qE '^[0-9]{2}\.([1-9]|1[0-2])\.[0-9]+$'; then
+            echo "::error::$version is not a calendar version (YY.M.R)"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # is_new <registry> <output name>: true when the version isn't there yet
+          is_new() {
+            local out
+            if out=$(npm view "@n-uf/vusyk@$version" version --registry "$1" --@n-uf:registry="$1" 2>&1); then
+              echo "$2=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::@n-uf/vusyk@$version is already on $1."
+            elif echo "$out" | grep -qE 'E404|No match found|is not in this registry'; then
+              echo "$2=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::error::Could not check $1: $out"
+              exit 1
+            fi
+          }
+          is_new "$NPMJS" npm
+          is_new "$GHPKG" github
+
+          # Tagged separately, so a re-run after a failed tag step still tags.
+          if [ -n "$(git ls-remote --tags origin "refs/tags/v$version")" ]; then
+            echo "tagged=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tagged=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Trusted publishing needs npm 11.5.1 or later; Node 22 ships npm 10
+      - name: npm 11
+        if: steps.version.outputs.npm == 'true'
+        run: |
+          npm install -g npm@11.20.0
+          npm --version
+
+      - name: Pack
+        id: pack
+        if: steps.version.outputs.npm == 'true' || steps.version.outputs.github == 'true'
+        run: |
+          dest="$RUNNER_TEMP/package"
+          mkdir -p "$dest"
+          # prepack builds dist/ and checks it (scripts/check-dist.mjs)
+          pnpm --filter @n-uf/vusyk pack --pack-destination "$dest"
+          tarball=$(ls "$dest"/*.tgz)
+          echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+          tar -tzf "$tarball"
+
+      # First, so a refusal here leaves nothing published (see the header).
+      # No token: npm uses this job's OIDC identity; --userconfig /dev/null
+      # keeps setup-node's GitHub Packages config (and its token variable) out.
+      - name: Publish to npmjs (trusted publishing)
+        if: steps.version.outputs.npm == 'true'
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          # npm logs a failed OIDC exchange only at verbose level; without it a
+          # refused trusted publish shows a bare ENEEDAUTH
+          NPM_CONFIG_LOGLEVEL: verbose
+        run: |
+          npm publish "$TARBALL" --userconfig /dev/null --access public \
+            --registry "$NPMJS" --@n-uf:registry="$NPMJS"
+
+      - name: Publish to GitHub Packages
+        if: steps.version.outputs.github == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          # npm 11 tries OIDC on every publish; GitHub Packages uses the token
+          ACTIONS_ID_TOKEN_REQUEST_URL: ""
+        run: |
+          npm publish "$TARBALL" --registry "$GHPKG" --@n-uf:registry="$GHPKG"
+
+      - name: Tag
+        if: steps.version.outputs.tagged == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+
+      # Once per version: when this run creates its tag. A failed notice
+      # doesn't fail the release (send it by hand if it fails).
+      - name: Notify pdf-n-uf (lib-released)
+        if: steps.version.outputs.tagged == 'false'
+        continue-on-error: true
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+        run: |
+          if [ "$HAS_DISPATCH_TOKEN" != "true" ]; then
+            echo "::notice::DISPATCH_TOKEN secret is not set; skipping the lib-released dispatch."
+            exit 0
+          fi
+          jq -n -c --arg v "$VERSION" --arg sha "$(git rev-parse HEAD)" \
+            '{event_type: "lib-released", client_payload: {source: "n-uf/vusyk", sha: $sha, packages: [{name: "@n-uf/vusyk", version: $v}]}}' \
+            | gh api repos/finfactory/pdf-n-uf/dispatches --method POST --input -
