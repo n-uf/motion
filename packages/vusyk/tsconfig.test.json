@@ -1,0 +1,8 @@
+{
+  // Tests, benchmarks and tool configs: the library's settings plus Node types.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["index.ts", "browser.ts", "src", "test", "bench", "vitest.config.ts", "tsup.config.ts"]
+}

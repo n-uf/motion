@@ -1,0 +1,88 @@
+{
+  "name": "@n-uf/vusyk",
+  "version": "0.0.0",
+  "description": "One frame loop with an injected clock, fine-grained signals, springs and tweens, and pure gesture machines. No DOM, no framework.",
+  "keywords": [
+    "animation",
+    "motion",
+    "spring",
+    "spring-physics",
+    "tween",
+    "easing",
+    "signals",
+    "reactive",
+    "frame-loop",
+    "requestanimationframe",
+    "scheduler",
+    "gesture",
+    "drag",
+    "long-press",
+    "state-machine",
+    "fake-clock"
+  ],
+  "license": "LicenseRef-PolyForm-Perimeter-1.0.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/n-uf/vusyk.git",
+    "directory": "packages/vusyk"
+  },
+  "homepage": "https://github.com/n-uf/vusyk#readme",
+  "bugs": {
+    "url": "https://github.com/n-uf/vusyk/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./index.ts",
+      "default": "./index.ts"
+    },
+    "./browser": {
+      "types": "./browser.ts",
+      "default": "./browser.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./browser": {
+        "types": "./dist/browser.d.ts",
+        "default": "./dist/browser.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup && node ./scripts/check-dist.mjs",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "bench": "node ./bench/run.mjs && node ./bench/compare.mjs",
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "prepack": "pnpm run build",
+    "release:next-version": "node ./scripts/calendar-version-bump.mjs --dry-run",
+    "version:bump": "node ./scripts/calendar-version-bump.mjs --apply"
+  },
+  "dependencies": {
+    "alien-signals": "^3.2.1"
+  },
+  "devDependencies": {
+    "@preact/signals-core": "1.14.5",
+    "@types/node": "^25.5.0",
+    "esbuild": "^0.28.2",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.12"
+  }
+}

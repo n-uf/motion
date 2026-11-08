@@ -1,0 +1,20 @@
+{
+  "name": "vusyk-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace for @n-uf/vusyk: one frame loop with an injected clock, signals, springs and tweens, gesture machines.",
+  "license": "LicenseRef-PolyForm-Perimeter-1.0.1",
+  "packageManager": "pnpm@10.12.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm --filter @n-uf/vusyk build",
+    "typecheck": "pnpm --filter @n-uf/vusyk typecheck",
+    "test": "pnpm --filter @n-uf/vusyk test",
+    "bench": "pnpm --filter @n-uf/vusyk bench",
+    "check": "pnpm --filter @n-uf/vusyk check",
+    "release:next-version": "pnpm --filter @n-uf/vusyk release:next-version",
+    "version:bump": "pnpm --filter @n-uf/vusyk version:bump"
+  }
+}
