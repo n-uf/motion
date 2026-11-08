@@ -1,7 +1,7 @@
 {
   "name": "@n-uf/vusyk",
   "version": "0.0.0",
-  "description": "One frame loop with an injected clock, fine-grained signals, springs and tweens, and pure gesture machines. No DOM, no framework.",
+  "description": "One frame loop with an injected clock, fine-grained signals, springs and tweens, and a DOM-free gesture recogniser. No DOM, no framework.",
   "keywords": [
     "animation",
     "motion",
@@ -15,9 +15,13 @@
     "requestanimationframe",
     "scheduler",
     "gesture",
+    "gesture-recognizer",
+    "pointer-events",
     "drag",
     "long-press",
-    "state-machine",
+    "double-click",
+    "pinch-zoom",
+    "wheel",
     "fake-clock"
   ],
   "license": "LicenseRef-PolyForm-Perimeter-1.0.1",
@@ -37,6 +41,22 @@
       "types": "./index.ts",
       "default": "./index.ts"
     },
+    "./clock": {
+      "types": "./src/clock/index.ts",
+      "default": "./src/clock/index.ts"
+    },
+    "./signals": {
+      "types": "./src/signals/index.ts",
+      "default": "./src/signals/index.ts"
+    },
+    "./values": {
+      "types": "./src/values/index.ts",
+      "default": "./src/values/index.ts"
+    },
+    "./gestures": {
+      "types": "./src/gestures/index.ts",
+      "default": "./src/gestures/index.ts"
+    },
     "./browser": {
       "types": "./browser.ts",
       "default": "./browser.ts"
@@ -50,6 +70,22 @@
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./clock": {
+        "types": "./dist/clock.d.ts",
+        "default": "./dist/clock.js"
+      },
+      "./signals": {
+        "types": "./dist/signals.d.ts",
+        "default": "./dist/signals.js"
+      },
+      "./values": {
+        "types": "./dist/values.d.ts",
+        "default": "./dist/values.js"
+      },
+      "./gestures": {
+        "types": "./dist/gestures.d.ts",
+        "default": "./dist/gestures.js"
       },
       "./browser": {
         "types": "./dist/browser.d.ts",
