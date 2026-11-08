@@ -5,9 +5,9 @@ what it holds on to.
 
 [`@n-uf/vusyk`](./packages/vusyk) is the motion layer under n-uf's interfaces:
 one frame loop with an injected clock, fine-grained signals, springs and
-tweens, and pure gesture machines. It knows nothing about the DOM, canvas or
-React; hosts hand it a clock and read plain numbers back. The package
-README has the API.
+tweens, and a DOM-free gesture recogniser. It knows nothing about the DOM,
+canvas or React; hosts hand it a clock and plain event objects and read plain
+numbers back. The package README has the API.
 
 ```sh
 pnpm install

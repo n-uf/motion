@@ -1,0 +1,215 @@
+# @n-uf/vusyk
+
+One frame loop with an injected clock, fine-grained signals, springs and
+tweens, and a DOM-free gesture recogniser. No DOM, no framework, no globals:
+the host hands in a clock, and tests hand in a fake one.
+
+```sh
+npm i @n-uf/vusyk
+```
+
+- **clock/**: one frame loop that runs tasks in phases (input → update →
+  layout → write) with a frame budget and stats, on a clock you pass in.
+- **signals/**: reactive values, computed values and effects; a change
+  recomputes only what depends on it, and effects can run once per frame.
+- **values/**: springs and tweens over numbers, points, rects and vectors,
+  stepped by the clock, with velocity that carries over a retarget, settle
+  detection and a reduced-motion switch.
+- **gestures/**: a recogniser that turns pointer, wheel and trackpad events
+  (plain objects) into one gesture stream (click or drag, double click, long
+  press, pinch, scroll, zoom, recovery from lost releases), a frame coalescer,
+  and a dwell (spring-load) machine.
+
+One package, six entries: `@n-uf/vusyk` (everything in the core), its four
+folders on their own (`@n-uf/vusyk/clock`, `/signals`, `/values`,
+`/gestures`), and `@n-uf/vusyk/browser`, the clock on
+`requestAnimationFrame` and the reduced-motion media query. The core entries
+touch no host; importing several of them still gives one signal graph.
+
+## One frame
+
+```ts
+import { computed, createFrameCoalescer, createFrameLoop, effect, signal, springValue } from "@n-uf/vusyk";
+import { createBrowserClock, prefersReducedMotion } from "@n-uf/vusyk/browser";
+
+const el = document.querySelector<HTMLElement>("#box")!;
+const loop = createFrameLoop({ clock: createBrowserClock() });
+
+// Input: one pointer sample per frame, delivered in the input phase.
+const pointer = signal({ x: 0, y: 0 });
+const input = createFrameCoalescer<{ x: number; y: number }>((p) => (pointer.value = p), loop.frames("input"));
+addEventListener("pointermove", (e) => input.schedule({ x: e.clientX, y: e.clientY }));
+
+// Layout: a target derived from state.
+const target = computed(() => ({ x: Math.round(pointer.value.x / 50) * 50, y: 0 }));
+
+// Motion: a spring follows the target, stepping in the layout phase.
+const box = springValue(loop, { x: 0, y: 0 }, { reducedMotion: prefersReducedMotion() });
+box.follow(() => target.value);
+
+// Write: once per frame while it moves; the loop idles when it settles.
+effect(() => {
+  el.style.transform = `translate(${box.value.x}px, ${box.value.y}px)`;
+}, { schedule: loop.scheduler("write") });
+```
+
+## clock/
+
+| | |
+|---|---|
+| `ClockPort` | `{ now, requestFrame, cancelFrame, setTimer, clearTimer }`, the shape of hypr-tiling's `SchedulerPort`. |
+| `createFrameLoop({ clock, budgetMs?, frameMs?, maxDeltaMs?, maxRounds?, onError?, onOverBudget? })` | The loop. It requests a frame only while it has work. |
+| `loop.schedule(phase, task, { deferrable? })` | Run `task` once: this frame if `phase` is still ahead, else the next. Deduped by function; returns cancel. A `deferrable` task waits for a later frame when the budget is spent. |
+| `loop.repeat(phase, task)` | Run `task` every frame until it returns `false`; returns stop. |
+| `loop.scheduler(phase)` | For `effect(fn, { schedule })`: the effect runs in `phase`, at most once per frame. |
+| `loop.frames(phase)` | A frame source in that phase (for a coalescer). |
+| `loop.stats()` / `resetStats()` | Frames, frames over budget, deferred tasks, errors, last / max / mean frame ms, ms per phase, repeating and queued tasks. |
+| `createFakeClock({ now?, frameMs? })` | A clock that moves only when told: `tick(ms)`, `frame(dt?)`, `frames(n)`, `runUntilIdle()`, `spend(ms)` (work that takes time), `pendingFrames`, `pendingTimers`. |
+
+Each task gets `{ time, delta, index, phase, budgetMs, elapsed(), remaining() }`.
+`delta` is the time since the last frame, clamped to `maxDeltaMs` (default
+64), and `frameMs` for the first frame after the loop was idle.
+
+Within a phase, one-shot tasks run first, then the repeating ones, then any
+one-shots they queued for that phase. A task queued for a later phase runs in
+the same frame; one queued for an earlier phase runs in the next.
+
+```ts
+import { createFakeClock, createFrameLoop } from "@n-uf/vusyk";
+
+const clock = createFakeClock();
+const loop = createFrameLoop({ clock, budgetMs: 8 });
+loop.schedule("write", () => console.log("write"));
+loop.schedule("input", () => console.log("input"));
+clock.frame(); // input, write
+loop.stats(); // { frames: 1, overBudget: 0, ... }
+```
+
+## signals/
+
+| | |
+|---|---|
+| `signal(value, { equals? })` | Read and write `.value`; `peek()` reads without tracking. |
+| `computed(fn, { equals? })` | Lazy and cached; `fn(previous)`; a thrown error is kept and rethrown until a source changes. |
+| `effect(fn, { schedule? })` | Runs now and on every change; `fn` may return a cleanup. With `schedule`, runs go to the scheduler. Returns dispose. |
+| `batch(fn)`, `untracked(fn)`, `isSignal(x)` | |
+
+An effect's own writes don't re-run it; writes inside an effect are batched
+until it returns; effects that keep re-triggering each other throw instead
+of hanging. The graph algorithm is
+[alien-signals](https://github.com/stackblitz/alien-signals)' published core
+(`alien-signals/system`, the same core Vue 3.6 uses), under this API;
+[bench/RESULTS.md](./bench/RESULTS.md) has the comparison behind that choice.
+
+```ts
+import { computed, createFakeClock, createFrameLoop, effect, signal } from "@n-uf/vusyk";
+
+const loop = createFrameLoop({ clock: createFakeClock() });
+const width = signal(800);
+const columns = computed(() => Math.max(1, Math.floor(width.value / 300)));
+effect(() => console.log("columns", columns.value), { schedule: loop.scheduler("write") });
+width.value = 850; // still 2 columns: the effect won't run
+width.value = 1300; // runs once, in the next frame's write phase
+```
+
+## values/
+
+| | |
+|---|---|
+| `createSpring(initial, { stiffness?, damping?, dampingRatio?, mass?, restDelta?, restSpeed? })` | Critically damped by default (`dampingRatio: 1`, `stiffness: 300`). Each step is the exact closed-form solution, so the curve doesn't depend on the frame rate. |
+| `createTween(initial, { duration?, easing? })` | Default 250 ms, `easeOutCubic`. A new target starts a new run from the current value. |
+| `motionValue(loop, animator, { phase?, reducedMotion? })` | Steps an animator on the loop while it moves; reading `.value` tracks it. |
+| `springValue(loop, initial, options)` / `tweenValue(...)` | The two together. |
+| `mv.set(target, { velocity? })`, `jump(value)`, `snap()`, `follow(() => target)`, `onSettle(fn)`, `dispose()`, `moving`, `velocity`, `target` | |
+| `springStep(state, target, params, dtMs)` | One pure scalar step, for hosts that step by hand. |
+| `linear`, `ease`, `easeIn`, `easeOut`, `easeInOut`, `easeOutCubic`, `easeInOutCubic`, `cubicBezier(x1, y1, x2, y2)` | Easing functions (functions, not CSS strings). |
+
+Values are plain: a number, `{ x, y }`, `{ x, y, width, height }` or an array
+of numbers, a fresh object after every change. Velocity is in units per
+second. A spring keeps its velocity when its target changes mid-flight. A
+value is at rest when it is within `restDelta` of the target and slower than
+`restSpeed` (defaults 0.1 and 1, tuned for pixels; use about 0.001 and 0.01
+for opacity or scale), and then it snaps onto the target exactly. With
+`reducedMotion` on (a boolean or a function read on every target and frame),
+targets are reached at once.
+
+Motion values step in the `layout` phase by default, after that phase's
+one-shot tasks: a target set in input, update or layout moves the value in
+the same frame, and `write` sees it.
+
+```ts
+import { createFakeClock, createFrameLoop, springValue } from "@n-uf/vusyk";
+
+const clock = createFakeClock();
+const loop = createFrameLoop({ clock });
+const rect = springValue(loop, { x: 0, y: 0, width: 200, height: 100 }, { dampingRatio: 0.7 });
+rect.onSettle((r) => console.log("settled at", r));
+rect.set({ x: 300, y: 40, width: 240, height: 100 });
+clock.runUntilIdle(); // settled at { x: 300, y: 40, width: 240, height: 100 }
+```
+
+## gestures/
+
+| | |
+|---|---|
+| `createRecognizer({ toCanvas, timers?, dragModifier?, thresholds?, longPress?, multiClick?, pinch?, wheel?, staleMs? }, emit)` | Raw pointer, wheel and Safari gesture events in, `InputGesture`s out: `press`, `dragStart`, `move`, `longPress`, `release` (with `click` and `clickCount`), `cancel` (with a reason), `hover`, `pinch` (touch or trackpad, pinch or two-finger pan), `scroll`, `zoom`. Methods: `feed`, `cancel(reason)`, `reset`, `active`, `pinching`, `setDragModifier`, `dispose`. |
+| `RECOGNIZER_DEFAULTS` | Click-or-drag thresholds 4 / 6 / 8 px (mouse / pen / touch), long press after 500 ms for touch and pen, double click within 300 ms and 5 px, pinch at 5 % scale or 10 px pan. |
+| `wheelDeltaPx`, `classifyWheel`, `dampWheelPan`, `WHEEL_DEFAULTS`, `WHEEL_PAN_DEFAULTS` | Wheel normalisation: lines and pages to px, Cmd/Ctrl+wheel (and the ctrl+wheel trackpad pinch) zooms by 2^(−dy / 300), Shift turns a vertical wheel horizontal, and a damped pan per event. |
+| `toModifiers`, `resolveDragModifier`, `defaultDragModifier`, `isHeld`, `modHeld` | Modifier keys in one shape; the drag modifier per platform (Cmd on macOS, Alt elsewhere). |
+| `createFrameCoalescer(onFrame, frames, { merge? })` | `schedule(sample)`, `flush()`, `cancel()`, `pending`. One delivery per frame with the latest sample (or `merge`d ones) and how many were folded. Same shape as hypr-tiling's. |
+| `dwellReducer`, `DWELL_IDLE`, `dwellDeadline`, `createDwellMachine` | `idle → dwelling → fired`, for spring-loaded targets: hold over the same key long enough and it fires once. |
+| `createMachine({ reducer, initial, clock, deadline? })` | Runs a pure reducer on a clock: arms the timer the state's deadline asks for and sends its input when it fires. `state` is reactive. |
+
+The recogniser takes plain objects the host copies out of DOM events, with
+their timestamps; nothing in it touches the DOM. Mouse, pen and touch share
+one path. There is one press at a time, a second finger turns it into a
+pinch, and a press only becomes a drag past its device's threshold, so a
+modifier+click stays a click for the content. It recovers releases that never
+arrive (a move with no buttons down, the same pointer pressing again, a press
+left untouched for `staleMs` when another pointer goes down). Its `timers`
+are a clock (any `ClockPort`), used for the long press. Hit testing and
+routing (what is under a point, who gets the gesture) are the host's.
+
+```ts
+import { createFakeClock, createRecognizer } from "@n-uf/vusyk";
+
+const clock = createFakeClock();
+const recognizer = createRecognizer({ toCanvas: (p) => p, timers: clock }, (g) => console.log(g.type));
+const finger = { pointerId: 1, pointerType: "touch", button: 0, screen: { x: 0, y: 0 } } as const;
+recognizer.feed({ ...finger, type: "pointerdown", buttons: 1, time: clock.now() }); // press
+clock.tick(500); // longPress
+recognizer.feed({ ...finger, type: "pointerup", buttons: 0, time: clock.now() }); // release, click: false
+```
+
+## @n-uf/vusyk/browser
+
+| | |
+|---|---|
+| `createBrowserClock({ host?, fallbackFrameMs? })` | The `ClockPort` on `requestAnimationFrame`, `performance.now` and `setTimeout`; timeouts stand in for frames where there is no `requestAnimationFrame`. |
+| `prefersReducedMotion(host?)` | A function reading `(prefers-reduced-motion: reduce)`, for `reducedMotion`. |
+
+The host is typed by its shape, not by lib.dom, so tests and workers can pass
+their own.
+
+## Testing
+
+Everything runs on `createFakeClock()`: frames, timers, springs and machine
+deadlines move only when the test moves the clock, so motion is exact and
+repeatable.
+
+## Benchmarks
+
+`pnpm bench` times the signals against alien-signals' and
+@preact/signals-core's own APIs on graphs of a few thousand nodes, and prints
+bundle sizes and the deepest chain each survives. Results and the choice
+they led to are in [bench/RESULTS.md](./bench/RESULTS.md).
+
+## Versions
+
+Calendar versions `YY.M.R` (year, month of the release, counter within the
+month), the same scheme as `@n-uf/hypr-tiling`. `pnpm version:bump` sets the
+next one; never type one by hand.
+
+## License
+
+[PolyForm Perimeter 1.0.1](./LICENSE).
