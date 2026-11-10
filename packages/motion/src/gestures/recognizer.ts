@@ -1,7 +1,8 @@
 /**
  * The gesture recogniser: raw pointer, wheel and Safari gesture events (plain
  * objects) in, one stream of InputGesture out. Mouse, pen and touch share one
- * path; two fingers become a pinch (5 % scale or 10 px pan decides which); a
+ * path; two fingers become a pinch (5 % scale or 10 px pan decides which, read
+ * once both fingers have moved, so a pan's leading finger is no pinch); a
  * press becomes a drag only past a per-kind threshold, so a modifier+click
  * (Cmd/Ctrl+click to multi-select) stays a click for the content.
  *
@@ -101,7 +102,17 @@ interface Pinch {
   lastDist: number;
   lastCenter: Point;
   kind: "pinch" | "pan" | null;
+  /** While undecided: each finger's moves (position changes) since the last look at the kind */
+  reported: Map<number, number>;
 }
+
+/**
+ * While two fingers are undecided, the kind is looked at once both have moved as often as each other since the last
+ * look: one finger's events arrive before the other's (one or a burst), and a pan's leading finger alone changes the
+ * distance like a pinch. A finger at rest sends no moves, so a finger this many moves ahead of the other is looked at
+ * on its own (a pinch around an anchored thumb).
+ */
+const SOLO_MOVES = 3;
 
 function kindOf(pointerType: string): PointerKind {
   return pointerType === "touch" || pointerType === "pen" ? pointerType : "mouse";
@@ -230,11 +241,22 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
     if (p && p.kind) emit(pinchEvent(phase, p.lastCenter, 1, { x: 0, y: 0 }, time, modifiers, "touch", p.kind));
   };
 
-  const updatePinch = (time: number, modifiers: SurfacePointer["modifiers"]) => {
+  /**
+   * A pinch finger moved (`id`), or lifts (`lifting`: the last look, whatever moved). The kind is decided on both
+   * fingers' latest positions (see SOLO_MOVES); the thresholds keep their meaning.
+   */
+  const updatePinch = (id: number, time: number, modifiers: SurfacePointer["modifiers"], moved: boolean, lifting = false) => {
     const p = pinch;
     const now = pinchState();
     if (!p || !now) return;
     if (!p.kind) {
+      if (!moved && !lifting) return; // a move that changed nothing (pressure only) is no move
+      const moves = (p.reported.get(id) ?? 0) + (moved ? 1 : 0);
+      p.reported.set(id, moves);
+      const other = p.reported.get(p.ids[0] === id ? p.ids[1] : p.ids[0]) ?? 0;
+      const even = moves > 0 && moves === other;
+      if (!lifting && !even && Math.abs(moves - other) < SOLO_MOVES) return;
+      p.reported.clear();
       const scaleChange = Math.abs(now.d / p.startDist - 1);
       const panDist = dist(now.center, p.startCenter);
       if (scaleChange > pinchCfg.scaleThreshold) p.kind = "pinch";
@@ -300,7 +322,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
         const b = touches.get(ids[1])!;
         const d = Math.max(1, dist(a.screen, b.screen));
         const c = mid(a.screen, b.screen);
-        pinch = { ids, startDist: d, startCenter: c, lastDist: d, lastCenter: c, kind: null };
+        pinch = { ids, startDist: d, startCenter: c, lastDist: d, lastCenter: c, kind: null, reported: new Map() };
         return;
       }
       if (touches.size > 2) return;
@@ -338,12 +360,14 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
     const kind = kindOf(e.pointerType);
     if (kind === "touch") {
       const t = touches.get(e.pointerId);
+      const to = finitePoint(e.screen);
+      const moved = !t || t.screen.x !== to.x || t.screen.y !== to.y;
       if (t) {
-        t.screen = finitePoint(e.screen);
+        t.screen = to;
         t.time = e.time;
       }
       if (pinch && pinch.ids.includes(e.pointerId)) {
-        updatePinch(e.time, toModifiers(e.modifiers));
+        updatePinch(e.pointerId, e.time, toModifiers(e.modifiers), moved);
         return;
       }
     }
@@ -373,6 +397,14 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
 
   const onUp = (e: RawPointerEvent) => {
     if (kindOf(e.pointerType) === "touch") {
+      // A finger lifting from an undecided pinch: its last position is looked at once, so a quick pinch still counts
+      const t = touches.get(e.pointerId);
+      if (t && pinch && !pinch.kind && pinch.ids.includes(e.pointerId)) {
+        const to = finitePoint(e.screen);
+        const moved = t.screen.x !== to.x || t.screen.y !== to.y;
+        t.screen = to;
+        updatePinch(e.pointerId, e.time, toModifiers(e.modifiers), moved, true);
+      }
       touches.delete(e.pointerId);
       if (pinch && pinch.ids.includes(e.pointerId)) {
         endPinch("end", e.time, toModifiers(e.modifiers));

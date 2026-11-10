@@ -327,18 +327,19 @@ describe("recognizer: touch", () => {
     t.feed(t.ev("pointerdown", 12, 200, 100, { kind: "touch" }));
     expect(t.types()).toEqual(["press", "cancel"]);
     expect(last(t.out, "cancel").reason).toBe("multitouch");
-    t.feed(t.ev("pointermove", 12, 203, 100, { kind: "touch" })); // 3 % : not yet
+    t.feed(t.ev("pointermove", 12, 203, 100, { kind: "touch" })); // 3 %
+    t.feed(t.ev("pointermove", 11, 101, 100, { kind: "touch" })); // both moved: 2 % is no pinch yet
     expect(t.types()).toEqual(["press", "cancel"]);
-    t.feed(t.ev("pointermove", 12, 210, 100, { kind: "touch" })); // 110 / 100
-    t.feed(t.ev("pointermove", 11, 90, 100, { kind: "touch" })); // 120 / 110
+    t.feed(t.ev("pointermove", 12, 210, 100, { kind: "touch" })); // 110 / 100: 11 hasn't moved since
+    t.feed(t.ev("pointermove", 11, 90, 100, { kind: "touch" })); // 120 / 100: start
     t.feed(t.ev("pointermove", 12, 230, 100, { kind: "touch" })); // 140 / 120
     const pinches = t.out.filter((g): g is Of<"pinch"> => g.type === "pinch");
-    expect(pinches.map((p) => p.phase)).toEqual(["start", "update", "update"]);
+    expect(pinches.map((p) => p.phase)).toEqual(["start", "update"]);
     expect(pinches[0]).toMatchObject({ kind: "pinch", source: "touch" });
     const total = pinches.reduce((s, p) => s * p.scale, 1);
     expect(total).toBeCloseTo(1.4, 10);
-    expect(pinches[2]!.center.screen).toEqual({ x: 160, y: 100 });
-    expect(pinches[2]!.center.canvas).toEqual({ x: 30, y: 25 });
+    expect(pinches[1]!.center.screen).toEqual({ x: 160, y: 100 });
+    expect(pinches[1]!.center.canvas).toEqual({ x: 30, y: 25 });
     // The centre moved from 150 to 160 in all: pan deltas add up.
     expect(pinches.reduce((s, p) => s + p.pan.x, 0)).toBeCloseTo(10, 10);
   });
@@ -392,7 +393,8 @@ describe("recognizer: touch", () => {
       t.feed(t.ev("pointerdown", 11, 100, 100, { kind: "touch" }));
       t.feed(t.ev("pointerdown", 12, 200, 100, { kind: "touch" }));
       t.feed(t.ev("pointermove", 12, 260, 100, { kind: "touch" }));
-      t.feed(t.ev(type, 11, 100, 100, { kind: "touch" }));
+      t.feed(t.ev("pointermove", 11, 99, 100, { kind: "touch" }));
+      t.feed(t.ev(type, 11, 99, 100, { kind: "touch" }));
       expect(t.types().slice(-1)).toEqual(["pinch:cancel"]);
       expect(t.rec.pinching()).toBe(false);
     }
@@ -415,6 +417,169 @@ describe("recognizer: touch", () => {
     t.feed(t.ev("pointermove", 12, 300, 100, { kind: "touch" }));
     t.feed(t.ev("pointerup", 1, 0, 0));
     expect(t.types()).toEqual(["press", "release"]);
+  });
+});
+
+describe("recognizer: two fingers, pan or pinch read on both fingers", () => {
+  type Setup = ReturnType<typeof setup>;
+  const touch = { kind: "touch" } as const;
+  const pinchesOf = (t: Setup) => t.out.filter((g): g is Of<"pinch"> => g.type === "pinch");
+  const product = (t: Setup) => pinchesOf(t).reduce((s, p) => s * p.scale, 1);
+  const panTotal = (t: Setup) => pinchesOf(t).reduce((s, p) => ({ x: s.x + p.pan.x, y: s.y + p.pan.y }), { x: 0, y: 0 });
+
+  /** Fingers 11 and 12 down 120 px apart on a row (a pan along that row changes the distance most) */
+  function twoDown(): Setup {
+    const t = setup();
+    t.feed(t.ev("pointerdown", 11, 100, 100, touch));
+    t.feed(t.ev("pointerdown", 12, 220, 100, touch));
+    t.take();
+    return t;
+  }
+
+  /** Both fingers move `steps` times by (dx, dy) per event, one event each in turn, `lead` first */
+  function walk(t: Setup, steps: number, dx: number, dy: number, lead: 11 | 12): void {
+    const at = new Map<number, { x: number; y: number }>([
+      [11, { x: 100, y: 100 }],
+      [12, { x: 220, y: 100 }],
+    ]);
+    for (let i = 0; i < steps; i++) {
+      for (const id of lead === 11 ? [11, 12] : [12, 11]) {
+        const p = at.get(id)!;
+        p.x += dx;
+        p.y += dy;
+        t.feed(t.ev("pointermove", id, p.x, p.y, touch));
+      }
+    }
+  }
+
+  for (const step of [2, 7.5, 15, 30]) {
+    for (const lead of [11, 12] as const) {
+      for (const [name, dx, dy] of [["along the row", step, 0], ["across it", 0, step], ["diagonally", step * 0.6, step * 0.8]] as const) {
+        it(`a pan ${name} at ${step} px per event, finger ${lead} leading, is a pan: the leading finger alone is no pinch`, () => {
+          const t = twoDown();
+          walk(t, 8, dx, dy, lead);
+          const pinches = pinchesOf(t);
+          expect(pinches.length).toBeGreaterThan(0);
+          expect(new Set(pinches.map((p) => p.kind))).toEqual(new Set(["pan"]));
+          expect(product(t)).toBe(1);
+          const pan = panTotal(t);
+          expect(pan.x).toBeCloseTo(8 * dx, 6);
+          expect(pan.y).toBeCloseTo(8 * dy, 6);
+        });
+      }
+    }
+  }
+
+  it("the input spec's pan (120 px apart, 7.5 px per event per finger) starts as a pan once the centre passed 10 px", () => {
+    const t = twoDown();
+    t.feed(t.ev("pointermove", 12, 227.5, 100, touch)); // the lead alone: 6.25 % of the distance, no look yet
+    expect(pinchesOf(t)).toEqual([]);
+    t.feed(t.ev("pointermove", 11, 107.5, 100, touch)); // both at +7.5: the centre moved 7.5 px, not yet
+    expect(pinchesOf(t)).toEqual([]);
+    t.feed(t.ev("pointermove", 12, 235, 100, touch)); // the lead alone again
+    expect(pinchesOf(t)).toEqual([]);
+    t.feed(t.ev("pointermove", 11, 115, 100, touch)); // both at +15: a pan
+    expect(pinchesOf(t).map((p) => [p.phase, p.kind])).toEqual([["start", "pan"]]);
+  });
+
+  it("a real pinch, fingers spreading in turn, is a pinch; its scales multiply to the total", () => {
+    const t = twoDown();
+    for (let i = 1; i <= 6; i++) {
+      t.feed(t.ev("pointermove", 12, 220 + 5 * i, 100, touch));
+      t.feed(t.ev("pointermove", 11, 100 - 5 * i, 100, touch));
+    }
+    const pinches = pinchesOf(t);
+    expect(pinches[0]).toMatchObject({ phase: "start", kind: "pinch" });
+    expect(new Set(pinches.map((p) => p.kind))).toEqual(new Set(["pinch"]));
+    expect(product(t)).toBeCloseTo(180 / 120, 10);
+    expect(panTotal(t).x).toBeCloseTo(0, 10);
+  });
+
+  it("a pinch around a resting finger decides on the moving one's third move", () => {
+    const t = twoDown();
+    t.feed(t.ev("pointermove", 12, 240, 100, touch));
+    t.feed(t.ev("pointermove", 12, 260, 100, touch));
+    expect(pinchesOf(t)).toEqual([]);
+    t.feed(t.ev("pointermove", 12, 280, 100, touch));
+    expect(pinchesOf(t).map((p) => [p.phase, p.kind])).toEqual([["start", "pinch"]]);
+    expect(product(t)).toBeCloseTo(180 / 120, 10);
+  });
+
+  it("a pinch while panning is a pinch, and carries the pan too", () => {
+    const t = twoDown();
+    for (let i = 1; i <= 5; i++) {
+      t.feed(t.ev("pointermove", 11, 100 - 6 * i + 4 * i, 100 + 5 * i, touch));
+      t.feed(t.ev("pointermove", 12, 220 + 6 * i + 4 * i, 100 + 5 * i, touch));
+    }
+    expect(new Set(pinchesOf(t).map((p) => p.kind))).toEqual(new Set(["pinch"]));
+    expect(product(t)).toBeCloseTo(180 / 120, 10);
+    expect(panTotal(t).x).toBeCloseTo(20, 10);
+    expect(panTotal(t).y).toBeCloseTo(25, 10);
+  });
+
+  // Up to SOLO_MOVES − 1: a finger SOLO_MOVES ahead is looked at alone (the anchored-thumb pinch)
+  for (const burst of [1, 2]) {
+    it(`a pan whose fingers report in bursts of ${burst} (7.5 px per event) is still a pan`, () => {
+      const t = twoDown();
+      for (let i = 0; i < 4; i++) {
+        for (const [id, x0] of [[12, 220], [11, 100]] as const) {
+          for (let k = 1; k <= burst; k++) t.feed(t.ev("pointermove", id, x0 + 7.5 * (burst * i + k), 100, touch));
+        }
+      }
+      expect(new Set(pinchesOf(t).map((p) => p.kind))).toEqual(new Set(["pan"]));
+      expect(product(t)).toBe(1);
+      expect(panTotal(t).x).toBeCloseTo(7.5 * burst * 4, 10);
+    });
+  }
+
+  it("a move that changes nothing (pressure only) is no move: the lead alone is still not looked at", () => {
+    const t = twoDown();
+    t.feed(t.ev("pointermove", 12, 227.5, 100, touch));
+    t.feed(t.ev("pointermove", 11, 100, 100, { kind: "touch", pressure: 0.6 }));
+    expect(pinchesOf(t)).toEqual([]);
+    t.feed(t.ev("pointermove", 11, 107.5, 100, touch));
+    t.feed(t.ev("pointermove", 12, 235, 100, touch));
+    t.feed(t.ev("pointermove", 11, 115, 100, touch));
+    expect(pinchesOf(t).map((p) => [p.phase, p.kind])).toEqual([["start", "pan"]]);
+  });
+
+  it("a quick pinch lifted before both fingers moved still counts: start, then end", () => {
+    const t = twoDown();
+    t.feed(t.ev("pointermove", 12, 280, 100, touch));
+    t.feed(t.ev("pointerup", 12, 280, 100, touch));
+    expect(t.types()).toEqual(["pinch:start", "pinch:end"]);
+    expect(product(t)).toBeCloseTo(180 / 120, 10);
+  });
+
+  it("the resting finger lifting after the other moved once is looked at too: start, then end", () => {
+    const t = twoDown();
+    t.feed(t.ev("pointermove", 12, 280, 100, touch));
+    t.feed(t.ev("pointerup", 11, 100, 100, touch));
+    expect(t.types()).toEqual(["pinch:start", "pinch:end"]);
+    expect(product(t)).toBeCloseTo(180 / 120, 10);
+  });
+
+  it("a lift with too little movement to decide emits nothing", () => {
+    const t = twoDown();
+    t.feed(t.ev("pointermove", 12, 223, 100, touch));
+    t.feed(t.ev("pointerup", 12, 223, 100, touch));
+    expect(pinchesOf(t)).toEqual([]);
+  });
+
+  it("a pair cancelled before it decided emits no pinch event (pointercancel, lost capture, cancel, reset)", () => {
+    const cases: Array<(t: Setup) => void> = [
+      (t) => t.feed(t.ev("pointercancel", 11, 100, 100, touch)),
+      (t) => t.feed(t.ev("lostpointercapture", 12, 227.5, 100, touch)),
+      (t) => t.rec.cancel("escape"),
+      (t) => t.rec.reset(),
+    ];
+    for (const end of cases) {
+      const t = twoDown();
+      t.feed(t.ev("pointermove", 12, 227.5, 100, touch));
+      end(t);
+      expect(pinchesOf(t)).toEqual([]);
+      expect(t.rec.pinching()).toBe(false);
+    }
   });
 });
 
@@ -535,6 +700,7 @@ describe("recognizer: a pointerup that never came", () => {
     t.tick(3000);
     t.feed(t.ev("pointerdown", 12, 200, 100, { kind: "touch" }));
     t.feed(t.ev("pointermove", 12, 260, 100, { kind: "touch" }));
+    t.feed(t.ev("pointermove", 11, 99, 100, { kind: "touch" }));
     expect(t.types()).toEqual(["press", "cancel", "pinch:start"]);
     expect(last(t.out, "cancel").reason).toBe("multitouch");
   });
@@ -564,6 +730,7 @@ describe("recognizer: cancel, reset, dispose", () => {
     p.feed(p.ev("pointerdown", 11, 100, 100, { kind: "touch" }));
     p.feed(p.ev("pointerdown", 12, 200, 100, { kind: "touch" }));
     p.feed(p.ev("pointermove", 12, 300, 100, { kind: "touch" }));
+    p.feed(p.ev("pointermove", 11, 90, 100, { kind: "touch" }));
     p.rec.cancel("escape");
     expect(p.types().slice(-1)).toEqual(["pinch:cancel"]);
   });
