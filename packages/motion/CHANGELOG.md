@@ -3,6 +3,23 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.2
+
+- A two-finger pan is no longer taken for a pinch. One finger's event arrives
+  before the other's, and a pan's leading finger alone changes the distance
+  like a pinch (fingers 120 px apart, 7.5 px per event: 6.3 % against the 5 %
+  threshold, while the centre moved only 3.75 px). The kind is now read once
+  both fingers have moved as often as each other since the last look (so a
+  lead of one or two events is caught up first); a finger at rest sends no
+  moves, so one three moves ahead is read on its own (a pinch around an
+  anchored thumb); a finger lifting from an undecided pair is read once, so a
+  quick pinch still counts. A move that changes no position (pressure only)
+  doesn't count. The thresholds keep their meaning; the API is unchanged.
+- What a host sees differently: `pinch` `start` can come one to three moves
+  later than before (it still carries everything since the second finger
+  landed), and a pair cancelled before it decided emits no `pinch` `cancel`
+  (nothing had started).
+
 ## 26.11.1
 
 - The recogniser takes the platform (`platform`, default `"other"`). On
