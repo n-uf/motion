@@ -12,6 +12,17 @@
   /* The drop target: a colour no window uses. */
   --drop: #f08c00;
   --lift-shadow: 0 14px 34px rgba(0, 0, 0, 0.28), 0 3px 8px rgba(0, 0, 0, 0.18);
+  /* The desk's items. */
+  --toolbar: #3d5a80;
+  --toolbar-ink: #ffffff;
+  --rail: #c9d6e3;
+  --doc: #fffaf0;
+  --doc-title: #fdeccb;
+  --doc-edge: #e3c98f;
+  --float: #fff4f5;
+  --float-title: #fde2e4;
+  --float-edge: #d98b93;
+  --accent: #3d5a80;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -26,6 +37,16 @@
     --bad: #ff8787;
     --drop: #ffc078;
     --lift-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 3px 10px rgba(0, 0, 0, 0.45);
+    --toolbar: #6c8fbf;
+    --toolbar-ink: #0f1420;
+    --rail: #2f3d4f;
+    --doc: #2b2619;
+    --doc-title: #3a321f;
+    --doc-edge: #8a7240;
+    --float: #2f1f22;
+    --float-title: #43262a;
+    --float-edge: #b06a73;
+    --accent: #8fb2e0;
   }
 }
 * { box-sizing: border-box; }
@@ -71,9 +92,14 @@ canvas { width: 720px; max-width: 100%; height: 160px; border: 1px solid var(--l
 .pages a { color: inherit; }
 
 /* --- The desk page ------------------------------------------------------------------------------------------- */
-main.wide { max-width: 1040px; }
+main.wide { max-width: 1480px; }
 .readout { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
-.stage.desk { width: 960px; height: 560px; }
+.idea { font-size: 13px; margin: 0 0 6px; max-width: 960px; }
+.controls input[type="range"] { width: 150px; }
+.controls output { font-variant-numeric: tabular-nums; min-width: 2.6em; color: var(--muted); }
+.controls fieldset[hidden] { display: none; }
+/* The stage's size is set per frame (it glides with everything on it); its content box is the desk. */
+.stage.desk { width: 962px; height: 562px; max-width: none; background: color-mix(in srgb, var(--line) 40%, var(--bg)); }
 .stage.desk .hint { z-index: 8; }
 /* The drop label: placed by the xdg-positioner rule (flip, then slide), never clicked. */
 .hint-label {
@@ -89,53 +115,57 @@ main.wide { max-width: 1040px; }
   white-space: nowrap;
   overflow: hidden;
 }
-/* The toolbar: a grip and eight buttons, wrapping to its place's width (laid out at once, never stretched). */
-.win.toolbar .frame { background: var(--title); }
+/* Folded away (into a rail, behind a tab) or closing: out of the pointer's way. */
+.stage.desk .win.hidden { pointer-events: none; }
+.stage.desk .win .frame { border-width: 1px; border-radius: 5px; }
+.stage.desk .win .title { height: 22px; padding: 3px 8px; }
+.stage.desk .win.shadow .frame { box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25); }
+.stage.desk .win.lifted .frame { box-shadow: var(--lift-shadow); }
+/* The toolbar: a floating pill or a bar across the top, its buttons laid out at once (never stretched). */
+.win.toolbar .frame { background: var(--toolbar); border-color: transparent; }
 .win.toolbar .content { padding: 0; }
-.win.toolbar .tb { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; padding: 6px; }
+.win.toolbar .tb { display: flex; flex-wrap: nowrap; justify-content: center; gap: 4px; padding: 3px 10px; overflow: hidden; }
+.win.toolbar[data-look="bar"] .tb { justify-content: flex-start; padding: 5px 10px; }
+.win.toolbar[data-look="pill"] .frame { border-radius: 15px; }
+.win.toolbar[data-look="bar"] .frame { border-radius: 0; }
 .win.toolbar .tb-cell {
   flex: none;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   display: grid;
   place-items: center;
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 5px;
-  background: var(--win);
-  color: var(--ink);
-  font: 15px/1 system-ui, sans-serif;
+  background: transparent;
+  color: var(--toolbar-ink);
+  font: 14px/1 system-ui, sans-serif;
 }
-.win.toolbar .tb-grip { cursor: grab; user-select: none; touch-action: none; background: transparent; }
-.win.toolbar.lifted .tb-grip { cursor: grabbing; }
-/* Collapsed: just the grip. */
-.win.toolbar.collapsed .tb-cell:not(.tb-grip) { display: none; }
-/* The toolbar's menu: beside the grip, placed by the xdg-positioner rule. */
-.desk-menu {
-  position: absolute;
-  z-index: 12;
-  display: flex;
-  flex-direction: column;
-  min-width: 128px;
-  padding: 4px;
-  overflow: auto;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--win);
-  box-shadow: var(--lift-shadow);
-}
-.desk-menu button { text-align: left; border: 0; border-radius: 4px; padding: 4px 8px 4px 22px; background: transparent; color: var(--ink); font: inherit; font-size: 13px; position: relative; }
-.desk-menu button:focus, .desk-menu button:hover { background: var(--title); outline: none; }
-.desk-menu button[aria-checked="true"]::before { content: "✓"; position: absolute; left: 7px; }
-.desk-menu .sep { height: 1px; margin: 4px 2px; background: var(--line); }
-/* Panels: a title bar with a fold button; a folded panel is just its title bar. */
-.win.panel .frame { background: linear-gradient(var(--title) 26px, var(--win) 26px); border-color: var(--muted); }
+/* Panels: a title bar (with a fold button where folding means something) over a body. */
+.win.panel .frame { background: linear-gradient(var(--title) 22px, var(--win) 22px); border-color: var(--muted); }
 .win.panel .title { display: flex; justify-content: space-between; align-items: center; touch-action: none; }
-.win.panel .fold { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 12px; padding: 0 2px; }
+.win.panel .fold { display: none; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 12px; padding: 0 2px; }
+.win.panel.foldable .fold { display: inline; }
 .win.panel .body { white-space: normal; }
-/* A rail (every panel of a column folded): each title bar is turned on its side, a tab; clicking it unfolds the panel. */
-.win.panel .title { transform-origin: 0 0; }
-.win.panel.rail .frame { background: var(--title); }
-.win.panel.rail .title { cursor: pointer; }
-.win.panel.rail.lifted .title { cursor: grabbing; }
+.win.panel[data-look="header"] .frame { background: var(--title); }
+.win.panel[data-look="float"] .frame { background: linear-gradient(var(--float-title) 22px, var(--float) 22px); border-color: var(--float-edge); }
+.win.panel[data-look="bare"] .title { display: none; }
+.win.panel[data-look="bare"] .frame { background: var(--win); border-radius: 0 0 5px 5px; }
+.win.accent .frame { border: 2px solid var(--accent); }
+/* Documents. */
+.win.doc .frame { background: linear-gradient(var(--doc-title) 22px, var(--doc) 22px); border-color: var(--doc-edge); }
 .win.doc .title { cursor: default; }
+.win.doc .body .line { display: block; width: 85%; height: 6px; margin-top: 10px; border-radius: 3px; background: var(--doc-edge); opacity: 0.45; }
+.win.doc .body .line.short { width: 55%; }
+/* Chrome: rails of icons, tab rows, the strip's scroll bar. */
+.win.chrome .content { padding: 0; }
+.win.chrome[data-look="rail"] .frame { background: var(--rail); border: 0; border-radius: 0; }
+.win.chrome[data-look="rail"] .content { display: flex; flex-direction: column; gap: 8px; padding: 10px 6px; }
+.win.chrome .icon { flex: none; width: 22px; height: 24px; padding: 0; border: 1px solid var(--muted); border-radius: 5px; background: var(--win); color: var(--ink); font: 600 12px/1 system-ui, sans-serif; cursor: pointer; }
+.win.chrome[data-look="tabs"] .frame { background: var(--title); border: 0; border-radius: 5px 5px 0 0; }
+.win.chrome[data-look="tabs"].shadow .frame { background: var(--float-edge); }
+.win.chrome[data-look="tabs"] .content { display: flex; gap: 2px; padding: 3px 2px 0; }
+.win.chrome .tab { flex: 1 1 0; min-width: 0; padding: 0 4px; border: 0; border-radius: 4px 4px 0 0; background: transparent; color: var(--ink); font: 12px system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; touch-action: none; }
+.win.chrome .tab[aria-pressed="true"] { background: var(--win); font-weight: 600; }
+.win.chrome[data-look="track"] .frame { background: var(--line); border: 0; border-radius: 0; }
+.win.chrome[data-look="thumb"] .frame { background: var(--win-edge); border: 0; border-radius: 2px; }
