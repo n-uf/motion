@@ -65,3 +65,52 @@ th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 4px 6p
 td.ok { color: var(--ok); }
 td.bad { color: var(--bad); }
 canvas { width: 720px; max-width: 100%; height: 160px; border: 1px solid var(--line); border-radius: 6px; }
+
+/* Links between the lab's pages. */
+.pages { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.pages a { color: inherit; }
+
+/* --- The desk page ------------------------------------------------------------------------------------------- */
+main.wide { max-width: 1040px; }
+.readout { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+.stage.desk { width: 960px; height: 560px; }
+.stage.desk .hint { z-index: 8; }
+/* The drop label: placed by the xdg-positioner rule (flip, then slide), never clicked. */
+.hint-label {
+  position: absolute;
+  z-index: 9;
+  pointer-events: none;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--drop);
+  color: #1d1d1b;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+}
+/* The toolbar: a grip and eight buttons, wrapping to its place's width (laid out at once, never stretched). */
+.win.toolbar .frame { background: var(--title); }
+.win.toolbar .content { padding: 0; }
+.win.toolbar .tb { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; padding: 6px; }
+.win.toolbar .tb-cell {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--win);
+  color: var(--ink);
+  font: 15px/1 system-ui, sans-serif;
+}
+.win.toolbar .tb-grip { cursor: grab; user-select: none; touch-action: none; background: transparent; }
+.win.toolbar.lifted .tb-grip { cursor: grabbing; }
+/* Panels: a title bar with a fold button; a folded panel is just its title bar. */
+.win.panel .frame { background: linear-gradient(var(--title) 26px, var(--win) 26px); border-color: var(--muted); }
+.win.panel .title { display: flex; justify-content: space-between; align-items: center; touch-action: none; }
+.win.panel .fold { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 12px; padding: 0 2px; }
+.win.panel .body { white-space: normal; }
+.win.doc .title { cursor: default; }

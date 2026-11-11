@@ -1,0 +1,1011 @@
+/**
+ * Desk placement: a toolbar, panels and documents placed on a desk (panel columns, a top band, a work area, things
+ * pinned over the view; see desk/placement.ts for the rules and their credits: Hyprland's master and dwindle, the
+ * Wayland xdg-positioner, GNOME/KDE smart placement), moving by the lab's motion rules: every move settles, what
+ * the pointer holds is glued to it, content is revealed rather than stretched, and the toolbar's size jumps to its
+ * new place's content size while only its position settles.
+ *
+ * `window.__motionLab.runAll()` runs the scripted scenarios in both drop previews and returns which rules failed.
+ */
+import { createFrameLoop, createSettle, SETTLE_TEMPO, type FrameInfo, type Rect, type Settle } from "@n-uf/motion";
+import { createBrowserClock } from "@n-uf/motion/browser";
+import type { CheckResult, HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
+import {
+  G,
+  closeDoc,
+  docIds,
+  docKey,
+  layoutDesk,
+  LABEL_RULE,
+  normalize,
+  openDoc,
+  panelKey,
+  placeOfPanel,
+  positionPopup,
+  setDocLayout,
+  toggleFold,
+  toolbarBox,
+  withoutPanel,
+  withPanel,
+  withToolbar,
+  workArea,
+  type DeskLayout,
+  type DeskSpec,
+  type DeskState,
+  type DocLayout,
+  type Side,
+  type ToolbarPlace,
+} from "./desk/placement";
+import { framesResult, merge, motionRows, renderChecks, renderTrace, verdict, type Row, type Segment } from "./shared/checks";
+import { drawRevealed, layOut, measureFrame, onTopAt as onTopIn } from "./shared/frame";
+import { inside, nextFrame, overlap, same, type Point } from "./shared/geometry";
+import type { LabRun } from "./shared/hooks";
+import { cancelPress, trackPress } from "./shared/press";
+
+type Tempo = keyof typeof SETTLE_TEMPO;
+type DropMode = "indicator" | "snap";
+
+const STAGE_W = 960;
+const STAGE_H = 560;
+const STAGE: Rect = { x: 0, y: 0, width: STAGE_W, height: STAGE_H };
+
+const PANELS = [
+  { id: 1, title: "Files", minHeight: 130, born: 1, body: "Quarterly plan<br>Meeting notes<br>Reading list<br>Travel checklist" },
+  { id: 2, title: "Notes", minHeight: 100, born: 2, body: "Call back on Monday<br>Book the small room" },
+  { id: 3, title: "Outline", minHeight: 110, born: 3, body: "1 Goals<br>2 Scope<br>3 Timeline<br>4 Open questions" },
+  { id: 4, title: "Inspector", minHeight: 100, born: 4, body: "Size 14 KB<br>Modified today<br>Tags: plan, team" },
+  { id: 5, title: "History", minHeight: 150, born: 5, body: "Opened Meeting notes<br>Renamed Budget draft<br>Moved Reading list" },
+] as const;
+const SPEC: DeskSpec = { stage: { width: STAGE_W, height: STAGE_H }, panels: PANELS };
+const DOC_TITLES = ["Quarterly plan", "Meeting notes", "Reading list", "Travel checklist", "Budget draft", "Release notes", "Team roster", "Garden plan"];
+const TOOL_ICONS = ["✎", "⌫", "↶", "↷", "⎘", "⌕", "☰", "⚙"];
+const MAX_DOCS = 10;
+
+const stage = document.getElementById("stage") as HTMLDivElement;
+const hint = document.getElementById("hint") as HTMLDivElement;
+const hintLabel = document.getElementById("hint-label") as HTMLDivElement;
+const checksBody = document.querySelector("#checks tbody") as HTMLTableSectionElement;
+const checksTitle = document.getElementById("checks-title") as HTMLHeadingElement;
+const runsBody = document.querySelector("#runs tbody") as HTMLTableSectionElement;
+const trace = document.getElementById("trace") as HTMLCanvasElement;
+const readout = document.getElementById("readout") as HTMLParagraphElement;
+
+/** Anything on the desk that moves: the toolbar, a panel or a document. */
+interface Item {
+  readonly uid: number;
+  readonly key: string;
+  readonly kind: "toolbar" | "panel" | "doc";
+  readonly id: number;
+  readonly name: string;
+  readonly el: HTMLDivElement;
+  readonly frame: HTMLDivElement;
+  readonly content: HTMLDivElement;
+  readonly rect: Settle<Rect>;
+  /** Where the element is laid out (its content's size); the drawn rect glides toward it. */
+  target: Rect;
+  readonly pop: Settle<number>;
+  closing: boolean;
+  segment: Segment | null;
+  runs: TargetSample[][];
+}
+
+let tempo: Tempo = "default";
+let dropMode: DropMode = "indicator";
+let state: DeskState;
+let items: Item[] = [];
+const names = new Map<number, string>();
+let focusId: number | null = null;
+let nextDoc = 1;
+/** How the last opened documents were placed ("tiled", "free" or "cascade"), newest last. */
+let opened: string[] = [];
+/** The place whose content size the toolbar has now. */
+let toolbarSizePlace: ToolbarPlace = "band";
+
+const omega = (): number => SETTLE_TEMPO[tempo];
+const itemOf = (key: string): Item | undefined => items.find((it) => it.key === key && !it.closing);
+const toolbarItem = (): Item => itemOf("toolbar")!;
+
+// --- the drag ----------------------------------------------------------------------------------------------------
+
+/** A place the lifted item could land: the state with it there (normalized), its layout and the item's slot. */
+interface Drop {
+  readonly key: string;
+  readonly zone: Zone;
+  readonly state: DeskState;
+  readonly layout: DeskLayout;
+  readonly slot: Rect;
+  readonly label: string;
+  /** It lands pinned: it takes no room, so nothing has to leave its slot. */
+  readonly pinned: boolean;
+}
+type Zone = "band" | Side | "pinned";
+
+let lifted: Item | null = null;
+let grab: Point = { x: 0, y: 0 };
+let liftSize = { width: 0, height: 0 };
+let expected: Rect | null = null;
+let pointer: Point = { x: 0, y: 0 };
+let drop: Drop | null = null;
+/** Snap mode: the drop the item is snapped into, or null while it follows the pointer. */
+let snapped: Drop | null = null;
+let home: { state: DeskState; rect: Rect; sizePlace: ToolbarPlace } | null = null;
+let leftHome = false;
+/** The item kept above all others: the dragged one, and after the drop until it has settled. */
+let raised: Item | null = null;
+const SNAP_IN = 12;
+
+/** Where the others make room for the lifted item now (indicator: the marked drop; snap: the drop it is snapped into). */
+const roomDrop = (): Drop | null => (!lifted ? null : dropMode === "snap" ? snapped : drop);
+
+/** The drop zones: the band along the top, a strip at each edge, the view (pinned) everywhere else. */
+function zoneRect(kind: Item["kind"], z: Zone): Rect {
+  const edge = kind === "toolbar" ? 120 : 150;
+  const top = kind === "toolbar" ? 56 : 0;
+  if (z === "band") return { x: 0, y: 0, width: STAGE_W, height: 56 };
+  if (z === "left") return { x: 0, y: top, width: edge, height: STAGE_H - top };
+  if (z === "right") return { x: STAGE_W - edge, y: top, width: edge, height: STAGE_H - top };
+  return STAGE;
+}
+
+function zoneAt(kind: Item["kind"], p: Point): Zone {
+  const order: Zone[] = kind === "toolbar" ? ["band", "left", "right"] : ["left", "right"];
+  return order.find((z) => inside(zoneRect(kind, z), p.x, p.y)) ?? "pinned";
+}
+
+const PLACE_LABEL: Record<Zone, string> = { band: "Top band", left: "Left column", right: "Right column", pinned: "Pinned over the view" };
+
+function makeDrop(it: Item, zone: Zone, index = Infinity): Drop {
+  let s: DeskState;
+  if (it.kind === "toolbar") s = normalize(withToolbar(state, zone), SPEC);
+  else s = normalize(withPanel(state, it.id, zone === "band" ? "pinned" : zone, index), SPEC);
+  const layout = layoutDesk(s, SPEC);
+  const pinned = it.kind === "toolbar" ? s.toolbar === "pinned" : s.pinned.includes(it.id);
+  let label = PLACE_LABEL[zone];
+  if (it.kind === "panel" && zone !== "pinned" && zone !== "band") {
+    label = pinned ? `${PLACE_LABEL[zone]} is full: pinned instead` : `${PLACE_LABEL[zone]} · index ${s[zone].indexOf(it.id)}`;
+  }
+  return { key: `${zone}:${index}`, zone, state: s, layout, slot: layout.rects.get(it.key)!, label, pinned };
+}
+
+/** Where the lifted item would land with the pointer at `p`: the zone under it, and in a column the nearest index. */
+function bestDrop(it: Item, p: Point): Drop {
+  // Until the pointer has left the item's own place, its own place is the drop (a toolbar at the top of a column
+  // also lies in the band's zone: lifting it must not preview the band).
+  if (home && !leftHome) {
+    if (it.kind === "toolbar") return makeDrop(it, home.state.toolbar ?? "band");
+    const side = placeOfPanel(home.state, it.id) ?? "pinned";
+    return makeDrop(it, side, side === "pinned" ? Infinity : home.state[side].indexOf(it.id));
+  }
+  const zone = zoneAt(it.kind, p);
+  if (it.kind !== "panel" || (zone !== "left" && zone !== "right")) return makeDrop(it, zone);
+  let best: Drop | null = null;
+  let bestDist = Infinity;
+  for (let i = 0; i <= state[zone].length; i++) {
+    const d = makeDrop(it, zone, i);
+    const dy = p.y - (d.slot.y + d.slot.height / 2);
+    const dist = (p.y >= d.slot.y && p.y <= d.slot.y + d.slot.height ? 0 : 1e6) + dy * dy;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = d;
+    }
+  }
+  return best!;
+}
+
+function beginDrag(it: Item, px: number, py: number): void {
+  if (lifted || it.closing) return;
+  ensureLoop();
+  const d = it.rect.value;
+  grab = { x: px - d.x, y: py - d.y };
+  liftSize = { width: d.width, height: d.height };
+  home = { state, rect: { ...d }, sizePlace: toolbarSizePlace };
+  leftHome = false;
+  snapped = null;
+  drop = null;
+  lifted = it;
+  raised = it;
+  it.el.classList.add("lifted");
+  it.el.style.zIndex = Z.raised;
+  // Lifted out of its place: the state no longer has it (the others close the gap unless a drop keeps it).
+  state = it.kind === "toolbar" ? withToolbar(state, null) : withoutPanel(state, it.id);
+  it.segment = null;
+  newRun(it);
+  moveDrag(px, py);
+}
+
+function moveDrag(px: number, py: number): void {
+  const it = lifted;
+  if (!it) return;
+  pointer = { x: px, y: py };
+  if (home && !inside(home.rect, px, py)) leftHome = true;
+  const best = bestDrop(it, pointer);
+  const before = roomDrop()?.key + "|" + roomDrop()?.zone;
+  drop = best;
+  if (dropMode === "snap") {
+    if (snapped && snapped.zone !== best.zone) snapped = null;
+    if (!snapped && inside(zoneRect(it.kind, best.zone), px, py, SNAP_IN)) snapped = best;
+    else if (snapped) snapped = best;
+    hideHint();
+    const goal: Rect = snapped ? snapped.slot : { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
+    expected = null;
+    if (it.kind === "toolbar") jumpToolbarSize(snapped ? (snapped.state.toolbar ?? home!.sizePlace) : home!.sizePlace);
+    // Its content is laid out at the size it is going to (the frame reveals it, never stretches it).
+    if (!same(it.target, goal)) {
+      it.target = { ...goal };
+      layOut(it, goal);
+    }
+    if (!same(it.rect.target, goal)) {
+      const drawn = it.rect.value;
+      it.segment = { id: it.uid, t0: time, from: { ...drawn }, to: { ...goal }, samples: [{ t: time, rect: { ...drawn } }] };
+      episode?.segments.push(it.segment);
+      it.rect.setTarget(goal);
+    }
+  } else {
+    expected = { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
+    it.rect.hold(expected);
+    showHint(best);
+  }
+  const after = roomDrop()?.key + "|" + roomDrop()?.zone;
+  if (after !== before || !roomShown) {
+    roomShown = true;
+    relayout();
+  }
+}
+/** This drag has laid the others out around its drop at least once. */
+let roomShown = false;
+
+/**
+ * Drop the lifted item. `cancel` (Escape, pointercancel), or a drag whose pointer never left the item's own place,
+ * puts the whole desk back as it was; otherwise it lands where the drop says.
+ */
+function endDrag(cancel = false): void {
+  const it = lifted;
+  if (!it) return;
+  const back = home && (cancel || !leftHome) ? home : null;
+  state = back ? back.state : (drop ?? makeDrop(it, "pinned")).state;
+  lifted = null;
+  expected = null;
+  drop = null;
+  snapped = null;
+  home = null;
+  roomShown = false;
+  hideHint();
+  it.el.classList.remove("lifted");
+  newRun(it);
+  // It stays raised until its drop settle ends.
+  relayout();
+}
+
+function onGrip(it: Item, e: PointerEvent): void {
+  trackPress(e, {
+    point: stagePoint,
+    lifted: () => lifted === it,
+    begin: (start) => beginDrag(it, start.x, start.y),
+    move: (q) => moveDrag(q.x, q.y),
+    end: (cancel) => endDrag(cancel),
+  });
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && lifted) {
+    cancelPress();
+    endDrag(true);
+  }
+});
+
+function stagePoint(e: PointerEvent): Point {
+  const r = stage.getBoundingClientRect();
+  // The same scale as measureFrame (shared/frame): the stage's border box is STAGE_W wide.
+  const k = STAGE_W / r.width;
+  return { x: (e.clientX - r.left - stage.clientLeft) * k, y: (e.clientY - r.top - stage.clientTop) * k };
+}
+
+// --- the drop indicator and its label ----------------------------------------------------------------------------
+
+/** The indicator outlines the drop's slot; its label is placed by the xdg-positioner rule (data-how says how). */
+function showHint(d: Drop): void {
+  hint.hidden = false;
+  Object.assign(hint.style, { left: `${d.slot.x}px`, top: `${d.slot.y}px`, width: `${d.slot.width}px`, height: `${d.slot.height}px` });
+  hintLabel.hidden = false;
+  if (hintLabel.textContent !== d.label) hintLabel.textContent = d.label;
+  hintLabel.style.width = "";
+  const size = { width: hintLabel.offsetWidth, height: hintLabel.offsetHeight };
+  const placed = positionPopup(d.slot, size, STAGE, LABEL_RULE);
+  const how = [placed.flipped.y ? "flipped up" : "", placed.flipped.x ? "flipped left" : "", placed.slid.x || placed.slid.y ? "slid" : "", placed.resized ? "resized" : ""].filter(Boolean).join(", ");
+  Object.assign(hintLabel.style, { left: `${placed.rect.x}px`, top: `${placed.rect.y}px`, width: `${placed.rect.width}px` });
+  hintLabel.dataset.how = how || "as anchored";
+}
+
+function hideHint(): void {
+  hint.hidden = true;
+  hintLabel.hidden = true;
+}
+
+// --- items -------------------------------------------------------------------------------------------------------
+
+const Z = { tiled: "1", floating: "2", column: "3", toolbar: "4", pinned: "6", raised: "10" } as const;
+
+function makeItem(kind: Item["kind"], id: number, key: string, name: string, html: string, at: Rect): Item {
+  const el = document.createElement("div");
+  el.className = `win ${kind}`;
+  el.dataset.key = key;
+  const frame = document.createElement("div");
+  frame.className = "frame";
+  const content = document.createElement("div");
+  content.className = "content";
+  content.innerHTML = html;
+  el.append(frame, content);
+  stage.append(el);
+  const uid = kind === "toolbar" ? 100 : kind === "panel" ? 200 + id : id;
+  names.set(uid, name);
+  const it: Item = {
+    uid,
+    key,
+    kind,
+    id,
+    name,
+    el,
+    frame,
+    content,
+    rect: createSettle(at, { omega: omega() }),
+    target: { ...at },
+    pop: createSettle(1, { omega: omega(), restDelta: 0.001 }),
+    closing: false,
+    segment: null,
+    runs: [[]],
+  };
+  layOut(it, at);
+  items.push(it);
+  draw(it);
+  return it;
+}
+
+function makeToolbar(at: Rect): Item {
+  const cells = [`<div class="tb-cell tb-grip" title="Drag to move the toolbar">⠿</div>`, ...TOOL_ICONS.map((c) => `<button type="button" class="tb-cell" tabindex="-1">${c}</button>`)];
+  const it = makeItem("toolbar", 0, "toolbar", "toolbar", `<div class="tb">${cells.join("")}</div>`, at);
+  it.content.querySelector(".tb-grip")!.addEventListener("pointerdown", (e) => onGrip(it, e as PointerEvent));
+  return it;
+}
+
+function makePanel(p: (typeof PANELS)[number], at: Rect): Item {
+  const html = `<div class="title"><span>${p.title}</span><button type="button" class="fold" title="Fold to the title bar">▾</button></div><div class="body">${p.body}</div>`;
+  const it = makeItem("panel", p.id, panelKey(p.id), p.title, html, at);
+  const fold = it.content.querySelector<HTMLButtonElement>(".fold")!;
+  fold.addEventListener("pointerdown", (e) => e.stopPropagation());
+  fold.addEventListener("click", () => doFold(p.id));
+  it.content.querySelector(".title")!.addEventListener("pointerdown", (e) => onGrip(it, e as PointerEvent));
+  return it;
+}
+
+function makeDoc(id: number, at: Rect): Item {
+  const title = DOC_TITLES[(id - 1) % DOC_TITLES.length]!;
+  const html = `<div class="title">Document ${id}</div><div class="body">${title}<br>Last edited today · 3 pages</div>`;
+  const it = makeItem("doc", id, docKey(id), `document ${id}`, html, at);
+  it.el.addEventListener("pointerdown", () => {
+    if (!it.closing) focus(id);
+  });
+  return it;
+}
+
+function focus(id: number | null): void {
+  focusId = id;
+  for (const it of items) it.el.classList.toggle("focused", it.kind === "doc" && it.id === focusId);
+}
+
+// --- motion ------------------------------------------------------------------------------------------------------
+
+function setTarget(it: Item, to: Rect): void {
+  if (same(it.target, to) && same(it.rect.target, to)) return;
+  ensureLoop();
+  const drawn = it.rect.value;
+  it.target = { ...to };
+  layOut(it, to);
+  it.segment = { id: it.uid, t0: time, from: { ...drawn }, to: { ...to }, samples: [{ t: time, rect: { ...drawn } }] };
+  episode?.segments.push(it.segment);
+  it.rect.configure({ omega: omega() });
+  it.rect.setTarget(to);
+}
+
+/**
+ * The toolbar's size jumps to its new place's content size (its buttons re-lay out at once); only its position
+ * settles. A new run starts, so the jump isn't read as a jump in a glide.
+ */
+function jumpToolbarSize(place: ToolbarPlace): void {
+  const it = toolbarItem();
+  const box = toolbarBox(place);
+  toolbarSizePlace = place;
+  const d = it.rect.value;
+  if (Math.abs(d.width - box.width) < 0.01 && Math.abs(d.height - box.height) < 0.01) return;
+  ensureLoop();
+  it.rect.jumpTo({ x: d.x, y: d.y, width: box.width, height: box.height });
+  // The move it was in ends here (its size is no longer between that move's start and end).
+  it.segment = null;
+  it.target = { x: it.target.x, y: it.target.y, width: box.width, height: box.height };
+  layOut(it, it.target);
+  newRun(it);
+}
+
+/** Every item glides to its place in the layout (the drop's, while the others make room for a lifted item). */
+function relayout(): void {
+  const room = roomDrop();
+  const s = room?.state ?? state;
+  const layout = room?.layout ?? layoutDesk(state, SPEC);
+  for (const it of items) {
+    if (it.closing) continue;
+    const to = layout.rects.get(it.key);
+    if (it === lifted) continue;
+    if (!to) continue;
+    if (it.kind === "toolbar") jumpToolbarSize(s.toolbar ?? toolbarSizePlace);
+    setTarget(it, to);
+    it.el.style.zIndex = it === raised ? Z.raised : zOf(it, s);
+    if (it.kind === "panel") {
+      const folded = s.folded.includes(it.id);
+      it.el.classList.toggle("folded", folded);
+      it.content.querySelector(".fold")!.textContent = folded ? "▸" : "▾";
+    }
+  }
+  focus(focusId);
+  updateReadout();
+}
+
+function zOf(it: Item, s: DeskState): string {
+  if (it.kind === "doc") return s.floating.some((f) => f.id === it.id) ? Z.floating : Z.tiled;
+  if (it.kind === "toolbar") return s.toolbar === "pinned" ? Z.pinned : Z.toolbar;
+  return s.pinned.includes(it.id) ? Z.pinned : Z.column;
+}
+
+function draw(it: Item): void {
+  drawRevealed(it, it.rect.value, it.target, it.pop.value);
+}
+
+// --- actions -----------------------------------------------------------------------------------------------------
+
+function doFold(id: number): void {
+  if (lifted) return;
+  state = normalize(toggleFold(state, id), SPEC);
+  relayout();
+}
+
+function doOpen(): void {
+  if (lifted || docIds(state).length >= MAX_DOCS) return;
+  const id = nextDoc++;
+  const r = openDoc(state, SPEC, id, focusId);
+  state = normalize(r.state, SPEC);
+  opened.push(r.how);
+  const at = layoutDesk(state, SPEC).rects.get(docKey(id))!;
+  const it = makeDoc(id, at);
+  it.pop.jumpTo(0);
+  ensureLoop();
+  newRun(it);
+  it.pop.setTarget(1);
+  focus(id);
+  relayout();
+}
+
+function doClose(): void {
+  if (lifted) return;
+  const ids = docIds(state);
+  const id = focusId !== null && ids.includes(focusId) ? focusId : ids.at(-1);
+  if (id === undefined) return;
+  const it = itemOf(docKey(id))!;
+  ensureLoop();
+  it.closing = true;
+  it.pop.setTarget(0);
+  state = normalize(closeDoc(state, id), SPEC);
+  focus(docIds(state).at(-1) ?? null);
+  relayout();
+}
+
+function doToolbar(place: ToolbarPlace): void {
+  if (lifted) return;
+  state = normalize(withToolbar(state, place), SPEC);
+  relayout();
+}
+
+function setDocs(mode: DocLayout): void {
+  (document.querySelector(`input[name=docs][value=${mode}]`) as HTMLInputElement).checked = true;
+  if (lifted) return;
+  state = setDocLayout(state, SPEC, mode);
+  relayout();
+}
+
+function updateReadout(): void {
+  const s = state;
+  const work = workArea(s, SPEC);
+  readout.textContent =
+    `Minimum document ${G.docMin.width} × ${G.docMin.height} px; panel minimum heights ${PANELS.map((p) => `${p.title} ${p.minHeight}`).join(", ")}. ` +
+    `Work area ${Math.round(work.width)} × ${Math.round(work.height)}; documents: ${s.tiled.length} tiled, ${s.floating.length} floating` +
+    (opened.length ? `; last opened: ${opened.at(-1)}.` : ".");
+}
+
+/** The initial desk: the toolbar in the band, two panels left, three right, two documents. */
+function reset(docs: DocLayout = docLayout(), count = 2, patch: Partial<DeskState> = {}): void {
+  for (const it of items) it.el.remove();
+  items = [];
+  lifted = null;
+  raised = null;
+  drop = null;
+  snapped = null;
+  home = null;
+  hideHint();
+  nextDoc = 1;
+  opened = [];
+  state = normalize({ toolbar: "band", left: [1, 3], right: [2, 4, 5], pinned: [], folded: [], docLayout: docs, tiled: [], tree: null, floating: [], ...patch }, SPEC);
+  for (let i = 0; i < count; i++) {
+    const id = nextDoc++;
+    const r = openDoc(state, SPEC, id, focusId);
+    state = normalize(r.state, SPEC);
+  }
+  const layout = layoutDesk(state, SPEC);
+  toolbarSizePlace = state.toolbar ?? "band";
+  makeToolbar(layout.rects.get("toolbar")!);
+  for (const p of PANELS) makePanel(p, layout.rects.get(panelKey(p.id))!);
+  for (const id of docIds(state)) makeDoc(id, layout.rects.get(docKey(id))!);
+  focus(docIds(state).at(-1) ?? null);
+  for (const it of items) {
+    it.el.style.zIndex = zOf(it, state);
+    if (it.kind === "panel") {
+      it.el.classList.toggle("folded", state.folded.includes(it.id));
+      it.content.querySelector(".fold")!.textContent = state.folded.includes(it.id) ? "▸" : "▾";
+    }
+  }
+  lastRows = [];
+  updateReadout();
+}
+
+// --- the frame ---------------------------------------------------------------------------------------------------
+
+let time = 0;
+let episode: {
+  t0: number;
+  segments: Segment[];
+  runs: TargetSample[][];
+  scale: ScaleSample[];
+  held: HeldSample[];
+  onTop: (string | null)[];
+  room: (string | null)[];
+  toolbarSize: (string | null)[];
+  minSize: (string | null)[];
+  label: (string | null)[];
+  pops: number;
+  drop: DropMode;
+} | null = null;
+let idleWaiters: Array<() => void> = [];
+const loop = createFrameLoop({ clock: createBrowserClock() });
+let running = false;
+
+function startEpisode(): void {
+  if (episode) return;
+  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], toolbarSize: [], minSize: [], label: [], pops: 0, drop: dropMode };
+  for (const it of items) {
+    it.runs = [[]];
+    episode.runs.push(...it.runs);
+  }
+}
+
+function newRun(it: Item): void {
+  const run: TargetSample[] = [];
+  it.runs.push(run);
+  episode?.runs.push(run);
+}
+
+function ensureLoop(): void {
+  startEpisode();
+  if (running) return;
+  running = true;
+  loop.repeat("update", tick);
+}
+
+const measure = (it: Item): { scale: ScaleSample; frame: Rect } => measureFrame(stage, STAGE_W, it, time);
+
+/** Stage rect of an element, from the DOM. */
+function stageRectOf(el: Element): Rect {
+  const s = stage.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  const k = STAGE_W / s.width;
+  return { x: (r.left - s.left - stage.clientLeft) * k, y: (r.top - s.top - stage.clientTop) * k, width: r.width * k, height: r.height * k };
+}
+
+function tick(frame: FrameInfo): boolean {
+  const dt = frame.delta;
+  time += dt;
+  let moving = lifted !== null;
+  for (const it of [...items]) {
+    if (it.rect.step(dt)) moving = true;
+    if (it.pop.step(dt)) moving = true;
+    draw(it);
+    if (!episode) continue;
+    const seen = measure(it);
+    episode.scale.push(seen.scale);
+    if (!it.pop.settled) episode.pops++;
+    const drawn = it.rect.value;
+    if (it === lifted && dropMode === "indicator") {
+      if (expected) episode.held.push({ t: time, rect: seen.frame, expected });
+    } else {
+      it.runs.at(-1)!.push({ t: time, rect: drawn, target: it.rect.target });
+      it.segment?.samples.push({ t: time, rect: drawn });
+    }
+    // Never below the minimum: a document (drawn and laid out), a panel in a column (laid out, unless folded).
+    if (it.kind === "doc" && !it.closing && it.pop.settled) {
+      const small = [drawn, it.target].find((r) => r.width < G.docMin.width - 0.5 || r.height < G.docMin.height - 0.5);
+      episode.minSize.push(small ? `t=${Math.round(time)} ${it.name} at ${Math.round(small.width)} × ${Math.round(small.height)}` : null);
+    }
+    if (it.kind === "panel" && it !== lifted) {
+      const s = roomDrop()?.state ?? state;
+      const inColumn = s.left.includes(it.id) || s.right.includes(it.id);
+      const min = PANELS.find((p) => p.id === it.id)!.minHeight;
+      if (inColumn && !s.folded.includes(it.id)) episode.minSize.push(it.target.height < min - 0.5 ? `t=${Math.round(time)} ${it.name} laid out ${Math.round(it.target.height)} px tall (min ${min})` : null);
+    }
+    if (it.closing && it.pop.settled) {
+      it.el.remove();
+      items = items.filter((x) => x !== it);
+    }
+  }
+  if (episode) {
+    // The toolbar keeps its place's content size on every frame: its frame is that size and its buttons wrap
+    // into that place's rows.
+    const tb = toolbarItem();
+    const box = toolbarBox(toolbarSizePlace);
+    const f = measure(tb).frame;
+    const tops = new Set([...tb.content.querySelectorAll<HTMLElement>(".tb-cell")].map((c) => c.offsetTop));
+    const off = Math.max(Math.abs(f.width - box.width), Math.abs(f.height - box.height));
+    episode.toolbarSize.push(
+      off > 0.5
+        ? `t=${Math.round(time)} toolbar drawn ${Math.round(f.width)} × ${Math.round(f.height)}, its ${toolbarSizePlace} content is ${box.width} × ${box.height}`
+        : tops.size !== box.rows
+          ? `t=${Math.round(time)} toolbar buttons in ${tops.size} rows, ${toolbarSizePlace} needs ${box.rows}`
+          : null,
+    );
+    // The drop label stays inside the stage (the positioner's flip and slide).
+    if (!hintLabel.hidden) {
+      const r = stageRectOf(hintLabel);
+      const out = r.x < -0.5 || r.y < -0.5 || r.x + r.width > STAGE_W + 0.5 || r.y + r.height > STAGE_H + 0.5;
+      episode.label.push(out ? `t=${Math.round(time)} label at (${Math.round(r.x)}, ${Math.round(r.y)}) ${Math.round(r.width)} × ${Math.round(r.height)} leaves the stage` : null);
+    }
+  }
+  // Room: once the others have settled, none of the ones that take room overlaps the slot kept for the lifted item.
+  const room = roomDrop();
+  if (lifted && room && !room.pinned && episode) {
+    const s = room.state;
+    const takesRoom = (it: Item): boolean =>
+      it !== lifted &&
+      !it.closing &&
+      (it.kind === "doc" || (it.kind === "toolbar" ? s.toolbar !== "pinned" : !s.pinned.includes(it.id)));
+    const others = items.filter(takesRoom);
+    const blocking = others.every((o) => o.rect.settled) ? others.filter((o) => overlap(o.rect.value, room.slot) > 1) : null;
+    if (blocking) episode.room.push(blocking.length ? `t=${Math.round(time)} ${blocking.map((o) => o.name).join(", ")} still in the slot kept for ${lifted.name}` : null);
+  }
+  const r = raised;
+  if (r && episode) {
+    const fr = measure(r).frame;
+    const at = r === lifted && inside(fr, pointer.x, pointer.y) ? pointer : { x: fr.x + fr.width / 2, y: fr.y + fr.height / 2 };
+    const v = onTopIn(stage, STAGE_W, { el: r.el, name: r.name }, at, fr, time, (top) => {
+      const key = top.closest<HTMLElement>(".win")?.dataset.key;
+      return key ? (items.find((x) => x.key === key)?.name ?? key) : null;
+    });
+    if (v !== undefined) episode.onTop.push(v);
+    if (r !== lifted && r.rect.settled) {
+      raised = null;
+      r.el.style.zIndex = zOf(r, state);
+    }
+  }
+  if (moving) return true;
+  running = false;
+  endEpisode();
+  return false;
+}
+
+// --- checks ------------------------------------------------------------------------------------------------------
+
+let lastRows: Row[] = [];
+/** While a scenario runs: the rows of each of its moves. */
+let collecting: Row[][] | null = null;
+
+function endEpisode(): void {
+  const ep = episode;
+  episode = null;
+  if (!ep) return;
+  const { rows, segments } = motionRows(ep, omega(), (uid) => names.get(uid) ?? `item ${uid}`);
+  lastRows = [
+    ...rows,
+    { name: "Toolbar keeps its content size per place", result: ep.toolbarSize.length > 0 ? framesResult(ep.toolbarSize) : null },
+    { name: "Never below min size", result: ep.minSize.length > 0 ? framesResult(ep.minSize) : null },
+    { name: "Drop label stays inside the stage (flip, slide)", result: ep.label.length > 0 ? framesResult(ep.label) : null },
+  ];
+  collecting?.push(lastRows);
+  checksTitle.textContent = `Checks of the last move · drop preview: ${ep.drop === "snap" ? "snap to slot" : "drop indicator"}`;
+  renderChecks(checksBody, lastRows);
+  renderTrace(trace, ep.t0, segments);
+  const waiters = idleWaiters;
+  idleWaiters = [];
+  for (const resolve of waiters) resolve();
+}
+
+/** The rows of several moves as one: a rule fails if it failed in any move, and is exercised if it was in any. */
+function mergeRows(all: readonly Row[][]): Row[] {
+  const first = all[0] ?? [];
+  return first.map((row, i) => {
+    const results = all.map((rows) => rows[i]!.result).filter((r): r is CheckResult => r !== null);
+    const info = all.map((rows) => rows[i]!.info).filter(Boolean).at(-1);
+    return { name: row.name, result: results.length ? merge(results) : null, ...(info ? { info } : {}) };
+  });
+}
+
+// --- scenarios ---------------------------------------------------------------------------------------------------
+
+const idle = (): Promise<void> => (running || episode ? new Promise((r) => idleWaiters.push(r)) : Promise.resolve());
+
+const gripOf = (it: Item): Point => {
+  const d = it.rect.value;
+  return it.kind === "toolbar" ? { x: d.x + G.toolbarPad + G.button / 2, y: d.y + G.toolbarPad + G.button / 2 } : { x: d.x + 40, y: d.y + 13 };
+};
+
+/** A scripted drag: lift at `it`'s grip, glide the pointer to `to()` (found after the lift), release or Escape. */
+async function scriptedDrag(it: Item, to: () => Point, opts: { escapeAt?: number } = {}): Promise<void> {
+  const from = gripOf(it);
+  beginDrag(it, from.x, from.y);
+  const end = to();
+  const steps = 30;
+  for (let i = 1; i <= steps; i++) {
+    await nextFrame();
+    const f = i / steps;
+    const e = f < 0.5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
+    moveDrag(from.x + (end.x - from.x) * e, from.y + (end.y - from.y) * e);
+    if (opts.escapeAt === i) {
+      cancelPress();
+      endDrag(true);
+      return;
+    }
+  }
+  // Hold still until the others have made room (at most half a second), then release.
+  for (let i = 0; i < 30 && items.some((o) => o !== it && !o.rect.settled); i++) await nextFrame();
+  await nextFrame();
+  endDrag();
+}
+
+const centre = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+const ZONE_POINT: Record<Zone, Point> = { band: { x: STAGE_W / 2, y: 26 }, left: { x: 60, y: 320 }, right: { x: STAGE_W - 60, y: 320 }, pinned: { x: STAGE_W / 2, y: 300 } };
+/** Where to point to dock the lifted panel at `index` of `side`: the centre of that drop's slot. */
+const slotPoint = (it: Item, side: Side, index: number) => (): Point => centre(makeDrop(it, side, index).slot);
+
+type Expect = (ok: boolean, failure: string) => void;
+interface Scenario {
+  readonly setup?: () => void;
+  readonly play: (expect: Expect) => Promise<void>;
+}
+
+const sameRect = (a: Rect, b: Rect): boolean => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height)) < 0.5;
+
+async function toolbarTo(place: ToolbarPlace, expect: Expect): Promise<void> {
+  await scriptedDrag(toolbarItem(), () => ZONE_POINT[place]);
+  await idle();
+  const tb = toolbarItem();
+  const box = toolbarBox(place);
+  expect(state.toolbar === place, `the toolbar is in ${state.toolbar}, not ${place}`);
+  expect(Math.abs(tb.rect.value.width - box.width) < 0.5 && Math.abs(tb.rect.value.height - box.height) < 0.5, `the toolbar is ${Math.round(tb.rect.value.width)} × ${Math.round(tb.rect.value.height)} in ${place}, its content is ${box.width} × ${box.height}`);
+  expect(sameRect(tb.rect.value, layoutDesk(state, SPEC).rects.get("toolbar")!), `the toolbar didn't settle in its ${place} place`);
+}
+
+const panelItem = (id: number): Item => itemOf(panelKey(id))!;
+const heightOf = (id: number): number => layoutDesk(state, SPEC).rects.get(panelKey(id))!.height;
+
+const SCENARIOS: Record<string, Scenario> = {
+  "toolbar: band → left column → pinned → band": {
+    play: async (expect) => {
+      const work0 = workArea(state, SPEC);
+      await toolbarTo("left", expect);
+      expect(workArea(state, SPEC).height > work0.height, "the work area didn't grow when the band emptied");
+      await toolbarTo("pinned", expect);
+      await toolbarTo("band", expect);
+      expect(sameRect(workArea(state, SPEC), work0), "the work area isn't back to its size with the toolbar in the band");
+    },
+  },
+  "fold and unfold a panel": {
+    play: async (expect) => {
+      const outline = heightOf(3);
+      doFold(1);
+      await idle();
+      expect(heightOf(1) === G.title, `Files folded to ${heightOf(1)} px, not its title bar`);
+      expect(heightOf(3) > outline, "Outline didn't take the room Files gave up");
+      expect(sameRect(panelItem(3).rect.value, layoutDesk(state, SPEC).rects.get(panelKey(3))!), "Outline didn't settle");
+      doFold(1);
+      await idle();
+      expect(Math.abs(heightOf(3) - outline) < 0.5, "unfolding didn't give Outline its old height back");
+    },
+  },
+  "dock a panel at index 0, then at index 2": {
+    play: async (expect) => {
+      const notes = panelItem(2);
+      await scriptedDrag(notes, slotPoint(notes, "left", 0));
+      await idle();
+      expect(state.left[0] === 2, `Notes is at ${state.left.indexOf(2)} of the left column, not 0`);
+      const inspector = panelItem(4);
+      await scriptedDrag(inspector, slotPoint(inspector, "left", 2));
+      await idle();
+      expect(state.left[2] === 4, `Inspector is at ${state.left.indexOf(4)} of the left column, not 2`);
+      expect(state.left.join() === "2,1,4,3", `left column is ${state.left.join()}`);
+    },
+  },
+  "move a panel between columns": {
+    play: async (expect) => {
+      const outline = panelItem(3);
+      await scriptedDrag(outline, slotPoint(outline, "right", 3));
+      await idle();
+      expect(placeOfPanel(state, 3) === "right" && state.right.at(-1) === 3, `Outline is in ${placeOfPanel(state, 3)} at ${state.right.indexOf(3)}`);
+      expect(state.left.join() === "1", `left column is ${state.left.join()}`);
+    },
+  },
+  "open 1, then 5 documents (master)": {
+    setup: () => reset("master"),
+    play: async (expect) => openOneThenFive(expect),
+  },
+  "open 1, then 5 documents (floating)": {
+    setup: () => reset("floating"),
+    play: async (expect) => openOneThenFive(expect),
+  },
+  "pin a panel (the work area keeps its size)": {
+    play: async (expect) => {
+      const work0 = workArea(state, SPEC);
+      await scriptedDrag(panelItem(2), () => ZONE_POINT.pinned);
+      await idle();
+      expect(state.pinned.includes(2), "Notes isn't pinned");
+      expect(sameRect(workArea(state, SPEC), work0), "the work area changed size when a panel was pinned");
+    },
+  },
+  "Escape mid-drag restores": {
+    play: async (expect) => {
+      const before = JSON.stringify(state);
+      const rects = items.map((it) => [it.key, { ...it.rect.value }] as const);
+      await scriptedDrag(toolbarItem(), () => ZONE_POINT.left, { escapeAt: 22 });
+      await idle();
+      expect(JSON.stringify(state) === before, "the desk isn't as it was before the lift");
+      for (const [key, r] of rects) expect(sameRect(itemOf(key)!.rect.value, r), `${key} didn't go back home`);
+    },
+  },
+  "a full column pins its newest panel": {
+    setup: () => reset(docLayout(), 2, { left: [2, 1, 4, 3], right: [5] }),
+    play: async (expect) => {
+      expect(state.pinned.length === 0, "something was pinned before the move");
+      await toolbarTo("left", expect);
+      expect(state.pinned.join() === "4", `pinned: ${state.pinned.join() || "nothing"}; Inspector (the newest in the left column) should be`);
+    },
+  },
+};
+
+async function openOneThenFive(expect: Expect): Promise<void> {
+  const n0 = docIds(state).length;
+  doOpen();
+  await idle();
+  for (let i = 0; i < 5; i++) doOpen();
+  await idle();
+  expect(docIds(state).length === n0 + 6, `${docIds(state).length} documents open, expected ${n0 + 6}`);
+  expect(opened.includes("cascade"), `no document was placed by cascade (${opened.join(", ")})`);
+  const work = workArea(state, SPEC);
+  const layout = layoutDesk(state, SPEC);
+  for (const id of docIds(state)) {
+    const r = layout.rects.get(docKey(id))!;
+    expect(r.x >= work.x - 0.5 && r.y >= work.y - 0.5 && r.x + r.width <= work.x + work.width + 0.5 && r.y + r.height <= work.y + work.height + 0.5, `document ${id} leaves the work area`);
+  }
+}
+
+const runs: LabRun[] = [];
+
+async function runScenario(name: string): Promise<LabRun> {
+  const sc = SCENARIOS[name]!;
+  if (sc.setup) sc.setup();
+  else reset();
+  await nextFrame();
+  const failures: string[] = [];
+  collecting = [];
+  try {
+    await sc.play((ok, failure) => {
+      if (!ok) failures.push(failure);
+    });
+    await idle();
+  } finally {
+    const moves = collecting ?? [];
+    collecting = null;
+    lastRows = [...mergeRows(moves), { name: "Scenario expectations", result: verdict(failures) }];
+  }
+  renderChecks(checksBody, lastRows);
+  const failed = lastRows.filter((r) => r.result && !r.result.ok).map((r) => r.name);
+  const run: LabRun = { scenario: name, mode: dropMode, failed, rows: lastRows };
+  runs.push(run);
+  const tr = document.createElement("tr");
+  tr.innerHTML = "<td></td><td></td><td></td>";
+  tr.children[0]!.textContent = name;
+  tr.children[1]!.textContent = dropMode === "snap" ? "snap to slot" : "drop indicator";
+  tr.children[2]!.textContent = failed.length ? failed.join(", ") : "none";
+  (tr.children[2] as HTMLElement).className = failed.length ? "bad" : "ok";
+  runsBody.append(tr);
+  return run;
+}
+
+let runningAll = false;
+let stopAll = false;
+const runAllButton = document.querySelector("button[data-act=runall]") as HTMLButtonElement;
+
+async function runAll(): Promise<LabRun[]> {
+  if (runningAll) return [];
+  runningAll = true;
+  stopAll = false;
+  runAllButton.textContent = "Stop scenarios";
+  const before = dropMode;
+  const docsBefore = docLayout();
+  const out: LabRun[] = [];
+  runsBody.replaceChildren();
+  try {
+    outer: for (const m of ["indicator", "snap"] as const) {
+      setDropMode(m);
+      for (const name of Object.keys(SCENARIOS)) {
+        if (stopAll) break outer;
+        out.push(await runScenario(name));
+      }
+    }
+  } finally {
+    setDropMode(before);
+    (document.querySelector(`input[name=docs][value=${docsBefore}]`) as HTMLInputElement).checked = true;
+    reset(docsBefore);
+    runningAll = false;
+    stopAll = false;
+    runAllButton.textContent = "Run all scenarios";
+  }
+  return out;
+}
+
+/** For screenshots: lift the toolbar and leave it held halfway to the left column, the indicator showing. */
+async function midToolbarDrag(): Promise<void> {
+  const it = toolbarItem();
+  const from = gripOf(it);
+  beginDrag(it, from.x, from.y);
+  const end = { x: 90, y: 260 };
+  for (let i = 1; i <= 12; i++) {
+    await nextFrame();
+    moveDrag(from.x + ((end.x - from.x) * i) / 12, from.y + ((end.y - from.y) * i) / 12);
+  }
+  for (let i = 0; i < 20; i++) await nextFrame();
+}
+
+// --- wiring ------------------------------------------------------------------------------------------------------
+
+const checked = (name: string): string | undefined => document.querySelector<HTMLInputElement>(`input[name=${name}]:checked`)?.value;
+const docLayout = (): DocLayout => (checked("docs") as DocLayout | undefined) ?? "master";
+
+function setDropMode(m: DropMode): void {
+  dropMode = m;
+  (document.querySelector(`input[name=drop][value=${m}]`) as HTMLInputElement).checked = true;
+}
+
+document.querySelectorAll<HTMLInputElement>("input[name=drop]").forEach((input) => input.addEventListener("change", () => setDropMode(input.value as DropMode)));
+document.querySelectorAll<HTMLInputElement>("input[name=docs]").forEach((input) => input.addEventListener("change", () => setDocs(input.value as DocLayout)));
+document.querySelectorAll<HTMLInputElement>("input[name=tempo]").forEach((input) =>
+  input.addEventListener("change", () => {
+    tempo = input.value as Tempo;
+    for (const it of items) it.rect.configure({ omega: omega() });
+  }),
+);
+const actions: Record<string, () => void> = {
+  open: doOpen,
+  open5: () => {
+    for (let i = 0; i < 5; i++) doOpen();
+  },
+  close: doClose,
+  "tb-band": () => doToolbar("band"),
+  "tb-left": () => doToolbar("left"),
+  "tb-right": () => doToolbar("right"),
+  "tb-pinned": () => doToolbar("pinned"),
+  runall: () => {
+    if (runningAll) {
+      stopAll = true;
+      runAllButton.textContent = "Stopping…";
+    } else void runAll();
+  },
+};
+document.querySelectorAll<HTMLButtonElement>("button[data-act]").forEach((b) => b.addEventListener("click", () => actions[b.dataset.act!]?.()));
+
+// Start from what the controls show (a reload restores the browser's checked radios).
+tempo = (checked("tempo") as Tempo | undefined) ?? tempo;
+dropMode = (checked("drop") as DropMode | undefined) ?? dropMode;
+reset(docLayout());
+
+window.__motionLab = { runAll, runs, lastRows: () => lastRows, midToolbarDrag };
