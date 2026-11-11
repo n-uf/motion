@@ -53,8 +53,8 @@ alien-signals: an effect's own writes don't re-run it (as in Vue).
 
 ## Numbers
 
-Measured 2026-11-07, Node 26.12 on the operator's laptop (Apple Silicon),
-which was running other sessions' dev servers at the time. Medians swung by
+Measured 2026-11-07, Node 26.12 on an M1 laptop with 16 GB,
+which was running other dev servers at the time. Medians swung by
 up to 10 times from load, so the best times carry the comparison.
 
 ### Timing (`node bench/run.mjs`)
