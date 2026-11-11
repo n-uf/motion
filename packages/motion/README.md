@@ -173,7 +173,7 @@ is never stretched.
 | `settle.hold(value)` | Hold: put the value exactly there, at rest (same as `jumpTo`). Call it on each pointer move; the next `setTarget` launches from there. |
 | `settleValue(loop, initial, { omega?, restDelta?, phase?, reducedMotion? })` | The settle on a frame loop. Hold it with `mv.jump(rect)`. |
 | `reveal(drawn, target)` | How to draw a window gliding at `drawn` whose content is laid out at `target`: move the element by `dx, dy`, draw the frame (chrome) at `width × height`, clip the content by `clipRight, clipBottom`. No scale, no layout per frame. |
-| `popIn(progress, from = 0.87)` | Opening and closing: a uniform scale about the centre plus opacity. |
+| `popIn(progress, from = 0.87)` | Opening and closing: a uniform scale about the centre plus opacity. Drive `progress` with a settle on a number with `{ restDelta: 0.001 }` (the default 0.1 is for pixels) or a tween. |
 
 ```ts
 import { createFakeClock, createFrameLoop, settleValue } from "@n-uf/motion";
@@ -198,13 +198,14 @@ animation frame) and ask:
 |---|---|
 | `checkNoOvershoot(samples, from, to, tolerance?)` | Every component stays between its start and end: no overshoot, no size wobble. |
 | `checkMonotonic(samples, to, tolerance?)` | The distance to the target never grows: no bounce, no restart backwards. |
-| `checkNoJumps(samples, omega, slack?)` | No frame moves further than a settle at `omega` could: catches snaps and restarts from an old place. |
+| `checkNoJumps(samples, omega, slack?)` | No frame moves further than a settle at `omega` could: catches snaps and restarts from an old place. Sample times are the stepped time (the loop's `delta`s), not wall-clock timestamps. |
 | `checkHeld(samples, tolerance?)` | A held rect is where the pointer puts it, every frame. |
 | `checkContentScale(samples, { uniformOnly?, tolerance? })` | Content's transform is never non-uniform (stretched); with `uniformOnly: false`, never scaled at all. |
-| `checkTempo(samples, from, to, t90, tolerance?)` | 90 % of the way within `t90` ms; returns the measured time too. |
+| `checkTempo(samples, from, to, t90, tolerance?, startT?)` | 90 % of the way within `t90` ms of `startT` (default: the first sample, so record the frame the move began); returns the measured time too. |
 
 Each returns `{ ok, failures }`, a failure naming the frame and component.
-The lab in this repo (`pnpm lab`, `apps/lab`) runs them on every move.
+The motion lab in the [n-uf/motion repository](https://github.com/n-uf/motion)
+(`apps/lab`) runs them on every move.
 
 ## gestures/
 
