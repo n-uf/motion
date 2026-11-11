@@ -188,7 +188,9 @@ function treeTargets({ s0, key, size }: TargetInput): DropTarget[] {
     if (group !== "C" && list.length === 0) continue;
     for (let i = 0; i <= list.length; i++) {
       const state = { ...s0, tree: { ...t, [group]: insert(list, i, key) } };
-      const zone = treeTiles(state.tree, area).get(key)!;
+      // The slot as laid out once the tiles that break a minimum have floated (as laid out without them if it floats).
+      const tiled = treeFloats(state.tree, area);
+      const zone = treeTiles(tiled.floats.includes(key) ? state.tree : tiled.tree, area).get(key)!;
       out.push({ id: `tile:${group}:${i}`, prio: 2, hit: zone, make: fixed(state, `${NAME[group]}, ${landing(state.tree, area, key, group, centre)}`) });
     }
   }
