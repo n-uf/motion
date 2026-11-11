@@ -1,0 +1,11 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "noEmit": true,
+    "ignoreDeprecations": "6.0",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["src/islands/**/*.ts", "src/demos/**/*.ts", "src/data/pages.ts", "src/data/schema.ts", "src/data/site.ts"],
+  "exclude": ["dist"]
+}

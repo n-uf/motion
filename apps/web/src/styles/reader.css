@@ -1,0 +1,36 @@
+/* Articles and use-case pages (Reader.astro) and the section indexes: the same tokens as every other page. */
+.byline { margin-top: var(--s1); font-size: var(--t-sm); color: var(--text-3); }
+.cap { margin: 0 0 var(--s3); font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+.takeaways, .toc, .faq-card, .related, .sources, .get, .ix-card { padding: var(--s5); border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); box-shadow: var(--shadow-1); }
+.takeaways ul { margin: 0; padding-left: 1.2em; color: var(--text-2); display: grid; gap: 6px; }
+.reader-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); margin-top: var(--s5); }
+.reader-grid[data-toc="on"] { grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); align-items: start; }
+.toc { position: sticky; top: calc(var(--topbar) + 16px); }
+.toc ol { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; font-size: var(--t-sm); }
+.toc a { color: var(--text-2); text-decoration: none; }
+.toc a:hover { color: var(--accent-strong); }
+.main-col { display: grid; gap: var(--s5); min-width: 0; }
+.prose { max-width: 70ch; font-size: 16px; line-height: 1.7; }
+.prose h2 { margin: var(--s6) 0 var(--s3); font-size: var(--t-lg); }
+.prose h3 { margin: var(--s5) 0 var(--s2); }
+.prose p, .prose ul, .prose ol { margin: 0 0 var(--s4); color: var(--text-2); }
+.prose figure.shot { margin: var(--s5) 0; }
+.prose figure.shot img { max-width: 100%; height: auto; border-radius: var(--r); box-shadow: 0 0 0 1px var(--line), var(--shadow-1); }
+.prose figcaption { margin-top: var(--s2); font-size: var(--t-sm); color: var(--text-3); }
+.faq-card details { border-top: 1px solid var(--line); padding: var(--s3) 0; }
+.faq-card summary { cursor: pointer; font-weight: 600; }
+.faq-card details p { margin: var(--s2) 0 0; color: var(--text-2); }
+.related ul, .sources ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s3); }
+.related a { display: grid; gap: 2px; text-decoration: none; }
+.related a b { color: var(--text); }
+.related a span { color: var(--text-2); font-size: var(--t-sm); }
+.sources .chk { color: var(--text-3); font-size: var(--t-xs); }
+.get p { color: var(--text-2); }
+.ix-list { display: grid; gap: var(--s4); }
+.ix-card h2 { margin: var(--s1) 0 var(--s2); font-size: var(--t-lg); }
+.ix-card h2 a { color: var(--text); text-decoration: none; }
+.ix-card h2 a:hover { color: var(--accent-strong); }
+.ix-card p { color: var(--text-2); }
+.ix-card .when { display: block; margin-top: var(--s2); font-size: var(--t-xs); color: var(--text-3); }
+.sched { display: inline-block; padding: 0 8px; border-radius: 999px; background: var(--signal-soft); color: var(--signal); font-size: var(--t-xs); font-weight: 600; }
+@media (max-width: 860px) { .reader-grid[data-toc="on"] { grid-template-columns: minmax(0, 1fr); } .toc { position: static; } }

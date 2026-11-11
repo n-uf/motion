@@ -1,0 +1,48 @@
+---
+// /blog/ (the index) and /blog/<slug>/ (an article) in one route, so that neither exists while the blog is empty.
+import { render } from "astro:content";
+import Site from "../../layouts/Site.astro";
+import Reader from "../../layouts/Reader.astro";
+import ExtLink from "../../components/ExtLink.astro";
+import "../../styles/reader.css";
+import ScheduledBadge from "../../components/ScheduledBadge.astro";
+import { getPosts, sections, pathOf, dateText, kindLabel, isLive, showDrafts } from "../../data/content";
+import { orgNode, webPage, breadcrumbs } from "../../data/schema";
+import { withImages } from "../../data/images";
+import { withLiveBlocks } from "../../data/live";
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  if (posts.length === 0) return [];
+  return [
+    { params: { slug: undefined }, props: { posts } },
+    ...posts.map((entry) => ({ params: { slug: entry.id }, props: { posts, entry } })),
+  ];
+}
+const { posts, entry } = Astro.props;
+const rendered = entry ? await render(entry) : undefined;
+// the body with its {{live:}} blocks resolved (src/data/live.ts), and its images as sized figures (src/data/images.ts); the plain component if there is no rendered HTML
+const html = entry?.rendered?.html ? withImages(await withLiveBlocks(entry.rendered.html, entry.filePath ?? `src/content/blog/${entry.id}.md`)) : undefined;
+
+const { title, description } = sections.blog;
+const crumbs = [{ name: "Home", path: "/" }, { name: "Blog", path: "/blog/" }];
+const jsonLd = [webPage({ path: "/blog/", name: title, description, type: "CollectionPage" }), breadcrumbs(crumbs), orgNode];
+---
+{entry && rendered ? (
+  <Reader entry={entry} section="blog" headings={rendered.headings}>{html ? <Fragment set:html={html} /> : <rendered.Content />}</Reader>
+) : (
+  <Site title={title} description={description} path="/blog/" headline="Articles on window motion" eyebrow="Blog" crumbs={crumbs} jsonLd={jsonLd}>
+    <p class="lead" slot="lead">Short articles on settle curves, reveal without stretching, held drags and drop targets that wait until you aim. Newest first, each with the date it was last updated. n-uf motion is made by <ExtLink href="https://n-uf.com">n-uf</ExtLink>.</p>
+    <div class="ix-list">
+      {posts.map((e) => (
+        <article class="ix-card">
+          <p class="eyebrow">{kindLabel[e.data.kind]}</p>
+          <h2><a href={pathOf("blog", e.id)}>{e.data.h1}</a></h2>
+          <p>{e.data.description}</p>
+          <span class="when">Updated {dateText(e.data.updated)}</span>
+          {showDrafts && !isLive(e) && <ScheduledBadge date={e.data.published} />}
+        </article>
+      ))}
+    </div>
+  </Site>
+)}

@@ -1,0 +1,11 @@
+---
+import Site from "../layouts/Site.astro";
+import { demoPages } from "../data/pages";
+import { orgNode } from "../data/schema";
+---
+<Site title="Not found | n-uf motion" description="This page doesn't exist. n-uf motion is a TypeScript library for window motion that settles and never overshoots: the home page shows how it works." path="/404/" headline="This page doesn't exist" jsonLd={[orgNode]} noindex>
+  <p class="lead" slot="lead">Nothing is at this address. Go <a href="/">back to the library's home page</a>, or open one of its pages:</p>
+  <ul class="notfound">
+    {demoPages.map((p) => <li><a href={p.path}>{p.nav}</a></li>)}
+  </ul>
+</Site>
