@@ -108,6 +108,26 @@ main.wide { max-width: 1040px; }
 }
 .win.toolbar .tb-grip { cursor: grab; user-select: none; touch-action: none; background: transparent; }
 .win.toolbar.lifted .tb-grip { cursor: grabbing; }
+/* Collapsed: just the grip. */
+.win.toolbar.collapsed .tb-cell:not(.tb-grip) { display: none; }
+/* The toolbar's menu: beside the grip, placed by the xdg-positioner rule. */
+.desk-menu {
+  position: absolute;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  min-width: 128px;
+  padding: 4px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--win);
+  box-shadow: var(--lift-shadow);
+}
+.desk-menu button { text-align: left; border: 0; border-radius: 4px; padding: 4px 8px 4px 22px; background: transparent; color: var(--ink); font: inherit; font-size: 13px; position: relative; }
+.desk-menu button:focus, .desk-menu button:hover { background: var(--title); outline: none; }
+.desk-menu button[aria-checked="true"]::before { content: "✓"; position: absolute; left: 7px; }
+.desk-menu .sep { height: 1px; margin: 4px 2px; background: var(--line); }
 /* Panels: a title bar with a fold button; a folded panel is just its title bar. */
 .win.panel .frame { background: linear-gradient(var(--title) 26px, var(--win) 26px); border-color: var(--muted); }
 .win.panel .title { display: flex; justify-content: space-between; align-items: center; touch-action: none; }

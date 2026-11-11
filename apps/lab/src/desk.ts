@@ -27,7 +27,12 @@ import {
   toolbarBox,
   withoutPanel,
   withPanel,
+  withShape,
   withToolbar,
+  DEFAULT_SHAPE,
+  isBand,
+  MENU_RULE,
+  type ToolbarShape,
   workArea,
   type DeskLayout,
   type DeskSpec,
@@ -98,8 +103,8 @@ let focusId: number | null = null;
 let nextDoc = 1;
 /** How the last opened documents were placed ("tiled", "free" or "cascade"), newest last. */
 let opened: string[] = [];
-/** The place whose content size the toolbar has now. */
-let toolbarSizePlace: ToolbarPlace = "band";
+/** The place and shape whose content size the toolbar has now. */
+let toolbarSize: { place: ToolbarPlace; shape: ToolbarShape } = { place: "band-start", shape: DEFAULT_SHAPE };
 
 const omega = (): number => SETTLE_TEMPO[tempo];
 const itemOf = (key: string): Item | undefined => items.find((it) => it.key === key && !it.closing);
@@ -118,7 +123,7 @@ interface Drop {
   /** It lands pinned: it takes no room, so nothing has to leave its slot. */
   readonly pinned: boolean;
 }
-type Zone = "band" | Side | "pinned";
+type Zone = ToolbarPlace;
 
 let lifted: Item | null = null;
 let grab: Point = { x: 0, y: 0 };
@@ -128,7 +133,7 @@ let pointer: Point = { x: 0, y: 0 };
 let drop: Drop | null = null;
 /** Snap mode: the drop the item is snapped into, or null while it follows the pointer. */
 let snapped: Drop | null = null;
-let home: { state: DeskState; rect: Rect; sizePlace: ToolbarPlace } | null = null;
+let home: { state: DeskState; rect: Rect; size: typeof toolbarSize } | null = null;
 let leftHome = false;
 /** The item kept above all others: the dragged one, and after the drop until it has settled. */
 let raised: Item | null = null;
@@ -137,31 +142,41 @@ const SNAP_IN = 12;
 /** Where the others make room for the lifted item now (indicator: the marked drop; snap: the drop it is snapped into). */
 const roomDrop = (): Drop | null => (!lifted ? null : dropMode === "snap" ? snapped : drop);
 
-/** The drop zones: the band along the top, a strip at each edge, the view (pinned) everywhere else. */
+/**
+ * The drop zones: the band along the top (its left half docks at the band's start, its right half at its end), a
+ * strip at each edge, the view (pinned) everywhere else.
+ */
 function zoneRect(kind: Item["kind"], z: Zone): Rect {
   const edge = kind === "toolbar" ? 120 : 150;
   const top = kind === "toolbar" ? 56 : 0;
-  if (z === "band") return { x: 0, y: 0, width: STAGE_W, height: 56 };
+  if (z === "band-start") return { x: 0, y: 0, width: STAGE_W / 2, height: 56 };
+  if (z === "band-end") return { x: STAGE_W / 2, y: 0, width: STAGE_W / 2, height: 56 };
   if (z === "left") return { x: 0, y: top, width: edge, height: STAGE_H - top };
   if (z === "right") return { x: STAGE_W - edge, y: top, width: edge, height: STAGE_H - top };
   return STAGE;
 }
 
 function zoneAt(kind: Item["kind"], p: Point): Zone {
-  const order: Zone[] = kind === "toolbar" ? ["band", "left", "right"] : ["left", "right"];
+  const order: Zone[] = kind === "toolbar" ? ["band-start", "band-end", "left", "right"] : ["left", "right"];
   return order.find((z) => inside(zoneRect(kind, z), p.x, p.y)) ?? "pinned";
 }
 
-const PLACE_LABEL: Record<Zone, string> = { band: "Top band", left: "Left column", right: "Right column", pinned: "Pinned over the view" };
+const PLACE_LABEL: Record<Zone, string> = {
+  "band-start": "Top band, left end",
+  "band-end": "Top band, right end",
+  left: "Left column",
+  right: "Right column",
+  pinned: "Pinned over the view",
+};
 
 function makeDrop(it: Item, zone: Zone, index = Infinity): Drop {
   let s: DeskState;
   if (it.kind === "toolbar") s = normalize(withToolbar(state, zone), SPEC);
-  else s = normalize(withPanel(state, it.id, zone === "band" ? "pinned" : zone, index), SPEC);
+  else s = normalize(withPanel(state, it.id, isBand(zone) ? "pinned" : zone, index), SPEC);
   const layout = layoutDesk(s, SPEC);
   const pinned = it.kind === "toolbar" ? s.toolbar === "pinned" : s.pinned.includes(it.id);
   let label = PLACE_LABEL[zone];
-  if (it.kind === "panel" && zone !== "pinned" && zone !== "band") {
+  if (it.kind === "panel" && (zone === "left" || zone === "right")) {
     // Normalising pins the newest panel, which may be another one than the dragged panel.
     const bumped = s.pinned.filter((id) => id !== it.id && !state.pinned.includes(id)).map((id) => PANELS.find((p) => p.id === id)?.title ?? `panel ${id}`);
     if (pinned) label = `${PLACE_LABEL[zone]} is full: pinned instead`;
@@ -175,7 +190,7 @@ function bestDrop(it: Item, p: Point): Drop {
   // Until the pointer has left the item's own place, its own place is the drop (a toolbar at the top of a column
   // also lies in the band's zone: lifting it must not preview the band).
   if (home && !leftHome) {
-    if (it.kind === "toolbar") return makeDrop(it, home.state.toolbar ?? "band");
+    if (it.kind === "toolbar") return makeDrop(it, home.state.toolbar ?? "band-start");
     const side = placeOfPanel(home.state, it.id) ?? "pinned";
     return makeDrop(it, side, side === "pinned" ? Infinity : home.state[side].indexOf(it.id));
   }
@@ -201,7 +216,8 @@ function beginDrag(it: Item, px: number, py: number): void {
   const d = it.rect.value;
   grab = { x: px - d.x, y: py - d.y };
   liftSize = { width: d.width, height: d.height };
-  home = { state, rect: { ...d }, sizePlace: toolbarSizePlace };
+  home = { state, rect: { ...d }, size: toolbarSize };
+  closeMenu();
   leftHome = false;
   snapped = null;
   drop = null;
@@ -231,7 +247,7 @@ function moveDrag(px: number, py: number): void {
     hideHint();
     const goal: Rect = snapped ? snapped.slot : { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
     expected = null;
-    if (it.kind === "toolbar") jumpToolbarSize(snapped ? (snapped.state.toolbar ?? home!.sizePlace) : home!.sizePlace);
+    if (it.kind === "toolbar") jumpToolbarSize(snapped?.state.toolbar ?? home!.size.place, home!.size.shape);
     // Its content is laid out at the size it is going to (the frame reveals it, never stretches it).
     if (!same(it.target, goal)) {
       it.target = { ...goal };
@@ -290,7 +306,8 @@ function onGrip(it: Item, e: PointerEvent): void {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && lifted) {
+  if (e.key === "Escape" && menu) closeMenu(true);
+  else if (e.key === "Escape" && lifted) {
     cancelPress();
     endDrag(true);
   }
@@ -364,9 +381,21 @@ function makeItem(kind: Item["kind"], id: number, key: string, name: string, htm
 }
 
 function makeToolbar(at: Rect): Item {
-  const cells = [`<div class="tb-cell tb-grip" title="Drag to move the toolbar">⠿</div>`, ...TOOL_ICONS.map((c) => `<button type="button" class="tb-cell" tabindex="-1">${c}</button>`)];
+  const cells = [
+    `<div class="tb-cell tb-grip" role="button" tabindex="0" aria-haspopup="menu" aria-label="Toolbar grip" title="Drag to move; double-click to collapse; right-click for its menu">⠿</div>`, ...TOOL_ICONS.map((c) => `<button type="button" class="tb-cell" tabindex="-1">${c}</button>`)];
   const it = makeItem("toolbar", 0, "toolbar", "toolbar", `<div class="tb">${cells.join("")}</div>`, at);
-  it.content.querySelector(".tb-grip")!.addEventListener("pointerdown", (e) => onGrip(it, e as PointerEvent));
+  const grip = it.content.querySelector<HTMLElement>(".tb-grip")!;
+  grip.addEventListener("pointerdown", (e) => onGrip(it, e as PointerEvent));
+  // A double-click (two clicks under the drag threshold: trackPress lifts nothing) collapses or expands it.
+  grip.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    if (!lifted) doCollapse();
+  });
+  // Right-click (or the context-menu key) opens the toolbar's own menu instead of the browser's, on the grip only.
+  grip.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    openMenu();
+  });
   return it;
 }
 
@@ -413,10 +442,12 @@ function setTarget(it: Item, to: Rect): void {
  * The toolbar's size jumps to its new place's content size (its buttons re-lay out at once); only its position
  * settles. A new run starts, so the jump isn't read as a jump in a glide.
  */
-function jumpToolbarSize(place: ToolbarPlace): void {
+function jumpToolbarSize(place: ToolbarPlace, shape: ToolbarShape): void {
   const it = toolbarItem();
-  const box = toolbarBox(place);
-  toolbarSizePlace = place;
+  const box = toolbarBox(place, shape);
+  toolbarSize = { place, shape };
+  // Collapsed shows only the grip; laid out at once with the size.
+  it.el.classList.toggle("collapsed", shape.collapsed);
   const d = it.rect.value;
   if (Math.abs(d.width - box.width) < 0.01 && Math.abs(d.height - box.height) < 0.01) return;
   ensureLoop();
@@ -438,7 +469,7 @@ function relayout(): void {
     const to = layout.rects.get(it.key);
     if (it === lifted) continue;
     if (!to) continue;
-    if (it.kind === "toolbar") jumpToolbarSize(s.toolbar ?? toolbarSizePlace);
+    if (it.kind === "toolbar") jumpToolbarSize(s.toolbar ?? toolbarSize.place, s.toolbarShape);
     setTarget(it, to);
     it.el.style.zIndex = it === raised ? Z.raised : zOf(it, s);
     if (it.kind === "panel") {
@@ -505,6 +536,96 @@ function doToolbar(place: ToolbarPlace): void {
   relayout();
 }
 
+/** A new toolbar shape (orientation or collapsed): its size jumps, its position settles, its place resizes. */
+function doShape(shape: Partial<ToolbarShape>): void {
+  if (lifted) return;
+  state = normalize(withShape(state, shape), SPEC);
+  relayout();
+}
+
+const doCollapse = (): void => doShape({ collapsed: !state.toolbarShape.collapsed });
+
+// --- the toolbar's menu (right-click the grip) -------------------------------------------------------------------
+
+let menu: HTMLDivElement | null = null;
+
+function closeMenu(focusGrip = false): void {
+  if (!menu) return;
+  menu.remove();
+  menu = null;
+  if (focusGrip) itemOf("toolbar")?.content.querySelector<HTMLElement>(".tb-grip")?.focus();
+}
+
+/**
+ * Open the toolbar's menu beside the grip, placed by the xdg-positioner rule (anchored at the grip, flipped, then
+ * slid to stay inside the stage): Horizontal / Vertical (radio), then Collapse or Expand.
+ */
+function openMenu(): void {
+  closeMenu();
+  if (lifted) return;
+  const tb = toolbarItem();
+  const shape = state.toolbarShape;
+  const m = document.createElement("div");
+  m.className = "desk-menu";
+  m.setAttribute("role", "menu");
+  m.setAttribute("aria-label", "Toolbar");
+  const entries: { label: string; role: string; checked?: boolean; act: () => void }[] = [
+    { label: "Horizontal", role: "menuitemradio", checked: shape.orientation === "horizontal", act: () => doShape({ orientation: "horizontal" }) },
+    { label: "Vertical", role: "menuitemradio", checked: shape.orientation === "vertical", act: () => doShape({ orientation: "vertical" }) },
+    { label: shape.collapsed ? "Expand" : "Collapse", role: "menuitem", act: doCollapse },
+  ];
+  entries.forEach((e, i) => {
+    if (i === 2) {
+      const sep = document.createElement("div");
+      sep.setAttribute("role", "separator");
+      sep.className = "sep";
+      m.append(sep);
+    }
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("role", e.role);
+    b.tabIndex = -1;
+    if (e.checked !== undefined) b.setAttribute("aria-checked", String(e.checked));
+    b.textContent = e.label;
+    b.addEventListener("click", () => {
+      closeMenu(true);
+      e.act();
+    });
+    m.append(b);
+  });
+  m.addEventListener("keydown", (ev) => {
+    const buttons = [...m.querySelectorAll<HTMLButtonElement>("button")];
+    const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    const go = (i: number): void => buttons[(i + buttons.length) % buttons.length]!.focus();
+    if (ev.key === "ArrowDown") go(at + 1);
+    else if (ev.key === "ArrowUp") go(at - 1);
+    else if (ev.key === "Home") go(0);
+    else if (ev.key === "End") go(buttons.length - 1);
+    else if (ev.key === "Escape") closeMenu(true);
+    else return;
+    ev.preventDefault();
+    ev.stopPropagation();
+  });
+  stage.append(m);
+  menu = m;
+  // Anchored at the grip as drawn now.
+  const d = tb.rect.value;
+  const grip: Rect = { x: d.x + G.toolbarPad, y: d.y + G.toolbarPad, width: G.button, height: G.button };
+  const placed = positionPopup(grip, { width: m.offsetWidth, height: m.offsetHeight }, STAGE, MENU_RULE);
+  Object.assign(m.style, { left: `${placed.rect.x}px`, top: `${placed.rect.y}px`, width: `${placed.rect.width}px`, maxHeight: `${placed.rect.height}px` });
+  m.dataset.how = [placed.flipped.x ? "flipped left" : "", placed.flipped.y ? "flipped up" : "", placed.slid.x || placed.slid.y ? "slid" : ""].filter(Boolean).join(", ") || "as anchored";
+  (m.querySelector<HTMLButtonElement>("[aria-checked=true]") ?? m.querySelector("button"))!.focus();
+}
+
+// An outside press closes the menu (a press inside it is a choice).
+document.addEventListener(
+  "pointerdown",
+  (e) => {
+    if (menu && !menu.contains(e.target as Node)) closeMenu();
+  },
+  true,
+);
+
 function setDocs(mode: DocLayout): void {
   // Mid-drag the layout does not change: the radio keeps showing the state's mode.
   const shown = lifted ? state.docLayout : mode;
@@ -535,15 +656,16 @@ function reset(docs: DocLayout = docLayout(), count = 2, patch: Partial<DeskStat
   hideHint();
   nextDoc = 1;
   opened = [];
-  state = normalize({ toolbar: "band", left: [1, 3], right: [2, 4, 5], pinned: [], folded: [], docLayout: docs, tiled: [], tree: null, floating: [], ...patch }, SPEC);
+  closeMenu();
+  state = normalize({ toolbar: "band-start", toolbarShape: DEFAULT_SHAPE, left: [1, 3], right: [2, 4, 5], pinned: [], folded: [], docLayout: docs, tiled: [], tree: null, floating: [], ...patch }, SPEC);
   for (let i = 0; i < count; i++) {
     const id = nextDoc++;
     const r = openDoc(state, SPEC, id, focusId);
     state = normalize(r.state, SPEC);
   }
   const layout = layoutDesk(state, SPEC);
-  toolbarSizePlace = state.toolbar ?? "band";
-  makeToolbar(layout.rects.get("toolbar")!);
+  toolbarSize = { place: state.toolbar ?? "band-start", shape: state.toolbarShape };
+  makeToolbar(layout.rects.get("toolbar")!).el.classList.toggle("collapsed", state.toolbarShape.collapsed);
   for (const p of PANELS) makePanel(p, layout.rects.get(panelKey(p.id))!);
   for (const id of docIds(state)) makeDoc(id, layout.rects.get(docKey(id))!);
   focus(docIds(state).at(-1) ?? null);
@@ -647,18 +769,22 @@ function tick(frame: FrameInfo): boolean {
     }
   }
   if (episode) {
-    // The toolbar keeps its place's content size on every frame: its frame is that size and its buttons wrap
-    // into that place's rows.
+    // The toolbar keeps its place's and shape's content size on every frame: its frame is that size, it shows
+    // that many cells (just the grip when collapsed), in that many rows and that many across.
     const tb = toolbarItem();
-    const box = toolbarBox(toolbarSizePlace);
+    const { place, shape } = toolbarSize;
+    const box = toolbarBox(place, shape);
+    const what = `${place}, ${shape.orientation}${shape.collapsed ? ", collapsed" : ""}`;
     const f = measure(tb).frame;
-    const tops = new Set([...tb.content.querySelectorAll<HTMLElement>(".tb-cell")].map((c) => c.offsetTop));
+    const shown = [...tb.content.querySelectorAll<HTMLElement>(".tb-cell")].filter((c) => c.offsetParent !== null);
+    const tops = new Set(shown.map((c) => c.offsetTop));
+    const lefts = new Set(shown.map((c) => c.offsetLeft));
     const off = Math.max(Math.abs(f.width - box.width), Math.abs(f.height - box.height));
     episode.toolbarSize.push(
       off > 0.5
-        ? `t=${Math.round(time)} toolbar drawn ${Math.round(f.width)} × ${Math.round(f.height)}, its ${toolbarSizePlace} content is ${box.width} × ${box.height}`
-        : tops.size !== box.rows
-          ? `t=${Math.round(time)} toolbar buttons in ${tops.size} rows, ${toolbarSizePlace} needs ${box.rows}`
+        ? `t=${Math.round(time)} toolbar drawn ${Math.round(f.width)} × ${Math.round(f.height)}, its ${what} content is ${box.width} × ${box.height}`
+        : shown.length !== box.cells || tops.size !== box.rows || lefts.size !== Math.min(box.perRow, box.cells)
+          ? `t=${Math.round(time)} toolbar shows ${shown.length} cells in ${tops.size} rows × ${lefts.size}, ${what} needs ${box.cells} in ${box.rows} × ${Math.min(box.perRow, box.cells)}`
           : null,
     );
     // The drop label stays inside the stage (the positioner's flip and slide).
@@ -769,7 +895,7 @@ async function scriptedDrag(it: Item, to: () => Point, opts: { escapeAt?: number
 }
 
 const centre = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
-const ZONE_POINT: Record<Zone, Point> = { band: { x: STAGE_W / 2, y: 26 }, left: { x: 60, y: 320 }, right: { x: STAGE_W - 60, y: 320 }, pinned: { x: STAGE_W / 2, y: 300 } };
+const ZONE_POINT: Record<Zone, Point> = { "band-start": { x: 200, y: 26 }, "band-end": { x: STAGE_W - 200, y: 26 }, left: { x: 60, y: 320 }, right: { x: STAGE_W - 60, y: 320 }, pinned: { x: STAGE_W / 2, y: 300 } };
 /** Where to point to dock the lifted panel at `index` of `side`: the centre of that drop's slot. */
 const slotPoint = (it: Item, side: Side, index: number) => (): Point => centre(makeDrop(it, side, index).slot);
 
@@ -785,7 +911,7 @@ async function toolbarTo(place: ToolbarPlace, expect: Expect): Promise<void> {
   await scriptedDrag(toolbarItem(), () => ZONE_POINT[place]);
   await idle();
   const tb = toolbarItem();
-  const box = toolbarBox(place);
+  const box = toolbarBox(place, state.toolbarShape);
   expect(state.toolbar === place, `the toolbar is in ${state.toolbar}, not ${place}`);
   expect(Math.abs(tb.rect.value.width - box.width) < 0.5 && Math.abs(tb.rect.value.height - box.height) < 0.5, `the toolbar is ${Math.round(tb.rect.value.width)} × ${Math.round(tb.rect.value.height)} in ${place}, its content is ${box.width} × ${box.height}`);
   expect(sameRect(tb.rect.value, layoutDesk(state, SPEC).rects.get("toolbar")!), `the toolbar didn't settle in its ${place} place`);
@@ -801,7 +927,7 @@ const SCENARIOS: Record<string, Scenario> = {
       await toolbarTo("left", expect);
       expect(workArea(state, SPEC).height > work0.height, "the work area didn't grow when the band emptied");
       await toolbarTo("pinned", expect);
-      await toolbarTo("band", expect);
+      await toolbarTo("band-start", expect);
       expect(sameRect(workArea(state, SPEC), work0), "the work area isn't back to its size with the toolbar in the band");
     },
   },
@@ -995,7 +1121,9 @@ const actions: Record<string, () => void> = {
     for (let i = 0; i < 5; i++) doOpen();
   },
   close: doClose,
-  "tb-band": () => doToolbar("band"),
+  "tb-band-start": () => doToolbar("band-start"),
+  "tb-band-end": () => doToolbar("band-end"),
+  "tb-collapse": doCollapse,
   "tb-left": () => doToolbar("left"),
   "tb-right": () => doToolbar("right"),
   "tb-pinned": () => doToolbar("pinned"),
