@@ -291,7 +291,7 @@ function makeWin(at: Rect): Win {
   frame.className = "frame";
   const content = document.createElement("div");
   content.className = "content";
-  content.innerHTML = `<div class="title">Window ${id}</div><div class="body">Invoice 04${10 + id}.pdf · total due 1 240.00<br>Page 2 of 5 · the quick brown fox</div>`;
+  content.innerHTML = `<div class="title">Window ${id}</div><div class="body">Meeting notes ${10 + id} · edited today<br>Page 2 of 5 · the quick brown fox</div>`;
   el.append(frame, content);
   stage.append(el);
   const { rect, kind } = makeRectAnimator(at);
