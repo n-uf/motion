@@ -4,6 +4,7 @@
  */
 import type { Rect } from "@n-uf/motion";
 import { overlap, type Point } from "../shared/geometry";
+import { DRAG, rawTarget, within, type Target } from "./intent";
 import { CONSTRUCTIONS, type ConstructionId } from "./layouts";
 import { LAYER, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
 
@@ -31,8 +32,30 @@ export interface DeskLab {
   shown(key: string): boolean;
   /** Resolves once everything rests. */
   idle(): Promise<void>;
-  /** A scripted drag: lift `key` at its grip, glide the pointer to `to()` (read after the lift), then release (or Escape at a step). */
-  drag?(key: string, to: () => Point, opts?: { escapeAt?: number }): Promise<void>;
+  /**
+   * A plain scripted drag: lift `key` at its grip, move the pointer to `to()` (read after the lift) at an even pace,
+   * hold it there long enough to aim, then release (or Escape `escapeAt` of the way, a fraction).
+   */
+  drag(key: string, to: () => Point, opts?: { escapeAt?: number }): Promise<DragResult>;
+  /** A drag along a keyframed path, in real time ([ms from the lift, x, y], made from the grip point); then release. */
+  path(key: string, path: (grip: Point) => readonly PathKey[]): Promise<DragResult>;
+  /** A keyboard drag: pick `key` up, step `steps` targets on with the arrow key, then Enter. */
+  keyboard(key: string, steps: number): Promise<DragResult>;
+  /** The drop targets `key` would have if it were lifted now. */
+  targets(key: string): Target[];
+  /** Where a drag of `key` starts. */
+  grip(key: string): Point | null;
+  /** Start the scenario's desk afresh. */
+  restart(): void;
+}
+
+/** A pointer path keyframe: ms from the lift, x, y. */
+export type PathKey = readonly [number, number, number];
+
+/** What a drag did: the indicator's targets (ms from the lift; null: hidden) and what it landed on (null: home). */
+export interface DragResult {
+  readonly log: readonly { readonly t: number; readonly id: string | null }[];
+  readonly landed: string | null;
 }
 
 export type Expect = (ok: boolean, failure: string) => void;
@@ -44,7 +67,7 @@ export interface Scenario {
   readonly docs?: number;
   /** It only checks pure layouts: nothing has to move. */
   readonly still?: boolean;
-  /** It drags: it runs with each drop preview (indicator and snap). */
+  /** It drags. */
   readonly drag?: boolean;
   readonly play: (expect: Expect) => Promise<void>;
 }
@@ -133,14 +156,183 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
       },
     };
   });
-  Object.assign(scenarios, giveWay(lab), handMoves(lab), modes(lab), drags(lab));
+  Object.assign(scenarios, giveWay(lab), handMoves(lab), modes(lab), drags(lab), dragModel(lab));
   return scenarios;
+}
+
+/** The item each construction's drag-model scenarios drag. */
+const DRAGGED: Record<ConstructionId, string> = {
+  docks: "panel:3",
+  docksFull: "panel:3",
+  tree: "panel:4",
+  navigator: "panel:3",
+  strip: "panel:3",
+  drawers: "panel:3",
+  floatOver: "panel:2",
+  floatAround: "panel:3",
+  dockTear: "panel:3",
+};
+
+const dist = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);
+const mid = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+/** Keyframes through `points` at `speed` px/ms, starting at 0 ms. */
+function through(points: readonly Point[], speed: number, t0 = 0): PathKey[] {
+  const out: PathKey[] = [[t0, points[0]!.x, points[0]!.y]];
+  let t = t0;
+  for (let i = 1; i < points.length; i++) {
+    t += Math.max(16, dist(points[i - 1]!, points[i]!) / speed);
+    out.push([t, points[i]!.x, points[i]!.y]);
+  }
+  return out;
+}
+const hold = (path: PathKey[], ms: number): PathKey[] => [...path, [path.at(-1)![0] + ms, path.at(-1)![1], path.at(-1)![2]]];
+const shows = (r: DragResult) => r.log.filter((e) => e.id !== null);
+
+/**
+ * The drag model's promises, per construction: flying over targets shows no indicator; holding on a border changes
+ * it at most once; the same release point reached by two paths lands the same; the keyboard steps through targets.
+ * (Flashes and "the drop is what the indicator said" are checked on every drag.)
+ */
+function dragModel(lab: DeskLab): Record<string, Scenario> {
+  const out: Record<string, Scenario> = {};
+  for (const c of CONSTRUCTIONS) {
+    const key = DRAGGED[c.id];
+    const name = `${c.title.split(" · ")[0]} · drag model`;
+    /** The targets a drag can aim at: not over the item's own home (its grip). */
+    const aimable = (grip: Point): Target[] => lab.targets(key).filter((t) => !within(t.hit, grip, 12) && mid(t.hit).x > 0 && mid(t.hit).x < lab.size().width);
+    out[`${name}: flying over targets shows no indicator, aiming shows one`] = {
+      construction: c.id,
+      drag: true,
+      play: async (expect) => {
+        const grip = lab.grip(key)!;
+        const ts = aimable(grip);
+        const all = lab.targets(key);
+        const goal = ts.filter((t) => t.prio <= 2).sort((a, b) => dist(mid(b.hit), grip) - dist(mid(a.hit), grip))[0] ?? ts[0];
+        if (!goal) return expect(false, "no target to aim at");
+        const end = mid(goal.hit);
+        const via = ts.filter((t) => t !== goal).sort((a, b) => Math.min(dist(mid(b.hit), grip), dist(mid(b.hit), end)) - Math.min(dist(mid(a.hit), grip), dist(mid(a.hit), end)))[0];
+        const points = via ? [grip, mid(via.hit), end] : [grip, end];
+        let arrival = 0;
+        const r = await lab.path(key, (g) => {
+          const fly = through([g, ...points.slice(1)], 2);
+          arrival = fly.at(-1)![0];
+          return hold(fly, 600);
+        });
+        const early = shows(r).filter((e) => e.t < arrival - 1);
+        expect(early.length === 0, `the indicator showed ${early.map((e) => `${e.id} at ${Math.round(e.t)} ms`).join(", ")} while flying (arrived at ${Math.round(arrival)} ms)`);
+        const want = rawTarget(all, end)?.id ?? null;
+        expect(shows(r).length === 1 && shows(r)[0]!.id === want, `aiming showed ${shows(r).map((e) => e.id).join(", ") || "nothing"}, not ${want}`);
+        expect(r.landed === want, `landed on ${r.landed ?? "home"}, not ${want}`);
+      },
+    };
+    out[`${name}: holding on a border changes the indicator at most once`] = {
+      construction: c.id,
+      drag: true,
+      play: async (expect) => {
+        const grip = lab.grip(key)!;
+        const all = lab.targets(key);
+        // A border: an edge of a target where the most precise target differs 5 px either side of it.
+        let border: { p: Point; dx: number; dy: number } | null = null;
+        for (const t of aimable(grip)) {
+          const r = t.hit;
+          const edges = [
+            { p: { x: r.x + r.width / 2, y: r.y }, dx: 0, dy: 1 },
+            { p: { x: r.x + r.width / 2, y: r.y + r.height }, dx: 0, dy: 1 },
+            { p: { x: r.x, y: r.y + r.height / 2 }, dx: 1, dy: 0 },
+            { p: { x: r.x + r.width, y: r.y + r.height / 2 }, dx: 1, dy: 0 },
+          ];
+          for (const e of edges) {
+            const a = rawTarget(all, { x: e.p.x - 5 * e.dx, y: e.p.y - 5 * e.dy });
+            const b = rawTarget(all, { x: e.p.x + 5 * e.dx, y: e.p.y + 5 * e.dy });
+            if (a && b && a.id !== b.id && dist(e.p, grip) > 40 && e.p.x > 5 && e.p.x < lab.size().width - 5) border = e;
+            if (border) break;
+          }
+          if (border) break;
+        }
+        if (!border) return expect(false, "no border between two targets");
+        const b = border;
+        const r = await lab.path(key, (g) => {
+          const keys = through([g, b.p], 0.9);
+          let t = keys.at(-1)![0];
+          for (let i = 0; i < 14; i++) {
+            t += 70;
+            const s = i % 2 ? -4 : 4;
+            keys.push([t, b.p.x + s * b.dx, b.p.y + s * b.dy]);
+          }
+          return hold(keys, 200);
+        });
+        const changes = shows(r).length - 1;
+        expect(changes <= 1, `the indicator changed ${changes} times on the border: ${shows(r).map((e) => e.id).join(" → ")}`);
+      },
+    };
+    out[`${name}: the same release point by two paths lands the same`] = {
+      construction: c.id,
+      drag: true,
+      play: async (expect) => {
+        const grip = lab.grip(key)!;
+        const ts = aimable(grip);
+        const goal = ts.filter((t) => t.prio <= 2)[0] ?? ts[0];
+        const other = ts.filter((t) => t !== goal && dist(mid(t.hit), mid(goal?.hit ?? t.hit)) > 3 * DRAG.BAND + Math.max(t.hit.width, t.hit.height) / 2).sort((a, b) => dist(mid(a.hit), grip) - dist(mid(b.hit), grip))[0];
+        if (!goal || !other) return expect(false, "not two targets to take two paths");
+        const end = mid(goal.hit);
+        // Straight there, aiming at the end.
+        const r1 = await lab.path(key, (g) => hold(through([g, end], 0.8), 500));
+        await lab.idle();
+        const s1 = JSON.stringify(lab.state());
+        lab.restart();
+        await lab.idle();
+        // By way of another target (aimed at until room is made), then a flick to the same point and an instant release.
+        const r2 = await lab.path(key, (g) => {
+          const aimOther = hold(through([g, mid(other.hit)], 0.8), 500);
+          return [...aimOther, ...through([mid(other.hit), end], 2.5, aimOther.at(-1)![0]).slice(1)];
+        });
+        await lab.idle();
+        expect(r1.landed === r2.landed, `landed on ${r1.landed} straight there, on ${r2.landed} by way of ${other.id}`);
+        expect(JSON.stringify(lab.state()) === s1, "the two paths left the desk in different states");
+      },
+    };
+    out[`${name}: the keyboard steps through targets and drops`] = {
+      construction: c.id,
+      drag: true,
+      play: async (expect) => {
+        const before = JSON.stringify(lab.state());
+        const r = await lab.keyboard(key, 2);
+        await lab.idle();
+        expect(shows(r).length >= 1, "the arrow keys showed no target");
+        expect(r.landed !== null && r.landed === shows(r).at(-1)!.id, `landed on ${r.landed ?? "home"}, the indicator showed ${shows(r).at(-1)?.id ?? "nothing"}`);
+        expect(JSON.stringify(lab.state()) !== before || r.landed !== null, "nothing changed");
+      },
+    };
+  }
+  out["D · drag model: the strip scrolls at the stage's edge, the indicator hidden while it does"] = {
+    construction: "strip",
+    drag: true,
+    play: async (expect) => {
+      lab.focus(1);
+      await lab.idle();
+      const W = lab.size().width;
+      let edgeFrom = 0;
+      let edgeTo = 0;
+      const r = await lab.path(DRAGGED.strip, (g) => {
+        const toEdge = through([g, { x: W - 12, y: 300 }], 0.8);
+        edgeFrom = toEdge.at(-1)![0];
+        const held = hold(toEdge, 700);
+        edgeTo = held.at(-1)![0];
+        return hold(through([{ x: W - 12, y: 300 }, { x: W / 2, y: 300 }], 0.8, edgeTo), 500);
+      });
+      await lab.idle();
+      expect((lab.state().stripScroll ?? 0) > 0, "the strip didn't scroll");
+      const during = shows(r).filter((e) => e.t > edgeFrom + 50 && e.t < edgeTo);
+      expect(during.length === 0, `the indicator showed ${during.map((e) => e.id).join(", ")} while the strip scrolled`);
+    },
+  };
+  return out;
 }
 
 /** One drag (or more) per construction, onto the drop targets its rules have. */
 function drags(lab: DeskLab): Record<string, Scenario> {
   const r = readers(lab);
-  const drag = (key: string, to: () => Point, opts?: { escapeAt?: number }) => lab.drag!(key, to, opts);
+  const drag = (key: string, to: () => Point, opts?: { escapeAt?: number }) => lab.drag(key, to, opts);
   const rectOf = (key: string): Rect => r.at(key)!.rect;
   const list = (l: readonly (number | string)[]): string => l.join(",") || "nothing";
   return {
@@ -291,7 +483,7 @@ function drags(lab: DeskLab): Record<string, Scenario> {
       play: async (expect) => {
         const before = JSON.stringify(lab.state());
         const rects = [...lab.layout().items].map(([k, p]) => [k, { ...p.rect }] as const);
-        await drag(P.notes, () => ({ x: 120, y: 200 }), { escapeAt: 22 });
+        await drag(P.notes, () => ({ x: 120, y: 200 }), { escapeAt: 0.7 });
         await lab.idle();
         expect(JSON.stringify(lab.state()) === before, "the desk isn't as it was before the lift");
         for (const [k, rr] of rects) expect(sameRect(r.at(k)!.rect, rr), `${k} isn't back home`);
