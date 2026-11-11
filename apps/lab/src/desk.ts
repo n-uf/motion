@@ -719,7 +719,7 @@ function reset(docs: DocLayout = docLayout(), count = 2, patch: Partial<DeskStat
   nextDoc = 1;
   opened = [];
   closeMenu();
-  state = normalize({ toolbar: "band-start", toolbarShape: DEFAULT_SHAPE, left: [1, 3], right: [2, 4, 5], pinned: [], folded: [], docLayout: docs, tiled: [], tree: null, floating: [], ...patch }, SPEC);
+  state = normalize({ toolbar: "band-start", toolbarShape: DEFAULT_SHAPE, left: [1, 3], right: [2, 4, 5], pinned: [], autoPinned: [], folded: [], docLayout: docs, tiled: [], tree: null, floating: [], ...patch }, SPEC);
   for (let i = 0; i < count; i++) {
     const id = nextDoc++;
     const r = openDoc(state, SPEC, id, focusId);
@@ -1120,6 +1120,43 @@ const SCENARIOS: Record<string, Scenario> = {
       await idle();
       expect(state.pinned.includes(2), "Notes isn't pinned");
       expect(sameRect(workArea(state, SPEC), work0), "the work area changed size when a panel was pinned");
+    },
+  },
+  "a vertical toolbar in the band: nothing pins, nothing leaves the stage": {
+    play: async (expect) => {
+      const start = new Map([...layoutDesk(state, SPEC).rects].map(([k, r]) => [k, { ...r }] as const));
+      doShape({ orientation: "vertical" });
+      await idle();
+      const strip = layoutDesk(state, SPEC);
+      expect(state.pinned.length === 0, `${state.pinned.length} panels pinned with the toolbar vertical in the band`);
+      expect(Math.abs(strip.work.height - (STAGE_H - 2 * G.gap)) < 0.5, `the work area is ${Math.round(strip.work.height)} px tall, not the stage's full ${STAGE_H - 2 * G.gap}`);
+      const tb = strip.rects.get("toolbar")!;
+      expect(Math.abs(tb.x - G.gap) < 0.5 && Math.abs(tb.width - toolbarBox("band-start", state.toolbarShape).width) < 0.5, `the toolbar is at x ${Math.round(tb.x)}, ${Math.round(tb.width)} wide: not a strip at the band's start edge`);
+      for (const [key, r] of strip.rects) {
+        expect(r.x >= -0.5 && r.y >= -0.5 && r.x + r.width <= STAGE_W + 0.5 && r.y + r.height <= STAGE_H + 0.5, `${key} leaves the stage at ${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)} × ${Math.round(r.height)}`);
+        if (key !== "toolbar") expect(overlap(r, tb) < 1, `${key} overlaps the toolbar strip`);
+      }
+      for (const it of items) if (!it.closing) expect(sameRect(it.rect.value, strip.rects.get(it.key)!), `${it.name} didn't settle beside the strip`);
+      doShape({ orientation: "horizontal" });
+      await idle();
+      const back = layoutDesk(state, SPEC);
+      expect(state.pinned.length === 0 && state.autoPinned.length === 0, "something is pinned after the toolbar went back to horizontal");
+      for (const [key, r] of start) expect(back.rects.has(key) && sameRect(back.rects.get(key)!, r), `${key} isn't where it started once the toolbar is horizontal again`);
+      for (const it of items) if (!it.closing) expect(sameRect(it.rect.value, start.get(it.key)!), `${it.name} didn't settle back to its starting place`);
+    },
+  },
+  "panels the minimum pins dock back when the room returns": {
+    setup: () => reset(docLayout(), 2, { left: [2, 1, 4, 3], right: [5] }),
+    play: async (expect) => {
+      // Panel 5 is pinned by hand: it must stay pinned. Inspector (4) is pinned by the rule: it must come back.
+      await scriptedDrag(panelItem(5), () => ZONE_POINT.pinned);
+      await idle();
+      expect(state.pinned.join() === "5", `pinned: ${state.pinned.join() || "nothing"} after pinning History by hand`);
+      await toolbarTo("left", expect);
+      expect(state.pinned.join() === "5,4", `pinned: ${state.pinned.join() || "nothing"}; History by hand, then Inspector by the rule`);
+      await toolbarTo("band-start", expect);
+      expect(state.left.join() === "2,1,4,3", `left column is ${state.left.join()}; Inspector should dock back at its slot`);
+      expect(state.pinned.join() === "5", `pinned: ${state.pinned.join() || "nothing"}; only History, pinned by hand, should stay`);
     },
   },
   "a pinned panel stays inside a short stage": {

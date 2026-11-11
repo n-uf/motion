@@ -15,9 +15,12 @@
  * A column whose panels are all folded (and that has no toolbar) becomes a rail: one title-bar height wide, a
  * tab per panel, and the work area takes the room.
  *
+ * A vertical toolbar in the band is a strip down the band's start (or end) edge, as wide as the toolbar, so the work
+ * area keeps its full height.
+ *
  * One rule over all of it: nothing is laid out below its minimum size. A column that cannot hold its panels at
- * their minimum heights pins its newest panel; a tiling that cannot keep every tile at the minimum document size
- * floats its newest document.
+ * their minimum heights pins its newest panel (and remembers it: it docks back when the room returns); a tiling
+ * that cannot keep every tile at the minimum document size floats its newest document.
  */
 import type { Rect } from "@n-uf/motion";
 import { overlap, type Point } from "../shared/geometry";
@@ -42,6 +45,12 @@ export interface ToolbarShape {
 export const DEFAULT_SHAPE: ToolbarShape = { orientation: "horizontal", collapsed: false };
 export type PanelPlace = Side | "pinned";
 export type DocLayout = "master" | "dwindle" | "floating";
+/** A panel the minimum-size rule pinned, and where in which column it was. */
+export interface AutoPin {
+  readonly id: number;
+  readonly side: Side;
+  readonly index: number;
+}
 
 /** A panel that can be stacked in a column: its title, its minimum height and its age (higher is newer). */
 export interface PanelSpec {
@@ -91,6 +100,11 @@ export interface DeskState {
   readonly right: readonly number[];
   /** Pinned panel ids, oldest pin first. */
   readonly pinned: readonly number[];
+  /**
+   * The panels pinned by the never-below-minimum rule (not by a choice), newest last, with the column and slot they
+   * left: they dock back there, newest first, when the room returns. Moving a panel by hand forgets it.
+   */
+  readonly autoPinned: readonly AutoPin[];
   readonly folded: readonly number[];
   readonly docLayout: DocLayout;
   /** Tiled document ids in master order (open order); in dwindle the tree holds the same ids. */
@@ -142,11 +156,30 @@ export const toolbarBoxOf = (s: DeskState): (Size & { readonly rows: number }) |
 
 const specOf = (spec: DeskSpec, id: number): PanelSpec => spec.panels.find((p) => p.id === id)!;
 
+/**
+ * A vertical toolbar in the band is a strip at the band's start (or end) edge, as wide as the toolbar: the band
+ * isn't made tall for it, so the work area keeps its full height. (Collapsed, it is just a grip: a band again.)
+ */
+export const isStrip = (state: DeskState): boolean => isBand(state.toolbar) && state.toolbarShape.orientation === "vertical" && !state.toolbarShape.collapsed;
+
+/** How much of the stage's left and right edge a strip takes (its width and a gap), else nothing. */
+function stripInset(state: DeskState): { left: number; right: number } {
+  if (!isStrip(state)) return { left: 0, right: 0 };
+  const room = toolbarBoxOf(state)!.width + G.gap;
+  return state.toolbar === "band-start" ? { left: room, right: 0 } : { left: 0, right: room };
+}
+
 /** The y where columns and the work area start, and their height. */
 function verticalSpan(state: DeskState, spec: DeskSpec): { y: number; height: number } {
-  const top = isBand(state.toolbar) ? G.gap + toolbarBoxOf(state)!.height : 0;
+  const top = isBand(state.toolbar) && !isStrip(state) ? G.gap + toolbarBoxOf(state)!.height : 0;
   const y = top + G.gap;
   return { y, height: spec.stage.height - y - G.gap };
+}
+
+/** The x of the left and right edge the columns and the work area start from (inside the gap, and any strip). */
+function edges(state: DeskState, spec: DeskSpec): { left: number; right: number } {
+  const inset = stripInset(state);
+  return { left: G.gap + inset.left, right: spec.stage.width - G.gap - inset.right };
 }
 
 const columnUsed = (state: DeskState, side: Side): boolean => state.toolbar === side || state[side].length > 0;
@@ -275,8 +308,9 @@ export function placeFloating(
 /** The work area: the stage less the band and the used columns. */
 export function workArea(state: DeskState, spec: DeskSpec): Rect {
   const { y, height } = verticalSpan(state, spec);
-  const x0 = columnUsed(state, "left") ? G.gap + columnWidth(state, "left") + G.gap : G.gap;
-  const x1 = spec.stage.width - (columnUsed(state, "right") ? G.gap + columnWidth(state, "right") + G.gap : G.gap);
+  const e = edges(state, spec);
+  const x0 = columnUsed(state, "left") ? e.left + columnWidth(state, "left") + G.gap : e.left;
+  const x1 = columnUsed(state, "right") ? e.right - columnWidth(state, "right") - G.gap : e.right;
   return { x: x0, y, width: x1 - x0, height };
 }
 
@@ -285,18 +319,22 @@ export function layoutDesk(state: DeskState, spec: DeskSpec): DeskLayout {
   const { y, height } = verticalSpan(state, spec);
   const work = workArea(state, spec);
   let band: Rect | null = null;
+  const edge = edges(state, spec);
   if (isBand(state.toolbar)) {
     const box = toolbarBoxOf(state)!;
-    band = { x: 0, y: 0, width: spec.stage.width, height: G.gap + box.height };
     // Flush left at the band's start, flush right at its end.
     const x = state.toolbar === "band-start" ? G.gap : spec.stage.width - G.gap - box.width;
     rects.set("toolbar", { x, y: G.gap, width: box.width, height: box.height });
+    // A strip (vertical toolbar) is a band as wide as the toolbar, down that edge; else the band spans the width.
+    band = isStrip(state)
+      ? { x: state.toolbar === "band-start" ? 0 : x - G.gap, y: 0, width: box.width + 2 * G.gap, height: G.gap + box.height }
+      : { x: 0, y: 0, width: spec.stage.width, height: G.gap + box.height };
   }
   const columns: { left: Rect | null; right: Rect | null } = { left: null, right: null };
   for (const side of ["left", "right"] as const) {
     if (!columnUsed(state, side)) continue;
     const width = columnWidth(state, side);
-    const x = side === "left" ? G.gap : spec.stage.width - G.gap - width;
+    const x = side === "left" ? edge.left : edge.right - width;
     columns[side] = { x, y, width, height };
     let cursor = y;
     if (isRail(state, side)) {
@@ -360,11 +398,26 @@ export function layoutDesk(state: DeskState, spec: DeskSpec): DeskLayout {
  */
 export function normalize(state: DeskState, spec: DeskSpec): DeskState {
   let s = state;
+  // First, panels the rule pinned earlier go back to their column (newest pin first, at the slot they left) as far
+  // as the column holds them at their minimum heights again; a panel no longer pinned is forgotten.
+  const avail0 = verticalSpan(s, spec).height;
+  s = { ...s, autoPinned: s.autoPinned.filter((a) => s.pinned.includes(a.id)) };
+  for (const a of [...s.autoPinned].reverse()) {
+    const column = [...s[a.side]];
+    column.splice(Math.min(a.index, column.length), 0, a.id);
+    const back: DeskState = { ...s, [a.side]: column, pinned: s.pinned.filter((id) => id !== a.id), autoPinned: s.autoPinned.filter((x) => x.id !== a.id) };
+    if (columnNeed(back, spec, a.side, column) <= avail0 + 0.01) s = back;
+  }
   for (const side of ["left", "right"] as const) {
     const avail = verticalSpan(s, spec).height;
     while (s[side].length > 0 && columnNeed(s, spec, side, s[side]) > avail + 0.01) {
       const newest = s[side].reduce((a, b) => (specOf(spec, b).born > specOf(spec, a).born ? b : a));
-      s = { ...s, [side]: s[side].filter((id) => id !== newest), pinned: [...s.pinned, newest] };
+      s = {
+        ...s,
+        [side]: s[side].filter((id) => id !== newest),
+        pinned: [...s.pinned, newest],
+        autoPinned: [...s.autoPinned, { id: newest, side, index: s[side].indexOf(newest) }],
+      };
     }
   }
   if (s.docLayout !== "floating") {
@@ -391,6 +444,7 @@ export const withoutPanel = (s: DeskState, id: number): DeskState => ({
   left: s.left.filter((x) => x !== id),
   right: s.right.filter((x) => x !== id),
   pinned: s.pinned.filter((x) => x !== id),
+  autoPinned: s.autoPinned.filter((a) => a.id !== id),
 });
 
 /** Panel `id` docked in a column at `index`, or pinned. */
