@@ -82,6 +82,8 @@ export interface DragResult {
   readonly snaps?: readonly IndicatorEntry[];
   /** Where the item was drawn when it was let go, and where the pointer held it. */
   readonly atRelease?: Rect | null;
+  /** Where the page shows the item right after the release, before any frame (read from the DOM). */
+  readonly landingFrom?: Rect | null;
   readonly grab?: Point;
   readonly landed: string | null;
 }
@@ -667,6 +669,34 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
     if (!showed) return `the item snapped into ${snap.id} at ${Math.round(snap.t)} ms with no indicator on it`;
     return snap.t - showed.t >= DRAG.ROOM_AFTER - 1000 / 60 ? null : `the item snapped into ${snap.id} ${Math.round(snap.t - showed.t)} ms after the indicator showed it, before the room was made`;
   };
+  // The dragged item is the real one: on a drop it starts settling from where it was let go (never from home, never
+  // a frame elsewhere), and a snapped item let go in its slot doesn't move again.
+  const landings = [
+    ["A", "docks", DRAGGED.docks, "panel"],
+    ["D", "strip", "doc:2", "document"],
+  ] as const;
+  for (const [short, cid, key, what] of landings) {
+    out[`${short} · a dropped ${what} starts its landing where it was let go`] = {
+      construction: cid,
+      size: cid === "strip" ? [1440, 560] : undefined,
+      drag: true,
+      play: async (expect) => {
+        const all = lab.targets(key);
+        const goal = cid === "docks" ? all.find((t) => t.id === "dock:left:0") : all.find((t) => t.id.startsWith("into:") && t.id.endsWith(":1") && t.hit.width > 300);
+        if (!goal) return expect(false, "no target to drop on");
+        const r = await lab.drag(key, () => mid(goal.hit));
+        await lab.idle();
+        expect(r.landed === goal.id, `landed on ${r.landed ?? "home"}, not ${goal.id}`);
+        const from = r.landingFrom;
+        const off = from && r.atRelease ? Math.max(Math.abs(from.x - r.atRelease.x), Math.abs(from.y - r.atRelease.y), Math.abs(from.width - r.atRelease.width), Math.abs(from.height - r.atRelease.height)) : Infinity;
+        expect(off <= 2, `let go at ${r.atRelease ? fmt(r.atRelease) : "?"}, the landing starts at ${from ? fmt(from) : "?"} (${Math.round(off)} px off)`);
+        if (lab.preview() === "snap" && (r.snaps ?? []).some((e) => e.id !== null)) {
+          const landed = lab.layout().items.get(key)!.rect;
+          expect(!!r.atRelease && sameRect(r.atRelease, landed), `snapped in its slot, it still moved after the release: from ${r.atRelease ? fmt(r.atRelease) : "?"} to ${fmt(landed)}`);
+        }
+      },
+    };
+  }
   out["A · snap: the item glides into the slot the model shows, its size revealed"] = {
     construction: "docks",
     drag: true,
