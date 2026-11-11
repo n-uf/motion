@@ -581,12 +581,14 @@ function handMoves(lab: DeskLab): Record<string, Scenario> {
   };
 }
 
-/** The toolbar's four modes and the bottom dock's three. */
+const constructionTitle = (id: ConstructionId): string => CONSTRUCTIONS.find((c) => c.id === id)!.title;
+
+/** The toolbar's four modes and the bottom dock's three, in every construction that has them. */
 function modes(lab: DeskLab): Record<string, Scenario> {
   const r = readers(lab);
   const out: Record<string, Scenario> = {};
-  for (const c of ["dockTear", "navigator", "floatOver"] as const) {
-    out[`toolbar modes · ${c}`] = {
+  for (const c of CONSTRUCTIONS.filter((x) => x.pill).map((x) => x.id)) {
+    out[`toolbar modes · ${constructionTitle(c)}`] = {
       construction: c,
       play: async (expect) => {
         for (const m of [...TOOLBAR_MODES.slice(1), TOOLBAR_MODES[0]!]) {
@@ -597,14 +599,14 @@ function modes(lab: DeskLab): Record<string, Scenario> {
           expect(m.toolbar === "top" ? tb.y < H / 2 : tb.y > H / 2, `${m.toolbar}/${m.toolbarSpace}: the pill is at y ${Math.round(tb.y)}`);
           const covers = r.docs().some(([, d]) => overlap(d, tb) > 1);
           expect(m.toolbarSpace === "reserved" ? !covers : true, `${m.toolbar}/${m.toolbarSpace}: the reserved pill covers a document`);
-          expect(m.toolbarSpace === "overlay" && c !== "dockTear" ? covers : true, `${m.toolbar}/${m.toolbarSpace}: the floating pill doesn't float over the documents`);
+          expect(m.toolbarSpace === "overlay" ? covers : true, `${m.toolbar}/${m.toolbarSpace}: the floating pill doesn't float over the documents`);
           settledAsLaidOut(lab, expect);
         }
       },
     };
   }
-  out["bottom dock modes · A"] = {
-    construction: "docks",
+  for (const c of CONSTRUCTIONS.filter((x) => x.bottom).map((x) => x.id)) out[`bottom dock modes · ${constructionTitle(c)}`] = {
+    construction: c,
     play: async (expect) => {
       lab.setOptions({ bottom: "overlay" });
       await lab.idle();
