@@ -32,10 +32,12 @@ import {
   TREE_COLUMN,
   treeArea,
   treeFloats,
+  treeRails,
+  treeShown,
   treeTiles,
   type Construction,
 } from "./layouts";
-import { G, RAIL, TITLE, idOf, isDocKey, isPanelKey, panelKey, titleOf, touch, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
+import { BAR, G, RAIL, TITLE, idOf, isDocKey, isPanelKey, panelKey, titleOf, touch, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
 
 /** A target's drop for a pointer: the state with the item there, a label, and a key (same key, same place). */
 export interface Made {
@@ -178,12 +180,19 @@ function dockTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
  */
 function treeTargets({ s0, key, size }: TargetInput): DropTarget[] {
   const out: DropTarget[] = [];
-  const area = treeArea(size);
-  const t = s0.tree;
+  const area = treeArea(size, s0);
+  // The tree as tiled: a column folded to its rail offers its rail instead of its rows.
+  const t = treeShown(s0);
+  const rails = treeRails(s0);
   // A side column is narrower than a document's minimum: a document dropped into one would only float.
   const sides = !isDocKey(key);
-  if (sides && t.L.length === 0) out.push({ id: "edge:L", prio: 2, hit: rect(area.x, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...t, L: [key] } }, "New left column") });
-  if (sides && t.R.length === 0) out.push({ id: "edge:R", prio: 2, hit: rect(area.x + area.width - 30, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...t, R: [key] } }, "New right column") });
+  for (const [side, group] of [["left", "L"], ["right", "R"]] as const) {
+    if (!sides || !rails[side]) continue;
+    const hit = rect(side === "left" ? 0 : size.width - RAIL, BAR, RAIL, size.height - BAR);
+    out.push({ id: `rail:${side}`, prio: 1, hit, make: fixed({ ...s0, tree: { ...s0.tree, [group]: [...s0.tree[group], key] } }, `${Cap(side)} rail: into the ${side} column`) });
+  }
+  if (sides && s0.tree.L.length === 0) out.push({ id: "edge:L", prio: 2, hit: rect(area.x, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...s0.tree, L: [key] } }, "New left column") });
+  if (sides && s0.tree.R.length === 0) out.push({ id: "edge:R", prio: 2, hit: rect(area.x + area.width - 30, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...s0.tree, R: [key] } }, "New right column") });
   const x0 = area.x + (t.L.length ? TREE_COLUMN + G : 0);
   const x1 = area.x + area.width - (t.R.length ? TREE_COLUMN + G : 0);
   const centre = rect(x0, area.y, x1 - x0, area.height);
@@ -195,11 +204,12 @@ function treeTargets({ s0, key, size }: TargetInput): DropTarget[] {
     if (group !== "C" && list.length === 0) continue;
     if (group !== "C" && !sides) continue;
     for (let i = 0; i <= list.length; i++) {
-      const state = { ...s0, tree: { ...t, [group]: insert(list, i, key) } };
+      const state = { ...s0, tree: { ...s0.tree, [group]: insert(list, i, key) } };
+      const shown = treeShown(state);
       // The slot as laid out once the tiles that break a minimum have floated (as laid out without them if it floats).
-      const tiled = treeFloats(state.tree, area);
-      const zone = treeTiles(tiled.floats.includes(key) ? state.tree : tiled.tree, area).get(key)!;
-      const label = `${NAME[group]}, ${landing(state.tree, area, key, group, centre)}`;
+      const tiled = treeFloats(shown, area);
+      const zone = treeTiles(tiled.floats.includes(key) ? shown : tiled.tree, area).get(key)!;
+      const label = `${NAME[group]}, ${landing(shown, area, key, group, centre)}`;
       // Places that come out the same (around a floating tile) are one target: the keyboard stops there once.
       if (seen.some((o) => o.label === label && sameZone(o.hit, zone))) continue;
       seen.push({ label, hit: zone });

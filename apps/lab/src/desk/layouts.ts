@@ -323,7 +323,25 @@ export function treeTiles(tree: DeskState["tree"], area: Rect): Map<string, Rect
   return res;
 }
 
-export const treeArea = (size: Size): Rect => rect(G, BAR + G, size.width - 2 * G, size.height - BAR - 2 * G);
+/** The sides of the tree whose column is folded to a rail at the stage's edge (closed by hand, or at a narrow start). */
+export const treeRails = (s: DeskState): { readonly left: boolean; readonly right: boolean } => ({
+  left: s.closed.includes("left") && s.tree.L.length > 0,
+  right: s.closed.includes("right") && s.tree.R.length > 0,
+});
+
+/** The area the tree tiles: the stage under the bar, less the rails of folded columns. */
+export const treeArea = (size: Size, s?: DeskState): Rect => {
+  const r = s ? treeRails(s) : { left: false, right: false };
+  const x0 = r.left ? RAIL + G : G;
+  const x1 = size.width - (r.right ? RAIL + G : G);
+  return rect(x0, BAR + G, x1 - x0, size.height - BAR - 2 * G);
+};
+
+/** The tree as tiled: a column folded to its rail tiles nothing. */
+export const treeShown = (s: DeskState): DeskState["tree"] => {
+  const r = treeRails(s);
+  return { L: r.left ? [] : s.tree.L, R: r.right ? [] : s.tree.R, C: s.tree.C };
+};
 
 /** Which tiles float: the newest tile that breaks a minimum floats, then the tree is laid out again. */
 export function treeFloats(tree: DeskState["tree"], area: Rect): { tree: DeskState["tree"]; floats: string[] } {
@@ -343,8 +361,18 @@ export function treeFloats(tree: DeskState["tree"], area: Rect): { tree: DeskSta
 
 function tree(s: DeskState, size: Size, notes: string[]): Out {
   const out: Out = new Map();
-  const area = treeArea(size);
-  const { tree: t, floats } = treeFloats(s.tree, area);
+  const area = treeArea(size, s);
+  // A column folded to its rail: icons at the stage's edge, its panels hidden into them.
+  const rails = treeRails(s);
+  for (const side of ["left", "right"] as const) {
+    if (!rails[side]) continue;
+    const ids = (side === "left" ? s.tree.L : s.tree.R).map(idOf);
+    const x = side === "left" ? 0 : size.width - RAIL;
+    rail(out, side, x, BAR, size.height - BAR, ids);
+    intoRail(out, x, BAR, TREE_COLUMN, ids, side);
+  }
+  if (rails.left || rails.right) notes.push(`${rails.left && rails.right ? "both side columns" : `the ${rails.left ? "left" : "right"} column`} folded to ${rails.left && rails.right ? "their rails" : "its rail"}`);
+  const { tree: t, floats } = treeFloats(treeShown(s), area);
   for (const [k, r] of treeTiles(t, area)) out.set(k, { rect: r, look: isDocKey(k) ? "doc" : "tile", layer: LAYER.doc, min: tileMin(k) });
   floats.forEach((k, i) => {
     const m = isDocKey(k) ? { w: 300, h: 190 } : { w: 200, h: natural(idOf(k)) };
@@ -653,8 +681,8 @@ export interface Construction {
   readonly pill: boolean;
   /** It has a bottom dock (reserved, floating or off). */
   readonly bottom: boolean;
-  /** The arrangement it starts from. */
-  readonly initial: (docs: readonly number[]) => DeskState;
+  /** The arrangement it starts from (at this stage size, when it depends on one). */
+  readonly initial: (docs: readonly number[], size?: Size) => DeskState;
   readonly layout: (s: DeskState, size: Size, opt: Options) => Layout;
 }
 
@@ -665,6 +693,20 @@ const withNotes = (f: (s: DeskState, size: Size, opt: Options, notes: string[]) 
 };
 
 const sides = (patch: Partial<DeskState>) => (docs: readonly number[]): DeskState => ({ ...initialState(docs), ...patch });
+
+/**
+ * B's start: on a stage too narrow for the documents to tile between the side columns, the columns start folded to
+ * their rails (the right one first), then the centre's panels join the folded right column, so nothing floats
+ * until a rail icon opens a column.
+ */
+function treeStart(docs: readonly number[], size?: Size): DeskState {
+  const s = initialState(docs);
+  if (!size) return s;
+  const both = { ...s, closed: ["right", "left"] as Side[] };
+  const panels = s.tree.C.filter((k) => !isDocKey(k));
+  const tries: DeskState[] = [s, { ...s, closed: ["right"] }, both, { ...both, tree: { ...s.tree, R: [...s.tree.R, ...panels], C: s.tree.C.filter(isDocKey) } }];
+  return tries.find((st) => treeFloats(treeShown(st), treeArea(size, st)).floats.length === 0) ?? tries.at(-1)!;
+}
 
 export const CONSTRUCTIONS: readonly Construction[] = [
   {
@@ -688,10 +730,10 @@ export const CONSTRUCTIONS: readonly Construction[] = [
   {
     id: "tree",
     title: "B · One tiling tree",
-    idea: "Panels and documents are tiles of one tree, so a panel can sit beside a document. One rule for all: the newest tile that breaks a minimum floats.",
+    idea: "Panels and documents are tiles of one tree, so a panel can sit beside a document. One rule for all: the newest tile that breaks a minimum floats. Opened on a narrow stage, the side columns start folded to rails at its edges.",
     pill: false,
     bottom: false,
-    initial: sides({}),
+    initial: treeStart,
     layout: withNotes((s, size, _opt, notes) => tree(s, size, notes)),
   },
   {
