@@ -1,0 +1,301 @@
+/**
+ * The drag-intent model (island): how a dragged panel finds its drop target. The indicator shows only once you aim,
+ * holds on borders, and the drop lands where it showed. Recorded paths compare it with a naive model. The server
+ * drew the desk, the panel and the case rail; this runs the model on them.
+ */
+import { createSettle, type Point } from "@n-uf/motion";
+import { $, caseRail } from "./rail";
+import { drive } from "./motion";
+import { AIM_SPEED, BAND, CASES, CHIP_HOME, DWELL, FLASH, GAP_GRACE, HOME, LIFT, PATHS, ROOM_AFTER, STILL, T, type Key, type Path, type R, type Target } from "../demos/drag";
+
+const inside = (r: R, p: Point, m = 0): boolean => p.x >= r.x - m && p.x <= r.x + r.w + m && p.y >= r.y - m && p.y <= r.y + r.h + m;
+const area = (r: R): number => r.w * r.h;
+
+/** The most precise target under a point (priority, then the smaller zone). */
+function rawTarget(p: Point): Target | null {
+  let best: Target | null = null;
+  for (const t of T) if (inside(t.hit, p) && (!best || t.prio < best.prio || (t.prio === best.prio && area(t.hit) < area(best.hit)))) best = t;
+  return best;
+}
+
+type Mode = "model" | "naive";
+/** The drag model: feed it pointer samples; it says what the indicator shows, and what a release lands on. */
+function createModel(mode: Mode) {
+  const samples: { x: number; y: number; t: number }[] = [];
+  let cur: Target | null = null, lastInside = 0, shown: Target | null = null, shownSince = 0, leftHome = false, speed = 0;
+  // Dwell: how long the pointer has stayed within STILL px of one spot (time over a big target doesn't count).
+  let anchor: Point | null = null, stillSince = 0;
+  return {
+    get speed() { return speed; },
+    update(p: Point, t: number): { shown: Target | null; room: boolean } {
+      samples.push({ ...p, t });
+      while (samples.length > 2 && t - samples[0]!.t > 50) samples.shift();
+      const a = samples[0]!, dt = Math.max(1, t - a.t);
+      const v = Math.hypot(p.x - a.x, p.y - a.y) / dt;
+      speed = speed * 0.5 + v * 0.5;
+      if (!anchor || Math.hypot(p.x - anchor.x, p.y - anchor.y) > STILL) { anchor = { ...p }; stillSince = t; }
+      if (!inside(HOME, p, -6)) leftHome = true;
+      const atHome = inside(HOME, p);
+      const raw = atHome ? null : rawTarget(p);
+      if (mode === "naive") {
+        shown = raw;
+        return { shown, room: !!shown };
+      }
+      // Hysteresis: keep the current target inside its band, unless a more precise one is clearly under the pointer.
+      let next = raw;
+      if (cur && inside(cur.hit, p, BAND) && !atHome) {
+        const breaks = raw && raw !== cur && raw.prio < cur.prio && inside(raw.hit, p, -4);
+        next = breaks ? raw : cur;
+      }
+      if (!next && cur && t - lastInside < GAP_GRACE && !atHome) next = cur;
+      if (next && inside(next.hit, p)) lastInside = t;
+      if (next !== cur) cur = next;
+      const aiming = speed < AIM_SPEED || t - stillSince >= DWELL;
+      const want = cur && leftHome && aiming ? cur : null;
+      if (want !== shown) {
+        // Once shown, the indicator stays while the target holds, even if the pointer speeds up a little.
+        if (!(shown && want === null && cur === shown)) { shown = want; shownSince = t; }
+      }
+      return { shown, room: !!shown && !shown.float && t - shownSince >= ROOM_AFTER };
+    },
+    release(p: Point): Target | null {
+      if (inside(HOME, p)) return null;
+      if (shown && inside(shown.hit, p, BAND)) return shown;
+      return rawTarget(p);
+    },
+  };
+}
+
+// ---- Rendering --------------------------------------------------------------------------------------------------
+const stage = $("stage"), ind = $("ind"), indlabel = $("indlabel");
+const chip = $("chip"), ptr = $("ptr");
+const place = (d: HTMLElement, r: R): void => void Object.assign(d.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" });
+let landing: (() => void) | null = null;
+const drawChip = (x: number, y: number): void => {
+  chip.style.left = x + "px";
+  chip.style.top = y + "px";
+};
+/** Put the chip at a place at once (a held drag: it follows the pointer 1:1). */
+const placeChip = (x: number, y: number): void => {
+  landing?.();
+  landing = null;
+  drawChip(x, y);
+};
+/** The chip glides home with settle, from wherever it was let go. */
+function chipHome(): void {
+  landing?.();
+  const from = { x: parseFloat(chip.style.left), y: parseFloat(chip.style.top) };
+  const s = createSettle<Point>(from);
+  s.setTarget(CHIP_HOME);
+  landing = drive(s, (p) => drawChip(p.x, p.y), () => (landing = null));
+}
+drawChip(CHIP_HOME.x, CHIP_HOME.y);
+
+let stats = { changes: 0, flashes: 0 }, lastShown: Target | null = null, lastShownAt = 0;
+function showIndicator(s: Target | null, room: boolean, p: Point, t: number): void {
+  if (s !== lastShown) {
+    if (lastShown && t - lastShownAt < FLASH) stats.flashes++;
+    if (s) stats.changes++;
+    lastShown = s;
+    lastShownAt = t;
+  }
+  if (!s) {
+    ind.classList.remove("on");
+    indlabel.classList.remove("on");
+    return;
+  }
+  let r: R;
+  if (s.float) r = { x: Math.min(Math.max(p.x - 75, 222), 658 - 150), y: Math.min(Math.max(p.y - 32, 38), 364 - 64), w: 150, h: 64 };
+  else if (s.slot) r = room ? { x: s.slot.x, y: s.slot.y - 18, w: s.slot.w, h: 36 } : { x: s.slot.x, y: s.slot.y - 2, w: s.slot.w, h: 4 };
+  else r = s.ind!;
+  place(ind, r);
+  ind.classList.add("on");
+  indlabel.textContent = s.label;
+  Object.assign(indlabel.style, { left: Math.min(r.x, 880 - 300) + "px", top: Math.max(2, r.y - 26) + "px" });
+  indlabel.classList.add("on");
+}
+const updateStats = (): void => {
+  $("s-changes").textContent = String(stats.changes);
+  $("s-flashes").textContent = String(stats.flashes);
+  $("s-flashes").classList.toggle("bad", stats.flashes > 0);
+};
+const setDrop = (txt: string): void => void ($("s-drop").textContent = txt);
+const setStatus = (txt: string): void => void ($("log").textContent = txt);
+
+let mode: Mode = "model";
+const modeName = (): string => (mode === "model" ? "this model" : "naive");
+function setMode(m: Mode): void {
+  mode = m;
+  document.querySelectorAll<HTMLElement>("[data-mode]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.mode === m)));
+}
+document.querySelectorAll<HTMLElement>("[data-mode]").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode as Mode)));
+
+// One drag: start, feed points, release. Used by both the mouse and the recorded paths.
+function beginDrag(grab: Point) {
+  const model = createModel(mode);
+  stats = { changes: 0, flashes: 0 };
+  lastShown = null;
+  updateStats();
+  setDrop("…");
+  chip.classList.add("lifted");
+  return {
+    move(p: Point, t: number): void {
+      placeChip(p.x - grab.x, p.y - grab.y);
+      const { shown, room } = model.update(p, t);
+      showIndicator(shown, room, p, t);
+      updateStats();
+    },
+    end(p: Point, t: number, cancelled: boolean): Target | null {
+      const target = cancelled ? null : model.release(p);
+      showIndicator(null, false, p, t);
+      updateStats();
+      chip.classList.remove("lifted");
+      setDrop(target ? target.label : "back home");
+      chipHome();
+      return target;
+    },
+  };
+}
+
+// Mouse / touch.
+type Live = ReturnType<typeof beginDrag>;
+let live: Live | null = null, press: { p: Point; grab: Point } | null = null, playing = false, runningAll = false;
+const local = (e: { clientX: number; clientY: number }): Point => {
+  const r = stage.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+};
+const yours = (verb: string): string => `Your drag (${modeName()}): the indicator appeared or moved ${stats.changes}×, flashed ${stats.flashes}×, ${verb}`;
+chip.addEventListener("pointerdown", (e) => {
+  if (playing || runningAll) return;
+  chip.setPointerCapture(e.pointerId);
+  const p = local(e);
+  press = { p, grab: { x: p.x - parseFloat(chip.style.left), y: p.y - parseFloat(chip.style.top) } };
+});
+chip.addEventListener("pointermove", (e) => {
+  if (!press) return;
+  const p = local(e);
+  if (!live && Math.hypot(p.x - press.p.x, p.y - press.p.y) < LIFT) return;
+  if (!live) {
+    live = beginDrag(press.grab);
+    markCase(0);
+    setStatus("Dragging…");
+  }
+  live.move(p, performance.now());
+});
+const finish = (e: PointerEvent, cancelled: boolean): void => {
+  if (live) {
+    const target = live.end(local(e), performance.now(), cancelled);
+    setStatus(yours(`the drop landed on “${target ? target.label : "back home"}”.`));
+  }
+  live = null;
+  press = null;
+};
+chip.addEventListener("pointerup", (e) => finish(e, false));
+chip.addEventListener("pointercancel", (e) => finish(e, true));
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && live) {
+    live.end({ x: -1, y: -1 }, performance.now(), true);
+    setStatus(yours("cancelled: the panel went back home."));
+    live = null;
+    press = null;
+  }
+});
+
+function at(keys: Key[], t: number): Point {
+  for (let i = 1; i < keys.length; i++) if (t <= keys[i]![0]) {
+    const [t0, x0, y0] = keys[i - 1]!, [t1, x1, y1] = keys[i]!;
+    const f = (t - t0) / (t1 - t0);
+    return { x: x0 + (x1 - x0) * f, y: y0 + (y1 - y0) * f };
+  }
+  const l = keys[keys.length - 1]!;
+  return { x: l[1], y: l[2] };
+}
+const figure = $("figure");
+const syncBusy = (): void => void figure.classList.toggle("busy", playing || runningAll);
+interface Result { changes: number; flashes: number; drop: string; ok: boolean }
+function play(path: Path): Promise<Result> {
+  return new Promise((resolve) => {
+    playing = true;
+    syncBusy();
+    const start = performance.now(), keys = path.keys, total = keys[keys.length - 1]![0];
+    const first = { x: keys[0]![1], y: keys[0]![2] };
+    const drag = beginDrag({ x: first.x - CHIP_HOME.x, y: first.y - CHIP_HOME.y });
+    ptr.style.opacity = "1";
+    const frame = (now: number): void => {
+      const t = Math.min(now - start, total), p = at(keys, t);
+      ptr.style.left = p.x + "px";
+      ptr.style.top = p.y + "px";
+      drag.move(p, start + t);
+      if (t < total) {
+        requestAnimationFrame(frame);
+        return;
+      }
+      const target = drag.end(p, start + t, false);
+      ptr.style.opacity = "0";
+      playing = false;
+      syncBusy();
+      const drop = target ? target.label : "back home";
+      resolve({ changes: stats.changes, flashes: stats.flashes, drop, ok: drop === path.expect });
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+// ---- Cases: "Drag it yourself" plus the recorded paths -----------------------------------------------------------------
+const casesEl = $("cases");
+const markCase = caseRail(casesEl, (i) => void runCase(i));
+markCase(0);
+function resetStage(): void {
+  live = null;
+  press = null;
+  stats = { changes: 0, flashes: 0 };
+  lastShown = null;
+  updateStats();
+  setDrop("–");
+  ind.classList.remove("on");
+  indlabel.classList.remove("on");
+  chip.classList.remove("lifted");
+  placeChip(CHIP_HOME.x, CHIP_HOME.y);
+}
+async function runCase(i: number): Promise<void> {
+  if (playing || runningAll) return;
+  markCase(i);
+  const c = CASES[i]!;
+  if (!c.key) {
+    resetStage();
+    setStatus("Drag the Outline panel yourself. The mode above decides how the indicator behaves.");
+    return;
+  }
+  const path = PATHS[c.key]!;
+  setStatus(`Playing “${path.name}” (${modeName()})…`);
+  const r = await play(path);
+  setStatus(`${path.name} (${modeName()}): the indicator appeared or moved ${r.changes}×, flashed ${r.flashes}×, the drop landed on “${r.drop}”.`);
+}
+
+// ---- Run all paths in both modes ---------------------------------------------------------------------------------------
+$("runall").addEventListener("click", async () => {
+  if (playing || runningAll) return;
+  runningAll = true;
+  syncBusy();
+  resetStage();
+  const rows: string[] = [], keys = Object.keys(PATHS);
+  let n = 0;
+  for (const key of keys) for (const m of ["naive", "model"] as Mode[]) {
+    const path = PATHS[key]!;
+    setMode(m);
+    markCase(1 + keys.indexOf(key));
+    setStatus(`Running all paths in both modes… ${++n} of ${keys.length * 2}: “${path.name}”, ${modeName()}.`);
+    const r = await play(path);
+    rows.push(`<tr><th>${path.name}</th><td>${m === "model" ? "<b>This model</b>" : "Naive"}</td><td class="num">${r.changes}</td><td class="num ${r.flashes ? "bad" : "good"}">${r.flashes}</td><td>${r.drop}</td></tr>`);
+    await new Promise((res) => setTimeout(res, 250));
+  }
+  const out = $("compare");
+  out.hidden = false;
+  out.innerHTML = `<div class="section-head"><span class="eyebrow">Every path in both modes</span><h3>Naive flashes while flying; the model does not</h3></div><div class="table-scroll"><table class="table"><thead><tr><th>Path</th><th>Mode</th><th>Indicator appeared or moved</th><th>Flashes</th><th>Drop</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+  (window as unknown as Record<string, unknown>).__dragModelResults = rows.length;
+  runningAll = false;
+  syncBusy();
+  setStatus("Done: the table below lists every path in both modes. Naive flashes while flying; the model does not.");
+});
+setStatus("Drag the Outline panel yourself, or pick a recorded path on the left.");
+(window as unknown as Record<string, unknown>).__dragModel = { play: (k: string, m: Mode) => { setMode(m); return play(PATHS[k]!); } };
