@@ -26,7 +26,17 @@ export interface Size {
 }
 
 export type Side = "left" | "right";
-export type ToolbarPlace = "band" | Side | "pinned";
+/** The band has two places: flush left (start) and flush right (end). */
+export type ToolbarPlace = "band-start" | "band-end" | Side | "pinned";
+export const isBand = (p: ToolbarPlace | null): p is "band-start" | "band-end" => p === "band-start" || p === "band-end";
+/** Horizontal: one row of buttons (wrapped in a column); vertical: one column of buttons. */
+export type Orientation = "horizontal" | "vertical";
+/** The toolbar's shape, kept in the desk state like its place. Collapsed: just its grip. */
+export interface ToolbarShape {
+  readonly orientation: Orientation;
+  readonly collapsed: boolean;
+}
+export const DEFAULT_SHAPE: ToolbarShape = { orientation: "horizontal", collapsed: false };
 export type PanelPlace = Side | "pinned";
 export type DocLayout = "master" | "dwindle" | "floating";
 
@@ -68,6 +78,7 @@ export const G = {
 export interface DeskState {
   /** Null while the toolbar is lifted (dragged). */
   readonly toolbar: ToolbarPlace | null;
+  readonly toolbarShape: ToolbarShape;
   /** Panel ids per column, top to bottom (the toolbar, when in a column, sits above them). */
   readonly left: readonly number[];
   readonly right: readonly number[];
@@ -95,20 +106,30 @@ export const docKey = (id: number): string => `doc:${id}`;
 
 // --- the toolbar -------------------------------------------------------------------------------------------------
 
-/** The toolbar's content size in a place: one row at its natural width, or wrapped to a column's width. */
-export function toolbarBox(place: ToolbarPlace): Size & { readonly perRow: number; readonly rows: number } {
+/**
+ * The toolbar's content size in a place and shape. Horizontal: one row at its natural width, or wrapped to a
+ * column's width. Vertical: one column of buttons. Collapsed: just its grip.
+ */
+export function toolbarBox(place: ToolbarPlace, shape: ToolbarShape = DEFAULT_SHAPE): Size & { readonly perRow: number; readonly rows: number; readonly cells: number } {
   const inColumn = place === "left" || place === "right";
+  const cells = shape.collapsed ? 1 : G.cells;
   const step = G.button + G.buttonGap;
-  const perRow = inColumn ? Math.max(1, Math.floor((G.column - 2 * G.toolbarPad + G.buttonGap) / step)) : G.cells;
-  const rows = Math.ceil(G.cells / perRow);
-  const naturalWidth = 2 * G.toolbarPad + G.cells * G.button + (G.cells - 1) * G.buttonGap;
+  const perRow =
+    shape.orientation === "vertical" ? 1 : inColumn ? Math.max(1, Math.floor((G.column - 2 * G.toolbarPad + G.buttonGap) / step)) : cells;
+  const rows = Math.ceil(cells / perRow);
+  const across = Math.min(perRow, cells);
+  const naturalWidth = 2 * G.toolbarPad + across * G.button + (across - 1) * G.buttonGap;
   return {
-    width: inColumn ? G.column : naturalWidth,
+    width: inColumn && shape.orientation === "horizontal" && !shape.collapsed ? G.column : naturalWidth,
     height: 2 * G.toolbarPad + rows * G.button + (rows - 1) * G.buttonGap,
     perRow,
     rows,
+    cells,
   };
 }
+
+/** The toolbar's box in the state's place and shape (null when it has no place: lifted). */
+export const toolbarBoxOf = (s: DeskState): (Size & { readonly rows: number }) | null => (s.toolbar ? toolbarBox(s.toolbar, s.toolbarShape) : null);
 
 // --- columns -----------------------------------------------------------------------------------------------------
 
@@ -116,7 +137,7 @@ const specOf = (spec: DeskSpec, id: number): PanelSpec => spec.panels.find((p) =
 
 /** The y where columns and the work area start, and their height. */
 function verticalSpan(state: DeskState, spec: DeskSpec): { y: number; height: number } {
-  const top = state.toolbar === "band" ? G.gap + toolbarBox("band").height : 0;
+  const top = isBand(state.toolbar) ? G.gap + toolbarBoxOf(state)!.height : 0;
   const y = top + G.gap;
   return { y, height: spec.stage.height - y - G.gap };
 }
@@ -125,7 +146,7 @@ const columnUsed = (state: DeskState, side: Side): boolean => state.toolbar === 
 
 /** What a column needs at its panels' minimum heights (folded ones at their title bar). */
 function columnNeed(state: DeskState, spec: DeskSpec, side: Side, ids: readonly number[]): number {
-  const toolbar = state.toolbar === side ? toolbarBox(side).height + (ids.length > 0 ? G.gap : 0) : 0;
+  const toolbar = state.toolbar === side ? toolbarBoxOf(state)!.height + (ids.length > 0 ? G.gap : 0) : 0;
   const panels = ids.reduce((sum, id) => sum + (state.folded.includes(id) ? G.title : specOf(spec, id).minHeight), 0);
   return toolbar + panels + G.gap * Math.max(0, ids.length - 1);
 }
@@ -245,10 +266,12 @@ export function layoutDesk(state: DeskState, spec: DeskSpec): DeskLayout {
   const { y, height } = verticalSpan(state, spec);
   const work = workArea(state, spec);
   let band: Rect | null = null;
-  if (state.toolbar === "band") {
-    const box = toolbarBox("band");
+  if (isBand(state.toolbar)) {
+    const box = toolbarBoxOf(state)!;
     band = { x: 0, y: 0, width: spec.stage.width, height: G.gap + box.height };
-    rects.set("toolbar", { x: G.gap, y: G.gap, width: box.width, height: box.height });
+    // Flush left at the band's start, flush right at its end.
+    const x = state.toolbar === "band-start" ? G.gap : spec.stage.width - G.gap - box.width;
+    rects.set("toolbar", { x, y: G.gap, width: box.width, height: box.height });
   }
   const columns: { left: Rect | null; right: Rect | null } = { left: null, right: null };
   for (const side of ["left", "right"] as const) {
@@ -257,8 +280,10 @@ export function layoutDesk(state: DeskState, spec: DeskSpec): DeskLayout {
     columns[side] = { x, y, width: G.column, height };
     let cursor = y;
     if (state.toolbar === side) {
-      const box = toolbarBox(side);
-      rects.set("toolbar", { x, y: cursor, width: box.width, height: box.height });
+      const box = toolbarBoxOf(state)!;
+      // Narrower than the column (vertical or collapsed): flush with the stage's edge.
+      const tx = side === "left" ? x : x + G.column - box.width;
+      rects.set("toolbar", { x: tx, y: cursor, width: box.width, height: box.height });
       cursor += box.height + G.gap;
     }
     const ids = state[side];
@@ -287,7 +312,7 @@ export function layoutDesk(state: DeskState, spec: DeskSpec): DeskLayout {
   }
   // The pinned toolbar: its natural size, anchored at the work area's bottom centre plus a margin.
   if (state.toolbar === "pinned") {
-    const box = toolbarBox("pinned");
+    const box = toolbarBoxOf(state)!;
     rects.set("toolbar", { x: work.x + (work.width - box.width) / 2, y: work.y + work.height - G.pinMargin - box.height, width: box.width, height: box.height });
   }
   for (const [id, r] of tiledLayout(state, work)) rects.set(docKey(id), r);
@@ -325,6 +350,7 @@ export function normalize(state: DeskState, spec: DeskSpec): DeskState {
 // --- changes -----------------------------------------------------------------------------------------------------
 
 export const withToolbar = (s: DeskState, place: ToolbarPlace | null): DeskState => ({ ...s, toolbar: place });
+export const withShape = (s: DeskState, shape: Partial<ToolbarShape>): DeskState => ({ ...s, toolbarShape: { ...s.toolbarShape, ...shape } });
 
 /** The state without panel `id` anywhere (lifted). */
 export const withoutPanel = (s: DeskState, id: number): DeskState => ({
@@ -464,6 +490,16 @@ export function positionPopup(anchorRect: Rect, size: Size, bounds: Rect, rule: 
     resized: x.resized || y.resized,
   };
 }
+
+/** The toolbar menu's rule: beside the grip (its top-right corner), extending right and down, 4 px apart. */
+export const MENU_RULE: PositionerRule = {
+  anchor: { x: 1, y: -1 },
+  gravity: { x: 1, y: 1 },
+  offset: { x: 4, y: 0 },
+  flip: true,
+  slide: true,
+  resize: true,
+};
 
 /** The drop label's rule: below the indicator's bottom-left corner, extending right and down, 6 px apart. */
 export const LABEL_RULE: PositionerRule = {
