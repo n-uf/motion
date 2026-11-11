@@ -36,3 +36,12 @@ jobs:
 
       - name: Typecheck, test, build
         run: pnpm check
+
+      - name: Web test
+        run: pnpm --filter motion-web test
+
+      - name: Web typecheck
+        run: pnpm --filter motion-web typecheck
+
+      - name: Web build (with the link check)
+        run: pnpm --filter motion-web build
