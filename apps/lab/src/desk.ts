@@ -1292,9 +1292,11 @@ async function runAll(filter?: string): Promise<LabRun[]> {
       }
     }
   } finally {
+    // Each scenario pins its own stage size (960 × 560 unless it sets one); afterwards the stage fits again (with Fit
+    // on) or takes back the size it had.
     setPreview(before.preview);
-    reset(before.cid, before.size);
     runningAll = false;
+    reset(before.cid, fit ? fitSize() : before.size);
     stopAll = false;
     runAllButton.textContent = "Run all scenarios";
   }
@@ -1330,17 +1332,68 @@ document.querySelectorAll<HTMLInputElement>("input[name=tempo]").forEach((input)
     }
   }),
 );
-for (const input of [wInput, hInput]) input.addEventListener("input", () => setSize(Number(wInput.value), Number(hInput.value)));
+// --- the stage's size: fitted to the page, or set by hand ------------------------------------------------------------
+
+/** The stage fits the page (Fit, the default) until a size is set by hand with the sliders or a preset. */
+let fit = true;
+/** Fit's bounds: the width between these (never wider than the page has room for), the height likewise. */
+const FIT = { minWidth: 960, maxWidth: 1680, minHeight: 560, maxHeight: 960, below: 24 } as const;
+const fitButton = document.querySelector("button[data-act=fit]") as HTMLButtonElement;
+
+/**
+ * The fitted size: the width the stage's container gives it (so the page never scrolls sideways), held to Fit's
+ * bounds; the height the viewport has below the stage's top, less a margin, held to Fit's bounds.
+ */
+function fitSize(): Size {
+  const box = stage.parentElement!;
+  const cs = getComputedStyle(box);
+  // The stage's border is 1 px each side: its content box (the desk) is 2 px less than its box.
+  const room = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2;
+  const width = Math.floor(Math.min(room, Math.max(FIT.minWidth, Math.min(FIT.maxWidth, room))));
+  const top = stage.getBoundingClientRect().top + window.scrollY;
+  const height = Math.floor(Math.max(FIT.minHeight, Math.min(FIT.maxHeight, window.innerHeight - top - FIT.below - 2)));
+  return { width, height };
+}
+
+function setFit(on: boolean): void {
+  fit = on;
+  fitButton.setAttribute("aria-pressed", String(on));
+  fitButton.textContent = on ? "Fit ✓" : "Fit";
+}
+
+/** With Fit on, the stage takes the fitted size: everything settles to it (not while a drag or the scenarios run). */
+function applyFit(): void {
+  if (!fit || runningAll || lifted) return;
+  const s = fitSize();
+  if (s.width !== size.width || s.height !== size.height) setSize(s.width, s.height);
+}
+
+let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(applyFit, 100);
+});
+
+for (const input of [wInput, hInput])
+  input.addEventListener("input", () => {
+    setFit(false);
+    setSize(Number(wInput.value), Number(hInput.value));
+  });
 document.querySelectorAll<HTMLButtonElement>("button[data-size]").forEach((b) =>
   b.addEventListener("click", () => {
     const [w, h] = b.dataset.size!.split(",").map(Number) as [number, number];
+    setFit(false);
     setSize(w, h);
   }),
 );
 const actions: Record<string, () => void> = {
   open: doOpen,
   close: doClose,
-  reset: () => reset(cid, size),
+  fit: () => {
+    setFit(true);
+    applyFit();
+  },
+  reset: () => reset(cid, fit ? fitSize() : size),
   runall: () => {
     if (runningAll) {
       stopAll = true;
@@ -1357,7 +1410,8 @@ function setPreview(m: Preview): void {
 document.querySelectorAll<HTMLInputElement>("input[name=preview]").forEach((input) => input.addEventListener("change", () => setPreview(input.value as Preview)));
 tempo = (document.querySelector<HTMLInputElement>("input[name=tempo]:checked")?.value as Tempo | undefined) ?? tempo;
 preview = (document.querySelector<HTMLInputElement>("input[name=preview]:checked")?.value as Preview | undefined) ?? preview;
-reset(DEFAULT_CONSTRUCTION, { width: Number(wInput.value) || 960, height: Number(hInput.value) || 560 });
+setFit(true);
+reset(DEFAULT_CONSTRUCTION, fitSize());
 
 window.__motionLab = {
   runAll,
