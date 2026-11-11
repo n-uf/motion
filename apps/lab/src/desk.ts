@@ -742,6 +742,8 @@ function reset(id: ConstructionId = cid, at: Size = size, opts: Partial<Options>
   focusMarks();
   renderNotes();
   lastRows = [];
+  // Building the desk afresh is not a move: no episode of its own.
+  episode = null;
 }
 
 // --- the frame -----------------------------------------------------------------------------------------------------
@@ -903,7 +905,13 @@ let collecting: Row[][] | null = null;
 function endEpisode(): void {
   const ep = episode;
   episode = null;
-  if (!ep) return;
+  if (ep) record(ep);
+  const waiters = idleWaiters;
+  idleWaiters = [];
+  for (const resolve of waiters) resolve();
+}
+
+function record(ep: NonNullable<typeof episode>): void {
   const { rows, segments } = motionRows(ep, omega(), (uid) => names.get(uid) ?? `item ${uid}`);
   lastRows = [
     ...rows,
@@ -916,9 +924,6 @@ function endEpisode(): void {
   collecting?.push(lastRows);
   renderChecks(checksBody, lastRows);
   renderTrace(trace, ep.t0, segments);
-  const waiters = idleWaiters;
-  idleWaiters = [];
-  for (const resolve of waiters) resolve();
 }
 
 /** An indicator replaced or hidden less than DRAG.FLASH ms after it showed is a flash. */

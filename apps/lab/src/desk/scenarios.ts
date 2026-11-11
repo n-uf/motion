@@ -270,11 +270,22 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       drag: true,
       play: async (expect) => {
         const grip = lab.grip(key)!;
-        const ts = aimable(grip);
-        const goal = ts.filter((t) => t.prio <= 2)[0] ?? ts[0];
-        const other = ts.filter((t) => t !== goal && dist(mid(t.hit), mid(goal?.hit ?? t.hit)) > 3 * DRAG.BAND + Math.max(t.hit.width, t.hit.height) / 2).sort((a, b) => dist(mid(a.hit), grip) - dist(mid(b.hit), grip))[0];
+        const all = lab.targets(key);
+        const home = lab.shown(key) ? lab.drawn(key) : null;
+        // Aim points: a target's centre, away from the item's home and on the stage.
+        const spots = all.map((t) => ({ t, p: mid(t.hit) })).filter(({ p }) => dist(p, grip) > 40 && !(home && within(home, p, 12)) && p.x > 0 && p.x < lab.size().width);
+        // The release point lies outside the band of every target as precise as its own: no path can keep another one.
+        const clear = (s: { t: Target; p: Point }): boolean => all.every((o) => o.id === s.t.id || o.prio > s.t.prio || !within(o.hit, s.p, DRAG.BAND));
+        const goal = spots.find((s) => s.t.prio <= 2 && clear(s)) ?? spots.find(clear);
+        // The detour: a target whose aim point is outside the goal's band, and that can't hold the release point (a
+        // less precise one that covers it gives way to the goal there).
+        const other =
+          goal &&
+          spots
+            .filter((s) => s.t.id !== goal.t.id && !within(goal.t.hit, s.p, DRAG.BAND) && (s.t.prio > goal.t.prio || !within(s.t.hit, goal.p, DRAG.BAND)))
+            .sort((a, b) => dist(a.p, grip) - dist(b.p, grip))[0];
         if (!goal || !other) return expect(false, "not two targets to take two paths");
-        const end = mid(goal.hit);
+        const end = goal.p;
         // Straight there, aiming at the end.
         const r1 = await lab.path(key, (g) => hold(through([g, end], 0.8), 500));
         await lab.idle();
@@ -283,11 +294,11 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         await lab.idle();
         // By way of another target (aimed at until room is made), then a flick to the same point and an instant release.
         const r2 = await lab.path(key, (g) => {
-          const aimOther = hold(through([g, mid(other.hit)], 0.8), 500);
-          return [...aimOther, ...through([mid(other.hit), end], 2.5, aimOther.at(-1)![0]).slice(1)];
+          const aimOther = hold(through([g, other.p], 0.8), 500);
+          return [...aimOther, ...through([other.p, end], 2.5, aimOther.at(-1)![0]).slice(1)];
         });
         await lab.idle();
-        expect(r1.landed === r2.landed, `landed on ${r1.landed} straight there, on ${r2.landed} by way of ${other.id}`);
+        expect(r1.landed === r2.landed, `landed on ${r1.landed} straight there, on ${r2.landed} by way of ${other.t.id}`);
         expect(JSON.stringify(lab.state()) === s1, "the two paths left the desk in different states");
       },
     };
