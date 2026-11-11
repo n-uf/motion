@@ -51,6 +51,7 @@ const OUT = cubicBezier(0.16, 1, 0.3, 1);
 const stage = document.getElementById("stage") as HTMLDivElement;
 const hint = document.getElementById("hint") as HTMLDivElement;
 const checksBody = document.querySelector("#checks tbody") as HTMLTableSectionElement;
+const checksTitle = document.getElementById("checks-title") as HTMLHeadingElement;
 const runsBody = document.querySelector("#runs tbody") as HTMLTableSectionElement;
 const trace = document.getElementById("trace") as HTMLCanvasElement;
 
@@ -91,6 +92,25 @@ let lifted: Win | null = null;
 let grab = { x: 0, y: 0 };
 let expected: Rect | null = null;
 let dropIndex = 0;
+/** Where the pointer is, in stage units, while dragging. */
+let pointer = { x: 0, y: 0 };
+/** The lifted window's size when it was picked up: it keeps it while it follows the pointer. */
+let liftSize = { width: 0, height: 0 };
+/**
+ * The drop preview while dragging: "indicator" (the window stays under the
+ * pointer, a dashed outline marks the slot it would land in) or "snap" (the
+ * window itself glides into the slot under the pointer, and back out to the
+ * pointer when the pointer leaves the slot).
+ */
+type DropMode = "indicator" | "snap";
+let dropMode: DropMode = "indicator";
+/** In snap mode: the slot index the window is snapped into, or null while it follows the pointer. */
+let snapped: number | null = null;
+/** How far inside a slot the pointer must be to snap into it (it stays snapped until the pointer leaves the slot). */
+const SNAP_IN = 24;
+/** The window kept above all others: the one being dragged, and after the drop until it has settled. */
+let raised: Win | null = null;
+const Z_RAISED = "10";
 
 // The current move ("episode"): from the first change while idle until everything rests.
 let time = 0;
@@ -100,6 +120,11 @@ let episode: {
   runs: TargetSample[][];
   scale: ScaleSample[];
   held: HeldSample[];
+  /** Per frame of the raised window: null when nothing covered it, else what did. */
+  onTop: (string | null)[];
+  /** The motion and drop preview this move ran with. */
+  mode: Mode;
+  drop: DropMode;
 } | null = null;
 let idleWaiters: Array<() => void> = [];
 
@@ -110,7 +135,68 @@ const omega = (): number => SETTLE_TEMPO[tempo];
 const same = (a: Rect, b: Rect): boolean =>
   Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01 && Math.abs(a.width - b.width) < 0.01 && Math.abs(a.height - b.height) < 0.01;
 
+/** The tiling layouts: Hyprland's master and dwindle, plus equal columns and a grid. */
+type LayoutKind = "master" | "dwindle" | "columns" | "grid";
+let layoutKind: LayoutKind = "master";
+
 function layout(ids: readonly number[]): Map<number, Rect> {
+  if (layoutKind === "dwindle") return dwindle(ids);
+  if (layoutKind === "columns") return columns(ids);
+  if (layoutKind === "grid") return grid(ids);
+  return masterStack(ids);
+}
+
+/** Dwindle (Hyprland's default): each window takes half of what is left, split along the longer side. */
+function dwindle(ids: readonly number[]): Map<number, Rect> {
+  const out = new Map<number, Rect>();
+  let r: Rect = { x: GAP, y: GAP, width: STAGE_W - 2 * GAP, height: STAGE_H - 2 * GAP };
+  ids.forEach((id, i) => {
+    if (i === ids.length - 1) {
+      out.set(id, r);
+      return;
+    }
+    if (r.width >= r.height) {
+      const w = (r.width - GAP) / 2;
+      out.set(id, { x: r.x, y: r.y, width: w, height: r.height });
+      r = { x: r.x + w + GAP, y: r.y, width: w, height: r.height };
+    } else {
+      const h = (r.height - GAP) / 2;
+      out.set(id, { x: r.x, y: r.y, width: r.width, height: h });
+      r = { x: r.x, y: r.y + h + GAP, width: r.width, height: h };
+    }
+  });
+  return out;
+}
+
+/** Equal columns, full height. */
+function columns(ids: readonly number[]): Map<number, Rect> {
+  const out = new Map<number, Rect>();
+  const n = ids.length;
+  const w = (STAGE_W - GAP * (n + 1)) / Math.max(1, n);
+  ids.forEach((id, i) => out.set(id, { x: GAP + i * (w + GAP), y: GAP, width: w, height: STAGE_H - 2 * GAP }));
+  return out;
+}
+
+/** A grid as square as the count allows; the last row's cells widen to fill it. */
+function grid(ids: readonly number[]): Map<number, Rect> {
+  const out = new Map<number, Rect>();
+  const n = ids.length;
+  if (n === 0) return out;
+  const cols = Math.ceil(Math.sqrt(n));
+  const rows = Math.ceil(n / cols);
+  const h = (STAGE_H - GAP * (rows + 1)) / rows;
+  ids.forEach((id, i) => {
+    const row = Math.floor(i / cols);
+    const inRow = row === rows - 1 ? n - cols * (rows - 1) : cols;
+    const col = i - row * cols;
+    const w = (STAGE_W - GAP * (inRow + 1)) / inRow;
+    out.set(id, { x: GAP + col * (w + GAP), y: GAP + row * (h + GAP), width: w, height: h });
+  });
+  return out;
+}
+
+/** Master and stack: the first window on the left half, the rest stacked on the right. */
+function masterStack(ids: readonly number[]): Map<number, Rect> {
   const out = new Map<number, Rect>();
   const W = STAGE_W - 2 * GAP;
   const H = STAGE_H - 2 * GAP;
@@ -131,7 +217,7 @@ const FULL: Rect = { x: GAP, y: GAP, width: STAGE_W - 2 * GAP, height: STAGE_H -
 
 function startEpisode(): void {
   if (episode) return;
-  episode = { t0: time, segments: [], runs: [], scale: [], held: [] };
+  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], mode, drop: dropMode };
   for (const w of wins) {
     w.runs = [[]];
     episode.runs.push(...w.runs);
@@ -191,7 +277,7 @@ function relayout(morphId: number | null = null): void {
     const w = wins.find((x) => x.id === id)!;
     const to = id === maxId ? FULL : slots.get(id)!;
     setTarget(w, to, id === morphId ? "morph" : "layout");
-    w.el.style.zIndex = id === maxId ? "3" : "1";
+    w.el.style.zIndex = w === raised ? Z_RAISED : id === maxId ? "3" : "1";
   }
 }
 
@@ -234,6 +320,8 @@ function reset(count = 3): void {
   order = [];
   maxId = null;
   lifted = null;
+  raised = null;
+  snapped = null;
   hint.hidden = true;
   for (let i = 0; i < count; i++) {
     const w = makeWin(FULL);
@@ -302,7 +390,11 @@ function beginDrag(w: Win, px: number, py: number): void {
   ensureLoop();
   const d = w.rect.value;
   grab = { x: px - d.x, y: py - d.y };
+  liftSize = { width: d.width, height: d.height };
+  snapped = null;
   lifted = w;
+  raised = w;
+  w.el.style.zIndex = Z_RAISED;
   w.el.classList.add("lifted");
   if (maxId === w.id) maxId = null;
   order = order.filter((x) => x !== w.id);
@@ -319,30 +411,48 @@ function beginDrag(w: Win, px: number, py: number): void {
   moveDrag(px, py);
 }
 
+/** The slot the lifted window would take if inserted at `index` in the order. */
+function slotAt(index: number, id: number): Rect {
+  return layout([...order.slice(0, index), id, ...order.slice(index)]).get(id)!;
+}
+
+const inside = (r: Rect, px: number, py: number, inset = 0): boolean =>
+  px >= r.x + inset && px <= r.x + r.width - inset && py >= r.y + inset && py <= r.y + r.height - inset;
+
 function moveDrag(px: number, py: number): void {
   if (!lifted) return;
-  const d = lifted.rect.value;
-  expected = { x: px - grab.x, y: py - grab.y, width: d.width, height: d.height };
-  if (mode === "proposed") (lifted.rect as Settle<Rect>).hold(expected);
-  else lifted.rect.setTarget(expected);
-  // Where it would land: the slot under the pointer, trying each place in the order.
+  pointer = { x: px, y: py };
+  expected = { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
+  // Where it would land: the slot under the pointer (else the nearest), trying each place in the order.
   let best = 0;
   let bestDist = Infinity;
   for (let i = 0; i <= order.length; i++) {
-    const ids = [...order.slice(0, i), lifted.id, ...order.slice(i)];
-    const slot = layout(ids).get(lifted.id)!;
+    const slot = slotAt(i, lifted.id);
     const dx = px - (slot.x + slot.width / 2);
     const dy = py - (slot.y + slot.height / 2);
-    const inside = px >= slot.x && px <= slot.x + slot.width && py >= slot.y && py <= slot.y + slot.height;
-    const dist = (inside ? 0 : 1e6) + dx * dx + dy * dy;
+    const dist = (inside(slot, px, py) ? 0 : 1e6) + dx * dx + dy * dy;
     if (dist < bestDist) {
       bestDist = dist;
       best = i;
     }
   }
   dropIndex = best;
-  const ids = [...order.slice(0, best), lifted.id, ...order.slice(best)];
-  const slot = layout(ids).get(lifted.id)!;
+  const slot = slotAt(best, lifted.id);
+
+  if (dropMode === "snap") {
+    // Snap in once the pointer is well inside a slot; stay until it leaves that slot.
+    if (snapped !== null && !inside(slotAt(snapped, lifted.id), px, py)) snapped = null;
+    if (snapped === null && inside(slot, px, py, SNAP_IN)) snapped = best;
+    if (snapped !== null) dropIndex = snapped;
+    hint.hidden = true;
+    // Snapped: glide into the slot. Not snapped: glide back under the pointer (no jump), at the lift size.
+    const goal = snapped !== null ? slotAt(snapped, lifted.id) : expected;
+    if (!same(lifted.rect.target, goal)) lifted.rect.setTarget(goal);
+    return;
+  }
+
+  if (mode === "proposed") (lifted.rect as Settle<Rect>).hold(expected);
+  else lifted.rect.setTarget(expected);
   hint.hidden = false;
   Object.assign(hint.style, { left: `${slot.x}px`, top: `${slot.y}px`, width: `${slot.width}px`, height: `${slot.height}px` });
 }
@@ -352,10 +462,12 @@ function endDrag(): void {
   if (!w) return;
   lifted = null;
   expected = null;
+  snapped = null;
   hint.hidden = true;
   w.el.classList.remove("lifted");
   order.splice(dropIndex, 0, w.id);
   newRun(w);
+  // It stays raised (above every other window) until its drop settle ends.
   relayout();
 }
 
@@ -408,6 +520,29 @@ function draw(w: Win): void {
   w.content.style.clipPath = "";
 }
 
+/**
+ * Whether the topmost element at stage point `want` belongs to `w` (a failure message when not). The point
+ * is moved into the part of the frame the stage shows (its content box): outside it nothing can be hit.
+ */
+function onTopAt(w: Win, want: { x: number; y: number }, frame: Rect): string | null {
+  const s = stage.getBoundingClientRect();
+  const k = s.width / STAGE_W;
+  const vw = stage.clientWidth / k;
+  const vh = stage.clientHeight / k;
+  const x0 = Math.max(frame.x, 0) + 1;
+  const y0 = Math.max(frame.y, 0) + 1;
+  const x1 = Math.min(frame.x + frame.width, vw) - 1;
+  const y1 = Math.min(frame.y + frame.height, vh) - 1;
+  if (x1 <= x0 || y1 <= y0) return null;
+  const at = { x: Math.min(Math.max(want.x, x0), x1), y: Math.min(Math.max(want.y, y0), y1) };
+  const cx = s.left + stage.clientLeft + at.x * k;
+  const cy = s.top + stage.clientTop + at.y * k;
+  const top = document.elementFromPoint(cx, cy);
+  if (top && w.el.contains(top)) return null;
+  const other = top?.closest<HTMLElement>(".win")?.dataset.id;
+  return `t=${Math.round(time)} window ${w.id} is under ${other ? `window ${other}` : (top?.className || "something")} at (${Math.round(at.x)}, ${Math.round(at.y)})`;
+}
+
 /** What the page draws, read back from the DOM: the content's scale and the frame's rect in stage units. */
 function measure(w: Win): { scale: ScaleSample; frame: Rect } {
   const css = getComputedStyle(w.el).transform;
@@ -433,11 +568,20 @@ function tick(frame: FrameInfo): boolean {
     episode.scale.push(seen.scale);
     const drawn = w.rect.value;
     if (w === lifted) {
-      // Held: compare what the page shows with where the pointer puts the window.
-      if (expected) episode.held.push({ t: time, rect: seen.frame, expected });
+      // Held (indicator mode): compare what the page shows with where the pointer puts the window.
+      if (expected && dropMode === "indicator") episode.held.push({ t: time, rect: seen.frame, expected });
     } else {
       w.runs.at(-1)!.push({ t: time, rect: drawn, target: w.rect.target });
       w.segment?.samples.push({ t: time, rect: drawn });
+    }
+    // On top: while dragged, and after the drop until it has settled, nothing covers it.
+    if (w === raised) {
+      const at = w === lifted && inside(seen.frame, pointer.x, pointer.y) ? pointer : { x: seen.frame.x + seen.frame.width / 2, y: seen.frame.y + seen.frame.height / 2 };
+      episode.onTop.push(onTopAt(w, at, seen.frame));
+      if (w !== lifted && w.rect.settled) {
+        raised = null;
+        w.el.style.zIndex = w.id === maxId ? "3" : "1";
+      }
     }
     if (w.closing && w.pop.settled) {
       w.el.remove();
@@ -464,6 +608,11 @@ function merge(results: readonly CheckResult[]): CheckResult {
 }
 
 let lastRows: Row[] = [];
+
+function onTopResult(frames: readonly (string | null)[]): CheckResult {
+  const failures = frames.filter((x): x is string => x !== null);
+  return { ok: failures.length === 0, failures };
+}
 
 function endEpisode(): void {
   const ep = episode;
@@ -496,8 +645,12 @@ function endEpisode(): void {
     { name: "No jumps or restarts", result: merge(ep.runs.map((run) => checkNoJumps(run, omega()))) },
     { name: "Content never stretched", result: checkContentScale(ep.scale) },
     { name: "Held 1:1 under the pointer", result: ep.held.length > 0 ? checkHeld(ep.held) : null },
+    { name: "Dragged window stays on top", result: ep.onTop.length > 0 ? onTopResult(ep.onTop) : null },
     { name: "Tempo of the longest move", result: tempo, info: tempoInfo },
   ];
+  checksTitle.textContent =
+    `Checks of the last move · ${ep.mode === "proposed" ? "Proposed" : "Today (failures expected: this is today's motion)"}` +
+    (ep.onTop.length > 0 ? ` · drop preview: ${ep.drop === "snap" ? "snap to slot" : "drop indicator"}` : "");
   renderChecks(lastRows);
   renderTrace(ep.t0, segs);
   const waiters = idleWaiters;
@@ -602,6 +755,21 @@ const SCENARIOS: Record<string, () => Promise<void>> = {
     doMaximize();
   },
   "drag to the stack": scriptedDrag,
+  "drag, snap to slot": async () => {
+    const before = dropMode;
+    setDropMode("snap");
+    try {
+      await scriptedDrag();
+    } finally {
+      setDropMode(before);
+    }
+  },
+  "switch layout": async () => {
+    const before = layoutKind;
+    setLayout(before === "dwindle" ? "master" : "dwindle");
+    await idle();
+    setLayout(before);
+  },
 };
 
 interface Run {
@@ -614,7 +782,7 @@ interface Run {
 const runs: Run[] = [];
 
 async function runScenario(name: string): Promise<Run> {
-  reset(3);
+  reset(4);
   await nextFrame();
   const play = SCENARIOS[name]!;
   await play();
@@ -625,7 +793,7 @@ async function runScenario(name: string): Promise<Run> {
   const tr = document.createElement("tr");
   tr.innerHTML = "<td></td><td></td><td></td>";
   tr.children[0]!.textContent = name;
-  tr.children[1]!.textContent = mode === "proposed" ? "Proposed" : "Today";
+  tr.children[1]!.textContent = `${mode === "proposed" ? "Proposed" : "Today"} · ${layoutKind}`;
   tr.children[2]!.textContent = failed.length ? failed.join(", ") : "none";
   (tr.children[2] as HTMLElement).className = failed.length ? "bad" : "ok";
   runsBody.append(tr);
@@ -649,11 +817,29 @@ async function runAll(): Promise<Run[]> {
 function setMode(m: Mode): void {
   mode = m;
   (document.querySelector(`input[name=mode][value=${m}]`) as HTMLInputElement).checked = true;
-  reset(3);
+  reset(4);
+}
+
+function setDropMode(m: DropMode): void {
+  dropMode = m;
+  (document.querySelector(`input[name=drop][value=${m}]`) as HTMLInputElement).checked = true;
+}
+
+/** A new layout: every window glides to its place in it. */
+function setLayout(k: LayoutKind): void {
+  layoutKind = k;
+  (document.querySelector(`input[name=layout][value=${k}]`) as HTMLInputElement).checked = true;
+  if (!lifted) relayout();
 }
 
 document.querySelectorAll<HTMLInputElement>("input[name=mode]").forEach((input) =>
   input.addEventListener("change", () => setMode(input.value as Mode)),
+);
+document.querySelectorAll<HTMLInputElement>("input[name=drop]").forEach((input) =>
+  input.addEventListener("change", () => setDropMode(input.value as DropMode)),
+);
+document.querySelectorAll<HTMLInputElement>("input[name=layout]").forEach((input) =>
+  input.addEventListener("change", () => setLayout(input.value as LayoutKind)),
 );
 document.querySelectorAll<HTMLInputElement>("input[name=tempo]").forEach((input) =>
   input.addEventListener("change", () => {
@@ -678,7 +864,7 @@ document.querySelectorAll<HTMLButtonElement>("button[data-act]").forEach((b) =>
   b.addEventListener("click", () => actions[b.dataset.act!]?.()),
 );
 
-reset(3);
+reset(4);
 
 declare global {
   interface Window {
