@@ -9,8 +9,9 @@
 import { createFrameLoop, createSettle, SETTLE_TEMPO, type FrameInfo, type Rect, type Settle } from "@n-uf/motion";
 import { createBrowserClock } from "@n-uf/motion/browser";
 import type { CheckResult, HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
-import { draggable, findDrop, without, type Drop } from "./desk/drops";
-import { CONSTRUCTIONS, DEFAULT_CONSTRUCTION, constructionOf, type ConstructionId } from "./desk/layouts";
+import { draggable, dropAt, targetsFor, without, type Drop, type DropTarget, type TargetInput } from "./desk/drops";
+import { DRAG, createIntent, rawTarget, within, type Intent } from "./desk/intent";
+import { CONSTRUCTIONS, DEFAULT_CONSTRUCTION, constructionOf, stripGeometry, type ConstructionId } from "./desk/layouts";
 import {
   DEFAULT_OPTIONS,
   DOC_TITLES,
@@ -36,15 +37,16 @@ import {
   type Size,
 } from "./desk/model";
 import { LABEL_RULE, positionPopup } from "./desk/positioner";
-import { makeScenarios, type DeskLab, type Scenario } from "./desk/scenarios";
+import { makeScenarios, type DeskLab, type DragResult, type PathKey, type Scenario } from "./desk/scenarios";
 import { framesResult, merge, motionRows, renderChecks, renderTrace, verdict, type Row, type Segment } from "./shared/checks";
 import { drawRevealed, layOut, measureFrame, onTopAt } from "./shared/frame";
-import { inside, nextFrame, overlap, same, type Point } from "./shared/geometry";
+import { inside, nextFrame, overlap, same, wait, type Point } from "./shared/geometry";
 import type { LabRun } from "./shared/hooks";
 import { cancelPress, trackPress } from "./shared/press";
 
 type Tempo = keyof typeof SETTLE_TEMPO;
-type DropMode = "indicator" | "snap";
+
+const centre = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
 
 const TOOL_ICONS = ["✎", "⌫", "↶", "↷", "⎘", "⌕", "☰", "⚙"];
 
@@ -115,129 +117,199 @@ function commit(s: DeskState): void {
 
 // --- the drag ------------------------------------------------------------------------------------------------------
 
-let dropMode: DropMode = "indicator";
 let lifted: Item | null = null;
 let grab: Point = { x: 0, y: 0 };
 let liftSize = { width: 0, height: 0 };
 let expected: Rect | null = null;
 let pointer: Point = { x: 0, y: 0 };
-let drop: Drop | null = null;
-/** Snap mode: the drop the item glides into. */
-let snapped: Drop | null = null;
-/** Where the lifted item was: the state, its drawn rect, and the drop that puts it back. */
-let home: { state: DeskState; rect: Rect; drop: Drop } | null = null;
-let leftHome = false;
-/** This drag has laid the others out around its drop at least once. */
-let roomShown = false;
+/** Where the lifted item came from: the desk's state then (the others keep its place until room is made) and its home zone. */
+let home: { state: DeskState; rect: Rect } | null = null;
+/** The lifted item's drop targets (stable while it is held: only the strip's edge scroll rebuilds them). */
+let targets: DropTarget[] = [];
+let intent: Intent<DropTarget> | null = null;
+/** What the indicator shows, and the drop the others make room for. */
+let shown: Drop | null = null;
+let room: Drop | null = null;
+/** A keyboard drag: the stops the arrow keys step through, the current one, and since when. */
+let keys: { stops: { target: DropTarget; p: Point }[]; i: number; since: number } | null = null;
 /** The press became a drag (so its click isn't a click on a tab). */
 let dragged = false;
 
-/** Where the others make room for the lifted item now (indicator: the marked drop; snap: the one it glides into). */
-const roomDrop = (): Drop | null => (!lifted ? null : dropMode === "snap" ? snapped : drop);
+/** Where the others make room for the lifted item now. */
+const roomDrop = (): Drop | null => (lifted ? room : null);
+const dragInput = (it: Item): TargetInput => ({ c: construction(), s0: without(home!.state, it.key), key: it.key, size, opt: options() });
 
-/** Until the pointer has left the item's own place, its own place is the drop. */
-function bestDrop(it: Item, p: Point): Drop {
-  if (home && !leftHome) return home.drop;
-  return findDrop({ c: construction(), s0: state(), key: it.key, size, opt: options(), pointer: p, grab });
-}
-
-/** Lift `it` with the pointer at (px, py); `hold` is where the pointer holds it (default: where it was pressed). */
-function beginDrag(it: Item, px: number, py: number, hold?: Point): void {
+/**
+ * Lift `it` with the pointer at (px, py). `hold` is where the pointer holds it (default: where it was pressed);
+ * `from` its home zone (default: where it is drawn); `keyboard`: picked up from the keyboard.
+ */
+function beginDrag(it: Item, px: number, py: number, hold?: Point, from?: Rect, keyboard = false): void {
   if (lifted || it.closing || !draggable(construction(), it.key)) return;
   dragged = true;
   ensureLoop();
   const d = it.rect.value;
   grab = hold ?? { x: px - d.x, y: py - d.y };
   liftSize = { width: d.width, height: d.height };
-  const placed = layout.items.get(it.key)!;
-  home = { state: state(), rect: { ...d }, drop: { key: "home", state: state(), layout, slot: placed.rect, hidden: !!placed.hidden, free: false, label: "Back where it was" } };
-  leftHome = false;
-  snapped = null;
-  drop = null;
+  home = { state: state(), rect: from ?? { ...d } };
+  intent = createIntent<DropTarget>(home.rect);
+  dragLog = [];
+  liftedAt = performance.now();
   lifted = it;
   raised = it;
+  targets = targetsFor(dragInput(it));
+  shown = null;
+  room = null;
+  keys = keyboard ? { stops: targets.flatMap((t) => (t.stops ?? [centre(t.hit)]).map((p) => ({ target: t, p }))), i: -1, since: 0 } : null;
   it.el.classList.add("lifted");
   it.el.classList.remove("hidden");
   it.el.style.zIndex = "10";
   // A panel lifted from behind its tab shows while it is held.
   it.el.style.visibility = "visible";
   it.pop.setTarget(1);
-  // Lifted out of its place: the others close the gap unless a drop keeps it.
-  states.set(cid, without(state(), it.key));
   it.segment = null;
   newRun(it);
   moveDrag(px, py);
 }
 
+/** The pointer moved: the item follows it 1:1 from the grab point (the frame works out the aim). */
 function moveDrag(px: number, py: number): void {
   const it = lifted;
   if (!it) return;
   pointer = { x: px, y: py };
-  if (home && !inside(home.rect, px, py)) leftHome = true;
-  const best = bestDrop(it, pointer);
-  const before = roomDrop()?.key;
-  drop = best;
-  if (dropMode === "snap") {
-    snapped = best;
-    hideHint();
-    expected = null;
-    const goal = best.slot;
-    if (!same(it.target, goal)) {
-      it.target = { ...goal };
-      layOut(it, goal);
-    }
-    if (!same(it.rect.target, goal)) {
-      const drawn = it.rect.value;
-      it.segment = { id: it.uid, t0: time, from: { ...drawn }, to: { ...goal }, samples: [{ t: time, rect: { ...drawn } }] };
-      episode?.segments.push(it.segment);
-      it.rect.configure({ omega: omega() });
-      it.rect.setTarget(goal);
-    }
-  } else {
-    expected = { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
-    it.rect.hold(expected);
-    showHint(best);
+  expected = { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
+  it.rect.hold(expected);
+}
+
+/** Once a frame while an item is lifted: scroll the strip at the stage's edge, else read the aim. */
+function aim(now: number, dt: number): void {
+  const it = lifted;
+  if (!it || !intent) return;
+  if (keys) {
+    const stop = keys.stops[keys.i];
+    show(stop ? dropAt(dragInput(it), stop.target, stop.p, grab) : null, now, !!stop && !stop.target.free && now - keys.since >= DRAG.ROOM_AFTER);
+    return;
   }
-  if (roomDrop()?.key !== before || !roomShown) {
-    roomShown = true;
+  if (cid === "strip" && edgeScroll(it, now, dt)) return;
+  const f = intent.update(pointer, now, targets);
+  show(f.shown ? dropAt(dragInput(it), f.shown, pointer, grab) : null, now, f.room);
+}
+
+/**
+ * Near the stage's left or right edge the strip scrolls, faster the closer the pointer; the indicator hides while it
+ * does. Returns whether it scrolled.
+ */
+function edgeScroll(it: Item, now: number, dt: number): boolean {
+  const dist = Math.min(pointer.x, size.width - pointer.x);
+  if (dist >= DRAG.EDGE || !home) return false;
+  const g = stripGeometry(home.state, size);
+  const dir = pointer.x < size.width / 2 ? -1 : 1;
+  const next = Math.min(Math.max(0, g.total - size.width), Math.max(0, g.scroll + dir * DRAG.EDGE_SPEED * (1 - Math.max(0, dist) / DRAG.EDGE) * dt));
+  if (Math.abs(next - g.scroll) < 0.01) return false;
+  home = { ...home, state: { ...home.state, stripScroll: next } };
+  states.set(cid, home.state);
+  targets = targetsFor(dragInput(it));
+  intent!.hide(now);
+  show(null, now, false);
+  relayout();
+  return true;
+}
+
+/** The indicator shows `d` (or nothing); the others make room for it when `makeRoom`. */
+function show(d: Drop | null, now: number, makeRoom: boolean): void {
+  if ((d?.target ?? null) !== (shown?.target ?? null)) {
+    episode?.indicator.push({ t: now, id: d?.target ?? null });
+    dragLog.push({ t: now - liftedAt, id: d?.target ?? null });
+  }
+  if (d?.key !== shown?.key) {
+    if (d) showHint(d);
+    else hideHint();
+  }
+  shown = d;
+  const next = makeRoom ? d : null;
+  if (next?.key !== room?.key) {
+    room = next;
     relayout();
   }
 }
 
-/** Drop the lifted item: where the drop says, or back home on a cancel (Escape) or a drag that never left home. */
+/**
+ * Drop the lifted item. A release lands on the indicator's target if the pointer is within its band, else on the
+ * target under the pointer, else nowhere: the item settles home (as on a release over home, Escape or a cancel).
+ */
 function endDrag(cancel = false): void {
   const it = lifted;
-  if (!it) return;
-  const back = home && (cancel || !leftHome) ? home : null;
-  const s = back ? back.state : (drop ?? home!.drop).state;
+  if (!it || !home || !intent) return;
+  let s = home.state;
+  let landed: string | null = null;
+  if (!cancel) {
+    const stop = keys?.stops[keys.i];
+    const t = keys ? (stop?.target ?? null) : intent.release(pointer, targets);
+    if (t) {
+      s = dropAt(dragInput(it), t, keys ? stop!.p : pointer, grab).state;
+      landed = t.id;
+    }
+    if (!keys) {
+      // The rule, checked from what the page showed: the indicator's target within its band, else what is under the pointer.
+      const showing = shown ? targets.find((x) => x.id === shown!.target) : undefined;
+      const want = within(home.rect, pointer) ? null : showing && within(showing.hit, pointer, DRAG.BAND) ? showing.id : (rawTarget(targets, pointer)?.id ?? null);
+      episode?.release.push(want === landed ? null : `landed on ${landed ?? "home"}, but the indicator said ${want ?? "home"}`);
+    }
+  }
+  show(null, performance.now(), false);
+  lastLanding = landed;
   lifted = null;
+  intent = null;
+  keys = null;
   expected = null;
-  drop = null;
-  snapped = null;
   home = null;
-  roomShown = false;
-  hideHint();
+  targets = [];
   it.el.classList.remove("lifted");
   newRun(it);
   // It stays raised until its drop settle ends.
   commit(s);
 }
+/** What the last drag landed on (a target id, or null: home). */
+let lastLanding: string | null = null;
 
-function onPress(it: Item, e: PointerEvent, hold?: Point): void {
-  trackPress(e, {
-    point: stagePoint,
-    lifted: () => lifted === it,
-    begin: (start) => beginDrag(it, start.x, start.y, hold),
-    move: (q) => moveDrag(q.x, q.y),
-    end: (cancel) => endDrag(cancel),
-  });
+const TOUCH = { hold: DRAG.LONG_PRESS, lift: DRAG.TOUCH_LIFT };
+
+function onPress(it: Item, e: PointerEvent, hold?: Point, from?: () => Rect): void {
+  trackPress(
+    e,
+    {
+      point: stagePoint,
+      lifted: () => lifted === it,
+      begin: (start) => beginDrag(it, start.x, start.y, hold, from?.()),
+      move: (q) => moveDrag(q.x, q.y),
+      end: (cancel) => endDrag(cancel),
+    },
+    TOUCH,
+  );
+}
+
+/** Space (or Enter on a title bar) picks the item up from the keyboard. */
+function onKeyPickUp(it: Item, e: KeyboardEvent, hold?: Point, enter = true): void {
+  if (lifted || !(e.key === " " || (enter && e.key === "Enter"))) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const d = it.rect.value;
+  const g = hold ?? { x: 40, y: 11 };
+  beginDrag(it, d.x + g.x, d.y + g.y, g, undefined, true);
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && lifted) {
+  if (!lifted) return;
+  if (e.key === "Escape") {
     cancelPress();
     endDrag(true);
-  }
+  } else if (keys && (e.key === "ArrowDown" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowLeft")) {
+    // A fixed order: the targets' stops as listed, wrapping round.
+    const n = keys.stops.length;
+    const forward = e.key === "ArrowDown" || e.key === "ArrowRight";
+    if (n) keys = { ...keys, i: forward ? (keys.i + 1) % n : keys.i <= 0 ? n - 1 : keys.i - 1, since: performance.now() };
+  } else if (keys && e.key === "Enter") endDrag();
+  else return;
+  e.preventDefault();
 });
 
 function stagePoint(e: PointerEvent): Point {
@@ -246,20 +318,31 @@ function stagePoint(e: PointerEvent): Point {
   return { x: (e.clientX - r.left - stage.clientLeft) * k, y: (e.clientY - r.top - stage.clientTop) * k };
 }
 
-/** The indicator outlines the drop's slot; its label is placed by the xdg-positioner rule. */
+/**
+ * The indicator outlines the drop's slot (a drop into a folded rail: the rail); it fades in, and glides from one
+ * target to the next. Its label is placed by the xdg-positioner rule.
+ */
 function showHint(d: Drop): void {
-  hint.hidden = false;
-  Object.assign(hint.style, { left: `${d.slot.x}px`, top: `${d.slot.y}px`, width: `${d.slot.width}px`, height: `${d.slot.height}px` });
-  hintLabel.hidden = false;
+  const r = d.hidden ? (targets.find((t) => t.id === d.target)?.hit ?? d.slot) : d.slot;
+  const appearing = !hint.classList.contains("on");
+  // Appearing: it fades in where it is, without gliding from where it last was.
+  for (const el of appearing ? [hint, hintLabel] : []) el.style.transitionProperty = "opacity";
+  Object.assign(hint.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.width}px`, height: `${r.height}px` });
   if (hintLabel.textContent !== d.label) hintLabel.textContent = d.label;
   hintLabel.style.width = "";
-  const placed = positionPopup(d.slot, { width: hintLabel.offsetWidth, height: hintLabel.offsetHeight }, { x: 0, y: 0, ...size }, LABEL_RULE);
+  const placed = positionPopup(r, { width: hintLabel.offsetWidth, height: hintLabel.offsetHeight }, { x: 0, y: 0, ...size }, LABEL_RULE);
   Object.assign(hintLabel.style, { left: `${placed.rect.x}px`, top: `${placed.rect.y}px`, width: `${placed.rect.width}px` });
+  if (appearing) {
+    void hint.offsetWidth;
+    for (const el of [hint, hintLabel]) el.style.transitionProperty = "";
+  }
+  hint.classList.add("on");
+  hintLabel.classList.add("on");
 }
 
 function hideHint(): void {
-  hint.hidden = true;
-  hintLabel.hidden = true;
+  hint.classList.remove("on");
+  hintLabel.classList.remove("on");
 }
 
 // --- items ---------------------------------------------------------------------------------------------------------
@@ -305,11 +388,16 @@ function makeToolbar(at: Rect): Item {
 }
 
 function makePanel(p: (typeof PANELS)[number], at: Rect): Item {
-  const html = `<div class="title"><span>${p.title}</span><button type="button" class="fold" title="Fold to the title bar">▾</button></div><div class="body">${p.body}</div>`;
+  const html = `<div class="title" tabindex="0"><span>${p.title}</span><button type="button" class="fold" title="Fold to the title bar">▾</button></div><div class="body">${p.body}</div>`;
   const it = makeItem("panel", panelKey(p.id), 200 + p.id, p.title, html, at);
-  it.content.querySelector(".title")!.addEventListener("pointerdown", (e) => {
+  const bar = it.content.querySelector<HTMLElement>(".title")!;
+  bar.addEventListener("pointerdown", (e) => {
     dragged = false;
     onPress(it, e as PointerEvent);
+  });
+  // From the keyboard: Space or Enter on the focused title bar picks the panel up (not on its fold button).
+  bar.addEventListener("keydown", (e) => {
+    if (e.target === bar) onKeyPickUp(it, e);
   });
   const fold = it.content.querySelector<HTMLButtonElement>(".fold")!;
   fold.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -325,16 +413,28 @@ function makePanel(p: (typeof PANELS)[number], at: Rect): Item {
 
 function makeDoc(id: number, at: Rect): Item {
   const title = DOC_TITLES[(id - 1) % DOC_TITLES.length]!;
-  const html = `<div class="title">${title}</div><div class="body">Last edited today · 3 pages<span class="line"></span><span class="line"></span><span class="line short"></span></div>`;
+  const html = `<div class="title" tabindex="0">${title}</div><div class="body">Last edited today · 3 pages<span class="line"></span><span class="line"></span><span class="line short"></span></div>`;
   const it = makeItem("doc", docKey(id), id, title, html, at);
   it.el.addEventListener("pointerdown", () => {
     if (!it.closing && !lifted) doFocus(id);
   });
   // Documents are tiles of the tree and columns of the strip: there, they drag by their title bar.
-  it.content.querySelector(".title")!.addEventListener("pointerdown", (e) => {
+  const bar = it.content.querySelector<HTMLElement>(".title")!;
+  bar.addEventListener("pointerdown", (e) => {
     if (draggable(construction(), it.key)) onPress(it, e as PointerEvent);
   });
+  bar.addEventListener("keydown", (e) => {
+    if (draggable(construction(), it.key)) onKeyPickUp(it, e);
+  });
   return it;
+}
+
+/** An element's rect in stage units. */
+function stageRectOf(el: Element): Rect {
+  const s = stage.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  const k = (stageRect.value.width + 2) / s.width;
+  return { x: (r.left - s.left - stage.clientLeft) * k, y: (r.top - s.top - stage.clientTop) * k, width: r.width * k, height: r.height * k };
 }
 
 function makeChrome(key: string, at: Rect): Item {
@@ -373,11 +473,15 @@ function buildChrome(it: Item, p: Placed): void {
           if (!dragged) doTab(side, id);
         });
         b.setAttribute("aria-pressed", String(id === p.active));
-        // A tab drags its panel (held by a title bar's grip point).
+        // A tab drags its panel (held by a title bar's grip point); its home is the tab. Space picks it up.
         b.addEventListener("pointerdown", (e) => {
           dragged = false;
           const panel = itemOf(panelKey(id));
-          if (panel) onPress(panel, e, TAB_HOLD);
+          if (panel) onPress(panel, e, TAB_HOLD, () => stageRectOf(b));
+        });
+        b.addEventListener("keydown", (e) => {
+          const panel = itemOf(panelKey(id));
+          if (panel) onKeyPickUp(panel, e, TAB_HOLD, false);
         });
         return b;
       }),
@@ -596,10 +700,12 @@ function reset(id: ConstructionId = cid, at: Size = size, opts: Partial<Options>
   items = [];
   raised = null;
   lifted = null;
-  drop = null;
-  snapped = null;
+  intent = null;
+  keys = null;
+  shown = null;
+  room = null;
   home = null;
-  roomShown = false;
+  targets = [];
   hideHint();
   states.clear();
   optionsOf.clear();
@@ -656,7 +762,10 @@ let episode: {
   offStage: (string | null)[];
   label: (string | null)[];
   pops: number;
-  drop: DropMode;
+  /** What the drop indicator showed, and when (a target id; null: nothing). */
+  indicator: { t: number; id: string | null }[];
+  /** Per release: null when it landed where the indicator (or the pointer) said, else what went wrong. */
+  release: (string | null)[];
 } | null = null;
 let idleWaiters: Array<() => void> = [];
 const loop = createFrameLoop({ clock: createBrowserClock() });
@@ -664,7 +773,7 @@ let running = false;
 
 function startEpisode(): void {
   if (episode) return;
-  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], minSize: [], offStage: [], label: [], pops: 0, drop: dropMode };
+  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], minSize: [], offStage: [], label: [], pops: 0, indicator: [], release: [] };
   for (const it of items) {
     it.runs = [[]];
     episode.runs.push(...it.runs);
@@ -719,6 +828,7 @@ function tick(frame: FrameInfo): boolean {
   const dt = frame.delta;
   time += dt;
   let moving = lifted !== null;
+  if (lifted) aim(performance.now(), dt);
   if (stageRect.step(dt)) moving = true;
   drawStage();
   for (const it of [...items]) {
@@ -730,7 +840,7 @@ function tick(frame: FrameInfo): boolean {
     episode.scale.push(seen.scale);
     if (!it.pop.settled) episode.pops++;
     const drawn = it.rect.value;
-    if (it === lifted && dropMode === "indicator") {
+    if (it === lifted) {
       // Held 1:1 once it has popped in (a panel lifted from behind its tab grows into view, uniformly).
       if (expected && it.pop.settled) episode.held.push({ t: time, rect: seen.frame, expected });
     } else {
@@ -747,15 +857,15 @@ function tick(frame: FrameInfo): boolean {
     }
   }
   // Room: once the others have settled, none of those beside it (not floating over) overlaps the lifted item's slot.
-  const room = roomDrop();
-  const slotLayer = lifted && room ? room.layout.items.get(lifted.key)?.layer : undefined;
-  if (lifted && room && episode && !room.free && !room.hidden && slotLayer !== undefined && slotLayer <= LAYER.palette) {
+  const kept = roomDrop();
+  const slotLayer = lifted && kept ? kept.layout.items.get(lifted.key)?.layer : undefined;
+  if (lifted && kept && episode && !kept.free && !kept.hidden && slotLayer !== undefined && slotLayer <= LAYER.palette) {
     const others = items.filter((o) => o !== lifted && !o.closing && !!o.placed && !o.placed.hidden && o.placed.layer <= LAYER.palette);
-    const blocking = others.every((o) => o.rect.settled) ? others.filter((o) => overlap(o.rect.value, room.slot) > 1) : null;
+    const blocking = others.every((o) => o.rect.settled) ? others.filter((o) => overlap(o.rect.value, kept.slot) > 1) : null;
     if (blocking) episode.room.push(blocking.length ? `t=${Math.round(time)} ${blocking.map((o) => o.name).join(", ")} still in the slot kept for ${lifted.name}` : null);
   }
   // The drop label stays inside the stage (the positioner's flip and slide).
-  if (episode && !hintLabel.hidden) {
+  if (episode && hintLabel.classList.contains("on")) {
     const l = { x: hintLabel.offsetLeft, y: hintLabel.offsetTop, width: hintLabel.offsetWidth, height: hintLabel.offsetHeight };
     const out = l.x < -0.5 || l.y < -0.5 || l.x + l.width > size.width + 0.5 || l.y + l.height > size.height + 0.5;
     episode.label.push(out ? `t=${Math.round(time)} label at ${fmt(l)} leaves the stage` : null);
@@ -800,6 +910,8 @@ function endEpisode(): void {
     { name: "Never below its minimum", result: ep.minSize.length > 0 ? framesResult(ep.minSize) : null },
     { name: "Nothing off the stage", result: ep.offStage.length > 0 ? framesResult(ep.offStage) : null },
     { name: "Drop label stays inside the stage", result: ep.label.length > 0 ? framesResult(ep.label) : null },
+    { name: "No indicator flashes (shown under 150 ms)", result: ep.indicator.length > 0 ? framesResult(flashes(ep.indicator)) : null },
+    { name: "The drop is what the indicator (or the pointer) said", result: ep.release.length > 0 ? framesResult(ep.release) : null },
   ];
   collecting?.push(lastRows);
   renderChecks(checksBody, lastRows);
@@ -807,6 +919,14 @@ function endEpisode(): void {
   const waiters = idleWaiters;
   idleWaiters = [];
   for (const resolve of waiters) resolve();
+}
+
+/** An indicator replaced or hidden less than DRAG.FLASH ms after it showed is a flash. */
+function flashes(log: readonly { t: number; id: string | null }[]): (string | null)[] {
+  return log.map((e, i) => {
+    const next = log[i + 1];
+    return e.id !== null && next && next.t - e.t < DRAG.FLASH ? `the indicator on ${e.id} showed for ${Math.round(next.t - e.t)} ms` : null;
+  });
 }
 
 /** The rows of several moves as one: a rule fails if it failed in any move, and is exercised if it was in any. */
@@ -823,8 +943,8 @@ function mergeRows(all: readonly Row[][]): Row[] {
 
 const idle = (): Promise<void> => (running || episode ? new Promise((r) => idleWaiters.push(r)) : Promise.resolve());
 
-/** Where a scripted press lifts `it`: a tab for a panel under a tab row, else its title bar. */
-function gripOf(it: Item): { at: Point; hold?: Point } {
+/** Where a scripted press lifts `it`: a tab for a panel under a tab row (the tab is its home), else its title bar. */
+function gripOf(it: Item): { at: Point; hold?: Point; from?: Rect } {
   const p = layout.items.get(it.key);
   const id = idOf(it.key);
   if (it.kind === "panel" && (p?.look === "bare" || p?.hidden)) {
@@ -833,38 +953,84 @@ function gripOf(it: Item): { at: Point; hold?: Point } {
       const i = tabs?.tabs?.indexOf(id) ?? -1;
       if (!tabs || tabs.hidden || i < 0) continue;
       const tw = tabs.rect.width / tabs.tabs!.length;
-      return { at: { x: tabs.rect.x + tw * i + tw / 2, y: tabs.rect.y + 14 }, hold: TAB_HOLD };
+      const from = { x: tabs.rect.x + tw * i, y: tabs.rect.y, width: tw, height: tabs.rect.height };
+      return { at: centre(from), hold: TAB_HOLD, from };
     }
   }
   const d = it.rect.value;
   return { at: { x: d.x + 40, y: d.y + 11 } };
 }
 
-/** A scripted drag: lift `key` at its grip, glide the pointer to `to()` (read after the lift), release or Escape. */
-async function scriptedDrag(key: string, to: () => Point, opts: { escapeAt?: number } = {}): Promise<void> {
+/** What the indicator showed during the current (or last) drag: target ids with ms since the lift. */
+let dragLog: { t: number; id: string | null }[] = [];
+let liftedAt = 0;
+
+/**
+ * A scripted drag in real time: lift `key` at its grip, move the pointer along `path` (keyframes [ms, x, y] from
+ * the lift, made from the grip point), then release, or Escape at `escapeAt` ms.
+ */
+async function playPath(key: string, path: (grip: Point) => readonly PathKey[], opts: { escapeAt?: number | (() => number) } = {}): Promise<DragResult> {
   const it = itemOf(key);
-  if (!it) return;
+  if (!it) return { log: [], landed: null };
   const g = gripOf(it);
-  beginDrag(it, g.at.x, g.at.y, g.hold);
-  if (lifted !== it) return;
-  const end = to();
-  const steps = 30;
-  for (let i = 1; i <= steps; i++) {
+  const keysOf = path(g.at);
+  const escapeAt = typeof opts.escapeAt === "function" ? opts.escapeAt() : opts.escapeAt;
+  const first = keysOf[0]!;
+  beginDrag(it, first[1], first[2], g.hold, g.from);
+  if (lifted !== it) return { log: [], landed: null };
+  const start = performance.now();
+  const total = keysOf.at(-1)![0];
+  for (;;) {
     await nextFrame();
-    const f = i / steps;
-    const e = f < 0.5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
-    moveDrag(g.at.x + (end.x - g.at.x) * e, g.at.y + (end.y - g.at.y) * e);
-    if (opts.escapeAt === i) {
+    const t = Math.min(performance.now() - start, total);
+    const p = along(keysOf, t);
+    moveDrag(p.x, p.y);
+    if (escapeAt !== undefined && t >= escapeAt) {
       cancelPress();
       endDrag(true);
-      return;
+      return { log: [...dragLog], landed: null };
     }
+    if (t >= total) break;
   }
-  // Hold still until the others have made room (at most half a second), then release.
-  for (let i = 0; i < 30 && items.some((o) => o !== it && !o.rect.settled); i++) await nextFrame();
-  await nextFrame();
   endDrag();
+  return { log: [...dragLog], landed: lastLanding };
 }
+
+/** The point on a keyframed path at `t` ms (linear between keyframes). */
+function along(keysOf: readonly PathKey[], t: number): Point {
+  for (let i = 1; i < keysOf.length; i++) {
+    const [t1, x1, y1] = keysOf[i]!;
+    if (t > t1) continue;
+    const [t0, x0, y0] = keysOf[i - 1]!;
+    const f = t1 > t0 ? (t - t0) / (t1 - t0) : 1;
+    return { x: x0 + (x1 - x0) * f, y: y0 + (y1 - y0) * f };
+  }
+  const last = keysOf.at(-1)!;
+  return { x: last[1], y: last[2] };
+}
+
+/**
+ * A plain scripted drag: from the grip to `to()` at an even pace, then held there long enough to aim, show the
+ * indicator and make room (or Escape at `escapeAt`, a fraction of the way).
+ */
+async function scriptedDrag(key: string, to: () => Point, opts: { escapeAt?: number } = {}): Promise<DragResult> {
+  let travel = 0;
+  return playPath(
+    key,
+    (g) => {
+      const end = to();
+      travel = Math.max(250, Math.hypot(end.x - g.x, end.y - g.y) / 0.9);
+      return [
+        [0, g.x, g.y],
+        [travel, end.x, end.y],
+        [travel + DWELL_THEN_ROOM, end.x, end.y],
+      ];
+    },
+    opts.escapeAt !== undefined ? { escapeAt: () => travel * opts.escapeAt! } : {},
+  );
+}
+/** How long a plain drag holds still at its end: aim, indicator, room, and the others settling. */
+const DWELL_THEN_ROOM = 650;
 
 const lab: DeskLab = {
   construction: () => cid,
@@ -889,16 +1055,42 @@ const lab: DeskLab = {
   },
   idle,
   drag: scriptedDrag,
+  path: playPath,
+  keyboard: keyboardDrag,
+  targets: (key) => targetsFor({ c: construction(), s0: without(state(), key), key, size, opt: options() }).map((t) => ({ id: t.id, prio: t.prio, hit: t.hit })),
+  grip: (key) => {
+    const it = itemOf(key);
+    return it ? gripOf(it).at : null;
+  },
+  restart: () => setup(),
 };
+/** The running scenario's desk, to start it afresh. */
+let setup: () => void = () => reset();
+
+/** A keyboard drag: pick `key` up, step `steps` targets on with the arrow key (a moment on each), then Enter. */
+async function keyboardDrag(key: string, steps: number): Promise<DragResult> {
+  const it = itemOf(key);
+  if (!it) return { log: [], landed: null };
+  const press = (k: string): void => void document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+  const d = it.rect.value;
+  const g = gripOf(it);
+  beginDrag(it, d.x + (g.hold?.x ?? 40), d.y + (g.hold?.y ?? 11), g.hold ?? { x: 40, y: 11 }, g.from, true);
+  for (let i = 0; i < steps; i++) {
+    press("ArrowDown");
+    await wait(i === steps - 1 ? DWELL_THEN_ROOM : 220);
+  }
+  press("Enter");
+  return { log: [...dragLog], landed: lastLanding };
+}
 
 const SCENARIOS: Record<string, Scenario> = makeScenarios(lab);
 const runs: LabRun[] = [];
 
-async function runScenario(name: string, mode: DropMode): Promise<LabRun> {
+async function runScenario(name: string): Promise<LabRun> {
   const sc = SCENARIOS[name]!;
-  setDropMode(mode);
   const c = sc.construction ?? DEFAULT_CONSTRUCTION;
-  reset(c, sc.size ? { width: sc.size[0], height: sc.size[1] } : { width: 960, height: 560 }, sc.options ?? {}, sc.docs ?? 2);
+  setup = () => reset(c, sc.size ? { width: sc.size[0], height: sc.size[1] } : { width: 960, height: 560 }, sc.options ?? {}, sc.docs ?? 2);
+  setup();
   await nextFrame();
   await idle();
   const failures: string[] = [];
@@ -916,13 +1108,12 @@ async function runScenario(name: string, mode: DropMode): Promise<LabRun> {
   renderChecks(checksBody, lastRows);
   // A scenario that only checks pure layouts moves nothing: "Something moved" is not its rule.
   const failed = lastRows.filter((r) => r.result && !r.result.ok && !(sc.still && r.name === "Something moved")).map((r) => r.name);
-  const how = sc.drag ? (mode === "snap" ? "snap to slot" : "drop indicator") : "";
-  const run: LabRun = { scenario: name, mode: how || constructionOf(c).title, failed, rows: lastRows };
+  const run: LabRun = { scenario: name, mode: constructionOf(c).title, failed, rows: lastRows };
   runs.push(run);
   const tr = document.createElement("tr");
   tr.innerHTML = "<td></td><td></td><td></td>";
   tr.children[0]!.textContent = name;
-  tr.children[1]!.textContent = constructionOf(c).title + (how ? ` · ${how}` : "");
+  tr.children[1]!.textContent = constructionOf(c).title;
   tr.children[2]!.textContent = failed.length ? failed.join(", ") : "none";
   (tr.children[2] as HTMLElement).className = failed.length ? "bad" : "ok";
   runsBody.append(tr);
@@ -939,20 +1130,16 @@ async function runAll(filter?: string): Promise<LabRun[]> {
   runningAll = true;
   stopAll = false;
   runAllButton.textContent = "Stop scenarios";
-  const before = { cid, size, dropMode };
+  const before = { cid, size };
   const out: LabRun[] = [];
   runsBody.replaceChildren();
   try {
     for (const name of Object.keys(SCENARIOS)) {
+      if (stopAll) break;
       if (filter && !name.includes(filter)) continue;
-      // A drag runs with each drop preview; everything else once.
-      for (const mode of SCENARIOS[name]!.drag ? (["indicator", "snap"] as const) : ([before.dropMode] as const)) {
-        if (stopAll) break;
-        out.push(await runScenario(name, mode));
-      }
+      out.push(await runScenario(name));
     }
   } finally {
-    setDropMode(before.dropMode);
     reset(before.cid, before.size);
     runningAll = false;
     stopAll = false;
@@ -981,11 +1168,6 @@ document.querySelectorAll<HTMLInputElement>("input[name=toolbar]").forEach((inpu
   }),
 );
 document.querySelectorAll<HTMLInputElement>("input[name=bottom]").forEach((input) => input.addEventListener("change", () => setOptions({ bottom: input.value as Options["bottom"] })));
-function setDropMode(m: DropMode): void {
-  dropMode = m;
-  (document.querySelector(`input[name=drop][value=${m}]`) as HTMLInputElement).checked = true;
-}
-document.querySelectorAll<HTMLInputElement>("input[name=drop]").forEach((input) => input.addEventListener("change", () => setDropMode(input.value as DropMode)));
 document.querySelectorAll<HTMLInputElement>("input[name=tempo]").forEach((input) =>
   input.addEventListener("change", () => {
     tempo = input.value as Tempo;
@@ -1016,7 +1198,6 @@ const actions: Record<string, () => void> = {
 document.querySelectorAll<HTMLButtonElement>("button[data-act]").forEach((b) => b.addEventListener("click", () => actions[b.dataset.act!]?.()));
 
 tempo = (document.querySelector<HTMLInputElement>("input[name=tempo]:checked")?.value as Tempo | undefined) ?? tempo;
-dropMode = (document.querySelector<HTMLInputElement>("input[name=drop]:checked")?.value as DropMode | undefined) ?? dropMode;
 reset(DEFAULT_CONSTRUCTION, { width: Number(wInput.value) || 960, height: Number(hInput.value) || 560 });
 
 window.__motionLab = { runAll, runs, lastRows: () => lastRows };
