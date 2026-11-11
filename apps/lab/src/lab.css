@@ -200,6 +200,8 @@ main.wide { max-width: 1480px; }
 /* Panels: a quiet title bar (with a fold button where folding means something) over a body that clips. */
 .stage.desk .win.panel .content,
 .stage.desk .win.doc .content { display: flex; flex-direction: column; }
+.stage.desk .win.panel .title,
+.stage.desk .win.doc .title { flex: none; }
 .stage.desk .win.panel .body,
 .stage.desk .win.doc .body { flex: 1 1 auto; min-height: 0; overflow: hidden; white-space: normal; }
 .win.panel .title { display: flex; justify-content: space-between; align-items: center; touch-action: none; }
