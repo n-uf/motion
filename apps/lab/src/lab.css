@@ -436,8 +436,7 @@ main.wide { max-width: 1712px; }
 .deskwin .tg-handle i,
 .deskwin .tf-glyph i { display: block; width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
 .deskwin .tg-handle:hover { color: var(--d-ink); }
-.deskwin .tg-handle:active,
-.deskwin .tg-ghost .tg-handle { color: var(--d-accent); cursor: grabbing; }
+.deskwin .tg-handle:active { color: var(--d-accent); cursor: grabbing; }
 .deskwin .tg-handle:focus-visible { outline: 2px solid var(--d-accent); outline-offset: 3px; }
 /* Pointing at (or focusing) a handle dims the other groups of its toolbar. */
 .deskwin .tf-bar:has(.tg-handle:hover, .tg-handle:focus) .tgroup:not(:has(.tg-handle:hover, .tg-handle:focus)),
@@ -448,11 +447,13 @@ main.wide { max-width: 1712px; }
 .deskwin .tgroup.collapsed .tg-over { display: grid; min-width: 18px; }
 /* Floating over the documents: the same group, with a frame and a shadow (drawn outside its box). */
 .deskwin .tgroup.floating,
-.deskwin .tg-ghost { background: var(--d-panel); border-radius: 5px; box-shadow: 0 0 0 5px var(--d-panel), 0 0 0 6px var(--d-edge-lifted), var(--d-shadow); }
-.deskwin .tg-ghost { box-shadow: 0 0 0 5px var(--d-panel), 0 0 0 6px var(--d-edge-lifted), var(--d-lift); }
-/* Frozen: the glyphs fade with a not-allowed cursor; holding Alt brings them back. */
+.deskwin .tgroup.lifted { background: var(--d-panel); border-radius: 5px; box-shadow: 0 0 0 5px var(--d-panel), 0 0 0 6px var(--d-edge-lifted), var(--d-shadow); }
+/* Lifted: the group itself, raised, following the pointer (its place stays empty until the drop). */
+.deskwin .tgroup.lifted { z-index: 2; box-shadow: 0 0 0 5px var(--d-panel), 0 0 0 6px var(--d-edge-lifted), var(--d-lift); }
+.deskwin .tgroup.lifted .tg-handle { color: var(--d-accent); cursor: grabbing; }
+/* Frozen: the grips are hidden (nothing can move); holding Alt shows them, working, while held. */
 .deskwin.frozen:not(.alt) .tg-handle,
-.deskwin.frozen:not(.alt) .tf-glyph { opacity: 0.4; cursor: not-allowed; }
+.deskwin.frozen:not(.alt) .tf-glyph { visibility: hidden; }
 .deskwin .tgroup .tb-cell { flex: none; min-width: 26px; height: 26px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--d-ink-2); cursor: pointer; font: inherit; font-size: 13px; }
 .deskwin .tgroup .tb-cell:hover { background: var(--d-hover); color: var(--d-ink); }
 .deskwin .tgroup .tg-word { padding: 0 7px; font-size: 12px; font-weight: 600; }
@@ -470,7 +471,6 @@ main.wide { max-width: 1712px; }
 .deskwin .tgroup.v .tg-zoom { min-width: 0; padding: 2px 0; font-size: 9px; }
 
 .deskwin .tg-layer { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
-.deskwin .tg-ghost { z-index: 2; cursor: grabbing; }
 .deskwin .tg-floats { position: absolute; inset: 0; z-index: 25; pointer-events: none; }
 .deskwin .tg-floats .tgroup { pointer-events: auto; }
 /* The handle's menu (and the window's, and »'s hidden controls). */
@@ -492,5 +492,26 @@ main.wide { max-width: 1712px; }
 .deskwin .tg-ind.on { opacity: 1; }
 .deskwin .tg-ind-label { position: absolute; z-index: 4; opacity: 0; padding: 2px 8px; border-radius: 999px; background: var(--drop); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; transition: opacity 90ms; }
 .deskwin .tg-ind-label.on { opacity: 1; }
+/* Freeze / unfreeze the layout: a lock switch (a track and knob, a lock open or shut, what it is now). */
+.lock { --lock-accent: #3a6fd8; --lock-soft: #e8effc; display: inline-flex; align-items: center; gap: 9px; padding: 5px 12px 5px 6px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; user-select: none; transition: border-color 0.15s, background 0.15s; }
+@media (prefers-color-scheme: dark) {
+  .lock { --lock-accent: #7aa2f7; --lock-soft: #233150; }
+}
+.lock:hover { border-color: color-mix(in srgb, var(--lock-accent) 45%, var(--line)); }
+.lock:has(input:checked) { border-color: var(--lock-accent); background: var(--lock-soft); }
+.lock input { appearance: none; position: relative; flex: none; width: 34px; height: 20px; margin: 0; border-radius: 999px; background: color-mix(in srgb, currentColor 25%, transparent); cursor: pointer; transition: background 0.15s; }
+.lock input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.lock input:checked { background: var(--lock-accent); }
+.lock input:checked::after { transform: translateX(14px); }
+.lock input:focus-visible { outline: 2px solid var(--lock-accent); outline-offset: 2px; }
+.lock .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; opacity: 0.7; }
+.lock .ico.shut,
+.lock:has(input:checked) .ico.open { display: none; }
+.lock:has(input:checked) .ico.shut { display: block; color: var(--lock-accent); opacity: 1; }
+.lock .state::before { content: "Layout unlocked"; font-weight: 600; }
+.lock:has(input:checked) .state::before { content: "Layout frozen"; color: var(--lock-accent); }
+.lock .lockhint { display: none; opacity: 0.7; }
+.lock:has(input:checked) .lockhint { display: inline; }
+.lock kbd { padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; font: 11px ui-monospace, monospace; }
 #toolbar-cases { display: flex; flex-wrap: wrap; gap: 4px; }
 #toolbar-cases button[aria-pressed="true"] { outline: 2px solid var(--d-accent, #3a6fd8); }
