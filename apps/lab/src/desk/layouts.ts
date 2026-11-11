@@ -161,8 +161,11 @@ const clampInto = (r: Rect, area: Rect): Rect => ({
 
 // --- A, A2, F3: edge docks -----------------------------------------------------------------------------------------
 
-/** The dock width (rail excluded) and the narrowest the documents may get before a dock folds. */
-export const DOCK = 190;
+/**
+ * The dock width (rail excluded, its sections 240 px wide after the gap) and the narrowest the documents may get
+ * before a dock folds.
+ */
+export const DOCK = 246;
 export const WORK_MIN = 380;
 /** The bottom dock's height when open, and the most of the stage's height it takes. */
 export const BOTTOM = 190;
@@ -358,8 +361,8 @@ function tabbedIntoRail(out: Out, side: Side, ids: readonly number[], x: number,
   intoRail(out, x, y, w, ids, side);
 }
 
-const NAV_L = 200;
-const NAV_R = 220;
+const NAV_L = 240;
+const NAV_R = 240;
 const NAV_MIN = 380;
 
 function navigator(s: DeskState, size: Size, opt: Options, notes: string[]): Out {
@@ -394,8 +397,8 @@ function navigator(s: DeskState, size: Size, opt: Options, notes: string[]): Out
   return out;
 }
 
-const DRAWER_L = 200;
-const DRAWER_R = 220;
+const DRAWER_L = 240;
+const DRAWER_R = 240;
 /** Below these widths a drawer slides over the documents instead of pushing them. */
 export const DRAWER_DOCK = { left: 760, right: 1040 } as const;
 
