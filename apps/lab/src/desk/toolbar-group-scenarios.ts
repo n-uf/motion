@@ -95,13 +95,13 @@ async function press(lab: DeskLab, on: Element, end: "pointerup" | "pointercance
   for (let i = 1; i <= 6; i++) {
     pointer("pointermove", on, { x: p.x, y: p.y + i * 10 }, extra);
     await nextFrame();
-    const ghost = document.querySelector(".tg-ghost");
-    if (ghost && start === null) start = tg.rectOf(ghost).y - (i * 10 - 10);
+    const held = document.querySelector(".tgroup.lifted");
+    if (held && start === null) start = tg.rectOf(held).y - (i * 10 - 10);
   }
   await nextFrame();
   const lifted = tg.dragging();
-  const ghost = document.querySelector(".tg-ghost");
-  const followed = ghost && start !== null ? tg.rectOf(ghost).y - start : 0;
+  const held = document.querySelector(".tgroup.lifted");
+  const followed = held && start !== null ? tg.rectOf(held).y - start : 0;
   pointer(end, on, { x: p.x, y: p.y + 60 }, extra);
   await settle(lab);
   return { lifted, followed };
@@ -210,7 +210,7 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
         const r = await dragTo("g:zoom", p, expect, (t, end) => {
           if (t < end - 40) return;
           seen = tg.indicator() ?? seen;
-          const g = document.querySelector(".tg-ghost");
+          const g = document.querySelector(".tgroup.lifted");
           if (g) ghost = tg.rectOf(g);
         });
         await settle(lab);
@@ -371,14 +371,22 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
     }),
   };
 
-  out["toolbar groups: frozen, a handle doesn't drag (it fades, says why, its menu greys the moves); holding Alt it does"] = {
+  out["toolbar groups: frozen, the grips hide and a handle doesn't drag; holding Alt shows them and it does"] = {
     construction: "docks",
     preview: "indicator",
     play: withArrangement(lab, DEFAULT_ARRANGEMENT, async (expect) => {
+      // The grips that show: every group's handle and the window's glyph.
+      const visible = (): number => [...tg.window()!.querySelectorAll<HTMLElement>(".tg-handle, .tf-glyph")].filter((g) => g.getClientRects().length > 0 && getComputedStyle(g).visibility === "visible").length;
+      const N = visible();
+      expect(N === 8, `${N} grips show unlocked, not 8 (seven groups and the window)`);
       tg.freeze(true);
       await nextFrame();
+      expect(visible() === 0, `${visible()} grips show frozen, not 0`);
+      const lock = document.querySelector(".lock");
+      expect(!!lock && getComputedStyle(lock.querySelector(".lockhint")!).display !== "none" && getComputedStyle(lock.querySelector(".state")!, "::before").content.includes("Layout frozen"), "the lock switch doesn't say frozen, with its Alt hint");
+      expect(document.querySelectorAll("input[name=freeze]").length === 1, `${document.querySelectorAll("input[name=freeze]").length} freeze switches on the page, not 1`);
       const handle = tg.handle("zoom")!;
-      expect(Number(getComputedStyle(handle).opacity) < 0.6 && getComputedStyle(handle).cursor === "not-allowed" && handle.title === "Frozen: hold Alt to move", `frozen handle: opacity ${getComputedStyle(handle).opacity}, cursor ${getComputedStyle(handle).cursor}, "${handle.title}"`);
+      expect(handle.title === "Frozen: hold Alt to move", `the frozen handle's tooltip reads "${handle.title}"`);
       const a0 = tg.arrangement();
       const off = await press(lab, handle, "pointerup");
       expect(!off.lifted && sameArrangement(tg.arrangement(), a0), "frozen, the handle lifted its group");
@@ -389,10 +397,72 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
       tg.alt(true);
       await nextFrame();
+      expect(visible() === N, `${visible()} grips show frozen with Alt held, not ${N}`);
       const on = await press(lab, handle, "pointercancel", { altKey: true });
       expect(on.lifted && Math.abs(on.followed - 50) < 12, `holding Alt, the handle lifted ${on.lifted ? "it" : "nothing"} (followed ${Math.round(on.followed)} px)`);
-      tg.alt(false);
       expect(sameArrangement(tg.arrangement(), a0), "the cancelled Alt drag changed the arrangement");
+      // An Alt drag lands too.
+      const r = await dragTo("g:zoom", "g:bottom:end:0", expect);
+      await settle(lab);
+      expect(r?.landed === "g:bottom:end:0" && list(tg.arrangement(), "bottom") === "panel | · | zoom,share", `the Alt drag landed on ${r?.landed ?? "home"}; the bottom bar is ${list(tg.arrangement(), "bottom")}`);
+      tg.alt(false);
+      await nextFrame();
+      expect(visible() === 0, `${visible()} grips show once Alt is let go, not 0`);
+    }),
+  };
+
+  out["toolbar groups: the real group lifts (one element, no copy, no empty frame) and lands from where it was let go"] = {
+    construction: "docks",
+    drag: true,
+    play: withArrangement(lab, DEFAULT_ARRANGEMENT, async (expect) => {
+      const visibleOf = (id: GroupId): number => [...document.querySelectorAll<HTMLElement>(`[data-g="${id}"]`)].filter((e) => e.getClientRects().length > 0 && getComputedStyle(e).visibility === "visible" && Number(getComputedStyle(e).opacity) > 0.05).length;
+      const otherFloats = (id: GroupId): number => [...document.querySelectorAll<HTMLElement>(".tgroup.floating")].filter((e) => e.dataset.g !== id).length;
+      const landsFromRelease = (r: GroupDragResult | null, what: string): void => {
+        const a = r?.release;
+        const b = r?.landFirst;
+        expect(!!a && !!b && Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) <= 2, `${what}: let go at ${a ? fmt(a) : "?"}, its landing starts at ${b ? fmt(b) : "?"}`);
+      };
+      // Into the bottom bar: one element for the group all the way; its old place stays empty (nothing else moves) until the room.
+      let counts: number[] = [];
+      const editBefore = tg.rectOf(tg.groupEl("edit")!);
+      let editEarly: Rect | null = null;
+      const r = await dragTo("g:view", "g:bottom:end:1", expect, (t) => {
+        counts.push(visibleOf("view"));
+        if (t < 120 && !editEarly) editEarly = tg.rectOf(tg.groupEl("edit")!);
+      });
+      await settle(lab);
+      expect(counts.length > 0 && counts.every((n) => n === 1), `the view group showed as ${[...new Set(counts)].join(" or ")} elements while dragged`);
+      expect(!!editEarly && Math.abs((editEarly as Rect).x - editBefore.x) < 0.5, "a neighbour moved before the room was made");
+      landsFromRelease(r, "into the bottom bar");
+      // Floating, then dragged again: no empty frame stays behind, and it lands from where it was let go.
+      const g = tg.geometry();
+      await dragTo("g:view", { x: g.stage.x + 300, y: g.stage.y + 200 }, expect);
+      await settle(lab);
+      counts = [];
+      const frames: number[] = [];
+      const r2 = await dragTo("g:view", { x: g.stage.x + 500, y: g.stage.y + 260 }, expect, () => {
+        counts.push(visibleOf("view"));
+        frames.push(otherFloats("view"));
+      });
+      await settle(lab);
+      expect(counts.every((n) => n === 1) && frames.every((n) => n === 0), `a floating group dragged: ${[...new Set(counts)].join("/")} elements, ${Math.max(0, ...frames)} empty frames`);
+      expect(r2?.landed === "g:float", `the floating group landed on ${r2?.landed ?? "home"}`);
+      landsFromRelease(r2, "floating again");
+      // Escape: back home from where it was let go.
+      let escapeAt = 0;
+      const t = tg.targets("g:edit").find((x) => x.id === "g:title:end:0")!;
+      const r3 = await tg.path(
+        "g:edit",
+        (gp) => {
+          const p = hold(through([gp, mid(t.line)], 0.8), 600);
+          escapeAt = p.at(-1)![0] - 20;
+          return p;
+        },
+        { escapeAt: () => escapeAt },
+      );
+      await settle(lab);
+      landsFromRelease(r3, "after Escape");
+      restsAsLaidOut(expect, "after Escape");
     }),
   };
 
