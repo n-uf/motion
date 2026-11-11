@@ -1,0 +1,102 @@
+---
+import Site from "../layouts/Site.astro";
+import ExtLink from "../components/ExtLink.astro";
+import { pageOf } from "../data/pages";
+import { npmUrl, repoUrl } from "../data/site";
+import { orgNode, software, webPage, webSite } from "../data/schema";
+import { DEMO, WINDOWS, CURVE, curveSVG, deskThumbSVG, demoWindowHTML, firstLayoutStyle, ninetyPercentMs } from "../demos/home";
+import "../styles/home.css";
+
+const page = pageOf("/");
+const jsonLd = [
+  webSite,
+  webPage({ path: "/", name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), isPartOf: true }),
+  software("A TypeScript motion library: one frame loop with an injected clock, a settle curve that never overshoots, reveal without stretching, held drags, signals and a gesture recogniser. No DOM, no framework."),
+  orgNode,
+];
+const ninety = ninetyPercentMs();
+---
+<Site title={page.title} description={page.description} path="/" jsonLd={jsonLd} ogImage="/og.png">
+  <section class="hero wrap">
+    <div class="hero-copy">
+      <span class="eyebrow">@n-uf/motion</span>
+      <h1>Motion that settles, and never overshoots.</h1>
+      <p class="lead">n-uf motion is a small TypeScript library for windows, panels and toolbars that move like a good tiling window manager: one frame loop with an injected clock, one curve for every move, content that is never stretched, and drags that stay under the pointer.</p>
+      <div class="install">
+        <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code>
+        <a class="btn primary" href="/window-motion/">See the motion rules<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg></a>
+      </div>
+      <p class="caveat">Young and still changing: versions are dates, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · <ExtLink href={npmUrl}>Package on npm</ExtLink></p>
+    </div>
+
+    <figure class="demo-fig" id="demo-fig" aria-label="Live demo: three windows that tile, swap and glide">
+      <div class="demo-bar">
+        <span class="demo-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="demo-name"><span class="label">Layout</span> <b id="layout-name">Master and stack</b></span>
+        <button type="button" class="btn quiet" id="shuffle"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 5h7.5l-2-2M13.5 11H6l2 2"/></svg>Next layout</button>
+      </div>
+      <div class="demo" id="demo" style={`--demo-h:${DEMO.h}px`}>
+        {WINDOWS.map((_, i) => <div class="dw" style={firstLayoutStyle(i)} set:html={demoWindowHTML(i)} />)}
+      </div>
+      <figcaption class="demo-foot">
+        <span class="readout" id="readout"><span>Three windows tile, swap and glide on settle; their content is clipped, never stretched.</span></span>
+        <span class="demo-hint">Drag a window onto another to swap them.</span>
+      </figcaption>
+    </figure>
+  </section>
+
+  <section class="wrap section pitch" aria-label="What the library does">
+    <div class="pitch-grid">
+      <article>
+        <span class="pitch-k">settle</span>
+        <h2>No overshoot, ever</h2>
+        <p>A critically damped spring launched from where the window is drawn: 90 % of the way in <b class="num">{ninety} ms</b>, no bounce on position, no wobble on size, whatever the retargets.</p>
+      </article>
+      <article>
+        <span class="pitch-k">reveal</span>
+        <h2>Reveal, never stretch</h2>
+        <p>Content is laid out once at its target size. A gliding window moves and clips it: one transform and one clip per frame, and text is never scaled.</p>
+      </article>
+      <article>
+        <span class="pitch-k">hold</span>
+        <h2>Held means held</h2>
+        <p>What a pointer owns sits exactly under it, in the same frame: the pointer minus the grab offset. On release it settles from where it was let go.</p>
+      </article>
+      <article>
+        <span class="pitch-k">intent</span>
+        <h2>A drag-intent model</h2>
+        <p>A drop indicator appears only once you aim, holds on borders instead of flickering, and the drop lands exactly where it showed.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="wrap section">
+    <div class="section-head">
+      <span class="eyebrow">Explore</span>
+      <h2>Four interactive pages, one set of rules</h2>
+    </div>
+    <div class="cards">
+      <article class="card">
+        <div class="thumb"><svg id="thumb-motion" viewBox={`0 0 ${CURVE.W} ${CURVE.H}`} width={CURVE.W} height={CURVE.H} aria-hidden="true" set:html={curveSVG(CURVE.Tms)} /></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">01</span> Window motion</span><h3><a href="/window-motion/">Settle against springs and tweens</a></h3><p>Curves from real parameters, a drag timeline, a retarget mid-flight, and stretch versus reveal frame by frame.</p></div>
+      </article>
+      <article class="card">
+        <div class="thumb"><div class="t-stage" id="thumb-drag" aria-hidden="true"><i class="t-z" style="left:14px;top:14px;width:62px;height:70px"></i><i class="t-z home" style="left:14px;top:92px;width:62px;height:44px"></i><i class="t-z doc" style="left:84px;top:14px;width:94px;height:122px"></i><i class="t-z" style="left:186px;top:14px;width:80px;height:40px"></i><i class="t-z" style="left:186px;top:96px;width:80px;height:40px"></i><i class="t-ind" style="left:186px;top:58px;width:80px;height:34px"></i><i class="t-chip" style="transform:translate(14px,99px)"></i></div></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">02</span> Drag intent</span><h3><a href="/drag-intent/">An indicator only once you aim</a></h3><p>Drag a panel yourself or replay recorded paths, and count the indicator's flashes in this model and a naive one.</p></div>
+      </article>
+      <article class="card">
+        <div class="thumb"><svg id="thumb-desk" viewBox="0 0 280 150" width="280" height="150" aria-hidden="true" set:html={deskThumbSVG()} /></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">03</span> Desk layouts</span><h3><a href="/desk-layouts/">Nine ways to build a desk</a></h3><p>Docks, tiling trees, strips, drawers and palettes, laid out live as width and height run out.</p></div>
+      </article>
+      <article class="card">
+        <div class="thumb"><div class="t-win" aria-hidden="true"><div class="t-bar" id="thumb-bar"><span class="t-group"><i class="t-g"></i><b style="width:46px"></b></span><span class="t-group"><i class="t-g"></i><b></b><b></b><b></b></span><span class="t-group"><i class="t-g"></i><b></b><b class="on"></b></span><span class="t-group"><i class="t-g"></i><b style="width:30px"></b></span></div><div class="t-doc"><span></span></div></div></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">04</span> Toolbar groups</span><h3><a href="/toolbar-groups/">One handle per group</a></h3><p>Five slots, three zones, floating and collapsing groups, and a lock that hides every grip until you hold Alt.</p></div>
+      </article>
+    </div>
+  </section>
+</Site>
+
+<script>
+  import { whenVisible } from "../islands/rail";
+  whenVisible(document.getElementById("demo-fig")!, () => void import("../islands/home"));
+</script>
