@@ -11,6 +11,8 @@ import { createBrowserClock } from "@n-uf/motion/browser";
 import type { CheckResult, HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
 import { docBody, panelBody, toolbarCells, withGlyph } from "./desk/content";
 import { draggable, dropAt, targetsFor, without, type Drop, type DropTarget, type TargetInput } from "./desk/drops";
+import { createGrips } from "./desk/grip";
+import { gripScenarios } from "./desk/grip-scenarios";
 import { DRAG, createIntent, rawTarget, within, type Intent } from "./desk/intent";
 import { CONSTRUCTIONS, DEFAULT_CONSTRUCTION, constructionOf, stripGeometry, type ConstructionId } from "./desk/layouts";
 import {
@@ -171,7 +173,8 @@ const dragInput = (it: Item): TargetInput => ({ c: construction(), s0: without(h
  * `from` its home zone (default: where it is drawn); `keyboard`: picked up from the keyboard.
  */
 function beginDrag(it: Item, px: number, py: number, hold?: Point, from?: Rect, keyboard = false): void {
-  if (lifted || it.closing || !draggable(construction(), it.key)) return;
+  // A frozen layout lifts nothing (unless Alt is held).
+  if (lifted || it.closing || !draggable(construction(), it.key) || grips.frozen()) return;
   dragged = true;
   ensureLoop();
   const d = it.rect.value;
@@ -542,7 +545,7 @@ const toolbarHold = (it: Item): Point => {
 };
 
 function makePanel(p: (typeof PANELS)[number], at: Rect): Item {
-  const html = `<div class="title" tabindex="0"><span>${p.title}</span><button type="button" class="fold" title="Fold to the title bar">▾</button></div><div class="body">${panelBody(p.id)}</div>`;
+  const html = `<div class="title"><span class="name">${p.title}</span></div><div class="body">${panelBody(p.id)}</div>`;
   const it = makeItem("panel", panelKey(p.id), 200 + p.id, p.title, html, at);
   const bar = it.content.querySelector<HTMLElement>(".title")!;
   bar.addEventListener("pointerdown", (e) => {
@@ -553,12 +556,8 @@ function makePanel(p: (typeof PANELS)[number], at: Rect): Item {
   bar.addEventListener("keydown", (e) => {
     if (e.target === bar) onKeyPickUp(it, e);
   });
-  const fold = it.content.querySelector<HTMLButtonElement>(".fold")!;
-  fold.addEventListener("pointerdown", (e) => e.stopPropagation());
-  fold.addEventListener("click", (e) => {
-    e.stopPropagation();
-    doFold(p.id);
-  });
+  // Its handle carries its actions (see desk/grip.ts).
+  grips.header(it.key, bar);
   it.el.addEventListener("pointerdown", () => {
     if (!it.closing) states.set(cid, touch(state(), p.id));
   });
@@ -613,7 +612,7 @@ function buildChrome(it: Item, p: Placed): void {
     const sig = `rail|${(p.icons ?? []).join()}`;
     if (sig === it.built) return;
     it.built = sig;
-    it.content.replaceChildren(...(p.icons ?? []).map((id) => withGlyph(button("icon", id, "", () => doIcon(side, id)), id)));
+    it.content.replaceChildren(...(p.icons ?? []).map((id) => grips.segment(withGlyph(button("icon", id, "", () => grips.segmentClick(side, id)), id), side, id)));
   } else if (p.look === "tabs") {
     // Not while a drag holds the pointer: the pressed tab must stay in the page (it has the pointer capture).
     if (lifted) return;
@@ -640,13 +639,14 @@ function buildChrome(it: Item, p: Placed): void {
         return b;
       }),
     );
+    grips.tabRow(it.content, side);
   }
 }
 
 /** Where the pointer holds a panel lifted by its tab. */
 const TAB_HOLD: Point = { x: 40, y: 11 };
 
-/** Constructions where a panel's ▾ folds (or shades) it. */
+/** Constructions where a panel folds (or shades) to its title bar. */
 const FOLDS: readonly ConstructionId[] = ["docks", "docksFull", "dockTear", "floatOver", "floatAround"];
 
 /** Dress an item for how it is placed: its look, its layer, shown or folded away. */
@@ -660,7 +660,6 @@ function dress(it: Item, p: Placed): void {
   it.el.classList.toggle("hidden", !!p.hidden);
   it.el.style.zIndex = it === raised ? "10" : String(p.layer);
   if (it.kind === "chrome") buildChrome(it, p);
-  if (it.kind === "panel") it.content.querySelector(".fold")!.textContent = p.look === "header" ? "▸" : "▾";
   const want = p.hidden ? 0 : 1;
   if (it.pop.target !== want) {
     ensureLoop();
@@ -1230,6 +1229,30 @@ async function scriptedDrag(key: string, to: () => Point, opts: { escapeAt?: num
 /** How long a plain drag holds still at its end: aim, indicator, room, and the others settling. */
 const DWELL_THEN_ROOM = 650;
 
+/** The panels' drag handles: their glyphs, their menus and the frozen layout (desk/grip.ts). */
+const grips = createGrips({
+  stage,
+  construction,
+  state,
+  layout: () => layout,
+  size: () => size,
+  options,
+  commit: (s) => !lifted && commit(s),
+  busy: () => !!lifted,
+  dragged: () => dragged,
+  icon: doIcon,
+  press: (key, e, from) => {
+    const it = itemOf(key);
+    dragged = false;
+    if (it) onPress(it, e, TAB_HOLD, from);
+  },
+  pickUp: (key) => {
+    const it = itemOf(key);
+    if (it) onKeyPickUp(it, new KeyboardEvent("keydown", { key: " " }));
+  },
+  rectOf: stageRectOf,
+});
+
 const lab: DeskLab = {
   construction: () => cid,
   state,
@@ -1284,7 +1307,7 @@ async function keyboardDrag(key: string, steps: number): Promise<DragResult> {
 }
 
 initToolbarFrame(lab, stage);
-const SCENARIOS: Record<string, Scenario> = { ...makeScenarios(lab), ...toolbarScenarios(lab), ...toolbarGroupScenarios(lab) };
+const SCENARIOS: Record<string, Scenario> = { ...makeScenarios(lab), ...toolbarScenarios(lab), ...toolbarGroupScenarios(lab), ...gripScenarios(lab, grips) };
 const runs: LabRun[] = [];
 
 async function runScenario(name: string, mode: Preview): Promise<LabRun> {

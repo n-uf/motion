@@ -100,6 +100,11 @@ main.wide { max-width: 1712px; }
   --d-accent-soft: #e8effc;
   --d-shadow: 0 8px 24px rgba(16, 24, 40, 0.12), 0 2px 6px rgba(16, 24, 40, 0.08);
   --d-lift: 0 18px 40px rgba(16, 24, 40, 0.2), 0 4px 10px rgba(16, 24, 40, 0.12);
+  /* The drag handle: mid grey at rest, darker on hover, the accent while dragging; its engraving and its well. */
+  --d-grip: #a3a9b3;
+  --d-grip-hover: #5d6470;
+  --d-grip-hi: rgba(255, 255, 255, 0.95);
+  --d-well: #eef0f3;
   --d-radius: 8px;
   --d-gap: 8px;
   --d-title: 22px;
@@ -122,6 +127,10 @@ main.wide { max-width: 1712px; }
     --d-accent-soft: #233150;
     --d-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
     --d-lift: 0 20px 44px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.45);
+    --d-grip: #6b717b;
+    --d-grip-hover: #b8bdc6;
+    --d-grip-hi: rgba(255, 255, 255, 0.12);
+    --d-well: #26292e;
   }
 }
 /* The stage's size is set per frame (it glides with everything on it); its content box is the desk. */
@@ -223,20 +232,120 @@ main.wide { max-width: 1712px; }
 .stage.desk .win.toolbar.lifted .tb,
 .stage.desk .win.toolbar.lifted .tb-grip { cursor: grabbing; }
 
-/* Panels: a quiet title bar (with a fold button where folding means something) over a body that clips. */
+/* Panels: a quiet title bar led by its drag handle, over a body that clips. */
 .stage.desk .win.panel .content,
 .stage.desk .win.doc .content { display: flex; flex-direction: column; }
 .stage.desk .win.panel .title,
 .stage.desk .win.doc .title { flex: none; }
 .stage.desk .win.panel .body,
 .stage.desk .win.doc .body { flex: 1 1 auto; min-height: 0; overflow: hidden; white-space: normal; }
-.win.panel .title { display: flex; justify-content: space-between; align-items: center; touch-action: none; }
-.win.panel .title > span { overflow: hidden; text-overflow: ellipsis; }
-.win.panel .fold { display: none; flex: none; width: 18px; height: 18px; border: 0; border-radius: 4px; background: transparent; color: var(--d-muted); cursor: pointer; font-size: 11px; line-height: 18px; padding: 0; }
-.win.panel .fold:hover { background: var(--d-hover); color: var(--d-ink); }
-.win.panel.foldable .fold { display: inline-block; }
-/* Folded to its title bar: no divider under it. */
-.stage.desk .win.panel[data-look="header"] .title { border-bottom-color: transparent; }
+.win.panel .title { display: flex; align-items: center; touch-action: none; }
+.stage.desk .win.panel .title { padding-left: 0; }
+.win.panel .title > .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Folded to its title bar: no divider under it, and a click on it expands it. */
+.stage.desk .win.panel[data-look="header"] .title { border-bottom-color: transparent; cursor: pointer; }
+
+/*
+ * The drag handle (grip): dots in a line along the edge they sit on, 3 px with 2 px gaps. A horizontal unit has it
+ * at its left edge (dots top to bottom), a vertical one on its top edge, centred (dots left to right). Full density
+ * (two lines) on expanded headers, compact (one line) on collapsed bars and rail segments.
+ */
+.stage.desk .grip-handle {
+  flex: none;
+  align-self: stretch;
+  width: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  cursor: grab;
+  outline: none;
+}
+.stage.desk .grip-handle:focus-visible { box-shadow: inset 0 0 0 2px var(--d-accent); }
+.stage.desk .grip-dots {
+  display: block;
+  flex: none;
+  width: 8px;
+  height: 13px;
+  color: var(--d-grip);
+  background: radial-gradient(circle at 1.5px 1.5px, currentColor 1.25px, transparent 1.65px) 0 0 / 5px 5px;
+  transition: color 120ms ease-out, opacity 120ms ease-out;
+}
+/* Thin units: one line of dots. */
+.stage.desk .win.panel[data-look="header"] .grip-dots,
+.stage.desk .grip-handle[data-density="compact"] .grip-dots { width: 3px; }
+.stage.desk .segment .grip-dots { width: 13px; height: 3px; }
+/* The short line instead of dots: 3 px thick, 13 px long (9 px compact). */
+.stage.desk[data-grip="line"] .grip-dots { width: 3px; height: 13px; background: currentColor; border-radius: 1.5px; }
+.stage.desk[data-grip="line"] .win.panel[data-look="header"] .grip-dots { height: 9px; }
+.stage.desk[data-grip="line"] .segment .grip-dots { width: 9px; height: 3px; }
+/* Engraved: a 1 px highlight under each dot, as if pressed into the surface. */
+.stage.desk[data-finish="engraved"]:not([data-grip="line"]) .grip-dots {
+  background:
+    radial-gradient(circle at 1.5px 1.5px, currentColor 1.25px, transparent 1.65px) 0 0 / 5px 5px,
+    radial-gradient(circle at 1.5px 1.5px, var(--d-grip-hi) 1.25px, transparent 1.65px) 0 1px / 5px 5px;
+}
+.stage.desk[data-finish="engraved"]:not([data-grip="line"]) .grip-dots { height: 14px; }
+.stage.desk[data-finish="engraved"]:not([data-grip="line"]) .segment .grip-dots { height: 4px; }
+.stage.desk[data-finish="engraved"][data-grip="line"] .grip-dots { box-shadow: 0 1px 0 var(--d-grip-hi); }
+/* Well: the glyph sits in a slim tinted strip as tall as the bar. */
+.stage.desk[data-finish="well"] .grip-handle { background: var(--d-well); border-radius: 0; margin-right: 4px; }
+.stage.desk[data-finish="well"] .win.panel .grip-handle { border-top-left-radius: calc(var(--d-radius) - 1px); }
+.stage.desk[data-finish="well"] .win.panel[data-look="header"] .grip-handle { border-bottom-left-radius: calc(var(--d-radius) - 1px); }
+.stage.desk[data-finish="well"] .segment .grip-dots { box-shadow: 0 0 0 3px var(--d-well); border-radius: 1px; background-color: var(--d-well); }
+/* Darker on hover; the accent while dragging. */
+.stage.desk .win.panel .title:hover .grip-dots,
+.stage.desk .grip-handle:hover .grip-dots,
+.stage.desk .grip-handle:focus-visible .grip-dots,
+.stage.desk .segment:hover .grip-dots { color: var(--d-grip-hover); }
+.stage.desk .win.lifted .grip-dots { color: var(--d-accent); }
+.stage.desk .win.lifted .grip-handle,
+.stage.desk .win.lifted .title { cursor: grabbing; }
+/* Frozen: the glyph fades, nothing grabs. Holding Alt lifts the class. */
+.stage.desk.frozen .grip-dots { opacity: 0.35; }
+.stage.desk.frozen .grip-handle,
+.stage.desk.frozen .win.panel .title,
+.stage.desk.frozen .segment { cursor: not-allowed; }
+
+/* A drawer's or a navigator side's tab row: its handle leads the tabs. */
+.stage.desk .win.chrome[data-look="tabs"] .grip-handle { margin: -3px 0 0 -3px; border-radius: 0; border-top-left-radius: calc(var(--d-radius) - 1px); }
+
+/* The unit's menu, anchored at its handle. */
+.stage.desk .grip-menu {
+  position: absolute;
+  z-index: 30;
+  min-width: 176px;
+  padding: 4px;
+  background: var(--d-panel);
+  border: 1px solid var(--d-edge-lifted);
+  border-radius: var(--d-radius);
+  box-shadow: var(--d-shadow);
+  font: 12.5px/1.2 system-ui, sans-serif;
+  color: var(--d-ink);
+}
+.stage.desk .grip-note { padding: 5px 8px 6px; color: var(--d-muted); font-size: 11.5px; border-bottom: 1px solid var(--d-hair); margin-bottom: 4px; }
+.stage.desk .grip-sep { height: 1px; margin: 4px 2px; background: var(--d-hair); }
+.stage.desk .grip-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 26px;
+  padding: 0 8px 0 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.stage.desk .grip-item .mark { flex: none; width: 14px; color: var(--d-accent); text-align: center; }
+.stage.desk .grip-item .label { flex: 1 1 auto; white-space: nowrap; }
+.stage.desk .grip-item .hint { flex: none; color: var(--d-muted); font-size: 11px; }
+.stage.desk .grip-item:hover:not(:disabled),
+.stage.desk .grip-item:focus-visible { background: var(--d-hover); outline: none; }
+.stage.desk .grip-item:disabled { color: var(--d-muted); opacity: 0.55; cursor: default; }
+#grip-options .sep { color: var(--muted); }
 .win.panel[data-look="bare"] .title { display: none; }
 .stage.desk .win.panel[data-look="bare"] .frame { border-top: 0; border-radius: 0 0 var(--d-radius) var(--d-radius); }
 
@@ -286,6 +395,8 @@ main.wide { max-width: 1712px; }
   color: var(--d-muted);
   cursor: pointer;
 }
+/* A rail segment: the compact glyph on top, centred, over the panel's icon; the whole segment drags. */
+.stage.desk .win.chrome .icon.segment { height: 36px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; cursor: grab; }
 .stage.desk .win.chrome .icon:hover { background: var(--d-hover); color: var(--d-ink); }
 .stage.desk .win.chrome .icon:active { background: var(--d-press); }
 .stage.desk .win.chrome[data-look="tabs"] .frame { background: var(--d-sunken); border-bottom-width: 0; border-radius: var(--d-radius) var(--d-radius) 0 0; }
