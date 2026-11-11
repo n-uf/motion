@@ -107,7 +107,7 @@ export function panelBody(id: number): string {
     case 2:
       return `<ul class="rows outline">${OUTLINE.map(([level, text]) => `<li class="h${level}">${text}</li>`).join("")}</ul>`;
     case 3:
-      return `<ul class="rows notes">${NOTES.map((n) => `<li>${n}</li>`).join("")}</ul>`;
+      return `<ul class="rows notes">${NOTES.map((n) => `<li><span class="name">${n}</span></li>`).join("")}</ul>`;
     case 4:
       return `<dl class="props">${PROPS.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>`;
     case 5:
