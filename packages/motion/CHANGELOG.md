@@ -3,6 +3,28 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.3
+
+- New in `values/`: the window motion rules, the one motion model for
+  hypr-tiling and pdf-n-uf's surface.
+  - `createSettle(initial, { omega?, restDelta? })` and `settleValue(loop, …)`:
+    the curve for moving to a new place. A critically damped spring whose
+    velocity is set on every new target to `omega · distance` toward it, so it
+    follows `distance · e^(−omega·t)` from wherever it is drawn: front-loaded
+    (90 % in `ln(10)/omega` s), and it never passes its target, on position
+    or size, however often it is retargeted. A velocity set by hand toward
+    the target is capped at that speed; one away from it is kept. Tempos in
+    `SETTLE_TEMPO` (`calm` 20, `default` 25, `quick` 37 per second).
+  - `settle.hold(value)`: what a pointer owns sits exactly under it, at rest;
+    the next target launches from there.
+  - `reveal(drawn, target)`: draw a gliding window without stretching its
+    content (move, frame at the drawn size, clip the content laid out at the
+    target size). `popIn(progress, from = 0.87)`: uniform open and close.
+- New entry `@n-uf/motion/testing`: frame-sampled checks of those rules
+  (`checkNoOvershoot`, `checkMonotonic`, `checkNoJumps`, `checkHeld`,
+  `checkContentScale`, `checkTempo`), each returning `{ ok, failures }`.
+- Nothing existing changes behaviour.
+
 ## 26.11.2
 
 - A two-finger pan is no longer taken for a pinch. One finger's event arrives
