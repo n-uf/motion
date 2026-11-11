@@ -201,6 +201,13 @@ export function placeFloating(
   const ys = new Set<number>([area.y + (area.height - h) / 2, area.y + area.height - h]);
   for (let x = area.x; x <= area.x + area.width - w; x += step) xs.add(x);
   for (let y = area.y; y <= area.y + area.height - h; y += step) ys.add(y);
+  // Narrow gaps fall between grid lines: also try every position flush (a gap away) with another document's edge.
+  for (const o of others) {
+    xs.add(o.x + o.width + G.gap);
+    xs.add(o.x - G.gap - w);
+    ys.add(o.y + o.height + G.gap);
+    ys.add(o.y - G.gap - h);
+  }
   for (const x of xs) {
     if (x < area.x - 0.01 || x + w > area.x + area.width + 0.01) continue;
     for (const y of ys) {
@@ -215,7 +222,12 @@ export function placeFloating(
   }
   if (best) return { rect: best, how: "free" };
   const origin = from ?? { x: area.x - G.title, y: area.y - G.title, width: w, height: h };
-  return { rect: fitInside({ x: origin.x + G.title, y: origin.y + G.title, width: w, height: h }, area, min), how: "cascade" };
+  const cascaded = fitInside({ x: origin.x + G.title, y: origin.y + G.title, width: w, height: h }, area, min);
+  // Cascades pile up against the area's far edge: once the clamp lands on the origin itself, wrap to the top-left.
+  if (from && Math.abs(cascaded.x - from.x) < 0.01 && Math.abs(cascaded.y - from.y) < 0.01) {
+    return { rect: fitInside({ x: area.x + G.gap, y: area.y + G.gap, width: w, height: h }, area, min), how: "cascade" };
+  }
+  return { rect: cascaded, how: "cascade" };
 }
 
 // --- the whole layout --------------------------------------------------------------------------------------------
@@ -299,7 +311,7 @@ export function normalize(state: DeskState, spec: DeskSpec): DeskState {
   }
   if (s.docLayout !== "floating") {
     const work = workArea(s, spec);
-    while (s.tiled.length > 1 && !tilesFit(tiledLayout(s, work))) {
+    while (s.tiled.length >= 1 && !tilesFit(tiledLayout(s, work))) {
       const newest = Math.max(...s.tiled);
       const without: DeskState = { ...s, tiled: s.tiled.filter((id) => id !== newest), tree: removeLeaf(s.tree, newest) };
       const others = [...tiledLayout(without, work).values(), ...without.floating.map((f) => fitInside(f.rect, work))];
