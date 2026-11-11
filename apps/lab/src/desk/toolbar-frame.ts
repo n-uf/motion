@@ -88,11 +88,13 @@ let arrangement: Arrangement = DEFAULT_ARRANGEMENT;
 /** While a drag has made room: the arrangement shown (the dragged group where the indicator is). */
 let preview: Arrangement | null = null;
 let bottomMode: BottomMode = "reserved";
-let frozen = false;
 let altHeld = false;
 const shownArrangement = (): Arrangement => preview ?? arrangement;
+/** The page's one Freeze layout switch (the panels' handles read the same one). */
+const freezeInput = (): HTMLInputElement | null => document.querySelector<HTMLInputElement>("input[name=freeze]");
+const frozen = (): boolean => !!freezeInput()?.checked;
 /** Moves are allowed: the layout isn't frozen, or Alt is held. */
-const canMove = (e?: { altKey?: boolean }): boolean => !frozen || altHeld || !!e?.altKey;
+const canMove = (e?: { altKey?: boolean }): boolean => !frozen() || altHeld || !!e?.altKey;
 
 const omega = (): number => SETTLE_TEMPO[(document.querySelector<HTMLInputElement>("input[name=tempo]:checked")?.value as keyof typeof SETTLE_TEMPO | undefined) ?? "default"] ?? SETTLE_TEMPO.default;
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
@@ -340,6 +342,7 @@ export function initToolbarFrame(l: DeskLab, stageEl: HTMLElement): void {
   window.addEventListener("keydown", (e) => e.key === "Alt" && setAlt(true));
   window.addEventListener("keyup", (e) => e.key === "Alt" && setAlt(false));
   window.addEventListener("blur", () => setAlt(false));
+  for (const t of ["pointerdown", "pointermove"] as const) window.addEventListener(t, (e) => e.isTrusted && setAlt(e.altKey), true);
   // The page's Reset puts the default arrangement back too.
   document.querySelector("button[data-act=reset]")?.addEventListener("click", () => setArrangement(DEFAULT_ARRANGEMENT, "reserved"));
   const g = geometry(arrangement);
@@ -460,28 +463,50 @@ function buildControls(): void {
   modes.id = "bottom-toolbar-modes";
   modes.innerHTML = `<legend>Bottom bar</legend><label><input type="radio" name="bottom-toolbar" value="reserved" checked /> Reserved</label><label><input type="radio" name="bottom-toolbar" value="floating" /> Floating</label>`;
   modes.querySelectorAll<HTMLInputElement>("input").forEach((input) => input.addEventListener("change", () => setArrangement(arrangement, input.value as BottomMode)));
+  // The lock switch: the page's one Freeze layout input (another part may have made it: this one takes it over).
   const freeze = document.createElement("fieldset");
   freeze.id = "layout-freeze";
-  freeze.innerHTML = `<legend>Layout</legend><label title="Nothing moves; hold Alt to move anyway"><input type="checkbox" name="freeze" /> Freeze layout</label>`;
-  freeze.querySelector("input")!.addEventListener("change", (e) => setFrozen((e.target as HTMLInputElement).checked));
+  freeze.innerHTML =
+    `<legend>Layout</legend><label class="lock" title="Freeze or unfreeze the layout">` +
+    `<svg class="ico open" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 4.9-.7"/></svg>` +
+    `<svg class="ico shut" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>` +
+    `<span class="state"></span><span class="lockhint">hold <kbd>Alt</kbd> to move</span></label>`;
+  const lock = freeze.querySelector("label")!;
+  const existing = freezeInput();
+  const input = existing ?? document.createElement("input");
+  const oldLabel = existing?.closest("label");
+  input.type = "checkbox";
+  input.name = "freeze";
+  input.setAttribute("role", "switch");
+  input.setAttribute("aria-label", "Freeze layout");
+  lock.prepend(input);
+  oldLabel?.remove();
+  input.addEventListener("change", applyFrozen);
   const anchor = document.getElementById("bottom-modes");
   if (anchor) anchor.after(modes, freeze, cases);
   else controlsEl.append(modes, freeze, cases);
 }
 
-/** Freeze the layout (the handles fade and nothing moves until Alt is held), or unfreeze it. */
+/** Freeze the layout (the grips hide and nothing moves until Alt is held), or unfreeze it: through the one switch. */
 export function setFrozen(on: boolean): void {
-  frozen = on;
-  const box = document.querySelector<HTMLInputElement>("input[name=freeze]");
-  if (box) box.checked = on;
+  const box = freezeInput();
+  if (!box || box.checked === on) return applyFrozen();
+  box.checked = on;
+  box.dispatchEvent(new Event("change", { bubbles: true }));
+}
+/** Show the switch's state: frozen hides the grips (Alt shows them while held). */
+function applyFrozen(): void {
+  const on = frozen();
   win?.classList.toggle("frozen", on);
   document.body.dataset.layoutFrozen = String(on);
   for (const ge of groupEls.values()) ge.handle.title = on ? FROZEN_TIP : GROUP_LABEL[ge.id];
-  document.dispatchEvent(new CustomEvent("layoutfreeze", { detail: { frozen: on } }));
+  if (on && !altHeld) closeMenu();
 }
 function setAlt(on: boolean): void {
+  if (on === altHeld) return;
   altHeld = on;
   win?.classList.toggle("alt", on);
+  document.body.dataset.layoutAlt = String(on);
 }
 
 /** Show a new arrangement (and bottom mode): everything glides there; the desk lays out again for the pill. */
@@ -522,6 +547,8 @@ function frame(now: number): void {
   last = now;
   moving = false;
   if (!lab || !win) return void requestAnimationFrame(frame);
+  // The one Freeze switch may be set from elsewhere without an event: follow it.
+  if (win.classList.contains("frozen") !== frozen()) applyFrozen();
   const a = shownArrangement();
   const g = geometry(a, !!drag);
   // Bars: glide to their places; the window keeps their room around the stage.
@@ -561,9 +588,9 @@ function frame(now: number): void {
   const places = placements(a, g);
   for (const ge of groupEls.values()) {
     const p = places.get(ge.id);
-    const held = drag?.id === ge.id;
-    ge.el.classList.toggle("tg-away", held);
-    if (!p || held) {
+    // A lifted group is the drag's (aim moves it).
+    if (drag?.id === ge.id) continue;
+    if (!p) {
       if (ge.rect.step(dt)) moving = true;
       drawGroup(ge);
       continue;
@@ -652,7 +679,9 @@ interface Drag {
   room: GTarget | null;
   /** A keyboard move: the stop shown (once an arrow has moved it), and since when. */
   keys: { i: number; since: number; moved: boolean } | null;
-  readonly ghost: { el: HTMLDivElement; rect: Settle<Rect> };
+  /** Where the group was before it lifted (its host's element) and its axis there. */
+  readonly homeBox: HTMLElement | null;
+  readonly homeVertical: boolean;
   snapped: string | null;
   returning: boolean;
   readonly t0: number;
@@ -719,8 +748,12 @@ const TOUCH = { hold: DRAG.LONG_PRESS, lift: DRAG.TOUCH_LIFT };
 /** A touch held this long without moving opens the handle's menu. */
 const MENU_PRESS = 500;
 
+/** The pointer of the press that may lift a group. */
+let pressId: number | null = null;
+
 function pressGroup(id: GroupId, e: PointerEvent): void {
   if (drag || e.button !== 0) return;
+  pressId = e.pointerId;
   if (e.pointerType === "touch") {
     const t = setTimeout(() => !drag && groupMenu(id), MENU_PRESS);
     const stop = (): void => clearTimeout(t);
@@ -738,12 +771,21 @@ function begin(id: GroupId, p: Point, keyboard = false): void {
   closeMenu();
   const ge = groupEls.get(id)!;
   const home = toWindow(ge.el.getBoundingClientRect());
-  const el = ge.el.cloneNode(true) as HTMLDivElement;
-  el.classList.add("tg-ghost");
-  el.classList.remove("tg-away");
-  el.style.clipPath = "";
-  el.style.transform = "";
-  layer.append(el);
+  const homeBox = ge.container;
+  // The group itself lifts (no copy): onto the drag layer, held where it is; its place stays, empty, until the drop.
+  layer.append(ge.el);
+  ge.container = layer;
+  ge.rect.jumpTo(home);
+  ge.target = home;
+  ge.el.classList.add("lifted");
+  // Moving it took its pointer capture with it: the press keeps the pointer.
+  if (pressId !== null) {
+    try {
+      ge.handle.setPointerCapture(pressId);
+    } catch {
+      // A scripted press has no real pointer to capture.
+    }
+  }
   const targets = groupTargets(id);
   // From the keyboard, the steps start where the group is now.
   const here = targets.findIndex((t) => t.kind !== "float" && sameArrangement(t.make(p), arrangement));
@@ -757,7 +799,8 @@ function begin(id: GroupId, p: Point, keyboard = false): void {
     shown: null,
     room: null,
     keys: keyboard ? { i: here, since: performance.now(), moved: false } : null,
-    ghost: { el, rect: createSettle<Rect>(home, { omega: omega() }) },
+    homeBox,
+    homeVertical: ge.vertical,
     snapped: null,
     returning: false,
     t0: performance.now(),
@@ -794,17 +837,21 @@ function aim(now: number, dt: number): void {
     preview = room ? room.make(d.pointer) : null;
     changed();
   }
-  // The ghost: held 1:1 under the pointer, or (snap) gliding into the slot the room was made for, and back.
-  const ghost = d.ghost;
-  const want = snap && d.room ? (placements(preview!, geometry(preview!, true)).get(d.id)?.rect ?? null) : null;
-  if (want) {
+  // The group itself: held 1:1 under the pointer, or (snap) gliding into the slot the room was made for (taking that
+  // slot's axis), and back.
+  const ge = groupEls.get(d.id)!;
+  const slot = snap && d.room ? (placements(preview!, geometry(preview!, true)).get(d.id) ?? null) : null;
+  let axis = d.homeVertical;
+  if (slot) {
     if (d.snapped !== d.room!.id) d.snaps.push({ t: now - d.t0, id: d.room!.id });
     d.snapped = d.room!.id;
     d.returning = false;
-    if (!sameRect(ghost.rect.target, want)) {
-      ghost.rect.configure({ omega: omega() });
-      ghost.rect.setTarget(want);
+    axis = slot.vertical;
+    if (!sameRect(ge.rect.target, slot.rect)) {
+      ge.rect.configure({ omega: omega() });
+      ge.rect.setTarget(slot.rect);
     }
+    ge.target = slot.rect;
   } else {
     if (d.snapped) {
       d.snaps.push({ t: now - d.t0, id: null, flying: !f.aiming });
@@ -813,17 +860,20 @@ function aim(now: number, dt: number): void {
     }
     const goal = d.keys ? d.home : heldRect(d);
     if (d.returning || d.keys) {
-      ghost.rect.configure({ omega: omega() });
-      ghost.rect.setTarget(goal);
-      const v = ghost.rect.value;
+      ge.rect.configure({ omega: omega() });
+      ge.rect.setTarget(goal);
+      const v = ge.rect.value;
       if (Math.max(Math.abs(v.x - goal.x), Math.abs(v.y - goal.y)) < 0.5) d.returning = false;
-    } else ghost.rect.hold(goal);
+    } else ge.rect.hold(goal);
+    ge.target = goal;
   }
-  ghost.rect.step(dt);
-  const r = ghost.rect.value;
-  Object.assign(ghost.el.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.width}px`, height: `${r.height}px` });
-  d.frames.push({ t: now - d.t0, x: d.pointer.x, y: d.pointer.y, item: { ...r } });
-  if (!ghost.rect.settled) moving = true;
+  if (ge.vertical !== axis) {
+    ge.vertical = axis;
+    ge.el.classList.toggle("v", axis);
+  }
+  if (ge.rect.step(dt)) moving = true;
+  drawGroup(ge);
+  d.frames.push({ t: now - d.t0, x: d.pointer.x, y: d.pointer.y, item: { ...ge.rect.value } });
 }
 
 function showIndicator(t: GTarget | null, d: Drag): void {
@@ -868,20 +918,28 @@ function end(cancel: boolean): void {
   drag = null;
   showIndicator(null, d);
   preview = null;
-  // The group takes over from its ghost: it glides from where the ghost is to its (new) place.
+  // The group settles from where it was let go into its (new) place, or back home: never from its old home.
   const ge = groupEls.get(d.id)!;
-  const at = d.ghost.rect.value;
-  d.ghost.el.remove();
-  ge.el.classList.remove("tg-away");
+  const release = toWindow(ge.el.getBoundingClientRect());
   const p = next ? placements(next, geometry(next)).get(d.id) : undefined;
-  const container = p ? (p.host === "top" ? topBox : p.host === "float" ? floats : (bars.get(p.host)?.el ?? null)) : ge.container;
-  if (container && container !== ge.container) {
+  const container = p ? (p.host === "top" ? topBox : p.host === "float" ? floats : (bars.get(p.host)?.el ?? null)) : d.homeBox;
+  ge.el.classList.remove("lifted");
+  const goal = p ?? placements(arrangement, geometry(arrangement)).get(d.id);
+  if (container && goal) {
     container.append(ge.el);
     ge.container = container;
+    ge.rect.jumpTo(pageToLocal(container, release));
+    ge.target = goal.local;
+    ge.rect.configure({ omega: omega() });
+    ge.rect.setTarget(goal.local);
+    if (ge.vertical !== goal.vertical) {
+      ge.vertical = goal.vertical;
+      ge.el.classList.toggle("v", goal.vertical);
+    }
   }
-  if (ge.container) ge.rect.jumpTo(pageToLocal(ge.container, at));
-  ge.target = rect(-1, -1, 0, 0);
-  lastDrag = { log: d.log, snaps: d.snaps, frames: d.frames, landed: landed?.id ?? null, releaseNote: d.releaseNote, grab: d.grab };
+  // The landing's first frame: drawn where it was let go.
+  drawGroup(ge);
+  lastDrag = { log: d.log, snaps: d.snaps, frames: d.frames, landed: landed?.id ?? null, releaseNote: d.releaseNote, grab: d.grab, release, landFirst: toWindow(ge.el.getBoundingClientRect()) };
   if (next) setArrangement(next);
   else changed();
 }
@@ -903,6 +961,7 @@ function keyOnHandle(id: GroupId, e: KeyboardEvent): void {
     e.preventDefault();
     if (!canMove(e)) return;
     const r = groupEls.get(id)!.handle.getBoundingClientRect();
+    pressId = null;
     begin(id, windowPoint({ clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 }), true);
     step(e.key);
     // This press is the first step: the page's key handler mustn't step again.
@@ -948,6 +1007,9 @@ export interface GroupDragResult {
   readonly landed: string | null;
   readonly releaseNote: string | null;
   readonly grab: Point;
+  /** Where the group was drawn when it was let go, and in the landing's first frame (window coordinates). */
+  readonly release?: Rect;
+  readonly landFirst?: Rect;
 }
 
 const along = (keys: readonly PathKey[], t: number): Point => {
