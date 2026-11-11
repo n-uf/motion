@@ -4,7 +4,8 @@ name: Release
 # @n-uf/debugsy). A PR bumps packages/motion/package.json with
 # `pnpm version:bump` and adds a CHANGELOG entry; merging it to main
 # publishes that version to npmjs (public, with provenance) and to GitHub
-# Packages, tags it v<version> and notifies finfactory/pdf-n-uf. Each
+# Packages, tags it v<version> and notifies a downstream repo when
+# RELEASE_NOTIFY_REPO is set. Each
 # registry is checked on its own: a run publishes only where the version is
 # missing, so re-runs are safe, and a push whose version is everywhere
 # already does nothing.
@@ -14,7 +15,7 @@ name: Release
 # publishConfig: the published exports point at dist/) and publishes that
 # same file to both registries: npmjs first, so a refusal there (the trusted
 # publisher missing, an OIDC hiccup) leaves nothing published and a re-run
-# is clean; then GitHub Packages, the tag and the pdf-n-uf notice.
+# is clean; then GitHub Packages, the tag and the downstream notice.
 #
 # Credentials:
 # - npmjs: trusted publishing, no stored token. npm swaps this job's GitHub
@@ -176,18 +177,25 @@ jobs:
           git push origin "v$VERSION"
 
       # Once per version: when this run creates its tag. A failed notice
-      # doesn't fail the release (send it by hand if it fails).
-      - name: Notify pdf-n-uf (lib-released)
+      # doesn't fail the release (send it by hand if it fails). The target is
+      # the repository variable RELEASE_NOTIFY_REPO (owner/repo); without it,
+      # or without the DISPATCH_TOKEN secret, the step is skipped.
+      - name: Notify a downstream repo (lib-released)
         if: steps.version.outputs.tagged == 'false'
         continue-on-error: true
         env:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+          NOTIFY_REPO: ${{ vars.RELEASE_NOTIFY_REPO }}
         run: |
+          if [ -z "$NOTIFY_REPO" ]; then
+            echo "::notice::RELEASE_NOTIFY_REPO variable is not set; skipping the lib-released dispatch."
+            exit 0
+          fi
           if [ "$HAS_DISPATCH_TOKEN" != "true" ]; then
             echo "::notice::DISPATCH_TOKEN secret is not set; skipping the lib-released dispatch."
             exit 0
           fi
           jq -n -c --arg v "$VERSION" --arg sha "$(git rev-parse HEAD)" \
             '{event_type: "lib-released", client_payload: {source: "n-uf/motion", sha: $sha, packages: [{name: "@n-uf/motion", version: $v}]}}' \
-            | gh api repos/finfactory/pdf-n-uf/dispatches --method POST --input -
+            | gh api "repos/$NOTIFY_REPO/dispatches" --method POST --input -
