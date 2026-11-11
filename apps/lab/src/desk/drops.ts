@@ -46,6 +46,10 @@ export interface Made {
   readonly key: string;
   /** The options the drop sets (a toolbar drop sets its mode); unset: they stay. */
   readonly opt?: Options;
+  /** Where the preview shows the item (a toolbar moving to a side edge); unset: its place in the drop's layout. */
+  readonly slot?: Rect;
+  /** What else the landing does (a toolbar swapping its groups with the toolbar at another edge). */
+  readonly apply?: () => void;
 }
 
 export interface DropTarget extends Target {
@@ -419,5 +423,5 @@ export function dropAt(input: TargetInput, target: DropTarget, p: Point, grab: P
   const made = target.make(p, grab);
   const layout = input.c.layout(made.state, input.size, made.opt ?? input.opt);
   const placed = layout.items.get(input.key)!;
-  return { ...made, key: `${target.id}|${made.key}`, target: target.id, layout, slot: placed.rect, hidden: !!placed.hidden, free: !!target.free };
+  return { ...made, key: `${target.id}|${made.key}`, target: target.id, layout, slot: made.slot ?? placed.rect, hidden: !made.slot && !!placed.hidden, free: !!target.free };
 }
