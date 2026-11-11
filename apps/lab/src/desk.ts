@@ -39,6 +39,8 @@ import {
 } from "./desk/model";
 import { LABEL_RULE, positionPopup } from "./desk/positioner";
 import { makeScenarios, type DeskLab, type DragResult, type IndicatorEntry, type PathKey, type Scenario } from "./desk/scenarios";
+import { toolbarGrip, wireToolbar } from "./desk/toolbar-drag";
+import { toolbarScenarios } from "./desk/toolbar-scenarios";
 import { framesResult, merge, motionRows, renderChecks, renderTrace, verdict, type Row, type Segment } from "./shared/checks";
 import { drawRevealed, layOut, measureFrame, onTopAt } from "./shared/frame";
 import { inside, nextFrame, overlap, same, wait, type Point } from "./shared/geometry";
@@ -357,17 +359,22 @@ function endDrag(cancel = false): void {
   if (!it || !home || !intent) return;
   let s = home.state;
   let landed: string | null = null;
+  // The options a drop sets (a toolbar drop: its mode).
+  let opt: Options | undefined;
   atRelease = { ...it.rect.value };
   if (!cancel) {
     const stop = keys?.stops[keys.i];
     if (snapped) {
       // Snapped: it lands in the slot it sits in (the shown target's).
       s = snapped.state;
+      opt = snapped.opt;
       landed = snapped.target;
     } else {
       const t = keys ? (stop?.target ?? null) : intent.release(pointer, targets);
       if (t) {
-        s = dropAt(dragInput(it), t, keys ? stop!.p : pointer, grab).state;
+        const d = dropAt(dragInput(it), t, keys ? stop!.p : pointer, grab);
+        s = d.state;
+        opt = d.opt;
         landed = t.id;
       }
     }
@@ -393,6 +400,11 @@ function endDrag(cancel = false): void {
   targets = [];
   it.el.classList.remove("lifted");
   newRun(it);
+  // A drop that sets options sets them as the switches do, and the switches show them.
+  if (opt) {
+    optionsOf.set(cid, opt);
+    syncControls();
+  }
   // It stays raised until its drop settle ends.
   commit(s);
 }
@@ -512,8 +524,16 @@ function makeItem(kind: Item["kind"], key: string, uid: number, name: string, ht
 }
 
 function makeToolbar(at: Rect): Item {
-  return makeItem("toolbar", "toolbar", 100, "toolbar", `<div class="tb">${toolbarCells()}</div>`, at);
+  const it = makeItem("toolbar", "toolbar", 100, "toolbar", `<div class="tb">${toolbarCells()}</div>`, at);
+  // The toolbar drags by its empty space or its grip (see desk/toolbar-drag.ts).
+  wireToolbar(it.el, it.content.querySelector<HTMLElement>(".tb")!, { press: (e) => draggable(construction(), it.key) && onPress(it, e), key: (e) => onKeyPickUp(it, e, toolbarHold(it), false) });
+  return it;
 }
+const toolbarHold = (it: Item): Point => {
+  const d = it.rect.value;
+  const g = toolbarGrip(d);
+  return { x: g.x - d.x, y: g.y - d.y };
+};
 
 function makePanel(p: (typeof PANELS)[number], at: Rect): Item {
   const html = `<div class="title" tabindex="0"><span>${p.title}</span><button type="button" class="fold" title="Fold to the title bar">▾</button></div><div class="body">${panelBody(p.id)}</div>`;
@@ -1101,6 +1121,7 @@ function gripOf(it: Item): { at: Point; hold?: Point; from?: Rect } {
     }
   }
   const d = it.rect.value;
+  if (it.kind === "toolbar") return { at: toolbarGrip(d), hold: toolbarHold(it) };
   return { at: { x: d.x + 40, y: d.y + 11 } };
 }
 
@@ -1229,7 +1250,7 @@ async function keyboardDrag(key: string, steps: number): Promise<DragResult> {
   return { log: [...dragLog], landed: lastLanding };
 }
 
-const SCENARIOS: Record<string, Scenario> = makeScenarios(lab);
+const SCENARIOS: Record<string, Scenario> = { ...makeScenarios(lab), ...toolbarScenarios(lab) };
 const runs: LabRun[] = [];
 
 async function runScenario(name: string, mode: Preview): Promise<LabRun> {
