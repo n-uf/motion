@@ -24,13 +24,16 @@ export const TABS = 28;
 /** The smallest a tiled document may be where a construction promises it (the tiling tree, the strip). */
 export const DOC_MIN: Size = { width: 240, height: 160 };
 
-/** The five tool panels: a title, the height they need (their natural height) and some body text. */
+/**
+ * The five tool panels: a title, the height they need (their natural height: the title bar, the sample content's
+ * rows and the body's padding, so a section at its natural height shows all of it) and some body text.
+ */
 export const PANELS = [
-  { id: 1, title: "Files", natural: 130, body: "Quarterly plan<br>Meeting notes<br>Reading list<br>Budget draft" },
-  { id: 2, title: "Outline", natural: 110, body: "1 Goals<br>2 Scope<br>3 Timeline<br>4 Open questions" },
-  { id: 3, title: "Notes", natural: 100, body: "Call back on Monday<br>Book the small room" },
-  { id: 4, title: "Inspector", natural: 100, body: "Size 14 KB<br>Modified today<br>Tags: plan, team" },
-  { id: 5, title: "History", natural: 150, body: "Opened Meeting notes<br>Renamed Budget draft<br>Moved Reading list" },
+  { id: 1, title: "Files", natural: 166, body: "Quarterly plan<br>Meeting notes<br>Reading list<br>Budget draft" },
+  { id: 2, title: "Outline", natural: 210, body: "1 Goals<br>2 Scope<br>3 Timeline<br>4 Open questions" },
+  { id: 3, title: "Notes", natural: 122, body: "Call back on Monday<br>Book the small room" },
+  { id: 4, title: "Inspector", natural: 158, body: "Size 14 KB<br>Modified today<br>Tags: plan, team" },
+  { id: 5, title: "History", natural: 166, body: "Opened Meeting notes<br>Renamed Budget draft<br>Moved Reading list" },
 ] as const;
 export const PANEL_IDS: readonly number[] = PANELS.map((p) => p.id);
 export const DOC_TITLES = ["Quarterly plan", "Meeting notes", "Reading list", "Budget draft"] as const;

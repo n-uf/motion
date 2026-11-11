@@ -1016,7 +1016,7 @@ function giveWay(lab: DeskLab): Record<string, Scenario> {
       options: { bottom: "off" },
       play: async (expect) => {
         lab.touch(3);
-        await r.resize(960, 320);
+        await r.resize(960, 420);
         expect(r.look(P.inspector) === "header", `Inspector (least recently used) is ${r.look(P.inspector)}, not folded`);
         expect(r.look(P.notes) === "section" && r.look(P.history) === "section", "Notes or History folded though Inspector was enough");
         expect(r.notes().includes("1 section folded"), `notes: ${r.notes()}`);
