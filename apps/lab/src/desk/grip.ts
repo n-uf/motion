@@ -12,8 +12,10 @@
  *   fold button.
  * - The menu, always in this order: Collapse or Expand · Move to › (the construction's zones, the current one
  *   checked) · Float or Dock · Reset position. What doesn't apply is left out.
- * - Frozen layout: nothing moves or collapses; the glyph fades, the cursor says not-allowed, the menu still opens
- *   with those items greyed under a line that says why. Holding Alt unfreezes while held.
+ * - Frozen layout: nothing moves or collapses; every glyph hides, the cursor says not-allowed and the title bar's
+ *   tooltip says how to move anyway; the menu still opens (a right-click on the title bar) with those items greyed
+ *   under a line that says why. Holding Alt shows the glyphs and unfreezes while held; letting go hides them again.
+ *   The frozen switch is the page's one `input[name=freeze]` (made here if no other part has made it).
  */
 import type { Rect } from "@n-uf/motion";
 import { cancelPress } from "../shared/press";
@@ -197,6 +199,11 @@ export function createGrips(host: GripHost): Grips {
     const f = isFrozen();
     stage.classList.toggle("frozen", f);
     for (const h of stage.querySelectorAll<HTMLElement>(".grip-handle, .win.chrome .segment")) h.title = f ? FROZEN_TIP : (h.dataset.tip ?? TIP);
+    // The handles are hidden while frozen: the title bars say how to move anyway.
+    for (const t of stage.querySelectorAll<HTMLElement>(".win.panel .title")) {
+      if (f) t.title = FROZEN_TIP;
+      else t.removeAttribute("title");
+    }
   };
   const setAlt = (on: boolean): void => {
     if (on === altHeld) return;
@@ -635,10 +642,14 @@ export function createGrips(host: GripHost): Grips {
     tabRow,
     frozen: isFrozen,
     test: {
+      // Through the page's one switch, so every part that listens to it (the toolbar's too) follows.
       setFrozen: (on) => {
-        frozenFlag = on;
         const f = document.querySelector<HTMLInputElement>("input[name=freeze]");
-        if (f) f.checked = on;
+        if (f && f.checked !== on) {
+          f.checked = on;
+          f.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        frozenFlag = on;
         apply();
       },
       setAlt,
