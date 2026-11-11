@@ -197,6 +197,29 @@ main.wide { max-width: 1712px; }
 .stage.desk .win.toolbar .tb-cell:hover { background: var(--d-hover); color: var(--d-ink); }
 .stage.desk .win.toolbar .tb-cell:active { background: var(--d-press); }
 .stage.desk .win.toolbar .tb-sep { flex: none; width: 1px; height: 16px; margin: 0 6px; background: var(--d-edge); }
+/* A toolbar that drags (a pill): a grip at its start, and its empty space grabs too. */
+.stage.desk .win.toolbar .tb-grip { display: none; }
+.stage.desk .win.toolbar.draggable .tb { position: relative; padding-left: 26px; cursor: grab; }
+.stage.desk .win.toolbar.draggable .tb-grip {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  width: 20px;
+  height: 22px;
+  margin-top: -11px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--d-ink-2);
+  cursor: grab;
+}
+.stage.desk .win.toolbar.draggable .tb-grip:hover { background: var(--d-hover); color: var(--d-ink); }
+.stage.desk .win.toolbar.draggable .tb-grip:focus-visible { outline: 2px solid var(--d-accent); outline-offset: -2px; }
+.stage.desk .win.toolbar.lifted .tb,
+.stage.desk .win.toolbar.lifted .tb-grip { cursor: grabbing; }
 
 /* Panels: a quiet title bar (with a fold button where folding means something) over a body that clips. */
 .stage.desk .win.panel .content,
