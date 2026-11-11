@@ -6,6 +6,7 @@ import {
   createFrameLoop,
   createRecognizer,
   effect,
+  settleValue,
   signal,
   springValue,
 } from "../index";
@@ -49,6 +50,22 @@ describe("README examples", () => {
     rect.set({ x: 300, y: 40, width: 240, height: 100 });
     clock.runUntilIdle();
     expect(log).toHaveBeenCalledWith("settled at", { x: 300, y: 40, width: 240, height: 100 });
+  });
+
+  it("values/ window motion", () => {
+    const clock = createFakeClock();
+    const loop = createFrameLoop({ clock });
+    const win = settleValue(loop, { x: 0, y: 0, width: 400, height: 300 });
+    win.set({ x: 400, y: 0, width: 200, height: 300 });
+    clock.frame();
+    win.set({ x: 300, y: 0, width: 300, height: 300 });
+    const seen: number[] = [];
+    while (loop.active) {
+      clock.frame();
+      seen.push(win.value.x);
+    }
+    expect(win.value).toEqual({ x: 300, y: 0, width: 300, height: 300 });
+    expect(Math.max(...seen)).toBeLessThanOrEqual(300);
   });
 
   it("gestures/", () => {
