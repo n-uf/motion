@@ -5,7 +5,8 @@
  * - Edge docks (A, A2, F3): a rail (priority 1) takes the panel at the end of its dock (a folded dock keeps it in
  *   the rail); a slot between sections (2) and the bottom dock (2) take it at that place; F3's documents area (3)
  *   tears it off to float there.
- * - Tiling tree (B): each half of a tile (2) puts it before or after that tile; an empty side column's edge (2).
+ * - Tiling tree (B): each slot an insertion produces (2), a side column's row or a dwindle region of the centre;
+ *   an empty side column's edge (2).
  * - Strip (D): between two columns (2) makes a new column; a gap inside a column (2) puts it there.
  * - Navigator, drawers (C, E): a tab strip (1) at the tab under the pointer, a folded side's rail (1), a side's
  *   panel (3); the panel becomes the side's showing one.
@@ -27,7 +28,9 @@ import {
   stripColumns,
   stripGeometry,
   tornHeight,
+  TREE_COLUMN,
   treeArea,
+  treeTiles,
   type Construction,
 } from "./layouts";
 import { G, LAYER, RAIL, TITLE, idOf, isDocKey, isPanelKey, panelKey, titleOf, touch, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
@@ -163,28 +166,45 @@ function dockTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
 
 // --- tiling tree ---------------------------------------------------------------------------------------------------
 
+/**
+ * The tree's targets are the slots an insertion produces: inserting at place i of a side column gives row i of its
+ * n + 1 rows, inserting at place i of the centre gives dwindle's region i of n + 1. Those regions tile the column and
+ * the centre, so each zone is exactly where the item lands; the label says where that is (and if it floats because
+ * the slot is below its minimum).
+ */
 function treeTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
   const out: DropTarget[] = [];
   const area = treeArea(size);
   const t = s0.tree;
   if (t.L.length === 0) out.push({ id: "edge:L", prio: 2, hit: rect(area.x, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...t, L: [key] } }, "New left column") });
   if (t.R.length === 0) out.push({ id: "edge:R", prio: 2, hit: rect(area.x + area.width - 30, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...t, R: [key] } }, "New right column") });
-  const l0 = c.layout(s0, size, opt);
-  const tiles = [...l0.items].filter(([k, pl]) => (isDocKey(k) || isPanelKey(k)) && pl.layer === LAYER.doc);
-  if (tiles.length === 0) out.push({ id: "tree", prio: 3, hit: area, make: fixed({ ...s0, tree: { ...t, C: [key] } }, "The tree") });
-  for (const [tk, tp] of tiles) {
-    const group = t.L.includes(tk) ? "L" : t.R.includes(tk) ? "R" : "C";
-    const r = tp.rect;
-    const along = group !== "C" || r.height > r.width ? "y" : "x";
+  const x0 = area.x + (t.L.length ? TREE_COLUMN + G : 0);
+  const x1 = area.x + area.width - (t.R.length ? TREE_COLUMN + G : 0);
+  const centre = rect(x0, area.y, x1 - x0, area.height);
+  const NAME = { L: "Left column", R: "Right column", C: "Centre" } as const;
+  for (const group of ["L", "R", "C"] as const) {
     const list = t[group];
-    for (const before of [true, false]) {
-      const half = along === "y" ? rect(r.x, before ? r.y : r.y + r.height / 2, r.width, r.height / 2) : rect(before ? r.x : r.x + r.width / 2, r.y, r.width / 2, r.height);
-      const where = along === "y" ? (before ? "Above" : "Below") : before ? "Left of" : "Right of";
-      const i = list.indexOf(tk) + (before ? 0 : 1);
-      out.push({ id: `tile:${tk}:${before ? "before" : "after"}`, prio: 2, hit: half, make: fixed({ ...s0, tree: { ...t, [group]: insert(list, i, key) } }, `${where} ${titleOf(tk)}`) });
+    if (group !== "C" && list.length === 0) continue;
+    for (let i = 0; i <= list.length; i++) {
+      const state = { ...s0, tree: { ...t, [group]: insert(list, i, key) } };
+      const zone = treeTiles(state.tree, area).get(key)!;
+      const floats = c.layout(state, size, opt).items.get(key)!.layer > LAYER.doc;
+      const where = group === "C" ? regionName(zone, centre) : `row ${i + 1} of ${list.length + 1}`;
+      out.push({ id: `tile:${group}:${i}`, prio: 2, hit: zone, make: fixed(state, `${NAME[group]}, ${where}${floats ? " (it floats there: too small)" : ""}`) });
     }
   }
   return out;
+}
+
+/** Where a region lies in `whole`, in words: "all of it", "left half", "top right"… */
+function regionName(r: Rect, whole: Rect): string {
+  const near = (a: number, b: number): boolean => Math.abs(a - b) < 1;
+  const h = near(r.width, whole.width) ? "" : near(r.x, whole.x) ? "left" : near(r.x + r.width, whole.x + whole.width) ? "right" : "middle";
+  const v = near(r.height, whole.height) ? "" : near(r.y, whole.y) ? "top" : near(r.y + r.height, whole.y + whole.height) ? "bottom" : "middle";
+  if (!h && !v) return "all of it";
+  if (!v) return `${h} part`;
+  if (!h) return `${v} part`;
+  return `${v} ${h}`;
 }
 
 // --- scrolling strip -----------------------------------------------------------------------------------------------

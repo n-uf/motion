@@ -5,8 +5,9 @@
 import type { Rect } from "@n-uf/motion";
 import { overlap, type Point } from "../shared/geometry";
 import { DRAG, rawTarget, within, type Target } from "./intent";
+import { dropAt, targetsFor, without } from "./drops";
 import { CONSTRUCTIONS, type ConstructionId } from "./layouts";
-import { LAYER, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
+import { DEFAULT_OPTIONS, LAYER, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
 
 /** What a scenario can do to the page and read from it. */
 export interface DeskLab {
@@ -145,6 +146,30 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
         }
         expect(fails.length === 0, `${fails.length} broken promises; first: ${fails[0]}`);
       },
+    },
+  };
+  scenarios["B · every tree drop zone is where the item lands, and says so"] = {
+    still: true,
+    play: async (expect) => {
+      const c = CONSTRUCTIONS.find((x) => x.id === "tree")!;
+      const fails: string[] = [];
+      for (const [W, H] of [[960, 560], [1440, 820], [760, 420]] as const) {
+        for (let n = 1; n <= 4; n++) {
+          const s = c.initial(Array.from({ length: n }, (_, i) => i + 1));
+          const size = { width: W, height: H };
+          for (const key of [...s.tree.L, ...s.tree.R, ...s.tree.C]) {
+            const input = { c, s0: without(s, key), key, size, opt: DEFAULT_OPTIONS };
+            for (const t of targetsFor(input)) {
+              if (t.id.startsWith("edge:")) continue;
+              const d = dropAt(input, t, mid(t.hit), { x: 0, y: 0 });
+              const floats = d.layout.items.get(key)!.layer > LAYER.doc;
+              if (floats !== d.label.includes("floats")) fails.push(`${W} × ${H}, ${n} docs, ${key} on ${t.id}: "${d.label}" but it ${floats ? "floats" : "tiles"}`);
+              else if (!floats && !sameRect(d.slot, t.hit)) fails.push(`${W} × ${H}, ${n} docs, ${key} on ${t.id}: zone ${fmt(t.hit)}, lands at ${fmt(d.slot)}`);
+            }
+          }
+        }
+      }
+      expect(fails.length === 0, `${fails.length} zones off; first: ${fails[0]}`);
     },
   };
   CONSTRUCTIONS.forEach((c, i) => {
