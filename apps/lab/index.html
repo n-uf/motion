@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Motion lab</title>
+    <link rel="stylesheet" href="/src/lab.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Motion lab</h1>
+        <p>
+          Window motion rules of <code>@n-uf/motion</code>: <b>settle</b> (one fast-then-gentle curve, never past its target),
+          <b>hold</b> (what the pointer owns is glued to it) and <b>reveal</b> (content is never stretched). Switch to
+          <i>Today</i> to see springs from rest, stretched content, a lagging drag and the overshooting maximize.
+          Drag a window by its title bar. Every move is sampled per frame and checked below.
+        </p>
+      </header>
+
+      <section class="controls" aria-label="Controls">
+        <fieldset>
+          <legend>Motion</legend>
+          <label><input type="radio" name="mode" value="proposed" checked /> Proposed (settle, hold, reveal)</label>
+          <label><input type="radio" name="mode" value="today" /> Today (spring 320, drag spring 1400, stretch, snappy maximize)</label>
+        </fieldset>
+        <fieldset>
+          <legend>Tempo</legend>
+          <label><input type="radio" name="tempo" value="calm" /> Calm (ω 20)</label>
+          <label><input type="radio" name="tempo" value="default" checked /> Default (ω 25)</label>
+          <label><input type="radio" name="tempo" value="quick" /> Quick (ω 37)</label>
+        </fieldset>
+        <fieldset>
+          <legend>Do</legend>
+          <button type="button" data-act="open">Open a window</button>
+          <button type="button" data-act="close">Close the last</button>
+          <button type="button" data-act="swap">Swap first two</button>
+          <button type="button" data-act="maximize">Maximize / restore</button>
+          <button type="button" data-act="double">Two changes 40 ms apart</button>
+          <button type="button" data-act="slow">Slow motion ×5</button>
+          <button type="button" data-act="runall">Run all scenarios</button>
+        </fieldset>
+      </section>
+
+      <div class="stage" id="stage"><div class="hint" id="hint" hidden></div></div>
+
+      <section aria-label="Checks">
+        <h2>Checks of the last move</h2>
+        <table id="checks">
+          <thead><tr><th>Rule</th><th>Result</th><th>First failure</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <h2>Distance to target, last move</h2>
+        <canvas id="trace" width="720" height="160" aria-label="Distance to target over time, one line per window"></canvas>
+        <h2>Scenario runs</h2>
+        <table id="runs">
+          <thead><tr><th>Scenario</th><th>Motion</th><th>Failed rules</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

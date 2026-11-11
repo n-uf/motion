@@ -1,0 +1,20 @@
+{
+  "name": "motion-lab",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A one-page lab for @n-uf/motion's window motion rules: settle, hold and reveal against today's springs, with frame-sampled checks.",
+  "license": "LicenseRef-PolyForm-Perimeter-1.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@n-uf/motion": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vite": "^8.3.6"
+  }
+}

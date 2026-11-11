@@ -1,0 +1,49 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f6f6f3;
+  --ink: #1d1d1b;
+  --muted: #6b6b66;
+  --line: #d9d9d3;
+  --win: #ffffff;
+  --win-edge: #4c6ef5;
+  --title: #e7ecff;
+  --ok: #2b8a3e;
+  --bad: #c92a2a;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615;
+    --ink: #ececea;
+    --muted: #a3a39d;
+    --line: #34342f;
+    --win: #22232a;
+    --win-edge: #748ffc;
+    --title: #2c3150;
+    --ok: #69db7c;
+    --bad: #ff8787;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, sans-serif; }
+main { max-width: 1000px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 18px 0 6px; }
+header p { color: var(--muted); margin: 0 0 12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+fieldset { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.stage { position: relative; width: 720px; max-width: 100%; height: 420px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; touch-action: none; }
+.win { position: absolute; transform-origin: 0 0; will-change: transform; }
+/* The frame is the window's chrome (title bar band, background, border): drawn at the gliding size. */
+.win .frame { position: absolute; left: 0; top: 0; background: linear-gradient(var(--title) 26px, var(--win) 26px); border: 1.5px solid var(--win-edge); border-radius: 6px; }
+/* The content is laid out at the target size, never scaled, clipped to the frame. */
+.win .content { position: absolute; inset: 0; padding: 0 0 8px; overflow: hidden; }
+.win .title { height: 26px; padding: 4px 8px; font-weight: 600; font-size: 12px; cursor: grab; user-select: none; white-space: nowrap; }
+.win .body { padding: 6px 8px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.win.lifted { z-index: 5; }
+.win.lifted .title { cursor: grabbing; }
+.hint { position: absolute; border: 2px dashed var(--win-edge); border-radius: 6px; pointer-events: none; z-index: 4; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top; }
+td.ok { color: var(--ok); }
+td.bad { color: var(--bad); }
+canvas { width: 720px; max-width: 100%; height: 160px; border: 1px solid var(--line); border-radius: 6px; }
