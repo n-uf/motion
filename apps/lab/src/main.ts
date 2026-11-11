@@ -13,8 +13,6 @@ import {
   createSpring,
   createTween,
   cubicBezier,
-  popIn,
-  reveal,
   SETTLE_TEMPO,
   type Animator,
   type FrameInfo,
@@ -23,19 +21,23 @@ import {
   type Spring,
 } from "@n-uf/motion";
 import { createBrowserClock } from "@n-uf/motion/browser";
+import type { HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
+import { motionRows, renderChecks, renderTrace, type Row, type Segment } from "./shared/checks";
+import { drawRevealed, measureFrame, onTopAt as onTopIn } from "./shared/frame";
+import { inside, nextFrame, overlap, same, wait } from "./shared/geometry";
+import { cancelPress, trackPress } from "./shared/press";
 import {
-  checkContentScale,
-  checkHeld,
-  checkMonotonic,
-  checkNoJumps,
-  checkNoOvershoot,
-  checkTempo,
-  type CheckResult,
-  type HeldSample,
-  type RectSample,
-  type ScaleSample,
-  type TargetSample,
-} from "@n-uf/motion/testing";
+  columns,
+  grid,
+  layoutTree as layoutTreeIn,
+  leafIds,
+  masterStack,
+  removeLeaf,
+  splitLeaf,
+  swapLeaves,
+  treeFromOrder,
+  type Tree,
+} from "./shared/tiling";
 
 type Mode = "proposed" | "today";
 type Tempo = keyof typeof SETTLE_TEMPO;
@@ -54,14 +56,6 @@ const checksBody = document.querySelector("#checks tbody") as HTMLTableSectionEl
 const checksTitle = document.getElementById("checks-title") as HTMLHeadingElement;
 const runsBody = document.querySelector("#runs tbody") as HTMLTableSectionElement;
 const trace = document.getElementById("trace") as HTMLCanvasElement;
-
-interface Segment {
-  readonly id: number;
-  readonly t0: number;
-  readonly from: Rect;
-  readonly to: Rect;
-  readonly samples: RectSample[];
-}
 
 interface Win {
   readonly id: number;
@@ -161,8 +155,6 @@ const loop = createFrameLoop({ clock: createBrowserClock() });
 let running = false;
 
 const omega = (): number => SETTLE_TEMPO[tempo];
-const same = (a: Rect, b: Rect): boolean =>
-  Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01 && Math.abs(a.width - b.width) < 0.01 && Math.abs(a.height - b.height) < 0.01;
 
 /** The tiling layouts: Hyprland's master and dwindle, plus equal columns and a grid. */
 type LayoutKind = "master" | "dwindle" | "columns" | "grid";
@@ -170,72 +162,15 @@ let layoutKind: LayoutKind = "master";
 
 /** The order layouts (master, columns, grid): a list of ids in, a rect per id out. */
 function layout(ids: readonly number[]): Map<number, Rect> {
-  if (layoutKind === "columns") return columns(ids);
-  if (layoutKind === "grid") return grid(ids);
-  return masterStack(ids);
+  if (layoutKind === "columns") return columns(ids, FULL_AREA(), GAP);
+  if (layoutKind === "grid") return grid(ids, FULL_AREA(), GAP);
+  return masterStack(ids, FULL_AREA(), GAP);
 }
 
-/**
- * Dwindle (Hyprland's default) is a split tree: a new window splits the focused one in two, along its
- * longer side, and a closed window's sibling takes its parent's place. A drop splits the window under
- * the pointer, on the pointer's side.
- */
-type Tree = { readonly leaf: number } | { readonly a: Tree; readonly b: Tree };
+/** Dwindle's split tree (see shared/tiling); a drop splits the window under the pointer, on the pointer's side. */
 let tree: Tree | null = null;
 
-function layoutTree(node: Tree | null, r: Rect = FULL_AREA(), out = new Map<number, Rect>()): Map<number, Rect> {
-  if (!node) return out;
-  if ("leaf" in node) {
-    out.set(node.leaf, r);
-    return out;
-  }
-  if (r.width >= r.height) {
-    const w = (r.width - GAP) / 2;
-    layoutTree(node.a, { x: r.x, y: r.y, width: w, height: r.height }, out);
-    layoutTree(node.b, { x: r.x + w + GAP, y: r.y, width: w, height: r.height }, out);
-  } else {
-    const h = (r.height - GAP) / 2;
-    layoutTree(node.a, { x: r.x, y: r.y, width: r.width, height: h }, out);
-    layoutTree(node.b, { x: r.x, y: r.y + h + GAP, width: r.width, height: h }, out);
-  }
-  return out;
-}
-
-const leafIds = (node: Tree | null): number[] => (!node ? [] : "leaf" in node ? [node.leaf] : [...leafIds(node.a), ...leafIds(node.b)]);
-
-/** `node` with leaf `target` split in two: the new window first (left/top) or second (right/bottom). */
-function splitLeaf(node: Tree | null, target: number | null, id: number, first: boolean): Tree {
-  const fresh: Tree = { leaf: id };
-  if (!node) return fresh;
-  if ("leaf" in node) {
-    if (node.leaf !== target) return node;
-    return first ? { a: fresh, b: node } : { a: node, b: fresh };
-  }
-  return { a: splitLeaf(node.a, target, id, first), b: splitLeaf(node.b, target, id, first) };
-}
-
-function removeLeaf(node: Tree | null, id: number): Tree | null {
-  if (!node) return null;
-  if ("leaf" in node) return node.leaf === id ? null : node;
-  const a = removeLeaf(node.a, id);
-  const b = removeLeaf(node.b, id);
-  return a && b ? { a, b } : (a ?? b);
-}
-
-function swapLeaves(node: Tree | null, x: number, y: number): Tree | null {
-  if (!node) return null;
-  if ("leaf" in node) return node.leaf === x ? { leaf: y } : node.leaf === y ? { leaf: x } : node;
-  return { a: swapLeaves(node.a, x, y)!, b: swapLeaves(node.b, x, y)! };
-}
-
-/** A dwindle tree for `ids` as if each had been opened with the one before it focused. */
-function treeFromOrder(ids: readonly number[]): Tree | null {
-  let t: Tree | null = null;
-  ids.forEach((id, i) => {
-    t = splitLeaf(t, i > 0 ? ids[i - 1]! : null, id, false);
-  });
-  return t;
-}
+const layoutTree = (node: Tree | null): Map<number, Rect> => layoutTreeIn(node, FULL_AREA(), GAP);
 
 /** The whole layout now: the tree in dwindle, the order elsewhere. */
 function baseLayout(): Map<number, Rect> {
@@ -271,51 +206,6 @@ function setTree(t: Tree | null): void {
 
 function FULL_AREA(): Rect {
   return { x: GAP, y: GAP, width: STAGE_W - 2 * GAP, height: STAGE_H - 2 * GAP };
-}
-
-/** Equal columns, full height. */
-function columns(ids: readonly number[]): Map<number, Rect> {
-  const out = new Map<number, Rect>();
-  const n = ids.length;
-  const w = (STAGE_W - GAP * (n + 1)) / Math.max(1, n);
-  ids.forEach((id, i) => out.set(id, { x: GAP + i * (w + GAP), y: GAP, width: w, height: STAGE_H - 2 * GAP }));
-  return out;
-}
-
-/** A grid as square as the count allows; the last row's cells widen to fill it. */
-function grid(ids: readonly number[]): Map<number, Rect> {
-  const out = new Map<number, Rect>();
-  const n = ids.length;
-  if (n === 0) return out;
-  const cols = Math.ceil(Math.sqrt(n));
-  const rows = Math.ceil(n / cols);
-  const h = (STAGE_H - GAP * (rows + 1)) / rows;
-  ids.forEach((id, i) => {
-    const row = Math.floor(i / cols);
-    const inRow = row === rows - 1 ? n - cols * (rows - 1) : cols;
-    const col = i - row * cols;
-    const w = (STAGE_W - GAP * (inRow + 1)) / inRow;
-    out.set(id, { x: GAP + col * (w + GAP), y: GAP + row * (h + GAP), width: w, height: h });
-  });
-  return out;
-}
-
-/** Master and stack: the first window on the left half, the rest stacked on the right. */
-function masterStack(ids: readonly number[]): Map<number, Rect> {
-  const out = new Map<number, Rect>();
-  const W = STAGE_W - 2 * GAP;
-  const H = STAGE_H - 2 * GAP;
-  if (ids.length === 0) return out;
-  if (ids.length === 1) {
-    out.set(ids[0]!, { x: GAP, y: GAP, width: W, height: H });
-    return out;
-  }
-  const mw = (W - GAP) / 2;
-  out.set(ids[0]!, { x: GAP, y: GAP, width: mw, height: H });
-  const k = ids.length - 1;
-  const sh = (H - GAP * (k - 1)) / k;
-  ids.slice(1).forEach((id, i) => out.set(id, { x: 2 * GAP + mw, y: GAP + i * (sh + GAP), width: mw, height: sh }));
-  return out;
 }
 
 const FULL: Rect = { x: GAP, y: GAP, width: STAGE_W - 2 * GAP, height: STAGE_H - 2 * GAP };
@@ -568,13 +458,6 @@ function beginDrag(w: Win, px: number, py: number): void {
   moveDrag(px, py);
 }
 
-/** The area two rects share (0 when apart). */
-const overlap = (a: Rect, b: Rect): number =>
-  Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
-
-const inside = (r: Rect, px: number, py: number, inset = 0): boolean =>
-  px >= r.x + inset && px <= r.x + r.width - inset && py >= r.y + inset && py <= r.y + r.height - inset;
-
 function moveDrag(px: number, py: number): void {
   if (!lifted) return;
   pointer = { x: px, y: py };
@@ -669,45 +552,21 @@ function endDrag(cancel = false): void {
   relayout();
 }
 
-/** A press is a click until the pointer has moved this far (stage px); only then is the window lifted. */
-const DRAG_THRESHOLD = 5;
-/** Escape ended the current press: its later moves lift nothing. */
-let gestureCancelled = false;
-
+/** A press on a title bar: a click until it passes the threshold (shared/press), then a drag of `w`. */
 function onPointerDown(w: Win, e: PointerEvent): void {
-  if (e.button !== 0 || e.ctrlKey) return;
-  e.preventDefault();
-  const target = e.currentTarget as HTMLElement;
-  target.setPointerCapture(e.pointerId);
-  const start = stagePoint(e);
-  gestureCancelled = false;
-  const move = (ev: PointerEvent): void => {
-    // Escape ended this gesture: nothing more until the button is released.
-    if (gestureCancelled) return;
-    const q = stagePoint(ev);
-    if (!lifted) {
-      if (Math.hypot(q.x - start.x, q.y - start.y) < DRAG_THRESHOLD) return;
-      beginDrag(w, start.x, start.y);
-    }
-    moveDrag(q.x, q.y);
-  };
-  const up = (ev: PointerEvent): void => {
-    target.removeEventListener("pointermove", move);
-    target.removeEventListener("pointerup", up);
-    target.removeEventListener("pointercancel", up);
-    // A click (never past the threshold) lifted nothing, so there is nothing to drop. A pointercancel
-    // (the system took the pointer) cancels like Escape.
-    if (lifted === w) endDrag(ev.type === "pointercancel");
-  };
-  target.addEventListener("pointermove", move);
-  target.addEventListener("pointerup", up);
-  target.addEventListener("pointercancel", up);
+  trackPress(e, {
+    point: stagePoint,
+    lifted: () => lifted === w,
+    begin: (start) => beginDrag(w, start.x, start.y),
+    move: (q) => moveDrag(q.x, q.y),
+    end: (cancel) => endDrag(cancel),
+  });
 }
 
 // Escape cancels a drag: everything goes back to where it was before the window was lifted.
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && lifted) {
-    gestureCancelled = true;
+    cancelPress();
     endDrag(true);
   }
 });
@@ -719,15 +578,7 @@ function draw(w: Win): void {
   const p = w.pop.value;
   const t = w.target;
   if (mode === "proposed") {
-    const r = reveal(d, t);
-    const pi = popIn(p);
-    const cx = d.width / 2;
-    const cy = d.height / 2;
-    w.el.style.transform = `translate(${r.dx}px, ${r.dy}px) translate(${cx}px, ${cy}px) scale(${pi.scale}) translate(${-cx}px, ${-cy}px)`;
-    w.el.style.opacity = String(pi.opacity);
-    w.frame.style.width = `${r.width}px`;
-    w.frame.style.height = `${r.height}px`;
-    w.content.style.clipPath = `inset(0 ${r.clipRight}px ${r.clipBottom}px 0)`;
+    drawRevealed(w, d, t, p);
     return;
   }
   const sx = t.width > 0 ? d.width / t.width : 1;
@@ -746,38 +597,15 @@ function draw(w: Win): void {
  * can be hit.
  */
 function onTopAt(w: Win, want: { x: number; y: number }, frame: Rect): string | null | undefined {
-  const s = stage.getBoundingClientRect();
-  const k = s.width / STAGE_W;
-  const ox = s.left + stage.clientLeft;
-  const oy = s.top + stage.clientTop;
-  // The visible box in stage units: the stage's content box, cut to the viewport.
-  const vx0 = Math.max(0, -ox / k);
-  const vy0 = Math.max(0, -oy / k);
-  const vx1 = Math.min(stage.clientWidth / k, (window.innerWidth - ox) / k);
-  const vy1 = Math.min(stage.clientHeight / k, (window.innerHeight - oy) / k);
-  const x0 = Math.max(frame.x, vx0) + 1;
-  const y0 = Math.max(frame.y, vy0) + 1;
-  const x1 = Math.min(frame.x + frame.width, vx1) - 1;
-  const y1 = Math.min(frame.y + frame.height, vy1) - 1;
-  if (x1 <= x0 || y1 <= y0) return undefined;
-  const at = { x: Math.min(Math.max(want.x, x0), x1), y: Math.min(Math.max(want.y, y0), y1) };
-  const top = document.elementFromPoint(ox + at.x * k, oy + at.y * k);
-  if (!top) return undefined;
-  if (w.el.contains(top)) return null;
-  const other = top?.closest<HTMLElement>(".win")?.dataset.id;
-  return `t=${Math.round(time)} window ${w.id} is under ${other ? `window ${other}` : (top?.className || "something")} at (${Math.round(at.x)}, ${Math.round(at.y)})`;
+  return onTopIn(stage, STAGE_W, { el: w.el, name: `window ${w.id}` }, want, frame, time, (top) => {
+    const other = top.closest<HTMLElement>(".win")?.dataset.id;
+    return other ? `window ${other}` : null;
+  });
 }
 
 /** What the page draws, read back from the DOM: the content's scale and the frame's rect in stage units. */
 function measure(w: Win): { scale: ScaleSample; frame: Rect } {
-  const css = getComputedStyle(w.el).transform;
-  const m = css && css !== "none" ? new DOMMatrixReadOnly(css) : new DOMMatrixReadOnly();
-  const s = stage.getBoundingClientRect();
-  const f = w.frame.getBoundingClientRect();
-  const k = STAGE_W / s.width;
-  // The stage has a 1 px border; its content box starts inside it.
-  const frame = { x: (f.left - s.left - stage.clientLeft) * k, y: (f.top - s.top - stage.clientTop) * k, width: f.width * k, height: f.height * k };
-  return { scale: { t: time, a: m.a, d: m.d }, frame };
+  return measureFrame(stage, STAGE_W, w, time);
 }
 
 function tick(frame: FrameInfo): boolean {
@@ -835,131 +663,26 @@ function tick(frame: FrameInfo): boolean {
 
 // --- checks ------------------------------------------------------------------
 
-interface Row {
-  readonly name: string;
-  readonly result: CheckResult | null;
-  readonly info?: string;
-}
-
-function merge(results: readonly CheckResult[]): CheckResult {
-  const failures = results.flatMap((r) => r.failures);
-  return { ok: failures.length === 0, failures };
-}
-
 let lastRows: Row[] = [];
-
-function onTopResult(frames: readonly (string | null)[]): CheckResult {
-  const failures = frames.filter((x): x is string => x !== null);
-  return { ok: failures.length === 0, failures };
-}
 
 function endEpisode(): void {
   const ep = episode;
   episode = null;
   if (!ep) return;
-  const segs = ep.segments.filter((s) => s.samples.length > 0);
-  const label = (s: Segment, r: CheckResult): CheckResult => ({ ok: r.ok, failures: r.failures.map((f) => `window ${s.id}: ${f}`) });
-  let longest: Segment | null = null;
-  let longestSpan = 0;
-  // The longest move that wasn't interrupted: it ends on its own target.
-  const finished = segs.filter((s) => {
-    const last = s.samples.at(-1)!.rect;
-    return Math.abs(last.x - s.to.x) < 0.5 && Math.abs(last.y - s.to.y) < 0.5 && Math.abs(last.width - s.to.width) < 0.5 && Math.abs(last.height - s.to.height) < 0.5;
-  });
-  for (const s of finished) {
-    const span = Math.max(...(["x", "y", "width", "height"] as const).map((k) => Math.abs(s.to[k] - s.from[k])));
-    if (span > longestSpan) {
-      longestSpan = span;
-      longest = s;
-    }
-  }
-  // Tempo: the proposed settle's 90 % time at the chosen tempo, on the longest move that finished.
-  const t90 = (Math.log(10) / omega()) * 1000;
-  const tempo = longest ? checkTempo(longest.samples, longest.from, longest.to, t90, 0.25, longest.t0) : null;
-  const tempoInfo = tempo?.t90 != null ? `90 % after ${Math.round(tempo.t90)} ms (window ${longest!.id}, ${Math.round(longestSpan)} px; expected ${Math.round(t90)} ms)` : "";
-  lastRows = [
-    { name: "Something moved", result: { ok: segs.length > 0, failures: segs.length > 0 ? [] : ["no move was recorded"] } },
-    { name: "No overshoot (position and size)", result: merge(segs.map((s) => label(s, checkNoOvershoot(s.samples, s.from, s.to)))) },
-    { name: "Settles from one side (monotonic)", result: merge(segs.map((s) => label(s, checkMonotonic(s.samples, s.to)))) },
-    { name: "No jumps or restarts", result: merge(ep.runs.map((run) => checkNoJumps(run, omega()))) },
-    { name: "Content never stretched", result: checkContentScale(ep.scale) },
-    { name: "Held 1:1 under the pointer", result: ep.held.length > 0 ? checkHeld(ep.held) : null },
-    { name: "Dragged window stays on top", result: ep.onTop.length > 0 ? onTopResult(ep.onTop) : null },
-    { name: "Others make room in the previewed slot", result: ep.room.length > 0 ? onTopResult(ep.room) : null },
-    { name: "Tempo of the longest move", result: tempo, info: tempoInfo },
-  ];
+  const { rows, segments: segs } = motionRows(ep, omega());
+  lastRows = rows;
   checksTitle.textContent =
     `Checks of the last move · ${ep.mode === "proposed" ? "Proposed" : "Today (failures expected: this is today's motion)"}` +
     (ep.onTop.length > 0 ? ` · drop preview: ${ep.drop === "snap" ? "snap to slot" : "drop indicator"}` : "");
-  renderChecks(lastRows);
-  renderTrace(ep.t0, segs);
+  renderChecks(checksBody, lastRows);
+  renderTrace(trace, ep.t0, segs);
   const waiters = idleWaiters;
   idleWaiters = [];
   for (const resolve of waiters) resolve();
 }
 
-function renderChecks(rows: readonly Row[]): void {
-  checksBody.replaceChildren(
-    ...rows.map((row) => {
-      const tr = document.createElement("tr");
-      const verdict = row.result === null ? "not exercised" : row.result.ok ? "pass" : `fail (${row.result.failures.length})`;
-      const status = row.info ? `${verdict} · ${row.info}` : verdict;
-      const cls = row.result === null ? "" : row.result.ok ? "ok" : "bad";
-      tr.innerHTML = `<td></td><td class="${cls}"></td><td></td>`;
-      tr.children[0]!.textContent = row.name;
-      tr.children[1]!.textContent = status;
-      tr.children[2]!.textContent = row.result?.failures[0] ?? "";
-      return tr;
-    }),
-  );
-}
-
-function renderTrace(t0: number, segs: readonly Segment[]): void {
-  const ctx = trace.getContext("2d");
-  if (!ctx) return;
-  const W = trace.width;
-  const H = trace.height;
-  ctx.clearRect(0, 0, W, H);
-  const ink = getComputedStyle(document.body).color;
-  const end = Math.max(300, ...segs.map((s) => (s.samples.at(-1)?.t ?? t0) - t0));
-  ctx.strokeStyle = ink;
-  ctx.globalAlpha = 0.25;
-  ctx.beginPath();
-  ctx.moveTo(30, 10);
-  ctx.lineTo(30, H - 20);
-  ctx.lineTo(W - 10, H - 20);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = ink;
-  ctx.font = "11px system-ui";
-  ctx.fillText("100 %", 0, 14);
-  ctx.fillText("0", 18, H - 22);
-  ctx.fillText(`${Math.round(end)} ms`, W - 60, H - 6);
-  const colours = ["#4c6ef5", "#e8590c", "#2b8a3e", "#ae3ec9", "#1098ad", "#f08c00"];
-  const X = (t: number): number => 30 + ((W - 40) * (t - t0)) / end;
-  const Y = (f: number): number => H - 20 - (H - 30) * f;
-  segs.forEach((s, i) => {
-    const keys = ["x", "y", "width", "height"] as const;
-    const span = Math.max(...keys.map((k) => Math.abs(s.to[k] - s.from[k])));
-    if (span < 0.5) return;
-    ctx.strokeStyle = colours[s.id % colours.length]!;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(X(s.t0), Y(1));
-    for (const x of s.samples) {
-      // Signed: a component past its target shows below zero.
-      const k = keys.reduce((a, b) => (Math.abs(s.to[b] - s.from[b]) > Math.abs(s.to[a] - s.from[a]) ? b : a));
-      ctx.lineTo(X(x.t), Y((x.rect[k] - s.to[k]) / (s.from[k] - s.to[k])));
-    }
-    ctx.stroke();
-    void i;
-  });
-}
-
 // --- scenarios ---------------------------------------------------------------
 
-const nextFrame = (): Promise<void> => new Promise((r) => requestAnimationFrame(() => r()));
-const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 const idle = (): Promise<void> => (running || episode ? new Promise((r) => idleWaiters.push(r)) : Promise.resolve());
 
 async function scriptedDrag(): Promise<void> {
