@@ -37,8 +37,11 @@ export interface DeskLab {
    * hold it there long enough to aim, then release (or Escape `escapeAt` of the way, a fraction).
    */
   drag(key: string, to: () => Point, opts?: { escapeAt?: number }): Promise<DragResult>;
-  /** A drag along a keyframed path, in real time ([ms from the lift, x, y], made from the grip point); then release. */
-  path(key: string, path: (grip: Point) => readonly PathKey[]): Promise<DragResult>;
+  /**
+   * A drag along a keyframed path, in real time ([ms from the lift, x, y], made from the grip point); then release,
+   * or Escape at `escapeAt` ms.
+   */
+  path(key: string, path: (grip: Point) => readonly PathKey[], opts?: { escapeAt?: number | (() => number) }): Promise<DragResult>;
   /** A keyboard drag: pick `key` up, step `steps` targets on with the arrow key, then Enter. */
   keyboard(key: string, steps: number): Promise<DragResult>;
   /** The drop targets `key` would have if it were lifted now. */
@@ -335,6 +338,57 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       expect((lab.state().stripScroll ?? 0) > 0, "the strip didn't scroll");
       const during = shows(r).filter((e) => e.t > edgeFrom + 50 && e.t < edgeTo);
       expect(during.length === 0, `the indicator showed ${during.map((e) => e.id).join(", ")} while the strip scrolled`);
+    },
+  };
+  /** A path to the left edge, held there `ms` (the strip scrolls), with the time it leaves the edge. */
+  const toLeftEdge = (g: Point, ms: number): PathKey[] => hold(through([g, { x: 12, y: 300 }], 0.8), ms);
+  out["D · drag model: after an edge scroll, the item's home has moved with the strip"] = {
+    construction: "strip",
+    docs: 4,
+    drag: true,
+    play: async (expect) => {
+      const r = await lab.path(DRAGGED.strip, (g) => {
+        const edge = toLeftEdge(g, 900);
+        return hold([...edge, ...through([{ x: 12, y: 300 }, { x: 830, y: 100 }], 0.8, edge.at(-1)![0]).slice(1)], 500);
+      });
+      await lab.idle();
+      expect(r.landed !== null, "the release at (830, 100) after the scroll settled home, as if the home had stayed put");
+    },
+  };
+  out["D · drag model: a flick right after an edge scroll shows no indicator"] = {
+    construction: "strip",
+    docs: 4,
+    drag: true,
+    play: async (expect) => {
+      let edgeEnd = 0;
+      const r = await lab.path(DRAGGED.strip, (g) => {
+        const edge = toLeftEdge(g, 700);
+        edgeEnd = edge.at(-1)![0];
+        return [...edge, ...through([{ x: 12, y: 300 }, { x: lab.size().width - 60, y: 300 }], 2.5, edgeEnd).slice(1)];
+      });
+      await lab.idle();
+      const after = shows(r).filter((e) => e.t > edgeEnd);
+      expect(after.length === 0, `the indicator showed ${after.map((e) => `${e.id} at ${Math.round(e.t - edgeEnd)} ms`).join(", ")} during the flick`);
+    },
+  };
+  out["D · drag model: Escape after an edge scroll puts the scroll back"] = {
+    construction: "strip",
+    docs: 4,
+    drag: true,
+    play: async (expect) => {
+      const before = JSON.stringify(lab.state());
+      let edgeEnd = 0;
+      await lab.path(
+        DRAGGED.strip,
+        (g) => {
+          const edge = toLeftEdge(g, 700);
+          edgeEnd = edge.at(-1)![0];
+          return hold(edge, 100);
+        },
+        { escapeAt: () => edgeEnd + 50 },
+      );
+      await lab.idle();
+      expect(JSON.stringify(lab.state()) === before, `the desk isn't as it was: stripScroll ${lab.state().stripScroll}`);
     },
   };
   return out;
