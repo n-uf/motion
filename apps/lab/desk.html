@@ -15,7 +15,9 @@
           Nine ways to build a desk from a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and open
           documents. Pick one with the Construction switch; change the stage's size to see how it gives way when width
           or height runs out. Every item glides by the motion rules: a move settles, a size change is revealed rather
-          than stretched, a panel that folds away fades with a uniform scale. Every frame is sampled and checked below.
+          than stretched, a panel that folds away fades with a uniform scale. Drag a panel by its title bar (or its tab),
+          and in the tiling tree and the strip a document too: each construction offers its own drop targets. Every
+          frame is sampled and checked below.
         </p>
       </header>
 
@@ -44,6 +46,11 @@
           <button type="button" data-size="960,560">Laptop</button>
           <button type="button" data-size="760,420">Short</button>
           <button type="button" data-size="520,700">Narrow</button>
+        </fieldset>
+        <fieldset>
+          <legend>Drop preview while dragging</legend>
+          <label><input type="radio" name="drop" value="indicator" checked /> Drop indicator</label>
+          <label><input type="radio" name="drop" value="snap" /> Snap to slot</label>
         </fieldset>
         <fieldset>
           <legend>Tempo</legend>

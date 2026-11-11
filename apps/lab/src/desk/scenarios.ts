@@ -44,6 +44,8 @@ export interface Scenario {
   readonly docs?: number;
   /** It only checks pure layouts: nothing has to move. */
   readonly still?: boolean;
+  /** It drags: it runs with each drop preview (indicator and snap). */
+  readonly drag?: boolean;
   readonly play: (expect: Expect) => Promise<void>;
 }
 
@@ -131,8 +133,171 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
       },
     };
   });
-  Object.assign(scenarios, giveWay(lab), handMoves(lab), modes(lab));
+  Object.assign(scenarios, giveWay(lab), handMoves(lab), modes(lab), drags(lab));
   return scenarios;
+}
+
+/** One drag (or more) per construction, onto the drop targets its rules have. */
+function drags(lab: DeskLab): Record<string, Scenario> {
+  const r = readers(lab);
+  const drag = (key: string, to: () => Point, opts?: { escapeAt?: number }) => lab.drag!(key, to, opts);
+  const rectOf = (key: string): Rect => r.at(key)!.rect;
+  const list = (l: readonly (number | string)[]): string => l.join(",") || "nothing";
+  return {
+    "A · drag Notes to the top of the left dock": {
+      construction: "docks",
+      drag: true,
+      play: async (expect) => {
+        await drag(P.notes, () => ({ x: rectOf(P.files).x + 60, y: rectOf(P.files).y + 8 }));
+        await lab.idle();
+        expect(lab.state().left[0] === 3, `left dock: ${list(lab.state().left)}`);
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "A · drop a panel on a folded dock's rail": {
+      construction: "docks",
+      size: [760, 560],
+      drag: true,
+      play: async (expect) => {
+        await drag(P.files, () => ({ x: 760 - 17, y: 30 }));
+        await lab.idle();
+        expect(lab.state().right.includes(1), `right dock: ${list(lab.state().right)}`);
+        expect(r.hidden(P.files), "Files didn't fold into the rail with its dock");
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "A2 · drag Files into the full-width bottom dock": {
+      construction: "docksFull",
+      drag: true,
+      play: async (expect) => {
+        await drag(P.files, () => ({ x: rectOf(P.history).x + 30, y: rectOf(P.history).y + 40 }));
+        await lab.idle();
+        expect(lab.state().bottom[0] === 1, `bottom dock: ${list(lab.state().bottom)}`);
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "B · drag Inspector onto Files' lower edge": {
+      construction: "tree",
+      drag: true,
+      play: async (expect) => {
+        await drag(P.inspector, () => {
+          const f = rectOf(P.files);
+          return { x: f.x + f.width / 2, y: f.y + f.height * 0.8 };
+        });
+        await lab.idle();
+        expect(list(lab.state().tree.L) === "panel:1,panel:4,panel:2", `left column: ${list(lab.state().tree.L)}`);
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "C · drag Notes from the right tab row into the left one": {
+      construction: "navigator",
+      drag: true,
+      play: async (expect) => {
+        await drag(P.notes, () => {
+          const t = rectOf("tabs:left");
+          return { x: t.x + t.width / 2, y: t.y + 14 };
+        });
+        await lab.idle();
+        const s = lab.state();
+        expect(list(s.left) === "1,3,2" && s.active.left === 3, `left tabs: ${list(s.left)}, showing ${s.active.left}`);
+        expect(!r.hidden(P.notes) && r.hidden(P.files), "Notes isn't the left side's showing panel");
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "D · drag Notes into the first column, then Meeting notes under Quarterly plan": {
+      construction: "strip",
+      size: [1440, 560],
+      drag: true,
+      play: async (expect) => {
+        await drag(P.notes, () => ({ x: rectOf(P.outline).x + 90, y: rectOf(P.outline).y + rectOf(P.outline).height - 10 }));
+        await lab.idle();
+        expect(list(lab.state().cols[0]!) === "panel:1,panel:2,panel:3", `first column: ${list(lab.state().cols[0]!)}`);
+        await drag("doc:2", () => ({ x: rectOf("doc:1").x + rectOf("doc:1").width / 2, y: rectOf("doc:1").y + rectOf("doc:1").height - 30 }));
+        await lab.idle();
+        expect(lab.state().cols.some((c) => list(c) === "doc:1,doc:2"), `columns: ${lab.state().cols.map((c) => `[${list(c)}]`).join(" ")}`);
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "E · drag History into the left drawer's tab row": {
+      construction: "drawers",
+      drag: true,
+      play: async (expect) => {
+        await drag(P.history, () => {
+          const t = rectOf("tabs:left");
+          return { x: t.x + t.width - 10, y: t.y + 14 };
+        });
+        await lab.idle();
+        const s = lab.state();
+        expect(s.left.at(-1) === 5 && s.active.left === 5, `left drawer: ${list(s.left)}, showing ${s.active.left}`);
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "F1 · drag Outline anywhere, then into the top-right stack": {
+      construction: "floatOver",
+      drag: true,
+      play: async (expect) => {
+        await drag(P.outline, () => ({ x: 450, y: 300 }));
+        await lab.idle();
+        const f = lab.state().free.find((x) => x.id === 2);
+        expect(!!f && Math.abs(f.at!.x - 410) < 1 && Math.abs(f.at!.y - 289) < 1, `Outline is free at ${f ? `${Math.round(f.at!.x)},${Math.round(f.at!.y)}` : "nowhere"}, not under the pointer`);
+        await drag(P.outline, () => ({ x: rectOf(P.notes).x + 40, y: rectOf(P.notes).y + 6 }));
+        await lab.idle();
+        expect(lab.state().stacks.right[0] === 2, `right stack: ${list(lab.state().stacks.right)}`);
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "F2 · drag Notes under the left stack; the documents re-tile around": {
+      construction: "floatAround",
+      drag: true,
+      play: async (expect) => {
+        await drag(P.notes, () => ({ x: rectOf(P.outline).x + 40, y: rectOf(P.outline).y + rectOf(P.outline).height + 20 }));
+        await lab.idle();
+        expect(list(lab.state().stacks.left) === "1,2,3", `left stack: ${list(lab.state().stacks.left)}`);
+        for (const [k, d] of r.docs()) for (const id of [1, 2, 3, 4, 5]) expect(overlap(rectOf(`panel:${id}`), d) < 1, `panel ${id} covers ${k}`);
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "F3 · tear Notes off, then dock it back on its rail icon": {
+      construction: "dockTear",
+      drag: true,
+      play: async (expect) => {
+        await drag(P.notes, () => ({ x: 450, y: 250 }));
+        await lab.idle();
+        expect(lab.state().torn.some((f) => f.id === 3) && !lab.state().right.includes(3), "Notes didn't tear off");
+        expect(r.at(P.notes)!.layer > 2, "the torn-off Notes doesn't float over the documents");
+        await drag(P.notes, () => ({ x: lab.size().width - 17, y: 22 }));
+        await lab.idle();
+        expect(lab.state().right.includes(3) && !lab.state().torn.some((f) => f.id === 3), `right dock: ${list(lab.state().right)}`);
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "F3 · a torn-off panel low on the stage shades when the height runs out": {
+      construction: "dockTear",
+      drag: true,
+      play: async (expect) => {
+        await drag(P.inspector, () => ({ x: 450, y: 400 }));
+        await lab.idle();
+        expect(r.look(P.inspector) === "float", "Inspector isn't floating at full height");
+        await r.resize(960, 480);
+        expect(r.look(P.inspector) === "header", `Inspector is ${r.look(P.inspector)} at 480, not shaded`);
+        expect(r.notes().includes("floating panel shaded"), `notes: ${r.notes()}`);
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "F3 · Escape mid-drag puts everything back": {
+      construction: "dockTear",
+      drag: true,
+      play: async (expect) => {
+        const before = JSON.stringify(lab.state());
+        const rects = [...lab.layout().items].map(([k, p]) => [k, { ...p.rect }] as const);
+        await drag(P.notes, () => ({ x: 120, y: 200 }), { escapeAt: 22 });
+        await lab.idle();
+        expect(JSON.stringify(lab.state()) === before, "the desk isn't as it was before the lift");
+        for (const [k, rr] of rects) expect(sameRect(r.at(k)!.rect, rr), `${k} isn't back home`);
+        settledAsLaidOut(lab, expect);
+      },
+    },
+  };
 }
 
 /** Readers of the page's current layout. */
