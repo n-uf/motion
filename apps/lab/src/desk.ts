@@ -241,7 +241,8 @@ const slotted = (d: Drop | null): d is Drop => !!d && !d.free && !d.hidden;
  */
 function place(it: Item, now: number, flying: boolean): void {
   if (preview !== "snap") return;
-  let want: Drop | null = slotted(room) ? room : null;
+  // The keyboard steps from slot to slot: each step is a choice, so the item snaps at once.
+  let want: Drop | null = keys ? (slotted(shown) ? shown : null) : slotted(room) ? room : null;
   if (snapGate === "hover" && !keys) {
     const t = rawTarget(targets, pointer);
     const d = t ? dropAt(dragInput(it), t, pointer, grab) : null;
@@ -379,7 +380,7 @@ function endDrag(cancel = false): void {
       episode?.release.push(said === landed ? null : `landed on ${landed ?? "home"}, but the ${snapped ? "snapped slot" : "indicator"} said ${said ?? "home"}`);
     }
   }
-  if (snapped) logSnap(performance.now(), null, false);
+  // Landing in the slot it sits in is not leaving it: no snap ends here.
   snapped = null;
   returning = false;
   show(null, performance.now(), false);
