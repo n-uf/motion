@@ -1,5 +1,5 @@
 /**
- * The concept's "one frame", end to end on the fake clock:
+ * One frame, end to end on the fake clock:
  * input coalesced → the recogniser turns it into a gesture → state →
  * layout targets → motion values spring toward them → one write per frame.
  */
