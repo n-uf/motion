@@ -164,6 +164,9 @@ const clampInto = (r: Rect, area: Rect): Rect => ({
 /** The dock width (rail excluded) and the narrowest the documents may get before a dock folds. */
 export const DOCK = 190;
 export const WORK_MIN = 380;
+/** The bottom dock's height when open, and the most of the stage's height it takes. */
+export const BOTTOM = 190;
+export const BOTTOM_SHARE = 0.36;
 
 /** What the edge docks put where: shared by A, A2 and F3 (and by their drops). */
 export interface DockGeometry {
@@ -185,7 +188,8 @@ export function dockGeometry(s: DeskState, size: Size, opt: Options, mode: "betw
   const bottomOn = opt.bottom !== "off" && s.bottom.length > 0;
   const right = bottomOn ? s.right : [...s.right, ...s.bottom];
   const bottomFolded = bottomOn && (H < 480 || s.bottom.every((id) => s.folded.includes(id)));
-  const bh = !bottomOn ? 0 : bottomFolded ? TITLE : Math.max(...s.bottom.map(natural)) + 30;
+  // Open, it is BOTTOM tall, never more than BOTTOM_SHARE of the stage (but never below what its panels need).
+  const bh = !bottomOn ? 0 : bottomFolded ? TITLE : Math.max(...s.bottom.map(natural), Math.min(BOTTOM, BOTTOM_SHARE * H));
   if (bottomOn && H < 480) notes.push("bottom dock folded to its header");
   const full = mode === "full";
   const h = full && bottomOn ? H - bh - G : H;
