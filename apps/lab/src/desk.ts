@@ -1122,6 +1122,20 @@ const SCENARIOS: Record<string, Scenario> = {
       expect(sameRect(workArea(state, SPEC), work0), "the work area changed size when a panel was pinned");
     },
   },
+  "a pinned panel stays inside a short stage": {
+    play: async (expect) => {
+      // Pure placement: with little work height the first pinned panel is cut to fit, not placed below the stage.
+      for (const height of [150, 200, 260]) {
+        const short: DeskSpec = { stage: { width: STAGE_W, height }, panels: PANELS };
+        const s: DeskState = { ...state, left: [], right: [], pinned: [1, 5, 2], folded: [], tiled: [], tree: null, floating: [] };
+        const layout = layoutDesk(s, short);
+        for (const id of s.pinned) {
+          const r = layout.rects.get(panelKey(id))!;
+          expect(r.x >= -0.5 && r.y >= -0.5 && r.x + r.width <= STAGE_W + 0.5 && r.y + r.height <= height + 0.5, `${names.get(200 + id)} is pinned at ${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)} × ${Math.round(r.height)}, outside a ${STAGE_W} × ${height} stage`);
+        }
+      }
+    },
+  },
   "Escape mid-drag restores": {
     play: async (expect) => {
       const before = JSON.stringify(state);
