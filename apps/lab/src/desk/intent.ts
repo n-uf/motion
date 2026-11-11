@@ -9,7 +9,8 @@
  * - The most precise target wins: priority 1 (rail icons, tab strips) beats 2 (slots, bottom dock, tile edges),
  *   which beats 3 (float here and other large areas); equal priorities go to the smaller zone.
  * - Hysteresis: the current target holds while the pointer is within BAND px of its zone, unless a more precise
- *   target is clearly (4 px inside) under the pointer; a gap between zones is bridged for GAP_GRACE ms.
+ *   target is clearly (4 px inside) under the pointer; a gap between zones is bridged for GAP_GRACE ms. A shown
+ *   indicator moves to another target only once that target has held for SWITCH_HOLD ms.
  * - Room is made once the indicator has stayed on one target for ROOM_AFTER ms (never for a free target), and
  *   closed at once when it leaves.
  * - A release over home does nothing; else it lands on the shown target if the pointer is within its band, else on
@@ -33,8 +34,9 @@ export const DRAG = {
   ROOM_AFTER: 160,
   /** An indicator shown for less than this is a flash. */
   FLASH: 150,
-  /** A press lifts after this many px (mouse); on touch, after a LONG_PRESS ms hold, then TOUCH_LIFT px. */
-  LIFT: 5,
+  /** A shown indicator moves to another target only once that target has held this long (a release doesn't wait). */
+  SWITCH_HOLD: 60,
+  /** On touch, a press lifts after a LONG_PRESS ms hold, then TOUCH_LIFT px (a mouse: shared/press's threshold). */
   LONG_PRESS: 180,
   TOUCH_LIFT: 8,
   /** The indicator's fade and glide (ms). */
@@ -79,17 +81,25 @@ export interface IntentFrame<T extends Target> {
 export interface Intent<T extends Target> {
   /** A pointer sample at time `t` (ms), with the targets as they stand. */
   update(p: Point, t: number, targets: readonly T[]): IntentFrame<T>;
-  /** Hide the indicator (the strip is scrolling): the target is aimed at afresh afterwards. */
+  /**
+   * Hide the indicator (the strip is scrolling): the target is aimed at afresh afterwards, from fresh samples (the
+   * first one never counts as aiming).
+   */
   hide(t: number): void;
+  /** The item's home moved with the desk (the strip scrolled) by (dx, dy). */
+  moveHome(dx: number, dy: number): void;
   /** What a release at `p` lands on: a target, or null (home, or nothing under the pointer). */
   release(p: Point, targets: readonly T[]): T | null;
   readonly speed: number;
 }
 
-/** A drag's intent, for an item lifted from `home` (a release there does nothing). */
-export function createIntent<T extends Target>(home: Rect): Intent<T> {
-  const samples: { x: number; y: number; t: number }[] = [];
+/** A drag's intent, for an item lifted from `from` (a release there does nothing). */
+export function createIntent<T extends Target>(from: Rect): Intent<T> {
+  let home = { ...from };
+  let samples: { x: number; y: number; t: number }[] = [];
   let cur: T | null = null;
+  /** When the current target became current. */
+  let curSince = 0;
   let lastInside = 0;
   let shown: T | null = null;
   let shownSince = 0;
@@ -126,20 +136,33 @@ export function createIntent<T extends Target>(home: Rect): Intent<T> {
       }
       if (!next && cur && !atHome && t - lastInside < DRAG.GAP_GRACE) next = cur;
       if (next && within(next.hit, p)) lastInside = t;
+      if (!same(next, cur)) curSince = t;
       cur = next;
       const aiming = speed < DRAG.AIM_SPEED || t - stillSince >= DRAG.DWELL;
       const want = cur && leftHome && aiming ? cur : null;
-      // Once shown, the indicator stays while its target holds, even if the pointer speeds up a little.
-      if (!same(want, shown) && !(shown && want === null && same(cur, shown))) {
+      if (same(want, shown)) {
+        if (want) shown = want;
+      } else if (shown && same(cur, shown)) {
+        // Once shown, the indicator stays while its target holds, even if the pointer speeds up a little.
+      } else if (shown && cur && t - curSince < DRAG.SWITCH_HOLD) {
+        // It moves to another target only once that target has held for a moment.
+      } else {
         shown = want;
         shownSince = t;
-      } else if (want) shown = want;
+      }
       return { shown, room: !!shown && !shown.free && t - shownSince >= DRAG.ROOM_AFTER, aiming };
     },
     hide(t) {
       shown = null;
       cur = null;
       shownSince = t;
+      // Fresh samples: the first after the hide reads as moving, and a dwell starts again.
+      samples = [];
+      anchor = null;
+      speed = 2 * DRAG.AIM_SPEED;
+    },
+    moveHome(dx, dy) {
+      home = { ...home, x: home.x + dx, y: home.y + dy };
     },
     release(p, targets) {
       if (within(home, p)) return null;
