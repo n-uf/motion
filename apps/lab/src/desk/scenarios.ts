@@ -386,6 +386,85 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       expect(during.length === 0, `the indicator showed ${during.map((e) => e.id).join(", ")} while the strip scrolled`);
     },
   };
+  const flash = (r: DragResult): string | null => {
+    const i = r.log.findIndex((e, k) => e.id !== null && !!r.log[k + 1] && r.log[k + 1]!.t - e.t < DRAG.FLASH);
+    return i < 0 ? null : `${r.log[i]!.id} showed for ${Math.round(r.log[i + 1]!.t - r.log[i]!.t)} ms`;
+  };
+  const sequence = (r: DragResult): string => r.log.map((e) => `${e.id ?? "none"}@${Math.round(e.t)}`).join(" → ");
+  out["B · drag model: a slow diagonal across a tile corner shows no indicator for under 150 ms"] = {
+    construction: "tree",
+    drag: true,
+    play: async (expect) => {
+      const key = DRAGGED.tree;
+      const grip = lab.grip(key)!;
+      const all = lab.targets(key);
+      // A corner where at least three zones meet (probed 10 px out on each diagonal, across the gaps between them).
+      const corners = all.flatMap((t) => {
+        const r = t.hit;
+        return [
+          { x: r.x + r.width + G / 2, y: r.y + r.height + G / 2 },
+          { x: r.x - G / 2, y: r.y + r.height + G / 2 },
+        ];
+      });
+      const corner = corners.find((p) => {
+        const ids = new Set([-10, 10].flatMap((dx) => [-10, 10].map((dy) => rawTarget(all, { x: p.x + dx, y: p.y + dy })?.id ?? "none")));
+        ids.delete("none");
+        return ids.size >= 3 && dist(p, grip) > 80;
+      });
+      if (!corner) return expect(false, "no corner where three zones meet");
+      const from = { x: corner.x - 40, y: corner.y - 40 };
+      const r = await lab.path(key, (g) => {
+        const there = hold(through([g, from], 0.8), 400);
+        return hold([...there, ...through([from, { x: corner.x + 40, y: corner.y + 40 }], 0.2, there.at(-1)![0]).slice(1)], 400);
+      });
+      expect(flash(r) === null, `${flash(r)}: ${sequence(r)} (corner at ${Math.round(corner.x)},${Math.round(corner.y)})`);
+    },
+  };
+  out["A · drag model: a 14 px wobble between two dock slots changes the indicator at most once"] = {
+    construction: "docks",
+    drag: true,
+    play: async (expect) => {
+      const key = DRAGGED.docks;
+      const all = lab.targets(key);
+      // Two dock slots one above the other: the border between them.
+      const pair = all.filter((t) => t.id.startsWith("dock:")).flatMap((a) => all.filter((b) => b.id.startsWith("dock:") && Math.abs(b.hit.y - (a.hit.y + a.hit.height)) < 1 && Math.abs(b.hit.x - a.hit.x) < 1).map((b) => [a, b] as const))[0];
+      if (!pair) return expect(false, "no two dock slots one above the other");
+      const p = { x: pair[0].hit.x + pair[0].hit.width / 2, y: pair[1].hit.y };
+      const r = await lab.path(key, (g) => {
+        const keys = through([g, p], 0.9);
+        let t = keys.at(-1)![0];
+        for (let i = 0; i < 20; i++) {
+          t += 60;
+          keys.push([t, p.x, p.y + (i % 2 ? -14 : 14)]);
+        }
+        return hold(keys, 400);
+      });
+      const changes = shows(r).length - 1;
+      expect(changes <= 1, `the indicator changed ${changes} times: ${sequence(r)}`);
+      expect(flash(r) === null, `${flash(r)}: ${sequence(r)}`);
+    },
+  };
+  out["A · drag model: a release inside the shown slot's band lands on it, not on the neighbour under the pointer"] = {
+    construction: "docks",
+    drag: true,
+    play: async (expect) => {
+      const key = DRAGGED.docks;
+      const all = lab.targets(key);
+      const pair = all.filter((t) => t.id.startsWith("dock:")).flatMap((a) => all.filter((b) => b.id.startsWith("dock:") && Math.abs(b.hit.y - (a.hit.y + a.hit.height)) < 1 && Math.abs(b.hit.x - a.hit.x) < 1).map((b) => [a, b] as const))[0];
+      if (!pair) return expect(false, "no two dock slots one above the other");
+      const [a, b] = pair;
+      const aim = mid(a.hit);
+      // Aim at A until it shows and makes room, then slide 6 px into B (inside A's band) and let go at once.
+      const into = { x: aim.x, y: b.hit.y + 6 };
+      const r = await lab.path(key, (g) => {
+        const there = hold(through([g, aim], 0.8), 500);
+        return [...there, ...through([aim, into], 1.5, there.at(-1)![0]).slice(1)];
+      });
+      expect(rawTarget(all, into)?.id === b.id, `the release point is under ${rawTarget(all, into)?.id}, not ${b.id}`);
+      expect(shows(r).at(-1)?.id === a.id, `the indicator last showed ${shows(r).at(-1)?.id ?? "nothing"}, not ${a.id}: ${sequence(r)}`);
+      expect(r.landed === a.id, `landed on ${r.landed ?? "home"}, not on the shown ${a.id}`);
+    },
+  };
   /** A path to the left edge, held there `ms` (the strip scrolls), with the time it leaves the edge. */
   const toLeftEdge = (g: Point, ms: number): PathKey[] => hold(through([g, { x: 12, y: 300 }], 0.8), ms);
   out["D · drag model: after an edge scroll, the item's home has moved with the strip"] = {
