@@ -12,6 +12,9 @@
  * - Floating documents use the "smart placement" of GNOME and KDE: the first free spot of the window's size,
  *   preferring the centre, then the nearest free one; with none, a cascade from the focused window.
  *
+ * A column whose panels are all folded (and that has no toolbar) becomes a rail: one title-bar height wide, a
+ * tab per panel, and the work area takes the room.
+ *
  * One rule over all of it: nothing is laid out below its minimum size. A column that cannot hold its panels at
  * their minimum heights pins its newest panel; a tiling that cannot keep every tile at the minimum document size
  * floats its newest document.
@@ -61,6 +64,10 @@ export const G = {
   column: 176,
   /** A title bar: a folded panel's height and the cascade offset. */
   title: 26,
+  /** A rail's width (a column whose panels are all folded): one title-bar height. */
+  rail: 26,
+  /** The length of one tab in a rail: a title bar turned on its side. */
+  railTab: 88,
   button: 30,
   buttonGap: 6,
   toolbarPad: 6,
@@ -144,8 +151,20 @@ function verticalSpan(state: DeskState, spec: DeskSpec): { y: number; height: nu
 
 const columnUsed = (state: DeskState, side: Side): boolean => state.toolbar === side || state[side].length > 0;
 
-/** What a column needs at its panels' minimum heights (folded ones at their title bar). */
+/**
+ * A column is a rail when every panel in it is folded and the toolbar isn't in it: each title bar turns on its
+ * side into a tab, and the column is one title-bar height wide. A panel unfolded in it (or docked into it, or the
+ * toolbar) makes it a column again.
+ */
+export const isRail = (state: DeskState, side: Side): boolean =>
+  state.toolbar !== side && state[side].length > 0 && state[side].every((id) => state.folded.includes(id));
+
+/** A column's width: its normal width, or a rail's; an empty one takes none (see columnUsed). */
+export const columnWidth = (state: DeskState, side: Side): number => (isRail(state, side) ? G.rail : G.column);
+
+/** What a column needs at its panels' minimum heights (folded ones at their title bar; a rail at its tabs). */
 function columnNeed(state: DeskState, spec: DeskSpec, side: Side, ids: readonly number[]): number {
+  if (isRail(state, side)) return ids.length * G.railTab + G.gap * Math.max(0, ids.length - 1);
   const toolbar = state.toolbar === side ? toolbarBoxOf(state)!.height + (ids.length > 0 ? G.gap : 0) : 0;
   const panels = ids.reduce((sum, id) => sum + (state.folded.includes(id) ? G.title : specOf(spec, id).minHeight), 0);
   return toolbar + panels + G.gap * Math.max(0, ids.length - 1);
@@ -256,8 +275,8 @@ export function placeFloating(
 /** The work area: the stage less the band and the used columns. */
 export function workArea(state: DeskState, spec: DeskSpec): Rect {
   const { y, height } = verticalSpan(state, spec);
-  const x0 = columnUsed(state, "left") ? G.gap + G.column + G.gap : G.gap;
-  const x1 = spec.stage.width - (columnUsed(state, "right") ? G.gap + G.column + G.gap : G.gap);
+  const x0 = columnUsed(state, "left") ? G.gap + columnWidth(state, "left") + G.gap : G.gap;
+  const x1 = spec.stage.width - (columnUsed(state, "right") ? G.gap + columnWidth(state, "right") + G.gap : G.gap);
   return { x: x0, y, width: x1 - x0, height };
 }
 
@@ -276,9 +295,18 @@ export function layoutDesk(state: DeskState, spec: DeskSpec): DeskLayout {
   const columns: { left: Rect | null; right: Rect | null } = { left: null, right: null };
   for (const side of ["left", "right"] as const) {
     if (!columnUsed(state, side)) continue;
-    const x = side === "left" ? G.gap : spec.stage.width - G.gap - G.column;
-    columns[side] = { x, y, width: G.column, height };
+    const width = columnWidth(state, side);
+    const x = side === "left" ? G.gap : spec.stage.width - G.gap - width;
+    columns[side] = { x, y, width, height };
     let cursor = y;
+    if (isRail(state, side)) {
+      // A rail: one tab per panel, stacked from the top.
+      for (const id of state[side]) {
+        rects.set(panelKey(id), { x, y: cursor, width, height: G.railTab });
+        cursor += G.railTab + G.gap;
+      }
+      continue;
+    }
     if (state.toolbar === side) {
       const box = toolbarBoxOf(state)!;
       // Narrower than the column (vertical or collapsed): flush with the stage's edge.
@@ -293,7 +321,7 @@ export function layoutDesk(state: DeskState, spec: DeskSpec): DeskLayout {
       ids.map((id) => ({ min: specOf(spec, id).minHeight, folded: state.folded.includes(id) })),
     );
     ids.forEach((id, i) => {
-      rects.set(panelKey(id), { x, y: cursor, width: G.column, height: heights[i]! });
+      rects.set(panelKey(id), { x, y: cursor, width, height: heights[i]! });
       cursor += heights[i]! + G.gap;
     });
   }
