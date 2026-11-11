@@ -327,15 +327,20 @@ export function layoutDesk(state: DeskState, spec: DeskSpec): DeskLayout {
   }
   // Pinned panels: anchored at the work area's top-right corner plus a margin, stacked down, then a new stack
   // to the left when one would run past the bottom.
+  // A pinned panel is never taller than the work area less its margins, and stays inside the stage: the first of a
+  // stack is always placed, so with little work height it is cut to fit rather than landing below the stage.
   let px = work.x + work.width - G.pinMargin - G.pinnedPanelWidth;
   let py = work.y + G.pinMargin;
+  const pinCap = Math.max(G.title, work.height - 2 * G.pinMargin);
   for (const id of state.pinned) {
-    const h = state.folded.includes(id) ? G.title : specOf(spec, id).minHeight + G.pinnedPanelExtra;
+    const h = Math.min(state.folded.includes(id) ? G.title : specOf(spec, id).minHeight + G.pinnedPanelExtra, pinCap);
     if (py + h > work.y + work.height - G.pinMargin && py > work.y + G.pinMargin) {
       px -= G.pinnedPanelWidth + G.gap;
       py = work.y + G.pinMargin;
     }
-    rects.set(panelKey(id), { x: px, y: py, width: G.pinnedPanelWidth, height: h });
+    const x = Math.max(G.gap, px);
+    const y = Math.max(0, Math.min(py, spec.stage.height - G.gap - h));
+    rects.set(panelKey(id), { x, y, width: G.pinnedPanelWidth, height: h });
     py += h + G.gap;
   }
   // The pinned toolbar: its natural size, anchored at the work area's bottom centre plus a margin.
