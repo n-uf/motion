@@ -644,6 +644,12 @@ function endDrag(cancel = false): void {
   roomShown = false;
   hint.hidden = true;
   w.el.classList.remove("lifted");
+  // A cancel goes home whatever happened meanwhile, the layout kind included; a release that never left
+  // home goes back only if the layout kind is still the one it was lifted in.
+  if (backHome && cancel && layoutKind !== backHome.layout) {
+    layoutKind = backHome.layout;
+    (document.querySelector(`input[name=layout][value=${layoutKind}]`) as HTMLInputElement).checked = true;
+  }
   if (backHome && layoutKind === backHome.layout) {
     tree = backHome.tree;
     order = [...backHome.order];
@@ -665,6 +671,8 @@ function endDrag(cancel = false): void {
 
 /** A press is a click until the pointer has moved this far (stage px); only then is the window lifted. */
 const DRAG_THRESHOLD = 5;
+/** Escape ended the current press: its later moves lift nothing. */
+let gestureCancelled = false;
 
 function onPointerDown(w: Win, e: PointerEvent): void {
   if (e.button !== 0 || e.ctrlKey) return;
@@ -672,7 +680,10 @@ function onPointerDown(w: Win, e: PointerEvent): void {
   const target = e.currentTarget as HTMLElement;
   target.setPointerCapture(e.pointerId);
   const start = stagePoint(e);
+  gestureCancelled = false;
   const move = (ev: PointerEvent): void => {
+    // Escape ended this gesture: nothing more until the button is released.
+    if (gestureCancelled) return;
     const q = stagePoint(ev);
     if (!lifted) {
       if (Math.hypot(q.x - start.x, q.y - start.y) < DRAG_THRESHOLD) return;
@@ -680,12 +691,13 @@ function onPointerDown(w: Win, e: PointerEvent): void {
     }
     moveDrag(q.x, q.y);
   };
-  const up = (): void => {
+  const up = (ev: PointerEvent): void => {
     target.removeEventListener("pointermove", move);
     target.removeEventListener("pointerup", up);
     target.removeEventListener("pointercancel", up);
-    // A click (never past the threshold) lifted nothing, so there is nothing to drop.
-    if (lifted === w) endDrag();
+    // A click (never past the threshold) lifted nothing, so there is nothing to drop. A pointercancel
+    // (the system took the pointer) cancels like Escape.
+    if (lifted === w) endDrag(ev.type === "pointercancel");
   };
   target.addEventListener("pointermove", move);
   target.addEventListener("pointerup", up);
@@ -694,7 +706,10 @@ function onPointerDown(w: Win, e: PointerEvent): void {
 
 // Escape cancels a drag: everything goes back to where it was before the window was lifted.
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && lifted) endDrag(true);
+  if (e.key === "Escape" && lifted) {
+    gestureCancelled = true;
+    endDrag(true);
+  }
 });
 
 // --- the frame ---------------------------------------------------------------
