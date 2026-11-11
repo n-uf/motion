@@ -41,6 +41,8 @@ import { LABEL_RULE, positionPopup } from "./desk/positioner";
 import { makeScenarios, type DeskLab, type DragResult, type IndicatorEntry, type PathAction, type PathKey, type Scenario } from "./desk/scenarios";
 import { toolbarGrip, wireToolbar } from "./desk/toolbar-drag";
 import { toolbarScenarios } from "./desk/toolbar-scenarios";
+import { initToolbarFrame, withGroupOptions } from "./desk/toolbar-frame";
+import { toolbarGroupScenarios } from "./desk/toolbar-group-scenarios";
 import { framesResult, merge, motionRows, renderChecks, renderTrace, verdict, type Row, type Segment } from "./shared/checks";
 import { drawRevealed, layOut, measureFrame, onTopAt } from "./shared/frame";
 import { inside, nextFrame, overlap, same, wait, type Point } from "./shared/geometry";
@@ -105,7 +107,8 @@ const omega = (): number => SETTLE_TEMPO[tempo];
 const construction = () => constructionOf(cid);
 const stateOf = (id: ConstructionId): DeskState => states.get(id)!;
 const state = (): DeskState => stateOf(cid);
-const options = (): Options => optionsOf.get(cid) ?? DEFAULT_OPTIONS;
+// The toolbar groups set the pill's width and hide it when it holds none (desk/toolbar-frame.ts).
+const options = (): Options => withGroupOptions(optionsOf.get(cid) ?? DEFAULT_OPTIONS);
 const itemOf = (key: string): Item | undefined => items.find((it) => it.key === key && !it.closing);
 
 /** Change every construction's documents at once (they share them); each keeps its own arrangement. */
@@ -363,6 +366,7 @@ function endDrag(cancel = false): void {
   let landed: string | null = null;
   // The options a drop sets (a toolbar drop: its mode).
   let opt: Options | undefined;
+  let apply: (() => void) | undefined;
   atRelease = { ...it.rect.value };
   if (!cancel) {
     // Both previews land by one rule: what is shown. A snapped item sits in the shown target's slot; moved to another
@@ -373,6 +377,7 @@ function endDrag(cancel = false): void {
       const d = dropAt(dragInput(it), t, keys ? stop!.p : pointer, grab);
       s = d.state;
       opt = d.opt;
+      apply = d.apply;
       landed = t.id;
     }
     if (!keys) {
@@ -402,6 +407,7 @@ function endDrag(cancel = false): void {
     optionsOf.set(cid, opt);
     syncControls();
   }
+  apply?.();
   // It stays raised until its drop settle ends.
   commit(s);
   // What waited for the drag to end: a preview chosen during it, and the stage fitting a window resized during it.
@@ -1277,7 +1283,8 @@ async function keyboardDrag(key: string, steps: number): Promise<DragResult> {
   return { log: [...dragLog], landed: lastLanding };
 }
 
-const SCENARIOS: Record<string, Scenario> = { ...makeScenarios(lab), ...toolbarScenarios(lab) };
+initToolbarFrame(lab, stage);
+const SCENARIOS: Record<string, Scenario> = { ...makeScenarios(lab), ...toolbarScenarios(lab), ...toolbarGroupScenarios(lab) };
 const runs: LabRun[] = [];
 
 async function runScenario(name: string, mode: Preview): Promise<LabRun> {
