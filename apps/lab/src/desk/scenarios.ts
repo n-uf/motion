@@ -265,7 +265,9 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
           return hold(keys, 200);
         });
         const changes = shows(r).length - 1;
-        expect(changes <= 1, `the indicator changed ${changes} times on the border: ${shows(r).map((e) => e.id).join(" → ")}`);
+        const seq = r.log.map((e) => `${e.id ?? "none"}@${Math.round(e.t)}`).join(" → ");
+        expect(changes <= 1, `the indicator changed ${changes} times on the border: ${seq}`);
+        expect(r.log.every((e, i) => e.id === null || !r.log[i + 1] || r.log[i + 1]!.t - e.t >= DRAG.FLASH), `an indicator showed for under ${DRAG.FLASH} ms: ${seq} (border at ${Math.round(b.p.x)},${Math.round(b.p.y)})`);
       },
     };
     out[`${name}: the same release point by two paths lands the same`] = {
