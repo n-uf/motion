@@ -54,8 +54,9 @@ export interface PopIn {
 /**
  * Opening and closing: the window grows from `from` of its size to full, about
  * its centre, while fading in. `progress` runs 0 to 1 (take it from a settle
- * on a number, or a tween); closing runs it from 1 to 0. Hyprland's default is
- * `popin 87%`.
+ * on a number with `{ restDelta: 0.001 }`, since the default 0.1 is tuned for
+ * pixels and would snap the last 10 %; or from a tween); closing runs it from
+ * 1 to 0. Hyprland's default is `popin 87%`.
  */
 export function popIn(progress: number, from = 0.87): PopIn {
   const p = Math.min(1, Math.max(0, progress));

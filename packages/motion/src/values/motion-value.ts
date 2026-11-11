@@ -26,7 +26,7 @@ export interface MotionOptions {
 
 /** Options of {@link MotionValue.set}. */
 export interface SetOptions<T> {
-  /** Start with this velocity (units per second), e.g. a gesture's release velocity. Springs only. */
+  /** Start with this velocity (units per second), e.g. a gesture's release velocity. Springs and settles (a settle caps it toward the target); tweens ignore it. */
   readonly velocity?: T;
 }
 
@@ -42,9 +42,9 @@ export interface MotionValue<T, A extends Animator<unknown> = Animator<T>> exten
   readonly velocity: T;
   /** Whether it is moving (reactive). */
   readonly moving: boolean;
-  /** The spring or tween underneath. */
+  /** The spring, settle or tween underneath. Change it through this value (`jump`, not the animator's `hold`), so the signal and the loop follow. */
   readonly animator: A;
-  /** Head for `target`; a spring keeps its velocity. */
+  /** Head for `target`; a spring keeps its velocity, a settle launches from where it is drawn, a tween restarts. */
   set(target: T, options?: SetOptions<T>): void;
   /** Put the value at `value` at once, at rest. */
   jump(value: T): void;
