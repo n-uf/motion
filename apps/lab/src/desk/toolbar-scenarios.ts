@@ -268,13 +268,16 @@ export function toolbarScenarios(lab: DeskLab): Record<string, Scenario> {
       if (!grip) return expect(false, "the pill has no grip");
       const key = (k: string, on: EventTarget = document): void => void on.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
       const order = TOOLBAR_TARGETS.map((t) => t.id);
-      expect(JSON.stringify(lab.targets(TOOLBAR).map((t) => t.id)) === JSON.stringify(order), `the targets' order is ${lab.targets(TOOLBAR).map((t) => t.id).join(", ")}`);
+      // The four modes first, top to bottom (the side edges' swaps follow).
+      expect(JSON.stringify(lab.targets(TOOLBAR).map((t) => t.id).slice(0, order.length)) === JSON.stringify(order), `the targets' order is ${lab.targets(TOOLBAR).map((t) => t.id).join(", ")}`);
       // Space on the grip, four steps (top reserved, top floating, bottom floating, bottom reserved), Enter.
       grip.focus();
       key(" ", grip);
+      // Each step held past the room delay and a flash (a snap waits for the room, then shows at least 150 ms).
+      const STEP = DRAG.ROOM_AFTER + DRAG.FLASH + 90;
       for (let i = 0; i < 4; i++) {
         key("ArrowDown");
-        await wait(i === 3 ? 650 : 220);
+        await wait(i === 3 ? 650 : STEP);
       }
       key("Enter");
       await lab.idle();
@@ -283,9 +286,9 @@ export function toolbarScenarios(lab: DeskLab): Record<string, Scenario> {
       // Again: two steps, then Escape: nothing changes.
       key(" ", document.querySelector<HTMLElement>(".win.toolbar .tb-grip")!);
       key("ArrowDown");
-      await wait(220);
+      await wait(STEP);
       key("ArrowDown");
-      await wait(400);
+      await wait(STEP);
       key("Escape");
       await lab.idle();
       expectMode(lab, expect, "bottom-reserved", "after the keyboard Escape");
