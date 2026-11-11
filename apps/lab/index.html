@@ -20,10 +20,6 @@
 
       <section class="controls" aria-label="Controls">
         <fieldset>
-          <legend>Compare</legend>
-          <label><input type="checkbox" id="compare-today" /> Show how windows move today instead (lags, stretches, overshoots; the checks fail on purpose)</label>
-        </fieldset>
-        <fieldset>
           <legend>Tempo</legend>
           <label><input type="radio" name="tempo" value="calm" /> Calm (ω 20)</label>
           <label><input type="radio" name="tempo" value="default" checked /> Default (ω 25)</label>
@@ -66,7 +62,7 @@
         <canvas id="trace" width="720" height="160" aria-label="Distance to target over time, one line per window"></canvas>
         <h2>Scenario runs</h2>
         <table id="runs">
-          <thead><tr><th>Scenario</th><th>Motion</th><th>Failed rules</th></tr></thead>
+          <thead><tr><th>Scenario</th><th>Layout</th><th>Failed rules</th></tr></thead>
           <tbody></tbody>
         </table>
       </section>

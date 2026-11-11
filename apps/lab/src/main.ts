@@ -1,25 +1,12 @@
 /**
- * The motion lab: a small master-stack tiling stage whose windows move by the
- * proposed rules (settle, hold, reveal) or by today's (a spring from rest,
- * a drag spring, stretched content, an overshooting maximize tween). Every
- * frame of every move is sampled and checked with @n-uf/motion/testing.
+ * The motion lab: a small tiling stage whose windows move by the window
+ * motion rules (settle, hold, reveal). Every frame of every move is sampled
+ * and checked with @n-uf/motion/testing.
  *
- * `window.__motionLab.runAll()` runs the scripted scenarios in both modes and
- * returns which rules failed where (the headless try uses it).
+ * `window.__motionLab.runAll()` runs the scripted scenarios and returns which
+ * rules failed where (the headless try uses it).
  */
-import {
-  createFrameLoop,
-  createSettle,
-  createSpring,
-  createTween,
-  cubicBezier,
-  SETTLE_TEMPO,
-  type Animator,
-  type FrameInfo,
-  type Rect,
-  type Settle,
-  type Spring,
-} from "@n-uf/motion";
+import { createFrameLoop, createSettle, SETTLE_TEMPO, type FrameInfo, type Rect, type Settle } from "@n-uf/motion";
 import { createBrowserClock } from "@n-uf/motion/browser";
 import type { HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
 import { motionRows, renderChecks, renderTrace, type Row, type Segment } from "./shared/checks";
@@ -40,16 +27,11 @@ import {
   type Tree,
 } from "./shared/tiling";
 
-type Mode = "proposed" | "today";
 type Tempo = keyof typeof SETTLE_TEMPO;
-type How = "layout" | "morph";
 
 const STAGE_W = 720;
 const STAGE_H = 420;
 const GAP = 10;
-/** The compared maximize curve ("snappy", 220 ms): y2 = 1.05 overshoots. */
-const SNAPPY = cubicBezier(0.05, 0.9, 0.1, 1.05);
-const OUT = cubicBezier(0.16, 1, 0.3, 1);
 
 const stage = document.getElementById("stage") as HTMLDivElement;
 const hint = document.getElementById("hint") as HTMLDivElement;
@@ -63,18 +45,16 @@ interface Win {
   readonly el: HTMLDivElement;
   readonly frame: HTMLDivElement;
   readonly content: HTMLDivElement;
-  rect: Animator<Rect>;
-  kind: "settle" | "spring" | "tween";
+  rect: Settle<Rect>;
   /** Where the element is laid out (its content's size); the drawn rect glides toward it. */
   target: Rect;
-  pop: Animator<number>;
+  pop: Settle<number>;
   closing: boolean;
   segment: Segment | null;
   /** Unheld frames, one run per stretch between lifts and drops. */
   runs: TargetSample[][];
 }
 
-let mode: Mode = "proposed";
 let tempo: Tempo = "default";
 let speed = 1;
 let nextId = 1;
@@ -146,8 +126,7 @@ let episode: {
   onTop: (string | null)[];
   /** Snap mode, per frame while snapped: null when no settled window overlaps the slot, else which does. */
   room: (string | null)[];
-  /** The motion and drop preview this move ran with. */
-  mode: Mode;
+  /** The drop preview this move ran with. */
   drop: DropMode;
 } | null = null;
 let idleWaiters: Array<() => void> = [];
@@ -213,7 +192,7 @@ const FULL: Rect = { x: GAP, y: GAP, width: STAGE_W - 2 * GAP, height: STAGE_H -
 
 function startEpisode(): void {
   if (episode) return;
-  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], mode, drop: dropMode };
+  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], drop: dropMode };
   for (const w of wins) {
     w.runs = [[]];
     episode.runs.push(...w.runs);
@@ -233,13 +212,7 @@ function ensureLoop(): void {
   loop.repeat("update", tick);
 }
 
-function makeRectAnimator(at: Rect): { rect: Animator<Rect>; kind: Win["kind"] } {
-  return mode === "proposed"
-    ? { rect: createSettle(at, { omega: omega() }), kind: "settle" }
-    : { rect: createSpring(at, { stiffness: 320, dampingRatio: 1 }), kind: "spring" };
-}
-
-function setTarget(w: Win, to: Rect, how: How): void {
+function setTarget(w: Win, to: Rect): void {
   if (same(w.target, to) && same(w.rect.target, to)) return;
   ensureLoop();
   const drawn = w.rect.value;
@@ -248,22 +221,7 @@ function setTarget(w: Win, to: Rect, how: How): void {
   // The segment starts with the frame the move began on, so tempo counts from here.
   w.segment = { id: w.id, t0: time, from: { ...drawn }, to: { ...to }, samples: [{ t: time, rect: { ...drawn } }] };
   episode?.segments.push(w.segment);
-  if (mode === "proposed") {
-    const settle = w.rect as Settle<Rect>;
-    settle.configure({ omega: omega() });
-    settle.setTarget(to);
-    return;
-  }
-  // Today: a morph is a tween from where it's drawn; anything else a 320 spring, rebuilt at rest after a tween.
-  if (how === "morph") {
-    w.rect = createTween(drawn, { duration: 220, easing: SNAPPY });
-    w.kind = "tween";
-  } else if (w.kind !== "spring") {
-    w.rect = createSpring(drawn, { stiffness: 320, dampingRatio: 1 });
-    w.kind = "spring";
-  } else {
-    (w.rect as Spring<Rect>).configure({ stiffness: 320 });
-  }
+  w.rect.configure({ omega: omega() });
   w.rect.setTarget(to);
 }
 
@@ -271,12 +229,12 @@ function setTarget(w: Win, to: Rect, how: How): void {
  * Every window in the order glides to its place. While a window is snapped into a slot (snap mode), the
  * others make room for it: they take their places in the layout with it inserted at that slot.
  */
-function relayout(morphId: number | null = null): void {
+function relayout(): void {
   const slots = roomAt()?.layout ?? baseLayout();
   for (const id of order) {
     const w = wins.find((x) => x.id === id)!;
     const to = id === maxId ? FULL : slots.get(id)!;
-    setTarget(w, to, id === morphId ? "morph" : "layout");
+    setTarget(w, to);
     w.el.style.zIndex = w === raised ? Z_RAISED : id === maxId ? "3" : "1";
   }
   for (const w of wins) w.el.classList.toggle("focused", w.id === focusId);
@@ -294,16 +252,14 @@ function makeWin(at: Rect): Win {
   content.innerHTML = `<div class="title">Window ${id}</div><div class="body">Meeting notes ${10 + id} · edited today<br>Page 2 of 5 · the quick brown fox</div>`;
   el.append(frame, content);
   stage.append(el);
-  const { rect, kind } = makeRectAnimator(at);
   const w: Win = {
     id,
     el,
     frame,
     content,
-    rect,
-    kind,
+    rect: createSettle(at, { omega: omega() }),
     target: { ...at },
-    pop: mode === "proposed" ? createSettle(1, { omega: omega(), restDelta: 0.001 }) : createTween(1, { duration: 180, easing: OUT }),
+    pop: createSettle(1, { omega: omega(), restDelta: 0.001 }),
     closing: false,
     segment: null,
     runs: [[]],
@@ -386,7 +342,6 @@ function doClose(): void {
   const w = wins.find((x) => x.id === id)!;
   ensureLoop();
   w.closing = true;
-  if (mode === "today") w.pop = createTween(1, { duration: 140, easing: OUT });
   w.pop.setTarget(0);
   if (layoutKind === "dwindle") setTree(removeLeaf(tree, id));
   else {
@@ -413,7 +368,7 @@ function doMaximize(): void {
   const id = order[0];
   if (lifted || id === undefined) return;
   maxId = maxId === id ? null : id;
-  relayout(id);
+  relayout();
 }
 
 // --- drag --------------------------------------------------------------------
@@ -448,13 +403,6 @@ function beginDrag(w: Win, px: number, py: number): void {
   drop = null;
   w.segment = null;
   newRun(w);
-  if (mode === "today") {
-    // The compared motion: the person's own drag follows on a stiff spring (1400).
-    if (w.kind !== "spring") {
-      w.rect = createSpring(d, { stiffness: 1400, dampingRatio: 1 });
-      w.kind = "spring";
-    } else (w.rect as Spring<Rect>).configure({ stiffness: 1400 });
-  }
   relayout();
   moveDrag(px, py);
 }
@@ -503,8 +451,7 @@ function moveDrag(px: number, py: number): void {
     return;
   }
 
-  if (mode === "proposed") (lifted.rect as Settle<Rect>).hold(expected);
-  else lifted.rect.setTarget(expected);
+  lifted.rect.hold(expected);
   // Opt-in live reorder: the others make room at the marked slot as it changes.
   if (indicatorMakesRoom && (drop.key !== previousDrop || !roomShown)) {
     roomShown = true;
@@ -575,20 +522,7 @@ document.addEventListener("keydown", (e) => {
 // --- the frame ---------------------------------------------------------------
 
 function draw(w: Win): void {
-  const d = w.rect.value;
-  const p = w.pop.value;
-  const t = w.target;
-  if (mode === "proposed") {
-    drawRevealed(w, d, t, p);
-    return;
-  }
-  const sx = t.width > 0 ? d.width / t.width : 1;
-  const sy = t.height > 0 ? d.height / t.height : 1;
-  w.el.style.transform = `translate(${d.x - t.x}px, ${d.y - t.y + (1 - p) * 8}px) scale(${sx}, ${sy})`;
-  w.el.style.opacity = String(p);
-  w.frame.style.width = `${t.width}px`;
-  w.frame.style.height = `${t.height}px`;
-  w.content.style.clipPath = "";
+  drawRevealed(w, w.rect.value, w.target, w.pop.value);
 }
 
 /**
@@ -673,8 +607,7 @@ function endEpisode(): void {
   const { rows, segments: segs } = motionRows(ep, omega());
   lastRows = rows;
   checksTitle.textContent =
-    `Checks of the last move · ${ep.mode === "proposed" ? "Proposed" : "Today (failures expected: this is today's motion)"}` +
-    (ep.onTop.length > 0 ? ` · drop preview: ${ep.drop === "snap" ? "snap to slot" : "drop indicator"}` : "");
+    "Checks of the last move" + (ep.onTop.length > 0 ? ` · drop preview: ${ep.drop === "snap" ? "snap to slot" : "drop indicator"}` : "");
   renderChecks(checksBody, lastRows);
   renderTrace(trace, ep.t0, segs);
   const waiters = idleWaiters;
@@ -739,7 +672,8 @@ const SCENARIOS: Record<string, () => Promise<void>> = {
 
 interface Run {
   readonly scenario: string;
-  readonly mode: Mode;
+  /** The layout the scenario ran in. */
+  readonly mode: string;
   readonly failed: string[];
   readonly rows: Row[];
 }
@@ -754,12 +688,12 @@ async function runScenario(name: string): Promise<Run> {
   await play();
   await idle();
   const failed = lastRows.filter((r) => r.result && !r.result.ok).map((r) => r.name);
-  const run: Run = { scenario: name, mode, failed, rows: lastRows };
+  const run: Run = { scenario: name, mode: layoutAtStart, failed, rows: lastRows };
   runs.push(run);
   const tr = document.createElement("tr");
   tr.innerHTML = "<td></td><td></td><td></td>";
   tr.children[0]!.textContent = name;
-  tr.children[1]!.textContent = `${mode === "proposed" ? "Proposed" : "Today"} · ${layoutAtStart}`;
+  tr.children[1]!.textContent = layoutAtStart;
   tr.children[2]!.textContent = failed.length ? failed.join(", ") : "none";
   (tr.children[2] as HTMLElement).className = failed.length ? "bad" : "ok";
   runsBody.append(tr);
@@ -776,19 +710,15 @@ async function runAll(): Promise<Run[]> {
   runningAll = true;
   stopAll = false;
   runAllButton.textContent = "Stop scenarios";
-  const before = mode;
   const out: Run[] = [];
   runsBody.replaceChildren();
   try {
-    outer: for (const m of ["proposed", "today"] as const) {
-      setMode(m);
-      for (const name of Object.keys(SCENARIOS)) {
-        if (stopAll) break outer;
-        out.push(await runScenario(name));
-      }
+    for (const name of Object.keys(SCENARIOS)) {
+      if (stopAll) break;
+      out.push(await runScenario(name));
     }
   } finally {
-    setMode(before);
+    reset(4);
     runningAll = false;
     stopAll = false;
     runAllButton.textContent = "Run all scenarios";
@@ -797,15 +727,6 @@ async function runAll(): Promise<Run[]> {
 }
 
 // --- wiring ------------------------------------------------------------------
-
-const compareToday = document.getElementById("compare-today") as HTMLInputElement;
-
-/** "proposed" (the rules) or "today" (the Compare box: how windows move today). */
-function setMode(m: Mode): void {
-  mode = m;
-  compareToday.checked = m === "today";
-  reset(4);
-}
 
 function setDropMode(m: DropMode): void {
   dropMode = m;
@@ -828,7 +749,6 @@ function setLayout(k: LayoutKind): void {
   } else relayout();
 }
 
-compareToday.addEventListener("change", () => setMode(compareToday.checked ? "today" : "proposed"));
 document.querySelectorAll<HTMLInputElement>("input[name=drop]").forEach((input) =>
   input.addEventListener("change", () => setDropMode(input.value as DropMode)),
 );
@@ -841,7 +761,7 @@ document.querySelectorAll<HTMLInputElement>("input[name=layout]").forEach((input
 document.querySelectorAll<HTMLInputElement>("input[name=tempo]").forEach((input) =>
   input.addEventListener("change", () => {
     tempo = input.value as Tempo;
-    for (const w of wins) if (w.kind === "settle") (w.rect as Settle<Rect>).configure({ omega: omega() });
+    for (const w of wins) w.rect.configure({ omega: omega() });
   }),
 );
 const actions: Record<string, () => void> = {
@@ -870,7 +790,6 @@ document.querySelectorAll<HTMLButtonElement>("button[data-act]").forEach((b) =>
 // Start from what the controls show: a reload restores the browser's checked radios and boxes, and the
 // page must follow them rather than its own defaults (else the stage says one layout and the radio another).
 const checked = (name: string): string | undefined => document.querySelector<HTMLInputElement>(`input[name=${name}]:checked`)?.value;
-mode = compareToday.checked ? "today" : "proposed";
 tempo = (checked("tempo") as Tempo | undefined) ?? tempo;
 layoutKind = (checked("layout") as LayoutKind | undefined) ?? layoutKind;
 dropMode = (checked("drop") as DropMode | undefined) ?? dropMode;

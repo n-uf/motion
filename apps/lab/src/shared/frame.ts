@@ -1,5 +1,5 @@
 /**
- * Drawing a window by the proposed rules (reveal: content laid out at the target size, the frame at the drawn size,
+ * Drawing a window by the motion rules (reveal: content laid out at the target size, the frame at the drawn size,
  * clipped; never a non-uniform scale) and reading back what the page shows, for the checks.
  */
 import { popIn, reveal, type Rect } from "@n-uf/motion";
@@ -18,7 +18,7 @@ export function layOut(w: Drawn, target: Rect): void {
   Object.assign(w.el.style, { left: `${target.x}px`, top: `${target.y}px`, width: `${target.width}px`, height: `${target.height}px` });
 }
 
-/** Proposed: translate to the drawn place, the frame at the drawn size, the content clipped to it; `pop` scales uniformly. */
+/** Translate to the drawn place, the frame at the drawn size, the content clipped to it; `pop` scales uniformly. */
 export function drawRevealed(w: Drawn, drawn: Rect, target: Rect, pop = 1): void {
   const r = reveal(drawn, target);
   const pi = popIn(pop);

@@ -22,10 +22,11 @@ pnpm lab     # the motion lab on http://localhost:3060
 
 - `packages/motion`: the library (`@n-uf/motion` and its `/clock`, `/signals`,
   `/values`, `/gestures`, `/testing` and `/browser` entries).
-- `apps/lab`: a one-page lab (not published) for the window motion rules:
-  a small tiling stage moving by settle, hold and reveal, or by the springs,
-  stretch and drag spring they replace, with every move checked frame by
-  frame. "Run all scenarios" plays scripted moves in both modes;
+- `apps/lab`: a lab (not published) for the window motion rules, settle,
+  hold and reveal, on two pages: a tiling stage (master, dwindle, columns,
+  grid; drop indicator or snap to slot) and a desk (a toolbar between band,
+  columns and pinned; panel columns; opening documents). Every move is
+  checked frame by frame. "Run all scenarios" plays scripted moves;
   `window.__motionLab.runAll()` returns the results for a headless try.
 - Versions are calendar versions `YY.M.R`, as in hypr-tiling: `pnpm version:bump`.
 - Licensed under [PolyForm Perimeter 1.0.1](./LICENSE).

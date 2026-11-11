@@ -81,7 +81,7 @@ export function motionRows(ep: EpisodeRecord, omega: number, name: (id: number) 
       longest = s;
     }
   }
-  // Tempo: the proposed settle's 90 % time at the chosen tempo, on the longest move that finished.
+  // Tempo: the settle's 90 % time at the chosen tempo, on the longest move that finished.
   const t90 = (Math.log(10) / omega) * 1000;
   const tempo = longest ? checkTempo(longest.samples, longest.from, longest.to, t90, 0.25, longest.t0) : null;
   const tempoInfo = tempo?.t90 != null ? `90 % after ${Math.round(tempo.t90)} ms (${name(longest!.id)}, ${Math.round(longestSpan)} px; expected ${Math.round(t90)} ms)` : "";
