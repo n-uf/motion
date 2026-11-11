@@ -29,6 +29,7 @@ import {
   checkMonotonic,
   checkNoJumps,
   checkNoOvershoot,
+  checkTempo,
   type CheckResult,
   type HeldSample,
   type RectSample,
@@ -162,7 +163,8 @@ function setTarget(w: Win, to: Rect, how: How): void {
   const drawn = w.rect.value;
   w.target = { ...to };
   Object.assign(w.el.style, { left: `${to.x}px`, top: `${to.y}px`, width: `${to.width}px`, height: `${to.height}px` });
-  w.segment = { id: w.id, t0: time, from: { ...drawn }, to: { ...to }, samples: [] };
+  // The segment starts with the frame the move began on, so tempo counts from here.
+  w.segment = { id: w.id, t0: time, from: { ...drawn }, to: { ...to }, samples: [{ t: time, rect: { ...drawn } }] };
   episode?.segments.push(w.segment);
   if (mode === "proposed") {
     const settle = w.rect as Settle<Rect>;
@@ -245,6 +247,7 @@ function reset(count = 3): void {
     w.rect.jumpTo(at);
     draw(w);
   }
+  lastRows = [];
 }
 
 // --- actions -----------------------------------------------------------------
@@ -380,7 +383,7 @@ function onPointerDown(w: Win, e: PointerEvent): void {
 
 // --- the frame ---------------------------------------------------------------
 
-function draw(w: Win): ScaleSample {
+function draw(w: Win): void {
   const d = w.rect.value;
   const p = w.pop.value;
   const t = w.target;
@@ -394,7 +397,7 @@ function draw(w: Win): ScaleSample {
     w.frame.style.width = `${r.width}px`;
     w.frame.style.height = `${r.height}px`;
     w.content.style.clipPath = `inset(0 ${r.clipRight}px ${r.clipBottom}px 0)`;
-    return { t: time, a: pi.scale, d: pi.scale };
+    return;
   }
   const sx = t.width > 0 ? d.width / t.width : 1;
   const sy = t.height > 0 ? d.height / t.height : 1;
@@ -403,7 +406,18 @@ function draw(w: Win): ScaleSample {
   w.frame.style.width = `${t.width}px`;
   w.frame.style.height = `${t.height}px`;
   w.content.style.clipPath = "";
-  return { t: time, a: sx, d: sy };
+}
+
+/** What the page draws, read back from the DOM: the content's scale and the frame's rect in stage units. */
+function measure(w: Win): { scale: ScaleSample; frame: Rect } {
+  const css = getComputedStyle(w.el).transform;
+  const m = css && css !== "none" ? new DOMMatrixReadOnly(css) : new DOMMatrixReadOnly();
+  const s = stage.getBoundingClientRect();
+  const f = w.frame.getBoundingClientRect();
+  const k = STAGE_W / s.width;
+  // The stage has a 1 px border; its content box starts inside it.
+  const frame = { x: (f.left - s.left - stage.clientLeft) * k, y: (f.top - s.top - stage.clientTop) * k, width: f.width * k, height: f.height * k };
+  return { scale: { t: time, a: m.a, d: m.d }, frame };
 }
 
 function tick(frame: FrameInfo): boolean {
@@ -413,12 +427,14 @@ function tick(frame: FrameInfo): boolean {
   for (const w of [...wins]) {
     if (w.rect.step(dt)) moving = true;
     if (w.pop.step(dt)) moving = true;
-    const scale = draw(w);
+    draw(w);
     if (!episode) continue;
-    episode.scale.push(scale);
+    const seen = measure(w);
+    episode.scale.push(seen.scale);
     const drawn = w.rect.value;
     if (w === lifted) {
-      if (expected) episode.held.push({ t: time, rect: drawn, expected });
+      // Held: compare what the page shows with where the pointer puts the window.
+      if (expected) episode.held.push({ t: time, rect: seen.frame, expected });
     } else {
       w.runs.at(-1)!.push({ t: time, rect: drawn, target: w.rect.target });
       w.segment?.samples.push({ t: time, rect: drawn });
@@ -469,20 +485,18 @@ function endEpisode(): void {
       longest = s;
     }
   }
-  let tempoInfo = "no move";
-  if (longest) {
-    const s = longest;
-    const k = (["x", "y", "width", "height"] as const).reduce((a, b) => (Math.abs(s.to[b] - s.from[b]) > Math.abs(s.to[a] - s.from[a]) ? b : a));
-    const hit = s.samples.find((x) => (x.rect[k] - s.from[k]) / (s.to[k] - s.from[k]) >= 0.9);
-    tempoInfo = hit ? `90 % after ${Math.round(hit.t - s.t0)} ms (window ${s.id}, ${Math.round(longestSpan)} px)` : "never reached 90 %";
-  }
+  // Tempo: the proposed settle's 90 % time at the chosen tempo, on the longest move that finished.
+  const t90 = (Math.log(10) / omega()) * 1000;
+  const tempo = longest ? checkTempo(longest.samples, longest.from, longest.to, t90, 0.25, longest.t0) : null;
+  const tempoInfo = tempo?.t90 != null ? `90 % after ${Math.round(tempo.t90)} ms (window ${longest!.id}, ${Math.round(longestSpan)} px; expected ${Math.round(t90)} ms)` : "";
   lastRows = [
+    { name: "Something moved", result: { ok: segs.length > 0, failures: segs.length > 0 ? [] : ["no move was recorded"] } },
     { name: "No overshoot (position and size)", result: merge(segs.map((s) => label(s, checkNoOvershoot(s.samples, s.from, s.to)))) },
     { name: "Settles from one side (monotonic)", result: merge(segs.map((s) => label(s, checkMonotonic(s.samples, s.to)))) },
     { name: "No jumps or restarts", result: merge(ep.runs.map((run) => checkNoJumps(run, omega()))) },
     { name: "Content never stretched", result: checkContentScale(ep.scale) },
     { name: "Held 1:1 under the pointer", result: ep.held.length > 0 ? checkHeld(ep.held) : null },
-    { name: "Tempo of the longest move", result: null, info: tempoInfo },
+    { name: "Tempo of the longest move", result: tempo, info: tempoInfo },
   ];
   renderChecks(lastRows);
   renderTrace(ep.t0, segs);
@@ -495,7 +509,8 @@ function renderChecks(rows: readonly Row[]): void {
   checksBody.replaceChildren(
     ...rows.map((row) => {
       const tr = document.createElement("tr");
-      const status = row.result === null ? (row.info ?? "not exercised") : row.result.ok ? "pass" : `fail (${row.result.failures.length})`;
+      const verdict = row.result === null ? "not exercised" : row.result.ok ? "pass" : `fail (${row.result.failures.length})`;
+      const status = row.info ? `${verdict} · ${row.info}` : verdict;
       const cls = row.result === null ? "" : row.result.ok ? "ok" : "bad";
       tr.innerHTML = `<td></td><td class="${cls}"></td><td></td>`;
       tr.children[0]!.textContent = row.name;
