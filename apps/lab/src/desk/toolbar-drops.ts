@@ -14,6 +14,7 @@
 import type { Rect } from "@n-uf/motion";
 import type { DropTarget, TargetInput } from "./drops";
 import { G, isDocKey, rect, type Options } from "./model";
+import { pillSwapTargets } from "./toolbar-frame";
 
 /** The key of the toolbar item. */
 export const TOOLBAR = "toolbar";
@@ -66,10 +67,12 @@ export function toolbarTargets({ c, s0, size, opt }: TargetInput): DropTarget[] 
     "toolbar:bottom-overlay": rect(span.x, mid, span.width, fy1 - mid),
     "toolbar:bottom-reserved": bottomBand,
   };
-  return TOOLBAR_TARGETS.filter((m) => hits[m.id]!.height > 0).map((m) => ({
+  const modes: DropTarget[] = TOOLBAR_TARGETS.filter((m) => hits[m.id]!.height > 0).map((m) => ({
     id: m.id,
     prio: m.toolbarSpace === "reserved" ? 2 : 3,
     hit: hits[m.id]!,
     make: () => ({ state: s0, opt: { ...opt, toolbar: m.toolbar, toolbarSpace: m.toolbarSpace }, label: `Toolbar: ${m.label}`, key: m.id }),
   }));
+  // The left and right edges: the toolbar swaps its groups with the side toolbar there (toolbar groups).
+  return [...modes, ...pillSwapTargets({ c, s0, size, opt, key: TOOLBAR })];
 }

@@ -83,7 +83,8 @@ main.wide { max-width: 1712px; }
  * The desk's look: one neutral app palette. Panels, documents and the toolbar share the panel surface; a floating
  * panel is the same panel lifted (a soft shadow, a slightly lighter edge). The only loud colour is the drop target.
  */
-.stage.desk {
+.stage.desk,
+.deskwin {
   --d-desk: #e9ebef;
   --d-panel: #ffffff;
   --d-sunken: #f4f5f7;
@@ -104,7 +105,8 @@ main.wide { max-width: 1712px; }
   --d-title: 22px;
 }
 @media (prefers-color-scheme: dark) {
-  .stage.desk {
+  .stage.desk,
+  .deskwin {
     --d-desk: #121316;
     --d-panel: #1e2024;
     --d-sunken: #191a1e;
@@ -307,3 +309,65 @@ main.wide { max-width: 1712px; }
 .stage.desk .win.chrome .tab[aria-pressed="true"] { background: var(--d-panel); color: var(--d-ink); font-weight: 600; }
 .stage.desk .win.chrome[data-look="track"] .frame { background: color-mix(in srgb, var(--d-edge) 60%, transparent); border: 0; border-radius: 3px; }
 .stage.desk .win.chrome[data-look="thumb"] .frame { background: var(--d-muted); border: 0; border-radius: 3px; opacity: 0.6; }
+
+/*
+ * The window frame and its toolbar groups (desk/toolbar-frame.ts): a title bar over the stage, a bottom and two side
+ * toolbars around it; groups placed (and glided) by script, laid out at their target size and clipped while they grow.
+ */
+.deskwin { position: relative; color: var(--d-ink); }
+.deskwin .tf-bar { position: absolute; z-index: 20; overflow: hidden; background: var(--d-sunken); border: 1px solid var(--d-edge); box-sizing: border-box; }
+.deskwin .tf-bar.gone { visibility: hidden; }
+.deskwin .tf-title { border-radius: 10px 10px 0 0; border-bottom: 0; }
+.deskwin .tf-bottom { border-radius: 0 0 10px 10px; border-top: 0; }
+.deskwin .tf-left { border-right: 0; }
+.deskwin .tf-right { border-left: 0; }
+.deskwin .tf-bottom.floating { border: 1px solid var(--d-edge-lifted); border-radius: 999px; background: var(--d-panel); box-shadow: var(--d-shadow); }
+.deskwin .tf-bar.tf-lifted { outline: 2px dashed var(--drop); outline-offset: -3px; }
+.deskwin .tf-controls { position: absolute; left: 14px; top: 50%; margin-top: -6px; display: flex; gap: 7px; }
+.deskwin .tf-controls i { width: 12px; height: 12px; border-radius: 50%; background: var(--d-edge); }
+.deskwin .tf-grip { position: absolute; left: 3px; top: 50%; margin-top: -11px; width: 16px; height: 22px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--d-muted); cursor: grab; z-index: 1; }
+.deskwin .tf-bar.v .tf-grip { left: 50%; top: 3px; margin: 0 0 0 -11px; width: 22px; height: 16px; transform: rotate(90deg); }
+.deskwin .tf-grip:hover { background: var(--d-hover); color: var(--d-ink); }
+.deskwin .tf-grip:focus-visible, .deskwin .tg-handle:focus-visible { outline: 2px solid var(--d-accent); outline-offset: 1px; }
+.deskwin .tg-host { position: relative; }
+.deskwin .tg-measure { position: absolute; left: -9999px; top: 0; visibility: hidden; }
+.deskwin .tg-measure .tgroup { position: static; display: inline-block; }
+.deskwin .tg-measure .tgroup .tg-in { width: auto; height: auto; }
+
+.deskwin .tgroup { position: absolute; left: 0; top: 0; transform-origin: 0 0; transition: opacity 120ms ease-out; cursor: grab; }
+.deskwin .tgroup.folded { opacity: 0; pointer-events: none; }
+.deskwin .tgroup.tg-away { visibility: hidden; }
+.deskwin .tg-in { display: flex; align-items: center; gap: 2px; width: 100%; height: 100%; padding: 1px 3px 1px 2px; box-sizing: border-box; white-space: nowrap; border: 1px solid var(--d-hair); border-radius: 7px; background: var(--d-panel); }
+.deskwin .tgroup.v .tg-in { flex-direction: column; padding: 2px 1px 3px; }
+.deskwin .tg-handle { flex: none; width: 5px; align-self: stretch; margin: 3px 1px 3px 0; border-radius: 3px; background: repeating-linear-gradient(0deg, var(--d-edge) 0 2px, transparent 2px 4px); }
+.deskwin .tgroup.v .tg-handle { width: auto; height: 5px; margin: 0 3px 1px; background: repeating-linear-gradient(90deg, var(--d-edge) 0 2px, transparent 2px 4px); }
+.deskwin .tgroup .tb-cell { flex: none; min-width: 26px; height: 26px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--d-ink-2); cursor: pointer; font: inherit; font-size: 13px; }
+.deskwin .tgroup .tb-cell:hover { background: var(--d-hover); color: var(--d-ink); }
+.deskwin .tgroup .tg-word { padding: 0 7px; font-size: 12px; font-weight: 600; }
+.deskwin .tgroup .tg-word .i { display: none; }
+.deskwin .tgroup.v .tg-word { padding: 0; }
+.deskwin .tgroup.v .tg-word .t { display: none; }
+.deskwin .tgroup.v .tg-word .i { display: inline; font-size: 14px; }
+.deskwin .tg-doc { display: flex; align-items: center; gap: 8px; padding: 0 6px 0 3px; font-size: 12.5px; font-weight: 600; }
+.deskwin .tg-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--d-accent); }
+.deskwin .tg-page { font: 11px ui-monospace, monospace; color: var(--d-muted); }
+.deskwin .tgroup.v .tg-doc { flex-direction: column; gap: 5px; padding: 4px 0; }
+.deskwin .tgroup.v .tg-name { display: none; }
+.deskwin .tgroup.v .tg-page { writing-mode: vertical-rl; }
+.deskwin .tg-zoom { font: 11px ui-monospace, monospace; color: var(--d-muted); padding: 0 2px; }
+.deskwin .tgroup.v .tg-zoom { font-size: 9px; padding: 2px 0; }
+.deskwin .tg-badge { display: none; font-size: 10.5px; font-weight: 700; color: #fff; background: var(--d-accent); border-radius: 999px; padding: 1px 5px; margin: 0 2px 0 0; }
+.deskwin .tgroup.badged .tg-badge { display: inline-block; }
+.deskwin .tgroup.v.badged .tg-badge { margin: 0 0 2px; }
+
+.deskwin .tg-layer { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+.deskwin .tg-ghost { z-index: 2; box-shadow: var(--d-lift); border-radius: 7px; cursor: grabbing; }
+.deskwin .tg-strip { position: absolute; opacity: 0; border-radius: 6px; background: repeating-linear-gradient(45deg, transparent 0 6px, color-mix(in srgb, var(--d-muted) 22%, transparent) 6px 12px); outline: 1px dashed color-mix(in srgb, var(--d-muted) 50%, transparent); outline-offset: -1px; transition: opacity 120ms; }
+.deskwin .tg-strip.on { opacity: 1; }
+.deskwin .tg-ind { position: absolute; z-index: 3; opacity: 0; background: var(--drop); border-radius: 2px; transition: opacity 90ms, left 110ms cubic-bezier(0.2, 0.8, 0.2, 1), top 110ms cubic-bezier(0.2, 0.8, 0.2, 1), width 110ms, height 110ms; }
+.deskwin .tg-ind.area { background: color-mix(in srgb, var(--drop) 14%, transparent); border: 2px solid var(--drop); border-radius: 8px; box-sizing: border-box; }
+.deskwin .tg-ind.on { opacity: 1; }
+.deskwin .tg-ind-label { position: absolute; z-index: 4; opacity: 0; padding: 2px 8px; border-radius: 999px; background: var(--drop); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; transition: opacity 90ms; }
+.deskwin .tg-ind-label.on { opacity: 1; }
+#toolbar-cases { display: flex; flex-wrap: wrap; gap: 4px; }
+#toolbar-cases button[aria-pressed="true"] { outline: 2px solid var(--d-accent, #3a6fd8); }
