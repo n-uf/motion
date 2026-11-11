@@ -1,0 +1,70 @@
+/* Window motion: charts with moving lanes, and the stretch-versus-reveal frames. */
+.motionfig { --stage-h: 600px; }
+.motionfig .stage-wrap { background: var(--bg-raised); }
+#stage { padding: var(--s5); container-type: inline-size; }
+@media (max-width: 900px) { .motionfig .stage-wrap { height: auto; overflow: visible; } }
+@media (max-width: 640px) { #stage { padding: var(--s4); } }
+
+.shead { display: flex; gap: var(--s4); align-items: flex-start; margin-bottom: var(--s5); }
+.shead > div { min-width: 0; }
+.shead .stitle { margin: 0 0 4px; font-size: var(--t-md); font-weight: 650; letter-spacing: -0.01em; color: var(--text); }
+.shead p { margin: 0; color: var(--text-2); font-size: var(--t-sm); max-width: 72ch; }
+.shead .btn { flex: none; margin-left: auto; }
+
+.sbody { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
+@container (min-width: 600px) { .sbody.two { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); } }
+.chart { min-width: 0; }
+.chart svg { display: block; width: 100%; height: auto; font-family: var(--font-sans); }
+.chart .axis { fill: var(--text-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .axis.small { font-size: 10.5px; }
+
+.lanes { align-self: start; display: grid; gap: 12px; }
+.lane { min-width: 0; }
+.lname { display: flex; gap: 8px; align-items: baseline; margin-bottom: 5px; font-size: var(--t-xs); line-height: 1.3; }
+.lname > span:last-child { color: var(--text); }
+.lname .sw { flex: none; display: inline-block; width: 18px; height: 0; border-top: 2.5px solid currentColor; transform: translateY(-3px); }
+.lname .sw.dash { border-top-style: dashed; }
+.lname .sw.dot { border-top-style: dotted; }
+.lname .sw.pt { width: 9px; height: 9px; border: 0; border-radius: 50%; background: currentColor; transform: translateY(-0.5px); margin: 0 4.5px; }
+.track { position: relative; height: 14px; border-radius: 7px; background: var(--bg-sunken); box-shadow: inset 0 0 0 1px var(--line); }
+.tick { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 1px dashed var(--line-3); }
+.blk { position: absolute; top: 0; left: 0; width: 14px; height: 14px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 2px var(--bg-raised); }
+
+/* Frames: everything in container units, so a scene scales with its cell (240 units wide). */
+.cell { container-type: inline-size; min-width: 0; }
+.scene { position: relative; height: 30.8cqw; border: 1px dashed var(--line-2); border-radius: var(--r-sm); overflow: hidden; background: var(--bg-subtle); }
+.w { position: absolute; left: 0; top: 0; height: 100%; overflow: hidden; background: var(--bg-raised); border: 1.5px solid var(--accent); border-radius: var(--r-sm); }
+.w .c { position: absolute; left: 0; top: 0; padding: 2.5cqw 3.3cqw; font-size: 5cqw; line-height: 1.35; white-space: nowrap; color: var(--text); transform-origin: 0 0; }
+.w .c b { display: block; font-size: 4.6cqw; color: var(--accent-strong); }
+.w.reveal { background: repeating-linear-gradient(135deg, var(--bg-sunken) 0 3px, var(--bg-subtle) 3px 6px); }
+.w.reveal .c { height: 100%; background: var(--bg-raised); box-shadow: 1px 0 0 var(--line-2); }
+.scene.now { border-style: solid; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.cap { margin-top: 5px; font-family: var(--font-mono); font-size: 11px; color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fh { margin: 0 0 6px; font-size: var(--t-xs); font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); }
+.live { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 320px)); gap: var(--s5); }
+.snaps { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px 12px; }
+@container (min-width: 440px) { .snaps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (min-width: 700px) { .snaps { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.snaps .fh { grid-column: 1 / -1; margin: 10px 0 0; }
+
+/* The rules: one row per rule (its own h2), four engines side by side; on a phone each engine is labelled. */
+.engines { border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); box-shadow: var(--shadow-1); overflow: clip; }
+.engines-head, .engine-rule { display: grid; grid-template-columns: minmax(0, 11rem) repeat(4, minmax(0, 1fr)); gap: 0 var(--s4); padding: 12px var(--s4); }
+.engines-head { background: var(--bg-subtle); border-bottom: 1px solid var(--line); font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.engines-head span:last-child { color: var(--accent); }
+.engine-rule + .engine-rule { border-top: 1px solid var(--line); }
+.engine-rule h2 { margin: 0; font-size: var(--t-sm); font-weight: 620; line-height: 1.5; letter-spacing: 0; }
+.engine-rule dl { display: contents; margin: 0; }
+.engine-rule dl > div { min-width: 0; }
+.engine-rule dt { display: none; }
+.engine-rule dd { margin: 0; font-size: var(--t-sm); line-height: 1.5; color: var(--text-2); }
+.engine-rule .h dd { color: color-mix(in srgb, var(--series-a) 80%, var(--text)); }
+.engine-rule .bad dd { color: color-mix(in srgb, var(--series-b) 85%, var(--text)); }
+.engine-rule .good dd { color: var(--accent-strong); font-weight: 560; }
+@media (max-width: 900px) {
+  .engines-head { display: none; }
+  .engine-rule { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: var(--s4); }
+  .engine-rule dl { display: grid; gap: 6px; }
+  .engine-rule dl > div { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: var(--s3); }
+  .engine-rule dt { display: block; font-size: var(--t-xs); color: var(--text-3); }
+}
