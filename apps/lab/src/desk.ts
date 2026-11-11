@@ -291,6 +291,8 @@ function glideTo(it: Item, r: Rect): void {
   if (!same(it.target, r)) {
     it.target = { ...r };
     layOut(it, r);
+    // Redrawn at once for the new layout box, so no frame shows the old offset from the new box.
+    draw(it);
   }
   if (same(it.rect.target, r)) return;
   const drawn = it.rect.value;
@@ -677,6 +679,9 @@ function setTarget(it: Item, to: Rect): void {
   const drawn = it.rect.value;
   it.target = { ...to };
   layOut(it, to);
+  // The element is laid out at the new place now; redraw it at once at the drawn rect, else until the next frame's
+  // draw it would show the old offset from the new place (a dropped item would flash far from where it was let go).
+  draw(it);
   it.segment = { id: it.uid, t0: time, from: { ...drawn }, to: { ...to }, samples: [{ t: time, rect: { ...drawn } }] };
   episode?.segments.push(it.segment);
   it.rect.configure({ omega: omega() });
@@ -1190,7 +1195,10 @@ async function playPath(key: string, path: (grip: Point) => readonly PathKey[], 
     if (t >= total) break;
   }
   endDrag();
-  return { log: [...dragLog], frames: [...dragFrames], snaps: [...snapLog], atRelease, grab, landed: lastLanding };
+  // What the page shows right after the release, before any frame: where the landing motion starts.
+  const after = itemOf(key);
+  const landingFrom = after ? measure(after).frame : null;
+  return { log: [...dragLog], frames: [...dragFrames], snaps: [...snapLog], atRelease, landingFrom, grab, landed: lastLanding };
 }
 
 /** The point on a keyframed path at `t` ms (linear between keyframes). */
