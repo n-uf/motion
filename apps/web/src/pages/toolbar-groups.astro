@@ -1,0 +1,67 @@
+---
+import Site from "../layouts/Site.astro";
+import CaseRail from "../components/CaseRail.astro";
+import { pageOf } from "../data/pages";
+import { webPage, breadcrumbs, orgNode } from "../data/schema";
+import { CASES, windowHTML } from "../demos/toolbar";
+import "../styles/toolbar-groups.css";
+
+const path = "/toolbar-groups/";
+const page = pageOf(path);
+const jsonLd = [
+  webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`) }),
+  breadcrumbs([{ name: "Home", path: "/" }, { name: page.nav, path }]),
+  orgNode,
+];
+const RULES: [string, string][] = [
+  ["What carries a handle?", "Every group of two or more controls has exactly one: compact dots (one line of 3), at its left edge in a row, on its top edge, centred, in a column. The window's title bar has the full glyph (2×3) at its left edge. A toolbar (the slot) and a lone control have none."],
+  ["How do you tell which group a handle leads?", "It sits at the start of its group, 3 px from its controls and 12 px from the previous group; pointing at it or focusing it dims every other group. No frames, bands, tints or divider lines."],
+  ["What can the handle do?", "Drag: move the group. Double-click: collapse to handle + » (or expand). Right-click, long-press or Shift+F10: its menu (Collapse, Move to ›, Float/Dock, Move this bar's groups to ›, Reset position). No ⋯, ⋮ or ▾ buttons anywhere."],
+  ["Where can a group go?", "Five slots × three zones; before all, after all or between. Over the document it floats: the same group, plus a frame and shadow. On a side its controls stack and text labels become icons."],
+  ["Whole toolbars to a side?", "Move a bar's groups together from any of their menus (\"Move this bar's groups to › Left edge\"); there is no toolbar handle."],
+  ["Running out of room", "Toolbars never wrap: groups collapse to handle + » from the trailing end; clicking » shows the hidden controls."],
+  ["Empty slots", "Take no space; while dragging they show as drop strips."],
+  ["Frozen layout", "The lock switch freezes or unfreezes the layout. Frozen, the grips disappear (nothing can move, so nothing invites a drag). Holding Alt brings them back, working, for as long as it is held."],
+  ["Dropping", "An indicator only once you aim, the nearest insertion point in the slot under the pointer, held at borders; the drop lands where it shows. Escape puts the group back."],
+  ["Keyboard", "Tab focuses handles; Shift+F10 opens the menu; Enter or Space collapses; arrow keys move the group to the next slot; Esc cancels."],
+];
+---
+<Site title={page.title} description={page.description} path={path} headline="One handle per group, and it is the separator." jsonLd={jsonLd} ogImage="/og/toolbar-groups.png">
+  <p class="lead" slot="lead">This page shows toolbar groups with one drag handle each. Commands come in groups: document, tools, view, zoom, panels, export, share. A group docks into five slots (the title bar, a top or bottom toolbar, the left or right edge, where it turns vertical), each with a start, centre and end zone; dropped over the document, it floats. Drag a handle to move its group, double-click it to collapse the group to handle + », right-click it or press <kbd>Shift</kbd> <kbd>F10</kbd> for its menu. There are no frames, dividers or ⋯ buttons, and a toolbar is only a slot.</p>
+
+  <figure class="figure tbfig" id="figure" aria-label="Toolbar groups: a sample window whose groups you can drag, collapse and float">
+    <div class="figure-bar">
+      <label class="lock" id="lock" title="Freeze or unfreeze the layout">
+        <input type="checkbox" class="switch" id="freeze" role="switch" aria-label="Freeze layout" />
+        <svg class="ico open" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 4.9-.7"/></svg>
+        <svg class="ico shut" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+        <span class="state"><span class="off">Layout unlocked</span><span class="onn">Layout frozen</span></span>
+        <span class="lockhint">hold <kbd>Alt</kbd> to move</span>
+      </label>
+      <span class="spacer"></span>
+      <span class="note">Point at a handle: the other groups dim. While you drag, empty slots show as hatched strips.</span>
+    </div>
+    <div class="figure-body">
+      <CaseRail id="cases" label="Cases" items={CASES} />
+      <div class="stage-wrap"><div id="win" set:html={windowHTML(CASES[0]!.m)} /></div>
+    </div>
+    <figcaption class="figure-foot"><span class="status" id="status" role="status">{CASES[0]!.note}</span><span class="hint"><kbd>Esc</kbd> puts a dragged group back</span></figcaption>
+  </figure>
+  <div id="indlabel" aria-hidden="true"></div>
+
+  <section class="section">
+    <div class="section-head">
+      <span class="eyebrow">The rules</span>
+      <p class="section-title">What the handle does, and where a group can go</p>
+    </div>
+    <div class="rules two">
+      {RULES.map(([q, r]) => <div class="rule"><h2>{q}</h2><p>{r}</p></div>)}
+    </div>
+    <p class="aside">How the drop finds its target is the <a href="/drag-intent/">drag-intent model</a>; how a group glides into place is the <a href="/window-motion/">settle curve</a>.</p>
+  </section>
+</Site>
+
+<script>
+  import { whenVisible } from "../islands/rail";
+  whenVisible(document.getElementById("figure")!, () => void import("../islands/toolbar-groups"));
+</script>
