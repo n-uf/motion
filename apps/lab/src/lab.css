@@ -40,6 +40,8 @@ fieldset { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px;
 .win .title { height: 26px; padding: 4px 8px; font-weight: 600; font-size: 12px; cursor: grab; user-select: none; white-space: nowrap; }
 .win .body { padding: 6px 8px; font-size: 12px; color: var(--muted); white-space: nowrap; }
 .win.lifted { z-index: 5; }
+/* The focused window: a new window in dwindle splits it; Close closes it. */
+.win.focused .frame { border-width: 2.5px; border-color: var(--ok); }
 .win.lifted .title { cursor: grabbing; }
 .hint { position: absolute; border: 2px dashed var(--win-edge); border-radius: 6px; pointer-events: none; z-index: 4; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }

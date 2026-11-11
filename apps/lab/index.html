@@ -40,12 +40,13 @@
         <fieldset>
           <legend>Drop preview while dragging</legend>
           <label><input type="radio" name="drop" value="indicator" checked /> Drop indicator (window under the pointer, slot outlined)</label>
-          <label><input type="radio" name="drop" value="snap" /> Snap to slot (window glides into the slot under the pointer)</label>
+          <label><input type="radio" name="drop" value="snap" /> Snap to slot (window glides into the slot under the pointer, the others make room)</label>
+          <label><input type="checkbox" id="make-room" /> Drop indicator: others make room too (live reorder)</label>
         </fieldset>
         <fieldset>
           <legend>Do</legend>
-          <button type="button" data-act="open">Open a window</button>
-          <button type="button" data-act="close">Close the last</button>
+          <button type="button" data-act="open">Open a window (splits the focused one in dwindle)</button>
+          <button type="button" data-act="close">Close the focused</button>
           <button type="button" data-act="swap">Swap first two</button>
           <button type="button" data-act="maximize">Maximize / restore</button>
           <button type="button" data-act="double">Two changes 40 ms apart</button>

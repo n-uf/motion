@@ -91,7 +91,18 @@ let maxId: number | null = null;
 let lifted: Win | null = null;
 let grab = { x: 0, y: 0 };
 let expected: Rect | null = null;
-let dropIndex = 0;
+/**
+ * A place the lifted window could land: its slot, the whole layout with it there (so the others can make
+ * room), and how to commit it. `key` names it across pointer moves.
+ */
+interface Drop {
+  readonly key: string;
+  readonly slot: Rect;
+  readonly layout: Map<number, Rect>;
+  commit(): void;
+}
+/** Where the lifted window would land now. */
+let drop: Drop | null = null;
 /** Where the pointer is, in stage units, while dragging. */
 let pointer = { x: 0, y: 0 };
 /** The lifted window's size when it was picked up: it keeps it while it follows the pointer. */
@@ -104,8 +115,21 @@ let liftSize = { width: 0, height: 0 };
  */
 type DropMode = "indicator" | "snap";
 let dropMode: DropMode = "indicator";
-/** In snap mode: the slot index the window is snapped into, or null while it follows the pointer. */
-let snapped: number | null = null;
+/** Indicator mode only, opt-in: the others make room at the slot the indicator marks (live reorder). */
+let indicatorMakesRoom = false;
+/** This drag has laid the others out around the marked slot at least once. */
+let roomShown = false;
+
+/** Where the lifted window is previewed in the layout (the others make room there), or null. */
+function roomAt(): Drop | null {
+  if (!lifted) return null;
+  if (dropMode === "snap") return snapped;
+  return indicatorMakesRoom ? drop : null;
+}
+/** In snap mode: the drop the window is snapped into, or null while it follows the pointer. */
+let snapped: Drop | null = null;
+/** The focused window: a new window splits it (dwindle). Set by a click, an open or a drop. */
+let focusId: number | null = null;
 /** How far inside a slot the pointer must be to snap into it (it stays snapped until the pointer leaves the slot). */
 const SNAP_IN = 24;
 /** The window kept above all others: the one being dragged, and after the drop until it has settled. */
@@ -122,6 +146,8 @@ let episode: {
   held: HeldSample[];
   /** Per frame of the raised window: null when nothing covered it, else what did. */
   onTop: (string | null)[];
+  /** Snap mode, per frame while snapped: null when no settled window overlaps the slot, else which does. */
+  room: (string | null)[];
   /** The motion and drop preview this move ran with. */
   mode: Mode;
   drop: DropMode;
@@ -139,33 +165,109 @@ const same = (a: Rect, b: Rect): boolean =>
 type LayoutKind = "master" | "dwindle" | "columns" | "grid";
 let layoutKind: LayoutKind = "master";
 
+/** The order layouts (master, columns, grid): a list of ids in, a rect per id out. */
 function layout(ids: readonly number[]): Map<number, Rect> {
-  if (layoutKind === "dwindle") return dwindle(ids);
   if (layoutKind === "columns") return columns(ids);
   if (layoutKind === "grid") return grid(ids);
   return masterStack(ids);
 }
 
-/** Dwindle (Hyprland's default): each window takes half of what is left, split along the longer side. */
-function dwindle(ids: readonly number[]): Map<number, Rect> {
-  const out = new Map<number, Rect>();
-  let r: Rect = { x: GAP, y: GAP, width: STAGE_W - 2 * GAP, height: STAGE_H - 2 * GAP };
-  ids.forEach((id, i) => {
-    if (i === ids.length - 1) {
-      out.set(id, r);
-      return;
-    }
-    if (r.width >= r.height) {
-      const w = (r.width - GAP) / 2;
-      out.set(id, { x: r.x, y: r.y, width: w, height: r.height });
-      r = { x: r.x + w + GAP, y: r.y, width: w, height: r.height };
-    } else {
-      const h = (r.height - GAP) / 2;
-      out.set(id, { x: r.x, y: r.y, width: r.width, height: h });
-      r = { x: r.x, y: r.y + h + GAP, width: r.width, height: h };
-    }
-  });
+/**
+ * Dwindle (Hyprland's default) is a split tree: a new window splits the focused one in two, along its
+ * longer side, and a closed window's sibling takes its parent's place. A drop splits the window under
+ * the pointer, on the pointer's side.
+ */
+type Tree = { readonly leaf: number } | { readonly a: Tree; readonly b: Tree };
+let tree: Tree | null = null;
+
+function layoutTree(node: Tree | null, r: Rect = FULL_AREA(), out = new Map<number, Rect>()): Map<number, Rect> {
+  if (!node) return out;
+  if ("leaf" in node) {
+    out.set(node.leaf, r);
+    return out;
+  }
+  if (r.width >= r.height) {
+    const w = (r.width - GAP) / 2;
+    layoutTree(node.a, { x: r.x, y: r.y, width: w, height: r.height }, out);
+    layoutTree(node.b, { x: r.x + w + GAP, y: r.y, width: w, height: r.height }, out);
+  } else {
+    const h = (r.height - GAP) / 2;
+    layoutTree(node.a, { x: r.x, y: r.y, width: r.width, height: h }, out);
+    layoutTree(node.b, { x: r.x, y: r.y + h + GAP, width: r.width, height: h }, out);
+  }
   return out;
+}
+
+const leafIds = (node: Tree | null): number[] => (!node ? [] : "leaf" in node ? [node.leaf] : [...leafIds(node.a), ...leafIds(node.b)]);
+
+/** `node` with leaf `target` split in two: the new window first (left/top) or second (right/bottom). */
+function splitLeaf(node: Tree | null, target: number | null, id: number, first: boolean): Tree {
+  const fresh: Tree = { leaf: id };
+  if (!node) return fresh;
+  if ("leaf" in node) {
+    if (node.leaf !== target) return node;
+    return first ? { a: fresh, b: node } : { a: node, b: fresh };
+  }
+  return { a: splitLeaf(node.a, target, id, first), b: splitLeaf(node.b, target, id, first) };
+}
+
+function removeLeaf(node: Tree | null, id: number): Tree | null {
+  if (!node) return null;
+  if ("leaf" in node) return node.leaf === id ? null : node;
+  const a = removeLeaf(node.a, id);
+  const b = removeLeaf(node.b, id);
+  return a && b ? { a, b } : (a ?? b);
+}
+
+function swapLeaves(node: Tree | null, x: number, y: number): Tree | null {
+  if (!node) return null;
+  if ("leaf" in node) return node.leaf === x ? { leaf: y } : node.leaf === y ? { leaf: x } : node;
+  return { a: swapLeaves(node.a, x, y)!, b: swapLeaves(node.b, x, y)! };
+}
+
+/** A dwindle tree for `ids` as if each had been opened with the one before it focused. */
+function treeFromOrder(ids: readonly number[]): Tree | null {
+  let t: Tree | null = null;
+  ids.forEach((id, i) => {
+    t = splitLeaf(t, i > 0 ? ids[i - 1]! : null, id, false);
+  });
+  return t;
+}
+
+/** The whole layout now: the tree in dwindle, the order elsewhere. */
+function baseLayout(): Map<number, Rect> {
+  return layoutKind === "dwindle" ? layoutTree(tree) : layout(order);
+}
+
+/** Every place the lifted window `id` could land (the tree or order without it). */
+function drops(id: number): Drop[] {
+  if (layoutKind === "dwindle") {
+    if (!tree) {
+      const t: Tree = { leaf: id };
+      return [{ key: "root", slot: FULL_AREA(), layout: layoutTree(t), commit: () => setTree(t) }];
+    }
+    return leafIds(tree).flatMap((target) =>
+      [true, false].map((first) => {
+        const t = splitLeaf(tree, target, id, first);
+        const map = layoutTree(t);
+        return { key: `${target}:${first ? "a" : "b"}`, slot: map.get(id)!, layout: map, commit: () => setTree(t) };
+      }),
+    );
+  }
+  return Array.from({ length: order.length + 1 }, (_, i) => {
+    const ids = [...order.slice(0, i), id, ...order.slice(i)];
+    const map = layout(ids);
+    return { key: String(i), slot: map.get(id)!, layout: map, commit: () => order.splice(i, 0, id) };
+  });
+}
+
+function setTree(t: Tree | null): void {
+  tree = t;
+  order = leafIds(t);
+}
+
+function FULL_AREA(): Rect {
+  return { x: GAP, y: GAP, width: STAGE_W - 2 * GAP, height: STAGE_H - 2 * GAP };
 }
 
 /** Equal columns, full height. */
@@ -217,7 +319,7 @@ const FULL: Rect = { x: GAP, y: GAP, width: STAGE_W - 2 * GAP, height: STAGE_H -
 
 function startEpisode(): void {
   if (episode) return;
-  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], mode, drop: dropMode };
+  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], mode, drop: dropMode };
   for (const w of wins) {
     w.runs = [[]];
     episode.runs.push(...w.runs);
@@ -271,14 +373,19 @@ function setTarget(w: Win, to: Rect, how: How): void {
   w.rect.setTarget(to);
 }
 
+/**
+ * Every window in the order glides to its place. While a window is snapped into a slot (snap mode), the
+ * others make room for it: they take their places in the layout with it inserted at that slot.
+ */
 function relayout(morphId: number | null = null): void {
-  const slots = layout(order);
+  const slots = roomAt()?.layout ?? baseLayout();
   for (const id of order) {
     const w = wins.find((x) => x.id === id)!;
     const to = id === maxId ? FULL : slots.get(id)!;
     setTarget(w, to, id === morphId ? "morph" : "layout");
     w.el.style.zIndex = w === raised ? Z_RAISED : id === maxId ? "3" : "1";
   }
+  for (const w of wins) w.el.classList.toggle("focused", w.id === focusId);
 }
 
 function makeWin(at: Rect): Win {
@@ -309,6 +416,8 @@ function makeWin(at: Rect): Win {
   };
   Object.assign(el.style, { left: `${at.x}px`, top: `${at.y}px`, width: `${at.width}px`, height: `${at.height}px` });
   content.querySelector(".title")!.addEventListener("pointerdown", (e) => onPointerDown(w, e as PointerEvent));
+  // A press anywhere on a window focuses it (a new window in dwindle splits the focused one).
+  el.addEventListener("pointerdown", () => focus(w.id));
   wins.push(w);
   draw(w);
   return w;
@@ -327,8 +436,11 @@ function reset(count = 3): void {
     const w = makeWin(FULL);
     order.push(w.id);
   }
-  const slots = layout(order);
+  tree = treeFromOrder(order);
+  focusId = order.at(-1) ?? null;
+  const slots = baseLayout();
   for (const w of wins) {
+    w.el.classList.toggle("focused", w.id === focusId);
     const at = slots.get(w.id)!;
     w.target = { ...at };
     Object.assign(w.el.style, { left: `${at.x}px`, top: `${at.y}px`, width: `${at.width}px`, height: `${at.height}px` });
@@ -343,35 +455,59 @@ function reset(count = 3): void {
 /** More windows than this make slots too small to see the motion (and dwindle's sizes run out). */
 const MAX_WINDOWS = 8;
 
+function focus(id: number | null): void {
+  focusId = id;
+  for (const w of wins) w.el.classList.toggle("focused", w.id === focusId);
+}
+
+/** A new window: in dwindle it splits the focused window (to its right or below); elsewhere it joins the end. */
 function doOpen(): void {
   if (order.length >= MAX_WINDOWS) return;
-  const slots = layout([...order, nextId]);
-  const at = slots.get(nextId)!;
+  const id = nextId;
+  const target = focusId !== null && order.includes(focusId) ? focusId : (order.at(-1) ?? null);
+  const nextTree = layoutKind === "dwindle" ? splitLeaf(tree, target, id, false) : null;
+  const at = (nextTree ? layoutTree(nextTree) : layout([...order, id])).get(id)!;
   const w = makeWin(at);
   w.pop.jumpTo(0);
   ensureLoop();
   newRun(w);
   w.pop.setTarget(1);
-  order.push(w.id);
+  if (nextTree) setTree(nextTree);
+  else {
+    order.push(w.id);
+    tree = treeFromOrder(order);
+  }
+  focus(w.id);
   relayout();
 }
 
+/** Close the focused window (else the last); in dwindle its sibling takes its parent's place. */
 function doClose(): void {
-  const id = order.at(-1);
+  const id = focusId !== null && order.includes(focusId) ? focusId : order.at(-1);
   if (id === undefined) return;
   const w = wins.find((x) => x.id === id)!;
   ensureLoop();
   w.closing = true;
   if (mode === "today") w.pop = createTween(1, { duration: 140, easing: OUT });
   w.pop.setTarget(0);
-  order = order.filter((x) => x !== id);
+  if (layoutKind === "dwindle") setTree(removeLeaf(tree, id));
+  else {
+    order = order.filter((x) => x !== id);
+    tree = treeFromOrder(order);
+  }
   if (maxId === id) maxId = null;
+  focus(order.at(-1) ?? null);
   relayout();
 }
 
 function doSwap(): void {
   if (order.length < 2) return;
-  [order[0], order[1]] = [order[1]!, order[0]!];
+  const [x, y] = [order[0]!, order[1]!];
+  if (layoutKind === "dwindle") setTree(swapLeaves(tree, x, y));
+  else {
+    [order[0], order[1]] = [y, x];
+    tree = treeFromOrder(order);
+  }
   relayout();
 }
 
@@ -396,12 +532,16 @@ function beginDrag(w: Win, px: number, py: number): void {
   grab = { x: px - d.x, y: py - d.y };
   liftSize = { width: d.width, height: d.height };
   snapped = null;
+  roomShown = false;
   lifted = w;
   raised = w;
   w.el.style.zIndex = Z_RAISED;
   w.el.classList.add("lifted");
   if (maxId === w.id) maxId = null;
-  order = order.filter((x) => x !== w.id);
+  // Lifted out of the layout: the others close the gap.
+  if (layoutKind === "dwindle") setTree(removeLeaf(tree, w.id));
+  else order = order.filter((x) => x !== w.id);
+  drop = null;
   w.segment = null;
   newRun(w);
   if (mode === "today") {
@@ -415,10 +555,9 @@ function beginDrag(w: Win, px: number, py: number): void {
   moveDrag(px, py);
 }
 
-/** The slot the lifted window would take if inserted at `index` in the order. */
-function slotAt(index: number, id: number): Rect {
-  return layout([...order.slice(0, index), id, ...order.slice(index)]).get(id)!;
-}
+/** The area two rects share (0 when apart). */
+const overlap = (a: Rect, b: Rect): number =>
+  Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
 
 const inside = (r: Rect, px: number, py: number, inset = 0): boolean =>
   px >= r.x + inset && px <= r.x + r.width - inset && py >= r.y + inset && py <= r.y + r.height - inset;
@@ -427,30 +566,35 @@ function moveDrag(px: number, py: number): void {
   if (!lifted) return;
   pointer = { x: px, y: py };
   expected = { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
-  // Where it would land: the slot under the pointer (else the nearest), trying each place in the order.
-  let best = 0;
+  // Where it would land: the slot under the pointer (else the nearest), over every place it could go
+  // (a split side of each window in dwindle, an index in the order elsewhere).
+  let best: Drop | null = null;
   let bestDist = Infinity;
-  for (let i = 0; i <= order.length; i++) {
-    const slot = slotAt(i, lifted.id);
-    const dx = px - (slot.x + slot.width / 2);
-    const dy = py - (slot.y + slot.height / 2);
-    const dist = (inside(slot, px, py) ? 0 : 1e6) + dx * dx + dy * dy;
+  for (const d of drops(lifted.id)) {
+    const dx = px - (d.slot.x + d.slot.width / 2);
+    const dy = py - (d.slot.y + d.slot.height / 2);
+    const dist = (inside(d.slot, px, py) ? 0 : 1e6) + dx * dx + dy * dy;
     if (dist < bestDist) {
       bestDist = dist;
-      best = i;
+      best = d;
     }
   }
-  dropIndex = best;
-  const slot = slotAt(best, lifted.id);
+  if (!best) return;
+  const previousDrop = drop?.key;
+  drop = best;
+  const slot = best.slot;
 
   if (dropMode === "snap") {
     // Snap in once the pointer is well inside a slot; stay until it leaves that slot.
-    if (snapped !== null && !inside(slotAt(snapped, lifted.id), px, py)) snapped = null;
+    const was = snapped?.key;
+    if (snapped !== null && !inside(snapped.slot, px, py)) snapped = null;
     if (snapped === null && inside(slot, px, py, Math.min(SNAP_IN, Math.min(slot.width, slot.height) / 4))) snapped = best;
-    if (snapped !== null) dropIndex = snapped;
+    if (snapped !== null) drop = snapped;
     hint.hidden = true;
+    // The others make room in the slot it snaps into, and close the gap again when it leaves.
+    if (snapped?.key !== was) relayout();
     // Snapped: glide into the slot. Not snapped: glide back under the pointer (no jump), at the lift size.
-    const goal = snapped !== null ? slotAt(snapped, lifted.id) : expected;
+    const goal = snapped !== null ? snapped.slot : expected;
     if (!same(lifted.rect.target, goal)) {
       // A new segment for the checks: from where it is drawn to the new goal.
       const drawn = lifted.rect.value;
@@ -463,6 +607,11 @@ function moveDrag(px: number, py: number): void {
 
   if (mode === "proposed") (lifted.rect as Settle<Rect>).hold(expected);
   else lifted.rect.setTarget(expected);
+  // Opt-in live reorder: the others make room at the marked slot as it changes.
+  if (indicatorMakesRoom && (drop.key !== previousDrop || !roomShown)) {
+    roomShown = true;
+    relayout();
+  }
   hint.hidden = false;
   Object.assign(hint.style, { left: `${slot.x}px`, top: `${slot.y}px`, width: `${slot.width}px`, height: `${slot.height}px` });
 }
@@ -473,9 +622,14 @@ function endDrag(): void {
   lifted = null;
   expected = null;
   snapped = null;
+  roomShown = false;
   hint.hidden = true;
   w.el.classList.remove("lifted");
-  order.splice(dropIndex, 0, w.id);
+  // Land where it was going (no move at all: back to the end, or the root of an empty tree).
+  (drop ?? drops(w.id).at(-1)!).commit();
+  drop = null;
+  if (layoutKind !== "dwindle") tree = treeFromOrder(order);
+  focus(w.id);
   newRun(w);
   // It stays raised (above every other window) until its drop settle ends.
   relayout();
@@ -598,6 +752,13 @@ function tick(frame: FrameInfo): boolean {
   }
   // On top: while dragged, and after the drop until it has settled, nothing covers it. Checked after
   // every window of this frame is drawn.
+  // Room: once the others have settled, none of them overlaps the slot the lifted window is snapped into.
+  const room = roomAt();
+  if (lifted && room !== null && episode) {
+    const slot = room.slot;
+    const blocking = wins.filter((o) => o !== lifted && !o.closing && o.rect.settled && overlap(o.rect.value, slot) > 1);
+    episode.room.push(blocking.length ? `t=${Math.round(time)} window ${blocking.map((o) => o.id).join(", ")} still in the slot kept for window ${lifted.id}` : null);
+  }
   const r = raised;
   if (r && episode) {
     const frameRect = measure(r).frame;
@@ -667,6 +828,7 @@ function endEpisode(): void {
     { name: "Content never stretched", result: checkContentScale(ep.scale) },
     { name: "Held 1:1 under the pointer", result: ep.held.length > 0 ? checkHeld(ep.held) : null },
     { name: "Dragged window stays on top", result: ep.onTop.length > 0 ? onTopResult(ep.onTop) : null },
+    { name: "Others make room in the previewed slot", result: ep.room.length > 0 ? onTopResult(ep.room) : null },
     { name: "Tempo of the longest move", result: tempo, info: tempoInfo },
   ];
   checksTitle.textContent =
@@ -823,15 +985,33 @@ async function runScenario(name: string): Promise<Run> {
   return run;
 }
 
+/** The scenario run in progress (one at a time), and whether Stop was pressed. */
+let runningAll = false;
+let stopAll = false;
+const runAllButton = document.querySelector("button[data-act=runall]") as HTMLButtonElement;
+
 async function runAll(): Promise<Run[]> {
+  if (runningAll) return [];
+  runningAll = true;
+  stopAll = false;
+  runAllButton.textContent = "Stop scenarios";
   const before = mode;
   const out: Run[] = [];
   runsBody.replaceChildren();
-  for (const m of ["proposed", "today"] as const) {
-    setMode(m);
-    for (const name of Object.keys(SCENARIOS)) out.push(await runScenario(name));
+  try {
+    outer: for (const m of ["proposed", "today"] as const) {
+      setMode(m);
+      for (const name of Object.keys(SCENARIOS)) {
+        if (stopAll) break outer;
+        out.push(await runScenario(name));
+      }
+    }
+  } finally {
+    setMode(before);
+    runningAll = false;
+    stopAll = false;
+    runAllButton.textContent = "Run all scenarios";
   }
-  setMode(before);
   return out;
 }
 
@@ -864,6 +1044,9 @@ document.querySelectorAll<HTMLInputElement>("input[name=drop]").forEach((input) 
 document.querySelectorAll<HTMLInputElement>("input[name=layout]").forEach((input) =>
   input.addEventListener("change", () => setLayout(input.value as LayoutKind)),
 );
+(document.getElementById("make-room") as HTMLInputElement).addEventListener("change", (e) => {
+  indicatorMakesRoom = (e.target as HTMLInputElement).checked;
+});
 document.querySelectorAll<HTMLInputElement>("input[name=tempo]").forEach((input) =>
   input.addEventListener("change", () => {
     tempo = input.value as Tempo;
@@ -881,12 +1064,26 @@ const actions: Record<string, () => void> = {
     const b = document.querySelector("button[data-act=slow]")!;
     b.textContent = speed === 1 ? "Slow motion ×5" : "Normal speed";
   },
-  runall: () => void runAll(),
+  // The same button stops a run in progress (after the scenario playing now).
+  runall: () => {
+    if (runningAll) {
+      stopAll = true;
+      runAllButton.textContent = "Stopping…";
+    } else void runAll();
+  },
 };
 document.querySelectorAll<HTMLButtonElement>("button[data-act]").forEach((b) =>
   b.addEventListener("click", () => actions[b.dataset.act!]?.()),
 );
 
+// Start from what the controls show: a reload restores the browser's checked radios and boxes, and the
+// page must follow them rather than its own defaults (else the stage says one layout and the radio another).
+const checked = (name: string): string | undefined => document.querySelector<HTMLInputElement>(`input[name=${name}]:checked`)?.value;
+mode = (checked("mode") as Mode | undefined) ?? mode;
+tempo = (checked("tempo") as Tempo | undefined) ?? tempo;
+layoutKind = (checked("layout") as LayoutKind | undefined) ?? layoutKind;
+dropMode = (checked("drop") as DropMode | undefined) ?? dropMode;
+indicatorMakesRoom = (document.getElementById("make-room") as HTMLInputElement).checked;
 reset(4);
 
 declare global {
