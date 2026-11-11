@@ -1,6 +1,6 @@
 /**
  * The nine desk constructions, each a pure layout: a state, the stage size and the options in, a placed rect per
- * item out, plus notes saying how it gave way. Every rule for running out of width or height is the sketch's:
+ * item out, plus notes saying how it gave way. How each one gives way when width or height runs out:
  *
  * - A edge docks: sections fold to headers (least recently used first), the bottom dock folds to its header, the
  *   docks fold to their rails (right first). A2 runs the bottom dock across the full width.

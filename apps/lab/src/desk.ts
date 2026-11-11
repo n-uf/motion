@@ -53,6 +53,9 @@ const TOOL_ICONS = ["✎", "⌫", "↶", "↷", "⎘", "⌕", "☰", "⚙"];
 const stage = document.getElementById("stage") as HTMLDivElement;
 const hint = document.getElementById("hint") as HTMLDivElement;
 const hintLabel = document.getElementById("hint-label") as HTMLDivElement;
+// The indicator's fade and glide come from the drag model.
+stage.style.setProperty("--hint-fade", `${DRAG.FADE}ms`);
+stage.style.setProperty("--hint-glide", `${DRAG.GLIDE}ms`);
 const checksBody = document.querySelector("#checks tbody") as HTMLTableSectionElement;
 const runsBody = document.querySelector("#runs tbody") as HTMLTableSectionElement;
 const trace = document.getElementById("trace") as HTMLCanvasElement;

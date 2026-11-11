@@ -212,10 +212,6 @@ export function toggleClosed(s: DeskState, side: Side): DeskState {
 /** Show panel `id` on its side (navigator, drawers). */
 export const withActive = (s: DeskState, side: Side, id: number): DeskState => touch({ ...s, active: { ...s.active, [side]: id } }, id);
 
-/** The side a panel is on in the side lists (docks, navigator, drawers), or null. */
-export const sideOf = (s: DeskState, id: number): Side | "bottom" | null =>
-  s.left.includes(id) ? "left" : s.right.includes(id) ? "right" : s.bottom.includes(id) ? "bottom" : null;
-
 /**
  * Heights for items stacked in `avail`: each gets at least its minimum, the rest of the room is shared in
  * proportion to the minimums (when the minimums don't fit, each gets its minimum).
