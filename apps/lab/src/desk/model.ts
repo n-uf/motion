@@ -88,6 +88,8 @@ export interface DeskState {
   readonly tree: { readonly L: readonly string[]; readonly R: readonly string[]; readonly C: readonly string[] };
   /** The scrolling strip: its columns, left to right, each a list of item keys top to bottom. */
   readonly cols: readonly (readonly string[])[];
+  /** The strip scrolled by hand (a drag near the stage's edge), or null: it scrolls to the focus. */
+  readonly stripScroll: number | null;
   /** Palettes: the corner stacks, top to bottom, and the ones placed anywhere. */
   readonly stacks: { readonly left: readonly number[]; readonly right: readonly number[] };
   readonly free: readonly Free[];
@@ -159,6 +161,7 @@ export function initialState(docs: readonly number[] = [1, 2]): DeskState {
     torn: [],
     tree: { L: [panelKey(1), panelKey(2)], R: [panelKey(3), panelKey(5)], C: [panelKey(4)] },
     cols: [[panelKey(1), panelKey(2)], [panelKey(3), panelKey(4), panelKey(5)]],
+    stripScroll: null,
     stacks: { left: [1, 2], right: [3, 4, 5] },
     free: [],
   };
@@ -185,7 +188,9 @@ export function withDocs(s: DeskState, docs: readonly number[], focus: number | 
   }
   const L = s.tree.L.filter((k) => !gone(k));
   const R = s.tree.R.filter((k) => !gone(k));
-  return { ...s, docs: [...docs], focus: focus !== null && docs.includes(focus) ? focus : (docs.at(-1) ?? null), tree: { L, R, C }, cols };
+  const f = focus !== null && docs.includes(focus) ? focus : (docs.at(-1) ?? null);
+  // A new focus: the strip scrolls to it again.
+  return { ...s, docs: [...docs], focus: f, tree: { L, R, C }, cols, stripScroll: f === s.focus ? s.stripScroll : null };
 }
 
 /** Panel `id` was used: it is the last to fold when height runs out. */
