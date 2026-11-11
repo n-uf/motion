@@ -8,6 +8,7 @@
  */
 import type { Rect } from "@n-uf/motion";
 import type { Point } from "../shared/geometry";
+import { attachTopHost } from "./toolbar-frame";
 
 /** Where the grip sits in the pill: its centre, from the pill's left edge (vertically: the pill's middle). */
 export const GRIP_X = 14;
@@ -36,9 +37,11 @@ export function wireToolbar(el: HTMLElement, content: HTMLElement, h: ToolbarGra
   grip.innerHTML = DOTS;
   content.prepend(grip);
   el.addEventListener("pointerdown", (e) => {
-    // A button is a button: its press is a click, never a drag.
-    if ((e.target as Element).closest(".tb-cell")) return;
+    // A button is a button: its press is a click, never a drag; a press on a group moves the group.
+    if ((e.target as Element).closest(".tb-cell, .tgroup")) return;
     h.press(e);
   });
   grip.addEventListener("keydown", (e) => h.key(e));
+  // The top toolbar's groups live in it (desk/toolbar-frame.ts).
+  attachTopHost(el, content);
 }

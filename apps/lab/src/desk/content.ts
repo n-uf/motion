@@ -49,6 +49,10 @@ export function toolbarCells(): string {
   ).join('<span class="tb-sep" aria-hidden="true"></span>');
 }
 
+/** One of the toolbar's groups (0 edit, 1 history, 2 view) as its icon buttons, for the toolbar groups. */
+export const toolGroupCells = (i: number): string =>
+  (TOOL_GROUPS[i] ?? []).map(([g, label]) => `<button type="button" class="tb-cell" tabindex="-1" title="${label}" aria-label="${label}">${icon(GLYPH[g], 17)}</button>`).join("");
+
 /** Each tool panel's rail glyph, by panel id. */
 const PANEL_GLYPH: Readonly<Record<number, keyof typeof GLYPH>> = { 1: "folder", 2: "outline", 3: "note", 4: "inspector", 5: "clock" };
 
