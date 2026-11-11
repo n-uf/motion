@@ -208,29 +208,6 @@ main.wide { max-width: 1712px; }
 .stage.desk .win.toolbar .tb-cell:hover { background: var(--d-hover); color: var(--d-ink); }
 .stage.desk .win.toolbar .tb-cell:active { background: var(--d-press); }
 .stage.desk .win.toolbar .tb-sep { flex: none; width: 1px; height: 16px; margin: 0 6px; background: var(--d-edge); }
-/* A toolbar that drags (a pill): a grip at its start, and its empty space grabs too. */
-.stage.desk .win.toolbar .tb-grip { display: none; }
-.stage.desk .win.toolbar.draggable .tb { position: relative; padding-left: 26px; cursor: grab; }
-.stage.desk .win.toolbar.draggable .tb-grip {
-  position: absolute;
-  left: 4px;
-  top: 50%;
-  width: 20px;
-  height: 22px;
-  margin-top: -11px;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--d-ink-2);
-  cursor: grab;
-}
-.stage.desk .win.toolbar.draggable .tb-grip:hover { background: var(--d-hover); color: var(--d-ink); }
-.stage.desk .win.toolbar.draggable .tb-grip:focus-visible { outline: 2px solid var(--d-accent); outline-offset: -2px; }
-.stage.desk .win.toolbar.lifted .tb,
-.stage.desk .win.toolbar.lifted .tb-grip { cursor: grabbing; }
 
 /* Panels: a quiet title bar led by its drag handle, over a body that clips. */
 .stage.desk .win.panel .content,
@@ -433,25 +410,49 @@ main.wide { max-width: 1712px; }
 .deskwin .tf-left { border-right: 0; }
 .deskwin .tf-right { border-left: 0; }
 .deskwin .tf-bottom.floating { border: 1px solid var(--d-edge-lifted); border-radius: 999px; background: var(--d-panel); box-shadow: var(--d-shadow); }
-.deskwin .tf-bar.tf-lifted { outline: 2px dashed var(--drop); outline-offset: -3px; }
-.deskwin .tf-controls { position: absolute; left: 14px; top: 50%; margin-top: -6px; display: flex; gap: 7px; }
+/* The window's title bar: the full glyph (2 × 3) at its left edge, then the controls; the whole bar is its drag area. */
+.deskwin .tf-title { cursor: grab; }
+.deskwin .tf-glyph { position: absolute; left: 10px; top: 50%; margin-top: -6.5px; display: grid; grid-template-rows: repeat(3, 3px); grid-auto-flow: column; grid-auto-columns: 3px; gap: 2px; color: var(--d-muted); border-radius: 2px; }
+.deskwin .tf-glyph:hover { color: var(--d-ink); }
+.deskwin .tf-glyph:focus-visible { outline: 2px solid var(--d-accent); outline-offset: 3px; }
+.deskwin .tf-controls { position: absolute; left: 28px; top: 50%; margin-top: -6px; display: flex; gap: 7px; cursor: default; }
 .deskwin .tf-controls i { width: 12px; height: 12px; border-radius: 50%; background: var(--d-edge); }
-.deskwin .tf-grip { position: absolute; left: 3px; top: 50%; margin-top: -11px; width: 16px; height: 22px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--d-muted); cursor: grab; z-index: 1; }
-.deskwin .tf-bar.v .tf-grip { left: 50%; top: 3px; margin: 0 0 0 -11px; width: 22px; height: 16px; transform: rotate(90deg); }
-.deskwin .tf-grip:hover { background: var(--d-hover); color: var(--d-ink); }
-.deskwin .tf-grip:focus-visible, .deskwin .tg-handle:focus-visible { outline: 2px solid var(--d-accent); outline-offset: 1px; }
 .deskwin .tg-host { position: relative; }
 .deskwin .tg-measure { position: absolute; left: -9999px; top: 0; visibility: hidden; }
 .deskwin .tg-measure .tgroup { position: static; display: inline-block; }
 .deskwin .tg-measure .tgroup .tg-in { width: auto; height: auto; }
 
-.deskwin .tgroup { position: absolute; left: 0; top: 0; transform-origin: 0 0; transition: opacity 120ms ease-out; cursor: grab; }
-.deskwin .tgroup.folded { opacity: 0; pointer-events: none; }
+/* A group: its handle (the compact glyph, the separator) and its controls; no frame, band or tint. */
+.deskwin .tgroup { position: absolute; left: 0; top: 0; transform-origin: 0 0; transition: opacity 120ms ease-out; }
 .deskwin .tgroup.tg-away { visibility: hidden; }
-.deskwin .tg-in { display: flex; align-items: center; gap: 2px; width: 100%; height: 100%; padding: 1px 3px 1px 2px; box-sizing: border-box; white-space: nowrap; border: 1px solid var(--d-hair); border-radius: 7px; background: var(--d-panel); }
-.deskwin .tgroup.v .tg-in { flex-direction: column; padding: 2px 1px 3px; }
-.deskwin .tg-handle { flex: none; width: 5px; align-self: stretch; margin: 3px 1px 3px 0; border-radius: 3px; background: repeating-linear-gradient(0deg, var(--d-edge) 0 2px, transparent 2px 4px); }
-.deskwin .tgroup.v .tg-handle { width: auto; height: 5px; margin: 0 3px 1px; background: repeating-linear-gradient(90deg, var(--d-edge) 0 2px, transparent 2px 4px); }
+.deskwin .tg-in { display: flex; align-items: center; width: 100%; height: 100%; padding: 0; box-sizing: border-box; white-space: nowrap; }
+.deskwin .tgroup.v .tg-in { flex-direction: column; }
+.deskwin .tg-ctl { display: flex; align-items: center; gap: 2px; }
+.deskwin .tgroup.v .tg-ctl { flex-direction: column; }
+.deskwin .tg-handle { position: relative; flex: none; display: flex; flex-direction: column; justify-content: space-between; width: 3px; height: 13px; margin-right: 3px; color: var(--d-muted); cursor: grab; border-radius: 2px; }
+.deskwin .tg-handle::before { content: ""; position: absolute; inset: -8px -5px -8px -6px; }
+.deskwin .tgroup.v .tg-handle { flex-direction: row; width: 13px; height: 3px; margin: 0 0 3px; }
+.deskwin .tgroup.v .tg-handle::before { inset: -6px -8px -5px; }
+.deskwin .tg-handle i,
+.deskwin .tf-glyph i { display: block; width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
+.deskwin .tg-handle:hover { color: var(--d-ink); }
+.deskwin .tg-handle:active,
+.deskwin .tg-ghost .tg-handle { color: var(--d-accent); cursor: grabbing; }
+.deskwin .tg-handle:focus-visible { outline: 2px solid var(--d-accent); outline-offset: 3px; }
+/* Pointing at (or focusing) a handle dims the other groups of its toolbar. */
+.deskwin .tf-bar:has(.tg-handle:hover, .tg-handle:focus) .tgroup:not(:has(.tg-handle:hover, .tg-handle:focus)),
+.deskwin .tg-host:has(.tg-handle:hover, .tg-handle:focus) .tgroup:not(:has(.tg-handle:hover, .tg-handle:focus)) { opacity: 0.35; }
+/* Collapsed: the handle and », the controls behind it. */
+.deskwin .tgroup:not(.collapsed) .tb-cell.tg-over { display: none; }
+.deskwin .tgroup.collapsed .tg-ctl { display: none; }
+.deskwin .tgroup.collapsed .tg-over { display: grid; min-width: 18px; }
+/* Floating over the documents: the same group, with a frame and a shadow (drawn outside its box). */
+.deskwin .tgroup.floating,
+.deskwin .tg-ghost { background: var(--d-panel); border-radius: 5px; box-shadow: 0 0 0 5px var(--d-panel), 0 0 0 6px var(--d-edge-lifted), var(--d-shadow); }
+.deskwin .tg-ghost { box-shadow: 0 0 0 5px var(--d-panel), 0 0 0 6px var(--d-edge-lifted), var(--d-lift); }
+/* Frozen: the glyphs fade with a not-allowed cursor; holding Alt brings them back. */
+.deskwin.frozen:not(.alt) .tg-handle,
+.deskwin.frozen:not(.alt) .tf-glyph { opacity: 0.4; cursor: not-allowed; }
 .deskwin .tgroup .tb-cell { flex: none; min-width: 26px; height: 26px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--d-ink-2); cursor: pointer; font: inherit; font-size: 13px; }
 .deskwin .tgroup .tb-cell:hover { background: var(--d-hover); color: var(--d-ink); }
 .deskwin .tgroup .tg-word { padding: 0 7px; font-size: 12px; font-weight: 600; }
@@ -459,20 +460,31 @@ main.wide { max-width: 1712px; }
 .deskwin .tgroup.v .tg-word { padding: 0; }
 .deskwin .tgroup.v .tg-word .t { display: none; }
 .deskwin .tgroup.v .tg-word .i { display: inline; font-size: 14px; }
-.deskwin .tg-doc { display: flex; align-items: center; gap: 8px; padding: 0 6px 0 3px; font-size: 12.5px; font-weight: 600; }
+.deskwin .tgroup .tg-title { display: flex; align-items: center; gap: 8px; padding: 0 6px; font-size: 12.5px; font-weight: 600; color: var(--d-ink); }
 .deskwin .tg-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--d-accent); }
-.deskwin .tg-page { font: 11px ui-monospace, monospace; color: var(--d-muted); }
-.deskwin .tgroup.v .tg-doc { flex-direction: column; gap: 5px; padding: 4px 0; }
+.deskwin .tgroup .tg-page { padding: 0 4px; font: 11px ui-monospace, monospace; color: var(--d-muted); }
+.deskwin .tgroup.v .tg-title { padding: 0; }
 .deskwin .tgroup.v .tg-name { display: none; }
-.deskwin .tgroup.v .tg-page { writing-mode: vertical-rl; }
-.deskwin .tg-zoom { font: 11px ui-monospace, monospace; color: var(--d-muted); padding: 0 2px; }
-.deskwin .tgroup.v .tg-zoom { font-size: 9px; padding: 2px 0; }
-.deskwin .tg-badge { display: none; font-size: 10.5px; font-weight: 700; color: #fff; background: var(--d-accent); border-radius: 999px; padding: 1px 5px; margin: 0 2px 0 0; }
-.deskwin .tgroup.badged .tg-badge { display: inline-block; }
-.deskwin .tgroup.v.badged .tg-badge { margin: 0 0 2px; }
+.deskwin .tgroup.v .tg-page { writing-mode: vertical-rl; height: auto; padding: 4px 0; }
+.deskwin .tgroup .tg-zoom { padding: 0 2px; font: 11px ui-monospace, monospace; color: var(--d-muted); }
+.deskwin .tgroup.v .tg-zoom { min-width: 0; padding: 2px 0; font-size: 9px; }
 
 .deskwin .tg-layer { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
-.deskwin .tg-ghost { z-index: 2; box-shadow: var(--d-lift); border-radius: 7px; cursor: grabbing; }
+.deskwin .tg-ghost { z-index: 2; cursor: grabbing; }
+.deskwin .tg-floats { position: absolute; inset: 0; z-index: 25; pointer-events: none; }
+.deskwin .tg-floats .tgroup { pointer-events: auto; }
+/* The handle's menu (and the window's, and »'s hidden controls). */
+.deskwin .tg-menu { position: absolute; z-index: 10; pointer-events: auto; margin: 0; padding: 4px; list-style: none; min-width: 190px; background: var(--d-panel); border: 1px solid var(--d-edge); border-radius: 8px; box-shadow: var(--d-shadow); font-size: 12.5px; color: var(--d-ink); }
+.deskwin .tg-menu li { position: relative; }
+.deskwin .tg-menu button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 5px 8px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.deskwin .tg-menu button:hover:not([disabled]),
+.deskwin .tg-menu button:focus { background: var(--d-hover); outline: none; }
+.deskwin .tg-menu button[disabled] { color: var(--d-muted); cursor: default; opacity: 0.6; }
+.deskwin .tg-menu-check { flex: none; width: 12px; color: var(--d-accent); }
+.deskwin .tg-menu-label { flex: 1; }
+.deskwin .tg-menu-note { padding: 5px 8px 7px; margin-bottom: 3px; border-bottom: 1px solid var(--d-hair); color: var(--d-muted); font-size: 11.5px; }
+.deskwin .tg-submenu { display: none; position: absolute; left: 100%; top: -5px; margin-left: 4px; }
+.deskwin .tg-menu li.open > .tg-submenu { display: block; }
 .deskwin .tg-strip { position: absolute; opacity: 0; border-radius: 6px; background: repeating-linear-gradient(45deg, transparent 0 6px, color-mix(in srgb, var(--d-muted) 22%, transparent) 6px 12px); outline: 1px dashed color-mix(in srgb, var(--d-muted) 50%, transparent); outline-offset: -1px; transition: opacity 120ms; }
 .deskwin .tg-strip.on { opacity: 1; }
 .deskwin .tg-ind { position: absolute; z-index: 3; opacity: 0; background: var(--drop); border-radius: 2px; transition: opacity 90ms, left 110ms cubic-bezier(0.2, 0.8, 0.2, 1), top 110ms cubic-bezier(0.2, 0.8, 0.2, 1), width 110ms, height 110ms; }
