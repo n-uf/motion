@@ -190,7 +190,9 @@ class SettleAnimator implements Settle<Animatable> {
       const nd = e * (d + b * t);
       v[i] = e * (v[i]! - w * b * t);
       x[i] = goal[i]! + nd;
-      if (resting && (Math.abs(nd) > restDelta || Math.abs(v[i]!) > restSpeed)) resting = false;
+      // Within a few float steps of the goal counts as arrived too: a restDelta finer than that would never be met.
+      const near = Math.max(restDelta, 4 * Number.EPSILON * Math.abs(goal[i]!));
+      if (resting && (Math.abs(nd) > near || Math.abs(v[i]!) > Math.max(restSpeed, w * near))) resting = false;
     }
     this.cachedValue = null;
     if (resting) this.snap();
