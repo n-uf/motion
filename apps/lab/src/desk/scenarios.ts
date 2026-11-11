@@ -361,6 +361,51 @@ function proportions(): Record<string, Scenario> {
         expect(fails.length === 0, `${fails.length} off; first: ${fails[0]}`);
       },
     },
+    "E · narrow, the two drawers sliding over never overlap": {
+      still: true,
+      play: async (expect) => {
+        const fails: string[] = [];
+        const c = CONSTRUCTIONS.find((x) => x.id === "drawers")!;
+        const s = c.initial(docs);
+        for (const W of [480, 520, 560, 640, 700, 760, 960]) {
+          for (const H of [420, 700]) {
+            const l = c.layout(s, { width: W, height: H }, DEFAULT_OPTIONS);
+            const side = (sd: Side): Rect[] => [...l.items].filter(([k, p]) => !p.hidden && (k === `tabs:${sd}` || (k.startsWith("panel:") && s[sd].includes(idOf(k))))).map(([, p]) => p.rect);
+            for (const a of side("left")) for (const b of side("right")) if (overlap(a, b) > 1) fails.push(`${W} × ${H}: the left drawer at ${fmt(a)} overlaps the right one at ${fmt(b)}`);
+          }
+        }
+        expect(fails.length === 0, `${fails.length} overlaps; first: ${fails[0]}`);
+      },
+    },
+    "B, D · panels in a column take their natural height; only the column's last one takes the rest": {
+      still: true,
+      play: async (expect) => {
+        const fails: string[] = [];
+        for (const c of CONSTRUCTIONS.filter((x) => x.id === "tree" || x.id === "strip")) {
+          for (const [W, H] of [[960, 560], [1200, 700], [1440, 900]] as const) {
+            for (const n of [1, 2, 3]) {
+              const l = c.layout(c.initial(Array.from({ length: n }, (_, i) => i + 1)), { width: W, height: H }, DEFAULT_OPTIONS);
+              // A column: the tiles at one x (floating ones aren't in one).
+              const columns = new Map<number, [string, Rect][]>();
+              for (const [k, p] of l.items) {
+                if (!/^(panel|doc):/.test(k) || p.hidden || p.layer !== LAYER.doc) continue;
+                const x = Math.round(p.rect.x);
+                columns.set(x, [...(columns.get(x) ?? []), [k, p.rect]]);
+              }
+              for (const list of columns.values()) {
+                const last = list.reduce((a, b) => (b[1].y > a[1].y ? b : a))[0];
+                for (const [k, rr] of list) {
+                  if (!k.startsWith("panel:") || k === last) continue;
+                  const nat = natural(idOf(k));
+                  if (rr.height > nat + AIR + 0.5) fails.push(`${c.title} ${W} × ${H}, ${n} docs: ${k} is ${Math.round(rr.height)} tall, its content ${nat}`);
+                }
+              }
+            }
+          }
+        }
+        expect(fails.length === 0, `${fails.length} panels stretched; first: ${fails[0]}`);
+      },
+    },
   };
 }
 
