@@ -42,8 +42,9 @@
         </fieldset>
         <fieldset>
           <legend>Stage</legend>
-          <label>Width <input id="w" type="range" min="480" max="1440" step="10" value="960" /><output id="wo">960</output></label>
-          <label>Height <input id="h" type="range" min="320" max="800" step="10" value="560" /><output id="ho">560</output></label>
+          <button type="button" data-act="fit" aria-pressed="true" title="Fit the stage to the page and follow the window">Fit</button>
+          <label>Width <input id="w" type="range" min="480" max="1680" step="1" value="960" /><output id="wo">960</output></label>
+          <label>Height <input id="h" type="range" min="320" max="960" step="1" value="560" /><output id="ho">560</output></label>
           <button type="button" data-size="1440,820">Large</button>
           <button type="button" data-size="960,560">Laptop</button>
           <button type="button" data-size="760,420">Short</button>
