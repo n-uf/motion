@@ -1,6 +1,6 @@
 {
   "name": "@n-uf/motion",
-  "version": "26.11.2",
+  "version": "26.11.3",
   "description": "One frame loop with an injected clock, fine-grained signals, springs and tweens, and a DOM-free gesture recogniser. No DOM, no framework.",
   "keywords": [
     "animation",
