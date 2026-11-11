@@ -53,6 +53,10 @@ export interface Options {
   readonly toolbar: "top" | "bottom";
   readonly toolbarSpace: "reserved" | "overlay";
   readonly bottom: "reserved" | "overlay" | "off";
+  /** The pill's width when its groups need more than the default (toolbar groups); unset: the default. */
+  readonly toolbarWidth?: number;
+  /** The pill holds no groups: it takes no space and isn't shown (toolbar groups). */
+  readonly toolbarHidden?: boolean;
 }
 export const DEFAULT_OPTIONS: Options = { toolbar: "top", toolbarSpace: "reserved", bottom: "reserved" };
 

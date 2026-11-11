@@ -50,12 +50,13 @@ type Out = Map<string, Placed>;
 export const PILL_MIN = 60;
 
 export function pill(opt: Options, cx: number, cw: number, y0: number, y1: number): { placed: Placed; top: number; bottom: number } {
-  const pw = Math.max(PILL_MIN, Math.min(320, cw - 24));
+  const pw = Math.max(PILL_MIN, Math.min(opt.toolbarWidth ?? 320, cw - 24));
   const ph = BAR - 4;
   const atTop = opt.toolbar === "top";
-  const overlay = opt.toolbarSpace === "overlay";
+  // A hidden pill (no groups) keeps no band clear, as if it floated.
+  const overlay = opt.toolbarSpace === "overlay" || !!opt.toolbarHidden;
   return {
-    placed: { rect: rect(cx + cw / 2 - pw / 2, atTop ? y0 + G : y1 - G - ph, pw, ph), look: "pill", layer: LAYER.toolbar, shadow: overlay },
+    placed: { rect: rect(cx + cw / 2 - pw / 2, atTop ? y0 + G : y1 - G - ph, pw, ph), look: "pill", layer: LAYER.toolbar, shadow: overlay, ...(opt.toolbarHidden ? { hidden: true } : {}) },
     top: atTop && !overlay ? y0 + BAR + 2 * G : y0 + G,
     bottom: !atTop && !overlay ? y1 - BAR - 2 * G : y1 - G,
   };
