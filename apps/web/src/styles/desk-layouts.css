@@ -1,0 +1,29 @@
+/* Desk constructions: the fitted drawing, its controls and the comparison table. */
+.deskfig { --stage-h: 600px; }
+.figure-bar.sub { min-height: 48px; background: var(--bg-subtle); }
+.figure-bar .field .label { margin-right: 2px; }
+/* The stage is a size container; the drawing fits it at its own aspect ratio (--w, --h), up to twice its size. */
+#stage { position: relative; min-width: 720px; height: 100%; display: flex; align-items: center; justify-content: center; padding: 16px; overflow: hidden; }
+.deskfig .stage-wrap > #stage { container-type: size; }
+#desk {
+  flex: none;
+  width: min(100cqw - 34px, (100cqh - 34px) * var(--w) / var(--h), var(--w) * 2px);
+  height: auto;
+  aspect-ratio: var(--w) / var(--h);
+  border-radius: var(--r);
+  box-shadow: 0 0 0 1px var(--line-2), var(--shadow-2);
+  font-family: var(--font-sans);
+}
+#desk text { font-family: var(--font-sans); }
+.deskfig .figure-foot { display: grid; gap: 6px; padding-bottom: 14px; }
+.figure-foot .idea { color: var(--text-2); font-size: var(--t-sm); max-width: 92ch; }
+.figure-foot .legend { padding-top: 4px; }
+
+.compare-scroll { max-height: none; }
+.compare { min-width: 1480px; table-layout: fixed; }
+.compare thead th:first-child { width: 220px; }
+.compare th, .compare td { white-space: normal; }
+.compare tbody th { position: sticky; left: 0; z-index: 1; background: var(--bg-raised); white-space: nowrap; box-shadow: inset -1px 0 0 var(--line); }
+.compare thead th:first-child { position: sticky; left: 0; z-index: 2; box-shadow: inset -1px 0 0 var(--line); }
+.compare tbody tr[aria-current="true"] > * { background: color-mix(in srgb, var(--accent-soft) 100%, var(--bg-raised)); }
+.compare tbody tr[aria-current="true"] > th { box-shadow: inset 2px 0 0 var(--accent), inset -1px 0 0 var(--line); color: var(--accent-strong); }
