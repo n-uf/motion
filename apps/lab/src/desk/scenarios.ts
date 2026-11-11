@@ -275,11 +275,12 @@ function drags(lab: DeskLab): Record<string, Scenario> {
       construction: "dockTear",
       drag: true,
       play: async (expect) => {
-        await drag(P.inspector, () => ({ x: 450, y: 400 }));
+        // Low, but above the bottom dock's drop zone.
+        await drag(P.inspector, () => ({ x: 450, y: 300 }));
         await lab.idle();
-        expect(r.look(P.inspector) === "float", "Inspector isn't floating at full height");
-        await r.resize(960, 480);
-        expect(r.look(P.inspector) === "header", `Inspector is ${r.look(P.inspector)} at 480, not shaded`);
+        expect(r.look(P.inspector) === "float", `Inspector is ${r.look(P.inspector)}, not floating at full height`);
+        await r.resize(960, 420);
+        expect(r.look(P.inspector) === "header", `Inspector is ${r.look(P.inspector)} at 420, not shaded`);
         expect(r.notes().includes("floating panel shaded"), `notes: ${r.notes()}`);
         settledAsLaidOut(lab, expect);
       },

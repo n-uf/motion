@@ -731,7 +731,8 @@ function tick(frame: FrameInfo): boolean {
     if (!it.pop.settled) episode.pops++;
     const drawn = it.rect.value;
     if (it === lifted && dropMode === "indicator") {
-      if (expected) episode.held.push({ t: time, rect: seen.frame, expected });
+      // Held 1:1 once it has popped in (a panel lifted from behind its tab grows into view, uniformly).
+      if (expected && it.pop.settled) episode.held.push({ t: time, rect: seen.frame, expected });
     } else {
       it.runs.at(-1)!.push({ t: time, rect: drawn, target: it.rect.target });
       it.segment?.samples.push({ t: time, rect: drawn });
@@ -760,7 +761,11 @@ function tick(frame: FrameInfo): boolean {
     episode.label.push(out ? `t=${Math.round(time)} label at ${fmt(l)} leaves the stage` : null);
   }
   const r = raised;
-  if (r && episode) {
+  // A panel dropped into a folded dock fades into its rail: it is on its way out of sight, not on top.
+  if (r && r !== lifted && r.placed?.hidden) {
+    raised = null;
+    r.el.style.zIndex = String(r.placed.layer);
+  } else if (r && episode) {
     const fr = measure(r).frame;
     const at = r === lifted && inside(fr, pointer.x, pointer.y) ? pointer : { x: fr.x + fr.width / 2, y: fr.y + fr.height / 2 };
     const v = onTopAt(stage, stageRect.value.width + 2, { el: r.el, name: r.name }, at, fr, time, (top) => {
