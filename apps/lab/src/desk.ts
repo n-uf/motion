@@ -412,8 +412,17 @@ function makePanel(p: (typeof PANELS)[number], at: Rect): Item {
   const html = `<div class="title"><span>${p.title}</span><button type="button" class="fold" title="Fold to the title bar">▾</button></div><div class="body">${p.body}</div>`;
   const it = makeItem("panel", p.id, panelKey(p.id), p.title, html, at);
   const fold = it.content.querySelector<HTMLButtonElement>(".fold")!;
-  fold.addEventListener("pointerdown", (e) => e.stopPropagation());
-  fold.addEventListener("click", () => doFold(p.id));
+  fold.addEventListener("pointerdown", (e) => {
+    // The press is the fold button's own: no title-bar press, so no drag, and no stale "was dragged" from before.
+    dragged = false;
+    e.stopPropagation();
+  });
+  fold.addEventListener("click", (e) => {
+    // Folding the last open panel turns the column into a rail: the click must not bubble to the title bar's
+    // handler, which would read the new rail's tab as clicked and unfold it again.
+    e.stopPropagation();
+    doFold(p.id);
+  });
   const title = it.content.querySelector(".title")!;
   title.addEventListener("pointerdown", (e) => {
     dragged = false;
@@ -1036,6 +1045,21 @@ const SCENARIOS: Record<string, Scenario> = {
       expect(Math.abs(panelItem(1).rect.value.width - G.column) < 0.5, "the column didn't return to its width");
       expect(Math.abs(panelItem(1).rot.value) < 0.001 && Math.abs(panelItem(3).rot.value) < 0.001, "the title bars aren't upright again");
       expect(Math.abs(workArea(state, SPEC).width - work0.width) < 0.5, "the work area isn't back to its size");
+    },
+  },
+  "fold the last open panel by a click": {
+    play: async (expect) => {
+      doFold(1);
+      await idle();
+      expect(!isRail(state, "left"), "the left column is a rail with Outline still open");
+      // A real click on Outline's fold button: the press, then the click (which bubbles up to the title bar).
+      const button = panelItem(3).content.querySelector<HTMLButtonElement>(".fold")!;
+      button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, isPrimary: true }));
+      button.click();
+      await idle();
+      expect(isRail(state, "left"), "the left column didn't become a rail when its last open panel was folded by a click");
+      expect(state.folded.includes(3), "Outline was unfolded again by the same click");
+      expect(Math.abs(panelItem(3).rect.value.width - G.rail) < 0.5, `the rail is ${Math.round(panelItem(3).rect.value.width)} px wide, not ${G.rail}`);
     },
   },
   "fold the right column into a rail": {
