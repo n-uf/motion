@@ -277,9 +277,9 @@ main.wide { max-width: 1712px; }
 .stage.desk .win.lifted .grip-dots { color: var(--d-accent); }
 .stage.desk .win.lifted .grip-handle,
 .stage.desk .win.lifted .title { cursor: grabbing; }
-/* Frozen: the glyph fades, nothing grabs. Holding Alt lifts the class. */
-.stage.desk.frozen .grip-dots { opacity: 0.35; }
+/* Frozen: every glyph hides (keeping its place, so nothing shifts) and nothing grabs. Holding Alt lifts the class. */
 .stage.desk.frozen .grip-handle,
+.stage.desk.frozen .grip-dots { visibility: hidden; }
 .stage.desk.frozen .win.panel .title,
 .stage.desk.frozen .segment { cursor: not-allowed; }
 

@@ -2,7 +2,7 @@
  * The drag handles' scenarios: one handle per panel with its glyph by state (full on an expanded header, compact on
  * a collapsed bar, across the top of a rail segment), in every construction; no fold or menu buttons anywhere; a
  * double-click, a click on a collapsed bar and Enter on the handle collapse and expand; the menu's order, Move to,
- * Float and Dock, Reset position; a frozen layout lifts nothing until Alt is held.
+ * Float and Dock, Reset position; a frozen layout hides every grip and lifts nothing until Alt is held.
  */
 import type { Rect } from "@n-uf/motion";
 import { wait } from "../shared/geometry";
@@ -231,18 +231,27 @@ export function gripScenarios(lab: DeskLab, grips: Grips): Record<string, Scenar
     },
   };
 
-  out["A · grip: a frozen layout lifts nothing and greys the menu's moves; holding Alt lets it move"] = {
+  out["A · grip: a frozen layout hides every grip, lifts nothing and greys the menu's moves; holding Alt shows them and lets it move"] = {
     construction: "docks",
     preview: "indicator",
     play: async (expect) => {
       const toRight = () => ({ x: lab.size().width - 120, y: lab.size().height / 3 });
+      /** The glyphs laid out on the stage (headers, rail segments, tab rows), and how many of them show. */
+      const glyphs = (): { all: number; shown: number } => {
+        const els = [...document.querySelectorAll<HTMLElement>("#stage .win:not(.hidden) .grip-dots")].filter((e) => e.getClientRects().length > 0);
+        return { all: els.length, shown: els.filter((e) => getComputedStyle(e).visibility !== "hidden").length };
+      };
+      const before = glyphs();
+      expect(before.all > 0 && before.shown === before.all, `before freezing, ${before.shown} of ${before.all} grips show`);
       grips.test.setFrozen(true);
       try {
         const stage = document.getElementById("stage")!;
-        const handle = winOf(FILES)!.querySelector<HTMLElement>(".grip-handle")!;
+        const title = winOf(FILES)!.querySelector<HTMLElement>(".title")!;
         expect(stage.classList.contains("frozen"), "the stage isn't marked frozen");
-        expect(handle.title === "Frozen: hold Alt to move", `the handle's tooltip reads "${handle.title}"`);
-        expect(getComputedStyle(handle).cursor === "not-allowed", `the handle's cursor is ${getComputedStyle(handle).cursor}`);
+        const frozen = glyphs();
+        expect(frozen.shown === 0, `frozen, ${frozen.shown} of ${frozen.all} grips still show`);
+        expect(title.title === "Frozen: hold Alt to move", `frozen, the title bar's tooltip reads "${title.title}"`);
+        expect(getComputedStyle(title).cursor === "not-allowed", `frozen, the title bar's cursor is ${getComputedStyle(title).cursor}`);
         const r = await lab.drag(FILES, toRight);
         await lab.idle();
         expect(r.landed === null && lab.state().left.includes(1), `frozen, Files moved (landed on ${r.landed})`);
@@ -255,10 +264,15 @@ export function gripScenarios(lab: DeskLab, grips: Grips): Record<string, Scenar
         expect(look(FILES) === "section", `frozen, a double-click left Files ${look(FILES)}`);
         grips.test.setAlt(true);
         expect(!stage.classList.contains("frozen"), "with Alt held the stage is still marked frozen");
+        const alt = glyphs();
+        expect(alt.shown === alt.all, `with Alt held, ${alt.shown} of ${alt.all} grips show`);
         expect(grips.test.menu(FILES).note === null, "with Alt held the menu still says frozen");
         const r2 = await lab.drag(FILES, toRight);
         await lab.idle();
         expect(r2.landed !== null && lab.state().right.includes(1), `with Alt held, Files didn't move (landed on ${r2.landed})`);
+        grips.test.setAlt(false);
+        const again = glyphs();
+        expect(again.shown === 0, `Alt let go, ${again.shown} of ${again.all} grips still show`);
       } finally {
         grips.test.setAlt(false);
         grips.test.setFrozen(false);
