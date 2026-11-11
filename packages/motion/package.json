@@ -57,6 +57,10 @@
       "types": "./src/gestures/index.ts",
       "default": "./src/gestures/index.ts"
     },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    },
     "./browser": {
       "types": "./browser.ts",
       "default": "./browser.ts"
@@ -86,6 +90,10 @@
       "./gestures": {
         "types": "./dist/gestures.d.ts",
         "default": "./dist/gestures.js"
+      },
+      "./testing": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
       },
       "./browser": {
         "types": "./dist/browser.d.ts",
