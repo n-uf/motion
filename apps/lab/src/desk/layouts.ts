@@ -46,8 +46,11 @@ type Out = Map<string, Placed>;
  * The toolbar pill, floating at the top or the bottom of the band [y0, y1] above a region `cx`..`cx + cw`; returns
  * the pill and the band left for the documents (reserved: they keep clear of it; overlay: it floats over them).
  */
+/** The shortest a pill gets (unless there is less room than that). */
+export const PILL_MIN = 60;
+
 export function pill(opt: Options, cx: number, cw: number, y0: number, y1: number): { placed: Placed; top: number; bottom: number } {
-  const pw = Math.max(60, Math.min(320, cw - 24));
+  const pw = Math.max(PILL_MIN, Math.min(320, cw - 24));
   const ph = BAR - 4;
   const atTop = opt.toolbar === "top";
   const overlay = opt.toolbarSpace === "overlay";
@@ -532,18 +535,33 @@ export function paletteArea(size: Size, opt: Options): { area: Rect } {
 }
 
 /**
- * A floating pill among palettes: centred in the room between the palettes its band would cross (those on the left
- * half end its room on the left, those on the right half on the right), so it never covers a palette's title bar.
+ * A floating pill among palettes: in a stretch of its band that no palette crosses, so it never covers one. Of the
+ * stretches wide enough for a full-width pill (its minimum plus margins), the one nearest the centre; with none, the
+ * widest, the pill shrunk to fit it.
  */
 function pillBetween(opt: Options, size: Size, palettes: readonly Rect[]): Placed {
   const band = pill(opt, G, size.width - 2 * G, 0, size.height).placed.rect;
-  const crossed = palettes.filter((r) => r.y < band.y + band.height && r.y + r.height > band.y);
-  const mid = size.width / 2;
-  const left = crossed.filter((r) => r.x + r.width / 2 < mid);
-  const right = crossed.filter((r) => r.x + r.width / 2 >= mid);
-  const x0 = left.length ? Math.max(...left.map((r) => r.x + r.width)) + G : G;
-  const x1 = right.length ? Math.min(...right.map((r) => r.x)) - G : size.width - G;
-  return pill(opt, x0, x1 - x0, 0, size.height).placed;
+  const blocks = palettes
+    .filter((r) => r.y < band.y + band.height && r.y + r.height > band.y)
+    .map((r) => [r.x - G, r.x + r.width + G] as const)
+    .sort((a, b) => a[0] - b[0]);
+  const stretches: [number, number][] = [];
+  let x = G;
+  for (const [b0, b1] of blocks) {
+    if (b0 > x) stretches.push([x, b0]);
+    x = Math.max(x, b1);
+  }
+  if (size.width - G > x) stretches.push([x, size.width - G]);
+  const roomy = stretches.filter(([a, b]) => b - a >= PILL_MIN + 24);
+  const centre = size.width / 2;
+  const pick =
+    roomy.sort((p, q) => Math.abs((p[0] + p[1]) / 2 - centre) - Math.abs((q[0] + q[1]) / 2 - centre))[0] ??
+    stretches.sort((p, q) => q[1] - q[0] - (p[1] - p[0]))[0] ??
+    ([G, G] as [number, number]);
+  const placed = pill(opt, pick[0], pick[1] - pick[0], 0, size.height).placed;
+  const room = pick[1] - pick[0];
+  // Too little room for even the shortest pill: it shrinks to the room rather than cover a palette.
+  return placed.rect.width <= room ? placed : { ...placed, rect: { ...placed.rect, x: pick[0], width: Math.max(0, room) } };
 }
 
 /** F1's margin from the area's edges. */
