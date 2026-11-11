@@ -405,6 +405,12 @@ function makeToolbar(at: Rect): Item {
     e.preventDefault();
     openMenu();
   });
+  // From the keyboard: Enter, Space or ArrowDown on the focused grip opens the same menu.
+  grip.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " " && e.key !== "ArrowDown") return;
+    e.preventDefault();
+    openMenu();
+  });
   return it;
 }
 
@@ -612,9 +618,11 @@ const doCollapse = (): void => doShape({ collapsed: !state.toolbarShape.collapse
 let menu: HTMLDivElement | null = null;
 
 function closeMenu(focusGrip = false): void {
-  if (!menu) return;
-  menu.remove();
+  const m = menu;
+  if (!m) return;
+  // Forget it first: removing a focused menu item can fire focusout, which closes the menu.
   menu = null;
+  m.remove();
   if (focusGrip) itemOf("toolbar")?.content.querySelector<HTMLElement>(".tb-grip")?.focus();
 }
 
@@ -667,6 +675,17 @@ function openMenu(): void {
     else return;
     ev.preventDefault();
     ev.stopPropagation();
+  });
+  // Focus leaving the menu (Tab, or anything else taking it) closes it. A press inside it is a choice, not leaving:
+  // some browsers don't focus a pressed button, which would otherwise close the menu before its click.
+  let pressing = false;
+  m.addEventListener("pointerdown", () => {
+    pressing = true;
+    setTimeout(() => (pressing = false), 500);
+  });
+  m.addEventListener("focusout", (ev) => {
+    const to = ev.relatedTarget as Node | null;
+    if (!pressing && !(to && m.contains(to))) closeMenu();
   });
   stage.append(m);
   menu = m;
