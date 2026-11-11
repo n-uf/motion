@@ -12,17 +12,15 @@
         <h1>Motion lab</h1>
         <p>
           Window motion rules of <code>@n-uf/motion</code>: <b>settle</b> (one fast-then-gentle curve, never past its target),
-          <b>hold</b> (what the pointer owns is glued to it) and <b>reveal</b> (content is never stretched). Switch to
-          <i>Today</i> to see springs from rest, stretched content, a lagging drag and the overshooting maximize.
+          <b>hold</b> (what the pointer owns is glued to it) and <b>reveal</b> (content is never stretched).
           Drag a window by its title bar. Every move is sampled per frame and checked below.
         </p>
       </header>
 
       <section class="controls" aria-label="Controls">
         <fieldset>
-          <legend>Motion</legend>
-          <label><input type="radio" name="mode" value="proposed" checked /> Proposed (settle, hold, reveal)</label>
-          <label><input type="radio" name="mode" value="today" /> Today (spring 320, drag spring 1400, stretch, snappy maximize)</label>
+          <legend>Compare</legend>
+          <label><input type="checkbox" id="compare-today" /> Show how windows move today instead (lags, stretches, overshoots; the checks fail on purpose)</label>
         </fieldset>
         <fieldset>
           <legend>Tempo</legend>

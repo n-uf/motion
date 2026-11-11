@@ -9,6 +9,9 @@
   --title: #e7ecff;
   --ok: #2b8a3e;
   --bad: #c92a2a;
+  /* The drop target: a colour no window uses. */
+  --drop: #f08c00;
+  --lift-shadow: 0 14px 34px rgba(0, 0, 0, 0.28), 0 3px 8px rgba(0, 0, 0, 0.18);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -21,6 +24,8 @@
     --title: #2c3150;
     --ok: #69db7c;
     --bad: #ff8787;
+    --drop: #ffc078;
+    --lift-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 3px 10px rgba(0, 0, 0, 0.45);
   }
 }
 * { box-sizing: border-box; }
@@ -43,7 +48,18 @@ fieldset { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px;
 /* The focused window: a new window in dwindle splits it; Close closes it. */
 .win.focused .frame { border-width: 2.5px; border-color: var(--ok); }
 .win.lifted .title { cursor: grabbing; }
-.hint { position: absolute; border: 2px dashed var(--win-edge); border-radius: 6px; pointer-events: none; z-index: 4; }
+/* The dragged window floats above the rest. */
+.win.lifted .frame { box-shadow: var(--lift-shadow); }
+/* The drop target: its own colour, a translucent fill and a soft halo, so it never reads as a window. */
+.hint {
+  position: absolute;
+  border: 2px solid var(--drop);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--drop) 16%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--drop) 22%, transparent), inset 0 0 24px color-mix(in srgb, var(--drop) 28%, transparent);
+  pointer-events: none;
+  z-index: 4;
+}
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top; }
 td.ok { color: var(--ok); }
