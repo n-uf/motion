@@ -42,7 +42,7 @@ export interface DeskLab {
    * A drag along a keyframed path, in real time ([ms from the lift, x, y], made from the grip point); then release,
    * or Escape at `escapeAt` ms.
    */
-  path(key: string, path: (grip: Point) => readonly PathKey[], opts?: { escapeAt?: number | (() => number) }): Promise<DragResult>;
+  path(key: string, path: (grip: Point) => readonly PathKey[], opts?: { escapeAt?: number | (() => number); at?: readonly PathAction[] }): Promise<DragResult>;
   /** A keyboard drag: pick `key` up, step `steps` targets on with the arrow key, then Enter. */
   keyboard(key: string, steps: number): Promise<DragResult>;
   /** The drop targets `key` would have if it were lifted now. */
@@ -57,6 +57,12 @@ export interface DeskLab {
 
 /** A pointer path keyframe: ms from the lift, x, y. */
 export type PathKey = readonly [number, number, number];
+
+/** Something done to the desk during a path drag, at `t` ms from the lift (read once the path is made). */
+export interface PathAction {
+  readonly t: number | (() => number);
+  readonly run: () => void;
+}
 
 /** The indicator showing a target (ms from the lift), or hidden (null), and whether it hid because the pointer flew. */
 export interface IndicatorEntry {
@@ -184,7 +190,7 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
       let seed = 11;
       const rnd = (): number => (seed = (seed * 16807) % 2147483647) / 2147483647;
       for (const c of CONSTRUCTIONS.filter((x) => x.id === "floatOver" || x.id === "floatAround")) {
-        // Free palettes left little room in the pill's band (seen in review): the pill must not sit over them.
+        // Free palettes left little room in the pill's band (a regression case): the pill must not sit over them.
         const tight = { ...c.initial([1, 2]), stacks: { left: [1, 2], right: [3] }, free: [{ id: 4, at: { x: 434, y: 220 } }, { id: 5, at: { x: 518, y: 160 } }] };
         for (const m of TOOLBAR_MODES) covered(c, tight, { width: 1212, height: 377 }, { ...DEFAULT_OPTIONS, ...m }, "palettes 4 and 5 placed at x 434 and 518");
         for (let n = 0; n < 1200; n++) {
@@ -586,6 +592,9 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         expect(shows(r).length >= 1, "the arrow keys showed no target");
         expect(r.landed !== null && r.landed === shows(r).at(-1)!.id, `landed on ${r.landed ?? "home"}, the indicator showed ${shows(r).at(-1)?.id ?? "nothing"}`);
         expect(JSON.stringify(lab.state()) !== before || r.landed !== null, "nothing changed");
+        // Snap: the keyboard snaps into a slot only once the others have made room there, as the pointer does.
+        const snapped = (r.snaps ?? []).find((e) => e.id !== null);
+        if (lab.preview() === "snap" && snapped) expect(gated(r) === null, `${gated(r)}`);
       },
     };
   }
@@ -669,6 +678,53 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       const landed = lab.layout().items.get(key)!.rect;
       expect(!!r.atRelease && sameRect(r.atRelease, landed), `the item was let go at ${r.atRelease ? fmt(r.atRelease) : "nowhere"}, its slot is ${fmt(landed)}`);
       expect(r.landed === a.id, `landed on ${r.landed ?? "home"}, not ${a.id}`);
+    },
+  };
+  out["C · drag model: a release just after moving to another tab of the strip lands at the pointer's tab"] = {
+    construction: "navigator",
+    drag: true,
+    play: async (expect) => {
+      const key = DRAGGED.navigator;
+      const strip = lab.targets(key).find((t) => t.id === "tabs:left");
+      if (!strip) return expect(false, "no left tab strip");
+      // Three places in the strip (two tabs and the new one): aim at the first until it shows (and, snapping, the
+      // item sits in it), then move slowly to the last and let go on arrival, before the room has moved there.
+      const tw = strip.hit.width / 3;
+      const first = { x: strip.hit.x + tw / 2, y: mid(strip.hit).y };
+      const last = { x: strip.hit.x + tw * 2.5, y: mid(strip.hit).y };
+      const r = await lab.path(key, (g) => {
+        const there = hold(through([g, first], 0.8), 600);
+        return [...there, ...through([first, last], 0.3, there.at(-1)![0]).slice(1)];
+      });
+      await lab.idle();
+      expect(r.landed === "tabs:left", `landed on ${r.landed ?? "home"}, not the left tab strip`);
+      const left = lab.state().left;
+      expect(left.indexOf(3) === left.length - 1, `Notes is tab ${left.indexOf(3) + 1} of ${left.length}, not the last (where the pointer was)`);
+    },
+  };
+  out["A · snap: a snapped item follows its slot when the stage is resized under the drag"] = {
+    construction: "docks",
+    drag: true,
+    preview: "snap",
+    play: async (expect) => {
+      const key = DRAGGED.docks;
+      const a = lab.targets(key).find((t) => t.id === "dock:left:0");
+      if (!a) return expect(false, "no left dock slot");
+      let resizeAt = 0;
+      const r = await lab.path(
+        key,
+        (g) => {
+          const there = hold(through([g, mid(a.hit)], 0.8), 600);
+          resizeAt = there.at(-1)![0];
+          return hold(there, 700);
+        },
+        { at: [{ t: () => resizeAt, run: () => lab.setSize(1200, 680) }] },
+      );
+      await lab.idle();
+      expect(lab.size().width === 1200, "the stage wasn't resized");
+      const landed = lab.layout().items.get(key)!.rect;
+      expect(r.landed === a.id, `landed on ${r.landed ?? "home"}, not ${a.id}`);
+      expect(!!r.atRelease && sameRect(r.atRelease, landed), `the item was let go at ${r.atRelease ? fmt(r.atRelease) : "nowhere"}, its slot after the resize is ${fmt(landed)}`);
     },
   };
   out["A · snap: flying off a snapped slot glides the item back to the pointer within the settle tempo"] = {
