@@ -17,9 +17,15 @@ read plain numbers back. The package README has the API.
 pnpm install
 pnpm check   # typecheck, tests, build and dist check
 pnpm bench   # signals benchmark (see packages/motion/bench/RESULTS.md)
+pnpm lab     # the motion lab on http://localhost:3060
 ```
 
 - `packages/motion`: the library (`@n-uf/motion` and its `/clock`, `/signals`,
-  `/values`, `/gestures` and `/browser` entries).
+  `/values`, `/gestures`, `/testing` and `/browser` entries).
+- `apps/lab`: a one-page lab (not published) for the window motion rules:
+  a small tiling stage moving by settle, hold and reveal, or by the springs,
+  stretch and drag spring they replace, with every move checked frame by
+  frame. "Run all scenarios" plays scripted moves in both modes;
+  `window.__motionLab.runAll()` returns the results for a headless try.
 - Versions are calendar versions `YY.M.R`, as in hypr-tiling: `pnpm version:bump`.
 - Licensed under [PolyForm Perimeter 1.0.1](./LICENSE).

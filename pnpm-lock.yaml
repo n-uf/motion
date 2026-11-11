@@ -8,6 +8,19 @@ importers:
 
   .: {}
 
+  apps/lab:
+    dependencies:
+      '@n-uf/motion':
+        specifier: workspace:*
+        version: link:../../packages/motion
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vite:
+        specifier: ^8.3.6
+        version: 8.3.6(@types/node@25.9.9)(esbuild@0.28.2)
+
   packages/motion:
     dependencies:
       alien-signals:

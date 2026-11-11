@@ -13,7 +13,8 @@
     "typecheck": "pnpm --filter @n-uf/motion typecheck",
     "test": "pnpm --filter @n-uf/motion test",
     "bench": "pnpm --filter @n-uf/motion bench",
-    "check": "pnpm --filter @n-uf/motion check",
+    "check": "pnpm --filter @n-uf/motion check && pnpm --filter motion-lab typecheck",
+    "lab": "pnpm --filter motion-lab dev",
     "release:next-version": "pnpm --filter @n-uf/motion release:next-version",
     "version:bump": "pnpm --filter @n-uf/motion version:bump"
   }
