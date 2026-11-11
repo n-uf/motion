@@ -6,7 +6,7 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 ## 26.11.3
 
 - New in `values/`: the window motion rules, the one motion model for
-  hypr-tiling and pdf-n-uf's surface.
+  hypr-tiling and a host app's window surface.
   - `createSettle(initial, { omega?, restDelta? })` and `settleValue(loop, …)`:
     the curve for moving to a new place. A critically damped spring whose
     velocity is set on every new target to `omega · distance` toward it, so it
@@ -50,11 +50,11 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   resizes like Cmd+right-drag. Not when Ctrl is the drag modifier (Ctrl+drag
   moves), and not for a pen, a finger or another platform.
   `platformButton(press, platform, dragModifier)` is the rule on its own.
-  Ported from the pdfized surface's input session, with its tests.
+  Ported from a downstream app's input session, with its tests.
 
 ## 26.11.0
 
-First version: the motion package of the surface's layout-and-motion concept.
+First version: the motion package of a host app's layout-and-motion concept.
 
 - **clock/**: `createFrameLoop` runs one-shot and repeating tasks in four
   phases (input, update, layout, write), requests frames only while it has
@@ -69,7 +69,7 @@ First version: the motion package of the surface's layout-and-motion concept.
   over numbers, points, rects and vectors; `motionValue` / `springValue` /
   `tweenValue` step them on a loop as signals, with settle events and a
   reduced-motion switch.
-- **gestures/**: the pdfized surface's input recogniser, made public:
+- **gestures/**: a downstream app's input recogniser, made public:
   `createRecognizer` (click or drag per device, double and triple click, long
   press, pinch and two-finger pan, Safari's trackpad pinch, recovery from
   lost releases), wheel normalisation and modifiers, with its long-press
