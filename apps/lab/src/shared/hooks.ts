@@ -13,7 +13,7 @@ export interface LabHooks {
   runAll: () => Promise<LabRun[]>;
   runs: LabRun[];
   lastRows: () => Row[];
-  /** The dossier page: leave the toolbar lifted halfway to the left column (for screenshots). */
+  /** The desk page: leave the toolbar lifted halfway to the left column (for screenshots). */
   midToolbarDrag?: () => Promise<void>;
 }
 
