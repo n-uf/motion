@@ -262,7 +262,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
             const s = i % 2 ? -4 : 4;
             keys.push([t, b.p.x + s * b.dx, b.p.y + s * b.dy]);
           }
-          return hold(keys, 200);
+          return hold(keys, 400);
         });
         const changes = shows(r).length - 1;
         const seq = r.log.map((e) => `${e.id ?? "none"}@${Math.round(e.t)}`).join(" → ");
@@ -277,17 +277,23 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         const grip = lab.grip(key)!;
         const all = lab.targets(key);
         const home = lab.shown(key) ? lab.drawn(key) : null;
-        // Aim points: a target's centre, away from the item's home and on the stage.
-        const spots = all.map((t) => ({ t, p: mid(t.hit) })).filter(({ p }) => dist(p, grip) > 40 && !(home && within(home, p, 12)) && p.x > 0 && p.x < lab.size().width);
+        // Aim points: a target's centre (else a point a quarter in from its corners) where it is the target under the
+        // pointer, away from the item's home and on the stage.
+        const spots = all.flatMap((t) => {
+          const r = t.hit;
+          const ok = (p: Point): boolean => rawTarget(all, p)?.id === t.id && dist(p, grip) > 40 && !(home && within(home, p, 12)) && p.x > 0 && p.x < lab.size().width;
+          const p = [mid(r), ...[0.25, 0.75].flatMap((fx) => [0.25, 0.75].map((fy) => ({ x: r.x + r.width * fx, y: r.y + r.height * fy })))].find(ok);
+          return p ? [{ t, p }] : [];
+        });
         // The release point lies outside the band of every target as precise as its own: no path can keep another one.
         const clear = (s: { t: Target; p: Point }): boolean => all.every((o) => o.id === s.t.id || o.prio > s.t.prio || !within(o.hit, s.p, DRAG.BAND));
         const goal = spots.find((s) => s.t.prio <= 2 && clear(s)) ?? spots.find(clear);
-        // The detour: a target whose aim point is outside the goal's band, and that can't hold the release point (a
-        // less precise one that covers it gives way to the goal there).
+        // The detour: a target whose aim point is outside the goal's band and whose band doesn't reach the release
+        // point (shown there, it would keep the release, as the rules say).
         const other =
           goal &&
           spots
-            .filter((s) => s.t.id !== goal.t.id && !within(goal.t.hit, s.p, DRAG.BAND) && (s.t.prio > goal.t.prio || !within(s.t.hit, goal.p, DRAG.BAND)))
+            .filter((s) => s.t.id !== goal.t.id && !within(goal.t.hit, s.p, DRAG.BAND) && !within(s.t.hit, goal.p, DRAG.BAND))
             .sort((a, b) => dist(a.p, grip) - dist(b.p, grip))[0];
         if (!goal || !other) return expect(false, "not two targets to take two paths");
         const end = goal.p;
