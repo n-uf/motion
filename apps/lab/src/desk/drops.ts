@@ -14,7 +14,7 @@
  *   snapped to the area's edges (F1 also to other palettes' edges).
  */
 import type { Rect } from "@n-uf/motion";
-import type { Point } from "../shared/geometry";
+import { overlap, type Point } from "../shared/geometry";
 import type { Target } from "./intent";
 import {
   DOCK,
@@ -183,15 +183,23 @@ function treeTargets({ s0, key, size }: TargetInput): DropTarget[] {
   const x1 = area.x + area.width - (t.R.length ? TREE_COLUMN + G : 0);
   const centre = rect(x0, area.y, x1 - x0, area.height);
   const NAME = { L: "Left column", R: "Right column", C: "Centre" } as const;
+  const seen: { label: string; hit: Rect }[] = [];
+  const sameZone = (a: Rect, b: Rect): boolean => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height)) < 0.5;
   for (const group of ["L", "R", "C"] as const) {
     const list = t[group];
     if (group !== "C" && list.length === 0) continue;
+    // A side column is narrower than a document's minimum: a document dropped there would only float.
+    if (group !== "C" && isDocKey(key)) continue;
     for (let i = 0; i <= list.length; i++) {
       const state = { ...s0, tree: { ...t, [group]: insert(list, i, key) } };
       // The slot as laid out once the tiles that break a minimum have floated (as laid out without them if it floats).
       const tiled = treeFloats(state.tree, area);
       const zone = treeTiles(tiled.floats.includes(key) ? state.tree : tiled.tree, area).get(key)!;
-      out.push({ id: `tile:${group}:${i}`, prio: 2, hit: zone, make: fixed(state, `${NAME[group]}, ${landing(state.tree, area, key, group, centre)}`) });
+      const label = `${NAME[group]}, ${landing(state.tree, area, key, group, centre)}`;
+      // Places that come out the same (around a floating tile) are one target: the keyboard stops there once.
+      if (seen.some((o) => o.label === label && sameZone(o.hit, zone))) continue;
+      seen.push({ label, hit: zone });
+      out.push({ id: `tile:${group}:${i}`, prio: 2, hit: zone, make: fixed(state, label) });
     }
   }
   return out;
@@ -311,6 +319,8 @@ function paletteTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
   const anchor = { left: area.x + m, right: area.x + area.width - m - pw };
   const l0 = c.layout(s0, size, opt);
   const rectOf = (pid: number): Rect => l0.items.get(panelKey(pid))!.rect;
+  const pill = l0.items.get("toolbar");
+  const pillRect = pill?.look === "pill" ? pill.rect : null;
   // A corner stack's column, down to just under its last palette: it joins the stack at the place under the pointer.
   for (const side of narrow ? (["right"] as const) : (["left", "right"] as const)) {
     const ids = narrow ? [...s0.stacks.left, ...s0.stacks.right] : [...s0.stacks[side]];
@@ -356,6 +366,12 @@ function paletteTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
       }
       x = clamp(x, area.x, area.x + area.width - pw);
       y = clamp(y, area.y, area.y + area.height - ph);
+      // Never under a floating pill: it moves clear, below a pill at the top, above one at the bottom.
+      if (pillRect && overlap(rect(x, y, pw, ph), pillRect) > 0) {
+        y = pillRect.y < size.height / 2 ? pillRect.y + pillRect.height + G : pillRect.y - G - ph;
+        y = clamp(y, 0, size.height - ph);
+        snaps[1] = "clear of the toolbar";
+      }
       const how = snaps.filter(Boolean).join(", ");
       return { state: touch({ ...s0, free: [...s0.free, { id, at: { x, y } }] }, id), label: how ? `Here · snapped to the ${how}` : "Here", key: `free:${Math.round(x)},${Math.round(y)}` };
     },
