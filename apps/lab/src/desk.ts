@@ -15,6 +15,7 @@ import {
   closeDoc,
   docIds,
   docKey,
+  isRail,
   layoutDesk,
   LABEL_RULE,
   normalize,
@@ -89,6 +90,8 @@ interface Item {
   /** Where the element is laid out (its content's size); the drawn rect glides toward it. */
   target: Rect;
   readonly pop: Settle<number>;
+  /** A panel's title-bar angle in radians: 0 upright, −π/2 in a left rail, +π/2 in a right one. */
+  readonly rot: Settle<number>;
   closing: boolean;
   segment: Segment | null;
   runs: TargetSample[][];
@@ -138,6 +141,8 @@ let leftHome = false;
 /** The item kept above all others: the dragged one, and after the drop until it has settled. */
 let raised: Item | null = null;
 const SNAP_IN = 12;
+/** The press on a title bar became a drag (so its click isn't a click on a rail tab). */
+let dragged = false;
 
 /** Where the others make room for the lifted item now (indicator: the marked drop; snap: the drop it is snapped into). */
 const roomDrop = (): Drop | null => (!lifted ? null : dropMode === "snap" ? snapped : drop);
@@ -212,6 +217,7 @@ function bestDrop(it: Item, p: Point): Drop {
 
 function beginDrag(it: Item, px: number, py: number): void {
   if (lifted || it.closing) return;
+  dragged = true;
   ensureLoop();
   const d = it.rect.value;
   grab = { x: px - d.x, y: py - d.y };
@@ -248,6 +254,8 @@ function moveDrag(px: number, py: number): void {
     const goal: Rect = snapped ? snapped.slot : { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
     expected = null;
     if (it.kind === "toolbar") jumpToolbarSize(snapped?.state.toolbar ?? home!.size.place, home!.size.shape);
+    // A panel snapped into a rail turns on its side on the way in, and upright again on the way out.
+    if (it.kind === "panel" && snapped) turnPanel(it, angleIn(snapped.state, it.id));
     // Its content is laid out at the size it is going to (the frame reveals it, never stretches it).
     if (!same(it.target, goal)) {
       it.target = { ...goal };
@@ -370,6 +378,7 @@ function makeItem(kind: Item["kind"], id: number, key: string, name: string, htm
     rect: createSettle(at, { omega: omega() }),
     target: { ...at },
     pop: createSettle(1, { omega: omega(), restDelta: 0.001 }),
+    rot: createSettle(0, { omega: omega(), restDelta: 0.001 }),
     closing: false,
     segment: null,
     runs: [[]],
@@ -405,7 +414,16 @@ function makePanel(p: (typeof PANELS)[number], at: Rect): Item {
   const fold = it.content.querySelector<HTMLButtonElement>(".fold")!;
   fold.addEventListener("pointerdown", (e) => e.stopPropagation());
   fold.addEventListener("click", () => doFold(p.id));
-  it.content.querySelector(".title")!.addEventListener("pointerdown", (e) => onGrip(it, e as PointerEvent));
+  const title = it.content.querySelector(".title")!;
+  title.addEventListener("pointerdown", (e) => {
+    dragged = false;
+    onGrip(it, e as PointerEvent);
+  });
+  // A click on a rail tab unfolds that panel (the column returns to its width).
+  title.addEventListener("click", () => {
+    const side = placeOfPanel(state, p.id);
+    if (!dragged && (side === "left" || side === "right") && isRail(state, side)) doFold(p.id);
+  });
   return it;
 }
 
@@ -476,10 +494,44 @@ function relayout(): void {
       const folded = s.folded.includes(it.id);
       it.el.classList.toggle("folded", folded);
       it.content.querySelector(".fold")!.textContent = folded ? "▸" : "▾";
+      turnPanel(it, angleIn(s, it.id));
     }
   }
   focus(focusId);
   updateReadout();
+}
+
+const QUARTER = Math.PI / 2;
+
+/** The angle a panel's title bar has in `s`: on its side in a rail (−90° on the left, +90° on the right), else upright. */
+function angleIn(s: DeskState, id: number): number {
+  const side = s.left.includes(id) ? "left" : s.right.includes(id) ? "right" : null;
+  return side && isRail(s, side) ? (side === "left" ? -QUARTER : QUARTER) : 0;
+}
+
+/** Turn a panel's title bar to `angle`: the rotation settles (a rigid turn, never a stretch). */
+function turnPanel(it: Item, angle: number): void {
+  it.el.classList.toggle("rail", angle !== 0);
+  if (it.rot.target === angle) return;
+  ensureLoop();
+  it.rot.configure({ omega: omega() });
+  it.rot.setTarget(angle);
+}
+
+/**
+ * A panel's title bar is laid out at a column's width whatever the panel's size, and turned about its top-left
+ * corner by the settled angle (translated so it stays on its tab): rotate only, the content is never stretched.
+ * What the turn would show of the body fades with it.
+ */
+function drawTurn(it: Item): void {
+  const a = it.rot.value;
+  const f = Math.min(1, Math.abs(a) / QUARTER);
+  const title = it.content.firstElementChild as HTMLElement;
+  const body = it.content.lastElementChild as HTMLElement;
+  title.style.width = `${Math.max(it.target.width, G.column)}px`;
+  title.style.transform = f === 0 ? "" : a < 0 ? `translate(0px, ${G.railTab * f}px) rotate(${a}rad)` : `translate(${G.title * f}px, 0px) rotate(${a}rad)`;
+  body.style.opacity = String(1 - f);
+  body.style.visibility = f > 0.999 ? "hidden" : "visible";
 }
 
 function zOf(it: Item, s: DeskState): string {
@@ -490,6 +542,7 @@ function zOf(it: Item, s: DeskState): string {
 
 function draw(it: Item): void {
   drawRevealed(it, it.rect.value, it.target, it.pop.value);
+  if (it.kind === "panel") drawTurn(it);
 }
 
 // --- actions -----------------------------------------------------------------------------------------------------
@@ -674,6 +727,11 @@ function reset(docs: DocLayout = docLayout(), count = 2, patch: Partial<DeskStat
     if (it.kind === "panel") {
       it.el.classList.toggle("folded", state.folded.includes(it.id));
       it.content.querySelector(".fold")!.textContent = state.folded.includes(it.id) ? "▸" : "▾";
+      // A rail from the start is already turned.
+      const angle = angleIn(state, it.id);
+      it.rot.jumpTo(angle);
+      it.el.classList.toggle("rail", angle !== 0);
+      draw(it);
     }
   }
   lastRows = [];
@@ -694,6 +752,7 @@ let episode: {
   toolbarSize: (string | null)[];
   minSize: (string | null)[];
   label: (string | null)[];
+  rigid: (string | null)[];
   pops: number;
   drop: DropMode;
 } | null = null;
@@ -703,7 +762,7 @@ let running = false;
 
 function startEpisode(): void {
   if (episode) return;
-  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], toolbarSize: [], minSize: [], label: [], pops: 0, drop: dropMode };
+  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], toolbarSize: [], minSize: [], label: [], rigid: [], pops: 0, drop: dropMode };
   for (const it of items) {
     it.runs = [[]];
     episode.runs.push(...it.runs);
@@ -725,6 +784,14 @@ function ensureLoop(): void {
 
 const measure = (it: Item): { scale: ScaleSample; frame: Rect } => measureFrame(stage, STAGE_W, it, time);
 
+/** A panel's title bar as drawn is a rigid turn (a rotation and a translation: no scale, no skew), read back from the DOM. */
+function rigidTurn(it: Item): string | null {
+  const css = getComputedStyle(it.content.firstElementChild as HTMLElement).transform;
+  const m = css && css !== "none" ? new DOMMatrixReadOnly(css) : new DOMMatrixReadOnly();
+  const rigid = Math.abs(m.a - m.d) < 1e-3 && Math.abs(m.b + m.c) < 1e-3 && Math.abs(m.a * m.d - m.b * m.c - 1) < 1e-3;
+  return rigid ? null : `t=${Math.round(time)} ${it.name}'s title bar is drawn with matrix(${[m.a, m.b, m.c, m.d].map((v) => v.toFixed(3)).join(", ")}), not a rotation`;
+}
+
 /** Stage rect of an element, from the DOM. */
 function stageRectOf(el: Element): Rect {
   const s = stage.getBoundingClientRect();
@@ -740,10 +807,12 @@ function tick(frame: FrameInfo): boolean {
   for (const it of [...items]) {
     if (it.rect.step(dt)) moving = true;
     if (it.pop.step(dt)) moving = true;
+    if (it.rot.step(dt)) moving = true;
     draw(it);
     if (!episode) continue;
     const seen = measure(it);
     episode.scale.push(seen.scale);
+    if (it.kind === "panel") episode.rigid.push(rigidTurn(it));
     if (!it.pop.settled) episode.pops++;
     const drawn = it.rect.value;
     if (it === lifted && dropMode === "indicator") {
@@ -842,6 +911,7 @@ function endEpisode(): void {
     { name: "Toolbar keeps its content size per place", result: ep.toolbarSize.length > 0 ? framesResult(ep.toolbarSize) : null },
     { name: "Never below min size", result: ep.minSize.length > 0 ? framesResult(ep.minSize) : null },
     { name: "Drop label stays inside the stage (flip, slide)", result: ep.label.length > 0 ? framesResult(ep.label) : null },
+    { name: "Rail tab turns rigidly (rotation only)", result: ep.rigid.length > 0 ? framesResult(ep.rigid) : null },
   ];
   collecting?.push(lastRows);
   checksTitle.textContent = `Checks of the last move · drop preview: ${ep.drop === "snap" ? "snap to slot" : "drop indicator"}`;
@@ -942,6 +1012,51 @@ const SCENARIOS: Record<string, Scenario> = {
       doFold(1);
       await idle();
       expect(Math.abs(heightOf(3) - outline) < 0.5, "unfolding didn't give Outline its old height back");
+    },
+  },
+  "fold a whole column into a rail, unfold a tab": {
+    play: async (expect) => {
+      const work0 = workArea(state, SPEC);
+      doFold(1);
+      await idle();
+      expect(!isRail(state, "left"), "the left column is a rail with Outline still open");
+      doFold(3);
+      await idle();
+      expect(isRail(state, "left"), "the left column isn't a rail with every panel folded");
+      const files = panelItem(1);
+      expect(Math.abs(files.rect.value.width - G.rail) < 0.5, `the rail is ${Math.round(files.rect.value.width)} px wide, not ${G.rail}`);
+      expect(Math.abs(workArea(state, SPEC).width - (work0.width + G.column - G.rail)) < 0.5, "the work area didn't take the room the column gave up");
+      expect(Math.abs(files.rot.value + QUARTER) < 0.001 && Math.abs(panelItem(3).rot.value + QUARTER) < 0.001, "the left tabs aren't at −90°");
+      expect(Math.abs(panelItem(2).rot.value) < 0.001, "a panel of the other column is turned");
+      for (const it of items.filter((x) => x.kind === "doc")) expect(sameRect(it.rect.value, layoutDesk(state, SPEC).rects.get(it.key)!), `${it.name} didn't settle in the work area`);
+      // A click on a tab unfolds it: the column is a column again.
+      doFold(3);
+      await idle();
+      expect(!isRail(state, "left"), "the left column is still a rail with Outline open");
+      expect(Math.abs(panelItem(1).rect.value.width - G.column) < 0.5, "the column didn't return to its width");
+      expect(Math.abs(panelItem(1).rot.value) < 0.001 && Math.abs(panelItem(3).rot.value) < 0.001, "the title bars aren't upright again");
+      expect(Math.abs(workArea(state, SPEC).width - work0.width) < 0.5, "the work area isn't back to its size");
+    },
+  },
+  "fold the right column into a rail": {
+    play: async (expect) => {
+      for (const id of [2, 4, 5]) doFold(id);
+      await idle();
+      expect(isRail(state, "right"), "the right column isn't a rail");
+      expect([2, 4, 5].every((id) => Math.abs(panelItem(id).rot.value - QUARTER) < 0.001), "the right tabs aren't at +90°");
+      const r = panelItem(2).rect.value;
+      expect(Math.abs(r.width - G.rail) < 0.5 && Math.abs(r.x + r.width - (STAGE_W - G.gap)) < 0.5, "the right rail isn't one title bar wide at the edge");
+    },
+  },
+  "dock a panel into a rail": {
+    setup: () => reset(docLayout(), 2, { folded: [1, 3] }),
+    play: async (expect) => {
+      expect(isRail(state, "left"), "the left column didn't start as a rail");
+      const notes = panelItem(2);
+      await scriptedDrag(notes, slotPoint(notes, "left", 0));
+      await idle();
+      expect(state.left[0] === 2 && !isRail(state, "left"), `Notes is at ${state.left.indexOf(2)} and the left column is ${isRail(state, "left") ? "still a rail" : "a column"}`);
+      expect(Math.abs(panelItem(1).rect.value.width - G.column) < 0.5 && Math.abs(panelItem(1).rot.value) < 0.001, "the rail didn't turn back into a column");
     },
   },
   "dock a panel at index 0, then at index 2": {
@@ -1112,7 +1227,10 @@ document.querySelectorAll<HTMLInputElement>("input[name=docs]").forEach((input) 
 document.querySelectorAll<HTMLInputElement>("input[name=tempo]").forEach((input) =>
   input.addEventListener("change", () => {
     tempo = input.value as Tempo;
-    for (const it of items) it.rect.configure({ omega: omega() });
+    for (const it of items) {
+      it.rect.configure({ omega: omega() });
+      it.rot.configure({ omega: omega() });
+    }
   }),
 );
 const actions: Record<string, () => void> = {
