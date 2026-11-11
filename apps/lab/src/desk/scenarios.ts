@@ -163,19 +163,28 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
       },
     },
   };
-  scenarios["F1, F2 · a palette dropped anywhere is never under the floating pill"] = {
+  scenarios["F1, F2 · palettes dropped anywhere are never under the pill, in any toolbar mode"] = {
     still: true,
     play: async (expect) => {
       const fails: string[] = [];
+      const covered = (c: (typeof CONSTRUCTIONS)[number], s: DeskState, size: Size, opt: Options, what: string): void => {
+        const l = c.layout(s, size, opt);
+        const tb = l.items.get("toolbar")!.rect;
+        for (const [key, pl] of l.items) if (key.startsWith("panel:") && overlap(pl.rect, tb) > 1) fails.push(`${c.title} ${size.width} × ${size.height} ${opt.toolbar}/${opt.toolbarSpace}, ${what}: the pill covers ${key}`);
+      };
       let seed = 11;
       const rnd = (): number => (seed = (seed * 16807) % 2147483647) / 2147483647;
       for (const c of CONSTRUCTIONS.filter((x) => x.id === "floatOver" || x.id === "floatAround")) {
+        // Free palettes left little room in the pill's band (seen in review): the pill must not sit over them.
+        const tight = { ...c.initial([1, 2]), stacks: { left: [1, 2], right: [3] }, free: [{ id: 4, at: { x: 434, y: 220 } }, { id: 5, at: { x: 518, y: 160 } }] };
+        for (const m of TOOLBAR_MODES) covered(c, tight, { width: 1212, height: 377 }, { ...DEFAULT_OPTIONS, ...m }, "palettes 4 and 5 placed at x 434 and 518");
         for (let n = 0; n < 1200; n++) {
           const size = { width: Math.round(480 + rnd() * 960), height: Math.round(320 + rnd() * 480) };
           const opt: Options = { ...DEFAULT_OPTIONS, toolbar: rnd() < 0.5 ? "top" : "bottom", toolbarSpace: "overlay" };
           let s = c.initial([1, 2]);
           const drops: string[] = [];
-          for (let k = 0; k < 3; k++) {
+          // Four drops, each placed by the free target with the desk as the drops before it left it.
+          for (let k = 0; k < 4; k++) {
             const key = `panel:${1 + Math.floor(rnd() * 5)}`;
             const input = { c, s0: without(s, key), key, size, opt };
             const free = targetsFor(input).find((t) => t.id === "free")!;
@@ -183,9 +192,8 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
             s = dropAt(input, free, p, { x: 40, y: 11 }).state;
             drops.push(`${key}@${Math.round(p.x)},${Math.round(p.y)}`);
           }
-          const l = c.layout(s, size, opt);
-          const tb = l.items.get("toolbar")!.rect;
-          for (const [key, pl] of l.items) if (key.startsWith("panel:") && overlap(pl.rect, tb) > 1) fails.push(`${c.title} ${size.width} × ${size.height} ${opt.toolbar}, drops ${drops.join(" ")}: the pill covers ${key}`);
+          // Then the toolbar switches through every mode, the palettes staying where they were dropped.
+          for (const m of TOOLBAR_MODES) covered(c, s, size, { ...opt, ...m }, `drops ${drops.join(" ")} (dropped with the pill ${opt.toolbar})`);
         }
       }
       expect(fails.length === 0, `${fails.length} covered; first: ${fails[0]}`);
@@ -202,7 +210,17 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
           const size = { width: W, height: H };
           for (const key of [...s.tree.L, ...s.tree.R, ...s.tree.C]) {
             const input = { c, s0: without(s, key), key, size, opt: DEFAULT_OPTIONS };
-            for (const t of targetsFor(input)) {
+            const ts = targetsFor(input);
+            // A document is never offered a side column (it would only float there).
+            if (key.startsWith("doc:")) for (const t of ts) if (/^(tile:[LR]|edge:)/.test(t.id)) fails.push(`${W} × ${H}, ${n} docs: ${key} is offered ${t.id}`);
+            // No two targets share a zone and a label (the keyboard would stop twice at one place).
+            const made = ts.map((t) => ({ t, label: dropAt(input, t, mid(t.hit), { x: 0, y: 0 }).label }));
+            for (let i = 0; i < made.length; i++) {
+              for (let j = i + 1; j < made.length; j++) {
+                if (made[i]!.label === made[j]!.label && sameRect(made[i]!.t.hit, made[j]!.t.hit)) fails.push(`${W} × ${H}, ${n} docs, ${key}: ${made[i]!.t.id} and ${made[j]!.t.id} are both "${made[i]!.label}" at ${fmt(made[i]!.t.hit)}`);
+              }
+            }
+            for (const t of ts) {
               if (t.id.startsWith("edge:")) continue;
               const p = mid(t.hit);
               const d = dropAt(input, t, p, { x: 0, y: 0 });
@@ -468,6 +486,33 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         return hold([...there, ...through([{ x: DRAG.EDGE + 20, y: 300 }, { x: W - DRAG.EDGE - 20, y: 300 }], 0.4, there.at(-1)![0]).slice(1)], 400);
       });
       expect(flash(r) === null, `${flash(r)}: ${sequence(r)}`);
+    },
+  };
+  out["A · drag model: a flick from a slot into empty space hides the indicator within a frame"] = {
+    construction: "docks",
+    drag: true,
+    play: async (expect) => {
+      const key = DRAGGED.docks;
+      const all = lab.targets(key);
+      const a = all.find((t) => t.id === "dock:left:1");
+      const empty = { x: lab.size().width / 2, y: lab.size().height / 3 };
+      if (!a) return expect(false, "no left dock slot");
+      expect(rawTarget(all, empty) === null, `(${empty.x}, ${empty.y}) is in ${rawTarget(all, empty)?.id}, not empty space`);
+      const start = mid(a.hit);
+      let flick = 0;
+      const r = await lab.path(key, (g) => {
+        const there = hold(through([g, start], 0.8), 600);
+        flick = there.at(-1)![0];
+        return hold([...there, ...through([start, empty], 2.5, flick).slice(1)], 300);
+      });
+      const frames = (r.frames ?? []).filter((f) => f.t > flick);
+      const fast = frames.find((f) => f.speed >= DRAG.AIM_SPEED)?.t;
+      const out = frames.find((f) => !within(a.hit, f, DRAG.BAND))?.t;
+      const off = r.log.find((e) => e.t > flick && e.id === null)?.t;
+      const due = Math.max(fast ?? Infinity, out ?? Infinity);
+      expect(r.log.filter((e) => e.t <= flick).at(-1)?.id === a.id, `aiming didn't show ${a.id}: ${sequence(r)}`);
+      // Not kept for the gap grace: flying out of its band, it goes at once.
+      expect(off !== undefined && off <= due + 1000 / 60 + 1, `fast at +${Math.round((fast ?? NaN) - flick)} ms, out of the band at +${Math.round((out ?? NaN) - flick)}, off at +${Math.round((off ?? NaN) - flick)}: ${sequence(r)}`);
     },
   };
   for (const [cid, key] of [["docks", DRAGGED.docks], ["tree", DRAGGED.tree], ["strip", DRAGGED.strip]] as const) {
