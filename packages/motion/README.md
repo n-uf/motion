@@ -21,15 +21,19 @@ npm i @n-uf/motion
   recomputes only what depends on it, and effects can run once per frame.
 - **values/**: springs and tweens over numbers, points, rects and vectors,
   stepped by the clock, with velocity that carries over a retarget, settle
-  detection and a reduced-motion switch.
+  detection and a reduced-motion switch; and the window motion rules:
+  `settle` (one fast-then-gentle curve that never passes its target), hold
+  (what a pointer owns sits exactly under it) and `reveal` (glide a window
+  without stretching its content).
 - **gestures/**: a recogniser that turns pointer, wheel and trackpad events
   (plain objects) into one gesture stream (click or drag, double click, long
   press, pinch, scroll, zoom, recovery from lost releases), a frame coalescer,
   and a dwell (spring-load) machine.
 
-One package, six entries: `@n-uf/motion` (everything in the core), its four
+One package, seven entries: `@n-uf/motion` (everything in the core), its four
 folders on their own (`@n-uf/motion/clock`, `/signals`, `/values`,
-`/gestures`), and `@n-uf/motion/browser`, the clock on
+`/gestures`), `@n-uf/motion/testing` (frame-sampled checks of the motion
+rules, for tests and browser specs), and `@n-uf/motion/browser`, the clock on
 `requestAnimationFrame` and the reduced-motion media query. The core entries
 touch no host; importing several of them still gives one signal graph.
 
@@ -155,6 +159,53 @@ rect.set({ x: 300, y: 40, width: 240, height: 100 });
 clock.runUntilIdle(); // settled at { x: 300, y: 40, width: 240, height: 100 }
 ```
 
+### Window motion: settle, hold, reveal
+
+Three rules make windows move the way a tiling window manager feels smooth
+(Hyprland is the reference): what the pointer holds is glued to it, everything
+else moves on one front-loaded curve that never passes its target, and content
+is never stretched.
+
+| | |
+|---|---|
+| `createSettle(initial, { omega?, restDelta? })` | The one curve for moving to a new place. On a new target every component gets the velocity `omega · distance` toward it from wherever it is drawn, so it follows `distance · e^(−omega·t)`: 90 % in `ln(10)/omega` s, then it eases in, and never passes the target (no overshoot on position, no wobble on size), however often it is retargeted. A velocity set by hand toward the target is capped at that speed; one away from it is kept, and the value turns around without crossing. |
+| `SETTLE_TEMPO` | `{ calm: 20, default: 25, quick: 37 }` (1/s): 90 % in 115, 92 or 62 ms. |
+| `settle.hold(value)` | Hold: put the value exactly there, at rest (same as `jumpTo`). Call it on each pointer move; the next `setTarget` launches from there. |
+| `settleValue(loop, initial, { omega?, restDelta?, phase?, reducedMotion? })` | The settle on a frame loop. Hold it with `mv.jump(rect)`. |
+| `reveal(drawn, target)` | How to draw a window gliding at `drawn` whose content is laid out at `target`: move the element by `dx, dy`, draw the frame (chrome) at `width × height`, clip the content by `clipRight, clipBottom`. No scale, no layout per frame. |
+| `popIn(progress, from = 0.87)` | Opening and closing: a uniform scale about the centre plus opacity. |
+
+```ts
+import { createFakeClock, createFrameLoop, settleValue } from "@n-uf/motion";
+
+const clock = createFakeClock();
+const loop = createFrameLoop({ clock });
+const win = settleValue(loop, { x: 0, y: 0, width: 400, height: 300 });
+win.set({ x: 400, y: 0, width: 200, height: 300 }); // a reflow: position and size arrive together
+clock.frame();
+win.set({ x: 300, y: 0, width: 300, height: 300 }); // retargeted mid-flight: on from where it is drawn
+clock.runUntilIdle();
+console.log(win.value); // { x: 300, y: 0, width: 300, height: 300 }, never past it on the way
+```
+
+## testing/
+
+`@n-uf/motion/testing` checks recorded frames against the rules. Record what
+was drawn each frame (on the fake clock, or in a browser spec once per
+animation frame) and ask:
+
+| | |
+|---|---|
+| `checkNoOvershoot(samples, from, to, tolerance?)` | Every component stays between its start and end: no overshoot, no size wobble. |
+| `checkMonotonic(samples, to, tolerance?)` | The distance to the target never grows: no bounce, no restart backwards. |
+| `checkNoJumps(samples, omega, slack?)` | No frame moves further than a settle at `omega` could: catches snaps and restarts from an old place. |
+| `checkHeld(samples, tolerance?)` | A held rect is where the pointer puts it, every frame. |
+| `checkContentScale(samples, { uniformOnly?, tolerance? })` | Content's transform is never non-uniform (stretched); with `uniformOnly: false`, never scaled at all. |
+| `checkTempo(samples, from, to, t90, tolerance?)` | 90 % of the way within `t90` ms; returns the measured time too. |
+
+Each returns `{ ok, failures }`, a failure naming the frame and component.
+The lab in this repo (`pnpm lab`, `apps/lab`) runs them on every move.
+
 ## gestures/
 
 | | |
@@ -202,7 +253,7 @@ their own.
 
 Everything runs on `createFakeClock()`: frames, timers, springs and machine
 deadlines move only when the test moves the clock, so motion is exact and
-repeatable.
+repeatable. `@n-uf/motion/testing` (above) checks the frames you record.
 
 ## Benchmarks
 
