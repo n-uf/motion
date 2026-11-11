@@ -16,7 +16,6 @@
 import type { Rect } from "@n-uf/motion";
 import { overlap, type Point } from "../shared/geometry";
 import type { Target } from "./intent";
-import { TOOLBAR, toolbarTargets } from "./toolbar-drops";
 import {
   DOCK,
   OVER_MARGIN,
@@ -44,12 +43,6 @@ export interface Made {
   readonly state: DeskState;
   readonly label: string;
   readonly key: string;
-  /** The options the drop sets (a toolbar drop sets its mode); unset: they stay. */
-  readonly opt?: Options;
-  /** Where the preview shows the item (a toolbar moving to a side edge); unset: its place in the drop's layout. */
-  readonly slot?: Rect;
-  /** What else the landing does (a toolbar swapping its groups with the toolbar at another edge). */
-  readonly apply?: () => void;
 }
 
 export interface DropTarget extends Target {
@@ -75,7 +68,7 @@ export interface Drop extends Made {
 export const SNAP = 18;
 
 /** Which items a construction lets the pointer drag. */
-export const draggable = (c: Construction, key: string): boolean => isPanelKey(key) || (isDocKey(key) && (c.id === "tree" || c.id === "strip")) || (key === TOOLBAR && c.pill);
+export const draggable = (c: Construction, key: string): boolean => isPanelKey(key) || (isDocKey(key) && (c.id === "tree" || c.id === "strip"));
 
 /** The state with `key` lifted out of wherever it is. */
 export function without(s: DeskState, key: string): DeskState {
@@ -399,7 +392,6 @@ function paletteTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
 
 /** The drop targets for dragging `key` in `c`, in a fixed order (the keyboard's). */
 export function targetsFor(input: TargetInput): DropTarget[] {
-  if (input.key === TOOLBAR) return toolbarTargets(input);
   switch (input.c.id) {
     case "docks":
     case "docksFull":
@@ -421,7 +413,7 @@ export function targetsFor(input: TargetInput): DropTarget[] {
 /** A target's drop for a pointer, laid out. */
 export function dropAt(input: TargetInput, target: DropTarget, p: Point, grab: Point): Drop {
   const made = target.make(p, grab);
-  const layout = input.c.layout(made.state, input.size, made.opt ?? input.opt);
+  const layout = input.c.layout(made.state, input.size, input.opt);
   const placed = layout.items.get(input.key)!;
-  return { ...made, key: `${target.id}|${made.key}`, target: target.id, layout, slot: made.slot ?? placed.rect, hidden: !made.slot && !!placed.hidden, free: !!target.free };
+  return { ...made, key: `${target.id}|${made.key}`, target: target.id, layout, slot: placed.rect, hidden: !!placed.hidden, free: !!target.free };
 }
