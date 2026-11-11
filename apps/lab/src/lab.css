@@ -101,6 +101,14 @@ main.wide { max-width: 1480px; }
 /* The stage's size is set per frame (it glides with everything on it); its content box is the desk. */
 .stage.desk { width: 962px; height: 562px; max-width: none; background: color-mix(in srgb, var(--line) 40%, var(--bg)); }
 .stage.desk .hint { z-index: 8; }
+/* The desk's drop indicator fades in (90 ms) and glides from one target to the next (110 ms). */
+.stage.desk .hint,
+.stage.desk .hint-label {
+  opacity: 0;
+  transition: opacity 90ms ease-out, left 110ms cubic-bezier(0.2, 0.8, 0.2, 1), top 110ms cubic-bezier(0.2, 0.8, 0.2, 1), width 110ms cubic-bezier(0.2, 0.8, 0.2, 1), height 110ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.stage.desk .hint.on,
+.stage.desk .hint-label.on { opacity: 1; }
 /* The drop label: placed by the xdg-positioner rule (flip, then slide), never clicked. */
 .hint-label {
   position: absolute;
