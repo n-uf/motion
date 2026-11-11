@@ -204,6 +204,20 @@ describe("settle", () => {
     expect(s.velocity).toBe(1000);
   });
 
+  it("finishes even when restDelta is finer than the float steps at the goal", () => {
+    const fine = createSettle(0, { restDelta: 1e-14 });
+    fine.setTarget(1000);
+    let frames = 0;
+    while (fine.step(FRAME) && frames < 10_000) frames++;
+    expect(fine.settled).toBe(true);
+    expect(fine.value).toBe(1000);
+    const far = createSettle(0);
+    far.setTarget(1e16);
+    frames = 0;
+    while (far.step(FRAME) && frames < 10_000) frames++;
+    expect(far.settled).toBe(true);
+  });
+
   it("rejects a bad tempo or a shape mismatch", () => {
     expect(() => createSettle(0, { omega: 0 })).toThrow(RangeError);
     expect(() => createSettle(0, { restDelta: -1 })).toThrow(RangeError);
@@ -290,6 +304,11 @@ describe("testing checks", () => {
     expect(checkMonotonic(samples, rect(100, 0, 100, 100)).ok).toBe(false);
   });
 
+  it("checkMonotonic catches a slow drift away, under the per-frame tolerance", () => {
+    const drift: RectSample[] = Array.from({ length: 100 }, (_, i) => ({ t: i * 16, rect: rect(50 - i * 0.4, 0, 100, 100) }));
+    expect(checkMonotonic(drift, rect(100, 0, 100, 100)).ok).toBe(false);
+  });
+
   it("checkNoJumps catches a snap but not a settle", () => {
     const target = rect(1000, 0, 100, 100);
     const snap: TargetSample[] = [
@@ -324,5 +343,10 @@ describe("testing checks", () => {
     expect(res.ok).toBe(true);
     expect(res.t90).toBeGreaterThan(85);
     expect(checkTempo(samples, from, to, 300).ok).toBe(false);
+    // Samples recorded only after each step: pass when the move began.
+    const after = samples.slice(1);
+    expect(checkTempo(after, from, to, 92.1, 0.25, 0).t90).toBe(res.t90);
+    // No move: nothing to time.
+    expect(checkTempo(samples, to, to, 92)).toEqual({ ok: true, failures: [], t90: null });
   });
 });

@@ -41,7 +41,7 @@ export interface CheckResult {
 
 /** {@link checkTempo}'s result: also the measured time to 90 %. */
 export interface TempoResult extends CheckResult {
-  /** Ms from the first sample to the first one 90 % of the way, or null if never. */
+  /** Ms from the start to the first sample 90 % of the way; null if it never got there or there was no move. */
   readonly t90: number | null;
 }
 
@@ -70,19 +70,19 @@ export function checkNoOvershoot(samples: readonly RectSample[], from: Rect, to:
 }
 
 /**
- * Monotonic settle: the distance to `to` never grows from one frame to the
- * next (by more than `tolerance`), per component. A bounce or a restart
- * backwards fails it.
+ * Monotonic settle: per component, the distance to `to` never grows beyond
+ * the closest it has been so far (plus `tolerance`, once: a slow drift away
+ * fails too). A bounce or a restart backwards fails it.
  */
 export function checkMonotonic(samples: readonly RectSample[], to: Rect, tolerance = 0.5): CheckResult {
   const failures: string[] = [];
-  for (let i = 1; i < samples.length; i++) {
-    const a = samples[i - 1]!;
-    const b = samples[i]!;
+  const closest = new Map<Key, number>();
+  for (const s of samples) {
     for (const k of KEYS) {
-      const before = Math.abs(a.rect[k] - to[k]);
-      const after = Math.abs(b.rect[k] - to[k]);
-      if (after > before + tolerance) failures.push(`t=${fmt(b.t)} ${k} moved away from its target: ${fmt(before)} → ${fmt(after)} px off`);
+      const off = Math.abs(s.rect[k] - to[k]);
+      const best = closest.get(k);
+      if (best !== undefined && off > best + tolerance) failures.push(`t=${fmt(s.t)} ${k} moved away from its target: ${fmt(best)} → ${fmt(off)} px off`);
+      if (best === undefined || off < best) closest.set(k, off);
     }
   }
   return result(failures);
@@ -94,6 +94,11 @@ export function checkMonotonic(samples: readonly RectSample[], to: Rect, toleran
  * the target before and after (plus `slack` px). A snap, a restart from an old
  * place or a teleport fails it; a settle, however often retargeted, passes.
  * Leave held frames out (a pointer may move anything any distance).
+ *
+ * Sample times must be the time the motion was stepped by (the frame loop's
+ * `delta`s summed, as `FrameInfo.delta` hands them out: 1000/60 for the first
+ * frame after idle, clamped to 64 ms), not wall-clock timestamps; and `slack`
+ * must cover the final snap, so keep it above the settle's `restDelta`.
  */
 export function checkNoJumps(samples: readonly TargetSample[], omega: number, slack = 1): CheckResult {
   const failures: string[] = [];
@@ -144,20 +149,27 @@ export function checkContentScale(samples: readonly ScaleSample[], options: { un
 /**
  * Tempo: the move from `from` to `to` is 90 % done (by its largest component)
  * within `t90` ms, give or take `tolerance` (a fraction, default 0.25).
+ * Time counts from `startT`: when the move began (the frame its target was
+ * set, its rect still `from`). It defaults to the first sample's time, so
+ * either pass it or record that frame first.
  */
-export function checkTempo(samples: readonly RectSample[], from: Rect, to: Rect, t90: number, tolerance = 0.25): TempoResult {
-  const start = samples[0]?.t ?? 0;
+export function checkTempo(
+  samples: readonly RectSample[],
+  from: Rect,
+  to: Rect,
+  t90: number,
+  tolerance = 0.25,
+  startT: number = samples[0]?.t ?? 0,
+): TempoResult {
   let key: Key = "x";
   for (const k of KEYS) if (Math.abs(to[k] - from[k]) > Math.abs(to[key] - from[key])) key = k;
   const span = to[key] - from[key];
+  if (span === 0) return { ok: true, failures: [], t90: null };
   let measured: number | null = null;
-  if (span === 0) measured = 0;
-  else {
-    for (const s of samples) {
-      if ((s.rect[key] - from[key]) / span >= 0.9) {
-        measured = s.t - start;
-        break;
-      }
+  for (const s of samples) {
+    if ((s.rect[key] - from[key]) / span >= 0.9) {
+      measured = s.t - startT;
+      break;
     }
   }
   const failures: string[] = [];
