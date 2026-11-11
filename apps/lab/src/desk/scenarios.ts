@@ -7,7 +7,7 @@ import { overlap, type Point } from "../shared/geometry";
 import { DRAG, rawTarget, within, type Target } from "./intent";
 import { dropAt, targetsFor, without } from "./drops";
 import { CONSTRUCTIONS, type ConstructionId } from "./layouts";
-import { DEFAULT_OPTIONS, LAYER, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
+import { DEFAULT_OPTIONS, G, LAYER, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
 
 /** What a scenario can do to the page and read from it. */
 export interface DeskLab {
@@ -148,7 +148,7 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
       },
     },
   };
-  scenarios["B · every tree drop zone is where the item lands, and says so"] = {
+  scenarios["B · every tree drop lands under the pointer, and its label says where"] = {
     still: true,
     play: async (expect) => {
       const c = CONSTRUCTIONS.find((x) => x.id === "tree")!;
@@ -161,10 +161,14 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
             const input = { c, s0: without(s, key), key, size, opt: DEFAULT_OPTIONS };
             for (const t of targetsFor(input)) {
               if (t.id.startsWith("edge:")) continue;
-              const d = dropAt(input, t, mid(t.hit), { x: 0, y: 0 });
+              const p = mid(t.hit);
+              const d = dropAt(input, t, p, { x: 0, y: 0 });
               const floats = d.layout.items.get(key)!.layer > LAYER.doc;
-              if (floats !== d.label.includes("floats")) fails.push(`${W} × ${H}, ${n} docs, ${key} on ${t.id}: "${d.label}" but it ${floats ? "floats" : "tiles"}`);
-              else if (!floats && !sameRect(d.slot, t.hit)) fails.push(`${W} × ${H}, ${n} docs, ${key} on ${t.id}: zone ${fmt(t.hit)}, lands at ${fmt(d.slot)}`);
+              const what = `${W} × ${H}, ${n} docs, ${key} on ${t.id} ("${d.label}")`;
+              if (floats !== d.label.includes("it floats")) fails.push(`${what}: it ${floats ? "floats" : "tiles"}`);
+              else if (!floats && !within(d.slot, p)) fails.push(`${what}: dropped at ${Math.round(p.x)},${Math.round(p.y)}, lands at ${fmt(d.slot)}`);
+              const floating = [...d.layout.items].filter(([k, pl]) => k !== key && pl.layer > LAYER.doc && (k.startsWith("doc:") || k.startsWith("panel:"))).length;
+              if (!floats && (floating > 0) !== /; .* floats?$/.test(d.label)) fails.push(`${what}: ${floating} other tiles float`);
             }
           }
         }
@@ -259,19 +263,21 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       play: async (expect) => {
         const grip = lab.grip(key)!;
         const all = lab.targets(key);
-        // A border: an edge of a target where the most precise target differs 5 px either side of it.
+        // A border: an edge of a target where the most precise target differs 8 px either side of it (across any gap
+        // between the zones); the pointer holds there, wobbling 6 px about the middle of the gap.
         let border: { p: Point; dx: number; dy: number } | null = null;
         for (const t of aimable(grip)) {
           const r = t.hit;
+          // Each edge, stepping outward (dx, dy) from the zone; the border point is half a gap out.
           const edges = [
-            { p: { x: r.x + r.width / 2, y: r.y }, dx: 0, dy: 1 },
-            { p: { x: r.x + r.width / 2, y: r.y + r.height }, dx: 0, dy: 1 },
-            { p: { x: r.x, y: r.y + r.height / 2 }, dx: 1, dy: 0 },
-            { p: { x: r.x + r.width, y: r.y + r.height / 2 }, dx: 1, dy: 0 },
+            { p: { x: r.x + r.width / 2, y: r.y - G / 2 }, dx: 0, dy: -1 },
+            { p: { x: r.x + r.width / 2, y: r.y + r.height + G / 2 }, dx: 0, dy: 1 },
+            { p: { x: r.x - G / 2, y: r.y + r.height / 2 }, dx: -1, dy: 0 },
+            { p: { x: r.x + r.width + G / 2, y: r.y + r.height / 2 }, dx: 1, dy: 0 },
           ];
           for (const e of edges) {
-            const a = rawTarget(all, { x: e.p.x - 5 * e.dx, y: e.p.y - 5 * e.dy });
-            const b = rawTarget(all, { x: e.p.x + 5 * e.dx, y: e.p.y + 5 * e.dy });
+            const a = rawTarget(all, { x: e.p.x - 8 * e.dx, y: e.p.y - 8 * e.dy });
+            const b = rawTarget(all, { x: e.p.x + 8 * e.dx, y: e.p.y + 8 * e.dy });
             if (a && b && a.id !== b.id && dist(e.p, grip) > 40 && e.p.x > 5 && e.p.x < lab.size().width - 5) border = e;
             if (border) break;
           }
@@ -284,7 +290,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
           let t = keys.at(-1)![0];
           for (let i = 0; i < 14; i++) {
             t += 70;
-            const s = i % 2 ? -4 : 4;
+            const s = i % 2 ? -6 : 6;
             keys.push([t, b.p.x + s * b.dx, b.p.y + s * b.dy]);
           }
           return hold(keys, 400);

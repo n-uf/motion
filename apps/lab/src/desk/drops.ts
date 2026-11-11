@@ -30,10 +30,11 @@ import {
   tornHeight,
   TREE_COLUMN,
   treeArea,
+  treeFloats,
   treeTiles,
   type Construction,
 } from "./layouts";
-import { G, LAYER, RAIL, TITLE, idOf, isDocKey, isPanelKey, panelKey, titleOf, touch, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
+import { G, RAIL, TITLE, idOf, isDocKey, isPanelKey, panelKey, titleOf, touch, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
 
 /** A target's drop for a pointer: the state with the item there, a label, and a key (same key, same place). */
 export interface Made {
@@ -169,10 +170,10 @@ function dockTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
 /**
  * The tree's targets are the slots an insertion produces: inserting at place i of a side column gives row i of its
  * n + 1 rows, inserting at place i of the centre gives dwindle's region i of n + 1. Those regions tile the column and
- * the centre, so each zone is exactly where the item lands; the label says where that is (and if it floats because
- * the slot is below its minimum).
+ * the centre, so a zone is where the item lands (unless that makes the newest tile float, which reshapes the rest);
+ * the label says where it lands in the tree as laid out, and what floats.
  */
-function treeTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
+function treeTargets({ s0, key, size }: TargetInput): DropTarget[] {
   const out: DropTarget[] = [];
   const area = treeArea(size);
   const t = s0.tree;
@@ -188,12 +189,24 @@ function treeTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
     for (let i = 0; i <= list.length; i++) {
       const state = { ...s0, tree: { ...t, [group]: insert(list, i, key) } };
       const zone = treeTiles(state.tree, area).get(key)!;
-      const floats = c.layout(state, size, opt).items.get(key)!.layer > LAYER.doc;
-      const where = group === "C" ? regionName(zone, centre) : `row ${i + 1} of ${list.length + 1}`;
-      out.push({ id: `tile:${group}:${i}`, prio: 2, hit: zone, make: fixed(state, `${NAME[group]}, ${where}${floats ? " (it floats there: too small)" : ""}`) });
+      out.push({ id: `tile:${group}:${i}`, prio: 2, hit: zone, make: fixed(state, `${NAME[group]}, ${landing(state.tree, area, key, group, centre)}`) });
     }
   }
   return out;
+}
+
+/**
+ * Where `key` lands in the tree as laid out (after the newest tiles that break a minimum float): its row of its
+ * column, or its region of the centre; or that it floats, or what floats because of it.
+ */
+function landing(tree: DeskState["tree"], area: Rect, key: string, group: "L" | "R" | "C", centre: Rect): string {
+  const { tree: tiled, floats } = treeFloats(tree, area);
+  if (floats.includes(key)) return "it floats there (too small)";
+  const others = floats.length ? `; ${floats.map(titleOf).join(", ")} ${floats.length > 1 ? "float" : "floats"}` : "";
+  if (group !== "C") return `row ${tiled[group].indexOf(key) + 1} of ${tiled[group].length}${others}`;
+  const x0 = tiled.L.length ? centre.x : area.x;
+  const x1 = tiled.R.length ? centre.x + centre.width : area.x + area.width;
+  return `${regionName(treeTiles(tiled, area).get(key)!, rect(x0, area.y, x1 - x0, area.height))}${others}`;
 }
 
 /** Where a region lies in `whole`, in words: "all of it", "left half", "top right"… */
