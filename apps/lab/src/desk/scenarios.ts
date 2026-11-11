@@ -290,12 +290,14 @@ function proportions(): Record<string, Scenario> {
       play: async (expect) => {
         const fails: string[] = [];
         for (const c of CONSTRUCTIONS) {
-          const s = c.initial(docs);
-          if (s.torn.length || s.free.length) fails.push(`${c.title}: starts with ${[...s.torn, ...s.free].map((f) => `panel:${f.id}`).join(", ")} placed freely`);
-          if (c.id === "floatOver" || c.id === "floatAround") continue;
-          for (const [W, H] of [[960, 560], [1440, 900]] as const) {
+          // At the narrow, laptop and large stages, each starting as it would at that size.
+          for (const [W, H] of [[520, 700], [960, 560], [1440, 900]] as const) {
+            const size = { width: W, height: H };
+            const s = c.initial(docs, size);
+            if (s.torn.length || s.free.length) fails.push(`${c.title} ${W} × ${H}: starts with ${[...s.torn, ...s.free].map((f) => `panel:${f.id}`).join(", ")} placed freely`);
+            if (c.id === "floatOver" || c.id === "floatAround") continue;
             // A drawer sliding over the documents is how E gives way when narrow, not a panel set floating.
-            for (const [k, p] of c.layout(s, { width: W, height: H }, DEFAULT_OPTIONS).items) if (/^(panel|doc):/.test(k) && !p.hidden && p.layer > LAYER.dock && p.look !== "bare") fails.push(`${c.title} ${W} × ${H}: ${k} floats (${p.look})`);
+            for (const [k, p] of c.layout(s, size, DEFAULT_OPTIONS).items) if (/^(panel|doc):/.test(k) && !p.hidden && p.layer > LAYER.dock && p.look !== "bare") fails.push(`${c.title} ${W} × ${H}: ${k} floats (${p.look})`);
           }
         }
         expect(fails.length === 0, `${fails.length} floating at the start; first: ${fails[0]}`);
@@ -1198,6 +1200,20 @@ function giveWay(lab: DeskLab): Record<string, Scenario> {
       play: async (expect) => {
         await r.resize(960, 320);
         expect(r.notes().includes("float"), `nothing floats at 320: ${r.notes()}`);
+        settledAsLaidOut(lab, expect);
+      },
+    },
+    "B · narrow start: the side columns start on their rails, the documents tile; a rail icon opens its column": {
+      construction: "tree",
+      size: [520, 700],
+      play: async (expect) => {
+        const floating = (): string[] => [...lab.layout().items].filter(([k, p]) => /^(panel|doc):/.test(k) && !p.hidden && p.layer > LAYER.dock).map(([k]) => k);
+        expect(floating().length === 0, `floating at the start: ${floating().join(", ")}`);
+        expect(!r.hidden("rail:left") && !r.hidden("rail:right") && r.hidden(P.files) && r.hidden(P.notes), "the side columns didn't start on their rails");
+        for (const [k, d] of r.docs()) expect(d.width >= 240 - 0.5, `${k} is ${Math.round(d.width)} wide`);
+        lab.icon("left", 1);
+        await lab.idle();
+        expect(!r.hidden(P.files) && !r.hidden(P.outline), "the left rail icon didn't open its column");
         settledAsLaidOut(lab, expect);
       },
     },
