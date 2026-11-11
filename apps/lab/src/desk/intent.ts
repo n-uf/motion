@@ -10,7 +10,8 @@
  *   which beats 3 (float here and other large areas); equal priorities go to the smaller zone.
  * - Hysteresis: the current target holds while the pointer is within BAND px of its zone, unless a more precise
  *   target is clearly (4 px inside) under the pointer; a gap between zones is bridged for GAP_GRACE ms.
- * - When the pointer leaves the shown target: flying, the indicator hides at once; aiming, it stays until the new
+ * - When the pointer leaves the shown target (past its band): flying, the indicator hides at once, even with no new
+ *   target under it; aiming, it stays until the new
  *   target has held SWITCH_HOLD ms (with no new target, it hides once the gap grace is over). A more precise target
  *   breaking through switches it at once.
  * - Room is made once the indicator has stayed on one target for ROOM_AFTER ms (never for a free target), and
@@ -154,8 +155,10 @@ export function createIntent<T extends Target>(from: Rect): Intent<T> {
       if (!shown) {
         if (cur && under && leftHome && aiming) show(cur);
       } else if (same(cur, shown)) {
-        // Once shown, the indicator stays while its target holds, even if the pointer speeds up.
-        shown = cur;
+        // Once shown, the indicator stays while its target holds, even if the pointer speeds up; but a pointer flying
+        // out past its band (into empty space, kept only by the gap grace) hides it at once.
+        if (!aiming && !under) show(null);
+        else shown = cur;
       } else if (!cur || !aiming) {
         // The pointer left the shown target: flying, or with nothing under it once the gap grace is over.
         show(null);
