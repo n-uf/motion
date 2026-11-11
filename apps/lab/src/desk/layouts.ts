@@ -340,7 +340,7 @@ function tabbed(out: Out, side: Side, ids: readonly number[], active: number | n
   out.set(`tabs:${side}`, { rect: rect(x, y, w, TABS), look: "tabs", layer: float ? LAYER.float : LAYER.dock, tabs: ids, active: shown, ...(float ? { shadow: true } : {}) });
   for (const id of ids) {
     const r = rect(x, y + TABS, w, h - TABS);
-    out.set(panelKey(id), { rect: r, look: float ? "float" : "bare", layer: float ? LAYER.float : LAYER.dock, ...(id === shown ? {} : { hidden: true }), ...(float ? { shadow: true } : {}) });
+    out.set(panelKey(id), { rect: r, look: "bare", layer: float ? LAYER.float : LAYER.dock, ...(id === shown ? {} : { hidden: true }), ...(float ? { shadow: true } : {}) });
   }
 }
 
