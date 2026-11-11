@@ -270,6 +270,8 @@ function giveWay(lab: DeskLab): Record<string, Scenario> {
       construction: "strip",
       play: async (expect) => {
         expect(!r.hidden("thumb"), "the strip doesn't scroll at 960");
+        lab.focus(1);
+        await lab.idle();
         const before = r.at("doc:1")!.rect.x;
         lab.focus(2);
         await lab.idle();
