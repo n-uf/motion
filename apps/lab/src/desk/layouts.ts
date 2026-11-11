@@ -525,10 +525,25 @@ export function palettes(s: DeskState, area: Rect, W: number, m: number, notes: 
   return out;
 }
 
-/** The stage area palettes and documents share (below or above the pill). */
-export function paletteArea(size: Size, opt: Options): { area: Rect; pill: Placed } {
+/** The stage area palettes and documents share (below or above the pill when it keeps its band). */
+export function paletteArea(size: Size, opt: Options): { area: Rect } {
   const p = pill(opt, G, size.width - 2 * G, 0, size.height);
-  return { area: rect(G, p.top, size.width - 2 * G, p.bottom - p.top), pill: p.placed };
+  return { area: rect(G, p.top, size.width - 2 * G, p.bottom - p.top) };
+}
+
+/**
+ * A floating pill among palettes: centred in the room between the palettes its band would cross (those on the left
+ * half end its room on the left, those on the right half on the right), so it never covers a palette's title bar.
+ */
+function pillBetween(opt: Options, size: Size, palettes: readonly Rect[]): Placed {
+  const band = pill(opt, G, size.width - 2 * G, 0, size.height).placed.rect;
+  const crossed = palettes.filter((r) => r.y < band.y + band.height && r.y + r.height > band.y);
+  const mid = size.width / 2;
+  const left = crossed.filter((r) => r.x + r.width / 2 < mid);
+  const right = crossed.filter((r) => r.x + r.width / 2 >= mid);
+  const x0 = left.length ? Math.max(...left.map((r) => r.x + r.width)) + G : G;
+  const x1 = right.length ? Math.min(...right.map((r) => r.x)) - G : size.width - G;
+  return pill(opt, x0, x1 - x0, 0, size.height).placed;
 }
 
 /** F1's margin from the area's edges. */
@@ -536,8 +551,9 @@ export const OVER_MARGIN = 14;
 
 function floatOver(s: DeskState, size: Size, opt: Options, notes: string[]): Out {
   const out: Out = new Map();
-  const { area, pill: tb } = paletteArea(size, opt);
+  const { area } = paletteArea(size, opt);
   const pals = palettes(s, area, size.width, OVER_MARGIN, notes);
+  const tb = pillBetween(opt, size, [...pals.values()].map((p) => p.rect));
   tiles(out, area, s.docs);
   let covered = 0;
   for (const [id, p] of pals) {
@@ -562,8 +578,9 @@ export function aroundDocs(pals: ReadonlyMap<number, { rect: Rect }>, area: Rect
 
 function floatAround(s: DeskState, size: Size, opt: Options, notes: string[]): Out {
   const out: Out = new Map();
-  const { area, pill: tb } = paletteArea(size, opt);
+  const { area } = paletteArea(size, opt);
   const pals = palettes(s, area, size.width, 0, notes);
+  const tb = pillBetween(opt, size, [...pals.values()].map((p) => p.rect));
   const docs = aroundDocs(pals, area);
   tiles(out, docs, s.docs);
   let used = docs.width * docs.height;

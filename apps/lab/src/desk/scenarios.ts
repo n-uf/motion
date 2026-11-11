@@ -123,6 +123,10 @@ export function layoutFailures(l: Layout, size: Size, opt: Options, what: string
   if (tb && tb.look === "pill" && opt.toolbarSpace === "reserved") {
     for (const [key, p] of shown) if (key.startsWith("doc:") && overlap(p.rect, tb.rect) > 1) out.push(`${what}: the reserved toolbar covers ${key}`);
   }
+  // A pill floats over documents only: never over a panel, a rail or a tab row.
+  if (tb && tb.look === "pill") {
+    for (const [key, p] of shown) if (key !== "toolbar" && !key.startsWith("doc:") && overlap(p.rect, tb.rect) > 1) out.push(`${what}: the pill covers ${key}`);
+  }
   return out;
 }
 
