@@ -133,4 +133,9 @@ main.wide { max-width: 1040px; }
 .win.panel .title { display: flex; justify-content: space-between; align-items: center; touch-action: none; }
 .win.panel .fold { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 12px; padding: 0 2px; }
 .win.panel .body { white-space: normal; }
+/* A rail (every panel of a column folded): each title bar is turned on its side, a tab; clicking it unfolds the panel. */
+.win.panel .title { transform-origin: 0 0; }
+.win.panel.rail .frame { background: var(--title); }
+.win.panel.rail .title { cursor: pointer; }
+.win.panel.rail.lifted .title { cursor: grabbing; }
 .win.doc .title { cursor: default; }
