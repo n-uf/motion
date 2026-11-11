@@ -257,7 +257,7 @@ function docks(s: DeskState, size: Size, opt: Options, mode: "between" | "full",
 
 /** The size of a torn-off panel, and of a palette, at full height. */
 export const TORN_W = 200;
-export const tornHeight = (id: number): number => natural(id) + 50;
+export const tornHeight = (id: number): number => natural(id);
 
 /** F3: torn-off panels float over the documents; one that doesn't fit the stage's height shades to its title bar. */
 function tornOff(out: Out, s: DeskState, size: Size, notes: string[]): void {
@@ -331,7 +331,7 @@ function tree(s: DeskState, size: Size, notes: string[]): Out {
   const { tree: t, floats } = treeFloats(s.tree, area);
   for (const [k, r] of treeTiles(t, area)) out.set(k, { rect: r, look: isDocKey(k) ? "doc" : "tile", layer: LAYER.doc, min: tileMin(k) });
   floats.forEach((k, i) => {
-    const m = isDocKey(k) ? { w: 300, h: 190 } : { w: 200, h: natural(idOf(k)) + 50 };
+    const m = isDocKey(k) ? { w: 300, h: 190 } : { w: 200, h: natural(idOf(k)) };
     const r = clampInto(rect(size.width / 2 - m.w / 2 + 22 * i, BAR + 40 + 22 * i, m.w, m.h), rect(0, 0, size.width, size.height));
     out.set(k, { rect: r, look: isDocKey(k) ? "doc" : "float", layer: LAYER.float, shadow: true });
   });
@@ -500,7 +500,7 @@ function strip(s: DeskState, size: Size, notes: string[]): Out {
 // --- F1, F2: floating palettes -------------------------------------------------------------------------------------
 
 export const paletteWidth = (W: number): number => Math.min(200, Math.max(140, W * 0.22));
-export const paletteHeight = (id: number): number => natural(id) + 30;
+export const paletteHeight = (id: number): number => natural(id);
 /** Narrower than this, both stacks share the right corner. */
 export const PALETTE_NARROW = 640;
 
