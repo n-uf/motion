@@ -119,18 +119,19 @@ function lruFold(s: DeskState, ids: readonly number[], avail: number, open: (id:
 const plural = (n: number, one: string, many: string): string => `${n} ${n > 1 ? many : one}`;
 
 /**
- * An accordion of sections in x, y, w, h: open sections share the height in proportion to their natural heights;
- * the least recently used fold to headers until the open ones fit. Returns how many folded by themselves.
+ * An accordion of sections in x, y, w, h: each open section takes its natural height and the last open one takes
+ * the rest; the least recently used fold to headers until the open ones fit. Returns how many folded by themselves.
  */
 function accordion(out: Out, s: DeskState, x: number, y: number, w: number, h: number, ids: readonly number[]): number {
   const folded = lruFold(s, ids, h, natural, TITLE);
   const open = ids.filter((id) => !folded.includes(id));
   const room = h - G * (ids.length - 1) - TITLE * (ids.length - open.length);
-  const heights = share(room, open.map(natural));
+  const last = open.at(-1);
+  const rest = room - open.reduce((sum, id) => sum + (id === last ? 0 : natural(id)), 0);
   let cy = y;
   for (const id of ids) {
     const i = open.indexOf(id);
-    const hh = i >= 0 ? heights[i]! : TITLE;
+    const hh = i < 0 ? TITLE : id === last ? Math.max(natural(id), rest) : natural(id);
     out.set(panelKey(id), { rect: rect(x, cy, w, hh), look: i >= 0 ? "section" : "header", layer: LAYER.dock, ...(i >= 0 ? { min: { height: natural(id) } } : {}) });
     cy += hh + G;
   }
