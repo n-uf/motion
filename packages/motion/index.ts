@@ -3,7 +3,8 @@
  * tweens, and a DOM-free gesture recogniser. No DOM, no framework, no
  * globals: the host passes a clock in (`@n-uf/motion/browser` has the browser
  * one). `@n-uf/motion/clock`, `/signals`, `/values` and `/gestures` are the
- * same folders on their own.
+ * same folders on their own. `@n-uf/motion/testing` (frame-sampled checks of
+ * the motion rules, for tests and specs) is only there, not in the root.
  */
 export * from "./src/clock";
 export * from "./src/signals";

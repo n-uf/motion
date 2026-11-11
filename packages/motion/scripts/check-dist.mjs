@@ -1,5 +1,5 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, clock, signals, values, gestures, browser) and
+// - every entry (the root, clock, signals, values, gestures, testing, browser) and
 //   its type definitions exist;
 // - the JavaScript imports only its own chunks and alien-signals/system;
 // - the signal graph is in exactly one file, so importing two entries gives
@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const CORE = ["index", "clock", "signals", "values", "gestures"];
+const CORE = ["index", "clock", "signals", "values", "gestures", "testing"];
 const ENTRIES = [...CORE, "browser"];
 const ALLOWED = /^alien-signals\/system$/;
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|document|globalThis|matchMedia)\b/;
@@ -98,12 +98,17 @@ if (problems.length === 0) {
     if (typeof modules.browser.createBrowserClock !== "function") problems.push("browser.js: no createBrowserClock");
     if (modules.signals.signal !== modules.index.signal) problems.push("signals.js and index.js export different signal()s");
     if (typeof modules.gestures.createRecognizer !== "function") problems.push("gestures.js: no createRecognizer");
+    if (typeof modules.testing.checkNoOvershoot !== "function") problems.push("testing.js: no checkNoOvershoot");
     const clock = modules.clock.createFakeClock();
     const loop = modules.clock.createFrameLoop({ clock });
     const value = modules.values.springValue(loop, 0);
     value.set(100);
     clock.runUntilIdle();
     if (value.value !== 100 || loop.active) problems.push(`values.js: a spring didn't settle (value ${value.value})`);
+    const rect = modules.values.settleValue(loop, { x: 0, y: 0, width: 100, height: 100 });
+    rect.set({ x: 300, y: 0, width: 50, height: 100 });
+    clock.runUntilIdle();
+    if (rect.value.x !== 300 || rect.value.width !== 50 || loop.active) problems.push(`values.js: a settle didn't settle (x ${rect.value.x})`);
   } catch (error) {
     problems.push(`import: ${error instanceof Error ? error.message : String(error)}`);
   }

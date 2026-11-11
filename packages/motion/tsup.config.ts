@@ -23,6 +23,7 @@ export default defineConfig({
     signals: "src/signals/index.ts",
     values: "src/values/index.ts",
     gestures: "src/gestures/index.ts",
+    testing: "src/testing/index.ts",
     browser: "browser.ts",
   },
   splitting: true,
