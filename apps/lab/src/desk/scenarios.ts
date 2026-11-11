@@ -51,6 +51,8 @@ export interface DeskLab {
   grip(key: string): Point | null;
   /** Start the scenario's desk afresh. */
   restart(): void;
+  /** The drop preview the scenario runs with. */
+  preview(): "indicator" | "snap";
 }
 
 /** A pointer path keyframe: ms from the lift, x, y. */
@@ -69,7 +71,12 @@ export interface IndicatorEntry {
  */
 export interface DragResult {
   readonly log: readonly IndicatorEntry[];
-  readonly frames?: readonly { readonly t: number; readonly x: number; readonly y: number; readonly speed: number }[];
+  readonly frames?: readonly { readonly t: number; readonly x: number; readonly y: number; readonly speed: number; readonly item: Rect }[];
+  /** Snap preview: the slots the item sat in (null: back on the pointer). */
+  readonly snaps?: readonly IndicatorEntry[];
+  /** Where the item was drawn when it was let go, and where the pointer held it. */
+  readonly atRelease?: Rect | null;
+  readonly grab?: Point;
   readonly landed: string | null;
 }
 
@@ -82,8 +89,10 @@ export interface Scenario {
   readonly docs?: number;
   /** It only checks pure layouts: nothing has to move. */
   readonly still?: boolean;
-  /** It drags. */
+  /** It drags: it runs with each drop preview. */
   readonly drag?: boolean;
+  /** It is about one preview only. */
+  readonly preview?: "indicator" | "snap";
   readonly play: (expect: Expect) => Promise<void>;
 }
 
@@ -327,6 +336,8 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         });
         const early = shows(r).filter((e) => e.t < arrival - 1);
         expect(early.length === 0, `the indicator showed ${early.map((e) => `${e.id} at ${Math.round(e.t)} ms`).join(", ")} while flying (arrived at ${Math.round(arrival)} ms)`);
+        const snappedEarly = (r.snaps ?? []).filter((e) => e.id !== null && e.t < arrival - 1);
+        expect(snappedEarly.length === 0, `the item snapped into ${snappedEarly.map((e) => `${e.id} at ${Math.round(e.t)} ms`).join(", ")} while flying`);
         const want = rawTarget(all, end)?.id ?? null;
         expect(shows(r).length === 1 && shows(r)[0]!.id === want, `aiming showed ${shows(r).map((e) => e.id).join(", ") || "nothing"}, not ${want}`);
         expect(r.landed === want, `landed on ${r.landed ?? "home"}, not ${want}`);
@@ -373,6 +384,8 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         const changes = shows(r).length - 1;
         const seq = r.log.map((e) => `${e.id ?? "none"}@${Math.round(e.t)}`).join(" → ");
         expect(changes <= 1, `the indicator changed ${changes} times on the border: ${seq}`);
+        const snapChanges = (r.snaps ?? []).filter((e) => e.id !== null).length - 1;
+        expect(snapChanges <= 1, `the item snapped ${snapChanges + 1} times on the border`);
         expect(flashOf(r) === null, `${flashOf(r)}: ${seq} (border at ${Math.round(b.p.x)},${Math.round(b.p.y)})`);
       },
     };
@@ -488,6 +501,60 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       expect(flash(r) === null, `${flash(r)}: ${sequence(r)}`);
     },
   };
+  /** The first snap, if it came only once the indicator had shown for the room delay (a frame's slack), else why not. */
+  const gated = (r: DragResult): string | null => {
+    const snap = (r.snaps ?? []).find((e) => e.id !== null);
+    if (!snap) return "the item never snapped";
+    const showed = r.log.filter((e) => e.id === snap.id && e.t <= snap.t).at(-1);
+    if (!showed) return `the item snapped into ${snap.id} at ${Math.round(snap.t)} ms with no indicator on it`;
+    return snap.t - showed.t >= DRAG.ROOM_AFTER - 1000 / 60 ? null : `the item snapped into ${snap.id} ${Math.round(snap.t - showed.t)} ms after the indicator showed it, before the room was made`;
+  };
+  out["A · snap: the item glides into the slot the model shows, its size revealed"] = {
+    construction: "docks",
+    drag: true,
+    preview: "snap",
+    play: async (expect) => {
+      const key = DRAGGED.docks;
+      const all = lab.targets(key);
+      const a = all.find((t) => t.id === "dock:left:0");
+      if (!a) return expect(false, "no left dock slot");
+      const r = await lab.drag(key, () => mid(a.hit));
+      await lab.idle();
+      expect(gated(r) === null, `${gated(r)}`);
+      expect((r.snaps ?? []).filter((e) => e.id !== null).length === 1, `the item snapped ${(r.snaps ?? []).filter((e) => e.id !== null).map((e) => e.id).join(", ")}`);
+      const landed = lab.layout().items.get(key)!.rect;
+      expect(!!r.atRelease && sameRect(r.atRelease, landed), `the item was let go at ${r.atRelease ? fmt(r.atRelease) : "nowhere"}, its slot is ${fmt(landed)}`);
+      expect(r.landed === a.id, `landed on ${r.landed ?? "home"}, not ${a.id}`);
+    },
+  };
+  out["A · snap: flying off a snapped slot glides the item back to the pointer within the settle tempo"] = {
+    construction: "docks",
+    drag: true,
+    preview: "snap",
+    play: async (expect) => {
+      const key = DRAGGED.docks;
+      const all = lab.targets(key);
+      const a = all.find((t) => t.id === "dock:left:1");
+      if (!a) return expect(false, "no left dock slot");
+      const empty = { x: lab.size().width / 2, y: lab.size().height / 3 };
+      let stop = 0;
+      const r = await lab.path(key, (g) => {
+        const there = hold(through([g, mid(a.hit)], 0.8), 600);
+        const flick = [...there, ...through([mid(a.hit), empty], 2.5, there.at(-1)![0]).slice(1)];
+        stop = flick.at(-1)![0];
+        return hold(flick, 500);
+      });
+      expect(gated(r) === null, `${gated(r)}`);
+      const off = (r.snaps ?? []).find((e) => e.id === null);
+      expect(!!off && !!off.flying, `the item didn't leave its slot as the pointer flew off: ${(r.snaps ?? []).map((e) => `${e.id ?? (e.flying ? "flying" : "none")}@${Math.round(e.t)}`).join(" → ")}`);
+      // Once the pointer stops, the item is under it again within the settle's 99 % time (and a frame or two).
+      const held = (r.frames ?? []).find((f) => f.t < stop);
+      const g = r.grab ?? { x: 0, y: 0 };
+      const back = (r.frames ?? []).find((f) => f.t >= stop && held && Math.max(Math.abs(f.item.x - (f.x - g.x)), Math.abs(f.item.y - (f.y - g.y)), Math.abs(f.item.width - held.item.width), Math.abs(f.item.height - held.item.height)) < 0.5);
+      const tempo = (2 * Math.log(10) * 1000) / 25;
+      expect(!!back && back.t - stop <= tempo + 2 * (1000 / 60), `the item was under the pointer again ${back ? `${Math.round(back.t - stop)} ms` : "never"} after it stopped (settle: ${Math.round(tempo)} ms)`);
+    },
+  };
   out["A · drag model: a flick from a slot into empty space hides the indicator within a frame"] = {
     construction: "docks",
     drag: true,
@@ -574,6 +641,8 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       const changes = shows(r).length - 1;
       expect(changes <= 1, `the indicator changed ${changes} times: ${sequence(r)}`);
       expect(flash(r) === null, `${flash(r)}: ${sequence(r)}`);
+      const snapChanges = (r.snaps ?? []).filter((e) => e.id !== null).length - 1;
+      expect(snapChanges <= 1, `the item snapped ${snapChanges + 1} times in the wobble`);
     },
   };
   out["A · drag model: a release inside the shown slot's band lands on it, not on the neighbour under the pointer"] = {
