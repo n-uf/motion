@@ -340,7 +340,11 @@ function reset(count = 3): void {
 
 // --- actions -----------------------------------------------------------------
 
+/** More windows than this make slots too small to see the motion (and dwindle's sizes run out). */
+const MAX_WINDOWS = 8;
+
 function doOpen(): void {
+  if (order.length >= MAX_WINDOWS) return;
   const slots = layout([...order, nextId]);
   const at = slots.get(nextId)!;
   const w = makeWin(at);
@@ -442,12 +446,18 @@ function moveDrag(px: number, py: number): void {
   if (dropMode === "snap") {
     // Snap in once the pointer is well inside a slot; stay until it leaves that slot.
     if (snapped !== null && !inside(slotAt(snapped, lifted.id), px, py)) snapped = null;
-    if (snapped === null && inside(slot, px, py, SNAP_IN)) snapped = best;
+    if (snapped === null && inside(slot, px, py, Math.min(SNAP_IN, Math.min(slot.width, slot.height) / 4))) snapped = best;
     if (snapped !== null) dropIndex = snapped;
     hint.hidden = true;
     // Snapped: glide into the slot. Not snapped: glide back under the pointer (no jump), at the lift size.
     const goal = snapped !== null ? slotAt(snapped, lifted.id) : expected;
-    if (!same(lifted.rect.target, goal)) lifted.rect.setTarget(goal);
+    if (!same(lifted.rect.target, goal)) {
+      // A new segment for the checks: from where it is drawn to the new goal.
+      const drawn = lifted.rect.value;
+      lifted.segment = { id: lifted.id, t0: time, from: { ...drawn }, to: { ...goal }, samples: [{ t: time, rect: { ...drawn } }] };
+      episode?.segments.push(lifted.segment);
+      lifted.rect.setTarget(goal);
+    }
     return;
   }
 
@@ -521,24 +531,30 @@ function draw(w: Win): void {
 }
 
 /**
- * Whether the topmost element at stage point `want` belongs to `w` (a failure message when not). The point
- * is moved into the part of the frame the stage shows (its content box): outside it nothing can be hit.
+ * Whether the topmost element at stage point `want` belongs to `w`: null when it does, a failure message
+ * when something else is on top, undefined when no point of it can be hit-tested (outside the stage's
+ * visible content box or the browser's viewport). The point is moved into the part of the frame that
+ * can be hit.
  */
-function onTopAt(w: Win, want: { x: number; y: number }, frame: Rect): string | null {
+function onTopAt(w: Win, want: { x: number; y: number }, frame: Rect): string | null | undefined {
   const s = stage.getBoundingClientRect();
   const k = s.width / STAGE_W;
-  const vw = stage.clientWidth / k;
-  const vh = stage.clientHeight / k;
-  const x0 = Math.max(frame.x, 0) + 1;
-  const y0 = Math.max(frame.y, 0) + 1;
-  const x1 = Math.min(frame.x + frame.width, vw) - 1;
-  const y1 = Math.min(frame.y + frame.height, vh) - 1;
-  if (x1 <= x0 || y1 <= y0) return null;
+  const ox = s.left + stage.clientLeft;
+  const oy = s.top + stage.clientTop;
+  // The visible box in stage units: the stage's content box, cut to the viewport.
+  const vx0 = Math.max(0, -ox / k);
+  const vy0 = Math.max(0, -oy / k);
+  const vx1 = Math.min(stage.clientWidth / k, (window.innerWidth - ox) / k);
+  const vy1 = Math.min(stage.clientHeight / k, (window.innerHeight - oy) / k);
+  const x0 = Math.max(frame.x, vx0) + 1;
+  const y0 = Math.max(frame.y, vy0) + 1;
+  const x1 = Math.min(frame.x + frame.width, vx1) - 1;
+  const y1 = Math.min(frame.y + frame.height, vy1) - 1;
+  if (x1 <= x0 || y1 <= y0) return undefined;
   const at = { x: Math.min(Math.max(want.x, x0), x1), y: Math.min(Math.max(want.y, y0), y1) };
-  const cx = s.left + stage.clientLeft + at.x * k;
-  const cy = s.top + stage.clientTop + at.y * k;
-  const top = document.elementFromPoint(cx, cy);
-  if (top && w.el.contains(top)) return null;
+  const top = document.elementFromPoint(ox + at.x * k, oy + at.y * k);
+  if (!top) return undefined;
+  if (w.el.contains(top)) return null;
   const other = top?.closest<HTMLElement>(".win")?.dataset.id;
   return `t=${Math.round(time)} window ${w.id} is under ${other ? `window ${other}` : (top?.className || "something")} at (${Math.round(at.x)}, ${Math.round(at.y)})`;
 }
@@ -567,25 +583,30 @@ function tick(frame: FrameInfo): boolean {
     const seen = measure(w);
     episode.scale.push(seen.scale);
     const drawn = w.rect.value;
-    if (w === lifted) {
+    if (w === lifted && dropMode === "indicator") {
       // Held (indicator mode): compare what the page shows with where the pointer puts the window.
-      if (expected && dropMode === "indicator") episode.held.push({ t: time, rect: seen.frame, expected });
+      if (expected) episode.held.push({ t: time, rect: seen.frame, expected });
     } else {
+      // Everything that glides, including a lifted window snapping into a slot and back to the pointer.
       w.runs.at(-1)!.push({ t: time, rect: drawn, target: w.rect.target });
       w.segment?.samples.push({ t: time, rect: drawn });
-    }
-    // On top: while dragged, and after the drop until it has settled, nothing covers it.
-    if (w === raised) {
-      const at = w === lifted && inside(seen.frame, pointer.x, pointer.y) ? pointer : { x: seen.frame.x + seen.frame.width / 2, y: seen.frame.y + seen.frame.height / 2 };
-      episode.onTop.push(onTopAt(w, at, seen.frame));
-      if (w !== lifted && w.rect.settled) {
-        raised = null;
-        w.el.style.zIndex = w.id === maxId ? "3" : "1";
-      }
     }
     if (w.closing && w.pop.settled) {
       w.el.remove();
       wins = wins.filter((x) => x !== w);
+    }
+  }
+  // On top: while dragged, and after the drop until it has settled, nothing covers it. Checked after
+  // every window of this frame is drawn.
+  const r = raised;
+  if (r && episode) {
+    const frameRect = measure(r).frame;
+    const at = r === lifted && inside(frameRect, pointer.x, pointer.y) ? pointer : { x: frameRect.x + frameRect.width / 2, y: frameRect.y + frameRect.height / 2 };
+    const verdict = onTopAt(r, at, frameRect);
+    if (verdict !== undefined) episode.onTop.push(verdict);
+    if (r !== lifted && r.rect.settled) {
+      raised = null;
+      r.el.style.zIndex = r.id === maxId ? "3" : "1";
     }
   }
   if (moving) return true;
@@ -766,8 +787,9 @@ const SCENARIOS: Record<string, () => Promise<void>> = {
   },
   "switch layout": async () => {
     const before = layoutKind;
+    // Switch, and switch back mid-flight: one move with a retarget across layouts.
     setLayout(before === "dwindle" ? "master" : "dwindle");
-    await idle();
+    await wait(60);
     setLayout(before);
   },
 };
@@ -784,6 +806,7 @@ const runs: Run[] = [];
 async function runScenario(name: string): Promise<Run> {
   reset(4);
   await nextFrame();
+  const layoutAtStart = layoutKind;
   const play = SCENARIOS[name]!;
   await play();
   await idle();
@@ -793,7 +816,7 @@ async function runScenario(name: string): Promise<Run> {
   const tr = document.createElement("tr");
   tr.innerHTML = "<td></td><td></td><td></td>";
   tr.children[0]!.textContent = name;
-  tr.children[1]!.textContent = `${mode === "proposed" ? "Proposed" : "Today"} · ${layoutKind}`;
+  tr.children[1]!.textContent = `${mode === "proposed" ? "Proposed" : "Today"} · ${layoutAtStart}`;
   tr.children[2]!.textContent = failed.length ? failed.join(", ") : "none";
   (tr.children[2] as HTMLElement).className = failed.length ? "bad" : "ok";
   runsBody.append(tr);
