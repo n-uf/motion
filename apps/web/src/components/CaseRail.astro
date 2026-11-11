@@ -1,0 +1,26 @@
+---
+// The case rail of a figure: numbered buttons with a name and a note, rendered on the server (so their text is in the
+// HTML before any script) and bound by the page's island. Exactly as tall as the stage beside it; it scrolls.
+interface Props {
+  id: string;
+  label: string;
+  items: { name: string; note: string; tag?: string }[];
+  /** the case pressed at first */
+  active?: number;
+  /** a small heading above the list */
+  title?: string;
+}
+const { id, label, items, active = 0, title } = Astro.props;
+---
+<div class="rail">
+  <div class="rail-scroll" id={id} role="group" aria-label={label}>
+    {title && <p class="rail-title">{title}</p>}
+    {items.map((c, i) => (
+      <button type="button" class="case" aria-pressed={String(i === active)}>
+        <span class="i">{String(i + 1).padStart(2, "0")}</span>
+        <span class="t">{c.name}{c.tag && <span class="tag">{c.tag}</span>}</span>
+        <span class="d">{c.note}</span>
+      </button>
+    ))}
+  </div>
+</div>
