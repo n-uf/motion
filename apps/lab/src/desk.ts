@@ -512,13 +512,17 @@ function belowMin(it: Item): string | null {
   return null;
 }
 
-/** Outside the stage (laid out outside the stage's size, or drawn outside the stage as drawn), or null. */
+/**
+ * Outside the stage (laid out outside the stage's size, or drawn outside the stage as drawn), or null. A move that
+ * starts off the stage (a strip column scrolled away) may be drawn outside it on its way in.
+ */
 function offStage(it: Item): string | null {
   if (it.placed?.offStage) return null;
   const s = stageRect.value;
   const out = (r: Rect, w: number, h: number): boolean => r.x < -0.5 || r.y < -0.5 || r.x + r.width > w + 0.5 || r.y + r.height > h + 0.5;
   if (out(it.target, size.width, size.height)) return `t=${Math.round(time)} ${it.name} laid out at ${fmt(it.target)}, outside the ${size.width} × ${size.height} stage`;
-  if (out(it.rect.value, s.width, s.height)) return `t=${Math.round(time)} ${it.name} drawn at ${fmt(it.rect.value)}, outside the stage drawn ${Math.round(s.width)} × ${Math.round(s.height)}`;
+  const from = it.segment?.from;
+  if (out(it.rect.value, s.width, s.height) && !(from && out(from, s.width, s.height))) return `t=${Math.round(time)} ${it.name} drawn at ${fmt(it.rect.value)}, outside the stage drawn ${Math.round(s.width)} × ${Math.round(s.height)}`;
   return null;
 }
 
@@ -617,6 +621,7 @@ const lab: DeskLab = {
   open: doOpen,
   close: doClose,
   fold: doFold,
+  touch: (id) => states.set(cid, touch(state(), id)),
   icon: doIcon,
   tab: doTab,
   focus: doFocus,
@@ -668,7 +673,8 @@ let runningAll = false;
 let stopAll = false;
 const runAllButton = document.querySelector("button[data-act=runall]") as HTMLButtonElement;
 
-async function runAll(): Promise<LabRun[]> {
+/** Run every scenario (or those whose name contains `filter`). */
+async function runAll(filter?: string): Promise<LabRun[]> {
   if (runningAll) return [];
   runningAll = true;
   stopAll = false;
@@ -679,6 +685,7 @@ async function runAll(): Promise<LabRun[]> {
   try {
     for (const name of Object.keys(SCENARIOS)) {
       if (stopAll) break;
+      if (filter && !name.includes(filter)) continue;
       out.push(await runScenario(name));
     }
   } finally {
