@@ -162,7 +162,10 @@ function makeDrop(it: Item, zone: Zone, index = Infinity): Drop {
   const pinned = it.kind === "toolbar" ? s.toolbar === "pinned" : s.pinned.includes(it.id);
   let label = PLACE_LABEL[zone];
   if (it.kind === "panel" && zone !== "pinned" && zone !== "band") {
-    label = pinned ? `${PLACE_LABEL[zone]} is full: pinned instead` : `${PLACE_LABEL[zone]} · index ${s[zone].indexOf(it.id)}`;
+    // Normalising pins the newest panel, which may be another one than the dragged panel.
+    const bumped = s.pinned.filter((id) => id !== it.id && !state.pinned.includes(id)).map((id) => PANELS.find((p) => p.id === id)?.title ?? `panel ${id}`);
+    if (pinned) label = `${PLACE_LABEL[zone]} is full: pinned instead`;
+    else label = `${PLACE_LABEL[zone]} · slot ${s[zone].indexOf(it.id)}` + (bumped.length ? ` · ${bumped.join(", ")} will pin` : "");
   }
   return { key: `${zone}:${index}`, zone, state: s, layout, slot: layout.rects.get(it.key)!, label, pinned };
 }
@@ -503,7 +506,9 @@ function doToolbar(place: ToolbarPlace): void {
 }
 
 function setDocs(mode: DocLayout): void {
-  (document.querySelector(`input[name=docs][value=${mode}]`) as HTMLInputElement).checked = true;
+  // Mid-drag the layout does not change: the radio keeps showing the state's mode.
+  const shown = lifted ? state.docLayout : mode;
+  (document.querySelector(`input[name=docs][value=${shown}]`) as HTMLInputElement).checked = true;
   if (lifted) return;
   state = setDocLayout(state, SPEC, mode);
   relayout();
