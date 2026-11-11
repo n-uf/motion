@@ -417,7 +417,9 @@ function makeWin(at: Rect): Win {
   Object.assign(el.style, { left: `${at.x}px`, top: `${at.y}px`, width: `${at.width}px`, height: `${at.height}px` });
   content.querySelector(".title")!.addEventListener("pointerdown", (e) => onPointerDown(w, e as PointerEvent));
   // A press anywhere on a window focuses it (a new window in dwindle splits the focused one).
-  el.addEventListener("pointerdown", () => focus(w.id));
+  el.addEventListener("pointerdown", () => {
+    if (!w.closing) focus(w.id);
+  });
   wins.push(w);
   draw(w);
   return w;
@@ -462,7 +464,8 @@ function focus(id: number | null): void {
 
 /** A new window: in dwindle it splits the focused window (to its right or below); elsewhere it joins the end. */
 function doOpen(): void {
-  if (order.length >= MAX_WINDOWS) return;
+  // Layout commands wait for the drag to end (a drop target found before them would be stale).
+  if (lifted || order.length >= MAX_WINDOWS) return;
   const id = nextId;
   const target = focusId !== null && order.includes(focusId) ? focusId : (order.at(-1) ?? null);
   const nextTree = layoutKind === "dwindle" ? splitLeaf(tree, target, id, false) : null;
@@ -483,6 +486,7 @@ function doOpen(): void {
 
 /** Close the focused window (else the last); in dwindle its sibling takes its parent's place. */
 function doClose(): void {
+  if (lifted) return;
   const id = focusId !== null && order.includes(focusId) ? focusId : order.at(-1);
   if (id === undefined) return;
   const w = wins.find((x) => x.id === id)!;
@@ -501,7 +505,7 @@ function doClose(): void {
 }
 
 function doSwap(): void {
-  if (order.length < 2) return;
+  if (lifted || order.length < 2) return;
   const [x, y] = [order[0]!, order[1]!];
   if (layoutKind === "dwindle") setTree(swapLeaves(tree, x, y));
   else {
@@ -513,7 +517,7 @@ function doSwap(): void {
 
 function doMaximize(): void {
   const id = order[0];
-  if (id === undefined) return;
+  if (lifted || id === undefined) return;
   maxId = maxId === id ? null : id;
   relayout(id);
 }
@@ -538,9 +542,12 @@ function beginDrag(w: Win, px: number, py: number): void {
   w.el.style.zIndex = Z_RAISED;
   w.el.classList.add("lifted");
   if (maxId === w.id) maxId = null;
-  // Lifted out of the layout: the others close the gap.
+  // Lifted out of the layout (out of the tree and the order both): the others close the gap.
   if (layoutKind === "dwindle") setTree(removeLeaf(tree, w.id));
-  else order = order.filter((x) => x !== w.id);
+  else {
+    order = order.filter((x) => x !== w.id);
+    tree = treeFromOrder(order);
+  }
   drop = null;
   w.segment = null;
   newRun(w);
@@ -628,7 +635,9 @@ function endDrag(): void {
   // Land where it was going (no move at all: back to the end, or the root of an empty tree).
   (drop ?? drops(w.id).at(-1)!).commit();
   drop = null;
-  if (layoutKind !== "dwindle") tree = treeFromOrder(order);
+  // Keep the two in step whichever the drop committed to.
+  if (layoutKind === "dwindle") order = leafIds(tree);
+  else tree = treeFromOrder(order);
   focus(w.id);
   newRun(w);
   // It stays raised (above every other window) until its drop settle ends.
@@ -756,8 +765,10 @@ function tick(frame: FrameInfo): boolean {
   const room = roomAt();
   if (lifted && room !== null && episode) {
     const slot = room.slot;
-    const blocking = wins.filter((o) => o !== lifted && !o.closing && o.rect.settled && overlap(o.rect.value, slot) > 1);
-    episode.room.push(blocking.length ? `t=${Math.round(time)} window ${blocking.map((o) => o.id).join(", ")} still in the slot kept for window ${lifted.id}` : null);
+    // Only once every other window has settled: before that the frame says nothing either way.
+    const others = wins.filter((o) => o !== lifted && !o.closing);
+    const blocking = others.every((o) => o.rect.settled) ? others.filter((o) => overlap(o.rect.value, slot) > 1) : null;
+    if (blocking) episode.room.push(blocking.length ? `t=${Math.round(time)} window ${blocking.map((o) => o.id).join(", ")} still in the slot kept for window ${lifted.id}` : null);
   }
   const r = raised;
   if (r && episode) {
@@ -1017,9 +1028,12 @@ async function runAll(): Promise<Run[]> {
 
 // --- wiring ------------------------------------------------------------------
 
+const compareToday = document.getElementById("compare-today") as HTMLInputElement;
+
+/** "proposed" (the rules) or "today" (the Compare box: how windows move today). */
 function setMode(m: Mode): void {
   mode = m;
-  (document.querySelector(`input[name=mode][value=${m}]`) as HTMLInputElement).checked = true;
+  compareToday.checked = m === "today";
   reset(4);
 }
 
@@ -1028,16 +1042,22 @@ function setDropMode(m: DropMode): void {
   (document.querySelector(`input[name=drop][value=${m}]`) as HTMLInputElement).checked = true;
 }
 
-/** A new layout: every window glides to its place in it. */
+/** A new layout: every window glides to its place in it (mid-drag too: the drop is found again in it). */
 function setLayout(k: LayoutKind): void {
   layoutKind = k;
   (document.querySelector(`input[name=layout][value=${k}]`) as HTMLInputElement).checked = true;
-  if (!lifted) relayout();
+  // The lifted window is in neither the order nor the tree, so both describe the others; rebuild the
+  // one the new layout reads from the other.
+  if (k === "dwindle") tree = treeFromOrder(order);
+  if (lifted) {
+    drop = null;
+    snapped = null;
+    relayout();
+    moveDrag(pointer.x, pointer.y);
+  } else relayout();
 }
 
-document.querySelectorAll<HTMLInputElement>("input[name=mode]").forEach((input) =>
-  input.addEventListener("change", () => setMode(input.value as Mode)),
-);
+compareToday.addEventListener("change", () => setMode(compareToday.checked ? "today" : "proposed"));
 document.querySelectorAll<HTMLInputElement>("input[name=drop]").forEach((input) =>
   input.addEventListener("change", () => setDropMode(input.value as DropMode)),
 );
@@ -1079,7 +1099,7 @@ document.querySelectorAll<HTMLButtonElement>("button[data-act]").forEach((b) =>
 // Start from what the controls show: a reload restores the browser's checked radios and boxes, and the
 // page must follow them rather than its own defaults (else the stage says one layout and the radio another).
 const checked = (name: string): string | undefined => document.querySelector<HTMLInputElement>(`input[name=${name}]:checked`)?.value;
-mode = (checked("mode") as Mode | undefined) ?? mode;
+mode = compareToday.checked ? "today" : "proposed";
 tempo = (checked("tempo") as Tempo | undefined) ?? tempo;
 layoutKind = (checked("layout") as LayoutKind | undefined) ?? layoutKind;
 dropMode = (checked("drop") as DropMode | undefined) ?? dropMode;
