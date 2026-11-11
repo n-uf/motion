@@ -28,19 +28,36 @@ export interface PressHandlers {
   end(cancel: boolean): void;
 }
 
-/** Track a primary-button press on its target until release. */
-export function trackPress(e: PointerEvent, h: PressHandlers): void {
+/**
+ * On touch, a press lifts only after a long press: held for `hold` ms, then moved `lift` px. Moving that far
+ * before the hold is over is not a drag (the press lifts nothing).
+ */
+export interface TouchLift {
+  readonly hold: number;
+  readonly lift: number;
+}
+
+/** Track a primary-button press on its target until release (`touch`: a long press first, on touch input). */
+export function trackPress(e: PointerEvent, h: PressHandlers, touch?: TouchLift): void {
   if (e.button !== 0 || e.ctrlKey) return;
   e.preventDefault();
   const target = e.currentTarget as HTMLElement;
   target.setPointerCapture(e.pointerId);
   const start = h.point(e);
+  const t0 = performance.now();
+  const long = touch && e.pointerType === "touch" ? touch : null;
+  let refused = false;
   gestureCancelled = false;
   const move = (ev: PointerEvent): void => {
-    if (gestureCancelled) return;
+    if (gestureCancelled || refused) return;
     const q = h.point(ev);
     if (!h.lifted()) {
-      if (Math.hypot(q.x - start.x, q.y - start.y) < DRAG_THRESHOLD) return;
+      const far = Math.hypot(q.x - start.x, q.y - start.y);
+      if (long && performance.now() - t0 < long.hold) {
+        if (far >= long.lift) refused = true;
+        return;
+      }
+      if (far < (long ? long.lift : DRAG_THRESHOLD)) return;
       h.begin(start);
     }
     h.move(q);
