@@ -9,6 +9,7 @@
 import { createFrameLoop, createSettle, SETTLE_TEMPO, type FrameInfo, type Rect, type Settle } from "@n-uf/motion";
 import { createBrowserClock } from "@n-uf/motion/browser";
 import type { CheckResult, HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
+import { docBody, panelBody, toolbarCells, withGlyph } from "./desk/content";
 import { draggable, dropAt, targetsFor, without, type Drop, type DropTarget, type TargetInput } from "./desk/drops";
 import { DRAG, createIntent, rawTarget, within, type Intent } from "./desk/intent";
 import { CONSTRUCTIONS, DEFAULT_CONSTRUCTION, constructionOf, stripGeometry, type ConstructionId } from "./desk/layouts";
@@ -47,8 +48,6 @@ import { cancelPress, trackPress } from "./shared/press";
 type Tempo = keyof typeof SETTLE_TEMPO;
 
 const centre = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
-
-const TOOL_ICONS = ["✎", "⌫", "↶", "↷", "⎘", "⌕", "☰", "⚙"];
 
 const stage = document.getElementById("stage") as HTMLDivElement;
 const hint = document.getElementById("hint") as HTMLDivElement;
@@ -513,12 +512,11 @@ function makeItem(kind: Item["kind"], key: string, uid: number, name: string, ht
 }
 
 function makeToolbar(at: Rect): Item {
-  const cells = TOOL_ICONS.map((c) => `<button type="button" class="tb-cell" tabindex="-1">${c}</button>`);
-  return makeItem("toolbar", "toolbar", 100, "toolbar", `<div class="tb">${cells.join("")}</div>`, at);
+  return makeItem("toolbar", "toolbar", 100, "toolbar", `<div class="tb">${toolbarCells()}</div>`, at);
 }
 
 function makePanel(p: (typeof PANELS)[number], at: Rect): Item {
-  const html = `<div class="title" tabindex="0"><span>${p.title}</span><button type="button" class="fold" title="Fold to the title bar">▾</button></div><div class="body">${p.body}</div>`;
+  const html = `<div class="title" tabindex="0"><span>${p.title}</span><button type="button" class="fold" title="Fold to the title bar">▾</button></div><div class="body">${panelBody(p.id)}</div>`;
   const it = makeItem("panel", panelKey(p.id), 200 + p.id, p.title, html, at);
   const bar = it.content.querySelector<HTMLElement>(".title")!;
   bar.addEventListener("pointerdown", (e) => {
@@ -543,7 +541,7 @@ function makePanel(p: (typeof PANELS)[number], at: Rect): Item {
 
 function makeDoc(id: number, at: Rect): Item {
   const title = DOC_TITLES[(id - 1) % DOC_TITLES.length]!;
-  const html = `<div class="title" tabindex="0">${title}</div><div class="body">Last edited today · 3 pages<span class="line"></span><span class="line"></span><span class="line short"></span></div>`;
+  const html = `<div class="title" tabindex="0">${title}</div><div class="body">${docBody(title)}</div>`;
   const it = makeItem("doc", docKey(id), id, title, html, at);
   it.el.addEventListener("pointerdown", () => {
     if (!it.closing && !lifted) doFocus(id);
@@ -589,7 +587,7 @@ function buildChrome(it: Item, p: Placed): void {
     const sig = `rail|${(p.icons ?? []).join()}`;
     if (sig === it.built) return;
     it.built = sig;
-    it.content.replaceChildren(...(p.icons ?? []).map((id) => button("icon", id, titleOf(panelKey(id))[0]!, () => doIcon(side, id))));
+    it.content.replaceChildren(...(p.icons ?? []).map((id) => withGlyph(button("icon", id, "", () => doIcon(side, id)), id)));
   } else if (p.look === "tabs") {
     // Not while a drag holds the pointer: the pressed tab must stay in the page (it has the pointer capture).
     if (lifted) return;
