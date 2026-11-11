@@ -56,9 +56,20 @@ export interface DeskLab {
 /** A pointer path keyframe: ms from the lift, x, y. */
 export type PathKey = readonly [number, number, number];
 
-/** What a drag did: the indicator's targets (ms from the lift; null: hidden) and what it landed on (null: home). */
+/** The indicator showing a target (ms from the lift), or hidden (null), and whether it hid because the pointer flew. */
+export interface IndicatorEntry {
+  readonly t: number;
+  readonly id: string | null;
+  readonly flying?: boolean;
+}
+
+/**
+ * What a drag did: the indicator's log, the pointer and its smoothed speed per frame (a path drag), and what it
+ * landed on (null: home).
+ */
 export interface DragResult {
-  readonly log: readonly { readonly t: number; readonly id: string | null }[];
+  readonly log: readonly IndicatorEntry[];
+  readonly frames?: readonly { readonly t: number; readonly x: number; readonly y: number; readonly speed: number }[];
   readonly landed: string | null;
 }
 
@@ -152,6 +163,34 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
       },
     },
   };
+  scenarios["F1, F2 · a palette dropped anywhere is never under the floating pill"] = {
+    still: true,
+    play: async (expect) => {
+      const fails: string[] = [];
+      let seed = 11;
+      const rnd = (): number => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      for (const c of CONSTRUCTIONS.filter((x) => x.id === "floatOver" || x.id === "floatAround")) {
+        for (let n = 0; n < 1200; n++) {
+          const size = { width: Math.round(480 + rnd() * 960), height: Math.round(320 + rnd() * 480) };
+          const opt: Options = { ...DEFAULT_OPTIONS, toolbar: rnd() < 0.5 ? "top" : "bottom", toolbarSpace: "overlay" };
+          let s = c.initial([1, 2]);
+          const drops: string[] = [];
+          for (let k = 0; k < 3; k++) {
+            const key = `panel:${1 + Math.floor(rnd() * 5)}`;
+            const input = { c, s0: without(s, key), key, size, opt };
+            const free = targetsFor(input).find((t) => t.id === "free")!;
+            const p = { x: rnd() * size.width, y: rnd() * size.height };
+            s = dropAt(input, free, p, { x: 40, y: 11 }).state;
+            drops.push(`${key}@${Math.round(p.x)},${Math.round(p.y)}`);
+          }
+          const l = c.layout(s, size, opt);
+          const tb = l.items.get("toolbar")!.rect;
+          for (const [key, pl] of l.items) if (key.startsWith("panel:") && overlap(pl.rect, tb) > 1) fails.push(`${c.title} ${size.width} × ${size.height} ${opt.toolbar}, drops ${drops.join(" ")}: the pill covers ${key}`);
+        }
+      }
+      expect(fails.length === 0, `${fails.length} covered; first: ${fails[0]}`);
+    },
+  };
   scenarios["B · every tree drop lands under the pointer, and its label says where"] = {
     still: true,
     play: async (expect) => {
@@ -226,6 +265,17 @@ function through(points: readonly Point[], speed: number, t0 = 0): PathKey[] {
 }
 const hold = (path: PathKey[], ms: number): PathKey[] => [...path, [path.at(-1)![0] + ms, path.at(-1)![1], path.at(-1)![2]]];
 const shows = (r: DragResult) => r.log.filter((e) => e.id !== null);
+/**
+ * The first flash of a drag, or null: an indicator replaced, or hidden while the pointer aims, under DRAG.FLASH ms
+ * after it showed (a hide because the pointer started flying is not a flash).
+ */
+function flashOf(r: DragResult): string | null {
+  const i = r.log.findIndex((e, k) => {
+    const next = r.log[k + 1];
+    return e.id !== null && !!next && !(next.id === null && next.flying) && next.t - e.t < DRAG.FLASH;
+  });
+  return i < 0 ? null : `${r.log[i]!.id} showed for ${Math.round(r.log[i + 1]!.t - r.log[i]!.t)} ms`;
+}
 
 /**
  * The drag model's promises, per construction: flying over targets shows no indicator; holding on a border changes
@@ -305,7 +355,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         const changes = shows(r).length - 1;
         const seq = r.log.map((e) => `${e.id ?? "none"}@${Math.round(e.t)}`).join(" → ");
         expect(changes <= 1, `the indicator changed ${changes} times on the border: ${seq}`);
-        expect(r.log.every((e, i) => e.id === null || !r.log[i + 1] || r.log[i + 1]!.t - e.t >= DRAG.FLASH), `an indicator showed for under ${DRAG.FLASH} ms: ${seq} (border at ${Math.round(b.p.x)},${Math.round(b.p.y)})`);
+        expect(flashOf(r) === null, `${flashOf(r)}: ${seq} (border at ${Math.round(b.p.x)},${Math.round(b.p.y)})`);
       },
     };
     out[`${name}: the same release point by two paths lands the same`] = {
@@ -386,40 +436,77 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       expect(during.length === 0, `the indicator showed ${during.map((e) => e.id).join(", ")} while the strip scrolled`);
     },
   };
-  const flash = (r: DragResult): string | null => {
-    const i = r.log.findIndex((e, k) => e.id !== null && !!r.log[k + 1] && r.log[k + 1]!.t - e.t < DRAG.FLASH);
-    return i < 0 ? null : `${r.log[i]!.id} showed for ${Math.round(r.log[i + 1]!.t - r.log[i]!.t)} ms`;
-  };
-  const sequence = (r: DragResult): string => r.log.map((e) => `${e.id ?? "none"}@${Math.round(e.t)}`).join(" → ");
-  out["B · drag model: a slow diagonal across a tile corner shows no indicator for under 150 ms"] = {
+  const flash = flashOf;
+  const sequence = (r: DragResult): string => r.log.map((e) => `${e.id ?? (e.flying ? "flying" : "none")}@${Math.round(e.t)}`).join(" → ");
+  // Each path below shows a flash when the switch hold is 0 (checked against the pure model); the hold prevents it.
+  out["B · drag model: a slow diagonal across the centre's corner shows no indicator for under 150 ms"] = {
     construction: "tree",
     drag: true,
     play: async (expect) => {
       const key = DRAGGED.tree;
-      const grip = lab.grip(key)!;
-      const all = lab.targets(key);
-      // A corner where at least three zones meet (probed 10 px out on each diagonal, across the gaps between them).
-      const corners = all.flatMap((t) => {
-        const r = t.hit;
-        return [
-          { x: r.x + r.width + G / 2, y: r.y + r.height + G / 2 },
-          { x: r.x - G / 2, y: r.y + r.height + G / 2 },
-        ];
-      });
-      const corner = corners.find((p) => {
-        const ids = new Set([-10, 10].flatMap((dx) => [-10, 10].map((dy) => rawTarget(all, { x: p.x + dx, y: p.y + dy })?.id ?? "none")));
-        ids.delete("none");
-        return ids.size >= 3 && dist(p, grip) > 80;
-      });
-      if (!corner) return expect(false, "no corner where three zones meet");
-      const from = { x: corner.x - 40, y: corner.y - 40 };
+      // Where the centre's left part meets its two right regions: the corner below the top right region.
+      const tr = lab.targets(key).find((t) => t.id === "tile:C:1");
+      if (!tr) return expect(false, "no centre region to cross");
+      const corner = { x: tr.hit.x - G / 2, y: tr.hit.y + tr.hit.height + G / 2 };
+      const from = { x: corner.x - 63, y: corner.y + 58 };
+      const to = { x: corner.x + 107, y: corner.y - 68 };
       const r = await lab.path(key, (g) => {
         const there = hold(through([g, from], 0.8), 400);
-        return hold([...there, ...through([from, { x: corner.x + 40, y: corner.y + 40 }], 0.2, there.at(-1)![0]).slice(1)], 400);
+        return hold([...there, ...through([from, to], 0.28, there.at(-1)![0]).slice(1)], 400);
       });
-      expect(flash(r) === null, `${flash(r)}: ${sequence(r)} (corner at ${Math.round(corner.x)},${Math.round(corner.y)})`);
+      expect(flash(r) === null, `${flash(r)}: ${sequence(r)}`);
     },
   };
+  out["D · drag model: a slow sweep across the strip shows every indicator for 150 ms or more"] = {
+    construction: "strip",
+    drag: true,
+    play: async (expect) => {
+      const W = lab.size().width;
+      // Across the columns at 0.4 px/ms, clear of the edge scroll.
+      const r = await lab.path(DRAGGED.strip, (g) => {
+        const there = hold(through([g, { x: DRAG.EDGE + 20, y: 300 }], 0.8), 300);
+        return hold([...there, ...through([{ x: DRAG.EDGE + 20, y: 300 }, { x: W - DRAG.EDGE - 20, y: 300 }], 0.4, there.at(-1)![0]).slice(1)], 400);
+      });
+      expect(flash(r) === null, `${flash(r)}: ${sequence(r)}`);
+    },
+  };
+  for (const [cid, key] of [["docks", DRAGGED.docks], ["tree", DRAGGED.tree], ["strip", DRAGGED.strip]] as const) {
+    for (const speed of [2.5, 4]) {
+      out[`${cid === "docks" ? "A" : cid === "tree" ? "B" : "D"} · drag model: aim, then a ${speed} px/ms flick hides the indicator within a frame`] = {
+        construction: cid,
+        drag: true,
+        play: async (expect) => {
+          const grip = lab.grip(key)!;
+          const all = lab.targets(key);
+          const ts = all.filter((t) => t.prio <= 2 && !within(t.hit, grip, 12) && mid(t.hit).x > 0 && mid(t.hit).x < lab.size().width);
+          // A target whose centre is clear of the band of every target as precise: aiming there shows it, whatever the way in.
+          const a = ts.find((t) => all.every((o) => o.id === t.id || o.prio > t.prio || !within(o.hit, mid(t.hit), DRAG.BAND)));
+          const b = a && ts.filter((t) => t !== a).sort((x, y) => dist(mid(x.hit), mid(a.hit)) - dist(mid(y.hit), mid(a.hit)))[0];
+          if (!a || !b) return expect(false, "no two neighbouring targets");
+          // Aim at A for 600 ms, then flick 300 px through its neighbour.
+          const start = mid(a.hit);
+          const d = { x: mid(b.hit).x - start.x, y: mid(b.hit).y - start.y };
+          const len = Math.hypot(d.x, d.y);
+          const end = { x: start.x + (d.x / len) * 300, y: start.y + (d.y / len) * 300 };
+          let flick = 0;
+          const r = await lab.path(key, (g) => {
+            const there = hold(through([g, start], 0.8), 600);
+            flick = there.at(-1)![0];
+            return hold([...there, ...through([start, end], speed, flick).slice(1)], 300);
+          });
+          const before = r.log.filter((e) => e.t <= flick).at(-1);
+          expect(before?.id === a.id, `aiming showed ${before?.id ?? "nothing"}, not ${a.id}: ${sequence(r)}`);
+          const frames = (r.frames ?? []).filter((f) => f.t > flick);
+          const fast = frames.find((f) => f.speed >= DRAG.AIM_SPEED)?.t;
+          const out = frames.find((f) => !within(a.hit, f, DRAG.BAND))?.t;
+          const off = r.log.find((e) => e.t > flick && e.id === null)?.t;
+          // The indicator stays while its target holds; once the pointer is both fast and out of the band, it goes.
+          const due = Math.max(fast ?? Infinity, out ?? Infinity);
+          expect(off !== undefined && off <= due + 1000 / 60 + 1, `fast at +${Math.round((fast ?? NaN) - flick)} ms, out of the band at +${Math.round((out ?? NaN) - flick)}, off at +${Math.round((off ?? NaN) - flick)}: ${sequence(r)}`);
+        },
+      };
+    }
+  }
   out["A · drag model: a 14 px wobble between two dock slots changes the indicator at most once"] = {
     construction: "docks",
     drag: true,
