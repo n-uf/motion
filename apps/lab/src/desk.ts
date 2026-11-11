@@ -137,6 +137,8 @@ let room: Drop | null = null;
 let keys: { stops: { target: DropTarget; p: Point }[]; i: number; since: number } | null = null;
 /** The press became a drag (so its click isn't a click on a tab). */
 let dragged = false;
+/** When the indicator's place (its drop) last changed. */
+let placeSince = 0;
 /** The strip scrolled at the stage's edge during this drag (null: as it was): kept only if the item lands. */
 let dragScroll: number | null = null;
 
@@ -225,7 +227,10 @@ function edgeScroll(it: Item, now: number, dt: number): boolean {
   return true;
 }
 
-/** The indicator shows `d` (or nothing); the others make room for it when `makeRoom`. */
+/**
+ * The indicator shows `d` (or nothing); the others make room for it when `makeRoom`. Within one target, a new place
+ * (another tab or stack index) gets the room only once it has held ROOM_AFTER ms; until then the room stays put.
+ */
 function show(d: Drop | null, now: number, makeRoom: boolean): void {
   if ((d?.target ?? null) !== (shown?.target ?? null)) {
     episode?.indicator.push({ t: now, id: d?.target ?? null });
@@ -234,9 +239,11 @@ function show(d: Drop | null, now: number, makeRoom: boolean): void {
   if (d?.key !== shown?.key) {
     if (d) showHint(d);
     else hideHint();
+    placeSince = now;
   }
   shown = d;
-  const next = makeRoom ? d : null;
+  let next: Drop | null = null;
+  if (makeRoom && d) next = now - placeSince >= DRAG.ROOM_AFTER ? d : room && room.target === d.target ? room : null;
   if (next?.key !== room?.key) {
     room = next;
     relayout();
