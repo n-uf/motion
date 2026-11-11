@@ -134,10 +134,14 @@ let room: Drop | null = null;
 let keys: { stops: { target: DropTarget; p: Point }[]; i: number; since: number } | null = null;
 /** The press became a drag (so its click isn't a click on a tab). */
 let dragged = false;
+/** The strip scrolled at the stage's edge during this drag (null: as it was): kept only if the item lands. */
+let dragScroll: number | null = null;
 
 /** Where the others make room for the lifted item now. */
 const roomDrop = (): Drop | null => (lifted ? room : null);
-const dragInput = (it: Item): TargetInput => ({ c: construction(), s0: without(home!.state, it.key), key: it.key, size, opt: options() });
+/** The desk while an item is held and no room is made: as it was, scrolled as the drag scrolled it. */
+const heldState = (): DeskState => (dragScroll === null ? home!.state : { ...home!.state, stripScroll: dragScroll });
+const dragInput = (it: Item): TargetInput => ({ c: construction(), s0: without(heldState(), it.key), key: it.key, size, opt: options() });
 
 /**
  * Lift `it` with the pointer at (px, py). `hold` is where the pointer holds it (default: where it was pressed);
@@ -151,6 +155,7 @@ function beginDrag(it: Item, px: number, py: number, hold?: Point, from?: Rect, 
   grab = hold ?? { x: px - d.x, y: py - d.y };
   liftSize = { width: d.width, height: d.height };
   home = { state: state(), rect: from ?? { ...d } };
+  dragScroll = null;
   intent = createIntent<DropTarget>(home.rect);
   dragLog = [];
   liftedAt = performance.now();
@@ -196,19 +201,22 @@ function aim(now: number, dt: number): void {
 
 /**
  * Near the stage's left or right edge the strip scrolls, faster the closer the pointer; the indicator hides while it
- * does. Returns whether it scrolled.
+ * does, and the item's home scrolls with the strip. The scroll is the drag's own until the item lands (Escape undoes
+ * it). Returns whether it scrolled.
  */
 function edgeScroll(it: Item, now: number, dt: number): boolean {
   const dist = Math.min(pointer.x, size.width - pointer.x);
-  if (dist >= DRAG.EDGE || !home) return false;
-  const g = stripGeometry(home.state, size);
+  if (dist >= DRAG.EDGE || !home || !intent) return false;
+  const g = stripGeometry(heldState(), size);
   const dir = pointer.x < size.width / 2 ? -1 : 1;
   const next = Math.min(Math.max(0, g.total - size.width), Math.max(0, g.scroll + dir * DRAG.EDGE_SPEED * (1 - Math.max(0, dist) / DRAG.EDGE) * dt));
   if (Math.abs(next - g.scroll) < 0.01) return false;
-  home = { ...home, state: { ...home.state, stripScroll: next } };
-  states.set(cid, home.state);
+  dragScroll = next;
+  const dx = g.scroll - next;
+  home = { ...home, rect: { ...home.rect, x: home.rect.x + dx } };
+  intent.moveHome(dx, 0);
   targets = targetsFor(dragInput(it));
-  intent!.hide(now);
+  intent.hide(now);
   show(null, now, false);
   relayout();
   return true;
@@ -262,6 +270,7 @@ function endDrag(cancel = false): void {
   keys = null;
   expected = null;
   home = null;
+  dragScroll = null;
   targets = [];
   it.el.classList.remove("lifted");
   newRun(it);
@@ -534,7 +543,7 @@ function setTarget(it: Item, to: Rect): void {
 function relayout(): void {
   // While an item is lifted, the others make room for it where the drop puts it.
   const room = roomDrop();
-  layout = room ? room.layout : construction().layout(state(), size, options());
+  layout = room ? room.layout : construction().layout(lifted && home ? heldState() : state(), size, options());
   const seen = new Set<string>();
   for (const [key, p] of layout.items) {
     seen.add(key);
@@ -705,6 +714,7 @@ function reset(id: ConstructionId = cid, at: Size = size, opts: Partial<Options>
   shown = null;
   room = null;
   home = null;
+  dragScroll = null;
   targets = [];
   hideHint();
   states.clear();
