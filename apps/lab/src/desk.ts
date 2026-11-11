@@ -37,7 +37,7 @@ import {
   type Size,
 } from "./desk/model";
 import { LABEL_RULE, positionPopup } from "./desk/positioner";
-import { makeScenarios, type DeskLab, type DragResult, type PathKey, type Scenario } from "./desk/scenarios";
+import { makeScenarios, type DeskLab, type DragResult, type IndicatorEntry, type PathKey, type Scenario } from "./desk/scenarios";
 import { framesResult, merge, motionRows, renderChecks, renderTrace, verdict, type Row, type Segment } from "./shared/checks";
 import { drawRevealed, layOut, measureFrame, onTopAt } from "./shared/frame";
 import { inside, nextFrame, overlap, same, wait, type Point } from "./shared/geometry";
@@ -163,6 +163,7 @@ function beginDrag(it: Item, px: number, py: number, hold?: Point, from?: Rect, 
   dragScroll = null;
   intent = createIntent<DropTarget>(home.rect);
   dragLog = [];
+  dragFrames = [];
   liftedAt = performance.now();
   lifted = it;
   raised = it;
@@ -201,7 +202,8 @@ function aim(now: number, dt: number): void {
   }
   if (cid === "strip" && edgeScroll(it, now, dt)) return;
   const f = intent.update(pointer, now, targets);
-  show(f.shown ? dropAt(dragInput(it), f.shown, pointer, grab) : null, now, f.room);
+  dragFrames.push({ t: now - liftedAt, x: pointer.x, y: pointer.y, speed: intent.speed });
+  show(f.shown ? dropAt(dragInput(it), f.shown, pointer, grab) : null, now, f.room, !f.aiming);
 }
 
 /**
@@ -222,7 +224,8 @@ function edgeScroll(it: Item, now: number, dt: number): boolean {
   intent.moveHome(dx, 0);
   targets = targetsFor(dragInput(it));
   intent.hide(now);
-  show(null, now, false);
+  // Hidden for the scroll, as for a pointer flying: not a flash.
+  show(null, now, false, true);
   relayout();
   return true;
 }
@@ -230,11 +233,13 @@ function edgeScroll(it: Item, now: number, dt: number): boolean {
 /**
  * The indicator shows `d` (or nothing); the others make room for it when `makeRoom`. Within one target, a new place
  * (another tab or stack index) gets the room only once it has held ROOM_AFTER ms; until then the room stays put.
+ * `flying`: a hide because the pointer started flying (or the strip scrolls), which is not a flash.
  */
-function show(d: Drop | null, now: number, makeRoom: boolean): void {
+function show(d: Drop | null, now: number, makeRoom: boolean, flying = false): void {
   if ((d?.target ?? null) !== (shown?.target ?? null)) {
-    episode?.indicator.push({ t: now, id: d?.target ?? null });
-    dragLog.push({ t: now - liftedAt, id: d?.target ?? null });
+    const e = { id: d?.target ?? null, ...(d ? {} : { flying }) };
+    episode?.indicator.push({ t: now, ...e });
+    dragLog.push({ t: now - liftedAt, ...e });
   }
   if (d?.key !== shown?.key) {
     if (d) showHint(d);
@@ -785,7 +790,7 @@ let episode: {
   label: (string | null)[];
   pops: number;
   /** What the drop indicator showed, and when (a target id; null: nothing). */
-  indicator: { t: number; id: string | null }[];
+  indicator: IndicatorEntry[];
   /** Per release: null when it landed where the indicator (or the pointer) said, else what went wrong. */
   release: (string | null)[];
 } | null = null;
@@ -946,11 +951,14 @@ function record(ep: NonNullable<typeof episode>): void {
   renderTrace(trace, ep.t0, segments);
 }
 
-/** An indicator replaced or hidden less than DRAG.FLASH ms after it showed is a flash. */
-function flashes(log: readonly { t: number; id: string | null }[]): (string | null)[] {
+/**
+ * An indicator replaced, or hidden while the pointer aims, less than DRAG.FLASH ms after it showed is a flash (a
+ * hide because the pointer started flying is not).
+ */
+function flashes(log: readonly IndicatorEntry[]): (string | null)[] {
   return log.map((e, i) => {
     const next = log[i + 1];
-    return e.id !== null && next && next.t - e.t < DRAG.FLASH ? `the indicator on ${e.id} showed for ${Math.round(next.t - e.t)} ms` : null;
+    return e.id !== null && next && !(next.id === null && next.flying) && next.t - e.t < DRAG.FLASH ? `the indicator on ${e.id} showed for ${Math.round(next.t - e.t)} ms` : null;
   });
 }
 
@@ -986,8 +994,9 @@ function gripOf(it: Item): { at: Point; hold?: Point; from?: Rect } {
   return { at: { x: d.x + 40, y: d.y + 11 } };
 }
 
-/** What the indicator showed during the current (or last) drag: target ids with ms since the lift. */
-let dragLog: { t: number; id: string | null }[] = [];
+/** What the indicator showed during the current (or last) drag (ms since the lift), and the pointer per frame. */
+let dragLog: IndicatorEntry[] = [];
+let dragFrames: { t: number; x: number; y: number; speed: number }[] = [];
 let liftedAt = 0;
 
 /**
@@ -1013,12 +1022,12 @@ async function playPath(key: string, path: (grip: Point) => readonly PathKey[], 
     if (escapeAt !== undefined && t >= escapeAt) {
       cancelPress();
       endDrag(true);
-      return { log: [...dragLog], landed: null };
+      return { log: [...dragLog], frames: [...dragFrames], landed: null };
     }
     if (t >= total) break;
   }
   endDrag();
-  return { log: [...dragLog], landed: lastLanding };
+  return { log: [...dragLog], frames: [...dragFrames], landed: lastLanding };
 }
 
 /** The point on a keyframed path at `t` ms (linear between keyframes). */
