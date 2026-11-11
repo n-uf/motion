@@ -14,5 +14,9 @@ export { createSpring, resolveSpring, SPRING_DEFAULTS, springStep } from "./spri
 export type { Spring, SpringConfig, SpringParams, SpringState } from "./spring";
 export { createTween } from "./tween";
 export type { Tween, TweenConfig } from "./tween";
-export { motionValue, springValue, tweenValue } from "./motion-value";
+export { createSettle, SETTLE_DEFAULTS, SETTLE_TEMPO } from "./settle";
+export type { Settle, SettleConfig } from "./settle";
+export { popIn, reveal } from "./reveal";
+export type { PopIn, RevealFrame } from "./reveal";
+export { motionValue, settleValue, springValue, tweenValue } from "./motion-value";
 export type { AnimatorValue, MotionOptions, MotionValue, SetOptions } from "./motion-value";
