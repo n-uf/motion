@@ -38,7 +38,7 @@ import {
   type Size,
 } from "./desk/model";
 import { LABEL_RULE, positionPopup } from "./desk/positioner";
-import { makeScenarios, type DeskLab, type DragResult, type IndicatorEntry, type PathKey, type Scenario } from "./desk/scenarios";
+import { makeScenarios, type DeskLab, type DragResult, type IndicatorEntry, type PathAction, type PathKey, type Scenario } from "./desk/scenarios";
 import { toolbarGrip, wireToolbar } from "./desk/toolbar-drag";
 import { toolbarScenarios } from "./desk/toolbar-scenarios";
 import { framesResult, merge, motionRows, renderChecks, renderTrace, verdict, type Row, type Segment } from "./shared/checks";
@@ -242,15 +242,16 @@ const slotted = (d: Drop | null): d is Drop => !!d && !d.free && !d.hidden;
  */
 function place(it: Item, now: number, flying: boolean): void {
   if (preview !== "snap") return;
-  // The keyboard steps from slot to slot: each step is a choice, so the item snaps at once.
-  let want: Drop | null = keys ? (slotted(shown) ? shown : null) : slotted(room) ? room : null;
+  // From the pointer and from the keyboard alike, the item snaps once the others have made room for it.
+  let want: Drop | null = slotted(room) ? room : null;
   if (snapGate === "hover" && !keys) {
     const t = rawTarget(targets, pointer);
     const d = t ? dropAt(dragInput(it), t, pointer, grab) : null;
     want = slotted(d) ? d : null;
   }
   if (want) {
-    if (snapped?.key === want.key) return;
+    // The same slot, unless the desk was laid out again (a resize): then the item glides to where the slot is now.
+    if (snapped?.key === want.key && same(snapped.slot, want.slot)) return;
     if ((snapped?.target ?? null) !== want.target) logSnap(now, want.target, false);
     // From the pointer (held, or on its way back) into a slot: a new glide.
     if (!snapped) newRun(it);
@@ -344,7 +345,8 @@ function show(d: Drop | null, now: number, makeRoom: boolean, flying = false): v
   shown = d;
   let next: Drop | null = null;
   if (makeRoom && d) next = now - placeSince >= DRAG.ROOM_AFTER ? d : room && room.target === d.target ? room : null;
-  if (next?.key !== room?.key) {
+  // A new place, or the same place laid out anew (the stage resized under the drag).
+  if (next?.key !== room?.key || (next && room && next !== room && !same(next.slot, room.slot))) {
     room = next;
     relayout();
   }
@@ -363,27 +365,22 @@ function endDrag(cancel = false): void {
   let opt: Options | undefined;
   atRelease = { ...it.rect.value };
   if (!cancel) {
+    // Both previews land by one rule: what is shown. A snapped item sits in the shown target's slot; moved to another
+    // place of that target, it lands where the pointer is, even before it has glided there.
     const stop = keys?.stops[keys.i];
-    if (snapped) {
-      // Snapped: it lands in the slot it sits in (the shown target's).
-      s = snapped.state;
-      opt = snapped.opt;
-      landed = snapped.target;
-    } else {
-      const t = keys ? (stop?.target ?? null) : intent.release(pointer, targets);
-      if (t) {
-        const d = dropAt(dragInput(it), t, keys ? stop!.p : pointer, grab);
-        s = d.state;
-        opt = d.opt;
-        landed = t.id;
-      }
+    const t = keys ? (stop?.target ?? null) : intent.release(pointer, targets);
+    if (t) {
+      const d = dropAt(dragInput(it), t, keys ? stop!.p : pointer, grab);
+      s = d.state;
+      opt = d.opt;
+      landed = t.id;
     }
     if (!keys) {
-      // The rule, checked from what the page showed: the slot the item sits in; else the indicator's target within
-      // its band, else what is under the pointer.
+      // The rule, checked from what the page showed: the indicator's target within its band, else what is under the
+      // pointer.
       const showing = shown ? targets.find((x) => x.id === shown!.target) : undefined;
-      const said = snapped ? snapped.target : within(home.rect, pointer) ? null : showing && within(showing.hit, pointer, DRAG.BAND) ? showing.id : (rawTarget(targets, pointer)?.id ?? null);
-      episode?.release.push(said === landed ? null : `landed on ${landed ?? "home"}, but the ${snapped ? "snapped slot" : "indicator"} said ${said ?? "home"}`);
+      const said = within(home.rect, pointer) ? null : showing && within(showing.hit, pointer, DRAG.BAND) ? showing.id : (rawTarget(targets, pointer)?.id ?? null);
+      episode?.release.push(said === landed ? null : `landed on ${landed ?? "home"}, but the indicator said ${said ?? "home"}`);
     }
   }
   // Landing in the slot it sits in is not leaving it: no snap ends here.
@@ -407,6 +404,9 @@ function endDrag(cancel = false): void {
   }
   // It stays raised until its drop settle ends.
   commit(s);
+  // What waited for the drag to end: a preview chosen during it, and the stage fitting a window resized during it.
+  if (nextPreview) setPreview(nextPreview);
+  applyFit();
 }
 /** What the last drag landed on (a target id, or null: home), and where the item was drawn when it was let go. */
 let lastLanding: string | null = null;
@@ -720,7 +720,10 @@ function draw(it: Item): void {
 
 // --- actions -------------------------------------------------------------------------------------------------------
 
+// While an item is held, the desk it was lifted from stays as it was: folds, rail icons and tabs wait for the drop.
+
 function doFold(id: number): void {
+  if (lifted) return;
   commit(toggleFold(state(), id));
 }
 
@@ -730,6 +733,7 @@ function doFold(id: number): void {
  * picks the panel the side shows once it has room again.
  */
 function doIcon(side: Side, id: number): void {
+  if (lifted) return;
   const s = state();
   if (cid === "navigator") return commit(withActive(s, side, id));
   const shown = layout.items.get(panelKey(id));
@@ -744,6 +748,7 @@ function doIcon(side: Side, id: number): void {
 }
 
 function doTab(side: Side, id: number): void {
+  if (lifted) return;
   commit(withActive(state(), side, id));
 }
 
@@ -813,7 +818,24 @@ function setSize(width: number, height: number): void {
   ensureLoop();
   stageRect.configure({ omega: omega() });
   stageRect.setTarget({ x: 0, y: 0, width, height });
+  if (lifted && home) relift(lifted);
   relayout();
+}
+
+/**
+ * The stage resized under a drag: the targets, the keyboard's stops, the shown drop and the room are made again for
+ * the new size (a snapped item then glides to where its slot is now).
+ */
+function relift(it: Item): void {
+  targets = targetsFor(dragInput(it));
+  if (keys) keys = { ...keys, stops: targets.flatMap((t) => (t.stops ?? [centre(t.hit)]).map((p) => ({ target: t, p }))) };
+  const at = keys?.stops[keys.i]?.p ?? pointer;
+  const again = (d: Drop | null): Drop | null => {
+    const t = d && targets.find((x) => x.id === d.target);
+    return t ? dropAt(dragInput(it), t, at, grab) : null;
+  };
+  shown = again(shown);
+  room = again(room);
 }
 
 function drawStage(): void {
@@ -1135,12 +1157,14 @@ let liftedAt = 0;
  * A scripted drag in real time: lift `key` at its grip, move the pointer along `path` (keyframes [ms, x, y] from
  * the lift, made from the grip point), then release, or Escape at `escapeAt` ms.
  */
-async function playPath(key: string, path: (grip: Point) => readonly PathKey[], opts: { escapeAt?: number | (() => number) } = {}): Promise<DragResult> {
+async function playPath(key: string, path: (grip: Point) => readonly PathKey[], opts: { escapeAt?: number | (() => number); at?: readonly PathAction[] } = {}): Promise<DragResult> {
   const it = itemOf(key);
   if (!it) return { log: [], landed: null };
   const g = gripOf(it);
   const keysOf = path(g.at);
   const escapeAt = typeof opts.escapeAt === "function" ? opts.escapeAt() : opts.escapeAt;
+  // Times may come from the path (made just above): read them now.
+  const pending = (opts.at ?? []).map((a) => ({ t: typeof a.t === "function" ? a.t() : a.t, run: a.run })).sort((a, b) => a.t - b.t);
   const first = keysOf[0]!;
   beginDrag(it, first[1], first[2], g.hold, g.from);
   if (lifted !== it) return { log: [], landed: null };
@@ -1151,6 +1175,8 @@ async function playPath(key: string, path: (grip: Point) => readonly PathKey[], 
     const t = Math.min(performance.now() - start, total);
     const p = along(keysOf, t);
     moveDrag(p.x, p.y);
+    // Things that happen to the desk during the drag (a resize), at their times.
+    while (pending.length && t >= pending[0]!.t) pending.shift()!.run();
     if (escapeAt !== undefined && t >= escapeAt) {
       cancelPress();
       endDrag(true);
@@ -1244,7 +1270,8 @@ async function keyboardDrag(key: string, steps: number): Promise<DragResult> {
   beginDrag(it, d.x + (g.hold?.x ?? 40), d.y + (g.hold?.y ?? 11), g.hold ?? { x: 40, y: 11 }, g.from, true);
   for (let i = 0; i < steps; i++) {
     press("ArrowDown");
-    await wait(i === steps - 1 ? DWELL_THEN_ROOM : 220);
+    // A moment on each stop: long enough for the room to be made and the item to snap in, and to be seen there.
+    await wait(i === steps - 1 ? DWELL_THEN_ROOM : 400);
   }
   press("Enter");
   return { log: [...dragLog], landed: lastLanding };
@@ -1424,9 +1451,18 @@ const actions: Record<string, () => void> = {
 };
 document.querySelectorAll<HTMLButtonElement>("button[data-act]").forEach((b) => b.addEventListener("click", () => actions[b.dataset.act!]?.()));
 
+/** A preview chosen while an item is held: it takes effect when the drag ends (switching mid-drag would leave the
+ * snap and the indicator half in one preview, half in the other). */
+let nextPreview: Preview | null = null;
+
 function setPreview(m: Preview): void {
-  preview = m;
   (document.querySelector(`input[name=preview][value=${m}]`) as HTMLInputElement).checked = true;
+  if (lifted) {
+    nextPreview = m;
+    return;
+  }
+  nextPreview = null;
+  preview = m;
 }
 document.querySelectorAll<HTMLInputElement>("input[name=preview]").forEach((input) => input.addEventListener("change", () => setPreview(input.value as Preview)));
 tempo = (document.querySelector<HTMLInputElement>("input[name=tempo]:checked")?.value as Tempo | undefined) ?? tempo;
