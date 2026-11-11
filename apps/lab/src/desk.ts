@@ -884,7 +884,7 @@ function reset(id: ConstructionId = cid, at: Size = size, opts: Partial<Options>
   optionsOf.clear();
   nextDoc = 1;
   const docs = Array.from({ length: docCount }, () => nextDoc++);
-  for (const c of CONSTRUCTIONS) states.set(c.id, c.initial(docs));
+  for (const c of CONSTRUCTIONS) states.set(c.id, c.initial(docs, at));
   cid = id;
   optionsOf.set(cid, { ...DEFAULT_OPTIONS, ...opts });
   size = at;
