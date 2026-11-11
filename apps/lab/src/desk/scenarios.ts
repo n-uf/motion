@@ -165,10 +165,13 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
               const d = dropAt(input, t, p, { x: 0, y: 0 });
               const floats = d.layout.items.get(key)!.layer > LAYER.doc;
               const what = `${W} × ${H}, ${n} docs, ${key} on ${t.id} ("${d.label}")`;
+              const floating = (l: Layout): string[] => [...l.items].filter(([k, pl]) => k !== key && pl.layer > LAYER.doc && (k.startsWith("doc:") || k.startsWith("panel:"))).map(([k]) => k);
+              const before = floating(c.layout(input.s0, size, DEFAULT_OPTIONS)).join();
+              const after = floating(d.layout);
               if (floats !== d.label.includes("it floats")) fails.push(`${what}: it ${floats ? "floats" : "tiles"}`);
-              else if (!floats && !within(d.slot, p)) fails.push(`${what}: dropped at ${Math.round(p.x)},${Math.round(p.y)}, lands at ${fmt(d.slot)}`);
-              const floating = [...d.layout.items].filter(([k, pl]) => k !== key && pl.layer > LAYER.doc && (k.startsWith("doc:") || k.startsWith("panel:"))).length;
-              if (!floats && (floating > 0) !== /; .* floats?$/.test(d.label)) fails.push(`${what}: ${floating} other tiles float`);
+              else if (!floats && (after.length > 0) !== /; .* floats?$/.test(d.label)) fails.push(`${what}: ${after.length} other tiles float`);
+              // Unless the drop makes others float (which reshapes the tree, as the label says), it lands under the pointer.
+              else if (!floats && after.join() === before && !within(d.slot, p)) fails.push(`${what}: dropped at ${Math.round(p.x)},${Math.round(p.y)}, lands at ${fmt(d.slot)}`);
             }
           }
         }
