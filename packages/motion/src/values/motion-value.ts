@@ -3,6 +3,7 @@ import type { Animatable, Widen } from "../shapes";
 import { shapeEquals } from "../shapes";
 import { batch, effect, signal, untracked, type ReadonlySignal, type Signal } from "../signals/signals";
 import type { Animator } from "./animator";
+import { createSettle, type Settle, type SettleConfig } from "./settle";
 import { createSpring, type Spring, type SpringConfig } from "./spring";
 import { createTween, type Tween, type TweenConfig } from "./tween";
 
@@ -230,6 +231,19 @@ export function springValue<T extends Animatable>(
   options: SpringConfig & MotionOptions = {},
 ): MotionValue<Widen<T>, Spring<Widen<T>>> {
   return motionValue(loop, createSpring(initial, options), options) as MotionValue<Widen<T>, Spring<Widen<T>>>;
+}
+
+/**
+ * A settle-driven {@link MotionValue}: `createSettle` plus `motionValue`. The
+ * one curve for things moving to a new place (see {@link Settle}). To hold it
+ * to a pointer, `jump` it on each move; the next `set` launches from there.
+ */
+export function settleValue<T extends Animatable>(
+  loop: FrameLoop,
+  initial: T,
+  options: SettleConfig & MotionOptions = {},
+): MotionValue<Widen<T>, Settle<Widen<T>>> {
+  return motionValue(loop, createSettle(initial, options), options) as MotionValue<Widen<T>, Settle<Widen<T>>>;
 }
 
 /** A tween-driven {@link MotionValue}: `createTween` plus `motionValue`. */
