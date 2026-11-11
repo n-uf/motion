@@ -390,11 +390,14 @@ function proportions(): Record<string, Scenario> {
         for (const c of CONSTRUCTIONS.filter((x) => x.id === "tree" || x.id === "strip")) {
           for (const [W, H] of [[960, 560], [1200, 700], [1440, 900]] as const) {
             for (const n of [1, 2, 3]) {
-              const l = c.layout(c.initial(Array.from({ length: n }, (_, i) => i + 1)), { width: W, height: H }, DEFAULT_OPTIONS);
-              // A column: the tiles at one x (floating ones aren't in one).
+              const s = c.initial(Array.from({ length: n }, (_, i) => i + 1));
+              const l = c.layout(s, { width: W, height: H }, DEFAULT_OPTIONS);
+              // A column: the tiles at one x (floating ones aren't in one); in B only the side columns (the centre
+              // tiles by dwindle, as documents do).
+              const inColumn = (k: string): boolean => c.id !== "tree" || s.tree.L.includes(k) || s.tree.R.includes(k);
               const columns = new Map<number, [string, Rect][]>();
               for (const [k, p] of l.items) {
-                if (!/^(panel|doc):/.test(k) || p.hidden || p.layer !== LAYER.doc) continue;
+                if (!/^(panel|doc):/.test(k) || p.hidden || p.layer !== LAYER.doc || !inColumn(k)) continue;
                 const x = Math.round(p.rect.x);
                 columns.set(x, [...(columns.get(x) ?? []), [k, p.rect]]);
               }
@@ -965,13 +968,14 @@ function drags(lab: DeskLab): Record<string, Scenario> {
         settledAsLaidOut(lab, expect);
       },
     },
-    "B · drag Inspector onto Files' lower edge": {
+    "B · drag Inspector just under Files: it goes between Files and Outline": {
       construction: "tree",
       drag: true,
       play: async (expect) => {
+        // A tree zone is where the item lands: between Files and Outline starts right under Files.
         await drag(P.inspector, () => {
           const f = rectOf(P.files);
-          return { x: f.x + f.width / 2, y: f.y + f.height * 0.8 };
+          return { x: f.x + f.width / 2, y: f.y + f.height + G + 12 };
         });
         await lab.idle();
         expect(list(lab.state().tree.L) === "panel:1,panel:4,panel:2", `left column: ${list(lab.state().tree.L)}`);
