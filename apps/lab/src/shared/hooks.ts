@@ -10,11 +10,10 @@ export interface LabRun {
 }
 
 export interface LabHooks {
-  runAll: () => Promise<LabRun[]>;
+  /** Run the page's scenarios (the desk page: only those whose name contains `filter`, when given). */
+  runAll: (filter?: string) => Promise<LabRun[]>;
   runs: LabRun[];
   lastRows: () => Row[];
-  /** The desk page: leave the toolbar lifted halfway to the left column (for screenshots). */
-  midToolbarDrag?: () => Promise<void>;
 }
 
 declare global {
