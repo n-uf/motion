@@ -547,12 +547,18 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       expect(gated(r) === null, `${gated(r)}`);
       const off = (r.snaps ?? []).find((e) => e.id === null);
       expect(!!off && !!off.flying, `the item didn't leave its slot as the pointer flew off: ${(r.snaps ?? []).map((e) => `${e.id ?? (e.flying ? "flying" : "none")}@${Math.round(e.t)}`).join(" → ")}`);
-      // Once the pointer stops, the item is under it again within the settle's 99 % time (and a frame or two).
-      const held = (r.frames ?? []).find((f) => f.t < stop);
+      // Once the pointer stops, the way left closes as a settle does: within its 99 % time (and a frame of slack, the
+      // frames being read before each step), at most 1 % of it is left; and the item ends up held under the pointer.
+      const lifted = (r.frames ?? []).find((f) => f.t < stop);
       const g = r.grab ?? { x: 0, y: 0 };
-      const back = (r.frames ?? []).find((f) => f.t >= stop && held && Math.max(Math.abs(f.item.x - (f.x - g.x)), Math.abs(f.item.y - (f.y - g.y)), Math.abs(f.item.width - held.item.width), Math.abs(f.item.height - held.item.height)) < 0.5);
+      const gap = (f: NonNullable<DragResult["frames"]>[number]): number =>
+        Math.max(Math.abs(f.item.x - (f.x - g.x)), Math.abs(f.item.y - (f.y - g.y)), Math.abs(f.item.width - lifted!.item.width), Math.abs(f.item.height - lifted!.item.height));
       const tempo = (2 * Math.log(10) * 1000) / 25;
-      expect(!!back && back.t - stop <= tempo + 2 * (1000 / 60), `the item was under the pointer again ${back ? `${Math.round(back.t - stop)} ms` : "never"} after it stopped (settle: ${Math.round(tempo)} ms)`);
+      const atStop = (r.frames ?? []).find((f) => f.t >= stop);
+      const later = (r.frames ?? []).find((f) => f.t >= stop + tempo + 1000 / 60);
+      const last = (r.frames ?? []).at(-1);
+      expect(!!lifted && !!atStop && !!later && gap(later) <= 0.01 * gap(atStop) + 0.5, `${atStop ? Math.round(gap(atStop)) : "?"} px from the pointer when it stopped, still ${later ? gap(later).toFixed(1) : "?"} px ${Math.round(tempo)} ms later`);
+      expect(!!last && gap(last) < 0.5, `the item isn't under the pointer at the end (${last ? gap(last).toFixed(1) : "?"} px off)`);
     },
   };
   out["A · drag model: a flick from a slot into empty space hides the indicator within a frame"] = {
