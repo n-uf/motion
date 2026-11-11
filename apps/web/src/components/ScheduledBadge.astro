@@ -1,0 +1,7 @@
+---
+// "Scheduled for 12 Nov 2026": marks a draft page in dev and in Vercel previews (never in production, where drafts aren't built).
+import { dateText } from "../data/content";
+interface Props { date: Date }
+const { date } = Astro.props;
+---
+<span class="sched">Scheduled for <time datetime={date.toISOString().slice(0, 10)}>{dateText(date)}</time></span>

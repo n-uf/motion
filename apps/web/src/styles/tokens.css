@@ -1,0 +1,217 @@
+/*
+ * Design tokens. Light is warm paper, dark is deep graphite. One accent (teal)
+ * for interaction and focus; one signal colour (orange) only for drop targets
+ * and indicators. Everything else stays neutral.
+ */
+:root {
+  color-scheme: light;
+
+  /* Backgrounds */
+  --bg: #f7f6f3;
+  --bg-raised: #ffffff;
+  --bg-subtle: #f1f0ec;
+  --bg-sunken: #ebe9e4;
+  --bg-inverse: #1b1c1f;
+
+  /* Text */
+  --text: #1b1c1f;
+  --text-2: #55565c;
+  --text-3: #85868c;
+  --text-inverse: #f7f6f3;
+
+  /* Hairlines */
+  --line: #e3e1db;
+  --line-2: #d3d1ca;
+  --line-3: #bebcb4;
+
+  /* Accent: interaction and focus */
+  --accent: #0d7a7e;
+  --accent-strong: #095e61;
+  --accent-soft: #e1f0ef;
+  --accent-line: #a8d3d1;
+  --accent-ink: #ffffff;
+
+  /* Signal: drop targets and indicators only */
+  --signal: #e0570c;
+  --signal-soft: rgba(224, 87, 12, 0.11);
+  --signal-ink: #ffffff;
+
+  /* Results */
+  --good: #22744a;
+  --bad: #b3261e;
+
+  /* Data series (charts): the proposal takes the accent; the others stay muted */
+  --series-a: #a86b1d;
+  --series-a2: #cf9d55;
+  --series-b: #6159ad;
+  --series-b2: #9b6aa8;
+  --series-c: var(--accent);
+  --series-c2: #59afad;
+  --series-ink: #4b4d53;
+
+  /* Grips */
+  --grip: #a3a29c;
+  --grip-hot: #4a4b50;
+
+  /* Diagram fills (the desk and drag stages) */
+  --d-floor: #e9e7e1;
+  --d-ink: #2a2c31;
+  --d-ink-text: #f4f3ef;
+  --d-panel: #f3f4f3;
+  --d-panel-head: #e3e6e5;
+  --d-panel-line: #cfd3d2;
+  --d-rail: #dfe2e1;
+  --d-doc: #ffffff;
+  --d-doc-line: #d9d6ce;
+  --d-doc-rule: #e9e6df;
+  --d-float: #ffffff;
+  --d-float-head: #d6ecea;
+  --d-float-line: #9fcfcc;
+
+  /* Shape */
+  --r: 8px;
+  --r-sm: 6px;
+  --r-xs: 4px;
+
+  /* Shadows: soft and layered, never a haze */
+  --shadow-1: 0 1px 1px rgba(28, 26, 20, 0.04), 0 1px 3px rgba(28, 26, 20, 0.04);
+  --shadow-2: 0 1px 2px rgba(28, 26, 20, 0.04), 0 4px 10px -4px rgba(28, 26, 20, 0.07), 0 18px 40px -24px rgba(28, 26, 20, 0.16);
+  --shadow-pop: 0 1px 2px rgba(28, 26, 20, 0.06), 0 6px 14px -6px rgba(28, 26, 20, 0.16), 0 20px 36px -16px rgba(28, 26, 20, 0.22);
+
+  /* Spacing scale */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 72px;
+
+  /* Type */
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
+  --t-2xs: 11px;
+  --t-xs: 12px;
+  --t-sm: 13px;
+  --t-base: 15px;
+  --t-md: 17px;
+  --t-lg: 20px;
+  --t-xl: 28px;
+  --t-2xl: 40px;
+
+  --max: 1200px;
+  --gutter: 24px;
+  --topbar: 56px;
+
+  /* Motion for CSS-only state changes (hover, focus); moves use the library's settle */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fast: 120ms;
+}
+
+@media (max-width: 640px) {
+  :root { --gutter: 16px; }
+}
+
+/* Dark: deep graphite. Defined twice: for the system preference, and for an explicit pick. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111214;
+    --bg-raised: #17181b;
+    --bg-subtle: #1c1d21;
+    --bg-sunken: #0c0d0f;
+    --bg-inverse: #ececee;
+    --text: #ececee;
+    --text-2: #a5a6ad;
+    --text-3: #75767e;
+    --text-inverse: #111214;
+    --line: #25262b;
+    --line-2: #303137;
+    --line-3: #43444b;
+    --accent: #4fc1c1;
+    --accent-strong: #79d6d5;
+    --accent-soft: rgba(79, 193, 193, 0.13);
+    --accent-line: rgba(79, 193, 193, 0.42);
+    --accent-ink: #052223;
+    --signal: #ff8a4c;
+    --signal-soft: rgba(255, 138, 76, 0.15);
+    --signal-ink: #1d0e05;
+    --good: #67c48f;
+    --bad: #ff8a80;
+    --series-a: #e0a356;
+    --series-a2: #f0c88e;
+    --series-b: #9a93ea;
+    --series-b2: #d39be0;
+    --series-c2: #8fd8d6;
+    --series-ink: #c2c4ca;
+    --grip: #5f6168;
+    --grip-hot: #c9cbd1;
+    --d-floor: #141518;
+    --d-ink: #d8dade;
+    --d-ink-text: #15161a;
+    --d-panel: #202227;
+    --d-panel-head: #292c32;
+    --d-panel-line: #383b42;
+    --d-rail: #1b1d21;
+    --d-doc: #26282d;
+    --d-doc-line: #3a3c43;
+    --d-doc-rule: #34363c;
+    --d-float: #22262a;
+    --d-float-head: #1d3a3b;
+    --d-float-line: #2f6261;
+    --shadow-1: 0 1px 1px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.25);
+    --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 10px -4px rgba(0, 0, 0, 0.4), 0 18px 40px -24px rgba(0, 0, 0, 0.6);
+    --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 14px -6px rgba(0, 0, 0, 0.5), 0 20px 36px -16px rgba(0, 0, 0, 0.65);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111214;
+  --bg-raised: #17181b;
+  --bg-subtle: #1c1d21;
+  --bg-sunken: #0c0d0f;
+  --bg-inverse: #ececee;
+  --text: #ececee;
+  --text-2: #a5a6ad;
+  --text-3: #75767e;
+  --text-inverse: #111214;
+  --line: #25262b;
+  --line-2: #303137;
+  --line-3: #43444b;
+  --accent: #4fc1c1;
+  --accent-strong: #79d6d5;
+  --accent-soft: rgba(79, 193, 193, 0.13);
+  --accent-line: rgba(79, 193, 193, 0.42);
+  --accent-ink: #052223;
+  --signal: #ff8a4c;
+  --signal-soft: rgba(255, 138, 76, 0.15);
+  --signal-ink: #1d0e05;
+  --good: #67c48f;
+  --bad: #ff8a80;
+  --series-a: #e0a356;
+  --series-a2: #f0c88e;
+  --series-b: #9a93ea;
+  --series-b2: #d39be0;
+  --series-c2: #8fd8d6;
+  --series-ink: #c2c4ca;
+  --grip: #5f6168;
+  --grip-hot: #c9cbd1;
+  --d-floor: #141518;
+  --d-ink: #d8dade;
+  --d-ink-text: #15161a;
+  --d-panel: #202227;
+  --d-panel-head: #292c32;
+  --d-panel-line: #383b42;
+  --d-rail: #1b1d21;
+  --d-doc: #26282d;
+  --d-doc-line: #3a3c43;
+  --d-doc-rule: #34363c;
+  --d-float: #22262a;
+  --d-float-head: #1d3a3b;
+  --d-float-line: #2f6261;
+  --shadow-1: 0 1px 1px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 10px -4px rgba(0, 0, 0, 0.4), 0 18px 40px -24px rgba(0, 0, 0, 0.6);
+  --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 14px -6px rgba(0, 0, 0, 0.5), 0 20px 36px -16px rgba(0, 0, 0, 0.65);
+}

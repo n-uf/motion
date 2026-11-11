@@ -1,0 +1,64 @@
+---
+// The whole <head>: one robots tag, the canonical, Open Graph and Twitter, the icons and the JSON-LD blocks
+// (contract: the SEO head, part 2 of the site setup). Every page goes through here, so swapping this one file swaps
+// the contract.
+import "../styles/tokens.css";
+import "../styles/base.css";
+import "../styles/shell.css";
+import "../styles/figure.css";
+import { name } from "../data/site";
+
+interface Props {
+  title: string;
+  description: string;
+  jsonLd?: object[];
+  /** the share image (og:image, 1200x630); the fixed pages have their own in /og/ */
+  ogImage?: string;
+  /** a draft shown in dev or a preview, or the style guide: keep it out of search results */
+  noindex?: boolean;
+}
+const { title, description, jsonLd = [], ogImage: ogPath = "/og.png", noindex = false } = Astro.props;
+// the canonical is the page's own address in the sitemap's form (trailing slash)
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL(ogPath, Astro.site);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={noindex ? "noindex" : "index, follow"} />
+    {!noindex && <link rel="canonical" href={canonical} />}
+    <meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111214" media="(prefers-color-scheme: dark)" />
+    <!-- one vector mark, drawn by scripts/render-favicons.py; search results want a square that's a multiple of 48 px -->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {!noindex && <meta property="og:url" content={canonical} />}
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    {jsonLd.map((d) => <script type="application/ld+json" set:html={JSON.stringify(d)} />)}
+    <!-- the stored theme, before the first paint, so a dark choice never flashes light -->
+    <script is:inline>try{var t=localStorage.getItem("motion-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}</script>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

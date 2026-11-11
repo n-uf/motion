@@ -1,0 +1,124 @@
+---
+// Every page's frame: the sticky top bar (the wordmark, the four pages, the theme switch), and on inner pages the
+// visible breadcrumb, the page head with its one <h1>, and links to the neighbouring pages; the footer closes it.
+// The home page brings its own h1 (no `headline`).
+import Base from "./Base.astro";
+import ExtLink from "../components/ExtLink.astro";
+import Mark from "../components/Mark.astro";
+import { demoPages } from "../data/pages";
+import { repoUrl, npmUrl } from "../data/site";
+
+interface Props {
+  title: string;
+  description: string;
+  /** this page's path, for the current nav item, the breadcrumb and the neighbours */
+  path: string;
+  /** the page's h1, in the page head (omit on the home page, which has its own) */
+  headline?: string;
+  jsonLd?: object[];
+  ogImage?: string;
+  noindex?: boolean;
+  /** the visible breadcrumb of a page that isn't one of the four (an article, a section index); the last is this page */
+  crumbs?: { name: string; path: string }[];
+  /** the small label above the h1 of such a page */
+  eyebrow?: string;
+}
+const { title, description, path, headline, jsonLd, ogImage, noindex, crumbs, eyebrow } = Astro.props;
+const index = demoPages.findIndex((p) => p.path === path);
+const current = demoPages[index];
+const prev = index > 0 ? demoPages[index - 1] : undefined;
+const next = index >= 0 && index < demoPages.length - 1 ? demoPages[index + 1] : undefined;
+const themes = [
+  ["system", "System theme", '<rect x="2" y="3" width="12" height="8.5" rx="1.5"/><path d="M6 14h4M8 11.5V14"/>'],
+  ["light", "Light theme", '<circle cx="8" cy="8" r="2.75"/><path d="M8 1.75v1.5M8 12.75v1.5M1.75 8h1.5M12.75 8h1.5M3.6 3.6l1.05 1.05M11.35 11.35l1.05 1.05M3.6 12.4l1.05-1.05M11.35 4.65l1.05-1.05"/>'],
+  ["dark", "Dark theme", '<path d="M13.25 9.6A5.5 5.5 0 0 1 6.4 2.75a5.5 5.5 0 1 0 6.85 6.85Z"/>'],
+];
+---
+<Base title={title} description={description} jsonLd={jsonLd} ogImage={ogImage} noindex={noindex}>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar">
+    <div class="topbar-in">
+      <a class="brand" href="/" aria-current={path === "/" ? "page" : undefined}><Mark /><span><span class="brand-ns">n-uf</span> motion</span></a>
+      <nav class="nav" aria-label="Site">
+        {demoPages.map((p) => <a href={p.path} aria-current={p.path === path ? "page" : undefined}>{p.nav}</a>)}
+      </nav>
+      <div class="theme" role="group" aria-label="Theme">
+        {themes.map(([id, label, svg]) => (
+          <button type="button" data-theme-pick={id} aria-pressed="false" title={label} aria-label={label}><svg viewBox="0 0 16 16" aria-hidden="true" set:html={svg} /></button>
+        ))}
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class={headline ? "wrap" : undefined}>
+    {headline && current && (
+      <>
+        <nav class="crumbs" aria-label="Breadcrumb">
+          <ol><li><a href="/">Home</a></li><li aria-current="page">{current.nav}</li></ol>
+        </nav>
+        <header class="page-head">
+          <span class="eyebrow"><span class="n">{String(index + 1).padStart(2, "0")}</span> {current.nav}</span>
+          <h1>{headline}</h1>
+          <slot name="lead" />
+        </header>
+      </>
+    )}
+    {headline && !current && (
+      <>
+        {crumbs && (
+          <nav class="crumbs" aria-label="Breadcrumb">
+            <ol>{crumbs.map((c, i) => (i === crumbs.length - 1 ? <li aria-current="page">{c.name}</li> : <li><a href={c.path}>{c.name}</a></li>))}</ol>
+          </nav>
+        )}
+        <header class="page-head">
+          {eyebrow && <span class="eyebrow">{eyebrow}</span>}
+          <h1>{headline}</h1>
+          <slot name="lead" />
+        </header>
+      </>
+    )}
+    <slot />
+    {current && (
+      <nav class="pager" aria-label="More pages">
+        {prev ? <a class="prev" href={prev.path}><span class="k">Previous</span><span class="t">{prev.nav}</span></a> : <a class="prev" href="/"><span class="k">Back to</span><span class="t">The library</span></a>}
+        {next ? <a class="next" href={next.path}><span class="k">Next</span><span class="t">{next.nav}</span></a> : <a class="next" href={demoPages[0]!.path}><span class="k">Start again</span><span class="t">{demoPages[0]!.nav}</span></a>}
+      </nav>
+    )}
+  </main>
+
+  <footer class="footer">
+    <div class="footer-in">
+      <div class="footer-brand">
+        <a class="brand" href="/"><Mark /><span><span class="brand-ns">n-uf</span> motion</span></a>
+        <p>One frame loop, a settle that never overshoots, reveal without stretching, a gesture recogniser. No DOM, no framework. Made by <ExtLink href="https://n-uf.com">n-uf</ExtLink>.</p>
+      </div>
+      <nav class="footer-nav" aria-label="Pages">
+        {demoPages.map((p) => <a href={p.path}>{p.nav}</a>)}
+        <a href="/design/">Design</a>
+      </nav>
+      <div class="footer-meta">
+        <ExtLink href={repoUrl}>Source on GitHub</ExtLink>
+        <ExtLink href={npmUrl}>@n-uf/motion on npm</ExtLink>
+        <span>PolyForm Perimeter 1.0.1</span>
+      </div>
+    </div>
+  </footer>
+
+  <script is:inline>
+    // The theme switch: system (no attribute), light or dark, remembered in this browser.
+    (function () {
+      var KEY = "motion-theme";
+      function sync(t) { document.querySelectorAll("[data-theme-pick]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.themePick === t)); }); }
+      var cur = "system"; try { var s = localStorage.getItem(KEY); if (s === "light" || s === "dark") cur = s; } catch (e) {}
+      sync(cur);
+      document.querySelectorAll("[data-theme-pick]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var t = b.dataset.themePick;
+          if (t === "system") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+          try { if (t === "system") localStorage.removeItem(KEY); else localStorage.setItem(KEY, t); } catch (e) {}
+          sync(t);
+        });
+      });
+    })();
+  </script>
+</Base>
