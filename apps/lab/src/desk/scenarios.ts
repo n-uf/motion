@@ -7,7 +7,7 @@ import { overlap, type Point } from "../shared/geometry";
 import { DRAG, rawTarget, within, type Target } from "./intent";
 import { dropAt, targetsFor, without } from "./drops";
 import { CONSTRUCTIONS, type ConstructionId } from "./layouts";
-import { DEFAULT_OPTIONS, G, LAYER, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
+import { DEFAULT_OPTIONS, G, LAYER, idOf, natural, panelKey, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
 
 /** What a scenario can do to the page and read from it. */
 export interface DeskLab {
@@ -261,8 +261,107 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
       },
     };
   });
-  Object.assign(scenarios, giveWay(lab), handMoves(lab), modes(lab), drags(lab), dragModel(lab));
+  Object.assign(scenarios, proportions(), giveWay(lab), handMoves(lab), modes(lab), drags(lab), dragModel(lab));
   return scenarios;
+}
+
+/** The constructions with edge docks, and those with side panels of a fixed width. */
+const EDGE_DOCKS: readonly ConstructionId[] = ["docks", "docksFull", "dockTear"];
+const SIDED: readonly ConstructionId[] = [...EDGE_DOCKS, "navigator", "drawers"];
+/** A side dock's width, its tolerance, and the most of the stage's height the bottom dock takes. */
+const SIDE_W = 240;
+const SIDE_TOL = 8;
+const BOTTOM_SHARE = 0.36;
+/** The most a section that isn't its dock's last open one grows past its natural height. */
+const AIR = 24;
+
+/** How each construction starts and how big its docks are: pure layouts at the stage sizes people open it at. */
+function proportions(): Record<string, Scenario> {
+  const docs = [1, 2];
+  return {
+    "start: every construction opens fully docked; only F1 and F2 start with palettes floating": {
+      still: true,
+      play: async (expect) => {
+        const fails: string[] = [];
+        for (const c of CONSTRUCTIONS) {
+          const s = c.initial(docs);
+          if (s.torn.length || s.free.length) fails.push(`${c.title}: starts with ${[...s.torn, ...s.free].map((f) => `panel:${f.id}`).join(", ")} placed freely`);
+          if (c.id === "floatOver" || c.id === "floatAround") continue;
+          for (const [W, H] of [[960, 560], [1440, 900]] as const) {
+            // A drawer sliding over the documents is how E gives way when narrow, not a panel set floating.
+            for (const [k, p] of c.layout(s, { width: W, height: H }, DEFAULT_OPTIONS).items) if (/^(panel|doc):/.test(k) && !p.hidden && p.layer > LAYER.dock && p.look !== "bare") fails.push(`${c.title} ${W} × ${H}: ${k} floats (${p.look})`);
+          }
+        }
+        expect(fails.length === 0, `${fails.length} floating at the start; first: ${fails[0]}`);
+      },
+    },
+    "docks: sections take their natural height; only each dock's last open section takes the rest": {
+      still: true,
+      play: async (expect) => {
+        const fails: string[] = [];
+        for (const c of CONSTRUCTIONS.filter((x) => EDGE_DOCKS.includes(x.id))) {
+          for (const [W, H] of [[960, 560], [1200, 700], [1440, 900]] as const) {
+            for (const bottom of ["reserved", "off"] as const) {
+              const s0 = c.initial(docs);
+              // As it starts, with the first section folded by hand, and with three documents.
+              for (const [what, s] of [["as it starts", s0], ["Files folded", { ...s0, folded: [1] }], ["three documents", c.initial([1, 2, 3])]] as const) {
+                const l = c.layout(s, { width: W, height: H }, { ...DEFAULT_OPTIONS, bottom });
+                const columns = new Map<number, [string, Rect][]>();
+                for (const [k, p] of l.items) {
+                  if (!k.startsWith("panel:") || p.hidden || p.look !== "section") continue;
+                  const x = Math.round(p.rect.x);
+                  columns.set(x, [...(columns.get(x) ?? []), [k, p.rect]]);
+                }
+                for (const list of columns.values()) {
+                  const last = list.reduce((a, b) => (b[1].y > a[1].y ? b : a))[0];
+                  for (const [k, rr] of list) {
+                    const n = natural(idOf(k));
+                    if (k !== last && rr.height > n + AIR + 0.5) fails.push(`${c.title} ${W} × ${H}, bottom ${bottom}, ${what}: ${k} is ${Math.round(rr.height)} tall, its content ${n}`);
+                  }
+                }
+              }
+            }
+          }
+        }
+        expect(fails.length === 0, `${fails.length} sections stretched; first: ${fails[0]}`);
+      },
+    },
+    "docks: the bottom dock is 180 to 200 px tall, never more than 36 % of the stage": {
+      still: true,
+      play: async (expect) => {
+        const fails: string[] = [];
+        for (const c of CONSTRUCTIONS.filter((x) => x.bottom)) {
+          for (const W of [760, 960, 1440]) {
+            for (const H of [480, 500, 560, 640, 800]) {
+              for (const bottom of ["reserved", "overlay"] as const) {
+                const b = c.layout(c.initial(docs), { width: W, height: H }, { ...DEFAULT_OPTIONS, bottom }).items.get(P.history)!;
+                if (b.rect.height > BOTTOM_SHARE * H + 0.5) fails.push(`${c.title} ${W} × ${H}, ${bottom}: ${Math.round(b.rect.height)} px, ${Math.round((b.rect.height / H) * 100)} % of the stage`);
+              }
+            }
+          }
+          const b = c.layout(c.initial(docs), { width: 960, height: 560 }, DEFAULT_OPTIONS).items.get(P.history)!.rect;
+          if (b.height < 180 - 0.5 || b.height > 200 + 0.5) fails.push(`${c.title} 960 × 560: ${Math.round(b.height)} px tall`);
+        }
+        expect(fails.length === 0, `${fails.length} too tall; first: ${fails[0]}`);
+      },
+    },
+    "docks: side docks are 240 px wide at the default stage": {
+      still: true,
+      play: async (expect) => {
+        const fails: string[] = [];
+        for (const c of CONSTRUCTIONS.filter((x) => SIDED.includes(x.id))) {
+          const s = c.initial(docs);
+          const l = c.layout(s, { width: 960, height: 560 }, DEFAULT_OPTIONS);
+          for (const side of ["left", "right"] as const) {
+            const shown = s[side].map((id) => [panelKey(id), l.items.get(panelKey(id))!] as const).filter(([, p]) => !p.hidden);
+            if (!shown.length) fails.push(`${c.title}: the ${side} side shows nothing`);
+            for (const [k, p] of shown) if (Math.abs(p.rect.width - SIDE_W) > SIDE_TOL) fails.push(`${c.title}: ${k} on the ${side} is ${Math.round(p.rect.width)} wide`);
+          }
+        }
+        expect(fails.length === 0, `${fails.length} off; first: ${fails[0]}`);
+      },
+    },
+  };
 }
 
 /** The item each construction's drag-model scenarios drag. */
@@ -1089,9 +1188,17 @@ function giveWay(lab: DeskLab): Record<string, Scenario> {
         settledAsLaidOut(lab, expect);
       },
     },
-    "F3 · as A: the docks fold to their rails, the bottom dock to its header": {
+    "F3 · as A: the docks fold to their rails, the bottom dock to its header; a torn-off panel stays out": {
       construction: "dockTear",
+      drag: true,
       play: async (expect) => {
+        // It starts fully docked: Inspector floats only once it is torn off.
+        expect(lab.state().torn.length === 0 && lab.state().right.includes(4), "F3 doesn't start with Inspector docked");
+        await lab.drag(P.inspector, () => ({ x: 450, y: 250 }));
+        await lab.idle();
+        const torn = r.at(P.inspector)!;
+        expect(lab.state().torn.some((f) => f.id === 4) && torn.layer > LAYER.dock, "Inspector didn't tear off to float");
+        expect(r.docs().some(([, d]) => overlap(d, torn.rect) > 1), "the torn-off Inspector doesn't float over a document");
         await r.resize(640, 420);
         expect(r.hidden(P.notes) && r.look(P.history) === "header", `Notes hidden: ${r.hidden(P.notes)}, History ${r.look(P.history)}`);
         expect(!r.hidden(P.inspector), "the torn-off Inspector folded with the dock");

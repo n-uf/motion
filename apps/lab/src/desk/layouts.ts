@@ -715,7 +715,7 @@ export const CONSTRUCTIONS: readonly Construction[] = [
     idea: "A's docks, and any panel can be torn off to float over the documents and dropped back on a dock or its rail icon. Docked is the default; floating is the exception you choose.",
     pill: true,
     bottom: true,
-    initial: sides({ right: [3], torn: [{ id: 4, at: null }] }),
+    initial: sides({}),
     layout: withNotes((s, size, opt, notes) => {
       const out = docks(s, size, opt, "between", notes);
       tornOff(out, s, size, notes);
