@@ -287,12 +287,13 @@ function giveWay(lab: DeskLab): Record<string, Scenario> {
       construction: "drawers",
       size: [1440, 560],
       play: async (expect) => {
-        expect(r.at(P.inspector)!.look === "bare", "the right drawer isn't docked at 1440");
+        const over = (key: string): boolean => r.at(key)!.layer > LAYER.dock;
+        expect(!over(P.inspector), "the right drawer isn't docked at 1440");
         const wide = r.at("doc:1")!.rect.x;
         await r.resize(960, 560);
-        expect(r.look(P.inspector) === "float" && r.look(P.files) === "bare", "at 960 the right drawer should slide over, the left still push");
+        expect(over(P.inspector) && !over(P.files), "at 960 the right drawer should slide over, the left still push");
         await r.resize(700, 560);
-        expect(r.look(P.files) === "float", "at 700 the left drawer didn't slide over");
+        expect(over(P.files), "at 700 the left drawer didn't slide over");
         expect(r.at("doc:1")!.rect.x < wide, "the documents didn't take the room the left drawer gave");
         await r.resize(960, 320);
         expect(!r.notes().includes("height"), "height gave way");

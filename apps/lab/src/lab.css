@@ -151,6 +151,7 @@ main.wide { max-width: 1480px; }
 .win.panel[data-look="float"] .frame { background: linear-gradient(var(--float-title) 22px, var(--float) 22px); border-color: var(--float-edge); }
 .win.panel[data-look="bare"] .title { display: none; }
 .win.panel[data-look="bare"] .frame { background: var(--win); border-radius: 0 0 5px 5px; }
+.win.panel[data-look="bare"].shadow .frame { background: var(--float); border-color: var(--float-edge); }
 .win.accent .frame { border: 2px solid var(--accent); }
 /* Documents. */
 .win.doc .frame { background: linear-gradient(var(--doc-title) 22px, var(--doc) 22px); border-color: var(--doc-edge); }
