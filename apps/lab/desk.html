@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Desk placement</title>
+    <link rel="stylesheet" href="/src/lab.css" />
+  </head>
+  <body>
+    <main class="wide">
+      <header>
+        <nav class="pages"><a href="./index.html">← Tiling</a> · <b>Desk placement</b></nav>
+        <h1>Desk placement</h1>
+        <p>
+          A desk: panel columns on the left and right, a band along the top, a work area for documents, and things
+          pinned over the view. Drag the toolbar by its grip (⠿) into the band, a column or the view; drag a panel by its
+          title bar into a column (at an index) or the view; fold a panel with ▾. A toolbar's size jumps to its new
+          place's content size and only its position settles. Documents tile (Hyprland's master or dwindle) while every
+          tile stays at the minimum size, else they go to the first free spot, else cascade. Every move is sampled per
+          frame and checked below.
+        </p>
+      </header>
+
+      <section class="controls" aria-label="Controls">
+        <fieldset>
+          <legend>Drop preview while dragging</legend>
+          <label><input type="radio" name="drop" value="indicator" checked /> Drop indicator (item under the pointer, target outlined, others make room)</label>
+          <label><input type="radio" name="drop" value="snap" /> Snap to slot (the item glides into its place, others make room)</label>
+        </fieldset>
+        <fieldset>
+          <legend>Documents</legend>
+          <label><input type="radio" name="docs" value="master" checked /> Tiled: master and stack</label>
+          <label><input type="radio" name="docs" value="dwindle" /> Tiled: dwindle</label>
+          <label><input type="radio" name="docs" value="floating" /> Floating</label>
+        </fieldset>
+        <fieldset>
+          <legend>Tempo</legend>
+          <label><input type="radio" name="tempo" value="calm" /> Calm (ω 20)</label>
+          <label><input type="radio" name="tempo" value="default" checked /> Default (ω 25)</label>
+          <label><input type="radio" name="tempo" value="quick" /> Quick (ω 37)</label>
+        </fieldset>
+        <fieldset>
+          <legend>Toolbar to</legend>
+          <button type="button" data-act="tb-band">Top band</button>
+          <button type="button" data-act="tb-left">Left column</button>
+          <button type="button" data-act="tb-right">Right column</button>
+          <button type="button" data-act="tb-pinned">Pinned</button>
+        </fieldset>
+        <fieldset>
+          <legend>Do</legend>
+          <button type="button" data-act="open">Open document</button>
+          <button type="button" data-act="open5">Open 5 documents</button>
+          <button type="button" data-act="close">Close the focused</button>
+          <button type="button" data-act="runall">Run all scenarios</button>
+        </fieldset>
+      </section>
+      <p class="readout" id="readout"></p>
+
+      <div class="stage desk" id="stage">
+        <div class="hint" id="hint" hidden></div>
+        <div class="hint-label" id="hint-label" hidden></div>
+      </div>
+
+      <section aria-label="Checks">
+        <h2 id="checks-title">Checks of the last move</h2>
+        <table id="checks">
+          <thead><tr><th>Rule</th><th>Result</th><th>First failure</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <h2>Distance to target, last move</h2>
+        <canvas id="trace" width="720" height="160" aria-label="Distance to target over time, one line per item"></canvas>
+        <h2>Scenario runs</h2>
+        <table id="runs">
+          <thead><tr><th>Scenario</th><th>Drop preview</th><th>Failed rules</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+    <script type="module" src="/src/desk.ts"></script>
+  </body>
+</html>

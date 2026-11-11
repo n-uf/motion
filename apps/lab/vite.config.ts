@@ -5,4 +5,6 @@ import { defineConfig } from "vite";
 // at once.
 export default defineConfig({
   server: { port: 3060, strictPort: false },
+  // Two pages: tiling (index.html) and desk placement (desk.html).
+  build: { rollupOptions: { input: { tiling: "index.html", desk: "desk.html" } } },
 });
