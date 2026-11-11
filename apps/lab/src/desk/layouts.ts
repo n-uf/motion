@@ -286,14 +286,30 @@ export const bornOf = (key: string): number => (isDocKey(key) ? 9 + idOf(key) : 
 export const tileMin = (key: string): Size => (isDocKey(key) ? DOC_MIN : { width: 150, height: natural(idOf(key)) });
 export const TREE_COLUMN = 180;
 
+/**
+ * Heights for a column of items stacked in `avail` with gaps: each at its minimum, the last taking the rest. When
+ * the minimums don't fit, an even share instead, so the ones that break their minimum show.
+ */
+export function columnHeights(avail: number, mins: readonly number[]): number[] {
+  const room = avail - G * (mins.length - 1);
+  const need = mins.reduce((a, b) => a + b, 0);
+  if (need > room) return mins.map(() => room / mins.length);
+  return mins.map((m, i) => (i === mins.length - 1 ? room - need + m : m));
+}
+
 /** The tree's tiles laid out (no floating): the left and right columns, the centre by dwindle. */
 export function treeTiles(tree: DeskState["tree"], area: Rect): Map<string, Rect> {
   const res = new Map<string, Rect>();
   let x0 = area.x;
   let x1 = area.x + area.width;
+  // A side column's tiles take their natural height, the last one the rest.
   const column = (list: readonly string[], x: number): void => {
-    const sh = (area.height - G * (list.length - 1)) / list.length;
-    list.forEach((k, i) => res.set(k, rect(x, area.y + i * (sh + G), TREE_COLUMN, sh)));
+    const heights = columnHeights(area.height, list.map((k) => tileMin(k).height));
+    let y = area.y;
+    list.forEach((k, i) => {
+      res.set(k, rect(x, y, TREE_COLUMN, heights[i]!));
+      y += heights[i]! + G;
+    });
   };
   if (tree.L.length) {
     column(tree.L, x0);
@@ -418,9 +434,14 @@ function drawers(s: DeskState, size: Size, notes: string[]): Out {
   const x0 = RAIL + (lDocked && lOpen ? DRAWER_L : 0) + G;
   const x1 = W - RAIL - (rDocked && rOpen ? DRAWER_R : 0) - G;
   tiles(out, rect(x0, y + G, x1 - x0, h - 2 * G), s.docs);
-  if (lOpen) tabbed(out, "left", s.left, s.active.left, RAIL, y, DRAWER_L, h, !lDocked);
+  // Both sliding over a stage too narrow for the two side by side: each takes half the room between the rails.
+  const both = !lDocked && !rDocked && lOpen && rOpen;
+  const half = (W - 2 * RAIL - G) / 2;
+  const lw = both ? Math.min(DRAWER_L, half) : DRAWER_L;
+  const rw = both ? Math.min(DRAWER_R, half) : DRAWER_R;
+  if (lOpen) tabbed(out, "left", s.left, s.active.left, RAIL, y, lw, h, !lDocked);
   else tabbedIntoRail(out, "left", s.left, 0, y, DRAWER_L);
-  if (rOpen) tabbed(out, "right", s.right, s.active.right, W - RAIL - DRAWER_R, y, DRAWER_R, h, !rDocked);
+  if (rOpen) tabbed(out, "right", s.right, s.active.right, W - RAIL - rw, y, rw, h, !rDocked);
   else tabbedIntoRail(out, "right", s.right, W - RAIL, y, DRAWER_R);
   out.set("toolbar", bar(W));
   return out;
@@ -481,7 +502,8 @@ function strip(s: DeskState, size: Size, notes: string[]): Out {
   const { width: W, height: H } = size;
   const g = stripGeometry(s, size, notes);
   g.cols.forEach((c, ci) => {
-    const heights = share(g.h - G * (c.length - 1), c.map(stripMin));
+    // A column of panels: each at its natural height, the last taking the rest; documents share as before.
+    const heights = c.some(isDocKey) ? share(g.h - G * (c.length - 1), c.map(stripMin)) : columnHeights(g.h, c.map(stripMin));
     let cy = g.y;
     c.forEach((k, i) => {
       out.set(k, { rect: rect(g.xs[ci]!, cy, g.widths[ci]!, heights[i]!), look: isDocKey(k) ? "doc" : "tile", layer: LAYER.doc, offStage: true, min: { width: g.widths[ci]!, height: stripMin(k) } });
