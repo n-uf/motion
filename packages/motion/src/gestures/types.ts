@@ -3,7 +3,7 @@
  * touches the DOM; the host copies the fields it needs out of PointerEvent /
  * WheelEvent / Safari's GestureEvent.
  *
- * Ported from the pdfized surface's input layer, whose recogniser this is.
+ * Ported from a host app's input layer, whose recogniser this is.
  * Hit testing and routing (what is under a point, who gets a gesture) stay
  * with the host.
  */
