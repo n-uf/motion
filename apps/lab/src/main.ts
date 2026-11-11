@@ -25,6 +25,7 @@ import type { HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing
 import { motionRows, renderChecks, renderTrace, type Row, type Segment } from "./shared/checks";
 import { drawRevealed, measureFrame, onTopAt as onTopIn } from "./shared/frame";
 import { inside, nextFrame, overlap, same, wait } from "./shared/geometry";
+import "./shared/hooks";
 import { cancelPress, trackPress } from "./shared/press";
 import {
   columns,
@@ -876,9 +877,4 @@ dropMode = (checked("drop") as DropMode | undefined) ?? dropMode;
 indicatorMakesRoom = (document.getElementById("make-room") as HTMLInputElement).checked;
 reset(4);
 
-declare global {
-  interface Window {
-    __motionLab: { runAll: () => Promise<Run[]>; runs: Run[]; lastRows: () => Row[] };
-  }
-}
 window.__motionLab = { runAll, runs, lastRows: () => lastRows };

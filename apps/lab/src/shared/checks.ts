@@ -43,6 +43,8 @@ export interface EpisodeRecord {
   readonly onTop: readonly (string | null)[];
   /** Per frame while a slot is previewed: null when no settled neighbour is in it, else which is. */
   readonly room: readonly (string | null)[];
+  /** Windows that popped in or out (a uniform scale, not a rect move) */
+  readonly pops?: number;
 }
 
 export function merge(results: readonly CheckResult[]): CheckResult {
@@ -84,7 +86,7 @@ export function motionRows(ep: EpisodeRecord, omega: number, name: (id: number) 
   const tempo = longest ? checkTempo(longest.samples, longest.from, longest.to, t90, 0.25, longest.t0) : null;
   const tempoInfo = tempo?.t90 != null ? `90 % after ${Math.round(tempo.t90)} ms (${name(longest!.id)}, ${Math.round(longestSpan)} px; expected ${Math.round(t90)} ms)` : "";
   const rows: Row[] = [
-    { name: "Something moved", result: { ok: segs.length > 0, failures: segs.length > 0 ? [] : ["no move was recorded"] } },
+    { name: "Something moved", result: verdict(segs.length > 0 || (ep.pops ?? 0) > 0 ? [] : ["no move was recorded"]) },
     { name: "No overshoot (position and size)", result: merge(segs.map((s) => label(s, checkNoOvershoot(s.samples, s.from, s.to)))) },
     { name: "Settles from one side (monotonic)", result: merge(segs.map((s) => label(s, checkMonotonic(s.samples, s.to)))) },
     { name: "No jumps or restarts", result: merge(ep.runs.map((run) => checkNoJumps(run, omega))) },
