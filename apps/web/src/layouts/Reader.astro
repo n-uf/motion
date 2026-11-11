@@ -1,0 +1,85 @@
+---
+// A use-case page or blog article, in the same frame as the rest of the site (Site.astro: the top bar, the visible
+// breadcrumb and the page head with its one h1). Everything here is server HTML from the page's front matter and
+// markdown body.
+import Site from "./Site.astro";
+import "../styles/reader.css";
+import ExtLink from "../components/ExtLink.astro";
+import ScheduledBadge from "../components/ScheduledBadge.astro";
+import { sections, pathOf, dateText, pageInfo, kindLabel, isLive, showDrafts, type Entry, type Section } from "../data/content";
+import { orgNode, webPage, article, breadcrumbs, faqPage } from "../data/schema";
+import { npmUrl, repoUrl } from "../data/site";
+
+interface Props { entry: Entry; section: Section; headings: { depth: number; slug: string; text: string }[] }
+const { entry, section, headings } = Astro.props;
+const d = entry.data;
+const sec = sections[section];
+const path = pathOf(section, entry.id);
+// the page's own share image (scripts/render-og-pages.py), 1200x630; also its Article image, so the two match
+const ogImage = `/og/${entry.id}.png`;
+// a draft is built only in dev and previews: it gets the "Scheduled for" badge and noindex
+const scheduled = showDrafts && !isLive(entry);
+
+// the table of contents lists the ## headings; with fewer than four it adds nothing
+const toc = headings.filter((h) => h.depth === 2);
+const showToc = toc.length >= 4;
+const related = await Promise.all(d.related.map(async (p) => ({ path: p, ...(await pageInfo(p)) })));
+
+const crumbs = [{ name: "Home", path: "/" }, { name: sec.label, path: sec.path }, { name: d.h1, path }];
+const jsonLd = [
+  section === "blog"
+    ? article({ path, headline: d.h1, description: d.description, published: d.published, updated: d.updated, image: ogImage })
+    : webPage({ path, name: d.h1, description: d.description, published: d.published, updated: d.updated }),
+  breadcrumbs(crumbs),
+  faqPage(d.faq),
+  orgNode,
+];
+---
+<Site title={d.title} description={d.description} path={path} headline={d.h1} eyebrow={kindLabel[d.kind]} crumbs={crumbs} jsonLd={jsonLd} ogImage={ogImage} noindex={scheduled}>
+  <p class="byline" slot="lead">Updated <time datetime={d.updated.toISOString().slice(0, 10)}>{dateText(d.updated)}</time> · by <ExtLink href="https://n-uf.com">n-uf</ExtLink>{scheduled && <> · <ScheduledBadge date={d.published} /></>}</p>
+
+  <div class="takeaways">
+    <h2 class="cap">Key takeaways</h2>
+    <ul>{d.takeaways.map((t) => <li>{t}</li>)}</ul>
+  </div>
+
+  <div class="reader-grid" data-toc={showToc ? "on" : "off"}>
+    {showToc && (
+      <nav class="toc" aria-label="On this page">
+        <h2 class="cap">On this page</h2>
+        <ol>{toc.map((h) => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}</ol>
+      </nav>
+    )}
+    <div class="main-col">
+      <article class="prose">
+        <slot />
+      </article>
+
+      <div class="faq-card">
+        <h2 class="cap">Questions people ask</h2>
+        {d.faq.map(({ q, a }, i) => <details open={i === 0}><summary>{q}</summary><p>{a}</p></details>)}
+      </div>
+
+      <div class="related">
+        <h2 class="cap">Related</h2>
+        <ul>
+          {related.map((r) => <li><a href={r.path}><b>{r.title}</b><span>{r.description}</span></a></li>)}
+        </ul>
+      </div>
+
+      {d.sources.length > 0 && (
+        <div class="sources">
+          <h2 class="cap">Sources</h2>
+          <ul>
+            {d.sources.map((s) => <li><ExtLink href={s.url}>{s.title}</ExtLink> <span class="chk">checked {dateText(s.checked)}</span></li>)}
+          </ul>
+        </div>
+      )}
+
+      <div class="get">
+        <h2 class="cap">Get it</h2>
+        <p><code>npm i @n-uf/motion</code>: the <ExtLink href={npmUrl}>package on npm</ExtLink>, the <ExtLink href={repoUrl}>source on GitHub</ExtLink>. n-uf motion is made by <ExtLink href="https://n-uf.com">n-uf</ExtLink>.</p>
+      </div>
+    </div>
+  </div>
+</Site>

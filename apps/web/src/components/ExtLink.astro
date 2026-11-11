@@ -1,0 +1,8 @@
+---
+// A link to another host: it opens in a new tab (static target and rel, no script), says so to assistive tech with a
+// visually hidden note, and shows a small arrow after the text. Same-site links stay plain <a>. (Not for use inside a
+// heading: the note would end up in the heading's text.)
+interface Props { href: string; /** the small ↗ after the text (default true) */ arrow?: boolean }
+const { href, arrow = true } = Astro.props;
+---
+<a href={href} target="_blank" rel="noopener"><slot />{arrow && <span class="ext-arrow" aria-hidden="true">↗</span>}<span class="sr-only"> (opens in a new tab)</span></a>

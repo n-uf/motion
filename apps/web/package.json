@@ -1,0 +1,27 @@
+{
+  "name": "motion-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The home site of @n-uf/motion (motion.n-uf.com): the window motion rules, the drag-intent model, desk layouts and toolbar groups, as interactive pages built on the library itself.",
+  "license": "LicenseRef-PolyForm-Perimeter-1.0.1",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "scripts": {
+    "dev": "astro dev --ignore-lock",
+    "build": "astro build && node scripts/check-links.mjs",
+    "preview": "astro preview",
+    "test": "node --test scripts/*.test.mjs",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@astrojs/markdown-remark": "^7.3.7",
+    "@astrojs/sitemap": "^3.7.4",
+    "@n-uf/motion": "workspace:*",
+    "astro": "^7.4.2"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

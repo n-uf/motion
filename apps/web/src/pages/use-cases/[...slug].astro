@@ -1,0 +1,48 @@
+---
+// /use-cases/ (the index) and /use-cases/<slug>/ (a page) in one route, so that neither exists while there are no use cases.
+import { render } from "astro:content";
+import Site from "../../layouts/Site.astro";
+import Reader from "../../layouts/Reader.astro";
+import ExtLink from "../../components/ExtLink.astro";
+import "../../styles/reader.css";
+import ScheduledBadge from "../../components/ScheduledBadge.astro";
+import { getUseCases, sections, pathOf, dateText, isLive, showDrafts } from "../../data/content";
+import { orgNode, webPage, breadcrumbs } from "../../data/schema";
+import { withImages } from "../../data/images";
+import { withLiveBlocks } from "../../data/live";
+
+export async function getStaticPaths() {
+  const items = await getUseCases();
+  if (items.length === 0) return [];
+  return [
+    { params: { slug: undefined }, props: { items } },
+    ...items.map((entry) => ({ params: { slug: entry.id }, props: { items, entry } })),
+  ];
+}
+const { items, entry } = Astro.props;
+const rendered = entry ? await render(entry) : undefined;
+// the body with its {{live:}} blocks resolved (src/data/live.ts) and its images as sized figures (src/data/images.ts)
+const html = entry?.rendered?.html ? withImages(await withLiveBlocks(entry.rendered.html, entry.filePath ?? `src/content/use-cases/${entry.id}.md`)) : undefined;
+
+const { title, description } = sections.usecases;
+const crumbs = [{ name: "Home", path: "/" }, { name: "Use cases", path: "/use-cases/" }];
+const jsonLd = [webPage({ path: "/use-cases/", name: title, description, type: "CollectionPage" }), breadcrumbs(crumbs), orgNode];
+---
+{entry && rendered ? (
+  <Reader entry={entry} section="usecases" headings={rendered.headings}>{html ? <Fragment set:html={html} /> : <rendered.Content />}</Reader>
+) : (
+  <Site title={title} description={description} path="/use-cases/" headline="What you can do with it" eyebrow="Use cases" crumbs={crumbs} jsonLd={jsonLd}>
+    <p class="lead" slot="lead">n-uf motion moves windows, panels and toolbars without overshoot or stretching. These pages show what that is good for, one job at a time. It is made by <ExtLink href="https://n-uf.com">n-uf</ExtLink>.</p>
+    <div class="ix-list">
+      {items.map((e) => (
+        <article class="ix-card">
+          <p class="eyebrow">Use case</p>
+          <h2><a href={pathOf("usecases", e.id)}>{e.data.h1}</a></h2>
+          <p>{e.data.description}</p>
+          <span class="when">Updated {dateText(e.data.updated)}</span>
+          {showDrafts && !isLive(e) && <ScheduledBadge date={e.data.published} />}
+        </article>
+      ))}
+    </div>
+  </Site>
+)}
