@@ -3,38 +3,47 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Desk placement</title>
+    <title>Desk constructions</title>
     <link rel="stylesheet" href="/src/lab.css" />
   </head>
   <body>
     <main class="wide">
       <header>
-        <nav class="pages"><a href="./index.html">← Tiling</a> · <b>Desk placement</b></nav>
-        <h1>Desk placement</h1>
+        <nav class="pages"><a href="./index.html">← Tiling</a> · <b>Desk constructions</b></nav>
+        <h1>Desk constructions</h1>
         <p>
-          A desk: panel columns on the left and right, a band along the top, a work area for documents, and things
-          pinned over the view. Drag the toolbar by its grip (⠿) into the band (left or right end), a column or the view;
-          double-click the grip to collapse or expand it, right-click it for Horizontal / Vertical; drag a panel by its
-          title bar into a column (at an index) or the view; fold a panel with ▾. When every panel of a column is
-          folded, the column becomes a rail: each title bar turns on its side into a tab, and clicking a tab unfolds
-          its panel. A toolbar's size jumps to its new
-          place's content size and only its position settles. Documents tile (Hyprland's master or dwindle) while every
-          tile stays at the minimum size, else they go to the first free spot, else cascade. Every move is sampled per
-          frame and checked below.
+          Nine ways to build a desk from a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and open
+          documents. Pick one with the Construction switch; change the stage's size to see how it gives way when width
+          or height runs out. Every item glides by the motion rules: a move settles, a size change is revealed rather
+          than stretched, a panel that folds away fades with a uniform scale. Every frame is sampled and checked below.
         </p>
       </header>
 
       <section class="controls" aria-label="Controls">
-        <fieldset>
-          <legend>Drop preview while dragging</legend>
-          <label><input type="radio" name="drop" value="indicator" checked /> Drop indicator (item under the pointer, target outlined, others make room)</label>
-          <label><input type="radio" name="drop" value="snap" /> Snap to slot (the item glides into its place, others make room)</label>
+        <fieldset id="constructions">
+          <legend>Construction</legend>
+        </fieldset>
+        <fieldset id="toolbar-modes">
+          <legend>Toolbar</legend>
+          <label><input type="radio" name="toolbar" value="top-reserved" checked /> Top · reserved</label>
+          <label><input type="radio" name="toolbar" value="top-overlay" /> Top · floating</label>
+          <label><input type="radio" name="toolbar" value="bottom-reserved" /> Bottom · reserved</label>
+          <label><input type="radio" name="toolbar" value="bottom-overlay" /> Bottom · floating</label>
+        </fieldset>
+        <fieldset id="bottom-modes">
+          <legend>Bottom dock</legend>
+          <label><input type="radio" name="bottom" value="reserved" checked /> Reserved</label>
+          <label><input type="radio" name="bottom" value="overlay" /> Floating</label>
+          <label><input type="radio" name="bottom" value="off" /> Off</label>
         </fieldset>
         <fieldset>
-          <legend>Documents</legend>
-          <label><input type="radio" name="docs" value="master" checked /> Tiled: master and stack</label>
-          <label><input type="radio" name="docs" value="dwindle" /> Tiled: dwindle</label>
-          <label><input type="radio" name="docs" value="floating" /> Floating</label>
+          <legend>Stage</legend>
+          <label>Width <input id="w" type="range" min="480" max="1440" step="10" value="960" /><output id="wo">960</output></label>
+          <label>Height <input id="h" type="range" min="320" max="800" step="10" value="560" /><output id="ho">560</output></label>
+          <button type="button" data-size="1440,820">Large</button>
+          <button type="button" data-size="960,560">Laptop</button>
+          <button type="button" data-size="760,420">Short</button>
+          <button type="button" data-size="520,700">Narrow</button>
         </fieldset>
         <fieldset>
           <legend>Tempo</legend>
@@ -43,22 +52,14 @@
           <label><input type="radio" name="tempo" value="quick" /> Quick (ω 37)</label>
         </fieldset>
         <fieldset>
-          <legend>Toolbar to</legend>
-          <button type="button" data-act="tb-band-start">Band, left end</button>
-          <button type="button" data-act="tb-band-end">Band, right end</button>
-          <button type="button" data-act="tb-left">Left column</button>
-          <button type="button" data-act="tb-right">Right column</button>
-          <button type="button" data-act="tb-pinned">Pinned</button>
-          <button type="button" data-act="tb-collapse">Collapse / expand</button>
-        </fieldset>
-        <fieldset>
           <legend>Do</legend>
           <button type="button" data-act="open">Open document</button>
-          <button type="button" data-act="open5">Open 5 documents</button>
           <button type="button" data-act="close">Close the focused</button>
+          <button type="button" data-act="reset">Reset</button>
           <button type="button" data-act="runall">Run all scenarios</button>
         </fieldset>
       </section>
+      <p class="idea" id="idea"></p>
       <p class="readout" id="readout"></p>
 
       <div class="stage desk" id="stage">
@@ -67,7 +68,7 @@
       </div>
 
       <section aria-label="Checks">
-        <h2 id="checks-title">Checks of the last move</h2>
+        <h2>Checks of the last move</h2>
         <table id="checks">
           <thead><tr><th>Rule</th><th>Result</th><th>First failure</th></tr></thead>
           <tbody></tbody>
@@ -76,7 +77,7 @@
         <canvas id="trace" width="720" height="160" aria-label="Distance to target over time, one line per item"></canvas>
         <h2>Scenario runs</h2>
         <table id="runs">
-          <thead><tr><th>Scenario</th><th>Drop preview</th><th>Failed rules</th></tr></thead>
+          <thead><tr><th>Scenario</th><th>Construction</th><th>Failed rules</th></tr></thead>
           <tbody></tbody>
         </table>
       </section>
