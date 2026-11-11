@@ -177,8 +177,10 @@ function treeTargets({ s0, key, size }: TargetInput): DropTarget[] {
   const out: DropTarget[] = [];
   const area = treeArea(size);
   const t = s0.tree;
-  if (t.L.length === 0) out.push({ id: "edge:L", prio: 2, hit: rect(area.x, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...t, L: [key] } }, "New left column") });
-  if (t.R.length === 0) out.push({ id: "edge:R", prio: 2, hit: rect(area.x + area.width - 30, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...t, R: [key] } }, "New right column") });
+  // A side column is narrower than a document's minimum: a document dropped into one would only float.
+  const sides = !isDocKey(key);
+  if (sides && t.L.length === 0) out.push({ id: "edge:L", prio: 2, hit: rect(area.x, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...t, L: [key] } }, "New left column") });
+  if (sides && t.R.length === 0) out.push({ id: "edge:R", prio: 2, hit: rect(area.x + area.width - 30, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...t, R: [key] } }, "New right column") });
   const x0 = area.x + (t.L.length ? TREE_COLUMN + G : 0);
   const x1 = area.x + area.width - (t.R.length ? TREE_COLUMN + G : 0);
   const centre = rect(x0, area.y, x1 - x0, area.height);
@@ -188,8 +190,7 @@ function treeTargets({ s0, key, size }: TargetInput): DropTarget[] {
   for (const group of ["L", "R", "C"] as const) {
     const list = t[group];
     if (group !== "C" && list.length === 0) continue;
-    // A side column is narrower than a document's minimum: a document dropped there would only float.
-    if (group !== "C" && isDocKey(key)) continue;
+    if (group !== "C" && !sides) continue;
     for (let i = 0; i <= list.length; i++) {
       const state = { ...s0, tree: { ...t, [group]: insert(list, i, key) } };
       // The slot as laid out once the tiles that break a minimum have floated (as laid out without them if it floats).
