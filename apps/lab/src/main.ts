@@ -130,6 +130,9 @@ function roomAt(): Drop | null {
 let snapped: Drop | null = null;
 /** The focused window: a new window splits it (dwindle). Set by a click, an open or a drop. */
 let focusId: number | null = null;
+/** The layout before the lift, and whether the pointer has left the lifted window's place since. */
+let home: { tree: Tree | null; order: number[]; maxId: number | null; rect: Rect; layout: LayoutKind } | null = null;
+let leftHome = false;
 /** How far inside a slot the pointer must be to snap into it (it stays snapped until the pointer leaves the slot). */
 const SNAP_IN = 24;
 /** The window kept above all others: the one being dragged, and after the drop until it has settled. */
@@ -541,6 +544,9 @@ function beginDrag(w: Win, px: number, py: number): void {
   raised = w;
   w.el.style.zIndex = Z_RAISED;
   w.el.classList.add("lifted");
+  // Home: the layout as it was, to put back on Escape or when the pointer never left the window's place.
+  home = { tree, order: [...order], maxId, rect: { ...d }, layout: layoutKind };
+  leftHome = false;
   if (maxId === w.id) maxId = null;
   // Lifted out of the layout (out of the tree and the order both): the others close the gap.
   if (layoutKind === "dwindle") setTree(removeLeaf(tree, w.id));
@@ -572,6 +578,7 @@ const inside = (r: Rect, px: number, py: number, inset = 0): boolean =>
 function moveDrag(px: number, py: number): void {
   if (!lifted) return;
   pointer = { x: px, y: py };
+  if (home && !inside(home.rect, px, py)) leftHome = true;
   expected = { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
   // Where it would land: the slot under the pointer (else the nearest), over every place it could go
   // (a split side of each window in dwindle, an index in the order elsewhere).
@@ -623,18 +630,30 @@ function moveDrag(px: number, py: number): void {
   Object.assign(hint.style, { left: `${slot.x}px`, top: `${slot.y}px`, width: `${slot.width}px`, height: `${slot.height}px` });
 }
 
-function endDrag(): void {
+/**
+ * Drop the lifted window. `cancel` (Escape), or a drag whose pointer never left the window's own place,
+ * puts the whole layout back as it was before the lift; otherwise it lands where it was going.
+ */
+function endDrag(cancel = false): void {
   const w = lifted;
   if (!w) return;
+  const backHome = home && (cancel || !leftHome) ? home : null;
   lifted = null;
   expected = null;
   snapped = null;
   roomShown = false;
   hint.hidden = true;
   w.el.classList.remove("lifted");
-  // Land where it was going (no move at all: back to the end, or the root of an empty tree).
-  (drop ?? drops(w.id).at(-1)!).commit();
+  if (backHome && layoutKind === backHome.layout) {
+    tree = backHome.tree;
+    order = [...backHome.order];
+    maxId = backHome.maxId;
+  } else {
+    // Land where it was going (no move at all: back to the end, or the root of an empty tree).
+    (drop ?? drops(w.id).at(-1)!).commit();
+  }
   drop = null;
+  home = null;
   // Keep the two in step whichever the drop committed to.
   if (layoutKind === "dwindle") order = leafIds(tree);
   else tree = treeFromOrder(order);
@@ -644,27 +663,39 @@ function endDrag(): void {
   relayout();
 }
 
+/** A press is a click until the pointer has moved this far (stage px); only then is the window lifted. */
+const DRAG_THRESHOLD = 5;
+
 function onPointerDown(w: Win, e: PointerEvent): void {
-  if (e.button !== 0) return;
+  if (e.button !== 0 || e.ctrlKey) return;
   e.preventDefault();
   const target = e.currentTarget as HTMLElement;
   target.setPointerCapture(e.pointerId);
-  const p = stagePoint(e);
-  beginDrag(w, p.x, p.y);
+  const start = stagePoint(e);
   const move = (ev: PointerEvent): void => {
     const q = stagePoint(ev);
+    if (!lifted) {
+      if (Math.hypot(q.x - start.x, q.y - start.y) < DRAG_THRESHOLD) return;
+      beginDrag(w, start.x, start.y);
+    }
     moveDrag(q.x, q.y);
   };
   const up = (): void => {
     target.removeEventListener("pointermove", move);
     target.removeEventListener("pointerup", up);
     target.removeEventListener("pointercancel", up);
-    endDrag();
+    // A click (never past the threshold) lifted nothing, so there is nothing to drop.
+    if (lifted === w) endDrag();
   };
   target.addEventListener("pointermove", move);
   target.addEventListener("pointerup", up);
   target.addEventListener("pointercancel", up);
 }
+
+// Escape cancels a drag: everything goes back to where it was before the window was lifted.
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && lifted) endDrag(true);
+});
 
 // --- the frame ---------------------------------------------------------------
 
@@ -1048,7 +1079,8 @@ function setLayout(k: LayoutKind): void {
   (document.querySelector(`input[name=layout][value=${k}]`) as HTMLInputElement).checked = true;
   // The lifted window is in neither the order nor the tree, so both describe the others; rebuild the
   // one the new layout reads from the other.
-  if (k === "dwindle") tree = treeFromOrder(order);
+  // (Only when they disagree: a custom split tree survives a round trip through another layout.)
+  if (k === "dwindle" && leafIds(tree).join() !== order.join()) tree = treeFromOrder(order);
   if (lifted) {
     drop = null;
     snapped = null;
