@@ -9,8 +9,10 @@
  * - The most precise target wins: priority 1 (rail icons, tab strips) beats 2 (slots, bottom dock, tile edges),
  *   which beats 3 (float here and other large areas); equal priorities go to the smaller zone.
  * - Hysteresis: the current target holds while the pointer is within BAND px of its zone, unless a more precise
- *   target is clearly (4 px inside) under the pointer; a gap between zones is bridged for GAP_GRACE ms. A shown
- *   indicator moves to another target only once that target has held for SWITCH_HOLD ms.
+ *   target is clearly (4 px inside) under the pointer; a gap between zones is bridged for GAP_GRACE ms.
+ * - When the pointer leaves the shown target: flying, the indicator hides at once; aiming, it stays until the new
+ *   target has held SWITCH_HOLD ms (with no new target, it hides once the gap grace is over). A more precise target
+ *   breaking through switches it at once.
  * - Room is made once the indicator has stayed on one target for ROOM_AFTER ms (never for a free target), and
  *   closed at once when it leaves.
  * - A release over home does nothing; else it lands on the shown target if the pointer is within its band, else on
@@ -34,8 +36,8 @@ export const DRAG = {
   ROOM_AFTER: 160,
   /** An indicator shown for less than this is a flash. */
   FLASH: 150,
-  /** A shown indicator moves to another target only once that target has held this long (a release doesn't wait). */
-  SWITCH_HOLD: 60,
+  /** Aiming, a shown indicator moves to another target only once that target has held this long (a release doesn't wait). */
+  SWITCH_HOLD: 150,
   /** On touch, a press lifts after a LONG_PRESS ms hold, then TOUCH_LIFT px (a mouse: shared/press's threshold). */
   LONG_PRESS: 180,
   TOUCH_LIFT: 8,
@@ -107,6 +109,8 @@ export function createIntent<T extends Target>(from: Rect): Intent<T> {
   let speed = 0;
   let anchor: Point | null = null;
   let stillSince = 0;
+  /** A hide just started the aim afresh. */
+  let restart = false;
   const same = (a: T | null, b: T | null): boolean => (a === null || b === null ? a === b : a.id === b.id);
   // Targets are rebuilt as the desk changes: follow the current ones by id.
   const fresh = (t: T | null, targets: readonly T[]): T | null => (t ? (targets.find((x) => x.id === t.id) ?? t) : null);
@@ -138,17 +142,24 @@ export function createIntent<T extends Target>(from: Rect): Intent<T> {
       if (next && within(next.hit, p)) lastInside = t;
       if (!same(next, cur)) curSince = t;
       cur = next;
-      const aiming = speed < DRAG.AIM_SPEED || t - stillSince >= DRAG.DWELL;
-      const want = cur && leftHome && aiming ? cur : null;
-      if (same(want, shown)) {
-        if (want) shown = want;
-      } else if (shown && same(cur, shown)) {
-        // Once shown, the indicator stays while its target holds, even if the pointer speeds up a little.
-      } else if (shown && cur && t - curSince < DRAG.SWITCH_HOLD) {
-        // It moves to another target only once that target has held for a moment.
-      } else {
-        shown = want;
-        shownSince = t;
+      // The first sample after a hide never counts as aiming (it has nothing to measure a speed against).
+      const aiming = !restart && (speed < DRAG.AIM_SPEED || t - stillSince >= DRAG.DWELL);
+      restart = false;
+      const show = (s: T | null): void => {
+        if (!same(s, shown)) shownSince = t;
+        shown = s;
+      };
+      if (!shown) {
+        if (cur && leftHome && aiming) show(cur);
+      } else if (same(cur, shown)) {
+        // Once shown, the indicator stays while its target holds, even if the pointer speeds up.
+        shown = cur;
+      } else if (!cur || !aiming) {
+        // The pointer left the shown target: flying, or with nothing under it once the gap grace is over.
+        show(null);
+      } else if ((cur.prio < shown.prio && within(cur.hit, p, -4)) || t - curSince >= DRAG.SWITCH_HOLD) {
+        // Aiming: a more precise target breaking through switches it at once, another one once it has held.
+        show(cur);
       }
       return { shown, room: !!shown && !shown.free && t - shownSince >= DRAG.ROOM_AFTER, aiming };
     },
@@ -156,10 +167,10 @@ export function createIntent<T extends Target>(from: Rect): Intent<T> {
       shown = null;
       cur = null;
       shownSince = t;
-      // Fresh samples: the first after the hide reads as moving, and a dwell starts again.
+      // Fresh samples: the first after the hide doesn't count as aiming, and a dwell starts again.
       samples = [];
       anchor = null;
-      speed = 2 * DRAG.AIM_SPEED;
+      restart = true;
     },
     moveHome(dx, dy) {
       home = { ...home, x: home.x + dx, y: home.y + dy };
