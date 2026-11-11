@@ -1,0 +1,92 @@
+---
+import Site from "../layouts/Site.astro";
+import CaseRail from "../components/CaseRail.astro";
+import { pageOf } from "../data/pages";
+import { webPage, breadcrumbs, orgNode } from "../data/schema";
+import { CASES, OPTS, chartSVG, lanesHTML } from "../demos/motion";
+import "../styles/window-motion.css";
+
+const path = "/window-motion/";
+const page = pageOf(path);
+const jsonLd = [
+  webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`) }),
+  breadcrumbs([{ name: "Home", path: "/" }, { name: page.nav, path }]),
+  orgNode,
+];
+const first = CASES[0]!;
+// The first case at its end state: every curve drawn, the playhead at 450 ms.
+const firstOpt = OPTS.settle;
+const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: string; cls: [string, string, string] }[] = [
+  { rule: "Held drag", hypr: "warped 1:1; only 1 frame of capture latency", tiling: "separate ghost at 90%, hops to the seat", host: "localDrag spring ≈ 50 ms lag (live move holds docked panels only)", prop: "hold: pointer − grab, same frame", cls: ["bad", "bad", "good"] },
+  { rule: "Interactive resize", hypr: "all tiles warped, content unscaled", tiling: "divider 1:1", host: "sprung and scaled", prop: "hold + reveal", cls: ["good", "bad", "good"] },
+  { rule: "Reflow curve", hypr: "90% ≈ 60 ms (recording) / 175–190 ms (shipped)", tiling: "170 ms CSS, only during drags; others jump", host: "stiffness 320 from rest: 90% at 218 ms, slow start", prop: "settle ω=25: 90% at 92 ms, done at 184 ms", cls: ["bad", "bad", "good"] },
+  { rule: "Overshoot on size", hypr: "none seen (shipped spring allows 1.8%)", tiling: "none by default; swap dip to 0.7", host: "maximize/restore \"snappy\" y2 = 1.05", prop: "impossible (launch + clamp)", cls: ["", "bad", "good"] },
+  { rule: "Retarget", hypr: "from drawn; spring keeps velocity", tiling: "restarts CSS transition; settle strip snaps", host: "spring keeps velocity; tweens, space changes and docked restart", prop: "always from drawn, velocity kept and clamped", cls: ["bad", "", "good"] },
+  { rule: "Content", hypr: "stretched ~40–50 ms on reflow", tiling: "stretched the whole 170 ms", host: "stretched (non-docked), docked size jumps", prop: "never stretched; uniform popin only for open/close", cls: ["bad", "bad", "good"] },
+  { rule: "Open / close", hypr: "popin 87% + fade, ~100 ms", tiling: "appear/vanish instantly", host: "fade + 8 px rise 180 ms / 140 ms", prop: "popin 0.87 → 1 (uniform) + fade on settle", cls: ["bad", "", "good"] },
+  { rule: "Neighbours during drag", hypr: "reflow at once when the window lifts", tiling: "reservation slot keeps the gap", host: "old slot kept (live move)", prop: "tiles: reflow at lift; docked keep slot", cls: ["", "", "good"] },
+];
+---
+<Site title={page.title} description={page.description} path={path} headline="Fast at the start, gentle at the end, never past the target." jsonLd={jsonLd} ogImage="/og/window-motion.png">
+  <p class="lead" slot="lead">This page compares how windows move in Hyprland, in a typical host app today, and under the proposed rules. The curves come from their real parameters: Hyprland's source, the host app's springs and tokens, and the proposal's launched, critically damped settle, stepped by this library. The dots are measured from a screen recording. Time runs left to right in milliseconds.</p>
+
+  <figure class="figure motionfig" id="figure" aria-label="Window motion timings: four cases played on a chart">
+    <div class="figure-bar">
+      <label class="field"><span class="label">Speed</span><select id="speed"><option value="1">1× real time</option><option value="0.5">½×</option><option value="0.25" selected>¼×</option></select></label>
+      <label class="field"><input type="checkbox" class="switch" id="loop" /> Loop <span class="note">replay after each run</span></label>
+      <span class="spacer"></span>
+      <span class="note">Each row beside the chart is the same curve as a moving block. Dashed ticks mark the target.</span>
+    </div>
+    <div class="figure-body">
+      <CaseRail id="cases" label="Cases" items={CASES} />
+      <div class="stage-wrap">
+        <div id="stage">
+          <div class="shead"><div><p class="stitle">{first.name}</p><p>{first.desc}</p></div><button type="button" class="btn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.56M13 2.5V5h-2.5"/></svg>Replay</button></div>
+          <div class="sbody two">
+            <div class="chart" set:html={chartSVG(firstOpt, 560, first.label, firstOpt.T)} />
+            <div class="lanes" set:html={lanesHTML(firstOpt, firstOpt.T)} />
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption class="figure-foot"><span class="status" id="status" role="status"><b>{first.name}</b> · t = {firstOpt.T} ms of {firstOpt.T} ms</span><span class="hint">The dots on the chart follow the playhead.</span></figcaption>
+  </figure>
+
+  <section class="section">
+    <div class="section-head">
+      <span class="eyebrow">The cases</span>
+      <p class="section-title">Four moves, frame by frame</p>
+    </div>
+    <div class="rules two">
+      {CASES.map((c) => <div class="rule"><h2>{c.name}</h2><p>{c.desc}</p></div>)}
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <span class="eyebrow">The rules</span>
+      <p class="section-title">Eight rules, four engines</p>
+      <p>What Hyprland does (from its source and a recording), what a tiling library and a host app do today, and what the proposal does: one settle for every move, held drags, reveal instead of stretch.</p>
+    </div>
+    <div class="engines">
+      <div class="engines-head" aria-hidden="true"><span></span><span>Hyprland (source + recording)</span><span>hypr-tiling 26.11.2</span><span>Host app today</span><span>Proposed (@n-uf/motion)</span></div>
+      {RULES.map((r) => (
+        <div class="engine-rule">
+          <h2>{r.rule}</h2>
+          <dl>
+            <div class="h"><dt>Hyprland</dt><dd>{r.hypr}</dd></div>
+            <div class={r.cls[0]}><dt>hypr-tiling 26.11.2</dt><dd>{r.tiling}</dd></div>
+            <div class={r.cls[1]}><dt>Host app today</dt><dd>{r.host}</dd></div>
+            <div class={r.cls[2]}><dt>Proposed</dt><dd>{r.prop}</dd></div>
+          </dl>
+        </div>
+      ))}
+    </div>
+    <p class="aside">The same settle moves <a href="/desk-layouts/">docks and palettes on a desk</a> and lands a panel after <a href="/drag-intent/">a drag</a>.</p>
+  </section>
+</Site>
+
+<script>
+  import { whenVisible } from "../islands/rail";
+  whenVisible(document.getElementById("figure")!, () => void import("../islands/window-motion"));
+</script>
