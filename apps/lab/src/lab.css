@@ -71,7 +71,8 @@ canvas { width: 720px; max-width: 100%; height: 160px; border: 1px solid var(--l
 .pages a { color: inherit; }
 
 /* --- The desk page ------------------------------------------------------------------------------------------- */
-main.wide { max-width: 1480px; }
+/* Room for the fitted stage (up to 1680 px) and the 16 px gutters. */
+main.wide { max-width: 1712px; }
 .readout { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
 .idea { font-size: 13px; margin: 0 0 6px; max-width: 960px; }
 .controls input[type="range"] { width: 150px; }
