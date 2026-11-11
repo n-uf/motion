@@ -149,15 +149,17 @@ export function createIntent<T extends Target>(from: Rect): Intent<T> {
         if (!same(s, shown)) shownSince = t;
         shown = s;
       };
+      // A target kept only by the gap grace isn't under the pointer: it can keep a shown indicator, not show one.
+      const under = !!cur && within(cur.hit, p, DRAG.BAND);
       if (!shown) {
-        if (cur && leftHome && aiming) show(cur);
+        if (cur && under && leftHome && aiming) show(cur);
       } else if (same(cur, shown)) {
         // Once shown, the indicator stays while its target holds, even if the pointer speeds up.
         shown = cur;
       } else if (!cur || !aiming) {
         // The pointer left the shown target: flying, or with nothing under it once the gap grace is over.
         show(null);
-      } else if ((cur.prio < shown.prio && within(cur.hit, p, -4)) || t - curSince >= DRAG.SWITCH_HOLD) {
+      } else if ((cur.prio < shown.prio && within(cur.hit, p, -4)) || (under && t - curSince >= DRAG.SWITCH_HOLD)) {
         // Aiming: a more precise target breaking through switches it at once, another one once it has held.
         show(cur);
       }
