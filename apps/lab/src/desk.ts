@@ -141,6 +141,20 @@ let dragged = false;
 let placeSince = 0;
 /** The strip scrolled at the stage's edge during this drag (null: as it was): kept only if the item lands. */
 let dragScroll: number | null = null;
+/**
+ * The drop preview: the indicator outlines the slot, or (snap) the item itself glides into it. Snap takes over at
+ * the moment the drag model shows the indicator and makes room, never while the pointer flies.
+ */
+type Preview = "indicator" | "snap";
+let preview: Preview = "indicator";
+/** Snap: the drop the item sits in, and whether it is gliding back to the pointer after leaving one. */
+let snapped: Drop | null = null;
+let returning = false;
+/**
+ * What gates a snap: the drag model ("model"), or (only to check that the scenarios catch it) the target under the
+ * pointer, with no aiming or room ("hover").
+ */
+let snapGate: "model" | "hover" = "model";
 
 /** Where the others make room for the lifted item now. */
 const roomDrop = (): Drop | null => (lifted ? room : null);
@@ -170,6 +184,9 @@ function beginDrag(it: Item, px: number, py: number, hold?: Point, from?: Rect, 
   targets = targetsFor(dragInput(it));
   shown = null;
   room = null;
+  snapped = null;
+  returning = false;
+  snapLog = [];
   keys = keyboard ? { stops: targets.flatMap((t) => (t.stops ?? [centre(t.hit)]).map((p) => ({ target: t, p }))), i: -1, since: 0 } : null;
   it.el.classList.add("lifted");
   it.el.classList.remove("hidden");
@@ -182,12 +199,19 @@ function beginDrag(it: Item, px: number, py: number, hold?: Point, from?: Rect, 
   moveDrag(px, py);
 }
 
-/** The pointer moved: the item follows it 1:1 from the grab point (the frame works out the aim). */
+/** Where the pointer holds the lifted item: from the grab point, at the size it was lifted at. */
+const heldRect = (): Rect => ({ x: pointer.x - grab.x, y: pointer.y - grab.y, width: liftSize.width, height: liftSize.height });
+
+/** The pointer moved: the item follows it 1:1 from the grab point (unless it sits in a slot or is gliding back). */
 function moveDrag(px: number, py: number): void {
   const it = lifted;
   if (!it) return;
   pointer = { x: px, y: py };
-  expected = { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
+  if (snapped || returning) {
+    expected = null;
+    return;
+  }
+  expected = heldRect();
   it.rect.hold(expected);
 }
 
@@ -198,12 +222,80 @@ function aim(now: number, dt: number): void {
   if (keys) {
     const stop = keys.stops[keys.i];
     show(stop ? dropAt(dragInput(it), stop.target, stop.p, grab) : null, now, !!stop && !stop.target.free && now - keys.since >= DRAG.ROOM_AFTER);
+    place(it, now, false);
     return;
   }
-  if (cid === "strip" && edgeScroll(it, now, dt)) return;
+  dragFrames.push({ t: now - liftedAt, x: pointer.x, y: pointer.y, speed: intent.speed, item: { ...it.rect.value } });
+  if (cid === "strip" && edgeScroll(it, now, dt)) return place(it, now, true);
   const f = intent.update(pointer, now, targets);
-  dragFrames.push({ t: now - liftedAt, x: pointer.x, y: pointer.y, speed: intent.speed });
   show(f.shown ? dropAt(dragInput(it), f.shown, pointer, grab) : null, now, f.room, !f.aiming);
+  place(it, now, !f.aiming);
+}
+
+/** A drop the item can sit in: a slot (not a free placement, not folded away into a rail). */
+const slotted = (d: Drop | null): d is Drop => !!d && !d.free && !d.hidden;
+
+/**
+ * Snap preview: once the model shows the indicator and makes room, the item glides into the slot (settle; its size
+ * revealed); when the model moves or hides the indicator, it glides back to the pointer and follows it 1:1 again.
+ */
+function place(it: Item, now: number, flying: boolean): void {
+  if (preview !== "snap") return;
+  let want: Drop | null = slotted(room) ? room : null;
+  if (snapGate === "hover" && !keys) {
+    const t = rawTarget(targets, pointer);
+    const d = t ? dropAt(dragInput(it), t, pointer, grab) : null;
+    want = slotted(d) ? d : null;
+  }
+  if (want) {
+    if (snapped?.key === want.key) return;
+    if ((snapped?.target ?? null) !== want.target) logSnap(now, want.target, false);
+    // From the pointer (held, or on its way back) into a slot: a new glide.
+    if (!snapped) newRun(it);
+    snapped = want;
+    returning = false;
+    expected = null;
+    glideTo(it, want.slot);
+    return;
+  }
+  if (snapped) {
+    logSnap(now, null, flying);
+    snapped = null;
+    returning = true;
+    newRun(it);
+  }
+  if (!returning) return;
+  // Back to the pointer: the glide follows the pointer as it moves, until the item is under it again.
+  const goal = heldRect();
+  glideTo(it, goal);
+  const d = it.rect.value;
+  if (Math.max(Math.abs(d.x - goal.x), Math.abs(d.y - goal.y), Math.abs(d.width - goal.width), Math.abs(d.height - goal.height)) < 0.5) {
+    returning = false;
+    newRun(it);
+    expected = goal;
+    it.rect.hold(goal);
+  }
+}
+
+/** The lifted item glides to `r` (settle), its content laid out at `r` (reveal: never stretched). */
+function glideTo(it: Item, r: Rect): void {
+  if (!same(it.target, r)) {
+    it.target = { ...r };
+    layOut(it, r);
+  }
+  if (same(it.rect.target, r)) return;
+  const drawn = it.rect.value;
+  it.segment = { id: it.uid, t0: time, from: { ...drawn }, to: { ...r }, samples: [{ t: time, rect: { ...drawn } }] };
+  episode?.segments.push(it.segment);
+  it.rect.configure({ omega: omega() });
+  it.rect.setTarget(r);
+}
+
+/** Snaps for the checks: the target the item sits in (null: back on the pointer; `flying`: because it flew off). */
+function logSnap(now: number, id: string | null, flying: boolean): void {
+  const e = { id, ...(id === null ? { flying } : {}) };
+  episode?.snaps.push({ t: now, ...e });
+  snapLog.push({ t: now - liftedAt, ...e });
 }
 
 /**
@@ -242,7 +334,8 @@ function show(d: Drop | null, now: number, makeRoom: boolean, flying = false): v
     dragLog.push({ t: now - liftedAt, ...e });
   }
   if (d?.key !== shown?.key) {
-    if (d) showHint(d);
+    // Snap previews a slot with the item itself: the indicator is drawn only for drops with no slot.
+    if (d && !(preview === "snap" && slotted(d))) showHint(d);
     else hideHint();
     placeSince = now;
   }
@@ -264,20 +357,31 @@ function endDrag(cancel = false): void {
   if (!it || !home || !intent) return;
   let s = home.state;
   let landed: string | null = null;
+  atRelease = { ...it.rect.value };
   if (!cancel) {
     const stop = keys?.stops[keys.i];
-    const t = keys ? (stop?.target ?? null) : intent.release(pointer, targets);
-    if (t) {
-      s = dropAt(dragInput(it), t, keys ? stop!.p : pointer, grab).state;
-      landed = t.id;
+    if (snapped) {
+      // Snapped: it lands in the slot it sits in (the shown target's).
+      s = snapped.state;
+      landed = snapped.target;
+    } else {
+      const t = keys ? (stop?.target ?? null) : intent.release(pointer, targets);
+      if (t) {
+        s = dropAt(dragInput(it), t, keys ? stop!.p : pointer, grab).state;
+        landed = t.id;
+      }
     }
     if (!keys) {
-      // The rule, checked from what the page showed: the indicator's target within its band, else what is under the pointer.
+      // The rule, checked from what the page showed: the slot the item sits in; else the indicator's target within
+      // its band, else what is under the pointer.
       const showing = shown ? targets.find((x) => x.id === shown!.target) : undefined;
-      const want = within(home.rect, pointer) ? null : showing && within(showing.hit, pointer, DRAG.BAND) ? showing.id : (rawTarget(targets, pointer)?.id ?? null);
-      episode?.release.push(want === landed ? null : `landed on ${landed ?? "home"}, but the indicator said ${want ?? "home"}`);
+      const said = snapped ? snapped.target : within(home.rect, pointer) ? null : showing && within(showing.hit, pointer, DRAG.BAND) ? showing.id : (rawTarget(targets, pointer)?.id ?? null);
+      episode?.release.push(said === landed ? null : `landed on ${landed ?? "home"}, but the ${snapped ? "snapped slot" : "indicator"} said ${said ?? "home"}`);
     }
   }
+  if (snapped) logSnap(performance.now(), null, false);
+  snapped = null;
+  returning = false;
   show(null, performance.now(), false);
   lastLanding = landed;
   lifted = null;
@@ -292,8 +396,9 @@ function endDrag(cancel = false): void {
   // It stays raised until its drop settle ends.
   commit(s);
 }
-/** What the last drag landed on (a target id, or null: home). */
+/** What the last drag landed on (a target id, or null: home), and where the item was drawn when it was let go. */
 let lastLanding: string | null = null;
+let atRelease: Rect | null = null;
 
 const TOUCH = { hold: DRAG.LONG_PRESS, lift: DRAG.TOUCH_LIFT };
 
@@ -730,6 +835,8 @@ function reset(id: ConstructionId = cid, at: Size = size, opts: Partial<Options>
   room = null;
   home = null;
   dragScroll = null;
+  snapped = null;
+  returning = false;
   targets = [];
   hideHint();
   states.clear();
@@ -791,6 +898,8 @@ let episode: {
   pops: number;
   /** What the drop indicator showed, and when (a target id; null: nothing). */
   indicator: IndicatorEntry[];
+  /** Snap preview: the slots the item sat in, and when (null: back on the pointer). */
+  snaps: IndicatorEntry[];
   /** Per release: null when it landed where the indicator (or the pointer) said, else what went wrong. */
   release: (string | null)[];
 } | null = null;
@@ -800,7 +909,7 @@ let running = false;
 
 function startEpisode(): void {
   if (episode) return;
-  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], minSize: [], offStage: [], label: [], pops: 0, indicator: [], release: [] };
+  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], minSize: [], offStage: [], label: [], pops: 0, indicator: [], snaps: [], release: [] };
   for (const it of items) {
     it.runs = [[]];
     episode.runs.push(...it.runs);
@@ -867,10 +976,11 @@ function tick(frame: FrameInfo): boolean {
     episode.scale.push(seen.scale);
     if (!it.pop.settled) episode.pops++;
     const drawn = it.rect.value;
-    if (it === lifted) {
+    if (it === lifted && !snapped && !returning) {
       // Held 1:1 once it has popped in (a panel lifted from behind its tab grows into view, uniformly).
       if (expected && it.pop.settled) episode.held.push({ t: time, rect: seen.frame, expected });
     } else {
+      // Settling (as the lifted item does into a snapped slot and back to the pointer).
       it.runs.at(-1)!.push({ t: time, rect: drawn, target: it.rect.target });
       it.segment?.samples.push({ t: time, rect: drawn });
     }
@@ -944,6 +1054,7 @@ function record(ep: NonNullable<typeof episode>): void {
     { name: "Nothing off the stage", result: ep.offStage.length > 0 ? framesResult(ep.offStage) : null },
     { name: "Drop label stays inside the stage", result: ep.label.length > 0 ? framesResult(ep.label) : null },
     { name: "No indicator flashes (shown under 150 ms)", result: ep.indicator.length > 0 ? framesResult(flashes(ep.indicator)) : null },
+    { name: "No snap held under 150 ms", result: ep.snaps.length > 0 ? framesResult(flashes(ep.snaps)) : null },
     { name: "The drop is what the indicator (or the pointer) said", result: ep.release.length > 0 ? framesResult(ep.release) : null },
   ];
   collecting?.push(lastRows);
@@ -996,7 +1107,8 @@ function gripOf(it: Item): { at: Point; hold?: Point; from?: Rect } {
 
 /** What the indicator showed during the current (or last) drag (ms since the lift), and the pointer per frame. */
 let dragLog: IndicatorEntry[] = [];
-let dragFrames: { t: number; x: number; y: number; speed: number }[] = [];
+let dragFrames: { t: number; x: number; y: number; speed: number; item: Rect }[] = [];
+let snapLog: IndicatorEntry[] = [];
 let liftedAt = 0;
 
 /**
@@ -1022,12 +1134,12 @@ async function playPath(key: string, path: (grip: Point) => readonly PathKey[], 
     if (escapeAt !== undefined && t >= escapeAt) {
       cancelPress();
       endDrag(true);
-      return { log: [...dragLog], frames: [...dragFrames], landed: null };
+      return { log: [...dragLog], frames: [...dragFrames], snaps: [...snapLog], atRelease, grab, landed: null };
     }
     if (t >= total) break;
   }
   endDrag();
-  return { log: [...dragLog], frames: [...dragFrames], landed: lastLanding };
+  return { log: [...dragLog], frames: [...dragFrames], snaps: [...snapLog], atRelease, grab, landed: lastLanding };
 }
 
 /** The point on a keyframed path at `t` ms (linear between keyframes). */
@@ -1097,6 +1209,7 @@ const lab: DeskLab = {
     return it ? gripOf(it).at : null;
   },
   restart: () => setup(),
+  preview: () => preview,
 };
 /** The running scenario's desk, to start it afresh. */
 let setup: () => void = () => reset();
@@ -1120,9 +1233,10 @@ async function keyboardDrag(key: string, steps: number): Promise<DragResult> {
 const SCENARIOS: Record<string, Scenario> = makeScenarios(lab);
 const runs: LabRun[] = [];
 
-async function runScenario(name: string): Promise<LabRun> {
+async function runScenario(name: string, mode: Preview): Promise<LabRun> {
   const sc = SCENARIOS[name]!;
   const c = sc.construction ?? DEFAULT_CONSTRUCTION;
+  setPreview(mode);
   setup = () => reset(c, sc.size ? { width: sc.size[0], height: sc.size[1] } : { width: 960, height: 560 }, sc.options ?? {}, sc.docs ?? 2);
   setup();
   await nextFrame();
@@ -1142,12 +1256,13 @@ async function runScenario(name: string): Promise<LabRun> {
   renderChecks(checksBody, lastRows);
   // A scenario that only checks pure layouts moves nothing: "Something moved" is not its rule.
   const failed = lastRows.filter((r) => r.result && !r.result.ok && !(sc.still && r.name === "Something moved")).map((r) => r.name);
-  const run: LabRun = { scenario: name, mode: constructionOf(c).title, failed, rows: lastRows };
+  const how = sc.drag ? (mode === "snap" ? " · snap to slot" : " · drop indicator") : "";
+  const run: LabRun = { scenario: name, mode: constructionOf(c).title + how, failed, rows: lastRows };
   runs.push(run);
   const tr = document.createElement("tr");
   tr.innerHTML = "<td></td><td></td><td></td>";
   tr.children[0]!.textContent = name;
-  tr.children[1]!.textContent = constructionOf(c).title;
+  tr.children[1]!.textContent = constructionOf(c).title + how;
   tr.children[2]!.textContent = failed.length ? failed.join(", ") : "none";
   (tr.children[2] as HTMLElement).className = failed.length ? "bad" : "ok";
   runsBody.append(tr);
@@ -1164,16 +1279,21 @@ async function runAll(filter?: string): Promise<LabRun[]> {
   runningAll = true;
   stopAll = false;
   runAllButton.textContent = "Stop scenarios";
-  const before = { cid, size };
+  const before = { cid, size, preview };
   const out: LabRun[] = [];
   runsBody.replaceChildren();
   try {
     for (const name of Object.keys(SCENARIOS)) {
-      if (stopAll) break;
       if (filter && !name.includes(filter)) continue;
-      out.push(await runScenario(name));
+      // A drag runs with each preview (unless it is about one of them); everything else once.
+      const sc = SCENARIOS[name]!;
+      for (const mode of sc.preview ? [sc.preview] : sc.drag ? (["indicator", "snap"] as const) : [before.preview]) {
+        if (stopAll) break;
+        out.push(await runScenario(name, mode));
+      }
     }
   } finally {
+    setPreview(before.preview);
     reset(before.cid, before.size);
     runningAll = false;
     stopAll = false;
@@ -1231,7 +1351,21 @@ const actions: Record<string, () => void> = {
 };
 document.querySelectorAll<HTMLButtonElement>("button[data-act]").forEach((b) => b.addEventListener("click", () => actions[b.dataset.act!]?.()));
 
+function setPreview(m: Preview): void {
+  preview = m;
+  (document.querySelector(`input[name=preview][value=${m}]`) as HTMLInputElement).checked = true;
+}
+document.querySelectorAll<HTMLInputElement>("input[name=preview]").forEach((input) => input.addEventListener("change", () => setPreview(input.value as Preview)));
 tempo = (document.querySelector<HTMLInputElement>("input[name=tempo]:checked")?.value as Tempo | undefined) ?? tempo;
+preview = (document.querySelector<HTMLInputElement>("input[name=preview]:checked")?.value as Preview | undefined) ?? preview;
 reset(DEFAULT_CONSTRUCTION, { width: Number(wInput.value) || 960, height: Number(hInput.value) || 560 });
 
-window.__motionLab = { runAll, runs, lastRows: () => lastRows };
+window.__motionLab = {
+  runAll,
+  runs,
+  lastRows: () => lastRows,
+  // Only to check that the snap scenarios catch a snap on raw hover, with the drag model's gate removed.
+  snapGate: (g) => {
+    snapGate = g;
+  },
+};
