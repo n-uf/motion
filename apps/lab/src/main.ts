@@ -47,7 +47,7 @@ type How = "layout" | "morph";
 const STAGE_W = 720;
 const STAGE_H = 420;
 const GAP = 10;
-/** Today's maximize curve in Surface (tokens "snappy", 220 ms): y2 = 1.05 overshoots. */
+/** The compared maximize curve ("snappy", 220 ms): y2 = 1.05 overshoots. */
 const SNAPPY = cubicBezier(0.05, 0.9, 0.1, 1.05);
 const OUT = cubicBezier(0.16, 1, 0.3, 1);
 
@@ -449,7 +449,7 @@ function beginDrag(w: Win, px: number, py: number): void {
   w.segment = null;
   newRun(w);
   if (mode === "today") {
-    // Surface today: the person's own drag follows on the localDrag spring (1400).
+    // The compared motion: the person's own drag follows on a stiff spring (1400).
     if (w.kind !== "spring") {
       w.rect = createSpring(d, { stiffness: 1400, dampingRatio: 1 });
       w.kind = "spring";
