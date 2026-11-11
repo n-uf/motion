@@ -461,7 +461,7 @@ export function stripGeometry(s: DeskState, size: Size, notes: string[] = []): S
     x += w + G;
   }
   const focusX = fi >= 0 ? xsAbs[fi]! + widths[fi]! / 2 : 0;
-  const scroll = Math.max(0, Math.min(total - W, focusX - W / 2));
+  const scroll = Math.max(0, Math.min(total - W, s.stripScroll ?? focusX - W / 2));
   return { cols, xs: xsAbs.map((v) => v - scroll), widths, y, h, total, scroll };
 }
 
