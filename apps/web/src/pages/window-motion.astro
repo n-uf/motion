@@ -1,6 +1,9 @@
 ---
 import Site from "../layouts/Site.astro";
 import CaseRail from "../components/CaseRail.astro";
+import Chrome from "../components/Chrome.astro";
+import Playback from "../components/Playback.astro";
+import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode } from "../data/schema";
 import { CASES, OPTS, chartSVG, lanesHTML } from "../demos/motion";
@@ -30,18 +33,19 @@ const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: s
 <Site title={page.title} description={page.description} path={path} headline="Fast at the start, gentle at the end, never past the target." jsonLd={jsonLd} ogImage="/og/window-motion.png">
   <p class="lead" slot="lead">This page compares how windows move in Hyprland, in a typical host app today, and under the proposed rules. The curves come from their real parameters: Hyprland's source, the host app's springs and tokens, and the proposal's launched, critically damped settle, stepped by this library. The dots are measured from a screen recording. Time runs left to right in milliseconds.</p>
 
-  <figure class="figure motionfig" id="figure" aria-label="Window motion timings: four cases played on a chart">
-    <div class="figure-bar">
-      <label class="field"><span class="label">Speed</span><select id="speed"><option value="1">1× real time</option><option value="0.5">½×</option><option value="0.25" selected>¼×</option></select></label>
-      <label class="field"><input type="checkbox" class="switch" id="loop" /> Loop <span class="note">replay after each run</span></label>
-      <span class="spacer"></span>
-      <span class="note">Each row beside the chart is the same curve as a moving block. Dashed ticks mark the target.</span>
-    </div>
+  <Chrome id="figure" class="motionfig" label="Window motion timings: four cases played on a chart"
+    groups={[{ id: "title", name: "Title" }, { id: "replay", name: "Replay" }, { id: "playback", name: "Speed and tempo" }, { id: "readout", name: "Time" }, { id: "hint", name: "Hint" }]}
+    model={arrangement({ title: { start: ["title"], end: ["replay"] }, bottom: { start: ["readout"], center: ["playback"], end: ["hint"] } })}>
+    <span class="ident" slot="title"><span class="name">Window motion</span><span class="page" id="case-name">{first.name}</span></span>
+    <Fragment slot="replay"><button type="button" class="tb text" id="replay"><span class="t">Replay</span><span class="i">↻</span></button><label class="field" title="Replay after each run"><input type="checkbox" class="switch" id="loop" /> Loop</label></Fragment>
+    <Fragment slot="playback"><Playback tempo /></Fragment>
+    <span class="mono" slot="readout" id="status" role="status">t = <b>{firstOpt.T}</b> ms of {firstOpt.T} ms</span>
+    <Fragment slot="hint"><span class="quiet">The dots follow the playhead</span><span class="quiet" data-slowmo hidden></span></Fragment>
     <div class="figure-body">
       <CaseRail id="cases" label="Cases" items={CASES} />
-      <div class="stage-wrap">
+      <div class="stage-wrap stage-host">
         <div id="stage">
-          <div class="shead"><div><p class="stitle">{first.name}</p><p>{first.desc}</p></div><button type="button" class="btn"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.56M13 2.5V5h-2.5"/></svg>Replay</button></div>
+          <div class="shead"><div><p class="stitle">{first.name}</p><p>{first.desc}</p></div></div>
           <div class="sbody two">
             <div class="chart" set:html={chartSVG(firstOpt, 560, first.label, firstOpt.T)} />
             <div class="lanes" set:html={lanesHTML(firstOpt, firstOpt.T)} />
@@ -49,8 +53,8 @@ const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: s
         </div>
       </div>
     </div>
-    <figcaption class="figure-foot"><span class="status" id="status" role="status"><b>{first.name}</b> · t = {firstOpt.T} ms of {firstOpt.T} ms</span><span class="hint">The dots on the chart follow the playhead.</span></figcaption>
-  </figure>
+  </Chrome>
+  <p class="figure-note">Each row beside the chart is the same curve as a moving block; dashed ticks mark the target. Speed slows the playback; Tempo picks the proposal's settle (calm 20, default 25, quick 37).</p>
 
   <section class="section">
     <div class="section-head">

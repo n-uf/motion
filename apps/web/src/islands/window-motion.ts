@@ -4,8 +4,9 @@
  */
 import { reveal } from "@n-uf/motion";
 import { $, caseRail } from "./rail";
-import { reduced } from "./motion";
-import { CASES, LANE, OPTS, at, chartFrame, chartSVG, lanesHTML, type ChartOpt } from "../demos/motion";
+import { omega, onMotionChange, reduced, virtualNow } from "./motion";
+import { figureChrome } from "./figure-chrome";
+import { CASES, LANE, at, chartFrame, chartSVG, lanesHTML, optsFor, type ChartOpt } from "../demos/motion";
 
 function h(tag: string, cls: string, parent?: Element | null, text?: string): HTMLElement {
   const e = document.createElement(tag);
@@ -72,8 +73,9 @@ function chartStage(opt: ChartOpt, label: string): Built {
 /** The shrinking window: two live scenes, then the four frames of each mode. */
 function framesStage(): Built {
   const U = 240, W0 = 220, W1 = 140, H1 = 74, times = [0, 30, 60, 120];
-  // The drawn width settles from 220 to 140 (ω = 25); reveal() turns it into the frame to draw.
-  const drawnW = (ms: number): number => W1 + (W0 - W1) * Math.exp((-25 * ms) / 1000);
+  // The drawn width settles from 220 to 140 at the current tempo; reveal() turns it into the frame to draw.
+  const w = omega();
+  const drawnW = (ms: number): number => W1 + (W0 - W1) * Math.exp((-w * ms) / 1000);
   const target = { x: 0, y: 0, width: W1, height: H1 };
   function scene(parent: HTMLElement, mode: "stretch" | "reveal") {
     const cell = h("div", "cell", parent);
@@ -124,12 +126,12 @@ function framesStage(): Built {
   };
 }
 
-const stage = $("stage"), casesEl = $("cases"), statusEl = $("status"), speedEl = $<HTMLSelectElement>("speed"), loopEl = $<HTMLInputElement>("loop");
+const stage = $("stage"), casesEl = $("cases"), statusEl = $("status"), loopEl = $<HTMLInputElement>("loop");
 let active = -1, cur: Built | null = null, raf = 0, timer = 0, tms = 0;
 
 const markCase = caseRail(casesEl, (i) => select(i));
 const setStatus = (t: string): void => void (statusEl.innerHTML = t);
-const stat = (ms: number, done: boolean): void => setStatus(`<b>${CASES[active]!.name}</b> · t = ${Math.round(ms)} ms of ${cur!.T} ms${done ? " (done)" : ""}`);
+const stat = (ms: number, done: boolean): void => setStatus(`t = <b>${Math.round(ms)}</b> ms of ${cur!.T} ms${done ? " · done" : ""}`);
 
 function stopAnim(): void {
   cancelAnimationFrame(raf);
@@ -137,13 +139,15 @@ function stopAnim(): void {
   clearTimeout(timer);
   timer = 0;
 }
+/** Play the case on the site's clock: Speed slows it, and a speed change mid-run carries on without a jump. */
 function play(): void {
   stopAnim();
-  const sp = +speedEl.value, T = cur!.T;
+  const T = cur!.T;
   let t0: number | null = null;
-  const step = (ts: number): void => {
-    if (t0 === null) t0 = ts;
-    const ms = Math.min(T, (ts - t0) * sp);
+  const step = (): void => {
+    const now = virtualNow();
+    if (t0 === null) t0 = now;
+    const ms = Math.min(T, now - t0);
     tms = ms;
     cur!.draw(ms);
     if (ms < T) { stat(ms, false); raf = requestAnimationFrame(step); }
@@ -171,17 +175,22 @@ function select(i: number): void {
   const tx = h("div", "", head);
   h("p", "stitle", tx, c.name);
   h("p", "", tx, c.desc);
-  const rb = h("button", "btn", head) as HTMLButtonElement;
-  rb.type = "button";
-  rb.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.56M13 2.5V5h-2.5"/></svg>Replay`;
-  rb.addEventListener("click", () => play());
-  cur = c.kind === "frames" ? framesStage() : chartStage(OPTS[c.kind], c.label);
+  $("case-name").textContent = c.name;
+  cur = c.kind === "frames" ? framesStage() : chartStage(optsFor(omega())[c.kind], c.label);
   stage.appendChild(cur.node);
   if (reduced()) seek(cur.T);
   else play();
 }
-speedEl.addEventListener("change", () => { if (cur && raf) play(); });
+$("replay").addEventListener("click", () => { if (cur) play(); });
 loopEl.addEventListener("change", () => { if (cur && loopEl.checked && !raf && !timer && tms >= cur.T) timer = window.setTimeout(play, 300); });
+// A new tempo redraws the proposal's curves (and the frames) at that tempo, and plays the case again.
+let lastTempo = omega();
+onMotionChange(() => {
+  if (omega() === lastTempo) return;
+  lastTempo = omega();
+  select(active);
+});
+figureChrome($("figure"));
 
 select(0);
 (window as unknown as Record<string, unknown>).__motionSketch = { cases: CASES.length, select, seek, play, time: () => tms };
