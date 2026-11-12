@@ -2,9 +2,11 @@
 import Site from "../layouts/Site.astro";
 import CaseRail from "../components/CaseRail.astro";
 import DropModeSwitch from "../components/DropModeSwitch.astro";
+import Chrome from "../components/Chrome.astro";
+import Playback from "../components/Playback.astro";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode } from "../data/schema";
-import { CASES, windowHTML } from "../demos/toolbar";
+import { CASES, arrangement, windowHTML } from "../demos/toolbar";
 import "../styles/toolbar-groups.css";
 
 const path = "/toolbar-groups/";
@@ -30,26 +32,20 @@ const RULES: [string, string][] = [
 <Site title={page.title} description={page.description} path={path} headline="One handle per group, and it is the separator." jsonLd={jsonLd} ogImage="/og/toolbar-groups.png">
   <p class="lead" slot="lead">This page shows toolbar groups with one drag handle each. Commands come in groups: document, tools, view, zoom, panels, export, share. A group docks into five slots (the title bar, a top or bottom toolbar, the left or right edge, where it turns vertical), each with a start, centre and end zone; dropped over the document, it floats. Drag a handle to move its group, double-click it to collapse the group to handle + », right-click it or press <kbd>Shift</kbd> <kbd>F10</kbd> for its menu. There are no frames, dividers or ⋯ buttons, and a toolbar is only a slot.</p>
 
-  <figure class="figure tbfig" id="figure" aria-label="Toolbar groups: a sample window whose groups you can drag, collapse and float">
-    <div class="figure-bar">
-      <label class="lock" id="lock" title="Freeze or unfreeze the layout">
-        <input type="checkbox" class="switch" id="freeze" role="switch" aria-label="Freeze layout" />
-        <svg class="ico open" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 4.9-.7"/></svg>
-        <svg class="ico shut" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
-        <span class="state"><span class="off">Layout unlocked</span><span class="onn">Layout frozen</span></span>
-        <span class="lockhint">hold <kbd>Alt</kbd> to move</span>
-      </label>
-      <span class="field"><span class="label">Preview</span><DropModeSwitch /></span>
-      <span class="spacer"></span>
-      <span class="note">Point at a handle: the other groups dim. While you drag, empty slots show as hatched strips.</span>
-    </div>
+  <Chrome id="figure" class="tbfig" label="Toolbar groups: a sample window whose groups you can drag, collapse and float" lock
+    groups={[{ id: "title", name: "Title" }, { id: "preview", name: "Preview" }, { id: "playback", name: "Speed" }, { id: "status", name: "Status" }, { id: "hint", name: "Hint" }]}
+    model={arrangement({ title: { start: ["title"], end: ["preview", "playback"] }, bottom: { start: ["status"], end: ["hint"] } })}>
+    <span class="ident" slot="title"><span class="name">Toolbar groups</span><span class="page">13 cases</span></span>
+    <Fragment slot="preview"><DropModeSwitch /></Fragment>
+    <Fragment slot="playback"><Playback /></Fragment>
+    <Fragment slot="status"><span class="quiet" id="status" role="status">{CASES[0]!.note}</span><span class="quiet"><kbd>Esc</kbd> puts a dragged group back</span></Fragment>
+    <Fragment slot="hint"><span class="quiet">Point at a handle: the others dim</span><span class="quiet" data-slowmo hidden></span></Fragment>
     <div class="figure-body">
       <CaseRail id="cases" label="Cases" items={CASES} />
-      <div class="stage-wrap"><div id="win" set:html={windowHTML(CASES[0]!.m)} /></div>
+      <div class="stage-wrap stage-host"><div id="win" class="win" set:html={windowHTML(CASES[0]!.m)} /></div>
     </div>
-    <figcaption class="figure-foot"><span class="status" id="status" role="status">{CASES[0]!.note}</span><span class="hint"><kbd>Esc</kbd> puts a dragged group back</span></figcaption>
-  </figure>
-  <div id="indlabel" aria-hidden="true"></div>
+  </Chrome>
+  <p class="figure-note">Every window on this site is built from the same groups: drag a handle in any figure's bars to rearrange them, and right-click it for <b>Reset position</b>.</p>
 
   <section class="section">
     <div class="section-head">

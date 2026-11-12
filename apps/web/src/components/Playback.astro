@@ -1,0 +1,8 @@
+---
+// The playback group of a figure's chrome: Speed (slow motion ¼× · ½× · 1×, the clock of every time-driven motion)
+// and, where motion is the subject, Tempo (the settle's omega: calm 20 · default 25 · quick 37). Bound by
+// islands/figure-chrome.ts; the visitor's choice is remembered.
+interface Props { tempo?: boolean }
+const { tempo = false } = Astro.props;
+---
+<span class="lab">Speed</span><button type="button" class="tb" data-speed="0.25" aria-pressed="false" title="Slow motion, a quarter of real time">¼×</button><button type="button" class="tb" data-speed="0.5" aria-pressed="false" title="Half speed">½×</button><button type="button" class="tb" data-speed="1" aria-pressed="true" title="Real time">1×</button>{tempo && <><span class="lab">Tempo</span><button type="button" class="tb text" data-tempo="calm" aria-pressed="false" title="Settle tempo 20: 90 % in 115 ms">Calm</button><button type="button" class="tb text" data-tempo="default" aria-pressed="true" title="Settle tempo 25: 90 % in 92 ms">Default</button><button type="button" class="tb text" data-tempo="quick" aria-pressed="false" title="Settle tempo 37: 90 % in 62 ms">Quick</button></>}

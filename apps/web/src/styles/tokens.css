@@ -57,9 +57,13 @@
   --grip-hot: #4a4b50;
 
   /* Demo windows: chrome a step lighter than the well, a lifted paper, coloured lights */
+  --win-frame: #eef0f3;
   --win-bar: #f9fafb;
   --win-well: #e4e7eb;
-  --win-edge: #d3d6db;
+  --win-edge: #dcdad5;
+  --win-text: #1d1d1f;
+  --win-muted: #6b6b70;
+  --win-r: 10px;
   --win-paper: #ffffff;
   --win-paper-line: #d3d3d4;
   --win-light-1: #16b8d8;
@@ -160,9 +164,12 @@
     --series-ink: #c2c4ca;
     --grip: #7d838e;
     --grip-hot: #c9cbd1;
+    --win-frame: #24262b;
     --win-bar: #2b2e34;
     --win-well: #1d1f23;
-    --win-edge: #3a3d44;
+    --win-edge: #34343a;
+    --win-text: #ececee;
+    --win-muted: #9a9aa2;
     --win-paper: #3a3d44;
     --win-paper-line: #575960;
     --d-floor: #141518;
@@ -216,9 +223,12 @@
   --series-ink: #c2c4ca;
   --grip: #7d838e;
   --grip-hot: #c9cbd1;
+  --win-frame: #24262b;
   --win-bar: #2b2e34;
   --win-well: #1d1f23;
-  --win-edge: #3a3d44;
+  --win-edge: #34343a;
+  --win-text: #ececee;
+  --win-muted: #9a9aa2;
   --win-paper: #3a3d44;
   --win-paper-line: #575960;
   --d-floor: #141518;
