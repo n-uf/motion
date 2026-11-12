@@ -1,6 +1,7 @@
 // Helpers for the content collections (use cases and blog).
 import { getCollection, type CollectionEntry } from "astro:content";
 import { pages } from "./pages";
+import { docsPages } from "./docs";
 import { releasedText } from "./site";
 
 export type Entry = CollectionEntry<"useCases"> | CollectionEntry<"blog">;
@@ -63,7 +64,7 @@ export const dateText = (d: Date) => releasedText(d.toISOString().slice(0, 10));
 /** Is a site path a page of this build? "built": a fixed page, or an entry that is live (or a draft, where drafts are
  *  shown); "unbuilt": an entry whose draft is hidden in this build; "none": no page at all. For {{live:}} blocks (live.ts). */
 export async function pageStatus(path: string): Promise<"built" | "unbuilt" | "none"> {
-  if (pages.some((p) => p.path === path)) return "built";
+  if (pages.some((p) => p.path === path) || docsPages.some((p) => p.path === path)) return "built";
   // the section indexes: each once it has an entry in this build (a draft-only section isn't built yet)
   if (path === sections.usecases.path) return (await getUseCases()).length > 0 ? "built" : useCaseFiles.length > 0 ? "unbuilt" : "none";
   if (path === sections.blog.path) return (await getPosts()).length > 0 ? "built" : blogFiles.length > 0 ? "unbuilt" : "none";
@@ -78,7 +79,7 @@ export async function pageStatus(path: string): Promise<"built" | "unbuilt" | "n
 
 /** The title and description of a site path, for the Related cards. Throws on a path that doesn't exist, so a broken link fails the build. */
 export async function pageInfo(path: string): Promise<{ title: string; description: string }> {
-  const fixed = pages.find((p) => p.path === path);
+  const fixed = pages.find((p) => p.path === path) ?? docsPages.find((p) => p.path === path);
   if (fixed) return fixed;
   // the section index pages, once they exist in this build (a section with no live entry has no index page)
   for (const section of ["usecases", "blog"] as const) {
