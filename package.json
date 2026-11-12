@@ -2,18 +2,18 @@
   "name": "motion-workspace",
   "version": "0.0.0",
   "private": true,
-  "description": "Workspace for @n-uf/motion: one frame loop with an injected clock, signals, springs and tweens, a gesture recogniser.",
+  "description": "Workspace for @n-uf/motion (one frame loop with an injected clock, signals, springs and tweens, a gesture recogniser) and @n-uf/placement (tiling, docks, toolbars and their drop targets).",
   "license": "LicenseRef-PolyForm-Perimeter-1.0.1",
   "packageManager": "pnpm@10.12.1",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm --filter @n-uf/motion build",
-    "typecheck": "pnpm --filter @n-uf/motion typecheck",
-    "test": "pnpm --filter @n-uf/motion test",
+    "build": "pnpm --filter @n-uf/motion build && pnpm --filter @n-uf/placement build",
+    "typecheck": "pnpm --filter @n-uf/motion typecheck && pnpm --filter @n-uf/placement typecheck",
+    "test": "pnpm --filter @n-uf/motion test && pnpm --filter @n-uf/placement test",
     "bench": "pnpm --filter @n-uf/motion bench",
-    "check": "pnpm --filter @n-uf/motion check && pnpm --filter motion-lab typecheck",
+    "check": "pnpm --filter @n-uf/motion check && pnpm --filter @n-uf/placement check && pnpm --filter motion-lab typecheck",
     "lab": "pnpm --filter motion-lab dev",
     "release:next-version": "pnpm --filter @n-uf/motion release:next-version",
     "version:bump": "pnpm --filter @n-uf/motion version:bump"
