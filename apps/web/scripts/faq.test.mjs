@@ -1,4 +1,4 @@
-// The FAQ lists in src/data/faq.ts: 5 questions on the home and 3 to 4 on each other page, each answer 40 to 60 words
+// The FAQ lists in src/data/faq.ts: 5 questions on the home and 3 to 5 on each other page, each answer 40 to 60 words
 // (the length Google lifts into a snippet) with no code block in it, and no mention of the unshipped tiling entry.
 // The list is read as text, since the data is TypeScript (run: npm test).
 import { test } from "node:test";
@@ -21,11 +21,11 @@ for (const line of body.split("\n")) {
 }
 const words = (html) => html.replace(/<[^>]+>/g, "").trim().split(/\s+/).length;
 
-test("the five pages each have a list, 5 on the home and 3 to 4 elsewhere", () => {
+test("the five pages each have a list, 5 on the home and 3 to 5 elsewhere", () => {
   assert.deepEqual([...lists.keys()].sort(), ["/", "/desk-layouts/", "/drag-intent/", "/toolbar-groups/", "/window-motion/"]);
   for (const [p, items] of lists) {
     if (p === "/") assert.equal(items.length, 5, p);
-    else assert.ok(items.length >= 3 && items.length <= 4, `${p}: ${items.length}`);
+    else assert.ok(items.length >= 3 && items.length <= 5, `${p}: ${items.length}`);
   }
 });
 

@@ -64,7 +64,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "Does drag intent fix the HTML5 dragenter and dragleave problem?",
-      a: "No. It is not a fix for the browser's HTML5 dragenter and dragleave events, and it does not use them. Drag intent is a pure decision: your code feeds it the pointer once a frame plus plain-data targets, and it says which target shows, when the others make room and what a release lands on.",
+      a: "No. Drag intent is not a fix for the browser's HTML5 dragenter and dragleave events. It decides from the pointer's path when a drop indicator shows, which target it shows, when the others make room and what a release lands on. It is pure: the host feeds it the pointer once a frame and plain-data targets.",
     },
     {
       q: "Where does a dragged item land when I release it?",
@@ -77,12 +77,8 @@ export const FAQS: Record<string, QA[]> = {
       a: "Build drop targets with <code>deskTargets</code> from <code>@n-uf/placement/targets</code> and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. When the intent names a target, <code>deskDrop</code> returns its label and the slot the panel lands in. Placement draws nothing, so your app draws the rects, and <code>@n-uf/motion/layout</code> can glide the panels there.",
     },
     {
-      q: "How do I save and restore a layout?",
-      a: "For a toolbar's groups, use <code>storeArrangement</code> and <code>readArrangement</code> from <code>@n-uf/placement/toolbar</code>. <code>storeArrangement</code> returns versioned plain data that you stringify. Pass the parsed data, not the string, to <code>readArrangement</code>: it never throws, and an unknown version comes back as <code>ok: false</code>. Place groups added since the save with <code>resetGroup</code>.",
-    },
-    {
-      q: "How do I step through drop targets with the keyboard?",
-      a: "Order the targets with <code>keyboardStops</code> from <code>@n-uf/placement/targets</code>. It puts a toolbar group's targets in reading order, title, top, left, right, bottom and then start, centre, end, for the arrow keys and a \"Move to\" menu, with the group's own place as <code>home</code>. Your app handles the keys and draws the focus.",
+      q: "Which desk layouts can I build?",
+      a: "Nine, as presets of <code>createDesk</code> in <code>@n-uf/placement/dock</code>. They are built from side docks, a bottom dock, rails, foldable sections and floating palettes, and include edge docks with tear-off, a tabbed side, drawers that slide over the documents, a scrolling strip of columns and palettes stacked in the corners. Each is a pure layout returning rects and notes.",
     },
     {
       q: "What gives way when a desk runs out of room?",
@@ -103,8 +99,12 @@ export const FAQS: Record<string, QA[]> = {
       a: "Take drop targets from <code>hostTargets</code> and <code>floatTarget</code> in <code>@n-uf/placement/targets</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. <code>hostTargets</code> leaves the group's own place out and returns it as <code>own</code>, for the drag's home, and every target carries its <code>slot</code>, the rect the group fills once it lands there.",
     },
     {
-      q: "Can I stop a toolbar group from going to certain places?",
-      a: "Yes. Pass an <code>allows(group, place)</code> function to <code>hostTargets</code>, and the places a group may not go get no target. Use the same rule for floating: add <code>floatTarget</code> only when <code>allows(group, \"float\")</code> is true. Its <code>place.index</code> counts the groups there without the dragged one.",
+      q: "How do I save and restore a toolbar layout?",
+      a: "Use <code>storeArrangement</code> and <code>readArrangement</code> from <code>@n-uf/placement/toolbar</code>. <code>storeArrangement</code> returns versioned plain data that you stringify. Pass the parsed data, not the string, to <code>readArrangement</code>: it never throws, and an unknown version comes back as <code>ok: false</code>. Place groups added since the save with <code>resetGroup</code>.",
+    },
+    {
+      q: "How do I step through drop targets with the keyboard?",
+      a: "Order the targets with <code>keyboardStops</code> from <code>@n-uf/placement/targets</code>. It puts a toolbar group's targets in reading order, title, top, left, right, bottom and then start, centre, end, for the arrow keys and a \"Move to\" menu, with the group's own place as <code>home</code>. Your app handles the keys and draws the focus.",
     },
   ],
 };
