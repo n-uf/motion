@@ -48,6 +48,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
     <p class="try-note">Live demo · drag a window by its title onto another to swap them</p>
     <HeroDemo id="demo-fig" label="Live demo: three windows that glide between layouts and swap when dragged; X-ray shows each package's layer" />
     <LoopStrip />
+    <div class="sx loop-body">
     <div class="section-head">
       <span class="eyebrow">The loop</span>
       <h2 id="loop-title">Why they come together</h2>
@@ -60,10 +61,11 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
       <li><b>Neither imports the other:</b> plain data between them, any framework or none.</li>
     </ul>
     <p class="caveat">The demo windows' slots are rects from placement's dock constructions, and they glide on motion's settle; the swap's drag intent is the site's own port of the rules. The hero at the top runs the packages' own drag (<code>createDragIntent</code>, <code>holdItem</code>), and the examples below are compiled against both packages. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink></p>
+    </div>
   </section>
 
   <!-- What each package does: the heroes' two columns again, entry by entry (checked against each package.json). -->
-  <section class="wrap section does hx" aria-labelledby="does-title">
+  <section class="wrap section sx does hx" aria-labelledby="does-title">
     <div class="section-head">
       <span class="eyebrow">The packages</span>
       <h2 id="does-title">What each package does</h2>
@@ -100,7 +102,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   </section>
 
   <!-- Use one, or both: three cards, then one example per package (each compiled against it). -->
-  <section class="wrap section use-pair hx" aria-labelledby="use-pair-title">
+  <section class="wrap section sx use-pair hx" aria-labelledby="use-pair-title">
     <div class="section-head">
       <span class="eyebrow">Use one, or both</span>
       <h2 id="use-pair-title">Pick what you need</h2>
@@ -122,7 +124,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   <CodeTabs />
 
   <!-- Explore: the four demo pages, grouped by package. -->
-  <section class="wrap section explore hx" aria-labelledby="explore-title">
+  <section class="wrap section sx explore hx" aria-labelledby="explore-title">
     <div class="section-head">
       <span class="eyebrow">Explore</span>
       <h2 id="explore-title">Interactive pages</h2>
