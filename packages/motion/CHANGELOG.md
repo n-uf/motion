@@ -27,6 +27,18 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   `DRAG_DEFAULTS` holds the numbers, each overridable; `targetAt`, `inRect`
   and `liftDecision` (a mouse lifts at 5 px, a touch after a 180 ms hold and
   8 px) are there too.
+- New entry `@n-uf/motion/layout`: the window motion rules applied to a whole
+  surface. `createLayoutMotion({ loop })` moves items by id and target rect,
+  all on one frame loop that runs only while something moves: a settle on
+  every new target from the drawn rect, size changes through reveal (never a
+  non-uniform scale), an immediate redraw when the layout box changes (no
+  frame at the old offset from the new box), and enter, exit and fold with a
+  uniform-scale fade. `holdItem` holds the real item 1:1 at the pointer (no
+  copy), snaps it into a slot and back, and lands or cancels from the release
+  rect. `flip` is FLIP for DOM groups on settle. `domDrawable`, `layOutBox`
+  and `drawBox` write DOM styles through structural shapes (no DOM types).
+  It animates the rects it is given; which items move where stays the
+  caller's.
 - Nothing existing changes behaviour.
 
 ## 26.11.3

@@ -5,6 +5,8 @@ import { defineConfig } from "tsup";
  *
  * - `index` is the whole core; `clock`, `signals`, `values` and `gestures`
  *   are its four folders on their own. No DOM, no globals in any of them.
+ * - `layout` moves a surface's items by those rules on one frame loop; it
+ *   writes DOM styles through structural shapes, so it is core too.
  * - `browser` is the adapter onto requestAnimationFrame, performance.now,
  *   setTimeout and matchMedia; it imports only types from the core.
  * - One build with code splitting: code two entries share lives in one
@@ -25,6 +27,7 @@ export default defineConfig({
     gestures: "src/gestures/index.ts",
     testing: "src/testing/index.ts",
     drag: "src/drag/index.ts",
+    layout: "src/layout/index.ts",
     browser: "browser.ts",
   },
   splitting: true,

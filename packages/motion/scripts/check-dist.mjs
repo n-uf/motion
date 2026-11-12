@@ -1,5 +1,5 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, clock, signals, values, gestures, testing, drag, browser) and
+// - every entry (the root, clock, signals, values, gestures, testing, drag, layout, browser) and
 //   its type definitions exist;
 // - the JavaScript imports only its own chunks and alien-signals/system;
 // - the signal graph is in exactly one file, so importing two entries gives
@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const CORE = ["index", "clock", "signals", "values", "gestures", "testing", "drag"];
+const CORE = ["index", "clock", "signals", "values", "gestures", "testing", "drag", "layout"];
 const ENTRIES = [...CORE, "browser"];
 const ALLOWED = /^alien-signals\/system$/;
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|document|globalThis|matchMedia)\b/;
@@ -115,6 +115,12 @@ if (problems.length === 0) {
     rect.set({ x: 300, y: 0, width: 50, height: 100 });
     clock.runUntilIdle();
     if (rect.value.x !== 300 || rect.value.width !== 50 || loop.active) problems.push(`values.js: a settle didn't settle (x ${rect.value.x})`);
+    const motion = modules.layout.createLayoutMotion({ loop });
+    const drawn = [];
+    const item = motion.add("a", { layOut: () => {}, draw: (f) => drawn.push(f.drawn.x) }, { x: 0, y: 0, width: 100, height: 100 });
+    item.moveTo({ x: 200, y: 0, width: 100, height: 100 });
+    clock.runUntilIdle();
+    if (item.drawn.x !== 200 || drawn[0] !== 0 || motion.running || loop.active) problems.push(`layout.js: an item didn't settle (x ${item.drawn.x})`);
   } catch (error) {
     problems.push(`import: ${error instanceof Error ? error.message : String(error)}`);
   }

@@ -65,6 +65,10 @@
       "types": "./src/drag/index.ts",
       "default": "./src/drag/index.ts"
     },
+    "./layout": {
+      "types": "./src/layout/index.ts",
+      "default": "./src/layout/index.ts"
+    },
     "./browser": {
       "types": "./browser.ts",
       "default": "./browser.ts"
@@ -102,6 +106,10 @@
       "./drag": {
         "types": "./dist/drag.d.ts",
         "default": "./dist/drag.js"
+      },
+      "./layout": {
+        "types": "./dist/layout.d.ts",
+        "default": "./dist/layout.js"
       },
       "./browser": {
         "types": "./dist/browser.d.ts",
