@@ -1,0 +1,65 @@
+/* Kit case 1, panels vs groups: the dossier window, on the site's window tokens (src/shell/tokens.css). */
+.kp-wrap { overflow-x: auto; padding: 4px 0 8px; }
+.kp-stage {
+  --kp-win: var(--win-bar); --kp-chrome: var(--win-frame); --kp-edge: var(--win-edge); --kp-ink: var(--win-text); --kp-muted: var(--win-muted);
+  --kp-accent: var(--accent); --kp-paper: var(--win-paper); --kp-desk: var(--win-well); --kp-shadow: var(--shadow-pop);
+  position: relative; overflow: hidden; border: 1px solid var(--kp-edge); border-radius: var(--win-r); background: var(--kp-desk);
+  color: var(--kp-ink); font: 12.5px/1.35 var(--font-sans); user-select: none; touch-action: none;
+}
+.kp-stage > * { position: absolute; box-sizing: border-box; }
+.kp-title { left: 0; top: 0; width: 100%; height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--kp-chrome); border-bottom: 1px solid var(--kp-edge); }
+.kp-lights { display: flex; gap: 5px; }
+.kp-lights i { width: 10px; height: 10px; border-radius: 50%; background: var(--win-light-1); }
+.kp-lights i:nth-child(2) { background: var(--win-light-2); }
+.kp-lights i:nth-child(3) { background: var(--win-light-3); }
+.kp-file { font-weight: 600; }
+.kp-pages { font-family: var(--font-mono); font-size: 12px; color: var(--kp-muted); }
+.kp-bar { background: var(--kp-chrome); border-bottom: 1px solid var(--kp-edge); }
+.kp-bar.bottom { border-top: 1px solid var(--kp-edge); border-bottom: 0; }
+.kp-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--kp-muted); opacity: 0.6; font-size: 11px; }
+.kp-group { display: flex; align-items: center; gap: 3px; height: 30px; padding: 0 6px 0 2px; white-space: nowrap; border-radius: 7px; background: var(--kp-win); border: 1px solid var(--kp-edge); z-index: 3; }
+/* Dot grips, as the site's: 3 px dots, 2 px gaps, darker on hover. */
+.kp-handle { display: grid; grid-template-columns: repeat(2, 3px); gap: 2px; padding: 6px 4px; cursor: grab; border-radius: 4px; }
+.kp-handle i, .kp-grip i { width: 3px; height: 3px; border-radius: 50%; background: var(--grip); }
+.kp-handle:hover i, .kp-head:hover .kp-grip i { background: var(--grip-hot); }
+.kp-handle:focus-visible { box-shadow: 0 0 0 2px var(--accent); outline: none; }
+.kp-ctl { display: flex; align-items: center; gap: 2px; }
+.kp-ctl button { min-width: 24px; height: 24px; padding: 0 5px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+.kp-ctl button:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.kp-ctl button.on { box-shadow: inset 0 0 0 1.5px var(--kp-accent); color: var(--kp-accent); }
+.kp-ctl button.text { padding: 0 7px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.kp-val { min-width: 38px; text-align: center; font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--kp-muted); }
+.kp-doc { overflow: hidden; z-index: 1; padding: 18px 26px; }
+.kp-paper { max-width: 520px; margin: 0 auto; height: 100%; background: var(--kp-paper); border: 1px solid var(--kp-edge); border-radius: 4px; padding: 22px 28px; box-shadow: var(--shadow-1); }
+.kp-paper h4 { margin: 0 0 14px; font-size: 14px; }
+.kp-l { height: 7px; margin: 0 0 11px; border-radius: 3px; background: var(--win-paper-line); opacity: 0.6; }
+.kp-l.short { width: 55%; }
+.kp-rail { z-index: 2; background: var(--kp-chrome); border-right: 1px solid var(--kp-edge); }
+.kp-rail[data-side="right"] { border-right: 0; border-left: 1px solid var(--kp-edge); }
+.kp-ri { position: absolute; left: 6px; width: 22px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--kp-muted); cursor: grab; font: 13px/24px var(--font-sans); }
+.kp-ri.on { color: var(--kp-accent); box-shadow: inset 0 0 0 1.5px var(--kp-accent); }
+.kp-panel { z-index: 2; overflow: hidden; display: flex; flex-direction: column; background: var(--kp-win); border: 1px solid var(--kp-edge); border-radius: 6px; }
+.kp-panel.floating { z-index: 5; box-shadow: var(--kp-shadow); }
+.kp-head { flex: none; height: 22px; display: flex; align-items: center; gap: 6px; padding: 0 4px 0 6px; background: var(--kp-chrome); cursor: grab; }
+.kp-grip { display: grid; grid-template-columns: repeat(2, 3px); gap: 2px; }
+.kp-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 11.5px; }
+.kp-fold { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--kp-muted); cursor: pointer; transition: transform 0.15s; }
+.kp-panel.folded .kp-fold { transform: rotate(-90deg); }
+.kp-body { margin: 0; padding: 6px 10px; list-style: none; overflow: hidden; }
+.kp-body li { padding: 3px 0; border-bottom: 1px solid var(--kp-edge); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kp-stage .lifted { z-index: 20; box-shadow: var(--kp-shadow); cursor: grabbing; }
+.kp-stage.dragging, .kp-stage.dragging * { cursor: grabbing; }
+/* The slot: the signal colour, the item's own outline. */
+.kp-ind { z-index: 15; pointer-events: none; border: 2px dashed var(--signal); border-radius: 8px; background: var(--signal-soft); }
+.kp-ind.free { border-style: dotted; }
+.kp-ind-label { z-index: 16; pointer-events: none; padding: 2px 8px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.kp-line { z-index: 15; pointer-events: none; background: var(--kp-accent); border-radius: 2px; }
+.kp-line.area { background: transparent; border: 2px solid var(--kp-accent); border-radius: 6px; }
+.kp-stage .kit-orig { opacity: 0.35; }
+.kp-ghost { z-index: 30; pointer-events: none; opacity: 0.9; box-shadow: var(--kp-shadow); }
+.kp-ind[hidden], .kp-ind-label[hidden], .kp-line[hidden] { display: none; }
+#kp-status { min-height: 1.45em; margin: 4px 0 12px; color: var(--text-2); }
+#kp-rule { color: var(--text-2); max-width: 980px; }
+.kp-try { max-width: 980px; }
+.kp-try li { margin-bottom: 4px; }
+#kp-runs td:last-child { color: var(--text-2); }

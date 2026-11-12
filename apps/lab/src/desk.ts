@@ -48,7 +48,7 @@ import { toolbarGroupScenarios } from "./desk/toolbar-group-scenarios";
 import { framesResult, merge, motionRows, renderChecks, renderTrace, verdict, type Row, type Segment } from "./shared/checks";
 import { measureFrame, onTopAt } from "./shared/frame";
 import { inside, nextFrame, overlap, same, wait, type Point } from "./shared/geometry";
-import type { LabRun } from "./shared/hooks";
+import { passes, type LabRun, type ScenarioFilter } from "./shared/hooks";
 import { cancelPress, trackPress } from "./shared/press";
 
 type Tempo = keyof typeof SETTLE_TEMPO;
@@ -1335,8 +1335,8 @@ let runningAll = false;
 let stopAll = false;
 const runAllButton = document.querySelector("button[data-act=runall]") as HTMLButtonElement;
 
-/** Run every scenario (or those whose name contains `filter`). */
-async function runAll(filter?: string): Promise<LabRun[]> {
+/** Run every scenario (or those whose name contains `filter`, or passes it). */
+async function runAll(filter?: ScenarioFilter): Promise<LabRun[]> {
   if (runningAll) return [];
   runningAll = true;
   stopAll = false;
@@ -1346,7 +1346,7 @@ async function runAll(filter?: string): Promise<LabRun[]> {
   runsBody.replaceChildren();
   try {
     for (const name of Object.keys(SCENARIOS)) {
-      if (filter && !name.includes(filter)) continue;
+      if (!passes(name, filter)) continue;
       // A drag runs with each preview (unless it is about one of them); everything else once.
       const sc = SCENARIOS[name]!;
       for (const mode of sc.preview ? [sc.preview] : sc.drag ? PREVIEWS : [before.preview]) {

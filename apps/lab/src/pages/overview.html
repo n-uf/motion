@@ -1,0 +1,54 @@
+<!-- The overview: what the lab is, the two packages, how to run the checks. -->
+<section class="lab-section">
+  <p class="eyebrow"><span>What this is</span></p>
+  <h2 class="section-title">One lab for both packages</h2>
+  <p>
+    Every page here runs the real packages from this repository's sources, so a change in a package shows at once.
+    Each page is a live demo you can drag around, and a set of scripted scenarios that drive it with real pointer and
+    key events, frame by frame, and check the rules from what the page drew.
+  </p>
+</section>
+
+<section class="lab-section lab-cards">
+  <a class="lab-card" href="#/motion/settle">
+    <p class="eyebrow"><span>@n-uf/motion</span></p>
+    <h3>How things move</h3>
+    <p>A critically damped settle for every move (never past its target), reveal for size changes, a drag intent that
+      shows a drop target only while you aim, and a held drag that moves the real item.</p>
+    <p class="lab-card-links"><span>Settle and tempo</span> · <span>Drag intent</span> · <span>Held drag and previews</span></p>
+  </a>
+  <a class="lab-card" href="#/placement/desk">
+    <p class="eyebrow"><span>@n-uf/placement</span></p>
+    <h3>Where things go</h3>
+    <p>Pure layouts: desk docks, rails and palettes that give way when room runs out, toolbar groups in hosts and
+      zones, and the drop targets for each. State in, rects out.</p>
+    <p class="lab-card-links"><span>Desk constructions</span> · <span>Tiling</span> · <span>Toolbar groups</span></p>
+  </a>
+  <a class="lab-card" href="#/kits/panels">
+    <p class="eyebrow"><span>Kit cases</span></p>
+    <h3>Moving the dossier kits on</h3>
+    <p>Ten cases from moving the dossier kits onto both packages, each on the real code once ported; the rest link to
+      their design sketch.</p>
+    <p class="lab-card-links"><span>1 · Panels vs groups</span> · <span>6 · Constraints</span> · <span>…</span></p>
+  </a>
+</section>
+
+<section class="lab-section">
+  <p class="eyebrow"><span>Checks</span></p>
+  <h2 class="section-title">Green or red, without a terminal</h2>
+  <p>
+    <a href="#/checks">Checks</a> runs every page's scenarios, or one group's, and lists each scenario as passing or
+    failing with its first failure. Each page also has its own checks under its demo.
+  </p>
+  <p>Headless, every page answers <code>window.__motionLab.runAll(filter?)</code>; for example:</p>
+  <pre class="lab-code"><code>node desk-run-all.mjs "http://localhost:3060/#/placement/desk"</code></pre>
+</section>
+
+<section class="lab-section">
+  <p class="eyebrow"><span>More</span></p>
+  <p>
+    The documentation and the explained demos are on the site,
+    <a href="https://motion.n-uf.com" target="_blank" rel="noopener">motion.n-uf.com<span class="ext-arrow">↗</span></a>.
+    This lab is where the rules are checked.
+  </p>
+</section>

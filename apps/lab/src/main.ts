@@ -13,7 +13,7 @@ import type { HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing
 import { motionRows, renderChecks, renderTrace, type Row, type Segment } from "./shared/checks";
 import { measureFrame, onTopAt as onTopIn } from "./shared/frame";
 import { inside, nextFrame, overlap, same, wait } from "./shared/geometry";
-import "./shared/hooks";
+import { passes, type ScenarioFilter } from "./shared/hooks";
 import { cancelPress, trackPress } from "./shared/press";
 import {
   columns,
@@ -708,7 +708,7 @@ let runningAll = false;
 let stopAll = false;
 const runAllButton = document.querySelector("button[data-act=runall]") as HTMLButtonElement;
 
-async function runAll(): Promise<Run[]> {
+async function runAll(filter?: ScenarioFilter): Promise<Run[]> {
   if (runningAll) return [];
   runningAll = true;
   stopAll = false;
@@ -718,6 +718,7 @@ async function runAll(): Promise<Run[]> {
   try {
     for (const name of Object.keys(SCENARIOS)) {
       if (stopAll) break;
+      if (!passes(name, filter)) continue;
       out.push(await runScenario(name));
     }
   } finally {
