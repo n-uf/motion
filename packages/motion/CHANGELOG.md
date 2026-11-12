@@ -13,6 +13,27 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   with a place can show instead), no room opens, and a release lands on a
   target beneath, else goes home. A two-argument `placeOf` works as before.
   `@n-uf/placement/targets`' `paneZone` is made for it.
+- `@n-uf/motion/layout`: what a tiling host's own leaf motion did, on
+  `createLayoutMotion`:
+  - `onDraw(batch)`: every item that moved is drawn in one pass per frame and
+    handed over once; an item at rest is not drawn;
+  - `reducedMotion` (a boolean or the host's query), read on every new target
+    and show or hide: items are placed and shown at once, no glide or fade;
+  - `flush()` draws a batched change made between frames now, so the paint
+    right after a host's commit shows no frame at the new box;
+  - `retain(ids)` removes every item not listed;
+  - `onActiveChange(active)`, once when the frames start and once when they
+    stop;
+  - `item.retarget(rect)`: a settle that keeps the content laid out while the
+    size is unchanged. The held drag's glide back to the pointer uses it, so
+    it no longer lays the item out on every frame.
+- `@n-uf/motion/gestures`: `touchPressReducer` / `createTouchPress`, a touch
+  on something draggable in a scrolling page: travel mostly along the scroll
+  direction before the hold is a scroll and never lifts. `pagedSwipeReducer` /
+  `createPagedSwipe`, swiping between pages with a wheel run or a finger: it
+  arms only along the swipe, tracks progress over the page size, commits by
+  share or speed and locks out the trackpad's momentum after a commit. Both
+  from hypr-tiling's public engine, with generic names.
 
 ## 26.11.4
 

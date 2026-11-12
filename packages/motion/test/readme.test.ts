@@ -4,7 +4,9 @@ import {
   computed,
   createFakeClock,
   createFrameLoop,
+  createPagedSwipe,
   createRecognizer,
+  NO_MODIFIERS,
   effect,
   settleValue,
   signal,
@@ -120,5 +122,37 @@ describe("README examples", () => {
     clock.tick(500);
     recognizer.feed({ ...finger, type: "pointerup", buttons: 0, time: clock.now() });
     expect(log.mock.calls).toEqual([["press"], ["longPress"], ["release"]]);
+  });
+
+  it("layout/ batched", () => {
+    const clock = createFakeClock();
+    const loop = createFrameLoop({ clock });
+    const batches: string[][] = [];
+    const host = createLayoutMotion({ loop, onDraw: (batch) => batches.push(batch.map((e) => e.id)) });
+    const noop = { layOut: () => {}, draw: () => {} };
+    const a = host.add("a", noop, { x: 0, y: 0, width: 100, height: 100 });
+    host.add("b", noop, { x: 0, y: 200, width: 100, height: 100 });
+    host.flush();
+    expect(batches).toEqual([["a", "b"]]);
+    a.moveTo({ x: 300, y: 0, width: 100, height: 100 });
+    host.flush();
+    expect(batches[1]).toEqual(["a"]);
+    clock.runUntilIdle();
+    expect(batches.length).toBeGreaterThan(3);
+    expect(batches.slice(2).every((b) => b.length === 1 && b[0] === "a")).toBe(true);
+    host.retain(["a"]);
+    expect(host.items.size).toBe(1);
+  });
+
+  it("gestures/ paged swipe", () => {
+    const clock = createFakeClock();
+    const swipe = createPagedSwipe({ clock });
+    swipe.send({ type: "context", hasPrev: true, hasNext: true, size: 1000 });
+    swipe.send({ type: "wheel", dx: 400, dy: 0, t: clock.now(), modifiers: NO_MODIFIERS });
+    expect([swipe.state.phase, swipe.state.progress]).toEqual(["tracking", 0.4]);
+    clock.tick(120);
+    expect([swipe.state.phase, swipe.state.target]).toEqual(["settling", "next"]);
+    swipe.send({ type: "settled" });
+    expect(swipe.state.phase).toBe("lockout");
   });
 });

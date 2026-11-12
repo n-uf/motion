@@ -198,8 +198,12 @@ drop targets) is the caller's layout.
 
 | | |
 |---|---|
-| `createLayoutMotion({ loop, omega?, phase?, popFrom? })` | The surface: `add(id, drawable, at, { shown? })`, `get`, `remove`, `items`; `task(fn)` runs before the items step each frame, `onFrame(fn)` after; `onIdle`, `idle()`, `running`, `wake()`, `configure({ omega })`, `dispose()`. |
+| `createLayoutMotion({ loop, omega?, phase?, popFrom?, reducedMotion?, onDraw?, onActiveChange? })` | The surface: `add(id, drawable, at, { shown? })`, `get`, `remove`, `retain(ids)` (removes every item not listed), `items`; `task(fn)` runs before the items step each frame, `onFrame(fn)` after; `onIdle`, `idle()`, `running`, `wake()`, `configure({ omega })`, `flush()`, `dispose()`. |
+| `reducedMotion` | A boolean or the host's query (the reduced-motion media query), read on every new target and every show or hide: while true, items are placed and shown at once, with no glide and no fade. |
+| `onDraw(batch)`, `flush()` | Batched drawing: every item that moved is drawn in one pass per frame (its drawable, then `onDraw` once with all their frames); an item at rest is not drawn. A change made between frames waits for the next frame, or `flush()` draws it now, which a host calls right after it commits a layout so the next paint shows no frame at the new box. |
+| `onActiveChange(active)` | Called once when the frames start and once when they stop. |
 | `item.moveTo(rect)` | Settle there from wherever it is drawn (a retarget mid-flight goes on from the drawn rect). The content is laid out at the new box once, and the item redrawn at once, so no frame shows the old offset from the new box. A size change is revealed, never scaled. |
+| `item.retarget(rect)` | Settle there like `moveTo`, but keep the content laid out where it is while the size is unchanged: for chasing a moving point (the held drag's glide back to the pointer uses it), which would otherwise lay the content out on every frame. |
 | `item.jumpTo(rect)`, `item.hold(rect)`, `item.glideFrom(from, to)` | At once; held exactly where a pointer puts it (the content moves with it); drawn at `from`, then settle to `to`. |
 | `item.show(on, { now? })` | Appear or disappear with a uniform-scale fade (`popIn`); folding is a `moveTo` to the folded size, revealed. |
 | `item.drawn`, `target`, `box`, `settled`, `shown`, `showing`, `shownSettled` | Where it is drawn, where it is heading, where its content is laid out. |
@@ -223,6 +227,27 @@ const release = held.land({ x: 0, y: 0, width: 200, height: 100 });
 console.log(release); // { x: 100, y: 50, width: 240, height: 100 }: the landing starts there
 clock.runUntilIdle();
 console.log(panel.drawn); // { x: 0, y: 0, width: 200, height: 100 }
+```
+
+A host that draws every item itself, once per frame:
+
+```ts
+import { createFakeClock, createFrameLoop } from "@n-uf/motion";
+import { createLayoutMotion } from "@n-uf/motion/layout";
+
+const clock = createFakeClock();
+const loop = createFrameLoop({ clock });
+const batches: string[][] = [];
+const host = createLayoutMotion({ loop, onDraw: (batch) => batches.push(batch.map((e) => e.id)) });
+const noop = { layOut: () => {}, draw: () => {} };
+const a = host.add("a", noop, { x: 0, y: 0, width: 100, height: 100 });
+host.add("b", noop, { x: 0, y: 200, width: 100, height: 100 });
+host.flush(); // both drawn now, in one batch: ["a", "b"]
+a.moveTo({ x: 300, y: 0, width: 100, height: 100 });
+host.flush(); // right after the host's commit: ["a"], at the rect it is drawn at
+clock.runUntilIdle(); // one batch per frame, each ["a"] (b is at rest)
+host.retain(["a"]); // b left the layout
+console.log(host.items.size); // 1
 ```
 
 ## testing/
@@ -255,6 +280,8 @@ The motion lab in the [n-uf/motion repository](https://github.com/n-uf/motion)
 | `createFrameCoalescer(onFrame, frames, { merge? })` | `schedule(sample)`, `flush()`, `cancel()`, `pending`. One delivery per frame with the latest sample (or `merge`d ones) and how many were folded. Same shape as hypr-tiling's. |
 | `dwellReducer`, `DWELL_IDLE`, `dwellDeadline`, `createDwellMachine` | `idle → dwelling → fired`, for spring-loaded targets: hold over the same key long enough and it fires once. |
 | `createMachine({ reducer, initial, clock, deadline? })` | Runs a pure reducer on a clock: arms the timer the state's deadline asks for and sends its input when it fires. `state` is reactive. |
+| `touchPressReducer`, `TOUCH_PRESS_IDLE`, `touchPressDeadline`, `createTouchPress`, `TOUCH_PRESS_DEFAULTS` | A touch on something draggable in a scrolling page, `idle → pressed → lifted \| scrolled`: before the hold (220 ms), travel mostly along the page's scroll direction (`scroll: "y"` or `"x"`) past 10 px is a scroll, which never lifts; travel past 6 px otherwise lifts where the finger is; a still finger lifts where it was pressed after the hold. |
+| `pagedSwipeReducer`, `PAGED_SWIPE_IDLE`, `pagedSwipeDeadline`, `createPagedSwipe`, `PAGED_SWIPE_DEFAULTS`, `swipeProgress` | Swiping between pages with a trackpad's wheel run or a finger, `idle → armed → tracking → settling → lockout`. It arms only along the swipe (more than twice the cross movement), without Ctrl, with the configured modifier, when nothing under the pointer scrolls further and a page is there; a run that breaks a rule belongs to scrolling until the wheel rests 120 ms. Past 24 px it tracks: `progress` is the travel over the page size, −1 to 1, held at 0 towards a missing page. At the end it commits at 35 % of the page or a peak of 0.6 px/ms towards it (the peak starts over when the travel crosses zero); the host sends `settled` after its transition, and a 350 ms lockout swallows the trackpad's momentum. On x or y (`along`). |
 
 The recogniser takes plain objects the host copies out of DOM events, with
 their timestamps; nothing in it touches the DOM. Mouse, pen and touch share
@@ -275,6 +302,22 @@ const finger = { pointerId: 1, pointerType: "touch", button: 0, screen: { x: 0, 
 recognizer.feed({ ...finger, type: "pointerdown", buttons: 1, time: clock.now() }); // press
 clock.tick(500); // longPress
 recognizer.feed({ ...finger, type: "pointerup", buttons: 0, time: clock.now() }); // release, click: false
+```
+
+A paged swipe, its timers on a clock:
+
+```ts
+import { createFakeClock, createPagedSwipe, NO_MODIFIERS } from "@n-uf/motion";
+
+const clock = createFakeClock();
+const swipe = createPagedSwipe({ clock });
+swipe.send({ type: "context", hasPrev: true, hasNext: true, size: 1000 });
+swipe.send({ type: "wheel", dx: 400, dy: 0, t: clock.now(), modifiers: NO_MODIFIERS });
+console.log(swipe.state.phase, swipe.state.progress); // tracking 0.4
+clock.tick(120); // the wheel rests: past 35 %, it commits
+console.log(swipe.state.phase, swipe.state.target); // settling next
+swipe.send({ type: "settled" }); // the host's page transition is done: momentum is locked out
+console.log(swipe.state.phase); // lockout
 ```
 
 ## drag/
