@@ -188,6 +188,16 @@ input[type="range"]:focus-visible::-moz-range-thumb { outline: 2px solid var(--a
   .rule .value { margin-top: var(--s1); }
 }
 
+/* The "Questions" section: each question an h3 with its answer in the paragraph under it (components/Faq.astro). */
+.faq-list { margin: 0; border-top: 1px solid var(--line); }
+.faq-item { display: grid; grid-template-columns: minmax(0, 20rem) minmax(0, 1fr); gap: var(--s2) var(--s6); padding: var(--s4) 0; border-bottom: 1px solid var(--line); }
+.faq-item h3 { margin: 0; font-size: var(--t-base); font-weight: 620; line-height: 1.5; letter-spacing: -0.005em; color: var(--text); }
+.faq-item p { margin: 0; color: var(--text-2); line-height: 1.6; max-width: 70ch; }
+.faq-item code { font-size: 0.92em; white-space: nowrap; }
+@media (max-width: 860px) { .faq-item { grid-template-columns: minmax(0, 1fr); gap: var(--s1); } }
+/* A link to the lab under a demo: quiet, like the page's other asides. */
+.aside.lab-link { margin-top: var(--s3); }
+
 /* ---- Page structure ----------------------------------------------------------------------------------------- */
 .page-head { padding: var(--s8) 0 var(--s6); display: grid; gap: var(--s3); }
 .page-head h1 { max-width: 20ch; }
