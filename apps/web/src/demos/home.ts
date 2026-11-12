@@ -53,15 +53,6 @@ export function firstLayoutStyle(i: number): string {
   return `left:${pc(r.x, DEMO.w)};top:${pc(r.y, DEMO.h)};width:${pc(r.width, DEMO.w)};height:${pc(r.height, DEMO.h)}`;
 }
 
-/** Where a settle at the default tempo crosses 90 %, in ms (stepped by the library, read between 1 ms steps). */
-export function ninetyPercentMs(): number {
-  const s = createSettle(0, { restDelta: 1e-4 });
-  s.setTarget(1);
-  let t = 0, prev = 0;
-  while (s.value < 0.9) { prev = s.value; s.step(1); t++; }
-  return Math.round(t - 1 + (0.9 - prev) / (s.value - prev));
-}
-
 // ---- Thumbnail 1: settle against a spring that overshoots ----------------------------------------------------------
 export const CURVE = { W: 280, H: 150, L: 16, R: 16, T: 22, B: 18, Tms: 450 };
 const cx = (ms: number) => CURVE.L + ((CURVE.W - CURVE.L - CURVE.R) * ms) / CURVE.Tms;

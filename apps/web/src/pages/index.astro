@@ -5,87 +5,138 @@ import HeroDemo from "../components/HeroDemo.astro";
 import { pageOf } from "../data/pages";
 import { npmPlacementUrl, npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
-import { CURVE, curveSVG, deskThumbSVG, ninetyPercentMs } from "../demos/home";
+import { CURVE, curveSVG, deskThumbSVG } from "../demos/home";
 import "../styles/home.css";
 import CodeTabs from "../components/CodeTabs.astro";
 import PairCode from "../components/PairCode.astro";
 import { partOf } from "../data/parts";
+import motionPkg from "../../../../packages/motion/package.json";
+import placementPkg from "../../../../packages/placement/package.json";
 const [motionPart, placementPart] = [partOf("motion"), partOf("placement")];
 
 const page = pageOf("/");
 const jsonLd = [
   webSite,
   webPage({ path: "/", name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), isPartOf: true, about: ["motion", "placement"] }),
-  software("motion", motionPart.pkg, "How things move: a TypeScript library for windows, panels and toolbars with one frame loop on an injected clock, a settle that never overshoots, reveal without stretching, held drags and drag intent. No DOM, no framework."),
-  software("placement", placementPart.pkg, "Where things go: a TypeScript library for docking windows, panels and toolbar groups. Desks of docks, rails and palettes, toolbar hosts and zones, and the drop targets for each, as plain state in and rects out."),
+  software("motion", motionPart.pkg, "How things move: a TypeScript library for windows, panels and toolbars with one frame loop on an injected clock, a settle that never overshoots, reveal without stretching, held drags and drag intent. No DOM in the core, no framework."),
+  software("placement", placementPart.pkg, "Where things go: a TypeScript library that works out where windows, panels and toolbar groups go. Desks of docks, rails and palettes, toolbar hosts and zones, and the drop targets for each, as plain state in and rects out."),
   orgNode,
 ];
-const ninety = ninetyPercentMs();
+// The packages' versions, read from their package.json at build time (never written by hand).
+const versions = motionPkg.version === placementPkg.version ? `both at ${motionPkg.version}` : `@n-uf/motion ${motionPkg.version}, @n-uf/placement ${placementPkg.version}`;
+const arrow = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg>';
 ---
 <Site title={page.title} description={page.description} path="/" jsonLd={jsonLd} ogImage="/og.png">
-  <!-- One screen: the page's heading, the pair side by side (motion left, placement right), then one desk window. -->
-  <section class="hero wrap">
-    <h1>Windows that settle, and land where they belong.</h1>
-    <p class="hero-intro">Two small TypeScript packages for desktop-style web apps: one moves windows and panels, the other docks them and the toolbars where they belong.</p>
+  <!--
+    The two heroes side by side: motion left, placement right. Their headlines are one h1 (two block spans, one per
+    column); the TypeScript sentence is the page's first paragraph in the DOM and sits under both heroes on screen.
+  -->
+  <section class="hero wrap" aria-label="The two packages">
     <div class="hero-pair">
-      <div class="hero-col motion">
-        <span class="eyebrow">@n-uf/motion</span>
-        <h2 class="hero-title">Motion that settles, and never overshoots.</h2>
-        <p class="lead">One frame loop, one curve for every move, content never stretched, drags that stay under the pointer.</p>
+      <p class="pair-intro">Two small TypeScript packages for desktop-style web apps: one moves windows, panels and toolbars, the other works out where they go, from docking to drop targets.</p>
+      <span class="eyebrow pair-eye m">@n-uf/motion · how things move</span>
+      <span class="eyebrow pair-eye p">@n-uf/placement · where things go</span>
+      <h1 class="pair"><span class="m">Motion that settles, and never overshoots.</span> <span class="p">Every panel lands where it belongs.</span></h1>
+      <div class="pair-body m">
+        <p class="lead">Give it rects; real elements glide there. Drags stay under the pointer.</p>
         <div class="install">
           <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code>
-          <a class="btn primary" href="/window-motion/">See the motion rules<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg></a>
+          <a class="btn primary" href="/window-motion/">See the motion rules<Fragment set:html={arrow} /></a>
         </div>
       </div>
-      <div class="hero-col placement">
-        <span class="eyebrow">@n-uf/placement</span>
-        <h2 class="hero-title">Every panel lands where it belongs.</h2>
-        <p class="lead">Docks, rails, palettes and toolbar groups: plain state in, rects and drop targets out, for motion's drag.</p>
+      <div class="pair-body p">
+        <p class="lead">Give it state; it returns rects and drop targets. It draws nothing.</p>
         <div class="install">
           <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code>
-          <a class="btn primary" href="/desk-layouts/">See the desk layouts<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg></a>
+          <a class="btn primary" href="/desk-layouts/">See the desk layouts<Fragment set:html={arrow} /></a>
         </div>
       </div>
     </div>
-    <HeroDemo id="demo-fig" label="Live demo: three windows that tile, swap and glide; X-ray shows what each package does" />
-    <p class="caveat">Young and still changing: both packages are versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink></p>
   </section>
 
-  <PairCode />
+  <!-- The loop: one desk window, and the four steps of a drag, each by its package, lit live while you drag. -->
+  <section class="wrap section loop" aria-labelledby="loop-title">
+    <div class="section-head">
+      <span class="eyebrow">The loop</span>
+      <h2 id="loop-title">Why they come together</h2>
+      <p>One desktop-style UI, two questions, plain data in between. Placement answers where; motion answers how it gets there and, while you drag, what you mean.</p>
+    </div>
+    <HeroDemo id="demo-fig" label="Live demo: three windows that glide between layouts and swap when dragged; X-ray shows each package's layer" />
+    <ol class="loop-strip" id="loop-strip" aria-label="The four steps of a drag">
+      <li class="step p" data-step="1"><span class="step-n">1</span><span class="step-t">Where it can go</span><span class="step-d">placement: the drop targets</span></li>
+      <li class="step m" data-step="2"><span class="step-n">2</span><span class="step-t">What you mean</span><span class="step-d">motion: the drag intent (aiming, hold, which target)</span></li>
+      <li class="step p" data-step="3"><span class="step-n">3</span><span class="step-t">The new layout</span><span class="step-d">placement: the rects of the arrangement the drop makes</span></li>
+      <li class="step m" data-step="4"><span class="step-n">4</span><span class="step-t">It moves there</span><span class="step-d">motion: the settle</span></li>
+    </ol>
+    <ul class="loop-claims">
+      <li><b>What you see is what you get:</b> the preview and the drop come from the same data.</li>
+      <li><b>Every layout change animates:</b> any rects, one settle.</li>
+      <li><b>The real element moves:</b> no copies, it lands from where you let go.</li>
+      <li><b>Neither imports the other:</b> plain data between them, any framework or none.</li>
+    </ul>
+    <p class="caveat">The demo windows on this site follow both packages' rules in the site's own code; the examples further down run the packages themselves. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink></p>
+  </section>
+
+  <!-- What each package does: the heroes' two columns again, entry by entry (checked against each package.json). -->
+  <section class="wrap section does" aria-labelledby="does-title">
+    <div class="section-head">
+      <span class="eyebrow">The packages</span>
+      <h2 id="does-title">What each package does</h2>
+    </div>
+    <div class="does-grid">
+      <article class="does-col m" aria-labelledby="does-motion">
+        <h3 id="does-motion"><code>@n-uf/motion</code> <span>how things move</span></h3>
+        <p>For desktop-style web apps with windows, panels, docks and toolbars: every change of layout moves the way a good tiling window manager does, and a drag reads what you mean. You give it rects and pointer samples; it moves the real elements.</p>
+        <dl class="entries">
+          <div><dt><code>@n-uf/motion</code></dt><dd>The frame loop on an injected clock, signals, springs and tweens with the settle, and the gesture recogniser; each also on its own as <code>./clock</code>, <code>./signals</code>, <code>./values</code>, <code>./gestures</code>.</dd></div>
+          <div><dt><code>./layout</code></dt><dd>Give items rects: the real elements settle there, size changes revealed, never stretched; a held drag (<code>holdItem</code>), FLIP for DOM groups, reduced motion and batched drawing.</dd></div>
+          <div><dt><code>./drag</code></dt><dd>The drag intent: aiming, priority, hysteresis, the switch hold, room after a delay, a drop that lands where it was shown, and the three previews.</dd></div>
+          <div><dt><code>./gestures</code></dt><dd>Gestures alone: the recogniser, wheel classification, a frame coalescer, and dwell, touch-press and paged-swipe machines.</dd></div>
+          <div><dt><code>./browser</code></dt><dd>The <code>requestAnimationFrame</code> clock and the reduced-motion query.</dd></div>
+          <div><dt><code>./testing</code></dt><dd>Frame-sampled checks of the motion rules: no overshoot, no jumps, held under the pointer, monotonic, tempo, and content scale.</dd></div>
+        </dl>
+        <p class="not"><b>It doesn't</b> decide where anything goes, and it draws nothing of its own. The core touches no DOM; no framework.</p>
+        <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code> <ExtLink href={motionPart.readme}>README on GitHub</ExtLink></p>
+      </article>
+      <article class="does-col p" aria-labelledby="does-placement">
+        <h3 id="does-placement"><code>@n-uf/placement</code> <span>where things go</span></h3>
+        <p>For the same apps: it works out where windows, panels and toolbar groups go, as the space changes and while something is dragged. You give it state and a size; it gives back rects, notes on what gave way, and drop targets.</p>
+        <dl class="entries">
+          <div><dt><code>@n-uf/placement</code></dt><dd>Rects and points (<code>rect</code>, <code>overlap</code>, <code>clampInto</code>) and a popup positioner that flips, slides and resizes to fit.</dd></div>
+          <div><dt><code>./dock</code></dt><dd>Nine desk constructions as pure layouts (edge docks, a tiling tree, a navigator, a scrolling strip, drawers, floating palettes, tear-off), with give-way notes whose codes are stable.</dd></div>
+          <div><dt><code>./toolbar</code></dt><dd>Toolbar groups in five hosts × three zones, or floating; insertion points, and trailing-first collapse when a host runs out of room.</dd></div>
+          <div><dt><code>./targets</code></dt><dd>Drop targets in the shape motion's drag takes, for the desk's constructions, toolbar hosts and pane zones.</dd></div>
+        </dl>
+        <p class="not"><b>It doesn't</b> move or draw anything: plain state in, rects and targets out. No DOM, no dependencies.</p>
+        <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code> <ExtLink href={placementPart.readme}>README on GitHub</ExtLink></p>
+      </article>
+    </div>
+    <p class="does-together"><b>Alone or together.</b> They compose without importing each other: placement's targets are what motion's drag takes, and its rects are what motion's layout glides to.</p>
+  </section>
+
+  <!-- Use one, or both: three cards, then one example per package (each compiled against it). -->
+  <section class="wrap section use-pair" aria-labelledby="use-pair-title">
+    <div class="section-head">
+      <span class="eyebrow">Use one, or both</span>
+      <h2 id="use-pair-title">Pick what you need</h2>
+    </div>
+    <div class="use-cards">
+      <div class="use-card m"><h3>Motion alone</h3><p>Animate your own layout: give each element its rect and it glides there.</p></div>
+      <div class="use-card p"><h3>Placement alone</h3><p>Compute layouts and drop targets, and draw them your way.</p></div>
+      <div class="use-card both"><h3>Both</h3><p>A full desk where the drop is what was shown, and every change glides.</p></div>
+    </div>
+    <PairCode />
+  </section>
 
   <CodeTabs />
 
-  <section class="wrap section pitch" aria-label="What the library does">
-    <div class="pitch-grid">
-      <article>
-        <span class="pitch-k">settle</span>
-        <h2>No overshoot, ever</h2>
-        <p>A critically damped spring launched from where the window is drawn: 90 % of the way in <b class="num">{ninety} ms</b>, no bounce on position, no wobble on size, whatever the retargets.</p>
-      </article>
-      <article>
-        <span class="pitch-k">reveal</span>
-        <h2>Reveal, never stretch</h2>
-        <p>Content is laid out once at its target size. A gliding window moves and clips it: one transform and one clip per frame, and text is never scaled.</p>
-      </article>
-      <article>
-        <span class="pitch-k">hold</span>
-        <h2>Held means held</h2>
-        <p>What a pointer owns sits exactly under it, in the same frame: the pointer minus the grab offset. On release it settles from where it was let go.</p>
-      </article>
-      <article>
-        <span class="pitch-k">intent</span>
-        <h2>A drag-intent model</h2>
-        <p>A drop indicator appears only once you aim, holds on borders instead of flickering, and the drop lands exactly where it showed.</p>
-      </article>
-    </div>
-  </section>
-
-  <section class="wrap section part" aria-labelledby="part-motion">
+  <!-- Explore: the four demo pages, grouped by package. -->
+  <section class="wrap section explore" aria-labelledby="explore-title">
     <div class="section-head">
-      <span class="eyebrow"><code>{motionPart.pkg}</code></span>
-      <h2 id="part-motion">{motionPart.title}</h2>
-      <p><ExtLink href={motionPart.readme}>{motionPart.pkg} README on GitHub</ExtLink></p>
+      <span class="eyebrow">Explore</span>
+      <h2 id="explore-title">Four interactive pages</h2>
     </div>
+    <p class="explore-k m">Move · <code>{motionPart.pkg}</code></p>
     <div class="cards">
       <article class="card">
         <div class="thumb"><svg id="thumb-motion" viewBox={`0 0 ${CURVE.W} ${CURVE.H}`} width={CURVE.W} height={CURVE.H} aria-hidden="true" set:html={curveSVG(CURVE.Tms)} /></div>
@@ -96,22 +147,15 @@ const ninety = ninetyPercentMs();
         <div class="card-body"><span class="eyebrow"><span class="n">02</span> Drag intent</span><h3><a href="/drag-intent/">An indicator only once you aim</a></h3><p>Drag a panel yourself or replay recorded paths, and count the indicator's flashes in this model and a naive one.</p></div>
       </article>
     </div>
-  </section>
-
-  <section class="wrap section part" aria-labelledby="part-placement">
-    <div class="section-head">
-      <span class="eyebrow"><code>{placementPart.pkg}</code></span>
-      <h2 id="part-placement">{placementPart.title}</h2>
-      <p><ExtLink href={placementPart.readme}>{placementPart.pkg} README on GitHub</ExtLink></p>
-    </div>
+    <p class="explore-k p">Place · <code>{placementPart.pkg}</code></p>
     <div class="cards">
       <article class="card">
         <div class="thumb"><svg id="thumb-desk" viewBox="0 0 280 150" width="280" height="150" aria-hidden="true" set:html={deskThumbSVG()} /></div>
-        <div class="card-body"><span class="eyebrow"><span class="n">03</span> Desk layouts</span><h3><a href="/desk-layouts/">Nine ways to build a desk</a></h3><p>Docks, tiling trees, strips, drawers and palettes, laid out live as width and height run out.</p></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">03</span> Desk layouts</span><h3><a href="/desk-layouts/">Nine ways to build a desk</a></h3><p>Docks, one tiling tree, a strip, drawers and palettes, laid out live as width and height run out.</p></div>
       </article>
       <article class="card">
         <div class="thumb"><div class="t-win" aria-hidden="true"><div class="t-bar" id="thumb-bar"><span class="t-group"><i class="t-g"></i><b style="width:46px"></b></span><span class="t-group"><i class="t-g"></i><b></b><b></b><b></b></span><span class="t-group"><i class="t-g"></i><b></b><b class="on"></b></span><span class="t-group"><i class="t-g"></i><b style="width:30px"></b></span></div><div class="t-doc"><span></span></div></div></div>
-        <div class="card-body"><span class="eyebrow"><span class="n">04</span> Toolbar groups</span><h3><a href="/toolbar-groups/">One handle per group</a></h3><p>Five hosts, three zones, floating and collapsing groups, and a lock that hides every grip until you hold Alt.</p></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">04</span> Toolbar groups</span><h3><a href="/toolbar-groups/">One handle per group</a></h3><p>Five hosts, three zones, floating and collapsing groups, all from one drag handle each.</p></div>
       </article>
     </div>
   </section>
