@@ -21,8 +21,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
     the grace keeps never shows;
   - room after 160 ms, also when the place within a target changes; never
     for a free target;
-  - a release lands on the shown target within its band, else the one under
-    the pointer, else nowhere; over home it does nothing. `hide()` starts the
+  - a release lands on the shown target whenever one shows (drop = shown),
+    else the one under the pointer, else nowhere; over home it does nothing. `hide()` starts the
     aim afresh (the next sample never aims).
   `DRAG_DEFAULTS` holds the numbers, each overridable; `targetAt`, `inRect`
   and `liftDecision` (a mouse lifts at 5 px, a touch after a 180 ms hold and

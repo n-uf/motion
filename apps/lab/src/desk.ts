@@ -359,8 +359,8 @@ function show(d: Drop | null, now: number, roomFor: string | null, flying = fals
 }
 
 /**
- * Drop the lifted item. A release lands on the indicator's target if the pointer is within its band, else on the
- * target under the pointer, else nowhere: the item settles home (as on a release over home, Escape or a cancel).
+ * Drop the lifted item. A release lands on the indicator's target whenever one shows, else on the target under the
+ * pointer, else nowhere: the item settles home (as on a release over home, Escape or a cancel).
  */
 function endDrag(cancel = false): void {
   const it = lifted;
@@ -378,10 +378,9 @@ function endDrag(cancel = false): void {
       landed = t.id;
     }
     if (!keys) {
-      // The rule, checked from what the page showed: the indicator's target within its band, else what is under the
-      // pointer.
+      // The rule, checked from what the page showed: the indicator's target, else what is under the pointer.
       const showing = shown ? targets.find((x) => x.id === shown!.target) : undefined;
-      const said = inRect(home.rect, pointer) ? null : showing && inRect(showing.hit, pointer, DRAG_DEFAULTS.band) ? showing.id : (targetAt(targets, pointer)?.id ?? null);
+      const said = inRect(home.rect, pointer) ? null : showing ? showing.id : (targetAt(targets, pointer)?.id ?? null);
       episode?.release.push(said === landed ? null : `landed on ${landed ?? "home"}, but the indicator said ${said ?? "home"}`);
     }
   }
@@ -1088,13 +1087,13 @@ function record(ep: NonNullable<typeof episode>): void {
 }
 
 /**
- * An indicator replaced, or hidden while the pointer aims, less than the drag model's flash time after it showed is a flash (a
+ * An indicator replaced, or hidden while the pointer aims, less than the drag model's switch hold after it showed is a flash (a
  * hide because the pointer started flying is not).
  */
 function flashes(log: readonly IndicatorEntry[]): (string | null)[] {
   return log.map((e, i) => {
     const next = log[i + 1];
-    return e.id !== null && next && !(next.id === null && next.flying) && next.t - e.t < DRAG_DEFAULTS.flash ? `the indicator on ${e.id} showed for ${Math.round(next.t - e.t)} ms` : null;
+    return e.id !== null && next && !(next.id === null && next.flying) && next.t - e.t < DRAG_DEFAULTS.switchHold ? `the indicator on ${e.id} showed for ${Math.round(next.t - e.t)} ms` : null;
   });
 }
 
