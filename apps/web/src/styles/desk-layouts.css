@@ -1,7 +1,5 @@
 /* Desk constructions: the fitted drawing, its controls and the comparison table. */
 .deskfig { --stage-h: 600px; }
-.figure-bar.sub { min-height: 48px; background: var(--bg-subtle); }
-.figure-bar .field .label { margin-right: 2px; }
 /* The stage is a size container; the drawing fits it at its own aspect ratio (--w, --h), up to twice its size. */
 #stage { position: relative; min-width: 720px; height: 100%; display: flex; align-items: center; justify-content: center; padding: 16px; overflow: hidden; }
 .deskfig .stage-wrap > #stage { container-type: size; }
@@ -15,9 +13,8 @@
   font-family: var(--font-sans);
 }
 #desk text { font-family: var(--font-sans); }
-.deskfig .figure-foot { display: grid; gap: 6px; padding-bottom: 14px; }
-.figure-foot .idea { color: var(--text-2); font-size: var(--t-sm); max-width: 92ch; }
-.figure-foot .legend { padding-top: 4px; }
+.figure-note > p { margin: 0 0 6px; max-width: 92ch; }
+.figure-note .legend { padding-top: 4px; }
 
 .compare-scroll { max-height: none; }
 .compare { min-width: 1480px; table-layout: fixed; }

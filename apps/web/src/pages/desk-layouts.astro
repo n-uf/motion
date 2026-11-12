@@ -1,6 +1,9 @@
 ---
 import Site from "../layouts/Site.astro";
 import CaseRail from "../components/CaseRail.astro";
+import Chrome from "../components/Chrome.astro";
+import Playback from "../components/Playback.astro";
+import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode } from "../data/schema";
 import { ASPECTS, BOTTOM_MODES, CARDS, DEFAULT, DEFAULT_OPTS, TABLE, TOOLBAR_MODES, deskSVG, layout } from "../demos/desk";
@@ -23,34 +26,32 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
 <Site title={page.title} description={page.description} path={path} headline="Nine ways to build a desk, and what each gives way." jsonLd={jsonLd} ogImage="/og/desk-layouts.png">
   <p class="lead" slot="lead">This page lays out one desk nine ways: a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and a few open documents. Pick a construction and the stage lays it out live by that construction's own rules. Drag the sliders to see what gives way when width or height runs out; every box settles to its new place from wherever it is drawn.</p>
 
-  <figure class="figure deskfig" id="figure" aria-label="Desk layouts: nine constructions laid out live at a size you choose">
-    <div class="figure-bar">
+  <Chrome id="figure" class="deskfig" label="Desk layouts: nine constructions laid out live at a size you choose"
+    groups={[{ id: "title", name: "Title" }, { id: "presets", name: "Size presets" }, { id: "size", name: "Size" }, { id: "options", name: "Options" }, { id: "playback", name: "Speed" }]}
+    model={arrangement({ title: { start: ["title"], end: ["presets"] }, top: { start: ["size"] }, bottom: { start: ["options"], end: ["playback"] } })}>
+    <span class="ident" slot="title"><span class="name">Desk layouts</span><span class="page" id="desk-name">{first.title}</span></span>
+    <Fragment slot="presets"><span class="lab">Size</span><span id="presets" class="tb-row">{presets.map(([p, l]) => <button type="button" class="tb text" data-p={p} aria-pressed={String(p === `${DEFAULT.W},${DEFAULT.H}`)}>{l}</button>)}</span></Fragment>
+    <Fragment slot="size">
       <label class="field">Width <input id="w" type="range" min="480" max="1440" step="10" value={DEFAULT.W} style={pct(DEFAULT.W, 480, 1440)} /><output id="wo">{DEFAULT.W}</output></label>
       <label class="field">Height <input id="h" type="range" min="320" max="820" step="10" value={DEFAULT.H} style={pct(DEFAULT.H, 320, 820)} /><output id="ho">{DEFAULT.H}</output></label>
       <label class="field">Documents <input id="n" type="range" min="1" max="4" step="1" value={DEFAULT.n} style={`width:84px;${pct(DEFAULT.n, 1, 4)}`} /><output id="no">{DEFAULT.n}</output></label>
-      <span class="spacer"></span>
-      <span class="seg" id="presets" role="group" aria-label="Presets">
-        {presets.map(([p, l]) => <button type="button" data-p={p} aria-pressed={String(p === `${DEFAULT.W},${DEFAULT.H}`)}>{l}</button>)}
-      </span>
-    </div>
-    <div class="figure-bar sub" id="segs">
-      <div class="field"><span class="label">Toolbar</span><span class="seg">{TOOLBAR_MODES.map((m) => <button type="button" aria-pressed={String(m[0] === DEFAULT_OPTS.toolbar && m[1] === DEFAULT_OPTS.toolbarSpace)}>{m[2]}</button>)}</span></div>
-      <div class="field"><span class="label">Bottom dock</span><span class="seg">{BOTTOM_MODES.map((m) => <button type="button" aria-pressed={String(m[0] === DEFAULT_OPTS.bottom && m[1] === DEFAULT_OPTS.bottomSpace)}>{m[2]}</button>)}</span></div>
-    </div>
+    </Fragment>
+    <span class="tb-row" id="segs" slot="options"><span class="lab">Toolbar</span>{TOOLBAR_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === DEFAULT_OPTS.toolbar && m[1] === DEFAULT_OPTS.toolbarSpace)}>{m[2]}</button>)}<span class="lab">Bottom dock</span>{BOTTOM_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === DEFAULT_OPTS.bottom && m[1] === DEFAULT_OPTS.bottomSpace)}>{m[2]}</button>)}</span>
+    <Fragment slot="playback"><Playback /></Fragment>
     <div class="figure-body">
       <CaseRail id="cases" label="Constructions" items={CARDS.map((c) => ({ name: c.title, note: c.note, tag: c.pick ? "default" : undefined }))} active={active} />
-      <div class="stage-wrap"><div id="stage">
+      <div class="stage-wrap stage-host"><div id="stage">
         <svg id="desk" role="img" aria-label={`${first.title} desk layout`} viewBox={`0 0 ${DEFAULT.W} ${DEFAULT.H}`} width={DEFAULT.W} height={DEFAULT.H} style={`--w:${DEFAULT.W};--h:${DEFAULT.H}`} set:html={deskSVG(DEFAULT.W, DEFAULT.H, boxes)} />
       </div></div>
     </div>
-    <figcaption class="figure-foot">
-      <span class="status" id="status" role="status">{notes.length ? <><b>Gives way:</b> {notes.join("; ")}</> : <><b>Everything fits</b> at its natural size.</>}</span>
-      <span class="idea" id="idea" set:html={first.idea} />
-      <span class="legend">
-        <span style="--c: var(--d-ink); --b: var(--d-ink)">toolbar</span><span style="--c: var(--d-panel); --b: var(--d-panel-line)">panel</span><span style="--c: var(--d-rail)">rail / tabs</span><span style="--c: var(--d-doc); --b: var(--d-doc-line)">document</span><span style="--c: var(--d-float-head); --b: var(--d-float-line)">floats over the documents</span><span style="--c: transparent; --b: var(--accent)">bottom dock</span>
-      </span>
-    </figcaption>
-  </figure>
+  </Chrome>
+  <div class="figure-note">
+    <p id="status" role="status">{notes.length ? <><b>Gives way:</b> {notes.join("; ")}</> : <><b>Everything fits</b> at its natural size.</>}</p>
+    <p id="idea" set:html={first.idea} />
+    <p class="legend">
+      <span style="--c: var(--d-ink); --b: var(--d-ink)">toolbar</span><span style="--c: var(--d-panel); --b: var(--d-panel-line)">panel</span><span style="--c: var(--d-rail)">rail / tabs</span><span style="--c: var(--d-doc); --b: var(--d-doc-line)">document</span><span style="--c: var(--d-float-head); --b: var(--d-float-line)">floats over the documents</span><span style="--c: transparent; --b: var(--accent)">bottom dock</span>
+    </p>
+  </div>
 
   <section class="section">
     <div class="section-head">
