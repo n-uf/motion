@@ -4,19 +4,25 @@
 // asks for the snippet back in the typecheck. (run: npm test)
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const web = join(dirname(fileURLToPath(import.meta.url)), "..");
 const tsconfig = JSON.parse(readFileSync(join(web, "tsconfig.json"), "utf8"));
-const exportsOf = JSON.parse(readFileSync(join(web, "../../packages/motion/package.json"), "utf8")).exports;
+/** Each package of the pair's exports, from the workspace ({} while a package isn't in it yet). */
+const pkgExports = (name) => {
+  const f = join(web, `../../packages/${name}/package.json`);
+  return existsSync(f) ? JSON.parse(readFileSync(f, "utf8")).exports : {};
+};
+const exportsOf = { motion: pkgExports("motion"), placement: pkgExports("placement") };
 const snippets = readdirSync(join(web, "src/snippets")).filter((f) => f.endsWith(".ts"));
 const excluded = new Set(tsconfig.exclude ?? []);
 
-/** The package entries a snippet imports: "." for the root, "./layout" for @n-uf/motion/layout. */
+/** The package entries a snippet imports: "motion ." for the root, "placement ./toolbar" for @n-uf/placement/toolbar. */
 const entriesOf = (file) =>
-  [...readFileSync(join(web, "src/snippets", file), "utf8").matchAll(/from "@n-uf\/motion(\/[\w-]+)?"/g)].map((m) => (m[1] ? `.${m[1]}` : "."));
+  [...readFileSync(join(web, "src/snippets", file), "utf8").matchAll(/from "@n-uf\/(motion|placement)(\/[\w-]+)?"/g)].map((m) => `${m[1]} ${m[2] ? `.${m[2]}` : "."}`);
+const has = (entry) => { const [pkg, e] = entry.split(" "); return e in exportsOf[pkg]; };
 
 test("there are snippets, and the typecheck includes their folder", () => {
   assert.ok(snippets.length >= 1);
@@ -25,8 +31,8 @@ test("there are snippets, and the typecheck includes their folder", () => {
 
 for (const file of snippets) {
   const entries = entriesOf(file);
-  const missing = entries.filter((e) => !(e in exportsOf));
-  test(`snippet ${file}: typechecked once the library exports ${entries.join(", ")}`, () => {
+  const missing = entries.filter((e) => !has(e));
+  test(`snippet ${file}: typechecked once the packages export ${entries.join(", ")}`, () => {
     assert.ok(entries.length >= 1, "a snippet imports the library");
     if (missing.length === 0) {
       assert.ok(!excluded.has(`src/snippets/${file}`), `remove "src/snippets/${file}" from tsconfig.json "exclude": the library exports ${entries.join(", ")} now`);

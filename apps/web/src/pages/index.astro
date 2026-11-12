@@ -12,6 +12,9 @@ import { orgNode, software, webPage, webSite } from "../data/schema";
 import { DEMO, WINDOWS, CURVE, TOOLS, curveSVG, deskThumbSVG, demoWindowHTML, firstLayoutStyle, ninetyPercentMs } from "../demos/home";
 import "../styles/home.css";
 import CodeTabs from "../components/CodeTabs.astro";
+import PairCode from "../components/PairCode.astro";
+import { partOf } from "../data/parts";
+const [motionPart, placementPart] = [partOf("motion"), partOf("placement")];
 
 const page = pageOf("/");
 const jsonLd = [
@@ -25,9 +28,9 @@ const ninety = ninetyPercentMs();
 <Site title={page.title} description={page.description} path="/" jsonLd={jsonLd} ogImage="/og.png">
   <section class="hero wrap">
     <div class="hero-copy">
-      <span class="eyebrow">@n-uf/motion</span>
+      <span class="eyebrow">@n-uf/motion · @n-uf/placement</span>
       <h1>Motion that settles, and never overshoots.</h1>
-      <p class="lead">n-uf motion is a small TypeScript library for windows, panels and toolbars that move like a good tiling window manager: one frame loop with an injected clock, one curve for every move, content that is never stretched, and drags that stay under the pointer.</p>
+      <p class="lead">n-uf motion is a pair of small TypeScript packages for windows, panels and toolbars that behave like a good tiling window manager. <b>@n-uf/motion</b> is how things move: one frame loop with an injected clock, one curve for every move, content that is never stretched, and drags that stay under the pointer. <b>@n-uf/placement</b> is where things go: docks, rails, palettes and toolbar groups, plain state in, rects and drop targets out.</p>
       <div class="install">
         <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code>
         <a class="btn primary" href="/window-motion/">See the motion rules<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg></a>
@@ -53,6 +56,8 @@ const ninety = ninetyPercentMs();
       </div>
     </Chrome>
   </section>
+
+  <PairCode />
 
   <CodeTabs />
 
@@ -81,10 +86,11 @@ const ninety = ninetyPercentMs();
     </div>
   </section>
 
-  <section class="wrap section">
+  <section class="wrap section part" aria-labelledby="part-motion">
     <div class="section-head">
-      <span class="eyebrow">Explore</span>
-      <h2>Four interactive pages, one set of rules</h2>
+      <span class="eyebrow"><code>{motionPart.pkg}</code></span>
+      <h2 id="part-motion">{motionPart.title}</h2>
+      <p>{motionPart.idea} <ExtLink href={motionPart.readme}>README on GitHub</ExtLink></p>
     </div>
     <div class="cards">
       <article class="card">
@@ -95,6 +101,16 @@ const ninety = ninetyPercentMs();
         <div class="thumb"><div class="t-stage" id="thumb-drag" aria-hidden="true"><i class="t-z" style="left:14px;top:14px;width:62px;height:70px"></i><i class="t-z home" style="left:14px;top:92px;width:62px;height:44px"></i><i class="t-z doc" style="left:84px;top:14px;width:94px;height:122px"></i><i class="t-z" style="left:186px;top:14px;width:80px;height:40px"></i><i class="t-z" style="left:186px;top:96px;width:80px;height:40px"></i><i class="t-ind" style="left:186px;top:58px;width:80px;height:34px"></i><i class="t-chip" style="transform:translate(14px,99px)"></i></div></div>
         <div class="card-body"><span class="eyebrow"><span class="n">02</span> Drag intent</span><h3><a href="/drag-intent/">An indicator only once you aim</a></h3><p>Drag a panel yourself or replay recorded paths, and count the indicator's flashes in this model and a naive one.</p></div>
       </article>
+    </div>
+  </section>
+
+  <section class="wrap section part" aria-labelledby="part-placement">
+    <div class="section-head">
+      <span class="eyebrow"><code>{placementPart.pkg}</code></span>
+      <h2 id="part-placement">{placementPart.title}</h2>
+      <p>{placementPart.idea} <ExtLink href={placementPart.readme}>README on GitHub</ExtLink></p>
+    </div>
+    <div class="cards">
       <article class="card">
         <div class="thumb"><svg id="thumb-desk" viewBox="0 0 280 150" width="280" height="150" aria-hidden="true" set:html={deskThumbSVG()} /></div>
         <div class="card-body"><span class="eyebrow"><span class="n">03</span> Desk layouts</span><h3><a href="/desk-layouts/">Nine ways to build a desk</a></h3><p>Docks, tiling trees, strips, drawers and palettes, laid out live as width and height run out.</p></div>

@@ -1,0 +1,31 @@
+---
+// The pair, side by side: one short example per package (how things move, where things go). Each is a file in
+// src/snippets/ shown from that same file (`?raw`) and typechecked against the packages; they compose without
+// importing each other (placement's targets are what motion's drag intent takes).
+import { Code } from "astro:components";
+import ExtLink from "./ExtLink.astro";
+import { PARTS } from "../data/parts";
+import { codeTheme } from "./code-theme";
+import motionCode from "../snippets/pair-motion.ts?raw";
+import placementCode from "../snippets/pair-placement.ts?raw";
+import "../styles/code-tabs.css";
+
+const code = { motion: motionCode, placement: placementCode } as const;
+const entries = { motion: "/drag + /layout", placement: "/toolbar + /targets" } as const;
+---
+<section class="wrap section pair" aria-labelledby="pair-title">
+  <div class="section-head">
+    <span class="eyebrow">Two packages</span>
+    <h2 class="section-title" id="pair-title">How things move, and where things go</h2>
+    <p>Two packages with the same licence and the same version, each usable alone. A target list from <code>@n-uf/placement/targets</code> is exactly what <code>@n-uf/motion/drag</code> takes, and a rect from any placement is what <code>@n-uf/motion/layout</code> glides to. Switch on <b>X-ray</b> in any demo window to see which part does what.</p>
+  </div>
+  <div class="pair-grid">
+    {PARTS.map((pt) => (
+      <div class="ct pair-col">
+        <div class="ct-bar pair-bar"><span class="pair-title">{pt.title}</span><code class="pair-pkg">{pt.pkg}<span class="pair-entries"> {entries[pt.id]}</span></code></div>
+        <Code code={code[pt.id].trimEnd()} lang="ts" theme={codeTheme} class="ct-code" />
+        <p class="ct-foot"><span class="ct-note"><code>npm i {pt.pkg}</code></span> <span class="ct-links"><ExtLink href={pt.readme}>README on GitHub</ExtLink></span></p>
+      </div>
+    ))}
+  </div>
+</section>
