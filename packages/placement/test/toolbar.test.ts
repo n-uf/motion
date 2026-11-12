@@ -58,6 +58,23 @@ describe("a host's layout", () => {
     expect([roomy.overflow, roomy.collapsed]).toEqual([[], ["edit"]]);
   });
 
+  it("a group with a higher keep stays open longer; equal keeps still fold from the trailing end", () => {
+    type K = "doc" | "edit" | "view" | "zoom" | "redact";
+    const len: Record<K, number> = { doc: 160, edit: 90, view: 110, zoom: 100, redact: 120 };
+    const sz: GroupSize<K> = (g, _v, collapsed) => ({ along: collapsed ? 30 : len[g], across: 28 });
+    const zones = { start: ["doc", "edit"], center: [], end: ["view", "zoom", "redact"] } as const;
+    const s: HostSpec<K> = { length: 590, thickness: 34, lead: 20, tail: 20 };
+    // Trailing-first alone, Redact (last at the end) folds first and is enough.
+    expect(layoutHost<K>(zones, "top", s, sz).overflow).toEqual(["redact"]);
+    // With a keep of 1 it stays open; the others fold, zoom before view (trailing first among equals).
+    const kept = layoutHost<K>(zones, "top", { ...s, keep: { redact: 1 } }, sz);
+    expect(kept.overflow).toEqual(["zoom", "view"]);
+    expect(kept.collapsed).not.toContain("redact");
+    expect(kept.need).toBeLessThanOrEqual(590);
+    // A lower keep folds before everything with the default.
+    expect(layoutHost<K>(zones, "top", { ...s, keep: { doc: -1 } }, sz).overflow).toEqual(["doc"]);
+  });
+
   it("a side edge lays its groups out top to bottom, centred across it", () => {
     const l = layoutHost<Gr>({ start: ["edit", "history"], center: [], end: [] }, "left", spec(600), size);
     const e = l.slots.get("edit")!;
