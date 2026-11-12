@@ -32,7 +32,6 @@ section.hx > .section-head::after { content: ""; position: absolute; left: 0; ri
   linear-gradient(var(--line-3), var(--line-3)) 0 4px / 100% 1px no-repeat; }
 section.hx > .section-head::before { content: counter(hx, decimal-leading-zero) / ""; position: absolute; left: 14px; top: -2px; z-index: 1; padding: 0 8px; background: var(--bg); font: 600 var(--t-cap) / 13px var(--font-mono); letter-spacing: 0.06em; color: var(--text-3); }
 section.hx > .section-head .eyebrow { letter-spacing: 0.1em; }
-.loop .section-head { padding-top: 30px; }
 
 /* The loop's claims: an annotated list. A lettered tag, a leader line running to the claim. */
 .loop-claims { counter-reset: cl; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--s7); margin: var(--s5) 0 var(--s5); padding: 0; list-style: none; font-size: 14px; line-height: 1.55; color: var(--text-2); }
