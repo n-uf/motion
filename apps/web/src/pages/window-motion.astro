@@ -77,13 +77,13 @@ const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: s
       <p>What Hyprland does (from its source and a recording), what a tiling library and a host app do today, and what the proposal does: one settle for every move, held drags, reveal instead of stretch.</p>
     </div>
     <div class="engines">
-      <div class="engines-head" aria-hidden="true"><span></span><span>Hyprland (source + recording)</span><span>hypr-tiling 26.11.2</span><span>Host app today</span><span>Proposed (@n-uf/motion)</span></div>
+      <div class="engines-head" aria-hidden="true"><span></span><span>Hyprland (source + recording)</span><span>hypr-tiling today</span><span>Host app today</span><span>Proposed (@n-uf/motion)</span></div>
       {RULES.map((r) => (
         <div class="engine-rule">
           <h2>{r.rule}</h2>
           <dl>
             <div class="h"><dt>Hyprland</dt><dd>{r.hypr}</dd></div>
-            <div class={r.cls[0]}><dt>hypr-tiling 26.11.2</dt><dd>{r.tiling}</dd></div>
+            <div class={r.cls[0]}><dt>hypr-tiling today</dt><dd>{r.tiling}</dd></div>
             <div class={r.cls[1]}><dt>Host app today</dt><dd>{r.host}</dd></div>
             <div class={r.cls[2]}><dt>Proposed</dt><dd>{r.prop}</dd></div>
           </dl>
