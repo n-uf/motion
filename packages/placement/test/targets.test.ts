@@ -9,7 +9,7 @@ import { desk, docs, fmt, inRect, mid, sameRect } from "./fixture";
 const C = (id: ConstructionId): Construction => desk.constructionOf(id);
 
 describe("desk targets", () => {
-  it("B · every tree drop lands under the pointer, and its label says where", () => {
+  it("tree · every tree drop lands under the pointer, and its label says where", () => {
     const c = C("tree");
     const fails: string[] = [];
     for (const [W, H] of [[960, 560], [1440, 820], [760, 420]] as const) {
@@ -47,7 +47,7 @@ describe("desk targets", () => {
     expect(fails.slice(0, 3)).toEqual([]);
   });
 
-  it("A, A2, C, E · a slot drop lands in its slot; a rail drop folds into the rail", () => {
+  it("docks, docksFull, dockTear, navigator, drawers · a slot drop lands in its slot; a rail drop folds into the rail", () => {
     const fails: string[] = [];
     for (const id of ["docks", "docksFull", "dockTear", "navigator", "drawers"] as const) {
       const c = C(id);
@@ -72,7 +72,7 @@ describe("desk targets", () => {
     expect(fails.slice(0, 3)).toEqual([]);
   });
 
-  it("F1, F2, F3 · a free drop lands where it is let go, snapped to a nearby edge", () => {
+  it("floatOver, floatAround, dockTear · a free drop lands where it is let go, snapped to a nearby edge", () => {
     const size = { width: 1200, height: 800 };
     for (const id of ["floatOver", "floatAround"] as const) {
       const c = C(id);
@@ -88,7 +88,7 @@ describe("desk targets", () => {
     }
   });
 
-  it("D · a drop between columns makes a new column there; inside one, it joins at that place", () => {
+  it("strip · a drop between columns makes a new column there; inside one, it joins at that place", () => {
     const c = C("strip");
     const key = panelKey(3);
     const input = { c, s0: liftOut(c.initial(docs(1)), key), key, size: { width: 1440, height: 900 }, opt: DEFAULT_OPTIONS };

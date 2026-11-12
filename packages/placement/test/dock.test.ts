@@ -76,7 +76,7 @@ describe("layouts", () => {
 });
 
 describe("proportions", () => {
-  it("every construction opens fully docked; only F1 and F2 start with palettes floating", () => {
+  it("every construction opens fully docked; only floatOver and floatAround start with palettes floating", () => {
     const fails: string[] = [];
     for (const c of desk.constructions) {
       for (const [W, H] of [[520, 700], [960, 560], [1440, 900]] as const) {
@@ -154,7 +154,7 @@ describe("proportions", () => {
     expect(fails).toEqual([]);
   });
 
-  it("E · narrow, the two drawers sliding over never overlap", () => {
+  it("drawers · narrow, the two drawers sliding over never overlap", () => {
     const fails: string[] = [];
     const c = C("drawers");
     const s = c.initial(docs(2));
@@ -168,7 +168,7 @@ describe("proportions", () => {
     expect(fails).toEqual([]);
   });
 
-  it("B, D · panels in a column take their natural height; only the column's last one takes the rest", () => {
+  it("tree, strip · panels in a column take their natural height; only the column's last one takes the rest", () => {
     const fails: string[] = [];
     for (const c of [C("tree"), C("strip")]) {
       for (const [W, H] of [[960, 560], [1200, 700], [1440, 900]] as const) {
@@ -200,7 +200,7 @@ describe("give-way", () => {
   const look = (l: Layout, k: string): string | undefined => l.items.get(k)?.look;
   const hidden = (l: Layout, k: string): boolean => !!l.items.get(k)?.hidden;
 
-  it("A · height: the least recently used section folds to its header first, and unfolds with room", () => {
+  it("docks · height: the least recently used section folds to its header first, and unfolds with room", () => {
     const c = C("docks");
     const s = touch(c.initial(docs(2)), 3);
     const opt: Options = { ...DEFAULT_OPTIONS, bottom: "off" };
@@ -211,7 +211,7 @@ describe("give-way", () => {
     expect(look(c.layout(s, { width: 960, height: 560 }, opt), panelKey(4))).toBe("section");
   });
 
-  it("A · a section folded by hand stays folded; unfolding it is a use", () => {
+  it("docks · a section folded by hand stays folded; unfolding it is a use", () => {
     const c = C("docks");
     const s = toggleFold(c.initial(docs(2)), 1);
     expect(look(c.layout(s, { width: 1440, height: 900 }, DEFAULT_OPTIONS), panelKey(1))).toBe("header");
@@ -220,14 +220,14 @@ describe("give-way", () => {
     expect(back.recent.at(-1)).toBe(1);
   });
 
-  it("A · height: the bottom dock folds to its header", () => {
+  it("docks · height: the bottom dock folds to its header", () => {
     const l = C("docks").layout(C("docks").initial(docs(2)), { width: 960, height: 420 }, DEFAULT_OPTIONS);
     expect(look(l, panelKey(5))).toBe("header");
     expect(l.items.get(panelKey(5))!.rect.height).toBeCloseTo(TITLE);
     expect(l.notes).toContain("bottom dock folded to its header");
   });
 
-  it("A · width: the right dock folds to its rail first, then the left", () => {
+  it("docks · width: the right dock folds to its rail first, then the left", () => {
     const c = C("docks");
     const s = c.initial(docs(2));
     const mid = c.layout(s, { width: 760, height: 560 }, DEFAULT_OPTIONS);
@@ -239,7 +239,7 @@ describe("give-way", () => {
     expect([hidden(wide, panelKey(1)), hidden(wide, panelKey(3))]).toEqual([false, false]);
   });
 
-  it("A · opening a dock from its rail folds the other one instead", () => {
+  it("docks · opening a dock from its rail folds the other one instead", () => {
     const c = C("docks");
     const s = toggleClosed({ ...c.initial(docs(2)), closed: ["right"] }, "right");
     expect(s.opened).toBe("right");
@@ -248,7 +248,7 @@ describe("give-way", () => {
     expect(hidden(c.layout(toggleClosed(s, "right"), { width: 760, height: 560 }, DEFAULT_OPTIONS), panelKey(3))).toBe(true);
   });
 
-  it("A2 · the bottom dock keeps the full width; the side docks end above it", () => {
+  it("docksFull · the bottom dock keeps the full width; the side docks end above it", () => {
     const c = C("docksFull");
     const l = c.layout(c.initial(docs(2)), { width: 520, height: 560 }, DEFAULT_OPTIONS);
     const b = l.items.get(panelKey(5))!.rect;
@@ -259,7 +259,7 @@ describe("give-way", () => {
     expect(short.items.get("rail:left")!.rect.height).toBeGreaterThan(rail.height);
   });
 
-  it("B · width: the newest tile that breaks a minimum floats, newest first", () => {
+  it("tree · width: the newest tile that breaks a minimum floats, newest first", () => {
     const c = C("tree");
     const s = c.initial(docs(3));
     const l = c.layout(s, { width: 760, height: 560 }, DEFAULT_OPTIONS);
@@ -269,7 +269,7 @@ describe("give-way", () => {
     expect([...c.layout(s, { width: 1440, height: 900 }, DEFAULT_OPTIONS).items].filter(([, p]) => p.layer === LAYER.float)).toEqual([]);
   });
 
-  it("B · opened narrow, the side columns start folded to rails so nothing floats", () => {
+  it("tree · opened narrow, the side columns start folded to rails so nothing floats", () => {
     const c = C("tree");
     const s = c.initial(docs(2), { width: 520, height: 700 });
     expect(s.closed.length).toBeGreaterThan(0);
@@ -277,7 +277,7 @@ describe("give-way", () => {
     expect([...l.items].filter(([k, p]) => /^(panel|doc):/.test(k) && !p.hidden && p.layer === LAYER.float)).toEqual([]);
   });
 
-  it("C · narrow, the sides fold to icon tabs (the inspector first)", () => {
+  it("navigator · narrow, the sides fold to icon tabs (the inspector first)", () => {
     const c = C("navigator");
     // No bottom dock here: its panels start on the right side.
     expect([c.initial(docs(2)).right, c.initial(docs(2)).bottom]).toEqual([[3, 4, 5], []]);
@@ -286,7 +286,7 @@ describe("give-way", () => {
     expect(c.layout(c.initial(docs(2)), { width: 520, height: 560 }, DEFAULT_OPTIONS).notes).toContain("navigator folded to icon tabs");
   });
 
-  it("D · short on height, a column splits in two; the strip scrolls to the focus", () => {
+  it("strip · short on height, a column splits in two; the strip scrolls to the focus", () => {
     const c = C("strip");
     const l = c.layout(c.initial(docs(2)), { width: 960, height: 420 }, DEFAULT_OPTIONS);
     expect(l.notes.some((n) => n.includes("split into two columns"))).toBe(true);
@@ -296,7 +296,7 @@ describe("give-way", () => {
     expect(focused.x + focused.width).toBeLessThanOrEqual(960);
   });
 
-  it("E · below its width a drawer slides over the documents instead of pushing them", () => {
+  it("drawers · below its width a drawer slides over the documents instead of pushing them", () => {
     const c = C("drawers");
     const wide = c.layout(c.initial(docs(2)), { width: 1200, height: 560 }, DEFAULT_OPTIONS);
     const narrow = c.layout(c.initial(docs(2)), { width: 900, height: 560 }, DEFAULT_OPTIONS);
@@ -309,7 +309,7 @@ describe("give-way", () => {
     expect(end(narrow)).toBe(900 - 34 - 6);
   });
 
-  it("F1 · short on height, the least recently used palettes shade to their title bars", () => {
+  it("floatOver · short on height, the least recently used palettes shade to their title bars", () => {
     const c = C("floatOver");
     const s = touch(c.initial(docs(2)), 3);
     const l = c.layout(s, { width: 960, height: 420 }, DEFAULT_OPTIONS);
@@ -319,7 +319,7 @@ describe("give-way", () => {
     expect(l.notes.some((n) => n.includes("shaded to"))).toBe(true);
   });
 
-  it("F1, F2 · narrow, both stacks share the right corner", () => {
+  it("floatOver, floatAround · narrow, both stacks share the right corner", () => {
     for (const c of [C("floatOver"), C("floatAround")]) {
       const l = c.layout(c.initial(docs(2)), { width: 600, height: 900 }, DEFAULT_OPTIONS);
       expect(l.notes).toContain("both stacks share the right corner");
@@ -330,7 +330,7 @@ describe("give-way", () => {
     }
   });
 
-  it("F3 · a torn-off panel too tall for where it floats shades to its title bar", () => {
+  it("dockTear · a torn-off panel too tall for where it floats shades to its title bar", () => {
     const c = C("dockTear");
     const s = { ...c.initial(docs(2)), right: [4], torn: [{ id: 3, at: { x: 400, y: 500 } }] };
     const l = c.layout(s, { width: 1200, height: 560 }, DEFAULT_OPTIONS);
@@ -339,7 +339,7 @@ describe("give-way", () => {
     expect(look(c.layout({ ...s, torn: [{ id: 3, at: { x: 400, y: 100 } }] }, { width: 1200, height: 560 }, DEFAULT_OPTIONS), panelKey(3))).toBe("float");
   });
 
-  it("F1, F2 · with no stretch of its band free, the pill shrinks rather than cover a palette", () => {
+  it("floatOver, floatAround · with no stretch of its band free, the pill shrinks rather than cover a palette", () => {
     for (const c of [C("floatOver"), C("floatAround")]) {
       const tight = { ...c.initial(docs(2)), stacks: { left: [1, 2], right: [3] }, free: [{ id: 4, at: { x: 434, y: 220 } }, { id: 5, at: { x: 518, y: 160 } }] };
       for (const m of TOOLBAR_MODES) {
@@ -357,7 +357,7 @@ describe("give-way", () => {
     for (const id of [1, 2, 3]) expect(overlap(l.items.get(panelKey(id))!.rect, tb)).toBeLessThanOrEqual(1);
   });
 
-  it("F1 · a palette dropped under a bottom pill moves clear, above it", () => {
+  it("floatOver · a palette dropped under a bottom pill moves clear, above it", () => {
     const c = C("floatOver");
     const size = { width: 960, height: 600 };
     const opt: Options = { ...DEFAULT_OPTIONS, toolbar: "bottom", toolbarSpace: "overlay" };
@@ -370,7 +370,7 @@ describe("give-way", () => {
     expect(d.slot.y + d.slot.height).toBeLessThanOrEqual(pill.y);
   });
 
-  it("F3 · a panel torn off floats where it is dropped and docks back on a rail", () => {
+  it("dockTear · a panel torn off floats where it is dropped and docks back on a rail", () => {
     const c = C("dockTear");
     const size = { width: 1200, height: 700 };
     const key = panelKey(3);
@@ -388,7 +388,7 @@ describe("give-way", () => {
     expect(docked.layout.items.get(key)!.look).toBe("section");
   });
 
-  it("F1, F2 · palettes dropped anywhere are never under the pill, in any toolbar mode", () => {
+  it("floatOver, floatAround · palettes dropped anywhere are never under the pill, in any toolbar mode", () => {
     const fails: string[] = [];
     const rnd = seeded(11);
     for (const c of [C("floatOver"), C("floatAround")]) {

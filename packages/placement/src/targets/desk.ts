@@ -2,16 +2,16 @@
  * Each desk construction's drop targets, as pure functions: from the state with the dragged item lifted out, a list
  * of zones with a priority, each able to make the state with the item dropped there.
  *
- * - Edge docks (A, A2, F3): a rail (priority 1) takes the panel at the end of its dock (a folded dock keeps it in
- *   the rail); a slot between sections (2) and the bottom dock (2) take it at that place; F3's documents area (3)
- *   tears it off to float there.
- * - Tiling tree (B): each slot an insertion produces (2), a side column's row or a dwindle region of the centre;
- *   an empty side column's edge (2).
- * - Strip (D): between two columns (2) makes a new column; a gap inside a column (2) puts it there.
- * - Navigator, drawers (C, E): a tab strip (1) at the tab under the pointer, a folded side's rail (1), a side's
- *   panel (3); the panel becomes the side's showing one.
- * - Palettes (F1, F2): a corner stack's column (2) at the place under the pointer; anywhere else in the area (3),
- *   snapped to the area's edges (F1 also to other palettes' edges).
+ * - Edge docks (`docks`, `docksFull`, `dockTear`): a rail (priority 1) takes the panel at the end of its dock (a
+ *   folded dock keeps it in the rail); a slot between sections (2) and the bottom dock (2) take it at that place;
+ *   with tear-off, the documents area (3) tears it off to float there.
+ * - Tiling tree (`tree`): each slot an insertion produces (2), a side column's row or a dwindle region of the
+ *   centre; an empty side column's edge (2).
+ * - Strip (`strip`): between two columns (2) makes a new column; a gap inside a column (2) puts it there.
+ * - Navigator, drawers (`navigator`, `drawers`): a tab strip (1) at the tab under the pointer, a folded side's rail
+ *   (1), a side's panel (3); the panel becomes the side's showing one.
+ * - Palettes (`floatOver`, `floatAround`): a corner stack's column (2) at the place under the pointer; anywhere
+ *   else in the area (3), snapped to the area's edges (over the documents, also to other palettes' edges).
  */
 import { centre, overlap, rect, type Point, type Rect, type Size } from "../geometry";
 import type { Construction } from "../dock/constructions";
@@ -329,7 +329,7 @@ function paletteTargets({ c, s0, key, size, opt }: DeskTargetInput): DeskTarget[
       stops: [area.y + m, ...ids.map((pid) => rectOf(pid).y + rectOf(pid).height + G / 2)].map((y) => ({ x: anchor[side] + pw / 2, y })),
     });
   }
-  // Anywhere: snapped to the area's edges (F1 also to other palettes' edges), kept inside the area.
+  // Anywhere: snapped to the area's edges (over the documents also to other palettes' edges), kept inside the area.
   out.push({
     id: "free",
     priority: 3,

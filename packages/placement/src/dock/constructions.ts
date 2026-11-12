@@ -2,15 +2,15 @@
  * The nine desk constructions, presets built from the parts: a state, the stage size and the options in, a placed
  * rect per item out, plus notes saying how it gave way. How each one gives way when width or height runs out:
  *
- * - A edge docks: sections fold to headers (least recently used first), the bottom dock folds to its header, the
- *   docks fold to their rails (right first). A2 runs the bottom dock across the full width.
- * - B one tiling tree: the newest tile that breaks a minimum floats.
- * - C navigator + inspector: the sides fold to icon tabs; height never matters.
- * - D scrolling strip: a column whose minimums don't fit splits in two; the strip scrolls to the focus.
- * - E drawers: below a width a drawer slides over the documents instead of pushing them.
- * - F1 palettes over the documents, F2 palettes with the documents tiled around them: the least recently used
- *   shade to their title bars; narrow, the stacks merge in one corner.
- * - F3 edge docks + tear-off: as A, and torn-off panels float (and shade when they don't fit).
+ * - Edge docks (`docks`): sections fold to headers (least recently used first), the bottom dock folds to its
+ *   header, the docks fold to their rails (right first). `docksFull` runs the bottom dock across the full width.
+ * - One tiling tree (`tree`): the newest tile that breaks a minimum floats.
+ * - Navigator + inspector (`navigator`): the sides fold to icon tabs; height never matters.
+ * - Scrolling strip (`strip`): a column whose minimums don't fit splits in two; the strip scrolls to the focus.
+ * - Drawers (`drawers`): below a width a drawer slides over the documents instead of pushing them.
+ * - Palettes over the documents (`floatOver`), and palettes with the documents tiled around them (`floatAround`):
+ *   the least recently used shade to their title bars; narrow, the stacks merge in one corner.
+ * - Edge docks + tear-off (`dockTear`): as the edge docks, and torn-off panels float (and shade when they don't fit).
  */
 import { clampInto, rect, type Size } from "../geometry";
 import { columnHeights, share } from "./arrange";
@@ -46,7 +46,7 @@ import {
 } from "./parts";
 import { BAR, G, LAYER, RAIL, TITLE, catalogOf, idOf, isDocKey, panelKey, startState, type Catalog, type DeskSpec, type DeskState, type Layout, type Options, type Side } from "./model";
 
-// --- A, A2, F3: edge docks -----------------------------------------------------------------------------------------
+// --- edge docks (docks, docksFull, dockTear) ------------------------------------------------------------------------
 
 function docks(cat: Catalog, s: DeskState, size: { width: number; height: number }, opt: Options, mode: "between" | "full", notes: string[]): Out {
   const out: Out = new Map();
@@ -87,7 +87,7 @@ function docks(cat: Catalog, s: DeskState, size: { width: number; height: number
   return out;
 }
 
-/** F3: torn-off panels float over the documents; one that doesn't fit the stage's height shades to its title bar. */
+/** Tear-off: torn-off panels float over the documents; one that doesn't fit the stage's height shades to its title bar. */
 function tornOff(cat: Catalog, out: Out, s: DeskState, size: Size, notes: string[]): void {
   const docRects = [...out.entries()].filter(([k]) => isDocKey(k)).map(([, p]) => p.rect);
   const right = docRects.length ? Math.max(...docRects.map((r) => r.x + r.width)) : size.width / 2;
@@ -106,7 +106,7 @@ function tornOff(cat: Catalog, out: Out, s: DeskState, size: Size, notes: string
   if (shaded) notes.push(`${plural(shaded, "floating panel", "floating panels")} shaded`);
 }
 
-// --- B: one tiling tree --------------------------------------------------------------------------------------------
+// --- one tiling tree (tree) --------------------------------------------------------------------------------------------
 
 function tree(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
   const out: Out = new Map();
@@ -134,7 +134,7 @@ function tree(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
 }
 
 /**
- * B's start: on a stage too narrow for the documents to tile between the side columns, the columns start folded to
+ * The tree's start: on a stage too narrow for the documents to tile between the side columns, the columns start folded to
  * their rails (the right one first), then the centre's panels join the folded right column, so nothing floats
  * until a rail icon opens a column.
  */
@@ -147,7 +147,7 @@ function treeStart(cat: Catalog, docs: readonly number[], size?: Size): DeskStat
   return tries.find((st) => treeFloats(cat, treeShown(st), treeArea(size, st)).floats.length === 0) ?? tries.at(-1)!;
 }
 
-// --- C: navigator + inspector, and E: drawers ----------------------------------------------------------------------
+// --- navigator + inspector (navigator), and drawers (drawers) ----------------------------------------------------------------------
 
 const NAV_L = 240;
 const NAV_R = 240;
@@ -217,7 +217,7 @@ function drawers(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
   return out;
 }
 
-// --- D: scrolling strip --------------------------------------------------------------------------------------------
+// --- scrolling strip (strip) --------------------------------------------------------------------------------------------
 
 function strip(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
   const out: Out = new Map();
@@ -242,7 +242,7 @@ function strip(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
   return out;
 }
 
-// --- F1, F2: floating palettes -------------------------------------------------------------------------------------
+// --- floating palettes (floatOver, floatAround) --------------------------------------------------------------------
 
 function floatOver(cat: Catalog, s: DeskState, size: Size, opt: Options, notes: string[]): Out {
   const out: Out = new Map();
@@ -337,7 +337,7 @@ export function createDesk(spec: DeskSpec): Desk {
   const list: Omit<Construction, "desk">[] = [
     {
       id: "docks",
-      title: "A · Edge docks",
+      title: "Edge docks",
       idea: "Each side is a dock with a rail of icons; its panels are accordion sections. Short on height, the least recently used fold to headers; short on width, a whole dock folds to its rail (right first). The bottom dock sits between the side docks.",
       pill: true,
       bottom: true,
@@ -346,8 +346,8 @@ export function createDesk(spec: DeskSpec): Desk {
     },
     {
       id: "docksFull",
-      title: "A2 · Edge docks, full-width bottom dock",
-      idea: "As A, except the bottom dock runs under everything across the full width; the side docks and their rails stop above it, so they fold sooner.",
+      title: "Edge docks, full-width bottom dock",
+      idea: "As the edge docks, except the bottom dock runs under everything across the full width; the side docks and their rails stop above it, so they fold sooner.",
       pill: true,
       bottom: true,
       initial: plain,
@@ -355,7 +355,7 @@ export function createDesk(spec: DeskSpec): Desk {
     },
     {
       id: "tree",
-      title: "B · One tiling tree",
+      title: "One tiling tree",
       idea: "Panels and documents are tiles of one tree, so a panel can sit beside a document. One rule for all: the newest tile that breaks a minimum floats. Opened on a narrow stage, the side columns start folded to rails at its edges.",
       pill: false,
       bottom: false,
@@ -364,7 +364,7 @@ export function createDesk(spec: DeskSpec): Desk {
     },
     {
       id: "navigator",
-      title: "C · Navigator + inspector",
+      title: "Navigator + inspector",
       idea: "A fixed left and right side, one panel showing per side (tabs); the toolbar floats over the canvas. Narrow, the sides fold to icon tabs. Height never matters.",
       pill: true,
       bottom: false,
@@ -373,7 +373,7 @@ export function createDesk(spec: DeskSpec): Desk {
     },
     {
       id: "strip",
-      title: "D · Scrolling strip",
+      title: "Scrolling strip",
       idea: "Panels and documents are columns of a strip wider than the screen; nothing shrinks below its minimum, the view scrolls to the focus instead. Short on height, a column splits in two.",
       pill: false,
       bottom: false,
@@ -382,7 +382,7 @@ export function createDesk(spec: DeskSpec): Desk {
     },
     {
       id: "drawers",
-      title: "E · Drawers",
+      title: "Drawers",
       idea: "Documents take the screen; each side is a drawer with tabs. Wide, the drawers dock and push; narrow, they slide over the documents.",
       pill: false,
       bottom: false,
@@ -391,7 +391,7 @@ export function createDesk(spec: DeskSpec): Desk {
     },
     {
       id: "floatOver",
-      title: "F1 · Floating palettes over the documents",
+      title: "Floating palettes over the documents",
       idea: "Documents take the whole desk; panels are palettes floating over them at their natural size, stacked in the top corners and draggable anywhere. Short on height, the least recently used shade to their title bars; the documents never move.",
       pill: true,
       bottom: false,
@@ -400,7 +400,7 @@ export function createDesk(spec: DeskSpec): Desk {
     },
     {
       id: "floatAround",
-      title: "F2 · Floating palettes, documents tile around",
+      title: "Floating palettes, documents tile around",
       idea: "Palettes float at their natural size but reserve their footprint: the documents tile in the space between them. Nothing is covered; the space under a short stack stays empty.",
       pill: true,
       bottom: false,
@@ -409,8 +409,8 @@ export function createDesk(spec: DeskSpec): Desk {
     },
     {
       id: "dockTear",
-      title: "F3 · Edge docks + tear-off",
-      idea: "A's docks, and any panel can be torn off to float over the documents and dropped back on a dock or its rail icon. Docked is the default; floating is the exception you choose.",
+      title: "Edge docks + tear-off",
+      idea: "The edge docks, and any panel can be torn off to float over the documents and dropped back on a dock or its rail icon. Docked is the default; floating is the exception you choose.",
       pill: true,
       bottom: true,
       initial: plain,
