@@ -14,9 +14,9 @@ const version = (raw: string): string => (JSON.parse(raw) as { version: string }
 export const VERSIONS = { motion: version(motionPkg), placement: version(placementPkg) };
 
 /**
- * The public build (`vite build --mode public`, served at motion.n-uf.com/lab/): it names the released versions it was
- * built from, and keeps the Checks page out of the sidebar unless the address has `?checks` (its route still works,
- * and every page's `runAll` hook stays).
+ * The public build (`vite build --mode public`, served at motion.n-uf.com/lab/): it names the versions of the source
+ * it runs, and shows the Checks page only when the address has `?checks` (without it, the Checks route shows the
+ * overview; every page's `runAll` hook stays).
  */
 const PUBLIC = import.meta.env.MODE === "public";
 const withChecks = !PUBLIC || new URLSearchParams(location.search).has("checks");
@@ -24,7 +24,7 @@ const withChecks = !PUBLIC || new URLSearchParams(location.search).has("checks")
 const LISTED = PAGES.filter((p) => withChecks || p.group !== "checks");
 
 const route = parseRoute();
-const page: PageDef = pageById(route.id) ?? pageById("overview")!;
+const page: PageDef = PUBLIC && !withChecks && route.id === "checks" ? pageById("overview")! : (pageById(route.id) ?? pageById("overview")!);
 const root = document.getElementById("lab") as HTMLDivElement;
 
 // --- markup --------------------------------------------------------------------------------------------------------
