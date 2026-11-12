@@ -130,9 +130,11 @@ async function boot(): Promise<void> {
   document.title = page.group === "overview" ? "Motion and placement lab" : `${page.title} · Motion and placement lab`;
   document.body.dataset.page = page.id;
   if (route.embed) document.body.classList.add("lab-embed");
-  root.innerHTML = `${route.embed ? "" : sidebar()}<main class="lab-main${page.wide ? " wide" : ""}">${route.embed ? "" : header()}<div class="lab-page" id="lab-page"></div>${route.embed ? "" : pager()}</main>`;
+  // The page's own markup is fetched first and the whole frame drawn once, so the pager and the sidebar's foot never sit
+  // in the wrong place for a moment and then jump down as the content arrives (a layout shift).
+  const markup = page.markup ? await page.markup() : "";
+  root.innerHTML = `${route.embed ? "" : sidebar()}<main class="lab-main${page.wide ? " wide" : ""}">${route.embed ? "" : header()}<div class="lab-page" id="lab-page">${markup}</div>${route.embed ? "" : pager()}</main>`;
   const body = document.getElementById("lab-page")!;
-  if (page.markup) body.innerHTML = await page.markup();
   localSiteLinks(root);
   // The list is rendered folded or open for the width it was drawn at; crossing 700 px later folds or opens it too, so a
   // widened window never leaves the sidebar's list shut with no button to open it.
