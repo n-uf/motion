@@ -1,0 +1,45 @@
+---
+// /docs/: what each package is (the home's own words, data/parts.ts), and the way to each docs page and its live pages.
+import Site from "../../layouts/Site.astro";
+import ExtLink from "../../components/ExtLink.astro";
+import "../../styles/docs.css";
+import { DOCS, docsIndex } from "../../data/docs";
+import { pageOf } from "../../data/pages";
+import { partOf } from "../../data/parts";
+import { updated } from "../../data/dates.mjs";
+import { orgNode, webPage, breadcrumbs, software } from "../../data/schema";
+
+const crumbs = [{ name: "Home", path: "/" }, { name: docsIndex.nav, path: docsIndex.path }];
+const jsonLd = [
+  webPage({ path: docsIndex.path, name: docsIndex.title, description: docsIndex.description, type: "CollectionPage", updated: new Date(`${updated[docsIndex.path]}T00:00:00Z`), about: ["motion", "placement"] }),
+  breadcrumbs(crumbs),
+  software("motion"),
+  software("placement"),
+  orgNode,
+];
+---
+<Site title={docsIndex.title} description={docsIndex.description} path={docsIndex.path} headline="Docs for motion and placement" eyebrow="Docs" crumbs={crumbs} jsonLd={jsonLd}>
+  <p class="lead" slot="lead">One page per package, rendered from the package's own README when this site is built, so it says what npm says for the version shown. Both are young and still changing: pin an exact version.</p>
+
+  <div class="docs-ix">
+    {DOCS.map((d) => {
+      const part = partOf(d.part);
+      return (
+        <article class="docs-ix-cell" data-part={d.part} aria-labelledby={`ix-${d.slug}`}>
+          <span class="eyebrow">{part.short} · {part.title}</span>
+          <h2 id={`ix-${d.slug}`}><a href={d.path}><code>{d.pkg}</code></a></h2>
+          <p class="does">{part.does}</p>
+          <p class="meta"><span class="k">Version</span> <code>{d.version}</code> <span class="k">Install</span> <code>{d.install}</code></p>
+          <p class="k entries-k">Entries</p>
+          <ul class="docs-entries">{d.entries.map((e) => <li><code>{e}</code></li>)}</ul>
+          <p class="actions">
+            <a class="btn primary" href={d.path}>Read the {d.pkg} docs</a>
+            <ExtLink href={d.readmeUrl}>README on GitHub</ExtLink>
+            <ExtLink href={d.npm}>npm</ExtLink>
+          </p>
+          <p class="live"><span class="k">See it live</span> {d.live.map((p, i) => <>{i > 0 && " · "}<a href={p}>{pageOf(p).nav}</a></>)}</p>
+        </article>
+      );
+    })}
+  </div>
+</Site>

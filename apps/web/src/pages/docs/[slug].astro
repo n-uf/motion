@@ -1,0 +1,12 @@
+---
+// /docs/motion/ and /docs/placement/: one page per package, from its README (data/docs.ts).
+import Docs from "../../layouts/Docs.astro";
+import { DOCS, docOf, renderDoc } from "../../data/docs";
+
+export function getStaticPaths() {
+  return DOCS.map((d) => ({ params: { slug: d.slug } }));
+}
+const doc = docOf(Astro.params.slug!);
+const page = await renderDoc(doc);
+---
+<Docs doc={doc} page={page} />

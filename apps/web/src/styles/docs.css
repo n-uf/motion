@@ -1,0 +1,178 @@
+/*
+ * The docs pages (layouts/Docs.astro, pages/docs/): a package's README as a reference. The site's own language: a
+ * hairline drafting grid under the page head (shell.css), mono labels, the page's part colour (cyan for motion, violet
+ * for placement) as 2 px ticks, and 2 px corners. Body text is about 65 characters wide; code and tables scroll
+ * inside their own block, never the page.
+ */
+
+/* ---- The page head's spec strip: version, install, links ---------------------------------------------------- */
+.docs-spec { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); margin: 0; padding-top: var(--s3); border-top: 1px solid var(--line); font-size: 14px; color: var(--text-2); }
+.docs-spec p { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.docs-spec .k, .docs-ix .k { font: 600 var(--t-cap) / 1.6 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.docs-spec code { padding: 0; border: 0; background: none; font-size: 0.92em; color: var(--text); white-space: nowrap; overflow-wrap: normal; }
+.docs-spec code.docs-cmd, .docs-ix .meta code.docs-cmd { padding: 3px 9px; border: 1px solid var(--line-2); border-radius: 2px; background: var(--bg-raised); }
+.docs-cmd .prompt { margin-right: 6px; color: var(--part); user-select: none; }
+@media (max-width: 900px) { .docs-spec { flex-direction: column; } }
+@media (max-width: 640px) { .docs-spec a { display: inline-block; padding: 9px 0; } }
+
+/* ---- Page: contents, then the text ---------------------------------------------------------------------------- */
+.docs-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s4); margin-top: var(--s4); align-items: start; }
+.docs-main { min-width: 0; max-width: 54rem; }
+@media (min-width: 981px) {
+  .docs-grid { grid-template-columns: 14.5rem minmax(0, 1fr); gap: var(--s7); margin-top: var(--s2); }
+  .docs-side { position: sticky; top: calc(var(--topbar) + var(--s5)); max-height: calc(100vh - var(--topbar) - var(--s6)); overflow-y: auto; overscroll-behavior: contain; }
+}
+
+/* On this page: a collapsed bar on a phone (a checkbox and its label, no script); a ruled list that is always open
+   beside the text on a wide screen. */
+.docs-toc { position: relative; }
+.docs-toc-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 44px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 2px; background: var(--bg-raised); cursor: pointer; }
+.docs-toc-check:focus-visible + .docs-toc-bar { outline: 2px solid var(--accent); outline-offset: 2px; }
+.docs-toc-k { font: 600 var(--t-cap) / 1.6 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); }
+.docs-toc-n { display: inline-flex; align-items: center; gap: 10px; font: 600 var(--t-xs) var(--font-mono); color: var(--text-3); }
+.docs-toc-n::after { content: ""; width: 7px; height: 7px; margin-top: -3px; border: solid var(--text-3); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); transition: transform var(--fast) var(--ease); }
+.docs-toc-check:checked + .docs-toc-bar { border-bottom-color: transparent; border-radius: 2px 2px 0 0; }
+.docs-toc-check:checked + .docs-toc-bar .docs-toc-n::after { margin-top: 3px; transform: rotate(225deg); }
+.docs-toc ol { display: none; margin: 0; padding: var(--s2) 0 var(--s3); list-style: none; counter-reset: toc; border: 1px solid var(--line-2); border-top: 0; border-radius: 0 0 2px 2px; background: var(--bg-raised); }
+.docs-toc-check:checked ~ ol { display: block; }
+.docs-toc li { counter-increment: toc; }
+.docs-toc li a { display: flex; align-items: baseline; gap: 10px; min-height: 40px; padding: 8px 14px; font-size: 14px; line-height: 1.4; color: var(--text-2); text-decoration: none; overflow-wrap: anywhere; }
+.docs-toc li a::before { content: counter(toc, decimal-leading-zero) / ""; flex: none; font: 600 var(--t-cap) var(--font-mono); letter-spacing: 0.04em; color: var(--text-3); }
+.docs-toc li a:hover { color: var(--text); background: var(--bg-subtle); }
+@media (min-width: 981px) {
+  .docs-toc-check { display: none; }
+  .docs-toc-bar { min-height: 0; padding: 0 0 var(--s3); border: 0; background: none; cursor: default; }
+  .docs-toc-n { display: none; }
+  .docs-toc ol { display: block; padding: 0; border: 0; border-left: 1px solid var(--line-2); background: none; }
+  .docs-toc li a { min-height: 0; padding: 5px 0 5px 14px; margin-left: -1px; border-left: 2px solid transparent; }
+  .docs-toc li a:hover { background: none; border-left-color: var(--part); }
+}
+
+/* ---- The README ------------------------------------------------------------------------------------------------- */
+.docs-body {
+  --code-bg: transparent;
+  --code-text: var(--text);
+  --code-comment: var(--text-2);
+  --code-punct: var(--text-2);
+  --code-keyword: var(--accent-strong);
+  --code-string: var(--good);
+  --code-number: var(--series-b);
+  --code-type: var(--series-b);
+  --code-function: var(--text);
+  counter-reset: dsec;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-2);
+}
+.docs-body > p, .docs-body > ul, .docs-body > ol, .docs-body > dl { max-width: 65ch; margin: 0 0 var(--s4); text-wrap: pretty; }
+.docs-body ul, .docs-body ol { padding-left: 1.3em; }
+.docs-body li + li { margin-top: 6px; }
+.docs-body li > ul, .docs-body li > ol { margin-top: 6px; }
+.docs-body a { color: var(--part-strong); text-underline-offset: 3px; overflow-wrap: anywhere; }
+.docs-body a:hover { color: var(--text); }
+.docs-body strong, .docs-body b { color: var(--text); }
+.docs-body code { overflow-wrap: anywhere; }
+.docs-body > ul code, .docs-body > p code, .docs-body li code { white-space: normal; }
+
+/* A section: a hairline with a 2 px tick of the part colour on it, a mono counter, then the title. */
+.docs-body h2 { position: relative; counter-increment: dsec; margin: var(--s8) 0 var(--s4); padding-top: var(--s4); border-top: 1px solid var(--line); font-size: 26px; line-height: 1.2; overflow-wrap: anywhere; }
+.docs-body h2::before { content: counter(dsec, decimal-leading-zero) / ""; display: block; margin-bottom: 6px; font: 600 var(--t-cap) / 1.6 var(--font-mono); letter-spacing: 0.06em; color: var(--text-3); }
+.docs-body h2::after { content: ""; position: absolute; left: 0; top: -1px; width: 36px; height: 2px; background: var(--part); }
+.docs-body h3 { margin: var(--s6) 0 var(--s3); font-size: var(--t-lg); line-height: 1.3; overflow-wrap: anywhere; }
+.docs-body h2, .docs-body h3 { scroll-margin-top: calc(var(--topbar) + 16px); }
+@media (max-width: 1060px) { .docs-body h2, .docs-body h3 { scroll-margin-top: 108px; } }
+@media (max-width: 640px) {
+  .docs-body h2 { margin-top: var(--s7); font-size: 23px; }
+  .docs-body h3 { font-size: var(--t-md); }
+}
+/* the link to a heading: appears on pointer hover or keyboard focus; hidden on a touch screen */
+.hanchor { margin-left: 0.4em; color: var(--text-3); font-weight: 500; text-decoration: none; opacity: 0; transition: opacity var(--fast) var(--ease); }
+.hanchor::before { content: "#" / ""; }
+:is(h2, h3):hover > .hanchor, .hanchor:focus-visible { opacity: 1; }
+@media (hover: none) { .hanchor { display: none; } }
+
+/* The "Not yet stable" box: the README's GitHub alert, as a callout with a mono label and the part's tick. */
+.docs-callout { max-width: 65ch; margin: var(--s5) 0; padding: var(--s4) var(--s5); border: 1px solid var(--line-3); border-left: 2px solid var(--part); border-radius: 2px; background: linear-gradient(color-mix(in srgb, var(--part) 7%, transparent), color-mix(in srgb, var(--part) 7%, transparent)), var(--bg-raised); font-size: var(--t-base); line-height: 1.6; }
+.docs-callout > * { margin: 0; }
+.docs-callout > * + * { margin-top: var(--s3); }
+.docs-callout-title { display: flex; align-items: center; gap: 8px; font: 650 var(--t-xs) / 1.4 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--part-strong); }
+.docs-callout-title::before { content: ""; width: 8px; height: 8px; border: 2px solid var(--part); transform: rotate(45deg); }
+.docs-callout p { color: var(--text-2); }
+
+/* Code: Shiki's output with the site's token theme (components/code-theme.ts); the block scrolls, never the page. */
+.docs-body pre { max-width: 100%; margin: var(--s4) 0 var(--s5); padding: 14px 16px; overflow-x: auto; border: 1px solid var(--line-2); border-left: 2px solid var(--part); border-radius: 2px; background: var(--bg-raised) !important; font: 14px / 1.65 var(--font-mono); tab-size: 2; -webkit-text-size-adjust: none; text-size-adjust: none; }
+.docs-body pre code { padding: 0; border: 0; background: none; font: inherit; white-space: pre; overflow-wrap: normal; }
+.docs-body pre:focus-visible { outline-offset: -2px; }
+
+/* Tables. A reference table (no header: the name in the first column) stacks on a phone; one with headers scrolls. */
+.docs-table { max-width: 100%; margin: var(--s4) 0 var(--s5); overflow-x: auto; border: 1px solid var(--line-2); border-radius: 2px; background: var(--bg-raised); }
+.docs-table:focus-visible { outline-offset: -2px; }
+.docs-table table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.55; }
+.docs-table th, .docs-table td { padding: 10px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+.docs-table tbody tr:last-child > * { border-bottom: 0; }
+.docs-table thead th { font: 600 var(--t-cap) / 1.5 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); background: var(--bg-subtle); white-space: nowrap; }
+.docs-table code { font-size: 0.93em; white-space: normal; overflow-wrap: anywhere; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.docs-api td:first-child { width: 36%; color: var(--text); }
+.docs-api td:first-child code { background: none; border-color: color-mix(in srgb, var(--part) 35%, var(--line-2)); }
+.docs-data table { min-width: 30rem; }
+.docs-data td:first-child, .docs-data td:first-child code { white-space: nowrap; }
+@media (max-width: 640px) {
+  .docs-api table, .docs-api tbody, .docs-api tr, .docs-api td { display: block; width: auto; }
+  .docs-api tr { padding: 10px 14px 12px; border-bottom: 1px solid var(--line); }
+  .docs-api tbody tr:last-child { border-bottom: 0; }
+  .docs-api td { padding: 0; border: 0; }
+  .docs-api td:first-child { width: auto; margin-bottom: 6px; }
+  .docs-api td:empty { display: none; }
+}
+
+/* ---- After the text: the live pages, and the neighbours ------------------------------------------------------- */
+.docs-live { margin-top: var(--s8); padding-top: var(--s4); border-top: 1px solid var(--line); position: relative; }
+.docs-live::before { content: ""; position: absolute; left: 0; top: -1px; width: 36px; height: 2px; background: var(--part); }
+.docs-live-k { margin-bottom: var(--s3); font: 600 var(--t-cap) / 1.6 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.docs-live ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s3); }
+.docs-live a { display: grid; gap: 4px; height: 100%; padding: var(--s4) var(--s5); border: 1px solid var(--line-2); border-radius: 2px; text-decoration: none; transition: border-color var(--fast) var(--ease); }
+.docs-live a:hover { border-color: var(--part); }
+.docs-live .path { font: 600 var(--t-cap) var(--font-mono); letter-spacing: 0.06em; color: var(--text-3); }
+.docs-live b { font-size: var(--t-md); letter-spacing: -0.01em; }
+.docs-live a:hover b { color: var(--part-strong); }
+.docs-live .what { font-size: var(--t-sm); line-height: 1.5; color: var(--text-2); }
+.docs-pager { padding-top: var(--s5); }
+.docs-pager a { border-radius: 2px; }
+.docs-also { margin-top: var(--s4); font-size: var(--t-sm); color: var(--text-2); }
+.docs-also a { color: var(--part-strong); text-underline-offset: 3px; }
+@media (max-width: 640px) {
+  .docs-live ul { grid-template-columns: minmax(0, 1fr); }
+  .docs-pager { gap: var(--s3); }
+  .docs-pager a { padding: var(--s3) var(--s4); }
+}
+
+/* ---- /docs/: the two packages ---------------------------------------------------------------------------------- */
+.docs-ix { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5); margin-top: var(--s4); }
+.docs-ix-cell { position: relative; z-index: 0; display: grid; gap: var(--s3); align-content: start; min-width: 0; padding: var(--s5); border: 1px solid var(--line-2); border-top: 2px solid var(--part); border-radius: 2px; background: var(--bg-raised); }
+/* the drafting grid, faint, fading down from the top (a pseudo-element: the text never fades) */
+.docs-ix-cell::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(to right, color-mix(in srgb, var(--part) 8%, transparent) 1px, transparent 1px) 0 0 / 24px 24px, linear-gradient(to bottom, color-mix(in srgb, var(--part) 8%, transparent) 1px, transparent 1px) 0 0 / 24px 24px; -webkit-mask-image: linear-gradient(to bottom, #000, transparent 55%); mask-image: linear-gradient(to bottom, #000, transparent 55%); }
+.docs-ix-cell > * { margin: 0; }
+.docs-ix h2 { font-size: var(--t-xl); line-height: 1.15; overflow-wrap: anywhere; }
+.docs-ix h2 a { color: var(--text); text-decoration: none; }
+.docs-ix h2 a:hover { color: var(--part-strong); }
+.docs-ix h2 code { padding: 0; border: 0; background: none; font-size: 0.82em; font-weight: 650; letter-spacing: -0.02em; }
+.docs-ix .does { max-width: 60ch; color: var(--text-2); line-height: 1.6; text-wrap: pretty; }
+.docs-ix .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: var(--t-sm); color: var(--text-2); }
+.docs-ix .meta .k:not(:first-child) { margin-left: var(--s3); }
+.docs-ix .meta code { padding: 0; border: 0; background: none; color: var(--text); white-space: nowrap; }
+.docs-ix .entries-k { margin-top: var(--s1); }
+.docs-entries { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.docs-entries code { display: inline-block; padding: 1px 7px; border: 1px solid var(--line-2); border-radius: 2px; background: var(--bg); font-size: 12px; white-space: nowrap; }
+.docs-ix .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); margin-top: var(--s2); font-size: var(--t-sm); }
+.docs-ix .btn.primary { border-radius: 2px; background: var(--part); border-color: var(--part); color: var(--accent-ink); box-shadow: none; }
+.docs-ix .btn.primary:hover { background: var(--part); border-color: var(--part); filter: brightness(1.1); }
+.docs-ix .actions a:not(.btn) { color: var(--part-strong); text-underline-offset: 3px; }
+.docs-ix .live { font-size: var(--t-sm); color: var(--text-2); }
+.docs-ix .live a { color: var(--part-strong); text-underline-offset: 3px; }
+@media (max-width: 860px) { .docs-ix { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .docs-ix-cell { padding: var(--s4); }
+  .docs-ix .btn.primary { height: 44px; padding: 0 16px; white-space: normal; text-align: center; }
+  .docs-ix .actions a:not(.btn), .docs-ix .live a { display: inline-block; padding: 10px 0; }
+}
