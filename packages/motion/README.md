@@ -352,6 +352,10 @@ a large area 3). The rules:
   last sample, so a place can hold near its boundary. A null place is no
   target: nothing shows there (a target beneath with a place can), no room
   opens, and a release there lands on a target beneath, else goes home.
+  `placeOf` is also asked about the current target just outside its zone
+  (within the band or the gap grace): answer the nearest place there, and
+  return null only for a part of the target that takes no drop. It runs on
+  every sample for each target under the pointer, so keep it cheap.
 - A release lands on the shown target whenever one shows (drop = shown), else
   on the target under the pointer, else nowhere. A release over home does
   nothing.
