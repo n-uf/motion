@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 W, H = 1200, 630
-INK, MUTED, FAINT, ACCENT = (27, 28, 31), (85, 86, 92), (133, 134, 140), (13, 122, 126)
+INK, MUTED, FAINT, ACCENT = (27, 28, 31), (85, 86, 92), (133, 134, 140), (10, 118, 151)
 # out file, small label, headline, sub line, capture (in scripts/og-src), picture box (width, height)
 CARDS = [
     ("public/og.png", "n-uf motion", "Motion that settles, and never overshoots", "Settle, reveal, held drags and a drag-intent model for TypeScript", "home.png", (560, 420)),
@@ -36,7 +36,7 @@ def font(size, wght):
 def background():
     yy, xx = np.mgrid[0:H, 0:W].astype(float) + 0.5
     a = np.clip(1 - np.sqrt(((xx - 900) / 520) ** 2 + ((yy - 315) / 420) ** 2), 0, 1) * 0.16   # a soft teal glow behind the picture
-    im = np.array([247, 246, 243], float)[None, None] * (1 - a[..., None]) + np.array([79, 193, 193], float)[None, None] * a[..., None]
+    im = np.array([247, 246, 243], float)[None, None] * (1 - a[..., None]) + np.array([92, 196, 224], float)[None, None] * a[..., None]
     return Image.fromarray(np.clip(im + 0.5, 0, 255).astype("uint8")).convert("RGBA")
 
 def wrap(text, f, width):

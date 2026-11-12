@@ -26,7 +26,7 @@ def font(size, wght):
 def background():
     yy, xx = np.mgrid[0:H, 0:W].astype(float) + 0.5
     a = np.clip(1 - np.sqrt(((xx - 890) / 420) ** 2 + ((yy - 330) / 380) ** 2), 0, 1) * 0.16   # a soft teal glow behind the picture
-    im = np.array([247, 246, 243], float)[None, None] * (1 - a[..., None]) + np.array([79, 193, 193], float)[None, None] * a[..., None]
+    im = np.array([247, 246, 243], float)[None, None] * (1 - a[..., None]) + np.array([92, 196, 224], float)[None, None] * a[..., None]
     return Image.fromarray(np.clip(im + 0.5, 0, 255).astype("uint8")).convert("RGBA")
 
 KEEP_TOGETHER = ["@n-uf/motion"]   # names a line break would split
@@ -83,7 +83,7 @@ for md in sorted(glob.glob(os.path.join(ROOT, "src/content/use-cases/*.md")) + g
     for line in lines:
         d.text((64, y), line, font=f, fill=(27, 28, 31), anchor="ls")
         y += round(size * 1.18)
-    d.text((64, 578), "motion.n-uf.com", font=font(20, 550), fill=(13, 122, 126), anchor="ls")
+    d.text((64, 578), "motion.n-uf.com", font=font(20, 550), fill=(10, 118, 151), anchor="ls")
     # right: the page's first picture, with a faint edge
     if shot:
         pic = picture(os.path.join(ROOT, "public/img/guides", shot.group(1)), 500, 470)
