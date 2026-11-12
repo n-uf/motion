@@ -1,0 +1,29 @@
+---
+// "What each package does", as a poster with a seam: motion glides, placement places at once. Two display lines in
+// two halves (non-heading text: the page's one h1 is the hero), their words real text in the HTML, flowing normally
+// until islands/poster.ts adopts them. Drag the seam (or, on a narrow screen, the slider): the left words glide to
+// their new places (motion's settle), the right words are placed at once, with their rects and dimensions drawn
+// (placement's way), and a pointer over the right block names the pane zone it is in (`paneZone`).
+// The section's own text and install lines follow this poster, unchanged.
+import { SETTLE_TEMPO } from "@n-uf/motion";
+import { simulateRun } from "../demos/hero";
+
+const left = ["Motion", "glides", "every", "change."];
+const right = ["Placement", "answers", "at", "once."];
+const omega = SETTLE_TEMPO.default;
+const t90 = Math.round(simulateRun({ x: 0, y: 0, width: 100, height: 60 }, { x: 240, y: 90, width: 100, height: 60 }, omega).report.t90 ?? 0);
+---
+<div class="poster" id="poster" role="group" aria-label="The two packages: motion glides, placement places at once. Drag the seam, or use the slider on a narrow screen.">
+  <div class="pbgL" aria-hidden="true"></div>
+  <div class="pbgR" aria-hidden="true"></div>
+  <span class="eyebrow peb m">@n-uf/motion · glides</span>
+  <span class="eyebrow peb p">@n-uf/placement · places at once</span>
+  <p class="pt m" id="pm">{left.map((w, i) => <><span class="pw">{w}</span>{i < left.length - 1 && " "}</>)}</p>
+  <p class="pt p" id="pp">{right.map((w, i) => <><span class="pw">{w}</span>{i < right.length - 1 && " "}</>)}</p>
+  <svg class="pbp" id="pbp" aria-hidden="true"><g id="pdims"></g><g id="pzones"></g><g id="ptg"></g></svg>
+  <div class="pseam" id="pseam" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Seam between the two halves. Arrow keys or drag." aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><span class="grip"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+  <label class="pslider"><span>seam</span><input type="range" id="prange" min="0" max="100" value="100" aria-label="Seam: how wide the lines may run" /></label>
+  <p class="pro m" aria-hidden="true"><i>glides</i><b>settle ω {omega} /s</b> · <b id="pro-t">90 % in {t90} ms</b></p>
+  <p class="pro p" aria-hidden="true"><i>placed at once</i><b id="pro-w">– px</b> wide · <b id="pro-l">–</b> lines</p>
+  <span class="pvl m" aria-hidden="true">motion · glides</span><span class="pvl p" aria-hidden="true">placement · at once</span>
+</div>
