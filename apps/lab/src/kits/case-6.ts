@@ -1,11 +1,11 @@
 /**
- * 6 · Constraints: the kit's rule is placement's `allows(group, place)`. hostTargets and floatTarget leave a
+ * 6 · Constraints: an app's rule for where a group may go is placement's `allows(group, place)`. hostTargets and floatTarget leave a
  * forbidden place out, so the drag intent never sees it: no target, no slot, the group follows the pointer, and a
  * release glides home.
  */
 import type { Point } from "@n-uf/motion";
 import type { Allows } from "@n-uf/placement/targets";
-import { HOST_RECT, STAGE, createDossier, placements, sameArrangement, type Dossier, type GroupId } from "./dossier";
+import { HOST_RECT, STAGE, createViewer, placements, sameArrangement, type GroupId, type Viewer } from "./viewer";
 import { drag, fmt, mid, off, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
@@ -16,7 +16,7 @@ export const constraint: Allows<GroupId> = (g, place) => {
   return true;
 };
 
-const RULE = `The kit's rule is placement's <code>allows(group, place)</code>: <code>hostTargets</code> and <code>floatTarget</code>
+const RULE = `The app's rule is placement's <code>allows(group, place)</code>: <code>hostTargets</code> and <code>floatTarget</code>
 leave a forbidden place out, so <code>createDragIntent</code> never sees it. <b>Redact</b> stays in the top bar (no other
 bar, no float); <b>Share</b> can't float. Over a forbidden spot there is no target and no slot, the group follows the
 pointer, and a release glides home. Navigate, Zoom and Annotate go anywhere.`;
@@ -25,14 +25,14 @@ export const case6: KitCase = {
   id: "constraints",
   title: "6 · Constraints",
   mount(host, loop) {
-    let d: Dossier | null = null;
+    let d: Viewer | null = null;
     const desks = caseFrame(host, RULE, [{ id: "w" }], () => d?.reset());
-    d = createDossier(desks.w!, { title: "Quarterly plan.pdf", loop, allows: constraint });
+    d = createViewer(desks.w!, { title: "Quarterly plan.pdf", loop, allows: constraint });
     return { reset: () => d!.reset(), idle: allIdle([d]), scenarios: scenarios(d) };
   },
 };
 
-function scenarios(c6: Dossier): KitScenario[] {
+function scenarios(c6: Viewer): KitScenario[] {
   /** Over `spot` the group has no target: no slot, the group under the pointer, and a release goes home. */
   async function forbidden(expect: Expect, g: GroupId, spot: Point, what: string): Promise<void> {
     c6.reset();

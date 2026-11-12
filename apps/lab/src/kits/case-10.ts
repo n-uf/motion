@@ -1,13 +1,13 @@
 /**
- * 10 · Scaled page: the desk scaled with `transform: scale(s)`. The drag intent works in page space, so the kit
+ * 10 · Scaled page: the desk scaled with `transform: scale(s)`. The drag intent works in page space, so the app
  * converts the pointer first, `page = (pointer − origin) / s`; the slot then lands under the pointer at every scale.
  */
 import type { Point, Rect } from "@n-uf/motion";
-import { H, W, createDossier, inRect, placements, type Dossier } from "./dossier";
+import { H, W, createViewer, inRect, placements, type Viewer } from "./viewer";
 import { drag, fmt, mid, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
-const RULE = `The desk is scaled with <code>transform: scale(s)</code>. The intent works in page space, so the kit converts
+const RULE = `The desk is scaled with <code>transform: scale(s)</code>. The intent works in page space, so the app converts
 the pointer first: <code>page = (pointer − origin) ÷ s</code>. The orange cross is the point the intent reads; with the
 conversion it sits under the pointer and the slot lands there at every scale. Turn the conversion off to see the bug:
 at 0.7 the intent reads a point away from the pointer.`;
@@ -18,7 +18,7 @@ export const case10: KitCase = {
   mount(host, loop) {
     let scale = 0.7;
     let convert = true;
-    let d: Dossier | null = null;
+    let d: Viewer | null = null;
     const desks = caseFrame(host, RULE, [{ id: "w" }], () => reset());
     const controls = host.querySelector(".kcase .controls")!;
     controls.insertAdjacentHTML(
@@ -34,11 +34,11 @@ export const case10: KitCase = {
     const conv = q<HTMLInputElement>("convert");
     const wrap = desks.w!;
     wrap.classList.add("k-scale");
-    d = createDossier(wrap, { title: "Quarterly plan.pdf", loop, scale: () => scale, convert: () => convert });
-    const dossier = d;
+    d = createViewer(wrap, { title: "Quarterly plan.pdf", loop, scale: () => scale, convert: () => convert });
+    const viewer = d;
     const setScale = (s: number): void => {
       scale = s;
-      dossier.el.style.transform = `scale(${s})`;
+      viewer.el.style.transform = `scale(${s})`;
       // The scaled window's box: its border included.
       wrap.style.width = `${(W + 2) * s}px`;
       wrap.style.height = `${(H + 2) * s}px`;
@@ -52,17 +52,17 @@ export const case10: KitCase = {
     function reset(): void {
       setConvert(true);
       setScale(0.7);
-      dossier.reset();
+      viewer.reset();
     }
     slider.addEventListener("input", () => setScale(Number(slider.value)));
-    xray.addEventListener("change", () => dossier.setXray(xray.checked));
+    xray.addEventListener("change", () => viewer.setXray(xray.checked));
     conv.addEventListener("change", () => setConvert(conv.checked));
     setScale(scale);
-    return { reset, idle: allIdle([dossier]), scenarios: scenarios(dossier, setScale, setConvert) };
+    return { reset, idle: allIdle([viewer]), scenarios: scenarios(viewer, setScale, setConvert) };
   },
 };
 
-function scenarios(c10: Dossier, setScale: (s: number) => void, setConvert: (on: boolean) => void): KitScenario[] {
+function scenarios(c10: Viewer, setScale: (s: number) => void, setConvert: (on: boolean) => void): KitScenario[] {
   /** Drag Zoom onto the bottom bar's start, its pointer on where it would land: what the intent read, and the slot. */
   async function scaled(expect: Expect, s: number): Promise<{ read: Point[]; slots: (Rect | null)[]; aim: Point; landed: string | null }> {
     setScale(s);

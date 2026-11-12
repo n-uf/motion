@@ -6,7 +6,7 @@
  */
 import type { Point } from "@n-uf/motion";
 import { nextFrame } from "../shared/geometry";
-import { HOME, createDossier, sameArrangement, type Dossier, type GroupId } from "./dossier";
+import { HOME, createViewer, sameArrangement, type Viewer, type GroupId } from "./viewer";
 import { mid, pointer, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
@@ -20,8 +20,8 @@ export const case8: KitCase = {
   title: "8 · Frozen layout",
   mount(host, loop) {
     const desks = caseFrame(host, RULE, [{ id: "today", caption: "Today · the guard checked on every move" }, { id: "proposed", caption: "Proposed · the freeze gates only the start" }], () => reset());
-    const today = createDossier(desks.today!, { title: "Quarterly plan.pdf", loop, frozen: true, freezeGate: "move" });
-    const proposed = createDossier(desks.proposed!, { title: "Quarterly plan.pdf", loop, frozen: true });
+    const today = createViewer(desks.today!, { title: "Quarterly plan.pdf", loop, frozen: true, freezeGate: "move" });
+    const proposed = createViewer(desks.proposed!, { title: "Quarterly plan.pdf", loop, frozen: true });
     const ds = [today, proposed];
     const controls = desks.today!.closest(".kcase")!.querySelector(".controls")!;
     const lock = document.createElement("label");
@@ -54,19 +54,19 @@ export const case8: KitCase = {
 const alt = (down: boolean): void => void window.dispatchEvent(new KeyboardEvent(down ? "keydown" : "keyup", { key: "Alt", altKey: down, bubbles: true }));
 
 /** Move the pointer from `a` to `b` in `n` frames (page space), Alt held or not. */
-async function moveIn(d: Dossier, a: Point, b: Point, n: number, altKey: boolean): Promise<void> {
+async function moveIn(d: Viewer, a: Point, b: Point, n: number, altKey: boolean): Promise<void> {
   for (let i = 1; i <= n; i++) {
     await nextFrame();
     pointer("pointermove", window, d.toClient({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }), { altKey });
   }
 }
-const bottomCentre = (d: Dossier): Point => mid(d.drawn(d.el.querySelector(".kbar-bottom")!));
+const bottomCentre = (d: Viewer): Point => mid(d.drawn(d.el.querySelector(".kbar-bottom")!));
 
 /**
  * (a) Alt held, press Zoom's grip and drag towards the bottom bar; let go of Alt halfway, keep going, aim, release.
  * Returns whether a drag was running just after Alt came up.
  */
-async function altLetGo(d: Dossier): Promise<{ draggingAfterAltUp: boolean }> {
+async function altLetGo(d: Viewer): Promise<{ draggingAfterAltUp: boolean }> {
   const g: GroupId = "zoom";
   alt(true);
   const start = mid(d.drawn(d.handle(g)));
@@ -87,7 +87,7 @@ async function altLetGo(d: Dossier): Promise<{ draggingAfterAltUp: boolean }> {
 }
 
 /** (b) Frozen, no Alt: press Zoom's group and move; then hold Alt while still pressing and move on; release. */
-async function altAfterPress(d: Dossier): Promise<{ beforeAlt: boolean; afterAlt: boolean }> {
+async function altAfterPress(d: Viewer): Promise<{ beforeAlt: boolean; afterAlt: boolean }> {
   const g: GroupId = "zoom";
   alt(false);
   const start = mid(d.drawn(d.handle(g)));
@@ -104,8 +104,8 @@ async function altAfterPress(d: Dossier): Promise<{ beforeAlt: boolean; afterAlt
   return { beforeAlt, afterAlt };
 }
 
-function scenarios(today: Dossier, proposed: Dossier, setFrozen: (on: boolean) => void): KitScenario[] {
-  const gripsShown = (d: Dossier): number => [...d.el.querySelectorAll<HTMLElement>(".kg-handle")].filter((h) => getComputedStyle(h).visibility !== "hidden").length;
+function scenarios(today: Viewer, proposed: Viewer, setFrozen: (on: boolean) => void): KitScenario[] {
+  const gripsShown = (d: Viewer): number => [...d.el.querySelectorAll<HTMLElement>(".kg-handle")].filter((h) => getComputedStyle(h).visibility !== "hidden").length;
   return [
     {
       name: "8 · Frozen hides every grip and folds nothing; holding Alt shows the grips; unfrozen they show",

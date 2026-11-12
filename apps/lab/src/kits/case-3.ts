@@ -4,20 +4,20 @@
  *
  * - Proposal A (the default): floats are always a row. Off a side edge onto the document, the group turns into a
  *   row before the drop. Nothing to store: placement's float record has x and y only.
- * - Proposal B (the switch): the kit keeps a direction for floats. Off a side edge it stays a column, and floats as
- *   one; into a bar it turns into a row. The kit stores the direction itself (placement has no field for it).
+ * - Proposal B (the switch): the app keeps a direction for floats. Off a side edge it stays a column, and floats as
+ *   one; into a bar it turns into a row. The app stores the direction itself (placement has no field for it).
  *
  * Either way the held group takes its new form once a target shows (motion's held-drag resize: revealed from where
  * it is drawn, no stretch), so the drop has no second motion.
  */
-import { STAGE, createDossier, type Dossier, type GroupId } from "./dossier";
+import { STAGE, createViewer, type GroupId, type Viewer } from "./viewer";
 import { drag, fmt, mid, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
 const RULE = `A group takes its form from where it sits: a row on a bar, a column on a side edge. Does a floating group
 also have a direction? <b>Proposal A</b> (the default): floats are always a row, so a group dragged off a side edge onto
 the document turns into a row before the drop; placement's float record (x and y) is all there is to store.
-<b>Proposal B</b>: the kit keeps a direction for floats, so the group stays a column and floats as one. Either way the
+<b>Proposal B</b>: the app keeps a direction for floats, so the group stays a column and floats as one. Either way the
 held group takes its new form once a target shows, revealed from where it is drawn, and the drop has no second motion.
 Try: drag Zoom onto the left edge, then off it onto the document.`;
 
@@ -26,7 +26,7 @@ export const case3: KitCase = {
   title: "3 · Floats and orientation",
   mount(host, loop) {
     let mode: "row" | "keep" = "row";
-    let d: Dossier | null = null;
+    let d: Viewer | null = null;
     const desks = caseFrame(host, RULE, [{ id: "w" }], () => reset());
     const controls = host.querySelector(".kcase .controls")!;
     controls.insertAdjacentHTML(
@@ -36,27 +36,27 @@ export const case3: KitCase = {
          <label><input type="radio" name="k3-floats" value="keep" /> B · keep their direction</label>
        </fieldset>`,
     );
-    d = createDossier(desks.w!, { title: "Quarterly plan.pdf", loop, floats: () => mode });
-    const dossier = d;
+    d = createViewer(desks.w!, { title: "Quarterly plan.pdf", loop, floats: () => mode });
+    const viewer = d;
     const setMode = (m: "row" | "keep"): void => {
       mode = m;
       controls.querySelector<HTMLInputElement>(`input[value="${m}"]`)!.checked = true;
     };
     function reset(): void {
       setMode("row");
-      dossier.reset();
+      viewer.reset();
     }
     controls.querySelectorAll<HTMLInputElement>('input[name="k3-floats"]').forEach((r) =>
       r.addEventListener("change", () => {
         setMode(r.value as "row" | "keep");
-        dossier.reset();
+        viewer.reset();
       }),
     );
-    return { reset, idle: allIdle([dossier]), scenarios: scenarios(dossier, setMode) };
+    return { reset, idle: allIdle([viewer]), scenarios: scenarios(viewer, setMode) };
   },
 };
 
-function scenarios(d: Dossier, setMode: (m: "row" | "keep") => void): KitScenario[] {
+function scenarios(d: Viewer, setMode: (m: "row" | "keep") => void): KitScenario[] {
   const column = (g: GroupId): boolean => {
     const r = d.drawn(d.groupEl(g));
     return r.height > r.width;
