@@ -20,10 +20,6 @@ import { createLayoutMotion, holdItem, type DrawFrame, type HeldDrag, type Layou
 import { clampInto } from "@n-uf/placement";
 import { loop, omega, onMotionChange, reduced } from "./motion";
 
-const stage = document.getElementById("nf-head");
-const layer = document.getElementById("nf-layer");
-if (stage && layer) start(stage, layer);
-
 /** One word of the headline: the page lays it out; its layout-motion item moves it by transform (and fades it in). */
 class Word {
   readonly item: LayoutItem;
@@ -370,3 +366,8 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
     demoTimer = window.setTimeout(nextDemo, after + ps.length * 110 + 2200);
   }
 }
+
+// Last, so the class and the constants above exist when it runs.
+const stage = document.getElementById("nf-head");
+const layer = document.getElementById("nf-layer");
+if (stage && layer) start(stage, layer);
