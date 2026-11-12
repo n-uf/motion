@@ -129,9 +129,11 @@ const samePlace = (a: Place | null, b: Place | null): boolean => (a === null || 
  */
 export function sameArrangement<G extends string>(a: Arrangement<G>, b: Arrangement<G>): boolean {
   const sameList = (x: readonly G[], y: readonly G[]): boolean => x.length === y.length && x.every((g, i) => g === y[i]);
-  const sameSet = (x: readonly G[], y: readonly G[]): boolean => x.length === y.length && x.every((g) => y.includes(g));
+  // Both ways, so a repeated id on one side can't stand in for a missing one (["a", "a"] is not ["a", "b"]).
+  const sameSet = (x: readonly G[], y: readonly G[]): boolean => x.length === y.length && x.every((g) => y.includes(g)) && y.every((g) => x.includes(g));
   if (!HOSTS.every((h) => ZONES.every((zn) => sameList(a[h][zn], b[h][zn])))) return false;
-  if (!sameSet(a.collapsed, b.collapsed) || a.floating.length !== b.floating.length) return false;
+  if (!sameSet(a.collapsed, b.collapsed)) return false;
+  if (!sameSet(a.floating.map((f) => f.id), b.floating.map((f) => f.id))) return false;
   return a.floating.every((f) => {
     const o = b.floating.find((x) => x.id === f.id);
     return !!o && o.x === f.x && o.y === f.y && samePlace(o.from, f.from);
