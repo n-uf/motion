@@ -198,12 +198,14 @@ export function startPoster(poster: HTMLElement): void {
       seam.removeEventListener("pointerup", up);
       seam.removeEventListener("pointercancel", up);
       seam.removeEventListener("lostpointercapture", up);
+      removeEventListener("blur", up);
       setDragging(false);
     };
     seam.addEventListener("pointermove", move);
     seam.addEventListener("pointerup", up);
     seam.addEventListener("pointercancel", up);
     seam.addEventListener("lostpointercapture", up);
+    addEventListener("blur", up); // the window loses focus mid-drag (alt-tab): the drag ends here too, never stuck held
   });
   seam.addEventListener("keydown", (e) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;

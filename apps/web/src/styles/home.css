@@ -5,7 +5,7 @@
 
 /* The two heroes (the scope and the plan) are in hero.css; their install line is the one below. */
 .install { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-top: var(--s2); }
-.cmd { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--bg-raised); font-size: 13px; color: var(--text); box-shadow: var(--shadow-1); }
+.cmd { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--bg-raised); font-size: 13px; color: var(--text); box-shadow: var(--shadow-1); max-width: 100%; overflow-x: auto; white-space: nowrap; }
 .cmd .prompt { color: var(--text-3); user-select: none; }
 .install .btn { height: 36px; padding: 0 14px; }
 .caveat { font-size: var(--t-xs); color: var(--text-3); }
@@ -16,6 +16,9 @@
  */
 .section.loop { padding-top: var(--s5); }
 .loop .demo-fig { margin-top: var(--s2); }
+/* Without the desk's island these do nothing (tempo and speed, the swap, X-ray, ↺ Reset, the tool pill): they show once it
+   has started (`.go`, set by islands/home.ts), and their room is kept, so nothing moves when they appear. */
+.demo-fig:not(.go) :is([data-tempo], [data-speed], .xray-btn, .tb.reset, [id$="shuffle"], .floating) { visibility: hidden; }
 .loop-claims { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px var(--s6); margin: var(--s4) 0 var(--s3); padding: 0; list-style: none; font-size: var(--t-sm); color: var(--text-2); }
 .loop-claims b { color: var(--text); font-weight: 620; }
 @media (max-width: 760px) { .loop-claims { grid-template-columns: minmax(0, 1fr); } }

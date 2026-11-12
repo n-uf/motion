@@ -44,6 +44,10 @@ export function startTelemetry(root: HTMLElement): void {
   let focus = 0;
   let report: RunReport | null = null;
   let held: { i: number; samples: HeldSample[]; rows: string[]; t: number; n: number } | null = null;
+  // A window resize re-lays the desk out under a held window: the frames recorded before it (and the next two, while the
+  // desk redraws) are not comparable with the pointer's place, so the hold's judgement starts again instead of failing.
+  let resized = 0;
+  addEventListener("resize", () => { held = null; resized = 2; });
 
   const drawRows = (rows: readonly string[]): void => {
     const shown = rows.slice(-FRAME_ROWS);
@@ -86,6 +90,7 @@ export function startTelemetry(root: HTMLElement): void {
     }
     for (const w of f.windows) {
       if (w.held) {
+        if (resized > 0) { resized--; held = null; continue; }
         // A pointer holds it: record the held frames, judged by checkHeld.
         if (!held || held.i !== w.i) held = { i: w.i, samples: [], rows: [], t: 0, n: 0 };
         held.t += f.dt;
