@@ -6,7 +6,7 @@ import { reveal } from "@n-uf/motion";
 import { $, caseRail } from "./rail";
 import { omega, onMotionChange, reduced, virtualNow } from "./motion";
 import { figureChrome } from "./figure-chrome";
-import { CASES, LANE, at, chartFrame, chartSVG, lanesHTML, optsFor, type ChartOpt } from "../demos/motion";
+import { CASES, LANE, at, chartFrame, chartSVG, lanesHTML, legendHTML, optsFor, type ChartOpt } from "../demos/motion";
 
 function h(tag: string, cls: string, parent?: Element | null, text?: string): HTMLElement {
   const e = document.createElement(tag);
@@ -21,7 +21,9 @@ interface Built { node: HTMLElement; T: number; draw(ms: number): void; destroy(
 /** A chart plus one moving block per curve: drawn as strings, then only the playhead, dots and blocks move. */
 function chartStage(opt: ChartOpt, label: string): Built {
   const node = h("div", "sbody two");
-  const chartWrap = h("div", "chart", node);
+  const col = h("div", "chartcol", node);
+  const chartWrap = h("div", "chart", col);
+  h("div", "legend-box", col).innerHTML = legendHTML(opt);
   const lanesEl = h("div", "lanes", node);
   lanesEl.innerHTML = lanesHTML(opt);
   const span = opt.ymax - opt.ymin;
