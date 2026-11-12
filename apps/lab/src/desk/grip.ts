@@ -15,11 +15,12 @@
  * - Frozen layout: nothing moves or collapses; every glyph hides, the cursor says not-allowed and the title bar's
  *   tooltip says how to move anyway; the menu still opens (a right-click on the title bar) with those items greyed
  *   under a line that says why. Holding Alt shows the glyphs and unfreezes while held; letting go hides them again.
- *   The frozen switch is the page's one `input[name=freeze]` (made here if no other part has made it).
+ *   The frozen state and its switch are desk/freeze.ts's; the grips only follow them.
  */
 import type { Rect } from "@n-uf/motion";
 import { cancelPress } from "../shared/press";
 import { dropAt, targetsFor, without, type DropTarget, type TargetInput } from "./drops";
+import { isLayoutFrozen, onFreezeChange, setLayoutFrozen } from "./freeze";
 import type { Construction, ConstructionId } from "./layouts";
 import { idOf, panelKey, titleOf, toggleClosed, toggleFold, touch, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
 
@@ -613,27 +614,20 @@ export function createGrips(host: GripHost): Grips {
       '<label><input type="radio" name="grip-finish" value="plain" checked /> Plain</label>' +
       '<label><input type="radio" name="grip-finish" value="engraved" /> Engraved</label>' +
       '<label><input type="radio" name="grip-finish" value="well" /> Well</label>';
-    // The shared "Freeze layout" switch, if the page has one; else this one.
-    let freeze = document.querySelector<HTMLInputElement>("input[name=freeze]");
-    if (!freeze) {
-      const l = document.createElement("label");
-      l.innerHTML = '<span class="sep">·</span> <input type="checkbox" name="freeze" /> Freeze layout';
-      fs.append(l);
-      freeze = l.querySelector("input")!;
-    }
     controls.append(fs);
     stage.dataset.grip = "dots";
     stage.dataset.finish = "plain";
     fs.querySelectorAll<HTMLInputElement>("input[name=grip-glyph]").forEach((i) => i.addEventListener("change", () => (stage.dataset.grip = i.value)));
     fs.querySelectorAll<HTMLInputElement>("input[name=grip-finish]").forEach((i) => i.addEventListener("change", () => (stage.dataset.finish = i.value)));
-    const f = freeze;
-    f.addEventListener("change", () => {
-      frozenFlag = f.checked;
-      closeMenu();
-      apply();
-    });
   }
   switches();
+  // The frozen layout: desk/freeze.ts owns it (and its switch); the grips follow it.
+  onFreezeChange(() => {
+    frozenFlag = isLayoutFrozen();
+    closeMenu();
+    apply();
+  });
+  frozenFlag = isLayoutFrozen();
 
   return {
     header,
@@ -642,13 +636,9 @@ export function createGrips(host: GripHost): Grips {
     tabRow,
     frozen: isFrozen,
     test: {
-      // Through the page's one switch, so every part that listens to it (the toolbar's too) follows.
+      // Through the one frozen state, so every part that listens to it (the toolbar's too) follows.
       setFrozen: (on) => {
-        const f = document.querySelector<HTMLInputElement>("input[name=freeze]");
-        if (f && f.checked !== on) {
-          f.checked = on;
-          f.dispatchEvent(new Event("change", { bubbles: true }));
-        }
+        setLayoutFrozen(on);
         frozenFlag = on;
         apply();
       },
