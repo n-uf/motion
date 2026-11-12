@@ -200,12 +200,6 @@ section.hx > .section-head .eyebrow { letter-spacing: 0.1em; }
 .dw.held .dw-bar, .demo:has(.dw.held) { cursor: grabbing; }
 .dw.held .dw-grip i { background: var(--accent); }
 
-/* The idle hint's pointer (islands/home.ts): drawn over the desk, never in the accessibility tree, never in the way. */
-.dw-ptr { position: absolute; left: 0; top: 0; z-index: 4; width: 14px; height: 20px; pointer-events: none; opacity: 0; transition: opacity 180ms ease-out; will-change: transform; }
-.dw-ptr.on { opacity: 1; }
-.dw-ptr svg { display: block; fill: var(--text); stroke: var(--win-well); stroke-width: 1.2; stroke-linejoin: round; filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35)); transform-origin: 1px 1px; transition: transform 110ms ease-out; }
-.dw-ptr.press svg { transform: scale(0.9); }
-
 /* The desk's controls read as buttons: a hairline and a tint on hover, a firmer tint while pressed, the accent ring on focus. */
 .demo-fig .tb { transition: background-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease), color var(--fast) var(--ease); }
 .demo-fig .tb:not([disabled]):hover { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--win-text); box-shadow: inset 0 0 0 1px var(--accent-line); }
