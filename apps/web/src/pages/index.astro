@@ -47,7 +47,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
     drag (each by its package, lit live while you drag the desk), and only then the section head that says why they come
     together, the claims and the caveat. The two telemetry panes that watch the desk are a section further down.
   -->
-  <section class="wrap section loop" aria-labelledby="loop-title">
+  <section class="wrap section loop hx" aria-labelledby="loop-title">
     <HeroDemo id="demo-fig" label="Live demo: three windows that glide between layouts and swap when dragged; X-ray shows each package's layer" />
     <LoopStrip />
     <div class="section-head">
@@ -65,7 +65,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   </section>
 
   <!-- What each package does: the heroes' two columns again, entry by entry (checked against each package.json). -->
-  <section class="wrap section does" aria-labelledby="does-title">
+  <section class="wrap section does hx" aria-labelledby="does-title">
     <div class="section-head">
       <span class="eyebrow">The packages</span>
       <h2 id="does-title">What each package does</h2>
@@ -102,15 +102,24 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   </section>
 
   <!-- Use one, or both: three cards, then one example per package (each compiled against it). -->
-  <section class="wrap section use-pair" aria-labelledby="use-pair-title">
+  <section class="wrap section use-pair hx" aria-labelledby="use-pair-title">
     <div class="section-head">
       <span class="eyebrow">Use one, or both</span>
       <h2 id="use-pair-title">Pick what you need</h2>
     </div>
     <div class="use-cards">
-      <div class="use-card m"><h3>Motion alone</h3><p>Animate your own layout: give each element its rect and it glides there.</p></div>
-      <div class="use-card p"><h3>Placement alone</h3><p>Compute layouts and drop targets, and draw them your way.</p></div>
-      <div class="use-card both"><h3>Both</h3><p>A full desk where the drop is what was shown, and every change glides.</p></div>
+      <div class="use-card m">
+        <svg class="ucfig" viewBox="0 0 76 44" width="76" height="44" aria-hidden="true"><rect class="gh" x="3.5" y="10.5" width="20" height="24"/><rect class="mo" style="opacity:.16" x="17.5" y="10.5" width="20" height="24"/><rect class="mo" style="opacity:.32" x="31.5" y="10.5" width="20" height="24"/><rect class="mo" style="opacity:.58" x="43.5" y="10.5" width="20" height="24"/><rect class="mo" x="53.5" y="10.5" width="20" height="24"/></svg>
+        <div><h3>Motion alone</h3><p>Animate your own layout: give each element its rect and it glides there.</p></div>
+      </div>
+      <div class="use-card p">
+        <svg class="ucfig" viewBox="0 0 76 44" width="76" height="44" aria-hidden="true"><rect class="pl" x="1.5" y="1.5" width="73" height="41"/><rect class="rl" x="1.5" y="1.5" width="14" height="41"/><rect class="sl" x="21.5" y="6.5" width="34" height="31"/><rect class="dk" x="60.5" y="6.5" width="12" height="31"/></svg>
+        <div><h3>Placement alone</h3><p>Compute layouts and drop targets, and draw them your way.</p></div>
+      </div>
+      <div class="use-card both">
+        <svg class="ucfig" viewBox="0 0 76 44" width="76" height="44" aria-hidden="true"><rect class="pl" x="1.5" y="1.5" width="73" height="41"/><rect class="sl" x="21.5" y="6.5" width="34" height="31"/><rect class="gh" x="60.5" y="12.5" width="12" height="19"/><rect class="mo" style="opacity:.3" x="41.5" y="10.5" width="12" height="19"/><rect class="mo" x="25.5" y="10.5" width="26" height="23"/></svg>
+        <div><h3>Both</h3><p>A full desk where the drop is what was shown, and every change glides.</p></div>
+      </div>
     </div>
     <PairCode />
   </section>
@@ -118,7 +127,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   <CodeTabs />
 
   <!-- The two panes behind the desk at the top: the frames of its last move and the rects placement gave it (islands/telemetry.ts). -->
-  <section class="wrap section tele-sec" aria-labelledby="tele-title">
+  <section class="wrap section tele-sec hx" aria-labelledby="tele-title">
     <div class="section-head">
       <h2 id="tele-title">The last move, frame by frame</h2>
       <p>The frames motion drew for the desk's last move, and the rects placement worked out for it.</p>
@@ -127,39 +136,45 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   </section>
 
   <!-- Explore: the four demo pages, grouped by package. -->
-  <section class="wrap section explore" aria-labelledby="explore-title">
+  <section class="wrap section explore hx" aria-labelledby="explore-title">
     <div class="section-head">
       <span class="eyebrow">Explore</span>
       <h2 id="explore-title">Interactive pages</h2>
     </div>
+    <div class="xg m">
     <p class="explore-k m">Move · <code>{motionPart.pkg}</code></p>
-    <div class="cards">
-      <article class="card">
-        <div class="thumb"><svg id="thumb-motion" viewBox={`0 0 ${CURVE.W} ${CURVE.H}`} width={CURVE.W} height={CURVE.H} aria-hidden="true" set:html={curveSVG(CURVE.Tms)} /></div>
+    <div class="plates">
+      <article class="plate-row">
+        <div class="thumb"><div class="fig"><svg id="thumb-motion" viewBox={`0 0 ${CURVE.W} ${CURVE.H}`} width={CURVE.W} height={CURVE.H} aria-hidden="true" set:html={curveSVG(CURVE.Tms)} /></div></div>
         <div class="card-body"><span class="eyebrow"><span class="n">01</span> Window motion</span><h3><a href="/window-motion/">Settle against springs and tweens</a></h3><p>Curves from real parameters, a drag timeline, a retarget mid-flight, and stretch versus reveal frame by frame.</p></div>
       </article>
-      <article class="card">
-        <div class="thumb"><div class="t-stage" id="thumb-drag" aria-hidden="true"><i class="t-z" style="left:14px;top:14px;width:62px;height:70px"></i><i class="t-z home" style="left:14px;top:92px;width:62px;height:44px"></i><i class="t-z doc" style="left:84px;top:14px;width:94px;height:122px"></i><i class="t-z" style="left:186px;top:14px;width:80px;height:40px"></i><i class="t-z" style="left:186px;top:96px;width:80px;height:40px"></i><i class="t-ind" style="left:186px;top:58px;width:80px;height:34px"></i><i class="t-chip" style="transform:translate(14px,99px)"></i></div></div>
+      <article class="plate-row">
+        <div class="thumb"><div class="fig"><div class="t-stage" id="thumb-drag" aria-hidden="true"><i class="t-z" style="left:14px;top:14px;width:62px;height:70px"></i><i class="t-z home" style="left:14px;top:92px;width:62px;height:44px"></i><i class="t-z doc" style="left:84px;top:14px;width:94px;height:122px"></i><i class="t-z" style="left:186px;top:14px;width:80px;height:40px"></i><i class="t-z" style="left:186px;top:96px;width:80px;height:40px"></i><i class="t-ind" style="left:186px;top:58px;width:80px;height:34px"></i><i class="t-chip" style="transform:translate(14px,99px)"></i></div></div></div>
         <div class="card-body"><span class="eyebrow"><span class="n">02</span> Drag intent</span><h3><a href="/drag-intent/">An indicator only once you aim</a></h3><p>Drag a panel yourself or replay recorded paths, and count the indicator's flashes in this model and a naive one.</p></div>
       </article>
     </div>
+    </div>
+    <div class="xg p">
     <p class="explore-k p">Place · <code>{placementPart.pkg}</code></p>
-    <div class="cards">
-      <article class="card">
-        <div class="thumb"><svg id="thumb-desk" viewBox="0 0 280 150" width="280" height="150" aria-hidden="true" set:html={deskThumbSVG()} /></div>
+    <div class="plates">
+      <article class="plate-row">
+        <div class="thumb"><div class="fig"><svg id="thumb-desk" viewBox="0 0 280 150" width="280" height="150" aria-hidden="true" set:html={deskThumbSVG()} /></div></div>
         <div class="card-body"><span class="eyebrow"><span class="n">03</span> Desk layouts</span><h3><a href="/desk-layouts/">Nine ways to build a desk</a></h3><p>Docks, one tiling tree, a strip, drawers and palettes, laid out live as width and height run out.</p></div>
       </article>
-      <article class="card">
-        <div class="thumb"><div class="t-win" aria-hidden="true"><div class="t-bar" id="thumb-bar"><span class="t-group"><i class="t-g"></i><b style="width:46px"></b></span><span class="t-group"><i class="t-g"></i><b></b><b></b><b></b></span><span class="t-group"><i class="t-g"></i><b></b><b class="on"></b></span><span class="t-group"><i class="t-g"></i><b style="width:30px"></b></span></div><div class="t-doc"><span></span></div></div></div>
+      <article class="plate-row">
+        <div class="thumb"><div class="fig"><div class="t-win" aria-hidden="true"><div class="t-bar" id="thumb-bar"><span class="t-group"><i class="t-g"></i><b style="width:46px"></b></span><span class="t-group"><i class="t-g"></i><b></b><b></b><b></b></span><span class="t-group"><i class="t-g"></i><b></b><b class="on"></b></span><span class="t-group"><i class="t-g"></i><b style="width:30px"></b></span></div><div class="t-doc"><span></span></div></div></div></div>
         <div class="card-body"><span class="eyebrow"><span class="n">04</span> Toolbar groups</span><h3><a href="/toolbar-groups/">One handle per group</a></h3><p>Five hosts, three zones, floating and collapsing groups, all from one drag handle each.</p></div>
       </article>
     </div>
+    </div>
+    <div class="xg both">
     <p class="explore-k">Try it all · both packages</p>
-    <div class="cards one">
-      <article class="card wide">
-        <div class="thumb"><svg viewBox="0 0 280 150" width="280" height="150" aria-hidden="true"><g class="lab-tiles"><rect x="14" y="14" width="76" height="58" rx="5"/><rect x="100" y="14" width="76" height="26" rx="5"/><rect x="186" y="14" width="80" height="58" rx="5"/><rect x="100" y="50" width="76" height="22" rx="5"/><rect x="14" y="82" width="120" height="54" rx="5"/><rect x="144" y="82" width="122" height="54" rx="5"/></g></svg></div>
+    <div class="plates">
+      <article class="plate-row">
+        <div class="thumb"><div class="fig"><svg viewBox="0 0 280 150" width="280" height="150" aria-hidden="true"><g class="lab-tiles"><rect x="14" y="14" width="76" height="58" rx="5"/><rect x="100" y="14" width="76" height="26" rx="5"/><rect x="186" y="14" width="80" height="58" rx="5"/><rect x="100" y="50" width="76" height="22" rx="5"/><rect x="14" y="82" width="120" height="54" rx="5"/><rect x="144" y="82" width="122" height="54" rx="5"/></g></svg></div></div>
         <div class="card-body"><span class="eyebrow">Lab</span><h3><a href="/lab/">The lab</a></h3><p>16 interactive demos for both packages, from the settle to ten kit cases, and a checks page that runs every scenario.</p></div>
       </article>
+    </div>
     </div>
   </section>
 
