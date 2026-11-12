@@ -85,6 +85,9 @@ describe("a host's layout", () => {
     // Groups named like Object.prototype's members get keep 0, not a function (which would make the sort NaN).
     expect(layoutHost({ start: ["toString", "b", "c"], center: [], end: [] }, "top", s({ b: 1 }), sz).overflow).toEqual(["c", "toString"]);
     expect(layoutHost({ start: ["constructor", "b", "c"], center: [], end: [] }, "top", s({ b: 1 }), sz).overflow).toEqual(["c", "constructor"]);
+    // An inherited number is not the spec's own: only own keys count.
+    const inherited = Object.create({ c: 5 }) as Record<string, number>;
+    expect(layoutHost({ start: ["a", "b", "c"], center: [], end: [] }, "top", s(inherited), sz).overflow).toEqual(["c", "b"]);
     // A keep that isn't a finite number counts as 0.
     expect(layoutHost({ start: ["a", "b", "c"], center: [], end: [] }, "top", s({ b: Number.NaN, c: 1 }), sz).overflow).toEqual(["b", "a"]);
     expect(layoutHost({ start: ["a", "b", "c"], center: [], end: [] }, "top", s({ b: Number.POSITIVE_INFINITY, c: 1 }), sz).overflow).toEqual(["b", "a"]);
