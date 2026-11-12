@@ -1,7 +1,7 @@
 /**
- * 6 · Constraints: an app's rule for where a group may go is placement's `allows(group, place)`. hostTargets and floatTarget leave a
- * forbidden place out, so the drag intent never sees it: no target, no slot, the group follows the pointer, and a
- * release glides home.
+ * 6 · Constraints: an app's rule for where a group may go is placement's `allows(group, place)`. hostTargets leaves a
+ * forbidden place out, and the float target is added only where the rule allows floating, so the drag intent never
+ * sees a forbidden place: no target, no slot, the group follows the pointer, and a release glides home.
  */
 import type { Point } from "@n-uf/motion";
 import type { Allows } from "@n-uf/placement/targets";
@@ -16,8 +16,8 @@ export const constraint: Allows<GroupId> = (g, place) => {
   return true;
 };
 
-const RULE = `The app's rule is placement's <code>allows(group, place)</code>: <code>hostTargets</code> and <code>floatTarget</code>
-leave a forbidden place out, so <code>createDragIntent</code> never sees it. <b>Redact</b> stays in the top bar (no other
+const RULE = `The app's rule is placement's <code>allows(group, place)</code>: <code>hostTargets</code> leaves a forbidden
+place out, and the float target is added only where the rule allows floating, so <code>createDragIntent</code> never sees it. <b>Redact</b> stays in the top bar (no other
 bar, no float); <b>Share</b> can't float. Over a forbidden spot there is no target and no slot, the group follows the
 pointer, and a release glides home. Navigate, Zoom and Annotate go anywhere.`;
 

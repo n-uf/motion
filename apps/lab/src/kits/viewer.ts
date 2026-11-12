@@ -469,8 +469,8 @@ export function createViewer(host: HTMLElement, options: ViewerOptions): Viewer 
     for (const h of hosts) out.push(...hostTargets<GroupId>({ group: g, arrangement: a, host: h, origin: geo.hostRect[h], spec: spec(h, geo), size, label, allows: rule }).targets);
     // As it floats: a row, or (proposal B) the column it is now.
     const s = sized(g, keepsColumn(g), a.collapsed.includes(g));
-    const float = floatTarget<GroupId>({ group: g, arrangement: a, stage: geo.stage, width: s.width, height: s.height, allows: rule });
-    if (float) out.push(float);
+    // The same rule says whether it may float at all: no float target where it may not.
+    if (!rule || rule(g, "float")) out.push(floatTarget<GroupId>({ group: g, arrangement: a, stage: geo.stage, width: s.width, height: s.height }));
     const words = options.words;
     if (!words) return out;
     const a0 = withoutGroup(a, g);
