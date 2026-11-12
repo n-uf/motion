@@ -13,7 +13,8 @@
     <link rel="stylesheet" href="/src/shell/shell.css" />
   </head>
   <body>
-    <div class="lab" id="lab"></div>
+    <!-- The page's own header (with its h1) is drawn by the shell; until then, and without script, this is the h1. -->
+    <div class="lab" id="lab"><h1 style="position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">Motion and placement lab</h1></div>
     <script type="module" src="/src/shell/shell.ts"></script>
   </body>
 </html>
