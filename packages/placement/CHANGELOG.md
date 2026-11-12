@@ -18,9 +18,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   - `HostSpec.keep`: a per-group keep priority (default 0). When room runs out, a lower keep collapses first;
     among equal keeps the trailing end still goes first, so a primary group at the end can stay open. `HostSpec`
     takes the group id type.
-  - `toJSON(arrangement)` / `fromJSON(data, groups?)`: a versioned stored form (`{ v: 1, hosts, collapsed,
-    floating }`). Reading gives `{ ok: true, arrangement }` or `{ ok: false, error }`, never a throw: an unknown
-    version, a missing host or zone, a value of the wrong kind, a group in two places, an unknown group.
+  - `storeArrangement(arrangement)` / `readArrangement(data, groups?)`: a versioned stored form (`{ v: 1, hosts,
+    collapsed, floating }`). Reading parsed data gives `{ ok: true, arrangement }` or `{ ok: false, error }`, never a
+    throw: an unknown version, a missing host or zone, a value of the wrong kind, a group in two places, an unknown
+    group. An arrangement lacking some known groups reads fine; place those with `resetGroup` or `dockGroup`.
 
 ## 26.11.5
 

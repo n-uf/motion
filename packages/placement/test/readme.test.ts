@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_OPTIONS, createDesk, liftOut } from "../src/dock";
 import { deskDrop, deskTargets, hostTargets, keyboardStops, paneZone, type PaneZone } from "../src/targets";
-import { arrangement, fromJSON, hostOf, layoutHost, toJSON, type Place } from "../src/toolbar";
+import { arrangement, hostOf, layoutHost, readArrangement, storeArrangement, type Place } from "../src/toolbar";
 
 describe("README examples", () => {
   it("a desk", () => {
@@ -29,10 +29,10 @@ describe("README examples", () => {
   });
 
   it("stored arrangements", () => {
-    const saved = JSON.stringify(toJSON(arrangement({ top: { start: ["file", "edit"] } })));
+    const saved = JSON.stringify(storeArrangement(arrangement({ top: { start: ["file", "edit"] } })));
     expect(saved.startsWith('{"v":1,"hosts":')).toBe(true);
-    expect(fromJSON(JSON.parse(saved)).ok).toBe(true);
-    expect(fromJSON({ v: 9 })).toEqual({ ok: false, error: "unknown version 9 (this reads version 1)" });
+    expect(readArrangement(JSON.parse(saved)).ok).toBe(true);
+    expect(readArrangement({ v: 9 })).toEqual({ ok: false, error: "unknown version 9 (this reads version 1)" });
   });
 
   it("toolbar targets and keyboard stops", () => {

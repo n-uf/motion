@@ -6,7 +6,6 @@ import {
   arrangement,
   dockGroup,
   floatGroup,
-  fromJSON,
   hostNeed,
   hostOf,
   insertGroup,
@@ -18,13 +17,15 @@ import {
   moveToHost,
   resetGroup,
   sameArrangement,
-  toJSON,
+  readArrangement,
+  storeArrangement,
   toggleCollapsed,
   withoutGroup,
   type Arrangement,
   type GroupSize,
   type HostSpec,
 } from "../src/toolbar";
+import * as toolbarModule from "../src/toolbar";
 
 type Gr = "doc" | "edit" | "history" | "view" | "zoom" | "panel" | "share";
 const WIDTH: Record<Gr, number> = { doc: 160, edit: 90, history: 70, view: 110, zoom: 100, panel: 80, share: 70 };
@@ -157,17 +158,22 @@ describe("arrangement changes", () => {
 
   it("stores as versioned data and reads back the same arrangement", () => {
     const a = toggleCollapsed(floatGroup(HOME, "history", 40, 50), "zoom");
-    const data = toJSON(a);
+    const data = storeArrangement(a);
     expect(data.v).toBe(1);
-    const back = fromJSON<Gr>(JSON.parse(JSON.stringify(data)), ["doc", "edit", "history", "view", "zoom", "panel", "share"]);
+    const back = readArrangement<Gr>(JSON.parse(JSON.stringify(data)), ["doc", "edit", "history", "view", "zoom", "panel", "share"]);
     expect(back.ok && sameArrangement(back.arrangement, a)).toBe(true);
     expect(back.ok && back.arrangement.floating).toEqual([{ id: "history", x: 40, y: 50, from: { host: "top", zone: "center", index: 1 } }]);
   });
 
+  it("the module itself serialises: no export takes JSON.stringify's toJSON hook", () => {
+    expect(() => JSON.stringify(toolbarModule)).not.toThrow();
+    expect("toJSON" in toolbarModule).toBe(false);
+  });
+
   it("reading bad data gives an error, never a throw", () => {
-    const good = toJSON(HOME) as unknown as Record<string, unknown>;
+    const good = storeArrangement(HOME) as unknown as Record<string, unknown>;
     const bad = (data: unknown, groups?: readonly string[]): string => {
-      const r = fromJSON(data, groups);
+      const r = readArrangement(data, groups);
       return r.ok ? "read" : r.error;
     };
     expect(bad(null)).toBe("not an object");
