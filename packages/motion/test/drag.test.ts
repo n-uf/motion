@@ -289,6 +289,29 @@ describe("drag/ intent", () => {
     for (let i = 1; i <= 20; i++) g = over.update({ x: 150, y: 50 }, i * FRAME, [pane, area]);
     expect(g.shown?.id).toBe("area");
     expect(over.release({ x: 150, y: 50 }, [pane, area])?.id).toBe("area");
+    // Shown, then an aiming step into the part where it has no place, the area beneath: the pane is dropped on that
+    // very frame (no switch hold for a target that takes no drop there), and a release lands on the area.
+    const step = createDragIntent({ home: HOME, placeOf: (x: DragTarget, p: Point) => (x.id === "pane" && p.x >= 100 ? null : x.id) });
+    let s = step.update({ x: 95, y: 50 }, 0, [pane, area]);
+    for (let i = 1; i <= 20; i++) s = step.update({ x: 95, y: 50 }, i * FRAME, [pane, area]);
+    expect(s.shown?.id).toBe("pane");
+    s = step.update({ x: 101, y: 50 }, 21 * FRAME, [pane, area]);
+    expect(s.aiming).toBe(true);
+    expect(s.shown?.id).not.toBe("pane");
+    expect(step.release({ x: 101, y: 50 }, [pane, area])?.id).toBe("area");
+  });
+
+  it("hide() forgets the places: the next sample asks placeOf with no previous place", () => {
+    const tabs: DragTarget = { id: "tabs", priority: 1, hit: rect(0, 0, 300, 30) };
+    const seen: (string | null)[] = [];
+    const intent = createDragIntent({ home: HOME, placeOf: (_t: DragTarget, p: Point, previous: string | null) => (seen.push(previous), p.x < 100 ? "L" : "R") });
+    let t = 0;
+    for (let i = 0; i < 5; i++) intent.update({ x: 50, y: 15 }, (t += FRAME), [tabs]);
+    expect(seen.at(-1)).toBe("L");
+    intent.hide(t);
+    seen.length = 0;
+    intent.update({ x: 50, y: 15 }, (t += FRAME), [tabs]);
+    expect(seen[0]).toBeNull();
   });
 
   it("placeOf gets the place it gave last, so a place can hold near its boundary", () => {
