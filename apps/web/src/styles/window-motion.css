@@ -1,5 +1,5 @@
 /* Window motion: charts with moving lanes, and the stretch-versus-reveal frames. */
-.motionfig { --stage-h: 600px; }
+.motionfig { --stage-h: 780px; }
 .motionfig .stage-wrap { background: var(--bg-raised); }
 #stage { padding: var(--s5); container-type: inline-size; }
 @media (max-width: 900px) { .motionfig .stage-wrap { height: auto; overflow: visible; } }
@@ -14,6 +14,16 @@
 .sbody { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
 @container (min-width: 600px) { .sbody.two { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); } }
 .chart { min-width: 0; }
+.chartcol { min-width: 0; }
+
+/* The legend under a chart: one sentence, then a swatch per curve drawn like the curve itself. */
+.legend-box { margin-top: var(--s3); min-width: 0; }
+.lread { margin: 0 0 var(--s2); font-size: var(--t-xs); line-height: 1.45; color: var(--text-2); }
+.curve-key { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 232px), 1fr)); gap: 6px var(--s4); }
+.curve-key li { display: flex; gap: var(--s2); align-items: flex-start; min-width: 0; font-size: var(--t-xs); line-height: 1.35; color: var(--text-2); }
+.curve-key .lsw { flex: none; display: block; margin-top: 1px; overflow: visible; }
+.curve-key li > span { min-width: 0; overflow-wrap: anywhere; }
+.ltag { display: inline-block; margin-left: 2px; padding: 0 6px; border-radius: var(--r-xs); background: var(--accent-soft); color: var(--accent-strong); font-size: var(--t-2xs); font-weight: 650; line-height: 1.5; letter-spacing: 0.02em; vertical-align: 1px; }
 .chart svg { display: block; width: 100%; height: auto; font-family: var(--font-sans); }
 .chart .axis { fill: var(--text-3); font-size: 11px; font-variant-numeric: tabular-nums; }
 .chart .axis.small { font-size: 10.5px; }

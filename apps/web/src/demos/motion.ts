@@ -70,8 +70,11 @@ export function at(data: Series, ms: number): number {
   return a[1] + ((b[1] - a[1]) * (ms - a[0])) / (b[0] - a[0]);
 }
 
-export interface Line { name: string; color: string; dash?: string; w?: number; data: Series }
+/** `legend` is the plain name the legend shows; `lib` tags the curve as the library's own. */
+export interface Line { name: string; color: string; dash?: string; w?: number; data: Series; legend?: string; lib?: boolean }
 export interface ChartOpt {
+  /** The one sentence above the legend: what the chart's axes mean. */
+  read?: string;
   T: number; xstep: number; ymin: number; ymax: number; yticks: number[]; yfmt: (v: number) => string;
   marks?: { v: number; color: string; label: string }[]; vmarks?: { ms: number; label: string }[];
   lines: Line[]; points?: Line[];
@@ -82,18 +85,19 @@ const dt = 3;
 // 1 · settle
 const T1 = 450;
 export const settleOpt: ChartOpt = {
+  read: "Up is progress from A to B; above the dashed target line means overshoot.",
   T: T1, xstep: 50, ymin: 0, ymax: 1.06, yticks: [0, 0.25, 0.5, 0.75, 0.9, 1], yfmt: (v) => Math.round(v * 100) + "%",
   marks: [{ v: 1, color: "--line-3", label: "target" }],
   lines: [
-    { name: "Hyprland shipped: spring easy (ratio 0.785)", color: "--series-a", dash: "6 4", data: springSeries(238.1191, 24.21279, 0, 0, 1, T1, dt) },
-    { name: "Hyprland older: easeOutQuint 479 ms", color: "--series-a2", dash: "6 4", data: series((ms) => bez(0.23, 1, 0.32, 1)(ms / 479), T1, dt) },
-    { name: "Host app rect spring 320, from rest", color: "--series-b", data: springSeries(320, 2 * Math.sqrt(320), 0, 0, 1, T1, dt) },
-    { name: "Host app maximize/restore: snappy 220 ms (y2 1.05)", color: "--series-b2", data: series((ms) => bez(0.05, 0.9, 0.1, 1.05)(ms / 220), T1, dt) },
-    { name: "Proposed settle ω=37 (recording)", color: "--series-c2", dash: "1 3", data: settleSeries(37, T1, dt) },
-    { name: "Proposed settle ω=25 (default)", color: "--series-c", w: 3.2, data: settleSeries(25, T1, dt) },
-    { name: "Proposed settle ω=20 (calm)", color: "--series-c2", dash: "6 4", data: settleSeries(20, T1, dt) },
+    { name: "Hyprland shipped: spring easy (ratio 0.785)", legend: "Hyprland spring 'easy'", color: "--series-a", dash: "6 4", data: springSeries(238.1191, 24.21279, 0, 0, 1, T1, dt) },
+    { name: "Hyprland older: easeOutQuint 479 ms", legend: "Hyprland older ease-out", color: "--series-a2", dash: "6 4", data: series((ms) => bez(0.23, 1, 0.32, 1)(ms / 479), T1, dt) },
+    { name: "Host app rect spring 320, from rest", legend: "Typical app: re-layout spring from rest", color: "--series-b", data: springSeries(320, 2 * Math.sqrt(320), 0, 0, 1, T1, dt) },
+    { name: "Host app maximize/restore: snappy 220 ms (y2 1.05)", legend: "Typical app: maximize/restore (overshoots)", color: "--series-b2", data: series((ms) => bez(0.05, 0.9, 0.1, 1.05)(ms / 220), T1, dt) },
+    { name: "Proposed settle ω=37 (recording)", legend: "n-uf motion settle, quick ω 37", color: "--series-c2", dash: "1 3", data: settleSeries(37, T1, dt) },
+    { name: "Proposed settle ω=25 (default)", legend: "n-uf motion settle, default ω 25", lib: true, color: "--series-c", w: 3.2, data: settleSeries(25, T1, dt) },
+    { name: "Proposed settle ω=20 (calm)", legend: "n-uf motion settle, calm ω 20", color: "--series-c2", dash: "6 4", data: settleSeries(20, T1, dt) },
   ],
-  points: [{ name: "Recording: window open (measured)", color: "--series-a", data: [[0, 0], [15, 0.44], [45, 0.755], [65, 0.965], [85, 0.985], [180, 1]] }],
+  points: [{ name: "Recording: window open (measured)", legend: "Measured: a real Hyprland window (dots)", color: "--series-a", data: [[0, 0], [15, 0.44], [45, 0.755], [65, 0.965], [85, 0.985], [180, 1]] }],
 };
 
 // 2 · drag: pointer accelerates, cruises, slows, release at 260 -> slot
@@ -126,12 +130,13 @@ const fol: Series = [];
   }
 }
 export const dragOpt: ChartOpt = {
+  read: "Up is how far the window has travelled from where it started; the dashed line is the slot it lands in, and the vertical dashed line is the release.",
   T: Tdrag, xstep: 50, ymin: 0, ymax: slot * 1.08, yticks: [0, slot], yfmt: (v) => (v === 0 ? "start" : "slot"),
   marks: [{ v: slot, color: "--line-3", label: "slot" }], vmarks: [{ ms: REL, label: "release" }],
   lines: [
-    { name: "Pointer − grab offset", color: "--series-ink", dash: "1 3", w: 2.5, data: pointerLine.filter((p) => p[0] <= REL) },
-    { name: "Host app own drag: localDrag 1400, then rect 320", color: "--series-b", data: fol },
-    { name: "Hyprland / proposed: held 1:1, then settle ω=25", color: "--series-c", w: 3.2, data: held },
+    { name: "Pointer − grab offset", legend: "Pointer position, until release", color: "--series-ink", dash: "1 3", w: 2.5, data: pointerLine.filter((p) => p[0] <= REL) },
+    { name: "Host app own drag: localDrag 1400, then rect 320", legend: "Typical app: own drag spring, then re-layout spring", color: "--series-b", data: fol },
+    { name: "Hyprland / proposed: held 1:1, then settle ω=25", legend: "Hyprland and n-uf motion: held 1:1, then settle ω 25", lib: true, color: "--series-c", w: 3.2, data: held },
   ],
 };
 
@@ -161,13 +166,14 @@ function restRestart(): Series {
   return o;
 }
 export const retargetOpt: ChartOpt = {
+  read: "Up is progress from A to B; at the vertical dashed line the target moves to the nearer dashed line, and a curve that goes past it has overshot.",
   T: T3, xstep: 50, ymin: 0, ymax: 1.05, yticks: [0, 0.25, 0.5, NEW, 1], yfmt: (v) => (v === NEW ? "new" : v === 1 ? "old" : Math.round(v * 100) + "%"),
   marks: [{ v: NEW, color: "--line-3", label: "new target" }, { v: 1, color: "--line-3", label: "" }], vmarks: [{ ms: RT, label: "retarget" }],
   lines: [
-    { name: "Tween restart (hypr-tiling CSS, host app tweens)", color: "--series-a2", dash: "6 4", data: tweenR },
-    { name: "Host app docked / space change: restart from rest", color: "--series-b", data: restRestart() },
-    { name: "Velocity kept, no clamp (crosses the new target)", color: "--series-b2", dash: "1 3", data: unclamped() },
-    { name: "Proposed: velocity kept + clamp", color: "--series-c", w: 3.2, data: settleSeries(w25, T3, dt, 0, 1, { at: RT, to: NEW }) },
+    { name: "Tween restart (hypr-tiling CSS, host app tweens)", legend: "Tween restart: hypr-tiling and typical app tweens", color: "--series-a2", dash: "6 4", data: tweenR },
+    { name: "Host app docked / space change: restart from rest", legend: "Typical app: docked or space change, restarts from rest", color: "--series-b", data: restRestart() },
+    { name: "Velocity kept, no clamp (crosses the new target)", legend: "Speed kept, no clamp (crosses the new target)", color: "--series-b2", dash: "1 3", data: unclamped() },
+    { name: "Proposed: velocity kept + clamp", legend: "n-uf motion settle ω 25: speed kept and clamped", lib: true, color: "--series-c", w: 3.2, data: settleSeries(w25, T3, dt, 0, 1, { at: RT, to: NEW }) },
   ],
 };
 
@@ -241,6 +247,23 @@ export function lanesHTML(opt: ChartOpt, ms = 0): string {
   return opt.lines.map((s) => lane(s, false)).join("") + (opt.points || []).map((s) => lane(s, true)).join("");
 }
 
+/**
+ * The legend under a chart: one sentence on what the axes mean, then one row per curve actually drawn (the measured
+ * dots first), each with a swatch drawn like the curve itself: same colour, weight and dash. Library curves are tagged.
+ */
+export function legendHTML(opt: ChartOpt): string {
+  const row = (s: Line, isPoint: boolean): string => {
+    const stroke = V(s.color);
+    const swatch = isPoint
+      ? `<circle cx="14" cy="6" r="4" fill="${stroke}" stroke="${V("--bg-raised")}" stroke-width="1.5"/>`
+      : `<line x1="2" y1="6" x2="26" y2="6" stroke="${stroke}" stroke-width="${s.w || 1.75}"${s.dash ? ` stroke-dasharray="${s.dash}"` : ""} stroke-linecap="round"/>`;
+    const tag = s.lib ? ` <span class="ltag">library</span>` : "";
+    return `<li><svg class="lsw" viewBox="0 0 28 12" width="28" height="12" aria-hidden="true" focusable="false">${swatch}</svg><span>${s.legend || s.name}${tag}</span></li>`;
+  };
+  const rows = (opt.points || []).map((s) => row(s, true)).join("") + opt.lines.map((s) => row(s, false)).join("");
+  return `<p class="lread">${opt.read || ""}</p><ul class="curve-key" aria-label="Curves in the chart">${rows}</ul>`;
+}
+
 // ---- The cases --------------------------------------------------------------------------------------------------------
 export type CaseKind = "settle" | "drag" | "retarget" | "frames";
 export const CASES: { kind: CaseKind; name: string; note: string; desc: string; label: string }[] = [
@@ -264,16 +287,16 @@ export function optsFor(omega: number): Record<Exclude<CaseKind, "frames">, Char
   const proposed = (name: string): boolean => name.startsWith("Proposed settle");
   const settle: ChartOpt = {
     ...settleOpt,
-    lines: settleOpt.lines.map((l) => (proposed(l.name) ? { ...l, w: l.name.includes(`ω=${omega}`) ? 3.2 : 1.75, color: l.name.includes(`ω=${omega}`) ? "--series-c" : "--series-c2" } : l)),
+    lines: settleOpt.lines.map((l) => (proposed(l.name) ? { ...l, lib: l.name.includes(`ω=${omega}`), w: l.name.includes(`ω=${omega}`) ? 3.2 : 1.75, color: l.name.includes(`ω=${omega}`) ? "--series-c" : "--series-c2" } : l)),
   };
   const landing = settleSeries(omega, Tdrag - REL, 2, relX, slot);
   const drag: ChartOpt = {
     ...dragOpt,
-    lines: dragOpt.lines.map((l, i) => (i === 2 ? { ...l, name: `Hyprland / proposed: held 1:1, then settle ω=${omega}`, data: series((ms) => (ms <= REL ? ptr(Math.min(ms, 240)) : at(landing, ms - REL)), Tdrag, 2) } : l)),
+    lines: dragOpt.lines.map((l, i) => (i === 2 ? { ...l, name: `Hyprland / proposed: held 1:1, then settle ω=${omega}`, legend: `Hyprland and n-uf motion: held 1:1, then settle ω ${omega}`, data: series((ms) => (ms <= REL ? ptr(Math.min(ms, 240)) : at(landing, ms - REL)), Tdrag, 2) } : l)),
   };
   const retarget: ChartOpt = {
     ...retargetOpt,
-    lines: retargetOpt.lines.map((l, i) => (i === 3 ? { ...l, name: `Proposed ω=${omega}: velocity kept + clamp`, data: settleSeries(omega, T3, dt, 0, 1, { at: RT, to: NEW }) } : l)),
+    lines: retargetOpt.lines.map((l, i) => (i === 3 ? { ...l, name: `Proposed ω=${omega}: velocity kept + clamp`, legend: `n-uf motion settle ω ${omega}: speed kept and clamped`, data: settleSeries(omega, T3, dt, 0, 1, { at: RT, to: NEW }) } : l)),
   };
   return { settle, drag, retarget };
 }
