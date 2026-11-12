@@ -13,7 +13,7 @@ const { path, wrap = false } = Astro.props;
 const items = FAQS[path] ?? [];
 ---
 {items.length > 0 && (
-  <section class:list={["section", "faq", { wrap }]} aria-labelledby="faq-title">
+  <section class:list={["section", "faq", { wrap, hx: wrap }]} aria-labelledby="faq-title">
     <div class="section-head">
       <span class="eyebrow">FAQ</span>
       <h2 id="faq-title" class="section-title">Questions</h2>
