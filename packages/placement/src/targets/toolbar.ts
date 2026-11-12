@@ -111,9 +111,13 @@ export interface FloatTargetInput<G extends string> {
 /**
  * Floating over the content (`stage`, in stage coordinates): the group's top-left corner kept on the stage. Null
  * when `allows` says the group may not float.
+ *
+ * The input with an `allows` key comes first (it may give null); the one without it last, so a call without `allows`
+ * is never null, and `ReturnType<typeof floatTarget>` is the non-null target as before `allows` existed. An input
+ * typed `FloatTargetInput` (its `allows` optional) states it: `{ ...input, allows: input.allows }`.
  */
-export function floatTarget<G extends string>(input: FloatTargetInput<G> & { readonly allows?: undefined }): ToolbarFloatTarget<G>;
-export function floatTarget<G extends string>(input: FloatTargetInput<G>): ToolbarFloatTarget<G> | null;
+export function floatTarget<G extends string>(input: FloatTargetInput<G> & { readonly allows: Allows<G> | undefined }): ToolbarFloatTarget<G> | null;
+export function floatTarget<G extends string>(input: Omit<FloatTargetInput<G>, "allows"> & { readonly allows?: undefined }): ToolbarFloatTarget<G>;
 export function floatTarget<G extends string>(input: FloatTargetInput<G>): ToolbarFloatTarget<G> | null {
   const { group, arrangement, stage } = input;
   if (input.allows && !input.allows(group, "float")) return null;
