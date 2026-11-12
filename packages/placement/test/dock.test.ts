@@ -5,7 +5,9 @@
  */
 import { describe, expect, it } from "vitest";
 import { overlap, type Rect, type Size } from "../index";
-import { DEFAULT_OPTIONS, LAYER, PILL_MIN, TITLE, idOf, liftOut, panelKey, toggleClosed, toggleFold, touch, type Construction, type ConstructionId, type Layout, type Options, type Side } from "../src/dock";
+import { DEFAULT_OPTIONS, LAYER, idOf, liftOut, panelKey, toggleClosed, toggleFold, touch, type Construction, type ConstructionId, type Layout, type Options, type Side } from "../src/dock";
+import { TITLE } from "../src/dock/model";
+import { PILL_MIN } from "../src/dock/parts";
 import { deskDrop, deskTargets } from "../src/targets";
 import { BOTTOM_MODES, TOOLBAR_MODES, desk, docs, fmt, seeded } from "./fixture";
 

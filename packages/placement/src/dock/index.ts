@@ -3,24 +3,21 @@
  * or across the full width), rails, natural-height sections whose last one takes the rest, fold and unfold, the
  * give-way rules (sections fold, docks fold to rails), floating palettes with corner stacks, tear-off and dock-back;
  * and the nine desk constructions as presets built from these parts (`createDesk`).
+ *
+ * The public surface: `createDesk` and its types, the options, the stacking layers, the item keys, and the state
+ * changes. `G` is the gap every construction keeps between items; `stripGeometry` gives the scrolling strip's extent
+ * and scroll, for a consumer that scrolls it by hand (it sets `stripScroll`).
  */
 export {
-  BAR,
   DEFAULT_OPTIONS,
-  DOC_MIN,
   G,
   LAYER,
-  RAIL,
-  TABS,
-  TITLE,
-  catalogOf,
   docKey,
   idOf,
   isDocKey,
   isPanelKey,
   liftOut,
   panelKey,
-  startState,
   toggleClosed,
   toggleFold,
   touch,
@@ -40,38 +37,5 @@ export {
   type Placed,
   type Side,
 } from "./model";
-export {
-  BOTTOM,
-  BOTTOM_SHARE,
-  DOCK,
-  DRAWER_DOCK,
-  OVER_MARGIN,
-  PALETTE_NARROW,
-  PILL_MIN,
-  STRIP_PANEL_W,
-  TORN_W,
-  TREE_COLUMN,
-  WORK_MIN,
-  accordion,
-  aroundDocs,
-  dockGeometry,
-  lruFold,
-  paletteArea,
-  paletteWidth,
-  palettes,
-  pill,
-  pillBetween,
-  railIcon,
-  stripColumns,
-  stripDocW,
-  stripGeometry,
-  tileMin,
-  treeArea,
-  treeFloats,
-  treeRails,
-  treeShown,
-  treeTiles,
-  type DockGeometry,
-  type StripGeometry,
-} from "./parts";
+export { stripGeometry, type StripGeometry } from "./parts";
 export { createDesk, draggable, type Construction, type ConstructionId, type Desk } from "./constructions";
