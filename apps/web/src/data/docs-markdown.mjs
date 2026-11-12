@@ -43,7 +43,7 @@ function selfLink(node) {
   return links.length === 1 && /^https?:\/\/motion\.n-uf\.com\/?$/i.test(links[0].url);
 }
 
-const KINDS =["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"];
+const KINDS = ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"];
 
 function callout(quote) {
   const [marker, ...rest] = quote.children;
