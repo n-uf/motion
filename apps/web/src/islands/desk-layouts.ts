@@ -7,7 +7,7 @@ import type { Rect } from "@n-uf/motion";
 import { $, caseRail, fillRanges } from "./rail";
 import { RectField } from "./motion";
 import { figureChrome } from "./figure-chrome";
-import { BOTTOM_MODES, CARDS, DEFAULT_OPTS, HAS_BOTTOM, HAS_PILL, TOOLBAR_MODES, deskSVG, keyed, layout, type Box, type Opt } from "../demos/desk";
+import { BOTTOM_MODES, CARDS, DEFAULT, DEFAULT_OPTS, HAS_BOTTOM, HAS_PILL, TOOLBAR_MODES, deskSVG, keyed, layout, type Box, type Opt } from "../demos/desk";
 
 type Mode = [string, string, string];
 const views = CARDS.map((c) => ({ c, opts: { ...DEFAULT_OPTS } as Opt }));
@@ -102,7 +102,25 @@ document.querySelectorAll<HTMLButtonElement>("#presets button").forEach((b) =>
   }),
 );
 fillRanges(document);
-figureChrome($("figure"));
+// ↺ Reset: the first construction at the default size, every construction's options back to their defaults.
+const firstCase = CARDS.findIndex((c) => c.pick);
+const sizeIs = (W: number, H: number, n: number): boolean => +$<HTMLInputElement>("w").value === W && +$<HTMLInputElement>("h").value === H && +$<HTMLInputElement>("n").value === n;
+const deskChrome = figureChrome($("figure"), {
+  demo: {
+    isDefault: () => active === firstCase && sizeIs(DEFAULT.W, DEFAULT.H, DEFAULT.n) && views.every((v) => JSON.stringify(v.opts) === JSON.stringify(DEFAULT_OPTS)),
+    reset() {
+      views.forEach((v) => (v.opts = { ...DEFAULT_OPTS }));
+      active = firstCase;
+      for (const [id, val] of [["w", DEFAULT.W], ["h", DEFAULT.H], ["n", DEFAULT.n]] as const) $<HTMLInputElement>(id).value = String(val);
+      fillRanges(document);
+      syncCases();
+      renderSegs();
+      render();
+    },
+  },
+});
+// Any control in the figure may change the demo: refresh ↺ Reset after it acts.
+for (const ev of ["input", "click"]) $("figure").addEventListener(ev, () => queueMicrotask(() => deskChrome.demoChanged()));
 syncCases();
 renderSegs();
 render();

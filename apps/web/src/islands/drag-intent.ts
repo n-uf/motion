@@ -334,6 +334,27 @@ $("runall").addEventListener("click", async () => {
   syncBusy();
   setStatus("Done: the table below lists every path in both modes. Naive flashes while flying; the model does not.");
 });
-setStatus("Drag the Outline panel yourself, or pick a recorded path on the left.");
+const FIRST_STATUS = "Drag the Outline panel yourself, or pick a recorded path on the left.";
+setStatus(FIRST_STATUS);
 (window as unknown as Record<string, unknown>).__dragModel = { play: (k: string, m: Mode) => { setMode(m); return play(PATHS[k]!); }, chip: () => ({ ...chipSettle.value }) };
-figureChrome(figure);
+// ↺ Reset: this model, the first case, the panel home, the counts cleared (a recorded path that is playing finishes
+// first). Any drag, case or mode change makes it available.
+let touched = false;
+const intentChrome = figureChrome(figure, {
+  demo: {
+    isDefault: () => !touched && mode === "model",
+    reset() {
+      if (playing || runningAll) return;
+      touched = false;
+      setMode("model");
+      markCase(0);
+      resetStage();
+      setStatus(FIRST_STATUS);
+    },
+  },
+});
+for (const ev of ["pointerdown", "click"]) figure.addEventListener(ev, (e) => {
+  if ((e.target as HTMLElement).closest("[data-chrome-reset], .group > .g")) return;
+  if ((e.target as HTMLElement).closest("#stage, #cases, [data-mode], #runall")) touched = true;
+  queueMicrotask(() => intentChrome.demoChanged());
+});
