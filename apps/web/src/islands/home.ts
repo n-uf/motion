@@ -83,16 +83,19 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
   const slotRect = (slot: number): Rect => LAYOUTS[layout]!.slots[slot]!(demo.clientWidth, demo.clientHeight - reserve);
 
   /** Draw one window at its drawn rect: laid out once at its target, moved and clipped, never stretched. */
+  // A window is placed by transform only (its box sits at 0, 0, sized to its target): moving it never changes layout,
+  // so its glides count as no layout shift.
   function paint(w: Win): void {
     const f = reveal(w.settle.value, w.target);
-    w.el.style.transform = `translate(${f.dx}px, ${f.dy}px)`;
+    w.el.style.transform = `translate(${w.target.x + f.dx}px, ${w.target.y + f.dy}px)`;
     w.frame.style.width = f.width + "px";
     w.frame.style.height = f.height + "px";
     w.body.style.clipPath = f.clipRight || f.clipBottom ? `inset(0 ${f.clipRight}px ${f.clipBottom}px 0)` : "";
   }
   function place(w: Win, r: Rect): void {
     w.target = { ...r };
-    Object.assign(w.el.style, { left: r.x + "px", top: r.y + "px", width: r.width + "px", height: r.height + "px" });
+    Object.assign(w.el.style, { left: "0px", top: "0px", width: r.width + "px", height: r.height + "px" });
+    paint(w);
   }
   function showReadout(): void {
     const w = wins[0]!, d = w.settle.value, t = w.settle.target;
@@ -235,8 +238,8 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     const { shown, room, aiming } = d.intent.update(p, t, raw);
     const plan = previewPlan(mode());
     d.aim = !aiming && !shown ? "fly" : room && plan.room ? "room" : "aim";
-    // Step 2 while the intent aims or shows a target (motion's part); back to 1 while flying.
-    setStep(aiming || shown ? 2 : 1);
+    // Step 2 while the intent shows a target or aims away from home (motion's part); 1 while flying or still at home.
+    setStep(shown || (aiming && !own) ? 2 : 1);
     if (shown !== d.shown) {
       // The old target goes back to its slot, and a snapped window back to the pointer.
       if (d.room) {
