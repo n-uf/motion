@@ -9,7 +9,7 @@ import type { Point, Rect } from "@n-uf/motion";
 import type { DragPreview } from "@n-uf/motion/drag";
 import { arrangement, type Arrangement } from "@n-uf/placement/toolbar";
 import { nextFrame } from "../shared/geometry";
-import { HOME, createDossier, type Dossier, type GroupId } from "./dossier";
+import { HOME, createViewer, type Viewer, type GroupId } from "./viewer";
 import { fmt, mid, off, pointer, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
@@ -44,11 +44,11 @@ export const case5: KitCase = {
       ],
       () => reset(),
     );
-    const today = createDossier(desks.today!, { title: "Quarterly plan.pdf", loop, today: true });
-    const top = createDossier(desks.top!, { title: "Quarterly plan.pdf", loop, preview: () => mode });
-    let edgeToday = createDossier(desks.edgeToday!, { title: "Quarterly plan.pdf", loop, today: true, home: EDGE[edge] });
-    let edgeWin = createDossier(desks.edge!, { title: "Quarterly plan.pdf", loop, preview: () => mode, home: EDGE[edge] });
-    const all = (): Dossier[] => [today, top, edgeToday, edgeWin];
+    const today = createViewer(desks.today!, { title: "Quarterly plan.pdf", loop, today: true });
+    const top = createViewer(desks.top!, { title: "Quarterly plan.pdf", loop, preview: () => mode });
+    let edgeToday = createViewer(desks.edgeToday!, { title: "Quarterly plan.pdf", loop, today: true, home: EDGE[edge] });
+    let edgeWin = createViewer(desks.edge!, { title: "Quarterly plan.pdf", loop, preview: () => mode, home: EDGE[edge] });
+    const all = (): Viewer[] => [today, top, edgeToday, edgeWin];
 
     const controls = desks.today!.closest(".kcase")!.querySelector(".controls")!;
     const modes = document.createElement("fieldset");
@@ -67,8 +67,8 @@ export const case5: KitCase = {
       edges.querySelectorAll<HTMLInputElement>("input").forEach((i) => (i.checked = i.value === e));
       desks.edgeToday!.replaceChildren();
       desks.edge!.replaceChildren();
-      edgeToday = createDossier(desks.edgeToday!, { title: "Quarterly plan.pdf", loop, today: true, home: EDGE[e] });
-      edgeWin = createDossier(desks.edge!, { title: "Quarterly plan.pdf", loop, preview: () => mode, home: EDGE[e] });
+      edgeToday = createViewer(desks.edgeToday!, { title: "Quarterly plan.pdf", loop, today: true, home: EDGE[e] });
+      edgeWin = createViewer(desks.edge!, { title: "Quarterly plan.pdf", loop, preview: () => mode, home: EDGE[e] });
     }
     function reset(): void {
       for (const d of all()) d.reset();
@@ -89,10 +89,10 @@ export const case5: KitCase = {
 };
 
 interface Windows {
-  readonly today: () => Dossier;
-  readonly top: () => Dossier;
-  readonly edgeToday: () => Dossier;
-  readonly edge: () => Dossier;
+  readonly today: () => Viewer;
+  readonly top: () => Viewer;
+  readonly edgeToday: () => Viewer;
+  readonly edge: () => Viewer;
   readonly setMode: (m: DragPreview) => void;
   readonly setEdge: (e: "sparse" | "dense") => void;
 }
@@ -110,7 +110,7 @@ interface Frame {
  * Drag `g` in `d` to `to`: fly most of the way, aim the last stretch, hold `holdMs`, release. Every frame is recorded
  * from what the page drew. Returns the frames, the frames of the hold, and the slot the page showed at the release.
  */
-async function dragTo(d: Dossier, g: GroupId, to: Point, holdMs = 520): Promise<{ frames: Frame[]; hold: Frame[]; slotAtRelease: Rect | null; grab: Point }> {
+async function dragTo(d: Viewer, g: GroupId, to: Point, holdMs = 520): Promise<{ frames: Frame[]; hold: Frame[]; slotAtRelease: Rect | null; grab: Point }> {
   const h = d.handle(g);
   const home = d.drawn(d.groupEl(g));
   const start = mid(d.drawn(h));
@@ -144,7 +144,7 @@ async function dragTo(d: Dossier, g: GroupId, to: Point, holdMs = 520): Promise<
 
 function scenarios(w: Windows): KitScenario[] {
   /** In `mode`, drag `g` to `to` in `d`: check the preview the mode promises and that it lands on its outline. */
-  async function inMode(expect: Expect, d: Dossier, mode: DragPreview, g: GroupId, aim: (d: Dossier) => Point, where: string): Promise<void> {
+  async function inMode(expect: Expect, d: Viewer, mode: DragPreview, g: GroupId, aim: (d: Viewer) => Point, where: string): Promise<void> {
     w.setMode(mode);
     d.reset();
     await settle(d);
@@ -177,7 +177,7 @@ function scenarios(w: Windows): KitScenario[] {
   }
 
   /** The top bar's end zone, between Annotate and Redact. */
-  const between = (d: Dossier): Point => {
+  const between = (d: Viewer): Point => {
     const a = d.drawn(d.groupEl("annotate"));
     const b = d.drawn(d.groupEl("redact"));
     return { x: (a.x + a.width + b.x) / 2, y: a.y + a.height / 2 };
@@ -201,7 +201,7 @@ function scenarios(w: Windows): KitScenario[] {
           // Into the left edge, between its first two groups.
           const g: GroupId = e === "sparse" ? "navigate" : "share";
           // Between the column's first two groups.
-          const aim = (dd: Dossier): Point => {
+          const aim = (dd: Viewer): Point => {
             const col = (["zoom", "annotate", "redact", "navigate"] as const).filter((x) => x !== g).map((x) => dd.drawn(dd.groupEl(x))).filter((r) => r.x < 40);
             col.sort((p, q) => p.y - q.y);
             return { x: col[0]!.x + col[0]!.width / 2, y: (col[0]!.y + col[0]!.height + col[1]!.y) / 2 };
