@@ -18,8 +18,8 @@ const page = pageOf("/");
 const jsonLd = [
   webSite,
   webPage({ path: "/", name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), isPartOf: true, about: ["motion", "placement"] }),
-  software("motion", motionPart.pkg, "How things move: a TypeScript library for windows, panels and toolbars with one frame loop on an injected clock, a settle that never overshoots, reveal without stretching, held drags and drag intent. No DOM in the core, no framework."),
-  software("placement", placementPart.pkg, "Where things go: a TypeScript library that works out where windows, panels and toolbar groups go. Desks of docks, rails and palettes, toolbar hosts and zones, and the drop targets for each, as plain state in and rects out."),
+  software("motion"),
+  software("placement"),
   orgNode,
 ];
 // The packages' versions, read from their package.json at build time (never written by hand).

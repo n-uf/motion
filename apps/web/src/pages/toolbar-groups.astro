@@ -5,7 +5,7 @@ import DropModeSwitch from "../components/DropModeSwitch.astro";
 import Chrome from "../components/Chrome.astro";
 import Playback from "../components/Playback.astro";
 import { pageOf } from "../data/pages";
-import { webPage, breadcrumbs, orgNode } from "../data/schema";
+import { webPage, breadcrumbs, orgNode, software } from "../data/schema";
 import { CASES, arrangement, windowHTML } from "../demos/toolbar";
 import "../styles/toolbar-groups.css";
 
@@ -14,6 +14,7 @@ const page = pageOf(path);
 const jsonLd = [
   webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), about: ["placement"] }),
   breadcrumbs([{ name: "Home", path: "/" }, { name: page.nav, path }]),
+  software("placement"),
   orgNode,
 ];
 const RULES: [string, string][] = [
