@@ -6,7 +6,7 @@ import { reveal } from "@n-uf/motion";
 import { $, caseRail } from "./rail";
 import { omega, onMotionChange, reduced, virtualNow } from "./motion";
 import { figureChrome } from "./figure-chrome";
-import { CASES, LANE, at, chartFrame, chartSVG, lanesHTML, legendHTML, optsFor, type ChartOpt } from "../demos/motion";
+import { CASES, at, chartFrame, chartSVG, lanesHTML, legendHTML, optsFor, type ChartOpt } from "../demos/motion";
 
 function h(tag: string, cls: string, parent?: Element | null, text?: string): HTMLElement {
   const e = document.createElement(tag);
@@ -49,6 +49,9 @@ function chartStage(opt: ChartOpt, label: string): Built {
       dots[i]!.setAttribute("cy", String(frame.Y(clampY(at(s.data, ms)))));
     });
   };
+  // Drawn at once at the server's width (560), so the stage never shows an empty chart (the legend under it would jump);
+  // then redrawn at the real width.
+  drawChart(560);
   const ro = new ResizeObserver(() => {
     const w = Math.round(chartWrap.clientWidth);
     if (w && w !== W) {
@@ -64,7 +67,7 @@ function chartStage(opt: ChartOpt, label: string): Built {
       tNow = ms;
       blocks.forEach((b, i) => {
         const n = Math.max(0, Math.min(1, (at(series[i]!, ms) - opt.ymin) / span));
-        b.style.left = `calc((100% - ${LANE}px) * ${n})`;
+        b.style.setProperty("--n", String(n));
       });
       updateChart(ms);
     },

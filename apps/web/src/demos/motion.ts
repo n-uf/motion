@@ -242,7 +242,7 @@ export function lanesHTML(opt: ChartOpt, ms = 0): string {
     const sw = "sw" + (isPoint ? " pt" : s.dash ? (s.dash.startsWith("1") ? " dot" : " dash") : "");
     const ticks = (opt.marks || []).map((m) => `<span class="tick" style="left:calc((100% - ${LANE}px) * ${(m.v - opt.ymin) / span} + ${LANE / 2}px)"></span>`).join("");
     const n = Math.max(0, Math.min(1, (at(s.data, ms) - opt.ymin) / span));
-    return `<div class="lane" style="color:${V(s.color)}"><div class="lname"><span class="${sw}"></span><span>${s.name}</span></div><div class="track">${ticks}<span class="blk" style="left:calc((100% - ${LANE}px) * ${n})"></span></div></div>`;
+    return `<div class="lane" style="color:${V(s.color)}"><div class="lname"><span class="${sw}"></span><span>${s.name}</span></div><div class="track">${ticks}<span class="blk" style="--n:${n}"></span></div></div>`;
   };
   return opt.lines.map((s) => lane(s, false)).join("") + (opt.points || []).map((s) => lane(s, true)).join("");
 }
