@@ -83,11 +83,11 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
           <div><dt><code>./testing</code></dt><dd>Frame-sampled checks of the motion rules: no overshoot, no jumps, held under the pointer, monotonic, tempo, and content scale.</dd></div>
         </dl>
         <p class="not"><b>It doesn't</b> decide where anything goes, and it draws nothing of its own. The core touches no DOM; no framework.</p>
-        <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code> <ExtLink href={motionPart.readme}>README on GitHub</ExtLink></p>
+        <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code> <ExtLink href={motionPart.readme}>README on GitHub</ExtLink> <a href="/docs/motion/">Docs</a></p>
       </article>
       <article class="does-col p" aria-labelledby="does-placement">
         <h3 id="does-placement"><code>@n-uf/placement</code> <span>where things go</span></h3>
-        <p>For the same apps: it works out where windows, panels and toolbar groups go, as the space changes and while something is dragged. You give it state and a size; it gives back rects, notes on what gave way, and drop targets.</p>
+        <p>{placementPart.does}</p>
         <dl class="entries">
           <div><dt><code>@n-uf/placement</code></dt><dd>Rects and points (<code>rect</code>, <code>overlap</code>, <code>clampInto</code>) and a popup positioner that flips, slides and resizes to fit.</dd></div>
           <div><dt><code>./dock</code></dt><dd>Nine desk constructions as pure layouts (edge docks, a tiling tree, a navigator, a scrolling strip, drawers, floating palettes, tear-off), with give-way notes whose codes are stable.</dd></div>
