@@ -5,7 +5,7 @@
  */
 import type { Point, Rect } from "@n-uf/motion";
 import { $, caseRail } from "./rail";
-import { drive, newSettle } from "./motion";
+import { drive, newSettle, reduced } from "./motion";
 import { dropMode, previewPlan } from "./drop-mode";
 import { figureChrome } from "./figure-chrome";
 import { createAimGate } from "../demos/intent";
@@ -278,6 +278,26 @@ function play(path: Path): Promise<Result> {
     const first = { x: keys[0]![1], y: keys[0]![2] };
     const drag = beginDrag({ x: first.x - CHIP_HOME.x, y: first.y - CHIP_HOME.y });
     ptr.style.opacity = "1";
+    // Reduced motion: no playing in real time. The whole path is fed to the model in one go, on the path's own clock
+    // (a sample every 16 ms), so the counts and the drop are the same and the chip is drawn where it landed.
+    if (reduced()) {
+      let p = first;
+      for (let t = 0; ; t = Math.min(total, t + 16)) {
+        p = at(keys, t);
+        ptr.style.left = p.x + "px";
+        ptr.style.top = p.y + "px";
+        drag.move(p, start + t);
+        if (t >= total) break;
+      }
+      const snapped = drag.snapped, chipAtRelease = { ...chipSettle.value };
+      const target = drag.end(p, start + total, false);
+      ptr.style.opacity = "0";
+      playing = false;
+      syncBusy();
+      const drop = target ? target.label : "back home";
+      resolve({ changes: stats.changes, flashes: stats.flashes, drop, ok: drop === path.expect, snapped, chipAtRelease });
+      return;
+    }
     const frame = (now: number): void => {
       const t = Math.min(now - start, total), p = at(keys, t);
       ptr.style.left = p.x + "px";
