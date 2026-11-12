@@ -73,7 +73,7 @@ const RULES: [string, string, string][] = [
   <section class="section">
     <div class="section-head">
       <span class="eyebrow">The phases</span>
-      <p class="section-title">Pressed, lifted, flying, aiming, settling</p>
+      <h2 class="section-title">Pressed, lifted, flying, aiming, settling</h2>
       <p>A press moves nothing until the pointer passes 5 px; then the panel lifts and follows the pointer 1:1. While it flies there is no indicator. Slowing down or dwelling is aiming: the indicator shows, then the other panels make room. A release settles the panel into place; a release while flying lands on the target under the pointer, or returns home if there is none; Escape returns home.</p>
     </div>
     <div class="diagram">
@@ -102,17 +102,17 @@ const RULES: [string, string, string][] = [
   <section class="section">
     <div class="section-head">
       <span class="eyebrow">The rules</span>
-      <p class="section-title">Thresholds, holds and what a release does</p>
+      <h2 class="section-title">Thresholds, holds and what a release does</h2>
     </div>
     <div class="rules">
-      {RULES.map(([q, r, v]) => <div class="rule"><h2>{q}</h2><p>{r}</p><p class="value">{v}</p></div>)}
+      {RULES.map(([q, r, v]) => <div class="rule"><h3>{q}</h3><p>{r}</p><p class="value">{v}</p></div>)}
     </div>
   </section>
 
   <section class="section">
     <div class="section-head">
       <span class="eyebrow">How it is checked</span>
-      <p class="section-title">Four properties, every path</p>
+      <h2 class="section-title">Four properties, every path</h2>
     </div>
     <ul class="checks">
       <li>Flying over targets at speed shows <b>no</b> indicator (scenario: fly over, then aim).</li>
