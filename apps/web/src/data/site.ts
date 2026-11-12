@@ -6,6 +6,7 @@ export const name = "n-uf motion & placement";
 
 export const repoUrl = "https://github.com/n-uf/motion";
 export const npmUrl = "https://www.npmjs.com/package/@n-uf/motion";
+export const npmPlacementUrl = "https://www.npmjs.com/package/@n-uf/placement";
 
 /** "2026-10-24" -> "24 Oct 2026". Used for the dates on use-case pages and articles (content.ts). */
 export function releasedText(date: string): string {

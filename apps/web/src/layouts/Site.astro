@@ -8,7 +8,7 @@ import ExtLink from "../components/ExtLink.astro";
 import Mark from "../components/Mark.astro";
 import { demoPages, pageOf } from "../data/pages";
 import { PARTS } from "../data/parts";
-import { repoUrl, npmUrl } from "../data/site";
+import { repoUrl, npmUrl, npmPlacementUrl } from "../data/site";
 
 interface Props {
   title: string;
@@ -99,7 +99,7 @@ const themes = [
     <div class="footer-in">
       <div class="footer-brand">
         <a class="brand" href="/"><Mark /><span class="wordmark"><span class="brand-ns">n-uf </span>motion <span class="brand-amp">&amp;</span> placement</span></a>
-        <p>Two TypeScript packages: one moves windows, panels and toolbars with a settle that never overshoots, the other docks them where they belong. No DOM, no framework. Made by <ExtLink href="https://n-uf.com">n-uf</ExtLink>.</p>
+        <p>@n-uf/motion moves windows, panels and toolbars; @n-uf/placement docks them. No DOM, no framework. Made by <ExtLink href="https://n-uf.com">n-uf</ExtLink>.</p>
       </div>
       <nav class="footer-nav" aria-label="Pages">
         {demoPages.map((p) => <a href={p.path}>{p.nav}</a>)}
@@ -108,6 +108,7 @@ const themes = [
       <div class="footer-meta">
         <ExtLink href={repoUrl}>Source on GitHub</ExtLink>
         <ExtLink href={npmUrl}>@n-uf/motion on npm</ExtLink>
+        <ExtLink href={npmPlacementUrl}>@n-uf/placement on npm</ExtLink>
         <span>PolyForm Perimeter 1.0.1</span>
       </div>
     </div>
