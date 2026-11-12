@@ -1,10 +1,10 @@
 name: Release
 
-# Two packages, each released on its own: @n-uf/motion (packages/motion,
-# tagged v<version>) and @n-uf/placement (packages/placement, tagged
+# Two packages on one shared version: @n-uf/motion (packages/motion, tagged
+# v<version>) and @n-uf/placement (packages/placement, tagged
 # placement-v<version>). Calendar versions (YY.M.R, the same scheme as
-# @n-uf/hypr-tiling and @n-uf/debugsy). A PR bumps a package's package.json
-# (motion: `pnpm version:bump`) and adds a CHANGELOG entry; merging it to
+# @n-uf/hypr-tiling and @n-uf/debugsy); `verify` fails when the two differ.
+# A PR bumps both package.json files and adds CHANGELOG entries; merging it to
 # main publishes that version to npmjs (public, with provenance) and to
 # GitHub Packages, tags it and notifies a downstream repo when
 # RELEASE_NOTIFY_REPO is set. Each package and each registry is checked on
@@ -62,6 +62,15 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      - name: One version for both packages
+        run: |
+          motion=$(jq -r .version packages/motion/package.json)
+          placement=$(jq -r .version packages/placement/package.json)
+          if [ "$motion" != "$placement" ]; then
+            echo "::error::@n-uf/motion is $motion but @n-uf/placement is $placement: both packages share one version, so a release bumps both."
+            exit 1
+          fi
 
       - name: Install
         run: pnpm install --frozen-lockfile
