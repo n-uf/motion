@@ -105,7 +105,9 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
     }, home, { shown: reduced() });
     return w;
   });
-  const wordOf = (el: Element | null): Word | undefined => words.find((w) => w.el === el);
+  // Each word now holds itself (hidden until its entrance): the page's hold-back, and its fallback, are not needed.
+  document.documentElement.classList.remove("nf-anim");
+  const wordOf =(el: Element | null): Word | undefined => words.find((w) => w.el === el);
   const ms = words.filter((w) => w.kind === "m");
   const ps = words.filter((w) => w.kind === "p");
 
