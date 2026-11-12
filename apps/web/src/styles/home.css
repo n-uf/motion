@@ -1,6 +1,8 @@
 /*
  * Home (the heroes are in hero.css): the loop (the one desk window and its four steps), what each package does, use one
- * or both, and the four pages. Motion is the accent, placement violet (--series-b), as in X-ray, on every part of the page.
+ * or both, and the interactive pages. Motion is the accent, placement violet (--series-b), as in X-ray, on every part of the page.
+ * The drafting grid, the measures and the dimension labels belong to the hero alone: everything under it is plain text and
+ * plain frames, its sections set apart by spacing.
  */
 
 /* The two heroes (the scope and the plan) are in hero.css; their install line is the one below. */
@@ -12,101 +14,52 @@
 
 /*
  * The loop, right under the hero: the desk window, the status bar of the four steps directly under it (telemetry.css;
- * islands/home.ts sets data-step on the bar), then the section head and four claims. The two telemetry panes are a section
- * of their own further down (.tele-sec).
+ * islands/home.ts sets data-step on the bar), then the section head and four claims.
  */
 .section.loop { padding-top: var(--s5); }
 .loop .section-head { margin-top: var(--s7); }
 /* Without the desk's island these do nothing (tempo and speed, the swap, X-ray, ↺ Reset, the tool pill): they show once it
    has started (`.go`, set by islands/home.ts), and their room is kept, so nothing moves when they appear. */
 .demo-fig:not(.go) :is([data-tempo], [data-speed], .xray-btn, .tb.reset, [id$="shuffle"], .floating) { visibility: hidden; }
-/* ---- Sheets: the hero's drafting language, held back, for every section under it ------------------------------------
- * Each section (`.hx`) opens with a title block: a measured rule with end ticks and the sheet number cut into it. Colour
- * stays the hero's: cyan for motion, violet for placement, neutral hairlines for everything shared; corners are 2 px. */
-.hero { counter-reset: hx; }
-.hx { counter-increment: hx; }
-section.hx > .section-head { position: relative; padding-top: 30px; }
-section.hx > .section-head::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 9px; pointer-events: none; background:
-  linear-gradient(var(--line-3), var(--line-3)) 0 0 / 1px 9px no-repeat,
-  linear-gradient(var(--line-3), var(--line-3)) 100% 0 / 1px 9px no-repeat,
-  linear-gradient(var(--line-3), var(--line-3)) 0 4px / 100% 1px no-repeat; }
-section.hx > .section-head::before { content: counter(hx, decimal-leading-zero) / ""; position: absolute; left: 14px; top: -2px; z-index: 1; padding: 0 8px; background: var(--bg); font: 600 var(--t-cap) / 13px var(--font-mono); letter-spacing: 0.06em; color: var(--text-3); }
-section.hx > .section-head .eyebrow { letter-spacing: 0.1em; }
 
-/* The loop's claims: an annotated list. A lettered tag, a leader line running to the claim. */
-.loop-claims { counter-reset: cl; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--s7); margin: var(--s5) 0 var(--s5); padding: 0; list-style: none; font-size: 14px; line-height: 1.55; color: var(--text-2); }
-.loop-claims li { counter-increment: cl; position: relative; min-height: 22px; padding: 14px 0 14px 66px; border-top: 1px solid var(--line); }
-.loop-claims li:nth-last-child(-n + 2) { border-bottom: 1px solid var(--line); }
-.loop-claims li::before { content: counter(cl, upper-alpha) / ""; position: absolute; left: 0; top: 14px; display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--line-3); border-radius: 2px; font: 650 var(--t-cap) / 1 var(--font-mono); letter-spacing: 0; color: var(--text-2); }
-.loop-claims li::after { content: ""; position: absolute; left: 24px; top: 23px; width: 32px; height: 6px; background:
-  linear-gradient(var(--line-3), var(--line-3)) 0 2.5px / 27px 1px no-repeat,
-  radial-gradient(circle, var(--text-3) 2.4px, transparent 2.6px) 100% 0 / 6px 6px no-repeat; }
+/* The loop's claims: two columns of plain text, a bold lead and its sentence, set apart by spacing. */
+.loop-claims { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4) var(--s7); margin: var(--s5) 0; padding: 0; list-style: none; font-size: 14px; line-height: 1.55; color: var(--text-2); }
 .loop-claims b { color: var(--text); font-weight: 620; }
 @media (max-width: 760px) {
   .loop-claims { grid-template-columns: minmax(0, 1fr); }
-  .loop-claims li:nth-last-child(2) { border-bottom: 0; }
 }
-.loop .caveat { margin: 0; padding-left: var(--s3); border-left: 2px solid var(--line-3); }
+.loop .caveat { margin: 0; max-width: 80ch; }
 .loop .tstatus { border-radius: 2px; }
 
-/* What each package does: two spec sheets in their colours, as the heroes' two halves. A hatched ground shows where a
-   sheet has room to spare. */
-.does-grid { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5) var(--s7); }
-.does-col { --c: var(--accent); --edge: color-mix(in srgb, var(--c) 45%, var(--line-2)); position: relative; display: flex; flex-direction: column; border: 1px solid var(--edge); border-top: 2px solid var(--c); border-radius: 2px; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--c) 10%, transparent) 0 1px, transparent 1px 7px), var(--bg); }
+/* What each package does: two plain columns, each its package's name in its colour, its text and entries, the install
+   line and the links. */
+.does-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s6) var(--s7); }
+.does-col { --c: var(--accent-strong); display: flex; flex-direction: column; gap: var(--s3); }
 .does-col.p { --c: var(--series-b); }
-.does-col > * { background: var(--bg); }
-.does-col h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: var(--s4) var(--s5); border-bottom: 1px solid var(--edge); font-size: var(--t-lg); background:
-  linear-gradient(to right, color-mix(in srgb, var(--c) 17%, transparent) 1px, transparent 1px) 0 0 / 96px 96px,
-  linear-gradient(to bottom, color-mix(in srgb, var(--c) 17%, transparent) 1px, transparent 1px) 0 0 / 96px 96px,
-  linear-gradient(to right, color-mix(in srgb, var(--c) 8%, transparent) 1px, transparent 1px) 0 0 / 16px 16px,
-  linear-gradient(to bottom, color-mix(in srgb, var(--c) 8%, transparent) 1px, transparent 1px) 0 0 / 16px 16px, var(--bg-sunken); }
-.does-col.m h3 { background-color: var(--bg); }
+.does-col h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: var(--t-lg); }
 .does-col h3 span { font: 600 var(--t-xs) / 1.4 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--c); }
-.does-col h3 code { border-radius: 2px; }
+.does-col h3 code { color: var(--c); border-radius: 2px; }
 .does-col > p { margin: 0; color: var(--text-2); }
-.does-col > p:not(.not):not(.links) { padding: var(--s4) var(--s5) var(--s3); }
-.entries { display: grid; gap: 0; margin: 0; border-top: 1px solid var(--line); }
-.entries > div { display: grid; grid-template-columns: 11.5em minmax(0, 1fr); padding: 0 var(--s5); border-bottom: 1px solid var(--line); }
-.entries dt { padding: 9px var(--s3) 9px 0; }
+.entries { display: grid; gap: var(--s2); margin: 0; }
+.entries > div { display: grid; grid-template-columns: 11.5em minmax(0, 1fr); gap: 0 var(--s3); }
 .entries dt code { color: var(--c); border-radius: 2px; }
-.entries dd { margin: 0; padding: 9px 0 9px var(--s3); border-left: 1px solid var(--line); font-size: var(--t-sm); color: var(--text-2); }
-.does-col .not { padding: var(--s3) var(--s5); font-size: var(--t-sm); }
-.does-col .links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-top: auto; padding: var(--s3) var(--s5); border-top: 1px solid var(--edge); background: var(--bg-subtle); font-size: var(--t-sm); }
+.entries dd { margin: 0; font-size: var(--t-sm); color: var(--text-2); }
+.does-col .not { font-size: var(--t-sm); }
+.does-col .links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-top: auto; padding-top: var(--s2); font-size: var(--t-sm); }
 .does-col .cmd { height: 32px; border-radius: 2px; box-shadow: none; }
-/* The two sheets share one fact: plain data between them. A wire joins their title bands. */
-@media (min-width: 861px) {
-  .does-grid::before { content: ""; position: absolute; left: calc(50% - var(--s7) / 2 - 3px); top: 32px; z-index: 1; width: calc(var(--s7) + 6px); height: 7px; background:
-    radial-gradient(circle, var(--accent) 2.6px, transparent 2.8px) 0 0 / 7px 7px no-repeat,
-    radial-gradient(circle, var(--series-b) 2.6px, transparent 2.8px) 100% 0 / 7px 7px no-repeat,
-    linear-gradient(90deg, var(--accent), var(--series-b)) 0 3px / 100% 1px no-repeat; pointer-events: none; }
-}
-.does-together { margin: var(--s5) 0 0; padding: var(--s1) 0 var(--s1) var(--s3); border-left: 2px solid; border-image: linear-gradient(to bottom, var(--accent), var(--series-b)) 1; color: var(--text-2); }
+.does-together { margin: var(--s5) 0 0; color: var(--text-2); }
 .does-together b { color: var(--text); }
-@media (max-width: 860px) { .does-grid { grid-template-columns: minmax(0, 1fr); } .entries > div { grid-template-columns: minmax(0, 1fr); padding: 8px var(--s4); } .entries dt, .entries dd { padding: 0; border: 0; } .entries dt { padding-bottom: 2px; } .does-col h3, .does-col > p:not(.not):not(.links), .does-col .not, .does-col .links { padding-left: var(--s4); padding-right: var(--s4); } }
+@media (max-width: 860px) { .does-grid { grid-template-columns: minmax(0, 1fr); } .entries > div { grid-template-columns: minmax(0, 1fr); } }
 
-/* Use one, or both: three set-ups as a ruled strip with a drawn figure each, then the two examples. */
-.use-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-bottom: var(--s5); border-bottom: 1px solid var(--line); }
-.use-card { --c: var(--accent); position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s4); align-items: center; padding: var(--s5) var(--s5) var(--s5) 0; }
-.use-card + .use-card { padding-left: var(--s5); border-left: 1px solid var(--line); }
-.use-card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--c); }
+/* Use one, or both: three plain text columns, then the two examples. */
+.use-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s5) var(--s7); margin-bottom: var(--s5); }
+.use-card { --c: var(--text); }
+.use-card.m { --c: var(--accent-strong); }
 .use-card.p { --c: var(--series-b); }
-.use-card.both::before { background: linear-gradient(90deg, var(--accent) 50%, var(--series-b) 50%); }
-.use-card h3 { font-size: var(--t-md); margin-bottom: var(--s1); }
+.use-card h3 { margin-bottom: var(--s1); font-size: var(--t-md); color: var(--c); }
 .use-card p { margin: 0; font-size: var(--t-sm); color: var(--text-2); }
-.ucfig { width: 76px; height: 44px; overflow: visible; }
-.ucfig rect { fill: none; stroke-width: 1.2; }
-.ucfig .gh { stroke: var(--text-3); stroke-dasharray: 3 2.5; }
-.ucfig .mo { fill: color-mix(in srgb, var(--accent) 14%, var(--bg)); stroke: var(--accent); }
-.ucfig .pl { stroke: color-mix(in srgb, var(--series-b) 60%, transparent); }
-.ucfig .rl { fill: color-mix(in srgb, var(--series-b) 14%, transparent); stroke: color-mix(in srgb, var(--series-b) 45%, transparent); }
-.ucfig .sl { stroke: var(--series-b); stroke-dasharray: 1.5 2.5; stroke-linecap: round; }
-.ucfig .dk { fill: color-mix(in srgb, var(--series-b) 14%, transparent); stroke: var(--series-b); }
 @media (max-width: 860px) {
-  .use-cards { grid-template-columns: minmax(0, 1fr); }
-  .use-card + .use-card { padding-left: 0; border-left: 0; }
-  .use-card { padding: var(--s4) 0; }
-  .use-card + .use-card::before { height: 1px; background: var(--line); }
-  .use-card.p + .use-card::before, .use-card.both::before { height: 2px; }
+  .use-cards { grid-template-columns: minmax(0, 1fr); gap: var(--s4); }
 }
 /* The two examples and the tabbed one: frames with 2 px corners and a rule of their package's colour on top. */
 .use-pair .pair-col, .use.hx .ct { border-radius: 2px; border-top: 2px solid var(--c, var(--accent)); box-shadow: none; }
@@ -116,63 +69,46 @@ section.hx > .section-head .eyebrow { letter-spacing: 0.1em; }
 .use-pair .pair-title { font: 650 var(--t-cap) / 1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--c); }
 .use-pair .pair-pkg { border-radius: 2px; }
 
-/* Explore: the pages as an index of plates. A plate is the live figure on a drafting ground in the group's
-   colour, in a plain 1px frame; the row is one link (the heading's, stretched). */
-.xg { --c: var(--accent); }
+/* Interactive pages: on the left the five pages as a numbered list (the numbers in their package's colour), on the right
+   one static preview of the page under the pointer or the focus (the first by default), swapped at once. The markup keeps
+   each page's figure in its own article; here the articles and groups give way (`display: contents`), so every entry sits
+   in the left column and the five figures share the right one, only the current one visible. The preview stays beside the
+   list while it scrolls. Narrow: the list alone. */
+.xp { --k: 2; --pad: 20px; display: grid; grid-template-columns: minmax(0, 1fr) calc(280px * var(--k) + 2 * var(--pad) + 2px); column-gap: var(--s7); }
+.xg, .xg .plates, .xe { display: contents; }
+.xg { --c: var(--accent-strong); }
 .xg.p { --c: var(--series-b); }
-.xg.both { --c: var(--text-3); }
-.xg + .xg { margin-top: var(--s6); }
-.explore-k { display: flex; align-items: center; gap: var(--s3); margin: 0; padding-bottom: var(--s3); font: 650 var(--t-2xs) / 1.4 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--c); }
-.explore-k::after { content: ""; flex: 1; height: 7px; background:
-  linear-gradient(color-mix(in srgb, var(--c) 55%, transparent), color-mix(in srgb, var(--c) 55%, transparent)) 0 3px / 100% 1px no-repeat,
-  linear-gradient(var(--c), var(--c)) 100% 0 / 1px 7px no-repeat; }
-.xg.both .explore-k { color: var(--text-2); }
-.xg.both .explore-k::after { background:
-  linear-gradient(90deg, var(--accent), var(--series-b)) 0 3px / 100% 1px no-repeat,
-  linear-gradient(var(--series-b), var(--series-b)) 100% 0 / 1px 7px no-repeat; }
+.xg.both { --c: var(--text-2); }
+.explore-k { grid-column: 1; margin: 0; padding-bottom: var(--s2); font: 650 var(--t-2xs) / 1.4 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--c); }
+.xg.p .explore-k, .xg.both .explore-k { margin-top: var(--s5); }
 .explore-k code { text-transform: none; letter-spacing: 0; }
 .xg .eyebrow { color: var(--c); }
-.xg.both .eyebrow { color: var(--text-2); }
-.plates { display: grid; border-top: 1px solid var(--line); }
-.plate-row { position: relative; display: grid; grid-template-columns: 334px minmax(0, 1fr) 32px; gap: var(--s6); align-items: center; padding: var(--s5) 0; border-bottom: 1px solid var(--line); }
-.plate-row::after { content: "→" / ""; justify-self: end; font: 400 22px / 1 var(--font-mono); color: var(--text-3); transition: color var(--fast) var(--ease), transform var(--fast) var(--ease); }
-.plate-row:hover::after { color: var(--c); transform: translateX(3px); }
-.plate-row:hover h3 { color: var(--c); }
-.plate-row h3 a { display: inline-block; padding: 1px 0; color: inherit; text-decoration: none; }
-.plate-row h3 a::after { content: ""; position: absolute; inset: 0; }
-.plate-row h3 a:focus-visible { outline: none; }
-.plate-row:has(h3 a:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-.card-body { display: grid; gap: var(--s2); align-content: center; }
-.card-body h3 { font-size: 22px; letter-spacing: -0.02em; transition: color var(--fast) var(--ease); }
+.card-body { position: relative; grid-column: 1; display: grid; gap: var(--s1); align-content: start; padding: var(--s3) 0; }
+.card-body h3 { font-size: var(--t-lg); letter-spacing: -0.01em; transition: color var(--fast) var(--ease); }
+.card-body h3 a { display: inline-block; padding: 1px 0; color: inherit; text-decoration: none; }
+.card-body h3 a::after { content: ""; position: absolute; inset: 0; }
+.card-body h3 a:focus-visible { outline: none; }
+.card-body:has(h3 a:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card-body:hover h3, .card-body.on h3 { color: var(--c); }
 .card-body p { max-width: 62ch; color: var(--text-2); font-size: var(--t-base); }
-.thumb { position: relative; transition: border-color var(--fast) var(--ease); width: 334px; height: 194px; border: 1px solid color-mix(in srgb, var(--c) 35%, var(--line-2)); border-radius: 2px; background:
-  linear-gradient(to right, color-mix(in srgb, var(--c) 12%, transparent) 1px, transparent 1px) 0 0 / 48px 48px,
-  linear-gradient(to bottom, color-mix(in srgb, var(--c) 12%, transparent) 1px, transparent 1px) 0 0 / 48px 48px,
-  linear-gradient(to right, color-mix(in srgb, var(--c) 5%, transparent) 1px, transparent 1px) 0 0 / 12px 12px,
-  linear-gradient(to bottom, color-mix(in srgb, var(--c) 5%, transparent) 1px, transparent 1px) 0 0 / 12px 12px, var(--bg-sunken); }
-.plate-row:hover .thumb { border-color: var(--c); }
-.thumb .fig { position: absolute; left: 26px; top: 21px; width: 280px; height: 150px; }
+.thumb { grid-column: 2; grid-row: 1 / span 8; align-self: start; position: sticky; top: 96px; visibility: hidden; box-sizing: border-box; width: calc(280px * var(--k) + 2 * var(--pad) + 2px); height: calc(150px * var(--k) + 2 * var(--pad) + 2px); border: 1px solid var(--line-3); border-radius: 2px; background: var(--bg-sunken); }
+.thumb.on { visibility: visible; }
+.thumb .fig { position: absolute; left: var(--pad); top: var(--pad); width: 280px; height: 150px; transform: scale(var(--k)); transform-origin: 0 0; }
 .thumb .fig > svg, .thumb .fig > div { width: 280px; height: 150px; }
 .lab-tiles rect { fill: var(--bg-raised); stroke: var(--line-3); stroke-width: 1.25; }
 .lab-tiles rect:nth-child(2) { stroke: var(--accent); }
 .lab-tiles rect:nth-child(5) { stroke: var(--series-b); }
-@media (max-width: 860px) {
-  .plate-row { grid-template-columns: 334px minmax(0, 1fr); }
-  .plate-row::after { display: none; }
+@media (max-width: 1239px) { .xp { --k: 1.6; --pad: 16px; } }
+@media (max-width: 999px) { .xp { --k: 1.2; --pad: 12px; } }
+@media (max-width: 768px) {
+  .xp { display: block; }
+  .xg, .xg .plates, .xe { display: block; }
+  .thumb { display: none; }
+  .card-body h3 { font-size: var(--t-md); }
 }
-@media (max-width: 720px) {
-  .plate-row { grid-template-columns: minmax(0, 1fr); gap: var(--s4); padding: var(--s4) 0 var(--s5); }
-  .card-body h3 { font-size: var(--t-lg); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .plate-row::after, .card-body h3, .thumb { transition: none; }
-  .plate-row:hover::after { transform: none; }
+  .card-body h3 { transition: none; }
 }
-
-/* The two panes of the last move, and the closing poster: the same 2 px corners. */
-.tele-sec .tpane { border-radius: 2px; }
-.poster-band .poster { border-radius: 2px; border-color: var(--line-3); }
 
 /* The demo: three windows on the flat well of a figure window (components/Chrome.astro). */
 .demo { position: relative; height: 380px; container-type: size; overflow: hidden; background: var(--win-well); touch-action: none; user-select: none; -webkit-user-select: none; }
@@ -216,27 +152,23 @@ section.hx > .section-head .eyebrow { letter-spacing: 0.1em; }
 .dw-lines i:nth-child(3n) { width: 62%; }
 .dw-lines i:nth-child(3n + 2) { width: 84%; }
 
-/* The index's plates are above (the Explore rules). */
-
-/* Thumb 1: curves */
+/* The interactive pages' previews: each page's figure, static, in the preview pane above. */
 .t-target { stroke: var(--line-3); stroke-dasharray: 2 3; }
-.t-other { fill: none; stroke: var(--series-b); stroke-width: 1.75; stroke-dasharray: 5 4; opacity: 0.8; }
-.t-settle { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; }
+.t-other { fill: none; stroke: var(--series-b); stroke-width: 1.2; stroke-dasharray: 5 4; opacity: 0.8; }
+.t-settle { fill: none; stroke: var(--accent); stroke-width: 1.7; stroke-linecap: round; }
 .t-head { stroke: var(--text); opacity: 0.25; }
 .t-dot { fill: var(--accent); stroke: var(--bg-sunken); stroke-width: 2; }
 .t-dot-other { fill: var(--series-b); stroke: var(--bg-sunken); stroke-width: 2; }
 
-/* Thumb 2: drag */
 .t-stage { position: relative; border-radius: var(--r-sm); background: var(--d-floor); box-shadow: 0 0 0 1px var(--line-2); overflow: hidden; }
 .t-z { position: absolute; border-radius: 4px; background: var(--d-panel); box-shadow: inset 0 0 0 1px var(--d-panel-line); }
 .t-z.doc { background: var(--d-doc); box-shadow: inset 0 0 0 1px var(--d-doc-line); }
 .t-z.home { background: transparent; box-shadow: none; border: 1.5px dashed var(--line-3); }
-.t-ind { position: absolute; border: 1.5px solid var(--signal); border-radius: 5px; background: var(--signal-soft); opacity: 0; transition: opacity 90ms; }
+.t-ind { position: absolute; border: 1.5px solid var(--signal); border-radius: 5px; background: var(--signal-soft); opacity: 0; }
 .t-ind.on { opacity: 1; }
-.t-chip { position: absolute; left: 0; top: 0; width: 62px; height: 30px; border-radius: 5px; background: var(--bg-inverse); box-shadow: var(--shadow-1); transition: box-shadow 120ms; }
+.t-chip { position: absolute; left: 0; top: 0; width: 62px; height: 30px; border-radius: 5px; background: var(--bg-inverse); box-shadow: var(--shadow-1); }
 .t-chip.lifted { box-shadow: var(--shadow-pop); }
 
-/* Thumb 3: desk */
 #thumb-desk { border-radius: var(--r-sm); background: var(--d-floor); box-shadow: 0 0 0 1px var(--line-2); }
 .t-rail { fill: var(--d-rail); }
 .t-panel { fill: var(--d-panel); stroke: var(--d-panel-line); }
@@ -244,7 +176,6 @@ section.hx > .section-head .eyebrow { letter-spacing: 0.1em; }
 #thumb-desk .t-doc { fill: var(--d-doc); stroke: var(--d-doc-line); }
 .t-pill { fill: var(--d-ink); }
 
-/* Thumb 4: toolbar */
 .t-win { display: grid; grid-template-rows: auto 1fr; border-radius: var(--r-sm); background: var(--win-bar); box-shadow: 0 0 0 1px var(--win-edge), var(--shadow-1); overflow: hidden; }
 .t-bar { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-bottom: 1px solid var(--win-edge); background: var(--win-bar); }
 .t-group { display: inline-flex; align-items: center; gap: 3px; }

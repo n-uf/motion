@@ -17,8 +17,7 @@ export const DEFAULT_TOOL = "pen";
 /**
  * The desk's layouts are placement's: three constructions of `@n-uf/placement/dock` laid out for the three open
  * documents on a stage of the demo's size (no panels, so only the documents' rects matter), each window's slot being
- * that document's rect. The desk below and the rects the telemetry prints are the same numbers.
- */
+ * that document's rect. */
 const DESK = createDesk({ panels: [], start: { left: [], right: [], bottom: [] }, docTitle: (id) => WINDOWS[id - 1]?.title ?? `Document ${id}` });
 const OPTIONS = { ...DEFAULT_OPTIONS, toolbarHidden: true };
 /**
