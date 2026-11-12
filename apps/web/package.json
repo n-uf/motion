@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "astro dev --ignore-lock",
-    "build": "astro build && node scripts/check-links.mjs",
+    "build": "astro build && node scripts/build-lab.mjs && node scripts/check-links.mjs",
     "preview": "astro preview",
     "test": "node --test scripts/*.test.mjs",
     "typecheck": "tsc -p tsconfig.json"
