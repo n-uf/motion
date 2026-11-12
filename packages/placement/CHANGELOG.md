@@ -3,6 +3,18 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## 26.11.5
+
+- `@n-uf/placement/targets`: `paneZone(rect, point, previous, options?)`, a pane's five drop zones: the centre
+  rectangle (34 % of each axis, at least 24 px, its edges snapped to the device-pixel grid) or one of four edge
+  trapezoids from the corners. The previous zone holds for 6 px past its boundary. `paneCentre` gives the centre's
+  rectangle (to draw the zones); `PANE_ZONE_DEFAULTS` and `PANE_EDGES` (the tie-break order) come with it. It fits
+  `@n-uf/motion/drag`'s new `placeOf(target, point, previous)`: the zone is the place, and a zone that takes no drop
+  answers null. Ported from hypr-tiling's engine.
+- Fix: `sameArrangement` compares the collapsed groups and the floating groups' ids both ways, so a repeated group on
+  one side no longer passes for a different group on the other.
+- The README lists all fifteen layout note codes; every code has a test.
+
 ## 26.11.4
 
 The first release: where things go, as pure functions over plain data. No DOM, no framework, no motion, no
