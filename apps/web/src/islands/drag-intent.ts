@@ -3,10 +3,13 @@
  * holds on borders, and the drop lands where it showed. Recorded paths compare it with a naive model. The server
  * drew the desk, the panel and the case rail; this runs the model on them.
  */
-import { createSettle, type Point } from "@n-uf/motion";
+import { createSettle, type Point, type Rect } from "@n-uf/motion";
 import { $, caseRail } from "./rail";
 import { drive } from "./motion";
-import { AIM_SPEED, BAND, CASES, CHIP_HOME, DWELL, FLASH, GAP_GRACE, HOME, LIFT, PATHS, ROOM_AFTER, STILL, T, type Key, type Path, type R, type Target } from "../demos/drag";
+import { bindDropMode, dropMode } from "./drop-mode";
+import { watchActions } from "./showcase";
+import { createAimGate } from "../demos/intent";
+import { BAND, CASES, CHIP_HOME, FLASH, GAP_GRACE, HOME, LIFT, PATHS, ROOM_AFTER, T, type Key, type Path, type R, type Target } from "../demos/drag";
 
 const inside = (r: R, p: Point, m = 0): boolean => p.x >= r.x - m && p.x <= r.x + r.w + m && p.y >= r.y - m && p.y <= r.y + r.h + m;
 const area = (r: R): number => r.w * r.h;
@@ -21,19 +24,13 @@ function rawTarget(p: Point): Target | null {
 type Mode = "model" | "naive";
 /** The drag model: feed it pointer samples; it says what the indicator shows, and what a release lands on. */
 function createModel(mode: Mode) {
-  const samples: { x: number; y: number; t: number }[] = [];
-  let cur: Target | null = null, lastInside = 0, shown: Target | null = null, shownSince = 0, leftHome = false, speed = 0;
-  // Dwell: how long the pointer has stayed within STILL px of one spot (time over a big target doesn't count).
-  let anchor: Point | null = null, stillSince = 0;
+  let cur: Target | null = null, lastInside = 0, shown: Target | null = null, shownSince = 0, leftHome = false;
+  // Aiming: the shared aim gate (speed smoothed over the last 50 ms, or a dwell within 12 px for 90 ms).
+  const gate = createAimGate(true);
   return {
-    get speed() { return speed; },
+    get speed() { return gate.speed; },
     update(p: Point, t: number): { shown: Target | null; room: boolean } {
-      samples.push({ ...p, t });
-      while (samples.length > 2 && t - samples[0]!.t > 50) samples.shift();
-      const a = samples[0]!, dt = Math.max(1, t - a.t);
-      const v = Math.hypot(p.x - a.x, p.y - a.y) / dt;
-      speed = speed * 0.5 + v * 0.5;
-      if (!anchor || Math.hypot(p.x - anchor.x, p.y - anchor.y) > STILL) { anchor = { ...p }; stillSince = t; }
+      const aiming = gate.update(p, t);
       if (!inside(HOME, p, -6)) leftHome = true;
       const atHome = inside(HOME, p);
       const raw = atHome ? null : rawTarget(p);
@@ -50,7 +47,6 @@ function createModel(mode: Mode) {
       if (!next && cur && t - lastInside < GAP_GRACE && !atHome) next = cur;
       if (next && inside(next.hit, p)) lastInside = t;
       if (next !== cur) cur = next;
-      const aiming = speed < AIM_SPEED || t - stillSince >= DWELL;
       const want = cur && leftHome && aiming ? cur : null;
       if (want !== shown) {
         // Once shown, the indicator stays while the target holds, even if the pointer speeds up a little.
@@ -70,44 +66,55 @@ function createModel(mode: Mode) {
 const stage = $("stage"), ind = $("ind"), indlabel = $("indlabel");
 const chip = $("chip"), ptr = $("ptr");
 const place = (d: HTMLElement, r: R): void => void Object.assign(d.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" });
+// The chip (the dragged Outline panel) is a rect that settles: held 1:1 under the pointer, gliding home, or, in
+// "Snap to slot" mode, gliding into the slot it aims at, its size revealed (it clips, never stretches).
+const CHIP = { width: 150, height: 64 };
+const chipRect = (x: number, y: number): Rect => ({ x, y, ...CHIP });
+const chipSettle = createSettle<Rect>(chipRect(CHIP_HOME.x, CHIP_HOME.y));
 let landing: (() => void) | null = null;
-const drawChip = (x: number, y: number): void => {
-  chip.style.left = x + "px";
-  chip.style.top = y + "px";
-};
+const drawChip = (r: Rect): void => void Object.assign(chip.style, { left: r.x + "px", top: r.y + "px", width: r.width + "px", height: r.height + "px" });
 /** Put the chip at a place at once (a held drag: it follows the pointer 1:1). */
 const placeChip = (x: number, y: number): void => {
   landing?.();
   landing = null;
-  drawChip(x, y);
+  chipSettle.hold(chipRect(x, y));
+  drawChip(chipSettle.value);
 };
-/** The chip glides home with settle, from wherever it was let go. */
-function chipHome(): void {
+/** The chip glides to `r` with settle, from wherever it is drawn. */
+function glideChip(r: Rect, done?: () => void): void {
   landing?.();
-  const from = { x: parseFloat(chip.style.left), y: parseFloat(chip.style.top) };
-  const s = createSettle<Point>(from);
-  s.setTarget(CHIP_HOME);
-  landing = drive(s, (p) => drawChip(p.x, p.y), () => (landing = null));
+  chipSettle.setTarget(r);
+  landing = drive(chipSettle, drawChip, () => {
+    landing = null;
+    done?.();
+  });
 }
-drawChip(CHIP_HOME.x, CHIP_HOME.y);
+/** The chip glides home with settle, from wherever it was let go. */
+const chipHome = (): void => glideChip(chipRect(CHIP_HOME.x, CHIP_HOME.y));
+drawChip(chipSettle.value);
+
+/** The rect the drop shows for a target (`room`: a slot between sections has opened). */
+function targetRect(s: Target, room: boolean, p: Point): R {
+  if (s.float) return { x: Math.min(Math.max(p.x - 75, 222), 658 - 150), y: Math.min(Math.max(p.y - 32, 38), 364 - 64), w: 150, h: 64 };
+  if (s.slot) return room ? { x: s.slot.x, y: s.slot.y - 18, w: s.slot.w, h: 36 } : { x: s.slot.x, y: s.slot.y - 2, w: s.slot.w, h: 4 };
+  return s.ind!;
+}
 
 let stats = { changes: 0, flashes: 0 }, lastShown: Target | null = null, lastShownAt = 0;
-function showIndicator(s: Target | null, room: boolean, p: Point, t: number): void {
+/** Count what the drop shows (both modes), and draw the indicator unless `draw` is off (a snap draws none). */
+function showIndicator(s: Target | null, room: boolean, p: Point, t: number, draw = true): void {
   if (s !== lastShown) {
     if (lastShown && t - lastShownAt < FLASH) stats.flashes++;
     if (s) stats.changes++;
     lastShown = s;
     lastShownAt = t;
   }
-  if (!s) {
+  if (!s || !draw) {
     ind.classList.remove("on");
     indlabel.classList.remove("on");
     return;
   }
-  let r: R;
-  if (s.float) r = { x: Math.min(Math.max(p.x - 75, 222), 658 - 150), y: Math.min(Math.max(p.y - 32, 38), 364 - 64), w: 150, h: 64 };
-  else if (s.slot) r = room ? { x: s.slot.x, y: s.slot.y - 18, w: s.slot.w, h: 36 } : { x: s.slot.x, y: s.slot.y - 2, w: s.slot.w, h: 4 };
-  else r = s.ind!;
+  const r = targetRect(s, room, p);
   place(ind, r);
   ind.classList.add("on");
   indlabel.textContent = s.label;
@@ -138,11 +145,34 @@ function beginDrag(grab: Point) {
   updateStats();
   setDrop("…");
   chip.classList.add("lifted");
+  // Snap to slot: once the shown target has held for the room delay, the chip glides into it; leaving it glides the
+  // chip back to the pointer, then it is held 1:1 again. A target with no slot (float here) keeps the indicator.
+  let snapped: Target | null = null, returning = false;
   return {
     move(p: Point, t: number): void {
-      placeChip(p.x - grab.x, p.y - grab.y);
       const { shown, room } = model.update(p, t);
-      showIndicator(shown, room, p, t);
+      const snap = dropMode() === "snap";
+      if (snap && shown && !shown.float && room) {
+        if (snapped !== shown) {
+          snapped = shown;
+          returning = false;
+          const r = targetRect(shown, true, p);
+          glideChip({ x: r.x, y: r.y, width: r.w, height: r.h });
+        }
+      } else {
+        if (snapped) {
+          snapped = null;
+          returning = true;
+        }
+        const at = chipRect(p.x - grab.x, p.y - grab.y);
+        if (returning) {
+          const v = chipSettle.value;
+          if (Math.abs(v.x - at.x) < 1 && Math.abs(v.y - at.y) < 1 && Math.abs(v.width - at.width) < 1) returning = false;
+          else glideChip(at);
+        }
+        if (!returning) placeChip(at.x, at.y);
+      }
+      showIndicator(shown, room, p, t, !(snap && shown && !shown.float));
       updateStats();
     },
     end(p: Point, t: number, cancelled: boolean): Target | null {
@@ -151,9 +181,12 @@ function beginDrag(grab: Point) {
       updateStats();
       chip.classList.remove("lifted");
       setDrop(target ? target.label : "back home");
-      chipHome();
+      // A snapped drop is already landing: it finishes there (no second motion), then the demo resets.
+      if (target && target === snapped) window.setTimeout(chipHome, 900);
+      else chipHome();
       return target;
     },
+    get snapped() { return snapped ? snapped.label : null; },
   };
 }
 
@@ -212,7 +245,7 @@ function at(keys: Key[], t: number): Point {
 }
 const figure = $("figure");
 const syncBusy = (): void => void figure.classList.toggle("busy", playing || runningAll);
-interface Result { changes: number; flashes: number; drop: string; ok: boolean }
+interface Result { changes: number; flashes: number; drop: string; ok: boolean; snapped: string | null; chipAtRelease: Rect }
 function play(path: Path): Promise<Result> {
   return new Promise((resolve) => {
     playing = true;
@@ -230,12 +263,13 @@ function play(path: Path): Promise<Result> {
         requestAnimationFrame(frame);
         return;
       }
+      const snapped = drag.snapped, chipAtRelease = { ...chipSettle.value };
       const target = drag.end(p, start + t, false);
       ptr.style.opacity = "0";
       playing = false;
       syncBusy();
       const drop = target ? target.label : "back home";
-      resolve({ changes: stats.changes, flashes: stats.flashes, drop, ok: drop === path.expect });
+      resolve({ changes: stats.changes, flashes: stats.flashes, drop, ok: drop === path.expect, snapped, chipAtRelease });
     };
     requestAnimationFrame(frame);
   });
@@ -298,4 +332,6 @@ $("runall").addEventListener("click", async () => {
   setStatus("Done: the table below lists every path in both modes. Naive flashes while flying; the model does not.");
 });
 setStatus("Drag the Outline panel yourself, or pick a recorded path on the left.");
-(window as unknown as Record<string, unknown>).__dragModel = { play: (k: string, m: Mode) => { setMode(m); return play(PATHS[k]!); } };
+(window as unknown as Record<string, unknown>).__dragModel = { play: (k: string, m: Mode) => { setMode(m); return play(PATHS[k]!); }, chip: () => ({ ...chipSettle.value }) };
+watchActions(figure);
+bindDropMode(figure);
