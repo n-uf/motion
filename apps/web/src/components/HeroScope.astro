@@ -47,14 +47,14 @@ const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].
     <div class="col m">
       <p class="lead">Give it rects; real elements glide there. Drags stay under the pointer.</p>
       <div class="install">
-        <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code>
+        <div class="cmdbar"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code><button type="button" class="copy" data-copy="npm i @n-uf/motion" aria-label="Copy the install command for @n-uf/motion">Copy</button></div>
         <a class="btn primary" href="/window-motion/">See the motion rules<Fragment set:html={arrow} /></a>
       </div>
     </div>
     <div class="col p">
       <p class="lead">Give it state; it returns rects and drop targets. It moves nothing.</p>
       <div class="install">
-        <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code>
+        <div class="cmdbar p"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code><button type="button" class="copy" data-copy="npm i @n-uf/placement" aria-label="Copy the install command for @n-uf/placement">Copy</button></div>
         <a class="btn primary p" href="/desk-layouts/">See the desk layouts<Fragment set:html={arrow} /></a>
       </div>
     </div>
@@ -115,4 +115,6 @@ const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].
       <div class="tok" id="tok"><div class="tok-frame"></div><div class="tok-body"><div class="hb"><i><b></b><b></b><b></b><b></b></i>Outline</div><div class="ln"><u></u><u></u><u></u></div></div></div>
     </div>
   </div>
+  <!-- The Copy buttons' announcement ("Copied"), read out politely (islands/copy.ts). -->
+  <p class="sr-only" id="copy-status" role="status" aria-live="polite"></p>
 </section>
