@@ -32,12 +32,12 @@
 
 /* Frames: everything in container units, so a scene scales with its cell (240 units wide). */
 .cell { container-type: inline-size; min-width: 0; }
-.scene { position: relative; height: 30.8cqw; border: 1px dashed var(--line-2); border-radius: var(--r-sm); overflow: hidden; background: var(--bg-subtle); }
-.w { position: absolute; left: 0; top: 0; height: 100%; overflow: hidden; background: var(--bg-raised); border: 1.5px solid var(--accent); border-radius: var(--r-sm); }
+.scene { position: relative; height: 30.8cqw; border: 1px dashed var(--line-2); border-radius: var(--r-sm); overflow: hidden; background: var(--win-well); }
+.w { position: absolute; left: 0; top: 0; height: 100%; overflow: hidden; background: var(--win-paper); border: 1.5px solid var(--accent); border-radius: var(--r-sm); }
 .w .c { position: absolute; left: 0; top: 0; padding: 2.5cqw 3.3cqw; font-size: 5cqw; line-height: 1.35; white-space: nowrap; color: var(--text); transform-origin: 0 0; }
 .w .c b { display: block; font-size: 4.6cqw; color: var(--accent-strong); }
-.w.reveal { background: repeating-linear-gradient(135deg, var(--bg-sunken) 0 3px, var(--bg-subtle) 3px 6px); }
-.w.reveal .c { height: 100%; background: var(--bg-raised); box-shadow: 1px 0 0 var(--line-2); }
+.w.reveal { background: repeating-linear-gradient(135deg, var(--win-bar) 0 3px, var(--win-well) 3px 6px); }
+.w.reveal .c { height: 100%; background: var(--win-paper); box-shadow: 1px 0 0 var(--win-edge); }
 .scene.now { border-style: solid; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .cap { margin-top: 5px; font-family: var(--font-mono); font-size: 11px; color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .fh { margin: 0 0 6px; font-size: var(--t-xs); font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); }

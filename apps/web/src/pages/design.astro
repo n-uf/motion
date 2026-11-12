@@ -5,6 +5,7 @@
 import Site from "../layouts/Site.astro";
 import CaseRail from "../components/CaseRail.astro";
 import { orgNode } from "../data/schema";
+import { CASES, windowHTML } from "../demos/toolbar";
 import tokensCss from "../styles/tokens.css?raw";
 import "../styles/toolbar-groups.css";
 import "../styles/design.css";
@@ -24,10 +25,11 @@ const groups: [string, string, string[]][] = [
   ["Backgrounds", "Paper in light, graphite in dark. Raised for frames and cards, sunken for stages.", pick(/^bg/)],
   ["Text", "Three steps: primary, secondary, tertiary.", pick(/^text/)],
   ["Hairlines", "Solid 1 px lines, three strengths.", pick(/^line/)],
-  ["Accent", "Teal, for interaction and focus only.", pick(/^accent/)],
+  ["Accent", "One blue teal, for interaction and focus only, on the site and in the demo windows.", pick(/^accent/)],
   ["Signal", "Orange, for drop targets and indicators only.", pick(/^signal/)],
   ["Results and series", "Good and bad results; chart series (the proposal takes the accent).", [...pick(/^(good|bad)$/), ...pick(/^series/)]],
   ["Grips", "The drag handle's dots, at rest and hot.", pick(/^grip/)],
+  ["Window chrome", "Demo windows: bars a step lighter than the well, a lifted paper with readable lines, coloured lights.", pick(/^win/)],
   ["Diagrams", "The desk and drag stages' fills.", pick(/^d-/)],
 ];
 const resolve = (map: Map<string, string>, v: string): string => {
@@ -118,6 +120,11 @@ const shadows = pick(/^shadow/);
     <div class="rules two ds-rules">
       <div class="rule"><h3>A rule's question</h3><p>Its answer, in plain words, beside it. On a page each rule is its own h2.</p></div>
     </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><span class="eyebrow">Demo window</span><p class="section-title">The window chrome</p><p>The window every demo draws: coloured lights (<code>--win-light-1…3</code>), bars on <code>--win-bar</code> over the <code>--win-well</code>, a lifted paper (<code>--win-paper</code>) with lines in <code>--win-paper-line</code>. The active tool is an accent ring, hover a soft accent tint. This is the toolbar page's own markup, at rest.</p></div>
+    <div class="ds-window-wrap"><div id="win" set:html={windowHTML(CASES[0]!.m)} /></div>
   </section>
 
   <section class="section">
