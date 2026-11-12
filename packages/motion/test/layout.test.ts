@@ -41,6 +41,11 @@ describe("layout motion: settle to every new target", () => {
     // The immediate redraw: drawn exactly where it was, laid out in the new box.
     expect(s.frames[at]!.frame.drawn).toEqual(mid);
     expect(s.frames[at]!.frame.box).toEqual(rect(100, 200, 160, 80));
+    // The next frame is on the settle from there: what is left of the way shrinks by e^(−omega·dt), every component.
+    s.clock.frame();
+    const goal = rect(100, 200, 160, 80);
+    const k = Math.exp((-OMEGA * s.clock.frameMs) / 1000);
+    for (const key of ["x", "y", "width", "height"] as const) expect(item.drawn[key]).toBeCloseTo(goal[key] + (mid[key] - goal[key]) * k, 6);
     s.settle();
     expect(item.drawn).toEqual(rect(100, 200, 160, 80));
     const after = s.samples(at);
