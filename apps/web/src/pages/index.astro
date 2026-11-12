@@ -48,6 +48,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
     together, the claims and the caveat. The two telemetry panes that watch the desk are a section further down.
   -->
   <section class="wrap section loop hx" aria-labelledby="loop-title">
+    <p class="try-note">Live demo · drag a window by its title onto another to swap them</p>
     <HeroDemo id="demo-fig" label="Live demo: three windows that glide between layouts and swap when dragged; X-ray shows each package's layer" />
     <LoopStrip />
     <div class="section-head">
@@ -190,7 +191,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   import { whenVisible } from "../islands/rail";
   // The desk demo starts when it scrolls into view.
   const fig = document.getElementById("demo-fig")!;
-  whenVisible(fig, () => void import("../islands/home").then((m) => m.startHero(fig)));
+  whenVisible(fig, () => void import("../islands/home").then((m) => m.startHero(fig, "", "__desk")));
   // The telemetry island starts when the desk's legend (right under the desk) scrolls into view: it owns the slow-motion
   // control there, and fills the two panes further down, which listen to the desk once it runs.
   const tele = document.getElementById("tele")!;

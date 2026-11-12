@@ -387,6 +387,78 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
   onDropMode(() => { if (drag) showIndicator(drag.shown); });
   shuffle.addEventListener("click", () => { nextLayout(); markTouched(); });
 
+  // ---- The idle hint: one drag, once per page load, that shows the desk is live -----------------------------------------
+  // When the desk is at least 60 % in view and nobody has touched it for 1.5 s, a drawn pointer grabs "Budget draft" by
+  // its title bar and flies it toward "Quarterly plan.pdf" through the desk's own lift, move and release (the drop
+  // target lights by the visitor's preview mode, exactly as in a real drag), then lets go short of the swap: the
+  // release is a cancel, so the windows settle back on motion's settle and the layout state is unchanged. It never
+  // plays with reduced motion, and any pointer or key on the desk ends it for good. The showcase waits its turn.
+  type HintState = "armed" | "running" | "done";
+  let hint: HintState = "armed";
+  let hintStop: (() => void) | null = null, hintTimer = 0, inView = false, showStart = 0;
+  const HINT_IDLE = 1500, HINT_GATE = 6000;
+  const ptr = document.createElement("div");
+  ptr.className = "dw-ptr";
+  ptr.setAttribute("aria-hidden", "true");
+  ptr.innerHTML = `<svg viewBox="0 0 14 20" width="14" height="20" focusable="false"><path d="M1 1v15.2l3.8-3.4 2.6 6 2.4-1.1-2.6-5.9h5.3z"/></svg>`;
+  demo.appendChild(ptr);
+  /** Whether the showcase should hold back: the hint is playing, or still waiting for its moment (for at most 6 s). */
+  const hintBusy = (): boolean => hint === "running" || (hint === "armed" && !reduced() && performance.now() - showStart < HINT_GATE);
+  function endHint(): void {
+    clearTimeout(hintTimer);
+    hintStop?.();
+    hintStop = null;
+    if (drag?.scripted) release(true);
+    ptr.classList.remove("on", "press");
+    hint = "done";
+  }
+  function armHint(): void {
+    clearTimeout(hintTimer);
+    if (hint !== "armed" || !inView) return;
+    hintTimer = window.setTimeout(runHint, HINT_IDLE);
+  }
+  function runHint(): void {
+    if (hint !== "armed" || !inView || drag || touched || reduced() || document.visibilityState !== "visible") return;
+    const a = wins[2]!, b = wins[0]!;
+    if (layout !== 0 || a.slot !== 2 || b.slot !== 0) { hint = "done"; return; }
+    hint = "running";
+    const ra = slotRect(a.slot), rb = slotRect(b.slot);
+    const from: Point = { x: ra.x + Math.min(78, ra.width * 0.4), y: ra.y + 15 };
+    const to: Point = { x: rb.x + rb.width * 0.55, y: rb.y + rb.height * 0.45 };
+    const ptrAt = (p: Point): void => { ptr.style.transform = `translate(${p.x - 1}px, ${p.y - 1}px)`; };
+    const ease = (x: number): number => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
+    let lifted = false;
+    ptrAt(from);
+    ptr.classList.add("on");
+    const t0 = performance.now();
+    hintStop = loop.repeat("input", () => {
+      const now = performance.now(), t = now - t0;
+      if (t < 450) return true; // the pointer fades in over the title bar and rests
+      if (!lifted) { lifted = true; ptr.classList.add("press"); lift(a, from, true); }
+      let p: Point;
+      if (t < 1150) { const f = ease((t - 450) / 700); p = { x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f }; }
+      else if (t < 1750) p = { x: to.x + ((t - 1150) / 600) * 4, y: to.y }; // dwell: the intent shows the target
+      else { endHint(); return false; }
+      ptrAt(p);
+      move(p, now);
+      return true;
+    });
+  }
+  /** The visitor's own pointer or key on the desk: no hint now or later. */
+  const hintOff = (): void => { if (hint !== "done") endHint(); };
+  fig.addEventListener("pointerdown", hintOff, { capture: true });
+  fig.addEventListener("keydown", hintOff, { capture: true });
+  fig.addEventListener("focusin", hintOff);
+  // A moving pointer over the desk only holds the hint back (it waits for 1.5 s of stillness); while it plays, it ends it.
+  fig.addEventListener("pointermove", (e) => {
+    if (hint === "running") { if (e.movementX || e.movementY) endHint(); } else armHint();
+  }, { passive: true });
+  new IntersectionObserver(([e]) => {
+    inView = !!e && e.intersectionRatio >= 0.6;
+    if (!inView && hint === "running") endHint();
+    armHint();
+  }, { threshold: [0, 0.6] }).observe(fig);
+
   // ---- The automatic showcase: layouts, then a swap, cycling the three modes; its pace follows the speed -----------
   function nextLayout(): void {
     layout = (layout + 1) % LAYOUTS.length;
@@ -422,6 +494,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
   }
   function showcaseStep(): void {
     showTimer = window.setTimeout(() => {
+      if (hintBusy()) return showcaseStep(); // the invitation goes first
       step++;
       if (step % 2 === 1) nextLayout();
       else scriptedSwap(DROP_MODES[(step / 2) % DROP_MODES.length]!);
@@ -434,6 +507,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
       layout = 0;
       wins.forEach((w) => (w.slot = w.i));
       relayout(true);
+      showStart = performance.now();
       step = 0;
       showcaseStep();
     },
@@ -455,6 +529,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     settled: () => wins.every((w) => w.settle.settled),
     drawn: () => wins.map((w) => ({ ...w.settle.value })),
     layout: () => layout,
+    hint: () => hint,
   };
 }
 
