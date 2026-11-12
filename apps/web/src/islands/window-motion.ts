@@ -192,7 +192,17 @@ onMotionChange(() => {
   lastTempo = omega();
   select(active);
 });
-figureChrome($("figure"));
+// ↺ Reset: the first case, Loop off.
+const motionChrome = figureChrome($("figure"), {
+  demo: {
+    isDefault: () => active === 0 && !loopEl.checked,
+    reset() {
+      loopEl.checked = false;
+      select(0);
+    },
+  },
+});
+for (const ev of ["change", "click"]) $("figure").addEventListener(ev, () => queueMicrotask(() => motionChrome.demoChanged()));
 
 select(0);
 (window as unknown as Record<string, unknown>).__motionSketch = { cases: CASES.length, select, seek, play, time: () => tms };

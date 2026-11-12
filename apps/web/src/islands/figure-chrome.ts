@@ -3,13 +3,13 @@
  * bars, the arrangement persists per figure, and the playback controls every figure shares (speed, tempo, the drop
  * preview) are bound. Dragging a group counts as user activity for the showcases.
  */
-import { createChrome, type Chrome } from "./chrome";
+import { createChrome, type Chrome, type DemoState } from "./chrome";
 import { bindDropMode } from "./drop-mode";
 import { getSpeed, getTempo, onMotionChange, setSpeed, setTempo, type Tempo } from "./motion";
 import { watchActions } from "./showcase";
 import type { Model } from "../demos/toolbar";
 
-export function figureChrome(fig: HTMLElement): Chrome {
+export function figureChrome(fig: HTMLElement, opts: { onChange?: (m: Model) => void; demo?: DemoState } = {}): Chrome {
   const initial = JSON.parse(fig.dataset.chromeModel!) as Model;
   const labels = JSON.parse(fig.dataset.chromeLabels!) as Record<string, string>;
   const freezeInput = [...fig.querySelectorAll<HTMLInputElement>("[data-chrome-freeze]")].find((i) => i.closest(".win") === fig);
@@ -19,7 +19,9 @@ export function figureChrome(fig: HTMLElement): Chrome {
     initial,
     storageKey: `motion-chrome:${fig.dataset.chrome}`,
     freeze: freezeInput ? { input: freezeInput, lock: freezeInput.closest<HTMLElement>(".lock")! } : undefined,
+    onChange: opts.onChange,
   });
+  if (opts.demo) chrome.setDemo(opts.demo);
   watchActions(fig);
   bindDropMode(fig);
   bindPlayback(fig);
