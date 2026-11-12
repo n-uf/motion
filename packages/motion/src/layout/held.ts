@@ -10,6 +10,8 @@ import type { LayoutItem } from "./motion";
  * - {@link HeldDrag.land}: let go into a slot: the landing settles from where it was let go (the release rect), never
  *   from its old home. Snapped into that slot already, it simply finishes that glide.
  * - {@link HeldDrag.cancel}: let go with no drop: it glides home from where it was let go.
+ * - {@link HeldDrag.preview}: the three drop previews, per frame: indicator and gap keep the item under the pointer
+ *   (gap with the caller's room open), snap glides it into the slot; leaving glides it back to the pointer.
  */
 export interface HeldDrag {
   /** Where the pointer is (null before the first move). */
@@ -29,6 +31,13 @@ export interface HeldDrag {
   snapTo(slot: Rect | null): "snapped" | "left" | null;
   /** Once a frame: on its way back, retarget to the pointer; true on the frame it is under the pointer again. */
   follow(): boolean;
+  /**
+   * Once a frame, a drop preview's part for the item (`plan`: `@n-uf/motion/drag`'s `previewPlan`, or any
+   * `{ snapItem }`): with `snapItem` it glides into `slot` (snap); else it stays under the pointer, or glides back to
+   * it from a slot it left (indicator, gap). The room, if the plan makes any, is the caller's layout. In place of
+   * {@link HeldDrag.snapTo} and {@link HeldDrag.follow}; returns what changed.
+   */
+  preview(plan: { readonly snapItem: boolean }, slot: Rect | null): "snapped" | "left" | null;
   /** Let go into `slot`: returns the release rect, where the landing starts. */
   land(slot: Rect): Rect;
   /** Let go with no drop: glides `home` from the release rect, which it returns. */
@@ -46,6 +55,29 @@ export function holdItem(item: LayoutItem, grab: Point): HeldDrag {
   let returning = false;
   const heldRect = (): Rect | null => (pointer ? { x: pointer.x - grab.x, y: pointer.y - grab.y, width: size.width, height: size.height } : null);
   const same = (a: Rect, b: Rect): boolean => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height)) < 0.01;
+  const snapTo = (slot: Rect | null): "snapped" | "left" | null => {
+    if (slot) {
+      if (snapped && same(snapped, slot)) return null;
+      snapped = { ...slot };
+      returning = false;
+      item.moveTo(slot);
+      return "snapped";
+    }
+    if (!snapped) return null;
+    snapped = null;
+    returning = true;
+    return "left";
+  };
+  const follow = (): boolean => {
+    const goal = heldRect();
+    if (!returning || !goal) return false;
+    item.moveTo(goal);
+    const d = item.drawn;
+    if (Math.max(Math.abs(d.x - goal.x), Math.abs(d.y - goal.y), Math.abs(d.width - goal.width), Math.abs(d.height - goal.height)) >= CAUGHT) return false;
+    returning = false;
+    item.hold(goal);
+    return true;
+  };
   const letGo = (to: Rect): Rect => {
     const release = { ...item.drawn };
     snapped = null;
@@ -71,28 +103,12 @@ export function holdItem(item: LayoutItem, grab: Point): HeldDrag {
       if (snapped || returning) return;
       item.hold(heldRect()!);
     },
-    snapTo(slot) {
-      if (slot) {
-        if (snapped && same(snapped, slot)) return null;
-        snapped = { ...slot };
-        returning = false;
-        item.moveTo(slot);
-        return "snapped";
-      }
-      if (!snapped) return null;
-      snapped = null;
-      returning = true;
-      return "left";
-    },
-    follow() {
-      const goal = heldRect();
-      if (!returning || !goal) return false;
-      item.moveTo(goal);
-      const d = item.drawn;
-      if (Math.max(Math.abs(d.x - goal.x), Math.abs(d.y - goal.y), Math.abs(d.width - goal.width), Math.abs(d.height - goal.height)) >= CAUGHT) return false;
-      returning = false;
-      item.hold(goal);
-      return true;
+    snapTo,
+    follow,
+    preview(plan, slot) {
+      const change = snapTo(plan.snapItem && slot ? slot : null);
+      follow();
+      return change;
     },
     land: letGo,
     cancel: letGo,
