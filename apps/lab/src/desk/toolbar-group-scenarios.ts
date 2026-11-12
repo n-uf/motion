@@ -606,6 +606,51 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
     }),
   };
 
+  out["toolbar groups: the three previews: indicator moves nothing, gap opens the slot with the group under the pointer, snap fills it"] = {
+    construction: "docks",
+    drag: true,
+    play: withArrangement(lab, DEFAULT_ARRANGEMENT, async (expect) => {
+      const mode = lab.preview();
+      // View, from the top bar to the title bar before the document: the document has to make room.
+      const t = tg.targets("g:view").find((x) => x.id === "g:title:start:0");
+      if (!t) return expect(false, "no target before the document");
+      const docBefore = tg.rectOf(tg.groupEl("doc")!);
+      let docLate: Rect | null = null;
+      let viewLate: Rect | null = null;
+      let shownLate = false;
+      const r = await dragTo("g:view", t.id, expect, (time, end) => {
+        if (time < end - 40) return;
+        docLate = tg.rectOf(tg.groupEl("doc")!);
+        viewLate = tg.rectOf(tg.groupEl("view")!);
+        shownLate = !!tg.indicator();
+      });
+      await settle(lab);
+      if (!r || !docLate || !viewLate) return expect(false, "the drag recorded nothing late in its hold");
+      const doc = docLate as Rect;
+      const view = viewLate as Rect;
+      const last = r.frames.at(-1)!;
+      const underPointer = Math.abs(view.x - (last.x - r.grab.x)) < 1.5 && Math.abs(view.y - (last.y - r.grab.y)) < 1.5;
+      const opened = doc.x > docBefore.x + 20;
+      if (mode === "indicator") {
+        expect(!opened, `indicator: the document moved from x ${Math.round(docBefore.x)} to ${Math.round(doc.x)} before the drop`);
+        expect(underPointer, `indicator: the group at ${fmt(view)} isn't under the pointer`);
+        expect(shownLate, "indicator: no indicator late in the hold");
+      } else if (mode === "gap") {
+        expect(opened, `gap: the document didn't open the slot (x ${Math.round(docBefore.x)} → ${Math.round(doc.x)})`);
+        expect(underPointer, `gap: the group at ${fmt(view)} isn't under the pointer`);
+        expect(r.snaps.every((e) => e.id === null), "gap: the group snapped into the slot");
+      } else {
+        expect(opened, `snap: the document didn't open the slot (x ${Math.round(docBefore.x)} → ${Math.round(doc.x)})`);
+        expect(r.snaps.some((e) => e.id === t.id), "snap: the group never snapped into the slot");
+        // Already in the slot: the release only finishes that settle (no second motion).
+        const landed = tg.placements().get("view")!.rect;
+        expect(!!r.release && Math.abs(r.release.x - landed.x) < 1.5 && Math.abs(r.release.y - landed.y) < 1.5, `snap: let go at ${r.release ? fmt(r.release) : "?"}, its slot is ${fmt(landed)}`);
+      }
+      expect(r.landed === t.id && list(tg.arrangement(), "title") === "view,doc | · | zoom", `${mode}: landed on ${r.landed}; the title bar is ${list(tg.arrangement(), "title")}`);
+      restsAsLaidOut(expect, `${mode}: after the drop`);
+    }),
+  };
+
   out["toolbar groups · snap: the group glides into its slot once room is made, its neighbours sliding"] = {
     construction: "docks",
     drag: true,

@@ -21,7 +21,7 @@ import { overlap, nextFrame, type Point } from "../shared/geometry";
 import { cancelPress, trackPress } from "../shared/press";
 import { toolGroupCells } from "./content";
 import { isLayoutFrozen, mountFreezeSwitch, onFreezeChange, setLayoutFrozen } from "./freeze";
-import { DRAG_DEFAULTS, createDragIntent, inRect, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
+import { DRAG_DEFAULTS, createDragIntent, inRect, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
 import { constructionOf } from "./layouts";
 import type { Options, Placed } from "./model";
 import type { DeskLab, IndicatorEntry, PathKey } from "./scenarios";
@@ -881,37 +881,27 @@ function aim(now: number): void {
   } else f = d.intent.update(d.pointer, now, d.targets);
   if ((f.shown?.id ?? null) !== (d.shown?.id ?? null)) d.log.push({ t: now - d.t0, id: f.shown?.id ?? null, ...(f.shown ? {} : { flying: !f.aiming }) });
   d.shown = f.shown;
-  const snap = lab!.preview() === "snap";
-  // Snap previews a docked place with the group itself; the indicator shows only where the group won't glide.
-  showIndicator(d.shown && (!snap || d.shown.kind === "float") ? d.shown : null, d);
-  const room = f.room && d.shown?.kind !== "float" ? d.shown : null;
+  // The preview decides this frame (@n-uf/motion/drag's previewPlan): the indicator, the room (the open gap), the group
+  // snapped into its slot. A float has no slot: it keeps its outline and never makes room.
+  const plan = previewPlan({ shown: f.shown, room: f.room }, lab!.preview(), !!f.shown && f.shown.kind !== "float");
+  showIndicator(plan.showIndicator ? d.shown : null, d);
+  const room = plan.makeRoom && d.shown?.kind !== "float" ? d.shown : null;
   if ((room?.id ?? null) !== (d.room?.id ?? null)) {
     d.room = room;
     preview = room ? room.make(d.pointer) : null;
     changed();
   }
-  // The group itself (@n-uf/motion/layout's held drag): 1:1 under the pointer, or (snap) gliding into the slot the room
-  // was made for (taking that slot's axis), and back to the pointer.
+  // The group itself (@n-uf/motion/layout's held drag): 1:1 under the pointer (from the keyboard: where it was picked
+  // up, home), or (snap) gliding into the slot the room was made for, taking that slot's axis, and back to the pointer.
   const ge = groupEls.get(d.id)!;
-  const slot = snap && d.room ? (placements(preview!, geometry(preview!, true)).get(d.id) ?? null) : null;
-  let axis = d.homeVertical;
-  if (slot) {
-    if (d.snapped !== d.room!.id) d.snaps.push({ t: now - d.t0, id: d.room!.id });
-    d.snapped = d.room!.id;
-    d.returning = false;
-    axis = slot.vertical;
-    d.held.snapTo(slot.rect);
-  } else {
-    if (d.snapped) {
-      d.snaps.push({ t: now - d.t0, id: null, flying: !f.aiming });
-      d.snapped = null;
-      d.returning = true;
-      d.held.snapTo(null);
-    }
-    // From the keyboard the pointer stays where the group was picked up: held there, it sits at home.
-    d.held.move(d.pointer);
-    if (d.returning && d.held.follow()) d.returning = false;
-  }
+  const slot = plan.snapItem && d.room ? (placements(preview!, geometry(preview!, true)).get(d.id) ?? null) : null;
+  if (slot && d.snapped !== d.room!.id) d.snaps.push({ t: now - d.t0, id: d.room!.id });
+  if (!slot && d.snapped) d.snaps.push({ t: now - d.t0, id: null, flying: !f.aiming });
+  d.snapped = slot ? d.room!.id : null;
+  d.held.move(d.pointer);
+  d.held.preview({ snapItem: !!slot }, slot?.rect ?? null);
+  d.returning = d.held.returning;
+  const axis = slot ? slot.vertical : d.homeVertical;
   if (ge.vertical !== axis) {
     ge.vertical = axis;
     ge.el.classList.toggle("v", axis);
