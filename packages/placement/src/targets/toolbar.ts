@@ -25,7 +25,10 @@ export interface ToolbarTarget<G extends string = string> extends Target {
   readonly arrangement: Arrangement<G>;
 }
 
-/** Where a group may go: a host's place, or floating. A place it may not go is no target. */
+/**
+ * Where a group may go: a host's place, or floating. A place it may not go is no target. `place.index` counts the
+ * groups in that zone without the dragged one (as `insertGroup` does): 0 is before all of the others.
+ */
 export type Allows<G extends string> = (group: G, place: Place | "float") => boolean;
 
 export interface HostTargetsInput<G extends string> {
