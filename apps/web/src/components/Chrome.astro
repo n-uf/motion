@@ -1,0 +1,44 @@
+---
+// A figure as a window whose chrome is toolbar groups (islands/chrome.ts). The server renders the default arrangement:
+// the title bar (the window grip, the lights, then groups), a top and a bottom bar, the left and right edges, and
+// between them the figure's body (the default slot: the case rail and the stage). Each group's controls come from the
+// slot of the same name; every group of two or more controls gets one compact dot handle. A visitor's own arrangement
+// replaces the default once the island starts (and only then: the default never shifts).
+import { chromeGroupHTML, ZONES, type Host, type Model } from "../demos/toolbar";
+
+interface Props {
+  id: string;
+  label: string;
+  /** The groups, by slot name, with their names (for handles and the menu). */
+  groups: { id: string; name: string }[];
+  /** The default arrangement. */
+  model: Model;
+  /** A freeze lock at the title bar's end. */
+  lock?: boolean;
+  class?: string;
+}
+const { id, label, groups, model, lock = false, class: cls = "" } = Astro.props;
+const html = new Map<string, string>();
+for (const g of groups) html.set(g.id, chromeGroupHTML(g.id, g.name, Astro.slots.has(g.id) ? await Astro.slots.render(g.id) : "", model.collapsed.includes(g.id)));
+const dots = (n: number) => "<i></i>".repeat(n);
+const zones = (h: Host) => ZONES.map((z) => `<div class="zone ${z}" data-host="${h}" data-zone="${z}">${model[h][z].map((g) => html.get(g) ?? "").join("")}</div>`).join("");
+const empty = (h: Host) => h !== "title" && ZONES.every((z) => model[h][z].length === 0);
+const bar = (h: Host, extra = "") => `<div class="bar ${h === "left" || h === "right" ? "v" : "h"} ${h}${empty(h) ? " empty" : ""}" data-host="${h}">${extra}${zones(h)}</div>`;
+const winh = `<span class="winh"><span class="g full" aria-hidden="true">${dots(6)}</span><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span></span>`;
+const lockHtml = lock
+  ? `<label class="lock fixed" title="Freeze or unfreeze this window's bars"><input type="checkbox" class="switch" data-chrome-freeze role="switch" aria-label="Freeze the bars"><svg class="ico open" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 4.9-.7"/></svg><svg class="ico shut" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><span class="lockhint">hold <kbd>Alt</kbd> to move</span></label>`
+  : "";
+const floats = model.float.map((f) => `<div class="floating" style="left:${f.x}px;top:${f.y}px">${html.get(f.id) ?? ""}</div>`).join("");
+const names = Object.fromEntries(groups.map((g) => [g.id, g.name]));
+---
+<figure class={`figure win ${cls}`} id={id} aria-label={label} data-chrome={id} data-chrome-model={JSON.stringify(model)} data-chrome-labels={JSON.stringify(names)}>
+  <Fragment set:html={bar("title", winh).replace(/<\/div>$/, `${lockHtml}</div>`)} />
+  <Fragment set:html={bar("top")} />
+  <div class="mid">
+    <Fragment set:html={bar("left")} />
+    <slot />
+    <Fragment set:html={bar("right")} />
+    <Fragment set:html={floats} />
+  </div>
+  <Fragment set:html={bar("bottom")} />
+</figure>
