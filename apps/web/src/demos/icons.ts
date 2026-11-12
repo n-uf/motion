@@ -15,12 +15,12 @@ const P: Record<string, string> = {
   print: `<path d="M4.5 6V2.5h7V6M4.5 11H2.5V6h11v5h-2M4.5 9h7v4.5h-7z"/>`,
   minus: `<path d="M4 8h8"/>`,
   plus: `<path d="M4 8h8M8 4v8"/>`,
-  // The drop previews' compact forms: a marker between two items, a dashed slot opened between them, an item dropping
-  // into its slot. And the layouts' "next": a master and its stack.
-  "drop-indicator": `<rect x="1.5" y="4" width="4.5" height="8" rx="1"/><rect x="10" y="4" width="4.5" height="8" rx="1"/><path d="M8 2v12"/>`,
-  "drop-gap": `<rect x="1" y="4" width="3.5" height="8" rx="1"/><rect x="11.5" y="4" width="3.5" height="8" rx="1"/><rect x="6" y="4" width="4" height="8" rx="1" stroke-dasharray="1.6 1.4"/>`,
-  "drop-snap": `<path d="M8 1.5v6M5.8 5.3L8 7.5l2.2-2.2"/><rect x="4.5" y="9.5" width="7" height="5" rx="1"/>`,
-  layout: `<rect x="2" y="3" width="6" height="10" rx="1"/><rect x="9.5" y="3" width="4.5" height="4.5" rx="1"/><rect x="9.5" y="8.5" width="4.5" height="4.5" rx="1"/>`,
+  // The drop previews' compact forms, each a tiny picture of its mode: a dashed outline (Drop indicator), two blocks
+  // with a gap between them (Open gap), a block seated in a slot (Snap to slot). And ⇄ for the layouts' "next".
+  "drop-indicator": `<rect x="2.5" y="3.5" width="11" height="9" rx="1.5" stroke-dasharray="2.2 1.8"/>`,
+  "drop-gap": `<rect x="1.5" y="4" width="4.5" height="8" rx="1"/><rect x="10" y="4" width="4.5" height="8" rx="1"/>`,
+  "drop-snap": `<path d="M2 6.5v6h12v-6"/><rect x="5" y="3" width="6" height="7.5" rx="1"/>`,
+  swap: `<path d="M3 5.5h9.5M10.2 3.2l2.3 2.3-2.3 2.3M13 10.5H3.5M5.8 8.2l-2.3 2.3 2.3 2.3"/>`,
 };
 
 export function icon(name: string): string {
