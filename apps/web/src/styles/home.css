@@ -63,7 +63,7 @@
 .does-col > p { margin: 0; color: var(--text-2); }
 .does-col > p:not(.not):not(.links) { padding: var(--s4) var(--s5); }
 .entries { flex: 1; display: flex; flex-direction: column; margin: 0; border-top: 1px solid var(--line-2); }
-.entries > div { flex: 1 1 auto; display: grid; grid-template-columns: 9.5em minmax(0, 1fr); align-content: center; gap: 0 var(--s3); padding: 10px var(--s5); }
+.entries > div { flex: none; display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 0 var(--s3); padding: 10px var(--s5); }
 .entries > div + div { border-top: 1px solid var(--line); }
 .entries dt code { color: var(--c); border-radius: 2px; }
 .entries dd { margin: 0; font-size: var(--t-sm); color: var(--text-2); }
