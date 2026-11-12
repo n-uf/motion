@@ -56,53 +56,30 @@ canvas { width: 720px; max-width: 100%; height: 160px; border: 1px solid var(--l
  */
 .stage.desk,
 .deskwin {
-  --d-desk: #e9ebef;
-  --d-panel: #ffffff;
-  --d-sunken: #f4f5f7;
-  --d-edge: #d8dbe1;
-  --d-edge-lifted: #e4e6eb;
-  --d-hair: #e7e9ed;
-  --d-ink: #1f2328;
-  --d-ink-2: #4b5260;
-  --d-muted: #7a828e;
-  --d-hover: #eceef2;
-  --d-press: #e1e4ea;
-  --d-accent: #3a6fd8;
-  --d-accent-soft: #e8effc;
-  --d-shadow: 0 8px 24px rgba(16, 24, 40, 0.12), 0 2px 6px rgba(16, 24, 40, 0.08);
-  --d-lift: 0 18px 40px rgba(16, 24, 40, 0.2), 0 4px 10px rgba(16, 24, 40, 0.12);
-  /* The drag handle: mid grey at rest, darker on hover, the accent while dragging; its engraving and its well. */
-  --d-grip: #a3a9b3;
-  --d-grip-hover: #5d6470;
-  --d-grip-hi: rgba(255, 255, 255, 0.95);
-  --d-well: #eef0f3;
+  /* The site's window tokens (src/shell/tokens.css), light and dark. */
+  --d-desk: var(--win-well);
+  --d-panel: var(--win-bar);
+  --d-sunken: var(--win-frame);
+  --d-edge: var(--win-edge);
+  --d-edge-lifted: var(--line-3);
+  --d-hair: var(--line);
+  --d-ink: var(--win-text);
+  --d-ink-2: var(--text-2);
+  --d-muted: var(--win-muted);
+  --d-hover: color-mix(in srgb, var(--accent) 12%, transparent);
+  --d-press: color-mix(in srgb, var(--accent) 20%, transparent);
+  --d-accent: var(--accent);
+  --d-accent-soft: var(--accent-soft);
+  --d-shadow: var(--shadow-2);
+  --d-lift: var(--shadow-pop);
+  /* The drag handle: the site's grip grey at rest, darker on hover, the accent while dragging; its engraving and its well. */
+  --d-grip: var(--grip);
+  --d-grip-hover: var(--grip-hot);
+  --d-grip-hi: color-mix(in srgb, var(--win-bar) 95%, transparent);
+  --d-well: var(--win-frame);
   --d-radius: 8px;
   --d-gap: 8px;
   --d-title: 22px;
-}
-@media (prefers-color-scheme: dark) {
-  .stage.desk,
-  .deskwin {
-    --d-desk: #121316;
-    --d-panel: #1e2024;
-    --d-sunken: #191a1e;
-    --d-edge: #2e3138;
-    --d-edge-lifted: #3a3e46;
-    --d-hair: #2a2d33;
-    --d-ink: #e6e8eb;
-    --d-ink-2: #b8bdc6;
-    --d-muted: #868d98;
-    --d-hover: #2a2d33;
-    --d-press: #33363d;
-    --d-accent: #7aa2f7;
-    --d-accent-soft: #233150;
-    --d-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
-    --d-lift: 0 20px 44px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.45);
-    --d-grip: #6b717b;
-    --d-grip-hover: #b8bdc6;
-    --d-grip-hi: rgba(255, 255, 255, 0.12);
-    --d-well: #26292e;
-  }
 }
 /* The stage's size is set per frame (it glides with everything on it); its content box is the desk. */
 .stage.desk { width: 962px; height: 562px; max-width: none; background: var(--d-desk); color: var(--d-ink); border-color: var(--d-edge); }
@@ -454,10 +431,7 @@ canvas { width: 720px; max-width: 100%; height: 160px; border: 1px solid var(--l
 .deskwin .tg-pop .tb-cell:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--d-accent); }
 
 /* One selected style for every segmented control: the accent inset ring (no underline or fill variants). */
-.controls { --sel: #3a6fd8; }
-@media (prefers-color-scheme: dark) {
-  .controls { --sel: #7aa2f7; }
-}
+.controls { --sel: var(--accent); }
 .deskwin .tb-cell[aria-pressed="true"] { --sel: var(--d-accent); }
 .deskwin .tb-cell[aria-pressed="true"],
 .controls button[aria-pressed="true"] { background: transparent; color: var(--sel); box-shadow: inset 0 0 0 1.5px var(--sel); outline: none; }
@@ -483,13 +457,10 @@ canvas { width: 720px; max-width: 100%; height: 160px; border: 1px solid var(--l
 .deskwin .tg-ind { position: absolute; z-index: 3; opacity: 0; background: var(--drop); border-radius: 2px; transition: opacity 90ms, left 110ms cubic-bezier(0.2, 0.8, 0.2, 1), top 110ms cubic-bezier(0.2, 0.8, 0.2, 1), width 110ms, height 110ms; }
 .deskwin .tg-ind.area { background: color-mix(in srgb, var(--drop) 14%, transparent); border: 2px solid var(--drop); border-radius: 8px; box-sizing: border-box; }
 .deskwin .tg-ind.on { opacity: 1; }
-.deskwin .tg-ind-label { position: absolute; z-index: 4; opacity: 0; padding: 2px 8px; border-radius: 999px; background: var(--drop); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; transition: opacity 90ms; }
+.deskwin .tg-ind-label { position: absolute; z-index: 4; opacity: 0; padding: 2px 8px; border-radius: 999px; background: var(--drop); color: var(--signal-ink); font-size: 12px; font-weight: 600; white-space: nowrap; transition: opacity 90ms; }
 .deskwin .tg-ind-label.on { opacity: 1; }
 /* Freeze / unfreeze the layout: a lock switch (a track and knob, a lock open or shut, what it is now). */
-.lock { --lock-accent: #3a6fd8; --lock-soft: #e8effc; display: inline-flex; align-items: center; gap: 9px; padding: 5px 12px 5px 6px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; user-select: none; transition: border-color 0.15s, background 0.15s; }
-@media (prefers-color-scheme: dark) {
-  .lock { --lock-accent: #7aa2f7; --lock-soft: #233150; }
-}
+.lock { --lock-accent: var(--accent); --lock-soft: var(--accent-soft); display: inline-flex; align-items: center; gap: 9px; padding: 5px 12px 5px 6px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; user-select: none; transition: border-color 0.15s, background 0.15s; }
 .lock:hover { border-color: color-mix(in srgb, var(--lock-accent) 45%, var(--line)); }
 .lock:has(input:checked) { border-color: var(--lock-accent); background: var(--lock-soft); }
 .lock input { appearance: none; position: relative; flex: none; width: 34px; height: 20px; margin: 0; border-radius: 999px; background: color-mix(in srgb, currentColor 25%, transparent); cursor: pointer; transition: background 0.15s; }
