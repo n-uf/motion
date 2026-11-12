@@ -37,11 +37,11 @@
   <p class="eyebrow"><span>Checks</span></p>
   <h2 class="section-title">Green or red, without a terminal</h2>
   <p>
-    <a href="#/checks">Checks</a> runs every page's scenarios, or one group's, and lists each scenario as passing or
+    <a href="?checks#/checks">Checks</a> runs every page's scenarios, or one group's, and lists each scenario as passing or
     failing with its first failure. Each page also has its own checks under its demo.
   </p>
   <p>Headless, every page answers <code>window.__motionLab.runAll(filter?)</code>; for example:</p>
-  <pre class="lab-code"><code>node desk-run-all.mjs "http://localhost:3060/#/placement/desk"</code></pre>
+  <pre class="lab-code"><code>node desk-run-all.mjs "&lt;the lab's address&gt;#/placement/desk"</code></pre>
 </section>
 
 <section class="lab-section">

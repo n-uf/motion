@@ -13,6 +13,16 @@ import { GROUPS, PAGES, pageById, type PageDef, type View } from "./pages";
 const version = (raw: string): string => (JSON.parse(raw) as { version: string }).version;
 export const VERSIONS = { motion: version(motionPkg), placement: version(placementPkg) };
 
+/**
+ * The public build (`vite build --mode public`, served at motion.n-uf.com/lab/): it names the released versions it was
+ * built from, and keeps the Checks page out of the sidebar unless the address has `?checks` (its route still works,
+ * and every page's `runAll` hook stays).
+ */
+const PUBLIC = import.meta.env.MODE === "public";
+const withChecks = !PUBLIC || new URLSearchParams(location.search).has("checks");
+/** The pages in the sidebar and the previous/next order. */
+const LISTED = PAGES.filter((p) => withChecks || p.group !== "checks");
+
 const route = parseRoute();
 const page: PageDef = pageById(route.id) ?? pageById("overview")!;
 const root = document.getElementById("lab") as HTMLDivElement;
@@ -21,13 +31,13 @@ const root = document.getElementById("lab") as HTMLDivElement;
 
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const groupTitle = (g: PageDef["group"]): string => GROUPS.find((x) => x.id === g)!.title;
-const index = PAGES.indexOf(page);
-const prev = PAGES[index - 1] ?? null;
-const next = PAGES[index + 1] ?? null;
+const index = LISTED.indexOf(page);
+const prev = index < 0 ? null : (LISTED[index - 1] ?? null);
+const next = index < 0 ? null : (LISTED[index + 1] ?? null);
 
 function sidebar(): string {
-  const groups = GROUPS.map((g) => {
-    const items = PAGES.filter((p) => p.group === g.id)
+  const groups = GROUPS.filter((g) => LISTED.some((p) => p.group === g.id)).map((g) => {
+    const items = LISTED.filter((p) => p.group === g.id)
       .map((p) => `<li><a href="${routeHash(p.id)}"${p === page ? ' aria-current="page"' : ""}><span>${esc(p.nav ?? p.title)}</span></a></li>`)
       .join("");
     return `<div class="lab-group"><p class="lab-group-k">${g.title}</p><ul>${items}</ul></div>`;
@@ -50,7 +60,9 @@ function header(): string {
     <h1>${esc(page.title)}</h1>
     <p class="lead">${esc(page.line)}</p>
     <div class="lab-meta">
-      <p class="built-with" title="The packages' sources in this repository, not a published release"><span class="bw-k">Runs the workspace source</span><code>@n-uf/motion ${VERSIONS.motion}</code><code>@n-uf/placement ${VERSIONS.placement}</code></p>
+      ${PUBLIC
+        ? `<p class="built-with" title="The released versions this lab was built from"><span class="bw-k">Runs</span><code>@n-uf/motion ${VERSIONS.motion}</code> · <code>@n-uf/placement ${VERSIONS.placement}</code></p>`
+        : `<p class="built-with" title="The packages' sources in this repository, not a published release"><span class="bw-k">Runs the workspace source</span><code>@n-uf/motion ${VERSIONS.motion}</code><code>@n-uf/placement ${VERSIONS.placement}</code></p>`}
       <div class="lab-actions">
         ${!page.load ? "" : '<button type="button" class="lab-btn" id="lab-reset">↺ Reset</button>'}
         ${prev ? `<a class="lab-btn" href="${routeHash(prev.id)}" title="${esc(prev.title)}">← Previous</a>` : ""}
