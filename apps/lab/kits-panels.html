@@ -99,6 +99,7 @@
         <fieldset>
           <legend>Window</legend>
           <button type="button" id="kp-reset">Reset</button>
+          <button type="button" id="kp-run">Run the checks</button>
         </fieldset>
       </section>
       <p id="kp-rule"></p>
@@ -115,7 +116,16 @@
           <li>Fling a group or a panel across the bars and docks without stopping: nothing shows until you slow down.</li>
         </ol>
       </section>
+
+      <section>
+        <h2>Checks</h2>
+        <table>
+          <thead><tr><th>Scenario</th><th>Mode</th><th>Result</th><th>Why</th></tr></thead>
+          <tbody id="kp-runs"><tr><td colspan="4">Run the checks to fill this table (window.__motionLab.runAll() does the same).</td></tr></tbody>
+        </table>
+      </section>
     </main>
     <script type="module" src="/src/kits/kits-panels.ts"></script>
+    <script type="module" src="/src/kits/kits-panels-scenarios.ts"></script>
   </body>
 </html>
