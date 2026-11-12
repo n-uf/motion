@@ -4,7 +4,7 @@
  */
 import type { Rect } from "@n-uf/motion";
 import { overlap, type Point } from "../shared/geometry";
-import { DRAG_DEFAULTS, inRect, targetAt, type DragTarget } from "@n-uf/motion/drag";
+import { DRAG_DEFAULTS, inRect, targetAt, type DragPreview, type DragTarget } from "@n-uf/motion/drag";
 import { EDGE_SCROLL } from "./drag-page";
 import { dropAt, targetsFor, without } from "./drops";
 import { CONSTRUCTIONS, type ConstructionId } from "./layouts";
@@ -53,7 +53,7 @@ export interface DeskLab {
   /** Start the scenario's desk afresh. */
   restart(): void;
   /** The drop preview the scenario runs with. */
-  preview(): "indicator" | "snap";
+  preview(): DragPreview;
 }
 
 /** A pointer path keyframe: ms from the lift, x, y. */
@@ -85,6 +85,8 @@ export interface DragResult {
   readonly atRelease?: Rect | null;
   /** Where the page shows the item right after the release, before any frame (read from the DOM). */
   readonly landingFrom?: Rect | null;
+  /** The other items drawn somewhere else at the release than at the lift (keys). */
+  readonly othersMoved?: readonly string[];
   readonly grab?: Point;
   readonly landed: string | null;
 }
@@ -101,7 +103,7 @@ export interface Scenario {
   /** It drags: it runs with each drop preview. */
   readonly drag?: boolean;
   /** It is about one preview only. */
-  readonly preview?: "indicator" | "snap";
+  readonly preview?: DragPreview;
   readonly play: (expect: Expect) => Promise<void>;
 }
 
@@ -670,6 +672,46 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
     if (!showed) return `the item snapped into ${snap.id} at ${Math.round(snap.t)} ms with no indicator on it`;
     return snap.t - showed.t >= DRAG_DEFAULTS.roomAfter - 1000 / 60 ? null : `the item snapped into ${snap.id} ${Math.round(snap.t - showed.t)} ms after the indicator showed it, before the room was made`;
   };
+  // The three previews, one drag (aimed at a dock slot until the room is made): what moves before the drop.
+  // Indicator: nothing but the indicator. Gap: the neighbours move aside; the item stays under the pointer. Snap: the
+  // neighbours move aside and the item glides into the slot. Each lands where it showed.
+  for (const [short, cid] of [
+    ["A", "docks"],
+    ["C", "navigator"],
+  ] as const) {
+    out[`${short} · the previews: indicator moves nothing, gap opens the slot, snap fills it`] = {
+      construction: cid,
+      drag: true,
+      play: async (expect) => {
+        const key = DRAGGED[cid];
+        const goal = lab.targets(key).find((t) => (cid === "docks" ? t.id === "dock:left:0" : t.id === "tabs:left"));
+        if (!goal) return expect(false, "no target to aim at");
+        const r = await lab.drag(key, () => mid(goal.hit));
+        await lab.idle();
+        const mode = lab.preview();
+        const moved = r.othersMoved ?? [];
+        const snapped = (r.snaps ?? []).some((e) => e.id !== null);
+        expect(r.landed === goal.id, `landed on ${r.landed ?? "home"}, not ${goal.id}`);
+        if (mode === "indicator") {
+          expect(moved.length === 0, `with the drop indicator, ${moved.join(", ")} moved before the drop`);
+          expect(!snapped, "with the drop indicator, the item snapped");
+        } else {
+          expect(moved.length > 0, `with ${mode === "gap" ? "the open gap" : "snap to slot"}, nothing moved aside before the drop`);
+        }
+        if (mode === "gap") {
+          expect(!snapped, "with the open gap, the item snapped into the slot");
+          // Still held: drawn where the pointer puts it, at the size it was lifted at.
+          const frames = r.frames ?? [];
+          const lift = frames[0];
+          const last = frames.at(-1);
+          const g = r.grab ?? { x: 0, y: 0 };
+          const off = lift && last ? Math.max(Math.abs(last.item.x - (last.x - g.x)), Math.abs(last.item.y - (last.y - g.y)), Math.abs(last.item.width - lift.item.width), Math.abs(last.item.height - lift.item.height)) : Infinity;
+          expect(off < 1, `with the open gap, the item wasn't under the pointer at the release (${Math.round(off)} px off)`);
+        }
+        if (mode === "snap") expect(snapped, "with snap to slot, the item never snapped into the slot");
+      },
+    };
+  }
   // The dragged item is the real one: on a drop it starts settling from where it was let go (never from home, never
   // a frame elsewhere), and a snapped item let go in its slot doesn't move again.
   const landings = [
