@@ -31,6 +31,12 @@ describe("positionPopup", () => {
     expect([p.rect.x, p.slid.x]).toEqual([0, true]);
   });
 
+  it("a popup wider than the bounds slides to their start edge when it may not resize", () => {
+    const inBox = { x: 40, y: 0, width: 800, height: 600 };
+    const p = positionPopup({ x: 300, y: 100, width: 10, height: 20 }, { width: 1000, height: 40 }, inBox, { ...BELOW_LEFT, resize: false });
+    expect([p.rect.x, p.rect.width, p.slid.x, p.resized]).toEqual([40, 1000, true, false]);
+  });
+
   it("resizes what is larger than the bounds", () => {
     const p = positionPopup({ x: 0, y: 0, width: 10, height: 10 }, { width: 1000, height: 40 }, bounds, BELOW_LEFT);
     expect([p.rect.x, p.rect.width, p.resized]).toEqual([0, 800, true]);
