@@ -1,0 +1,90 @@
+/*
+ * Leader-line notes on the four figures (Sketch B): small mono chips with a dashed elbow to what the package is doing
+ * right now. Decoration only: every list is aria-hidden, the prose under the figure stays the one readable copy, and
+ * nothing here moves layout (absolute, inside the fixed-size stage). They are driven by classes the islands already
+ * toggle (`:has()`), and follow the moving parts with CSS anchor positioning, so there is no measuring loop and no
+ * script. Colour is the page's part (--part: cyan for motion, violet for placement), orange only for a drop.
+ * Below 640 px, and where anchors are not supported, the in-stage notes are hidden and `.notes-key` under the figure
+ * gives the same words as a plain key. The words stay true to the packages: placement computes where things go and
+ * moves nothing; motion moves the rects it is given; the drag intent reads aiming.
+ */
+/* The list itself is not positioned: each note's containing block is the stage, where the anchors are. */
+.notes { margin: 0; padding: 0; list-style: none; pointer-events: none; }
+.note {
+  --c: var(--part);
+  --t: var(--part-strong);
+  position: absolute;
+  z-index: 8;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 150ms var(--ease);
+  white-space: nowrap;
+}
+.note.sig { --c: var(--signal); --t: var(--signal-text); }
+.note > span { display: block; padding: 2px 8px; border: 1px solid var(--c); border-radius: 999px; background: var(--bg-raised); color: var(--t); font: 600 10.5px/16px var(--font-mono); }
+/* The elbow: one dashed stick ending in a 5 px dot on the target. up = the chip above its target, dn = below, rt = beside. */
+.note > i { position: absolute; display: block; border: 0 dashed var(--c); }
+.note > i::after { content: ""; position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--c); }
+.note.up { padding-bottom: 11px; }
+.note.up > i { left: 14px; bottom: 0; height: 11px; border-left-width: 1px; }
+.note.up > i::after { left: -3px; bottom: -2px; }
+.note.up.ctr > i, .note.dn.ctr > i { left: 50%; margin-left: -1px; }
+.note.dn { padding-top: 11px; }
+.note.dn > i { left: 14px; top: 0; height: 11px; border-left-width: 1px; }
+.note.dn > i::after { left: -3px; top: -2px; }
+.note.rt { padding-left: 14px; }
+.note.rt > i { left: 0; top: 50%; width: 14px; border-top-width: 1px; }
+.note.rt > i::after { left: -2px; top: -3px; }
+
+/* The same words as a plain key under the figure: where the notes are hidden, or cannot follow a moving part. */
+.notes-key { display: none; flex-wrap: wrap; gap: 4px 16px; margin: var(--s3) 0 0; padding: 0; list-style: none; font: 600 10.5px/1.6 var(--font-mono); color: var(--text-2); }
+.notes-key li { --c: var(--part); }
+.notes-key li.sig { --c: var(--signal); }
+.notes-key li::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--c); vertical-align: 1px; }
+@media (max-width: 640px) { .notes-key { display: flex; } .notes { display: none; } }
+@supports not (anchor-name: --a) { .notes-key.anchored { display: flex; } .notes.anchored { display: none; } }
+
+/* ---- drag intent: the held panel and the indicator move, so their notes are anchored to them ---------------------- */
+@supports (anchor-name: --a) {
+  .dragfig #chip { anchor-name: --held; }
+  .dragfig #ind { anchor-name: --aim; }
+  .dragfig .note[data-on="held"] { position-anchor: --held; top: max(4px, calc(anchor(top) - 31px)); left: clamp(4px, anchor(center), calc(100% - 190px)); }
+  .dragfig .note[data-on="aim"] { position-anchor: --aim; top: calc(anchor(top) + 6px); left: min(anchor(right), calc(100% - 290px)); }
+  .dragfig .note[data-on="drop"] { position-anchor: --aim; top: min(anchor(bottom), calc(100% - 33px)); left: clamp(4px, anchor(left), calc(100% - 230px)); }
+  .dragfig #stage:has(#chip.lifted) .note[data-on="held"],
+  .dragfig #stage:has(#ind.on) .note[data-on="aim"],
+  .dragfig #stage:has(#ind.on) .note[data-on="drop"] { opacity: 1; }
+}
+
+/* ---- toolbar groups: the sample window's own parts (one handle, the dashed zones, the » of a folded group) --------- */
+@supports (anchor-name: --a) {
+  .tbfig #win .g { anchor-name: --handle; }
+  .tbfig #win.dragging .zone { anchor-name: --zone; }
+  .tbfig #win .group.collapsed > .ovf { anchor-name: --ovf; }
+  .tbfig .note[data-on="handle"] { position-anchor: --handle; position-area: top; }
+  .tbfig .note[data-on="zone"] { position-anchor: --zone; position-area: top; }
+  .tbfig .note[data-on="ovf"] { position-anchor: --ovf; position-area: top; }
+  .tbfig .stage-host:has(#win .g):not(:has(#win.dragging)) .note[data-on="handle"],
+  .tbfig .stage-host:has(#win.dragging) .note[data-on="zone"],
+  .tbfig .stage-host:has(#win .group.collapsed > .ovf) .note[data-on="ovf"] { opacity: 1; }
+}
+
+/* ---- desk layouts: dimension lines along the drawing's top and left edge, W and H read from the sliders' own
+   values (--w, --h on the stage, which the page's island already keeps) through CSS counters: no script of its own ------ */
+.deskfig #stage { --dw: min(100cqw - 34px, (100cqh - 34px) * var(--w) / var(--h), var(--w) * 2px); --dh: calc(var(--dw) * var(--h) / var(--w)); }
+.dim { position: absolute; pointer-events: none; color: var(--place); counter-reset: dw var(--w) dh var(--h); }
+.dim::before, .dim::after { content: ""; position: absolute; background: var(--place); }
+.dim.w { left: calc(50% - var(--dw) / 2); top: calc(50% - var(--dh) / 2 - 9px); width: var(--dw); height: 0; border-top: 1px dashed var(--place); }
+.dim.w::before, .dim.w::after { top: -4px; width: 1px; height: 7px; }
+.dim.w::before { left: 0; }
+.dim.w::after { right: 0; }
+.dim.h { left: calc(50% - var(--dw) / 2 - 9px); top: calc(50% - var(--dh) / 2); height: var(--dh); width: 0; border-left: 1px dashed var(--place); }
+.dim.h::before, .dim.h::after { left: -4px; height: 1px; width: 7px; }
+.dim.h::before { top: 0; }
+.dim.h::after { bottom: 0; }
+.dim > b { position: absolute; padding: 0 6px; background: var(--win-well); font: 600 10px/12px var(--font-mono); letter-spacing: 0.04em; white-space: nowrap; }
+.dim.w > b { left: 50%; top: 0; transform: translate(-50%, -50%); }
+.dim.w > b::before { content: "rects out for " counter(dw) " × " counter(dh); }
+.dim.h > b { left: 0; top: 50%; padding: 6px 0; writing-mode: vertical-rl; transform: translate(-50%, -50%) rotate(180deg); }
+.dim.h > b::before { content: "H " counter(dh); }
+@media (max-width: 640px) { .dim.h > b { display: none; } .dim.w > b::before { content: counter(dw) " × " counter(dh); } }

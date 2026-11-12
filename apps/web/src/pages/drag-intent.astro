@@ -11,6 +11,7 @@ import { CASES, CHIP_HOME, HOME, ICONS, ZONES } from "../demos/drag";
 import Faq from "../components/Faq.astro";
 import { faqJsonLd } from "../data/faq";
 import "../styles/drag-intent.css";
+import "../styles/notes.css";
 
 const path = "/drag-intent/";
 const page = pageOf(path);
@@ -61,12 +62,18 @@ const RULES: [string, string, string][] = [
           {ICONS.map((i) => <div class="icon" style={`left:${i.x}px;top:${i.y}px`}>{i.t}</div>)}
           <div id="chip" style={`left:${CHIP_HOME.x}px;top:${CHIP_HOME.y}px`}>Outline<small>drag me</small><span class="grip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
           <div id="ptr"></div>
+          <ul class="notes anchored" aria-hidden="true">
+            <li class="note up" data-on="held"><span>held under the pointer</span><i></i></li>
+            <li class="note rt" data-on="aim"><i></i><span>aiming: slows down or holds still</span></li>
+            <li class="note dn sig" data-on="drop"><i></i><span>a release lands on what is shown</span></li>
+          </ul>
         </div>
       </div>
     </div>
   </Chrome>
   <p class="figure-note" id="log" role="status" aria-live="polite">Drag the Outline panel yourself, or pick a recorded path on the left.</p>
   <p class="figure-note">Changes count the times the indicator appeared or moved; flashes count indicators shown for under 150 ms. Orange marks where the drop will land; the dashed box is Outline's own place.</p>
+  <ul class="notes-key anchored" aria-hidden="true"><li>held under the pointer</li><li>aiming: slows down or holds still</li><li class="sig">a release lands on what is shown</li></ul>
   <p class="aside lab-link"><a href="/lab/#/motion/intent">Try drag intent on the desk constructions in the lab</a>, with scripted flies, wobbles and flicks across the targets.</p>
   <div id="compare" hidden></div>
 

@@ -10,6 +10,7 @@ import { CASES, OPTS, chartSVG, lanesHTML, legendHTML } from "../demos/motion";
 import Faq from "../components/Faq.astro";
 import { faqJsonLd } from "../data/faq";
 import "../styles/window-motion.css";
+import "../styles/notes.css";
 
 const path = "/window-motion/";
 const page = pageOf(path);
@@ -63,6 +64,7 @@ const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: s
     </div>
   </Chrome>
   <p class="figure-note">Each row beside the chart is the same curve as a moving block; dashed ticks mark the target. Speed slows the playback; Tempo picks the proposal's settle (calm 20, default 25, quick 37).</p>
+  <ul class="notes-key" aria-hidden="true"><li>settles, never past it</li><li>fast start, gentle end</li></ul>
   <p class="aside lab-link"><a href="/lab/#/motion/settle">Try the settle at each tempo in the lab</a>, with every move checked frame by frame.</p>
 
   <section class="section">

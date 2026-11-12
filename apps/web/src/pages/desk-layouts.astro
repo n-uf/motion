@@ -10,6 +10,7 @@ import { ASPECTS, BOTTOM_MODES, CARDS, DEFAULT, DEFAULT_OPTS, TABLE, TOOLBAR_MOD
 import Faq from "../components/Faq.astro";
 import { faqJsonLd } from "../data/faq";
 import "../styles/desk-layouts.css";
+import "../styles/notes.css";
 
 const path = "/desk-layouts/";
 const page = pageOf(path);
@@ -44,8 +45,9 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
     <Fragment slot="speed"><Playback part="speed" /></Fragment>
     <div class="figure-body">
       <CaseRail id="cases" label="Constructions" items={CARDS.map((c) => ({ name: c.title, note: c.note, tag: c.pick ? "default" : undefined }))} active={active} />
-      <div class="stage-wrap stage-host"><div id="stage">
+      <div class="stage-wrap stage-host"><div id="stage" style={`--w:${DEFAULT.W};--h:${DEFAULT.H}`}>
         <svg id="desk" role="img" aria-label={`${first.title} desk layout`} viewBox={`0 0 ${DEFAULT.W} ${DEFAULT.H}`} width={DEFAULT.W} height={DEFAULT.H} style={`--w:${DEFAULT.W};--h:${DEFAULT.H}`} set:html={deskSVG(DEFAULT.W, DEFAULT.H, boxes)} />
+        <div class="dim w" aria-hidden="true"><b></b></div><div class="dim h" aria-hidden="true"><b></b></div>
       </div></div>
     </div>
   </Chrome>
