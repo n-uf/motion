@@ -15,7 +15,7 @@ export interface PageInfo {
 export const pages: PageInfo[] = [
   { path: "/", updated: updated["/"], nav: "Home",
     title: "Window motion and docking | n-uf motion & placement",
-    description: "Two TypeScript packages for windows, panels and toolbars: @n-uf/motion moves them with a settle that never overshoots, @n-uf/placement docks them." },
+    description: "Two TypeScript packages for windows, panels and toolbars: @n-uf/motion moves them without overshoot, @n-uf/placement works out where they dock." },
   // Inner pages: what the page is, plus " | n-uf motion & placement" only when the whole fits in 60 characters.
   { path: "/window-motion/", updated: updated["/window-motion/"], nav: "Window motion",
     title: "Window motion rules: settle, hold, reveal",
