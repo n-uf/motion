@@ -147,7 +147,7 @@ export function kitScenarios(ctx: KitContext): KitScenario[] {
     play: async (expect) => {
       const g: GroupId = "zoom";
       const h = c7.handle(g);
-      const home = c7.drawn(c7.groupEl(g));
+      const homeRect = c7.drawn(c7.groupEl(g));
       const a0 = c7.arrangement();
       h.focus();
       // The menu first: its places, in its order.
@@ -160,8 +160,11 @@ export function kitScenarios(ctx: KitContext): KitScenario[] {
       const n = stops.length;
       expect(n > 5, `only ${n} places`);
       expect(menuIds.join(" ") === stops.map((t) => t.id).join(" "), `Move to › lists ${menuIds.join(", ")}`);
-      // Every arrow: the next place, its slot drawn, the group gliding (not jumping) there.
-      const first = c7.firstStop(g, true);
+      // Every arrow: the next place, its slot drawn, the group gliding (not jumping) there. The arrows start at its
+      // own place (a stop of its own), so the first goes to the one after it.
+      const home = c7.homeIndex(g);
+      expect(home >= 0 && stops[home]!.home, "its own place isn't among the stops");
+      const first = (home + 1) % n;
       const visited: string[] = [];
       let glided = false;
       for (let k = 0; k < n; k++) {
@@ -192,7 +195,7 @@ export function kitScenarios(ctx: KitContext): KitScenario[] {
       await settle(c7);
       expect(sameArrangement(c7.arrangement(), a0), "Escape changed the arrangement");
       const back = c7.drawn(c7.groupEl(g));
-      expect(off(back, home) < 1.5, `after Escape it rests at ${fmt(back)}, home is ${fmt(home)}`);
+      expect(off(back, homeRect) < 1.5, `after Escape it rests at ${fmt(back)}, home is ${fmt(homeRect)}`);
     },
   });
 
@@ -203,7 +206,7 @@ export function kitScenarios(ctx: KitContext): KitScenario[] {
       const h = c7.handle(g);
       h.focus();
       const stops = c7.stops(g);
-      const want = stops[(c7.firstStop(g, true) + 1) % stops.length]!;
+      const want = stops[(c7.homeIndex(g) + 2) % stops.length]!;
       keyOn(h, "ArrowDown");
       keyOn(h, "ArrowDown");
       keyOn(h, "Enter");
@@ -215,7 +218,7 @@ export function kitScenarios(ctx: KitContext): KitScenario[] {
       expect(off(at, place) < 1.5, `it rests at ${fmt(at)}, its place is ${fmt(place)}`);
       // The menu: Move to › → the last place.
       const list = c7.stops(g);
-      const pick = list.at(-1)!;
+      const pick = list.filter((s) => !s.home).at(-1)!;
       h.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
       const menu = c7.menu();
       menu?.querySelector<HTMLButtonElement>(":scope > .k-menu-item")?.click();
