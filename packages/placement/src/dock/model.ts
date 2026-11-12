@@ -236,8 +236,8 @@ export interface Layout {
 
 // --- state changes -------------------------------------------------------------------------------------------------
 
-/** The arrangement a catalog starts from, with these documents open. */
-export function startState(cat: Catalog, docs: readonly number[] = [1, 2]): DeskState {
+/** The arrangement a catalog starts from, with these documents open (none by default). */
+export function startState(cat: Catalog, docs: readonly number[] = []): DeskState {
   const st = cat.start;
   const base: DeskState = {
     docs: [],

@@ -55,6 +55,12 @@ const modesOf = (c: Construction): Options[] => {
 };
 
 describe("layouts", () => {
+  it("starts from the catalog's arrangement, with no documents unless given", () => {
+    const s = desk.initialState();
+    expect([s.docs, s.focus, s.left, s.right, s.bottom]).toEqual([[], null, [1, 2], [3, 4], [5]]);
+    expect(desk.initialState([2]).docs).toEqual([2]);
+  });
+
   it("has the nine constructions", () => {
     expect(desk.constructions.map((c) => c.id)).toEqual(["docks", "docksFull", "tree", "navigator", "strip", "drawers", "floatOver", "floatAround", "dockTear"]);
   });

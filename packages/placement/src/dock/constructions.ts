@@ -308,7 +308,7 @@ export interface Desk {
   readonly catalog: Catalog;
   readonly constructions: readonly Construction[];
   readonly constructionOf: (id: ConstructionId) => Construction;
-  /** The arrangement every construction starts from, with these documents open. */
+  /** The arrangement every construction starts from, with these documents open (none by default). */
   readonly initialState: (docs?: readonly number[]) => DeskState;
   readonly natural: (id: number) => number;
   readonly titleOf: (key: string) => string;
