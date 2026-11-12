@@ -453,13 +453,13 @@ function through(points: readonly Point[], speed: number, t0 = 0): PathKey[] {
 const hold = (path: PathKey[], ms: number): PathKey[] => [...path, [path.at(-1)![0] + ms, path.at(-1)![1], path.at(-1)![2]]];
 const shows = (r: DragResult) => r.log.filter((e) => e.id !== null);
 /**
- * The first flash of a drag, or null: an indicator replaced, or hidden while the pointer aims, under DRAG_DEFAULTS.flash ms
+ * The first flash of a drag, or null: an indicator replaced, or hidden while the pointer aims, under DRAG_DEFAULTS.switchHold ms
  * after it showed (a hide because the pointer started flying is not a flash).
  */
 function flashOf(r: DragResult): string | null {
   const i = r.log.findIndex((e, k) => {
     const next = r.log[k + 1];
-    return e.id !== null && !!next && !(next.id === null && next.flying) && next.t - e.t < DRAG_DEFAULTS.flash;
+    return e.id !== null && !!next && !(next.id === null && next.flying) && next.t - e.t < DRAG_DEFAULTS.switchHold;
   });
   return i < 0 ? null : `${r.log[i]!.id} showed for ${Math.round(r.log[i + 1]!.t - r.log[i]!.t)} ms`;
 }

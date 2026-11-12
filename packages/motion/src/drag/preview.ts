@@ -48,5 +48,6 @@ export function previewPlan<T extends DragTarget>(
   const shown = !!frame.shown;
   if (preview === "indicator") return { showIndicator: shown, makeRoom: false, snapItem: false };
   if (preview === "gap") return { showIndicator: shown, makeRoom: frame.room, snapItem: false };
+  // By design a slotted target draws nothing until the room opens (`roomAfter`); a release then still lands on it.
   return { showIndicator: shown && !slotted, makeRoom: frame.room, snapItem: frame.room && shown && slotted };
 }

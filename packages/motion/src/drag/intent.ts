@@ -21,14 +21,12 @@ export interface DragTuning {
   readonly dwell: number;
   /** The current target holds while the pointer is within this band of its zone. */
   readonly band: number;
-  /** A more precise target takes over at once when the pointer is this far inside it. */
+  /** A higher-priority target takes over at once when the pointer is this far inside it. */
   readonly breakthrough: number;
   /** A gap between zones shorter than this keeps the current target (for a pointer that aims). */
   readonly gapGrace: number;
   /** Aiming, the shown target moves to another one only once that one has held this long. */
   readonly switchHold: number;
-  /** An indicator shown for less than this is a flash (what `switchHold` prevents). */
-  readonly flash: number;
   /** Room is made once the shown target, and the place in it, have held this long. */
   readonly roomAfter: number;
   /** The pointer has left the item's home once it is outside the home shrunk by this much on every side. */
@@ -53,7 +51,6 @@ export const DRAG_DEFAULTS: DragTuning = {
   breakthrough: 4,
   gapGrace: 120,
   switchHold: 150,
-  flash: 150,
   roomAfter: 160,
   homeInset: 6,
 };
@@ -159,9 +156,11 @@ export interface DragIntent<T extends DragTarget> {
    */
   update(point: Point, time: number, targets: readonly T[]): DragFrame<T>;
   /**
-   * What a release at `point` lands on: the shown target if the pointer is
-   * within its band, else the target under the pointer, else null (the item
-   * goes home). A release over home is null: it does nothing.
+   * What a release at `point` lands on: the shown target whenever one shows
+   * (a drop lands where the indicator was), else the target under the
+   * pointer, else null (the item goes home). A release over home is null: it
+   * does nothing. Feed the release point to `update` first, so a last jump
+   * of the pointer counts.
    */
   release(point: Point, targets: readonly T[]): T | null;
   /**
@@ -280,8 +279,9 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
     },
     release(point, targets) {
       if (inRect(home, point)) return null;
+      // Drop = shown: a shown target is kept until it hides (flying out past its band hides it at once).
       const s = follow(shown, targets);
-      if (s && inRect(s.hit, point, tuning.band)) return s;
+      if (s) return s;
       return targetAt(targets, point);
     },
     hide(time) {

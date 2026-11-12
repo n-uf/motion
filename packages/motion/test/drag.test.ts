@@ -73,8 +73,8 @@ function drive(keys: readonly Key[], targets: readonly DragTarget[], home: Rect,
 }
 
 const shows = (log: readonly Entry[]) => log.filter((e) => e.id !== null);
-/** Indicators replaced, or hidden while aiming, under `flash` ms after they showed. */
-const flashes = (log: readonly Entry[], flash = DRAG_DEFAULTS.flash) =>
+/** Indicators replaced, or hidden while aiming, under `flash` ms (the switch hold) after they showed. */
+const flashes = (log: readonly Entry[], flash = DRAG_DEFAULTS.switchHold) =>
   log.filter((e, i) => e.id !== null && log[i + 1] && !(log[i + 1]!.id === null && log[i + 1]!.flying) && log[i + 1]!.t - e.t < flash);
 
 // A dock of two slots one above the other, a rail beside it (more precise), and a large free area (less precise).
@@ -213,6 +213,16 @@ describe("drag/ intent", () => {
     expect(r.landed).toBe("slot-a");
   });
 
+  it("a release past the band while the switch hold runs lands on the shown target (drop = shown)", () => {
+    const past = { x: 100, y: 130 };
+    const keys = then(hold(through([FROM, mid(A.hit)], 0.8), 500), (t0) => through([mid(A.hit), past], 0.3, t0));
+    const r = drive(keys, DOCK, HOME);
+    expect(inRect(A.hit, past, DRAG_DEFAULTS.band)).toBe(false);
+    expect(targetAt(DOCK, past)?.id).toBe("slot-b");
+    expect(shows(r.log).at(-1)?.id).toBe("slot-a");
+    expect(r.landed).toBe("slot-a");
+  });
+
   it("a release over home does nothing; with nothing under the pointer it lands nowhere", () => {
     const back = drive(hold(through([FROM, mid(A.hit), FROM], 0.8), 200), DOCK, HOME);
     expect(back.landed).toBeNull();
@@ -265,6 +275,8 @@ describe("drag/ intent", () => {
     expect(f.shown).toBe(moved[0]);
     // The home moved 400 px left: its old place is now just the free area, its new place does nothing.
     intent.moveHome(-400, 0);
+    // A release is fed the release point first (a jump there is flying: the shown target hides).
+    intent.update(FROM, (t += FRAME), moved);
     expect(intent.release(FROM, moved)?.id).toBe("area");
     expect(intent.release({ x: FROM.x - 400, y: FROM.y }, moved)).toBeNull();
   });

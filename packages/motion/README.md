@@ -305,7 +305,7 @@ a large area 3). The rules:
   new target has held 150 ms, so no indicator ever shows for less.
 - Room is made once the shown target, and the place in it (`placeOf`: a tab
   index, say), have held 160 ms; never for a `free` target.
-- A release lands on the shown target if the pointer is within its band, else
+- A release lands on the shown target whenever one shows (drop = shown), else
   on the target under the pointer, else nowhere. A release over home does
   nothing.
 - The three previews only change what is drawn: all follow these rules, so a

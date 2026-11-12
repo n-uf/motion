@@ -1127,7 +1127,7 @@ export const toolbarGroups = {
     const press = (k: string, on: EventTarget): void => void on.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
     for (let i = 0; i < steps; i++) {
       press("ArrowDown", i === 0 ? h : document);
-      await new Promise((r) => setTimeout(r, i === steps - 1 ? 650 : DRAG_DEFAULTS.roomAfter + DRAG_DEFAULTS.flash + 90));
+      await new Promise((r) => setTimeout(r, i === steps - 1 ? 650 : DRAG_DEFAULTS.roomAfter + DRAG_DEFAULTS.switchHold + 90));
     }
     press(finish, document);
     return lastDrag;
