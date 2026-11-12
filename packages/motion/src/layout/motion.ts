@@ -63,9 +63,11 @@ export interface LayoutItem {
   /**
    * Settle to `to` from where it is drawn, like {@link LayoutItem.moveTo}, but keep the content laid out in its box
    * while `to` is the box's size: for chasing a moving point (a pointer), which would otherwise lay the content out
-   * again on every frame. A new size lays it out at `to`, as `moveTo` does.
+   * again on every frame. A new size lays it out at `to`, as `moveTo` does. Optional, so an item from before it (or
+   * a test double) still works where it is used: {@link holdItem} falls back to `moveTo`. `createLayoutMotion`'s
+   * items always have it.
    */
-  retarget(to: Rect): void;
+  retarget?(to: Rect): void;
   /** Be at `to` now, at rest: no glide. */
   jumpTo(to: Rect): void;
   /** Drawn at `from` now, then settle to `to` (a FLIP's invert and play: `from` in the item's own coordinates). */
