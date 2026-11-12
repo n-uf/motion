@@ -35,6 +35,9 @@
 .kcase .rule { font-size: 13px; margin: 0 0 8px; max-width: 900px; }
 .kcase .rule code { font-size: 12px; }
 .kcase .controls { align-items: center; }
+.k-desks { display: flex; flex-wrap: wrap; gap: 16px; }
+.k-desk figcaption { font-size: 12px; color: var(--muted); margin: 0 0 8px; }
+figure.k-desk { margin: 0; }
 .k-desk { width: fit-content; background: var(--k-desk); border: 1px solid var(--k-edge); border-radius: 10px; padding: 16px; overflow: hidden; max-width: 100%; }
 .k-scale { position: relative; }
 .k-scale > .kwin { transform-origin: 0 0; }
@@ -46,6 +49,12 @@
 .kbar-bottom { border-top: 1px solid var(--k-edge); border-radius: 0 0 10px 10px; }
 .kbar-left { border-right: 1px solid var(--k-edge); }
 .kbar-right { border-left: 1px solid var(--k-edge); }
+/* A place the kit doesn't declare as a host (a rail, cards): drawn, never a target. */
+.kbar-off { background: repeating-linear-gradient(135deg, var(--k-sunken) 0 6px, var(--k-hover) 6px 7px); }
+.k-bar-name { position: absolute; left: 8px; top: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--k-muted); pointer-events: none; }
+.kbar-title .k-bar-name { left: auto; right: 8px; top: auto; bottom: 2px; }
+.kbar-left .k-bar-name,
+.kbar-right .k-bar-name { left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-90deg); white-space: nowrap; }
 .k-lights { display: flex; gap: 6px; margin-left: 12px; }
 .k-lights i { width: 10px; height: 10px; border-radius: 50%; background: var(--k-edge); }
 .k-name { position: absolute; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; color: var(--k-ink-2); pointer-events: none; }
@@ -87,6 +96,7 @@
 .k-menu-item { display: block; width: 100%; text-align: left; padding: 4px 8px; border: 0; border-radius: 5px; background: none; color: var(--k-ink); font: inherit; white-space: nowrap; }
 .k-menu-item:hover,
 .k-menu-item:focus-visible { background: var(--k-hover); }
+.k-menu-item.here::before { content: "✓ "; color: var(--k-accent); }
 .k-submenu { display: none; max-height: 220px; overflow: auto; border-top: 1px solid var(--k-edge); margin-top: 4px; padding-top: 4px; }
 .k-menu.open .k-submenu { display: block; }
 .k-stops { font-size: 12px; color: var(--muted); columns: 2; margin: 8px 0 0; padding-left: 20px; max-width: 900px; }
