@@ -17,11 +17,11 @@ W, H = 1200, 630
 INK, MUTED, FAINT, ACCENT = (27, 28, 31), (85, 86, 92), (133, 134, 140), (10, 118, 151)
 # out file, small label, headline, sub line, capture (in scripts/og-src), picture box (width, height)
 CARDS = [
-    ("public/og.png", "n-uf motion", "Motion that settles, and never overshoots", "Settle, reveal, held drags and a drag-intent model for TypeScript", "home.png", (560, 420)),
-    ("public/og/window-motion.png", "n-uf motion · Window motion", "Fast at the start, gentle at the end", "Settle against Hyprland's springs and a typical app's tweens", "window-motion.png", (560, 470)),
-    ("public/og/drag-intent.png", "n-uf motion · Drag intent", "An indicator only once you aim", "No flicker on borders; the drop lands where it showed", "drag-intent.png", (560, 440)),
-    ("public/og/desk-layouts.png", "n-uf motion · Desk layouts", "Nine ways to build a desk", "Docks, a tiling tree, a strip, drawers and palettes", "desk-layouts.png", (560, 440)),
-    ("public/og/toolbar-groups.png", "n-uf motion · Toolbar groups", "One handle per group", "Five slots, three zones, and a lock that hides every grip", "toolbar-groups.png", (560, 440)),
+    ("public/og.png", "n-uf motion & placement", "Window motion and docking", "@n-uf/motion moves windows with a settle that never overshoots; @n-uf/placement docks them", "home.png", (560, 420)),
+    ("public/og/window-motion.png", "@n-uf/motion · Window motion", "Fast at the start, gentle at the end", "Settle against Hyprland's springs and a typical app's tweens", "window-motion.png", (560, 470)),
+    ("public/og/drag-intent.png", "@n-uf/motion · Drag intent", "An indicator only once you aim", "No flicker on borders; the drop lands where it showed", "drag-intent.png", (560, 440)),
+    ("public/og/desk-layouts.png", "@n-uf/placement · Desk layouts", "Nine ways to build a desk", "Docks, a tiling tree, a strip, drawers and palettes", "desk-layouts.png", (560, 440)),
+    ("public/og/toolbar-groups.png", "@n-uf/placement · Toolbar groups", "One handle per group", "Five hosts, three zones, and a lock that hides every grip", "toolbar-groups.png", (560, 440)),
 ]
 
 ap = argparse.ArgumentParser()
