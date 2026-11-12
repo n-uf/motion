@@ -2,11 +2,14 @@
  * The compact forms' scenarios (the foundations' checks, the lab's part): every toolbar group fits its box in every
  * host and orientation, expanded, collapsed and floating, with no text rotated and no side edge widened; » opens a
  * popover with the group's full form whose controls work, and Escape, a press outside and a drag start close it with
- * focus back on »; every selected control shows the one selected style.
+ * focus back on »; every selected control shows the one selected style. And two rules for every grip: the slot a
+ * dragged group is shown is its own outline (never a hairline) and the drop lands on it, in every preview and target
+ * kind; every element with a grip glyph drags something.
  */
 import type { Rect } from "@n-uf/motion";
-import { nextFrame } from "../shared/geometry";
+import { nextFrame, type Point } from "../shared/geometry";
 import { overflowOpen } from "./compact";
+import { CONSTRUCTIONS } from "./layouts";
 import type { DeskLab, Expect, PathKey, Scenario } from "./scenarios";
 import { hostRect, toolbarGroups as tg } from "./toolbar-frame";
 import { DEFAULT_ARRANGEMENT, GROUPS, GROUP_LABEL, HOSTS, HOST_LABEL, floatGroup, insertGroup, vertical, type Arrangement, type GroupId, type HostId } from "./toolbars";
@@ -143,6 +146,102 @@ export function compactScenarios(lab: DeskLab): Record<string, Scenario> {
       const looks = new Set(sel.map(look));
       expect(looks.size === 1, `${looks.size} selected styles: ${[...looks].join(" ; ")}`);
       for (const e of sel) expect(/inset/.test(getComputedStyle(e).boxShadow) && getComputedStyle(e).textDecorationLine === "none", `${e.textContent?.trim().slice(0, 30)} isn't the accent ring: ${look(e)}`);
+    }),
+  };
+
+  out["toolbar groups: the slot shown is the group's own outline, never a hairline, at a line, an empty zone and a float; the drop lands on it"] = {
+    construction: "docks",
+    size: [1200, 760],
+    drag: true,
+    play: withDefault(lab, async (expect) => {
+      const mid = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+      const pick = [
+        ["a line in the title bar", (t: { id: string; kind: string }) => t.kind === "line" && t.id.startsWith("g:title:")],
+        ["an empty zone", (t: { id: string; kind: string }) => t.kind === "zone"],
+        ["a float", (t: { id: string; kind: string }) => t.kind === "float"],
+      ] as const;
+      for (const [what, is] of pick) {
+        await arrange(lab, DEFAULT_ARRANGEMENT);
+        const t = tg.targets("g:edit").find(is);
+        if (!t) {
+          expect(false, `edit has no target for ${what}`);
+          continue;
+        }
+        const to = t.kind === "line" ? mid(t.line) : t.kind === "float" ? { x: t.hit.x + t.hit.width / 2, y: t.hit.y + t.hit.height / 2 } : mid(t.hit);
+        let shown: Rect | null = null;
+        let thinnest = Infinity;
+        const r = await tg.path(
+          "g:edit",
+          (g) => {
+            const keys: PathKey[] = [[0, g.x, g.y]];
+            const d = Math.hypot(to.x - g.x, to.y - g.y);
+            keys.push([Math.max(200, d / 0.8), to.x, to.y], [Math.max(200, d / 0.8) + 650, to.x, to.y]);
+            return keys;
+          },
+          {
+            onFrame: () => {
+              const ind = tg.indicator();
+              if (!ind) return;
+              shown = ind.rect;
+              thinnest = Math.min(thinnest, ind.rect.width, ind.rect.height);
+            },
+          },
+        );
+        await settle(lab);
+        const mode = lab.preview();
+        expect(r.landed === t.id, `${mode}, ${what}: landed on ${r.landed}, not ${t.id}`);
+        expect(thinnest >= 6, `${mode}, ${what}: the slot was ${Math.round(thinnest)} px thin (a hairline)`);
+        const landed = tg.placements().get("edit")?.rect;
+        const s = shown as Rect | null;
+        if (s && landed)
+          expect(
+            Math.max(Math.abs(s.x - landed.x), Math.abs(s.y - landed.y), Math.abs(s.width - landed.width), Math.abs(s.height - landed.height)) <= 1.5,
+            `${mode}, ${what}: the outline was ${fmt(s)}, it landed at ${fmt(landed)}`,
+          );
+        else expect(mode === "snap", `${mode}, ${what}: no slot was shown`);
+      }
+    }),
+  };
+
+  out["every element with a grip glyph drags something, in every construction (a grip shows only on what moves)"] = {
+    construction: "docks",
+    size: [1200, 760],
+    preview: "indicator",
+    play: withDefault(lab, async (expect) => {
+      const at = (el: Element): Point => {
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      };
+      const fire = (type: string, on: Element, p: Point): void =>
+        void on.dispatchEvent(
+          new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse", isPrimary: true, button: type === "pointermove" ? -1 : 0, buttons: type === "pointerup" ? 0 : 1, clientX: p.x, clientY: p.y }),
+        );
+      const lifted = (): boolean => !!document.querySelector(".deskwin .lifted, #stage .win.lifted") || tg.dragging();
+      for (const c of CONSTRUCTIONS) {
+        lab.use(c.id);
+        await settle(lab);
+        // What shows a grip glyph: group handles, panel and tab-row handles, rail segments, the pill's grip, any loose dots.
+        const shows = (e: Element): boolean => e.getClientRects().length > 0 && getComputedStyle(e).visibility === "visible" && getComputedStyle(e).display !== "none";
+        const grips = [...document.querySelectorAll<HTMLElement>(".deskwin .tg-handle, .deskwin .tf-glyph, #stage .grip-handle, #stage .win.chrome .segment, #stage .tb-grip")].filter(shows);
+        const loose = [...document.querySelectorAll<HTMLElement>(".deskwin .grip-dots")].filter((d) => shows(d) && !d.closest(".grip-handle, .segment"));
+        expect(loose.length === 0, `${c.title}: ${loose.length} grip glyphs belong to nothing that drags`);
+        expect(!document.querySelector(".deskwin .tf-title .tf-glyph"), `${c.title}: the window's title bar shows a grip, but the window doesn't move`);
+        for (const g of grips) {
+          if (!g.isConnected || !shows(g)) continue;
+          const name = g.getAttribute("aria-label") ?? g.className;
+          const p = at(g);
+          fire("pointerdown", g, p);
+          for (let i = 1; i <= 6; i++) {
+            fire("pointermove", g, { x: p.x + i * 6, y: p.y + i * 8 });
+            await nextFrame();
+          }
+          const moved = lifted();
+          document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+          fire("pointerup", g, { x: p.x + 36, y: p.y + 48 });
+          await settle(lab);
+          expect(moved, `${c.title}: ${name} shows a grip but a drag on it lifted nothing`);
+        }
+      }
     }),
   };
 
