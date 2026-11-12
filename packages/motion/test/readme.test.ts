@@ -11,6 +11,7 @@ import {
   springValue,
 } from "../index";
 import { createDragIntent, type DragTarget } from "../src/drag";
+import { createLayoutMotion, holdItem } from "../src/layout";
 
 describe("README examples", () => {
   it("drag/", () => {
@@ -77,6 +78,22 @@ describe("README examples", () => {
     }
     expect(win.value).toEqual({ x: 300, y: 0, width: 300, height: 300 });
     expect(Math.max(...seen)).toBeLessThanOrEqual(300);
+  });
+
+  it("layout/", () => {
+    const clock = createFakeClock();
+    const loop = createFrameLoop({ clock });
+    const motion = createLayoutMotion({ loop });
+    const panel = motion.add("panel", { layOut: () => {}, draw: () => {} }, { x: 0, y: 0, width: 200, height: 100 });
+    panel.moveTo({ x: 300, y: 0, width: 240, height: 100 });
+    clock.runUntilIdle();
+    const held = holdItem(panel, { x: 20, y: 10 });
+    held.move({ x: 120, y: 60 });
+    expect(panel.drawn).toEqual({ x: 100, y: 50, width: 240, height: 100 });
+    const release = held.land({ x: 0, y: 0, width: 200, height: 100 });
+    expect(release).toEqual({ x: 100, y: 50, width: 240, height: 100 });
+    clock.runUntilIdle();
+    expect(panel.drawn).toEqual({ x: 0, y: 0, width: 200, height: 100 });
   });
 
   it("gestures/", () => {

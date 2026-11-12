@@ -188,6 +188,43 @@ clock.runUntilIdle();
 console.log(win.value); // { x: 300, y: 0, width: 300, height: 300 }, never past it on the way
 ```
 
+## layout/
+
+`@n-uf/motion/layout` applies the window motion rules to a whole surface:
+give each item an id and a target rect, and it moves the real elements, every
+one on one frame loop that runs only while something moves. It animates the
+rects it is given and nothing else: which items move where (making room,
+drop targets) is the caller's layout.
+
+| | |
+|---|---|
+| `createLayoutMotion({ loop, omega?, phase?, popFrom? })` | The surface: `add(id, drawable, at, { shown? })`, `get`, `remove`, `items`; `task(fn)` runs before the items step each frame, `onFrame(fn)` after; `onIdle`, `idle()`, `running`, `wake()`, `configure({ omega })`, `dispose()`. |
+| `item.moveTo(rect)` | Settle there from wherever it is drawn (a retarget mid-flight goes on from the drawn rect). The content is laid out at the new box once, and the item redrawn at once, so no frame shows the old offset from the new box. A size change is revealed, never scaled. |
+| `item.jumpTo(rect)`, `item.hold(rect)`, `item.glideFrom(from, to)` | At once; held exactly where a pointer puts it (the content moves with it); drawn at `from`, then settle to `to`. |
+| `item.show(on, { now? })` | Appear or disappear with a uniform-scale fade (`popIn`); folding is a `moveTo` to the folded size, revealed. |
+| `item.drawn`, `target`, `box`, `settled`, `shown`, `showing`, `shownSettled` | Where it is drawn, where it is heading, where its content is laid out. |
+| `holdItem(item, grab)` | A held drag of the real item, no copy: `move(pointer)` holds it 1:1 from the grab offset; `snapTo(slot)` glides into a slot, `snapTo(null)` back to the pointer (`follow()` once a frame until it is under it again); `land(slot)` and `cancel(home)` settle from the release rect, which they return. |
+| `flip(entries, change)` | FLIP for DOM groups on settle: record where each node is drawn, run `change` (the DOM moves), then each item glides from its old rect. |
+| `domDrawable({ node, frame?, content? })`, `layOutBox`, `drawBox` | Draw onto DOM styles: the node laid out at the box, moved by one transform, the frame at the drawn size, the content (or the node) clipped; hidden when gone. Any `{ layOut, draw }` drawable works (a canvas, a test). |
+
+```ts
+import { createFakeClock, createFrameLoop } from "@n-uf/motion";
+import { createLayoutMotion, holdItem } from "@n-uf/motion/layout";
+
+const clock = createFakeClock();
+const loop = createFrameLoop({ clock });
+const motion = createLayoutMotion({ loop });
+const panel = motion.add("panel", { layOut: () => {}, draw: () => {} }, { x: 0, y: 0, width: 200, height: 100 });
+panel.moveTo({ x: 300, y: 0, width: 240, height: 100 }); // a settle, its new width revealed
+clock.runUntilIdle();
+const held = holdItem(panel, { x: 20, y: 10 }); // grabbed 20 px in, 10 px down
+held.move({ x: 120, y: 60 }); // held 1:1: drawn at { x: 100, y: 50 }
+const release = held.land({ x: 0, y: 0, width: 200, height: 100 });
+console.log(release); // { x: 100, y: 50, width: 240, height: 100 }: the landing starts there
+clock.runUntilIdle();
+console.log(panel.drawn); // { x: 0, y: 0, width: 200, height: 100 }
+```
+
 ## testing/
 
 `@n-uf/motion/testing` checks recorded frames against the rules. Record what
