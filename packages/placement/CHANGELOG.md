@@ -13,7 +13,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   - Host targets carry their `slot`: the group's rect in the host once it lands there. `hostAfter(arrangement)`
     says where the host is then, when it grows or appears; default: as it is now.
   - `allows(group, place | "float")` in `hostTargets`' and `floatTarget`'s input: a place it refuses is no target,
-    and `floatTarget` returns null for a group that may not float.
+    and `floatTarget` returns null for a group that may not float. Its `place.index` counts the groups there without
+    the dragged one (as `insertGroup` does). A `floatTarget` call without `allows` is typed non-null as before, and
+    `ReturnType<typeof floatTarget>` is still the non-null target; an input typed `FloatTargetInput` (its `allows`
+    optional) passes it explicitly: `{ ...input, allows: input.allows }`.
 - `@n-uf/placement/toolbar`:
   - `HostSpec.keep`: a per-group keep priority (default 0). When room runs out, a lower keep collapses first;
     among equal keeps the trailing end still goes first, so a primary group at the end can stay open. `HostSpec`
