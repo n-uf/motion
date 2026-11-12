@@ -11,7 +11,7 @@
  * - A group dropped over the documents floats there (its handle at its leading edge, a frame and a shadow).
  * - Toolbars never wrap: when room runs out, groups collapse from the trailing end; » opens their hidden controls.
  * - Freeze layout: the handles fade and nothing moves, until Alt is held.
- * - The window's title bar carries the full glyph at its left edge and opens the window menu.
+ * - The window's title bar has no grip (the lab's window doesn't move); a right-click on its empty part opens the window menu.
  * - Bars and groups move by the lab's motion rules: a settle to the new place, laid out at the target size and
  *   revealed (never stretched); a group that changes bars glides from where it was drawn.
  */
@@ -368,22 +368,17 @@ export function initToolbarFrame(l: DeskLab, stageEl: HTMLElement, m: LayoutMoti
   m.wake();
 }
 
-/** The title bar: the window's full glyph at its left edge, its controls; the whole bar is the window's drag area. */
+/**
+ * The title bar: the window's controls and its groups. The lab's window doesn't move, so it has no grip (a grip shows
+ * only on what drags); a right-click on its empty part opens the window menu.
+ */
 function buildTitle(el: HTMLDivElement): void {
-  el.innerHTML = `<span class="tf-glyph" tabindex="0" role="button" aria-label="Window: Shift+F10 for its menu" title="Window">${DOTS}${DOTS}</span><span class="tf-controls" aria-hidden="true"><i></i><i></i><i></i></span>`;
-  const glyph = el.querySelector<HTMLElement>(".tf-glyph")!;
-  const menuAt = (x: number, y: number): void => void openMenu(layer!, x, y, windowMenu(), "Window", glyph);
+  el.innerHTML = `<span class="tf-controls" aria-hidden="true"><i></i><i></i><i></i></span>`;
   el.addEventListener("contextmenu", (e) => {
     if ((e.target as Element).closest(".tgroup")) return;
     e.preventDefault();
     const p = windowPoint(e);
-    menuAt(p.x, p.y);
-  });
-  glyph.addEventListener("keydown", (e) => {
-    if ((e.key === "F10" && e.shiftKey) || e.key === "ContextMenu") {
-      e.preventDefault();
-      menuAt(10, TITLE_H - 4);
-    }
+    void openMenu(layer!, p.x, p.y, windowMenu(), "Window");
   });
 }
 
@@ -920,14 +915,16 @@ function showIndicator(t: GTarget | null, d: Drag): void {
     indLabel.classList.remove("on");
     return;
   }
-  // Floating: the group's outline where it would float (kept on the stage).
-  let r = t.line;
-  if (t.kind === "float") {
+  // The slot is the group's own outline, never a hairline: the rect it lands in (its size and form there), drawn over
+  // its neighbours in the indicator preview, in the opened gap in the others. A drop lands exactly there.
+  const made = t.make(d.pointer);
+  let r = placements(made, geometry(made)).get(d.id)?.rect ?? t.line;
+  if (t.kind === "float" && r === t.line) {
     const s = t.line;
     const h = d.held.held ?? heldRect(d);
     r = rect(Math.min(Math.max(s.x, h.x), s.x + s.width - h.width), Math.min(Math.max(s.y, h.y), s.y + s.height - h.height), h.width, h.height);
   }
-  indEl.classList.toggle("area", t.kind !== "line");
+  indEl.classList.add("area");
   Object.assign(indEl.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.width}px`, height: `${r.height}px` });
   indEl.dataset.target = t.id;
   indLabel.textContent = t.label;

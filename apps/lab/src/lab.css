@@ -411,12 +411,8 @@ main.wide { max-width: 1712px; }
 .deskwin .tf-left { border-right: 0; }
 .deskwin .tf-right { border-left: 0; }
 .deskwin .tf-bottom.floating { border: 1px solid var(--d-edge-lifted); border-radius: 999px; background: var(--d-panel); box-shadow: var(--d-shadow); }
-/* The window's title bar: the full glyph (2 × 3) at its left edge, then the controls; the whole bar is its drag area. */
-.deskwin .tf-title { cursor: grab; }
-.deskwin .tf-glyph { position: absolute; left: 10px; top: 50%; margin-top: -6.5px; display: grid; grid-template-rows: repeat(3, 3px); grid-auto-flow: column; grid-auto-columns: 3px; gap: 2px; color: var(--d-muted); border-radius: 2px; }
-.deskwin .tf-glyph:hover { color: var(--d-ink); }
-.deskwin .tf-glyph:focus-visible { outline: 2px solid var(--d-accent); outline-offset: 3px; }
-.deskwin .tf-controls { position: absolute; left: 28px; top: 50%; margin-top: -6px; display: flex; gap: 7px; cursor: default; }
+/* The window's title bar: its controls, then its groups. The lab's window doesn't move: no grip, no grab cursor. */
+.deskwin .tf-controls { position: absolute; left: 14px; top: 50%; margin-top: -6px; display: flex; gap: 7px; cursor: default; }
 .deskwin .tf-controls i { width: 12px; height: 12px; border-radius: 50%; background: var(--d-edge); }
 .deskwin .tg-host { position: relative; }
 .deskwin .tg-measure { position: absolute; left: -9999px; top: 0; visibility: hidden; }
@@ -434,8 +430,7 @@ main.wide { max-width: 1712px; }
 .deskwin .tg-handle::before { content: ""; position: absolute; inset: -8px -5px -8px -6px; }
 .deskwin .tgroup.v .tg-handle { flex-direction: row; width: 13px; height: 3px; margin: 0 0 3px; }
 .deskwin .tgroup.v .tg-handle::before { inset: -6px -8px -5px; }
-.deskwin .tg-handle i,
-.deskwin .tf-glyph i { display: block; width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
+.deskwin .tg-handle i { display: block; width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
 .deskwin .tg-handle:hover { color: var(--d-ink); }
 .deskwin .tg-handle:active { color: var(--d-accent); cursor: grabbing; }
 .deskwin .tg-handle:focus-visible { outline: 2px solid var(--d-accent); outline-offset: 3px; }
@@ -453,8 +448,7 @@ main.wide { max-width: 1712px; }
 .deskwin .tgroup.lifted { z-index: 2; box-shadow: 0 0 0 5px var(--d-panel), 0 0 0 6px var(--d-edge-lifted), var(--d-lift); }
 .deskwin .tgroup.lifted .tg-handle { color: var(--d-accent); cursor: grabbing; }
 /* Frozen: the grips are hidden (nothing can move); holding Alt shows them, working, while held. */
-.deskwin.frozen:not(.alt) .tg-handle,
-.deskwin.frozen:not(.alt) .tf-glyph { visibility: hidden; }
+.deskwin.frozen:not(.alt) .tg-handle { visibility: hidden; }
 .deskwin .tgroup .tb-cell { flex: none; min-width: 26px; height: 26px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--d-ink-2); cursor: pointer; font: inherit; font-size: 13px; }
 .deskwin .tgroup .tb-cell:hover { background: var(--d-hover); color: var(--d-ink); }
 .deskwin .tgroup .tg-word { padding: 0 7px; font-size: 12px; font-weight: 600; }
