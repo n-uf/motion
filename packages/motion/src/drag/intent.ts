@@ -149,6 +149,13 @@ export interface DragIntentOptions<T extends DragTarget> {
    *   It isn't picked or held, the indicator hides there at once (or shows a
    *   target beneath that has a place), no room opens, and a release there
    *   lands on a target beneath, else goes home.
+   * - It is also asked about the current target while the pointer is just
+   *   outside its hit zone (within the band, or during the gap grace). Answer
+   *   the nearest place there: returning null outside the zone drops the band
+   *   and the grace, so the indicator hides a few px past the edge. Return null
+   *   only for a part of the target that takes no drop.
+   * - It is called on every sample for each target under the pointer and for
+   *   the current one, so keep it cheap and free of side effects.
    */
   readonly placeOf?: (target: T, point: Point, previous: string | null) => string | null;
 }
