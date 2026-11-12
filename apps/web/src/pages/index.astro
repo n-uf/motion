@@ -5,6 +5,7 @@ import DropModeSwitch from "../components/DropModeSwitch.astro";
 import Chrome from "../components/Chrome.astro";
 import Playback from "../components/Playback.astro";
 import { arrangement } from "../demos/toolbar";
+import { icon } from "../demos/icons";
 import { pageOf } from "../data/pages";
 import { npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
@@ -35,12 +36,13 @@ const ninety = ninetyPercentMs();
     </div>
 
     <Chrome id="demo-fig" class="demo-fig" label="Live demo: three windows that tile, swap and glide"
-      groups={[{ id: "title", name: "Title" }, { id: "layout", name: "Layout" }, { id: "preview", name: "Preview" }, { id: "playback", name: "Speed and tempo" }, { id: "readout", name: "Readout" }, { id: "hint", name: "Hint" }]}
-      model={arrangement({ title: { start: ["title"], end: ["layout", "preview"] }, bottom: { start: ["readout"], center: ["playback"], end: ["hint"] } })}>
+      groups={[{ id: "title", name: "Title" }, { id: "layout", name: "Layout" }, { id: "preview", name: "Preview" }, { id: "speed", name: "Speed" }, { id: "tempo", name: "Tempo" }, { id: "readout", name: "Readout" }, { id: "hint", name: "Hint" }]}
+      model={arrangement({ title: { start: ["title"], end: ["layout", "preview"] }, bottom: { start: ["readout"], center: ["speed", "tempo"], end: ["hint"] } })}>
       <span class="ident" slot="title"><span class="name" id="layout-name">Master and stack</span><span class="page">3 windows</span></span>
-      <Fragment slot="layout"><span class="lab">Layout</span><button type="button" class="tb text" id="shuffle">Next layout</button></Fragment>
+      <Fragment slot="layout"><span class="lab">Layout</span><button type="button" class="tb text" id="shuffle" aria-label="Next layout" title="Next layout"><span class="t">Next layout</span><span class="i" set:html={icon("layout")} /></button></Fragment>
       <Fragment slot="preview"><DropModeSwitch /></Fragment>
-      <Fragment slot="playback"><Playback tempo /></Fragment>
+      <Fragment slot="speed"><Playback part="speed" /></Fragment>
+      <Fragment slot="tempo"><Playback part="tempo" /></Fragment>
       <span class="mono" slot="readout" id="readout"><b>Quarterly plan.pdf</b> · drawn <b>– × –</b> · target <b>– × –</b></span>
       <Fragment slot="hint"><span class="quiet" data-showcase-idle>Drag a window onto another to swap them</span><span class="quiet" data-showcase-hint hidden title="The automatic showcase resumes 10 seconds after your last action">Paused while you explore</span><span class="quiet" data-slowmo hidden></span></Fragment>
       <div class="figure-body no-rail">

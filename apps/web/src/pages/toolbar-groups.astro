@@ -33,11 +33,11 @@ const RULES: [string, string][] = [
   <p class="lead" slot="lead">This page shows toolbar groups with one drag handle each. Commands come in groups: document, tools, view, zoom, panels, export, share. A group docks into five slots (the title bar, a top or bottom toolbar, the left or right edge, where it turns vertical), each with a start, centre and end zone; dropped over the document, it floats. Drag a handle to move its group, double-click it to collapse the group to handle + », right-click it or press <kbd>Shift</kbd> <kbd>F10</kbd> for its menu. There are no frames, dividers or ⋯ buttons, and a toolbar is only a slot.</p>
 
   <Chrome id="figure" class="tbfig" label="Toolbar groups: a sample window whose groups you can drag, collapse and float" lock
-    groups={[{ id: "title", name: "Title" }, { id: "preview", name: "Preview" }, { id: "playback", name: "Speed" }, { id: "status", name: "Status" }, { id: "hint", name: "Hint" }]}
-    model={arrangement({ title: { start: ["title"], end: ["preview", "playback"] }, bottom: { start: ["status"], end: ["hint"] } })}>
+    groups={[{ id: "title", name: "Title" }, { id: "preview", name: "Preview" }, { id: "speed", name: "Speed" }, { id: "status", name: "Status" }, { id: "hint", name: "Hint" }]}
+    model={arrangement({ title: { start: ["title"], end: ["preview", "speed"] }, bottom: { start: ["status"], end: ["hint"] } })}>
     <span class="ident" slot="title"><span class="name">Toolbar groups</span><span class="page">13 cases</span></span>
     <Fragment slot="preview"><DropModeSwitch /></Fragment>
-    <Fragment slot="playback"><Playback /></Fragment>
+    <Fragment slot="speed"><Playback part="speed" /></Fragment>
     <Fragment slot="status"><span class="quiet" id="status" role="status">{CASES[0]!.note}</span><span class="quiet"><kbd>Esc</kbd> puts a dragged group back</span></Fragment>
     <Fragment slot="hint"><span class="quiet">Point at a handle: the others dim</span><span class="quiet" data-slowmo hidden></span></Fragment>
     <div class="figure-body">

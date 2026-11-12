@@ -34,11 +34,12 @@ const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: s
   <p class="lead" slot="lead">This page compares how windows move in Hyprland, in a typical host app today, and under the proposed rules. The curves come from their real parameters: Hyprland's source, the host app's springs and tokens, and the proposal's launched, critically damped settle, stepped by this library. The dots are measured from a screen recording. Time runs left to right in milliseconds.</p>
 
   <Chrome id="figure" class="motionfig" label="Window motion timings: four cases played on a chart"
-    groups={[{ id: "title", name: "Title" }, { id: "replay", name: "Replay" }, { id: "playback", name: "Speed and tempo" }, { id: "readout", name: "Time" }, { id: "hint", name: "Hint" }]}
-    model={arrangement({ title: { start: ["title"], end: ["replay"] }, bottom: { start: ["readout"], center: ["playback"], end: ["hint"] } })}>
+    groups={[{ id: "title", name: "Title" }, { id: "replay", name: "Replay" }, { id: "speed", name: "Speed" }, { id: "tempo", name: "Tempo" }, { id: "readout", name: "Time" }, { id: "hint", name: "Hint" }]}
+    model={arrangement({ title: { start: ["title"], end: ["replay"] }, bottom: { start: ["readout"], center: ["speed", "tempo"], end: ["hint"] } })}>
     <span class="ident" slot="title"><span class="name">Window motion</span><span class="page" id="case-name">{first.name}</span></span>
     <Fragment slot="replay"><button type="button" class="tb text" id="replay"><span class="t">Replay</span><span class="i">↻</span></button><label class="field" title="Replay after each run"><input type="checkbox" class="switch" id="loop" /> Loop</label></Fragment>
-    <Fragment slot="playback"><Playback tempo /></Fragment>
+    <Fragment slot="speed"><Playback part="speed" /></Fragment>
+    <Fragment slot="tempo"><Playback part="tempo" /></Fragment>
     <span class="mono" slot="readout" id="status" role="status">t = <b>{firstOpt.T}</b> ms of {firstOpt.T} ms</span>
     <Fragment slot="hint"><span class="quiet">The dots follow the playhead</span><span class="quiet" data-slowmo hidden></span></Fragment>
     <div class="figure-body">
