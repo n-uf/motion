@@ -23,8 +23,9 @@ import type { ModifierKey, Modifiers } from "./types";
  * - **Ending:** a touch ends when the finger lifts, a wheel run after `idleMs` without samples. It commits when
  *   `|progress| ≥ commitFraction`, or the peak speed towards the target reached `commitVelocity` (the peak starts
  *   over when the travel crosses zero, so a fast fling out and a pull back does not commit the way back).
- * - **Settling** lasts as long as the host's page transition; the host sends `settled` when it is done. After a
- *   commit, `lockout` swallows the trackpad's momentum for `lockoutMs`, and the run stays claimed after it.
+ * - **Settling** lasts as long as the host's page transition; the host sends `settled` when it is done (or `cancel`,
+ *   which goes straight back to idle, when it stops the transition). After a commit, `lockout` swallows the
+ *   trackpad's momentum for `lockoutMs`, and the run stays claimed after it.
  *
  * Pure and timer-free: {@link pagedSwipeDeadline} says when the next `tick` is due ({@link createPagedSwipe} arms it).
  * Signs: a wheel delta > 0 along the swipe heads to `next`; a finger moving towards smaller x (or y) heads to `next`.
@@ -207,7 +208,8 @@ export function pagedSwipeReducer(state: PagedSwipeState, event: PagedSwipeInput
     return c === state.context ? state : { ...state, context: c };
   }
   if (event.type === "cancel") {
-    if (state.phase === "armed" || state.phase === "lockout") return idle(state.context);
+    // Settling too: a host that will never send `settled` (it went away mid-transition) must not leave it stuck.
+    if (state.phase === "armed" || state.phase === "lockout" || state.phase === "settling") return idle(state.context);
     if (state.phase === "tracking") return giveUp(state, state.context);
     return state;
   }

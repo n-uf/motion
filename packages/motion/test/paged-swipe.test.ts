@@ -118,6 +118,16 @@ describe("paged swipe", () => {
     expect(run([{ type: "cancel" }, { type: "settled" }], undefined, tracking).phase).toBe("idle");
   });
 
+  it("cancel while settling goes back to idle, so a host that never sends settled (gone mid-transition) can't leave it stuck", () => {
+    const committing = run([BOTH, wheel(400, 0, 0), { type: "tick", t: 120 }]);
+    expect(committing).toMatchObject({ phase: "settling", outcome: "commit" });
+    const after = run([{ type: "cancel" }], undefined, committing);
+    expect(after).toMatchObject({ phase: "idle", progress: 0, target: null });
+    expect(after.context).toEqual(committing.context);
+    // It swipes again at once.
+    expect(run([wheel(400, 0, 400)], undefined, after).phase).toBe("tracking");
+  });
+
   it("swipes on y when configured so", () => {
     const y: PagedSwipeConfig = { ...PAGED_SWIPE_DEFAULTS, along: "y" };
     expect(run([BOTH, wheel(0, 60, 0)], y)).toMatchObject({ phase: "tracking", target: "next" });
