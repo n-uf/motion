@@ -14,9 +14,8 @@
 import type { FrameLoop, Point, Rect } from "@n-uf/motion";
 import { createDragIntent, previewPlan, type DragIntent } from "@n-uf/motion/drag";
 import { createLayoutMotion, domDrawable, holdItem, type HeldDrag, type LayoutItem, type LayoutMotion } from "@n-uf/motion/layout";
-import { floatTarget, hostTargets, type ToolbarFloatTarget, type ToolbarTarget } from "@n-uf/placement/targets";
-import { HOSTS, arrangement, hostOf, layoutHost, sameArrangement, vertical, type Arrangement, type GroupSize, type HostId, type HostSpec } from "@n-uf/placement/toolbar";
-import { keyboardStops, type Allows, type KeyboardStop } from "@n-uf/placement/targets";
+import { floatTarget, hostTargets, keyboardStops, type Allows, type KeyboardStop, type ToolbarFloatTarget, type ToolbarTarget } from "@n-uf/placement/targets";
+import { HOSTS, arrangement, hostOf, layoutHost, sameArrangement, vertical, withoutGroup, type Arrangement, type GroupSize, type HostId, type HostSpec, type Place } from "@n-uf/placement/toolbar";
 
 export type GroupId = "navigate" | "zoom" | "annotate" | "redact" | "share";
 export const GROUPS: readonly GroupId[] = ["navigate", "zoom", "annotate", "redact", "share"];
@@ -73,8 +72,11 @@ export interface Placed {
   readonly host: HostId | "float";
 }
 
-/** Where every group sits in `a`, in page space. */
-export function placements(a: Arrangement<GroupId>): Map<GroupId, Placed> {
+/**
+ * Where every group sits in `a`, in page space. A floating group is a row, unless it is in `floatColumns` (case 3,
+ * proposal B: the kit keeps a direction for floats, which placement's float record has no field for).
+ */
+export function placements(a: Arrangement<GroupId>, floatColumns: ReadonlySet<GroupId> = new Set()): Map<GroupId, Placed> {
   const out = new Map<GroupId, Placed>();
   for (const h of HOSTS) {
     const o = HOST_RECT[h];
@@ -82,11 +84,15 @@ export function placements(a: Arrangement<GroupId>): Map<GroupId, Placed> {
     for (const [g, s] of l.slots) out.set(g, { rect: rect(o.x + s.x, o.y + s.y, s.width, s.height), vertical: vertical(h), host: h });
   }
   for (const f of a.floating) {
-    const s = sized(f.id, false);
-    out.set(f.id, { rect: rect(STAGE.x + f.x, STAGE.y + f.y, s.width, s.height), vertical: false, host: "float" });
+    const v = floatColumns.has(f.id);
+    const s = sized(f.id, v);
+    out.set(f.id, { rect: rect(STAGE.x + f.x, STAGE.y + f.y, s.width, s.height), vertical: v, host: "float" });
   }
   return out;
 }
+
+/** A kit's words for a place (case 9): the group, where it would go, and the groups already in that zone. */
+export type Words = (g: GroupId, place: Place | "float", zone: readonly GroupId[]) => string;
 
 // --- the dossier ---------------------------------------------------------------------------------------------------
 
@@ -99,6 +105,16 @@ export interface DossierOptions {
   readonly scale?: () => number;
   /** Convert the pointer into page space before the intent reads it; default true (false: case 10's bug). */
   readonly convert?: () => boolean;
+  /** The kit's places that are toolbar hosts (case 2); the rest offer no target. Default all five. */
+  readonly hosts?: readonly HostId[];
+  /** What the kit calls each bar, drawn on it (case 2: kavun's Header and Deck; a rail, cards). */
+  readonly barNames?: Partial<Record<HostId, string>>;
+  /** Floats: always a row (case 3, proposal A, the default) or keep the direction they had (proposal B). */
+  readonly floats?: () => "row" | "keep";
+  /** The kit's words for the places, set as each target's `label` (case 9); default placement's. */
+  readonly words?: Words;
+  /** While a group is dragged, light up the hit rect of every target it has (case 2: what can go where). */
+  readonly lightUp?: boolean;
 }
 
 /** One frame of a drag, as the dossier drew it. */
@@ -173,7 +189,11 @@ interface KeyMove {
 export function createDossier(host: HTMLElement, options: DossierOptions): Dossier {
   const scale = options.scale ?? (() => 1);
   const convert = options.convert ?? (() => true);
+  const hosts = options.hosts ?? HOSTS;
+  const floats = options.floats ?? (() => "row" as const);
   let a: Arrangement<GroupId> = HOME;
+  /** Proposal B (case 3): the floating groups the kit keeps as columns. */
+  const floatColumns = new Set<GroupId>();
   let drag: Drag | null = null;
   let keys: KeyMove | null = null;
   let last: DragRecord | null = null;
@@ -185,9 +205,18 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
   el.style.height = `${H}px`;
   for (const h of HOSTS) {
     const b = document.createElement("div");
-    b.className = `kbar kbar-${h}`;
+    // A place the kit doesn't declare as a host (a rail, cards) is drawn, but offers no target.
+    b.className = `kbar kbar-${h}${hosts.includes(h) ? "" : " kbar-off"}`;
+    b.dataset.host = h;
     Object.assign(b.style, { left: `${HOST_RECT[h].x}px`, top: `${HOST_RECT[h].y}px`, width: `${HOST_RECT[h].width}px`, height: `${HOST_RECT[h].height}px` });
+    const name = options.barNames?.[h];
     if (h === "title") b.innerHTML = `<span class="k-lights"><i></i><i></i><i></i></span><span class="k-name">${options.title}</span>`;
+    if (name) {
+      const tag = document.createElement("span");
+      tag.className = "k-bar-name";
+      tag.textContent = name;
+      b.append(tag);
+    }
     el.append(b);
   }
   const stage = document.createElement("div");
@@ -274,7 +303,7 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
 
   /** Every group to its place in `arr` (all but `except`, which the drag moves). */
   function layOut(arr: Arrangement<GroupId>, except?: GroupId): void {
-    const ps = placements(arr);
+    const ps = placements(arr, floatColumns);
     for (const g of GROUPS) {
       if (g === except) continue;
       const p = ps.get(g)!;
@@ -290,28 +319,45 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
   }
 
   /** The targets `g` has, those `rule` forbids left out by placement itself (no rule: all of them). */
+  /**
+   * The targets `g` has: the declared hosts' and the float, those `rule` forbids left out by placement itself (no
+   * rule: all of them), each labelled in the kit's words when it has its own.
+   */
   function targetsWith(g: GroupId, rule?: Allows<GroupId>): KTarget[] {
     const label = (x: GroupId): string => GROUP_LABEL[x];
     const out: KTarget[] = [];
-    for (const h of HOSTS) out.push(...hostTargets<GroupId>({ group: g, arrangement: a, host: h, origin: HOST_RECT[h], spec: spec(h), size, label, allows: rule }).targets);
-    const s = sized(g, false);
+    for (const h of hosts) out.push(...hostTargets<GroupId>({ group: g, arrangement: a, host: h, origin: HOST_RECT[h], spec: spec(h), size, label, allows: rule }).targets);
+    // As it floats: a row, or (proposal B) the column it is now.
+    const s = sized(g, keepsColumn(g));
     const float = floatTarget<GroupId>({ group: g, arrangement: a, stage: STAGE, width: s.width, height: s.height, allows: rule });
     if (float) out.push(float);
-    return out;
+    const words = options.words;
+    if (!words) return out;
+    const a0 = withoutGroup(a, g);
+    return out.map((t) => ({ ...t, label: words(g, t.kind === "float" ? "float" : t.place, t.kind === "float" ? [] : a0[t.place.host][t.place.zone]) }));
   }
   const allTargets = (g: GroupId): KTarget[] => targetsWith(g);
   const targets = (g: GroupId): KTarget[] => targetsWith(g, options.allows);
-  const ownStretch = (g: GroupId): Rect[] => HOSTS.flatMap((h) => hostTargets<GroupId>({ group: g, arrangement: a, host: h, origin: HOST_RECT[h], spec: spec(h), size }).own);
+  const ownStretch = (g: GroupId): Rect[] => hosts.flatMap((h) => hostTargets<GroupId>({ group: g, arrangement: a, host: h, origin: HOST_RECT[h], spec: spec(h), size }).own);
+  /** Proposal B: a group that floats keeps the direction it has now (a column from a side edge, or a floating column). */
+  const keepsColumn = (g: GroupId): boolean => floats() === "keep" && els.get(g)!.classList.contains("v");
+  /** The float columns with `g` as `column` (where it would float, held in that form). */
+  const columnsWith = (g: GroupId, column: boolean): Set<GroupId> => {
+    const s = new Set(floatColumns);
+    if (column) s.add(g);
+    else s.delete(g);
+    return s;
+  };
 
-  /** Where `g` lands on `t` (the pointer at `p`, grabbed at `grab`): its own outline there. */
-  function slotOf(g: GroupId, t: KTarget, p: Point, grab: Point): Rect {
+  /** Where `g` lands on `t` (the pointer at `p`, grabbed at `grab`): its own outline there, a float as `column` or not. */
+  function slotOf(g: GroupId, t: KTarget, p: Point, grab: Point, column: boolean): Rect {
     const arr = t.kind === "float" ? t.make(p, grab) : t.arrangement;
-    return placements(arr).get(g)!.rect;
+    return placements(arr, columnsWith(g, column)).get(g)!.rect;
   }
 
   function drawXray(g: GroupId | null): void {
     xrayLayer.replaceChildren();
-    if (!xray) return;
+    if (!xray && !(options.lightUp && drag)) return;
     for (const t of targets(g ?? "zoom")) {
       const d = document.createElement("div");
       d.className = `k-hit k-hit-${t.kind}`;
@@ -391,8 +437,10 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
     const shown = f.shown;
     const slotted = !!shown && shown.kind !== "float";
     const plan = previewPlan(f, "snap", slotted);
-    // Its form follows the target shown: a side edge's column, a bar's or a float's row; no target, its own.
-    const form = shown ? shown.kind !== "float" && shown.vertical : d.homeVertical;
+    // Its form follows the target shown: a side edge's column, a bar's row; a float a row (proposal A) or the form
+    // it was lifted in (proposal B); no target, its own.
+    const floatColumn = floats() === "keep" && d.homeVertical;
+    const form = shown ? (shown.kind === "float" ? floatColumn : shown.vertical) : d.homeVertical;
     if (form !== d.form) {
       d.form = form;
       els.get(d.g)!.classList.toggle("v", form);
@@ -403,7 +451,7 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
       d.room = room;
       layOut(room ? room.arrangement : a, d.g);
     }
-    const slot = shown ? slotOf(d.g, shown, d.pointer, d.grab) : null;
+    const slot = shown ? slotOf(d.g, shown, d.pointer, d.grab, floatColumn) : null;
     showSlot(slot);
     d.held.move(d.pointer);
     d.held.preview({ snapItem: plan.snapItem }, plan.snapItem ? slot : null);
@@ -417,7 +465,10 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
     if (!d) return;
     const target = cancel ? null : d.intent.release(d.pointer, d.targets);
     const next = target ? (target.kind === "float" ? target.make(d.pointer, d.grab) : target.arrangement) : null;
-    const goal = placements(next ?? a).get(d.g)!;
+    // Proposal B: a group that lands floating keeps the direction it was lifted in; docked, it has none to keep.
+    if (target?.kind === "float" && floats() === "keep" && d.homeVertical) floatColumns.add(d.g);
+    else if (target) floatColumns.delete(d.g);
+    const goal = placements(next ?? a, floatColumns).get(d.g)!;
     const ge = els.get(d.g)!;
     ge.classList.toggle("v", goal.vertical);
     ge.classList.toggle("floating", goal.host === "float");
@@ -438,14 +489,17 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
   /** Placement's keyboard stops: every place in reading order, its own place among them (where the arrows start). */
   function stops(g: GroupId): KeyboardStop<GroupId>[] {
     const own = hostOf(a, g);
-    return keyboardStops<GroupId>(targets(g), own ? { home: { place: own, arrangement: a } } : {});
+    if (!own) return keyboardStops<GroupId>(targets(g));
+    // Its own place in the kit's words too, when it has its own (the zone as it is, the group in it).
+    const label = options.words?.(g, own, a[own.host][own.zone].filter((x) => x !== g));
+    return keyboardStops<GroupId>(targets(g), { home: { place: own, arrangement: a, ...(label ? { label: `${label} · current place` } : {}) } });
   }
   /** Where the arrows start: its own place's stop, or -1 (floating). */
   const homeIndex = (g: GroupId): number => stops(g).findIndex((s) => s.home);
 
   function showStop(k: KeyMove): void {
     const t = k.stops[k.i]!;
-    const p = placements(t.arrangement).get(k.g)!;
+    const p = placements(t.arrangement, floatColumns).get(k.g)!;
     // The slot shows the place; the group and the others glide to it (./layout).
     layOut(t.arrangement);
     showSlot(p.rect);
@@ -524,7 +578,8 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
     for (const t of stops(g)) {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "k-menu-item";
+      // A tick marks where it sits now.
+      b.className = `k-menu-item${t.home ? " here" : ""}`;
       b.dataset.target = t.id;
       b.textContent = t.label;
       b.addEventListener("click", () => {
@@ -555,6 +610,7 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
       cancelKeys();
       closeMenu();
       a = HOME;
+      floatColumns.clear();
       layOut(a);
     },
     targets,
