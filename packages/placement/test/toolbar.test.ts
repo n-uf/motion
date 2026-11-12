@@ -142,6 +142,12 @@ describe("arrangement changes", () => {
     expect(sameArrangement(written, HOME)).toBe(true);
     expect(isOwnPlace(written, "history", { host: "top", zone: "center", index: 1 })).toBe(true);
     expect(sameArrangement({ ...HOME, collapsed: ["zoom", "edit"] }, { ...HOME, collapsed: ["edit", "zoom"] })).toBe(true);
+    // A repeated group on one side is not the same as two different groups, whichever side has it.
+    expect(sameArrangement({ ...HOME, collapsed: ["edit", "edit"] }, { ...HOME, collapsed: ["edit", "zoom"] })).toBe(false);
+    expect(sameArrangement({ ...HOME, collapsed: ["edit", "zoom"] }, { ...HOME, collapsed: ["edit", "edit"] })).toBe(false);
+    const two = floatGroup(floatGroup(HOME, "edit", 0, 0), "zoom", 0, 0);
+    const twice = { ...two, floating: [two.floating[0]!, two.floating[0]!] };
+    expect([sameArrangement(twice, two), sameArrangement(two, twice)]).toEqual([false, false]);
     expect(sameArrangement(HOME, { ...HOME, collapsed: ["edit"] })).toBe(false);
     const floated = floatGroup(HOME, "history", 10, 20);
     expect(sameArrangement(floated, floatGroup(HOME, "history", 10, 21))).toBe(false);
