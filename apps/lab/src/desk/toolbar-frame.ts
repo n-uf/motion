@@ -677,6 +677,8 @@ interface GTarget extends DragTarget {
   readonly label: string;
   readonly kind: "line" | "zone" | "float";
   readonly line: Rect;
+  /** A group lands there in its vertical form (a side edge's column); a bar or a float holds it in its row form. */
+  readonly vertical: boolean;
   /** The arrangement a drop at `p` makes (the pointer holding the group at the drag's grab point). */
   readonly make: (p: Point) => Arrangement;
 }
@@ -740,7 +742,7 @@ function groupTargets(id: GroupId, own?: Rect[]): GTarget[] {
       const foot = p.empty ? placements(after, geometry(after, true)).get(id)?.rect : undefined;
       const hit = p.empty ? (v ? rect(o.x - 4, o.y + s0, T + 8, s1 - s0) : rect(o.x + s0, o.y - 4, s1 - s0, T + 8)) : v ? rect(o.x - 12, o.y + s0, T + 24, s1 - s0) : rect(o.x + s0, o.y - 12, s1 - s0, T + 24);
       const line = foot ?? (v ? rect(o.x + 4, o.y + p.at - 1.5, T - 8, 3) : rect(o.x + p.at - 1.5, o.y + 4, 3, T - 8));
-      out.push({ id: `g:${h}:${p.zone}:${p.index}`, priority: p.empty ? 1 : 2, hit, label: p.label, kind: p.empty ? "zone" : "line", line, make: () => after });
+      out.push({ id: `g:${h}:${p.zone}:${p.index}`, priority: p.empty ? 1 : 2, hit, label: p.label, kind: p.empty ? "zone" : "line", line, vertical: v, make: () => after });
     }
   }
   // Over the documents: it floats where it is dropped (kept on the stage).
@@ -753,6 +755,7 @@ function groupTargets(id: GroupId, own?: Rect[]): GTarget[] {
     label: "Float here",
     kind: "float",
     line: stage,
+    vertical: false,
     make: (p) => {
       const s = groupSize(id, false, arrangement.collapsed.includes(id));
       const grab = drag?.grab ?? { x: 0, y: 0 };
@@ -891,9 +894,20 @@ function aim(now: number): void {
     preview = room ? room.make(d.pointer) : null;
     changed();
   }
-  // The group itself (@n-uf/motion/layout's held drag): 1:1 under the pointer (from the keyboard: where it was picked
-  // up, home), or (snap) gliding into the slot the room was made for, taking that slot's axis, and back to the pointer.
+  // Its form follows the target the drag model shows (so never while flying, only once it aims): over a side edge the
+  // held group swaps to its vertical markup, over a bar or a float to its row form, and with no target back to the
+  // form it was lifted in. The held drag takes the new size (revealed from where it is drawn), so the drop that
+  // follows lands with no second motion.
   const ge = groupEls.get(d.id)!;
+  const form = d.shown ? d.shown.vertical : d.homeVertical;
+  if (ge.vertical !== form) {
+    ge.vertical = form;
+    ge.el.classList.toggle("v", form);
+    const s = groupSize(d.id, form, ge.el.classList.contains("collapsed"));
+    d.held.resize(form ? { width: s.across, height: s.along } : { width: s.along, height: s.across });
+  }
+  // The group itself (@n-uf/motion/layout's held drag): 1:1 under the pointer (from the keyboard: where it was picked
+  // up, home), or (snap) gliding into the slot the room was made for, and back to the pointer.
   const slot = plan.snapItem && d.room ? (placements(preview!, geometry(preview!, true)).get(d.id) ?? null) : null;
   if (slot && d.snapped !== d.room!.id) d.snaps.push({ t: now - d.t0, id: d.room!.id });
   if (!slot && d.snapped) d.snaps.push({ t: now - d.t0, id: null, flying: !f.aiming });
@@ -901,11 +915,6 @@ function aim(now: number): void {
   d.held.move(d.pointer);
   d.held.preview({ snapItem: !!slot }, slot?.rect ?? null);
   d.returning = d.held.returning;
-  const axis = slot ? slot.vertical : d.homeVertical;
-  if (ge.vertical !== axis) {
-    ge.vertical = axis;
-    ge.el.classList.toggle("v", axis);
-  }
 }
 
 function showIndicator(t: GTarget | null, d: Drag): void {
@@ -919,7 +928,7 @@ function showIndicator(t: GTarget | null, d: Drag): void {
   let r = t.line;
   if (t.kind === "float") {
     const s = t.line;
-    const h = heldRect(d);
+    const h = d.held.held ?? heldRect(d);
     r = rect(Math.min(Math.max(s.x, h.x), s.x + s.width - h.width), Math.min(Math.max(s.y, h.y), s.y + s.height - h.height), h.width, h.height);
   }
   indEl.classList.toggle("area", t.kind !== "line");

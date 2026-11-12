@@ -743,6 +743,32 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       },
     };
   }
+  // A pane never changes form: dragged into a column it stays upright, held or landing (no rotation drawn).
+  out["B · a panel dragged into a column stays upright"] = {
+    construction: "tree",
+    drag: true,
+    play: async (expect) => {
+      const key = DRAGGED.tree;
+      const goal = lab.targets(key).find((t) => t.id === "tile:L:1");
+      if (!goal) return expect(false, "no left column slot");
+      const el = document.querySelector<HTMLElement>(`.win[data-key="${key}"]`);
+      if (!el) return expect(false, `no element for ${key}`);
+      const turned: string[] = [];
+      let watching = true;
+      const watch = (): void => {
+        if (!watching) return;
+        if (el.style.transform.includes("rotate")) turned.push(el.style.transform);
+        requestAnimationFrame(watch);
+      };
+      requestAnimationFrame(watch);
+      const r = await lab.drag(key, () => mid(goal.hit));
+      await lab.idle();
+      watching = false;
+      expect(r.landed === goal.id, `landed on ${r.landed ?? "home"}, not ${goal.id}`);
+      expect(turned.length === 0, `the panel turned in ${turned.length} frames, first ${turned[0]}`);
+      settledAsLaidOut(lab, expect);
+    },
+  };
   out["A · snap: the item glides into the slot the model shows, its size revealed"] = {
     construction: "docks",
     drag: true,
