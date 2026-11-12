@@ -28,6 +28,9 @@ name: Release
 #   package that exists, so a maintainer publishes its first version by hand
 #   once, then sets the trust. It needs npm 11.5.1+ (Node 22 ships npm 10,
 #   so the job installs npm 11) and adds provenance by itself.
+# - The publish job runs in the GitHub environment `npm`, which only main
+#   may deploy to; a trust set with `--environment npm` accepts only its
+#   runs (not a PR, another branch or an old copy of this workflow).
 # - GITHUB_TOKEN: publishes to GitHub Packages.
 
 on:
@@ -70,6 +73,7 @@ jobs:
     name: Publish ${{ matrix.name }} where its version is new
     needs: verify
     runs-on: ubuntu-latest
+    environment: npm
     strategy:
       fail-fast: false
       # One at a time: each pushes a tag and may notify downstream.
