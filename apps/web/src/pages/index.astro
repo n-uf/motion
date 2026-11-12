@@ -73,7 +73,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
     <div class="does-grid">
       <article class="does-col m" aria-labelledby="does-motion">
         <h3 id="does-motion"><code>@n-uf/motion</code> <span>how things move</span></h3>
-        <p>For desktop-style web apps with windows, panels, docks and toolbars: every change of layout moves the way a good tiling window manager does, and a drag reads what you mean. You give it rects and pointer samples; it moves the real elements.</p>
+        <p>{motionPart.does}</p>
         <dl class="entries">
           <div><dt><code>@n-uf/motion</code></dt><dd>The frame loop on an injected clock, signals, springs and tweens with the settle, and the gesture recogniser; each also on its own as <code>./clock</code>, <code>./signals</code>, <code>./values</code>, <code>./gestures</code>.</dd></div>
           <div><dt><code>./layout</code></dt><dd>Give items rects: the real elements settle there, size changes revealed, never stretched; a held drag (<code>holdItem</code>), FLIP for DOM groups, reduced motion and batched drawing.</dd></div>
@@ -95,7 +95,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
           <div><dt><code>./targets</code></dt><dd>Drop targets in the shape motion's drag takes, for the desk's constructions, toolbar hosts and pane zones.</dd></div>
         </dl>
         <p class="not"><b>It doesn't</b> move or draw anything: plain state in, rects and targets out. No DOM, no dependencies.</p>
-        <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code> <ExtLink href={placementPart.readme}>README on GitHub</ExtLink></p>
+        <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code> <ExtLink href={placementPart.readme}>README on GitHub</ExtLink> <a href="/docs/placement/">Docs</a></p>
       </article>
     </div>
     <p class="does-together"><b>Alone or together.</b> They compose without importing each other: placement's targets are what motion's drag takes, and its rects are what motion's layout glides to.</p>
