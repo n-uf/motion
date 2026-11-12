@@ -86,7 +86,7 @@ h1.pair > span { display: block; max-width: 13em; text-wrap: balance; }
 .explore-k code { text-transform: none; letter-spacing: 0; }
 
 /* The demo: three windows on the flat well of a figure window (components/Chrome.astro). */
-.demo { position: relative; height: 380px; overflow: hidden; background: var(--win-well); touch-action: none; user-select: none; -webkit-user-select: none; }
+.demo { position: relative; height: 380px; container-type: size; overflow: hidden; background: var(--win-well); touch-action: none; user-select: none; -webkit-user-select: none; }
 .bar [data-showcase-hint]::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--accent); vertical-align: 1px; }
 
 /* The hero's drop indicator: the signal outline on the slot the dragged window will take, with its label. */
