@@ -3,6 +3,17 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.5
+
+- `@n-uf/motion/drag`: `placeOf(target, point, previous)` is told the place
+  it gave that target on the last sample (null if none), so a place can hold
+  near its boundary (hysteresis lives in the consumer's `placeOf`). It may
+  return null: no drop at that point of the target. There the target is no
+  target: it isn't picked or held, a shown one hides at once (a target beneath
+  with a place can show instead), no room opens, and a release lands on a
+  target beneath, else goes home. A two-argument `placeOf` works as before.
+  `@n-uf/placement/targets`' `paneZone` is made for it.
+
 ## 26.11.4
 
 - New entry `@n-uf/motion/drag`: the drag intent model, pure and DOM-free.
