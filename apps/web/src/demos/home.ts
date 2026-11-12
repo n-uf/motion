@@ -46,11 +46,30 @@ export function demoWindowHTML(i: number): string {
   const w = WINDOWS[i]!;
   return `<div class="dw-frame"></div><div class="dw-body"><div class="dw-bar"><span class="dw-grip"><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="dw-title">${w.title}</span><span class="dw-meta">${w.meta}</span></div><div class="dw-lines">${"<i></i>".repeat(w.rows)}</div></div>`;
 }
-/** The first layout as percentages of the demo box, so the server's first frame fits any width. */
+/**
+ * The first layout as the island draws it: the box at 0, 0 sized to its slot, placed by transform. A slot is linear in
+ * the demo's width and height (the whole-pixel rounding aside), so the server writes each number as a calc() of the demo
+ * box's container units (`cqw`, `cqh`: `.demo` is a size container), fitted at the 1440 px box (exact there, within a
+ * pixel at other widths). The island's first paint then writes the same boxes and the same transform scheme: nothing
+ * moves when it starts, with or without reduced motion.
+ */
 export function firstLayoutStyle(i: number): string {
-  const r = LAYOUTS[0]!.slots[i]!(DEMO.w, DEMO.h - RESERVE);
-  const pc = (v: number, of: number) => `${((v / of) * 100).toFixed(3)}%`;
-  return `left:${pc(r.x, DEMO.w)};top:${pc(r.y, DEMO.h)};width:${pc(r.width, DEMO.w)};height:${pc(r.height, DEMO.h)}`;
+  const slot = LAYOUTS[0]!.slots[i]!;
+  const W0 = DEMO.w, H0 = DEMO.h - RESERVE, D = 1e5;
+  const at = (W: number, H: number): Rect => slot(W, H);
+  const r0 = at(W0, H0), rw = at(W0 + D, H0), rh = at(W0, H0 + D);
+  const num = (v: number): string => String(+v.toFixed(5));
+  /** `f` of the demo box as a calc(): a·width + b·(height − RESERVE) + c. */
+  const calc = (f: (r: Rect) => number): string => {
+    const a = (f(rw) - f(r0)) / D, b = (f(rh) - f(r0)) / D;
+    const c = f(r0) - a * W0 - b * H0;
+    const px = c - b * RESERVE;
+    const terms = [a && `${num(a * 100)}cqw`, b && `${num(b * 100)}cqh`, px && `${num(px)}px`].filter(Boolean) as string[];
+    if (terms.length === 0) return "0px";
+    if (terms.length === 1) return terms[0]!;
+    return `calc(${terms.join(" + ").replace(/\+ -/g, "- ")})`;
+  };
+  return `left:0px;top:0px;width:${calc((r) => r.width)};height:${calc((r) => r.height)};transform:translate(${calc((r) => r.x)}, ${calc((r) => r.y)})`;
 }
 
 // ---- Thumbnail 1: settle against a spring that overshoots ----------------------------------------------------------
