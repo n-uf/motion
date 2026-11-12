@@ -93,12 +93,16 @@ console.log(kept.overflow); // [ 'edit' ]
 An arrangement is stored as versioned plain data; reading it back never throws:
 
 ```ts
-import { arrangement, fromJSON, toJSON } from "@n-uf/placement/toolbar";
+import { arrangement, readArrangement, storeArrangement } from "@n-uf/placement/toolbar";
 
-const saved = JSON.stringify(toJSON(arrangement({ top: { start: ["file", "edit"] } }))); // { "v": 1, "hosts": … }
-console.log(fromJSON(JSON.parse(saved)).ok); // true
-console.log(fromJSON({ v: 9 })); // { ok: false, error: 'unknown version 9 (this reads version 1)' }
+const saved = JSON.stringify(storeArrangement(arrangement({ top: { start: ["file", "edit"] } }))); // { "v": 1, "hosts": … }
+console.log(readArrangement(JSON.parse(saved)).ok); // true
+console.log(readArrangement({ v: 9 })); // { ok: false, error: 'unknown version 9 (this reads version 1)' }
 ```
+
+`readArrangement` takes parsed data, not the string. It accepts an arrangement that lacks some of your groups (one
+stored before you added a group, say): place each missing group yourself, with `resetGroup(read, group, defaults)`
+to put it where your default arrangement has it, or `dockGroup` for a group that floated.
 
 ## Drop targets
 
