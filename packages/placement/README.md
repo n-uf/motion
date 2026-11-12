@@ -125,7 +125,8 @@ console.log(drop.label, drop.slot.x, drop.slot.y); // Float here 580 290
 
 A toolbar group's targets come from `hostTargets` (a host's lines and empty zones, with its own place left out and
 returned as `own`, for the drag's home) and `floatTarget`. Each host target carries its `slot`, the group's rect
-once it lands there; `allows(group, place)` leaves out places a group may not go. `keyboardStops` puts the targets
+once it lands there; `allows(group, place)` leaves out places a group may not go (its `place.index` counts the
+groups there without the dragged one, as `insertGroup` does). `keyboardStops` puts the targets
 in reading order (title, top, left, right, bottom; start, centre, end) for the arrow keys and a "Move to" menu,
 with the group's own place as `home`:
 
