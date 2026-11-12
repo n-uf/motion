@@ -711,12 +711,16 @@ function groupTargets(id: GroupId, own?: Rect[]): GTarget[] {
     if (!host.shows && !host.strip) continue;
     // Its own place is home, not a target: a drop there changes nothing, so nothing shows there (and the stretch it
     // owns joins home, so nothing behind it, the documents' float, shows either).
-    const at = hostTargets({ group: id, arrangement, host: h, origin: host.origin, spec: host.spec, size: groupSize, label: (x) => GROUP_LABEL[x] });
+    // Each target's slot is laid out where the host is once the group is in it (it may grow or appear).
+    const hostAfter = (after: Arrangement): { origin: Point; spec: HostSpec } => {
+      const ha = geometry(after, true).hosts[h];
+      return { origin: ha.origin, spec: ha.spec };
+    };
+    const at = hostTargets({ group: id, arrangement, host: h, origin: host.origin, spec: host.spec, size: groupSize, label: (x) => GROUP_LABEL[x], hostAfter });
     own?.push(...at.own);
     for (const t of at.targets) {
       // An empty zone: the group's own footprint, where it will land; else the insertion line.
-      const foot = t.kind === "zone" ? placements(t.arrangement, geometry(t.arrangement, true)).get(id)?.rect : undefined;
-      out.push({ id: t.id, priority: t.priority, hit: t.hit, label: t.label, kind: t.kind, line: foot ?? t.line, vertical: t.vertical, make: () => t.arrangement });
+      out.push({ id: t.id, priority: t.priority, hit: t.hit, label: t.label, kind: t.kind, line: t.kind === "zone" ? t.slot : t.line, vertical: t.vertical, make: () => t.arrangement });
     }
   }
   // Over the documents: it floats where it is dropped (kept on the stage).
