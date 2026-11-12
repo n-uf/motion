@@ -55,9 +55,6 @@ section.hx > .section-head .eyebrow { letter-spacing: 0.1em; }
 .does-grid { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5) var(--s7); }
 .does-col { --c: var(--accent); --edge: color-mix(in srgb, var(--c) 45%, var(--line-2)); position: relative; display: flex; flex-direction: column; border: 1px solid var(--edge); border-top: 2px solid var(--c); border-radius: 2px; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--c) 10%, transparent) 0 1px, transparent 1px 7px), var(--bg); }
 .does-col.p { --c: var(--series-b); }
-.does-col::before, .does-col::after { content: ""; position: absolute; width: 11px; height: 11px; border: 2px solid var(--c); pointer-events: none; }
-.does-col::before { left: -5px; top: -4px; border-right: 0; border-bottom: 0; }
-.does-col::after { right: -5px; bottom: -5px; border-left: 0; border-top: 0; }
 .does-col > * { background: var(--bg); }
 .does-col h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: var(--s4) var(--s5); border-bottom: 1px solid var(--edge); font-size: var(--t-lg); background:
   linear-gradient(to right, color-mix(in srgb, var(--c) 17%, transparent) 1px, transparent 1px) 0 0 / 96px 96px,
@@ -120,8 +117,8 @@ section.hx > .section-head .eyebrow { letter-spacing: 0.1em; }
 .use-pair .pair-title { font: 650 var(--t-cap) / 1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--c); }
 .use-pair .pair-pkg { border-radius: 2px; }
 
-/* Explore: the pages as an index of plates. A plate is the live figure inside its brackets and measured sides, the group's
-   colour on its ground; the row is one link (the heading's, stretched). */
+/* Explore: the pages as an index of plates. A plate is the live figure on a drafting ground in the group's
+   colour, in a plain 1px frame; the row is one link (the heading's, stretched). */
 .xg { --c: var(--accent); }
 .xg.p { --c: var(--series-b); }
 .xg.both { --c: var(--text-3); }
@@ -149,27 +146,14 @@ section.hx > .section-head .eyebrow { letter-spacing: 0.1em; }
 .card-body { display: grid; gap: var(--s2); align-content: center; }
 .card-body h3 { font-size: 22px; letter-spacing: -0.02em; transition: color var(--fast) var(--ease); }
 .card-body p { max-width: 62ch; color: var(--text-2); font-size: var(--t-base); }
-.thumb { --dim: color-mix(in srgb, var(--c) 70%, var(--text-3)); position: relative; transition: border-color var(--fast) var(--ease); width: 334px; height: 194px; border: 1px solid color-mix(in srgb, var(--c) 35%, var(--line-2)); border-radius: 2px; background:
+.thumb { position: relative; transition: border-color var(--fast) var(--ease); width: 334px; height: 194px; border: 1px solid color-mix(in srgb, var(--c) 35%, var(--line-2)); border-radius: 2px; background:
   linear-gradient(to right, color-mix(in srgb, var(--c) 12%, transparent) 1px, transparent 1px) 0 0 / 48px 48px,
   linear-gradient(to bottom, color-mix(in srgb, var(--c) 12%, transparent) 1px, transparent 1px) 0 0 / 48px 48px,
   linear-gradient(to right, color-mix(in srgb, var(--c) 5%, transparent) 1px, transparent 1px) 0 0 / 12px 12px,
   linear-gradient(to bottom, color-mix(in srgb, var(--c) 5%, transparent) 1px, transparent 1px) 0 0 / 12px 12px, var(--bg-sunken); }
 .plate-row:hover .thumb { border-color: var(--c); }
-.thumb .fig { position: absolute; left: 38px; top: 28px; width: 280px; height: 150px; }
+.thumb .fig { position: absolute; left: 26px; top: 21px; width: 280px; height: 150px; }
 .thumb .fig > svg, .thumb .fig > div { width: 280px; height: 150px; }
-.thumb .fig::before, .thumb .fig::after { content: ""; position: absolute; z-index: 2; width: 11px; height: 11px; border: 2px solid var(--c); pointer-events: none; }
-.thumb .fig::before { left: -5px; top: -5px; border-right: 0; border-bottom: 0; }
-.thumb .fig::after { right: -5px; bottom: -5px; border-left: 0; border-top: 0; }
-/* The measured sides: the figure's width over it and its height beside it, the number cut into the line. */
-.thumb::before, .thumb::after { position: absolute; font: 600 10px / 9px var(--font-mono); letter-spacing: 0.04em; color: var(--dim); text-align: center; pointer-events: none; }
-.thumb::before { content: "280" / ""; left: 38px; top: 8px; width: 280px; height: 9px; background:
-  linear-gradient(var(--dim), var(--dim)) 0 0 / 1px 9px no-repeat,
-  linear-gradient(var(--dim), var(--dim)) 100% 0 / 1px 9px no-repeat,
-  linear-gradient(90deg, var(--dim) 0 calc(50% - 18px), transparent calc(50% - 18px) calc(50% + 18px), var(--dim) calc(50% + 18px)) 0 4px / 100% 1px no-repeat; }
-.thumb::after { content: "150" / ""; left: 12px; top: 28px; width: 9px; height: 150px; writing-mode: vertical-rl; transform: rotate(180deg); background:
-  linear-gradient(var(--dim), var(--dim)) 0 0 / 9px 1px no-repeat,
-  linear-gradient(var(--dim), var(--dim)) 0 100% / 9px 1px no-repeat,
-  linear-gradient(180deg, var(--dim) 0 calc(50% - 18px), transparent calc(50% - 18px) calc(50% + 18px), var(--dim) calc(50% + 18px)) 4px 0 / 1px 100% no-repeat; }
 .lab-tiles rect { fill: var(--bg-raised); stroke: var(--line-3); stroke-width: 1.25; }
 .lab-tiles rect:nth-child(2) { stroke: var(--accent); }
 .lab-tiles rect:nth-child(5) { stroke: var(--series-b); }
