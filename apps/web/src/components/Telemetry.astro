@@ -40,7 +40,7 @@ const sz = `${stage.width} × ${stage.height}`;
         {layout.rects.map((r, i) => <rect data-i={i} x={r.x} y={r.y} width={r.width} height={r.height} rx="6" />)}
       </svg>
       <div class="chk" id="tp-chk"><span>notes <b id="tp-notes">[{layout.notes.map((n) => `'${n}'`).join(", ")}]</b></span><span>drop targets <b id="tp-tg">none while nothing is held</b></span></div>
-      <div class="hand"><div><u>placement</u> ▸ <u class="mo">motion</u> &nbsp;rects ▸ <code>item.moveTo(rect)</code></div><div><u>placement</u> ▸ <u class="mo">motion</u> &nbsp;targets ▸ the drag intent</div></div>
+      <div class="hand"><div><span class="hp"><u>placement</u> ▸ <u class="mo">motion</u></span> <span class="hp">rects ▸ <code>item.moveTo(rect)</code></span></div><div><span class="hp"><u>placement</u> ▸ <u class="mo">motion</u></span> <span class="hp">targets ▸ the drag intent</span></div></div>
     </div>
   </div>
   <div class="tstatus">

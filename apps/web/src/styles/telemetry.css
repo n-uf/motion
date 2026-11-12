@@ -40,8 +40,9 @@
 .tmap rect.stage { stroke: var(--line-3); stroke-dasharray: 3 3; }
 .tmap rect.t { stroke: var(--signal); stroke-dasharray: 3 2; fill: var(--signal-soft); }
 .hand { position: absolute; left: var(--s4); right: var(--s4); bottom: 12px; font-size: 12px; line-height: 18px; color: var(--text-3); white-space: nowrap; overflow: hidden; }
+.hand .hp { white-space: nowrap; margin-right: 0.6em; } /* a pair "a ▸ b" never breaks inside: it wraps between pairs */
 .hand u { text-decoration: none; color: var(--series-b); font-weight: 650; }
-.hand u.mo { color: var(--accent); }
+.hand u.mo { color: var(--accent-strong); }
 .hand code { padding: 0; border: 0; background: none; font-size: inherit; color: var(--text-2); }
 .tpane.p { padding-bottom: 66px; }
 
@@ -58,7 +59,7 @@
 .tloop[data-step="1"] .st[data-step="1"] .n, .tloop[data-step="2"] .st[data-step="2"] .n, .tloop[data-step="3"] .st[data-step="3"] .n, .tloop[data-step="4"] .st[data-step="4"] .n { background: var(--c); color: var(--bg-raised); }
 .tloop[data-step] .st .t b { color: var(--text); }
 .tspeed { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
-.tele:not(.go) .tspeed .seg { visibility: hidden; }
+.tele:not(.go) .tspeed { visibility: hidden; } /* the label and its buttons do nothing without the island; their room is kept */
 .tspeed .seg button { height: 22px; padding: 0 9px; font: 600 11px var(--font-mono); }
 
 @media (max-width: 1320px) {

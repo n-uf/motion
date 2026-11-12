@@ -53,6 +53,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
   const readoutSide = el("readout-side");
   const layoutName = el("layout-name");
   const shuffle = el("shuffle");
+  fig.classList.add("go"); // the controls that do nothing without this island show now (styles/home.css)
   /** The stage keeps a band free for the floating tools while they float at the bottom (their default). */
   let reserve = RESERVE;
   /** Whether the visitor changed the demo (a swap, a layout, a tool): what ↺ Reset puts back. */
