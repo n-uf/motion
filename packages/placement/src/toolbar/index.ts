@@ -146,7 +146,7 @@ export const isOwnPlace = <G extends string>(a: Arrangement<G>, g: G, place: Pla
 // --- a host's layout -----------------------------------------------------------------------------------------------
 
 /** A host's room: its length and thickness, and what its ends keep for themselves (window controls, a margin). */
-export interface HostSpec {
+export interface HostSpec<G extends string = string> {
   readonly length: number;
   readonly thickness: number;
   readonly lead: number;
@@ -156,6 +156,11 @@ export interface HostSpec {
    * not (an empty centre keeps its drop size). Unset: the centre counts only its groups.
    */
   readonly center?: { readonly min: number; readonly margin: number };
+  /**
+   * How long each group keeps its full form when room runs out (default 0): groups with a lower keep collapse
+   * first, and among equal keeps the trailing end goes first. A primary group at the end keeps open with a keep of 1.
+   */
+  readonly keep?: Readonly<Partial<Record<G, number>>>;
 }
 
 /** A group's size in a host, expanded or collapsed: along it (`along`) and across it (`across`). */
@@ -182,16 +187,22 @@ export function hostNeed<G extends string>(zones: Zones<G>, collapsed: readonly 
   return spec.lead + spec.tail + lens[0]! + lens[2]! + Math.max(lens[1]!, c.min) + 2 * c.margin;
 }
 
-/** Lay a host out: zones along its length; when they don't fit, groups collapse from the trailing end. */
-export function layoutHost<G extends string>(zones: Zones<G>, h: HostId, spec: HostSpec, size: GroupSize<G>, byHand: readonly G[] = []): HostLayout<G> {
+/**
+ * Lay a host out: zones along its length; when they don't fit, groups collapse, the lowest keep first and, among
+ * equal keeps, from the trailing end.
+ */
+export function layoutHost<G extends string>(zones: Zones<G>, h: HostId, spec: HostSpec<G>, size: GroupSize<G>, byHand: readonly G[] = []): HostLayout<G> {
   const v = vertical(h);
   const collapsed = new Set<G>(ZONES.flatMap((zn) => zones[zn]).filter((g) => byHand.includes(g)));
   const overflow: G[] = [];
   const len = (g: G): number => size(g, v, collapsed.has(g)).along;
   const zoneLen = (l: readonly G[]): number => l.reduce((s, g) => s + len(g), 0) + GAP * Math.max(0, l.length - 1);
   const needNow = (): number => hostNeed(zones, [...collapsed], spec, size, v);
-  // The trailing end first: the end zone's last group, back to the start zone's first.
-  for (const g of [...ZONES].reverse().flatMap((zn) => [...zones[zn]].reverse())) {
+  // The lowest keep first; among equal keeps the trailing end first: the end zone's last group, back to the start
+  // zone's first (the sort is stable).
+  const keep = (g: G): number => spec.keep?.[g] ?? 0;
+  const order = [...ZONES].reverse().flatMap((zn) => [...zones[zn]].reverse());
+  for (const g of order.sort((x, y) => keep(x) - keep(y))) {
     if (needNow() <= spec.length) break;
     if (collapsed.has(g)) continue;
     collapsed.add(g);
@@ -241,7 +252,7 @@ export interface Insertion extends Place {
  * (start), middle third (centre) or last third (end), less what its neighbours' groups take. `label` names a group
  * in the "between" labels (default: its id).
  */
-export function insertions<G extends string>(zones: Zones<G>, h: HostId, spec: HostSpec, l: HostLayout<G>, label: (g: G) => string = (g) => g): Insertion[] {
+export function insertions<G extends string>(zones: Zones<G>, h: HostId, spec: HostSpec<G>, l: HostLayout<G>, label: (g: G) => string = (g) => g): Insertion[] {
   const v = vertical(h);
   const lo = (r: Rect): number => (v ? r.y : r.x);
   const hi = (r: Rect): number => (v ? r.y + r.height : r.x + r.width);
