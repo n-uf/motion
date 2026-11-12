@@ -84,6 +84,20 @@ const a = arrangement({ top: { start: ["file", "edit"], end: ["share"] } });
 const size = (_id: string, _vertical: boolean, collapsed: boolean) => ({ along: collapsed ? 30 : 120, across: 28 });
 const top = layoutHost(a.top, "top", { length: 320, thickness: 34, lead: 8, tail: 8 }, size);
 console.log(top.overflow); // [ 'share' ]
+
+// A primary group keeps its full form longest: a higher keep folds later (equal keeps fold from the trailing end).
+const kept = layoutHost(a.top, "top", { length: 320, thickness: 34, lead: 8, tail: 8, keep: { share: 1 } }, size);
+console.log(kept.overflow); // [ 'edit' ]
+```
+
+An arrangement is stored as versioned plain data; reading it back never throws:
+
+```ts
+import { arrangement, fromJSON, toJSON } from "@n-uf/placement/toolbar";
+
+const saved = JSON.stringify(toJSON(arrangement({ top: { start: ["file", "edit"] } }))); // { "v": 1, "hosts": … }
+console.log(fromJSON(JSON.parse(saved)).ok); // true
+console.log(fromJSON({ v: 9 })); // { ok: false, error: 'unknown version 9 (this reads version 1)' }
 ```
 
 ## Drop targets
@@ -106,7 +120,24 @@ console.log(drop.label, drop.slot.x, drop.slot.y); // Float here 580 290
 ```
 
 A toolbar group's targets come from `hostTargets` (a host's lines and empty zones, with its own place left out and
-returned as `own`, for the drag's home) and `floatTarget`.
+returned as `own`, for the drag's home) and `floatTarget`. Each host target carries its `slot`, the group's rect
+once it lands there; `allows(group, place)` leaves out places a group may not go. `keyboardStops` puts the targets
+in reading order (title, top, left, right, bottom; start, centre, end) for the arrow keys and a "Move to" menu,
+with the group's own place as `home`:
+
+```ts
+import { hostTargets, keyboardStops } from "@n-uf/placement/targets";
+import { arrangement, hostOf, type Place } from "@n-uf/placement/toolbar";
+
+const a = arrangement({ top: { start: ["file", "edit"], end: ["share"] } });
+const size = (_id: string, _vertical: boolean, collapsed: boolean) => ({ along: collapsed ? 30 : 120, across: 28 });
+const allows = (g: string, place: Place | "float") => g !== "share" || (place !== "float" && place.host === "top"); // share stays in the top bar
+const top = { origin: { x: 0, y: 40 }, spec: { length: 800, thickness: 34, lead: 8, tail: 8 } };
+const { targets } = hostTargets({ group: "share", arrangement: a, host: "top", ...top, size, allows });
+console.log(targets[0]!.slot); // { x: 8, y: 43, width: 120, height: 28 }
+const stops = keyboardStops(targets, { home: { place: hostOf(a, "share")!, arrangement: a } });
+console.log(stops.map((s) => (s.home ? "home" : s.id))); // [ 'g:top:start:0', 'g:top:start:1', 'g:top:start:2', 'g:top:center:0', 'home' ]
+```
 
 ## Pane zones
 

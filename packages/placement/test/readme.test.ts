@@ -1,8 +1,8 @@
 /** The README's examples, run as written (their console output checked). */
 import { describe, expect, it } from "vitest";
 import { DEFAULT_OPTIONS, createDesk, liftOut } from "../src/dock";
-import { deskDrop, deskTargets, paneZone, type PaneZone } from "../src/targets";
-import { arrangement, layoutHost } from "../src/toolbar";
+import { deskDrop, deskTargets, hostTargets, keyboardStops, paneZone, type PaneZone } from "../src/targets";
+import { arrangement, fromJSON, hostOf, layoutHost, toJSON, type Place } from "../src/toolbar";
 
 describe("README examples", () => {
   it("a desk", () => {
@@ -24,6 +24,26 @@ describe("README examples", () => {
     const size = (_id: string, _vertical: boolean, collapsed: boolean) => ({ along: collapsed ? 30 : 120, across: 28 });
     const top = layoutHost(a.top, "top", { length: 320, thickness: 34, lead: 8, tail: 8 }, size);
     expect(top.overflow).toEqual(["share"]);
+    const kept = layoutHost(a.top, "top", { length: 320, thickness: 34, lead: 8, tail: 8, keep: { share: 1 } }, size);
+    expect(kept.overflow).toEqual(["edit"]);
+  });
+
+  it("stored arrangements", () => {
+    const saved = JSON.stringify(toJSON(arrangement({ top: { start: ["file", "edit"] } })));
+    expect(saved.startsWith('{"v":1,"hosts":')).toBe(true);
+    expect(fromJSON(JSON.parse(saved)).ok).toBe(true);
+    expect(fromJSON({ v: 9 })).toEqual({ ok: false, error: "unknown version 9 (this reads version 1)" });
+  });
+
+  it("toolbar targets and keyboard stops", () => {
+    const a = arrangement({ top: { start: ["file", "edit"], end: ["share"] } });
+    const size = (_id: string, _vertical: boolean, collapsed: boolean) => ({ along: collapsed ? 30 : 120, across: 28 });
+    const allows = (g: string, place: Place | "float") => g !== "share" || (place !== "float" && place.host === "top");
+    const top = { origin: { x: 0, y: 40 }, spec: { length: 800, thickness: 34, lead: 8, tail: 8 } };
+    const { targets } = hostTargets({ group: "share", arrangement: a, host: "top", ...top, size, allows });
+    expect(targets[0]!.slot).toEqual({ x: 8, y: 43, width: 120, height: 28 });
+    const stops = keyboardStops(targets, { home: { place: hostOf(a, "share")!, arrangement: a } });
+    expect(stops.map((s) => (s.home ? "home" : s.id))).toEqual(["g:top:start:0", "g:top:start:1", "g:top:start:2", "g:top:center:0", "home"]);
   });
 
   it("drop targets", () => {
