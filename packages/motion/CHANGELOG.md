@@ -12,7 +12,12 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   target: it isn't picked or held, a shown one hides at once (a target beneath
   with a place can show instead), no room opens, and a release lands on a
   target beneath, else goes home. A two-argument `placeOf` works as before.
-  `@n-uf/placement/targets`' `paneZone` is made for it.
+  `@n-uf/placement/targets`' `paneZone` is made for it. Near the current
+  target's edge (within the band or the gap grace) answer its nearest place:
+  null there would drop the band and the grace.
+  - Changed: `placeOf` is now called on every sample for each target under
+    the pointer and for the current one; in 26.11.4 it was called only for
+    the shown target. Keep it cheap and free of side effects.
 - `@n-uf/motion/layout`: what a tiling host's own leaf motion did, on
   `createLayoutMotion`:
   - `onDraw(batch)`: every item that moved is drawn in one pass per frame and
