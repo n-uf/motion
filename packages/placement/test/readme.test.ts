@@ -1,7 +1,7 @@
 /** The README's examples, run as written (their console output checked). */
 import { describe, expect, it } from "vitest";
 import { DEFAULT_OPTIONS, createDesk, liftOut } from "../src/dock";
-import { deskDrop, deskTargets } from "../src/targets";
+import { deskDrop, deskTargets, paneZone, type PaneZone } from "../src/targets";
 import { arrangement, layoutHost } from "../src/toolbar";
 
 describe("README examples", () => {
@@ -38,5 +38,17 @@ describe("README examples", () => {
     const float = targets.find((t) => t.id === "float")!;
     const drop = deskDrop(input, float, { x: 600, y: 300 }, { x: 20, y: 10 });
     expect([drop.label, drop.slot.x, drop.slot.y]).toEqual(["Float here", 580, 290]);
+  });
+
+  it("pane zones", () => {
+    const pane = { x: 0, y: 0, width: 200, height: 200 };
+    expect([paneZone(pane, { x: 100, y: 100 }), paneZone(pane, { x: 190, y: 100 })]).toEqual(["center", "right"]);
+    expect(paneZone(pane, { x: 137, y: 100 }, "center")).toBe("center");
+    const canSplit = false;
+    const placeOf = (t: { id: string; hit: typeof pane }, p: { x: number; y: number }, previous: string | null): string | null => {
+      const zone = paneZone(t.hit, p, (previous?.split(":")[1] as PaneZone | undefined) ?? null);
+      return zone === "center" || canSplit ? `${t.id}:${zone}` : null;
+    };
+    expect([placeOf({ id: "a", hit: pane }, { x: 100, y: 100 }, null), placeOf({ id: "a", hit: pane }, { x: 10, y: 100 }, null)]).toEqual(["a:center", null]);
   });
 });
