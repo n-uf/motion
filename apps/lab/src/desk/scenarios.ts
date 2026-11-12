@@ -672,19 +672,20 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
     if (!showed) return `the item snapped into ${snap.id} at ${Math.round(snap.t)} ms with no indicator on it`;
     return snap.t - showed.t >= DRAG_DEFAULTS.roomAfter - 1000 / 60 ? null : `the item snapped into ${snap.id} ${Math.round(snap.t - showed.t)} ms after the indicator showed it, before the room was made`;
   };
-  // The three previews, one drag (aimed at a dock slot until the room is made): what moves before the drop.
-  // Indicator: nothing but the indicator. Gap: the neighbours move aside; the item stays under the pointer. Snap: the
-  // neighbours move aside and the item glides into the slot. Each lands where it showed.
-  for (const [short, cid] of [
-    ["A", "docks"],
-    ["C", "navigator"],
+  // The three previews, one drag (aimed at a slot between neighbours until the room is made): what moves before the
+  // drop. Indicator: nothing but the indicator. Gap: the neighbours move aside; the item stays under the pointer. Snap:
+  // the neighbours move aside and the item glides into the slot. Each lands where it showed. (Where the room only
+  // cross-fades a side's panel, as in the navigator's tabs, nothing moves aside to see.)
+  for (const [short, cid, goalId] of [
+    ["A", "docks", "dock:left:0"],
+    ["B", "tree", "tile:L:1"],
   ] as const) {
     out[`${short} · the previews: indicator moves nothing, gap opens the slot, snap fills it`] = {
       construction: cid,
       drag: true,
       play: async (expect) => {
         const key = DRAGGED[cid];
-        const goal = lab.targets(key).find((t) => (cid === "docks" ? t.id === "dock:left:0" : t.id === "tabs:left"));
+        const goal = lab.targets(key).find((t) => t.id === goalId);
         if (!goal) return expect(false, "no target to aim at");
         const r = await lab.drag(key, () => mid(goal.hit));
         await lab.idle();
