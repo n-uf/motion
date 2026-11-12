@@ -143,6 +143,74 @@ export function sameArrangement<G extends string>(a: Arrangement<G>, b: Arrangem
 /** Dropping `g` at `place` changes nothing: it is the group's own place, its home, never a target. */
 export const isOwnPlace = <G extends string>(a: Arrangement<G>, g: G, place: Place): boolean => sameArrangement(insertGroup(a, g, place.host, place.zone, place.index), a);
 
+// --- stored arrangements -------------------------------------------------------------------------------------------
+
+/** An arrangement as stored: version 1. */
+export interface ArrangementJSON<G extends string = string> {
+  readonly v: 1;
+  readonly hosts: Readonly<Record<HostId, Readonly<Record<ZoneId, readonly G[]>>>>;
+  readonly collapsed: readonly G[];
+  readonly floating: readonly { readonly id: G; readonly x: number; readonly y: number; readonly from: Place | null }[];
+}
+
+/** What reading a stored arrangement gives: the arrangement, or why it couldn't be read. Never a throw. */
+export type ArrangementRead<G extends string = string> = { readonly ok: true; readonly arrangement: Arrangement<G> } | { readonly ok: false; readonly error: string };
+
+/** The arrangement as plain data with its version, ready for `JSON.stringify`. */
+export function toJSON<G extends string>(a: Arrangement<G>): ArrangementJSON<G> {
+  const hosts = Object.fromEntries(HOSTS.map((h) => [h, Object.fromEntries(ZONES.map((zn) => [zn, [...a[h][zn]]]))])) as unknown as Record<HostId, Record<ZoneId, G[]>>;
+  return { v: 1, hosts, collapsed: [...a.collapsed], floating: a.floating.map((f) => ({ id: f.id, x: f.x, y: f.y, from: f.from ? { ...f.from } : null })) };
+}
+
+/**
+ * A stored arrangement read back (`JSON.parse`'s result). Anything else gives `{ ok: false, error }`, never a throw:
+ * an unknown version, a missing host or zone, a value of the wrong kind, a group in two places, or (with `groups`)
+ * a group the consumer doesn't have.
+ */
+export function fromJSON<G extends string = string>(data: unknown, groups?: readonly G[]): ArrangementRead<G> {
+  const fail = (error: string): ArrangementRead<G> => ({ ok: false, error });
+  const isObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
+  if (!isObject(data)) return fail("not an object");
+  if (data.v !== 1) return fail(`unknown version ${JSON.stringify(data.v ?? null)} (this reads version 1)`);
+  const seen = new Set<string>();
+  const ids = (x: unknown, where: string, placed: boolean): G[] | string => {
+    if (!Array.isArray(x) || !x.every((g) => typeof g === "string")) return `${where} is not a list of group ids`;
+    for (const g of x as string[]) {
+      if (groups && !(groups as readonly string[]).includes(g)) return `${where} has an unknown group "${g}"`;
+      if (placed && seen.has(g)) return `group "${g}" is in two places`;
+      if (placed) seen.add(g);
+    }
+    return x as G[];
+  };
+  if (!isObject(data.hosts)) return fail("hosts is missing");
+  const hosts = {} as Record<HostId, Zones<G>>;
+  for (const h of HOSTS) {
+    const zones = data.hosts[h];
+    if (!isObject(zones)) return fail(`host ${h} is missing`);
+    const out = {} as Record<ZoneId, readonly G[]>;
+    for (const zn of ZONES) {
+      const list = ids(zones[zn], `${h}.${zn}`, true);
+      if (typeof list === "string") return fail(list);
+      out[zn] = list;
+    }
+    hosts[h] = out;
+  }
+  const collapsed = ids(data.collapsed, "collapsed", false);
+  if (typeof collapsed === "string") return fail(collapsed);
+  if (!Array.isArray(data.floating)) return fail("floating is not a list");
+  const floating: Floating<G>[] = [];
+  for (const f of data.floating as unknown[]) {
+    if (!isObject(f) || typeof f.id !== "string" || typeof f.x !== "number" || typeof f.y !== "number" || !Number.isFinite(f.x) || !Number.isFinite(f.y)) return fail("a floating group is not { id, x, y, from }");
+    const id = ids([f.id], "floating", true);
+    if (typeof id === "string") return fail(id);
+    const from = f.from;
+    const place = from === null || from === undefined ? null : isObject(from) && HOSTS.includes(from.host as HostId) && ZONES.includes(from.zone as ZoneId) && Number.isInteger(from.index) && (from.index as number) >= 0 ? { host: from.host as HostId, zone: from.zone as ZoneId, index: from.index as number } : undefined;
+    if (place === undefined) return fail(`floating group "${f.id}" has a bad home`);
+    floating.push({ id: id[0]!, x: f.x, y: f.y, from: place });
+  }
+  return { ok: true, arrangement: { ...hosts, collapsed, floating } };
+}
+
 // --- a host's layout -----------------------------------------------------------------------------------------------
 
 /** A host's room: its length and thickness, and what its ends keep for themselves (window controls, a margin). */

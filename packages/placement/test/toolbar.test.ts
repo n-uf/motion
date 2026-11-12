@@ -6,6 +6,7 @@ import {
   arrangement,
   dockGroup,
   floatGroup,
+  fromJSON,
   hostNeed,
   hostOf,
   insertGroup,
@@ -17,6 +18,7 @@ import {
   moveToHost,
   resetGroup,
   sameArrangement,
+  toJSON,
   toggleCollapsed,
   withoutGroup,
   type Arrangement,
@@ -151,6 +153,35 @@ describe("arrangement changes", () => {
     expect(isOwnPlace(HOME, "history", { host: "top", zone: "center", index: 1 })).toBe(true);
     expect(isOwnPlace(HOME, "history", { host: "top", zone: "center", index: 0 })).toBe(false);
     expect(isOwnPlace(HOME, "history", { host: "top", zone: "end", index: 0 })).toBe(false);
+  });
+
+  it("stores as versioned data and reads back the same arrangement", () => {
+    const a = toggleCollapsed(floatGroup(HOME, "history", 40, 50), "zoom");
+    const data = toJSON(a);
+    expect(data.v).toBe(1);
+    const back = fromJSON<Gr>(JSON.parse(JSON.stringify(data)), ["doc", "edit", "history", "view", "zoom", "panel", "share"]);
+    expect(back.ok && sameArrangement(back.arrangement, a)).toBe(true);
+    expect(back.ok && back.arrangement.floating).toEqual([{ id: "history", x: 40, y: 50, from: { host: "top", zone: "center", index: 1 } }]);
+  });
+
+  it("reading bad data gives an error, never a throw", () => {
+    const good = toJSON(HOME) as unknown as Record<string, unknown>;
+    const bad = (data: unknown, groups?: readonly string[]): string => {
+      const r = fromJSON(data, groups);
+      return r.ok ? "read" : r.error;
+    };
+    expect(bad(null)).toBe("not an object");
+    expect(bad({ ...good, v: 2 })).toBe("unknown version 2 (this reads version 1)");
+    expect(bad({ ...good, v: undefined })).toContain("unknown version");
+    expect(bad({ ...good, hosts: { ...(good.hosts as object), left: undefined } })).toBe("host left is missing");
+    expect(bad({ ...good, hosts: { ...(good.hosts as object), left: { start: [], center: [] } } })).toBe("left.end is not a list of group ids");
+    expect(bad({ ...good, hosts: { ...(good.hosts as object), left: { start: ["doc"], center: [], end: [] } } })).toBe('group "doc" is in two places');
+    expect(bad({ ...good, collapsed: "zoom" })).toBe("collapsed is not a list of group ids");
+    expect(bad({ ...good, floating: [{ id: "x", x: "1", y: 2, from: null }] })).toBe("a floating group is not { id, x, y, from }");
+    expect(bad({ ...good, floating: [{ id: "x", x: 1, y: 2, from: { host: "side", zone: "start", index: 0 } }] })).toBe('floating group "x" has a bad home');
+    expect(bad({ ...good, floating: [{ id: "edit", x: 1, y: 2, from: null }] })).toBe('group "edit" is in two places');
+    expect(bad(good, ["doc"])).toBe('title.end has an unknown group "zoom"');
+    expect(bad(good)).toBe("read");
   });
 
   it("an arrangement written with its zones in another order is the same arrangement", () => {
