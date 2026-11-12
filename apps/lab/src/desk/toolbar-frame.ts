@@ -940,12 +940,14 @@ function end(cancel: boolean): void {
   let landed: GTarget | null = null;
   let next: Arrangement | null = null;
   if (!cancel) {
+    // The release point is a sample too: a last jump of the pointer can hide the indicator before the drop.
+    if (!d.keys) aim(performance.now());
     landed = d.keys ? (d.keys.moved ? (d.targets[d.keys.i] ?? null) : null) : d.intent.release(d.pointer, d.targets);
     // Snapped: it lands in the slot it sits in (the room's arrangement); else where the target puts it.
     next = landed ? (d.snapped && preview && landed.id === d.snapped ? preview : landed.make(d.pointer)) : null;
     if (!d.keys) {
       const under = d.targets.filter((t) => inRect(t.hit, d.pointer)).sort((a, b) => a.priority - b.priority || a.hit.width * a.hit.height - b.hit.width * b.hit.height)[0];
-      const said = inRect(d.homeZone, d.pointer) ? null : d.shown && inRect(d.shown.hit, d.pointer, DRAG_DEFAULTS.band) ? d.shown.id : (under?.id ?? null);
+      const said = inRect(d.homeZone, d.pointer) ? null : (d.shown?.id ?? under?.id ?? null);
       d.releaseNote = said === (landed?.id ?? null) ? null : `landed on ${landed?.id ?? "home"}, but the indicator said ${said ?? "home"}`;
     }
   }
