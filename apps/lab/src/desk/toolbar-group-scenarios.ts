@@ -233,6 +233,43 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
     }),
   };
 
+  out["toolbar groups: in Fit at 1440 and 1700, an empty edge's outline is where the group lands, and nothing widens the page"] = {
+    construction: "docks",
+    drag: true,
+    play: withArrangement(lab, CASES[4]!.arrangement, async (expect) => {
+      const win = tg.window()!;
+      try {
+        tg.fit(true);
+        for (const vw of [1440, 1700]) {
+          // The page at that viewport: the window gets its column's width (16 px gutters, 1712 at most); Fit fills it.
+          win.style.width = `${Math.min(vw, 1712) - 32}px`;
+          await arrange(lab, CASES[4]!.arrangement);
+          lab.setSize(Math.floor(Math.min(win.clientWidth - 2, 1680)), 560);
+          await settle(lab);
+          let outline: Rect | null = null;
+          const r = await dragTo("g:history", "g:right:start:0", expect, (t, end) => {
+            if (t < end - 40) return;
+            outline = (lab.preview() === "snap" ? (() => {
+              const held = document.querySelector(".tgroup.lifted");
+              return held ? tg.rectOf(held) : null;
+            })() : tg.indicator()?.rect) ?? outline;
+          });
+          await settle(lab);
+          expect(r?.landed === "g:right:start:0", `${vw}: landed on ${r?.landed ?? "home"}`);
+          const landed = tg.placements().get("history")?.rect;
+          const o = outline as Rect | null;
+          expect(!!o && !!landed && Math.abs(o.x - landed.x) <= 2 && Math.abs(o.y - landed.y) <= 2, `${vw}: the ${lab.preview() === "snap" ? "group glided to" : "outline was at"} ${o ? fmt(o) : "nowhere"}, it landed at ${landed ? fmt(landed) : "nowhere"}`);
+          expect(tg.geometry().width <= win.clientWidth + 0.5, `${vw}: the window is ${Math.round(tg.geometry().width)} wide in a ${win.clientWidth} px column`);
+          expect(win.scrollWidth <= win.clientWidth, `${vw}: something widens the window to ${win.scrollWidth} (column ${win.clientWidth})`);
+          restsAsLaidOut(expect, `${vw}: after the drop`);
+        }
+      } finally {
+        win.style.width = "";
+        tg.fit(null);
+      }
+    }),
+  };
+
   out["toolbar groups: over the documents a group floats where it is dropped; its menu docks it back"] = {
     construction: "docks",
     drag: true,
