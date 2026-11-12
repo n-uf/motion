@@ -86,9 +86,10 @@ export function floatTarget<G extends string>(input: { readonly group: G; readon
     hit: stage,
     label: "Float here",
     kind: "float",
+    // Kept on the stage; a group larger than the stage keeps its top-left corner on the stage's.
     make: (p, grab) => {
-      const x = Math.min(Math.max(0, p.x - grab.x - stage.x), stage.width - input.width);
-      const y = Math.min(Math.max(0, p.y - grab.y - stage.y), stage.height - input.height);
+      const x = Math.max(0, Math.min(p.x - grab.x - stage.x, stage.width - input.width));
+      const y = Math.max(0, Math.min(p.y - grab.y - stage.y, stage.height - input.height));
       return floatGroup(arrangement, group, x, y);
     },
   };

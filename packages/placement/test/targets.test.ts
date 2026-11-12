@@ -166,5 +166,8 @@ describe("toolbar targets", () => {
     expect(f.priority).toBe(3);
     const out = f.make({ x: 2000, y: -50 }, { x: 5, y: 5 });
     expect(out.floating).toEqual([{ id: "b", x: 420, y: 0, from: { host: "top", zone: "start", index: 1 } }]);
+    // A group wider than the stage keeps its left edge on the stage's, never off it.
+    const wide = floatTarget({ group: "b" as Gr, arrangement: a, stage: { x: 10, y: 20, width: 300, height: 300 }, width: 400, height: 28 });
+    expect(wide.make({ x: 2000, y: 100 }, { x: 5, y: 5 }).floating[0]!.x).toBe(0);
   });
 });
