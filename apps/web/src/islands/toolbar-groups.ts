@@ -4,7 +4,10 @@
  * rendered the window's default state and the case rail; this binds them.
  */
 import { $, caseRail } from "./rail";
-import { flip, glideFrom } from "./motion";
+import { createSettle, type Point, type Settle } from "@n-uf/motion";
+import { drive, flip, glideFrom } from "./motion";
+import { bindDropMode, dropMode } from "./drop-mode";
+import { watchActions } from "./showcase";
 import { CASES, HOSTS, ZONES, HOSTNAME, ZONENAME, clone, label, windowHTML, type Host, type Zone } from "../demos/toolbar";
 
 let model = clone(CASES[0]!.m);
@@ -224,6 +227,41 @@ interface Drag {
   slot?: HTMLElement | null;
   /** Where the group came from (host, zone, index): home, never a target. Null for a floating group. */
   home?: { h: Host; z: Zone; i: number } | null;
+  /** The lifted group's top-left: held 1:1 under the pointer, or settling into a slot (Snap to slot) and back. */
+  pos?: Settle<Point>;
+  glide?: (() => void) | null;
+  /** Snap to slot: the slot the group is gliding into, and whether it is gliding back to the pointer. */
+  snapTo?: HTMLElement | null;
+  returning?: boolean;
+}
+
+/** Draw the lifted group at its settled top-left. */
+function drawGhost(d: Drag): void {
+  const v = d.pos!.value;
+  d.ghost!.style.left = v.x + "px";
+  d.ghost!.style.top = v.y + "px";
+}
+/** The lifted group follows the pointer: 1:1, or by settle while it comes back from a slot. */
+function followPointer(d: Drag, p: { x: number; y: number }): void {
+  if (d.snapTo) return;
+  const at = { x: p.x - d.grab!.x, y: p.y - d.grab!.y };
+  if (d.returning) {
+    const v = d.pos!.value;
+    if (Math.abs(v.x - at.x) >= 1 || Math.abs(v.y - at.y) >= 1) {
+      glideGhost(d, at);
+      return;
+    }
+    d.returning = false;
+  }
+  d.glide?.();
+  d.glide = null;
+  d.pos!.hold(at);
+  drawGhost(d);
+}
+function glideGhost(d: Drag, to: Point): void {
+  d.glide?.();
+  d.pos!.setTarget(to);
+  d.glide = drive(d.pos!, () => drawGhost(d), () => (d.glide = null));
 }
 
 const indlabel = $("indlabel");
@@ -322,8 +360,8 @@ win.addEventListener("pointermove", (e) => {
     };
     requestAnimationFrame(tick);
   }
-  drag.ghost!.style.left = p.x - drag.grab!.x + "px";
-  drag.ghost!.style.top = p.y - drag.grab!.y + "px";
+  if (!drag.pos) drag.pos = createSettle<Point>({ x: p.x - drag.grab!.x, y: p.y - drag.grab!.y });
+  followPointer(drag, p);
   evaluate(p, t);
 });
 
@@ -403,6 +441,20 @@ function setShown(tg: AnyTarget | null, p: { x: number; y: number }): void {
     d.slot = s;
   });
   if (tg && tg.float) placeFloatSlot(p);
+  // Snap to slot: the slot still makes room, but draws nothing; the group itself glides into it. Leaving it glides
+  // the group back to the pointer. Float here has no slot, so it keeps its outline.
+  const snap = dropMode() === "snap" && !!tg && !tg.float;
+  if (d.slot) d.slot.classList.toggle("snap", snap);
+  if (snap && d.slot && d.pos) {
+    const r = d.slot.getBoundingClientRect();
+    d.snapTo = d.slot;
+    d.returning = false;
+    glideGhost(d, { x: r.left, y: r.top });
+  } else if (d.snapTo) {
+    d.snapTo = null;
+    d.returning = true;
+    followPointer(d, p);
+  }
   labelSlot();
 }
 function placeFloatSlot(p: { x: number; y: number }): void {
@@ -414,7 +466,7 @@ function placeFloatSlot(p: { x: number; y: number }): void {
 }
 function labelSlot(): void {
   const d = drag;
-  if (!d || !d.slot || !d.shown) {
+  if (!d || !d.slot || !d.shown || d.snapTo) {
     indlabel.classList.remove("on");
     return;
   }
@@ -427,7 +479,9 @@ function endDrag(cancel: boolean): void {
   if (!drag) return;
   const d = drag;
   drag = null;
-  // The group lands from where it was let go (or glides home on cancel), never from its old slot.
+  // The group lands from where it was let go (or glides home on cancel), never from its old slot. A snapped group is
+  // already in its slot, so it lands with no second motion.
+  d.glide?.();
   const released = d.ghost ? d.ghost.getBoundingClientRect() : null;
   if (d.ghost) d.ghost.remove();
   if (d.slot) d.slot.remove();
@@ -469,4 +523,12 @@ render(false);
 syncCases(0);
 syncFreeze();
 setStatus(CASES[0]!.note);
-(window as unknown as Record<string, unknown>).__toolbarSketch = { cases: CASES.length, apply: (i: number) => (casesEl.children[i] as HTMLElement).click(), model: () => clone(model) };
+(window as unknown as Record<string, unknown>).__toolbarSketch = {
+  cases: CASES.length,
+  apply: (i: number) => (casesEl.children[i] as HTMLElement).click(),
+  model: () => clone(model),
+  drag: () => (drag ? { shown: drag.shown ? drag.shown.label : null, snapped: !!drag.snapTo, ghost: drag.pos ? { ...drag.pos.value } : null } : null),
+};
+const figure = $("figure");
+watchActions(figure);
+bindDropMode(figure);

@@ -1,6 +1,7 @@
 ---
 import Site from "../layouts/Site.astro";
 import CaseRail from "../components/CaseRail.astro";
+import DropModeSwitch from "../components/DropModeSwitch.astro";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode } from "../data/schema";
 import { CASES, windowHTML } from "../demos/toolbar";
@@ -38,6 +39,7 @@ const RULES: [string, string][] = [
         <span class="state"><span class="off">Layout unlocked</span><span class="onn">Layout frozen</span></span>
         <span class="lockhint">hold <kbd>Alt</kbd> to move</span>
       </label>
+      <span class="field"><span class="label">Preview</span><DropModeSwitch /></span>
       <span class="spacer"></span>
       <span class="note">Point at a handle: the other groups dim. While you drag, empty slots show as hatched strips.</span>
     </div>
