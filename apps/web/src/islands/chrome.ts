@@ -26,6 +26,7 @@ import type { Point, Settle } from "@n-uf/motion";
 import { drive, flip, forget, glideFrom, newSettle } from "./motion";
 import { dropMode, previewPlan } from "./drop-mode";
 import { setDragging, userAction } from "./showcase";
+import { xrayOf, type XR } from "./xray";
 import { HOSTNAME, HOSTS, ZONENAME, ZONES, clone, floatStyle, type Host, type Model, type Zone } from "../demos/toolbar";
 
 export interface ChromeOptions {
@@ -97,7 +98,11 @@ interface Drag {
   resize?: (() => void) | null;
   snapTo?: HTMLElement | null;
   returning?: boolean;
+  aiming?: boolean;
+  /** The held frame's recent top-left corners, for X-ray's motion layer. */
+  trail?: Point[];
 }
+const xr = (r: DOMRect): XR => ({ x: r.left, y: r.top, w: r.width, h: r.height });
 
 let openMenuEl: HTMLElement | null = null;
 const closeMenu = (): void => {
@@ -201,6 +206,7 @@ export function createChrome(o: ChromeOptions): Chrome {
     syncCollapsed();
     if (!root.classList.contains("dragging")) collapseOverflow();
     syncReset();
+    if (!root.classList.contains("dragging")) requestAnimationFrame(() => xrayRest());
     if (!animate) return;
     before.forEach((a, g) => {
       if (!g.isConnected) return;
@@ -455,6 +461,43 @@ export function createChrome(o: ChromeOptions): Chrome {
   marker.className = "chrome-marker";
   document.body.appendChild(marker);
 
+  // ---- X-ray: placement's hosts, zones, hit zones and slots; motion's target, trail and aim ----------------------------
+  const xray = xrayOf(root.tagName === "FIGURE" ? root : (root.closest<HTMLElement>("figure.win") ?? root));
+  const xowner = `chrome:${root.id || "win"}`;
+  /** At rest: the outline of every zone a group can dock in (labelled during a drag, when it matters). */
+  function xrayRest(): void {
+    if (!xray.on || drag) return;
+    const zones = own<HTMLElement>(".bar:not(.empty) > .zone").map((z) => ({ r: xr(z.getBoundingClientRect()) })).filter((z) => z.r.w > 0 && z.r.h > 0);
+    xray.draw(xowner, { zones });
+  }
+  /**
+   * During a drag: the hit zones and insertion points, with placement's priorities (an empty zone 1, an insertion
+   * line 2, floating 3), the slot shown; the held settle, its trail and the aim.
+   */
+  function xrayDrag(d: Drag, p: Point): void {
+    if (!xray.on || !d.ghost || !d.pos) return;
+    const zones: { r: XR; label?: string }[] = [], slots: { r: XR; label?: string; on?: boolean }[] = [], hosts = new Set<Host>();
+    for (const tg of d.targets!) {
+      if (tg.float) {
+        zones.push({ r: xr(tg.doc), label: "float · p3" });
+        continue;
+      }
+      if (tg.area) zones.push({ r: xr(tg.zone), label: `${tg.h}.${tg.z} · p1` });
+      else if (!hosts.has(tg.h)) {
+        hosts.add(tg.h);
+        const b = tg.bar;
+        zones.push({ r: { x: b.left - 12, y: b.top - 12, w: b.width + 24, h: b.height + 24 }, label: `${tg.h} lines · p2` });
+      }
+      if (tg === d.shown) slots.push({ r: outline(d, tg), on: true, label: tg.label });
+      else if (!tg.area) slots.push({ r: { x: tg.at.x - 3, y: tg.at.y - 3, w: 6, h: 6 } });
+    }
+    if (d.shown?.float && d.slot) slots.push({ r: xr(d.slot.getBoundingClientRect()), on: true, label: "Float here" });
+    const g = d.ghost.getBoundingClientRect(), t = d.pos.target;
+    const state = !d.aiming ? "fly" : d.shown && previewPlan(dropMode()).room ? "room" : "aim";
+    xray.draw(xowner, { zones, slots, drawn: xr(g), target: { x: t.x, y: t.y, w: g.width, h: g.height }, trail: d.trail, aim: { p, state } });
+  }
+  xray.onChange(() => xrayRest());
+
   /** A group's size in its horizontal or vertical form, measured on a hidden copy inside this window. */
   function formSize(g: HTMLElement, vertical: boolean): Size {
     const c = g.cloneNode(true) as HTMLElement;
@@ -600,6 +643,10 @@ export function createChrome(o: ChromeOptions): Chrome {
     const v = d.pos!.value;
     d.ghost!.style.left = v.x + "px";
     d.ghost!.style.top = v.y + "px";
+    if (xray.on) {
+      (d.trail ??= []).push({ x: v.x, y: v.y });
+      if (d.trail.length > 48) d.trail.shift();
+    }
   };
   function glideGhost(d: Drag, to: Point): void {
     d.glide?.();
@@ -671,6 +718,7 @@ export function createChrome(o: ChromeOptions): Chrome {
       d.stillSince = t;
     }
     const aiming = speed < 0.45 || t - d.stillSince! >= 90;
+    d.aiming = aiming;
     let best: AnyTarget | null = null, bd = Infinity, inBar = false;
     for (const tg of d.targets!) {
       if (tg.float) continue;
@@ -705,6 +753,7 @@ export function createChrome(o: ChromeOptions): Chrome {
       } else if (t - d.pendingSince! >= 160) setShown(d, best, p);
     }
     if (d.shown && d.shown.float) placeFloatSlot(d, p);
+    xrayDrag(d, p);
   }
   /**
    * Show a target by the preview plan, always as the group's own outline: drawn over the insertion point while nothing
@@ -818,6 +867,7 @@ export function createChrome(o: ChromeOptions): Chrome {
     render();
     if (tg) changed();
     setDragging(false);
+    xrayRest();
   }
   root.addEventListener("pointerup", () => endDrag(false));
   root.addEventListener("pointercancel", () => endDrag(true));
@@ -847,6 +897,7 @@ export function createChrome(o: ChromeOptions): Chrome {
     auto = new Set();
     syncCollapsed();
     collapseOverflow();
+    xrayRest();
   };
   const ro = new ResizeObserver(() => { if (!pending) pending = requestAnimationFrame(refit); });
   groups.forEach((g) => ro.observe(g));

@@ -4,6 +4,7 @@
  * preview) are bound. Dragging a group counts as user activity for the showcases.
  */
 import { createChrome, type Chrome, type DemoState } from "./chrome";
+import { bindXray } from "./xray";
 import { bindDropMode } from "./drop-mode";
 import { getSpeed, getTempo, onMotionChange, setSpeed, setTempo, type Tempo } from "./motion";
 import { watchActions } from "./showcase";
@@ -22,6 +23,7 @@ export function figureChrome(fig: HTMLElement, opts: { onChange?: (m: Model) => 
     onChange: opts.onChange,
   });
   if (opts.demo) chrome.setDemo(opts.demo);
+  bindXray(fig);
   watchActions(fig);
   bindDropMode(fig);
   bindPlayback(fig);
