@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createFakeClock, createFrameLoop } from "../src/clock";
 import { previewPlan, type DragPreview, type DragTarget } from "../src/drag";
-import { createLayoutMotion, domDrawable, drawBox, flip, holdItem, type Drawable, type DrawFrame, type StyleLike } from "../src/layout";
+import { createLayoutMotion, domDrawable, drawBox, flip, holdItem, type Drawable, type DrawEntry, type DrawFrame, type LayoutMotionOptions, type StyleLike } from "../src/layout";
 import type { Rect } from "../src/shapes";
 import { checkMonotonic, checkNoJumps, checkNoOvershoot, type TargetSample } from "../src/testing";
 import { SETTLE_TEMPO } from "../src/values";
@@ -9,11 +9,11 @@ import { SETTLE_TEMPO } from "../src/values";
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 const OMEGA = SETTLE_TEMPO.default;
 
-/** A surface on the fake clock, and a drawable that records what it was asked to lay out and draw. */
-function surface() {
+/** A surface on the fake clock (with `extra` options), and a drawable that records what it was asked to lay out and draw. */
+function surface(extra: Partial<Omit<LayoutMotionOptions, "loop">> = {}) {
   const clock = createFakeClock();
   const loop = createFrameLoop({ clock });
-  const motion = createLayoutMotion({ loop, omega: OMEGA });
+  const motion = createLayoutMotion({ loop, omega: OMEGA, ...extra });
   const layOuts: Rect[] = [];
   const frames: { t: number; frame: DrawFrame }[] = [];
   const drawable: Drawable = {
@@ -407,5 +407,147 @@ describe("one shared frame loop", () => {
     expect(a.drawn.x).toBe(100);
     expect(b.drawn.y).toBe(100);
     expect(s.motion.running).toBe(false);
+  });
+});
+
+describe("batched drawing, flush, retain, reduced motion, active changes", () => {
+  /** A batched surface: each batch recorded with the frame time. */
+  function batched(extra: Partial<Omit<LayoutMotionOptions, "loop" | "onDraw">> = {}) {
+    const batches: { t: number; ids: string[]; entries: readonly DrawEntry[] }[] = [];
+    let now = (): number => 0;
+    const s = surface({ ...extra, onDraw: (batch) => void batches.push({ t: now(), ids: batch.map((e) => e.id), entries: batch }) });
+    now = () => s.clock.now();
+    return { ...s, batches };
+  }
+
+  it("draws every item that moved in one batch per frame, and an item at rest not at all", () => {
+    const s = batched();
+    const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
+    const b = s.motion.add("b", s.drawable, rect(0, 100, 50, 50));
+    s.motion.add("c", s.drawable, rect(0, 200, 50, 50));
+    s.settle();
+    s.batches.length = 0;
+    const drawnBefore = s.frames.length;
+    a.moveTo(rect(300, 0, 50, 50));
+    b.moveTo(rect(300, 100, 50, 50));
+    s.settle();
+    // One call per frame: no two batches share a frame time; each holds a and b (the moving ones), never c.
+    const times = s.batches.map((x) => x.t);
+    expect(new Set(times).size).toBe(times.length);
+    expect(s.batches.length).toBeGreaterThan(5);
+    expect(s.batches.every((x) => x.ids.includes("a") && x.ids.includes("b") && !x.ids.includes("c"))).toBe(true);
+    // Each drawable drew exactly what the batches carried, and the last batch is the rest.
+    expect(s.frames.length - drawnBefore).toBe(s.batches.reduce((n, x) => n + x.ids.length, 0));
+    expect(s.batches.at(-1)!.entries.find((e) => e.id === "a")!.frame.drawn).toEqual(rect(300, 0, 50, 50));
+    expect(a.drawn).toEqual(rect(300, 0, 50, 50));
+  });
+
+  it("flush draws a change made between frames now, once, at the drawn rect with the content in its new box", () => {
+    const s = batched();
+    const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
+    s.settle();
+    s.batches.length = 0;
+    a.moveTo(rect(200, 0, 80, 50));
+    // Between frames: laid out at the new box, not drawn yet.
+    expect(s.batches).toEqual([]);
+    s.motion.flush();
+    expect(s.batches.length).toBe(1);
+    const f = s.batches[0]!.entries[0]!.frame;
+    expect(f.drawn).toEqual(rect(0, 0, 50, 50));
+    expect(f.box).toEqual(rect(200, 0, 80, 50));
+    s.motion.flush();
+    expect(s.batches.length).toBe(1);
+  });
+
+  it("without batching flush does nothing, and every item is drawn as it changes", () => {
+    const s = surface();
+    const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
+    const at = s.frames.length;
+    a.moveTo(rect(200, 0, 50, 50));
+    expect(s.frames.length).toBe(at + 1);
+    s.motion.flush();
+    expect(s.frames.length).toBe(at + 1);
+  });
+
+  it("retain removes every item not listed; the rest keep moving, the removed are never drawn again", () => {
+    const s = batched();
+    const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
+    const b = s.motion.add("b", s.drawable, rect(0, 100, 50, 50));
+    s.motion.add("c", s.drawable, rect(0, 200, 50, 50));
+    a.moveTo(rect(300, 0, 50, 50));
+    b.moveTo(rect(300, 100, 50, 50));
+    s.clock.frame();
+    s.motion.retain(new Set(["a"]));
+    expect([...s.motion.items.keys()]).toEqual(["a"]);
+    expect(s.motion.get("b")).toBeUndefined();
+    s.batches.length = 0;
+    s.settle();
+    expect(s.batches.every((x) => x.ids.every((id) => id === "a"))).toBe(true);
+    expect(a.drawn).toEqual(rect(300, 0, 50, 50));
+  });
+
+  it("reduced motion, read on every new target: placed at once, shown and hidden at once; off again, it glides", () => {
+    let reduce = true;
+    const s = surface({ reducedMotion: () => reduce });
+    const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
+    a.moveTo(rect(300, 0, 80, 50));
+    expect(a.drawn).toEqual(rect(300, 0, 80, 50));
+    expect(a.settled).toBe(true);
+    expect(s.frames.at(-1)!.frame.drawn).toEqual(rect(300, 0, 80, 50));
+    a.glideFrom(rect(0, 0, 80, 50), rect(100, 0, 80, 50));
+    expect(a.drawn).toEqual(rect(100, 0, 80, 50));
+    a.show(false);
+    expect(a.shown).toBe(0);
+    expect(a.shownSettled).toBe(true);
+    s.settle();
+    expect(s.frames.at(-1)!.frame.gone).toBe(true);
+    reduce = false;
+    a.show(true, { now: true });
+    a.moveTo(rect(0, 0, 80, 50));
+    expect(a.drawn.x).toBe(100);
+    s.clock.frame();
+    expect(a.drawn.x).toBeGreaterThan(0);
+    expect(a.drawn.x).toBeLessThan(100);
+  });
+
+  it("reduced motion as a plain option", () => {
+    const s = surface({ reducedMotion: true });
+    const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
+    a.moveTo(rect(300, 0, 50, 50));
+    expect(a.drawn).toEqual(rect(300, 0, 50, 50));
+    expect(s.motion.running).toBe(false);
+  });
+
+  it("calls the active change once when the frames start and once when they stop, and on dispose while running", () => {
+    const changes: boolean[] = [];
+    const s = surface({ onActiveChange: (on) => void changes.push(on) });
+    const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
+    expect(changes).toEqual([]);
+    a.moveTo(rect(300, 0, 50, 50));
+    s.clock.frame();
+    a.moveTo(rect(300, 200, 50, 50));
+    s.settle();
+    expect(changes).toEqual([true, false]);
+    a.moveTo(rect(0, 0, 50, 50));
+    s.clock.frame();
+    s.motion.dispose();
+    expect(changes).toEqual([true, false, true, false]);
+  });
+
+  it("retarget chases a moving point without laying the content out again; a new size lays it out once", () => {
+    const s = surface();
+    const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
+    const laid = s.layOuts.length;
+    for (let i = 1; i <= 20; i++) {
+      a.retarget(rect(10 * i, 5 * i, 50, 50));
+      s.clock.frame();
+    }
+    expect(s.layOuts.length).toBe(laid);
+    expect(a.box).toEqual(rect(0, 0, 50, 50));
+    s.settle();
+    expect(a.drawn).toEqual(rect(200, 100, 50, 50));
+    a.retarget(rect(200, 100, 30, 90));
+    expect(s.layOuts.length).toBe(laid + 1);
+    expect(s.layOuts.at(-1)).toEqual(rect(200, 100, 30, 90));
   });
 });

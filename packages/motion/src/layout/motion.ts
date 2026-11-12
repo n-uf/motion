@@ -60,6 +60,12 @@ export interface LayoutItem {
   readonly shownSettled: boolean;
   /** Settle to `to` from where it is drawn; lays the content out at `to` and redraws at once. */
   moveTo(to: Rect): void;
+  /**
+   * Settle to `to` from where it is drawn, like {@link LayoutItem.moveTo}, but keep the content laid out in its box
+   * while `to` is the box's size: for chasing a moving point (a pointer), which would otherwise lay the content out
+   * again on every frame. A new size lays it out at `to`, as `moveTo` does.
+   */
+  retarget(to: Rect): void;
   /** Be at `to` now, at rest: no glide. */
   jumpTo(to: Rect): void;
   /** Drawn at `from` now, then settle to `to` (a FLIP's invert and play: `from` in the item's own coordinates). */
@@ -75,6 +81,12 @@ export interface LayoutItem {
 /** A task the layout motion runs on every frame before it steps the items; true keeps the frames coming. */
 export type LayoutTask = (frame: FrameInfo) => boolean | void;
 
+/** One item's frame in a batch ({@link LayoutMotionOptions.onDraw}). */
+export interface DrawEntry {
+  readonly id: string;
+  readonly frame: DrawFrame;
+}
+
 export interface LayoutMotionOptions {
   /** The frame loop every item steps on (one loop for all of them). */
   readonly loop: FrameLoop;
@@ -84,6 +96,20 @@ export interface LayoutMotionOptions {
   readonly phase?: Phase;
   /** Where an appearing item grows from, as a share of its size ({@link popIn}'s `from`); default 0.87. */
   readonly popFrom?: number;
+  /**
+   * Reduced motion: read on every new target and every show or hide. While true an item is placed on its new
+   * target at once (no glide) and appears or disappears at once (no fade). A boolean, or the host's query (such as
+   * the reduced-motion media query). Default false.
+   */
+  readonly reducedMotion?: boolean | (() => boolean);
+  /**
+   * Batched drawing: every item that changed is drawn in one pass per frame, after the items step: each one's
+   * drawable, then this, once, with all of their frames. Changes made between frames (a new target, a hold) are
+   * drawn on the next frame, or now by {@link LayoutMotion.flush}. Without it, each item is drawn as it changes.
+   */
+  readonly onDraw?: (batch: readonly DrawEntry[]) => void;
+  /** Called when frames start running (true) and when they stop (false), once per change. */
+  readonly onActiveChange?: (active: boolean) => void;
 }
 
 /**
@@ -101,6 +127,14 @@ export interface LayoutMotion {
   get(id: string): LayoutItem | undefined;
   /** Stop moving an item (its drawable is not touched again). */
   remove(id: string): void;
+  /** Remove every item whose id is not in `ids` (the ones that left the layout). */
+  retain(ids: Iterable<string>): void;
+  /**
+   * With {@link LayoutMotionOptions.onDraw}: draw the items changed since the last frame now, outside the loop. A
+   * host calls it right after it commits a new layout, so the next paint shows every item where it is drawn, not a
+   * frame at its new box. Without batching each item is already drawn as it changes, and it does nothing.
+   */
+  flush(): void;
   readonly items: ReadonlyMap<string, LayoutItem>;
   /** Run `task` on every frame, before the items step; returns how to stop it. */
   task(task: LayoutTask): () => void;
@@ -142,21 +176,51 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
   let waiters: (() => void)[] = [];
   let stop: (() => void) | null = null;
   let woken = false;
+  let ticking = false;
+  let active = false;
+  const reduced = (): boolean => (typeof options.reducedMotion === "function" ? options.reducedMotion() : options.reducedMotion === true);
+  const { onDraw, onActiveChange } = options;
+  /** Batched drawing: how to draw each item, and the ones that changed since the last batch. */
+  const drawers = new Map<string, () => DrawEntry>();
+  const dirty = new Set<string>();
+
+  const setActive = (on: boolean): void => {
+    if (on === active) return;
+    active = on;
+    onActiveChange?.(on);
+  };
 
   const wake = (): void => {
     woken = true;
     if (stop) return;
     stop = loop.repeat(phase, tick);
+    setActive(true);
   };
+
+  /** Draw every item that changed, then hand the batch over once. */
+  function writeBatch(): void {
+    if (!onDraw || dirty.size === 0) return;
+    const batch: DrawEntry[] = [];
+    for (const id of dirty) {
+      const entry = drawers.get(id)?.();
+      if (entry) batch.push(entry);
+    }
+    dirty.clear();
+    if (batch.length > 0) onDraw(batch);
+  }
 
   function tick(frame: FrameInfo): boolean {
     let moving = woken;
     woken = false;
+    ticking = true;
     for (const task of [...tasks]) if (task(frame)) moving = true;
     for (const step of [...steps.values()]) if (step(frame.delta)) moving = true;
+    writeBatch();
+    ticking = false;
     for (const listener of [...frames]) listener(frame);
     if (moving || woken) return true;
     stop = null;
+    setActive(false);
     const resolve = waiters;
     waiters = [];
     for (const r of resolve) r();
@@ -174,11 +238,36 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
       const drawn = rect.value;
       return { drawn, box, reveal: reveal(drawn, box), pop: popIn(pop.value, popFrom), shown: pop.value, gone: pop.settled && pop.value === 0 };
     };
-    const draw = (): void => drawable.draw(frameOf());
+    const drawNow = (): DrawEntry => {
+      const frame = frameOf();
+      drawable.draw(frame);
+      return { id, frame };
+    };
+    // Batched: mark it changed (the batch draws it); a change between frames asks for a frame to draw it in.
+    const draw = (): void => {
+      if (!onDraw) {
+        drawNow();
+        return;
+      }
+      dirty.add(id);
+      if (!ticking) wake();
+    };
     const layOut = (to: Rect): void => {
       box = copy(to);
       drawable.layOut(box);
     };
+    /** Head for `to`: a settle from the drawn rect, or (reduced motion) there at once. */
+    const aim = (to: Rect): void => {
+      if (reduced()) {
+        rect.jumpTo(copy(to));
+        draw();
+        return;
+      }
+      rect.setTarget(copy(to));
+      wake();
+    };
+    /** It moved on the last step (so the step that brings it to rest still draws it, batched). */
+    let moved = false;
     const tempo = (): void => {
       rect.configure({ omega });
       pop.configure({ omega });
@@ -213,8 +302,15 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
         // the old offset from the new box (a dropped item would flash a frame away from where it was let go).
         draw();
         if (same(rect.target, to)) return;
-        rect.setTarget(copy(to));
-        wake();
+        aim(to);
+      },
+      retarget(to) {
+        if (to.width !== box.width || to.height !== box.height) {
+          item.moveTo(to);
+          return;
+        }
+        if (same(rect.target, to)) return;
+        aim(to);
       },
       jumpTo(to) {
         layOut(to);
@@ -225,8 +321,7 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
         rect.jumpTo(copy(from));
         layOut(to);
         draw();
-        rect.setTarget(copy(to));
-        wake();
+        aim(to);
       },
       hold(r) {
         rect.hold(copy(r));
@@ -234,7 +329,7 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
       },
       show(on, o = {}) {
         const want = on ? 1 : 0;
-        if (o.now) pop.jumpTo(want);
+        if (o.now || reduced()) pop.jumpTo(want);
         else if (pop.target !== want) {
           pop.setTarget(want);
           wake();
@@ -243,6 +338,7 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
       },
       redraw: draw,
     };
+    drawers.set(id, drawNow);
     drawable.layOut(box);
     draw();
     items.set(id, item);
@@ -250,22 +346,35 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
     steps.set(id, (dt) => {
       const a = rect.step(dt);
       const b = pop.step(dt);
-      draw();
+      // Batched, only an item that moved is drawn; else every item, every frame.
+      if (!onDraw || a || b || moved) draw();
+      moved = a || b;
       return a || b;
     });
-    removers.set(id, () => tempos.delete(tempo));
+    removers.set(id, () => {
+      tempos.delete(tempo);
+      drawers.delete(id);
+      dirty.delete(id);
+    });
     return item;
+  }
+
+  function remove(id: string): void {
+    items.delete(id);
+    steps.delete(id);
+    removers.get(id)?.();
+    removers.delete(id);
   }
 
   return {
     add,
     get: (id) => items.get(id),
-    remove(id) {
-      items.delete(id);
-      steps.delete(id);
-      removers.get(id)?.();
-      removers.delete(id);
+    remove,
+    retain(ids) {
+      const keep = new Set(ids);
+      for (const id of [...items.keys()]) if (!keep.has(id)) remove(id);
     },
+    flush: writeBatch,
     items,
     task(task) {
       tasks.add(task);
@@ -292,8 +401,11 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
     dispose() {
       stop?.();
       stop = null;
+      setActive(false);
       items.clear();
       steps.clear();
+      drawers.clear();
+      dirty.clear();
       tasks.clear();
       frames.clear();
       idles.clear();
