@@ -827,7 +827,7 @@ function renderNotes(): void {
   readout.replaceChildren();
   const b = document.createElement("b");
   b.textContent = layout.notes.length ? "Gives way: " : "Everything fits";
-  readout.append(b, layout.notes.length ? layout.notes.join("; ") + "." : " at its natural size.");
+  readout.append(b, layout.notes.length ? layout.notes.map((n) => n.text).join("; ") + "." : " at its natural size.");
 }
 
 function syncControls(): void {

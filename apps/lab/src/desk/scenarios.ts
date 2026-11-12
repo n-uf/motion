@@ -937,7 +937,7 @@ function readers(lab: DeskLab) {
     at,
     look: (key: string) => at(key)?.look,
     hidden: (key: string) => !!at(key)?.hidden,
-    notes: () => lab.layout().notes.join("; "),
+    notes: () => lab.layout().notes.map((n) => n.text).join("; "),
     docs: () => [...lab.layout().items].filter(([k]) => k.startsWith("doc:")).map(([k, p]) => [k, p.rect] as const),
     resize: async (w: number, h: number) => {
       lab.setSize(w, h);
