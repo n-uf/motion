@@ -78,6 +78,18 @@ describe("a host's layout", () => {
     expect(layoutHost<K>(zones, "top", { ...s, keep: { doc: -1 } }, sz).overflow).toEqual(["doc"]);
   });
 
+  it("a keep is read from the spec's own keys and only as a finite number", () => {
+    const sz: GroupSize<string> = (_g, _v, collapsed) => ({ along: collapsed ? 30 : 100, across: 28 });
+    // Three 100 px groups in 190 px: two have to fold.
+    const s = (keep: Record<string, number>): HostSpec<string> => ({ length: 190, thickness: 34, lead: 0, tail: 0, keep });
+    // Groups named like Object.prototype's members get keep 0, not a function (which would make the sort NaN).
+    expect(layoutHost({ start: ["toString", "b", "c"], center: [], end: [] }, "top", s({ b: 1 }), sz).overflow).toEqual(["c", "toString"]);
+    expect(layoutHost({ start: ["constructor", "b", "c"], center: [], end: [] }, "top", s({ b: 1 }), sz).overflow).toEqual(["c", "constructor"]);
+    // A keep that isn't a finite number counts as 0.
+    expect(layoutHost({ start: ["a", "b", "c"], center: [], end: [] }, "top", s({ b: Number.NaN, c: 1 }), sz).overflow).toEqual(["b", "a"]);
+    expect(layoutHost({ start: ["a", "b", "c"], center: [], end: [] }, "top", s({ b: Number.POSITIVE_INFINITY, c: 1 }), sz).overflow).toEqual(["b", "a"]);
+  });
+
   it("a side edge lays its groups out top to bottom, centred across it", () => {
     const l = layoutHost<Gr>({ start: ["edit", "history"], center: [], end: [] }, "left", spec(600), size);
     const e = l.slots.get("edit")!;

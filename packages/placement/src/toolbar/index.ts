@@ -270,7 +270,11 @@ export function layoutHost<G extends string>(zones: Zones<G>, h: HostId, spec: H
   const needNow = (): number => hostNeed(zones, [...collapsed], spec, size, v);
   // The lowest keep first; among equal keeps the trailing end first: the end zone's last group, back to the start
   // zone's first (the sort is stable).
-  const keep = (g: G): number => spec.keep?.[g] ?? 0;
+  // Own keys only (a group named "toString" mustn't read the prototype), and finite numbers only (NaN breaks the sort).
+  const keep = (g: G): number => {
+    const k = spec.keep && Object.hasOwn(spec.keep, g) ? spec.keep[g] : 0;
+    return typeof k === "number" && Number.isFinite(k) ? k : 0;
+  };
   const order = [...ZONES].reverse().flatMap((zn) => [...zones[zn]].reverse());
   for (const g of order.sort((x, y) => keep(x) - keep(y))) {
     if (needNow() <= spec.length) break;
