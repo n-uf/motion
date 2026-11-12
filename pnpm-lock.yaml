@@ -13,6 +13,9 @@ importers:
       '@n-uf/motion':
         specifier: workspace:*
         version: link:../../packages/motion
+      '@n-uf/placement':
+        specifier: workspace:*
+        version: link:../../packages/placement
     devDependencies:
       typescript:
         specifier: ^6.0.3
