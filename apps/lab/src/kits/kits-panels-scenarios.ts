@@ -8,7 +8,7 @@ import type { DragPreview } from "@n-uf/motion/drag";
 import { checkMonotonic, checkNoOvershoot, checkTempo, type RectSample } from "@n-uf/motion/testing";
 import { verdict, type Row } from "../shared/checks";
 import { nextFrame, type Point } from "../shared/geometry";
-import type { LabRun } from "../shared/hooks";
+import { passes, type LabRun, type ScenarioFilter } from "../shared/hooks";
 import { page, type KitsPage } from "./kits-panels";
 
 type Page = KitsPage;
@@ -342,12 +342,12 @@ function installScenarios(p: Page, runButton: HTMLButtonElement, table: HTMLTabl
   const runs: LabRun[] = [];
   let lastRows: Row[] = [];
   const restore = { mode: p.panelMode, preview: p.preview };
-  async function runAll(filter?: string): Promise<LabRun[]> {
+  async function runAll(filter?: ScenarioFilter): Promise<LabRun[]> {
     runs.length = 0;
     restore.mode = p.panelMode;
     restore.preview = p.preview;
     for (const s of SCENARIOS) {
-      if (filter && !s.name.includes(filter)) continue;
+      if (!passes(s.name, filter)) continue;
       for (const mode of s.modes) {
         p.reset();
         await settled(p);
