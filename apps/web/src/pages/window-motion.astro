@@ -6,7 +6,7 @@ import Playback from "../components/Playback.astro";
 import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode } from "../data/schema";
-import { CASES, OPTS, chartSVG, lanesHTML } from "../demos/motion";
+import { CASES, OPTS, chartSVG, lanesHTML, legendHTML } from "../demos/motion";
 import "../styles/window-motion.css";
 
 const path = "/window-motion/";
@@ -48,7 +48,10 @@ const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: s
         <div id="stage">
           <div class="shead"><div><p class="stitle">{first.name}</p><p>{first.desc}</p></div></div>
           <div class="sbody two">
-            <div class="chart" set:html={chartSVG(firstOpt, 560, first.label, firstOpt.T)} />
+            <div class="chartcol">
+              <div class="chart" set:html={chartSVG(firstOpt, 560, first.label, firstOpt.T)} />
+              <div class="legend-box" set:html={legendHTML(firstOpt)} />
+            </div>
             <div class="lanes" set:html={lanesHTML(firstOpt, firstOpt.T)} />
           </div>
         </div>
