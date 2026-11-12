@@ -7,6 +7,8 @@ import Playback from "../components/Playback.astro";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode, software } from "../data/schema";
 import { CASES, arrangement, windowHTML } from "../demos/toolbar";
+import Faq from "../components/Faq.astro";
+import { faqJsonLd } from "../data/faq";
 import "../styles/toolbar-groups.css";
 
 const path = "/toolbar-groups/";
@@ -14,6 +16,7 @@ const page = pageOf(path);
 const jsonLd = [
   webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), about: ["placement"] }),
   breadcrumbs([{ name: "Home", path: "/" }, { name: page.nav, path }]),
+  faqJsonLd(path),
   software("placement"),
   orgNode,
 ];
@@ -47,10 +50,10 @@ const RULES: [string, string][] = [
     </div>
   </Chrome>
   <p class="figure-note">Every window on this site is built from the same groups: drag a handle in any figure's bars to rearrange them, and right-click it for <b>Reset position</b>.</p>
+  <p class="aside lab-link"><a href="/lab/#/placement/toolbar">Drag toolbar groups between hosts and zones in the lab</a>, and watch them collapse as room runs out.</p>
 
   <section class="section">
     <div class="section-head">
-  <p class="aside lab-link"><a href="/lab/#/placement/toolbar">Drag toolbar groups between hosts and zones in the lab</a>, and watch them collapse as room runs out.</p>
       <span class="eyebrow">The rules</span>
       <p class="section-title">What the handle does, and where a group can go</p>
     </div>
@@ -59,6 +62,8 @@ const RULES: [string, string][] = [
     </div>
     <p class="aside"><code>@n-uf/placement</code> gives the groups, hosts, zones, overflow and drop targets; <code>@n-uf/motion</code> gives the drag intent and the glides. The handles, menus, the lock with <kbd>Alt</kbd>, Escape and the keys are this demo's own behaviour around them. How the drop finds its target is the <a href="/drag-intent/">drag-intent model</a>; how a group glides into place is the <a href="/window-motion/">settle curve</a>.</p>
   </section>
+
+  <Faq path={path} />
 </Site>
 
 <script>
