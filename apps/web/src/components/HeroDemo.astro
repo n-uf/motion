@@ -1,0 +1,37 @@
+---
+// The home page's desk demo: three windows that tile, swap and glide, in a figure window with toolbar groups (the
+// tools floating at the bottom, Preview on the left edge, Tempo and Speed on the right). islands/home.ts `startHero`
+// runs it; its elements' ids carry `prefix` (empty on the home page).
+import Chrome from "./Chrome.astro";
+import DropModeSwitch from "./DropModeSwitch.astro";
+import Playback from "./Playback.astro";
+import { arrangement } from "../demos/toolbar";
+import { icon } from "../demos/icons";
+import { DEMO, TOOLS, WINDOWS, demoWindowHTML, firstLayoutStyle } from "../demos/home";
+
+interface Props {
+  /** The figure's id (also its stored arrangement's key). */
+  id: string;
+  /** Prepended to the ids inside (empty by default). */
+  prefix?: string;
+  label: string;
+}
+const { id, prefix = "", label } = Astro.props;
+const groups = [{ id: "title", name: "Title" }, { id: "layout", name: "Layout" }, { id: "preview", name: "Preview" }, { id: "speed", name: "Speed" }, { id: "tempo", name: "Tempo" }, { id: "tools", name: "Tools" }, { id: "readout", name: "Readout" }, { id: "hint", name: "Hint" }];
+const model = arrangement({ title: { start: ["title"], end: ["layout"] }, left: { start: ["preview"] }, right: { start: ["tempo", "speed"] }, bottom: { start: ["readout"], end: ["hint"] } }, [{ id: "tools", x: 0, y: 0, anchor: "bottom" }]);
+---
+<Chrome id={id} class="demo-fig" label={label} groups={groups} model={model}>
+  <span class="ident" slot="title"><span class="name">Desk</span><span class="page">3 windows</span></span>
+  <Fragment slot="layout"><span class="lab">Layout: <b id={`${prefix}layout-name`}>Master and stack</b></span><button type="button" class="tb" id={`${prefix}shuffle`} aria-label="Next layout" title="Next layout · Master and stack" set:html={icon("swap")} /></Fragment>
+  <Fragment slot="preview"><DropModeSwitch /></Fragment>
+  <Fragment slot="speed"><Playback part="speed" /></Fragment>
+  <Fragment slot="tempo"><Playback part="tempo" /></Fragment>
+  <Fragment slot="tools">{TOOLS.map(([t, name]) => <button type="button" class="tb" data-tool={t} aria-pressed={String(t === "pen")} aria-label={name} title={name} set:html={icon(t)} />)}</Fragment>
+  <Fragment slot="readout"><span class="mono h-only" id={`${prefix}readout`}><b>Quarterly plan.pdf</b> · drawn <b>– × –</b> · target <b>– × –</b></span><span class="side-form ro" id={`${prefix}readout-side`} title="Quarterly plan.pdf"><i class="dot"></i><span class="ro-w">–</span><span class="ro-h">–</span></span></Fragment>
+  <Fragment slot="hint"><span class="quiet" data-showcase-idle>Drag a window onto another to swap them</span><span class="quiet" data-showcase-hint hidden title="The automatic showcase resumes 10 seconds after your last action">Paused while you explore</span><span class="quiet" data-slowmo hidden></span></Fragment>
+  <div class="figure-body no-rail">
+    <div class="demo stage-host" id={`${prefix}demo`} style={`--demo-h:${DEMO.h}px`}>
+      {WINDOWS.map((_, i) => <div class="dw" style={firstLayoutStyle(i)} set:html={demoWindowHTML(i)} />)}
+    </div>
+  </div>
+</Chrome>

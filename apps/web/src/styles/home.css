@@ -1,21 +1,27 @@
 /* Home: the hero and its live demo, the pitch, and the page cards with live thumbnails. */
-/* The hero: the copy in two columns (the title, then the pitch), and the live demo window across the full width. */
-.hero { display: grid; gap: var(--s6); padding-top: var(--s7); padding-bottom: var(--s6); }
-.hero-copy { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "eye eye" "title lead" "title install" "title caveat"; gap: var(--s3) var(--s7); align-items: start; }
-.hero-copy > .eyebrow { grid-area: eye; }
-.hero-copy > h1 { grid-area: title; }
-.hero-copy > .lead { grid-area: lead; }
-.hero-copy > .install { grid-area: install; }
-.hero-copy > .caveat { grid-area: caveat; }
-.hero h1 { font-size: 52px; line-height: 1.04; letter-spacing: -0.034em; max-width: 13ch; }
-.hero .lead { max-width: 52ch; }
-@media (max-width: 860px) { .hero-copy { grid-template-columns: minmax(0, 1fr); grid-template-areas: "eye" "title" "lead" "install" "caveat"; } }
+/*
+ * The hero, one screen at 1440 × 900: the page's h1 on one line and its first paragraph; the pair side by side, the same
+ * height and weight (motion left, placement right, each column's rule and eyebrow in its X-ray colour: motion the
+ * accent, placement violet); then one desk window across the full width, and the versions note under it. Narrow, the
+ * columns stack (motion first).
+ */
+.hero { display: grid; gap: var(--s4); padding-top: var(--s5); padding-bottom: var(--s6); }
+.hero h1 { font-size: 40px; line-height: 1.1; letter-spacing: -0.03em; max-width: none; }
+.hero-intro { margin: calc(-1 * var(--s2)) 0 0; font-size: var(--t-md); line-height: 1.5; color: var(--text-2); }
+.hero-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s4) var(--s7); }
+.hero-col { display: flex; flex-direction: column; gap: var(--s2); padding-top: var(--s3); border-top: 2px solid var(--accent); }
+.hero-col.placement { border-top-color: var(--series-b); }
+.hero-col.placement > .eyebrow { color: var(--series-b); }
+.hero-title { margin: 0; font-size: 30px; font-weight: 650; line-height: 1.12; letter-spacing: -0.025em; }
+.hero-col .lead { margin: 0; font-size: var(--t-base); max-width: 50ch; }
+.hero-col .install { margin-top: auto; padding-top: var(--s1); }
+@media (max-width: 860px) { .hero-pair { grid-template-columns: minmax(0, 1fr); } }
 .install { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-top: var(--s2); }
 .cmd { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--bg-raised); font-size: 13px; color: var(--text); box-shadow: var(--shadow-1); }
 .cmd .prompt { color: var(--text-3); user-select: none; }
 .install .btn { height: 36px; padding: 0 14px; }
 .caveat { font-size: var(--t-xs); color: var(--text-3); }
-@media (max-width: 640px) { .hero h1 { font-size: 38px; } }
+@media (max-width: 640px) { .hero h1 { font-size: 30px; } .hero-title { font-size: 25px; } }
 
 /* The demo: three windows on the flat well of a figure window (components/Chrome.astro). */
 .demo { position: relative; height: 380px; overflow: hidden; background: var(--win-well); touch-action: none; user-select: none; -webkit-user-select: none; }
