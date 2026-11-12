@@ -46,6 +46,21 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@25.9.9)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.2))
 
+  packages/placement:
+    devDependencies:
+      '@types/node':
+        specifier: ^25.5.0
+        version: 25.9.9
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(postcss@8.5.32)(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.12
+        version: 4.1.12(@types/node@25.9.9)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.27.7))
+
 packages:
 
   '@esbuild/aix-ppc64@0.27.7':
@@ -1408,6 +1423,14 @@ snapshots:
       chai: 6.3.0
       tinyrainbow: 3.2.0
 
+  '@vitest/mocker@4.1.12(vite@8.3.6(@types/node@25.9.9)(esbuild@0.27.7))':
+    dependencies:
+      '@vitest/spy': 4.1.12
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 8.3.6(@types/node@25.9.9)(esbuild@0.27.7)
+
   '@vitest/mocker@4.1.12(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.2))':
     dependencies:
       '@vitest/spy': 4.1.12
@@ -1798,6 +1821,18 @@ snapshots:
 
   undici-types@7.24.6: {}
 
+  vite@8.3.6(@types/node@25.9.9)(esbuild@0.27.7):
+    dependencies:
+      lightningcss: 1.33.0
+      picomatch: 4.0.7
+      postcss: 8.5.32
+      rolldown: 1.2.16
+      tinyglobby: 0.2.17
+    optionalDependencies:
+      '@types/node': 25.9.9
+      esbuild: 0.27.7
+      fsevents: 2.3.3
+
   vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.2):
     dependencies:
       lightningcss: 1.33.0
@@ -1809,6 +1844,33 @@ snapshots:
       '@types/node': 25.9.9
       esbuild: 0.28.2
       fsevents: 2.3.3
+
+  vitest@4.1.12(@types/node@25.9.9)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.27.7)):
+    dependencies:
+      '@vitest/expect': 4.1.12
+      '@vitest/mocker': 4.1.12(vite@8.3.6(@types/node@25.9.9)(esbuild@0.27.7))
+      '@vitest/pretty-format': 4.1.12
+      '@vitest/runner': 4.1.12
+      '@vitest/snapshot': 4.1.12
+      '@vitest/spy': 4.1.12
+      '@vitest/utils': 4.1.12
+      es-module-lexer: 2.3.2
+      expect-type: 1.4.0
+      magic-string: 0.30.21
+      obug: 2.2.1
+      pathe: 2.0.3
+      picomatch: 4.0.7
+      std-env: 4.3.0
+      tinybench: 2.9.0
+      tinyexec: 1.3.1
+      tinyglobby: 0.2.17
+      tinyrainbow: 3.2.0
+      vite: 8.3.6(@types/node@25.9.9)(esbuild@0.27.7)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@types/node': 25.9.9
+    transitivePeerDependencies:
+      - msw
 
   vitest@4.1.12(@types/node@25.9.9)(vite@8.3.6(@types/node@25.9.9)(esbuild@0.28.2)):
     dependencies:

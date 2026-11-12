@@ -1,0 +1,24 @@
+{
+  // The library itself: ES2022 only, no DOM and no Node types. A DOM or Node
+  // global in the source fails this typecheck.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // tsup's type build sets baseUrl, which TypeScript 6 flags.
+    "ignoreDeprecations": "6.0",
+    "lib": ["ES2022"],
+    "types": [],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["index.ts", "src"]
+}
