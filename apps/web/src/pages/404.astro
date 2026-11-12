@@ -1,11 +1,37 @@
 ---
+// The 404: noindex, no canonical, one h1. The headline's words are the demo (island not-found.ts): the left ones are
+// held and settle back (@n-uf/motion), the right ones are panels that tear off and dock back. The words are server
+// HTML; the overlay layer is aria-hidden and outside the h1. The links below are the way out, not the words.
 import Site from "../layouts/Site.astro";
 import { demoPages } from "../data/pages";
 import { orgNode } from "../data/schema";
+import "../styles/not-found.css";
+
+const way = [{ path: "/", nav: "Home" }, ...demoPages, { path: "/lab/", nav: "Lab" }];
 ---
-<Site title="Not found | n-uf motion & placement" description="This page doesn't exist. n-uf motion & placement are two TypeScript packages for windows that settle and dock where they belong: the home page shows how." path="/404/" headline="This page doesn't exist" jsonLd={[orgNode]} noindex>
-  <p class="lead" slot="lead">Nothing is at this address. Go <a href="/">back to the library's home page</a>, or open one of its pages:</p>
-  <ul class="notfound">
-    {demoPages.map((p) => <li><a href={p.path}>{p.nav}</a></li>)}
-  </ul>
+<Site title="Not found | n-uf motion & placement" description="This page doesn't exist. n-uf motion & placement are two TypeScript packages for windows that settle and dock where they belong: the home page shows how." path="/404/" jsonLd={[orgNode]} noindex>
+  <section class="wrap nf">
+    <script is:inline>try{if(!matchMedia("(prefers-reduced-motion: reduce)").matches)document.documentElement.classList.add("nf-anim")}catch(e){}</script>
+    <div class="nf-ebs" aria-hidden="true">
+      <span class="nf-eb m">404 <span class="k">· words that settle</span></span>
+      <span class="nf-eb p">@n-uf/placement <span class="k">· panels that dock</span></span>
+    </div>
+    <div class="nf-head" id="nf-head">
+      <h1 class="nf-h1"><span class="nf-part m"><span class="nf-w" data-g="m">This</span> <span class="nf-w" data-g="m">page</span> <span class="nf-w" data-g="m">isn't</span> <span class="nf-w" data-g="m">here.</span></span> <span class="nf-part p"><span class="nf-t" data-g="p">Pick</span> <span class="nf-t" data-g="p">a</span> <span class="nf-t" data-g="p">page</span> <span class="nf-t" data-g="p">below.</span></span></h1>
+      <div class="nf-layer" id="nf-layer" aria-hidden="true"></div>
+    </div>
+    <div class="nf-below">
+      <p class="lead">Nothing is at this address. Go back to the home page, or open one of the pages or the lab:</p>
+      <nav aria-label="Where to go">
+        <ul class="notfound">
+          {way.map((p) => <li><a href={p.path}>{p.nav}</a></li>)}
+        </ul>
+      </nav>
+      <p class="nf-note">The words above are live, if you want to play: drag one. The left words are held by the pointer and settle back without overshoot (<code>@n-uf/motion</code>); a right panel docks into its slot when you aim at it (<code>@n-uf/motion/drag</code>), and <code>@n-uf/placement</code> keeps whatever you drag on the page.</p>
+    </div>
+  </section>
 </Site>
+
+<script>
+  import "../islands/not-found";
+</script>
