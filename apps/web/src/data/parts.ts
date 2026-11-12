@@ -11,6 +11,8 @@ export interface Part {
   short: string;
   pkg: string;
   idea: string;
+  /** The one-line account of the package, as the home page's "What each package does" gives it (the docs index reuses it). */
+  does: string;
   readme: string;
   /** Its interactive pages, in reading order. */
   pages: string[];
@@ -23,6 +25,7 @@ export const PARTS: Part[] = [
     short: "Move",
     pkg: "@n-uf/motion",
     idea: "One frame loop, a settle that never overshoots, sizes revealed instead of stretched, held drags, and a drag intent that shows a drop only once you aim.",
+    does: "For desktop-style web apps with windows, panels, docks and toolbars: every change of layout moves the way a good tiling window manager does, and a drag reads what you mean. You give it rects and pointer samples; it moves the real elements.",
     readme: `${repoUrl}/blob/main/packages/motion/README.md`,
     pages: ["/window-motion/", "/drag-intent/"],
   },
@@ -32,6 +35,7 @@ export const PARTS: Part[] = [
     short: "Place",
     pkg: "@n-uf/placement",
     idea: "Pure state in, rects and drop targets out: desks of docks, rails and palettes, toolbar groups in hosts and zones, and the targets for each.",
+    does: "For the same apps: it works out where windows, panels and toolbar groups go, as the space changes and while something is dragged. You give it state and a size; it gives back rects, notes on what gave way, and drop targets.",
     readme: `${repoUrl}/blob/main/packages/placement/README.md`,
     pages: ["/desk-layouts/", "/toolbar-groups/"],
   },

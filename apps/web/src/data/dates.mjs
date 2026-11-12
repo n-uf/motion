@@ -7,4 +7,8 @@ export const updated = {
   "/drag-intent/": "2026-11-12",
   "/desk-layouts/": "2026-11-12",
   "/toolbar-groups/": "2026-11-12",
+  // the docs pages are rendered from the READMEs: bump a date when that README's text changes in substance
+  "/docs/": "2026-11-12",
+  "/docs/motion/": "2026-11-12",
+  "/docs/placement/": "2026-11-12",
 };
