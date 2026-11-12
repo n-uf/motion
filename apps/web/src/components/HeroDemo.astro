@@ -7,7 +7,7 @@ import DropModeSwitch from "./DropModeSwitch.astro";
 import Playback from "./Playback.astro";
 import { arrangement } from "../demos/toolbar";
 import { icon } from "../demos/icons";
-import { TOOLS, WINDOWS, demoWindowHTML, firstLayoutStyle } from "../demos/home";
+import { LAYOUTS, TOOLS, WINDOWS, demoWindowHTML, firstLayoutStyle } from "../demos/home";
 
 interface Props {
   /** The figure's id (also its stored arrangement's key). */
@@ -22,7 +22,7 @@ const model = arrangement({ title: { start: ["title"], end: ["layout"] }, left: 
 ---
 <Chrome id={id} class="demo-fig" label={label} groups={groups} model={model}>
   <span class="ident" slot="title"><span class="name">Desk</span><span class="page">3 windows</span></span>
-  <Fragment slot="layout"><span class="lab">Layout: <b id={`${prefix}layout-name`}>Master and stack</b></span><button type="button" class="tb" id={`${prefix}shuffle`} aria-label="Next layout" title="Next layout · Master and stack" set:html={icon("swap")} /></Fragment>
+  <Fragment slot="layout"><span class="lab">Layout: <b id={`${prefix}layout-name`}>{LAYOUTS[0]!.name}</b></span><button type="button" class="tb" id={`${prefix}shuffle`} aria-label="Next layout" title={`Next layout · ${LAYOUTS[0]!.name}`} set:html={icon("swap")} /></Fragment>
   <Fragment slot="preview"><DropModeSwitch /></Fragment>
   <Fragment slot="speed"><Playback part="speed" /></Fragment>
   <Fragment slot="tempo"><Playback part="tempo" /></Fragment>

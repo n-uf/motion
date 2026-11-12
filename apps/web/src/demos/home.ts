@@ -21,12 +21,12 @@ export const DEFAULT_TOOL = "pen";
  */
 const DESK = createDesk({ panels: [], start: { left: [], right: [], bottom: [] }, docTitle: (id) => WINDOWS[id - 1]?.title ?? `Document ${id}` });
 const OPTIONS = { ...DEFAULT_OPTIONS, toolbarHidden: true };
-/** The layouts, as `{ name, construction }` (placement's id): what the shuffle cycles through. */
-const CONSTRUCTIONS = [
-  { name: "Master and stack", id: "navigator" },
-  { name: "Tiling tree", id: "tree" },
-  { name: "Edge docks", id: "docks" },
-] as const;
+/**
+ * The layouts the shuffle cycles through, by placement's construction id: with no panels, the three differ in shape
+ * (a master with a stack, three tiled columns, a strip of columns that runs past the stage's edge), and each is named by
+ * the package's own title for it.
+ */
+const CONSTRUCTIONS = ["navigator", "tree", "strip"] as const;
 export interface DeskLayout {
   /** The three windows' rects, in the stage's px. */
   readonly rects: readonly Rect[];
@@ -38,15 +38,19 @@ let cached: { key: string; layout: DeskLayout } | null = null;
 export function deskLayout(index: number, W: number, H: number): DeskLayout {
   const key = `${index}:${W}:${H}`;
   if (cached?.key === key) return cached.layout;
-  const c = DESK.constructionOf(CONSTRUCTIONS[index]!.id);
-  const { items, notes } = c.layout(c.initial([1, 2, 3]), { width: Math.max(1, W), height: Math.max(1, H) }, OPTIONS);
+  const c = DESK.constructionOf(CONSTRUCTIONS[index]!);
+  // The strip starts scrolled to its first column (placement's own start scrolls to the focus, leaving the first off stage).
+  const start = c.initial([1, 2, 3]);
+  const state = c.id === "strip" ? { ...start, stripScroll: 0 } : start;
+  const { items, notes } = c.layout(state, { width: Math.max(1, W), height: Math.max(1, H) }, OPTIONS);
   const layout: DeskLayout = { rects: [1, 2, 3].map((id) => ({ ...items.get(`doc:${id}`)!.rect })), notes: notes.map((n) => n.code) };
   cached = { key, layout };
   return layout;
 }
-export const LAYOUTS: { name: string; id: string; slots: Slot[] }[] = CONSTRUCTIONS.map((c, index) => ({
-  name: c.name,
-  id: c.id,
+export const LAYOUTS: { name: string; id: string; slots: Slot[] }[] = CONSTRUCTIONS.map((id, index) => ({
+  /** placement's own title for the construction, as it is. */
+  name: DESK.constructionOf(id).title,
+  id,
   slots: [0, 1, 2].map((i): Slot => (W, H) => deskLayout(index, W, H).rects[i]!),
 }));
 export const WINDOWS = [
