@@ -1,9 +1,9 @@
 /*
- * "Why they come together": two monospace panes (motion's frames in the accent, placement's rects in violet) and a status
- * bar of the four steps, all above the one desk window. Every row and column is a fixed width and height, so the numbers
- * changing as the desk runs never move anything. Narrow: the panes stack, the status bar becomes a 2 × 2.
+ * "The last move, frame by frame": two monospace panes (motion's frames in the accent, placement's rects in violet), deeper
+ * on the home than the desk they watch. Every row and column is a fixed width and height, so the numbers changing as the
+ * desk runs never move anything. Narrow: the panes stack. The status bar of the four steps (LoopStrip) sits under the desk;
+ * narrow, it becomes a 2 × 2.
  */
-.tele { margin-top: var(--s2); }
 .tpanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5); }
 .tpane { position: relative; display: grid; grid-template-rows: 28px 22px 162px auto; min-width: 0; padding: 0 var(--s4) var(--s3); overflow: hidden; border: 1px solid var(--line-3); border-radius: var(--r-sm); background: var(--bg-sunken); font: 12.5px/18px var(--font-mono); color: var(--text-2); }
 .tpane.m { box-shadow: inset 0 2px 0 var(--accent); }
@@ -47,7 +47,7 @@
 .tpane.p { padding-bottom: 66px; }
 
 /* The status bar: the four steps of a drag, the current one lit by islands/home.ts (data-step on the list). */
-.tstatus { display: flex; align-items: center; gap: var(--s4); margin: var(--s3) 0 var(--s4); padding: 6px 14px; border: 1px solid var(--line-3); border-radius: var(--r-sm); background: var(--bg); font: 12px var(--font-mono); color: var(--text-3); }
+.tstatus { display: flex; align-items: center; gap: var(--s4); margin: var(--s3) 0 0; padding: 6px 14px; border: 1px solid var(--line-3); border-radius: var(--r-sm); background: var(--bg); font: 12px var(--font-mono); color: var(--text-3); }
 .tloop { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-width: 0; margin: 0; padding: 0; list-style: none; }
 .tloop .sep { color: var(--line-3); padding: 0 2px; }
 .tloop .st { --c: var(--accent); display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px 3px 4px; border-radius: 999px; box-shadow: inset 0 0 0 1px transparent; transition: background-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
@@ -59,7 +59,7 @@
 .tloop[data-step="1"] .st[data-step="1"] .n, .tloop[data-step="2"] .st[data-step="2"] .n, .tloop[data-step="3"] .st[data-step="3"] .n, .tloop[data-step="4"] .st[data-step="4"] .n { background: var(--c); color: var(--bg-raised); }
 .tloop[data-step] .st .t b { color: var(--text); }
 .tspeed { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
-.tele:not(.go) .tspeed { visibility: hidden; } /* the label and its buttons do nothing without the island; their room is kept */
+.tstatus:not(.go) .tspeed { visibility: hidden; } /* the label and its buttons do nothing without the island; their room is kept */
 .tspeed .seg button { height: 22px; padding: 0 9px; font: 600 11px var(--font-mono); }
 
 @media (max-width: 1320px) {

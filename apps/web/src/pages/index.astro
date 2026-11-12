@@ -3,6 +3,7 @@ import Site from "../layouts/Site.astro";
 import ExtLink from "../components/ExtLink.astro";
 import HeroDemo from "../components/HeroDemo.astro";
 import HeroScope from "../components/HeroScope.astro";
+import LoopStrip from "../components/LoopStrip.astro";
 import Telemetry from "../components/Telemetry.astro";
 import Poster from "../components/Poster.astro";
 import { pageOf } from "../data/pages";
@@ -41,15 +42,19 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   -->
   <HeroScope />
 
-  <!-- The loop: one desk window, and the four steps of a drag, each by its package, lit live while you drag. -->
+  <!--
+    The loop, second on the page, right under the hero: the live desk window first, then its legend, the four steps of a
+    drag (each by its package, lit live while you drag the desk), and only then the section head that says why they come
+    together, the claims and the caveat. The two telemetry panes that watch the desk are a section further down.
+  -->
   <section class="wrap section loop" aria-labelledby="loop-title">
+    <HeroDemo id="demo-fig" label="Live demo: three windows that glide between layouts and swap when dragged; X-ray shows each package's layer" />
+    <LoopStrip />
     <div class="section-head">
       <span class="eyebrow">The loop</span>
       <h2 id="loop-title">Why they come together</h2>
       <p>One desktop-style UI, two questions, plain data in between. Placement answers where; motion answers how it gets there and, while you drag, what you mean.</p>
     </div>
-    <Telemetry />
-    <HeroDemo id="demo-fig" label="Live demo: three windows that glide between layouts and swap when dragged; X-ray shows each package's layer" />
     <ul class="loop-claims">
       <li><b>What you see is what you get:</b> the preview and the drop come from the same data.</li>
       <li><b>Every layout change animates:</b> any rects, one settle.</li>
@@ -65,7 +70,6 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
       <span class="eyebrow">The packages</span>
       <h2 id="does-title">What each package does</h2>
     </div>
-    <Poster />
     <div class="does-grid">
       <article class="does-col m" aria-labelledby="does-motion">
         <h3 id="does-motion"><code>@n-uf/motion</code> <span>how things move</span></h3>
@@ -113,6 +117,14 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
 
   <CodeTabs />
 
+  <!-- The two panes behind the desk at the top: the frames of its last move and the rects placement gave it (islands/telemetry.ts). -->
+  <section class="wrap section tele-sec" aria-labelledby="tele-title">
+    <div class="section-head">
+      <h2 id="tele-title">The last move, frame by frame</h2>
+    </div>
+    <Telemetry />
+  </section>
+
   <!-- Explore: the four demo pages, grouped by package. -->
   <section class="wrap section explore" aria-labelledby="explore-title">
     <div class="section-head">
@@ -150,6 +162,11 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
     </div>
   </section>
 
+  <!-- The closing band: the two packages in one line, with a seam to drag (components/Poster.astro), just before the FAQ. -->
+  <div class="wrap section poster-band">
+    <Poster />
+  </div>
+
   <Faq path="/" wrap />
 </Site>
 
@@ -158,9 +175,11 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   // The desk demo starts when it scrolls into view.
   const fig = document.getElementById("demo-fig")!;
   whenVisible(fig, () => void import("../islands/home").then((m) => m.startHero(fig)));
-  // The telemetry panes start when they scroll into view, and listen to the desk once it runs.
+  // The telemetry island starts when the desk's legend (right under the desk) scrolls into view: it owns the slow-motion
+  // control there, and fills the two panes further down, which listen to the desk once it runs.
   const tele = document.getElementById("tele")!;
-  whenVisible(tele, () => void import("../islands/telemetry").then((m) => m.startTelemetry(tele)));
+  const strip = document.getElementById("tstrip")!;
+  whenVisible(strip, () => void import("../islands/telemetry").then((m) => m.startTelemetry(tele, strip)));
   // The poster's seam starts when the poster scrolls into view.
   const poster = document.getElementById("poster")!;
   whenVisible(poster, () => void import("../islands/poster").then((m) => m.startPoster(poster)));

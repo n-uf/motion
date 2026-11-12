@@ -1,5 +1,6 @@
 /**
- * Telemetry (island): the two panes above the one desk window (components/Telemetry.astro), live off the desk's tap.
+ * Telemetry (island): the two panes (components/Telemetry.astro) and the slow-motion control in the desk's legend (components/LoopStrip.astro), live
+ * off the desk's tap.
  *
  * - Motion's pane prints the frames the desk's windows drew: each window's settle is a real `@n-uf/motion` settle, and
  *   every frame of a run is recorded (`RectSample`s on the desk's own frame clock). When the run rests, the real checks
@@ -9,7 +10,7 @@
  * - Placement's pane prints the rects `@n-uf/placement/dock` laid the desk out with (the layout the windows' slots are),
  *   its give-way notes (codes), and, while a window is dragged, the drop targets (a slot per window) and the one shown.
  *
- * It only reads: the desk tells it (islands/desk-tap.ts), and the one control it owns is the shared slow motion.
+ * It only reads: the desk tells it (islands/desk-tap.ts), and the one control it owns is the shared slow motion (in the strip).
  */
 import type { Rect } from "@n-uf/motion";
 import { checkHeld, type HeldSample, type RectSample } from "@n-uf/motion/testing";
@@ -29,8 +30,8 @@ interface Run {
 }
 const sameRect = (a: Rect, b: Rect): boolean => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height)) < 0.01;
 
-export function startTelemetry(root: HTMLElement): void {
-  root.classList.add("go"); // the slow-motion control shows now
+export function startTelemetry(root: HTMLElement, strip: HTMLElement): void {
+  strip.classList.add("go"); // the slow-motion control (in the strip under the desk) shows now
   const $ = <T extends Element>(sel: string): T => root.querySelector(sel) as T;
   const who = $<HTMLElement>("#tm-who"), status = $<HTMLElement>("#tm-st"), chk = $<HTMLElement>("#tm-chk");
   const tmRows = [...root.querySelectorAll<HTMLElement>("#tm-rows .rw")];
@@ -196,7 +197,7 @@ export function startTelemetry(root: HTMLElement): void {
   deskTap.onPlan(placementPlan);
 
   // ---- The shared slow motion ---------------------------------------------------------------------------------------------------
-  const speeds = [...root.querySelectorAll<HTMLButtonElement>("[data-speed]")];
+  const speeds = [...strip.querySelectorAll<HTMLButtonElement>("[data-speed]")];
   const syncSpeed = (): void => speeds.forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.speed) === getSpeed())));
   speeds.forEach((b) => b.addEventListener("click", () => setSpeed(Number(b.dataset.speed))));
   onMotionChange(syncSpeed);
