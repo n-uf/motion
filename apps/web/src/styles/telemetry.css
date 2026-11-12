@@ -58,6 +58,7 @@
 .tloop[data-step="1"] .st[data-step="1"] .n, .tloop[data-step="2"] .st[data-step="2"] .n, .tloop[data-step="3"] .st[data-step="3"] .n, .tloop[data-step="4"] .st[data-step="4"] .n { background: var(--c); color: var(--bg-raised); }
 .tloop[data-step] .st .t b { color: var(--text); }
 .tspeed { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.tele:not(.go) .tspeed .seg { visibility: hidden; }
 .tspeed .seg button { height: 22px; padding: 0 9px; font: 600 11px var(--font-mono); }
 
 @media (max-width: 1320px) {
@@ -77,6 +78,9 @@
   .tpane { font-size: 11px; padding-left: var(--s3); padding-right: var(--s3); }
   .tpane .th { margin: 0 calc(-1 * var(--s3)); padding: 2px var(--s3) 0; }
   .tpane.m .tcols, .tpane.m .rw { font-size: 10.5px; }
+  /* The hand-off lines wrap instead of being cut off, so the pane keeps room for four. */
+  .hand { white-space: normal; }
+  .tpane.p { padding-bottom: 104px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .tloop .st { transition: none; }
