@@ -24,6 +24,7 @@ export default defineConfig({
     values: "src/values/index.ts",
     gestures: "src/gestures/index.ts",
     testing: "src/testing/index.ts",
+    drag: "src/drag/index.ts",
     browser: "browser.ts",
   },
   splitting: true,

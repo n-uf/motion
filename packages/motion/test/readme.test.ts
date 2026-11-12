@@ -10,8 +10,19 @@ import {
   signal,
   springValue,
 } from "../index";
+import { createDragIntent, type DragTarget } from "../src/drag";
 
 describe("README examples", () => {
+  it("drag/", () => {
+    const log = vi.fn();
+    const slot: DragTarget = { id: "slot", priority: 2, hit: { x: 0, y: 0, width: 200, height: 100 } };
+    const intent = createDragIntent({ home: { x: 300, y: 300, width: 100, height: 50 } });
+    for (let t = 0; t <= 300; t += 16) intent.update({ x: 100, y: 50 }, t, [slot]);
+    log(intent.state.shown?.id);
+    log(intent.release({ x: 100, y: 50 }, [slot])?.id);
+    expect(log.mock.calls).toEqual([["slot"], ["slot"]]);
+  });
+
   it("clock/", () => {
     const log = vi.fn();
     const clock = createFakeClock();
