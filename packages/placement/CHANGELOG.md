@@ -13,15 +13,17 @@ dependencies.
 - `@n-uf/placement/dock`: `createDesk({ panels, docTitle?, start, opened? })` gives the nine desk constructions as
   presets (edge docks with the bottom dock between or full width, one tiling tree, navigator + inspector, a
   scrolling strip, drawers, palettes over or around the documents, edge docks + tear-off). Each is a pure layout:
-  state, stage size and options in, a placed rect per item and give-way notes out. The parts are exported too:
-  `dockGeometry` (docks fold to rails, right first), `accordion` and `lruFold` (sections at their natural heights,
-  the least recently used folding first), `palettes` (corner stacks that shade), `treeFloats`, `stripGeometry`,
-  `pill`, `pillBetween`; and the state changes `withDocs`, `touch`, `toggleFold`, `toggleClosed`, `withActive`,
-  `liftOut`.
+  state, stage size and options in, a placed rect per item and notes on how it gave way out. A note's `code`
+  (`bottom-folded`, `dock-folded`, `sections-folded`, `tiles-float`, …, with `side` and `items` where they apply)
+  is the contract; its `text` may change. Also exported: `DEFAULT_OPTIONS`, `LAYER`, the gap `G`, the item keys
+  (`panelKey`, `docKey`, `idOf`, …), `draggable`, `stripGeometry`, and the state changes `withDocs`, `touch`,
+  `toggleFold`, `toggleClosed`, `withActive`, `liftOut`. Panel and document ids are numbers; item keys are strings.
 - `@n-uf/placement/toolbar`: arrangements of groups in five hosts and three zones, or floating (`insertGroup`,
   `withoutGroup`, `floatGroup`, `dockGroup`, `resetGroup`, `moveToHost`, `moveBar`, `toggleCollapsed`);
   `layoutHost` (zones along the host, the centre centred, trailing-first collapse to handle and », an optional
-  centre minimum counted in the need); `insertions` (before all, between, after all, empty zones); `isOwnPlace`.
+  centre minimum counted in the need); `insertions` (before all, between, after all, empty zones); `isOwnPlace`
+  and `sameArrangement` (field by field, whatever order the zones were written in). Group ids are the consumer's
+  strings.
 - `@n-uf/placement/targets`: drop targets in the shape `@n-uf/motion/drag` takes. `deskTargets` and `deskDrop` for
   every construction (rails, dock slots, tree slots, strip columns, tab strips, corner stacks, free placement with
   edge snapping); `hostTargets` and `floatTarget` for toolbar groups (own place left out, returned as `own`).
