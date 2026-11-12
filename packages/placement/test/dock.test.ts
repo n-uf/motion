@@ -290,6 +290,17 @@ describe("give-way", () => {
     expect([...l.items].filter(([k, p]) => /^(panel|doc):/.test(k) && !p.hidden && p.layer === LAYER.float)).toEqual([]);
   });
 
+  it("notes · railed columns, a scrolling strip, palette cover and room each carry their code", () => {
+    const tree = C("tree");
+    const size = { width: 520, height: 700 };
+    // One column folded names its side; both folded name none.
+    expect(codes(tree.layout({ ...tree.initial(docs(2)), closed: ["right"] }, size, DEFAULT_OPTIONS))).toContain("columns-railed:right");
+    expect(codes(tree.layout({ ...tree.initial(docs(2)), closed: ["left", "right"] }, size, DEFAULT_OPTIONS))).toContain("columns-railed");
+    expect(codes(C("strip").layout(C("strip").initial(docs(2)), { width: 960, height: 560 }, DEFAULT_OPTIONS))).toContain("strip-scrolls");
+    expect(codes(C("floatOver").layout(C("floatOver").initial(docs(2)), { width: 960, height: 560 }, DEFAULT_OPTIONS))).toEqual(["palettes-cover"]);
+    expect(codes(C("floatAround").layout(C("floatAround").initial(docs(2)), { width: 960, height: 560 }, DEFAULT_OPTIONS))).toEqual(["docs-room"]);
+  });
+
   it("navigator · narrow, the sides fold to icon tabs (the inspector first)", () => {
     const c = C("navigator");
     // No bottom dock here: its panels start on the right side.
