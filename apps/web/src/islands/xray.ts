@@ -32,6 +32,8 @@ export interface Xray {
   onChange(f: (on: boolean) => void): void;
   /** Draw this owner's layer (null clears it). A no-op while X-ray is off. */
   draw(owner: string, frame: XrayFrame | null): void;
+  /** Show only one package's layer (the home page's lit step), or both (null). */
+  focus(part: "placement" | "motion" | null): void;
 }
 
 const SVG = "http://www.w3.org/2000/svg";
@@ -43,6 +45,7 @@ export function xrayOf(win: HTMLElement): Xray {
   const have = all.get(win);
   if (have) return have;
   let on = false;
+  let only: "placement" | "motion" | null = null;
   const listeners = new Set<(on: boolean) => void>();
   const frames = new Map<string, XrayFrame>();
   const layer = document.createElementNS(SVG, "svg");
@@ -77,8 +80,11 @@ export function xrayOf(win: HTMLElement): Xray {
       return `<text class="xp-label${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}">${esc(text)}</text>`;
     };
     for (const f of frames.values()) {
-      for (const z of f.zones ?? []) out.push(`<rect class="xp-zone" ${R(z.r)}/>${z.label ? label(z.r, z.label) : ""}`);
-      for (const s of f.slots ?? []) out.push(`<rect class="xp-slot${s.on ? " on" : ""}" ${R(s.r)}/>${s.label ? label(s.r, s.label, s.on ? " on" : "") : ""}`);
+      if (only !== "motion") {
+        for (const z of f.zones ?? []) out.push(`<rect class="xp-zone" ${R(z.r)}/>${z.label ? label(z.r, z.label) : ""}`);
+        for (const s of f.slots ?? []) out.push(`<rect class="xp-slot${s.on ? " on" : ""}" ${R(s.r)}/>${s.label ? label(s.r, s.label, s.on ? " on" : "") : ""}`);
+      }
+      if (only === "placement") continue;
       if (f.trail && f.trail.length > 1) out.push(`<polyline class="xm-trail" points="${f.trail.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}"/>`);
       if (f.drawn) out.push(`<rect class="xm-drawn" ${R(f.drawn)}/>`);
       if (f.target) out.push(`<rect class="xm-target" ${R(f.target)}/><circle class="xm-dot" cx="${f.target.x.toFixed(1)}" cy="${f.target.y.toFixed(1)}" r="3"/>`);
@@ -101,6 +107,12 @@ export function xrayOf(win: HTMLElement): Xray {
       listeners.forEach((f) => f(on));
     },
     onChange: (f) => void listeners.add(f),
+    focus(part) {
+      if (part === only) return;
+      only = part;
+      win.dataset.xrayFocus = part ?? "";
+      render();
+    },
     draw(owner, frame) {
       if (!on) return;
       if (frame) frames.set(owner, relative(frame));

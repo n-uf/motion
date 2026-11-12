@@ -40,8 +40,10 @@ interface Drag {
 const inside = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
 
 /**
- * Start one desk demo: the window `fig` (components/HeroDemo.astro), whose elements' ids carry `prefix` ("" for the
- * first hero, "place-" for the second). `checks` names the global the headless checks read.
+ * Start one desk demo: the window `fig` (components/HeroDemo.astro), whose elements' ids carry `prefix`. `checks` names
+ * the global the headless checks read. A `#loop-strip` on the page (the home's four steps) is lit as a drag goes: 1
+ * placement's targets at the lift, 2 motion's intent while aiming or showing, 3 placement's new layout at a drop, 4
+ * motion's settle while the windows glide; X-ray then shows that step's package.
  */
 export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): void {
   const el = <T extends HTMLElement = HTMLElement>(id: string): T => $<T>(prefix + id);
@@ -95,12 +97,35 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
   function showReadout(): void {
     const w = wins[0]!, d = w.settle.value, t = w.settle.target;
     const dw = Math.round(d.width), dh = Math.round(d.height), tw = Math.round(t.width), th = Math.round(t.height);
-    readout.innerHTML = `<b>${WINDOWS[0]!.title}</b> · drawn <b>${dw} × ${dh}</b> · target <b>${tw} × ${th}</b> · ${w.settle.settled ? "at rest" : "settling"}`;
+    // While the window is dragged (held 1:1, or snapped into a slot under the pointer) its settle can count as settled;
+    // say "held" then, not "at rest".
+    const state = drag && drag.w === w ? "held" : w.settle.settled ? "at rest" : "settling";
+    readout.innerHTML = `<b>${WINDOWS[0]!.title}</b> · drawn <b>${dw} × ${dh}</b> · target <b>${tw} × ${th}</b> · ${state}`;
     // The side form: a state dot (accent while settling) over the drawn size; the name and target in its tooltip.
-    readoutSide.classList.toggle("moving", !w.settle.settled);
+    readoutSide.classList.toggle("moving", state !== "at rest");
     readoutSide.querySelector(".ro-w")!.textContent = String(dw);
     readoutSide.querySelector(".ro-h")!.textContent = String(dh);
-    readoutSide.title = `${WINDOWS[0]!.title}: drawn ${dw} × ${dh}, target ${tw} × ${th}, ${w.settle.settled ? "at rest" : "settling"}`;
+    readoutSide.title = `${WINDOWS[0]!.title}: drawn ${dw} × ${dh}, target ${tw} × ${th}, ${state}`;
+  }
+
+  // ---- The loop strip: which step of the drag is happening, by which package -------------------------------------------
+  const strip = document.getElementById("loop-strip");
+  let lit = 0, stepTimer = 0, litUntil = 0;
+  function setStep(n: number): void {
+    if (n === lit) return;
+    lit = n;
+    clearTimeout(stepTimer);
+    // Step 4 stays lit at least 600 ms, so a drop that needs no glide still shows it; then the next frame clears it.
+    if (n === 4) {
+      litUntil = performance.now() + 600;
+      stepTimer = window.setTimeout(() => run(), 620);
+    }
+    if (strip) {
+      if (n) strip.dataset.step = String(n);
+      else delete strip.dataset.step;
+    }
+    // X-ray shows the lit step's package (1 and 3 placement, 2 and 4 motion); both when nothing is lit.
+    xrayOf(fig).focus(n ? (n % 2 ? "placement" : "motion") : null);
   }
 
   // ---- X-ray: placement's slots and hit zones (the layout's rects, a window per target), motion's settles ------------
@@ -134,6 +159,8 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
         paint(w);
       }
       showReadout();
+      // Step 4 ends when every window rests.
+      if (!moving && !drag && lit === 4 && performance.now() >= litUntil) setStep(0);
       if (xray.on) {
         if (drag) {
           trail.push(vr(drag.w.settle.value));
@@ -194,6 +221,8 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     w.settle.hold({ ...d });
     w.el.classList.add("held");
     if (!scripted) setDragging(true);
+    // Step 1: the drop targets are worked out at the lift (placement's part).
+    setStep(1);
     run();
   }
   /** A pointer sample during a drag (demo coordinates, a timestamp in ms). */
@@ -206,6 +235,8 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     const { shown, room, aiming } = d.intent.update(p, t, raw);
     const plan = previewPlan(mode());
     d.aim = !aiming && !shown ? "fly" : room && plan.room ? "room" : "aim";
+    // Step 2 while the intent aims or shows a target (motion's part); back to 1 while flying.
+    setStep(aiming || shown ? 2 : 1);
     if (shown !== d.shown) {
       // The old target goes back to its slot, and a snapped window back to the pointer.
       if (d.room) {
@@ -270,6 +301,10 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     const r = slotRect(d.w.slot);
     place(d.w, r);
     d.w.settle.setTarget(r);
+    // Step 3: a drop makes a new arrangement, whose rects placement works out; then step 4, the settle there (a release
+    // with no target goes straight to 4: the window settles home).
+    setStep(target ? 3 : 4);
+    if (target) stepTimer = window.setTimeout(() => { setStep(4); run(); }, 280);
     relayout(true);
     if (!d.scripted) setDragging(false);
     trail = [];

@@ -1,7 +1,7 @@
 ---
-// The pair, side by side: one short example per package (how things move, where things go). Each is a file in
-// src/snippets/ shown from that same file (`?raw`) and typechecked against the packages; they compose without
-// importing each other (placement's targets are what motion's drag intent takes).
+// One short example per package, side by side (motion left, placement right), inside the home page's "Use one, or
+// both" section. Each is a file in src/snippets/ shown from that same file (`?raw`) and typechecked against the
+// package with the site, so the page never shows code that doesn't compile.
 import { Code } from "astro:components";
 import ExtLink from "./ExtLink.astro";
 import { PARTS } from "../data/parts";
@@ -13,19 +13,12 @@ import "../styles/code-tabs.css";
 const code = { motion: motionCode, placement: placementCode } as const;
 const entries = { motion: "/drag + /layout", placement: "/toolbar + /targets" } as const;
 ---
-<section class="wrap section pair" aria-labelledby="pair-title">
-  <div class="section-head">
-    <span class="eyebrow">Two packages</span>
-    <h2 class="section-title" id="pair-title">How things move, and where things go</h2>
-    <p>One short example per package, each a file this site compiles against it. Each package works alone; switch on <b>X-ray</b> in any demo window to see which one does what.</p>
-  </div>
-  <div class="pair-grid">
-    {PARTS.map((pt) => (
-      <div class="ct pair-col">
-        <div class="ct-bar pair-bar"><span class="pair-title">{pt.title}</span><code class="pair-pkg">{pt.pkg}<span class="pair-entries"> {entries[pt.id]}</span></code></div>
-        <Code code={code[pt.id].trimEnd()} lang="ts" theme={codeTheme} class="ct-code" />
-        <p class="ct-foot"><span class="ct-note"><code>npm i {pt.pkg}</code></span> <span class="ct-links"><ExtLink href={pt.readme}>README on GitHub</ExtLink></span></p>
-      </div>
-    ))}
-  </div>
-</section>
+<div class="pair-grid">
+  {PARTS.map((pt) => (
+    <div class={`ct pair-col ${pt.id}`}>
+      <div class="ct-bar pair-bar"><span class="pair-title">{pt.title}</span><code class="pair-pkg">{pt.pkg}<span class="pair-entries"> {entries[pt.id]}</span></code></div>
+      <Code code={code[pt.id].trimEnd()} lang="ts" theme={codeTheme} class="ct-code" />
+      <p class="ct-foot"><span class="ct-note"><code>npm i {pt.pkg}</code></span> <span class="ct-links"><ExtLink href={pt.readme}>README on GitHub</ExtLink></span></p>
+    </div>
+  ))}
+</div>
