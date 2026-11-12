@@ -381,6 +381,21 @@ for (let t = 0; t <= 300; t += 16) zones.update({ x: 50, y: 50 }, t, [pane]); //
 console.log(zones.state.shown, zones.release({ x: 50, y: 50 }, [pane])); // null null: nothing shows, the item goes home
 ```
 
+The intent works in one coordinate space: the one its targets and home are in. On a page drawn scaled (a zoomed
+canvas, a fitted preview), convert each pointer sample into page coordinates first, `(p − origin) / scale`, and the
+band, breakthrough and stillness distances stay page px:
+
+```ts
+// The page is drawn at half size, its top-left corner at (300, 200) on screen; targets are in page px.
+const origin = { x: 300, y: 200 };
+const scale = 0.5;
+const toPage = (p: { x: number; y: number }) => ({ x: (p.x - origin.x) / scale, y: (p.y - origin.y) / scale });
+const onPage = createDragIntent({ home: { x: 600, y: 600, width: 100, height: 50 } });
+const screen = { x: 350, y: 225 }; // the pointer, as the browser reports it
+for (let t = 0; t <= 300; t += 16) onPage.update(toPage(screen), t, [slot]); // page (100, 50): over the slot
+console.log(onPage.state.shown?.id, onPage.release(toPage(screen), [slot])?.id); // "slot" "slot"
+```
+
 ## @n-uf/motion/browser
 
 | | |
