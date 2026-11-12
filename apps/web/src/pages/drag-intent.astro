@@ -2,6 +2,9 @@
 import Site from "../layouts/Site.astro";
 import CaseRail from "../components/CaseRail.astro";
 import DropModeSwitch from "../components/DropModeSwitch.astro";
+import Chrome from "../components/Chrome.astro";
+import Playback from "../components/Playback.astro";
+import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode } from "../data/schema";
 import { CASES, CHIP_HOME, HOME, ICONS, ZONES } from "../demos/drag";
@@ -34,18 +37,18 @@ const RULES: [string, string, string][] = [
 <Site title={page.title} description={page.description} path={path} headline="An indicator only once you aim." jsonLd={jsonLd} ogImage="/og/drag-intent.png">
   <p class="lead" slot="lead">This page shows how a dragged panel finds its drop target. The drop indicator appears only once you are aiming, never flashes while you fly over targets or sit on a border, and the drop lands exactly where it said. Drag the <b>Outline</b> panel yourself, or pick a recorded path and compare the counts in this model and in a naive one that highlights whatever is under the pointer.</p>
 
-  <figure class="figure dragfig" id="figure" aria-label="Drag intent: a desk with a panel to drag, and recorded paths in two modes">
-    <div class="figure-bar">
-      <span class="field"><span class="label">Mode</span>
-        <span class="seg" role="group" aria-label="Mode"><button type="button" data-mode="model" aria-pressed="true">This model</button><button type="button" data-mode="naive" aria-pressed="false" title="Naive: highlight whatever is under the pointer">Naive</button></span>
-      </span>
-      <span class="field"><span class="label">Preview</span><DropModeSwitch /></span>
-      <span class="spacer"></span>
-      <button type="button" class="btn" id="runall"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z"/></svg>Run all paths in both modes</button>
-    </div>
+  <Chrome id="figure" class="dragfig" label="Drag intent: a desk with a panel to drag, and recorded paths in two models"
+    groups={[{ id: "title", name: "Title" }, { id: "model", name: "Model" }, { id: "preview", name: "Preview" }, { id: "playback", name: "Speed and tempo" }, { id: "stats", name: "Counts" }, { id: "hint", name: "Hint" }]}
+    model={arrangement({ title: { start: ["title"], end: ["model"] }, top: { start: ["preview"], end: ["playback"] }, bottom: { start: ["stats"], end: ["hint"] } })}>
+    <span class="ident" slot="title"><span class="name">Drag intent</span><span class="page">Outline on a desk</span></span>
+    <Fragment slot="model"><span class="lab">Model</span><button type="button" class="tb text" data-mode="model" aria-pressed="true">This model</button><button type="button" class="tb text" data-mode="naive" aria-pressed="false" title="Naive: highlight whatever is under the pointer">Naive</button><button type="button" class="tb text" id="runall" title="Play every recorded path in both models">Run all</button></Fragment>
+    <Fragment slot="preview"><DropModeSwitch /></Fragment>
+    <Fragment slot="playback"><Playback tempo /></Fragment>
+    <span class="mono" slot="stats">changes <b id="s-changes">0</b> · flashes <b id="s-flashes">0</b> · drop <b id="s-drop">–</b></span>
+    <Fragment slot="hint"><span class="quiet">Orange: where it lands · <kbd>Esc</kbd> cancels</span><span class="quiet" data-slowmo hidden></span></Fragment>
     <div class="figure-body">
       <CaseRail id="cases" label="Cases" items={CASES} />
-      <div class="stage-wrap">
+      <div class="stage-wrap stage-host">
         <div id="stage">
           <div class="z home" style={box(HOME)}>Outline's place (home)</div>
           {ZONES.map((z) => <div class={`z ${z.cls}`} style={box(z)}>{z.label}</div>)}
@@ -56,16 +59,9 @@ const RULES: [string, string, string][] = [
         </div>
       </div>
     </div>
-    <figcaption class="figure-foot">
-      <span class="status" id="log" role="status" aria-live="polite">Drag the Outline panel yourself, or pick a recorded path on the left.</span>
-      <span class="hint">Orange: where the drop will land. Dashed: Outline's own place. <kbd>Esc</kbd> cancels.</span>
-      <div class="stats">
-        <div title="Times the indicator appeared or moved"><small>Indicator changes</small><b id="s-changes">0</b></div>
-        <div title="Indicators shown for under 150 ms"><small>Flashes · under 150 ms</small><b id="s-flashes">0</b></div>
-        <div class="wide"><small>Drop landed on</small><b id="s-drop">–</b></div>
-      </div>
-    </figcaption>
-  </figure>
+  </Chrome>
+  <p class="figure-note" id="log" role="status" aria-live="polite">Drag the Outline panel yourself, or pick a recorded path on the left.</p>
+  <p class="figure-note">Changes count the times the indicator appeared or moved; flashes count indicators shown for under 150 ms. Orange marks where the drop will land; the dashed box is Outline's own place.</p>
   <div id="compare" hidden></div>
 
   <section class="section">
