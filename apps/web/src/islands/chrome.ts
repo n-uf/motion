@@ -177,14 +177,15 @@ export function createChrome(o: ChromeOptions): Chrome {
     own<HTMLElement>(".bar").forEach((bar) => {
       const v = bar.classList.contains("v");
       const need = (): boolean => {
-        // What the bar's contents need along its axis: the groups and their 12 px gaps, the centre zone's 12 px
-        // margins, the window's grip and fixed controls (with their 12 px), within the bar's padding.
+        // What the bar's contents need along its axis: the groups and their 12 px gaps, the centre zone (its 12 px
+        // margins and, when empty, its minimum drop size), the window's grip and fixed controls (with their 12 px),
+        // within the bar's padding.
         let n = 0;
         bar.querySelectorAll<HTMLElement>(":scope > .zone").forEach((z) => {
           const kids = [...z.children] as HTMLElement[];
-          if (!kids.length) return;
-          n += kids.reduce((s, c) => s + (v ? c.offsetHeight : c.offsetWidth), 0) + 12 * (kids.length - 1);
-          if (z.classList.contains("center")) n += 24;
+          const sum = kids.reduce((s, c) => s + (v ? c.offsetHeight : c.offsetWidth), 0) + 12 * Math.max(0, kids.length - 1);
+          if (z.classList.contains("center")) n += Math.max(sum, v ? z.offsetHeight : z.offsetWidth) + 24;
+          else n += sum;
         });
         const lead = bar.querySelector<HTMLElement>(":scope > .winh");
         if (lead) n += lead.offsetWidth + 12;
