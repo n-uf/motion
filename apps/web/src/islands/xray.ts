@@ -68,21 +68,22 @@ export function xrayOf(win: HTMLElement): Xray {
       key.style.left = s.left - o.left + 8 + "px";
       key.style.top = s.bottom - o.top - key.offsetHeight - 8 + "px";
     }
-    const R = (r: XR): string => `x="${(r.x - o.left).toFixed(1)}" y="${(r.y - o.top).toFixed(1)}" width="${Math.max(0, r.w).toFixed(1)}" height="${Math.max(0, r.h).toFixed(1)}"`;
+    // Frames are stored relative to the window (see draw), so they render where they were drawn whatever the scroll.
+    const R = (r: XR): string => `x="${r.x.toFixed(1)}" y="${r.y.toFixed(1)}" width="${Math.max(0, r.w).toFixed(1)}" height="${Math.max(0, r.h).toFixed(1)}"`;
     const out: string[] = [];
     // A label sits at its rect's bottom left, inside the window.
     const label = (r: XR, text: string, cls = ""): string => {
-      const x = Math.max(3, Math.min(r.x - o.left + 3, o.width - 120)), y = Math.max(11, Math.min(r.y + r.h - o.top - 3, o.height - 3));
+      const x = Math.max(3, Math.min(r.x + 3, o.width - 120)), y = Math.max(11, Math.min(r.y + r.h - 3, o.height - 3));
       return `<text class="xp-label${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}">${esc(text)}</text>`;
     };
     for (const f of frames.values()) {
       for (const z of f.zones ?? []) out.push(`<rect class="xp-zone" ${R(z.r)}/>${z.label ? label(z.r, z.label) : ""}`);
       for (const s of f.slots ?? []) out.push(`<rect class="xp-slot${s.on ? " on" : ""}" ${R(s.r)}/>${s.label ? label(s.r, s.label, s.on ? " on" : "") : ""}`);
-      if (f.trail && f.trail.length > 1) out.push(`<polyline class="xm-trail" points="${f.trail.map((p) => `${(p.x - o.left).toFixed(1)},${(p.y - o.top).toFixed(1)}`).join(" ")}"/>`);
+      if (f.trail && f.trail.length > 1) out.push(`<polyline class="xm-trail" points="${f.trail.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}"/>`);
       if (f.drawn) out.push(`<rect class="xm-drawn" ${R(f.drawn)}/>`);
-      if (f.target) out.push(`<rect class="xm-target" ${R(f.target)}/><circle class="xm-dot" cx="${(f.target.x - o.left).toFixed(1)}" cy="${(f.target.y - o.top).toFixed(1)}" r="3"/>`);
+      if (f.target) out.push(`<rect class="xm-target" ${R(f.target)}/><circle class="xm-dot" cx="${f.target.x.toFixed(1)}" cy="${f.target.y.toFixed(1)}" r="3"/>`);
       if (f.aim) {
-        const cx = (f.aim.p.x - o.left + 14).toFixed(1), cy = (f.aim.p.y - o.top - 14).toFixed(1);
+        const cx = (f.aim.p.x + 14).toFixed(1), cy = (f.aim.p.y - 14).toFixed(1);
         out.push(`<circle class="xm-aim ${f.aim.state}" cx="${cx}" cy="${cy}" r="5"/>`);
         if (f.aim.state === "room") out.push(`<circle class="xm-ring" cx="${cx}" cy="${cy}" r="9"/>`);
       }
@@ -102,11 +103,25 @@ export function xrayOf(win: HTMLElement): Xray {
     onChange: (f) => void listeners.add(f),
     draw(owner, frame) {
       if (!on) return;
-      if (frame) frames.set(owner, frame);
+      if (frame) frames.set(owner, relative(frame));
       else frames.delete(owner);
       render();
     },
   };
+  /** A frame drawn in viewport coordinates, made relative to the window as it is now. */
+  function relative(f: XrayFrame): XrayFrame {
+    const o = win.getBoundingClientRect();
+    const r = (q: XR): XR => ({ x: q.x - o.left, y: q.y - o.top, w: q.w, h: q.h });
+    const pt = (p: Point): Point => ({ x: p.x - o.left, y: p.y - o.top });
+    return {
+      zones: f.zones?.map((z) => ({ ...z, r: r(z.r) })),
+      slots: f.slots?.map((s) => ({ ...s, r: r(s.r) })),
+      target: f.target && r(f.target),
+      drawn: f.drawn && r(f.drawn),
+      trail: f.trail?.map(pt),
+      aim: f.aim && { ...f.aim, p: pt(f.aim.p) },
+    };
+  }
   // Frames are kept relative to the window: a resize redraws them where they are.
   new ResizeObserver(() => { if (on) render(); }).observe(win);
   all.set(win, x);
