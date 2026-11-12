@@ -1,45 +1,22 @@
+/* The lab pages' own names for the site's tokens (src/shell/tokens.css; light and dark come from there). */
 :root {
-  color-scheme: light dark;
-  --bg: #f6f6f3;
-  --ink: #1d1d1b;
-  --muted: #6b6b66;
-  --line: #d9d9d3;
-  --win: #ffffff;
-  --win-edge: #4c6ef5;
-  --title: #e7ecff;
-  --ok: #2b8a3e;
-  --bad: #c92a2a;
-  /* The drop target: a colour no window uses. */
-  --drop: #f08c00;
-  --lift-shadow: 0 14px 34px rgba(0, 0, 0, 0.28), 0 3px 8px rgba(0, 0, 0, 0.18);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #161615;
-    --ink: #ececea;
-    --muted: #a3a39d;
-    --line: #34342f;
-    --win: #22232a;
-    --win-edge: #748ffc;
-    --title: #2c3150;
-    --ok: #69db7c;
-    --bad: #ff8787;
-    --drop: #ffc078;
-    --lift-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 3px 10px rgba(0, 0, 0, 0.45);
-  }
+  --ink: var(--text);
+  --muted: var(--text-2);
+  --win: var(--bg-raised);
+  --lab-win-edge: var(--accent);
+  --title: var(--accent-soft);
+  --ok: var(--good);
+  /* The drop target: the site's signal colour, which no window uses. */
+  --drop: var(--signal);
+  --lift-shadow: var(--shadow-pop);
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, sans-serif; }
-main { max-width: 1000px; margin: 0 auto; padding: 16px; }
-h1 { font-size: 20px; margin: 0 0 4px; }
-h2 { font-size: 15px; margin: 18px 0 6px; }
-header p { color: var(--muted); margin: 0 0 12px; }
 .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 fieldset { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
 .stage { position: relative; width: 720px; max-width: 100%; height: 420px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; touch-action: none; }
 .win { position: absolute; transform-origin: 0 0; will-change: transform; }
 /* The frame is the window's chrome (title bar band, background, border): drawn at the gliding size. */
-.win .frame { position: absolute; left: 0; top: 0; background: linear-gradient(var(--title) 26px, var(--win) 26px); border: 1.5px solid var(--win-edge); border-radius: 6px; }
+.win .frame { position: absolute; left: 0; top: 0; background: linear-gradient(var(--title) 26px, var(--win) 26px); border: 1.5px solid var(--lab-win-edge); border-radius: 6px; }
 /* The content is laid out at the target size, never scaled, clipped to the frame. */
 .win .content { position: absolute; inset: 0; padding: 0 0 8px; overflow: hidden; }
 .win .title { height: 26px; padding: 4px 8px; font-weight: 600; font-size: 12px; cursor: grab; user-select: none; white-space: nowrap; }
@@ -66,13 +43,7 @@ td.ok { color: var(--ok); }
 td.bad { color: var(--bad); }
 canvas { width: 720px; max-width: 100%; height: 160px; border: 1px solid var(--line); border-radius: 6px; }
 
-/* Links between the lab's pages. */
-.pages { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-.pages a { color: inherit; }
-
 /* --- The desk page ------------------------------------------------------------------------------------------- */
-/* Room for the fitted stage (up to 1680 px) and the 16 px gutters. */
-main.wide { max-width: 1712px; }
 .readout { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
 .idea { font-size: 13px; margin: 0 0 6px; max-width: 960px; }
 .controls input[type="range"] { width: 150px; }

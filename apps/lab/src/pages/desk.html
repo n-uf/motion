@@ -1,28 +1,4 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Desk constructions</title>
-    <link rel="stylesheet" href="/src/lab.css" />
-  </head>
-  <body>
-    <main class="wide">
-      <header>
-        <nav class="pages"><a href="./index.html">← Tiling</a> · <b>Desk constructions</b> · <a href="./kits-toolbar.html">Kit toolbar cases →</a> · <a href="./kits-panels.html">Kit panels vs groups →</a></nav>
-        <h1>Desk constructions</h1>
-        <p>
-          Nine ways to build a desk from a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and open
-          documents. Pick one with the Construction switch; change the stage's size to see how it gives way when width
-          or height runs out. Every item glides by the motion rules: a move settles, a size change is revealed rather
-          than stretched, a panel that folds away fades with a uniform scale. Drag a panel by its title bar (or its tab),
-          and in the tiling tree and the strip a document too: each construction offers its own drop targets, and the
-          drop indicator shows only once you aim (slow down or hold still), never while you fly over targets. From the
-          keyboard: focus a title bar, Space picks it up, the arrow keys step through the targets, Enter drops, Escape
-          cancels. Every frame is sampled and checked below.
-        </p>
-      </header>
-
+<!-- The desk stage (src/desk.ts), behind Drag intent, Held drag and previews, Desk constructions and Toolbar groups: the shell renders its header. -->
       <section class="controls" aria-label="Controls">
         <fieldset id="constructions">
           <legend>Construction</legend>
@@ -92,7 +68,3 @@
           <tbody></tbody>
         </table>
       </section>
-    </main>
-    <script type="module" src="/src/desk.ts"></script>
-  </body>
-</html>

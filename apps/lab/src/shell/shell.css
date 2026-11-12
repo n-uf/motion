@@ -1,0 +1,172 @@
+/*
+ * The lab app's shell in the motion site's design language (tokens.css is the site's): a persistent sidebar, the page
+ * head (eyebrow, title, lead, the packages it runs), the pager, and the controls every page shares. Type, eyebrows,
+ * the brand, the pager and the "Runs" line follow the site's base.css and shell.css.
+ */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 var(--t-sm) / 1.55 var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+button, input, select { font: inherit; color: inherit; }
+::selection { background: var(--accent-soft); color: var(--text); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font-family: var(--font-mono); font-size: 0.92em; }
+a { color: var(--accent-strong); text-underline-offset: 3px; }
+
+/* --- layout: the sidebar and the page ---------------------------------------------------------------------------- */
+.lab { display: grid; grid-template-columns: 252px minmax(0, 1fr); min-height: 100vh; }
+.lab-embed .lab { display: block; }
+.lab-side {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s4) var(--s3);
+  overflow-y: auto;
+  border-right: 1px solid var(--line);
+  background: var(--bg-subtle);
+  scrollbar-width: thin;
+}
+.lab-main { min-width: 0; padding: 0 var(--s6) var(--s7); }
+.lab-main:not(.wide) .lab-page, .lab-main:not(.wide) .lab-head { max-width: 1040px; }
+.lab-embed .lab-main { padding: var(--s3); }
+
+/* The brand, as the site's top bar has it, with a "lab" badge. */
+.lab-brand { display: flex; align-items: center; gap: 8px; padding: 4px 6px 8px; text-decoration: none; font-size: 14.5px; font-weight: 680; letter-spacing: -0.02em; color: var(--text); }
+.brand-mark { width: 22px; height: 22px; flex: none; fill: none; stroke-linecap: round; }
+.brand-target { stroke: var(--line-3); stroke-width: 1.5; stroke-dasharray: 1.5 3; }
+.brand-curve { stroke: var(--text); stroke-width: 2.2; }
+.brand-dot { fill: var(--accent); stroke: none; }
+.wordmark { white-space: nowrap; }
+.brand-ns, .brand-amp { font-weight: 500; color: var(--text-3); letter-spacing: -0.01em; }
+/* The sidebar is narrower than the site's top bar: "n-uf" goes, as it does there at phone width. */
+.lab-brand .brand-ns { display: none; }
+.lab-badge { margin-left: auto; padding: 0 7px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-size: 10.5px; font-weight: 650; line-height: 17px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* The page list: a small uppercase key per group, its pages under it. */
+.lab-nav { display: grid; gap: var(--s4); }
+.lab-group-k { margin: 0 0 4px; padding: 0 8px; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.lab-group ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 1px; }
+.lab-group a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 520;
+  text-decoration: none;
+  transition: color var(--fast) var(--ease), background-color var(--fast) var(--ease);
+}
+.lab-group a:hover { color: var(--text); background: var(--bg-sunken); }
+.lab-group a[aria-current="page"] { color: var(--text); background: var(--bg-raised); box-shadow: var(--shadow-1), inset 2px 0 0 var(--accent); }
+.lab-group a > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lab-tag { margin-left: auto; flex: none; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--text-3); font-size: 10px; font-weight: 600; line-height: 15px; }
+.lab-side-foot { margin: auto 0 0; padding: 0 8px; font-size: var(--t-xs); }
+.lab-side-foot a { color: var(--text-3); text-decoration: none; }
+.lab-side-foot a:hover { color: var(--text); }
+
+/* --- the page head ----------------------------------------------------------------------------------------------- */
+.lab-head { display: grid; gap: var(--s2); padding: var(--s6) 0 var(--s5); }
+.lab-head h1 { margin: 0; font-size: var(--t-xl); font-weight: 650; line-height: 1.12; letter-spacing: -0.024em; color: var(--text); text-wrap: balance; }
+.eyebrow { display: inline-flex; align-items: center; gap: var(--s2); margin: 0; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+.eyebrow .n { font-family: var(--font-mono); color: var(--text-3); letter-spacing: 0.04em; }
+.lead { margin: 0; font-size: var(--t-md); line-height: 1.55; color: var(--text-2); max-width: 72ch; text-wrap: pretty; }
+.lab-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s2) var(--s4); margin-top: var(--s1); }
+.built-with { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--s3); margin: 0; font-size: var(--t-sm); color: var(--text-2); }
+.built-with .bw-k { font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.lab-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.lab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--bg-raised);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 550;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+.lab-btn:hover { border-color: var(--accent-line); color: var(--accent-strong); }
+.lab-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.lab-btn.primary:hover { background: var(--accent-strong); color: var(--accent-ink); }
+.lab-btn[disabled] { opacity: 0.5; pointer-events: none; }
+.lab-about { max-width: 80ch; font-size: var(--t-sm); color: var(--text-2); }
+.lab-about summary { width: max-content; color: var(--text-3); font-size: var(--t-xs); font-weight: 600; cursor: pointer; }
+.lab-about summary:hover { color: var(--text); }
+.lab-about p { margin: 6px 0 0; }
+
+/* --- the pager (previous / next) --------------------------------------------------------------------------------- */
+.pager { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); max-width: 1040px; padding-top: var(--s7); }
+.pager a { display: grid; gap: 2px; padding: var(--s3) var(--s5); border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); box-shadow: var(--shadow-1); text-decoration: none; transition: border-color var(--fast) var(--ease); }
+.pager a:hover { border-color: var(--line-3); }
+.pager .next { text-align: right; }
+.pager .k { font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+.pager .t { font-size: var(--t-base); font-weight: 620; letter-spacing: -0.01em; color: var(--text); }
+.pager a:hover .t { color: var(--accent-strong); }
+.pager .prev .t::before { content: "← "; color: var(--text-3); }
+.pager .next .t::after { content: " →"; color: var(--text-3); }
+
+/* --- content: sections, cards, being ported ---------------------------------------------------------------------- */
+.lab-section { display: grid; gap: var(--s2); max-width: 72ch; margin-bottom: var(--s6); }
+.lab-section p { margin: 0; color: var(--text-2); }
+.section-title { margin: 0; font-size: var(--t-lg); font-weight: 650; line-height: 1.2; letter-spacing: -0.015em; color: var(--text); }
+.lab-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s4); max-width: none; }
+.lab-card { display: grid; align-content: start; gap: var(--s2); padding: var(--s4) var(--s5); border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); box-shadow: var(--shadow-1); text-decoration: none; color: inherit; transition: border-color var(--fast) var(--ease); }
+.lab-card:hover { border-color: var(--accent-line); }
+.lab-card h3 { margin: 0; font-size: var(--t-md); font-weight: 650; color: var(--text); }
+.lab-card p { margin: 0; color: var(--text-2); }
+.lab-card-links { font-size: var(--t-xs); color: var(--text-3) !important; }
+.lab-code { margin: 0; padding: var(--s3) var(--s4); overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-subtle); font-size: var(--t-xs); }
+.ext-arrow { margin-left: 2px; font-size: 0.85em; color: var(--text-3); }
+.lab-porting { display: grid; gap: var(--s3); max-width: 64ch; padding: var(--s5); border: 1px dashed var(--line-3); border-radius: var(--r); background: var(--bg-subtle); }
+.lab-porting p { margin: 0; color: var(--text-2); }
+
+/* --- the controls every page shares (lab.css lays them out) ------------------------------------------------------ */
+.lab-page h2 { font-size: var(--t-md); font-weight: 650; letter-spacing: -0.01em; color: var(--text); margin: var(--s5) 0 var(--s2); }
+.lab-page fieldset { border-color: var(--line); border-radius: var(--r); background: var(--bg-raised); }
+.lab-page legend { padding: 0 4px; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.lab-page .controls button { height: 26px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--bg-raised); color: var(--text); font-size: 12.5px; cursor: pointer; }
+.lab-page .controls button:hover { border-color: var(--accent-line); color: var(--accent-strong); }
+.lab-page input[type="radio"], .lab-page input[type="checkbox"], .lab-page input[type="range"] { accent-color: var(--accent); }
+.lab-page th { font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+
+/* --- the Checks page --------------------------------------------------------------------------------------------- */
+.lab-checks-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-bottom: var(--s3); }
+.lab-checks-status { flex-basis: 100%; margin: 0; color: var(--text-2); }
+.lab-checks-sum { margin: 0 0 var(--s3); padding: var(--s2) var(--s3); border-radius: var(--r); font-weight: 600; }
+.lab-checks-sum.ok { color: var(--good); background: color-mix(in srgb, var(--good) 10%, transparent); }
+.lab-checks-sum.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+.lab-checks-run { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: var(--s5); align-items: start; }
+.lab-checks-table td { font-size: var(--t-xs); }
+.lab-checks-table tr.bad td { background: color-mix(in srgb, var(--bad) 6%, transparent); }
+.lab-checks-frame { position: sticky; top: var(--s4); margin: 0; display: grid; gap: 6px; }
+/* The page being checked runs at the headless size (1600 × 1100), shown at a quarter. */
+.lab-checks-viewport { width: 400px; height: 275px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-subtle); }
+.lab-checks-viewport iframe { border: 0; transform: scale(0.25); transform-origin: 0 0; pointer-events: none; }
+.lab-checks-frame figcaption { font-size: var(--t-xs); color: var(--text-3); }
+@media (max-width: 1100px) { .lab-checks-run { grid-template-columns: minmax(0, 1fr); } }
+
+/* Narrow: the sidebar goes on top, its groups scrolling sideways. */
+@media (max-width: 900px) {
+  .lab { grid-template-columns: minmax(0, 1fr); }
+  .lab-side { position: static; height: auto; flex-direction: column; border-right: 0; border-bottom: 1px solid var(--line); }
+  .lab-nav { grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; }
+  .lab-main { padding: 0 var(--s4) var(--s6); }
+  .pager { grid-template-columns: minmax(0, 1fr); }
+}
