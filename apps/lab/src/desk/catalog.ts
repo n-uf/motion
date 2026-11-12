@@ -2,7 +2,7 @@
  * The desk's content: its five tool panels (a title, the height they need and some body text) and its documents,
  * and the desk @n-uf/placement builds from them (the nine constructions and their drop targets).
  */
-import { createDesk, panelKey as P, type ConstructionId } from "@n-uf/placement/dock";
+import { createDesk, panelKey as P, type Construction, type ConstructionId } from "@n-uf/placement/dock";
 
 /**
  * The five tool panels: a title, the height they need (their natural height: the title bar, the sample content's
@@ -46,3 +46,8 @@ export const constructionOf = desk.constructionOf;
 export const natural = desk.natural;
 export const titleOf = desk.titleOf;
 export const DEFAULT_CONSTRUCTION: ConstructionId = "dockTear";
+
+/** The lab's catalogue letters for the constructions, as the scenarios and the switch name them. */
+export const LETTER: Readonly<Record<ConstructionId, string>> = { docks: "A", docksFull: "A2", tree: "B", navigator: "C", strip: "D", drawers: "E", floatOver: "F1", floatAround: "F2", dockTear: "F3" };
+/** A construction's title as the lab shows it: its letter, then its title. */
+export const labTitle = (c: Construction): string => `${LETTER[c.id]} · ${c.title}`;

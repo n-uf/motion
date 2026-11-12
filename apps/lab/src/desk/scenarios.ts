@@ -8,7 +8,7 @@ import { DRAG_DEFAULTS, inRect, targetAt, type DragPreview, type DragTarget } fr
 import { EDGE_SCROLL } from "./drag-page";
 import type { Size } from "@n-uf/placement";
 import { G, LAYER, type ConstructionId, type DeskState, type Layout, type Options, type Side } from "@n-uf/placement/dock";
-import { CONSTRUCTIONS } from "./catalog";
+import { CONSTRUCTIONS, LETTER, labTitle } from "./catalog";
 
 /** What a scenario can do to the page and read from it. */
 export interface DeskLab {
@@ -133,7 +133,7 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
   const scenarios: Record<string, Scenario> = {};
   CONSTRUCTIONS.forEach((c, i) => {
     // From the construction before it in the list, so everything has somewhere to glide.
-    scenarios[`switch to ${c.title}`] = {
+    scenarios[`switch to ${labTitle(c)}`] = {
       construction: CONSTRUCTIONS[(i + CONSTRUCTIONS.length - 1) % CONSTRUCTIONS.length]!.id,
       play: async (expect) => {
         lab.use(c.id);
@@ -195,7 +195,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
   const out: Record<string, Scenario> = {};
   for (const c of CONSTRUCTIONS) {
     const key = DRAGGED[c.id];
-    const name = `${c.title.split(" · ")[0]} · drag model`;
+    const name = `${LETTER[c.id]} · drag model`;
     /** The targets a drag can aim at: not over the item's own home (its grip). */
     const aimable = (grip: Point): DragTarget[] => lab.targets(key).filter((t) => !inRect(t.hit, grip, 12) && mid(t.hit).x > 0 && mid(t.hit).x < lab.size().width);
     out[`${name}: flying over targets shows no indicator, aiming shows one`] = {
@@ -1232,7 +1232,7 @@ function handMoves(lab: DeskLab): Record<string, Scenario> {
   };
 }
 
-const constructionTitle = (id: ConstructionId): string => CONSTRUCTIONS.find((c) => c.id === id)!.title;
+const constructionTitle = (id: ConstructionId): string => labTitle(CONSTRUCTIONS.find((c) => c.id === id)!);
 
 /** The toolbar's four modes and the bottom dock's three, in every construction that has them. */
 function modes(lab: DeskLab): Record<string, Scenario> {

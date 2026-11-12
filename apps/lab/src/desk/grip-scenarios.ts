@@ -8,11 +8,11 @@ import type { Rect } from "@n-uf/motion";
 import { wait } from "../shared/geometry";
 import type { Grips } from "./grip";
 import { panelKey, type ConstructionId } from "@n-uf/placement/dock";
-import { CONSTRUCTIONS } from "./catalog";
+import { CONSTRUCTIONS, LETTER } from "./catalog";
 import type { DeskLab, Expect, Scenario } from "./scenarios";
 
 const fmt = (r: Rect): string => `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)} × ${Math.round(r.height)}`;
-const short = (id: ConstructionId): string => CONSTRUCTIONS.find((c) => c.id === id)!.title.split(" · ")[0]!;
+const short = (id: ConstructionId): string => LETTER[id];
 const FILES = panelKey(1);
 
 /** An element's rect in stage units. */
