@@ -30,7 +30,7 @@
 .pbp .zc { fill: color-mix(in srgb, var(--series-b) 9%, transparent); stroke: var(--series-b); stroke-width: 1; opacity: 0.9; }
 .pbp .zt { fill: color-mix(in srgb, var(--series-b) 5%, transparent); stroke: color-mix(in srgb, var(--series-b) 60%, transparent); stroke-width: 1; }
 .pbp .zt.on, .pbp .zc.on { fill: var(--signal-soft); stroke: var(--signal); stroke-width: 1.6; }
-.pbp .zl { fill: var(--signal); paint-order: stroke; stroke: var(--bg-sunken); stroke-width: 4px; font: 650 11px var(--font-mono); }
+.pbp .zl { fill: var(--signal-text); paint-order: stroke; stroke: var(--bg-sunken); stroke-width: 4px; font: 650 11px var(--font-mono); }
 
 /* The seam: a hairline with a grip; at rest at the middle (the words' flow in the HTML), then moved by transform. */
 .pseam { position: absolute; left: calc(50% - 14px); top: 0; bottom: 0; width: 29px; cursor: col-resize; touch-action: none; z-index: 6; outline: none; }

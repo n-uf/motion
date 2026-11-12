@@ -14,13 +14,13 @@
 .tpane .th > span:not(.tr) { overflow: hidden; text-overflow: ellipsis; }
 .tpane .th .tr { margin-left: auto; flex: none; width: 28ch; text-align: right; overflow: hidden; text-overflow: ellipsis; font-weight: 650; }
 .tpane .th .tr.live { color: var(--accent); }
-.tpane .th .tr.live.h { color: var(--signal); }
+.tpane .th .tr.live.h { color: var(--signal-text); }
 .tcols, .rw { white-space: pre; height: 18px; overflow: hidden; }
 .tcols { align-self: end; color: var(--text-3); }
 .rw { color: var(--text-2); }
 .rw.last, .rw.hi { color: var(--text); }
 .rw.dim { color: var(--text-3); }
-.rw.hi { color: var(--signal); font-weight: 650; }
+.rw.hi { color: var(--signal-text); font-weight: 650; }
 #tm-rows, #tp-rows { grid-row: 3; align-self: start; padding-top: 4px; }
 .chk { grid-row: 4; display: flex; flex-wrap: wrap; gap: 2px 18px; padding-top: 6px; border-top: 1px dashed var(--line-2); font-size: 12px; color: var(--text-3); }
 .chk i { font-style: normal; color: var(--good); font-weight: 650; }
