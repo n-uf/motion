@@ -1,0 +1,16 @@
+---
+// A page's "Built with" line: the package(s) its code uses and whose rules its demo shows, each linked to the
+// package's README (data/parts.ts).
+import ExtLink from "./ExtLink.astro";
+import { BUILT_WITH, partOf } from "../data/parts";
+
+interface Props { path: string }
+const rows = BUILT_WITH[Astro.props.path] ?? [];
+const uses = rows.filter((r) => r.kind === "uses"), shows = rows.filter((r) => r.kind === "shows");
+---
+{rows.length > 0 && (
+  <p class="built-with">
+    {uses.length > 0 && <span><span class="bw-k">Built with</span> {uses.map((r, i) => <>{i > 0 && " · "}<ExtLink href={partOf(r.part).readme}><code>{partOf(r.part).pkg}</code></ExtLink> <span class="bw-what">{r.what}</span></>)}</span>}
+    {shows.length > 0 && <span><span class="bw-k">Shows</span> {shows.map((r, i) => <>{i > 0 && " · "}<ExtLink href={partOf(r.part).readme}><code>{partOf(r.part).pkg}{r.entry ?? ""}</code></ExtLink> <span class="bw-what">{r.what}</span></>)}</span>}
+  </p>
+)}

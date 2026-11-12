@@ -1,11 +1,13 @@
 ---
-// Every page's frame: the sticky top bar (the wordmark, the four pages, the theme switch), and on inner pages the
-// visible breadcrumb, the page head with its one <h1>, and links to the neighbouring pages; the footer closes it.
-// The home page brings its own h1 (no `headline`).
+// Every page's frame: the sticky top bar (the wordmark, the four pages in the pair's two parts, the theme switch), and
+// on inner pages the visible breadcrumb, the page head with its one <h1> and its "Built with" line, and links to the
+// neighbouring pages; the footer closes it. The home page brings its own h1 (no `headline`).
 import Base from "./Base.astro";
+import BuiltWith from "../components/BuiltWith.astro";
 import ExtLink from "../components/ExtLink.astro";
 import Mark from "../components/Mark.astro";
-import { demoPages } from "../data/pages";
+import { demoPages, pageOf } from "../data/pages";
+import { PARTS } from "../data/parts";
 import { repoUrl, npmUrl } from "../data/site";
 
 interface Props {
@@ -28,6 +30,7 @@ const index = demoPages.findIndex((p) => p.path === path);
 const current = demoPages[index];
 const prev = index > 0 ? demoPages[index - 1] : undefined;
 const next = index >= 0 && index < demoPages.length - 1 ? demoPages[index + 1] : undefined;
+const part = PARTS.find((p) => p.pages.includes(path));
 const themes = [
   ["system", "System theme", '<rect x="2" y="3" width="12" height="8.5" rx="1.5"/><path d="M6 14h4M8 11.5V14"/>'],
   ["light", "Light theme", '<circle cx="8" cy="8" r="2.75"/><path d="M8 1.75v1.5M8 12.75v1.5M1.75 8h1.5M12.75 8h1.5M3.6 3.6l1.05 1.05M11.35 11.35l1.05 1.05M3.6 12.4l1.05-1.05M11.35 4.65l1.05-1.05"/>'],
@@ -40,7 +43,12 @@ const themes = [
     <div class="topbar-in">
       <a class="brand" href="/" aria-current={path === "/" ? "page" : undefined}><Mark /><span><span class="brand-ns">n-uf</span> motion</span></a>
       <nav class="nav" aria-label="Site">
-        {demoPages.map((p) => <a href={p.path} aria-current={p.path === path ? "page" : undefined}>{p.nav}</a>)}
+        {PARTS.map((pt) => (
+          <span class="nav-part" title={`${pt.title}: ${pt.pkg}`}>
+            <span class="nav-k" aria-hidden="true">{pt.short}</span>
+            {pt.pages.map((pp) => <a href={pp} aria-current={pp === path ? "page" : undefined}>{pageOf(pp).nav}</a>)}
+          </span>
+        ))}
       </nav>
       <div class="theme" role="group" aria-label="Theme">
         {themes.map(([id, label, svg]) => (
@@ -57,9 +65,10 @@ const themes = [
           <ol><li><a href="/">Home</a></li><li aria-current="page">{current.nav}</li></ol>
         </nav>
         <header class="page-head">
-          <span class="eyebrow"><span class="n">{String(index + 1).padStart(2, "0")}</span> {current.nav}</span>
+          <span class="eyebrow"><span class="n">{String(index + 1).padStart(2, "0")}</span> {current.nav}{part && <span class="eb-part"> · {part.title}</span>}</span>
           <h1>{headline}</h1>
           <slot name="lead" />
+          <BuiltWith path={path} />
         </header>
       </>
     )}
