@@ -381,8 +381,8 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
       const wm = tg.menuOpen();
       expect(!!wm && wm.getAttribute("aria-label") === "Window", "the title bar didn't open the window menu");
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-      const glyph = tg.window()!.querySelector(".tf-glyph");
-      expect(!!glyph && glyph.querySelectorAll("i").length === 6 && Math.abs(tg.rectOf(glyph).width - 8) < 0.6 && Math.abs(tg.rectOf(glyph).height - 13) < 0.6, `the title bar's glyph is ${glyph ? fmt(tg.rectOf(glyph)) : "missing"}, not the full 8 × 13`);
+      // The lab's window doesn't move: its title bar has no grip.
+      expect(!tg.window()!.querySelector(".tf-title .tf-glyph"), "the title bar shows a grip, but the window doesn't move");
     }),
   };
 
@@ -412,10 +412,10 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
     construction: "docks",
     preview: "indicator",
     play: withArrangement(lab, DEFAULT_ARRANGEMENT, async (expect) => {
-      // The grips that show: every group's handle and the window's glyph.
-      const visible = (): number => [...tg.window()!.querySelectorAll<HTMLElement>(".tg-handle, .tf-glyph")].filter((g) => g.getClientRects().length > 0 && getComputedStyle(g).visibility === "visible").length;
+      // The grips that show: every group's handle (the window has none: it doesn't move).
+      const visible = (): number => [...tg.window()!.querySelectorAll<HTMLElement>(".tg-handle")].filter((g) => g.getClientRects().length > 0 && getComputedStyle(g).visibility === "visible").length;
       const N = visible();
-      expect(N === 8, `${N} grips show unlocked, not 8 (seven groups and the window)`);
+      expect(N === 7, `${N} grips show unlocked, not 7 (one per group)`);
       tg.freeze(true);
       await nextFrame();
       expect(visible() === 0, `${visible()} grips show frozen, not 0`);
