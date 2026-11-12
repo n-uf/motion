@@ -41,12 +41,8 @@
 .stage-wrap { position: relative; min-width: 0; height: var(--stage-h); overflow: auto; background: var(--win-well); overscroll-behavior-x: contain; }
 .stage-wrap.pad { padding: var(--s4); }
 
-/* The plan corners: two L brackets around the figure, in the page's part colour (cyan for motion, violet for
-   placement). They sit just outside the window's rounded frame, so the wrapper carries them. */
+/* The figure's wrapper (the caption below it is its next sibling). */
 .fig-plan { position: relative; }
-.fig-plan::before, .fig-plan::after { content: ""; position: absolute; z-index: 2; width: 11px; height: 11px; border: 2px solid var(--part); pointer-events: none; }
-.fig-plan::before { left: -5px; top: -5px; border-right: 0; border-bottom: 0; }
-.fig-plan::after { right: -5px; bottom: -5px; border-left: 0; border-top: 0; }
 
 /* A scroller's right edge fades into the well where the stage is wider than its room, so a figure never looks cut off.
    The fade belongs to the scrolled content (it leaves with the first scroll). Widths are where each figure's stage
