@@ -1,5 +1,5 @@
 /**
- * Kits, case 1: panels vs groups, on the real packages. One dossier window: toolbar groups in a top and a bottom bar
+ * Kits, case 1: panels vs groups, on the real packages. One document viewer window: toolbar groups in a top and a bottom bar
  * (@n-uf/placement/toolbar targets), and tool panels in side docks with rails, fold, give-way, floating, tear-off and
  * dock-back (@n-uf/placement/dock, the edge docks + tear-off construction). Every item is drawn by one
  * @n-uf/motion/layout motion; a held item follows the pointer by @n-uf/motion/layout's held drag, and what the
