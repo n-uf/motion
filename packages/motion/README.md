@@ -305,6 +305,10 @@ a large area 3). The rules:
   new target has held 150 ms, so no indicator ever shows for less.
 - Room is made once the shown target, and the place in it (`placeOf`: a tab
   index, say), have held 160 ms; never for a `free` target.
+- `placeOf(target, point, previous)` gets the place it gave that target on the
+  last sample, so a place can hold near its boundary. A null place is no
+  target: nothing shows there (a target beneath with a place can), no room
+  opens, and a release there lands on a target beneath, else goes home.
 - A release lands on the shown target whenever one shows (drop = shown), else
   on the target under the pointer, else nowhere. A release over home does
   nothing.
@@ -319,6 +323,15 @@ const intent = createDragIntent({ home: { x: 300, y: 300, width: 100, height: 50
 for (let t = 0; t <= 300; t += 16) intent.update({ x: 100, y: 50 }, t, [slot]); // held still over the slot
 console.log(intent.state.shown?.id); // "slot"
 console.log(intent.release({ x: 100, y: 50 }, [slot])?.id); // "slot"
+
+// A pane that takes drops on its right half only; that half holds 6 px past the line.
+const pane: DragTarget = { id: "pane", priority: 2, hit: { x: 0, y: 0, width: 200, height: 100 } };
+const zones = createDragIntent<DragTarget>({
+  home: { x: 300, y: 300, width: 100, height: 50 },
+  placeOf: (_t, p, previous) => (p.x >= (previous === "right" ? 94 : 100) ? "right" : null),
+});
+for (let t = 0; t <= 300; t += 16) zones.update({ x: 50, y: 50 }, t, [pane]); // held over its left half
+console.log(zones.state.shown, zones.release({ x: 50, y: 50 }, [pane])); // null null: nothing shows, the item goes home
 ```
 
 ## @n-uf/motion/browser

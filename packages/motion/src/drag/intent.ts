@@ -139,11 +139,18 @@ export interface DragIntentOptions<T extends DragTarget> {
   readonly tuning?: Partial<DragTuning>;
   /**
    * The place within a target the pointer is at (a tab index, a stack
-   * position), unique across targets; default: the target's id. Moving between places of the
-   * shown target moves the indicator at once but the room only once the new
-   * place has held `roomAfter` ms.
+   * position, a pane's edge), unique across targets; default: the target's id.
+   * Moving between places of the shown target moves the indicator at once but
+   * the room only once the new place has held `roomAfter` ms.
+   *
+   * - `previous` is the place this target had on the last sample (null if it
+   *   had none), so a place can hold near its boundary (hysteresis).
+   * - A null place is no target: there is no drop at that point of the target.
+   *   It isn't picked or held, the indicator hides there at once (or shows a
+   *   target beneath that has a place), no room opens, and a release there
+   *   lands on a target beneath, else goes home.
    */
-  readonly placeOf?: (target: T, point: Point) => string;
+  readonly placeOf?: (target: T, point: Point, previous: string | null) => string | null;
 }
 
 /** A drag's intent: feed it the pointer on every frame; it says what the indicator shows and what a release lands on. */
@@ -194,10 +201,14 @@ export interface DragIntent<T extends DragTarget> {
  *   kept only by the gap grace can keep the indicator, never show it.
  * - Room is made once the shown target has held `roomAfter` ms, never for a
  *   free target, and closes at once when it changes.
+ * - Where `placeOf` gives a target no place (null), it is no target: it is
+ *   neither shown nor landed on there.
  */
 export function createDragIntent<T extends DragTarget>(options: DragIntentOptions<T>): DragIntent<T> {
   const tuning: DragTuning = { ...DRAG_DEFAULTS, ...options.tuning };
   const placeOf = options.placeOf ?? ((t: T) => t.id);
+  // Each target's place on the last sample, by id: its `previous` on the next.
+  let lastPlaces = new Map<string, string | null>();
   let home: Rect = { ...options.home };
   let samples: { x: number; y: number; t: number }[] = [];
   let cur: T | null = null;
@@ -235,9 +246,17 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       }
       if (!inRect(home, p, -tuning.homeInset)) leftHome = true;
       const atHome = inRect(home, p);
-      const raw = atHome ? null : targetAt(targets, p);
+      // Each target's place at this point, worked out once per sample; a null place is no target.
+      const places = new Map<string, string | null>();
+      const placeAt = (x: T): string | null => {
+        if (!places.has(x.id)) places.set(x.id, placeOf(x, p, lastPlaces.get(x.id) ?? null));
+        return places.get(x.id)!;
+      };
+      const live = (x: T | null): x is T => x !== null && placeAt(x) !== null;
+      const raw = atHome ? null : targetAt(targets.filter((x) => inRect(x.hit, p) && live(x)), p);
       cur = follow(cur, targets);
       shown = follow(shown, targets);
+      if (!live(cur)) cur = null;
       let next = raw;
       if (cur && !atHome && inRect(cur.hit, p, tuning.band)) {
         const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && inRect(raw.hit, p, -tuning.breakthrough);
@@ -255,6 +274,8 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       };
       // Under the pointer (within its band), not just kept by the gap grace.
       const under = !!cur && inRect(cur.hit, p, tuning.band);
+      // A shown target with no place here is no drop: the indicator hides at once (the switch hold is for targets).
+      if (shown && !live(shown)) show(null);
       if (!shown) {
         if (cur && under && leftHome && aiming) show(cur);
       } else if (same(cur, shown)) {
@@ -267,7 +288,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         show(cur);
       }
       // The place within the shown target, and the room: after the target and the place have both held.
-      const at = shown ? placeOf(shown, p) : null;
+      const at = shown ? placeAt(shown) : null;
       if (at !== place) {
         place = at;
         placeSince = t;
@@ -275,6 +296,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       if (!shown || shown.free) roomPlace = null;
       else if (t - shownSince >= tuning.roomAfter && t - placeSince >= tuning.roomAfter) roomPlace = place;
       else if (shownSince === t) roomPlace = null;
+      lastPlaces = places;
       return { shown, room: roomPlace !== null, roomPlace, aiming };
     },
     release(point, targets) {
@@ -282,7 +304,11 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       // Drop = shown: a shown target is kept until it hides (flying out past its band hides it at once).
       const s = follow(shown, targets);
       if (s) return s;
-      return targetAt(targets, point);
+      // Else the target under the pointer that has a place there (a null place is no drop).
+      return targetAt(
+        targets.filter((x) => inRect(x.hit, point) && placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null),
+        point,
+      );
     },
     hide(time) {
       shown = null;
@@ -290,6 +316,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       shownSince = time;
       place = null;
       roomPlace = null;
+      lastPlaces = new Map();
       samples = [];
       anchor = null;
       restart = true;
