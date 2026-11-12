@@ -19,7 +19,7 @@
   /* Text */
   --text: #1b1c1f;
   --text-2: #55565c;
-  --text-3: #85868c;
+  --text-3: #686970;
   --text-inverse: #f7f6f3;
 
   /* Hairlines */
@@ -34,17 +34,23 @@
   --accent-line: #a3d0df;
   --accent-ink: #ffffff;
 
+  /* The pair's two parts: cyan is motion, violet is placement (and only placement). --part is the current page's. */
+  --motion: var(--accent);
+  --place: var(--series-b);
+  --part: var(--motion);
+
   /* Signal: drop targets and indicators only */
   --signal: #e0570c;
+  --signal-text: #c2410c;
   --signal-soft: rgba(224, 87, 12, 0.11);
-  --signal-ink: #ffffff;
+  --signal-ink: #1d0e05;
 
   /* Results */
   --good: #22744a;
   --bad: #b3261e;
 
   /* Data series (charts): the proposal takes the accent; the others stay muted */
-  --series-a: #a86b1d;
+  --series-a: #8f5a14;
   --series-a2: #cf9d55;
   --series-b: #6159ad;
   --series-b2: #9b6aa8;
@@ -62,7 +68,7 @@
   --win-well: #e4e7eb;
   --win-edge: #dcdad5;
   --win-text: #1d1d1f;
-  --win-muted: #6b6b70;
+  --win-muted: #5f5f64;
   --win-r: 10px;
   --win-paper: #ffffff;
   --win-paper-line: #d3d3d4;
@@ -141,7 +147,7 @@
     --bg-inverse: #ececee;
     --text: #ececee;
     --text-2: #a5a6ad;
-    --text-3: #75767e;
+    --text-3: #8a8b93;
     --text-inverse: #111214;
     --line: #25262b;
     --line-2: #303137;
@@ -152,6 +158,7 @@
     --accent-line: rgba(92, 196, 224, 0.45);
     --accent-ink: #06222c;
     --signal: #ff8a4c;
+    --signal-text: #ff8a4c;
     --signal-soft: rgba(255, 138, 76, 0.15);
     --signal-ink: #1d0e05;
     --good: #67c48f;
@@ -200,7 +207,7 @@
   --bg-inverse: #ececee;
   --text: #ececee;
   --text-2: #a5a6ad;
-  --text-3: #75767e;
+  --text-3: #8a8b93;
   --text-inverse: #111214;
   --line: #25262b;
   --line-2: #303137;
@@ -211,6 +218,7 @@
   --accent-line: rgba(92, 196, 224, 0.45);
   --accent-ink: #06222c;
   --signal: #ff8a4c;
+  --signal-text: #ff8a4c;
   --signal-soft: rgba(255, 138, 76, 0.15);
   --signal-ink: #1d0e05;
   --good: #67c48f;

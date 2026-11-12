@@ -32,5 +32,5 @@
 .ix-card h2 a:hover { color: var(--accent-strong); }
 .ix-card p { color: var(--text-2); }
 .ix-card .when { display: block; margin-top: var(--s2); font-size: var(--t-xs); color: var(--text-3); }
-.sched { display: inline-block; padding: 0 8px; border-radius: 999px; background: var(--signal-soft); color: var(--signal); font-size: var(--t-xs); font-weight: 600; }
+.sched { display: inline-block; padding: 0 8px; border-radius: 999px; background: var(--signal-soft); color: var(--signal-text); font-size: var(--t-xs); font-weight: 600; }
 @media (max-width: 860px) { .reader-grid[data-toc="on"] { grid-template-columns: minmax(0, 1fr); } .toc { position: static; } }
