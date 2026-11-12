@@ -71,7 +71,6 @@ a { color: var(--accent-strong); text-underline-offset: 3px; }
 .lab-group a:hover { color: var(--text); background: var(--bg-sunken); }
 .lab-group a[aria-current="page"] { color: var(--text); background: var(--bg-raised); box-shadow: var(--shadow-1), inset 2px 0 0 var(--accent); }
 .lab-group a > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lab-tag { margin-left: auto; flex: none; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--text-3); font-size: 10px; font-weight: 600; line-height: 15px; }
 .lab-side-foot { margin: auto 0 0; padding: 0 8px; font-size: var(--t-xs); }
 .lab-side-foot a { color: var(--text-3); text-decoration: none; }
 .lab-side-foot a:hover { color: var(--text); }
@@ -122,7 +121,7 @@ a { color: var(--accent-strong); text-underline-offset: 3px; }
 .pager .prev .t::before { content: "← "; color: var(--text-3); }
 .pager .next .t::after { content: " →"; color: var(--text-3); }
 
-/* --- content: sections, cards, being ported ---------------------------------------------------------------------- */
+/* --- content: sections, cards ------------------------------------------------------------------------------------ */
 .lab-section { display: grid; gap: var(--s2); max-width: 72ch; margin-bottom: var(--s6); }
 .lab-section p { margin: 0; color: var(--text-2); }
 .section-title { margin: 0; font-size: var(--t-lg); font-weight: 650; line-height: 1.2; letter-spacing: -0.015em; color: var(--text); }
@@ -134,8 +133,6 @@ a { color: var(--accent-strong); text-underline-offset: 3px; }
 .lab-card-links { font-size: var(--t-xs); color: var(--text-3) !important; }
 .lab-code { margin: 0; padding: var(--s3) var(--s4); overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-subtle); font-size: var(--t-xs); }
 .ext-arrow { margin-left: 2px; font-size: 0.85em; color: var(--text-3); }
-.lab-porting { display: grid; gap: var(--s3); max-width: 64ch; padding: var(--s5); border: 1px dashed var(--line-3); border-radius: var(--r); background: var(--bg-subtle); }
-.lab-porting p { margin: 0; color: var(--text-2); }
 
 /* --- the controls every page shares (lab.css lays them out) ------------------------------------------------------ */
 .lab-page h2 { font-size: var(--t-md); font-weight: 650; letter-spacing: -0.01em; color: var(--text); margin: var(--s5) 0 var(--s2); }

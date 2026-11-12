@@ -43,9 +43,6 @@ export interface PageDef {
   readonly first?: string;
   /** The page's own Reset (a button's selector); default: reload the page. */
   readonly reset?: string;
-  /** Not built yet: shown as being ported, with its design sketch. */
-  readonly porting?: boolean;
-  readonly sketch?: string;
   /** Room for a wide stage. */
   readonly wide?: boolean;
 }
@@ -53,8 +50,6 @@ export interface PageDef {
 import { KIT_CASES } from "../kits/cases";
 import type { KitCase } from "../kits/kit-case";
 
-/** The kit cases' design sketches (served locally). */
-const SKETCHES = "http://localhost:3070";
 const raw = (load: () => Promise<{ default: string }>) => () => load().then((m) => m.default);
 
 const tiling = {
@@ -82,29 +77,28 @@ const SETTLE = new Set(["open", "close", "swap", "two changes 40 ms apart", "max
 const TOOLBAR = "toolbar groups";
 
 /**
- * The ten kit cases, in order: case 1 is its own page module (kits-panels); the others are `KitCase`s registered in
- * src/kits/cases.ts, each mounted as a page (./kit-page). A case not registered yet shows as being ported, with its
- * design sketch.
+ * The ten kit cases, in order: patterns an app meets when it brings its own drag onto the pair. Case 1 is its own
+ * page module (kits-panels); the others are the `KitCase`s registered in src/kits/cases.ts, each mounted as a page
+ * (./kit-page). A number with no registered case has no page.
  */
-const KIT_LIST: readonly { n: number; slug: string; title: string; line: string; sketch: string }[] = [
-  { n: 1, slug: "panels", title: "Panels vs groups", line: "Do toolbar groups and dock panels feel the same? Panels on ./dock next to the kits' own drag.", sketch: "kits-cases-a.html" },
-  { n: 2, slug: "host-map", title: "Host map", line: "Which of a kit's places map to which toolbar hosts.", sketch: "kits-cases-b.html" },
-  { n: 3, slug: "floats", title: "Floats and orientation", line: "Whether a floating group keeps a vertical form.", sketch: "kits-cases-b.html" },
-  { n: 4, slug: "fold", title: "Fold or collapse", line: "An animated fold, trailing-first collapse, and which group folds last.", sketch: "kits-cases-c.html" },
-  { n: 5, slug: "preview", title: "Drop preview", line: "Snap to slot, open gap or drop indicator as the kits' default.", sketch: "kits-cases-c.html" },
-  { n: 6, slug: "constraints", title: "Constraints", line: "A forbidden place is no target: no slot, no label; a release there glides home.", sketch: "kits-cases-a.html" },
-  { n: 7, slug: "keyboard", title: "Keyboard moves", line: "The arrows step through a group's places in order; Move to › lists the same places.", sketch: "kits-cases-d.html" },
-  { n: 8, slug: "frozen", title: "Frozen layout", line: "Freeze hides the grips; holding Alt brings them back; a drag in flight finishes.", sketch: "kits-cases-c.html" },
-  { n: 9, slug: "vocabulary", title: "Vocabulary", line: "One word set for both kits, through the targets' labels.", sketch: "kits-cases-b.html" },
-  { n: 10, slug: "scaled", title: "Scaled page", line: "On a scaled page the kit converts the pointer into page space, so the slot lands under it.", sketch: "kits-cases-d.html" },
+const KIT_LIST: readonly { n: number; title: string; line: string }[] = [
+  { n: 1, title: "Panels vs groups", line: "Do toolbar groups and dock panels feel the same? Panels on ./dock next to a plain ghost drag." },
+  { n: 2, title: "Host map", line: "Which of an app's places map to which toolbar hosts." },
+  { n: 3, title: "Floats and orientation", line: "Whether a floating group keeps a vertical form." },
+  { n: 4, title: "Fold or collapse", line: "An animated fold, trailing-first collapse, and which group folds last." },
+  { n: 5, title: "Drop preview", line: "Snap to slot, open gap or drop indicator: three ways to show where a group lands." },
+  { n: 6, title: "Constraints", line: "A forbidden place is no target: no slot, no label; a release there glides home." },
+  { n: 7, title: "Keyboard moves", line: "The arrows step through a group's places in order; Move to › lists the same places." },
+  { n: 8, title: "Frozen layout", line: "Freeze hides the grips; holding Alt brings them back; a drag in flight finishes." },
+  { n: 9, title: "Vocabulary", line: "One word set for the places, through the targets' labels." },
+  { n: 10, title: "Scaled page", line: "On a scaled page the app converts the pointer into page space, so the slot lands under it." },
 ];
 
 const numberOf = (kc: KitCase): number => Number.parseInt(kc.title, 10);
-function kitPage(k: (typeof KIT_LIST)[number]): PageDef {
+function kitPage(k: (typeof KIT_LIST)[number]): PageDef[] {
   const kc = KIT_CASES.find((c) => numberOf(c) === k.n);
-  const base = { group: "kits" as const, nav: `${k.n} · ${k.title}`, title: kc?.title ?? `${k.n} · ${k.title}`, line: k.line, sketch: `${SKETCHES}/${k.sketch}` };
-  if (!kc) return { id: `kits/${k.slug}`, ...base, porting: true };
-  return { id: `kits/${kc.id}`, ...base, load: () => import("./kit-page").then((m) => m.mountKitCase(kc, document.getElementById("lab-page")!)), module: `kit:${kc.id}`, wide: true };
+  if (!kc) return [];
+  return [{ id: `kits/${kc.id}`, group: "kits", nav: `${k.n} · ${k.title}`, title: kc.title, line: k.line, load: () => import("./kit-page").then((m) => m.mountKitCase(kc, document.getElementById("lab-page")!)), module: `kit:${kc.id}`, wide: true }];
 }
 
 export const PAGES: readonly PageDef[] = [
@@ -188,11 +182,10 @@ export const PAGES: readonly PageDef[] = [
     title: "1 · Panels vs groups",
     line: KIT_LIST[0]!.line,
     about:
-      "A document viewer window on the real packages: the toolbar groups on <code>@n-uf/placement</code>'s toolbar targets, the panels on its edge docks with tear-off, and every item on <code>@n-uf/motion</code>'s drag intent and held drag. Drag a group by its handle, a panel by its title bar or its rail icon. The switch puts the panels on the kits' own drag as it is today, so both can be felt in one window. Sample content only.",
-    sketch: `${SKETCHES}/${KIT_LIST[0]!.sketch}`,
+      "A document viewer window on the real packages: the toolbar groups on <code>@n-uf/placement</code>'s toolbar targets, the panels on its edge docks with tear-off, and every item on <code>@n-uf/motion</code>'s drag intent and held drag. Drag a group by its handle, a panel by its title bar or its rail icon. The switch puts the panels on a plain ghost drag (a copy, an insert line, an instant drop), so both can be felt in one window. Sample content only.",
     ...kitsPanels,
   },
-  ...KIT_LIST.slice(1).map(kitPage),
+  ...KIT_LIST.slice(1).flatMap(kitPage),
   {
     id: "checks",
     group: "checks",
