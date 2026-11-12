@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kits: panels vs groups</title>
+    <link rel="stylesheet" href="/src/lab.css" />
+    <style>
+      .kp-wrap { overflow-x: auto; padding: 4px 0 8px; }
+      .kp-stage {
+        --kp-win: #ffffff; --kp-chrome: #f3f4f7; --kp-edge: #d5d8e0; --kp-ink: #1f2330; --kp-muted: #6c7180;
+        --kp-accent: #3a6fd8; --kp-paper: #ffffff; --kp-desk: #e9ebf0; --kp-shadow: 0 10px 28px rgba(20, 24, 40, 0.22), 0 2px 6px rgba(20, 24, 40, 0.14);
+        position: relative; overflow: hidden; border: 1px solid var(--kp-edge); border-radius: 10px; background: var(--kp-desk);
+        color: var(--kp-ink); font: 12.5px/1.35 system-ui, sans-serif; user-select: none; touch-action: none;
+      }
+      @media (prefers-color-scheme: dark) {
+        .kp-stage { --kp-win: #23252d; --kp-chrome: #2b2e37; --kp-edge: #3a3e4a; --kp-ink: #e6e8ee; --kp-muted: #9aa0ae; --kp-accent: #7aa2f7; --kp-paper: #30333d; --kp-desk: #1b1d23; --kp-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.45); }
+      }
+      .kp-stage > * { position: absolute; box-sizing: border-box; }
+      .kp-title { left: 0; top: 0; width: 100%; height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: var(--kp-chrome); border-bottom: 1px solid var(--kp-edge); }
+      .kp-lights { display: flex; gap: 6px; }
+      .kp-lights i { width: 11px; height: 11px; border-radius: 50%; background: #e8467c; }
+      .kp-lights i:nth-child(2) { background: #f2c94c; }
+      .kp-lights i:nth-child(3) { background: #16b8d8; }
+      .kp-file { font-weight: 600; }
+      .kp-pages { color: var(--kp-muted); }
+      .kp-bar { background: var(--kp-chrome); border-bottom: 1px solid var(--kp-edge); }
+      .kp-bar.bottom { border-top: 1px solid var(--kp-edge); border-bottom: 0; }
+      .kp-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--kp-muted); opacity: 0.6; font-size: 11px; }
+      .kp-group { display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 6px 0 2px; white-space: nowrap; border-radius: 7px; background: var(--kp-win); border: 1px solid var(--kp-edge); z-index: 3; }
+      .kp-handle { display: grid; grid-template-columns: repeat(2, 3px); gap: 3px 2px; padding: 6px 4px; cursor: grab; border-radius: 4px; }
+      .kp-handle i, .kp-grip i { width: 3px; height: 3px; border-radius: 50%; background: var(--kp-muted); opacity: 0.75; }
+      .kp-handle:hover { background: var(--kp-chrome); }
+      .kp-ctl { display: flex; align-items: center; gap: 2px; }
+      .kp-ctl button { min-width: 24px; height: 24px; padding: 0 5px; border: 0; border-radius: 5px; background: transparent; color: inherit; font: inherit; }
+      .kp-ctl button.on { box-shadow: inset 0 0 0 1.5px var(--kp-accent); color: var(--kp-accent); }
+      .kp-ctl button.text { padding: 0 7px; }
+      .kp-val { min-width: 38px; text-align: center; font-variant-numeric: tabular-nums; color: var(--kp-muted); }
+      .kp-doc { overflow: hidden; z-index: 1; padding: 18px 26px; }
+      .kp-paper { max-width: 520px; margin: 0 auto; height: 100%; background: var(--kp-paper); border: 1px solid var(--kp-edge); border-radius: 4px; padding: 22px 28px; }
+      .kp-paper h4 { margin: 0 0 14px; font-size: 14px; }
+      .kp-l { height: 7px; margin: 0 0 11px; border-radius: 3px; background: var(--kp-edge); }
+      .kp-l.short { width: 55%; }
+      .kp-rail { z-index: 2; background: var(--kp-chrome); border-right: 1px solid var(--kp-edge); }
+      .kp-rail[data-side="right"] { border-right: 0; border-left: 1px solid var(--kp-edge); }
+      .kp-ri { position: absolute; left: 6px; width: 22px; height: 24px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--kp-muted); cursor: grab; font: 13px/24px system-ui, sans-serif; }
+      .kp-ri.on { color: var(--kp-accent); box-shadow: inset 0 0 0 1.5px var(--kp-accent); }
+      .kp-panel { z-index: 2; overflow: hidden; display: flex; flex-direction: column; background: var(--kp-win); border: 1px solid var(--kp-edge); border-radius: 6px; }
+      .kp-panel.floating { z-index: 5; box-shadow: var(--kp-shadow); }
+      .kp-head { flex: none; height: 22px; display: flex; align-items: center; gap: 6px; padding: 0 4px 0 6px; background: var(--kp-chrome); cursor: grab; }
+      .kp-grip { display: grid; grid-template-columns: repeat(2, 3px); gap: 2px; }
+      .kp-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 11.5px; }
+      .kp-fold { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--kp-muted); cursor: pointer; transition: transform 0.15s; }
+      .kp-panel.folded .kp-fold { transform: rotate(-90deg); }
+      .kp-body { margin: 0; padding: 6px 10px; list-style: none; overflow: hidden; }
+      .kp-body li { padding: 3px 0; border-bottom: 1px solid var(--kp-edge); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .kp-stage .lifted { z-index: 20; box-shadow: var(--kp-shadow); cursor: grabbing; }
+      .kp-stage.dragging, .kp-stage.dragging * { cursor: grabbing; }
+      .kp-ind { z-index: 15; pointer-events: none; border: 2px dashed var(--drop); border-radius: 7px; background: color-mix(in srgb, var(--drop) 12%, transparent); }
+      .kp-ind.free { border-style: dotted; }
+      .kp-ind-label { z-index: 16; pointer-events: none; padding: 2px 7px; border-radius: 5px; background: var(--drop); color: #1d1d1b; font-size: 11px; font-weight: 600; white-space: nowrap; }
+      .kp-line { z-index: 15; pointer-events: none; background: var(--kp-accent); border-radius: 2px; }
+      .kp-line.area { background: transparent; border: 2px solid var(--kp-accent); border-radius: 6px; }
+      .kp-stage .kit-orig { opacity: 0.35; }
+      .kp-ghost { z-index: 30; pointer-events: none; opacity: 0.9; box-shadow: var(--kp-shadow); }
+      .kp-ind[hidden], .kp-ind-label[hidden], .kp-line[hidden] { display: none; }
+      #kp-status { min-height: 1.45em; margin: 4px 0 12px; color: var(--muted); }
+      #kp-rule { color: var(--muted); max-width: 980px; }
+      .kp-try { max-width: 980px; }
+      .kp-try li { margin-bottom: 4px; }
+      #kp-runs td:last-child { color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <main class="wide">
+      <header>
+        <nav class="pages"><a href="./index.html">Tiling</a> · <a href="./desk.html">Desk constructions</a> · <b>Kits: panels vs groups</b></nav>
+        <h1>Kits: panels vs groups</h1>
+        <p>
+          A dossier window on the real packages: the toolbar groups on @n-uf/placement's toolbar targets, the panels on
+          its edge docks with tear-off, and every item on @n-uf/motion's drag intent and held drag. Drag a group by its
+          handle, a panel by its title bar or its rail icon. The switch puts the panels on the kits' own drag as it is
+          today, so both can be felt in one window. Sample content only.
+        </p>
+      </header>
+
+      <section class="controls" aria-label="Controls">
+        <fieldset>
+          <legend>Panels</legend>
+          <button type="button" data-pm="kit" aria-pressed="true">The kits' own drag (today)</button>
+          <button type="button" data-pm="dock" aria-pressed="false">On ./dock</button>
+        </fieldset>
+        <fieldset>
+          <legend>Preview</legend>
+          <label><input type="radio" name="preview" value="indicator" /> Drop indicator</label>
+          <label><input type="radio" name="preview" value="gap" /> Open gap</label>
+          <label><input type="radio" name="preview" value="snap" checked /> Snap to slot</label>
+        </fieldset>
+        <fieldset>
+          <legend>Window</legend>
+          <button type="button" id="kp-reset">Reset</button>
+        </fieldset>
+      </section>
+      <p id="kp-rule"></p>
+
+      <div class="kp-wrap"><div class="kp-stage" id="kp-stage"></div></div>
+      <p id="kp-status" role="status" aria-live="polite"></p>
+
+      <section class="kp-try">
+        <h2>Try this</h2>
+        <ol>
+          <li>Drag Zoom to the bottom bar, then Notes into the right dock with the kits' own drag. The group lifts and lands on a spring; the panel ghosts, shows a line wherever the pointer is, and jumps.</li>
+          <li>Switch to ./dock. Drag History into the left dock and hold: room opens after a beat, and the least recently used section folds to make way.</li>
+          <li>Drag a panel over the document: it tears off as a palette. Drag the palette onto a dock or a rail icon to dock it back.</li>
+          <li>Fling a group or a panel across the bars and docks without stopping: nothing shows until you slow down.</li>
+        </ol>
+      </section>
+    </main>
+    <script type="module" src="/src/kits/kits-panels.ts"></script>
+  </body>
+</html>
