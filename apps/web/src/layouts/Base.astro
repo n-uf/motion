@@ -56,6 +56,8 @@ const ogImage = new URL(ogPath, Astro.site);
     <meta name="twitter:image" content={ogImage} />
 
     {jsonLd.map((d) => <script type="application/ld+json" set:html={JSON.stringify(d)} />)}
+    <!-- the theme switch needs script: without it the buttons are not shown (their room is kept) -->
+    <noscript><style>.theme{visibility:hidden}</style></noscript>
     <!-- the stored theme, before the first paint, so a dark choice never flashes light; it colours the browser bar too -->
     <script is:inline>try{var t=localStorage.getItem("motion-theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t;document.querySelectorAll("meta[name=theme-color]").forEach(function(m){m.content=t==="dark"?"#111214":"#f7f6f3";m.removeAttribute("media")})}}catch(e){}</script>
   </head>
