@@ -49,8 +49,8 @@
 .nav a[aria-current="page"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -11px; height: 2px; border-radius: 1px; background: var(--part); }
 /* The pair's two parts: a small key ("Move", "Place") before each part's pages, a hairline between the parts. Each part
    carries its own colour (--part): cyan for motion, violet for placement. */
-[data-part="motion"] { --part: var(--motion); }
-[data-part="placement"] { --part: var(--place); }
+[data-part="motion"] { --part: var(--motion); --part-strong: var(--accent-strong); }
+[data-part="placement"] { --part: var(--place); --part-strong: var(--place); }
 .nav-part { display: inline-flex; align-items: center; gap: 2px; }
 .nav-part + .nav-part { margin-left: 8px; padding-left: 10px; border-left: 1px solid var(--line); }
 .nav-k { padding: 0 4px 0 2px; font: 600 var(--t-cap) var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
@@ -59,10 +59,12 @@
 .nav-lab a:hover { border-color: var(--accent-line); color: var(--accent-strong); background: transparent; }
 
 /* A page's "Built with" line under its lead (components/BuiltWith.astro). */
-.built-with { display: flex; flex-wrap: wrap; gap: 4px var(--s4); margin: 0; font-size: var(--t-sm); color: var(--text-2); }
-.built-with .bw-k { margin-right: 4px; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
-.built-with code { font-size: 0.92em; }
+.built-with { display: flex; flex-wrap: wrap; gap: 4px var(--s4); margin: 0; padding-top: var(--s3); border-top: 1px solid var(--line); font-size: var(--t-sm); color: var(--text-2); }
+.built-with .bw-k { margin-right: 4px; font: 600 var(--t-cap) var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+/* Package names are plain mono in a spec strip, never broken across lines. */
+.built-with code { padding: 0; border: 0; background: none; font-size: 0.92em; white-space: nowrap; overflow-wrap: normal; }
 .built-with .bw-what { color: var(--text-2); }
+@media (max-width: 900px) { .built-with { flex-direction: column; } }
 .eyebrow .eb-part { color: var(--text-3); font-weight: 600; }
 
 .theme { margin-left: auto; display: inline-flex; padding: 2px; gap: 2px; border-radius: var(--r); border: 1px solid var(--line); background: var(--bg-subtle); }
@@ -100,12 +102,13 @@
 
 /* Links to the neighbouring pages, after an inner page's content. */
 .pager { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4); padding-top: var(--s8); }
-.pager a { display: grid; gap: 2px; padding: var(--s4) var(--s5); border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); box-shadow: var(--shadow-1); text-decoration: none; transition: border-color var(--fast) var(--ease); }
-.pager a:hover { border-color: var(--line-3); }
+/* A hairline cell, as in the plan: no raised card or shadow; the border takes the page's part colour on hover. */
+.pager a { display: grid; gap: 2px; padding: var(--s4) var(--s5); border: 1px solid var(--line); border-radius: var(--r); background: transparent; text-decoration: none; transition: border-color var(--fast) var(--ease); }
+.pager a:hover { border-color: var(--part); }
 .pager .next { text-align: right; }
-.pager .k { font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+.pager .k { font: 600 var(--t-cap) var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
 .pager .t { font-size: var(--t-md); font-weight: 620; letter-spacing: -0.01em; color: var(--text); }
-.pager a:hover .t { color: var(--accent-strong); }
+.pager a:hover .t { color: var(--part-strong); }
 .pager .prev .t::before { content: "← "; color: var(--text-3); }
 .pager .next .t::after { content: " →"; color: var(--text-3); }
 

@@ -29,7 +29,7 @@
 
 
 #compare { margin-top: var(--s6); }
-#compare h3 { font-size: var(--t-lg); }
+#compare h2 { font-size: var(--t-lg); }
 
 /* The phases diagram */
 .diagram { overflow-x: auto; padding: var(--s5) var(--s4); border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); box-shadow: var(--shadow-1); }

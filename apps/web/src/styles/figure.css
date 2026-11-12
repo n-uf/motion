@@ -28,18 +28,36 @@
   color: var(--win-text);
   transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease);
 }
-.case:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.case .i { grid-row: 1 / span 2; padding-top: 2px; font-family: var(--font-mono); font-size: 11px; color: var(--win-muted); font-variant-numeric: tabular-nums; }
+.case:hover { background: color-mix(in srgb, var(--part) 8%, transparent); }
+.case .i { grid-row: 1 / span 2; padding-top: 2px; font-family: var(--font-mono); font-size: 10.5px; color: var(--win-muted); font-variant-numeric: tabular-nums; }
 .case .t { font-size: 13.5px; font-weight: 600; line-height: 1.4; }
 .case .d { font-size: 12px; line-height: 1.45; color: var(--win-muted); text-wrap: pretty; }
-.case .tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-size: 10.5px; font-weight: 650; line-height: 16px; vertical-align: 1px; white-space: nowrap; }
-.case[aria-pressed="true"] { background: var(--win-bar); border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
-.case[aria-pressed="true"] .i { color: var(--accent); }
+.case .tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--part); color: var(--part-strong); font-size: 10.5px; font-weight: 650; line-height: 16px; vertical-align: 1px; white-space: nowrap; }
+.case[aria-pressed="true"] { background: var(--win-bar); border-color: var(--part); box-shadow: inset 3px 0 0 var(--part); }
+.case[aria-pressed="true"] .i { color: var(--part-strong); }
 .busy .case { opacity: 0.55; pointer-events: none; }
 
 /* The stage: the flat well, scrolling inside its own wrapper when it is wider than the room. */
-.stage-wrap { min-width: 0; height: var(--stage-h); overflow: auto; background: var(--win-well); overscroll-behavior-x: contain; }
+.stage-wrap { position: relative; min-width: 0; height: var(--stage-h); overflow: auto; background: var(--win-well); overscroll-behavior-x: contain; }
 .stage-wrap.pad { padding: var(--s4); }
+
+/* The plan corners: two L brackets around the figure, in the page's part colour (cyan for motion, violet for
+   placement). They sit just outside the window's rounded frame, so the wrapper carries them. */
+.fig-plan { position: relative; }
+.fig-plan::before, .fig-plan::after { content: ""; position: absolute; z-index: 2; width: 11px; height: 11px; border: 2px solid var(--part); pointer-events: none; }
+.fig-plan::before { left: -5px; top: -5px; border-right: 0; border-bottom: 0; }
+.fig-plan::after { right: -5px; bottom: -5px; border-left: 0; border-top: 0; }
+
+/* A scroller's right edge fades into the well where the stage is wider than its room, so a figure never looks cut off.
+   The fade belongs to the scrolled content (it leaves with the first scroll). Widths are where each figure's stage
+   stops fitting (drag 880, desk 720, toolbar 720 plus the rail). */
+.stage-wrap::after, .compare-scroll::after, .diagram::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; z-index: 3; width: 28px; display: none; pointer-events: none; background: linear-gradient(to right, transparent, var(--fade, var(--win-well))); }
+@media (max-width: 1230px) { .dragfig .stage-wrap::after { display: block; } }
+@media (max-width: 1070px) { .deskfig .stage-wrap::after, .tbfig .stage-wrap::after { display: block; } }
+.compare-scroll { position: relative; --fade: var(--bg-raised); }
+.compare-scroll::after { display: block; }
+.diagram { position: relative; --fade: var(--bg-raised); }
+@media (max-width: 900px) { .diagram::after { display: block; } }
 
 /* Legend chips under a drawing. */
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: var(--t-xs); color: var(--text-2); }
@@ -47,14 +65,26 @@
 .legend span::before { content: ""; width: 12px; height: 12px; border-radius: 3px; background: var(--c); border: 1px solid var(--b, var(--line-2)); }
 
 /* Below a figure: what the stage shows, in prose. */
-.figure-note { margin-top: var(--s3); font-size: var(--t-sm); color: var(--text-2); }
+.figure-note { max-width: 78ch; margin-top: var(--s3); font-size: var(--t-sm); color: var(--text-2); }
 .figure-note b { color: var(--text); }
+/* The caption above the first note: the words under D's two instruments, in a mono tick of the page's part colour. CSS
+   content only, kept out of the accessibility tree (the prose under it is the explanation). Where the stage scrolls
+   sideways it says so on a second line. */
+.fig-plan + .figure-note::before { display: block; margin-bottom: 6px; padding-left: 8px; border-left: 2px solid var(--part); font: 600 var(--t-cap)/1.5 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; white-space: pre-line; color: var(--text-3); }
+[data-part="motion"] .fig-plan + .figure-note::before { content: "SCOPE · MOTION CARRIES THE PANEL"; content: "SCOPE · MOTION CARRIES THE PANEL" / ""; }
+[data-part="placement"] .fig-plan + .figure-note::before { content: "PLAN · PLACEMENT RETURNS RECTS"; content: "PLAN · PLACEMENT RETURNS RECTS" / ""; }
+@media (max-width: 1230px) { [data-part] .fig-plan:has(.dragfig) + .figure-note::before { content: "SCOPE · MOTION CARRIES THE PANEL\A SCROLL THE STAGE SIDEWAYS"; content: "SCOPE · MOTION CARRIES THE PANEL\A SCROLL THE STAGE SIDEWAYS" / ""; } }
+@media (max-width: 1070px) {
+  [data-part] .fig-plan:has(.deskfig) + .figure-note::before { content: "PLAN · PLACEMENT RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS"; content: "PLAN · PLACEMENT RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS" / ""; }
+  [data-part] .fig-plan:has(.tbfig) + .figure-note::before { content: "PLAN · PLACEMENT RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS"; content: "PLAN · PLACEMENT RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS" / ""; }
+}
 
 /* Narrow: the cases become a scrolling strip above the stage. */
 @media (max-width: 900px) {
   .figure > .mid > .figure-body { grid-template-columns: minmax(0, 1fr); }
   .rail { border-right: 0; border-bottom: 1px solid var(--win-edge); }
-  .rail-scroll { position: static; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: var(--s2); gap: var(--s1); scroll-snap-type: x proximity; }
+  .rail-scroll { position: relative; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: var(--s2); gap: var(--s1); scroll-snap-type: x proximity; }
+  .rail-scroll::after { content: ""; position: absolute; top: 0; bottom: 0; right: 0; z-index: 3; width: 28px; pointer-events: none; background: linear-gradient(to right, transparent, var(--win-frame)); }
   .rail-title { display: none; }
   .case { width: 236px; scroll-snap-align: start; }
 }
