@@ -9,15 +9,15 @@ import { HOST_RECT, STAGE, createViewer, placements, sameArrangement, type Group
 import { drag, fmt, mid, off, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
-/** Redact stays in the top bar; Share can't float. */
+/** Review stays in the top bar; Share can't float. */
 export const constraint: Allows<GroupId> = (g, place) => {
-  if (g === "redact") return place !== "float" && place.host === "top";
+  if (g === "review") return place !== "float" && place.host === "top";
   if (g === "share") return place !== "float";
   return true;
 };
 
 const RULE = `The app's rule is placement's <code>allows(group, place)</code>: <code>hostTargets</code> leaves a forbidden
-place out, and the float target is added only where the rule allows floating, so <code>createDragIntent</code> never sees it. <b>Redact</b> stays in the top bar (no other
+place out, and the float target is added only where the rule allows floating, so <code>createDragIntent</code> never sees it. <b>Review</b> stays in the top bar (no other
 bar, no float); <b>Share</b> can't float. Over a forbidden spot there is no target and no slot, the group follows the
 pointer, and a release glides home. Navigate, Zoom and Annotate go anywhere.`;
 
@@ -60,13 +60,13 @@ function scenarios(c6: Viewer): KitScenario[] {
 
   return [
     {
-      name: "6 · Redact over the bottom bar and over the document: no target, no slot, the group under the pointer; a release glides home",
+      name: "6 · Review over the bottom bar and over the document: no target, no slot, the group under the pointer; a release glides home",
       play: async (expect) => {
-        const kept = c6.targets("redact");
-        expect(kept.length > 0 && kept.every((t) => t.kind !== "float" && t.place.host === "top"), `Redact keeps ${kept.map((t) => t.id).join(", ")}`);
-        expect(c6.allTargets("redact").some((t) => t.kind !== "float" && t.place.host === "bottom"), "the bottom bar offers no target at all (nothing to filter)");
-        await forbidden(expect, "redact", mid(HOST_RECT.bottom), "over the bottom bar");
-        await forbidden(expect, "redact", mid(STAGE), "over the document");
+        const kept = c6.targets("review");
+        expect(kept.length > 0 && kept.every((t) => t.kind !== "float" && t.place.host === "top"), `Review keeps ${kept.map((t) => t.id).join(", ")}`);
+        expect(c6.allTargets("review").some((t) => t.kind !== "float" && t.place.host === "bottom"), "the bottom bar offers no target at all (nothing to filter)");
+        await forbidden(expect, "review", mid(HOST_RECT.bottom), "over the bottom bar");
+        await forbidden(expect, "review", mid(STAGE), "over the document");
       },
     },
     {

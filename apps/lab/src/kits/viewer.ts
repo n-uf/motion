@@ -1,6 +1,6 @@
 /**
  * A small document viewer window for the kit cases: title, top, left, right and bottom bars, five toolbar groups (Navigate,
- * Zoom, Annotate, Redact, Share), on the real packages:
+ * Zoom, Annotate, Review, Share), on the real packages:
  *
  * - @n-uf/placement/toolbar lays the groups out in their hosts; @n-uf/placement/targets lists the drop targets a
  *   lifted group has (`hostTargets` per bar, `floatTarget` over the document);
@@ -17,19 +17,19 @@ import { createLayoutMotion, domDrawable, holdItem, type HeldDrag, type LayoutIt
 import { floatTarget, hostTargets, keyboardStops, type Allows, type KeyboardStop, type ToolbarFloatTarget, type ToolbarTarget } from "@n-uf/placement/targets";
 import { HOSTS, arrangement, hostOf, layoutHost, sameArrangement, toggleCollapsed, vertical, withoutGroup, type Arrangement, type GroupSize, type HostId, type HostSpec, type Place } from "@n-uf/placement/toolbar";
 
-export type GroupId = "navigate" | "zoom" | "annotate" | "redact" | "share";
-export const GROUPS: readonly GroupId[] = ["navigate", "zoom", "annotate", "redact", "share"];
-export const GROUP_LABEL: Readonly<Record<GroupId, string>> = { navigate: "Navigate", zoom: "Zoom", annotate: "Annotate", redact: "Redact", share: "Share" };
+export type GroupId = "navigate" | "zoom" | "annotate" | "review" | "share";
+export const GROUPS: readonly GroupId[] = ["navigate", "zoom", "annotate", "review", "share"];
+export const GROUP_LABEL: Readonly<Record<GroupId, string>> = { navigate: "Navigate", zoom: "Zoom", annotate: "Annotate", review: "Review", share: "Share" };
 const CELLS: Readonly<Record<GroupId, readonly (readonly [string, string])[]>> = {
   navigate: [["‹", "Previous page"], ["›", "Next page"], ["⤒", "First page"]],
   zoom: [["−", "Zoom out"], ["%", "Fit width"], ["+", "Zoom in"]],
   annotate: [["✎", "Pen"], ["▭", "Box"], ["T", "Text"]],
-  redact: [["▇", "Redact an area"], ["⌫", "Remove a redaction"]],
+  review: [["✓", "Approve"], ["↺", "Request changes"]],
   share: [["⇪", "Share"], ["⎙", "Print"]],
 };
 
 /** Where the groups start. */
-export const HOME: Arrangement<GroupId> = arrangement<GroupId>({ title: { end: ["share"] }, top: { start: ["navigate", "zoom"], end: ["annotate", "redact"] } });
+export const HOME: Arrangement<GroupId> = arrangement<GroupId>({ title: { end: ["share"] }, top: { start: ["navigate", "zoom"], end: ["annotate", "review"] } });
 
 export type KTarget = ToolbarTarget<GroupId> | ToolbarFloatTarget<GroupId>;
 
@@ -155,22 +155,22 @@ export interface ViewerOptions {
   readonly preview?: () => DragPreview;
   /**
    * A fold (a double-click on a handle, or the bar running out of room): revealed through ./layout, the neighbours
-   * gliding (the default), or today's instant swap, everything jumping (case 4).
+   * gliding (the default), or an instant swap, everything jumping (case 4).
    */
   readonly fold?: () => "reveal" | "instant";
   /** Start frozen (case 8); `setFrozen` changes it. A frozen layout hides the grips; holding Alt shows them. */
   readonly frozen?: boolean;
   /**
    * When the freeze is looked at (case 8): at the press only, so a drag in flight always finishes (the default); or on
-   * every move, today's plain "is it frozen?" guard, which cancels a drag when Alt comes up and starts one when Alt
+   * every move, a plain per-move "is it frozen?" guard, which cancels a drag when Alt comes up and starts one when Alt
    * goes down mid-press.
    */
   readonly freezeGate?: "press" | "move";
   /**
-   * Today's kit drag (case 5): no intent, no preview motion; a 3 px line marks the insertion point under the pointer
-   * on the last move (a float: its outline), and the group lands there.
+   * A hairline indicator (case 5): a naive drag, no intent, no preview motion; a 3 px line marks the insertion point
+   * under the pointer on the last move (a float: its outline), and the group lands there.
    */
-  readonly today?: boolean;
+  readonly hairline?: boolean;
 }
 
 /** One frame of a drag, as the viewer drew it. */
@@ -241,7 +241,7 @@ interface Drag {
   pointer: Point;
   form: boolean;
   room: KTarget | null;
-  /** Today's drag (case 5): the target under the pointer on the last move. */
+  /** The hairline drag (case 5): the target under the pointer on the last move. */
   under: KTarget | null;
   readonly frames: DragFrameRecord[];
   readonly stop: () => void;
@@ -399,7 +399,7 @@ export function createViewer(host: HTMLElement, options: ViewerOptions): Viewer 
   /**
    * Every group to its place in `arr` (all but `except`, which the drag moves). A group that folds or unfolds is
    * laid out at its new size at once and revealed (clipped, never squeezed) as it settles, the others gliding; with
-   * `instant` everything jumps, today's swap.
+   * `instant` everything jumps, an instant swap.
    */
   function layOut(arr: Arrangement<GroupId>, except?: GroupId, instant = false): void {
     const ps = placements(arr, floatColumns, geo);
@@ -528,7 +528,7 @@ export function createViewer(host: HTMLElement, options: ViewerOptions): Viewer 
     let lifted = false;
     const move = (ev: PointerEvent): void => {
       const c = { x: ev.clientX, y: ev.clientY };
-      // Today's guard (case 8): "is it frozen?" on every move; it cancels a drag in flight when Alt comes up, and
+      // A per-move guard (case 8): "is it frozen?" on every move; it cancels a drag in flight when Alt comes up, and
       // lets a frozen press start one when Alt goes down.
       if (freezeGate === "move" && !unlocked(ev.altKey || altHeld)) {
         if (lifted && drag) end(true);
@@ -585,8 +585,8 @@ export function createViewer(host: HTMLElement, options: ViewerOptions): Viewer 
     drawXray(g);
   }
 
-  /** Today's drag (case 5): the line under the pointer on the last move, the group 1:1 under the pointer. */
-  function frameToday(d: Drag, now: number): void {
+  /** The hairline drag (case 5): the line under the pointer on the last move, the group 1:1 under the pointer. */
+  function frameHairline(d: Drag, now: number): void {
     const t = inRect(d.home, d.pointer) ? null : targetAt(d.targets, d.pointer);
     d.under = t;
     const r = t ? (t.kind === "float" ? slotOf(d.g, t, d.pointer, d.grab, false) : t.line) : null;
@@ -598,7 +598,7 @@ export function createViewer(host: HTMLElement, options: ViewerOptions): Viewer 
 
   function frame(d: Drag): void {
     const now = performance.now();
-    if (options.today) return frameToday(d, now);
+    if (options.hairline) return frameHairline(d, now);
     const f = d.intent.update(d.pointer, now, d.targets);
     const shown = f.shown;
     const slotted = !!shown && shown.kind !== "float";
@@ -629,7 +629,7 @@ export function createViewer(host: HTMLElement, options: ViewerOptions): Viewer 
   function end(cancel: boolean): void {
     const d = drag;
     if (!d) return;
-    const target = cancel ? null : options.today ? d.under : d.intent.release(d.pointer, d.targets);
+    const target = cancel ? null : options.hairline ? d.under : d.intent.release(d.pointer, d.targets);
     const next = target ? (target.kind === "float" ? target.make(d.pointer, d.grab) : target.arrangement) : null;
     // Proposal B: a group that lands floating keeps the direction it was lifted in; docked, it has none to keep.
     if (target?.kind === "float" && floats() === "keep" && d.homeVertical) floatColumns.add(d.g);

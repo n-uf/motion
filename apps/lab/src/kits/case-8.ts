@@ -1,8 +1,8 @@
 /**
  * 8 · Frozen layout: a lock freezes the layout. Frozen hides the grips; holding Alt shows them and they work. The
- * question is when the freeze is looked at. Today's guard asks "is it frozen?" on every move, so letting go of Alt
- * mid-drag cancels the drag, and pressing Alt mid-press starts one. Proposed: the freeze gates only the start of a
- * drag (read once, at the press); after the lift the drag intent runs to its drop or Escape.
+ * question is when the freeze is looked at. A per-move guard asks "is it frozen?" on every move, so letting go of Alt
+ * mid-drag cancels the drag, and pressing Alt mid-press starts one. With a gate at the press, the freeze gates only
+ * the start of a drag (read once, at the press); after the lift the drag intent runs to its drop or Escape.
  */
 import type { Point } from "@n-uf/motion";
 import { nextFrame } from "../shared/geometry";
@@ -10,20 +10,20 @@ import { HOME, createViewer, sameArrangement, type Viewer, type GroupId } from "
 import { mid, pointer, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
-const RULE = `Freeze the layout with the lock: the grips hide. Hold <kbd>Alt</kbd> to bring them back and drag. <b>Today</b>
-the guard is checked on every move. <b>Proposed</b> the freeze (and Alt) are read once, at the press: a frozen press never
-becomes a drag, and a drag that started always finishes. Play (a) starts a drag with Alt held and lets go of Alt halfway;
-play (b) presses a frozen group, then holds Alt while still pressing.`;
+const RULE = `Freeze the layout with the lock: the grips hide. Hold <kbd>Alt</kbd> to bring them back and drag. A
+<b>per-move guard</b> checks the freeze on every move. With a <b>gate at the press</b>, the freeze (and Alt) are read once,
+at the press: a frozen press never becomes a drag, and a drag that started always finishes. Play (a) starts a drag with
+Alt held and lets go of Alt halfway; play (b) presses a frozen group, then holds Alt while still pressing.`;
 
 export const case8: KitCase = {
   id: "frozen",
   title: "8 · Frozen layout",
   mount(host, loop) {
-    const desks = caseFrame(host, RULE, [{ id: "today", caption: "Today · the guard checked on every move" }, { id: "proposed", caption: "Proposed · the freeze gates only the start" }], () => reset());
-    const today = createViewer(desks.today!, { title: "Quarterly plan.pdf", loop, frozen: true, freezeGate: "move" });
-    const proposed = createViewer(desks.proposed!, { title: "Quarterly plan.pdf", loop, frozen: true });
-    const ds = [today, proposed];
-    const controls = desks.today!.closest(".kcase")!.querySelector(".controls")!;
+    const desks = caseFrame(host, RULE, [{ id: "perMove", caption: "Per-move guard · the freeze checked on every move" }, { id: "atPress", caption: "Gate at the press · the freeze gates only the start" }], () => reset());
+    const perMove = createViewer(desks.perMove!, { title: "Quarterly plan.pdf", loop, frozen: true, freezeGate: "move" });
+    const atPress = createViewer(desks.atPress!, { title: "Quarterly plan.pdf", loop, frozen: true });
+    const ds = [perMove, atPress];
+    const controls = desks.perMove!.closest(".kcase")!.querySelector(".controls")!;
     const lock = document.createElement("label");
     lock.className = "lock";
     lock.innerHTML = `<input type="checkbox" checked aria-label="Freeze the layout" /><span class="state"></span> <span class="lockhint">· hold <kbd>Alt</kbd> to move</span>`;
@@ -46,7 +46,7 @@ export const case8: KitCase = {
     input.addEventListener("change", () => setFrozen(input.checked));
     playA.addEventListener("click", () => void Promise.all(ds.map((d) => altLetGo(d))));
     playB.addEventListener("click", () => void Promise.all(ds.map((d) => altAfterPress(d))));
-    return { reset, idle: allIdle(ds), scenarios: scenarios(today, proposed, setFrozen) };
+    return { reset, idle: allIdle(ds), scenarios: scenarios(perMove, atPress, setFrozen) };
   },
 };
 
@@ -104,7 +104,7 @@ async function altAfterPress(d: Viewer): Promise<{ beforeAlt: boolean; afterAlt:
   return { beforeAlt, afterAlt };
 }
 
-function scenarios(today: Viewer, proposed: Viewer, setFrozen: (on: boolean) => void): KitScenario[] {
+function scenarios(perMove: Viewer, atPress: Viewer, setFrozen: (on: boolean) => void): KitScenario[] {
   const gripsShown = (d: Viewer): number => [...d.el.querySelectorAll<HTMLElement>(".kg-handle")].filter((h) => getComputedStyle(h).visibility !== "hidden").length;
   return [
     {
@@ -112,52 +112,52 @@ function scenarios(today: Viewer, proposed: Viewer, setFrozen: (on: boolean) => 
       play: async (expect: Expect) => {
         setFrozen(true);
         alt(false);
-        expect(gripsShown(proposed) === 0, `frozen: ${gripsShown(proposed)} grips show`);
-        proposed.handle("navigate").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-        await settle(proposed);
-        expect(!proposed.folded().includes("navigate"), "frozen: a double-click folded Navigate");
+        expect(gripsShown(atPress) === 0, `frozen: ${gripsShown(atPress)} grips show`);
+        atPress.handle("navigate").dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+        await settle(atPress);
+        expect(!atPress.folded().includes("navigate"), "frozen: a double-click folded Navigate");
         alt(true);
-        expect(gripsShown(proposed) === 5, `Alt held: ${gripsShown(proposed)} of 5 grips show`);
+        expect(gripsShown(atPress) === 5, `Alt held: ${gripsShown(atPress)} of 5 grips show`);
         alt(false);
         setFrozen(false);
-        expect(gripsShown(proposed) === 5, `unfrozen: ${gripsShown(proposed)} of 5 grips show`);
+        expect(gripsShown(atPress) === 5, `unfrozen: ${gripsShown(atPress)} of 5 grips show`);
         setFrozen(true);
       },
     },
     {
-      name: "8 · (a) A drag started with Alt, Alt let go halfway: it finishes and lands where the outline showed; today it is cancelled at once",
+      name: "8 · (a) A drag started with Alt, Alt let go halfway: with the gate at the press it finishes and lands where the outline showed; a per-move guard cancels it at once",
       play: async (expect: Expect) => {
         setFrozen(true);
-        const a0 = proposed.arrangement();
-        const p = await altLetGo(proposed);
-        await settle(proposed);
-        expect(p.draggingAfterAltUp, "proposed: the drag stopped when Alt came up");
-        const rec = proposed.lastDrag();
-        expect(!!rec && rec.landed !== null, `proposed: landed on ${rec?.landed ?? "home"}`);
-        expect(proposed.arrangement().bottom.center.includes("zoom") || proposed.arrangement().bottom.start.includes("zoom") || proposed.arrangement().bottom.end.includes("zoom"), "proposed: Zoom isn't in the bottom bar");
-        expect(!sameArrangement(proposed.arrangement(), a0), "proposed: nothing moved");
-        expect(gripsShown(proposed) === 0, `proposed: after the drop ${gripsShown(proposed)} grips still show (frozen, no Alt)`);
-        const t = await altLetGo(today);
-        await settle(today);
-        expect(!t.draggingAfterAltUp, "today: the drag went on after Alt came up (today's guard should cancel it; the comparison is off)");
-        expect(sameArrangement(today.arrangement(), HOME), "today: the arrangement changed");
+        const a0 = atPress.arrangement();
+        const p = await altLetGo(atPress);
+        await settle(atPress);
+        expect(p.draggingAfterAltUp, "gate at the press: the drag stopped when Alt came up");
+        const rec = atPress.lastDrag();
+        expect(!!rec && rec.landed !== null, `gate at the press: landed on ${rec?.landed ?? "home"}`);
+        expect(atPress.arrangement().bottom.center.includes("zoom") || atPress.arrangement().bottom.start.includes("zoom") || atPress.arrangement().bottom.end.includes("zoom"), "gate at the press: Zoom isn't in the bottom bar");
+        expect(!sameArrangement(atPress.arrangement(), a0), "gate at the press: nothing moved");
+        expect(gripsShown(atPress) === 0, `gate at the press: after the drop ${gripsShown(atPress)} grips still show (frozen, no Alt)`);
+        const t = await altLetGo(perMove);
+        await settle(perMove);
+        expect(!t.draggingAfterAltUp, "per-move guard: the drag went on after Alt came up (the guard should cancel it; the comparison is off)");
+        expect(sameArrangement(perMove.arrangement(), HOME), "per-move guard: the arrangement changed");
       },
     },
     {
-      name: "8 · (b) A frozen press, then Alt held while still pressing: nothing starts; today a drag starts. A fresh press with Alt does start",
+      name: "8 · (b) A frozen press, then Alt held while still pressing: with the gate at the press nothing starts; a per-move guard starts a drag. A fresh press with Alt does start",
       play: async (expect: Expect) => {
         setFrozen(true);
-        const p = await altAfterPress(proposed);
-        await settle(proposed);
-        expect(!p.beforeAlt && !p.afterAlt, `proposed: dragging before Alt ${p.beforeAlt}, after ${p.afterAlt}`);
-        expect(sameArrangement(proposed.arrangement(), HOME), "proposed: the arrangement changed");
-        const t = await altAfterPress(today);
-        await settle(today);
-        expect(!t.beforeAlt && t.afterAlt, `today: dragging before Alt ${t.beforeAlt}, after ${t.afterAlt} (today's guard lets the frozen press start)`);
+        const p = await altAfterPress(atPress);
+        await settle(atPress);
+        expect(!p.beforeAlt && !p.afterAlt, `gate at the press: dragging before Alt ${p.beforeAlt}, after ${p.afterAlt}`);
+        expect(sameArrangement(atPress.arrangement(), HOME), "gate at the press: the arrangement changed");
+        const t = await altAfterPress(perMove);
+        await settle(perMove);
+        expect(!t.beforeAlt && t.afterAlt, `per-move guard: dragging before Alt ${t.beforeAlt}, after ${t.afterAlt} (the guard lets the frozen press start)`);
         // A fresh press with Alt held starts a drag.
-        const r = await altLetGo(proposed);
-        await settle(proposed);
-        expect(r.draggingAfterAltUp && proposed.lastDrag()?.landed !== null, "proposed: a press with Alt held didn't drag");
+        const r = await altLetGo(atPress);
+        await settle(atPress);
+        expect(r.draggingAfterAltUp && atPress.lastDrag()?.landed !== null, "gate at the press: a press with Alt held didn't drag");
       },
     },
   ];

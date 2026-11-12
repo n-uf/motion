@@ -110,7 +110,7 @@ figure.k-desk { margin: 0; }
 .kgroup.collapsed .kg-ovf { display: block; }
 .k-pop { position: absolute; z-index: 8; display: flex; gap: 2px; padding: 4px; background: var(--k-panel); border: 1px solid var(--k-edge); border-radius: 8px; box-shadow: var(--k-shadow); }
 .k-pop .kg-cell { cursor: pointer; }
-/* Today's kit drag (case 5): a 3 px line at the insertion point, not the group's outline. */
+/* The hairline indicator (case 5): a 3 px line at the insertion point, not the group's outline. */
 .k-slot.line { border: 0; border-radius: 2px; background: var(--k-accent); transition: none; }
 /* Frozen (case 8): no grips, unless Alt is held; a group already lifted keeps its own. */
 .kwin.frozen:not(.alt) .kgroup:not(.lifted) .kg-handle { visibility: hidden; }

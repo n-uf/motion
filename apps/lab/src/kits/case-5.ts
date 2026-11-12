@@ -2,8 +2,8 @@
  * 5 · Drop preview in a document viewer: the same drag, three ways of showing where the group lands, through
  * @n-uf/motion/drag's `previewPlan(frame, mode)`: Drop indicator (nothing moves, the outline over the insertion
  * point), Open gap (after 160 ms the neighbours move aside), Snap to slot (the gap opens and the group glides into it).
- * The slot is always the group's own outline. Next to them, today's kit drag: a 3 px line at the nearest insertion
- * point, shown wherever the pointer is.
+ * The slot is always the group's own outline. Next to them, a hairline indicator: a naive drag that draws a 3 px line
+ * at the nearest insertion point, wherever the pointer is.
  */
 import type { Point, Rect } from "@n-uf/motion";
 import type { DragPreview } from "@n-uf/motion/drag";
@@ -13,18 +13,19 @@ import { HOME, createViewer, type Viewer, type GroupId } from "./viewer";
 import { fmt, mid, off, pointer, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
-const RULE = `Drag a handle in any window. <b>Today</b>: no preview motion; a 3 px line marks the insertion point under the
-pointer on the last move, and the group lands there. <b>Proposed</b>: <code>previewPlan(frame, mode)</code> with the mode
-picked here; whatever the mode, the slot is the group's own outline (dashed, tinted), it shows only while you aim, holds
-150 ms before switching, and a release lands where it shows. The second row is a side edge, where the groups take their
-compact column form.`;
+const RULE = `Drag a handle in any window. A <b>hairline indicator</b>: no preview motion; a 3 px line marks the insertion
+point under the pointer on the last move, and the group lands there. <b>With the intent</b>: <code>previewPlan(frame, mode)</code>
+with the mode picked here; whatever the mode, the slot is the group's own outline (dashed, tinted), it shows only while you
+aim, holds 150 ms before switching, and a release lands where it shows. The second row is a side edge, where the groups
+take their compact column form.`;
 
 const MODES: readonly DragPreview[] = ["indicator", "gap", "snap"];
 const MODE_NAME: Record<DragPreview, string> = { indicator: "Drop indicator", gap: "Open gap", snap: "Snap to slot" };
+const ALL: readonly GroupId[] = ["navigate", "zoom", "annotate", "review", "share"];
 /** The side edge, sparse (three groups that fit) and dense (five: some fold to handle + »). */
 const EDGE: Record<"sparse" | "dense", Arrangement<GroupId>> = {
-  sparse: arrangement<GroupId>({ title: { end: ["share"] }, top: { start: ["navigate"] }, left: { start: ["zoom", "annotate", "redact"] } }),
-  dense: arrangement<GroupId>({ left: { start: ["navigate", "zoom", "annotate"], end: ["redact", "share"] } }),
+  sparse: arrangement<GroupId>({ title: { end: ["share"] }, top: { start: ["navigate"] }, left: { start: ["zoom", "annotate", "review"] } }),
+  dense: arrangement<GroupId>({ left: { start: ["navigate", "zoom", "annotate"], end: ["review", "share"] } }),
 };
 
 export const case5: KitCase = {
@@ -37,20 +38,20 @@ export const case5: KitCase = {
       host,
       RULE,
       [
-        { id: "today", caption: "Top bar · today, a hairline" },
-        { id: "top", caption: "Top bar · proposed, the mode picked" },
-        { id: "edgeToday", caption: "Side edge · today" },
-        { id: "edge", caption: "Side edge · proposed" },
+        { id: "hairline", caption: "Top bar · hairline indicator" },
+        { id: "top", caption: "Top bar · with the intent, the mode picked" },
+        { id: "edgeHairline", caption: "Side edge · hairline indicator" },
+        { id: "edge", caption: "Side edge · with the intent" },
       ],
       () => reset(),
     );
-    const today = createViewer(desks.today!, { title: "Quarterly plan.pdf", loop, today: true });
+    const hairline = createViewer(desks.hairline!, { title: "Quarterly plan.pdf", loop, hairline: true });
     const top = createViewer(desks.top!, { title: "Quarterly plan.pdf", loop, preview: () => mode });
-    let edgeToday = createViewer(desks.edgeToday!, { title: "Quarterly plan.pdf", loop, today: true, home: EDGE[edge] });
+    let edgeHairline = createViewer(desks.edgeHairline!, { title: "Quarterly plan.pdf", loop, hairline: true, home: EDGE[edge] });
     let edgeWin = createViewer(desks.edge!, { title: "Quarterly plan.pdf", loop, preview: () => mode, home: EDGE[edge] });
-    const all = (): Viewer[] => [today, top, edgeToday, edgeWin];
+    const all = (): Viewer[] => [hairline, top, edgeHairline, edgeWin];
 
-    const controls = desks.today!.closest(".kcase")!.querySelector(".controls")!;
+    const controls = desks.hairline!.closest(".kcase")!.querySelector(".controls")!;
     const modes = document.createElement("fieldset");
     modes.innerHTML = `<legend>Preview mode</legend>${MODES.map((m) => `<label><input type="radio" name="c5-mode" value="${m}"${m === mode ? " checked" : ""} /> ${MODE_NAME[m]}</label>`).join("")}`;
     const edges = document.createElement("fieldset");
@@ -65,9 +66,9 @@ export const case5: KitCase = {
       if (e === edge) return;
       edge = e;
       edges.querySelectorAll<HTMLInputElement>("input").forEach((i) => (i.checked = i.value === e));
-      desks.edgeToday!.replaceChildren();
+      desks.edgeHairline!.replaceChildren();
       desks.edge!.replaceChildren();
-      edgeToday = createViewer(desks.edgeToday!, { title: "Quarterly plan.pdf", loop, today: true, home: EDGE[e] });
+      edgeHairline = createViewer(desks.edgeHairline!, { title: "Quarterly plan.pdf", loop, hairline: true, home: EDGE[e] });
       edgeWin = createViewer(desks.edge!, { title: "Quarterly plan.pdf", loop, preview: () => mode, home: EDGE[e] });
     }
     function reset(): void {
@@ -83,15 +84,15 @@ export const case5: KitCase = {
         reset();
       },
       idle: async () => allIdle(all())(),
-      scenarios: scenarios({ today: () => today, top: () => top, edgeToday: () => edgeToday, edge: () => edgeWin, setMode, setEdge }),
+      scenarios: scenarios({ hairline: () => hairline, top: () => top, edgeHairline: () => edgeHairline, edge: () => edgeWin, setMode, setEdge }),
     };
   },
 };
 
 interface Windows {
-  readonly today: () => Viewer;
+  readonly hairline: () => Viewer;
   readonly top: () => Viewer;
-  readonly edgeToday: () => Viewer;
+  readonly edgeHairline: () => Viewer;
   readonly edge: () => Viewer;
   readonly setMode: (m: DragPreview) => void;
   readonly setEdge: (e: "sparse" | "dense") => void;
@@ -115,7 +116,7 @@ async function dragTo(d: Viewer, g: GroupId, to: Point, holdMs = 520): Promise<{
   const home = d.drawn(d.groupEl(g));
   const start = mid(d.drawn(h));
   const grab = { x: start.x - home.x, y: start.y - home.y };
-  const others = (): Map<GroupId, Rect> => new Map((["navigate", "zoom", "annotate", "redact", "share"] as const).filter((x) => x !== g).map((x) => [x, d.drawn(d.groupEl(x))]));
+  const others = (): Map<GroupId, Rect> => new Map(ALL.filter((x) => x !== g).map((x) => [x, d.drawn(d.groupEl(x))]));
   pointer("pointerdown", h, d.toClient(start));
   const frames: Frame[] = [];
   const near = { x: to.x - (to.x - start.x) * 0.15, y: to.y - (to.y - start.y) * 0.15 };
@@ -148,7 +149,7 @@ function scenarios(w: Windows): KitScenario[] {
     w.setMode(mode);
     d.reset();
     await settle(d);
-    const before = new Map((["navigate", "zoom", "annotate", "redact", "share"] as const).map((x) => [x, d.drawn(d.groupEl(x))]));
+    const before = new Map(ALL.map((x) => [x, d.drawn(d.groupEl(x))]));
     // Where to aim, read from the window as it starts (after the reset).
     const r = await dragTo(d, g, aim(d));
     await settle(d);
@@ -176,10 +177,10 @@ function scenarios(w: Windows): KitScenario[] {
     else expect(under, `${tag}: the group (${fmt(f.item)}) isn't under the pointer (${Math.round(f.p.x)},${Math.round(f.p.y)})`);
   }
 
-  /** The top bar's end zone, between Annotate and Redact. */
+  /** The top bar's end zone, between Annotate and Review. */
   const between = (d: Viewer): Point => {
     const a = d.drawn(d.groupEl("annotate"));
-    const b = d.drawn(d.groupEl("redact"));
+    const b = d.drawn(d.groupEl("review"));
     return { x: (a.x + a.width + b.x) / 2, y: a.y + a.height / 2 };
   };
 
@@ -187,7 +188,7 @@ function scenarios(w: Windows): KitScenario[] {
     {
       name: "5 · Top bar, each mode: the outline is the group's own, the preview is the mode's, and the drop lands on the outline",
       play: async (expect) => {
-        for (const m of MODES) await inMode(expect, w.top(), m, "zoom", between, "Zoom between Annotate and Redact");
+        for (const m of MODES) await inMode(expect, w.top(), m, "zoom", between, "Zoom between Annotate and Review");
         w.setMode("snap");
       },
     },
@@ -202,14 +203,14 @@ function scenarios(w: Windows): KitScenario[] {
           const g: GroupId = e === "sparse" ? "navigate" : "share";
           // Between the column's first two groups.
           const aim = (dd: Viewer): Point => {
-            const col = (["zoom", "annotate", "redact", "navigate"] as const).filter((x) => x !== g).map((x) => dd.drawn(dd.groupEl(x))).filter((r) => r.x < 40);
+            const col = (["zoom", "annotate", "review", "navigate"] as const).filter((x) => x !== g).map((x) => dd.drawn(dd.groupEl(x))).filter((r) => r.x < 40);
             col.sort((p, q) => p.y - q.y);
             return { x: col[0]!.x + col[0]!.width / 2, y: (col[0]!.y + col[0]!.height + col[1]!.y) / 2 };
           };
           for (const m of MODES) {
             await inMode(expect, d, m, g, aim, `${e} edge, ${g} into the column`);
             const edge = d.drawn(d.el.querySelector(".kbar-left")!);
-            const out = (["navigate", "zoom", "annotate", "redact", "share"] as const).filter((x) => {
+            const out = ALL.filter((x) => {
               const r = d.drawn(d.groupEl(x));
               return r.x < edge.x + edge.width && (r.y < edge.y - 0.5 || r.y + r.height > edge.y + edge.height + 0.5);
             });
@@ -221,17 +222,17 @@ function scenarios(w: Windows): KitScenario[] {
       },
     },
     {
-      name: "5 · Today: a 3 px line at the insertion point under the pointer, shown even while flying, and the group lands there",
+      name: "5 · Hairline indicator: a 3 px line at the insertion point under the pointer, shown even while flying, and the group lands there",
       play: async (expect) => {
-        const d = w.today();
+        const d = w.hairline();
         d.reset();
         await settle(d);
         const r = await dragTo(d, "zoom", between(d));
         await settle(d);
         const lines = r.frames.filter((f) => f.slot);
         expect(lines.length > 0 && lines.every((f) => Math.min(f.slot!.width, f.slot!.height) <= 3.5), `the line is ${fmt(lines.find((f) => Math.min(f.slot!.width, f.slot!.height) > 3.5)?.slot ?? null)}`);
-        // Flying (the first leg, fast): today shows the line anyway.
-        expect(r.frames.slice(0, 10).some((f) => f.slot), "today showed nothing while the pointer flew over the bar");
+        // Flying (the first leg, fast): the hairline shows anyway.
+        expect(r.frames.slice(0, 10).some((f) => f.slot), "the hairline showed nothing while the pointer flew over the bar");
         expect(d.arrangement().top.end.includes("zoom"), `Zoom didn't land in the top bar's end zone: ${JSON.stringify(d.arrangement().top)}`);
         expect(JSON.stringify(HOME.top.end) !== JSON.stringify(d.arrangement().top.end), "nothing changed");
       },

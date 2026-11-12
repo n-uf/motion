@@ -14,7 +14,7 @@ export const GROUP_LABEL: Readonly<Record<GroupId, string>> = { doc: "Document",
 /** The twelve cases: the sketch's, on the desk (its tools are the desk's edit and history; its export joins share). */
 export const CASES: readonly { readonly name: string; readonly note: string; readonly arrangement: Arrangement }[] = [
   {
-    name: "Like the app today",
+    name: "A classic layout",
     note: "Document left and zoom right in the title bar; edit · history · view in the top bar; panels and share in a bottom bar.",
     arrangement: arr<GroupId>({ title: { start: ["doc"], end: ["zoom"] }, top: { center: ["edit", "history", "view"] }, bottom: { start: ["panel"], end: ["share"] } }),
   },
