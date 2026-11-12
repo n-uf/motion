@@ -48,7 +48,10 @@ function sidebar(): string {
       <span class="wordmark"><span class="brand-ns">n-uf</span> motion <span class="brand-amp">&amp;</span> placement</span>
       <span class="lab-badge">lab</span>
     </a>
-    <nav class="lab-nav">${groups}</nav>
+    <details class="lab-menu" open>
+      <summary class="lab-menu-btn"><span>Pages</span><span class="lab-menu-cur">${esc(page.nav ?? page.title)}</span></summary>
+      <nav class="lab-nav">${groups}</nav>
+    </details>
     <p class="lab-side-foot"><a href="https://motion.n-uf.com" target="_blank" rel="noopener">motion.n-uf.com<span class="ext-arrow">↗</span></a></p>
   </aside>`;
 }
@@ -128,6 +131,9 @@ async function boot(): Promise<void> {
   const body = document.getElementById("lab-page")!;
   if (page.markup) body.innerHTML = await page.markup();
   localSiteLinks(root);
+  // On a phone the page list starts folded behind its button (the sidebar would take half the screen); wider, it is the sidebar.
+  const menu = root.querySelector<HTMLDetailsElement>(".lab-menu");
+  if (menu && matchMedia("(max-width: 700px)").matches) menu.open = false;
   if (page.load) await page.load();
   if (page.first) {
     const f = body.querySelector(page.first);

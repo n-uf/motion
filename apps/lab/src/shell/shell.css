@@ -51,6 +51,10 @@ a { color: var(--accent-strong); text-underline-offset: 3px; }
 .lab-brand .brand-ns { display: none; }
 .lab-badge { margin-left: auto; padding: 0 7px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-size: 10.5px; font-weight: 650; line-height: 17px; letter-spacing: 0.04em; text-transform: uppercase; }
 
+/* The page list sits in a <details>: open and button-less as the sidebar, a folded menu button on a phone (below). */
+.lab-menu > summary { display: none; list-style: none; cursor: pointer; }
+.lab-menu > summary::-webkit-details-marker { display: none; }
+
 /* The page list: a small uppercase key per group, its pages under it. */
 .lab-nav { display: grid; gap: var(--s4); }
 .lab-group-k { margin: 0 0 4px; padding: 0 8px; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
@@ -166,4 +170,15 @@ a { color: var(--accent-strong); text-underline-offset: 3px; }
   .lab-nav { grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; }
   .lab-main { padding: 0 var(--s4) var(--s6); }
   .pager { grid-template-columns: minmax(0, 1fr); }
+}
+/* Phone: the sidebar is the brand and one "Pages" button; the list opens under it, one page per row. */
+@media (max-width: 700px) {
+  .lab-side { gap: var(--s2); padding-bottom: var(--s3); }
+  .lab-side-foot { display: none; }
+  .lab-menu > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: 44px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--bg-raised); color: var(--text); font: 600 var(--t-sm) var(--font-sans); }
+  .lab-menu > summary::after { content: "▾"; color: var(--text-3); transition: transform var(--fast) var(--ease); }
+  .lab-menu[open] > summary::after { transform: rotate(180deg); }
+  .lab-menu-cur { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--text-2); }
+  .lab-menu .lab-nav { grid-auto-flow: row; grid-auto-columns: auto; overflow: visible; padding-top: var(--s3); }
+  .lab-group a { min-height: 40px; }
 }
