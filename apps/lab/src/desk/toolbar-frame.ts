@@ -19,6 +19,7 @@ import { createSettle, SETTLE_TEMPO, type Rect, type Settle } from "@n-uf/motion
 import { overlap, nextFrame, type Point } from "../shared/geometry";
 import { cancelPress, trackPress } from "../shared/press";
 import { toolGroupCells } from "./content";
+import { isLayoutFrozen, mountFreezeSwitch, onFreezeChange, setLayoutFrozen } from "./freeze";
 import { DRAG, createIntent, within, type Intent, type Target } from "./intent";
 import { constructionOf } from "./layouts";
 import type { Options, Placed } from "./model";
@@ -90,9 +91,8 @@ let preview: Arrangement | null = null;
 let bottomMode: BottomMode = "reserved";
 let altHeld = false;
 const shownArrangement = (): Arrangement => preview ?? arrangement;
-/** The page's one Freeze layout switch (the panels' handles read the same one). */
-const freezeInput = (): HTMLInputElement | null => document.querySelector<HTMLInputElement>("input[name=freeze]");
-const frozen = (): boolean => !!freezeInput()?.checked;
+/** The frozen layout (desk/freeze.ts owns it and its switch; the panels' grips read the same one). */
+const frozen = (): boolean => isLayoutFrozen();
 /** Moves are allowed: the layout isn't frozen, or Alt is held. */
 const canMove = (e?: { altKey?: boolean }): boolean => !frozen() || altHeld || !!e?.altKey;
 
@@ -463,42 +463,21 @@ function buildControls(): void {
   modes.id = "bottom-toolbar-modes";
   modes.innerHTML = `<legend>Bottom bar</legend><label><input type="radio" name="bottom-toolbar" value="reserved" checked /> Reserved</label><label><input type="radio" name="bottom-toolbar" value="floating" /> Floating</label>`;
   modes.querySelectorAll<HTMLInputElement>("input").forEach((input) => input.addEventListener("change", () => setArrangement(arrangement, input.value as BottomMode)));
-  // The lock switch: the page's one Freeze layout input (another part may have made it: this one takes it over).
+  // The lock switch (desk/freeze.ts makes it; the frame only shows where).
   const freeze = document.createElement("fieldset");
   freeze.id = "layout-freeze";
-  freeze.innerHTML =
-    `<legend>Layout</legend><label class="lock" title="Freeze or unfreeze the layout">` +
-    `<svg class="ico open" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 4.9-.7"/></svg>` +
-    `<svg class="ico shut" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>` +
-    `<span class="state"></span><span class="lockhint">hold <kbd>Alt</kbd> to move</span></label>`;
-  const lock = freeze.querySelector("label")!;
-  const existing = freezeInput();
-  const input = existing ?? document.createElement("input");
-  const oldLabel = existing?.closest("label");
-  input.type = "checkbox";
-  input.name = "freeze";
-  input.setAttribute("role", "switch");
-  input.setAttribute("aria-label", "Freeze layout");
-  lock.prepend(input);
-  oldLabel?.remove();
-  input.addEventListener("change", applyFrozen);
+  freeze.innerHTML = `<legend>Layout</legend>`;
+  mountFreezeSwitch(freeze);
+  onFreezeChange(applyFrozen);
   const anchor = document.getElementById("bottom-modes");
   if (anchor) anchor.after(modes, freeze, cases);
   else controlsEl.append(modes, freeze, cases);
 }
 
-/** Freeze the layout (the grips hide and nothing moves until Alt is held), or unfreeze it: through the one switch. */
-export function setFrozen(on: boolean): void {
-  const box = freezeInput();
-  if (!box || box.checked === on) return applyFrozen();
-  box.checked = on;
-  box.dispatchEvent(new Event("change", { bubbles: true }));
-}
-/** Show the switch's state: frozen hides the grips (Alt shows them while held). */
+/** Show the frozen state: frozen hides the grips (Alt shows them while held). */
 function applyFrozen(): void {
   const on = frozen();
   win?.classList.toggle("frozen", on);
-  document.body.dataset.layoutFrozen = String(on);
   for (const ge of groupEls.values()) ge.handle.title = on ? FROZEN_TIP : GROUP_LABEL[ge.id];
   if (on && !altHeld) closeMenu();
 }
@@ -547,8 +526,6 @@ function frame(now: number): void {
   last = now;
   moving = false;
   if (!lab || !win) return void requestAnimationFrame(frame);
-  // The one Freeze switch may be set from elsewhere without an event: follow it.
-  if (win.classList.contains("frozen") !== frozen()) applyFrozen();
   const a = shownArrangement();
   const g = geometry(a, !!drag);
   // Bars: glide to their places; the window keeps their room around the stage.
@@ -1052,7 +1029,7 @@ export const toolbarGroups = {
     const k = (w.width || 1) / win!.offsetWidth;
     return { x: w.left + p.x * k, y: w.top + p.y * k };
   },
-  freeze: (on: boolean): void => setFrozen(on),
+  freeze: (on: boolean): void => setLayoutFrozen(on),
   alt: (on: boolean): void => setAlt(on),
   menu: (id: GroupId): HTMLElement => groupMenu(id),
   menuOpen: (): HTMLElement | null => menuOpen(),
