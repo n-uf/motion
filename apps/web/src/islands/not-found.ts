@@ -171,10 +171,11 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
     caption(plan.snapItem ? "docks here" : frame.shown ? "aiming at its slot" : "torn off · its slot stays", s.w, p);
   }
 
-  function release(s: Session, now: number): void {
+  /** Let go (`cancel`: the pointer was lost, so no drop: the word goes home). */
+  function release(s: Session, now: number, cancel = false): void {
     step(s, now);
     const p = s.held.pointer ?? s.ptr;
-    const slot = s.intent ? s.intent.release(p, s.targets)?.slot : undefined;
+    const slot = s.intent && !cancel ? s.intent.release(p, s.targets)?.slot : undefined;
     // Let go into the slot it was shown in, or with no drop: either way it settles from where it was let go.
     if (slot) s.held.land(slot);
     else s.held.cancel(s.w.home);
@@ -279,29 +280,36 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
         if (!lifted) {
           // The model's own lift rule: a mouse lifts after 5 px, a touch after a hold, then a few px.
           const verdict = liftDecision({ touch, distance: Math.hypot(ev.clientX - downClient.x, ev.clientY - downClient.y), elapsed: performance.now() - t0 });
-          if (verdict === "refuse") return end(ev, false);
+          if (verdict === "refuse") return finish("cancel");
           if (verdict === "wait") return;
+          // Another press (a second finger) lifted a word first: this one is not a drag, it never replaces that one.
+          if (session) return finish("cancel");
           lifted = true;
           lift(w, down, false);
         }
         if (session && !session.auto) session.ptr = pos(ev);
         motion.wake();
       };
-      const end = (ev: PointerEvent, drop = true): void => {
+      /** End this press: a drop at the pointer's last place, or (the pointer was lost) the word goes home. */
+      const finish = (how: "drop" | "cancel", ev?: PointerEvent): void => {
         el.removeEventListener("pointermove", move);
         el.removeEventListener("pointerup", up);
-        el.removeEventListener("pointercancel", cancel);
-        if (el.hasPointerCapture(ev.pointerId)) el.releasePointerCapture(ev.pointerId);
-        if (drop && lifted && session && !session.auto) {
-          session.ptr = pos(ev);
-          release(session, performance.now());
-        }
+        el.removeEventListener("pointercancel", abort);
+        el.removeEventListener("lostpointercapture", abort);
+        window.removeEventListener("blur", abort);
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+        if (!lifted || !session || session.auto) return;
+        if (how === "drop" && ev) session.ptr = pos(ev);
+        release(session, performance.now(), how === "cancel");
       };
-      const up = (ev: PointerEvent): void => end(ev);
-      const cancel = (ev: PointerEvent): void => end(ev);
+      const up = (ev: PointerEvent): void => finish("drop", ev);
+      // The browser took the pointer (a cancel, a lost capture) or the window lost focus mid-drag: no word stays held.
+      const abort = (): void => finish("cancel");
       el.addEventListener("pointermove", move);
       el.addEventListener("pointerup", up);
-      el.addEventListener("pointercancel", cancel);
+      el.addEventListener("pointercancel", abort);
+      el.addEventListener("lostpointercapture", abort);
+      window.addEventListener("blur", abort);
     });
   });
 
