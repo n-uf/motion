@@ -23,8 +23,8 @@ import { overflowOpen, wireOverflow, zoomValue } from "./compact";
 import { toolGroupCells } from "./content";
 import { isLayoutFrozen, mountFreezeSwitch, onFreezeChange, setLayoutFrozen } from "./freeze";
 import { DRAG_DEFAULTS, createDragIntent, inRect, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
-import { constructionOf } from "./layouts";
-import type { Options, Placed } from "./model";
+import type { Options, Placed } from "@n-uf/placement/dock";
+import { constructionOf } from "./catalog";
 import type { DeskLab, IndicatorEntry, PathKey } from "./scenarios";
 import { closeMenu, menuOpen, openMenu, type MenuItem } from "./toolbar-menu";
 import {
@@ -66,7 +66,7 @@ const LEAD = 8;
 const TAIL = 8;
 /** A drop strip's thickness (an empty host while dragging). */
 const STRIP = 34;
-/** The pill's default width (layouts.ts): the groups widen it only past this. */
+/** The pill's default width (@n-uf/placement/dock's pill): the groups widen it only past this. */
 const PILL_DEFAULT = 320;
 const GAP_EDGE = 6;
 const FROZEN_TIP = "Frozen: hold Alt to move";

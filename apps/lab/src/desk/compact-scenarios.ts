@@ -9,7 +9,7 @@
 import type { Rect } from "@n-uf/motion";
 import { nextFrame, type Point } from "../shared/geometry";
 import { overflowOpen } from "./compact";
-import { CONSTRUCTIONS } from "./layouts";
+import { CONSTRUCTIONS } from "./catalog";
 import type { DeskLab, Expect, PathKey, Scenario } from "./scenarios";
 import { hostRect, toolbarGroups as tg } from "./toolbar-frame";
 import { DEFAULT_ARRANGEMENT, GROUPS, GROUP_LABEL, HOSTS, HOST_LABEL, floatGroup, insertGroup, vertical, type Arrangement, type GroupId, type HostId } from "./toolbars";
