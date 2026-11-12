@@ -2,6 +2,9 @@
 import Site from "../layouts/Site.astro";
 import ExtLink from "../components/ExtLink.astro";
 import DropModeSwitch from "../components/DropModeSwitch.astro";
+import Chrome from "../components/Chrome.astro";
+import Playback from "../components/Playback.astro";
+import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
 import { npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
@@ -31,22 +34,21 @@ const ninety = ninetyPercentMs();
       <p class="caveat">Young and still changing: versions are dates, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · <ExtLink href={npmUrl}>Package on npm</ExtLink></p>
     </div>
 
-    <figure class="demo-fig" id="demo-fig" aria-label="Live demo: three windows that tile, swap and glide">
-      <div class="demo-bar">
-        <span class="demo-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span class="demo-name"><span class="label">Layout</span> <b id="layout-name">Master and stack</b></span>
-        <DropModeSwitch />
-        <button type="button" class="btn quiet" id="shuffle"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 5h7.5l-2-2M13.5 11H6l2 2"/></svg>Next layout</button>
+    <Chrome id="demo-fig" class="demo-fig" label="Live demo: three windows that tile, swap and glide"
+      groups={[{ id: "title", name: "Title" }, { id: "layout", name: "Layout" }, { id: "preview", name: "Preview" }, { id: "playback", name: "Speed and tempo" }, { id: "readout", name: "Readout" }, { id: "hint", name: "Hint" }]}
+      model={arrangement({ title: { start: ["title"], end: ["layout", "preview"] }, bottom: { start: ["readout"], center: ["playback"], end: ["hint"] } })}>
+      <span class="ident" slot="title"><span class="name" id="layout-name">Master and stack</span><span class="page">3 windows</span></span>
+      <Fragment slot="layout"><span class="lab">Layout</span><button type="button" class="tb text" id="shuffle">Next layout</button></Fragment>
+      <Fragment slot="preview"><DropModeSwitch /></Fragment>
+      <Fragment slot="playback"><Playback tempo /></Fragment>
+      <span class="mono" slot="readout" id="readout"><b>Quarterly plan.pdf</b> · drawn <b>– × –</b> · target <b>– × –</b></span>
+      <Fragment slot="hint"><span class="quiet" data-showcase-idle>Drag a window onto another to swap them</span><span class="quiet" data-showcase-hint hidden title="The automatic showcase resumes 10 seconds after your last action">Paused while you explore</span><span class="quiet" data-slowmo hidden></span></Fragment>
+      <div class="figure-body no-rail">
+        <div class="demo stage-host" id="demo" style={`--demo-h:${DEMO.h}px`}>
+          {WINDOWS.map((_, i) => <div class="dw" style={firstLayoutStyle(i)} set:html={demoWindowHTML(i)} />)}
+        </div>
       </div>
-      <div class="demo" id="demo" style={`--demo-h:${DEMO.h}px`}>
-        {WINDOWS.map((_, i) => <div class="dw" style={firstLayoutStyle(i)} set:html={demoWindowHTML(i)} />)}
-      </div>
-      <figcaption class="demo-foot">
-        <span class="readout" id="readout"><span>Three windows tile, swap and glide on settle; their content is clipped, never stretched.</span></span>
-        <span class="demo-hint">Drag a window onto another to swap them.</span>
-        <span class="showcase-hint" data-showcase-hint hidden>Paused while you explore · resumes in a few seconds</span>
-      </figcaption>
-    </figure>
+    </Chrome>
   </section>
 
   <CodeTabs />
