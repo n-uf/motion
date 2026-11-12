@@ -50,7 +50,7 @@ function header(): string {
     <h1>${esc(page.title)}</h1>
     <p class="lead">${esc(page.line)}</p>
     <div class="lab-meta">
-      <p class="built-with"><span class="bw-k">Runs</span><code>@n-uf/motion ${VERSIONS.motion}</code><code>@n-uf/placement ${VERSIONS.placement}</code></p>
+      <p class="built-with" title="The packages' sources in this repository, not a published release"><span class="bw-k">Runs the workspace source</span><code>@n-uf/motion ${VERSIONS.motion}</code><code>@n-uf/placement ${VERSIONS.placement}</code></p>
       <div class="lab-actions">
         ${page.porting || !page.load ? "" : '<button type="button" class="lab-btn" id="lab-reset">↺ Reset</button>'}
         ${prev ? `<a class="lab-btn" href="${routeHash(prev.id)}" title="${esc(prev.title)}">← Previous</a>` : ""}
