@@ -1,6 +1,6 @@
 /* The style guide's own layout (only the arrangement: every sample uses the site's classes). */
 .ds-group { margin-bottom: var(--s6); }
-.ds-group h2 { font-size: var(--t-md); margin-bottom: 2px; }
+.ds-group h3 { font-size: var(--t-md); margin-bottom: 2px; }
 .ds-group > .muted { font-size: var(--t-sm); margin-bottom: var(--s3); }
 .ds-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: var(--s3); }
 .ds-swatch { display: grid; gap: 6px; padding: var(--s2); border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); font-size: var(--t-xs); }

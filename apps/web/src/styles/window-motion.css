@@ -66,7 +66,7 @@
 .engines-head { background: var(--bg-subtle); border-bottom: 1px solid var(--line); font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
 .engines-head span:last-child { color: var(--accent); }
 .engine-rule + .engine-rule { border-top: 1px solid var(--line); }
-.engine-rule h2 { margin: 0; font-size: var(--t-sm); font-weight: 620; line-height: 1.5; letter-spacing: 0; }
+.engine-rule h3 { margin: 0; font-size: var(--t-sm); font-weight: 620; line-height: 1.5; letter-spacing: 0; }
 .engine-rule dl { display: contents; margin: 0; }
 .engine-rule dl > div { min-width: 0; }
 .engine-rule dt { display: none; }

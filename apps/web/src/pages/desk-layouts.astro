@@ -61,17 +61,17 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
   <section class="section">
     <div class="section-head">
       <span class="eyebrow">The constructions</span>
-      <p class="section-title">Docks, one tiling tree, a strip, drawers and palettes</p>
+      <h2 class="section-title">Docks, one tiling tree, a strip, drawers and palettes</h2>
     </div>
     <div class="rules two">
-      {CARDS.map((c) => <div class="rule"><h2>{c.title}{c.pick && <span class="tag">our pick</span>}</h2><p>{plain(c.idea)}</p></div>)}
+      {CARDS.map((c) => <div class="rule"><h3>{c.title}{c.pick && <span class="tag">our pick</span>}</h3><p>{plain(c.idea)}</p></div>)}
     </div>
   </section>
 
   <section class="section">
     <div class="section-head">
       <span class="eyebrow">How they compare</span>
-      <p class="section-title">Eight questions, nine answers</p>
+      <h2 class="section-title">Eight questions, nine answers</h2>
     </div>
     <div class="table-scroll compare-scroll">
       <table class="table compare" id="compare">
