@@ -1,5 +1,5 @@
 /**
- * A tap on the one desk window (islands/home.ts), for the telemetry panes beside it (islands/telemetry.ts): the desk
+ * A tap on the one desk window (islands/home.ts), for the telemetry panes further down the home (islands/telemetry.ts): the desk
  * says what its windows drew on each frame and which layout placement gave it; the panes read, never touch.
  * No listeners, no work: the desk only builds a frame's report while something listens.
  */
