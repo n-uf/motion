@@ -1,8 +1,12 @@
 ---
-// The playback group of a figure's chrome: Speed (slow motion ¼× · ½× · 1×, the clock of every time-driven motion)
-// and, where motion is the subject, Tempo (the settle's omega: calm 20 · default 25 · quick 37). Bound by
-// islands/figure-chrome.ts; the visitor's choice is remembered.
-interface Props { tempo?: boolean }
-const { tempo = false } = Astro.props;
+// The playback groups of a figure's chrome, each its own toolbar group (its own grip handle):
+// - part="speed": slow motion ¼× · ½× · 1× (the clock of every time-driven motion);
+// - part="tempo": the settle's omega, Calm · Default · Quick (20 · 25 · 37), where motion is the subject.
+// On a side edge the labels give way to compact forms (the tempo's ω number in mono); the full name stays the
+// tooltip and the accessible name. Bound by islands/figure-chrome.ts; the visitor's choice is remembered.
+interface Props { part: "speed" | "tempo" }
+const { part } = Astro.props;
+const tempos = [["calm", "Calm", 20, "90 % in 115 ms"], ["default", "Default", 25, "90 % in 92 ms"], ["quick", "Quick", 37, "90 % in 62 ms"]] as const;
 ---
-<span class="lab">Speed</span><button type="button" class="tb" data-speed="0.25" aria-pressed="false" title="Slow motion, a quarter of real time">¼×</button><button type="button" class="tb" data-speed="0.5" aria-pressed="false" title="Half speed">½×</button><button type="button" class="tb" data-speed="1" aria-pressed="true" title="Real time">1×</button>{tempo && <><span class="lab">Tempo</span><button type="button" class="tb text" data-tempo="calm" aria-pressed="false" title="Settle tempo 20: 90 % in 115 ms">Calm</button><button type="button" class="tb text" data-tempo="default" aria-pressed="true" title="Settle tempo 25: 90 % in 92 ms">Default</button><button type="button" class="tb text" data-tempo="quick" aria-pressed="false" title="Settle tempo 37: 90 % in 62 ms">Quick</button></>}
+{part === "speed" && <><span class="lab">Speed</span><button type="button" class="tb" data-speed="0.25" aria-pressed="false" aria-label="Speed ¼×" title="Slow motion, a quarter of real time">¼×</button><button type="button" class="tb" data-speed="0.5" aria-pressed="false" aria-label="Speed ½×" title="Half speed">½×</button><button type="button" class="tb" data-speed="1" aria-pressed="true" aria-label="Speed 1×" title="Real time">1×</button></>}
+{part === "tempo" && <><span class="lab">Tempo</span>{tempos.map(([id, name, w, note]) => <button type="button" class="tb text" data-tempo={id} aria-pressed={String(id === "default")} aria-label={`${name}, ω ${w}`} title={`${name}: settle tempo ${w}, ${note}`}><span class="t">{name}</span><span class="i mono-i">{w}</span></button>)}</>}

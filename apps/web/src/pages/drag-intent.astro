@@ -38,12 +38,13 @@ const RULES: [string, string, string][] = [
   <p class="lead" slot="lead">This page shows how a dragged panel finds its drop target. The drop indicator appears only once you are aiming, never flashes while you fly over targets or sit on a border, and the drop lands exactly where it said. Drag the <b>Outline</b> panel yourself, or pick a recorded path and compare the counts in this model and in a naive one that highlights whatever is under the pointer.</p>
 
   <Chrome id="figure" class="dragfig" label="Drag intent: a desk with a panel to drag, and recorded paths in two models"
-    groups={[{ id: "title", name: "Title" }, { id: "model", name: "Model" }, { id: "preview", name: "Preview" }, { id: "playback", name: "Speed and tempo" }, { id: "stats", name: "Counts" }, { id: "hint", name: "Hint" }]}
-    model={arrangement({ title: { start: ["title"], end: ["model"] }, top: { start: ["preview"], end: ["playback"] }, bottom: { start: ["stats"], end: ["hint"] } })}>
+    groups={[{ id: "title", name: "Title" }, { id: "model", name: "Model" }, { id: "preview", name: "Preview" }, { id: "speed", name: "Speed" }, { id: "tempo", name: "Tempo" }, { id: "stats", name: "Counts" }, { id: "hint", name: "Hint" }]}
+    model={arrangement({ title: { start: ["title"], end: ["model"] }, top: { start: ["preview"], end: ["speed", "tempo"] }, bottom: { start: ["stats"], end: ["hint"] } })}>
     <span class="ident" slot="title"><span class="name">Drag intent</span><span class="page">Outline on a desk</span></span>
     <Fragment slot="model"><span class="lab">Model</span><button type="button" class="tb text" data-mode="model" aria-pressed="true">This model</button><button type="button" class="tb text" data-mode="naive" aria-pressed="false" title="Naive: highlight whatever is under the pointer">Naive</button><button type="button" class="tb text" id="runall" title="Play every recorded path in both models">Run all</button></Fragment>
     <Fragment slot="preview"><DropModeSwitch /></Fragment>
-    <Fragment slot="playback"><Playback tempo /></Fragment>
+    <Fragment slot="speed"><Playback part="speed" /></Fragment>
+    <Fragment slot="tempo"><Playback part="tempo" /></Fragment>
     <span class="mono" slot="stats">changes <b id="s-changes">0</b> · flashes <b id="s-flashes">0</b> · drop <b id="s-drop">–</b></span>
     <Fragment slot="hint"><span class="quiet">Orange: where it lands · <kbd>Esc</kbd> cancels</span><span class="quiet" data-slowmo hidden></span></Fragment>
     <div class="figure-body">

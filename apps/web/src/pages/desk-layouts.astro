@@ -27,8 +27,8 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
   <p class="lead" slot="lead">This page lays out one desk nine ways: a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and a few open documents. Pick a construction and the stage lays it out live by that construction's own rules. Drag the sliders to see what gives way when width or height runs out; every box settles to its new place from wherever it is drawn.</p>
 
   <Chrome id="figure" class="deskfig" label="Desk layouts: nine constructions laid out live at a size you choose"
-    groups={[{ id: "title", name: "Title" }, { id: "presets", name: "Size presets" }, { id: "size", name: "Size" }, { id: "options", name: "Options" }, { id: "playback", name: "Speed" }]}
-    model={arrangement({ title: { start: ["title"], end: ["presets"] }, top: { start: ["size"] }, bottom: { start: ["options"], end: ["playback"] } })}>
+    groups={[{ id: "title", name: "Title" }, { id: "presets", name: "Size presets" }, { id: "size", name: "Size" }, { id: "options", name: "Options" }, { id: "speed", name: "Speed" }]}
+    model={arrangement({ title: { start: ["title"], end: ["presets"] }, top: { start: ["size"] }, bottom: { start: ["options"], end: ["speed"] } })}>
     <span class="ident" slot="title"><span class="name">Desk layouts</span><span class="page" id="desk-name">{first.title}</span></span>
     <Fragment slot="presets"><span class="lab">Size</span><span id="presets" class="tb-row">{presets.map(([p, l]) => <button type="button" class="tb text" data-p={p} aria-pressed={String(p === `${DEFAULT.W},${DEFAULT.H}`)}>{l}</button>)}</span></Fragment>
     <Fragment slot="size">
@@ -37,7 +37,7 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
       <label class="field">Documents <input id="n" type="range" min="1" max="4" step="1" value={DEFAULT.n} style={`width:84px;${pct(DEFAULT.n, 1, 4)}`} /><output id="no">{DEFAULT.n}</output></label>
     </Fragment>
     <span class="tb-row" id="segs" slot="options"><span class="lab">Toolbar</span>{TOOLBAR_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === DEFAULT_OPTS.toolbar && m[1] === DEFAULT_OPTS.toolbarSpace)}>{m[2]}</button>)}<span class="lab">Bottom dock</span>{BOTTOM_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === DEFAULT_OPTS.bottom && m[1] === DEFAULT_OPTS.bottomSpace)}>{m[2]}</button>)}</span>
-    <Fragment slot="playback"><Playback /></Fragment>
+    <Fragment slot="speed"><Playback part="speed" /></Fragment>
     <div class="figure-body">
       <CaseRail id="cases" label="Constructions" items={CARDS.map((c) => ({ name: c.title, note: c.note, tag: c.pick ? "default" : undefined }))} active={active} />
       <div class="stage-wrap stage-host"><div id="stage">
