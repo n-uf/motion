@@ -8,6 +8,8 @@ import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode, software } from "../data/schema";
 import { CASES, CHIP_HOME, HOME, ICONS, ZONES } from "../demos/drag";
+import Faq from "../components/Faq.astro";
+import { faqJsonLd } from "../data/faq";
 import "../styles/drag-intent.css";
 
 const path = "/drag-intent/";
@@ -15,6 +17,7 @@ const page = pageOf(path);
 const jsonLd = [
   webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`) }),
   breadcrumbs([{ name: "Home", path: "/" }, { name: page.nav, path }]),
+  faqJsonLd(path),
   software("motion"),
   orgNode,
 ];
@@ -64,10 +67,10 @@ const RULES: [string, string, string][] = [
   </Chrome>
   <p class="figure-note" id="log" role="status" aria-live="polite">Drag the Outline panel yourself, or pick a recorded path on the left.</p>
   <p class="figure-note">Changes count the times the indicator appeared or moved; flashes count indicators shown for under 150 ms. Orange marks where the drop will land; the dashed box is Outline's own place.</p>
+  <p class="aside lab-link"><a href="/lab/#/motion/intent">Try drag intent on the desk constructions in the lab</a>, with scripted flies, wobbles and flicks across the targets.</p>
   <div id="compare" hidden></div>
 
   <section class="section">
-  <p class="aside lab-link"><a href="/lab/#/motion/intent">Try drag intent on the desk constructions in the lab</a>, with scripted flies, wobbles and flicks across the targets.</p>
     <div class="section-head">
       <span class="eyebrow">The phases</span>
       <p class="section-title">Pressed, lifted, flying, aiming, settling</p>
@@ -119,6 +122,8 @@ const RULES: [string, string, string][] = [
     </ul>
     <p class="aside">These rules are <code>@n-uf/motion/drag</code>'s; the page runs them in its own code, and the cancel, glide, edge-scroll and keyboard details above are the demo's own behaviour around the model. Toolbar groups drop by the same model: see <a href="/toolbar-groups/">how a group finds its place</a>. The landing glide is <a href="/window-motion/">the settle curve</a>.</p>
   </section>
+
+  <Faq path={path} />
 </Site>
 
 <script>

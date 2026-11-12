@@ -7,6 +7,8 @@ import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode, software } from "../data/schema";
 import { ASPECTS, BOTTOM_MODES, CARDS, DEFAULT, DEFAULT_OPTS, TABLE, TOOLBAR_MODES, deskSVG, layout } from "../demos/desk";
+import Faq from "../components/Faq.astro";
+import { faqJsonLd } from "../data/faq";
 import "../styles/desk-layouts.css";
 
 const path = "/desk-layouts/";
@@ -14,6 +16,7 @@ const page = pageOf(path);
 const jsonLd = [
   webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), about: ["placement"] }),
   breadcrumbs([{ name: "Home", path: "/" }, { name: page.nav, path }]),
+  faqJsonLd(path),
   software("placement"),
   orgNode,
 ];
@@ -53,10 +56,10 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
       <span style="--c: var(--d-ink); --b: var(--d-ink)">toolbar</span><span style="--c: var(--d-panel); --b: var(--d-panel-line)">panel</span><span style="--c: var(--d-rail)">rail / tabs</span><span style="--c: var(--d-doc); --b: var(--d-doc-line)">document</span><span style="--c: var(--d-float-head); --b: var(--d-float-line)">floats over the documents</span><span style="--c: transparent; --b: var(--accent)">bottom dock</span>
     </p>
   </div>
+  <p class="aside lab-link"><a href="/lab/#/placement/desk">Drag panels between the nine desk constructions in the lab</a>, and step through the drop targets from the keyboard.</p>
 
   <section class="section">
     <div class="section-head">
-  <p class="aside lab-link"><a href="/lab/#/placement/desk">Drag panels between the nine desk constructions in the lab</a>, and step through the drop targets from the keyboard.</p>
       <span class="eyebrow">The constructions</span>
       <p class="section-title">Docks, one tiling tree, a strip, drawers and palettes</p>
     </div>
@@ -85,6 +88,8 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
       <p>The nine are equal presets in <code>@n-uf/placement/dock</code>; the letters are this page's labels. Our pick, with one rule: a panel lives in a dock, and a dock folds to its rail. Short on height, sections fold to their headers; short on width, a whole dock folds to its rail. Nothing covers the documents unless you choose it: tear a panel off and it floats, drop it on a dock or its rail icon and it docks again. The toolbar is a floating pill, top or bottom. Every glide is a dock, a section or a palette opening, closing or moving, which <a href="/window-motion/">settle</a> already does. A is the same without floating; C is the simplest if one panel per side is enough.</p>
     </div>
   </section>
+
+  <Faq path={path} />
 </Site>
 
 <script>

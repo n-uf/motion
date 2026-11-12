@@ -7,6 +7,8 @@ import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode, software } from "../data/schema";
 import { CASES, OPTS, chartSVG, lanesHTML, legendHTML } from "../demos/motion";
+import Faq from "../components/Faq.astro";
+import { faqJsonLd } from "../data/faq";
 import "../styles/window-motion.css";
 
 const path = "/window-motion/";
@@ -14,6 +16,7 @@ const page = pageOf(path);
 const jsonLd = [
   webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`) }),
   breadcrumbs([{ name: "Home", path: "/" }, { name: page.nav, path }]),
+  faqJsonLd(path),
   software("motion"),
   orgNode,
 ];
@@ -60,10 +63,10 @@ const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: s
     </div>
   </Chrome>
   <p class="figure-note">Each row beside the chart is the same curve as a moving block; dashed ticks mark the target. Speed slows the playback; Tempo picks the proposal's settle (calm 20, default 25, quick 37).</p>
+  <p class="aside lab-link"><a href="/lab/#/motion/settle">Try the settle at each tempo in the lab</a>, with every move checked frame by frame.</p>
 
   <section class="section">
     <div class="section-head">
-  <p class="aside lab-link"><a href="/lab/#/motion/settle">Try the settle at each tempo in the lab</a>, with every move checked frame by frame.</p>
       <span class="eyebrow">The cases</span>
       <p class="section-title">Four moves, frame by frame</p>
     </div>
@@ -94,6 +97,8 @@ const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: s
     </div>
     <p class="aside">The same settle moves <a href="/desk-layouts/">docks and palettes on a desk</a> and lands a panel after <a href="/drag-intent/">a drag</a>.</p>
   </section>
+
+  <Faq path={path} />
 </Site>
 
 <script>
