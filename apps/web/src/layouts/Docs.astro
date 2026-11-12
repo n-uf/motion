@@ -1,0 +1,67 @@
+---
+// A package's docs page (/docs/motion/, /docs/placement/): the README rendered at build (data/docs.ts), in the site's
+// frame (Site.astro: the top bar, the breadcrumb, the page head with its one <h1>). Everything is server HTML and
+// readable without a script: "On this page" is a checkbox-and-label toggle (not <details>: the FAQ check reads every
+// <details><summary> as a question) that CSS keeps open as a sticky sidebar on a wide screen and collapsed on a phone.
+import Site from "./Site.astro";
+import ExtLink from "../components/ExtLink.astro";
+import "../styles/docs.css";
+import { docsIndex, DOCS, type DocPage, type RenderedDoc } from "../data/docs";
+import { pageOf } from "../data/pages";
+import { partOf } from "../data/parts";
+import { updated } from "../data/dates.mjs";
+import { orgNode, webPage, breadcrumbs, software } from "../data/schema";
+
+interface Props { doc: DocPage; page: RenderedDoc }
+const { doc, page } = Astro.props;
+const part = partOf(doc.part);
+const crumbs = [{ name: "Home", path: "/" }, { name: docsIndex.nav, path: docsIndex.path }, { name: doc.nav, path: doc.path }];
+const jsonLd = [
+  webPage({ path: doc.path, name: doc.title, description: doc.description, updated: new Date(`${updated[doc.path as keyof typeof updated]}T00:00:00Z`), about: [doc.part] }),
+  breadcrumbs(crumbs),
+  software(doc.part),
+  orgNode,
+];
+// the neighbours in reading order: the index, then each package
+const order = [{ path: docsIndex.path, nav: "All docs" }, ...DOCS];
+const at = order.findIndex((d) => d.path === doc.path);
+const prev = order[at - 1] ?? order[order.length - 1]!;
+const next = order[at + 1] ?? order[0]!;
+const other = DOCS.find((d) => d.path !== doc.path)!;
+---
+<Site title={doc.title} description={doc.description} path={doc.path} headline={page.h1} eyebrow={`Docs · ${part.short}`} crumbs={crumbs} partId={doc.part} jsonLd={jsonLd}>
+  <div class="docs-spec" slot="lead">
+    <p><span class="k">Version</span> <code>{doc.pkg} {doc.version}</code></p>
+    <p><span class="k">Install</span> <code class="docs-cmd"><span class="prompt" aria-hidden="true">$</span> {doc.install}</code></p>
+    <p><span class="k">Links</span> <ExtLink href={doc.npm}>npm</ExtLink> · <ExtLink href={doc.source}>Source folder</ExtLink> · <ExtLink href={doc.readmeUrl}>README on GitHub</ExtLink></p>
+  </div>
+
+  <div class="docs-grid">
+    <nav class="docs-side" aria-label="On this page">
+      <div class="docs-toc">
+        <input type="checkbox" id="docs-toc-open" class="docs-toc-check sr-only" />
+        <label for="docs-toc-open" class="docs-toc-bar"><span class="docs-toc-k">On this page</span><span class="docs-toc-n" aria-hidden="true">{page.toc.length}</span></label>
+        <ol>{page.toc.map((h) => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}</ol>
+      </div>
+    </nav>
+
+    <div class="docs-main">
+      <article class="docs-body" set:html={page.html} />
+
+      <section class="docs-live" aria-labelledby="docs-live-k">
+        <h2 id="docs-live-k" class="docs-live-k">See it live</h2>
+        <ul>
+          {doc.live.map((p) => (
+            <li><a href={p}><span class="path">{p}</span><b>{pageOf(p).nav}</b><span class="what">{pageOf(p).description}</span></a></li>
+          ))}
+        </ul>
+      </section>
+
+      <nav class="pager docs-pager" aria-label="More docs">
+        <a class="prev" href={prev.path}><span class="k">Previous</span><span class="t">{prev.nav}</span></a>
+        <a class="next" href={next.path}><span class="k">Next</span><span class="t">{next.nav}</span></a>
+      </nav>
+      <p class="docs-also">The other package: <a href={other.path}><code>{other.pkg}</code> docs</a>.</p>
+    </div>
+  </div>
+</Site>
