@@ -6,11 +6,12 @@
  * `window.__motionLab.runAll()` runs the scripted scenarios and returns which
  * rules failed where (the headless try uses it).
  */
-import { createFrameLoop, createSettle, SETTLE_TEMPO, type FrameInfo, type Rect, type Settle } from "@n-uf/motion";
+import { createFrameLoop, createSettle, popIn, reveal, SETTLE_TEMPO, type FrameInfo, type Rect, type Settle } from "@n-uf/motion";
 import { createBrowserClock } from "@n-uf/motion/browser";
+import { drawBox, layOutBox } from "@n-uf/motion/layout";
 import type { HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
 import { motionRows, renderChecks, renderTrace, type Row, type Segment } from "./shared/checks";
-import { drawRevealed, measureFrame, onTopAt as onTopIn } from "./shared/frame";
+import { measureFrame, onTopAt as onTopIn } from "./shared/frame";
 import { inside, nextFrame, overlap, same, wait } from "./shared/geometry";
 import "./shared/hooks";
 import { cancelPress, trackPress } from "./shared/press";
@@ -217,7 +218,7 @@ function setTarget(w: Win, to: Rect): void {
   ensureLoop();
   const drawn = w.rect.value;
   w.target = { ...to };
-  Object.assign(w.el.style, { left: `${to.x}px`, top: `${to.y}px`, width: `${to.width}px`, height: `${to.height}px` });
+  layOutBox(w.el, to);
   // The segment starts with the frame the move began on, so tempo counts from here.
   w.segment = { id: w.id, t0: time, from: { ...drawn }, to: { ...to }, samples: [{ t: time, rect: { ...drawn } }] };
   episode?.segments.push(w.segment);
@@ -264,7 +265,7 @@ function makeWin(at: Rect): Win {
     segment: null,
     runs: [[]],
   };
-  Object.assign(el.style, { left: `${at.x}px`, top: `${at.y}px`, width: `${at.width}px`, height: `${at.height}px` });
+  layOutBox(el, at);
   content.querySelector(".title")!.addEventListener("pointerdown", (e) => onPointerDown(w, e as PointerEvent));
   // A press anywhere on a window focuses it (a new window in dwindle splits the focused one).
   el.addEventListener("pointerdown", () => {
@@ -295,7 +296,7 @@ function reset(count = 3): void {
     w.el.classList.toggle("focused", w.id === focusId);
     const at = slots.get(w.id)!;
     w.target = { ...at };
-    Object.assign(w.el.style, { left: `${at.x}px`, top: `${at.y}px`, width: `${at.width}px`, height: `${at.height}px` });
+    layOutBox(w.el, at);
     w.rect.jumpTo(at);
     draw(w);
   }
@@ -521,8 +522,10 @@ document.addEventListener("keydown", (e) => {
 
 // --- the frame ---------------------------------------------------------------
 
+/** Drawn by @n-uf/motion/layout's box writer: laid out at its target, moved to the drawn rect, the content clipped. */
 function draw(w: Win): void {
-  drawRevealed(w, w.rect.value, w.target, w.pop.value);
+  const drawn = w.rect.value;
+  drawBox({ node: w.el, frame: w.frame, content: w.content }, { drawn, box: w.target, reveal: reveal(drawn, w.target), pop: popIn(w.pop.value), shown: w.pop.value, gone: false });
 }
 
 /**

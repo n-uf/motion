@@ -11,7 +11,7 @@ import type { Rect } from "@n-uf/motion";
 import { nextFrame, type Point } from "../shared/geometry";
 import { DRAG_DEFAULTS } from "@n-uf/motion/drag";
 import type { DeskLab, Expect, PathKey, Scenario } from "./scenarios";
-import { toolbarGroups as tg, type GroupDragResult } from "./toolbar-frame";
+import { ownStop, toolbarGroups as tg, type GroupDragResult } from "./toolbar-frame";
 import { CASES, DEFAULT_ARRANGEMENT, ZONES, sameArrangement, vertical, type Arrangement, type GroupId, type HostId } from "./toolbars";
 
 const dist = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);
@@ -536,6 +536,25 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
     }),
   };
 
+  out["toolbar groups: over its own place a group shows nothing, and a release there changes nothing"] = {
+    construction: "docks",
+    drag: true,
+    play: withArrangement(lab, DEFAULT_ARRANGEMENT, async (expect) => {
+      const a0 = tg.arrangement();
+      // History sits between edit and view: just beside it, on either side, is still its own place.
+      const home = tg.rectOf(tg.groupEl("history")!);
+      for (const side of [-1, 1] as const) {
+        const spot = { x: side < 0 ? home.x - 4 : home.x + home.width + 4, y: home.y + home.height / 2 };
+        const r = await tg.path("g:history", (g) => hold(through([g, spot], 0.5), 600));
+        await settle(lab);
+        expect(shows(r).length === 0, `beside its ${side < 0 ? "left" : "right"} edge the indicator showed ${shows(r).map((e) => e.id).join(", ")}`);
+        expect(r.landed === null, `released beside its ${side < 0 ? "left" : "right"} edge, it landed on ${r.landed}`);
+        expect(sameArrangement(tg.arrangement(), a0), `a release beside its ${side < 0 ? "left" : "right"} edge changed the top bar to ${list(tg.arrangement(), "top")}`);
+      }
+      restsAsLaidOut(expect, "after the releases at its own place");
+    }),
+  };
+
   out["toolbar groups: flying across the bars shows no indicator; aiming shows one"] = {
     construction: "docks",
     drag: true,
@@ -616,9 +635,11 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
       const handle = tg.handle("share")!;
       expect(handle.tabIndex === 0, "the handle isn't in the tab order");
       const targets = tg.targets("g:share").filter((t) => t.kind !== "float");
-      const here = targets.findIndex((t) => sameArrangement(t.make({ x: 0, y: 0 }), tg.arrangement()));
+      // Its own place is no stop: it starts between the stop before it and the one after; two arrows: the second after.
+      const here = ownStop("share", targets);
+      expect(!targets.some((t) => sameArrangement(t.make({ x: 0, y: 0 }), tg.arrangement())), "its own place is a stop");
       const want = targets[(here + 2) % targets.length];
-      if (here < 0 || !want) return expect(false, `no keyboard stops (here ${here})`);
+      if (!want) return expect(false, `no keyboard stops (here ${here})`);
       const r = await tg.keyboard("g:share", 2);
       await settle(lab);
       expect(r?.landed === want.id, `two arrows landed on ${r?.landed ?? "home"}, not ${want.id}`);
