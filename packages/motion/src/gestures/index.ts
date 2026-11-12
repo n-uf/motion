@@ -23,3 +23,5 @@ export { createMachine } from "./machine";
 export type { Deadline, Machine, MachineOptions } from "./machine";
 export { createDwellMachine, DWELL_DEFAULTS, DWELL_IDLE, dwellDeadline, dwellReducer } from "./dwell";
 export type { DwellConfig, DwellInput, DwellMachineOptions, DwellState } from "./dwell";
+export { createTouchPress, TOUCH_PRESS_DEFAULTS, TOUCH_PRESS_IDLE, touchPressDeadline, touchPressReducer } from "./touch-press";
+export type { TouchPressConfig, TouchPressInput, TouchPressOptions, TouchPressState } from "./touch-press";
