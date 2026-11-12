@@ -1,8 +1,9 @@
 /**
  * 4 · Fold or collapse: a folded group is its handle and »; » opens the full group. Two things to see: how the fold
- * moves (today an instant swap; proposed, @n-uf/motion/layout's size change: laid out at the new size at once and
- * revealed, never squeezed, the groups after it gliding at ω 25), and which group folds first when a bar runs out of
- * room (placement's `layoutHost` collapses trailing-first; a per-group `keep` folds the primary group, Redact, last).
+ * moves (an instant fold swaps at once; a revealed fold is @n-uf/motion/layout's size change: laid out at the new size
+ * at once and revealed, never squeezed, the groups after it gliding at ω 25), and which group folds first when a bar
+ * runs out of room (placement's `layoutHost` collapses trailing-first; a per-group `keep` folds the primary group,
+ * Review, last).
  */
 import type { Rect } from "@n-uf/motion";
 import { checkMonotonic, checkNoOvershoot, checkTempo, type RectSample } from "@n-uf/motion/testing";
@@ -11,20 +12,20 @@ import { GROUP_LABEL, createViewer, type Viewer, type GroupId } from "./viewer";
 import { fmt, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
-const RULE_FOLD = `Double-click a handle to fold its group; click » to open it. <b>Today</b> the group swaps to handle + » in one
-frame and the groups after it jump. <b>Proposed</b>: a size change through <code>@n-uf/motion/layout</code>: the group is laid
-out at its new size at once (its controls keep their size and are cut off, never squeezed) and the groups after it glide,
-critically damped at ω 25. Unfolding reveals the controls the same way.`;
+const RULE_FOLD = `Double-click a handle to fold its group; click » to open it. An <b>instant fold</b> swaps the group to handle +
+» in one frame and the groups after it jump. A <b>revealed fold</b> is a size change through <code>@n-uf/motion/layout</code>:
+the group is laid out at its new size at once (its controls keep their size and are cut off, never squeezed) and the
+groups after it glide, critically damped at ω 25. Unfolding reveals the controls the same way.`;
 
-const RULE_ROOM = `When a bar runs out of room, <code>layoutHost</code> folds groups to handle + ». <b>Today</b>: trailing-first, so
-Redact, the primary command group at the top bar's end, is the first to disappear. <b>Proposed</b>: placement's per-group
-<code>keep</code> (<code>keep: { redact: 1 }</code>): a group with a higher keep folds only after every group with a lower one;
+const RULE_ROOM = `When a bar runs out of room, <code>layoutHost</code> folds groups to handle + ». <b>Trailing-first</b>: Review,
+the primary command group at the top bar's end, is the first to disappear. <b>With keep</b>: placement's per-group
+<code>keep</code> (<code>keep: { review: 1 }</code>): a group with a higher keep folds only after every group with a lower one;
 ties stay trailing-first. Narrow the window to see the order.`;
 
 /** Widths where the top bar holds everything, then loses one, two, three groups. */
 const WIDTHS = [600, 360, 320, 280] as const;
 /** The primary group folds last. */
-const KEEP = { redact: 1 } as const;
+const KEEP = { review: 1 } as const;
 const T90 = (Math.log(10) / 25) * 1000;
 
 export const case4: KitCase = {
@@ -32,16 +33,16 @@ export const case4: KitCase = {
   title: "4 · Fold or collapse",
   mount(host, loop) {
     const ds: Viewer[] = [];
-    const fold = caseFrame(host, RULE_FOLD, [{ id: "today", caption: "Today · instant" }, { id: "proposed", caption: "Proposed · revealed through ./layout" }], () => {
-      today.reset();
-      proposed.reset();
+    const fold = caseFrame(host, RULE_FOLD, [{ id: "instant", caption: "Instant fold" }, { id: "revealed", caption: "Revealed fold · through ./layout" }], () => {
+      instant.reset();
+      revealed.reset();
     });
-    const today = createViewer(fold.today!, { title: "Quarterly plan.pdf", loop, fold: () => "instant" });
-    const proposed = createViewer(fold.proposed!, { title: "Quarterly plan.pdf", loop });
-    ds.push(today, proposed);
+    const instant = createViewer(fold.instant!, { title: "Quarterly plan.pdf", loop, fold: () => "instant" });
+    const revealed = createViewer(fold.revealed!, { title: "Quarterly plan.pdf", loop });
+    ds.push(instant, revealed);
 
     let width: number = WIDTHS[1];
-    const room = caseFrame(host, RULE_ROOM, [{ id: "trailing", caption: "Today · trailing-first" }, { id: "keep", caption: "Proposed · trailing-first, Redact (keep 1) last" }], () => setWidth(WIDTHS[1]));
+    const room = caseFrame(host, RULE_ROOM, [{ id: "trailing", caption: "Trailing-first" }, { id: "keep", caption: "With keep · Review (keep 1) folds last" }], () => setWidth(WIDTHS[1]));
     const trailing = createViewer(room.trailing!, { title: "Quarterly plan.pdf", loop, width });
     const keep = createViewer(room.keep!, { title: "Quarterly plan.pdf", loop, width, keep: KEEP });
     ds.push(trailing, keep);
@@ -64,26 +65,26 @@ export const case4: KitCase = {
     }
     function showOrder(): void {
       const names = (d: Viewer): string => d.folded().map((g) => GROUP_LABEL[g]).join(", ") || "none";
-      order.textContent = `At ${width} px, folded: today ${names(trailing)}; proposed ${names(keep)}.`;
+      order.textContent = `At ${width} px, folded: trailing-first ${names(trailing)}; with keep ${names(keep)}.`;
     }
     field.addEventListener("change", (e) => setWidth(Number((e.target as HTMLInputElement).value)));
     showOrder();
 
     return {
       reset: () => {
-        today.reset();
-        proposed.reset();
+        instant.reset();
+        revealed.reset();
         setWidth(WIDTHS[1]);
       },
       idle: allIdle(ds),
-      scenarios: scenarios({ today, proposed, trailing, keep, setWidth }),
+      scenarios: scenarios({ instant, revealed, trailing, keep, setWidth }),
     };
   },
 };
 
 interface Windows {
-  readonly today: Viewer;
-  readonly proposed: Viewer;
+  readonly instant: Viewer;
+  readonly revealed: Viewer;
   readonly trailing: Viewer;
   readonly keep: Viewer;
   readonly setWidth: (w: number) => void;
@@ -120,10 +121,10 @@ function scenarios(w: Windows): KitScenario[] {
 
   return [
     {
-      name: "4 · A fold by hand: the group becomes handle + » at once and the groups after it glide (ω 25, no overshoot); today they jump",
+      name: "4 · A revealed fold by hand: the group becomes handle + » at once and the groups after it glide (ω 25, no overshoot); with an instant fold they jump",
       play: async (expect: Expect) => {
-        const p = await foldNavigate(w.proposed);
-        expect(w.proposed.folded().includes("navigate"), "Navigate isn't folded");
+        const p = await foldNavigate(w.revealed);
+        expect(w.revealed.folded().includes("navigate"), "Navigate isn't folded");
         expect(Math.abs(p.nav.width - 36) < 1.5, `folded Navigate is ${Math.round(p.nav.width)} px wide, handle + » is 36`);
         expect(p.to.x < p.from.x - 30, `Zoom didn't move left: ${fmt(p.from)} → ${fmt(p.to)}`);
         const between = frameStrictlyBetween(p.zoom, p.from, p.to);
@@ -131,15 +132,15 @@ function scenarios(w: Windows): KitScenario[] {
         for (const f of checkNoOvershoot(p.zoom, p.from, p.to).failures) expect(false, `Zoom: ${f}`);
         for (const f of checkMonotonic(p.zoom, p.to).failures) expect(false, `Zoom: ${f}`);
         for (const f of checkTempo(p.zoom, p.from, p.to, T90, 0.3, p.zoom[0]!.t).failures) expect(false, `Zoom: ${f}`);
-        const t = await foldNavigate(w.today);
-        expect(w.today.folded().includes("navigate"), "today: Navigate isn't folded");
-        expect(frameStrictlyBetween(t.zoom, t.from, t.to) === 0, "today: Zoom glided (today's swap is instant)");
+        const t = await foldNavigate(w.instant);
+        expect(w.instant.folded().includes("navigate"), "instant fold: Navigate isn't folded");
+        expect(frameStrictlyBetween(t.zoom, t.from, t.to) === 0, "instant fold: Zoom glided (the swap is instant)");
       },
     },
     {
       name: "4 · Unfolding reveals the controls: the group grows, its controls keep their size (never squeezed)",
       play: async (expect: Expect) => {
-        const d = w.proposed;
+        const d = w.revealed;
         dblclick(d.handle("navigate"));
         await settle(d);
         const el = d.groupEl("navigate");
@@ -164,7 +165,7 @@ function scenarios(w: Windows): KitScenario[] {
     {
       name: "4 · » opens the folded group's full form; a control there presses the original; Escape closes it",
       play: async (expect: Expect) => {
-        const d = w.proposed;
+        const d = w.revealed;
         dblclick(d.handle("zoom"));
         await settle(d);
         const ovf = d.groupEl("zoom").querySelector<HTMLButtonElement>(".kg-ovf")!;
@@ -184,13 +185,13 @@ function scenarios(w: Windows): KitScenario[] {
       },
     },
     {
-      name: "4 · Out of room: trailing-first folds Redact first; with keep, Annotate and Zoom fold and Redact stays open",
+      name: "4 · Out of room: trailing-first folds Review first; with keep, Annotate and Zoom fold and Review stays open",
       play: async (expect: Expect) => {
         const expected: Record<number, { trailing: GroupId[]; keep: GroupId[] }> = {
           600: { trailing: [], keep: [] },
-          360: { trailing: ["redact"], keep: ["annotate"] },
-          320: { trailing: ["annotate", "redact"], keep: ["zoom", "annotate"] },
-          280: { trailing: ["zoom", "annotate", "redact"], keep: ["zoom", "annotate"] },
+          360: { trailing: ["review"], keep: ["annotate"] },
+          320: { trailing: ["annotate", "review"], keep: ["zoom", "annotate"] },
+          280: { trailing: ["zoom", "annotate", "review"], keep: ["zoom", "annotate"] },
         };
         for (const width of WIDTHS) {
           w.setWidth(width);
@@ -198,8 +199,8 @@ function scenarios(w: Windows): KitScenario[] {
           await settle(w.keep);
           const want = expected[width]!;
           const same = (a: readonly GroupId[], b: readonly GroupId[]): boolean => a.length === b.length && a.every((g) => b.includes(g));
-          expect(same(w.trailing.folded(), want.trailing), `at ${width} px today folds ${w.trailing.folded().join(", ") || "none"}, expected ${want.trailing.join(", ") || "none"}`);
-          expect(same(w.keep.folded(), want.keep), `at ${width} px proposed folds ${w.keep.folded().join(", ") || "none"}, expected ${want.keep.join(", ") || "none"}`);
+          expect(same(w.trailing.folded(), want.trailing), `at ${width} px trailing-first folds ${w.trailing.folded().join(", ") || "none"}, expected ${want.trailing.join(", ") || "none"}`);
+          expect(same(w.keep.folded(), want.keep), `at ${width} px with keep folds ${w.keep.folded().join(", ") || "none"}, expected ${want.keep.join(", ") || "none"}`);
           // What the page drew: a folded group is handle + », an open one its full length.
           for (const d of [w.trailing, w.keep]) {
             for (const g of d.folded()) expect(Math.abs(d.drawn(d.groupEl(g)).width - 36) < 1.5, `at ${width} px folded ${g} is drawn ${Math.round(d.drawn(d.groupEl(g)).width)} px wide`);
@@ -207,7 +208,7 @@ function scenarios(w: Windows): KitScenario[] {
           // Nothing spills off the top bar.
           for (const d of [w.trailing, w.keep]) {
             const bar = d.drawn(d.el.querySelector(".kbar-top")!);
-            const out = (["navigate", "zoom", "annotate", "redact"] as const).filter((g) => {
+            const out = (["navigate", "zoom", "annotate", "review"] as const).filter((g) => {
               const r = d.drawn(d.groupEl(g));
               return r.x < bar.x - 0.5 || r.x + r.width > bar.x + bar.width + 0.5;
             });

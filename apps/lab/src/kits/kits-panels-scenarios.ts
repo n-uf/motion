@@ -14,7 +14,7 @@ import { page, type KitsPage } from "./kits-panels";
 type Page = KitsPage;
 interface Scenario {
   readonly name: string;
-  /** The modes it runs in: the drop previews, or "kit" (the kits' own drag). */
+  /** The modes it runs in: the drop previews, or "naive" (the naive drag). */
   readonly modes: readonly string[];
   run(p: Page, mode: string): Promise<Row[]>;
 }
@@ -296,11 +296,11 @@ const sameSettle: Scenario = {
   },
 };
 
-const kitToday: Scenario = {
-  name: "today: the kits' drag ghosts, lines and drops at once; groups stay held",
-  modes: ["kit"],
+const naiveDrag: Scenario = {
+  name: "naive drag: the panel ghosts, shows a line and drops at once; groups stay held",
+  modes: ["naive"],
   async run(p) {
-    p.setPanelMode("kit");
+    p.setPanelMode("naive");
     p.setPreview("snap");
     const key = "panel:2";
     const el = itemEl(p, key);
@@ -334,7 +334,7 @@ const kitToday: Scenario = {
   },
 };
 
-const SCENARIOS: readonly Scenario[] = [landsWhereShown, giveWay, tearOff, noFeedbackFlying, sameSettle, kitToday];
+const SCENARIOS: readonly Scenario[] = [landsWhereShown, giveWay, tearOff, noFeedbackFlying, sameSettle, naiveDrag];
 
 // --- runAll --------------------------------------------------------------------------------------------------------
 
