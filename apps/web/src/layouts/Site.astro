@@ -41,7 +41,7 @@ const themes = [
   <a class="skip" href="#main">Skip to content</a>
   <header class="topbar">
     <div class="topbar-in">
-      <a class="brand" href="/" aria-current={path === "/" ? "page" : undefined}><Mark /><span><span class="brand-ns">n-uf</span> motion</span></a>
+      <a class="brand" href="/" aria-current={path === "/" ? "page" : undefined}><Mark /><span class="wordmark"><span class="brand-ns">n-uf </span>motion <span class="brand-amp">&amp;</span> placement</span></a>
       <nav class="nav" aria-label="Site">
         {PARTS.map((pt) => (
           <span class="nav-part" title={`${pt.title}: ${pt.pkg}`}>
@@ -98,8 +98,8 @@ const themes = [
   <footer class="footer">
     <div class="footer-in">
       <div class="footer-brand">
-        <a class="brand" href="/"><Mark /><span><span class="brand-ns">n-uf</span> motion</span></a>
-        <p>One frame loop, a settle that never overshoots, reveal without stretching, a gesture recogniser. No DOM, no framework. Made by <ExtLink href="https://n-uf.com">n-uf</ExtLink>.</p>
+        <a class="brand" href="/"><Mark /><span class="wordmark"><span class="brand-ns">n-uf </span>motion <span class="brand-amp">&amp;</span> placement</span></a>
+        <p>Two TypeScript packages: one moves windows, panels and toolbars with a settle that never overshoots, the other docks them where they belong. No DOM, no framework. Made by <ExtLink href="https://n-uf.com">n-uf</ExtLink>.</p>
       </div>
       <nav class="footer-nav" aria-label="Pages">
         {demoPages.map((p) => <a href={p.path}>{p.nav}</a>)}

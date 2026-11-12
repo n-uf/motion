@@ -1,8 +1,8 @@
 // Shared site constants. The library's version is never written here: a page that shows it reads it from
 // packages/motion/package.json.
 export const site = "https://motion.n-uf.com";
-/** The brand in titles, og:site_name and the WebSite node: a bare "motion" collides with motion.dev. */
-export const name = "n-uf motion";
+/** The brand in titles, og:site_name and the WebSite node (the pair; a bare "motion" collides with motion.dev). */
+export const name = "n-uf motion & placement";
 
 export const repoUrl = "https://github.com/n-uf/motion";
 export const npmUrl = "https://www.npmjs.com/package/@n-uf/motion";

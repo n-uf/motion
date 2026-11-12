@@ -1,7 +1,9 @@
 // Structured data (JSON-LD) builders for the fixed pages, the use-case pages, the blog and their index pages.
-// The Organization node is the same one every n-uf site uses (id https://n-uf.com/#org); the software node is the
-// SoftwareSourceCode on the home page (id #software), and every page is `about` it.
+// The Organization node is the same one every n-uf site uses (id https://n-uf.com/#org). The pair is two
+// SoftwareSourceCode nodes on the home page, one per package (#motion, #placement); each page is `about` the one(s)
+// it shows (data/parts.ts), the home page about both.
 import { site, name, repoUrl } from "./site";
+import type { PartId } from "./parts";
 
 const ctx = "https://schema.org";
 
@@ -16,8 +18,8 @@ export const orgNode = {
   url: "https://n-uf.com",
   sameAs: ["https://github.com/n-uf"],
 };
-/** A reference to the home page's SoftwareSourceCode node. */
-export const softwareRef = { "@id": `${site}/#software` };
+/** A reference to a package's SoftwareSourceCode node on the home page. */
+export const softwareRef = (part: PartId) => ({ "@id": `${site}/#${part}` });
 
 /** "/drag-intent/" -> "https://motion.n-uf.com/drag-intent/" */
 export const abs = (path: string) => new URL(path, site).href;
@@ -29,18 +31,18 @@ export const webSite = {
   "@type": "WebSite",
   "@id": `${site}/#website`,
   name,
-  alternateName: ["motion n-uf", "@n-uf/motion"],
+  alternateName: ["n-uf motion", "@n-uf/motion", "@n-uf/placement"],
   url: abs("/"),
   publisher: orgRef,
 };
 
-/** The library itself, on the home page. */
-export function software(description: string) {
+/** One package of the pair, on the home page: @n-uf/motion (#motion) or @n-uf/placement (#placement). */
+export function software(part: PartId, pkg: string, description: string) {
   return {
     "@context": ctx,
     "@type": "SoftwareSourceCode",
-    "@id": `${site}/#software`,
-    name,
+    "@id": `${site}/#${part}`,
+    name: pkg,
     description,
     url: abs("/"),
     codeRepository: repoUrl,
@@ -68,9 +70,10 @@ export function faqPage(faq: { q: string; a: string }[]) {
   };
 }
 
-interface PageInfo { path: string; name: string; description: string; type?: "WebPage" | "CollectionPage"; published?: Date; updated?: Date; isPartOf?: boolean }
+interface PageInfo { path: string; name: string; description: string; type?: "WebPage" | "CollectionPage"; published?: Date; updated?: Date; isPartOf?: boolean; about?: PartId[] }
 
-export function webPage({ path, name, description, type = "WebPage", published, updated, isPartOf = false }: PageInfo) {
+/** A page, `about` the package(s) it shows (default @n-uf/motion). */
+export function webPage({ path, name, description, type = "WebPage", published, updated, isPartOf = false, about = ["motion"] }: PageInfo) {
   return {
     "@context": ctx,
     "@type": type,
@@ -82,7 +85,7 @@ export function webPage({ path, name, description, type = "WebPage", published, 
     ...(isPartOf && { isPartOf: { "@id": `${site}/#website` } }),
     ...(published && { datePublished: day(published) }),
     ...(updated && { dateModified: day(updated) }),
-    about: softwareRef,
+    about: about.length === 1 ? softwareRef(about[0]!) : about.map(softwareRef),
     author: orgRef,
     publisher: orgRef,
   };
@@ -104,7 +107,7 @@ export function article({ path, headline, description, published, updated, image
     inLanguage: "en",
     author: orgRef,
     publisher: orgRef,
-    about: softwareRef,
+    about: softwareRef("motion"),
     mainEntityOfPage: abs(path),
   };
 }
