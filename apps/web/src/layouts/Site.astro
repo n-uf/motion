@@ -44,11 +44,12 @@ const themes = [
       <a class="brand" href="/" aria-current={path === "/" ? "page" : undefined}><Mark /><span class="wordmark"><span class="brand-ns">n-uf </span>motion <span class="brand-amp">&amp;</span> placement</span></a>
       <nav class="nav" aria-label="Site">
         {PARTS.map((pt) => (
-          <span class="nav-part" title={`${pt.title}: ${pt.pkg}`}>
+          <span class="nav-part" data-part={pt.id} title={`${pt.title}: ${pt.pkg}`}>
             <span class="nav-k" aria-hidden="true">{pt.short}</span>
             {pt.pages.map((pp) => <a href={pp} aria-current={pp === path ? "page" : undefined}>{pageOf(pp).nav}</a>)}
           </span>
         ))}
+        <span class="nav-part nav-lab"><a href="/lab/">Lab</a></span>
       </nav>
       <div class="theme" role="group" aria-label="Theme">
         {themes.map(([id, label, svg]) => (
@@ -58,7 +59,7 @@ const themes = [
     </div>
   </header>
 
-  <main id="main" class={headline ? "wrap" : undefined}>
+  <main id="main" tabindex="-1" class={headline ? "wrap" : undefined} data-part={part?.id}>
     {headline && current && (
       <>
         <nav class="crumbs" aria-label="Breadcrumb">
@@ -101,17 +102,23 @@ const themes = [
         <a class="brand" href="/"><Mark /><span class="wordmark"><span class="brand-ns">n-uf </span>motion <span class="brand-amp">&amp;</span> placement</span></a>
         <p>@n-uf/motion moves windows, panels and toolbars; @n-uf/placement works out where they go and moves nothing. No DOM, no framework. Made by <ExtLink href="https://n-uf.com">n-uf</ExtLink>.</p>
       </div>
-      <nav class="footer-nav" aria-label="Pages">
-        {demoPages.map((p) => <a href={p.path}>{p.nav}</a>)}
-        <a href="/design/">Design</a>
-        <a href="/lab/">Lab</a>
+      <nav class="footer-nav" aria-label="Pages and project">
+        {PARTS.map((pt) => (
+          <div class="foot-col" data-part={pt.id}>
+            <span class="foot-k">{pt.short}</span>
+            {pt.pages.map((pp) => <a href={pp}>{pageOf(pp).nav}</a>)}
+          </div>
+        ))}
+        <div class="foot-col foot-project">
+          <span class="foot-k">Project</span>
+          <a href="/lab/">Lab</a>
+          <a href="/design/">Design</a>
+          <ExtLink href={repoUrl}>Source on GitHub</ExtLink>
+          <ExtLink href={npmUrl}>@n-uf/motion on npm</ExtLink>
+          <ExtLink href={npmPlacementUrl}>@n-uf/placement on npm</ExtLink>
+          <span class="foot-licence">PolyForm Perimeter 1.0.1</span>
+        </div>
       </nav>
-      <div class="footer-meta">
-        <ExtLink href={repoUrl}>Source on GitHub</ExtLink>
-        <ExtLink href={npmUrl}>@n-uf/motion on npm</ExtLink>
-        <ExtLink href={npmPlacementUrl}>@n-uf/placement on npm</ExtLink>
-        <span>PolyForm Perimeter 1.0.1</span>
-      </div>
     </div>
   </footer>
 
@@ -122,14 +129,25 @@ const themes = [
       function sync(t) { document.querySelectorAll("[data-theme-pick]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.themePick === t)); }); }
       var cur = "system"; try { var s = localStorage.getItem(KEY); if (s === "light" || s === "dark") cur = s; } catch (e) {}
       sync(cur);
+      // An explicit pick also colours the browser's own bar; "system" gives the two media-matched colours back.
+      function chrome(t) {
+        document.querySelectorAll("meta[name=theme-color]").forEach(function (m, i) {
+          if (t === "light" || t === "dark") { m.content = t === "dark" ? "#111214" : "#f7f6f3"; m.removeAttribute("media"); }
+          else { m.content = i ? "#111214" : "#f7f6f3"; m.setAttribute("media", i ? "(prefers-color-scheme: dark)" : "(prefers-color-scheme: light)"); }
+        });
+      }
       document.querySelectorAll("[data-theme-pick]").forEach(function (b) {
         b.addEventListener("click", function () {
           var t = b.dataset.themePick;
           if (t === "system") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
           try { if (t === "system") localStorage.removeItem(KEY); else localStorage.setItem(KEY, t); } catch (e) {}
+          chrome(t);
           sync(t);
         });
       });
+      // The narrow page strip scrolls: bring the current page to its middle (the strip's own scrollLeft, never the page's).
+      var nav = document.querySelector(".nav"), here = nav && nav.querySelector("[aria-current]");
+      if (here && nav.scrollWidth > nav.clientWidth) nav.scrollLeft += here.getBoundingClientRect().left - nav.getBoundingClientRect().left - (nav.clientWidth - here.offsetWidth) / 2;
     })();
   </script>
 </Base>
