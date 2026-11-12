@@ -87,8 +87,9 @@
 }
 .nf-t.held { z-index: 6; cursor: grabbing; border-color: var(--series-b); box-shadow: var(--shadow-pop); }
 
-/* Until the script has placed them, the words are held back so they never show at rest and then jump; after 3.5 s
-   they show whatever happens (the script failing included). Reduced motion never holds them back. */
+/* Until the script has placed them, the words are held back so they never show at rest and then jump. The script
+   takes the class off once every word is its own item (it then holds them itself); if it never runs, the words show
+   after 3.5 s. Reduced motion never holds them back. */
 .nf-anim .nf-w, .nf-anim .nf-t { opacity: 0; animation: nf-show 0s 3.5s forwards; }
 @keyframes nf-show { to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
