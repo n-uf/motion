@@ -13,6 +13,7 @@ import type { CheckResult, HeldSample, ScaleSample, TargetSample } from "@n-uf/m
 import { docBody, panelBody, toolbarCells, withGlyph } from "./desk/content";
 import { draggable, dropAt, targetsFor, without, type Drop, type DropTarget, type TargetInput } from "./desk/drops";
 import { createGrips } from "./desk/grip";
+import { compactScenarios } from "./desk/compact-scenarios";
 import { gripScenarios } from "./desk/grip-scenarios";
 import { DRAG_DEFAULTS, DRAG_PREVIEW_DEFAULT, createDragIntent, inRect, previewPlan, targetAt, type DragIntent, type DragPreview } from "@n-uf/motion/drag";
 import { EDGE_SCROLL, INDICATOR } from "./desk/drag-page";
@@ -1291,7 +1292,7 @@ async function keyboardDrag(key: string, steps: number): Promise<DragResult> {
 }
 
 initToolbarFrame(lab, stage, motion);
-const SCENARIOS: Record<string, Scenario> = { ...makeScenarios(lab), ...toolbarGroupScenarios(lab), ...gripScenarios(lab, grips) };
+const SCENARIOS: Record<string, Scenario> = { ...makeScenarios(lab), ...toolbarGroupScenarios(lab), ...gripScenarios(lab, grips), ...compactScenarios(lab) };
 const runs: LabRun[] = [];
 
 async function runScenario(name: string, mode: Preview): Promise<LabRun> {
