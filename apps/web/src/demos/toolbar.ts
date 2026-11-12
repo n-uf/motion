@@ -7,7 +7,8 @@ import { icon } from "./icons";
 export type Host = "title" | "top" | "bottom" | "left" | "right";
 export type Zone = "start" | "center" | "end";
 export type Slots = Record<Zone, string[]>;
-export interface Float { id: string; x: number; y: number }
+/** A floating group: at x, y in the window's body, or anchored ("bottom": centred above the body's bottom edge). */
+export interface Float { id: string; x: number; y: number; anchor?: "bottom" }
 export type Model = Record<Host, Slots> & { float: Float[]; collapsed: string[] };
 type Spec = Partial<Record<Host, Partial<Slots>>>;
 
@@ -19,7 +20,7 @@ export const GROUPS: Record<string, { label: string; html: string }> = {
   doc: { label: "Document", html: `<span class="ident"><span class="name">Quarterly plan.pdf</span><span class="page">P 02/04</span></span>` },
   tools: { label: "Tools", html: btns(["pointer", "text", "eraser", "rect", "pen"], 4) },
   view: { label: "View", html: btns(["single", "spread"]) },
-  zoom: { label: "Zoom", html: `<button class="tb" tabindex="-1" aria-label="Zoom out">${icon("minus")}</button><span class="zoomval">79%</span><button class="tb" tabindex="-1" aria-label="Zoom in">${icon("plus")}</button>` },
+  zoom: { label: "Zoom", html: `<span class="zoom"><button class="tb" tabindex="-1" aria-label="Zoom out">${icon("minus")}</button><span class="zoomval">79<span class="h-only">%</span></span><button class="tb" tabindex="-1" aria-label="Zoom in">${icon("plus")}</button></span>` },
   panel: { label: "Panels", html: tbtn([["Panel", "panel"], ["Notes", "notes"]], 0) },
   export: { label: "Export", html: tbtn([["Preview", "preview"], ["Download", "download"]]) },
   share: { label: "Share", html: tbtn([["Share", "share"], ["Print", "print"]]) },
@@ -60,11 +61,15 @@ const dots = (n: number): string => "<i></i>".repeat(n);
 
 /**
  * A toolbar group: its handle, its controls, and the » that stands in for them while collapsed (the `collapsed` class
- * switches between the two, so a group's controls keep their listeners when it collapses or moves).
+ * switches between the two, so a group's controls keep their listeners when it collapses or moves). » is a real
+ * button: it opens a popover with the group's full horizontal form (islands/chrome.ts).
  */
 export function chromeGroupHTML(id: string, name: string, controls: string, collapsed = false): string {
-  return `<div class="group${collapsed ? " collapsed" : ""}" data-g="${id}"><span class="g c" tabindex="0" role="button" aria-label="${name} handle" data-handle="${id}">${dots(3)}</span><span class="ctl">${controls}</span><button class="tb ovf" data-ovf="${id}" title="${name}: hidden controls" tabindex="-1">»</button></div>`;
+  return `<div class="group${collapsed ? " collapsed" : ""}" data-g="${id}"><span class="g c" tabindex="0" role="button" aria-label="${name} handle" title="${name}" data-handle="${id}">${dots(3)}</span><span class="ctl">${controls}</span><button type="button" class="tb ovf" data-ovf="${id}" aria-haspopup="dialog" aria-expanded="false" aria-label="${name}: show its controls" title="${name}">»</button></div>`;
 }
+/** Where a floating group sits in the window's body. */
+export const floatStyle = (f: Float): string =>
+  f.anchor === "bottom" ? "left:0;right:0;bottom:12px;margin-inline:auto;width:max-content" : `left:${f.x}px;top:${f.y}px`;
 export function groupHTML(model: Model, g: string, auto: ReadonlySet<string> = new Set()): string {
   return chromeGroupHTML(g, label(g), GROUPS[g]!.html, model.collapsed.includes(g) || auto.has(g));
 }
@@ -72,7 +77,8 @@ const isEmptyHost = (model: Model, h: Host): boolean => ZONES.every((z) => model
 function barHTML(model: Model, h: Host, auto: ReadonlySet<string>): string {
   const v = h === "left" || h === "right";
   const cls = `bar ${v ? "v" : "h"} ${h}${isEmptyHost(model, h) && h !== "title" ? " empty" : ""}`;
-  const lead = h === "title" ? `<span class="winh"><span class="g full" tabindex="0" role="button" aria-label="Window handle" data-winhandle>${dots(6)}</span><span class="lights"><i></i><i></i><i></i></span></span>` : "";
+  // The window cannot move, so its title bar starts with the lights: no grip.
+  const lead = h === "title" ? `<span class="winh"><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span></span>` : "";
   const zones = ZONES.map((z) => `<div class="zone ${z}" data-host="${h}" data-zone="${z}">${model[h][z].map((g) => groupHTML(model, g, auto)).join("")}</div>`).join("");
   return `<div class="${cls}" data-host="${h}">${lead}${zones}</div>`;
 }
@@ -80,6 +86,6 @@ const PAPER = `<div class="paper"><span class="kicker">Section 2</span><p class=
 
 /** The whole sample window for a model: bars, document, floating groups. */
 export function windowHTML(model: Model, auto: ReadonlySet<string> = new Set()): string {
-  const floats = model.float.map((f) => `<div class="floating" style="left:${f.x}px;top:${f.y}px">${groupHTML(model, f.id, auto)}</div>`).join("");
+  const floats = model.float.map((f) => `<div class="floating" style="${floatStyle(f)}">${groupHTML(model, f.id, auto)}</div>`).join("");
   return `${barHTML(model, "title", auto)}${barHTML(model, "top", auto)}<div class="mid">${barHTML(model, "left", auto)}<div class="docarea stage-host">${PAPER}</div>${barHTML(model, "right", auto)}${floats}</div>${barHTML(model, "bottom", auto)}`;
 }

@@ -1,18 +1,23 @@
 /**
  * Window chrome made of toolbar groups: every figure's bars (and the toolbar-groups page's sample window) are a set
  * of hosts (the title bar, a top and a bottom bar, the left and right edges, floating) with start, centre and end
- * zones. Each group of two or more controls has one dotted handle that leads it and is its separator; it carries the
- * group's actions:
+ * zones. Each group has one dotted handle that leads it and is its separator; it carries the group's actions:
  *
  * - drag: move the group (before all, after all, between two; over the stage it floats). The drop follows the drag
- *   intent (an aim gate, a 160 ms hold before it shows, held at borders) and the figure's preview mode: an insertion
- *   marker (Drop indicator), the neighbours opening the gap (Open gap), or the group gliding into it (Snap to slot).
- *   A group's own place is home, never a target. The real group is lifted, no copy; it lands from where it was let go.
+ *   intent (an aim gate, a 160 ms hold before it shows, held at borders) and the figure's preview mode. The slot is
+ *   always the group's own outline at its size in the target's axis: in the opened gap (Open gap), filled by the group
+ *   gliding in (Snap to slot), or drawn over the insertion point while nothing moves (Drop indicator). A group's own
+ *   place is home, never a target. The real group is held, no copy; over a side edge it takes its vertical form (and
+ *   back), its size revealed; it lands from where it was let go.
  * - double-click, Enter or Space: collapse to handle + », or expand. Bars never wrap: when one runs out of room its
- *   trailing groups collapse.
+ *   trailing groups collapse. » opens a popover with the group's full horizontal form, its controls working.
  * - right-click, long-press or Shift+F10: its menu (Collapse, Move to ›, Float/Dock, Move this bar's groups to ›,
  *   Reset position, Reset all).
  * - frozen (the lock): no grips, nothing moves; holding Alt brings them back while held.
+ *
+ * On a side edge a group shows its compact form (styles/chrome.css); a group with none (a title, a hint, sliders)
+ * collapses to handle + ». A side edge never makes the window taller. The window's ↺ Reset puts every group back,
+ * unfreezes, forgets the stored arrangement and resets the demo (setDemo), keeping the visitor's preferences.
  *
  * The module moves the server-rendered group elements between zones (so their controls keep their listeners), and
  * one instance runs per window; a page may hold several. An arrangement can persist per figure in localStorage.
@@ -20,8 +25,8 @@
 import type { Point, Settle } from "@n-uf/motion";
 import { drive, flip, forget, glideFrom, newSettle } from "./motion";
 import { dropMode, previewPlan } from "./drop-mode";
-import { setDragging } from "./showcase";
-import { HOSTNAME, HOSTS, ZONENAME, ZONES, clone, type Host, type Model, type Zone } from "../demos/toolbar";
+import { setDragging, userAction } from "./showcase";
+import { HOSTNAME, HOSTS, ZONENAME, ZONES, clone, floatStyle, type Host, type Model, type Zone } from "../demos/toolbar";
 
 export interface ChromeOptions {
   /** The window: the element holding the bars, zones and groups (`.win`). */
@@ -42,16 +47,24 @@ export interface ChromeOptions {
   onChange?: (model: Model) => void;
 }
 
+/** The demo inside a window, for ↺ Reset: whether it is at its default, and how to put it back (gliding). */
+export interface DemoState { isDefault(): boolean; reset(): void }
+
 export interface Chrome {
   model(): Model;
   /** Show another arrangement (a case), gliding from where each group is drawn. */
   setModel(m: Model, animate?: boolean): void;
+  /** Register the window's demo with ↺ Reset. */
+  setDemo(d: DemoState): void;
+  /** The demo's state changed: refresh ↺ Reset. */
+  demoChanged(): void;
   /** The drag in progress, for checks. */
-  drag(): { shown: string | null; snapped: boolean; marker: boolean } | null;
+  drag(): { shown: string | null; snapped: boolean; marker: boolean; vertical: boolean } | null;
 }
 
-interface R { x: number; y: number; w: number; h: number; area?: boolean }
-interface Target { h: Host; z: Zone; i: number; rect: R; bar: DOMRect; zone: DOMRect; label: string; float?: false }
+interface R { x: number; y: number; w: number; h: number }
+type Size = { w: number; h: number };
+interface Target { h: Host; z: Zone; i: number; at: Point; area: boolean; bar: DOMRect; zone: DOMRect; label: string; float?: false }
 interface FloatTarget { float: true; doc: DOMRect; label: string }
 type AnyTarget = Target | FloatTarget;
 interface Drag {
@@ -66,7 +79,13 @@ interface Drag {
   anchor?: Point;
   stillSince?: number;
   grab?: Point;
-  size?: { w: number; h: number };
+  /** The group's size in a row and in a column (its horizontal and vertical forms). */
+  sizeH?: Size;
+  sizeV?: Size;
+  /** The held frame's inset (padding and border) around the group's content. */
+  inset?: Point;
+  homeV?: boolean;
+  vert?: boolean;
   targets?: AnyTarget[];
   ghost?: HTMLElement;
   hold?: HTMLElement;
@@ -74,6 +93,8 @@ interface Drag {
   home?: { h: Host; z: Zone; i: number } | null;
   pos?: Settle<Point>;
   glide?: (() => void) | null;
+  size?: Settle<Point>;
+  resize?: (() => void) | null;
   snapTo?: HTMLElement | null;
   returning?: boolean;
 }
@@ -85,6 +106,12 @@ const closeMenu = (): void => {
 };
 document.addEventListener("pointerdown", (e) => { if (openMenuEl && !openMenuEl.contains(e.target as Node)) closeMenu(); });
 
+/** A control with a compact form for a side edge (styles/chrome.css); a group whose controls all have one keeps them. */
+const compact = (el: Element): boolean =>
+  el.matches(".lab, .h-only, .side-form, .zoomval, .tb:not(.text), .tb.text:has(> .i)") || (el.matches(".tb-row, .zoom") && [...el.children].every(compact));
+const isV = (h: Host): boolean => h === "left" || h === "right";
+const FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href]";
+
 export function createChrome(o: ChromeOptions): Chrome {
   const root = o.root;
   const defaults = o.defaults ?? o.initial;
@@ -94,8 +121,12 @@ export function createChrome(o: ChromeOptions): Chrome {
   const own = <T extends Element>(sel: string): T[] => [...root.querySelectorAll<T>(sel)].filter((e) => e.closest(".win") === root);
   const groups = new Map<string, HTMLElement>();
   own<HTMLElement>(".group[data-g]").forEach((g) => groups.set(g.dataset.g!, g));
+  // A group with no compact form collapses to handle + » on a side edge.
+  groups.forEach((g) => g.classList.toggle("noside", ![...g.querySelector(":scope > .ctl")!.children].every(compact)));
   const mid = own<HTMLElement>(".mid")[0]!;
   const stage = own<HTMLElement>(".stage-host")[0] ?? mid;
+  const resetBtn = own<HTMLButtonElement>("[data-chrome-reset]")[0];
+  let demo: DemoState | null = null;
 
   const ids = (m: Model): string[] => [...HOSTS.flatMap((h) => ZONES.flatMap((z) => m[h][z])), ...m.float.map((f) => f.id)].sort();
   const valid = (m: unknown): m is Model => {
@@ -114,10 +145,11 @@ export function createChrome(o: ChromeOptions): Chrome {
       return null;
     }
   };
+  const atDefault = (): boolean => JSON.stringify(model) === JSON.stringify(defaults);
   const persist = (): void => {
     if (!o.storageKey) return;
     try {
-      if (JSON.stringify(model) === JSON.stringify(defaults)) localStorage.removeItem(o.storageKey);
+      if (atDefault()) localStorage.removeItem(o.storageKey);
       else localStorage.setItem(o.storageKey, JSON.stringify(model));
     } catch {
       /* storage blocked: the arrangement lasts for this page */
@@ -125,17 +157,22 @@ export function createChrome(o: ChromeOptions): Chrome {
   };
   let model: Model = clone(o.initial);
   let auto = new Set<string>();
+  const syncReset = (): void => {
+    if (resetBtn) resetBtn.disabled = atDefault() && !isFrozen() && (demo ? demo.isDefault() : true);
+  };
   const changed = (): void => {
     persist();
+    syncReset();
     o.onChange?.(clone(model));
   };
 
   // ---- Rendering: move the group elements into place, gliding from where they were drawn ----------------------------
-  let landFrom: { id: string; rect: DOMRect } | null = null;
+  let landFrom: { id: string; rect: R } | null = null;
   function render(animate = true): void {
     closeMenu();
-    const before = new Map<HTMLElement, DOMRect>();
-    if (animate) groups.forEach((g) => before.set(g, g.getBoundingClientRect()));
+    closePop(false);
+    const before = new Map<HTMLElement, R>();
+    if (animate) groups.forEach((g) => { const r = g.getBoundingClientRect(); before.set(g, { x: r.left, y: r.top, w: r.width, h: r.height }); });
     if (landFrom) {
       const g = groups.get(landFrom.id);
       if (g) before.set(g, landFrom.rect);
@@ -152,8 +189,7 @@ export function createChrome(o: ChromeOptions): Chrome {
       if (!g) continue;
       const w = document.createElement("div");
       w.className = "floating";
-      w.style.left = f.x + "px";
-      w.style.top = f.y + "px";
+      w.style.cssText = floatStyle(f);
       w.appendChild(g);
       mid.appendChild(w);
     }
@@ -164,27 +200,31 @@ export function createChrome(o: ChromeOptions): Chrome {
     auto = new Set();
     syncCollapsed();
     if (!root.classList.contains("dragging")) collapseOverflow();
+    syncReset();
     if (!animate) return;
     before.forEach((a, g) => {
       if (!g.isConnected) return;
       const b = g.getBoundingClientRect();
-      glideFrom(g, a.left - b.left, a.top - b.top);
+      glideFrom(g, a.x - b.left, a.y - b.top);
     });
   }
   const syncCollapsed = (): void => groups.forEach((g, id) => g.classList.toggle("collapsed", model.collapsed.includes(id) || auto.has(id)));
-  /** Bars never wrap: when one lacks room, its trailing groups collapse to handle + ». */
+  /** Bars never wrap and side edges never grow: when one lacks room, its trailing groups collapse to handle + ». */
   function collapseOverflow(): void {
     own<HTMLElement>(".bar").forEach((bar) => {
       const v = bar.classList.contains("v");
       const need = (): boolean => {
         // What the bar's contents need along its axis: the groups and their 12 px gaps, the centre zone (its 12 px
-        // margins and, when empty, its minimum drop size), the window's grip and fixed controls (with their 12 px),
+        // margins and, when empty, its minimum drop size), the window's lights and fixed controls (with their 12 px),
         // within the bar's padding.
         let n = 0;
         bar.querySelectorAll<HTMLElement>(":scope > .zone").forEach((z) => {
           const kids = [...z.children] as HTMLElement[];
-          const sum = kids.reduce((s, c) => s + (v ? c.offsetHeight : c.offsetWidth), 0) + 12 * Math.max(0, kids.length - 1);
-          if (z.classList.contains("center")) n += Math.max(sum, v ? z.offsetHeight : z.offsetWidth) + 24;
+          const gap = parseFloat(getComputedStyle(z)[v ? "rowGap" : "columnGap"]) || 0;
+          const sum = kids.reduce((s, c) => s + (v ? c.offsetHeight : c.offsetWidth), 0) + gap * Math.max(0, kids.length - 1);
+          const cs = getComputedStyle(z);
+          const margins = v ? parseFloat(cs.marginTop) + parseFloat(cs.marginBottom) : parseFloat(cs.marginLeft) + parseFloat(cs.marginRight);
+          if (z.classList.contains("center")) n += Math.max(sum, v ? z.offsetHeight : z.offsetWidth) + margins;
           else n += sum;
         });
         const lead = bar.querySelector<HTMLElement>(":scope > .winh");
@@ -209,12 +249,68 @@ export function createChrome(o: ChromeOptions): Chrome {
   const syncFreeze = (): void => {
     root.classList.toggle("frozen", isFrozen());
     o.freeze?.lock.classList.toggle("on", isFrozen());
+    syncReset();
   };
   o.freeze?.input.addEventListener("change", syncFreeze);
   window.addEventListener("keydown", (e) => { if (e.key === "Alt") root.classList.add("alt"); });
   window.addEventListener("keyup", (e) => { if (e.key === "Alt") root.classList.remove("alt"); });
   window.addEventListener("blur", () => root.classList.remove("alt"));
   const frozenNow = (e?: { altKey?: boolean } | null): boolean => isFrozen() && !(e && e.altKey) && !root.classList.contains("alt");
+
+  // ---- » : the group's full horizontal form in a popover ----------------------------------------------------------
+  let pop: { el: HTMLElement; ctl: HTMLElement; group: HTMLElement; btn: HTMLButtonElement } | null = null;
+  function closePop(focus = true): void {
+    if (!pop) return;
+    const p = pop;
+    pop = null;
+    p.group.insertBefore(p.ctl, p.btn);
+    p.btn.setAttribute("aria-expanded", "false");
+    p.el.remove();
+    if (focus) p.btn.focus();
+  }
+  function openPop(btn: HTMLButtonElement): void {
+    closePop(false);
+    closeMenu();
+    userAction();
+    const group = btn.closest<HTMLElement>(".group")!;
+    const ctl = group.querySelector<HTMLElement>(":scope > .ctl")!;
+    const el = document.createElement("div");
+    el.className = "cpop";
+    el.setAttribute("role", "dialog");
+    el.setAttribute("aria-label", label(group.dataset.g!));
+    el.appendChild(ctl);
+    document.body.appendChild(el);
+    pop = { el, ctl, group, btn };
+    btn.setAttribute("aria-expanded", "true");
+    // Anchored to »: beside a side edge, else below it, flipped above when there is no room; never off the page.
+    const r = btn.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+    const bar = btn.closest<HTMLElement>(".bar");
+    let x: number, y: number;
+    if (bar?.classList.contains("left")) [x, y] = [r.right + 8, r.top];
+    else if (bar?.classList.contains("right")) [x, y] = [r.left - 8 - w, r.top];
+    else [x, y] = [r.left, r.bottom + 6 + h > innerHeight - 8 ? r.top - 6 - h : r.bottom + 6];
+    el.style.left = Math.max(8, Math.min(x, innerWidth - w - 8)) + "px";
+    el.style.top = Math.max(8, Math.min(y, innerHeight - h - 8)) + "px";
+    el.addEventListener("pointerdown", () => userAction());
+    el.addEventListener("keydown", (e) => {
+      const list = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)];
+      const i = list.indexOf(document.activeElement as HTMLElement);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        closePop();
+      } else if (["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(e.key) && list.length && !(document.activeElement instanceof HTMLInputElement && document.activeElement.type === "range")) {
+        e.preventDefault();
+        const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1;
+        list[(i + step + list.length) % list.length]!.focus();
+      }
+    });
+    el.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (pop && !pop.el.contains(e.target as Node) && !pop.btn.contains(e.target as Node)) closePop(false);
+  });
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape" && pop) closePop(); });
 
   // ---- The menu ---------------------------------------------------------------------------------------------------------
   function placeOf(id: string): { h: Host; z: Zone } | null {
@@ -227,10 +323,11 @@ export function createChrome(o: ChromeOptions): Chrome {
   }
   function openMenu(id: string, anchor: HTMLElement, e: { altKey?: boolean } | null): void {
     closeMenu();
+    closePop(false);
     const frozen = frozenNow(e);
     const p = placeOf(id), collapsed = model.collapsed.includes(id) || auto.has(id);
     const dis = frozen ? " dis" : "";
-    const items: string[] = [];
+    const items: string[] = [`<div class="it head">${label(id)}</div><div class="sep"></div>`];
     if (frozen) items.push(`<div class="it note">Frozen: hold Alt to move or collapse</div><div class="sep"></div>`);
     items.push(`<div class="it${dis}" data-act="toggle">${collapsed ? "Expand" : "Collapse"}<span class="kb">double-click</span></div><div class="sep"></div>`);
     items.push(`<div class="it note">Move to</div>`);
@@ -314,8 +411,10 @@ export function createChrome(o: ChromeOptions): Chrome {
     openMenu(h.dataset.handle!, h, e);
   });
   root.addEventListener("click", (e) => {
-    const ov = (e.target as HTMLElement).closest<HTMLElement>("[data-ovf]");
-    if (ov && ov.closest(".win") === root) status(`» shows ${label(ov.dataset.ovf!)}'s hidden controls in a popover`);
+    const ov = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-ovf]");
+    if (!ov || ov.closest(".win") !== root) return;
+    if (pop && pop.btn === ov) closePop();
+    else openPop(ov);
   });
   root.addEventListener("keydown", (e) => {
     const h = (e.target as HTMLElement).closest<HTMLElement>("[data-handle]");
@@ -331,6 +430,22 @@ export function createChrome(o: ChromeOptions): Chrome {
     if (e.key === "Escape") closeMenu();
   });
 
+  // ---- ↺ Reset ----------------------------------------------------------------------------------------------------------
+  resetBtn?.addEventListener("click", () => {
+    closeMenu();
+    closePop(false);
+    if (o.freeze && o.freeze.input.checked) {
+      // Through a change event, so every window sharing the lock (the toolbar page's sample) unfreezes too.
+      o.freeze.input.checked = false;
+      o.freeze.input.dispatchEvent(new Event("change"));
+    }
+    model = clone(defaults);
+    render();
+    demo?.reset();
+    status("Back to the default: every group, the demo, unfrozen");
+    changed();
+  });
+
   // ---- Dragging a group by its handle -----------------------------------------------------------------------------
   const indlabel = document.createElement("div");
   indlabel.className = "chrome-label";
@@ -340,34 +455,57 @@ export function createChrome(o: ChromeOptions): Chrome {
   marker.className = "chrome-marker";
   document.body.appendChild(marker);
 
-  function targetsFor(dragged: string): AnyTarget[] {
+  /** A group's size in its horizontal or vertical form, measured on a hidden copy inside this window. */
+  function formSize(g: HTMLElement, vertical: boolean): Size {
+    const c = g.cloneNode(true) as HTMLElement;
+    c.querySelectorAll("[id]").forEach((e) => e.removeAttribute("id"));
+    c.removeAttribute("style");
+    c.classList.remove("lifted", "resizing", "vf");
+    c.classList.toggle("collapsed", model.collapsed.includes(g.dataset.g!));
+    if (vertical) c.classList.add("vf");
+    // Measured inside a bar, so it wears exactly the styles it will wear docked.
+    const box = document.createElement("div");
+    box.className = "bar h";
+    box.style.cssText = "position:absolute;left:-10000px;top:0;visibility:hidden;align-items:flex-start;padding:0;border:0;min-height:0";
+    box.appendChild(c);
+    mid.appendChild(box);
+    const r = c.getBoundingClientRect();
+    box.remove();
+    return { w: r.width, h: r.height };
+  }
+
+  function targetsFor(d: Drag): AnyTarget[] {
     const out: AnyTarget[] = [];
-    const g = groups.get(dragged)!;
-    const home = g.getBoundingClientRect();
-    const homeV = !!g.closest(".bar.v");
-    const rowSize = homeV ? { w: home.height, h: home.width } : { w: home.width, h: home.height };
     own<HTMLElement>(".bar .zone").forEach((zEl) => {
-      const h = zEl.dataset.host as Host, z = zEl.dataset.zone as Zone, v = h === "left" || h === "right";
-      const items = [...zEl.querySelectorAll<HTMLElement>(":scope > .group")].filter((e) => e.dataset.g !== dragged);
+      const h = zEl.dataset.host as Host, z = zEl.dataset.zone as Zone, v = isV(h);
+      const items = [...zEl.querySelectorAll<HTMLElement>(":scope > .group")].filter((e) => e.dataset.g !== d.id);
       const zr = zEl.getBoundingClientRect(), br = zEl.closest(".bar")!.getBoundingClientRect();
       const names = items.map((e) => e.dataset.g!);
       for (let i = 0; i <= items.length; i++) {
-        let p: R;
-        // An empty zone: the group's own outline where it will land (flush to the zone's edge, or centred).
-        if (!items.length) {
-          const fw = v ? br.width - 10 : Math.min(rowSize.w, br.width - 16), fh = v ? Math.min(rowSize.w, br.height - 16) : br.height - 10;
-          if (v) p = { x: br.left + 5, y: z === "start" ? br.top + 8 : z === "end" ? br.bottom - 8 - fh : br.top + br.height / 2 - fh / 2, w: fw, h: fh, area: true };
-          else p = { x: z === "start" ? br.left + 8 : z === "end" ? br.right - 8 - fw : br.left + br.width / 2 - fw / 2, y: br.top + 5, w: fw, h: fh, area: true };
-        } else {
+        let at: Point;
+        if (!items.length) at = { x: zr.left + zr.width / 2, y: zr.top + zr.height / 2 };
+        else {
+          // The insertion point: halfway across the 12 px gap before item i (or after the last).
           const r = (i < items.length ? items[i]! : items[items.length - 1]!).getBoundingClientRect();
-          p = v ? { x: br.left + 6, y: (i < items.length ? r.top - 6 : r.bottom + 6) - 1.5, w: br.width - 12, h: 3 } : { x: (i < items.length ? r.left - 6 : r.right + 6) - 1.5, y: br.top + 6, w: 3, h: br.height - 12 };
+          at = v ? { x: br.left + br.width / 2, y: i < items.length ? r.top - 6 : r.bottom + 6 } : { x: i < items.length ? r.left - 6 : r.right + 6, y: br.top + br.height / 2 };
         }
         const where = !items.length ? "" : i === 0 ? "before all" : i === items.length ? "after all" : `between ${label(names[i - 1]!)} and ${label(names[i]!)}`;
-        out.push({ h, z, i, rect: p, bar: br, zone: zr, label: `${HOSTNAME[h]} · ${ZONENAME(h, z)}${where ? " · " + where : ""}` });
+        out.push({ h, z, i, at, area: !items.length, bar: br, zone: zr, label: `${HOSTNAME[h]} · ${ZONENAME(h, z)}${where ? " · " + where : ""}` });
       }
     });
     out.push({ float: true, doc: stage.getBoundingClientRect(), label: "Float here" });
     return out;
+  }
+  /** The group's outline at a target, where it will land: its own size in the target's axis. */
+  function outline(d: Drag, tg: Target): R {
+    const s = isV(tg.h) ? d.sizeV! : d.sizeH!, b = tg.bar, zr = tg.zone, v = isV(tg.h);
+    if (tg.area) {
+      // An empty zone: flush at its start or end, or centred, exactly where the group lands.
+      if (v) return { x: b.left + b.width / 2 - s.w / 2, y: tg.z === "start" ? zr.top : tg.z === "end" ? zr.bottom - s.h : zr.top + zr.height / 2 - s.h / 2, w: s.w, h: s.h };
+      return { x: tg.z === "start" ? zr.left : tg.z === "end" ? zr.right - s.w : zr.left + zr.width / 2 - s.w / 2, y: b.top + b.height / 2 - s.h / 2, w: s.w, h: s.h };
+    }
+    // Between groups: centred on the insertion point, over the neighbours (nothing moves).
+    return { x: tg.at.x - s.w / 2, y: tg.at.y - s.h / 2, w: s.w, h: s.h };
   }
 
   let drag: Drag | null = null;
@@ -409,23 +547,28 @@ export function createChrome(o: ChromeOptions): Chrome {
   function lift(d: Drag): void {
     d.lifted = true;
     closeMenu();
+    closePop(false);
     setDragging(true);
     // The grab point is measured before the empty bars open as strips (which may move the group under the pointer).
     const g = groups.get(d.id)!;
     const r0 = g.getBoundingClientRect();
     d.grab = { x: d.start.x - r0.left, y: d.start.y - r0.top };
+    d.homeV = !!g.closest(".bar.v");
+    d.vert = d.homeV;
+    d.sizeH = formSize(g, false);
+    d.sizeV = formSize(g, true);
+    // The top bar's strip sits right under the title bar (an overlay, styles/chrome.css).
+    root.style.setProperty("--title-h", (own<HTMLElement>(".bar.title")[0]?.offsetHeight ?? 42) + "px");
     root.classList.add("dragging");
     render(false);
     // Held drag: the real group is lifted and follows the pointer; no copy. Its old place keeps its size, empty, so
     // nothing else moves until the drop.
     const r = g.getBoundingClientRect();
-    const homeV = !!g.closest(".bar.v");
-    d.size = homeV ? { w: r.height, h: r.width } : { w: r.width, h: r.height };
     // Where the group came from: dropping there changes nothing, so it is never offered as a target.
     const hp = placeOf(d.id);
     d.home = hp ? { h: hp.h, z: hp.z, i: model[hp.h][hp.z].indexOf(d.id) } : null;
     // Targets are measured once, on the layout as it was at the lift (stable: slots opening never move them).
-    d.targets = targetsFor(d.id);
+    d.targets = targetsFor(d);
     const hold = document.createElement("div");
     hold.className = "hold";
     hold.style.cssText = `width:${r.width}px;height:${r.height}px;flex:none`;
@@ -435,10 +578,16 @@ export function createChrome(o: ChromeOptions): Chrome {
     if (frame) frame.style.visibility = "hidden";
     d.ghost = g;
     g.classList.add("lifted");
+    g.classList.toggle("vf", d.vert);
     g.style.transform = "";
     g.querySelector(".g")!.classList.add("drag");
     document.body.appendChild(g);
+    const cs = getComputedStyle(g);
+    d.inset = { x: parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth), y: parseFloat(cs.paddingTop) + parseFloat(cs.borderTopWidth) };
+    // The held frame is drawn around the group, so the content stays where it was grabbed.
+    d.grab = { x: d.grab.x + d.inset.x, y: d.grab.y + d.inset.y };
     d.pos = newSettle<Point>({ x: d.last.x - d.grab.x, y: d.last.y - d.grab.y });
+    drawGhost(d);
     const tick = (): void => {
       if (!drag || drag !== d) return;
       evaluate(d.last, performance.now());
@@ -474,8 +623,43 @@ export function createChrome(o: ChromeOptions): Chrome {
     d.pos.hold(at);
     drawGhost(d);
   }
+  /**
+   * Reorient the held group: over a side edge it takes its vertical form, over a bar or the stage its horizontal one.
+   * The frame's size is revealed from the old to the new (the content laid out at its new form and clipped, never
+   * stretched), and the handle comes back under the pointer by settle.
+   */
+  function reorient(d: Drag, vertical: boolean): void {
+    if (!d.ghost || d.vert === vertical) return;
+    const g = d.ghost, a = g.getBoundingClientRect();
+    d.vert = vertical;
+    d.resize?.();
+    g.style.width = g.style.height = "";
+    g.classList.toggle("vf", vertical);
+    const b = g.getBoundingClientRect();
+    const hr = g.querySelector<HTMLElement>(":scope > .g")!.getBoundingClientRect();
+    d.grab = { x: hr.left - b.left + hr.width / 2, y: hr.top - b.top + hr.height / 2 };
+    // The frame's size as a point (x: width, y: height), settled from the old form's to the new one's.
+    d.size = newSettle<Point>({ x: a.width, y: a.height });
+    d.size.setTarget({ x: b.width, y: b.height });
+    g.classList.add("resizing");
+    const draw = (): void => {
+      g.style.width = d.size!.value.x + "px";
+      g.style.height = d.size!.value.y + "px";
+    };
+    draw();
+    d.resize = drive(d.size, draw, () => {
+      g.style.width = g.style.height = "";
+      g.classList.remove("resizing");
+      if (d.size) forget(d.size);
+      d.resize = null;
+    });
+    if (!d.snapTo) {
+      d.returning = true;
+      followPointer(d, d.last);
+    }
+  }
 
-  /** The drag intent: an indicator only once aiming (slower than 0.45 px/ms, or still for 90 ms). */
+  /** The drag intent: an outline only once aiming (slower than 0.45 px/ms, or still for 90 ms). */
   function evaluate(p: Point, t: number): void {
     const d = drag;
     if (!d || !d.lifted) return;
@@ -493,9 +677,10 @@ export function createChrome(o: ChromeOptions): Chrome {
       const b = tg.bar;
       if (p.x < b.left - 18 || p.x > b.right + 18 || p.y < b.top - 18 || p.y > b.bottom + 18) continue;
       inBar = true;
-      // An empty zone wins wherever the pointer is inside it; insertion lines win by distance.
-      const zr = tg.zone, inZone = p.x >= zr.left && p.x <= zr.right && p.y >= zr.top - 18 && p.y <= zr.bottom + 18;
-      const dist = tg.rect.area ? (inZone ? 0 : Infinity) : Math.hypot(p.x - (tg.rect.x + tg.rect.w / 2), p.y - (tg.rect.y + tg.rect.h / 2));
+      // An empty zone wins wherever the pointer is inside it; insertion points win by distance.
+      const zr = tg.zone, v = isV(tg.h);
+      const inZone = v ? p.y >= zr.top && p.y <= zr.bottom && p.x >= zr.left - 18 && p.x <= zr.right + 18 : p.x >= zr.left && p.x <= zr.right && p.y >= zr.top - 18 && p.y <= zr.bottom + 18;
+      const dist = tg.area ? (inZone ? 0 : Infinity) : Math.hypot(p.x - tg.at.x, p.y - tg.at.y);
       if (dist < bd) {
         bd = dist;
         best = tg;
@@ -521,16 +706,16 @@ export function createChrome(o: ChromeOptions): Chrome {
     }
     if (d.shown && d.shown.float) placeFloatSlot(d, p);
   }
-  const slotSize = (d: Drag, h: Host): { w: number; h: number } => (h === "left" || h === "right" ? { w: d.size!.h, h: d.size!.w } : d.size!);
   /**
-   * Show a target by the preview plan: an insertion marker or empty-zone outline that moves nothing (Drop indicator);
-   * a slot that opens the gap, the neighbours moving aside (Open gap); or that gap with the group gliding into it
-   * (Snap to slot). Floating has no slot: it always shows the floating outline.
+   * Show a target by the preview plan, always as the group's own outline: drawn over the insertion point while nothing
+   * moves (Drop indicator); in the gap the neighbours open (Open gap); or that gap, filled by the group gliding in (Snap
+   * to slot). Over the stage: the floating frame's outline. A side-edge target reorients the held group.
    */
   function setShown(d: Drag, tg: AnyTarget | null, p: Point): void {
     d.shown = tg;
     const plan = previewPlan(dropMode());
     marker.classList.remove("on");
+    reorient(d, tg ? !tg.float && isV(tg.h) : !!d.homeV);
     flip(own<HTMLElement>(".group"), () => {
       if (d.slot) {
         d.slot.remove();
@@ -541,14 +726,14 @@ export function createChrome(o: ChromeOptions): Chrome {
       s.className = "slot";
       if (tg.float) {
         s.classList.add("float");
-        s.style.width = d.size!.w + 14 + "px";
-        s.style.height = d.size!.h + 10 + "px";
+        s.style.width = d.sizeH!.w + 2 * d.inset!.x + "px";
+        s.style.height = d.sizeH!.h + 2 * d.inset!.y + "px";
         document.body.appendChild(s);
         d.slot = s;
         return;
       }
       if (!plan.room) return;
-      const sz = slotSize(d, tg.h);
+      const sz = isV(tg.h) ? d.sizeV! : d.sizeH!;
       s.style.width = sz.w + "px";
       s.style.height = sz.h + "px";
       const zone = own<HTMLElement>(`.zone[data-host="${tg.h}"][data-zone="${tg.z}"]`)[0]!;
@@ -559,18 +744,18 @@ export function createChrome(o: ChromeOptions): Chrome {
       d.slot = s;
     });
     if (tg && !tg.float && !plan.room) {
-      // Drop indicator: the insertion marker (or the empty zone's outline); nothing moves.
-      const r = tg.rect;
+      // Drop indicator: the group's outline over the insertion point (or in the empty zone); nothing moves.
+      const r = outline(d, tg);
       Object.assign(marker.style, { left: r.x + "px", top: r.y + "px", width: r.w + "px", height: r.h + "px" });
-      marker.classList.toggle("area", !!r.area);
       marker.classList.add("on");
     }
     if (tg && tg.float) placeFloatSlot(d, p);
     if (plan.glide && tg && !tg.float && d.slot && d.pos) {
+      // Snap: the held frame glides so the group's content sits exactly in the slot (so the landing has no motion).
       const r = d.slot.getBoundingClientRect();
       d.snapTo = d.slot;
       d.returning = false;
-      glideGhost(d, { x: r.left, y: r.top });
+      glideGhost(d, { x: r.left - d.inset!.x, y: r.top - d.inset!.y });
     } else if (d.snapTo) {
       d.snapTo = null;
       d.returning = true;
@@ -602,17 +787,20 @@ export function createChrome(o: ChromeOptions): Chrome {
     // The group lands from where it was let go (or glides home on cancel), never from its old slot. A snapped group is
     // already in its slot, so it lands with no second motion.
     d.glide?.();
+    d.resize?.();
     if (d.pos) forget(d.pos);
-    const released = d.ghost ? d.ghost.getBoundingClientRect() : null;
+    if (d.size) forget(d.size);
+    const g = d.ghost ? d.ghost.getBoundingClientRect() : null;
+    const released = g && d.inset ? { x: g.left + d.inset.x, y: g.top + d.inset.y, w: g.width, h: g.height } : null;
     if (d.slot) d.slot.remove();
     if (d.hold) d.hold.remove();
     marker.classList.remove("on");
     indlabel.classList.remove("on");
     root.classList.remove("dragging");
     if (d.ghost) {
-      d.ghost.classList.remove("lifted");
+      d.ghost.classList.remove("lifted", "vf", "resizing");
       d.ghost.querySelector(".g")?.classList.remove("drag");
-      d.ghost.style.left = d.ghost.style.top = "";
+      d.ghost.style.left = d.ghost.style.top = d.ghost.style.width = d.ghost.style.height = "";
     }
     if (!d.lifted) return;
     landFrom = released && { id: d.id, rect: released };
@@ -620,7 +808,7 @@ export function createChrome(o: ChromeOptions): Chrome {
     if (tg && tg.float) {
       const wr = mid.getBoundingClientRect();
       removeEverywhere(d.id);
-      model.float.push({ id: d.id, x: Math.max(4, d.last.x - d.grab!.x - wr.left), y: Math.max(4, d.last.y - d.grab!.y - wr.top) });
+      model.float.push({ id: d.id, x: Math.max(4, Math.round(d.last.x - d.grab!.x - wr.left)), y: Math.max(4, Math.round(d.last.y - d.grab!.y - wr.top)) });
       status(`${label(d.id)} floats: the same group, plus a frame and shadow`);
     } else if (tg) {
       removeEverywhere(d.id);
@@ -651,11 +839,11 @@ export function createChrome(o: ChromeOptions): Chrome {
   render(false);
   syncFreeze();
   // A group that grows or shrinks (a hint appearing, a readout changing) refits the bars: trailing groups collapse
-  // when room runs out, and expand again when it comes back.
+  // when room runs out, and expand again when it comes back. Not while a drag or a » popover is open.
   let pending = 0;
   const refit = (): void => {
     pending = 0;
-    if (root.classList.contains("dragging")) return;
+    if (root.classList.contains("dragging") || pop) return;
     auto = new Set();
     syncCollapsed();
     collapseOverflow();
@@ -669,6 +857,11 @@ export function createChrome(o: ChromeOptions): Chrome {
       model = clone(m);
       render(animate);
     },
-    drag: () => (drag && drag.lifted ? { shown: drag.shown ? drag.shown.label : null, snapped: !!drag.snapTo, marker: marker.classList.contains("on") } : null),
+    setDemo(dm) {
+      demo = dm;
+      syncReset();
+    },
+    demoChanged: syncReset,
+    drag: () => (drag && drag.lifted ? { shown: drag.shown ? drag.shown.label : null, snapped: !!drag.snapTo, marker: marker.classList.contains("on"), vertical: !!drag.vert } : null),
   };
 }
