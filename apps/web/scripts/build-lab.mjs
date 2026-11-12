@@ -44,8 +44,11 @@ for (const file of files(out)) {
   if (/localhost|127\.0\.0\.1|:3060\b|:3070\b/.test(text)) problems.push(`${file.slice(out.length)} names a local development address`);
   if (!file.endsWith(".html")) continue;
   pages++;
+  const hasNoindex = (h) => /<meta\s+name="robots"\s+content="noindex/i.test(h);
   let html = text;
-  if (!/<meta\s+name="robots"\s+content="noindex/i.test(html)) html = html.replace(/<head>/i, `<head>\n    ${NOINDEX}`);
+  if (!hasNoindex(html)) html = html.replace(/<head(\s[^>]*)?>/i, (head) => `${head}\n    ${NOINDEX}`);
+  // Whatever the page's head looks like, a lab page without the noindex fails the build.
+  if (!hasNoindex(html)) problems.push(`${file.slice(out.length)} has no noindex robots meta`);
   if (/rel="canonical"|property="og:url"/i.test(html)) problems.push(`${file.slice(out.length)} has a canonical or og:url`);
   if (html !== text) writeFileSync(file, html);
 }
