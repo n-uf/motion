@@ -34,6 +34,7 @@ const resetHtml = `<button type="button" class="tb text xray-btn fixed" data-chr
 const floats = model.float.map((f) => `<div class="floating" style="${floatStyle(f)}">${html.get(f.id) ?? ""}</div>`).join("");
 const names = Object.fromEntries(groups.map((g) => [g.id, g.name]));
 ---
+<div class="fig-plan">
 <figure class={`figure win ${cls}`} id={id} aria-label={label} data-chrome={id} data-chrome-model={JSON.stringify(model)} data-chrome-labels={JSON.stringify(names)}>
   <Fragment set:html={bar("title", winh).replace(/<\/div>$/, `${lockHtml}${resetHtml}</div>`)} />
   <Fragment set:html={bar("top")} />
@@ -45,3 +46,4 @@ const names = Object.fromEntries(groups.map((g) => [g.id, g.name]));
   </div>
   <Fragment set:html={bar("bottom")} />
 </figure>
+</div>

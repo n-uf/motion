@@ -13,7 +13,7 @@
   font-family: var(--font-sans);
 }
 #desk text { font-family: var(--font-sans); }
-.figure-note > p { margin: 0 0 6px; max-width: 92ch; }
+.figure-note > p { margin: 0 0 6px; max-width: 78ch; }
 .figure-note .legend { padding-top: 4px; }
 
 .compare-scroll { max-height: none; }
@@ -22,5 +22,5 @@
 .compare th, .compare td { white-space: normal; }
 .compare tbody th { position: sticky; left: 0; z-index: 1; background: var(--bg-raised); white-space: nowrap; box-shadow: inset -1px 0 0 var(--line); }
 .compare thead th:first-child { position: sticky; left: 0; z-index: 2; box-shadow: inset -1px 0 0 var(--line); }
-.compare tbody tr[aria-current="true"] > * { background: color-mix(in srgb, var(--accent-soft) 100%, var(--bg-raised)); }
-.compare tbody tr[aria-current="true"] > th { box-shadow: inset 2px 0 0 var(--accent), inset -1px 0 0 var(--line); color: var(--accent-strong); }
+.compare tbody tr[aria-current="true"] > * { background: color-mix(in srgb, var(--part) 12%, var(--bg-raised)); }
+.compare tbody tr[aria-current="true"] > th { box-shadow: inset 2px 0 0 var(--part), inset -1px 0 0 var(--line); color: var(--part-strong); }

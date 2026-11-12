@@ -369,7 +369,7 @@ $("runall").addEventListener("click", async () => {
   }
   const out = $("compare");
   out.hidden = false;
-  out.innerHTML = `<div class="section-head"><span class="eyebrow">Every path in both modes</span><h3>Naive flashes while flying; the model does not</h3></div><div class="table-scroll"><table class="table"><thead><tr><th>Path</th><th>Mode</th><th>Indicator appeared or moved</th><th>Flashes</th><th>Drop</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+  out.innerHTML = `<div class="section-head"><span class="eyebrow">Every path in both modes</span><h2 class="section-title">Naive flashes while flying; the model does not</h2></div><div class="table-scroll"><table class="table"><thead><tr><th>Path</th><th>Mode</th><th>Indicator appeared or moved</th><th>Flashes</th><th>Drop</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
   (window as unknown as Record<string, unknown>).__dragModelResults = rows.length;
   runningAll = false;
   syncBusy();
