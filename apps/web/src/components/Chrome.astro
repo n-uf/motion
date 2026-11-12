@@ -28,8 +28,9 @@ const winh = `<span class="winh"><span class="lights" aria-hidden="true"><i></i>
 const lockHtml = lock
   ? `<label class="lock fixed" title="Freeze or unfreeze this window's bars"><input type="checkbox" class="switch" data-chrome-freeze role="switch" aria-label="Freeze the bars"><svg class="ico open" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 4.9-.7"/></svg><svg class="ico shut" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><span class="lockhint">hold <kbd>Alt</kbd> to move</span></label>`
   : "";
-// ↺ Reset: window chrome (no grip, never collapses). Disabled while the figure is at its default.
-const resetHtml = `<button type="button" class="tb reset fixed" data-chrome-reset aria-label="Reset the demo" title="Reset the demo" disabled><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 8a4.8 4.8 0 1 0 1.5-3.5"/><path d="M3 2.5v3h3"/></svg></button>`;
+// X-ray and ↺ Reset: window chrome (no grip, never collapse). X-ray shows each package's layer (islands/xray.ts); Reset
+// is disabled while the figure is at its default.
+const resetHtml = `<button type="button" class="tb text xray-btn fixed" data-chrome-xray aria-pressed="false" title="X-ray: what placement computes (hit zones, slots) and what motion does (target, trail, aim)">X-ray</button><button type="button" class="tb reset fixed" data-chrome-reset aria-label="Reset the demo" title="Reset the demo" disabled><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 8a4.8 4.8 0 1 0 1.5-3.5"/><path d="M3 2.5v3h3"/></svg></button>`;
 const floats = model.float.map((f) => `<div class="floating" style="${floatStyle(f)}">${html.get(f.id) ?? ""}</div>`).join("");
 const names = Object.fromEntries(groups.map((g) => [g.id, g.name]));
 ---

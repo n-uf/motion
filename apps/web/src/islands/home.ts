@@ -18,6 +18,7 @@ import { figureChrome } from "./figure-chrome";
 import { createIntent, type Intent } from "../demos/intent";
 import { CURVE, CURVES, DEFAULT_TOOL, DESK_A, DESK_B, LAYOUTS, RESERVE, WINDOWS, curvePoint, curveX } from "../demos/home";
 import type { Model } from "../demos/toolbar";
+import { xrayOf, type XR } from "./xray";
 
 // ---- The hero demo: three windows that tile, swap and glide ---------------------------------------------------------
 const fig = $("demo-fig");
@@ -76,6 +77,27 @@ function showReadout(): void {
   readoutSide.querySelector("#ro-h")!.textContent = String(dh);
   readoutSide.title = `${WINDOWS[0]!.title}: drawn ${dw} × ${dh}, target ${tw} × ${th}, ${w.settle.settled ? "at rest" : "settling"}`;
 }
+// ---- X-ray: placement's slots and hit zones (the layout's rects, a window per target), motion's settles --------------
+const xray = xrayOf(fig);
+const vr = (r: Rect): XR => { const o = demo.getBoundingClientRect(); return { x: o.left + r.x, y: o.top + r.y, w: r.width, h: r.height }; };
+let trail: Point[] = [];
+function xrayHero(): void {
+  if (!xray.on) return;
+  const d = drag;
+  // Placement: each window's slot in the layout, as a drop target (priority 2, a slot; the dragged window's own is home).
+  // At rest: the layout's slots; during a drag: each window's slot as a target zone, and the one the drop shows.
+  xray.draw("hero:place", d ? {
+    zones: wins.map((w) => ({ r: vr(slotRect(w.slot)), label: w === d.w ? "home" : `${WINDOWS[w.i]!.title} · p2` })),
+    slots: d.shown ? [{ r: vr(slotRect(d.shown.slot)), on: true, label: `swap with ${WINDOWS[d.shown.i]!.title}` }] : [],
+  } : { slots: wins.map((w) => ({ r: vr(slotRect(w.slot)), label: `${LAYOUTS[layout]!.name} · slot ${w.slot}` })) });
+  // Motion: each window's settle target against what is drawn; the held one's trail and the aim.
+  for (const w of wins) {
+    const held = !!d && w === d.w;
+    xray.draw(`hero:w${w.i}`, held || !w.settle.settled ? { target: vr(w.settle.target), drawn: vr(w.settle.value), trail: held ? trail : undefined, aim: held ? { p: vr({ x: d!.last.x, y: d!.last.y, width: 0, height: 0 }), state: d!.aim } : null } : null);
+  }
+}
+xray.onChange(() => xrayHero());
+
 /** Step every window that isn't held 1:1 until all rest. */
 function run(): void {
   if (running) return;
@@ -86,6 +108,13 @@ function run(): void {
       paint(w);
     }
     showReadout();
+    if (xray.on) {
+      if (drag) {
+        trail.push(vr(drag.w.settle.value));
+        if (trail.length > 48) trail.shift();
+      }
+      xrayHero();
+    }
     return moving || !!drag;
   };
   if (reduced()) {
@@ -128,6 +157,8 @@ interface Drag {
   returning: boolean;
   last: Point;
   scripted: boolean;
+  /** The drag intent's state, for X-ray. */
+  aim: "fly" | "aim" | "room";
 }
 const inside = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
 const homeRect = (): Rect => slotRect(drag!.w.slot);
@@ -146,7 +177,8 @@ function showIndicator(target: Win | null): void {
 /** Start a drag of `w` grabbed at `p` (demo coordinates). */
 function lift(w: Win, p: Point, scripted: boolean): void {
   const d = w.settle.value;
-  drag = { w, dx: p.x - d.x, dy: p.y - d.y, intent: createIntent<Win>(), shown: null, room: null, snapped: false, returning: false, last: p, scripted };
+  drag = { w, dx: p.x - d.x, dy: p.y - d.y, intent: createIntent<Win>(), shown: null, room: null, snapped: false, returning: false, last: p, scripted, aim: "fly" };
+  trail = [];
   w.hold = true;
   w.settle.hold({ ...d });
   w.el.classList.add("held");
@@ -160,7 +192,8 @@ function move(p: Point, t: number): void {
   d.last = p;
   const own = inside(homeRect(), p);
   const raw = own ? null : wins.find((x) => x !== d.w && inside(slotRect(x.slot), p)) ?? null;
-  const { shown, room } = d.intent.update(p, t, raw);
+  const { shown, room, aiming } = d.intent.update(p, t, raw);
+  d.aim = !aiming && !shown ? "fly" : room && previewPlan(dropMode()).room ? "room" : "aim";
   if (shown !== d.shown) {
     // The old target goes back to its slot, and a snapped window back to the pointer.
     if (d.room) {
@@ -228,6 +261,8 @@ function release(cancel: boolean): void {
   d.w.settle.setTarget(r);
   relayout(true);
   if (!d.scripted) setDragging(false);
+  trail = [];
+  xrayHero();
 }
 
 // The user's drag.
