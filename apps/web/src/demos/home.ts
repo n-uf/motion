@@ -3,10 +3,10 @@
  * the two desk states. Strings and plain data, so the server renders every first frame and the island animates them.
  */
 import { createSettle, type Rect } from "@n-uf/motion";
+import { DEFAULT_OPTIONS, createDesk } from "@n-uf/placement/dock";
 
 // ---- The hero demo -------------------------------------------------------------------------------------------------
 type Slot = (W: number, H: number) => Rect;
-const GAP = 10, PAD = 12;
 /** The demo box at a 1440 px viewport (the hero's side edges hold Preview, Tempo and Speed). */
 export const DEMO = { w: 1106, h: 380 };
 /** The band at the bottom of the stage kept free for the floating tools, so no window's title bar is ever under them. */
@@ -14,28 +14,41 @@ export const RESERVE = 50;
 /** The drawing tools (a floating group at the bottom of the hero): select, text, erase, box, pen. Pen is selected. */
 export const TOOLS = [["pointer", "Select"], ["text", "Text"], ["eraser", "Erase"], ["rect", "Box"], ["pen", "Pen"]] as const;
 export const DEFAULT_TOOL = "pen";
-export const LAYOUTS: { name: string; slots: Slot[] }[] = [
-  {
-    name: "Master and stack",
-    slots: [
-      (W, H) => ({ x: PAD, y: PAD, width: Math.round((W - 2 * PAD - GAP) * 0.58), height: H - 2 * PAD }),
-      (W, H) => { const mw = Math.round((W - 2 * PAD - GAP) * 0.58); return { x: PAD + mw + GAP, y: PAD, width: W - 2 * PAD - GAP - mw, height: (H - 2 * PAD - GAP) / 2 }; },
-      (W, H) => { const mw = Math.round((W - 2 * PAD - GAP) * 0.58); return { x: PAD + mw + GAP, y: PAD + (H - 2 * PAD - GAP) / 2 + GAP, width: W - 2 * PAD - GAP - mw, height: (H - 2 * PAD - GAP) / 2 }; },
-    ],
-  },
-  {
-    name: "Columns",
-    slots: [0, 1, 2].map((i): Slot => (W, H) => { const cw = (W - 2 * PAD - 2 * GAP) / 3; return { x: PAD + i * (cw + GAP), y: PAD, width: cw, height: H - 2 * PAD }; }),
-  },
-  {
-    name: "Dwindle",
-    slots: [
-      (W, H) => ({ x: PAD, y: PAD, width: W - 2 * PAD, height: Math.round((H - 2 * PAD - GAP) * 0.52) }),
-      (W, H) => { const th = Math.round((H - 2 * PAD - GAP) * 0.52); return { x: PAD, y: PAD + th + GAP, width: Math.round((W - 2 * PAD - GAP) * 0.42), height: H - 2 * PAD - GAP - th }; },
-      (W, H) => { const th = Math.round((H - 2 * PAD - GAP) * 0.52), lw = Math.round((W - 2 * PAD - GAP) * 0.42); return { x: PAD + lw + GAP, y: PAD + th + GAP, width: W - 2 * PAD - GAP - lw, height: H - 2 * PAD - GAP - th }; },
-    ],
-  },
-];
+/**
+ * The desk's layouts are placement's: three constructions of `@n-uf/placement/dock` laid out for the three open
+ * documents on a stage of the demo's size (no panels, so only the documents' rects matter), each window's slot being
+ * that document's rect. The desk below and the rects the telemetry prints are the same numbers.
+ */
+const DESK = createDesk({ panels: [], start: { left: [], right: [], bottom: [] }, docTitle: (id) => WINDOWS[id - 1]?.title ?? `Document ${id}` });
+const OPTIONS = { ...DEFAULT_OPTIONS, toolbarHidden: true };
+/** The layouts, as `{ name, construction }` (placement's id): what the shuffle cycles through. */
+const CONSTRUCTIONS = [
+  { name: "Master and stack", id: "navigator" },
+  { name: "Tiling tree", id: "tree" },
+  { name: "Edge docks", id: "docks" },
+] as const;
+export interface DeskLayout {
+  /** The three windows' rects, in the stage's px. */
+  readonly rects: readonly Rect[];
+  /** Placement's give-way note codes for this stage (empty when nothing gave way). */
+  readonly notes: readonly string[];
+}
+let cached: { key: string; layout: DeskLayout } | null = null;
+/** Placement's layout `index` (see {@link LAYOUTS}) for a stage of `W` × `H`; the last answer is kept. */
+export function deskLayout(index: number, W: number, H: number): DeskLayout {
+  const key = `${index}:${W}:${H}`;
+  if (cached?.key === key) return cached.layout;
+  const c = DESK.constructionOf(CONSTRUCTIONS[index]!.id);
+  const { items, notes } = c.layout(c.initial([1, 2, 3]), { width: Math.max(1, W), height: Math.max(1, H) }, OPTIONS);
+  const layout: DeskLayout = { rects: [1, 2, 3].map((id) => ({ ...items.get(`doc:${id}`)!.rect })), notes: notes.map((n) => n.code) };
+  cached = { key, layout };
+  return layout;
+}
+export const LAYOUTS: { name: string; id: string; slots: Slot[] }[] = CONSTRUCTIONS.map((c, index) => ({
+  name: c.name,
+  id: c.id,
+  slots: [0, 1, 2].map((i): Slot => (W, H) => deskLayout(index, W, H).rects[i]!),
+}));
 export const WINDOWS = [
   { title: "Quarterly plan.pdf", meta: "P 02/04", rows: 7 },
   { title: "Meeting notes", meta: "Thu", rows: 4 },

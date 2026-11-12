@@ -18,7 +18,8 @@ import { registerShowcase, setDragging } from "./showcase";
 import { DROP_MODES, dropMode, onDropMode, previewPlan, type DropMode } from "./drop-mode";
 import { figureChrome } from "./figure-chrome";
 import { createIntent, type Intent } from "../demos/intent";
-import { CURVE, CURVES, DEFAULT_TOOL, DESK_A, DESK_B, LAYOUTS, RESERVE, WINDOWS, curvePoint, curveX } from "../demos/home";
+import { CURVE, CURVES, DEFAULT_TOOL, DESK_A, DESK_B, LAYOUTS, RESERVE, WINDOWS, curvePoint, curveX, deskLayout } from "../demos/home";
+import { deskTap } from "./desk-tap";
 import type { Model } from "../demos/toolbar";
 import { xrayOf, type XR } from "./xray";
 
@@ -162,6 +163,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
         paint(w);
       }
       showReadout();
+      if (deskTap.active) deskTap.frame({ dt, windows: wins.map((w) => ({ i: w.i, drawn: { ...w.settle.value }, target: { ...w.settle.target }, moving: !w.hold && !w.settle.settled, held: w.hold, expected: w.hold && drag && drag.w === w ? pointerRect(drag.last) : undefined })), held: drag ? drag.w.i : null, shown: drag?.shown ? drag.shown.i : null });
       // Step 4 ends when every window rests.
       if (!moving && !drag && lit === 4 && performance.now() >= litUntil) setStep(0);
       if (xray.on) {
@@ -195,6 +197,8 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
       else w.settle.setTarget({ ...r });
     }
     layoutName.textContent = LAYOUTS[layout]!.name;
+    const stage = { width: demo.clientWidth, height: demo.clientHeight - reserve };
+    deskTap.plan({ name: LAYOUTS[layout]!.name, construction: LAYOUTS[layout]!.id, slots: [0, 1, 2].map((s) => slotRect(s)), stage, notes: deskLayout(layout, stage.width, stage.height).notes });
     shuffle.title = `Next layout · ${LAYOUTS[layout]!.name}`;
     run();
   }
