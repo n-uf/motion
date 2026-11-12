@@ -138,6 +138,13 @@ describe("toolbar targets", () => {
     for (const t of targets) for (const o of own) expect(inRect(o, mid(t.hit)) && t.kind === "line").toBe(false);
   });
 
+  it("own place stays home when the arrangement's zones are written in another order", () => {
+    const written = { ...a, top: { end: a.top.end, center: a.top.center, start: a.top.start } };
+    const { targets } = hostTargets({ ...input, arrangement: written });
+    expect(targets.map((t) => t.id)).not.toContain("g:top:start:1");
+    expect(targets.map((t) => t.id)).toEqual(hostTargets(input).targets.map((t) => t.id));
+  });
+
   it("a drop makes the arrangement its label says", () => {
     const { targets } = hostTargets(input);
     const first = targets.find((t) => t.label === "Top bar · left · before all")!;

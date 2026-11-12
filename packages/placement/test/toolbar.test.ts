@@ -16,8 +16,10 @@ import {
   moveBar,
   moveToHost,
   resetGroup,
+  sameArrangement,
   toggleCollapsed,
   withoutGroup,
+  type Arrangement,
   type GroupSize,
   type HostSpec,
 } from "../src/toolbar";
@@ -132,5 +134,17 @@ describe("arrangement changes", () => {
     expect(isOwnPlace(HOME, "history", { host: "top", zone: "center", index: 1 })).toBe(true);
     expect(isOwnPlace(HOME, "history", { host: "top", zone: "center", index: 0 })).toBe(false);
     expect(isOwnPlace(HOME, "history", { host: "top", zone: "end", index: 0 })).toBe(false);
+  });
+
+  it("an arrangement written with its zones in another order is the same arrangement", () => {
+    // Zones listed end, centre, start: the same places, so the group's own place is still its own place.
+    const written: Arrangement<Gr> = { ...HOME, top: { end: [], center: ["edit", "history", "view"], start: [] } };
+    expect(sameArrangement(written, HOME)).toBe(true);
+    expect(isOwnPlace(written, "history", { host: "top", zone: "center", index: 1 })).toBe(true);
+    expect(sameArrangement({ ...HOME, collapsed: ["zoom", "edit"] }, { ...HOME, collapsed: ["edit", "zoom"] })).toBe(true);
+    expect(sameArrangement(HOME, { ...HOME, collapsed: ["edit"] })).toBe(false);
+    const floated = floatGroup(HOME, "history", 10, 20);
+    expect(sameArrangement(floated, floatGroup(HOME, "history", 10, 21))).toBe(false);
+    expect(sameArrangement(floated, { ...floated, floating: [{ ...floated.floating[0]!, from: null }] })).toBe(false);
   });
 });

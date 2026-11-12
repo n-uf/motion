@@ -120,8 +120,23 @@ export const toggleCollapsed = <G extends string>(a: Arrangement<G>, g: G): Arra
 
 export const isEmptyHost = <G extends string>(a: Arrangement<G>, h: HostId): boolean => ZONES.every((zn) => a[h][zn].length === 0);
 
-/** The same arrangement: the same groups in the same places, the same collapsed and floating ones. */
-export const sameArrangement = <G extends string>(a: Arrangement<G>, b: Arrangement<G>): boolean => JSON.stringify(a) === JSON.stringify(b);
+const samePlace = (a: Place | null, b: Place | null): boolean => (a === null || b === null ? a === b : a.host === b.host && a.zone === b.zone && a.index === b.index);
+
+/**
+ * The same arrangement: the same groups in the same order in every zone of every host, the same groups collapsed,
+ * and the same groups floating at the same corner with the same home (in any order: neither list's order means
+ * anything). Compared field by field, so how the arrangement was written down (its keys' order) doesn't matter.
+ */
+export function sameArrangement<G extends string>(a: Arrangement<G>, b: Arrangement<G>): boolean {
+  const sameList = (x: readonly G[], y: readonly G[]): boolean => x.length === y.length && x.every((g, i) => g === y[i]);
+  const sameSet = (x: readonly G[], y: readonly G[]): boolean => x.length === y.length && x.every((g) => y.includes(g));
+  if (!HOSTS.every((h) => ZONES.every((zn) => sameList(a[h][zn], b[h][zn])))) return false;
+  if (!sameSet(a.collapsed, b.collapsed) || a.floating.length !== b.floating.length) return false;
+  return a.floating.every((f) => {
+    const o = b.floating.find((x) => x.id === f.id);
+    return !!o && o.x === f.x && o.y === f.y && samePlace(o.from, f.from);
+  });
+}
 
 /** Dropping `g` at `place` changes nothing: it is the group's own place, its home, never a target. */
 export const isOwnPlace = <G extends string>(a: Arrangement<G>, g: G, place: Place): boolean => sameArrangement(insertGroup(a, g, place.host, place.zone, place.index), a);
