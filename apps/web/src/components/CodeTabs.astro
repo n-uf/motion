@@ -12,6 +12,7 @@ import settleCode from "../snippets/settle.ts?raw";
 import layoutCode from "../snippets/layout.ts?raw";
 import dragCode from "../snippets/drag.ts?raw";
 import "../styles/code-tabs.css";
+import { codeTheme } from "./code-theme";
 
 // The layout and drag tabs show once the library exports their entries: a build-time flag read from the package, so
 // this page builds on a base without them and turns them on by itself once they are there.
@@ -49,22 +50,8 @@ const tabs = [
   },
 ].filter((t) => t.on);
 
-// A Shiki theme made of the site's tokens: light and dark come from tokens.css, contrast included.
-const theme = {
-  name: "motion-tokens",
-  type: "light",
-  colors: { "editor.foreground": "var(--code-text)", "editor.background": "var(--code-bg)" },
-  tokenColors: [
-    { settings: { foreground: "var(--code-text)" } },
-    { scope: ["comment", "punctuation.definition.comment"], settings: { foreground: "var(--code-comment)", fontStyle: "italic" } },
-    { scope: ["keyword", "storage", "storage.type", "storage.modifier", "punctuation.definition.template-expression"], settings: { foreground: "var(--code-keyword)" } },
-    { scope: ["keyword.operator", "punctuation", "meta.brace"], settings: { foreground: "var(--code-punct)" } },
-    { scope: ["string", "string.template", "punctuation.definition.string"], settings: { foreground: "var(--code-string)" } },
-    { scope: ["constant.numeric", "constant.language"], settings: { foreground: "var(--code-number)" } },
-    { scope: ["entity.name.type", "support.type", "support.class", "entity.name.type.alias"], settings: { foreground: "var(--code-type)" } },
-    { scope: ["entity.name.function", "support.function", "meta.function-call entity.name.function"], settings: { foreground: "var(--code-function)" } },
-  ],
-};
+// A Shiki theme made of the site's tokens (components/code-theme.ts).
+const theme = codeTheme;
 ---
 <section class="wrap section use" aria-labelledby="use-title">
   <div class="section-head">
