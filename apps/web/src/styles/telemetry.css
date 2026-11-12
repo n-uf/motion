@@ -1,0 +1,83 @@
+/*
+ * "Why they come together": two monospace panes (motion's frames in the accent, placement's rects in violet) and a status
+ * bar of the four steps, all above the one desk window. Every row and column is a fixed width and height, so the numbers
+ * changing as the desk runs never move anything. Narrow: the panes stack, the status bar becomes a 2 × 2.
+ */
+.tele { margin-top: var(--s2); }
+.tpanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5); }
+.tpane { position: relative; display: grid; grid-template-rows: 28px 22px 162px auto; min-width: 0; padding: 0 var(--s4) var(--s3); overflow: hidden; border: 1px solid var(--line-3); border-radius: var(--r-sm); background: var(--bg-sunken); font: 12.5px/18px var(--font-mono); color: var(--text-2); }
+.tpane.m { box-shadow: inset 0 2px 0 var(--accent); }
+.tpane.p { box-shadow: inset 0 2px 0 var(--series-b); }
+.tpane .th { display: flex; align-items: center; gap: 10px; margin: 0 calc(-1 * var(--s4)); padding: 2px var(--s4) 0; color: var(--text-3); font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+.tpane .th b { color: var(--accent); font-weight: 650; }
+.tpane.p .th b { color: var(--series-b); }
+.tpane .th > span:not(.tr) { overflow: hidden; text-overflow: ellipsis; }
+.tpane .th .tr { margin-left: auto; flex: none; width: 28ch; text-align: right; overflow: hidden; text-overflow: ellipsis; font-weight: 650; }
+.tpane .th .tr.live { color: var(--accent); }
+.tpane .th .tr.live.h { color: var(--signal); }
+.tcols, .rw { white-space: pre; height: 18px; overflow: hidden; }
+.tcols { align-self: end; color: var(--text-3); }
+.rw { color: var(--text-2); }
+.rw.last, .rw.hi { color: var(--text); }
+.rw.dim { color: var(--text-3); }
+.rw.hi { color: var(--signal); font-weight: 650; }
+#tm-rows, #tp-rows { grid-row: 3; align-self: start; padding-top: 4px; }
+.chk { grid-row: 4; display: flex; flex-wrap: wrap; gap: 2px 18px; padding-top: 6px; border-top: 1px dashed var(--line-2); font-size: 12px; color: var(--text-3); }
+.chk i { font-style: normal; color: var(--good); font-weight: 650; }
+.chk i.bad { color: var(--bad); }
+.chk b { color: var(--text); font-weight: 600; }
+.chk .cn { display: inline-block; min-width: 0; }
+/* Fixed boxes for what changes: placement's two readings are a line each; motion's three checks have set widths. */
+#tp-chk { max-width: calc(100% - 252px); min-height: 50px; align-content: start; }
+#tp-chk > span { flex: 0 0 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#tm-chk { min-height: 50px; align-content: start; }
+#tm-chk > span { display: inline-block; white-space: nowrap; }
+#tm-chk > span:nth-child(1) { min-width: 22ch; }
+#tm-chk > span:nth-child(2) { min-width: 20ch; }
+#tm-chk > span:nth-child(3) { min-width: 30ch; }
+.tmap { position: absolute; right: var(--s4); top: 56px; width: 224px; height: auto; aspect-ratio: 1106 / 330; overflow: visible; }
+.tmap rect { fill: none; stroke: var(--series-b); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.tmap rect.stage { stroke: var(--line-3); stroke-dasharray: 3 3; }
+.tmap rect.t { stroke: var(--signal); stroke-dasharray: 3 2; fill: var(--signal-soft); }
+.hand { position: absolute; left: var(--s4); right: var(--s4); bottom: 12px; font-size: 12px; line-height: 18px; color: var(--text-3); white-space: nowrap; overflow: hidden; }
+.hand u { text-decoration: none; color: var(--series-b); font-weight: 650; }
+.hand u.mo { color: var(--accent); }
+.hand code { padding: 0; border: 0; background: none; font-size: inherit; color: var(--text-2); }
+.tpane.p { padding-bottom: 66px; }
+
+/* The status bar: the four steps of a drag, the current one lit by islands/home.ts (data-step on the list). */
+.tstatus { display: flex; align-items: center; gap: var(--s4); margin: var(--s3) 0 var(--s4); padding: 6px 14px; border: 1px solid var(--line-3); border-radius: var(--r-sm); background: var(--bg); font: 12px var(--font-mono); color: var(--text-3); }
+.tloop { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.tloop .sep { color: var(--line-3); padding: 0 2px; }
+.tloop .st { --c: var(--accent); display: inline-flex; align-items: center; gap: 8px; padding: 3px 12px 3px 4px; border-radius: 999px; box-shadow: inset 0 0 0 1px transparent; transition: background-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease); }
+.tloop .st.p { --c: var(--series-b); }
+.tloop .n { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font: 650 11px/1 var(--font-mono); color: var(--c); box-shadow: inset 0 0 0 1.5px var(--c); }
+.tloop .t b { color: var(--text-2); font-weight: 600; }
+.tloop .d { color: var(--text-3); }
+.tloop[data-step="1"] .st[data-step="1"], .tloop[data-step="2"] .st[data-step="2"], .tloop[data-step="3"] .st[data-step="3"], .tloop[data-step="4"] .st[data-step="4"] { background: color-mix(in srgb, var(--c) 12%, transparent); box-shadow: inset 0 0 0 1px var(--c); }
+.tloop[data-step="1"] .st[data-step="1"] .n, .tloop[data-step="2"] .st[data-step="2"] .n, .tloop[data-step="3"] .st[data-step="3"] .n, .tloop[data-step="4"] .st[data-step="4"] .n { background: var(--c); color: var(--bg-raised); }
+.tloop[data-step] .st .t b { color: var(--text); }
+.tspeed { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.tspeed .seg button { height: 22px; padding: 0 9px; font: 600 11px var(--font-mono); }
+
+@media (max-width: 1320px) {
+  .tloop .d { display: none; }
+}
+@media (max-width: 860px) {
+  .tpanes { grid-template-columns: minmax(0, 1fr); gap: var(--s3); }
+  #tp-chk { max-width: none; }
+  .tmap { display: none; }
+  .tpane.p { padding-bottom: 66px; }
+  .tstatus { flex-direction: column; align-items: stretch; gap: var(--s2); }
+  .tloop { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tloop .sep { display: none; }
+  .tspeed { margin-left: 0; justify-content: space-between; }
+}
+@media (max-width: 520px) {
+  .tpane { font-size: 11px; padding-left: var(--s3); padding-right: var(--s3); }
+  .tpane .th { margin: 0 calc(-1 * var(--s3)); padding: 2px var(--s3) 0; }
+  .tpane.m .tcols, .tpane.m .rw { font-size: 10.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tloop .st { transition: none; }
+}

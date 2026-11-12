@@ -11,22 +11,14 @@
 .caveat { font-size: var(--t-xs); color: var(--text-3); }
 
 /*
- * The loop: the desk window, then the four steps of a drag, each in its package's colour, the current one lit live
- * (islands/home.ts sets data-step on the strip; lighting changes colours only, so nothing shifts), then four claims.
+ * The loop: the telemetry panes and the status bar of the four steps (telemetry.css; islands/home.ts sets data-step on
+ * the bar), the desk window, then four claims.
  */
 .section.loop { padding-top: var(--s5); }
 .loop .demo-fig { margin-top: var(--s2); }
-.loop-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s3); margin: var(--s4) 0 0; padding: 0; list-style: none; counter-reset: none; }
-.step { --c: var(--accent); display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-content: start; padding: 10px 12px; border: 1px solid var(--line); border-top: 3px solid color-mix(in srgb, var(--c) 45%, transparent); border-radius: var(--r-sm); background: var(--bg-raised); transition: border-color var(--fast) var(--ease), background-color var(--fast) var(--ease); }
-.step.p { --c: var(--series-b); }
-.step-n { grid-row: 1 / 3; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font: 650 12px/1 var(--font-mono); color: var(--c); box-shadow: inset 0 0 0 1.5px var(--c); }
-.step-t { font-size: var(--t-sm); font-weight: 650; color: var(--text); }
-.step-d { font-size: var(--t-xs); color: var(--text-2); }
-.loop-strip[data-step="1"] .step[data-step="1"], .loop-strip[data-step="2"] .step[data-step="2"], .loop-strip[data-step="3"] .step[data-step="3"], .loop-strip[data-step="4"] .step[data-step="4"] { border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, var(--bg-raised)); }
-.loop-strip[data-step="1"] .step[data-step="1"] .step-n, .loop-strip[data-step="2"] .step[data-step="2"] .step-n, .loop-strip[data-step="3"] .step[data-step="3"] .step-n, .loop-strip[data-step="4"] .step[data-step="4"] .step-n { background: var(--c); color: var(--bg-raised); }
 .loop-claims { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px var(--s6); margin: var(--s4) 0 var(--s3); padding: 0; list-style: none; font-size: var(--t-sm); color: var(--text-2); }
 .loop-claims b { color: var(--text); font-weight: 620; }
-@media (max-width: 760px) { .loop-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .loop-claims { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .loop-claims { grid-template-columns: minmax(0, 1fr); } }
 
 /* What each package does: the heroes' two columns again, with the same rules. */
 .does-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5) var(--s7); }

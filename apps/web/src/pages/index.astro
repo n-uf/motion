@@ -3,6 +3,8 @@ import Site from "../layouts/Site.astro";
 import ExtLink from "../components/ExtLink.astro";
 import HeroDemo from "../components/HeroDemo.astro";
 import HeroScope from "../components/HeroScope.astro";
+import Telemetry from "../components/Telemetry.astro";
+import Poster from "../components/Poster.astro";
 import { pageOf } from "../data/pages";
 import { npmPlacementUrl, npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
@@ -11,6 +13,8 @@ import { faqJsonLd } from "../data/faq";
 import { CURVE, curveSVG, deskThumbSVG } from "../demos/home";
 import "../styles/home.css";
 import "../styles/hero.css";
+import "../styles/telemetry.css";
+import "../styles/poster.css";
 import CodeTabs from "../components/CodeTabs.astro";
 import PairCode from "../components/PairCode.astro";
 import { partOf } from "../data/parts";
@@ -44,20 +48,15 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
       <h2 id="loop-title">Why they come together</h2>
       <p>One desktop-style UI, two questions, plain data in between. Placement answers where; motion answers how it gets there and, while you drag, what you mean.</p>
     </div>
+    <Telemetry />
     <HeroDemo id="demo-fig" label="Live demo: three windows that glide between layouts and swap when dragged; X-ray shows each package's layer" />
-    <ol class="loop-strip" id="loop-strip" aria-label="The four steps of a drag">
-      <li class="step p" data-step="1"><span class="step-n">1</span><span class="step-t">Where it can go</span><span class="step-d">placement: the drop targets</span></li>
-      <li class="step m" data-step="2"><span class="step-n">2</span><span class="step-t">What you mean</span><span class="step-d">motion: the drag intent (aiming, hold, which target)</span></li>
-      <li class="step p" data-step="3"><span class="step-n">3</span><span class="step-t">The new layout</span><span class="step-d">placement: the rects of the arrangement the drop makes</span></li>
-      <li class="step m" data-step="4"><span class="step-n">4</span><span class="step-t">It moves there</span><span class="step-d">motion: the settle</span></li>
-    </ol>
     <ul class="loop-claims">
       <li><b>What you see is what you get:</b> the preview and the drop come from the same data.</li>
       <li><b>Every layout change animates:</b> any rects, one settle.</li>
       <li><b>The real element moves:</b> no copies, it lands from where you let go.</li>
       <li><b>Neither imports the other:</b> plain data between them, any framework or none.</li>
     </ul>
-    <p class="caveat">The demo windows on this site follow both packages' rules in the site's own code; the examples further down run the packages themselves. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink></p>
+    <p class="caveat">The demo windows' rects come from placement and they glide on motion's settle; the swap's drag model is the site's own port of the rules, and the examples further down run the packages' drag themselves. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink></p>
   </section>
 
   <!-- What each package does: the heroes' two columns again, entry by entry (checked against each package.json). -->
@@ -66,6 +65,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
       <span class="eyebrow">The packages</span>
       <h2 id="does-title">What each package does</h2>
     </div>
+    <Poster />
     <div class="does-grid">
       <article class="does-col m" aria-labelledby="does-motion">
         <h3 id="does-motion"><code>@n-uf/motion</code> <span>how things move</span></h3>
@@ -158,6 +158,12 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   // The desk demo starts when it scrolls into view.
   const fig = document.getElementById("demo-fig")!;
   whenVisible(fig, () => void import("../islands/home").then((m) => m.startHero(fig)));
+  // The telemetry panes start when they scroll into view, and listen to the desk once it runs.
+  const tele = document.getElementById("tele")!;
+  whenVisible(tele, () => void import("../islands/telemetry").then((m) => m.startTelemetry(tele)));
+  // The poster's seam starts when the poster scrolls into view.
+  const poster = document.getElementById("poster")!;
+  whenVisible(poster, () => void import("../islands/poster").then((m) => m.startPoster(poster)));
   // The hero is on screen from the first paint, and the server already drew its finished state: its island starts once the
   // page has loaded and the browser is idle, so it never competes with the first paint.
   const band = document.getElementById("band")!;

@@ -1,0 +1,52 @@
+---
+// "Why they come together": two monospace panes watching the one desk window below them, and a status bar that is the
+// four steps of a drag. Motion's pane prints the frames the desk's windows drew (a real settle's rects, frame by frame)
+// and what `@n-uf/motion/testing` says of the run; placement's pane prints the rects `@n-uf/placement` laid the desk out
+// with, its give-way notes and the drop targets. The server renders the finished state (a real run at build time);
+// islands/telemetry.ts runs it live off the desk. Not a second window: no chrome, no controls of its own but the speed.
+import { SETTLE_TEMPO } from "@n-uf/motion";
+import { DEMO, LAYOUTS, RESERVE, WINDOWS, deskLayout } from "../demos/home";
+import { simulateRun } from "../demos/hero";
+import { FRAME_COLS, FRAME_ROWS, RECT_COLS, checkLine, frameRow, rectRow, verdict } from "../demos/telemetry";
+
+const stage = { width: DEMO.w, height: DEMO.h - RESERVE };
+const layout = deskLayout(0, stage.width, stage.height);
+const slot = layout.rects[0]!;
+const run = simulateRun({ x: slot.x + 260, y: slot.y + 40, width: slot.width - 60, height: slot.height - 40 }, slot, SETTLE_TEMPO.default);
+const rows = run.samples.slice(-FRAME_ROWS).map((s, i, all) => frameRow(run.samples.length - all.length + i, s.t, s.rect));
+const checks = checkLine(run.report);
+const steps = [
+  ["1", "Where it can go", "placement: the drop targets", "p"],
+  ["2", "What you mean", "motion: the drag intent (aiming, hold, which target)", "m"],
+  ["3", "The new layout", "placement: the rects of the arrangement the drop makes", "p"],
+  ["4", "It moves there", "motion: the settle", "m"],
+] as const;
+const sz = `${stage.width} × ${stage.height}`;
+---
+<div class="tele" id="tele">
+  <div class="tpanes">
+    <div class="tpane m" id="tm" aria-hidden="true">
+      <div class="th"><b>frames</b><span id="tm-who">{WINDOWS[0]!.title} · window 1</span><span class="tr" id="tm-st">settled</span></div>
+      <div class="tcols">{FRAME_COLS}</div>
+      <div id="tm-rows">{Array.from({ length: FRAME_ROWS }, (_, k) => <div class={`rw${k === FRAME_ROWS - 1 ? " last" : ""}`}>{rows[k] ?? ""}</div>)}</div>
+      <div class="chk" id="tm-chk">{checks.map((c) => <span><span class="cn">{c.text}</span> <i class={c.ok === false ? "bad" : ""}>{verdict(c.ok)}</i></span>)}</div>
+    </div>
+    <div class="tpane p" id="tp" aria-hidden="true">
+      <div class="th"><b>rects</b><span id="tp-lay">{LAYOUTS[0]!.name}</span><span class="tr" id="tp-sz">{sz}</span></div>
+      <div class="tcols">{RECT_COLS}</div>
+      <div id="tp-rows">{layout.rects.map((r, i) => <div class="rw">{rectRow(`doc:${i + 1}`, r)}</div>)}</div>
+      <svg class="tmap" id="tp-map" viewBox={`0 0 ${stage.width} ${stage.height}`} aria-hidden="true">
+        <rect class="stage" x="0" y="0" width={stage.width} height={stage.height} rx="6" />
+        {layout.rects.map((r, i) => <rect data-i={i} x={r.x} y={r.y} width={r.width} height={r.height} rx="6" />)}
+      </svg>
+      <div class="chk" id="tp-chk"><span>notes <b id="tp-notes">[{layout.notes.map((n) => `'${n}'`).join(", ")}]</b></span><span>drop targets <b id="tp-tg">none while nothing is held</b></span></div>
+      <div class="hand"><div><u>placement</u> ▸ <u class="mo">motion</u> &nbsp;rects ▸ <code>item.moveTo(rect)</code></div><div><u>placement</u> ▸ <u class="mo">motion</u> &nbsp;targets ▸ <code>createDragIntent</code></div></div>
+    </div>
+  </div>
+  <div class="tstatus">
+    <ol class="tloop" id="loop-strip" aria-label="The four steps of a drag">
+      {steps.map(([n, t, d, c], i) => <><li class={`st ${c}`} data-step={n}><span class="n">{n}</span><span class="t"><b>{t}</b><span class="d"> {d}</span></span></li>{i < 3 && <li class="sep" aria-hidden="true">›</li>}</>)}
+    </ol>
+    <span class="tspeed">slow motion <span class="seg" id="tspeed" role="group" aria-label="Slow motion"><button type="button" data-speed="0.25" aria-pressed="false" title="Slow motion, ¼ of real time">¼×</button><button type="button" data-speed="0.5" aria-pressed="false" title="Half speed">½×</button><button type="button" data-speed="1" aria-pressed="true" title="Real time">1×</button></span></span>
+  </div>
+</div>
