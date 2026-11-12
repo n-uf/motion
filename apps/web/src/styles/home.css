@@ -1,43 +1,31 @@
 /* Home: the hero and its live demo, the pitch, and the page cards with live thumbnails. */
-.hero { display: grid; grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr); gap: var(--s7); align-items: center; padding-top: var(--s8); padding-bottom: var(--s7); }
-.hero-copy { display: grid; gap: var(--s4); align-content: center; }
+/* The hero: the copy in two columns (the title, then the pitch), and the live demo window across the full width. */
+.hero { display: grid; gap: var(--s6); padding-top: var(--s7); padding-bottom: var(--s6); }
+.hero-copy { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "eye eye" "title lead" "title install" "title caveat"; gap: var(--s3) var(--s7); align-items: start; }
+.hero-copy > .eyebrow { grid-area: eye; }
+.hero-copy > h1 { grid-area: title; }
+.hero-copy > .lead { grid-area: lead; }
+.hero-copy > .install { grid-area: install; }
+.hero-copy > .caveat { grid-area: caveat; }
 .hero h1 { font-size: 52px; line-height: 1.04; letter-spacing: -0.034em; max-width: 13ch; }
 .hero .lead { max-width: 52ch; }
+@media (max-width: 860px) { .hero-copy { grid-template-columns: minmax(0, 1fr); grid-template-areas: "eye" "title" "lead" "install" "caveat"; } }
 .install { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-top: var(--s2); }
 .cmd { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--bg-raised); font-size: 13px; color: var(--text); box-shadow: var(--shadow-1); }
 .cmd .prompt { color: var(--text-3); user-select: none; }
 .install .btn { height: 36px; padding: 0 14px; }
 .caveat { font-size: var(--t-xs); color: var(--text-3); }
-@media (max-width: 980px) { .hero { grid-template-columns: minmax(0, 1fr); gap: var(--s6); padding-top: var(--s7); } }
 @media (max-width: 640px) { .hero h1 { font-size: 38px; } }
 
-/* The demo: a small desk with three windows. */
-.demo-fig { margin: 0; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); box-shadow: var(--shadow-2); overflow: clip; }
-.demo-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px var(--s3); min-height: 44px; padding: 6px 8px 6px 14px; border-bottom: 1px solid var(--line); }
-.demo-bar .seg button { height: 24px; padding: 0 8px; font-size: var(--t-xs); }
-@media (max-width: 640px) { .demo-name .label { display: none; } }
-.demo-dots { display: inline-flex; gap: 6px; }
-.demo-dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--win-light-1); box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.18); }
-.demo-dots i:nth-child(2) { background: var(--win-light-2); }
-.demo-dots i:nth-child(3) { background: var(--win-light-3); }
-.demo-name { font-size: var(--t-sm); color: var(--text-2); }
-.demo-name .label { font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin-right: 4px; }
-.demo-name b { font-weight: 600; }
-.demo-bar .btn { margin-left: auto; }
-.demo { position: relative; height: 340px; overflow: hidden; background: var(--win-well); background-image: radial-gradient(color-mix(in srgb, var(--win-edge) 90%, transparent) 1px, transparent 1px); background-size: 16px 16px; background-position: 8px 8px; touch-action: none; user-select: none; -webkit-user-select: none; }
-.demo-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--s4); min-height: 40px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: var(--t-xs); color: var(--text-3); }
-.readout { display: flex; flex-wrap: wrap; gap: 2px 14px; font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 11.5px; }
-.readout b { font-weight: 550; color: var(--text); }
-.readout span:first-child b { font-family: var(--font-sans); font-weight: 620; }
-.demo-hint { margin-left: auto; }
-.showcase-hint { flex-basis: 100%; color: var(--text-2); }
-.showcase-hint::before, .showcase-pill::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--accent); vertical-align: 1px; }
+/* The demo: three windows on the flat well of a figure window (components/Chrome.astro). */
+.demo { position: relative; height: 380px; overflow: hidden; background: var(--win-well); touch-action: none; user-select: none; -webkit-user-select: none; }
+.bar [data-showcase-hint]::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--accent); vertical-align: 1px; }
 
 /* The hero's drop indicator: the signal outline on the slot the dragged window will take, with its label. */
-.dw-ind { position: absolute; z-index: 3; pointer-events: none; border: 2px dashed var(--signal); border-radius: var(--r); background: var(--signal-soft); opacity: 0; transition: opacity 90ms ease-out; }
+.dw-ind { position: absolute; z-index: 3; pointer-events: none; border: 2px dashed var(--signal); border-radius: var(--r); background: var(--signal-soft); opacity: 0; transition: opacity calc(90ms * var(--time-scale, 1)) ease-out; }
 .dw-ind.on { opacity: 1; }
 .dw-ind-label { position: absolute; left: 8px; top: 8px; padding: 2px 9px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font-size: var(--t-xs); font-weight: 620; white-space: nowrap; box-shadow: var(--shadow-1); }
-@media (max-width: 640px) { .demo { height: 300px; } .demo-hint { margin-left: 0; } }
+@media (max-width: 640px) { .demo { height: 320px; } }
 
 .dw { position: absolute; cursor: grab; will-change: transform; }
 .dw.held { z-index: 2; cursor: grabbing; }

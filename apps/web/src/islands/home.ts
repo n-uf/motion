@@ -3,16 +3,18 @@
  * thumbnails, on one frame loop. The server rendered every first frame; this animates them.
  *
  * Dragging a window onto another swaps them, by the drag-intent rules: nothing shows while the pointer flies; once it
- * aims at another window the drop shows (an outline in "Drop indicator" mode, the window gliding into the slot in
- * "Snap to slot" mode); after 160 ms the other window makes room; the release lands on what was shown. Its own slot is
- * home: a release there changes nothing. The automatic showcase (layouts and a swap, alternating the two modes) pauses
- * as soon as you act and resumes 10 s after your last action.
+ * aims at another window the drop shows by the preview mode (Drop indicator: an outline, nothing moves; Open gap: the
+ * other window makes room after 160 ms, the dragged one stays under the pointer; Snap to slot: it makes room and the
+ * dragged window glides into the slot); the release lands on what was shown. Its own slot is home: a release there
+ * changes nothing. The automatic showcase (layouts and a swap, cycling the three modes) pauses as soon as you act and
+ * resumes 10 s after your last action. Speed slows every glide; Tempo sets the settle's.
  */
-import { createSettle, reveal, type Point, type Rect, type Settle } from "@n-uf/motion";
+import { reveal, type Point, type Rect, type Settle } from "@n-uf/motion";
 import { $ } from "./rail";
-import { flip, loop, reduced, RectField } from "./motion";
-import { registerShowcase, setDragging, watchActions } from "./showcase";
-import { bindDropMode, dropMode, setDropMode, type DropMode } from "./drop-mode";
+import { flip, getSpeed, loop, newSettle, reduced, RectField, virtualNow } from "./motion";
+import { registerShowcase, setDragging } from "./showcase";
+import { DROP_MODES, dropMode, onDropMode, previewPlan, setDropMode, type DropMode } from "./drop-mode";
+import { figureChrome } from "./figure-chrome";
 import { createIntent, type Intent } from "../demos/intent";
 import { CURVE, CURVES, DESK_A, DESK_B, LAYOUTS, WINDOWS, curvePoint, curveX } from "../demos/home";
 
@@ -27,7 +29,7 @@ const wins: Win[] = [...demo.querySelectorAll<HTMLElement>(".dw")].map((el, i) =
   el,
   frame: el.querySelector<HTMLElement>(".dw-frame")!,
   body: el.querySelector<HTMLElement>(".dw-body")!,
-  settle: createSettle<Rect>({ x: 0, y: 0, width: 0, height: 0 }),
+  settle: newSettle<Rect>({ x: 0, y: 0, width: 0, height: 0 }),
   slot: i,
   target: { x: 0, y: 0, width: 0, height: 0 },
   hold: false,
@@ -59,7 +61,7 @@ function place(w: Win, r: Rect): void {
 }
 function showReadout(): void {
   const w = wins[0]!, d = w.settle.value, t = w.settle.target;
-  readout.innerHTML = `<span><b>${WINDOWS[0]!.title}</b></span><span>drawn <b>${Math.round(d.width)} × ${Math.round(d.height)}</b></span><span>target <b>${Math.round(t.width)} × ${Math.round(t.height)}</b></span><span>${w.settle.settled ? "at rest" : "settling"}</span>`;
+  readout.innerHTML = `<b>${WINDOWS[0]!.title}</b> · drawn <b>${Math.round(d.width)} × ${Math.round(d.height)}</b> · target <b>${Math.round(t.width)} × ${Math.round(t.height)}</b> · ${w.settle.settled ? "at rest" : "settling"}`;
 }
 /** Step every window that isn't held 1:1 until all rest. */
 function run(): void {
@@ -118,7 +120,7 @@ const homeRect = (): Rect => slotRect(drag!.w.slot);
 const pointerRect = (p: Point): Rect => { const h = homeRect(); return { x: p.x - drag!.dx, y: p.y - drag!.dy, width: h.width, height: h.height }; };
 
 function showIndicator(target: Win | null): void {
-  if (!target || dropMode() === "snap") {
+  if (!target || !previewPlan(dropMode()).outline) {
     ind.classList.remove("on");
     return;
   }
@@ -160,13 +162,14 @@ function move(p: Point, t: number): void {
     d.shown = shown;
     showIndicator(shown);
   }
-  if (shown && room && d.room !== shown) {
-    // Making room: the target settles into the dragged window's home slot.
+  const plan = previewPlan(dropMode());
+  if (shown && room && plan.room && d.room !== shown) {
+    // Making room (Open gap, Snap to slot): the target settles into the dragged window's home slot.
     const home = homeRect();
     place(shown, home);
     shown.settle.setTarget(home);
     d.room = shown;
-    if (dropMode() === "snap") {
+    if (plan.glide) {
       // Snap to slot: the dragged window glides into the target's slot, its size revealed, never stretched.
       const slot = slotRect(shown.slot);
       d.w.hold = false;
@@ -239,11 +242,11 @@ demo.addEventListener("pointerdown", () => {
 demo.addEventListener("pointerup", (e) => { if (drag && !drag.scripted && e.pointerId === pointerId) release(false); });
 demo.addEventListener("pointercancel", () => { if (drag && !drag.scripted) release(true); });
 window.addEventListener("keydown", (e) => { if (e.key === "Escape" && drag && !drag.scripted) release(true); });
-watchActions(fig);
-bindDropMode(fig, () => { if (drag) showIndicator(drag.shown); });
+figureChrome(fig);
+onDropMode(() => { if (drag) showIndicator(drag.shown); });
 $("shuffle").addEventListener("click", () => nextLayout());
 
-// ---- The automatic showcase: layouts, then a swap, alternating the two modes --------------------------------------
+// ---- The automatic showcase: layouts, then a swap, cycling the three modes; its pace follows the speed -------------
 function nextLayout(): void {
   layout = (layout + 1) % LAYOUTS.length;
   // Each new layout also rotates which window takes which slot.
@@ -258,10 +261,11 @@ function scriptedSwap(mode: DropMode, done: () => void): void {
   const ra = slotRect(a.slot), rb = slotRect(b.slot);
   const from = { x: ra.x + ra.width / 2, y: ra.y + 16 }, to = { x: rb.x + rb.width * 0.55, y: rb.y + rb.height * 0.45 };
   lift(a, from, true);
-  const t0 = performance.now();
+  // The scripted pointer moves on the site's clock (slow motion slows it); the drag's own timing rules stay real-time.
+  const t0 = virtualNow();
   const ease = (x: number): number => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
   scriptStop = loop.repeat("input", () => {
-    const t = performance.now() - t0;
+    const t = virtualNow() - t0;
     if (t < 420) {
       const f = ease(t / 420);
       move({ x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f }, performance.now());
@@ -279,9 +283,9 @@ function showcaseStep(): void {
   showTimer = window.setTimeout(() => {
     step++;
     if (step % 2 === 1) nextLayout();
-    else scriptedSwap(step % 4 === 0 ? "indicator" : "snap", () => undefined);
+    else scriptedSwap(DROP_MODES[(step / 2) % DROP_MODES.length]!, () => undefined);
     showcaseStep();
-  }, 2600);
+  }, 2600 / getSpeed());
 }
 registerShowcase(fig, {
   start() {
@@ -319,8 +323,8 @@ function loopThumb(el: Element, period: number, step: (ms: number) => void): voi
   let stop: (() => void) | null = null, t0 = 0;
   registerShowcase(el, {
     start() {
-      t0 = performance.now();
-      stop = loop.repeat("write", () => { step((performance.now() - t0) % period); return true; });
+      t0 = virtualNow();
+      stop = loop.repeat("write", () => { step((virtualNow() - t0) % period); return true; });
     },
     stop() { stop?.(); stop = null; },
   });
@@ -329,7 +333,7 @@ function loopThumb(el: Element, period: number, step: (ms: number) => void): voi
 function tickThumb(el: Element, period: number, tick: () => void, reset: () => void): void {
   let timer = 0;
   registerShowcase(el, {
-    start() { reset(); timer = window.setInterval(tick, period); },
+    start() { reset(); timer = window.setInterval(tick, period / getSpeed()); },
     stop() { clearInterval(timer); },
   });
 }
