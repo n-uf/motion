@@ -7,15 +7,16 @@ import { createMachine, type Deadline, type Machine } from "./machine";
  *
  * ```text
  * idle ──press──► pressed ──move: mostly along the scroll direction, ≥ scrollEscape──► scrolled (never lifts)
- *                    │ ──move: ≥ lift px, not a scroll────────────────────────────────► lifted
+ *                    │ ──move: mostly across it, ≥ lift px────────────────────────────► lifted
  *                    │ ──tick: held still holdMs─────────────────────────────────────► lifted (where it was pressed)
- *                    └ ──move below lift px: finger jitter, stays pressed
+ *                    └ ──move: along it short of the escape, or across it below lift px: stays pressed
  * any ──release──► idle
  * ```
  *
  * Before the hold has elapsed, a finger that travels mostly along the page's scroll direction is a scroll: the touch
- * goes back to the page and stays a scroll until it is released. Travel past the lift distance in any other
- * direction is a deliberate drag. Once the hold has elapsed the press lifts where it is. `scrolled` and `lifted`
+ * goes back to the page and stays a scroll until it is released; short of the escape it waits, never lifting.
+ * Travel past the lift distance mostly across the scroll direction is a deliberate drag. Once the hold has elapsed
+ * the press lifts where it is. `scrolled` and `lifted`
  * hold until `release`.
  */
 
@@ -67,7 +68,9 @@ export function touchPressReducer(state: TouchPressState, event: TouchPressInput
       const dy = event.point.y - state.from.y;
       const along = Math.abs(config.scroll === "y" ? dy : dx);
       const across = Math.abs(config.scroll === "y" ? dx : dy);
-      if (along >= config.scrollEscape && along > across) return { phase: "scrolled", from: state.from };
+      // Mostly along the scroll direction is never a lift: a scroll once it reaches the escape, until then waiting
+      // (a finger scroll is reported a few px at a time, and would pass the lift distance first).
+      if (along > across) return along >= config.scrollEscape ? { phase: "scrolled", from: state.from } : state;
       if (Math.hypot(dx, dy) >= config.lift) return { phase: "lifted", from: state.from, at: { x: event.point.x, y: event.point.y } };
       return state;
     }
