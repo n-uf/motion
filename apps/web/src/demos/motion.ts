@@ -277,7 +277,12 @@ export function legendHTML(opt: ChartOpt): string {
     return `<li><svg class="lsw" viewBox="0 0 28 12" width="28" height="12" aria-hidden="true" focusable="false">${swatch}</svg><span>${s.legend || s.name}${tag}</span></li>`;
   };
   const rows = (opt.points || []).map((s) => row(s, true)).join("") + opt.lines.map((s) => row(s, false)).join("");
-  return `<p class="lread">${opt.read || ""}</p><ul class="curve-key" aria-label="Curves in the chart">${rows}</ul>`;
+  return `<p class="lread">${opt.read || ""}</p><ul class="curve-key" aria-label="Curves in the chart">${rows}</ul>${notesKeyHTML(opt)}`;
+}
+
+/** The chart's leader-line notes as a plain key (shown on a phone, where the notes in the chart are hidden): the case's own notes. */
+export function notesKeyHTML(opt: ChartOpt): string {
+  return opt.notes?.length ? `<ul class="notes-key" aria-hidden="true">${opt.notes.map((n) => `<li>${n.text}</li>`).join("")}</ul>` : "";
 }
 
 // ---- The cases --------------------------------------------------------------------------------------------------------
