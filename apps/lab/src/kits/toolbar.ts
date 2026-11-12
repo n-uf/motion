@@ -11,18 +11,19 @@ import { createFrameLoop } from "@n-uf/motion";
 import { createBrowserClock } from "@n-uf/motion/browser";
 import type { LabRun } from "../shared/hooks";
 import type { Row } from "../shared/checks";
-import { createDossier, H, W, type GroupId, type KTarget } from "./dossier";
+import type { Allows } from "@n-uf/placement/targets";
+import { createDossier, H, W, type GroupId } from "./dossier";
 import { kitScenarios, type KitScenario } from "./scenarios";
 
 const loop = createFrameLoop({ clock: createBrowserClock() });
 
 /**
- * Case 6, the kit's rule: Redact stays in the top bar; Share can't float. Interim: placement's `allows(group, place)`
- * filter replaces this once it is on live.
+ * Case 6, the kit's rule, as placement's `allows(group, place)`: Redact stays in the top bar; Share can't float.
+ * hostTargets and floatTarget leave a forbidden place out, so the intent never sees it.
  */
-const constraint = (g: GroupId, t: KTarget): boolean => {
-  if (g === "redact") return t.kind !== "float" && t.place.host === "top";
-  if (g === "share") return t.kind !== "float";
+const constraint: Allows<GroupId> = (g, place) => {
+  if (g === "redact") return place !== "float" && place.host === "top";
+  if (g === "share") return place !== "float";
   return true;
 };
 
