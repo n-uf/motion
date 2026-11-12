@@ -175,7 +175,8 @@ function pillFor(a: Arrangement): Placed | undefined {
 /** The window as the arrangement lays it out, at the stage's size as set (targets, not what is drawn). */
 export function geometry(a: Arrangement, dragging = false): Geometry {
   const size = lab!.size();
-  const SW = size.width + 2;
+  // With Fit on, side bars this arrangement adds narrow the stage: the window keeps its width.
+  const SW = fittedWidth(a) + 2;
   const SH = size.height + 2;
   const empty = (h: HostId): boolean => isEmptyHost(a, h);
   const L = empty("left") ? 0 : SIDE_W;
@@ -498,11 +499,40 @@ export function setArrangement(a: Arrangement, mode: BottomMode = bottomMode): v
   changed();
 }
 
-/** The shown arrangement changed: the desk lays out again (the pill's width), and with Fit on the stage refits. */
+/**
+ * The shown arrangement changed: the desk lays out again (the pill's width). With Fit on, the window keeps its width:
+ * a side bar that appears takes its width from the stage at once (the stage settles narrower as the bar grows); one
+ * that goes gives it back through the page's own fit, once the bars rest.
+ */
 function changed(): void {
-  lab?.setOptions({});
-  const fitOn = document.querySelector("button[data-act=fit]")?.getAttribute("aria-pressed") === "true";
-  if (fitOn) window.dispatchEvent(new Event("resize"));
+  if (!lab) return;
+  const sides = sideWidth(shownArrangement());
+  if (fitOn() && sides > fittedSides) {
+    const w = fittedWidth(shownArrangement());
+    if (w < lab.size().width) lab.setSize(w, lab.size().height);
+  } else if (fitOn() && sides < fittedSides) refitPending = true;
+  fittedSides = sides;
+  lab.setOptions({});
+}
+
+/** The side bars' width an arrangement takes. */
+const sideWidth = (a: Arrangement): number => (isEmptyHost(a, "left") ? 0 : SIDE_W) + (isEmptyHost(a, "right") ? 0 : SIDE_W);
+/** The side bars' width the stage is fitted to now. */
+let fittedSides = 0;
+/** A side bar went: the page's fit gives its width back to the stage once the bars rest. */
+let refitPending = false;
+/** Fit is on (and the scenarios aren't pinning the stage), or a scenario says what to assume. */
+let fitOverride: boolean | null = null;
+const fitOn = (): boolean =>
+  fitOverride ?? (document.querySelector("button[data-act=fit]")?.getAttribute("aria-pressed") === "true" && document.querySelector("button[data-act=runall]")?.textContent === "Run all scenarios");
+/**
+ * The stage's width for an arrangement: with Fit on, one that adds side bars narrows the stage so the window keeps
+ * the page's width (as the page's fit does: the room less the bars, never wider than it is now).
+ */
+function fittedWidth(a: Arrangement): number {
+  const now = lab!.size().width;
+  if (!fitOn() || !win || sideWidth(a) <= fittedSides) return now;
+  return Math.min(now, Math.floor(win.clientWidth - sideWidth(a) - 2));
 }
 
 const barTarget = (h: FrameHost, g: Geometry): Rect => {
@@ -590,6 +620,11 @@ function frame(now: number): void {
     drawGroup(ge);
   }
   if (drag) aim(now, dt);
+  // A side bar went: once the bars rest, the page's fit gives the stage its width back.
+  if (refitPending && ![...bars.values()].some((b) => !b.rect.settled)) {
+    refitPending = false;
+    window.dispatchEvent(new Event("resize"));
+  }
   if (!moving && !drag && idleWaiters.length) {
     const w = idleWaiters;
     idleWaiters = [];
@@ -1030,6 +1065,10 @@ export const toolbarGroups = {
     return { x: w.left + p.x * k, y: w.top + p.y * k };
   },
   freeze: (on: boolean): void => setLayoutFrozen(on),
+  /** Assume Fit is on (true) or off (false) while the scenarios pin the stage; null: the page's own Fit. */
+  fit: (on: boolean | null): void => {
+    fitOverride = on;
+  },
   alt: (on: boolean): void => setAlt(on),
   menu: (id: GroupId): HTMLElement => groupMenu(id),
   menuOpen: (): HTMLElement | null => menuOpen(),

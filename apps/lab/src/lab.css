@@ -470,7 +470,8 @@ main.wide { max-width: 1712px; }
 .deskwin .tgroup .tg-zoom { padding: 0 2px; font: 11px ui-monospace, monospace; color: var(--d-muted); }
 .deskwin .tgroup.v .tg-zoom { min-width: 0; padding: 2px 0; font-size: 9px; }
 
-.deskwin .tg-layer { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+/* The drop layer stays inside the window: nothing on it (a hidden indicator included) widens the page. */
+.deskwin .tg-layer { position: absolute; inset: 0; z-index: 30; pointer-events: none; overflow: hidden; }
 .deskwin .tg-floats { position: absolute; inset: 0; z-index: 25; pointer-events: none; }
 .deskwin .tg-floats .tgroup { pointer-events: auto; }
 /* The handle's menu (and the window's, and »'s hidden controls). */
