@@ -61,7 +61,7 @@ function header(): string {
     <p class="lead">${esc(page.line)}</p>
     <div class="lab-meta">
       ${PUBLIC
-        ? `<p class="built-with" title="The released versions this lab was built from"><span class="bw-k">Runs</span><code>@n-uf/motion ${VERSIONS.motion}</code> · <code>@n-uf/placement ${VERSIONS.placement}</code></p>`
+        ? `<p class="built-with" title="The packages' source this lab was built from"><span class="bw-k">Runs the source of</span><code>@n-uf/motion ${VERSIONS.motion}</code> · <code>@n-uf/placement ${VERSIONS.placement}</code></p>`
         : `<p class="built-with" title="The packages' sources in this repository, not a published release"><span class="bw-k">Runs the workspace source</span><code>@n-uf/motion ${VERSIONS.motion}</code><code>@n-uf/placement ${VERSIONS.placement}</code></p>`}
       <div class="lab-actions">
         ${!page.load ? "" : '<button type="button" class="lab-btn" id="lab-reset">↺ Reset</button>'}
