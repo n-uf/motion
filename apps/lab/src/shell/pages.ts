@@ -143,6 +143,16 @@ export const PAGES: readonly PageDef[] = [
     view: "snap",
   },
   {
+    id: "motion/tiling",
+    group: "motion",
+    nav: "Tiling drag",
+    title: "Tiling drag",
+    line: "Windows tiled master-and-stack, dwindle, columns or grid; drag one to reorder, with a drop preview.",
+    about: "<code>@n-uf/motion</code> moving windows between tiled slots. The four layouts are this lab's own code: <code>@n-uf/placement</code> has no tiling entry yet. Drag a window by its title bar to another place; the preview shows the slot (indicator) or glides the window into it (snap). Switching layouts moves every window on the settle.",
+    ...tiling,
+    view: (n) => !SETTLE.has(n),
+  },
+  {
     id: "placement/desk",
     group: "placement",
     nav: "Desk constructions",
@@ -152,16 +162,6 @@ export const PAGES: readonly PageDef[] = [
       "Nine ways to build a desk from a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and open documents, from <code>@n-uf/placement/dock</code>. Pick one with the Construction switch; change the stage's size to see how it gives way when width or height runs out. Drag a panel by its title bar (or its tab), and in the tiling tree and the strip a document too: each construction offers its own drop targets (<code>@n-uf/placement/targets</code>). From the keyboard: focus a title bar, Space picks it up, the arrow keys step through the targets, Enter drops, Escape cancels.",
     ...desk,
     view: (n) => !n.startsWith(TOOLBAR),
-  },
-  {
-    id: "placement/tiling",
-    group: "placement",
-    nav: "Tiling",
-    title: "Tiling",
-    line: "Windows tiled master-and-stack, dwindle, columns or grid; drag one to reorder, with a drop preview.",
-    about: "Four tiling layouts over the same windows. Drag a window by its title bar to another place; the preview shows the slot (indicator) or glides the window into it (snap). Switching layouts moves every window on the settle.",
-    ...tiling,
-    view: (n) => !SETTLE.has(n),
   },
   {
     id: "placement/toolbar",
