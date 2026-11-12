@@ -5,15 +5,17 @@
  * - **@n-uf/motion**: each word is an item of one layout motion (`createLayoutMotion`, from `/layout`): it settles
  *   into place on the page's entrance, and a held word follows the pointer 1:1 (`holdItem`) and settles back from
  *   where it was let go. Under reduced motion there is no entrance and no demo, and a let-go word is at its place
- *   at once.
+ *   at once. A drag the pointer loses (a cancel, a lost capture, the window losing focus) sends the word home.
  * - **@n-uf/motion/drag**: a right-hand panel is dragged by the drag intent (`liftDecision`, `createDragIntent`,
- *   `previewPlan`): the indicator shows once you aim at its slot, and the panel then snaps into it.
+ *   `previewPlan`, the "gap" preview): the indicator shows once you aim at its slot, and the panel lands in it when
+ *   you let go.
  * - **@n-uf/placement**: `clampInto` keeps a dragged word inside the viewport, so it can't be lost off the page.
  *
- * A few cycles of the demo play by themselves (a synthetic pointer through the same code), until the first real press.
+ * A few cycles of the demo play by themselves (a synthetic pointer through the same code), until the first real press,
+ * the tab is hidden, or reduced motion is on (at load, or turned on later).
  */
 import type { Point, Rect } from "@n-uf/motion";
-import { createDragIntent, DRAG_PREVIEW_DEFAULT, liftDecision, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
+import { createDragIntent, DRAG_DEFAULTS, liftDecision, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
 import { createLayoutMotion, holdItem, type DrawFrame, type HeldDrag, type LayoutItem } from "@n-uf/motion/layout";
 import { clampInto } from "@n-uf/placement";
 import { loop, omega, onMotionChange, reduced } from "./motion";
@@ -41,6 +43,14 @@ interface Session {
   ptr: Point;
 }
 
+/**
+ * The drop preview of a panel: the indicator on its slot once you aim at it, the panel staying under the pointer
+ * until you let go (then it lands in the slot). The "snap" preview would glide it into the slot while you still hold
+ * it, with no indicator, so the page's point (aim, then see where it docks) is the "gap" preview's.
+ */
+const PREVIEW = "gap";
+/** How far around a panel's slot the pointer is aiming at it (the drag intent's zone for the slot), px. */
+const RING = 44;
 const grow = (r: Rect, m: number): Rect => ({ x: r.x - m, y: r.y - m, width: r.width + 2 * m, height: r.height + 2 * m });
 const ease = (t: number): number => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 
@@ -54,7 +64,8 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
     return e;
   };
   const tgt = mk("nf-ov nf-tgt");
-  const ind = mk("nf-ov nf-ind", "<span>Docks here</span>");
+  const ind = mk("nf-ov nf-ind", "<span></span>");
+  const indLabel = ind.firstElementChild as HTMLElement;
   const ptrEl = mk("nf-ov nf-ptr");
   const cap = mk("nf-cap");
   const at = (e: HTMLElement, x: number, y: number): void => void (e.style.transform = `translate(${x}px, ${y}px)`);
@@ -137,7 +148,7 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
     const grab = { x: p.x - d.x, y: p.y - d.y };
     const held = holdItem(w.item, grab);
     // A panel is dragged by the drag intent: its slot is the target, a ring around it the zone you aim in.
-    const targets: DragTarget[] = w.kind === "p" ? [{ id: "dock", priority: 1, hit: grow(w.home, 44), slot: w.home, label: "Docks here" }] : [];
+    const targets: DragTarget[] = w.kind === "p" ? [{ id: "dock", priority: 1, hit: grow(w.home, RING), slot: w.home, label: "Docks here" }] : [];
     const intent = w.kind === "p" ? createDragIntent<DragTarget>({ home: w.home }) : null;
     session = { w, held, grab, auto, intent, targets, ptr: p };
     homing.delete(w);
@@ -164,11 +175,14 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
       return;
     }
     const frame = s.intent.update(p, now, s.targets);
-    const plan = previewPlan(frame, DRAG_PREVIEW_DEFAULT);
-    s.held.preview(plan, plan.snapItem ? (s.targets[0]?.slot ?? null) : null);
-    if (frame.shown) box(ind, s.w.home, 4);
-    ind.classList.toggle("on", frame.shown !== null);
-    caption(plan.snapItem ? "docks here" : frame.shown ? "aiming at its slot" : "torn off · its slot stays", s.w, p);
+    const plan = previewPlan(frame, PREVIEW);
+    s.held.preview(plan, frame.shown?.slot ?? null);
+    if (plan.showIndicator) {
+      box(ind, s.w.home, 4);
+      indLabel.textContent = frame.shown?.label ?? "";
+    }
+    ind.classList.toggle("on", plan.showIndicator);
+    caption(plan.showIndicator ? "drop to dock" : "torn off · its slot stays", s.w, p);
   }
 
   /** Let go (`cancel`: the pointer was lost, so no drop: the word goes home). */
@@ -199,22 +213,21 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
   const ORDER = [2, 5, 0, 7, 1, 4, 6, 3];
   const OUT = 1100;
   const BACK = 1200;
-  const HOLD = 800;
+  // Held at the slot long enough for the aim (a dwell), the target to hold and the room to open: the indicator shows.
+  const HOLD = 4 * DRAG_DEFAULTS.roomAfter;
+  // Where the demo's pointer aims: beside the slot, outside its home (more than `homeInset`) and inside the zone.
+  const AIM = RING / 2;
 
   function nextDemo(): void {
-    if (!demoOn || cycle >= 8) return;
-    if (document.hidden || session) {
-      demoTimer = window.setTimeout(nextDemo, 1500);
-      return;
-    }
+    if (!demoOn || cycle >= 8 || reduced() || session) return;
     const n = cycle++;
     const w = words[ORDER[n]! % words.length]!;
     const c = { x: w.home.x + w.home.width / 2, y: w.home.y + w.home.height / 2 };
     const dir = c.x < stage.clientWidth / 2 ? 1 : -1;
     const dy = n % 2 ? -46 : 70;
     const away = { x: c.x + dir * (w.kind === "p" ? 150 : 120), y: c.y + dy };
-    // Aim at the ring beside the slot (the pointer outside its home, inside the zone), where the intent shows it.
-    const near = { x: c.x + dir * (w.home.width / 2 + 16), y: c.y + 4 };
+    // Aim at the ring beside the slot, where the intent shows the indicator.
+    const near = { x: c.x + dir * (w.home.width / 2 + AIM), y: c.y + 4 };
     demo = { w, t0: performance.now(), from: c, away, near };
     lift(w, c, true);
   }
@@ -224,6 +237,9 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
     if (demo && session?.auto) release(session, performance.now());
     demo = null;
   };
+  // The demo plays only while the page is shown and motion is welcome: a hidden tab or reduced motion ends it.
+  document.addEventListener("visibilitychange", () => document.hidden && stopDemo());
+  matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", (ev) => ev.matches && stopDemo());
 
   /** The synthetic pointer's place at `now`; false once the demo's cycle is over. */
   function driveDemo(d: Demo, s: Session, now: number): boolean {
