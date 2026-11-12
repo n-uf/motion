@@ -12,7 +12,8 @@ import { nextFrame, type Point } from "../shared/geometry";
 import { DRAG_DEFAULTS } from "@n-uf/motion/drag";
 import type { DeskLab, Expect, PathKey, Scenario } from "./scenarios";
 import { ownStop, toolbarGroups as tg, type GroupDragResult } from "./toolbar-frame";
-import { CASES, DEFAULT_ARRANGEMENT, ZONES, sameArrangement, vertical, type Arrangement, type GroupId, type HostId } from "./toolbars";
+import { ZONES, sameArrangement, vertical, type HostId } from "@n-uf/placement/toolbar";
+import { CASES, DEFAULT_ARRANGEMENT, type Arrangement, type GroupId } from "./groups";
 
 const dist = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);
 const mid = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
