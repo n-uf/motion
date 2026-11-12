@@ -43,8 +43,8 @@ function sidebar(): string {
     return `<div class="lab-group"><p class="lab-group-k">${g.title}</p><ul>${items}</ul></div>`;
   }).join("");
   return `<aside class="lab-side" aria-label="Lab pages">
-    <a class="lab-brand" href="${routeHash("overview")}">
-      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><circle class="brand-target" cx="12" cy="12" r="9"/><path class="brand-curve" d="M4 17 C 9 17, 10 7, 18 7"/><circle class="brand-dot" cx="18" cy="7" r="2.6"/></svg>
+    <a class="lab-brand" href="https://motion.n-uf.com/" title="The site">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><path class="brand-target" d="M3 5h19"/><path class="brand-curve" d="M3 20C6.1 10 9.8 5 19.6 5"/><circle class="brand-dot" cx="19.6" cy="5" r="2.5"/></svg>
       <span class="wordmark"><span class="brand-ns">n-uf</span> motion <span class="brand-amp">&amp;</span> placement</span>
       <span class="lab-badge">lab</span>
     </a>
