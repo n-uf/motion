@@ -7,7 +7,13 @@ import { createSettle, type Rect } from "@n-uf/motion";
 // ---- The hero demo -------------------------------------------------------------------------------------------------
 type Slot = (W: number, H: number) => Rect;
 const GAP = 10, PAD = 12;
-export const DEMO = { w: 1198, h: 380 };
+/** The demo box at a 1440 px viewport (the hero's side edges hold Preview, Tempo and Speed). */
+export const DEMO = { w: 1106, h: 380 };
+/** The band at the bottom of the stage kept free for the floating tools, so no window's title bar is ever under them. */
+export const RESERVE = 50;
+/** The drawing tools (a floating group at the bottom of the hero): select, text, erase, box, pen. Pen is selected. */
+export const TOOLS = [["pointer", "Select"], ["text", "Text"], ["eraser", "Erase"], ["rect", "Box"], ["pen", "Pen"]] as const;
+export const DEFAULT_TOOL = "pen";
 export const LAYOUTS: { name: string; slots: Slot[] }[] = [
   {
     name: "Master and stack",
@@ -42,7 +48,7 @@ export function demoWindowHTML(i: number): string {
 }
 /** The first layout as percentages of the demo box, so the server's first frame fits any width. */
 export function firstLayoutStyle(i: number): string {
-  const r = LAYOUTS[0]!.slots[i]!(DEMO.w, DEMO.h);
+  const r = LAYOUTS[0]!.slots[i]!(DEMO.w, DEMO.h - RESERVE);
   const pc = (v: number, of: number) => `${((v / of) * 100).toFixed(3)}%`;
   return `left:${pc(r.x, DEMO.w)};top:${pc(r.y, DEMO.h)};width:${pc(r.width, DEMO.w)};height:${pc(r.height, DEMO.h)}`;
 }
