@@ -15,7 +15,8 @@
  * - Bars and groups move by the lab's motion rules: a settle to the new place, laid out at the target size and
  *   revealed (never stretched); a group that changes bars glides from where it was drawn.
  */
-import { createSettle, SETTLE_TEMPO, type Rect, type Settle } from "@n-uf/motion";
+import type { Rect } from "@n-uf/motion";
+import { domDrawable, flip, holdItem, type HeldDrag, type LayoutItem, type LayoutMotion, type RectLike } from "@n-uf/motion/layout";
 import { overlap, nextFrame, type Point } from "../shared/geometry";
 import { cancelPress, trackPress } from "../shared/press";
 import { toolGroupCells } from "./content";
@@ -80,7 +81,9 @@ let floats: HTMLDivElement | null = null;
 let indEl: HTMLDivElement | null = null;
 let indLabel: HTMLDivElement | null = null;
 let measureBox: HTMLDivElement | null = null;
-const bars = new Map<FrameHost, { el: HTMLDivElement; rect: Settle<Rect> }>();
+/** The page's layout motion (@n-uf/motion/layout): the bars and groups move on it, with the desk's items. */
+let motion: LayoutMotion | null = null;
+const bars = new Map<FrameHost, { el: HTMLDivElement; item: LayoutItem }>();
 const strips = new Map<HostId, HTMLDivElement>();
 /** The pill's (or the top bar's) group container. */
 let topBox: HTMLElement | null = null;
@@ -96,9 +99,7 @@ const frozen = (): boolean => isLayoutFrozen();
 /** Moves are allowed: the layout isn't frozen, or Alt is held. */
 const canMove = (e?: { altKey?: boolean }): boolean => !frozen() || altHeld || !!e?.altKey;
 
-const omega = (): number => SETTLE_TEMPO[(document.querySelector<HTMLInputElement>("input[name=tempo]:checked")?.value as keyof typeof SETTLE_TEMPO | undefined) ?? "default"] ?? SETTLE_TEMPO.default;
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
-const sameRect = (a: Rect, b: Rect): boolean => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height)) < 0.01;
 
 // --- groups' markup and sizes ----------------------------------------------------------------------------------------
 
@@ -301,16 +302,26 @@ interface GroupEl {
   readonly el: HTMLDivElement;
   readonly inner: HTMLElement;
   readonly handle: HTMLElement;
-  readonly rect: Settle<Rect>;
+  /** Its motion: laid out at its box in its host, settled there, clipped while it grows (reveal). */
+  readonly item: LayoutItem;
   container: HTMLElement | null;
-  target: Rect;
   vertical: boolean;
 }
 const groupEls = new Map<GroupId, GroupEl>();
 
-/** The window's frame around the stage: title bar, bottom and side toolbars, the drop layer, the lab's switches. */
-export function initToolbarFrame(l: DeskLab, stageEl: HTMLElement): void {
+/** A bar: drawn at its drawn rect (its groups inside are clipped by it while it grows or shrinks). */
+const barDrawable = (el: HTMLDivElement) => ({
+  layOut: () => undefined,
+  draw: (f: { readonly drawn: Rect }) => void Object.assign(el.style, { left: `${f.drawn.x}px`, top: `${f.drawn.y}px`, width: `${f.drawn.width}px`, height: `${f.drawn.height}px` }),
+});
+
+/**
+ * The window's frame around the stage: title bar, bottom and side toolbars, the drop layer, the lab's switches. Its
+ * bars and groups move on the page's layout motion `m`, on the same frame loop as the desk's items.
+ */
+export function initToolbarFrame(l: DeskLab, stageEl: HTMLElement, m: LayoutMotion): void {
   lab = l;
+  motion = m;
   win = document.createElement("div");
   win.className = "deskwin";
   stageEl.before(win);
@@ -324,7 +335,7 @@ export function initToolbarFrame(l: DeskLab, stageEl: HTMLElement): void {
     el.dataset.host = h;
     if (h === "title") buildTitle(el);
     win.append(el);
-    bars.set(h, { el, rect: createSettle<Rect>(rect(0, 0, 0, 0), { omega: omega() }) });
+    bars.set(h, { el, item: m.add(`tf:${h}`, barDrawable(el), rect(0, 0, 0, 0)) });
   }
   floats = document.createElement("div");
   floats.className = "tg-floats";
@@ -347,8 +358,11 @@ export function initToolbarFrame(l: DeskLab, stageEl: HTMLElement): void {
   // The page's Reset puts the default arrangement back too.
   document.querySelector("button[data-act=reset]")?.addEventListener("click", () => setArrangement(DEFAULT_ARRANGEMENT, "reserved"));
   const g = geometry(arrangement);
-  for (const [h, b] of bars) b.rect.jumpTo(barTarget(h, g));
-  requestAnimationFrame(frame);
+  for (const [h, b] of bars) b.item.jumpTo(barTarget(h, g));
+  // Once a frame: the frame's layout (targets) before the items step; what follows from where they are drawn, after.
+  m.task(placeAll);
+  m.onFrame(afterFrame);
+  m.wake();
 }
 
 /** The title bar: the window's full glyph at its left edge, its controls; the whole bar is the window's drag area. */
@@ -379,6 +393,8 @@ export function attachTopHost(box: HTMLElement): void {
   box.querySelectorAll(":scope > .tb-cell, :scope > .tb-sep").forEach((x) => x.remove());
   box.classList.add("tg-host");
   for (const ge of groupEls.values()) if (ge.container && !ge.container.isConnected) ge.container = null;
+  // Its groups are placed there on the next frame.
+  motion?.wake();
 }
 
 function makeGroup(id: GroupId): void {
@@ -400,7 +416,9 @@ function makeGroup(id: GroupId): void {
   });
   handle.addEventListener("keydown", (e) => keyOnHandle(id, e));
   inner.querySelector(".tg-over")!.addEventListener("click", () => hiddenControls(id));
-  groupEls.set(id, { id, el, inner, handle, rect: createSettle<Rect>(rect(0, 0, 0, 0), { omega: omega() }), container: null, target: rect(0, 0, 0, 0), vertical: false });
+  // Laid out at its box and drawn by the layout motion: moved by one transform, clipped while it grows.
+  const item = motion!.add(`tg:${id}`, domDrawable({ node: el }), rect(0, 0, 0, 0));
+  groupEls.set(id, { id, el, inner, handle, item, container: null, vertical: false });
 }
 
 /** The handle's menu, anchored at it: collapse, move to a dock zone, move the bar's groups, float or dock, reset. */
@@ -513,6 +531,8 @@ function changed(): void {
   } else if (fitOn() && sides < fittedSides) refitPending = true;
   fittedSides = sides;
   lab.setOptions({});
+  // The groups and bars take their new places on the next frame (nothing on the desk may have moved).
+  motion?.wake();
 }
 
 /** The side bars' width an arrangement takes. */
@@ -547,34 +567,19 @@ const barTarget = (h: FrameHost, g: Geometry): Rect => {
 
 // --- the frame loop ----------------------------------------------------------------------------------------------
 
-let last = 0;
-let idleWaiters: (() => void)[] = [];
-let moving = false;
-
-function frame(now: number): void {
-  const dt = last ? Math.min(50, now - last) : 16;
-  last = now;
-  moving = false;
-  if (!lab || !win) return void requestAnimationFrame(frame);
+/**
+ * Once a frame, before the items step: where every bar and group goes (the frame's layout), and the drag's aim. The
+ * layout motion settles them there; frames keep coming while a group is held.
+ */
+function placeAll(): boolean {
+  if (!lab || !win) return false;
   const a = shownArrangement();
   const g = geometry(a, !!drag);
-  // Bars: glide to their places; the window keeps their room around the stage.
+  // Bars: glide to their places.
   for (const [h, b] of bars) {
-    const t = barTarget(h, g);
-    if (!sameRect(b.rect.target, t)) {
-      b.rect.configure({ omega: omega() });
-      b.rect.setTarget(t);
-    }
-    if (b.rect.step(dt)) moving = true;
-    const r = b.rect.value;
-    Object.assign(b.el.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.width}px`, height: `${r.height}px` });
+    b.item.moveTo(barTarget(h, g));
     b.el.classList.toggle("floating", h === "bottom" && bottomMode === "floating");
-    b.el.classList.toggle("gone", r.width < 1 || r.height < 1);
   }
-  const L = bars.get("left")!.rect.value.width;
-  const R = bars.get("right")!.rect.value.width;
-  const B = bottomMode === "floating" ? 0 : bars.get("bottom")!.rect.value.height;
-  win.style.padding = `${TITLE_H}px ${R}px ${B}px ${L}px`;
   // Drop strips: the empty hosts, while a group is dragged.
   for (const h of HOSTS) {
     const on = g.hosts[h].strip;
@@ -596,12 +601,7 @@ function frame(now: number): void {
   for (const ge of groupEls.values()) {
     const p = places.get(ge.id);
     // A lifted group is the drag's (aim moves it).
-    if (drag?.id === ge.id) continue;
-    if (!p) {
-      if (ge.rect.step(dt)) moving = true;
-      drawGroup(ge);
-      continue;
-    }
+    if (drag?.id === ge.id || !p) continue;
     const container = p.host === "top" ? topBox : p.host === "float" ? floats : (bars.get(p.host)?.el ?? null);
     if (!container) continue;
     if (ge.container !== container) moveInto(ge, container, p.local);
@@ -611,38 +611,33 @@ function frame(now: number): void {
     }
     ge.el.classList.toggle("collapsed", p.collapsed);
     ge.el.classList.toggle("floating", p.host === "float");
-    if (!sameRect(ge.target, p.local)) {
-      ge.target = p.local;
-      ge.rect.configure({ omega: omega() });
-      ge.rect.setTarget(p.local);
-    }
-    if (ge.rect.step(dt)) moving = true;
-    drawGroup(ge);
+    ge.item.moveTo(p.local);
   }
-  if (drag) aim(now, dt);
+  if (drag) aim(performance.now());
+  return !!drag;
+}
+
+/** Once a frame, after the items have stepped and been drawn: the window's room for its bars, the drag's record. */
+function afterFrame(): void {
+  if (!win) return;
+  for (const b of bars.values()) {
+    const r = b.item.drawn;
+    b.el.classList.toggle("gone", r.width < 1 || r.height < 1);
+  }
+  const L = bars.get("left")!.item.drawn.width;
+  const R = bars.get("right")!.item.drawn.width;
+  const B = bottomMode === "floating" ? 0 : bars.get("bottom")!.item.drawn.height;
+  win.style.padding = `${TITLE_H}px ${R}px ${B}px ${L}px`;
+  if (drag) drag.frames.push({ t: performance.now() - drag.t0, x: drag.pointer.x, y: drag.pointer.y, item: { ...groupEls.get(drag.id)!.item.drawn } });
   // A side bar went: once the bars rest, the page's fit gives the stage its width back.
-  if (refitPending && ![...bars.values()].some((b) => !b.rect.settled)) {
+  if (refitPending && [...bars.values()].every((b) => b.item.settled)) {
     refitPending = false;
     window.dispatchEvent(new Event("resize"));
   }
-  if (!moving && !drag && idleWaiters.length) {
-    const w = idleWaiters;
-    idleWaiters = [];
-    for (const r of w) r();
-  }
-  requestAnimationFrame(frame);
-}
-
-/** Laid out at its target, translated to where it is drawn, clipped to the drawn size (reveal, never stretched). */
-function drawGroup(ge: GroupEl): void {
-  const t = ge.target;
-  const d = ge.rect.value;
-  Object.assign(ge.el.style, { left: `${t.x}px`, top: `${t.y}px`, width: `${t.width}px`, height: `${t.height}px`, transform: `translate(${d.x - t.x}px, ${d.y - t.y}px)` });
-  ge.el.style.clipPath = ge.el.classList.contains("floating") ? "" : `inset(0 ${Math.max(0, t.width - d.width)}px ${Math.max(0, t.height - d.height)}px 0)`;
 }
 
 /** Window coordinates of a page rect. */
-function toWindow(r: DOMRect): Rect {
+function toWindow(r: RectLike): Rect {
   const w = win!.getBoundingClientRect();
   const k = win!.offsetWidth / (w.width || 1);
   return rect((r.left - w.left) * k, (r.top - w.top) * k, r.width * k, r.height * k);
@@ -652,18 +647,24 @@ const pageToLocal = (container: HTMLElement, wr: Rect): Rect => {
   return rect(wr.x - c.x, wr.y - c.y, wr.width, wr.height);
 };
 
-/** Into another host: from where it is drawn now (a glide from there), or placed at once the first time. */
-function moveInto(ge: GroupEl, container: HTMLElement, local: Rect): void {
-  const wasDrawn = ge.container?.isConnected ? toWindow(ge.el.getBoundingClientRect()) : null;
-  container.append(ge.el);
-  ge.container = container;
-  if (wasDrawn && wasDrawn.width > 0) {
-    ge.rect.jumpTo(pageToLocal(container, wasDrawn));
-    ge.target = rect(-1, -1, 0, 0);
-  } else {
-    ge.rect.jumpTo(local);
-    ge.target = local;
+/** A page (client) rect as the {@link RectLike} toWindow reads. */
+const clientRect = (r: Rect): RectLike => ({ left: r.x, top: r.y, width: r.width, height: r.height });
+
+/**
+ * Into another host (`to` its place there): a FLIP from where it is drawn now (@n-uf/motion/layout), or placed at once
+ * the first time (nowhere drawn yet).
+ */
+function moveInto(ge: GroupEl, container: HTMLElement, to: Rect): void {
+  const enter = (): void => {
+    container.append(ge.el);
+    ge.container = container;
+  };
+  if (!ge.container?.isConnected || ge.el.getBoundingClientRect().width === 0) {
+    enter();
+    ge.item.jumpTo(to);
+    return;
   }
+  flip([{ item: ge.item, node: ge.el, place: (before) => ({ from: pageToLocal(container, toWindow(clientRect(before))), to }) }], enter);
 }
 
 // --- the group drag ------------------------------------------------------------------------------------------------
@@ -683,6 +684,8 @@ interface GTarget extends DragTarget {
 interface Drag {
   readonly id: GroupId;
   readonly home: Rect;
+  /** Home for the drag model: where it was and the stretch its own place owns. */
+  readonly homeZone: Rect;
   readonly grab: Point;
   pointer: Point;
   readonly targets: GTarget[];
@@ -694,6 +697,8 @@ interface Drag {
   /** Where the group was before it lifted (its host's element) and its axis there. */
   readonly homeBox: HTMLElement | null;
   readonly homeVertical: boolean;
+  /** The real group, held by the pointer (@n-uf/motion/layout): 1:1, a snap into a slot, the glide back. */
+  readonly held: HeldDrag;
   snapped: string | null;
   returning: boolean;
   readonly t0: number;
@@ -706,8 +711,11 @@ let drag: Drag | null = null;
 /** What the last drag did (for the scenarios). */
 let lastDrag: GroupDragResult | null = null;
 
-/** The drop targets for dragging group `id` (the arrangement without it): insertion points and empty zones, host by host, then the documents. */
-function groupTargets(id: GroupId): GTarget[] {
+/**
+ * The drop targets for dragging group `id` (the arrangement without it): insertion points and empty zones, host by
+ * host, then the documents. Its own place is none of them: its stretch goes into `own` (part of home).
+ */
+function groupTargets(id: GroupId, own?: Rect[]): GTarget[] {
   const a0 = withoutGroup(arrangement, id);
   const g = geometry(a0, true);
   const out: GTarget[] = [];
@@ -722,6 +730,12 @@ function groupTargets(id: GroupId): GTarget[] {
     for (const p of pts) {
       const [s0, s1] = p.span;
       const after = insertGroup(arrangement, id, h, p.zone, p.index);
+      // Its own place is home, not a target: a drop there changes nothing, so nothing shows there (and the stretch it
+      // owns joins home, so nothing behind it, the documents' float, shows either).
+      if (sameArrangement(after, arrangement)) {
+        own?.push(v ? rect(o.x - 12, o.y + s0, T + 24, s1 - s0) : rect(o.x + s0, o.y - 12, s1 - s0, T + 24));
+        continue;
+      }
       // An empty zone: the group's own footprint, where it will land; else the insertion line.
       const foot = p.empty ? placements(after, geometry(after, true)).get(id)?.rect : undefined;
       const hit = p.empty ? (v ? rect(o.x - 4, o.y + s0, T + 8, s1 - s0) : rect(o.x + s0, o.y - 4, s1 - s0, T + 8)) : v ? rect(o.x - 12, o.y + s0, T + 24, s1 - s0) : rect(o.x + s0, o.y - 12, s1 - s0, T + 24);
@@ -786,8 +800,7 @@ function begin(id: GroupId, p: Point, keyboard = false): void {
   // The group itself lifts (no copy): onto the drag layer, held where it is; its place stays, empty, until the drop.
   layer.append(ge.el);
   ge.container = layer;
-  ge.rect.jumpTo(home);
-  ge.target = home;
+  ge.item.jumpTo(home);
   ge.el.classList.add("lifted");
   // Moving it took its pointer capture with it: the press keeps the pointer.
   if (pressId !== null) {
@@ -797,21 +810,31 @@ function begin(id: GroupId, p: Point, keyboard = false): void {
       // A scripted press has no real pointer to capture.
     }
   }
-  const targets = groupTargets(id);
+  const own: Rect[] = [];
+  const targets = groupTargets(id, own);
+  // Home for the drag model: where it was, and the stretch of its host its own place owns (a release there is none).
+  const zone = [home, ...own].reduce((u, r) => {
+    const x = Math.min(u.x, r.x);
+    const y = Math.min(u.y, r.y);
+    return rect(x, y, Math.max(u.x + u.width, r.x + r.width) - x, Math.max(u.y + u.height, r.y + r.height) - y);
+  });
   // From the keyboard, the steps start where the group is now.
-  const here = targets.findIndex((t) => t.kind !== "float" && sameArrangement(t.make(p), arrangement));
+  const here = ownStop(id, targets);
+  const grab = { x: p.x - home.x, y: p.y - home.y };
   drag = {
     id,
     home,
-    grab: { x: p.x - home.x, y: p.y - home.y },
+    homeZone: zone,
+    grab,
     pointer: p,
     targets,
-    intent: createDragIntent<GTarget>({ home }),
+    intent: createDragIntent<GTarget>({ home: zone }),
     shown: null,
     room: null,
     keys: keyboard ? { i: here, since: performance.now(), moved: false } : null,
     homeBox,
     homeVertical: ge.vertical,
+    held: holdItem(ge.item, grab),
     snapped: null,
     returning: false,
     t0: performance.now(),
@@ -820,6 +843,25 @@ function begin(id: GroupId, p: Point, keyboard = false): void {
     frames: [],
     releaseNote: null,
   };
+  // Frames come while it is held (the frame's task aims it).
+  motion?.wake();
+}
+
+/**
+ * Where the keyboard starts: between the stop before the group's own place and the one after it (its own place is
+ * no stop). Returns the last stop before it (-1: none; a floating group starts before the first).
+ */
+export function ownStop(id: GroupId, targets: readonly { readonly id: string; readonly kind: string }[]): number {
+  const own = hostOf(arrangement, id);
+  if (!own) return -1;
+  const key = (h: string, z: string, i: number): number => (HOSTS.indexOf(h as HostId) * ZONES.length + ZONES.indexOf(z as (typeof ZONES)[number])) * 1000 + i;
+  const mine = key(own.host, own.zone, own.index);
+  let last = -1;
+  targets.forEach((t, i) => {
+    const [, h, z, n] = t.id.split(":");
+    if (t.kind !== "float" && key(h!, z!, Number(n)) < mine) last = i;
+  });
+  return last;
 }
 
 function moveTo(q: Point): void {
@@ -829,7 +871,7 @@ function moveTo(q: Point): void {
 const heldRect = (d: Drag): Rect => rect(d.pointer.x - d.grab.x, d.pointer.y - d.grab.y, d.home.width, d.home.height);
 
 /** Once a frame while dragging: the drag model's aim, the indicator, the room, and (snap) the ghost's slot. */
-function aim(now: number, dt: number): void {
+function aim(now: number): void {
   const d = drag!;
   let f: { shown: GTarget | null; room: boolean; aiming: boolean };
   if (d.keys) {
@@ -848,8 +890,8 @@ function aim(now: number, dt: number): void {
     preview = room ? room.make(d.pointer) : null;
     changed();
   }
-  // The group itself: held 1:1 under the pointer, or (snap) gliding into the slot the room was made for (taking that
-  // slot's axis), and back.
+  // The group itself (@n-uf/motion/layout's held drag): 1:1 under the pointer, or (snap) gliding into the slot the room
+  // was made for (taking that slot's axis), and back to the pointer.
   const ge = groupEls.get(d.id)!;
   const slot = snap && d.room ? (placements(preview!, geometry(preview!, true)).get(d.id) ?? null) : null;
   let axis = d.homeVertical;
@@ -858,33 +900,22 @@ function aim(now: number, dt: number): void {
     d.snapped = d.room!.id;
     d.returning = false;
     axis = slot.vertical;
-    if (!sameRect(ge.rect.target, slot.rect)) {
-      ge.rect.configure({ omega: omega() });
-      ge.rect.setTarget(slot.rect);
-    }
-    ge.target = slot.rect;
+    d.held.snapTo(slot.rect);
   } else {
     if (d.snapped) {
       d.snaps.push({ t: now - d.t0, id: null, flying: !f.aiming });
       d.snapped = null;
       d.returning = true;
+      d.held.snapTo(null);
     }
-    const goal = d.keys ? d.home : heldRect(d);
-    if (d.returning || d.keys) {
-      ge.rect.configure({ omega: omega() });
-      ge.rect.setTarget(goal);
-      const v = ge.rect.value;
-      if (Math.max(Math.abs(v.x - goal.x), Math.abs(v.y - goal.y)) < 0.5) d.returning = false;
-    } else ge.rect.hold(goal);
-    ge.target = goal;
+    // From the keyboard the pointer stays where the group was picked up: held there, it sits at home.
+    d.held.move(d.pointer);
+    if (d.returning && d.held.follow()) d.returning = false;
   }
   if (ge.vertical !== axis) {
     ge.vertical = axis;
     ge.el.classList.toggle("v", axis);
   }
-  if (ge.rect.step(dt)) moving = true;
-  drawGroup(ge);
-  d.frames.push({ t: now - d.t0, x: d.pointer.x, y: d.pointer.y, item: { ...ge.rect.value } });
 }
 
 function showIndicator(t: GTarget | null, d: Drag): void {
@@ -922,7 +953,7 @@ function end(cancel: boolean): void {
     next = landed ? (d.snapped && preview && landed.id === d.snapped ? preview : landed.make(d.pointer)) : null;
     if (!d.keys) {
       const under = d.targets.filter((t) => inRect(t.hit, d.pointer)).sort((a, b) => a.priority - b.priority || a.hit.width * a.hit.height - b.hit.width * b.hit.height)[0];
-      const said = inRect(d.home, d.pointer) ? null : d.shown && inRect(d.shown.hit, d.pointer, DRAG_DEFAULTS.band) ? d.shown.id : (under?.id ?? null);
+      const said = inRect(d.homeZone, d.pointer) ? null : d.shown && inRect(d.shown.hit, d.pointer, DRAG_DEFAULTS.band) ? d.shown.id : (under?.id ?? null);
       d.releaseNote = said === (landed?.id ?? null) ? null : `landed on ${landed?.id ?? "home"}, but the indicator said ${said ?? "home"}`;
     }
   }
@@ -937,19 +968,16 @@ function end(cancel: boolean): void {
   ge.el.classList.remove("lifted");
   const goal = p ?? placements(arrangement, geometry(arrangement)).get(d.id);
   if (container && goal) {
-    container.append(ge.el);
-    ge.container = container;
-    ge.rect.jumpTo(pageToLocal(container, release));
-    ge.target = goal.local;
-    ge.rect.configure({ omega: omega() });
-    ge.rect.setTarget(goal.local);
+    // A FLIP (@n-uf/motion/layout): drawn where it was let go in its new host, then a settle into its place.
     if (ge.vertical !== goal.vertical) {
       ge.vertical = goal.vertical;
       ge.el.classList.toggle("v", goal.vertical);
     }
+    flip([{ item: ge.item, node: ge.el, place: () => ({ from: pageToLocal(container, release), to: goal.local }) }], () => {
+      container.append(ge.el);
+      ge.container = container;
+    });
   }
-  // The landing's first frame: drawn where it was let go.
-  drawGroup(ge);
   lastDrag = { log: d.log, snaps: d.snaps, frames: d.frames, landed: landed?.id ?? null, releaseNote: d.releaseNote, grab: d.grab, release, landFirst: toWindow(ge.el.getBoundingClientRect()) };
   if (next) setArrangement(next);
   else changed();
@@ -984,8 +1012,9 @@ function step(key: string): void {
   if (!drag?.keys) return;
   const n = drag.targets.length;
   const fwd = key === "ArrowDown" || key === "ArrowRight";
-  // The documents (floating) aren't a keyboard stop: the menu's Float does that.
-  let i = drag.keys.i;
+  // The documents (floating) aren't a keyboard stop: the menu's Float does that. Before the first step the group sits
+  // between two stops (its own place is none): back goes to the one before it, forward to the one after.
+  let i = drag.keys.moved || fwd ? drag.keys.i : drag.keys.i + 1;
   for (let k = 0; k < n; k++) {
     i = fwd ? (i + 1 + n) % n : (i - 1 + n) % n;
     if (drag.targets[i]!.kind !== "float") break;
@@ -1112,6 +1141,6 @@ export const toolbarGroups = {
     return lastDrag;
   },
   dragging: (): boolean => !!drag,
-  /** Resolves once the frame's bars and groups rest and nothing is dragged. */
-  idle: (): Promise<void> => new Promise((r) => idleWaiters.push(r)),
+  /** Resolves once the frame's bars and groups rest and nothing is dragged (the layout motion is idle). */
+  idle: (): Promise<void> => motion?.idle() ?? Promise.resolve(),
 };

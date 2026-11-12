@@ -6,8 +6,9 @@
  *
  * `window.__motionLab.runAll()` runs the scripted scenarios and returns which rules failed.
  */
-import { createFrameLoop, createSettle, SETTLE_TEMPO, type FrameInfo, type Rect, type Settle } from "@n-uf/motion";
+import { createFrameLoop, createSettle, SETTLE_TEMPO, type FrameInfo, type Rect } from "@n-uf/motion";
 import { createBrowserClock } from "@n-uf/motion/browser";
+import { createLayoutMotion, domDrawable, holdItem, type HeldDrag, type LayoutItem } from "@n-uf/motion/layout";
 import type { CheckResult, HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
 import { docBody, panelBody, toolbarCells, withGlyph } from "./desk/content";
 import { draggable, dropAt, targetsFor, without, type Drop, type DropTarget, type TargetInput } from "./desk/drops";
@@ -45,7 +46,7 @@ import { makeScenarios, type DeskLab, type DragResult, type IndicatorEntry, type
 import { attachTopHost, initToolbarFrame, withGroupOptions } from "./desk/toolbar-frame";
 import { toolbarGroupScenarios } from "./desk/toolbar-group-scenarios";
 import { framesResult, merge, motionRows, renderChecks, renderTrace, verdict, type Row, type Segment } from "./shared/checks";
-import { drawRevealed, layOut, measureFrame, onTopAt } from "./shared/frame";
+import { measureFrame, onTopAt } from "./shared/frame";
 import { inside, nextFrame, overlap, same, wait, type Point } from "./shared/geometry";
 import type { LabRun } from "./shared/hooks";
 import { cancelPress, trackPress } from "./shared/press";
@@ -79,11 +80,11 @@ interface Item {
   readonly el: HTMLDivElement;
   readonly frame: HTMLDivElement;
   readonly content: HTMLDivElement;
-  readonly rect: Settle<Rect>;
-  /** Where the element is laid out (its content's size); the drawn rect glides toward it. */
-  target: Rect;
-  /** Shown (1) or folded away / closing (0): a uniform scale and a fade. */
-  readonly pop: Settle<number>;
+  /**
+   * Its motion (@n-uf/motion/layout): where it is drawn, where it is heading, the box its content is laid out in,
+   * and shown (1) or folded away / closing (0), a uniform scale and a fade.
+   */
+  readonly m: LayoutItem;
   /** How the current layout places it. */
   placed: Placed | null;
   /** What its content was last built from (rails and tab rows rebuild when it changes). */
@@ -126,6 +127,8 @@ function commit(s: DeskState): void {
 // --- the drag ------------------------------------------------------------------------------------------------------
 
 let lifted: Item | null = null;
+/** The lifted item, held by the pointer (@n-uf/motion/layout): 1:1, a snap into a slot, the glide back. */
+let held: HeldDrag | null = null;
 let grab: Point = { x: 0, y: 0 };
 let liftSize = { width: 0, height: 0 };
 let expected: Rect | null = null;
@@ -177,7 +180,7 @@ function beginDrag(it: Item, px: number, py: number, hold?: Point, from?: Rect, 
   if (lifted || it.closing || !draggable(construction(), it.key) || grips.frozen()) return;
   dragged = true;
   ensureLoop();
-  const d = it.rect.value;
+  const d = it.m.drawn;
   grab = hold ?? { x: px - d.x, y: py - d.y };
   liftSize = { width: d.width, height: d.height };
   home = { state: state(), rect: from ?? { ...d } };
@@ -200,8 +203,8 @@ function beginDrag(it: Item, px: number, py: number, hold?: Point, from?: Rect, 
   it.el.classList.remove("hidden");
   it.el.style.zIndex = "10";
   // A panel lifted from behind its tab shows while it is held.
-  it.el.style.visibility = "visible";
-  it.pop.setTarget(1);
+  it.m.show(true);
+  held = holdItem(it.m, grab);
   it.segment = null;
   newRun(it);
   moveDrag(px, py);
@@ -215,12 +218,10 @@ function moveDrag(px: number, py: number): void {
   const it = lifted;
   if (!it) return;
   pointer = { x: px, y: py };
-  if (snapped || returning) {
-    expected = null;
-    return;
-  }
-  expected = heldRect();
-  it.rect.hold(expected);
+  // The held drag always knows where the pointer is: it holds the item there, or (in a slot, on its way back) aims
+  // its glide back there.
+  held?.move(pointer);
+  expected = snapped || returning ? null : heldRect();
 }
 
 /** Once a frame while an item is lifted: scroll the strip at the stage's edge, else read the aim. */
@@ -236,7 +237,7 @@ function aim(now: number, dt: number): void {
     place(it, now, false, plan.snapItem);
     return;
   }
-  dragFrames.push({ t: now - liftedAt, x: pointer.x, y: pointer.y, speed: intent.state.speed, item: { ...it.rect.value } });
+  dragFrames.push({ t: now - liftedAt, x: pointer.x, y: pointer.y, speed: intent.state.speed, item: { ...it.m.drawn } });
   if (cid === "strip" && edgeScroll(it, now, dt)) return place(it, now, true, false);
   const f = intent.update(pointer, now, targets);
   const d = f.shown ? dropAt(dragInput(it), f.shown, pointer, grab) : null;
@@ -271,7 +272,8 @@ function place(it: Item, now: number, flying: boolean, snapItem: boolean): void 
     snapped = want;
     returning = false;
     expected = null;
-    glideTo(it, want.slot);
+    newSegment(it, want.slot);
+    held?.snapTo(want.slot);
     return;
   }
   if (snapped) {
@@ -279,34 +281,24 @@ function place(it: Item, now: number, flying: boolean, snapItem: boolean): void 
     snapped = null;
     returning = true;
     newRun(it);
+    held?.snapTo(null);
   }
   if (!returning) return;
   // Back to the pointer: the glide follows the pointer as it moves, until the item is under it again.
-  const goal = heldRect();
-  glideTo(it, goal);
-  const d = it.rect.value;
-  if (Math.max(Math.abs(d.x - goal.x), Math.abs(d.y - goal.y), Math.abs(d.width - goal.width), Math.abs(d.height - goal.height)) < 0.5) {
+  newSegment(it, heldRect());
+  if (held?.follow()) {
     returning = false;
     newRun(it);
-    expected = goal;
-    it.rect.hold(goal);
+    expected = heldRect();
   }
 }
 
-/** The lifted item glides to `r` (settle), its content laid out at `r` (reveal: never stretched). */
-function glideTo(it: Item, r: Rect): void {
-  if (!same(it.target, r)) {
-    it.target = { ...r };
-    layOut(it, r);
-    // Redrawn at once for the new layout box, so no frame shows the old offset from the new box.
-    draw(it);
-  }
-  if (same(it.rect.target, r)) return;
-  const drawn = it.rect.value;
+/** A new glide of `it` to `r` starts (for the checks): its segment, from where it is drawn. */
+function newSegment(it: Item, r: Rect): void {
+  if (same(it.m.target, r)) return;
+  const drawn = it.m.drawn;
   it.segment = { id: it.uid, t0: time, from: { ...drawn }, to: { ...r }, samples: [{ t: time, rect: { ...drawn } }] };
   episode?.segments.push(it.segment);
-  it.rect.configure({ omega: omega() });
-  it.rect.setTarget(r);
 }
 
 /** Snaps for the checks: the target the item sits in (null: back on the pointer; `flying`: because it flew off). */
@@ -374,7 +366,7 @@ function endDrag(cancel = false): void {
   if (!it || !home || !intent) return;
   let s = home.state;
   let landed: string | null = null;
-  atRelease = { ...it.rect.value };
+  atRelease = { ...it.m.drawn };
   if (!cancel) {
     // Both previews land by one rule: what is shown. A snapped item sits in the shown target's slot; moved to another
     // place of that target, it lands where the pointer is, even before it has glided there.
@@ -398,6 +390,8 @@ function endDrag(cancel = false): void {
   show(null, performance.now(), null);
   lastLanding = landed;
   lifted = null;
+  // The layout it lands in moves it from where it was let go (a settle from the drawn rect): no copy, no hop home.
+  held = null;
   intent = null;
   keys = null;
   expected = null;
@@ -436,7 +430,7 @@ function onKeyPickUp(it: Item, e: KeyboardEvent, hold?: Point, enter = true): vo
   if (lifted || !(e.key === " " || (enter && e.key === "Enter"))) return;
   e.preventDefault();
   e.stopPropagation();
-  const d = it.rect.value;
+  const d = it.m.drawn;
   const g = hold ?? { x: 40, y: 11 };
   beginDrag(it, d.x + g.x, d.y + g.y, g, undefined, true);
 }
@@ -511,18 +505,15 @@ function makeItem(kind: Item["kind"], key: string, uid: number, name: string, ht
     el,
     frame,
     content,
-    rect: createSettle(at, { omega: omega() }),
-    target: { ...at },
-    pop: createSettle(1, { omega: omega(), restDelta: 0.001 }),
+    // Laid out and drawn at once: the element at its box, the frame at the drawn size, the content clipped.
+    m: motion.add(String(uid), domDrawable({ node: el, frame, content }), at),
     placed: null,
     built: "",
     closing: false,
     segment: null,
     runs: [[]],
   };
-  layOut(it, at);
   items.push(it);
-  draw(it);
   return it;
 }
 
@@ -649,30 +640,25 @@ function dress(it: Item, p: Placed): void {
   it.el.classList.toggle("hidden", !!p.hidden);
   it.el.style.zIndex = it === raised ? "10" : String(p.layer);
   if (it.kind === "chrome") buildChrome(it, p);
-  const want = p.hidden ? 0 : 1;
-  if (it.pop.target !== want) {
+  if (it.m.showing === !!p.hidden) {
     ensureLoop();
-    it.pop.configure({ omega: omega() });
-    it.pop.setTarget(want);
-    if (want === 1) it.el.style.visibility = "visible";
+    it.m.show(!p.hidden);
   }
 }
 
 // --- motion --------------------------------------------------------------------------------------------------------
 
+/**
+ * `it` goes to `to`: a settle from where it is drawn, its content laid out at `to` and redrawn at once
+ * (@n-uf/motion/layout); its segment is recorded for the checks.
+ */
 function setTarget(it: Item, to: Rect): void {
-  if (same(it.target, to) && same(it.rect.target, to)) return;
+  if (same(it.m.box, to) && same(it.m.target, to)) return;
   ensureLoop();
-  const drawn = it.rect.value;
-  it.target = { ...to };
-  layOut(it, to);
-  // The element is laid out at the new place now; redraw it at once at the drawn rect, else until the next frame's
-  // draw it would show the old offset from the new place (a dropped item would flash far from where it was let go).
-  draw(it);
+  const drawn = it.m.drawn;
   it.segment = { id: it.uid, t0: time, from: { ...drawn }, to: { ...to }, samples: [{ t: time, rect: { ...drawn } }] };
   episode?.segments.push(it.segment);
-  it.rect.configure({ omega: omega() });
-  it.rect.setTarget(to);
+  it.m.moveTo(to);
 }
 
 /** Lay the desk out again and send every item gliding to its place. */
@@ -688,7 +674,7 @@ function relayout(): void {
     if (!it) {
       // Chrome a construction has and the last one didn't: it pops in at its place.
       it = makeChrome(key, p.rect);
-      it.pop.jumpTo(0);
+      it.m.show(false, { now: true });
       newRun(it);
     }
     setTarget(it, p.rect);
@@ -706,13 +692,7 @@ function close(it: Item): void {
   ensureLoop();
   it.closing = true;
   it.el.classList.add("hidden");
-  it.pop.setTarget(0);
-}
-
-function draw(it: Item): void {
-  drawRevealed(it, it.rect.value, it.target, it.pop.value);
-  // Folded all the way away: out of sight and out of the way of the pointer.
-  if (it.pop.settled && it.pop.value === 0) it.el.style.visibility = "hidden";
+  it.m.show(false);
 }
 
 // --- actions -------------------------------------------------------------------------------------------------------
@@ -769,7 +749,7 @@ function doOpen(): void {
   setDocs([...s.docs, id], id);
   layout = construction().layout(state(), size, options());
   const it = makeDoc(id, layout.items.get(docKey(id))!.rect);
-  it.pop.jumpTo(0);
+  it.m.show(false, { now: true });
   ensureLoop();
   newRun(it);
   relayout();
@@ -863,10 +843,14 @@ function syncControls(): void {
 
 /** A fresh desk: every construction back to its own arrangement, `docCount` documents open. */
 function reset(id: ConstructionId = cid, at: Size = size, opts: Partial<Options> = {}, docCount = 2): void {
-  for (const it of items) it.el.remove();
+  for (const it of items) {
+    motion.remove(String(it.uid));
+    it.el.remove();
+  }
   items = [];
   raised = null;
   lifted = null;
+  held = null;
   intent = null;
   keys = null;
   shown = null;
@@ -903,11 +887,8 @@ function reset(id: ConstructionId = cid, at: Size = size, opts: Partial<Options>
   for (const it of items) {
     const p = layout.items.get(it.key)!;
     dress(it, p);
-    if (p.hidden) {
-      it.pop.jumpTo(0);
-      it.el.style.visibility = "hidden";
-    }
-    draw(it);
+    // Folded away from the start: gone at once (hidden), no fade.
+    if (p.hidden) it.m.show(false, { now: true });
   }
   focusMarks();
   renderNotes();
@@ -943,7 +924,11 @@ let episode: {
 } | null = null;
 let idleWaiters: Array<() => void> = [];
 const loop = createFrameLoop({ clock: createBrowserClock() });
-let running = false;
+/**
+ * Every item's motion, on one frame loop (the toolbar groups' too): @n-uf/motion/layout settles each item to its place
+ * from where it is drawn, reveals size changes and draws every frame. The page only gives it places.
+ */
+const motion = createLayoutMotion({ loop, omega: omega(), phase: "update" });
 
 function startEpisode(): void {
   if (episode) return;
@@ -962,9 +947,7 @@ function newRun(it: Item): void {
 
 function ensureLoop(): void {
   startEpisode();
-  if (running) return;
-  running = true;
-  loop.repeat("update", tick);
+  motion.wake();
 }
 
 const measure = (it: Item): { scale: ScaleSample; frame: Rect } => measureFrame(stage, stageRect.value.width + 2, it, time);
@@ -974,8 +957,8 @@ const fmt = (r: Rect): string => `${Math.round(r.x)},${Math.round(r.y)} ${Math.r
 function belowMin(it: Item): string | null {
   const min = it.placed?.min;
   if (!min) return null;
-  const checks: [string, Rect][] = [["laid out", it.target]];
-  if (it.rect.settled) checks.push(["drawn", it.rect.value]);
+  const checks: [string, Rect][] = [["laid out", it.m.box]];
+  if (it.m.settled) checks.push(["drawn", it.m.drawn]);
   for (const [what, r] of checks) {
     if ((min.width !== undefined && r.width < min.width - 0.5) || (min.height !== undefined && r.height < min.height - 0.5)) {
       return `t=${Math.round(time)} ${it.name} ${what} at ${Math.round(r.width)} × ${Math.round(r.height)} (min ${min.width ?? "any"} × ${min.height ?? "any"})`;
@@ -992,43 +975,48 @@ function offStage(it: Item): string | null {
   if (it.placed?.offStage) return null;
   const s = stageRect.value;
   const out = (r: Rect, w: number, h: number): boolean => r.x < -0.5 || r.y < -0.5 || r.x + r.width > w + 0.5 || r.y + r.height > h + 0.5;
-  if (out(it.target, size.width, size.height)) return `t=${Math.round(time)} ${it.name} laid out at ${fmt(it.target)}, outside the ${size.width} × ${size.height} stage`;
+  if (out(it.m.box, size.width, size.height)) return `t=${Math.round(time)} ${it.name} laid out at ${fmt(it.m.box)}, outside the ${size.width} × ${size.height} stage`;
   const from = it.segment?.from;
-  if (out(it.rect.value, s.width, s.height) && !(from && out(from, s.width, s.height))) return `t=${Math.round(time)} ${it.name} drawn at ${fmt(it.rect.value)}, outside the stage drawn ${Math.round(s.width)} × ${Math.round(s.height)}`;
+  if (out(it.m.drawn, s.width, s.height) && !(from && out(from, s.width, s.height))) return `t=${Math.round(time)} ${it.name} drawn at ${fmt(it.m.drawn)}, outside the stage drawn ${Math.round(s.width)} × ${Math.round(s.height)}`;
   return null;
 }
 
-function tick(frame: FrameInfo): boolean {
+/** Once a frame, before the items step: the time, the drag's aim, the stage's size. Frames keep coming while held. */
+motion.task((frame: FrameInfo): boolean => {
   const dt = frame.delta;
   time += dt;
   let moving = lifted !== null;
   if (lifted) aim(performance.now(), dt);
   if (stageRect.step(dt)) moving = true;
   drawStage();
+  return moving;
+});
+
+/** Once a frame, after the items have stepped and been drawn: what the checks read, and closed items going. */
+motion.onFrame(() => {
   for (const it of [...items]) {
-    if (it.rect.step(dt)) moving = true;
-    if (it.pop.step(dt)) moving = true;
-    draw(it);
+    if (it.closing && it.m.shownSettled) {
+      motion.remove(String(it.uid));
+      it.el.remove();
+      items = items.filter((x) => x !== it);
+      continue;
+    }
     if (!episode) continue;
     const seen = measure(it);
     episode.scale.push(seen.scale);
-    if (!it.pop.settled) episode.pops++;
-    const drawn = it.rect.value;
+    if (!it.m.shownSettled) episode.pops++;
+    const drawn = it.m.drawn;
     if (it === lifted && !snapped && !returning) {
       // Held 1:1 once it has popped in (a panel lifted from behind its tab grows into view, uniformly).
-      if (expected && it.pop.settled) episode.held.push({ t: time, rect: seen.frame, expected });
+      if (expected && it.m.shownSettled) episode.held.push({ t: time, rect: seen.frame, expected });
     } else {
       // Settling (as the lifted item does into a snapped slot and back to the pointer).
-      it.runs.at(-1)!.push({ t: time, rect: drawn, target: it.rect.target });
+      it.runs.at(-1)!.push({ t: time, rect: drawn, target: it.m.target });
       it.segment?.samples.push({ t: time, rect: drawn });
     }
     if (!it.closing && !it.placed?.hidden && it !== lifted) {
       episode.minSize.push(belowMin(it));
       episode.offStage.push(offStage(it));
-    }
-    if (it.closing && it.pop.settled) {
-      it.el.remove();
-      items = items.filter((x) => x !== it);
     }
   }
   // Room: once the others have settled, none of those beside it (not floating over) overlaps the lifted item's slot.
@@ -1036,7 +1024,7 @@ function tick(frame: FrameInfo): boolean {
   const slotLayer = lifted && kept ? kept.layout.items.get(lifted.key)?.layer : undefined;
   if (lifted && kept && episode && !kept.free && !kept.hidden && slotLayer !== undefined && slotLayer <= LAYER.palette) {
     const others = items.filter((o) => o !== lifted && !o.closing && !!o.placed && !o.placed.hidden && o.placed.layer <= LAYER.palette);
-    const blocking = others.every((o) => o.rect.settled) ? others.filter((o) => overlap(o.rect.value, kept.slot) > 1) : null;
+    const blocking = others.every((o) => o.m.settled) ? others.filter((o) => overlap(o.m.drawn, kept.slot) > 1) : null;
     if (blocking) episode.room.push(blocking.length ? `t=${Math.round(time)} ${blocking.map((o) => o.name).join(", ")} still in the slot kept for ${lifted.name}` : null);
   }
   // The drop label stays inside the stage (the positioner's flip and slide).
@@ -1058,16 +1046,14 @@ function tick(frame: FrameInfo): boolean {
       return key ? (items.find((x) => x.key === key)?.name ?? key) : null;
     });
     if (v !== undefined) episode.onTop.push(v);
-    if (r !== lifted && r.rect.settled) {
+    if (r !== lifted && r.m.settled) {
       raised = null;
       r.el.style.zIndex = String(r.placed?.layer ?? 1);
     }
   }
-  if (moving) return true;
-  running = false;
-  endEpisode();
-  return false;
-}
+});
+// Nothing moves any more: the move's checks are recorded.
+motion.onIdle(() => endEpisode());
 
 // --- checks --------------------------------------------------------------------------------------------------------
 
@@ -1123,7 +1109,7 @@ function mergeRows(all: readonly Row[][]): Row[] {
 
 // --- scenarios -----------------------------------------------------------------------------------------------------
 
-const idle = (): Promise<void> => (running || episode ? new Promise((r) => idleWaiters.push(r)) : Promise.resolve());
+const idle = (): Promise<void> => (motion.running || episode ? new Promise((r) => idleWaiters.push(r)) : Promise.resolve());
 
 /** Where a scripted press lifts `it`: a tab for a panel under a tab row (the tab is its home), else its title bar. */
 function gripOf(it: Item): { at: Point; hold?: Point; from?: Rect } {
@@ -1139,7 +1125,7 @@ function gripOf(it: Item): { at: Point; hold?: Point; from?: Rect } {
       return { at: centre(from), hold: TAB_HOLD, from };
     }
   }
-  const d = it.rect.value;
+  const d = it.m.drawn;
   return { at: { x: d.x + 40, y: d.y + 11 } };
 }
 
@@ -1165,8 +1151,8 @@ async function playPath(key: string, path: (grip: Point) => readonly PathKey[], 
   beginDrag(it, first[1], first[2], g.hold, g.from);
   if (lifted !== it) return { log: [], landed: null };
   // Where every other item is drawn at the lift: to say which of them moved before the release.
-  const atLift = new Map(items.filter((o) => o !== it && !o.closing).map((o) => [o.key, { ...o.rect.value }] as const));
-  const movedSinceLift = (): string[] => items.filter((o) => atLift.has(o.key) && !same(o.rect.value, atLift.get(o.key)!)).map((o) => o.key);
+  const atLift = new Map(items.filter((o) => o !== it && !o.closing).map((o) => [o.key, { ...o.m.drawn }] as const));
+  const movedSinceLift = (): string[] => items.filter((o) => atLift.has(o.key) && !same(o.m.drawn, atLift.get(o.key)!)).map((o) => o.key);
   const start = performance.now();
   const total = keysOf.at(-1)![0];
   for (;;) {
@@ -1267,10 +1253,10 @@ const lab: DeskLab = {
   icon: doIcon,
   tab: doTab,
   focus: doFocus,
-  drawn: (key) => itemOf(key)?.rect.value ?? null,
+  drawn: (key) => itemOf(key)?.m.drawn ?? null,
   shown: (key) => {
     const it = itemOf(key);
-    return !!it && it.pop.value > 0.999;
+    return !!it && it.m.shown > 0.999;
   },
   idle,
   drag: scriptedDrag,
@@ -1292,7 +1278,7 @@ async function keyboardDrag(key: string, steps: number): Promise<DragResult> {
   const it = itemOf(key);
   if (!it) return { log: [], landed: null };
   const press = (k: string): void => void document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
-  const d = it.rect.value;
+  const d = it.m.drawn;
   const g = gripOf(it);
   beginDrag(it, d.x + (g.hold?.x ?? 40), d.y + (g.hold?.y ?? 11), g.hold ?? { x: 40, y: 11 }, g.from, true);
   for (let i = 0; i < steps; i++) {
@@ -1304,7 +1290,7 @@ async function keyboardDrag(key: string, steps: number): Promise<DragResult> {
   return { log: [...dragLog], landed: lastLanding };
 }
 
-initToolbarFrame(lab, stage);
+initToolbarFrame(lab, stage, motion);
 const SCENARIOS: Record<string, Scenario> = { ...makeScenarios(lab), ...toolbarGroupScenarios(lab), ...gripScenarios(lab, grips) };
 const runs: LabRun[] = [];
 
@@ -1402,10 +1388,7 @@ document.querySelectorAll<HTMLInputElement>("input[name=bottom]").forEach((input
 document.querySelectorAll<HTMLInputElement>("input[name=tempo]").forEach((input) =>
   input.addEventListener("change", () => {
     tempo = input.value as Tempo;
-    for (const it of items) {
-      it.rect.configure({ omega: omega() });
-      it.pop.configure({ omega: omega() });
-    }
+    motion.configure({ omega: omega() });
   }),
 );
 // --- the stage's size: fitted to the page, or set by hand ------------------------------------------------------------

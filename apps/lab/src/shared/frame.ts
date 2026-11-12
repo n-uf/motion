@@ -1,8 +1,8 @@
 /**
- * Drawing a window by the motion rules (reveal: content laid out at the target size, the frame at the drawn size,
- * clipped; never a non-uniform scale) and reading back what the page shows, for the checks.
+ * Reading back what the page draws, for the checks: an element's scale and its frame's rect, and what is on top at a
+ * point. (Drawing is @n-uf/motion/layout's.)
  */
-import { popIn, reveal, type Rect } from "@n-uf/motion";
+import type { Rect } from "@n-uf/motion";
 import type { ScaleSample } from "@n-uf/motion/testing";
 import type { Point } from "./geometry";
 
@@ -11,24 +11,6 @@ export interface Drawn {
   readonly el: HTMLElement;
   readonly frame: HTMLElement;
   readonly content: HTMLElement;
-}
-
-/** Lay `w` out at `target` (where its content's size comes from). */
-export function layOut(w: Drawn, target: Rect): void {
-  Object.assign(w.el.style, { left: `${target.x}px`, top: `${target.y}px`, width: `${target.width}px`, height: `${target.height}px` });
-}
-
-/** Translate to the drawn place, the frame at the drawn size, the content clipped to it; `pop` scales uniformly. */
-export function drawRevealed(w: Drawn, drawn: Rect, target: Rect, pop = 1): void {
-  const r = reveal(drawn, target);
-  const pi = popIn(pop);
-  const cx = drawn.width / 2;
-  const cy = drawn.height / 2;
-  w.el.style.transform = `translate(${r.dx}px, ${r.dy}px) translate(${cx}px, ${cy}px) scale(${pi.scale}) translate(${-cx}px, ${-cy}px)`;
-  w.el.style.opacity = String(pi.opacity);
-  w.frame.style.width = `${r.width}px`;
-  w.frame.style.height = `${r.height}px`;
-  w.content.style.clipPath = `inset(0 ${r.clipRight}px ${r.clipBottom}px 0)`;
 }
 
 /** What the page draws, read back from the DOM: the element's scale and the frame's rect in stage units. */
