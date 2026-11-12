@@ -178,13 +178,22 @@ describe("arrangement changes", () => {
     };
     expect(bad(null)).toBe("not an object");
     expect(bad({ ...good, v: 2 })).toBe("unknown version 2 (this reads version 1)");
-    expect(bad({ ...good, v: undefined })).toContain("unknown version");
+    expect(bad({ ...good, v: undefined })).toBe("unknown version undefined (this reads version 1)");
+    expect(bad({ ...good, v: "1" })).toBe("unknown version 1 (this reads version 1)");
+    // Values JSON can't write don't throw either: a BigInt, a circular object.
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    expect(bad({ ...good, v: 1n })).toBe("unknown version bigint (this reads version 1)");
+    expect(bad({ ...good, v: circular })).toBe("unknown version object (this reads version 1)");
     expect(bad({ ...good, hosts: { ...(good.hosts as object), left: undefined } })).toBe("host left is missing");
     expect(bad({ ...good, hosts: { ...(good.hosts as object), left: { start: [], center: [] } } })).toBe("left.end is not a list of group ids");
     expect(bad({ ...good, hosts: { ...(good.hosts as object), left: { start: ["doc"], center: [], end: [] } } })).toBe('group "doc" is in two places');
     expect(bad({ ...good, collapsed: "zoom" })).toBe("collapsed is not a list of group ids");
     expect(bad({ ...good, floating: [{ id: "x", x: "1", y: 2, from: null }] })).toBe("a floating group is not { id, x, y, from }");
     expect(bad({ ...good, floating: [{ id: "x", x: 1, y: 2, from: { host: "side", zone: "start", index: 0 } }] })).toBe('floating group "x" has a bad home');
+    // A home's index is a whole number from 0.
+    for (const index of [-1, 1.5]) expect(bad({ ...good, floating: [{ id: "x", x: 1, y: 2, from: { host: "top", zone: "start", index } }] })).toBe('floating group "x" has a bad home');
+    expect(bad({ ...good, floating: [{ id: "x", x: 1, y: 2, from: { host: "top", zone: "start", index: 2 } }] })).toBe("read");
     expect(bad({ ...good, floating: [{ id: "edit", x: 1, y: 2, from: null }] })).toBe('group "edit" is in two places');
     expect(bad(good, ["doc"])).toBe('title.end has an unknown group "zoom"');
     expect(bad(good)).toBe("read");
