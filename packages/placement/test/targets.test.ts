@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { overlap } from "../index";
 import { DEFAULT_OPTIONS, LAYER, draggable, liftOut, panelKey, type Construction, type ConstructionId, type Layout } from "../src/dock";
 import { deskDrop, deskTargets, floatTarget, hostTargets } from "../src/targets";
-import { arrangement, hostOf, sameArrangement, type GroupSize, type HostSpec } from "../src/toolbar";
+import { arrangement, hostOf, layoutHost, sameArrangement, type GroupSize, type HostSpec, type Place } from "../src/toolbar";
 import { desk, docs, fmt, inRect, mid, sameRect } from "./fixture";
 
 const C = (id: ConstructionId): Construction => desk.constructionOf(id);
@@ -169,5 +169,33 @@ describe("toolbar targets", () => {
     // A group wider than the stage keeps its left edge on the stage's, never off it.
     const wide = floatTarget({ group: "b" as Gr, arrangement: a, stage: { x: 10, y: 20, width: 300, height: 300 }, width: 400, height: 28 });
     expect(wide.make({ x: 2000, y: 100 }, { x: 5, y: 5 }).floating[0]!.x).toBe(0);
+  });
+
+  it("each target's slot is the group's rect in the host once it lands there", () => {
+    const { targets } = hostTargets(input);
+    const first = targets.find((t) => t.label === "Top bar · left · before all")!;
+    // Lead 20 from the host's origin (100, 50), 80 long, centred across the 34 px host.
+    expect(first.slot).toEqual({ x: 120, y: 53, width: 80, height: 28 });
+    for (const t of targets) {
+      const r = layoutHost(t.arrangement.top, "top", spec, size, t.arrangement.collapsed).slots.get("b")!;
+      expect(t.slot).toEqual({ x: 100 + r.x, y: 50 + r.y, width: r.width, height: r.height });
+    }
+    // Where the host will be once the group is in it (it moved 40 px down and got longer): the slot follows.
+    const moved = hostTargets({ ...input, hostAfter: () => ({ origin: { x: 100, y: 90 }, spec: { ...spec, lead: 60 } }) });
+    expect(moved.targets.find((t) => t.label === "Top bar · left · before all")!.slot).toEqual({ x: 160, y: 93, width: 80, height: 28 });
+  });
+
+  it("a place the group may not go is no target: one group keeps to its bar, one can't float", () => {
+    // b may stay in the top bar only; d may not float.
+    const allows = (g: Gr, place: Place | "float"): boolean => (g === "b" ? place !== "float" && place.host === "top" : g === "d" ? place !== "float" : true);
+    expect(hostTargets({ ...input, allows }).targets.map((t) => t.id)).toEqual(hostTargets(input).targets.map((t) => t.id));
+    expect(hostTargets({ ...input, host: "title", allows }).targets).toEqual([]);
+    expect(hostTargets({ ...input, host: "title" }).targets.length).toBeGreaterThan(0);
+    // Within a bar, a single place can be refused too.
+    const notFirst = (_g: Gr, place: Place | "float"): boolean => place === "float" || place.index > 0;
+    expect(hostTargets({ ...input, allows: notFirst }).targets.every((t) => t.place.index > 0)).toBe(true);
+    const stage = { x: 10, y: 20, width: 500, height: 300 };
+    expect(floatTarget({ group: "d" as Gr, arrangement: a, stage, width: 80, height: 28, allows })).toBeNull();
+    expect(floatTarget({ group: "c" as Gr, arrangement: a, stage, width: 80, height: 28, allows })?.id).toBe("g:float");
   });
 });
