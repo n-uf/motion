@@ -38,6 +38,7 @@
   --motion: var(--accent);
   --place: var(--series-b);
   --part: var(--motion);
+  --part-strong: var(--accent-strong); /* the part as text on a tint (AA) */
 
   /* Signal: drop targets and indicators only */
   --signal: #e0570c;
@@ -56,6 +57,9 @@
   --series-b2: #9b6aa8;
   --series-c: var(--accent);
   --series-c2: #4ea7c3;
+  /* Other engines (a typical host app): two slates, never violet (violet is placement's) */
+  --series-d: #566577;
+  --series-e: #8795a6;
   --series-ink: #4b4d53;
 
   /* Grips */
@@ -169,6 +173,8 @@
     --series-b: #9a93ea;
     --series-b2: #d39be0;
     --series-c2: #9edff0;
+    --series-d: #a3afbf;
+    --series-e: #6f7d8f;
     --series-ink: #c2c4ca;
     --grip: #7d838e;
     --grip-hot: #c9cbd1;
@@ -229,6 +235,8 @@
   --series-b: #9a93ea;
   --series-b2: #d39be0;
   --series-c2: #9edff0;
+  --series-d: #a3afbf;
+  --series-e: #6f7d8f;
   --series-ink: #c2c4ca;
   --grip: #7d838e;
   --grip-hot: #c9cbd1;

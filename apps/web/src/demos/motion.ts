@@ -78,6 +78,9 @@ export interface ChartOpt {
   T: number; xstep: number; ymin: number; ymax: number; yticks: number[]; yfmt: (v: number) => string;
   marks?: { v: number; color: string; label: string }[]; vmarks?: { ms: number; label: string }[];
   lines: Line[]; points?: Line[];
+  /** Leader-line notes (decoration, aria-hidden): a dot on the library's curve at `ms`, an elbow out by (dx, dy) px, and
+   *  the words above the elbow's horizontal. dy is up when negative. */
+  notes?: { ms: number; dx: number; dy: number; text: string }[];
 }
 
 // ---- Data for the three chart cases ---------------------------------------------------------------------------------
@@ -91,13 +94,15 @@ export const settleOpt: ChartOpt = {
   lines: [
     { name: "Hyprland shipped: spring easy (ratio 0.785)", legend: "Hyprland spring 'easy'", color: "--series-a", dash: "6 4", data: springSeries(238.1191, 24.21279, 0, 0, 1, T1, dt) },
     { name: "Hyprland older: easeOutQuint 479 ms", legend: "Hyprland older ease-out", color: "--series-a2", dash: "6 4", data: series((ms) => bez(0.23, 1, 0.32, 1)(ms / 479), T1, dt) },
-    { name: "Host app rect spring 320, from rest", legend: "Typical app: re-layout spring from rest", color: "--series-b", data: springSeries(320, 2 * Math.sqrt(320), 0, 0, 1, T1, dt) },
-    { name: "Host app maximize/restore: snappy 220 ms (y2 1.05)", legend: "Typical app: maximize/restore (overshoots)", color: "--series-b2", data: series((ms) => bez(0.05, 0.9, 0.1, 1.05)(ms / 220), T1, dt) },
+    { name: "Host app rect spring 320, from rest", legend: "Typical app: re-layout spring from rest", color: "--series-d", data: springSeries(320, 2 * Math.sqrt(320), 0, 0, 1, T1, dt) },
+    { name: "Host app maximize/restore: snappy 220 ms (y2 1.05)", legend: "Typical app: maximize/restore (overshoots)", color: "--series-e", data: series((ms) => bez(0.05, 0.9, 0.1, 1.05)(ms / 220), T1, dt) },
     { name: "Proposed settle ω=37 (recording)", legend: "n-uf motion settle, quick ω 37", color: "--series-c2", dash: "1 3", data: settleSeries(37, T1, dt) },
     { name: "Proposed settle ω=25 (default)", legend: "n-uf motion settle, default ω 25", lib: true, color: "--series-c", w: 3.2, data: settleSeries(25, T1, dt) },
     { name: "Proposed settle ω=20 (calm)", legend: "n-uf motion settle, calm ω 20", color: "--series-c2", dash: "6 4", data: settleSeries(20, T1, dt) },
   ],
   points: [{ name: "Recording: window open (measured)", legend: "Measured: a real Hyprland window (dots)", color: "--series-a", data: [[0, 0], [15, 0.44], [45, 0.755], [65, 0.965], [85, 0.985], [180, 1]] }],
+  // motion's launched settle: fast at the start, flat into the target, never past it
+  notes: [{ ms: 190, dx: 26, dy: -16, text: "settles, never past it" }, { ms: 40, dx: 30, dy: 54, text: "fast start, gentle end" }],
 };
 
 // 2 · drag: pointer accelerates, cruises, slows, release at 260 -> slot
@@ -135,7 +140,7 @@ export const dragOpt: ChartOpt = {
   marks: [{ v: slot, color: "--line-3", label: "slot" }], vmarks: [{ ms: REL, label: "release" }],
   lines: [
     { name: "Pointer − grab offset", legend: "Pointer position, until release", color: "--series-ink", dash: "1 3", w: 2.5, data: pointerLine.filter((p) => p[0] <= REL) },
-    { name: "Host app own drag: localDrag 1400, then rect 320", legend: "Typical app: own drag spring, then re-layout spring", color: "--series-b", data: fol },
+    { name: "Host app own drag: localDrag 1400, then rect 320", legend: "Typical app: own drag spring, then re-layout spring", color: "--series-d", data: fol },
     { name: "Hyprland / proposed: held 1:1, then settle ω=25", legend: "Hyprland and n-uf motion: held 1:1, then settle ω 25", lib: true, color: "--series-c", w: 3.2, data: held },
   ],
 };
@@ -171,10 +176,11 @@ export const retargetOpt: ChartOpt = {
   marks: [{ v: NEW, color: "--line-3", label: "new target" }, { v: 1, color: "--line-3", label: "" }], vmarks: [{ ms: RT, label: "retarget" }],
   lines: [
     { name: "Tween restart (hypr-tiling CSS, host app tweens)", legend: "Tween restart: hypr-tiling and typical app tweens", color: "--series-a2", dash: "6 4", data: tweenR },
-    { name: "Host app docked / space change: restart from rest", legend: "Typical app: docked or space change, restarts from rest", color: "--series-b", data: restRestart() },
-    { name: "Velocity kept, no clamp (crosses the new target)", legend: "Speed kept, no clamp (crosses the new target)", color: "--series-b2", dash: "1 3", data: unclamped() },
+    { name: "Host app docked / space change: restart from rest", legend: "Typical app: docked or space change, restarts from rest", color: "--series-d", data: restRestart() },
+    { name: "Velocity kept, no clamp (crosses the new target)", legend: "Speed kept, no clamp (crosses the new target)", color: "--series-e", dash: "1 3", data: unclamped() },
     { name: "Proposed: relaunched from drawn", legend: "n-uf motion settle ω 25: relaunched from where it is drawn", lib: true, color: "--series-c", w: 3.2, data: settleSeries(w25, T3, dt, 0, 1, { at: RT, to: NEW }) },
   ],
+  notes: [{ ms: RT, dx: 40, dy: 70, text: "relaunched from where it is drawn" }],
 };
 
 
@@ -225,6 +231,16 @@ export function chartSVG(opt: ChartOpt, w: number, label: string, ms = 0): strin
   for (const s of opt.lines) {
     const d = s.data.map((p, i) => (i ? "L" : "M") + f1(X(p[0])) + " " + f1(Y(clampY(opt, p[1])))).join(" ");
     o.push(`<path d="${d}" fill="none" stroke="${V(s.color)}" stroke-width="${s.w || 1.75}"${s.dash ? ` stroke-dasharray="${s.dash}"` : ""} stroke-linejoin="round" stroke-linecap="round"/>`);
+  }
+  // The notes: a dot on the library's curve, a dashed elbow, the words on the horizontal (hidden on a phone, where the key under the figure says the same)
+  const lib = opt.lines.find((s) => s.lib);
+  if (lib && opt.notes && w >= 420) {
+    const parts = opt.notes.map((n) => {
+      const px = X(n.ms), py = Y(clampY(opt, at(lib.data, n.ms)));
+      const ex = px + n.dx, ey = py + n.dy, len = n.text.length * 6.3 + 6;
+      return `<path d="M${f1(px)} ${f1(py)}V${f1(ey)}H${f1(Math.min(ex + len, w - 4))}" fill="none" stroke="${V("--series-c")}" stroke-width="1.2" stroke-dasharray="3 3"/><circle cx="${f1(px)}" cy="${f1(py)}" r="3.5" fill="${V("--series-c")}"/><text x="${f1(Math.min(ex, w - 4 - len) + 3)}" y="${f1(ey - 5)}" class="cn">${n.text}</text>`;
+    });
+    o.push(`<g class="cnote" aria-hidden="true">${parts.join("")}</g>`);
   }
   for (const p of opt.points || []) for (const q of p.data) o.push(`<circle cx="${f1(X(q[0]))}" cy="${f1(Y(q[1]))}" r="4" fill="${V(p.color)}" stroke="${V("--bg-raised")}" stroke-width="1.5"/>`);
   o.push(line({ class: "ph-head", x1: f1(X(ms)), x2: f1(X(ms)), y1: T, y2: H - B, stroke: V("--text"), "stroke-width": 1, opacity: 0.4 }));
