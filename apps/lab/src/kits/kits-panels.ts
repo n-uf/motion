@@ -5,8 +5,8 @@
  * @n-uf/motion/layout motion; a held item follows the pointer by @n-uf/motion/layout's held drag, and what the
  * preview shows, when, and what a release lands on are @n-uf/motion/drag's drag intent's.
  *
- * The switch puts the panels on the kits' own drag as it is today (a ghost copy, an insert line under the pointer on
- * the last move, an instant drop), so both feel can be compared in one window. The groups always use the held drag.
+ * The switch puts the panels on a naive drag (a ghost copy, an insert line under the pointer on the last move, an
+ * instant drop), so both feels can be compared in one window. The groups always use the held drag.
  *
  * The scripted scenarios (kits-panels-scenarios.ts) drive it through `page`.
  */
@@ -36,16 +36,16 @@ const ACROSS = 30;
 /** The settle tempo every item lands with (ω, 1/s). */
 export const OMEGA = 25;
 
-export type GroupId = "nav" | "zoom" | "ann" | "redact" | "share";
+export type GroupId = "nav" | "zoom" | "ann" | "review" | "share";
 export const GROUPS: Readonly<Record<GroupId, { label: string; html: string }>> = {
   nav: { label: "Navigate", html: `<button type="button">‹</button><span class="kp-val">2 / 12</span><button type="button">›</button>` },
   zoom: { label: "Zoom", html: `<button type="button">−</button><span class="kp-val">80%</span><button type="button">+</button>` },
   ann: { label: "Annotate", html: `<button type="button" class="on">↖</button><button type="button">A</button><button type="button">▢</button><button type="button">✎</button>` },
-  redact: { label: "Redact", html: `<button type="button" class="text">Redact</button><button type="button" class="text">Mark</button>` },
+  review: { label: "Review", html: `<button type="button" class="text">Approve</button><button type="button" class="text">Request changes</button>` },
   share: { label: "Share", html: `<button type="button" class="text">Share</button><button type="button" class="text">Print</button>` },
 };
 const GROUP_IDS = Object.keys(GROUPS) as GroupId[];
-const START_GROUPS = arrangement<GroupId>({ top: { start: ["nav"], center: ["zoom"], end: ["ann", "redact", "share"] } });
+const START_GROUPS = arrangement<GroupId>({ top: { start: ["nav"], center: ["zoom"], end: ["ann", "review", "share"] } });
 
 /** The panels: ids, titles, rail icons, sample rows; natural heights so that two fit a dock and three don't. */
 export const PANELS = [
@@ -64,10 +64,10 @@ const startDesk = (): DeskState => touch(touch(construction.initial([1]), 2), 1)
 
 // --- state ---------------------------------------------------------------------------------------------------------
 
-export type PanelMode = "kit" | "dock";
+export type PanelMode = "naive" | "dock";
 let groups: Arrangement<GroupId> = START_GROUPS;
 let deskState: DeskState = startDesk();
-let panelMode: PanelMode = "kit";
+let panelMode: PanelMode = "naive";
 let preview: DragPreview = "snap";
 let nextPreview: DragPreview | null = null;
 
@@ -108,7 +108,7 @@ stage.append(
   bar("top", TOP),
   bar("bottom", BOTTOM, `<span class="kp-empty">Bottom bar</span>`),
 );
-/** The drop indicator (an outline of where the item lands) and its label; the kit's insert line; the kit's ghost. */
+/** The drop indicator (an outline of where the item lands) and its label; the naive drag's insert line and ghost. */
 export const ind = el("div", "kp-ind");
 export const indLabel = el("div", "kp-ind-label");
 export const line = el("div", "kp-line");
@@ -227,7 +227,7 @@ export function layoutNow(): { rects: Map<string, Rect>; desk: Layout } {
   return { rects, desk: l };
 }
 
-/** Give every item its place (the held one keeps following the pointer); `instant`: jump there (the kit's drop). */
+/** Give every item its place (the held one keeps following the pointer); `instant`: jump there (the naive drag's drop). */
 function relayout(instant = false): void {
   const { rects, desk: l } = layoutNow();
   for (const [key, it] of items) {
@@ -299,7 +299,7 @@ function groupTargets(g: GroupId): { targets: DragTarget[]; dropOf: (t: DragTarg
 
 function panelTargets(key: string, kit: boolean): { targets: PanelTarget[]; dropOf: (t: DragTarget, p: Point, grab: Point) => Drop } {
   const input: DeskTargetInput = { c: construction, s0: liftOut(deskState, key), key, size: DESK_SIZE, opt: OPT };
-  // Today's kits have no tear-off: only the docks and rails.
+  // The naive drag has no tear-off: only the docks and rails.
   const targets = deskTargets(input)
     .filter((t) => !kit || t.id !== "float")
     .map((t): PanelTarget => ({ id: t.id, priority: t.priority, hit: off(t.hit, MID), free: !!t.free, ...(t.label ? { label: t.label } : {}), src: t }));
@@ -426,7 +426,7 @@ function endHeld(cancel: boolean): void {
   applyPreview();
 }
 
-// --- today's kit drag (panels only) --------------------------------------------------------------------------------
+// --- the naive drag (panels only) ----------------------------------------------------------------------------------
 
 interface KitDrag {
   readonly key: string;
@@ -507,13 +507,13 @@ const busy = (): boolean => !!drag || !!kit;
 
 /**
  * A press on a group's handle, a panel's title bar or a rail icon: a tap (no lift) brings a panel forward; past the
- * lift distance it lifts (the kit's drag lifts at 4 px, the held drag by the drag model's lift rule).
+ * lift distance it lifts (the naive drag lifts at 4 px, the held drag by the drag model's lift rule).
  */
 function press(e: PointerEvent, kind: Kind, it: Item, fromRail: boolean): void {
   if (e.button !== 0 || busy()) return;
   e.preventDefault();
   const start = stagePoint(e);
-  const useKit = kind === "panel" && panelMode === "kit";
+  const useKit = kind === "panel" && panelMode === "naive";
   const lift = useKit ? 4 : DRAG_DEFAULTS.lift;
   let lifted = false;
   const move = (ev: PointerEvent): void => {
@@ -594,15 +594,15 @@ function say(text: string): void {
 }
 
 const MODE_COPY: Record<PanelMode, string> = {
-  kit: "Panels: the kits' own drag. Lifts at 4 px; the panel stays put at 0.35 opacity under a ghost copy; an insert line shows whatever is under the pointer on the last move; the drop is instant. The groups use the held drag.",
+  naive: "Panels on a naive drag. Lifts at 4 px; the panel stays put at 0.35 opacity under a ghost copy; an insert line shows whatever is under the pointer on the last move; the drop is instant. The groups use the held drag.",
   dock: "Panels on ./dock, with the groups' held drag: the real panel follows the pointer; a slot shows only while you aim; room opens after a beat and the least recently used section folds to make it; over the document a panel tears off as a palette; it lands on a critically damped spring (ω 25).",
 };
 const modeButtons = [...document.querySelectorAll<HTMLButtonElement>("[data-pm]")];
 export function setPanelMode(m: PanelMode): void {
   if (busy()) return;
   panelMode = m;
-  // Today's kits can't float a panel: torn-off panels dock back into the left dock.
-  if (m === "kit" && deskState.torn.length) {
+  // The naive drag can't float a panel: torn-off panels dock back into the left dock.
+  if (m === "naive" && deskState.torn.length) {
     const ids = deskState.torn.map((f) => f.id);
     deskState = { ...deskState, torn: [], left: [...deskState.left, ...ids] };
     relayout();
@@ -642,7 +642,7 @@ document.getElementById("kp-reset")!.addEventListener("click", reset);
 
 makeItems();
 relayout(true);
-setPanelMode("kit");
+setPanelMode("naive");
 
 /** What the scenarios read and drive. */
 export const page = {

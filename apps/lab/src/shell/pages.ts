@@ -182,7 +182,7 @@ export const PAGES: readonly PageDef[] = [
     title: "1 · Panels vs groups",
     line: KIT_LIST[0]!.line,
     about:
-      "A document viewer window on the real packages: the toolbar groups on <code>@n-uf/placement</code>'s toolbar targets, the panels on its edge docks with tear-off, and every item on <code>@n-uf/motion</code>'s drag intent and held drag. Drag a group by its handle, a panel by its title bar or its rail icon. The switch puts the panels on a plain ghost drag (a copy, an insert line, an instant drop), so both can be felt in one window. Sample content only.",
+      "A document viewer window on the real packages: the toolbar groups on <code>@n-uf/placement</code>'s toolbar targets, the panels on its edge docks with tear-off, and every item on <code>@n-uf/motion</code>'s drag intent and held drag. Drag a group by its handle, a panel by its title bar or its rail icon. The switch puts the panels on a naive drag (a ghost copy, an insert line, an instant drop), so both can be felt in one window. Sample content only.",
     ...kitsPanels,
   },
   ...KIT_LIST.slice(1).flatMap(kitPage),
