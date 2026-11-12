@@ -55,7 +55,7 @@
 .nav-part + .nav-part { margin-left: 8px; padding-left: 10px; border-left: 1px solid var(--line); }
 .nav-k { padding: 0 4px 0 2px; font: 600 var(--t-cap) var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
 /* The lab is the instrument behind both parts, not a page of them: a quiet pill, in the same tab, never underlined. */
-.nav-lab a { padding: 4px 10px; border: 1px solid var(--line-2); border-radius: 999px; font: 600 11px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-2); }
+.nav-lab a { padding: 4px 10px; border: 1px solid var(--line-2); border-radius: 999px; font: 600 11px/16px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-2); }
 .nav-lab a:hover { border-color: var(--accent-line); color: var(--accent-strong); background: transparent; }
 
 /* A page's "Built with" line under its lead (components/BuiltWith.astro). */
