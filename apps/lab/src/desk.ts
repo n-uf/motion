@@ -13,7 +13,7 @@ import { docBody, panelBody, toolbarCells, withGlyph } from "./desk/content";
 import { draggable, dropAt, targetsFor, without, type Drop, type DropTarget, type TargetInput } from "./desk/drops";
 import { createGrips } from "./desk/grip";
 import { gripScenarios } from "./desk/grip-scenarios";
-import { DRAG_DEFAULTS, createDragIntent, inRect, targetAt, type DragIntent } from "@n-uf/motion/drag";
+import { DRAG_DEFAULTS, DRAG_PREVIEW_DEFAULT, createDragIntent, inRect, previewPlan, targetAt, type DragIntent, type DragPreview } from "@n-uf/motion/drag";
 import { EDGE_SCROLL, INDICATOR } from "./desk/drag-page";
 import { CONSTRUCTIONS, DEFAULT_CONSTRUCTION, constructionOf, stripGeometry, type ConstructionId } from "./desk/layouts";
 import {
@@ -145,11 +145,14 @@ let dragged = false;
 /** The strip scrolled at the stage's edge during this drag (null: as it was): kept only if the item lands. */
 let dragScroll: number | null = null;
 /**
- * The drop preview: the indicator outlines the slot, or (snap) the item itself glides into it. Snap takes over at
- * the moment the drag model shows the indicator and makes room, never while the pointer flies.
+ * The drop preview (@n-uf/motion/drag's `previewPlan`): the indicator only; the gap opening (room) with the item on
+ * the pointer; or the gap and the item gliding into it (snap). Room and snap come when the drag model makes room,
+ * never while the pointer flies.
  */
-type Preview = "indicator" | "snap";
-let preview: Preview = "indicator";
+type Preview = DragPreview;
+let preview: Preview = DRAG_PREVIEW_DEFAULT;
+const PREVIEWS: readonly Preview[] = ["indicator", "gap", "snap"];
+const PREVIEW_NAME: Record<Preview, string> = { indicator: "drop indicator", gap: "open gap", snap: "snap to slot" };
 /** Snap: the drop the item sits in, and whether it is gliding back to the pointer after leaving one. */
 let snapped: Drop | null = null;
 let returning = false;
@@ -228,28 +231,32 @@ function aim(now: number, dt: number): void {
     // The keyboard picks the stop itself: the room comes once a stop has been shown for the room delay.
     const stop = keys.stops[keys.i];
     const d = stop ? dropAt(dragInput(it), stop.target, stop.p, grab) : null;
-    show(d, now, d && !stop!.target.free && now - keys.since >= DRAG_DEFAULTS.roomAfter ? d.key : null);
-    place(it, now, false);
+    const plan = previewPlan({ shown: stop?.target ?? null, room: !!d && !stop!.target.free && now - keys.since >= DRAG_DEFAULTS.roomAfter }, preview, slotted(d));
+    show(d, now, plan.makeRoom && d ? d.key : null, false, plan.showIndicator);
+    place(it, now, false, plan.snapItem);
     return;
   }
   dragFrames.push({ t: now - liftedAt, x: pointer.x, y: pointer.y, speed: intent.state.speed, item: { ...it.rect.value } });
-  if (cid === "strip" && edgeScroll(it, now, dt)) return place(it, now, true);
+  if (cid === "strip" && edgeScroll(it, now, dt)) return place(it, now, true, false);
   const f = intent.update(pointer, now, targets);
-  show(f.shown ? dropAt(dragInput(it), f.shown, pointer, grab) : null, now, f.roomPlace, !f.aiming);
-  place(it, now, !f.aiming);
+  const d = f.shown ? dropAt(dragInput(it), f.shown, pointer, grab) : null;
+  // The preview decides what this frame draws: the indicator, the open gap (room), the item snapped into the slot.
+  const plan = previewPlan(f, preview, slotted(d));
+  show(d, now, plan.makeRoom ? f.roomPlace : null, !f.aiming, plan.showIndicator);
+  place(it, now, !f.aiming, plan.snapItem);
 }
 
 /** A drop the item can sit in: a slot (not a free placement, not folded away into a rail). */
 const slotted = (d: Drop | null): d is Drop => !!d && !d.free && !d.hidden;
 
 /**
- * Snap preview: once the model shows the indicator and makes room, the item glides into the slot (settle; its size
+ * Snap preview: when the plan snaps the item (the room is made for a slot), it glides into the slot (settle; its size
  * revealed); when the model moves or hides the indicator, it glides back to the pointer and follows it 1:1 again.
  */
-function place(it: Item, now: number, flying: boolean): void {
+function place(it: Item, now: number, flying: boolean, snapItem: boolean): void {
   if (preview !== "snap") return;
-  // From the pointer and from the keyboard alike, the item snaps once the others have made room for it.
-  let want: Drop | null = slotted(room) ? room : null;
+  // From the pointer and from the keyboard alike, the item snaps into the room made for it.
+  let want: Drop | null = snapItem && slotted(room) ? room : null;
   if (snapGate === "hover" && !keys) {
     const t = targetAt(targets, pointer);
     const d = t ? dropAt(dragInput(it), t, pointer, grab) : null;
@@ -336,17 +343,17 @@ function edgeScroll(it: Item, now: number, dt: number): boolean {
 /**
  * The indicator shows `d` (or nothing); the others make room for the place `roomFor` (a drop's key: the drag model
  * keeps it on the old place within a target until a new one has held), or none. `flying`: a hide because the pointer
- * started flying (or the strip scrolls), which is not a flash.
+ * started flying (or the strip scrolls), which is not a flash. `indicator`: the preview draws the indicator for `d`
+ * (snap previews a slot with the item itself).
  */
-function show(d: Drop | null, now: number, roomFor: string | null, flying = false): void {
+function show(d: Drop | null, now: number, roomFor: string | null, flying = false, indicator = true): void {
   if ((d?.target ?? null) !== (shown?.target ?? null)) {
     const e = { id: d?.target ?? null, ...(d ? {} : { flying }) };
     episode?.indicator.push({ t: now, ...e });
     dragLog.push({ t: now - liftedAt, ...e });
   }
   if (d?.key !== shown?.key) {
-    // Snap previews a slot with the item itself: the indicator is drawn only for drops with no slot.
-    if (d && !(preview === "snap" && slotted(d))) showHint(d);
+    if (d && indicator) showHint(d);
     else hideHint();
   }
   shown = d;
@@ -1157,6 +1164,9 @@ async function playPath(key: string, path: (grip: Point) => readonly PathKey[], 
   const first = keysOf[0]!;
   beginDrag(it, first[1], first[2], g.hold, g.from);
   if (lifted !== it) return { log: [], landed: null };
+  // Where every other item is drawn at the lift: to say which of them moved before the release.
+  const atLift = new Map(items.filter((o) => o !== it && !o.closing).map((o) => [o.key, { ...o.rect.value }] as const));
+  const movedSinceLift = (): string[] => items.filter((o) => atLift.has(o.key) && !same(o.rect.value, atLift.get(o.key)!)).map((o) => o.key);
   const start = performance.now();
   const total = keysOf.at(-1)![0];
   for (;;) {
@@ -1173,11 +1183,12 @@ async function playPath(key: string, path: (grip: Point) => readonly PathKey[], 
     }
     if (t >= total) break;
   }
+  const othersMoved = movedSinceLift();
   endDrag();
   // What the page shows right after the release, before any frame: where the landing motion starts.
   const after = itemOf(key);
   const landingFrom = after ? measure(after).frame : null;
-  return { log: [...dragLog], frames: [...dragFrames], snaps: [...snapLog], atRelease, landingFrom, grab, landed: lastLanding };
+  return { log: [...dragLog], frames: [...dragFrames], snaps: [...snapLog], atRelease, landingFrom, othersMoved, grab, landed: lastLanding };
 }
 
 /** The point on a keyframed path at `t` ms (linear between keyframes). */
@@ -1320,7 +1331,7 @@ async function runScenario(name: string, mode: Preview): Promise<LabRun> {
   renderChecks(checksBody, lastRows);
   // A scenario that only checks pure layouts moves nothing: "Something moved" is not its rule.
   const failed = lastRows.filter((r) => r.result && !r.result.ok && !(sc.still && r.name === "Something moved")).map((r) => r.name);
-  const how = sc.drag ? (mode === "snap" ? " · snap to slot" : " · drop indicator") : "";
+  const how = sc.drag ? ` · ${PREVIEW_NAME[mode]}` : "";
   const run: LabRun = { scenario: name, mode: constructionOf(c).title + how, failed, rows: lastRows };
   runs.push(run);
   const tr = document.createElement("tr");
@@ -1351,7 +1362,7 @@ async function runAll(filter?: string): Promise<LabRun[]> {
       if (filter && !name.includes(filter)) continue;
       // A drag runs with each preview (unless it is about one of them); everything else once.
       const sc = SCENARIOS[name]!;
-      for (const mode of sc.preview ? [sc.preview] : sc.drag ? (["indicator", "snap"] as const) : [before.preview]) {
+      for (const mode of sc.preview ? [sc.preview] : sc.drag ? PREVIEWS : [before.preview]) {
         if (stopAll) break;
         out.push(await runScenario(name, mode));
       }
