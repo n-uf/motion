@@ -57,6 +57,8 @@
 .js .pro.p { transform: translateX(calc(var(--sx, 0px) + var(--gut))); }
 .js .peb.p { transform: translateX(calc(var(--sx, 0px) + var(--gut))); }
 .pslider { display: none; }
+/* The seam and the slider do nothing without the island: they show once it has taken the words (their room is kept). */
+.poster:not(.js) .pseam, .poster:not(.js) .pslider { visibility: hidden; }
 
 @media (max-width: 860px) {
   .poster { --pad: 20px; height: 620px; }

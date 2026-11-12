@@ -15,7 +15,8 @@
  */
 import type { Point, Rect } from "@n-uf/motion";
 import { paneCentre, paneZone, type PaneZone } from "@n-uf/placement/targets";
-import { drive, newSettle, reduced } from "./motion";
+import { drive, newSettle, omega, onMotionChange, reduced } from "./motion";
+import { simulateRun } from "../demos/hero";
 import { registerShowcase, setDragging, userAction } from "./showcase";
 
 const SVGNS = "http://www.w3.org/2000/svg";
@@ -182,6 +183,7 @@ export function startPoster(poster: HTMLElement): void {
   const fromShare = (share: number): number => { const [lo, hi] = range_(); return lo + ((hi - lo) * share) / 100; };
   let held = false;
   seam.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
     userAction();
     setDragging(true);
     held = true;
@@ -202,7 +204,6 @@ export function startPoster(poster: HTMLElement): void {
     seam.addEventListener("pointerup", up);
     seam.addEventListener("pointercancel", up);
     seam.addEventListener("lostpointercapture", up);
-    window.addEventListener("blur", up, { once: true });
   });
   seam.addEventListener("keydown", (e) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
@@ -265,6 +266,16 @@ export function startPoster(poster: HTMLElement): void {
     start() { alive = true; void showcase(); },
     stop() { alive = false; clearTimeout(timer); stopSv?.(); stopSv = null; },
   });
+
+  // The left readout follows the tempo (the visitor's stored one, or a change): ω and the time to 90 % of a real run at it.
+  const readout = (): void => {
+    const w = omega();
+    dtext("#pro-o", `settle ω ${w} /s`);
+    const t90 = simulateRun({ x: 0, y: 0, width: 100, height: 60 }, { x: 240, y: 90, width: 100, height: 60 }, w).report.t90;
+    dtext("#pro-t", `90 % in ${Math.round(t90 ?? 0)} ms`);
+  };
+  onMotionChange(readout);
+  readout();
 
   new ResizeObserver(() => {
     // The viewport changed: the server's flow is gone, so re-flow at the same seam share.
