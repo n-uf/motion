@@ -189,10 +189,32 @@ section.hx > .section-head .eyebrow { letter-spacing: 0.1em; }
 .dw-frame { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border-radius: var(--r); background: var(--win-paper); box-shadow: 0 0 0 1px var(--win-edge), 0 2px 6px rgba(0, 0, 0, 0.08), 0 12px 24px -14px rgba(0, 0, 0, 0.3); }
 .dw.held .dw-frame { box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-pop); }
 .dw-body { position: absolute; inset: 0; overflow: hidden; border-radius: var(--r); }
-.dw-bar { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-bottom: 1px solid var(--win-edge); background: var(--win-bar); white-space: nowrap; }
+.dw-bar { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-bottom: 1px solid var(--win-edge); background: var(--win-bar); white-space: nowrap; cursor: grab; transition: background-color var(--fast) var(--ease); }
 .dw-grip { display: grid; grid-template-columns: repeat(2, 3px); gap: 2px; flex: none; }
-.dw-grip i { width: 3px; height: 3px; border-radius: 50%; background: var(--grip); }
+.dw-grip i { width: 3px; height: 3px; border-radius: 50%; background: var(--grip); transition: background-color var(--fast) var(--ease); }
+/* A window is grabbed by its title bar: the hovered one's bar and grip dots brighten a little. */
+@media (hover: hover) {
+  .dw:hover .dw-bar { background: color-mix(in srgb, var(--win-bar), var(--text) 6%); }
+  .dw:hover .dw-grip i { background: var(--grip-hot); }
+}
+.dw.held .dw-bar, .demo:has(.dw.held) { cursor: grabbing; }
 .dw.held .dw-grip i { background: var(--accent); }
+
+/* The idle hint's pointer (islands/home.ts): drawn over the desk, never in the accessibility tree, never in the way. */
+.dw-ptr { position: absolute; left: 0; top: 0; z-index: 4; width: 14px; height: 20px; pointer-events: none; opacity: 0; transition: opacity 180ms ease-out; will-change: transform; }
+.dw-ptr.on { opacity: 1; }
+.dw-ptr svg { display: block; fill: var(--text); stroke: var(--win-well); stroke-width: 1.2; stroke-linejoin: round; filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35)); transform-origin: 1px 1px; transition: transform 110ms ease-out; }
+.dw-ptr.press svg { transform: scale(0.9); }
+
+/* The desk's controls read as buttons: a hairline and a tint on hover, a firmer tint while pressed, the accent ring on focus. */
+.demo-fig .tb { transition: background-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease), color var(--fast) var(--ease); }
+.demo-fig .tb:not([disabled]):hover { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--win-text); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.demo-fig .tb[aria-pressed="true"]:not([disabled]):hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.demo-fig .tb:not([disabled]):active { background: color-mix(in srgb, var(--accent) 26%, transparent); }
+.demo-fig .tb:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* The invitation above the desk (index.astro): a mono label in motion's cyan; plain text in the server HTML, so its lines are reserved. */
+.try-note { margin: 0 0 var(--s2); font: 600 11px / 1.6 var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent-strong); }
 .dw-title { font-size: 12px; font-weight: 650; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 .dw-meta { margin-left: auto; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-2); }
 .dw-lines { display: grid; gap: 9px; padding: 14px 14px 0; }
