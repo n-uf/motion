@@ -1,5 +1,5 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, clock, signals, values, gestures, testing, browser) and
+// - every entry (the root, clock, signals, values, gestures, testing, drag, browser) and
 //   its type definitions exist;
 // - the JavaScript imports only its own chunks and alien-signals/system;
 // - the signal graph is in exactly one file, so importing two entries gives
@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const CORE = ["index", "clock", "signals", "values", "gestures", "testing"];
+const CORE = ["index", "clock", "signals", "values", "gestures", "testing", "drag"];
 const ENTRIES = [...CORE, "browser"];
 const ALLOWED = /^alien-signals\/system$/;
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|document|globalThis|matchMedia)\b/;
@@ -99,6 +99,12 @@ if (problems.length === 0) {
     if (modules.signals.signal !== modules.index.signal) problems.push("signals.js and index.js export different signal()s");
     if (typeof modules.gestures.createRecognizer !== "function") problems.push("gestures.js: no createRecognizer");
     if (typeof modules.testing.checkNoOvershoot !== "function") problems.push("testing.js: no checkNoOvershoot");
+    if (typeof modules.drag.createDragIntent !== "function") problems.push("drag.js: no createDragIntent");
+    // A drag held still over a slot shows it, and a release there lands on it.
+    const slot = { id: "slot", priority: 2, hit: { x: 0, y: 0, width: 200, height: 100 } };
+    const intent = modules.drag.createDragIntent({ home: { x: 300, y: 300, width: 100, height: 50 } });
+    for (let t = 0; t <= 300; t += 16) intent.update({ x: 100, y: 50 }, t, [slot]);
+    if (intent.state.shown?.id !== "slot" || intent.release({ x: 100, y: 50 }, [slot])?.id !== "slot") problems.push("drag.js: a drag held over a slot didn't show and land on it");
     const clock = modules.clock.createFakeClock();
     const loop = modules.clock.createFrameLoop({ clock });
     const value = modules.values.springValue(loop, 0);

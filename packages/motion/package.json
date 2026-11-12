@@ -1,6 +1,6 @@
 {
   "name": "@n-uf/motion",
-  "version": "26.11.3",
+  "version": "26.11.4",
   "description": "One frame loop with an injected clock, fine-grained signals, springs and tweens, and a DOM-free gesture recogniser. No DOM, no framework.",
   "keywords": [
     "animation",
@@ -61,6 +61,10 @@
       "types": "./src/testing/index.ts",
       "default": "./src/testing/index.ts"
     },
+    "./drag": {
+      "types": "./src/drag/index.ts",
+      "default": "./src/drag/index.ts"
+    },
     "./browser": {
       "types": "./browser.ts",
       "default": "./browser.ts"
@@ -94,6 +98,10 @@
       "./testing": {
         "types": "./dist/testing.d.ts",
         "default": "./dist/testing.js"
+      },
+      "./drag": {
+        "types": "./dist/drag.d.ts",
+        "default": "./dist/drag.js"
       },
       "./browser": {
         "types": "./dist/browser.d.ts",

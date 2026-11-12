@@ -4,7 +4,9 @@
  * globals: the host passes a clock in (`@n-uf/motion/browser` has the browser
  * one). `@n-uf/motion/clock`, `/signals`, `/values` and `/gestures` are the
  * same folders on their own. `@n-uf/motion/testing` (frame-sampled checks of
- * the motion rules, for tests and specs) is only there, not in the root.
+ * the motion rules, for tests and specs) and `@n-uf/motion/drag` (the drag
+ * intent model: when a drop indicator shows, what a release lands on) are
+ * only there, not in the root.
  */
 export * from "./src/clock";
 export * from "./src/signals";

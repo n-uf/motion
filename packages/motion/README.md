@@ -240,6 +240,47 @@ clock.tick(500); // longPress
 recognizer.feed({ ...finger, type: "pointerup", buttons: 0, time: clock.now() }); // release, click: false
 ```
 
+## drag/
+
+`@n-uf/motion/drag` decides, from the pointer's path, when a drop indicator
+shows, which target it shows, when the others make room, and what a release
+lands on. It is pure: the host feeds it the pointer once a frame and plain-data
+targets, and draws what it says. It is only there, not in the root.
+
+| | |
+|---|---|
+| `createDragIntent({ home, tuning?, placeOf? })` | `update(point, time, targets)` once a frame while an item is held, returning `{ shown, room, roomPlace, aiming }`; `release(point, targets)`, the target a release lands on or null (home); `hide(time)` while the view scrolls under the pointer; `moveHome(dx, dy)`; `state`; `tuning`. |
+| `DRAG_DEFAULTS` | Lift at 5 px (a touch: a 180 ms hold, then 8 px); aiming below 0.45 px/ms over 50 ms, or within 12 px for 90 ms; a 10 px band, a 4 px breakthrough, a 120 ms gap grace; a switch waits 150 ms; room after 160 ms. Each is overridable per intent. |
+| `targetAt(targets, point)`, `inRect(rect, point, margin?)` | The most precise target under a point (priority 1, 2, 3, then the smaller zone); a point in a rect grown or shrunk by a margin. |
+| `liftDecision({ touch, distance, elapsed }, tuning?)` | `"wait"`, `"lift"` or `"refuse"`: when a press becomes a drag. |
+
+A target is `{ id, priority, hit, slot?, label?, free? }`: `hit` is the zone
+the pointer can be in, `priority` how precise it is (a tab strip 1, a slot 2,
+a large area 3). The rules:
+
+- The indicator shows only when the pointer has left the item's home, a target
+  is under it, and the pointer aims (slows down or holds still). Crossing
+  targets at speed shows nothing.
+- The current target holds within a band around its zone, unless a more
+  precise target is clearly under the pointer. Leaving the shown target, a
+  flying pointer hides the indicator at once; an aiming one moves it once the
+  new target has held 150 ms, so no indicator ever shows for less.
+- Room is made once the shown target, and the place in it (`placeOf`: a tab
+  index, say), have held 160 ms; never for a `free` target.
+- A release lands on the shown target if the pointer is within its band, else
+  on the target under the pointer, else nowhere. A release over home does
+  nothing.
+
+```ts
+import { createDragIntent, type DragTarget } from "@n-uf/motion/drag";
+
+const slot: DragTarget = { id: "slot", priority: 2, hit: { x: 0, y: 0, width: 200, height: 100 } };
+const intent = createDragIntent({ home: { x: 300, y: 300, width: 100, height: 50 } });
+for (let t = 0; t <= 300; t += 16) intent.update({ x: 100, y: 50 }, t, [slot]); // held still over the slot
+console.log(intent.state.shown?.id); // "slot"
+console.log(intent.release({ x: 100, y: 50 }, [slot])?.id); // "slot"
+```
+
 ## @n-uf/motion/browser
 
 | | |

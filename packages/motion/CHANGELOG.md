@@ -3,6 +3,32 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.4
+
+- New entry `@n-uf/motion/drag`: the drag intent model, pure and DOM-free.
+  `createDragIntent({ home, tuning?, placeOf? })` takes the pointer once a
+  frame and plain-data targets (`{ id, priority, hit, slot?, label?, free? }`)
+  and says what the drop indicator shows, when the others make room, and what
+  a release lands on:
+  - the indicator shows only when the pointer has left home, a target is
+    under it, and it aims (below 0.45 px/ms over 50 ms, or within 12 px for
+    90 ms); crossing targets at speed shows nothing;
+  - the most precise target wins (priority, then the smaller zone), held
+    within a 10 px band unless a more precise one is 4 px inside; a 120 ms
+    gap grace for an aiming pointer;
+  - leaving the shown target, a flying pointer hides the indicator at once;
+    an aiming one moves it once the new target has held 150 ms; a target only
+    the grace keeps never shows;
+  - room after 160 ms, also when the place within a target changes; never
+    for a free target;
+  - a release lands on the shown target within its band, else the one under
+    the pointer, else nowhere; over home it does nothing. `hide()` starts the
+    aim afresh (the next sample never aims).
+  `DRAG_DEFAULTS` holds the numbers, each overridable; `targetAt`, `inRect`
+  and `liftDecision` (a mouse lifts at 5 px, a touch after a 180 ms hold and
+  8 px) are there too.
+- Nothing existing changes behaviour.
+
 ## 26.11.3
 
 - New in `values/`: the window motion rules, the one motion model for
