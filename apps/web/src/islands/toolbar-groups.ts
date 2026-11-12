@@ -222,6 +222,8 @@ interface Drag {
   targets?: AnyTarget[];
   ghost?: HTMLElement;
   slot?: HTMLElement | null;
+  /** Where the group came from (host, zone, index): home, never a target. Null for a floating group. */
+  home?: { h: Host; z: Zone; i: number } | null;
 }
 
 const indlabel = $("indlabel");
@@ -298,6 +300,9 @@ win.addEventListener("pointermove", (e) => {
     drag.grab = { x: drag.start.x - r.left, y: drag.start.y - r.top };
     const homeV = !!home.closest(".bar.v");
     drag.size = homeV ? { w: r.height, h: r.width } : { w: r.width, h: r.height };
+    // Where the group came from: dropping there changes nothing, so it is never offered as a target.
+    const hp = placeOf(drag.id);
+    drag.home = hp ? { h: hp.h, z: hp.z, i: model[hp.h][hp.z].indexOf(drag.id) } : null;
     // Targets are measured once, on the layout as it was at the lift (stable: slots opening never move them).
     drag.targets = groupTargets(drag.id);
     const hold = document.createElement("div");
@@ -352,6 +357,9 @@ function evaluate(p: { x: number; y: number }, t: number): void {
     const r = f.doc;
     if (p.x > r.left && p.x < r.right && p.y > r.top && p.y < r.bottom) best = f;
   }
+  // The group's own place is home, not a target: no outline there, and a release there is a no-op.
+  const hm = d.home;
+  if (best && !best.float && hm && best.h === hm.h && best.z === hm.z && best.i === hm.i) best = null;
   // One picture for every slot: the group's own outline where it will sit; between groups the neighbours move
   // aside to make that space. It appears once aiming has held on one target for 160 ms; flying hides it at once.
   if (!aiming) {
