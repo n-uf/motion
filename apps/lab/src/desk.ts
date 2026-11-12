@@ -369,6 +369,8 @@ function endDrag(cancel = false): void {
   let landed: string | null = null;
   atRelease = { ...it.m.drawn };
   if (!cancel) {
+    // The release point is a sample too: a last jump of the pointer can hide the indicator before the drop.
+    if (!keys) aim(performance.now(), 0);
     // Both previews land by one rule: what is shown. A snapped item sits in the shown target's slot; moved to another
     // place of that target, it lands where the pointer is, even before it has glided there.
     const stop = keys?.stops[keys.i];
