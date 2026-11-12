@@ -49,12 +49,13 @@ const desk = createDesk({
 });
 const docks = desk.constructionOf("docks");
 const { items, notes } = docks.layout(docks.initial([1, 2]), { width: 960, height: 420 }, DEFAULT_OPTIONS);
-console.log(items.get("panel:3")!.look, notes); // header [ 'bottom dock folded to its header' ]
+console.log(items.get("panel:3")!.look, notes.map((n) => n.code)); // header [ 'bottom-folded' ]
 ```
 
 Each construction is `{ id, title, idea, initial(docs, size?), layout(state, size, options) }`. A layout returns a
 `Placed` per item (its rect, look, layer, and whether it is hidden, has a minimum or may scroll off the stage) and
-notes saying how it gave way.
+notes saying how it gave way. A note's `code` (with its `side` and `items` where they apply) is the contract; its
+`text` is English for people, and its wording may change in any release.
 
 ## Toolbar groups
 

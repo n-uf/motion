@@ -44,11 +44,11 @@ import {
   DOCK,
   type Out,
 } from "./parts";
-import { BAR, G, LAYER, RAIL, TITLE, catalogOf, idOf, isDocKey, panelKey, startState, type Catalog, type DeskSpec, type DeskState, type Layout, type Options, type Side } from "./model";
+import { BAR, G, LAYER, RAIL, TITLE, catalogOf, idOf, isDocKey, panelKey, startState, type Catalog, type DeskSpec, type DeskState, type Layout, type Note, type Options, type Side } from "./model";
 
 // --- edge docks (docks, docksFull, dockTear) ------------------------------------------------------------------------
 
-function docks(cat: Catalog, s: DeskState, size: { width: number; height: number }, opt: Options, mode: "between" | "full", notes: string[]): Out {
+function docks(cat: Catalog, s: DeskState, size: { width: number; height: number }, opt: Options, mode: "between" | "full", notes: Note[]): Out {
   const out: Out = new Map();
   const { width: W, height: H } = size;
   const d = dockGeometry(cat, s, size, opt, mode, notes);
@@ -59,7 +59,7 @@ function docks(cat: Catalog, s: DeskState, size: { width: number; height: number
   else intoRail(cat, out, 0, 0, DOCK - G, s.left, "left");
   if (d.rOpen) folded += accordion(cat, out, s, W - RAIL - DOCK, G, DOCK - G, d.h - 2 * G, d.right);
   else intoRail(cat, out, W - RAIL, 0, DOCK - G, d.right, "right");
-  if (folded) notes.push(`${plural(folded, "section", "sections")} folded to ${folded > 1 ? "headers" : "a header"}`);
+  if (folded) notes.push({ code: "sections-folded", text: `${plural(folded, "section", "sections")} folded to ${folded > 1 ? "headers" : "a header"}` });
   // Reserved: the documents end above the bottom dock. Overlay: it floats over the documents' lower part.
   const overlay = opt.bottom === "overlay";
   if (d.bottomRect) {
@@ -88,7 +88,7 @@ function docks(cat: Catalog, s: DeskState, size: { width: number; height: number
 }
 
 /** Tear-off: torn-off panels float over the documents; one that doesn't fit the stage's height shades to its title bar. */
-function tornOff(cat: Catalog, out: Out, s: DeskState, size: Size, notes: string[]): void {
+function tornOff(cat: Catalog, out: Out, s: DeskState, size: Size, notes: Note[]): void {
   const docRects = [...out.entries()].filter(([k]) => isDocKey(k)).map(([, p]) => p.rect);
   const right = docRects.length ? Math.max(...docRects.map((r) => r.x + r.width)) : size.width / 2;
   const top = docRects.length ? Math.min(...docRects.map((r) => r.y)) : 0;
@@ -102,13 +102,16 @@ function tornOff(cat: Catalog, out: Out, s: DeskState, size: Size, notes: string
     const r = clampInto(rect(at.x, at.y, TORN_W, shade ? TITLE : full), rect(0, 0, size.width, size.height));
     out.set(panelKey(f.id), { rect: r, look: shade ? "header" : "float", layer: LAYER.float, shadow: true, ...(shade ? {} : { min: { height: full } }) });
   });
-  if (s.torn.length) notes.push(`${s.torn.map((f) => cat.title(panelKey(f.id))).join(", ")} ${s.torn.length > 1 ? "float" : "floats"}; drop on a dock or its rail icon to dock again`);
-  if (shaded) notes.push(`${plural(shaded, "floating panel", "floating panels")} shaded`);
+  if (s.torn.length) {
+    const items = s.torn.map((f) => panelKey(f.id));
+    notes.push({ code: "torn-floating", items, text: `${items.map(cat.title).join(", ")} ${items.length > 1 ? "float" : "floats"}; drop on a dock or its rail icon to dock again` });
+  }
+  if (shaded) notes.push({ code: "torn-shaded", text: `${plural(shaded, "floating panel", "floating panels")} shaded` });
 }
 
 // --- one tiling tree (tree) --------------------------------------------------------------------------------------------
 
-function tree(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
+function tree(cat: Catalog, s: DeskState, size: Size, notes: Note[]): Out {
   const out: Out = new Map();
   const area = treeArea(size, s);
   // A column folded to its rail: icons at the stage's edge, its panels hidden into them.
@@ -120,7 +123,11 @@ function tree(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
     rail(out, side, x, BAR, size.height - BAR, ids);
     intoRail(cat, out, x, BAR, TREE_COLUMN, ids, side);
   }
-  if (rails.left || rails.right) notes.push(`${rails.left && rails.right ? "both side columns" : `the ${rails.left ? "left" : "right"} column`} folded to ${rails.left && rails.right ? "their rails" : "its rail"}`);
+  if (rails.left || rails.right) {
+    const both = rails.left && rails.right;
+    const text = `${both ? "both side columns" : `the ${rails.left ? "left" : "right"} column`} folded to ${both ? "their rails" : "its rail"}`;
+    notes.push({ code: "columns-railed", text, ...(both ? {} : { side: rails.left ? "left" : "right" }) });
+  }
   const { tree: t, floats } = treeFloats(cat, treeShown(s), area);
   for (const [k, r] of treeTiles(cat, t, area)) out.set(k, { rect: r, look: isDocKey(k) ? "doc" : "tile", layer: LAYER.doc, min: tileMin(cat, k) });
   floats.forEach((k, i) => {
@@ -128,7 +135,7 @@ function tree(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
     const r = clampInto(rect(size.width / 2 - m.w / 2 + 22 * i, BAR + 40 + 22 * i, m.w, m.h), rect(0, 0, size.width, size.height));
     out.set(k, { rect: r, look: isDocKey(k) ? "doc" : "float", layer: LAYER.float, shadow: true });
   });
-  if (floats.length) notes.push(`${plural(floats.length, "tile floats", "tiles float")} (newest first): ${floats.map(cat.title).join(", ")}`);
+  if (floats.length) notes.push({ code: "tiles-float", items: floats, text: `${plural(floats.length, "tile floats", "tiles float")} (newest first): ${floats.map(cat.title).join(", ")}` });
   out.set("toolbar", bar(size.width));
   return out;
 }
@@ -153,18 +160,18 @@ const NAV_L = 240;
 const NAV_R = 240;
 const NAV_MIN = 380;
 
-function navigator(cat: Catalog, s: DeskState, size: Size, opt: Options, notes: string[]): Out {
+function navigator(cat: Catalog, s: DeskState, size: Size, opt: Options, notes: Note[]): Out {
   const out: Out = new Map();
   const { width: W, height: H } = size;
   let lw = s.left.length ? NAV_L : 0;
   let rw = s.right.length ? NAV_R : 0;
   if (rw && W - lw - rw < NAV_MIN) {
     rw = RAIL;
-    notes.push("inspector folded to icon tabs");
+    notes.push({ code: "tabs-folded", side: "right", text: "inspector folded to icon tabs" });
   }
   if (lw && W - lw - rw < NAV_MIN) {
     lw = RAIL;
-    notes.push("navigator folded to icon tabs");
+    notes.push({ code: "tabs-folded", side: "left", text: "navigator folded to icon tabs" });
   }
   const side = (sd: Side, x: number, w: number, full: number, ids: readonly number[]): void => {
     if (w === RAIL) {
@@ -188,7 +195,7 @@ function navigator(cat: Catalog, s: DeskState, size: Size, opt: Options, notes: 
 const DRAWER_L = 240;
 const DRAWER_R = 240;
 
-function drawers(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
+function drawers(cat: Catalog, s: DeskState, size: Size, notes: Note[]): Out {
   const out: Out = new Map();
   const { width: W, height: H } = size;
   const y = BAR;
@@ -197,8 +204,8 @@ function drawers(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
   const lDocked = W >= DRAWER_DOCK.left;
   const lOpen = s.left.length > 0 && !s.closed.includes("left");
   const rOpen = s.right.length > 0 && !s.closed.includes("right");
-  if (!rDocked && rOpen) notes.push("right drawer slides over the documents");
-  if (!lDocked && lOpen) notes.push(rDocked || !rOpen ? "left drawer slides over the documents" : "left drawer slides over too");
+  if (!rDocked && rOpen) notes.push({ code: "drawer-over", side: "right", text: "right drawer slides over the documents" });
+  if (!lDocked && lOpen) notes.push({ code: "drawer-over", side: "left", text: rDocked || !rOpen ? "left drawer slides over the documents" : "left drawer slides over too" });
   rail(out, "left", 0, y, h, s.left);
   rail(out, "right", W - RAIL, y, h, s.right);
   const x0 = RAIL + (lDocked && lOpen ? DRAWER_L : 0) + G;
@@ -219,7 +226,7 @@ function drawers(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
 
 // --- scrolling strip (strip) --------------------------------------------------------------------------------------------
 
-function strip(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
+function strip(cat: Catalog, s: DeskState, size: Size, notes: Note[]): Out {
   const out: Out = new Map();
   const { width: W, height: H } = size;
   const g = stripGeometry(cat, s, size, notes);
@@ -234,7 +241,7 @@ function strip(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
     });
   });
   const scrolls = g.total > W;
-  if (scrolls) notes.push(`the strip is ${Math.round(g.total)} wide: ${Math.round(g.total - W)} px off screen, reached by scrolling`);
+  if (scrolls) notes.push({ code: "strip-scrolls", text: `the strip is ${Math.round(g.total)} wide: ${Math.round(g.total - W)} px off screen, reached by scrolling` });
   out.set("track", { rect: rect(0, H - 5, W, 5), look: "track", layer: LAYER.toolbar, ...(scrolls ? {} : { hidden: true }) });
   const tw = scrolls ? (W / g.total) * W : W;
   out.set("thumb", { rect: rect(scrolls ? (g.scroll / g.total) * W : 0, H - 5, tw, 5), look: "thumb", layer: LAYER.toolbar, ...(scrolls ? {} : { hidden: true }) });
@@ -244,7 +251,7 @@ function strip(cat: Catalog, s: DeskState, size: Size, notes: string[]): Out {
 
 // --- floating palettes (floatOver, floatAround) --------------------------------------------------------------------
 
-function floatOver(cat: Catalog, s: DeskState, size: Size, opt: Options, notes: string[]): Out {
+function floatOver(cat: Catalog, s: DeskState, size: Size, opt: Options, notes: Note[]): Out {
   const out: Out = new Map();
   const { area } = paletteArea(size, opt);
   const pals = palettes(cat, s, area, size.width, OVER_MARGIN, notes);
@@ -255,12 +262,12 @@ function floatOver(cat: Catalog, s: DeskState, size: Size, opt: Options, notes: 
     out.set(panelKey(id), { rect: p.rect, look: p.shaded ? "header" : "float", layer: LAYER.float, shadow: true, ...(p.shaded ? {} : { min: { height: cat.natural(id) } }) });
     covered += p.rect.width * p.rect.height;
   }
-  notes.push(`palettes cover ${Math.round((covered / (area.width * area.height)) * 100)}% of the documents`);
+  notes.push({ code: "palettes-cover", text: `palettes cover ${Math.round((covered / (area.width * area.height)) * 100)}% of the documents` });
   out.set("toolbar", tb);
   return out;
 }
 
-function floatAround(cat: Catalog, s: DeskState, size: Size, opt: Options, notes: string[]): Out {
+function floatAround(cat: Catalog, s: DeskState, size: Size, opt: Options, notes: Note[]): Out {
   const out: Out = new Map();
   const { area } = paletteArea(size, opt);
   const pals = palettes(cat, s, area, size.width, 0, notes);
@@ -272,7 +279,7 @@ function floatAround(cat: Catalog, s: DeskState, size: Size, opt: Options, notes
     out.set(panelKey(id), { rect: p.rect, look: p.shaded ? "header" : "palette", layer: LAYER.palette, shadow: true, ...(p.shaded ? {} : { min: { height: cat.natural(id) } }) });
     used += p.rect.width * p.rect.height;
   }
-  notes.push(`documents get ${Math.round(docsRect.width)} px of width; ${Math.max(0, Math.round((1 - used / (area.width * area.height)) * 100))}% of the desk stays empty under short stacks`);
+  notes.push({ code: "docs-room", text: `documents get ${Math.round(docsRect.width)} px of width; ${Math.max(0, Math.round((1 - used / (area.width * area.height)) * 100))}% of the desk stays empty under short stacks` });
   out.set("toolbar", tb);
   return out;
 }
@@ -307,10 +314,10 @@ export interface Desk {
   readonly titleOf: (key: string) => string;
 }
 
-type LayoutFn = (s: DeskState, size: Size, opt: Options, notes: string[]) => Out;
+type LayoutFn = (s: DeskState, size: Size, opt: Options, notes: Note[]) => Out;
 
 const withNotes = (f: LayoutFn) => (s: DeskState, size: Size, opt: Options): Layout => {
-  const notes: string[] = [];
+  const notes: Note[] = [];
   const items = f(s, size, opt, notes);
   return { items, notes };
 };

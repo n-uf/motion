@@ -33,6 +33,8 @@ export {
   type Free,
   type Layout,
   type Look,
+  type Note,
+  type NoteCode,
   type Options,
   type PanelSpec,
   type Placed,

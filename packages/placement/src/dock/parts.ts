@@ -5,7 +5,7 @@
  */
 import { clampInto, rect, type Rect, type Size } from "../geometry";
 import { columnHeights, dwindle, giveWay, masterStack } from "./arrange";
-import { BAR, DOC_MIN, G, LAYER, RAIL, TABS, TITLE, docKey, idOf, isDocKey, panelKey, type Catalog, type DeskState, type Options, type Placed, type Side } from "./model";
+import { BAR, DOC_MIN, G, LAYER, RAIL, TABS, TITLE, docKey, idOf, isDocKey, panelKey, type Catalog, type DeskState, type Note, type Options, type Placed, type Side } from "./model";
 
 export type Out = Map<string, Placed>;
 
@@ -131,14 +131,14 @@ export interface DockGeometry {
  * folds to its rail when the documents would get narrower than WORK_MIN (the right one first, unless it was opened
  * last by hand). `mode`: the bottom dock between the side docks, or across the full width under them.
  */
-export function dockGeometry(cat: Catalog, s: DeskState, size: Size, opt: Options, mode: "between" | "full", notes: string[] = []): DockGeometry {
+export function dockGeometry(cat: Catalog, s: DeskState, size: Size, opt: Options, mode: "between" | "full", notes: Note[] = []): DockGeometry {
   const { width: W, height: H } = size;
   const bottomOn = opt.bottom !== "off" && s.bottom.length > 0;
   const right = bottomOn ? s.right : [...s.right, ...s.bottom];
   const bottomFolded = bottomOn && (H < 480 || s.bottom.every((id) => s.folded.includes(id)));
   // Open, it is BOTTOM tall, never more than BOTTOM_SHARE of the stage (but never below what its panels need).
   const bh = !bottomOn ? 0 : bottomFolded ? TITLE : Math.max(...s.bottom.map(cat.natural), Math.min(BOTTOM, BOTTOM_SHARE * H));
-  if (bottomOn && H < 480) notes.push("bottom dock folded to its header");
+  if (bottomOn && H < 480) notes.push({ code: "bottom-folded", text: "bottom dock folded to its header" });
   const full = mode === "full";
   const h = full && bottomOn ? H - bh - G : H;
   let lOpen = s.left.length > 0 && !s.closed.includes("left");
@@ -148,10 +148,10 @@ export function dockGeometry(cat: Catalog, s: DeskState, size: Size, opt: Option
     if (work() >= WORK_MIN) break;
     if (side === "right" && rOpen) {
       rOpen = false;
-      notes.push("right dock folded to its rail");
+      notes.push({ code: "dock-folded", side: "right", text: "right dock folded to its rail" });
     } else if (side === "left" && lOpen) {
       lOpen = false;
-      notes.push("left dock folded to its rail");
+      notes.push({ code: "dock-folded", side: "left", text: "left dock folded to its rail" });
     }
   }
   const x0 = RAIL + (lOpen ? DOCK : 0) + G;
@@ -259,12 +259,12 @@ export const stripDocW = (W: number): number => Math.max(360, Math.min(520, W * 
 export const stripMin = (cat: Catalog, k: string): number => (isDocKey(k) ? DOC_MIN.height : cat.natural(idOf(k)));
 
 /** The strip's columns as laid out: a column whose minimums don't fit the height splits in two, recursively. */
-export function stripColumns(cat: Catalog, cols: readonly (readonly string[])[], h: number, notes: string[] = []): string[][] {
+export function stripColumns(cat: Catalog, cols: readonly (readonly string[])[], h: number, notes: Note[] = []): string[][] {
   const split = (keys: readonly string[]): string[][] => {
     const need = keys.reduce((sum, k) => sum + stripMin(cat, k), 0) + G * (keys.length - 1);
     if (need <= h || keys.length === 1) return [[...keys]];
     const half = Math.ceil(keys.length / 2);
-    notes.push(`${keys.map(cat.title).join(" + ")} split into two columns`);
+    notes.push({ code: "column-split", items: [...keys], text: `${keys.map(cat.title).join(" + ")} split into two columns` });
     return [...split(keys.slice(0, half)), ...split(keys.slice(half))];
   };
   return cols.flatMap(split);
@@ -283,7 +283,7 @@ export interface StripGeometry {
 }
 
 /** The strip's columns and scroll: scrolled by hand, else to centre the focused document's column. */
-export function stripGeometry(cat: Catalog, s: DeskState, size: Size, notes: string[] = []): StripGeometry {
+export function stripGeometry(cat: Catalog, s: DeskState, size: Size, notes: Note[] = []): StripGeometry {
   const { width: W, height: H } = size;
   const y = BAR + G;
   const h = H - BAR - 2 * G;
@@ -316,12 +316,12 @@ export const OVER_MARGIN = 14;
  * Palettes at their natural size, stacked in the top corners of `area` (`m` in from its edges), and the free ones
  * where they were put; a stack too tall for the area shades its least recently used palettes to their title bars.
  */
-export function palettes(cat: Catalog, s: DeskState, area: Rect, W: number, m: number, notes: string[] = []): Map<number, { rect: Rect; shaded: boolean }> {
+export function palettes(cat: Catalog, s: DeskState, area: Rect, W: number, m: number, notes: Note[] = []): Map<number, { rect: Rect; shaded: boolean }> {
   const pw = paletteWidth(W);
   const avail = area.height - 2 * m;
   const narrow = W < PALETTE_NARROW;
   const stacks = narrow ? [[...s.stacks.left, ...s.stacks.right]] : [s.stacks.left, s.stacks.right];
-  if (narrow && s.stacks.left.length && s.stacks.right.length) notes.push("both stacks share the right corner");
+  if (narrow && s.stacks.left.length && s.stacks.right.length) notes.push({ code: "stacks-merged", text: "both stacks share the right corner" });
   const out = new Map<number, { rect: Rect; shaded: boolean }>();
   let shaded = 0;
   stacks.forEach((ids, si) => {
@@ -340,7 +340,7 @@ export function palettes(cat: Catalog, s: DeskState, area: Rect, W: number, m: n
     const at = f.at ?? { x: area.x + m, y: area.y + m };
     out.set(f.id, { rect: clampInto(rect(at.x, at.y, pw, shade ? TITLE : cat.natural(f.id)), area), shaded: shade });
   }
-  if (shaded) notes.push(`${plural(shaded, "palette", "palettes")} shaded to ${shaded > 1 ? "title bars" : "a title bar"}`);
+  if (shaded) notes.push({ code: "palettes-shaded", text: `${plural(shaded, "palette", "palettes")} shaded to ${shaded > 1 ? "title bars" : "a title bar"}` });
   return out;
 }
 
