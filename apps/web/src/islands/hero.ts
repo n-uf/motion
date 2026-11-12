@@ -459,8 +459,11 @@ export function startHero(band: HTMLElement): void {
     if (indAt) placeInd(indAt);
     if (drag) return;
     const to = rectOf(where);
-    if (motion.running) item.moveTo(to);
-    else item.jumpTo(to);
+    // A run in flight is re-aimed: record it afresh against the new target, or the scope would judge the old one.
+    if (motion.running) {
+      begin(to);
+      item.moveTo(to);
+    } else item.jumpTo(to);
   }).observe(band);
   matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", () => {
     if (reduced()) still();
