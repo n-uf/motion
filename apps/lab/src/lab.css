@@ -192,7 +192,8 @@ main.wide { max-width: 1712px; }
 .stage.desk .win.toolbar[data-look="bar"] .tb { justify-content: flex-start; }
 .stage.desk .win.toolbar[data-look="pill"] .frame { border-radius: 999px; }
 .stage.desk .win.toolbar[data-look="bar"] .frame { border-width: 0 0 1px; border-radius: 0; }
-.stage.desk .win.toolbar .tb-cell {
+/* The pill's own cells; a toolbar group in it keeps its own sizes (the ones it is measured at). */
+.stage.desk .win.toolbar .tb-cell:not(.tgroup .tb-cell) {
   flex: none;
   width: 26px;
   height: 26px;
@@ -205,8 +206,8 @@ main.wide { max-width: 1712px; }
   color: var(--d-ink-2);
   cursor: pointer;
 }
-.stage.desk .win.toolbar .tb-cell:hover { background: var(--d-hover); color: var(--d-ink); }
-.stage.desk .win.toolbar .tb-cell:active { background: var(--d-press); }
+.stage.desk .win.toolbar .tb-cell:not(.tgroup .tb-cell):hover { background: var(--d-hover); color: var(--d-ink); }
+.stage.desk .win.toolbar .tb-cell:not(.tgroup .tb-cell):active { background: var(--d-press); }
 .stage.desk .win.toolbar .tb-sep { flex: none; width: 1px; height: 16px; margin: 0 6px; background: var(--d-edge); }
 
 /* Panels: a quiet title bar led by its drag handle, over a body that clips. */
@@ -464,11 +465,37 @@ main.wide { max-width: 1712px; }
 .deskwin .tgroup .tg-title { display: flex; align-items: center; gap: 8px; padding: 0 6px; font-size: 12.5px; font-weight: 600; color: var(--d-ink); }
 .deskwin .tg-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--d-accent); }
 .deskwin .tgroup .tg-page { padding: 0 4px; font: 11px ui-monospace, monospace; color: var(--d-muted); }
-.deskwin .tgroup.v .tg-title { padding: 0; }
-.deskwin .tgroup.v .tg-name { display: none; }
-.deskwin .tgroup.v .tg-page { writing-mode: vertical-rl; height: auto; padding: 4px 0; }
 .deskwin .tgroup .tg-zoom { padding: 0 2px; font: 11px ui-monospace, monospace; color: var(--d-muted); }
-.deskwin .tgroup.v .tg-zoom { min-width: 0; padding: 2px 0; font-size: 9px; }
+
+/*
+ * Compact forms on a side edge (desk/compact.ts): text never rotates and the edge never widens for one group.
+ * Long content (the document's title and page) collapses to its grip + »; zoom stacks + / value / −, the value in
+ * mono without "%"; words show their icons; icon groups stay as they are.
+ */
+.deskwin .tgroup.v[data-g="doc"] .tg-ctl { display: none; }
+.deskwin .tgroup.v[data-g="doc"] .tb-cell.tg-over { display: grid; min-width: 26px; }
+.deskwin .tgroup.v[data-g="zoom"] .tg-ctl { flex-direction: column-reverse; }
+.deskwin .tgroup.v .tg-pct { display: none; }
+.deskwin .tgroup.v .tg-zoom { min-width: 26px; height: 18px; padding: 0; font-size: 10px; }
+
+/* », a real button: hover, a focus ring, and shown pressed while its popover is open. */
+.deskwin .tgroup .tb-cell.tg-over { font-size: 14px; }
+.deskwin .tgroup .tb-cell.tg-over:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--d-accent); }
+.deskwin .tgroup .tb-cell.tg-over[aria-expanded="true"] { background: var(--d-press); color: var(--d-ink); }
+/* »'s popover: the group's full horizontal form, anchored to », working controls. */
+.deskwin .tg-pop { position: absolute; z-index: 12; pointer-events: auto; padding: 5px 6px; background: var(--d-panel); border: 1px solid var(--d-edge-lifted); border-radius: 8px; box-shadow: var(--d-shadow); }
+.deskwin .tg-pop .tg-popgroup { position: static; transform: none; }
+.deskwin .tg-pop .tg-in { width: auto; height: auto; }
+.deskwin .tg-pop .tb-cell:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--d-accent); }
+
+/* One selected style for every segmented control: the accent inset ring (no underline or fill variants). */
+.controls { --sel: #3a6fd8; }
+@media (prefers-color-scheme: dark) {
+  .controls { --sel: #7aa2f7; }
+}
+.deskwin .tb-cell[aria-pressed="true"] { --sel: var(--d-accent); }
+.deskwin .tb-cell[aria-pressed="true"],
+.controls button[aria-pressed="true"] { background: transparent; color: var(--sel); box-shadow: inset 0 0 0 1.5px var(--sel); outline: none; }
 
 /* The drop layer stays inside the window: nothing on it (a hidden indicator included) widens the page. */
 .deskwin .tg-layer { position: absolute; inset: 0; z-index: 30; pointer-events: none; overflow: hidden; }
@@ -515,4 +542,3 @@ main.wide { max-width: 1712px; }
 .lock:has(input:checked) .lockhint { display: inline; }
 .lock kbd { padding: 1px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; font: 11px ui-monospace, monospace; }
 #toolbar-cases { display: flex; flex-wrap: wrap; gap: 4px; }
-#toolbar-cases button[aria-pressed="true"] { outline: 2px solid var(--d-accent, #3a6fd8); }
