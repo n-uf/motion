@@ -1,0 +1,136 @@
+/** Toolbar hosts: zones along the length, trailing-first overflow, insertion points, and the arrangement's changes. */
+import { describe, expect, it } from "vitest";
+import { overlap } from "../index";
+import {
+  GAP,
+  arrangement,
+  dockGroup,
+  floatGroup,
+  hostNeed,
+  hostOf,
+  insertGroup,
+  insertions,
+  isEmptyHost,
+  isOwnPlace,
+  layoutHost,
+  moveBar,
+  moveToHost,
+  resetGroup,
+  toggleCollapsed,
+  withoutGroup,
+  type GroupSize,
+  type HostSpec,
+} from "../src/toolbar";
+
+type Gr = "doc" | "edit" | "history" | "view" | "zoom" | "panel" | "share";
+const WIDTH: Record<Gr, number> = { doc: 160, edit: 90, history: 70, view: 110, zoom: 100, panel: 80, share: 70 };
+const size: GroupSize<Gr> = (g, v, collapsed) => (collapsed ? { along: 30, across: 28 } : v ? { along: WIDTH[g] * 0.6, across: 30 } : { along: WIDTH[g], across: 28 });
+const HOME = arrangement<Gr>({ title: { start: ["doc"], end: ["zoom"] }, top: { center: ["edit", "history", "view"] }, bottom: { start: ["panel"], end: ["share"] } });
+const spec = (length: number): HostSpec => ({ length, thickness: 34, lead: 20, tail: 20 });
+
+describe("a host's layout", () => {
+  it("lays out start, centre and end apart, the centre centred on the host", () => {
+    const zones = { start: ["doc"], center: ["view"], end: ["zoom"] } as const;
+    const l = layoutHost<Gr>(zones, "top", spec(900), size);
+    const r = (g: Gr) => l.slots.get(g)!;
+    expect(r("doc").x).toBe(20);
+    expect(r("zoom").x + r("zoom").width).toBe(880);
+    expect(r("view").x + r("view").width / 2).toBe(450);
+    expect(l.overflow).toEqual([]);
+    expect(overlap(r("doc"), r("view")) + overlap(r("view"), r("zoom"))).toBe(0);
+  });
+
+  it("a centre that would hit a side zone centres between them instead", () => {
+    const l = layoutHost<Gr>({ start: ["doc", "edit"], center: ["view"], end: [] }, "top", spec(560), size);
+    const doc = l.slots.get("edit")!;
+    expect(l.slots.get("view")!.x).toBeGreaterThan(doc.x + doc.width);
+  });
+
+  it("never wraps: groups collapse from the trailing end, and the ones collapsed by hand stay", () => {
+    const zones = { start: ["doc", "edit"], center: [], end: ["view", "zoom"] } as const;
+    const tight = layoutHost<Gr>(zones, "top", spec(400), size);
+    expect(tight.overflow[0]).toBe("zoom");
+    expect(tight.overflow).not.toContain("doc");
+    expect(tight.need).toBeLessThanOrEqual(400);
+    const roomy = layoutHost<Gr>(zones, "top", spec(1200), size, ["edit"]);
+    expect([roomy.overflow, roomy.collapsed]).toEqual([[], ["edit"]]);
+  });
+
+  it("a side edge lays its groups out top to bottom, centred across it", () => {
+    const l = layoutHost<Gr>({ start: ["edit", "history"], center: [], end: [] }, "left", spec(600), size);
+    const e = l.slots.get("edit")!;
+    const h = l.slots.get("history")!;
+    expect(h.y).toBeCloseTo(e.y + e.height + GAP);
+    expect(e.x).toBe((34 - 30) / 2);
+  });
+
+  it("the need counts an empty centre at its drop size, with its margins, when asked", () => {
+    const zones = { start: ["doc"], center: [], end: ["zoom"] } as const;
+    const plain = hostNeed<Gr>(zones, [], spec(900), size, false);
+    const counted = hostNeed<Gr>(zones, [], { ...spec(900), center: { min: 80, margin: 12 } }, size, false);
+    expect(counted - plain).toBe(80 + 24 - 16);
+    // Room for the groups but not the empty centre's drop size: the trailing group collapses only when it counts.
+    expect(layoutHost<Gr>(zones, "top", { ...spec(counted - 50), center: { min: 80, margin: 12 } }, size).overflow).toEqual(["zoom"]);
+    expect(layoutHost<Gr>(zones, "top", spec(counted - 50), size).overflow).toEqual([]);
+  });
+});
+
+describe("insertion points", () => {
+  it("before all, between and after all in a zone; their spans cover the host", () => {
+    const zones = { start: ["edit", "history"], center: [], end: ["zoom"] } as const;
+    const l = layoutHost<Gr>(zones, "top", spec(900), size);
+    const pts = insertions<Gr>(zones, "top", spec(900), l, (g) => g.toUpperCase());
+    expect(pts.filter((p) => !p.empty).map((p) => p.label)).toEqual(["Top bar · left · before all", "Top bar · left · between EDIT and HISTORY", "Top bar · left · after all", "Top bar · right · before all", "Top bar · right · after all"]);
+    const lines = pts.filter((p) => !p.empty);
+    expect(lines[0]!.span[0]).toBe(0);
+    expect(lines.at(-1)!.span[1]).toBe(900);
+    for (let i = 1; i < lines.length; i++) expect(lines[i]!.span[0]).toBeCloseTo(lines[i - 1]!.span[1]);
+  });
+
+  it("an empty zone owns its own third", () => {
+    const zones = { start: ["edit"], center: [], end: [] } as const;
+    const pts = insertions<Gr>(zones, "top", spec(900), layoutHost<Gr>(zones, "top", spec(900), size));
+    const centre = pts.find((p) => p.empty && p.zone === "center")!;
+    const end = pts.find((p) => p.empty && p.zone === "end")!;
+    expect(centre.span).toEqual([300, 600]);
+    expect(end.span).toEqual([600, 900]);
+    const onlyEnd = { start: [], center: [], end: ["zoom"] } as const;
+    const start = insertions<Gr>(onlyEnd, "top", spec(900), layoutHost<Gr>(onlyEnd, "top", spec(900), size)).find((p) => p.empty && p.zone === "start")!;
+    expect(start.span).toEqual([0, 300]);
+  });
+});
+
+describe("arrangement changes", () => {
+  it("inserts, lifts and moves groups", () => {
+    const a = insertGroup(HOME, "share", "title", "start", 0);
+    expect(a.title.start).toEqual(["share", "doc"]);
+    expect(a.bottom.end).toEqual([]);
+    expect(hostOf(withoutGroup(a, "share"), "share")).toBeNull();
+    expect(moveToHost(HOME, "edit", "title").title.end).toEqual(["zoom", "edit"]);
+    const bar = moveBar(HOME, "bottom", "left");
+    expect([bar.left.start, bar.left.end, isEmptyHost(bar, "bottom")]).toEqual([["panel"], ["share"], true]);
+    // Onto a host with groups: after the groups there, zone by zone.
+    const onto = moveBar(HOME, "bottom", "title");
+    expect([onto.title.start, onto.title.end]).toEqual([["doc", "panel"], ["zoom", "share"]]);
+  });
+
+  it("docks back where it floated from, not where the default has it", () => {
+    const moved = moveToHost(HOME, "history", "right");
+    expect(hostOf(dockGroup(floatGroup(moved, "history", 0, 0), "history", HOME), "history")).toEqual({ host: "right", zone: "start", index: 0 });
+  });
+
+  it("floats and docks back where it floated from; resets to home, expanded", () => {
+    const f = floatGroup(HOME, "history", 40, 50);
+    expect(f.floating).toEqual([{ id: "history", x: 40, y: 50, from: { host: "top", zone: "center", index: 1 } }]);
+    expect(dockGroup(f, "history", HOME)).toEqual(HOME);
+    const moved = toggleCollapsed(moveToHost(HOME, "history", "left"), "history");
+    const back = resetGroup(moved, "history", HOME);
+    expect([hostOf(back, "history"), back.collapsed]).toEqual([{ host: "top", zone: "center", index: 1 }, []]);
+  });
+
+  it("own place is home: before or after itself changes nothing", () => {
+    expect(isOwnPlace(HOME, "history", { host: "top", zone: "center", index: 1 })).toBe(true);
+    expect(isOwnPlace(HOME, "history", { host: "top", zone: "center", index: 0 })).toBe(false);
+    expect(isOwnPlace(HOME, "history", { host: "top", zone: "end", index: 0 })).toBe(false);
+  });
+});
