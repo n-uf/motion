@@ -15,7 +15,6 @@ import { measureFrame, onTopAt as onTopIn } from "./shared/frame";
 import { inside, nextFrame, overlap, same, wait } from "./shared/geometry";
 import "./shared/hooks";
 import { cancelPress, trackPress } from "./shared/press";
-import { orderSlots, treeSlots } from "@n-uf/placement/targets";
 import {
   columns,
   grid,
@@ -27,7 +26,7 @@ import {
   swapLeaves,
   treeFromOrder,
   type Tree,
-} from "@n-uf/placement/tiling";
+} from "./shared/tiling";
 
 type Tempo = keyof typeof SETTLE_TEMPO;
 
@@ -149,7 +148,7 @@ function layout(ids: readonly number[]): Map<number, Rect> {
   return masterStack(ids, FULL_AREA(), GAP);
 }
 
-/** Dwindle's split tree (@n-uf/placement/tiling); a drop splits the window under the pointer, on the pointer's side. */
+/** Dwindle's split tree (see shared/tiling); a drop splits the window under the pointer, on the pointer's side. */
 let tree: Tree | null = null;
 
 const layoutTree = (node: Tree | null): Map<number, Rect> => layoutTreeIn(node, FULL_AREA(), GAP);
@@ -161,8 +160,24 @@ function baseLayout(): Map<number, Rect> {
 
 /** Every place the lifted window `id` could land (the tree or order without it). */
 function drops(id: number): Drop[] {
-  if (layoutKind === "dwindle") return treeSlots(tree, id, FULL_AREA(), GAP).map((s) => ({ key: s.id, slot: s.slot, layout: s.layout, commit: () => setTree(s.tree) }));
-  return orderSlots(order, id, layout).map((s, i) => ({ key: s.id, slot: s.slot, layout: s.layout, commit: () => order.splice(i, 0, id) }));
+  if (layoutKind === "dwindle") {
+    if (!tree) {
+      const t: Tree = { leaf: id };
+      return [{ key: "root", slot: FULL_AREA(), layout: layoutTree(t), commit: () => setTree(t) }];
+    }
+    return leafIds(tree).flatMap((target) =>
+      [true, false].map((first) => {
+        const t = splitLeaf(tree, target, id, first);
+        const map = layoutTree(t);
+        return { key: `${target}:${first ? "a" : "b"}`, slot: map.get(id)!, layout: map, commit: () => setTree(t) };
+      }),
+    );
+  }
+  return Array.from({ length: order.length + 1 }, (_, i) => {
+    const ids = [...order.slice(0, i), id, ...order.slice(i)];
+    const map = layout(ids);
+    return { key: String(i), slot: map.get(id)!, layout: map, commit: () => order.splice(i, 0, id) };
+  });
 }
 
 function setTree(t: Tree | null): void {
