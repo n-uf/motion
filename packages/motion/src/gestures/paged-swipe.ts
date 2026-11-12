@@ -12,7 +12,8 @@ import type { ModifierKey, Modifiers } from "./types";
  *   │                                   rule breach / idle / end                 gesture end
  *   │                                               ▼                                ▼
  *   └──────── lockoutMs elapsed ◄── lockout ◄── settled (commit) ◄───────────── settling
- *   └──────────────────────────────────────── settled (cancel) ◄───────────────────┘
+ *   └──────────────────────────────────────── settled (cancel) ◄───────────────────┤
+ *   └──────────────────────────────────────── cancel (transition stopped) ◄────────┘
  * ```
  *
  * - **Arming:** nothing else owns the pointer (`blocked`), the movement runs mostly along the swipe (more than twice
