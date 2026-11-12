@@ -290,6 +290,7 @@ targets, and draws what it says. It is only there, not in the root.
 | `DRAG_DEFAULTS` | Lift at 5 px (a touch: a 180 ms hold, then 8 px); aiming below 0.45 px/ms over 50 ms, or within 12 px for 90 ms; a 10 px band, a 4 px breakthrough, a 120 ms gap grace; a switch waits 150 ms; room after 160 ms. Each is overridable per intent. |
 | `targetAt(targets, point)`, `inRect(rect, point, margin?)` | The most precise target under a point (priority 1, 2, 3, then the smaller zone); a point in a rect grown or shrunk by a margin. |
 | `liftDecision({ touch, distance, elapsed }, tuning?)` | `"wait"`, `"lift"` or `"refuse"`: when a press becomes a drag. |
+| `previewPlan(frame, preview, slotted?)`, `DragPreview`, `DRAG_PREVIEW_DEFAULT` | What to draw for a frame under one of three previews: `{ showIndicator, makeRoom, snapItem }`. `"indicator"`: only the indicator, nothing moves. `"gap"`: the others make room once the intent does; the item stays under the pointer. `"snap"` (the default): the gap opens and the item glides into a slotted target's room, with no indicator (a target without a slot keeps it). |
 
 A target is `{ id, priority, hit, slot?, label?, free? }`: `hit` is the zone
 the pointer can be in, `priority` how precise it is (a tab strip 1, a slot 2,
@@ -307,6 +308,8 @@ a large area 3). The rules:
 - A release lands on the shown target if the pointer is within its band, else
   on the target under the pointer, else nowhere. A release over home does
   nothing.
+- The three previews only change what is drawn: all follow these rules, so a
+  drop lands where the preview showed it in each.
 
 ```ts
 import { createDragIntent, type DragTarget } from "@n-uf/motion/drag";

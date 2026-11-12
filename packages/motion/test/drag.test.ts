@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
-import { createDragIntent, DRAG_DEFAULTS, inRect, liftDecision, targetAt, type DragTarget, type DragTuning } from "../src/drag";
+import {
+  createDragIntent,
+  DRAG_DEFAULTS,
+  DRAG_PREVIEW_DEFAULT,
+  inRect,
+  liftDecision,
+  previewPlan,
+  targetAt,
+  type DragPreview,
+  type DragTarget,
+  type DragTuning,
+  type PreviewPlan,
+} from "../src/drag";
 
 const FRAME = 1000 / 60;
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
@@ -255,5 +267,52 @@ describe("drag/ intent", () => {
     intent.moveHome(-400, 0);
     expect(intent.release(FROM, moved)?.id).toBe("area");
     expect(intent.release({ x: FROM.x - 400, y: FROM.y }, moved)).toBeNull();
+  });
+});
+
+describe("drag/ previews", () => {
+  /** The plan of every frame of a drag aimed at `goal` (held there until the room is made), under `preview`. */
+  function plans(goal: Point, preview: DragPreview): { plan: PreviewPlan; shown: string | null; room: boolean }[] {
+    const keys = hold(through([FROM, goal], 0.8), 600);
+    const intent = createDragIntent({ home: HOME });
+    const out: { plan: PreviewPlan; shown: string | null; room: boolean }[] = [];
+    for (let t = 0; t <= keys.at(-1)![0] + 0.001; t += FRAME) {
+      const f = intent.update(along(keys, t), t, DOCK);
+      out.push({ plan: previewPlan(f, preview), shown: f.shown?.id ?? null, room: f.room });
+    }
+    return out;
+  }
+
+  it("snap is the default", () => {
+    expect(DRAG_PREVIEW_DEFAULT).toBe("snap");
+  });
+
+  it("indicator: the indicator shows, and nothing else moves (no room, no snap)", () => {
+    const frames = plans(mid(A.hit), "indicator");
+    expect(frames.some((f) => f.room)).toBe(true);
+    expect(frames.every((f) => f.plan.showIndicator === (f.shown !== null))).toBe(true);
+    expect(frames.some((f) => f.plan.makeRoom || f.plan.snapItem)).toBe(false);
+  });
+
+  it("gap: the room opens with the intent's, the item stays under the pointer", () => {
+    const frames = plans(mid(A.hit), "gap");
+    expect(frames.every((f) => f.plan.makeRoom === f.room)).toBe(true);
+    expect(frames.some((f) => f.plan.makeRoom)).toBe(true);
+    expect(frames.some((f) => f.plan.snapItem)).toBe(false);
+    expect(frames.every((f) => f.plan.showIndicator === (f.shown !== null))).toBe(true);
+  });
+
+  it("snap: the room opens and the item snaps into a slot, which needs no indicator", () => {
+    const frames = plans(mid(A.hit), "snap");
+    expect(frames.every((f) => f.plan.makeRoom === f.room && f.plan.snapItem === f.room)).toBe(true);
+    expect(frames.some((f) => f.plan.snapItem)).toBe(true);
+    expect(frames.some((f) => f.plan.showIndicator)).toBe(false);
+  });
+
+  it("snap: a target with no slot keeps the indicator and never snaps", () => {
+    const frames = plans({ x: 500, y: 200 }, "snap");
+    expect(frames.at(-1)!.shown).toBe("area");
+    expect(frames.some((f) => f.plan.snapItem || f.plan.makeRoom)).toBe(false);
+    expect(frames.at(-1)!.plan.showIndicator).toBe(true);
   });
 });

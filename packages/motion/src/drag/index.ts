@@ -12,3 +12,4 @@ export {
   type DragTuning,
   type LiftDecision,
 } from "./intent";
+export { DRAG_PREVIEW_DEFAULT, previewPlan, type DragPreview, type PreviewPlan } from "./preview";

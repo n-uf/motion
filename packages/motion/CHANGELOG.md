@@ -27,6 +27,12 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   `DRAG_DEFAULTS` holds the numbers, each overridable; `targetAt`, `inRect`
   and `liftDecision` (a mouse lifts at 5 px, a touch after a 180 ms hold and
   8 px) are there too.
+  - Three drop previews, one intent: `previewPlan(frame, preview, slotted?)`
+    gives `{ showIndicator, makeRoom, snapItem }` for `"indicator"` (nothing
+    moves; never room), `"gap"` (the others open the slot once the intent
+    makes room; the item stays under the pointer) and `"snap"` (the gap
+    opens and the item glides into a slot; a target without one keeps the
+    indicator). `DRAG_PREVIEW_DEFAULT` is `"snap"`.
 - New entry `@n-uf/motion/layout`: the window motion rules applied to a whole
   surface. `createLayoutMotion({ loop })` moves items by id and target rect,
   all on one frame loop that runs only while something moves: a settle on
