@@ -1,4 +1,4 @@
-/* Kit case 1, panels vs groups: the dossier window, on the site's window tokens (src/shell/tokens.css). */
+/* Kit case 1, panels vs groups: the document viewer window, on the site's window tokens (src/shell/tokens.css). */
 .kp-wrap { overflow-x: auto; padding: 4px 0 8px; }
 .kp-stage {
   --kp-win: var(--win-bar); --kp-chrome: var(--win-frame); --kp-edge: var(--win-edge); --kp-ink: var(--win-text); --kp-muted: var(--win-muted);

@@ -53,7 +53,7 @@ export interface PageDef {
 import { KIT_CASES } from "../kits/cases";
 import type { KitCase } from "../kits/kit-case";
 
-/** The kit cases' design sketches (UI: Dossier's notes, served locally). */
+/** The kit cases' design sketches (served locally). */
 const SKETCHES = "http://localhost:3070";
 const raw = (load: () => Promise<{ default: string }>) => () => load().then((m) => m.default);
 
@@ -188,7 +188,7 @@ export const PAGES: readonly PageDef[] = [
     title: "1 · Panels vs groups",
     line: KIT_LIST[0]!.line,
     about:
-      "A dossier window on the real packages: the toolbar groups on <code>@n-uf/placement</code>'s toolbar targets, the panels on its edge docks with tear-off, and every item on <code>@n-uf/motion</code>'s drag intent and held drag. Drag a group by its handle, a panel by its title bar or its rail icon. The switch puts the panels on the kits' own drag as it is today, so both can be felt in one window. Sample content only.",
+      "A document viewer window on the real packages: the toolbar groups on <code>@n-uf/placement</code>'s toolbar targets, the panels on its edge docks with tear-off, and every item on <code>@n-uf/motion</code>'s drag intent and held drag. Drag a group by its handle, a panel by its title bar or its rail icon. The switch puts the panels on the kits' own drag as it is today, so both can be felt in one window. Sample content only.",
     sketch: `${SKETCHES}/${KIT_LIST[0]!.sketch}`,
     ...kitsPanels,
   },
