@@ -539,14 +539,14 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
     const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
     const laid = s.layOuts.length;
     for (let i = 1; i <= 20; i++) {
-      a.retarget(rect(10 * i, 5 * i, 50, 50));
+      a.retarget!(rect(10 * i, 5 * i, 50, 50));
       s.clock.frame();
     }
     expect(s.layOuts.length).toBe(laid);
     expect(a.box).toEqual(rect(0, 0, 50, 50));
     s.settle();
     expect(a.drawn).toEqual(rect(200, 100, 50, 50));
-    a.retarget(rect(200, 100, 30, 90));
+    a.retarget!(rect(200, 100, 30, 90));
     expect(s.layOuts.length).toBe(laid + 1);
     expect(s.layOuts.at(-1)).toEqual(rect(200, 100, 30, 90));
   });
@@ -568,5 +568,22 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
     }
     expect(held.returning).toBe(false);
     expect(s.layOuts.length).toBe(laid);
+  });
+
+  it("the held drag works on an item without retarget (one from 26.11.4, or a test double): it glides back by moveTo", () => {
+    const s = surface();
+    const real = s.motion.add("a", s.drawable, rect(0, 0, 80, 30));
+    const older = new Proxy(real, { get: (t, k) => (k === "retarget" ? undefined : Reflect.get(t, k)) });
+    const held = holdItem(older, { x: 0, y: 0 });
+    held.move({ x: 100, y: 100 });
+    held.snapTo(rect(300, 100, 80, 30));
+    s.settle();
+    held.snapTo(null);
+    for (let i = 0; i < 400 && held.returning; i++) {
+      s.clock.frame();
+      held.follow();
+    }
+    expect(held.returning).toBe(false);
+    expect(real.drawn).toEqual(rect(100, 100, 80, 30));
   });
 });
