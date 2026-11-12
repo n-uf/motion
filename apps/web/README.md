@@ -1,7 +1,9 @@
 # motion-web
 
-The home site of `@n-uf/motion` (motion.n-uf.com): a static Astro site with the window motion rules, the drag-intent
-model, desk layouts and toolbar groups as interactive pages built on the library itself (`workspace:*`).
+The home site of the pair `@n-uf/motion` (how things move) and `@n-uf/placement` (where things go), at
+motion.n-uf.com: a static Astro site with the window motion rules and the drag-intent model (motion), desk layouts and
+toolbar groups (placement) as interactive pages built on the library itself (`workspace:*`). The pair, the nav's two
+parts and each page's "Built with" line live in `src/data/parts.ts`.
 
 ## Before adding UI
 
@@ -31,6 +33,14 @@ sitemap and linked only from the footer.
   figure. Shared bar controls: `DropModeSwitch.astro` (Drop indicator · Open gap · Snap to slot, `previewPlan` in
   `islands/drop-mode.ts`) and `Playback.astro` (Speed, Tempo). Automatic showcases register with
   `islands/showcase.ts`, which pauses them at the first user action and resumes them 10 s after the last.
+- Each window's title bar ends with its own controls: **X-ray** and **↺ Reset**. Reset puts the groups, the demo and
+  the lock back (each island registers its demo with `figureChrome(fig, { demo })`) and keeps the visitor's
+  preferences. X-ray (`islands/xray.ts`) lets each part draw its layer over the window: placement's hit zones (with
+  their priorities) and slots in one colour, motion's settle target, trail and aim in the accent. The chrome draws
+  the group drags; each island draws its own demo (`xrayOf(fig).draw(owner, frame)`).
+- Code on the home page (`CodeTabs.astro`, `PairCode.astro`) is shown from files in `src/snippets/`. Snippets that use
+  entries the workspace packages don't export yet are left out of the site's typecheck and checked against the live
+  packages instead.
 
 ## Commands
 
