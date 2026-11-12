@@ -13,61 +13,14 @@
         <nav class="pages"><a href="./index.html">Tiling</a> · <a href="./desk.html">Desk constructions</a> · <b>Kit toolbar cases</b></nav>
         <h1>Kit toolbar cases</h1>
         <p>
-          Three cases from moving the dossier kits onto the packages, on the real code: each window lays its toolbar
-          groups out with <code>@n-uf/placement/toolbar</code>, offers drop targets from
-          <code>@n-uf/placement/targets</code>, decides with <code>@n-uf/motion/drag</code>'s intent and moves the real
-          groups with <code>@n-uf/motion/layout</code>. Drag a group by its handle (the three dots), or Tab to a handle
-          and use the arrow keys. The slot is the group's own outline where it would land. Sample content only.
+          Cases from moving the dossier kits onto the packages, on the real code: each window lays its toolbar groups
+          out with <code>@n-uf/placement/toolbar</code>, offers drop targets from <code>@n-uf/placement/targets</code>,
+          decides with <code>@n-uf/motion/drag</code>'s intent and moves the real groups with
+          <code>@n-uf/motion/layout</code>. Drag a group by its handle (the three dots), or Tab to a handle and use the
+          arrow keys. The slot is the group's own outline where it would land. Sample content only.
         </p>
       </header>
-
-      <section class="kcase" id="case-6">
-        <h2>6 · Constraints</h2>
-        <p class="rule">
-          The kit's rule is placement's <code>allows(group, place)</code>: <code>hostTargets</code> and
-          <code>floatTarget</code> leave a forbidden place out, so <code>createDragIntent</code> never sees it.
-          <b>Redact</b> stays in the top bar (no other bar, no float); <b>Share</b> can't float. Over a forbidden spot there is no target and no slot,
-          the group follows the pointer, and a release glides home. Navigate, Zoom and Annotate go anywhere.
-        </p>
-        <div class="controls"><button type="button" data-reset="c6">Reset</button></div>
-        <div class="k-desk"><div class="k-host" id="c6"></div></div>
-      </section>
-
-      <section class="kcase" id="case-7">
-        <h2>7 · Keyboard moves</h2>
-        <p class="rule">
-          Tab to a handle. <b>→ ↓</b> step to the next place and <b>← ↑</b> to the previous one: the slot shows it and
-          the group glides there. <b>Enter</b> or <b>Space</b> drops; <b>Esc</b> glides home. <b>Shift+F10</b> (or a
-          right-click on the handle) opens the menu, whose <b>Move to ›</b> lists the same places in the same order.
-          Both read placement's <code>keyboardStops</code>: title → top → left → right → bottom, zones start → centre →
-          end, each insertion point in order, the group's own place among them (where the arrows start).
-        </p>
-        <div class="controls"><button type="button" data-reset="c7">Reset</button></div>
-        <div class="k-desk"><div class="k-host" id="c7"></div></div>
-        <ol class="k-stops" id="c7-stops"><li>Focus a handle to see its places.</li></ol>
-      </section>
-
-      <section class="kcase" id="case-10">
-        <h2>10 · Scaled page</h2>
-        <p class="rule">
-          The desk is scaled with <code>transform: scale(s)</code>. The intent works in page space, so the kit converts
-          the pointer first: <code>page = (pointer − origin) ÷ s</code>. The orange cross is the point the intent reads;
-          with the conversion it sits under the pointer and the slot lands there at every scale. Turn the conversion
-          off to see the bug: at 0.7 the intent reads a point away from the pointer.
-        </p>
-        <div class="controls">
-          <fieldset>
-            <legend>Scale</legend>
-            <input type="range" id="c10-scale" min="0.5" max="1" step="0.05" value="0.7" />
-            <output id="c10-scale-out">0.70</output>
-          </fieldset>
-          <label><input type="checkbox" id="c10-xray" /> X-ray: hit rects</label>
-          <label><input type="checkbox" id="c10-convert" checked /> Convert the pointer into page space</label>
-          <button type="button" data-reset="c10">Reset</button>
-        </div>
-        <div class="k-desk"><div class="k-scale" id="c10"></div></div>
-      </section>
-
+      <div id="cases"></div>
       <section>
         <h2>Scenarios</h2>
         <p class="readout">
