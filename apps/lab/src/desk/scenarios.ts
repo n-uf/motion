@@ -597,7 +597,9 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       drag: true,
       play: async (expect) => {
         const before = JSON.stringify(lab.state());
-        const r = await lab.keyboard(key, 2);
+        // Three stops on: past the item's own place (with the drop indicator nothing makes room, so a drop back there
+        // would move nothing at all).
+        const r = await lab.keyboard(key, 3);
         await lab.idle();
         expect(shows(r).length >= 1, "the arrow keys showed no target");
         expect(r.landed !== null && r.landed === shows(r).at(-1)!.id, `landed on ${r.landed ?? "home"}, the indicator showed ${shows(r).at(-1)?.id ?? "nothing"}`);
@@ -927,12 +929,12 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         }
         return hold(keys, 400);
       });
-      // Changes during the wobble: each target shown (or slot snapped into) after it began; the first one isn't a
-      // change when nothing was showing as it began.
-      const changesIn = (log: readonly { t: number; id: string | null }[]): number => {
-        const before = log.filter((e) => e.t <= wobbleAt).at(-1)?.id ?? null;
-        return Math.max(0, log.filter((e) => e.t > wobbleAt && e.id !== null).length - (before === null ? 1 : 0));
-      };
+      // Changes during the wobble: the indicator (or the snapped slot) switching straight from one target to another,
+      // which is what the switch hold rules. At ±14 px every 60 ms the pointer moves at about the aiming speed, so it
+      // may count as flying for a frame: hiding then, and showing again once it aims, is the model's rule for a pointer
+      // that flew, not a switch.
+      const changesIn = (log: readonly IndicatorEntry[]): number =>
+        log.filter((e, i) => e.t > wobbleAt && e.id !== null && i > 0 && log[i - 1]!.id !== null && log[i - 1]!.id !== e.id).length;
       const changes = changesIn(r.log);
       expect(changes <= 1, `the indicator changed ${changes} times in the wobble: ${sequence(r)}`);
       expect(flash(r) === null, `${flash(r)}: ${sequence(r)}`);
