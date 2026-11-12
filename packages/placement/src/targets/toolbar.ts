@@ -1,7 +1,7 @@
 /**
  * Toolbar group targets: a host's insertion points (lines between groups, priority 2) and empty zones (priority 1),
  * and floating over the content (priority 3). A group's own place is home, never a target: its stretch comes back
- * in `own`, for the consumer to join to the drag's home. A place `allows` forbids is no target either.
+ * in `own`, for the consumer to join to the drag's home. A place `allows` forbids is no host target either.
  */
 import { rect, type Point, type Rect } from "../geometry";
 import { ZONES, floatGroup, insertGroup, insertions, isOwnPlace, layoutHost, vertical, withoutGroup, type Arrangement, type GroupSize, type HostId, type HostSpec, type Place } from "../toolbar";
@@ -26,7 +26,8 @@ export interface ToolbarTarget<G extends string = string> extends Target {
 }
 
 /**
- * Where a group may go: a host's place, or floating. A place it may not go is no target. `place.index` counts the
+ * Where a group may go: a host's place, or floating. `hostTargets` leaves out a place it refuses; for floating, the
+ * consumer adds `floatTarget` only when `allows(group, "float")`, so one rule covers both. `place.index` counts the
  * groups in that zone without the dragged one (as `insertGroup` does): 0 is before all of the others.
  */
 export type Allows<G extends string> = (group: G, place: Place | "float") => boolean;
@@ -107,23 +108,15 @@ export interface FloatTargetInput<G extends string> {
   /** The group's size as it floats. */
   readonly width: number;
   readonly height: number;
-  /** Where the group may go (default: anywhere); asked with "float". */
-  readonly allows?: Allows<G>;
 }
 
 /**
- * Floating over the content (`stage`, in stage coordinates): the group's top-left corner kept on the stage. Null
- * when `allows` says the group may not float.
- *
- * The input with an `allows` key comes first (it may give null); the one without it last, so a call without `allows`
- * is never null, and `ReturnType<typeof floatTarget>` is the non-null target as before `allows` existed. An input
- * typed `FloatTargetInput` (its `allows` optional) states it: `{ ...input, allows: input.allows }`.
+ * Floating over the content (`stage`, in stage coordinates): the group's top-left corner kept on the stage. A
+ * group that may not float simply gets no float target: add it only when your rule allows it, with the same
+ * `allows` you give `hostTargets`: `...(allows(group, "float") ? [floatTarget(input)] : [])`.
  */
-export function floatTarget<G extends string>(input: FloatTargetInput<G> & { readonly allows: Allows<G> | undefined }): ToolbarFloatTarget<G> | null;
-export function floatTarget<G extends string>(input: Omit<FloatTargetInput<G>, "allows"> & { readonly allows?: undefined }): ToolbarFloatTarget<G>;
-export function floatTarget<G extends string>(input: FloatTargetInput<G>): ToolbarFloatTarget<G> | null {
+export function floatTarget<G extends string>(input: FloatTargetInput<G>): ToolbarFloatTarget<G> {
   const { group, arrangement, stage } = input;
-  if (input.allows && !input.allows(group, "float")) return null;
   return {
     id: "g:float",
     priority: 3,
