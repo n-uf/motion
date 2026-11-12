@@ -7,7 +7,7 @@ import { createSettle, type Rect } from "@n-uf/motion";
 // ---- The hero demo -------------------------------------------------------------------------------------------------
 type Slot = (W: number, H: number) => Rect;
 const GAP = 10, PAD = 12;
-export const DEMO = { w: 620, h: 340 };
+export const DEMO = { w: 1198, h: 380 };
 export const LAYOUTS: { name: string; slots: Slot[] }[] = [
   {
     name: "Master and stack",
