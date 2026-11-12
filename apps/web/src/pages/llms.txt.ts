@@ -1,6 +1,7 @@
 // /llms.txt: a plain-text summary of the site for AI tools, and every page with its address and a line about it.
 import type { APIRoute } from "astro";
 import { pages } from "../data/pages";
+import { docsPages } from "../data/docs";
 import { getUseCases, getPosts, pathOf } from "../data/content";
 import { site, npmUrl, npmPlacementUrl, repoUrl } from "../data/site";
 
@@ -17,6 +18,10 @@ export const GET: APIRoute = async () => {
     "## Pages",
     "",
     ...pages.map((p) => line(p.path, p.title, p.description)),
+    "",
+    "## Docs",
+    "",
+    ...docsPages.map((p) => line(p.path, p.title, p.description)),
   ];
   if (useCases.length > 0) {
     out.push("", "## Use cases", "", line("/use-cases/", "All use cases", "What n-uf motion is good for, one job at a time."),

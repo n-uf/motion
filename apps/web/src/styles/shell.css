@@ -45,8 +45,8 @@
   transition: color var(--fast) var(--ease), background-color var(--fast) var(--ease);
 }
 .nav a:hover { color: var(--text); background: var(--bg-subtle); }
-.nav a[aria-current="page"] { color: var(--text); }
-.nav a[aria-current="page"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -11px; height: 2px; border-radius: 1px; background: var(--part); }
+.nav a[aria-current="page"], .nav a[aria-current="true"] { color: var(--text); }
+.nav a[aria-current="page"]::after, .nav a[aria-current="true"]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -11px; height: 2px; border-radius: 1px; background: var(--part); }
 /* The pair's two parts: a small key ("Move", "Place") before each part's pages, a hairline between the parts. Each part
    carries its own colour (--part): cyan for motion, violet for placement. */
 [data-part="motion"] { --part: var(--motion); --part-strong: var(--accent-strong); }
@@ -88,7 +88,7 @@
   .nav::-webkit-scrollbar { display: none; }
   .nav a { padding: 8px 10px; font-size: 14px; scroll-snap-align: center; }
   .nav a:focus-visible { outline-offset: -2px; }
-  .nav a[aria-current="page"]::after { bottom: 0; }
+  .nav a[aria-current="page"]::after, .nav a[aria-current="true"]::after { bottom: 0; }
   .nav-part + .nav-part { margin-left: 4px; padding-left: 6px; }
 }
 
