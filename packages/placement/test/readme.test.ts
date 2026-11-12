@@ -16,7 +16,7 @@ describe("README examples", () => {
     });
     const docks = desk.constructionOf("docks");
     const { items, notes } = docks.layout(docks.initial([1, 2]), { width: 960, height: 420 }, DEFAULT_OPTIONS);
-    expect([items.get("panel:3")!.look, notes]).toEqual(["header", ["bottom dock folded to its header"]]);
+    expect([items.get("panel:3")!.look, notes.map((n) => n.code)]).toEqual(["header", ["bottom-folded"]]);
   });
 
   it("toolbar groups", () => {

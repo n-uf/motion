@@ -199,6 +199,8 @@ describe("proportions", () => {
 describe("give-way", () => {
   const look = (l: Layout, k: string): string | undefined => l.items.get(k)?.look;
   const hidden = (l: Layout, k: string): boolean => !!l.items.get(k)?.hidden;
+  /** The notes' codes, with their side where they name one ("dock-folded:left"). */
+  const codes = (l: Layout): string[] => l.notes.map((n) => (n.side ? `${n.code}:${n.side}` : n.code));
 
   it("docks · height: the least recently used section folds to its header first, and unfolds with room", () => {
     const c = C("docks");
@@ -207,7 +209,7 @@ describe("give-way", () => {
     const short = c.layout(s, { width: 960, height: 420 }, opt);
     expect(look(short, panelKey(4))).toBe("header");
     expect([look(short, panelKey(3)), look(short, panelKey(5))]).toEqual(["section", "section"]);
-    expect(short.notes).toContain("1 section folded to a header");
+    expect(codes(short)).toEqual(["sections-folded"]);
     expect(look(c.layout(s, { width: 960, height: 560 }, opt), panelKey(4))).toBe("section");
   });
 
@@ -224,7 +226,7 @@ describe("give-way", () => {
     const l = C("docks").layout(C("docks").initial(docs(2)), { width: 960, height: 420 }, DEFAULT_OPTIONS);
     expect(look(l, panelKey(5))).toBe("header");
     expect(l.items.get(panelKey(5))!.rect.height).toBeCloseTo(TITLE);
-    expect(l.notes).toContain("bottom dock folded to its header");
+    expect(codes(l)).toContain("bottom-folded");
   });
 
   it("docks · width: the right dock folds to its rail first, then the left", () => {
@@ -232,9 +234,10 @@ describe("give-way", () => {
     const s = c.initial(docs(2));
     const mid = c.layout(s, { width: 760, height: 560 }, DEFAULT_OPTIONS);
     expect([hidden(mid, panelKey(3)), hidden(mid, panelKey(4)), hidden(mid, panelKey(1))]).toEqual([true, true, false]);
+    expect(codes(mid)).toEqual(["dock-folded:right"]);
     const narrow = c.layout(s, { width: 520, height: 560 }, DEFAULT_OPTIONS);
     expect([hidden(narrow, panelKey(1)), hidden(narrow, panelKey(2))]).toEqual([true, true]);
-    expect(narrow.notes).toContain("left dock folded to its rail");
+    expect(codes(narrow)).toEqual(["dock-folded:right", "dock-folded:left"]);
     const wide = c.layout(s, { width: 960, height: 560 }, DEFAULT_OPTIONS);
     expect([hidden(wide, panelKey(1)), hidden(wide, panelKey(3))]).toEqual([false, false]);
   });
@@ -265,7 +268,9 @@ describe("give-way", () => {
     const l = c.layout(s, { width: 760, height: 560 }, DEFAULT_OPTIONS);
     const floating = [...l.items].filter(([k, p]) => /^(panel|doc):/.test(k) && p.layer === LAYER.float).map(([k]) => k);
     expect(floating[0]).toBe("doc:3");
-    expect(l.notes.some((n) => n.includes("(newest first): Draft") || n.includes("(newest first): List"))).toBe(true);
+    const note = l.notes.find((n) => n.code === "tiles-float")!;
+    expect(note.items?.[0]).toBe("doc:3");
+    expect([...note.items!].sort()).toEqual([...floating].sort());
     expect([...c.layout(s, { width: 1440, height: 900 }, DEFAULT_OPTIONS).items].filter(([, p]) => p.layer === LAYER.float)).toEqual([]);
   });
 
@@ -282,14 +287,14 @@ describe("give-way", () => {
     // No bottom dock here: its panels start on the right side.
     expect([c.initial(docs(2)).right, c.initial(docs(2)).bottom]).toEqual([[3, 4, 5], []]);
     const l = c.layout(c.initial(docs(2)), { width: 760, height: 560 }, DEFAULT_OPTIONS);
-    expect(l.notes).toEqual(["inspector folded to icon tabs"]);
-    expect(c.layout(c.initial(docs(2)), { width: 520, height: 560 }, DEFAULT_OPTIONS).notes).toContain("navigator folded to icon tabs");
+    expect(codes(l)).toEqual(["tabs-folded:right"]);
+    expect(codes(c.layout(c.initial(docs(2)), { width: 520, height: 560 }, DEFAULT_OPTIONS))).toEqual(["tabs-folded:right", "tabs-folded:left"]);
   });
 
   it("strip · short on height, a column splits in two; the strip scrolls to the focus", () => {
     const c = C("strip");
     const l = c.layout(c.initial(docs(2)), { width: 960, height: 420 }, DEFAULT_OPTIONS);
-    expect(l.notes.some((n) => n.includes("split into two columns"))).toBe(true);
+    expect(l.notes.find((n) => n.code === "column-split")?.items).toEqual(["panel:1", "panel:2"]);
     const s = c.initial(docs(4));
     const focused = c.layout({ ...s, focus: 4 }, { width: 960, height: 560 }, DEFAULT_OPTIONS).items.get("doc:4")!.rect;
     expect(focused.x).toBeGreaterThanOrEqual(0);
@@ -302,7 +307,7 @@ describe("give-way", () => {
     const narrow = c.layout(c.initial(docs(2)), { width: 900, height: 560 }, DEFAULT_OPTIONS);
     expect(wide.items.get("tabs:right")!.layer).toBe(LAYER.dock);
     expect(narrow.items.get("tabs:right")!.layer).toBe(LAYER.float);
-    expect(narrow.notes).toContain("right drawer slides over the documents");
+    expect(codes(narrow)).toEqual(["drawer-over:right"]);
     // Pushed, the documents end at the docked drawer; slid over, they run to the rail.
     const end = (l: Layout): number => Math.max(...[1, 2].map((id) => l.items.get(`doc:${id}`)!.rect).map((r) => r.x + r.width));
     expect(end(wide)).toBe(1200 - 34 - 240 - 6);
@@ -316,13 +321,13 @@ describe("give-way", () => {
     const shaded = [3, 4, 5].filter((id) => look(l, panelKey(id)) === "header");
     expect(shaded.length).toBeGreaterThan(0);
     expect(shaded).not.toContain(3);
-    expect(l.notes.some((n) => n.includes("shaded to"))).toBe(true);
+    expect(codes(l)).toContain("palettes-shaded");
   });
 
   it("floatOver, floatAround · narrow, both stacks share the right corner", () => {
     for (const c of [C("floatOver"), C("floatAround")]) {
       const l = c.layout(c.initial(docs(2)), { width: 600, height: 900 }, DEFAULT_OPTIONS);
-      expect(l.notes).toContain("both stacks share the right corner");
+      expect(codes(l)).toContain("stacks-merged");
       const rects = [1, 2, 3, 4, 5].map((id) => l.items.get(panelKey(id))!.rect);
       expect(new Set(rects.map((r) => Math.round(r.x))).size).toBe(1);
       // One stack: no two palettes on top of each other.
@@ -335,7 +340,7 @@ describe("give-way", () => {
     const s = { ...c.initial(docs(2)), right: [4], torn: [{ id: 3, at: { x: 400, y: 500 } }] };
     const l = c.layout(s, { width: 1200, height: 560 }, DEFAULT_OPTIONS);
     expect([look(l, panelKey(3)), l.items.get(panelKey(3))!.rect.height]).toEqual(["header", TITLE]);
-    expect(l.notes).toContain("1 floating panel shaded");
+    expect(codes(l)).toEqual(["torn-floating", "torn-shaded"]);
     expect(look(c.layout({ ...s, torn: [{ id: 3, at: { x: 400, y: 100 } }] }, { width: 1200, height: 560 }, DEFAULT_OPTIONS), panelKey(3))).toBe("float");
   });
 
@@ -379,7 +384,7 @@ describe("give-way", () => {
     const torn = deskDrop(input, float, { x: 600, y: 300 }, { x: 20, y: 10 });
     expect(torn.state.torn).toEqual([{ id: 3, at: { x: 580, y: 290 } }]);
     expect(torn.layout.items.get(key)!.look).toBe("float");
-    expect(torn.layout.notes[0]).toContain("Notes floats");
+    expect(torn.layout.notes.find((n) => n.code === "torn-floating")?.items).toEqual([key]);
     const back = { ...input, s0: liftOut(torn.state, key) };
     const rail = deskTargets(back).find((t) => t.id === "rail:left")!;
     const docked = deskDrop(back, rail, { x: 10, y: 10 }, { x: 0, y: 0 });

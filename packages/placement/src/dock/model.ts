@@ -185,10 +185,53 @@ export interface Placed {
   readonly shadow?: boolean;
 }
 
+/**
+ * How a layout gave way (or what it is worth knowing about it):
+ *
+ * - `bottom-folded`: the bottom dock folded to its header; `dock-folded`: a side dock folded to its rail (`side`);
+ * - `sections-folded`: sections folded to their headers by themselves, least recently used first;
+ * - `torn-floating`: panels torn off a dock float (`items`); `torn-shaded`: some shade because they don't fit;
+ * - `columns-railed`: the tiling tree's side columns are folded to rails (`side` when only one);
+ * - `tiles-float`: tiles that broke a minimum float, newest first (`items`);
+ * - `tabs-folded`: a tabbed side folded to icon tabs (`side`); `drawer-over`: a drawer slides over the
+ *   documents (`side`);
+ * - `column-split`: a strip column split in two (`items`); `strip-scrolls`: the strip is wider than the stage;
+ * - `stacks-merged`: both palette stacks share one corner; `palettes-shaded`: palettes shaded to title bars;
+ * - `palettes-cover`, `docs-room`: how much of the documents palettes cover, and how much room they leave.
+ */
+export type NoteCode =
+  | "bottom-folded"
+  | "dock-folded"
+  | "sections-folded"
+  | "torn-floating"
+  | "torn-shaded"
+  | "columns-railed"
+  | "tiles-float"
+  | "tabs-folded"
+  | "drawer-over"
+  | "column-split"
+  | "strip-scrolls"
+  | "stacks-merged"
+  | "palettes-shaded"
+  | "palettes-cover"
+  | "docs-room";
+
+/**
+ * One note on a layout. `code` (and `side`, `items` where they apply) is the contract; `text` says it in English for
+ * people, and its wording may change in any release.
+ */
+export interface Note {
+  readonly code: NoteCode;
+  readonly text: string;
+  readonly side?: Side;
+  /** The item keys it is about. */
+  readonly items?: readonly string[];
+}
+
 /** Where everything is ("toolbar", "panel:<id>", "doc:<id>", "rail:<side>", "tabs:<side>", "track", "thumb"), and how it gave way. */
 export interface Layout {
   readonly items: ReadonlyMap<string, Placed>;
-  readonly notes: readonly string[];
+  readonly notes: readonly Note[];
 }
 
 // --- state changes -------------------------------------------------------------------------------------------------
