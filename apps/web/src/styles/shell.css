@@ -145,6 +145,7 @@
 }
 .footer-brand { display: grid; gap: var(--s3); align-content: start; }
 .footer-brand p { color: var(--text-2); max-width: 40ch; }
+.footer-brand p a { white-space: nowrap; } /* "n-uf ↗" never breaks at the hyphen */
 .footer-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s5) var(--s6); align-content: start; }
 .foot-col { display: grid; align-content: start; }
 .foot-k { margin-bottom: var(--s1); font: 600 var(--t-cap) var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
