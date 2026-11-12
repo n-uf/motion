@@ -41,6 +41,21 @@ describe("README examples", () => {
     expect(zones.state.shown?.id).toBe("pane");
   });
 
+  it("drag/ on a scaled page", () => {
+    const slot: DragTarget = { id: "slot", priority: 2, hit: { x: 0, y: 0, width: 200, height: 100 } };
+    const origin = { x: 300, y: 200 };
+    const scale = 0.5;
+    const toPage = (p: { x: number; y: number }) => ({ x: (p.x - origin.x) / scale, y: (p.y - origin.y) / scale });
+    const onPage = createDragIntent({ home: { x: 600, y: 600, width: 100, height: 50 } });
+    const screen = { x: 350, y: 225 };
+    for (let t = 0; t <= 300; t += 16) onPage.update(toPage(screen), t, [slot]);
+    expect([onPage.state.shown?.id, onPage.release(toPage(screen), [slot])?.id]).toEqual(["slot", "slot"]);
+    // Fed the screen point as it is, the same pointer is nowhere near the slot.
+    const raw = createDragIntent({ home: { x: 600, y: 600, width: 100, height: 50 } });
+    for (let t = 0; t <= 300; t += 16) raw.update(screen, t, [slot]);
+    expect(raw.state.shown).toBeNull();
+  });
+
   it("clock/", () => {
     const log = vi.fn();
     const clock = createFakeClock();
