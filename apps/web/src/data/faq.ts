@@ -28,7 +28,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "What license is @n-uf/motion under, and is it stable?",
-      a: "It is under PolyForm Perimeter 1.0.1, and it is not yet stable. Versions are dates (YY.M.R), not semantic versions, so any release may break things, including how springs settle and how gestures are timed. Pin an exact version and read the CHANGELOG before you upgrade. <code>@n-uf/placement</code> carries the same notice.",
+      a: "It is under PolyForm Perimeter 1.0.1, and it is not yet stable. Versions are dates (YY.M.R), not semantic versions, so any release may break things, including how springs settle and how gestures are timed. Pin an exact version and read the CHANGELOG before you upgrade. <code>@n-uf/placement</code> has the same license and its own not-yet-stable notice.",
     },
     {
       q: "How do @n-uf/motion and @n-uf/placement work together?",
@@ -82,7 +82,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "What gives way when a desk runs out of room?",
-      a: "Sections fold first, least recently used first, and then whole docks fold to their rails. Each layout also returns notes saying how it gave way, such as <code>bottom-folded</code>, <code>dock-folded</code> and <code>sections-folded</code>. A note's <code>code</code> is the stable contract; its English <code>text</code> is for people and may change in any release.",
+      a: "In the edge docks, sections fold to their headers when height runs out, least recently used first, and a dock folds to its rail when width runs out. Each layout returns notes saying how it gave way, such as <code>dock-folded</code>. A note's <code>code</code> is the contract; its English <code>text</code> may change in any release.",
     },
   ],
   "/toolbar-groups/": [
@@ -96,7 +96,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do I make toolbar groups draggable?",
-      a: "Take drop targets from <code>hostTargets</code> and <code>floatTarget</code> in <code>@n-uf/placement/targets</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. <code>hostTargets</code> leaves the group's own place out and returns it as <code>own</code>, for the drag's home, and every target carries its <code>slot</code>, the rect the group fills once it lands there.",
+      a: "Take drop targets from <code>hostTargets</code> and <code>floatTarget</code> in <code>@n-uf/placement/targets</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. <code>hostTargets</code> leaves the group's own place out and returns it as <code>own</code>, for the drag's home, and every host target carries its <code>slot</code>, the rect the group fills once it lands there.",
     },
     {
       q: "How do I save and restore a toolbar layout?",
