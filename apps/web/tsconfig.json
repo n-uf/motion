@@ -6,6 +6,6 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["src/islands/**/*.ts", "src/demos/**/*.ts", "src/data/pages.ts", "src/data/schema.ts", "src/data/site.ts"],
-  "exclude": ["dist"]
+  "include": ["src/islands/**/*.ts", "src/demos/**/*.ts", "src/snippets/*.ts", "src/data/pages.ts", "src/data/schema.ts", "src/data/site.ts"],
+  "exclude": ["dist", "src/snippets/layout.ts", "src/snippets/drag.ts"]
 }
