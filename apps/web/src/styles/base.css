@@ -118,7 +118,8 @@ kbd {
   transition: color var(--fast) var(--ease), background-color var(--fast) var(--ease);
 }
 .seg button:hover { color: var(--text); }
-.seg button[aria-pressed="true"] { background: var(--bg-raised); color: var(--text); box-shadow: var(--shadow-1), 0 0 0 1px var(--line); }
+/* Pressed: the site's one selected style, the accent inset ring (as on a figure's bar buttons). */
+.seg button[aria-pressed="true"] { color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
 
 /* A labelled control in a figure bar. */
 .field { display: inline-flex; align-items: center; gap: var(--s2); font-size: var(--t-sm); color: var(--text-2); white-space: nowrap; }
