@@ -2,8 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { overlap } from "../index";
 import { DEFAULT_OPTIONS, LAYER, draggable, liftOut, panelKey, type Construction, type ConstructionId, type Layout } from "../src/dock";
-import { deskDrop, deskTargets, floatTarget, hostTargets } from "../src/targets";
-import { arrangement, hostOf, layoutHost, sameArrangement, type GroupSize, type HostSpec, type Place } from "../src/toolbar";
+import { deskDrop, deskTargets, floatTarget, hostTargets, keyboardStops, type ToolbarTarget } from "../src/targets";
+import { HOSTS, arrangement, hostOf, layoutHost, sameArrangement, type GroupSize, type HostId, type HostSpec, type Place } from "../src/toolbar";
 import { desk, docs, fmt, inRect, mid, sameRect } from "./fixture";
 
 const C = (id: ConstructionId): Construction => desk.constructionOf(id);
@@ -197,5 +197,63 @@ describe("toolbar targets", () => {
     const stage = { x: 10, y: 20, width: 500, height: 300 };
     expect(floatTarget({ group: "d" as Gr, arrangement: a, stage, width: 80, height: 28, allows })).toBeNull();
     expect(floatTarget({ group: "c" as Gr, arrangement: a, stage, width: 80, height: 28, allows })?.id).toBe("g:float");
+  });
+});
+
+describe("keyboard stops", () => {
+  type Gr = "doc" | "edit" | "zoom" | "panel" | "share";
+  const size: GroupSize<Gr> = (_g, v, collapsed) => ({ along: collapsed ? 30 : v ? 60 : 80, across: v ? 30 : 28 });
+  const a = arrangement<Gr>({ title: { start: ["doc"], end: ["zoom"] }, top: { center: ["edit"] }, bottom: { start: ["panel"], end: ["share"] } });
+  const ORIGIN: Record<HostId, { x: number; y: number }> = { title: { x: 0, y: 0 }, top: { x: 0, y: 40 }, left: { x: 0, y: 80 }, right: { x: 760, y: 80 }, bottom: { x: 0, y: 500 } };
+  const specOf = (h: HostId): HostSpec<Gr> => (h === "left" || h === "right" ? { length: 400, thickness: 40, lead: 8, tail: 8 } : { length: 800, thickness: 34, lead: 20, tail: 20 });
+  // The targets come host by host in HOSTS order (title, top, bottom, left, right): the stops put them in reading order.
+  const targetsFor = (g: Gr): ToolbarTarget<Gr>[] => HOSTS.flatMap((h) => hostTargets({ group: g, arrangement: a, host: h, origin: ORIGIN[h], spec: specOf(h), size }).targets);
+  const float = floatTarget({ group: "edit" as Gr, arrangement: a, stage: { x: 40, y: 80, width: 720, height: 420 }, width: 80, height: 28 });
+
+  it("lists every place in reading order: title, top, left, right, bottom; zones start, centre, end; then each insertion", () => {
+    const stops = keyboardStops([...targetsFor("edit"), float], { home: { place: hostOf(a, "edit")!, arrangement: a } });
+    expect(stops.map((s) => s.id)).toEqual([
+      "g:title:start:0",
+      "g:title:start:1",
+      "g:title:center:0",
+      "g:title:end:0",
+      "g:title:end:1",
+      "g:top:start:0",
+      "home",
+      "g:top:end:0",
+      "g:left:start:0",
+      "g:left:center:0",
+      "g:left:end:0",
+      "g:right:start:0",
+      "g:right:center:0",
+      "g:right:end:0",
+      "g:bottom:start:0",
+      "g:bottom:start:1",
+      "g:bottom:center:0",
+      "g:bottom:end:0",
+      "g:bottom:end:1",
+    ]);
+    // Each stop carries its label and the arrangement a move there makes; home makes none.
+    const home = stops.find((s) => s.home)!;
+    expect([home.label, home.arrangement]).toEqual(["Top bar · centre · current place", a]);
+    const first = stops[0]!;
+    expect([first.label, first.arrangement.title.start]).toEqual(["Title bar · left · before all", ["edit", "doc"]]);
+    expect(stops.filter((s) => s.home)).toHaveLength(1);
+  });
+
+  it("leaves floating out unless asked; asked, it comes last with the arrangement for where it would land", () => {
+    expect(keyboardStops([float, ...targetsFor("edit")]).some((s) => s.place === null)).toBe(false);
+    const withFloat = keyboardStops([float, ...targetsFor("edit")], { floats: { at: { x: 100, y: 200 }, grab: { x: 10, y: 5 } } });
+    const last = withFloat.at(-1)!;
+    expect([last.id, last.place]).toEqual(["g:float", null]);
+    expect(last.arrangement.floating).toEqual([{ id: "edit", x: 50, y: 115, from: { host: "top", zone: "center", index: 0 } }]);
+    // Asked plainly: dropped at the floating area's middle, the group's top-left corner there.
+    expect(keyboardStops([float], { floats: true })[0]!.arrangement.floating[0]).toMatchObject({ x: 360, y: 210 });
+  });
+
+  it("without a home, the list is just the targets in order", () => {
+    const stops = keyboardStops(targetsFor("zoom"));
+    expect(stops.some((s) => s.home)).toBe(false);
+    expect(stops.length).toBe(targetsFor("zoom").length);
   });
 });
