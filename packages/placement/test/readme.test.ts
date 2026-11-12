@@ -2,19 +2,9 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_OPTIONS, createDesk, liftOut } from "../src/dock";
 import { deskDrop, deskTargets } from "../src/targets";
-import { layoutTree, setSplitRatio, splitLeaf, treeFromOrder } from "../src/tiling";
 import { arrangement, layoutHost } from "../src/toolbar";
 
 describe("README examples", () => {
-  it("tiling", () => {
-    const area = { x: 0, y: 0, width: 1006, height: 600 };
-    let tree = treeFromOrder([1, 2]);
-    tree = splitLeaf(tree, 2, 3, false);
-    tree = setSplitRatio(tree, 1, 0.6);
-    const rects = layoutTree(tree, area, 6);
-    expect([rects.get(1)!.width, rects.get(3)!.y]).toEqual([600, 303]);
-  });
-
   it("a desk", () => {
     const desk = createDesk({
       panels: [

@@ -1,10 +1,9 @@
-/** Drops land where their target says, in every construction; toolbar and tiling targets keep own place as home. */
+/** Drops land where their target says, in every construction; toolbar targets keep own place as home. */
 import { describe, expect, it } from "vitest";
 import { overlap } from "../index";
 import { DEFAULT_OPTIONS, LAYER, draggable, liftOut, panelKey, type Construction, type ConstructionId, type Layout } from "../src/dock";
-import { deskDrop, deskTargets, floatTarget, hostTargets, orderSlots, treeSlots } from "../src/targets";
+import { deskDrop, deskTargets, floatTarget, hostTargets } from "../src/targets";
 import { arrangement, hostOf, sameArrangement, type GroupSize, type HostSpec } from "../src/toolbar";
-import { layoutTree, masterStack, type Tree } from "../src/tiling";
 import { desk, docs, fmt, inRect, mid, sameRect } from "./fixture";
 
 const C = (id: ConstructionId): Construction => desk.constructionOf(id);
@@ -160,30 +159,5 @@ describe("toolbar targets", () => {
     expect(f.priority).toBe(3);
     const out = f.make({ x: 2000, y: -50 }, { x: 5, y: 5 });
     expect(out.floating).toEqual([{ id: "b", x: 420, y: 0, from: { host: "top", zone: "start", index: 1 } }]);
-  });
-});
-
-describe("tiling slots", () => {
-  const area = { x: 0, y: 0, width: 900, height: 600 };
-  const layoutTreeOf = (t: Tree) => layoutTree(t, area, 6).get(1)!;
-  it("a tree offers each leaf's two halves, and each slot is where the tile lands", () => {
-    const tree: Tree = { a: { leaf: 1 }, b: { leaf: 2 } };
-    const slots = treeSlots(tree, 9, area, 6);
-    expect(slots.map((s) => s.id)).toEqual(["1:a", "1:b", "2:a", "2:b"]);
-    for (const s of slots) expect(sameRect(s.layout.get(9)!, s.slot)).toBe(true);
-    // Leaf 1 is the left half, taller than wide: its two slots split it top and bottom.
-    const leaf = layoutTreeOf(tree);
-    expect(slots[0]!.slot.y).toBe(0);
-    expect(slots[1]!.slot.y).toBeGreaterThan(slots[0]!.slot.y);
-    for (const s of slots.slice(0, 2)) expect(s.slot.x + s.slot.width).toBeCloseTo(leaf.x + leaf.width);
-    expect(treeSlots(null, 9, area, 6).map((s) => s.id)).toEqual(["root"]);
-  });
-
-  it("an order offers each index", () => {
-    const slots = orderSlots([1, 2], 9, (ids) => masterStack(ids, area, 6));
-    expect(slots.map((s) => s.order)).toEqual([[9, 1, 2], [1, 9, 2], [1, 2, 9]]);
-    // First is the master (full height on the left); second heads the stack.
-    expect([slots[0]!.slot.x, slots[0]!.slot.height]).toEqual([0, 600]);
-    expect([slots[1]!.slot.y, slots[1]!.slot.x > 0]).toEqual([0, true]);
   });
 });

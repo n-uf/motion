@@ -10,10 +10,6 @@ dependencies.
 
 - `@n-uf/placement`: `Rect`, `Size`, `Point`, `rect`, `overlap`, `clampInto`, `centre`, and `positionPopup` (anchor,
   gravity, offset, then flip, slide, resize per axis) with the `BELOW_LEFT` rule.
-- `@n-uf/placement/tiling`: `columns`, `grid`, `masterStack` (with a master ratio), `dwindle`; the split tree
-  `Tree<K>` with `layoutTree`, `leafIds`, `splitLeaf` (insert beside), `removeLeaf`, `swapLeaves`, `moveLeaf`,
-  `setSplitRatio`, `treeFromOrder`; `columnHeights` and `share` for stacked items at their natural heights; and
-  `giveWay`, the minimum-size give-way (the newest tile that breaks a minimum floats).
 - `@n-uf/placement/dock`: `createDesk({ panels, docTitle?, start, opened? })` gives the nine desk constructions as
   presets (edge docks with the bottom dock between or full width, one tiling tree, navigator + inspector, a
   scrolling strip, drawers, palettes over or around the documents, edge docks + tear-off). Each is a pure layout:
@@ -28,5 +24,4 @@ dependencies.
   centre minimum counted in the need); `insertions` (before all, between, after all, empty zones); `isOwnPlace`.
 - `@n-uf/placement/targets`: drop targets in the shape `@n-uf/motion/drag` takes. `deskTargets` and `deskDrop` for
   every construction (rails, dock slots, tree slots, strip columns, tab strips, corner stacks, free placement with
-  edge snapping); `hostTargets` and `floatTarget` for toolbar groups (own place left out, returned as `own`);
-  `treeSlots` and `orderSlots` for tiling.
+  edge snapping); `hostTargets` and `floatTarget` for toolbar groups (own place left out, returned as `own`).

@@ -1,14 +1,9 @@
 {
   "name": "@n-uf/placement",
   "version": "26.11.0",
-  "description": "Where things go: tiling layouts and split trees, desk docks and palettes, toolbar groups, and the drop targets for each. Pure state in, rects out. No DOM, no framework, no motion.",
+  "description": "Where things go: desk docks, rails and palettes, toolbar groups, and the drop targets for each. Pure state in, rects out. No DOM, no framework, no motion.",
   "keywords": [
     "layout",
-    "tiling",
-    "tiling-window-manager",
-    "dwindle",
-    "master-stack",
-    "split-tree",
     "docking",
     "dock",
     "panels",
@@ -37,10 +32,6 @@
       "types": "./index.ts",
       "default": "./index.ts"
     },
-    "./tiling": {
-      "types": "./src/tiling/index.ts",
-      "default": "./src/tiling/index.ts"
-    },
     "./dock": {
       "types": "./src/dock/index.ts",
       "default": "./src/dock/index.ts"
@@ -62,10 +53,6 @@
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
-      },
-      "./tiling": {
-        "types": "./dist/tiling.d.ts",
-        "default": "./dist/tiling.js"
       },
       "./dock": {
         "types": "./dist/dock.d.ts",

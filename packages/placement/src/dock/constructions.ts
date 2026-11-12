@@ -13,7 +13,7 @@
  * - F3 edge docks + tear-off: as A, and torn-off panels float (and shade when they don't fit).
  */
 import { clampInto, rect, type Size } from "../geometry";
-import { columnHeights, share } from "../tiling";
+import { columnHeights, share } from "./arrange";
 import {
   DRAWER_DOCK,
   OVER_MARGIN,
