@@ -4,7 +4,8 @@
  */
 import type { Rect } from "@n-uf/motion";
 import { overlap, type Point } from "../shared/geometry";
-import { DRAG, rawTarget, within, type Target } from "./intent";
+import { DRAG_DEFAULTS, inRect, targetAt, type DragTarget } from "@n-uf/motion/drag";
+import { EDGE_SCROLL } from "./drag-page";
 import { dropAt, targetsFor, without } from "./drops";
 import { CONSTRUCTIONS, type ConstructionId } from "./layouts";
 import { DEFAULT_OPTIONS, G, LAYER, idOf, natural, panelKey, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
@@ -46,7 +47,7 @@ export interface DeskLab {
   /** A keyboard drag: pick `key` up, step `steps` targets on with the arrow key, then Enter. */
   keyboard(key: string, steps: number): Promise<DragResult>;
   /** The drop targets `key` would have if it were lifted now. */
-  targets(key: string): Target[];
+  targets(key: string): DragTarget[];
   /** Where a drag of `key` starts. */
   grip(key: string): Point | null;
   /** Start the scenario's desk afresh. */
@@ -249,7 +250,7 @@ export function makeScenarios(lab: DeskLab): Record<string, Scenario> {
               if (floats !== d.label.includes("it floats")) fails.push(`${what}: it ${floats ? "floats" : "tiles"}`);
               else if (!floats && (after.length > 0) !== /; .* floats?$/.test(d.label)) fails.push(`${what}: ${after.length} other tiles float`);
               // Unless the drop makes others float (which reshapes the tree, as the label says), it lands under the pointer.
-              else if (!floats && after.join() === before && !within(d.slot, p)) fails.push(`${what}: dropped at ${Math.round(p.x)},${Math.round(p.y)}, lands at ${fmt(d.slot)}`);
+              else if (!floats && after.join() === before && !inRect(d.slot, p)) fails.push(`${what}: dropped at ${Math.round(p.x)},${Math.round(p.y)}, lands at ${fmt(d.slot)}`);
             }
           }
         }
@@ -450,13 +451,13 @@ function through(points: readonly Point[], speed: number, t0 = 0): PathKey[] {
 const hold = (path: PathKey[], ms: number): PathKey[] => [...path, [path.at(-1)![0] + ms, path.at(-1)![1], path.at(-1)![2]]];
 const shows = (r: DragResult) => r.log.filter((e) => e.id !== null);
 /**
- * The first flash of a drag, or null: an indicator replaced, or hidden while the pointer aims, under DRAG.FLASH ms
+ * The first flash of a drag, or null: an indicator replaced, or hidden while the pointer aims, under DRAG_DEFAULTS.flash ms
  * after it showed (a hide because the pointer started flying is not a flash).
  */
 function flashOf(r: DragResult): string | null {
   const i = r.log.findIndex((e, k) => {
     const next = r.log[k + 1];
-    return e.id !== null && !!next && !(next.id === null && next.flying) && next.t - e.t < DRAG.FLASH;
+    return e.id !== null && !!next && !(next.id === null && next.flying) && next.t - e.t < DRAG_DEFAULTS.flash;
   });
   return i < 0 ? null : `${r.log[i]!.id} showed for ${Math.round(r.log[i + 1]!.t - r.log[i]!.t)} ms`;
 }
@@ -472,7 +473,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
     const key = DRAGGED[c.id];
     const name = `${c.title.split(" · ")[0]} · drag model`;
     /** The targets a drag can aim at: not over the item's own home (its grip). */
-    const aimable = (grip: Point): Target[] => lab.targets(key).filter((t) => !within(t.hit, grip, 12) && mid(t.hit).x > 0 && mid(t.hit).x < lab.size().width);
+    const aimable = (grip: Point): DragTarget[] => lab.targets(key).filter((t) => !inRect(t.hit, grip, 12) && mid(t.hit).x > 0 && mid(t.hit).x < lab.size().width);
     out[`${name}: flying over targets shows no indicator, aiming shows one`] = {
       construction: c.id,
       drag: true,
@@ -480,7 +481,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         const grip = lab.grip(key)!;
         const ts = aimable(grip);
         const all = lab.targets(key);
-        const goal = ts.filter((t) => t.prio <= 2).sort((a, b) => dist(mid(b.hit), grip) - dist(mid(a.hit), grip))[0] ?? ts[0];
+        const goal = ts.filter((t) => t.priority <= 2).sort((a, b) => dist(mid(b.hit), grip) - dist(mid(a.hit), grip))[0] ?? ts[0];
         if (!goal) return expect(false, "no target to aim at");
         const end = mid(goal.hit);
         const via = ts.filter((t) => t !== goal).sort((a, b) => Math.min(dist(mid(b.hit), grip), dist(mid(b.hit), end)) - Math.min(dist(mid(a.hit), grip), dist(mid(a.hit), end)))[0];
@@ -495,7 +496,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         expect(early.length === 0, `the indicator showed ${early.map((e) => `${e.id} at ${Math.round(e.t)} ms`).join(", ")} while flying (arrived at ${Math.round(arrival)} ms)`);
         const snappedEarly = (r.snaps ?? []).filter((e) => e.id !== null && e.t < arrival - 1);
         expect(snappedEarly.length === 0, `the item snapped into ${snappedEarly.map((e) => `${e.id} at ${Math.round(e.t)} ms`).join(", ")} while flying`);
-        const want = rawTarget(all, end)?.id ?? null;
+        const want = targetAt(all, end)?.id ?? null;
         expect(shows(r).length === 1 && shows(r)[0]!.id === want, `aiming showed ${shows(r).map((e) => e.id).join(", ") || "nothing"}, not ${want}`);
         expect(r.landed === want, `landed on ${r.landed ?? "home"}, not ${want}`);
       },
@@ -519,8 +520,8 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
             { p: { x: r.x + r.width + G / 2, y: r.y + r.height / 2 }, dx: 1, dy: 0 },
           ];
           for (const e of edges) {
-            const a = rawTarget(all, { x: e.p.x - 8 * e.dx, y: e.p.y - 8 * e.dy });
-            const b = rawTarget(all, { x: e.p.x + 8 * e.dx, y: e.p.y + 8 * e.dy });
+            const a = targetAt(all, { x: e.p.x - 8 * e.dx, y: e.p.y - 8 * e.dy });
+            const b = targetAt(all, { x: e.p.x + 8 * e.dx, y: e.p.y + 8 * e.dy });
             if (a && b && a.id !== b.id && dist(e.p, grip) > 40 && e.p.x > 5 && e.p.x < lab.size().width - 5) border = e;
             if (border) break;
           }
@@ -557,19 +558,19 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         // pointer, away from the item's home and on the stage.
         const spots = all.flatMap((t) => {
           const r = t.hit;
-          const ok = (p: Point): boolean => rawTarget(all, p)?.id === t.id && dist(p, grip) > 40 && !(home && within(home, p, 12)) && p.x > 0 && p.x < lab.size().width;
+          const ok = (p: Point): boolean => targetAt(all, p)?.id === t.id && dist(p, grip) > 40 && !(home && inRect(home, p, 12)) && p.x > 0 && p.x < lab.size().width;
           const p = [mid(r), ...[0.25, 0.75].flatMap((fx) => [0.25, 0.75].map((fy) => ({ x: r.x + r.width * fx, y: r.y + r.height * fy })))].find(ok);
           return p ? [{ t, p }] : [];
         });
         // The release point lies outside the band of every target as precise as its own: no path can keep another one.
-        const clear = (s: { t: Target; p: Point }): boolean => all.every((o) => o.id === s.t.id || o.prio > s.t.prio || !within(o.hit, s.p, DRAG.BAND));
-        const goal = spots.find((s) => s.t.prio <= 2 && clear(s)) ?? spots.find(clear);
+        const clear = (s: { t: DragTarget; p: Point }): boolean => all.every((o) => o.id === s.t.id || o.priority > s.t.priority || !inRect(o.hit, s.p, DRAG_DEFAULTS.band));
+        const goal = spots.find((s) => s.t.priority <= 2 && clear(s)) ?? spots.find(clear);
         // The detour: a target whose aim point is outside the goal's band and whose band doesn't reach the release
         // point (shown there, it would keep the release, as the rules say).
         const other =
           goal &&
           spots
-            .filter((s) => s.t.id !== goal.t.id && !within(goal.t.hit, s.p, DRAG.BAND) && !within(s.t.hit, goal.p, DRAG.BAND))
+            .filter((s) => s.t.id !== goal.t.id && !inRect(goal.t.hit, s.p, DRAG_DEFAULTS.band) && !inRect(s.t.hit, goal.p, DRAG_DEFAULTS.band))
             .sort((a, b) => dist(a.p, grip) - dist(b.p, grip))[0];
         if (!goal || !other) return expect(false, "not two targets to take two paths");
         const end = goal.p;
@@ -655,8 +656,8 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       const W = lab.size().width;
       // Across the columns at 0.4 px/ms, clear of the edge scroll.
       const r = await lab.path(DRAGGED.strip, (g) => {
-        const there = hold(through([g, { x: DRAG.EDGE + 20, y: 300 }], 0.8), 300);
-        return hold([...there, ...through([{ x: DRAG.EDGE + 20, y: 300 }, { x: W - DRAG.EDGE - 20, y: 300 }], 0.4, there.at(-1)![0]).slice(1)], 400);
+        const there = hold(through([g, { x: EDGE_SCROLL.edge + 20, y: 300 }], 0.8), 300);
+        return hold([...there, ...through([{ x: EDGE_SCROLL.edge + 20, y: 300 }, { x: W - EDGE_SCROLL.edge - 20, y: 300 }], 0.4, there.at(-1)![0]).slice(1)], 400);
       });
       expect(flash(r) === null, `${flash(r)}: ${sequence(r)}`);
     },
@@ -667,7 +668,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
     if (!snap) return "the item never snapped";
     const showed = r.log.filter((e) => e.id === snap.id && e.t <= snap.t).at(-1);
     if (!showed) return `the item snapped into ${snap.id} at ${Math.round(snap.t)} ms with no indicator on it`;
-    return snap.t - showed.t >= DRAG.ROOM_AFTER - 1000 / 60 ? null : `the item snapped into ${snap.id} ${Math.round(snap.t - showed.t)} ms after the indicator showed it, before the room was made`;
+    return snap.t - showed.t >= DRAG_DEFAULTS.roomAfter - 1000 / 60 ? null : `the item snapped into ${snap.id} ${Math.round(snap.t - showed.t)} ms after the indicator showed it, before the room was made`;
   };
   // The dragged item is the real one: on a drop it starts settling from where it was let go (never from home, never
   // a frame elsewhere), and a snapped item let go in its slot doesn't move again.
@@ -805,7 +806,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       const a = all.find((t) => t.id === "dock:left:1");
       const empty = { x: lab.size().width / 2, y: lab.size().height / 3 };
       if (!a) return expect(false, "no left dock slot");
-      expect(rawTarget(all, empty) === null, `(${empty.x}, ${empty.y}) is in ${rawTarget(all, empty)?.id}, not empty space`);
+      expect(targetAt(all, empty) === null, `(${empty.x}, ${empty.y}) is in ${targetAt(all, empty)?.id}, not empty space`);
       const start = mid(a.hit);
       let flick = 0;
       const r = await lab.path(key, (g) => {
@@ -814,8 +815,8 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         return hold([...there, ...through([start, empty], 2.5, flick).slice(1)], 300);
       });
       const frames = (r.frames ?? []).filter((f) => f.t > flick);
-      const fast = frames.find((f) => f.speed >= DRAG.AIM_SPEED)?.t;
-      const out = frames.find((f) => !within(a.hit, f, DRAG.BAND))?.t;
+      const fast = frames.find((f) => f.speed >= DRAG_DEFAULTS.aimSpeed)?.t;
+      const out = frames.find((f) => !inRect(a.hit, f, DRAG_DEFAULTS.band))?.t;
       const off = r.log.find((e) => e.t > flick && e.id === null)?.t;
       const due = Math.max(fast ?? Infinity, out ?? Infinity);
       expect(r.log.filter((e) => e.t <= flick).at(-1)?.id === a.id, `aiming didn't show ${a.id}: ${sequence(r)}`);
@@ -831,9 +832,9 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         play: async (expect) => {
           const grip = lab.grip(key)!;
           const all = lab.targets(key);
-          const ts = all.filter((t) => t.prio <= 2 && !within(t.hit, grip, 12) && mid(t.hit).x > 0 && mid(t.hit).x < lab.size().width);
+          const ts = all.filter((t) => t.priority <= 2 && !inRect(t.hit, grip, 12) && mid(t.hit).x > 0 && mid(t.hit).x < lab.size().width);
           // A target whose centre is clear of the band of every target as precise: aiming there shows it, whatever the way in.
-          const a = ts.find((t) => all.every((o) => o.id === t.id || o.prio > t.prio || !within(o.hit, mid(t.hit), DRAG.BAND)));
+          const a = ts.find((t) => all.every((o) => o.id === t.id || o.priority > t.priority || !inRect(o.hit, mid(t.hit), DRAG_DEFAULTS.band)));
           const b = a && ts.filter((t) => t !== a).sort((x, y) => dist(mid(x.hit), mid(a.hit)) - dist(mid(y.hit), mid(a.hit)))[0];
           if (!a || !b) return expect(false, "no two neighbouring targets");
           // Aim at A for 600 ms, then flick 300 px through its neighbour.
@@ -850,8 +851,8 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
           const before = r.log.filter((e) => e.t <= flick).at(-1);
           expect(before?.id === a.id, `aiming showed ${before?.id ?? "nothing"}, not ${a.id}: ${sequence(r)}`);
           const frames = (r.frames ?? []).filter((f) => f.t > flick);
-          const fast = frames.find((f) => f.speed >= DRAG.AIM_SPEED)?.t;
-          const out = frames.find((f) => !within(a.hit, f, DRAG.BAND))?.t;
+          const fast = frames.find((f) => f.speed >= DRAG_DEFAULTS.aimSpeed)?.t;
+          const out = frames.find((f) => !inRect(a.hit, f, DRAG_DEFAULTS.band))?.t;
           const off = r.log.find((e) => e.t > flick && e.id === null)?.t;
           // The indicator stays while its target holds; once the pointer is both fast and out of the band, it goes.
           const due = Math.max(fast ?? Infinity, out ?? Infinity);
@@ -912,7 +913,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         const there = hold(through([g, aim], 0.8), 500);
         return [...there, ...through([aim, into], 1.5, there.at(-1)![0]).slice(1)];
       });
-      expect(rawTarget(all, into)?.id === b.id, `the release point is under ${rawTarget(all, into)?.id}, not ${b.id}`);
+      expect(targetAt(all, into)?.id === b.id, `the release point is under ${targetAt(all, into)?.id}, not ${b.id}`);
       expect(shows(r).at(-1)?.id === a.id, `the indicator last showed ${shows(r).at(-1)?.id ?? "nothing"}, not ${a.id}: ${sequence(r)}`);
       expect(r.landed === a.id, `landed on ${r.landed ?? "home"}, not on the shown ${a.id}`);
     },

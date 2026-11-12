@@ -268,7 +268,7 @@ export function createGrips(host: GripHost): Grips {
         continue;
       }
       const slots = ts.filter((t) => !t.free);
-      const open = slots.filter((t) => t.prio >= 2);
+      const open = slots.filter((t) => t.priority >= 2);
       const t = (open.length ? open : slots).at(-1);
       if (t) out.push({ id: z, label: zoneLabel(inp.c.id, z, inp.s0), target: t });
     }

@@ -1,6 +1,6 @@
 /**
  * Each construction's drop targets, as pure functions: from the state with the dragged item lifted out, a list of
- * zones with a priority (see intent.ts), each able to make the state with the item dropped there.
+ * zones with a priority (see @n-uf/motion/drag), each able to make the state with the item dropped there.
  *
  * - Edge docks (A, A2, F3): a rail (priority 1) takes the panel at the end of its dock (a folded dock keeps it in
  *   the rail); a slot between sections (2) and the bottom dock (2) take it at that place; F3's documents area (3)
@@ -15,7 +15,7 @@
  */
 import type { Rect } from "@n-uf/motion";
 import { overlap, type Point } from "../shared/geometry";
-import type { Target } from "./intent";
+import type { DragTarget } from "@n-uf/motion/drag";
 import {
   DOCK,
   OVER_MARGIN,
@@ -45,7 +45,7 @@ export interface Made {
   readonly key: string;
 }
 
-export interface DropTarget extends Target {
+export interface DropTarget extends DragTarget {
   /** The drop with the pointer at `p`, holding the item at `grab` from its top-left corner. */
   readonly make: (p: Point, grab: Point) => Made;
   /** Where the keyboard stops in this target, in order (default: its zone's centre). */
@@ -122,7 +122,7 @@ function dockTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
     const rail = l0.items.get(`rail:${side}`);
     if (!rail) continue;
     const label = `${Cap(side)} rail: into the ${side} dock`;
-    out.push({ id: `rail:${side}`, prio: 1, hit: rail.rect, make: fixed(touch({ ...s0, [side]: [...s0[side], id] }, id), label) });
+    out.push({ id: `rail:${side}`, priority: 1, hit: rail.rect, make: fixed(touch({ ...s0, [side]: [...s0[side], id] }, id), label) });
     if (side === "left" ? !d.lOpen : !d.rOpen) continue;
     // The dock's slots: each section's halves belong to the slots above and below it.
     const shown = side === "left" ? s0.left : d.right;
@@ -133,7 +133,7 @@ function dockTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
       // Past the side list (the bottom dock is off and its panels show here): into the bottom list.
       const state = i <= s0[side].length ? { ...s0, [side]: insert(s0[side], i, id) } : { ...s0, bottom: insert(s0.bottom, i - s0[side].length, id) };
       const label = `${Cap(side)} dock · slot ${i + 1}`;
-      out.push({ id: `dock:${side}:${i}`, prio: 2, hit: rect(x, y0, DOCK, y1 - y0), make: fixed(touch(state, id), label) });
+      out.push({ id: `dock:${side}:${i}`, priority: 2, hit: rect(x, y0, DOCK, y1 - y0), make: fixed(touch(state, id), label) });
     }
   }
   if (opt.bottom !== "off") {
@@ -142,14 +142,14 @@ function dockTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
     for (let i = 0; i <= s0.bottom.length; i++) {
       const [x0, x1] = slotSpan(mids, b.x, b.x + b.width, i);
       const label = `Bottom dock · slot ${i + 1}`;
-      out.push({ id: `bottom:${i}`, prio: 2, hit: rect(x0, b.y - 24, x1 - x0, H - b.y + 24), make: fixed(touch({ ...s0, bottom: insert(s0.bottom, i, id) }, id), label) });
+      out.push({ id: `bottom:${i}`, priority: 2, hit: rect(x0, b.y - 24, x1 - x0, H - b.y + 24), make: fixed(touch({ ...s0, bottom: insert(s0.bottom, i, id) }, id), label) });
     }
   }
   if (c.id === "dockTear") {
     // Torn off, floating where it is dropped; snapped to the documents' edges, kept on the stage.
     out.push({
       id: "float",
-      prio: 3,
+      priority: 3,
       free: true,
       hit: rect(d.x0, 0, d.x1 - d.x0, H),
       make: (p, grab) => {
@@ -186,10 +186,10 @@ function treeTargets({ s0, key, size }: TargetInput): DropTarget[] {
   for (const [side, group] of [["left", "L"], ["right", "R"]] as const) {
     if (!sides || !rails[side]) continue;
     const hit = rect(side === "left" ? 0 : size.width - RAIL, BAR, RAIL, size.height - BAR);
-    out.push({ id: `rail:${side}`, prio: 1, hit, make: fixed({ ...s0, tree: { ...s0.tree, [group]: [...s0.tree[group], key] } }, `${Cap(side)} rail: into the ${side} column`) });
+    out.push({ id: `rail:${side}`, priority: 1, hit, make: fixed({ ...s0, tree: { ...s0.tree, [group]: [...s0.tree[group], key] } }, `${Cap(side)} rail: into the ${side} column`) });
   }
-  if (sides && s0.tree.L.length === 0) out.push({ id: "edge:L", prio: 2, hit: rect(area.x, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...s0.tree, L: [key] } }, "New left column") });
-  if (sides && s0.tree.R.length === 0) out.push({ id: "edge:R", prio: 2, hit: rect(area.x + area.width - 30, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...s0.tree, R: [key] } }, "New right column") });
+  if (sides && s0.tree.L.length === 0) out.push({ id: "edge:L", priority: 2, hit: rect(area.x, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...s0.tree, L: [key] } }, "New left column") });
+  if (sides && s0.tree.R.length === 0) out.push({ id: "edge:R", priority: 2, hit: rect(area.x + area.width - 30, area.y, 30, area.height), make: fixed({ ...s0, tree: { ...s0.tree, R: [key] } }, "New right column") });
   const x0 = area.x + (t.L.length ? TREE_COLUMN + G : 0);
   const x1 = area.x + area.width - (t.R.length ? TREE_COLUMN + G : 0);
   const centre = rect(x0, area.y, x1 - x0, area.height);
@@ -210,7 +210,7 @@ function treeTargets({ s0, key, size }: TargetInput): DropTarget[] {
       // Places that come out the same (around a floating tile) are one target: the keyboard stops there once.
       if (seen.some((o) => o.label === label && sameZone(o.hit, zone))) continue;
       seen.push({ label, hit: zone });
-      out.push({ id: `tile:${group}:${i}`, prio: 2, hit: zone, make: fixed(state, label) });
+      out.push({ id: `tile:${group}:${i}`, priority: 2, hit: zone, make: fixed(state, label) });
     }
   }
   return out;
@@ -257,14 +257,14 @@ function stripTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
     }
   });
   const newColumn = (at: number, label: string): Made => ({ state: { ...s0, cols: insert(s0.cols, at, [key]) }, label, key: label });
-  if (parts.length === 0) return [{ id: "strip", prio: 3, hit: rect(0, g.y, size.width, g.h), make: () => newColumn(0, "The strip") }];
+  if (parts.length === 0) return [{ id: "strip", priority: 3, hit: rect(0, g.y, size.width, g.h), make: () => newColumn(0, "The strip") }];
   // Between columns: a band across each boundary where a state column starts or ends.
   for (let k = 0; k <= parts.length; k++) {
     if (k < parts.length && parts[k]!.start !== 0) continue;
     const x = k < parts.length ? g.xs[k]! - G / 2 : g.xs[parts.length - 1]! + g.widths[parts.length - 1]! + G / 2;
     const at = k < parts.length ? parts[k]!.owner : s0.cols.length;
     const label = k === 0 ? "New column at the start" : k === parts.length ? "New column at the end" : `New column before ${titleOf(parts[k]!.keys[0]!)}`;
-    out.push({ id: `between:${at}`, prio: 2, hit: rect(x - 28, g.y, 56, g.h), make: () => newColumn(at, label) });
+    out.push({ id: `between:${at}`, priority: 2, hit: rect(x - 28, g.y, 56, g.h), make: () => newColumn(at, label) });
   }
   // Inside a column: each item's halves belong to the gaps above and below it.
   parts.forEach((part, k) => {
@@ -274,7 +274,7 @@ function stripTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
       const at = part.start + j;
       const cols = s0.cols.map((col, ci) => (ci === part.owner ? insert(col, at, key) : col));
       const label = `Into the column with ${titleOf(s0.cols[part.owner]![0]!)} · ${at + 1}`;
-      out.push({ id: `into:${part.owner}:${at}`, prio: 2, hit: rect(g.xs[k]!, y0, g.widths[k]!, y1 - y0), make: fixed({ ...s0, cols }, label) });
+      out.push({ id: `into:${part.owner}:${at}`, priority: 2, hit: rect(g.xs[k]!, y0, g.widths[k]!, y1 - y0), make: fixed({ ...s0, cols }, label) });
     }
   });
   return out;
@@ -296,7 +296,7 @@ function tabTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
       const tw = r.width / (list.length + 1);
       out.push({
         id: `tabs:${side}`,
-        prio: 1,
+        priority: 1,
         hit: rect(r.x, r.y - 4, r.width, r.height + 8),
         make: (p) => {
           const i = clamp(Math.floor((p.x - r.x) / tw), 0, list.length);
@@ -306,12 +306,12 @@ function tabTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
         stops: Array.from({ length: list.length + 1 }, (_, i) => ({ x: r.x + tw * (i + 0.5), y: r.y + r.height / 2 })),
       });
       const panel = list.map((p) => l0.items.get(panelKey(p))).find((pl) => pl && !pl.hidden);
-      if (panel) out.push({ id: `side:${side}`, prio: 3, hit: panel.rect, make: fixed(onSide(side, list.length), `${Cap(side)} side`) });
+      if (panel) out.push({ id: `side:${side}`, priority: 3, hit: panel.rect, make: fixed(onSide(side, list.length), `${Cap(side)} side`) });
     }
-    if (rail && !rail.hidden) out.push({ id: `rail:${side}`, prio: 1, hit: rail.rect, make: fixed(onSide(side, list.length), `${Cap(side)} rail`) });
+    if (rail && !rail.hidden) out.push({ id: `rail:${side}`, priority: 1, hit: rail.rect, make: fixed(onSide(side, list.length), `${Cap(side)} rail`) });
     if (list.length === 0 && (!rail || rail.hidden)) {
       const hit = side === "left" ? rect(0, 0, 40, size.height) : rect(size.width - 40, 0, 40, size.height);
-      out.push({ id: `edge:${side}`, prio: 2, hit, make: fixed(onSide(side, 0), `${Cap(side)} side`) });
+      out.push({ id: `edge:${side}`, priority: 2, hit, make: fixed(onSide(side, 0), `${Cap(side)} side`) });
     }
   }
   return out;
@@ -347,7 +347,7 @@ function paletteTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
     };
     out.push({
       id: `stack:${side}`,
-      prio: 2,
+      priority: 2,
       hit: rect(anchor[side], area.y, pw, bottom + 30 - area.y),
       make: (p) => join(at(p.y)),
       stops: [area.y + m, ...ids.map((pid) => rectOf(pid).y + rectOf(pid).height + G / 2)].map((y) => ({ x: anchor[side] + pw / 2, y })),
@@ -356,7 +356,7 @@ function paletteTargets({ c, s0, key, size, opt }: TargetInput): DropTarget[] {
   // Anywhere: snapped to the area's edges (F1 also to other palettes' edges), kept inside the area.
   out.push({
     id: "free",
-    prio: 3,
+    priority: 3,
     free: true,
     hit: area,
     make: (p, grab) => {

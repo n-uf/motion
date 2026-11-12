@@ -1,12 +1,10 @@
 /**
- * A press that may become a drag: a click until the pointer has moved DRAG_THRESHOLD stage px, then a drag.
- * Escape (cancelPress) ends the whole press: its later moves lift nothing. A pointercancel (the system took the
- * pointer) cancels like Escape.
+ * A press that may become a drag: a click until the lift rule of @n-uf/motion/drag says it lifts (a mouse at 5 stage
+ * px; with `longPress`, a touch only after a hold). Escape (cancelPress) ends the whole press: its later moves lift
+ * nothing. A pointercancel (the system took the pointer) cancels like Escape.
  */
+import { liftDecision } from "@n-uf/motion/drag";
 import type { Point } from "./geometry";
-
-/** A press is a click until the pointer has moved this far (stage px); only then is anything lifted. */
-export const DRAG_THRESHOLD = 5;
 
 /** Escape ended the current press: its later moves lift nothing. */
 let gestureCancelled = false;
@@ -29,35 +27,26 @@ export interface PressHandlers {
 }
 
 /**
- * On touch, a press lifts only after a long press: held for `hold` ms, then moved `lift` px. Moving that far
- * before the hold is over is not a drag (the press lifts nothing).
+ * Track a primary-button press on its target until release. `longPress`: on touch input, the press lifts only
+ * after a hold, and moving before the hold is over is not a drag (the press lifts nothing).
  */
-export interface TouchLift {
-  readonly hold: number;
-  readonly lift: number;
-}
-
-/** Track a primary-button press on its target until release (`touch`: a long press first, on touch input). */
-export function trackPress(e: PointerEvent, h: PressHandlers, touch?: TouchLift): void {
+export function trackPress(e: PointerEvent, h: PressHandlers, longPress = false): void {
   if (e.button !== 0 || e.ctrlKey) return;
   e.preventDefault();
   const target = e.currentTarget as HTMLElement;
   target.setPointerCapture(e.pointerId);
   const start = h.point(e);
   const t0 = performance.now();
-  const long = touch && e.pointerType === "touch" ? touch : null;
+  const touch = longPress && e.pointerType === "touch";
   let refused = false;
   gestureCancelled = false;
   const move = (ev: PointerEvent): void => {
     if (gestureCancelled || refused) return;
     const q = h.point(ev);
     if (!h.lifted()) {
-      const far = Math.hypot(q.x - start.x, q.y - start.y);
-      if (long && performance.now() - t0 < long.hold) {
-        if (far >= long.lift) refused = true;
-        return;
-      }
-      if (far < (long ? long.lift : DRAG_THRESHOLD)) return;
+      const decision = liftDecision({ touch, distance: Math.hypot(q.x - start.x, q.y - start.y), elapsed: performance.now() - t0 });
+      if (decision === "refuse") refused = true;
+      if (decision !== "lift") return;
       h.begin(start);
     }
     h.move(q);
