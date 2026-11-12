@@ -31,14 +31,22 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
     stop;
   - `item.retarget(rect)`: a settle that keeps the content laid out while the
     size is unchanged. The held drag's glide back to the pointer uses it, so
-    it no longer lays the item out on every frame.
+    it no longer lays the item out on every frame. It is optional on
+    `LayoutItem`: `holdItem` falls back to `moveTo` for an item without it (a
+    26.11.4 item or a test double).
+- Changed: the `LayoutMotion` interface gains `retain` and `flush`, so an
+  implementation of it written outside this package needs both.
+  `createLayoutMotion` has them.
 - `@n-uf/motion/gestures`: `touchPressReducer` / `createTouchPress`, a touch
   on something draggable in a scrolling page: travel mostly along the scroll
-  direction before the hold is a scroll and never lifts. `pagedSwipeReducer` /
+  direction is never a lift: it is a scroll from 10 px, so a finger scroll
+  reported a few px at a time never lifts on the way. `pagedSwipeReducer` /
   `createPagedSwipe`, swiping between pages with a wheel run or a finger: it
   arms only along the swipe, tracks progress over the page size, commits by
-  share or speed and locks out the trackpad's momentum after a commit. Both
-  from hypr-tiling's public engine, with generic names.
+  share or speed and locks out the trackpad's momentum after a commit;
+  `cancel` while it settles goes back to idle, so a host that stops its
+  transition can't leave it stuck. Both from hypr-tiling's public engine, with
+  generic names.
 
 ## 26.11.4
 
