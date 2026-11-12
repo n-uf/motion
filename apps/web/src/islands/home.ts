@@ -16,13 +16,20 @@ import { registerShowcase, setDragging } from "./showcase";
 import { DROP_MODES, dropMode, onDropMode, previewPlan, setDropMode, type DropMode } from "./drop-mode";
 import { figureChrome } from "./figure-chrome";
 import { createIntent, type Intent } from "../demos/intent";
-import { CURVE, CURVES, DESK_A, DESK_B, LAYOUTS, WINDOWS, curvePoint, curveX } from "../demos/home";
+import { CURVE, CURVES, DEFAULT_TOOL, DESK_A, DESK_B, LAYOUTS, RESERVE, WINDOWS, curvePoint, curveX } from "../demos/home";
+import type { Model } from "../demos/toolbar";
 
 // ---- The hero demo: three windows that tile, swap and glide ---------------------------------------------------------
 const fig = $("demo-fig");
 const demo = $("demo");
 const readout = $("readout");
+const readoutSide = $("readout-side");
 const layoutName = $("layout-name");
+const shuffle = $("shuffle");
+/** The stage keeps a band free for the floating tools while they float at the bottom (their default). */
+let reserve = RESERVE;
+/** Whether the visitor changed the demo (a swap, a layout, a tool): what ↺ Reset puts back. */
+let touched = false;
 interface Win { i: number; el: HTMLElement; frame: HTMLElement; body: HTMLElement; settle: Settle<Rect>; slot: number; target: Rect; hold: boolean }
 const wins: Win[] = [...demo.querySelectorAll<HTMLElement>(".dw")].map((el, i) => ({
   i,
@@ -45,7 +52,7 @@ ind.className = "dw-ind";
 ind.innerHTML = `<span class="dw-ind-label"></span>`;
 demo.appendChild(ind);
 
-const slotRect = (slot: number): Rect => LAYOUTS[layout]!.slots[slot]!(demo.clientWidth, demo.clientHeight);
+const slotRect = (slot: number): Rect => LAYOUTS[layout]!.slots[slot]!(demo.clientWidth, demo.clientHeight - reserve);
 
 /** Draw one window at its drawn rect: laid out once at its target, moved and clipped, never stretched. */
 function paint(w: Win): void {
@@ -61,7 +68,13 @@ function place(w: Win, r: Rect): void {
 }
 function showReadout(): void {
   const w = wins[0]!, d = w.settle.value, t = w.settle.target;
-  readout.innerHTML = `<b>${WINDOWS[0]!.title}</b> · drawn <b>${Math.round(d.width)} × ${Math.round(d.height)}</b> · target <b>${Math.round(t.width)} × ${Math.round(t.height)}</b> · ${w.settle.settled ? "at rest" : "settling"}`;
+  const dw = Math.round(d.width), dh = Math.round(d.height), tw = Math.round(t.width), th = Math.round(t.height);
+  readout.innerHTML = `<b>${WINDOWS[0]!.title}</b> · drawn <b>${dw} × ${dh}</b> · target <b>${tw} × ${th}</b> · ${w.settle.settled ? "at rest" : "settling"}`;
+  // The side form: a state dot (accent while settling) over the drawn size; the name and target in its tooltip.
+  readoutSide.classList.toggle("moving", !w.settle.settled);
+  readoutSide.querySelector("#ro-w")!.textContent = String(dw);
+  readoutSide.querySelector("#ro-h")!.textContent = String(dh);
+  readoutSide.title = `${WINDOWS[0]!.title}: drawn ${dw} × ${dh}, target ${tw} × ${th}, ${w.settle.settled ? "at rest" : "settling"}`;
 }
 /** Step every window that isn't held 1:1 until all rest. */
 function run(): void {
@@ -97,6 +110,7 @@ function relayout(animate: boolean): void {
     else w.settle.setTarget({ ...r });
   }
   layoutName.textContent = LAYOUTS[layout]!.name;
+  shuffle.title = `Next layout · ${LAYOUTS[layout]!.name}`;
   run();
 }
 relayout(false);
@@ -205,6 +219,7 @@ function release(cancel: boolean): void {
   ind.classList.remove("on");
   const target = cancel ? null : d.shown;
   if (target) [target.slot, d.w.slot] = [d.w.slot, target.slot];
+  if (target && !d.scripted) markTouched();
   d.w.hold = false;
   d.w.el.classList.remove("held");
   // Every window settles to its slot from where it is drawn: a snapped one is already on its way, so no second motion.
@@ -242,9 +257,41 @@ demo.addEventListener("pointerdown", () => {
 demo.addEventListener("pointerup", (e) => { if (drag && !drag.scripted && e.pointerId === pointerId) release(false); });
 demo.addEventListener("pointercancel", () => { if (drag && !drag.scripted) release(true); });
 window.addEventListener("keydown", (e) => { if (e.key === "Escape" && drag && !drag.scripted) release(true); });
-figureChrome(fig);
+// The drawing tools: one selected (the accent ring), pen by default.
+const tools = [...fig.querySelectorAll<HTMLButtonElement>("[data-tool]")];
+const selectTool = (id: string): void => tools.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tool === id)));
+tools.forEach((b) => b.addEventListener("click", () => { selectTool(b.dataset.tool!); markTouched(); }));
+const tool = (): string => tools.find((b) => b.getAttribute("aria-pressed") === "true")?.dataset.tool ?? DEFAULT_TOOL;
+/** The band for the floating tools: kept only while they float at the bottom. */
+const syncReserve = (m: Model): void => {
+  const next = m.float.some((f) => f.anchor === "bottom") ? RESERVE : 0;
+  if (next === reserve) return;
+  reserve = next;
+  if (!drag) relayout(true);
+};
+const chrome = figureChrome(fig, {
+  onChange: syncReserve,
+  demo: {
+    isDefault: () => !touched && tool() === DEFAULT_TOOL,
+    reset() {
+      // Every window glides back to the first layout, its own slot; the pen is the tool again.
+      touched = false;
+      if (drag) release(true);
+      layout = 0;
+      wins.forEach((w) => (w.slot = w.i));
+      selectTool(DEFAULT_TOOL);
+      syncReserve(chrome.model());
+      relayout(true);
+    },
+  },
+});
+function markTouched(): void {
+  touched = true;
+  chrome.demoChanged();
+}
+syncReserve(chrome.model());
 onDropMode(() => { if (drag) showIndicator(drag.shown); });
-$("shuffle").addEventListener("click", () => nextLayout());
+shuffle.addEventListener("click", () => { nextLayout(); markTouched(); });
 
 // ---- The automatic showcase: layouts, then a swap, cycling the three modes; its pace follows the speed -------------
 function nextLayout(): void {
