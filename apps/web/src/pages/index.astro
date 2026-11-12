@@ -9,7 +9,7 @@ import { icon } from "../demos/icons";
 import { pageOf } from "../data/pages";
 import { npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
-import { DEMO, WINDOWS, CURVE, curveSVG, deskThumbSVG, demoWindowHTML, firstLayoutStyle, ninetyPercentMs } from "../demos/home";
+import { DEMO, WINDOWS, CURVE, TOOLS, curveSVG, deskThumbSVG, demoWindowHTML, firstLayoutStyle, ninetyPercentMs } from "../demos/home";
 import "../styles/home.css";
 import CodeTabs from "../components/CodeTabs.astro";
 
@@ -36,14 +36,15 @@ const ninety = ninetyPercentMs();
     </div>
 
     <Chrome id="demo-fig" class="demo-fig" label="Live demo: three windows that tile, swap and glide"
-      groups={[{ id: "title", name: "Title" }, { id: "layout", name: "Layout" }, { id: "preview", name: "Preview" }, { id: "speed", name: "Speed" }, { id: "tempo", name: "Tempo" }, { id: "readout", name: "Readout" }, { id: "hint", name: "Hint" }]}
-      model={arrangement({ title: { start: ["title"], end: ["layout", "preview"] }, bottom: { start: ["readout"], center: ["speed", "tempo"], end: ["hint"] } })}>
-      <span class="ident" slot="title"><span class="name" id="layout-name">Master and stack</span><span class="page">3 windows</span></span>
-      <Fragment slot="layout"><span class="lab">Layout</span><button type="button" class="tb text" id="shuffle" aria-label="Next layout" title="Next layout"><span class="t">Next layout</span><span class="i" set:html={icon("layout")} /></button></Fragment>
+      groups={[{ id: "title", name: "Title" }, { id: "layout", name: "Layout" }, { id: "preview", name: "Preview" }, { id: "speed", name: "Speed" }, { id: "tempo", name: "Tempo" }, { id: "tools", name: "Tools" }, { id: "readout", name: "Readout" }, { id: "hint", name: "Hint" }]}
+      model={arrangement({ title: { start: ["title"], end: ["layout"] }, left: { start: ["preview"] }, right: { start: ["tempo", "speed"] }, bottom: { start: ["readout"], end: ["hint"] } }, [{ id: "tools", x: 0, y: 0, anchor: "bottom" }])}>
+      <span class="ident" slot="title"><span class="name">Desk</span><span class="page">3 windows</span></span>
+      <Fragment slot="layout"><span class="lab">Layout: <b id="layout-name">Master and stack</b></span><button type="button" class="tb" id="shuffle" aria-label="Next layout" title="Next layout · Master and stack" set:html={icon("swap")} /></Fragment>
       <Fragment slot="preview"><DropModeSwitch /></Fragment>
       <Fragment slot="speed"><Playback part="speed" /></Fragment>
       <Fragment slot="tempo"><Playback part="tempo" /></Fragment>
-      <span class="mono" slot="readout" id="readout"><b>Quarterly plan.pdf</b> · drawn <b>– × –</b> · target <b>– × –</b></span>
+      <Fragment slot="tools">{TOOLS.map(([id, name]) => <button type="button" class="tb" data-tool={id} aria-pressed={String(id === "pen")} aria-label={name} title={name} set:html={icon(id)} />)}</Fragment>
+      <Fragment slot="readout"><span class="mono h-only" id="readout"><b>Quarterly plan.pdf</b> · drawn <b>– × –</b> · target <b>– × –</b></span><span class="side-form ro" id="readout-side" title="Quarterly plan.pdf"><i class="dot"></i><span id="ro-w">–</span><span id="ro-h">–</span></span></Fragment>
       <Fragment slot="hint"><span class="quiet" data-showcase-idle>Drag a window onto another to swap them</span><span class="quiet" data-showcase-hint hidden title="The automatic showcase resumes 10 seconds after your last action">Paused while you explore</span><span class="quiet" data-slowmo hidden></span></Fragment>
       <div class="figure-body no-rail">
         <div class="demo stage-host" id="demo" style={`--demo-h:${DEMO.h}px`}>
