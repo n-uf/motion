@@ -118,6 +118,8 @@
 /* The slot: the group's own outline where it will sit (between groups, the neighbours move aside for it). */
 .slot { flex: none; border: 1.5px dashed var(--signal); background: var(--signal-soft); border-radius: var(--r); animation: slotin 90ms ease-out; }
 .slot.float { position: fixed; z-index: 39; pointer-events: none; }
+/* Snap to slot: the slot only makes room; the group itself glides into it. */
+.slot.snap { border-color: transparent; background: transparent; animation: none; }
 @keyframes slotin { from { opacity: 0; } to { opacity: 1; } }
 #indlabel { position: fixed; z-index: 41; pointer-events: none; padding: 2px 9px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font-size: var(--t-xs); font-weight: 620; white-space: nowrap; opacity: 0; transition: opacity 90ms; box-shadow: var(--shadow-1); }
 #indlabel.on { opacity: 1; }
