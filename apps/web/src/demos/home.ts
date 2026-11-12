@@ -29,8 +29,6 @@ const CONSTRUCTIONS = ["navigator", "tree", "strip"] as const;
 export interface DeskLayout {
   /** The three windows' rects, in the stage's px. */
   readonly rects: readonly Rect[];
-  /** Placement's give-way note codes for this stage (empty when nothing gave way). */
-  readonly notes: readonly string[];
 }
 let cached: { key: string; layout: DeskLayout } | null = null;
 /** Placement's layout `index` (see {@link LAYOUTS}) for a stage of `W` × `H`; the last answer is kept. */
@@ -41,8 +39,8 @@ export function deskLayout(index: number, W: number, H: number): DeskLayout {
   // The strip starts scrolled to its first column (placement's own start scrolls to the focus, leaving the first off stage).
   const start = c.initial([1, 2, 3]);
   const state = c.id === "strip" ? { ...start, stripScroll: 0 } : start;
-  const { items, notes } = c.layout(state, { width: Math.max(1, W), height: Math.max(1, H) }, OPTIONS);
-  const layout: DeskLayout = { rects: [1, 2, 3].map((id) => ({ ...items.get(`doc:${id}`)!.rect })), notes: notes.map((n) => n.code) };
+  const { items } = c.layout(state, { width: Math.max(1, W), height: Math.max(1, H) }, OPTIONS);
+  const layout: DeskLayout = { rects: [1, 2, 3].map((id) => ({ ...items.get(`doc:${id}`)!.rect })) };
   cached = { key, layout };
   return layout;
 }
@@ -114,22 +112,14 @@ export function curveSVG(ms: number): string {
     `<line class="t-head" x1="${cx(ms).toFixed(1)}" x2="${cx(ms).toFixed(1)}" y1="${CURVE.T - 6}" y2="${CURVE.H - CURVE.B}"/>` +
     `<circle r="4" class="t-dot-other" cx="${a.x.toFixed(1)}" cy="${a.y.toFixed(1)}"/><circle r="4.5" class="t-dot" cx="${b.x.toFixed(1)}" cy="${b.y.toFixed(1)}"/>`;
 }
-export const curveX = cx;
 
-// ---- Thumbnail 3: the same desk built two ways ------------------------------------------------------------------------
+// ---- The desk preview: rails, panels, two documents and the bar ------------------------------------------------------
 export const DESK_A: Record<string, Rect> = {
   railL: { x: 0, y: 0, width: 14, height: 150 }, railR: { x: 266, y: 0, width: 14, height: 150 },
   p1: { x: 18, y: 4, width: 58, height: 70 }, p2: { x: 18, y: 78, width: 58, height: 68 },
   p3: { x: 204, y: 4, width: 58, height: 142 },
   d1: { x: 80, y: 26, width: 66, height: 120 }, d2: { x: 150, y: 26, width: 50, height: 120 },
   bar: { x: 104, y: 6, width: 72, height: 14 },
-};
-export const DESK_B: Record<string, Rect> = {
-  railL: { x: 0, y: 0, width: 0, height: 150 }, railR: { x: 280, y: 0, width: 0, height: 150 },
-  p1: { x: 12, y: 30, width: 54, height: 40 }, p2: { x: 12, y: 74, width: 54, height: 30 },
-  p3: { x: 214, y: 30, width: 54, height: 60 },
-  d1: { x: 4, y: 24, width: 150, height: 122 }, d2: { x: 158, y: 24, width: 118, height: 122 },
-  bar: { x: 104, y: 4, width: 72, height: 14 },
 };
 export const deskKind = (k: string): string => (k.startsWith("rail") ? "t-rail" : k.startsWith("d") ? "t-doc" : k === "bar" ? "t-pill" : "t-panel");
 export function deskThumbSVG(): string {
