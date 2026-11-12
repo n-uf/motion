@@ -29,10 +29,17 @@ describe("touch press: a drag or a scroll", () => {
     expect(run([press, move(100, 88)]).phase).toBe("scrolled");
   });
 
+  it("a finger scroll reported 2 px at a time is a scroll, never a lift on the way", () => {
+    const steps = Array.from({ length: 10 }, (_, i) => move(100 + (i % 2), 100 + 2 * (i + 1)));
+    const seen = steps.map((_, i) => run([press, ...steps.slice(0, i + 1)]).phase);
+    expect(seen).not.toContain("lifted");
+    expect(seen.at(-1)).toBe("scrolled");
+  });
+
   it("travel past the lift distance that is not a scroll lifts, where the finger is", () => {
     expect(run([press, move(108, 101)])).toEqual({ phase: "lifted", from: { x: 100, y: 100 }, at: { x: 108, y: 101 } });
-    // Mostly along the scroll direction but short of the escape: a lift, not a scroll.
-    expect(run([press, move(104, 108)]).phase).toBe("lifted");
+    // Mostly along the scroll direction but short of the escape: it waits, never a lift.
+    expect(run([press, move(104, 108)]).phase).toBe("pressed");
     // Along the scroll direction past the escape, but more across it: a lift.
     expect(run([press, move(113, 112)]).phase).toBe("lifted");
   });
