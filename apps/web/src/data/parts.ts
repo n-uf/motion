@@ -39,8 +39,8 @@ export const PARTS: Part[] = [
 export const partOf = (id: PartId): Part => PARTS.find((p) => p.id === id)!;
 
 /**
- * Each page's "Built with" line: what the page's code imports (`uses`) and whose rules its demo shows (`shows`, the
- * package entry the rules live in), each linked to that package's README.
+ * Each page's "Built with" line: what the page's code imports (`uses`), and whose rules its demo redraws in the site's
+ * own code (`shows`, the package entry the rules live in), each linked to that package's README.
  */
 export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; entry?: string; what: string }[]> = {
   "/window-motion/": [{ part: "motion", kind: "uses", what: "createSettle, SETTLE_TEMPO, reveal, createFrameLoop" }],
@@ -53,7 +53,8 @@ export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; 
     { part: "placement", kind: "shows", entry: "/dock", what: "the nine constructions and how they give way" },
   ],
   "/toolbar-groups/": [
-    { part: "motion", kind: "uses", what: "createSettle, reveal" },
+    { part: "motion", kind: "uses", what: "createSettle" },
     { part: "placement", kind: "shows", entry: "/toolbar + /targets", what: "hosts, zones, overflow and drop targets" },
+    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and the three previews" },
   ],
 };

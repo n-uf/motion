@@ -24,10 +24,10 @@ const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: s
   { rule: "Interactive resize", hypr: "all tiles warped, content unscaled", tiling: "divider 1:1", host: "sprung and scaled", prop: "hold + reveal", cls: ["good", "bad", "good"] },
   { rule: "Reflow curve", hypr: "90% ≈ 60 ms (recording) / 175–190 ms (shipped)", tiling: "170 ms CSS, only during drags; others jump", host: "stiffness 320 from rest: 90% at 218 ms, slow start", prop: "settle ω=25: 90% at 92 ms, done at 184 ms", cls: ["bad", "bad", "good"] },
   { rule: "Overshoot on size", hypr: "none seen (shipped spring allows 1.8%)", tiling: "none by default; swap dip to 0.7", host: "maximize/restore \"snappy\" y2 = 1.05", prop: "impossible (launch + clamp)", cls: ["", "bad", "good"] },
-  { rule: "Retarget", hypr: "from drawn; spring keeps velocity", tiling: "restarts CSS transition; settle strip snaps", host: "spring keeps velocity; tweens, space changes and docked restart", prop: "always from drawn, velocity kept and clamped", cls: ["bad", "", "good"] },
+  { rule: "Retarget", hypr: "from drawn; spring keeps velocity", tiling: "restarts CSS transition; settle strip snaps", host: "spring keeps velocity; tweens, space changes and docked restart", prop: "always from drawn; a new target relaunches toward it, so it never passes it", cls: ["bad", "", "good"] },
   { rule: "Content", hypr: "stretched ~40–50 ms on reflow", tiling: "stretched the whole 170 ms", host: "stretched (non-docked), docked size jumps", prop: "never stretched; uniform popin only for open/close", cls: ["bad", "bad", "good"] },
   { rule: "Open / close", hypr: "popin 87% + fade, ~100 ms", tiling: "appear/vanish instantly", host: "fade + 8 px rise 180 ms / 140 ms", prop: "popin 0.87 → 1 (uniform) + fade on settle", cls: ["bad", "", "good"] },
-  { rule: "Neighbours during drag", hypr: "reflow at once when the window lifts", tiling: "reservation slot keeps the gap", host: "old slot kept (live move)", prop: "tiles: reflow at lift; docked keep slot", cls: ["", "", "good"] },
+  { rule: "Neighbours during drag", hypr: "reflow at once when the window lifts", tiling: "reservation slot keeps the gap", host: "old slot kept (live move)", prop: "left to your layout; motion glides whatever rects it is given", cls: ["", "", ""] },
 ];
 ---
 <Site title={page.title} description={page.description} path={path} headline="Fast at the start, gentle at the end, never past the target." jsonLd={jsonLd} ogImage="/og/window-motion.png">

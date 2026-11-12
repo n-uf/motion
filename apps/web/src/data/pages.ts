@@ -28,7 +28,7 @@ export const pages: PageInfo[] = [
     description: "Nine ways to lay out a desk of tool panels and documents, from edge docks to floating palettes, and what each gives way as width or height runs out." },
   { path: "/toolbar-groups/", updated: updated["/toolbar-groups/"], nav: "Toolbar groups",
     title: "Toolbar groups: one drag handle per group",
-    description: "Toolbar groups that dock into five hosts or float, each led by one drag handle that is also its separator, and a lock that hides every grip until Alt." },
+    description: "Toolbar groups that dock into five hosts of three zones or float, each led by one drag handle that is also its separator, collapsing from the trailing end." },
 ];
 export const pageOf = (path: string): PageInfo => {
   const p = pages.find((x) => x.path === path);

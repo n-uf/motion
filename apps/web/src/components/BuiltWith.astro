@@ -11,6 +11,6 @@ const uses = rows.filter((r) => r.kind === "uses"), shows = rows.filter((r) => r
 {rows.length > 0 && (
   <p class="built-with">
     {uses.length > 0 && <span><span class="bw-k">Built with</span> {uses.map((r, i) => <>{i > 0 && " · "}<ExtLink href={partOf(r.part).readme}><code>{partOf(r.part).pkg}</code></ExtLink> <span class="bw-what">{r.what}</span></>)}</span>}
-    {shows.length > 0 && <span><span class="bw-k">Shows</span> {shows.map((r, i) => <>{i > 0 && " · "}<ExtLink href={partOf(r.part).readme}><code>{partOf(r.part).pkg}{r.entry ?? ""}</code></ExtLink> <span class="bw-what">{r.what}</span></>)}</span>}
+    {shows.length > 0 && <span><span class="bw-k">Redraws the rules of</span> {shows.map((r, i) => <>{i > 0 && " · "}<ExtLink href={partOf(r.part).readme}><code>{partOf(r.part).pkg}{r.entry ?? ""}</code></ExtLink> <span class="bw-what">{r.what}</span></>)}</span>}
   </p>
 )}

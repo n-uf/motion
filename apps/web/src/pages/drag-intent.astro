@@ -19,15 +19,15 @@ const jsonLd = [
 ];
 const box = (r: { x: number; y: number; w: number; h: number }) => `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px`;
 const RULES: [string, string, string][] = [
-  ["When does the drag start?", "After the pointer moves past a threshold. A click below it does nothing. On touch: a long press, then the threshold.", "mouse 5 px; touch 180 ms + 8 px"],
+  ["When does the drag start?", "After the pointer moves past a threshold. A click below it does nothing. On touch: a 180 ms hold, then the threshold.", "mouse 5 px; touch 180 ms + 8 px"],
   ["What does the dragged panel look like?", "The real panel, raised, following the pointer 1:1 from the point you grabbed. It never stretches; it changes size only when it lands.", ""],
   ["When does the indicator appear?", "Only when all three hold: the pointer has left the panel's own place (home), there is a target under it, and you are aiming: moving slower than the aim speed, or holding nearly still for a moment. Time spent crossing a big target doesn't count.", "aim speed 0.45 px/ms (450 px/s); still = within 12 px for 90 ms"],
   ["How is speed measured?", "Distance over the last few frames, smoothed, so one slow frame doesn't count as aiming.", "window 50 ms"],
   ["Which target wins when several overlap?", "The most precise one: a rail icon or a tab strip beats a slot between sections, which beats \"float here\". Equal kinds: the smaller zone.", "priority 1 · 2 · 3"],
-  ["What stops flicker on borders?", "The current target holds until the pointer is clearly in another one (a band past the border), or is clearly out of all of them for a moment. A more precise target always breaks through at once.", "band 10 px; gap grace 120 ms"],
-  ["When does a shown indicator move or go?", "Leaving its target while flying hides it at once. While aiming, it moves to a new target only once that target has held for a moment, so every indicator you see stays at least that long. A more precise target still takes over at once.", "150 ms"],
+  ["What stops flicker on borders?", "The current target holds until the pointer is clearly in another one (a band past the border), or is clearly out of all of them for a moment. A more precise target takes over at once, once the pointer is 4 px inside it.", "band 10 px; gap grace 120 ms; breakthrough 4 px"],
+  ["When does a shown indicator move or go?", "Leaving its target while flying hides it at once. While aiming, it moves to a new target only once that target has held for a moment, so moving between targets never flashes. A more precise target still takes over at once, 4 px inside it.", "150 ms"],
   ["When do the other panels make room?", "Only after the indicator has stayed on the same target for a while, so nothing reflows while you pass over it. Leaving the target closes the room at once.", "160 ms"],
-  ["What does a release do?", "Lands where the indicator shows. If no indicator was showing yet (a quick flick), it lands on the target under the pointer at release; with none, the panel glides home. The path you took never changes the result, except inside the 10 px band where the shown target is kept.", ""],
+  ["What does a release do?", "Lands where the indicator shows. If no indicator was showing yet (a quick flick), it lands on the target under the pointer at release; with none, the panel glides home. A release always lands on what is shown, so the drop follows the indicator, not the exact release point.", ""],
   ["How do you cancel?", "Escape, a release back over home, or the browser cancelling the pointer: the panel glides home and nothing else changes.", ""],
   ["How do things move?", "The indicator fades in and glides between targets; the landing and the room-making use settle (no overshoot, no jumps).", "fade 90 ms; glide 110 ms; settle tempo 25"],
   ["Long desks (the scrolling strip)", "Near the stage's edge the strip scrolls, faster the closer the pointer is; the indicator is hidden while it scrolls.", "edge 40 px"],
@@ -107,16 +107,15 @@ const RULES: [string, string, string][] = [
   <section class="section">
     <div class="section-head">
       <span class="eyebrow">How it is checked</span>
-      <p class="section-title">Five properties, every path</p>
+      <p class="section-title">Four properties, every path</p>
     </div>
     <ul class="checks">
       <li>Flying over targets at speed shows <b>no</b> indicator (scenario: fly over, then aim).</li>
       <li>Holding on a border changes the indicator at most once (scenario: hold on a border).</li>
-      <li>No indicator is ever shown for under 150 ms (flash count is zero in every scenario).</li>
+      <li>Moving between targets never flashes: a new target must hold 150 ms before the indicator moves to it (the flash count stays zero in every recorded path).</li>
       <li>The drop always equals the last indicator shown, or the target under the pointer when none was shown.</li>
-      <li>The same release point reached by two different paths gives the same drop (outside the 10 px band).</li>
     </ul>
-    <p class="aside">Toolbar groups drop by the same model: see <a href="/toolbar-groups/">how a group finds its slot</a>. The landing glide is <a href="/window-motion/">the settle curve</a>.</p>
+    <p class="aside">These rules are <code>@n-uf/motion/drag</code>'s; the page runs them in its own code, and the cancel, glide, edge-scroll and keyboard details above are the demo's own behaviour around the model. Toolbar groups drop by the same model: see <a href="/toolbar-groups/">how a group finds its place</a>. The landing glide is <a href="/window-motion/">the settle curve</a>.</p>
   </section>
 </Site>
 
