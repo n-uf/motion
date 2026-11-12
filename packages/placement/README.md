@@ -126,12 +126,13 @@ console.log(drop.label, drop.slot.x, drop.slot.y); // Float here 580 290
 A toolbar group's targets come from `hostTargets` (a host's lines and empty zones, with its own place left out and
 returned as `own`, for the drag's home) and `floatTarget`. Each host target carries its `slot`, the group's rect
 once it lands there; `allows(group, place)` leaves out places a group may not go (its `place.index` counts the
-groups there without the dragged one, as `insertGroup` does). `keyboardStops` puts the targets
-in reading order (title, top, left, right, bottom; start, centre, end) for the arrow keys and a "Move to" menu,
-with the group's own place as `home`:
+groups there without the dragged one, as `insertGroup` does). The same rule says whether a group may float: add
+`floatTarget` only when `allows(group, "float")`. `keyboardStops` puts the targets in reading order (title, top,
+left, right, bottom; start, centre, end) for the arrow keys and a "Move to" menu, with the group's own place as
+`home`:
 
 ```ts
-import { hostTargets, keyboardStops } from "@n-uf/placement/targets";
+import { floatTarget, hostTargets, keyboardStops } from "@n-uf/placement/targets";
 import { arrangement, hostOf, type Place } from "@n-uf/placement/toolbar";
 
 const a = arrangement({ top: { start: ["file", "edit"], end: ["share"] } });
@@ -140,6 +141,10 @@ const allows = (g: string, place: Place | "float") => g !== "share" || (place !=
 const top = { origin: { x: 0, y: 40 }, spec: { length: 800, thickness: 34, lead: 8, tail: 8 } };
 const { targets } = hostTargets({ group: "share", arrangement: a, host: "top", ...top, size, allows });
 console.log(targets[0]!.slot); // { x: 8, y: 43, width: 120, height: 28 }
+// Floating, by the same rule: share may not float, so it gets no float target.
+const stage = { x: 0, y: 80, width: 800, height: 500 };
+const all = [...targets, ...(allows("share", "float") ? [floatTarget({ group: "share", arrangement: a, stage, width: 120, height: 28 })] : [])];
+console.log(all.length === targets.length); // true
 const stops = keyboardStops(targets, { home: { place: hostOf(a, "share")!, arrangement: a } });
 console.log(stops.map((s) => (s.home ? "home" : s.id))); // [ 'g:top:start:0', 'g:top:start:1', 'g:top:start:2', 'g:top:center:0', 'home' ]
 ```
