@@ -55,7 +55,25 @@ console.log(items.get("panel:3")!.look, notes.map((n) => n.code)); // header [ '
 Each construction is `{ id, title, idea, initial(docs, size?), layout(state, size, options) }`. A layout returns a
 `Placed` per item (its rect, look, layer, and whether it is hidden, has a minimum or may scroll off the stage) and
 notes saying how it gave way. A note's `code` (with its `side` and `items` where they apply) is the contract; its
-`text` is English for people, and its wording may change in any release.
+`text` is English for people, and its wording may change in any release. The codes (`NoteCode`):
+
+| Code | Says | Also |
+|---|---|---|
+| `bottom-folded` | the bottom dock folded to its header | |
+| `dock-folded` | a side dock folded to its rail | `side` |
+| `sections-folded` | sections folded to their headers by themselves, least recently used first | |
+| `torn-floating` | panels torn off a dock float | `items` |
+| `torn-shaded` | some torn-off panels shade because they don't fit | |
+| `columns-railed` | the tiling tree's side columns folded to rails | `side` when only one |
+| `tiles-float` | tiles that broke a minimum float, newest first | `items` |
+| `tabs-folded` | a tabbed side folded to icon tabs | `side` |
+| `drawer-over` | a drawer slides over the documents | `side` |
+| `column-split` | a strip column split in two | `items` |
+| `strip-scrolls` | the strip is wider than the stage | |
+| `stacks-merged` | both palette stacks share one corner | |
+| `palettes-shaded` | palettes shaded to their title bars | |
+| `palettes-cover` | how much of the documents the palettes cover | |
+| `docs-room` | how much room the palettes leave the documents | |
 
 ## Toolbar groups
 
