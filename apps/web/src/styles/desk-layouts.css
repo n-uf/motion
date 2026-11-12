@@ -22,5 +22,10 @@
 .compare th, .compare td { white-space: normal; }
 .compare tbody th { position: sticky; left: 0; z-index: 1; background: var(--bg-raised); white-space: nowrap; box-shadow: inset -1px 0 0 var(--line); }
 .compare thead th:first-child { position: sticky; left: 0; z-index: 2; box-shadow: inset -1px 0 0 var(--line); }
+/* Narrow: the row labels and the head row scroll with the table. Pinned, the 220px label column and the head covered a
+   third of a phone's screen under the sticky top bar. */
+@media (max-width: 900px) {
+  .compare thead th, .compare thead th:first-child, .compare tbody th { position: static; box-shadow: none; }
+}
 .compare tbody tr[aria-current="true"] > * { background: color-mix(in srgb, var(--part) 12%, var(--bg-raised)); }
 .compare tbody tr[aria-current="true"] > th { box-shadow: inset 2px 0 0 var(--part), inset -1px 0 0 var(--line); color: var(--part-strong); }
