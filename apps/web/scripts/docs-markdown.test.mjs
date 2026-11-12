@@ -38,6 +38,13 @@ test("the first h1 is the page's; an alert becomes a callout whose title is not 
   assert.deepEqual(metadata.headings.map((h) => [h.depth, h.slug]), [[2, "one"], [3, "two"]]);
 });
 
+test("the 'Site and live demos' self-link paragraph is dropped; other paragraphs with that link stay", async () => {
+  const { code } = await render("# A\n\nSite and live demos: [motion.n-uf.com](https://motion.n-uf.com)\n\nSee [motion.n-uf.com](https://motion.n-uf.com) too.\n\nSite and live demos: [x](https://example.com)\n");
+  assert.doesNotMatch(code, /Site and live demos: <a href="\/"/);
+  assert.match(code, /See <a href="\/">/);
+  assert.match(code, /Site and live demos: <a href="https:\/\/example.com"/);
+});
+
 test("a second h1 is made an h2: one h1 per page", async () => {
   const { code } = await render("# A\n\n# B\n");
   assert.doesNotMatch(code, /<h1/);

@@ -23,6 +23,8 @@ export function remarkDocs() {
       file.data.astro.frontmatter = { ...file.data.astro.frontmatter, title: text(body[first]).trim() };
       body.splice(first, 1);
     }
+    // "Site and live demos: motion.n-uf.com" points at the site it is now shown on: dropped
+    tree.children = tree.children.filter((n) => !selfLink(n));
     const walk = (node) => {
       for (const child of node.children ?? []) {
         if (child.type === "heading" && child.depth === 1) child.depth = 2;
@@ -34,7 +36,14 @@ export function remarkDocs() {
   };
 }
 
-const KINDS = ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"];
+/** A paragraph that starts "Site and live demos" and whose only link is to motion.n-uf.com's root. */
+function selfLink(node) {
+  if (node.type !== "paragraph" || !text(node).trim().startsWith("Site and live demos")) return false;
+  const links = (node.children ?? []).filter((c) => c.type === "link");
+  return links.length === 1 && /^https?:\/\/motion\.n-uf\.com\/?$/i.test(links[0].url);
+}
+
+const KINDS =["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"];
 
 function callout(quote) {
   const [marker, ...rest] = quote.children;
