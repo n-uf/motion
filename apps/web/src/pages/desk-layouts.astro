@@ -56,10 +56,10 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
   <section class="section">
     <div class="section-head">
       <span class="eyebrow">The constructions</span>
-      <p class="section-title">Docks, a tiling tree, a strip, drawers and palettes</p>
+      <p class="section-title">Docks, one tiling tree, a strip, drawers and palettes</p>
     </div>
     <div class="rules two">
-      {CARDS.map((c) => <div class="rule"><h2>{c.title}{c.pick && <span class="tag">default</span>}</h2><p>{plain(c.idea)}</p></div>)}
+      {CARDS.map((c) => <div class="rule"><h2>{c.title}{c.pick && <span class="tag">our pick</span>}</h2><p>{plain(c.idea)}</p></div>)}
     </div>
   </section>
 
@@ -78,9 +78,9 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
 
   <section class="section">
     <div class="callout">
-      <span class="eyebrow">The default</span>
+      <span class="eyebrow">Our pick</span>
       <h2>F3 · Edge docks + tear-off</h2>
-      <p>One rule by default: a panel lives in a dock, and a dock folds to its rail. Short on height, sections fold to their headers; short on width, a whole dock folds to its rail. Nothing covers the documents unless you choose it: tear a panel off and it floats, drop it on a dock or its rail icon and it docks again. The toolbar is a floating pill, top or bottom. Every glide is a dock, a section or a palette opening, closing or moving, which <a href="/window-motion/">settle</a> already does. A is the same without floating; C is the simplest if one panel per side is enough.</p>
+      <p>The nine are equal presets in <code>@n-uf/placement/dock</code>; the letters are this page's labels. Our pick, with one rule: a panel lives in a dock, and a dock folds to its rail. Short on height, sections fold to their headers; short on width, a whole dock folds to its rail. Nothing covers the documents unless you choose it: tear a panel off and it floats, drop it on a dock or its rail icon and it docks again. The toolbar is a floating pill, top or bottom. Every glide is a dock, a section or a palette opening, closing or moving, which <a href="/window-motion/">settle</a> already does. A is the same without floating; C is the simplest if one panel per side is enough.</p>
     </div>
   </section>
 </Site>

@@ -11,7 +11,7 @@ export const sections = {
   usecases: {
     label: "Use cases", path: "/use-cases/", collection: "useCases" as const,
     title: "Window motion use cases | n-uf motion",
-    description: "What n-uf motion is good for, one job at a time: tiling windows that settle, docked panels that glide, and drags that stay under the pointer.",
+    description: "What n-uf motion is good for, one job at a time: windows that settle, docked panels that glide, and drags that stay under the pointer, never past them.",
   },
   blog: {
     label: "Blog", path: "/blog/", collection: "blog" as const,

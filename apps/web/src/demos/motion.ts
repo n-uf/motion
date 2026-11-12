@@ -173,7 +173,7 @@ export const retargetOpt: ChartOpt = {
     { name: "Tween restart (hypr-tiling CSS, host app tweens)", legend: "Tween restart: hypr-tiling and typical app tweens", color: "--series-a2", dash: "6 4", data: tweenR },
     { name: "Host app docked / space change: restart from rest", legend: "Typical app: docked or space change, restarts from rest", color: "--series-b", data: restRestart() },
     { name: "Velocity kept, no clamp (crosses the new target)", legend: "Speed kept, no clamp (crosses the new target)", color: "--series-b2", dash: "1 3", data: unclamped() },
-    { name: "Proposed: velocity kept + clamp", legend: "n-uf motion settle ω 25: speed kept and clamped", lib: true, color: "--series-c", w: 3.2, data: settleSeries(w25, T3, dt, 0, 1, { at: RT, to: NEW }) },
+    { name: "Proposed: relaunched from drawn", legend: "n-uf motion settle ω 25: relaunched from where it is drawn", lib: true, color: "--series-c", w: 3.2, data: settleSeries(w25, T3, dt, 0, 1, { at: RT, to: NEW }) },
   ],
 };
 
@@ -272,7 +272,7 @@ export const CASES: { kind: CaseKind; name: string; note: string; desc: string; 
   { kind: "drag", name: "Drag: pointer vs window, then drop", note: "Held 1:1, then a settle into the slot at 260 ms.", label: "Drag timeline",
     desc: "Held means held: the window is the pointer minus the grab offset in the same frame. The host app's own-drag spring (stiffness 1400) trails by about 50 ms. On release the window settles from where it was let go into its slot (drop at 260 ms)." },
   { kind: "retarget", name: "Retarget mid-flight", note: "A nearer target at 40 ms: who keeps the speed, who restarts.", label: "Retarget curves",
-    desc: "A nearer target at 40 ms. The proposed settle carries on from the drawn rect with its speed, clamped so it can't overshoot the nearer target. A tween restart kinks the speed, and the host app's docked branch (and a space change) stops and restarts from rest." },
+    desc: "A nearer target at 40 ms. The proposed settle relaunches from the drawn rect toward the nearer target, at its tempo times the distance left, so it can't overshoot it. A tween restart kinks the speed, and the host app's docked branch (and a space change) stops and restarts from rest." },
   { kind: "frames", name: "A window shrinking 220 → 140 px wide", note: "Stretch versus reveal, frames at 0, 30, 60 and 120 ms.", label: "Stretch and reveal frames",
     desc: "Frames at 0, 30, 60 and 120 ms after the change. Stretch (today, and Hyprland for ~40 ms): content is painted at the final size and scaled to the drawn box. Reveal (proposed): content is laid out at the final size and never scaled, and the frame's background band closes in." },
 ];
@@ -296,7 +296,7 @@ export function optsFor(omega: number): Record<Exclude<CaseKind, "frames">, Char
   };
   const retarget: ChartOpt = {
     ...retargetOpt,
-    lines: retargetOpt.lines.map((l, i) => (i === 3 ? { ...l, name: `Proposed ω=${omega}: velocity kept + clamp`, legend: `n-uf motion settle ω ${omega}: speed kept and clamped`, data: settleSeries(omega, T3, dt, 0, 1, { at: RT, to: NEW }) } : l)),
+    lines: retargetOpt.lines.map((l, i) => (i === 3 ? { ...l, name: `Proposed ω=${omega}: relaunched from drawn`, legend: `n-uf motion settle ω ${omega}: relaunched from where it is drawn`, data: settleSeries(omega, T3, dt, 0, 1, { at: RT, to: NEW }) } : l)),
   };
   return { settle, drag, retarget };
 }

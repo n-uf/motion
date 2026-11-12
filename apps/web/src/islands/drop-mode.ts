@@ -6,8 +6,8 @@
  * - "gap": after the room delay the neighbours open the slot; the item stays under the pointer.
  * - "snap": the gap opens and the item glides into it.
  *
- * `previewPlan` turns a mode into what a demo does. It mirrors `previewPlan` in `@n-uf/motion/drag`; once that lands,
- * importing it from there is the only change.
+ * `previewPlan` turns a mode into what a demo does, the site's own counterpart of `previewPlan` in `@n-uf/motion/drag`
+ * (which takes the intent's frame and returns showIndicator, makeRoom and snapItem); the demos keep their own drawing.
  */
 export type DropMode = "indicator" | "gap" | "snap";
 export const DROP_MODES: readonly DropMode[] = ["indicator", "gap", "snap"];
