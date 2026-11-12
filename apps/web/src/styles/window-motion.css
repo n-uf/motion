@@ -13,7 +13,9 @@
 
 .sbody { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
 @container (min-width: 600px) { .sbody.two { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); } }
-.chart { min-width: 0; }
+/* The chart's box has the height the island draws it at (demos/motion.ts chartFrame: 0.85 × width, 240 to 430 px), so
+   the server's drawing (made at 560 px) is replaced with no change of size. */
+.chart { min-width: 0; container-type: inline-size; }
 .chartcol { min-width: 0; }
 
 /* The legend under a chart: one sentence, then a swatch per curve drawn like the curve itself. */
@@ -24,7 +26,7 @@
 .curve-key .lsw { flex: none; display: block; margin-top: 1px; overflow: visible; }
 .curve-key li > span { min-width: 0; overflow-wrap: anywhere; }
 .ltag { display: inline-block; margin-left: 2px; padding: 0 6px; border-radius: var(--r-xs); background: var(--accent-soft); color: var(--accent-strong); font-size: var(--t-2xs); font-weight: 650; line-height: 1.5; letter-spacing: 0.02em; vertical-align: 1px; }
-.chart svg { display: block; width: 100%; height: auto; font-family: var(--font-sans); }
+.chart svg { display: block; width: 100%; height: clamp(240px, 85cqw, 430px); font-family: var(--font-sans); }
 .chart .axis { fill: var(--text-3); font-size: 11px; font-variant-numeric: tabular-nums; }
 .chart .axis.small { font-size: 10.5px; }
 
@@ -36,9 +38,10 @@
 .lname .sw.dash { border-top-style: dashed; }
 .lname .sw.dot { border-top-style: dotted; }
 .lname .sw.pt { width: 9px; height: 9px; border: 0; border-radius: 50%; background: currentColor; transform: translateY(-0.5px); margin: 0 4.5px; }
-.track { position: relative; height: 14px; border-radius: 7px; background: var(--bg-sunken); box-shadow: inset 0 0 0 1px var(--line); }
+/* A lane's block moves by transform (--n, 0 to 1, along the track's width in container units), never by layout. */
+.track { position: relative; height: 14px; border-radius: 7px; background: var(--bg-sunken); box-shadow: inset 0 0 0 1px var(--line); container-type: inline-size; }
 .tick { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 1px dashed var(--line-3); }
-.blk { position: absolute; top: 0; left: 0; width: 14px; height: 14px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 2px var(--bg-raised); }
+.blk { position: absolute; top: 0; left: 0; width: 14px; height: 14px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 2px var(--bg-raised); transform: translateX(calc((100cqw - 14px) * var(--n, 0))); }
 
 /* Frames: everything in container units, so a scene scales with its cell (240 units wide). */
 .cell { container-type: inline-size; min-width: 0; }
