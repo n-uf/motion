@@ -12,7 +12,8 @@ import { overflowOpen } from "./compact";
 import { CONSTRUCTIONS } from "./catalog";
 import type { DeskLab, Expect, PathKey, Scenario } from "./scenarios";
 import { hostRect, toolbarGroups as tg } from "./toolbar-frame";
-import { DEFAULT_ARRANGEMENT, GROUPS, GROUP_LABEL, HOSTS, HOST_LABEL, floatGroup, insertGroup, vertical, type Arrangement, type GroupId, type HostId } from "./toolbars";
+import { HOSTS, HOST_LABEL, floatGroup, insertGroup, vertical, type HostId } from "@n-uf/placement/toolbar";
+import { DEFAULT_ARRANGEMENT, GROUPS, GROUP_LABEL, type Arrangement, type GroupId } from "./groups";
 
 const fmt = (r: Rect): string => `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)} × ${Math.round(r.height)}`;
 const inside = (r: Rect, o: Rect, tol = 0.75): boolean => r.x >= o.x - tol && r.y >= o.y - tol && r.x + r.width <= o.x + o.width + tol && r.y + r.height <= o.y + o.height + tol;

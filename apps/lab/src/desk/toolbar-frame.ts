@@ -1,7 +1,8 @@
 /**
  * The desk's window frame and its toolbar groups: a title bar over the stage, a bottom bar under it and a toolbar on
  * each side edge, plus the top bar (the construction's own pill or bar, inside the stage). Toolbars are slots: they
- * never move themselves; their groups do (desk/toolbars.ts has the model and the layout rules).
+ * never move themselves; their groups do (@n-uf/placement/toolbar has the model and the layout rules; desk/groups.ts
+ * the desk's groups and cases).
  *
  * - Every group of two or more controls has one handle, the compact dots glyph, at its leading edge: left in a row
  *   (dots top to bottom), on top in a column (dots left to right). It is the separator; there are no frames or
@@ -27,11 +28,8 @@ import type { Options, Placed } from "@n-uf/placement/dock";
 import { constructionOf } from "./catalog";
 import type { DeskLab, IndicatorEntry, PathKey } from "./scenarios";
 import { closeMenu, menuOpen, openMenu, type MenuItem } from "./toolbar-menu";
+import { floatTarget, hostTargets } from "@n-uf/placement/targets";
 import {
-  CASES,
-  DEFAULT_ARRANGEMENT,
-  GROUPS,
-  GROUP_LABEL,
   HOSTS,
   HOST_LABEL,
   ZONES,
@@ -39,8 +37,6 @@ import {
   floatGroup,
   hostNeed,
   hostOf,
-  insertGroup,
-  insertions,
   isEmptyHost,
   layoutHost,
   moveBar,
@@ -50,11 +46,10 @@ import {
   toggleCollapsed,
   vertical,
   withoutGroup,
-  type Arrangement,
-  type GroupId,
   type HostId,
   type HostSpec,
-} from "./toolbars";
+} from "@n-uf/placement/toolbar";
+import { CASES, DEFAULT_ARRANGEMENT, GROUPS, GROUP_LABEL, type Arrangement, type GroupId } from "./groups";
 
 /** Bar sizes (px): the title bar's and bottom bar's height, a side toolbar's width; what each end keeps. */
 export const TITLE_H = 38;
@@ -436,8 +431,8 @@ function groupMenu(id: GroupId): HTMLElement {
       disabled: off || !at,
       items: HOSTS.filter((h) => h !== at?.host).map((h) => ({ label: HOST_LABEL[h], action: () => at && setArrangement(moveBar(arrangement, at.host, h)) })),
     },
-    { label: at ? "Float" : "Dock", disabled: off, action: () => setArrangement(at ? floatNear(id) : dockGroup(arrangement, id)) },
-    { label: "Reset position", disabled: off, action: () => setArrangement(resetGroup(arrangement, id)) },
+    { label: at ? "Float" : "Dock", disabled: off, action: () => setArrangement(at ? floatNear(id) : dockGroup(arrangement, id, DEFAULT_ARRANGEMENT)) },
+    { label: "Reset position", disabled: off, action: () => setArrangement(resetGroup(arrangement, id, DEFAULT_ARRANGEMENT)) },
   ];
   return openMenu(layer!, r.x, r.y + r.height + 4, items, `${GROUP_LABEL[id]} group`, ge.handle);
 }
@@ -709,52 +704,26 @@ let lastDrag: GroupDragResult | null = null;
  * host, then the documents. Its own place is none of them: its stretch goes into `own` (part of home).
  */
 function groupTargets(id: GroupId, own?: Rect[]): GTarget[] {
-  const a0 = withoutGroup(arrangement, id);
-  const g = geometry(a0, true);
+  const g = geometry(withoutGroup(arrangement, id), true);
   const out: GTarget[] = [];
   for (const h of HOSTS) {
     const host = g.hosts[h];
     if (!host.shows && !host.strip) continue;
-    const l = layoutHost(a0[h], h, host.spec, groupSize, a0.collapsed);
-    const v = vertical(h);
-    const o = host.origin;
-    const T = host.spec.thickness;
-    const pts = insertions(a0[h], h, host.spec, l).sort((p, q) => ZONES.indexOf(p.zone) - ZONES.indexOf(q.zone) || p.index - q.index);
-    for (const p of pts) {
-      const [s0, s1] = p.span;
-      const after = insertGroup(arrangement, id, h, p.zone, p.index);
-      // Its own place is home, not a target: a drop there changes nothing, so nothing shows there (and the stretch it
-      // owns joins home, so nothing behind it, the documents' float, shows either).
-      if (sameArrangement(after, arrangement)) {
-        own?.push(v ? rect(o.x - 12, o.y + s0, T + 24, s1 - s0) : rect(o.x + s0, o.y - 12, s1 - s0, T + 24));
-        continue;
-      }
+    // Its own place is home, not a target: a drop there changes nothing, so nothing shows there (and the stretch it
+    // owns joins home, so nothing behind it, the documents' float, shows either).
+    const at = hostTargets({ group: id, arrangement, host: h, origin: host.origin, spec: host.spec, size: groupSize, label: (x) => GROUP_LABEL[x] });
+    own?.push(...at.own);
+    for (const t of at.targets) {
       // An empty zone: the group's own footprint, where it will land; else the insertion line.
-      const foot = p.empty ? placements(after, geometry(after, true)).get(id)?.rect : undefined;
-      const hit = p.empty ? (v ? rect(o.x - 4, o.y + s0, T + 8, s1 - s0) : rect(o.x + s0, o.y - 4, s1 - s0, T + 8)) : v ? rect(o.x - 12, o.y + s0, T + 24, s1 - s0) : rect(o.x + s0, o.y - 12, s1 - s0, T + 24);
-      const line = foot ?? (v ? rect(o.x + 4, o.y + p.at - 1.5, T - 8, 3) : rect(o.x + p.at - 1.5, o.y + 4, 3, T - 8));
-      out.push({ id: `g:${h}:${p.zone}:${p.index}`, priority: p.empty ? 1 : 2, hit, label: p.label, kind: p.empty ? "zone" : "line", line, vertical: v, make: () => after });
+      const foot = t.kind === "zone" ? placements(t.arrangement, geometry(t.arrangement, true)).get(id)?.rect : undefined;
+      out.push({ id: t.id, priority: t.priority, hit: t.hit, label: t.label, kind: t.kind, line: foot ?? t.line, vertical: t.vertical, make: () => t.arrangement });
     }
   }
   // Over the documents: it floats where it is dropped (kept on the stage).
   const stage = rect(g.stage.x, g.stage.y, g.SW - 2, g.SH - 2);
-  out.push({
-    id: "g:float",
-    priority: 3,
-    free: true,
-    hit: stage,
-    label: "Float here",
-    kind: "float",
-    line: stage,
-    vertical: false,
-    make: (p) => {
-      const s = groupSize(id, false, arrangement.collapsed.includes(id));
-      const grab = drag?.grab ?? { x: 0, y: 0 };
-      const x = Math.min(Math.max(0, p.x - grab.x - g.stage.x), stage.width - s.along);
-      const y = Math.min(Math.max(0, p.y - grab.y - g.stage.y), stage.height - s.across);
-      return floatGroup(arrangement, id, x, y);
-    },
-  });
+  const s = groupSize(id, false, arrangement.collapsed.includes(id));
+  const float = floatTarget({ group: id, arrangement, stage, width: s.along, height: s.across });
+  out.push({ ...float, line: stage, vertical: false, make: (p) => float.make(p, drag?.grab ?? { x: 0, y: 0 }) });
   return out;
 }
 
