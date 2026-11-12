@@ -1,0 +1,93 @@
+/* The kit cases page: small dossier windows, their bars and toolbar groups. Sample content only. */
+.kcase {
+  --k-desk: #e9ebef;
+  --k-panel: #ffffff;
+  --k-sunken: #f4f5f7;
+  --k-edge: #d8dbe1;
+  --k-ink: #1f2328;
+  --k-ink-2: #4b5260;
+  --k-muted: #7a828e;
+  --k-hover: #eceef2;
+  --k-accent: #3a6fd8;
+  --k-accent-soft: rgba(58, 111, 216, 0.12);
+  --k-read: #e8590c;
+  --k-shadow: 0 8px 24px rgba(16, 24, 40, 0.12), 0 2px 6px rgba(16, 24, 40, 0.08);
+  --k-lift: 0 18px 40px rgba(16, 24, 40, 0.2), 0 4px 10px rgba(16, 24, 40, 0.12);
+  margin: 0 0 28px;
+}
+@media (prefers-color-scheme: dark) {
+  .kcase {
+    --k-desk: #121316;
+    --k-panel: #1e2024;
+    --k-sunken: #191a1e;
+    --k-edge: #2e3138;
+    --k-ink: #e6e8eb;
+    --k-ink-2: #b8bdc6;
+    --k-muted: #868d98;
+    --k-hover: #2a2d33;
+    --k-accent: #7aa2f7;
+    --k-accent-soft: rgba(122, 162, 247, 0.16);
+    --k-read: #ff922b;
+    --k-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+    --k-lift: 0 20px 44px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.45);
+  }
+}
+.kcase .rule { font-size: 13px; margin: 0 0 8px; max-width: 900px; }
+.kcase .rule code { font-size: 12px; }
+.kcase .controls { align-items: center; }
+.k-desk { width: fit-content; background: var(--k-desk); border: 1px solid var(--k-edge); border-radius: 10px; padding: 16px; overflow: hidden; max-width: 100%; }
+.k-scale { position: relative; }
+.k-scale > .kwin { transform-origin: 0 0; }
+
+.kwin { position: relative; color: var(--k-ink); background: var(--k-panel); border: 1px solid var(--k-edge); border-radius: 10px; box-shadow: var(--k-shadow); user-select: none; touch-action: none; }
+.kbar { position: absolute; background: var(--k-sunken); box-sizing: border-box; }
+.kbar-title { border-radius: 10px 10px 0 0; border-bottom: 1px solid var(--k-edge); display: flex; align-items: center; }
+.kbar-top { border-bottom: 1px solid var(--k-edge); }
+.kbar-bottom { border-top: 1px solid var(--k-edge); border-radius: 0 0 10px 10px; }
+.kbar-left { border-right: 1px solid var(--k-edge); }
+.kbar-right { border-left: 1px solid var(--k-edge); }
+.k-lights { display: flex; gap: 6px; margin-left: 12px; }
+.k-lights i { width: 10px; height: 10px; border-radius: 50%; background: var(--k-edge); }
+.k-name { position: absolute; left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; color: var(--k-ink-2); pointer-events: none; }
+.kstage { position: absolute; display: grid; place-items: center; }
+.k-paper { width: 52%; height: 78%; background: var(--k-panel); border: 1px solid var(--k-edge); border-radius: 4px; padding: 12px 14px; box-sizing: border-box; font-size: 12px; color: var(--k-ink-2); }
+.k-paper b { display: block; margin-bottom: 10px; }
+.k-paper i { display: block; height: 6px; margin: 8px 0; border-radius: 3px; background: var(--k-hover); }
+
+.kgroup { position: absolute; left: 0; top: 0; display: flex; align-items: center; transform-origin: 0 0; z-index: 2; border-radius: 5px; }
+.kgroup.v { flex-direction: column; }
+.kgroup.lifted { z-index: 4; background: var(--k-panel); box-shadow: 0 0 0 4px var(--k-panel), 0 0 0 5px var(--k-edge), var(--k-lift); }
+.kgroup.floating { background: var(--k-panel); box-shadow: 0 0 0 4px var(--k-panel), 0 0 0 5px var(--k-edge), var(--k-shadow); }
+.kg-handle { flex: none; width: 14px; height: 24px; padding: 0; border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: grab; color: var(--k-muted); border-radius: 3px; }
+.kgroup.v .kg-handle { width: 24px; height: 14px; flex-direction: row; }
+.kg-handle i { display: block; width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
+.kg-handle:hover { color: var(--k-ink); }
+.kg-handle:focus-visible { outline: 2px solid var(--k-accent); outline-offset: 2px; }
+.kgroup.lifted .kg-handle { color: var(--k-accent); cursor: grabbing; }
+.kg-cell { flex: none; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--k-ink-2); font: 13px/24px system-ui, sans-serif; cursor: default; }
+.kg-cell:hover { background: var(--k-hover); color: var(--k-ink); }
+
+/* The slot: the group's own outline where it would land. */
+.k-slot { position: absolute; z-index: 1; box-sizing: border-box; border: 2px solid var(--k-accent); background: var(--k-accent-soft); border-radius: 5px; opacity: 0; pointer-events: none; transition: opacity 80ms ease-out; }
+.k-slot.on { opacity: 1; }
+/* The point the drag intent reads (case 10). */
+.k-read { position: absolute; z-index: 6; width: 0; height: 0; pointer-events: none; display: none; }
+.k-read.on { display: block; }
+.k-read::before,
+.k-read::after { content: ""; position: absolute; background: var(--k-read); }
+.k-read::before { left: -7px; top: -1px; width: 14px; height: 2px; }
+.k-read::after { left: -1px; top: -7px; width: 2px; height: 14px; }
+/* X-ray: the hit rects of the targets the dragged group has. */
+.k-xray { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.k-hit { position: absolute; box-sizing: border-box; border: 1px dashed var(--k-read); background: rgba(232, 89, 12, 0.06); }
+.k-hit-zone { border-style: dotted; }
+.k-hit-float { border-color: var(--k-muted); background: none; }
+
+.k-menu { position: absolute; z-index: 8; min-width: 120px; padding: 4px; background: var(--k-panel); border: 1px solid var(--k-edge); border-radius: 8px; box-shadow: var(--k-shadow); font-size: 12px; }
+.k-menu-item { display: block; width: 100%; text-align: left; padding: 4px 8px; border: 0; border-radius: 5px; background: none; color: var(--k-ink); font: inherit; white-space: nowrap; }
+.k-menu-item:hover,
+.k-menu-item:focus-visible { background: var(--k-hover); }
+.k-submenu { display: none; max-height: 220px; overflow: auto; border-top: 1px solid var(--k-edge); margin-top: 4px; padding-top: 4px; }
+.k-menu.open .k-submenu { display: block; }
+.k-stops { font-size: 12px; color: var(--muted); columns: 2; margin: 8px 0 0; padding-left: 20px; max-width: 900px; }
+.k-stops li.on { color: var(--k-accent); font-weight: 600; }
