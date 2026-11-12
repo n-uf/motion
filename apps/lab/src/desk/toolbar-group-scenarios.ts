@@ -673,6 +673,44 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
     }),
   };
 
+  out["toolbar groups: dragged from the top bar to the left edge, a group is vertical before the drop and lands with no second motion"] = {
+    construction: "docks",
+    drag: true,
+    play: withArrangement(lab, DEFAULT_ARRANGEMENT, async (expect) => {
+      const el = tg.groupEl("view")!;
+      expect(!el.classList.contains("v"), "view starts vertical");
+      // Every frame, from the lift until everything rests: vertical (class v) or not, and where it is drawn.
+      const seen: { t: number; v: boolean; r: Rect }[] = [];
+      const t0 = performance.now();
+      let watching = true;
+      const watch = (): void => {
+        if (!watching) return;
+        seen.push({ t: performance.now() - t0, v: el.classList.contains("v"), r: tg.rectOf(el) });
+        requestAnimationFrame(watch);
+      };
+      requestAnimationFrame(watch);
+      let released = Infinity;
+      const r = await dragTo("g:view", "g:left:start:0", expect, (time, end) => {
+        if (time >= end) released = performance.now() - t0;
+      });
+      await settle(lab);
+      watching = false;
+      if (!r) return;
+      expect(r.landed === "g:left:start:0", `landed on ${r.landed ?? "home"}`);
+      const last = seen.filter((s) => s.t < released - 1).at(-1);
+      // Vertical before the drop: its vertical markup, already at its column size.
+      expect(!!last && last.v && last.r.height > last.r.width, `just before the drop: ${last ? `${last.v ? "vertical" : "a row"}, ${fmt(last.r)}` : "no frame"}`);
+      // It swapped while held, once it aimed: not at the lift.
+      const firstV = seen.find((s) => s.v);
+      expect(!!firstV && firstV.t > 100 && firstV.t < released, `it went vertical at ${firstV ? Math.round(firstV.t) : "?"} ms (released at ${Math.round(released)} ms)`);
+      // No second motion: after the release it neither swaps nor changes size (it only settles into place).
+      const bad = seen.find((s) => s.t > released + 1 && (!s.v || Math.abs(s.r.width - last!.r.width) > 1.5 || Math.abs(s.r.height - last!.r.height) > 1.5));
+      expect(!bad, `after the drop at ${bad ? Math.round(bad.t) : "?"} ms: ${bad ? `${bad.v ? "vertical" : "a row"}, ${fmt(bad.r)}` : ""}`);
+      expect(list(tg.arrangement(), "left") === "view | · | ·", `the left edge is ${list(tg.arrangement(), "left")}`);
+      restsAsLaidOut(expect, "after the drop on the left edge");
+    }),
+  };
+
   out["toolbar groups: from the keyboard a handle takes focus, the arrows move its group slot by slot, Enter drops, Escape cancels, Space collapses"] = {
     construction: "docks",
     drag: true,
