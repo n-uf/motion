@@ -146,7 +146,7 @@ export const isOwnPlace = <G extends string>(a: Arrangement<G>, g: G, place: Pla
 // --- stored arrangements -------------------------------------------------------------------------------------------
 
 /** An arrangement as stored: version 1. */
-export interface ArrangementJSON<G extends string = string> {
+export interface StoredArrangement<G extends string = string> {
   readonly v: 1;
   readonly hosts: Readonly<Record<HostId, Readonly<Record<ZoneId, readonly G[]>>>>;
   readonly collapsed: readonly G[];
@@ -157,17 +157,18 @@ export interface ArrangementJSON<G extends string = string> {
 export type ArrangementRead<G extends string = string> = { readonly ok: true; readonly arrangement: Arrangement<G> } | { readonly ok: false; readonly error: string };
 
 /** The arrangement as plain data with its version, ready for `JSON.stringify`. */
-export function toJSON<G extends string>(a: Arrangement<G>): ArrangementJSON<G> {
+export function storeArrangement<G extends string>(a: Arrangement<G>): StoredArrangement<G> {
   const hosts = Object.fromEntries(HOSTS.map((h) => [h, Object.fromEntries(ZONES.map((zn) => [zn, [...a[h][zn]]]))])) as unknown as Record<HostId, Record<ZoneId, G[]>>;
   return { v: 1, hosts, collapsed: [...a.collapsed], floating: a.floating.map((f) => ({ id: f.id, x: f.x, y: f.y, from: f.from ? { ...f.from } : null })) };
 }
 
 /**
- * A stored arrangement read back (`JSON.parse`'s result). Anything else gives `{ ok: false, error }`, never a throw:
- * an unknown version, a missing host or zone, a value of the wrong kind, a group in two places, or (with `groups`)
- * a group the consumer doesn't have.
+ * A stored arrangement read back from parsed data (`JSON.parse`'s result, not the string). Anything else gives
+ * `{ ok: false, error }`, never a throw: an unknown version, a missing host or zone, a value of the wrong kind, a
+ * group in two places, or (with `groups`) a group the consumer doesn't have. A group the consumer has but the stored
+ * arrangement lacks is no error: the consumer places it (`resetGroup` with its default arrangement, say).
  */
-export function fromJSON<G extends string = string>(data: unknown, groups?: readonly G[]): ArrangementRead<G> {
+export function readArrangement<G extends string = string>(data: unknown, groups?: readonly G[]): ArrangementRead<G> {
   const fail = (error: string): ArrangementRead<G> => ({ ok: false, error });
   const isObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
   if (!isObject(data)) return fail("not an object");
