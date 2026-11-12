@@ -1,5 +1,5 @@
 /**
- * 5 · Drop preview in a dossier: the same drag, three ways of showing where the group lands, through
+ * 5 · Drop preview in a document viewer: the same drag, three ways of showing where the group lands, through
  * @n-uf/motion/drag's `previewPlan(frame, mode)`: Drop indicator (nothing moves, the outline over the insertion
  * point), Open gap (after 160 ms the neighbours move aside), Snap to slot (the gap opens and the group glides into it).
  * The slot is always the group's own outline. Next to them, today's kit drag: a 3 px line at the nearest insertion
