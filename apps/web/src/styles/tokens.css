@@ -1,7 +1,10 @@
 /*
- * Design tokens. Light is warm paper, dark is deep graphite. One accent (teal)
- * for interaction and focus; one signal colour (orange) only for drop targets
- * and indicators. Everything else stays neutral.
+ * Design tokens. Light is warm paper, dark is deep graphite. One accent (a
+ * blue teal) for interaction and focus, the site's and the demo windows' alike;
+ * one signal colour (orange) only for drop targets and indicators. Everything
+ * else stays neutral. Demo windows have their own chrome tokens (--win-*): bars
+ * a step lighter than the well they sit on, a lifted paper, coloured lights.
+ * Contrast: text pairs meet WCAG AA, UI parts 3:1, in light and dark.
  */
 :root {
   color-scheme: light;
@@ -25,10 +28,10 @@
   --line-3: #bebcb4;
 
   /* Accent: interaction and focus */
-  --accent: #0d7a7e;
-  --accent-strong: #095e61;
-  --accent-soft: #e1f0ef;
-  --accent-line: #a8d3d1;
+  --accent: #0a7697;
+  --accent-strong: #075a74;
+  --accent-soft: #e0f0f5;
+  --accent-line: #a3d0df;
   --accent-ink: #ffffff;
 
   /* Signal: drop targets and indicators only */
@@ -46,12 +49,22 @@
   --series-b: #6159ad;
   --series-b2: #9b6aa8;
   --series-c: var(--accent);
-  --series-c2: #59afad;
+  --series-c2: #4ea7c3;
   --series-ink: #4b4d53;
 
   /* Grips */
-  --grip: #a3a29c;
+  --grip: #858a93;
   --grip-hot: #4a4b50;
+
+  /* Demo windows: chrome a step lighter than the well, a lifted paper, coloured lights */
+  --win-bar: #f9fafb;
+  --win-well: #e4e7eb;
+  --win-edge: #d3d6db;
+  --win-paper: #ffffff;
+  --win-paper-line: #d3d3d4;
+  --win-light-1: #16b8d8;
+  --win-light-2: #f2c94c;
+  --win-light-3: #e8467c;
 
   /* Diagram fills (the desk and drag stages) */
   --d-floor: #e9e7e1;
@@ -65,8 +78,8 @@
   --d-doc-line: #d9d6ce;
   --d-doc-rule: #e9e6df;
   --d-float: #ffffff;
-  --d-float-head: #d6ecea;
-  --d-float-line: #9fcfcc;
+  --d-float-head: #d6ebf2;
+  --d-float-line: #9ccbdb;
 
   /* Shape */
   --r: 8px;
@@ -129,11 +142,11 @@
     --line: #25262b;
     --line-2: #303137;
     --line-3: #43444b;
-    --accent: #4fc1c1;
-    --accent-strong: #79d6d5;
-    --accent-soft: rgba(79, 193, 193, 0.13);
-    --accent-line: rgba(79, 193, 193, 0.42);
-    --accent-ink: #052223;
+    --accent: #5cc4e0;
+    --accent-strong: #8fd8ec;
+    --accent-soft: rgba(92, 196, 224, 0.14);
+    --accent-line: rgba(92, 196, 224, 0.45);
+    --accent-ink: #06222c;
     --signal: #ff8a4c;
     --signal-soft: rgba(255, 138, 76, 0.15);
     --signal-ink: #1d0e05;
@@ -143,10 +156,15 @@
     --series-a2: #f0c88e;
     --series-b: #9a93ea;
     --series-b2: #d39be0;
-    --series-c2: #8fd8d6;
+    --series-c2: #9edff0;
     --series-ink: #c2c4ca;
-    --grip: #5f6168;
+    --grip: #7d838e;
     --grip-hot: #c9cbd1;
+    --win-bar: #2b2e34;
+    --win-well: #1d1f23;
+    --win-edge: #3a3d44;
+    --win-paper: #3a3d44;
+    --win-paper-line: #575960;
     --d-floor: #141518;
     --d-ink: #d8dade;
     --d-ink-text: #15161a;
@@ -154,12 +172,12 @@
     --d-panel-head: #292c32;
     --d-panel-line: #383b42;
     --d-rail: #1b1d21;
-    --d-doc: #26282d;
-    --d-doc-line: #3a3c43;
-    --d-doc-rule: #34363c;
-    --d-float: #22262a;
-    --d-float-head: #1d3a3b;
-    --d-float-line: #2f6261;
+    --d-doc: #33363c;
+    --d-doc-line: #45484f;
+    --d-doc-rule: #4d5057;
+    --d-float: #262a30;
+    --d-float-head: #1b3a46;
+    --d-float-line: #2e6276;
     --shadow-1: 0 1px 1px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.25);
     --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 10px -4px rgba(0, 0, 0, 0.4), 0 18px 40px -24px rgba(0, 0, 0, 0.6);
     --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 14px -6px rgba(0, 0, 0, 0.5), 0 20px 36px -16px rgba(0, 0, 0, 0.65);
@@ -180,11 +198,11 @@
   --line: #25262b;
   --line-2: #303137;
   --line-3: #43444b;
-  --accent: #4fc1c1;
-  --accent-strong: #79d6d5;
-  --accent-soft: rgba(79, 193, 193, 0.13);
-  --accent-line: rgba(79, 193, 193, 0.42);
-  --accent-ink: #052223;
+  --accent: #5cc4e0;
+  --accent-strong: #8fd8ec;
+  --accent-soft: rgba(92, 196, 224, 0.14);
+  --accent-line: rgba(92, 196, 224, 0.45);
+  --accent-ink: #06222c;
   --signal: #ff8a4c;
   --signal-soft: rgba(255, 138, 76, 0.15);
   --signal-ink: #1d0e05;
@@ -194,10 +212,15 @@
   --series-a2: #f0c88e;
   --series-b: #9a93ea;
   --series-b2: #d39be0;
-  --series-c2: #8fd8d6;
+  --series-c2: #9edff0;
   --series-ink: #c2c4ca;
-  --grip: #5f6168;
+  --grip: #7d838e;
   --grip-hot: #c9cbd1;
+  --win-bar: #2b2e34;
+  --win-well: #1d1f23;
+  --win-edge: #3a3d44;
+  --win-paper: #3a3d44;
+  --win-paper-line: #575960;
   --d-floor: #141518;
   --d-ink: #d8dade;
   --d-ink-text: #15161a;
@@ -205,12 +228,12 @@
   --d-panel-head: #292c32;
   --d-panel-line: #383b42;
   --d-rail: #1b1d21;
-  --d-doc: #26282d;
-  --d-doc-line: #3a3c43;
-  --d-doc-rule: #34363c;
-  --d-float: #22262a;
-  --d-float-head: #1d3a3b;
-  --d-float-line: #2f6261;
+  --d-doc: #33363c;
+  --d-doc-line: #45484f;
+  --d-doc-rule: #4d5057;
+  --d-float: #262a30;
+  --d-float-head: #1b3a46;
+  --d-float-line: #2e6276;
   --shadow-1: 0 1px 1px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.25);
   --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 10px -4px rgba(0, 0, 0, 0.4), 0 18px 40px -24px rgba(0, 0, 0, 0.6);
   --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 14px -6px rgba(0, 0, 0, 0.5), 0 20px 36px -16px rgba(0, 0, 0, 0.65);

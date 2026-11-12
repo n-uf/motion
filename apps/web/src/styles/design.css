@@ -26,6 +26,7 @@
 .ds-grips { display: flex; flex-wrap: wrap; gap: var(--s6); align-items: center; padding: var(--s5); border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); }
 .ds-grips > div { display: inline-flex; align-items: center; gap: var(--s3); font-size: var(--t-sm); }
 .ds-grips .g { cursor: default; }
+.ds-window-wrap { height: 380px; padding: var(--s4); overflow: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-sunken); }
 .ds-frozen { display: inline-block; width: 7px; height: 17px; border: 1px dashed var(--line-3); border-radius: 3px; }
 @media (max-width: 860px) {
   .ds-scales { grid-template-columns: minmax(0, 1fr); }
