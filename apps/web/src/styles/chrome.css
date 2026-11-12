@@ -1,0 +1,144 @@
+/*
+ * Window chrome, shared by every figure and the toolbar page's sample window (islands/chrome.ts). The look follows the
+ * toolbar-groups sketch: a 10 px frame with a hairline, bars a step lighter than the well (42 px, 5 px 8 px), the
+ * window grip and coloured lights, groups led by compact dot handles that are also their separators, 28 px buttons
+ * with a hover tint and an accent ring when on, uppercase text buttons.
+ */
+.win {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  background: var(--win-frame);
+  border: 1px solid var(--win-edge);
+  border-radius: var(--win-r);
+  color: var(--win-text);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.win .mid { position: relative; display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; }
+
+/* Bars */
+.bar { position: relative; display: flex; background: var(--win-bar); }
+.bar.h { min-height: 42px; padding: 5px 8px; border-bottom: 1px solid var(--win-edge); align-items: center; }
+.bar.bottom { border-bottom: 0; border-top: 1px solid var(--win-edge); }
+.bar.v { flex-direction: column; flex: none; width: 46px; padding: 8px 4px; border-right: 1px solid var(--win-edge); align-items: center; }
+.bar.v.right { border-right: 0; border-left: 1px solid var(--win-edge); }
+.bar.empty { display: none; }
+.win.dragging .bar.empty { display: flex; background: repeating-linear-gradient(45deg, transparent 0 6px, var(--win-well) 6px 12px); }
+.win.dragging .bar.h.empty { min-height: 32px; }
+.win.dragging .bar.v.empty { width: 38px; }
+.zone { display: flex; align-items: center; gap: 12px; min-width: 20px; }
+.bar.h .zone.start { flex: 1 0 0; min-width: max-content; justify-content: flex-start; }
+.bar.h .zone.center { flex: 0 0 auto; margin: 0 12px; }
+.bar.h .zone.end { flex: 1 0 0; min-width: max-content; justify-content: flex-end; }
+.bar.v .zone { flex-direction: column; min-height: 20px; }
+.bar.v .zone.start { flex: 1 0 0; min-height: max-content; justify-content: flex-start; }
+.bar.v .zone.center { flex: 0 0 auto; margin: 12px 0; }
+.bar.v .zone.end { flex: 1 0 0; min-height: max-content; justify-content: flex-end; }
+.win.dragging .zone { outline: 1px dashed color-mix(in srgb, var(--win-muted) 40%, transparent); outline-offset: -1px; border-radius: 6px; }
+.bar > .fixed { flex: none; margin-left: 12px; }
+
+/* Groups: no frame, no band, no divider. The handle leads its group and is the separator. */
+.group { display: flex; align-items: center; gap: 3px; transition: opacity 0.12s; }
+.group > .ctl { display: flex; align-items: center; gap: 2px; }
+.group.collapsed > .ctl, .group:not(.collapsed) > .ovf { display: none; }
+.bar.v .group, .bar.v .group > .ctl { flex-direction: column; }
+.zone:has(> .group > .g:hover) > .group:not(:has(> .g:hover)),
+.bar:has(.g:hover) .group:not(:has(> .g:hover)),
+.bar:has(.g:focus-visible) .group:not(:has(> .g:focus-visible)) { opacity: 0.35; }
+
+/* The glyph: 3 px dots, 2 px gaps. Compact (one line of 3) on groups; full (2×3) on the window's title bar. */
+.g { display: inline-grid; gap: 2px; padding: 3px 1px; flex: none; cursor: grab; border-radius: 3px; outline: none; }
+.g i { display: block; width: 3px; height: 3px; border-radius: 50%; background: var(--grip); transition: background-color var(--fast) var(--ease); }
+.g.c { grid-template-columns: 3px; }
+.bar.v .g.c { grid-template-columns: repeat(3, 3px); padding: 1px 3px; }
+.g.full { grid-template-columns: repeat(2, 3px); cursor: default; }
+.g:hover i, .g:focus-visible i, .g.is-hot i { background: var(--grip-hot); }
+.g.full:hover i { background: var(--grip); }
+.g:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.g.drag i { background: var(--accent); }
+/* Frozen: no grips at all (nothing can move); holding Alt brings them back for as long as it is held. */
+.win.frozen:not(.alt) .g { display: none; }
+
+/* Buttons in a bar */
+.tb { display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 6px; border: 0; border-radius: 6px; background: transparent; color: var(--win-text); font: inherit; font-size: 13px; cursor: pointer; transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease); }
+.tb:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.tb .ico, .tb svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+/* On, pressed or active: an accent ring, not a filled tile. */
+.tb.on, .tb[aria-pressed="true"] { color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.tb.text { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+.tb .i { display: none; }
+.bar.v .tb .t { display: none; }
+.bar.v .tb .i { display: grid; }
+.tb.ovf { color: var(--win-muted); font-size: 14px; }
+.tb[disabled] { opacity: 0.5; pointer-events: none; }
+
+/* Titles and quiet text in a bar */
+.ident { display: flex; align-items: baseline; gap: 10px; padding: 0 4px; font-weight: 600; white-space: nowrap; }
+.ident .page { font-family: var(--font-mono); font-size: 12px; font-weight: 400; color: var(--win-muted); font-variant-numeric: tabular-nums; }
+.bar.v .ident { flex-direction: column; align-items: center; gap: 6px; padding: 4px 0; }
+.bar.v .ident .name { display: none; }
+.bar.v .ident .page { writing-mode: vertical-rl; }
+.zoomval, .bar .mono { padding: 0 2px; font-family: var(--font-mono); font-size: 12px; color: var(--win-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bar .mono b { font-weight: 550; color: var(--win-text); }
+.bar.v .zoomval { font-size: 10px; }
+.bar .quiet { padding: 0 4px; font-size: 12.5px; color: var(--win-muted); white-space: nowrap; }
+.bar .quiet kbd { font-size: 10.5px; line-height: 16px; }
+.bar.v .quiet, .bar.v .mono { writing-mode: vertical-rl; }
+.bar .lab { padding: 0 2px 0 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--win-muted); white-space: nowrap; }
+.bar.v .lab { display: none; }
+.tb-row { display: flex; align-items: center; gap: 2px; }
+.bar.v .tb-row { flex-direction: column; }
+.bar .field { display: inline-flex; align-items: center; gap: 8px; padding: 0 6px; font-size: 12.5px; color: var(--win-muted); white-space: nowrap; }
+.bar .field output { min-width: 2.6em; font-family: var(--font-mono); font-size: 12px; color: var(--win-text); }
+.bar.v .field { display: none; }
+
+/* The window's own grip and lights (not a group). */
+.winh { display: flex; align-items: center; gap: 10px; margin-right: 12px; flex: none; }
+.lights { display: inline-flex; gap: 5px; }
+.lights i { display: block; width: 10px; height: 10px; border-radius: 50%; background: var(--win-light-1); }
+.lights i:nth-child(2) { background: var(--win-light-2); }
+.lights i:nth-child(3) { background: var(--win-light-3); }
+
+/* Floating groups: the same group, plus frame and shadow. */
+.floating { position: absolute; z-index: 5; display: flex; padding: 4px 6px; background: var(--win-bar); border: 1px solid var(--win-edge); border-radius: 8px; box-shadow: 0 8px 22px rgba(20, 24, 32, 0.18); }
+.group.lifted { position: fixed; z-index: 50; pointer-events: none; padding: 4px 6px; background: var(--win-bar); color: var(--win-text); border: 1px solid var(--win-edge); border-radius: 8px; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28); font-size: 15px; }
+.group.lifted .tb .i { display: none; }
+
+/* Drop previews: the slot (Open gap: an outline that opens the gap; Snap to slot: only the gap), the insertion marker
+   (Drop indicator: nothing moves), and the label. All in the signal colour. */
+.slot { flex: none; border: 2px dashed var(--signal); background: var(--signal-soft); border-radius: 8px; animation: slotin calc(90ms * var(--time-scale, 1)) ease-out; }
+.slot.float { position: fixed; z-index: 39; pointer-events: none; }
+.slot.snap { border-color: transparent; background: transparent; animation: none; }
+@keyframes slotin { from { opacity: 0; } to { opacity: 1; } }
+.chrome-marker { position: fixed; z-index: 40; pointer-events: none; border-radius: 2px; background: var(--signal); opacity: 0; transition: opacity calc(90ms * var(--time-scale, 1)); }
+.chrome-marker.area { background: var(--signal-soft); border: 2px dashed var(--signal); border-radius: 8px; }
+.chrome-marker.on { opacity: 1; }
+.chrome-label { position: fixed; z-index: 41; pointer-events: none; padding: 2px 8px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font-size: 12px; font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity calc(90ms * var(--time-scale, 1)); }
+.chrome-label.on { opacity: 1; }
+
+/* The unit menu (right-click, long-press, Shift+F10 on a handle). */
+.cmenu { position: fixed; z-index: 60; min-width: 220px; padding: 5px; background: var(--bg-raised); color: var(--text); border: 1px solid var(--line-2); border-radius: var(--r); box-shadow: var(--shadow-pop); font-size: var(--t-sm); }
+.cmenu .it { display: flex; align-items: center; gap: 10px; padding: 5px 10px; border-radius: var(--r-sm); white-space: nowrap; cursor: pointer; }
+.cmenu .it:hover { background: var(--accent-soft); }
+.cmenu .it .kb { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+.cmenu .it.dis { color: var(--text-3); opacity: 0.6; pointer-events: none; }
+.cmenu .it.note { padding-top: 6px; color: var(--text-3); font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; pointer-events: none; }
+.cmenu .sep { height: 1px; margin: 4px 2px; background: var(--line); }
+.cmenu .sub { padding-left: 18px; }
+
+/* The freeze lock: a fixed control at the title bar's end. */
+.lock { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 8px 0 4px; border-radius: 6px; cursor: pointer; font-size: 12.5px; color: var(--win-muted); white-space: nowrap; }
+.lock:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.lock .ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.lock .ico.shut, .lock.on .ico.open { display: none; }
+.lock.on .ico.shut { display: block; color: var(--accent); }
+.lock .switch { width: 28px; height: 16px; }
+.lock .switch::after { width: 12px; height: 12px; }
+.lock .switch:checked::after { transform: translateX(12px); }
+.lock.on { color: var(--accent); }
+.lock .lockhint { display: none; }
+.lock.on .lockhint { display: inline; color: var(--win-muted); }

@@ -1,38 +1,16 @@
 /*
- * The figure: one soft frame holding a slim control bar, a case rail exactly as
- * tall as the stage (it scrolls), the stage, and a status line.
+ * The figure: a window (styles/chrome.css) whose bars hold the controls as toolbar groups, and between them a case
+ * rail exactly as tall as the stage (it scrolls) and the stage on the flat well. The bars' arrangement is the
+ * visitor's to change (islands/chrome.ts).
  */
-.figure {
-  --stage-h: 600px;
-  --rail-w: 268px;
-  margin: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  background: var(--bg-raised);
-  box-shadow: var(--shadow-2);
-  overflow: clip;
-}
-
-.figure-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--s2) var(--s5);
-  min-height: 52px;
-  padding: 10px var(--s4);
-  border-bottom: 1px solid var(--line);
-}
-.figure-bar .spacer { flex: 1 1 0; min-width: 0; }
-.figure-bar .note { font-size: var(--t-sm); color: var(--text-3); }
-.figure-bar .group { display: inline-flex; align-items: center; gap: var(--s2); }
-.figure-bar .label { font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
-
-.figure-body { display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); }
+.figure { --stage-h: 600px; --rail-w: 268px; margin: 0; }
+.figure > .mid > .figure-body { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); }
+.figure > .mid > .figure-body.no-rail { grid-template-columns: minmax(0, 1fr); }
 
 /* The rail takes no height of its own, so the row is exactly as tall as the stage. */
-.rail { position: relative; min-width: 0; border-right: 1px solid var(--line); background: var(--bg-subtle); }
+.rail { position: relative; min-width: 0; border-right: 1px solid var(--win-edge); background: var(--win-frame); }
 .rail-scroll { position: absolute; inset: 0; overflow-y: auto; padding: var(--s2); display: flex; flex-direction: column; gap: 2px; scrollbar-width: thin; scrollbar-gutter: stable; }
-.rail-title { padding: 6px 10px 4px; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
+.rail-title { padding: 6px 10px 4px; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: var(--win-muted); }
 
 .case {
   position: relative;
@@ -42,60 +20,44 @@
   align-content: start;
   gap: 0 6px;
   width: 100%;
-  padding: 9px 10px 10px 8px;
+  padding: 8px 10px 9px 8px;
   border: 1px solid transparent;
-  border-radius: var(--r);
+  border-radius: 8px;
   background: transparent;
   text-align: left;
-  color: var(--text);
+  color: var(--win-text);
   transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease);
 }
-.case:hover { background: color-mix(in srgb, var(--bg-raised) 70%, transparent); }
-.case .i { grid-row: 1 / span 2; padding-top: 2px; font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-.case .t { font-size: var(--t-sm); font-weight: 600; line-height: 1.4; letter-spacing: -0.003em; }
-.case .d { font-size: var(--t-xs); line-height: 1.45; color: var(--text-3); text-wrap: pretty; }
-.case .tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 10.5px; font-weight: 650; letter-spacing: 0.04em; line-height: 17px; vertical-align: 1px; white-space: nowrap; }
-.case[aria-pressed="true"] { background: var(--bg-raised); border-color: var(--line); box-shadow: var(--shadow-1); }
-.case[aria-pressed="true"]::before { content: ""; position: absolute; left: -1px; top: 10px; bottom: 10px; width: 2px; border-radius: 0 2px 2px 0; background: var(--accent); }
+.case:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.case .i { grid-row: 1 / span 2; padding-top: 2px; font-family: var(--font-mono); font-size: 11px; color: var(--win-muted); font-variant-numeric: tabular-nums; }
+.case .t { font-size: 13.5px; font-weight: 600; line-height: 1.4; }
+.case .d { font-size: 12px; line-height: 1.45; color: var(--win-muted); text-wrap: pretty; }
+.case .tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-size: 10.5px; font-weight: 650; line-height: 16px; vertical-align: 1px; white-space: nowrap; }
+.case[aria-pressed="true"] { background: var(--win-bar); border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
 .case[aria-pressed="true"] .i { color: var(--accent); }
-.case[aria-pressed="true"] .d { color: var(--text-2); }
 .busy .case { opacity: 0.55; pointer-events: none; }
 
-/* The stage scrolls inside its own wrapper when it is wider than the room. */
-.stage-wrap { min-width: 0; height: var(--stage-h); overflow: auto; background: var(--bg-sunken); overscroll-behavior-x: contain; }
+/* The stage: the flat well, scrolling inside its own wrapper when it is wider than the room. */
+.stage-wrap { min-width: 0; height: var(--stage-h); overflow: auto; background: var(--win-well); overscroll-behavior-x: contain; }
 .stage-wrap.pad { padding: var(--s4); }
-
-.figure-foot {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--s1) var(--s4);
-  min-height: 44px;
-  padding: 11px var(--s4);
-  border-top: 1px solid var(--line);
-  font-size: var(--t-sm);
-  color: var(--text-2);
-  font-variant-numeric: tabular-nums;
-}
-.figure-foot .status { flex: 1 1 24rem; min-width: 0; }
-.figure-foot .status b { color: var(--text); }
-.figure-foot .hint { flex: 0 1 auto; color: var(--text-3); font-size: var(--t-xs); }
 
 /* Legend chips under a drawing. */
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: var(--t-xs); color: var(--text-2); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend span::before { content: ""; width: 12px; height: 12px; border-radius: 3px; background: var(--c); border: 1px solid var(--b, var(--line-2)); }
 
+/* Below a figure: what the stage shows, in prose. */
+.figure-note { margin-top: var(--s3); font-size: var(--t-sm); color: var(--text-2); }
+.figure-note b { color: var(--text); }
+
 /* Narrow: the cases become a scrolling strip above the stage. */
 @media (max-width: 900px) {
-  .figure-body { grid-template-columns: minmax(0, 1fr); }
-  .rail { border-right: 0; border-bottom: 1px solid var(--line); }
+  .figure > .mid > .figure-body { grid-template-columns: minmax(0, 1fr); }
+  .rail { border-right: 0; border-bottom: 1px solid var(--win-edge); }
   .rail-scroll { position: static; flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: var(--s2); gap: var(--s1); scroll-snap-type: x proximity; }
   .rail-title { display: none; }
   .case { width: 236px; scroll-snap-align: start; }
 }
 @media (max-width: 640px) {
-  .figure { --stage-h: 480px; border-radius: var(--r); }
-  .figure-bar { padding: 10px var(--s3); gap: var(--s2) var(--s3); }
-  .figure-foot { padding: 10px var(--s3); }
+  .figure { --stage-h: 480px; }
 }

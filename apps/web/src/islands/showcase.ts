@@ -31,6 +31,7 @@ function sync(): void {
     else if (!w && e.running) { e.running = false; e.show.stop(); }
   }
   document.querySelectorAll<HTMLElement>("[data-showcase-hint]").forEach((h) => (h.hidden = !pausedByUser));
+  document.querySelectorAll<HTMLElement>("[data-showcase-idle]").forEach((h) => (h.hidden = pausedByUser));
 }
 function armResume(): void {
   clearTimeout(timer);

@@ -30,6 +30,8 @@ export const HOSTNAME: Record<Host, string> = { title: "Title bar", top: "Top ba
 export const ZONENAME = (h: Host, z: Zone): string => (h === "left" || h === "right" ? { start: "top", center: "middle", end: "bottom" } : { start: "left", center: "centre", end: "right" })[z];
 const empty = (): Slots => ({ start: [], center: [], end: [] });
 export const clone = (m: Model): Model => JSON.parse(JSON.stringify(m)) as Model;
+/** An arrangement from the hosts and zones that have groups. */
+export const arrangement = (spec: Spec, float: Float[] = []): Model => make(spec, float);
 const make = (spec: Spec, float: Float[] = []): Model => {
   const m: Model = { title: empty(), top: empty(), bottom: empty(), left: empty(), right: empty(), float, collapsed: [] };
   for (const h of Object.keys(spec) as Host[]) for (const z of Object.keys(spec[h]!) as Zone[]) m[h][z] = [...spec[h]![z]!];
@@ -56,10 +58,15 @@ export const CASES: Case[] = [
 export const label = (g: string): string => GROUPS[g]!.label;
 const dots = (n: number): string => "<i></i>".repeat(n);
 
+/**
+ * A toolbar group: its handle, its controls, and the » that stands in for them while collapsed (the `collapsed` class
+ * switches between the two, so a group's controls keep their listeners when it collapses or moves).
+ */
+export function chromeGroupHTML(id: string, name: string, controls: string, collapsed = false): string {
+  return `<div class="group${collapsed ? " collapsed" : ""}" data-g="${id}"><span class="g c" tabindex="0" role="button" aria-label="${name} handle" data-handle="${id}">${dots(3)}</span><span class="ctl">${controls}</span><button class="tb ovf" data-ovf="${id}" title="${name}: hidden controls" tabindex="-1">»</button></div>`;
+}
 export function groupHTML(model: Model, g: string, auto: ReadonlySet<string> = new Set()): string {
-  const collapsed = model.collapsed.includes(g) || auto.has(g);
-  const body = collapsed ? `<button class="tb ovf" data-ovf="${g}" title="${label(g)}: hidden controls" tabindex="-1">»</button>` : `<span class="ctl">${GROUPS[g]!.html}</span>`;
-  return `<div class="group" data-g="${g}"><span class="g c" tabindex="0" role="button" aria-label="${label(g)} handle" data-handle="${g}">${dots(3)}</span>${body}</div>`;
+  return chromeGroupHTML(g, label(g), GROUPS[g]!.html, model.collapsed.includes(g) || auto.has(g));
 }
 const isEmptyHost = (model: Model, h: Host): boolean => ZONES.every((z) => model[h][z].length === 0);
 function barHTML(model: Model, h: Host, auto: ReadonlySet<string>): string {
@@ -74,5 +81,5 @@ const PAPER = `<div class="paper"><span class="kicker">Section 2</span><p class=
 /** The whole sample window for a model: bars, document, floating groups. */
 export function windowHTML(model: Model, auto: ReadonlySet<string> = new Set()): string {
   const floats = model.float.map((f) => `<div class="floating" style="left:${f.x}px;top:${f.y}px">${groupHTML(model, f.id, auto)}</div>`).join("");
-  return `${barHTML(model, "title", auto)}${barHTML(model, "top", auto)}<div class="mid">${barHTML(model, "left", auto)}<div class="docarea">${PAPER}</div>${barHTML(model, "right", auto)}${floats}</div>${barHTML(model, "bottom", auto)}`;
+  return `${barHTML(model, "title", auto)}${barHTML(model, "top", auto)}<div class="mid">${barHTML(model, "left", auto)}<div class="docarea stage-host">${PAPER}</div>${barHTML(model, "right", auto)}${floats}</div>${barHTML(model, "bottom", auto)}`;
 }
