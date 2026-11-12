@@ -82,7 +82,8 @@ export function holdItem(item: LayoutItem, grab: Point): HeldDrag {
   const follow = (): boolean => {
     const goal = heldRect();
     if (!returning || !goal) return false;
-    item.moveTo(goal);
+    // A chase of the pointer: retargeted every frame, laid out again only when its size changes.
+    item.retarget(goal);
     const d = item.drawn;
     if (Math.max(Math.abs(d.x - goal.x), Math.abs(d.y - goal.y), Math.abs(d.width - goal.width), Math.abs(d.height - goal.height)) >= CAUGHT) return false;
     returning = false;

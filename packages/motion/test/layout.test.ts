@@ -550,4 +550,23 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
     expect(s.layOuts.length).toBe(laid + 1);
     expect(s.layOuts.at(-1)).toEqual(rect(200, 100, 30, 90));
   });
+
+  it("the held drag's glide back to the pointer lays nothing out while the pointer moves", () => {
+    const s = surface();
+    const item = s.motion.add("a", s.drawable, rect(0, 0, 80, 30));
+    const held = holdItem(item, { x: 0, y: 0 });
+    held.move({ x: 100, y: 100 });
+    held.snapTo(rect(300, 100, 80, 30));
+    s.settle();
+    const laid = s.layOuts.length;
+    held.snapTo(null);
+    for (let i = 0; i < 400 && held.returning; i++) {
+      // The pointer moves for 30 frames, then stays.
+      if (i < 30) held.move({ x: 100 + i, y: 100 + i / 2 });
+      s.clock.frame();
+      held.follow();
+    }
+    expect(held.returning).toBe(false);
+    expect(s.layOuts.length).toBe(laid);
+  });
 });
