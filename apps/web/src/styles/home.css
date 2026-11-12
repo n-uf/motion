@@ -1,35 +1,9 @@
 /*
- * Home: the two heroes, the loop (the one desk window and its four steps), what each package does, use one or both,
- * and the four pages. Motion is the accent, placement violet (--series-b), as in X-ray, on every part of the page.
+ * Home (the heroes are in hero.css): the loop (the one desk window and its four steps), what each package does, use one
+ * or both, and the four pages. Motion is the accent, placement violet (--series-b), as in X-ray, on every part of the page.
  */
 
-/*
- * The two heroes side by side. One grid: the eyebrows (with each column's rule), the page's one h1 (a subgrid, its two
- * spans in the two columns), then each column's lead and install line; the TypeScript sentence (first in the DOM, the
- * page's first paragraph) shows under both. Narrow: the h1's two lines first, then motion's block, then placement's.
- */
-.hero { padding-top: var(--s6); padding-bottom: var(--s4); }
-.hero-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--s7); row-gap: var(--s2); }
-.pair-eye { grid-row: 1; padding-top: var(--s3); border-top: 2px solid var(--accent); }
-.pair-eye.m { grid-column: 1; }
-.pair-eye.p { grid-column: 2; border-top-color: var(--series-b); color: var(--series-b); }
-h1.pair { grid-row: 2; grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; margin: 0; font-size: 34px; line-height: 1.12; letter-spacing: -0.028em; max-width: none; }
-/* Each headline balanced on a matching measure, so the two columns' lines align. */
-h1.pair > span { display: block; max-width: 13em; text-wrap: balance; }
-.pair-body { grid-row: 3; display: flex; flex-direction: column; gap: var(--s2); }
-.pair-body.m { grid-column: 1; }
-.pair-body.p { grid-column: 2; }
-.pair-body .lead { margin: 0; font-size: var(--t-md); }
-.pair-intro { grid-row: 4; grid-column: 1 / -1; margin: var(--s3) 0 0; padding-top: var(--s3); border-top: 1px solid var(--line); font-size: var(--t-sm); color: var(--text-2); }
-@media (max-width: 860px) {
-  .hero-pair { grid-template-columns: minmax(0, 1fr); }
-  h1.pair { grid-row: 1; grid-column: 1; grid-template-columns: minmax(0, 1fr); row-gap: var(--s2); font-size: 28px; }
-  .pair-eye.m { grid-row: 2; grid-column: 1; margin-top: var(--s3); }
-  .pair-body.m { grid-row: 3; grid-column: 1; }
-  .pair-eye.p { grid-row: 4; grid-column: 1; margin-top: var(--s4); }
-  .pair-body.p { grid-row: 5; grid-column: 1; }
-  .pair-intro { grid-row: 6; }
-}
+/* The two heroes (the scope and the plan) are in hero.css; their install line is the one below. */
 .install { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin-top: var(--s2); }
 .cmd { display: inline-flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--bg-raised); font-size: 13px; color: var(--text); box-shadow: var(--shadow-1); }
 .cmd .prompt { color: var(--text-3); user-select: none; }

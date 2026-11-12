@@ -2,6 +2,7 @@
 import Site from "../layouts/Site.astro";
 import ExtLink from "../components/ExtLink.astro";
 import HeroDemo from "../components/HeroDemo.astro";
+import HeroScope from "../components/HeroScope.astro";
 import { pageOf } from "../data/pages";
 import { npmPlacementUrl, npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
@@ -9,6 +10,7 @@ import Faq from "../components/Faq.astro";
 import { faqJsonLd } from "../data/faq";
 import { CURVE, curveSVG, deskThumbSVG } from "../demos/home";
 import "../styles/home.css";
+import "../styles/hero.css";
 import CodeTabs from "../components/CodeTabs.astro";
 import PairCode from "../components/PairCode.astro";
 import { partOf } from "../data/parts";
@@ -27,35 +29,13 @@ const jsonLd = [
 ];
 // The packages' versions, read from their package.json at build time (never written by hand).
 const versions = motionPkg.version === placementPkg.version ? `both at ${motionPkg.version}` : `@n-uf/motion ${motionPkg.version}, @n-uf/placement ${placementPkg.version}`;
-const arrow = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg>';
 ---
 <Site title={page.title} description={page.description} path="/" jsonLd={jsonLd} ogImage="/og.png">
   <!--
-    The two heroes side by side: motion left, placement right. Their headlines are one h1 (two block spans, one per
-    column); the TypeScript sentence is the page's first paragraph in the DOM and sits under both heroes on screen.
+    The two heroes, motion's scope left and placement's plan right (components/HeroScope.astro): the page's one h1 is
+    their two headlines, and the TypeScript sentence is its first paragraph in the DOM, under the band on screen.
   -->
-  <section class="hero wrap" aria-label="The two packages">
-    <div class="hero-pair">
-      <p class="pair-intro">Two small TypeScript packages for desktop-style web apps: one moves windows, panels and toolbars, the other works out where they go, from docking to drop targets.</p>
-      <span class="eyebrow pair-eye m">@n-uf/motion · how things move</span>
-      <span class="eyebrow pair-eye p">@n-uf/placement · where things go</span>
-      <h1 class="pair"><span class="m">Motion that settles, and never overshoots.</span> <span class="p">Every panel lands where it belongs.</span></h1>
-      <div class="pair-body m">
-        <p class="lead">Give it rects; real elements glide there. Drags stay under the pointer.</p>
-        <div class="install">
-          <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code>
-          <a class="btn primary" href="/window-motion/">See the motion rules<Fragment set:html={arrow} /></a>
-        </div>
-      </div>
-      <div class="pair-body p">
-        <p class="lead">Give it state; it returns rects and drop targets. It draws nothing.</p>
-        <div class="install">
-          <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code>
-          <a class="btn primary" href="/desk-layouts/">See the desk layouts<Fragment set:html={arrow} /></a>
-        </div>
-      </div>
-    </div>
-  </section>
+  <HeroScope />
 
   <!-- The loop: one desk window, and the four steps of a drag, each by its package, lit live while you drag. -->
   <section class="wrap section loop" aria-labelledby="loop-title">
@@ -178,4 +158,11 @@ const arrow = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4
   // The desk demo starts when it scrolls into view.
   const fig = document.getElementById("demo-fig")!;
   whenVisible(fig, () => void import("../islands/home").then((m) => m.startHero(fig)));
+  // The hero is on screen from the first paint, and the server already drew its finished state: its island starts once the
+  // page has loaded and the browser is idle, so it never competes with the first paint.
+  const band = document.getElementById("band")!;
+  const start = (): void => void import("../islands/hero").then((m) => m.startHero(band));
+  const idle = (): void => void ("requestIdleCallback" in window ? requestIdleCallback(start, { timeout: 1500 }) : setTimeout(start, 300));
+  if (document.readyState === "complete") idle();
+  else addEventListener("load", idle, { once: true });
 </script>
