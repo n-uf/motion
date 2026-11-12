@@ -47,7 +47,27 @@ h1.pair > span.p { grid-column: 2; padding-left: 44px; padding-right: var(--pad)
 .col.m { grid-column: 1; padding-left: var(--pad); padding-right: 36px; }
 .col.p { grid-column: 2; padding-left: 44px; padding-right: var(--pad); }
 .col .lead { margin: 0; max-width: 46ch; font-size: 16px; }
-.col .install { margin-top: 0; gap: 10px; }
+.col .install { margin-top: 0; gap: 10px; align-items: stretch; }
+/* The install line: an opaque bar on the page surface with a 1 px border in its package's colour, the command and a Copy
+   button (islands/copy.ts), the same height as the "See the …" button beside it. The Copy button's width is fixed, so
+   "Copied" never moves anything. */
+.cmdbar { --c: var(--accent); display: inline-flex; align-items: center; min-width: 0; max-width: 100%; height: 40px; border: 1px solid var(--c); border-radius: var(--r); background: var(--bg); }
+.cmdbar.p { --c: var(--series-b); }
+.cmdbar .cmd { min-width: 0; height: 100%; padding: 0 12px 0 14px; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.cmdbar .copy { flex: none; min-width: 64px; height: 28px; margin-right: 5px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 3px; background: transparent; color: var(--text-2); font: 600 11px var(--font-mono); cursor: pointer; transition: color var(--fast) var(--ease), border-color var(--fast) var(--ease), background-color var(--fast) var(--ease); }
+.cmdbar .copy:hover { color: var(--text); border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); }
+.cmdbar .copy:focus-visible { outline: 2px solid var(--c); outline-offset: 1px; }
+.col .install .btn { height: 40px; }
+/* Solid ground under the text block (the eyebrow, the headline, the line under it, the install row): the half's own
+   surface, fading back into the grid just under it, so the figures keep the grid and its measures. Narrow, the grid is
+   not behind the text at all. */
+@media (min-width: 861px) {
+  .eb.m, h1.pair > span.m, .col.m { background: var(--bg); }
+  .eb.p, h1.pair > span.p, .col.p { background: var(--bg-sunken); }
+  .hz.m { background: linear-gradient(var(--bg), transparent var(--s5)); }
+  .hz.p { background: linear-gradient(var(--bg-sunken), transparent var(--s5)); }
+  .seam { z-index: 3; }
+}
 .btn.primary.p { background: var(--series-b); border-color: var(--series-b); color: var(--bg); box-shadow: none; }
 .btn.primary.p:hover { background: color-mix(in srgb, var(--series-b) 82%, var(--text)); border-color: transparent; }
 

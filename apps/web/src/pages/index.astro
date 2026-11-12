@@ -178,6 +178,8 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   // control there.
   const strip = document.getElementById("tstrip")!;
   whenVisible(strip, () => void import("../islands/telemetry").then((m) => m.startTelemetry(strip)));
+  // The hero's Copy buttons.
+  void import("../islands/copy").then((m) => m.startCopy());
   // The interactive pages' preview follows the hovered or focused entry.
   const xp = document.getElementById("xp")!;
   whenVisible(xp, () => void import("../islands/explore").then((m) => m.startExplore(xp)));
