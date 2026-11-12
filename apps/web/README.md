@@ -22,7 +22,15 @@ sitemap and linked only from the footer.
   top bar, breadcrumb, page head and footer. Titles and descriptions live in `src/data/pages.ts`, change dates in
   `src/data/dates.mjs`, structured data in `src/data/schema.ts`.
 - Every glide goes through `src/islands/motion.ts` (one frame loop, `@n-uf/motion`'s settle), which also honours
-  reduced motion.
+  reduced motion. **Speed** (¼× · ½× · 1×) scales that loop's clock, so every time-driven motion slows together while
+  pointer-following stays 1:1; the drag's timing rules and the showcase pause read real time. **Tempo** (calm 20 ·
+  default 25 · quick 37) re-tempos every live settle.
+- Every figure is a window (`src/components/Chrome.astro`) whose controls are toolbar groups: the server renders the
+  default arrangement, and `src/islands/chrome.ts` (the same module the toolbar-groups page demonstrates) makes the
+  groups draggable between the title bar, top and bottom bars, edges and floating, collapsible, and remembered per
+  figure. Shared bar controls: `DropModeSwitch.astro` (Drop indicator · Open gap · Snap to slot, `previewPlan` in
+  `islands/drop-mode.ts`) and `Playback.astro` (Speed, Tempo). Automatic showcases register with
+  `islands/showcase.ts`, which pauses them at the first user action and resumes them 10 s after the last.
 
 ## Commands
 
