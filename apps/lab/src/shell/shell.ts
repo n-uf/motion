@@ -35,6 +35,9 @@ const index = LISTED.indexOf(page);
 const prev = index < 0 ? null : (LISTED[index - 1] ?? null);
 const next = index < 0 ? null : (LISTED[index + 1] ?? null);
 
+/** A phone: the page list is a folded menu behind its button; wider, it is the sidebar (always open). */
+const phone = matchMedia("(max-width: 700px)");
+
 function sidebar(): string {
   const groups = GROUPS.filter((g) => LISTED.some((p) => p.group === g.id)).map((g) => {
     const items = LISTED.filter((p) => p.group === g.id)
@@ -48,7 +51,7 @@ function sidebar(): string {
       <span class="wordmark"><span class="brand-ns">n-uf</span> motion <span class="brand-amp">&amp;</span> placement</span>
       <span class="lab-badge">lab</span>
     </a>
-    <details class="lab-menu" open>
+    <details class="lab-menu"${phone.matches ? "" : " open"}>
       <summary class="lab-menu-btn"><span>Pages</span><span class="lab-menu-cur">${esc(page.nav ?? page.title)}</span></summary>
       <nav class="lab-nav">${groups}</nav>
     </details>
@@ -131,9 +134,10 @@ async function boot(): Promise<void> {
   const body = document.getElementById("lab-page")!;
   if (page.markup) body.innerHTML = await page.markup();
   localSiteLinks(root);
-  // On a phone the page list starts folded behind its button (the sidebar would take half the screen); wider, it is the sidebar.
+  // The list is rendered folded or open for the width it was drawn at; crossing 700 px later folds or opens it too, so a
+  // widened window never leaves the sidebar's list shut with no button to open it.
   const menu = root.querySelector<HTMLDetailsElement>(".lab-menu");
-  if (menu && matchMedia("(max-width: 700px)").matches) menu.open = false;
+  phone.addEventListener("change", (e) => { if (menu) menu.open = !e.matches; });
   if (page.load) await page.load();
   if (page.first) {
     const f = body.querySelector(page.first);
