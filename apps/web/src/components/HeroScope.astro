@@ -1,0 +1,118 @@
+---
+// The home hero: two instruments side by side, motion left and placement right, split by a seam. No title above them:
+// the page's one h1 is the two headlines (its two spans, a real space between them).
+//
+// - Motion's half is a scope: a tempo dial, the settle curves with the last run drawn over them, a slow-motion control
+//   and the readings (ω, time to 90 %, overshoot, the checks).
+// - Placement's half is a plan: the headline with its dimensions and a dock desk laid out by placement, whose drop
+//   targets appear the moment they are asked for.
+// - A panel crosses the seam: placement says where, motion carries it there.
+//
+// Everything the server renders is the finished state (the panel docked, the curve drawn, the readings of one real run
+// of the packages on a fake clock at build time), so with no script, or with reduced motion, it is a complete still.
+// islands/hero.ts then runs the same packages live. The TypeScript sentence is the first paragraph in the DOM and sits
+// under the instruments on screen. Nothing here changes size when the island starts: it moves things by transform only.
+import { SETTLE_TEMPO } from "@n-uf/motion";
+import { NEEDLE, PLOT, TEMPOS, pathOf, planOf, plotX, plotY, settleCurve, simulateRun, springCurve } from "../demos/hero";
+
+const arrow = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg>';
+const plan = planOf();
+const { stage, slots } = plan;
+const pct = (v: number, of: number): string => `${((v / of) * 100).toFixed(3)}%`;
+const box = (r: { x: number; y: number; width: number; height: number }): string => `left:${pct(r.x, stage.width)};top:${pct(r.y, stage.height)};width:${pct(r.width, stage.width)};height:${pct(r.height, stage.height)}`;
+const FLOAT = slots[1]!;
+
+// One real run (build time): a panel's glide at the default tempo, recorded frame by frame and judged by the checks.
+const OMEGA = SETTLE_TEMPO.default;
+const run = simulateRun({ x: 0, y: 0, width: 120, height: 64 }, { x: 300, y: 120, width: 120, height: 72 }, OMEGA).report;
+const t90 = Math.round(run.t90 ?? 0);
+const gauge = TEMPOS.map((t) => {
+  const a = (NEEDLE[t] * Math.PI) / 180;
+  return { x1: 70 + 50 * Math.sin(a), y1: 70 - 50 * Math.cos(a), x2: 70 + 60 * Math.sin(a), y2: 70 - 60 * Math.cos(a) };
+});
+const grid = [0, 100, 200, 300, 400];
+const names: Record<string, string> = { calm: "calm", default: "default", quick: "quick" };
+const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].filter((c) => c.ok).length;
+---
+<section class="hero" aria-label="The two packages">
+  <p class="pair-intro">Two small TypeScript packages for desktop-style web apps: one moves windows, panels and toolbars, the other works out where they go, from docking to drop targets.</p>
+  <div class="band" id="band">
+    <div class="bg m" aria-hidden="true"></div>
+    <div class="bg p" aria-hidden="true"></div>
+    <div class="seam" aria-hidden="true"></div>
+    <div class="bpl" id="bpl" aria-hidden="true"></div>
+    <span class="eyebrow eb m">@n-uf/motion · how things move</span>
+    <span class="eyebrow eb p">@n-uf/placement · where things go</span>
+    <h1 class="pair"><span class="m" id="hm"><span class="hw">Motion</span> <span class="hw">that</span> <span class="hw">settles,</span> <span class="hw">and</span> <span class="hw">never</span> <span class="hw">overshoots.</span></span> <span class="p" id="hp">Every panel lands where it belongs.</span></h1>
+    <div class="col m">
+      <p class="lead">Give it rects; real elements glide there. Drags stay under the pointer.</p>
+      <div class="install">
+        <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code>
+        <a class="btn primary" href="/window-motion/">See the motion rules<Fragment set:html={arrow} /></a>
+      </div>
+    </div>
+    <div class="col p">
+      <p class="lead">Give it state; it returns rects and drop targets. It moves nothing.</p>
+      <div class="install">
+        <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code>
+        <a class="btn primary p" href="/desk-layouts/">See the desk layouts<Fragment set:html={arrow} /></a>
+      </div>
+    </div>
+
+    <!-- The scope: motion's instrument. -->
+    <div class="hz m"><div class="zin scope" id="scope">
+      <div class="gauge-col">
+        <svg class="gauge" viewBox="0 0 140 96" aria-hidden="true">
+          <path class="trk" d="M14 70 A56 56 0 0 1 126 70" />
+          {gauge.map((d) => <line class="det" x1={d.x1.toFixed(1)} y1={d.y1.toFixed(1)} x2={d.x2.toFixed(1)} y2={d.y2.toFixed(1)} />)}
+          <g id="needle" transform="rotate(0 70 70)"><line class="needle" x1="70" y1="70" x2="70" y2="24" /></g>
+          <circle class="hub" cx="70" cy="70" r="5" />
+          <text class="big" id="gw" x="70" y="94" text-anchor="middle">{OMEGA}</text>
+          <text x="96" y="94">1/s</text>
+        </svg>
+        <div class="seg" id="tempo" role="group" aria-label="Settle tempo">{TEMPOS.map((t) => <button type="button" data-tempo={t} aria-pressed={String(t === "default")} title={`${names[t]}: ω ${SETTLE_TEMPO[t]}`}>{names[t]}</button>)}</div>
+        <div class="seg" id="ts" role="group" aria-label="Slow motion">{[["0.25", "¼×"], ["0.5", "½×"], ["1", "1×"]].map(([v, l]) => <button type="button" data-speed={v} aria-pressed={String(v === "1")} title={v === "1" ? "Real time" : `Slow motion, ${l} of real time`}>{l}</button>)}</div>
+      </div>
+      <svg class="plot" viewBox={`0 0 ${PLOT.vbW} ${PLOT.vbH}`} aria-hidden="true">
+        <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="var(--bad)" stroke-width="1" opacity=".25" /></pattern></defs>
+        <rect x={PLOT.x0} y="0" width={PLOT.w} height={(PLOT.y0 - PLOT.h).toFixed(1)} fill="url(#hatch)" />
+        <g>{grid.map((ms) => <line class="grid" x1={plotX(ms).toFixed(1)} y1="0" x2={plotX(ms).toFixed(1)} y2={PLOT.y0} />)}</g>
+        <line class="ax" x1={PLOT.x0} y1={PLOT.y0} x2={PLOT.x0 + PLOT.w} y2={PLOT.y0} /><line class="ax" x1={PLOT.x0} y1="0" x2={PLOT.x0} y2={PLOT.y0} />
+        <line class="tgt" x1={PLOT.x0} y1={plotY(1).toFixed(1)} x2={PLOT.x0 + PLOT.w} y2={plotY(1).toFixed(1)} />
+        <text x={PLOT.x0 + 4} y={(plotY(1) - 4).toFixed(1)}>target</text>
+        <text class="never" x={PLOT.x0 + PLOT.w} y="12" text-anchor="end">past it: never</text>
+        <g id="ghosts">{TEMPOS.map((t) => <path class={`ghost${t === "default" ? " on" : ""}`} data-tempo={t} d={pathOf(settleCurve(SETTLE_TEMPO[t]))} />)}</g>
+        <path class="spring" d={pathOf(springCurve())} /><text class="spring-l" x="96" y="10">a bouncy spring</text>
+        <path class="live" id="live" d={pathOf(run.curve.filter((q) => q.ms <= PLOT.tMax + 8))} />
+        <circle class="mark" id="mark" r="4.5" cx={plotX(run.t90 ?? 0).toFixed(1)} cy={plotY(0.9).toFixed(1)} />
+        <text class="t90" id="t90" x={(plotX(run.t90 ?? 0) + 8).toFixed(1)} y={(plotY(0.9) + 16).toFixed(1)}>{t90} ms</text>
+        <g class="xl">{grid.map((ms) => <text x={plotX(ms).toFixed(1)} y="162" text-anchor={ms === 0 ? "start" : "middle"}>{ms === PLOT.tMax ? `${ms} ms` : ms}</text>)}</g>
+      </svg>
+      <div class="pad" id="pad"><span>held here</span></div>
+      <div class="stats" id="stats">
+        <span><i>ω</i><b id="sw">{OMEGA} /s</b></span>
+        <span><i>90 % in</i><b id="s90">{t90} ms</b></span>
+        <span><i>overshoot</i><b class="ok" id="sov">{run.overshoot.toFixed(1)} px</b></span>
+        <span><i>checks</i><b class="ok" id="schk">{passes} of 3 pass</b></span>
+      </div>
+      <div class="cap"><b>Scope</b> · motion carries the panel</div>
+    </div></div>
+
+    <!-- The plan: placement's instrument. A stage of this many px, laid out by placement; drawn to fit. -->
+    <div class="hz p"><div class="zin planzone">
+      <div class="dimh" aria-hidden="true"><span>{stage.width}</span></div>
+      <div class="plan" id="plan" aria-hidden="true" style={`--sw:${stage.width};--sh:${stage.height}`}>
+        {plan.regions.map((r) => <div class={`reg ${r.key.startsWith("rail") ? "rail" : "area"}`} style={box(r.rect)}>{r.label && <span>{r.label}</span>}</div>)}
+        {slots.map((s) => <div class={`pslot${s.id === FLOAT.id ? " docked" : ""}`} data-id={s.id} data-name={s.name} style={box(s.drop.slot)}><span>{Math.round(s.drop.slot.width)} × {Math.round(s.drop.slot.height)}</span>{s.id === FLOAT.id && <div class="mini"><div class="hb"><i><b></b><b></b><b></b><b></b></i>Outline</div><div class="ln"><u></u><u></u><u></u></div></div>}</div>)}
+        <div class="pind" id="pind" hidden><em></em></div>
+      </div>
+      <div class="say" id="say" aria-hidden="true">docked · <b>{FLOAT.name}</b></div>
+      <div class="cap"><b>Plan</b> · placement returns rects</div>
+    </div></div>
+
+    <!-- The panel's layer: the real element carried across the seam (islands/hero.ts), and the strobe trail behind it. -->
+    <div class="ov" id="ov" aria-hidden="true">
+      <div class="tok" id="tok"><div class="tok-frame"></div><div class="tok-body"><div class="hb"><i><b></b><b></b><b></b><b></b></i>Outline</div><div class="ln"><u></u><u></u><u></u></div></div></div>
+    </div>
+  </div>
+</section>
