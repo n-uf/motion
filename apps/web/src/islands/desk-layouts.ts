@@ -105,6 +105,9 @@ function render(): void {
   $("wo").textContent = String(W);
   $("ho").textContent = String(H);
   $("no").textContent = String(n);
+  // The dimension labels read the sliders' whole numbers (--tw, --th); --w and --h follow the glide, in fractions.
+  svg.parentElement?.style.setProperty("--tw", String(W));
+  svg.parentElement?.style.setProperty("--th", String(H));
   document.querySelectorAll<HTMLButtonElement>("#presets button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.p === `${W},${H}`)));
   const v = views[active]!;
   const { boxes, notes } = layout(v.c.key, W, H, n, v.opts);

@@ -72,7 +72,7 @@
 /* ---- desk layouts: dimension lines along the drawing's top and left edge, W and H read from the sliders' own
    values (--w, --h on the stage, which the page's island already keeps) through CSS counters: no script of its own ------ */
 .deskfig #stage { --dw: min(100cqw - 34px, (100cqh - 34px) * var(--w) / var(--h), var(--w) * 2px); --dh: calc(var(--dw) * var(--h) / var(--w)); }
-.dim { position: absolute; pointer-events: none; color: var(--place); counter-reset: dw var(--w) dh var(--h); }
+.dim { position: absolute; pointer-events: none; color: var(--place); counter-reset: dw var(--tw) dh var(--th); }
 .dim::before, .dim::after { content: ""; position: absolute; background: var(--place); }
 .dim.w { left: calc(50% - var(--dw) / 2); top: calc(50% - var(--dh) / 2 - 9px); width: var(--dw); height: 0; border-top: 1px dashed var(--place); }
 .dim.w::before, .dim.w::after { top: -4px; width: 1px; height: 7px; }
