@@ -3,11 +3,11 @@
  * holds on borders, and the drop lands where it showed. Recorded paths compare it with a naive model. The server
  * drew the desk, the panel and the case rail; this runs the model on them.
  */
-import { createSettle, type Point, type Rect } from "@n-uf/motion";
+import type { Point, Rect } from "@n-uf/motion";
 import { $, caseRail } from "./rail";
-import { drive } from "./motion";
-import { bindDropMode, dropMode } from "./drop-mode";
-import { watchActions } from "./showcase";
+import { drive, newSettle } from "./motion";
+import { dropMode, previewPlan } from "./drop-mode";
+import { figureChrome } from "./figure-chrome";
 import { createAimGate } from "../demos/intent";
 import { BAND, CASES, CHIP_HOME, FLASH, GAP_GRACE, HOME, LIFT, PATHS, ROOM_AFTER, T, type Key, type Path, type R, type Target } from "../demos/drag";
 
@@ -70,7 +70,7 @@ const place = (d: HTMLElement, r: R): void => void Object.assign(d.style, { left
 // "Snap to slot" mode, gliding into the slot it aims at, its size revealed (it clips, never stretches).
 const CHIP = { width: 150, height: 64 };
 const chipRect = (x: number, y: number): Rect => ({ x, y, ...CHIP });
-const chipSettle = createSettle<Rect>(chipRect(CHIP_HOME.x, CHIP_HOME.y));
+const chipSettle = newSettle<Rect>(chipRect(CHIP_HOME.x, CHIP_HOME.y));
 let landing: (() => void) | null = null;
 const drawChip = (r: Rect): void => void Object.assign(chip.style, { left: r.x + "px", top: r.y + "px", width: r.width + "px", height: r.height + "px" });
 /** Put the chip at a place at once (a held drag: it follows the pointer 1:1). */
@@ -145,14 +145,17 @@ function beginDrag(grab: Point) {
   updateStats();
   setDrop("…");
   chip.classList.add("lifted");
-  // Snap to slot: once the shown target has held for the room delay, the chip glides into it; leaving it glides the
-  // chip back to the pointer, then it is held 1:1 again. A target with no slot (float here) keeps the indicator.
+  // The preview plan: Drop indicator draws the target and moves nothing (a slot stays a thin insertion marker); Open gap
+  // opens the slot after the room delay and keeps the chip under the pointer; Snap to slot opens it and glides the chip
+  // in, and leaving glides the chip back to the pointer, then it is held 1:1 again. Float here has no slot: it keeps
+  // its outline in every mode.
   let snapped: Target | null = null, returning = false;
   return {
     move(p: Point, t: number): void {
-      const { shown, room } = model.update(p, t);
-      const snap = dropMode() === "snap";
-      if (snap && shown && !shown.float && room) {
+      const { shown, room: held } = model.update(p, t);
+      const plan = previewPlan(dropMode());
+      const room = held && plan.room;
+      if (plan.glide && shown && !shown.float && room) {
         if (snapped !== shown) {
           snapped = shown;
           returning = false;
@@ -172,7 +175,7 @@ function beginDrag(grab: Point) {
         }
         if (!returning) placeChip(at.x, at.y);
       }
-      showIndicator(shown, room, p, t, !(snap && shown && !shown.float));
+      showIndicator(shown, room, p, t, !!shown && (shown.float || plan.outline));
       updateStats();
     },
     end(p: Point, t: number, cancelled: boolean): Target | null {
@@ -333,5 +336,4 @@ $("runall").addEventListener("click", async () => {
 });
 setStatus("Drag the Outline panel yourself, or pick a recorded path on the left.");
 (window as unknown as Record<string, unknown>).__dragModel = { play: (k: string, m: Mode) => { setMode(m); return play(PATHS[k]!); }, chip: () => ({ ...chipSettle.value }) };
-watchActions(figure);
-bindDropMode(figure);
+figureChrome(figure);
