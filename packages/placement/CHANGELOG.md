@@ -1,9 +1,9 @@
 # @n-uf/placement
 
-Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), the same scheme
-as `@n-uf/motion`.
+Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
+`@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.0
+## 26.11.4
 
 The first release: where things go, as pure functions over plain data. No DOM, no framework, no motion, no
 dependencies.
