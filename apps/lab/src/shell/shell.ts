@@ -28,7 +28,7 @@ const next = PAGES[index + 1] ?? null;
 function sidebar(): string {
   const groups = GROUPS.map((g) => {
     const items = PAGES.filter((p) => p.group === g.id)
-      .map((p) => `<li><a href="${routeHash(p.id)}"${p === page ? ' aria-current="page"' : ""}><span>${esc(p.nav ?? p.title)}</span>${p.porting ? '<span class="lab-tag">porting</span>' : ""}</a></li>`)
+      .map((p) => `<li><a href="${routeHash(p.id)}"${p === page ? ' aria-current="page"' : ""}><span>${esc(p.nav ?? p.title)}</span></a></li>`)
       .join("");
     return `<div class="lab-group"><p class="lab-group-k">${g.title}</p><ul>${items}</ul></div>`;
   }).join("");
@@ -52,7 +52,7 @@ function header(): string {
     <div class="lab-meta">
       <p class="built-with" title="The packages' sources in this repository, not a published release"><span class="bw-k">Runs the workspace source</span><code>@n-uf/motion ${VERSIONS.motion}</code><code>@n-uf/placement ${VERSIONS.placement}</code></p>
       <div class="lab-actions">
-        ${page.porting || !page.load ? "" : '<button type="button" class="lab-btn" id="lab-reset">↺ Reset</button>'}
+        ${!page.load ? "" : '<button type="button" class="lab-btn" id="lab-reset">↺ Reset</button>'}
         ${prev ? `<a class="lab-btn" href="${routeHash(prev.id)}" title="${esc(prev.title)}">← Previous</a>` : ""}
         ${next ? `<a class="lab-btn" href="${routeHash(next.id)}" title="${esc(next.title)}">Next →</a>` : ""}
       </div>
@@ -66,14 +66,6 @@ function pager(): string {
     ${prev ? `<a class="prev" href="${routeHash(prev.id)}"><span class="k">Previous</span><span class="t">${esc(prev.title)}</span></a>` : "<span></span>"}
     ${next ? `<a class="next" href="${routeHash(next.id)}"><span class="k">Next</span><span class="t">${esc(next.title)}</span></a>` : ""}
   </nav>`;
-}
-
-function porting(): string {
-  return `<section class="lab-porting">
-    <p class="eyebrow"><span>Being ported</span></p>
-    <p>This case runs only as a design sketch so far: the rules copied by hand, not the packages. It will be a page here, on the real <code>@n-uf/motion</code> and <code>@n-uf/placement</code>.</p>
-    ${page.sketch ? `<p><a class="lab-btn" href="${page.sketch}" target="_blank" rel="noopener">Open the design sketch ↗</a></p>` : ""}
-  </section>`;
 }
 
 // --- runAll: a page runs its view of its module's scenarios ---------------------------------------------------------
@@ -107,12 +99,6 @@ async function boot(): Promise<void> {
   if (route.embed) document.body.classList.add("lab-embed");
   root.innerHTML = `${route.embed ? "" : sidebar()}<main class="lab-main${page.wide ? " wide" : ""}">${route.embed ? "" : header()}<div class="lab-page" id="lab-page"></div>${route.embed ? "" : pager()}</main>`;
   const body = document.getElementById("lab-page")!;
-  if (page.porting) {
-    body.innerHTML = porting();
-    wrapRunAll();
-    (window as Window & { __labReady?: boolean }).__labReady = true;
-    return;
-  }
   if (page.markup) body.innerHTML = await page.markup();
   if (page.load) await page.load();
   if (page.first) {
