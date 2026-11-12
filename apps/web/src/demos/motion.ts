@@ -254,3 +254,26 @@ export const CASES: { kind: CaseKind; name: string; note: string; desc: string; 
     desc: "Frames at 0, 30, 60 and 120 ms after the change. Stretch (today, and Hyprland for ~40 ms): content is painted at the final size and scaled to the drawn box. Reveal (proposed): content is laid out at the final size and never scaled, and the frame's background band closes in." },
 ];
 export const OPTS: Record<Exclude<CaseKind, "frames">, ChartOpt> = { settle: settleOpt, drag: dragOpt, retarget: retargetOpt };
+
+/**
+ * The charts at a tempo (the Tempo switch: 20 calm, 25 default, 37 quick): the settle case draws that tempo's
+ * proposed curve bold; the drag's landing and the retarget are the proposal at that tempo.
+ */
+export function optsFor(omega: number): Record<Exclude<CaseKind, "frames">, ChartOpt> {
+  if (omega === 25) return OPTS;
+  const proposed = (name: string): boolean => name.startsWith("Proposed settle");
+  const settle: ChartOpt = {
+    ...settleOpt,
+    lines: settleOpt.lines.map((l) => (proposed(l.name) ? { ...l, w: l.name.includes(`ω=${omega}`) ? 3.2 : 1.75, color: l.name.includes(`ω=${omega}`) ? "--series-c" : "--series-c2" } : l)),
+  };
+  const landing = settleSeries(omega, Tdrag - REL, 2, relX, slot);
+  const drag: ChartOpt = {
+    ...dragOpt,
+    lines: dragOpt.lines.map((l, i) => (i === 2 ? { ...l, name: `Hyprland / proposed: held 1:1, then settle ω=${omega}`, data: series((ms) => (ms <= REL ? ptr(Math.min(ms, 240)) : at(landing, ms - REL)), Tdrag, 2) } : l)),
+  };
+  const retarget: ChartOpt = {
+    ...retargetOpt,
+    lines: retargetOpt.lines.map((l, i) => (i === 3 ? { ...l, name: `Proposed ω=${omega}: velocity kept + clamp`, data: settleSeries(omega, T3, dt, 0, 1, { at: RT, to: NEW }) } : l)),
+  };
+  return { settle, drag, retarget };
+}
