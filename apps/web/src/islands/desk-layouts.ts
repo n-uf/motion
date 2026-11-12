@@ -6,6 +6,7 @@
 import type { Rect } from "@n-uf/motion";
 import { $, caseRail, fillRanges } from "./rail";
 import { RectField } from "./motion";
+import { figureChrome } from "./figure-chrome";
 import { BOTTOM_MODES, CARDS, DEFAULT_OPTS, HAS_BOTTOM, HAS_PILL, TOOLBAR_MODES, deskSVG, keyed, layout, type Box, type Opt } from "../demos/desk";
 
 type Mode = [string, string, string];
@@ -24,16 +25,18 @@ function syncCases(): void {
   compare.querySelectorAll("tbody tr").forEach((r, i) => r.setAttribute("aria-current", String(i === active)));
 }
 
-function segmented(label: string, modes: Mode[], isOn: (m: Mode) => boolean, pick: (m: Mode) => void): HTMLElement {
-  const row = document.createElement("div");
-  row.className = "field";
-  row.innerHTML = `<span class="label">${label}</span>`;
-  const seg = document.createElement("span");
-  seg.className = "seg";
-  row.appendChild(seg);
+/** A label and its bar buttons, one pressed. */
+function segmented(label: string, modes: Mode[], isOn: (m: Mode) => boolean, pick: (m: Mode) => void): DocumentFragment {
+  const row = document.createDocumentFragment();
+  const lab = document.createElement("span");
+  lab.className = "lab";
+  lab.textContent = label;
+  row.appendChild(lab);
+  const seg = row;
   const buttons = modes.map((m) => {
     const b = document.createElement("button");
     b.type = "button";
+    b.className = "tb text";
     b.textContent = m[2];
     b.addEventListener("click", () => { pick(m); sync(); render(); });
     seg.appendChild(b);
@@ -48,7 +51,8 @@ function renderSegs(): void {
   host.replaceChildren();
   if (HAS_PILL.has(v.c.key)) host.appendChild(segmented("Toolbar", TOOLBAR_MODES, (m) => o.toolbar === m[0] && o.toolbarSpace === m[1], (m) => { o.toolbar = m[0]; o.toolbarSpace = m[1]; }));
   if (HAS_BOTTOM.has(v.c.key)) host.appendChild(segmented("Bottom dock", BOTTOM_MODES, (m) => o.bottom === m[0] && (m[0] === "off" || o.bottomSpace === m[1]), (m) => { o.bottom = m[0]; o.bottomSpace = m[1]; }));
-  if (!host.children.length) host.innerHTML = `<span class="note">This construction has no floating toolbar or bottom dock to switch.</span>`;
+  if (!host.children.length) host.innerHTML = `<span class="quiet">No floating toolbar or bottom dock to switch</span>`;
+  $("desk-name").textContent = v.c.title;
 }
 
 // ---- The stage: the drawing is fitted by CSS from its size (--w, --h) ---------------------------------------------------
@@ -98,6 +102,7 @@ document.querySelectorAll<HTMLButtonElement>("#presets button").forEach((b) =>
   }),
 );
 fillRanges(document);
+figureChrome($("figure"));
 syncCases();
 renderSegs();
 render();
