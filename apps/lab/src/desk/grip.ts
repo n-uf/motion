@@ -19,10 +19,11 @@
  */
 import type { Rect } from "@n-uf/motion";
 import { cancelPress } from "../shared/press";
-import { dropAt, targetsFor, without, type DropTarget, type TargetInput } from "./drops";
+import type { Size } from "@n-uf/placement";
+import { idOf, liftOut, panelKey, toggleClosed, toggleFold, touch, type Construction, type ConstructionId, type DeskState, type Layout, type Options, type Side } from "@n-uf/placement/dock";
+import { deskDrop, deskTargets, type DeskTarget, type DeskTargetInput } from "@n-uf/placement/targets";
+import { titleOf } from "./catalog";
 import { isLayoutFrozen, onFreezeChange, setLayoutFrozen } from "./freeze";
-import type { Construction, ConstructionId } from "./layouts";
-import { idOf, panelKey, titleOf, toggleClosed, toggleFold, touch, type DeskState, type Layout, type Options, type Side, type Size } from "./model";
 
 /** What the grips need from the page. */
 export interface GripHost {
@@ -120,7 +121,7 @@ function zoneOf(f: Family, s: DeskState, key: string): string | null {
       return s.tree.L.includes(key) ? "left" : s.tree.R.includes(key) ? "right" : s.tree.C.includes(key) ? "centre" : null;
     case "strip": {
       const other = s.cols.find((c) => c.includes(key))?.find((k) => k !== key);
-      return other ? `col:${without(s, key).cols.findIndex((c) => c.includes(other))}` : null;
+      return other ? `col:${liftOut(s, key).cols.findIndex((c) => c.includes(other))}` : null;
     }
     case "sides":
       return side;
@@ -160,7 +161,7 @@ const insert = <T>(list: readonly T[], i: number, x: T): T[] => [...list.slice(0
 /** `s` with `key` put back where `init` has it (a construction's start), the rest as it is. */
 function placedLike(s: DeskState, init: DeskState, key: string): DeskState {
   const id = idOf(key);
-  let n = without(s, key);
+  let n = liftOut(s, key);
   for (const f of ["left", "right", "bottom"] as const) if (init[f].includes(id)) n = { ...n, [f]: insert(n[f], init[f].indexOf(id), id) };
   for (const f of ["left", "right"] as const) {
     if (init.stacks[f].includes(id)) n = { ...n, stacks: { ...n.stacks, [f]: insert(n.stacks[f], init.stacks[f].indexOf(id), id) } };
@@ -250,18 +251,18 @@ export function createGrips(host: GripHost): Grips {
     return null;
   }
 
-  const input = (key: string): TargetInput => ({ c: host.construction(), s0: without(host.state(), key), key, size: host.size(), opt: host.options() });
+  const input = (key: string): DeskTargetInput => ({ c: host.construction(), s0: liftOut(host.state(), key), key, size: host.size(), opt: host.options() });
 
   /** The construction's zones for `key`, each with the target a move there uses (its end: the last slot). */
-  function zones(key: string): { id: string; label: string; target: DropTarget }[] {
+  function zones(key: string): { id: string; label: string; target: DeskTarget }[] {
     const inp = input(key);
     const f = familyOf(inp.c.id);
-    const byZone = new Map<string, DropTarget[]>();
-    for (const t of targetsFor(inp)) {
+    const byZone = new Map<string, DeskTarget[]>();
+    for (const t of deskTargets(inp)) {
       const z = zoneOfTarget(f, t.id);
       if (z) byZone.set(z, [...(byZone.get(z) ?? []), t]);
     }
-    const out: { id: string; label: string; target: DropTarget }[] = [];
+    const out: { id: string; label: string; target: DeskTarget }[] = [];
     for (const [z, ts] of byZone) {
       if (z === "float") {
         out.push({ id: z, label: "Float", target: ts[0]! });
@@ -275,12 +276,12 @@ export function createGrips(host: GripHost): Grips {
     return out;
   }
 
-  function moveTo(key: string, zone: { id: string; target: DropTarget }): void {
+  function moveTo(key: string, zone: { id: string; target: DeskTarget }): void {
     const inp = input(key);
     const h = zone.target.hit;
     // A float lands in the middle of its area; a slot at the zone's end.
     const p = zone.id === "float" ? { x: h.x + h.width / 2, y: h.y + h.height / 3 } : { x: h.x + h.width / 2, y: h.y + h.height - 1 };
-    const d = dropAt(inp, zone.target, p, zone.id === "float" ? { x: 100, y: 11 } : { x: 0, y: 0 });
+    const d = deskDrop(inp, zone.target, p, zone.id === "float" ? { x: 100, y: 11 } : { x: 0, y: 0 });
     host.commit(d.state);
   }
 

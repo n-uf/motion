@@ -7,8 +7,8 @@
 import type { Rect } from "@n-uf/motion";
 import { wait } from "../shared/geometry";
 import type { Grips } from "./grip";
-import { CONSTRUCTIONS, type ConstructionId } from "./layouts";
-import { panelKey } from "./model";
+import { panelKey, type ConstructionId } from "@n-uf/placement/dock";
+import { CONSTRUCTIONS } from "./catalog";
 import type { DeskLab, Expect, Scenario } from "./scenarios";
 
 const fmt = (r: Rect): string => `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)} × ${Math.round(r.height)}`;

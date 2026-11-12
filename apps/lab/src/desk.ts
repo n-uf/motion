@@ -1,6 +1,6 @@
 /**
  * Desk constructions: nine ways to build a desk from a toolbar, five tool panels and open documents (see
- * desk/layouts.ts for each one's rules). The "Construction" switch picks one; every item glides to its place by the
+ * @n-uf/placement/dock for each one's rules). The "Construction" switch picks one; every item glides to its place by the
  * lab's motion rules: a move settles, a size change is revealed rather than stretched, a panel that folds away fades
  * out with a uniform scale, and what the pointer holds is glued to it.
  *
@@ -11,38 +11,37 @@ import { createBrowserClock } from "@n-uf/motion/browser";
 import { createLayoutMotion, domDrawable, holdItem, type HeldDrag, type LayoutItem } from "@n-uf/motion/layout";
 import type { CheckResult, HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
 import { docBody, panelBody, toolbarCells, withGlyph } from "./desk/content";
-import { draggable, dropAt, targetsFor, without, type Drop, type DropTarget, type TargetInput } from "./desk/drops";
-import { createGrips } from "./desk/grip";
-import { compactScenarios } from "./desk/compact-scenarios";
-import { gripScenarios } from "./desk/grip-scenarios";
-import { DRAG_DEFAULTS, DRAG_PREVIEW_DEFAULT, createDragIntent, inRect, previewPlan, targetAt, type DragIntent, type DragPreview } from "@n-uf/motion/drag";
-import { EDGE_SCROLL, INDICATOR } from "./desk/drag-page";
-import { CONSTRUCTIONS, DEFAULT_CONSTRUCTION, constructionOf, stripGeometry, type ConstructionId } from "./desk/layouts";
+import { BELOW_LEFT, positionPopup, type Size } from "@n-uf/placement";
 import {
   DEFAULT_OPTIONS,
-  DOC_TITLES,
   LAYER,
-  MAX_DOCS,
-  PANELS,
   docKey,
+  draggable,
   idOf,
   isDocKey,
   isPanelKey,
+  liftOut,
   panelKey,
-  titleOf,
+  stripGeometry,
   toggleClosed,
   toggleFold,
   touch,
   withActive,
   withDocs,
+  type ConstructionId,
   type DeskState,
   type Layout,
   type Options,
   type Placed,
   type Side,
-  type Size,
-} from "./desk/model";
-import { LABEL_RULE, positionPopup } from "./desk/positioner";
+} from "@n-uf/placement/dock";
+import { deskDrop, deskTargets, type DeskDrop, type DeskTarget, type DeskTargetInput } from "@n-uf/placement/targets";
+import { CONSTRUCTIONS, DEFAULT_CONSTRUCTION, DOC_TITLES, MAX_DOCS, PANELS, constructionOf, desk, titleOf } from "./desk/catalog";
+import { createGrips } from "./desk/grip";
+import { compactScenarios } from "./desk/compact-scenarios";
+import { gripScenarios } from "./desk/grip-scenarios";
+import { DRAG_DEFAULTS, DRAG_PREVIEW_DEFAULT, createDragIntent, inRect, previewPlan, targetAt, type DragIntent, type DragPreview } from "@n-uf/motion/drag";
+import { EDGE_SCROLL, INDICATOR } from "./desk/drag-page";
 import { makeScenarios, type DeskLab, type DragResult, type IndicatorEntry, type PathAction, type PathKey, type Scenario } from "./desk/scenarios";
 import { attachTopHost, initToolbarFrame, withGroupOptions } from "./desk/toolbar-frame";
 import { toolbarGroupScenarios } from "./desk/toolbar-group-scenarios";
@@ -137,13 +136,13 @@ let pointer: Point = { x: 0, y: 0 };
 /** Where the lifted item came from: the desk's state then (the others keep its place until room is made) and its home zone. */
 let home: { state: DeskState; rect: Rect } | null = null;
 /** The lifted item's drop targets (stable while it is held: only the strip's edge scroll rebuilds them). */
-let targets: DropTarget[] = [];
-let intent: DragIntent<DropTarget> | null = null;
+let targets: DeskTarget[] = [];
+let intent: DragIntent<DeskTarget> | null = null;
 /** What the indicator shows, and the drop the others make room for. */
-let shown: Drop | null = null;
-let room: Drop | null = null;
+let shown: DeskDrop | null = null;
+let room: DeskDrop | null = null;
 /** A keyboard drag: the stops the arrow keys step through, the current one, and since when. */
-let keys: { stops: { target: DropTarget; p: Point }[]; i: number; since: number } | null = null;
+let keys: { stops: { target: DeskTarget; p: Point }[]; i: number; since: number } | null = null;
 /** The press became a drag (so its click isn't a click on a tab). */
 let dragged = false;
 /** The strip scrolled at the stage's edge during this drag (null: as it was): kept only if the item lands. */
@@ -158,7 +157,7 @@ let preview: Preview = DRAG_PREVIEW_DEFAULT;
 const PREVIEWS: readonly Preview[] = ["indicator", "gap", "snap"];
 const PREVIEW_NAME: Record<Preview, string> = { indicator: "drop indicator", gap: "open gap", snap: "snap to slot" };
 /** Snap: the drop the item sits in, and whether it is gliding back to the pointer after leaving one. */
-let snapped: Drop | null = null;
+let snapped: DeskDrop | null = null;
 let returning = false;
 /**
  * What gates a snap: the drag model ("model"), or (only to check that the scenarios catch it) the target under the
@@ -167,10 +166,10 @@ let returning = false;
 let snapGate: "model" | "hover" = "model";
 
 /** Where the others make room for the lifted item now. */
-const roomDrop = (): Drop | null => (lifted ? room : null);
+const roomDrop = (): DeskDrop | null => (lifted ? room : null);
 /** The desk while an item is held and no room is made: as it was, scrolled as the drag scrolled it. */
 const heldState = (): DeskState => (dragScroll === null ? home!.state : { ...home!.state, stripScroll: dragScroll });
-const dragInput = (it: Item): TargetInput => ({ c: construction(), s0: without(heldState(), it.key), key: it.key, size, opt: options() });
+const dragInput = (it: Item): DeskTargetInput => ({ c: construction(), s0: liftOut(heldState(), it.key), key: it.key, size, opt: options() });
 
 /**
  * Lift `it` with the pointer at (px, py). `hold` is where the pointer holds it (default: where it was pressed);
@@ -187,13 +186,13 @@ function beginDrag(it: Item, px: number, py: number, hold?: Point, from?: Rect, 
   home = { state: state(), rect: from ?? { ...d } };
   dragScroll = null;
   // A place is a drop's key: another tab or stack index of the shown target is another place (its room waits).
-  intent = createDragIntent<DropTarget>({ home: home.rect, placeOf: (t, p) => `${t.id}|${t.make(p, grab).key}` });
+  intent = createDragIntent<DeskTarget>({ home: home.rect, placeOf: (t, p) => `${t.id}|${t.make(p, grab).key}` });
   dragLog = [];
   dragFrames = [];
   liftedAt = performance.now();
   lifted = it;
   raised = it;
-  targets = targetsFor(dragInput(it));
+  targets = deskTargets(dragInput(it));
   shown = null;
   room = null;
   snapped = null;
@@ -232,7 +231,7 @@ function aim(now: number, dt: number): void {
   if (keys) {
     // The keyboard picks the stop itself: the room comes once a stop has been shown for the room delay.
     const stop = keys.stops[keys.i];
-    const d = stop ? dropAt(dragInput(it), stop.target, stop.p, grab) : null;
+    const d = stop ? deskDrop(dragInput(it), stop.target, stop.p, grab) : null;
     const plan = previewPlan({ shown: stop?.target ?? null, room: !!d && !stop!.target.free && now - keys.since >= DRAG_DEFAULTS.roomAfter }, preview, slotted(d));
     show(d, now, plan.makeRoom && d ? d.key : null, false, plan.showIndicator);
     place(it, now, false, plan.snapItem);
@@ -241,7 +240,7 @@ function aim(now: number, dt: number): void {
   dragFrames.push({ t: now - liftedAt, x: pointer.x, y: pointer.y, speed: intent.state.speed, item: { ...it.m.drawn } });
   if (cid === "strip" && edgeScroll(it, now, dt)) return place(it, now, true, false);
   const f = intent.update(pointer, now, targets);
-  const d = f.shown ? dropAt(dragInput(it), f.shown, pointer, grab) : null;
+  const d = f.shown ? deskDrop(dragInput(it), f.shown, pointer, grab) : null;
   // The preview decides what this frame draws: the indicator, the open gap (room), the item snapped into the slot.
   const plan = previewPlan(f, preview, slotted(d));
   show(d, now, plan.makeRoom ? f.roomPlace : null, !f.aiming, plan.showIndicator);
@@ -249,7 +248,7 @@ function aim(now: number, dt: number): void {
 }
 
 /** A drop the item can sit in: a slot (not a free placement, not folded away into a rail). */
-const slotted = (d: Drop | null): d is Drop => !!d && !d.free && !d.hidden;
+const slotted = (d: DeskDrop | null): d is DeskDrop => !!d && !d.free && !d.hidden;
 
 /**
  * Snap preview: when the plan snaps the item (the room is made for a slot), it glides into the slot (settle; its size
@@ -258,10 +257,10 @@ const slotted = (d: Drop | null): d is Drop => !!d && !d.free && !d.hidden;
 function place(it: Item, now: number, flying: boolean, snapItem: boolean): void {
   if (preview !== "snap") return;
   // From the pointer and from the keyboard alike, the item snaps into the room made for it.
-  let want: Drop | null = snapItem && slotted(room) ? room : null;
+  let want: DeskDrop | null = snapItem && slotted(room) ? room : null;
   if (snapGate === "hover" && !keys) {
     const t = targetAt(targets, pointer);
-    const d = t ? dropAt(dragInput(it), t, pointer, grab) : null;
+    const d = t ? deskDrop(dragInput(it), t, pointer, grab) : null;
     want = slotted(d) ? d : null;
   }
   if (want) {
@@ -317,7 +316,7 @@ function logSnap(now: number, id: string | null, flying: boolean): void {
 function edgeScroll(it: Item, now: number, dt: number): boolean {
   const dist = Math.min(pointer.x, size.width - pointer.x);
   if (dist >= EDGE_SCROLL.edge || !home || !intent) return false;
-  const g = stripGeometry(heldState(), size);
+  const g = stripGeometry(desk.catalog, heldState(), size);
   const dir = pointer.x < size.width / 2 ? -1 : 1;
   const next = Math.min(Math.max(0, g.total - size.width), Math.max(0, g.scroll + dir * EDGE_SCROLL.speed * (1 - Math.max(0, dist) / EDGE_SCROLL.edge) * dt));
   if (Math.abs(next - g.scroll) < 0.01) return false;
@@ -325,7 +324,7 @@ function edgeScroll(it: Item, now: number, dt: number): boolean {
   const dx = g.scroll - next;
   home = { ...home, rect: { ...home.rect, x: home.rect.x + dx } };
   intent.moveHome(dx, 0);
-  targets = targetsFor(dragInput(it));
+  targets = deskTargets(dragInput(it));
   intent.hide(now);
   // Hidden for the scroll, as for a pointer flying: not a flash.
   show(null, now, null, true);
@@ -339,7 +338,7 @@ function edgeScroll(it: Item, now: number, dt: number): boolean {
  * started flying (or the strip scrolls), which is not a flash. `indicator`: the preview draws the indicator for `d`
  * (snap previews a slot with the item itself).
  */
-function show(d: Drop | null, now: number, roomFor: string | null, flying = false, indicator = true): void {
+function show(d: DeskDrop | null, now: number, roomFor: string | null, flying = false, indicator = true): void {
   if ((d?.target ?? null) !== (shown?.target ?? null)) {
     const e = { id: d?.target ?? null, ...(d ? {} : { flying }) };
     episode?.indicator.push({ t: now, ...e });
@@ -350,7 +349,7 @@ function show(d: Drop | null, now: number, roomFor: string | null, flying = fals
     else hideHint();
   }
   shown = d;
-  const next: Drop | null = roomFor === null ? null : d?.key === roomFor ? d : room?.key === roomFor ? room : null;
+  const next: DeskDrop | null = roomFor === null ? null : d?.key === roomFor ? d : room?.key === roomFor ? room : null;
   // A new place, or the same place laid out anew (the stage resized under the drag).
   if (next?.key !== room?.key || (next && room && next !== room && !same(next.slot, room.slot))) {
     room = next;
@@ -376,7 +375,7 @@ function endDrag(cancel = false): void {
     const stop = keys?.stops[keys.i];
     const t = keys ? (stop?.target ?? null) : intent.release(pointer, targets);
     if (t) {
-      s = dropAt(dragInput(it), t, keys ? stop!.p : pointer, grab).state;
+      s = deskDrop(dragInput(it), t, keys ? stop!.p : pointer, grab).state;
       landed = t.id;
     }
     if (!keys) {
@@ -462,7 +461,7 @@ function stagePoint(e: PointerEvent): Point {
  * The indicator outlines the drop's slot (a drop into a folded rail: the rail); it fades in, and glides from one
  * target to the next. Its label is placed by the xdg-positioner rule.
  */
-function showHint(d: Drop): void {
+function showHint(d: DeskDrop): void {
   const r = d.hidden ? (targets.find((t) => t.id === d.target)?.hit ?? d.slot) : d.slot;
   const appearing = !hint.classList.contains("on");
   // Appearing: it fades in where it is, without gliding from where it last was.
@@ -470,7 +469,7 @@ function showHint(d: Drop): void {
   Object.assign(hint.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.width}px`, height: `${r.height}px` });
   if (hintLabel.textContent !== d.label) hintLabel.textContent = d.label;
   hintLabel.style.width = "";
-  const placed = positionPopup(r, { width: hintLabel.offsetWidth, height: hintLabel.offsetHeight }, { x: 0, y: 0, ...size }, LABEL_RULE);
+  const placed = positionPopup(r, { width: hintLabel.offsetWidth, height: hintLabel.offsetHeight }, { x: 0, y: 0, ...size }, BELOW_LEFT);
   Object.assign(hintLabel.style, { left: `${placed.rect.x}px`, top: `${placed.rect.y}px`, width: `${placed.rect.width}px` });
   if (appearing) {
     void hint.offsetWidth;
@@ -806,12 +805,12 @@ function setSize(width: number, height: number): void {
  * the new size (a snapped item then glides to where its slot is now).
  */
 function relift(it: Item): void {
-  targets = targetsFor(dragInput(it));
+  targets = deskTargets(dragInput(it));
   if (keys) keys = { ...keys, stops: targets.flatMap((t) => (t.stops ?? [centre(t.hit)]).map((p) => ({ target: t, p }))) };
   const at = keys?.stops[keys.i]?.p ?? pointer;
-  const again = (d: Drop | null): Drop | null => {
+  const again = (d: DeskDrop | null): DeskDrop | null => {
     const t = d && targets.find((x) => x.id === d.target);
-    return t ? dropAt(dragInput(it), t, at, grab) : null;
+    return t ? deskDrop(dragInput(it), t, at, grab) : null;
   };
   shown = again(shown);
   room = again(room);
@@ -1264,7 +1263,7 @@ const lab: DeskLab = {
   drag: scriptedDrag,
   path: playPath,
   keyboard: keyboardDrag,
-  targets: (key) => targetsFor({ c: construction(), s0: without(state(), key), key, size, opt: options() }).map((t) => ({ id: t.id, priority: t.priority, hit: t.hit })),
+  targets: (key) => deskTargets({ c: construction(), s0: liftOut(state(), key), key, size, opt: options() }).map((t) => ({ id: t.id, priority: t.priority, hit: t.hit })),
   grip: (key) => {
     const it = itemOf(key);
     return it ? gripOf(it).at : null;
