@@ -41,9 +41,6 @@
 .stage-wrap { position: relative; min-width: 0; height: var(--stage-h); overflow: auto; background: var(--win-well); overscroll-behavior-x: contain; }
 .stage-wrap.pad { padding: var(--s4); }
 
-/* The figure's wrapper (the caption below it is its next sibling). */
-.fig-plan { position: relative; }
-
 /* A scroller's right edge fades into the well where the stage is wider than its room, so a figure never looks cut off.
    The fade belongs to the scrolled content (it leaves with the first scroll). Widths are where each figure's stage
    stops fitting (drag 880, desk 720, toolbar 720 plus the rail). */
