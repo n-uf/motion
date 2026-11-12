@@ -105,6 +105,21 @@ function wrapRunAll(): void {
 
 // --- boot ----------------------------------------------------------------------------------------------------------
 
+/**
+ * On the public build the lab is part of the site, so its links to motion.n-uf.com become the site's own paths, in the
+ * same tab, without the external-link arrow (the sidebar's and the page markup's, such as the overview's).
+ */
+function localSiteLinks(scope: ParentNode): void {
+  if (!PUBLIC) return;
+  for (const a of scope.querySelectorAll<HTMLAnchorElement>('a[href^="https://motion.n-uf.com"]')) {
+    const url = new URL(a.href);
+    a.setAttribute("href", url.pathname + url.search + url.hash);
+    a.removeAttribute("target");
+    a.removeAttribute("rel");
+    a.querySelector(".ext-arrow")?.remove();
+  }
+}
+
 async function boot(): Promise<void> {
   document.title = page.group === "overview" ? "Motion and placement lab" : `${page.title} · Motion and placement lab`;
   document.body.dataset.page = page.id;
@@ -112,6 +127,7 @@ async function boot(): Promise<void> {
   root.innerHTML = `${route.embed ? "" : sidebar()}<main class="lab-main${page.wide ? " wide" : ""}">${route.embed ? "" : header()}<div class="lab-page" id="lab-page"></div>${route.embed ? "" : pager()}</main>`;
   const body = document.getElementById("lab-page")!;
   if (page.markup) body.innerHTML = await page.markup();
+  localSiteLinks(root);
   if (page.load) await page.load();
   if (page.first) {
     const f = body.querySelector(page.first);
