@@ -24,7 +24,11 @@
 .brand-target { stroke: var(--line-3); stroke-width: 1.5; stroke-dasharray: 1.5 3; }
 .brand-curve { stroke: var(--text); stroke-width: 2.2; }
 .brand-dot { fill: var(--accent); stroke: none; }
-.brand-ns { font-weight: 500; color: var(--text-3); letter-spacing: -0.01em; }
+/* The wordmark: "n-uf" muted, "motion" and "placement" bold, a muted "&" between them. */
+.wordmark { white-space: nowrap; }
+.brand-ns, .brand-amp { font-weight: 500; color: var(--text-3); letter-spacing: -0.01em; }
+/* At phone width "n-uf" goes before the type ever shrinks. */
+@media (max-width: 420px) { .topbar .brand-ns { display: none; } }
 
 .nav { display: flex; align-items: center; gap: 2px; margin-left: var(--s2); }
 .nav a {

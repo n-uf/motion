@@ -12,7 +12,7 @@ import "../styles/toolbar-groups.css";
 const path = "/toolbar-groups/";
 const page = pageOf(path);
 const jsonLd = [
-  webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`) }),
+  webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), about: ["placement"] }),
   breadcrumbs([{ name: "Home", path: "/" }, { name: page.nav, path }]),
   orgNode,
 ];
