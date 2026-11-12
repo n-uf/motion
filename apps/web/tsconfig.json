@@ -7,5 +7,5 @@
     "noUnusedParameters": true
   },
   "include": ["src/islands/**/*.ts", "src/demos/**/*.ts", "src/snippets/*.ts", "src/data/pages.ts", "src/data/schema.ts", "src/data/site.ts", "src/data/parts.ts"],
-  "exclude": ["dist", "src/snippets/layout.ts", "src/snippets/drag.ts", "src/snippets/pair-motion.ts", "src/snippets/pair-placement.ts"]
+  "exclude": ["dist"]
 }
