@@ -3,7 +3,7 @@ import Site from "../layouts/Site.astro";
 import ExtLink from "../components/ExtLink.astro";
 import HeroDemo from "../components/HeroDemo.astro";
 import { pageOf } from "../data/pages";
-import { npmUrl, repoUrl } from "../data/site";
+import { npmPlacementUrl, npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
 import { CURVE, curveSVG, deskThumbSVG, ninetyPercentMs } from "../demos/home";
 import "../styles/home.css";
@@ -48,7 +48,7 @@ const ninety = ninetyPercentMs();
       </div>
     </div>
     <HeroDemo id="demo-fig" label="Live demo: three windows that tile, swap and glide; X-ray shows what each package does" />
-    <p class="caveat">Young and still changing: both packages are versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · <ExtLink href={npmUrl}>Packages on npm</ExtLink></p>
+    <p class="caveat">Young and still changing: both packages are versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink></p>
   </section>
 
   <PairCode />
@@ -111,7 +111,7 @@ const ninety = ninetyPercentMs();
       </article>
       <article class="card">
         <div class="thumb"><div class="t-win" aria-hidden="true"><div class="t-bar" id="thumb-bar"><span class="t-group"><i class="t-g"></i><b style="width:46px"></b></span><span class="t-group"><i class="t-g"></i><b></b><b></b><b></b></span><span class="t-group"><i class="t-g"></i><b></b><b class="on"></b></span><span class="t-group"><i class="t-g"></i><b style="width:30px"></b></span></div><div class="t-doc"><span></span></div></div></div>
-        <div class="card-body"><span class="eyebrow"><span class="n">04</span> Toolbar groups</span><h3><a href="/toolbar-groups/">One handle per group</a></h3><p>Five slots, three zones, floating and collapsing groups, and a lock that hides every grip until you hold Alt.</p></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">04</span> Toolbar groups</span><h3><a href="/toolbar-groups/">One handle per group</a></h3><p>Five hosts, three zones, floating and collapsing groups, and a lock that hides every grip until you hold Alt.</p></div>
       </article>
     </div>
   </section>

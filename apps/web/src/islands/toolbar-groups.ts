@@ -1,5 +1,5 @@
 /**
- * Toolbar groups (island): the sample window's groups dock into five slots of three zones each, or float; one dotted
+ * Toolbar groups (island): the sample window's groups dock into five hosts of three zones each, or float; one dotted
  * handle leads each group and carries all its actions. It runs on the same chrome module as every figure's bars
  * (islands/chrome.ts); the server rendered the default state and the cases, and this binds them.
  */
