@@ -23,7 +23,7 @@ import { deskTap } from "./desk-tap";
 import type { Model } from "../demos/toolbar";
 import { xrayOf, type XR } from "./xray";
 
-interface Win { i: number; el: HTMLElement; frame: HTMLElement; body: HTMLElement; settle: Settle<Rect>; slot: number; target: Rect; hold: boolean }
+interface Win { i: number; el: HTMLElement; frame: HTMLElement; body: HTMLElement; settle: Settle<Rect>; slot: number; target: Rect; hold: boolean; /** The rect `paint` last wrote to the element (its target plus the reveal's offsets, and the frame's size). */ painted: Rect }
 interface Drag {
   w: Win;
   dx: number;
@@ -69,6 +69,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     slot: i,
     target: { x: 0, y: 0, width: 0, height: 0 },
     hold: false,
+    painted: { x: 0, y: 0, width: 0, height: 0 },
   }));
   let layout = 0;
   let running: (() => void) | null = null;
@@ -89,6 +90,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
   function paint(w: Win): void {
     const f = reveal(w.settle.value, w.target);
     w.el.style.transform = `translate(${w.target.x + f.dx}px, ${w.target.y + f.dy}px)`;
+    w.painted = { x: w.target.x + f.dx, y: w.target.y + f.dy, width: f.width, height: f.height };
     w.frame.style.width = f.width + "px";
     w.frame.style.height = f.height + "px";
     w.body.style.clipPath = f.clipRight || f.clipBottom ? `inset(0 ${f.clipRight}px ${f.clipBottom}px 0)` : "";
@@ -163,7 +165,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
         paint(w);
       }
       showReadout();
-      if (deskTap.active) deskTap.frame({ dt, windows: wins.map((w) => ({ i: w.i, drawn: { ...w.settle.value }, target: { ...w.settle.target }, moving: !w.hold && !w.settle.settled, held: w.hold, expected: w.hold && drag && drag.w === w ? pointerRect(drag.last) : undefined })), held: drag ? drag.w.i : null, shown: drag?.shown ? drag.shown.i : null });
+      if (deskTap.active) deskTap.frame({ dt, windows: wins.map((w) => ({ i: w.i, slot: w.slot, drawn: { ...w.painted }, target: { ...w.settle.target }, moving: !w.hold && !w.settle.settled, held: w.hold, expected: w.hold && drag && drag.w === w ? pointerRect(drag.last) : undefined })), held: drag ? drag.w.i : null, shown: drag?.shown ? drag.shown.i : null, heldSlot: drag ? drag.w.slot : null, shownSlot: drag?.shown ? drag.shown.slot : null });
       // Step 4 ends when every window rests.
       if (!moving && !drag && lit === 4 && performance.now() >= litUntil) setStep(0);
       if (xray.on) {

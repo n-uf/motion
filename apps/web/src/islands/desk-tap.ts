@@ -8,6 +8,9 @@ import type { Rect } from "@n-uf/motion";
 /** One window's frame: the rect it is drawn at, the rect it is heading for, and whether a pointer holds it. */
 export interface WindowFrame {
   readonly i: number;
+  /** The layout slot it sits in (a swap trades two windows' slots). */
+  readonly slot: number;
+  /** The rect the desk last wrote to the window's element: its target plus the reveal's offsets, and the frame's size. */
   readonly drawn: Rect;
   readonly target: Rect;
   /** Its settle is stepping this frame. */
@@ -25,6 +28,9 @@ export interface DeskFrame {
   /** The dragged window's index, and the window whose slot the drop would take (the shown target), or null. */
   readonly held: number | null;
   readonly shown: number | null;
+  /** The same two, as layout slots (the rows of the rects pane are slots). */
+  readonly heldSlot: number | null;
+  readonly shownSlot: number | null;
 }
 /** The layout placement gave the desk: each window's slot rect, the stage it was laid out for, and the give-way notes. */
 export interface DeskPlan {
