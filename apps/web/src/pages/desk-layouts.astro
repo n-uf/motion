@@ -5,7 +5,7 @@ import Chrome from "../components/Chrome.astro";
 import Playback from "../components/Playback.astro";
 import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
-import { webPage, breadcrumbs, orgNode } from "../data/schema";
+import { webPage, breadcrumbs, orgNode, software } from "../data/schema";
 import { ASPECTS, BOTTOM_MODES, CARDS, DEFAULT, DEFAULT_OPTS, TABLE, TOOLBAR_MODES, deskSVG, layout } from "../demos/desk";
 import "../styles/desk-layouts.css";
 
@@ -14,6 +14,7 @@ const page = pageOf(path);
 const jsonLd = [
   webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), about: ["placement"] }),
   breadcrumbs([{ name: "Home", path: "/" }, { name: page.nav, path }]),
+  software("placement"),
   orgNode,
 ];
 const active = CARDS.findIndex((c) => c.pick);

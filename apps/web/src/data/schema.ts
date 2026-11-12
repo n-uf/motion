@@ -36,14 +36,28 @@ export const webSite = {
   publisher: orgRef,
 };
 
-/** One package of the pair, on the home page: @n-uf/motion (#motion) or @n-uf/placement (#placement). */
-export function software(part: PartId, pkg: string, description: string) {
+const SOFTWARE: Record<PartId, { name: string; description: string }> = {
+  motion: {
+    name: "@n-uf/motion",
+    description: "How things move: a TypeScript library for windows, panels and toolbars with one frame loop on an injected clock, a settle that never overshoots, reveal without stretching, held drags and drag intent. No DOM in the core, no framework.",
+  },
+  placement: {
+    name: "@n-uf/placement",
+    description: "Where things go: a TypeScript library that works out where windows, panels and toolbar groups go. Desks of docks, rails and palettes, toolbar hosts and zones, and the drop targets for each, as plain state in and rects out.",
+  },
+};
+
+/**
+ * One package of the pair: @n-uf/motion (#motion) or @n-uf/placement (#placement). The home page carries both; each inner
+ * page carries the one it is `about`, so every reference resolves on the page itself.
+ */
+export function software(part: PartId) {
   return {
     "@context": ctx,
     "@type": "SoftwareSourceCode",
     "@id": `${site}/#${part}`,
-    name: pkg,
-    description,
+    name: SOFTWARE[part].name,
+    description: SOFTWARE[part].description,
     url: abs("/"),
     codeRepository: repoUrl,
     programmingLanguage: "TypeScript",
