@@ -165,6 +165,7 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
   }
 
   function add(id: string, drawable: Drawable, at: Rect, opts: { readonly shown?: boolean } = {}): LayoutItem {
+    if (items.has(id)) throw new Error(`layout motion: item "${id}" is already added (remove it first)`);
     const rect: Settle<Rect> = createSettle<Rect>(copy(at), { omega });
     // A number from 0 to 1: rest within a thousandth, not the default tenth (tuned for pixels).
     const pop: Settle<number> = createSettle(opts.shown === false ? 0 : 1, { omega, restDelta: 0.001 });
