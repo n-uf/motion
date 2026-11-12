@@ -1,8 +1,8 @@
 /** Drops land where their target says, in every construction; toolbar targets keep own place as home. */
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { overlap } from "../index";
 import { DEFAULT_OPTIONS, LAYER, draggable, liftOut, panelKey, type Construction, type ConstructionId, type Layout } from "../src/dock";
-import { deskDrop, deskTargets, floatTarget, hostTargets, keyboardStops, type ToolbarTarget } from "../src/targets";
+import { deskDrop, deskTargets, floatTarget, hostTargets, keyboardStops, type Allows, type ToolbarFloatTarget, type ToolbarTarget } from "../src/targets";
 import { HOSTS, arrangement, hostOf, layoutHost, sameArrangement, type GroupSize, type HostId, type HostSpec, type Place } from "../src/toolbar";
 import { desk, docs, fmt, inRect, mid, sameRect } from "./fixture";
 
@@ -169,6 +169,20 @@ describe("toolbar targets", () => {
     // A group wider than the stage keeps its left edge on the stage's, never off it.
     const wide = floatTarget({ group: "b" as Gr, arrangement: a, stage: { x: 10, y: 20, width: 300, height: 300 }, width: 400, height: 28 });
     expect(wide.make({ x: 2000, y: 100 }, { x: 5, y: 5 }).floating[0]!.x).toBe(0);
+  });
+
+  it("types: floatTarget without allows is never null, with it may be, and its ReturnType is the non-null one", () => {
+    // Type-level checks (the typecheck runs them); the calls also run.
+    const stage = { x: 10, y: 20, width: 500, height: 300 };
+    const plain = floatTarget({ group: "b" as Gr, arrangement: a, stage, width: 80, height: 28 });
+    const guarded = floatTarget({ group: "b" as Gr, arrangement: a, stage, width: 80, height: 28, allows: () => true });
+    const maybe: Allows<Gr> | undefined = undefined;
+    const optional = floatTarget({ group: "b" as Gr, arrangement: a, stage, width: 80, height: 28, allows: maybe });
+    expectTypeOf(plain).toEqualTypeOf<ToolbarFloatTarget<Gr>>();
+    expectTypeOf(guarded).toEqualTypeOf<ToolbarFloatTarget<Gr> | null>();
+    expectTypeOf(optional).toEqualTypeOf<ToolbarFloatTarget<Gr> | null>();
+    expectTypeOf<ReturnType<typeof floatTarget>>().toEqualTypeOf<ToolbarFloatTarget<string>>();
+    expect([plain.id, guarded?.id, optional?.id]).toEqual(["g:float", "g:float", "g:float"]);
   });
 
   it("each target's slot is the group's rect in the host once it lands there", () => {
