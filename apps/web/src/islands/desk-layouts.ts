@@ -7,6 +7,7 @@ import type { Rect } from "@n-uf/motion";
 import { $, caseRail, fillRanges } from "./rail";
 import { RectField } from "./motion";
 import { figureChrome } from "./figure-chrome";
+import { xrayOf, type XR } from "./xray";
 import { BOTTOM_MODES, CARDS, DEFAULT, DEFAULT_OPTS, HAS_BOTTOM, HAS_PILL, TOOLBAR_MODES, deskSVG, keyed, layout, type Box, type Opt } from "../demos/desk";
 
 type Mode = [string, string, string];
@@ -59,6 +60,29 @@ function renderSegs(): void {
 const svg = $("desk") as unknown as SVGSVGElement;
 const SIZE = "\u0000size";
 let latest: Box[] = [];
+// X-ray: placement's rects (each box the construction placed, by its key) and motion's glide (each box drawn against
+// its target while it settles).
+const xray = xrayOf($("figure"));
+const toView = (r: { x: number; y: number; w: number; h: number }): XR => {
+  const b = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal, kx = b.width / (vb.width || 1), ky = b.height / (vb.height || 1);
+  return { x: b.left + r.x * kx, y: b.top + r.y * ky, w: r.w * kx, h: r.h * ky };
+};
+let moving = new Set<string>();
+function xrayDesk(rects?: Map<string, Rect>): void {
+  if (!xray.on) return;
+  const boxes = keyed(latest);
+  xray.draw("desk:place", { slots: [...boxes].map(([k, b]) => ({ r: toView(b), label: k })) });
+  const now = new Set<string>();
+  if (rects) boxes.forEach((b, k) => {
+    const r = rects.get(k);
+    if (!r || (Math.abs(r.x - b.x) < 0.5 && Math.abs(r.y - b.y) < 0.5 && Math.abs(r.width - b.w) < 0.5 && Math.abs(r.height - b.h) < 0.5)) return;
+    now.add(k);
+    xray.draw(`desk:m:${k}`, { target: toView(b), drawn: toView({ x: r.x, y: r.y, w: r.width, h: r.height }) });
+  });
+  moving.forEach((k) => { if (!now.has(k)) xray.draw(`desk:m:${k}`, null); });
+  moving = now;
+}
+xray.onChange((on) => { if (on) xrayDesk(); });
 const field = new RectField<string>((rects) => {
   const s = rects.get(SIZE);
   if (!s) return;
@@ -71,6 +95,7 @@ const field = new RectField<string>((rects) => {
   svg.style.setProperty("--w", String(s.width));
   svg.style.setProperty("--h", String(s.height));
   svg.innerHTML = deskSVG(s.width, s.height, drawn);
+  xrayDesk(rects);
 });
 let first = true;
 function render(): void {

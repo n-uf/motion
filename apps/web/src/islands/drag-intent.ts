@@ -9,6 +9,7 @@ import { drive, newSettle } from "./motion";
 import { dropMode, previewPlan } from "./drop-mode";
 import { figureChrome } from "./figure-chrome";
 import { createAimGate } from "../demos/intent";
+import { xrayOf, type XR } from "./xray";
 import { BAND, CASES, CHIP_HOME, FLASH, GAP_GRACE, HOME, LIFT, PATHS, ROOM_AFTER, T, type Key, type Path, type R, type Target } from "../demos/drag";
 
 const inside = (r: R, p: Point, m = 0): boolean => p.x >= r.x - m && p.x <= r.x + r.w + m && p.y >= r.y - m && p.y <= r.y + r.h + m;
@@ -100,6 +101,16 @@ function targetRect(s: Target, room: boolean, p: Point): R {
   return s.ind!;
 }
 
+// ---- X-ray: placement's targets (hit zones with ids and priorities, the slot shown), motion's settle and aim ---------
+const xray = xrayOf($("figure"));
+const vr = (r: R): XR => { const s = stage.getBoundingClientRect(); return { x: s.left + r.x, y: s.top + r.y, w: r.w, h: r.h }; };
+const vrect = (r: Rect): XR => vr({ x: r.x, y: r.y, w: r.width, h: r.height });
+let trail: Point[] = [];
+function xrayPlace(shown: Target | null = null, room = false, p: Point = { x: 0, y: 0 }): void {
+  xray.draw("intent:place", { zones: [{ r: vr(HOME), label: "home" }, ...T.map((t) => ({ r: vr(t.hit), label: `${t.id} · p${t.prio}` }))], slots: shown ? [{ r: vr(targetRect(shown, room, p)), on: true, label: shown.label }] : [] });
+}
+xray.onChange((on) => { if (on) xrayPlace(); });
+
 let stats = { changes: 0, flashes: 0 }, lastShown: Target | null = null, lastShownAt = 0;
 /** Count what the drop shows (both modes), and draw the indicator unless `draw` is off (a snap draws none). */
 function showIndicator(s: Target | null, room: boolean, p: Point, t: number, draw = true): void {
@@ -177,6 +188,13 @@ function beginDrag(grab: Point) {
       }
       showIndicator(shown, room, p, t, !!shown && (shown.float || plan.outline));
       updateStats();
+      if (xray.on) {
+        trail.push(vrect(chipSettle.value));
+        if (trail.length > 48) trail.shift();
+        xrayPlace(shown, room, p);
+        const state = room ? "room" : shown || model.speed < 0.45 ? "aim" : "fly";
+        xray.draw("intent:move", { target: vrect(chipSettle.target), drawn: vrect(chipSettle.value), trail, aim: { p: vr({ x: p.x, y: p.y, w: 0, h: 0 }), state } });
+      }
     },
     end(p: Point, t: number, cancelled: boolean): Target | null {
       const target = cancelled ? null : model.release(p);
@@ -184,6 +202,9 @@ function beginDrag(grab: Point) {
       updateStats();
       chip.classList.remove("lifted");
       setDrop(target ? target.label : "back home");
+      trail = [];
+      xray.draw("intent:move", null);
+      xrayPlace();
       // A snapped drop is already landing: it finishes there (no second motion), then the demo resets.
       if (target && target === snapped) window.setTimeout(chipHome, 900);
       else chipHome();
