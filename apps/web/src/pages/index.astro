@@ -7,6 +7,7 @@ import { npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
 import { DEMO, WINDOWS, CURVE, curveSVG, deskThumbSVG, demoWindowHTML, firstLayoutStyle, ninetyPercentMs } from "../demos/home";
 import "../styles/home.css";
+import CodeTabs from "../components/CodeTabs.astro";
 
 const page = pageOf("/");
 const jsonLd = [
@@ -47,6 +48,8 @@ const ninety = ninetyPercentMs();
       </figcaption>
     </figure>
   </section>
+
+  <CodeTabs />
 
   <section class="wrap section pitch" aria-label="What the library does">
     <div class="pitch-grid">
