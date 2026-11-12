@@ -870,20 +870,30 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       const pair = all.filter((t) => t.id.startsWith("dock:")).flatMap((a) => all.filter((b) => b.id.startsWith("dock:") && Math.abs(b.hit.y - (a.hit.y + a.hit.height)) < 1 && Math.abs(b.hit.x - a.hit.x) < 1).map((b) => [a, b] as const))[0];
       if (!pair) return expect(false, "no two dock slots one above the other");
       const p = { x: pair[0].hit.x + pair[0].hit.width / 2, y: pair[1].hit.y };
+      // Arrive, then hold still on the border until the indicator (and a snap) has settled: only the wobble counts,
+      // whatever a slow frame did on the way there.
+      let wobbleAt = 0;
       const r = await lab.path(key, (g) => {
-        const keys = through([g, p], 0.9);
+        const keys = hold(through([g, p], 0.9), 400);
         let t = keys.at(-1)![0];
+        wobbleAt = t;
         for (let i = 0; i < 20; i++) {
           t += 60;
           keys.push([t, p.x, p.y + (i % 2 ? -14 : 14)]);
         }
         return hold(keys, 400);
       });
-      const changes = shows(r).length - 1;
-      expect(changes <= 1, `the indicator changed ${changes} times: ${sequence(r)}`);
+      // Changes during the wobble: each target shown (or slot snapped into) after it began; the first one isn't a
+      // change when nothing was showing as it began.
+      const changesIn = (log: readonly { t: number; id: string | null }[]): number => {
+        const before = log.filter((e) => e.t <= wobbleAt).at(-1)?.id ?? null;
+        return Math.max(0, log.filter((e) => e.t > wobbleAt && e.id !== null).length - (before === null ? 1 : 0));
+      };
+      const changes = changesIn(r.log);
+      expect(changes <= 1, `the indicator changed ${changes} times in the wobble: ${sequence(r)}`);
       expect(flash(r) === null, `${flash(r)}: ${sequence(r)}`);
-      const snapChanges = (r.snaps ?? []).filter((e) => e.id !== null).length - 1;
-      expect(snapChanges <= 1, `the item snapped ${snapChanges + 1} times in the wobble`);
+      const snapChanges = changesIn(r.snaps ?? []);
+      expect(snapChanges <= 1, `the item snapped ${snapChanges} more times in the wobble`);
     },
   };
   out["A · drag model: a release inside the shown slot's band lands on it, not on the neighbour under the pointer"] = {
