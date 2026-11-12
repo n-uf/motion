@@ -244,6 +244,86 @@ describe("held drag: the three drop previews", () => {
   });
 });
 
+describe("held drag: a new size mid-drag", () => {
+  /** A 120 × 30 item held 12, 15 in, the pointer at 200, 200. */
+  function lifted() {
+    const s = surface();
+    const item = s.motion.add("a", s.drawable, rect(0, 0, 120, 30));
+    const held = holdItem(item, { x: 12, y: 15 });
+    held.move({ x: 200, y: 200 });
+    s.settle();
+    return { s, item, held };
+  }
+
+  it("settles from where it is drawn to the new size under the pointer, revealed, never stretched, no jump", () => {
+    const { s, item, held } = lifted();
+    expect(item.drawn).toEqual(rect(188, 185, 120, 30));
+    const before = { ...item.drawn };
+    const at = s.frames.length;
+    expect(held.resize({ width: 30, height: 110 })).toBe(true);
+    expect(held.returning).toBe(true);
+    // The grab point keeps its share: 12 / 120 of the width, 15 / 30 of the height.
+    expect(held.held).toEqual(rect(197, 145, 30, 110));
+    expect(s.frames[at]!.frame.drawn).toEqual(before);
+    for (let i = 0; i < 400 && held.returning; i++) {
+      s.clock.frame();
+      held.follow();
+    }
+    expect(held.returning).toBe(false);
+    expect(item.drawn).toEqual(rect(197, 145, 30, 110));
+    const after = s.frames.slice(at);
+    expect(after.every(({ frame }) => frame.pop.scale === 1 && frame.box.width === 30 && frame.box.height === 110)).toBe(true);
+    expect(checkNoJumps(s.samples(at), OMEGA).failures).toEqual([]);
+    // Held 1:1 again at the new size.
+    held.move({ x: 260, y: 220 });
+    expect(item.drawn).toEqual(rect(257, 165, 30, 110));
+  });
+
+  it("the same size again does nothing", () => {
+    const { s, item, held } = lifted();
+    const at = s.frames.length;
+    expect(held.resize({ width: 120, height: 30 })).toBe(false);
+    expect(held.returning).toBe(false);
+    expect(s.motion.running).toBe(false);
+    expect(s.frames.length).toBe(at);
+    expect(item.drawn).toEqual(rect(188, 185, 120, 30));
+  });
+
+  it("in a slot it stays put; leaving the slot, it glides back to the pointer at its new size", () => {
+    const { s, item, held } = lifted();
+    const slot = rect(400, 0, 160, 30);
+    held.snapTo(slot);
+    s.settle();
+    held.resize({ width: 30, height: 110 });
+    expect(held.returning).toBe(false);
+    s.settle();
+    expect(item.drawn).toEqual(slot);
+    expect(held.snapTo(null)).toBe("left");
+    for (let i = 0; i < 400 && held.returning; i++) {
+      s.clock.frame();
+      held.follow();
+    }
+    expect(item.drawn).toEqual(rect(197, 145, 30, 110));
+  });
+
+  it("let go mid-resize, the landing starts where it is drawn", () => {
+    const { s, item, held } = lifted();
+    held.resize({ width: 30, height: 110 });
+    for (let i = 0; i < 4; i++) {
+      s.clock.frame();
+      held.follow();
+    }
+    const drawn = { ...item.drawn };
+    const at = s.frames.length;
+    const release = held.land(rect(10, 60, 30, 110));
+    expect(release).toEqual(drawn);
+    expect(s.frames[at]!.frame.drawn).toEqual(drawn);
+    s.settle();
+    expect(item.drawn).toEqual(rect(10, 60, 30, 110));
+    expect(checkNoJumps(s.samples(at), OMEGA).failures).toEqual([]);
+  });
+});
+
 describe("enter, exit and fold", () => {
   it("appears and disappears with a uniform fade; gone at rest", () => {
     const s = surface();

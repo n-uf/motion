@@ -43,7 +43,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   copy), snaps it into a slot and back, and lands or cancels from the release
   rect; `preview(plan, slot)` plays the three drop previews of `./drag`'s
   `previewPlan` (indicator and gap keep it under the pointer, snap glides it
-  into the slot). `flip` is FLIP for DOM groups on settle. `domDrawable`, `layOutBox`
+  into the slot); `resize(size)` takes a new size mid-drag, revealed from
+  where it is drawn. `flip` is FLIP for DOM groups on settle. `domDrawable`, `layOutBox`
   and `drawBox` write DOM styles through structural shapes (no DOM types).
   It animates the rects it is given; which items move where stays the
   caller's.

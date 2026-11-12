@@ -12,15 +12,17 @@ import type { LayoutItem } from "./motion";
  * - {@link HeldDrag.cancel}: let go with no drop: it glides home from where it was let go.
  * - {@link HeldDrag.preview}: the three drop previews, per frame: indicator and gap keep the item under the pointer
  *   (gap with the caller's room open), snap glides it into the slot; leaving glides it back to the pointer.
+ * - {@link HeldDrag.resize}: the item takes a new size mid-drag (its content laid out anew by the caller): it settles
+ *   to it from where it is drawn, the size revealed (never stretched), and is held 1:1 again once there.
  */
 export interface HeldDrag {
   /** Where the pointer is (null before the first move). */
   readonly pointer: Point | null;
-  /** Where the pointer holds the item: the pointer less the grab offset, at the lifted size. */
+  /** Where the pointer holds the item: the pointer less the grab offset, at the held size (lifted, or resized). */
   readonly held: Rect | null;
   /** The slot it sits in (a snap), or null. */
   readonly snapped: Rect | null;
-  /** It left a slot and is gliding back to the pointer. */
+  /** It left a slot (or took a new size) and is gliding back to the pointer. */
   readonly returning: boolean;
   /** The pointer moved: held 1:1 (unless it sits in a slot or is on its way back). */
   move(pointer: Point): void;
@@ -38,6 +40,14 @@ export interface HeldDrag {
    * {@link HeldDrag.snapTo} and {@link HeldDrag.follow}; returns what changed.
    */
   preview(plan: { readonly snapItem: boolean }, slot: Rect | null): "snapped" | "left" | null;
+  /**
+   * Hold it at `size` from now on (the caller has laid its content out for that size). The grab point keeps its share
+   * of the item, so the pointer stays on the same spot of it; the item settles from where it is drawn to its new held
+   * rect (its size revealed, never stretched), then is held 1:1 again ({@link HeldDrag.follow} once a frame). In a
+   * slot it stays there, taking the new size when it leaves. The same size again does nothing; returns true on a
+   * change.
+   */
+  resize(size: { readonly width: number; readonly height: number }): boolean;
   /** Let go into `slot`: returns the release rect, where the landing starts. */
   land(slot: Rect): Rect;
   /** Let go with no drop: glides `home` from the release rect, which it returns. */
@@ -49,11 +59,12 @@ const CAUGHT = 0.5;
 
 /** Hold `item` from the pointer at `grab` (the pointer's offset from its top-left corner), at its drawn size now. */
 export function holdItem(item: LayoutItem, grab: Point): HeldDrag {
-  const size = { width: item.drawn.width, height: item.drawn.height };
+  let size = { width: item.drawn.width, height: item.drawn.height };
+  let at = { x: grab.x, y: grab.y };
   let pointer: Point | null = null;
   let snapped: Rect | null = null;
   let returning = false;
-  const heldRect = (): Rect | null => (pointer ? { x: pointer.x - grab.x, y: pointer.y - grab.y, width: size.width, height: size.height } : null);
+  const heldRect = (): Rect | null => (pointer ? { x: pointer.x - at.x, y: pointer.y - at.y, width: size.width, height: size.height } : null);
   const same = (a: Rect, b: Rect): boolean => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height)) < 0.01;
   const snapTo = (slot: Rect | null): "snapped" | "left" | null => {
     if (slot) {
@@ -109,6 +120,16 @@ export function holdItem(item: LayoutItem, grab: Point): HeldDrag {
       const change = snapTo(plan.snapItem && slot ? slot : null);
       follow();
       return change;
+    },
+    resize(next) {
+      if (Math.abs(next.width - size.width) < 0.01 && Math.abs(next.height - size.height) < 0.01) return false;
+      at = { x: size.width ? (at.x / size.width) * next.width : 0, y: size.height ? (at.y / size.height) * next.height : 0 };
+      size = { width: next.width, height: next.height };
+      if (!snapped && pointer) {
+        returning = true;
+        follow();
+      }
+      return true;
     },
     land: letGo,
     cancel: letGo,
