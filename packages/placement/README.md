@@ -108,6 +108,29 @@ console.log(drop.label, drop.slot.x, drop.slot.y); // Float here 580 290
 A toolbar group's targets come from `hostTargets` (a host's lines and empty zones, with its own place left out and
 returned as `own`, for the drag's home) and `floatTarget`.
 
+## Pane zones
+
+`paneZone(rect, point, previous, options?)` says which of a pane's five zones a point is in: the centre rectangle
+(34 % of each axis, at least 24 px) or one of four edge trapezoids. The previous zone holds for 6 px past its
+boundary. It fits `@n-uf/motion/drag`'s `placeOf(target, point, previous)`: one target per pane, the zone as the
+place, and a null place for a zone that takes no drop.
+
+```ts
+import { paneZone, type PaneZone } from "@n-uf/placement/targets";
+
+const pane = { x: 0, y: 0, width: 200, height: 200 };
+console.log(paneZone(pane, { x: 100, y: 100 }), paneZone(pane, { x: 190, y: 100 })); // center right
+console.log(paneZone(pane, { x: 137, y: 100 }, "center")); // center: 3 px past the line, it holds
+
+// As a placeOf: the pane's id and zone, none where this pane can't take a drop beside it.
+const canSplit = false;
+const placeOf = (t: { id: string; hit: typeof pane }, p: { x: number; y: number }, previous: string | null): string | null => {
+  const zone = paneZone(t.hit, p, (previous?.split(":")[1] as PaneZone | undefined) ?? null);
+  return zone === "center" || canSplit ? `${t.id}:${zone}` : null;
+};
+console.log(placeOf({ id: "a", hit: pane }, { x: 100, y: 100 }, null), placeOf({ id: "a", hit: pane }, { x: 10, y: 100 }, null)); // a:center null
+```
+
 ## License
 
 [PolyForm Perimeter 1.0.1](./LICENSE).
