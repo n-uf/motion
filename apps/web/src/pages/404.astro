@@ -14,7 +14,7 @@ const way = [{ path: "/", nav: "Home" }, ...demoPages, { path: "/lab/", nav: "La
     <script is:inline>try{if(!matchMedia("(prefers-reduced-motion: reduce)").matches)document.documentElement.classList.add("nf-anim")}catch(e){}</script>
     <div class="nf-ebs" aria-hidden="true">
       <span class="nf-eb m">404 <span class="k">· words that settle</span></span>
-      <span class="nf-eb p">@n-uf/placement <span class="k">· panels that dock</span></span>
+      <span class="nf-eb p">@n-uf/motion/drag <span class="k">· panels that dock</span></span>
     </div>
     <div class="nf-head" id="nf-head">
       <h1 class="nf-h1"><span class="nf-part m"><span class="nf-w" data-g="m">This</span> <span class="nf-w" data-g="m">page</span> <span class="nf-w" data-g="m">isn't</span> <span class="nf-w" data-g="m">here.</span></span> <span class="nf-part p"><span class="nf-t" data-g="p">Pick</span> <span class="nf-t" data-g="p">a</span> <span class="nf-t" data-g="p">page</span> <span class="nf-t" data-g="p">below.</span></span></h1>
@@ -27,7 +27,7 @@ const way = [{ path: "/", nav: "Home" }, ...demoPages, { path: "/lab/", nav: "La
           {way.map((p) => <li><a href={p.path}>{p.nav}</a></li>)}
         </ul>
       </nav>
-      <p class="nf-note">The words above are live, if you want to play: drag one. The left words are held by the pointer and settle back without overshoot (<code>@n-uf/motion</code>); a right panel docks into its slot when you aim at it (<code>@n-uf/motion/drag</code>), and <code>@n-uf/placement</code> keeps whatever you drag on the page.</p>
+      <p class="nf-note">The words above are live, if you want to play: drag one. The left words are held by the pointer and settle back without overshoot (<code>@n-uf/motion</code>); a right panel shows where it docks once you aim at its slot, and lands there when you let go (<code>@n-uf/motion/drag</code>); and <code>@n-uf/placement</code> keeps whatever you drag on the page.</p>
     </div>
   </section>
 </Site>
