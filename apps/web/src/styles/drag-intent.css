@@ -51,4 +51,6 @@
 
 .checks { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
 .checks li { position: relative; padding: 12px 0 12px 32px; border-bottom: 1px solid var(--line); color: var(--text-2); }
-.checks li::before { content: ""; position: absolute; left: 4px; top: 15px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.3 2.3 4.7-5' fill='none' stroke='%230d7a7e' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat; }
+.checks li::before { content: ""; position: absolute; left: 4px; top: 15px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent-soft); }
+/* The tick takes the accent of the current theme (a mask, not a coloured image). */
+.checks li::after { content: ""; position: absolute; left: 4px; top: 15px; width: 16px; height: 16px; background: var(--accent); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.3 2.3 4.7-5' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.3 2.3 4.7-5' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat; }
