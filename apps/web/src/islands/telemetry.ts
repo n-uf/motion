@@ -30,6 +30,7 @@ interface Run {
 const sameRect = (a: Rect, b: Rect): boolean => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height)) < 0.01;
 
 export function startTelemetry(root: HTMLElement): void {
+  root.classList.add("go"); // the slow-motion control shows now
   const $ = <T extends Element>(sel: string): T => root.querySelector(sel) as T;
   const who = $<HTMLElement>("#tm-who"), status = $<HTMLElement>("#tm-st"), chk = $<HTMLElement>("#tm-chk");
   const tmRows = [...root.querySelectorAll<HTMLElement>("#tm-rows .rw")];
@@ -42,7 +43,7 @@ export function startTelemetry(root: HTMLElement): void {
   const last: (Rect | null)[] = [null, null, null];
   let focus = 0;
   let report: RunReport | null = null;
-  let held: { i: number; samples: HeldSample[]; rows: string[]; t: number } | null = null;
+  let held: { i: number; samples: HeldSample[]; rows: string[]; t: number; n: number } | null = null;
 
   const drawRows = (rows: readonly string[]): void => {
     const shown = rows.slice(-FRAME_ROWS);
@@ -86,18 +87,21 @@ export function startTelemetry(root: HTMLElement): void {
     for (const w of f.windows) {
       if (w.held) {
         // A pointer holds it: record the held frames, judged by checkHeld.
-        if (!held || held.i !== w.i) held = { i: w.i, samples: [], rows: [], t: 0 };
+        if (!held || held.i !== w.i) held = { i: w.i, samples: [], rows: [], t: 0, n: 0 };
         held.t += f.dt;
         held.samples.push({ t: held.t, rect: w.drawn, expected: w.expected ?? w.drawn });
-        held.rows.push(frameRow(held.samples.length, held.t, w.drawn));
+        // Only the latest 600 frames are kept; the row's frame number counts every frame of the hold.
+        held.n++;
+        held.rows.push(frameRow(held.n, held.t, w.drawn));
         if (held.rows.length > FRAME_ROWS) held.rows.shift();
+        if (held.samples.length > 600) held.samples.shift();
         runs[w.i] = null;
         last[w.i] = w.drawn;
         focus = w.i;
         text(who, title(w.i));
         setStatus("held · 1:1 under the pointer", "h");
         drawRows(held.rows);
-        drawChecks(null, checkHeld(held.samples.slice(-600)).ok);
+        drawChecks(null, checkHeld(held.samples).ok);
         continue;
       }
       if (held && held.i === w.i) held = null;
@@ -141,19 +145,20 @@ export function startTelemetry(root: HTMLElement): void {
 
   // ---- Placement's pane: the rects, the notes, the targets ---------------------------------------------------------------
   let plan: DeskPlan | null = null;
-  let shown: number | null = null;
-  let heldIndex: number | null = null;
+  // The dragged window and the target shown, as windows (for the titles) and as slots (the rows and the map are slots).
+  let shown: number | null = null, shownSlot: number | null = null;
+  let heldIndex: number | null = null, heldSlot: number | null = null;
   const drawTargets = (): void => {
     const el = $<HTMLElement>("#tp-tg");
     if (heldIndex === null) text(el, "none while nothing is held");
     else if (shown === null) text(el, `${plan?.slots.length ?? 3} slots, none shown`);
     else text(el, `${plan?.slots.length ?? 3} slots · shown: swap with ${WINDOWS[shown]!.title}`);
-    tpRows.forEach((el2, k) => (el2.className = `rw${shown === k ? " hi" : heldIndex === k ? " last" : ""}`));
-    mapRects.forEach((m, k) => m.classList.toggle("t", shown === k));
+    tpRows.forEach((el2, k) => (el2.className = `rw${shownSlot === k ? " hi" : heldSlot === k ? " last" : ""}`));
+    mapRects.forEach((m, k) => m.classList.toggle("t", shownSlot === k));
   };
   function placementPlan(p: DeskPlan): void {
     plan = p;
-    text($("#tp-lay"), `${p.name} · ${p.construction}`);
+    text($("#tp-lay"), p.name);
     text($("#tp-sz"), `${Math.round(p.stage.width)} × ${Math.round(p.stage.height)}`);
     tpRows.forEach((el, k) => text(el, rectRow(`doc:${k + 1}`, p.slots[k]!)));
     $<SVGElement>("#tp-map").setAttribute("viewBox", `0 0 ${p.stage.width} ${p.stage.height}`);
@@ -171,9 +176,11 @@ export function startTelemetry(root: HTMLElement): void {
     drawTargets();
   }
   function placementFrame(f: DeskFrame): void {
-    if (f.held === heldIndex && f.shown === shown) return;
+    if (f.held === heldIndex && f.shown === shown && f.heldSlot === heldSlot && f.shownSlot === shownSlot) return;
     heldIndex = f.held;
     shown = f.shown;
+    heldSlot = f.heldSlot;
+    shownSlot = f.shownSlot;
     drawTargets();
   }
 
