@@ -532,6 +532,12 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
     s.clock.frame();
     s.motion.dispose();
     expect(changes).toEqual([true, false, true, false]);
+    // Disposing an idle surface changes nothing, so it fires nothing.
+    const idleChanges: boolean[] = [];
+    const idle = surface({ onActiveChange: (on) => void idleChanges.push(on) });
+    idle.motion.add("a", idle.drawable, rect(0, 0, 50, 50));
+    idle.motion.dispose();
+    expect(idleChanges).toEqual([]);
   });
 
   it("retarget chases a moving point without laying the content out again; a new size lays it out once", () => {
