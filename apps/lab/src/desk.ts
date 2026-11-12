@@ -36,7 +36,7 @@ import {
   type Side,
 } from "@n-uf/placement/dock";
 import { deskDrop, deskTargets, type DeskDrop, type DeskTarget, type DeskTargetInput } from "@n-uf/placement/targets";
-import { CONSTRUCTIONS, DEFAULT_CONSTRUCTION, DOC_TITLES, MAX_DOCS, PANELS, constructionOf, desk, titleOf } from "./desk/catalog";
+import { CONSTRUCTIONS, DEFAULT_CONSTRUCTION, DOC_TITLES, MAX_DOCS, PANELS, constructionOf, desk, labTitle, titleOf } from "./desk/catalog";
 import { createGrips } from "./desk/grip";
 import { compactScenarios } from "./desk/compact-scenarios";
 import { gripScenarios } from "./desk/grip-scenarios";
@@ -1319,12 +1319,12 @@ async function runScenario(name: string, mode: Preview): Promise<LabRun> {
   // A scenario that only checks pure layouts moves nothing: "Something moved" is not its rule.
   const failed = lastRows.filter((r) => r.result && !r.result.ok && !(sc.still && r.name === "Something moved")).map((r) => r.name);
   const how = sc.drag ? ` · ${PREVIEW_NAME[mode]}` : "";
-  const run: LabRun = { scenario: name, mode: constructionOf(c).title + how, failed, rows: lastRows };
+  const run: LabRun = { scenario: name, mode: labTitle(constructionOf(c)) + how, failed, rows: lastRows };
   runs.push(run);
   const tr = document.createElement("tr");
   tr.innerHTML = "<td></td><td></td><td></td>";
   tr.children[0]!.textContent = name;
-  tr.children[1]!.textContent = constructionOf(c).title + how;
+  tr.children[1]!.textContent = labTitle(constructionOf(c)) + how;
   tr.children[2]!.textContent = failed.length ? failed.join(", ") : "none";
   (tr.children[2] as HTMLElement).className = failed.length ? "bad" : "ok";
   runsBody.append(tr);
@@ -1376,7 +1376,7 @@ for (const c of CONSTRUCTIONS) {
   input.name = "construction";
   input.value = c.id;
   input.addEventListener("change", () => useConstruction(c.id));
-  label.append(input, ` ${c.title}`);
+  label.append(input, ` ${labTitle(c)}`);
   switcher.append(label);
 }
 document.querySelectorAll<HTMLInputElement>("input[name=toolbar]").forEach((input) =>
