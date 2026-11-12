@@ -30,7 +30,7 @@
     "url": "git+https://github.com/n-uf/motion.git",
     "directory": "packages/motion"
   },
-  "homepage": "https://github.com/n-uf/motion#readme",
+  "homepage": "https://motion.n-uf.com",
   "bugs": {
     "url": "https://github.com/n-uf/motion/issues"
   },

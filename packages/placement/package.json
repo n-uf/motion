@@ -21,7 +21,7 @@
     "url": "git+https://github.com/n-uf/motion.git",
     "directory": "packages/placement"
   },
-  "homepage": "https://github.com/n-uf/motion/tree/main/packages/placement#readme",
+  "homepage": "https://motion.n-uf.com",
   "bugs": {
     "url": "https://github.com/n-uf/motion/issues"
   },
