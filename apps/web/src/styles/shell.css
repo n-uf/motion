@@ -121,18 +121,6 @@
 .ext-arrow { margin-left: 2px; font-size: 0.85em; color: var(--text-3); }
 
 .footer { position: relative; margin-top: var(--s8); border-top: 1px solid var(--line); background: var(--bg); }
-/* Two seam ticks on the top hairline, at the content's edges: decoration only. */
-.footer::before {
-  content: "";
-  position: absolute;
-  top: -1px;
-  left: 50%;
-  width: min(100%, calc(var(--max) + 2 * var(--gutter)));
-  height: 9px;
-  transform: translateX(-50%);
-  pointer-events: none;
-  background: linear-gradient(var(--line-3), var(--line-3)) left var(--gutter) top / 1px 9px no-repeat, linear-gradient(var(--line-3), var(--line-3)) right var(--gutter) top / 1px 9px no-repeat;
-}
 /* Brand, then Move, Place and Project: a mono key over each column's links. */
 .footer-in {
   display: grid;
