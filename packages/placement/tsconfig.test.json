@@ -1,0 +1,8 @@
+{
+  // Tests and tool configs: the library's settings plus Node types.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["index.ts", "src", "test", "vitest.config.ts", "tsup.config.ts"]
+}
