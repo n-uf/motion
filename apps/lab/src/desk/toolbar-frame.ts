@@ -19,6 +19,7 @@ import type { Rect } from "@n-uf/motion";
 import { domDrawable, flip, holdItem, type HeldDrag, type LayoutItem, type LayoutMotion, type RectLike } from "@n-uf/motion/layout";
 import { overlap, nextFrame, type Point } from "../shared/geometry";
 import { cancelPress, trackPress } from "../shared/press";
+import { overflowOpen, wireOverflow, zoomValue } from "./compact";
 import { toolGroupCells } from "./content";
 import { isLayoutFrozen, mountFreezeSwitch, onFreezeChange, setLayoutFrozen } from "./freeze";
 import { DRAG_DEFAULTS, createDragIntent, inRect, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
@@ -117,7 +118,7 @@ function controls(id: GroupId): string {
     case "view":
       return toolGroupCells(2);
     case "zoom":
-      return `${icon("−", "Zoom out")}<button type="button" class="tb-cell tg-zoom" tabindex="-1" title="Zoom: 100 %">100%</button>${icon("+", "Zoom in")}`;
+      return `${icon("−", "Zoom out")}<button type="button" class="tb-cell tg-zoom" tabindex="-1" title="Zoom: 100 %">${zoomValue(100)}</button>${icon("+", "Zoom in")}`;
     case "panel":
       return `${icon("◧", "Left panel")}${icon("◨", "Right panel")}`;
     case "share":
@@ -138,6 +139,8 @@ function groupSize(id: GroupId, v: boolean, collapsed: boolean): { along: number
   if (!measureBox) return { along: 60, across: 30 };
   const el = document.createElement("div");
   el.className = `tgroup${v ? " v" : ""}${collapsed ? " collapsed" : ""}`;
+  // Its compact form is keyed by the group (desk/compact.ts, lab.css).
+  el.dataset.g = id;
   el.innerHTML = groupMarkup(id);
   measureBox.append(el);
   const inner = el.firstElementChild as HTMLElement;
@@ -415,7 +418,8 @@ function makeGroup(id: GroupId): void {
     groupMenu(id);
   });
   handle.addEventListener("keydown", (e) => keyOnHandle(id, e));
-  inner.querySelector(".tg-over")!.addEventListener("click", () => hiddenControls(id));
+  // » opens a popover with the group's full form (desk/compact.ts).
+  wireOverflow(inner.querySelector<HTMLButtonElement>(".tg-over")!, inner, layer!, GROUP_LABEL[id]);
   // Laid out at its box and drawn by the layout motion: moved by one transform, clipped while it grows.
   const item = motion!.add(`tg:${id}`, domDrawable({ node: el }), rect(0, 0, 0, 0));
   groupEls.set(id, { id, el, inner, handle, item, container: null, vertical: false });
@@ -453,14 +457,6 @@ function floatNear(id: GroupId): Arrangement {
   const x = Math.min(Math.max(8, (p?.rect.x ?? 0) - g.stage.x), W - s.along - 8);
   const y = Math.min(Math.max(8, (p?.rect.y ?? 0) - g.stage.y + 48), H - s.across - 8);
   return floatGroup(arrangement, id, x, y);
-}
-
-/** » on a collapsed group: its hidden controls, as a menu anchored there. */
-function hiddenControls(id: GroupId): void {
-  const ge = groupEls.get(id)!;
-  const over = toWindow(ge.inner.querySelector(".tg-over")!.getBoundingClientRect());
-  const items = [...ge.inner.querySelectorAll<HTMLButtonElement>(".tg-ctl button")].map((b) => ({ label: b.title, action: () => b.click() }));
-  openMenu(layer!, over.x, over.y + over.height + 4, items, `${GROUP_LABEL[id]}: hidden controls`);
 }
 
 function buildControls(): void {
@@ -1098,7 +1094,7 @@ export const toolbarGroups = {
   },
   alt: (on: boolean): void => setAlt(on),
   menu: (id: GroupId): HTMLElement => groupMenu(id),
-  menuOpen: (): HTMLElement | null => menuOpen(),
+  menuOpen: (): HTMLElement | null => menuOpen() ?? overflowOpen(),
   /** A scripted drag in real time along keyframes [ms, x, y] (window coordinates) from the handle; Escape at `escapeAt`; `onFrame` sees each frame. */
   async path(kind: string, keysOf: (grip: Point) => readonly PathKey[], opts: { escapeAt?: () => number; onFrame?: (t: number) => void } = {}): Promise<GroupDragResult> {
     const grip = toolbarGroups.grip(kind);
