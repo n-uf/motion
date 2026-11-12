@@ -16,7 +16,7 @@
  */
 import type { Point, Rect } from "@n-uf/motion";
 import { createDragIntent, DRAG_DEFAULTS, liftDecision, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
-import { createLayoutMotion, holdItem, type DrawFrame, type HeldDrag, type LayoutItem } from "@n-uf/motion/layout";
+import { createLayoutMotion, holdItem, type DrawFrame, type HeldDrag, type LayoutItem, type LayoutMotion } from "@n-uf/motion/layout";
 import { clampInto } from "@n-uf/placement";
 import { loop, omega, onMotionChange, reduced } from "./motion";
 
@@ -24,12 +24,36 @@ const stage = document.getElementById("nf-head");
 const layer = document.getElementById("nf-layer");
 if (stage && layer) start(stage, layer);
 
-interface Word {
-  readonly el: HTMLElement;
-  readonly kind: "m" | "p";
-  /** Where the page lays it out, in the stage's coordinates. */
-  home: Rect;
-  item: LayoutItem;
+/** One word of the headline: the page lays it out; its layout-motion item moves it by transform (and fades it in). */
+class Word {
+  readonly item: LayoutItem;
+  constructor(
+    readonly el: HTMLElement,
+    readonly kind: "m" | "p",
+    /** Where the page lays it out, in the stage's coordinates. */
+    public home: Rect,
+    motion: LayoutMotion,
+    id: string,
+    shown: boolean,
+  ) {
+    // The drawable writes only the move and the appearance, never the layout.
+    this.item = motion.add(
+      id,
+      {
+        layOut: () => {},
+        draw: (f: DrawFrame) => {
+          const dx = f.drawn.x - this.home.x;
+          const dy = f.drawn.y - this.home.y;
+          const move = dx === 0 && dy === 0 ? "" : `translate(${dx}px, ${dy}px)`;
+          el.style.transform = f.pop.scale === 1 ? move : `${move} scale(${f.pop.scale})`;
+          el.style.opacity = String(f.pop.opacity);
+          el.style.visibility = f.gone ? "hidden" : "";
+        },
+      },
+      home,
+      { shown },
+    );
+  }
 }
 
 /** A word being dragged: by the pointer, or by the demo's synthetic one. */
@@ -88,23 +112,7 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
   const motion = createLayoutMotion({ loop, omega: omega(), reducedMotion: reduced });
   onMotionChange(() => motion.configure({ omega: omega() }));
 
-  const words: Word[] = els.map((el, i) => {
-    const home = homes[i]!;
-    const w = { el, kind: el.dataset.g === "p" ? "p" : "m", home } as Word;
-    // The word is laid out by the page: the drawable writes only the move (and the appearance), never the layout.
-    w.item = motion.add(`w${i}`, {
-      layOut: () => {},
-      draw: (f: DrawFrame) => {
-        const dx = f.drawn.x - w.home.x;
-        const dy = f.drawn.y - w.home.y;
-        const move = dx === 0 && dy === 0 ? "" : `translate(${dx}px, ${dy}px)`;
-        el.style.transform = f.pop.scale === 1 ? move : `${move} scale(${f.pop.scale})`;
-        el.style.opacity = String(f.pop.opacity);
-        el.style.visibility = f.gone ? "hidden" : "";
-      },
-    }, home, { shown: reduced() });
-    return w;
-  });
+  const words = els.map((el, i) => new Word(el, el.dataset.g === "p" ? "p" : "m", homes[i]!, motion, `w${i}`, reduced()));
   // Each word now holds itself (hidden until its entrance): the page's hold-back, and its fallback, are not needed.
   document.documentElement.classList.remove("nf-anim");
   const wordOf =(el: Element | null): Word | undefined => words.find((w) => w.el === el);
@@ -133,15 +141,25 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
   // ---- a drag: the same code for the pointer and for the demo ----
   const homing = new Set<Word>();
   let capTimer = 0;
+  // The caption's text, and its width, change rarely: measure it (a layout read) only when its text does.
+  let capKey = "";
+  let capWidth = 0;
   const caption = (text: string, w: Word, p: Point): void => {
-    cap.textContent = text;
-    cap.className = `nf-cap ${w.kind} on`;
-    const x = Math.max(0, Math.min(p.x + 14, stage.clientWidth - cap.offsetWidth - 2));
-    at(cap, x, p.y + 8);
+    const key = `${w.kind}|${text}`;
+    if (key !== capKey) {
+      capKey = key;
+      cap.textContent = text;
+      cap.className = `nf-cap ${w.kind} on`;
+      capWidth = cap.offsetWidth;
+    }
+    at(cap, Math.max(0, Math.min(p.x + 14, stage.clientWidth - capWidth - 2)), p.y + 8);
   };
   const fadeCaption = (after: number): void => {
     clearTimeout(capTimer);
-    capTimer = window.setTimeout(() => cap.classList.remove("on"), after);
+    capTimer = window.setTimeout(() => {
+      cap.classList.remove("on");
+      capKey = "";
+    }, after);
   };
 
   function lift(w: Word, p: Point, auto: boolean): void {
