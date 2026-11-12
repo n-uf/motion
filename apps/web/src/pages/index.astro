@@ -1,15 +1,11 @@
 ---
 import Site from "../layouts/Site.astro";
 import ExtLink from "../components/ExtLink.astro";
-import DropModeSwitch from "../components/DropModeSwitch.astro";
-import Chrome from "../components/Chrome.astro";
-import Playback from "../components/Playback.astro";
-import { arrangement } from "../demos/toolbar";
-import { icon } from "../demos/icons";
+import HeroDemo from "../components/HeroDemo.astro";
 import { pageOf } from "../data/pages";
 import { npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
-import { DEMO, WINDOWS, CURVE, TOOLS, curveSVG, deskThumbSVG, demoWindowHTML, firstLayoutStyle, ninetyPercentMs } from "../demos/home";
+import { CURVE, curveSVG, deskThumbSVG, ninetyPercentMs } from "../demos/home";
 import "../styles/home.css";
 import CodeTabs from "../components/CodeTabs.astro";
 import PairCode from "../components/PairCode.astro";
@@ -19,42 +15,40 @@ const [motionPart, placementPart] = [partOf("motion"), partOf("placement")];
 const page = pageOf("/");
 const jsonLd = [
   webSite,
-  webPage({ path: "/", name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), isPartOf: true }),
-  software("A TypeScript motion library: one frame loop with an injected clock, a settle curve that never overshoots, reveal without stretching, held drags, signals and a gesture recogniser. No DOM, no framework."),
+  webPage({ path: "/", name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), isPartOf: true, about: ["motion", "placement"] }),
+  software("motion", motionPart.pkg, "How things move: a TypeScript library for windows, panels and toolbars with one frame loop on an injected clock, a settle that never overshoots, reveal without stretching, held drags and drag intent. No DOM, no framework."),
+  software("placement", placementPart.pkg, "Where things go: a TypeScript library for docking windows, panels and toolbar groups. Desks of docks, rails and palettes, toolbar hosts and zones, and the drop targets for each, as plain state in and rects out."),
   orgNode,
 ];
 const ninety = ninetyPercentMs();
 ---
 <Site title={page.title} description={page.description} path="/" jsonLd={jsonLd} ogImage="/og.png">
+  <!-- One screen: the page's heading, the pair side by side (motion left, placement right), then one desk window. -->
   <section class="hero wrap">
-    <div class="hero-copy">
-      <span class="eyebrow">@n-uf/motion · @n-uf/placement</span>
-      <h1>Motion that settles, and never overshoots.</h1>
-      <p class="lead">n-uf motion is a pair of small TypeScript packages for windows, panels and toolbars that behave like a good tiling window manager. <b>@n-uf/motion</b> is how things move: one frame loop with an injected clock, one curve for every move, content that is never stretched, and drags that stay under the pointer. <b>@n-uf/placement</b> is where things go: docks, rails, palettes and toolbar groups, plain state in, rects and drop targets out.</p>
-      <div class="install">
-        <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code>
-        <a class="btn primary" href="/window-motion/">See the motion rules<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg></a>
-      </div>
-      <p class="caveat">Young and still changing: versions are dates, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · <ExtLink href={npmUrl}>Package on npm</ExtLink></p>
-    </div>
-
-    <Chrome id="demo-fig" class="demo-fig" label="Live demo: three windows that tile, swap and glide"
-      groups={[{ id: "title", name: "Title" }, { id: "layout", name: "Layout" }, { id: "preview", name: "Preview" }, { id: "speed", name: "Speed" }, { id: "tempo", name: "Tempo" }, { id: "tools", name: "Tools" }, { id: "readout", name: "Readout" }, { id: "hint", name: "Hint" }]}
-      model={arrangement({ title: { start: ["title"], end: ["layout"] }, left: { start: ["preview"] }, right: { start: ["tempo", "speed"] }, bottom: { start: ["readout"], end: ["hint"] } }, [{ id: "tools", x: 0, y: 0, anchor: "bottom" }])}>
-      <span class="ident" slot="title"><span class="name">Desk</span><span class="page">3 windows</span></span>
-      <Fragment slot="layout"><span class="lab">Layout: <b id="layout-name">Master and stack</b></span><button type="button" class="tb" id="shuffle" aria-label="Next layout" title="Next layout · Master and stack" set:html={icon("swap")} /></Fragment>
-      <Fragment slot="preview"><DropModeSwitch /></Fragment>
-      <Fragment slot="speed"><Playback part="speed" /></Fragment>
-      <Fragment slot="tempo"><Playback part="tempo" /></Fragment>
-      <Fragment slot="tools">{TOOLS.map(([id, name]) => <button type="button" class="tb" data-tool={id} aria-pressed={String(id === "pen")} aria-label={name} title={name} set:html={icon(id)} />)}</Fragment>
-      <Fragment slot="readout"><span class="mono h-only" id="readout"><b>Quarterly plan.pdf</b> · drawn <b>– × –</b> · target <b>– × –</b></span><span class="side-form ro" id="readout-side" title="Quarterly plan.pdf"><i class="dot"></i><span id="ro-w">–</span><span id="ro-h">–</span></span></Fragment>
-      <Fragment slot="hint"><span class="quiet" data-showcase-idle>Drag a window onto another to swap them</span><span class="quiet" data-showcase-hint hidden title="The automatic showcase resumes 10 seconds after your last action">Paused while you explore</span><span class="quiet" data-slowmo hidden></span></Fragment>
-      <div class="figure-body no-rail">
-        <div class="demo stage-host" id="demo" style={`--demo-h:${DEMO.h}px`}>
-          {WINDOWS.map((_, i) => <div class="dw" style={firstLayoutStyle(i)} set:html={demoWindowHTML(i)} />)}
+    <h1>Windows that settle, and land where they belong.</h1>
+    <p class="hero-intro">Two small TypeScript packages for desktop-style web apps: one moves windows and panels, the other docks them and the toolbars where they belong.</p>
+    <div class="hero-pair">
+      <div class="hero-col motion">
+        <span class="eyebrow">@n-uf/motion</span>
+        <h2 class="hero-title">Motion that settles, and never overshoots.</h2>
+        <p class="lead">One frame loop, one curve for every move, content never stretched, drags that stay under the pointer.</p>
+        <div class="install">
+          <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code>
+          <a class="btn primary" href="/window-motion/">See the motion rules<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg></a>
         </div>
       </div>
-    </Chrome>
+      <div class="hero-col placement">
+        <span class="eyebrow">@n-uf/placement</span>
+        <h2 class="hero-title">Every panel lands where it belongs.</h2>
+        <p class="lead">Docks, rails, palettes and toolbar groups: plain state in, rects and drop targets out, for motion's drag.</p>
+        <div class="install">
+          <code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code>
+          <a class="btn primary" href="/desk-layouts/">See the desk layouts<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg></a>
+        </div>
+      </div>
+    </div>
+    <HeroDemo id="demo-fig" label="Live demo: three windows that tile, swap and glide; X-ray shows what each package does" />
+    <p class="caveat">Young and still changing: both packages are versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · <ExtLink href={npmUrl}>Packages on npm</ExtLink></p>
   </section>
 
   <PairCode />
@@ -90,7 +84,7 @@ const ninety = ninetyPercentMs();
     <div class="section-head">
       <span class="eyebrow"><code>{motionPart.pkg}</code></span>
       <h2 id="part-motion">{motionPart.title}</h2>
-      <p>{motionPart.idea} <ExtLink href={motionPart.readme}>README on GitHub</ExtLink></p>
+      <p><ExtLink href={motionPart.readme}>{motionPart.pkg} README on GitHub</ExtLink></p>
     </div>
     <div class="cards">
       <article class="card">
@@ -108,7 +102,7 @@ const ninety = ninetyPercentMs();
     <div class="section-head">
       <span class="eyebrow"><code>{placementPart.pkg}</code></span>
       <h2 id="part-placement">{placementPart.title}</h2>
-      <p>{placementPart.idea} <ExtLink href={placementPart.readme}>README on GitHub</ExtLink></p>
+      <p><ExtLink href={placementPart.readme}>{placementPart.pkg} README on GitHub</ExtLink></p>
     </div>
     <div class="cards">
       <article class="card">
@@ -125,5 +119,7 @@ const ninety = ninetyPercentMs();
 
 <script>
   import { whenVisible } from "../islands/rail";
-  whenVisible(document.getElementById("demo-fig")!, () => void import("../islands/home"));
+  // The desk demo starts when it scrolls into view.
+  const fig = document.getElementById("demo-fig")!;
+  whenVisible(fig, () => void import("../islands/home").then((m) => m.startHero(fig)));
 </script>
