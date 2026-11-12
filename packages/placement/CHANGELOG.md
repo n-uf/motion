@@ -3,6 +3,25 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## 26.11.6
+
+- `@n-uf/placement/targets`:
+  - `keyboardStops(targets, { home?, floats? })`: a group's places in one list in reading order (hosts title, top,
+    left, right, bottom; zones start, centre, end; each insertion point in order), with its own place as a `home`
+    stop when given and floating last only when asked. Each stop has the target id, a label, its place and the
+    arrangement a move there makes: one list for the arrow keys and a "Move to" menu, no parsing of target ids.
+  - Host targets carry their `slot`: the group's rect in the host once it lands there. `hostAfter(arrangement)`
+    says where the host is then, when it grows or appears; default: as it is now.
+  - `allows(group, place | "float")` in `hostTargets`' and `floatTarget`'s input: a place it refuses is no target,
+    and `floatTarget` returns null for a group that may not float.
+- `@n-uf/placement/toolbar`:
+  - `HostSpec.keep`: a per-group keep priority (default 0). When room runs out, a lower keep collapses first;
+    among equal keeps the trailing end still goes first, so a primary group at the end can stay open. `HostSpec`
+    takes the group id type.
+  - `toJSON(arrangement)` / `fromJSON(data, groups?)`: a versioned stored form (`{ v: 1, hosts, collapsed,
+    floating }`). Reading gives `{ ok: true, arrangement }` or `{ ok: false, error }`, never a throw: an unknown
+    version, a missing host or zone, a value of the wrong kind, a group in two places, an unknown group.
+
 ## 26.11.5
 
 - `@n-uf/placement/targets`: `paneZone(rect, point, previous, options?)`, a pane's five drop zones: the centre
