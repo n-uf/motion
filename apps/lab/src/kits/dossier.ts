@@ -16,7 +16,7 @@ import { createDragIntent, previewPlan, type DragIntent } from "@n-uf/motion/dra
 import { createLayoutMotion, domDrawable, holdItem, type HeldDrag, type LayoutItem, type LayoutMotion } from "@n-uf/motion/layout";
 import { floatTarget, hostTargets, type ToolbarFloatTarget, type ToolbarTarget } from "@n-uf/placement/targets";
 import { HOSTS, arrangement, hostOf, layoutHost, sameArrangement, vertical, type Arrangement, type GroupSize, type HostId, type HostSpec } from "@n-uf/placement/toolbar";
-import { keyboardOrder, placeKey } from "./stops";
+import { keyboardStops, type Allows, type KeyboardStop } from "@n-uf/placement/targets";
 
 export type GroupId = "navigate" | "zoom" | "annotate" | "redact" | "share";
 export const GROUPS: readonly GroupId[] = ["navigate", "zoom", "annotate", "redact", "share"];
@@ -93,8 +93,8 @@ export function placements(a: Arrangement<GroupId>): Map<GroupId, Placed> {
 export interface DossierOptions {
   readonly title: string;
   readonly loop: FrameLoop;
-  /** The targets a group may use (case 6: the kit's constraint); default all of them. */
-  readonly allows?: (g: GroupId, t: KTarget) => boolean;
+  /** Where a group may go (case 6: the kit's constraint), as placement's `allows`; default anywhere. */
+  readonly allows?: Allows<GroupId>;
   /** The page's scale (case 10); default 1. */
   readonly scale?: () => number;
   /** Convert the pointer into page space before the intent reads it; default true (false: case 10's bug). */
@@ -126,9 +126,9 @@ export interface Dossier {
   /** The targets a drag of `g` uses (the constraint applied), and all of them. */
   readonly targets: (g: GroupId) => KTarget[];
   readonly allTargets: (g: GroupId) => KTarget[];
-  /** The keyboard stops of `g`, in order; and the index the first forward arrow goes to. */
-  readonly stops: (g: GroupId) => ToolbarTarget<GroupId>[];
-  readonly firstStop: (g: GroupId, forward: boolean) => number;
+  /** The keyboard stops of `g` (placement's `keyboardStops`), its own place among them; and that place's index. */
+  readonly stops: (g: GroupId) => KeyboardStop<GroupId>[];
+  readonly homeIndex: (g: GroupId) => number;
   readonly handle: (g: GroupId) => HTMLButtonElement;
   readonly groupEl: (g: GroupId) => HTMLElement;
   /** A drawn element's rect in page space (from its client rect). */
@@ -165,7 +165,7 @@ interface Drag {
 
 interface KeyMove {
   readonly g: GroupId;
-  readonly stops: ToolbarTarget<GroupId>[];
+  readonly stops: KeyboardStop<GroupId>[];
   i: number;
 }
 
@@ -173,7 +173,6 @@ interface KeyMove {
 export function createDossier(host: HTMLElement, options: DossierOptions): Dossier {
   const scale = options.scale ?? (() => 1);
   const convert = options.convert ?? (() => true);
-  const allows = options.allows ?? (() => true);
   let a: Arrangement<GroupId> = HOME;
   let drag: Drag | null = null;
   let keys: KeyMove | null = null;
@@ -290,15 +289,18 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
     if (r) Object.assign(slotEl.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.width}px`, height: `${r.height}px` });
   }
 
-  function allTargets(g: GroupId): KTarget[] {
+  /** The targets `g` has, those `rule` forbids left out by placement itself (no rule: all of them). */
+  function targetsWith(g: GroupId, rule?: Allows<GroupId>): KTarget[] {
     const label = (x: GroupId): string => GROUP_LABEL[x];
     const out: KTarget[] = [];
-    for (const h of HOSTS) out.push(...hostTargets<GroupId>({ group: g, arrangement: a, host: h, origin: HOST_RECT[h], spec: spec(h), size, label }).targets);
+    for (const h of HOSTS) out.push(...hostTargets<GroupId>({ group: g, arrangement: a, host: h, origin: HOST_RECT[h], spec: spec(h), size, label, allows: rule }).targets);
     const s = sized(g, false);
-    out.push(floatTarget<GroupId>({ group: g, arrangement: a, stage: STAGE, width: s.width, height: s.height }));
+    const float = floatTarget<GroupId>({ group: g, arrangement: a, stage: STAGE, width: s.width, height: s.height, allows: rule });
+    if (float) out.push(float);
     return out;
   }
-  const targets = (g: GroupId): KTarget[] => allTargets(g).filter((t) => allows(g, t));
+  const allTargets = (g: GroupId): KTarget[] => targetsWith(g);
+  const targets = (g: GroupId): KTarget[] => targetsWith(g, options.allows);
   const ownStretch = (g: GroupId): Rect[] => HOSTS.flatMap((h) => hostTargets<GroupId>({ group: g, arrangement: a, host: h, origin: HOST_RECT[h], spec: spec(h), size }).own);
 
   /** Where `g` lands on `t` (the pointer at `p`, grabbed at `grab`): its own outline there. */
@@ -433,15 +435,13 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
 
   // --- keyboard moves ---
 
-  const stops = (g: GroupId): ToolbarTarget<GroupId>[] => keyboardOrder(targets(g).filter((t): t is ToolbarTarget<GroupId> => t.kind !== "float"));
-  /** The stop the first arrow goes to: just after its own place (forward) or just before it. */
-  function firstStop(g: GroupId, forward: boolean): number {
-    const list = stops(g);
+  /** Placement's keyboard stops: every place in reading order, its own place among them (where the arrows start). */
+  function stops(g: GroupId): KeyboardStop<GroupId>[] {
     const own = hostOf(a, g);
-    // The stops before its own place (a floating group starts before the first).
-    const before = own ? list.filter((t) => placeKey(t.place) < placeKey(own)).length : 0;
-    return forward ? before % list.length : (before - 1 + list.length) % list.length;
+    return keyboardStops<GroupId>(targets(g), own ? { home: { place: own, arrangement: a } } : {});
   }
+  /** Where the arrows start: its own place's stop, or -1 (floating). */
+  const homeIndex = (g: GroupId): number => stops(g).findIndex((s) => s.home);
 
   function showStop(k: KeyMove): void {
     const t = k.stops[k.i]!;
@@ -485,7 +485,10 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
       const list = keys?.g === g ? keys.stops : stops(g);
       if (!list.length) return;
       if (keys?.g === g) keys.i = (keys.i + step + list.length) % list.length;
-      else keys = { g, stops: list, i: firstStop(g, step > 0) };
+      else {
+        const home = list.findIndex((s) => s.home);
+        keys = { g, stops: list, i: home < 0 ? (step > 0 ? 0 : list.length - 1) : (home + step + list.length) % list.length };
+      }
       showStop(keys);
     } else if ((e.key === "Enter" || e.key === " ") && keys?.g === g) {
       e.preventDefault();
@@ -557,7 +560,7 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
     targets,
     allTargets,
     stops,
-    firstStop,
+    homeIndex,
     handle: (g) => handles.get(g)!,
     groupEl: (g) => els.get(g)!,
     drawn,
