@@ -1,0 +1,83 @@
+/*
+ * "Use it": the code examples under the hero. A frame like the demo figures (a 44 px bar, hairlines, the 8 px
+ * radius) with the examples as radio tabs. Every panel sits in the same grid cell, so the frame is as tall as the
+ * longest example whichever tab is open: switching never moves the page.
+ *
+ * Code colours are the site's tokens, so light, dark and their contrast come from tokens.css.
+ */
+/* Wide: the heading in a narrow column beside the frame, so the code isn't lost in a full-width box. */
+@media (min-width: 981px) {
+  .use { display: grid; grid-template-columns: minmax(0, 17rem) minmax(0, 1fr); gap: var(--s7); align-items: start; }
+  .use .section-head { margin-bottom: 0; padding-top: var(--s2); }
+}
+
+.ct {
+  --code-bg: transparent;
+  --code-text: var(--text);
+  --code-comment: var(--text-2);
+  --code-punct: var(--text-2);
+  --code-keyword: var(--accent-strong);
+  --code-string: var(--good);
+  --code-number: var(--series-b);
+  --code-type: var(--series-b);
+  --code-function: var(--text);
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-1);
+  overflow: clip;
+}
+
+.ct-bar { display: flex; align-items: center; gap: var(--s3); height: 44px; padding: 0 8px; border-bottom: 1px solid var(--line); background: var(--bg-subtle); }
+.ct-copy { margin-left: auto; }
+.ct-copy[hidden] { display: none; }
+
+/* The tabs: the site's segmented control, drawn on the radios' labels. */
+.ct-tab {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-size: var(--t-sm);
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--fast) var(--ease), background-color var(--fast) var(--ease);
+}
+.ct-tab:hover { color: var(--text); }
+.ct-in:nth-of-type(1):checked ~ .ct-bar .ct-tab:nth-child(1),
+.ct-in:nth-of-type(2):checked ~ .ct-bar .ct-tab:nth-child(2),
+.ct-in:nth-of-type(3):checked ~ .ct-bar .ct-tab:nth-child(3) { background: var(--bg-raised); color: var(--text); box-shadow: var(--shadow-1), 0 0 0 1px var(--line); }
+.ct-in:nth-of-type(1):focus-visible ~ .ct-bar .ct-tab:nth-child(1),
+.ct-in:nth-of-type(2):focus-visible ~ .ct-bar .ct-tab:nth-child(2),
+.ct-in:nth-of-type(3):focus-visible ~ .ct-bar .ct-tab:nth-child(3) { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The panels: one grid cell, only the open one visible (the others are out of the accessibility tree too). */
+.ct-panels { display: grid; }
+.ct-panel { grid-area: 1 / 1; display: grid; grid-template-rows: 1fr auto; visibility: hidden; }
+.ct-in:nth-of-type(1):checked ~ .ct-panels > .ct-panel:nth-child(1),
+.ct-in:nth-of-type(2):checked ~ .ct-panels > .ct-panel:nth-child(2),
+.ct-in:nth-of-type(3):checked ~ .ct-panels > .ct-panel:nth-child(3) { visibility: visible; }
+
+/* Shiki writes its own background inline; the frame's paper shows through instead. */
+.ct .ct-code { background-color: var(--code-bg) !important; margin: 0; padding: var(--s4) var(--s5); font-family: var(--font-mono); font-size: 13px; line-height: 1.65; tab-size: 2; }
+.ct .ct-code code { padding: 0; border: 0; border-radius: 0; background: none; font-size: inherit; font-variant-numeric: normal; }
+.ct .ct-code:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.ct-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--s4); margin: 0; padding: 10px var(--s5); border-top: 1px solid var(--line); font-size: var(--t-sm); color: var(--text-2); }
+.ct-links { margin-left: auto; white-space: nowrap; color: var(--text-3); }
+
+@media (max-width: 640px) {
+  .ct .ct-code { padding: var(--s3) var(--s4); font-size: 12px; }
+  .ct-foot { padding: 10px var(--s4); }
+  .ct-links { margin-left: 0; white-space: normal; }
+  .ct-tab { padding: 0 8px; }
+}
+@media (max-width: 420px) {
+  .ct-copy { padding: 0 8px; }
+  .ct-copy-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}

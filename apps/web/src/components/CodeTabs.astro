@@ -1,0 +1,100 @@
+---
+// "Use it": one short example per job, in tabs. Each example is a file in src/snippets/, typechecked with the site
+// (tsconfig.json), and shown here from that same file (`?raw`), so the page can't show code that no longer compiles.
+// Colouring is done at build time (Shiki, through Astro's <Code>) with a theme whose colours are the site's tokens, so
+// it follows light and dark with no script. The tabs are radio buttons: they work without JavaScript, and every
+// example is text in the HTML. The only script is the copy button's (it stays hidden without one).
+import { Code } from "astro:components";
+import ExtLink from "./ExtLink.astro";
+import { repoUrl } from "../data/site";
+import motionPkg from "../../../../packages/motion/package.json";
+import settleCode from "../snippets/settle.ts?raw";
+import layoutCode from "../snippets/layout.ts?raw";
+import dragCode from "../snippets/drag.ts?raw";
+import "../styles/code-tabs.css";
+
+// The layout and drag tabs show once the library exports their entries: a build-time flag read from the package, so
+// this page builds on a base without them and turns them on by itself once they are there.
+const exported = (entry: string): boolean => entry in motionPkg.exports;
+
+const api = (anchor: string) => `${repoUrl}/blob/main/packages/motion/README.md#${anchor}`;
+
+const tabs = [
+  {
+    id: "settle",
+    label: "Settle",
+    code: settleCode,
+    note: "Move one element with no overshoot: a settle launched from where it is drawn, stepped by one frame loop that idles at rest.",
+    page: { href: "/window-motion/", text: "The window motion rules" },
+    api: api("values"),
+    on: true,
+  },
+  {
+    id: "layout",
+    label: "Layout motion",
+    code: layoutCode,
+    note: "Give each item a rect: the real element glides there from where it is drawn, and a new size is revealed, never stretched.",
+    page: { href: "/window-motion/", text: "Stretch versus reveal" },
+    api: api("layout"),
+    on: exported("./layout"),
+  },
+  {
+    id: "drag",
+    label: "Drag intent",
+    code: dragCode,
+    note: "Feed it the pointer once a frame and plain-data targets: it says what the drop indicator shows and what a release lands on.",
+    page: { href: "/drag-intent/", text: "The drag-intent model" },
+    api: api("drag"),
+    on: exported("./drag"),
+  },
+].filter((t) => t.on);
+
+// A Shiki theme made of the site's tokens: light and dark come from tokens.css, contrast included.
+const theme = {
+  name: "motion-tokens",
+  type: "light",
+  colors: { "editor.foreground": "var(--code-text)", "editor.background": "var(--code-bg)" },
+  tokenColors: [
+    { settings: { foreground: "var(--code-text)" } },
+    { scope: ["comment", "punctuation.definition.comment"], settings: { foreground: "var(--code-comment)", fontStyle: "italic" } },
+    { scope: ["keyword", "storage", "storage.type", "storage.modifier", "punctuation.definition.template-expression"], settings: { foreground: "var(--code-keyword)" } },
+    { scope: ["keyword.operator", "punctuation", "meta.brace"], settings: { foreground: "var(--code-punct)" } },
+    { scope: ["string", "string.template", "punctuation.definition.string"], settings: { foreground: "var(--code-string)" } },
+    { scope: ["constant.numeric", "constant.language"], settings: { foreground: "var(--code-number)" } },
+    { scope: ["entity.name.type", "support.type", "support.class", "entity.name.type.alias"], settings: { foreground: "var(--code-type)" } },
+    { scope: ["entity.name.function", "support.function", "meta.function-call entity.name.function"], settings: { foreground: "var(--code-function)" } },
+  ],
+};
+---
+<section class="wrap section use" aria-labelledby="use-title">
+  <div class="section-head">
+    <span class="eyebrow">Use it</span>
+    <h2 class="section-title" id="use-title">Install, then a few lines per job</h2>
+    <p><code>npm i @n-uf/motion</code>, then pick the job. Each example is a file this site compiles with the library, so what you copy is what was checked.</p>
+  </div>
+
+  <div class="ct">
+    {tabs.map((t, i) => <input class="ct-in sr-only" type="radio" name="use-tab" id={`use-${t.id}`} value={t.id} checked={i === 0} />)}
+    <div class="ct-bar">
+      <div class="seg ct-tabs">
+        {tabs.map((t) => <label class="ct-tab" for={`use-${t.id}`}>{t.label}</label>)}
+      </div>
+      <button type="button" class="btn quiet ct-copy" data-copy hidden>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h.5"/></svg>
+        <span class="ct-copy-label" data-copy-label aria-live="polite">Copy</span>
+      </button>
+    </div>
+    <div class="ct-panels">
+      {tabs.map((t) => (
+        <div class="ct-panel" data-tab={t.id}>
+          <Code code={t.code.trimEnd()} lang="ts" theme={theme} class="ct-code" />
+          <p class="ct-foot"><span class="ct-note">{t.note}</span> <span class="ct-links"><a href={t.page.href}>{t.page.text}</a> · <ExtLink href={t.api}>API on GitHub</ExtLink></span></p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  import "../islands/code-tabs";
+</script>
