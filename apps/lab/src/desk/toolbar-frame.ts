@@ -20,7 +20,7 @@ import { overlap, nextFrame, type Point } from "../shared/geometry";
 import { cancelPress, trackPress } from "../shared/press";
 import { toolGroupCells } from "./content";
 import { isLayoutFrozen, mountFreezeSwitch, onFreezeChange, setLayoutFrozen } from "./freeze";
-import { DRAG, createIntent, within, type Intent, type Target } from "./intent";
+import { DRAG_DEFAULTS, createDragIntent, inRect, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
 import { constructionOf } from "./layouts";
 import type { Options, Placed } from "./model";
 import type { DeskLab, IndicatorEntry, PathKey } from "./scenarios";
@@ -672,7 +672,7 @@ function moveInto(ge: GroupEl, container: HTMLElement, local: Rect): void {
  * A drop target: an insertion point (a line between groups), an empty zone (the group's own footprint, where it will
  * land), or the documents (it floats there).
  */
-interface GTarget extends Target {
+interface GTarget extends DragTarget {
   readonly label: string;
   readonly kind: "line" | "zone" | "float";
   readonly line: Rect;
@@ -686,7 +686,7 @@ interface Drag {
   readonly grab: Point;
   pointer: Point;
   readonly targets: GTarget[];
-  readonly intent: Intent<GTarget>;
+  readonly intent: DragIntent<GTarget>;
   shown: GTarget | null;
   room: GTarget | null;
   /** A keyboard move: the stop shown (once an arrow has moved it), and since when. */
@@ -726,14 +726,14 @@ function groupTargets(id: GroupId): GTarget[] {
       const foot = p.empty ? placements(after, geometry(after, true)).get(id)?.rect : undefined;
       const hit = p.empty ? (v ? rect(o.x - 4, o.y + s0, T + 8, s1 - s0) : rect(o.x + s0, o.y - 4, s1 - s0, T + 8)) : v ? rect(o.x - 12, o.y + s0, T + 24, s1 - s0) : rect(o.x + s0, o.y - 12, s1 - s0, T + 24);
       const line = foot ?? (v ? rect(o.x + 4, o.y + p.at - 1.5, T - 8, 3) : rect(o.x + p.at - 1.5, o.y + 4, 3, T - 8));
-      out.push({ id: `g:${h}:${p.zone}:${p.index}`, prio: p.empty ? 1 : 2, hit, label: p.label, kind: p.empty ? "zone" : "line", line, make: () => after });
+      out.push({ id: `g:${h}:${p.zone}:${p.index}`, priority: p.empty ? 1 : 2, hit, label: p.label, kind: p.empty ? "zone" : "line", line, make: () => after });
     }
   }
   // Over the documents: it floats where it is dropped (kept on the stage).
   const stage = rect(g.stage.x, g.stage.y, g.SW - 2, g.SH - 2);
   out.push({
     id: "g:float",
-    prio: 3,
+    priority: 3,
     free: true,
     hit: stage,
     label: "Float here",
@@ -756,7 +756,6 @@ function windowPoint(e: { clientX: number; clientY: number }): Point {
   return { x: (e.clientX - w.left) * k, y: (e.clientY - w.top) * k };
 }
 
-const TOUCH = { hold: DRAG.LONG_PRESS, lift: DRAG.TOUCH_LIFT };
 /** A touch held this long without moving opens the handle's menu. */
 const MENU_PRESS = 500;
 
@@ -774,7 +773,7 @@ function pressGroup(id: GroupId, e: PointerEvent): void {
   }
   // Frozen: the handle still opens its menu, but nothing moves (unless Alt is held).
   if (!canMove(e)) return;
-  trackPress(e, { point: windowPoint, lifted: () => drag?.id === id, begin: (s) => begin(id, s), move: (q) => moveTo(q), end: (c) => end(c) }, TOUCH);
+  trackPress(e, { point: windowPoint, lifted: () => drag?.id === id, begin: (s) => begin(id, s), move: (q) => moveTo(q), end: (c) => end(c) }, true);
 }
 
 /** Lift a group with the pointer at `p`; `keyboard`: stepped through its targets from where it is. */
@@ -807,7 +806,7 @@ function begin(id: GroupId, p: Point, keyboard = false): void {
     grab: { x: p.x - home.x, y: p.y - home.y },
     pointer: p,
     targets,
-    intent: createIntent<GTarget>(home),
+    intent: createDragIntent<GTarget>({ home }),
     shown: null,
     room: null,
     keys: keyboard ? { i: here, since: performance.now(), moved: false } : null,
@@ -836,7 +835,7 @@ function aim(now: number, dt: number): void {
   if (d.keys) {
     const t = d.targets[d.keys.i] ?? null;
     const moved = d.keys.moved && t !== null;
-    f = { shown: moved ? t : null, room: moved && now - d.keys.since >= DRAG.ROOM_AFTER, aiming: true };
+    f = { shown: moved ? t : null, room: moved && now - d.keys.since >= DRAG_DEFAULTS.roomAfter, aiming: true };
   } else f = d.intent.update(d.pointer, now, d.targets);
   if ((f.shown?.id ?? null) !== (d.shown?.id ?? null)) d.log.push({ t: now - d.t0, id: f.shown?.id ?? null, ...(f.shown ? {} : { flying: !f.aiming }) });
   d.shown = f.shown;
@@ -922,8 +921,8 @@ function end(cancel: boolean): void {
     // Snapped: it lands in the slot it sits in (the room's arrangement); else where the target puts it.
     next = landed ? (d.snapped && preview && landed.id === d.snapped ? preview : landed.make(d.pointer)) : null;
     if (!d.keys) {
-      const under = d.targets.filter((t) => within(t.hit, d.pointer)).sort((a, b) => a.prio - b.prio || a.hit.width * a.hit.height - b.hit.width * b.hit.height)[0];
-      const said = within(d.home, d.pointer) ? null : d.shown && within(d.shown.hit, d.pointer, DRAG.BAND) ? d.shown.id : (under?.id ?? null);
+      const under = d.targets.filter((t) => inRect(t.hit, d.pointer)).sort((a, b) => a.priority - b.priority || a.hit.width * a.hit.height - b.hit.width * b.hit.height)[0];
+      const said = inRect(d.home, d.pointer) ? null : d.shown && inRect(d.shown.hit, d.pointer, DRAG_DEFAULTS.band) ? d.shown.id : (under?.id ?? null);
       d.releaseNote = said === (landed?.id ?? null) ? null : `landed on ${landed?.id ?? "home"}, but the indicator said ${said ?? "home"}`;
     }
   }
@@ -1107,7 +1106,7 @@ export const toolbarGroups = {
     const press = (k: string, on: EventTarget): void => void on.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
     for (let i = 0; i < steps; i++) {
       press("ArrowDown", i === 0 ? h : document);
-      await new Promise((r) => setTimeout(r, i === steps - 1 ? 650 : DRAG.ROOM_AFTER + DRAG.FLASH + 90));
+      await new Promise((r) => setTimeout(r, i === steps - 1 ? 650 : DRAG_DEFAULTS.roomAfter + DRAG_DEFAULTS.flash + 90));
     }
     press(finish, document);
     return lastDrag;

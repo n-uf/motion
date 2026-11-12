@@ -13,7 +13,8 @@ import { docBody, panelBody, toolbarCells, withGlyph } from "./desk/content";
 import { draggable, dropAt, targetsFor, without, type Drop, type DropTarget, type TargetInput } from "./desk/drops";
 import { createGrips } from "./desk/grip";
 import { gripScenarios } from "./desk/grip-scenarios";
-import { DRAG, createIntent, rawTarget, within, type Intent } from "./desk/intent";
+import { DRAG_DEFAULTS, createDragIntent, inRect, targetAt, type DragIntent } from "@n-uf/motion/drag";
+import { EDGE_SCROLL, INDICATOR } from "./desk/drag-page";
 import { CONSTRUCTIONS, DEFAULT_CONSTRUCTION, constructionOf, stripGeometry, type ConstructionId } from "./desk/layouts";
 import {
   DEFAULT_OPTIONS,
@@ -57,8 +58,8 @@ const stage = document.getElementById("stage") as HTMLDivElement;
 const hint = document.getElementById("hint") as HTMLDivElement;
 const hintLabel = document.getElementById("hint-label") as HTMLDivElement;
 // The indicator's fade and glide come from the drag model.
-stage.style.setProperty("--hint-fade", `${DRAG.FADE}ms`);
-stage.style.setProperty("--hint-glide", `${DRAG.GLIDE}ms`);
+stage.style.setProperty("--hint-fade", `${INDICATOR.fade}ms`);
+stage.style.setProperty("--hint-glide", `${INDICATOR.glide}ms`);
 const checksBody = document.querySelector("#checks tbody") as HTMLTableSectionElement;
 const runsBody = document.querySelector("#runs tbody") as HTMLTableSectionElement;
 const trace = document.getElementById("trace") as HTMLCanvasElement;
@@ -133,7 +134,7 @@ let pointer: Point = { x: 0, y: 0 };
 let home: { state: DeskState; rect: Rect } | null = null;
 /** The lifted item's drop targets (stable while it is held: only the strip's edge scroll rebuilds them). */
 let targets: DropTarget[] = [];
-let intent: Intent<DropTarget> | null = null;
+let intent: DragIntent<DropTarget> | null = null;
 /** What the indicator shows, and the drop the others make room for. */
 let shown: Drop | null = null;
 let room: Drop | null = null;
@@ -141,8 +142,6 @@ let room: Drop | null = null;
 let keys: { stops: { target: DropTarget; p: Point }[]; i: number; since: number } | null = null;
 /** The press became a drag (so its click isn't a click on a tab). */
 let dragged = false;
-/** When the indicator's place (its drop) last changed. */
-let placeSince = 0;
 /** The strip scrolled at the stage's edge during this drag (null: as it was): kept only if the item lands. */
 let dragScroll: number | null = null;
 /**
@@ -180,7 +179,8 @@ function beginDrag(it: Item, px: number, py: number, hold?: Point, from?: Rect, 
   liftSize = { width: d.width, height: d.height };
   home = { state: state(), rect: from ?? { ...d } };
   dragScroll = null;
-  intent = createIntent<DropTarget>(home.rect);
+  // A place is a drop's key: another tab or stack index of the shown target is another place (its room waits).
+  intent = createDragIntent<DropTarget>({ home: home.rect, placeOf: (t, p) => `${t.id}|${t.make(p, grab).key}` });
   dragLog = [];
   dragFrames = [];
   liftedAt = performance.now();
@@ -225,15 +225,17 @@ function aim(now: number, dt: number): void {
   const it = lifted;
   if (!it || !intent) return;
   if (keys) {
+    // The keyboard picks the stop itself: the room comes once a stop has been shown for the room delay.
     const stop = keys.stops[keys.i];
-    show(stop ? dropAt(dragInput(it), stop.target, stop.p, grab) : null, now, !!stop && !stop.target.free && now - keys.since >= DRAG.ROOM_AFTER);
+    const d = stop ? dropAt(dragInput(it), stop.target, stop.p, grab) : null;
+    show(d, now, d && !stop!.target.free && now - keys.since >= DRAG_DEFAULTS.roomAfter ? d.key : null);
     place(it, now, false);
     return;
   }
-  dragFrames.push({ t: now - liftedAt, x: pointer.x, y: pointer.y, speed: intent.speed, item: { ...it.rect.value } });
+  dragFrames.push({ t: now - liftedAt, x: pointer.x, y: pointer.y, speed: intent.state.speed, item: { ...it.rect.value } });
   if (cid === "strip" && edgeScroll(it, now, dt)) return place(it, now, true);
   const f = intent.update(pointer, now, targets);
-  show(f.shown ? dropAt(dragInput(it), f.shown, pointer, grab) : null, now, f.room, !f.aiming);
+  show(f.shown ? dropAt(dragInput(it), f.shown, pointer, grab) : null, now, f.roomPlace, !f.aiming);
   place(it, now, !f.aiming);
 }
 
@@ -249,7 +251,7 @@ function place(it: Item, now: number, flying: boolean): void {
   // From the pointer and from the keyboard alike, the item snaps once the others have made room for it.
   let want: Drop | null = slotted(room) ? room : null;
   if (snapGate === "hover" && !keys) {
-    const t = rawTarget(targets, pointer);
+    const t = targetAt(targets, pointer);
     const d = t ? dropAt(dragInput(it), t, pointer, grab) : null;
     want = slotted(d) ? d : null;
   }
@@ -314,10 +316,10 @@ function logSnap(now: number, id: string | null, flying: boolean): void {
  */
 function edgeScroll(it: Item, now: number, dt: number): boolean {
   const dist = Math.min(pointer.x, size.width - pointer.x);
-  if (dist >= DRAG.EDGE || !home || !intent) return false;
+  if (dist >= EDGE_SCROLL.edge || !home || !intent) return false;
   const g = stripGeometry(heldState(), size);
   const dir = pointer.x < size.width / 2 ? -1 : 1;
-  const next = Math.min(Math.max(0, g.total - size.width), Math.max(0, g.scroll + dir * DRAG.EDGE_SPEED * (1 - Math.max(0, dist) / DRAG.EDGE) * dt));
+  const next = Math.min(Math.max(0, g.total - size.width), Math.max(0, g.scroll + dir * EDGE_SCROLL.speed * (1 - Math.max(0, dist) / EDGE_SCROLL.edge) * dt));
   if (Math.abs(next - g.scroll) < 0.01) return false;
   dragScroll = next;
   const dx = g.scroll - next;
@@ -326,17 +328,17 @@ function edgeScroll(it: Item, now: number, dt: number): boolean {
   targets = targetsFor(dragInput(it));
   intent.hide(now);
   // Hidden for the scroll, as for a pointer flying: not a flash.
-  show(null, now, false, true);
+  show(null, now, null, true);
   relayout();
   return true;
 }
 
 /**
- * The indicator shows `d` (or nothing); the others make room for it when `makeRoom`. Within one target, a new place
- * (another tab or stack index) gets the room only once it has held ROOM_AFTER ms; until then the room stays put.
- * `flying`: a hide because the pointer started flying (or the strip scrolls), which is not a flash.
+ * The indicator shows `d` (or nothing); the others make room for the place `roomFor` (a drop's key: the drag model
+ * keeps it on the old place within a target until a new one has held), or none. `flying`: a hide because the pointer
+ * started flying (or the strip scrolls), which is not a flash.
  */
-function show(d: Drop | null, now: number, makeRoom: boolean, flying = false): void {
+function show(d: Drop | null, now: number, roomFor: string | null, flying = false): void {
   if ((d?.target ?? null) !== (shown?.target ?? null)) {
     const e = { id: d?.target ?? null, ...(d ? {} : { flying }) };
     episode?.indicator.push({ t: now, ...e });
@@ -346,11 +348,9 @@ function show(d: Drop | null, now: number, makeRoom: boolean, flying = false): v
     // Snap previews a slot with the item itself: the indicator is drawn only for drops with no slot.
     if (d && !(preview === "snap" && slotted(d))) showHint(d);
     else hideHint();
-    placeSince = now;
   }
   shown = d;
-  let next: Drop | null = null;
-  if (makeRoom && d) next = now - placeSince >= DRAG.ROOM_AFTER ? d : room && room.target === d.target ? room : null;
+  const next: Drop | null = roomFor === null ? null : d?.key === roomFor ? d : room?.key === roomFor ? room : null;
   // A new place, or the same place laid out anew (the stage resized under the drag).
   if (next?.key !== room?.key || (next && room && next !== room && !same(next.slot, room.slot))) {
     room = next;
@@ -381,14 +381,14 @@ function endDrag(cancel = false): void {
       // The rule, checked from what the page showed: the indicator's target within its band, else what is under the
       // pointer.
       const showing = shown ? targets.find((x) => x.id === shown!.target) : undefined;
-      const said = within(home.rect, pointer) ? null : showing && within(showing.hit, pointer, DRAG.BAND) ? showing.id : (rawTarget(targets, pointer)?.id ?? null);
+      const said = inRect(home.rect, pointer) ? null : showing && inRect(showing.hit, pointer, DRAG_DEFAULTS.band) ? showing.id : (targetAt(targets, pointer)?.id ?? null);
       episode?.release.push(said === landed ? null : `landed on ${landed ?? "home"}, but the indicator said ${said ?? "home"}`);
     }
   }
   // Landing in the slot it sits in is not leaving it: no snap ends here.
   snapped = null;
   returning = false;
-  show(null, performance.now(), false);
+  show(null, performance.now(), null);
   lastLanding = landed;
   lifted = null;
   intent = null;
@@ -409,8 +409,7 @@ function endDrag(cancel = false): void {
 let lastLanding: string | null = null;
 let atRelease: Rect | null = null;
 
-const TOUCH = { hold: DRAG.LONG_PRESS, lift: DRAG.TOUCH_LIFT };
-
+/** A press lifts by the drag model's lift rule (on touch, after a long press). */
 function onPress(it: Item, e: PointerEvent, hold?: Point, from?: () => Rect): void {
   trackPress(
     e,
@@ -421,7 +420,7 @@ function onPress(it: Item, e: PointerEvent, hold?: Point, from?: () => Rect): vo
       move: (q) => moveDrag(q.x, q.y),
       end: (cancel) => endDrag(cancel),
     },
-    TOUCH,
+    true,
   );
 }
 
@@ -1095,13 +1094,13 @@ function record(ep: NonNullable<typeof episode>): void {
 }
 
 /**
- * An indicator replaced, or hidden while the pointer aims, less than DRAG.FLASH ms after it showed is a flash (a
+ * An indicator replaced, or hidden while the pointer aims, less than the drag model's flash time after it showed is a flash (a
  * hide because the pointer started flying is not).
  */
 function flashes(log: readonly IndicatorEntry[]): (string | null)[] {
   return log.map((e, i) => {
     const next = log[i + 1];
-    return e.id !== null && next && !(next.id === null && next.flying) && next.t - e.t < DRAG.FLASH ? `the indicator on ${e.id} showed for ${Math.round(next.t - e.t)} ms` : null;
+    return e.id !== null && next && !(next.id === null && next.flying) && next.t - e.t < DRAG_DEFAULTS.flash ? `the indicator on ${e.id} showed for ${Math.round(next.t - e.t)} ms` : null;
   });
 }
 
@@ -1266,7 +1265,7 @@ const lab: DeskLab = {
   drag: scriptedDrag,
   path: playPath,
   keyboard: keyboardDrag,
-  targets: (key) => targetsFor({ c: construction(), s0: without(state(), key), key, size, opt: options() }).map((t) => ({ id: t.id, prio: t.prio, hit: t.hit })),
+  targets: (key) => targetsFor({ c: construction(), s0: without(state(), key), key, size, opt: options() }).map((t) => ({ id: t.id, priority: t.priority, hit: t.hit })),
   grip: (key) => {
     const it = itemOf(key);
     return it ? gripOf(it).at : null;

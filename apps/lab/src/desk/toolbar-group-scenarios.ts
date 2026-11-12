@@ -9,7 +9,7 @@
  */
 import type { Rect } from "@n-uf/motion";
 import { nextFrame, type Point } from "../shared/geometry";
-import { DRAG } from "./intent";
+import { DRAG_DEFAULTS } from "@n-uf/motion/drag";
 import type { DeskLab, Expect, PathKey, Scenario } from "./scenarios";
 import { toolbarGroups as tg, type GroupDragResult } from "./toolbar-frame";
 import { CASES, DEFAULT_ARRANGEMENT, ZONES, sameArrangement, vertical, type Arrangement, type GroupId, type HostId } from "./toolbars";
@@ -600,7 +600,7 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
       const snap = r.snaps.find((e) => e.id !== null);
       const showed = snap ? r.log.filter((e) => e.id === snap.id && e.t <= snap.t).at(-1) : undefined;
       expect(!!snap && snap.id === t.id, `the group snapped into ${snap?.id ?? "nothing"}`);
-      expect(!!snap && !!showed && snap.t - showed.t >= DRAG.ROOM_AFTER - 1000 / 60, "the group snapped before the room was made");
+      expect(!!snap && !!showed && snap.t - showed.t >= DRAG_DEFAULTS.roomAfter - 1000 / 60, "the group snapped before the room was made");
       const slot = tg.placements().get("zoom")!.rect;
       const last = r.frames.at(-1)?.item;
       expect(!!last && Math.max(Math.abs(last.x - slot.x), Math.abs(last.y - slot.y)) < 1.5, `let go at ${last ? fmt(last) : "nowhere"}, its slot is ${fmt(slot)}`);
