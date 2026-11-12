@@ -172,7 +172,8 @@ export function readArrangement<G extends string = string>(data: unknown, groups
   const fail = (error: string): ArrangementRead<G> => ({ ok: false, error });
   const isObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
   if (!isObject(data)) return fail("not an object");
-  if (data.v !== 1) return fail(`unknown version ${JSON.stringify(data.v ?? null)} (this reads version 1)`);
+  // Named without serialising it: a BigInt or a circular value must not throw.
+  if (data.v !== 1) return fail(`unknown version ${typeof data.v === "number" || typeof data.v === "string" ? String(data.v) : typeof data.v} (this reads version 1)`);
   const seen = new Set<string>();
   const ids = (x: unknown, where: string, placed: boolean): G[] | string => {
     if (!Array.isArray(x) || !x.every((g) => typeof g === "string")) return `${where} is not a list of group ids`;
