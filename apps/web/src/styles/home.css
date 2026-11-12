@@ -11,11 +11,12 @@
 .caveat { font-size: var(--t-xs); color: var(--text-3); }
 
 /*
- * The loop: the telemetry panes and the status bar of the four steps (telemetry.css; islands/home.ts sets data-step on
- * the bar), the desk window, then four claims.
+ * The loop, right under the hero: the desk window, the status bar of the four steps directly under it (telemetry.css;
+ * islands/home.ts sets data-step on the bar), then the section head and four claims. The two telemetry panes are a section
+ * of their own further down (.tele-sec).
  */
 .section.loop { padding-top: var(--s5); }
-.loop .demo-fig { margin-top: var(--s2); }
+.loop .section-head { margin-top: var(--s7); }
 /* Without the desk's island these do nothing (tempo and speed, the swap, X-ray, ↺ Reset, the tool pill): they show once it
    has started (`.go`, set by islands/home.ts), and their room is kept, so nothing moves when they appear. */
 .demo-fig:not(.go) :is([data-tempo], [data-speed], .xray-btn, .tb.reset, [id$="shuffle"], .floating) { visibility: hidden; }

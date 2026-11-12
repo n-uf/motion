@@ -1,5 +1,5 @@
 /**
- * Poster (island): the seam of "What each package does" (components/Poster.astro). The words are real text in the HTML;
+ * Poster (island): the seam of the closing band (components/Poster.astro). The words are real text in the HTML;
  * this measures how the server flowed them, then places every word by transform, and re-flows them as the seam moves:
  *
  * - **The left words glide.** Each is a real `@n-uf/motion` settle (`newSettle` on the site's frame loop, `drive`), so

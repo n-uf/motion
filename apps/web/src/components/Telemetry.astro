@@ -1,9 +1,10 @@
 ---
-// "Why they come together": two monospace panes watching the one desk window below them, and a status bar that is the
-// four steps of a drag. Motion's pane prints the frames the desk's windows drew (a real settle's rects, frame by frame)
+// "The last move, frame by frame": two monospace panes watching the home's one desk window, further up the page.
+// Motion's pane prints the frames the desk's windows drew (a real settle's rects, frame by frame)
 // and what `@n-uf/motion/testing` says of the run; placement's pane prints the rects `@n-uf/placement` laid the desk out
 // with, its give-way notes and the drop targets. The server renders the finished state (a real run at build time);
-// islands/telemetry.ts runs it live off the desk. Not a second window: no chrome, no controls of its own but the speed.
+// islands/telemetry.ts runs it live off the desk. Not a second window: no chrome, no controls. The four-step legend and the
+// slow-motion control are components/LoopStrip.astro, directly under the desk.
 import { SETTLE_TEMPO } from "@n-uf/motion";
 import { DEMO, LAYOUTS, RESERVE, WINDOWS, deskLayout } from "../demos/home";
 import { simulateRun } from "../demos/hero";
@@ -15,12 +16,6 @@ const slot = layout.rects[0]!;
 const run = simulateRun({ x: slot.x + 260, y: slot.y + 40, width: slot.width - 60, height: slot.height - 40 }, slot, SETTLE_TEMPO.default);
 const rows = run.samples.slice(-FRAME_ROWS).map((s, i, all) => frameRow(run.samples.length - all.length + i, s.t, s.rect));
 const checks = checkLine(run.report);
-const steps = [
-  ["1", "Where it can go", "placement: the drop targets", "p"],
-  ["2", "What you mean", "motion: the drag intent (aiming, hold, which target)", "m"],
-  ["3", "The new layout", "placement: the rects of the arrangement the drop makes", "p"],
-  ["4", "It moves there", "motion: the settle", "m"],
-] as const;
 const sz = `${stage.width} × ${stage.height}`;
 ---
 <div class="tele" id="tele">
@@ -42,11 +37,5 @@ const sz = `${stage.width} × ${stage.height}`;
       <div class="chk" id="tp-chk"><span>notes <b id="tp-notes">[{layout.notes.map((n) => `'${n}'`).join(", ")}]</b></span><span>drop targets <b id="tp-tg">none while nothing is held</b></span></div>
       <div class="hand"><div><span class="hp"><u>placement</u> ▸ <u class="mo">motion</u></span> <span class="hp">rects ▸ <code>item.moveTo(rect)</code></span></div><div><span class="hp"><u>placement</u> ▸ <u class="mo">motion</u></span> <span class="hp">targets ▸ the drag intent</span></div></div>
     </div>
-  </div>
-  <div class="tstatus">
-    <ol class="tloop" id="loop-strip" aria-label="The four steps of a drag">
-      {steps.map(([n, t, d, c], i) => <><li class={`st ${c}`} data-step={n}><span class="n">{n}</span><span class="t"><b>{t}</b><span class="d"> {d}</span></span></li>{i < 3 && <li class="sep" aria-hidden="true">›</li>}</>)}
-    </ol>
-    <span class="tspeed">slow motion <span class="seg" id="tspeed" role="group" aria-label="Slow motion"><button type="button" data-speed="0.25" aria-pressed="false" title="Slow motion, ¼ of real time">¼×</button><button type="button" data-speed="0.5" aria-pressed="false" title="Half speed">½×</button><button type="button" data-speed="1" aria-pressed="true" title="Real time">1×</button></span></span>
   </div>
 </div>

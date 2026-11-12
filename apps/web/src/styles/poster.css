@@ -1,5 +1,5 @@
 /*
- * The poster of "What each package does" (components/Poster.astro): two display lines in two halves split by a seam,
+ * The poster, the home's closing band just before the FAQ (components/Poster.astro): two display lines in two halves split by a seam,
  * motion's on the left (the accent), placement's on the right (violet, a blueprint ground). Its height is fixed, so
  * nothing moves when islands/poster.ts takes over the words (they go from flowing text to words placed by transform).
  * Narrow (860 px and under): the two lines stack and the seam becomes a slider that sets how wide both may run.
