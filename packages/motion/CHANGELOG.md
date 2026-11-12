@@ -41,7 +41,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   frame at the old offset from the new box), and enter, exit and fold with a
   uniform-scale fade. `holdItem` holds the real item 1:1 at the pointer (no
   copy), snaps it into a slot and back, and lands or cancels from the release
-  rect. `flip` is FLIP for DOM groups on settle. `domDrawable`, `layOutBox`
+  rect; `preview(plan, slot)` plays the three drop previews of `./drag`'s
+  `previewPlan` (indicator and gap keep it under the pointer, snap glides it
+  into the slot). `flip` is FLIP for DOM groups on settle. `domDrawable`, `layOutBox`
   and `drawBox` write DOM styles through structural shapes (no DOM types).
   It animates the rects it is given; which items move where stays the
   caller's.

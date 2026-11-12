@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createFakeClock, createFrameLoop } from "../src/clock";
+import { previewPlan, type DragPreview, type DragTarget } from "../src/drag";
 import { createLayoutMotion, domDrawable, drawBox, flip, holdItem, type Drawable, type DrawFrame, type StyleLike } from "../src/layout";
 import type { Rect } from "../src/shapes";
 import { checkMonotonic, checkNoJumps, checkNoOvershoot, type TargetSample } from "../src/testing";
@@ -177,6 +178,69 @@ describe("held drag", () => {
     const release = held.land(rect(200, 100, 160, 30));
     expect(release).toEqual(rect(200, 100, 160, 30));
     expect(s.motion.running).toBe(false);
+  });
+});
+
+describe("held drag: the three drop previews", () => {
+  /**
+   * A held item over a slot whose room the caller makes by moving a neighbour aside (when the plan says so), with the
+   * drag model's frame aiming at that slot and the room made.
+   */
+  function over(preview: DragPreview) {
+    const s = surface();
+    const item = s.motion.add("held", s.drawable, rect(0, 0, 100, 40));
+    const neighbour = s.motion.add("next", s.drawable, rect(300, 0, 100, 40));
+    const held = holdItem(item, { x: 10, y: 10 });
+    const slot = rect(300, 0, 100, 40);
+    const target: DragTarget = { id: "slot", priority: 2, hit: slot };
+    held.move({ x: 160, y: 110 });
+    const plan = previewPlan({ shown: target, room: true }, preview);
+    if (plan.makeRoom) neighbour.moveTo(rect(410, 0, 100, 40));
+    held.preview(plan, slot);
+    s.settle();
+    return { s, item, neighbour, held, slot, plan };
+  }
+
+  it("indicator: nothing moves, the item stays under the pointer", () => {
+    const { item, neighbour, plan } = over("indicator");
+    expect(plan).toMatchObject({ showIndicator: true, makeRoom: false, snapItem: false });
+    expect(item.drawn).toEqual(rect(150, 100, 100, 40));
+    expect(neighbour.drawn).toEqual(rect(300, 0, 100, 40));
+  });
+
+  it("gap: the room opens, the item stays under the pointer (held 1:1 as it moves)", () => {
+    const { s, item, neighbour, held, plan } = over("gap");
+    expect(plan).toMatchObject({ makeRoom: true, snapItem: false });
+    expect(neighbour.drawn).toEqual(rect(410, 0, 100, 40));
+    expect(item.drawn).toEqual(rect(150, 100, 100, 40));
+    held.move({ x: 200, y: 140 });
+    held.preview(plan, rect(300, 0, 100, 40));
+    s.clock.frame();
+    expect(item.drawn).toEqual(rect(190, 130, 100, 40));
+  });
+
+  it("snap: the room opens and the item glides into the slot; a release there finishes that settle, no second motion", () => {
+    const { s, item, held, slot, plan } = over("snap");
+    expect(plan).toMatchObject({ showIndicator: false, makeRoom: true, snapItem: true });
+    expect(item.drawn).toEqual(slot);
+    const at = s.frames.length;
+    const release = held.land(slot);
+    expect(release).toEqual(slot);
+    expect(s.motion.running).toBe(false);
+    expect(s.frames.slice(at).every(({ frame }) => frame.drawn.x === slot.x && frame.drawn.y === slot.y)).toBe(true);
+  });
+
+  it("snap, then leaving the slot: the item glides back to the pointer and is held there again", () => {
+    const { s, item, held } = over("snap");
+    held.move({ x: 60, y: 260 });
+    const leave = previewPlan({ shown: null, room: false }, "snap");
+    expect(held.preview(leave, null)).toBe("left");
+    for (let i = 0; i < 400 && held.returning; i++) {
+      s.clock.frame();
+      held.preview(leave, null);
+    }
+    expect(held.returning).toBe(false);
+    expect(item.drawn).toEqual(rect(50, 250, 100, 40));
   });
 });
 
