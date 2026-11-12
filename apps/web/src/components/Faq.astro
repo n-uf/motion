@@ -1,0 +1,30 @@
+---
+// The "Questions" section at the end of a page: an h2, then each question as an h3 with its answer in the one <p>
+// straight under it. All server HTML, always visible. The same list (data/faq.ts) feeds the page's FAQPage JSON-LD
+// through faqJsonLd(), so the markup and the structured data cannot differ.
+import { FAQS } from "../data/faq";
+
+interface Props {
+  path: string;
+  /** the home page's sections sit in their own wrap */
+  wrap?: boolean;
+}
+const { path, wrap = false } = Astro.props;
+const items = FAQS[path] ?? [];
+---
+{items.length > 0 && (
+  <section class:list={["section", "faq", { wrap }]} aria-labelledby="faq-title">
+    <div class="section-head">
+      <span class="eyebrow">FAQ</span>
+      <h2 id="faq-title" class="section-title">Questions</h2>
+    </div>
+    <div class="faq-list">
+      {items.map((item) => (
+        <div class="faq-item">
+          <h3>{item.q}</h3>
+          <p set:html={item.a} />
+        </div>
+      ))}
+    </div>
+  </section>
+)}
