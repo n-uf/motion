@@ -14,7 +14,8 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 W, H = 1200, 630
-INK, MUTED, FAINT, ACCENT = (27, 28, 31), (85, 86, 92), (133, 134, 140), (10, 118, 151)
+INK, MUTED, FAINT, ACCENT = (27, 28, 31), (85, 86, 92), (104, 105, 112), (10, 118, 151)
+FAINT_LINE = (104, 105, 112)   # the mark's target line: the site's --text-3 in light
 # out file, small label, headline, sub line, capture (in scripts/og-src), picture box (width, height)
 CARDS = [
     ("public/og.png", "n-uf motion & placement", "Window motion and docking", "@n-uf/motion moves windows without overshoot; @n-uf/placement works out where they dock", "home.png", (560, 420)),
@@ -64,24 +65,35 @@ def picture(path, box_w, box_h):
     card.alpha_composite(im, (pad, pad))
     return card
 
-def mark(d, x, y, s):
-    """The site's mark (a settle curve ending on its target line) at (x, y), s px square."""
-    k = s / 24
-    d.line([(x + 3 * k, y + 5.5 * k), (x + 21 * k, y + 5.5 * k)], fill=(190, 188, 180), width=max(1, round(1.5 * k)))
+def mark(img, x, y, s):
+    """The site's mark (components/Mark.astro: a settle curve that arrives flat into its solid target line, the dot on it)
+    at (x, y), s px square, drawn at 4x and scaled down so the edges are smooth."""
+    q = 4
+    layer = Image.new("RGBA", (s * q, s * q), (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    k = s * q / 24
+    ends = [(3 * k, 5 * k), (22 * k, 5 * k)]
+    d.line(ends, fill=FAINT_LINE, width=round(1.2 * k))
+    for e in ends:
+        d.ellipse((e[0] - 0.6 * k, e[1] - 0.6 * k, e[0] + 0.6 * k, e[1] + 0.6 * k), fill=FAINT_LINE)
     pts = []
-    for i in range(41):
-        t = i / 40   # the cubic of the mark's path: M3 20.5 C5.2 9.6 8.4 6.6 21 5.5
-        bx = (1 - t) ** 3 * 3 + 3 * (1 - t) ** 2 * t * 5.2 + 3 * (1 - t) * t * t * 8.4 + t ** 3 * 21
-        by = (1 - t) ** 3 * 20.5 + 3 * (1 - t) ** 2 * t * 9.6 + 3 * (1 - t) * t * t * 6.6 + t ** 3 * 5.5
-        pts.append((x + bx * k, y + by * k))
-    d.line(pts, fill=INK, width=round(2.2 * k), joint="curve")
-    d.ellipse((x + 19 * k, y + 3.5 * k, x + 23 * k, y + 7.5 * k), fill=ACCENT)
+    for i in range(61):
+        t = i / 60   # the cubic of the mark's path: M3 20 C6.1 10 9.8 5 19.6 5
+        bx = (1 - t) ** 3 * 3 + 3 * (1 - t) ** 2 * t * 6.1 + 3 * (1 - t) * t * t * 9.8 + t ** 3 * 19.6
+        by = (1 - t) ** 3 * 20 + 3 * (1 - t) ** 2 * t * 10 + 3 * (1 - t) * t * t * 5 + t ** 3 * 5
+        pts.append((bx * k, by * k))
+    w = round(2.6 * k)
+    d.line(pts, fill=INK, width=w, joint="curve")
+    for p in (pts[0], pts[-1]):   # round caps
+        d.ellipse((p[0] - w / 2, p[1] - w / 2, p[0] + w / 2, p[1] + w / 2), fill=INK)
+    d.ellipse((19.6 * k - 2.5 * k, 5 * k - 2.5 * k, 19.6 * k + 2.5 * k, 5 * k + 2.5 * k), fill=ACCENT)
+    img.alpha_composite(layer.resize((s, s), Image.LANCZOS), (x, y))
 
 for out_path, label, head, sub, pic, box in CARDS:
     out = background()
     d = ImageDraw.Draw(out)
-    mark(d, 64, 76, 34)
-    d.text((110, 104), label, font=font(26, 650), fill=FAINT, anchor="ls")
+    mark(out, 64, 74, 38)
+    d.text((114, 104), label, font=font(26, 650), fill=FAINT, anchor="ls")
     size = 60
     while True:
         f = font(size, 700)
