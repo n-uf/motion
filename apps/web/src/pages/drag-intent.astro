@@ -1,6 +1,7 @@
 ---
 import Site from "../layouts/Site.astro";
 import CaseRail from "../components/CaseRail.astro";
+import DropModeSwitch from "../components/DropModeSwitch.astro";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode } from "../data/schema";
 import { CASES, CHIP_HOME, HOME, ICONS, ZONES } from "../demos/drag";
@@ -38,7 +39,7 @@ const RULES: [string, string, string][] = [
       <span class="field"><span class="label">Mode</span>
         <span class="seg" role="group" aria-label="Mode"><button type="button" data-mode="model" aria-pressed="true">This model</button><button type="button" data-mode="naive" aria-pressed="false" title="Naive: highlight whatever is under the pointer">Naive</button></span>
       </span>
-      <span class="note">Naive highlights whatever is under the pointer.</span>
+      <span class="field"><span class="label">Preview</span><DropModeSwitch /></span>
       <span class="spacer"></span>
       <button type="button" class="btn" id="runall"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z"/></svg>Run all paths in both modes</button>
     </div>
