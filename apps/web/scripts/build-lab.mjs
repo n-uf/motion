@@ -7,7 +7,7 @@
 // Search: every lab page must carry <meta name="robots" content="noindex"> (the lab's index.html has it; a lab that
 // predates it gets it here) and nothing else from the head contract: no canonical, no og:url. vercel.json adds
 // X-Robots-Tag: noindex for /lab/(.*), and robots.txt does not block it, so crawlers can see the noindex. The site's
-// pages neither import nor preload anything of it; the footer's "Lab" is the only link.
+// pages neither import nor preload anything of it; the top bar's "Lab" pill and the footer's "Lab" are the only links.
 //
 // The build fails when a lab page lacks the noindex, or when the bundle names a local development address.
 //
