@@ -94,6 +94,8 @@ const field = new RectField<string>((rects) => {
   svg.setAttribute("viewBox", `0 0 ${s.width} ${s.height}`);
   svg.style.setProperty("--w", String(s.width));
   svg.style.setProperty("--h", String(s.height));
+  svg.parentElement?.style.setProperty("--w", String(s.width)); // the stage's own copy: the dimension lines read it
+  svg.parentElement?.style.setProperty("--h", String(s.height));
   svg.innerHTML = deskSVG(s.width, s.height, drawn);
   xrayDesk(rects);
 });

@@ -10,6 +10,7 @@ import { CASES, arrangement, windowHTML } from "../demos/toolbar";
 import Faq from "../components/Faq.astro";
 import { faqJsonLd } from "../data/faq";
 import "../styles/toolbar-groups.css";
+import "../styles/notes.css";
 
 const path = "/toolbar-groups/";
 const page = pageOf(path);
@@ -46,10 +47,18 @@ const RULES: [string, string][] = [
     <Fragment slot="hint"><span class="quiet">Point at a handle: the others dim</span><span class="quiet" data-slowmo hidden></span></Fragment>
     <div class="figure-body">
       <CaseRail id="cases" label="Cases" items={CASES} />
-      <div class="stage-wrap stage-host"><div id="win" class="win" set:html={windowHTML(CASES[0]!.m)} /></div>
+      <div class="stage-wrap stage-host">
+        <div id="win" class="win" set:html={windowHTML(CASES[0]!.m)} />
+        <ul class="notes anchored" aria-hidden="true">
+          <li class="note up ctr" data-on="handle"><span>one handle leads each group</span><i></i></li>
+          <li class="note up ctr" data-on="zone"><span>host · zone · drop target</span><i></i></li>
+          <li class="note up ctr" data-on="ovf"><span>trailing groups fold behind »</span><i></i></li>
+        </ul>
+      </div>
     </div>
   </Chrome>
   <p class="figure-note">Every window on this site is built from the same groups: drag a handle in any figure's bars to rearrange them, and right-click it for <b>Reset position</b>.</p>
+  <ul class="notes-key anchored" aria-hidden="true"><li>one handle leads each group</li><li>host · zone · drop target (dashed, while a group is dragged)</li><li>trailing groups fold behind »</li></ul>
   <p class="aside lab-link"><a href="/lab/#/placement/toolbar">Drag toolbar groups between hosts and zones in the lab</a>, and watch them collapse as room runs out.</p>
 
   <section class="section">
