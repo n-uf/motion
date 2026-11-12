@@ -43,8 +43,6 @@
   font-weight: 650;
 }
 .nf-part { display: block; padding-bottom: 6px; font-size: clamp(34px, 9.5vw, 56px); }
-.nf-part.m { grid-column: 1; }
-.nf-part.p { grid-column: 1; }
 
 @media (min-width: 880px) {
   .nf-ebs, .nf-h1 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -53,6 +51,10 @@
   .nf-part.p { grid-column: 2; }
 }
 
+/* Words are drag handles, so they take `touch-action: none`: a touch that starts on one is a drag (after the drag
+   model's hold), never a scroll. The rest of the page scrolls as usual, and the links below are the way out. A
+   `pan-y` would let the browser take a vertical drag for a scroll and cancel the pointer, so no word could be lifted
+   by touch. */
 /* A word the pointer can hold (the left half). */
 .nf-w {
   display: inline-block;
@@ -114,7 +116,7 @@
   font: 620 11.5px var(--font-sans);
   white-space: nowrap;
 }
-.nf-ptr { width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid var(--text); background: var(--bg-raised); z-index: 7; }
+.nf-ptr { width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid var(--text); background: var(--bg-raised); }
 .nf-cap {
   position: absolute;
   left: 0;
@@ -128,7 +130,6 @@
   border-radius: 999px;
   background: var(--bg-raised);
   transition: opacity 0.15s;
-  z-index: 7;
 }
 .nf-cap.p { color: var(--series-b); }
 .nf-cap.on { opacity: 1; }
@@ -138,6 +139,4 @@
 
 /* Under the headline: what to do, the real way out, and what the words are. */
 .nf-below { display: flex; flex-direction: column; gap: var(--s4); margin-top: var(--s6); padding-top: var(--s4); border-top: 1px solid var(--line); }
-.nf-below .lead { margin: 0; }
-.nf-below .notfound { margin: 0; }
 .nf-note { max-width: 66ch; font-size: var(--t-sm); line-height: 1.55; color: var(--text-3); text-wrap: pretty; }
