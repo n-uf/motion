@@ -1,6 +1,7 @@
 ---
 import Site from "../layouts/Site.astro";
 import ExtLink from "../components/ExtLink.astro";
+import DropModeSwitch from "../components/DropModeSwitch.astro";
 import { pageOf } from "../data/pages";
 import { npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
@@ -33,6 +34,7 @@ const ninety = ninetyPercentMs();
       <div class="demo-bar">
         <span class="demo-dots" aria-hidden="true"><i></i><i></i><i></i></span>
         <span class="demo-name"><span class="label">Layout</span> <b id="layout-name">Master and stack</b></span>
+        <DropModeSwitch />
         <button type="button" class="btn quiet" id="shuffle"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 5h7.5l-2-2M13.5 11H6l2 2"/></svg>Next layout</button>
       </div>
       <div class="demo" id="demo" style={`--demo-h:${DEMO.h}px`}>
@@ -41,6 +43,7 @@ const ninety = ninetyPercentMs();
       <figcaption class="demo-foot">
         <span class="readout" id="readout"><span>Three windows tile, swap and glide on settle; their content is clipped, never stretched.</span></span>
         <span class="demo-hint">Drag a window onto another to swap them.</span>
+        <span class="showcase-hint" data-showcase-hint hidden>Paused while you explore · resumes in a few seconds</span>
       </figcaption>
     </figure>
   </section>
