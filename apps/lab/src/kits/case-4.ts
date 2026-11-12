@@ -7,7 +7,7 @@
 import type { Rect } from "@n-uf/motion";
 import { checkMonotonic, checkNoOvershoot, checkTempo, type RectSample } from "@n-uf/motion/testing";
 import { nextFrame } from "../shared/geometry";
-import { GROUP_LABEL, createDossier, type Dossier, type GroupId } from "./dossier";
+import { GROUP_LABEL, createViewer, type Viewer, type GroupId } from "./viewer";
 import { fmt, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
@@ -31,19 +31,19 @@ export const case4: KitCase = {
   id: "fold",
   title: "4 · Fold or collapse",
   mount(host, loop) {
-    const ds: Dossier[] = [];
+    const ds: Viewer[] = [];
     const fold = caseFrame(host, RULE_FOLD, [{ id: "today", caption: "Today · instant" }, { id: "proposed", caption: "Proposed · revealed through ./layout" }], () => {
       today.reset();
       proposed.reset();
     });
-    const today = createDossier(fold.today!, { title: "Quarterly plan.pdf", loop, fold: () => "instant" });
-    const proposed = createDossier(fold.proposed!, { title: "Quarterly plan.pdf", loop });
+    const today = createViewer(fold.today!, { title: "Quarterly plan.pdf", loop, fold: () => "instant" });
+    const proposed = createViewer(fold.proposed!, { title: "Quarterly plan.pdf", loop });
     ds.push(today, proposed);
 
     let width: number = WIDTHS[1];
     const room = caseFrame(host, RULE_ROOM, [{ id: "trailing", caption: "Today · trailing-first" }, { id: "keep", caption: "Proposed · trailing-first, Redact (keep 1) last" }], () => setWidth(WIDTHS[1]));
-    const trailing = createDossier(room.trailing!, { title: "Quarterly plan.pdf", loop, width });
-    const keep = createDossier(room.keep!, { title: "Quarterly plan.pdf", loop, width, keep: KEEP });
+    const trailing = createViewer(room.trailing!, { title: "Quarterly plan.pdf", loop, width });
+    const keep = createViewer(room.keep!, { title: "Quarterly plan.pdf", loop, width, keep: KEEP });
     ds.push(trailing, keep);
     // The width switch, in the room section's controls.
     const controls = room.trailing!.closest(".kcase")!.querySelector(".controls")!;
@@ -63,7 +63,7 @@ export const case4: KitCase = {
       showOrder();
     }
     function showOrder(): void {
-      const names = (d: Dossier): string => d.folded().map((g) => GROUP_LABEL[g]).join(", ") || "none";
+      const names = (d: Viewer): string => d.folded().map((g) => GROUP_LABEL[g]).join(", ") || "none";
       order.textContent = `At ${width} px, folded: today ${names(trailing)}; proposed ${names(keep)}.`;
     }
     field.addEventListener("change", (e) => setWidth(Number((e.target as HTMLInputElement).value)));
@@ -82,15 +82,15 @@ export const case4: KitCase = {
 };
 
 interface Windows {
-  readonly today: Dossier;
-  readonly proposed: Dossier;
-  readonly trailing: Dossier;
-  readonly keep: Dossier;
+  readonly today: Viewer;
+  readonly proposed: Viewer;
+  readonly trailing: Viewer;
+  readonly keep: Viewer;
   readonly setWidth: (w: number) => void;
 }
 
 /** Every frame's drawn rect of `el` in `d`, for `frames` frames, after `act`. */
-async function sample(d: Dossier, el: Element, act: () => void, frames = 30): Promise<RectSample[]> {
+async function sample(d: Viewer, el: Element, act: () => void, frames = 30): Promise<RectSample[]> {
   const out: RectSample[] = [{ t: performance.now(), rect: d.drawn(el) }];
   act();
   for (let i = 0; i < frames; i++) {
@@ -100,7 +100,7 @@ async function sample(d: Dossier, el: Element, act: () => void, frames = 30): Pr
   return out;
 }
 /** What shows of `el`: its drawn rect less the clip the layout motion draws it with (a reveal). */
-function visible(d: Dossier, el: HTMLElement): Rect {
+function visible(d: Viewer, el: HTMLElement): Rect {
   const r = d.drawn(el);
   const m = /inset\(\s*0(?:px)?\s+([\d.]+)px\s+([\d.]+)px/.exec(el.style.clipPath);
   return m ? { ...r, width: r.width - Number(m[1]), height: r.height - Number(m[2]) } : r;
@@ -110,7 +110,7 @@ const frameStrictlyBetween = (s: readonly RectSample[], from: Rect, to: Rect): n
 
 function scenarios(w: Windows): KitScenario[] {
   /** Fold Navigate in `d`: Zoom, after it, moves left by Navigate's lost length. */
-  async function foldNavigate(d: Dossier): Promise<{ zoom: RectSample[]; nav: Rect; from: Rect; to: Rect }> {
+  async function foldNavigate(d: Viewer): Promise<{ zoom: RectSample[]; nav: Rect; from: Rect; to: Rect }> {
     await settle(d);
     const zoomEl = d.groupEl("zoom");
     const zoom = await sample(d, zoomEl, () => dblclick(d.handle("navigate")));

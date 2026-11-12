@@ -1,9 +1,9 @@
 /**
- * A kit case as a page of its own: it builds its text, controls and dossier windows into a host element, and says
- * how to put them back and which scenarios check it. The lab shell mounts each case as a page under "Kit cases".
+ * A kit case as a page of its own: it builds its text, controls and document viewer windows into a host element, and
+ * says how to put them back and which scenarios check it. The lab shell mounts each case as a page under "Kit cases".
  */
 import type { FrameLoop } from "@n-uf/motion";
-import type { Dossier } from "./dossier";
+import type { Viewer } from "./viewer";
 
 export type Expect = (ok: boolean, msg: string) => void;
 
@@ -64,7 +64,7 @@ export function caseFrame(host: HTMLElement, rule: string, desks: readonly { rea
   return out;
 }
 
-/** Idle once every dossier is. */
-export const allIdle = (ds: readonly Dossier[]) => async (): Promise<void> => {
-  await Promise.all(ds.map((d) => d.idle()));
+/** Idle once every viewer is. */
+export const allIdle = (vs: readonly Viewer[]) => async (): Promise<void> => {
+  await Promise.all(vs.map((v) => v.idle()));
 };

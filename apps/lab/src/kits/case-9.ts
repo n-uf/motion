@@ -1,126 +1,122 @@
 /**
- * 9 · Vocabulary: every placement target has a default `label`; a kit may set its own. Two word sets name the same
- * places in the same order: dynia's own words, and stem's words, one set that reads the same on dynia and kavun.
- * "Move to ›" shows them; a tick marks where the group sits now. A rail is not a toolbar host (case 2), so no row
- * names it.
+ * 9 · Vocabulary: every placement target has a default `label`; an app may set its own. Two word sets name the same
+ * places in the same order: Word set 1, an app's own words set on each target's label (one set that several apps can
+ * share), and Word set 2, placement's own labels. "Move to ›" shows them; a tick marks where the group sits now. A side
+ * rail is not a toolbar host (case 2), so no row names it.
  */
 import { withoutGroup, type Place } from "@n-uf/placement/toolbar";
-import { GROUP_LABEL, createDossier, sameArrangement, type Dossier, type GroupId, type Words } from "./dossier";
+import { GROUP_LABEL, createViewer, sameArrangement, type GroupId, type Viewer, type Words } from "./viewer";
 import { settle } from "./drive";
 import { allIdle, caseFrame, type KitCase, type KitScenario } from "./kit-case";
 
 const name = (g: GroupId): string => GROUP_LABEL[g];
 
-/** Where in a zone `place` is, in a word set's phrasing. */
-function position(place: Place, zone: readonly GroupId[], words: { empty: string; before: (g: string) => string; after: (g: string) => string; between: (a: string, b: string) => string }): string {
-  if (!zone.length) return words.empty;
-  if (place.index === 0) return words.before(name(zone[0]!));
-  if (place.index >= zone.length) return words.after(name(zone.at(-1)!));
-  return words.between(name(zone[place.index - 1]!), name(zone[place.index]!));
+/** Where in a zone `place` is: empty, before the first group, after the last, or between two. */
+function position(place: Place, zone: readonly GroupId[]): string {
+  if (!zone.length) return "empty";
+  if (place.index === 0) return `before ${name(zone[0]!)}`;
+  if (place.index >= zone.length) return `after ${name(zone.at(-1)!)}`;
+  return `between ${name(zone[place.index - 1]!)} and ${name(zone[place.index]!)}`;
 }
 
-/** stem's words: one set for both kits. */
-export const STEM_WORDS: Words = (_g, place, zone) => {
+/** Word set 1: an app's own words, one set several apps can share. */
+export const WORD_SET_1: Words = (_g, place, zone) => {
   if (place === "float") return "Float over the page";
   const host = { title: "Title bar", top: "Top bar", bottom: "Bottom bar", left: "Left bar", right: "Right bar" }[place.host];
   const side = place.host === "left" || place.host === "right";
   const z = side ? { start: "top", center: "middle", end: "bottom" }[place.zone] : { start: "left", center: "centre", end: "right" }[place.zone];
-  return `${host} · ${z} · ${position(place, zone, { empty: "empty", before: (g) => `before ${g}`, after: (g) => `after ${g}`, between: (a, b) => `between ${a} and ${b}` })}`;
+  // Its own separator too, so no row reads like placement's "Host · zone · position".
+  return `${host} › ${z} › ${position(place, zone)}`;
 };
 
-/** dynia's own words. */
-export const DYNIA_WORDS: Words = (_g, place, zone) => {
-  if (place === "float") return "Floating";
-  const host = { title: "Window title", top: "Toolbar", bottom: "Status bar", left: "Left side", right: "Right side" }[place.host];
-  const z = { start: "start", center: "middle", end: "end" }[place.zone];
-  return `${host}, ${z}: ${position(place, zone, { empty: "(empty)", before: (g) => `first, before ${g}`, after: (g) => `last, after ${g}`, between: (a, b) => `${a} ‹ here › ${b}` })}`;
-};
-
-const RULE = `Every placement target has a default <code>label</code>; a kit may set its own. Two word sets name the same
-places in the same order: <b>dynia's</b> own words, and <b>stem's</b> words, one set that reads the same on dynia and
-kavun. Right-click a handle (or Shift+F10) and open <b>Move to ›</b>: a tick marks where the group sits now. A rail is
-not a toolbar host (case 2), so no row names it.`;
+const RULE = `Every placement target has a default <code>label</code>; an app may set its own. Two word sets name the same
+places in the same order: <b>Word set 1</b>, an app's own words set on each target's label (one set several apps can
+share), and <b>Word set 2</b>, placement's own labels. Right-click a handle (or Shift+F10) and open <b>Move to ›</b>: a
+tick marks where the group sits now. A side rail is not a toolbar host (case 2), so no row names it.`;
 
 export const case9: KitCase = {
   id: "vocabulary",
   title: "9 · Vocabulary",
   mount(host, loop) {
-    const ds: Dossier[] = [];
+    const vs: Viewer[] = [];
     const desks = caseFrame(
       host,
       RULE,
       [
-        { id: "dynia", caption: "<b>dynia's words</b>" },
-        { id: "stem", caption: "<b>stem's words</b> · one set for both kits" },
+        { id: "one", caption: "<b>Word set 1</b> · the app's own words" },
+        { id: "two", caption: "<b>Word set 2</b> · placement's labels" },
       ],
-      () => ds.forEach((d) => d.reset()),
+      () => vs.forEach((v) => v.reset()),
     );
-    const dynia = createDossier(desks.dynia!, { title: "Quarterly plan.pdf", loop, words: DYNIA_WORDS });
-    const stem = createDossier(desks.stem!, { title: "Quarterly plan.pdf", loop, words: STEM_WORDS });
-    ds.push(dynia, stem);
-    return { reset: () => ds.forEach((d) => d.reset()), idle: allIdle(ds), scenarios: scenarios(dynia, stem) };
+    const one = createViewer(desks.one!, { title: "Quarterly plan.pdf", loop, words: WORD_SET_1 });
+    const two = createViewer(desks.two!, { title: "Quarterly plan.pdf", loop });
+    vs.push(one, two);
+    return { reset: () => vs.forEach((v) => v.reset()), idle: allIdle(vs), scenarios: scenarios(one, two) };
   },
 };
 
 /** The "Move to ›" rows for `g`, as the menu draws them: target ids and labels. */
-function menuRows(d: Dossier, g: GroupId): { id: string; label: string; here: boolean }[] {
-  const m = d.openMenu(g);
+function menuRows(v: Viewer, g: GroupId): { id: string; label: string; here: boolean }[] {
+  const m = v.openMenu(g);
   const rows = [...m.querySelectorAll<HTMLElement>(".k-submenu .k-menu-item")].map((b) => ({ id: b.dataset.target ?? "", label: b.textContent ?? "", here: b.classList.contains("here") }));
-  d.closeMenu();
+  v.closeMenu();
   return rows;
 }
 
-function scenarios(dynia: Dossier, stem: Dossier): KitScenario[] {
+function scenarios(one: Viewer, two: Viewer): KitScenario[] {
   return [
     {
       name: "9 · Both word sets name the same places in the same order; each row reads its set's words; a tick marks where it sits",
       play: async (expect) => {
-        const a = menuRows(dynia, "zoom");
-        const b = menuRows(stem, "zoom");
+        const a = menuRows(one, "zoom");
+        const b = menuRows(two, "zoom");
         expect(a.length > 5 && a.map((r) => r.id).join(" ") === b.map((r) => r.id).join(" "), `the sets list different places: ${a.length} and ${b.length} rows`);
-        const differ = a.filter((r, i) => r.label === b[i]?.label);
-        expect(differ.length === 0, `${differ.length} rows read the same in both sets, first ${differ[0]?.label}`);
-        // Each row's words are its set's, for the place it names.
-        for (const [d, rows, words, set] of [
-          [dynia, a, DYNIA_WORDS, "dynia"],
-          [stem, b, STEM_WORDS, "stem"],
+        const same = a.filter((r, i) => r.label === b[i]?.label);
+        expect(same.length === 0, `${same.length} rows read the same in both sets, first ${same[0]?.label}`);
+        // Word set 1: each row is the app's words for the place it names.
+        const stops = one.stops("zoom");
+        const a0 = withoutGroup(one.arrangement(), "zoom");
+        const wrong = a.filter((r, i) => {
+          const s = stops[i]!;
+          if (!s.place) return r.label !== WORD_SET_1("zoom", "float", []);
+          const exact = WORD_SET_1("zoom", s.place, s.home ? one.arrangement()[s.place.host][s.place.zone].filter((x) => x !== "zoom") : a0[s.place.host][s.place.zone]);
+          return r.label !== (s.home ? `${exact} · current place` : exact);
+        });
+        expect(wrong.length === 0, `Word set 1: ${wrong.length} rows not in its words, first ${wrong[0]?.label}`);
+        // Word set 2: placement's labels, as its keyboard stops carry them.
+        const own = two.stops("zoom").map((s) => s.label);
+        expect(b.map((r) => r.label).join(" | ") === own.join(" | "), `Word set 2 isn't placement's labels: ${b[0]?.label}`);
+        for (const [rows, set] of [
+          [a, "Word set 1"],
+          [b, "Word set 2"],
         ] as const) {
-          const stops = d.stops("zoom");
-          const a0 = withoutGroup(d.arrangement(), "zoom");
-          const wrong = rows.filter((r, i) => {
-            const s = stops[i]!;
-            if (!s.place) return r.label !== words("zoom", "float", []);
-            const exact = words("zoom", s.place, s.home ? d.arrangement()[s.place.host][s.place.zone].filter((x) => x !== "zoom") : a0[s.place.host][s.place.zone]);
-            return r.label !== (s.home ? `${exact} · current place` : exact);
-          });
-          expect(wrong.length === 0, `${set}: ${wrong.length} rows not in its words, first ${wrong[0]?.label}`);
           expect(rows.filter((r) => r.here).length === 1 && rows.find((r) => r.here)?.id === "home", `${set}: the tick isn't on its own place, once`);
           expect(!rows.some((r) => /rail/i.test(r.label)), `${set}: a row names a rail`);
         }
-        expect(b.some((r) => r.label.startsWith("Left bar")) && b.some((r) => r.label.startsWith("Right bar")), "stem's set has no Left bar or Right bar");
-        expect(a.some((r) => r.label.startsWith("Left side")) && a.some((r) => r.label.startsWith("Toolbar")), "dynia's set has no Left side or Toolbar");
+        expect(a.some((r) => r.label.startsWith("Left bar")) && a.some((r) => r.label.startsWith("Right bar")), "Word set 1 has no Left bar or Right bar");
+        expect(b.some((r) => r.label.startsWith("Left edge")) && b.some((r) => r.label.startsWith("Top bar")), "Word set 2 has no Left edge or Top bar");
       },
     },
     {
       name: "9 · A place picked by its words is where the group goes, in either set",
       play: async (expect) => {
-        for (const [d, label] of [
-          [stem, "Left bar · top · empty"],
-          [dynia, "Left side, start: (empty)"],
+        for (const [v, label] of [
+          [one, "Left bar › top › empty"],
+          [two, "Left edge · top"],
         ] as const) {
-          d.reset();
-          await settle(d);
-          const row = menuRows(d, "zoom").find((r) => r.label === label);
+          v.reset();
+          await settle(v);
+          const row = menuRows(v, "zoom").find((r) => r.label === label);
           if (!row) {
             expect(false, `no row reads "${label}"`);
             continue;
           }
-          const stop = d.stops("zoom").find((s) => s.id === row.id)!;
-          const m = d.openMenu("zoom");
+          const stop = v.stops("zoom").find((s) => s.id === row.id)!;
+          const m = v.openMenu("zoom");
           m.querySelector<HTMLButtonElement>(":scope > .k-menu-item")?.click();
           m.querySelector<HTMLButtonElement>(`.k-submenu [data-target="${row.id}"]`)?.click();
-          await settle(d);
-          expect(sameArrangement(d.arrangement(), stop.arrangement) && d.arrangement().left.start.includes("zoom"), `"${label}" didn't put Zoom on the left`);
+          await settle(v);
+          expect(sameArrangement(v.arrangement(), stop.arrangement) && v.arrangement().left.start.includes("zoom"), `"${label}" didn't put Zoom on the left`);
         }
       },
     },

@@ -4,7 +4,7 @@
  * "Move to ›" lists the same places in the same order.
  */
 import { nextFrame } from "../shared/geometry";
-import { createDossier, placements, sameArrangement, type Dossier, type GroupId } from "./dossier";
+import { createViewer, placements, sameArrangement, type GroupId, type Viewer } from "./viewer";
 import { fmt, keyOn, off, settle } from "./drive";
 import { allIdle, caseFrame, type KitCase, type KitScenario } from "./kit-case";
 
@@ -18,21 +18,21 @@ export const case7: KitCase = {
   id: "keyboard",
   title: "7 · Keyboard moves",
   mount(host, loop) {
-    let d: Dossier | null = null;
+    let d: Viewer | null = null;
     const desks = caseFrame(host, RULE, [{ id: "w" }], () => d?.reset());
-    d = createDossier(desks.w!, { title: "Quarterly plan.pdf", loop });
+    d = createViewer(desks.w!, { title: "Quarterly plan.pdf", loop });
     // The focused group's places, in order, the one shown marked.
     const list = document.createElement("ol");
     list.className = "k-stops";
     list.innerHTML = "<li>Focus a handle to see its places.</li>";
     host.querySelector(".kcase")!.append(list);
-    const dossier = d;
+    const viewer = d;
     const show = (): void => {
       const g = (document.activeElement?.closest(".kgroup") as HTMLElement | null)?.dataset.group as GroupId | undefined;
-      if (!g || !dossier.el.contains(document.activeElement)) return;
-      const k = dossier.keyMove();
+      if (!g || !viewer.el.contains(document.activeElement)) return;
+      const k = viewer.keyMove();
       list.replaceChildren(
-        ...dossier.stops(g).map((t, i) => {
+        ...viewer.stops(g).map((t, i) => {
           const li = document.createElement("li");
           li.textContent = t.label;
           li.classList.toggle("on", !!k && k.g === g && k.i === i);
@@ -41,11 +41,11 @@ export const case7: KitCase = {
       );
     };
     for (const type of ["focusin", "keyup", "click"]) d.el.addEventListener(type, show);
-    return { reset: () => dossier.reset(), idle: allIdle([dossier]), scenarios: scenarios(dossier) };
+    return { reset: () => viewer.reset(), idle: allIdle([viewer]), scenarios: scenarios(viewer) };
   },
 };
 
-function scenarios(c7: Dossier): KitScenario[] {
+function scenarios(c7: Viewer): KitScenario[] {
   return [
     {
       name: "7 · The arrows step through the places in order, the slot on each and the group gliding there; Move to › lists the same places in the same order; Esc glides home",

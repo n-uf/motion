@@ -1,5 +1,5 @@
 /**
- * A small dossier window for the kit cases: title, top, left, right and bottom bars, five toolbar groups (Navigate,
+ * A small document viewer window for the kit cases: title, top, left, right and bottom bars, five toolbar groups (Navigate,
  * Zoom, Annotate, Redact, Share), on the real packages:
  *
  * - @n-uf/placement/toolbar lays the groups out in their hosts; @n-uf/placement/targets lists the drop targets a
@@ -47,7 +47,7 @@ export const W = 600;
 export const H = 360;
 const T = 34;
 
-/** A dossier's geometry at a width (case 4 narrows it): its hosts and its document area, in page space. */
+/** A viewer's geometry at a width (case 4 narrows it): its hosts and its document area, in page space. */
 export interface Geometry {
   readonly width: number;
   readonly hostRect: Readonly<Record<HostId, Rect>>;
@@ -103,7 +103,7 @@ export interface Placed {
 
 /**
  * Where every group sits in `a`, in page space. A floating group is a row, unless it is in `floatColumns` (case 3,
- * proposal B: the kit keeps a direction for floats, which placement's float record has no field for).
+ * proposal B: the app keeps a direction for floats, which placement's float record has no field for).
  */
 export function placements(a: Arrangement<GroupId>, floatColumns: ReadonlySet<GroupId> = new Set(), geo: Geometry = GEOMETRY): Map<GroupId, Placed> {
   const out = new Map<GroupId, Placed>();
@@ -121,27 +121,27 @@ export function placements(a: Arrangement<GroupId>, floatColumns: ReadonlySet<Gr
   return out;
 }
 
-/** A kit's words for a place (case 9): the group, where it would go, and the groups already in that zone. */
+/** An app's words for a place (case 9): the group, where it would go, and the groups already in that zone. */
 export type Words = (g: GroupId, place: Place | "float", zone: readonly GroupId[]) => string;
 
-// --- the dossier ---------------------------------------------------------------------------------------------------
+// --- the viewer ----------------------------------------------------------------------------------------------------
 
-export interface DossierOptions {
+export interface ViewerOptions {
   readonly title: string;
   readonly loop: FrameLoop;
-  /** Where a group may go (case 6: the kit's constraint), as placement's `allows`; default anywhere. */
+  /** Where a group may go (case 6: the app's constraint), as placement's `allows`; default anywhere. */
   readonly allows?: Allows<GroupId>;
   /** The page's scale (case 10); default 1. */
   readonly scale?: () => number;
   /** Convert the pointer into page space before the intent reads it; default true (false: case 10's bug). */
   readonly convert?: () => boolean;
-  /** The kit's places that are toolbar hosts (case 2); the rest offer no target. Default all five. */
+  /** The app's places that are toolbar hosts (case 2); the rest offer no target. Default all five. */
   readonly hosts?: readonly HostId[];
-  /** What the kit calls each bar, drawn on it (case 2: kavun's Header and Deck; a rail, cards). */
+  /** What the app calls each bar, drawn on it (case 2: a side rail, cards). */
   readonly barNames?: Partial<Record<HostId, string>>;
   /** Floats: always a row (case 3, proposal A, the default) or keep the direction they had (proposal B). */
   readonly floats?: () => "row" | "keep";
-  /** The kit's words for the places, set as each target's `label` (case 9); default placement's. */
+  /** The app's words for the places, set as each target's `label` (case 9); default placement's. */
   readonly words?: Words;
   /** While a group is dragged, light up the hit rect of every target it has (case 2: what can go where). */
   readonly lightUp?: boolean;
@@ -173,7 +173,7 @@ export interface DossierOptions {
   readonly today?: boolean;
 }
 
-/** One frame of a drag, as the dossier drew it. */
+/** One frame of a drag, as the viewer drew it. */
 export interface DragFrameRecord {
   readonly t: number;
   /** The point the intent read (page space). */
@@ -190,7 +190,7 @@ export interface DragRecord {
   readonly grab: Point;
 }
 
-export interface Dossier {
+export interface Viewer {
   /** The window (page space; its client rect's top-left is the page origin). */
   readonly el: HTMLElement;
   readonly arrangement: () => Arrangement<GroupId>;
@@ -226,7 +226,7 @@ export interface Dossier {
   readonly popover: () => HTMLElement | null;
   readonly setWidth: (width: number) => void;
   readonly setFrozen: (on: boolean) => void;
-  /** Alt is held (as the dossier saw it). */
+  /** Alt is held (as the viewer saw it). */
   readonly alt: () => boolean;
 }
 
@@ -253,8 +253,8 @@ interface KeyMove {
   i: number;
 }
 
-/** Build a dossier window into `host`. */
-export function createDossier(host: HTMLElement, options: DossierOptions): Dossier {
+/** Build a document viewer window into `host`. */
+export function createViewer(host: HTMLElement, options: ViewerOptions): Viewer {
   const scale = options.scale ?? (() => 1);
   const convert = options.convert ?? (() => true);
   const hosts = options.hosts ?? HOSTS;
@@ -267,7 +267,7 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
   let a: Arrangement<GroupId> = start0;
   let frozen = !!options.frozen;
   let altHeld = false;
-  /** Proposal B (case 3): the floating groups the kit keeps as columns. */
+  /** Proposal B (case 3): the floating groups the app keeps as columns. */
   const floatColumns = new Set<GroupId>();
   let drag: Drag | null = null;
   let keys: KeyMove | null = null;
@@ -280,7 +280,7 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
   const bars = new Map<HostId, HTMLElement>();
   for (const h of HOSTS) {
     const b = document.createElement("div");
-    // A place the kit doesn't declare as a host (a rail, cards) is drawn, but offers no target.
+    // A place the app doesn't declare as a host (a side rail, cards) is drawn, but offers no target.
     b.className = `kbar kbar-${h}${hosts.includes(h) ? "" : " kbar-off"}`;
     b.dataset.host = h;
     bars.set(h, b);
@@ -461,7 +461,7 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
   /** The targets `g` has, those `rule` forbids left out by placement itself (no rule: all of them). */
   /**
    * The targets `g` has: the declared hosts' and the float, those `rule` forbids left out by placement itself (no
-   * rule: all of them), each labelled in the kit's words when it has its own.
+   * rule: all of them), each labelled in the app's words when it has its own.
    */
   function targetsWith(g: GroupId, rule?: Allows<GroupId>): KTarget[] {
     const label = (x: GroupId): string => GROUP_LABEL[x];
@@ -658,7 +658,7 @@ export function createDossier(host: HTMLElement, options: DossierOptions): Dossi
   function stops(g: GroupId): KeyboardStop<GroupId>[] {
     const own = hostOf(a, g);
     if (!own) return keyboardStops<GroupId>(targets(g));
-    // Its own place in the kit's words too, when it has its own (the zone as it is, the group in it).
+    // Its own place in the app's words too, when it has its own (the zone as it is, the group in it).
     const label = options.words?.(g, own, a[own.host][own.zone].filter((x) => x !== g));
     return keyboardStops<GroupId>(targets(g), { home: { place: own, arrangement: a, ...(label ? { label: `${label} · current place` } : {}) } });
   }
