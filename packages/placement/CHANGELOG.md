@@ -23,6 +23,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     collapsed, floating }`). Reading parsed data gives `{ ok: true, arrangement }` or `{ ok: false, error }`, never a
     throw: an unknown version, a missing host or zone, a value of the wrong kind, a group in two places, an unknown
     group. An arrangement lacking some known groups reads fine; place those with `resetGroup` or `dockGroup`.
+- New exports: the types `FloatTargetInput`, `Allows`, `KeyboardStop`, `KeyboardStopsOptions` and the constant
+  `HOST_READING_ORDER`. `ToolbarTarget.slot` is a required field, so hand-built targets (fixtures, mocks) add it.
 
 ## 26.11.5
 
