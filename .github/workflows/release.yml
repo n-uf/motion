@@ -1,28 +1,33 @@
 name: Release
 
-# Calendar versions (YY.M.R, the same scheme as @n-uf/hypr-tiling and
-# @n-uf/debugsy). A PR bumps packages/motion/package.json with
-# `pnpm version:bump` and adds a CHANGELOG entry; merging it to main
-# publishes that version to npmjs (public, with provenance) and to GitHub
-# Packages, tags it v<version> and notifies a downstream repo when
-# RELEASE_NOTIFY_REPO is set. Each
-# registry is checked on its own: a run publishes only where the version is
-# missing, so re-runs are safe, and a push whose version is everywhere
-# already does nothing.
+# Two packages, each released on its own: @n-uf/motion (packages/motion,
+# tagged v<version>) and @n-uf/placement (packages/placement, tagged
+# placement-v<version>). Calendar versions (YY.M.R, the same scheme as
+# @n-uf/hypr-tiling and @n-uf/debugsy). A PR bumps a package's package.json
+# (motion: `pnpm version:bump`) and adds a CHANGELOG entry; merging it to
+# main publishes that version to npmjs (public, with provenance) and to
+# GitHub Packages, tags it and notifies a downstream repo when
+# RELEASE_NOTIFY_REPO is set. Each package and each registry is checked on
+# its own: a run publishes only where a version is missing, so re-runs are
+# safe, and a push whose versions are everywhere already does nothing.
 #
 # Two jobs: `verify` is read-only; `publish` has write access and only runs
-# after `verify` passed. `publish` packs one tarball with pnpm (which applies
-# publishConfig: the published exports point at dist/) and publishes that
-# same file to both registries: npmjs first, so a refusal there (the trusted
-# publisher missing, an OIDC hiccup) leaves nothing published and a re-run
-# is clean; then GitHub Packages, the tag and the downstream notice.
+# after `verify` passed, once per package (one at a time). It packs one
+# tarball with pnpm (which applies publishConfig: the published exports point
+# at dist/) and publishes that same file to both registries: npmjs first, so
+# a refusal there (the trusted publisher missing, an OIDC hiccup) leaves
+# nothing published and a re-run is clean; then GitHub Packages, the tag and
+# the downstream notice.
 #
 # Credentials:
 # - npmjs: trusted publishing, no stored token. npm swaps this job's GitHub
 #   OIDC token (id-token: write) for a one-time publish token, as set up on
-#   npmjs.com for @n-uf/motion (Trusted Publisher: GitHub Actions, n-uf/motion,
-#   release.yml; `npm trust github`). It needs npm 11.5.1+ (Node 22 ships npm
-#   10, so the job installs npm 11) and adds provenance by itself.
+#   npmjs.com for each package (Trusted Publisher: GitHub Actions,
+#   n-uf/motion, release.yml; `npm trust github`). A package's very first
+#   publish can't go this way: npm only lets a trusted publisher be set on a
+#   package that exists, so a maintainer publishes its first version by hand
+#   once, then sets the trust. It needs npm 11.5.1+ (Node 22 ships npm 10,
+#   so the job installs npm 11) and adds provenance by itself.
 # - GITHUB_TOKEN: publishes to GitHub Packages.
 
 on:
@@ -62,9 +67,21 @@ jobs:
         run: pnpm check
 
   publish:
-    name: Publish the version where it's new
+    name: Publish ${{ matrix.name }} where its version is new
     needs: verify
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # One at a time: each pushes a tag and may notify downstream.
+      max-parallel: 1
+      matrix:
+        include:
+          - name: "@n-uf/motion"
+            dir: packages/motion
+            tag-prefix: v
+          - name: "@n-uf/placement"
+            dir: packages/placement
+            tag-prefix: placement-v
     permissions:
       contents: write
       packages: write
@@ -73,6 +90,9 @@ jobs:
       HAS_DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN != '' }}
       NPMJS: https://registry.npmjs.org
       GHPKG: https://npm.pkg.github.com
+      PKG_NAME: ${{ matrix.name }}
+      PKG_DIR: ${{ matrix.dir }}
+      TAG_PREFIX: ${{ matrix.tag-prefix }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -95,19 +115,32 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          version=$(jq -r .version packages/motion/package.json)
+          version=$(jq -r .version "$PKG_DIR/package.json")
           if ! echo "$version" | grep -qE '^[0-9]{2}\.([1-9]|1[0-2])\.[0-9]+$'; then
             echo "::error::$version is not a calendar version (YY.M.R)"
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+          # A package npmjs doesn't know yet can't publish by trusted
+          # publishing: its first version is published by hand (see the
+          # header). Until then this package publishes nothing, anywhere.
+          if ! out=$(npm view "$PKG_NAME" name --registry "$NPMJS" --@n-uf:registry="$NPMJS" 2>&1); then
+            if echo "$out" | grep -qE 'E404|is not in this registry'; then
+              echo "::warning::$PKG_NAME is not on npmjs yet: publish $version by hand once and set its trusted publisher; nothing published."
+              { echo "npm=false"; echo "github=false"; echo "tagged=true"; } >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::Could not check $NPMJS: $out"
+            exit 1
+          fi
+
           # is_new <registry> <output name>: true when the version isn't there yet
           is_new() {
             local out
-            if out=$(npm view "@n-uf/motion@$version" version --registry "$1" --@n-uf:registry="$1" 2>&1); then
+            if out=$(npm view "$PKG_NAME@$version" version --registry "$1" --@n-uf:registry="$1" 2>&1); then
               echo "$2=false" >> "$GITHUB_OUTPUT"
-              echo "::notice::@n-uf/motion@$version is already on $1."
+              echo "::notice::$PKG_NAME@$version is already on $1."
             elif echo "$out" | grep -qE 'E404|No match found|is not in this registry'; then
               echo "$2=true" >> "$GITHUB_OUTPUT"
             else
@@ -119,7 +152,7 @@ jobs:
           is_new "$GHPKG" github
 
           # Tagged separately, so a re-run after a failed tag step still tags.
-          if [ -n "$(git ls-remote --tags origin "refs/tags/v$version")" ]; then
+          if [ -n "$(git ls-remote --tags origin "refs/tags/$TAG_PREFIX$version")" ]; then
             echo "tagged=true" >> "$GITHUB_OUTPUT"
           else
             echo "tagged=false" >> "$GITHUB_OUTPUT"
@@ -139,7 +172,7 @@ jobs:
           dest="$RUNNER_TEMP/package"
           mkdir -p "$dest"
           # prepack builds dist/ and checks it (scripts/check-dist.mjs)
-          pnpm --filter @n-uf/motion pack --pack-destination "$dest"
+          pnpm --filter "$PKG_NAME" pack --pack-destination "$dest"
           tarball=$(ls "$dest"/*.tgz)
           echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
           tar -tzf "$tarball"
@@ -173,8 +206,8 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          git tag "v$VERSION"
-          git push origin "v$VERSION"
+          git tag "$TAG_PREFIX$VERSION"
+          git push origin "$TAG_PREFIX$VERSION"
 
       # Once per version: when this run creates its tag. A failed notice
       # doesn't fail the release (send it by hand if it fails). The target is
@@ -196,6 +229,6 @@ jobs:
             echo "::notice::DISPATCH_TOKEN secret is not set; skipping the lib-released dispatch."
             exit 0
           fi
-          jq -n -c --arg v "$VERSION" --arg sha "$(git rev-parse HEAD)" \
-            '{event_type: "lib-released", client_payload: {source: "n-uf/motion", sha: $sha, packages: [{name: "@n-uf/motion", version: $v}]}}' \
+          jq -n -c --arg v "$VERSION" --arg name "$PKG_NAME" --arg sha "$(git rev-parse HEAD)" \
+            '{event_type: "lib-released", client_payload: {source: "n-uf/motion", sha: $sha, packages: [{name: $name, version: $v}]}}' \
             | gh api "repos/$NOTIFY_REPO/dispatches" --method POST --input -
