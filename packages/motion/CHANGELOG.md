@@ -3,6 +3,17 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.6
+
+- `@n-uf/motion/drag`: the README shows a drag on a scaled page (a zoomed
+  canvas, a fitted preview): the intent works in the coordinate space of its
+  targets and home, so each pointer sample goes in as `(p − origin) / scale`.
+- Docs: `item.retarget` is optional on a `LayoutItem` (`holdItem` falls back
+  to `moveTo`); the paged swipe's state diagram shows `cancel` from settling
+  back to idle.
+- Released together with `@n-uf/placement` 26.11.6 (keyboard stops, slots,
+  `allows`, keep priority, stored arrangements).
+
 ## 26.11.5
 
 - `@n-uf/motion/drag`: `placeOf(target, point, previous)` is told the place
