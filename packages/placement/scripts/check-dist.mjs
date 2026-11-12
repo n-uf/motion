@@ -1,5 +1,5 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, tiling, dock, toolbar, targets) and its type definitions exist;
+// - every entry (the root, dock, toolbar, targets) and its type definitions exist;
 // - the JavaScript imports only its own chunks (no dependencies at all, @n-uf/motion included);
 // - no file touches a host global, and no type mentions a DOM type;
 // - Node can import every entry, and a desk lays out, a host collapses and a drop lands from the built code.
@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const ENTRIES = ["index", "tiling", "dock", "toolbar", "targets"];
+const ENTRIES = ["index", "dock", "toolbar", "targets"];
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|globalThis|matchMedia)\b/;
 const DOM_TYPES = /\b(Window|Document|Element|HTMLElement|Event|PointerEvent|MouseEvent|DOMRect)\b/;
 const problems = [];
@@ -57,8 +57,6 @@ if (problems.length === 0) {
     const m = {};
     for (const entry of ENTRIES) m[entry] = await import(pathToFileURL(join(dist, `${entry}.js`)).href);
     if (typeof m.index.positionPopup !== "function") problems.push("index.js: no positionPopup");
-    const tree = m.tiling.splitLeaf(m.tiling.treeFromOrder([1, 2]), 2, 3, false);
-    if (m.tiling.layoutTree(tree, { x: 0, y: 0, width: 1006, height: 600 }, 6).size !== 3) problems.push("tiling.js: a tree of three didn't lay out three tiles");
     const desk = m.dock.createDesk({ panels: [{ id: 1, title: "Files", natural: 160 }, { id: 2, title: "History", natural: 160 }], start: { left: [1], right: [], bottom: [2] } });
     if (desk.constructions.length !== 9) problems.push(`dock.js: ${desk.constructions.length} constructions, expected 9`);
     const c = desk.constructionOf("dockTear");

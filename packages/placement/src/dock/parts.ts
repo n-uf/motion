@@ -4,7 +4,7 @@
  * geometry, the tiling tree's columns, the scrolling strip, tabbed sides and floating palettes.
  */
 import { clampInto, rect, type Rect, type Size } from "../geometry";
-import { columnHeights, dwindle, giveWay, masterStack } from "../tiling";
+import { columnHeights, dwindle, giveWay, masterStack } from "./arrange";
 import { BAR, DOC_MIN, G, LAYER, RAIL, TABS, TITLE, docKey, idOf, isDocKey, panelKey, type Catalog, type DeskState, type Options, type Placed, type Side } from "./model";
 
 export type Out = Map<string, Placed>;

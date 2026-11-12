@@ -1,7 +1,7 @@
-/** Tiling layouts tile their area exactly; the split tree's operations; the minimum-size give-way. */
+/** The dock's arrangers tile their area exactly; natural-height columns; the minimum-size give-way. */
 import { describe, expect, it } from "vitest";
 import { overlap, type Rect } from "../index";
-import { columnHeights, columns, dwindle, giveWay, grid, layoutTree, leafIds, masterStack, moveLeaf, removeLeaf, setSplitRatio, share, splitLeaf, swapLeaves, treeFromOrder, type Tree } from "../src/tiling";
+import { columnHeights, dwindle, giveWay, masterStack, share } from "../src/dock/arrange";
 
 const GAP = 6;
 
@@ -30,25 +30,14 @@ function tilesExactly(rects: readonly Rect[], area: Rect): string[] {
 
 describe("layouts tile their area", () => {
   const areas: Rect[] = [{ x: 6, y: 6, width: 948, height: 548 }, { x: 0, y: 40, width: 400, height: 900 }];
-  for (const [name, f] of [["columns", columns], ["grid", grid], ["masterStack", masterStack]] as const) {
-    it(name, () => {
-      const fails: string[] = [];
-      for (const area of areas) for (let n = 1; n <= 9; n++) fails.push(...tilesExactly([...f(Array.from({ length: n }, (_, i) => i), area, GAP).values()], area).map((m) => `${n}: ${m}`));
-      expect(fails).toEqual([]);
-    });
-  }
-  it("dwindle, as an order and as a tree", () => {
+  it("masterStack", () => {
     const fails: string[] = [];
-    for (const area of areas) {
-      for (let n = 1; n <= 9; n++) {
-        const order = dwindle(area, n, GAP);
-        fails.push(...tilesExactly(order, area));
-        const tree = [...layoutTree(treeFromOrder(Array.from({ length: n }, (_, i) => i)), area, GAP).values()];
-        fails.push(...tilesExactly(tree, area));
-        // Opening each tile with the one before it focused is dwindle over the order.
-        tree.forEach((r, i) => order[i] && Math.abs(r.x - order[i]!.x) + Math.abs(r.width - order[i]!.width) > 0.01 && fails.push(`tree ${i} differs`));
-      }
-    }
+    for (const area of areas) for (let n = 1; n <= 9; n++) fails.push(...tilesExactly([...masterStack(Array.from({ length: n }, (_, i) => i), area, GAP).values()], area).map((m) => `${n}: ${m}`));
+    expect(fails).toEqual([]);
+  });
+  it("dwindle", () => {
+    const fails: string[] = [];
+    for (const area of areas) for (let n = 1; n <= 9; n++) fails.push(...tilesExactly(dwindle(area, n, GAP), area).map((m) => `${n}: ${m}`));
     expect(fails).toEqual([]);
   });
 
@@ -56,42 +45,6 @@ describe("layouts tile their area", () => {
     const m = masterStack([1, 2, 3], { x: 0, y: 0, width: 1006, height: 500 }, GAP, 0.6).get(1)!;
     expect(m.width).toBeCloseTo(600);
     expect(dwindle({ x: 0, y: 0, width: 300, height: 900 }, 2, GAP)[0]!.width).toBe(300);
-  });
-});
-
-describe("the split tree", () => {
-  const area = { x: 0, y: 0, width: 1000, height: 600 };
-  const t3 = treeFromOrder([1, 2, 3])!;
-
-  it("a new tile goes beside its target, first or second", () => {
-    expect(leafIds(splitLeaf(t3, 2, 9, true))).toEqual([1, 9, 2, 3]);
-    expect(leafIds(splitLeaf(t3, 2, 9, false))).toEqual([1, 2, 9, 3]);
-    expect(splitLeaf(null, null, 9, true)).toEqual({ leaf: 9 });
-  });
-
-  it("a removed tile's sibling takes its parent's place", () => {
-    const before = layoutTree(t3, area, GAP);
-    const after = layoutTree(removeLeaf(t3, 3), area, GAP);
-    const p2 = before.get(2)!;
-    const p3 = before.get(3)!;
-    expect(after.get(2)).toEqual({ x: p2.x, y: p2.y, width: p2.width, height: p3.y + p3.height - p2.y });
-    expect(removeLeaf({ leaf: 1 }, 1)).toBeNull();
-  });
-
-  it("swapping trades two tiles' rects; moving puts a tile beside another", () => {
-    const before = layoutTree(t3, area, GAP);
-    const after = layoutTree(swapLeaves(t3, 1, 3), area, GAP);
-    expect([after.get(1), after.get(3)]).toEqual([before.get(3), before.get(1)]);
-    expect(leafIds(moveLeaf(t3, 1, 3, false))).toEqual([2, 3, 1]);
-    expect(moveLeaf(t3, 1, 1, false)).toBe(t3);
-  });
-
-  it("a split ratio gives the tile its share", () => {
-    const t: Tree = { a: { leaf: 1 }, b: { leaf: 2 } };
-    const l = layoutTree(setSplitRatio(t, 2, 0.25), { x: 0, y: 0, width: 1006, height: 400 }, GAP);
-    expect(l.get(2)!.width).toBeCloseTo(250);
-    expect(l.get(1)!.width).toBeCloseTo(750);
-    expect(layoutTree(setSplitRatio(t, 1, 2), { x: 0, y: 0, width: 1006, height: 400 }, GAP).get(1)!.width).toBeCloseTo(950);
   });
 });
 
@@ -110,7 +63,11 @@ describe("columns of natural heights", () => {
 
 describe("the give-way", () => {
   const min = { width: 200, height: 100 };
-  const lay = (kept: readonly string[]) => columns(kept, { x: 0, y: 0, width: 650, height: 300 }, GAP);
+  // Equal columns over 650 px: three keep 200 px each, four don't.
+  const lay = (kept: readonly string[]) => {
+    const w = (650 - GAP * (kept.length - 1)) / kept.length;
+    return new Map(kept.map((k, i) => [k, { x: i * (w + GAP), y: 0, width: w, height: 300 }]));
+  };
   it("the newest tile that breaks a minimum floats, until the rest fit", () => {
     const age = (k: string) => Number(k.slice(1));
     expect(giveWay(["t1", "t4", "t2", "t3"], lay, () => min, age)).toEqual({ kept: ["t1", "t2", "t3"], floats: ["t4"] });

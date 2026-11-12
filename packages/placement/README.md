@@ -3,12 +3,13 @@
 > [!CAUTION]
 > ## Not yet stable
 >
-> **@n-uf/placement is young and still changing. Its API (the tiling layouts, the desk constructions, the toolbar model and the drop targets) is not final.**
+> **@n-uf/placement is young and still changing. Its API (the desk constructions, the toolbar model and the drop targets) is not final.**
 >
 > Version numbers are dates (YY.M.R), not semantic versions, so any release may break things. Pin an exact version and read the [CHANGELOG](https://github.com/n-uf/motion/blob/main/packages/placement/CHANGELOG.md) before you upgrade.
 
-Where things go. State in, rects and drop targets out: tiling layouts and split trees, a desk of docks, rails and
-palettes, toolbar groups in hosts and zones, and the drop targets for each. Pure functions over plain data: no DOM,
+Where things go. State in, rects and drop targets out: a desk of docks, rails and palettes, toolbar groups in hosts
+and zones, and the drop targets for each. A tiling entry (a split tree with ratios, groups and workspaces) is
+planned. Pure functions over plain data: no DOM,
 no framework, no motion, no dependencies.
 
 ```sh
@@ -21,9 +22,6 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
 
 - **`@n-uf/placement`**: the shapes (`Rect`, `Size`, `Point`) and a popup positioner (anchor, gravity, offset,
   then flip, slide, resize, as Wayland's xdg-positioner).
-- **`/tiling`**: equal columns, a grid, master and stack, dwindle; the split tree and its operations (split beside,
-  remove, swap, move, split ratio); stacked columns at natural heights; the minimum-size give-way (the newest tile
-  that breaks a minimum floats).
 - **`/dock`**: a desk of documents and tool panels. Side docks and a bottom dock (between the side docks or across
   the full width), rails, natural-height sections whose last one takes the rest, fold and unfold, the give-way
   rules (sections fold least recently used first, docks fold to their rails), floating palettes with corner stacks,
@@ -31,23 +29,10 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
 - **`/toolbar`**: toolbar groups in five hosts (title, top, bottom, left, right) and three zones (start, centre,
   end), floating groups, insertion points (before all, between, after all, an empty zone), trailing-first overflow,
   and "own place is home".
-- **`/targets`**: drop targets (`{ id, priority, hit, slot?, label?, free? }`) for the desk's constructions,
-  toolbar hosts and tiling.
+- **`/targets`**: drop targets (`{ id, priority, hit, slot?, label?, free? }`) for the desk's constructions and
+  toolbar hosts.
 
 Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
-
-## Tiling
-
-```ts
-import { layoutTree, setSplitRatio, splitLeaf, treeFromOrder } from "@n-uf/placement/tiling";
-
-const area = { x: 0, y: 0, width: 1006, height: 600 };
-let tree = treeFromOrder([1, 2]); // 1 | 2
-tree = splitLeaf(tree, 2, 3, false); // 2 splits: 3 goes below it
-tree = setSplitRatio(tree, 1, 0.6); // 1 takes 60 % of the width
-const rects = layoutTree(tree, area, 6);
-console.log(rects.get(1)!.width, rects.get(3)!.y); // 600 303
-```
 
 ## A desk
 
@@ -102,7 +87,7 @@ console.log(drop.label, drop.slot.x, drop.slot.y); // Float here 580 290
 ```
 
 A toolbar group's targets come from `hostTargets` (a host's lines and empty zones, with its own place left out and
-returned as `own`, for the drag's home) and `floatTarget`; tiling's from `treeSlots` and `orderSlots`.
+returned as `own`, for the drag's home) and `floatTarget`.
 
 ## License
 
