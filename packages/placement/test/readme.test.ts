@@ -1,7 +1,7 @@
 /** The README's examples, run as written (their console output checked). */
 import { describe, expect, it } from "vitest";
 import { DEFAULT_OPTIONS, createDesk, liftOut } from "../src/dock";
-import { deskDrop, deskTargets, hostTargets, keyboardStops, paneZone, type PaneZone } from "../src/targets";
+import { deskDrop, deskTargets, floatTarget, hostTargets, keyboardStops, paneZone, type PaneZone } from "../src/targets";
 import { arrangement, hostOf, layoutHost, readArrangement, storeArrangement, type Place } from "../src/toolbar";
 
 describe("README examples", () => {
@@ -42,6 +42,9 @@ describe("README examples", () => {
     const top = { origin: { x: 0, y: 40 }, spec: { length: 800, thickness: 34, lead: 8, tail: 8 } };
     const { targets } = hostTargets({ group: "share", arrangement: a, host: "top", ...top, size, allows });
     expect(targets[0]!.slot).toEqual({ x: 8, y: 43, width: 120, height: 28 });
+    const stage = { x: 0, y: 80, width: 800, height: 500 };
+    const all = [...targets, ...(allows("share", "float") ? [floatTarget({ group: "share", arrangement: a, stage, width: 120, height: 28 })] : [])];
+    expect(all.length === targets.length).toBe(true);
     const stops = keyboardStops(targets, { home: { place: hostOf(a, "share")!, arrangement: a } });
     expect(stops.map((s) => (s.home ? "home" : s.id))).toEqual(["g:top:start:0", "g:top:start:1", "g:top:start:2", "g:top:center:0", "home"]);
   });
