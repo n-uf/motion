@@ -24,6 +24,21 @@ describe("README examples", () => {
     expect(log.mock.calls).toEqual([["slot"], ["slot"]]);
   });
 
+  it("drag/ placeOf with a null place", () => {
+    const pane: DragTarget = { id: "pane", priority: 2, hit: { x: 0, y: 0, width: 200, height: 100 } };
+    const zones = createDragIntent<DragTarget>({
+      home: { x: 300, y: 300, width: 100, height: 50 },
+      placeOf: (_t, p, previous) => (p.x >= (previous === "right" ? 94 : 100) ? "right" : null),
+    });
+    for (let t = 0; t <= 300; t += 16) zones.update({ x: 50, y: 50 }, t, [pane]);
+    expect([zones.state.shown, zones.release({ x: 50, y: 50 }, [pane])]).toEqual([null, null]);
+    // Its right half shows, and holds 3 px back past the line.
+    for (let t = 316; t <= 600; t += 16) zones.update({ x: 150, y: 50 }, t, [pane]);
+    expect(zones.state.shown?.id).toBe("pane");
+    zones.update({ x: 97, y: 50 }, 616, [pane]);
+    expect(zones.state.shown?.id).toBe("pane");
+  });
+
   it("clock/", () => {
     const log = vi.fn();
     const clock = createFakeClock();

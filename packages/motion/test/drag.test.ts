@@ -266,6 +266,58 @@ describe("drag/ intent", () => {
     expect(ff.room).toBe(false);
   });
 
+  it("a null place is no target: nothing shows there, a target beneath takes over, and a release there goes home", () => {
+    // A pane whose left half takes no drop; under it, a broad area on the right only.
+    const pane: DragTarget = { id: "pane", priority: 2, hit: rect(0, 0, 200, 100) };
+    const area: DragTarget = { id: "area", priority: 3, hit: rect(100, 0, 300, 100) };
+    const placeOf = (t: DragTarget, p: Point): string | null => (t.id === "pane" && p.x < 100 ? null : t.id);
+    const intent = createDragIntent({ home: HOME, placeOf });
+    let t = 0;
+    let f = intent.update({ x: 50, y: 50 }, t, [pane, area]);
+    for (let i = 0; i < 20; i++) f = intent.update({ x: 50, y: 50 }, (t += FRAME), [pane, area]);
+    expect([f.shown, f.room]).toEqual([null, false]);
+    expect(intent.release({ x: 50, y: 50 }, [pane, area])).toBeNull();
+    // Its right half has a place: it shows, and room is made.
+    for (let i = 0; i < 20; i++) f = intent.update({ x: 150, y: 50 }, (t += FRAME), [pane, area]);
+    expect([f.shown?.id, f.room]).toEqual(["pane", true]);
+    // Back into the left half while aiming: hidden at once, not after the switch hold.
+    f = intent.update({ x: 95, y: 50 }, (t += FRAME), [pane, area]);
+    expect([f.shown, f.room]).toEqual([null, false]);
+    // Over both, where the pane has no place, the area beneath is the target.
+    const over = createDragIntent({ home: HOME, placeOf: (x: DragTarget, p: Point) => (x.id === "pane" && p.x >= 100 ? null : x.id) });
+    let g = over.update({ x: 150, y: 50 }, 0, [pane, area]);
+    for (let i = 1; i <= 20; i++) g = over.update({ x: 150, y: 50 }, i * FRAME, [pane, area]);
+    expect(g.shown?.id).toBe("area");
+    expect(over.release({ x: 150, y: 50 }, [pane, area])?.id).toBe("area");
+  });
+
+  it("placeOf gets the place it gave last, so a place can hold near its boundary", () => {
+    const tabs: DragTarget = { id: "tabs", priority: 1, hit: rect(0, 0, 300, 30) };
+    const seen: (string | null)[] = [];
+    // Two halves split at x = 100; the half it was in holds for 6 px past the line.
+    const placeOf = (_t: DragTarget, p: Point, previous: string | null): string => {
+      seen.push(previous);
+      if (previous === "L" && p.x < 106) return "L";
+      if (previous === "R" && p.x >= 94) return "R";
+      return p.x < 100 ? "L" : "R";
+    };
+    const intent = createDragIntent({ home: HOME, placeOf });
+    let t = 0;
+    let f = intent.update({ x: 90, y: 15 }, t, [tabs]);
+    for (let i = 0; i < 20; i++) f = intent.update({ x: 90, y: 15 }, (t += FRAME), [tabs]);
+    expect(f.roomPlace).toBe("L");
+    expect(seen[0]).toBeNull();
+    expect(seen.at(-1)).toBe("L");
+    // 3 px past the line: still the left half; 10 px past: the right, once it has held.
+    for (let i = 0; i < 20; i++) f = intent.update({ x: 103, y: 15 }, (t += FRAME), [tabs]);
+    expect(f.roomPlace).toBe("L");
+    for (let i = 0; i < 20; i++) f = intent.update({ x: 110, y: 15 }, (t += FRAME), [tabs]);
+    expect(f.roomPlace).toBe("R");
+    // Back 3 px the other way: the right half holds.
+    for (let i = 0; i < 20; i++) f = intent.update({ x: 97, y: 15 }, (t += FRAME), [tabs]);
+    expect(f.roomPlace).toBe("R");
+  });
+
   it("follows rebuilt targets by id, and the home moves with the view", () => {
     const intent = createDragIntent({ home: HOME });
     let t = 0;
