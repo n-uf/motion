@@ -148,6 +148,11 @@ function stopAnim(): void {
 function play(): void {
   stopAnim();
   const T = cur!.T;
+  // Reduced motion: no playing, the case is drawn at its end (the replay and the loop do the same).
+  if (reduced()) {
+    seek(T);
+    return;
+  }
   let t0: number | null = null;
   const step = (): void => {
     const now = virtualNow();

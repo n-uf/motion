@@ -339,6 +339,10 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
   });
   demo.addEventListener("pointerup", (e) => { if (drag && !drag.scripted && e.pointerId === pointerId) release(false); });
   demo.addEventListener("pointercancel", () => { if (drag && !drag.scripted) release(true); });
+  // A drag also ends when the pointer capture is lost (the element was removed, a system gesture took it) and when the
+  // window loses focus (an alert, a tab switch): the window goes back, never stuck to a pointer that is no longer there.
+  demo.addEventListener("lostpointercapture", () => { if (drag && !drag.scripted) release(true); });
+  window.addEventListener("blur", () => { if (drag && !drag.scripted) release(true); });
   window.addEventListener("keydown", (e) => { if (e.key === "Escape" && drag && !drag.scripted) release(true); });
   // The drawing tools: one selected (the accent ring), pen by default.
   const tools = [...fig.querySelectorAll<HTMLButtonElement>("[data-tool]")];

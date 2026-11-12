@@ -75,6 +75,8 @@ export function watchActions(root: Element): void {
 }
 
 document.addEventListener("visibilitychange", sync);
+// A change of the reduced-motion preference starts or stops every auto-play at once, not at the next action.
+matchMedia("(prefers-reduced-motion: reduce)").addEventListener("change", sync);
 
 /** For checks: the controller's state. */
 (window as unknown as Record<string, unknown>).__showcase = {
