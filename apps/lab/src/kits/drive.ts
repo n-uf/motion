@@ -17,9 +17,10 @@ export async function settle(d: Dossier): Promise<void> {
   await nextFrame();
 }
 
-export function pointer(type: string, on: EventTarget, c: Point): void {
+/** A pointer event at client point `c`; `extra` adds to it (a held modifier: `{ altKey: true }`). */
+export function pointer(type: string, on: EventTarget, c: Point, extra: PointerEventInit = {}): void {
   on.dispatchEvent(
-    new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse", isPrimary: true, button: type === "pointermove" ? -1 : 0, buttons: type === "pointerup" ? 0 : 1, clientX: c.x, clientY: c.y }),
+    new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse", isPrimary: true, button: type === "pointermove" ? -1 : 0, buttons: type === "pointerup" ? 0 : 1, clientX: c.x, clientY: c.y, ...extra }),
   );
 }
 
