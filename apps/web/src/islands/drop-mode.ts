@@ -1,14 +1,34 @@
 /**
- * The drop preview mode every drag demo shares: "snap" (the dragged item glides into its slot once you aim) or
- * "indicator" (an outline marks the slot; the item stays under the pointer until release). Snap is the default.
- * The choice is remembered per visitor.
+ * The drop preview every drag demo shares, in three modes (the switch reads "Drop indicator · Open gap · Snap to
+ * slot"; Snap to slot is the default, remembered per visitor):
+ *
+ * - "indicator": nothing moves while dragging; only the outline or the insertion marker.
+ * - "gap": after the room delay the neighbours open the slot; the item stays under the pointer.
+ * - "snap": the gap opens and the item glides into it.
+ *
+ * `previewPlan` turns a mode into what a demo does. It mirrors `previewPlan` in `@n-uf/motion/drag`; once that lands,
+ * importing it from there is the only change.
  */
-export type DropMode = "snap" | "indicator";
+export type DropMode = "indicator" | "gap" | "snap";
+export const DROP_MODES: readonly DropMode[] = ["indicator", "gap", "snap"];
 const KEY = "motion-drop-mode";
+
+export interface PreviewPlan {
+  /** Draw the outline or insertion marker. */
+  readonly outline: boolean;
+  /** The neighbours make room: the slot opens. */
+  readonly room: boolean;
+  /** The dragged item glides into the opened slot. */
+  readonly glide: boolean;
+}
+export function previewPlan(mode: DropMode): PreviewPlan {
+  return { outline: mode !== "snap", room: mode !== "indicator", glide: mode === "snap" };
+}
 
 let mode: DropMode = (() => {
   try {
-    return localStorage.getItem(KEY) === "indicator" ? "indicator" : "snap";
+    const v = localStorage.getItem(KEY);
+    return v === "indicator" || v === "gap" ? v : "snap";
   } catch {
     return "snap";
   }
@@ -30,7 +50,10 @@ export function setDropMode(m: DropMode, remember = true): void {
   listeners.forEach((f) => f(m));
 }
 
-/** Bind the "Snap to slot | Drop indicator" buttons (`[data-drop-mode]`) under `root`. */
+/** Call `f` when the mode changes. */
+export const onDropMode = (f: (m: DropMode) => void): void => void listeners.add(f);
+
+/** Bind the "Drop indicator · Open gap · Snap to slot" buttons (`[data-drop-mode]`) under `root`. */
 export function bindDropMode(root: ParentNode, onChange?: (m: DropMode) => void): void {
   const buttons = [...root.querySelectorAll<HTMLButtonElement>("[data-drop-mode]")];
   const sync = (m: DropMode): void => buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.dropMode === m)));
