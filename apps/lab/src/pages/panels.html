@@ -3,6 +3,7 @@
   <fieldset class="pn-presets">
     <legend>Preset</legend>
     <label><input type="radio" name="pn-preset" value="docks" checked /> Edge docks</label>
+    <label><input type="radio" name="pn-preset" value="docksFull" /> Edge docks, full-width bottom</label>
     <label><input type="radio" name="pn-preset" value="dockTear" /> Edge docks + tear-off</label>
     <label><input type="radio" name="pn-preset" value="navigator" /> Navigator + inspector</label>
   </fieldset>
@@ -24,11 +25,38 @@
     <label><input type="radio" name="pn-fold" value="rail" checked /> To the rail <em>(default)</em></label>
     <label><input type="radio" name="pn-fold" value="ride" /> Ride on the first open column</label>
   </fieldset>
+  <fieldset class="pn-options">
+    <legend>Top band</legend>
+    <label><input type="radio" name="pn-band-top" value="off" checked /> Off <em>(default)</em></label>
+    <label><input type="radio" name="pn-band-top" value="reserved" /> Reserved</label>
+    <label><input type="radio" name="pn-band-top" value="overlay" /> Overlay</label>
+    <span class="pn-sep" aria-hidden="true">·</span>
+    <label><input type="radio" name="pn-span-top" value="between" checked disabled /> between the columns</label>
+    <label><input type="radio" name="pn-span-top" value="full" disabled /> full width</label>
+  </fieldset>
+  <fieldset class="pn-options">
+    <legend>Bottom band</legend>
+    <label><input type="radio" name="pn-band-bottom" value="off" checked /> Off <em>(default)</em></label>
+    <label><input type="radio" name="pn-band-bottom" value="reserved" /> Reserved</label>
+    <label><input type="radio" name="pn-band-bottom" value="overlay" /> Overlay</label>
+    <span class="pn-sep" aria-hidden="true">·</span>
+    <label><input type="radio" name="pn-span-bottom" value="between" checked disabled /> between the columns</label>
+    <label><input type="radio" name="pn-span-bottom" value="full" disabled /> full width</label>
+    <span class="pn-sep" aria-hidden="true">·</span>
+    <label>Pages' min height <input type="range" id="pn-pmh" min="120" max="480" step="10" value="240" /> <output id="pn-pmh-out">240 px</output></label>
+  </fieldset>
+  <fieldset class="pn-reserve-controls">
+    <legend>Toolbar room</legend>
+    <label>Top <input type="range" id="pn-res-top" min="0" max="80" step="4" value="0" /> <output id="pn-res-top-out">0 px</output></label>
+    <label>Right <input type="range" id="pn-res-right" min="0" max="80" step="4" value="0" /> <output id="pn-res-right-out">0 px</output></label>
+    <label>Bottom <input type="range" id="pn-res-bottom" min="0" max="80" step="4" value="0" /> <output id="pn-res-bottom-out">0 px</output></label>
+    <label>Left <input type="range" id="pn-res-left" min="0" max="80" step="4" value="0" /> <output id="pn-res-left-out">0 px</output></label>
+  </fieldset>
   <fieldset>
     <legend>Stage</legend>
     <label>Width <input type="range" id="pn-width" min="420" max="1400" step="10" value="1260" /> <output id="pn-width-out">1260 px</output></label>
     <label>Scroll the page <input type="range" id="pn-pan" min="-160" max="160" step="4" value="0" /> <output id="pn-pan-out">0 px</output></label>
-    <label class="pn-presets-only">Height <input type="range" id="pn-height" min="160" max="720" step="10" value="520" /> <output id="pn-height-out">520 px</output></label>
+    <label class="pn-height">Height <input type="range" id="pn-height" min="160" max="720" step="10" value="520" /> <output id="pn-height-out">520 px</output></label>
   </fieldset>
   <fieldset>
     <legend>Desk</legend>
@@ -44,15 +72,18 @@
   <h2>Differences from the ./dock constructions</h2>
   <h3>Edge docks (docks)</h3>
   <ul>
-    <li>No bottom dock: the bottom dock, and its folding to a header on a stage under 480 px tall, are not reproduced.</li>
     <li>Width: a dock is a fixed 246 px; a preset column takes its panels' natural width within their min and max, and can be resized.</li>
     <li>Gaps: ./dock leaves 6 px between sections and around the docks; a preset lays columns and sections edge to edge.</li>
     <li>Rails: ./dock always shows a 34 px rail of icons on both sides; a preset shows a rail (36 px, an option) only while a column is folded to it.</li>
     <li>Width give-way: ./dock folds a whole dock to its rail when the work area gets too narrow (the right one first, or the one not opened last); a preset first narrows columns toward their min, then folds columns by the give-way policy (oldest by use, kept last).</li>
     <li>Height give-way: ./dock folds the least recently used sections to 22 px headers; a preset folds sections by the give-way policy (kept last, never the last open one) to 28 px bars (an option), and only for panels with a declared height.</li>
     <li>Last section: ./dock gives it at least its natural height; a preset gives it the rest, never under its min (it may go under its natural height).</li>
-    <li>Not in the preset: the toolbar pill and the documents' tiles (the app wires and draws them).</li>
+    <li>Not in the preset: the toolbar itself and the documents' tiles (the app wires and draws them). The preset keeps the toolbar's room clear when the app asks (<code>reserve</code>, the Toolbar room sliders).</li>
     <li>Notes: <code>dock-folded</code> and <code>sections-folded</code> become <code>column-folded</code> and <code>section-folded</code>, one per item. Panel ids are strings, not <code>panel:&lt;n&gt;</code> numbers.</li>
+  </ul>
+  <h3>Edge docks, full-width bottom (docksFull)</h3>
+  <ul>
+    <li>All of the above; the bottom band spans the whole width and the columns stand on it.</li>
   </ul>
   <h3>Edge docks + tear-off (dockTear)</h3>
   <ul>
@@ -93,6 +124,7 @@
     <li>Scroll the page: Comments moves with it, the pinned Navigator stays put. Narrow the stage: floats stay in view (clamped), or not (Free).</li>
     <li>Fold a float with ▾: it shades to its title bar where it is; ▾ again brings it back. On the Options page, pick "Ride on the first open column" and fold a column: its bar sits on top of the side's first open column.</li>
     <li>From the keyboard: Tab to a title, Space picks it up, the arrows step through the places, Enter drops, Escape cancels.</li>
+    <li>On the Options page, switch a band on (top or bottom, reserved or overlay, between the columns or full width): a panel moves into it. Drag panels into the band and out to a side; drag its inner edge to resize it; lower the Height until it folds to a bar, and raise it again. The Toolbar room sliders keep room clear along the pages' edges.</li>
   </ol>
 </section>
 
