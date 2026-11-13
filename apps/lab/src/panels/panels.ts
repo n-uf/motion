@@ -925,12 +925,12 @@ for (const name of ["pn-order", "pn-by", "pn-floats", "pn-fold"]) {
  * Switch an edge's band on (a mode and a span) or off (null). Switched on and empty, the band takes the page's sample
  * panel for that edge, so there is something in it; switched off, its panels stay in the state, not shown (band-off).
  */
-export function setBand(edge: Edge, o: BandOption | null): void {
+export function setBand(edge: Edge, o: BandOption | null, fill = true): void {
   const next: Partial<Record<Edge, BandOption>> = { ...(bands ?? {}) };
   if (o) next[edge] = o;
   else delete next[edge];
   bands = next;
-  if (o && !state.bands?.[edge]?.panels.length) state = dockBand(state, BAND_SAMPLE[edge], edge, 0, defs);
+  if (o && fill && !state.bands?.[edge]?.panels.length) state = dockBand(state, BAND_SAMPLE[edge], edge, 0, defs);
   syncBandControls();
   relayout();
 }

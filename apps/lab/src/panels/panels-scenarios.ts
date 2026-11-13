@@ -6,7 +6,7 @@
  */
 import type { Rect } from "@n-uf/motion";
 import { checkMonotonic, checkNoOvershoot, type RectSample } from "@n-uf/motion/testing";
-import { dock, storePanels, toggleFold, type Clock, type GiveWay, type PanelsState } from "@n-uf/placement/panels";
+import { dock, dockBand, storePanels, toggleFold, type BandOption, type Clock, type GiveWay, type PanelsState } from "@n-uf/placement/panels";
 import { verdict, type Row } from "../shared/checks";
 import { nextFrame, type Point } from "../shared/geometry";
 import { passes, type LabRun, type ScenarioFilter } from "../shared/hooks";
@@ -602,12 +602,20 @@ function restingOverlaps(p: Page): string[] {
     const s = p.strip(c.side, c.index);
     if (s && s.isConnected && !c.folded) els.push([`strip ${c.side}:${c.index}`, s]);
   }
+  for (const k of ["top", "right", "bottom", "left"] as const) {
+    const r = p.reserveEl(k);
+    if (r) els.push([`reserve ${k}`, r]);
+  }
+  // An overlay band lies over the pages by design (and only over them).
+  const l = p.lay();
+  const overlay = (k: string): boolean => l.items.get(k)?.layer === 5;
   const rs = els.map(([k, e]) => [k, drawnRect(p, e)] as const);
   const out: string[] = [];
   for (let i = 0; i < rs.length; i++) {
     for (let j = i + 1; j < rs.length; j++) {
       const [a, ra] = rs[i]!;
       const [b, rb] = rs[j]!;
+      if ((overlay(a) && b === "pages") || (overlay(b) && a === "pages")) continue;
       const ox = Math.min(ra.x + ra.width, rb.x + rb.width) - Math.max(ra.x, rb.x);
       const oy = Math.min(ra.y + ra.height, rb.y + rb.height) - Math.max(ra.y, rb.y);
       if (ox > 1 && oy > 1) out.push(`${a} and ${b} overlap ${Math.round(ox)} × ${Math.round(oy)}`);
@@ -618,7 +626,7 @@ function restingOverlaps(p: Page): string[] {
 
 const presetNoOverlaps: Scenario = {
   name: "presets: each preset lays out with no overlaps, wide and narrow, tall and short",
-  modes: ["docks", "dockTear", "navigator"],
+  modes: ["docks", "docksFull", "dockTear", "navigator"],
   async run(p, mode) {
     p.setPreset(mode as "docks");
     await settled(p);
@@ -728,6 +736,249 @@ const presetTear: Scenario = {
   },
 };
 
+// --- bands and toolbar room (the Options page) ---------------------------------------------------------------------
+
+const BAND_MODES: Record<string, BandOption> = {
+  "reserved between": { mode: "reserved", span: "between" },
+  "reserved full": { mode: "reserved", span: "full" },
+  "overlay between": { mode: "overlay", span: "between" },
+  "overlay full": { mode: "overlay", span: "full" },
+};
+const ROOM = { top: 24, bottom: 20, left: 12, right: 12 };
+
+/** Each band panel is drawn where the layout puts it. */
+function bandDrawn(p: Page): string[] {
+  const out: string[] = [];
+  for (const b of Object.values(p.lay().bands)) for (const id of b!.panels) if (!near(drawnRect(p, itemEl(p, id)), p.lay().items.get(id)!.rect)) out.push(`${id} drawn ${fmt(drawnRect(p, itemEl(p, id)))}`);
+  return out;
+}
+
+const bandsNoOverlaps: Scenario = {
+  name: "options: bands: no overlaps in each mode and span, at many stage sizes, with toolbar room",
+  modes: Object.keys(BAND_MODES),
+  async run(p, mode) {
+    const o = BAND_MODES[mode]!;
+    p.setBand("top", o);
+    p.setBand("bottom", o);
+    p.setReserve(ROOM);
+    const motion = await sampled(p, () => p.setHeight(620));
+    const out: Row[] = [];
+    for (const [w, h] of [
+      [1260, 620],
+      [1000, 480],
+      [760, 360],
+      [1180, 300],
+      [640, 240],
+    ] as const) {
+      p.setWidth(w);
+      p.setHeight(h);
+      await settled(p);
+      const over = restingOverlaps(p);
+      const l = p.lay();
+      const outside = [...l.items].filter(([, x]) => !x.floating && !x.hidden && (x.rect.x < -0.5 || x.rect.y < -0.5 || x.rect.x + x.rect.width > w + 0.5 || x.rect.y + x.rect.height > h + 0.5)).map(([id]) => id);
+      out.push(row(`${w} × ${h}: no overlaps, everything inside the stage`, [...over.slice(0, 3), ...outside.map((id) => `${id} outside`)], `${Object.values(l.bands).map((b) => `${b!.edge} ${b!.folded ?? Math.round(b!.rect.height)}`).join(", ")}`));
+      out.push(row(`${w} × ${h}: the band panels are drawn where the layout puts them`, bandDrawn(p)));
+    }
+    return [row("both bands are on", Object.keys(p.lay().bands).length === 2 ? [] : [`bands ${Object.keys(p.lay().bands).join(", ")}`]), ...out, ...motion];
+  },
+};
+
+const bandFolds: Scenario = {
+  name: "options: bands: a short stage folds a band to a bar, a taller one brings it back",
+  modes: ["reserved between"],
+  async run(p) {
+    p.setBand("bottom", BAND_MODES["reserved between"]!);
+    await settled(p);
+    const open0 = p.lay().bands.bottom!;
+    const m1 = await sampled(p, () => p.setHeight(320));
+    const l1 = p.lay();
+    const bar = drawnRect(p, itemEl(p, "history"));
+    const m2 = await sampled(p, () => p.setHeight(520));
+    const l2 = p.lay();
+    return [
+      row("520 px: the band is open at its height", open0.folded === null && Math.abs(open0.rect.height - 150) < 1 ? [] : [`${open0.folded} ${fmt(open0.rect)}`]),
+      row("320 px: it folds to a 28 px bar, with band-folded", l1.bands.bottom!.folded === "auto" && Math.abs(bar.height - 28) < 1 && l1.notes.some((n) => n.code === "band-folded") ? [] : [`${l1.bands.bottom!.folded}; History ${fmt(bar)}`]),
+      row("the pages keep their min height", l1.pages.height >= 239.5 ? [] : [`${Math.round(l1.pages.height)} px`]),
+      row("520 px again: it is back, and folded was never written", l2.bands.bottom!.folded === null && p.state.folded.length === 0 && near(drawnRect(p, itemEl(p, "history")), l2.items.get("history")!.rect) ? [] : [`${l2.bands.bottom!.folded}, folded [${p.state.folded.join(", ")}]`]),
+      ...m1,
+      ...m2.map((r) => ({ ...r, name: `back: ${r.name}` })),
+    ];
+  },
+};
+
+const bandKept: Scenario = {
+  name: "options: bands: a kept band folds last",
+  modes: ["reserved between"],
+  async run(p) {
+    p.setBand("top", BAND_MODES["reserved between"]!);
+    p.setBand("bottom", BAND_MODES["reserved between"]!);
+    // History (bottom) is the newer: unkept, the top band would go first anyway; keep the top one instead.
+    p.setClock({ comments: { opened: 1, used: 1 }, history: { opened: 2, used: 2 } });
+    (itemEl(p, "comments").querySelector(".pn-keep") as HTMLButtonElement).click();
+    await settled(p);
+    const kept = p.state.kept.includes("comments");
+    const motion = await sampled(p, () => p.setHeight(380));
+    const one = p.lay();
+    await sampled(p, () => p.setHeight(270));
+    const two = p.lay();
+    const kf = two.notes.filter((n) => n.code === "kept-folded" && "edge" in n && n.edge === "top");
+    return [
+      row("the keep button keeps the top band's panel", kept ? [] : ["not kept"]),
+      row("380 px: the unkept bottom band folds, the kept top one stays open", one.bands.bottom!.folded === "auto" && one.bands.top!.folded === null ? [] : [`top ${one.bands.top!.folded}, bottom ${one.bands.bottom!.folded}`]),
+      row("270 px: the kept band folds last, with kept-folded on its edge", two.bands.top!.folded === "auto" && kf.length === 1 ? [] : [`top ${two.bands.top!.folded}, notes ${two.notes.map((n) => n.code).join(", ")}`]),
+      ...motion,
+    ];
+  },
+};
+
+const bandOverlay: Scenario = {
+  name: "options: bands: overlay keeps the pages' rect; reserved shortens it",
+  modes: ["overlay", "reserved"],
+  async run(p, mode) {
+    const before = drawnRect(p, itemEl(p, "pages"));
+    const motion = await sampled(p, () => p.setBand("bottom", { mode: mode as "overlay", span: "between" }));
+    const after = drawnRect(p, itemEl(p, "pages"));
+    const band = drawnRect(p, itemEl(p, "history"));
+    const l = p.lay();
+    const overlay = mode === "overlay";
+    return [
+      row(overlay ? "the pages keep their rect" : "the pages are shorter by the band's height", overlay ? (near(before, after) ? [] : [`${fmt(before)} → ${fmt(after)}`]) : Math.abs(after.height - (before.height - band.height)) < 1.5 ? [] : [`${fmt(before)} → ${fmt(after)}, band ${fmt(band)}`]),
+      row(overlay ? "the band lies over the pages' lower part, above them" : "the band lies under the pages", overlay ? (band.y > after.y && Math.abs(band.y + band.height - (after.y + after.height)) < 1.5 && Number(itemEl(p, "history").style.zIndex) > 1 ? [] : [fmt(band)]) : Math.abs(band.y - (after.y + after.height)) < 1.5 ? [] : [fmt(band)]),
+      row("its layer", l.items.get("history")!.layer === (overlay ? 5 : 0) ? [] : [String(l.items.get("history")!.layer)]),
+      ...motion,
+    ];
+  },
+};
+
+const bandFull: Scenario = {
+  name: "options: bands: full span shortens the columns; between runs between them",
+  modes: ["full", "between"],
+  async run(p, mode) {
+    const motion = await sampled(p, () => p.setBand("bottom", { mode: "reserved", span: mode as "full" }));
+    const band = drawnRect(p, itemEl(p, "history"));
+    const files = drawnRect(p, itemEl(p, "files"));
+    const inspector = drawnRect(p, itemEl(p, "inspector"));
+    const full = mode === "full";
+    return [
+      row(full ? "the band spans the stage's width" : "the band runs from the innermost left column to the innermost right one", full ? (Math.abs(band.x) < 1 && Math.abs(band.width - p.width) < 1 ? [] : [fmt(band)]) : Math.abs(band.x - drawnRect(p, itemEl(p, "notes")).x - drawnRect(p, itemEl(p, "notes")).width) < 1.5 ? [] : [fmt(band)]),
+      row(full ? "the columns stand on it" : "the columns keep the full height", full ? (Math.abs(files.y + files.height - band.y) < 1.5 && Math.abs(inspector.y + inspector.height - band.y) < 1.5 ? [] : [`Files ${fmt(files)}, band ${fmt(band)}`]) : Math.abs(files.height - p.height) < 1.5 ? [] : [`Files ${fmt(files)}`]),
+      ...motion,
+    ];
+  },
+};
+
+const reserveClear: Scenario = {
+  name: "options: toolbar room: the reserved rects never overlap anything",
+  modes: ["no bands", "overlay bands", "reserved full bands"],
+  async run(p, mode) {
+    if (mode !== "no bands") {
+      const o = mode === "overlay bands" ? BAND_MODES["overlay between"]! : BAND_MODES["reserved full"]!;
+      p.setBand("top", o);
+      p.setBand("bottom", o);
+    }
+    const motion = await sampled(p, () => p.setReserve({ top: 40, bottom: 32, left: 28, right: 28 }));
+    const l = p.lay();
+    const shown = Object.keys(l.reserved).filter((k) => p.reserveEl(k as "top")?.isConnected);
+    const out: string[] = [];
+    for (const k of shown) {
+      const r = drawnRect(p, p.reserveEl(k as "top")!);
+      for (const [id, it] of p.items) {
+        if (!it.m.showing || it.el.classList.contains("float")) continue;
+        const d = drawnRect(p, it.el);
+        const ox = Math.min(r.x + r.width, d.x + d.width) - Math.max(r.x, d.x);
+        const oy = Math.min(r.y + r.height, d.y + d.height) - Math.max(r.y, d.y);
+        if (ox > 1 && oy > 1) out.push(`${k} and ${id} overlap ${Math.round(ox)} × ${Math.round(oy)}`);
+      }
+    }
+    return [row("four placeholders are drawn", shown.length === 4 ? [] : [`${shown.join(", ")}`]), row("none overlaps a panel, a rail, a band or the pages", out.slice(0, 3)), ...motion];
+  },
+};
+
+const bandDrag: Scenario = {
+  name: "options: bands: drag a panel into a band and out to a side",
+  modes: ["snap"],
+  async run(p) {
+    p.setBand("bottom", BAND_MODES["reserved between"]!);
+    await settled(p);
+    const band = p.lay().bands.bottom!.rect;
+    await pressAt(p, headOf(p, "files"));
+    // The band's right end: after History.
+    await approach(p, { x: band.x + band.width - 30, y: band.y + band.height / 2 });
+    const shown = await shownSlot(p, "files");
+    await release(p);
+    await settled(p);
+    const d1 = p.lastDrop;
+    const in1 = p.where("files");
+    const landed = drawnRect(p, itemEl(p, "files"));
+    // And out to the left edge: a column again.
+    await pressAt(p, headOf(p, "files"));
+    await approach(p, { x: 26, y: 200 });
+    await shownSlot(p, "files");
+    await release(p);
+    await settled(p);
+    const w = p.where("files");
+    const back = drawnRect(p, itemEl(p, "files"));
+    return [
+      row("it landed in the band, on the slot the page showed", d1?.landed === "band:bottom:1" && d1.shownAtRelease === d1.landed && in1.kind === "band" ? [] : [`landed ${d1?.landed}, showed ${d1?.shownAtRelease}`]),
+      row("where the slot showed: its share of the band", shown.rect && near(landed, shown.rect) ? [] : [`showed ${fmt(shown.rect)}, landed ${fmt(landed)}`], fmt(landed)),
+      row("the band's panels share its width", Math.abs(landed.width - band.width / 2) < 1.5 ? [] : [`${Math.round(landed.width)} of ${Math.round(band.width)}`]),
+      row("dragged out to the left edge, it is the outermost column again", w.kind === "column" && w.side === "left" && w.index === 0 && Math.abs(back.x) < 1.5 ? [] : [`${JSON.stringify(w)} ${fmt(back)}`]),
+    ];
+  },
+};
+
+const bandFromFloat: Scenario = {
+  name: "options: bands: a float dropped on an empty edge starts a band there",
+  modes: ["top"],
+  async run(p) {
+    p.setBand("top", BAND_MODES["reserved between"]!, false);
+    await settled(p);
+    const pages = p.lay().pages;
+    const empty = !p.lay().bands.top;
+    await pressAt(p, headOf(p, "comments"));
+    await approach(p, { x: pages.x + pages.width / 2, y: pages.y + 20 });
+    const shown = await shownSlot(p, "comments");
+    await release(p);
+    await settled(p);
+    const d = p.lastDrop;
+    const w = p.where("comments");
+    const landed = drawnRect(p, itemEl(p, "comments"));
+    return [
+      row("the enabled top edge starts empty", empty ? [] : ["it has a band"]),
+      row("it landed on the empty edge's strip, as shown", d?.landed === "band:top" && d.shownAtRelease === d.landed ? [] : [`landed ${d?.landed}, showed ${d?.shownAtRelease}`]),
+      row("it is the band's only panel, no longer a float", w.kind === "band" && w.edge === "top" && !p.state.floats.some((f) => f.id === "comments") ? [] : [JSON.stringify(w)]),
+      row("where the slot showed", shown.rect && near(landed, shown.rect) ? [] : [`showed ${fmt(shown.rect)}, landed ${fmt(landed)}`], fmt(landed)),
+      row("the pages start under it", Math.abs(p.lay().pages.y - landed.height) < 1.5 ? [] : [fmt(p.lay().pages)]),
+    ];
+  },
+};
+
+const bandStore: Scenario = {
+  name: "options: bands: store then read round-trips the bands; bad band data is dropped",
+  modes: ["store"],
+  async run(p) {
+    p.setBand("top", BAND_MODES["overlay between"]!);
+    p.setBand("bottom", BAND_MODES["reserved full"]!);
+    p.setState(dockBand(p.state, "notes", "bottom", 0, p.defs));
+    await settled(p);
+    const s1 = p.state;
+    const text = p.storeNow();
+    p.setState(startState());
+    p.json.value = text;
+    const back = p.readNow();
+    await settled(p);
+    const same = canon(p.state) === canon(s1);
+    p.json.value = p.badData;
+    const bad = p.readNow();
+    await settled(p);
+    return [
+      row("the stored layout carries the bands", JSON.parse(text).bands?.bottom?.panels?.join(",") === "notes,history" ? [] : [text.slice(0, 120)]),
+      row("it reads back the same", back.ok && same ? [] : [`ok ${back.ok}, same ${same}`]),
+      row("bad band data is dropped and listed", bad.ok && bad.dropped.includes("bands.bottom") && bad.dropped.includes("bands.middle") ? [] : [bad.dropped.join(", ")]),
+    ];
+  },
+};
+
 const SCENARIOS: readonly Scenario[] = [
   giveWayCombos,
   free,
@@ -749,6 +1000,15 @@ const SCENARIOS: readonly Scenario[] = [
   presetNavigator,
   presetHeights,
   presetTear,
+  bandsNoOverlaps,
+  bandFolds,
+  bandKept,
+  bandOverlay,
+  bandFull,
+  reserveClear,
+  bandDrag,
+  bandFromFloat,
+  bandStore,
 ];
 
 // --- runAll --------------------------------------------------------------------------------------------------------
