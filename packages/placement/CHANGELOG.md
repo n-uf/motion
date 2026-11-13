@@ -5,6 +5,27 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.9
 
+- `@n-uf/placement/panels`, bands and reserved room (all opt-in; a state and options without them lay out as before,
+  and the store stays v1):
+  - Bands: a top and a bottom dock (`options.bands`, `{ top?, bottom? }`, each `{ mode: "reserved" | "overlay",
+    span: "between" | "full" }`). Its panels sit side by side and share its width (`kind` `"band"`, `edge`, `index`);
+    a stored height clamped to `PanelDef.band` (default `BAND_SIZE`, min 120, max 480, natural 200). It folds as a
+    whole, to one bar. `layout.bands` (`PlacedBand`). New: `Edge`, `EDGES`, `Place`, `Band`, `BandOption`,
+    `PanelsState.bands`, `PanelsStart.top` / `bottom`, `dockBand`, `resizeBand`, `bandSize`, `bandHeight`;
+    `open(state, id, { edge, height? })`; `Where` and `PanelPlace` gain a `band` kind; `PanelDef.sides` may name
+    edges.
+  - Height give-way for bands: `options.pagesMinHeight` (default 240); bands shrink, then fold to a bar, unkept
+    before kept, policy order, bottom first on a tie. Notes `band-shrunk`, `band-folded`, `kept-folded` with `edge`,
+    `pages-short`; `band-off` for a band on an edge the options don't enable.
+  - Reserved room: `options.reserve` (`{ top?, right?, bottom?, left? }`) keeps px clear along the pages' edges for an
+    app's toolbar; `layout.reserved` has the rects. `pagesMin` and `pagesMinHeight` count after it.
+  - Targets `band:<edge>:<i>` and `band:<edge>` (an empty enabled edge). The stored form carries `bands` (an optional
+    v1 field).
+  - Typing: `PanelKind`, `PanelPlace`, `Where` and `PanelsNote` gain members, so an exhaustive `switch` over them in a
+    consumer needs the new cases.
+- `@n-uf/placement/desk`: `docks` and `dockTear` get a bottom band (reserved, between the columns); a new preset
+  `docksFull` (the bottom band full width). `DeskHint.bottom` starts the band; else the last def whose `sides` names
+  `"bottom"`. `navigator` has no band.
 - `@n-uf/placement/panels`:
   - Tabs: `Column.show` (`"stack"`, the default, or `"tabs"`) and `Column.active`. A tabbed column draws a strip
     `options.tabs` tall (new chrome size, default 28; `PlacedColumn.strip`); its active panel takes the rest and the
