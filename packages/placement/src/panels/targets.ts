@@ -88,7 +88,8 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
     if (hit.width <= 0 || hit.height <= 0) return;
     if (input.allows && !input.allows(id, place)) return;
     // Its own place: a drop there changes nothing, so it is no target (the drag's home covers it).
-    if (place.kind !== "float" && samePlaces(make({ x: 0, y: 0 }, { x: 0, y: 0 }), state)) return;
+    // Widths compare as laid out: a stored width past the column's limits is the same place as the limit.
+    if (place.kind !== "float" && samePlaces(make({ x: 0, y: 0 }, { x: 0, y: 0 }), state, defs)) return;
     out.push({ id: place.kind === "float" ? "float" : place.kind === "rail" ? `rail:${place.side}` : `${place.kind}:${place.side}:${place.index}`, priority, hit, panel: id, place, order: placeRank(place), make, ...(free ? { free: true } : {}) });
   };
 

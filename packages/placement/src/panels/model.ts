@@ -279,13 +279,18 @@ export const toPage = (r: Rect, v: View): Rect => ({ ...r, x: (r.x - v.x) / v.sc
 /**
  * Pin a float to the view, or unpin it to the page. `view` is where the page is now (default: identity): the float
  * doesn't jump, its rect is converted between the two spaces. A float's size is never scaled.
+ *
+ * `shown` is where the float shows now, in view space (the layout's placed rect for it). When given, it is converted
+ * instead of the stored rect, so a float the clamp moved stays where it shows rather than jumping to its stored place.
  */
-export function pin(state: PanelsState, id: string, on: boolean, view: View = IDENTITY_VIEW): PanelsState {
+export function pin(state: PanelsState, id: string, on: boolean, view: View = IDENTITY_VIEW, shown?: Rect): PanelsState {
   return {
     ...state,
     floats: state.floats.map((f): FloatAt => {
       if (f.id !== id || !!f.pinned === on) return f;
-      return on ? { id, rect: toView(f.rect, view), pinned: true } : { id, rect: toPage(f.rect, view) };
+      // In view space: where it shows, else where it is stored.
+      const seen = shown ? { ...shown } : f.pinned ? { ...f.rect } : toView(f.rect, view);
+      return on ? { id, rect: seen, pinned: true } : { id, rect: toPage(seen, view) };
     }),
   };
 }
@@ -309,9 +314,22 @@ export function resizeFloat(state: PanelsState, id: string, rect: Rect): PanelsS
   return bump({ ...state, floats: state.floats.map((f) => (f.id === id ? { ...f, rect: { ...rect } } : f)) }, id, false);
 }
 
-/** Two states place the panels the same (columns, their panels and widths, floats and their rects; the clock aside). */
-export function samePlaces(a: PanelsState, b: PanelsState): boolean {
-  const cols = (s: PanelsState): string => SIDES.map((side) => s.sides[side].map((c) => `${c.panels.join(",")}@${Math.round(c.width)}`).join("|")).join("‖");
+/** A column's width as the layout takes it: its stored width clamped to its panels' limits (with `defs`). */
+export function columnWidth(defs: readonly PanelDef[] | undefined, col: Column): number {
+  if (!defs) return col.width;
+  const ds = col.panels.map((id) => defOf(defs, id));
+  const lo = Math.max(0, ...ds.map((d) => d?.width.min ?? 0));
+  const hi = Math.max(lo, Math.min(...ds.map((d) => d?.width.max ?? Infinity)));
+  return Math.min(Math.max(Number.isFinite(col.width) ? col.width : lo, lo), hi);
+}
+
+/**
+ * Two states place the panels the same (columns, their panels and widths, floats and their rects; the clock aside).
+ * With `defs`, widths compare as the layout takes them (clamped to the panels' limits), so a stored width past a
+ * column's max is the same place as that max.
+ */
+export function samePlaces(a: PanelsState, b: PanelsState, defs?: readonly PanelDef[]): boolean {
+  const cols = (s: PanelsState): string => SIDES.map((side) => s.sides[side].map((c) => `${c.panels.join(",")}@${Math.round(columnWidth(defs, c))}`).join("|")).join("‖");
   const fl = (s: PanelsState): string => s.floats.map((f) => `${f.id}@${Math.round(f.rect.x)},${Math.round(f.rect.y)},${Math.round(f.rect.width)},${Math.round(f.rect.height)}${f.pinned ? "p" : ""}`).join("|");
   const set = (l: readonly string[]): string => [...l].sort().join(",");
   return cols(a) === cols(b) && fl(a) === fl(b) && set(a.folded) === set(b.folded) && set(a.kept) === set(b.kept) && set(a.closed) === set(b.closed);
