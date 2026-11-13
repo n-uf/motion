@@ -203,9 +203,9 @@ export const PAGES: readonly PageDef[] = [
     group: "panels",
     nav: "Options",
     title: "Panels: options",
-    line: "Every give-way order (oldest or newest, by use or by opening) and both float rules, on the same desk.",
+    line: "Every give-way order and float rule, top and bottom bands in each mode and span, and room kept clear for a toolbar, on the same desk.",
     about:
-      "The same desk with the switches: give-way <b>oldest</b> or <b>newest</b> first, <b>by use</b> (opened or focused) or <b>by opening</b>, floats <b>clamped</b> to the view or <b>free</b>, and folded columns to the <b>rail</b> or <b>riding</b> on the side's first open column. The defaults are marked. The give-way scenarios set known ages and narrow the stage until one column must fold.",
+      "The same desk with the switches: give-way <b>oldest</b> or <b>newest</b> first, <b>by use</b> (opened or focused) or <b>by opening</b>, floats <b>clamped</b> to the view or <b>free</b>, and folded columns to the <b>rail</b> or <b>riding</b> on the side's first open column. A <b>top</b> and a <b>bottom band</b>: off, <b>reserved</b> (it shortens the pages) or <b>overlay</b> (over the pages), <b>between</b> the columns or <b>full width</b>; short of height a band shrinks, then folds to a bar, as the pages' min height says. The <b>Toolbar room</b> sliders keep px clear along the pages' edges. The defaults are marked. The give-way scenarios set known ages and narrow the stage until one column must fold.",
     ...panels,
     view: OPTIONS,
   },
@@ -214,9 +214,9 @@ export const PAGES: readonly PageDef[] = [
     group: "panels",
     nav: "Presets",
     title: "Panels: presets",
-    line: "Desk presets as data on @n-uf/placement/desk: edge docks, docks with tear-off, and a tabbed navigator.",
+    line: "Desk presets as data on @n-uf/placement/desk: edge docks with a bottom band (between the columns or full width), docks with tear-off, and a tabbed navigator.",
     about:
-      "<code>@n-uf/placement/desk</code>'s presets, each panels options and a start state on <code>./panels</code>. The same seven panels, here with natural section heights: lower the Height slider and the docks fold sections to bars, the one used longest ago first; raise it and they come back. The navigator's left column shows tabs: click a tab, or drag a panel into the column to add one. With tear-off, drag a panel over the pages and back. Below the desk, what differs from the matching <code>./dock</code> constructions.",
+      "<code>@n-uf/placement/desk</code>'s presets, each panels options and a start state on <code>./panels</code>. The same seven panels, here with natural section heights: lower the Height slider and the docks fold sections to bars, the one used longest ago first, and the bottom band (History) folds to a bar once the pages would go under their min height; raise it and they come back. The Toolbar room sliders keep room clear for a toolbar. The navigator's left column shows tabs: click a tab, or drag a panel into the column to add one. With tear-off, drag a panel over the pages and back. Below the desk, what differs from the matching <code>./dock</code> constructions.",
     ...panels,
     view: PRESETS,
   },

@@ -16,6 +16,7 @@ import {
   activate,
   createPanels,
   defOf,
+  dockBand,
   focus,
   homePlace,
   keep,
@@ -25,12 +26,15 @@ import {
   panelTargets,
   pin,
   readPanels,
+  resizeBand,
   resizeColumn,
   resizeFloat,
   storePanels,
   toggleFold,
   whereIs,
+  type BandOption,
   type Clock,
+  type Edge,
   type GiveWay,
   type PanelDef,
   type PanelDrop,
@@ -42,6 +46,7 @@ import {
   type PanelsNote,
   type PanelsOptions,
   type PanelsState,
+  type Reserve,
   type Side,
   type View,
 } from "@n-uf/placement/panels";
@@ -61,8 +66,8 @@ export const DEFS: readonly PanelDef[] = [
   { id: "outline", width: w(160, 200, 320) },
   { id: "notes", width: w(140, 160, 280) },
   { id: "inspector", width: w(170, 200, 320), sides: ["right"] },
-  { id: "history", width: w(150, 180, 300) },
-  { id: "comments", width: w(180, 220, 320), float: { min: { width: 200, height: 140 }, natural: { width: 240, height: 220 } } },
+  { id: "history", width: w(150, 180, 300), band: { min: 90, max: 320, natural: 150 } },
+  { id: "comments", width: w(180, 220, 320), band: { min: 90, max: 320, natural: 140 }, float: { min: { width: 200, height: 140 }, natural: { width: 240, height: 220 } } },
   { id: "navigator", width: w(160, 180, 280), float: { min: { width: 160, height: 120 }, natural: { width: 180, height: 140 } } },
 ];
 /** The page's words for the panels (the package carries none). */
@@ -98,8 +103,10 @@ export const PRESET_DEFS: readonly PanelDef[] = DEFS.map((d) => ({
   ...d,
   height: ({ files: hgt(90, 170), outline: hgt(90, 190), notes: hgt(100, 140), inspector: hgt(100, 180), history: hgt(90, 160), comments: hgt(90, 150), navigator: hgt(80, 120) } as Record<string, { min: number; natural: number }>)[d.id]!,
 }));
-const PRESET_HINT = { left: ["files", "outline", "notes"], right: ["inspector", "history", "comments", "navigator"] };
-export const PRESET_TITLES: Record<PresetId, string> = { docks: "Edge docks", dockTear: "Edge docks + tear-off", navigator: "Navigator + inspector" };
+const PRESET_HINT = { left: ["files", "outline", "notes"], right: ["inspector", "history", "comments", "navigator"], bottom: ["history"] };
+export const PRESET_TITLES: Record<PresetId, string> = { docks: "Edge docks", docksFull: "Edge docks, full-width bottom", dockTear: "Edge docks + tear-off", navigator: "Navigator + inspector" };
+/** The panel the Options page moves into an edge's band when the band is switched on and empty. */
+const BAND_SAMPLE: Record<Edge, string> = { top: "comments", bottom: "history" };
 
 // --- state ---------------------------------------------------------------------------------------------------------
 
@@ -113,8 +120,12 @@ let view: View = { x: 0, y: 0, scale: 1 };
 /** The preset the desk runs on (the Presets page), or none: the plain panels engine with the page's own start. */
 let preset: DeskPreset | null = null;
 let defs: readonly PanelDef[] = DEFS;
+/** The page's bands (the Options page), or null: the preset's (or none). */
+let bands: PanelsOptions["bands"] | null = null;
+let reserve: Reserve = {};
+let pagesMinHeight = DEFAULT_PANELS_OPTIONS.pagesMinHeight;
 
-const opts = (): Partial<PanelsOptions> => ({ giveWay, floats, fold, view });
+const opts = (): Partial<PanelsOptions> => ({ giveWay, floats, fold, view, reserve, pagesMinHeight, ...(bands ? { bands } : {}) });
 const stageSize = () => ({ width: W, height: H });
 export const lay = (s: PanelsState = state): PanelsLayout => (preset ? presetLayout(preset, defs, s, stageSize(), opts()) : layoutPanels(defs, s, stageSize(), opts()));
 /** A drag's or a key move's target input, with the preset's options and rules when there is one. */
@@ -253,7 +264,9 @@ function dress(l: PanelsLayout): void {
     it.el.classList.toggle("bar", p.kind === "bar");
     it.el.classList.toggle("rides", p.rides !== undefined);
     it.el.classList.toggle("kept", p.kept);
-    it.el.style.zIndex = p.floating ? String(5 + p.layer) : p.rides !== undefined ? "3" : "";
+    it.el.classList.toggle("banded", p.edge !== undefined);
+    // A float above everything; an overlay band (layer 5) over the pages; a riding bar on its host.
+    it.el.style.zIndex = p.floating ? String(5 + p.layer) : p.layer === 5 ? "4" : p.rides !== undefined ? "3" : "";
     it.el.querySelector(".pn-keep")!.setAttribute("aria-pressed", String(p.kept));
     it.el.querySelector(".pn-keep")!.textContent = p.kept ? "◆" : "◇";
     it.el.querySelector(".pn-pin")!.setAttribute("aria-pressed", String(p.pinned));
@@ -276,6 +289,53 @@ function dress(l: PanelsLayout): void {
   paper.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
   placeEdges(l);
   placeStrips(l);
+  placeBandEdges(l);
+  placeReserves(l);
+}
+
+const RESERVE_EDGES = ["top", "right", "bottom", "left"] as const;
+const reserves = new Map<string, HTMLElement>();
+/** The reserved room: a plain toolbar placeholder per edge (the app would draw its toolbar there). */
+function placeReserves(l: PanelsLayout): void {
+  for (const k of RESERVE_EDGES) {
+    const r = l.reserved[k];
+    let e = reserves.get(k);
+    if (!r) {
+      e?.remove();
+      reserves.delete(k);
+      continue;
+    }
+    if (!e) {
+      e = el("div", "pn-reserve", "<span>Toolbar</span>");
+      e.dataset.edge = k;
+      reserves.set(k, e);
+      stage.append(e);
+    }
+    Object.assign(e.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.width}px`, height: `${r.height}px` });
+  }
+}
+
+const bandEdges = new Map<Edge, HTMLElement>();
+/** Each open band's resize handle, on its inner edge. */
+function placeBandEdges(l: PanelsLayout): void {
+  for (const e of ["top", "bottom"] as const) {
+    const b = l.bands[e];
+    let h = bandEdges.get(e);
+    if (!b || b.folded) {
+      h?.remove();
+      bandEdges.delete(e);
+      continue;
+    }
+    if (!h) {
+      h = el("div", "pn-band-edge");
+      h.dataset.edge = e;
+      h.setAttribute("aria-label", "Resize the band");
+      bandEdges.set(e, h);
+      stage.append(h);
+    }
+    const y = e === "top" ? b.rect.y + b.rect.height : b.rect.y;
+    Object.assign(h.style, { left: `${b.rect.x}px`, top: `${y}px`, width: `${b.rect.width}px`, zIndex: b.mode === "overlay" ? "5" : "4" });
+  }
 }
 
 const strips = new Map<string, HTMLElement>();
@@ -336,7 +396,7 @@ function placeEdges(l: PanelsLayout): void {
       stage.append(e);
     }
     const x = c.side === "left" ? c.rect.x + c.rect.width : c.rect.x;
-    Object.assign(e.style, { left: `${x}px`, top: "0px", height: `${H}px` });
+    Object.assign(e.style, { left: `${x}px`, top: `${c.rect.y}px`, height: `${c.rect.height}px` });
   }
   for (const [k, e] of edges) {
     if (want.has(k)) continue;
@@ -540,7 +600,7 @@ function endKeys(commit: boolean): void {
 
 // --- resizing ------------------------------------------------------------------------------------------------------
 
-let resizing: { kind: "column" | "float"; key: string } | null = null;
+let resizing: { kind: "column" | "float" | "band"; key: string } | null = null;
 
 function resizeColumnBy(side: Side, index: number, startW: number, dx: number): void {
   const c = lay().columns.find((x) => x.side === side && x.index === index);
@@ -657,6 +717,29 @@ stage.addEventListener("pointerdown", (e) => {
         resizing = null;
         edge.classList.remove("on");
         say(`${c.panels.map(titleOf).join(" + ")} is ${Math.round(lay().columns.find((x) => x.side === side && x.index === index)?.rect.width ?? 0)} px wide (${c.min}–${c.max}).`);
+      },
+    });
+    return;
+  }
+  const bandEdge = t.closest<HTMLElement>(".pn-band-edge");
+  if (bandEdge) {
+    const edge = bandEdge.dataset.edge as Edge;
+    const b = lay().bands[edge]!;
+    const startH = b.rect.height;
+    resizing = { kind: "band", key: edge };
+    bandEdge.classList.add("on");
+    let from: Point | null = null;
+    track(e, {
+      lift: (s) => (from = s),
+      move: (p) => {
+        const dy = p.y - from!.y;
+        state = resizeBand(state, edge, Math.min(Math.max(edge === "top" ? startH + dy : startH - dy, b.min), b.max));
+        relayout(true);
+      },
+      up: () => {
+        resizing = null;
+        bandEdge.classList.remove("on");
+        say(`The ${edge} band is ${Math.round(lay().bands[edge]?.rect.height ?? 0)} px tall (${b.min}–${b.max}).${notesSay()}`);
       },
     });
     return;
@@ -790,6 +873,7 @@ export function setPreset(id: PresetId | null): void {
   state = preset ? preset.start(defs, PRESET_HINT) : startState();
   for (const r of radios("pn-preset")) r.checked = r.value === id;
   stage.dataset.preset = id ?? "";
+  syncBandControls();
   relayout(true);
   say(id ? `${PRESET_TITLES[id]}.${notesSay()}` : "");
 }
@@ -836,6 +920,76 @@ for (const name of ["pn-order", "pn-by", "pn-floats", "pn-fold"]) {
     });
   }
 }
+
+/**
+ * Switch an edge's band on (a mode and a span) or off (null). Switched on and empty, the band takes the page's sample
+ * panel for that edge, so there is something in it; switched off, its panels stay in the state, not shown (band-off).
+ */
+export function setBand(edge: Edge, o: BandOption | null): void {
+  const next: Partial<Record<Edge, BandOption>> = { ...(bands ?? {}) };
+  if (o) next[edge] = o;
+  else delete next[edge];
+  bands = next;
+  if (o && !state.bands?.[edge]?.panels.length) state = dockBand(state, BAND_SAMPLE[edge], edge, 0, defs);
+  syncBandControls();
+  relayout();
+}
+export function setReserve(r: Reserve): void {
+  reserve = { ...r };
+  syncBandControls();
+  relayout();
+}
+export function setPagesMinHeight(px: number): void {
+  pagesMinHeight = px;
+  syncBandControls();
+  relayout();
+}
+const bandOf = (edge: Edge): BandOption | undefined => (bands ?? preset?.options.bands ?? {})[edge];
+function syncBandControls(): void {
+  for (const edge of ["top", "bottom"] as const) {
+    const b = bandOf(edge);
+    for (const r of radios(`pn-band-${edge}`)) r.checked = r.value === (b?.mode ?? "off");
+    for (const r of radios(`pn-span-${edge}`)) {
+      r.checked = r.value === (b?.span ?? "between");
+      r.disabled = !b;
+    }
+  }
+  for (const k of RESERVE_EDGES) {
+    const i = document.getElementById(`pn-res-${k}`) as HTMLInputElement | null;
+    const o = document.getElementById(`pn-res-${k}-out`);
+    if (i) i.value = String(reserve[k] ?? 0);
+    if (o) o.textContent = `${reserve[k] ?? 0} px`;
+  }
+  const m = document.getElementById("pn-pmh") as HTMLInputElement | null;
+  const mo = document.getElementById("pn-pmh-out");
+  if (m) m.value = String(pagesMinHeight);
+  if (mo) mo.textContent = `${pagesMinHeight} px`;
+}
+for (const edge of ["top", "bottom"] as const) {
+  const read = (): BandOption | null => {
+    const mode = radios(`pn-band-${edge}`).find((r) => r.checked)?.value;
+    const span = (radios(`pn-span-${edge}`).find((r) => r.checked)?.value ?? "between") as BandOption["span"];
+    return mode === "reserved" || mode === "overlay" ? { mode, span } : null;
+  };
+  for (const r of [...radios(`pn-band-${edge}`), ...radios(`pn-span-${edge}`)]) {
+    r.addEventListener("change", () => {
+      if (!r.checked) return;
+      const o = read();
+      setBand(edge, o);
+      say(o ? `The ${edge} band: ${o.mode === "reserved" ? "reserved (it shortens the pages)" : "overlay (over the pages)"}, ${o.span === "full" ? "full width" : "between the columns"}.${notesSay()}` : `The ${edge} band is off.${notesSay()}`);
+    });
+  }
+}
+for (const k of RESERVE_EDGES) {
+  document.getElementById(`pn-res-${k}`)?.addEventListener("input", (e) => {
+    setReserve({ ...reserve, [k]: Number((e.target as HTMLInputElement).value) });
+    say(`Toolbar room: ${RESERVE_EDGES.map((x) => `${x} ${reserve[x] ?? 0}`).join(", ")} px.${notesSay()}`);
+  });
+}
+document.getElementById("pn-pmh")?.addEventListener("input", (e) => {
+  setPagesMinHeight(Number((e.target as HTMLInputElement).value));
+  say(`The pages keep at least ${pagesMinHeight} px of height.${notesSay()}`);
+});
 
 /** Set the logical clock (the scenarios' known ages). */
 export function setClock(clock: Record<string, Clock>): void {
@@ -884,6 +1038,7 @@ export const BAD_DATA = JSON.stringify({
   kept: ["comments"],
   closed: 7,
   clock: { files: { opened: "?", used: 2 } },
+  bands: { bottom: { panels: ["history"], height: "tall" }, middle: { panels: ["notes"], height: 100 } },
 });
 document.getElementById("pn-store")!.addEventListener("click", () => void storeNow());
 document.getElementById("pn-read")!.addEventListener("click", () => void readNow());
@@ -902,6 +1057,10 @@ export function reset(): void {
   floats = DEFAULT_PANELS_OPTIONS.floats;
   fold = DEFAULT_PANELS_OPTIONS.fold;
   view = { x: 0, y: 0, scale: 1 };
+  bands = null;
+  reserve = {};
+  pagesMinHeight = DEFAULT_PANELS_OPTIONS.pagesMinHeight;
+  syncBandControls();
   setOptions({});
   setPan(0, true);
   H = DEFAULT_H;
@@ -974,6 +1133,11 @@ export const page = {
   strip: (side: Side, index: number) => strips.get(`${side}:${index}`) ?? null,
   setHeight,
   setPreset,
+  setBand,
+  setReserve,
+  setPagesMinHeight,
+  bandEdge: (edge: Edge) => bandEdges.get(edge) ?? null,
+  reserveEl: (edge: (typeof RESERVE_EDGES)[number]) => reserves.get(edge) ?? null,
   get height() {
     return H;
   },

@@ -5,6 +5,14 @@
 .pn-controls output { font-family: var(--font-mono); font-size: 12px; min-width: 5em; display: inline-block; }
 body:not([data-page="panels/options"]) .pn-options { display: none; }
 body:not([data-page="panels/presets"]) .pn-presets, body:not([data-page="panels/presets"]) .pn-presets-only { display: none; }
+body:not([data-page="panels/presets"]):not([data-page="panels/options"]) .pn-height, body:not([data-page="panels/presets"]):not([data-page="panels/options"]) .pn-reserve-controls { display: none; }
+/* The reserved room: a plain toolbar placeholder (the app draws its toolbar there). */
+.pn-stage .pn-reserve { z-index: 3; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--pn-edge); border-radius: 6px; background: color-mix(in srgb, var(--pn-chrome) 70%, transparent); color: var(--pn-muted); font: 600 11px/1 var(--font-sans); overflow: hidden; pointer-events: none; }
+.pn-stage .pn-reserve[data-edge="left"] span, .pn-stage .pn-reserve[data-edge="right"] span { writing-mode: vertical-rl; }
+/* A band's resize handle, on its inner edge. */
+.pn-stage .pn-band-edge { height: 8px; margin-top: -4px; cursor: ns-resize; }
+.pn-band-edge:hover, .pn-band-edge.on { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.pn-stage.dragging .pn-band-edge { display: none; }
 /* A tabbed column's strip: equal tabs, the showing one lit; its fold button folds the column as a whole. */
 .pn-stage .pn-strip { z-index: 4; display: flex; align-items: stretch; background: var(--pn-chrome); border: 1px solid var(--pn-edge); border-radius: 6px 6px 0 0; overflow: hidden; }
 .pn-strip.shaded { border-radius: 6px; }
