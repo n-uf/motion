@@ -36,9 +36,10 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
   `keyboardStops`, one ordered list of places for the arrow keys and a "Move to" menu.
 - **`/panels`**: tool panels with string ids: full-height columns per side, each with its own width, shown as a
   stack of sections or as tabs; folding to a title bar or a rail; give-way by age when the pages run out of room (and,
-  opt-in, when a column runs out of height); resizable floats, some pinned to the view; their drop targets; and a
-  stored form.
-- **`/desk`**: desk presets (`docks`, `dockTear`, `navigator`) as data on `/panels`: options and a start state.
+  opt-in, when a column runs out of height); resizable floats, some pinned to the view; opt-in top and bottom bands;
+  room kept clear for a toolbar the app draws; their drop targets; and a stored form.
+- **`/desk`**: desk presets (`docks`, `docksFull`, `dockTear`, `navigator`) as data on `/panels`: options and a
+  start state.
 
 Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
