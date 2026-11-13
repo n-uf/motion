@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_OPTIONS, createDesk, liftOut } from "../src/dock";
 import { deskDrop, deskTargets, floatTarget, hostTargets, keyboardStops, paneZone, type PaneZone } from "../src/targets";
 import { arrangement, hostOf, layoutHost, readArrangement, storeArrangement, type Place } from "../src/toolbar";
+import { createPanels, homePlace, keep, layoutPanels, panelDrop, panelTargets, readPanels, storePanels, type PanelDef } from "../src/panels";
 
 describe("README examples", () => {
   it("a desk", () => {
@@ -61,6 +62,36 @@ describe("README examples", () => {
     const float = targets.find((t) => t.id === "float")!;
     const drop = deskDrop(input, float, { x: 600, y: 300 }, { x: 20, y: 10 });
     expect([drop.label, drop.slot.x, drop.slot.y]).toEqual(["Float here", 580, 290]);
+  });
+
+  it("panels", () => {
+    const defs: PanelDef[] = [
+      { id: "files", width: { min: 180, natural: 220, max: 360 } },
+      { id: "outline", width: { min: 160, natural: 200, max: 320 } },
+      { id: "notes", width: { min: 200, natural: 260, max: 420 } },
+    ];
+    const state = createPanels(defs, { left: [["files"], ["outline"]], right: [["notes"]] });
+    const narrow = layoutPanels(defs, state, { width: 780, height: 600 });
+    expect([narrow.notes.map((n) => n.code), narrow.items.get("files")!.kind]).toEqual([["column-shrunk", "column-folded"], "segment"]);
+    const kept = layoutPanels(defs, keep(state, "files", true), { width: 780, height: 600 });
+    expect([kept.items.get("files")!.kind, kept.items.get("outline")!.kind]).toEqual(["column", "segment"]);
+    const read = readPanels(JSON.parse(JSON.stringify(storePanels(state))), defs);
+    expect(read.ok).toBe(true);
+  });
+
+  it("panel targets and keyboard stops", () => {
+    const defs: PanelDef[] = [
+      { id: "files", width: { min: 180, natural: 220, max: 360 } },
+      { id: "outline", width: { min: 160, natural: 200, max: 320 }, floats: false },
+    ];
+    const state = createPanels(defs, { left: [["files"], ["outline"]] });
+    const input = { defs, state, id: "outline", stage: { width: 1200, height: 600 } };
+    const targets = panelTargets(input);
+    expect(targets.map((t) => t.id)).toEqual(["rail:left", "column:left:0", "into:left:0", "column:right:0", "rail:right"]);
+    const drop = panelDrop(input, targets[3]!, { x: 1190, y: 300 }, { x: 0, y: 0 });
+    expect(drop.slot).toEqual({ x: 1000, y: 0, width: 200, height: 600 });
+    const stops = keyboardStops(targets, { home: { place: homePlace(state, "outline")!, state } });
+    expect(stops.map((s) => (s.home ? "home" : s.id))).toEqual(["rail:left", "column:left:0", "into:left:0", "home", "column:right:0", "rail:right"]);
   });
 
   it("pane zones", () => {

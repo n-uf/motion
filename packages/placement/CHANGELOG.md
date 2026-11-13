@@ -3,6 +3,34 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## 26.11.7
+
+- New entry `@n-uf/placement/panels`: tool panels with string ids, as an app's side columns work. `./dock` is
+  unchanged.
+  - Model: `PanelDef` (width limits, float size limits, the sides it may dock on, whether it may float),
+    `PanelsState` (`sides` of full-height `Column`s from the outer edge inward, `floats`, `folded`, `kept`,
+    `closed`, a logical `clock` of opened and used), `createPanels(defs, start)`.
+  - `layoutPanels(defs, state, stage, options?)`: geometry and structure only. Each panel's rect, layer, `kind`
+    (`column`, `bar`, `segment`, `float`), folded, kept and pinned flags; the columns; the rails; the pages' rect;
+    notes as a `code` plus data (`column-shrunk`, `column-folded`, `kept-folded`, `pages-under-min`,
+    `float-resized`, `float-clamped`). Options: `giveWay` (`{ order: "oldest" | "newest", by: "used" | "opened" }`,
+    default oldest by use), `floats` (`"clamp"` or `"free"`), `floatVisible`, `pagesMin`, `view` (the page's offset
+    and scale), and the chrome sizes `bar`, `rail`, `segment`, `railInset`.
+  - Give-way shrinks columns toward their minimum, then folds whole columns to the rail, in policy order; columns
+    holding a kept panel go last, and fold only when the pages still don't fit. It never writes `folded`, so a wider
+    stage brings a column back.
+  - Floats clamp to the view at layout time (the state keeps the stored rect); a pinned float is in view space, an
+    unpinned one moves with the page.
+  - Changes: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock`, `float`, `pin`, `resizeColumn`, `resizeFloat`,
+    `liftPanel`.
+  - Targets: `panelTargets(input)` (`column:<side>:<i>`, `into:<side>:<i>`, `rail:<side>`, `float`) in the shape
+    `@n-uf/motion/drag` takes, each with a structured `place` and no words; a place the panel may not take and its
+    own place are no targets. `panelDrop(input, target, point, grab)` lays out a drop. `homePlace`, `panelStops`.
+  - `storePanels(state)` / `readPanels(data, defs?)`: a versioned stored form (`{ v: 1, … }`); reading never throws,
+    drops unknown or repeated ids and clamps to the defs.
+- `@n-uf/placement/targets`: `keyboardStops` also takes panel targets (with `{ home: { place, state }, floats? }`)
+  and gives panel stops in reading order.
+
 ## 26.11.6
 
 - `@n-uf/placement/targets`:

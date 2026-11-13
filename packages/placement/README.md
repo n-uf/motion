@@ -33,6 +33,9 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
   and "own place is home".
 - **`/targets`**: drop targets (`{ id, priority, hit, slot?, label?, free? }`) for the desk's constructions and
   toolbar hosts.
+- **`/panels`**: tool panels with string ids: full-height columns per side, each with its own width; folding to a
+  title bar or a rail; give-way by age when the pages run out of room; resizable floats, some pinned to the view;
+  their drop targets; and a stored form.
 
 Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
@@ -150,6 +153,88 @@ console.log(all.length === targets.length); // true
 const stops = keyboardStops(targets, { home: { place: hostOf(a, "share")!, arrangement: a } });
 console.log(stops.map((s) => (s.home ? "home" : s.id))); // [ 'g:top:start:0', 'g:top:start:1', 'g:top:start:2', 'g:top:center:0', 'home' ]
 ```
+
+## Panels
+
+`@n-uf/placement/panels` lays out tool panels the way an app's side columns work: each side holds full-height
+columns from the outer edge inward, each column one or more panels and its own width (clamped to its panels'
+`min` and `max`). A panel folded by hand is a title bar; a column whose panels are all folded becomes segments of
+its side's rail. Panels may float instead, in page space (they move with the page's offset and scale) or pinned to
+the view. The output is geometry and structure only: each panel's rect, layer, `kind` (`column`, `bar`, `segment`,
+`float`) and its folded, kept and pinned flags, the columns, the rails, the pages' rect and coded notes. Chrome sizes
+(`bar`, `rail`, `segment`) are options.
+
+```ts
+import { createPanels, keep, layoutPanels, readPanels, storePanels, type PanelDef } from "@n-uf/placement/panels";
+
+const defs: PanelDef[] = [
+  { id: "files", width: { min: 180, natural: 220, max: 360 } },
+  { id: "outline", width: { min: 160, natural: 200, max: 320 } },
+  { id: "notes", width: { min: 200, natural: 260, max: 420 } },
+];
+// Files was used first, so it is the oldest.
+const state = createPanels(defs, { left: [["files"], ["outline"]], right: [["notes"]] });
+const narrow = layoutPanels(defs, state, { width: 780, height: 600 });
+console.log(narrow.notes.map((n) => n.code), narrow.items.get("files")!.kind); // [ 'column-shrunk', 'column-folded' ] segment
+const kept = layoutPanels(defs, keep(state, "files", true), { width: 780, height: 600 });
+console.log(kept.items.get("files")!.kind, kept.items.get("outline")!.kind); // column segment
+const read = readPanels(JSON.parse(JSON.stringify(storePanels(state))), defs);
+console.log(read.ok); // true
+```
+
+**Give-way** (`options.giveWay`, default `{ order: "oldest", by: "used" }`): when the open columns, the rails and
+`pagesMin` (default 320) don't fit the stage width, columns shrink toward their `min`, then whole columns fold to the
+rail, in the policy's order, until the pages fit. A column's age is its newest panel's (`used` counts opening,
+focusing, moving and unfolding; `opened` only opening). Ties go to the outer column, then the left side. A column
+holding a kept panel (`keep(state, id, true)`) comes after every other one; when only kept columns are left and the
+pages still don't fit, they fold too. Give-way never writes `folded`, so widening the stage brings a column back.
+
+**Floats** (`options.floats`, default `"clamp"`): a float that fits the view stays wholly inside it; one that doesn't
+even at its minimum size keeps its title bar and `floatVisible` (default 48) px of its width in the view. The clamp
+runs at layout time and the state keeps the stored rect, so a larger view brings a float back where it was.
+`"free"` never moves a float.
+
+**Changes** are pure: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock(state, id, side, index, { into?, width? })`,
+`float`, `pin(state, id, on, view?)`, `resizeColumn`, `resizeFloat`.
+
+**Drop targets**: `panelTargets({ defs, state, id, stage, options?, allows? })` gives `column:<side>:<i>` (a new
+column as wide as the panel's own width), `into:<side>:<i>` (stack into a column), `rail:<side>` (dock folded) and
+`float` (free), in the shape `@n-uf/motion/drag`'s `createDragIntent` takes. Each carries a structured `place`, not
+words. A place the panel may not take (its def's `sides` and `floats`, or `allows`) and its own place are no targets.
+`panelDrop(input, target, point, grab)` lays out the drop: its `slot` is where the panel lands. `keyboardStops` from
+`@n-uf/placement/targets` puts panel targets in reading order, with `homePlace(state, id)` as `home`:
+
+```ts
+import { createPanels, homePlace, panelDrop, panelTargets, type PanelDef } from "@n-uf/placement/panels";
+import { keyboardStops } from "@n-uf/placement/targets";
+
+const defs: PanelDef[] = [
+  { id: "files", width: { min: 180, natural: 220, max: 360 } },
+  { id: "outline", width: { min: 160, natural: 200, max: 320 }, floats: false },
+];
+const state = createPanels(defs, { left: [["files"], ["outline"]] });
+const input = { defs, state, id: "outline", stage: { width: 1200, height: 600 } };
+const targets = panelTargets(input); // hand these to createDragIntent
+console.log(targets.map((t) => t.id)); // [ 'rail:left', 'column:left:0', 'into:left:0', 'column:right:0', 'rail:right' ]
+const drop = panelDrop(input, targets[3]!, { x: 1190, y: 300 }, { x: 0, y: 0 });
+console.log(drop.slot); // { x: 1000, y: 0, width: 200, height: 600 }
+const stops = keyboardStops(targets, { home: { place: homePlace(state, "outline")!, state } });
+console.log(stops.map((s) => (s.home ? "home" : s.id))); // [ 'rail:left', 'column:left:0', 'into:left:0', 'home', 'column:right:0', 'rail:right' ]
+```
+
+`storePanels(state)` gives `{ v: 1, sides, floats, folded, kept, closed, clock }`; `readPanels(data, defs?)` reads
+parsed data back and never throws. Anything but an object of version 1 is `{ ok: false, error }`; inside one, unknown
+or repeated ids and malformed entries are dropped and listed in `dropped`, and widths and float sizes are clamped to
+the defs. The note codes (`PanelsNoteCode`):
+
+| Code | Says | Also |
+|---|---|---|
+| `column-shrunk` | a column narrowed toward its minimum | `side`, `column`, `items`, `from`, `to` |
+| `column-folded` | a column folded to its side's rail | `side`, `column`, `items` |
+| `kept-folded` | a kept column folded: the pages needed the room | `side`, `column`, `items` |
+| `pages-under-min` | the pages are under `pagesMin` with every column folded | `width`, `min` |
+| `float-resized` | a float shrank to fit the view | `items` |
+| `float-clamped` | a float moved to stay in the view | `items` |
 
 ## Pane zones
 
