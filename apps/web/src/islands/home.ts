@@ -3,7 +3,7 @@
  * its first frame; this animates it. `startHero` starts one instance of the demo (components/HeroDemo.astro), with its own
  * windows, chrome, ↺ Reset and showcase.
  *
- * Dragging a window onto another swaps them, by the drag-intent rules: nothing shows while the pointer flies; once it
+ * Dragging a window onto another swaps them, by `@n-uf/motion/drag`'s `createDragIntent`: nothing shows while the pointer flies; once it
  * aims at another window the drop shows by the preview mode (Drop indicator: an outline, nothing moves; Open gap: the
  * other window makes room after 160 ms, the dragged one stays under the pointer; Snap to slot: it makes room and the
  * dragged window glides into the slot); the release lands on what was shown. Its own slot is home: a release there
@@ -17,17 +17,19 @@ import { getSpeed, loop, newSettle, reduced, virtualNow } from "./motion";
 import { registerShowcase, setDragging } from "./showcase";
 import { DROP_MODES, dropMode, onDropMode, previewPlan, type DropMode } from "./drop-mode";
 import { figureChrome } from "./figure-chrome";
-import { createIntent, type Intent } from "../demos/intent";
+import { createDragIntent, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
 import { DEFAULT_TOOL, LAYOUTS, RESERVE, WINDOWS } from "../demos/home";
 import type { Model } from "../demos/toolbar";
 import { xrayOf, type XR } from "./xray";
 
 interface Win { i: number; el: HTMLElement; frame: HTMLElement; body: HTMLElement; settle: Settle<Rect>; slot: number; target: Rect; hold: boolean }
+/** A window's slot as a drop target for `@n-uf/motion/drag`: one zone, one priority, the window it swaps with. */
+interface WinTarget extends DragTarget { win: Win }
 interface Drag {
   w: Win;
   dx: number;
   dy: number;
-  intent: Intent<Win>;
+  intent: DragIntent<WinTarget>;
   shown: Win | null;
   room: Win | null;
   snapped: boolean;
@@ -219,7 +221,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
   /** Start a drag of `w` grabbed at `p` (demo coordinates). */
   function lift(w: Win, p: Point, scripted: boolean): void {
     const d = w.settle.value;
-    drag = { w, dx: p.x - d.x, dy: p.y - d.y, intent: createIntent<Win>(), shown: null, room: null, snapped: false, returning: false, last: p, scripted, aim: "fly" };
+    drag = { w, dx: p.x - d.x, dy: p.y - d.y, intent: createDragIntent<WinTarget>({ home: slotRect(w.slot) }), shown: null, room: null, snapped: false, returning: false, last: p, scripted, aim: "fly" };
     trail = [];
     w.hold = true;
     w.settle.hold({ ...d });
@@ -235,8 +237,11 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     if (!d) return;
     d.last = p;
     const own = inside(homeRect(), p);
-    const raw = own ? null : wins.find((x) => x !== d.w && inside(slotRect(x.slot), p)) ?? null;
-    const { shown, room, aiming } = d.intent.update(p, t, raw);
+    // The other windows' slots, as they stand now; the dragged window's own slot is the intent's home.
+    const targets = wins.filter((x) => x !== d.w).map((x): WinTarget => ({ id: String(x.i), priority: 1, hit: slotRect(x.slot), win: x }));
+    const frame = d.intent.update(p, t, targets);
+    const { room, aiming } = frame;
+    const shown = frame.shown?.win ?? null;
     const plan = previewPlan(mode());
     d.aim = !aiming && !shown ? "fly" : room && plan.room ? "room" : "aim";
     // Step 2 while the intent shows a target or aims away from home (motion's part); 1 while flying or still at home.
