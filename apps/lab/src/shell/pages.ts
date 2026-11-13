@@ -8,11 +8,12 @@
  * by itself (./kit-page).
  */
 
-export type GroupId = "overview" | "motion" | "placement" | "kits" | "checks";
+export type GroupId = "overview" | "motion" | "placement" | "panels" | "kits" | "checks";
 export const GROUPS: readonly { id: GroupId; title: string }[] = [
   { id: "overview", title: "Overview" },
   { id: "motion", title: "Motion" },
   { id: "placement", title: "Placement" },
+  { id: "panels", title: "Panels" },
   { id: "kits", title: "Kit cases" },
   { id: "checks", title: "Checks" },
 ];
@@ -71,6 +72,16 @@ const kitsPanels = {
   reset: "#kp-reset",
   wide: true,
 };
+
+const panels = {
+  markup: raw(() => import("../pages/panels.html?raw")),
+  load: () => Promise.all([import("../panels/panels.css"), import("../panels/panels").then(() => import("../panels/panels-scenarios"))]),
+  module: "panels",
+  reset: "#pn-reset",
+  wide: true,
+};
+/** The Panels Options page runs the scenarios that switch an option; Defaults runs the rest. */
+const OPTIONS = "options: ";
 
 /** The tiling page's settle scenarios (moves the layout makes), the rest are its drags and layouts. */
 const SETTLE = new Set(["open", "close", "swap", "two changes 40 ms apart", "maximize, restore after 80 ms"]);
@@ -174,6 +185,28 @@ export const PAGES: readonly PageDef[] = [
     ...desk,
     view: TOOLBAR,
     first: "#toolbar-cases",
+  },
+  {
+    id: "panels/defaults",
+    group: "panels",
+    nav: "Defaults",
+    title: "Panels: defaults",
+    line: "Columns per side, folding to bars and rails, floats in the view, on @n-uf/placement/panels with its defaults.",
+    about:
+      "<code>@n-uf/placement/panels</code> with its defaults: give-way oldest by use, floats clamped to the view. Three columns on the left, two on the right, a float that moves with the page (Comments) and one pinned to the view (Navigator). Narrow the stage with the Width slider; drag a column's inner edge or a float's corner to resize; fold a panel with ▾, keep it open with ◇; drag a panel by its title to tear it off, dock it back, stack it or put it on a rail. Every drag runs on <code>@n-uf/motion/drag</code>'s intent and <code>@n-uf/motion/layout</code>'s held drag. From the keyboard: Tab to a title, Space, the arrows, Enter; Escape cancels.",
+    ...panels,
+    view: (n) => !n.startsWith(OPTIONS),
+  },
+  {
+    id: "panels/options",
+    group: "panels",
+    nav: "Options",
+    title: "Panels: options",
+    line: "Every give-way order (oldest or newest, by use or by opening) and both float rules, on the same desk.",
+    about:
+      "The same desk with the switches: give-way <b>oldest</b> or <b>newest</b> first, <b>by use</b> (opened or focused) or <b>by opening</b>, and floats <b>clamped</b> to the view or <b>free</b>. The defaults are marked. Each scenario sets known ages and narrows the stage until one column must fold.",
+    ...panels,
+    view: OPTIONS,
   },
   {
     id: "kits/panels",
