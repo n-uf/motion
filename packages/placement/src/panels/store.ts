@@ -8,14 +8,16 @@
  * Version 1 only gains optional fields. A field this reader doesn't know (a newer writer's, say) is no error either:
  * it is skipped and reported in `dropped` (`"<field>"` at the top, `"sides.<key>"`, `"column.<field>"`,
  * `"float.<field>"`; a clock entry for a panel that isn't placed as `"clock.<id>"`), so a consumer can tell that
- * something was left out.
+ * something was left out. A column's `show` ("tabs") and `active` are such optional fields: an unknown `show` is
+ * dropped as `"column.show"`, an `active` that isn't one of the column's panels as `"column.active:<id>"`.
  */
 import type { Rect } from "../geometry";
 import { SIDES, defOf, floatSize, type Clock, type Column, type FloatAt, type PanelDef, type PanelsState, type Side } from "./model";
 
 export interface StoredPanels {
   readonly v: 1;
-  readonly sides: Record<Side, { panels: string[]; width: number }[]>;
+  /** A column's `show` and `active` only when it is tabbed / has one (optional fields of v1). */
+  readonly sides: Record<Side, { panels: string[]; width: number; show?: "tabs"; active?: string }[]>;
   readonly floats: { id: string; rect: Rect; pinned: boolean }[];
   readonly folded: string[];
   readonly kept: string[];
@@ -26,7 +28,13 @@ export interface StoredPanels {
 export type PanelsRead = { readonly ok: true; readonly state: PanelsState; readonly dropped: readonly string[] } | { readonly ok: false; readonly error: string };
 
 export function storePanels(state: PanelsState): StoredPanels {
-  const sides = Object.fromEntries(SIDES.map((s) => [s, state.sides[s].map((c) => ({ panels: [...c.panels], width: c.width }))])) as StoredPanels["sides"];
+  const column = (c: Column): StoredPanels["sides"]["left"][number] => ({
+    panels: [...c.panels],
+    width: c.width,
+    ...(c.show === "tabs" ? { show: "tabs" as const } : {}),
+    ...(c.active !== undefined ? { active: c.active } : {}),
+  });
+  const sides = Object.fromEntries(SIDES.map((s) => [s, state.sides[s].map(column)])) as StoredPanels["sides"];
   return {
     v: 1,
     sides,
@@ -92,7 +100,7 @@ function read(data: unknown, defs?: readonly PanelDef[]): PanelsRead {
         drop(`a column on the ${side}`);
         continue;
       }
-      extra(c, ["panels", "width"], "column.");
+      extra(c, ["panels", "width", "show", "active"], "column.");
       const panels = (c.panels as unknown[]).map(take).filter((x): x is string => x !== null);
       if (panels.length === 0) continue;
       const ds = defs ? panels.map((id) => defOf(defs, id)!) : [];
@@ -100,7 +108,12 @@ function read(data: unknown, defs?: readonly PanelDef[]): PanelsRead {
       const hi = Math.max(lo, Math.min(...ds.map((d) => d.width.max)));
       const natural = ds.length ? Math.max(...ds.map((d) => d.width.natural)) : 0;
       const width = finite(c.width) ? c.width : natural;
-      sides[side].push({ panels, width: defs ? Math.min(Math.max(width, lo), hi) : Math.max(0, width) });
+      // `show`: "tabs" or "stack" (a stack is the default, so not kept); `active`: a panel of this column.
+      if (c.show !== undefined && c.show !== "tabs" && c.show !== "stack") drop("column.show");
+      if (c.active !== undefined && !(typeof c.active === "string" && panels.includes(c.active))) drop(`column.active:${typeof c.active === "string" ? c.active : typeof c.active}`);
+      const tabs = c.show === "tabs" ? { show: "tabs" as const } : {};
+      const active = typeof c.active === "string" && panels.includes(c.active) ? { active: c.active } : {};
+      sides[side].push({ panels, width: defs ? Math.min(Math.max(width, lo), hi) : Math.max(0, width), ...tabs, ...active });
     }
   }
   const floats: FloatAt[] = [];
