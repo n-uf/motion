@@ -6,7 +6,7 @@
  */
 import type { Rect } from "@n-uf/motion";
 import { checkMonotonic, checkNoOvershoot, type RectSample } from "@n-uf/motion/testing";
-import { dock, storePanels, toggleFold, type Clock, type GiveWay } from "@n-uf/placement/panels";
+import { dock, storePanels, toggleFold, type Clock, type GiveWay, type PanelsState } from "@n-uf/placement/panels";
 import { verdict, type Row } from "../shared/checks";
 import { nextFrame, type Point } from "../shared/geometry";
 import { passes, type LabRun, type ScenarioFilter } from "../shared/hooks";
@@ -251,7 +251,8 @@ const pinned: Scenario = {
     const nav0 = { ...nav.drawn };
     const com0 = { ...com.drawn };
     const moved: string[] = [];
-    for (let y = 0; y >= -120; y -= 8) {
+    // Down: Comments stays in the view all the way (up, the clamp would stop it at the top).
+    for (let y = 0; y <= 120; y += 8) {
       p.setPan(y);
       await nextFrame();
       if (!near(nav.drawn, nav0, 0.01)) moved.push(`at ${y} px Navigator at ${fmt(nav.drawn)}`);
@@ -260,7 +261,7 @@ const pinned: Scenario = {
     const com1 = drawnRect(p, itemEl(p, "comments"));
     return [
       row("the pinned float never moved, frame by frame", moved.slice(0, 3)),
-      row("the unpinned float moved up with the page", Math.abs(com1.y - (com0.y - 120)) < 1.5 && Math.abs(com1.x - com0.x) < 1.5 ? [] : [`${fmt(com0)} → ${fmt(com1)}`]),
+      row("the unpinned float moved down with the page", Math.abs(com1.y - (com0.y + 120)) < 1.5 && Math.abs(com1.x - com0.x) < 1.5 ? [] : [`${fmt(com0)} → ${fmt(com1)}`]),
     ];
   },
 };
@@ -396,6 +397,12 @@ const keyboard: Scenario = {
   },
 };
 
+/** A state's stored form with the clock's keys sorted (a read rebuilds the clock in placement order). */
+const canon = (s: PanelsState): string => {
+  const d = storePanels(s);
+  return JSON.stringify({ ...d, clock: Object.fromEntries(Object.entries(d.clock).sort(([a], [b]) => a.localeCompare(b))) });
+};
+
 const store: Scenario = {
   name: "store then read: round-trips; bad data is dropped, not thrown",
   modes: ["store"],
@@ -409,7 +416,7 @@ const store: Scenario = {
     p.json.value = text;
     const back = p.readNow();
     await settled(p);
-    const same = JSON.stringify(storePanels(p.state)) === JSON.stringify(storePanels(s1));
+    const same = canon(p.state) === canon(s1);
     p.json.value = p.badData;
     let threw = "";
     let bad: ReturnType<Page["readNow"]> | null = null;
