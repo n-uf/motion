@@ -8,12 +8,13 @@
  * by itself (./kit-page).
  */
 
-export type GroupId = "overview" | "motion" | "placement" | "panels" | "kits" | "checks";
+export type GroupId = "overview" | "motion" | "placement" | "panels" | "stack" | "kits" | "checks";
 export const GROUPS: readonly { id: GroupId; title: string }[] = [
   { id: "overview", title: "Overview" },
   { id: "motion", title: "Motion" },
   { id: "placement", title: "Placement" },
   { id: "panels", title: "Panels" },
+  { id: "stack", title: "Edge stacks" },
   { id: "kits", title: "Kit cases" },
   { id: "checks", title: "Checks" },
 ];
@@ -80,6 +81,22 @@ const panels = {
   reset: "#pn-reset",
   wide: true,
 };
+/** The Edge stacks pages: each has its own markup, module and scenarios. */
+const stackForms = {
+  markup: raw(() => import("../pages/stack-forms.html?raw")),
+  load: () => Promise.all([import("../stack/stack.css"), import("../stack/forms").then(() => import("../stack/forms-scenarios"))]),
+  module: "stack-forms",
+  reset: "#sf-reset",
+  wide: true,
+};
+const stackDrop = {
+  markup: raw(() => import("../pages/stack-drop.html?raw")),
+  load: () => Promise.all([import("../stack/stack.css"), import("../stack/drop").then(() => import("../stack/drop-scenarios"))]),
+  module: "stack-drop",
+  reset: "#sd-reset",
+  wide: true,
+};
+
 /** The Panels Options page runs the scenarios that switch an option, Presets those on a preset; Defaults runs the rest. */
 const OPTIONS = "options: ";
 const PRESETS = "presets: ";
@@ -219,6 +236,26 @@ export const PAGES: readonly PageDef[] = [
       "<code>@n-uf/placement/desk</code>'s presets, each panels options and a start state on <code>./panels</code>. The same seven panels, here with natural section heights: lower the Height slider and the docks fold sections to bars, the one used longest ago first, and the bottom band (History) folds to a bar once the pages would go under their min height; raise it and they come back. The Toolbar room sliders keep room clear for a toolbar. The navigator's left column shows tabs: click a tab, or drag a panel into the column to add one. With tear-off, drag a panel over the pages and back. Below the desk, what differs from the matching <code>./dock</code> constructions.",
     ...panels,
     view: PRESETS,
+  },
+  {
+    id: "stack/forms",
+    group: "stack",
+    nav: "Forms",
+    title: "Stack · forms",
+    line: "A column and a bar of panels and groups: each item takes the largest form that fits, the oldest gives way first, and a stack with nothing open is a rail.",
+    about:
+      "<code>@n-uf/placement/stack</code>'s <code>fitStack</code>: panels (Pages, Annotations, Findings) go open → header → rail icon → the » menu, groups (Views, Tools, Zoom) a row of words → stacked words → icons → the » menu, the item used longest ago first (kept ones last). Spare length goes to the open panels. A group never sets a column's width, so a group alone makes a rail of about 30 px. Length and width sliders and a toggle per item drive the same solver for the column and the bar; the status lists its coded notes. Cases C2, C6, C8, C9 and C10.",
+    ...stackForms,
+  },
+  {
+    id: "stack/drop",
+    group: "stack",
+    nav: "Drop",
+    title: "Stack · drop",
+    line: "Drag any panel or group into any gap of the column or the bar: the dashed preview is the exact rect it gets after the drop.",
+    about:
+      "<code>@n-uf/placement/stack</code>'s <code>stackTargets</code> on <code>@n-uf/motion/drag</code>'s intent: a target for every gap (before each item and after the last), each carrying the solve with the item inserted. The dashed rectangle is that solve's rect for the dragged item and a line marks where its leading edge lands; hold over a gap and the others move to the places the solve gives them. A release lands on the same rect. Cases C1, C3 and C4.",
+    ...stackDrop,
   },
   {
     id: "kits/panels",
