@@ -1,5 +1,5 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, dock, toolbar, targets, panels, desk) and its type definitions exist;
+// - every entry (the root, dock, toolbar, targets, panels, desk, stack) and its type definitions exist;
 // - the JavaScript imports only its own chunks (no dependencies at all, @n-uf/motion included);
 // - no file touches a host global, and no type mentions a DOM type;
 // - Node can import every entry, and a desk lays out, a host collapses, a drop lands and a panel column gives way from
@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const ENTRIES = ["index", "dock", "toolbar", "targets", "panels", "desk"];
+const ENTRIES = ["index", "dock", "toolbar", "targets", "panels", "desk", "stack"];
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|globalThis|matchMedia)\b/;
 const DOM_TYPES = /\b(Window|Document|Element|HTMLElement|Event|PointerEvent|MouseEvent|DOMRect)\b/;
 const problems = [];
@@ -80,6 +80,12 @@ if (problems.length === 0) {
     const nav = m.desk.PRESETS.navigator;
     const navLaid = m.desk.presetLayout(nav, defs, nav.start(defs), { width: 1200, height: 500 });
     if (!navLaid.columns[0]?.strip || navLaid.items.get("files")?.tab === undefined) problems.push("desk.js: the navigator's left column has no strip of tabs");
+    const form = (kind, natural, cross, extra = {}) => ({ kind, main: { min: natural, natural, ...extra }, cross: { natural: cross } });
+    const item = (id, used) => ({ id, used, forms: [form("open", 200, 240, { grows: true }), form("header", 28, 240), form("rail", 30, 30), form("menu", 0, 0)] });
+    const stackFit = m.stack.fitStack({ axis: "column", length: 300, cross: { min: 100, max: 400 }, items: [item("a", 1), item("b", 2)] });
+    if (stackFit.items[0]?.kind !== "header" || stackFit.items[1]?.kind !== "open") problems.push("stack.js: the panel used longest ago didn't fold first");
+    const stackTarget = m.stack.stackTargets({ axis: "column", length: 300, cross: { min: 100, max: 400 }, items: [item("a", 1)] }, item("b", 2));
+    if (stackTarget.length !== 2 || stackTarget[1]?.id !== "gap:1") problems.push("stack.js: a stack of one item doesn't have two gaps");
     if (m.desk.presetTargets(m.desk.PRESETS.docks, { defs, state: m.desk.PRESETS.docks.start(defs), id: "files", stage: { width: 1200, height: 500 } }).some((t) => t.id === "float")) problems.push("desk.js: docks offers a float target");
   } catch (error) {
     problems.push(`import: ${error instanceof Error ? error.message : String(error)}`);
