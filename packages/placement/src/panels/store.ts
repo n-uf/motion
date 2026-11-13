@@ -10,14 +10,20 @@
  * `"float.<field>"`; a clock entry for a panel that isn't placed as `"clock.<id>"`), so a consumer can tell that
  * something was left out. A column's `show` ("tabs") and `active` are such optional fields: an unknown `show` is
  * dropped as `"column.show"`, an `active` that isn't one of the column's panels as `"column.active:<id>"`.
+ *
+ * `bands` (26.11.10) is such an optional field too: `{ top?, bottom? }`, each `{ panels, height }`. An unknown edge is
+ * dropped as `"bands.<key>"`, a band that isn't an object with a panels list and a numeric height (or whose panels are
+ * all dropped) as `"bands.<edge>"`, an unknown field in one as `"band.<field>"`. Heights are clamped to the defs.
  */
 import type { Rect } from "../geometry";
-import { SIDES, defOf, floatSize, type Clock, type Column, type FloatAt, type PanelDef, type PanelsState, type Side } from "./model";
+import { EDGES, SIDES, bandSize, defOf, floatSize, type Band, type Clock, type Column, type Edge, type FloatAt, type PanelDef, type PanelsState, type Side } from "./model";
 
 export interface StoredPanels {
   readonly v: 1;
   /** A column's `show` and `active` only when it is tabbed / has one (optional fields of v1). */
   readonly sides: Record<Side, { panels: string[]; width: number; show?: "tabs"; active?: string }[]>;
+  /** The bands, only when the state has one (an optional field of v1). */
+  readonly bands?: Partial<Record<Edge, { panels: string[]; height: number }>>;
   readonly floats: { id: string; rect: Rect; pinned: boolean }[];
   readonly folded: string[];
   readonly kept: string[];
@@ -35,9 +41,15 @@ export function storePanels(state: PanelsState): StoredPanels {
     ...(c.active !== undefined ? { active: c.active } : {}),
   });
   const sides = Object.fromEntries(SIDES.map((s) => [s, state.sides[s].map(column)])) as StoredPanels["sides"];
+  const bands: NonNullable<StoredPanels["bands"]> = {};
+  for (const e of EDGES) {
+    const b = state.bands?.[e];
+    if (b) bands[e] = { panels: [...b.panels], height: b.height };
+  }
   return {
     v: 1,
     sides,
+    ...(EDGES.some((e) => bands[e]) ? { bands } : {}),
     floats: state.floats.map((f) => ({ id: f.id, rect: { x: f.rect.x, y: f.rect.y, width: f.rect.width, height: f.rect.height }, pinned: !!f.pinned })),
     folded: [...state.folded],
     kept: [...state.kept],
@@ -85,7 +97,7 @@ function read(data: unknown, defs?: readonly PanelDef[]): PanelsRead {
   const extra = (o: Record<string, unknown>, known: readonly string[], prefix: string): void => {
     for (const k of Object.keys(o)) if (!known.includes(k)) drop(`${prefix}${k}`);
   };
-  extra(data, ["v", "sides", "floats", "folded", "kept", "closed", "clock"], "");
+  extra(data, ["v", "sides", "bands", "floats", "folded", "kept", "closed", "clock"], "");
   extra(data.sides, SIDES, "sides.");
   const sides = { left: [] as Column[], right: [] as Column[] };
   for (const side of SIDES) {
@@ -114,6 +126,31 @@ function read(data: unknown, defs?: readonly PanelDef[]): PanelsRead {
       const tabs = c.show === "tabs" ? { show: "tabs" as const } : {};
       const active = typeof c.active === "string" && panels.includes(c.active) ? { active: c.active } : {};
       sides[side].push({ panels, width: defs ? Math.min(Math.max(width, lo), hi) : Math.max(0, width), ...tabs, ...active });
+    }
+  }
+  const bands: Partial<Record<Edge, Band>> = {};
+  if (data.bands !== undefined) {
+    if (!isObject(data.bands)) drop("bands");
+    else {
+      extra(data.bands, EDGES, "bands.");
+      for (const e of EDGES) {
+        const b = data.bands[e];
+        if (b === undefined) continue;
+        if (!isObject(b) || !Array.isArray(b.panels) || !finite(b.height)) {
+          drop(`bands.${e}`);
+          continue;
+        }
+        extra(b, ["panels", "height"], "band.");
+        const panels = (b.panels as unknown[]).map(take).filter((x): x is string => x !== null);
+        if (panels.length === 0) {
+          drop(`bands.${e}`);
+          continue;
+        }
+        const ds = defs ? panels.map((id) => bandSize(defOf(defs, id))) : [];
+        const lo = Math.max(0, ...ds.map((d) => d.min));
+        const hi = Math.max(lo, Math.min(...ds.map((d) => d.max)));
+        bands[e] = { panels, height: defs ? Math.min(Math.max(b.height, lo), hi) : Math.max(0, b.height) };
+      }
     }
   }
   const floats: FloatAt[] = [];
@@ -160,5 +197,6 @@ function read(data: unknown, defs?: readonly PanelDef[]): PanelsRead {
       clock[id] = isObject(c) && finite(c.opened) && finite(c.used) ? { opened: c.opened, used: c.used } : { opened: 0, used: 0 };
     }
   }
-  return { ok: true, state: { sides, floats, folded: placed("folded"), kept, closed: placed("closed"), clock }, dropped };
+  const state: PanelsState = { sides, floats, folded: placed("folded"), kept, closed: placed("closed"), clock };
+  return { ok: true, state: EDGES.some((e) => bands[e]) ? { ...state, bands } : state, dropped };
 }
