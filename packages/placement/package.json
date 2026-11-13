@@ -51,6 +51,10 @@
     "./desk": {
       "types": "./src/desk/index.ts",
       "default": "./src/desk/index.ts"
+    },
+    "./stack": {
+      "types": "./src/stack/index.ts",
+      "default": "./src/stack/index.ts"
     }
   },
   "publishConfig": {
@@ -81,6 +85,10 @@
       "./desk": {
         "types": "./dist/desk.d.ts",
         "default": "./dist/desk.js"
+      },
+      "./stack": {
+        "types": "./dist/stack.d.ts",
+        "default": "./dist/stack.js"
       },
       "./package.json": "./package.json"
     }
