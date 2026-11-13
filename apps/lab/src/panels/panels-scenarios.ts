@@ -589,7 +589,167 @@ const ride: Scenario = {
   },
 };
 
-const SCENARIOS: readonly Scenario[] = [giveWayCombos, free, ride, keptOutlives, clamp, pinned, clampScroll, dropShown, ownPlace, escape, tearOff, keyboard, resize, fold, foldFloats, store];
+// --- presets (@n-uf/placement/desk) --------------------------------------------------------------------------------
+
+/** What the page draws at rest that must not overlap: the shown docked panels, the strips, the rails and the pages. */
+function restingOverlaps(p: Page): string[] {
+  const els: [string, Element][] = [["pages", itemEl(p, "pages")]];
+  for (const [id, it] of p.items) {
+    if (id === "pages" || !it.m.showing || it.el.classList.contains("float")) continue;
+    els.push([id, it.el]);
+  }
+  for (const c of p.lay().columns) {
+    const s = p.strip(c.side, c.index);
+    if (s && s.isConnected && !c.folded) els.push([`strip ${c.side}:${c.index}`, s]);
+  }
+  const rs = els.map(([k, e]) => [k, drawnRect(p, e)] as const);
+  const out: string[] = [];
+  for (let i = 0; i < rs.length; i++) {
+    for (let j = i + 1; j < rs.length; j++) {
+      const [a, ra] = rs[i]!;
+      const [b, rb] = rs[j]!;
+      const ox = Math.min(ra.x + ra.width, rb.x + rb.width) - Math.max(ra.x, rb.x);
+      const oy = Math.min(ra.y + ra.height, rb.y + rb.height) - Math.max(ra.y, rb.y);
+      if (ox > 1 && oy > 1) out.push(`${a} and ${b} overlap ${Math.round(ox)} × ${Math.round(oy)}`);
+    }
+  }
+  return out;
+}
+
+const presetNoOverlaps: Scenario = {
+  name: "presets: each preset lays out with no overlaps, wide and narrow, tall and short",
+  modes: ["docks", "dockTear", "navigator"],
+  async run(p, mode) {
+    p.setPreset(mode as "docks");
+    await settled(p);
+    const wide = restingOverlaps(p);
+    const motion = await sampled(p, () => {
+      p.setWidth(900);
+      p.setHeight(320);
+    });
+    const narrow = restingOverlaps(p);
+    const pages = p.lay().pages.width;
+    return [
+      row("the preset is on", p.preset === mode ? [] : [`preset ${p.preset}`]),
+      row("no overlaps at 1260 × 520", wide.slice(0, 3)),
+      row("no overlaps at 900 × 320", narrow.slice(0, 3)),
+      row("the pages keep 320 px", pages >= 319.5 ? [] : [`${Math.round(pages)} px`]),
+      ...motion,
+    ];
+  },
+};
+
+const presetNavigator: Scenario = {
+  name: "presets: navigator: a tab shows its panel; a panel dragged into the column becomes a tab",
+  modes: ["navigator"],
+  async run(p) {
+    p.setPreset("navigator");
+    await settled(p);
+    const tab = p.strip("left", 0)!.querySelector<HTMLElement>(".pn-tab[data-id=outline]")!;
+    const tAt = centreOf(drawnRect(p, tab));
+    pointer(p, "pointerdown", tAt, tab);
+    pointer(p, "pointerup", tAt);
+    await settled(p);
+    const switched = p.items.get("outline")!.m.showing && !p.items.get("files")!.m.showing && p.state.sides.left[0]!.active === "outline";
+    // History (right column) into the left column: a new last tab, and the one showing.
+    const col = p.lay().columns.find((c) => c.side === "left")!;
+    await pressAt(p, headOf(p, "history"));
+    await approach(p, { x: col.rect.x + col.rect.width / 2, y: 300 });
+    const shown = await shownSlot(p, "history");
+    await release(p);
+    await settled(p);
+    const d = p.lastDrop;
+    const landed = drawnRect(p, itemEl(p, "history"));
+    const tabs = [...p.strip("left", 0)!.querySelectorAll<HTMLElement>(".pn-tab")].map((t) => t.dataset.id);
+    return [
+      row("a tap on a tab shows its panel and hides the other", switched ? [] : [`active ${p.state.sides.left[0]!.active}`]),
+      row("the drop showed into the column, and landed there", d && d.landed === "into:left:0" && d.shownAtRelease === d.landed ? [] : [`landed ${d?.landed}, showed ${d?.shownAtRelease}`]),
+      row("it landed where the slot showed", shown.rect && near(landed, shown.rect) ? [] : [`showed ${fmt(shown.rect)}, landed ${fmt(landed)}`]),
+      row("it is the last tab, and the one showing", tabs.join(",") === "files,outline,notes,history" && p.state.sides.left[0]!.active === "history" && !p.items.get("outline")!.m.showing ? [] : [`tabs ${tabs.join(", ")}`]),
+    ];
+  },
+};
+
+const presetHeights: Scenario = {
+  name: "presets: height give-way folds sections in policy order on a short stage, and unfolds them on regrow",
+  modes: ["docks"],
+  async run(p) {
+    p.setPreset("docks");
+    p.setClock({ files: { opened: 1, used: 1 }, outline: { opened: 2, used: 2 }, notes: { opened: 3, used: 3 } });
+    await settled(p);
+    const autos = (): string[] => [...p.lay().items].filter(([id, x]) => x.folded === "auto" && x.side === "left" && ["files", "outline", "notes"].includes(id)).map(([id]) => id);
+    const m1 = await sampled(p, () => p.setHeight(230));
+    const one = autos();
+    const bar = drawnRect(p, itemEl(p, "files"));
+    await sampled(p, () => p.setHeight(180));
+    const two = autos();
+    const notesOpen = p.lay().items.get("notes")!.folded === null;
+    const codes = p.lay().notes.filter((n) => n.code === "section-folded").map((n) => ("items" in n ? n.items[0] : ""));
+    const m3 = await sampled(p, () => p.setHeight(520));
+    const back = autos();
+    return [
+      row("230 px: Files (used longest ago) folds to a 28 px bar", one.join(",") === "files" && Math.abs(bar.height - 28) < 1 ? [] : [`folded ${one.join(", ")}; Files ${fmt(bar)}`]),
+      row("180 px: Outline next; Notes, the last, stays open", two.join(",") === "files,outline" && notesOpen ? [] : [`folded ${two.join(", ")}`]),
+      row("each fold has a section-folded note", codes.includes("files") && codes.includes("outline") ? [] : [`notes for ${codes.join(", ")}`]),
+      row("520 px: all open again, and folded was never written", back.length === 0 && p.state.folded.length === 0 ? [] : [`still folded ${back.join(", ")}`]),
+      ...m1,
+      ...m3.map((r) => ({ ...r, name: `regrow: ${r.name}` })),
+    ];
+  },
+};
+
+const presetTear: Scenario = {
+  name: "presets: dockTear: tear a panel off over the pages, and dock it back",
+  modes: ["dockTear"],
+  async run(p) {
+    p.setPreset("dockTear");
+    await settled(p);
+    const startFloats = p.state.floats.map((f) => f.id);
+    const pages = p.lay().pages;
+    await pressAt(p, headOf(p, "files"));
+    await approach(p, { x: pages.x + pages.width / 2, y: 420 });
+    const shown = await shownSlot(p, "files");
+    await release(p);
+    await settled(p);
+    const torn = p.where("files").kind === "float" && p.lastDrop?.landed === "float";
+    const floated = drawnRect(p, itemEl(p, "files"));
+    const col = p.lay().columns.find((c) => c.side === "left")!;
+    await pressAt(p, headOf(p, "files"));
+    await approach(p, { x: col.rect.x + col.rect.width / 2, y: 300 });
+    await shownSlot(p, "files");
+    await release(p);
+    await settled(p);
+    const w = p.where("files");
+    return [
+      row("the preset starts with one float", startFloats.length === 1 ? [] : [`floats ${startFloats.join(", ")}`]),
+      row("over the pages it tears off where the outline showed", torn && shown.rect && near(floated, shown.rect) ? [] : [`${p.lastDrop?.landed}; ${fmt(floated)} vs ${fmt(shown.rect)}`]),
+      row("dropped on the left column it docks there again", w.kind === "column" && w.side === "left" ? [] : [JSON.stringify(w)]),
+    ];
+  },
+};
+
+const SCENARIOS: readonly Scenario[] = [
+  giveWayCombos,
+  free,
+  ride,
+  keptOutlives,
+  clamp,
+  pinned,
+  clampScroll,
+  dropShown,
+  ownPlace,
+  escape,
+  tearOff,
+  keyboard,
+  resize,
+  fold,
+  foldFloats,
+  store,
+  presetNoOverlaps,
+  presetNavigator,
+  presetHeights,
+  presetTear,
+];
 
 // --- runAll --------------------------------------------------------------------------------------------------------
 
