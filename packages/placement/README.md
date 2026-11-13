@@ -22,17 +22,18 @@ Its sibling [`@n-uf/motion`](https://www.npmjs.com/package/@n-uf/motion) owns ho
 without importing each other: a target list from `@n-uf/placement/targets` is exactly what
 `@n-uf/motion/drag`'s drag intent takes, and a rect from any layout here is what `@n-uf/motion/layout` glides to.
 
-- **`@n-uf/placement`**: the shapes (`Rect`, `Size`, `Point`) and a popup positioner (anchor, gravity, offset,
-  then flip, slide, resize, as Wayland's xdg-positioner).
+- **`@n-uf/placement`**: the shapes (`Rect`, `Size`, `Point`) and a popup positioner, as Wayland's xdg-positioner: an anchor
+  point, gravity and offset, then flip, slide and resize, each only when the rule allows it.
 - **`/dock`**: a desk of documents and tool panels. Side docks and a bottom dock (between the side docks or across
   the full width), rails, natural-height sections whose last one takes the rest, fold and unfold, the give-way
   rules (sections fold least recently used first, docks fold to their rails), floating palettes with corner stacks,
   tear-off and dock-back; and nine constructions built from these parts, as presets (`createDesk`).
 - **`/toolbar`**: toolbar groups in five hosts (title, top, bottom, left, right) and three zones (start, centre,
-  end), floating groups, insertion points (before all, between, after all, an empty zone), trailing-first overflow,
-  and "own place is home".
-- **`/targets`**: drop targets (`{ id, priority, hit, slot?, label?, free? }`) for the desk's constructions and
-  toolbar hosts.
+  end), floating groups, insertion points (before all, between, after all, an empty zone), collapse when a host
+  runs out of room (lowest keep first, trailing groups first among equal keeps), and "own place is home".
+- **`/targets`**: drop targets (`{ id, priority, hit, slot?, label?, free? }`) for the desk's constructions,
+  toolbar hosts (each with its `slot`, and `allows` to leave out places a group may not take) and pane zones; and
+  `keyboardStops`, one ordered list of places for the arrow keys and a "Move to" menu.
 - **`/panels`**: tool panels with string ids: full-height columns per side, each with its own width; folding to a
   title bar or a rail; give-way by age when the pages run out of room; resizable floats, some pinned to the view;
   their drop targets; and a stored form.
