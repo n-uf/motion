@@ -7,6 +7,9 @@
  * - `into:<side>:<i>` (2): a column's area: the panel stacks at its bottom.
  * - `rail:<side>` (1): the side's rail, or its outer edge: the panel docks folded.
  * - `float` (3, free): anywhere; it floats where it is let go, kept in the view as the float option says.
+ * - `band:<edge>:<i>` (2), for each edge with a band (`options.bands`): the slots between a band's panels and at both
+ *   ends (the band's area split at its panels' middles). `band:<edge>` (2): an empty enabled edge, a strip `2 × bar`
+ *   tall along it inside the pages' area.
  *
  * A place the panel may not take (its def's `sides` and `floats`, and `allows`) is no target, and neither is its own
  * place (a drop there changes nothing). Targets carry a structured `place`, never words: the consumer names them.
@@ -14,13 +17,14 @@
 import { rect, type Point, type Rect, type Size } from "../geometry";
 import type { Target } from "../targets/target";
 import { layoutPanels, type PanelsLayout } from "./layout";
-import { DEFAULT_PANELS_OPTIONS, SIDES, defOf, dock, float, floatSize, liftPanel, ownWidth, samePlaces, toPage, whereIs, type PanelDef, type PanelsOptions, type PanelsState, type Side } from "./model";
+import { DEFAULT_PANELS_OPTIONS, EDGES, SIDES, defOf, dock, dockBand, float, floatSize, liftPanel, ownWidth, samePlaces, toPage, whereIs, type Edge, type PanelDef, type PanelsOptions, type PanelsState, type Side } from "./model";
 
-/** Where a drop puts a panel. `index` is a column index in the state with the panel lifted out. */
+/** Where a drop puts a panel. `index` is a column (or band panel) index in the state with the panel lifted out. */
 export type PanelPlace =
   | { readonly kind: "column"; readonly side: Side; readonly index: number }
   | { readonly kind: "into"; readonly side: Side; readonly index: number }
   | { readonly kind: "rail"; readonly side: Side }
+  | { readonly kind: "band"; readonly edge: Edge; readonly index: number }
   | { readonly kind: "float" };
 
 export interface PanelTarget extends Target {
@@ -48,11 +52,16 @@ export interface PanelTargetInput {
 export const COLUMN_REACH = 22;
 export const RAIL_EDGE = 10;
 
-/** A place's rank in reading order: the left side outer to inner, the right side inner to outer, floating last. */
+/**
+ * A place's rank in reading order: the left side outer to inner, the right side inner to outer, then the top band and
+ * the bottom band left to right, floating last.
+ */
 export function placeRank(place: PanelPlace): number {
   switch (place.kind) {
     case "float":
       return 3000;
+    case "band":
+      return (place.edge === "top" ? 2000 : 2500) + Math.min(place.index, 499);
     case "rail":
       return place.side === "left" ? 0 : 1999;
     case "column":
@@ -67,6 +76,7 @@ export function homePlace(state: PanelsState, id: string): PanelPlace | null {
   const w = whereIs(state, id);
   if (w.kind === "float") return { kind: "float" };
   if (w.kind === "none") return null;
+  if (w.kind === "band") return { kind: "band", edge: w.edge, index: w.index };
   return state.sides[w.side][w.index]!.panels.length === 1 ? { kind: "column", side: w.side, index: w.index } : { kind: "into", side: w.side, index: w.index };
 }
 
@@ -84,14 +94,32 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
   const H = stage.height;
   const R = COLUMN_REACH;
   const out: PanelTarget[] = [];
+  const idOf = (place: PanelPlace): string => {
+    switch (place.kind) {
+      case "float":
+        return "float";
+      case "rail":
+        return `rail:${place.side}`;
+      case "band":
+        return s0.bands?.[place.edge] ? `band:${place.edge}:${place.index}` : `band:${place.edge}`;
+      default:
+        return `${place.kind}:${place.side}:${place.index}`;
+    }
+  };
   const add = (place: PanelPlace, priority: 1 | 2 | 3, hit: Rect, make: PanelTarget["make"], free = false): void => {
     if (hit.width <= 0 || hit.height <= 0) return;
     if (input.allows && !input.allows(id, place)) return;
     // Its own place: a drop there changes nothing, so it is no target (the drag's home covers it).
     // Widths compare as laid out: a stored width past the column's limits is the same place as the limit.
     if (place.kind !== "float" && samePlaces(make({ x: 0, y: 0 }, { x: 0, y: 0 }), state, defs)) return;
-    out.push({ id: place.kind === "float" ? "float" : place.kind === "rail" ? `rail:${place.side}` : `${place.kind}:${place.side}:${place.index}`, priority, hit, panel: id, place, order: placeRank(place), make, ...(free ? { free: true } : {}) });
+    out.push({ id: idOf(place), priority, hit, panel: id, place, order: placeRank(place), make, ...(free ? { free: true } : {}) });
   };
+
+  // The columns' height: what the full-span bands leave (the whole stage without them).
+  const fullTop = l0.bands.top?.span === "full" ? l0.bands.top.rect : null;
+  const fullBot = l0.bands.bottom?.span === "full" ? l0.bands.bottom.rect : null;
+  const top = fullTop ? fullTop.y + fullTop.height : 0;
+  const CH = Math.max(0, (fullBot ? fullBot.y : H) - top);
 
   for (const side of SIDES) {
     if (def?.sides && !def.sides.includes(side)) continue;
@@ -99,7 +127,7 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
     const rail = l0.rails[side];
     const edge = rail ? rail.rect.width : RAIL_EDGE;
     // The rail (or the bare edge): dock folded, as the outermost column.
-    const railHit = rail ? rail.rect : left ? rect(0, 0, RAIL_EDGE, H) : rect(W - RAIL_EDGE, 0, RAIL_EDGE, H);
+    const railHit = rail ? rail.rect : left ? rect(0, top, RAIL_EDGE, CH) : rect(W - RAIL_EDGE, top, RAIL_EDGE, CH);
     add({ kind: "rail", side }, 1, railHit, () => {
       const s = dock(state, id, side, 0, { width });
       return { ...s, folded: [...s.folded.filter((x) => x !== id), id] };
@@ -111,7 +139,7 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
     const band = (x: number, outer: boolean, i: number): void => {
       // The outermost line reaches inward only: outward is the rail's.
       const [a, b] = outer ? (left ? cut(x, x + 2 * R, lo, hi) : cut(x - 2 * R, x, lo, hi)) : cut(x - R, x + R, lo, hi);
-      add({ kind: "column", side, index: i }, 2, rect(a, 0, b - a, H), () => dock(state, id, side, i, { width }));
+      add({ kind: "column", side, index: i }, 2, rect(a, top, b - a, CH), () => dock(state, id, side, i, { width }));
     };
     if (open.length === 0) band(left ? l0.pages.x : l0.pages.x + l0.pages.width, true, s0.sides[side].length);
     open.forEach((c, k) => {
@@ -120,6 +148,29 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
     });
     const last = open.at(-1);
     if (last) band(left ? last.rect.x + last.rect.width : last.rect.x, false, last.index + 1);
+  }
+
+  // The bands: a slot between each two panels and at both ends, the band's area split at its panels' middles; an
+  // empty enabled edge, a strip along it inside the pages.
+  for (const e of EDGES) {
+    if (!opt.bands[e] || (def?.sides && !def.sides.includes(e))) continue;
+    const pb = l0.bands[e];
+    const list = s0.bands?.[e]?.panels ?? [];
+    const make = (i: number) => () => dockBand(state, id, e, i, defs);
+    if (!pb) {
+      const p = l0.pages;
+      const h = Math.min(2 * opt.bar, p.height);
+      add({ kind: "band", edge: e, index: list.length }, 2, rect(p.x, e === "top" ? p.y : p.y + p.height - h, p.width, h), make(list.length));
+      continue;
+    }
+    const m = pb.panels.length;
+    const share = pb.rect.width / m;
+    for (let k = 0; k <= m; k++) {
+      const i = k < m ? list.indexOf(pb.panels[k]!) : list.length;
+      const a = pb.rect.x + Math.max(0, k - 0.5) * share;
+      const b = pb.rect.x + Math.min(m, k + 0.5) * share;
+      add({ kind: "band", edge: e, index: i }, 2, rect(a, pb.rect.y, b - a, pb.rect.height), make(i));
+    }
   }
 
   if (def?.floats !== false) {

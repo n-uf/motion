@@ -30,21 +30,37 @@
  *   active panel folded it shows only the strip (the active panel is a "bar" there); with every panel folded it goes
  *   to the rail (or rides) as a stack column does.
  * - Height give-way, opt-in by `PanelDef.height`: see `sectionHeights` in the layout (note `section-folded`).
+ *
+ * And (26.11.10), all opt-in by `options.bands` and `options.reserve`:
+ * - Bands: a full-span band takes its height from the stage's top or bottom first, across the whole width; the
+ *   columns and rails lie in what is left. A between-span band runs between the innermost open column (or rail) on
+ *   each side. A "reserved" band shortens the pages; an "overlay" band lies over the pages (layer 5) and doesn't.
+ *   Its panels share its width equally, left to right ("band" rects); folded (by hand, or by give-way) it is one bar,
+ *   `options.bar` tall, and each panel a "bar" rect side by side.
+ * - Height give-way: when the pages would be shorter than `pagesMinHeight` (counted after the top and bottom
+ *   reserves, and with overlay bands measured against it too), bands shrink toward their min, then fold to a bar,
+ *   unkept before kept, in the policy's order, bottom before top on a tie (`band-shrunk`, `band-folded`,
+ *   `kept-folded` with `edge`). Give-way never writes `folded`. Still short: `pages-short`.
+ * - Reserve: room kept clear along the pages' edges (`reserved`), inside the pages' area; the pages are what's left.
+ *   An overlay band lies inside the top or bottom reserve, never over it; the left and right reserves lie between
+ *   the overlay bands.
+ * - A band in the state on an edge the options don't enable: its panels are left out (`band-off`).
  */
 import { rect, type Rect, type Size } from "../geometry";
-import { DEFAULT_PANELS_OPTIONS, SIDES, defOf, floatSize, toView, type PanelDef, type PanelsOptions, type PanelsState, type Side } from "./model";
+import { DEFAULT_PANELS_OPTIONS, EDGES, SIDES, bandSize, defOf, floatSize, toView, type Edge, type PanelDef, type PanelsOptions, type PanelsState, type Side } from "./model";
 
 /**
- * Where a panel is, structurally: an open part of a column, a folded title bar (in a column, riding on one, or a
- * folded float), a segment of a rail (the panel itself isn't laid out), or a float.
+ * Where a panel is, structurally: an open part of a column, an open part of a band, a folded title bar (in a column,
+ * riding on one, in a folded band, or a folded float), a segment of a rail (the panel itself isn't laid out), or a
+ * float.
  */
-export type PanelKind = "column" | "bar" | "segment" | "float";
+export type PanelKind = "column" | "band" | "bar" | "segment" | "float";
 
 export interface PlacedPanel {
   /** Stage px; for a segment, the segment's rect in its rail. */
   readonly rect: Rect;
   readonly kind: PanelKind;
-  /** Columns and rails 0, floats 10 and up (a later float on top). */
+  /** Columns, rails and reserved bands 0, overlay bands 5, floats 10 and up (a later float on top). */
   readonly layer: number;
   /** Not drawn as a panel: in a rail (only its segment shows), or a tab that isn't showing (only its `tab`). */
   readonly hidden: boolean;
@@ -65,7 +81,34 @@ export interface PlacedPanel {
   readonly tab?: Rect;
   /** A float the clamp moved or resized. */
   readonly clamped?: boolean;
+  /** In a band: its edge and its index in the state's band (left to right). */
+  readonly edge?: Edge;
+  readonly index?: number;
 }
+
+/** A band as laid out. */
+export interface PlacedBand {
+  readonly edge: Edge;
+  /** The band's rect (a bar when folded). */
+  readonly rect: Rect;
+  /** Its stored height clamped to its panels' limits, and those limits. */
+  readonly height: number;
+  readonly min: number;
+  readonly max: number;
+  /** null: open; "hand": its panels folded by hand; "auto": folded by give-way. */
+  readonly folded: null | "hand" | "auto";
+  /** Shrunk by give-way below its height. */
+  readonly shrunk: boolean;
+  /** It holds a kept panel. */
+  readonly kept: boolean;
+  readonly mode: "reserved" | "overlay";
+  readonly span: "between" | "full";
+  /** The shown panels, left to right. */
+  readonly panels: readonly string[];
+}
+
+/** A reserve's edge. */
+export type ReserveEdge = "top" | "right" | "bottom" | "left";
 
 export interface PlacedColumn {
   readonly side: Side;
@@ -100,14 +143,28 @@ export interface PlacedRail {
   readonly segments: readonly { readonly id: string; readonly rect: Rect }[];
 }
 
-export type PanelsNoteCode = "column-shrunk" | "column-folded" | "kept-folded" | "section-folded" | "pages-under-min" | "float-clamped" | "float-resized";
+export type PanelsNoteCode =
+  | "column-shrunk"
+  | "column-folded"
+  | "kept-folded"
+  | "section-folded"
+  | "pages-under-min"
+  | "float-clamped"
+  | "float-resized"
+  | "band-shrunk"
+  | "band-folded"
+  | "band-off"
+  | "pages-short";
 
-/** One note on a layout: a code and its data. */
+/** One note on a layout: a code and its data. `kept-folded` carries `side` and `column` for a column, `edge` for a band. */
 export type PanelsNote =
   | { readonly code: "column-shrunk"; readonly side: Side; readonly column: number; readonly items: readonly string[]; readonly from: number; readonly to: number }
   | { readonly code: "column-folded" | "kept-folded" | "section-folded"; readonly side: Side; readonly column: number; readonly items: readonly string[] }
   | { readonly code: "pages-under-min"; readonly width: number; readonly min: number }
-  | { readonly code: "float-clamped" | "float-resized"; readonly items: readonly string[] };
+  | { readonly code: "float-clamped" | "float-resized"; readonly items: readonly string[] }
+  | { readonly code: "band-shrunk"; readonly edge: Edge; readonly items: readonly string[]; readonly from: number; readonly to: number }
+  | { readonly code: "band-folded" | "kept-folded" | "band-off"; readonly edge: Edge; readonly items: readonly string[] }
+  | { readonly code: "pages-short"; readonly height: number; readonly min: number };
 
 export interface PanelsLayout {
   readonly items: Map<string, PlacedPanel>;
@@ -117,6 +174,25 @@ export interface PanelsLayout {
   readonly notes: readonly PanelsNote[];
   /** What is left for the documents. */
   readonly pages: Rect;
+  /** The bands laid out (an enabled edge with shown panels). */
+  readonly bands: Readonly<Partial<Record<Edge, PlacedBand>>>;
+  /** The room kept clear along the pages' edges (an edge with a reserve over 0). */
+  readonly reserved: Readonly<Partial<Record<ReserveEdge, Rect>>>;
+}
+
+interface BandIn {
+  readonly edge: Edge;
+  readonly panels: readonly string[];
+  /** Its index in the state's band, per shown panel. */
+  readonly at: readonly number[];
+  readonly min: number;
+  readonly max: number;
+  readonly height: number;
+  readonly hand: boolean;
+  readonly kept: boolean;
+  readonly age: number;
+  readonly mode: "reserved" | "overlay";
+  readonly span: "between" | "full";
 }
 
 interface Col {
@@ -150,6 +226,61 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
   const kept = new Set(state.kept);
   const by = opt.giveWay.by;
   const ride = opt.fold === "ride";
+  const px = (v: number | undefined): number => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : 0);
+  const res = { top: px(opt.reserve.top), right: px(opt.reserve.right), bottom: px(opt.reserve.bottom), left: px(opt.reserve.left) };
+
+  // The bands: an enabled edge with shown panels. One on an edge the options don't enable is left out.
+  const bandsIn: BandIn[] = [];
+  const offNotes: PanelsNote[] = [];
+  for (const edge of EDGES) {
+    const b = state.bands?.[edge];
+    if (!b) continue;
+    const panels = b.panels.filter((id) => !closed.has(id));
+    if (panels.length === 0) continue;
+    const o = opt.bands[edge];
+    if (!o) {
+      offNotes.push({ code: "band-off", edge, items: panels });
+      continue;
+    }
+    const ds = panels.map((id) => bandSize(defOf(defs, id)));
+    const min = Math.max(0, ...ds.map((d) => d.min));
+    const max = Math.max(min, Math.min(...ds.map((d) => d.max)));
+    const height = clamp(Number.isFinite(b.height) ? b.height : min, min, max);
+    const age = Math.max(...panels.map((id) => state.clock[id]?.[by] ?? 0));
+    bandsIn.push({ edge, panels, at: panels.map((id) => b.panels.indexOf(id)), min, max, height, hand: panels.every((id) => folded.has(id)), kept: panels.some((id) => kept.has(id)), age, mode: o.mode, span: o.span });
+  }
+
+  // Height give-way: the bands and the top and bottom reserves leave the pages at least `pagesMinHeight`. Fold the
+  // fewest bands in order that let them, shrinking the rest in order toward their min.
+  const bOrder = bandsIn
+    .filter((b) => !b.hand)
+    .sort((a, b) => Number(a.kept) - Number(b.kept) || (opt.giveWay.order === "oldest" ? a.age - b.age : b.age - a.age) || EDGES.indexOf(b.edge) - EDGES.indexOf(a.edge));
+  const room = H - res.top - res.bottom - opt.pagesMinHeight;
+  const fitH = (k: number): { auto: Set<BandIn>; heights: Map<BandIn, number>; excess: number } => {
+    const auto = new Set(bOrder.slice(0, k));
+    const heights = new Map(bOrder.filter((b) => !auto.has(b)).map((b) => [b, b.height]));
+    let excess = [...heights.values()].reduce((a, b) => a + b, 0) + (bandsIn.length - heights.size) * opt.bar - room;
+    for (const b of bOrder) {
+      if (excess <= 0 || auto.has(b)) continue;
+      const take = Math.min(excess, b.height - b.min);
+      if (take > 0) {
+        heights.set(b, b.height - take);
+        excess -= take;
+      }
+    }
+    return { auto, heights, excess };
+  };
+  let gh = fitH(0);
+  for (let k = 1; gh.excess > 0 && k <= bOrder.length; k++) gh = fitH(k);
+  const bandH = (b: BandIn | undefined): number => (b ? (gh.heights.get(b) ?? opt.bar) : 0);
+  const topB = bandsIn.find((b) => b.edge === "top");
+  const botB = bandsIn.find((b) => b.edge === "bottom");
+  const hT = bandH(topB);
+  const hB = bandH(botB);
+  // The columns' and rails' height: what the full-span bands (and, under an overlay one, its reserve) leave.
+  const colTop = topB?.span === "full" ? (topB.mode === "overlay" ? res.top : 0) + hT : 0;
+  const colBot = botB?.span === "full" ? H - (botB.mode === "overlay" ? res.bottom : 0) - hB : H;
+  const CH = Math.max(0, colBot - colTop);
 
   // The shown columns.
   const cols: Col[] = [];
@@ -249,7 +380,7 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
     const open = (side: Side): boolean => cols.some((c) => c.side === side && !c.hand && !auto.has(c));
     const railed = (side: Side): boolean => cols.some((c) => c.side === side && (auto.has(c) || (c.hand && !(ride && open(side)))));
     const widths = new Map(order.filter((c) => !auto.has(c)).map((c) => [c, c.width]));
-    let excess = [...widths.values()].reduce((a, b) => a + b, 0) + SIDES.filter(railed).length * opt.rail + opt.pagesMin - W;
+    let excess = [...widths.values()].reduce((a, b) => a + b, 0) + SIDES.filter(railed).length * opt.rail + opt.pagesMin + res.left + res.right - W;
     for (const c of order) {
       if (excess <= 0 || auto.has(c)) continue;
       const take = Math.min(excess, c.width - c.min);
@@ -284,8 +415,8 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
     const riders = host ? mine.filter((c) => c.hand) : [];
     const inRail = mine.filter((c) => (c.hand && !riders.includes(c)) || g.auto.has(c));
     if (inRail.length) {
-      const r = side === "left" ? rect(0, 0, opt.rail, H) : rect(W - opt.rail, 0, opt.rail, H);
-      const segments = inRail.flatMap((c) => c.panels).map((id, i) => ({ id, rect: rect(r.x, opt.railInset + i * opt.segment, opt.rail, opt.segment) }));
+      const r = side === "left" ? rect(0, colTop, opt.rail, CH) : rect(W - opt.rail, colTop, opt.rail, CH);
+      const segments = inRail.flatMap((c) => c.panels).map((id, i) => ({ id, rect: rect(r.x, colTop + opt.railInset + i * opt.segment, opt.rail, opt.segment) }));
       rails[side] = { side, rect: r, segments };
       for (const s of segments) {
         const c = inRail.find((x) => x.panels.includes(s.id))!;
@@ -300,11 +431,11 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
       const w = g.widths.get(c);
       if (w === undefined || riders.includes(c)) continue;
       if (side === "left") {
-        at.set(c, rect(x0, 0, w, H));
+        at.set(c, rect(x0, colTop, w, CH));
         x0 += w;
       } else {
         x1 -= w;
-        at.set(c, rect(x1, 0, w, H));
+        at.set(c, rect(x1, colTop, w, CH));
       }
     }
     const riding = riders.flatMap((c) => c.panels.map((id) => ({ id, c })));
@@ -317,14 +448,14 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
         const hr = at.get(host!)!;
         const first = riding.findIndex((x) => x.c === c);
         c.panels.forEach((id, i) =>
-          items.set(id, { rect: rect(hr.x, (first + i) * opt.bar, hr.width, opt.bar), kind: "bar", layer: 0, hidden: false, folded: "hand", kept: kept.has(id), pinned: false, floating: false, side, column: c.index, rides: host!.index }),
+          items.set(id, { rect: rect(hr.x, colTop + (first + i) * opt.bar, hr.width, opt.bar), kind: "bar", layer: 0, hidden: false, folded: "hand", kept: kept.has(id), pinned: false, floating: false, side, column: c.index, rides: host!.index }),
         );
-        placedCols.push({ ...base, rect: rect(hr.x, first * opt.bar, hr.width, c.panels.length * opt.bar), shrunk: false, rides: host!.index });
+        placedCols.push({ ...base, rect: rect(hr.x, colTop + first * opt.bar, hr.width, c.panels.length * opt.bar), shrunk: false, rides: host!.index });
         continue;
       }
-      const r = at.get(c) ?? rect(side === "left" ? x0 : x1, 0, 0, H);
+      const r = at.get(c) ?? rect(side === "left" ? x0 : x1, colTop, 0, CH);
       // The host shares what the riding bars leave.
-      const y0 = c === host ? top : 0;
+      const y0 = colTop + (c === host ? top : 0);
       const tabbed = c.show === "tabs";
       const strip = rect(r.x, y0, r.width, opt.tabs);
       const shown = tabbed && w !== undefined ? { strip, active: c.active! } : {};
@@ -335,7 +466,7 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
       };
       if (tabbed) {
         // One panel shows under the strip; the others are its hidden tabs. Its active panel folded: only the strip.
-        const body = rect(r.x, y0 + opt.tabs, r.width, Math.max(0, H - y0 - opt.tabs));
+        const body = rect(r.x, y0 + opt.tabs, r.width, Math.max(0, colBot - y0 - opt.tabs));
         const shade = folded.has(c.active!);
         const tw = r.width / c.panels.length;
         c.panels.forEach((id, i) => {
@@ -345,7 +476,7 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
         });
         continue;
       }
-      const hs = sectionHeights(c, H - y0);
+      const hs = sectionHeights(c, colBot - y0);
       let y = y0;
       for (const id of c.panels) {
         const s = hs.get(id)!;
@@ -355,8 +486,49 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
       for (const id of c.panels) if (hs.get(id)!.folded === "auto") notes.push({ code: "section-folded", side, column: c.index, items: [id] });
     }
   }
-  const pages = rect(x0, 0, Math.max(0, x1 - x0), H);
+
+  // The bands' notes, in give-way order.
+  for (const b of bOrder) {
+    const h = gh.heights.get(b);
+    if (h !== undefined && h < b.height) notes.push({ code: "band-shrunk", edge: b.edge, items: b.panels, from: b.height, to: h });
+  }
+  for (const b of bOrder) if (gh.auto.has(b)) notes.push({ code: b.kept ? "kept-folded" : "band-folded", edge: b.edge, items: b.panels });
+
+  // The pages' outer edges: a reserved band shortens them, an overlay band doesn't. Then the reserve comes off them:
+  // an overlay band lies inside the top or bottom reserve, and the left and right reserves lie between the overlay bands.
+  const pw = Math.max(0, x1 - x0);
+  const pTop = topB?.mode === "reserved" ? hT : 0;
+  const pBot = botB?.mode === "reserved" ? H - hB : H;
+  const reserved: Partial<Record<ReserveEdge, Rect>> = {};
+  const iTop = pTop + res.top + (topB?.mode === "overlay" ? hT : 0);
+  const iBot = pBot - res.bottom - (botB?.mode === "overlay" ? hB : 0);
+  if (res.top > 0) reserved.top = rect(x0, pTop, pw, res.top);
+  if (res.right > 0) reserved.right = rect(x0 + pw - res.right, iTop, res.right, Math.max(0, iBot - iTop));
+  if (res.bottom > 0) reserved.bottom = rect(x0, pBot - res.bottom, pw, res.bottom);
+  if (res.left > 0) reserved.left = rect(x0, iTop, res.left, Math.max(0, iBot - iTop));
+  const pages = rect(x0 + res.left, pTop + res.top, Math.max(0, pw - res.left - res.right), Math.max(0, pBot - res.bottom - pTop - res.top));
   if (pages.width < opt.pagesMin) notes.push({ code: "pages-under-min", width: pages.width, min: opt.pagesMin });
+  if (bandsIn.length || res.top + res.bottom > 0) {
+    const left = H - res.top - res.bottom - hT - hB;
+    if (left < opt.pagesMinHeight - 1e-9) notes.push({ code: "pages-short", height: Math.max(0, left), min: opt.pagesMinHeight });
+  }
+
+  // The bands' rects and their panels: equal shares of the width, left to right; folded, one bar.
+  const bands: Partial<Record<Edge, PlacedBand>> = {};
+  for (const b of bandsIn) {
+    const h = bandH(b);
+    const full = b.span === "full";
+    const over = b.mode === "overlay";
+    const y = b.edge === "top" ? (over ? res.top : 0) : over ? H - res.bottom - h : H - h;
+    const r = full ? rect(0, y, W, h) : rect(x0, y, pw, h);
+    const f: null | "hand" | "auto" = b.hand ? "hand" : gh.auto.has(b) ? "auto" : null;
+    const hh = gh.heights.get(b);
+    bands[b.edge] = { edge: b.edge, rect: r, height: b.height, min: b.min, max: b.max, folded: f, shrunk: hh !== undefined && hh < b.height, kept: b.kept, mode: b.mode, span: b.span, panels: b.panels };
+    const share = r.width / b.panels.length;
+    b.panels.forEach((id, i) =>
+      items.set(id, { rect: rect(r.x + i * share, r.y, share, h), kind: f ? "bar" : "band", layer: over ? 5 : 0, hidden: false, folded: f, kept: kept.has(id), pinned: false, floating: false, edge: b.edge, index: b.at[i]! }),
+    );
+  }
 
   // Floats, clamped unless free. A float's size is screen px in both spaces (never scaled); only an unpinned float's
   // position is in page space. The clamp keeps the SCREEN rect in the view: a pinned float where it is, an unpinned
@@ -393,5 +565,6 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
     });
   });
 
-  return { items, columns: placedCols, rails, notes, pages };
+  notes.push(...offNotes);
+  return { items, columns: placedCols, rails, notes, pages, bands, reserved };
 }
