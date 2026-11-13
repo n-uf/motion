@@ -38,12 +38,14 @@
  *   Its panels share its width equally, left to right ("band" rects); folded (by hand, or by give-way) it is one bar,
  *   `options.bar` tall, and each panel a "bar" rect side by side.
  * - Height give-way: when the pages would be shorter than `pagesMinHeight` (counted after the top and bottom
- *   reserves, and with overlay bands measured against it too), bands shrink toward their min, then fold to a bar,
- *   unkept before kept, in the policy's order, bottom before top on a tie (`band-shrunk`, `band-folded`,
- *   `kept-folded` with `edge`). Give-way never writes `folded`. Still short: `pages-short`.
+ *   reserves), reserved bands shrink toward their min, then fold to a bar, unkept before kept, in the policy's order,
+ *   bottom before top on a tie (`band-shrunk`, `band-folded`, `kept-folded` with `edge`); they leave the pages room
+ *   for the overlay bands' bars at least. Then the overlay bands give way the same way, together, until they leave
+ *   `pagesMinHeight` of the pages uncovered (so a top and a bottom one never meet). Give-way never writes `folded`.
+ *   Pages still short of the min (their rect's height, which overlay bands don't change): `pages-short`.
  * - Reserve: room kept clear along the pages' edges (`reserved`), inside the pages' area; the pages are what's left.
- *   An overlay band lies inside the top or bottom reserve, never over it; the left and right reserves lie between
- *   the overlay bands.
+ *   An overlay band lies next to the top or bottom reserve, on the pages' side, never over it; the left and right
+ *   reserves lie between the overlay bands.
  * - A band in the state on an edge the options don't enable: its panels are left out (`band-off`).
  */
 import { rect, type Rect, type Size } from "../geometry";
@@ -227,7 +229,11 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
   const by = opt.giveWay.by;
   const ride = opt.fold === "ride";
   const px = (v: number | undefined): number => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : 0);
-  const res = { top: px(opt.reserve.top), right: px(opt.reserve.right), bottom: px(opt.reserve.bottom), left: px(opt.reserve.left) };
+  // Options passed as undefined fall back to their defaults.
+  const reserveOpt = opt.reserve ?? {};
+  const bandOpts = opt.bands ?? {};
+  const minH = typeof opt.pagesMinHeight === "number" ? opt.pagesMinHeight : DEFAULT_PANELS_OPTIONS.pagesMinHeight;
+  const res = { top: px(reserveOpt.top), right: px(reserveOpt.right), bottom: px(reserveOpt.bottom), left: px(reserveOpt.left) };
 
   // The bands: an enabled edge with shown panels. One on an edge the options don't enable is left out.
   const bandsIn: BandIn[] = [];
@@ -237,7 +243,7 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
     if (!b) continue;
     const panels = b.panels.filter((id) => !closed.has(id));
     if (panels.length === 0) continue;
-    const o = opt.bands[edge];
+    const o = bandOpts[edge];
     if (!o) {
       offNotes.push({ code: "band-off", edge, items: panels });
       continue;
@@ -250,29 +256,45 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
     bandsIn.push({ edge, panels, at: panels.map((id) => b.panels.indexOf(id)), min, max, height, hand: panels.every((id) => folded.has(id)), kept: panels.some((id) => kept.has(id)), age, mode: o.mode, span: o.span });
   }
 
-  // Height give-way: the bands and the top and bottom reserves leave the pages at least `pagesMinHeight`. Fold the
-  // fewest bands in order that let them, shrinking the rest in order toward their min.
+  // Height give-way. The reserved bands and the top and bottom reserves leave the pages at least `pagesMinHeight`: fold
+  // the fewest reserved bands in order that let them, shrinking the rest in order toward their min. Then the overlay
+  // bands, together, leave that much of the pages they lie over uncovered.
   const bOrder = bandsIn
     .filter((b) => !b.hand)
     .sort((a, b) => Number(a.kept) - Number(b.kept) || (opt.giveWay.order === "oldest" ? a.age - b.age : b.age - a.age) || EDGES.indexOf(b.edge) - EDGES.indexOf(a.edge));
-  const room = H - res.top - res.bottom - opt.pagesMinHeight;
-  const fitH = (k: number): { auto: Set<BandIn>; heights: Map<BandIn, number>; excess: number } => {
-    const auto = new Set(bOrder.slice(0, k));
-    const heights = new Map(bOrder.filter((b) => !auto.has(b)).map((b) => [b, b.height]));
-    let excess = [...heights.values()].reduce((a, b) => a + b, 0) + (bandsIn.length - heights.size) * opt.bar - room;
-    for (const b of bOrder) {
-      if (excess <= 0 || auto.has(b)) continue;
-      const take = Math.min(excess, b.height - b.min);
-      if (take > 0) {
-        heights.set(b, b.height - take);
-        excess -= take;
+  const gh = { auto: new Set<BandIn>(), heights: new Map<BandIn, number>() };
+  /** Fit `list` (in give-way order) into `room` px: fold the fewest in order, shrink the rest in order. */
+  const fitH = (list: readonly BandIn[], room: number): void => {
+    const order = bOrder.filter((b) => list.includes(b));
+    const hands = list.length - order.length;
+    const fit = (k: number): { auto: Set<BandIn>; heights: Map<BandIn, number>; excess: number } => {
+      const auto = new Set(order.slice(0, k));
+      const heights = new Map(order.filter((b) => !auto.has(b)).map((b) => [b, b.height]));
+      let excess = [...heights.values()].reduce((a, b) => a + b, 0) + (hands + auto.size) * opt.bar - room;
+      for (const b of order) {
+        if (excess <= 0 || auto.has(b)) continue;
+        const take = Math.min(excess, b.height - b.min);
+        if (take > 0) {
+          heights.set(b, b.height - take);
+          excess -= take;
+        }
       }
-    }
-    return { auto, heights, excess };
+      return { auto, heights, excess };
+    };
+    let g = fit(0);
+    for (let k = 1; g.excess > 0 && k <= order.length; k++) g = fit(k);
+    for (const b of g.auto) gh.auto.add(b);
+    for (const [b, h] of g.heights) gh.heights.set(b, h);
   };
-  let gh = fitH(0);
-  for (let k = 1; gh.excess > 0 && k <= bOrder.length; k++) gh = fitH(k);
+  const reservedIn = bandsIn.filter((b) => b.mode === "reserved");
+  const overlayIn = bandsIn.filter((b) => b.mode === "overlay");
+  // The pages keep at least room for the overlay bands' bars, so a folded overlay band never reaches past them.
+  fitH(reservedIn, H - res.top - res.bottom - Math.max(minH, overlayIn.length * opt.bar));
   const bandH = (b: BandIn | undefined): number => (b ? (gh.heights.get(b) ?? opt.bar) : 0);
+  // The pages' height: what the reserves and the reserved bands leave.
+  const pagesH = H - res.top - res.bottom - reservedIn.reduce((a, b) => a + bandH(b), 0);
+  // The overlay bands together, so that a top and a bottom one never meet over the pages.
+  fitH(overlayIn, pagesH - minH);
   const topB = bandsIn.find((b) => b.edge === "top");
   const botB = bandsIn.find((b) => b.edge === "bottom");
   const hT = bandH(topB);
@@ -495,7 +517,8 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
   for (const b of bOrder) if (gh.auto.has(b)) notes.push({ code: b.kept ? "kept-folded" : "band-folded", edge: b.edge, items: b.panels });
 
   // The pages' outer edges: a reserved band shortens them, an overlay band doesn't. Then the reserve comes off them:
-  // an overlay band lies inside the top or bottom reserve, and the left and right reserves lie between the overlay bands.
+  // an overlay band lies next to the top or bottom reserve, on the pages' side (never over it), and the left and right
+  // reserves lie between the overlay bands.
   const pw = Math.max(0, x1 - x0);
   const pTop = topB?.mode === "reserved" ? hT : 0;
   const pBot = botB?.mode === "reserved" ? H - hB : H;
@@ -508,10 +531,9 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
   if (res.left > 0) reserved.left = rect(x0, iTop, res.left, Math.max(0, iBot - iTop));
   const pages = rect(x0 + res.left, pTop + res.top, Math.max(0, pw - res.left - res.right), Math.max(0, pBot - res.bottom - pTop - res.top));
   if (pages.width < opt.pagesMin) notes.push({ code: "pages-under-min", width: pages.width, min: opt.pagesMin });
-  if (bandsIn.length || res.top + res.bottom > 0) {
-    const left = H - res.top - res.bottom - hT - hB;
-    if (left < opt.pagesMinHeight - 1e-9) notes.push({ code: "pages-short", height: Math.max(0, left), min: opt.pagesMinHeight });
-  }
+  // Short: the pages' rect itself (overlay bands don't shorten it; how far one covers the pages is its own
+  // band-shrunk or band-folded note).
+  if ((bandsIn.length || res.top + res.bottom > 0) && pages.height < minH - 1e-9) notes.push({ code: "pages-short", height: pages.height, min: minH });
 
   // The bands' rects and their panels: equal shares of the width, left to right; folded, one bar.
   const bands: Partial<Record<Edge, PlacedBand>> = {};
