@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.11
 
 - `@n-uf/placement/panels`, drops into a stacked column at a position (opt-in; without it every target is what it was):
   - `DockOptions.at`: with `into`, the panel goes before the column's member at that index (counted with the panel
