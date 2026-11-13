@@ -8,7 +8,7 @@ import { $, caseRail, fillRanges } from "./rail";
 import { RectField } from "./motion";
 import { figureChrome } from "./figure-chrome";
 import { xrayOf, type XR } from "./xray";
-import { BAND_MODES, CARDS, DEFAULT, HAS_BAND, HAS_PILL, SPAN_MODES, TOOLBAR_MODES, defaultOpts, deskSVG, keyed, layout, statusHTML, type Box, type Opt } from "../demos/desk";
+import { BAND_MODES, CARDS, DEFAULT, FULL_WIDTH, HAS_BAND, HAS_PILL, TOOLBAR_MODES, defaultOpts, deskSVG, keyed, layout, statusHTML, type Box, type Opt } from "../demos/desk";
 
 /** One button of a switch: its text, whether it is on, and what pressing it does. */
 type Mode = { text: string; on: () => boolean; pick: () => void };
@@ -40,7 +40,7 @@ function segmented(label: string, modes: Mode[]): DocumentFragment {
     b.className = "tb text";
     b.textContent = m.text;
     b.setAttribute("aria-pressed", String(m.on()));
-    // The span switch shows only while the band is on, so a press redraws the whole row.
+    // The full-width toggle shows only while the band is on, so a press redraws the whole row.
     b.addEventListener("click", () => { m.pick(); renderSegs(); render(); });
     row.appendChild(b);
   }
@@ -52,8 +52,9 @@ function renderSegs(): void {
   host.replaceChildren();
   if (HAS_PILL.has(v.c.key)) host.appendChild(segmented("Toolbar", TOOLBAR_MODES.map(([t, s, text]) => ({ text, on: () => o.toolbar === t && o.toolbarSpace === s, pick: () => { o.toolbar = t; o.toolbarSpace = s; } }))));
   if (HAS_BAND.has(v.c.key)) {
-    host.appendChild(segmented("Bottom band", BAND_MODES.map(([m, text]) => ({ text, on: () => o.band === m, pick: () => { o.band = m; } }))));
-    if (o.band !== "off") host.appendChild(segmented("Span", SPAN_MODES.map(([s, text]) => ({ text, on: () => o.span === s, pick: () => { o.span = s; } }))));
+    const modes: Mode[] = BAND_MODES.map(([m, text]) => ({ text, on: () => o.band === m, pick: () => { o.band = m; } }));
+    if (o.band !== "off") modes.push({ text: FULL_WIDTH, on: () => o.span === "full", pick: () => { o.span = o.span === "full" ? "between" : "full"; } });
+    host.appendChild(segmented("Bottom band", modes));
   }
   if (!host.children.length) host.innerHTML = `<span class="quiet">No floating toolbar or bottom band to switch</span>`;
   if (focused >= 0) host.querySelectorAll("button")[focused]?.focus();
