@@ -11,10 +11,12 @@ import type { Rect, Size } from "../geometry";
 export type Side = "left" | "right";
 export const SIDES: readonly Side[] = ["left", "right"];
 
-/** What a consumer says about a panel: its width limits docked, its size limits floating, and where it may go. */
+/**
+ * What a consumer says about a panel: its width limits docked, its size limits floating, and where it may go. No
+ * words: names and titles are the consumer's.
+ */
 export interface PanelDef {
   readonly id: string;
-  readonly title?: string;
   /** A docked column's width limits and its natural width. */
   readonly width: { readonly min: number; readonly max: number; readonly natural: number };
   /** A float's size limits and natural size (default: its natural width, 360 px tall, no smaller than 160 × 120). */
@@ -288,15 +290,23 @@ export function pin(state: PanelsState, id: string, on: boolean, view: View = ID
   };
 }
 
-/** Store a column's width (the layout clamps it to its panels' limits). */
+/**
+ * Store a column's width (the layout clamps it to its panels' limits). Resizing is a use: the column's panels are
+ * the newest used, so give-way takes room from the other columns, not from the one being resized.
+ */
 export function resizeColumn(state: PanelsState, side: Side, index: number, width: number): PanelsState {
-  if (!state.sides[side][index] || !Number.isFinite(width)) return state;
-  return { ...state, sides: { ...state.sides, [side]: state.sides[side].map((c, i) => (i === index ? { ...c, width: Math.max(0, width) } : c)) } };
+  const col = state.sides[side][index];
+  if (!col || !Number.isFinite(width)) return state;
+  const t = tick(state);
+  const clock = { ...state.clock };
+  for (const id of col.panels) clock[id] = { opened: clock[id]?.opened ?? 0, used: t };
+  return { ...state, sides: { ...state.sides, [side]: state.sides[side].map((c, i) => (i === index ? { ...c, width: Math.max(0, width) } : c)) }, clock };
 }
 
-/** Store a float's rect (its own space). */
+/** Store a float's rect (its own space). Resizing is a use. */
 export function resizeFloat(state: PanelsState, id: string, rect: Rect): PanelsState {
-  return { ...state, floats: state.floats.map((f) => (f.id === id ? { ...f, rect: { ...rect } } : f)) };
+  if (!state.floats.some((f) => f.id === id)) return state;
+  return bump({ ...state, floats: state.floats.map((f) => (f.id === id ? { ...f, rect: { ...rect } } : f)) }, id, false);
 }
 
 /** Two states place the panels the same (columns, their panels and widths, floats and their rects; the clock aside). */
