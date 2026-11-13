@@ -212,18 +212,22 @@ gain its room), and its stored place and width are untouched, so unfolding puts 
 every column on a side is folded does the side show its rail. Give-way's folds (`column-folded`, `kept-folded`) go to
 the rail in both modes.
 
-**Tabs**: a column with `show: "tabs"` shows one panel at a time, its `active` one (default: the first), under a strip
+**Tabs**: a column with `show: "tabs"` shows one panel at a time, its `active` one (default, or when `active` isn't
+one of them: the first panel in the column that isn't closed), under a strip
 `options.tabs` tall (default 28). The strip is `PlacedColumn.strip`, and each panel's `tab` is its header's rect in it
 (panel order, equal widths); the others are `hidden`. A tabbed column folds as a whole: with its active panel in
 `folded` it shows only its strip (the active panel is a `"bar"` there); with every panel folded it goes to the rail,
 or rides, as a stack column does. `showTabs(state, side, index, on)` switches a column; `activate(state, id)` shows a
-tab and counts as a use. A drop `into` a tabbed column adds a tab at the end and shows it.
+tab and counts as a use. A drop `into` a tabbed column adds a tab at the end and shows it, and `open` on a panel in a
+tabbed column shows its tab too.
 
 **Section heights** (opt-in): a `PanelDef.height` (`{ min, natural }`) gives a section of a stack column its natural
 height; the column's last open section takes the rest, never under its min, and sections without one share what is
-left equally. When the open sections' mins and the bars don't fit, open sections fold to bars by the give-way policy
-(kept last, never the last open one), each with a `section-folded` note; that never writes `folded`, so a taller stage
-unfolds them. Columns without `height` defs lay out as before.
+left equally, never under a bar's height (`options.bar`). The others' natural heights give way toward their mins
+first. When the open sections' mins and the bars still don't fit, open sections fold to bars by the give-way policy
+(kept last, never the last open one, and never one whose min is no more than a bar, since folding it gains nothing),
+each with a `section-folded` note; that never writes `folded`, so a taller stage unfolds them. Columns without
+`height` defs lay out as before.
 
 **Changes** are pure: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock(state, id, side, index, { into?, width? })`,
 `float`, `pin(state, id, on, view?, shown?)` (pass the layout's rect as `shown` so a clamped float pins where it
@@ -279,7 +283,7 @@ only the panels entry, carries no titles or words and wires no toolbar; the app 
 
 | Preset | Columns and floats |
 |---|---|
-| `docks` | one stack column per side, sections at their natural heights, folding to the rail; no floats |
+| `docks` | one stack column per side, sections at their natural heights when the defs give `height`, folding to the rail; no floats |
 | `dockTear` | as `docks`, and panels may float (tear-off and dock-back); one panel floats at the start |
 | `navigator` | a tabbed column on the left, a stack column on the right; no floats |
 

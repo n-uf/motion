@@ -3,7 +3,7 @@
  * and a start state; it carries no titles, no words and no toolbar wiring (the app names presets and wires its
  * toolbar). It imports only the panels entry's public index, so an app that imports only `./panels` loads none of it.
  *
- * - `docks`: one stack column per side; sections at their natural heights (`PanelDef.height`); short of width a
+ * - `docks`: one stack column per side; sections at their natural heights when the defs give `height`; short of width a
  *   column folds to its side's rail. No floats.
  * - `dockTear`: as docks, and panels may float (tear-off and dock-back); one panel floats in the start state.
  * - `navigator`: a tabbed column on the left, a stack column on the right. No floats.
