@@ -13,6 +13,7 @@ import { DRAG_DEFAULTS, createDragIntent, previewPlan, type DragIntent } from "@
 import { createLayoutMotion, domDrawable, holdItem, type HeldDrag, type LayoutItem } from "@n-uf/motion/layout";
 import {
   DEFAULT_PANELS_OPTIONS,
+  activate,
   createPanels,
   defOf,
   focus,
@@ -45,11 +46,12 @@ import {
   type View,
 } from "@n-uf/placement/panels";
 import { keyboardStops } from "@n-uf/placement/targets";
+import { PRESETS, presetInput, presetLayout, type DeskPreset, type PresetId } from "@n-uf/placement/desk";
 import { same, type Point } from "../shared/geometry";
 
 // --- the desk ------------------------------------------------------------------------------------------------------
 
-export const H = 520;
+export const DEFAULT_H = 520;
 export const DEFAULT_W = 1260;
 export const OMEGA = 25;
 
@@ -87,18 +89,39 @@ export const startState = (): PanelsState =>
     ],
   });
 
+/**
+ * The Presets page's panels: the same seven, with natural section heights (so the docks give way by height), and
+ * where each starts. The presets (@n-uf/placement/desk) lay them out; the page names them.
+ */
+const hgt = (min: number, natural: number) => ({ min, natural });
+export const PRESET_DEFS: readonly PanelDef[] = DEFS.map((d) => ({
+  ...d,
+  height: ({ files: hgt(90, 170), outline: hgt(90, 190), notes: hgt(100, 140), inspector: hgt(100, 180), history: hgt(90, 160), comments: hgt(90, 150), navigator: hgt(80, 120) } as Record<string, { min: number; natural: number }>)[d.id]!,
+}));
+const PRESET_HINT = { left: ["files", "outline", "notes"], right: ["inspector", "history", "comments", "navigator"] };
+export const PRESET_TITLES: Record<PresetId, string> = { docks: "Edge docks", dockTear: "Edge docks + tear-off", navigator: "Navigator + inspector" };
+
 // --- state ---------------------------------------------------------------------------------------------------------
 
 let state: PanelsState = startState();
 let W = DEFAULT_W;
+let H = DEFAULT_H;
 let giveWay: GiveWay = DEFAULT_PANELS_OPTIONS.giveWay;
 let floats: PanelsOptions["floats"] = DEFAULT_PANELS_OPTIONS.floats;
 let fold: PanelsOptions["fold"] = DEFAULT_PANELS_OPTIONS.fold;
 let view: View = { x: 0, y: 0, scale: 1 };
+/** The preset the desk runs on (the Presets page), or none: the plain panels engine with the page's own start. */
+let preset: DeskPreset | null = null;
+let defs: readonly PanelDef[] = DEFS;
 
 const opts = (): Partial<PanelsOptions> => ({ giveWay, floats, fold, view });
 const stageSize = () => ({ width: W, height: H });
-export const lay = (s: PanelsState = state): PanelsLayout => layoutPanels(DEFS, s, stageSize(), opts());
+export const lay = (s: PanelsState = state): PanelsLayout => (preset ? presetLayout(preset, defs, s, stageSize(), opts()) : layoutPanels(defs, s, stageSize(), opts()));
+/** A drag's or a key move's target input, with the preset's options and rules when there is one. */
+const targetInput = (id: string): PanelTargetInput => {
+  const input: PanelTargetInput = { defs, state, id, stage: stageSize(), options: opts() };
+  return preset ? presetInput(preset, input) : input;
+};
 
 const stage = document.getElementById("pn-stage") as HTMLDivElement;
 const status = document.getElementById("pn-status") as HTMLParagraphElement;
@@ -143,6 +166,8 @@ const noteWords = (n: PanelsNote): string => {
       return `${n.items.map(titleOf).join(" + ")} folded to the ${n.side} rail`;
     case "kept-folded":
       return `${n.items.map(titleOf).join(" + ")} folded although kept open`;
+    case "section-folded":
+      return `${n.items.map(titleOf).join(" + ")} folded to its title bar: the column is short`;
     case "pages-under-min":
       return `the pages have ${Math.round(n.width)} px, under ${n.min}`;
     case "float-clamped":
@@ -205,7 +230,8 @@ function dress(l: PanelsLayout): void {
   for (const d of DEFS) {
     const it = items.get(d.id)!;
     const p = l.items.get(d.id);
-    const showing = !!p && !p.hidden;
+    // A tabbed column folded shows only its strip: the active panel's bar is the strip itself.
+    const showing = !!p && !p.hidden && !(p.tab && p.kind === "bar");
     if (showing !== it.m.showing) it.m.show(showing);
     if (!p) continue;
     it.el.dataset.kind = p.kind;
@@ -236,6 +262,48 @@ function dress(l: PanelsLayout): void {
   const paper = items.get("pages")!.el.querySelector<HTMLElement>(".pn-paper")!;
   paper.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
   placeEdges(l);
+  placeStrips(l);
+}
+
+const strips = new Map<string, HTMLElement>();
+/**
+ * Each tabbed column's strip: a tab per panel at its `tab` rect, the active one lit, and a fold button for the
+ * column (it folds as a whole). Folded, the strip is all that shows: the active panel's bar is the strip.
+ */
+function placeStrips(l: PanelsLayout): void {
+  const want = new Set<string>();
+  for (const c of l.columns) {
+    if (!c.strip || c.folded) continue;
+    const key = `${c.side}:${c.index}`;
+    want.add(key);
+    let e = strips.get(key);
+    if (!e) {
+      e = el("div", "pn-strip");
+      strips.set(key, e);
+      stage.append(e);
+    }
+    const s = c.strip;
+    const shaded = l.items.get(c.active!)?.kind === "bar";
+    Object.assign(e.style, { left: `${s.x}px`, top: `${s.y}px`, width: `${s.width}px`, height: `${s.height}px` });
+    const sig = `${c.panels.join(",")}|${c.active}|${shaded}|${Math.round(s.width)}`;
+    if (e.dataset.sig === sig) continue;
+    e.dataset.sig = sig;
+    e.dataset.side = c.side;
+    e.dataset.index = String(c.index);
+    e.classList.toggle("shaded", shaded);
+    e.innerHTML =
+      c.panels
+        .map((id) => {
+          const t = l.items.get(id)!.tab!;
+          return `<button type="button" class="pn-tab${id === c.active ? " on" : ""}" data-id="${id}" style="left:${t.x - s.x}px;width:${t.width}px" aria-pressed="${id === c.active}">${titleOf(id)}</button>`;
+        })
+        .join("") + `<button type="button" class="pn-btn pn-strip-fold" aria-label="${shaded ? "Unfold" : "Fold"} the tabs" title="${shaded ? "Unfold" : "Fold"}">${shaded ? "▸" : "▾"}</button>`;
+  }
+  for (const [k, e] of strips) {
+    if (want.has(k)) continue;
+    e.remove();
+    strips.delete(k);
+  }
 }
 
 /** The column resize handles, at each open column's inner edge. */
@@ -310,7 +378,7 @@ const dropOf = (d: { input: PanelTargetInput; grab: Point }, t: PanelTarget, p: 
 
 function beginHeld(it: Item, p: Point, grab: Point, glide: boolean): void {
   const home = { ...it.m.drawn };
-  const input: PanelTargetInput = { defs: DEFS, state, id: it.key, stage: stageSize(), options: opts() };
+  const input = targetInput(it.key);
   const targets = panelTargets(input);
   const intent = createDragIntent<PanelTarget>({ home, placeOf: (t, q) => panelDrop(input, t, q, grab).key });
   const held = holdItem(it.m, grab);
@@ -419,7 +487,7 @@ interface KeyMove {
 let keys: KeyMove | null = null;
 
 function beginKeys(id: string): void {
-  const input: PanelTargetInput = { defs: DEFS, state, id, stage: stageSize(), options: opts() };
+  const input = targetInput(id);
   const home = homePlace(state, id);
   if (!home) return;
   const l = lay();
@@ -512,7 +580,7 @@ function track(e: PointerEvent, h: { lift: (start: Point, p: Point) => void; mov
   window.addEventListener("pointercancel", up);
 }
 
-function pressPanel(e: PointerEvent, it: Item, fromRail: boolean): void {
+function pressPanel(e: PointerEvent, it: Item, fromRail: boolean, fromTab = false): void {
   track(e, {
     lift: (start, p) => {
       const d = it.m.drawn;
@@ -526,7 +594,10 @@ function pressPanel(e: PointerEvent, it: Item, fromRail: boolean): void {
     },
     up: (tap, cancel, p) => {
       if (tap) {
-        if (!cancel) tapPanel(it.key, fromRail);
+        if (!cancel) {
+          if (fromTab) tapTab(it.key);
+          else tapPanel(it.key, fromRail);
+        }
         return;
       }
       if (drag) {
@@ -539,6 +610,13 @@ function pressPanel(e: PointerEvent, it: Item, fromRail: boolean): void {
 }
 
 /** A tap on a title or a rail segment is a use; on a segment folded by hand it unfolds the panel. */
+/** A tap on a tab shows its panel (a use). */
+function tapTab(id: string): void {
+  state = activate(state, id);
+  relayout();
+  say(`${titleOf(id)} shows in its column.${notesSay()}`);
+}
+
 function tapPanel(id: string, fromRail: boolean): void {
   const p = lay().items.get(id);
   state = fromRail && p?.folded === "hand" ? toggleFold(state, id) : focus(state, id);
@@ -591,11 +669,24 @@ stage.addEventListener("pointerdown", (e) => {
   if (head) return pressPanel(e, items.get(head.closest<HTMLElement>(".pn-panel")!.dataset.id!)!, false);
   const seg = t.closest<HTMLElement>(".pn-seg");
   if (seg) return pressPanel(e, items.get(seg.dataset.id!)!, true);
+  // A tab: a tap shows it, a drag takes its panel out (it glides from the tab to the pointer).
+  const tab = t.closest<HTMLElement>(".pn-tab");
+  if (tab) return pressPanel(e, items.get(tab.dataset.id!)!, true, true);
 });
 
 stage.addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest<HTMLElement>(".pn-btn");
   if (!b || busy()) return;
+  const strip = b.closest<HTMLElement>(".pn-strip");
+  if (strip) {
+    // The strip's fold button folds the tabbed column as a whole: its active panel.
+    const c = lay().columns.find((x) => x.side === strip.dataset.side && x.index === Number(strip.dataset.index));
+    if (!c?.active) return;
+    state = toggleFold(state, c.active);
+    say(`${c.panels.map(titleOf).join(" | ")} ${state.folded.includes(c.active) ? "folded to its tabs" : "unfolded"}.${notesSay()}`);
+    relayout();
+    return;
+  }
   const id = b.closest<HTMLElement>(".pn-panel")!.dataset.id!;
   if (b.classList.contains("pn-fold")) {
     state = toggleFold(state, id);
@@ -660,6 +751,37 @@ export function setWidth(px: number, instant = false): void {
   widthOut.textContent = `${W} px`;
   relayout(instant);
 }
+const heightIn = document.getElementById("pn-height") as HTMLInputElement | null;
+const heightOut = document.getElementById("pn-height-out") as HTMLOutputElement | null;
+export function setHeight(px: number, instant = false): void {
+  H = Math.round(px);
+  stage.style.height = `${H}px`;
+  if (heightIn) heightIn.value = String(H);
+  if (heightOut) heightOut.textContent = `${H} px`;
+  relayout(instant);
+}
+heightIn?.addEventListener("input", () => {
+  setHeight(Number(heightIn.value));
+  say(`Stage ${H} px tall.${notesSay()}`);
+});
+
+/**
+ * Run the desk on a preset (@n-uf/placement/desk) with its start state, or (null) on the page's own start. The
+ * panels are the same seven; on a preset they have natural section heights.
+ */
+export function setPreset(id: PresetId | null): void {
+  if (drag) endHeld(true);
+  if (keys) endKeys(false);
+  preset = id ? PRESETS[id] : null;
+  defs = id ? PRESET_DEFS : DEFS;
+  state = preset ? preset.start(defs, PRESET_HINT) : startState();
+  for (const r of radios("pn-preset")) r.checked = r.value === id;
+  stage.dataset.preset = id ?? "";
+  relayout(true);
+  say(id ? `${PRESET_TITLES[id]}.${notesSay()}` : "");
+}
+for (const r of document.querySelectorAll<HTMLInputElement>("input[name=pn-preset]")) r.addEventListener("change", () => r.checked && setPreset(r.value as PresetId));
+
 widthIn.addEventListener("input", () => {
   setWidth(Number(widthIn.value));
   say(`Stage ${W} px.${notesSay()}`);
@@ -731,7 +853,7 @@ export function readNow(): { ok: boolean; dropped: readonly string[]; error?: st
     storeOut.textContent = "Not JSON: nothing read.";
     return { ok: false, dropped: [], error: "not JSON" };
   }
-  const r = readPanels(data, DEFS);
+  const r = readPanels(data, defs);
   if (!r.ok) {
     storeOut.textContent = `Not read: ${r.error}.`;
     return { ok: false, dropped: [], error: r.error };
@@ -769,7 +891,12 @@ export function reset(): void {
   view = { x: 0, y: 0, scale: 1 };
   setOptions({});
   setPan(0, true);
+  H = DEFAULT_H;
+  if (heightIn) heightIn.value = String(H);
+  if (heightOut) heightOut.textContent = `${H} px`;
   setWidth(DEFAULT_W, true);
+  // The Presets page starts on its first preset; the others on the page's own desk.
+  setPreset(document.body.dataset.page === "panels/presets" ? "docks" : null);
   json.value = "";
   storeOut.textContent = "";
   lastDrop = null;
@@ -782,6 +909,7 @@ stage.style.width = `${W}px`;
 stage.style.height = `${H}px`;
 makeItems();
 relayout(true);
+if (document.body.dataset.page === "panels/presets") setPreset("docks");
 
 /** What the scenarios read and drive. */
 export const page = {
@@ -830,5 +958,14 @@ export const page = {
     return lastFrames;
   },
   edge: (side: Side, index: number) => edges.get(`${side}:${index}`) ?? null,
+  strip: (side: Side, index: number) => strips.get(`${side}:${index}`) ?? null,
+  setHeight,
+  setPreset,
+  get height() {
+    return H;
+  },
+  get preset(): PresetId | null {
+    return preset?.id ?? null;
+  },
 };
 export type PanelsPage = typeof page;

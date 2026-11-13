@@ -4,6 +4,15 @@
 .pn-sep { color: var(--text-2); margin: 0 4px; }
 .pn-controls output { font-family: var(--font-mono); font-size: 12px; min-width: 5em; display: inline-block; }
 body:not([data-page="panels/options"]) .pn-options { display: none; }
+body:not([data-page="panels/presets"]) .pn-presets, body:not([data-page="panels/presets"]) .pn-presets-only { display: none; }
+/* A tabbed column's strip: equal tabs, the showing one lit; its fold button folds the column as a whole. */
+.pn-stage .pn-strip { z-index: 4; display: flex; align-items: stretch; background: var(--pn-chrome); border: 1px solid var(--pn-edge); border-radius: 6px 6px 0 0; overflow: hidden; }
+.pn-strip.shaded { border-radius: 6px; }
+.pn-tab { position: absolute; top: 0; bottom: 0; padding: 0 22px 0 8px; border: 0; border-right: 1px solid var(--pn-edge); background: transparent; color: var(--pn-muted); font: 600 11.5px/1 var(--font-sans); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: grab; }
+.pn-tab.on { color: var(--pn-ink); background: var(--pn-win); box-shadow: inset 0 -2px 0 var(--pn-accent); }
+.pn-strip-fold { position: absolute; right: 4px; top: 4px; z-index: 1; }
+.pn-parity { max-width: 980px; }
+.pn-parity li { margin-bottom: 4px; }
 .pn-wrap { overflow-x: auto; padding: 4px 0 8px; }
 .pn-stage {
   --pn-win: var(--win-bar); --pn-chrome: var(--win-frame); --pn-edge: var(--win-edge); --pn-ink: var(--win-text); --pn-muted: var(--win-muted);
