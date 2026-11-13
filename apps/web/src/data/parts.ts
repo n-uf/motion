@@ -54,7 +54,7 @@ export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; 
   ],
   "/desk-layouts/": [
     { part: "motion", kind: "uses", what: "createSettle (every box glides)" },
-    { part: "placement", kind: "shows", entry: "/dock", what: "the nine constructions and how they give way" },
+    { part: "placement", kind: "uses", what: "PRESETS and presetLayout from ./desk, on ./panels (A, A2, C and F3; the other five are the page's sketches)" },
   ],
   "/toolbar-groups/": [
     { part: "motion", kind: "uses", what: "createSettle" },
