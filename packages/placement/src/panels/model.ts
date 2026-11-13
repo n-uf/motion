@@ -332,7 +332,9 @@ export function open(state: PanelsState, id: string, at?: { readonly side: Side;
   if (at && whereIs(s, id).kind === "none") {
     if ("edge" in at) {
       const b = s.bands?.[at.edge];
-      s = withBand(s, at.edge, { panels: [...(b?.panels ?? []), id], height: b?.height ?? at.height ?? BAND_SIZE.natural });
+      const panels = [...(b?.panels ?? []), id];
+      // The band shows, as a drop into it does: a band folded by hand unfolds as a whole.
+      s = withBand({ ...s, folded: s.folded.filter((x) => !panels.includes(x)) }, at.edge, { panels, height: b?.height ?? at.height ?? BAND_SIZE.natural });
     } else s = { ...s, sides: { ...s.sides, [at.side]: [...s.sides[at.side], { panels: [id], width: at.width }] } };
   }
   const w = whereIs(s, id);
@@ -352,13 +354,15 @@ export function focus(state: PanelsState, id: string): PanelsState {
 
 /**
  * Fold a panel to its title bar by hand, or unfold it (unfolding is a use). A band folds as a whole: on a band panel
- * all its panels go into `folded`, or (when this one is folded) all come out.
+ * all its panels go into `folded`, or (when every shown panel of the band is folded) all come out.
  */
 export function toggleFold(state: PanelsState, id: string): PanelsState {
   const w = whereIs(state, id);
   if (w.kind === "band") {
     const ids = state.bands![w.edge]!.panels;
-    if (state.folded.includes(id)) return bump({ ...state, folded: state.folded.filter((x) => !ids.includes(x)) }, id, false);
+    // Folded as the layout sees it: every shown panel of the band is folded.
+    const shown = ids.filter((x) => !state.closed.includes(x));
+    if ((shown.length ? shown : ids).every((x) => state.folded.includes(x))) return bump({ ...state, folded: state.folded.filter((x) => !ids.includes(x)) }, id, false);
     return { ...state, folded: [...state.folded.filter((x) => !ids.includes(x)), ...ids] };
   }
   if (state.folded.includes(id)) return bump({ ...state, folded: without(state.folded, id) }, id, false);
