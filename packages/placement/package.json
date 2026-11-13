@@ -1,6 +1,6 @@
 {
   "name": "@n-uf/placement",
-  "version": "26.11.8",
+  "version": "26.11.9",
   "description": "Where things go: desk docks, rails and palettes, panel columns, toolbar groups, and the drop targets for each. Pure state in, rects out. No DOM, no framework, no motion.",
   "keywords": [
     "layout",
