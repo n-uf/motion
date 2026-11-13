@@ -43,7 +43,7 @@ const SOFTWARE: Record<PartId, { name: string; description: string }> = {
   },
   placement: {
     name: "@n-uf/placement",
-    description: "Where things go: a TypeScript library that works out where windows, panels and toolbar groups go. Desks of docks, rails and palettes, toolbar hosts and zones, and the drop targets for each, as plain state in and rects out.",
+    description: "Where things go: a TypeScript library that works out where windows, panels and toolbar groups go. Desks of docks, rails and palettes, panel columns, toolbar hosts and zones, and the drop targets for each, as plain state in and rects out.",
   },
 };
 
