@@ -14,18 +14,24 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     `PanelsState.bands`, `PanelsStart.top` / `bottom`, `dockBand`, `resizeBand`, `bandSize`, `bandHeight`;
     `open(state, id, { edge, height? })`; `Where` and `PanelPlace` gain a `band` kind; `PanelDef.sides` may name
     edges.
-  - Height give-way for bands: `options.pagesMinHeight` (default 240); bands shrink, then fold to a bar, unkept
-    before kept, policy order, bottom first on a tie. Notes `band-shrunk`, `band-folded`, `kept-folded` with `edge`,
-    `pages-short`; `band-off` for a band on an edge the options don't enable.
+  - Height give-way for bands: `options.pagesMinHeight` (default 240). Reserved bands shrink, then fold to a bar,
+    unkept before kept, policy order, bottom first on a tie, until the pages keep the min; then the overlay bands,
+    together, until they leave the min of the pages uncovered. Notes `band-shrunk`, `band-folded`, `kept-folded` with
+    `edge`; `pages-short` when the pages' rect is still under the min (overlay bands never cause it); `band-off` for a
+    band on an edge the options don't enable.
   - Reserved room: `options.reserve` (`{ top?, right?, bottom?, left? }`) keeps px clear along the pages' edges for an
-    app's toolbar; `layout.reserved` has the rects. `pagesMin` and `pagesMinHeight` count after it.
+    app's toolbar; `layout.reserved` has the rects. `pagesMin` and `pagesMinHeight` count after it. An overlay band
+    lies next to the reserve on its edge, on the pages' side, never over it.
   - Targets `band:<edge>:<i>` and `band:<edge>` (an empty enabled edge). The stored form carries `bands` (an optional
     v1 field).
-  - Typing: `PanelKind`, `PanelPlace`, `Where` and `PanelsNote` gain members, so an exhaustive `switch` over them in a
-    consumer needs the new cases.
+  - Typing: `PanelKind`, `PanelPlace`, `Where` and `PanelsNote` gain members, and `@n-uf/placement/desk`'s `PresetId`
+    gains `"docksFull"` (so `PRESETS` has a fourth key), so an exhaustive `switch` over them, or a `Record` keyed by
+    `PresetId`, in a consumer needs the new cases.
 - `@n-uf/placement/desk`: `docks` and `dockTear` get a bottom band (reserved, between the columns); a new preset
   `docksFull` (the bottom band full width). `DeskHint.bottom` starts the band; else the last def whose `sides` names
-  `"bottom"`. `navigator` has no band.
+  `"bottom"`. `navigator` has no band. Because the band is enabled, `docks` and `dockTear` now always offer a
+  `band:bottom` drop strip along the pages' bottom, even when the band is empty (a drop there used to be a float in
+  `dockTear`, and no drop in `docks`).
 - `@n-uf/placement/panels`:
   - Tabs: `Column.show` (`"stack"`, the default, or `"tabs"`) and `Column.active`. A tabbed column draws a strip
     `options.tabs` tall (new chrome size, default 28; `PlacedColumn.strip`); its active panel takes the rest and the

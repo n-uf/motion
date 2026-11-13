@@ -251,10 +251,13 @@ whole: `toggleFold` on any of its panels folds or unfolds them all, and a folded
 each panel a `"bar"` side by side. `keep` works on band panels.
 
 **Height give-way**: when the pages would be shorter than `pagesMinHeight` (default 240; counted after the top and
-bottom reserves), bands shrink toward their min, then fold to a bar, unkept before kept, in the give-way policy's order,
-bottom before top on a tie (`band-shrunk`, `band-folded`, or `kept-folded` with `edge`). Overlay bands give way the same
-way, measured against the pages' full height. Give-way never writes `folded`, so a taller stage brings a band back. If
-the pages are still short: `pages-short`. Columns never give way by height to a band.
+bottom reserves), reserved bands shrink toward their min, then fold to a bar, unkept before kept, in the give-way
+policy's order, bottom before top on a tie (`band-shrunk`, `band-folded`, or `kept-folded` with `edge`); they leave the
+pages room for the overlay bands' bars at least. Then the overlay bands give way the same way, together, until they leave
+`pagesMinHeight` of the pages uncovered, so a top and a bottom one never meet. Give-way never writes `folded`, so a
+taller stage brings a band back. If the pages' rect is still under the min: `pages-short` (overlay bands don't change
+the pages' rect, so they never cause it; how far one covers the pages is its own `band-shrunk` or `band-folded`).
+Columns never give way by height to a band.
 
 `dockBand(state, id, edge, index, defs?)` puts a panel into a band (0 the leftmost, past the end the rightmost; a new
 band takes the panel's natural band height); `open(state, id, { edge, height? })` puts a panel placed nowhere at a
@@ -289,7 +292,7 @@ toolbar the app draws; `./toolbar` stays the toolbar's model, and placement neit
 comes off the pages' area after the columns and bands: `layout.reserved.top` is the pages' full width and `reserve.top`
 tall at their top (bottom likewise), and the left and right reserves are as tall as what the top and bottom reserves
 (and overlay bands) leave. `pagesMin` counts after the left and right reserves, `pagesMinHeight` after the top and
-bottom ones; a reserve never shrinks or folds. An overlay band lies inside the reserve on its edge, never over it.
+bottom ones; a reserve never shrinks or folds. An overlay band lies next to the reserve on its edge, on the pages' side, never over it.
 
 ```ts
 // The defs and state above; without band options the band is off (a `band-off` note).
@@ -348,7 +351,7 @@ list or a numeric height (or whose panels are all dropped) as `"bands.<edge>"`, 
 | `band-folded` | a band folded to a bar: the pages needed the height | `edge`, `items` |
 | `kept-folded` | (on a band) a kept band folded, last | `edge`, `items` |
 | `band-off` | a band on an edge the options don't enable: its panels aren't laid out | `edge`, `items` |
-| `pages-short` | the pages are under `pagesMinHeight` with every band folded (or by the reserves alone) | `height`, `min` |
+| `pages-short` | the pages' rect is under `pagesMinHeight` with every reserved band folded (or by the reserves alone) | `height`, `min` |
 
 ## Desk presets
 
