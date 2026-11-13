@@ -40,6 +40,10 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
   room kept clear for a toolbar the app draws; their drop targets; and a stored form.
 - **`/desk`**: desk presets (`docks`, `docksFull`, `dockTear`, `navigator`) as data on `/panels`: options and a
   start state.
+- **`/stack`**: the items along one edge, a column or a bar, each a panel or a control group with forms from largest to
+  smallest (open, header, rail icon, » menu; row, stacked, icons, » menu): one form and rect per item, giving way by
+  age, spare room to the panels that grow, a rail when nothing open sets the width; a drop target for every gap, each
+  with the exact solve a drop makes; and a stored form. Not tied to `/panels`.
 
 Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
@@ -401,6 +405,82 @@ console.log(targets.some((t) => t.id === "float")); // false
 `presetTargets(preset, input)` and `presetDrop(preset, input, target, point, grab)` are `panelTargets` and `panelDrop`
 the same way, offering only the places the preset allows (`presetInput` gives that input). `./dock` stays as it is for
 now.
+
+## Edge stacks
+
+`@n-uf/placement/stack` lays out the items along one edge of a stage: a column (`axis: "column"`, a side region) or a
+row (`"row"`, a bar). An item is a panel or a control group and declares its forms, largest first. Each form has a
+structural `kind` (a panel's `open`, `header`, `rail`, `menu`; a group's `row`, `stacked`, `icons`, `menu`), a `main`
+size along the stack (`min`, `natural`, `grows`) and a `cross` size. `fitStack(input)` picks one form per item and
+places them; it is not tied to `./panels` columns, and nothing in it is a word.
+
+- Every item starts in its largest form. While the smallest sizes don't fit the `length`, the item used longest ago
+  (`used`: the smaller, the older) takes its next form; unkept before `kept`, the later in the stack first on a tie.
+  It keeps giving way until its forms end, then the next item does. A `menu` form takes no room: the » entry does
+  (`menu.main`, default 28 px), while any item is in it.
+- Spare length goes to the forms that `grows`, shared by their natural sizes. With none, the items keep their
+  natural sizes from the start of the stack.
+- The stack's cross size is the widest `cross.natural` among the forms that set it (a panel's `open`, by default;
+  `setsCross` overrides), clamped to `cross.min` and `max`. With none it is the rail, `cross.rail` (default 30 px).
+  A form that doesn't set it and asks for more than it is takes its next form: a group never sets a column's width,
+  so a group alone is a rail of icons, and a column with nothing open shrinks to a rail.
+- The solver has no open or closed state: it lays out the items it is given.
+
+```ts
+import { fitStack, readStack, stackTargets, storeStack, type StackForm, type StackItem } from "@n-uf/placement/stack";
+
+const form = (kind: StackForm["kind"], min: number, natural: number, cross: number, grows = false): StackForm => ({
+  kind,
+  main: { min, natural, ...(grows ? { grows } : {}) },
+  cross: { natural: cross },
+});
+const panel = (id: string, used: number): StackItem => ({
+  id,
+  used,
+  forms: [form("open", 90, 160, 240, true), form("header", 28, 28, 240), form("rail", 24, 24, 30), form("menu", 0, 0, 0)],
+});
+const tools: StackItem = { id: "tools", used: 3, forms: [form("row", 96, 96, 180), form("stacked", 78, 78, 84), form("icons", 72, 72, 28), form("menu", 0, 0, 0)] };
+const column = { axis: "column", length: 250, cross: { min: 120, max: 360 } } as const;
+
+const fit = fitStack({ ...column, items: [panel("pages", 1), panel("findings", 2), tools] });
+console.log(fit.items.map((p) => p.kind), fit.cross, fit.notes);
+// [ 'header', 'open', 'row' ] 240 [ { code: 'form-down', id: 'pages', from: 0, to: 1 } ]
+
+const alone = fitStack({ ...column, items: [tools] });
+console.log(alone.items[0]!.kind, alone.cross); // icons 30
+```
+
+The result has, per item, `form` (an index into its forms), `kind` and `rect` (stack-local px: the stack starts at
+0, 0); `cross`, the stack's size across; `menu` (the » entry's `rect` and the ids in it, or `null`; an item in the
+menu has the entry's rect); and coded `notes`: `form-down` (`id`, `from`, `to`: the item took a smaller form, by
+length or by cross size), `to-menu` (`id`) and `overflow` (`over` px: every item is at its last form and the stack is
+still too long; forms that don't end in a `menu` form can't give more way).
+
+`stackTargets(input, dragged)` takes the stack without the dragged item and gives a target for every gap, before each
+item and after the last, in the shape `@n-uf/motion/drag` takes: `id` `gap:<k>`, priority 2, `place`
+`{ kind: "gap", at: k }`, `hit` (the stack split at its items' middles) and `slot`, the rect the dragged item gets.
+`fit` is the full solve with the item inserted at k (`input` the stack that was solved), so the preview is exactly the
+rect after the drop; `marker` is the line where the item's leading edge lands (a rect with no thickness across the
+stack). The dragged item counts as just used, so the others give way before it, and a group lands in the form that
+fits.
+
+```ts
+const targets = stackTargets({ ...column, items: [panel("pages", 1), panel("findings", 2)] }, tools);
+console.log(targets.map((t) => t.id), targets[1]!.slot, targets[1]!.fit.items[1]!.kind);
+// [ 'gap:0', 'gap:1', 'gap:2' ] { x: 0, y: 28, width: 240, height: 96 } row (Pages folds to its header to make room)
+```
+
+`storeStack(state)` and `readStack(data, known?)` keep what the user chose: `order`, `kept` and `forms` (the largest
+form index each item may take, stored only when above 0), as `{ v: 1, … }`. Reading never throws: anything but an
+object of version 1 is `{ ok: false, error }`; inside one, an id that isn't a string, repeats or (with `known`) isn't
+one the consumer has, a `kept` or `forms` entry for an item not in `order`, a form that isn't a whole number from 0,
+and a field this version doesn't know are dropped and listed in `dropped`.
+
+```ts
+const saved = JSON.stringify(storeStack({ order: ["pages", "tools"], kept: ["pages"], forms: { tools: 1 } }));
+console.log(saved); // {"v":1,"order":["pages","tools"],"kept":["pages"],"forms":{"tools":1}}
+console.log(readStack(JSON.parse(saved), ["pages", "tools", "findings"]).ok, readStack({ v: 2 }).ok); // true false
+```
 
 ## Pane zones
 

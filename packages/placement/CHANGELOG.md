@@ -3,6 +3,10 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+- New entry `@n-uf/placement/stack` (entry text follows in a later commit).
+
 ## 26.11.11
 
 - `@n-uf/placement/panels`, drops into a stacked column at a position (opt-in; without it every target is what it was):
