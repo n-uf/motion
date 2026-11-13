@@ -47,6 +47,10 @@
     "./panels": {
       "types": "./src/panels/index.ts",
       "default": "./src/panels/index.ts"
+    },
+    "./desk": {
+      "types": "./src/desk/index.ts",
+      "default": "./src/desk/index.ts"
     }
   },
   "publishConfig": {
@@ -73,6 +77,10 @@
       "./panels": {
         "types": "./dist/panels.d.ts",
         "default": "./dist/panels.js"
+      },
+      "./desk": {
+        "types": "./dist/desk.d.ts",
+        "default": "./dist/desk.js"
       },
       "./package.json": "./package.json"
     }

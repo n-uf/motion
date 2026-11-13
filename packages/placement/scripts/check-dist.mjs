@@ -1,5 +1,5 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, dock, toolbar, targets, panels) and its type definitions exist;
+// - every entry (the root, dock, toolbar, targets, panels, desk) and its type definitions exist;
 // - the JavaScript imports only its own chunks (no dependencies at all, @n-uf/motion included);
 // - no file touches a host global, and no type mentions a DOM type;
 // - Node can import every entry, and a desk lays out, a host collapses, a drop lands and a panel column gives way from
@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const ENTRIES = ["index", "dock", "toolbar", "targets", "panels"];
+const ENTRIES = ["index", "dock", "toolbar", "targets", "panels", "desk"];
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|globalThis|matchMedia)\b/;
 const DOM_TYPES = /\b(Window|Document|Element|HTMLElement|Event|PointerEvent|MouseEvent|DOMRect)\b/;
 const problems = [];
@@ -77,6 +77,10 @@ if (problems.length === 0) {
     if (laid.items.get("files")?.kind !== "segment" || laid.notes.at(-1)?.code !== "column-folded") problems.push("panels.js: the oldest column didn't fold on a narrow stage");
     const stops = m.targets.keyboardStops(m.panels.panelTargets({ defs, state: panels, id: "outline", stage: { width: 1200, height: 500 } }));
     if (stops[0]?.place.kind !== "rail") problems.push("panels.js: the keyboard stops don't start at the left rail");
+    const nav = m.desk.PRESETS.navigator;
+    const navLaid = m.desk.presetLayout(nav, defs, nav.start(defs), { width: 1200, height: 500 });
+    if (!navLaid.columns[0]?.strip || navLaid.items.get("files")?.tab === undefined) problems.push("desk.js: the navigator's left column has no strip of tabs");
+    if (m.desk.presetTargets(m.desk.PRESETS.docks, { defs, state: m.desk.PRESETS.docks.start(defs), id: "files", stage: { width: 1200, height: 500 } }).some((t) => t.id === "float")) problems.push("desk.js: docks offers a float target");
   } catch (error) {
     problems.push(`import: ${error instanceof Error ? error.message : String(error)}`);
   }
