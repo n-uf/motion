@@ -715,7 +715,8 @@ const presetTear: Scenario = {
     const startFloats = p.state.floats.map((f) => f.id);
     const pages = p.lay().pages;
     await pressAt(p, headOf(p, "files"));
-    await approach(p, { x: pages.x + pages.width / 2, y: 420 });
+    // Over the pages, above the bottom band the preset now has.
+    await approach(p, { x: pages.x + pages.width / 2, y: pages.y + pages.height / 2 + 60 });
     const shown = await shownSlot(p, "files");
     await release(p);
     await settled(p);
