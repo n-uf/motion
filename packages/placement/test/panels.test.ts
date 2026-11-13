@@ -17,6 +17,7 @@ import {
   pin,
   readPanels,
   resizeColumn,
+  resizeFloat,
   storePanels,
   toggleFold,
   whereIs,
@@ -27,13 +28,13 @@ import { keyboardStops } from "../src/targets";
 
 const w = (min: number, natural: number, max: number) => ({ min, natural, max });
 const DEFS: PanelDef[] = [
-  { id: "files", title: "Files", width: w(180, 220, 360) },
-  { id: "outline", title: "Outline", width: w(160, 200, 320) },
-  { id: "notes", title: "Notes", width: w(200, 260, 420) },
-  { id: "inspector", title: "Inspector", width: w(220, 280, 400), sides: ["right"] },
-  { id: "history", title: "History", width: w(200, 240, 360), float: { min: { width: 220, height: 160 }, natural: { width: 280, height: 300 } } },
-  { id: "search", title: "Search", width: w(200, 240, 360), floats: false },
-  { id: "preview", title: "Preview", width: w(200, 240, 360), float: { min: { width: 300, height: 200 }, natural: { width: 320, height: 240 } } },
+  { id: "files", width: w(180, 220, 360) },
+  { id: "outline", width: w(160, 200, 320) },
+  { id: "notes", width: w(200, 260, 420) },
+  { id: "inspector", width: w(220, 280, 400), sides: ["right"] },
+  { id: "history", width: w(200, 240, 360), float: { min: { width: 220, height: 160 }, natural: { width: 280, height: 300 } } },
+  { id: "search", width: w(200, 240, 360), floats: false },
+  { id: "preview", width: w(200, 240, 360), float: { min: { width: 300, height: 200 }, natural: { width: 320, height: 240 } } },
 ];
 
 /** The lab's desk: three left columns, two right, a float and a pinned float. */
@@ -167,6 +168,22 @@ describe("give-way", () => {
     expect(shrink.notes).toMatchObject([{ code: "column-shrunk", items: ["files"] }]);
   });
 
+  it("folds unkept columns before kept ones, in policy order across both sides", () => {
+    // Files (oldest) kept; Outline then Notes are the unkept ones, oldest first.
+    const s = keep(createPanels(DEFS, { left: [["files"], ["outline"]], right: [["notes"]] }), "files", true);
+    const order = (width: number): string[] =>
+      layoutPanels(DEFS, s, { width, height: 500 })
+        .notes.filter((n) => n.code === "column-folded" || n.code === "kept-folded")
+        .map((n) => `${n.code}:${"items" in n ? n.items.join("+") : ""}`);
+    // Two must fold: the unkept ones, in policy order; the older kept column stays.
+    expect(order(700)).toEqual(["column-folded:outline", "column-folded:notes"]);
+    // Narrower: only the kept column is left, and the pages still need room, so it folds last.
+    expect(order(500)).toEqual(["column-folded:outline", "column-folded:notes", "kept-folded:files"]);
+    // Newest first, the kept column still comes after both unkept ones.
+    const newest = layoutPanels(DEFS, s, { width: 600, height: 500 }, { giveWay: { order: "newest", by: "used" } });
+    expect(newest.notes.filter((n) => n.code === "column-folded").map((n) => ("items" in n ? n.items[0] : ""))).toEqual(["notes", "outline"]);
+  });
+
   it("drops kept when a panel floats or closes", () => {
     const s = keep(pair(), "notes", true);
     expect(float(s, "notes", { x: 0, y: 0, width: 300, height: 200 }).kept).toEqual([]);
@@ -235,6 +252,21 @@ describe("floats", () => {
     expect(layoutPanels(DEFS, pinned, VIEW, { view: { x: 0, y: 0, scale: 1 } }).items.get("history")!.rect).toMatchObject({ x: 90, y: 120 });
     expect(pin(pinned, "history", false, view).floats[0]!.rect).toMatchObject({ x: 100, y: 100 });
   });
+
+  it("clamps an unpinned float in page space, so it still scrolls with the page", () => {
+    const s = createPanels(DEFS, { floats: [{ id: "history", x: 100, y: 100 }, { id: "preview", x: 40, y: 380, pinned: true }] });
+    // Panned 300 px up: the unpinned float goes with the page, past the view's top; the pinned one stays put.
+    const up = layoutPanels(DEFS, s, VIEW, { view: { x: 0, y: -300, scale: 1 } });
+    expect(up.items.get("history")!.rect).toMatchObject({ x: 100, y: -200 });
+    expect(up.items.get("history")!.clamped).toBeUndefined();
+    expect(up.items.get("preview")!.rect).toMatchObject({ x: 40, y: 380 });
+    // Page space is clamped against the view's extent at pan 0: the view's size over the scale.
+    const far = createPanels(DEFS, { floats: [{ id: "history", x: 1100, y: 100 }] });
+    const zoomed = layoutPanels(DEFS, far, VIEW, { view: { x: 0, y: 0, scale: 2 } }).items.get("history")!;
+    // The extent is 600 × 350 page px: x to 600 - 280, y to 350 - 300; then scaled into the view.
+    expect(zoomed.rect).toMatchObject({ x: 2 * (600 - 280), y: 2 * (350 - 300), width: 280 });
+    expect(zoomed.clamped).toBe(true);
+  });
 });
 
 describe("changes", () => {
@@ -255,6 +287,18 @@ describe("changes", () => {
     const lone = open(createPanels(DEFS, {}), "notes", { side: "right", width: 300 });
     expect(lone.sides.right).toEqual([{ panels: ["notes"], width: 300 }]);
     expect(resizeColumn(desk(), "left", 1, 280).sides.left[1]!.width).toBe(280);
+  });
+
+  it("resizing is a use", () => {
+    const s = desk();
+    const t = Math.max(...Object.values(s.clock).map((c) => Math.max(c.opened, c.used)));
+    expect(resizeColumn(s, "left", 0, 300).clock.files!.used).toBe(t + 1);
+    const f = resizeFloat(s, "history", { x: 500, y: 120, width: 320, height: 320 });
+    expect([f.clock.history!.used, f.floats[0]!.rect.width]).toEqual([t + 1, 320]);
+    // The resized column is the newest now: give-way narrows the others first.
+    const wide = resizeColumn(s, "left", 0, 360);
+    const l = layoutPanels(DEFS, wide, { width: 360 + 200 + 260 + 280 + 240 + 320 - 40, height: 500 });
+    expect(l.columns.find((c) => c.side === "left" && c.index === 0)!.rect.width).toBe(360);
   });
 });
 
@@ -351,6 +395,24 @@ describe("store and read", () => {
     expect(r.state.kept).toEqual([]);
     expect(r.state.clock.files).toEqual({ opened: 0, used: 0 });
     expect(r.dropped).toEqual(expect.arrayContaining(["ghost", "ghost2", "files", "nope", "closed", "history"]));
+  });
+
+  it("reports fields it doesn't know (v1 only gains optional fields)", () => {
+    const data = {
+      ...storePanels(desk()),
+      theme: "dark",
+      sides: { left: [{ panels: ["files"], width: 200, collapsedTo: 40 }], right: [], bottom: [{ panels: ["outline"], width: 1 }] },
+      floats: [{ id: "history", rect: { x: 0, y: 0, width: 300, height: 300 }, pinned: false, opacity: 0.9 }],
+      clock: { files: { opened: 1, used: 1 }, outline: { opened: 2, used: 2 } },
+    };
+    const r = readPanels(data, DEFS);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.dropped).toEqual(expect.arrayContaining(["theme", "sides.bottom", "column.collapsedTo", "float.opacity", "clock.outline"]));
+    expect(r.state.sides.left).toEqual([{ panels: ["files"], width: 200 }]);
+    // Nothing unknown, nothing reported.
+    const clean = readPanels(JSON.parse(JSON.stringify(storePanels(desk()))), DEFS);
+    expect(clean.ok && clean.dropped).toEqual([]);
   });
 
   it("never throws on bad data", () => {
