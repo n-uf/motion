@@ -83,7 +83,7 @@ function dwindle(r: Area, names: Leaf[]): Box[] {
 const def = (id: string, natural: number, sides?: PanelDef["sides"]): PanelDef => ({
   id,
   width: { min: 160, natural: 190, max: 300 },
-  height: { min: 100, natural },
+  height: { min: 120, natural },
   band: { min: 100, max: 300, natural: 180 },
   float: { min: { width: 160, height: 120 }, natural: { width: 200, height: 150 } },
   ...(sides ? { sides } : {}),
@@ -151,7 +151,7 @@ function presetDesk(id: PresetId, W: number, H: number, n: number, o: Opt): { bo
     if (p.hidden || p.kind === "segment") continue;
     if (p.kind === "column") out.push(at(p.tab ? inset(p.rect, 0) : inset(p.rect), "panel", pid, { noTitle: !!p.tab }));
     else if (p.kind === "band") out.push(at(inset(p.rect), overlayBand ? "float" : "panel", pid, { accent: true }));
-    else if (p.kind === "bar") out.push(at(inset(p.rect), "header", pid, { accent: !!p.edge }));
+    else if (p.kind === "bar") out.push(at(inset(p.rect, 1, 1), "header", pid, { accent: !!p.edge }));
     else if (p.kind === "float") out.push(at(inset(p.rect), "float", `${pid} (torn off)`, { key: pid }));
   }
   // Floats on top, as their layer says; the documents under everything else.
@@ -448,16 +448,16 @@ export const TOOLBAR_MODES: [string, string, string][] = [
   ["bottom", "reserved", "Bottom · reserved"],
   ["bottom", "overlay", "Bottom · floating"],
 ];
-/** The bottom band (`options.bands.bottom`): off, reserved (it shortens the documents) or over them; and its span. */
+/**
+ * The bottom band (`options.bands.bottom`): off, reserved (it shortens the documents) or overlay (over them); while it
+ * is on, one more toggle switches its span between the columns and the full width.
+ */
 export const BAND_MODES: [string, string][] = [
   ["off", "Off"],
   ["reserved", "Reserved"],
-  ["overlay", "Over the documents"],
+  ["overlay", "Overlay"],
 ];
-export const SPAN_MODES: [string, string][] = [
-  ["between", "Between the columns"],
-  ["full", "Full width"],
-];
+export const FULL_WIDTH = "Full width";
 
 // ---- The comparison table: one row per construction, one column per question -----------------------------------------
 export const ASPECTS = ["Laid out by", "Toolbar", "Panels on one side", "Height runs out", "Width runs out", "Covers documents", "Things move by themselves", "Drop targets while dragging", "Known from"];

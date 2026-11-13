@@ -6,7 +6,7 @@ import Playback from "../components/Playback.astro";
 import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode, software } from "../data/schema";
-import { ASPECTS, BAND_MODES, CARDS, DEFAULT, SPAN_MODES, TABLE, TOOLBAR_MODES, defaultOpts, deskSVG, layout, statusHTML } from "../demos/desk";
+import { ASPECTS, BAND_MODES, CARDS, DEFAULT, FULL_WIDTH, TABLE, TOOLBAR_MODES, defaultOpts, deskSVG, layout, statusHTML } from "../demos/desk";
 import Faq from "../components/Faq.astro";
 import { faqJsonLd } from "../data/faq";
 import "../styles/desk-layouts.css";
@@ -42,7 +42,7 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
       <label class="field">Height <input id="h" type="range" min="320" max="820" step="10" value={DEFAULT.H} style={pct(DEFAULT.H, 320, 820)} /><output id="ho">{DEFAULT.H}</output></label>
       <label class="field">Documents <input id="n" type="range" min="1" max="4" step="1" value={DEFAULT.n} style={`width:84px;${pct(DEFAULT.n, 1, 4)}`} /><output id="no">{DEFAULT.n}</output></label>
     </Fragment>
-    <span class="tb-row" id="segs" slot="options"><span class="lab">Toolbar</span>{TOOLBAR_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.toolbar && m[1] === opts.toolbarSpace)}>{m[2]}</button>)}<span class="lab">Bottom band</span>{BAND_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.band)}>{m[1]}</button>)}{opts.band !== "off" && <><span class="lab">Span</span>{SPAN_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.span)}>{m[1]}</button>)}</>}</span>
+    <span class="tb-row" id="segs" slot="options"><span class="lab">Toolbar</span>{TOOLBAR_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.toolbar && m[1] === opts.toolbarSpace)}>{m[2]}</button>)}<span class="lab">Bottom band</span>{BAND_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.band)}>{m[1]}</button>)}{opts.band !== "off" && <button type="button" class="tb text" aria-pressed={String(opts.span === "full")}>{FULL_WIDTH}</button>}</span>
     <Fragment slot="speed"><Playback part="speed" /></Fragment>
     <div class="figure-body">
       <CaseRail id="cases" label="Constructions" items={CARDS.map((c) => ({ name: c.title, note: c.note, tag: c.pick ? "our pick" : c.preset ? "preset" : "sketch" }))} active={active} />
