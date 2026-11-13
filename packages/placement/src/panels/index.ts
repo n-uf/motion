@@ -2,8 +2,10 @@
  * @n-uf/placement/panels: tool panels as apps use them. String ids; several full-height columns per side, each with
  * its own width, shown as a stack of sections or as tabs; folding to a title bar or a rail; give-way by age when the
  * pages run out of room (and, opt-in, when a column runs out of height); resizable floats,
- * some pinned to the view; drop targets in the shape @n-uf/motion/drag takes; and a stored form. Pure: state, a
- * stage and options in; geometry, structure and coded notes out.
+ * some pinned to the view; opt-in top and bottom bands (reserved or over the pages, between the columns or full
+ * width); room kept clear at the pages' edges for a toolbar the app draws; drop targets in the shape
+ * @n-uf/motion/drag takes; and a stored form. Pure: state, a stage and options in; geometry, structure and coded
+ * notes out.
  */
 export {
   BAND_SIZE,
