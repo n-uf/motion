@@ -19,6 +19,12 @@ export interface PanelDef {
   readonly id: string;
   /** A docked column's width limits and its natural width. */
   readonly width: { readonly min: number; readonly max: number; readonly natural: number };
+  /**
+   * Its height as a section of a stack column (opt-in): it gets its natural height, the column's last open section
+   * takes the rest, and when the column is short sections fold to bars by give-way. Without it a section shares the
+   * column's height equally with the others, as before.
+   */
+  readonly height?: { readonly min: number; readonly natural: number };
   /** A float's size limits and natural size (default: its natural width, 360 px tall, no smaller than 160 × 120). */
   readonly float?: { readonly min: Size; readonly natural: Size };
   /** Where it may dock (default: both sides). */
@@ -27,10 +33,15 @@ export interface PanelDef {
   readonly floats?: boolean;
 }
 
-/** A full-height column: its panels top to bottom, and its stored width (the layout clamps it to its panels' limits). */
+/**
+ * A full-height column: its panels top to bottom, and its stored width (the layout clamps it to its panels' limits).
+ * `show` "tabs" shows one panel at a time under a strip of tabs: `active` (default: the first shown panel).
+ */
 export interface Column {
   readonly panels: readonly string[];
   readonly width: number;
+  readonly show?: "stack" | "tabs";
+  readonly active?: string;
 }
 
 /** A floating panel: `rect` in page space, or in view space when `pinned`. */
@@ -100,6 +111,8 @@ export interface PanelsOptions {
   /** A rail segment's height, and the gap above the first one (defaults 36 and 4). */
   readonly segment: number;
   readonly railInset: number;
+  /** A tabbed column's strip height (default 28). */
+  readonly tabs: number;
 }
 
 export const DEFAULT_PANELS_OPTIONS: PanelsOptions = {
@@ -113,6 +126,7 @@ export const DEFAULT_PANELS_OPTIONS: PanelsOptions = {
   rail: 36,
   segment: 36,
   railInset: 4,
+  tabs: 28,
 };
 
 /** A float's size when its def gives none: this tall, and never smaller than FLOAT_MIN. */
@@ -208,7 +222,12 @@ export function createPanels(defs: readonly PanelDef[], start: PanelsStart): Pan
 
 /** The state with `id` taken out of its column (an emptied column goes) or the floats. Nothing else changes. */
 export function liftPanel(state: PanelsState, id: string): PanelsState {
-  const lift = (cols: readonly Column[]): Column[] => cols.map((c) => ({ ...c, panels: without(c.panels, id) })).filter((c) => c.panels.length > 0);
+  // A tabbed column whose active panel leaves shows its first panel again.
+  const out = (c: Column): Column => {
+    const { active: _a, ...rest } = c;
+    return { ...(c.active === id ? rest : c), panels: without(c.panels, id) };
+  };
+  const lift = (cols: readonly Column[]): Column[] => cols.map(out).filter((c) => c.panels.length > 0);
   return { ...state, sides: { left: lift(state.sides.left), right: lift(state.sides.right) }, floats: state.floats.filter((f) => f.id !== id) };
 }
 
@@ -261,12 +280,29 @@ export function dock(state: PanelsState, id: string, side: Side, index: number, 
   const from = w.kind === "column" ? state.sides[w.side][w.index]!.width : 0;
   const s = liftPanel(state, id);
   const cols = [...s.sides[side]];
-  if (options.into && cols[index]) cols[index] = { ...cols[index]!, panels: [...cols[index]!.panels, id] };
+  // Into a tabbed column: a tab at the end, and the one showing.
+  if (options.into && cols[index]) cols[index] = { ...cols[index]!, panels: [...cols[index]!.panels, id], ...(cols[index]!.show === "tabs" ? { active: id } : {}) };
   else {
     const at = Math.max(0, Math.min(index, cols.length));
     cols.splice(at, 0, { panels: [id], width: options.width ?? from });
   }
   return bump({ ...s, sides: { ...s.sides, [side]: cols }, closed: without(s.closed, id) }, id, false);
+}
+
+/** Show a column's panels as tabs (one at a time under a strip), or as a stack again. */
+export function showTabs(state: PanelsState, side: Side, index: number, on: boolean): PanelsState {
+  const col = state.sides[side][index];
+  if (!col) return state;
+  const { show: _s, ...stack } = col;
+  return { ...state, sides: { ...state.sides, [side]: state.sides[side].map((c, i) => (i === index ? (on ? { ...col, show: "tabs" as const } : stack) : c)) } };
+}
+
+/** Make a docked panel the one its column shows (its tab), and the newest used. */
+export function activate(state: PanelsState, id: string): PanelsState {
+  const w = whereIs(state, id);
+  if (w.kind !== "column") return state;
+  const sides = { ...state.sides, [w.side]: state.sides[w.side].map((c, i) => (i === w.index ? { ...c, active: id } : c)) };
+  return bump({ ...state, sides }, id, false);
 }
 
 /**
@@ -339,7 +375,12 @@ export function columnWidth(defs: readonly PanelDef[] | undefined, col: Column):
  * column's max is the same place as that max.
  */
 export function samePlaces(a: PanelsState, b: PanelsState, defs?: readonly PanelDef[]): boolean {
-  const cols = (s: PanelsState): string => SIDES.map((side) => s.sides[side].map((c) => `${c.panels.join(",")}@${Math.round(columnWidth(defs, c))}`).join("|")).join("‖");
+  const cols = (s: PanelsState): string =>
+    SIDES.map((side) =>
+      s.sides[side]
+        .map((c) => `${c.panels.join(",")}@${Math.round(columnWidth(defs, c))}${c.show === "tabs" ? `/tabs:${c.active ?? c.panels[0]}` : ""}`)
+        .join("|"),
+    ).join("‖");
   const fl = (s: PanelsState): string => s.floats.map((f) => `${f.id}@${Math.round(f.rect.x)},${Math.round(f.rect.y)},${Math.round(f.rect.width)},${Math.round(f.rect.height)}${f.pinned ? "p" : ""}`).join("|");
   const set = (l: readonly string[]): string => [...l].sort().join(",");
   return cols(a) === cols(b) && fl(a) === fl(b) && set(a.folded) === set(b.folded) && set(a.kept) === set(b.kept) && set(a.closed) === set(b.closed);
