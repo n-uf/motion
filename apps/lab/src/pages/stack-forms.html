@@ -1,0 +1,42 @@
+<!-- The Stack · forms page (src/stack/forms.ts): the shell renders the header. -->
+<section class="controls st-controls" aria-label="Controls">
+  <fieldset>
+    <legend>Stack</legend>
+    <label>Length <input type="range" id="sf-length" min="80" max="760" step="2" value="520" /> <output id="sf-length-out">520 px</output></label>
+    <label>Column width limit <input type="range" id="sf-width" min="60" max="360" step="2" value="360" /> <output id="sf-width-out">360 px</output></label>
+  </fieldset>
+  <fieldset>
+    <legend>Items</legend>
+    <table class="st-items">
+      <thead><tr><th></th><th>In the stacks</th><th>Panel</th><th>Kept</th><th>Used</th></tr></thead>
+      <tbody id="sf-items"></tbody>
+    </table>
+  </fieldset>
+  <fieldset>
+    <legend>Page</legend>
+    <button type="button" id="sf-reset">Reset</button>
+    <button type="button" id="sf-run">Run all scenarios</button>
+  </fieldset>
+</section>
+
+<div class="st-wrap"><div class="st-stage" id="sf-stage"></div></div>
+<p id="st-status" role="status" aria-live="polite"></p>
+
+<section class="st-try">
+  <h2>Try this</h2>
+  <ol>
+    <li>Drag Length down. The panel used longest ago folds first (Pages): to its header, then a rail icon, then into the » menu; then the next. Drag it up: they come back. Spare length goes to the open panels.</li>
+    <li>Click a panel's title (a use) and shorten again: the order changes. Tick Kept for a panel: it goes last.</li>
+    <li>Untick every panel's open: the column has nothing open to set its width, so it becomes a rail of about 30 px. Untick the panels' shown too, leaving only groups: still a rail, with icons.</li>
+    <li>Open or fold one panel: no other panel's open state changes.</li>
+    <li>Drag the Column width limit down: the groups beside an open panel step from a row of words to stacked words, then icons, as the column narrows. The bar along the top does the same along its length.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Checks</h2>
+  <table>
+    <thead><tr><th>Scenario</th><th>Mode</th><th>Result</th><th>Why</th></tr></thead>
+    <tbody id="sf-runs"><tr><td colspan="4">Run the scenarios to fill this table (window.__motionLab.runAll() does the same).</td></tr></tbody>
+  </table>
+</section>
