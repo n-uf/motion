@@ -3,6 +3,19 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+- `@n-uf/placement/panels`, drops into a stacked column at a position (opt-in; without it every target is what it was):
+  - `DockOptions.at`: with `into`, the panel goes before the column's member at that index (counted with the panel
+    lifted out; clamped; left out or not a number: the bottom). Into a tabbed column it is the tab's position.
+  - `PanelTargetInput.stackSlots`: a stacked column also offers `into:<side>:<i>:<k>`, before member k, its area
+    split at the members' middles; `into:<side>:<i>` keeps the part below the last member's middle. These targets
+    carry `PanelTarget.marker`, the line where the panel goes (zero tall, the column's width). Tabbed columns keep
+    their one `into` target.
+  - Typing: the `into` place gains an optional `at` (no new `kind`, so exhaustive switches still hold);
+    `PanelTarget.marker?` is new. `homePlace(state, id, { stackSlots })` gives a stacked panel's `at`, and
+    `keyboardStops` puts such a home at its position among the slots.
+
 ## 26.11.10
 
 - `@n-uf/placement/panels`, bands and reserved room (all opt-in; a state and options without them lay out as before,

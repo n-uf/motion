@@ -5,6 +5,10 @@
  * - `column:<side>:<i>` (priority 2): a band across the line between two columns (or a side's edge): a new column
  *   there, as wide as the panel's own width.
  * - `into:<side>:<i>` (2): a column's area: the panel stacks at its bottom.
+ * - `into:<side>:<i>:<k>` (2), opt-in (`stackSlots`): before the stacked column's member k. The column's area is split
+ *   at its members' middles: the top half of member k (and the lower half of the one above) goes before k, and
+ *   `into:<side>:<i>` keeps only what lies below the last member's middle. `marker` is the line where the panel will
+ *   go, for the app to draw. A tabbed column keeps its one `into` target.
  * - `rail:<side>` (1): the side's rail, or its outer edge: the panel docks folded.
  * - `float` (3, free): anywhere; it floats where it is let go, kept in the view as the float option says.
  * - `band:<edge>:<i>` (2), for each edge with a band (`options.bands`): the slots between a band's panels and at both
@@ -22,7 +26,13 @@ import { DEFAULT_PANELS_OPTIONS, EDGES, SIDES, defOf, dock, dockBand, float, flo
 /** Where a drop puts a panel. `index` is a column (or band panel) index in the state with the panel lifted out. */
 export type PanelPlace =
   | { readonly kind: "column"; readonly side: Side; readonly index: number }
-  | { readonly kind: "into"; readonly side: Side; readonly index: number }
+  | {
+      readonly kind: "into";
+      readonly side: Side;
+      readonly index: number;
+      /** Before the column's member at this index (in the state with the panel lifted out); left out: at its bottom. */
+      readonly at?: number;
+    }
   | { readonly kind: "rail"; readonly side: Side }
   | { readonly kind: "band"; readonly edge: Edge; readonly index: number }
   | { readonly kind: "float" };
@@ -35,6 +45,11 @@ export interface PanelTarget extends Target {
   readonly order: number;
   /** The state a drop here makes, with the pointer at `p` holding the panel at `grab` from its top-left corner. */
   readonly make: (p: Point, grab: Point) => PanelsState;
+  /**
+   * With `stackSlots`, on `into` targets of a stacked column: the line where the panel will go, as a rect zero tall at
+   * that line, as wide as the column (between two members, at its top or under its last member).
+   */
+  readonly marker?: Rect;
 }
 
 export interface PanelTargetInput {
@@ -46,6 +61,8 @@ export interface PanelTargetInput {
   readonly options?: Partial<PanelsOptions>;
   /** Places the panel may go beyond its def's rules (default: all of them). */
   readonly allows?: (id: string, place: PanelPlace) => boolean;
+  /** Drops into a stacked column may go before any of its members (`into` targets with `at`); default: the bottom only. */
+  readonly stackSlots?: boolean;
 }
 
 /** How far a column band reaches on each side of its line, px; how wide a side's edge takes a rail drop when it has no rail. */
@@ -66,18 +83,26 @@ export function placeRank(place: PanelPlace): number {
       return place.side === "left" ? 0 : 1999;
     case "column":
       return place.side === "left" ? 1 + 2 * place.index : 1998 - 2 * place.index;
-    case "into":
-      return place.side === "left" ? 2 + 2 * place.index : 1997 - 2 * place.index;
+    case "into": {
+      const base = place.side === "left" ? 2 + 2 * place.index : 1997 - 2 * place.index;
+      // Before a member: top to bottom, ahead of the column's bottom.
+      return place.at === undefined ? base : base - 0.5 + Math.min(Math.max(0, place.at), 499) / 1000;
+    }
   }
 }
 
-/** Where a panel is now, as a place (a float, a column of its own, or stacked in one); null when placed nowhere. */
-export function homePlace(state: PanelsState, id: string): PanelPlace | null {
+/**
+ * Where a panel is now, as a place (a float, a column of its own, or stacked in one); null when placed nowhere. With
+ * `stackSlots`, a panel stacked in a column says its position there as `at` (a tabbed column's panel never does).
+ */
+export function homePlace(state: PanelsState, id: string, options: { readonly stackSlots?: boolean } = {}): PanelPlace | null {
   const w = whereIs(state, id);
   if (w.kind === "float") return { kind: "float" };
   if (w.kind === "none") return null;
   if (w.kind === "band") return { kind: "band", edge: w.edge, index: w.index };
-  return state.sides[w.side][w.index]!.panels.length === 1 ? { kind: "column", side: w.side, index: w.index } : { kind: "into", side: w.side, index: w.index };
+  const col = state.sides[w.side][w.index]!;
+  if (col.panels.length === 1) return { kind: "column", side: w.side, index: w.index };
+  return options.stackSlots && col.show !== "tabs" ? { kind: "into", side: w.side, index: w.index, at: col.panels.indexOf(id) } : { kind: "into", side: w.side, index: w.index };
 }
 
 const cut = (x0: number, x1: number, lo: number, hi: number): [number, number] => [Math.max(x0, lo), Math.min(x1, hi)];
@@ -106,17 +131,19 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
         return `rail:${place.side}`;
       case "band":
         return s0.bands?.[place.edge] ? `band:${place.edge}:${place.index}` : `band:${place.edge}`;
+      case "into":
+        return place.at === undefined ? `into:${place.side}:${place.index}` : `into:${place.side}:${place.index}:${place.at}`;
       default:
         return `${place.kind}:${place.side}:${place.index}`;
     }
   };
-  const add = (place: PanelPlace, priority: 1 | 2 | 3, hit: Rect, make: PanelTarget["make"], free = false): void => {
+  const add = (place: PanelPlace, priority: 1 | 2 | 3, hit: Rect, make: PanelTarget["make"], free = false, marker?: Rect): void => {
     if (hit.width <= 0 || hit.height <= 0) return;
     if (input.allows && !input.allows(id, place)) return;
     // Its own place: a drop there changes nothing, so it is no target (the drag's home covers it).
     // Widths compare as laid out: a stored width past the column's limits is the same place as the limit.
     if (place.kind !== "float" && samePlaces(make({ x: 0, y: 0 }, { x: 0, y: 0 }), state, defs)) return;
-    out.push({ id: idOf(place), priority, hit, panel: id, place, order: placeRank(place), make, ...(free ? { free: true } : {}) });
+    out.push({ id: idOf(place), priority, hit, panel: id, place, order: placeRank(place), make, ...(free ? { free: true } : {}), ...(marker ? { marker } : {}) });
   };
 
   // The columns' height: what the full-span bands leave (the whole stage without them).
@@ -149,7 +176,27 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
     if (open.length === 0) band(left ? l0.pages.x - px(reserve.left) : l0.pages.x + l0.pages.width + px(reserve.right), true, s0.sides[side].length);
     open.forEach((c, k) => {
       band(left ? c.rect.x : c.rect.x + c.rect.width, k === 0, c.index);
-      add({ kind: "into", side, index: c.index }, 2, c.rect, () => dock(state, id, side, c.index, { into: true }));
+      const col = s0.sides[side][c.index]!;
+      const into = () => dock(state, id, side, c.index, { into: true });
+      // The members as laid out, top to bottom (a stacked column only; each shows as a section or a title bar).
+      const members = input.stackSlots && col.show !== "tabs" ? col.panels.map((p) => l0.items.get(p)?.rect) : [];
+      if (members.length === 0 || members.some((r) => !r)) {
+        add({ kind: "into", side, index: c.index }, 2, c.rect, into);
+        return;
+      }
+      const rs = members as Rect[];
+      const mid = (r: Rect): number => r.y + r.height / 2;
+      const line = (y: number): Rect => rect(c.rect.x, y, c.rect.width, 0);
+      const bottom = c.rect.y + c.rect.height;
+      rs.forEach((r, at) => {
+        const prev = rs[at - 1];
+        const y0 = prev ? mid(prev) : c.rect.y;
+        // The line between two members (the middle of any gap), or the column's top.
+        const ly = prev ? (prev.y + prev.height + r.y) / 2 : r.y;
+        add({ kind: "into", side, index: c.index, at }, 2, rect(c.rect.x, y0, c.rect.width, mid(r) - y0), () => dock(state, id, side, c.index, { into: true, at }), false, line(ly));
+      });
+      const last = rs.at(-1)!;
+      add({ kind: "into", side, index: c.index }, 2, rect(c.rect.x, mid(last), c.rect.width, bottom - mid(last)), into, false, line(last.y + last.height));
     });
     const last = open.at(-1);
     if (last) band(left ? last.rect.x + last.rect.width : last.rect.x, false, last.index + 1);
@@ -263,7 +310,9 @@ export function panelStops(targets: readonly PanelTarget[], options: PanelStopsO
     stops.push({ id: t.id, place: t.place, state: t.make({ x: 0, y: 0 }, { x: 0, y: 0 }), home: false, order: t.order });
   }
   const h = options.home;
-  // A float's home sits with the floats: last, after any float stop.
-  if (h) stops.push({ id: "home", place: h.place, state: h.state, home: true, order: placeRank(h.place) + (h.place.kind === "float" ? 1 : 0.5) });
+  // A float's home sits with the floats: last, after any float stop. A home that says its position in a column sits at
+  // that position among the column's slots.
+  const after = h?.place.kind === "float" ? 1 : h?.place.kind === "into" && h.place.at !== undefined ? 0.0005 : 0.5;
+  if (h) stops.push({ id: "home", place: h.place, state: h.state, home: true, order: placeRank(h.place) + after });
   return stops.sort((a, b) => a.order - b.order).map(({ order: _order, ...s }) => s);
 }

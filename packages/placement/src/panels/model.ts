@@ -405,6 +405,11 @@ export interface DockOptions {
   /** Stack into the column at `index` (at its bottom) instead of making a new column there. */
   readonly into?: boolean;
   /**
+   * With `into`: the panel goes before the column's member at this index (0 the top; past the end, or left out, the
+   * bottom), counted once the panel is lifted out.
+   */
+  readonly at?: number;
+  /**
    * A new column's width (default: the width of the column the panel leaves, else 0, which the layout clamps to the
    * minimum; from a band, pass `ownWidth` for its natural width, as the drop targets do).
    */
@@ -412,18 +417,22 @@ export interface DockOptions {
 }
 
 /**
- * Dock a panel on `side`: a new column at `index` (0 the outer edge; past the end, innermost), or with `into` at the
- * bottom of the column at `index` (counted once the panel is lifted out). It shows, it is the newest used, and it
- * keeps whether it is kept open.
+ * Dock a panel on `side`: a new column at `index` (0 the outer edge; past the end, innermost), or with `into` in the
+ * column at `index` (counted once the panel is lifted out), at its bottom or before the member `at`. It shows, it is
+ * the newest used, and it keeps whether it is kept open.
  */
 export function dock(state: PanelsState, id: string, side: Side, index: number, options: DockOptions = {}): PanelsState {
   const w = whereIs(state, id);
   const from = w.kind === "column" ? state.sides[w.side][w.index]!.width : 0;
   const s = liftPanel(state, id);
   const cols = [...s.sides[side]];
-  // Into a tabbed column: a tab at the end, and the one showing.
-  if (options.into && cols[index]) cols[index] = { ...cols[index]!, panels: [...cols[index]!.panels, id], ...(cols[index]!.show === "tabs" ? { active: id } : {}) };
-  else {
+  // Into a column: at its bottom, or before the member `at`. Into a tabbed column it is also the tab that shows.
+  if (options.into && cols[index]) {
+    const panels = [...cols[index]!.panels];
+    const at = typeof options.at === "number" && Number.isFinite(options.at) ? Math.max(0, Math.min(Math.floor(options.at), panels.length)) : panels.length;
+    panels.splice(at, 0, id);
+    cols[index] = { ...cols[index]!, panels, ...(cols[index]!.show === "tabs" ? { active: id } : {}) };
+  } else {
     const at = Math.max(0, Math.min(index, cols.length));
     cols.splice(at, 0, { panels: [id], width: options.width ?? from });
   }
