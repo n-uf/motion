@@ -491,7 +491,18 @@ const SCENARIOS: readonly Scenario[] = [giveWayCombos, free, keptOutlives, clamp
 function installScenarios(p: Page, runButton: HTMLButtonElement, table: HTMLTableSectionElement): void {
   const runs: LabRun[] = [];
   let lastRows: Row[] = [];
+  let running = false;
   async function runAll(filter?: ScenarioFilter): Promise<LabRun[]> {
+    // One run at a time: two would drive the same desk.
+    if (running) return [];
+    running = true;
+    try {
+      return await runEach(filter);
+    } finally {
+      running = false;
+    }
+  }
+  async function runEach(filter?: ScenarioFilter): Promise<LabRun[]> {
     runs.length = 0;
     for (const s of SCENARIOS) {
       if (!passes(s.name, filter)) continue;
