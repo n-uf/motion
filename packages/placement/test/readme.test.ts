@@ -109,6 +109,38 @@ describe("README examples", () => {
     expect(stops.map((s) => (s.home ? "home" : s.id))).toEqual(["rail:left", "column:left:0", "into:left:0", "home", "column:right:0", "rail:right"]);
   });
 
+  it("bands", () => {
+    const defs: PanelDef[] = [
+      { id: "files", width: { min: 180, natural: 220, max: 360 } },
+      { id: "history", width: { min: 200, natural: 240, max: 360 }, band: { min: 100, max: 400, natural: 180 } },
+    ];
+    const state = createPanels(defs, { left: [["files"]], bottom: ["history"] });
+    const options = { bands: { bottom: { mode: "reserved", span: "between" } } } as const;
+    const tall = layoutPanels(defs, state, { width: 1200, height: 700 }, options);
+    expect([tall.bands.bottom!.rect, tall.pages]).toEqual([
+      { x: 220, y: 520, width: 980, height: 180 },
+      { x: 220, y: 0, width: 980, height: 520 },
+    ]);
+    const short = layoutPanels(defs, state, { width: 1200, height: 300 }, options);
+    expect([short.notes.map((n) => n.code), short.items.get("history")!.kind]).toEqual([["band-folded"], "bar"]);
+    const targets = panelTargets({ defs, state, id: "files", stage: { width: 1200, height: 700 }, options });
+    expect(targets.filter((t) => t.place.kind === "band").map((t) => t.id)).toEqual(["band:bottom:0", "band:bottom:1"]);
+  });
+
+  it("reserved room", () => {
+    // The bands example's defs and state; without band options the band is off (`band-off`).
+    const defs: PanelDef[] = [
+      { id: "files", width: { min: 180, natural: 220, max: 360 } },
+      { id: "history", width: { min: 200, natural: 240, max: 360 }, band: { min: 100, max: 400, natural: 180 } },
+    ];
+    const state = createPanels(defs, { left: [["files"]], bottom: ["history"] });
+    const l = layoutPanels(defs, state, { width: 1200, height: 700 }, { reserve: { top: 40 } });
+    expect([l.reserved.top, l.pages]).toEqual([
+      { x: 220, y: 0, width: 980, height: 40 },
+      { x: 220, y: 40, width: 980, height: 660 },
+    ]);
+  });
+
   it("pane zones", () => {
     const pane = { x: 0, y: 0, width: 200, height: 200 };
     expect([paneZone(pane, { x: 100, y: 100 }), paneZone(pane, { x: 190, y: 100 })]).toEqual(["center", "right"]);
