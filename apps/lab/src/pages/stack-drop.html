@@ -1,0 +1,39 @@
+<!-- The Stack · drop page (src/stack/drop.ts): the shell renders the header. -->
+<section class="controls st-controls" aria-label="Controls">
+  <fieldset>
+    <legend>Stacks</legend>
+    <label>Column length <input type="range" id="sd-col" min="120" max="560" step="2" value="440" /> <output id="sd-col-out">440 px</output></label>
+    <label>Bar length <input type="range" id="sd-bar" min="120" max="640" step="2" value="560" /> <output id="sd-bar-out">560 px</output></label>
+  </fieldset>
+  <fieldset>
+    <legend>Show</legend>
+    <label><input type="checkbox" id="sd-hits" /> the zones of the gaps</label>
+  </fieldset>
+  <fieldset>
+    <legend>Page</legend>
+    <button type="button" id="sd-reset">Reset</button>
+    <button type="button" id="sd-run">Run all scenarios</button>
+  </fieldset>
+</section>
+
+<div class="st-wrap"><div class="st-stage" id="sd-stage"></div></div>
+<p id="st-status" role="status" aria-live="polite"></p>
+
+<section class="st-try">
+  <h2>Try this</h2>
+  <ol>
+    <li>Drag a panel or a group by its grip into any gap of the column (above, between, below the items) or of the bar. A dashed rectangle shows the exact place it gets, and a line marks where its leading edge lands.</li>
+    <li>Hold still over a gap for a moment: the others move aside to the places they will have, and the dashed rectangle sits in the gap that opens. Let go: the item lands there, on the same rect.</li>
+    <li>Drag a group (Views, Tools, Zoom) into the column of panels: it takes the largest form that fits. Drag a panel into a bar of groups: the bar grows to the panel's height.</li>
+    <li>Drag everything but the groups out of the column: it is a rail of about 30 px, and the groups are icons. Drag a panel in: the column opens to its width.</li>
+    <li>Shorten the column or the bar with the sliders and drag again: the older items give way before the one you drop, which counts as just used.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Checks</h2>
+  <table>
+    <thead><tr><th>Scenario</th><th>Mode</th><th>Result</th><th>Why</th></tr></thead>
+    <tbody id="sd-runs"><tr><td colspan="4">Run the scenarios to fill this table (window.__motionLab.runAll() does the same).</td></tr></tbody>
+  </table>
+</section>
