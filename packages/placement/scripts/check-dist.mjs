@@ -1,8 +1,9 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, dock, toolbar, targets) and its type definitions exist;
+// - every entry (the root, dock, toolbar, targets, panels) and its type definitions exist;
 // - the JavaScript imports only its own chunks (no dependencies at all, @n-uf/motion included);
 // - no file touches a host global, and no type mentions a DOM type;
-// - Node can import every entry, and a desk lays out, a host collapses and a drop lands from the built code.
+// - Node can import every entry, and a desk lays out, a host collapses, a drop lands and a panel column gives way from
+//   the built code.
 // Exits 1 with a list of problems.
 
 import { existsSync, readFileSync } from "node:fs";
@@ -10,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const ENTRIES = ["index", "dock", "toolbar", "targets"];
+const ENTRIES = ["index", "dock", "toolbar", "targets", "panels"];
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|globalThis|matchMedia)\b/;
 const DOM_TYPES = /\b(Window|Document|Element|HTMLElement|Event|PointerEvent|MouseEvent|DOMRect)\b/;
 const problems = [];
@@ -69,6 +70,13 @@ if (problems.length === 0) {
     const float = m.targets.deskTargets(input).find((t) => t.id === "float");
     const drop = float && m.targets.deskDrop(input, float, { x: 600, y: 300 }, { x: 20, y: 10 });
     if (!drop || drop.slot.x !== 580 || drop.slot.y !== 290) problems.push("targets.js: a float drop didn't land where it was let go");
+    const w = (natural) => ({ min: 160, max: 400, natural });
+    const defs = [{ id: "files", width: w(240) }, { id: "outline", width: w(240) }];
+    const panels = m.panels.createPanels(defs, { left: [["files"]], right: [["outline"]] });
+    const laid = m.panels.layoutPanels(defs, panels, { width: 600, height: 500 });
+    if (laid.items.get("files")?.kind !== "segment" || laid.notes.at(-1)?.code !== "column-folded") problems.push("panels.js: the oldest column didn't fold on a narrow stage");
+    const stops = m.targets.keyboardStops(m.panels.panelTargets({ defs, state: panels, id: "outline", stage: { width: 1200, height: 500 } }));
+    if (stops[0]?.place.kind !== "rail") problems.push("panels.js: the keyboard stops don't start at the left rail");
   } catch (error) {
     problems.push(`import: ${error instanceof Error ? error.message : String(error)}`);
   }
