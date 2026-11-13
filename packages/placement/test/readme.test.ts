@@ -5,6 +5,7 @@ import { deskDrop, deskTargets, floatTarget, hostTargets, keyboardStops, paneZon
 import { arrangement, hostOf, layoutHost, readArrangement, storeArrangement, type Place } from "../src/toolbar";
 import { createPanels, homePlace, keep, layoutPanels, panelDrop, panelTargets, readPanels, storePanels, type PanelDef } from "../src/panels";
 import { PRESETS, presetLayout, presetTargets } from "../src/desk";
+import { fitStack, readStack, stackTargets, storeStack, type StackForm, type StackItem } from "../src/stack";
 
 describe("README examples", () => {
   it("desk presets", () => {
@@ -151,5 +152,33 @@ describe("README examples", () => {
       return zone === "center" || canSplit ? `${t.id}:${zone}` : null;
     };
     expect([placeOf({ id: "a", hit: pane }, { x: 100, y: 100 }, null), placeOf({ id: "a", hit: pane }, { x: 10, y: 100 }, null)]).toEqual(["a:center", null]);
+  });
+
+  it("edge stacks", () => {
+    const form = (kind: StackForm["kind"], min: number, natural: number, cross: number, grows = false): StackForm => ({
+      kind,
+      main: { min, natural, ...(grows ? { grows } : {}) },
+      cross: { natural: cross },
+    });
+    const panel = (id: string, used: number): StackItem => ({
+      id,
+      used,
+      forms: [form("open", 90, 160, 240, true), form("header", 28, 28, 240), form("rail", 24, 24, 30), form("menu", 0, 0, 0)],
+    });
+    const tools: StackItem = { id: "tools", used: 3, forms: [form("row", 96, 96, 180), form("stacked", 78, 78, 84), form("icons", 72, 72, 28), form("menu", 0, 0, 0)] };
+    const column = { axis: "column", length: 250, cross: { min: 120, max: 360 } } as const;
+
+    const fit = fitStack({ ...column, items: [panel("pages", 1), panel("findings", 2), tools] });
+    expect([fit.items.map((p) => p.kind), fit.cross, fit.notes]).toEqual([["header", "open", "row"], 240, [{ code: "form-down", id: "pages", from: 0, to: 1 }]]);
+
+    const alone = fitStack({ ...column, items: [tools] });
+    expect([alone.items[0]!.kind, alone.cross]).toEqual(["icons", 30]);
+
+    const targets = stackTargets({ ...column, items: [panel("pages", 1), panel("findings", 2)] }, tools);
+    expect([targets.map((t) => t.id), targets[1]!.slot, targets[1]!.fit.items[1]!.kind]).toEqual([["gap:0", "gap:1", "gap:2"], { x: 0, y: 28, width: 240, height: 96 }, "row"]);
+
+    const saved = JSON.stringify(storeStack({ order: ["pages", "tools"], kept: ["pages"], forms: { tools: 1 } }));
+    expect(saved).toBe('{"v":1,"order":["pages","tools"],"kept":["pages"],"forms":{"tools":1}}');
+    expect([readStack(JSON.parse(saved), ["pages", "tools", "findings"]).ok, readStack({ v: 2 }).ok]).toEqual([true, false]);
   });
 });
