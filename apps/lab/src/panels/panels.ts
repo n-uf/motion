@@ -55,14 +55,16 @@ export const OMEGA = 25;
 
 const w = (min: number, natural: number, max: number) => ({ min, natural, max });
 export const DEFS: readonly PanelDef[] = [
-  { id: "files", title: "Files", width: w(150, 180, 300) },
-  { id: "outline", title: "Outline", width: w(160, 200, 320) },
-  { id: "notes", title: "Notes", width: w(140, 160, 280) },
-  { id: "inspector", title: "Inspector", width: w(170, 200, 320), sides: ["right"] },
-  { id: "history", title: "History", width: w(150, 180, 300) },
-  { id: "comments", title: "Comments", width: w(180, 220, 320), float: { min: { width: 200, height: 140 }, natural: { width: 240, height: 220 } } },
-  { id: "navigator", title: "Navigator", width: w(160, 180, 280), float: { min: { width: 160, height: 120 }, natural: { width: 180, height: 140 } } },
+  { id: "files", width: w(150, 180, 300) },
+  { id: "outline", width: w(160, 200, 320) },
+  { id: "notes", width: w(140, 160, 280) },
+  { id: "inspector", width: w(170, 200, 320), sides: ["right"] },
+  { id: "history", width: w(150, 180, 300) },
+  { id: "comments", width: w(180, 220, 320), float: { min: { width: 200, height: 140 }, natural: { width: 240, height: 220 } } },
+  { id: "navigator", width: w(160, 180, 280), float: { min: { width: 160, height: 120 }, natural: { width: 180, height: 140 } } },
 ];
+/** The page's words for the panels (the package carries none). */
+const TITLES: Record<string, string> = { files: "Files", outline: "Outline", notes: "Notes", inspector: "Inspector", history: "History", comments: "Comments", navigator: "Navigator" };
 const ROWS: Record<string, readonly string[]> = {
   files: ["Quarterly plan.pdf", "Budget.xlsx", "Notes from Monday", "Timeline.pdf", "Appendix A"],
   outline: ["1. Scope", "2. Budget", "3. Timeline", "4. Risks", "5. Sign-off"],
@@ -72,7 +74,7 @@ const ROWS: Record<string, readonly string[]> = {
   comments: ["Sam: is this final?", "Ana: see p. 4", "Lee: approved"],
   navigator: ["▭ ▭ ▭", "▭ ▣ ▭"],
 };
-export const titleOf = (id: string): string => defOf(DEFS, id)?.title ?? id;
+export const titleOf = (id: string): string => TITLES[id] ?? id;
 
 /** Files is the oldest, History the newest; Comments floats with the page, Navigator is pinned to the view. */
 export const startState = (): PanelsState =>
@@ -551,8 +553,6 @@ stage.addEventListener("pointerdown", (e) => {
     const index = Number(edge.dataset.index);
     const c = lay().columns.find((x) => x.side === side && x.index === index)!;
     const startW = c.rect.width;
-    // Resizing is a use: the column is the newest, so give-way takes room from the others, not from it.
-    state = focus(state, c.panels[0]!);
     resizing = { kind: "column", key: `${side}:${index}` };
     edge.classList.add("on");
     let from: Point | null = null;
