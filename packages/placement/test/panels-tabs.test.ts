@@ -5,6 +5,7 @@ import {
   DEFAULT_PANELS_OPTIONS,
   activate,
   createPanels,
+  open,
   dock,
   homePlace,
   keep,
@@ -172,6 +173,63 @@ describe("height give-way", () => {
     heights(s, 150);
     expect(s.folded).toEqual([]);
     expect(heights(s, 600).f).toEqual([null, null, null]);
+  });
+
+  it("never folds a section whose fold gains nothing (its min is no more than a bar)", () => {
+    // B (no def, oldest), A (min 80, natural 120), C (last, min 60), 100 px: only A folds (folding B would only add to
+    // the shortfall), and C keeps its min.
+    const defs: PanelDef[] = [
+      { id: "b", width: w(180, 220, 360) },
+      { id: "a", width: w(180, 220, 360), height: { min: 80, natural: 120 } },
+      { id: "c", width: w(180, 220, 360), height: { min: 60, natural: 100 } },
+    ];
+    const s = createPanels(defs, { left: [["b", "a", "c"]] });
+    const l = layoutPanels(defs, s, { width: 1200, height: 100 });
+    expect(["b", "a", "c"].map((id) => l.items.get(id)!.folded)).toEqual([null, "auto", null]);
+    expect(l.items.get("c")!.rect.height).toBeGreaterThanOrEqual(60);
+    expect(l.notes.filter((n) => n.code === "section-folded").map((n) => ("items" in n ? n.items[0] : ""))).toEqual(["a"]);
+    // 116 px: B gets a bar's height, A is a bar, C its min.
+    const t = layoutPanels(defs, s, { width: 1200, height: 116 });
+    expect(["b", "a", "c"].map((id) => t.items.get(id)!.rect.height)).toEqual([B, B, 60]);
+  });
+
+  it("gives a last section without a def at least a bar: the others shrink toward their mins first", () => {
+    const defs: PanelDef[] = [
+      { id: "a", width: w(180, 220, 360), height: { min: 50, natural: 300 } },
+      { id: "b", width: w(180, 220, 360) },
+    ];
+    const s = createPanels(defs, { left: [["a", "b"]] });
+    const l = layoutPanels(defs, s, { width: 1200, height: 200 });
+    expect([l.items.get("a")!.rect.height, l.items.get("b")!.rect.height]).toEqual([200 - B, B]);
+    expect(l.notes.filter((n) => n.code === "section-folded")).toEqual([]);
+    // Shorter than A's min and B's bar: A folds, B takes the rest.
+    const short = layoutPanels(defs, s, { width: 1200, height: 70 });
+    expect([short.items.get("a")!.folded, short.items.get("b")!.rect.height]).toEqual(["auto", 70 - B]);
+  });
+
+  it("mixes sections with and without a def: equal shares, none under its min", () => {
+    // Files (def 80/160), Inspector (no def), Notes (last, def 100/120).
+    const mixed = createPanels(H_DEFS, { left: [["files", "inspector", "notes"]] });
+    const at = (h: number) => {
+      const l = layoutPanels(H_DEFS, mixed, { width: 1200, height: h });
+      return ["files", "inspector", "notes"].map((id) => Math.round(l.items.get(id)!.rect.height));
+    };
+    expect(at(600)).toEqual([160, 220, 220]);
+    // 300 px: 140 left after Files; Notes' min 100 is over an equal 70, so Inspector gets the other 40.
+    expect(at(300)).toEqual([160, 40, 100]);
+    // 220 px: Files gives way toward its min so Inspector keeps its bar and Notes its min.
+    expect(at(220)).toEqual([220 - B - 100, B, 100]);
+  });
+
+  it("open on a hidden tab shows it", () => {
+    const s = createPanels(DEFS, { left: [["files", "outline"]] });
+    const t = showTabs(s, "left", 0, true);
+    const o = open({ ...t, closed: ["outline"] }, "outline");
+    expect(o.sides.left[0]!.active).toBe("outline");
+    expect(layoutPanels(DEFS, o, STAGE).items.get("outline")!.hidden).toBe(false);
+    expect(layoutPanels(DEFS, open(t, "outline"), STAGE).items.get("files")!.hidden).toBe(true);
+    // In a stack column, open sets no active.
+    expect(open(s, "outline").sides.left[0]!.active).toBeUndefined();
   });
 
   it("columns without height defs behave as before", () => {
