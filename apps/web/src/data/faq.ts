@@ -24,7 +24,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do I position a popup or menu next to its anchor?",
-      a: "Use <code>positionPopup</code> from <code>@n-uf/placement</code>. Give it an anchor, a gravity and an offset, and it then flips, slides and resizes the popup to fit, as Wayland's xdg-positioner does. Like everything in the package it works on plain data and moves nothing, so your app does the drawing.",
+      a: "Use <code>positionPopup</code> from <code>@n-uf/placement</code>. Give it the anchor rect, popup size, bounds and a rule (anchor point, gravity, offset, and whether it may flip, slide or resize), and it flips, slides or resizes the popup to fit, as far as the rule allows, like Wayland's xdg-positioner. It works on plain data and moves nothing, so your app does the drawing.",
     },
     {
       q: "What license is @n-uf/motion under, and is it stable?",

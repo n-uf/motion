@@ -89,10 +89,10 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
         <h3 id="does-placement"><code>@n-uf/placement</code> <span>where things go</span></h3>
         <p>{placementPart.does}</p>
         <dl class="entries">
-          <div><dt><code>@n-uf/placement</code></dt><dd>Rects and points (<code>rect</code>, <code>overlap</code>, <code>clampInto</code>) and a popup positioner that flips, slides and resizes to fit.</dd></div>
-          <div><dt><code>./dock</code></dt><dd>Nine desk constructions as pure layouts (edge docks, a tiling tree, a navigator, a scrolling strip, drawers, floating palettes, tear-off), with give-way notes whose codes are stable.</dd></div>
-          <div><dt><code>./toolbar</code></dt><dd>Toolbar groups in five hosts × three zones, or floating; insertion points, and trailing-first collapse when a host runs out of room.</dd></div>
-          <div><dt><code>./targets</code></dt><dd>Drop targets in the shape motion's drag takes, for the desk's constructions, toolbar hosts and pane zones.</dd></div>
+          <div><dt><code>@n-uf/placement</code></dt><dd>Rects and points (<code>rect</code>, <code>overlap</code>, <code>clampInto</code>) and a popup positioner that flips, slides or resizes to fit, as far as its rule allows.</dd></div>
+          <div><dt><code>./dock</code></dt><dd>Nine desk constructions as pure layouts (edge docks, a tiling tree, a navigator, a scrolling strip, drawers, floating palettes, tear-off), with give-way notes that carry a code per rule.</dd></div>
+          <div><dt><code>./toolbar</code></dt><dd>Toolbar groups in five hosts × three zones, or floating; insertion points, and collapse by keep priority (trailing groups first among equals) when a host runs out of room.</dd></div>
+          <div><dt><code>./targets</code></dt><dd>Drop targets in the shape motion's drag takes, for the desk's constructions, toolbar hosts and pane zones. Every host target carries its slot; <code>allows</code> drops places a group may not take, and <code>keyboardStops</code> gives one ordered list for the arrow keys and a "Move to" menu.</dd></div>
         </dl>
         <p class="not"><b>It doesn't</b> move or draw anything: plain state in, rects and targets out. No DOM, no dependencies.</p>
         <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code> <ExtLink href={placementPart.readme}>README on GitHub</ExtLink> <a href="/docs/placement/">Docs</a></p>

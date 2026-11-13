@@ -91,7 +91,7 @@ const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].
       <div class="pad" id="pad"><span>held here</span></div>
       <div class="stats" id="stats">
         <span><i>ω</i><b id="sw">{OMEGA} /s</b></span>
-        <span><i>90 % in</i><b id="s90">{t90} ms</b></span>
+        <span><i>90 % in, measured</i><b id="s90">{t90} ms</b></span>
         <span><i>overshoot</i><b class={run.checks.noOvershoot.ok ? "ok" : "bad"} id="sov">{run.overshoot.toFixed(1)} px</b></span>
         <span><i>checks</i><b class={run.ok ? "ok" : "bad"} id="schk">{passes} of 3 pass</b></span>
       </div>
