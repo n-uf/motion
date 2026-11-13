@@ -231,7 +231,74 @@ each with a `section-folded` note; that never writes `folded`, so a taller stage
 
 **Changes** are pure: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock(state, id, side, index, { into?, width? })`,
 `float`, `pin(state, id, on, view?, shown?)` (pass the layout's rect as `shown` so a clamped float pins where it
-shows), `resizeColumn`, `resizeFloat`, `showTabs`, `activate`.
+shows), `resizeColumn`, `resizeFloat`, `showTabs`, `activate`, and for bands `dockBand`, `resizeBand`.
+
+### Bands
+
+A band is a horizontal dock along the stage's top or bottom edge (opt-in: `options.bands`, default none). Its panels
+sit side by side, left to right, and share its width equally; it has one stored height, clamped to its panels' limits
+(`PanelDef.band`, default `BAND_SIZE`: min 120, max 480, natural 200; the largest min and the smallest max win, as a
+column's width does). Each enabled edge says how its band lies:
+
+- `mode: "reserved"` shortens the pages; `"overlay"` lies over the pages' upper or lower part (layer 5, over columns'
+  layer 0 and under floats) and leaves the pages' rect as it is.
+- `span: "full"` takes its height from the stage first, across the whole width, and the columns and rails stand on it
+  (or hang from it); `"between"` runs between the innermost open column (or rail) on each side.
+
+A band's open panels are `kind` `"band"` (with `edge` and `index`); `layout.bands` has each band as laid out
+(`PlacedBand`: `rect`, `height`, `min`, `max`, `folded`, `shrunk`, `kept`, `mode`, `span`, `panels`). It folds as a
+whole: `toggleFold` on any of its panels folds or unfolds them all, and a folded band is one bar, `options.bar` tall,
+each panel a `"bar"` side by side. `keep` works on band panels.
+
+**Height give-way**: when the pages would be shorter than `pagesMinHeight` (default 240; counted after the top and
+bottom reserves), bands shrink toward their min, then fold to a bar, unkept before kept, in the give-way policy's order,
+bottom before top on a tie (`band-shrunk`, `band-folded`, or `kept-folded` with `edge`). Overlay bands give way the same
+way, measured against the pages' full height. Give-way never writes `folded`, so a taller stage brings a band back. If
+the pages are still short: `pages-short`. Columns never give way by height to a band.
+
+`dockBand(state, id, edge, index, defs?)` puts a panel into a band (0 the leftmost, past the end the rightmost; a new
+band takes the panel's natural band height); `open(state, id, { edge, height? })` puts a panel placed nowhere at a
+band's right end; `liftPanel`, `dock` and `float` take a panel out, and an emptied band goes from the state.
+`createPanels` takes `top` and `bottom` (the clock counts left, right, top, bottom, floats). A band in the state on an
+edge the options don't enable is left out of `items` (`band-off`). A def's `sides` may name edges: without `sides` a
+panel may go to every enabled edge; with them, only where they say. The drop targets add `band:<edge>:<i>` (the slots
+at a band's ends and between its panels, the band split at its panels' middles) and, on an empty enabled edge,
+`band:<edge>` (a strip `2 × bar` tall along it inside the pages); a drop's `slot` is the panel's share of the band.
+
+```ts
+import { createPanels, layoutPanels, panelTargets, type PanelDef } from "@n-uf/placement/panels";
+
+const defs: PanelDef[] = [
+  { id: "files", width: { min: 180, natural: 220, max: 360 } },
+  { id: "history", width: { min: 200, natural: 240, max: 360 }, band: { min: 100, max: 400, natural: 180 } },
+];
+const state = createPanels(defs, { left: [["files"]], bottom: ["history"] });
+const options = { bands: { bottom: { mode: "reserved", span: "between" } } } as const;
+const tall = layoutPanels(defs, state, { width: 1200, height: 700 }, options);
+console.log(tall.bands.bottom!.rect, tall.pages); // { x: 220, y: 520, width: 980, height: 180 } { x: 220, y: 0, width: 980, height: 520 }
+const short = layoutPanels(defs, state, { width: 1200, height: 300 }, options);
+console.log(short.notes.map((n) => n.code), short.items.get("history")!.kind); // [ 'band-folded' ] bar
+const targets = panelTargets({ defs, state, id: "files", stage: { width: 1200, height: 700 }, options });
+console.log(targets.filter((t) => t.place.kind === "band").map((t) => t.id)); // [ 'band:bottom:0', 'band:bottom:1' ]
+```
+
+### Reserved room
+
+`options.reserve` (`{ top?, right?, bottom?, left? }`, px, default none) keeps room clear along the pages' edges for a
+toolbar the app draws; `./toolbar` stays the toolbar's model, and placement neither draws nor names it. The reserve
+comes off the pages' area after the columns and bands: `layout.reserved.top` is the pages' full width and `reserve.top`
+tall at their top (bottom likewise), and the left and right reserves are as tall as what the top and bottom reserves
+(and overlay bands) leave. `pagesMin` counts after the left and right reserves, `pagesMinHeight` after the top and
+bottom ones; a reserve never shrinks or folds. An overlay band lies inside the reserve on its edge, never over it.
+
+```ts
+// The defs and state above; without band options the band is off (a `band-off` note).
+const l = layoutPanels(defs, state, { width: 1200, height: 700 }, { reserve: { top: 40 } });
+console.log(l.reserved.top, l.pages); // { x: 220, y: 0, width: 980, height: 40 } { x: 220, y: 40, width: 980, height: 660 }
+```
+
+Without band options, no `bands` in the state and no reserve, every layout, target and note is what it was before
+bands.
 
 **Drop targets**: `panelTargets({ defs, state, id, stage, options?, allows? })` gives `column:<side>:<i>` (a new
 column as wide as the panel's own width), `into:<side>:<i>` (stack into a column), `rail:<side>` (dock folded) and
@@ -263,8 +330,10 @@ parsed data back and never throws. Anything but an object of version 1 is `{ ok:
 or repeated ids and malformed entries are dropped and listed in `dropped`, and widths and float sizes are clamped to
 the defs. Version 1 only gains optional fields: a field this reader doesn't know is skipped and listed in `dropped`
 too (`"theme"`, `"sides.bottom"`, `"column.<field>"`, `"float.<field>"`, `"clock.<id>"`). A column's `show` and
-`active` are carried; an `active` that isn't one of the column's panels is dropped as `"column.active:<id>"`. The note
-codes (`PanelsNoteCode`):
+`active` are carried; an `active` that isn't one of the column's panels is dropped as `"column.active:<id>"`. `bands`
+is carried too, only when the state has one: an unknown edge is dropped as `"bands.<key>"`, a band without a panels
+list or a numeric height (or whose panels are all dropped) as `"bands.<edge>"`, an unknown field in one as
+`"band.<field>"`, and heights are clamped to the defs. The note codes (`PanelsNoteCode`):
 
 | Code | Says | Also |
 |---|---|---|
@@ -275,17 +344,27 @@ codes (`PanelsNoteCode`):
 | `pages-under-min` | the pages are under `pagesMin` with every column folded | `width`, `min` |
 | `float-resized` | a float shrank to fit the view | `items` |
 | `float-clamped` | a float moved to stay in the view | `items` |
+| `band-shrunk` | a band lowered toward its min: the pages needed the height | `edge`, `items`, `from`, `to` |
+| `band-folded` | a band folded to a bar: the pages needed the height | `edge`, `items` |
+| `kept-folded` | (on a band) a kept band folded, last | `edge`, `items` |
+| `band-off` | a band on an edge the options don't enable: its panels aren't laid out | `edge`, `items` |
+| `pages-short` | the pages are under `pagesMinHeight` with every band folded (or by the reserves alone) | `height`, `min` |
 
 ## Desk presets
 
 `@n-uf/placement/desk` holds desk presets as data on `./panels`: each is panels options and a start state. It imports
 only the panels entry, carries no titles or words and wires no toolbar; the app names the presets and draws them.
 
-| Preset | Columns and floats |
+| Preset | Columns, bands and floats |
 |---|---|
-| `docks` | one stack column per side, sections at their natural heights when the defs give `height`, folding to the rail; no floats |
-| `dockTear` | as `docks`, and panels may float (tear-off and dock-back); one panel floats at the start |
-| `navigator` | a tabbed column on the left, a stack column on the right; no floats |
+| `docks` | one stack column per side, sections at their natural heights when the defs give `height`, folding to the rail; a bottom band between the columns (reserved), folding to a bar on a short stage; no floats |
+| `docksFull` | as `docks`, with the bottom band full width: the columns stand on it |
+| `dockTear` | as `docks` (with its bottom band), and panels may float (tear-off and dock-back); one panel floats at the start |
+| `navigator` | a tabbed column on the left, a stack column on the right; no band, no floats |
+
+The bottom band starts with the hint's `bottom` panels (`start(defs, { bottom: [...] })`), else with the last def whose
+`sides` names `"bottom"`; a def without `sides` may be dropped into the band but doesn't start there. `presetTargets`
+and `presetDrop` include the band's targets.
 
 ```ts
 import { PRESETS, presetLayout, presetTargets } from "@n-uf/placement/desk";
