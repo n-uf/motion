@@ -107,8 +107,8 @@ function noteText(n: PanelsNote): string {
     case "section-folded": return `${who(n.items)} folded to ${n.items.length > 1 ? "title bars" : "a title bar"}: the ${n.side} column ran short`;
     case "pages-under-min": return `the documents are ${px(n.width)} wide, under their ${px(n.min)} minimum, with every column folded`;
     case "float-clamped": return `${who(n.items)} moved to stay in view`;
-    case "float-resized": return `${who(n.items)} shrank to fit the view`;
-    case "band-shrunk": return `the ${n.edge} band lowered from ${px(n.from)} to ${px(n.to)}`;
+    case "float-resized": return `${who(n.items)} resized to fit the view`;
+    case "band-shrunk": return `the ${n.edge} band shrank from ${px(n.from)} to ${px(n.to)}`;
     case "band-folded": return `the ${n.edge} band folded to a bar`;
     case "band-off": return `${who(n.items)} ${n.items.length > 1 ? "are" : "is"} hidden: the ${n.edge} band is off`;
     case "pages-short": return `the documents are ${px(n.height)} tall, under their ${px(n.min)} minimum`;
@@ -130,9 +130,9 @@ function presetDesk(id: PresetId, W: number, H: number, n: number, o: Opt): { bo
   let state = preset.start(PANEL_DEFS, { left: LEFT, right: PRESET_RIGHT, bottom: band ? ["History"] : [] });
   const toolbar = o.toolbar === "bottom" ? "bottom" : "top";
   const reserved = o.toolbarSpace !== "overlay";
-  // The torn-off panel starts next to the left column (the preset's place), moved down out of the toolbar's room.
+  // The torn-off panel starts next to the left column (the preset's place), moved down clear of a top toolbar.
   const torn = state.floats[0];
-  if (torn && reserved && toolbar === "top") state = float(state, torn.id, { ...torn.rect, y: torn.rect.y + ROOM });
+  if (torn && toolbar === "top") state = float(state, torn.id, { ...torn.rect, y: torn.rect.y + ROOM });
   const options: Partial<PanelsOptions> = { ...CHROME, reserve: reserved ? { [toolbar]: ROOM } : {}, ...(hasBand ? { bands: band ? { bottom: band } : {} } : {}) };
   const l = presetLayout(preset, PANEL_DEFS, state, { width: W, height: H }, options);
 
@@ -169,7 +169,8 @@ function presetDesk(id: PresetId, W: number, H: number, n: number, o: Opt): { bo
   return { boxes: out, notes: l.notes.map((note) => ({ text: noteText(note), code: note.code })) };
 }
 
-const railBox = (x: number, y: number, h: number, names: string[], side?: string): Box => box(x, y, RAIL, h, "rail", "", { icons: names, side });
+/** A sketch's rail; with a side it has the presets' key for that side's rail, so switching cards glides it. */
+const railBox = (x: number, y: number, h: number, names: string[], side?: string): Box => box(x, y, RAIL, h, "rail", "", { icons: names, side, ...(side ? { key: `rail:${side}` } : {}) });
 
 // ---- The sketches: five more ways this page draws by its own rules (no library preset lays them out) ------------------
 
@@ -260,7 +261,7 @@ export const C: Record<string, Build> = {
     const x0 = RAIL + (lDocked ? lw : 0) + G, x1 = W - RAIL - (rDocked ? rw : 0) - G;
     out.push(...tiles({ x: x0, y: y + G, w: x1 - x0, h: h - 2 * G }, DOCS.slice(0, n)));
     const drawer = (x: number, w: number, names: string[], active: string, docked: boolean): void => {
-      out.push(box(x, y, w, 28, docked ? "tabs" : "tabsFloat", "", { tabs: names, active }));
+      out.push(box(x, y, w, 28, docked ? "tabs" : "tabsFloat", "", { key: `tabs:${x < W / 2 ? "left" : "right"}:0`, tabs: names, active }));
       out.push(box(x, y + 28, w, h - 28, docked ? "panel" : "float", active, { noTitle: true }));
     };
     drawer(RAIL, lw, LEFT, "Files", lDocked);
@@ -473,5 +474,5 @@ export const TABLE: Record<string, string[]> = {
   drawers: [SKETCHED, "bar across the top", "tabs: one panel per drawer", "nothing happens", "drawers slide over instead of pushing", "narrow only", "drawers switch at a width", "left / right tab rows", "tablet apps"],
   floatOver: [SKETCHED, PILL, "palettes stacked in a corner, or anywhere", "least-recent palettes shade to title bars", "palettes cover more; narrow, stacks merge in one corner", "always (shown under the stage)", "never", "anywhere (snap to corners, edges, palettes)", "creative tools' floating palettes"],
   floatAround: [SKETCHED, PILL, "palettes stacked in a corner, or anywhere", "least-recent palettes shade to title bars", "documents get narrower", "never; leaves empty space under short stacks", "documents re-tile when a palette moves", "anywhere (snap to corners, edges)", "window managers' \"struts\""],
-  dockTear: ["preset dockTear", ROOM_PILL, "as A; any panel can float", "as A; a float stays in view", "as A", "only what you tear off", "rarely", "as A, or anywhere to float", "IDE tool windows (floating mode)"],
+  dockTear: ["preset dockTear", ROOM_PILL, "as A; any panel can float", "as A; a float stays in view", "as A", "what floats (Inspector starts torn off), or the band if you lay it over them", "rarely", "as A, or anywhere to float", "IDE tool windows (floating mode)"],
 };

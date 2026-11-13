@@ -6,7 +6,7 @@ import Playback from "../components/Playback.astro";
 import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode, software } from "../data/schema";
-import { ASPECTS, BAND_MODES, CARDS, DEFAULT, FULL_WIDTH, TABLE, TOOLBAR_MODES, defaultOpts, deskSVG, layout, statusHTML } from "../demos/desk";
+import { ASPECTS, BAND_MODES, CARDS, DEFAULT, FULL_WIDTH, HAS_BAND, HAS_PILL, TABLE, TOOLBAR_MODES, defaultOpts, deskSVG, layout, statusHTML } from "../demos/desk";
 import Faq from "../components/Faq.astro";
 import { faqJsonLd } from "../data/faq";
 import "../styles/desk-layouts.css";
@@ -42,7 +42,7 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
       <label class="field">Height <input id="h" type="range" min="320" max="820" step="10" value={DEFAULT.H} style={pct(DEFAULT.H, 320, 820)} /><output id="ho">{DEFAULT.H}</output></label>
       <label class="field">Documents <input id="n" type="range" min="1" max="4" step="1" value={DEFAULT.n} style={`width:84px;${pct(DEFAULT.n, 1, 4)}`} /><output id="no">{DEFAULT.n}</output></label>
     </Fragment>
-    <span class="tb-row" id="segs" slot="options"><span class="lab">Toolbar</span>{TOOLBAR_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.toolbar && m[1] === opts.toolbarSpace)}>{m[2]}</button>)}<span class="lab">Bottom band</span>{BAND_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.band)}>{m[1]}</button>)}{opts.band !== "off" && <button type="button" class="tb text" aria-pressed={String(opts.span === "full")}>{FULL_WIDTH}</button>}</span>
+    <span class="tb-row" id="segs" slot="options">{HAS_PILL.has(first.key) && <><span class="lab">Toolbar</span>{TOOLBAR_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.toolbar && m[1] === opts.toolbarSpace)}>{m[2]}</button>)}</>}{HAS_BAND.has(first.key) && <><span class="lab">Bottom band</span>{BAND_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.band)}>{m[1]}</button>)}{opts.band !== "off" && <button type="button" class="tb text" aria-pressed={String(opts.span === "full")}>{FULL_WIDTH}</button>}</>}</span>
     <Fragment slot="speed"><Playback part="speed" /></Fragment>
     <div class="figure-body">
       <CaseRail id="cases" label="Constructions" items={CARDS.map((c) => ({ name: c.title, note: c.note, tag: c.pick ? "our pick" : c.preset ? "preset" : "sketch" }))} active={active} />
@@ -87,7 +87,7 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
   <section class="section">
     <div class="callout">
       <span class="eyebrow">Our pick</span>
-      <h2>F3 · Edge docks + tear-off</h2>
+      <h2>F3 · Docks + tear-off</h2>
       <p><code>@n-uf/placement/desk</code> ships four presets on <code>./panels</code>: <code>docks</code>, <code>docksFull</code>, <code>dockTear</code> and <code>navigator</code>. Each is a set of panels options and a start state. The letters are this page's labels. Our pick is <code>dockTear</code>, with one rule: a panel lives in a column, and a column folds to its rail. Short on height, sections fold to their title bars and the bottom band gets lower, then folds to a bar. Short on width, columns narrow, then fold to their rails. Nothing covers the documents unless you choose it: tear a panel off and it floats, and drop it on a column or a rail to dock it again. Room for the toolbar is kept clear with <code>options.reserve</code>, and the app draws the toolbar there. Every glide is a column, a section or a float opening, closing or moving, which <a href="/window-motion/">settle</a> already does.</p>
       <p>A is the same without floating; C is the simplest if one panel at a time on the left is enough. The older <code>./dock</code> entry is the all-in-one model and still ships all nine constructions.</p>
     </div>
