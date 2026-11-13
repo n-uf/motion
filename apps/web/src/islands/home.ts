@@ -6,7 +6,7 @@
  * Dragging a window onto another swaps them, by `@n-uf/motion/drag`'s `createDragIntent`: nothing shows while the pointer flies; once it
  * aims at another window the drop shows by the preview mode (Drop indicator: an outline, nothing moves; Open gap: the
  * other window makes room after 160 ms, the dragged one stays under the pointer; Snap to slot: it makes room and the
- * dragged window glides into the slot); the release lands on what was shown. Its own slot is home: a release there
+ * dragged window glides into the slot); the release lands on what was shown, else on the window under the pointer. Its own slot is home: a release there
  * changes nothing. The automatic showcase (layouts and a swap, cycling the three modes on its own, never changing the
  * visitor's) pauses as soon as you act and resumes 10 s after your last action. Speed slows every glide; Tempo sets
  * the settle's.
@@ -206,6 +206,8 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
 
   // ---- Dragging a window onto another --------------------------------------------------------------------------------
   const homeRect = (): Rect => slotRect(drag!.w.slot);
+  /** The other windows' slots as drop targets, as they stand now (priority 2 and a slot, placement's shape); the dragged window's own slot is the intent's home. */
+  const targetsOf = (d: Drag): WinTarget[] => wins.filter((x) => x !== d.w).map((x): WinTarget => { const r = slotRect(x.slot); return { id: String(x.i), priority: 2, hit: r, slot: r, win: x }; });
   const pointerRect = (p: Point): Rect => { const h = homeRect(); return { x: p.x - drag!.dx, y: p.y - drag!.dy, width: h.width, height: h.height }; };
 
   function showIndicator(target: Win | null): void {
@@ -237,9 +239,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     if (!d) return;
     d.last = p;
     const own = inside(homeRect(), p);
-    // The other windows' slots, as they stand now; the dragged window's own slot is the intent's home.
-    const targets = wins.filter((x) => x !== d.w).map((x): WinTarget => ({ id: String(x.i), priority: 1, hit: slotRect(x.slot), win: x }));
-    const frame = d.intent.update(p, t, targets);
+    const frame = d.intent.update(p, t, targetsOf(d));
     const { room, aiming } = frame;
     const shown = frame.shown?.win ?? null;
     const plan = previewPlan(mode());
@@ -295,13 +295,13 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     }
     run();
   }
-  /** End the drag: the drop is what was shown; `cancel` (Escape, a lost pointer) always goes home. */
+  /** End the drag: the intent's release decides (what was shown, else the window under the pointer, else home); `cancel` (Escape, a lost pointer) always goes home. */
   function release(cancel: boolean): void {
     const d = drag;
     if (!d) return;
     drag = null;
     ind.classList.remove("on");
-    const target = cancel ? null : d.shown;
+    const target = cancel ? null : d.intent.release(d.last, targetsOf(d))?.win ?? null;
     if (target) [target.slot, d.w.slot] = [d.w.slot, target.slot];
     if (target && !d.scripted) markTouched();
     d.w.hold = false;
@@ -343,7 +343,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
       return true;
     });
   });
-  demo.addEventListener("pointerup", (e) => { if (drag && !drag.scripted && e.pointerId === pointerId) release(false); });
+  demo.addEventListener("pointerup", (e) => { if (drag && !drag.scripted && e.pointerId === pointerId) { move(local(e), performance.now()); release(false); } });
   demo.addEventListener("pointercancel", () => { if (drag && !drag.scripted) release(true); });
   // A drag also ends when the pointer capture is lost (the element was removed, a system gesture took it) and when the
   // window loses focus (an alert, a tab switch): the window goes back, never stuck to a pointer that is no longer there.
