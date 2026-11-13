@@ -429,7 +429,7 @@ export function dock(state: PanelsState, id: string, side: Side, index: number, 
   // Into a column: at its bottom, or before the member `at`. Into a tabbed column it is also the tab that shows.
   if (options.into && cols[index]) {
     const panels = [...cols[index]!.panels];
-    const at = typeof options.at === "number" && Number.isFinite(options.at) ? Math.max(0, Math.min(Math.floor(options.at), panels.length)) : panels.length;
+    const at = typeof options.at === "number" && !Number.isNaN(options.at) ? Math.max(0, Math.min(Math.floor(options.at), panels.length)) : panels.length;
     panels.splice(at, 0, id);
     cols[index] = { ...cols[index]!, panels, ...(cols[index]!.show === "tabs" ? { active: id } : {}) };
   } else {
