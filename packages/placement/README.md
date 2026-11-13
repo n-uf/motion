@@ -160,9 +160,11 @@ console.log(stops.map((s) => (s.home ? "home" : s.id))); // [ 'g:top:start:0', '
 `@n-uf/placement/panels` lays out tool panels the way an app's side columns work: each side holds full-height
 columns from the outer edge inward, each column one or more panels and its own width (clamped to its panels'
 `min` and `max`). A panel folded by hand is a title bar; a column whose panels are all folded becomes segments of
-its side's rail. Panels may float instead, in page space (they move with the page's offset and scale) or pinned to
-the view. The output is geometry and structure only: each panel's rect, layer, `kind` (`column`, `bar`, `segment`,
-`float`) and its folded, kept and pinned flags, the columns, the rails, the pages' rect and coded notes. Chrome sizes
+its side's rail, or with `fold: "ride"` bars on the side's first open column. Panels may float instead, in page space
+(they move with the page's offset and scale) or pinned to the view; a folded float is a title bar where it floats, and
+a folded panel torn off stays folded. The output is geometry and structure only: each panel's rect, layer, `kind`
+(`column`, `bar`, `segment`, `float`; a folded float is a `bar`) and its folded, kept, pinned, floating and rides
+flags, the columns, the rails, the pages' rect and coded notes. Chrome sizes
 (`bar`, `rail`, `segment`) are options.
 
 ```ts

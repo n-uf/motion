@@ -238,7 +238,7 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
       // The host shares what the riding bars leave.
       const y0 = c === host ? top : 0;
       const bars = c.panels.filter((id) => folded.has(id)).length;
-      const share = (H - y0 - bars * opt.bar) / (c.panels.length - bars);
+      const share = Math.max(0, (H - y0 - bars * opt.bar) / (c.panels.length - bars));
       let y = y0;
       for (const id of c.panels) {
         const bar = folded.has(id);
