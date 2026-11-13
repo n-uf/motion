@@ -1,0 +1,59 @@
+<!-- The Panels pages (src/panels/panels.ts): the shell renders the header. Both pages share this markup; the Options page shows the switches. -->
+<section class="controls pn-controls" aria-label="Controls">
+  <fieldset class="pn-options" id="pn-options">
+    <legend>Give-way</legend>
+    <label><input type="radio" name="pn-order" value="oldest" checked /> Oldest first <em>(default)</em></label>
+    <label><input type="radio" name="pn-order" value="newest" /> Newest first</label>
+    <span class="pn-sep" aria-hidden="true">·</span>
+    <label><input type="radio" name="pn-by" value="used" checked /> by use <em>(default)</em></label>
+    <label><input type="radio" name="pn-by" value="opened" /> by opening</label>
+  </fieldset>
+  <fieldset class="pn-options">
+    <legend>Floats</legend>
+    <label><input type="radio" name="pn-floats" value="clamp" checked /> Clamped to the view <em>(default)</em></label>
+    <label><input type="radio" name="pn-floats" value="free" /> Free</label>
+  </fieldset>
+  <fieldset>
+    <legend>Stage</legend>
+    <label>Width <input type="range" id="pn-width" min="420" max="1400" step="10" value="1260" /> <output id="pn-width-out">1260 px</output></label>
+    <label>Scroll the page <input type="range" id="pn-pan" min="-160" max="160" step="4" value="0" /> <output id="pn-pan-out">0 px</output></label>
+  </fieldset>
+  <fieldset>
+    <legend>Desk</legend>
+    <button type="button" id="pn-reset">Reset</button>
+    <button type="button" id="pn-run">Run all scenarios</button>
+  </fieldset>
+</section>
+
+<div class="pn-wrap"><div class="pn-stage" id="pn-stage"></div></div>
+<p id="pn-status" role="status" aria-live="polite"></p>
+
+<section class="pn-store" aria-label="Stored form">
+  <h2>Stored form</h2>
+  <p class="pn-store-bar">
+    <button type="button" id="pn-store">Store the layout</button>
+    <button type="button" id="pn-read">Read it back</button>
+    <button type="button" id="pn-bad">Fill with bad data</button>
+    <span id="pn-store-out" role="status"></span>
+  </p>
+  <textarea id="pn-json" rows="4" spellcheck="false" aria-label="The stored layout, as JSON"></textarea>
+</section>
+
+<section class="pn-try">
+  <h2>Try this</h2>
+  <ol>
+    <li>Drag the Width slider down. Columns narrow toward their minimum first, then whole columns fold to the rails, the one used longest ago first. Drag it back up: they return.</li>
+    <li>Click a panel's title (a use), or the keep button (◇ Keep open), and narrow again: the order changes, and a kept column folds last.</li>
+    <li>Drag a panel by its title over the pages: it floats. Drag it to a line between columns, into a column, or onto a rail to dock it back.</li>
+    <li>Scroll the page: Comments moves with it, the pinned Navigator stays put. Narrow the stage: floats stay in view (clamped), or not (Free).</li>
+    <li>From the keyboard: Tab to a title, Space picks it up, the arrows step through the places, Enter drops, Escape cancels.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Checks</h2>
+  <table>
+    <thead><tr><th>Scenario</th><th>Mode</th><th>Result</th><th>Why</th></tr></thead>
+    <tbody id="pn-runs"><tr><td colspan="4">Run the scenarios to fill this table (window.__motionLab.runAll() does the same).</td></tr></tbody>
+  </table>
+</section>
