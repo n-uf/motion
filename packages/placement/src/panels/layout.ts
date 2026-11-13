@@ -23,6 +23,14 @@
  *   space and clamped against the view; an unpinned one has its position in page space, clamped so that its screen
  *   rect at pan 0 fits the view, then moved by the view's offset and scale, so it scrolls with the page.
  */
+/*
+ * Also (26.11.9):
+ * - A tabbed column (`show` "tabs") draws a strip `options.tabs` tall on top (`PlacedColumn.strip`, each panel's
+ *   `tab` in it, panel order, equal widths); its active panel takes the rest and the others are hidden. With its
+ *   active panel folded it shows only the strip (the active panel is a "bar" there); with every panel folded it goes
+ *   to the rail (or rides) as a stack column does.
+ * - Height give-way, opt-in by `PanelDef.height`: see `sectionHeights` in the layout (note `section-folded`).
+ */
 import { rect, type Rect, type Size } from "../geometry";
 import { DEFAULT_PANELS_OPTIONS, SIDES, defOf, floatSize, toView, type PanelDef, type PanelsOptions, type PanelsState, type Side } from "./model";
 
@@ -38,7 +46,7 @@ export interface PlacedPanel {
   readonly kind: PanelKind;
   /** Columns and rails 0, floats 10 and up (a later float on top). */
   readonly layer: number;
-  /** In a rail: there is no panel to lay out, only its segment. */
+  /** Not drawn as a panel: in a rail (only its segment shows), or a tab that isn't showing (only its `tab`). */
   readonly hidden: boolean;
   /** Folded by hand (a bar, or a segment of a column folded by hand), or by give-way (a segment). */
   readonly folded: null | "hand" | "auto";
@@ -53,6 +61,8 @@ export interface PlacedPanel {
   readonly column?: number;
   /** A riding bar: the index of the column it rides on (`options.fold` "ride"). */
   readonly rides?: number;
+  /** In a tabbed column: its tab's rect in the strip (panel order, equal widths). */
+  readonly tab?: Rect;
   /** A float the clamp moved or resized. */
   readonly clamped?: boolean;
 }
@@ -77,6 +87,11 @@ export interface PlacedColumn {
   readonly panels: readonly string[];
   /** Riding: the index of the column its bars ride on; its rect is the bars'. */
   readonly rides?: number;
+  /** How it shows its panels (default "stack"). */
+  readonly show?: "stack" | "tabs";
+  /** Tabbed and laid out: its strip of tabs, and the panel it shows. */
+  readonly strip?: Rect;
+  readonly active?: string;
 }
 
 export interface PlacedRail {
@@ -85,12 +100,12 @@ export interface PlacedRail {
   readonly segments: readonly { readonly id: string; readonly rect: Rect }[];
 }
 
-export type PanelsNoteCode = "column-shrunk" | "column-folded" | "kept-folded" | "pages-under-min" | "float-clamped" | "float-resized";
+export type PanelsNoteCode = "column-shrunk" | "column-folded" | "kept-folded" | "section-folded" | "pages-under-min" | "float-clamped" | "float-resized";
 
 /** One note on a layout: a code and its data. */
 export type PanelsNote =
   | { readonly code: "column-shrunk"; readonly side: Side; readonly column: number; readonly items: readonly string[]; readonly from: number; readonly to: number }
-  | { readonly code: "column-folded" | "kept-folded"; readonly side: Side; readonly column: number; readonly items: readonly string[] }
+  | { readonly code: "column-folded" | "kept-folded" | "section-folded"; readonly side: Side; readonly column: number; readonly items: readonly string[] }
   | { readonly code: "pages-under-min"; readonly width: number; readonly min: number }
   | { readonly code: "float-clamped" | "float-resized"; readonly items: readonly string[] };
 
@@ -114,6 +129,9 @@ interface Col {
   readonly hand: boolean;
   readonly kept: boolean;
   readonly age: number;
+  readonly show?: "stack" | "tabs";
+  /** Tabbed: the panel it shows (its stored one when shown, else its first). */
+  readonly active?: string;
 }
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), Math.max(lo, hi));
@@ -144,9 +162,64 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
       const max = Math.max(min, Math.min(...ds.map((d) => d?.width.max ?? Infinity)));
       const width = clamp(Number.isFinite(c.width) ? c.width : min, min, max);
       const age = Math.max(...panels.map((id) => state.clock[id]?.[by] ?? 0));
-      cols.push({ side, index, panels, min, max, width, hand: panels.every((id) => folded.has(id)), kept: panels.some((id) => kept.has(id)), age });
+      const tabs = c.show === "tabs" ? { show: "tabs" as const, active: c.active !== undefined && panels.includes(c.active) ? c.active : panels[0]! } : {};
+      cols.push({ side, index, panels, min, max, width, hand: panels.every((id) => folded.has(id)), kept: panels.some((id) => kept.has(id)), age, ...tabs });
     });
   }
+
+  /**
+   * A stack column's sections, top to bottom, `room` px tall. Without a `height` def among its open sections they
+   * share the room equally (bars `opt.bar` tall). With one: each gets its natural height and the last open one the rest
+   * (never under its min; sections without a def share what is left). Short of room, open sections fold to bars by
+   * give-way (policy order, kept last, never the last open one); their natural heights give way toward their mins
+   * before the last one goes under its min.
+   */
+  const sectionHeights = (c: Col, room: number): Map<string, { height: number; folded: null | "hand" | "auto" }> => {
+    const out = new Map<string, { height: number; folded: null | "hand" | "auto" }>();
+    const open0 = c.panels.filter((id) => !folded.has(id));
+    const hOf = (id: string) => defOf(defs, id)?.height;
+    const auto = new Set<string>();
+    if (open0.some((id) => hOf(id))) {
+      const last = open0.at(-1)!;
+      const minOf = (id: string): number => hOf(id)?.min ?? 0;
+      const fits = (): boolean => (c.panels.length - open0.length + auto.size) * opt.bar + open0.filter((id) => !auto.has(id)).reduce((a, id) => a + minOf(id), 0) <= room;
+      const rank = (ids: readonly string[]): string[] =>
+        [...ids].sort((a, b) => {
+          const age = (id: string): number => state.clock[id]?.[by] ?? 0;
+          return Number(kept.has(a)) - Number(kept.has(b)) || (opt.giveWay.order === "oldest" ? age(a) - age(b) : age(b) - age(a)) || c.panels.indexOf(a) - c.panels.indexOf(b);
+        });
+      for (const id of rank(open0.filter((x) => x !== last))) {
+        if (fits()) break;
+        auto.add(id);
+      }
+      const open = open0.filter((id) => !auto.has(id));
+      const space = room - (c.panels.length - open.length) * opt.bar;
+      const fixed = open.filter((id) => id !== last && hOf(id));
+      const sharers = open.filter((id) => id === last || !hOf(id));
+      const h = new Map(fixed.map((id) => [id, hOf(id)!.natural]));
+      let rest = space - fixed.reduce((a, id) => a + h.get(id)!, 0);
+      const lastMin = minOf(last);
+      if (rest / sharers.length >= lastMin) for (const id of sharers) h.set(id, rest / sharers.length);
+      else {
+        // The last open section keeps its min: the others' natural heights give way toward their mins, in order.
+        for (const id of rank(fixed)) {
+          if (rest >= lastMin) break;
+          const take = Math.min(lastMin - rest, h.get(id)! - minOf(id));
+          h.set(id, h.get(id)! - take);
+          rest += take;
+        }
+        // The last gets its min (or what is left), the sections without a def share the remainder.
+        const lastH = Math.max(0, Math.min(lastMin, rest));
+        for (const id of sharers) h.set(id, id === last ? lastH : Math.max(0, rest - lastH) / (sharers.length - 1));
+      }
+      for (const id of c.panels) out.set(id, folded.has(id) ? { height: opt.bar, folded: "hand" } : auto.has(id) ? { height: opt.bar, folded: "auto" } : { height: Math.max(0, h.get(id)!), folded: null });
+      return out;
+    }
+    const bars = c.panels.length - open0.length;
+    const share = Math.max(0, (room - bars * opt.bar) / open0.length);
+    for (const id of c.panels) out.set(id, folded.has(id) ? { height: opt.bar, folded: "hand" } : { height: share, folded: null });
+    return out;
+  };
 
   // Give-way: fold the fewest columns in order that let the pages fit, shrinking the rest in order toward their minimum.
   const order = giveWayOrder(
@@ -233,19 +306,36 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
         continue;
       }
       const r = at.get(c) ?? rect(side === "left" ? x0 : x1, 0, 0, H);
-      placedCols.push({ ...base, rect: r, shrunk: w !== undefined && w < c.width });
-      if (w === undefined) continue;
       // The host shares what the riding bars leave.
       const y0 = c === host ? top : 0;
-      const bars = c.panels.filter((id) => folded.has(id)).length;
-      const share = Math.max(0, (H - y0 - bars * opt.bar) / (c.panels.length - bars));
+      const tabbed = c.show === "tabs";
+      const strip = rect(r.x, y0, r.width, opt.tabs);
+      const shown = tabbed && w !== undefined ? { strip, active: c.active! } : {};
+      placedCols.push({ ...base, rect: r, shrunk: w !== undefined && w < c.width, ...(tabbed ? { show: "tabs" as const } : {}), ...shown });
+      if (w === undefined) continue;
+      const panel = (id: string, to: Rect, kind: PanelKind, f: null | "hand" | "auto", more: { tab?: Rect; hidden?: boolean } = {}): void => {
+        items.set(id, { rect: to, kind, layer: 0, hidden: more.hidden ?? false, folded: f, kept: kept.has(id), pinned: false, floating: false, side, column: c.index, ...(more.tab ? { tab: more.tab } : {}) });
+      };
+      if (tabbed) {
+        // One panel shows under the strip; the others are its hidden tabs. Its active panel folded: only the strip.
+        const body = rect(r.x, y0 + opt.tabs, r.width, Math.max(0, H - y0 - opt.tabs));
+        const shade = folded.has(c.active!);
+        const tw = r.width / c.panels.length;
+        c.panels.forEach((id, i) => {
+          const tab = rect(r.x + i * tw, y0, tw, opt.tabs);
+          if (id === c.active) panel(id, shade ? strip : body, shade ? "bar" : "column", shade ? "hand" : null, { tab });
+          else panel(id, body, "column", folded.has(id) ? "hand" : null, { tab, hidden: true });
+        });
+        continue;
+      }
+      const hs = sectionHeights(c, H - y0);
       let y = y0;
       for (const id of c.panels) {
-        const bar = folded.has(id);
-        const h = bar ? opt.bar : share;
-        items.set(id, { rect: rect(r.x, y, r.width, h), kind: bar ? "bar" : "column", layer: 0, hidden: false, folded: bar ? "hand" : null, kept: kept.has(id), pinned: false, floating: false, side, column: c.index });
-        y += h;
+        const s = hs.get(id)!;
+        panel(id, rect(r.x, y, r.width, s.height), s.folded ? "bar" : "column", s.folded);
+        y += s.height;
       }
+      for (const id of c.panels) if (hs.get(id)!.folded === "auto") notes.push({ code: "section-folded", side, column: c.index, items: [id] });
     }
   }
   const pages = rect(x0, 0, Math.max(0, x1 - x0), H);
