@@ -93,6 +93,10 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
   const W = stage.width;
   const H = stage.height;
   const R = COLUMN_REACH;
+  // Options passed as undefined fall back to their defaults.
+  const bandOpts = opt.bands ?? {};
+  const reserve = opt.reserve ?? {};
+  const px = (v: number | undefined): number => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, v) : 0);
   const out: PanelTarget[] = [];
   const idOf = (place: PanelPlace): string => {
     switch (place.kind) {
@@ -141,7 +145,8 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
       const [a, b] = outer ? (left ? cut(x, x + 2 * R, lo, hi) : cut(x - 2 * R, x, lo, hi)) : cut(x - R, x + R, lo, hi);
       add({ kind: "column", side, index: i }, 2, rect(a, top, b - a, CH), () => dock(state, id, side, i, { width }));
     };
-    if (open.length === 0) band(left ? l0.pages.x : l0.pages.x + l0.pages.width, true, s0.sides[side].length);
+    // No open column: the line where a new one would start, the stage side of the pages' reserve.
+    if (open.length === 0) band(left ? l0.pages.x - px(reserve.left) : l0.pages.x + l0.pages.width + px(reserve.right), true, s0.sides[side].length);
     open.forEach((c, k) => {
       band(left ? c.rect.x : c.rect.x + c.rect.width, k === 0, c.index);
       add({ kind: "into", side, index: c.index }, 2, c.rect, () => dock(state, id, side, c.index, { into: true }));
@@ -152,12 +157,16 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
 
   // The bands: a slot between each two panels and at both ends, the band's area split at its panels' middles; an
   // empty enabled edge, a strip along it inside the pages.
+  const home = whereIs(state, id);
   for (const e of EDGES) {
-    if (!opt.bands[e] || (def?.sides && !def.sides.includes(e))) continue;
+    if (!bandOpts[e] || (def?.sides && !def.sides.includes(e))) continue;
     const pb = l0.bands[e];
     const list = s0.bands?.[e]?.panels ?? [];
     const make = (i: number) => () => dockBand(state, id, e, i, defs);
     if (!pb) {
+      // The panel's own band, emptied by lifting it: a drop there would only make the same band again (at its natural
+      // height, not the one stored), so it is the drag's home, not a target.
+      if (home.kind === "band" && home.edge === e && !s0.bands?.[e]) continue;
       const p = l0.pages;
       const h = Math.min(2 * opt.bar, p.height);
       add({ kind: "band", edge: e, index: list.length }, 2, rect(p.x, e === "top" ? p.y : p.y + p.height - h, p.width, h), make(list.length));
