@@ -6,7 +6,7 @@
  */
 import type { Rect } from "@n-uf/motion";
 import { checkMonotonic, checkNoOvershoot, type RectSample } from "@n-uf/motion/testing";
-import { dock, dockBand, storePanels, toggleFold, type BandOption, type Clock, type GiveWay, type PanelsState } from "@n-uf/placement/panels";
+import { dock, dockBand, liftPanel, storePanels, toggleFold, type BandOption, type Clock, type GiveWay, type PanelsState } from "@n-uf/placement/panels";
 import { verdict, type Row } from "../shared/checks";
 import { nextFrame, type Point } from "../shared/geometry";
 import { passes, type LabRun, type ScenarioFilter } from "../shared/hooks";
@@ -835,14 +835,15 @@ const bandOverlay: Scenario = {
   name: "options: bands: overlay keeps the pages' rect; reserved shortens it",
   modes: ["overlay", "reserved"],
   async run(p, mode) {
-    const before = drawnRect(p, itemEl(p, "pages"));
     const motion = await sampled(p, () => p.setBand("bottom", { mode: mode as "overlay", span: "between" }));
     const after = drawnRect(p, itemEl(p, "pages"));
     const band = drawnRect(p, itemEl(p, "history"));
     const l = p.lay();
+    // The same desk without the band: History lifted out (where the band takes it from).
+    const without = p.lay(liftPanel(p.state, "history")).pages;
     const overlay = mode === "overlay";
     return [
-      row(overlay ? "the pages keep their rect" : "the pages are shorter by the band's height", overlay ? (near(before, after) ? [] : [`${fmt(before)} → ${fmt(after)}`]) : Math.abs(after.height - (before.height - band.height)) < 1.5 ? [] : [`${fmt(before)} → ${fmt(after)}, band ${fmt(band)}`]),
+      row(overlay ? "the pages keep their rect (the full height)" : "the pages are shorter by the band's height", overlay ? (near(without, after) && Math.abs(after.height - p.height) < 1 ? [] : [`${fmt(without)} vs ${fmt(after)}`]) : Math.abs(after.height - (without.height - band.height)) < 1.5 ? [] : [`${fmt(without)} → ${fmt(after)}, band ${fmt(band)}`]),
       row(overlay ? "the band lies over the pages' lower part, above them" : "the band lies under the pages", overlay ? (band.y > after.y && Math.abs(band.y + band.height - (after.y + after.height)) < 1.5 && Number(itemEl(p, "history").style.zIndex) > 1 ? [] : [fmt(band)]) : Math.abs(band.y - (after.y + after.height)) < 1.5 ? [] : [fmt(band)]),
       row("its layer", l.items.get("history")!.layer === (overlay ? 5 : 0) ? [] : [String(l.items.get("history")!.layer)]),
       ...motion,
@@ -908,6 +909,7 @@ const bandDrag: Scenario = {
     await release(p);
     await settled(p);
     const d1 = p.lastDrop;
+    const d1State = p.state;
     const in1 = p.where("files");
     const landed = drawnRect(p, itemEl(p, "files"));
     // And out to the left edge: a column again.
@@ -921,7 +923,7 @@ const bandDrag: Scenario = {
     return [
       row("it landed in the band, on the slot the page showed", d1?.landed === "band:bottom:1" && d1.shownAtRelease === d1.landed && in1.kind === "band" ? [] : [`landed ${d1?.landed}, showed ${d1?.shownAtRelease}`]),
       row("where the slot showed: its share of the band", shown.rect && near(landed, shown.rect) ? [] : [`showed ${fmt(shown.rect)}, landed ${fmt(landed)}`], fmt(landed)),
-      row("the band's panels share its width", Math.abs(landed.width - band.width / 2) < 1.5 ? [] : [`${Math.round(landed.width)} of ${Math.round(band.width)}`]),
+      row("the band's panels share its width", Math.abs(landed.width - (p.lay(d1State).bands.bottom?.rect.width ?? 0) / 2) < 1.5 ? [] : [`${Math.round(landed.width)} of ${Math.round(p.lay(d1State).bands.bottom?.rect.width ?? 0)}`]),
       row("dragged out to the left edge, it is the outermost column again", w.kind === "column" && w.side === "left" && w.index === 0 && Math.abs(back.x) < 1.5 ? [] : [`${JSON.stringify(w)} ${fmt(back)}`]),
     ];
   },
