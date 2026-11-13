@@ -2,7 +2,8 @@
  * The panels model: plain data and the pure changes on it.
  *
  * Panels have string ids. Each side holds full-height columns (outer edge first), each column one or more panels
- * top to bottom and its own width. A panel may instead float, in page space (it moves with the page) or pinned in
+ * top to bottom and its own width. Opt-in, the top and bottom edges hold a band each: its panels side by side, left to
+ * right, sharing its width, at its own height. A panel may instead float, in page space (it moves with the page) or pinned in
  * view space (it stays put). A logical clock per panel (opened, used) is what give-way reads; every change here that
  * counts as a use moves it on. Nothing here reads a host clock: the next tick is one past the latest in the state.
  */
@@ -10,6 +11,24 @@ import type { Rect, Size } from "../geometry";
 
 export type Side = "left" | "right";
 export const SIDES: readonly Side[] = ["left", "right"];
+
+/** A band's edge: a horizontal dock along the stage's top or bottom (opt-in, `PanelsOptions.bands`). */
+export type Edge = "top" | "bottom";
+export const EDGES: readonly Edge[] = ["top", "bottom"];
+/** Where a panel may dock: a side's columns or an edge's band. */
+export type Place = Side | Edge;
+
+/** A band's height limits and natural height when a def gives none. */
+export const BAND_SIZE: { readonly min: number; readonly max: number; readonly natural: number } = { min: 120, max: 480, natural: 200 };
+
+/** How an edge's band lies: "reserved" shortens the pages, "overlay" lies over them; between the columns, or full width. */
+export interface BandOption {
+  readonly mode: "reserved" | "overlay";
+  readonly span: "between" | "full";
+}
+
+/** Room kept clear along the pages' edges, px. */
+export type Reserve = Readonly<Partial<Record<"top" | "right" | "bottom" | "left", number>>>;
 
 /**
  * What a consumer says about a panel: its width limits docked, its size limits floating, and where it may go. No
@@ -27,8 +46,10 @@ export interface PanelDef {
   readonly height?: { readonly min: number; readonly natural: number };
   /** A float's size limits and natural size (default: its natural width, 360 px tall, no smaller than 160 × 120). */
   readonly float?: { readonly min: Size; readonly natural: Size };
-  /** Where it may dock (default: both sides). */
-  readonly sides?: readonly Side[];
+  /** Where it may dock (default: both sides, and every edge that has a band). */
+  readonly sides?: readonly Place[];
+  /** A band's height limits and natural height (default `BAND_SIZE`: min 120, max 480, natural 200). */
+  readonly band?: { readonly min: number; readonly max: number; readonly natural: number };
   /** May it float (default: yes). */
   readonly floats?: boolean;
 }
@@ -52,6 +73,12 @@ export interface FloatAt {
   readonly pinned?: boolean;
 }
 
+/** A band: its panels left to right, sharing its width, and its stored height (the layout clamps it to their limits). */
+export interface Band {
+  readonly panels: readonly string[];
+  readonly height: number;
+}
+
 /** Logical times: when a panel was last opened, and last used (opened, focused, moved or unfolded). */
 export interface Clock {
   readonly opened: number;
@@ -70,6 +97,8 @@ export interface PanelsState {
   /** Not shown at all (they keep their place, for when they open again). */
   readonly closed: readonly string[];
   readonly clock: Readonly<Record<string, Clock>>;
+  /** Each edge's band (absent: no band panels). An emptied band goes from the state. */
+  readonly bands?: Readonly<Partial<Record<Edge, Band>>>;
 }
 
 /** The page's offset and scale in the view: a page point p shows at `x + p.x * scale`, `y + p.y * scale`. */
@@ -114,6 +143,12 @@ export interface PanelsOptions {
   readonly railInset: number;
   /** A tabbed column's strip height (default 28). */
   readonly tabs: number;
+  /** Which edges have a band, and how it lies (default: none). */
+  readonly bands: Readonly<Partial<Record<Edge, BandOption>>>;
+  /** The pages' minimum height; only bands give way to it (default 240). */
+  readonly pagesMinHeight: number;
+  /** Room kept clear at the pages' edges for a toolbar the app draws, px (default: none). */
+  readonly reserve: Reserve;
 }
 
 export const DEFAULT_PANELS_OPTIONS: PanelsOptions = {
@@ -128,6 +163,9 @@ export const DEFAULT_PANELS_OPTIONS: PanelsOptions = {
   segment: 36,
   railInset: 4,
   tabs: 28,
+  bands: {},
+  pagesMinHeight: 240,
+  reserve: {},
 };
 
 /** A float's size when its def gives none: this tall, and never smaller than FLOAT_MIN. */
@@ -139,13 +177,21 @@ export const FLOAT_MIN: Size = { width: 160, height: 120 };
 const without = <T>(list: readonly T[], x: T): T[] => list.filter((y) => y !== x);
 const withOnce = <T>(list: readonly T[], x: T): T[] => (list.includes(x) ? [...list] : [...list, x]);
 
-/** Where a panel is: a column (side and index), floating, or nowhere. */
-export type Where = { readonly kind: "column"; readonly side: Side; readonly index: number } | { readonly kind: "float"; readonly float: FloatAt } | { readonly kind: "none" };
+/** Where a panel is: a column (side and index), a band (edge and index, left to right), floating, or nowhere. */
+export type Where =
+  | { readonly kind: "column"; readonly side: Side; readonly index: number }
+  | { readonly kind: "band"; readonly edge: Edge; readonly index: number }
+  | { readonly kind: "float"; readonly float: FloatAt }
+  | { readonly kind: "none" };
 
 export function whereIs(state: PanelsState, id: string): Where {
   for (const side of SIDES) {
     const index = state.sides[side].findIndex((c) => c.panels.includes(id));
     if (index >= 0) return { kind: "column", side, index };
+  }
+  for (const edge of EDGES) {
+    const index = state.bands?.[edge]?.panels.indexOf(id) ?? -1;
+    if (index >= 0) return { kind: "band", edge, index };
   }
   const float = state.floats.find((f) => f.id === id);
   return float ? { kind: "float", float } : { kind: "none" };
@@ -169,9 +215,30 @@ export function floatSize(def: PanelDef | undefined): { min: Size; natural: Size
   return { min: FLOAT_MIN, natural: { width, height: FLOAT_HEIGHT } };
 }
 
+/** A band's height limits and natural height from a def (`BAND_SIZE` when it gives none). */
+export const bandSize = (def: PanelDef | undefined): { min: number; max: number; natural: number } => ({ ...(def?.band ?? BAND_SIZE) });
+
+/** A band's height as the layout takes it: its stored height clamped to its panels' limits (the largest min, the smallest max). */
+export function bandHeight(defs: readonly PanelDef[] | undefined, band: Band): number {
+  if (!defs) return band.height;
+  const ds = band.panels.map((id) => bandSize(defOf(defs, id)));
+  const lo = Math.max(0, ...ds.map((d) => d.min));
+  const hi = Math.max(lo, Math.min(...ds.map((d) => d.max)));
+  return Math.min(Math.max(Number.isFinite(band.height) ? band.height : lo, lo), hi);
+}
+
+/** The bands with `edge` set to `band`, or without it when null; no `bands` at all once none is left. */
+const withBand = (state: PanelsState, edge: Edge, band: Band | null): PanelsState => {
+  const { bands: _b, ...rest } = state;
+  const bands: Partial<Record<Edge, Band>> = { ...state.bands };
+  if (band && band.panels.length) bands[edge] = band;
+  else delete bands[edge];
+  return EDGES.some((e) => bands[e]) ? { ...rest, bands } : rest;
+};
+
 /**
  * A panel's own width, for a new column made for it: the width of the column it is in, clamped to its own limits;
- * floating or nowhere, its natural width.
+ * in a band, floating or nowhere, its natural width.
  */
 export function ownWidth(defs: readonly PanelDef[], state: PanelsState, id: string): number {
   const def = defOf(defs, id);
@@ -188,6 +255,9 @@ export interface PanelsStart {
   /** Each side's columns from the outer edge inward, each a list of panel ids top to bottom. */
   readonly left?: readonly (readonly string[])[];
   readonly right?: readonly (readonly string[])[];
+  /** Each edge's band, its panels left to right (it takes the tallest natural band height, within their limits). */
+  readonly top?: readonly string[];
+  readonly bottom?: readonly string[];
   /** Floating panels: where (page space, or view space when pinned); the size defaults to the def's natural size. */
   readonly floats?: readonly { readonly id: string; readonly x: number; readonly y: number; readonly width?: number; readonly height?: number; readonly pinned?: boolean }[];
   readonly folded?: readonly string[];
@@ -197,8 +267,8 @@ export interface PanelsStart {
 
 /**
  * A state from a plain start: each column as wide as the widest natural width of its panels (within their limits),
- * each float its natural size. The clock counts up in the order the panels are listed (left, right, floats), so the
- * last one listed is the newest.
+ * each float its natural size. The clock counts up in the order the panels are listed (left, right, top, bottom,
+ * floats), so the last one listed is the newest.
  */
 export function createPanels(defs: readonly PanelDef[], start: PanelsStart): PanelsState {
   const column = (ids: readonly string[]): Column => {
@@ -213,15 +283,29 @@ export function createPanels(defs: readonly PanelDef[], start: PanelsStart): Pan
     return { id: f.id, rect: { x: f.x, y: f.y, width: f.width ?? n.width, height: f.height ?? n.height }, ...(f.pinned ? { pinned: true } : {}) };
   });
   const sides = { left: (start.left ?? []).map(column), right: (start.right ?? []).map(column) };
-  const order = [...sides.left, ...sides.right].flatMap((c) => c.panels).concat(floats.map((f) => f.id));
+  const bands: Partial<Record<Edge, Band>> = {};
+  for (const edge of EDGES) {
+    const ids = start[edge] ?? [];
+    if (!ids.length) continue;
+    const natural = Math.max(0, ...ids.map((id) => bandSize(defOf(defs, id)).natural));
+    bands[edge] = { panels: [...ids], height: bandHeight(defs, { panels: ids, height: natural }) };
+  }
+  const order = [...sides.left, ...sides.right]
+    .flatMap((c) => c.panels)
+    .concat(EDGES.flatMap((e) => bands[e]?.panels ?? []))
+    .concat(floats.map((f) => f.id));
   const clock: Record<string, Clock> = {};
   order.forEach((id, i) => (clock[id] = { opened: i + 1, used: i + 1 }));
-  return { sides, floats, folded: [...(start.folded ?? [])], kept: [...(start.kept ?? [])], closed: [...(start.closed ?? [])], clock };
+  const s: PanelsState = { sides, floats, folded: [...(start.folded ?? [])], kept: [...(start.kept ?? [])], closed: [...(start.closed ?? [])], clock };
+  return EDGES.some((e) => bands[e]) ? { ...s, bands } : s;
 }
 
 // --- changes -------------------------------------------------------------------------------------------------------
 
-/** The state with `id` taken out of its column (an emptied column goes) or the floats. Nothing else changes. */
+/**
+ * The state with `id` taken out of its column (an emptied column goes), its band (an emptied band goes, and its height
+ * is forgotten) or the floats. Nothing else changes.
+ */
 export function liftPanel(state: PanelsState, id: string): PanelsState {
   // A tabbed column whose active panel leaves shows its first panel again.
   const out = (c: Column): Column => {
@@ -229,17 +313,28 @@ export function liftPanel(state: PanelsState, id: string): PanelsState {
     return { ...(c.active === id ? rest : c), panels: without(c.panels, id) };
   };
   const lift = (cols: readonly Column[]): Column[] => cols.map(out).filter((c) => c.panels.length > 0);
-  return { ...state, sides: { left: lift(state.sides.left), right: lift(state.sides.right) }, floats: state.floats.filter((f) => f.id !== id) };
+  let s: PanelsState = { ...state, sides: { left: lift(state.sides.left), right: lift(state.sides.right) }, floats: state.floats.filter((f) => f.id !== id) };
+  for (const edge of EDGES) {
+    const b = s.bands?.[edge];
+    if (b?.panels.includes(id)) s = withBand(s, edge, { ...b, panels: without(b.panels, id) });
+  }
+  return s;
 }
 
 /**
  * Open a panel: it shows again where it was, and it is the newest opened and used. A panel placed nowhere goes into
- * a new innermost column on `at.side`, `at.width` wide; without `at` it stays placed nowhere. In a tabbed column it
- * becomes the tab that shows, as a drop into the column does.
+ * a new innermost column on `at.side`, `at.width` wide, or with `at.edge` at the right end of that edge's band (a new
+ * band is `at.height` tall, default `BAND_SIZE.natural`; the layout clamps it); without `at` it stays placed nowhere.
+ * In a tabbed column it becomes the tab that shows, as a drop into the column does.
  */
-export function open(state: PanelsState, id: string, at?: { readonly side: Side; readonly width: number }): PanelsState {
+export function open(state: PanelsState, id: string, at?: { readonly side: Side; readonly width: number } | { readonly edge: Edge; readonly height?: number }): PanelsState {
   let s: PanelsState = { ...state, closed: without(state.closed, id) };
-  if (at && whereIs(s, id).kind === "none") s = { ...s, sides: { ...s.sides, [at.side]: [...s.sides[at.side], { panels: [id], width: at.width }] } };
+  if (at && whereIs(s, id).kind === "none") {
+    if ("edge" in at) {
+      const b = s.bands?.[at.edge];
+      s = withBand(s, at.edge, { panels: [...(b?.panels ?? []), id], height: b?.height ?? at.height ?? BAND_SIZE.natural });
+    } else s = { ...s, sides: { ...s.sides, [at.side]: [...s.sides[at.side], { panels: [id], width: at.width }] } };
+  }
   const w = whereIs(s, id);
   if (w.kind === "column" && s.sides[w.side][w.index]!.show === "tabs") s = { ...s, sides: { ...s.sides, [w.side]: s.sides[w.side].map((c, i) => (i === w.index ? { ...c, active: id } : c)) } };
   return bump(s, id, true);
@@ -255,22 +350,60 @@ export function focus(state: PanelsState, id: string): PanelsState {
   return bump(s, id, false);
 }
 
-/** Fold a panel to its title bar by hand, or unfold it (unfolding is a use). */
+/**
+ * Fold a panel to its title bar by hand, or unfold it (unfolding is a use). A band folds as a whole: on a band panel
+ * all its panels go into `folded`, or (when this one is folded) all come out.
+ */
 export function toggleFold(state: PanelsState, id: string): PanelsState {
+  const w = whereIs(state, id);
+  if (w.kind === "band") {
+    const ids = state.bands![w.edge]!.panels;
+    if (state.folded.includes(id)) return bump({ ...state, folded: state.folded.filter((x) => !ids.includes(x)) }, id, false);
+    return { ...state, folded: [...state.folded.filter((x) => !ids.includes(x)), ...ids] };
+  }
   if (state.folded.includes(id)) return bump({ ...state, folded: without(state.folded, id) }, id, false);
   return { ...state, folded: [...state.folded, id] };
 }
 
-/** Keep a docked panel open (its column gives way last), or stop keeping it. A floating panel isn't kept. */
+/** Keep a docked panel open (its column or band gives way last), or stop keeping it. A floating panel isn't kept. */
 export function keep(state: PanelsState, id: string, on: boolean): PanelsState {
   if (!on) return { ...state, kept: without(state.kept, id) };
-  return whereIs(state, id).kind === "column" ? { ...state, kept: withOnce(state.kept, id) } : state;
+  const k = whereIs(state, id).kind;
+  return k === "column" || k === "band" ? { ...state, kept: withOnce(state.kept, id) } : state;
+}
+
+/**
+ * Dock a panel in the band on `edge`, at `index` (0 the leftmost; past the end, the rightmost). A new band takes the
+ * panel's natural band height (with `defs`; else `BAND_SIZE.natural`). It shows (a band folded by hand unfolds), it is
+ * the newest used, and it keeps whether it is kept open.
+ */
+export function dockBand(state: PanelsState, id: string, edge: Edge, index: number, defs?: readonly PanelDef[]): PanelsState {
+  const s = liftPanel(state, id);
+  const b = s.bands?.[edge];
+  const panels = [...(b?.panels ?? [])];
+  panels.splice(Math.max(0, Math.min(index, panels.length)), 0, id);
+  const height = b?.height ?? bandSize(defs ? defOf(defs, id) : undefined).natural;
+  const s1 = withBand(s, edge, { panels, height });
+  return bump({ ...s1, folded: s1.folded.filter((x) => !panels.includes(x)), closed: without(s1.closed, id) }, id, false);
+}
+
+/** Store a band's height (the layout clamps it to its panels' limits). Resizing is a use, as for a column. */
+export function resizeBand(state: PanelsState, edge: Edge, height: number): PanelsState {
+  const b = state.bands?.[edge];
+  if (!b || !Number.isFinite(height)) return state;
+  const t = tick(state);
+  const clock = { ...state.clock };
+  for (const id of b.panels) clock[id] = { opened: clock[id]?.opened ?? 0, used: t };
+  return { ...withBand(state, edge, { ...b, height: Math.max(0, height) }), clock };
 }
 
 export interface DockOptions {
   /** Stack into the column at `index` (at its bottom) instead of making a new column there. */
   readonly into?: boolean;
-  /** A new column's width (default: the width of the column the panel leaves, else 0, which the layout clamps to the minimum). */
+  /**
+   * A new column's width (default: the width of the column the panel leaves, else 0, which the layout clamps to the
+   * minimum; from a band, pass `ownWidth` for its natural width, as the drop targets do).
+   */
   readonly width?: number;
 }
 
@@ -386,6 +519,11 @@ export function samePlaces(a: PanelsState, b: PanelsState, defs?: readonly Panel
         .join("|"),
     ).join("‖");
   const fl = (s: PanelsState): string => s.floats.map((f) => `${f.id}@${Math.round(f.rect.x)},${Math.round(f.rect.y)},${Math.round(f.rect.width)},${Math.round(f.rect.height)}${f.pinned ? "p" : ""}`).join("|");
+  const bs = (s: PanelsState): string =>
+    EDGES.map((e) => {
+      const b = s.bands?.[e];
+      return b ? `${b.panels.join(",")}@${Math.round(bandHeight(defs, b))}` : "";
+    }).join("‖");
   const set = (l: readonly string[]): string => [...l].sort().join(",");
-  return cols(a) === cols(b) && fl(a) === fl(b) && set(a.folded) === set(b.folded) && set(a.kept) === set(b.kept) && set(a.closed) === set(b.closed);
+  return cols(a) === cols(b) && bs(a) === bs(b) && fl(a) === fl(b) && set(a.folded) === set(b.folded) && set(a.kept) === set(b.kept) && set(a.closed) === set(b.closed);
 }
