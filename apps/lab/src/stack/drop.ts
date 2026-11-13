@@ -245,6 +245,7 @@ function aim(now: number): void {
     d.room = room;
     draw(room, d.id);
   }
+  if (f.shown?.id !== d.shown?.id) say(f.shown ? `${titleOf(d.id)} → ${f.shown.label}: release to drop it on the dashed rectangle.` : `${titleOf(d.id)}: move over a gap.`);
   d.shown = f.shown;
   showPreview(plan.showIndicator ? f.shown : null, d.id);
 }
