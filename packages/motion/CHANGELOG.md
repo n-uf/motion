@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.7
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement`
+  26.11.7 (the new `./panels` entry).
+
 ## 26.11.6
 
 - `@n-uf/motion/drag`: the README shows a drag on a scaled page (a zoomed
