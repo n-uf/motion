@@ -4,6 +4,11 @@
  * version 1 is `{ ok: false, error }`. Inside one, it is lenient: an unknown id (with `defs`), a repeated one or a
  * malformed entry is dropped and listed in `dropped`; widths and float sizes are clamped to the defs. A panel the
  * consumer has but the stored state lacks is no error: the consumer places it (`open` with a place, say).
+ *
+ * Version 1 only gains optional fields. A field this reader doesn't know (a newer writer's, say) is no error either:
+ * it is skipped and reported in `dropped` (`"<field>"` at the top, `"sides.<key>"`, `"column.<field>"`,
+ * `"float.<field>"`; a clock entry for a panel that isn't placed as `"clock.<id>"`), so a consumer can tell that
+ * something was left out.
  */
 import type { Rect } from "../geometry";
 import { SIDES, defOf, floatSize, type Clock, type Column, type FloatAt, type PanelDef, type PanelsState, type Side } from "./model";
@@ -68,6 +73,12 @@ function read(data: unknown, defs?: readonly PanelDef[]): PanelsRead {
     seen.add(x);
     return x;
   };
+  // Fields this version doesn't know: skipped, and reported.
+  const extra = (o: Record<string, unknown>, known: readonly string[], prefix: string): void => {
+    for (const k of Object.keys(o)) if (!known.includes(k)) drop(`${prefix}${k}`);
+  };
+  extra(data, ["v", "sides", "floats", "folded", "kept", "closed", "clock"], "");
+  extra(data.sides, SIDES, "sides.");
   const sides = { left: [] as Column[], right: [] as Column[] };
   for (const side of SIDES) {
     const cols = data.sides[side];
@@ -81,6 +92,7 @@ function read(data: unknown, defs?: readonly PanelDef[]): PanelsRead {
         drop(`a column on the ${side}`);
         continue;
       }
+      extra(c, ["panels", "width"], "column.");
       const panels = (c.panels as unknown[]).map(take).filter((x): x is string => x !== null);
       if (panels.length === 0) continue;
       const ds = defs ? panels.map((id) => defOf(defs, id)!) : [];
@@ -98,6 +110,7 @@ function read(data: unknown, defs?: readonly PanelDef[]): PanelsRead {
       drop(isObject(f) && typeof f.id === "string" ? f.id : "a float");
       continue;
     }
+    extra(f, ["id", "rect", "pinned"], "float.");
     const id = take(f.id);
     if (id === null) continue;
     const min = defs ? floatSize(defOf(defs, id)).min : { width: 0, height: 0 };
@@ -128,6 +141,7 @@ function read(data: unknown, defs?: readonly PanelDef[]): PanelsRead {
   });
   const clock: Record<string, Clock> = {};
   if (isObject(data.clock)) {
+    for (const id of Object.keys(data.clock)) if (!seen.has(id)) drop(`clock.${id}`);
     for (const id of seen) {
       const c = data.clock[id];
       clock[id] = isObject(c) && finite(c.opened) && finite(c.used) ? { opened: c.opened, used: c.used } : { opened: 0, used: 0 };
