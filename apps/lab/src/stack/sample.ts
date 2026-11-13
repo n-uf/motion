@@ -48,7 +48,7 @@ export function formsOf(id: ItemId, axis: Axis, from = 0): StackForm[] {
   const s = SAMPLES[id];
   const all: StackForm[] = isPanel(id)
     ? axis === "column"
-      ? [f("open", 90, s.natural!.column, s.wide!, true), f("header", 30, 30, s.wide!), f("rail", 26, 26, RAIL), f("menu", 0, 0, 0)]
+      ? [f("open", 90, s.natural!.column, s.wide!, true), f("header", 30, 30, 120), f("rail", 26, 26, RAIL), f("menu", 0, 0, 0)]
       : [f("open", 150, s.natural!.row, 120, true), f("header", 110, 110, 28), f("rail", 26, 26, 26), f("menu", 0, 0, 0)]
     : axis === "column"
       ? [f("row", 30, 30, 190), f("stacked", 84, 84, 84), f("icons", 72, 72, 28), f("menu", 0, 0, 0)]

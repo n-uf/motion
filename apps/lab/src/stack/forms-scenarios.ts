@@ -47,7 +47,8 @@ const c2: Scenario<Page> = {
   name: "C2: a group alone gives a rail",
   modes: ["column", "bar"],
   async run(p, mode) {
-    p.setLength(520);
+    // Long enough that a bar of three groups and an open panel fits (3 × 200 + 150).
+    p.setLength(760);
     const rows = [];
     // Only groups in the stacks.
     showOnly(p, ["views"]);
