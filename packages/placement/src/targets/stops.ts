@@ -3,6 +3,7 @@
  * "Move to" menu alike. A consumer steps through the list; it never parses target ids.
  */
 import { centre, type Point } from "../geometry";
+import { panelStops, type PanelStop, type PanelStopsOptions, type PanelTarget } from "../panels/targets";
 import { HOST_LABEL, ZONES, zoneLabel, type Arrangement, type HostId, type Place } from "../toolbar";
 import type { ToolbarFloatTarget, ToolbarTarget } from "./toolbar";
 
@@ -36,12 +37,28 @@ const isFloat = <G extends string>(t: ToolbarTarget<G> | ToolbarFloatTarget<G>):
 /** Reading order of a place: host, then zone, then index. */
 const rank = (p: Place): number => HOST_READING_ORDER.indexOf(p.host) * 3000 + ZONES.indexOf(p.zone) * 1000 + p.index;
 
+const isPanelTargets = (targets: readonly object[], options: { readonly home?: object }): boolean => targets.some((t) => "panel" in t) || (targets.length === 0 && !!options.home && "state" in options.home);
+
 /**
  * The places a group can go, in reading order: hosts title → top → left → right → bottom, zones start → centre →
  * end, then each insertion point in order; the group's own place among them when `home` is given; floating targets
  * at the end only when `floats` asks for them. One list serves the arrow keys and a "Move to" menu.
+ *
+ * Given panel targets (`@n-uf/placement/panels`' `panelTargets`), the same for a panel: left to right across the
+ * stage (the left rail, the left side's lines and columns outer to inner, the right side's inner to outer, the right
+ * rail), floating last when asked; each stop carries the state a move there makes (`panelStops`).
  */
-export function keyboardStops<G extends string>(targets: readonly (ToolbarTarget<G> | ToolbarFloatTarget<G>)[], options: KeyboardStopsOptions<G> = {}): KeyboardStop<G>[] {
+export function keyboardStops(targets: readonly PanelTarget[], options?: PanelStopsOptions): PanelStop[];
+export function keyboardStops<G extends string>(targets: readonly (ToolbarTarget<G> | ToolbarFloatTarget<G>)[], options?: KeyboardStopsOptions<G>): KeyboardStop<G>[];
+export function keyboardStops<G extends string>(
+  targets: readonly (ToolbarTarget<G> | ToolbarFloatTarget<G>)[] | readonly PanelTarget[],
+  options: KeyboardStopsOptions<G> | PanelStopsOptions = {},
+): KeyboardStop<G>[] | PanelStop[] {
+  if (isPanelTargets(targets, options)) return panelStops(targets as readonly PanelTarget[], options as PanelStopsOptions);
+  return toolbarStops(targets as readonly (ToolbarTarget<G> | ToolbarFloatTarget<G>)[], options as KeyboardStopsOptions<G>);
+}
+
+function toolbarStops<G extends string>(targets: readonly (ToolbarTarget<G> | ToolbarFloatTarget<G>)[], options: KeyboardStopsOptions<G>): KeyboardStop<G>[] {
   const placed: KeyboardStop<G>[] = [];
   const floating: KeyboardStop<G>[] = [];
   for (const t of targets) {

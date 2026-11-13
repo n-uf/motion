@@ -1,0 +1,308 @@
+/**
+ * The panels model: plain data and the pure changes on it.
+ *
+ * Panels have string ids. Each side holds full-height columns (outer edge first), each column one or more panels
+ * top to bottom and its own width. A panel may instead float, in page space (it moves with the page) or pinned in
+ * view space (it stays put). A logical clock per panel (opened, used) is what give-way reads; every change here that
+ * counts as a use moves it on. Nothing here reads a host clock: the next tick is one past the latest in the state.
+ */
+import type { Rect, Size } from "../geometry";
+
+export type Side = "left" | "right";
+export const SIDES: readonly Side[] = ["left", "right"];
+
+/** What a consumer says about a panel: its width limits docked, its size limits floating, and where it may go. */
+export interface PanelDef {
+  readonly id: string;
+  readonly title?: string;
+  /** A docked column's width limits and its natural width. */
+  readonly width: { readonly min: number; readonly max: number; readonly natural: number };
+  /** A float's size limits and natural size (default: its natural width, 360 px tall, no smaller than 160 × 120). */
+  readonly float?: { readonly min: Size; readonly natural: Size };
+  /** Where it may dock (default: both sides). */
+  readonly sides?: readonly Side[];
+  /** May it float (default: yes). */
+  readonly floats?: boolean;
+}
+
+/** A full-height column: its panels top to bottom, and its stored width (the layout clamps it to its panels' limits). */
+export interface Column {
+  readonly panels: readonly string[];
+  readonly width: number;
+}
+
+/** A floating panel: `rect` in page space, or in view space when `pinned`. */
+export interface FloatAt {
+  readonly id: string;
+  readonly rect: Rect;
+  readonly pinned?: boolean;
+}
+
+/** Logical times: when a panel was last opened, and last used (opened, focused, moved or unfolded). */
+export interface Clock {
+  readonly opened: number;
+  readonly used: number;
+}
+
+export interface PanelsState {
+  /** Each side's columns, from the outer edge inward. */
+  readonly sides: Readonly<Record<Side, readonly Column[]>>;
+  /** Floating panels; a later one is on top. */
+  readonly floats: readonly FloatAt[];
+  /** Folded by hand (give-way never writes this). */
+  readonly folded: readonly string[];
+  /** Docked panels kept open: their columns give way last. */
+  readonly kept: readonly string[];
+  /** Not shown at all (they keep their place, for when they open again). */
+  readonly closed: readonly string[];
+  readonly clock: Readonly<Record<string, Clock>>;
+}
+
+/** The page's offset and scale in the view: a page point p shows at `x + p.x * scale`, `y + p.y * scale`. */
+export interface View {
+  readonly x: number;
+  readonly y: number;
+  readonly scale: number;
+}
+export const IDENTITY_VIEW: View = { x: 0, y: 0, scale: 1 };
+
+/** Who gives way first: the oldest or the newest, by when they were last used or last opened. */
+export interface GiveWay {
+  readonly order: "oldest" | "newest";
+  readonly by: "used" | "opened";
+}
+
+export interface PanelsOptions {
+  /** Default: `{ order: "oldest", by: "used" }`, so the panel used longest ago gives way first. */
+  readonly giveWay: GiveWay;
+  /** "clamp" keeps floats in the view at layout time; "free" never moves them. Default "clamp". */
+  readonly floats: "clamp" | "free";
+  /** How much of a float wider than the view stays in it, px (default 48). */
+  readonly floatVisible: number;
+  /** The pages' minimum width (default 320). */
+  readonly pagesMin: number;
+  /** The page's offset and scale (default: identity). */
+  readonly view: View;
+  /** A title bar's height: a panel folded in a column, and the part of a float the clamp keeps in the view (default 28). */
+  readonly bar: number;
+  /** A rail's width (default 36). */
+  readonly rail: number;
+  /** A rail segment's height, and the gap above the first one (defaults 36 and 4). */
+  readonly segment: number;
+  readonly railInset: number;
+}
+
+export const DEFAULT_PANELS_OPTIONS: PanelsOptions = {
+  giveWay: { order: "oldest", by: "used" },
+  floats: "clamp",
+  floatVisible: 48,
+  pagesMin: 320,
+  view: IDENTITY_VIEW,
+  bar: 28,
+  rail: 36,
+  segment: 36,
+  railInset: 4,
+};
+
+/** A float's size when its def gives none: this tall, and never smaller than FLOAT_MIN. */
+export const FLOAT_HEIGHT = 360;
+export const FLOAT_MIN: Size = { width: 160, height: 120 };
+
+// --- reading the state ---------------------------------------------------------------------------------------------
+
+const without = <T>(list: readonly T[], x: T): T[] => list.filter((y) => y !== x);
+const withOnce = <T>(list: readonly T[], x: T): T[] => (list.includes(x) ? [...list] : [...list, x]);
+
+/** Where a panel is: a column (side and index), floating, or nowhere. */
+export type Where = { readonly kind: "column"; readonly side: Side; readonly index: number } | { readonly kind: "float"; readonly float: FloatAt } | { readonly kind: "none" };
+
+export function whereIs(state: PanelsState, id: string): Where {
+  for (const side of SIDES) {
+    const index = state.sides[side].findIndex((c) => c.panels.includes(id));
+    if (index >= 0) return { kind: "column", side, index };
+  }
+  const float = state.floats.find((f) => f.id === id);
+  return float ? { kind: "float", float } : { kind: "none" };
+}
+
+/** One past the latest logical time in the state. */
+export const tick = (state: PanelsState): number => Object.values(state.clock).reduce((m, c) => Math.max(m, c.opened, c.used), 0) + 1;
+
+const bump = (state: PanelsState, id: string, opened: boolean): PanelsState => {
+  const t = tick(state);
+  const was = state.clock[id] ?? { opened: 0, used: 0 };
+  return { ...state, clock: { ...state.clock, [id]: { opened: opened ? t : was.opened, used: t } } };
+};
+
+export const defOf = (defs: readonly PanelDef[], id: string): PanelDef | undefined => defs.find((d) => d.id === id);
+
+/** A float's size limits and natural size from its def. */
+export function floatSize(def: PanelDef | undefined): { min: Size; natural: Size } {
+  if (def?.float) return { min: def.float.min, natural: def.float.natural };
+  const width = Math.max(FLOAT_MIN.width, def?.width.natural ?? FLOAT_MIN.width);
+  return { min: FLOAT_MIN, natural: { width, height: FLOAT_HEIGHT } };
+}
+
+/**
+ * A panel's own width, for a new column made for it: the width of the column it is in, clamped to its own limits;
+ * floating or nowhere, its natural width.
+ */
+export function ownWidth(defs: readonly PanelDef[], state: PanelsState, id: string): number {
+  const def = defOf(defs, id);
+  const w = whereIs(state, id);
+  const lo = def?.width.min ?? 0;
+  const hi = Math.max(lo, def?.width.max ?? Infinity);
+  if (w.kind === "column") return Math.min(Math.max(state.sides[w.side][w.index]!.width, lo), hi);
+  return def?.width.natural ?? lo;
+}
+
+// --- building one --------------------------------------------------------------------------------------------------
+
+export interface PanelsStart {
+  /** Each side's columns from the outer edge inward, each a list of panel ids top to bottom. */
+  readonly left?: readonly (readonly string[])[];
+  readonly right?: readonly (readonly string[])[];
+  /** Floating panels: where (page space, or view space when pinned); the size defaults to the def's natural size. */
+  readonly floats?: readonly { readonly id: string; readonly x: number; readonly y: number; readonly width?: number; readonly height?: number; readonly pinned?: boolean }[];
+  readonly folded?: readonly string[];
+  readonly kept?: readonly string[];
+  readonly closed?: readonly string[];
+}
+
+/**
+ * A state from a plain start: each column as wide as the widest natural width of its panels (within their limits),
+ * each float its natural size. The clock counts up in the order the panels are listed (left, right, floats), so the
+ * last one listed is the newest.
+ */
+export function createPanels(defs: readonly PanelDef[], start: PanelsStart): PanelsState {
+  const column = (ids: readonly string[]): Column => {
+    const ds = ids.map((id) => defOf(defs, id));
+    const lo = Math.max(0, ...ds.map((d) => d?.width.min ?? 0));
+    const hi = Math.max(lo, Math.min(...ds.map((d) => d?.width.max ?? Infinity)));
+    const natural = Math.max(0, ...ds.map((d) => d?.width.natural ?? 0));
+    return { panels: [...ids], width: Math.min(Math.max(natural, lo), hi) };
+  };
+  const floats = (start.floats ?? []).map((f): FloatAt => {
+    const n = floatSize(defOf(defs, f.id)).natural;
+    return { id: f.id, rect: { x: f.x, y: f.y, width: f.width ?? n.width, height: f.height ?? n.height }, ...(f.pinned ? { pinned: true } : {}) };
+  });
+  const sides = { left: (start.left ?? []).map(column), right: (start.right ?? []).map(column) };
+  const order = [...sides.left, ...sides.right].flatMap((c) => c.panels).concat(floats.map((f) => f.id));
+  const clock: Record<string, Clock> = {};
+  order.forEach((id, i) => (clock[id] = { opened: i + 1, used: i + 1 }));
+  return { sides, floats, folded: [...(start.folded ?? [])], kept: [...(start.kept ?? [])], closed: [...(start.closed ?? [])], clock };
+}
+
+// --- changes -------------------------------------------------------------------------------------------------------
+
+/** The state with `id` taken out of its column (an emptied column goes) or the floats. Nothing else changes. */
+export function liftPanel(state: PanelsState, id: string): PanelsState {
+  const lift = (cols: readonly Column[]): Column[] => cols.map((c) => ({ ...c, panels: without(c.panels, id) })).filter((c) => c.panels.length > 0);
+  return { ...state, sides: { left: lift(state.sides.left), right: lift(state.sides.right) }, floats: state.floats.filter((f) => f.id !== id) };
+}
+
+/**
+ * Open a panel: it shows again where it was, and it is the newest opened and used. A panel placed nowhere goes into
+ * a new innermost column on `at.side`, `at.width` wide; without `at` it stays placed nowhere.
+ */
+export function open(state: PanelsState, id: string, at?: { readonly side: Side; readonly width: number }): PanelsState {
+  let s: PanelsState = { ...state, closed: without(state.closed, id) };
+  if (at && whereIs(s, id).kind === "none") s = { ...s, sides: { ...s.sides, [at.side]: [...s.sides[at.side], { panels: [id], width: at.width }] } };
+  return bump(s, id, true);
+}
+
+/** Close a panel: it isn't shown, keeps its place, and is no longer kept open. */
+export const close = (state: PanelsState, id: string): PanelsState => ({ ...state, closed: withOnce(state.closed, id), kept: without(state.kept, id) });
+
+/** Focus a panel: it is the newest used; a float comes to the top. */
+export function focus(state: PanelsState, id: string): PanelsState {
+  const f = state.floats.find((x) => x.id === id);
+  const s = f ? { ...state, floats: [...state.floats.filter((x) => x !== f), f] } : state;
+  return bump(s, id, false);
+}
+
+/** Fold a panel to its title bar by hand, or unfold it (unfolding is a use). */
+export function toggleFold(state: PanelsState, id: string): PanelsState {
+  if (state.folded.includes(id)) return bump({ ...state, folded: without(state.folded, id) }, id, false);
+  return { ...state, folded: [...state.folded, id] };
+}
+
+/** Keep a docked panel open (its column gives way last), or stop keeping it. A floating panel isn't kept. */
+export function keep(state: PanelsState, id: string, on: boolean): PanelsState {
+  if (!on) return { ...state, kept: without(state.kept, id) };
+  return whereIs(state, id).kind === "column" ? { ...state, kept: withOnce(state.kept, id) } : state;
+}
+
+export interface DockOptions {
+  /** Stack into the column at `index` (at its bottom) instead of making a new column there. */
+  readonly into?: boolean;
+  /** A new column's width (default: the width of the column the panel leaves, else 0, which the layout clamps to the minimum). */
+  readonly width?: number;
+}
+
+/**
+ * Dock a panel on `side`: a new column at `index` (0 the outer edge; past the end, innermost), or with `into` at the
+ * bottom of the column at `index` (counted once the panel is lifted out). It shows, it is the newest used, and it
+ * keeps whether it is kept open.
+ */
+export function dock(state: PanelsState, id: string, side: Side, index: number, options: DockOptions = {}): PanelsState {
+  const w = whereIs(state, id);
+  const from = w.kind === "column" ? state.sides[w.side][w.index]!.width : 0;
+  const s = liftPanel(state, id);
+  const cols = [...s.sides[side]];
+  if (options.into && cols[index]) cols[index] = { ...cols[index]!, panels: [...cols[index]!.panels, id] };
+  else {
+    const at = Math.max(0, Math.min(index, cols.length));
+    cols.splice(at, 0, { panels: [id], width: options.width ?? from });
+  }
+  return bump({ ...s, sides: { ...s.sides, [side]: cols }, closed: without(s.closed, id) }, id, false);
+}
+
+/**
+ * Float a panel at `rect` (page space; view space when pinned). A float stays pinned or not unless `pinned` says;
+ * a docked panel floats unpinned. It shows, it is the newest used and on top, and it is no longer kept open.
+ */
+export function float(state: PanelsState, id: string, rect: Rect, pinned?: boolean): PanelsState {
+  const was = state.floats.find((f) => f.id === id);
+  const on = pinned ?? !!was?.pinned;
+  const s = liftPanel(state, id);
+  const f: FloatAt = { id, rect: { ...rect }, ...(on ? { pinned: true } : {}) };
+  return bump({ ...s, floats: [...s.floats, f], kept: without(s.kept, id), closed: without(s.closed, id) }, id, false);
+}
+
+/** A page-space rect in view space, and back. */
+export const toView = (r: Rect, v: View): Rect => ({ ...r, x: v.x + r.x * v.scale, y: v.y + r.y * v.scale });
+export const toPage = (r: Rect, v: View): Rect => ({ ...r, x: (r.x - v.x) / v.scale, y: (r.y - v.y) / v.scale });
+
+/**
+ * Pin a float to the view, or unpin it to the page. `view` is where the page is now (default: identity): the float
+ * doesn't jump, its rect is converted between the two spaces. A float's size is never scaled.
+ */
+export function pin(state: PanelsState, id: string, on: boolean, view: View = IDENTITY_VIEW): PanelsState {
+  return {
+    ...state,
+    floats: state.floats.map((f): FloatAt => {
+      if (f.id !== id || !!f.pinned === on) return f;
+      return on ? { id, rect: toView(f.rect, view), pinned: true } : { id, rect: toPage(f.rect, view) };
+    }),
+  };
+}
+
+/** Store a column's width (the layout clamps it to its panels' limits). */
+export function resizeColumn(state: PanelsState, side: Side, index: number, width: number): PanelsState {
+  if (!state.sides[side][index] || !Number.isFinite(width)) return state;
+  return { ...state, sides: { ...state.sides, [side]: state.sides[side].map((c, i) => (i === index ? { ...c, width: Math.max(0, width) } : c)) } };
+}
+
+/** Store a float's rect (its own space). */
+export function resizeFloat(state: PanelsState, id: string, rect: Rect): PanelsState {
+  return { ...state, floats: state.floats.map((f) => (f.id === id ? { ...f, rect: { ...rect } } : f)) };
+}
+
+/** Two states place the panels the same (columns, their panels and widths, floats and their rects; the clock aside). */
+export function samePlaces(a: PanelsState, b: PanelsState): boolean {
+  const cols = (s: PanelsState): string => SIDES.map((side) => s.sides[side].map((c) => `${c.panels.join(",")}@${Math.round(c.width)}`).join("|")).join("‖");
+  const fl = (s: PanelsState): string => s.floats.map((f) => `${f.id}@${Math.round(f.rect.x)},${Math.round(f.rect.y)},${Math.round(f.rect.width)},${Math.round(f.rect.height)}${f.pinned ? "p" : ""}`).join("|");
+  const set = (l: readonly string[]): string => [...l].sort().join(",");
+  return cols(a) === cols(b) && fl(a) === fl(b) && set(a.folded) === set(b.folded) && set(a.kept) === set(b.kept) && set(a.closed) === set(b.closed);
+}

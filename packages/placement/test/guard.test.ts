@@ -36,6 +36,14 @@ describe("the library stays pure", () => {
     });
   }
 
+  it("scans every entry, ./panels included", () => {
+    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { exports: Record<string, { default: string }> };
+    expect(Object.keys(pkg.exports)).toContain("./panels");
+    for (const e of Object.values(pkg.exports)) expect(sources).toContain(join(root, e.default));
+    // The entry's own files, each scanned above.
+    expect(files(join(root, "src", "panels")).length).toBeGreaterThanOrEqual(4);
+  });
+
   it("has no dependencies", () => {
     const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { dependencies?: object; peerDependencies?: object };
     expect([pkg.dependencies, pkg.peerDependencies]).toEqual([undefined, undefined]);

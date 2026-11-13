@@ -43,6 +43,10 @@
     "./targets": {
       "types": "./src/targets/index.ts",
       "default": "./src/targets/index.ts"
+    },
+    "./panels": {
+      "types": "./src/panels/index.ts",
+      "default": "./src/panels/index.ts"
     }
   },
   "publishConfig": {
@@ -65,6 +69,10 @@
       "./targets": {
         "types": "./dist/targets.d.ts",
         "default": "./dist/targets.js"
+      },
+      "./panels": {
+        "types": "./dist/panels.d.ts",
+        "default": "./dist/panels.js"
       },
       "./package.json": "./package.json"
     }

@@ -1,0 +1,62 @@
+/**
+ * @n-uf/placement/panels: tool panels as apps use them. String ids; several full-height columns per side, each with
+ * its own width; folding to a title bar or a rail; give-way by age when the pages run out of room; resizable floats,
+ * some pinned to the view; drop targets in the shape @n-uf/motion/drag takes; and a stored form. Pure: state, a
+ * stage and options in; geometry, structure and coded notes out.
+ */
+export {
+  DEFAULT_PANELS_OPTIONS,
+  FLOAT_HEIGHT,
+  FLOAT_MIN,
+  IDENTITY_VIEW,
+  SIDES,
+  close,
+  createPanels,
+  defOf,
+  dock,
+  float,
+  floatSize,
+  focus,
+  keep,
+  liftPanel,
+  open,
+  ownWidth,
+  pin,
+  resizeColumn,
+  resizeFloat,
+  samePlaces,
+  tick,
+  toPage,
+  toView,
+  toggleFold,
+  whereIs,
+  type Clock,
+  type Column,
+  type DockOptions,
+  type FloatAt,
+  type GiveWay,
+  type PanelDef,
+  type PanelsOptions,
+  type PanelsStart,
+  type PanelsState,
+  type Side,
+  type View,
+  type Where,
+} from "./model";
+export { giveWayOrder, layoutPanels, type PanelKind, type PanelsLayout, type PanelsNote, type PanelsNoteCode, type PlacedColumn, type PlacedPanel, type PlacedRail } from "./layout";
+export {
+  COLUMN_REACH,
+  RAIL_EDGE,
+  homePlace,
+  panelDrop,
+  panelStops,
+  panelTargets,
+  placeRank,
+  type PanelDrop,
+  type PanelPlace,
+  type PanelStop,
+  type PanelStopsOptions,
+  type PanelTarget,
+  type PanelTargetInput,
+} from "./targets";
+export { readPanels, storePanels, type PanelsRead, type StoredPanels } from "./store";
