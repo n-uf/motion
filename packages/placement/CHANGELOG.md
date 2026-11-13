@@ -8,7 +8,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 - `@n-uf/placement/panels`:
   - Folded floats: a float folded by hand lays out as a title bar (`kind` `"bar"`, `folded` `"hand"`) at its own x, y
     and width, `options.bar` tall, clamped as a bar, pinned or not. It is still a float to targets and drags; a drop
-    moves it and keeps its full size, and unfolding brings the full rect back (the stored rect never changes).
+    moves it and keeps its full size, and unfolding brings the full rect back (the stored rect never changes). A
+    folded docked panel dropped on the float target stays folded: it lands as a title bar at its natural float size.
   - `options.fold`: `"rail"` (default, as before) or `"ride"`. Riding, a column folded by hand on a side that still
     has an open column becomes title bars stacked on top of the side's first open column (`rides`: its index), as
     wide as it; the open columns lie as if the folded one were gone, and its stored place and width are untouched.
@@ -16,6 +17,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   - `PlacedPanel` gains `floating` (open or folded float) and `rides`; `PlacedColumn` gains `rides`.
   - `pin(…, shown)` takes only the position of `shown` and keeps the stored size, so pinning a folded or clamped
     float keeps its full size.
+  - A column too short for its bars gives its open panels a height of 0, never a negative one.
 
 ## 26.11.7
 
