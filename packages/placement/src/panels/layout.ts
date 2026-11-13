@@ -181,7 +181,8 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
     const auto = new Set<string>();
     if (open0.some((id) => hOf(id))) {
       const last = open0.at(-1)!;
-      const minOf = (id: string): number => hOf(id)?.min ?? 0;
+      // A section without a def never goes under a bar's height: that is its min.
+      const minOf = (id: string): number => hOf(id)?.min ?? opt.bar;
       const fits = (): boolean => (c.panels.length - open0.length + auto.size) * opt.bar + open0.filter((id) => !auto.has(id)).reduce((a, id) => a + minOf(id), 0) <= room;
       const rank = (ids: readonly string[]): string[] =>
         [...ids].sort((a, b) => {
@@ -190,7 +191,8 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
         });
       for (const id of rank(open0.filter((x) => x !== last))) {
         if (fits()) break;
-        auto.add(id);
+        // Folding a section whose min is no more than a bar gains nothing: skip it.
+        if (minOf(id) > opt.bar) auto.add(id);
       }
       const open = open0.filter((id) => !auto.has(id));
       const space = room - (c.panels.length - open.length) * opt.bar;
@@ -198,18 +200,33 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
       const sharers = open.filter((id) => id === last || !hOf(id));
       const h = new Map(fixed.map((id) => [id, hOf(id)!.natural]));
       let rest = space - fixed.reduce((a, id) => a + h.get(id)!, 0);
-      const lastMin = minOf(last);
-      if (rest / sharers.length >= lastMin) for (const id of sharers) h.set(id, rest / sharers.length);
-      else {
-        // The last open section keeps its min: the others' natural heights give way toward their mins, in order.
-        for (const id of rank(fixed)) {
-          if (rest >= lastMin) break;
-          const take = Math.min(lastMin - rest, h.get(id)! - minOf(id));
-          h.set(id, h.get(id)! - take);
-          rest += take;
+      // The sharers (the last section and those without a def) need their mins: the fixed sections' natural heights
+      // give way toward their mins first, in policy order.
+      const need = sharers.reduce((a, id) => a + minOf(id), 0);
+      for (const id of rank(fixed)) {
+        if (rest >= need) break;
+        const take = Math.min(need - rest, h.get(id)! - minOf(id));
+        h.set(id, h.get(id)! - take);
+        rest += take;
+      }
+      if (rest >= need) {
+        // Equal shares, raised to each sharer's min where a share falls under it.
+        let pool = [...sharers];
+        let left = rest;
+        for (;;) {
+          const share = left / pool.length;
+          const under = pool.filter((id) => minOf(id) > share);
+          if (under.length === 0) {
+            for (const id of pool) h.set(id, share);
+            break;
+          }
+          for (const id of under) h.set(id, minOf(id));
+          left -= under.reduce((a, id) => a + minOf(id), 0);
+          pool = pool.filter((id) => !under.includes(id));
         }
-        // The last gets its min (or what is left), the sections without a def share the remainder.
-        const lastH = Math.max(0, Math.min(lastMin, rest));
+      } else {
+        // Short even for the mins: the last section first, the others share what is left.
+        const lastH = Math.max(0, Math.min(minOf(last), rest));
         for (const id of sharers) h.set(id, id === last ? lastH : Math.max(0, rest - lastH) / (sharers.length - 1));
       }
       for (const id of c.panels) out.set(id, folded.has(id) ? { height: opt.bar, folded: "hand" } : auto.has(id) ? { height: opt.bar, folded: "auto" } : { height: Math.max(0, h.get(id)!), folded: null });
