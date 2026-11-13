@@ -517,7 +517,79 @@ const fold: Scenario = {
   },
 };
 
-const SCENARIOS: readonly Scenario[] = [giveWayCombos, free, keptOutlives, clamp, pinned, clampScroll, dropShown, ownPlace, escape, tearOff, keyboard, resize, fold, store];
+const foldButton = (p: Page, id: string): HTMLButtonElement => itemEl(p, id).querySelector(".pn-fold") as HTMLButtonElement;
+
+const foldFloats: Scenario = {
+  name: "fold a float: a title bar where it is, pinned or not; unfolding brings it back",
+  modes: ["floats"],
+  async run(p) {
+    const ids = ["comments", "navigator"] as const;
+    const before = new Map(ids.map((id) => [id, drawnRect(p, itemEl(p, id))]));
+    const stored = JSON.stringify(p.state.floats);
+    const motion = await sampled(p, () => ids.forEach((id) => foldButton(p, id).click()));
+    const bars = new Map(ids.map((id) => [id, drawnRect(p, itemEl(p, id))]));
+    const asBar = ids.filter((id) => {
+      const b = bars.get(id)!;
+      const a = before.get(id)!;
+      return !(Math.abs(b.height - 28) < 1 && Math.abs(b.x - a.x) < 1 && Math.abs(b.y - a.y) < 1 && Math.abs(b.width - a.width) < 1 && itemEl(p, id).dataset.kind === "bar");
+    });
+    const stillFloats = ids.every((id) => p.lay().items.get(id)!.floating && itemEl(p, id).classList.contains("float"));
+    const kept = JSON.stringify(p.state.floats) === stored;
+    await sampled(p, () => ids.forEach((id) => foldButton(p, id).click()));
+    const back = ids.filter((id) => !near(drawnRect(p, itemEl(p, id)), before.get(id)!));
+    return [
+      row("both fold to 28 px bars at their own x, y and width", asBar.map((id) => `${id}: ${fmt(before.get(id))} → ${fmt(bars.get(id))}`)),
+      row("folded, they are still floats", stillFloats ? [] : ["a folded float lost its float flag"]),
+      row("the stored rects never change", kept ? [] : ["the state's floats changed"]),
+      row("unfolded, they are back at full size", back.map((id) => `${id} at ${fmt(drawnRect(p, itemEl(p, id)))}`)),
+      ...motion,
+    ];
+  },
+};
+
+const ride: Scenario = {
+  name: "options: fold ride: folded columns ride on the first open column, the rail only when all are folded",
+  modes: ["ride"],
+  async run(p) {
+    p.setOptions({ fold: "ride" });
+    await settled(p);
+    const files0 = drawnRect(p, itemEl(p, "files"));
+    const outline0 = drawnRect(p, itemEl(p, "outline"));
+    // One: Outline rides on Files; Notes takes Outline's place, the pages gain its room.
+    const m1 = await sampled(p, () => foldButton(p, "outline").click());
+    const o1 = drawnRect(p, itemEl(p, "outline"));
+    const f1 = drawnRect(p, itemEl(p, "files"));
+    const n1 = drawnRect(p, itemEl(p, "notes"));
+    const one = near(o1, { x: files0.x, y: 0, width: files0.width, height: 28 }) && near(f1, { x: files0.x, y: 28, width: files0.width, height: files0.height - 28 }) && Math.abs(n1.x - outline0.x) < 1.5;
+    const noRail1 = !p.items.get("rail:left")!.m.showing;
+    // Two: Files and Outline ride on Notes, in column order.
+    await sampled(p, () => foldButton(p, "files").click());
+    const n2 = drawnRect(p, itemEl(p, "notes"));
+    const two = [drawnRect(p, itemEl(p, "files")), drawnRect(p, itemEl(p, "outline"))];
+    const stacked = near(two[0]!, { x: n2.x, y: 0, width: n2.width, height: 28 }) && near(two[1]!, { x: n2.x, y: 28, width: n2.width, height: 28 }) && Math.abs(n2.y - 56) < 1 && Math.abs(n2.x) < 1.5;
+    // All three: the side shows its rail.
+    await sampled(p, () => foldButton(p, "notes").click());
+    const all = railIds(p, "left").join(",") === "files,outline,notes" && ["files", "outline", "notes"].every((id) => !p.items.get(id)!.m.showing);
+    // Unfold Outline from the rail: it is its own column again, where it was stored, and Files and Notes ride on it.
+    const seg = itemEl(p, "rail:left").querySelector<HTMLElement>(".pn-seg[data-id=outline]")!;
+    const sAt = centreOf(drawnRect(p, seg));
+    pointer(p, "pointerdown", sAt, seg);
+    pointer(p, "pointerup", sAt);
+    await settled(p);
+    const o4 = p.lay().items.get("outline")!;
+    const width = p.state.sides.left[1]!.width;
+    return [
+      row("one folded: it rides on Files; Notes moves into its place", one ? [] : [`Outline ${fmt(o1)}, Files ${fmt(f1)}, Notes ${fmt(n1)}`]),
+      row("no rail while a column stays open", noRail1 ? [] : ["the left rail shows"]),
+      row("two folded: their bars stack in column order on Notes", stacked ? [] : [`${two.map(fmt).join("; ")}; Notes ${fmt(n2)}`]),
+      row("all folded: the side shows its rail", all ? [] : [`rail [${railIds(p, "left").join(", ")}]`]),
+      row("unfolded, it is its own column again at its stored width", o4.kind === "column" && Math.abs(o4.rect.width - width) < 1 && !railIds(p, "left").includes("outline") ? [] : [`${o4.kind} ${fmt(o4.rect)}`]),
+      ...m1,
+    ];
+  },
+};
+
+const SCENARIOS: readonly Scenario[] = [giveWayCombos, free, ride, keptOutlives, clamp, pinned, clampScroll, dropShown, ownPlace, escape, tearOff, keyboard, resize, fold, foldFloats, store];
 
 // --- runAll --------------------------------------------------------------------------------------------------------
 
