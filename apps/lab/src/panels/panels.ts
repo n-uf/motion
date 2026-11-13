@@ -603,7 +603,8 @@ stage.addEventListener("click", (e) => {
     say(on ? `${titleOf(id)} is kept open: its column gives way last.${notesSay()}` : `${titleOf(id)} is no longer kept open.${notesSay()}`);
   } else if (b.classList.contains("pn-pin")) {
     const f = state.floats.find((x) => x.id === id);
-    state = pin(state, id, !f?.pinned, view);
+    // Where it shows (the clamp may have moved it), so it doesn't jump.
+    state = pin(state, id, !f?.pinned, view, lay().items.get(id)?.rect);
     say(`${titleOf(id)} ${f?.pinned ? "moves with the page" : "is pinned to the view"}.`);
   }
   relayout();
