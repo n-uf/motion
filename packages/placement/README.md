@@ -186,14 +186,16 @@ console.log(read.ok); // true
 **Give-way** (`options.giveWay`, default `{ order: "oldest", by: "used" }`): when the open columns, the rails and
 `pagesMin` (default 320) don't fit the stage width, columns shrink toward their `min`, then whole columns fold to the
 rail, in the policy's order, until the pages fit. A column's age is its newest panel's (`used` counts opening,
-focusing, moving and unfolding; `opened` only opening). Ties go to the outer column, then the left side. A column
-holding a kept panel (`keep(state, id, true)`) comes after every other one; when only kept columns are left and the
+focusing, moving, resizing and unfolding; `opened` only opening). Ties go to the outer column, then the left side.
+Every column shrinks before any folds; then the unkept columns fold before any column holding a kept panel
+(`keep(state, id, true)`), each group in the policy's order across both sides. When only kept columns are left and the
 pages still don't fit, they fold too. Give-way never writes `folded`, so widening the stage brings a column back.
 
 **Floats** (`options.floats`, default `"clamp"`): a float that fits the view stays wholly inside it; one that doesn't
-even at its minimum size keeps its title bar and `floatVisible` (default 48) px of its width in the view. The clamp
-runs at layout time and the state keeps the stored rect, so a larger view brings a float back where it was.
-`"free"` never moves a float.
+even at its minimum size keeps its title bar and `floatVisible` (default 48) px of its width in the view. A pinned
+float is clamped against the view; an unpinned one in page space, against the view's extent at pan 0 (the view's size
+over the scale), so it still scrolls with the page. The clamp runs at layout time and the state keeps the stored
+rect, so a larger view brings a float back where it was. `"free"` never moves a float.
 
 **Changes** are pure: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock(state, id, side, index, { into?, width? })`,
 `float`, `pin(state, id, on, view?)`, `resizeColumn`, `resizeFloat`.
@@ -226,7 +228,9 @@ console.log(stops.map((s) => (s.home ? "home" : s.id))); // [ 'rail:left', 'colu
 `storePanels(state)` gives `{ v: 1, sides, floats, folded, kept, closed, clock }`; `readPanels(data, defs?)` reads
 parsed data back and never throws. Anything but an object of version 1 is `{ ok: false, error }`; inside one, unknown
 or repeated ids and malformed entries are dropped and listed in `dropped`, and widths and float sizes are clamped to
-the defs. The note codes (`PanelsNoteCode`):
+the defs. Version 1 only gains optional fields: a field this reader doesn't know is skipped and listed in `dropped`
+too (`"theme"`, `"sides.bottom"`, `"column.<field>"`, `"float.<field>"`, `"clock.<id>"`). The note codes
+(`PanelsNoteCode`):
 
 | Code | Says | Also |
 |---|---|---|
