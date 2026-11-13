@@ -156,6 +156,11 @@ export function placeWords(p: PanelPlace, id: string, s: PanelsState = state): s
       return `${Cap(p.side)} side · new column ${p.index + 1}`;
     case "into":
       return `Into ${liftPanel(s, id).sides[p.side][p.index]?.panels.map(titleOf).join(" + ") ?? "a column"}`;
+    case "band": {
+      const n = liftPanel(s, id).bands?.[p.edge]?.panels.length ?? 0;
+      const where = n === 0 ? "a new band" : p.index === 0 ? "leftmost" : p.index >= n ? "rightmost" : `slot ${p.index + 1}`;
+      return `${p.edge === "top" ? "Top" : "Bottom"} band · ${where}`;
+    }
   }
 }
 const noteWords = (n: PanelsNote): string => {
@@ -166,6 +171,14 @@ const noteWords = (n: PanelsNote): string => {
       return `${n.items.map(titleOf).join(" + ")} folded to the ${n.side} rail`;
     case "kept-folded":
       return `${n.items.map(titleOf).join(" + ")} folded although kept open`;
+    case "band-shrunk":
+      return `the ${n.edge} band lowered to ${Math.round(n.to)} px`;
+    case "band-folded":
+      return `the ${n.edge} band folded to a bar: the pages are short`;
+    case "band-off":
+      return `the ${n.edge} band is off: ${n.items.map(titleOf).join(", ")} not shown`;
+    case "pages-short":
+      return `the pages have ${Math.round(n.height)} px of height, under ${n.min}`;
     case "section-folded":
       return `${n.items.map(titleOf).join(" + ")} folded to its title bar: the column is short`;
     case "pages-under-min":
@@ -435,7 +448,7 @@ function showIndicator(d: { slot: Rect; free: boolean; hidden: boolean; place: P
     return;
   }
   // Folded into a rail: the rail; else where the panel lands.
-  const r = d.hidden && d.place.kind !== "float" ? (d.layout.rails[d.place.side]?.rect ?? d.slot) : d.slot;
+  const r = d.hidden && d.place.kind !== "float" && d.place.kind !== "band" ? (d.layout.rails[d.place.side]?.rect ?? d.slot) : d.slot;
   Object.assign(ind.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.width}px`, height: `${r.height}px` });
   ind.classList.toggle("free", d.free);
   indLabel.textContent = placeWords(d.place, id);
