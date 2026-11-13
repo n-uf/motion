@@ -34,7 +34,7 @@ export const PARTS: Part[] = [
     title: "Where things go",
     short: "Place",
     pkg: "@n-uf/placement",
-    idea: "Pure state in, rects and drop targets out: desks of docks, rails and palettes, panel columns and bands and desk presets, toolbar groups in hosts and zones, and the targets for each.",
+    idea: "Pure state in, rects and drop targets out: desks of docks, rails and palettes, panel columns and bands, desk presets, toolbar groups in hosts and zones, and the targets for each.",
     does: "For the same apps: it works out where windows, panels and toolbar groups go, as the space changes and while something is dragged. You give it state and a size; it gives back rects, notes on what gave way, and drop targets.",
     readme: `${repoUrl}/blob/main/packages/placement/README.md`,
     pages: ["/desk-layouts/", "/toolbar-groups/"],
