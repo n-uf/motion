@@ -551,6 +551,8 @@ stage.addEventListener("pointerdown", (e) => {
     const index = Number(edge.dataset.index);
     const c = lay().columns.find((x) => x.side === side && x.index === index)!;
     const startW = c.rect.width;
+    // Resizing is a use: the column is the newest, so give-way takes room from the others, not from it.
+    state = focus(state, c.panels[0]!);
     resizing = { kind: "column", key: `${side}:${index}` };
     edge.classList.add("on");
     let from: Point | null = null;
