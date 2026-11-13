@@ -192,13 +192,15 @@ Every column shrinks before any folds; then the unkept columns fold before any c
 pages still don't fit, they fold too. Give-way never writes `folded`, so widening the stage brings a column back.
 
 **Floats** (`options.floats`, default `"clamp"`): a float that fits the view stays wholly inside it; one that doesn't
-even at its minimum size keeps its title bar and `floatVisible` (default 48) px of its width in the view. A pinned
-float is clamped against the view; an unpinned one in page space, against the view's extent at pan 0 (the view's size
-over the scale), so it still scrolls with the page. The clamp runs at layout time and the state keeps the stored
-rect, so a larger view brings a float back where it was. `"free"` never moves a float.
+even at its minimum size keeps its title bar and `floatVisible` (default 48) px of its width in the view. A float's
+size is screen px and never scales. A pinned float is clamped where it is; an unpinned one has its page-space position
+clamped so that its screen rect at pan 0 fits the view, so it still scrolls with the page. The clamp runs at layout
+time and the state keeps the stored rect, so a larger view brings a float back where it was. `"free"` never moves a
+float.
 
 **Changes** are pure: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock(state, id, side, index, { into?, width? })`,
-`float`, `pin(state, id, on, view?)`, `resizeColumn`, `resizeFloat`.
+`float`, `pin(state, id, on, view?, shown?)` (pass the layout's rect as `shown` so a clamped float pins where it
+shows), `resizeColumn`, `resizeFloat`.
 
 **Drop targets**: `panelTargets({ defs, state, id, stage, options?, allows? })` gives `column:<side>:<i>` (a new
 column as wide as the panel's own width), `into:<side>:<i>` (stack into a column), `rail:<side>` (dock folded) and

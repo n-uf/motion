@@ -20,10 +20,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   - Give-way shrinks every column toward its minimum, then folds whole columns to the rail: unkept columns first, in
     policy order across both sides, then columns holding a kept panel, only when the pages still don't fit. It never
     writes `folded`, so a wider stage brings a column back.
-  - Floats clamp at layout time (the state keeps the stored rect): a pinned float against the view, an unpinned one
-    in page space against the view's extent at pan 0, so it still scrolls with the page.
-  - Changes: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock`, `float`, `pin`, `resizeColumn`, `resizeFloat`,
-    `liftPanel`. Opening, focusing, moving, resizing and unfolding are uses (they move the `used` clock).
+  - Floats clamp at layout time (the state keeps the stored rect) so their screen rect stays in the view at any
+    scale: a pinned float where it is, an unpinned one as it shows at pan 0, so it still scrolls with the page.
+  - Changes: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock`, `float`, `pin` (with `shown`, a clamped float
+    pins where it shows), `resizeColumn`, `resizeFloat`, `liftPanel`. Opening, focusing, moving, resizing and
+    unfolding are uses (they move the `used` clock). `samePlaces(a, b, defs?)` compares widths as laid out;
+    `columnWidth(defs, column)`.
   - Targets: `panelTargets(input)` (`column:<side>:<i>`, `into:<side>:<i>`, `rail:<side>`, `float`) in the shape
     `@n-uf/motion/drag` takes, each with a structured `place` and no words; a place the panel may not take and its
     own place are no targets. `panelDrop(input, target, point, grab)` lays out a drop. `homePlace`, `panelStops`.
