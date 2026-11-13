@@ -35,7 +35,8 @@ export interface PanelDef {
 
 /**
  * A full-height column: its panels top to bottom, and its stored width (the layout clamps it to its panels' limits).
- * `show` "tabs" shows one panel at a time under a strip of tabs: `active` (default: the first shown panel).
+ * `show` "tabs" shows one panel at a time under a strip of tabs: `active` (default, or when `active` isn't one of
+ * them: the first panel in the column that isn't closed).
  */
 export interface Column {
   readonly panels: readonly string[];
@@ -233,11 +234,14 @@ export function liftPanel(state: PanelsState, id: string): PanelsState {
 
 /**
  * Open a panel: it shows again where it was, and it is the newest opened and used. A panel placed nowhere goes into
- * a new innermost column on `at.side`, `at.width` wide; without `at` it stays placed nowhere.
+ * a new innermost column on `at.side`, `at.width` wide; without `at` it stays placed nowhere. In a tabbed column it
+ * becomes the tab that shows, as a drop into the column does.
  */
 export function open(state: PanelsState, id: string, at?: { readonly side: Side; readonly width: number }): PanelsState {
   let s: PanelsState = { ...state, closed: without(state.closed, id) };
   if (at && whereIs(s, id).kind === "none") s = { ...s, sides: { ...s.sides, [at.side]: [...s.sides[at.side], { panels: [id], width: at.width }] } };
+  const w = whereIs(s, id);
+  if (w.kind === "column" && s.sides[w.side][w.index]!.show === "tabs") s = { ...s, sides: { ...s.sides, [w.side]: s.sides[w.side].map((c, i) => (i === w.index ? { ...c, active: id } : c)) } };
   return bump(s, id, true);
 }
 
