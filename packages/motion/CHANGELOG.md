@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.11
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement`
+  26.11.11 (drops into a stacked column at a position in `./panels`).
+
 ## 26.11.10
 
 - No change in `@n-uf/motion`. Released together with `@n-uf/placement`
