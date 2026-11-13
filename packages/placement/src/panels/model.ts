@@ -79,13 +79,21 @@ export interface PanelsOptions {
   readonly giveWay: GiveWay;
   /** "clamp" keeps floats in the view at layout time; "free" never moves them. Default "clamp". */
   readonly floats: "clamp" | "free";
+  /**
+   * Where a column folded by hand goes (default "rail"): to its side's rail, or ("ride") as title bars on top of the
+   * side's first open column, until every column on that side is folded. Give-way's folds always go to the rail.
+   */
+  readonly fold: "rail" | "ride";
   /** How much of a float wider than the view stays in it, px (default 48). */
   readonly floatVisible: number;
   /** The pages' minimum width (default 320). */
   readonly pagesMin: number;
   /** The page's offset and scale (default: identity). */
   readonly view: View;
-  /** A title bar's height: a panel folded in a column, and the part of a float the clamp keeps in the view (default 28). */
+  /**
+   * A title bar's height: a panel folded in a column, a folded float, a riding column, and the part of a float the
+   * clamp keeps in the view (default 28).
+   */
   readonly bar: number;
   /** A rail's width (default 36). */
   readonly rail: number;
@@ -97,6 +105,7 @@ export interface PanelsOptions {
 export const DEFAULT_PANELS_OPTIONS: PanelsOptions = {
   giveWay: { order: "oldest", by: "used" },
   floats: "clamp",
+  fold: "rail",
   floatVisible: 48,
   pagesMin: 320,
   view: IDENTITY_VIEW,
@@ -280,16 +289,17 @@ export const toPage = (r: Rect, v: View): Rect => ({ ...r, x: (r.x - v.x) / v.sc
  * Pin a float to the view, or unpin it to the page. `view` is where the page is now (default: identity): the float
  * doesn't jump, its rect is converted between the two spaces. A float's size is never scaled.
  *
- * `shown` is where the float shows now, in view space (the layout's placed rect for it). When given, it is converted
- * instead of the stored rect, so a float the clamp moved stays where it shows rather than jumping to its stored place.
+ * `shown` is where the float shows now, in view space (the layout's placed rect for it). When given, its position is
+ * converted instead of the stored one, so a float the clamp moved stays where it shows rather than jumping to its
+ * stored place. The size stays the stored one: a float folded to a bar, or shrunk by the clamp, keeps its full size.
  */
 export function pin(state: PanelsState, id: string, on: boolean, view: View = IDENTITY_VIEW, shown?: Rect): PanelsState {
   return {
     ...state,
     floats: state.floats.map((f): FloatAt => {
       if (f.id !== id || !!f.pinned === on) return f;
-      // In view space: where it shows, else where it is stored.
-      const seen = shown ? { ...shown } : f.pinned ? { ...f.rect } : toView(f.rect, view);
+      // In view space: where it shows, else where it is stored; at its stored size.
+      const seen = shown ? { ...f.rect, x: shown.x, y: shown.y } : f.pinned ? { ...f.rect } : toView(f.rect, view);
       return on ? { id, rect: seen, pinned: true } : { id, rect: toPage(seen, view) };
     }),
   };

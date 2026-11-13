@@ -134,7 +134,9 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
         // Let go at p (view space); stored where it shows once the float option has had its say.
         const at = rect(p.x - grab.x, p.y - grab.y, size.width, size.height);
         const s = float(state, id, pinned ? at : toPage(at, opt.view), pinned);
-        const shown = layoutPanels(defs, s, stage, opt).items.get(id)!.rect;
+        const laid = layoutPanels(defs, s, stage, opt).items.get(id)!.rect;
+        // A folded float shows as a bar: it moves to where the bar shows and keeps its full size for unfolding.
+        const shown = s.folded.includes(id) ? { ...laid, width: at.width, height: at.height } : laid;
         return float(state, id, pinned ? shown : toPage(shown, opt.view), pinned);
       },
       true,
