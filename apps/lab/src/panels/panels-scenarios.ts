@@ -266,6 +266,32 @@ const pinned: Scenario = {
   },
 };
 
+const clampScroll: Scenario = {
+  name: "clamp and scroll: an unpinned float still scrolls with the page, past the view's edge",
+  modes: ["clamp"],
+  async run(p) {
+    const com = p.items.get("comments")!.m;
+    const nav = p.items.get("navigator")!.m;
+    const com0 = { ...com.drawn };
+    const nav0 = { ...nav.drawn };
+    const stuck: string[] = [];
+    // Up: Comments (70 px from the top) leaves the view by 50 px; the clamp works in page space, so it doesn't stop it.
+    for (let y = 0; y >= -120; y -= 8) {
+      p.setPan(y);
+      await nextFrame();
+      if (Math.abs(com.target.y - (com0.y + y)) > 0.5) stuck.push(`at ${y} px Comments heads for y ${Math.round(com.target.y)}`);
+    }
+    await settled(p);
+    const com1 = drawnRect(p, itemEl(p, "comments"));
+    return [
+      row("the float's target follows the page on every frame", stuck.slice(0, 3)),
+      row("it ends 120 px up, partly above the view", Math.abs(com1.y - (com0.y - 120)) < 1.5 && com1.y < 0 ? [] : [`${fmt(com0)} → ${fmt(com1)}`]),
+      row("the pinned float stays put", near(nav.drawn, nav0, 0.01) ? [] : [`Navigator at ${fmt(nav.drawn)}`]),
+      row("clamp is on (the default)", p.options.floats === "clamp" ? [] : [p.options.floats]),
+    ];
+  },
+};
+
 const dropShown: Scenario = {
   name: "drag: a panel lands where its slot showed, with its own width",
   modes: ["snap"],
@@ -491,7 +517,7 @@ const fold: Scenario = {
   },
 };
 
-const SCENARIOS: readonly Scenario[] = [giveWayCombos, free, keptOutlives, clamp, pinned, dropShown, ownPlace, escape, tearOff, keyboard, resize, fold, store];
+const SCENARIOS: readonly Scenario[] = [giveWayCombos, free, keptOutlives, clamp, pinned, clampScroll, dropShown, ownPlace, escape, tearOff, keyboard, resize, fold, store];
 
 // --- runAll --------------------------------------------------------------------------------------------------------
 
