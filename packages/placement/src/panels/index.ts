@@ -11,6 +11,7 @@ export {
   IDENTITY_VIEW,
   SIDES,
   close,
+  columnWidth,
   createPanels,
   defOf,
   dock,
