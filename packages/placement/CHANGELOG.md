@@ -3,6 +3,20 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## 26.11.8
+
+- `@n-uf/placement/panels`:
+  - Folded floats: a float folded by hand lays out as a title bar (`kind` `"bar"`, `folded` `"hand"`) at its own x, y
+    and width, `options.bar` tall, clamped as a bar, pinned or not. It is still a float to targets and drags; a drop
+    moves it and keeps its full size, and unfolding brings the full rect back (the stored rect never changes).
+  - `options.fold`: `"rail"` (default, as before) or `"ride"`. Riding, a column folded by hand on a side that still
+    has an open column becomes title bars stacked on top of the side's first open column (`rides`: its index), as
+    wide as it; the open columns lie as if the folded one were gone, and its stored place and width are untouched.
+    When every column on the side is folded, the side shows its rail as before. Give-way's folds always go to the rail.
+  - `PlacedPanel` gains `floating` (open or folded float) and `rides`; `PlacedColumn` gains `rides`.
+  - `pin(…, shown)` takes only the position of `shown` and keeps the stored size, so pinning a folded or clamped
+    float keeps its full size.
+
 ## 26.11.7
 
 - New entry `@n-uf/placement/panels`: tool panels with string ids, as an app's side columns work. `./dock` is

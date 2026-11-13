@@ -484,3 +484,175 @@ describe("store and read", () => {
     expect(readPanels(hostile).ok).toBe(false);
   });
 });
+
+const roundTrip = (s: PanelsState): PanelsState => {
+  const r = readPanels(JSON.parse(JSON.stringify(storePanels(s))), DEFS);
+  if (!r.ok) throw new Error(r.error);
+  return r.state;
+};
+
+describe("folded floats", () => {
+  const VIEW = { width: 1200, height: 700 };
+
+  it("lay out as a title bar at their own place and width; unfolding brings the full rect back", () => {
+    const s = toggleFold(desk(), "history");
+    const p = layoutPanels(DEFS, s, VIEW).items.get("history")!;
+    expect(p).toMatchObject({ rect: { x: 500, y: 120, width: 280, height: DEFAULT_PANELS_OPTIONS.bar }, kind: "bar", folded: "hand", floating: true, pinned: false });
+    expect(s.floats.find((f) => f.id === "history")!.rect).toEqual({ x: 500, y: 120, width: 280, height: 300 });
+    const back = layoutPanels(DEFS, toggleFold(s, "history"), VIEW).items.get("history")!;
+    expect(back).toMatchObject({ rect: { x: 500, y: 120, width: 280, height: 300 }, kind: "float", folded: null, floating: true });
+    // The bar height is the option's.
+    expect(layoutPanels(DEFS, s, VIEW, { bar: 40 }).items.get("history")!.rect.height).toBe(40);
+  });
+
+  it("work pinned and unpinned, and move with the page when unpinned", () => {
+    const s = toggleFold(toggleFold(desk(), "history"), "preview");
+    const view = { x: 30, y: -40, scale: 2 };
+    const l = layoutPanels(DEFS, s, { width: 2400, height: 1400 }, { view });
+    expect(l.items.get("preview")).toMatchObject({ rect: { x: 40, y: 380, width: 320, height: 28 }, kind: "bar", pinned: true });
+    expect(l.items.get("history")).toMatchObject({ rect: { x: 30 + 1000, y: -40 + 240, width: 280, height: 28 }, kind: "bar", pinned: false });
+  });
+
+  it("clamp as a bar, never touching the stored rect", () => {
+    // Open, a 300 px tall float at y 690 is pulled up to 400; folded, only its 28 px bar has to fit.
+    const s = createPanels(DEFS, { floats: [{ id: "history", x: 2000, y: 690 }] });
+    expect(layoutPanels(DEFS, s, VIEW).items.get("history")!.rect).toMatchObject({ x: 920, y: 400 });
+    const f = toggleFold(s, "history");
+    const p = layoutPanels(DEFS, f, VIEW).items.get("history")!;
+    expect(p.rect).toEqual({ x: 920, y: 700 - 28, width: 280, height: 28 });
+    expect(p.clamped).toBe(true);
+    expect(f.floats[0]!.rect).toEqual({ x: 2000, y: 690, width: 280, height: 300 });
+    // Free: it stays where it is stored, as a bar.
+    expect(layoutPanels(DEFS, f, VIEW, { floats: "free" }).items.get("history")!.rect).toEqual({ x: 2000, y: 690, width: 280, height: 28 });
+  });
+
+  it("are still floats to drag: the float target lands a bar", () => {
+    const s = toggleFold(desk(), "history");
+    const inp = { defs: DEFS, state: s, id: "history", stage: VIEW };
+    const fl = panelTargets(inp).find((t) => t.id === "float")!;
+    const d = panelDrop(inp, fl, { x: 300, y: 200 }, { x: 10, y: 10 });
+    expect(d.slot).toEqual({ x: 290, y: 190, width: 280, height: 28 });
+    // Moved, it keeps its full size in the state, folded.
+    expect(d.state.floats.at(-1)!.rect).toMatchObject({ width: 280, height: 300 });
+    expect(d.state.folded).toContain("history");
+  });
+
+  it("pin where the bar shows and keep their full size", () => {
+    const s = toggleFold(createPanels(DEFS, { floats: [{ id: "history", x: 2000, y: 690 }] }), "history");
+    const shown = layoutPanels(DEFS, s, VIEW).items.get("history")!.rect;
+    const pinned = pin(s, "history", true, IDENTITY_VIEW, shown);
+    expect(pinned.floats[0]).toEqual({ id: "history", rect: { x: shown.x, y: shown.y, width: 280, height: 300 }, pinned: true });
+    expect(layoutPanels(DEFS, pinned, VIEW).items.get("history")!.rect).toEqual(shown);
+  });
+
+  it("round-trip through the stored form", () => {
+    const s = toggleFold(toggleFold(desk(), "history"), "preview");
+    const back = roundTrip(s);
+    expect(back.folded).toEqual(expect.arrayContaining(["history", "preview"]));
+    expect(layoutPanels(DEFS, back, VIEW).items).toEqual(layoutPanels(DEFS, s, VIEW).items);
+  });
+});
+
+describe('fold: "ride"', () => {
+  const STAGE = { width: 2000, height: 600 };
+  const ride = { fold: "ride" as const };
+  const bar = DEFAULT_PANELS_OPTIONS.bar;
+
+  it("is off by default: a column folded by hand goes to the rail", () => {
+    expect(DEFAULT_PANELS_OPTIONS.fold).toBe("rail");
+    const l = layoutPanels(DEFS, toggleFold(desk(), "outline"), STAGE);
+    expect(l.items.get("outline")!.kind).toBe("segment");
+    expect(l.rails.left!.segments.map((x) => x.id)).toEqual(["outline"]);
+  });
+
+  it("one column folded: a bar on the side's first open column; the others lie as if it were gone", () => {
+    const s = toggleFold(desk(), "outline");
+    const l = layoutPanels(DEFS, s, STAGE, ride);
+    expect(l.items.get("outline")).toMatchObject({ rect: { x: 0, y: 0, width: 220, height: bar }, kind: "bar", folded: "hand", side: "left", column: 1, rides: 0, hidden: false });
+    expect(l.items.get("files")!.rect).toEqual({ x: 0, y: bar, width: 220, height: 600 - bar });
+    expect(l.items.get("notes")!.rect).toEqual({ x: 220, y: 0, width: 260, height: 600 });
+    expect(l.pages.x).toBe(480);
+    expect(l.rails.left).toBeUndefined();
+    expect(l.columns.find((c) => c.side === "left" && c.index === 1)).toMatchObject({ folded: "hand", rides: 0, rect: { x: 0, y: 0, width: 220, height: bar } });
+    // Its stored place and width are untouched: unfolding puts it back as its own column.
+    expect(s.sides.left[1]).toEqual({ panels: ["outline"], width: 200 });
+    const open = layoutPanels(DEFS, toggleFold(s, "outline"), STAGE, ride);
+    expect(open.items.get("outline")!.rect).toEqual({ x: 220, y: 0, width: 200, height: 600 });
+    expect(open.items).toEqual(layoutPanels(DEFS, desk(), STAGE).items);
+  });
+
+  it("two columns folded: their bars stack in column order on the first open one", () => {
+    const s = toggleFold(toggleFold(desk(), "outline"), "files");
+    const l = layoutPanels(DEFS, s, STAGE, ride);
+    expect(l.items.get("files")).toMatchObject({ rect: { x: 0, y: 0, width: 260, height: bar }, rides: 2 });
+    expect(l.items.get("outline")).toMatchObject({ rect: { x: 0, y: bar, width: 260, height: bar }, rides: 2 });
+    expect(l.items.get("notes")!.rect).toEqual({ x: 0, y: 2 * bar, width: 260, height: 600 - 2 * bar });
+    expect(l.pages.x).toBe(260);
+    // A host with its own bar keeps it under the riding ones.
+    const stacked = toggleFold(dock(s, "inspector", "left", 2, { into: true }), "inspector");
+    const h = layoutPanels(DEFS, stacked, STAGE, ride).items;
+    expect(h.get("notes")!.rect).toMatchObject({ y: 2 * bar, height: 600 - 3 * bar });
+    expect(h.get("inspector")).toMatchObject({ kind: "bar", rect: { y: 600 - bar, height: bar } });
+  });
+
+  it("every column folded: the side shows its rail, as today", () => {
+    const s = ["files", "outline", "notes"].reduce(toggleFold, desk());
+    const l = layoutPanels(DEFS, s, STAGE, ride);
+    expect(l.rails.left!.segments.map((x) => x.id)).toEqual(["files", "outline", "notes"]);
+    expect(["files", "outline", "notes"].map((id) => l.items.get(id)!.kind)).toEqual(["segment", "segment", "segment"]);
+    expect(l.pages.x).toBe(DEFAULT_PANELS_OPTIONS.rail);
+    expect(l.items).toEqual(layoutPanels(DEFS, s, STAGE).items);
+  });
+
+  it("give-way's folds still go to the rail; the folded column rides on what stays open", () => {
+    const s = toggleFold(desk(), "outline");
+    const l = layoutPanels(DEFS, s, { width: 1000, height: 600 }, ride);
+    expect(l.notes.filter((n) => n.code === "column-folded")).toMatchObject([{ items: ["files"] }]);
+    expect(l.rails.left!.segments.map((x) => x.id)).toEqual(["files"]);
+    expect(l.items.get("outline")).toMatchObject({ kind: "bar", rides: 2 });
+    expect(l.pages.width).toBeGreaterThanOrEqual(320);
+    // Narrow enough that every left column goes: then the hand-folded one is in the rail too.
+    const tiny = layoutPanels(DEFS, s, { width: 2 * 36 + 320 + 10, height: 600 }, ride);
+    expect(tiny.items.get("outline")!.kind).toBe("segment");
+  });
+
+  it("drags like a bar: its own place is no target", () => {
+    const s = toggleFold(desk(), "outline");
+    const inp = { defs: DEFS, state: s, id: "outline", stage: STAGE, options: ride };
+    const ts = panelTargets(inp);
+    expect(ts.some((t) => samePlaces(t.make({ x: 0, y: 0 }, { x: 0, y: 0 }), s, DEFS))).toBe(false);
+    expect(ts.map((t) => t.id)).not.toContain("column:left:1");
+    // Into Notes' column: it stays folded, a bar there.
+    const into = panelDrop(inp, ts.find((t) => t.id === "into:left:1")!, { x: 300, y: 300 }, { x: 0, y: 0 });
+    expect(into.layout.items.get("outline")).toMatchObject({ kind: "bar", column: 1 });
+  });
+
+  it("round-trips through the stored form", () => {
+    const s = toggleFold(toggleFold(desk(), "outline"), "inspector");
+    const back = roundTrip(s);
+    expect(layoutPanels(DEFS, back, STAGE, ride).items).toEqual(layoutPanels(DEFS, s, STAGE, ride).items);
+    expect(layoutPanels(DEFS, back, STAGE, ride).items.get("inspector")).toMatchObject({ kind: "bar", rides: 1 });
+  });
+
+  it("keeps the layout's invariants at many stage sizes", () => {
+    const states = [toggleFold(desk(), "outline"), toggleFold(toggleFold(desk(), "files"), "search"), ["files", "outline"].reduce(toggleFold, keep(desk(), "notes", true))];
+    for (const s of states) {
+      for (let W = 2 * 36 + 320; W <= 2200; W += 37) {
+        const l = layoutPanels(DEFS, s, { width: W, height: 500 }, ride);
+        const rs = docked(l);
+        for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) expect(overlap(rs[i]!, rs[j]!)).toBeLessThan(1e-6);
+        expect(l.pages.width).toBeGreaterThanOrEqual(320 - 1e-9);
+        // Riding bars lie inside their host's rect, which they share with its panels without overlap.
+        for (const [id, p] of l.items) {
+          if (p.rides === undefined) continue;
+          const host = l.columns.find((c) => c.side === p.side && c.index === p.rides)!;
+          expect(host.folded).toBeNull();
+          expect(p.rect.x).toBe(host.rect.x);
+          expect(p.rect.width).toBe(host.rect.width);
+          for (const q of host.panels) expect(overlap(p.rect, l.items.get(q)!.rect)).toBe(0);
+          expect(id).toBeTruthy();
+        }
+      }
+    }
+  });
+});

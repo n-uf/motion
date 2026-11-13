@@ -196,7 +196,17 @@ even at its minimum size keeps its title bar and `floatVisible` (default 48) px 
 size is screen px and never scales. A pinned float is clamped where it is; an unpinned one has its page-space position
 clamped so that its screen rect at pan 0 fits the view, so it still scrolls with the page. The clamp runs at layout
 time and the state keeps the stored rect, so a larger view brings a float back where it was. `"free"` never moves a
-float.
+float. A float folded by hand (`toggleFold`) lays out as a title bar: `kind` `"bar"`, `folded` `"hand"`, at its own x,
+y and width and `options.bar` tall, clamped as a bar. It is still a float (`floating: true`) to its targets and drags,
+pinned or not, and unfolding brings its full rect back: the stored rect never changes.
+
+**Folded columns** (`options.fold`, default `"rail"`): a column folded by hand goes to its side's rail. With `"ride"`,
+it rides instead while its side still has an open column: its panels become title bars (`kind` `"bar"`, `rides`: the
+host's index) stacked in column order on top of the side's first open column (outer edge first), as wide as it, and
+the host's open panels share the rest of the height. The open columns lie as if the folded one were gone (the pages
+gain its room), and its stored place and width are untouched, so unfolding puts it back as its own column. Only when
+every column on a side is folded does the side show its rail. Give-way's folds (`column-folded`, `kept-folded`) go to
+the rail in both modes.
 
 **Changes** are pure: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock(state, id, side, index, { into?, width? })`,
 `float`, `pin(state, id, on, view?, shown?)` (pass the layout's rect as `shown` so a clamped float pins where it
