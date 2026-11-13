@@ -191,10 +191,49 @@ describe("bands: layout", () => {
     expect(l.bands.top!.kept).toBe(true);
   });
 
-  it("overlay bands give way against the pages' full height too", () => {
-    const l = layoutPanels(DEFS, desk(), { width: 1400, height: 440 }, both("overlay", "between"));
-    expect(codes(l)).toEqual(["band-shrunk", "band-folded"]);
-    expect(l.pages.height).toBe(440);
+  it("overlay bands give way until they leave pagesMinHeight of the pages uncovered; the pages keep their rect", () => {
+    // 620: 200 + 180 cover the pages, 240 left: nothing gives way.
+    const tall = layoutPanels(DEFS, desk(), { width: 1400, height: 620 }, both("overlay", "between"));
+    expect([codes(tall), tall.pages.height]).toEqual([[], 620]);
+    // 600: 360 may be covered; the older (top) band lowers by 20.
+    const l = layoutPanels(DEFS, desk(), { width: 1400, height: 600 }, both("overlay", "between"));
+    expect(l.notes).toEqual([{ code: "band-shrunk", edge: "top", items: ["navigator"], from: 200, to: 180 }]);
+    expect(l.pages.height).toBe(600);
+    // Together, never meeting: at 440 the top folds and the bottom lowers to what is left.
+    const short = layoutPanels(DEFS, desk(), { width: 1400, height: 440 }, both("overlay", "between"));
+    expect(short.bands.top!.folded).toBe("auto");
+    expect(short.bands.bottom!.rect.height).toBe(440 - 240 - 28);
+    expect(overlap(short.bands.top!.rect, short.bands.bottom!.rect)).toBe(0);
+    expect(codes(short)).not.toContain("pages-short");
+  });
+
+  it("mixed modes: reserved bands budget against the pages, an overlay band against what they leave", () => {
+    const defs: PanelDef[] = [
+      { id: "files", width: w(180, 220, 360) },
+      { id: "e", width: w(200, 240, 360), band: { min: 60, max: 250, natural: 100 } },
+      { id: "f", width: w(180, 220, 320), band: { min: 150, max: 500, natural: 300 } },
+    ];
+    const s = createPanels(defs, { left: [["files"]], top: ["e"], bottom: ["f"] });
+    const opt: Partial<PanelsOptions> = { bands: { top: { mode: "reserved", span: "between" }, bottom: { mode: "overlay", span: "between" } } };
+    // 450: the reserved top band fits (100 + 240); the overlay may cover 350 − 240 = 110, under its min: it folds.
+    const l = layoutPanels(defs, s, { width: 1200, height: 450 }, opt);
+    expect([l.bands.top!.rect.height, l.bands.top!.shrunk, l.pages.height]).toEqual([100, false, 350]);
+    expect(l.bands.bottom!).toMatchObject({ folded: "auto", rect: { height: 28 } });
+    expect(codes(l)).toEqual(["band-folded"]);
+    // 600: the overlay may cover 260: it shrinks to that; the top band is untouched.
+    const m = layoutPanels(defs, s, { width: 1200, height: 600 }, opt);
+    expect([m.bands.top!.rect.height, m.bands.bottom!.rect.height, m.pages.height]).toEqual([100, 260, 500]);
+    // pages-short measures the pages' rect: an overlay band never makes it.
+    // 200: both fold; the pages are 200 − 28 tall (the folded overlay doesn't count).
+    expect(codes(layoutPanels(defs, s, { width: 1200, height: 200 }, opt))).toEqual(["band-folded", "band-folded", "pages-short"]);
+    expect(layoutPanels(defs, s, { width: 1200, height: 200 }, opt).notes.at(-1)).toEqual({ code: "pages-short", height: 172, min: 240 });
+  });
+
+  it("options passed as undefined fall back to the defaults", () => {
+    const o = { bands: undefined, reserve: undefined, pagesMinHeight: undefined } as unknown as Partial<PanelsOptions>;
+    const a = layoutPanels(DEFS, desk(), STAGE, o);
+    expect([a.items, a.pages, a.notes]).toEqual([layoutPanels(DEFS, desk(), STAGE).items, layoutPanels(DEFS, desk(), STAGE).pages, layoutPanels(DEFS, desk(), STAGE).notes]);
+    expect(() => panelTargets({ defs: DEFS, state: desk(), id: "files", stage: STAGE, options: o })).not.toThrow();
   });
 
   it("a hand fold folds the whole band to one bar; unfolding brings it all back", () => {
@@ -443,5 +482,44 @@ describe("bands: desk presets", () => {
     const t = presetTargets(PRESETS.docks, inp).find((x) => x.id === "band:bottom:1")!;
     expect(presetDrop(PRESETS.docks, inp, t, { x: 900, y: 700 }, { x: 0, y: 0 }).state.bands!.bottom!.panels).toEqual(["history", "files"]);
     expect(presetTargets(PRESETS.navigator, { ...inp, state: PRESETS.navigator.start(P_DEFS) }).some((x) => x.place.kind === "band")).toBe(false);
+  });
+});
+
+describe("bands: review fixes", () => {
+  const opt = both("reserved", "between");
+
+  it("open into a band folded by hand unfolds it as a whole; toggleFold reads the band as the layout does", () => {
+    const s = toggleFold(liftPanel(desk(), "comments"), "history");
+    expect(s.folded).toEqual(["history"]);
+    const o = open(s, "comments", { edge: "bottom" });
+    expect(o.folded).toEqual([]);
+    expect(layoutPanels(DEFS, o, STAGE, opt).bands.bottom!.folded).toBeNull();
+    // Folding it again folds both.
+    expect([...toggleFold(o, "history").folded].sort()).toEqual(["comments", "history"]);
+    // A partial fold (say, from the stored form) reads as open: toggleFold folds the band, not unfolds it.
+    const partial = { ...dockBand(desk(), "comments", "bottom", 9, DEFS), folded: ["history"] };
+    expect(layoutPanels(DEFS, partial, STAGE, opt).bands.bottom!.folded).toBeNull();
+    expect([...toggleFold(partial, "history").folded].sort()).toEqual(["comments", "history"]);
+    // A closed panel doesn't count: the shown ones folded means folded.
+    const closedOne = close({ ...partial, folded: ["history"] }, "comments");
+    expect(toggleFold(closedOne, "history").folded).toEqual([]);
+  });
+
+  it("a band's only panel, resized, is not offered its own emptied edge", () => {
+    const s = resizeBand(desk(), "bottom", 300);
+    const ids = panelTargets({ defs: DEFS, state: s, id: "history", stage: STAGE, options: opt }).map((t) => t.id);
+    expect(ids.some((x) => x.startsWith("band:bottom"))).toBe(false);
+    expect(ids).toContain("band:top:0");
+  });
+
+  it("a side with no open column offers its new-column line at the stage side of the reserve", () => {
+    // Outline floats; no column on either side.
+    const s = createPanels(DEFS, { floats: [{ id: "outline", x: 500, y: 100 }] });
+    const ts = panelTargets({ defs: DEFS, state: s, id: "outline", stage: STAGE, options: { reserve: { left: 30, right: 20 } } });
+    const left = ts.find((t) => t.id === "column:left:0")!;
+    const right = ts.find((t) => t.id === "column:right:0")!;
+    // From the line inward, 2 × reach; the outer 10 px are the rail's.
+    expect([left.hit.x, left.hit.width]).toEqual([10, 34]);
+    expect([right.hit.x, right.hit.x + right.hit.width]).toEqual([STAGE.width - 44, STAGE.width - 10]);
   });
 });
