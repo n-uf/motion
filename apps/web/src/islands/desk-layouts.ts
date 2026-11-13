@@ -1,17 +1,18 @@
 /**
  * Desk layouts (island): the server drew the default desk, the case rail and the comparison table; this lays out the
- * picked construction live and lets the drawing glide: every box, and the desk's own size, settles from where it is
- * drawn to its new rect.
+ * picked card live (a preset through @n-uf/placement/desk's `presetLayout`, a sketch by the page's own rules) and lets
+ * the drawing glide: every box, and the desk's own size, settles from where it is drawn to its new rect.
  */
 import type { Rect } from "@n-uf/motion";
 import { $, caseRail, fillRanges } from "./rail";
 import { RectField } from "./motion";
 import { figureChrome } from "./figure-chrome";
 import { xrayOf, type XR } from "./xray";
-import { BOTTOM_MODES, CARDS, DEFAULT, DEFAULT_OPTS, HAS_BOTTOM, HAS_PILL, TOOLBAR_MODES, deskSVG, keyed, layout, type Box, type Opt } from "../demos/desk";
+import { BAND_MODES, CARDS, DEFAULT, HAS_BAND, HAS_PILL, SPAN_MODES, TOOLBAR_MODES, defaultOpts, deskSVG, keyed, layout, statusHTML, type Box, type Opt } from "../demos/desk";
 
-type Mode = [string, string, string];
-const views = CARDS.map((c) => ({ c, opts: { ...DEFAULT_OPTS } as Opt }));
+/** One button of a switch: its text, whether it is on, and what pressing it does. */
+type Mode = { text: string; on: () => boolean; pick: () => void };
+const views = CARDS.map((c) => ({ c, opts: defaultOpts(c.key) }));
 let active = CARDS.findIndex((c) => c.pick);
 const casesEl = $("cases");
 const compare = $<HTMLTableElement>("compare");
@@ -27,32 +28,35 @@ function syncCases(): void {
 }
 
 /** A label and its bar buttons, one pressed. */
-function segmented(label: string, modes: Mode[], isOn: (m: Mode) => boolean, pick: (m: Mode) => void): DocumentFragment {
+function segmented(label: string, modes: Mode[]): DocumentFragment {
   const row = document.createDocumentFragment();
   const lab = document.createElement("span");
   lab.className = "lab";
   lab.textContent = label;
   row.appendChild(lab);
-  const seg = row;
-  const buttons = modes.map((m) => {
+  for (const m of modes) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "tb text";
-    b.textContent = m[2];
-    b.addEventListener("click", () => { pick(m); sync(); render(); });
-    seg.appendChild(b);
-    return { b, m };
-  });
-  const sync = (): void => buttons.forEach(({ b, m }) => b.setAttribute("aria-pressed", String(isOn(m))));
-  sync();
+    b.textContent = m.text;
+    b.setAttribute("aria-pressed", String(m.on()));
+    // The span switch shows only while the band is on, so a press redraws the whole row.
+    b.addEventListener("click", () => { m.pick(); renderSegs(); render(); });
+    row.appendChild(b);
+  }
   return row;
 }
 function renderSegs(): void {
-  const v = views[active]!, o = v.opts, host = $("segs");
+  const v = views[active]!, o: Opt = v.opts, host = $("segs");
+  const focused = host.contains(document.activeElement) ? [...host.querySelectorAll("button")].indexOf(document.activeElement as HTMLButtonElement) : -1;
   host.replaceChildren();
-  if (HAS_PILL.has(v.c.key)) host.appendChild(segmented("Toolbar", TOOLBAR_MODES, (m) => o.toolbar === m[0] && o.toolbarSpace === m[1], (m) => { o.toolbar = m[0]; o.toolbarSpace = m[1]; }));
-  if (HAS_BOTTOM.has(v.c.key)) host.appendChild(segmented("Bottom dock", BOTTOM_MODES, (m) => o.bottom === m[0] && (m[0] === "off" || o.bottomSpace === m[1]), (m) => { o.bottom = m[0]; o.bottomSpace = m[1]; }));
-  if (!host.children.length) host.innerHTML = `<span class="quiet">No floating toolbar or bottom dock to switch</span>`;
+  if (HAS_PILL.has(v.c.key)) host.appendChild(segmented("Toolbar", TOOLBAR_MODES.map(([t, s, text]) => ({ text, on: () => o.toolbar === t && o.toolbarSpace === s, pick: () => { o.toolbar = t; o.toolbarSpace = s; } }))));
+  if (HAS_BAND.has(v.c.key)) {
+    host.appendChild(segmented("Bottom band", BAND_MODES.map(([m, text]) => ({ text, on: () => o.band === m, pick: () => { o.band = m; } }))));
+    if (o.band !== "off") host.appendChild(segmented("Span", SPAN_MODES.map(([s, text]) => ({ text, on: () => o.span === s, pick: () => { o.span = s; } }))));
+  }
+  if (!host.children.length) host.innerHTML = `<span class="quiet">No floating toolbar or bottom band to switch</span>`;
+  if (focused >= 0) host.querySelectorAll("button")[focused]?.focus();
   $("desk-name").textContent = v.c.title;
 }
 
@@ -117,7 +121,7 @@ function render(): void {
   keyed(boxes).forEach((b, k) => targets.set(k, { x: b.x, y: b.y, width: b.w, height: b.h }));
   field.set(targets, !first);
   first = false;
-  $("status").innerHTML = notes.length ? "<b>Gives way:</b> " + notes.join("; ") : "<b>Everything fits</b> at its natural size.";
+  $("status").innerHTML = statusHTML(v.c.key, notes);
   $("idea").innerHTML = v.c.idea;
 }
 for (const id of ["w", "h", "n"]) $(id).addEventListener("input", render);
@@ -137,9 +141,9 @@ const firstCase = CARDS.findIndex((c) => c.pick);
 const sizeIs = (W: number, H: number, n: number): boolean => +$<HTMLInputElement>("w").value === W && +$<HTMLInputElement>("h").value === H && +$<HTMLInputElement>("n").value === n;
 const deskChrome = figureChrome($("figure"), {
   demo: {
-    isDefault: () => active === firstCase && sizeIs(DEFAULT.W, DEFAULT.H, DEFAULT.n) && views.every((v) => JSON.stringify(v.opts) === JSON.stringify(DEFAULT_OPTS)),
+    isDefault: () => active === firstCase && sizeIs(DEFAULT.W, DEFAULT.H, DEFAULT.n) && views.every((v) => JSON.stringify(v.opts) === JSON.stringify(defaultOpts(v.c.key))),
     reset() {
-      views.forEach((v) => (v.opts = { ...DEFAULT_OPTS }));
+      views.forEach((v) => (v.opts = defaultOpts(v.c.key)));
       active = firstCase;
       for (const [id, val] of [["w", DEFAULT.W], ["h", DEFAULT.H], ["n", DEFAULT.n]] as const) $<HTMLInputElement>(id).value = String(val);
       fillRanges(document);

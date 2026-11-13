@@ -6,7 +6,7 @@ import Playback from "../components/Playback.astro";
 import { arrangement } from "../demos/toolbar";
 import { pageOf } from "../data/pages";
 import { webPage, breadcrumbs, orgNode, software } from "../data/schema";
-import { ASPECTS, BOTTOM_MODES, CARDS, DEFAULT, DEFAULT_OPTS, TABLE, TOOLBAR_MODES, deskSVG, layout } from "../demos/desk";
+import { ASPECTS, BAND_MODES, CARDS, DEFAULT, SPAN_MODES, TABLE, TOOLBAR_MODES, defaultOpts, deskSVG, layout, statusHTML } from "../demos/desk";
 import Faq from "../components/Faq.astro";
 import { faqJsonLd } from "../data/faq";
 import "../styles/desk-layouts.css";
@@ -23,15 +23,16 @@ const jsonLd = [
 ];
 const active = CARDS.findIndex((c) => c.pick);
 const first = CARDS[active]!;
-const { boxes, notes } = layout(first.key, DEFAULT.W, DEFAULT.H, DEFAULT.n, DEFAULT_OPTS);
+const opts = defaultOpts(first.key);
+const { boxes, notes } = layout(first.key, DEFAULT.W, DEFAULT.H, DEFAULT.n, opts);
 const pct = (v: number, min: number, max: number) => `--fill:${((v - min) / (max - min)) * 100}%`;
 const presets: [string, string][] = [["1440,820", "Large"], ["960,560", "Laptop"], ["760,420", "Short"], ["520,700", "Narrow"]];
 const plain = (html: string) => html.replace(/<[^>]+>/g, "");
 ---
 <Site title={page.title} description={page.description} path={path} headline="Nine ways to build a desk, and what each gives way." jsonLd={jsonLd} ogImage="/og/desk-layouts.png">
-  <p class="lead" slot="lead">This page lays out one desk nine ways: a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and a few open documents. Pick a construction and the stage lays it out live by that construction's own rules. Drag the sliders to see what gives way when width or height runs out; every box settles to its new place from wherever it is drawn.</p>
+  <p class="lead" slot="lead">This page lays out one desk nine ways: a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and a few open documents. Four of them (A, A2, C and F3) are the desk presets of <code>@n-uf/placement/desk</code>, laid out live by the library on <code>./panels</code>. The other five are sketches this page draws by its own rules, to compare. Drag the sliders to see what gives way when width or height runs out; every box settles to its new place from wherever it is drawn.</p>
 
-  <Chrome id="figure" class="deskfig" label="Desk layouts: nine constructions laid out live at a size you choose"
+  <Chrome id="figure" class="deskfig" label="Desk layouts: four library presets and five sketches, laid out live at a size you choose"
     groups={[{ id: "title", name: "Title" }, { id: "presets", name: "Size presets" }, { id: "size", name: "Size" }, { id: "options", name: "Options" }, { id: "speed", name: "Speed" }]}
     model={arrangement({ title: { start: ["title"], end: ["presets"] }, top: { start: ["size"] }, bottom: { start: ["options"], end: ["speed"] } })}>
     <span class="ident" slot="title"><span class="name">Desk layouts</span><span class="page" id="desk-name">{first.title}</span></span>
@@ -41,10 +42,10 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
       <label class="field">Height <input id="h" type="range" min="320" max="820" step="10" value={DEFAULT.H} style={pct(DEFAULT.H, 320, 820)} /><output id="ho">{DEFAULT.H}</output></label>
       <label class="field">Documents <input id="n" type="range" min="1" max="4" step="1" value={DEFAULT.n} style={`width:84px;${pct(DEFAULT.n, 1, 4)}`} /><output id="no">{DEFAULT.n}</output></label>
     </Fragment>
-    <span class="tb-row" id="segs" slot="options"><span class="lab">Toolbar</span>{TOOLBAR_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === DEFAULT_OPTS.toolbar && m[1] === DEFAULT_OPTS.toolbarSpace)}>{m[2]}</button>)}<span class="lab">Bottom dock</span>{BOTTOM_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === DEFAULT_OPTS.bottom && m[1] === DEFAULT_OPTS.bottomSpace)}>{m[2]}</button>)}</span>
+    <span class="tb-row" id="segs" slot="options"><span class="lab">Toolbar</span>{TOOLBAR_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.toolbar && m[1] === opts.toolbarSpace)}>{m[2]}</button>)}<span class="lab">Bottom band</span>{BAND_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.band)}>{m[1]}</button>)}{opts.band !== "off" && <><span class="lab">Span</span>{SPAN_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.span)}>{m[1]}</button>)}</>}</span>
     <Fragment slot="speed"><Playback part="speed" /></Fragment>
     <div class="figure-body">
-      <CaseRail id="cases" label="Constructions" items={CARDS.map((c) => ({ name: c.title, note: c.note, tag: c.pick ? "default" : undefined }))} active={active} />
+      <CaseRail id="cases" label="Constructions" items={CARDS.map((c) => ({ name: c.title, note: c.note, tag: c.pick ? "our pick" : c.preset ? "preset" : "sketch" }))} active={active} />
       <div class="stage-wrap stage-host"><div id="stage" style={`--w:${DEFAULT.W};--h:${DEFAULT.H};--tw:${DEFAULT.W};--th:${DEFAULT.H}`}>
         <svg id="desk" role="img" aria-label={`${first.title} desk layout`} viewBox={`0 0 ${DEFAULT.W} ${DEFAULT.H}`} width={DEFAULT.W} height={DEFAULT.H} style={`--w:${DEFAULT.W};--h:${DEFAULT.H}`} set:html={deskSVG(DEFAULT.W, DEFAULT.H, boxes)} />
         <div class="dim w" aria-hidden="true"><b></b></div><div class="dim h" aria-hidden="true"><b></b></div>
@@ -52,13 +53,13 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
     </div>
   </Chrome>
   <div class="figure-note">
-    <p id="status" role="status">{notes.length ? <><b>Gives way:</b> {notes.join("; ")}</> : <><b>Everything fits</b> at its natural size.</>}</p>
+    <p id="status" role="status" set:html={statusHTML(first.key, notes)} />
     <p id="idea" set:html={first.idea} />
     <p class="legend">
-      <span style="--c: var(--d-ink); --b: var(--d-ink)">toolbar</span><span style="--c: var(--d-panel); --b: var(--d-panel-line)">panel</span><span style="--c: var(--d-rail)">rail / tabs</span><span style="--c: var(--d-doc); --b: var(--d-doc-line)">document</span><span style="--c: var(--d-float-head); --b: var(--d-float-line)">floats over the documents</span><span style="--c: transparent; --b: var(--accent)">bottom dock</span>
+      <span style="--c: var(--d-ink); --b: var(--d-ink)">toolbar</span><span style="--c: var(--d-panel); --b: var(--d-panel-line)">panel</span><span style="--c: var(--d-rail)">rail / tabs</span><span style="--c: var(--d-doc); --b: var(--d-doc-line)">document</span><span style="--c: var(--d-float-head); --b: var(--d-float-line)">floats over the documents</span><span style="--c: transparent; --b: var(--accent)">bottom band</span>
     </p>
   </div>
-  <p class="aside lab-link"><a href="/lab/#/placement/desk">Drag panels on each of the nine desk constructions in the lab</a>, and step through the drop targets from the keyboard.</p>
+  <p class="aside lab-link"><a href="/lab/#/panels/presets">Drag panels on the four presets in the lab</a> and step through their drop targets from the keyboard. The older <code>./dock</code> entry's nine constructions <a href="/lab/#/placement/desk">have their own lab page</a>.</p>
 
   <section class="section">
     <div class="section-head">
@@ -66,7 +67,7 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
       <h2 class="section-title">Docks, one tiling tree, a strip, drawers and palettes</h2>
     </div>
     <div class="rules two">
-      {CARDS.map((c) => <div class="rule"><h3>{c.title}{c.pick && <span class="tag">our pick</span>}</h3><p>{plain(c.idea)}</p></div>)}
+      {CARDS.map((c) => <div class="rule"><h3>{c.title}<span class="tag">{c.pick ? "our pick" : c.preset ? "preset" : "sketch"}</span></h3><p>{plain(c.idea)}</p></div>)}
     </div>
   </section>
 
@@ -87,7 +88,7 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
     <div class="callout">
       <span class="eyebrow">Our pick</span>
       <h2>F3 · Edge docks + tear-off</h2>
-      <p>The nine are equal presets in <code>@n-uf/placement/dock</code>; the letters are this page's labels. Our pick, with one rule: a panel lives in a dock, and a dock folds to its rail. Short on height, sections fold to their headers; short on width, a whole dock folds to its rail. Nothing covers the documents unless you choose it: tear a panel off and it floats, drop it on a dock or its rail icon and it docks again. The toolbar is a floating pill, top or bottom. Every glide is a dock, a section or a palette opening, closing or moving, which <a href="/window-motion/">settle</a> already does. A is the same without floating; C is the simplest if one panel per side is enough.</p>
+      <p>Desks are presets on <code>./panels</code>: <code>@n-uf/placement/desk</code> ships <code>docks</code>, <code>docksFull</code>, <code>dockTear</code> and <code>navigator</code>, each a set of panels options and a start state. The letters are this page's labels. Our pick is <code>dockTear</code>, with one rule: a panel lives in a column, and a column folds to its rail. Short on height, sections fold to their title bars and the bottom band gets lower, then folds to a bar. Short on width, columns narrow, then fold to their rails. Nothing covers the documents unless you choose it: tear a panel off and it floats, and drop it on a column or a rail to dock it again. Room for the toolbar is kept clear with <code>options.reserve</code>, and the app draws the toolbar there. Every glide is a column, a section or a float opening, closing or moving, which <a href="/window-motion/">settle</a> already does. A is the same without floating; C is the simplest if one panel at a time on the left is enough. The older <code>./dock</code> entry still ships nine constructions as one all-in-one model.</p>
     </div>
   </section>
 
