@@ -80,8 +80,9 @@ const panels = {
   reset: "#pn-reset",
   wide: true,
 };
-/** The Panels Options page runs the scenarios that switch an option; Defaults runs the rest. */
+/** The Panels Options page runs the scenarios that switch an option, Presets those on a preset; Defaults runs the rest. */
 const OPTIONS = "options: ";
+const PRESETS = "presets: ";
 
 /** The tiling page's settle scenarios (moves the layout makes), the rest are its drags and layouts. */
 const SETTLE = new Set(["open", "close", "swap", "two changes 40 ms apart", "maximize, restore after 80 ms"]);
@@ -195,7 +196,7 @@ export const PAGES: readonly PageDef[] = [
     about:
       "<code>@n-uf/placement/panels</code> with its defaults: give-way oldest by use, floats clamped to the view. Three columns on the left, two on the right, a float that moves with the page (Comments) and one pinned to the view (Navigator). Narrow the stage with the Width slider; drag a column's inner edge or a float's corner to resize; fold a panel with ▾, keep it open with ◇; drag a panel by its title to tear it off, dock it back, stack it or put it on a rail. Every drag runs on <code>@n-uf/motion/drag</code>'s intent and <code>@n-uf/motion/layout</code>'s held drag. From the keyboard: Tab to a title, Space, the arrows, Enter; Escape cancels.",
     ...panels,
-    view: (n) => !n.startsWith(OPTIONS),
+    view: (n) => !n.startsWith(OPTIONS) && !n.startsWith(PRESETS),
   },
   {
     id: "panels/options",
@@ -207,6 +208,17 @@ export const PAGES: readonly PageDef[] = [
       "The same desk with the switches: give-way <b>oldest</b> or <b>newest</b> first, <b>by use</b> (opened or focused) or <b>by opening</b>, floats <b>clamped</b> to the view or <b>free</b>, and folded columns to the <b>rail</b> or <b>riding</b> on the side's first open column. The defaults are marked. The give-way scenarios set known ages and narrow the stage until one column must fold.",
     ...panels,
     view: OPTIONS,
+  },
+  {
+    id: "panels/presets",
+    group: "panels",
+    nav: "Presets",
+    title: "Panels: presets",
+    line: "Desk presets as data on @n-uf/placement/desk: edge docks, docks with tear-off, and a tabbed navigator.",
+    about:
+      "<code>@n-uf/placement/desk</code>'s presets, each panels options and a start state on <code>./panels</code>. The same seven panels, here with natural section heights: lower the Height slider and the docks fold sections to bars, the one used longest ago first; raise it and they come back. The navigator's left column shows tabs: click a tab, or drag a panel into the column to add one. With tear-off, drag a panel over the pages and back. Below the desk, what differs from the matching <code>./dock</code> constructions.",
+    ...panels,
+    view: PRESETS,
   },
   {
     id: "kits/panels",
