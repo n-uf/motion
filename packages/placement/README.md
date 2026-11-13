@@ -230,7 +230,7 @@ first. When the open sections' mins and the bars still don't fit, open sections 
 each with a `section-folded` note; that never writes `folded`, so a taller stage unfolds them. Columns without
 `height` defs lay out as before.
 
-**Changes** are pure: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock(state, id, side, index, { into?, width? })`,
+**Changes** are pure: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock(state, id, side, index, { into?, at?, width? })` (`at` with `into`: before that member, else at the bottom),
 `float`, `pin(state, id, on, view?, shown?)` (pass the layout's rect as `shown` so a clamped float pins where it
 shows), `resizeColumn`, `resizeFloat`, `showTabs`, `activate`, and for bands `dockBand`, `resizeBand`.
 
@@ -328,6 +328,14 @@ console.log(drop.slot); // { x: 1000, y: 0, width: 200, height: 600 }
 const stops = keyboardStops(targets, { home: { place: homePlace(state, "outline")!, state } });
 console.log(stops.map((s) => (s.home ? "home" : s.id))); // [ 'rail:left', 'column:left:0', 'into:left:0', 'home', 'column:right:0', 'rail:right' ]
 ```
+
+**Into a stack at a position** (opt-in): with `stackSlots: true` in the input, a stacked column offers
+`into:<side>:<i>:<k>` before each member k as well as `into:<side>:<i>` at its bottom. The column's area is split at
+its members' middles, and each of these targets carries a `marker`: the line where the panel will go, zero tall and as
+wide as the column, for the app to draw. Its `place` is `{ kind: "into", side, index, at }` (`at` left out for the
+bottom), and a drop calls `dock(…, { into: true, at })`. A tabbed column keeps its one `into` target.
+`homePlace(state, id, { stackSlots: true })` says a stacked panel's position as `at`, so `keyboardStops` puts home
+among the column's slots. Without `stackSlots` the targets are exactly as before.
 
 `storePanels(state)` gives `{ v: 1, sides, floats, folded, kept, closed, clock }`; `readPanels(data, defs?)` reads
 parsed data back and never throws. Anything but an object of version 1 is `{ ok: false, error }`; inside one, unknown
