@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.9
+## 26.11.10
 
 - `@n-uf/placement/panels`, bands and reserved room (all opt-in; a state and options without them lay out as before,
   and the store stays v1):
@@ -32,6 +32,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `"bottom"`. `navigator` has no band. Because the band is enabled, `docks` and `dockTear` now always offer a
   `band:bottom` drop strip along the pages' bottom, even when the band is empty (a drop there used to be a float in
   `dockTear`, and no drop in `docks`).
+- Known limit: with `pagesMinHeight` below about 100 px on a very short stage, a column can be shorter than its title
+  bars, which then run past it (column bars were always a fixed `options.bar` tall). Keep the default 240, or at least
+  a few bars' height, when bands are on.
+
+## 26.11.9
+
 - `@n-uf/placement/panels`:
   - Tabs: `Column.show` (`"stack"`, the default, or `"tabs"`) and `Column.active`. A tabbed column draws a strip
     `options.tabs` tall (new chrome size, default 28; `PlacedColumn.strip`); its active panel takes the rest and the
