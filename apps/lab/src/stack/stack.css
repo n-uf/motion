@@ -3,6 +3,7 @@
   --st-win: var(--win-bar); --st-chrome: var(--win-frame); --st-edge: var(--win-edge); --st-ink: var(--win-text); --st-muted: var(--win-muted);
   --st-accent: var(--accent); --st-desk: var(--win-well); --st-paper: var(--win-paper);
 }
+.st-controls { align-items: flex-start; }
 .st-controls label { white-space: nowrap; }
 .st-controls output { font-family: var(--font-mono); font-size: 12px; min-width: 5em; display: inline-block; }
 .st-items { border-collapse: collapse; width: auto; }
