@@ -3,16 +3,16 @@
 > [!CAUTION]
 > ## Not yet stable
 >
-> **@n-uf/placement is young and still changing. Its API (the desk constructions, the toolbar model and the drop targets) is not final.**
+> **@n-uf/placement is young and still changing. Its API (the desk constructions, the panel columns, the toolbar model and the drop targets) is not final.**
 >
 > Version numbers are dates (YY.M.R), not semantic versions, so any release may break things. Pin an exact version and read the [CHANGELOG](https://github.com/n-uf/motion/blob/main/packages/placement/CHANGELOG.md) before you upgrade.
 
 Site and live demos: [motion.n-uf.com](https://motion.n-uf.com)
 
-Where things go. State in, rects and drop targets out: a desk of docks, rails and palettes, toolbar groups in hosts
-and zones, and the drop targets for each. A tiling entry (a split tree with ratios, groups and workspaces) is
-planned. Pure functions over plain data: no DOM,
-no framework, no motion, no dependencies.
+Where things go. State in, rects and drop targets out: a desk of docks, rails and palettes, panels in columns per
+side that give way by age, toolbar groups in hosts and zones, and the drop targets for each. A tiling entry (a split
+tree with ratios, groups and workspaces) is planned. Pure functions over plain data: no DOM, no framework, no
+motion, no dependencies.
 
 ```sh
 npm i @n-uf/placement
