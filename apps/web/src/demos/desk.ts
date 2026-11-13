@@ -110,7 +110,7 @@ function noteText(n: PanelsNote): string {
     case "float-resized": return `${who(n.items)} shrank to fit the view`;
     case "band-shrunk": return `the ${n.edge} band lowered from ${px(n.from)} to ${px(n.to)}`;
     case "band-folded": return `the ${n.edge} band folded to a bar`;
-    case "band-off": return `${who(n.items)} is hidden: the ${n.edge} band is off`;
+    case "band-off": return `${who(n.items)} ${n.items.length > 1 ? "are" : "is"} hidden: the ${n.edge} band is off`;
     case "pages-short": return `the documents are ${px(n.height)} tall, under their ${px(n.min)} minimum`;
   }
 }

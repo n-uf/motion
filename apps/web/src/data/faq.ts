@@ -74,15 +74,15 @@ export const FAQS: Record<string, QA[]> = {
   "/desk-layouts/": [
     {
       q: "How do I drag a panel from one dock to another?",
-      a: "Take drop targets from <code>presetTargets</code> in <code>@n-uf/placement/desk</code>, which offers only the places the preset allows, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. When the intent names a target, <code>presetDrop</code> returns the slot the panel lands in. Placement draws nothing, so your app draws the rects, and <code>@n-uf/motion/layout</code> can glide the panels there.",
+      a: "Take drop targets from <code>presetTargets</code> in <code>@n-uf/placement/desk</code>, which lists only the places the preset allows, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. When the intent names a target, <code>presetDrop</code> returns the slot the panel lands in. Placement draws nothing, so your app draws the rects, and <code>@n-uf/motion/layout</code> can glide the panels there.",
     },
     {
       q: "Which desk layouts can I build?",
-      a: "Four desk presets ship in <code>@n-uf/placement/desk</code>, as panels options and a start state on <code>./panels</code>: <code>docks</code>, <code>docksFull</code> with a full-width bottom band, <code>dockTear</code> with panels that float, and <code>navigator</code> with a tabbed left column. The older <code>./dock</code> entry still ships nine constructions, including drawers, a scrolling strip and corner palettes.",
+      a: "Four, as presets in <code>@n-uf/placement/desk</code> on <code>./panels</code>: <code>docks</code>, <code>docksFull</code> with a full-width bottom band, <code>dockTear</code> with panels that can float, and <code>navigator</code> with a tabbed left column. Each is a set of panels options plus a start state. The older <code>./dock</code> entry still ships nine constructions, among them drawers, a scrolling strip and corner palettes.",
     },
     {
       q: "What gives way when a desk runs out of room?",
-      a: "In the presets, a stack column's section used longest ago folds to its title bar when height runs out, and the bottom band gets lower, then folds to a bar. When width runs out, columns narrow, then the oldest folds to its rail. Each layout returns coded notes, such as <code>column-folded</code>; your app words them.",
+      a: "In the presets, the section used longest ago folds to its title bar when a stacked column runs short of height, and the bottom band gets lower, then folds to a bar. When width runs out, the columns narrow, then the oldest folds to its rail. Each layout returns coded notes such as <code>column-folded</code>; your app supplies the wording.",
     },
   ],
   "/toolbar-groups/": [
