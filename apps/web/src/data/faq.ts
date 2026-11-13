@@ -74,15 +74,15 @@ export const FAQS: Record<string, QA[]> = {
   "/desk-layouts/": [
     {
       q: "How do I drag a panel from one dock to another?",
-      a: "Build drop targets with <code>deskTargets</code> from <code>@n-uf/placement/targets</code> and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. When the intent names a target, <code>deskDrop</code> returns its label and the slot the panel lands in. Placement draws nothing, so your app draws the rects, and <code>@n-uf/motion/layout</code> can glide the panels there.",
+      a: "Take drop targets from <code>presetTargets</code> in <code>@n-uf/placement/desk</code>, which offers only the places the preset allows, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. When the intent names a target, <code>presetDrop</code> returns the slot the panel lands in. Placement draws nothing, so your app draws the rects, and <code>@n-uf/motion/layout</code> can glide the panels there.",
     },
     {
       q: "Which desk layouts can I build?",
-      a: "Nine, as presets of <code>createDesk</code> in <code>@n-uf/placement/dock</code>. They are built from side docks, a bottom dock, rails, foldable sections and floating palettes, and include edge docks with tear-off, a tabbed side, drawers that slide over the documents, a scrolling strip of columns and palettes stacked in the corners. Each is a pure layout returning rects and notes.",
+      a: "Four desk presets ship in <code>@n-uf/placement/desk</code>, as panels options and a start state on <code>./panels</code>: <code>docks</code>, <code>docksFull</code> with a full-width bottom band, <code>dockTear</code> with panels that float, and <code>navigator</code> with a tabbed left column. The older <code>./dock</code> entry still ships nine constructions, including drawers, a scrolling strip and corner palettes.",
     },
     {
       q: "What gives way when a desk runs out of room?",
-      a: "In the edge docks, sections fold to their headers when height runs out, least recently used first, and a dock folds to its rail when width runs out. Each layout returns notes saying how it gave way, such as <code>dock-folded</code>. A note's <code>code</code> is the contract; its English <code>text</code> may change in any release.",
+      a: "In the presets, a stack column's section used longest ago folds to its title bar when height runs out, and the bottom band gets lower, then folds to a bar. When width runs out, columns narrow, then the oldest folds to its rail. Each layout returns coded notes, such as <code>column-folded</code>; your app words them.",
     },
   ],
   "/toolbar-groups/": [
