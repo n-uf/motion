@@ -13,6 +13,11 @@
     <label><input type="radio" name="pn-floats" value="clamp" checked /> Clamped to the view <em>(default)</em></label>
     <label><input type="radio" name="pn-floats" value="free" /> Free</label>
   </fieldset>
+  <fieldset class="pn-options">
+    <legend>Folded columns</legend>
+    <label><input type="radio" name="pn-fold" value="rail" checked /> To the rail <em>(default)</em></label>
+    <label><input type="radio" name="pn-fold" value="ride" /> Ride on the first open column</label>
+  </fieldset>
   <fieldset>
     <legend>Stage</legend>
     <label>Width <input type="range" id="pn-width" min="420" max="1400" step="10" value="1260" /> <output id="pn-width-out">1260 px</output></label>
@@ -46,6 +51,7 @@
     <li>Click a panel's title (a use), or the keep button (◇ Keep open), and narrow again: the order changes, and a kept column folds last.</li>
     <li>Drag a panel by its title over the pages: it floats. Drag it to a line between columns, into a column, or onto a rail to dock it back.</li>
     <li>Scroll the page: Comments moves with it, the pinned Navigator stays put. Narrow the stage: floats stay in view (clamped), or not (Free).</li>
+    <li>Fold a float with ▾: it shades to its title bar where it is; ▾ again brings it back. On the Options page, pick "Ride on the first open column" and fold a column: its bar sits on top of the side's first open column.</li>
     <li>From the keyboard: Tab to a title, Space picks it up, the arrows step through the places, Enter drops, Escape cancels.</li>
   </ol>
 </section>

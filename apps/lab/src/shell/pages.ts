@@ -204,7 +204,7 @@ export const PAGES: readonly PageDef[] = [
     title: "Panels: options",
     line: "Every give-way order (oldest or newest, by use or by opening) and both float rules, on the same desk.",
     about:
-      "The same desk with the switches: give-way <b>oldest</b> or <b>newest</b> first, <b>by use</b> (opened or focused) or <b>by opening</b>, and floats <b>clamped</b> to the view or <b>free</b>. The defaults are marked. Each scenario sets known ages and narrows the stage until one column must fold.",
+      "The same desk with the switches: give-way <b>oldest</b> or <b>newest</b> first, <b>by use</b> (opened or focused) or <b>by opening</b>, floats <b>clamped</b> to the view or <b>free</b>, and folded columns to the <b>rail</b> or <b>riding</b> on the side's first open column. The defaults are marked. The give-way scenarios set known ages and narrow the stage until one column must fold.",
     ...panels,
     view: OPTIONS,
   },

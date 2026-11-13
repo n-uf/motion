@@ -93,9 +93,10 @@ let state: PanelsState = startState();
 let W = DEFAULT_W;
 let giveWay: GiveWay = DEFAULT_PANELS_OPTIONS.giveWay;
 let floats: PanelsOptions["floats"] = DEFAULT_PANELS_OPTIONS.floats;
+let fold: PanelsOptions["fold"] = DEFAULT_PANELS_OPTIONS.fold;
 let view: View = { x: 0, y: 0, scale: 1 };
 
-const opts = (): Partial<PanelsOptions> => ({ giveWay, floats, view });
+const opts = (): Partial<PanelsOptions> => ({ giveWay, floats, fold, view });
 const stageSize = () => ({ width: W, height: H });
 export const lay = (s: PanelsState = state): PanelsLayout => layoutPanels(DEFS, s, stageSize(), opts());
 
@@ -208,10 +209,12 @@ function dress(l: PanelsLayout): void {
     if (showing !== it.m.showing) it.m.show(showing);
     if (!p) continue;
     it.el.dataset.kind = p.kind;
-    it.el.classList.toggle("float", p.kind === "float");
+    // A folded float is a bar and still a float; a riding bar sits on its host column.
+    it.el.classList.toggle("float", p.floating);
     it.el.classList.toggle("bar", p.kind === "bar");
+    it.el.classList.toggle("rides", p.rides !== undefined);
     it.el.classList.toggle("kept", p.kept);
-    it.el.style.zIndex = p.kind === "float" ? String(5 + p.layer) : "";
+    it.el.style.zIndex = p.floating ? String(5 + p.layer) : p.rides !== undefined ? "3" : "";
     it.el.querySelector(".pn-keep")!.setAttribute("aria-pressed", String(p.kept));
     it.el.querySelector(".pn-keep")!.textContent = p.kept ? "◆" : "◇";
     it.el.querySelector(".pn-pin")!.setAttribute("aria-pressed", String(p.pinned));
@@ -671,20 +674,30 @@ export function setPan(y: number, instant = false): void {
 panIn.addEventListener("input", () => setPan(Number(panIn.value)));
 
 const radios = (name: string): HTMLInputElement[] => [...document.querySelectorAll<HTMLInputElement>(`input[name=${name}]`)];
-export function setOptions(o: { order?: GiveWay["order"]; by?: GiveWay["by"]; floats?: PanelsOptions["floats"] }): void {
+export function setOptions(o: { order?: GiveWay["order"]; by?: GiveWay["by"]; floats?: PanelsOptions["floats"]; fold?: PanelsOptions["fold"] }): void {
   giveWay = { order: o.order ?? giveWay.order, by: o.by ?? giveWay.by };
   floats = o.floats ?? floats;
+  fold = o.fold ?? fold;
   for (const r of radios("pn-order")) r.checked = r.value === giveWay.order;
   for (const r of radios("pn-by")) r.checked = r.value === giveWay.by;
   for (const r of radios("pn-floats")) r.checked = r.value === floats;
+  for (const r of radios("pn-fold")) r.checked = r.value === fold;
   relayout();
 }
-for (const name of ["pn-order", "pn-by", "pn-floats"]) {
+for (const name of ["pn-order", "pn-by", "pn-floats", "pn-fold"]) {
   for (const r of radios(name)) {
     r.addEventListener("change", () => {
       if (!r.checked) return;
-      setOptions(name === "pn-order" ? { order: r.value as GiveWay["order"] } : name === "pn-by" ? { by: r.value as GiveWay["by"] } : { floats: r.value as PanelsOptions["floats"] });
-      say(`Give-way ${giveWay.order} first by ${giveWay.by === "used" ? "use" : "opening"}; floats ${floats}.${notesSay()}`);
+      setOptions(
+        name === "pn-order"
+          ? { order: r.value as GiveWay["order"] }
+          : name === "pn-by"
+            ? { by: r.value as GiveWay["by"] }
+            : name === "pn-fold"
+              ? { fold: r.value as PanelsOptions["fold"] }
+              : { floats: r.value as PanelsOptions["floats"] },
+      );
+      say(`Give-way ${giveWay.order} first by ${giveWay.by === "used" ? "use" : "opening"}; floats ${floats}; folded columns ${fold === "ride" ? "ride on the first open column" : "go to the rail"}.${notesSay()}`);
     });
   }
 }
@@ -752,6 +765,7 @@ export function reset(): void {
   state = startState();
   giveWay = DEFAULT_PANELS_OPTIONS.giveWay;
   floats = DEFAULT_PANELS_OPTIONS.floats;
+  fold = DEFAULT_PANELS_OPTIONS.fold;
   view = { x: 0, y: 0, scale: 1 };
   setOptions({});
   setPan(0, true);
@@ -801,7 +815,7 @@ export const page = {
     return view;
   },
   get options() {
-    return { giveWay, floats };
+    return { giveWay, floats, fold };
   },
   get dragging(): { id: string; snapped: Rect | null } | null {
     return drag ? { id: drag.id, snapped: drag.held.snapped } : null;
