@@ -34,9 +34,11 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
 - **`/targets`**: drop targets (`{ id, priority, hit, slot?, label?, free? }`) for the desk's constructions,
   toolbar hosts (each with its `slot`, and `allows` to leave out places a group may not take) and pane zones; and
   `keyboardStops`, one ordered list of places for the arrow keys and a "Move to" menu.
-- **`/panels`**: tool panels with string ids: full-height columns per side, each with its own width; folding to a
-  title bar or a rail; give-way by age when the pages run out of room; resizable floats, some pinned to the view;
-  their drop targets; and a stored form.
+- **`/panels`**: tool panels with string ids: full-height columns per side, each with its own width, shown as a
+  stack of sections or as tabs; folding to a title bar or a rail; give-way by age when the pages run out of room (and,
+  opt-in, when a column runs out of height); resizable floats, some pinned to the view; their drop targets; and a
+  stored form.
+- **`/desk`**: desk presets (`docks`, `dockTear`, `navigator`) as data on `/panels`: options and a start state.
 
 Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
@@ -210,9 +212,22 @@ gain its room), and its stored place and width are untouched, so unfolding puts 
 every column on a side is folded does the side show its rail. Give-way's folds (`column-folded`, `kept-folded`) go to
 the rail in both modes.
 
+**Tabs**: a column with `show: "tabs"` shows one panel at a time, its `active` one (default: the first), under a strip
+`options.tabs` tall (default 28). The strip is `PlacedColumn.strip`, and each panel's `tab` is its header's rect in it
+(panel order, equal widths); the others are `hidden`. A tabbed column folds as a whole: with its active panel in
+`folded` it shows only its strip (the active panel is a `"bar"` there); with every panel folded it goes to the rail,
+or rides, as a stack column does. `showTabs(state, side, index, on)` switches a column; `activate(state, id)` shows a
+tab and counts as a use. A drop `into` a tabbed column adds a tab at the end and shows it.
+
+**Section heights** (opt-in): a `PanelDef.height` (`{ min, natural }`) gives a section of a stack column its natural
+height; the column's last open section takes the rest, never under its min, and sections without one share what is
+left equally. When the open sections' mins and the bars don't fit, open sections fold to bars by the give-way policy
+(kept last, never the last open one), each with a `section-folded` note; that never writes `folded`, so a taller stage
+unfolds them. Columns without `height` defs lay out as before.
+
 **Changes** are pure: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock(state, id, side, index, { into?, width? })`,
 `float`, `pin(state, id, on, view?, shown?)` (pass the layout's rect as `shown` so a clamped float pins where it
-shows), `resizeColumn`, `resizeFloat`.
+shows), `resizeColumn`, `resizeFloat`, `showTabs`, `activate`.
 
 **Drop targets**: `panelTargets({ defs, state, id, stage, options?, allows? })` gives `column:<side>:<i>` (a new
 column as wide as the panel's own width), `into:<side>:<i>` (stack into a column), `rail:<side>` (dock folded) and
@@ -243,17 +258,52 @@ console.log(stops.map((s) => (s.home ? "home" : s.id))); // [ 'rail:left', 'colu
 parsed data back and never throws. Anything but an object of version 1 is `{ ok: false, error }`; inside one, unknown
 or repeated ids and malformed entries are dropped and listed in `dropped`, and widths and float sizes are clamped to
 the defs. Version 1 only gains optional fields: a field this reader doesn't know is skipped and listed in `dropped`
-too (`"theme"`, `"sides.bottom"`, `"column.<field>"`, `"float.<field>"`, `"clock.<id>"`). The note codes
-(`PanelsNoteCode`):
+too (`"theme"`, `"sides.bottom"`, `"column.<field>"`, `"float.<field>"`, `"clock.<id>"`). A column's `show` and
+`active` are carried; an `active` that isn't one of the column's panels is dropped as `"column.active:<id>"`. The note
+codes (`PanelsNoteCode`):
 
 | Code | Says | Also |
 |---|---|---|
 | `column-shrunk` | a column narrowed toward its minimum | `side`, `column`, `items`, `from`, `to` |
 | `column-folded` | a column folded to its side's rail | `side`, `column`, `items` |
 | `kept-folded` | a kept column folded: the pages needed the room | `side`, `column`, `items` |
+| `section-folded` | a section of a stack column folded to a bar: the column was short | `side`, `column`, `items` |
 | `pages-under-min` | the pages are under `pagesMin` with every column folded | `width`, `min` |
 | `float-resized` | a float shrank to fit the view | `items` |
 | `float-clamped` | a float moved to stay in the view | `items` |
+
+## Desk presets
+
+`@n-uf/placement/desk` holds desk presets as data on `./panels`: each is panels options and a start state. It imports
+only the panels entry, carries no titles or words and wires no toolbar; the app names the presets and draws them.
+
+| Preset | Columns and floats |
+|---|---|
+| `docks` | one stack column per side, sections at their natural heights, folding to the rail; no floats |
+| `dockTear` | as `docks`, and panels may float (tear-off and dock-back); one panel floats at the start |
+| `navigator` | a tabbed column on the left, a stack column on the right; no floats |
+
+```ts
+import { PRESETS, presetLayout, presetTargets } from "@n-uf/placement/desk";
+import type { PanelDef } from "@n-uf/placement/panels";
+
+const defs: PanelDef[] = [
+  { id: "files", width: { min: 200, natural: 240, max: 360 }, height: { min: 80, natural: 160 } },
+  { id: "outline", width: { min: 200, natural: 240, max: 360 }, height: { min: 80, natural: 200 } },
+  { id: "history", width: { min: 200, natural: 240, max: 360 } },
+];
+const nav = PRESETS.navigator;
+const state = nav.start(defs, { left: ["files", "outline"] });
+const layout = presetLayout(nav, defs, state, { width: 1200, height: 600 });
+console.log(layout.columns[0]!.strip, layout.items.get("outline")!.hidden); // { x: 0, y: 0, width: 240, height: 28 } true
+const targets = presetTargets(nav, { defs, state, id: "history", stage: { width: 1200, height: 600 } });
+console.log(targets.some((t) => t.id === "float")); // false
+```
+
+`presetLayout(preset, defs, state, stage, options?)` is `layoutPanels` with the preset's options under the caller's;
+`presetTargets(preset, input)` and `presetDrop(preset, input, target, point, grab)` are `panelTargets` and `panelDrop`
+the same way, offering only the places the preset allows (`presetInput` gives that input). `./dock` stays as it is for
+now.
 
 ## Pane zones
 

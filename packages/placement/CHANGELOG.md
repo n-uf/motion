@@ -3,6 +3,25 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+- `@n-uf/placement/panels`:
+  - Tabs: `Column.show` (`"stack"`, the default, or `"tabs"`) and `Column.active`. A tabbed column draws a strip
+    `options.tabs` tall (new chrome size, default 28; `PlacedColumn.strip`); its active panel takes the rest and the
+    others are `hidden`, each with its `tab` rect in the strip. It folds as a whole: its active panel folded shows only
+    the strip, every panel folded goes to the rail (or rides). `showTabs(state, side, index, on)`, `activate(state, id)`
+    (a use). A drop `into` a tabbed column adds a tab at the end and shows it; a panel that leaves takes its `active`
+    mark with it.
+  - Height give-way, opt-in: `PanelDef.height` (`{ min, natural }`). In a stack column where an open section has one,
+    sections get their natural heights and the last open one the rest (never under its min); short of room, open
+    sections fold to bars in give-way policy order (kept last, never the last open one), note `section-folded`. It never
+    writes `folded`. Columns without `height` defs are unchanged.
+  - The stored form carries a column's `show` and `active` (optional v1 fields); an `active` that isn't in its column
+    is dropped as `"column.active:<id>"`, an unknown `show` as `"column.show"`.
+- New entry `@n-uf/placement/desk`: presets as data on `./panels` (`docks`, `dockTear`, `navigator`; `PRESETS`,
+  `presetLayout`, `presetTargets`, `presetDrop`, `presetInput`). It imports only `./panels`' public index (a guard test
+  holds it to that) and carries no titles, words or toolbar wiring. `./dock` is unchanged.
+
 ## 26.11.8
 
 - `@n-uf/placement/panels`:

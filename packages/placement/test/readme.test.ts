@@ -4,8 +4,23 @@ import { DEFAULT_OPTIONS, createDesk, liftOut } from "../src/dock";
 import { deskDrop, deskTargets, floatTarget, hostTargets, keyboardStops, paneZone, type PaneZone } from "../src/targets";
 import { arrangement, hostOf, layoutHost, readArrangement, storeArrangement, type Place } from "../src/toolbar";
 import { createPanels, homePlace, keep, layoutPanels, panelDrop, panelTargets, readPanels, storePanels, type PanelDef } from "../src/panels";
+import { PRESETS, presetLayout, presetTargets } from "../src/desk";
 
 describe("README examples", () => {
+  it("desk presets", () => {
+    const defs: PanelDef[] = [
+      { id: "files", width: { min: 200, natural: 240, max: 360 }, height: { min: 80, natural: 160 } },
+      { id: "outline", width: { min: 200, natural: 240, max: 360 }, height: { min: 80, natural: 200 } },
+      { id: "history", width: { min: 200, natural: 240, max: 360 } },
+    ];
+    const nav = PRESETS.navigator;
+    const state = nav.start(defs, { left: ["files", "outline"] });
+    const layout = presetLayout(nav, defs, state, { width: 1200, height: 600 });
+    expect([layout.columns[0]!.strip, layout.items.get("outline")!.hidden]).toEqual([{ x: 0, y: 0, width: 240, height: 28 }, true]);
+    const targets = presetTargets(nav, { defs, state, id: "history", stage: { width: 1200, height: 600 } });
+    expect(targets.some((t) => t.id === "float")).toBe(false);
+  });
+
   it("a desk", () => {
     const desk = createDesk({
       panels: [
