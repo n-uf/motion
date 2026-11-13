@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { overlap, type Rect } from "../src/geometry";
 import {
   DEFAULT_PANELS_OPTIONS,
+  IDENTITY_VIEW,
   close,
   createPanels,
   dock,
@@ -18,6 +19,7 @@ import {
   readPanels,
   resizeColumn,
   resizeFloat,
+  samePlaces,
   storePanels,
   toggleFold,
   whereIs,
@@ -260,12 +262,56 @@ describe("floats", () => {
     expect(up.items.get("history")!.rect).toMatchObject({ x: 100, y: -200 });
     expect(up.items.get("history")!.clamped).toBeUndefined();
     expect(up.items.get("preview")!.rect).toMatchObject({ x: 40, y: 380 });
-    // Page space is clamped against the view's extent at pan 0: the view's size over the scale.
+    // At pan 0 the SCREEN rect fits the view: the size is screen px, only the position is page px (x ∈ [0, (W - w) / k]).
     const far = createPanels(DEFS, { floats: [{ id: "history", x: 1100, y: 100 }] });
     const zoomed = layoutPanels(DEFS, far, VIEW, { view: { x: 0, y: 0, scale: 2 } }).items.get("history")!;
-    // The extent is 600 × 350 page px: x to 600 - 280, y to 350 - 300; then scaled into the view.
-    expect(zoomed.rect).toMatchObject({ x: 2 * (600 - 280), y: 2 * (350 - 300), width: 280 });
+    expect(zoomed.rect).toEqual({ x: 1200 - 280, y: 200, width: 280, height: 300 });
     expect(zoomed.clamped).toBe(true);
+    // Zoomed out: a 400 px float stored at page x 1800 would show at 900..1300; it is held at 800..1200.
+    const out = createPanels(DEFS, { floats: [{ id: "history", x: 1800, y: 100, width: 400 }] });
+    const half = layoutPanels(DEFS, out, VIEW, { view: { x: 0, y: 0, scale: 0.5 } }).items.get("history")!;
+    expect(half.rect).toEqual({ x: 800, y: 50, width: 400, height: 300 });
+    // Any scale: the screen rect at pan 0 lies in the view, and the stored rect is untouched.
+    for (const scale of [0.5, 1, 2]) {
+      for (const [x, y] of [[-500, -500], [3000, 3000], [600, 200]] as const) {
+        const s1 = createPanels(DEFS, { floats: [{ id: "history", x, y }] });
+        const r = layoutPanels(DEFS, s1, VIEW, { view: { x: 0, y: 0, scale } }).items.get("history")!.rect;
+        expect(r.x).toBeGreaterThanOrEqual(0);
+        expect(r.y).toBeGreaterThanOrEqual(0);
+        expect(r.x + r.width).toBeLessThanOrEqual(VIEW.width + 1e-9);
+        expect(r.y + r.height).toBeLessThanOrEqual(VIEW.height + 1e-9);
+        expect(s1.floats[0]!.rect).toMatchObject({ x, y });
+      }
+    }
+  });
+
+  it("keeps the title bar and floatVisible px of an oversized float on screen at any scale", () => {
+    const VIEW_S = { width: 250, height: 150 };
+    for (const scale of [0.5, 2]) {
+      for (const [x, y] of [[900, 600], [-900, -600]] as const) {
+        const s = createPanels(DEFS, { floats: [{ id: "preview", x, y }] });
+        const r = layoutPanels(DEFS, s, VIEW_S, { view: { x: 0, y: 0, scale } }).items.get("preview")!.rect;
+        expect([r.width, r.height]).toEqual([300, 200]);
+        // Its title bar is in the view, with 48 px of its width.
+        expect(r.y).toBeGreaterThanOrEqual(-1e-9);
+        expect(r.y + DEFAULT_PANELS_OPTIONS.bar).toBeLessThanOrEqual(VIEW_S.height + 1e-9);
+        expect(Math.min(r.x + r.width, VIEW_S.width) - Math.max(r.x, 0)).toBeGreaterThanOrEqual(48 - 1e-9);
+      }
+    }
+  });
+
+  it("pins a clamped float where it shows, not where it is stored", () => {
+    const s = createPanels(DEFS, { floats: [{ id: "history", x: 1500, y: 100 }] });
+    const shown = layoutPanels(DEFS, s, VIEW).items.get("history")!.rect;
+    expect(shown.x).toBe(1200 - 280);
+    const pinned = pin(s, "history", true, IDENTITY_VIEW, shown);
+    expect(pinned.floats[0]).toEqual({ id: "history", rect: shown, pinned: true });
+    expect(layoutPanels(DEFS, pinned, VIEW).items.get("history")!.rect).toEqual(shown);
+    // Without `shown`, the stored rect is converted (and the clamp moves it back at layout).
+    expect(pin(s, "history", true).floats[0]!.rect.x).toBe(1500);
+    // Unpinning converts where it shows into page space.
+    const view = { x: -100, y: 0, scale: 2 };
+    expect(pin(pinned, "history", false, view, shown).floats[0]!.rect).toMatchObject({ x: (shown.x + 100) / 2, y: shown.y / 2 });
   });
 });
 
@@ -314,6 +360,17 @@ describe("targets", () => {
     expect(ts.find((t) => t.id === "rail:left")!.priority).toBe(1);
     // Its own place (a column of its own between Files and Notes) is no target.
     expect(ts.some((t) => samePlace(t.make({ x: 0, y: 0 }, { x: 0, y: 0 }), desk()))).toBe(false);
+  });
+
+  it("leaves out its own place even when the stored width is past the column's max", () => {
+    // Outline's own column, stored 900 px wide (max 320): laid out at 320, the same place as a new 320 px column there.
+    const s = resizeColumn(desk(), "left", 1, 900);
+    expect(s.sides.left[1]!.width).toBe(900);
+    const ids = panelTargets(input("outline", s)).map((t) => t.id);
+    expect(ids).not.toContain("column:left:1");
+    expect(ids).toContain("column:left:0");
+    expect(samePlaces(dock(s, "outline", "left", 1, { width: 320 }), s)).toBe(false);
+    expect(samePlaces(dock(s, "outline", "left", 1, { width: 320 }), s, DEFS)).toBe(true);
   });
 
   it("filters out what a panel may not take", () => {
