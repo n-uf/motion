@@ -3,10 +3,15 @@
  * and a start state; it carries no titles, no words and no toolbar wiring (the app names presets and wires its
  * toolbar). It imports only the panels entry's public index, so an app that imports only `./panels` loads none of it.
  *
- * - `docks`: one stack column per side; sections at their natural heights when the defs give `height`; short of width a
- *   column folds to its side's rail. No floats.
+ * - `docks`: one stack column per side and a bottom band between them (reserved: it shortens the pages); sections at
+ *   their natural heights when the defs give `height`; short of width a column folds to its side's rail, short of
+ *   height the band folds to a bar. No floats.
+ * - `docksFull`: as docks, with the bottom band full width (the columns stand on it).
  * - `dockTear`: as docks, and panels may float (tear-off and dock-back); one panel floats in the start state.
- * - `navigator`: a tabbed column on the left, a stack column on the right. No floats.
+ * - `navigator`: a tabbed column on the left, a stack column on the right. No band, no floats.
+ *
+ * The bottom band starts with the hint's `bottom` panels, else the last def whose `sides` names "bottom" (a def
+ * without `sides` may be dropped there, but doesn't start there).
  */
 import {
   createPanels,
@@ -25,12 +30,13 @@ import {
   type PanelsState,
 } from "../panels";
 
-export type PresetId = "docks" | "dockTear" | "navigator";
+export type PresetId = "docks" | "docksFull" | "dockTear" | "navigator";
 
-/** Which panels start on which side (ids in order); the others are placed by the preset. */
+/** Which panels start on which side (ids in order), and in the bottom band (a preset with one); the others are placed by the preset. */
 export interface DeskHint {
   readonly left?: readonly string[];
   readonly right?: readonly string[];
+  readonly bottom?: readonly string[];
 }
 
 export interface DeskPreset {
@@ -68,19 +74,56 @@ function split(defs: readonly PanelDef[], hint: DeskHint = {}): { left: string[]
 
 const columns = (ids: readonly string[]): string[][] => (ids.length ? [[...ids]] : []);
 
+/** The bottom band's start: the hint's, else the last def whose `sides` names "bottom". */
+function bottomOf(defs: readonly PanelDef[], hint: DeskHint = {}): string[] {
+  const known = new Set(defs.map((d) => d.id));
+  if (hint.bottom) return hint.bottom.filter((id) => known.has(id));
+  const last = [...defs].reverse().find((d) => d.sides?.includes("bottom"));
+  return last ? [last.id] : [];
+}
+
+/** The defs and hint with the band's panels taken out, so the sides split the rest. */
+const sidesOnly = (defs: readonly PanelDef[], hint: DeskHint | undefined, band: readonly string[]): [PanelDef[], DeskHint | undefined] => [
+  defs.filter((d) => !band.includes(d.id)),
+  hint && { ...hint, left: hint.left?.filter((id) => !band.includes(id)), right: hint.right?.filter((id) => !band.includes(id)) },
+];
+
+const banded = (start: (defs: readonly PanelDef[], hint?: DeskHint) => PanelsState) => (defs: readonly PanelDef[], hint?: DeskHint): PanelsState => {
+  const bottom = bottomOf(defs, hint);
+  const [rest, h] = sidesOnly(defs, hint, bottom);
+  const s = start(rest, h);
+  return bottom.length ? createPanels(defs, { ...startOf(s), bottom }) : s;
+};
+
+/** A plain start back from a state (columns, floats and lists; the clock is rebuilt in listing order). */
+function startOf(s: PanelsState): Parameters<typeof createPanels>[1] {
+  return {
+    left: s.sides.left.map((c) => c.panels),
+    right: s.sides.right.map((c) => c.panels),
+    floats: s.floats.map((f) => ({ id: f.id, x: f.rect.x, y: f.rect.y, width: f.rect.width, height: f.rect.height, ...(f.pinned ? { pinned: true } : {}) })),
+    folded: s.folded,
+    kept: s.kept,
+    closed: s.closed,
+  };
+}
+
 const docksStart = (defs: readonly PanelDef[], hint?: DeskHint): PanelsState => {
   const { left, right } = split(defs, hint);
   return createPanels(defs, { left: columns(left), right: columns(right) });
 };
 
-const docks: DeskPreset = { id: "docks", options: { fold: "rail" }, floats: false, start: docksStart };
+const BOTTOM = { mode: "reserved", span: "between" } as const;
+
+const docks: DeskPreset = { id: "docks", options: { fold: "rail", bands: { bottom: BOTTOM } }, floats: false, start: banded(docksStart) };
+
+const docksFull: DeskPreset = { id: "docksFull", options: { fold: "rail", bands: { bottom: { ...BOTTOM, span: "full" } } }, floats: false, start: banded(docksStart) };
 
 const dockTear: DeskPreset = {
   id: "dockTear",
-  options: { fold: "rail", floats: "clamp" },
+  options: { fold: "rail", floats: "clamp", bands: { bottom: BOTTOM } },
   floats: true,
   // As docks, with the right side's last panel that may float torn off, next to the left column.
-  start(defs, hint) {
+  start: banded((defs, hint) => {
     const { left, right } = split(defs, hint);
     const can = (id: string): boolean => defs.find((d) => d.id === id)?.floats !== false;
     const torn = [...right].reverse().find(can) ?? [...left].reverse().find(can);
@@ -92,7 +135,7 @@ const dockTear: DeskPreset = {
       right: columns(keep(right)),
       ...(torn ? { floats: [{ id: torn, x: leftW + 24, y: 24, width: size.natural.width, height: size.natural.height }] } : {}),
     });
-  },
+  }),
 };
 
 const navigator: DeskPreset = {
@@ -105,7 +148,7 @@ const navigator: DeskPreset = {
   },
 };
 
-export const PRESETS: Readonly<Record<PresetId, DeskPreset>> = { docks, dockTear, navigator };
+export const PRESETS: Readonly<Record<PresetId, DeskPreset>> = { docks, docksFull, dockTear, navigator };
 
 /** `layoutPanels` with the preset's options under the caller's. */
 export function presetLayout(preset: DeskPreset, defs: readonly PanelDef[], state: PanelsState, stage: Stage, options: Partial<PanelsOptions> = {}): PanelsLayout {

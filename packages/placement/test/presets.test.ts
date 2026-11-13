@@ -13,7 +13,7 @@ const DEFS: PanelDef[] = [
   { id: "inspector", width: w(200, 240, 360), height: h(100, 180), sides: ["right"] },
   { id: "history", width: w(200, 240, 360), height: h(80, 160), float: { min: { width: 200, height: 160 }, natural: { width: 240, height: 260 } } },
 ];
-const IDS: PresetId[] = ["docks", "dockTear", "navigator"];
+const IDS: PresetId[] = ["docks", "docksFull", "dockTear", "navigator"];
 const STAGE = { width: 1400, height: 700 };
 
 describe("presets", () => {
