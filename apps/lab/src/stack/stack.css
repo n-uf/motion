@@ -1,0 +1,73 @@
+/* The edge-stack pages: a column and a bar of sample panels and groups, on the site's window tokens (src/shell/tokens.css). */
+.st-stage, .st-row-wrap {
+  --st-win: var(--win-bar); --st-chrome: var(--win-frame); --st-edge: var(--win-edge); --st-ink: var(--win-text); --st-muted: var(--win-muted);
+  --st-accent: var(--accent); --st-desk: var(--win-well); --st-paper: var(--win-paper);
+}
+.st-controls label { white-space: nowrap; }
+.st-controls output { font-family: var(--font-mono); font-size: 12px; min-width: 5em; display: inline-block; }
+.st-items { border-collapse: collapse; width: auto; }
+.st-items th, .st-items td { padding: 3px 12px 3px 0; border-bottom: 0; }
+.st-items button { height: 22px; padding: 0 8px; }
+.st-wrap { overflow-x: auto; padding: 4px 0 8px; }
+
+/* The stage: the column on the left, the bar across the top of the pages. */
+.st-stage {
+  position: relative; border: 1px solid var(--st-edge); border-radius: var(--win-r); background: var(--st-desk);
+  color: var(--st-ink); font: 12.5px/1.35 var(--font-sans); user-select: none; touch-action: none; overflow: hidden;
+}
+.st-stage > * { position: absolute; }
+.st-paper { background: var(--st-paper); border: 1px solid var(--st-edge); border-radius: 4px; padding: 18px 24px; box-shadow: var(--shadow-1); }
+.st-paper h4 { margin: 0 0 12px; font-size: 13px; }
+.st-paper .st-l { height: 6px; margin: 0 0 10px; border-radius: 3px; background: var(--win-paper-line); opacity: 0.6; }
+.st-paper .st-l.short { width: 55%; }
+
+.st-zone-label { font: 600 10.5px/1 var(--font-sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--st-muted); pointer-events: none; }
+
+/* A stack: its items at their rects, edge to edge. */
+.st-stack { position: absolute; background: color-mix(in srgb, var(--st-chrome) 55%, transparent); box-shadow: inset 0 0 0 1px var(--st-edge); border-radius: 0; }
+.st-item { position: absolute; box-sizing: border-box; overflow: hidden; background: var(--st-win); box-shadow: inset 0 0 0 1px var(--st-edge); display: flex; }
+.st-panel { flex-direction: column; }
+.st-head { flex: none; height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: var(--st-chrome); cursor: grab; white-space: nowrap; }
+.st-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; }
+.st-caret { color: var(--st-muted); }
+.st-grip, .st-gh { display: inline-grid; grid-template-columns: repeat(2, 3px); gap: 2px; flex: none; }
+.st-grip i { width: 3px; height: 3px; border-radius: 50%; background: var(--grip); }
+.st-head:hover .st-grip i, .st-gh:hover .st-grip i { background: var(--grip-hot); }
+.st-body { margin: 0; padding: 4px 10px; list-style: none; overflow: hidden; }
+.st-body li { padding: 3px 0; border-bottom: 1px solid var(--st-edge); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-group { align-items: center; gap: 6px; padding: 0 8px; }
+.st-gh { cursor: grab; padding: 6px 2px; }
+.st-pill { padding: 3px 9px; border: 1px solid var(--st-edge); border-radius: 999px; background: var(--st-win); font-size: 11.5px; white-space: nowrap; }
+.st-col { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; }
+.st-group[data-kind="stacked"] { align-items: center; }
+.st-group[data-kind="stacked"] .st-pill { padding: 1px 8px; }
+.st-group[data-kind="icons"] { padding: 0 4px; gap: 4px; }
+.st-ico { width: 22px; height: 22px; padding: 0; text-align: center; font: 600 11px/20px var(--font-sans); border-radius: 5px; }
+.st-stack.st-column .st-group[data-kind="icons"] { flex-direction: column; justify-content: center; }
+.st-stack.st-column .st-group[data-kind="icons"] .st-gh { display: none; }
+.st-stack.st-row .st-group[data-kind="icons"] .st-gh { padding: 6px 0; }
+.st-panel[data-kind="rail"] { align-items: center; justify-content: center; flex-direction: row; gap: 2px; cursor: grab; }
+.st-badge { width: 20px; height: 20px; border-radius: 5px; background: var(--st-chrome); text-align: center; font: 700 11px/20px var(--font-sans); }
+.st-count { font: normal 10px/1 var(--font-sans); color: var(--st-muted); }
+.st-panel[data-kind="header"], .st-panel[data-kind="rail"] { flex-direction: row; }
+.st-menu { position: absolute; box-sizing: border-box; border: 0; background: var(--st-chrome); box-shadow: inset 0 0 0 1px var(--st-edge); color: var(--st-ink); font: 700 11px/1 var(--font-sans); cursor: pointer; padding: 0; }
+.st-menu:hover { color: var(--st-accent); }
+.st-menu[hidden], .st-item[hidden] { display: none; }
+.st-menu-list { position: absolute; z-index: 30; margin: 0; padding: 4px 0; list-style: none; background: var(--st-win); box-shadow: inset 0 0 0 1px var(--st-edge), var(--shadow-pop); border-radius: 6px; min-width: 110px; }
+.st-menu-list li { padding: 2px 12px; font-size: 11.5px; line-height: 20px; }
+.st-menu-list[hidden] { display: none; }
+
+/* The drop page: the held item, the preview, the marker. */
+.st-stage .st-held { z-index: 20; pointer-events: none; opacity: 0.94; box-shadow: inset 0 0 0 1px var(--st-edge), var(--shadow-pop); cursor: grabbing; }
+.st-stage .st-held[hidden] { display: none; }
+.st-ind { z-index: 15; pointer-events: none; border: 2px dashed var(--signal); border-radius: 4px; background: var(--signal-soft); }
+.st-ind-label { z-index: 16; pointer-events: none; padding: 2px 8px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.st-marker { z-index: 17; pointer-events: none; background: var(--signal); }
+.st-ind[hidden], .st-ind-label[hidden], .st-marker[hidden] { display: none; }
+.st-stage.dragging, .st-stage.dragging * { cursor: grabbing; }
+.st-hit { z-index: 14; pointer-events: none; border: 1px dotted var(--st-muted); opacity: 0.55; }
+.st-hit[hidden] { display: none; }
+
+#st-status { min-height: 2.9em; margin: 4px 0 12px; color: var(--text-2); max-width: 980px; }
+.st-try { max-width: 980px; }
+.st-try li { margin-bottom: 4px; }
