@@ -12,11 +12,11 @@
  *   panel come after every other column; if the pages still don't fit, they fold too (`kept-folded`). Folding by
  *   give-way never writes `folded`, so a wider stage brings the column back.
  * - Floats: "clamp" keeps a float in the view at layout time (the state keeps the stored rect, so a larger view
- *   brings it back where it was); "free" never moves one. A pinned float is in view space and clamped against the
- *   view; an unpinned one is in page space, clamped against the view's extent at pan 0 (its size over the scale),
- *   then moved by the view's offset and scale, so it scrolls with the page (its size is never scaled).
+ *   brings it back where it was); "free" never moves one. A float's size is never scaled. A pinned float is in view
+ *   space and clamped against the view; an unpinned one has its position in page space, clamped so that its screen
+ *   rect at pan 0 fits the view, then moved by the view's offset and scale, so it scrolls with the page.
  */
-import { clampInto, rect, type Rect, type Size } from "../geometry";
+import { rect, type Rect, type Size } from "../geometry";
 import { DEFAULT_PANELS_OPTIONS, SIDES, defOf, floatSize, toView, type PanelDef, type PanelsOptions, type PanelsState, type Side } from "./model";
 
 /**
@@ -211,26 +211,23 @@ export function layoutPanels(defs: readonly PanelDef[], state: PanelsState, stag
   const pages = rect(x0, 0, Math.max(0, x1 - x0), H);
   if (pages.width < opt.pagesMin) notes.push({ code: "pages-under-min", width: pages.width, min: opt.pagesMin });
 
-  // Floats, clamped in their own space unless free: a pinned float against the view; an unpinned one in page space
-  // against the view's extent at pan 0 (the view's size over the scale), so it still scrolls with the page.
+  // Floats, clamped unless free. A float's size is screen px in both spaces (never scaled); only an unpinned float's
+  // position is in page space. The clamp keeps the SCREEN rect in the view: a pinned float where it is, an unpinned
+  // one as it shows at pan 0, so it still scrolls with the page. In page units (k = the scale, 1 when pinned) a
+  // screen interval [lo, hi] is [lo / k, hi / k].
   state.floats.forEach((f, i) => {
     if (closed.has(f.id)) return;
     const at = f.rect;
     const k = f.pinned ? 1 : opt.view.scale;
-    const VW = W / k;
-    const VH = H / k;
-    let r = { ...at };
+    const r = { ...at };
     if (opt.floats === "clamp") {
       const lim = floatSize(defOf(defs, f.id)).min;
-      r.width = Math.max(lim.width, Math.min(r.width, VW));
-      r.height = Math.max(lim.height, Math.min(r.height, VH));
+      r.width = Math.max(lim.width, Math.min(r.width, W));
+      r.height = Math.max(lim.height, Math.min(r.height, H));
       if (r.width !== at.width || r.height !== at.height) notes.push({ code: "float-resized", items: [f.id] });
-      if (r.width <= VW && r.height <= VH) r = clampInto(r, rect(0, 0, VW, VH));
-      else {
-        // Too big even at its minimum: its title bar stays in the view, and `floatVisible` px of its width.
-        r.x = r.width <= VW ? clamp(r.x, 0, VW - r.width) : clamp(r.x, opt.floatVisible - r.width, VW - opt.floatVisible);
-        r.y = r.height <= VH ? clamp(r.y, 0, VH - r.height) : clamp(r.y, 0, VH - opt.bar);
-      }
+      // Fits: wholly in the view. Too big even at its minimum: its title bar stays in, and `floatVisible` px of its width.
+      r.x = r.width <= W ? clamp(r.x, 0, (W - r.width) / k) : clamp(r.x, (opt.floatVisible - r.width) / k, (W - opt.floatVisible) / k);
+      r.y = r.height <= H ? clamp(r.y, 0, (H - r.height) / k) : clamp(r.y, 0, (H - opt.bar) / k);
       if (r.x !== at.x || r.y !== at.y) notes.push({ code: "float-clamped", items: [f.id] });
     }
     const clamped = r.x !== at.x || r.y !== at.y || r.width !== at.width || r.height !== at.height;
