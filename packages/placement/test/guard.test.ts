@@ -44,6 +44,19 @@ describe("the library stays pure", () => {
     expect(files(join(root, "src", "panels")).length).toBeGreaterThanOrEqual(4);
   });
 
+  it("keeps ./desk on ./panels' public index only", () => {
+    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { exports: Record<string, unknown> };
+    expect(Object.keys(pkg.exports)).toContain("./desk");
+    const desk = files(join(root, "src", "desk"));
+    expect(desk.length).toBeGreaterThan(0);
+    for (const path of desk) {
+      const specs = [...code(readFileSync(path, "utf8")).matchAll(/(?:\bfrom\s+|\bimport\s*\(?\s*)["']([^"']+)["']/g)].map((m) => m[1]);
+      expect(specs).toContain("../panels");
+      // Its own files may import each other; anything else only through "../panels".
+      expect(specs.filter((s) => !s!.startsWith("./") && s !== "../panels")).toEqual([]);
+    }
+  });
+
   it("has no dependencies", () => {
     const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { dependencies?: object; peerDependencies?: object };
     expect([pkg.dependencies, pkg.peerDependencies]).toEqual([undefined, undefined]);
