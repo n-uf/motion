@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { overlap } from "../src/geometry";
 import { PRESETS, presetTargets } from "../src/desk";
-import { createPanels, dock, homePlace, panelDrop, panelTargets, placeRank, showTabs, type PanelDef, type PanelsState } from "../src/panels";
+import { close, createPanels, dock, homePlace, panelDrop, panelTargets, placeRank, showTabs, type PanelDef, type PanelsState } from "../src/panels";
 import { keyboardStops } from "../src/targets";
 
 const w = (min: number, natural: number, max: number) => ({ min, natural, max });
@@ -35,6 +35,8 @@ describe("dock into a column at a position", () => {
     expect(dock(s, "inspector", "left", 0, { into: true, at: 99 }).sides.left[0]!.panels).toEqual(bottom);
     expect(dock(s, "inspector", "left", 0, { into: true, at: Number.NaN }).sides.left[0]!.panels).toEqual(bottom);
     expect(dock(s, "inspector", "left", 0, { into: true, at: -3 }).sides.left[0]!.panels[0]).toBe("inspector");
+    expect(dock(s, "inspector", "left", 0, { into: true, at: -Infinity }).sides.left[0]!.panels[0]).toBe("inspector");
+    expect(dock(s, "inspector", "left", 0, { into: true, at: Infinity }).sides.left[0]!.panels).toEqual(bottom);
     expect(dock(s, "inspector", "left", 0, { into: true, at: 1.7 }).sides.left[0]!.panels).toEqual(["files", "inspector", "outline", "notes"]);
     // `at` without `into` is ignored: a new column.
     expect(dock(s, "inspector", "left", 0, { at: 0 }).sides.left.map((c) => c.panels)).toEqual([["inspector"], ["files", "outline", "notes"]]);
@@ -100,6 +102,26 @@ describe("stackSlots targets", () => {
     expect(d.state.sides.left[0]!.panels).toEqual(["notes", "files", "outline"]);
     expect(d.slot).toEqual(d.layout.items.get("notes")!.rect);
     expect(d.slot.y).toBeCloseTo(t.marker!.y);
+  });
+
+  it("put every marker where the panel's top lands, with and without height defs", () => {
+    const tall: PanelDef[] = DEFS.map((d) => ({ ...d, height: { min: 80, natural: 180 } }));
+    for (const defs of [DEFS, tall]) {
+      const inp = { defs, state: createPanels(defs, { left: [["files", "outline", "notes"]], right: [["inspector"], ["search"]] }), id: "search", stage: STAGE, stackSlots: true };
+      const into = panelTargets(inp).filter((t) => t.id.startsWith("into:left:0"));
+      expect(into).toHaveLength(4);
+      for (const t of into) expect(t.marker!.y).toBeCloseTo(panelDrop(inp, t, { x: t.hit.x + 5, y: t.hit.y + 5 }, { x: 0, y: 0 }).slot.y);
+    }
+  });
+
+  it("keep their slots with a closed member, and the drop keeps it in its place", () => {
+    const s = close(stacked(), "outline"); // Files, (Outline closed), Notes
+    const inp = input("search", s, { stackSlots: true });
+    const ids = panelTargets(inp).filter((t) => t.id.startsWith("into:left:0")).map((t) => t.id);
+    // Slots before the members shown, by their index in the column's list (Notes is 2).
+    expect(ids).toEqual(["into:left:0:0", "into:left:0:2", "into:left:0"]);
+    const t = panelTargets(inp).find((x) => x.id === "into:left:0:2")!;
+    expect(panelDrop(inp, t, { x: t.hit.x + 5, y: t.hit.y + 5 }, { x: 0, y: 0 }).state.sides.left[0]!.panels).toEqual(["files", "outline", "search", "notes"]);
   });
 
   it("leave a tabbed column with its one `into` target", () => {

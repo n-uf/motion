@@ -7,8 +7,9 @@
  * - `into:<side>:<i>` (2): a column's area: the panel stacks at its bottom.
  * - `into:<side>:<i>:<k>` (2), opt-in (`stackSlots`): before the stacked column's member k. The column's area is split
  *   at its members' middles: the top half of member k (and the lower half of the one above) goes before k, and
- *   `into:<side>:<i>` keeps only what lies below the last member's middle. `marker` is the line where the panel will
- *   go, for the app to draw. A tabbed column keeps its one `into` target.
+ *   `into:<side>:<i>` keeps only what lies below the last member's middle. `marker` is the line where the panel's top
+ *   lands after the drop, for the app to draw. k counts closed members too (they keep their place in the column's
+ *   list); only the members shown get slots. A tabbed column keeps its one `into` target.
  * - `rail:<side>` (1): the side's rail, or its outer edge: the panel docks folded.
  * - `float` (3, free): anywhere; it floats where it is let go, kept in the view as the float option says.
  * - `band:<edge>:<i>` (2), for each edge with a band (`options.bands`): the slots between a band's panels and at both
@@ -46,8 +47,9 @@ export interface PanelTarget extends Target {
   /** The state a drop here makes, with the pointer at `p` holding the panel at `grab` from its top-left corner. */
   readonly make: (p: Point, grab: Point) => PanelsState;
   /**
-   * With `stackSlots`, on `into` targets of a stacked column: the line where the panel will go, as a rect zero tall at
-   * that line, as wide as the column (between two members, at its top or under its last member).
+   * With `stackSlots`, on `into` targets of a stacked column: the line where the panel's top lands after the drop (the
+   * column re-shares its height, so this is the drop's layout, not today's gap), as a rect zero tall and as wide as
+   * the column. `panelDrop(...).slot` is the whole rect.
    */
   readonly marker?: Rect;
 }
@@ -178,25 +180,34 @@ export function panelTargets(input: PanelTargetInput): PanelTarget[] {
       band(left ? c.rect.x : c.rect.x + c.rect.width, k === 0, c.index);
       const col = s0.sides[side][c.index]!;
       const into = () => dock(state, id, side, c.index, { into: true });
-      // The members as laid out, top to bottom (a stacked column only; each shows as a section or a title bar).
-      const members = input.stackSlots && col.show !== "tabs" ? col.panels.map((p) => l0.items.get(p)?.rect) : [];
-      if (members.length === 0 || members.some((r) => !r)) {
+      // The members shown, top to bottom, as laid out (a stacked column only; each a section or a title bar). A closed
+      // member stays in the column's list but isn't laid out: `at` counts it, so a drop keeps it where it was.
+      const members =
+        input.stackSlots && col.show !== "tabs"
+          ? col.panels.flatMap((p, at) => {
+              const r = l0.items.get(p)?.rect;
+              return r ? [{ at, rect: r }] : [];
+            })
+          : [];
+      if (members.length === 0) {
         add({ kind: "into", side, index: c.index }, 2, c.rect, into);
         return;
       }
-      const rs = members as Rect[];
       const mid = (r: Rect): number => r.y + r.height / 2;
-      const line = (y: number): Rect => rect(c.rect.x, y, c.rect.width, 0);
+      // Where the panel's top lands after the drop (the column re-shares its height), as a line across the column.
+      const marker = (make: () => PanelsState): Rect => {
+        const r = layoutPanels(defs, make(), stage, opt).items.get(id)?.rect;
+        return rect(c.rect.x, r ? r.y : c.rect.y, c.rect.width, 0);
+      };
       const bottom = c.rect.y + c.rect.height;
-      rs.forEach((r, at) => {
-        const prev = rs[at - 1];
-        const y0 = prev ? mid(prev) : c.rect.y;
-        // The line between two members (the middle of any gap), or the column's top.
-        const ly = prev ? (prev.y + prev.height + r.y) / 2 : r.y;
-        add({ kind: "into", side, index: c.index, at }, 2, rect(c.rect.x, y0, c.rect.width, mid(r) - y0), () => dock(state, id, side, c.index, { into: true, at }), false, line(ly));
+      members.forEach(({ at, rect: r }, k) => {
+        const prev = members[k - 1];
+        const y0 = prev ? mid(prev.rect) : c.rect.y;
+        const make = () => dock(state, id, side, c.index, { into: true, at });
+        add({ kind: "into", side, index: c.index, at }, 2, rect(c.rect.x, y0, c.rect.width, mid(r) - y0), make, false, marker(make));
       });
-      const last = rs.at(-1)!;
-      add({ kind: "into", side, index: c.index }, 2, rect(c.rect.x, mid(last), c.rect.width, bottom - mid(last)), into, false, line(last.y + last.height));
+      const last = members.at(-1)!.rect;
+      add({ kind: "into", side, index: c.index }, 2, rect(c.rect.x, mid(last), c.rect.width, bottom - mid(last)), into, false, marker(into));
     });
     const last = open.at(-1);
     if (last) band(left ? last.rect.x + last.rect.width : last.rect.x, false, last.index + 1);

@@ -331,9 +331,11 @@ console.log(stops.map((s) => (s.home ? "home" : s.id))); // [ 'rail:left', 'colu
 
 **Into a stack at a position** (opt-in): with `stackSlots: true` in the input, a stacked column offers
 `into:<side>:<i>:<k>` before each member k as well as `into:<side>:<i>` at its bottom. The column's area is split at
-its members' middles, and each of these targets carries a `marker`: the line where the panel will go, zero tall and as
-wide as the column, for the app to draw. Its `place` is `{ kind: "into", side, index, at }` (`at` left out for the
-bottom), and a drop calls `dock(…, { into: true, at })`. A tabbed column keeps its one `into` target.
+its members' middles, and each of these targets carries a `marker`: the line where the panel's top lands after the
+drop (the column re-shares its height, so `marker` comes from the drop's layout), zero tall and as wide as the column,
+for the app to draw; `panelDrop(...).slot` is the whole rect. Its `place` is `{ kind: "into", side, index, at }` (`at`
+left out for the bottom), and a drop calls `dock(…, { into: true, at })`. `at` counts closed members, which keep their
+place in the column's list; only members shown get slots. A tabbed column keeps its one `into` target.
 `homePlace(state, id, { stackSlots: true })` says a stacked panel's position as `at`, so `keyboardStops` puts home
 among the column's slots. Without `stackSlots` the targets are exactly as before.
 
