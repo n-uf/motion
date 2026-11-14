@@ -173,7 +173,75 @@ describe("previous: a wider stack, and forms that changed", () => {
     const huge = fitStack(row([group("a", 4, 95), group("b", 2, 40), group("c", 3, 40)]), { previous: before });
     expect(huge.need).toBeLessThanOrEqual(350);
     expect(huge.items[0]!.kind).toBe("icons");
-    // Smaller: room came back, so the fresh fit is taken.
-    expect(fitStack(row([group("a", 4, 20), group("b", 2, 40), group("c", 3, 40)]), { previous: before })).toEqual(fitStack(row([group("a", 4, 20), group("b", 2, 40), group("c", 3, 40)])));
+    // Smaller: room came back, but growing never re-ranks: nothing fits larger, so the kept forms stay.
+    expect(kinds(fitStack(row([group("a", 4, 20), group("b", 2, 40), group("c", 3, 40)]), { previous: before }))).toEqual(["icons", "row", "row"]);
+  });
+
+  /** Three groups on a row, `row(150)`, `icons(M)`, menu, with the ages and a's icons length given. */
+  const trio = (ages: [number, number, number], aIcons: number, length = 350): StackInput => {
+    const g = (id: string, used: number, iconsMin: number): StackItem => ({ id, used, forms: [f("row", 150, 28), f("icons", iconsMin, 28), f("menu", 0, 0)] });
+    return { axis: "row", length, cross: { min: 28, max: 40 }, items: [g("a", ages[0], aIcons), g("b", ages[1], 40), g("c", ages[2], 40)] };
+  };
+
+  it("N2: a press, then a badge losing a digit, reshapes nothing: growing never re-ranks", () => {
+    const q0 = fitStack(trio([1, 2, 3], 41));
+    expect(kinds(q0)).toEqual(["icons", "row", "row"]);
+    const q1 = fitStack(trio([4, 2, 3], 41), { previous: q0 });
+    expect(kinds(q1)).toEqual(["icons", "row", "row"]);
+    // a's icons 41 to 40: one px of room, nothing can grow, the fresh fit (b gives way instead) is not taken.
+    const q2 = fitStack(trio([4, 2, 3], 40), { previous: q1 });
+    expect(kinds(q2)).toEqual(["icons", "row", "row"]);
+    expect(trio([4, 2, 3], 40)).not.toBeNull();
+    expect(kinds(fitStack(trio([4, 2, 3], 40)))).toEqual(["row", "icons", "row"]);
+  });
+
+  it("a large room gain still restores everything, and a pure gain is the fresh fit", () => {
+    const q0 = fitStack(trio([1, 2, 3], 41));
+    const q1 = fitStack(trio([4, 2, 3], 41), { previous: q0 });
+    // 450 px: all three rows fit.
+    const roomy = fitStack(trio([4, 2, 3], 41, 500), { previous: q1 });
+    expect(kinds(roomy)).toEqual(["row", "row", "row"]);
+    expect(roomy).toEqual(fitStack(trio([4, 2, 3], 41, 500)));
+    // Part of the room back with the ages unchanged: the fresh fit is a pure gain over the kept one, and it is taken.
+    const kept = fitStack(trio([1, 2, 3], 41, 300));
+    const grown = fitStack(trio([1, 2, 3], 41), { previous: kept });
+    expect(grown).toEqual(fitStack(trio([1, 2, 3], 41)));
+  });
+
+  it("room grows the item that gave way most recently first (newest used, with rank and kept respected)", () => {
+    // All three icons (120 px); room for one row (+110) but not two. The newest used goes back first, whatever the place.
+    const g = (id: string, used: number, kept = false): StackItem => ({ id, used, ...(kept ? { kept } : {}), forms: [f("row", 150, 28), f("icons", 40, 28), { ...f("menu", 0, 0), rank: 1 }] });
+    const input = (ages: [number, number, number], length: number, keptC = false): StackInput => ({ axis: "row", length, cross: { min: 28, max: 40 }, items: [g("a", ages[0]), g("b", ages[1]), g("c", ages[2], keptC)] });
+    const tight = fitStack(input([1, 2, 3], 200));
+    expect(kinds(tight)).toEqual(["icons", "icons", "icons"]);
+    // Ages flipped by a press (b is now the newest), then 100 px more: b grows back, not the oldest or the last.
+    const press = fitStack(input([1, 5, 3], 200), { previous: tight });
+    expect(kinds(press)).toEqual(["icons", "icons", "icons"]);
+    expect(kinds(fitStack(input([1, 5, 3], 300), { previous: press }))).toEqual(["icons", "row", "icons"]);
+    // A kept item grows back before the others, whatever its age.
+    expect(kinds(fitStack(input([1, 5, 0], 300, true), { previous: press }))).toEqual(["icons", "icons", "row"]);
+  });
+
+  it("a sweep: after a press, shrinking only steps items down and growing never moves one down", () => {
+    const rand = seeded(24);
+    for (let trial = 0; trial < 120; trial++) {
+      const list = mix(rand, 2 + Math.floor(rand() * 4));
+      const axis = rand() < 0.5 ? "column" : "row";
+      const length = 120 + Math.floor(rand() * 500);
+      const before = fitStack(stack(list, length, axis));
+      const next = list[Math.floor(rand() * list.length)]!;
+      const pressedList = pressed(list, next.id);
+      // The press itself: nothing changes.
+      const afterPress = fitStack(stack(pressedList, length, axis), { previous: before });
+      expect(afterPress).toEqual(before);
+      for (const delta of [-60, -15, -1, 1, 15, 60, 200]) {
+        const fit = fitStack(stack(pressedList, Math.max(30, length + delta), axis), { previous: afterPress });
+        fit.items.forEach((p, i) => {
+          const was = afterPress.items[i]!.form;
+          if (delta < 0) expect(p.form, `shrink ${delta}: ${p.id}`).toBeGreaterThanOrEqual(was);
+          else expect(p.form, `grow ${delta}: ${p.id}`).toBeLessThanOrEqual(was);
+        });
+      }
+    }
   });
 });

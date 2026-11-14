@@ -69,9 +69,13 @@ function victim(items: readonly StackItem[], to: readonly number[]): number {
  * `fitStack(input, options?)`. With `options.previous` (the fit the stack had before) the forms it chose are kept while
  * they still fit: the solve starts from them instead of from every item's largest form, so a change of ages alone
  * (a press on a header) reshapes nothing, and ages decide only who gives way anew when the length shrank or an item
- * was added or opened. Room that came back is used: when the forms kept leave more spare length than they did (the length
- * grew, a gap or a size shrank; `need` is what each fit says its forms need), the largest forms are tried again, as
- * without `previous`. A `previous` with no `need` (one an app built by hand) is no help and the fresh fit is returned.
+ * was added or opened. Room that came back is used, but growing never re-ranks. When the stack got wider across (a wider
+ * limit lets a panel open wider, and the forms that stepped down for the old width may come back) the fresh fit is
+ * taken. When the forms kept leave more spare length than they did (the length grew, a gap or a size shrank; `need` is
+ * what each fit says its forms need) the fresh fit is taken only if it is a pure gain over the kept one (no item's form
+ * is further down, at least one is further up); otherwise the kept forms grow back in the reverse of give-way order (the
+ * item that gave way most recently first, so the newest used, with rank and `kept` respected) while the stack still
+ * fits. A `previous` with no `need` (one an app built by hand) is no help and the fresh fit is returned.
  */
 export function fitStack(input: StackInput, options: FitOptions = {}): StackFit {
   const fresh = solve(input);
@@ -79,15 +83,18 @@ export function fitStack(input: StackInput, options: FitOptions = {}): StackFit 
   if (!previous || previous.need === undefined) return fresh;
   const seed = { need: 0 };
   const kept = solve(input, previous, seed);
-  // Room came back when the kept forms leave more spare length now than before they gave way anew, or when the stack got
-  // wider across (a wider limit lets a panel open wider, and the forms that stepped down for the old width may come back).
+  if (kept.cross > previous.cross + EPS) return fresh;
   const moreLength = Math.max(0, kept.length) - seed.need > previous.length - previous.need + EPS;
-  const moreCross = kept.cross > previous.cross + EPS;
-  return moreLength || moreCross ? fresh : kept;
+  if (!moreLength) return kept;
+  const gain = fresh.items.every((p, i) => p.form <= kept.items[i]!.form) && fresh.items.some((p, i) => p.form < kept.items[i]!.form);
+  return gain ? fresh : solve(input, previous, { need: 0 }, true);
 }
 
-/** `seed.need` (when given) is told the length the forms taken from `previous` need under this input, before any step. */
-function solve(input: StackInput, previous?: StackFit, seed?: { need: number }): StackFit {
+/**
+ * `seed.need` (when given) is told the length the forms taken from `previous` need under this input, before any step.
+ * With `grow` the forms taken from `previous` grow back while the stack still fits, in the reverse of give-way order.
+ */
+function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, grow = false): StackFit {
   const length = Math.max(0, finite(input.length));
   const lim = limitsOf(input);
   const items = input.items.filter((it) => it.forms.length > 0);
@@ -188,6 +195,43 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }):
   };
 
   if (seed) seed.need = minSum();
+  if (grow) {
+    // Room came back and the kept forms fit: they grow back one at a time, the reverse of how they gave way (the form an
+    // item is in now was stepped into at its rank, so the highest rank first, then `kept`, the newest used, the earlier
+    // in the stack). An item goes back to the nearest form above that is longer, if the stack still fits and the cross
+    // size doesn't change.
+    for (;;) {
+      const base = minSum();
+      const c0 = crossOf();
+      let best = -1;
+      let bestTo = -1;
+      for (const i of idx) {
+        const cur = at[i]!;
+        let to = -1;
+        for (let k = cur - 1; k >= start[i]! && to < 0; k--) {
+          at[i] = k;
+          if (minSum() > base + EPS) to = k;
+        }
+        const fits = to >= 0 && minSum() <= length + EPS && crossOf() === c0 && !tooWide(i, c0);
+        at[i] = cur;
+        if (!fits) continue;
+        if (best >= 0) {
+          const a = items[i]!;
+          const b = items[best]!;
+          const ra = rankOf(a.forms[cur]!);
+          const rb = rankOf(b.forms[at[best]!]!);
+          const ka = a.kept ? 1 : 0;
+          const kb = b.kept ? 1 : 0;
+          const better = ra !== rb ? ra > rb : ka !== kb ? ka > kb : a.used !== b.used ? a.used > b.used : false;
+          if (!better) continue;
+        }
+        best = i;
+        bestTo = to;
+      }
+      if (best < 0) break;
+      at[best] = bestTo;
+    }
+  }
   let cross = crossOf();
   let overflow = 0;
   // Every pass steps at least one item one form (by cross size or by length), so twice the forms is more than enough.
