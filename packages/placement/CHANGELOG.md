@@ -9,11 +9,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   unchanged): growth under `previous` handed room to whichever item fitted, skipping one that couldn't grow, so a
   trailing group could open while a leading one that gave way after it stayed folded, and the result depended on resize
   history. Room now comes back in the reverse of give-way order, and growth stops at the first item that can't grow
-  (highest rank first, then `kept`, then items in the » menu before the rest, then the newest used, then the earlier in
-  the stack). Items at the head of that order that are all in the menu still come out together when only their leaving
-  together fits, a pure gain still takes the fresh fit, and a wider stack still does. The docs no longer say results
-  under `previous` are "never worse". Affected: a grow under `previous` where the item next in that order can't grow
-  but one behind it could; before, that one grew.
+  (highest rank first, then `kept`, then the newest used, then the earlier in the stack). Items in the » menu still come
+  out together when only their leaving together fits, but only when that keeps the order. A pure gain still takes the
+  fresh fit, and a wider stack still does. The docs no longer say results under `previous` are "never worse"; along
+  successive solves, more room never undoes a growth. Affected: a grow under `previous` where the item next in that
+  order can't grow but one behind it could; before, that one grew.
 
 ## 26.11.14
 

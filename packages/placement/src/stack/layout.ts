@@ -74,9 +74,10 @@ function victim(items: readonly StackItem[], to: readonly number[]): number {
  * taken. When the forms kept leave more spare length than they did (the length grew, a gap or a size shrank; `need` is
  * what each fit says its forms need) the fresh fit is taken only if it is a pure gain over the kept one (no item's form
  * is further down, at least one is further up); otherwise room comes back in the reverse of give-way order (the item
- * that gave way most recently first, so the newest used, with rank and `kept` respected, and items in the » menu out
- * before the rest), one item at a time, and growth stops at the first item that can't grow: no item behind it jumps the
- * queue. A `previous` with no `need` (one an app built by hand) is no help and the fresh fit is returned.
+ * that gave way most recently first, so the newest used, with rank and `kept` respected), one item at a time, and growth
+ * stops at the first item that can't grow: no item behind it jumps the queue. Items in the » menu come out together
+ * only when that keeps the order. A `previous` with no `need` (one an app built by hand) is no help and the fresh fit
+ * is returned.
  */
 export function fitStack(input: StackInput, options: FitOptions = {}): StackFit {
   const fresh = solve(input);
