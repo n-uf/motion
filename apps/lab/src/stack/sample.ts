@@ -3,7 +3,7 @@
  * Tools, Zoom), each with the forms @n-uf/placement/stack takes for a column and for a row (a bar). Generic sample
  * names; the package carries no words, this page writes them.
  */
-import type { Axis, StackForm, StackInput, StackItem } from "@n-uf/placement/stack";
+import type { StackAxis, StackForm, StackInput, StackItem } from "@n-uf/placement/stack";
 
 export type ItemId = "pages" | "annotations" | "findings" | "views" | "tools" | "zoom";
 export const PANELS: readonly ItemId[] = ["pages", "annotations", "findings"];
@@ -32,10 +32,10 @@ export const SAMPLES: Record<ItemId, Sample> = {
 };
 export const titleOf = (id: string): string => SAMPLES[id as ItemId]?.title ?? id;
 
-const f = (kind: StackForm["kind"], min: number, natural: number, cross: number, grows = false): StackForm => ({
+const f = (kind: StackForm["kind"], min: number, natural: number, cross: number, grows = false, crossMin?: number): StackForm => ({
   kind,
   main: { min, natural, ...(grows ? { grows: true } : {}) },
-  cross: { natural: cross },
+  cross: { natural: cross, ...(crossMin === undefined ? {} : { min: crossMin }) },
 });
 
 /** A bar is 30 px tall when nothing open sets it; a column 30 px wide. */
@@ -43,17 +43,16 @@ export const RAIL = 30;
 export const BAR_RAIL = 32;
 export const MENU = 28;
 
-/** An item's forms along an axis, largest first. `from` skips that many (a panel folded by hand starts at 1). */
-export function formsOf(id: ItemId, axis: Axis, from = 0): StackForm[] {
+/** An item's forms along an axis, largest first. A header fits any column 56 px wide (its `cross.min`). */
+export function formsOf(id: ItemId, axis: StackAxis): StackForm[] {
   const s = SAMPLES[id];
-  const all: StackForm[] = isPanel(id)
+  return isPanel(id)
     ? axis === "column"
-      ? [f("open", 90, s.natural!.column, s.wide!, true), f("header", 30, 30, 120), f("rail", 26, 26, RAIL), f("menu", 0, 0, 0)]
+      ? [f("open", 90, s.natural!.column, s.wide!, true), f("header", 30, 30, s.wide!, false, 56), f("rail", 26, 26, RAIL), f("menu", 0, 0, 0)]
       : [f("open", 150, s.natural!.row, 120, true), f("header", 110, 110, 28), f("rail", 26, 26, 26), f("menu", 0, 0, 0)]
     : axis === "column"
       ? [f("row", 30, 30, 190), f("stacked", 84, 84, 84), f("icons", 72, 72, 28), f("menu", 0, 0, 0)]
       : [f("row", 200, 200, 28), f("stacked", 140, 140, 30), f("icons", 84, 84, 28), f("menu", 0, 0, 0)];
-  return all.slice(from);
 }
 
 export interface Placed {
@@ -64,10 +63,10 @@ export interface Placed {
   readonly from?: number;
 }
 
-export const itemOf = (p: Placed, axis: Axis): StackItem => ({ id: p.id, used: p.used, ...(p.kept ? { kept: true } : {}), forms: formsOf(p.id, axis, p.from ?? 0) });
+export const itemOf = (p: Placed, axis: StackAxis): StackItem => ({ id: p.id, used: p.used, ...(p.kept ? { kept: true } : {}), ...(p.from ? { from: p.from } : {}), forms: formsOf(p.id, axis) });
 
 /** The stack's input along an axis: a column's limits follow the width slider, a bar's are its thickness. */
-export function inputOf(axis: Axis, length: number, items: readonly Placed[], width = 360): StackInput {
+export function inputOf(axis: StackAxis,length: number, items: readonly Placed[], width = 360): StackInput {
   return {
     axis,
     length,

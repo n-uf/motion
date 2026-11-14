@@ -3,7 +3,7 @@
  * where the items that gave way up stand. The package gives forms, kinds and rects; the words are this page's.
  */
 import type { Rect } from "@n-uf/motion";
-import type { Axis, StackFit, StackFormKind } from "@n-uf/placement/stack";
+import type { StackAxis, StackFit, StackFormKind } from "@n-uf/placement/stack";
 import { SAMPLES, isPanel, titleOf, type ItemId } from "./sample";
 
 const dots = '<span class="st-grip" aria-hidden="true">' + "<i></i>".repeat(6) + "</span>";
@@ -32,7 +32,7 @@ export function dress(id: string, kind: StackFormKind): string {
 
 export interface StackView {
   readonly el: HTMLElement;
-  readonly axis: Axis;
+  readonly axis: StackAxis;
   /** Draw `fit`; `skip` is an id not drawn (the item held under the pointer). */
   draw(fit: StackFit, skip?: string): void;
   /** The element of an item, if it is in the stack as drawn last. */
@@ -46,7 +46,7 @@ export interface StackView {
 
 const px = (n: number): string => `${n}px`;
 
-export function createStackView(parent: HTMLElement, axis: Axis, label: string): StackView {
+export function createStackView(parent: HTMLElement, axis: StackAxis, label: string): StackView {
   const el = document.createElement("div");
   el.className = `st-stack st-${axis}`;
   el.dataset.axis = axis;
