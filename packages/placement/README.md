@@ -41,10 +41,11 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
 - **`/desk`**: desk presets (`docks`, `docksFull`, `dockTear`, `navigator`) as data on `/panels`: options and a
   start state.
 - **`/stack`**: the items along one edge, a column or a bar, each a panel or a control group with forms from largest to
-  smallest (open, header, rail icon, » menu; row, stacked, icons, » menu): one form and rect per item, giving way by
-  age, spare room to the panels that grow, a rail when nothing open sets the width; a drop target for every gap, each
-  with the exact solve a drop makes; a stored form; and floats (an item above the pages, in the stage's own px, kept
-  inside the stage and clear of the docked items, with its drop target and stored form). Not tied to `/panels`.
+  smallest (open, header, rail icon, » menu; row, stacked, icons, fold, » menu): one form and rect per item, giving
+  way by age and `rank`, only to a form that is shorter, spare room to the panels that grow, a rail when nothing open
+  sets the width, `gap` and `pad` in the length; a drop target for every gap, each with the exact solve a drop makes; a
+  stored form; and floats (an item above the pages, in the stage's own px, kept inside the stage and clear of the docked
+  items, with its drop target and stored form). Not tied to `/panels`.
 
 Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
@@ -411,16 +412,28 @@ now.
 
 `@n-uf/placement/stack` lays out the items along one edge of a stage: a column (`axis: "column"`, a side region) or a
 row (`"row"`, a bar). An item is a panel or a control group and declares its forms, largest first. Each form has a
-structural `kind` (a panel's `open`, `header`, `rail`, `menu`; a group's `row`, `stacked`, `icons`, `menu`), a `main`
+structural `kind` (a panel's `open`, `header`, `rail`, `menu`; a group's `row`, `stacked`, `icons`, `fold`, `menu`), a `main`
 size along the stack (`min`, `natural`, `grows`) and a `cross` size. `fitStack(input)` picks one form per item and
 places them; it is not tied to `./panels` columns, and nothing in it is a word.
 
 - Every item starts in its largest form, or at `from` (an index into its forms; a panel the user folded by hand
-  starts at its header). While the smallest sizes don't fit the `length`, the item used longest ago (`used`: the
-  smaller, the older) takes its next form; unkept before `kept`, the later in the stack first on a tie. It keeps giving
-  way until its forms end, then the next item does. A `menu` form takes no room: the » entry does (`menu.main`,
-  default 28 px), while any item is in it; an item doesn't go into the menu when that only makes the stack longer and
-  nothing else can give way (`overflow`).
+  starts at its header). While the smallest sizes don't fit the `length`, one item takes a smaller form: the step into
+  the lowest `rank` (below), and among equals the item used longest ago (`used`: the smaller, the older), unkept
+  before `kept`, the later in the stack first on a tie. A `menu` form takes no room: the » entry does (`menu.main`,
+  default 28 px), while any item is in it.
+- A give-way step goes only to a later form that shortens the stack: its `main.min` is smaller, counting the » entry
+  when the form is the menu and the gaps gained or lost. A form that doesn't (the same length, or longer) is skipped,
+  and an item with none stays; when no item can give more way and the stack is still too long, `overflow` says by how
+  much. The first item into the menu opens the » entry, so one shorter than the entry (a 24 px icon, a 28 px entry)
+  can't go in alone: the items stuck that way go in together, in give-way order, as few as shorten the stack (two
+  icons, 48 px, for one entry, 28 px); each item after that saves its whole size. If all of them together don't beat
+  the entry, they stay.
+- `StackForm.rank` (default 0) orders the steps: the lowest rank of the form an item would step into goes first, then
+  unkept before kept, then the oldest, then the later in the stack. Give a pinned primary's last forms a higher rank
+  and every other group gives way before it does.
+- `gap` is the space between neighbouring drawn items (the » entry is a neighbour) and `pad` (`{ start, end }`) the
+  space before the first item and after the last (or the » entry). Both count toward the length and every rect
+  includes them, so an app draws at the solver's rects and the preview is exact. A non-number or a negative one is 0.
 - Spare length goes to the forms that `grows`, shared by their natural sizes. With none, the items keep their
   natural sizes from the start of the stack.
 - The stack's cross size is the widest `cross.natural` among the forms that set it (a panel's `open`, by default;
@@ -430,6 +443,9 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   header a small `cross.min` and it stays in a column an open panel made narrower. Cross size never puts an item in
   the menu: an item that is still too wide in its last drawn form keeps it, and `too-wide` says so (the app clips it).
   Cross-fit and give-way repeat until nothing changes, because a panel folding can narrow the column.
+- A form that does set the cross size steps down too when its `cross.min` (default its `natural`) is over the limits'
+  `max`: in a top bar with `cross.max` 40, an open panel that needs 120 across becomes a header instead of being
+  squeezed to 40. Give a form a `cross.min` it can live with and it is only clamped.
 - The solver has no open or closed state: it lays out the items it is given. An item with no forms is left out
   (`no-forms`). Panel and group kinds may be mixed on one item; only `menu` and `open` mean anything to the solver.
 
@@ -467,17 +483,44 @@ more way and the stack is still too long; forms that don't end in a `menu` form 
 `stackTargets(input, dragged)` takes the stack (an item of it with the dragged id is lifted out first, so a reorder
 within a stack works) and gives a target for every gap, before each item and after the last, in the shape
 `@n-uf/motion/drag` takes: `id` `gap:<k>`, priority 2, `place` `{ kind: "gap", at: k }`, `hit` (the stack split at
-its items' middles, as wide across as the larger of the stack and the drop's fit; with every item in the menu only
-the last gap has any length) and `slot`, the rect the dragged item gets.
+its items' middles, so it covers the gap and padding between its neighbours, as wide across as the larger of the
+stack and the drop's fit; with every item in the menu only the last gap has any length) and `slot`, the rect the
+dragged item gets.
 `fit` is the full solve with the item inserted at k (`input` the stack that was solved), so the preview is exactly the
-rect after the drop; `marker` is the line where the item's leading edge lands (a rect with no thickness across the
-stack). The dragged item counts as just used, so the others give way before it, and a group lands in the form that
-fits.
+rect after the drop; `marker` is the line where the item's leading edge lands (a rect with no thickness, the stack's
+cross size long). The dragged item counts as just used, so the others give way before it, and a group lands in the form
+that fits. A third argument, `{ endReach }`, makes the first gap's hit reach that many px before the stack's start
+and the last gap's past its end (default 0), so a pointer just outside a bar still drops at an end.
 
 ```ts
 const targets = stackTargets({ ...column, items: [panel("pages", 1), panel("findings", 2)] }, tools);
 console.log(targets.map((t) => t.id), targets[1]!.slot, targets[1]!.fit.items[1]!.kind);
 // [ 'gap:0', 'gap:1', 'gap:2' ] { x: 0, y: 28, width: 240, height: 96 } row (Pages folds to its header to make room)
+```
+
+### A toolbar's rows
+
+A top bar of control groups uses the same solver, with a few more things it can say:
+
+- A group's `fold` form is its handle with its own » in line: it keeps its place in the stack and takes its own `main`
+  length. The shared » entry (`menu`) stays a later step: give the `menu` form a higher `rank` than the folds, or
+  an older group may go into it before a newer one folds.
+- `rank`, `gap`, `pad`, `cross.max` and `endReach` as above. The kit draws every group at the solver's rect, so there
+  is nothing to measure and the drop preview is exact.
+- Hysteresis is not here: a pointer that flickers between two gaps is `@n-uf/motion/drag`'s to calm (the intent's
+  band, and `placeOf` with `previous`), and `stackTargets` only says where the gaps are.
+
+```ts
+const group = (id: string, used: number): StackItem => ({ id, used, forms: [form("row", 100, 100, 26), form("fold", 36, 36, 26), form("menu", 0, 0, 0)] });
+const bar = { axis: "row", length: 330, cross: { min: 36, max: 40 }, gap: 8, pad: { start: 12, end: 12 }, items: [group("views", 1), group("tools", 2), group("zoom", 3)] } as const;
+
+const row = fitStack(bar);
+console.log(row.items.map((p) => [p.kind, p.rect.x, p.rect.width]));
+// [ [ 'fold', 12, 36 ], [ 'row', 56, 100 ], [ 'row', 164, 100 ] ] (three rows need 340: Views, the oldest, folds)
+
+const gaps = stackTargets(bar, group("marks", 4), { endReach: 24 });
+console.log(gaps.map((t) => [t.hit.x, t.hit.x + t.hit.width]));
+// [ [ -24, 30 ], [ 30, 106 ], [ 106, 214 ], [ 214, 354 ] ] (split at the groups' middles; the ends reach 24 px past the bar)
 ```
 
 `storeStack(state)` and `readStack(data, known?)` keep what the user chose, as `{ v: 1, … }`: `order`, `kept`,
