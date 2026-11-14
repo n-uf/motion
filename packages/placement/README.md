@@ -804,7 +804,11 @@ bar: that form's natural length along its orient, its other size kept.
 change of ages alone (a press, `use`) or `raise` changes no rect (C23), a form that was only re-measured keeps its place,
 and one whose kind changed starts over. Whenever `content` isn't the rect `previous.content` was, the layout has a
 `content-changed` note (`{ from, to }`): a host refits its zoom only on that note, so a press or a float move never
-refits it.
+refits it. Columns that gave way stay folded, in the order they folded (the fold notes' order), while the content still
+fits; room that comes back unfolds them in the reverse of that order, never by age, so a press unfolds nothing, and
+solving again from a layout changes nothing. An item docked now that was closed or absent in `previous` has just
+opened: it counts as the newest, keeps its largest form while it fits, and its column is weighed anew. `fresh` (edge
+or item ids, on `solve` and `targets`) solves those edges without `previous`.
 
 **Targets.** `targets(scene, id, { previous, endReach, floatSize })` gives, in the `@n-uf/motion/drag` shape:
 
@@ -814,23 +818,30 @@ refits it.
   place, and no chrome under its slot. Along the edge the hit follows `Edge.hitBand`: in a column (default 24) a band
   that many px around the gap's insertion line, never into a neighbour's band, so the body of a panel away from its
   edges is no gap and the pointer falls through to the float target (or to none); in a bar (default `"middle"`) the
-  edge split halfway between neighbouring lines. Gaps on one line (a zone's end and the next zone's start) are one
-  target, the first. The first and last reach `endReach` px past the edge's ends. Across, the hit is the larger of the
-  edge's thickness before and after the drop, and it is cut clear of fixed items and chrome (a fixed item that grows,
-  such as a title filling its bar, reserves only its natural length; what it grew by is spare room for a drop beside it,
-  and the drop shrinks it toward its `min`). `slot` is the item's rect
-  after the drop and `marker` the insertion line across the edge.
+  edge split halfway between neighbouring lines. Gaps on one line are one target, the first in zone order: when a bar
+  has no spare length, `center:0` and `end:0` lie on the start zone's last line and merge into that start gap (its id
+  stays `gap:<edge>:start:<n>`). The first and last reach `endReach` px past the edge's ends. Across, the hit is the
+  larger of the edge's thickness before and after the drop, and it is cut clear of every fixed item's drawn rect (a
+  title grown over its bar's spare room included, so a bar it fills offers no gap; a drop beside it may still shrink it
+  toward its `min`) and of chrome. `slot` is the item's rect after the drop and `marker` the insertion line across the
+  edge.
 - `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side.
 - `float:<id>` (3, free) when `floatKinds` lists the kind: the whole plane, landing with the pointer holding the float
   at `grab`, clamped and moved clear. It has no fixed `slot`: the slot to draw is
   `after(point, grab).layout.items[id].rect`, for the pointer at the time.
 - `column:<side>:<ring>` (2): a new column on each column line of a side whose template takes the kind (outside the
-  outermost open column, between two, inside the innermost, or at the content's edge), `COLUMN_REACH` (22) px each way.
+  outermost open column, between two, inside the innermost, or at the content's edge), 22 px each way.
 - `rail:<side>:<ring>` (1): docking folded into the side's rail, before each folded column's segments and after the
-  last, or a `RAIL_EDGE` (10) px strip at the side's outer edge while no rail shows.
-- `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over the item's own rect: a release there commits
-  nothing. A gap, column line or rail drop that would put the item back where it is (the gap beside it, its own
-  column's line, its own side's rail) keeps its id but is a home too: no slot, nothing committed.
+  last, or a 10 px strip at the side's outer edge while no rail shows.
+- `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
+  commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail
+  drop that would put the item back where it is (the gap beside it, its own column's line) keeps its id but is a home
+  too: no slot, nothing committed. Every rail target on the side whose rail already holds the item is a home: a segment
+  dropped on its own rail, even below the last segment, never splits or reorders it (P9).
+
+A gap, column or rail target exists only where the drop keeps the whole scene sound (C29): it adds no `overflow` or
+`too-wide` note to any edge, changes no fixed item's form, squeezes none under its `main.min` anywhere (a between bar
+under a new column included), and lands its slot on no chrome.
 
 `stops(scene, id)` gives the same targets, home and none left out, in reading order (the left side outer to inner, the
 top bars, the bottom bars, the right side inner to outer, floating last) for "Move to ›" and the arrow keys.
@@ -853,7 +864,8 @@ width, height, orient?, anchor? }], items: { [id]: { used, kept?, from?, closed?
 pinned field. `readScene(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
 the store, never throws, and lists what it drops: unknown edges and items, kinds an edge doesn't accept, fixed items
 placed elsewhere (they stay where `base` has them, trailing ones last), bad fields, an old `pinned`. An item the store
-places nowhere goes where `base` has it, and floats are clamped into the stage. Dynamic columns are the store's: one
+places nowhere goes where `base` has it, and floats are clamped into the stage by what `solve` draws (a folded float by
+its bar), never cut, so a reload lands where it was drawn. Dynamic columns are the store's: one
 `base` lacks is made from `base.columns[side]` at its stored ring, and empty ones are deleted. Anything but version 1
 gives `base` back with an `error`.
 
