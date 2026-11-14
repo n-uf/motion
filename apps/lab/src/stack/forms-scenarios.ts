@@ -264,12 +264,19 @@ const c10: Scenario<Page> = {
       }
       const at = (w: number): StackFit => steps.find((s) => s.width === w)!.fit;
       rows.push(
-        await rule("Beside an open panel a group takes the largest form that fits the width: words, stacked words, icons", (ok) => {
+        // The sample's open panel has no `cross.min`, so it can't be drawn narrower than its 200 px: below that it
+        // steps down (a form too thick for the limit steps down: header, then its rail icon), nothing open sets the
+        // width, the column is a rail and the groups are icons. (With a small `cross.min` on the open form the groups would pass through
+        // their stacked form beside it: the sample, sample.ts, doesn't give one.)
+        await rule("Beside an open panel a group takes the largest form that fits the width: words, then icons once the panel can't stay open", (ok) => {
           for (const g of GROUPS) {
             ok(kindOf(at(360), g) === "row", `${titleOf(g)} at 360 is ${kindOf(at(360), g)}`);
-            ok(kindOf(at(150), g) === "stacked", `${titleOf(g)} at 150 is ${kindOf(at(150), g)}`);
+            ok(kindOf(at(200), g) === "row", `${titleOf(g)} at 200 is ${kindOf(at(200), g)}`);
+            ok(kindOf(at(150), g) === "icons", `${titleOf(g)} at 150 is ${kindOf(at(150), g)}`);
             ok(kindOf(at(70), g) === "icons", `${titleOf(g)} at 70 is ${kindOf(at(70), g)}`);
           }
+          ok(kindOf(at(200), "pages") === "open", `Pages at 200 is ${kindOf(at(200), "pages")}`);
+          ok(kindOf(at(150), "pages") !== "open", `Pages at 150 is open: squeezed under its 200 px`);
         }),
       );
       rows.push(
