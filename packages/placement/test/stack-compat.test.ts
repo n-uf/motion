@@ -46,10 +46,10 @@ function randomInput(rand: () => number): StackInput {
   return { axis, length: 30 + Math.floor(rand() * 700), cross: limits, items, ...(rand() < 0.3 ? { menu: { main: 20 + Math.floor(rand() * 20) } } : {}) };
 }
 
-/** The fit without the fields the new solver adds (`need`, and each item's `min`). */
+/** The fit without the field the new solver adds (`need`). */
 const plain = (f: StackFit): unknown => {
-  const { need: _need, items, ...rest } = f;
-  return { ...rest, items: items.map(({ min: _min, ...p }) => p) };
+  const { need: _need, ...rest } = f;
+  return rest;
 };
 /** JSON with the keys sorted, so two fits compare by content, not by the order their keys were made in. */
 const canon = (x: unknown): string => JSON.stringify(x, (_k, v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v));

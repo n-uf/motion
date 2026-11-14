@@ -94,10 +94,9 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }):
   const start = items.map((it) => Math.min(Math.max(0, Math.floor(finite(it.from ?? 0))), it.forms.length - 1));
   const at = [...start];
   if (previous) {
-    // An item the previous fit had keeps its form while `from` still allows it and the form is still the one it was (the
-    // same kind and smallest size); one whose `from` went down since (a panel opened) starts over, and so does a new one
-    // or one whose forms changed. Where an item started then is its first `form-down` note's `from`, or the form it had
-    // when it never moved.
+    // An item the previous fit had keeps its form while `from` still allows it and the form at that index is still of the
+    // same kind; one whose `from` went down since (a panel opened) starts over, and so does a new one or one whose forms
+    // changed. Where an item started then is its first `form-down` note's `from`, or the form it had when it never moved.
     const had = new Map(previous.items.map((p) => [p.id, p]));
     const began = new Map<string, number>();
     for (const n of previous.notes) if (n.code === "form-down" && !began.has(n.id)) began.set(n.id, n.from);
@@ -105,7 +104,9 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }):
       const p = had.get(it.id);
       if (!p || p.form < start[i]! || p.form >= it.forms.length || start[i]! < (began.get(it.id) ?? p.form)) return;
       const f = it.forms[p.form]!;
-      if (f.kind === p.kind && (p.min === undefined || mainOf(f, "min") === p.min)) at[i] = p.form;
+      // The size isn't compared: a form re-measured (a badge gained a digit) is still the form it was. A smaller one
+      // frees room, which the fresh fit takes (`need`), a larger one gives way from the kept forms.
+      if (f.kind === p.kind) at[i] = p.form;
     });
   }
   const form = (i: number): StackForm => items[i]!.forms[at[i]!]!;
@@ -263,7 +264,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }):
   const inside = idx.filter((i) => isMenu(form(i)));
   const menu: StackMenu | null = inside.length > 0 ? { rect: menuRect, items: inside.map((i) => items[i]!.id) } : null;
 
-  const placed: PlacedStackItem[] = idx.map((i) => ({ id: items[i]!.id, form: at[i]!, kind: form(i).kind, rect: isMenu(form(i)) ? menuRect : rects.get(i)!, min: mainOf(form(i), "min") }));
+  const placed: PlacedStackItem[] = idx.map((i) => ({ id: items[i]!.id, form: at[i]!, kind: form(i).kind, rect: isMenu(form(i)) ? menuRect : rects.get(i)! }));
 
   const notes: StackNote[] = [];
   for (const it of input.items) if (it.forms.length === 0) notes.push({ code: "no-forms", id: it.id });

@@ -153,12 +153,27 @@ describe("previous: a wider stack, and forms that changed", () => {
     const changed: StackItem = { ...a, forms: [f("rail", 24, 30), f("menu", 0, 0)] };
     const next = fitStack({ ...input, items: [changed, b] }, { previous });
     expect(kinds(next)).toEqual(["rail", "open"]);
-    // The same kind at the same index but another size is another form too.
-    const bigger: StackItem = { ...a, forms: [a.forms[0]!, f("header", 50, 240), a.forms[2]!, a.forms[3]!] };
-    const resized = fitStack({ ...input, items: [bigger, b] }, { previous });
-    expect(resized.items[0]!.min).toBe(50);
-    expect(resized.items[0]!.kind).toBe("header");
-    // And an unchanged item is kept as before.
+    // The same kind at the same index but another size is the same form, re-measured (N1 below). An unchanged item is kept.
     expect(fitStack(input, { previous })).toEqual(previous);
+  });
+
+  it("N1: a form re-measured (a badge gained a digit) keeps its place; smaller frees room, larger gives way from the kept forms", () => {
+    const group = (id: string, used: number, iconsMin: number): StackItem => ({ id, used, forms: [f("row", 150, 28), f("icons", iconsMin, 28), f("menu", 0, 0)] });
+    const row = (items: StackItem[]): StackInput => ({ axis: "row", length: 350, cross: { min: 28, max: 40 }, items });
+    const items = [group("a", 1, 40), group("b", 2, 40), group("c", 3, 40)];
+    const before = fitStack(row(items));
+    expect(kinds(before)).toEqual(["icons", "row", "row"]);
+    // A press on a: with previous, nothing moves.
+    const pressedA = [group("a", 4, 40), group("b", 2, 40), group("c", 3, 40)];
+    expect(fitStack(row(pressedA), { previous: before })).toEqual(before);
+    // …and a's icons form is 1 px longer (the repro): still the same forms, not ["row","icons","row"].
+    const remeasured = [group("a", 4, 41), group("b", 2, 40), group("c", 3, 40)];
+    expect(kinds(fitStack(row(remeasured), { previous: before }))).toEqual(["icons", "row", "row"]);
+    // Much longer (150 over: nothing but the row fits less): it gives way from the kept forms, ages deciding only the new step.
+    const huge = fitStack(row([group("a", 4, 95), group("b", 2, 40), group("c", 3, 40)]), { previous: before });
+    expect(huge.need).toBeLessThanOrEqual(350);
+    expect(huge.items[0]!.kind).toBe("icons");
+    // Smaller: room came back, so the fresh fit is taken.
+    expect(fitStack(row([group("a", 4, 20), group("b", 2, 40), group("c", 3, 40)]), { previous: before })).toEqual(fitStack(row([group("a", 4, 20), group("b", 2, 40), group("c", 3, 40)])));
   });
 });
