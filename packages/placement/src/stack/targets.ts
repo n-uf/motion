@@ -19,7 +19,9 @@
  *
  * The dragged item counts as just used: it is newer than every item in the stack, so the others give way before it.
  * A group lands in the form that fits; a panel that would set a wider column makes room by that solve too. A dragged
- * item with no forms has no targets. Nor has one the stack doesn't accept (`input.accepts`); `options.allows` leaves out
+ * item with no forms has no targets, nor has a `fixed` one (it is never dragged). A fixed item in the stack has no slot
+ * inside it: the gaps before and after it stay, but the hit of a gap ends where the fixed item starts and the next one
+ * begins where it ends, so no hit overlaps it. Nor has one the stack doesn't accept (`input.accepts`); `options.allows` leaves out
  * single gaps.
  */
 import { rect, type Rect } from "../geometry";
@@ -62,44 +64,58 @@ export interface StackTarget extends Target {
 }
 
 /**
- * The gap boundaries along the axis: `b[0]` is `reach` before the start, `b[k]` the middle of item k - 1, `b[n + 1]`
- * `reach` past the length.
+ * Where each gap's zone runs along the axis: gap k from `from[k]` to `to[k]`. The stack is split at its items' middles,
+ * so gap k reaches from the middle of item k - 1 to the middle of item k; `from[0]` is `reach` before the start, `to[n]`
+ * `reach` past the length. A fixed item has no middle to split at: the gap before it ends where it starts and the gap
+ * after it begins where it ends, so its own area is in no gap's zone.
  */
-function bounds(input: StackInput, fit: StackFit, reach: number): number[] {
+function bounds(input: StackInput, fit: StackFit, reach: number): { from: number[]; to: number[] } {
   const column = input.axis === "column";
   const start = (r: Rect): number => (column ? r.y : r.x);
   const size = (r: Rect): number => (column ? r.height : r.width);
   const placed = new Map(fit.items.map((p) => [p.id, p]));
-  const b = [0];
+  // from[0], to[0], from[1], to[1], …, from[n], to[n], in the order along the stack.
+  const c = [0];
   // Where the drawn items have ended so far: an item in the menu (or with no forms) sits there.
   let end = 0;
+  let cap = fit.length;
   for (const it of input.items) {
     const p = placed.get(it.id);
     if (!p || p.kind === "menu") {
-      b.push(end);
+      c.push(end, end);
       continue;
     }
-    b.push(start(p.rect) + size(p.rect) / 2);
-    end = start(p.rect) + size(p.rect);
+    const s = start(p.rect);
+    const mid = s + size(p.rect) / 2;
+    c.push(it.fixed ? s : mid, it.fixed ? s + size(p.rect) : mid);
+    end = s + size(p.rect);
+    // A fixed item that runs past the stack (an overflowing one) keeps its own area out of the zones.
+    if (it.fixed) cap = Math.max(cap, end);
   }
-  b.push(fit.length);
+  c.push(fit.length);
   // Monotone, whatever the sizes did (a stack that overflows).
-  for (let i = 1; i < b.length; i++) b[i] = Math.min(Math.max(b[i]!, b[i - 1]!), fit.length);
-  // The first and last gaps reach past the stack's ends.
-  b[0] = 0 - reach;
-  b[b.length - 1] = fit.length + reach;
-  return b;
+  for (let i = 1; i < c.length; i++) c[i] = Math.min(Math.max(c[i]!, c[i - 1]!), cap);
+  // The first and last gaps reach past the stack's ends (the last never starts before a fixed item ends).
+  c[0] = 0 - reach;
+  c[c.length - 1] = Math.max(fit.length + reach, c[c.length - 2]!);
+  const from: number[] = [];
+  const to: number[] = [];
+  for (let k = 0; k <= input.items.length; k++) {
+    from.push(c[2 * k]!);
+    to.push(c[2 * k + 1]!);
+  }
+  return { from, to };
 }
 
 export function stackTargets(input: StackInput, dragged: StackItem, options: StackTargetOptions = {}): StackTarget[] {
   if (dragged.forms.length === 0) return [];
+  if (dragged.fixed) return [];
   if (input.accepts && !input.accepts(dragged)) return [];
   const rest: StackInput = { ...input, items: input.items.filter((it) => it.id !== dragged.id) };
   const fitOptions: FitOptions = options.previous ? { previous: options.previous } : {};
   const base = fitStack(rest, fitOptions);
   const reach = Math.max(0, Number.isFinite(options.endReach) ? options.endReach! : 0);
-  const b = bounds(rest, base, reach);
-  const column = rest.axis === "column";
+  const b = bounds(rest, base, reach);  const column = rest.axis === "column";
   const newest = rest.items.reduce((m, it) => Math.max(m, it.used), dragged.used) + 1;
   const item: StackItem = { ...dragged, used: newest };
   const out: StackTarget[] = [];
@@ -108,8 +124,8 @@ export function stackTargets(input: StackInput, dragged: StackItem, options: Sta
     const solved = withItem(rest, item, k);
     const fit = fitStack(solved, fitOptions);
     const slot = fit.items.find((p) => p.id === dragged.id)!.rect;
-    const from = b[k]!;
-    const to = b[k + 1]!;
+    const from = b.from[k]!;
+    const to = b.to[k]!;
     const across = Math.max(base.cross, fit.cross);
     out.push({
       id: `gap:${k}`,
