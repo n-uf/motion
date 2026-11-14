@@ -106,7 +106,8 @@ function refresh(): void {
   const s = board.settings;
   for (const k of Object.keys(inputs) as (keyof typeof inputs)[]) {
     inputs[k].value = String(s[k]);
-    outs[k].textContent = `${s[k]} px`;
+    // The row's key says px once; each readout is the number.
+    outs[k].textContent = String(s[k]);
   }
   preview.value = s.preview;
   freeze.checked = board.frozen;
