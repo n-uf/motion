@@ -96,6 +96,14 @@ export interface Edge {
   /** The drop strip's depth while the edge is empty, px (default {@link DEFAULT_STRIP}). */
   readonly strip?: number;
   /**
+   * How a gap's hit runs along the edge. A number: a band that many px around the gap's insertion line (the first and
+   * last also reach `endReach` past the edge's ends), clamped so neighbouring bands never overlap, so the body of an item
+   * away from its edges is no gap and the pointer falls through to the float target, or to none. `"middle"`: the edge
+   * split halfway between neighbouring lines, so every point of it is some gap. Default {@link DEFAULT_HIT_BAND} for left
+   * and right edges, `"middle"` for bars.
+   */
+  readonly hitBand?: number | "middle";
+  /**
    * A dynamic column (left and right only): made by a drop on a column line, deleted when it holds no item, folded whole
    * into its side's rail by give-way (`Scene.contentMin`) or when every member is folded by hand. Its `accepts`,
    * `cross`, `gap`, `pad` and `menu` come from `Scene.columns[side]` when the changes make it.
@@ -232,6 +240,8 @@ export interface SceneRailLayout {
  * - `float-covers`: no clear place exists, and it covers the least it can.
  * - `column-shrunk`, `column-folded`, `kept-folded`: give-way by `contentMin.width`, in give-way order;
  * - `content-narrow`, `content-short`: the content is still under `contentMin` (overlay bars count against the height).
+ * - `content-changed`: under `previous`, `content` is not the rect `previous.content` was (`from`, `to`). A host refits
+ *   its zoom only on this note.
  */
 export type SceneNote =
   | ({ readonly edge: string } & StackNote)
@@ -241,7 +251,8 @@ export type SceneNote =
   | { readonly code: "column-shrunk"; readonly edge: string; readonly from: number; readonly to: number }
   | { readonly code: "column-folded" | "kept-folded"; readonly edge: string }
   | { readonly code: "content-narrow"; readonly width: number; readonly min: number }
-  | { readonly code: "content-short"; readonly height: number; readonly min: number };
+  | { readonly code: "content-short"; readonly height: number; readonly min: number }
+  | { readonly code: "content-changed"; readonly from: Rect; readonly to: Rect };
 export type SceneNoteCode = SceneNote["code"];
 
 export interface SceneLayout {
@@ -264,6 +275,8 @@ export interface SolveOptions {
 
 /** A drop strip's depth inside the content while an edge is empty, px. */
 export const DEFAULT_STRIP = 24;
+/** A column's gap hit: a band this many px around each gap's insertion line. */
+export const DEFAULT_HIT_BAND = 24;
 /** A float's size when neither the item nor the call gives one, px. */
 export const DEFAULT_FLOAT_SIZE: Size = { width: 280, height: 360 };
 

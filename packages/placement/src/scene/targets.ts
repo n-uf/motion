@@ -36,7 +36,7 @@
 import { rect, type Point, type Rect, type Size } from "../geometry";
 import type { Target } from "../targets/target";
 import { floatAt, lift, moveTo, use, type ColumnPlace, type RailPlace } from "./changes";
-import { DEFAULT_FLOAT_SIZE, DEFAULT_STRIP, ZONES, axisOf, zoneOf, type Edge, type Scene, type SceneLayout, type Zone } from "./model";
+import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_STRIP, ZONES, axisOf, zoneOf, type Edge, type Scene, type SceneLayout, type Zone } from "./model";
 import { solve } from "./solve";
 
 export type ScenePlace =
@@ -393,11 +393,27 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
       gaps.push({ zone, at: k, line });
     }
   }
-  const sorted = gaps.map((g, i) => ({ ...g, i })).sort((a, b) => a.line - b.line || a.i - b.i);
+  // Gaps on one line are one place to the pointer: the first (in zone order) takes it.
+  const sorted = gaps
+    .map((g, i) => ({ ...g, i }))
+    .sort((a, b) => a.line - b.line || a.i - b.i)
+    .filter((g, i, all) => i === 0 || Math.abs(g.line - all[i - 1]!.line) > EPS);
   const out: SceneTarget[] = [];
+  // `hitBand`: "middle" splits the edge halfway between the insertion lines (an item's halves belong to its gaps); a
+  // number is a band that many px around each line, so the middle of an item is no gap. Columns default to a band.
+  const bandOpt = edge.hitBand ?? (column ? DEFAULT_HIT_BAND : "middle");
+  const band = bandOpt === "middle" ? Infinity : Math.max(0, Number.isFinite(bandOpt) ? bandOpt : DEFAULT_HIT_BAND);
   sorted.forEach((g, i) => {
-    const from = i === 0 ? main0 - reach : (sorted[i - 1]!.line + g.line) / 2;
-    const to = i === sorted.length - 1 ? main0 + length + reach : (g.line + sorted[i + 1]!.line) / 2;
+    const lo = i === 0 ? -Infinity : (sorted[i - 1]!.line + g.line) / 2;
+    const hi = i === sorted.length - 1 ? Infinity : (g.line + sorted[i + 1]!.line) / 2;
+    // Never into a neighbour's band; the first and last reach `endReach` past the edge's ends.
+    let from = Math.max(lo, g.line - band / 2);
+    let to = Math.min(hi, g.line + band / 2);
+    if (i === 0) from = Math.min(from, main0 - reach);
+    if (i === sorted.length - 1) to = Math.max(to, main0 + length + reach);
+    // Past the edge's ends only as far as `endReach`.
+    from = Math.max(from, main0 - reach);
+    to = Math.min(to, main0 + length + reach);
     if (to - from <= EPS) return;
     const place = { kind: "gap" as const, edge: edge.id, zone: g.zone, at: g.at };
     // Across: from the edge's outer side, the larger of its thickness now and after the drop (known after the solve).

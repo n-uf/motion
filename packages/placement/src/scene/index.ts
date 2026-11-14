@@ -7,6 +7,7 @@
  */
 export {
   DEFAULT_FLOAT_SIZE,
+  DEFAULT_HIT_BAND,
   DEFAULT_STRIP,
   SIDES,
   ZONES,

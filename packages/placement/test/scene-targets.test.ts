@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { solve, targets, type Scene } from "../src/scene";
+import { solve, targets, use, type Scene } from "../src/scene";
 import { bar, byId, column, group, panel, windowScene } from "./scene-fixture";
 
 const r = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
@@ -116,5 +116,73 @@ describe("targets", () => {
   it("works for a scene with a panel column and nothing else", () => {
     const sc: Scene = { stage: r(0, 0, 900, 500), edges: [column("l", "left", 0, ["a", "b"])], items: byId([panel("a", 1), panel("b", 2)]), floats: [], floatKinds: [] };
     expect(ids(sc, "a")).toEqual(["gap:l:start:0", "gap:l:start:1", "home:a"]);
+  });
+});
+
+describe("gaps are gaps, not halves of items (hitBand)", () => {
+  const at = (ts: ReturnType<typeof targets>, p: { x: number; y: number }) => ts.filter((t) => t.place.kind !== "home" && p.x >= t.hit.x && p.x <= t.hit.x + t.hit.width && p.y >= t.hit.y && p.y <= t.hit.y + t.hit.height).map((t) => t.id);
+  const tall: Scene = { stage: r(0, 0, 1000, 600), edges: [column("l", "left", 0, ["a"])], items: byId([panel("a", 1), group("g", 2)]), floats: [{ id: "g", rect: r(500, 100, 200, 40) }], floatKinds: ["group"] };
+
+  it("over the middle of a tall panel a group gets no gap; the pointer falls through to the float target", () => {
+    const ts = targets(tall, "g");
+    expect(at(ts, { x: 100, y: 300 })).toEqual(["float:g"]);
+  });
+
+  it("near an edge of the panel it gets that gap", () => {
+    const ts = targets(tall, "g");
+    expect(at(ts, { x: 100, y: 5 })).toEqual(["gap:l:start:0", "float:g"]);
+    expect(at(ts, { x: 100, y: 595 })).toEqual(["gap:l:start:1", "float:g"]);
+  });
+
+  it('"middle" splits the column at the items\' middles, as bars do by default', () => {
+    const halves: Scene = { ...tall, edges: [column("l", "left", 0, ["a"], { hitBand: "middle" })] };
+    expect(at(targets(halves, "g"), { x: 100, y: 290 })).toEqual(["gap:l:start:0", "float:g"]);
+    expect(at(targets(windowScene(), "marks"), { x: 600, y: 50 }).some((id) => id.startsWith("gap:toolbar"))).toBe(true);
+  });
+
+  for (const side of ["left", "right"] as const) {
+    it(`every gap of a three-item ${side} column is reachable, and a between drop lands between (C3)`, () => {
+      const sc: Scene = { stage: r(0, 0, 1000, 600), edges: [column("c", side, 0, ["a", "b", "c"])], items: byId([panel("a", 1), panel("b", 2), panel("c", 3), panel("d", 4)]), floats: [{ id: "d", rect: r(400, 100, 200, 200) }], floatKinds: ["panel"] };
+      const ts = targets(sc, "d", { endReach: 24 });
+      const gaps = ts.filter((t) => t.place.kind === "gap");
+      expect(gaps.map((t) => t.id)).toEqual(["gap:c:start:0", "gap:c:start:1", "gap:c:start:2", "gap:c:start:3"]);
+      for (const t of gaps) {
+        expect(t.hit.height).toBeGreaterThan(0);
+        // No two bands overlap.
+        for (const u of gaps) if (u !== t) expect(t.hit.y + t.hit.height <= u.hit.y + 1e-6 || u.hit.y + u.hit.height <= t.hit.y + 1e-6).toBe(true);
+      }
+      // The pointer on the line between a and b drops between them, not at the top.
+      const l = solve(sc);
+      const line = l.items.b!.rect.y;
+      const x = l.edges.c!.rect.x + 10;
+      const hit = at(ts, { x, y: line }).filter((id) => id.startsWith("gap:"));
+      expect(hit).toEqual(["gap:c:start:1"]);
+      const after = gaps.find((t) => t.id === "gap:c:start:1")!.after({ x, y: line });
+      expect(after.scene.edges[0]!.items).toEqual(["a", "d", "b", "c"]);
+      const ys = ["a", "d", "b", "c"].map((id) => after.layout.items[id]!.rect.y);
+      expect([...ys].sort((p, q) => p - q)).toEqual(ys);
+      // Past the ends by endReach.
+      expect(gaps[0]!.hit.y).toBe(-24);
+      expect(gaps[3]!.hit.y + gaps[3]!.hit.height).toBe(624);
+    });
+  }
+
+  it("the float target's after(point, grab).layout.items[id].rect is the slot to draw", () => {
+    const f = targets(tall, "g").find((t) => t.id === "float:g")!;
+    const a = f.after({ x: 300, y: 300 }, { x: 10, y: 10 });
+    expect(a.layout.items.g!.rect).toEqual(r(290, 290, 200, 40));
+  });
+});
+
+describe("content-changed", () => {
+  it("is noted under previous whenever the content's rect changes, and only then", () => {
+    const s = windowScene();
+    const before = solve(s);
+    expect(before.notes.some((n) => n.code === "content-changed")).toBe(false);
+    expect(solve(s, { previous: before }).notes.some((n) => n.code === "content-changed")).toBe(false);
+    const pressed = solve(use(s, "pages"), { previous: before });
+    expect(pressed.notes.some((n) => n.code === "content-changed")).toBe(false);
+    const wider = solve({ ...s, edges: s.edges.map((e) => (e.id === "left" ? { ...e, size: 320 } : e)) }, { previous: before });
+    expect(wider.notes.filter((n) => n.code === "content-changed")).toEqual([{ code: "content-changed", from: r(260, 68, 680, 704), to: r(320, 68, 620, 704) }]);
   });
 });

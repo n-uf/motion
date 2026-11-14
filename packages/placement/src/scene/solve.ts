@@ -510,6 +510,11 @@ export function solve(scene: Scene, options: SolveOptions = {}): SceneLayout {
     const bars = order.filter((e) => e.mode === "overlay" && !isSide(e)).reduce((s, e) => s + (edges[e.id]?.cross ?? 0), 0);
     if (content.height - bars < minH - EPS) notes.push({ code: "content-short", height: content.height - bars, min: minH });
   }
+  if (previous) {
+    const was = previous.content;
+    const moved = Math.abs(was.x - content.x) > EPS || Math.abs(was.y - content.y) > EPS || Math.abs(was.width - content.width) > EPS || Math.abs(was.height - content.height) > EPS;
+    if (moved) notes.push({ code: "content-changed", from: was, to: content });
+  }
 
   // Floats: clear of every docked item, every bar and the chrome.
   const avoid: Rect[] = [];
