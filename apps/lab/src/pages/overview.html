@@ -1,42 +1,46 @@
-<!-- The overview: what the lab is, the two packages, how to run the checks. -->
+<!-- The overview: what the lab is, its four sections and the archive, how to run the checks. -->
 <section class="lab-section">
   <p class="eyebrow"><span>What this is</span></p>
   <h2 class="section-title">One lab for both packages</h2>
   <p>
     Every page here runs the real packages from this repository's sources, so a change in a package shows at once.
     Each page is a live demo you can drag around, and a set of scripted scenarios that drive it with real pointer and
-    key events, frame by frame, and check the rules from what the page drew.
+    key events, frame by frame, and check the rules from what the page drew. There are two subjects: how things move
+    (<code>@n-uf/motion</code>) and where things go along an edge (<code>@n-uf/placement/stack</code>).
   </p>
 </section>
 
 <section class="lab-section lab-cards">
   <a class="lab-card" href="#/motion/settle">
-    <p class="eyebrow"><span>@n-uf/motion</span></p>
+    <p class="eyebrow"><span>Motion</span></p>
     <h3>How things move</h3>
-    <p>A critically damped settle for every move (never past its target), reveal for size changes, a drag intent that
-      shows a drop target only while you aim, and a held drag that moves the real item.</p>
-    <p class="lab-card-links"><span>Settle and tempo</span> · <span>Drag intent</span> · <span>Held drag and previews</span> · <span>Tiling drag</span></p>
+    <p>Two pages. Settle and tiling: every move is one critically damped settle that never passes its target, size
+      changes reveal instead of stretching, and tiled windows reorder by drag. Drag intent and previews: a drop target
+      shows only while you aim, and the held drag moves the real item into its slot.</p>
+    <p class="lab-card-links"><span>Settle and tiling</span> · <span>Drag intent and previews</span></p>
+  </a>
+  <a class="lab-card" href="#/stack/forms">
+    <p class="eyebrow"><span>Edge stack</span></p>
+    <h3>Where things go</h3>
+    <p>One stage: a side column, a top bar, pages that scroll under them and floats above. Panels and control groups
+      take the largest form that fits and give way oldest first; you drag them into any gap, float them, freeze them and
+      reload them. Each case is a preset on that stage, with its expectation and its check.</p>
+    <p class="lab-card-links"><span>Panels in a column</span> · <span>Groups and toolbars</span> · <span>Dragging</span> · <span>Floats, saving, freeze</span></p>
+  </a>
+  <a class="lab-card" href="#/checks">
+    <p class="eyebrow"><span>Checks</span></p>
+    <h3>Every scenario, green or red</h3>
+    <p>Runs every page's scenarios, or one section's, and lists each one with its first failure: the Motion pages, the
+      Edge stack's cases and everything in the Archive.</p>
+    <p class="lab-card-links"><span>Motion</span> · <span>Edge stack</span> · <span>Archive</span></p>
   </a>
   <a class="lab-card" href="#/placement/desk">
-    <p class="eyebrow"><span>@n-uf/placement</span></p>
-    <h3>Where things go</h3>
-    <p>Pure layouts: desk docks, rails and palettes that give way when room runs out, toolbar groups in hosts and
-      zones, and the drop targets for each. State in, rects out.</p>
-    <p class="lab-card-links"><span>Desk constructions</span> · <span>Toolbar groups</span></p>
-  </a>
-  <a class="lab-card" href="#/panels/defaults">
-    <p class="eyebrow"><span>@n-uf/placement/panels</span></p>
-    <h3>Panels in columns</h3>
-    <p>Full-height columns per side with their own widths, as stacks or tabs, folding to bars and rails, give-way by
-      age, kept panels, floats clamped to the view or pinned to it, drop targets, a stored form, and desk presets.</p>
-    <p class="lab-card-links"><span>Defaults</span> · <span>Options</span> · <span>Presets</span></p>
-  </a>
-  <a class="lab-card" href="#/kits/panels">
-    <p class="eyebrow"><span>Kit cases</span></p>
-    <h3>When an app brings its own drag</h3>
-    <p>Ten patterns an app meets when it brings its own drag onto the pair, each in a sample document viewer on the
-      real code.</p>
-    <p class="lab-card-links"><span>1 · Panels vs groups</span> · <span>6 · Constraints</span> · <span>…</span></p>
+    <p class="eyebrow"><span>Archive</span></p>
+    <h3>On hold, still checked</h3>
+    <p>Earlier models kept visible but no longer grown: the desk constructions, toolbar groups in hosts and zones,
+      panels in columns, and the kit cases. Their scenarios still run on the Checks page; each page leaves once the Edge
+      stack covers its cases.</p>
+    <p class="lab-card-links"><span>Desk constructions</span> · <span>Toolbar groups</span> · <span>Panels</span> · <span>Kit cases</span></p>
   </a>
 </section>
 
