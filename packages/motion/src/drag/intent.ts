@@ -118,6 +118,12 @@ export interface DragFrame<T extends DragTarget> {
   readonly roomPlace: string | null;
   /** The pointer is aiming: slow, or nearly still for a moment. */
   readonly aiming: boolean;
+  /**
+   * The pointer is back inside `home` after it has left it (`state.leftHome` and the pointer in `home`). Never true
+   * before the pointer left. Over home no target is shown and a release does nothing, so a host that wants to say
+   * "a drop here returns it" draws its own indicator for this frame (at the home rect); the intent still shows no target.
+   */
+  readonly atHome: boolean;
 }
 
 /** What a drag intent knows now. */
@@ -304,7 +310,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       else if (t - shownSince >= tuning.roomAfter && t - placeSince >= tuning.roomAfter) roomPlace = place;
       else if (shownSince === t) roomPlace = null;
       lastPlaces = places;
-      return { shown, room: roomPlace !== null, roomPlace, aiming };
+      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: leftHome && atHome };
     },
     release(point, targets) {
       if (inRect(home, point)) return null;
