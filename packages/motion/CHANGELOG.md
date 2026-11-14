@@ -5,10 +5,11 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## Unreleased
 
-- `@n-uf/motion/drag`: `DragFrame.atHome`, true when the pointer is back inside `home` after it has left it (never
-  before it left). The intent still shows no target over home and `release` over home is still null; `atHome` lets a
-  host draw its own "back to its place" indicator there. A new field on the frame `update` returns; nothing else
-  changes.
+- `@n-uf/motion/drag`: `DragFrame.atHome`, true when the pointer is back inside `home` after it has been outside `home`
+  itself (never at the press, nor while it only moves about inside `home`, even near its edge). The intent still shows
+  no target over home and `release` over home is still null; `atHome` lets a host draw its own "back to its place"
+  indicator there. It is a new required field of `DragFrame`: code that builds a `DragFrame` by hand (a test mock, a
+  fake intent) no longer type-checks until it adds `atHome`. `update` itself changes in nothing else.
 
 ## 26.11.12
 
