@@ -5,7 +5,7 @@ import { deskDrop, deskTargets, floatTarget, hostTargets, keyboardStops, paneZon
 import { arrangement, hostOf, layoutHost, readArrangement, storeArrangement, type Place } from "../src/toolbar";
 import { createPanels, homePlace, keep, layoutPanels, panelDrop, panelTargets, readPanels, storePanels, type PanelDef } from "../src/panels";
 import { PRESETS, presetLayout, presetTargets } from "../src/desk";
-import { fitStack, readStack, stackTargets, storeStack, type StackForm, type StackItem } from "../src/stack";
+import { fitFloat, fitStack, floatTarget as stackFloatTarget, readFloats, readStack, stackTargets, storeFloats, storeStack, type StackForm, type StackItem } from "../src/stack";
 
 describe("README examples", () => {
   it("desk presets", () => {
@@ -180,5 +180,21 @@ describe("README examples", () => {
     const saved = JSON.stringify(storeStack({ order: ["pages", "tools"], kept: ["pages"], closed: [], used: ["pages", "tools"], forms: { tools: 1 } }));
     expect(saved).toBe('{"v":1,"order":["pages","tools"],"kept":["pages"],"closed":[],"used":["pages","tools"],"forms":{"tools":1}}');
     expect([readStack(JSON.parse(saved), ["pages", "tools", "findings"]).ok, readStack({ v: 2 }).ok]).toEqual([true, false]);
+  });
+
+  it("edge stack floats", () => {
+    const stage = { x: 0, y: 0, width: 900, height: 500 };
+    const docked = [{ x: 0, y: 32, width: 240, height: 468 }];
+
+    const fit = fitFloat({ x: 100, y: 200, width: 200, height: 150 }, stage, docked);
+    expect([fit.rect, fit.snapped]).toEqual([{ x: 240, y: 200, width: 200, height: 150 }, true]);
+
+    const target = stackFloatTarget({ id: "notes", stage, size: { width: 200, height: 150 }, avoid: docked });
+    const drop = target.make({ x: 500, y: -400 }, { x: 20, y: 10 });
+    expect([drop.rect, drop.fit.clamped]).toEqual([{ x: 480, y: 0, width: 200, height: 150 }, true]);
+
+    expect(JSON.stringify(storeFloats([{ id: "notes", rect: drop.rect }]))).toBe('{"v":1,"floats":[{"id":"notes","x":480,"y":0,"width":200,"height":150}]}');
+    const old = readFloats({ v: 1, floats: [{ id: "notes", x: 480, y: 0, width: 200, height: 150, pinned: true }] });
+    expect(old.ok && old.dropped).toEqual(["pinned:notes"]);
   });
 });
