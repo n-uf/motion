@@ -3,9 +3,12 @@
 .pn-controls em { font-style: normal; color: var(--text-2); font-size: 0.9em; }
 .pn-sep { color: var(--text-2); margin: 0 4px; }
 .pn-controls output { font-family: var(--font-mono); font-size: 12px; min-width: 5em; display: inline-block; }
-body:not([data-page="panels/options"]) .pn-options { display: none; }
-body:not([data-page="panels/presets"]) .pn-presets, body:not([data-page="panels/presets"]) .pn-presets-only { display: none; }
-body:not([data-page="panels/presets"]):not([data-page="panels/options"]) .pn-height, body:not([data-page="panels/presets"]):not([data-page="panels/options"]) .pn-reserve-controls { display: none; }
+/* The one Panels page (route `panels`) shows its defaults, its options and its presets together. */
+body:not([data-page="panels"]) .pn-options,
+body:not([data-page="panels"]) .pn-presets,
+body:not([data-page="panels"]) .pn-presets-only,
+body:not([data-page="panels"]) .pn-height,
+body:not([data-page="panels"]) .pn-reserve-controls { display: none; }
 /* The reserved room: a plain toolbar placeholder (the app draws its toolbar there). */
 .pn-stage .pn-reserve { z-index: 3; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--pn-edge); border-radius: 6px; background: color-mix(in srgb, var(--pn-chrome) 70%, transparent); color: var(--pn-muted); font: 600 11px/1 var(--font-sans); overflow: hidden; pointer-events: none; }
 .pn-stage .pn-reserve[data-edge="left"] span, .pn-stage .pn-reserve[data-edge="right"] span { writing-mode: vertical-rl; }
