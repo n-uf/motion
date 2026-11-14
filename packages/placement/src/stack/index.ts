@@ -16,6 +16,7 @@ export {
   formSetsCross,
   withItem,
   type CrossLimits,
+  type FitOptions,
   type GroupFormKind,
   type MainSize,
   type PanelFormKind,

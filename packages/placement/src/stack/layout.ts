@@ -6,7 +6,8 @@
  *    default), clamped to the limits; with none, the rail width.
  * 3. Cross-fit: an item whose form doesn't set the cross size and whose `cross.min` is over it steps down until it
  *    fits (a group never sets a column's width, so a group alone becomes a rail of icons); so does one whose form does
- *    set it but whose `cross.min` is over the limits' `max` (an open panel in a thin bar becomes a header). Cross size
+ *    set it but whose explicit `cross.min` is over the limits' `max` (an open panel in a thin bar becomes a header; one
+ *    with no `cross.min` is only clamped). Cross size
  *    never steps an item into the menu: when only the menu is left it keeps its last drawn form and a `too-wide` note
  *    says so.
  * 4. Give-way: while the smallest sizes (`main.min`, plus the gaps and the padding) don't fit the length, one item
@@ -31,7 +32,7 @@
  * same input, same fit.
  */
 import type { Rect } from "../geometry";
-import { formSetsCross, limitsOf, menuMain, spacingOf, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote } from "./model";
+import { formSetsCross, limitsOf, menuMain, spacingOf, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote } from "./model";
 
 const EPS = 1e-6;
 const isMenu = (f: StackForm): boolean => f.kind === "menu";
@@ -65,12 +66,43 @@ function victim(items: readonly StackItem[], to: readonly number[]): number {
   return best;
 }
 
-export function fitStack(input: StackInput): StackFit {
+/**
+ * `fitStack(input, options?)`. With `options.previous` (the fit the stack had before) the forms it chose are kept while
+ * they still fit: the solve starts from them instead of from every item's largest form, so a change of ages alone
+ * (a press on a header) reshapes nothing, and ages decide only who gives way anew when the length shrank or an item
+ * was added or opened. Room that came back is used: when the forms kept leave more spare length than they did (the length
+ * grew, a gap or a size shrank; `need` is what each fit says its forms need), the largest forms are tried again, as
+ * without `previous`. A `previous` with no `need` (one an app built by hand) is no help and the fresh fit is returned.
+ */
+export function fitStack(input: StackInput, options: FitOptions = {}): StackFit {
+  const fresh = solve(input);
+  const previous = options.previous;
+  if (!previous || previous.need === undefined) return fresh;
+  const seed = { need: 0 };
+  const kept = solve(input, previous, seed);
+  // The room the kept forms leave now, before anything gives way anew, against what they left before.
+  return Math.max(0, kept.length) - seed.need > previous.length - previous.need + EPS ? fresh : kept;
+}
+
+/** `seed.need` (when given) is told the length the forms taken from `previous` need under this input, before any step. */
+function solve(input: StackInput, previous?: StackFit, seed?: { need: number }): StackFit {
   const length = Math.max(0, finite(input.length));
   const lim = limitsOf(input);
   const items = input.items.filter((it) => it.forms.length > 0);
   const start = items.map((it) => Math.min(Math.max(0, Math.floor(finite(it.from ?? 0))), it.forms.length - 1));
   const at = [...start];
+  if (previous) {
+    // An item the previous fit had keeps its form while `from` still allows it; one whose `from` went down since (a panel
+    // opened) starts over, and so does a new one. Where an item started then is its first `form-down` note's `from`, or
+    // the form it had when it never moved.
+    const had = new Map(previous.items.map((p) => [p.id, p]));
+    const began = new Map<string, number>();
+    for (const n of previous.notes) if (n.code === "form-down" && !began.has(n.id)) began.set(n.id, n.from);
+    items.forEach((it, i) => {
+      const p = had.get(it.id);
+      if (p && p.form >= start[i]! && p.form < it.forms.length && start[i]! >= (began.get(it.id) ?? p.form)) at[i] = p.form;
+    });
+  }
   const form = (i: number): StackForm => items[i]!.forms[at[i]!]!;
   const idx = items.map((_, i) => i);
 
@@ -81,8 +113,11 @@ export function fitStack(input: StackInput): StackFit {
     at[i] = j;
     if (isMenu(form(i)) && !menuOrder.includes(i)) menuOrder.push(i);
   };
+  // Items kept from the previous fit give way (and entered the menu) in the order its notes say, then the rest by place.
+  const named = (code: "form-down" | "to-menu"): number[] => (previous ? previous.notes.filter((n) => n.code === code).map((n) => items.findIndex((it) => it.id === (n as { id: string }).id)) : []);
+  for (const i of [...named("form-down"), ...idx]) if (i >= 0 && at[i]! > start[i]! && !firstStep.includes(i)) firstStep.push(i);
   // An item that starts in the menu is in it from the start.
-  for (const i of idx) if (isMenu(form(i))) menuOrder.push(i);
+  for (const i of [...named("to-menu"), ...idx]) if (i >= 0 && isMenu(form(i)) && !menuOrder.includes(i)) menuOrder.push(i);
 
   const crossOf = (): number => {
     const setters = idx.filter((i) => !isMenu(form(i)) && formSetsCross(form(i)));
@@ -137,8 +172,16 @@ export function fitStack(input: StackInput): StackFit {
     return found ? batch : null;
   };
   const canStep = (i: number): boolean => at[i]! + 1 < items[i]!.forms.length;
-  const tooWide = (i: number, cross: number): boolean => !isMenu(form(i)) && crossMin(form(i)) > (formSetsCross(form(i)) ? lim.max : cross) + EPS;
+  const tooWide = (i: number, cross: number): boolean => {
+    const f = form(i);
+    if (isMenu(f)) return false;
+    // A form that sets the cross size steps down only when it says it can't be drawn as thin as the limit: an explicit
+    // `cross.min` over `max`. Without one it is clamped, as it always was.
+    if (formSetsCross(f)) return f.cross.min !== undefined && finite(f.cross.min) > lim.max + EPS;
+    return crossMin(f) > cross + EPS;
+  };
 
+  if (seed) seed.need = minSum();
   let cross = crossOf();
   let overflow = 0;
   // Every pass steps at least one item one form (by cross size or by length), so twice the forms is more than enough.
@@ -223,5 +266,5 @@ export function fitStack(input: StackInput): StackFit {
   for (const i of menuOrder) if (isMenu(form(i))) notes.push({ code: "to-menu", id: items[i]!.id });
   for (const i of idx) if (tooWide(i, cross)) notes.push({ code: "too-wide", id: items[i]!.id });
   if (overflow > EPS) notes.push({ code: "overflow", over: overflow });
-  return { axis: input.axis, length, cross, items: placed, menu, notes };
+  return { axis: input.axis, length, cross, items: placed, menu, notes, need: minSum() };
 }
