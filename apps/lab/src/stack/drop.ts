@@ -19,6 +19,7 @@ const AXIS = { column: "column", bar: "row" } as const;
 const AT = { column: { x: 24, y: 44 }, bar: { x: 330, y: 44 } } as const;
 /** The app widens a gap's zone across a thin stack so it is easy to hit. */
 const REACH = { column: 80, bar: 56 };
+const END_REACH = 24;
 
 const DEFAULT_ORDERS = (): Record<StackName, ItemId[]> => ({ column: ["views", "pages", "annotations", "findings"], bar: ["tools", "zoom"] });
 const DEFAULT_USED = (): Record<ItemId, number> => ({ pages: 1, annotations: 2, findings: 3, views: 4, tools: 5, zoom: 6 });
@@ -127,9 +128,16 @@ export function targetsFor(id: ItemId): DropTarget[] {
   const out: DropTarget[] = [];
   for (const name of ["column", "bar"] as const) {
     const dragged = itemOf(placedOf(id), AXIS[name]);
-    for (const t of stackTargets(inputFor(name, id), dragged)) {
+    const targets = stackTargets(inputFor(name, id), dragged);
+    for (const t of targets) {
       const hit = shift(t.hit, name);
-      const wide = name === "column" ? { ...hit, width: Math.max(hit.width, REACH.column) } : { ...hit, height: Math.max(hit.height, REACH.bar) };
+      // The app's reach: across a thin stack, and past the stack's two ends so the first and last gaps are not a sliver
+      // when the item next to them is short.
+      let wide = name === "column" ? { ...hit, width: Math.max(hit.width, REACH.column) } : { ...hit, height: Math.max(hit.height, REACH.bar) };
+      const first = t.place.at === 0;
+      const last = t.place.at === targets.length - 1;
+      if (name === "column") wide = { ...wide, y: wide.y - (first ? END_REACH : 0), height: wide.height + (first ? END_REACH : 0) + (last ? END_REACH : 0) };
+      else wide = { ...wide, x: wide.x - (first ? END_REACH : 0), width: wide.width + (first ? END_REACH : 0) + (last ? END_REACH : 0) };
       out.push({ id: `${name}:${t.id}`, priority: 2, hit: wide, slot: shift(t.slot!, name), stack: name, at: t.place.at, target: t, marker: shift(t.marker, name), label: gapWords(name, t.place.at, id) });
     }
   }
