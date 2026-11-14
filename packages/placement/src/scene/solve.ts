@@ -382,22 +382,32 @@ export function solve(scene: Scene, options: SolveOptions = {}): SceneLayout {
     };
     let auto = new Set<Col>();
     if (cmin !== undefined) {
-      if (previous) {
-        // What gave way before stays folded while the content still fits without it coming back; room that came back
-        // unfolds in the reverse of give-way order, and a need for more folds the next in order. Ages alone change nothing.
-        const was = order.filter((c) => previous.edges[c.edge.id]?.folded === "auto");
-        auto = new Set(was);
-        if (evaluate(auto).excess <= EPS) {
-          for (const c of [...was].reverse()) {
-            const fewer = new Set([...auto].filter((x) => x !== c));
-            if (evaluate(fewer).excess <= EPS) auto = fewer;
-            else break;
-          }
+      // Room that came back unfolds in the reverse of the order the columns folded in (the fold notes' order), one at a
+      // time, stopping at the first that can't come back: never by age, so a press can't unfold anything.
+      const unfold = (): void => {
+        for (const c of [...auto].reverse()) {
+          const fewer = new Set([...auto].filter((x) => x !== c));
+          if (evaluate(fewer).excess <= EPS) auto = fewer;
+          else break;
         }
+      };
+      if (previous) {
+        // What gave way before stays folded, in the order it folded, while the content still fits without it coming back.
+        const byId = new Map(order.map((c) => [c.edge.id, c]));
+        const was = previous.notes.flatMap((n) => ((n.code === "column-folded" || n.code === "kept-folded") && byId.has(n.edge) ? [byId.get(n.edge)!] : []));
+        auto = new Set(was);
+        if (evaluate(auto).excess <= EPS) unfold();
       }
+      // A need for more folds the next in give-way order.
       for (const c of order) {
         if (evaluate(auto).excess <= EPS) break;
         if (!auto.has(c)) auto = new Set([...auto, c]);
+      }
+      // A fold can make an earlier one needless (a second column into a rail the first already paid for): unfold to a
+      // fixpoint, so solving again from this layout changes nothing.
+      for (let size = -1; size !== auto.size; ) {
+        size = auto.size;
+        unfold();
       }
     }
     const g = evaluate(auto);
@@ -405,7 +415,8 @@ export function solve(scene: Scene, options: SolveOptions = {}): SceneLayout {
       const w = g.widths.get(c);
       if (w !== undefined && w < c.width - EPS) notes.push({ code: "column-shrunk", edge: c.edge.id, from: c.width, to: w });
     }
-    for (const c of order) if (g.auto.has(c)) notes.push({ code: c.kept ? "kept-folded" : "column-folded", edge: c.edge.id });
+    // In the order they folded: `previous` reads it to unfold in reverse.
+    for (const c of g.auto) notes.push({ code: c.kept ? "kept-folded" : "column-folded", edge: c.edge.id });
 
     let x0 = area.x;
     let x1 = area.x + area.width;
