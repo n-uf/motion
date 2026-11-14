@@ -150,7 +150,7 @@ const c1: Scenario<Page> = {
       }
       // The room has opened: nothing else lies under the dashed rectangle.
       const preview = domRect(p, p.ind);
-      const inMenu = p.targetsFor(c.id).find((t) => t.id === p.dragging!.shown)!.target.fit.items[k]!.kind === "menu";
+      const inMenu = p.targetsFor(c.id).find((t) => t.id === p.dragging!.shown)!.target.fit.items.find((i) => i.id === c.id)!.kind === "menu";
       if (!inMenu) for (const r of othersDrawn(p, c.id)) if (overlap(r, preview) > 1) room.push(`${label}: ${fmt(r)} lies under the preview ${fmt(preview)}`);
       await release(p);
       ran++;
@@ -241,7 +241,7 @@ const c4: Scenario<Page> = {
     await press(p, id);
     const shown = await aimAt(p, centre(target.hit));
     const preview = domRect(p, p.ind);
-    const expected = target.target.fit.items[gap]!;
+    const expected = target.target.fit.items.find((i) => i.id === id)!;
     await release(p);
     const d = p.lastDrop!;
     const fit = p.fits().column;
