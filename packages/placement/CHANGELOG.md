@@ -40,7 +40,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     kept leave more spare length than before (`StackFit.need`, optional and always set by the solver, is the length the
     chosen forms need) the fresh fit is taken only if it is a pure gain over them (no item further down, one further up),
     otherwise the kept forms grow back in the reverse of give-way order while the stack fits (so a badge losing a digit
-    after a press moves nothing). An item whose form at the kept index is of another kind starts over; one only
+    after a press moves nothing; an item goes back to the nearest larger form the stack fits with, even if that makes it
+    shorter, and items in the menu come out together when only all of them leaving fits). Results under `previous` depend
+    on history but are never worse: a shrink then a grow may end at a larger arrangement than a fresh solve. An item whose
+    form at the kept index is of another kind starts over; one only
     re-measured keeps its place (smaller: room that grows the kept forms; larger: it gives way from them). A lowered `cross.min`, or any
     change of the forms' cross sizes, doesn't bring a form back under `previous`: solve once without it.
     `stackTargets(…, { previous })` solves every gap the same way.
