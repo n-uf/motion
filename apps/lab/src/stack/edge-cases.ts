@@ -12,7 +12,7 @@ import { EDGE_DEFAULTS, type Board, type EdgeSettings, type Layout } from "./boa
 import type { Driver } from "./drive";
 import { aimers } from "./drive";
 import { fmt, near } from "./run";
-import { FOLD, titleOf, type ItemId, type Phase } from "./sample";
+import { FOLD, formsOf, titleOf, type ItemId, type Phase } from "./sample";
 import { KIND_WORDS } from "./words";
 
 export type CaseGroup = "panels" | "groups" | "drag" | "floats";
@@ -133,9 +133,11 @@ export const EDGE_CASES: readonly EdgeCase[] = [
       const fit = b.fits().column;
       const views = fit.items.find((p) => p.id === "views")!;
       const pages = fit.items.find((p) => p.id === "pages")!;
+      // A group's form never grows: it is as long as its form says, whatever the column's length.
+      const own = formsOf("views", "column", true)[views.form]!.main.natural;
       const spare = fit.length - views.rect.height;
-      const ok = pages.kind === "open" && Math.abs(pages.rect.height - spare) <= 0.5 && views.rect.height <= 31;
-      return verdict(ok, `Views ≤ 30 px tall, Pages open and ${Math.round(spare)} px tall (the rest)`, `Views ${Math.round(views.rect.height)} px, Pages ${kindWords(pages.kind)} and ${Math.round(pages.rect.height)} px tall`);
+      const ok = pages.kind === "open" && Math.abs(pages.rect.height - spare) <= 0.5 && Math.abs(views.rect.height - own) <= 0.5;
+      return verdict(ok, `Views ${own} px tall (${kindWords(views.kind)}, its own length), Pages open and ${Math.round(spare)} px tall (the rest)`, `Views ${Math.round(views.rect.height)} px, Pages ${kindWords(pages.kind)} and ${Math.round(pages.rect.height)} px tall`);
     },
   },
   {
@@ -536,7 +538,8 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     preset: {},
     fixtures: ["C7: a float never covers a docked item's content"],
     async check(c) {
-      const grab = await c.aim.lift("findings", 40, 10);
+      // Held near its right end, the pointer stays off the column's gaps while the float's body lies over the column.
+      const grab = await c.aim.lift("findings", 200, 10);
       const ok1 = await c.aim.float({ x: 60 + grab.x, y: 220 + grab.y });
       await c.d.release();
       const f = c.b.floats.find((x) => x.id === "findings")?.rect;

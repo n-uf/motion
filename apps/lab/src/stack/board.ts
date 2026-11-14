@@ -507,7 +507,8 @@ export function createBoard(opt: BoardOptions) {
     const order = st.orders[side].filter((id) => id !== without);
     return `${Cap(side)} · ${at < order.length ? `before ${titleOf(order[at]!)}` : "at the end"}`;
   }
-  const sidesFor = (id: ItemId): readonly Side[] => (isPanel(id) ? ["column"] : SIDES);
+  // A panel docks in the column; on the Edge stack it may go to the toolbar bar too, where it lands as its header (T6).
+  const sidesFor = (id: ItemId): readonly Side[] => (isPanel(id) && !edge ? ["column"] : SIDES);
 
   /** Every place for dragging `id`: the gaps of the stacks it may dock in (stage px), and the float target. */
   function targetsFor(id: ItemId): BoardTarget[] {
