@@ -12,6 +12,10 @@ export function noteWords(fit: StackFit, n: StackNote): string {
     }
     case "to-menu":
       return `${titleOf(n.id)} is in the » menu`;
+    case "too-wide":
+      return `${titleOf(n.id)} is wider than the ${fit.axis === "column" ? "column" : "bar"} (clipped)`;
+    case "no-forms":
+      return `${titleOf(n.id)} has no form`;
     case "overflow":
       return `${Math.round(n.over)} px too long`;
   }
