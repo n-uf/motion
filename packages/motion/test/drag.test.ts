@@ -355,6 +355,41 @@ describe("drag/ intent", () => {
     expect(intent.release(FROM, moved)?.id).toBe("area");
     expect(intent.release({ x: FROM.x - 400, y: FROM.y }, moved)).toBeNull();
   });
+
+  it("atHome: never true before the pointer has left home, true when it is back over it, never with a target shown", () => {
+    const intent = createDragIntent({ home: HOME });
+    let t = 0;
+    const at = (p: Point) => intent.update(p, (t += FRAME), DOCK);
+    // At the press, and nudged inside home (not past its inset): not left yet, so not "back".
+    expect(at(FROM).atHome).toBe(false);
+    expect(at({ x: FROM.x + 10, y: FROM.y }).atHome).toBe(false);
+    expect(intent.state.leftHome).toBe(false);
+    // Out to the free area, then to a slot: left, a target is shown, never atHome there.
+    const out: boolean[] = [];
+    for (let i = 0; i < 40; i++) out.push(at(mid(A.hit)).atHome);
+    expect(out.some(Boolean)).toBe(false);
+    expect(intent.state.leftHome).toBe(true);
+    expect(at(mid(A.hit)).shown?.id).toBe("slot-a");
+    // Back over home: atHome, no target shown, and a release there lands nowhere.
+    const back = at(FROM);
+    expect([back.atHome, back.shown]).toEqual([true, null]);
+    expect(intent.release(FROM, DOCK)).toBeNull();
+    // On the home's edge: inside it counts (home itself, not shrunk).
+    expect(at({ x: HOME.x + 1, y: HOME.y + 1 }).atHome).toBe(true);
+    // Out again: false.
+    expect(at(mid(A.hit)).atHome).toBe(false);
+  });
+
+  it("atHome needs the pointer to have left home first, even where home overlaps a target, and hide() doesn't forget that it left", () => {
+    // A home that overlaps a target: the pointer over both, never having left home, is not atHome.
+    const home = rect(0, 0, 200, 100);
+    const intent = createDragIntent({ home });
+    expect(intent.update(mid(home), 0, DOCK).atHome).toBe(false);
+    // leftHome stays true once set, hide() included: back over home is still atHome.
+    intent.update({ x: 500, y: 200 }, FRAME, DOCK);
+    intent.hide(2 * FRAME);
+    expect(intent.update(mid(home), 3 * FRAME, DOCK).atHome).toBe(true);
+  });
 });
 
 describe("drag/ previews", () => {
