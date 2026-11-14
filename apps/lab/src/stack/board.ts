@@ -567,6 +567,7 @@ export function createBoard(opt: BoardOptions) {
     const d = drag;
     if (!d) return;
     Object.assign(d.el.style, { left: px(d.pointer.x - d.grab.x), top: px(d.pointer.y - d.grab.y) });
+    const wasHoming = d.homing;
     const f = d.intent.update(d.pointer, now, d.targets);
     const plan = previewPlan(f, "gap");
     const room = plan.makeRoom && f.shown?.kind === "dock" ? f.shown : null;
@@ -578,7 +579,7 @@ export function createBoard(opt: BoardOptions) {
       draw(room, d.id, homing);
       if (homing) say(`${titleOf(d.id)}: Back to its place. Release to put it back.`);
     }
-    if (f.shown?.id !== d.shown?.id) say(f.shown ? `${titleOf(d.id)} → ${f.shown.label}: release to drop it on the dashed rectangle.` : `${titleOf(d.id)}: move over a gap, or anywhere else to float it.`);
+    if (!homing && (f.shown?.id !== d.shown?.id || wasHoming)) say(f.shown ? `${titleOf(d.id)} → ${f.shown.label}: release to drop it on the dashed rectangle.` : `${titleOf(d.id)}: move over a gap, or anywhere else to float it.`);
     d.shown = f.shown;
     d.floatDrop = null;
     const s = plan.showIndicator ? f.shown : null;
@@ -778,6 +779,7 @@ export function createBoard(opt: BoardOptions) {
   /** Put the items where a scenario wants them. */
   function setLayout(l: Layout, extra?: { used?: Partial<Record<ItemId, number>>; kept?: readonly ItemId[]; from?: Partial<Record<ItemId, number>> }): void {
     if (drag) endDrag(true);
+    openedAt = -1e9;
     st.orders = { column: [...l.column], bar: [...l.bar] };
     st.floats = l.floats.map((f) => ({ id: f.id, rect: { ...f.rect } }));
     if (extra?.used) for (const [id, n] of Object.entries(extra.used)) st.used[id as ItemId] = n!;
@@ -812,6 +814,7 @@ export function createBoard(opt: BoardOptions) {
     frozen = false;
     altDown = false;
     measured = false;
+    openedAt = -1e9;
     stage.dataset.fluid = "false";
     lastDrop = null;
     scroller.scrollTop = 0;
