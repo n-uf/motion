@@ -88,10 +88,13 @@ async function press(p: Page, id: TbId): Promise<void> {
   await nextFrame();
   at = start;
 }
-/** Aim the held item at `to` until the preview shows and the others have made room. */
-async function aimAt(p: Page, to: Point): Promise<boolean> {
+/**
+ * Aim the held item at `to` until the preview shows and the others have made room. With `want` (the target's id) it
+ * waits for that target, not the gap the pointer passed over (the intent switches only after a dwell).
+ */
+async function aimAt(p: Page, to: Point, want?: string): Promise<boolean> {
   await approach(p, to);
-  return until(() => !!p.dragging && !p.ind.hidden && p.dragging.room !== null && p.dragging.room === p.dragging.shown);
+  return until(() => !!p.dragging && !p.ind.hidden && p.dragging.room !== null && p.dragging.room === p.dragging.shown && (want === undefined || p.dragging.shown === want));
 }
 async function release(p: Page): Promise<void> {
   pointer(p, "pointerup", at);
@@ -309,7 +312,7 @@ const t5: Scenario<Page> = {
             ok(last.hit.x + last.hit.width >= p.at.bar.x + fit.length + p.endReach - 0.5, `the last gap ends at ${last.hit.x + last.hit.width}, bar's end at ${p.at.bar.x + fit.length}`);
             await press(p, id);
             const aim = end === "end" ? p.fit().length + 14 : -14;
-            const ready = await aimAt(p, stageAt(p, aim));
+            const ready = await aimAt(p, stageAt(p, aim), (end === "end" ? last : first).id);
             ok(ready, `no preview with the pointer ${aim} px along the bar`);
             await release(p);
             const o = p.order;
@@ -368,7 +371,8 @@ const t6: Scenario<Page> = {
       p.setLength(600);
       await press(p, "findings");
       const gapX = p.fit().items.find((i) => i.id === "zoom")!.rect.x - p.gap / 2;
-      const ready = await aimAt(p, stageAt(p, gapX));
+      const before = p.order.indexOf("zoom");
+      const ready = await aimAt(p, stageAt(p, gapX), `gap:${before}`);
       const during = p.dragging;
       rows.push(
         await rule("The preview is a header-sized rect in a bar that stays 40 px tall", (ok) => {
