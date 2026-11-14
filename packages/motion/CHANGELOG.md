@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.15
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.15 (a fix to `fitStack`'s opt-in
+  `previous`: room comes back in the reverse of give-way order).
+
 ## 26.11.14
 
 - No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.14 (the toolbar cases in `./stack` and
