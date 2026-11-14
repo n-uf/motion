@@ -452,10 +452,12 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   item was added, or a panel opened: its `from` went down, so it starts over). Room that came back tries the largest
   forms again, as without `previous`: the fit's `need` (the length its forms need) left more spare length than before (the
   length grew, a gap or size shrank), or the stack got wider across (a group's stacked form returns to its row, a header
-  folded to a rail icon by its `cross.min` to its header). An item whose forms changed since (another kind or smallest
-  size at the kept index) starts over. `previous` is the `StackFit` last returned; a hand-built one with no `need` is no
-  help. `stackTargets(…, { previous })` solves every gap's preview the same way, so it equals the drop solved with the
-  same `previous`.
+  folded to a rail icon by its `cross.min` to its header). An item whose form at the kept index is of another kind
+  starts over; one only re-measured (a badge gained a digit) keeps its place: a smaller form frees room (the fresh fit is
+  taken), a larger one gives way from the kept forms. After changing the forms' cross sizes (a lowered `cross.min`, say)
+  solve once without `previous`: that alone doesn't bring a form back. `previous` is the `StackFit` last returned; a
+  hand-built one with no `need` is no help. `stackTargets(…, { previous })` solves every gap's preview the same way, so it
+  equals the drop solved with the same `previous`.
 - The solver has no open or closed state: it lays out the items it is given. An item with no forms is left out
   (`no-forms`). Panel and group kinds may be mixed on one item; only `menu` and `open` mean anything to the solver.
 
