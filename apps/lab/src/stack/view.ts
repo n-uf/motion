@@ -29,6 +29,8 @@ export function dress(id: string, kind: StackFormKind, meta?: ItemMeta): string 
     case "icons":
       return `<span class="st-gh" data-grab title="${title}">${dots}</span>${s.words.map((w) => `<span class="st-pill st-ico" title="${w}">${w[0]}</span>`).join("")}`;
     case "menu":
+    case "fold":
+      // The `fold` kind is the toolbar page's (src/stack/toolbar.ts draws it); these pages have none.
       return "";
   }
 }
