@@ -4,7 +4,7 @@
  * came back is used.
  */
 import { describe, expect, it } from "vitest";
-import { fitStack, stackTargets, type StackFit, type StackInput, type StackItem } from "../src/stack";
+import { fitStack, stackTargets, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
 import { group, mix, panel, seeded, stack } from "./stack-fixture";
 
 const kinds = (fit: StackFit) => fit.items.map((i) => i.kind);
@@ -109,5 +109,56 @@ describe("C23: previous", () => {
     const previous = fitStack(input);
     const targets = stackTargets({ ...input, length: 600 }, group("tools", 9), { previous });
     for (const t of targets) for (const p of previous.items) expect(t.fit.items.find((i) => i.id === p.id)!.form).toBeLessThanOrEqual(p.form);
+  });
+});
+
+describe("previous: a wider stack, and forms that changed", () => {
+  const f = (kind: StackForm["kind"], min: number, cross: number, extra: { crossMin?: number; grows?: boolean; natural?: number } = {}): StackForm => ({
+    kind,
+    main: { min, natural: extra.natural ?? min, ...(extra.grows ? { grows: true } : {}) },
+    cross: { natural: cross, ...(extra.crossMin !== undefined ? { min: extra.crossMin } : {}) },
+  });
+  const openPanel = (id: string, used: number): StackItem => ({ id, used, forms: [f("open", 90, 240, { natural: 160, grows: true }), f("header", 28, 240), f("rail", 24, 30), f("menu", 0, 0)] });
+  const column = (items: StackItem[], max: number): StackInput => ({ axis: "column", length: 600, cross: { min: 60, max }, items });
+
+  it("B1: forms that stepped down for a narrow column come back when it widens", () => {
+    const tools: StackItem = { id: "tools", used: 2, forms: [f("row", 30, 190), f("stacked", 30, 84), f("icons", 30, 28), f("menu", 0, 0)] };
+    const items = [openPanel("pages", 1), tools];
+    const narrow = fitStack(column(items, 150));
+    expect(kinds(narrow)).toEqual(["open", "stacked"]);
+    const wide = column(items, 360);
+    expect(kinds(fitStack(wide))).toEqual(["open", "row"]);
+    expect(kinds(fitStack(wide, { previous: narrow }))).toEqual(["open", "row"]);
+    // Narrowing again with the wide fit as previous: the group steps down, nothing else.
+    expect(kinds(fitStack(column(items, 150), { previous: fitStack(wide) }))).toEqual(["open", "stacked"]);
+  });
+
+  it("B1: a header that went to its rail icon for a narrow column comes back as the column widens", () => {
+    const header = (): StackItem => ({ id: "notes", used: 1, forms: [f("open", 90, 240, { natural: 160, grows: true }), f("header", 28, 240, { crossMin: 80 }), f("rail", 24, 30), f("menu", 0, 0)], from: 1 });
+    const items = [openPanel("pages", 2), header()];
+    const narrow = fitStack(column(items, 70));
+    expect(kinds(narrow)).toEqual(["open", "rail"]);
+    const wide = column(items, 360);
+    expect(kinds(fitStack(wide))).toEqual(["open", "header"]);
+    expect(kinds(fitStack(wide, { previous: narrow }))).toEqual(["open", "header"]);
+  });
+
+  it("B2: an item whose forms changed since starts over instead of keeping an index into the old ones", () => {
+    const a = openPanel("a", 1);
+    const b = openPanel("b", 2);
+    const input: StackInput = { axis: "column", length: 150, cross: { min: 60, max: 360 }, items: [a, b] };
+    const previous = fitStack(input);
+    expect(kinds(previous)).toEqual(["header", "open"]);
+    // a's forms are now rail and menu: index 1 is the menu, but the rail fits.
+    const changed: StackItem = { ...a, forms: [f("rail", 24, 30), f("menu", 0, 0)] };
+    const next = fitStack({ ...input, items: [changed, b] }, { previous });
+    expect(kinds(next)).toEqual(["rail", "open"]);
+    // The same kind at the same index but another size is another form too.
+    const bigger: StackItem = { ...a, forms: [a.forms[0]!, f("header", 50, 240), a.forms[2]!, a.forms[3]!] };
+    const resized = fitStack({ ...input, items: [bigger, b] }, { previous });
+    expect(resized.items[0]!.min).toBe(50);
+    expect(resized.items[0]!.kind).toBe("header");
+    // And an unchanged item is kept as before.
+    expect(fitStack(input, { previous })).toEqual(previous);
   });
 });

@@ -91,6 +91,13 @@ export interface StackInput {
   readonly gap?: number;
   /** Space before the first item and after the last (or after the » entry), px (default 0 each). Counts toward the length. */
   readonly pad?: { readonly start?: number; readonly end?: number };
+  /**
+   * Strict cross sizes (default false): a form is never drawn thinner than its `cross.min` (default its `natural`), so a
+   * form that sets the cross size and has a `cross.min` over `cross.max` steps down to its next form (never into the
+   * menu: with only the menu left it keeps its last drawn form and a `too-wide` note says so). Without it such a form is
+   * only clamped to `cross.max`, as it always was.
+   */
+  readonly strictCross?: boolean;
 }
 
 /** The width of a stack nothing open holds, px. */
@@ -133,6 +140,11 @@ export interface PlacedStackItem {
   readonly form: number;
   readonly kind: StackFormKind;
   readonly rect: Rect;
+  /**
+   * The form's smallest size along the stack as solved (0 for the menu). `fitStack`'s `previous` reads it to tell a form
+   * that changed since from the one it kept.
+   */
+  readonly min?: number;
 }
 
 export interface StackMenu {
@@ -147,8 +159,8 @@ export interface StackMenu {
  * - `form-down`: an item took a smaller form than the one it started in (`from`, an index into its forms), by length
  *   or by cross size.
  * - `to-menu`: an item is in the » menu.
- * - `too-wide`: an item's form doesn't set the cross size and its `cross.min` is over the stack's, or it does and its
- *   explicit `cross.min` is over the limits' `max`. Cross size never puts an item in the menu, so it keeps its last drawn form
+ * - `too-wide`: an item's form doesn't set the cross size and its `cross.min` is over the stack's, or (with `strictCross`)
+ *   it does and its `cross.min` is over the limits' `max`. Cross size never puts an item in the menu, so it keeps its last drawn form
  *   and the app clips it.
  * - `no-forms`: an item with no forms, left out of `items`.
  * - `overflow`: no item can give more way and the stack is still `over` px too long (forms that don't end in a `menu`

@@ -6,9 +6,8 @@
  *    default), clamped to the limits; with none, the rail width.
  * 3. Cross-fit: an item whose form doesn't set the cross size and whose `cross.min` is over it steps down until it
  *    fits (a group never sets a column's width, so a group alone becomes a rail of icons); so does one whose form does
- *    set it but whose explicit `cross.min` is over the limits' `max` (an open panel in a thin bar becomes a header; one
- *    with no `cross.min` is only clamped). Cross size
- *    never steps an item into the menu: when only the menu is left it keeps its last drawn form and a `too-wide` note
+ *    set it but whose `cross.min` is over the limits' `max`, with `strictCross` (an open panel in a thin bar becomes a
+ *    header; without the option it is only clamped). Cross size never steps an item into the menu: when only the menu is left it keeps its last drawn form and a `too-wide` note
  *    says so.
  * 4. Give-way: while the smallest sizes (`main.min`, plus the gaps and the padding) don't fit the length, one item
  *    steps down. Each item's next step goes to the first later form that shortens the stack (a smaller total: the
@@ -80,8 +79,11 @@ export function fitStack(input: StackInput, options: FitOptions = {}): StackFit 
   if (!previous || previous.need === undefined) return fresh;
   const seed = { need: 0 };
   const kept = solve(input, previous, seed);
-  // The room the kept forms leave now, before anything gives way anew, against what they left before.
-  return Math.max(0, kept.length) - seed.need > previous.length - previous.need + EPS ? fresh : kept;
+  // Room came back when the kept forms leave more spare length now than before they gave way anew, or when the stack got
+  // wider across (a wider limit lets a panel open wider, and the forms that stepped down for the old width may come back).
+  const moreLength = Math.max(0, kept.length) - seed.need > previous.length - previous.need + EPS;
+  const moreCross = kept.cross > previous.cross + EPS;
+  return moreLength || moreCross ? fresh : kept;
 }
 
 /** `seed.need` (when given) is told the length the forms taken from `previous` need under this input, before any step. */
@@ -92,15 +94,18 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }):
   const start = items.map((it) => Math.min(Math.max(0, Math.floor(finite(it.from ?? 0))), it.forms.length - 1));
   const at = [...start];
   if (previous) {
-    // An item the previous fit had keeps its form while `from` still allows it; one whose `from` went down since (a panel
-    // opened) starts over, and so does a new one. Where an item started then is its first `form-down` note's `from`, or
-    // the form it had when it never moved.
+    // An item the previous fit had keeps its form while `from` still allows it and the form is still the one it was (the
+    // same kind and smallest size); one whose `from` went down since (a panel opened) starts over, and so does a new one
+    // or one whose forms changed. Where an item started then is its first `form-down` note's `from`, or the form it had
+    // when it never moved.
     const had = new Map(previous.items.map((p) => [p.id, p]));
     const began = new Map<string, number>();
     for (const n of previous.notes) if (n.code === "form-down" && !began.has(n.id)) began.set(n.id, n.from);
     items.forEach((it, i) => {
       const p = had.get(it.id);
-      if (p && p.form >= start[i]! && p.form < it.forms.length && start[i]! >= (began.get(it.id) ?? p.form)) at[i] = p.form;
+      if (!p || p.form < start[i]! || p.form >= it.forms.length || start[i]! < (began.get(it.id) ?? p.form)) return;
+      const f = it.forms[p.form]!;
+      if (f.kind === p.kind && (p.min === undefined || mainOf(f, "min") === p.min)) at[i] = p.form;
     });
   }
   const form = (i: number): StackForm => items[i]!.forms[at[i]!]!;
@@ -175,9 +180,9 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }):
   const tooWide = (i: number, cross: number): boolean => {
     const f = form(i);
     if (isMenu(f)) return false;
-    // A form that sets the cross size steps down only when it says it can't be drawn as thin as the limit: an explicit
-    // `cross.min` over `max`. Without one it is clamped, as it always was.
-    if (formSetsCross(f)) return f.cross.min !== undefined && finite(f.cross.min) > lim.max + EPS;
+    // A form that sets the cross size is clamped to `max`, as it always was; only with `strictCross` is it never drawn
+    // thinner than its `cross.min`, and steps down when that is over `max`.
+    if (formSetsCross(f)) return input.strictCross === true && crossMin(f) > lim.max + EPS;
     return crossMin(f) > cross + EPS;
   };
 
@@ -258,7 +263,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }):
   const inside = idx.filter((i) => isMenu(form(i)));
   const menu: StackMenu | null = inside.length > 0 ? { rect: menuRect, items: inside.map((i) => items[i]!.id) } : null;
 
-  const placed: PlacedStackItem[] = idx.map((i) => ({ id: items[i]!.id, form: at[i]!, kind: form(i).kind, rect: isMenu(form(i)) ? menuRect : rects.get(i)! }));
+  const placed: PlacedStackItem[] = idx.map((i) => ({ id: items[i]!.id, form: at[i]!, kind: form(i).kind, rect: isMenu(form(i)) ? menuRect : rects.get(i)!, min: mainOf(form(i), "min") }));
 
   const notes: StackNote[] = [];
   for (const it of input.items) if (it.forms.length === 0) notes.push({ code: "no-forms", id: it.id });
