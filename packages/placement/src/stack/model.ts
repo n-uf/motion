@@ -140,11 +140,6 @@ export interface PlacedStackItem {
   readonly form: number;
   readonly kind: StackFormKind;
   readonly rect: Rect;
-  /**
-   * The form's smallest size along the stack as solved (0 for the menu). `fitStack`'s `previous` reads it to tell a form
-   * that changed since from the one it kept.
-   */
-  readonly min?: number;
 }
 
 export interface StackMenu {
@@ -198,7 +193,11 @@ export interface FitOptions {
    * The fit the stack had before. While the forms it chose still fit, they are kept: a change of `used` ages alone (a press
    * on a header) reshapes nothing. Ages decide only who gives way anew (the length shrank, an item was added or opened),
    * and room that came back is used. Items it doesn't know start from their largest form; an item whose `from` went down
-   * since (a panel opened) starts over.
+   * since (a panel opened), or whose form at the kept index is of another kind, starts over. A form that was only
+   * re-measured keeps its place: smaller, it frees room (the fresh fit is taken); larger, it gives way from the kept forms.
+   *
+   * Not covered: a lowered `cross.min` (or any change of the forms' cross sizes) doesn't bring a form back under
+   * `previous`. After changing cross sizes, solve once without `previous`.
    */
   readonly previous?: StackFit;
 }
