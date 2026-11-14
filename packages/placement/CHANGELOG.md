@@ -47,6 +47,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     `previous`), `handFold: "ride"`, `inset` and `gutter`; `moveTo` with `column`, `rail` and `float` places, `homeFor`,
     `prune`; `column:<side>:<ring>` and `rail:<side>:<ring>` targets, own-place drops as homes, `stops`; stored columns
     (`column: true`). Two document windows' width thresholds are pinned in tests.
+  - `Edge.hitBand` (`number | "middle"`; default 24 for columns, `"middle"` for bars): a column's gap hits are bands
+    around the insertion lines, so a panel's body is no drop area for a group. Gaps on one line are one target.
+  - A `content-changed` note (`{ from, to }`) whenever `content` differs from `previous.content`.
 
 ## 26.11.15
 
