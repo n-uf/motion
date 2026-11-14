@@ -5,7 +5,29 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
-- New entry `@n-uf/placement/stack` (entry text follows in a later commit).
+- New entry `@n-uf/placement/stack`: the items along one edge of a stage (a column or a row), each a panel or a control
+  group with forms from largest to smallest. Pure, and not tied to `./panels` columns; `./panels`, `./dock` and `./desk`
+  are unchanged.
+  - `fitStack(input)`: one form, kind and rect per item. Every item starts in its largest form, or at `StackItem.from`.
+    While the smallest sizes don't fit the length, the item used longest ago (unkept before `kept`, the later in the
+    stack on a tie) takes its next form, panel `open` → `header` → `rail` → `menu`, group `row` → `stacked` → `icons`
+    → `menu`; it doesn't go into the menu when that only lengthens a stack nothing else can shorten (`overflow`).
+    Spare length goes to the forms that `grows`, shared by their natural sizes. The stack's cross size is the widest
+    form that `setsCross` (a panel's `open`, by default), clamped, else the rail width (30).
+  - Cross-fit: a form that doesn't set the cross size and whose `cross.min` (default `cross.natural`) is over the
+    stack's takes its next form: a group alone is a rail of icons, a column with nothing open shrinks to a rail, and a
+    header with a small `cross.min` stays in a narrower column. It never steps an item into the menu: the item keeps
+    its last drawn form and a `too-wide` note says so. An item with no forms is left out (`no-forms`).
+  - Result: `items` (`form` and `from`/`to` in notes are indexes into the item's forms), `cross`, `menu` (the » entry's
+    rect and the ids in it) and coded `notes` (`form-down`, `to-menu`, `too-wide`, `no-forms`, `overflow`).
+  - `stackTargets(input, dragged)`: a drop target for every gap (before each item and after the last; the dragged id is
+    lifted out of the input first), in the shape `@n-uf/motion/drag` takes: `gap:<k>`, priority 2, `place`, `hit` (split
+    at the items' middles, across as wide as the larger of the stack and the drop's fit), `slot`, `marker` and the full
+    `fit` of the stack with the item inserted, so the preview is exactly the rect after the drop.
+  - `storeStack` / `readStack` (`{ v: 1, order, kept, closed, used, forms }`): never throws, drops what it can't use
+    (including `__proto__` and `constructor` keys) and lists it.
+  - Exports: `fitStack`, `stackTargets`, `withItem`, `formSetsCross`, `storeStack`, `readStack`, `createStack`,
+    `DEFAULT_RAIL`, `DEFAULT_MENU` and their types (`StackAxis`, `StackForm`, `StackItem`, `StackInput`, `StackFit`, …).
 
 ## 26.11.11
 
