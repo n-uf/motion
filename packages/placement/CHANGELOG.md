@@ -10,10 +10,13 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   the pages scrolling under it never move it; it has no pinned flag.
   - `fitFloat(rect, stage, avoid?)`: the float's rect moved (never resized) inside the stage, then beside the docked
     items it would cover, at the nearest clear place; `FloatFit` has `rect`, `clamped` (also when a position that wasn't a
-    number was replaced), `snapped` and `covers` (indexes into `avoid` it still covers when the stage has no clear
-    place). A float larger than the stage keeps its top-left corner on the stage's. The candidate places are tried
-    nearest first and rects that can't touch the float are left out: 300 `avoid` rects take a millisecond or two, and
-    the search looks at 20,000 places at most (2,048 for the least covered when none is clear).
+    number was replaced), `snapped`, `covers` (indexes into `avoid` it still covers; empty whenever a clear place exists,
+    which it finds, and not empty only when the stage has none) and `searchCapped`. A float larger than the stage keeps
+    its top-left corner on the stage's. The x's are tried nearest first and, for each, the stretches of y the rects
+    block are merged and skipped. Measured in a test run on a laptop: about 100 `avoid` rects 0.1 ms, 300 a few ms even
+    when no place is clear (6 ms median, 15 ms worst), 1,000 about 17 ms. A safety net stops the clear search after 3
+    million rect tests and sets `searchCapped` (a clear place may then exist that was not found); with no clear place
+    the least covered among the 2,048 nearest places is used.
   - `stackFloatTarget({ id, stage, size, avoid?, label? })`: a free, priority 3 drop target in the shape
     `@n-uf/motion/drag` takes, `kind: "float"`, id `float:<id>` (so it can't collide with `./desk`'s `"float"`; the
     toolbar `floatTarget` in `./targets` keeps its name), whose `hit` covers the whole plane, so a pointer past the

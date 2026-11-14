@@ -505,14 +505,17 @@ pure.
 - `fitFloat(rect, stage, avoid?)` gives the rect a float gets: moved (never resized) to lie inside the `stage`, then
   beside any of the `avoid` rects (the docked items' rects, and the » entries', in the same px) it would cover, at the
   nearest place that is clear and inside the stage. A float larger than the stage keeps its top-left corner on the
-  stage's. When the stage has no clear place for it, it stays where it covers the least and `covers` lists the `avoid`
-  indexes it still covers. `FloatFit`: `rect`, `clamped` (also true when a position that wasn't a number was replaced),
-  `snapped`, `covers`. Fit the floats again whenever the stacks or the stage change: a stack that grew may lie under one.
-  Cost: the candidate places (every edge of the stage and of an `avoid` rect, crossed) are tried nearest first and the
-  first clear one is the answer, after leaving out the rects that can't touch the float. With 300 `avoid` rects that is
-  a millisecond or two on a laptop (a pointer move per frame is fine); the search looks at 20,000 places at most, then
-  at 2,048 for the least covered, so a stage too crowded for the float is bounded too. Keep `avoid` to the docked
-  items, not to every pixel.
+  stage's. A clear place is found whenever one exists, and then `covers` is empty. Only when the stage has no clear
+  place for it, the float stays where it covers the least (among the 2,048 nearest candidate places) and `covers` lists
+  the `avoid` indexes it still covers. `FloatFit`: `rect`, `clamped` (also true when a position that wasn't a number was
+  replaced), `snapped`, `covers`, `searchCapped`. Fit the floats again whenever the stacks or the stage change: a stack
+  that grew may lie under one.
+  Cost: the candidate x's (every edge of the stage and of an `avoid` rect) are tried nearest first; for each, the
+  stretches of y the rects block are merged and skipped, so no clear place is missed however many lie between, and the
+  search stops when no later x can be nearer. Measured in a test run on a laptop: about 100 `avoid` rects 0.1 ms, 300
+  a few ms even when no place is clear (6 ms median, 15 ms worst), 1,000 about 17 ms. A safety net stops the clear
+  search after 3 million rect tests (thousands of rects) and sets `searchCapped`: a clear place may then exist that was
+  not found. Keep `avoid` to the docked items, not to every pixel.
 - `stackFloatTarget({ id, stage, size, avoid?, label? })` is a drop target in the shape `@n-uf/motion/drag` takes: `id`
   `float:<id>` (not `"float"`, which `./desk` uses) and `kind: "float"`, priority 3 (a stack's gaps, priority 2, win
   where they are), `free` (no room is made for it) and a `hit` that covers the whole plane, so a pointer past the
