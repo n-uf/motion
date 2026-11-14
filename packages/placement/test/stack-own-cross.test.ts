@@ -1,11 +1,14 @@
 /**
- * C28, a group takes its own size across: the opt-in `StackInput.ownCross`. An item whose current form doesn't set the
- * cross size is drawn at its own `cross.natural` (clamped to the stack's), from the start edge; forms that set it, and
- * the » entry, still span the stack; hits and markers still span it.
+ * C28, a group takes its own size across: the opt-in `StackInput.ownCross`. An item whose current form is a group kind
+ * (`row`, `stacked`, `icons`, `fold`) is drawn at its own `cross.natural` (clamped to the stack's), from the start edge,
+ * whether or not the form sets the cross size; panel kinds (`open`, `header`, `rail`) and the » entry span the stack;
+ * hits and markers span it too.
  */
 import { describe, expect, it } from "vitest";
-import { formSetsCross, fitStack, stackTargets, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
+import { fitStack, stackTargets, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
 import { barGroup, group, limits, mix, panel, seeded, stack } from "./stack-fixture";
+
+const GROUP_KINDS = new Set<string>(["row", "stacked", "icons", "fold"]);
 
 const across = (axis: StackInput["axis"], r: { x: number; y: number; width: number; height: number }) => (axis === "column" ? { start: r.x, size: r.width } : { start: r.y, size: r.height });
 const form = (kind: StackForm["kind"], min: number, cross: number, setsCross?: boolean): StackForm => ({ kind, main: { min, natural: min }, cross: { natural: cross }, ...(setsCross === undefined ? {} : { setsCross }) });
@@ -37,19 +40,29 @@ describe("C28: ownCross", () => {
     expect(narrow.items[1]!.rect.width).toBe(84);
   });
 
-  it("a form that sets the cross size spans the stack, and so does a header folded in a column an open panel made wide", () => {
-    const own = fitStack({ ...stack([panel("a", 1, 160, true, 200), panel("b", 2, 160, false, 300)], 200), ownCross: true });
-    // The two panels can't both stay open: whichever is open spans the column, whichever is folded to a header takes its natural across (clamped).
-    for (const p of own.items) {
-      if (p.kind === "open") expect(p.rect.width).toBe(own.cross);
-      else expect(p.rect.width).toBeLessThanOrEqual(own.cross);
-    }
+  it("open panels of different natural widths all span the column, as wide as the widest; so do the headers and rail icons", () => {
+    const panels = [panel("a", 1, 160, false, 200), panel("b", 2, 160, false, 300)];
+    const both = fitStack({ ...stack(panels, 600), ownCross: true });
+    expect(both.items.map((p) => p.kind)).toEqual(["open", "open"]);
+    expect(both.cross).toBe(300);
+    expect(both.items.map((p) => [p.rect.x, p.rect.width])).toEqual([[0, 300], [0, 300]]);
+    // Too short for both: the oldest folds to its header (200 across by its own form), which still fills the 300 column.
+    const folded = fitStack({ ...stack(panels, 150), ownCross: true });
+    expect(folded.items.map((p) => p.kind)).toEqual(["header", "open"]);
+    expect(folded.items.map((p) => p.rect.width)).toEqual([300, 300]);
+    // A rail icon (30 across by its form) fills the column too; the stack is the same as without ownCross.
+    const rail = fitStack({ ...stack([panel("a", 1), panel("b", 2), panel("c", 3)], 100), ownCross: true });
+    expect(rail.items.some((p) => p.kind === "rail")).toBe(true);
+    for (const p of rail.items) expect(p.rect.width).toBe(rail.cross);
   });
 
-  it("an open form that doesn't set the cross size takes its own size; a group's form that does is drawn at its own width", () => {
+  it("the form's kind decides, not setsCross: a panel form spans even when it sets nothing; a group's form that sets the cross size is drawn at its own width", () => {
     const solo: StackItem = { id: "x", used: 1, forms: [form("open", 50, 150, false), form("menu", 0, 0)] };
     const withPanel = { ...stack([panel("pages", 1), solo], 600), ownCross: true };
-    expect(fitStack(withPanel).items[1]!.rect.width).toBe(150);
+    expect(fitStack(withPanel).items[1]!.rect.width).toBe(240);
+    // A group's form that doesn't set it is its own size too, whatever its `setsCross: false` says.
+    const quiet: StackItem = { id: "q", used: 1, forms: [form("stacked", 50, 70, false), form("menu", 0, 0)] };
+    expect(fitStack({ ...stack([panel("pages", 1), quiet], 600), ownCross: true }).items[1]!.rect.width).toBe(70);
     const setter: StackItem = { id: "y", used: 1, forms: [form("row", 50, 90, true), form("menu", 0, 0)] };
     const fit = fitStack({ ...stack([setter], 600), ownCross: true });
     expect(fit.cross).toBe(limits.min);
@@ -183,7 +196,8 @@ describe("C28: sweep", () => {
         const item = input.items.find((it) => it.id === p.id)!;
         const f = item.forms[p.form]!;
         const size = across(axis, p.rect).size;
-        if (p.kind === "menu" || (f.kind === "open" && formSetsCross(f))) expect(size).toBe(own.cross);
+        // Panel kinds and the » entry span; group kinds are their own size.
+        if (!GROUP_KINDS.has(p.kind)) expect(size).toBe(own.cross);
         else expect(size).toBe(Math.min(own.cross, Math.max(0, f.cross.natural)));
       });
       // Targets: previews in the same bounds, hits and markers over the stack.
