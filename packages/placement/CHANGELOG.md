@@ -5,29 +5,43 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
-- `@n-uf/placement/stack`, the cases a toolbar needs. Two changes alter what `fitStack` gives for input that worked
-  before; the rest is opt-in.
-  - **Type change:** `GroupFormKind` and `StackFormKind` gain `"fold"` (a group's handle with its own » in line). A
-    `switch` over the kinds that is exhaustive must handle it. The solver treats it as an ordinary form: it keeps its
-    place and takes its own `main` length; `menu` stays the shared » entry.
-  - **Behaviour change, give-way steps:** an item steps only to the first later form that shortens the stack (a smaller
-    `main.min`, the shared » entry counted when the form is `menu`, gaps counted). Forms that are the same length or
-    longer are skipped; with none shorter the item stays and the stack may report `overflow`. An item no longer goes
-    into the menu alone when it is not longer than the » entry (a 24 px icon, a 28 px entry). Items stuck that way go in
-    together, in give-way order, as few as shorten the stack (two icons for one entry); each one after that saves its
-    whole size. Before, a lengthening step was taken whenever another item could still give way, so an item could end in
-    the menu with room to spare.
-  - **Behaviour change, cross size:** a form that sets the cross size (a panel's `open`) now steps down when its
-    `cross.min` (default its `natural`) is over the limits' `max`, never into the menu (`too-wide` if it is the last
-    drawn form). Before, the stack was only clamped to `max` and the form drawn thinner than it could live with. A form
-    that can be drawn thinner needs a `cross.min` to say so.
+- `@n-uf/placement/stack`, the cases a toolbar needs. Additive: no rename, no removed export, no new required field, and
+  an input that uses none of the new options gives the 26.11.13 fit, except in the three cases under "Changed
+  behaviour". A seeded sweep of 4,000 inputs against a verbatim copy of the 26.11.13 solver
+  (`test/stack-compat.test.ts`) checks it: every difference is one of those three.
+  - **Type change:** `GroupFormKind` and `StackFormKind` gain `"fold"` (a group's handle with its own » in line). An
+    exhaustive `switch` over `StackFormKind` needs a `fold` case; nothing else changes for typing. The solver treats it
+    as an ordinary form: it keeps its place and takes its own `main` length; `menu` stays the shared » entry.
+  - **Changed behaviour** (fixes the kits asked for):
+    1. A give-way step goes only to the first later form that shortens the stack (a smaller `main.min`, the shared »
+       entry counted when the form is `menu`). Forms of the same length or longer are skipped, with none shorter the item
+       stays and the stack may report `overflow`. Affected: an item whose next form is not shorter than its current one
+       (a `stacked` form as long as the `row`, a `fold` longer than the `icons` before it). Before, the item stepped
+       into it.
+    2. The menu: an item no longer goes into the menu alone when it is not longer than the » entry (a 24 px rail icon,
+       the default 28 px entry), unless that shortens the stack. Items stuck that way go in together, in give-way order,
+       as few as together shorten the stack (two 24 px icons for one 28 px entry); each one after that saves its whole
+       size. Affected: a stack whose items end in a `menu` form that are at most as long as the entry. Before, such a
+       step was taken whenever another item could still give way, so an item could end in the menu with room to spare, and
+       one that nothing else could help stayed out.
+    3. The pass limit: the old limit (as many passes as forms in all) could run out before a long run of cross-fit and
+       give-way steps ended and return a stack that doesn't fit with no `overflow` note. It now counts twice the forms.
+       Affected: such stacks only (none in the sweep).
+  - **Opt-in, cross size:** a form that sets the cross size and has an explicit `cross.min` over the limits' `max` steps
+    down (an open panel with `cross.min` 120 in a bar with `cross.max` 40 becomes a header), never into the menu
+    (`too-wide` if it is the last drawn form). A form with no `cross.min` is clamped as before.
+  - `fitStack(input, { previous })` (new optional second argument, `FitOptions`): keeps the forms of the previous fit while
+    they still fit, so a change of `used` ages alone (a press on a header) reshapes nothing. Ages decide only who gives
+    way anew (the length shrank, an item was added, a panel was opened). When the forms kept leave more spare length than
+    before, the largest forms are tried again, as without it. `StackFit.need` (optional, always set by the solver) is the
+    length the chosen forms need, what `previous` compares. `stackTargets(…, { previous })` solves every gap the same way.
   - `StackForm.rank` (default 0): the step taken is the one into the lowest-ranked form across all items; ties go
     unkept before kept, then the item used longest ago, then the later in the stack.
   - `StackInput.gap` (between neighbouring drawn items, the » entry included) and `StackInput.pad` (`{ start, end }`):
     both count toward the length and every rect includes them.
   - `stackTargets(input, dragged, { endReach })`: the first and last gaps' hits reach `endReach` px past the stack's
     ends. The marker's cross size is the stack's. No pointer hysteresis here: that is `@n-uf/motion/drag` (its band,
-    and `placeOf` with `previous`). New export type `StackTargetOptions`.
+    and `placeOf` with `previous`). New export types `StackTargetOptions` and `FitOptions`.
 
 ## 26.11.13
 

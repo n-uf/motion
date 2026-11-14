@@ -443,9 +443,16 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   header a small `cross.min` and it stays in a column an open panel made narrower. Cross size never puts an item in
   the menu: an item that is still too wide in its last drawn form keeps it, and `too-wide` says so (the app clips it).
   Cross-fit and give-way repeat until nothing changes, because a panel folding can narrow the column.
-- A form that does set the cross size steps down too when its `cross.min` (default its `natural`) is over the limits'
-  `max`: in a top bar with `cross.max` 40, an open panel that needs 120 across becomes a header instead of being
-  squeezed to 40. Give a form a `cross.min` it can live with and it is only clamped.
+- A form that sets the cross size and says, with an explicit `cross.min`, that it can't be drawn as thin as the
+  limits' `max` steps down too: in a top bar with `cross.max` 40, an open panel with `cross.min` 120 becomes a header
+  instead of being squeezed to 40. A form with no `cross.min`, or one it can live with, is only clamped.
+- `fitStack(input, { previous })` keeps the forms of the fit the stack had before, while they still fit: a change of
+  `used` ages alone (a press on a header) reshapes nothing. Ages decide only who gives way anew (the length shrank, an
+  item was added, or a panel opened: its `from` went down, so it starts over). Room that came back (the fit's `need`,
+  the length its forms need, left more spare length than before: the length grew, a gap or size shrank) tries the
+  largest forms again, as without `previous`. `previous` is the `StackFit` last returned; a hand-built one with no
+  `need` is no help. `stackTargets(…, { previous })` solves every gap's preview the same way, so it equals the drop
+  solved with the same `previous`.
 - The solver has no open or closed state: it lays out the items it is given. An item with no forms is left out
   (`no-forms`). Panel and group kinds may be mixed on one item; only `menu` and `open` mean anything to the solver.
 
