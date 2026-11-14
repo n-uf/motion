@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.13
 
 - `@n-uf/placement/stack`, floats (new exports; `fitStack`, `stackTargets` and the stack's stored form are unchanged, and
   so are `./panels`, `./dock` and `./desk`). A float is an item above the pages, in the stage's own px (view space), so
@@ -15,7 +15,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     its top-left corner on the stage's. The x's are tried nearest first and, for each, the stretches of y the rects
     block are merged and skipped. Measured in a test run on a laptop: about 100 `avoid` rects 0.1 ms, 300 a few ms even
     when no place is clear (6 ms median, 15 ms worst), 1,000 about 17 ms. A safety net stops the clear search after 3
-    million rect tests and sets `searchCapped` (a clear place may then exist that was not found); with no clear place
+    million rect tests and sets `searchCapped` (the place found may then not be the nearest, or a clear place may exist that was not found); with no clear place
     the least covered among the 2,048 nearest places is used.
   - `stackFloatTarget({ id, stage, size, avoid?, label? })`: a free, priority 3 drop target in the shape
     `@n-uf/motion/drag` takes, `kind: "float"`, id `float:<id>` (so it can't collide with `./desk`'s `"float"`; the
