@@ -44,8 +44,10 @@
 .st-group[data-kind="stacked"] .st-pill { padding: 1px 8px; }
 .st-group[data-kind="icons"] { padding: 0 4px; gap: 4px; }
 .st-ico { width: 22px; height: 22px; padding: 0; text-align: center; font: 600 11px/20px var(--font-sans); border-radius: 5px; }
-.st-stack.st-column .st-group[data-kind="icons"] { flex-direction: column; justify-content: center; }
-.st-stack.st-column .st-group[data-kind="icons"] .st-gh { display: none; }
+/* In a column the icons stand one above the other under a horizontal grip (3 × 2 dots), 14 px tall in the 30 px rail. */
+.st-stack.st-column .st-group[data-kind="icons"] { flex-direction: column; justify-content: flex-start; }
+.st-stack.st-column .st-group[data-kind="icons"] .st-gh { padding: 4px 0 2px; }
+.st-stack.st-column .st-group[data-kind="icons"] .st-grip { grid-template-columns: repeat(3, 3px); }
 .st-stack.st-row .st-group[data-kind="icons"] .st-gh { padding: 6px 0; }
 .st-panel[data-kind="rail"] { align-items: center; justify-content: center; flex-direction: row; gap: 2px; cursor: grab; }
 .st-badge { width: 20px; height: 20px; border-radius: 5px; background: var(--st-chrome); text-align: center; font: 700 11px/20px var(--font-sans); }
@@ -71,6 +73,7 @@
 
 /* Count badge and phase: both live in fixed slots, so neither changes an item's size. */
 .st-num { flex: none; box-sizing: border-box; width: 26px; height: 16px; border-radius: 8px; background: var(--st-chrome); box-shadow: inset 0 0 0 1px var(--st-edge); text-align: center; font: 600 10px/16px var(--font-sans); overflow: hidden; }
+.st-stage[data-fluid="true"] .st-num { width: auto; min-width: 16px; padding: 0 5px; }
 .st-phase { color: var(--st-muted); font-style: italic; }
 .st-item[data-phase]::after { content: ""; position: absolute; bottom: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--st-edge); pointer-events: none; }
 .st-item[data-phase="busy"]::after { background: #d99a00; }

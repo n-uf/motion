@@ -12,8 +12,8 @@ const dots = '<span class="st-grip" aria-hidden="true">' + "<i></i>".repeat(6) +
 export function dress(id: string, kind: StackFormKind, meta?: ItemMeta): string {
   const s = SAMPLES[id as ItemId];
   const title = titleOf(id);
-  // With a meta: a count badge in a fixed slot (it never changes the item's size), and a phase line in an open panel.
-  const num = meta ? `<span class="st-num" title="${meta.count}">${badgeOf(meta.count)}</span>` : "";
+  // With a meta: a count badge in a fixed slot (it never changes the item's size; `fluid` makes it as wide as its digits), and a phase line in an open panel.
+  const num = meta ? `<span class="st-num" title="${meta.count}">${meta.fluid ? Math.max(0, Math.floor(meta.count)) : badgeOf(meta.count)}</span>` : "";
   const phase = meta ? `<li class="st-phase">${meta.phase}</li>` : "";
   switch (kind) {
     case "open":
@@ -103,7 +103,7 @@ export function createStackView(parent: HTMLElement, axis: StackAxis, label: str
           items.set(p.id, n);
         }
         const m = meta?.(p.id);
-        const sig = `${p.kind}|${m?.count}|${m?.phase}`;
+        const sig = `${p.kind}|${m?.count}|${m?.phase}|${m?.fluid}`;
         if (n.dataset.sig !== sig) {
           n.dataset.sig = sig;
           n.dataset.kind = p.kind;
