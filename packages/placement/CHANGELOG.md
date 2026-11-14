@@ -3,6 +3,27 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+- `@n-uf/placement/stack`, the cases a host with several kinds of item and a title bar needs. Additive: no rename, no
+  removed export, no new required field, and an input that uses none of the new options gives the 26.11.15 fit and
+  targets (`test/stack-compat.test.ts` checks it against a verbatim copy of the 26.11.15 solver and targets: 3,000
+  fits with a chain of `previous` solves, 1,500 target lists, and the options at their defaults).
+  - **`StackInput.accepts(item)`** (C25): `stackTargets` gives no target for a dragged item the stack doesn't accept.
+    **`stackTargets(…, { allows(dragged, at) })`** leaves out the gaps it refuses. Item kinds stay the host's.
+  - **`StackItem.fixed`** (C29, a bar's reserved room): never gives way (skipped as the victim, keeps its first allowed
+    form, also across), counts toward the length, is never dragged (`stackTargets` gives `[]`), takes no part in
+    `previous` growth, and has no drop slot inside it: the gaps before and after it stay, and its area is in no gap's
+    `hit`.
+  - **`stackTargets(…, { onlyFits: true })`**: a gap is offered only where the dragged item fits beside the others: not in
+    the menu, no `overflow`, no new `too-wide`, no fixed item drawn at another size.
+  - **`StackInput.ownCross`** (C28, opt-in): items are drawn at their own `cross.natural`, clamped to the stack's and
+    from its start edge; a panel's `open` form and the » entry still span, and hits and markers span the stack. A
+    group's form that sets the cross size (the recommended column form for words, `stacked` with `setsCross`, then
+    `icons`, then `menu`, no `row`) widens the column but is drawn at its own width.
+  - Affected: none unless the options are used. The README has the recommended column forms for a group and a title bar
+    example.
+
 ## 26.11.15
 
 - **Fixed** (`@n-uf/placement/stack`, opt-in `fitStack(input, { previous })` only; a solve without `previous` is
