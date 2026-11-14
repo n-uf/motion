@@ -13,8 +13,11 @@ export type StackAxis = "column" | "row";
 
 /** How a panel draws: open (header and body), a header only, a rail icon, or an entry in the » menu. */
 export type PanelFormKind = "open" | "header" | "rail" | "menu";
-/** How a control group draws: a row of words, the words stacked, icons only, or an entry in the » menu. */
-export type GroupFormKind = "row" | "stacked" | "icons" | "menu";
+/**
+ * How a control group draws: a row of words, the words stacked, icons only, `fold` (the group's handle with its own »,
+ * in line at its place and with its own length) or an entry in the shared » menu.
+ */
+export type GroupFormKind = "row" | "stacked" | "icons" | "fold" | "menu";
 export type StackFormKind = PanelFormKind | GroupFormKind;
 
 /** Along the stack: `min` is the least it can be drawn, `natural` what it asks for; `grows` takes spare length. */
@@ -40,6 +43,13 @@ export interface StackForm {
    * panel's `open`, false for everything else (a group never sets a column's width).
    */
   readonly setsCross?: boolean;
+  /**
+   * Give-way order (default 0). When the stack is too long, the step taken is the one into the lowest-ranked next
+   * form across all items (the form the item would take, not the one it leaves); ties go unkept before kept, then the
+   * item used longest ago, then the later in the stack. A pinned primary's last forms get a higher rank, so every
+   * other group collapses before it does.
+   */
+  readonly rank?: number;
 }
 
 export interface StackItem {
@@ -74,6 +84,13 @@ export interface StackInput {
   readonly items: readonly StackItem[];
   /** The » menu entry's size along the stack, taken only while an item is in the menu (default {@link DEFAULT_MENU}). */
   readonly menu?: { readonly main: number };
+  /**
+   * The space between neighbouring drawn items, px (default 0). The » entry is a neighbour of the last drawn item. It
+   * counts toward the length and the rects include it, so an app draws at the solver's rects.
+   */
+  readonly gap?: number;
+  /** Space before the first item and after the last (or after the » entry), px (default 0 each). Counts toward the length. */
+  readonly pad?: { readonly start?: number; readonly end?: number };
 }
 
 /** The width of a stack nothing open holds, px. */
@@ -93,6 +110,12 @@ export function limitsOf(input: StackInput): { readonly min: number; readonly ma
   return { min, max: Math.max(min, max), rail: Math.max(0, finite(input.cross.rail ?? DEFAULT_RAIL, DEFAULT_RAIL)) };
 }
 export const menuMain = (input: StackInput): number => Math.max(0, finite(input.menu?.main ?? DEFAULT_MENU, DEFAULT_MENU));
+
+/** The gap and padding with a non-number or a negative one replaced by 0. */
+export function spacingOf(input: StackInput): { readonly gap: number; readonly start: number; readonly end: number } {
+  const px = (x: number | undefined): number => Math.max(0, finite(x ?? 0, 0));
+  return { gap: px(input.gap), start: px(input.pad?.start), end: px(input.pad?.end) };
+}
 
 /** Whether a form sets the stack's cross size: its own say, else true for a panel's `open`. */
 export const formSetsCross = (f: StackForm): boolean => f.setsCross ?? f.kind === "open";
@@ -124,8 +147,9 @@ export interface StackMenu {
  * - `form-down`: an item took a smaller form than the one it started in (`from`, an index into its forms), by length
  *   or by cross size.
  * - `to-menu`: an item is in the » menu.
- * - `too-wide`: an item's form doesn't set the cross size and its `cross.min` is over the stack's. Cross size never
- *   puts an item in the menu, so it keeps its last drawn form and the app clips it.
+ * - `too-wide`: an item's form doesn't set the cross size and its `cross.min` is over the stack's, or it does and its
+ *   `cross.min` is over the limits' `max`. Cross size never puts an item in the menu, so it keeps its last drawn form
+ *   and the app clips it.
  * - `no-forms`: an item with no forms, left out of `items`.
  * - `overflow`: no item can give more way and the stack is still `over` px too long (forms that don't end in a `menu`
  *   form can't give more; neither can a stack where going into the menu would only make it longer).

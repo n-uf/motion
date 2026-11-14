@@ -66,10 +66,16 @@ describe("fitStack: the menu entry only when it helps", () => {
     expect(kinds(fit.items)).toEqual(["rail"]);
     expect(fit.menu).toBeNull();
     expect(fit.notes).toEqual([{ code: "overflow", over: 4 }]);
-    // With another item that can still give way, the solver goes on.
+    // Another item doesn't change that: a step goes only to a form that shortens the stack, and the first item in the
+    // menu costs the entry (28) for its 24.
     const other: StackItem = { id: "o", used: 2, forms: [f("rail", 24, 30), f("menu", 0, 0)] };
     const both = fitStack({ ...stack([tiny, other], 20), menu: { main: 28 } });
-    expect(both.items.some((i) => i.kind === "menu")).toBe(true);
+    expect(kinds(both.items)).toEqual(["rail", "rail"]);
+    expect(both.notes).toEqual([{ code: "overflow", over: 28 }]);
+    // Items bigger than the entry do go in, and the entry stands for all of them.
+    const big = (id: string, used: number): StackItem => ({ id, used, forms: [f("rail", 40, 30), f("menu", 0, 0)] });
+    const fat = fitStack({ ...stack([big("a", 1), big("b", 2)], 70), menu: { main: 28 } });
+    expect(kinds(fat.items)).toEqual(["menu", "rail"]);
   });
 });
 
@@ -81,8 +87,8 @@ describe("fitStack: from and items with no forms", () => {
     expect(long.notes).toEqual([]);
     // Tight: it gives way from where it started, to an index of the whole list.
     const tight = fitStack(stack([folded, panel("b", 2, 160, true)], 60));
-    expect(tight.notes).toContainEqual({ code: "form-down", id: "a", from: 1, to: 3 });
-    expect(tight.items[0]).toMatchObject({ kind: "menu", form: 3 });
+    expect(tight.notes).toContainEqual({ code: "form-down", id: "a", from: 1, to: 2 });
+    expect(tight.items[0]).toMatchObject({ kind: "rail", form: 2 });
     // Never above it: even with room to spare.
     for (let length = 0; length <= 900; length += 13) expect(fitStack(stack([folded], length)).items[0]!.form).toBeGreaterThanOrEqual(1);
   });
