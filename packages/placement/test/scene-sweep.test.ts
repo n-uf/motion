@@ -1,6 +1,6 @@
 /** Property sweeps over random scenes: several edges, rings, spans and modes, fixed items, zones, floats and kinds. */
 import { describe, expect, it } from "vitest";
-import { solve, targets, use, type Edge, type Scene, type SceneItem } from "../src/scene";
+import { solve, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
 import { bar, byId, column, controls, group, panel, readout, seeded, title } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
@@ -72,6 +72,14 @@ function randomScene(seed: number): Scene {
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i + 1);
 
+/** What a host draws: every item's rect and how, the edges' rects and folds, the rails and the content. No notes, no fits. */
+const drawn = (l: SceneLayout) => ({
+  items: Object.fromEntries(Object.entries(l.items).map(([id, it]) => [id, [it.rect, it.form, it.formKind, it.edge, it.rail, it.rides, it.folded, it.inMenu]])),
+  edges: Object.fromEntries(Object.entries(l.edges).map(([id, e]) => [id, [e.rect, e.folded, e.rides]])),
+  rails: l.rails,
+  content: l.content,
+});
+
 describe("scene sweeps", () => {
   it("no docked items overlap (so none covers a fixed item), each lies in its edge and each edge in the stage", () => {
     for (const seed of SEEDS) {
@@ -127,6 +135,21 @@ describe("scene sweeps", () => {
     }
   });
 
+  it("no press, of any item, after a chain of presses, ever changes a rect or unfolds a column (C23)", () => {
+    for (const seed of SEEDS) {
+      let s = randomScene(seed);
+      let previous = solve(s);
+      const ids = Object.keys(s.items);
+      for (let step = 0; step < Math.min(ids.length, 6); step++) {
+        const id = ids[(seed * 7 + step * 3) % ids.length]!;
+        s = use(s, id);
+        const next = solve(s, { previous });
+        for (const k of Object.keys(previous.items)) if (JSON.stringify(next.items[k]?.rect) !== JSON.stringify(previous.items[k]!.rect)) throw new Error(`seed ${seed} step ${step}: using ${id} moved ${k}`);
+        previous = next;
+      }
+    }
+  });
+
   it("every target: the item lands in an edge that accepts it, the hit covers no fixed item or chrome, and after = solve(after.scene)", () => {
     for (const seed of SEEDS.slice(0, 120)) {
       const s = randomScene(seed);
@@ -142,6 +165,20 @@ describe("scene sweeps", () => {
         for (const t of targets(s, id, { previous, endReach: 8 })) {
           const a = t.after({ x: s.stage.width / 2, y: s.stage.height / 2 });
           if (JSON.stringify(solve(a.scene, { previous })) !== JSON.stringify(a.layout)) throw new Error(`seed ${seed}: ${t.id} preview != result`);
+          // Stable: solving the committed scene again from its own layout changes nothing.
+          if (JSON.stringify(drawn(solve(a.scene, { previous: a.layout }))) !== JSON.stringify(drawn(a.layout))) throw new Error(`seed ${seed}: ${t.id} not stable on re-solve`);
+          if (t.place.kind === "gap" || t.place.kind === "column" || t.place.kind === "rail") {
+            // The whole scene's fixed items keep their form and are never squeezed under their min; no chrome under the slot.
+            for (const [fid, f] of Object.entries(previous.items)) {
+              if (!f.fixed) continue;
+              const g = a.layout.items[fid];
+              const side = s.edges.find((e) => e.id === g?.edge)?.side;
+              const form = s.items[fid]!.forms[side === "left" || side === "right" ? "column" : "row"]?.[f.form];
+              const len = side === "left" || side === "right" ? g?.rect.height : g?.rect.width;
+              if (!g || g.form !== f.form || len! < form!.main.min - 0.5) throw new Error(`seed ${seed}: ${t.id} squeezes ${fid}`);
+            }
+            for (const c of s.chrome ?? []) if (overlaps(a.layout.items[id]!.rect, c)) throw new Error(`seed ${seed}: ${t.id} lands on chrome`);
+          }
           if (t.place.kind !== "gap") continue;
           const me = a.layout.items[id]!;
           const edge = s.edges.find((e) => e.id === me.edge)!;

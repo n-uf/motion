@@ -145,10 +145,29 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   // commits nothing and shows no slot.
   const here = placeKey(scene, dragged);
   const ownRail = now.items[dragged]?.rail;
+  // C29 across the whole scene: a drop may not add an `overflow` or `too-wide` note to any edge, change any fixed item's
+  // form, or squeeze one under its `main.min`, anywhere; nor land on chrome.
+  const noteKey = (n: SceneLayout["notes"][number]): string | null => ("edge" in n && (n.code === "overflow" || n.code === "too-wide") ? `${n.edge}:${n.code}:${"id" in n ? n.id : ""}` : null);
+  const hadNotes = new Set(base.notes.map(noteKey).filter((k): k is string => k !== null));
+  const sound = (after: SceneLayout): boolean => {
+    if (after.notes.some((n) => { const k = noteKey(n); return k !== null && !hadNotes.has(k); })) return false;
+    for (const [id, b] of Object.entries(base.items)) {
+      if (!b.fixed) continue;
+      const a = after.items[id];
+      const e = a?.edge ? after.edges[a.edge] : undefined;
+      if (!a || !e || a.form !== b.form || a.formKind !== b.formKind) return false;
+      const f = formsOf(scene.items[id]!, axisOf(e.side))[a.form];
+      const len = axisOf(e.side) === "column" ? a.rect.height : a.rect.width;
+      if (f && len < f.main.min - 0.5) return false;
+    }
+    const me = after.items[dragged];
+    return !me || !chrome.some((c) => overlaps(me.rect, c));
+  };
   for (const t of docked) {
     const p = t.place;
     const own = (p.kind === "rail" && p.side === ownRail) || placeKey(t.after({ x: 0, y: 0 }).scene, dragged) === here;
-    out.push(own ? { id: t.id, priority: t.priority, hit: t.hit, item: dragged, place: { kind: "home" }, after: () => ({ scene, layout: now }) } : t);
+    if (own) out.push({ id: t.id, priority: t.priority, hit: t.hit, item: dragged, place: { kind: "home" }, after: () => ({ scene, layout: now }) });
+    else if (sound(t.after({ x: 0, y: 0 }).layout)) out.push(t);
   }
 
   if (scene.floatKinds.includes(item.kind)) {
