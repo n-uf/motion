@@ -43,16 +43,26 @@ export const RAIL = 30;
 export const BAR_RAIL = 32;
 export const MENU = 28;
 
+/**
+ * A group's icon form along its stack: its grip and one 22 px icon per word. In a column the grip is a horizontal
+ * one above the icons (14 px) and each icon takes 26 with its gap; along a bar the grip is a vertical one before
+ * them (16 px with the padding). Derived from the words, so a longer group doesn't overflow.
+ */
+export const iconsMain = (words: number, axis: StackAxis): number => (axis === "column" ? 18 : 16) + 26 * words;
+
 /** An item's forms along an axis, largest first. A header fits any column 56 px wide (its `cross.min`). */
-export function formsOf(id: ItemId, axis: StackAxis, badge = false): StackForm[] {
+export function formsOf(id: ItemId, axis: StackAxis, badge = false, rowMain?: number): StackForm[] {
   const s = SAMPLES[id];
+  const icons = iconsMain(s.words.length, axis);
+  // Along a bar a group's row form is a fixed size, or `rowMain`: what the page measured from its words and badge.
+  const row = rowMain ?? (badge ? 244 : 200);
   return isPanel(id)
     ? axis === "column"
       ? [f("open", 90, s.natural!.column, s.wide!, true), f("header", 30, 30, s.wide!, false, 56), f("rail", 26, 26, RAIL), f("menu", 0, 0, 0)]
       : [f("open", 150, s.natural!.row, 120, true), f("header", 110, 110, 28), f("rail", 26, 26, 26), f("menu", 0, 0, 0)]
     : axis === "column"
-      ? [f("row", 30, 30, badge ? 240 : 190), f("stacked", 84, 84, 84), f("icons", 72, 72, 28), f("menu", 0, 0, 0)]
-      : [f("row", badge ? 244 : 200, badge ? 244 : 200, 28), f("stacked", 140, 140, 30), f("icons", 84, 84, 28), f("menu", 0, 0, 0)];
+      ? [f("row", 30, 30, badge ? 240 : 190), f("stacked", 84, 84, 84), f("icons", icons, icons, 28), f("menu", 0, 0, 0)]
+      : [f("row", row, row, 28), f("stacked", 140, 140, 30), f("icons", icons, icons, 28), f("menu", 0, 0, 0)];
 }
 
 export interface Placed {
@@ -63,9 +73,11 @@ export interface Placed {
   readonly from?: number;
   /** The item shows a count badge (a group's row form then asks for room for it). */
   readonly badge?: boolean;
+  /** A group's row form along a bar, measured from its content (instead of the fixed size). */
+  readonly rowMain?: number;
 }
 
-export const itemOf = (p: Placed, axis: StackAxis): StackItem => ({ id: p.id, used: p.used, ...(p.kept ? { kept: true } : {}), ...(p.from ? { from: p.from } : {}), forms: formsOf(p.id, axis, p.badge) });
+export const itemOf = (p: Placed, axis: StackAxis): StackItem => ({ id: p.id, used: p.used, ...(p.kept ? { kept: true } : {}), ...(p.from ? { from: p.from } : {}), forms: formsOf(p.id, axis, p.badge, p.rowMain) });
 
 /** An item's state the pages show without ever changing its size: a count badge and a phase. */
 export type Phase = "idle" | "busy" | "done";
@@ -73,6 +85,8 @@ export const PHASES: readonly Phase[] = ["idle", "busy", "done"];
 export interface ItemMeta {
   readonly count: number;
   readonly phase: Phase;
+  /** The badge is as wide as its digits and says the whole count (the no-jump control); default a fixed slot, 99+ at most. */
+  readonly fluid?: boolean;
 }
 export const defaultMeta = (): Record<ItemId, ItemMeta> => ({
   pages: { count: 12, phase: "idle" },

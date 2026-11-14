@@ -374,6 +374,63 @@ const status: Scenario<Page> = {
   },
 };
 
-const SCENARIOS = [c2, c6, c8, c9, c10, drawn, status];
+/** Every item drawn in a stack has a grab handle you can see: a `[data-grab]` of a non-zero size, inside the item. */
+function grabFailures(p: Page, mode: string, seen: Set<string>): string[] {
+  const view = mode === "bar" ? p.bar : p.column;
+  const out: string[] = [];
+  for (const el of view.el.querySelectorAll<HTMLElement>(".st-item")) {
+    if (el.hidden) continue;
+    const id = el.dataset.id!;
+    seen.add(el.dataset.kind!);
+    const grab = el.querySelector<HTMLElement>("[data-grab]");
+    if (!grab) {
+      out.push(`${titleOf(id)} (${el.dataset.kind}) has no grab handle`);
+      continue;
+    }
+    const g = grab.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const style = getComputedStyle(grab);
+    const w = Math.min(g.right, r.right) - Math.max(g.left, r.left);
+    const h = Math.min(g.bottom, r.bottom) - Math.max(g.top, r.top);
+    if (g.width < 1 || g.height < 1 || style.display === "none" || style.visibility === "hidden") out.push(`${titleOf(id)} (${el.dataset.kind}): its grab handle is ${Math.round(g.width)} × ${Math.round(g.height)}, ${style.display === "none" ? "display: none" : style.visibility}`);
+    else if (w * h < g.width * g.height * 0.5) out.push(`${titleOf(id)} (${el.dataset.kind}): its grab handle lies outside the item`);
+  }
+  return out;
+}
+
+const grips: Scenario<Page> = {
+  name: "Every drawn item has a grab handle",
+  modes: ["column", "bar"],
+  async run(p, mode) {
+    const seen = new Set<string>();
+    const bad: string[] = [];
+    // Panels open, then all folded by hand, then groups alone (a rail): the lengths and widths run every form.
+    const states: [string, () => void][] = [
+      ["open", () => PANELS.forEach((id) => p.setOpen(id, true))],
+      ["folded", () => PANELS.forEach((id) => p.setOpen(id, false))],
+      ["groups only", () => p.all.forEach((id) => p.setShown(id, GROUPS.includes(id)))],
+    ];
+    for (const [name, state] of states) {
+      p.reset();
+      p.all.forEach((id) => p.setShown(id, true));
+      state();
+      for (const width of [360, 150, 60]) {
+        p.setWidth(width);
+        for (let length = 760; length >= 80; length -= 20) {
+          p.setLength(length);
+          for (const m of grabFailures(p, mode, seen)) if (bad.length < 6 && !bad.includes(m)) bad.push(`${name}, length ${length}, width ${width}: ${m}`);
+        }
+      }
+    }
+    return [
+      await rule("Every drawn item has a visible grab handle of a non-zero size, in every form", (ok) => bad.forEach((m) => ok(false, m))),
+      await rule("The sweep drew every form: open, header, rail, row, stacked, icons", (ok) => {
+        for (const k of ["open", "header", "rail", "row", "stacked", "icons"]) ok(seen.has(k), `no item was drawn in the ${k} form`);
+      }),
+    ];
+  },
+};
+
+const SCENARIOS = [c2, c6, c8, c9, c10, drawn, status, grips];
 
 install(page, SCENARIOS, () => page.reset(), document.getElementById("sf-run") as HTMLButtonElement, document.getElementById("sf-runs") as HTMLTableSectionElement);
