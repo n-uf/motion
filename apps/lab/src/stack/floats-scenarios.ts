@@ -271,7 +271,7 @@ const c16: Scenario<Page> = {
     } catch (e) {
       return [await rule("localStorage is writable", (ok) => ok(false, String(e)))];
     }
-    const rep = b.reload();
+    const rep = b.rebuild();
     await d.frames(2);
     const el = b.itemEl("findings");
     const at = el ? d.domRect(el) : null;
@@ -372,6 +372,137 @@ const c17: Scenario<Page> = {
   },
 };
 
-const SCENARIOS = [c5, c7, c16, c17];
+// --- a group in a column of rails keeps its grip -------------------------------------------------------------------------
+
+const gapCentre = (p: Page, id: ItemId, at: number): Point => {
+  const t = p.board.targetsFor(id).find((x) => x.kind === "dock" && x.side === "column" && x.at === at)!;
+  return { x: t.hit.x + t.hit.width / 2, y: t.hit.y + t.hit.height / 2 };
+};
+
+const grip: Scenario<Page> = {
+  name: "A group docked into a column of rails can be dragged out again",
+  modes: ["icons form: out to float, and into another gap"],
+  async run(p) {
+    const b = p.board;
+    // Every panel in the column collapsed to a rail icon; Views floats over the pages.
+    b.setLayout(
+      { column: ["pages", "annotations", "findings"], bar: ["tools", "zoom"], floats: [{ id: "views", rect: { x: 520, y: 200, width: 244, height: 34 } }] },
+      { from: { pages: 2, annotations: 2, findings: 2 } },
+    );
+    await d.frames(2);
+    const rails = b.seen().filter((s) => s.where.kind === "dock" && s.where.side === "column" && s.id !== "views").every((s) => s.kind === "rail");
+    // Drop it into the column, between the first two icons.
+    await lift(p, "views", 8, 17);
+    const dock = await aimDock(p, gapCentre(p, "views", 1));
+    await d.release();
+    const first = b.lastDrop!;
+    const seen1 = b.seen().find((s) => s.id === "views")!;
+    const handle = b.gripOf("views");
+    const box = handle ? handle.getBoundingClientRect() : null;
+    // Out to a float with a real pointer…
+    let out: typeof first | null = null;
+    let outShown = false;
+    if (handle) {
+      await d.press(handle, 6, 6);
+      outShown = await aimFloat(p, { x: 640, y: 330 });
+      await d.release();
+      out = b.lastDrop;
+    }
+    // …and back into another gap.
+    let back: typeof first | null = null;
+    if (out?.landed?.kind === "float") {
+      await lift(p, "views", 8, 17);
+      await aimDock(p, gapCentre(p, "views", 0));
+      await d.release();
+      back = b.lastDrop;
+    }
+    const seen3 = b.seen().find((s) => s.id === "views")!;
+    return [
+      await rule("A float group dropped on a column of rail icons lands as icons, in the 30 px rail", (ok) => {
+        ok(rails, "the panels weren't all rail icons");
+        ok(dock, "the preview never showed with the room made");
+        ok(first.landed?.kind === "dock" && first.landed.side === "column" && first.landed.at === 1, `landed ${JSON.stringify(first.landed)}`);
+        ok(seen1.kind === "icons", `Views is ${seen1.kind}`);
+        ok(Math.abs(seen1.rect.width - 30) < 0.5, `the column is ${Math.round(seen1.rect.width)} px wide`);
+      }),
+      await rule("Its icon form has a visible grip, and the icons fit under it", (ok) => {
+        ok(!!box && box.width >= 1 && box.height >= 1, `the grip is ${box ? `${Math.round(box.width)} × ${Math.round(box.height)}` : "missing"}`);
+        const last = b.itemEl("views")?.querySelectorAll(".st-ico");
+        const item = b.itemEl("views")?.getBoundingClientRect();
+        const end = last && last.length > 0 ? last[last.length - 1]!.getBoundingClientRect().bottom : Infinity;
+        ok(!!item && end <= item.bottom + 0.5, "the last icon is cut off by the item");
+      }),
+      await rule("A real pointer drags it out to a float, then into another gap of the column", (ok) => {
+        ok(outShown, "the float preview never showed");
+        ok(out?.landed?.kind === "float" && !out.cancelled, `out: ${JSON.stringify(out?.landed)}`);
+        ok(back?.landed?.kind === "dock" && back.landed.at === 0, `back: ${JSON.stringify(back?.landed)}`);
+        ok(seen3.kind === "icons" && seen3.where.kind === "dock" && seen3.where.at === 0, `Views is ${seen3.kind} at ${JSON.stringify(seen3.where)}`);
+      }),
+    ];
+  },
+};
+
+// --- back over its own place ---------------------------------------------------------------------------------------------
+
+const centreOf = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+
+const home: Scenario<Page> = {
+  name: "Back over its own place shows where a drop returns it",
+  modes: ["a docked panel", "a docked group", "a float shows nothing (its home is a point)"],
+  async run(p, mode) {
+    const b = p.board;
+    const id: ItemId = mode === "a docked panel" ? "annotations" : mode === "a docked group" ? "tools" : "findings";
+    const before = b.seen();
+    const was = d.domRect(b.itemEl(id)!);
+    const rows = [];
+    await lift(p, id, 12, 12);
+    // Out past the lift distance and the home's inset, aiming at the float place…
+    const out = await aimFloat(p, { x: 640, y: 380 });
+    const stoodOut = b.ind.hidden === false && b.indLabel.textContent?.includes("Float here");
+    // …and back over where it was.
+    await d.approach(mode.startsWith("a float") ? { x: d.at.x + 0.2, y: d.at.y } : centreOf(was));
+    if (!mode.startsWith("a float")) await d.until(() => !b.ind.hidden && (b.indLabel.textContent ?? "").includes("Back to its place"));
+    else await d.frames(4);
+    const shownHome = !b.ind.hidden && (b.indLabel.textContent ?? "").includes("Back to its place");
+    const ind = b.ind.hidden ? null : d.domRect(b.ind);
+    const statusWords = b.status;
+    // The others stand where they were, with the place held for it.
+    const moved = b.seen().filter((s) => s.id !== id && before.find((x) => x.id === s.id) && !near(s.rect, before.find((x) => x.id === s.id)!.rect));
+    await d.release();
+    const drop = b.lastDrop!;
+    const after = b.seen();
+    if (mode.startsWith("a float")) {
+      rows.push(
+        await rule("A float's home is a point: nothing is drawn back over it", (ok) => {
+          ok(out, "the float preview never showed on the way out");
+          ok(!shownHome, "an indicator was drawn for a float's home");
+        }),
+      );
+      return rows;
+    }
+    rows.push(
+      await rule("Back over its place the dashed indicator shows at exactly its rect, labelled, with the status line", (ok) => {
+        ok(out && stoodOut, "the item never showed a float preview on the way out");
+        ok(shownHome, `the indicator says "${b.indLabel.textContent}"`);
+        ok(!!ind && near(ind, was, 0.5), `the indicator is ${fmt(ind)}, its place is ${fmt(was)}`);
+        ok(statusWords.includes("Back to its place"), `the status says "${statusWords}"`);
+        ok(moved.length === 0, `${moved.map((s) => titleOf(s.id)).join(", ")} didn't stand in their places`);
+      }),
+    );
+    rows.push(
+      await rule("Releasing there puts it back: the same rect and state as before, no drop made", (ok) => {
+        ok(drop.landed === null && !drop.cancelled, `landed ${JSON.stringify(drop.landed)}, cancelled ${drop.cancelled}`);
+        ok(!!drop.previewDom && near(drop.previewDom, was, 0.5), `the indicator at the release was ${fmt(drop.previewDom)}`);
+        for (const x of before) {
+          const y = after.find((s) => s.id === x.id)!;
+          ok(JSON.stringify(x.where) === JSON.stringify(y.where) && x.kind === y.kind && x.form === y.form && near(x.rect, y.rect, 0.01), `${titleOf(x.id)} was ${JSON.stringify(x.where)} ${x.kind} ${fmt(x.rect)}, is ${JSON.stringify(y.where)} ${y.kind} ${fmt(y.rect)}`);
+        }
+      }),
+    );
+    return rows;
+  },
+};
+
+const SCENARIOS = [c5, c7, c16, c17, grip, home];
 
 install(page, SCENARIOS, () => page.reset(), document.getElementById("fl-run") as HTMLButtonElement, document.getElementById("fl-runs") as HTMLTableSectionElement);

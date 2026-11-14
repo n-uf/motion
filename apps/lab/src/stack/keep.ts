@@ -1,6 +1,6 @@
 /**
  * The Stack · store, freeze, no jump page: the same window as the floats page, on the stored form (`storeStack`,
- * `storeFloats` in localStorage; Reload rebuilds from it, C13), a freeze that hides the grips and moves nothing unless
+ * `storeFloats` in localStorage; a rebuild and a browser reload both restore from it, C13), a freeze that hides the grips and moves nothing unless
  * Alt is held (C14, the app's flag read at the press) and a count badge and a phase on every item that move no other
  * item when they change (C15).
  *
@@ -39,6 +39,8 @@ function refresh(): void {
   freeze.checked = board.frozen;
   heightIn.value = String(board.height);
   heightOut.textContent = `${board.height} px`;
+  const m = document.getElementById("sk-measured") as HTMLInputElement | null;
+  if (m) m.checked = board.measured;
   const s = board.stored();
   stored.textContent = `column ${s.column}\nbar ${s.bar}\nfloats ${s.floats}`;
 }
@@ -63,7 +65,9 @@ for (const id of ALL) {
 }
 freeze.addEventListener("change", () => board!.setFrozen(freeze.checked));
 heightIn.addEventListener("input", () => board!.setHeight(Number(heightIn.value)));
-document.getElementById("sk-reload")!.addEventListener("click", () => board!.reload());
+document.getElementById("sk-rebuild")!.addEventListener("click", () => board!.rebuild());
+const measured = document.getElementById("sk-measured") as HTMLInputElement;
+measured.addEventListener("change", () => board!.setMeasured(measured.checked));
 document.getElementById("sk-reset")!.addEventListener("click", () => board!.reset());
 refresh();
 
@@ -78,3 +82,11 @@ export const page = {
   },
 };
 export type KeepPage = typeof page;
+
+// A scenario that really reloads the page loads this page in a frame of its own and reads the board through this.
+declare global {
+  interface Window {
+    __stackKeep?: KeepPage;
+  }
+}
+window.__stackKeep = page;

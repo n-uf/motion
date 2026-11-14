@@ -1,11 +1,14 @@
 /**
  * The Stack · store, freeze, no jump page's scenarios, on `window.__motionLab.runAll(filter?)`. Each drives the page
  * with real pointer and key events and asserts what the page drew:
- * C13 (a reload rebuilds every item's place and form from the stored form, and bad stored data never throws),
+ * C13 (a page reload, and a rebuild in the page, restore every item's place and form from the stored form, and bad
+ * stored data never throws),
  * C14 (frozen: grips hidden and nothing moves; holding Alt shows them and everything works, stacked headers too),
- * C15 (a count or a phase changing moves no other item more than 0.5 px).
+ * C15 (a count or a phase changing moves no other item more than 0.5 px; a size measured from the content does jump),
+ * and the click that opens a collapsed panel (a header's caret or a rail icon), which a drag never fires.
  */
 import type { Rect } from "@n-uf/motion";
+import { routeHash } from "../shell/api";
 import type { Point } from "../shared/geometry";
 import { DEFAULT_LAYOUT, type Layout, type Seen } from "./board";
 import { aimers, createDriver } from "./drive";
@@ -61,11 +64,75 @@ const setStored = (k: "column" | "bar" | "floats", text: string): void => localS
 
 const TIGHT: Layout = { column: ["pages", "annotations", "findings", "views", "tools"], bar: ["zoom"], floats: [] };
 
+type Child = Window & { __stackKeep?: KeepPage; __labReady?: boolean };
+/** Load this page in a frame of its own (a frame can be reloaded without ending the run) and wait for it to be ready. */
+async function ready(frame: HTMLIFrameElement, notOrigin?: number): Promise<Child> {
+  for (let i = 0; i < 300; i++) {
+    await new Promise((r) => setTimeout(r, 50));
+    const w = frame.contentWindow as Child | null;
+    try {
+      if (w?.__labReady && w.__stackKeep && (notOrigin === undefined || w.performance.timeOrigin !== notOrigin)) return w;
+    } catch {
+      // Mid-navigation: not readable yet.
+    }
+  }
+  throw new Error("the frame's page didn't load");
+}
+
 const c13: Scenario<Page> = {
   name: "C13: a reload restores every item's place and form",
-  modes: ["after drags, a fold, a keep and a float", "a column too short for its items", "a stored form that is corrupt", "half of the stored form is corrupt"],
+  modes: ["a real page reload", "after drags, a fold, a keep and a float", "a column too short for its items", "a stored form that is corrupt", "half of the stored form is corrupt"],
   async run(_p, mode) {
     const rows = [];
+    if (mode === "a real page reload") {
+      // The page in a frame: arrange, then `location.reload()` it, and read what the new page drew. The browser
+      // session's storage carries a flag across the reload, so the check knows it read the page after it.
+      const frame = document.createElement("iframe");
+      frame.title = "the page, reloaded";
+      Object.assign(frame.style, { position: "fixed", left: "-6000px", top: "0", width: "1600px", height: "1100px", border: "0" });
+      frame.src = `${location.pathname}${routeHash("stack/keep", { embed: true })}`;
+      document.body.append(frame);
+      try {
+        const w1 = await ready(frame);
+        const cb = w1.__stackKeep!.board;
+        // Pages folded by hand, Findings a rail icon, Annotations kept and the newest; Zoom and a float.
+        cb.setLayout(
+          { column: ["pages", "annotations", "findings"], bar: ["views", "tools"], floats: [{ id: "zoom", rect: { x: 540, y: 210, width: 244, height: 34 } }] },
+          { used: { findings: 1, pages: 2, annotations: 9, views: 3, tools: 4, zoom: 5 }, kept: ["annotations"], from: { pages: 1, findings: 2 } },
+        );
+        await d.frames(2);
+        const before = JSON.parse(JSON.stringify(cb.seen())) as Seen[];
+        const origin = w1.performance.timeOrigin;
+        const hand = JSON.stringify([cb.kept, cb.from]);
+        const floats = rectsOf(cb.floats);
+        w1.sessionStorage.setItem("motion-lab:stack-keep:reloading", "1");
+        w1.location.reload();
+        const w2 = await ready(frame, origin);
+        await d.frames(2);
+        const nb = w2.__stackKeep!.board;
+        const after = JSON.parse(JSON.stringify(nb.seen())) as Seen[];
+        const nav = w2.performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+        rows.push(
+          await rule("The page really reloaded: a new document, a reload navigation, the session's flag still set", (ok) => {
+            ok(w2.performance.timeOrigin !== origin, "it is the same document");
+            ok(nav?.type === "reload", `the navigation was ${nav?.type}`);
+            ok(w2.sessionStorage.getItem("motion-lab:stack-keep:reloading") === "1", "the flag set before the reload is gone");
+            ok(before.some((s) => s.where.kind === "float") && before.some((s) => s.form > 0), "the arrangement had no float or folded item: nothing is proved");
+          }),
+        );
+        rows.push(
+          await rule("After the load every item is in its place and form, at the same rect; kept, folded and floats too", (ok) => {
+            for (const m of differences(before, after, 0.5)) ok(false, m);
+            ok(JSON.stringify([nb.kept, nb.from]) === hand, `kept and folded: ${JSON.stringify([nb.kept, nb.from])}, were ${hand}`);
+            ok(rectsOf(nb.floats) === floats, `the floats are ${rectsOf(nb.floats)}, were ${floats}`);
+          }),
+        );
+        w2.sessionStorage.removeItem("motion-lab:stack-keep:reloading");
+      } finally {
+        frame.remove();
+      }
+      return rows;
+    }
     if (mode === "after drags, a fold, a keep and a float" || mode === "a column too short for its items") {
       if (mode === "a column too short for its items") {
         // A short window, ages that differ from the defaults and a panel kept: the give-way order is part of what has to come back.
@@ -90,14 +157,14 @@ const c13: Scenario<Page> = {
       const handBefore = JSON.stringify([b.kept, b.from]);
       const text0 = b.stored();
       let blank: Seen[] = [];
-      b.reload(() => (blank = b.seen()));
+      b.rebuild(() => (blank = b.seen()));
       await d.frames(2);
       const after = b.seen();
       const text1 = b.stored();
       rows.push(
-        await rule("Reload forgets the arrangement first: everything docked in the column, nothing floating", (ok) => {
+        await rule("Rebuild from the stored form: the page forgets the arrangement first (everything docked in the column, nothing floating)", (ok) => {
           ok(blank.length === ALL.length && blank.every((s) => s.where.kind === "dock" && s.where.side === "column"), `the blank page had ${blank.map(place).join(", ")}`);
-          ok(differences(before, blank, 0.5).length > 0, "the arrangement before the reload was already the blank one: nothing is proved");
+          ok(differences(before, blank, 0.5).length > 0, "the arrangement before the rebuild was already the blank one: nothing is proved");
         }),
       );
       rows.push(
@@ -127,16 +194,16 @@ const c13: Scenario<Page> = {
       setStored("bar", JSON.stringify({ v: 2, order: [] }));
       setStored("floats", "[]");
       let threw: string | null = null;
-      let rep: ReturnType<typeof b.reload> | null = null;
+      let rep: ReturnType<typeof b.rebuild> | null = null;
       try {
-        rep = b.reload();
+        rep = b.rebuild();
       } catch (e) {
         threw = String(e);
       }
       await d.frames(2);
       rows.push(
         await rule("Reading it never throws: nothing usable is stored, the page keeps its default arrangement", (ok) => {
-          ok(threw === null, `reload threw ${threw}`);
+          ok(threw === null, `the rebuild threw ${threw}`);
           ok(!!rep && !rep.restored && rep.errors.length === 3, `the report: ${JSON.stringify(rep)}`);
           ok(JSON.stringify(b.orders) === JSON.stringify({ column: DEFAULT_LAYOUT.column, bar: DEFAULT_LAYOUT.bar }), `the stacks are ${JSON.stringify(b.orders)}`);
           ok(rectsOf(b.floats) === rectsOf(DEFAULT_LAYOUT.floats), `the floats are ${rectsOf(b.floats)}`);
@@ -147,7 +214,7 @@ const c13: Scenario<Page> = {
     // Half corrupt: the column's stored form is good, the bar's is garbage.
     b.setLayout({ column: ["annotations", "pages"], bar: ["zoom", "views"], floats: [] });
     setStored("bar", "{broken");
-    const rep = b.reload();
+    const rep = b.rebuild();
     await d.frames(2);
     const o = b.orders;
     rows.push(
@@ -320,11 +387,40 @@ const COUNTS = [0, 7, 99, 100, 12345];
 
 const c15: Scenario<Page> = {
   name: "C15: no jump when a count or a phase changes",
-  modes: ["a full column, a bar of one", "the default window: a bar, a column and a float", "a change that resizes an item does move the others"],
+  modes: [
+    "a full column, a bar of one",
+    "the default window: a bar, a column and a float",
+    "a change that resizes an item does move the others",
+    "a size measured from the content does jump (the control)",
+  ],
   async run(_p, mode) {
     const rows = [];
     b.setLayout(mode === "a full column, a bar of one" || mode.startsWith("a change") ? TIGHT : DEFAULT_LAYOUT);
     await d.frames(2);
+    if (mode.startsWith("a size measured")) {
+      // The bar groups' row form is sized from their words and badge, and the badge grows with its digits: the one
+      // case where a count reaches the solver. The check must see the jump, or it would pass with this as well.
+      b.setMeasured(true);
+      await d.frames(2);
+      const before = b.seen();
+      b.setMeta("views", { count: 12345 });
+      await d.frames(2);
+      const after = b.seen();
+      const grew = after.find((s) => s.id === "views")!.rect.width - before.find((s) => s.id === "views")!.rect.width;
+      const m = moved(before, after, "views", 0.5);
+      rows.push(
+        await rule("With a form measured from its words and badge, a count with more digits resizes the group", (ok) => {
+          ok(grew > 10, `Views grew by ${grew.toFixed(1)} px`);
+        }),
+      );
+      rows.push(
+        await rule("…and the items after it move by that much: the no-jump check sees it", (ok) => {
+          ok(m.map((x) => x.id).join() === "tools,zoom", `moved: ${JSON.stringify(m)}`);
+          for (const x of m) ok(Math.abs(x.by - grew) < 1, `${titleOf(x.id)} moved ${x.by.toFixed(1)} px, the group grew ${grew.toFixed(1)}`);
+        }),
+      );
+      return rows;
+    }
     if (mode.startsWith("a change")) {
       const before = b.seen();
       b.fold("pages");
@@ -373,13 +469,13 @@ const c15: Scenario<Page> = {
       }
     }
     rows.push(
-      await rule(`No other item moves more than 0.5 px when one item's count or phase changes (${changes} changes)`, (ok) => {
+      await rule(`With sizes that don't depend on them (a fixed badge slot), no other item moves more than 0.5 px when one item's count or phase changes (${changes} changes)`, (ok) => {
         ok(changes === ALL.length * (COUNTS.length + PHASES.length), `${changes} changes were made`);
         for (const m of jumps.slice(0, 5)) ok(false, m);
       }),
     );
     rows.push(
-      await rule("The changed item keeps its own size, and the solver's answer is the same", (ok) => {
+      await rule("The changed item keeps its own size, and the solver's answer is the same (nothing it is given depends on a count or a phase)", (ok) => {
         for (const m of [...resized, ...fitMoved].slice(0, 5)) ok(false, m);
       }),
     );
@@ -396,6 +492,130 @@ const c15: Scenario<Page> = {
   },
 };
 
-const SCENARIOS = [c13, c14, c15];
+// --- opening a collapsed panel -------------------------------------------------------------------------------------------
+
+/** What a click presses to open a panel in a form: a header's caret, a rail icon. */
+const CLICK_ON: Record<string, string> = { header: ".st-caret", rail: ".st-badge" };
+const grabOf = (id: ItemId, kind: string): HTMLElement => b.itemEl(id)!.querySelector<HTMLElement>(CLICK_ON[kind]!)!;
+
+/** After a click: the item's DOM rect and kind are the solver's. */
+function matchesSolver(id: ItemId): string[] {
+  const s = b.seen().find((x) => x.id === id)!;
+  const solved = b.solved().get(id)!;
+  const fit = s.where.kind === "dock" ? b.fits()[s.where.side].items.find((x) => x.id === id)! : null;
+  const out: string[] = [];
+  if (!near(s.rect, solved)) out.push(`${titleOf(id)} is drawn at ${fmt(s.rect)}, the solver's rect is ${fmt(solved)}`);
+  if (fit && fit.kind !== s.kind) out.push(`${titleOf(id)} is drawn as ${s.kind}, the solver says ${fit.kind}`);
+  return out;
+}
+
+const CLICKS: Record<string, { layout: Layout; from: Partial<Record<ItemId, number>>; id: ItemId; kind: string }> = {
+  // A header stays a header beside an open panel (it has a small cross.min); alone, a column is a rail.
+  "a header in a column": { layout: { column: ["annotations", "pages"], bar: [], floats: [] }, from: { pages: 1 }, id: "pages", kind: "header" },
+  "a rail icon in a column": { layout: { column: ["pages"], bar: [], floats: [] }, from: { pages: 2 }, id: "pages", kind: "rail" },
+  "a header in a bar": { layout: { column: [], bar: ["annotations"], floats: [] }, from: { annotations: 1 }, id: "annotations", kind: "header" },
+  "a rail icon in a bar": { layout: { column: [], bar: ["annotations"], floats: [] }, from: { annotations: 2 }, id: "annotations", kind: "rail" },
+};
+
+const click: Scenario<Page> = {
+  name: "A click opens a collapsed panel",
+  modes: [...Object.keys(CLICKS), "the sequence: fold both by hand, then click each open", "a drag from a rail icon doesn't open it", "frozen refuses it; Alt allows it"],
+  async run(_p, mode) {
+    const rows = [];
+    const c = CLICKS[mode];
+    if (c) {
+      b.setLayout(c.layout, { from: c.from });
+      await d.frames(2);
+      const was = b.seen().find((s) => s.id === c.id)!.kind;
+      await d.press(grabOf(c.id, c.kind), 6);
+      await d.release();
+      await d.frames(1);
+      const now = b.seen().find((s) => s.id === c.id)!;
+      rows.push(
+        await rule("The click opens the panel: its form from the first, the newest used, with a real pointer and no drag", (ok) => {
+          ok(was === c.kind, `the panel was ${was}, not ${c.kind}`);
+          ok(b.from[c.id] === undefined, `its form is still ${b.from[c.id]}`);
+          ok(now.kind === "open", `it is ${now.kind}`);
+          ok(b.used[c.id] === Math.max(...Object.values(b.used)), "it isn't the newest used");
+          ok(b.dragging === null && b.lastDrop === null, "a drag began or a drop was made");
+        }),
+      );
+      rows.push(await rule("Its rect and kind after the click are the solver's", (ok) => matchesSolver(c.id).forEach((m) => ok(false, m))));
+      return rows;
+    }
+    if (mode.startsWith("the sequence")) {
+      // The operator's: both panels folded by hand, so nothing open sets the column's width and the headers become rails.
+      b.setLayout({ column: ["pages", "annotations"], bar: ["views", "tools", "zoom"], floats: [] });
+      await d.frames(2);
+      dblclick(b.itemEl("pages")!.querySelector(".st-head")!);
+      dblclick(b.itemEl("annotations")!.querySelector(".st-head")!);
+      await d.frames(2);
+      const kinds = (): string => b.seen().filter((s) => s.where.kind === "dock" && s.where.side === "column").map((s) => s.kind).join();
+      const folded = kinds();
+      const narrow = b.fits().column.cross;
+      await d.press(grabOf("annotations", "rail"), 6);
+      await d.release();
+      await d.frames(2);
+      const afterA = kinds();
+      const wide = b.fits().column.cross;
+      // Pages is now a header beside the open Annotations: its caret opens it.
+      await d.press(grabOf("pages", "header"), 6);
+      await d.release();
+      await d.frames(2);
+      const both = kinds();
+      rows.push(
+        await rule("Both folded by hand: nothing is open, so the column is a rail and both are icons", (ok) => {
+          ok(folded === "rail,rail", `the column is ${folded}`);
+          ok(narrow === 30, `the column is ${narrow} px wide`);
+        }),
+      );
+      rows.push(
+        await rule("Click Annotations' icon: it opens and the column widens; click Pages' caret: both are open", (ok) => {
+          ok(afterA === "header,open", `after the first click the column is ${afterA}`);
+          ok(wide > 200, `the column is ${wide} px wide`);
+          ok(both === "open,open", `after the second click the column is ${both}`);
+          for (const id of ["pages", "annotations"] as const) matchesSolver(id).forEach((m) => ok(false, m));
+        }),
+      );
+      return rows;
+    }
+    if (mode.startsWith("a drag")) {
+      b.setLayout({ column: ["pages"], bar: [], floats: [] }, { from: { pages: 2 } });
+      await d.frames(2);
+      await d.press(grabOf("pages", "rail"), 6);
+      const shown = await aim.float({ x: 620, y: 300 });
+      await d.release();
+      rows.push(
+        await rule("A drag from a rail icon floats the panel and never also opens it", (ok) => {
+          ok(shown, "the preview never showed");
+          ok(b.lastDrop?.landed?.kind === "float", `landed ${JSON.stringify(b.lastDrop?.landed)}`);
+          ok(b.from.pages === 2, `its form is ${b.from.pages}: the click fired too`);
+        }),
+      );
+      return rows;
+    }
+    // Frozen: a click is refused as a drag is; with Alt it opens.
+    b.setLayout({ column: ["pages"], bar: [], floats: [] }, { from: { pages: 2 } });
+    b.setFrozen(true);
+    await d.frames(2);
+    await d.press(grabOf("pages", "rail"), 6);
+    await d.release();
+    const refused = b.from.pages === 2 && b.status.includes("Frozen");
+    d.alt(true);
+    await d.press(grabOf("pages", "rail"), 6);
+    await d.release();
+    d.alt(false);
+    rows.push(
+      await rule("Frozen, a click on an icon is refused with the freeze's status line; with Alt held it opens the panel", (ok) => {
+        ok(refused, `refused ${b.from.pages === 2}, status "${b.status}"`);
+        ok(b.from.pages === undefined, `with Alt its form is ${b.from.pages}`);
+        ok(b.seen().find((s) => s.id === "pages")!.kind === "open", "it didn't open");
+      }),
+    );
+    return rows;
+  },
+};
+
+const SCENARIOS = [c13, c14, c15, click];
 
 install(page, SCENARIOS, () => page.reset(), document.getElementById("sk-run") as HTMLButtonElement, document.getElementById("sk-runs") as HTMLTableSectionElement);
