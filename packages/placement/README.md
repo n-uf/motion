@@ -458,7 +458,8 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   still fits (an item goes back to the nearest larger form the stack fits with, even if that makes it shorter: the last
   item out of the menu takes the » entry along, and items in the menu come out together when only all of them leaving
   fits), so one px of room, or a badge losing a digit after a press, moves nothing. Results under `previous` depend on
-  history but are never worse: a shrink then a grow can end at a larger arrangement than a fresh solve. An item whose form at the kept
+  history but are never worse: a shrink then a grow can end at a larger arrangement than a fresh solve. Growing back is
+  meant for stacks of up to about 50 items (60 small menu items take about 9 ms). An item whose form at the kept
   index is of another kind starts over; one only re-measured (a badge changed a digit) keeps its place: a smaller form
   frees room that grows the kept forms, a larger one gives way from them. After changing the forms' cross sizes (a lowered `cross.min`, say)
   solve once without `previous`: that alone doesn't bring a form back. `previous` is the `StackFit` last returned; a
