@@ -89,7 +89,7 @@ const c13: Scenario<Page> = {
       // session's storage carries a flag across the reload, so the check knows it read the page after it.
       const frame = document.createElement("iframe");
       frame.title = "the page, reloaded";
-      Object.assign(frame.style, { position: "fixed", left: "-6000px", top: "0", width: "1600px", height: "1100px", border: "0" });
+      Object.assign(frame.style, { position: "fixed", left: "0", top: "0", width: "1600px", height: "1100px", border: "0", opacity: "0", pointerEvents: "none", zIndex: "-1" });
       frame.src = `${location.pathname}${routeHash("stack/keep", { embed: true })}`;
       document.body.append(frame);
       try {
