@@ -3,6 +3,32 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+- `@n-uf/placement/stack`, the cases a toolbar needs. Two changes alter what `fitStack` gives for input that worked
+  before; the rest is opt-in.
+  - **Type change:** `GroupFormKind` and `StackFormKind` gain `"fold"` (a group's handle with its own » in line). A
+    `switch` over the kinds that is exhaustive must handle it. The solver treats it as an ordinary form: it keeps its
+    place and takes its own `main` length; `menu` stays the shared » entry.
+  - **Behaviour change, give-way steps:** an item steps only to the first later form that shortens the stack (a smaller
+    `main.min`, the shared » entry counted when the form is `menu`, gaps counted). Forms that are the same length or
+    longer are skipped; with none shorter the item stays and the stack may report `overflow`. An item no longer goes
+    into the menu alone when it is not longer than the » entry (a 24 px icon, a 28 px entry). Items stuck that way go in
+    together, in give-way order, as few as shorten the stack (two icons for one entry); each one after that saves its
+    whole size. Before, a lengthening step was taken whenever another item could still give way, so an item could end in
+    the menu with room to spare.
+  - **Behaviour change, cross size:** a form that sets the cross size (a panel's `open`) now steps down when its
+    `cross.min` (default its `natural`) is over the limits' `max`, never into the menu (`too-wide` if it is the last
+    drawn form). Before, the stack was only clamped to `max` and the form drawn thinner than it could live with. A form
+    that can be drawn thinner needs a `cross.min` to say so.
+  - `StackForm.rank` (default 0): the step taken is the one into the lowest-ranked form across all items; ties go
+    unkept before kept, then the item used longest ago, then the later in the stack.
+  - `StackInput.gap` (between neighbouring drawn items, the » entry included) and `StackInput.pad` (`{ start, end }`):
+    both count toward the length and every rect includes them.
+  - `stackTargets(input, dragged, { endReach })`: the first and last gaps' hits reach `endReach` px past the stack's
+    ends. The marker's cross size is the stack's. No pointer hysteresis here: that is `@n-uf/motion/drag` (its band,
+    and `placeOf` with `previous`). New export type `StackTargetOptions`.
+
 ## 26.11.13
 
 - `@n-uf/placement/stack`, floats (new exports; `fitStack`, `stackTargets` and the stack's stored form are unchanged, and

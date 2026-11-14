@@ -197,4 +197,16 @@ describe("README examples", () => {
     const old = readFloats({ v: 1, floats: [{ id: "notes", x: 480, y: 0, width: 200, height: 150, pinned: true }] });
     expect(old.ok && old.dropped).toEqual(["pinned:notes"]);
   });
+
+  it("a toolbar's rows", () => {
+    const form = (kind: StackForm["kind"], min: number, natural: number, cross: number): StackForm => ({ kind, main: { min, natural }, cross: { natural: cross } });
+    const group = (id: string, used: number): StackItem => ({ id, used, forms: [form("row", 100, 100, 26), form("fold", 36, 36, 26), form("menu", 0, 0, 0)] });
+    const bar = { axis: "row", length: 330, cross: { min: 36, max: 40 }, gap: 8, pad: { start: 12, end: 12 }, items: [group("views", 1), group("tools", 2), group("zoom", 3)] } as const;
+
+    const row = fitStack(bar);
+    expect(row.items.map((p) => [p.kind, p.rect.x, p.rect.width])).toEqual([["fold", 12, 36], ["row", 56, 100], ["row", 164, 100]]);
+
+    const gaps = stackTargets(bar, group("marks", 4), { endReach: 24 });
+    expect(gaps.map((t) => [t.hit.x, t.hit.x + t.hit.width])).toEqual([[-24, 30], [30, 106], [106, 214], [214, 354]]);
+  });
 });
