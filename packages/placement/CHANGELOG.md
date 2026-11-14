@@ -16,7 +16,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     `previous` growth, and has no drop slot inside it: the gaps before and after it stay, and its area is in no gap's
     `hit`.
   - **`stackTargets(…, { onlyFits: true })`**: a gap is offered only where the dragged item fits beside the others: not in
-    the menu, no `overflow`, no new `too-wide`, no fixed item drawn at another size.
+    the menu, no `overflow`, no new `too-wide`, no fixed item squeezed (another form, shorter or narrower than before the
+    drop); a fixed item that grows is fine.
   - **`StackInput.ownCross`** (C28, opt-in): an item in a group form (`row`, `stacked`, `icons`, `fold`) is drawn at its
     own `cross.natural`, clamped to the stack's and from its start edge; panel forms (`open`, `header`, `rail`) and the
     » entry still span, so every open panel fills the column, and hits and markers span the stack. The kind decides, not
