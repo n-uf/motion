@@ -287,6 +287,7 @@ export function createBoard(opt: BoardOptions) {
   const settle = (): void => {
     draw(null);
     if (autosave) save();
+    say(readout());
     opt.onChange?.();
   };
 
