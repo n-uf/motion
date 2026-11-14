@@ -1067,8 +1067,8 @@ export function reset(): void {
   if (heightIn) heightIn.value = String(H);
   if (heightOut) heightOut.textContent = `${H} px`;
   setWidth(DEFAULT_W, true);
-  // The Presets page starts on its first preset; the others on the page's own desk.
-  setPreset(document.body.dataset.page === "panels/presets" ? "docks" : null);
+  // The page starts on its own desk; the Preset switch picks a preset.
+  setPreset(null);
   json.value = "";
   storeOut.textContent = "";
   lastDrop = null;
@@ -1081,7 +1081,6 @@ stage.style.width = `${W}px`;
 stage.style.height = `${H}px`;
 makeItems();
 relayout(true);
-if (document.body.dataset.page === "panels/presets") setPreset("docks");
 
 /** What the scenarios read and drive. */
 export const page = {
