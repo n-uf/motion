@@ -198,19 +198,15 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   if (seed) seed.need = minSum();
   if (grow) {
     // Room came back and the kept forms fit: they grow back one at a time, the reverse of how they gave way (the form an
-    // item is in now was stepped into at its rank, so the highest rank first, then `kept`, then an item in the » menu
-    // before one that isn't (going into the menu is an item's last step, and the first ones in go together, after the
-    // others stepped down as far as they could), then the newest used, the earlier in the stack). An item goes back to
-    // the nearest earlier form the stack still fits with, the cross size unchanged: a larger form is what counts, not a
-    // longer stack (the last item leaving the menu takes the » entry with it).
+    // item is in now was stepped into at its rank, so the highest rank first, then `kept`, the newest used, the earlier
+    // in the stack). An item goes back to the nearest earlier form the stack still fits with, the cross size unchanged:
+    // a larger form is what counts, not a longer stack (the last item leaving the menu takes the » entry with it).
     const comesBefore = (a: number, b: number): boolean => {
       const ra = rankOf(items[a]!.forms[at[a]!]!);
       const rb = rankOf(items[b]!.forms[at[b]!]!);
       const ka = items[a]!.kept ? 1 : 0;
       const kb = items[b]!.kept ? 1 : 0;
-      const ma = isMenu(form(a)) ? 1 : 0;
-      const mb = isMenu(form(b)) ? 1 : 0;
-      return ra !== rb ? ra > rb : ka !== kb ? ka > kb : ma !== mb ? ma > mb : items[a]!.used !== items[b]!.used ? items[a]!.used > items[b]!.used : a < b;
+      return ra !== rb ? ra > rb : ka !== kb ? ka > kb : items[a]!.used !== items[b]!.used ? items[a]!.used > items[b]!.used : a < b;
     };
     // Strictly as a stack: only the item next in that order may grow. When it can't, growth stops; no item behind it
     // jumps the queue (a leading group never opens while a trailing one that gave way after it stays folded).
@@ -231,15 +227,19 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
         at[next] = to;
         continue;
       }
-      // The next item can't grow alone. When it and the ones right after it in the order are in the menu, they come out
-      // together if only their leaving together removes the » entry: the fewest, in the same order, that fit.
+      // The next item can't grow alone. Items in the menu may still come out, the fewest in the same order that fit
+      // (together when only their leaving together removes the » entry), but only while that keeps the order: an item
+      // leaves the menu only with every menu item ahead of it, and only for a form no larger than that of every item
+      // ahead of it that isn't in the menu (the items that opened the entry went in together, after the others had
+      // stepped down as far as they could).
       const inside: number[] = [];
-      for (const i of queue) {
-        if (!isMenu(form(i))) break;
+      for (const [q, i] of queue.entries()) {
+        if (!isMenu(form(i))) continue;
+        if (!queue.slice(0, q).every((j) => isMenu(form(j)) || at[i]! - 1 >= at[j]!)) break;
         inside.push(i);
       }
       let out = false;
-      for (let n = 2; n <= inside.length && !out; n++) {
+      for (let n = 1; n <= inside.length && !out; n++) {
         const group = inside.slice(0, n);
         const was = group.map((i) => at[i]!);
         for (const i of group) at[i] = at[i]! - 1;
