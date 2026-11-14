@@ -83,10 +83,14 @@ export const DEFAULT_MENU = 28;
 
 const finite = (x: number, fallback: number): number => (Number.isFinite(x) ? x : fallback);
 
-/** The cross limits with a non-number (NaN, Infinity) replaced, and max never under min. */
+/**
+ * The cross limits with a non-number replaced: `min` and `rail` that aren't finite become 0 and the default rail, a
+ * `max` that is NaN becomes no limit (Infinity is one already), and `max` is never under `min`.
+ */
 export function limitsOf(input: StackInput): { readonly min: number; readonly max: number; readonly rail: number } {
   const min = Math.max(0, finite(input.cross.min, 0));
-  return { min, max: Math.max(min, finite(input.cross.max, min)), rail: Math.max(0, finite(input.cross.rail ?? DEFAULT_RAIL, DEFAULT_RAIL)) };
+  const max = Number.isNaN(input.cross.max) ? Infinity : input.cross.max;
+  return { min, max: Math.max(min, max), rail: Math.max(0, finite(input.cross.rail ?? DEFAULT_RAIL, DEFAULT_RAIL)) };
 }
 export const menuMain = (input: StackInput): number => Math.max(0, finite(input.menu?.main ?? DEFAULT_MENU, DEFAULT_MENU));
 
