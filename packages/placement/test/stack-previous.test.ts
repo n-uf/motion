@@ -316,6 +316,26 @@ describe("previous: room comes back in the reverse of give-way order, and stops 
     expect(kinds(fitStack(input(130), { previous: shrunk }))).toEqual(["row", "menu"]);
   });
 
+  it("with `from`, a menu item leaving counts steps from its own start, not raw form indexes", () => {
+    // g2 starts at its fold (from 1) and is older than g1, which is drawn smaller (icons, one step down). g2 leaving
+    // the menu into its fold would be zero steps down while g1 is one: an older item larger than a newer one.
+    const g = (id: string, used: number, forms: StackForm[], from?: number): StackItem => ({ id, used, forms, ...(from === undefined ? {} : { from }) });
+    const items: StackItem[] = [
+      g("g0", 1, [f("row", 135), f("menu", 0)], 1),
+      g("g1", 3, [f("row", 138), f("icons", 18), f("menu", 0)]),
+      g("g2", 2, [f("row", 57), f("fold", 34), f("menu", 0)], 1),
+    ];
+    const input = (length: number): StackInput => ({ ...bar(items, length), gap: 4, menu: { main: 32 } });
+    const shrunk = fitStack(input(56));
+    expect(kinds(shrunk)).toEqual(["menu", "icons", "menu"]);
+    const grown = fitStack(input(100), { previous: shrunk });
+    expect(kinds(grown)).not.toEqual(["menu", "icons", "fold"]);
+    const g1 = grown.items.find((i) => i.id === "g1")!;
+    const g2 = grown.items.find((i) => i.id === "g2")!;
+    // g2 (older) is never fewer steps down from its start than g1 (newer).
+    expect(g2.form - 1).toBeGreaterThanOrEqual(g1.form - 0);
+  });
+
   it("a sweep: after a grow, no item that gave way earlier is in a larger form than one that gave way later, unless the fresh fit was a pure gain; along successive solves more room never undoes a growth", () => {
     const rand = seeded(25);
     // Shapes, some with a menu step that follows an ordinary form (row, then the menu) and so is taken alone.
