@@ -816,7 +816,9 @@ refits it.
   edges is no gap and the pointer falls through to the float target (or to none); in a bar (default `"middle"`) the
   edge split halfway between neighbouring lines. Gaps on one line (a zone's end and the next zone's start) are one
   target, the first. The first and last reach `endReach` px past the edge's ends. Across, the hit is the larger of the
-  edge's thickness before and after the drop, and it is cut clear of fixed items and chrome. `slot` is the item's rect
+  edge's thickness before and after the drop, and it is cut clear of fixed items and chrome (a fixed item that grows,
+  such as a title filling its bar, reserves only its natural length; what it grew by is spare room for a drop beside it,
+  and the drop shrinks it toward its `min`). `slot` is the item's rect
   after the drop and `marker` the insertion line across the edge.
 - `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side.
 - `float:<id>` (3, free) when `floatKinds` lists the kind: the whole plane, landing with the pointer holding the float
