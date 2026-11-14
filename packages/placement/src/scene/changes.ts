@@ -263,8 +263,22 @@ export function homeFor(scene: Scene, id: string, start: Scene): Place | null {
   return null;
 }
 
-/** A float's rect moved (never resized) into the stage; one larger than the stage is cut to it. */
-export function clampFloat(r: Rect, stage: Rect): Rect {
-  const sized = { ...r, width: Math.min(r.width, stage.width), height: Math.min(r.height, stage.height) };
-  return clampInto(sized, stage);
+/**
+ * A float's rect moved (never resized) so that what `solve` draws of it lies in the stage: `drawn` is its drawn size (the
+ * bar's when it is folded). As in `solve`, one drawn larger than the stage keeps its top-left corner on the stage's.
+ */
+export function clampFloat(r: Rect, stage: Rect, drawn: { readonly width: number; readonly height: number } = r): Rect {
+  const at = clampInto({ x: r.x, y: r.y, width: drawn.width, height: drawn.height }, stage);
+  return { x: at.x, y: at.y, width: r.width, height: r.height };
+}
+
+/** The size `solve` draws a float at: its rect's, or with `from` over 0 its bar (that form's natural length along `orient`). */
+export function drawnFloatSize(item: SceneItem, f: { readonly rect: Rect; readonly orient?: Orient }): { width: number; height: number } {
+  const orient = f.orient === "row" ? "row" : "column";
+  const forms = item.forms[orient] ?? [];
+  const from = forms.length === 0 ? 0 : Math.min(Math.max(0, Math.floor(Number.isFinite(item.from) ? item.from! : 0)), forms.length - 1);
+  const form = forms[from];
+  const px = (v: number): number => (Number.isFinite(v) ? Math.max(0, v) : 0);
+  if (from > 0 && form) return orient === "column" ? { width: px(f.rect.width), height: px(form.main.natural) } : { width: px(form.main.natural), height: px(f.rect.height) };
+  return { width: px(f.rect.width), height: px(f.rect.height) };
 }
