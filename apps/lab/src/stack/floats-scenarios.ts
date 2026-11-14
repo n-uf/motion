@@ -459,7 +459,8 @@ const home: Scenario<Page> = {
       const id: ItemId = rail ? "pages" : "annotations";
       const el = b.itemEl(id)!;
       const was = d.domRect(el);
-      await d.press(b.gripOf(id)!, rail ? 2 : 12, rail ? 2 : 3);
+      // 2 px from the left edge of the header (or of the rail's place): the lift happens within a few px of the edge.
+      await d.press(b.gripOf(id)!, 2, rail ? 2 : 12);
       // Past the lift distance, still inside the item's rect.
       await d.glide({ x: d.at.x, y: d.at.y + 7 }, 1);
       await d.frames(3);
