@@ -103,6 +103,13 @@ const stackFloats = {
   reset: "#fl-reset",
   wide: true,
 };
+const stackKeep = {
+  markup: raw(() => import("../pages/stack-keep.html?raw")),
+  load: () => Promise.all([import("../stack/stack.css"), import("../stack/keep").then(() => import("../stack/keep-scenarios"))]),
+  module: "stack-keep",
+  reset: "#sk-reset",
+  wide: true,
+};
 
 /** The Panels Options page runs the scenarios that switch an option, Presets those on a preset; Defaults runs the rest. */
 const OPTIONS = "options: ";
@@ -273,6 +280,16 @@ export const PAGES: readonly PageDef[] = [
     about:
       "<code>@n-uf/placement/stack</code>'s <code>fitFloat</code> and <code>floatTarget</code> on <code>@n-uf/motion/drag</code>'s intent. A window with a bar and a column of docked items, a sheet of pages that scrolls under them and floats above it. A float is in the stage's px, so scrolling never moves it and there is no pinned kind; the preview and the drop are one answer: the float's rect with the pointer holding it, clamped into the stage and moved beside any docked item it would cover. The float target's zone covers the whole plane, so a pointer past the stage's edge still drops a clamped float. Cases C5, C7, C16 and C17.",
     ...stackFloats,
+  },
+  {
+    id: "stack/keep",
+    group: "stack",
+    nav: "Store, freeze, no jump",
+    title: "Stack · store, freeze, no jump",
+    line: "A reload restores every item's place and form; frozen hides the grips and nothing moves (Alt moves); a count or a phase changing moves no other item.",
+    about:
+      "The same window on <code>storeStack</code> / <code>readStack</code> and <code>storeFloats</code> / <code>readFloats</code> in localStorage: Reload forgets the arrangement in memory and rebuilds it from the stored form. Freeze is the app's flag, read at the press: a press without Alt never becomes a drag (no targets, no drop), holding Alt shows the grips and everything works, including the stacked headers; a drag that began finishes. Every item has a count badge and a phase in fixed slots: changing one moves no other item more than 0.5 px. Cases C13, C14 and C15.",
+    ...stackKeep,
   },
   {
     id: "kits/panels",
