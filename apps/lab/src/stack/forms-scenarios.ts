@@ -511,6 +511,59 @@ const independent: Scenario<Page> = {
   },
 };
 
-const SCENARIOS = [c2, c6, c8, c9, c10, drawn, status, grips, independent];
+// --- C23 ---------------------------------------------------------------------------------------------------------------
+
+const c23: Scenario<Page> = {
+  name: "C23: a press is not a reshape",
+  modes: ["column", "bar"],
+  async run(p, mode) {
+    const view = mode === "bar" ? p.bar : p.column;
+    const rects = (): string => JSON.stringify(fitFor(p, mode).items.map((i) => [i.id, i.kind, i.rect]));
+    const orders: ItemIdList[] = [
+      ["pages", "annotations", "findings", "views", "tools", "zoom"],
+      ["zoom", "tools", "views", "findings", "annotations", "pages"],
+      ["findings", "views", "pages", "zoom", "annotations", "tools"],
+    ];
+    const failures: string[] = [];
+    let flipped = 0;
+    let cases = 0;
+    for (const order of orders) {
+      for (const length of mode === "bar" ? [200, 300, 420, 520, 640] : [140, 220, 300, 380, 460]) {
+        p.reset();
+        p.setAges(order);
+        p.setLength(length);
+        const before = rects();
+        // Press every item in turn, as a click on its grip or header (no drag): nothing may move, not even the item pressed.
+        for (const item of fitFor(p, mode).items.map((i) => i.id)) {
+          const el = view.itemEl(item);
+          if (!el || el.hidden) continue;
+          (el.querySelector("[data-grab]") ?? el).dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+          cases++;
+          if (rects() !== before) failures.push(`length ${length}: pressing ${titleOf(item)} changed the ${mode}`);
+        }
+        // The control: a use that solves afresh (no previous) does flip who gives way in some of these cases.
+        p.reset();
+        p.setAges(order);
+        p.setLength(length);
+        const fresh = rects();
+        for (const item of fitFor(p, mode).items.map((i) => i.id)) {
+          p.use(item as ItemId, mode === "bar" ? "bar" : "column");
+          if (rects() !== fresh) flipped++;
+        }
+      }
+    }
+    return [
+      await rule("Clicking any item's grip or header, without a drag, leaves every item's form and rect as it was, at every length and age order", (ok) => {
+        ok(cases > 30, `only ${cases} presses ran`);
+        failures.slice(0, 5).forEach((m) => ok(false, m));
+      }),
+      await rule("Without `previous` the same presses do flip who gives way (the case is real)", (ok) => ok(flipped > 0, "no press flipped anything without previous")),
+    ];
+  },
+};
+
+type ItemIdList = readonly ItemId[];
+
+const SCENARIOS = [c2, c6, c8, c9, c10, drawn, status, grips, independent, c23];
 
 install(page, SCENARIOS, () => page.reset(), document.getElementById("sf-run") as HTMLButtonElement, document.getElementById("sf-runs") as HTMLTableSectionElement);

@@ -83,9 +83,13 @@ const placed = (): Placed[] => placedIn("column");
 let colFit: StackFit = fitStack(inputOf("column", length, placedIn("column"), width));
 let barFit: StackFit = fitStack(inputOf("row", length, placedIn("bar")));
 
-function render(): void {
-  colFit = fitStack(inputOf("column", length, placedIn("column"), width));
-  barFit = fitStack(inputOf("row", length, placedIn("bar")));
+/**
+ * Draw. `keep` solves with the fit on screen as `previous`, as a host does for a press: the forms that still fit stay, so a
+ * change of ages alone reshapes nothing. Everything else (a slider, a toggle, a scenario's setup) solves fresh.
+ */
+function render(keep = false): void {
+  colFit = fitStack(inputOf("column", length, placedIn("column"), width), keep ? { previous: colFit } : {});
+  barFit = fitStack(inputOf("row", length, placedIn("bar")), keep ? { previous: barFit } : {});
   column.draw(colFit);
   bar.draw(barFit);
   stage.style.width = `${BAR_AT.x + length + 24}px`;
@@ -167,6 +171,11 @@ function use(id: ItemId, side?: Side): void {
   for (const s of sidesOf(side)) items[s][id].used = ++clock[s];
   render();
 }
+/** A press on an item: it counts as a use, and the stack keeps the forms that still fit (C23). */
+function press(id: ItemId, side?: Side): void {
+  for (const s of sidesOf(side)) items[s][id].used = ++clock[s];
+  render(true);
+}
 /** Give every item an age by hand (oldest first), for the scenarios. */
 function setAges(order: readonly ItemId[], side?: Side): void {
   for (const s of sidesOf(side)) {
@@ -192,7 +201,7 @@ document.getElementById("sf-reset")!.addEventListener("click", reset);
 stage.addEventListener("click", (e) => {
   const it = (e.target as HTMLElement).closest<HTMLElement>(".st-item");
   const stack = it?.closest<HTMLElement>(".st-stack");
-  if (it?.dataset.id && stack) use(it.dataset.id as ItemId, stack.dataset.axis === "row" ? "bar" : "column");
+  if (it?.dataset.id && stack) press(it.dataset.id as ItemId, stack.dataset.axis === "row" ? "bar" : "column");
 });
 
 buildTable();
@@ -209,6 +218,7 @@ export const page = {
   setOpen,
   setKept,
   use,
+  press,
   setAges,
   reset,
   panels: PANELS,
