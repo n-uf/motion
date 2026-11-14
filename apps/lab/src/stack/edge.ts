@@ -210,6 +210,7 @@ async function pick(c: EdgeCase, run = true): Promise<void> {
   }
   checking = true;
   renderCase();
+  bringIntoView();
   stage.classList.add("es-checking");
   try {
     await runCase(c);
@@ -219,10 +220,25 @@ async function pick(c: EdgeCase, run = true): Promise<void> {
     writePage();
     renderList();
     renderCase();
+    bringIntoView();
   }
   const next = queued;
   queued = null;
   if (next) await pick(next);
+}
+
+/**
+ * Bring the case card and the whole stage into the window: the card's top goes to the window's top when that shows the
+ * stage's bottom too; otherwise the stage's bottom goes to the window's bottom. Nothing moves when both already show.
+ */
+function bringIntoView(): void {
+  if (EMBED) return;
+  const card = $("es-case").getBoundingClientRect();
+  const s = stage.getBoundingClientRect();
+  const room = window.innerHeight;
+  if (card.top >= 0 && s.bottom <= room) return;
+  const by = s.bottom - card.top <= room - 8 ? card.top - 8 : s.bottom - room + 8;
+  window.scrollBy({ top: by, behavior: "instant" as ScrollBehavior });
 }
 
 list.addEventListener("click", (e) => {
