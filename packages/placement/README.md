@@ -459,8 +459,8 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   fits with, even if that makes it shorter (the last item out of the menu takes the » entry along), and so on. When it
   fits no larger form nothing behind it grows, so a leading group never opens while a trailing one that gave way after
   it stays folded. Items in the menu still come out, alone or together when only their leaving together fits, but only
-  when that keeps the order: an item leaves only with every menu item ahead of it, and only for a form no larger than
-  that of every item ahead of it that isn't in the menu. One px of room, or a badge losing a digit after a press, moves
+  when that keeps the order: an item leaves only with every menu item ahead of it, and only for a form no fewer steps
+  down (from its `from`) than every item ahead of it that isn't in the menu. One px of room, or a badge losing a digit after a press, moves
   nothing. Results under `previous` depend on history: a shrink then a grow can end at another arrangement than a fresh
   solve, and more room never undoes a growth along successive solves. Growing back is meant for stacks of up to about
   50 items (60 small menu items take about 9 ms). An item whose form at the kept index is of another kind starts over;
