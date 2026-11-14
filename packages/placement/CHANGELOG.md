@@ -3,6 +3,25 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+- `@n-uf/placement/stack`, floats (new exports; `fitStack`, `stackTargets` and the stack's stored form are unchanged, and
+  so are `./panels`, `./dock` and `./desk`). A float is an item above the pages, in the stage's own px (view space), so
+  the pages scrolling under it never move it; it has no pinned flag.
+  - `fitFloat(rect, stage, avoid?)`: the float's rect moved (never resized) inside the stage, then beside the docked
+    items it would cover, at the nearest clear place; `FloatFit` has `rect`, `clamped`, `snapped` and `covers` (indexes
+    into `avoid` it still covers when the stage has no clear place). A float larger than the stage keeps its top-left
+    corner on the stage's.
+  - `floatTarget({ id, stage, size, avoid?, label? })`: a free, priority 3 drop target in the shape `@n-uf/motion/drag`
+    takes, whose `hit` covers the whole plane, so a pointer past the stage's edge still hits it. `make(point, grab?)`
+    gives the float's rect (clamped, clear of the docked items) for the preview and for the drop: one answer, so a drop
+    past the edge lands clamped and never cancels.
+  - `storeFloats` / `readFloats`: `{ v: 1, floats: [{ id, x, y, width, height }] }` in stacking order; never throws,
+    drops what it can't use and lists it in `dropped`. It writes no `pinned`; one an old store has is read and ignored
+    (listed as `pinned:<id>`), and the float loads as a plain float.
+  - Exports: `fitFloat`, `floatTarget`, `storeFloats`, `readFloats` and the types `StackFloat`, `FloatFit`,
+    `FloatTarget`, `FloatTargetInput`, `FloatDrop`, `StoredFloats`, `FloatsRead`.
+
 ## 26.11.12
 
 - New entry `@n-uf/placement/stack`: the items along one edge of a stage (a column or a row), each a panel or a control

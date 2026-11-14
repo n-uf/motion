@@ -43,7 +43,8 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
 - **`/stack`**: the items along one edge, a column or a bar, each a panel or a control group with forms from largest to
   smallest (open, header, rail icon, » menu; row, stacked, icons, » menu): one form and rect per item, giving way by
   age, spare room to the panels that grow, a rail when nothing open sets the width; a drop target for every gap, each
-  with the exact solve a drop makes; and a stored form. Not tied to `/panels`.
+  with the exact solve a drop makes; a stored form; and floats (an item above the pages, in the stage's own px, kept
+  inside the stage and clear of the docked items, with its drop target and stored form). Not tied to `/panels`.
 
 Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
@@ -493,6 +494,56 @@ const saved = JSON.stringify(storeStack({ order: ["pages", "tools"], kept: ["pag
 console.log(saved); // {"v":1,"order":["pages","tools"],"kept":["pages"],"closed":[],"used":["pages","tools"],"forms":{"tools":1}}
 console.log(readStack(JSON.parse(saved), ["pages", "tools", "findings"]).ok, readStack({ v: 2 }).ok); // true false
 ```
+
+### Floats
+
+An item that isn't docked is a float. It lies above the pages in the stage's own px (view space), so the pages scrolling
+under it never move it, and it has no pinned flag: there is one kind of float, `{ id, rect }`. `./stack` keeps floats
+apart from the stacks (an item is in a stack's order or in the floats, the app's choice) and offers three parts, all
+pure.
+
+- `fitFloat(rect, stage, avoid?)` gives the rect a float gets: moved (never resized) to lie inside the `stage`, then
+  beside any of the `avoid` rects (the docked items' rects, and the » entries', in the same px) it would cover, at the
+  nearest place that is clear and inside the stage. A float larger than the stage keeps its top-left corner on the
+  stage's. When the stage has no clear place for it, it stays where it covers the least and `covers` lists the `avoid`
+  indexes it still covers. `FloatFit`: `rect`, `clamped`, `snapped`, `covers`. Fit the floats again whenever the stacks or
+  the stage change: a stack that grew may lie under one.
+- `floatTarget({ id, stage, size, avoid?, label? })` is a drop target in the shape `@n-uf/motion/drag` takes: `id`
+  `"float"`, priority 3 (a stack's gaps, priority 2, win where they are), `free` (no room is made for it) and a `hit`
+  that covers the whole plane, so a pointer past the stage's edge, above, below or beside it, still hits it and a float
+  drop never cancels. `make(point, grab?)` is the one answer for the preview and the drop: the float's rect with the
+  pointer at `point` holding it at `grab` (its offset in the float; default the middle), run through `fitFloat`. Draw
+  `make(...).rect` as the preview, and land the float on the same call at the release.
+- `storeFloats(floats)` and `readFloats(data, known?)`: `{ v: 1, floats: [{ id, x, y, width, height }] }`, in stacking
+  order (the last is on top). It writes no `pinned`. Reading never throws: anything but an object of version 1 with a
+  `floats` array is `{ ok: false, error }`; inside one, a float that isn't an object, has no string id, repeats an id, isn't
+  one the consumer has (with `known`) or has a position that isn't a finite number or a size that isn't over 0 is dropped and listed in
+  `dropped` as `float:<id>`; a field this version doesn't know is listed as `"<field>"` (a float's own as
+  `float:<id>:<field>`). A `pinned` key, which an older store may have, is read and ignored: the float loads as a plain
+  float, at the rect it was stored with, and `pinned:<id>` is listed.
+
+```ts
+import { fitFloat, floatTarget, readFloats, storeFloats } from "@n-uf/placement/stack";
+
+const stage = { x: 0, y: 0, width: 900, height: 500 };
+const docked = [{ x: 0, y: 32, width: 240, height: 468 }]; // a column of docked items, in the stage's px
+
+const fit = fitFloat({ x: 100, y: 200, width: 200, height: 150 }, stage, docked);
+console.log(fit.rect, fit.snapped); // { x: 240, y: 200, width: 200, height: 150 } true
+
+const target = floatTarget({ id: "notes", stage, size: { width: 200, height: 150 }, avoid: docked });
+const drop = target.make({ x: 500, y: -400 }, { x: 20, y: 10 }); // the pointer is above the stage
+console.log(drop.rect, drop.fit.clamped); // { x: 480, y: 0, width: 200, height: 150 } true
+
+console.log(JSON.stringify(storeFloats([{ id: "notes", rect: drop.rect }]))); // {"v":1,"floats":[{"id":"notes","x":480,"y":0,"width":200,"height":150}]}
+const old = readFloats({ v: 1, floats: [{ id: "notes", x: 480, y: 0, width: 200, height: 150, pinned: true }] });
+console.log(old.ok && old.dropped); // [ 'pinned:notes' ]
+```
+
+Freezing the layout needs nothing from the library: the freeze is the app's flag, and the app reads it once at the press.
+A press on a grip while frozen (and Alt not held) never becomes a drag, so no target is built and nothing is dropped;
+holding Alt shows the grips and everything works, a drag that began finishes. `fitStack` reads sizes, not what an item
+says, so a count or a phase that leaves its forms' sizes alone moves no other item.
 
 ## Pane zones
 
