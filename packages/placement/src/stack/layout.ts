@@ -73,9 +73,10 @@ function victim(items: readonly StackItem[], to: readonly number[]): number {
  * limit lets a panel open wider, and the forms that stepped down for the old width may come back) the fresh fit is
  * taken. When the forms kept leave more spare length than they did (the length grew, a gap or a size shrank; `need` is
  * what each fit says its forms need) the fresh fit is taken only if it is a pure gain over the kept one (no item's form
- * is further down, at least one is further up); otherwise the kept forms grow back in the reverse of give-way order (the
- * item that gave way most recently first, so the newest used, with rank and `kept` respected) while the stack still
- * fits. A `previous` with no `need` (one an app built by hand) is no help and the fresh fit is returned.
+ * is further down, at least one is further up); otherwise room comes back in the reverse of give-way order (the item
+ * that gave way most recently first, so the newest used, with rank and `kept` respected, and items in the » menu out
+ * before the rest), one item at a time, and growth stops at the first item that can't grow: no item behind it jumps the
+ * queue. A `previous` with no `need` (one an app built by hand) is no help and the fresh fit is returned.
  */
 export function fitStack(input: StackInput, options: FitOptions = {}): StackFit {
   const fresh = solve(input);
@@ -197,41 +198,46 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   if (seed) seed.need = minSum();
   if (grow) {
     // Room came back and the kept forms fit: they grow back one at a time, the reverse of how they gave way (the form an
-    // item is in now was stepped into at its rank, so the highest rank first, then `kept`, the newest used, the earlier
-    // in the stack). An item goes back to the nearest earlier form the stack still fits with, the cross size unchanged:
-    // a larger form is what counts, not a longer stack (the last item leaving the menu takes the » entry with it).
+    // item is in now was stepped into at its rank, so the highest rank first, then `kept`, then an item in the » menu
+    // before one that isn't (going into the menu is an item's last step, and the first ones in go together, after the
+    // others stepped down as far as they could), then the newest used, the earlier in the stack). An item goes back to
+    // the nearest earlier form the stack still fits with, the cross size unchanged: a larger form is what counts, not a
+    // longer stack (the last item leaving the menu takes the » entry with it).
     const comesBefore = (a: number, b: number): boolean => {
       const ra = rankOf(items[a]!.forms[at[a]!]!);
       const rb = rankOf(items[b]!.forms[at[b]!]!);
       const ka = items[a]!.kept ? 1 : 0;
       const kb = items[b]!.kept ? 1 : 0;
-      return ra !== rb ? ra > rb : ka !== kb ? ka > kb : items[a]!.used !== items[b]!.used ? items[a]!.used > items[b]!.used : a < b;
+      const ma = isMenu(form(a)) ? 1 : 0;
+      const mb = isMenu(form(b)) ? 1 : 0;
+      return ra !== rb ? ra > rb : ka !== kb ? ka > kb : ma !== mb ? ma > mb : items[a]!.used !== items[b]!.used ? items[a]!.used > items[b]!.used : a < b;
     };
+    // Strictly as a stack: only the item next in that order may grow. When it can't, growth stops; no item behind it
+    // jumps the queue (a leading group never opens while a trailing one that gave way after it stays folded).
     for (;;) {
       const c0 = crossOf();
       const fitsWith = (changed: readonly number[]): boolean => minSum() <= length + EPS && crossOf() === c0 && changed.every((j) => !tooWide(j, c0));
-      let best = -1;
-      let bestTo = -1;
-      for (const i of idx) {
-        const cur = at[i]!;
-        let to = -1;
-        for (let k = cur - 1; k >= start[i]! && to < 0; k--) {
-          at[i] = k;
-          if (fitsWith([i])) to = k;
-        }
-        at[i] = cur;
-        if (to >= 0 && (best < 0 || comesBefore(i, best))) {
-          best = i;
-          bestTo = to;
-        }
+      const queue = idx.filter((i) => at[i]! > start[i]!).sort((a, b) => (comesBefore(a, b) ? -1 : 1));
+      const next = queue[0];
+      if (next === undefined) break;
+      const cur = at[next]!;
+      let to = -1;
+      for (let k = cur - 1; k >= start[next]! && to < 0; k--) {
+        at[next] = k;
+        if (fitsWith([next])) to = k;
       }
-      if (best >= 0) {
-        at[best] = bestTo;
+      at[next] = cur;
+      if (to >= 0) {
+        at[next] = to;
         continue;
       }
-      // None fits alone. Items in the menu come out together when only all of them leaving removes the » entry: the fewest,
-      // in the same order, that fit.
-      const inside = idx.filter((i) => isMenu(form(i)) && at[i]! > start[i]!).sort((a, b) => (comesBefore(a, b) ? -1 : 1));
+      // The next item can't grow alone. When it and the ones right after it in the order are in the menu, they come out
+      // together if only their leaving together removes the » entry: the fewest, in the same order, that fit.
+      const inside: number[] = [];
+      for (const i of queue) {
+        if (!isMenu(form(i))) break;
+        inside.push(i);
+      }
       let out = false;
       for (let n = 2; n <= inside.length && !out; n++) {
         const group = inside.slice(0, n);
