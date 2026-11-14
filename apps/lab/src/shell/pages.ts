@@ -6,17 +6,18 @@
  * To add a page: add an entry here. A page module needs nothing from the shell; it may call `onReset` (./api) to
  * give the header's Reset button its own reset. A kit case registers in src/kits/cases.ts instead and becomes a page
  * by itself (./kit-page).
+ *
+ * The groups: Overview, Motion (two pages), Edge stack, Checks, and an Archive of pages whose models are on hold or
+ * whose cases move into the edge stack. Archived pages still run on the Checks page; they leave once covered.
  */
 
-export type GroupId = "overview" | "motion" | "placement" | "panels" | "stack" | "kits" | "checks";
+export type GroupId = "overview" | "motion" | "stack" | "checks" | "archive";
 export const GROUPS: readonly { id: GroupId; title: string }[] = [
   { id: "overview", title: "Overview" },
   { id: "motion", title: "Motion" },
-  { id: "placement", title: "Placement" },
-  { id: "panels", title: "Panels" },
-  { id: "stack", title: "Edge stacks" },
-  { id: "kits", title: "Kit cases" },
+  { id: "stack", title: "Edge stack" },
   { id: "checks", title: "Checks" },
+  { id: "archive", title: "Archive" },
 ];
 
 /** Which scenarios a page runs: those whose name contains it, or passes it. */
@@ -118,18 +119,15 @@ const stackToolbar = {
   wide: true,
 };
 
-/** The Panels Options page runs the scenarios that switch an option, Presets those on a preset; Defaults runs the rest. */
-const OPTIONS = "options: ";
-const PRESETS = "presets: ";
-
-/** The tiling page's settle scenarios (moves the layout makes), the rest are its drags and layouts. */
-const SETTLE = new Set(["open", "close", "swap", "two changes 40 ms apart", "maximize, restore after 80 ms"]);
 const TOOLBAR = "toolbar groups";
+/** The desk module's scenarios the Motion page "Drag intent and previews" shows: the drag model and the held drag's snap. */
+const INTENT = (n: string): boolean => n.includes("drag model") || n.includes("snap");
 
 /**
- * The ten kit cases, in order: patterns an app meets when it brings its own drag onto the pair. Case 1 is its own
- * page module (kits-panels); the others are the `KitCase`s registered in src/kits/cases.ts, each mounted as a page
- * (./kit-page). A number with no registered case has no page.
+ * The kit cases, in order: patterns an app meets when it brings its own drag onto the pair. Case 1 is its own page
+ * module (kits-panels); the others are the `KitCase`s registered in src/kits/cases.ts, each mounted as a page
+ * (./kit-page). A number with no registered case has no page. They are archived: each becomes an Edge stack case.
+ * Case 8 (Frozen layout) is gone: the Edge stack's C14 proves the same rule.
  */
 const KIT_LIST: readonly { n: number; title: string; line: string }[] = [
   { n: 1, title: "Panels vs groups", line: "Do toolbar groups and dock panels feel the same? Panels on ./dock next to a plain ghost drag." },
@@ -139,7 +137,6 @@ const KIT_LIST: readonly { n: number; title: string; line: string }[] = [
   { n: 5, title: "Drop preview", line: "Snap to slot, open gap or drop indicator: three ways to show where a group lands." },
   { n: 6, title: "Constraints", line: "A forbidden place is no target: no slot, no label; a release there glides home." },
   { n: 7, title: "Keyboard moves", line: "The arrows step through a group's places in order; Move to › lists the same places." },
-  { n: 8, title: "Frozen layout", line: "Freeze hides the grips; holding Alt brings them back; a drag in flight finishes." },
   { n: 9, title: "Vocabulary", line: "One word set for the places, through the targets' labels." },
   { n: 10, title: "Scaled page", line: "On a scaled page the app converts the pointer into page space, so the slot lands under it." },
 ];
@@ -148,7 +145,7 @@ const numberOf = (kc: KitCase): number => Number.parseInt(kc.title, 10);
 function kitPage(k: (typeof KIT_LIST)[number]): PageDef[] {
   const kc = KIT_CASES.find((c) => numberOf(c) === k.n);
   if (!kc) return [];
-  return [{ id: `kits/${kc.id}`, group: "kits", nav: `${k.n} · ${k.title}`, title: kc.title, line: k.line, load: () => import("./kit-page").then((m) => m.mountKitCase(kc, document.getElementById("lab-page")!)), module: `kit:${kc.id}`, wide: true }];
+  return [{ id: `kits/${kc.id}`, group: "archive", nav: `Kit ${k.n} · ${k.title}`, title: kc.title, line: k.line, load: () => import("./kit-page").then((m) => m.mountKitCase(kc, document.getElementById("lab-page")!)), module: `kit:${kc.id}`, wide: true }];
 }
 
 export const PAGES: readonly PageDef[] = [
@@ -162,101 +159,23 @@ export const PAGES: readonly PageDef[] = [
   {
     id: "motion/settle",
     group: "motion",
-    nav: "Settle and tempo",
-    title: "Settle and tempo",
-    line: "Windows glide to their places on one critically damped settle: never past the target, at the tempo you pick.",
+    nav: "Settle and tiling",
+    title: "Settle and tiling",
+    line: "Windows glide to their places on one critically damped settle, never past the target; tiled windows reorder by drag with a drop preview.",
     about:
-      "Window motion rules of <code>@n-uf/motion</code>: <b>settle</b> (one fast-then-gentle curve, never past its target), <b>hold</b> (what the pointer owns is glued to it) and <b>reveal</b> (content is never stretched). Open, close, swap and maximize windows; every move is sampled per frame and checked below.",
+      "Window motion rules of <code>@n-uf/motion</code>: <b>settle</b> (one fast-then-gentle curve, never past its target), <b>hold</b> (what the pointer owns is glued to it) and <b>reveal</b> (content is never stretched). Open, close, swap and maximize windows at the tempo you pick. The same windows tile master-and-stack, dwindle, columns or grid: drag one by its title bar to another place, and the preview shows the slot (indicator) or glides the window into it (snap); switching layouts moves every window on the settle. The four layouts are this lab's own code: <code>@n-uf/placement</code> has no tiling entry yet. Every move is sampled per frame and checked below.",
     ...tiling,
-    view: (n) => SETTLE.has(n),
   },
   {
     id: "motion/intent",
     group: "motion",
-    nav: "Drag intent",
-    title: "Drag intent",
-    line: "When the drop indicator shows: only while you aim, never while you fly over targets.",
+    nav: "Drag intent and previews",
+    title: "Drag intent and previews",
+    line: "The drop indicator shows only while you aim, never while you fly over targets; the real item follows the pointer, and the three previews land the same.",
     about:
-      "<code>@n-uf/motion/drag</code>'s intent on the desk constructions: the indicator shows once the pointer slows down or holds still, holds 150 ms before it switches, and a release lands where it showed. Drag a panel by its title bar; the drag-model scenarios below fly, wobble and flick across the targets.",
+      "<code>@n-uf/motion/drag</code>'s intent: the indicator shows once the pointer slows down or holds still, holds 150 ms before it switches, and a release lands where it showed. Drag a panel by its title bar; the drag-model scenarios fly, wobble and flick across the targets. <code>@n-uf/motion/layout</code>'s held drag: no copy, the item itself under the pointer, gliding into a slot (snap) and back out, and landing from where it was let go. Pick the preview (indicator, open gap, snap to slot) in the Preview switch.",
     ...desk,
-    view: "drag model",
-  },
-  {
-    id: "motion/held",
-    group: "motion",
-    nav: "Held drag and previews",
-    title: "Held drag and previews",
-    line: "The real item follows the pointer; the three previews (indicator, open gap, snap to slot) land the same.",
-    about:
-      "<code>@n-uf/motion/layout</code>'s held drag: no copy, the item itself under the pointer, gliding into a slot (snap) and back out, and landing from where it was let go. Pick the preview in the Preview switch.",
-    ...desk,
-    view: "snap",
-  },
-  {
-    id: "motion/tiling",
-    group: "motion",
-    nav: "Tiling drag",
-    title: "Tiling drag",
-    line: "Windows tiled master-and-stack, dwindle, columns or grid; drag one to reorder, with a drop preview.",
-    about: "<code>@n-uf/motion</code> moving windows between tiled slots. The four layouts are this lab's own code: <code>@n-uf/placement</code> has no tiling entry yet. Drag a window by its title bar to another place; the preview shows the slot (indicator) or glides the window into it (snap). Switching layouts moves every window on the settle.",
-    ...tiling,
-    view: (n) => !SETTLE.has(n),
-  },
-  {
-    id: "placement/desk",
-    group: "placement",
-    nav: "Desk constructions",
-    title: "Desk constructions",
-    line: "Nine ways to build a desk from docks, rails, palettes and documents, and how each gives way.",
-    about:
-      "Nine ways to build a desk from a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and open documents, from <code>@n-uf/placement/dock</code>. Pick one with the Construction switch; change the stage's size to see how it gives way when width or height runs out. Drag a panel by its title bar (or its tab), and in the tiling tree and the strip a document too: each construction offers its own drop targets (<code>@n-uf/placement/targets</code>). From the keyboard: focus a title bar, Space picks it up, the arrow keys step through the targets, Enter drops, Escape cancels.",
-    ...desk,
-    view: (n) => !n.startsWith(TOOLBAR),
-  },
-  {
-    id: "placement/toolbar",
-    group: "placement",
-    nav: "Toolbar groups",
-    title: "Toolbar groups",
-    line: "Groups in five hosts and three zones, dragged by their handles, collapsing behind » when room runs out.",
-    about:
-      "<code>@n-uf/placement/toolbar</code> lays the groups out; its targets and <code>@n-uf/motion</code>'s intent and held drag move them. The windows' cases switch the arrangement; drag a group by its handle (the dots), or Tab to it and use the arrows.",
-    ...desk,
-    view: TOOLBAR,
-    first: "#toolbar-cases",
-  },
-  {
-    id: "panels/defaults",
-    group: "panels",
-    nav: "Defaults",
-    title: "Panels: defaults",
-    line: "Columns per side, folding to bars and rails, floats in the view, on @n-uf/placement/panels with its defaults.",
-    about:
-      "<code>@n-uf/placement/panels</code> with its defaults: give-way oldest by use, floats clamped to the view. Three columns on the left, two on the right, a float that moves with the page (Comments) and one pinned to the view (Navigator). Narrow the stage with the Width slider; drag a column's inner edge or a float's corner to resize; fold a panel with ▾, keep it open with ◇; drag a panel by its title to tear it off, dock it back, stack it or put it on a rail. Every drag runs on <code>@n-uf/motion/drag</code>'s intent and <code>@n-uf/motion/layout</code>'s held drag. From the keyboard: Tab to a title, Space, the arrows, Enter; Escape cancels.",
-    ...panels,
-    view: (n) => !n.startsWith(OPTIONS) && !n.startsWith(PRESETS),
-  },
-  {
-    id: "panels/options",
-    group: "panels",
-    nav: "Options",
-    title: "Panels: options",
-    line: "Every give-way order and float rule, top and bottom bands in each mode and span, and room kept clear for a toolbar, on the same desk.",
-    about:
-      "The same desk with the switches: give-way <b>oldest</b> or <b>newest</b> first, <b>by use</b> (opened or focused) or <b>by opening</b>, floats <b>clamped</b> to the view or <b>free</b>, and folded columns to the <b>rail</b> or <b>riding</b> on the side's first open column. A <b>top</b> and a <b>bottom band</b>: off, <b>reserved</b> (it shortens the pages) or <b>overlay</b> (over the pages), <b>between</b> the columns or <b>full width</b>; short of height a band shrinks, then folds to a bar, as the pages' min height says. The <b>Toolbar room</b> sliders keep px clear along the pages' edges. The defaults are marked. The give-way scenarios set known ages and narrow the stage until one column must fold.",
-    ...panels,
-    view: OPTIONS,
-  },
-  {
-    id: "panels/presets",
-    group: "panels",
-    nav: "Presets",
-    title: "Panels: presets",
-    line: "Desk presets as data on @n-uf/placement/desk: edge docks with a bottom band (between the columns or full width), docks with tear-off, and a tabbed navigator.",
-    about:
-      "<code>@n-uf/placement/desk</code>'s presets, each panels options and a start state on <code>./panels</code>. The same seven panels, here with natural section heights: lower the Height slider and the docks fold sections to bars, the one used longest ago first, and the bottom band (History) folds to a bar once the pages would go under their min height; raise it and they come back. The Toolbar room sliders keep room clear for a toolbar. The navigator's left column shows tabs: click a tab, or drag a panel into the column to add one. With tear-off, drag a panel over the pages and back. Below the desk, what differs from the matching <code>./dock</code> constructions.",
-    ...panels,
-    view: PRESETS,
+    view: INTENT,
   },
   {
     id: "stack/forms",
@@ -309,17 +228,6 @@ export const PAGES: readonly PageDef[] = [
     ...stackToolbar,
   },
   {
-    id: "kits/panels",
-    group: "kits",
-    nav: "1 · Panels vs groups",
-    title: "1 · Panels vs groups",
-    line: KIT_LIST[0]!.line,
-    about:
-      "A document viewer window on the real packages: the toolbar groups on <code>@n-uf/placement</code>'s toolbar targets, the panels on its edge docks with tear-off, and every item on <code>@n-uf/motion</code>'s drag intent and held drag. Drag a group by its handle, a panel by its title bar or its rail icon. The switch puts the panels on a naive drag (a ghost copy, an insert line, an instant drop), so both can be felt in one window. Sample content only.",
-    ...kitsPanels,
-  },
-  ...KIT_LIST.slice(1).flatMap(kitPage),
-  {
     id: "checks",
     group: "checks",
     title: "Checks",
@@ -328,6 +236,51 @@ export const PAGES: readonly PageDef[] = [
     load: () => import("./checks"),
     wide: true,
   },
+  // --- Archive: on hold, or moving into the Edge stack page; each still runs on the Checks page. -------------------
+  {
+    id: "placement/desk",
+    group: "archive",
+    nav: "Desk constructions",
+    title: "Desk constructions",
+    line: "Nine ways to build a desk from docks, rails, palettes and documents, and how each gives way.",
+    about:
+      "Nine ways to build a desk from a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and open documents, from <code>@n-uf/placement/dock</code>. Pick one with the Construction switch; change the stage's size to see how it gives way when width or height runs out. Drag a panel by its title bar (or its tab), and in the tiling tree and the strip a document too: each construction offers its own drop targets (<code>@n-uf/placement/targets</code>). From the keyboard: focus a title bar, Space picks it up, the arrow keys step through the targets, Enter drops, Escape cancels. Archived: the dock models are on hold.",
+    ...desk,
+    view: (n) => !n.startsWith(TOOLBAR),
+  },
+  {
+    id: "placement/toolbar",
+    group: "archive",
+    nav: "Toolbar groups",
+    title: "Toolbar groups",
+    line: "Groups in five hosts and three zones, dragged by their handles, collapsing behind » when room runs out.",
+    about:
+      "<code>@n-uf/placement/toolbar</code> lays the groups out; its targets and <code>@n-uf/motion</code>'s intent and held drag move them. The windows' cases switch the arrangement; drag a group by its handle (the dots), or Tab to it and use the arrows. Archived: its unique parts become Edge stack cases.",
+    ...desk,
+    view: TOOLBAR,
+    first: "#toolbar-cases",
+  },
+  {
+    id: "panels",
+    group: "archive",
+    nav: "Panels",
+    title: "Panels",
+    line: "Columns per side on @n-uf/placement/panels: defaults, every option, and the desk presets, on one desk.",
+    about:
+      "<code>@n-uf/placement/panels</code>, on hold. <b>Defaults</b>: give-way oldest by use, floats clamped to the view; three columns on the left, two on the right, a float that moves with the page and one pinned to the view. <b>Options</b>: give-way oldest or newest first, by use or by opening, floats clamped or free, folded columns to the rail or riding, top and bottom bands (off, reserved, overlay; between the columns or full width), and room kept clear for a toolbar. <b>Presets</b>: <code>@n-uf/placement/desk</code>'s presets, each panels options and a start state. Drag a panel by its title to tear it off, dock it back, stack it or put it on a rail; from the keyboard: Tab to a title, Space, the arrows, Enter; Escape cancels. Archived: the Edge stack's floats have no pin, so this page's pinned float is the old model.",
+    ...panels,
+  },
+  {
+    id: "kits/panels",
+    group: "archive",
+    nav: "Kit 1 · Panels vs groups",
+    title: "1 · Panels vs groups",
+    line: KIT_LIST[0]!.line,
+    about:
+      "A document viewer window on the real packages: the toolbar groups on <code>@n-uf/placement</code>'s toolbar targets, the panels on its edge docks with tear-off, and every item on <code>@n-uf/motion</code>'s drag intent and held drag. Drag a group by its handle, a panel by its title bar or its rail icon. The switch puts the panels on a naive drag (a ghost copy, an insert line, an instant drop), so both can be felt in one window. Sample content only.",
+    ...kitsPanels,
+  },
+  ...KIT_LIST.slice(1).flatMap(kitPage),
 ];
 
 export const pageById = (id: string): PageDef | undefined => PAGES.find((p) => p.id === id);
