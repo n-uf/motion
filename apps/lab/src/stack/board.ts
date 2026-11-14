@@ -708,8 +708,9 @@ export function createBoard(opt: BoardOptions) {
     const head = (e.target as HTMLElement).closest<HTMLElement>(".st-head");
     const it = head?.closest<HTMLElement>(".st-item.st-panel:not(.st-float)");
     if (!it) return;
-    // The second click of a double-click on a caret lands on the header the first one opened: that isn't a fold.
-    if (performance.now() - openedAt < 500) return;
+    // The second click of a double-click on a caret lands on the header the first one opened: that isn't a fold. Only
+    // that panel is guarded; a double-click on another panel's header right after folds it.
+    if (opened.id === it.dataset.id && performance.now() - opened.at < 500) return;
     if (!allowed(e)) {
       say("Frozen: nothing moves. Hold Alt to fold.");
       return;
@@ -735,13 +736,14 @@ export function createBoard(opt: BoardOptions) {
   }
   const readout = (): string => `${sayFit("Column", views.column.fit()!)} ${sayFit("Bar", views.bar.fit()!)}`;
 
-  let openedAt = -1e9;
+  /** The panel a click opened last, and when: its double-click guard. */
+  let opened: { id: string; at: number } = { id: "", at: -1e9 };
   /** Open a docked panel (a click on its caret or rail icon): its form from the first again, newest used. */
   function open(id: ItemId): void {
     if (!isPanel(id) || !stackOfId(st, id)) return;
     delete st.from[id];
     st.used[id] = ++clock;
-    openedAt = performance.now();
+    opened = { id, at: performance.now() };
     settle();
     say(`${titleOf(id)} opened. ${readout()}`);
   }
@@ -779,8 +781,8 @@ export function createBoard(opt: BoardOptions) {
   /** Put the items where a scenario wants them. */
   function setLayout(l: Layout, extra?: { used?: Partial<Record<ItemId, number>>; kept?: readonly ItemId[]; from?: Partial<Record<ItemId, number>> }): void {
     if (drag) endDrag(true);
-    openedAt = -1e9;
-    st.orders = { column: [...l.column], bar: [...l.bar] };
+    opened = { id: "", at: -1e9 };
+    st.orders ={ column: [...l.column], bar: [...l.bar] };
     st.floats = l.floats.map((f) => ({ id: f.id, rect: { ...f.rect } }));
     if (extra?.used) for (const [id, n] of Object.entries(extra.used)) st.used[id as ItemId] = n!;
     if (extra?.kept) st.kept = new Set(extra.kept);
@@ -814,7 +816,7 @@ export function createBoard(opt: BoardOptions) {
     frozen = false;
     altDown = false;
     measured = false;
-    openedAt = -1e9;
+    opened = { id: "", at: -1e9 };
     stage.dataset.fluid = "false";
     lastDrop = null;
     scroller.scrollTop = 0;

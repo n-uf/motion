@@ -521,9 +521,50 @@ const CLICKS: Record<string, { layout: Layout; from: Partial<Record<ItemId, numb
 
 const click: Scenario<Page> = {
   name: "A click opens a collapsed panel",
-  modes: [...Object.keys(CLICKS), "the sequence: fold both by hand, then click each open", "a drag from a rail icon doesn't open it", "frozen refuses it; Alt allows it"],
+  modes: [
+    ...Object.keys(CLICKS),
+    "the sequence: fold both by hand, then click each open",
+    "a drag from a rail icon doesn't open it",
+    "frozen refuses it; Alt allows it",
+    "a double-click on a caret ends open",
+    "a double-click on another panel's header right after an open still folds it",
+  ],
   async run(_p, mode) {
     const rows = [];
+    if (mode.startsWith("a double-click")) {
+      b.setLayout({ column: ["pages", "annotations"], bar: [], floats: [] }, { from: { annotations: 1 } });
+      await d.frames(2);
+      if (mode.includes("caret")) {
+        // Two real clicks on the caret and the double-click that follows them: the first opens, the second lands on the
+        // header it opened, and that isn't a fold.
+        await d.press(grabOf("annotations", "header"), 6);
+        await d.release();
+        const head = b.itemEl("annotations")!.querySelector<HTMLElement>(".st-head")!;
+        await d.press(head, 20);
+        await d.release();
+        dblclick(head);
+        await d.frames(2);
+        rows.push(await rule("The panel ends open: the double-click's second click isn't a fold", (ok) => ok(b.from.annotations === undefined && b.seen().find((s) => s.id === "annotations")!.kind === "open", `Annotations' form is ${b.from.annotations}`)));
+      } else {
+        // Open Annotations by its caret, then at once double-click Pages' header: only Annotations is guarded.
+        await d.press(grabOf("annotations", "header"), 6);
+        await d.release();
+        const head = b.itemEl("pages")!.querySelector<HTMLElement>(".st-head")!;
+        await d.press(head, 20);
+        await d.release();
+        await d.press(head, 20);
+        await d.release();
+        dblclick(head);
+        await d.frames(2);
+        rows.push(
+          await rule("Pages folds to its header; Annotations stays open", (ok) => {
+            ok(b.from.pages === 1, `Pages' form is ${b.from.pages}`);
+            ok(b.from.annotations === undefined, `Annotations' form is ${b.from.annotations}`);
+          }),
+        );
+      }
+      return rows;
+    }
     const c = CLICKS[mode];
     if (c) {
       b.setLayout(c.layout, { from: c.from });
