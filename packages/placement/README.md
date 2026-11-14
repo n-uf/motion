@@ -546,6 +546,67 @@ console.log(gaps.map((t) => [t.hit.x, t.hit.x + t.hit.width]));
 // [ [ -24, 30 ], [ 30, 106 ], [ 106, 214 ], [ 214, 354 ] ] (split at the groups' middles; the ends reach 24 px past the bar)
 ```
 
+### A title bar, targets by kind, a group's own size
+
+Opt-in options for hosts that dock several kinds of item. All are additive: an input that uses none of them gives the
+fit and the targets it always gave. Item kinds are the host's; placement only calls the predicates.
+
+- **`StackInput.accepts(item)`**: the stack takes this item or not. `stackTargets` gives no target (`[]`) for a dragged
+  item the stack doesn't accept, so a toolbar-only bar takes no panel and a panel-only column no group. `fitStack`
+  never calls it: the items already in the stack are laid out as given.
+- **`stackTargets(input, dragged, { allows })`**: `allows(dragged, at)` is asked per gap (`at` is the gap's
+  `place.at`) and a gap it refuses has no target. The other targets keep their ids, hits and fits. The stack's
+  `accepts` is asked first.
+- **`StackItem.fixed`**: a reserved room, such as the window title, a page readout and the window controls in a title
+  bar. A fixed item never gives way: it is skipped when the stack is too long and keeps its first allowed form
+  (`forms[from]`) for the length and for the cross size (a `too-wide` note says when it doesn't fit across), so a stack
+  too short for it `overflow`s. It counts toward the length and takes no part in `previous`'s growing back. It is never
+  dragged (`stackTargets` with a fixed dragged item is `[]`), and it has no drop slot inside it: the gaps before and
+  after it stay, the hit of the gap before it ends where it starts and the hit of the gap after it begins where it ends,
+  so its own area is in no hit (also when it runs past an overflowing bar). A fixed form that `grows` still takes spare
+  length like any form.
+- **`stackTargets(input, dragged, { onlyFits: true })`**: offer a gap only where the dragged item fits beside the
+  others. A gap has no target when its fit puts the dragged item into the menu, has an `overflow` note, has a `too-wide`
+  note the stack didn't have before the drop, or draws a fixed item at another size (along the stack or across it)
+  than before, which is what squeezing a title to make room does. In a narrow window that leaves no target, so neither
+  the slot nor the group covers the title. The gaps left are the unrestricted ones, unchanged. Position is not a
+  size: dropping before a fixed item moves it along, as a drop anywhere moves what follows. The solve is the same for
+  every gap of one dragged item (it is the newest, so the others give way first), so what `onlyFits` leaves is all the
+  gaps or none; `allows` is what tells gaps apart.
+- **`StackInput.ownCross`** (default off): every item is drawn at its own `cross.natural`, clamped to the stack's
+  cross size and from its start edge (the left of a column, the top of a bar), not across the whole stack. A panel's
+  `open` form (one that sets the cross size) and the » entry still span the stack. `cross`, the forms, the notes and
+  the lengths are as without it. A target's `slot` is that rect, while its `hit` and `marker` still span the stack.
+- **Recommended column forms for a group.** In a side column give a group `stacked` (one word per line, `setsCross:
+  true`, so a column of groups is as wide as its widest), then `icons` (28 across, sets nothing: with every group in
+  icons the column is a rail), then `menu`. No `row`: a row of words asks for more than a column has, and the group
+  that keeps it widens the column. With `ownCross` each group is drawn at its own width, also beside a wider open panel.
+  A bar's group is `row`, `stacked` or `fold`, `icons`, `menu`, as in the toolbar above.
+
+```ts
+const title: StackItem = { id: "title", used: 0, fixed: true, forms: [form("row", 160, 160, 26)] };
+const controls: StackItem = { id: "controls", used: 0, fixed: true, forms: [form("row", 72, 72, 26)] };
+const group = (id: string, used: number): StackItem => ({ id, used, forms: [form("row", 100, 100, 26), form("fold", 36, 36, 26), form("menu", 0, 0, 0)] });
+const panels = new Set(["pages"]); // the host's kinds
+const bar = { axis: "row", length: 400, cross: { min: 36, max: 40 }, accepts: (item: StackItem) => !panels.has(item.id), items: [title, group("views", 1), group("tools", 2), controls] } as const;
+
+console.log(fitStack(bar).items.map((p) => [p.id, p.kind, p.rect.x, p.rect.width]));
+// [ [ 'title', 'row', 0, 160 ], [ 'views', 'fold', 160, 36 ], [ 'tools', 'row', 196, 100 ], [ 'controls', 'row', 296, 72 ] ]
+// (the three groups need 432: Views, the oldest, folds; the title and the controls stay as they are)
+
+const gaps = stackTargets(bar, group("marks", 4));
+console.log(gaps.map((t) => [t.hit.x, t.hit.x + t.hit.width]));
+// [ [ 0, 0 ], [ 160, 178 ], [ 178, 246 ], [ 246, 296 ], [ 368, 400 ] ] (none over the title or the controls)
+console.log(stackTargets(bar, group("pages", 4)).length, stackTargets(bar, title).length); // 0 0: not accepted, fixed
+console.log(stackTargets(bar, group("marks", 4), { allows: (_dragged, at) => at !== 2 }).map((t) => t.id));
+// [ 'gap:0', 'gap:1', 'gap:3', 'gap:4' ]
+
+// A column: words groups in their stacked form, each at its own width beside a wider open panel.
+const words = (id: string, used: number, wide: number): StackItem => ({ id, used, forms: [{ ...form("stacked", 78, 78, wide), setsCross: true }, form("icons", 72, 72, 28), form("menu", 0, 0, 0)] });
+const side = fitStack({ axis: "column", length: 400, cross: { min: 120, max: 360 }, ownCross: true, items: [open, words("views", 2, 84), words("tools", 3, 110)] });
+console.log(side.items.map((p) => [p.id, p.rect.x, p.rect.width])); // [ [ 'pages', 0, 240 ], [ 'views', 0, 84 ], [ 'tools', 0, 110 ] ]
+```
+
 `storeStack(state)` and `readStack(data, known?)` keep what the user chose, as `{ v: 1, … }`: `order`, `kept`,
 `closed`, `used` (the use order, oldest first, so a reload restores who gives way first) and `forms` (the largest form
 index each item may take, `StackItem.from`; stored only from 1). Reading never throws: anything but an object of
