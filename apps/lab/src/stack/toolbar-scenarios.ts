@@ -556,6 +556,59 @@ const g2: Scenario<Page> = {
         ok(kinds(fitStack(bar(two, 90, flat))).join() === "fold,fold", `fresh at 90: ${kinds(fitStack(bar(two, 90, flat))).join()}`);
       }),
     );
+    // A trailing group whose menu step is an ordinary one (row, then the menu, taken alone): b goes in first, then a folds.
+    // From 80 to 129 a can't open, so b stays in the menu.
+    const viaMenu = [item("a", 2, [form("row", 100), form("fold", 30)]), item("b", 1, [form("row", 50), form("menu", 0)])];
+    const entry = { ...flat, menu: { main: 30 } };
+    const inMenu = fitStack(bar(viaMenu, 60, entry));
+    const left: string[] = [];
+    for (let l = 80; l <= 129; l++) {
+      const g = fitStack(bar(viaMenu, l, entry), { previous: inMenu });
+      if (kinds(g).join() !== "fold,menu") left.push(`${l}: ${kinds(g).join()}`);
+    }
+    rows.push(
+      await rule("Repro: a group that went into the menu straight from its row stays there while the one ahead of it can't open", (ok) => {
+        ok(kinds(inMenu).join() === "fold,menu", `at 60: ${kinds(inMenu).join()}`);
+        left.slice(0, 5).forEach((m) => ok(false, `with previous at ${m}`));
+      }),
+    );
+    // A bar of groups of mixed shapes, some going into the menu straight from the row: shrink, grow under previous. A group
+    // that gave way earlier never ends open or drawn while one that gave way later is smaller or in the menu, unless it
+    // already was or the fresh fit is a pure gain.
+    const shapes: StackForm["kind"][][] = [["row", "menu"], ["row", "fold", "menu"], ["row", "fold"], ["row", "icons", "menu"]];
+    const level = (fit: StackFit, id: string): number => (kindOf(fit, id) === "menu" ? 2 : formOf(fit, id) === 0 ? 0 : 1);
+    let seed = 7;
+    const rand = (): number => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+    const mixed: string[] = [];
+    let mixedGrows = 0;
+    for (let trial = 0; trial < 300; trial++) {
+      const n = 2 + Math.floor(rand() * 4);
+      const list = Array.from({ length: n }, (_, i) => {
+        const shape = shapes[Math.floor(rand() * shapes.length)]!;
+        const len: Record<string, number> = { row: 60 + Math.floor(rand() * 90), fold: 36, icons: 24 + Math.floor(rand() * 20), menu: 0 };
+        return item(`g${i}`, n - i + Math.floor(rand() * 3) * 10, shape.map((k) => form(k, len[k]!)));
+      });
+      const more = { gap: 8, pad: { start: 12, end: 12 }, menu: { main: 28 } };
+      const l0 = 80 + Math.floor(rand() * 300);
+      const kept = fitStack(bar(list, l0, more));
+      for (const d of [10, 30, 60, 120]) {
+        const fit = fitStack(bar(list, l0 + d, more), { previous: kept });
+        const fresh = fitStack(bar(list, l0 + d, more));
+        const gain = fresh.items.every((q, i) => q.form <= kept.items[i]!.form) && fresh.items.some((q, i) => q.form < kept.items[i]!.form);
+        if (gain || formsNow(fit) === formsNow(kept)) continue;
+        mixedGrows++;
+        for (const e of list)
+          for (const l of list)
+            if (e.used < l.used && level(fit, e.id) < level(fit, l.id) && !(level(kept, e.id) < level(kept, l.id)))
+              mixed.push(`trial ${trial} ${l0}→${l0 + d}: ${e.id} is ${kindOf(fit, e.id)} while ${l.id} (gave way after it) is ${kindOf(fit, l.id)}`);
+      }
+    }
+    rows.push(
+      await rule("Mixed groups, some going into the menu straight from the row: a group that gave way earlier never grows past one that gave way later", (ok) => {
+        ok(mixedGrows > 0, "no grow under previous reshaped a bar, so the check proves nothing");
+        mixed.slice(0, 5).forEach((m) => ok(false, m));
+      }),
+    );
     // The bar: shrink from 740, press every group (the ages change, the forms stay), then grow under previous. A group that
     // gave way earlier (used longer ago) is never open while one that gave way later is folded, unless it already was or
     // the fresh fit is a pure gain.
