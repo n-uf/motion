@@ -110,6 +110,13 @@ const stackKeep = {
   reset: "#sk-reset",
   wide: true,
 };
+const stackToolbar = {
+  markup: raw(() => import("../pages/stack-toolbar.html?raw")),
+  load: () => Promise.all([import("../stack/toolbar.css"), import("../stack/toolbar").then(() => import("../stack/toolbar-scenarios"))]),
+  module: "stack-toolbar",
+  reset: "#tb-reset",
+  wide: true,
+};
 
 /** The Panels Options page runs the scenarios that switch an option, Presets those on a preset; Defaults runs the rest. */
 const OPTIONS = "options: ";
@@ -290,6 +297,16 @@ export const PAGES: readonly PageDef[] = [
     about:
       "The same window on <code>storeStack</code> / <code>readStack</code> and <code>storeFloats</code> / <code>readFloats</code> in localStorage: Reload forgets the arrangement in memory and rebuilds it from the stored form. Freeze is the app's flag, read at the press: a press without Alt never becomes a drag (no targets, no drop), holding Alt shows the grips and everything works, including the stacked headers; a drag that began finishes. Every item has a count badge and a phase in fixed slots: changing one moves no other item more than 0.5 px. Cases C13, C14 and C15.",
     ...stackKeep,
+  },
+  {
+    id: "stack/toolbar",
+    group: "stack",
+    nav: "Toolbar",
+    title: "Stack · toolbar",
+    line: "A top bar of four groups: each folds to its own » in line, the primary folds last, gaps and padding are real, and an open panel dropped in lands as a header.",
+    about:
+      "<code>@n-uf/placement/stack</code> as a toolbar needs it. A group steps from its row to <code>fold</code> (its handle with its own », taking its own length; the shared » entry is a later step). A step goes only to a form that is shorter, so Mark's stacked form, as long as its row, is skipped. Tools is the ranked primary (<code>rank</code>): its one main tool, then a fold after every other group's fold. <code>gap</code> and <code>pad</code> count in the bar's length and in every rectangle, so the groups are drawn where the solver puts them; <code>stackTargets</code>'s <code>endReach</code> lets the first and last gaps reach past the bar. The bar is 40 px tall at most (<code>cross.max</code>): the Findings panel dragged in lands as a header, not open. Hysteresis is <code>@n-uf/motion/drag</code>'s, not placement's. Cases T1 to T6.",
+    ...stackToolbar,
   },
   {
     id: "kits/panels",

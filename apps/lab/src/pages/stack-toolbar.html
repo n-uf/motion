@@ -1,0 +1,46 @@
+<!-- The Stack · toolbar page (src/stack/toolbar.ts): the shell renders the header. -->
+<section class="controls tb-controls" aria-label="Controls">
+  <fieldset>
+    <legend>Bar</legend>
+    <label>Length <input type="range" id="tb-length" min="100" max="800" step="2" value="740" /> <output id="tb-length-out">740 px</output></label>
+    <label>Gap <input type="range" id="tb-gap" min="0" max="24" step="1" value="8" /> <output id="tb-gap-out">8 px</output></label>
+    <label>Padding <input type="range" id="tb-pad" min="0" max="40" step="1" value="12" /> <output id="tb-pad-out">12 px</output></label>
+  </fieldset>
+  <fieldset>
+    <legend>Tools (the ranked primary)</legend>
+    <label><input type="radio" name="tb-age" value="newest" checked /> used last</label>
+    <label><input type="radio" name="tb-age" value="oldest" /> used longest ago</label>
+  </fieldset>
+  <fieldset>
+    <legend>Show</legend>
+    <label><input type="checkbox" id="tb-hits" /> the zones of the gaps</label>
+  </fieldset>
+  <fieldset>
+    <legend>Page</legend>
+    <button type="button" id="tb-reset">Reset</button>
+    <button type="button" id="tb-run">Run all scenarios</button>
+  </fieldset>
+</section>
+
+<div class="tb-wrap"><div class="tb-stage" id="tb-stage"></div></div>
+<p id="tb-status" role="status" aria-live="polite"></p>
+
+<section class="tb-try">
+  <h2>Try this</h2>
+  <ol>
+    <li>Drag Length down. The groups fold one by one, each to its own handle with a » beside it, in line where the group was (Views, Zoom, Mark, the oldest first). The shared » entry at the end of the bar comes only after the folds.</li>
+    <li>Tools is the primary: it gives way last. It goes from its full row to its one main tool, and folds only after every other group is folded. Switch it to "used longest ago": it is still the last to fold.</li>
+    <li>Mark has a stacked form as long as its row. It is never taken: a step goes only to a form that is shorter.</li>
+    <li>Change the Gap and the Padding: the bar's length counts them, and the groups are drawn at the solver's rectangles.</li>
+    <li>Drag a group by its grip to another gap, or past the bar's end (the first and last gaps reach 24 px beyond it). Hold: the others move to the places they will have; let go: it lands on the dashed rectangle.</li>
+    <li>Drag the Findings panel (left, under the bar) into the bar. The bar is 40 px tall at most, so an open panel does not fit: it lands as a header and the bar stays 40 px.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Checks</h2>
+  <table>
+    <thead><tr><th>Scenario</th><th>Mode</th><th>Result</th><th>Why</th></tr></thead>
+    <tbody id="tb-runs"><tr><td colspan="4">Run the scenarios to fill this table (window.__motionLab.runAll() does the same).</td></tr></tbody>
+  </table>
+</section>
