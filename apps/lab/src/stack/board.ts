@@ -782,7 +782,7 @@ export function createBoard(opt: BoardOptions) {
   function setLayout(l: Layout, extra?: { used?: Partial<Record<ItemId, number>>; kept?: readonly ItemId[]; from?: Partial<Record<ItemId, number>> }): void {
     if (drag) endDrag(true);
     opened = { id: "", at: -1e9 };
-    st.orders ={ column: [...l.column], bar: [...l.bar] };
+    st.orders = { column: [...l.column], bar: [...l.bar] };
     st.floats = l.floats.map((f) => ({ id: f.id, rect: { ...f.rect } }));
     if (extra?.used) for (const [id, n] of Object.entries(extra.used)) st.used[id as ItemId] = n!;
     if (extra?.kept) st.kept = new Set(extra.kept);
