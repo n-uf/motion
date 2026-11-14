@@ -120,5 +120,7 @@ export function inputOf(axis: StackAxis,length: number, items: readonly Placed[]
     cross: axis === "column" ? { min: 60, max: width, rail: RAIL } : { min: 32, max: BAR_MAX, rail: BAR_RAIL },
     items: items.map((p) => itemOf(p, axis)),
     menu: { main: MENU },
+    // An open panel is never drawn thinner than its cross.min (100 in a column): under it, it steps down.
+    strictCross: true,
   };
 }

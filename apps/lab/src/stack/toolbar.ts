@@ -191,6 +191,8 @@ const inputFor = (without?: string): StackInput => ({
   menu: { main: MENU },
   gap,
   pad: { start: pad, end: pad },
+  // The bar is 40 px tall at most: the open panel (cross.min 120) is never squeezed to it, it steps down to a header.
+  strictCross: true,
 });
 
 const shift = (r: Rect): Rect => ({ x: r.x + AT.bar.x, y: r.y + AT.bar.y, width: r.width, height: r.height });
