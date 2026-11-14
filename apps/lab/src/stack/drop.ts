@@ -10,7 +10,7 @@
 import type { Rect } from "@n-uf/motion";
 import { DRAG_DEFAULTS, createDragIntent, previewPlan, type DragIntent } from "@n-uf/motion/drag";
 import { fitStack, stackTargets, type StackFit, type StackInput, type StackTarget } from "@n-uf/placement/stack";
-import { ALL, inputOf, itemOf, titleOf, type ItemId } from "./sample";
+import { ALL, inputOf, itemOf, titleOf, type ItemId, type Placed } from "./sample";
 import { createStackView, dress, type StackView } from "./view";
 import { noteWords, sayFit } from "./words";
 
@@ -25,6 +25,9 @@ const DEFAULT_USED = (): Record<ItemId, number> => ({ pages: 1, annotations: 2, 
 
 let orders = DEFAULT_ORDERS();
 let used = DEFAULT_USED();
+/** Items kept open, and panels folded by hand (their first form), as a person would set them. */
+let kept = new Set<ItemId>();
+let firstForm: Partial<Record<ItemId, number>> = {};
 let clock = 6;
 const lengths: Record<StackName, number> = { column: 440, bar: 560 };
 
@@ -70,8 +73,9 @@ stage.append(ind, indLabel, marker);
 // --- the stacks ----------------------------------------------------------------------------------------------------
 
 /** A stack's input, with `without` (the dragged item) lifted out of it. */
+const placedOf = (id: ItemId): Placed => ({ id, used: used[id], kept: kept.has(id), from: firstForm[id] ?? 0 });
 const inputFor = (name: StackName, without?: ItemId): StackInput =>
-  inputOf(AXIS[name], lengths[name], orders[name].filter((id) => id !== without).map((id) => ({ id, used: used[id] })));
+  inputOf(AXIS[name], lengths[name], orders[name].filter((id) => id !== without).map(placedOf));
 
 function fitsWithout(without?: ItemId): Record<StackName, StackFit> {
   return { column: fitStack(inputFor("column", without)), bar: fitStack(inputFor("bar", without)) };
@@ -122,7 +126,7 @@ function gapWords(name: StackName, at: number, without: ItemId): string {
 export function targetsFor(id: ItemId): DropTarget[] {
   const out: DropTarget[] = [];
   for (const name of ["column", "bar"] as const) {
-    const dragged = itemOf({ id, used: used[id] }, AXIS[name]);
+    const dragged = itemOf(placedOf(id), AXIS[name]);
     for (const t of stackTargets(inputFor(name, id), dragged)) {
       const hit = shift(t.hit, name);
       const wide = name === "column" ? { ...hit, width: Math.max(hit.width, REACH.column) } : { ...hit, height: Math.max(hit.height, REACH.bar) };
@@ -354,6 +358,8 @@ function reset(): void {
   if (drag) endDrag(true);
   orders = DEFAULT_ORDERS();
   used = DEFAULT_USED();
+  kept = new Set();
+  firstForm = {};
   clock = 6;
   lastDrop = null;
   setLength("column", 440);
@@ -377,9 +383,11 @@ export const page = {
   noteWords,
   all: ALL,
   /** Put the items in these orders (and ages), for a scenario's start. */
-  setOrders(next: Record<StackName, ItemId[]>, ages?: Partial<Record<ItemId, number>>): void {
+  setOrders(next: Record<StackName, ItemId[]>, ages?: Partial<Record<ItemId, number>>, hand?: { kept?: readonly ItemId[]; from?: Partial<Record<ItemId, number>> }): void {
     orders = { column: [...next.column], bar: [...next.bar] };
     if (ages) for (const [id, n] of Object.entries(ages)) used[id as ItemId] = n!;
+    if (hand?.kept) kept = new Set(hand.kept);
+    if (hand?.from) firstForm = { ...hand.from };
     clock = Math.max(clock, ...Object.values(used));
     settle();
   },
