@@ -1,0 +1,43 @@
+<!-- The Stack · store, freeze, no jump page (src/stack/keep.ts): the shell renders the header. -->
+<section class="controls st-controls" aria-label="Controls">
+  <fieldset>
+    <legend>Layout</legend>
+    <label class="st-lock"><input type="checkbox" id="sk-freeze" /> Freeze the layout <span class="st-hint">· hold <kbd>Alt</kbd> to move</span></label>
+    <button type="button" id="sk-reload">Reload</button>
+    <button type="button" id="sk-reset">Reset</button>
+    <button type="button" id="sk-run">Run all scenarios</button>
+  </fieldset>
+  <fieldset>
+    <legend>Items</legend>
+    <table class="st-items">
+      <thead><tr><th></th><th>Count</th><th>Phase</th><th>Kept</th><th>Folded</th></tr></thead>
+      <tbody id="sk-items"></tbody>
+    </table>
+  </fieldset>
+</section>
+
+<div class="st-wrap"><div class="st-stage" id="sk-stage"></div></div>
+<p id="st-status" role="status" aria-live="polite"></p>
+
+<details class="st-stored">
+  <summary>The stored form (what Reload reads)</summary>
+  <pre id="sk-stored"></pre>
+</details>
+
+<section class="st-try">
+  <h2>Try this</h2>
+  <ol>
+    <li>Move things about: drag Pages below Annotations, float Findings, fold a panel by double-clicking its header, tick Kept. Press Reload: the page forgets all of it, then rebuilds from the stored form, and every item is back in its place and form. Reload the browser tab: the same.</li>
+    <li>Tick Freeze: the grips disappear and nothing moves, double-clicking a header does nothing. Hold <kbd>Alt</kbd>: the grips are back, and a drag or a fold works, on a folded panel's header too. Let go of Alt mid-drag: the drag finishes.</li>
+    <li>Change an item's count (try 100 and 12345: the badge says 99+) or its phase: no other item moves, not by half a pixel.</li>
+    <li>Fold a panel by hand: the items after it do move (it changed size along the stack), which is what the check for a count or a phase rules out.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Checks</h2>
+  <table>
+    <thead><tr><th>Scenario</th><th>Mode</th><th>Result</th><th>Why</th></tr></thead>
+    <tbody id="sk-runs"><tr><td colspan="4">Run the scenarios to fill this table (window.__motionLab.runAll() does the same).</td></tr></tbody>
+  </table>
+</section>
