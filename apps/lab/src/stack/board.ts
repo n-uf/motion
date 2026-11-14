@@ -113,7 +113,7 @@ export interface EdgeSettings {
   readonly pad: number;
   readonly preview: DragPreview;
 }
-export const EDGE_DEFAULTS: EdgeSettings = { width: 880, height: 500, widthLimit: 360, gap: 8, pad: 12, preview: "gap" };
+export const EDGE_DEFAULTS: EdgeSettings = { width: 840, height: 500, widthLimit: 360, gap: 8, pad: 12, preview: "gap" };
 export const EDGE_BAR_H = 40;
 export const EDGE_WIDTH = { min: 420, max: 1000 };
 

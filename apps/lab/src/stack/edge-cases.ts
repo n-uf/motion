@@ -8,7 +8,7 @@
 import type { Rect } from "@n-uf/motion";
 import type { Point } from "../shared/geometry";
 import { overlap } from "../shared/geometry";
-import type { Board, EdgeSettings, Layout } from "./board";
+import { EDGE_DEFAULTS, type Board, type EdgeSettings, type Layout } from "./board";
 import type { Driver } from "./drive";
 import { aimers } from "./drive";
 import { fmt, near } from "./run";
@@ -346,7 +346,7 @@ export const EDGE_CASES: readonly EdgeCase[] = [
         b.setEdge({ width: w });
         seen.add(kindOf(b, "zoom") ?? "nowhere");
       }
-      b.setEdge({ width: 880 });
+      b.setEdge({ width: EDGE_DEFAULTS.width });
       return verdict(!seen.has("stacked"), "Zoom never stacked between 1000 and 420 px", `Zoom was ${[...seen].map(kindWords).join(", ")}`);
     },
   },
@@ -367,7 +367,7 @@ export const EDGE_CASES: readonly EdgeCase[] = [
         const tools = fit.items.find((p) => p.id === "tools")?.kind;
         if (tools === "fold" && fit.items.some((p) => p.id !== "tools" && p.kind !== "fold" && p.kind !== "menu" && b.orders.bar.includes(p.id as ItemId))) bad.push(`${w} px: ${barKinds(b)}`);
       }
-      b.setEdge({ width: 880 });
+      b.setEdge({ width: EDGE_DEFAULTS.width });
       return verdict(bad.length === 0, "Whenever Tools is folded, every other group is folded or in the » menu", bad.length ? bad[0]! : "So at every length from 1000 to 420 px");
     },
   },
