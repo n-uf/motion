@@ -567,11 +567,11 @@ fit and the targets it always gave. Item kinds are the host's; placement only ca
   length like any form.
 - **`stackTargets(input, dragged, { onlyFits: true })`**: offer a gap only where the dragged item fits beside the
   others. A gap has no target when its fit puts the dragged item into the menu, has an `overflow` note, has a `too-wide`
-  note the stack didn't have before the drop, or squeezes a fixed item: it is in another form, or drawn shorter along
-  the stack than before the drop (or than its natural length, if that is less) or narrower across, which is what
-  squeezing a title to make room does. A fixed item that grows (a title with `grows` taking spare length) or grows back
-  when a neighbour folds is not squeezed. In a narrow window that leaves no target, so neither the slot nor the group
-  covers the title. The gaps left are the unrestricted ones, unchanged. Position is not a size: dropping before a fixed
+  note the stack didn't have before the drop, or squeezes a fixed item: it is in another form, shorter along the stack
+  than its form's `main.min`, or narrower across than before the drop. A fixed item may shrink down to its `main.min` to
+  make room (a title with `grows` gives back the spare length it took, down to its minimum), so the room for the others
+  is the length less the fixed items' minimum sizes. In a narrow window, under that, there is no target, so neither the
+  slot nor the group covers the title. The gaps left are the unrestricted ones, unchanged. Position is not a size: dropping before a fixed
   item moves it along, as a drop anywhere moves what follows. The solve doesn't depend on where the dragged item is
   inserted (it counts as the newest, and the give-way order is the same at every gap), so what `onlyFits` leaves is all
   the gaps or none; `allows` is what tells gaps apart.
