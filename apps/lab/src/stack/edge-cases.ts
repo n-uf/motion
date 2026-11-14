@@ -183,7 +183,8 @@ export const EDGE_CASES: readonly EdgeCase[] = [
       const first = k("annotations") !== "open" && k("pages") === "open" && k("findings") === "open";
       // Shorter still, the next oldest (Findings) goes before the newest (Pages).
       b.setEdge({ height: 240 });
-      const pagesLast = k("findings") !== "open" && !(k("pages") !== "open" && k("findings") === "open");
+      // At 240 px two panels must give way: Findings (next oldest) folds, Pages (the newest) is still open.
+      const pagesLast = k("findings") !== "open" && k("pages") === "open";
       const now = `Annotations ${kindWords(k("annotations"))}, Findings ${kindWords(k("findings"))}, Pages ${kindWords(k("pages"))} at 240 px`;
       b.setEdge({ height: 300 });
       return verdict(first && pagesLast, "Annotations (oldest) steps down first, not Pages (first in the list); Pages, the newest, last", `${first ? "Annotations first" : "not Annotations first"}; ${now}`);
