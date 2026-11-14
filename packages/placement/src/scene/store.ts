@@ -5,15 +5,17 @@
  * ```ts
  * interface StoredScene {
  *   v: 1;
- *   edges: { id: string; side: Side; ring: number; items: string[]; size?: number }[];
+ *   edges: { id: string; side: Side; ring: number; items: string[]; size?: number; column?: true }[];
  *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor }[];
  *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; floatSize?: { width: number; height: number } }>;
  * }
  * ```
  *
  * Nothing about kinds, forms or limits is stored: those are the host's (`base`). An edge is matched by its id: its
- * side, ring and limits come from `base`, its order of items and its `size` from the store. No float has a pinned
- * field: one an old store has is listed and ignored.
+ * side, ring and limits come from `base`, its order of items and its `size` from the store. Dynamic columns
+ * (`column: true`) are the store's: one `base` lacks is made from `base.columns[side]`, its ring is the stored one, and
+ * columns left empty are deleted, the rings closed up. No float has a pinned field: one an old store has is listed and
+ * ignored.
  *
  * Reading is lenient: anything but an object of version 1 gives `base` back with the reason in `error`. Inside one,
  * whatever can't be used is dropped and listed in `dropped` (an unknown edge `edge:<id>`, an unknown or repeated item,
@@ -23,7 +25,7 @@
  * A float's rect is clamped into the stage on read.
  */
 import { rect, type Size } from "../geometry";
-import { clampFloat } from "./changes";
+import { clampFloat, closeRings, prune } from "./changes";
 import { SIDES, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
 
 export interface StoredSceneEdge {
@@ -32,6 +34,8 @@ export interface StoredSceneEdge {
   readonly ring: number;
   readonly items: readonly string[];
   readonly size?: number;
+  /** A dynamic column: read back from `base.columns[side]` even when `base` doesn't have it. */
+  readonly column?: true;
 }
 
 export interface StoredSceneFloat {
@@ -90,7 +94,7 @@ export function storeScene(scene: Scene): StoredScene {
   }
   return {
     v: 1,
-    edges: scene.edges.map((e) => ({ id: e.id, side: e.side, ring: e.ring, items: [...e.items], ...(isNum(e.size) ? { size: e.size } : {}) })),
+    edges: scene.edges.map((e) => ({ id: e.id, side: e.side, ring: e.ring, items: [...e.items], ...(isNum(e.size) ? { size: e.size } : {}), ...(e.column === true ? { column: true as const } : {}) })),
     floats: scene.floats
       .filter((f) => isNum(f.rect.x) && isNum(f.rect.y) && isSize(f.rect.width) && isSize(f.rect.height))
       .map((f) => ({ id: f.id, x: f.rect.x, y: f.rect.y, width: f.rect.width, height: f.rect.height, ...(f.orient ? { orient: f.orient } : {}), ...(f.anchor ? { anchor: f.anchor } : {}) })),
@@ -169,17 +173,26 @@ function read(data: unknown, base: Scene): SceneRead {
   const placed = new Set<string>();
   const order = new Map<string, string[]>();
   const sizes = new Map<string, number | undefined>();
+  const made: Edge[] = [];
+  const rings = new Map<string, number>();
   if (data.edges !== undefined && !Array.isArray(data.edges)) drop("edges");
   for (const e of Array.isArray(data.edges) ? (data.edges as unknown[]) : []) {
     if (!isObject(e) || typeof e.id !== "string") {
       drop("an edge with no id");
       continue;
     }
-    const edge = base.edges.find((x) => x.id === e.id);
+    let edge = base.edges.find((x) => x.id === e.id) ?? made.find((x) => x.id === e.id);
+    if (!edge && e.column === true && (e.side === "left" || e.side === "right") && base.columns?.[e.side]) {
+      // A column the user made: from its side's template.
+      const t = base.columns[e.side]!;
+      edge = { id: e.id, side: e.side, ring: isNum(e.ring) ? e.ring : Infinity, accepts: t.accepts, items: [], cross: t.cross, ...(t.gap !== undefined ? { gap: t.gap } : {}), ...(t.pad ? { pad: t.pad } : {}), ...(t.menu ? { menu: t.menu } : {}), column: true };
+      made.push(edge);
+    }
     if (!edge || order.has(edge.id)) {
       drop(`edge:${e.id}`);
       continue;
     }
+    if (edge.column === true && isNum(e.ring)) rings.set(edge.id, e.ring);
     if (e.side !== undefined && !SIDES.includes(e.side as Side)) drop(`edge:${e.id}:side`);
     const ids: string[] = [];
     for (const id of Array.isArray(e.items) ? (e.items as unknown[]) : []) {
@@ -219,7 +232,7 @@ function read(data: unknown, base: Scene): SceneRead {
   }
 
   // Each base edge: its stored order (fixed items at their base places), then its base items the store placed nowhere.
-  const edges: Edge[] = base.edges.map((edge) => {
+  const edges: Edge[] = [...base.edges, ...made].map((edge) => {
     const stored = order.get(edge.id);
     const rest = edge.items.filter((id) => !isFixed(id) && !placed.has(id));
     for (const id of rest) placed.add(id);
@@ -227,9 +240,11 @@ function read(data: unknown, base: Scene): SceneRead {
     const items1 = withFixed(edge.items, movable, isFixed);
     const size = sizes.has(edge.id) ? sizes.get(edge.id) : edge.size;
     const { size: _s, ...plain } = edge;
-    return { ...plain, items: items1, ...(size !== undefined ? { size } : {}) };
+    return { ...plain, ring: rings.get(edge.id) ?? edge.ring, items: items1, ...(size !== undefined ? { size } : {}) };
   });
   // Base floats the store placed nowhere keep their base place.
   for (const f of base.floats) if (!placed.has(f.id)) floats.push(f);
-  return { scene: { ...base, items, edges, floats }, dropped };
+  // Empty columns go; the sides' rings close up.
+  const scene = prune({ ...base, items, edges: closeRings(edges, new Set(made.length > 0 || rings.size > 0 ? ["left", "right"] : [])), floats });
+  return { scene, dropped };
 }
