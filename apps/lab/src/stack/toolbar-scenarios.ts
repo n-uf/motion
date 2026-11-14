@@ -361,10 +361,12 @@ const t6: Scenario<Page> = {
         }),
       );
       rows.push(
-        await rule("Solver: a bar with cross.max 40 and an open panel with cross.min 120: a header, and the bar stays thin", (ok) => {
+        await rule("Solver: a bar with cross.max 40 and strictCross, an open panel with cross.min 120: a header, and the bar stays thin; without strictCross it is clamped", (ok) => {
           const panel = item("p", 1, [{ kind: "open", main: { min: 150, natural: 200 }, cross: { natural: 120, min: 120 }, setsCross: true }, form("header", 60), form("menu", 0)]);
-          const fit = fitStack({ axis: "row", length: 400, cross: { min: 30, max: 40 }, items: [panel] });
+          const input = { axis: "row", length: 400, cross: { min: 30, max: 40 }, items: [panel] } as const;
+          const fit = fitStack({ ...input, strictCross: true });
           ok(fit.items[0]!.kind === "header" && fit.cross <= 40, `${fit.items[0]!.kind}, ${fit.cross} tall`);
+          ok(fitStack(input).items[0]!.kind === "open", "without strictCross the panel is not clamped as it was");
         }),
       );
     } else {
