@@ -449,12 +449,15 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   clamped to `max`, whatever its `cross.min`.
 - `fitStack(input, { previous })` keeps the forms of the fit the stack had before, while they still fit: a change of
   `used` ages alone (a press on a header) reshapes nothing. Ages decide only who gives way anew (the length shrank, an
-  item was added, or a panel opened: its `from` went down, so it starts over). Room that came back tries the largest
-  forms again, as without `previous`: the fit's `need` (the length its forms need) left more spare length than before (the
-  length grew, a gap or size shrank), or the stack got wider across (a group's stacked form returns to its row, a header
-  folded to a rail icon by its `cross.min` to its header). An item whose form at the kept index is of another kind
-  starts over; one only re-measured (a badge gained a digit) keeps its place: a smaller form frees room (the fresh fit is
-  taken), a larger one gives way from the kept forms. After changing the forms' cross sizes (a lowered `cross.min`, say)
+  item was added, or a panel opened: its `from` went down, so it starts over). Growing never re-ranks. When the stack got
+  wider across (a group's stacked form returns to its row, a header folded to a rail icon by its `cross.min` to its
+  header) the largest forms are tried again, as without `previous`. When the fit's `need` (the length its forms need) left
+  more spare length than before (the length grew, a gap or size shrank), the fresh fit is taken only if it is a pure gain
+  over the kept forms (no item further down, one further up); otherwise the kept forms grow back in the reverse of give-way
+  order (the item that gave way most recently first: highest rank, then `kept`, then the newest used) while the stack
+  still fits, so one px of room, or a badge losing a digit after a press, moves nothing. An item whose form at the kept
+  index is of another kind starts over; one only re-measured (a badge changed a digit) keeps its place: a smaller form
+  frees room that grows the kept forms, a larger one gives way from them. After changing the forms' cross sizes (a lowered `cross.min`, say)
   solve once without `previous`: that alone doesn't bring a form back. `previous` is the `StackFit` last returned; a
   hand-built one with no `need` is no help. `stackTargets(…, { previous })` solves every gap's preview the same way, so it
   equals the drop solved with the same `previous`.

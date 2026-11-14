@@ -34,12 +34,14 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     its `cross.min`, as in 26.11.13 (where `cross.min` already existed; a test holds that).
   - `fitStack(input, { previous })` (new optional second argument, `FitOptions`): keeps the forms of the previous fit while
     they still fit, so a change of `used` ages alone (a press on a header) reshapes nothing. Ages decide only who gives
-    way anew (the length shrank, an item was added, a panel was opened). The largest forms are tried again, as without it,
-    when the forms kept leave more spare length than before (`StackFit.need`, optional and always set by the solver, is the
-    length the chosen forms need) or when the stack got wider across (a wider limit: a group that stepped to its stacked
-    form for a narrow column returns to its row, a header folded to a rail by its `cross.min` to its header). An item whose
-    form at the kept index is of another kind starts over; one only re-measured (a badge gained a digit) keeps its place
-    (smaller: room came back, the fresh fit; larger: it gives way from the kept forms). A lowered `cross.min`, or any
+    way anew (the length shrank, an item was added, a panel was opened). Growing never re-ranks: when the stack got
+    wider across (a wider limit: a group that stepped to its stacked form for a narrow column returns to its row, a header
+    folded to a rail by its `cross.min` to its header) the largest forms are tried again, as without it; when the forms
+    kept leave more spare length than before (`StackFit.need`, optional and always set by the solver, is the length the
+    chosen forms need) the fresh fit is taken only if it is a pure gain over them (no item further down, one further up),
+    otherwise the kept forms grow back in the reverse of give-way order while the stack fits (so a badge losing a digit
+    after a press moves nothing). An item whose form at the kept index is of another kind starts over; one only
+    re-measured keeps its place (smaller: room that grows the kept forms; larger: it gives way from them). A lowered `cross.min`, or any
     change of the forms' cross sizes, doesn't bring a form back under `previous`: solve once without it.
     `stackTargets(…, { previous })` solves every gap the same way.
   - `StackForm.rank` (default 0): the step taken is the one into the lowest-ranked form across all items; ties go
