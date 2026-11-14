@@ -41,6 +41,8 @@ const f = (kind: StackForm["kind"], min: number, natural: number, cross: number,
 /** A bar is 30 px tall when nothing open sets it; a column 30 px wide. */
 export const RAIL = 30;
 export const BAR_RAIL = 32;
+/** A bar is a toolbar edge: nothing can make it taller than this. */
+export const BAR_MAX = 40;
 export const MENU = 28;
 
 /**
@@ -59,7 +61,8 @@ export function formsOf(id: ItemId, axis: StackAxis, badge = false, rowMain?: nu
   return isPanel(id)
     ? axis === "column"
       ? [f("open", 90, s.natural!.column, s.wide!, true), f("header", 30, 30, s.wide!, false, 56), f("rail", 26, 26, RAIL), f("menu", 0, 0, 0)]
-      : [f("open", 150, s.natural!.row, 120, true), f("header", 110, 110, 28), f("rail", 26, 26, 26), f("menu", 0, 0, 0)]
+      : // A bar is a toolbar edge: a panel there has no open form, it starts at its header (then a rail icon, then the menu).
+        [f("header", 110, 110, 28), f("rail", 26, 26, 26), f("menu", 0, 0, 0)]
     : axis === "column"
       ? [f("row", 30, 30, badge ? 240 : 190), f("stacked", 84, 84, 84), f("icons", icons, icons, 28), f("menu", 0, 0, 0)]
       : [f("row", row, row, 28), f("stacked", 140, 140, 30), f("icons", icons, icons, 28), f("menu", 0, 0, 0)];
@@ -114,7 +117,7 @@ export function inputOf(axis: StackAxis,length: number, items: readonly Placed[]
   return {
     axis,
     length,
-    cross: axis === "column" ? { min: 60, max: width, rail: RAIL } : { min: 32, max: 140, rail: BAR_RAIL },
+    cross: axis === "column" ? { min: 60, max: width, rail: RAIL } : { min: 32, max: BAR_MAX, rail: BAR_RAIL },
     items: items.map((p) => itemOf(p, axis)),
     menu: { main: MENU },
   };

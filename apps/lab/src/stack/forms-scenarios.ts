@@ -431,6 +431,69 @@ const grips: Scenario<Page> = {
   },
 };
 
-const SCENARIOS = [c2, c6, c8, c9, c10, drawn, status, grips];
+/** A bar is a toolbar edge: at most this tall, whatever is used. */
+const BAR_TALLEST = 40;
+
+const independent: Scenario<Page> = {
+  name: "The column and the bar are independent examples",
+  modes: ["a use in the column leaves the bar's fit identical", "a use in the bar leaves the column's fit identical", "a click on an item in the column", "the bar is never taller than a toolbar"],
+  async run(p, mode) {
+    const rows = [];
+    const lengths = [120, 200, 280, 360, 440, 520, 640, 760];
+    const fitOf = (side: "column" | "bar"): string => JSON.stringify(side === "column" ? p.colFit : p.barFit);
+    if (mode === "the bar is never taller than a toolbar") {
+      // A small seeded generator; any combination of shown, kept, ages and lengths.
+      let a = 12345;
+      const rand = (): number => {
+        a = (Math.imul(a ^ (a >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
+        return a / 4294967296;
+      };
+      let worst = 0;
+      let at = "";
+      for (let trial = 0; trial < 300; trial++) {
+        p.reset();
+        for (const id of p.all) {
+          p.setShown(id, rand() < 0.8, "bar");
+          p.setKept(id, rand() < 0.3, "bar");
+          p.setOpen(id, rand() < 0.5, "bar");
+          if (rand() < 0.4) p.use(id, "bar");
+        }
+        p.setLength(80 + Math.floor(rand() * 680));
+        if (p.barFit.cross > worst) {
+          worst = p.barFit.cross;
+          at = `trial ${trial}, length ${p.length}`;
+        }
+      }
+      rows.push(await rule(`With any combination of uses the bar is never taller than ${BAR_TALLEST} px, and no panel in it is open`, (ok) => ok(worst <= BAR_TALLEST, `the bar was ${worst} px tall (${at})`)));
+      p.reset();
+      p.setLength(520);
+      rows.push(await rule("A panel in the bar has no open form: header, rail icon or the » menu", (ok) => {
+        for (const id of p.panels) ok(["header", "rail", "menu"].includes(kindOf(p.barFit, id)), `${titleOf(id)} is ${kindOf(p.barFit, id)} in the bar`);
+      }));
+      return rows;
+    }
+    const other = mode.includes("in the column") ? "bar" : "column";
+    const side = other === "bar" ? "column" : "bar";
+    const failures: string[] = [];
+    for (const length of lengths) {
+      for (const id of p.all) {
+        p.reset();
+        p.setLength(length);
+        const before = fitOf(other);
+        if (mode.startsWith("a click")) {
+          // A real click on the item, as the operator does.
+          const el = (side === "column" ? p.column : p.bar).itemEl(id);
+          if (el && !el.hidden) el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+          else continue;
+        } else p.use(id, side);
+        if (fitOf(other) !== before) failures.push(`length ${length}: using ${titleOf(id)} in the ${side} changed the ${other}'s fit`);
+      }
+    }
+    rows.push(await rule(`Using any item in the ${side} leaves the ${other}'s fit identical, at every length`, (ok) => failures.slice(0, 5).forEach((m) => ok(false, m))));
+    return rows;
+  },
+};
+
+const SCENARIOS = [c2, c6, c8, c9, c10, drawn, status, grips, independent];
 
 install(page, SCENARIOS, () => page.reset(), document.getElementById("sf-run") as HTMLButtonElement, document.getElementById("sf-runs") as HTMLTableSectionElement);
