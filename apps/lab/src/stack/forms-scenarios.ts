@@ -72,12 +72,18 @@ const c2: Scenario<Page> = {
     // A panel opens: its width is the stack's, and the group keeps its wider form.
     p.setShown("pages", true);
     const withPanel = fitFor(p, mode);
+    // A bar is a toolbar edge: a panel there has no open form, so it never sets the bar's height.
     rows.push(
-      await rule("Beside an open panel the stack takes the panel's size, and the groups their wide form", (ok) => {
-        ok(withPanel.cross > (mode === "bar" ? 32 : 30), `cross is ${withPanel.cross}`);
-        ok(kindOf(withPanel, "pages") === "open", `Pages is ${kindOf(withPanel, "pages")}`);
-        ok(kindOf(withPanel, "views") === "row", `Views is ${kindOf(withPanel, "views")}`);
-      }),
+      await (mode === "bar"
+        ? rule("Beside a panel the bar stays a rail tall: a panel in a bar starts at its header and sets no height", (ok) => {
+            ok(withPanel.cross === 32, `cross is ${withPanel.cross}`);
+            ok(kindOf(withPanel, "pages") === "header", `Pages is ${kindOf(withPanel, "pages")}`);
+          })
+        : rule("Beside an open panel the stack takes the panel's size, and the groups their wide form", (ok) => {
+            ok(withPanel.cross > 30, `cross is ${withPanel.cross}`);
+            ok(kindOf(withPanel, "pages") === "open", `Pages is ${kindOf(withPanel, "pages")}`);
+            ok(kindOf(withPanel, "views") === "row", `Views is ${kindOf(withPanel, "views")}`);
+          })),
     );
     p.setShown("pages", false);
     rows.push(await rule("Without it the stack is a rail again", (ok) => ok(fitFor(p, mode).cross === (mode === "bar" ? 32 : 30), `cross is ${fitFor(p, mode).cross}`)));
@@ -135,7 +141,8 @@ const c6: Scenario<Page> = {
 
 const c8: Scenario<Page> = {
   name: "C8: panels open independently",
-  modes: ["column", "bar"],
+  // A bar is a toolbar edge: its panels have no open form, so there is nothing to open there.
+  modes: ["column"],
   async run(p, mode) {
     showOnly(p, PANELS);
     p.setLength(mode === "bar" ? 760 : 700);
@@ -202,8 +209,9 @@ const c9: Scenario<Page> = {
     const to = mode === "bar" ? 60 : 40;
     p.setAges(["pages", "annotations", "findings"]);
     const steps = sweep(p, mode, from, to, 3);
-    // The longest length at which a panel is no longer open, per panel.
-    const leaves = (list: typeof steps): Record<string, number> => Object.fromEntries(PANELS.map((id) => [id, list.find((s) => kindOf(s.fit, id) !== "open")?.length ?? 0]));
+    // The longest length at which a panel is no longer in its first form (open; in a bar, which has no open form, its header), per panel.
+    const first = mode === "bar" ? "header" : "open";
+    const leaves = (list: typeof steps): Record<string, number> => Object.fromEntries(PANELS.map((id) => [id, list.find((s) => kindOf(s.fit, id) !== first)?.length ?? 0]));
     const base = leaves(steps);
     const rows = [];
     rows.push(
@@ -216,7 +224,7 @@ const c9: Scenario<Page> = {
     rows.push(
       await rule("Each panel passes its header and its rail icon on the way to the » menu", (ok) => {
         const seen = PANELS.map((id) => [...new Set(steps.map((s) => kindOf(s.fit, id)))]);
-        ok(seen[0]!.join() === (mode === "column" ? "open,header,rail,menu" : "open,header,rail,menu"), `Pages passes ${seen[0]!.join(" → ")}`);
+        ok(seen[0]!.join() === (mode === "column" ? "open,header,rail,menu" : "header,rail,menu"), `Pages passes ${seen[0]!.join(" → ")}`);
         const last = steps.at(-1)!.fit;
         ok(last.menu !== null && last.menu.items.length > 0, "nothing is in the » menu at the shortest length");
       }),
@@ -425,7 +433,8 @@ const grips: Scenario<Page> = {
     return [
       await rule("Every drawn item has a visible grab handle of a non-zero size, in every form", (ok) => bad.forEach((m) => ok(false, m))),
       await rule("The sweep drew every form: open, header, rail, row, stacked, icons", (ok) => {
-        for (const k of ["open", "header", "rail", "row", "stacked", "icons"]) ok(seen.has(k), `no item was drawn in the ${k} form`);
+        // A panel in a bar has no open form.
+        for (const k of mode === "bar" ? ["header", "rail", "row", "stacked", "icons"] : ["open", "header", "rail", "row", "stacked", "icons"]) ok(seen.has(k), `no item was drawn in the ${k} form`);
       }),
     ];
   },
