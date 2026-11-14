@@ -484,8 +484,9 @@ console.log(targets.map((t) => t.id), targets[1]!.slot, targets[1]!.fit.items[1]
 index each item may take, `StackItem.from`; stored only from 1). Reading never throws: anything but an object of
 version 1 is `{ ok: false, error }`; inside one, an id that isn't a string, repeats or (with `known`) isn't one the
 consumer has, a `kept`, `closed`, `used` or `forms` entry for an item not in `order`, a form that isn't a whole number
-from 1, the keys `__proto__` and `constructor` in `forms`, and a field this version doesn't know are dropped and
-listed in `dropped`.
+from 1, the key `__proto__` in `forms` (`forms` is an object with no prototype; `constructor` and `prototype` are ids
+like any other), and a field this version doesn't know are dropped and listed in `dropped`. An id listed twice in
+`used` counts at its last place (the newest use wins).
 
 ```ts
 const saved = JSON.stringify(storeStack({ order: ["pages", "tools"], kept: ["pages"], closed: [], used: ["pages", "tools"], forms: { tools: 1 } }));

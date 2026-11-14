@@ -23,9 +23,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   - `stackTargets(input, dragged)`: a drop target for every gap (before each item and after the last; the dragged id is
     lifted out of the input first), in the shape `@n-uf/motion/drag` takes: `gap:<k>`, priority 2, `place`, `hit` (split
     at the items' middles, across as wide as the larger of the stack and the drop's fit), `slot`, `marker` and the full
-    `fit` of the stack with the item inserted, so the preview is exactly the rect after the drop.
+    `fit` of the stack with the item inserted, so the preview is exactly the rect after the drop. `place.at` counts the
+    input's items, not `fit.items` (which leaves out an item with no forms): look the dragged item up in it by id.
   - `storeStack` / `readStack` (`{ v: 1, order, kept, closed, used, forms }`): never throws, drops what it can't use
-    (including `__proto__` and `constructor` keys) and lists it.
+    (including the `__proto__` key in `forms`, an object with no prototype) and lists it; an id listed twice in `used`
+    counts at its last place.
   - Exports: `fitStack`, `stackTargets`, `withItem`, `formSetsCross`, `storeStack`, `readStack`, `createStack`,
     `DEFAULT_RAIL`, `DEFAULT_MENU` and their types (`StackAxis`, `StackForm`, `StackItem`, `StackInput`, `StackFit`, …).
 
