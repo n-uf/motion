@@ -2,25 +2,28 @@
  * The board the floats page and the store, freeze and no-jump page share: a window-like stage with a bar of groups
  * along the top, a column of panels and groups down the left, the pages (a scrolling sheet) filling the rest, and
  * floats above everything. Items are docked in the bar or the column (`fitStack`, drops by `stackTargets`) or float
- * (`fitFloat`, drops by `floatTarget`); a float is in the stage's own px, so the pages scrolling under it never move
- * it. Drags run on @n-uf/motion/drag's intent and previewPlan. The page writes every word.
+ * (`fitFloat`, drops by `stackFloatTarget`); a float is in the stage's own px, so the pages scrolling under it never
+ * move it. Drags run on @n-uf/motion/drag's intent and previewPlan. The page writes every word.
  *
- * - Stored form: `storeStack` for each stack and `storeFloats` for the floats, in localStorage under `key`. `reload()`
- *   throws the in-memory arrangement away (everything docked in the column), then rebuilds from the stored form.
+ * - Stored form: `storeStack` for each stack and `storeFloats` for the floats, in localStorage under `key`. `rebuild()`
+ *   throws the in-memory arrangement away (everything docked in the column), then rebuilds from the stored form; a
+ *   browser reload does the same at load (the page starts with `restore`).
  * - Frozen: grips hidden, nothing moves. The freeze is the app's flag, read once at the press (as case 8 of the kit
  *   cases does): a press without Alt while frozen never becomes a drag, so no target is built and nothing is dropped;
  *   holding Alt shows the grips and everything works, a drag that began finishes. The library needs nothing for it.
- * - Count and phase: each item has a count badge (a fixed slot, "99+" at most) and a phase; neither is an input to the
- *   solver, so changing one moves no item.
+ * - Count and phase: each item has a count badge (a fixed slot, "99+" at most) and a phase. The solver is given sizes,
+ *   never a count or a phase, so with sizes that don't depend on them changing one moves no other item. `setMeasured`
+ *   is the control that breaks that on purpose: a bar group's row form is then measured from its words and its badge
+ *   (which grows with its digits), so a count with more digits does move the items after it.
  */
 import type { Rect } from "@n-uf/motion";
 import { DRAG_DEFAULTS, createDragIntent, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
 import {
   fitFloat,
   fitStack,
-  floatTarget,
   readFloats,
   readStack,
+  stackFloatTarget,
   stackTargets,
   storeFloats,
   storeStack,
@@ -171,6 +174,8 @@ export function createBoard(opt: BoardOptions) {
   let clock = 6;
   let frozen = false;
   let altDown = false;
+  /** The control for the no-jump check: bar groups are sized from their content (see the file's header). */
+  let measured = false;
   let lastDrop: DropRecord | null = null;
 
   // --- the stage ---------------------------------------------------------------------------------------------------------
@@ -185,7 +190,20 @@ export function createBoard(opt: BoardOptions) {
     .map((n) => `<div class="fl-page"><h4>Page ${n}</h4>${'<div class="st-l"></div>'.repeat(10)}<div class="st-l short"></div></div>`)
     .join("")}</div>`;
   stage.append(scroller);
-  const metaOf = (id: string): ItemMeta | undefined => st.meta[id as ItemId];
+  /** An item's count and phase as drawn: with `fluid`, the badge is as wide as its digits (it says the whole count). */
+  const metaFor = (id: string): ItemMeta => ({ ...st.meta[id as ItemId], ...(measured ? { fluid: true } : {}) });
+  const metaOf = (id: string): ItemMeta | undefined => metaFor(id);
+  // Measures a group's row form (words and badge) from the DOM, for `measured`.
+  const meter = document.createElement("section");
+  meter.className = "st-item st-group";
+  meter.dataset.kind = "row";
+  meter.setAttribute("aria-hidden", "true");
+  Object.assign(meter.style, { visibility: "hidden", left: "-9999px", top: "0", width: "max-content", height: "30px" });
+  stage.append(meter);
+  const measureRow = (id: ItemId): number => {
+    meter.innerHTML = dress(id, "row", metaFor(id));
+    return Math.ceil(meter.getBoundingClientRect().width);
+  };
   const views: Record<Side, StackView> = {
     bar: createStackView(stage, "row", "Bar", metaOf),
     column: createStackView(stage, "column", "Column", metaOf),
@@ -207,7 +225,7 @@ export function createBoard(opt: BoardOptions) {
 
   // --- layout ----------------------------------------------------------------------------------------------------------------
 
-  const placedOf = (id: ItemId): Placed => ({ id, used: st.used[id], kept: st.kept.has(id), from: st.from[id] ?? 0, badge: true });
+  const placedOf = (id: ItemId): Placed => ({ id, used: st.used[id], kept: st.kept.has(id), from: st.from[id] ?? 0, badge: true, ...(measured && !isPanel(id) ? { rowMain: measureRow(id) } : {}) });
   const inputFor = (side: Side, without?: ItemId): StackInput => inputOf(AXIS[side], LENGTH[side], st.orders[side].filter((id) => id !== without).map(placedOf));
   const fitsWithout = (without?: ItemId): Record<Side, StackFit> => ({ column: fitStack(inputFor("column", without)), bar: fitStack(inputFor("bar", without)) });
 
@@ -259,8 +277,8 @@ export function createBoard(opt: BoardOptions) {
         stage.append(el);
         floatEls.set(f.id, el);
       }
-      const m = st.meta[f.id as ItemId];
-      const sig = `${floatKind(f.id as ItemId)}|${m.count}|${m.phase}`;
+      const m = metaFor(f.id);
+      const sig = `${floatKind(f.id as ItemId)}|${m.count}|${m.phase}|${m.fluid}`;
       if (el.dataset.sig !== sig) {
         el.dataset.sig = sig;
         el.dataset.kind = floatKind(f.id as ItemId);
@@ -273,11 +291,12 @@ export function createBoard(opt: BoardOptions) {
   }
 
   /** Draw: the stacks from the state (the dragged item lifted out), or with the room a gap makes; then the floats. */
-  function draw(room: DockT | null, lifted?: ItemId): void {
-    const fits = fitsWithout(lifted);
+  function draw(room: DockT | null, lifted?: ItemId, homing = false): void {
+    // Homing: the pointer is back over the held item's own place, so the others stand where they were and the place is held for it.
+    const fits = fitsWithout(homing ? undefined : lifted);
     for (const n of SIDES) {
       if (room && room.side === n) views[n].draw(room.target.fit, room.target.item);
-      else views[n].draw(fits[n]);
+      else views[n].draw(fits[n], homing ? lifted : undefined);
     }
     const colCross = room?.side === "column" ? room.target.fit.cross : fits.column.cross;
     Object.assign(scroller.style, { left: px(colCross), top: px(BAR_H), width: px(STAGE.width - colCross), height: px(STAGE.height - BAR_H) });
@@ -403,8 +422,8 @@ export function createBoard(opt: BoardOptions) {
     return { restored: true, ok: errors.length === 0, column: dropped.column, bar: dropped.bar, floats: dropped.floats, errors };
   }
 
-  /** The Reload button: forget the arrangement in memory (everything docked in the column), then rebuild from the stored form. */
-  function reload(between?: () => void): LoadReport {
+  /** The "Rebuild from the stored form" button: forget the arrangement in memory (everything docked in the column), then rebuild from the stored form. */
+  function rebuild(between?: () => void): LoadReport {
     if (drag) endDrag(true);
     const meta = st.meta;
     st = fresh({ column: [...ALL], bar: [], floats: [] });
@@ -455,7 +474,7 @@ export function createBoard(opt: BoardOptions) {
         out.push({ kind: "dock", id: `${side}:${t.id}`, priority: 2, hit: wide, slot: shiftBy(t.slot!, o), side, at: t.place.at, target: t, marker: shiftBy(t.marker, o), label: gapWords(side, t.place.at, id) });
       }
     }
-    const ft = floatTarget({ id, stage: STAGE_RECT, size: FLOAT_SIZE[id], avoid: avoidRects(id) });
+    const ft = stackFloatTarget({ id, stage: STAGE_RECT, size: FLOAT_SIZE[id], avoid: avoidRects(id) });
     out.push({ kind: "float", id: ft.id, priority: 3, free: true, hit: ft.hit, label: ft.label!, target: ft });
     return out;
   }
@@ -478,6 +497,10 @@ export function createBoard(opt: BoardOptions) {
     pointer: Point;
     shown: BoardTarget | null;
     room: DockT | null;
+    /** Lifted from a stack (a float's home is a point, nothing to show there). */
+    readonly docked: boolean;
+    /** The pointer is back over its place and the place is shown. */
+    homing: boolean;
     raf: number;
   }
   let drag: Held | null = null;
@@ -519,7 +542,7 @@ export function createBoard(opt: BoardOptions) {
     el.className = `st-item st-held ${isPanel(id) ? "st-panel" : "st-group"}`;
     const kind = itemEl.dataset.kind!;
     el.dataset.kind = kind;
-    el.innerHTML = dress(id, kind as Parameters<typeof dress>[1], st.meta[id]);
+    el.innerHTML = dress(id, kind as Parameters<typeof dress>[1], metaFor(id));
     Object.assign(el.style, { width: px(was.width), height: px(was.height), left: px(p.x - grab.x), top: px(p.y - grab.y) });
     stage.append(el);
     // The item is lifted out of where it was: the stacks are drawn without it.
@@ -528,7 +551,7 @@ export function createBoard(opt: BoardOptions) {
     // A docked item's home is its place (a release there does nothing); a float is moved anywhere, so its home is the point.
     const home: Rect = where.kind === "dock" ? was : { x: start.x, y: start.y, width: 0, height: 0 };
     const intent = createDragIntent<BoardTarget>({ home });
-    drag = { id, grab, home, el, intent, targets, floatDrop: null, pointer: p, shown: null, room: null, raf: 0 };
+    drag = { id, grab, home, el, intent, targets, floatDrop: null, pointer: p, shown: null, room: null, docked: where.kind === "dock", homing: false, raf: 0 };
     stage.classList.add("dragging");
     const loop = (): void => {
       if (!drag) return;
@@ -547,15 +570,20 @@ export function createBoard(opt: BoardOptions) {
     const f = d.intent.update(d.pointer, now, d.targets);
     const plan = previewPlan(f, "gap");
     const room = plan.makeRoom && f.shown?.kind === "dock" ? f.shown : null;
-    if (room?.id !== d.room?.id) {
+    // Back over its own place (a docked item): the intent shows no target there and a release puts it back, so say so.
+    const homing = f.atHome && d.docked && f.shown === null;
+    if (room?.id !== d.room?.id || homing !== d.homing) {
       d.room = room;
-      draw(room, d.id);
+      d.homing = homing;
+      draw(room, d.id, homing);
+      if (homing) say(`${titleOf(d.id)}: Back to its place. Release to put it back.`);
     }
     if (f.shown?.id !== d.shown?.id) say(f.shown ? `${titleOf(d.id)} → ${f.shown.label}: release to drop it on the dashed rectangle.` : `${titleOf(d.id)}: move over a gap, or anywhere else to float it.`);
     d.shown = f.shown;
     d.floatDrop = null;
     const s = plan.showIndicator ? f.shown : null;
-    if (!s) showPreview(null, "", d.id);
+    if (homing) showPreview(d.home, "Back to its place", d.id);
+    else if (!s) showPreview(null, "", d.id);
     else if (s.kind === "dock") showPreview(s.slot, s.label, d.id, s.marker);
     else {
       // A float's preview is its drop: where the pointer holds it, clamped into the stage and clear of the docked items.
@@ -575,6 +603,7 @@ export function createBoard(opt: BoardOptions) {
     let previewSolve: Rect | null = null;
     if (shown?.kind === "dock") previewSolve = shown.slot;
     else if (shown?.kind === "float") previewSolve = d.floatDrop?.rect ?? null;
+    else if (d.homing) previewSolve = d.home;
     drag = null;
     d.el.remove();
     stage.classList.remove("dragging");
@@ -608,14 +637,18 @@ export function createBoard(opt: BoardOptions) {
     } else if (now?.kind === "float") landedDom = domRect(floatEls.get(id)!);
     lastDrop = { id, landed, shown: shown?.id ?? null, previewDom, previewSolve, landedDom, landedSolve, cancelled: cancel };
     if (landed) say(`${titleOf(id)} → ${t!.label}. ${readout()}`);
-    else say(cancel ? "Cancelled: back where it was." : "No target: it went home.");
+    else say(cancel ? "Cancelled: back where it was." : d.homing ? "Back in its place." : "No target: it went home.");
   }
 
   // --- input ---------------------------------------------------------------------------------------------------------------------------
 
+  /** What a click opens: a header's caret, or a rail icon (the panel's badge), in a docked panel. */
+  const opens = (t: HTMLElement): boolean => !!t.closest(".st-caret, .st-item[data-kind='rail'] .st-badge") && !t.closest(".st-float");
+
   function track(e: PointerEvent, id: ItemId): void {
     if (e.button !== 0) return;
     e.preventDefault();
+    const target = e.target as HTMLElement;
     const start = stagePoint(e);
     let lifted = false;
     const move = (ev: PointerEvent): void => {
@@ -638,6 +671,9 @@ export function createBoard(opt: BoardOptions) {
       if (lifted && drag) {
         drag.pointer = stagePoint(ev);
         endDrag(ev.type === "pointercancel");
+      } else if (!lifted && ev.type === "pointerup" && opens(target)) {
+        // A press and a release that never went past the lift distance is a click, never a drag; a drag is never a click.
+        open(id);
       }
     };
     const key = (ev: KeyboardEvent): void => {
@@ -671,6 +707,8 @@ export function createBoard(opt: BoardOptions) {
     const head = (e.target as HTMLElement).closest<HTMLElement>(".st-head");
     const it = head?.closest<HTMLElement>(".st-item.st-panel:not(.st-float)");
     if (!it) return;
+    // The second click of a double-click on a caret lands on the header the first one opened: that isn't a fold.
+    if (performance.now() - openedAt < 500) return;
     if (!allowed(e)) {
       say("Frozen: nothing moves. Hold Alt to fold.");
       return;
@@ -696,6 +734,16 @@ export function createBoard(opt: BoardOptions) {
   }
   const readout = (): string => `${sayFit("Column", views.column.fit()!)} ${sayFit("Bar", views.bar.fit()!)}`;
 
+  let openedAt = -1e9;
+  /** Open a docked panel (a click on its caret or rail icon): its form from the first again, newest used. */
+  function open(id: ItemId): void {
+    if (!isPanel(id) || !stackOfId(st, id)) return;
+    delete st.from[id];
+    st.used[id] = ++clock;
+    openedAt = performance.now();
+    settle();
+    say(`${titleOf(id)} opened. ${readout()}`);
+  }
   /** Fold a docked panel to its header by hand, or open it again. */
   function fold(id: ItemId): void {
     if (!isPanel(id) || !stackOfId(st, id)) return;
@@ -714,6 +762,12 @@ export function createBoard(opt: BoardOptions) {
     st.meta[id] = { ...st.meta[id], ...patch };
     draw(null);
     opt.onChange?.();
+  }
+  /** The no-jump control: size bar groups' row form from their words and badge (the badge grows with its digits). */
+  function setMeasured(on: boolean): void {
+    measured = on;
+    stage.dataset.fluid = String(on);
+    settle();
   }
   function setFrozen(on: boolean): void {
     frozen = on;
@@ -757,6 +811,8 @@ export function createBoard(opt: BoardOptions) {
     clock = 6;
     frozen = false;
     altDown = false;
+    measured = false;
+    stage.dataset.fluid = "false";
     lastDrop = null;
     scroller.scrollTop = 0;
     settle();
@@ -803,12 +859,14 @@ export function createBoard(opt: BoardOptions) {
     indLabel,
     marker,
     reset,
-    reload,
+    rebuild,
     load,
     save,
     stored,
     setLayout,
     setHeight,
+    setMeasured,
+    open,
     setMeta,
     setFrozen,
     fold,
@@ -856,6 +914,9 @@ export function createBoard(opt: BoardOptions) {
     },
     get height() {
       return STAGE.height;
+    },
+    get measured() {
+      return measured;
     },
     get frozen() {
       return frozen;

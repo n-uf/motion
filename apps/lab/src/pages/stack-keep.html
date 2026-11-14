@@ -4,7 +4,8 @@
     <legend>Layout</legend>
     <label class="st-lock"><input type="checkbox" id="sk-freeze" /> Freeze the layout <span class="st-hint">· hold <kbd>Alt</kbd> to move</span></label>
     <label>Window height <input type="range" id="sk-height" min="240" max="500" step="2" value="500" /> <output id="sk-height-out">500 px</output></label>
-    <button type="button" id="sk-reload">Reload</button>
+    <label title="A control for the no-jump check: a bar group's row form is sized from its words and its badge, which grows with its digits, so a count with more digits moves the items after it."><input type="checkbox" id="sk-measured" /> Size bar groups from their content</label>
+    <button type="button" id="sk-rebuild">Rebuild from the stored form</button>
     <button type="button" id="sk-reset">Reset</button>
     <button type="button" id="sk-run">Run all scenarios</button>
   </fieldset>
@@ -21,17 +22,18 @@
 <p id="st-status" role="status" aria-live="polite"></p>
 
 <details class="st-stored">
-  <summary>The stored form (what Reload reads)</summary>
+  <summary>The stored form (what a rebuild or a reload reads)</summary>
   <pre id="sk-stored"></pre>
 </details>
 
 <section class="st-try">
   <h2>Try this</h2>
   <ol>
-    <li>Move things about: drag Pages below Annotations, float Findings, fold a panel by double-clicking its header, tick Kept. Press Reload: the page forgets all of it, then rebuilds from the stored form, and every item is back in its place and form. Reload the browser tab: the same.</li>
-    <li>Tick Freeze: the grips disappear and nothing moves, double-clicking a header does nothing. Hold <kbd>Alt</kbd>: the grips are back, and a drag or a fold works, on a folded panel's header too. Let go of Alt mid-drag: the drag finishes.</li>
+    <li>Move things about: drag Pages below Annotations, float Findings, fold a panel by double-clicking its header, tick Kept. Press Rebuild from the stored form: the page forgets all of it, then rebuilds from the stored form, and every item is back in its place and form. Reload the browser tab: the same.</li>
+    <li>Fold both panels by hand: the column becomes a rail of icons. Click an icon (or a folded header's ▸) to open that panel; a click never drags, and a drag never opens.</li>
+    <li>Tick Freeze: the grips disappear and nothing moves, double-clicking a header or clicking an icon does nothing. Hold <kbd>Alt</kbd>: the grips are back, and a drag, a fold or a click works, on a folded panel's header too. Let go of Alt mid-drag: the drag finishes.</li>
     <li>Change an item's count (try 100 and 12345: the badge says 99+) or its phase: no other item moves, not by half a pixel.</li>
-    <li>Fold a panel by hand: the items after it do move (it changed size along the stack), which is what the check for a count or a phase rules out.</li>
+    <li>Fold a panel by hand: the items after it do move (it changed size along the stack), which is what the check for a count or a phase rules out. Tick Size bar groups from their content and raise Views' count to 12345: now the badge's digits change the group's size and the groups after it move, which the check catches.</li>
   </ol>
 </section>
 
