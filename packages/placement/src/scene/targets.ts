@@ -25,7 +25,8 @@
  *   folded column's segments and after the last, or a strip `RAIL_EDGE` px deep at the side's outer edge when no rail
  *   shows.
  * - `none:<i>` (1): over each `scene.blocked` rect. It takes the pointer, and a release there commits nothing.
- * - `home:<id>` (1): over the item's own rect. A release there commits nothing. A gap, column line or rail drop that
+ * - `home:<id>` (1): over a docked item's own rect (or its » entry); a floating item has none, so a move inside its own
+ *   rect is a float move. A release there commits nothing. A gap, column line or rail drop that
  *   would put the item back where it is (the gap beside it, its own column's line, its own side's rail) keeps its id but
  *   is a home too: place `home`, no slot, nothing committed.
  *
@@ -174,8 +175,9 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
     out.push({ id: `none:${i}`, priority: 1, hit: rect(b.x, b.y, b.width, b.height), item: dragged, place: { kind: "none" }, after: () => ({ scene, layout: now }) });
   });
 
+  // A docked item's own place is its home. A floating item has none: a move inside its own rect is a float move.
   const own = now.items[dragged];
-  if (own) out.push({ id: `home:${dragged}`, priority: 1, hit: own.rect, item: dragged, place: { kind: "home" }, after: () => ({ scene, layout: now }) });
+  if (own && !own.floating) out.push({ id: `home:${dragged}`, priority: 1, hit: own.rect, item: dragged, place: { kind: "home" }, after: () => ({ scene, layout: now }) });
   return out;
 }
 
