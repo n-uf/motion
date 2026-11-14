@@ -208,6 +208,23 @@ describe("previous: a wider stack, and forms that changed", () => {
     expect(grown).toEqual(fitStack(trio([1, 2, 3], 41)));
   });
 
+  it("G1: items leave the menu when the form is larger, even if the stack gets shorter (the last one takes the » entry along)", () => {
+    const g = (id: string, used: number): StackItem => ({ id, used, forms: [f("row", 100, 28), f("icons", 20, 28), f("menu", 0, 0)] });
+    const c = (used: number): StackItem => ({ id: "c", used, forms: [f("row", 100, 28), f("fold", 60, 28), f("icons", 40, 28), f("menu", 0, 0)] });
+    const row = (length: number, cUsed: number): StackInput => ({ axis: "row", length, cross: { min: 28, max: 40 }, items: [g("a", 1), g("b", 2), c(cUsed)] });
+    const A = fitStack(row(128, 9));
+    expect(kinds(A)).toEqual(["menu", "menu", "row"]);
+    // A press on c: the same.
+    const B = fitStack(row(128, 0), { previous: A });
+    expect(kinds(B)).toEqual(["menu", "menu", "row"]);
+    // 141 px: one icons beside the entry needs 148, both icons need 140. Only both leaving fits, so both come out together.
+    expect(kinds(fitStack(row(141, 0), { previous: B }))).toEqual(["icons", "icons", "row"]);
+    // 150 and 175: one comes out (148), then the other takes the entry with it (140).
+    for (const length of [150, 175]) expect(kinds(fitStack(row(length, 0), { previous: B }))).toEqual(["icons", "icons", "row"]);
+    // Under 140 nothing comes out: both icons plus the row need 140.
+    expect(kinds(fitStack(row(139, 0), { previous: B }))).toEqual(["menu", "menu", "row"]);
+  });
+
   it("room grows the item that gave way most recently first (newest used, with rank and kept respected)", () => {
     // All three icons (120 px); room for one row (+110) but not two. The newest used goes back first, whatever the place.
     const g = (id: string, used: number, kept = false): StackItem => ({ id, used, ...(kept ? { kept } : {}), forms: [f("row", 150, 28), f("icons", 40, 28), { ...f("menu", 0, 0), rank: 1 }] });

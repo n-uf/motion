@@ -194,7 +194,11 @@ export interface FitOptions {
    * on a header) reshapes nothing. Ages decide only who gives way anew (the length shrank, an item was added or opened),
    * and room that came back is used, but growing never re-ranks: the fresh fit is taken only if it is a pure gain (no
    * item's form is further down, one is further up) or the stack got wider across; otherwise the kept forms grow back in
-   * the reverse of give-way order while the stack still fits (one px of room moves nothing). Items it doesn't know start
+   * the reverse of give-way order while the stack still fits (one px of room moves nothing; an item goes back to the
+   * nearest larger form the stack fits with, even when that makes the stack shorter: the last item out of the menu takes
+   * the » entry with it, and items in the menu come out together when only all of them leaving fits). Results under
+   * `previous` depend on history but are never worse: a shrink then a grow may end at a larger arrangement than a fresh
+   * solve of the same input. Items it doesn't know start
    * from their largest form; an item whose `from` went down since (a panel opened), or whose form at the kept index is of
    * another kind, starts over. A form that was only re-measured keeps its place: smaller, it frees room that grows the
    * kept forms; larger, it gives way from the kept forms.
