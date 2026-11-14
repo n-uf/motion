@@ -53,6 +53,7 @@
 .st-badge { width: 20px; height: 20px; border-radius: 5px; background: var(--st-chrome); text-align: center; font: 700 11px/20px var(--font-sans); }
 .st-count { font: normal 10px/1 var(--font-sans); color: var(--st-muted); }
 .st-panel[data-kind="header"], .st-panel[data-kind="rail"] { flex-direction: row; }
+.st-panel[data-kind="header"] .st-head { flex: 1; min-width: 0; }
 .st-menu { position: absolute; box-sizing: border-box; border: 0; background: var(--st-chrome); box-shadow: inset 0 0 0 1px var(--st-edge); color: var(--st-ink); font: 700 11px/1 var(--font-sans); cursor: pointer; padding: 0; }
 .st-menu:hover { color: var(--st-accent); }
 .st-menu[hidden], .st-item[hidden] { display: none; }
