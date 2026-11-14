@@ -96,6 +96,13 @@ const stackDrop = {
   reset: "#sd-reset",
   wide: true,
 };
+const stackFloats = {
+  markup: raw(() => import("../pages/stack-floats.html?raw")),
+  load: () => Promise.all([import("../stack/stack.css"), import("../stack/floats").then(() => import("../stack/floats-scenarios"))]),
+  module: "stack-floats",
+  reset: "#fl-reset",
+  wide: true,
+};
 
 /** The Panels Options page runs the scenarios that switch an option, Presets those on a preset; Defaults runs the rest. */
 const OPTIONS = "options: ";
@@ -256,6 +263,16 @@ export const PAGES: readonly PageDef[] = [
     about:
       "<code>@n-uf/placement/stack</code>'s <code>stackTargets</code> on <code>@n-uf/motion/drag</code>'s intent: a target for every gap (before each item and after the last), each carrying the solve with the item inserted. The dashed rectangle is that solve's rect for the dragged item and a line marks where its leading edge lands; hold over a gap and the others move to the places the solve gives them. A release lands on the same rect. Cases C1, C3 and C4.",
     ...stackDrop,
+  },
+  {
+    id: "stack/floats",
+    group: "stack",
+    nav: "Floats",
+    title: "Stack · floats",
+    line: "Floats lie above the pages in the window's px: they stay put while the pages scroll, land beside docked items, and a drop past the stage's edge is clamped into it.",
+    about:
+      "<code>@n-uf/placement/stack</code>'s <code>fitFloat</code> and <code>floatTarget</code> on <code>@n-uf/motion/drag</code>'s intent. A window with a bar and a column of docked items, a sheet of pages that scrolls under them and floats above it. A float is in the stage's px, so scrolling never moves it and there is no pinned kind; the preview and the drop are one answer: the float's rect with the pointer holding it, clamped into the stage and moved beside any docked item it would cover. The float target's zone covers the whole plane, so a pointer past the stage's edge still drops a clamped float. Cases C5, C7, C16 and C17.",
+    ...stackFloats,
   },
   {
     id: "kits/panels",
