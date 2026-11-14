@@ -402,6 +402,81 @@ const t6: Scenario<Page> = {
   },
 };
 
-const SCENARIOS = [t1, t2, t3, t5, t6];
+// --- C23 and N1 ----------------------------------------------------------------------------------------------------------
+
+const formsNow = (fit: StackFit): string => fit.items.map((i) => `${i.id}:${i.form}`).join(" ");
+
+const n1: Scenario<Page> = {
+  name: "N1: a press, then a count gaining a digit, reshapes nothing else",
+  modes: ["bar"],
+  async run(p) {
+    const rows = [];
+    // A length where some group has given way, a few px are to spare (the longer badge fits where it is), and a fresh solve
+    // after the presses and the count would reshape the bar: the case the check is for.
+    let length = 0;
+    for (let l = 740; l >= 300 && !length; l -= 2) {
+      p.reset();
+      p.setLength(l);
+      const f = p.fit();
+      if (!(f.items.some((i) => i.form > 0) && !f.menu && f.length - (f.need ?? 0) >= 40)) continue;
+      const ids = f.items.map((i) => i.id) as TbId[];
+      for (const id of ids) {
+        p.reset();
+        p.setLength(l);
+        for (const other of ids) p.press(other);
+        p.setCount(id, 12345);
+        if (formsNow(fitStack(p.input())) !== formsNow(f)) length = l;
+      }
+    }
+    p.reset();
+    p.setLength(length || 500);
+    const before = p.fit();
+    const forms0 = formsNow(before);
+    const rects0 = JSON.stringify(before.items.map((i) => i.rect));
+    // Press every group on its grip, no drag: with previous, every form and rect stays.
+    const failures: string[] = [];
+    for (const id of before.items.map((i) => i.id) as TbId[]) {
+      await press(p, id);
+      await release(p);
+      if (formsNow(p.fit()) !== forms0 || JSON.stringify(p.fit().items.map((i) => i.rect)) !== rects0) failures.push(`pressing ${id} reshaped the bar: ${formsNow(p.fit())}`);
+    }
+    rows.push(
+      await rule("C23: a click on any group's grip, without a drag, leaves every form and rect as it was", (ok) => {
+        ok(length > 0, "no length found where a group has given way");
+        failures.forEach((m) => ok(false, m));
+      }),
+    );
+    // Then a badge with five digits on each group in turn (it grows the group's forms by 35 px): the forms stay.
+    const grew: string[] = [];
+    for (const id of before.items.map((i) => i.id) as TbId[]) {
+      // Each group on its own, from a fresh start at the same length, after every group was pressed.
+      p.reset();
+      p.setLength(length || 500);
+      for (const other of before.items.map((i) => i.id) as TbId[]) p.press(other);
+      p.setCount(id, 12345);
+      if (formsNow(p.fit()) !== forms0) grew.push(`${id} gained digits: ${formsNow(p.fit())}, was ${forms0}`);
+      const own = p.fit().items.find((i) => i.id === id)!.rect.width;
+      const was = before.items.find((i) => i.id === id)!.rect.width;
+      if (own < was + 34) grew.push(`${id} did not grow (${own} from ${was})`);
+    }
+    rows.push(
+      await rule("A count gaining digits after the presses makes that group longer and reshapes no other form", (ok) => grew.forEach((m) => ok(false, m))),
+    );
+    // The control: solved afresh (no previous), the same state does reshape, at some length: the case is real.
+    let flipped = 0;
+    for (let l = 700; l >= 340; l -= 10) {
+      p.reset();
+      p.setLength(l);
+      const base = formsNow(p.fit());
+      for (const id of ["views", "tools", "zoom", "mark"] as const) p.press(id);
+      p.setCount("views", 12345);
+      if (formsNow(fitStack(p.input())) !== base) flipped++;
+    }
+    rows.push(await rule("Without previous the same presses and count do reshape the bar at some length", (ok) => ok(flipped > 0, "no length flips without previous")));
+    return rows;
+  },
+};
+
+const SCENARIOS = [t1, t2, t3, t5, t6, n1];
 
 install(page, SCENARIOS, () => page.reset(), document.getElementById("tb-run") as HTMLButtonElement, document.getElementById("tb-runs") as HTMLTableSectionElement);
