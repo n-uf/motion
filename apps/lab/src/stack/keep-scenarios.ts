@@ -68,7 +68,8 @@ const c13: Scenario<Page> = {
     const rows = [];
     if (mode === "after drags, a fold, a keep and a float" || mode === "a column too short for its items") {
       if (mode === "a column too short for its items") {
-        // Ages that differ from the defaults, and a panel kept: the give-way order is part of what has to come back.
+        // A short window, ages that differ from the defaults and a panel kept: the give-way order is part of what has to come back.
+        b.setHeight(250);
         b.setLayout(TIGHT, { used: { findings: 1, views: 2, pages: 3, tools: 4, annotations: 5, zoom: 6 }, kept: ["annotations"] });
       } else {
         // Findings floats; dock it at the end of the column, tear Zoom off the bar, fold Pages by hand, keep Annotations.
@@ -101,7 +102,7 @@ const c13: Scenario<Page> = {
       );
       rows.push(
         await rule(`Every item is back in its place and form, at the same rect (${before.length} items)`, (ok) => {
-          ok(before.some((s) => s.form > 0) || mode !== "a column too short for its items", "no item had given way: the column wasn't short");
+          ok(mode !== "a column too short for its items" || before.filter((s) => s.form > 0).length >= 2, `${before.filter((s) => s.form > 0).length} items had given way: the column wasn't short`);
           for (const m of differences(before, after, 0.5)) ok(false, m);
         }),
       );
