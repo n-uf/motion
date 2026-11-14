@@ -39,17 +39,22 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     default, no menu, no overflow, fixed items unmoved, hits clear of fixed items and chrome), `strip:<edge>` for an
     empty edge, `float:<id>` over the plane, `none:<i>` over `blocked`, `home:<id>`; each with `after(point, grab)`, the
     scene to commit and `solve` of it, so the preview is the result.
-  - Pure changes `moveTo`, `floatAt`, `fold`, `use`, `keep`, `raise`, `open`, `close`, `orient`, `resize`, `lift`; and
+  - Pure changes `moveTo`, `floatAt`, `fold`, `use`, `keep`, `raise`, `open`, `close`, `orient`, `resize`; and
     `storeScene` / `readScene` (`StoredScene` v1, lenient, never throws, lists what it drops, no pinned field).
   - Panels as products have them (planned for the release after the bars): dynamic columns (`Edge.column`, made from
     `Scene.columns[side]`, deleted when empty, rings closed up), one rail per side (`Scene.rails`, `layout.rails`),
     column give-way by `Scene.contentMin` (shrink, then fold whole: unkept first, oldest newest use; held under
-    `previous`), `handFold: "ride"`, `inset` and `gutter`; `moveTo` with `column`, `rail` and `float` places, `homeFor`,
-    `prune`; `column:<side>:<ring>` and `rail:<side>:<ring>` targets, own-place drops as homes, `stops`; stored columns
+    `previous`), `handFold: "ride"`, `inset` and `gutter`; `moveTo` with `column`, `rail` and `float` places, `homeFor`;
+    `column:<side>:<ring>` and `rail:<side>:<ring>` targets, own-place drops as homes, `stops`; stored columns
     (`column: true`). Two document windows' width thresholds are pinned in tests.
   - `Edge.hitBand` (`number | "middle"`; default 24 for columns, `"middle"` for bars): a column's gap hits are bands
     around the insertion lines, so a panel's body is no drop area for a group. Gaps on one line are one target.
   - A `content-changed` note (`{ from, to }`) whenever `content` differs from `previous.content`.
+  - Under `previous`, a just-opened item counts as the newest (its largest form while it fits); `fresh` ids solve
+    without `previous`. Folded columns unfold in the reverse of their fold order, to a fixpoint.
+  - Targets: whole-scene C29 (no new `overflow` or `too-wide`, no fixed item changed or squeezed under its min,
+    anywhere), hits clear of fixed items' drawn rects, no slot on chrome, no home for a floating item. The store clamps a
+    float by its drawn size and never cuts it.
 
 ## 26.11.15
 
