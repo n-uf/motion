@@ -66,10 +66,14 @@ async function press(p: Page, id: ItemId): Promise<Point> {
   at = start;
   return start;
 }
-/** Aim the held item at `to` until the preview shows and the others have made room. */
-async function aimAt(p: Page, to: Point): Promise<boolean> {
+/**
+ * Aim the held item at `to` until the preview shows and the others have made room. With `want` (the target's id) it waits
+ * for that very target: the intent switches target only after a dwell, so while the pointer has only just arrived the
+ * preview still shows the gap it passed over, and a release then drops there.
+ */
+async function aimAt(p: Page, to: Point, want?: string): Promise<boolean> {
   await approach(p, to);
-  return until(() => !!p.dragging && !p.ind.hidden && p.dragging.room !== null && p.dragging.room === p.dragging.shown);
+  return until(() => !!p.dragging && !p.ind.hidden && p.dragging.room !== null && p.dragging.room === p.dragging.shown && (want === undefined || p.dragging.shown === want));
 }
 async function release(p: Page): Promise<void> {
   pointer(p, "pointerup", at);
@@ -141,8 +145,9 @@ const c1: Scenario<Page> = {
       const to = centre(target.hit);
       if (to.x >= home.x && to.x <= home.x + home.width && to.y >= home.y && to.y <= home.y + home.height) continue;
       await press(p, c.id);
-      const shown = await aimAt(p, to);
+      const shown = await aimAt(p, to, target.id);
       const label = `gap ${k}`;
+      const shownAtAim = p.dragging?.shown;
       if (!shown) {
         landed.push(`${label}: the preview never showed with the room made (shown ${p.dragging?.shown}, room ${p.dragging?.room})`);
         escape();
@@ -155,7 +160,7 @@ const c1: Scenario<Page> = {
       await release(p);
       ran++;
       const d = p.lastDrop!;
-      if (!d.landed || d.landed.stack !== c.into || d.landed.at !== k) landed.push(`${label}: landed ${JSON.stringify(d.landed)}, not ${c.into} ${k}`);
+      if (!d.landed || d.landed.stack !== c.into || d.landed.at !== k) landed.push(`${label}: landed ${JSON.stringify(d.landed)}, not ${c.into} ${k} (the preview showed ${shownAtAim} when aiming ended, ${target.id} was aimed at)`);
       if (d.previewDom && d.previewSolve && !near(d.previewDom, d.previewSolve)) sameRect.push(`${label}: the dashed preview ${fmt(d.previewDom)} isn't the solver's ${fmt(d.previewSolve)}`);
       if (d.landedSolve && d.previewSolve && !near(d.landedSolve, d.previewSolve, 0.001)) sameRect.push(`${label}: the drop's rect ${fmt(d.landedSolve)} isn't the preview's ${fmt(d.previewSolve)}`);
       if (d.landedDom && d.previewDom) {
@@ -239,7 +244,7 @@ const c4: Scenario<Page> = {
     const gap = 1;
     const target = p.targetsFor(id).find((t) => t.stack === "column" && t.at === gap)!;
     await press(p, id);
-    const shown = await aimAt(p, centre(target.hit));
+    const shown = await aimAt(p, centre(target.hit), target.id);
     const preview = domRect(p, p.ind);
     const expected = target.target.fit.items.find((i) => i.id === id)!;
     await release(p);
