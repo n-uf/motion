@@ -39,8 +39,19 @@ const form = (kind: StackFormKind, main: number, extra: { rank?: number; cross?:
   ...(extra.setsCross !== undefined ? { setsCross: extra.setsCross } : {}),
 });
 
-/** An item's forms, largest first. Folds are 36 px (a handle and its own »); the shared » entry is 28. */
-export function formsOf(id: TbId): StackForm[] {
+/**
+ * An item's forms, largest first. A count badge (7 px a digit, none at 0) is part of every form that is drawn: a count with
+ * another digit makes them longer, as when an app measures them.
+ */
+export function formsOf(id: TbId, badge = 0): StackForm[] {
+  const forms = baseForms(id);
+  return badge === 0 ? forms : forms.map((f) => (f.kind === "menu" ? f : { ...f, main: { min: f.main.min + badge, natural: f.main.natural + badge } }));
+}
+/** The badge's width for a count: 7 px a digit, nothing at 0. */
+export const badgeOf = (count: number): number => (count > 0 ? 7 * String(count).length : 0);
+
+/** The forms before any badge. Folds are 36 px (a handle and its own »); the shared » entry is 28. */
+function baseForms(id: TbId): StackForm[] {
   switch (id) {
     case "views":
       return [form("row", 150), form("fold", 36), form("menu", 0, { rank: 2 })];
@@ -69,6 +80,9 @@ let length = DEFAULTS.length;
 let gap = DEFAULTS.gap;
 let pad = DEFAULTS.pad;
 let toolsAge: "newest" | "oldest" = "newest";
+/** Each group's count badge (0: none). */
+const noCounts = (): Record<TbId, number> => ({ views: 0, tools: 0, zoom: 0, mark: 0, findings: 0 });
+let counts = noCounts();
 
 const stage = document.getElementById("tb-stage") as HTMLDivElement;
 const status = document.getElementById("tb-status") as HTMLParagraphElement;
@@ -163,9 +177,12 @@ function drawFit(fit: StackFit, skip?: string): void {
       bar.append(n);
       items.set(p.id, n);
     }
-    if (n.dataset.kind !== p.kind) {
+    const sig = `${p.kind}|${counts[p.id as TbId]}`;
+    if (n.dataset.sig !== sig) {
+      n.dataset.sig = sig;
       n.dataset.kind = p.kind;
-      n.innerHTML = dress(p.id as TbId, p.kind);
+      const badge = counts[p.id as TbId] > 0 && p.kind !== "menu" ? `<i class="tb-count">${counts[p.id as TbId]}</i>` : "";
+      n.innerHTML = dress(p.id as TbId, p.kind) + badge;
     }
     n.dataset.form = String(p.form);
     n.hidden = p.kind === "menu" || p.id === skip;
@@ -181,7 +198,7 @@ function drawFit(fit: StackFit, skip?: string): void {
 
 // --- the stack -----------------------------------------------------------------------------------------------------
 
-const itemOf = (id: TbId): StackItem => ({ id, used: used[id], forms: formsOf(id) });
+const itemOf = (id: TbId): StackItem => ({ id, used: used[id], forms: formsOf(id, badgeOf(counts[id])) });
 /** The bar's input, with `without` (the dragged item) lifted out of it. */
 const inputFor = (without?: string): StackInput => ({
   axis: "row",
@@ -199,9 +216,11 @@ const shift = (r: Rect): Rect => ({ x: r.x + AT.bar.x, y: r.y + AT.bar.y, width:
 const inBar = (id: TbId): boolean => order.includes(id);
 
 /** Draw the bar from its order (the dragged item lifted out), or with the room a gap makes. */
-function draw(room: DropTarget | null, without?: string): void {
+function draw(room: DropTarget | null, without?: string, keep = false): void {
   if (room) drawFit(room.target.fit, room.target.item);
-  else drawFit(fitStack(inputFor(without)));
+  // `keep`: a press or a re-measured badge solves with the fit on screen as `previous`, as a host would: the forms that
+  // still fit stay, so a change of ages or of a size alone reshapes nothing else.
+  else drawFit(fitStack(inputFor(without), keep && lastFit ? { previous: lastFit } : {}));
   // The panel waits under the bar until it is dropped in, then its place is dimmed.
   tray.style.opacity = inBar("findings") ? "0.35" : "1";
   const shown = room ? room.target.fit.cross : lastFit!.cross;
@@ -210,6 +229,19 @@ function draw(room: DropTarget | null, without?: string): void {
   paper.style.top = `${AT.bar.y + shown + 16}px`;
 }
 const settle = (): void => draw(null);
+/** A press on a group's grip or title (no drag): it counts as a use, and nothing else may move. */
+function press(id: TbId): void {
+  if (!inBar(id)) return;
+  used[id] = ++clock;
+  draw(null, undefined, true);
+  say(readout());
+}
+/** The group's count changed: its badge, and so its forms, are as long as its digits. */
+function setCount(id: TbId, n: number): void {
+  counts[id] = Math.max(0, Math.floor(n));
+  draw(null, undefined, true);
+  say(readout());
+}
 
 // --- targets -------------------------------------------------------------------------------------------------------
 
@@ -417,7 +449,7 @@ function track(e: PointerEvent, id: TbId): void {
     if (lifted && drag) {
       drag.pointer = stagePoint(ev);
       endDrag(ev.type === "pointercancel");
-    }
+    } else if (!lifted && ev.type === "pointerup") press(id);
   };
   const key = (ev: KeyboardEvent): void => {
     if (ev.key === "Escape" && drag) {
@@ -495,6 +527,7 @@ function reset(): void {
   if (drag) endDrag(true);
   order = DEFAULT_ORDER();
   used = DEFAULT_USED();
+  counts = noCounts();
   clock = 9;
   lastDrop = null;
   toolsAge = "newest";
@@ -526,6 +559,8 @@ export const page = {
   setGap,
   setPad,
   setToolsAge,
+  press,
+  setCount,
   targetsFor,
   itemEl: (id: string): HTMLElement | undefined => items.get(id),
   /** Put the groups in this order (and ages), for a scenario's start; the panel is put in the bar only if listed. */
