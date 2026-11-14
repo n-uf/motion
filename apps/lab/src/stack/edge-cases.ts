@@ -8,7 +8,7 @@
 import type { Rect } from "@n-uf/motion";
 import type { Point } from "../shared/geometry";
 import { overlap } from "../shared/geometry";
-import { EDGE_DEFAULTS, type Board, type EdgeSettings, type Layout } from "./board";
+import { EDGE_BAR_LENGTH, EDGE_DEFAULTS, type Board, type EdgeSettings, type Layout } from "./board";
 import type { Driver } from "./drive";
 import { aimers } from "./drive";
 import { fmt, near } from "./run";
@@ -34,6 +34,9 @@ export interface Preset {
   readonly frozen?: boolean;
   readonly meta?: Partial<Record<ItemId, { count?: number; phase?: Phase }>>;
 }
+
+/** A control of the settings strip: a setting, or the freeze, the counts, the stored layout. */
+export type Control = keyof EdgeSettings | "freeze" | "counts" | "stored";
 
 /** What to look at: items, or a whole stack, or the pages under them. */
 export type Look = ItemId | "column" | "bar" | "pages";
@@ -62,6 +65,8 @@ export interface EdgeCase {
   readonly preset: Preset;
   /** The check fixtures' scenarios that prove the same case (they run on the Checks page). */
   readonly fixtures: readonly string[];
+  /** The settings strip's controls the Try steps use (those the preset sets are marked too). */
+  readonly controls?: readonly Control[];
   check(c: Ctx): Promise<Verdict>;
 }
 
@@ -129,6 +134,7 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["pages", "views", "column"],
     preset: { layout: { column: ["views", "pages"], bar: ["tools", "zoom"], floats: [{ id: "annotations", rect: { x: 420, y: 120, width: 240, height: 150 } }, { id: "findings", rect: { x: 600, y: 290, width: 220, height: 190 } }] } },
     fixtures: ["C6: spare room goes to the open panels"],
+    controls: ["height"],
     async check({ b }) {
       const fit = b.fits().column;
       const views = fit.items.find((p) => p.id === "views")!;
@@ -166,14 +172,21 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     group: "panels",
     title: "Give-way",
     expect: "When the open panels don't fit their minimum heights, the one used longest ago folds to its header first, then to a rail icon.",
-    tries: ["Lower the column length: Pages (used longest ago) folds first, then Annotations.", "Click Pages' ▸ to open it: it is now the newest, so another panel gives way instead."],
+    tries: ["Lower the column length: Annotations (used longest ago, though second in the list) folds first, then Findings.", "Click Annotations' ▸ to open it: it is now the newest, so another panel gives way instead."],
     look: ["pages", "annotations", "findings"],
-    preset: { layout: COLUMN3, settings: { height: 300 } },
+    // The use order is not the list order: Annotations is the oldest, Findings next, Pages the newest.
+    preset: { layout: COLUMN3, settings: { height: 300 }, used: { annotations: 1, findings: 2, pages: 3 } },
     fixtures: ["C9: give-way by age, kept last", "The status lists the notes"],
+    controls: ["height"],
     async check({ b }) {
       const k = (id: ItemId) => kindOf(b, id);
-      const ok = k("pages") !== "open" && k("annotations") === "open" && k("findings") === "open";
-      return verdict(ok, "Pages (oldest) steps down; Annotations and Findings open", `Pages ${kindWords(k("pages"))}, Annotations ${kindWords(k("annotations"))}, Findings ${kindWords(k("findings"))}`);
+      const first = k("annotations") !== "open" && k("pages") === "open" && k("findings") === "open";
+      // Shorter still, the next oldest (Findings) goes before the newest (Pages).
+      b.setEdge({ height: 240 });
+      const pagesLast = k("findings") !== "open" && !(k("pages") !== "open" && k("findings") === "open");
+      const now = `Annotations ${kindWords(k("annotations"))}, Findings ${kindWords(k("findings"))}, Pages ${kindWords(k("pages"))} at 240 px`;
+      b.setEdge({ height: 300 });
+      return verdict(first && pagesLast, "Annotations (oldest) steps down first, not Pages (first in the list); Pages, the newest, last", `${first ? "Annotations first" : "not Annotations first"}; ${now}`);
     },
   },
   {
@@ -203,6 +216,7 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["pages", "annotations", "findings", "column"],
     preset: { layout: COLUMN3, settings: { height: 300 } },
     fixtures: ["C23: a press is not a reshape", "N1: a press, then a count gaining a digit, reshapes nothing else", "N2: a press, then a count losing a digit, reshapes nothing else"],
+    controls: ["height"],
     async check({ b, d }) {
       const moved: string[] = [];
       for (const id of ["pages", "annotations", "findings", "views", "tools", "zoom"] as const) {
@@ -241,11 +255,23 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["views", "tools", "column"],
     preset: { layout: { column: ["pages", "views", "tools"], bar: ["zoom"], floats: [{ id: "annotations", rect: { x: 420, y: 120, width: 240, height: 150 } }, { id: "findings", rect: { x: 600, y: 290, width: 220, height: 190 } }] }, settings: { widthLimit: 140 } },
     fixtures: ["C10: group forms by space"],
+    controls: ["widthLimit", "barLength"],
     async check({ b }) {
       const fit = b.fits().column;
       const groups = fit.items.filter((p) => p.id === "views" || p.id === "tools");
-      const ok = groups.every((p) => (p.kind === "stacked" || p.kind === "icons") && p.rect.width <= fit.cross + 0.5);
-      return verdict(ok, `Views and Tools stacked or icons, inside the ${fit.cross} px column`, groups.map((p) => `${titleOf(p.id)} ${kindWords(p.kind)} (${Math.round(p.rect.width)} px)`).join(", "));
+      // The largest form that fits: every larger form of the group is wider than the column, the one taken is not.
+      const wrong = groups.filter((p) => {
+        const forms = formsOf(p.id as ItemId, "column", true);
+        const fits = (i: number): boolean => forms[i]!.cross.natural <= fit.cross + 0.5;
+        const largest = forms.findIndex((_, i) => forms[i]!.kind !== "menu" && fits(i));
+        return p.form !== largest || p.rect.width > fit.cross + 0.5;
+      });
+      const expected = groups.map((p) => {
+        const forms = formsOf(p.id as ItemId, "column", true);
+        const i = forms.findIndex((f) => f.kind !== "menu" && f.cross.natural <= fit.cross + 0.5);
+        return `${titleOf(p.id)} ${kindWords(forms[i]?.kind)}`;
+      });
+      return verdict(wrong.length === 0, `In the ${fit.cross} px column, the largest form that fits: ${expected.join(", ")}`, groups.map((p) => `${titleOf(p.id)} ${kindWords(p.kind)} (${Math.round(p.rect.width)} px)`).join(", "));
     },
   },
   {
@@ -269,15 +295,26 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     id: "C12",
     group: "groups",
     title: "No grip where nothing moves",
-    expect: "A grip is drawn only on an item that moves; fixed controls and the pages carry none (the kits draw their window controls; this is the reference).",
-    tries: ["Look over the stage: every grip belongs to a panel or a group.", "Freeze the layout: every grip hides, since nothing moves."],
+    expect: "A grip is drawn only on an item that moves; window controls that don't move and the pages carry none.",
+    tries: ["Look over the stage: every grip belongs to a panel or a group, one each.", "Freeze the layout: every grip hides, since nothing moves."],
     look: ["pages"],
     preset: {},
     fixtures: [],
+    controls: ["freeze"],
     async check({ b }) {
-      const grips = [...b.stage.querySelectorAll<HTMLElement>(".st-grip")].filter((g) => !g.closest("[hidden]"));
-      const stray = grips.filter((g) => !g.closest(".st-item[data-id]"));
-      return verdict(stray.length === 0, "Every grip sits on a movable item", `${grips.length} grips, ${stray.length} on something that doesn't move`);
+      const shown = (): HTMLElement[] => [...b.stage.querySelectorAll<HTMLElement>(".st-grip")].filter((g) => !g.closest("[hidden]") && getComputedStyle(g).visibility !== "hidden");
+      const grips = shown();
+      // The movable items: every item drawn (docked, not in the » menu, or floating).
+      const items = [...b.stage.querySelectorAll<HTMLElement>(".st-item[data-id]")].filter((el) => !el.hidden && !el.classList.contains("st-held"));
+      const owners = grips.map((g) => g.closest<HTMLElement>(".st-item[data-id]"));
+      const stray = owners.filter((o) => !o).length;
+      const inPages = grips.filter((g) => b.scroller.contains(g)).length;
+      const once = items.every((el) => owners.filter((o) => o === el).length === 1);
+      b.setFrozen(true);
+      const frozen = b.visibleGrips();
+      b.setFrozen(false);
+      const ok = stray === 0 && inPages === 0 && once && grips.length === items.length && frozen === 0;
+      return verdict(ok, `${items.length} grips, one per movable item, none in the pages; frozen, none`, `${grips.length} grips for ${items.length} items, ${stray} on nothing that moves, ${inPages} in the pages; frozen, ${frozen}`);
     },
   },
   {
@@ -289,6 +326,7 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["views"],
     preset: { layout: { column: ["pages", "views"], bar: ["tools", "zoom"], floats: [{ id: "annotations", rect: { x: 420, y: 120, width: 240, height: 150 } }, { id: "findings", rect: { x: 600, y: 290, width: 220, height: 190 } }] }, settings: { widthLimit: 60 } },
     fixtures: ["A group docked into a column of rails can be dragged out again"],
+    controls: ["widthLimit"],
     async check({ b, d, aim }) {
       const k = kindOf(b, "views");
       const g = b.gripOf("views");
@@ -310,10 +348,26 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["bar", "findings"],
     preset: { layout: { column: ["pages", "annotations"], bar: ["views", "tools", "findings"], floats: [] } },
     fixtures: ["T6: a form too thick for the bar steps down"],
-    async check({ b }) {
-      const fit = b.fits().bar;
-      const k = kindOf(b, "findings");
-      return verdict(fit.cross <= 40 && k === "header", "Bar ≤ 40 px tall, Findings as its header", `Bar ${fit.cross} px tall, Findings ${kindWords(k)}`);
+    controls: ["barLength", "height", "counts"],
+    async check(c) {
+      const { b } = c;
+      const seen: string[] = [];
+      const look = (when: string): boolean => {
+        const cross = b.fits().bar.cross;
+        const h = b.views.bar.el.getBoundingClientRect().height;
+        seen.push(`${when} ${cross} px`);
+        return cross <= 40 && h <= 40.5;
+      };
+      let ok = look("at start") && kindOf(b, "findings") === "header";
+      b.setEdge({ barLength: 300, height: 260 });
+      ok = look("resized") && ok;
+      b.setMeta("findings", { count: 12345 });
+      ok = look("12345") && ok;
+      b.setEdge({ barLength: EDGE_DEFAULTS.barLength, height: EDGE_DEFAULTS.height });
+      const shown = await dragTo(c, "pages", "bar", 0);
+      const k = kindOf(b, "pages");
+      ok = look("Pages dropped in") && shown && (k === "header" || k === "rail" || k === "menu") && ok;
+      return verdict(ok, "Bar ≤ 40 px tall at the start, resized, with a long count and with Pages dropped in (as a header)", `${seen.join(", ")}; Pages ${kindWords(k)}`);
     },
   },
   {
@@ -323,8 +377,9 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     expect: "Short of room, a group folds to its own grip and », in its place in the bar; the shared » entry comes only after the folds.",
     tries: ["Shorten the bar: Views folds where it stands, then Zoom.", "Shorten it further: Tools goes to its icons, then everything folds, and only then the » entry appears."],
     look: ["views", "bar"],
-    preset: { settings: { width: 640 } },
+    preset: { settings: { barLength: 640 } },
     fixtures: ["T1: a » per collapsed group, in line"],
+    controls: ["barLength"],
     async check({ b }) {
       const fit = b.fits().bar;
       const views = fit.items.find((p) => p.id === "views");
@@ -342,14 +397,22 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["zoom", "bar"],
     preset: { used: { zoom: 1 } },
     fixtures: ["T2/T4: a step goes only to a shorter form"],
+    controls: ["barLength"],
     async check({ b }) {
-      const seen = new Set<string>();
-      for (let w = 1000; w >= 420; w -= 20) {
-        b.setEdge({ width: w });
-        seen.add(kindOf(b, "zoom") ?? "nowhere");
+      const kinds: string[] = [];
+      let form = -1;
+      let grew = "";
+      for (let w = EDGE_DEFAULTS.barLength; w >= EDGE_BAR_LENGTH.min; w -= 10) {
+        b.setEdge({ barLength: w });
+        const p = b.fits().bar.items.find((x) => x.id === "zoom")!;
+        if (kinds[kinds.length - 1] !== p.kind) kinds.push(p.kind);
+        // Shortening the bar only ever steps Zoom down: its form index never goes back up.
+        if (p.form < form && !grew) grew = `at ${w} px from form ${form} back to ${p.form}`;
+        form = Math.max(form, p.form);
       }
-      b.setEdge({ width: EDGE_DEFAULTS.width });
-      return verdict(!seen.has("stacked"), "Zoom never stacked between 1000 and 420 px", `Zoom was ${[...seen].map(kindWords).join(", ")}`);
+      b.setEdge({ barLength: EDGE_DEFAULTS.barLength });
+      const ok = kinds[0] === "row" && kinds[1] === "fold" && !kinds.includes("stacked") && !grew;
+      return verdict(ok, `From ${EDGE_DEFAULTS.barLength} down to ${EDGE_BAR_LENGTH.min} px: Zoom a row, then a fold (never stacked), only ever shorter`, `Zoom was ${kinds.map(kindWords).join(" → ")}${grew ? `; grew ${grew}` : ""}`);
     },
   },
   {
@@ -361,16 +424,24 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["tools", "bar"],
     preset: { used: { tools: 0 } },
     fixtures: ["T3: the ranked primary gives way last"],
+    controls: ["barLength"],
     async check({ b }) {
       const bad: string[] = [];
-      for (let w = 1000; w >= 420; w -= 10) {
-        b.setEdge({ width: w });
+      const tools: string[] = [];
+      let foldAt = 0;
+      for (let w = EDGE_DEFAULTS.barLength; w >= EDGE_BAR_LENGTH.min; w -= 10) {
+        b.setEdge({ barLength: w });
         const fit = b.fits().bar;
-        const tools = fit.items.find((p) => p.id === "tools")?.kind;
-        if (tools === "fold" && fit.items.some((p) => p.id !== "tools" && p.kind !== "fold" && p.kind !== "menu" && b.orders.bar.includes(p.id as ItemId))) bad.push(`${w} px: ${barKinds(b)}`);
+        const t = fit.items.find((p) => p.id === "tools")!.kind;
+        if (tools[tools.length - 1] !== t) tools.push(t);
+        if (t === "fold" && !foldAt) foldAt = w;
+        // Tools folded while another group still shows more than its fold: the primary didn't give way last.
+        if (t === "fold" && fit.items.some((p) => p.id !== "tools" && p.kind !== "fold" && p.kind !== "menu")) bad.push(`${w} px: ${barKinds(b)}`);
       }
-      b.setEdge({ width: EDGE_DEFAULTS.width });
-      return verdict(bad.length === 0, "Whenever Tools is folded, every other group is folded or in the » menu", bad.length ? bad[0]! : "So at every length from 1000 to 420 px");
+      b.setEdge({ barLength: EDGE_DEFAULTS.barLength });
+      const ok = bad.length === 0 && foldAt > 0 && tools.indexOf("icons") >= 0 && tools.indexOf("icons") < tools.indexOf("fold");
+      const now = bad.length ? `folded too early at ${bad[0]!}` : foldAt ? `Tools was ${tools.map(kindWords).join(" → ")}, folding at ${foldAt} px with every other group already folded` : `Tools never folded (${tools.map(kindWords).join(" → ")})`;
+      return verdict(ok, `From ${EDGE_DEFAULTS.barLength} down to ${EDGE_BAR_LENGTH.min} px: Tools a row, then icons, and its fold only once every other group is folded`, now);
     },
   },
   {
@@ -382,6 +453,7 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["bar"],
     preset: { settings: { gap: 14, pad: 20 } },
     fixtures: ["T5: gaps, padding and the ends' reach", "The page draws the solver's rects"],
+    controls: ["gap", "pad"],
     async check({ b }) {
       const fit = b.fits().bar;
       const items = fit.items.filter((p) => p.kind !== "menu");
@@ -420,6 +492,7 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["annotations", "pages"],
     preset: {},
     fixtures: ["C1: the preview is the rect the item gets"],
+    controls: ["preview"],
     async check(c) {
       const shown = await dragTo(c, "annotations", "column", 0);
       const drop = c.b.lastDrop;
@@ -558,6 +631,7 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["column", "bar"],
     preset: { layout: { column: ["annotations", "pages"], bar: ["zoom", "views", "tools"], floats: [{ id: "findings", rect: { x: 520, y: 200, width: 220, height: 190 } }] }, from: { pages: 1 }, kept: ["annotations"] },
     fixtures: ["C13: a reload restores every item's place and form"],
+    controls: ["stored"],
     async check({ b }) {
       const look = () => b.seen().map((s) => `${s.id}:${s.where.kind === "dock" ? `${s.where.side}${s.where.at}` : "float"}:${s.kind}:${Math.round(s.rect.x)},${Math.round(s.rect.y)},${Math.round(s.rect.width)},${Math.round(s.rect.height)}`);
       const before = look();
@@ -576,6 +650,7 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["pages", "views"],
     preset: { frozen: true },
     fixtures: ["C14: frozen hides the grips and moves nothing; Alt moves"],
+    controls: ["freeze"],
     async check({ b, d }) {
       const hidden = b.visibleGrips();
       const head = b.itemEl("pages")!.querySelector<HTMLElement>("[data-grab]")!;
@@ -604,6 +679,7 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["views", "pages"],
     preset: {},
     fixtures: ["C15: no jump when a count or a phase changes"],
+    controls: ["counts"],
     async check({ b, d }) {
       const moved: string[] = [];
       const steps: [ItemId, { count?: number; phase?: Phase }][] = [["views", { count: 12345 }], ["pages", { phase: "busy" }], ["tools", { count: 0 }], ["findings", { count: 100 }]];
@@ -625,6 +701,7 @@ export const EDGE_CASES: readonly EdgeCase[] = [
     look: ["findings"],
     preset: {},
     fixtures: ["C16: a float has no pinned flag"],
+    controls: ["stored"],
     async check({ b }) {
       b.save();
       const written = b.stored().floats;
