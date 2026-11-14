@@ -116,12 +116,13 @@ export interface StackInput {
    */
   readonly accepts?: (item: StackItem) => boolean;
   /**
-   * Items take their own size across (default false: every item spans the stack's cross size). With it, an item whose
-   * current form doesn't set the cross size is drawn `cross.natural` across, clamped to the stack's cross size, from
-   * the stack's start edge across (the left of a column, the top of a bar), so a group in a side column is as wide as
-   * its own form asks, not as the column. Forms that set the cross size still span it, and so does the » entry. The
-   * stack's cross size, the forms, the notes and the lengths are as without it; only the rects of those items are
-   * narrower, and `stackTargets`' hits and markers still span the stack.
+   * Items take their own size across (default false: every item spans the stack's cross size). With it, an item is drawn
+   * `cross.natural` across, clamped to the stack's cross size, from the stack's start edge across (the left of a column,
+   * the top of a bar), so a group in a side column is as wide as its own form asks, not as the column. A panel's `open`
+   * form (one that sets the cross size) still spans it, and so does the » entry. A group's form that sets the cross size
+   * (words in a column: `stacked` with `setsCross: true`) widens the column to the widest such group but is drawn at its
+   * own width. The stack's cross size, the forms, the notes and the lengths are as without it; only the rects of those
+   * items are narrower, and `stackTargets`' hits and markers still span the stack.
    */
   readonly ownCross?: boolean;
 }

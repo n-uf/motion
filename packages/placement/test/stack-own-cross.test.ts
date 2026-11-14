@@ -44,18 +44,58 @@ describe("C28: ownCross", () => {
       if (p.kind === "open") expect(p.rect.width).toBe(own.cross);
       else expect(p.rect.width).toBeLessThanOrEqual(own.cross);
     }
-    const opts = fitStack({ ...stack([{ id: "x", used: 1, forms: [form("row", 50, 90, true), form("icons", 20, 28)] }], 400), ownCross: true });
-    expect(opts.items[0]!.rect.width).toBe(opts.cross);
   });
 
-  it("an explicit setsCross: false on an open form takes its own size; true on a group's form spans", () => {
+  it("an open form that doesn't set the cross size takes its own size; a group's form that does is drawn at its own width", () => {
     const solo: StackItem = { id: "x", used: 1, forms: [form("open", 50, 150, false), form("menu", 0, 0)] };
     const withPanel = { ...stack([panel("pages", 1), solo], 600), ownCross: true };
     expect(fitStack(withPanel).items[1]!.rect.width).toBe(150);
     const setter: StackItem = { id: "y", used: 1, forms: [form("row", 50, 90, true), form("menu", 0, 0)] };
     const fit = fitStack({ ...stack([setter], 600), ownCross: true });
-    expect(fit.cross).toBe(90 < limits.min ? limits.min : 90);
-    expect(fit.items[0]!.rect.width).toBe(fit.cross);
+    expect(fit.cross).toBe(limits.min);
+    expect(fit.items[0]!.rect.width).toBe(90);
+  });
+
+  /** The forms a group should have in a side column: stacked words (one word per line, sets the cross size), icons, the menu. */
+  const column = (id: string, used: number, wide: number): StackItem => ({ id, used, forms: [form("stacked", 78, wide, true), form("icons", 72, 28), form("menu", 0, 0)] });
+
+  it("a column holding only groups in their stacked form is as wide as the widest one; each group is drawn at its own width", () => {
+    const narrow = { min: 40, max: 360 };
+    const input: StackInput = { axis: "column", length: 600, cross: narrow, items: [column("views", 1, 84), column("tools", 2, 110), column("marks", 3, 96)] };
+    const plain = fitStack(input);
+    expect(plain.items.map((p) => p.kind)).toEqual(["stacked", "stacked", "stacked"]);
+    expect(plain.cross).toBe(110);
+    expect(plain.items.map((p) => p.rect.width)).toEqual([110, 110, 110]);
+    const own = fitStack({ ...input, ownCross: true });
+    expect(own.cross).toBe(110);
+    expect(own.items.map((p) => [p.rect.x, p.rect.width])).toEqual([[0, 84], [0, 110], [0, 96]]);
+    // Folded to icons (started there), none sets the cross size: the column is a rail and each icon group its own 28.
+    const short = fitStack({ ...input, items: input.items.map((it) => ({ ...it, from: 1 })), ownCross: true });
+    expect(short.items.map((p) => p.kind)).toEqual(["icons", "icons", "icons"]);
+    expect(short.cross).toBe(30);
+    expect(short.items.map((p) => p.rect.width)).toEqual([28, 28, 28]);
+  });
+
+  it("beside a wider open panel ownCross keeps each group at its own width, the panel spans the column", () => {
+    const input: StackInput = { axis: "column", length: 600, cross: { min: 40, max: 360 }, ownCross: true, items: [panel("pages", 1), column("views", 2, 84), column("tools", 3, 110)] };
+    const fit = fitStack(input);
+    expect(fit.cross).toBe(240);
+    expect(fit.items.map((p) => [p.id, p.rect.x, p.rect.width])).toEqual([["pages", 0, 240], ["views", 0, 84], ["tools", 0, 110]]);
+    // Without the option each stretches across the column, as ever.
+    expect(fitStack({ ...input, ownCross: false }).items.map((p) => p.rect.width)).toEqual([240, 240, 240]);
+    // A group dropped in: its preview is its own width, the hit and the marker span the column.
+    for (const t of stackTargets(input, column("marks", 9, 96))) {
+      expect(t.slot!.width).toBe(96);
+      expect(t.hit.width).toBe(240);
+      expect(t.marker.width).toBe(240);
+    }
+  });
+
+  it("dropping a words group into an empty side column makes it as wide as its stacked words, not as a row", () => {
+    const input: StackInput = { axis: "column", length: 600, cross: { min: 40, max: 360 }, ownCross: true, items: [] };
+    const [t] = stackTargets(input, column("marks", 9, 96));
+    expect(t!.fit.cross).toBe(96);
+    expect(t!.slot!.width).toBe(96);
   });
 
   it("an own size over the stack's is clamped to it; an own size under zero or not a number is 0 or the stack's", () => {
@@ -143,7 +183,7 @@ describe("C28: sweep", () => {
         const item = input.items.find((it) => it.id === p.id)!;
         const f = item.forms[p.form]!;
         const size = across(axis, p.rect).size;
-        if (p.kind === "menu" || formSetsCross(f)) expect(size).toBe(own.cross);
+        if (p.kind === "menu" || (f.kind === "open" && formSetsCross(f))) expect(size).toBe(own.cross);
         else expect(size).toBe(Math.min(own.cross, Math.max(0, f.cross.natural)));
       });
       // Targets: previews in the same bounds, hits and markers over the stack.
