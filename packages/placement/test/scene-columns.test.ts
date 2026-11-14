@@ -335,3 +335,35 @@ describe("the stored form carries the columns", () => {
     expect(read.scene.edges.find((e) => e.id === "left-0")!.items).toEqual(["pages", "annotations"]);
   });
 });
+
+describe("C29 across the whole scene", () => {
+  const f = fixture("scene-window-a.json");
+  const base = adapt(f, f.scenes.three!.scene, 1120);
+  // A bar between the columns with a fixed 200 px readout (its min).
+  const readout: SceneItem = { id: "readout", kind: "readout", used: 0, fixed: true, align: "center", forms: { row: [{ kind: "row", main: { min: 200, natural: 200 }, cross: { natural: 28 } }] } };
+  const status: Edge = { id: "status", side: "bottom", ring: 0, span: "between", accepts: [], items: ["readout"], cross: { min: 28, max: 28, rail: 28 } };
+  const s: Scene = { ...base, edges: [...base.edges, status], items: { ...base.items, readout }, contentMin: { width: 10, height: 10 } };
+
+  it("no target squeezes a fixed item in another edge under its min", () => {
+    const l = solve(s);
+    expect(l.items.readout!.rect.width).toBe(200);
+    for (const t of targets(s, "pages")) {
+      if (t.place.kind === "home") continue;
+      const a = t.after({ x: 0, y: 0 }).layout;
+      expect(a.items.readout!.rect.width).toBeGreaterThanOrEqual(199.5);
+    }
+    // Narrow enough that a new column between would leave the bar under 200: that line is refused.
+    const narrow = { ...s, stage: { ...s.stage, width: 780 } };
+    const free = targets({ ...narrow, edges: narrow.edges.filter((e) => e.id !== "status") }, "pages").filter((t) => t.place.kind === "column").map((t) => t.id);
+    const held = targets(narrow, "pages").filter((t) => t.place.kind === "column").map((t) => t.id);
+    expect(held.length).toBeLessThan(free.length);
+  });
+
+  it("a column or rail target whose landing covers chrome is skipped", () => {
+    const lines = targets(base, "annotations").filter((t) => t.place.kind === "column");
+    const one = lines[0]!;
+    const chrome = [one.after({ x: 0, y: 0 }).layout.items.annotations!.rect];
+    const ids = targets({ ...base, chrome }, "annotations").map((t) => t.id);
+    expect(ids).not.toContain(one.id);
+  });
+});
