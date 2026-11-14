@@ -4,7 +4,9 @@
  * is lifted out first, so a reorder within a stack works): before each item and after the last, so an empty stack has
  * one. An item with no forms has no place of its own, but its gaps count.
  *
- * - `id` `gap:<k>`, priority 2, `place` `{ kind: "gap", at: k }` (k counts the input's items, the dragged one lifted out).
+ * - `id` `gap:<k>`, priority 2, `place` `{ kind: "gap", at: k }` (k counts the input's items, the dragged one lifted
+ *   out, including any with no forms; it is not an index into `fit.items`, which leaves those out: look the dragged
+ *   item up there by its id, as `slot` already does).
  * - `hit`: the gap's zone along the axis, the stack split at its items' middles (an item in the menu has no place of
  *   its own: the gaps next to it split the stretch where the stack's drawn items end; with every item in the menu only
  *   the last gap, "at the end", has any length, and the others are a point at the start). Across, it is the larger of

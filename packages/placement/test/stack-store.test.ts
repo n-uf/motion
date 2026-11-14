@@ -76,17 +76,36 @@ describe("the stack's stored form", () => {
     expect(new Set(r.dropped).size).toBe(r.dropped.length);
   });
 
-  it("N3: __proto__ and constructor keys in forms are dropped and listed, and pollute nothing", () => {
-    const data = JSON.parse('{"v":1,"order":["a","__proto__","constructor"],"forms":{"__proto__":2,"constructor":3,"a":1}}');
+  it("N3: the __proto__ key in forms is dropped and listed, and pollutes nothing; constructor and prototype are ids like any other", () => {
+    const data = JSON.parse('{"v":1,"order":["a","__proto__","constructor","prototype"],"forms":{"__proto__":2,"constructor":3,"prototype":4,"a":1}}');
     const r = readStack(data);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect({ ...r.state.forms }).toEqual({ a: 1 });
-    expect(r.dropped).toEqual(expect.arrayContaining(["forms:__proto__", "forms:constructor"]));
+    expect({ ...r.state.forms }).toEqual({ a: 1, constructor: 3, prototype: 4 });
+    expect(r.state.forms.constructor).toBe(3);
+    expect(r.dropped).toEqual(["forms:__proto__"]);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
     expect(Object.getPrototypeOf(r.state.forms)).toBeNull();
-    // Writing them is refused too.
-    expect(storeStack({ order: ["a", "__proto__"], kept: [], closed: [], used: [], forms: JSON.parse('{"__proto__":2,"a":1}') }).forms).toEqual({ a: 1 });
+    // Writing: the same, and what is written reads back.
+    const s = storeStack({ order: ["a", "__proto__", "constructor", "prototype"], kept: [], closed: [], used: [], forms: Object.assign(Object.create(null), JSON.parse('{"__proto__":2,"constructor":3,"prototype":4,"a":1}')) });
+    expect({ ...s.forms }).toEqual({ a: 1, constructor: 3, prototype: 4 });
+    expect(Object.getPrototypeOf(s.forms)).toBeNull();
+    expect(JSON.parse(JSON.stringify(s)).forms).toEqual({ a: 1, constructor: 3, prototype: 4 });
+    const back = readStack(JSON.parse(JSON.stringify(s)));
+    expect(back.ok && { ...back.state.forms }).toEqual({ a: 1, constructor: 3, prototype: 4 });
+    // A plain object with no own such keys stores nothing for them.
+    expect({ ...storeStack({ order: ["constructor"], kept: [], closed: [], used: [], forms: {} }).forms }).toEqual({});
+  });
+
+  it("an id listed twice in used counts at its last place: the newest use wins, in the store and in the reader", () => {
+    const order = ["a", "b", "c"];
+    expect(storeStack({ order, kept: [], closed: [], used: ["b", "a", "b"], forms: {} }).used).toEqual(["a", "b"]);
+    const r = readStack({ v: 1, order, used: ["b", "a", "b", "c", "x"] });
+    expect(r.ok && r.state.used).toEqual(["a", "b", "c"]);
+    expect(r.ok && r.dropped).toEqual(["used:x"]);
+    // kept and closed keep the first place.
+    const k = readStack({ v: 1, order, kept: ["b", "a", "b"], closed: ["c", "a", "c"] });
+    expect(k.ok && [k.state.kept, k.state.closed]).toEqual([["b", "a"], ["c", "a"]]);
   });
 
   it("an item the consumer has and the stored order lacks is no error", () => {

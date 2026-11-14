@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { fitStack, stackTargets, withItem, type StackInput, type StackItem } from "../src/stack";
+import { fitStack, stackTargets, withItem, type StackInput, type StackItem, type StackTarget } from "../src/stack";
 import { group, mix, panel, seeded, stack } from "./stack-fixture";
+
+/** The dragged item as the target's fit has it: found by id, since `place.at` counts input items, not `fit.items`. */
+const dropped = (t: StackTarget) => t.fit.items.find((i) => i.id === t.item)!;
 
 const along = (axis: StackInput["axis"], r: { x: number; y: number; width: number; height: number }) => (axis === "column" ? { at: r.y, size: r.height } : { at: r.x, size: r.width });
 
@@ -52,7 +55,7 @@ describe("stackTargets", () => {
     expect(targets[2]!.input.items.map((i) => i.id)).toEqual(["views", "findings", "pages"]);
     expect(targets[2]!.fit.items.map((i) => i.id)).toEqual(["views", "findings", "pages"]);
     // The preview is the rect it gets after the move, as for an item from elsewhere.
-    for (const t of targets) expect(t.slot).toEqual(fitStack(t.input).items[t.place.at]!.rect);
+    for (const t of targets) expect(t.slot).toEqual(fitStack(t.input).items.find((i) => i.id === t.item)!.rect);
   });
 
   it("A2: a dragged item with no forms has no targets; an item with no forms in the stack still has its gaps", () => {
@@ -94,12 +97,12 @@ describe("stackTargets", () => {
   it("the marker is the line where the dragged item's leading edge lands", () => {
     const input = stack(items, 600);
     for (const t of stackTargets(input, panel("notes", 9))) {
-      const r = t.fit.items[t.place.at]!.rect;
+      const r = dropped(t).rect;
       expect(t.marker).toEqual({ x: r.x, y: r.y, width: r.width, height: 0 });
     }
     const row = stackTargets(stack([panel("a", 1)], 500, "row"), panel("b", 9));
     for (const t of row) {
-      const r = t.fit.items[t.place.at]!.rect;
+      const r = dropped(t).rect;
       expect(t.marker).toEqual({ x: r.x, y: r.y, width: 0, height: r.height });
     }
   });
@@ -117,11 +120,11 @@ describe("stackTargets", () => {
               const k = t.place.at;
               // What a drop does: the same stack with the item inserted, solved. The dragged item is the newest.
               const newest = Math.max(dragged.used, ...base.map((i) => i.used)) + 1;
-              const dropped = fitStack(withItem(input, { ...dragged, used: newest }, k));
-              expect(t.slot).toEqual(dropped.items[k]!.rect);
-              expect(t.fit).toEqual(dropped);
-              expect(fitStack(t.input)).toEqual(dropped);
-              expect(t.fit.items[k]!.id).toBe("d");
+              const solved = fitStack(withItem(input, { ...dragged, used: newest }, k));
+              expect(t.slot).toEqual(solved.items.find((i) => i.id === "d")!.rect);
+              expect(t.fit).toEqual(solved);
+              expect(fitStack(t.input)).toEqual(solved);
+              expect(dropped(t).id).toBe("d");
               expect(t.input.items.map((i) => i.id)).toEqual(withItem(input, dragged, k).items.map((i) => i.id));
               checked++;
             }
@@ -154,22 +157,22 @@ describe("stackTargets", () => {
     const tools = (used = 0): StackItem => group("tools", used);
     // Beside an open panel in a column there is room for a block of words; folded into a tight one it is icons.
     const roomy = stackTargets(stack([panel("pages", 1)], 800), tools());
-    expect(roomy.map((t) => t.fit.items[t.place.at]!.kind)).toEqual(["row", "row"]);
+    expect(roomy.map((t) => dropped(t).kind)).toEqual(["row", "row"]);
     // The column holds only groups: a rail, and the group is icons whichever gap it goes to.
     const rail = stackTargets(stack([group("views", 1), group("zoom", 2)], 800), tools());
-    expect(rail.map((t) => t.fit.items[t.place.at]!.kind)).toEqual(["icons", "icons", "icons"]);
+    expect(rail.map((t) => dropped(t).kind)).toEqual(["icons", "icons", "icons"]);
     expect(rail.every((t) => t.fit.cross === 30)).toBe(true);
     // Short of length: the others, older than the newcomer, give way first.
     const tight = stackTargets(stack([panel("pages", 1), panel("notes", 2)], 250), tools());
     for (const t of tight) {
-      expect(t.fit.items[t.place.at]!.form).toBe(0);
+      expect(dropped(t).form).toBe(0);
       expect(t.fit.notes).toEqual([{ code: "form-down", id: "pages", from: 0, to: 1 }]);
     }
   });
 
   it("a panel dropped into a rail column opens it to the panel's width", () => {
     const targets = stackTargets(stack([group("views", 1), group("tools", 2)], 600), panel("pages", 9));
-    expect(targets.every((t) => t.fit.cross === 240 && t.fit.items[t.place.at]!.kind === "open")).toBe(true);
+    expect(targets.every((t) => t.fit.cross === 240 && dropped(t).kind === "open")).toBe(true);
     // The hits reach as far across as the column will be after the drop.
     expect(targets[0]!.hit.width).toBe(240);
   });
