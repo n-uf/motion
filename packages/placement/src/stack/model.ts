@@ -98,6 +98,13 @@ export interface StackInput {
    * only clamped to `cross.max`, as it always was.
    */
   readonly strictCross?: boolean;
+  /**
+   * Which items this stack takes (default: every item). `stackTargets` gives no target for a dragged item it doesn't
+   * accept: an empty list, so a toolbar-only stack takes no panel and a panel-only one no group. What an item's kind is
+   * stays the host's: placement only calls this, on the dragged item, and `fitStack` never does (items already in the
+   * stack are laid out as given).
+   */
+  readonly accepts?: (item: StackItem) => boolean;
 }
 
 /** The width of a stack nothing open holds, px. */

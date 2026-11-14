@@ -19,7 +19,8 @@
  *
  * The dragged item counts as just used: it is newer than every item in the stack, so the others give way before it.
  * A group lands in the form that fits; a panel that would set a wider column makes room by that solve too. A dragged
- * item with no forms has no targets.
+ * item with no forms has no targets. Nor has one the stack doesn't accept (`input.accepts`); `options.allows` leaves out
+ * single gaps.
  */
 import { rect, type Rect } from "../geometry";
 import type { Target } from "../targets/target";
@@ -37,6 +38,12 @@ export interface StackTargetOptions {
    * they still fit, so it is the fit the drop makes when the app solves with the same `previous`.
    */
   readonly previous?: StackFit;
+  /**
+   * Whether a gap takes the dragged item (default: every gap does). Called with the dragged item and the gap's `at`
+   * (`place.at`: the gap before the k-th item of the input with the dragged one lifted out). A gap it refuses has no
+   * target; the others keep their ids, places and hits. The stack's own `accepts` is asked first, for the whole stack.
+   */
+  readonly allows?: (dragged: StackItem, at: number) => boolean;
 }
 
 export type StackPlace = { readonly kind: "gap"; readonly at: number };
@@ -86,6 +93,7 @@ function bounds(input: StackInput, fit: StackFit, reach: number): number[] {
 
 export function stackTargets(input: StackInput, dragged: StackItem, options: StackTargetOptions = {}): StackTarget[] {
   if (dragged.forms.length === 0) return [];
+  if (input.accepts && !input.accepts(dragged)) return [];
   const rest: StackInput = { ...input, items: input.items.filter((it) => it.id !== dragged.id) };
   const fitOptions: FitOptions = options.previous ? { previous: options.previous } : {};
   const base = fitStack(rest, fitOptions);
@@ -96,6 +104,7 @@ export function stackTargets(input: StackInput, dragged: StackItem, options: Sta
   const item: StackItem = { ...dragged, used: newest };
   const out: StackTarget[] = [];
   for (let k = 0; k <= rest.items.length; k++) {
+    if (options.allows && !options.allows(dragged, k)) continue;
     const solved = withItem(rest, item, k);
     const fit = fitStack(solved, fitOptions);
     const slot = fit.items.find((p) => p.id === dragged.id)!.rect;
