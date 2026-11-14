@@ -802,19 +802,26 @@ bar: that form's natural length along its orient, its other size kept.
 
 **`previous`.** `solve(scene, { previous })` hands each edge's fits (`edges[id].free` and `.stack`) to `fitStack`, so a
 change of ages alone (a press, `use`) or `raise` changes no rect (C23), a form that was only re-measured keeps its place,
-and one whose kind changed starts over.
+and one whose kind changed starts over. Whenever `content` isn't the rect `previous.content` was, the layout has a
+`content-changed` note (`{ from, to }`): a host refits its zoom only on that note, so a press or a float move never
+refits it.
 
 **Targets.** `targets(scene, id, { previous, endReach, floatSize })` gives, in the `@n-uf/motion/drag` shape:
 
 - `gap:<edge>:<zone>:<at>` (priority 2) for every edge whose `accepts` lists the item's kind (deny by default), before
   each item of each zone and at each zone's end, so an empty center or end zone can be opened; only where the item
   fits: not in the » menu, no `overflow`, nothing newly `too-wide`, every fixed item of the edge keeping its form and its
-  place, and no chrome under its slot. The hit runs halfway to the neighbouring gaps, across the larger of the edge's
-  thickness before and after the drop, the outer gaps `endReach` px past the ends, cut clear of fixed items and chrome.
-  `slot` is the item's rect after the drop and `marker` the insertion line across the edge.
+  place, and no chrome under its slot. Along the edge the hit follows `Edge.hitBand`: in a column (default 24) a band
+  that many px around the gap's insertion line, never into a neighbour's band, so the body of a panel away from its
+  edges is no gap and the pointer falls through to the float target (or to none); in a bar (default `"middle"`) the
+  edge split halfway between neighbouring lines. Gaps on one line (a zone's end and the next zone's start) are one
+  target, the first. The first and last reach `endReach` px past the edge's ends. Across, the hit is the larger of the
+  edge's thickness before and after the drop, and it is cut clear of fixed items and chrome. `slot` is the item's rect
+  after the drop and `marker` the insertion line across the edge.
 - `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side.
 - `float:<id>` (3, free) when `floatKinds` lists the kind: the whole plane, landing with the pointer holding the float
-  at `grab`, clamped and moved clear.
+  at `grab`, clamped and moved clear. It has no fixed `slot`: the slot to draw is
+  `after(point, grab).layout.items[id].rect`, for the pointer at the time.
 - `column:<side>:<ring>` (2): a new column on each column line of a side whose template takes the kind (outside the
   outermost open column, between two, inside the innermost, or at the content's edge), `COLUMN_REACH` (22) px each way.
 - `rail:<side>:<ring>` (1): docking folded into the side's rail, before each folded column's segments and after the
