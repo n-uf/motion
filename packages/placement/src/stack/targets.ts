@@ -50,9 +50,10 @@ export interface StackTargetOptions {
    * Offer a gap only where the dragged item fits beside the others (default false: every gap is offered, the dragged item
    * landing in the » menu or the stack overflowing if need be). With it a gap has no target when its fit puts the dragged
    * item into the menu, has an `overflow` note, has a `too-wide` note that the stack without the dragged item didn't have,
-   * or squeezes a `fixed` item: it is in another form, or drawn shorter along the stack than before the drop (or than its
-   * natural length, if that is less) or narrower across. A fixed item that grows, or grows back, is not squeezed. The gaps
-   * left keep their ids, hits and fits. With no room anywhere the result is `[]`.
+   * or squeezes a `fixed` item: it is in another form, shorter along the stack than its form's `main.min`, or narrower
+   * across than before the drop. A fixed item may shrink down to its `main.min` to make room, so the room for the others
+   * is the length less the fixed items' minimum sizes. The gaps left keep their ids, hits and fits. With no room anywhere
+   * the result is `[]`.
    */
   readonly onlyFits?: boolean;
 }
@@ -119,8 +120,8 @@ function bounds(input: StackInput, fit: StackFit, reach: number): { from: number
 /**
  * Whether a drop's fit leaves room for the dragged item: it isn't in the » menu, the stack doesn't `overflow`, no item
  * is `too-wide` that wasn't before (the dragged one, or one the drop made too wide), and no fixed item is squeezed: it
- * keeps its form, and it is drawn at least as long along the stack as before the drop (or at its natural length, if that
- * is less) and at least as wide across. A fixed item that grows, or grows back, is fine.
+ * keeps its form, is drawn at least as long along the stack as its form's `main.min` and at least as wide across as before
+ * the drop. A fixed item may shrink down to its `main.min` to make room (a title that grows gives back what it took).
  */
 function fitsBeside(
   base: StackFit,
@@ -143,9 +144,7 @@ function fitsBeside(
     const q = was.get(p.id);
     if (!item || !q || p.kind === "menu" || q.kind === "menu") continue;
     if (p.form !== q.form) return false;
-    const f = item.forms[p.form]!;
-    const natural = Math.max(f.main.min, f.main.natural);
-    if (main(p.rect) < Math.min(main(q.rect), natural) - 1e-6) return false;
+    if (main(p.rect) < Math.max(0, item.forms[p.form]!.main.min) - 1e-6) return false;
     if (across(p.rect) < across(q.rect) - 1e-6) return false;
   }
   return true;
