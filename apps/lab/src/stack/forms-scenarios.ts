@@ -151,19 +151,40 @@ const c8: Scenario<Page> = {
       }),
     );
     rows.push(
-      await rule("Opening or folding one panel never changes another's open state, and no open panel folds", (ok) => {
+      await rule("With room, opening or folding one panel folds no panel that was open", (ok) => {
         for (const c of combos) {
           for (const flip of PANELS.keys()) {
             PANELS.forEach((id, i) => p.setOpen(id, c[i]!));
             const before = fitFor(p, mode);
-            const states = PANELS.map((id) => p.items[id].open);
             p.setOpen(PANELS[flip]!, !c[flip]);
             const after = fitFor(p, mode);
             PANELS.forEach((id, i) => {
-              if (i === flip) return;
-              ok(p.items[id].open === states[i], `flipping ${titleOf(PANELS[flip]!)} changed ${titleOf(id)}'s open state`);
-              if (kindOf(before, id) === "open") ok(kindOf(after, id) === "open", `flipping ${titleOf(PANELS[flip]!)} folded ${titleOf(id)}`);
+              if (i !== flip && kindOf(before, id) === "open") ok(kindOf(after, id) === "open", `flipping ${titleOf(PANELS[flip]!)} folded ${titleOf(id)}`);
             });
+          }
+        }
+      }),
+    );
+    // Tight, the solver gives way by age. What the solver is given (each panel's first form, `from`) is still only
+    // the flipped panel's to change, and no panel is ever drawn in a form above the one it was given.
+    rows.push(
+      await rule("Tight, opening or folding one panel changes no other panel's first form, and the solver never draws one above it", (ok) => {
+        for (const length of mode === "bar" ? [440, 300] : [230, 160]) {
+          p.setLength(length);
+          for (const c of combos) {
+            for (const flip of PANELS.keys()) {
+              PANELS.forEach((id, i) => p.setOpen(id, c[i]!));
+              const before = p.placed();
+              p.setOpen(PANELS[flip]!, !c[flip]);
+              const after = p.placed();
+              const fit = fitFor(p, mode);
+              PANELS.forEach((id, i) => {
+                const was = before.find((x) => x.id === id)!;
+                const now = after.find((x) => x.id === id)!;
+                if (i !== flip) ok((was.from ?? 0) === (now.from ?? 0), `flipping ${titleOf(PANELS[flip]!)} changed ${titleOf(id)}'s first form at length ${length}`);
+                ok(formOf(fit, id) >= (now.from ?? 0), `${titleOf(id)} is drawn above its first form (${formOf(fit, id)} < ${now.from ?? 0}) at length ${length}`);
+              });
+            }
           }
         }
       }),

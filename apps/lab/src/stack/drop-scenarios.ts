@@ -103,6 +103,21 @@ const C1_CASES: Record<string, Case> = {
   "a group into the bar": { id: "views", into: "bar" },
   "a panel into the bar": { id: "findings", into: "bar" },
   "a group into a short column": { id: "zoom", into: "column", setup: (p) => p.setLength("column", 250) },
+  // Kept items give way last: a kept panel dragged into a short column that holds another kept panel.
+  "a kept panel into a short column": {
+    id: "annotations",
+    into: "column",
+    setup: (p) => {
+      p.setLength("column", 300);
+      p.setOrders({ column: ["views", "pages", "findings"], bar: ["annotations", "tools", "zoom"] }, undefined, { kept: ["annotations", "pages"] });
+    },
+  },
+  // A panel folded by hand starts at its header, dragged and in the column it lands in.
+  "a panel folded by hand into the column": {
+    id: "pages",
+    into: "column",
+    setup: (p) => p.setOrders({ column: ["views", "annotations", "findings"], bar: ["pages", "tools", "zoom"] }, undefined, { from: { pages: 1, findings: 1 } }),
+  },
 };
 
 const c1: Scenario<Page> = {
