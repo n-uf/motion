@@ -506,24 +506,36 @@ pure.
   beside any of the `avoid` rects (the docked items' rects, and the » entries', in the same px) it would cover, at the
   nearest place that is clear and inside the stage. A float larger than the stage keeps its top-left corner on the
   stage's. When the stage has no clear place for it, it stays where it covers the least and `covers` lists the `avoid`
-  indexes it still covers. `FloatFit`: `rect`, `clamped`, `snapped`, `covers`. Fit the floats again whenever the stacks or
-  the stage change: a stack that grew may lie under one.
-- `floatTarget({ id, stage, size, avoid?, label? })` is a drop target in the shape `@n-uf/motion/drag` takes: `id`
-  `"float"`, priority 3 (a stack's gaps, priority 2, win where they are), `free` (no room is made for it) and a `hit`
-  that covers the whole plane, so a pointer past the stage's edge, above, below or beside it, still hits it and a float
-  drop never cancels. `make(point, grab?)` is the one answer for the preview and the drop: the float's rect with the
-  pointer at `point` holding it at `grab` (its offset in the float; default the middle), run through `fitFloat`. Draw
-  `make(...).rect` as the preview, and land the float on the same call at the release.
+  indexes it still covers. `FloatFit`: `rect`, `clamped` (also true when a position that wasn't a number was replaced),
+  `snapped`, `covers`. Fit the floats again whenever the stacks or the stage change: a stack that grew may lie under one.
+  Cost: the candidate places (every edge of the stage and of an `avoid` rect, crossed) are tried nearest first and the
+  first clear one is the answer, after leaving out the rects that can't touch the float. With 300 `avoid` rects that is
+  a millisecond or two on a laptop (a pointer move per frame is fine); the search looks at 20,000 places at most, then
+  at 2,048 for the least covered, so a stage too crowded for the float is bounded too. Keep `avoid` to the docked
+  items, not to every pixel.
+- `stackFloatTarget({ id, stage, size, avoid?, label? })` is a drop target in the shape `@n-uf/motion/drag` takes: `id`
+  `float:<id>` (not `"float"`, which `./desk` uses) and `kind: "float"`, priority 3 (a stack's gaps, priority 2, win
+  where they are), `free` (no room is made for it) and a `hit` that covers the whole plane, so a pointer past the
+  stage's edge, above, below or beside it, still hits it and a float drop never cancels. `make(point, grab?)` is the one
+  answer for the preview and the drop: the float's rect with the pointer at `point` holding it at `grab` (its offset in
+  the float; default the middle), run through `fitFloat`. Draw `make(...).rect` as the preview, and land the float on
+  the same call at the release. The intent lets a higher priority target take over from the current one only when the
+  pointer is `breakthrough` px (4) inside it, so a gap zone thinner than 8 px (2 × the breakthrough) along either axis
+  can never take over from the float target: give the gaps' `hit` at least that much room (the lab widens a thin
+  stack's zone across, and the first and last gap's past the stack's ends).
 - `storeFloats(floats)` and `readFloats(data, known?)`: `{ v: 1, floats: [{ id, x, y, width, height }] }`, in stacking
-  order (the last is on top). It writes no `pinned`. Reading never throws: anything but an object of version 1 with a
-  `floats` array is `{ ok: false, error }`; inside one, a float that isn't an object, has no string id, repeats an id, isn't
-  one the consumer has (with `known`) or has a position that isn't a finite number or a size that isn't over 0 is dropped and listed in
-  `dropped` as `float:<id>`; a field this version doesn't know is listed as `"<field>"` (a float's own as
-  `float:<id>:<field>`). A `pinned` key, which an older store may have, is read and ignored: the float loads as a plain
-  float, at the rect it was stored with, and `pinned:<id>` is listed.
+  order (the last is on top). It writes no `pinned`. `storeFloats` leaves out, silently, a float whose position isn't a
+  finite number or whose size isn't over 0, and keeps the last readable entry of a repeated id (the one on top, at its
+  own place in the order). Reading never throws: anything but an object of version 1 with a `floats` array is
+  `{ ok: false, error }` (the version worded as the stack's reader words it, a string quoted); inside one, a float that
+  isn't an object, has no string id, isn't one the consumer has (with `known`) or has a position that isn't a finite
+  number or a size that isn't over 0 is dropped and listed in `dropped` as `float:<id>`; of a repeated id the last
+  readable entry stays and the earlier ones are listed the same way; a field this version doesn't know is listed as
+  `"<field>"` (a float's own as `float:<id>:<field>`). A `pinned` key, which an older store may have, is read and
+  ignored: the float loads as a plain float, at the rect it was stored with, and `pinned:<id>` is listed.
 
 ```ts
-import { fitFloat, floatTarget, readFloats, storeFloats } from "@n-uf/placement/stack";
+import { fitFloat, readFloats, stackFloatTarget, storeFloats } from "@n-uf/placement/stack";
 
 const stage = { x: 0, y: 0, width: 900, height: 500 };
 const docked = [{ x: 0, y: 32, width: 240, height: 468 }]; // a column of docked items, in the stage's px
@@ -531,7 +543,7 @@ const docked = [{ x: 0, y: 32, width: 240, height: 468 }]; // a column of docked
 const fit = fitFloat({ x: 100, y: 200, width: 200, height: 150 }, stage, docked);
 console.log(fit.rect, fit.snapped); // { x: 240, y: 200, width: 200, height: 150 } true
 
-const target = floatTarget({ id: "notes", stage, size: { width: 200, height: 150 }, avoid: docked });
+const target = stackFloatTarget({ id: "notes", stage, size: { width: 200, height: 150 }, avoid: docked });
 const drop = target.make({ x: 500, y: -400 }, { x: 20, y: 10 }); // the pointer is above the stage
 console.log(drop.rect, drop.fit.clamped); // { x: 480, y: 0, width: 200, height: 150 } true
 

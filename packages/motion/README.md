@@ -331,7 +331,7 @@ targets, and draws what it says. It is only there, not in the root.
 
 | | |
 |---|---|
-| `createDragIntent({ home, tuning?, placeOf? })` | `update(point, time, targets)` once a frame while an item is held, returning `{ shown, room, roomPlace, aiming }`; `release(point, targets)`, the target a release lands on or null (home); `hide(time)` while the view scrolls under the pointer; `moveHome(dx, dy)`; `state`; `tuning`. |
+| `createDragIntent({ home, tuning?, placeOf? })` | `update(point, time, targets)` once a frame while an item is held, returning `{ shown, room, roomPlace, aiming, atHome }` (`atHome`: the pointer is back inside `home` after it has left it; never true before. Over home no target is shown and a release does nothing, so a host that wants to say "a drop here returns it" draws its own indicator at the home rect for that frame); `release(point, targets)`, the target a release lands on or null (home); `hide(time)` while the view scrolls under the pointer; `moveHome(dx, dy)`; `state`; `tuning`. |
 | `DRAG_DEFAULTS` | Lift at 5 px (a touch: a 180 ms hold, then 8 px); aiming below 0.45 px/ms over 50 ms, or within 12 px for 90 ms; a 10 px band, a 4 px breakthrough, a 120 ms gap grace; a switch waits 150 ms; room after 160 ms. Each is overridable per intent. |
 | `targetAt(targets, point)`, `inRect(rect, point, margin?)` | The most precise target under a point (priority 1, 2, 3, then the smaller zone); a point in a rect grown or shrunk by a margin. |
 | `liftDecision({ touch, distance, elapsed }, tuning?)` | `"wait"`, `"lift"` or `"refuse"`: when a press becomes a drag. |
