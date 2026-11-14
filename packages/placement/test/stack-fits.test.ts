@@ -60,6 +60,38 @@ describe("onlyFits", () => {
     expect(ids(bar(squeezable, 460), words("marks", 5))).toEqual(["gap:0", "gap:1", "gap:2", "gap:3"]);
   });
 
+  it("a fixed title that grows is not squeezed by a drop: it only gives back what it took", () => {
+    // The title takes the whole bar (600) while alone; with the group beside it it is 520, still over its natural 100.
+    const title: StackItem = { id: "title", used: 0, fixed: true, forms: [{ kind: "row", main: { min: 100, natural: 100, grows: true }, cross: { natural: 26 } }] };
+    const input: StackInput = { axis: "row", length: 600, cross: { min: 30, max: 40 }, items: [title] };
+    const dragged: StackItem = { id: "d", used: 1, forms: [form("row", 80), form("menu", 0)] };
+    expect(stackTargets(input, dragged).length).toBe(2);
+    expect(ids(input, dragged)).toEqual(["gap:0", "gap:1"]);
+    // Down to the title's natural length plus the group (100 + 80) it is still a target; under it the bar overflows.
+    expect(ids({ ...input, length: 180 }, dragged)).toEqual(["gap:0", "gap:1"]);
+    expect(ids({ ...input, length: 179 }, dragged)).toEqual([]);
+  });
+
+  it("a squeezed title that grows back when a neighbour folds is not squeezed further", () => {
+    const title = fixed("title", 120, 200);
+    const input = bar([title, words("a", 1)], 400);
+    const base = fitStack(input);
+    // Before the drop the title is squeezed (180 of its 200) beside the open group.
+    expect(base.items[0]!.rect.width).toBeCloseTo(180, 6);
+    const dragged: StackItem = { id: "d", used: 5, forms: [form("row", 80), form("menu", 0)] };
+    // The drop makes the group give way (its icons), so the title is back at its 200.
+    const targets = stackTargets(input, dragged, { onlyFits: true });
+    expect(targets.map((t) => t.id)).toEqual(["gap:0", "gap:1", "gap:2"]);
+    for (const t of targets) {
+      expect(t.fit.items.find((p) => p.id === "a")!.kind).toBe("icons");
+      expect(t.fit.items.find((p) => p.id === "title")!.rect.width).toBeGreaterThan(base.items[0]!.rect.width);
+    }
+    // Squeezed further (a longer dragged item, the group already as small as it gets): refused.
+    const wider: StackItem = { id: "d", used: 5, forms: [form("row", 150), form("menu", 0)] };
+    expect(ids(input, wider)).toEqual([]);
+    expect(stackTargets(input, wider).length).toBe(3);
+  });
+
   it("a dragged item that is too wide across is a refusal; so is a gap that makes another item too wide", () => {
     const wide: StackItem = { id: "wide", used: 5, forms: [form("row", 60, 60, 60), form("menu", 0)] };
     const input = bar([chrome[0]!], 800);
@@ -87,16 +119,21 @@ describe("onlyFits", () => {
 });
 
 describe("onlyFits: sweep", () => {
-  /** The rule, read from a drop's fit (not from the solver's code): the dragged item is drawn, nothing overflows or is newly too wide, fixed items keep their size. */
-  const fitsBeside = (base: StackFit, fit: StackFit, dragged: string, fixedIds: readonly string[]): boolean => {
+  /** The rule, read from a drop's fit (not from the solver's code): the dragged item is drawn, nothing overflows or is newly too wide, no fixed item is squeezed. */
+  const fitsBeside = (base: StackFit, fit: StackFit, dragged: string, fixedItems: readonly StackItem[], axis: StackInput["axis"]): boolean => {
     if (fit.items.find((p) => p.id === dragged)!.kind === "menu") return false;
     if (fit.notes.some((n) => n.code === "overflow")) return false;
     const before = new Set(base.notes.filter((n) => n.code === "too-wide").map((n) => (n as { id: string }).id));
     if (fit.notes.some((n) => n.code === "too-wide" && !before.has(n.id))) return false;
-    return fixedIds.every((id) => {
-      const a = base.items.find((p) => p.id === id)!;
-      const b = fit.items.find((p) => p.id === id)!;
-      return a.kind === "menu" || b.kind === "menu" || (Math.abs(a.rect.width - b.rect.width) <= EPS && Math.abs(a.rect.height - b.rect.height) <= EPS);
+    const along = (r: { width: number; height: number }) => (axis === "column" ? r.height : r.width);
+    const cross = (r: { width: number; height: number }) => (axis === "column" ? r.width : r.height);
+    return fixedItems.every((it) => {
+      const a = base.items.find((p) => p.id === it.id)!;
+      const b = fit.items.find((p) => p.id === it.id)!;
+      if (a.kind === "menu" || b.kind === "menu") return true;
+      const f = it.forms[b.form]!;
+      const natural = Math.max(f.main.min, f.main.natural);
+      return b.form === a.form && along(b.rect) >= Math.min(along(a.rect), natural) - EPS && cross(b.rect) >= cross(a.rect) - EPS;
     });
   };
 
@@ -115,8 +152,8 @@ describe("onlyFits: sweep", () => {
       const everything = stackTargets(input, dragged);
       const fits = stackTargets(input, dragged, { onlyFits: true });
       const base = fitStack(input);
-      const fixedIds = input.items.filter((it) => it.fixed).map((it) => it.id);
-      const expected = everything.filter((t) => fitsBeside(base, t.fit, "d", fixedIds));
+      const fixedItems = input.items.filter((it) => it.fixed);
+      const expected = everything.filter((t) => fitsBeside(base, t.fit, "d", fixedItems, axis));
       expect(fits.map((t) => t.id)).toEqual(expected.map((t) => t.id));
       expect(fits).toEqual(expected);
       for (const t of fits) {

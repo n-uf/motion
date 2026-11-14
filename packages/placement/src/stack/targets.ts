@@ -50,8 +50,9 @@ export interface StackTargetOptions {
    * Offer a gap only where the dragged item fits beside the others (default false: every gap is offered, the dragged item
    * landing in the » menu or the stack overflowing if need be). With it a gap has no target when its fit puts the dragged
    * item into the menu, has an `overflow` note, has a `too-wide` note that the stack without the dragged item didn't have,
-   * or draws a `fixed` item at another size (along the stack or across it) than before the drop. The gaps left keep their
-   * ids, hits and fits. With no room anywhere the result is `[]`.
+   * or squeezes a `fixed` item: it is in another form, or drawn shorter along the stack than before the drop (or than its
+   * natural length, if that is less) or narrower across. A fixed item that grows, or grows back, is not squeezed. The gaps
+   * left keep their ids, hits and fits. With no room anywhere the result is `[]`.
    */
   readonly onlyFits?: boolean;
 }
@@ -117,20 +118,35 @@ function bounds(input: StackInput, fit: StackFit, reach: number): { from: number
 
 /**
  * Whether a drop's fit leaves room for the dragged item: it isn't in the » menu, the stack doesn't `overflow`, no item
- * is `too-wide` that wasn't before (the dragged one, or one the drop made too wide), and no fixed item is drawn at
- * another size than before the drop (its length along the stack or across it).
+ * is `too-wide` that wasn't before (the dragged one, or one the drop made too wide), and no fixed item is squeezed: it
+ * keeps its form, and it is drawn at least as long along the stack as before the drop (or at its natural length, if that
+ * is less) and at least as wide across. A fixed item that grows, or grows back, is fine.
  */
-function fitsBeside(base: StackFit, fit: StackFit, dragged: PlacedStackItem, fixed: ReadonlySet<string>, tooWideBefore: ReadonlySet<string>): boolean {
+function fitsBeside(
+  base: StackFit,
+  fit: StackFit,
+  dragged: PlacedStackItem,
+  fixed: ReadonlyMap<string, StackItem>,
+  axis: StackInput["axis"],
+  tooWideBefore: ReadonlySet<string>,
+): boolean {
   if (dragged.kind === "menu") return false;
   for (const n of fit.notes) {
     if (n.code === "overflow") return false;
     if (n.code === "too-wide" && !tooWideBefore.has(n.id)) return false;
   }
+  const main = (r: Rect): number => (axis === "column" ? r.height : r.width);
+  const across = (r: Rect): number => (axis === "column" ? r.width : r.height);
   const was = new Map(base.items.map((p) => [p.id, p]));
   for (const p of fit.items) {
+    const item = fixed.get(p.id);
     const q = was.get(p.id);
-    if (!fixed.has(p.id) || !q || p.kind === "menu" || q.kind === "menu") continue;
-    if (Math.abs(p.rect.width - q.rect.width) > 1e-6 || Math.abs(p.rect.height - q.rect.height) > 1e-6) return false;
+    if (!item || !q || p.kind === "menu" || q.kind === "menu") continue;
+    if (p.form !== q.form) return false;
+    const f = item.forms[p.form]!;
+    const natural = Math.max(f.main.min, f.main.natural);
+    if (main(p.rect) < Math.min(main(q.rect), natural) - 1e-6) return false;
+    if (across(p.rect) < across(q.rect) - 1e-6) return false;
   }
   return true;
 }
@@ -145,7 +161,7 @@ export function stackTargets(input: StackInput, dragged: StackItem, options: Sta
   const reach = Math.max(0, Number.isFinite(options.endReach) ? options.endReach! : 0);
   const b = bounds(rest, base, reach);
   const column = rest.axis === "column";
-  const fixedIds = new Set(rest.items.filter((it) => it.fixed).map((it) => it.id));
+  const fixedItems = new Map(rest.items.filter((it) => it.fixed).map((it) => [it.id, it]));
   const tooWideBefore = new Set(base.notes.flatMap((n) => (n.code === "too-wide" ? [n.id] : [])));
   const newest = rest.items.reduce((m, it) => Math.max(m, it.used), dragged.used) + 1;
   const item: StackItem = { ...dragged, used: newest };
@@ -156,7 +172,7 @@ export function stackTargets(input: StackInput, dragged: StackItem, options: Sta
     const fit = fitStack(solved, fitOptions);
     const placed = fit.items.find((p) => p.id === dragged.id)!;
     const slot = placed.rect;
-    if (options.onlyFits && !fitsBeside(base, fit, placed, fixedIds, tooWideBefore)) continue;
+    if (options.onlyFits && !fitsBeside(base, fit, placed, fixedItems, rest.axis, tooWideBefore)) continue;
     const from = b.from[k]!;
     const to = b.to[k]!;
     const across = Math.max(base.cross, fit.cross);
