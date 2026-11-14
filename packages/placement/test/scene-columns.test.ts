@@ -279,7 +279,18 @@ describe("column and rail targets", () => {
   it("kinds deny by default (P13): no rail, column or gap target for a kind the side doesn't take", () => {
     const g: SceneItem = { id: "tools", kind: "group", used: 9, forms: { column: [{ kind: "icons", main: { min: 80, natural: 80 }, cross: { natural: 28 } }] } };
     const withGroup: Scene = { ...s, items: { ...s.items, tools: g }, floats: [{ id: "tools", rect: { x: 400, y: 100, width: 100, height: 40 } }], floatKinds: ["panel", "group"] };
-    expect(targets(withGroup, "tools").map((t) => t.id)).toEqual(["float:tools", "home:tools"]);
+    expect(targets(withGroup, "tools").map((t) => t.id)).toEqual(["float:tools"]);
+  });
+
+  it("gesture P10: a floating item has no home, so a move of 40 px inside its own rect moves it", () => {
+    const g: SceneItem = { id: "tools", kind: "group", used: 9, forms: { column: [{ kind: "icons", main: { min: 80, natural: 80 }, cross: { natural: 28 } }] } };
+    const sc: Scene = { ...s, items: { ...s.items, tools: g }, floats: [{ id: "tools", rect: { x: 400, y: 100, width: 100, height: 200 } }], floatKinds: ["panel", "group"] };
+    const ts = targets(sc, "tools");
+    expect(ts.some((t) => t.place.kind === "home")).toBe(false);
+    const f = ts.find((t) => t.id === "float:tools")!;
+    const a = f.after({ x: 450, y: 240 }, { x: 50, y: 100 });
+    expect(a.layout.items.tools!.rect).toMatchObject({ x: 400, y: 140 });
+    expect(a.scene.floats[0]!.rect.y).toBe(140);
   });
 
   it("preview = result for every target, and stops come in reading order without home", () => {
