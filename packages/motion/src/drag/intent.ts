@@ -119,9 +119,11 @@ export interface DragFrame<T extends DragTarget> {
   /** The pointer is aiming: slow, or nearly still for a moment. */
   readonly aiming: boolean;
   /**
-   * The pointer is back inside `home` after it has left it (`state.leftHome` and the pointer in `home`). Never true
-   * before the pointer left. Over home no target is shown and a release does nothing, so a host that wants to say
-   * "a drop here returns it" draws its own indicator for this frame (at the home rect); the intent still shows no target.
+   * The pointer is back inside `home` after it has been outside `home` itself. Never true at the press, nor while the
+   * pointer only moves about inside `home`, even near its edge (where `state.leftHome` is already true: that flag is for
+   * the indicator's gate and uses `homeInset`; this one does not). Over home no target is shown and a release does
+   * nothing, so a host that wants to say "a drop here returns it" draws its own indicator for this frame (at the home
+   * rect); the intent still shows no target.
    */
   readonly atHome: boolean;
 }
@@ -233,6 +235,8 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   let placeSince = 0;
   let roomPlace: string | null = null;
   let leftHome = false;
+  // The pointer has been outside `home` itself (`leftHome` turns on already near its edge): `atHome`'s own memory.
+  let wentOut = false;
   let speed = 0;
   let anchor: Point | null = null;
   let stillSince = 0;
@@ -259,6 +263,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       }
       if (!inRect(home, p, -tuning.homeInset)) leftHome = true;
       const atHome = inRect(home, p);
+      if (!atHome) wentOut = true;
       // Each target's place at this point, worked out once per sample; a null place is no target.
       const places = new Map<string, string | null>();
       const placeAt = (x: T): string | null => {
@@ -310,7 +315,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       else if (t - shownSince >= tuning.roomAfter && t - placeSince >= tuning.roomAfter) roomPlace = place;
       else if (shownSince === t) roomPlace = null;
       lastPlaces = places;
-      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: leftHome && atHome };
+      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: wentOut && atHome };
     },
     release(point, targets) {
       if (inRect(home, point)) return null;

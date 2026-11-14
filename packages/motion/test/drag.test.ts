@@ -380,6 +380,25 @@ describe("drag/ intent", () => {
     expect(at(mid(A.hit)).atHome).toBe(false);
   });
 
+  it("atHome is not true at the press, even where leftHome already is (a press near home's edge; a home too small to have an inside)", () => {
+    // leftHome turns on within homeInset (6 px) of the edge while the pointer is still inside home: atHome must not.
+    const header = createDragIntent({ home: rect(0, 0, 200, 30) });
+    const f = header.update({ x: 100, y: 3 }, 0, []);
+    expect([f.atHome, header.state.leftHome]).toEqual([false, true]);
+    expect(header.update({ x: 100, y: 12 }, FRAME, []).atHome).toBe(false);
+    expect(header.update({ x: 2, y: 28 }, 2 * FRAME, []).atHome).toBe(false);
+    // Out of home, then back in: true.
+    header.update({ x: 100, y: 80 }, 3 * FRAME, []);
+    expect(header.update({ x: 100, y: 3 }, 4 * FRAME, []).atHome).toBe(true);
+    // A 10 x 10 home pressed at its centre: it has no part further than 6 px from an edge, so leftHome is true at once; atHome is not.
+    const small = createDragIntent({ home: rect(100, 100, 10, 10) });
+    const s = small.update({ x: 105, y: 105 }, 0, []);
+    expect([s.atHome, small.state.leftHome]).toEqual([false, true]);
+    expect(small.update({ x: 107, y: 103 }, FRAME, []).atHome).toBe(false);
+    small.update({ x: 140, y: 105 }, 2 * FRAME, []);
+    expect(small.update({ x: 105, y: 105 }, 3 * FRAME, []).atHome).toBe(true);
+  });
+
   it("atHome needs the pointer to have left home first, even where home overlaps a target, and hide() doesn't forget that it left", () => {
     // A home that overlaps a target: the pointer over both, never having left home, is not atHome.
     const home = rect(0, 0, 200, 100);
