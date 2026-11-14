@@ -4,6 +4,9 @@
  * clear of. `solve(scene)` gives every rect a host draws; `targets(scene, dragged)` gives every drop target for one
  * item, each with the scene and layout a release there makes, so the preview is the result. The changes are pure, and
  * `storeScene` / `readScene` keep a scene across reloads. No time, no DOM, nothing module-global.
+ *
+ * Constants: `DEFAULT_HIT_BAND` (a column's gap band, px), `DEFAULT_STRIP` (an empty edge's drop strip, px),
+ * `DEFAULT_FLOAT_SIZE`; `SIDES` and `ZONES` list the sides and zones in order.
  */
 export {
   DEFAULT_FLOAT_SIZE,
@@ -11,7 +14,6 @@ export {
   DEFAULT_STRIP,
   SIDES,
   ZONES,
-  axisOf,
   type ColumnTemplate,
   type Edge,
   type FloatAnchor,
@@ -32,6 +34,6 @@ export {
   type Zone,
 } from "./model";
 export { solve } from "./solve";
-export { close, fold, floatAt, homeFor, keep, lift, moveTo, open, orient, prune, raise, resize, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";
+export { close, fold, floatAt, homeFor, keep, moveTo, open, orient, raise, resize, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";
 export { readScene, storeScene, type SceneRead, type StoredScene, type StoredSceneEdge, type StoredSceneFloat, type StoredSceneItem } from "./store";
-export { COLUMN_REACH, PLANE, RAIL_EDGE, stops, targets, type SceneAfter, type ScenePlace, type SceneTarget, type SceneTargetOptions } from "./targets";
+export { stops, targets, type SceneAfter, type ScenePlace, type SceneTarget, type SceneTargetOptions } from "./targets";
