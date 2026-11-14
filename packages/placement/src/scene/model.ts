@@ -95,6 +95,29 @@ export interface Edge {
   readonly railShowsClosed?: boolean;
   /** The drop strip's depth while the edge is empty, px (default {@link DEFAULT_STRIP}). */
   readonly strip?: number;
+  /**
+   * A dynamic column (left and right only): made by a drop on a column line, deleted when it holds no item, folded whole
+   * into its side's rail by give-way (`Scene.contentMin`) or when every member is folded by hand. Its `accepts`,
+   * `cross`, `gap`, `pad` and `menu` come from `Scene.columns[side]` when the changes make it.
+   */
+  readonly column?: boolean;
+}
+
+/** What a side's new columns are made from. */
+export interface ColumnTemplate {
+  readonly accepts: readonly Kind[];
+  readonly cross: CrossLimits;
+  readonly gap?: number;
+  readonly pad?: { readonly start?: number; readonly end?: number };
+  readonly menu?: { readonly main: number };
+}
+
+/** A side's one rail strip: folded columns show in it as segments, in ring order. */
+export interface RailSpec {
+  /** Its width, px. */
+  readonly width: number;
+  /** The kinds a drop on the rail may bring (it docks folded). */
+  readonly accepts: readonly Kind[];
 }
 
 export interface SceneFloat {
@@ -120,6 +143,25 @@ export interface Scene {
   readonly chrome?: readonly Rect[];
   /** Spots where a release cancels: `targets` gives a `none` target over each. */
   readonly blocked?: readonly Rect[];
+  /** Per side (left, right): what a new column is made from. A side without one gets no new columns. */
+  readonly columns?: Partial<Record<"left" | "right", ColumnTemplate>>;
+  /** Per side (left, right): its rail. A side without one keeps folded columns as columns. */
+  readonly rails?: Partial<Record<"left" | "right", RailSpec>>;
+  /**
+   * The least the content may be. While the content is narrower than `width`, dynamic columns shrink toward their
+   * minimum, then fold whole into their side's rail: unkept before kept, the one whose newest use is oldest first, the
+   * outer first, the left first. Under `height`, a `content-short` note.
+   */
+  readonly contentMin?: { readonly width: number; readonly height: number };
+  /**
+   * How a one-panel column folded by hand shows (default `"bar"`): `"bar"` sends it to its side's rail; `"ride"` draws it
+   * as a title bar over the first open column of its side, at that column's width, taking no width of its own.
+   */
+  readonly handFold?: "bar" | "ride";
+  /** Space kept clear inside the stage's edges, px (default 0 each). */
+  readonly inset?: { readonly top?: number; readonly right?: number; readonly bottom?: number; readonly left?: number };
+  /** Space after each left or right edge and each rail that takes room, toward the content, px (default 0). */
+  readonly gutter?: number;
 }
 
 /** An item as laid out. */
@@ -140,6 +182,12 @@ export interface SceneItemLayout {
   /** A closed item shown as a rail tab (`railShowsClosed`). */
   readonly closed?: boolean;
   readonly fixed?: boolean;
+  /** Drawn as a segment of this side's rail (its column is folded). */
+  readonly rail?: "left" | "right";
+  /** Drawn as a title bar riding on this column (`handFold: "ride"`). */
+  readonly rides?: string;
+  /** Its column folded: by hand (every member folded) or by give-way. */
+  readonly folded?: "hand" | "auto";
 }
 
 /** An edge as laid out. */
@@ -160,6 +208,19 @@ export interface SceneEdgeLayout {
    */
   readonly stack: StackFit;
   readonly free: StackFit;
+  /** A dynamic column folded into its side's rail (its rect is zero wide there): by hand or by give-way. */
+  readonly folded?: "hand" | "auto";
+  /** Shrunk by give-way below the width it asks for. */
+  readonly shrunk?: boolean;
+  /** Riding on this column (its rect is the bars'). */
+  readonly rides?: string;
+}
+
+/** A side's rail as laid out. */
+export interface SceneRailLayout {
+  readonly rect: Rect;
+  /** One per member of each folded column, in ring order. */
+  readonly segments: readonly { readonly id: string; readonly edge: string; readonly rect: Rect }[];
 }
 
 /**
@@ -169,12 +230,18 @@ export interface SceneEdgeLayout {
  * - `twice`: an item placed in two places (the first in cut order wins, edges before floats);
  * - `float-clamped`, `float-moved`: a float was moved into the stage, or clear of what it would cover;
  * - `float-covers`: no clear place exists, and it covers the least it can.
+ * - `column-shrunk`, `column-folded`, `kept-folded`: give-way by `contentMin.width`, in give-way order;
+ * - `content-narrow`, `content-short`: the content is still under `contentMin` (overlay bars count against the height).
  */
 export type SceneNote =
   | ({ readonly edge: string } & StackNote)
   | { readonly code: "unknown-item"; readonly id: string }
   | { readonly code: "twice"; readonly id: string }
-  | { readonly code: "float-clamped" | "float-moved" | "float-covers"; readonly id: string };
+  | { readonly code: "float-clamped" | "float-moved" | "float-covers"; readonly id: string }
+  | { readonly code: "column-shrunk"; readonly edge: string; readonly from: number; readonly to: number }
+  | { readonly code: "column-folded" | "kept-folded"; readonly edge: string }
+  | { readonly code: "content-narrow"; readonly width: number; readonly min: number }
+  | { readonly code: "content-short"; readonly height: number; readonly min: number };
 export type SceneNoteCode = SceneNote["code"];
 
 export interface SceneLayout {
@@ -185,6 +252,8 @@ export interface SceneLayout {
   readonly content: Rect;
   /** The floats drawn, in stacking order (the last on top). */
   readonly floats: readonly string[];
+  /** The rails shown (a side with a folded column). */
+  readonly rails: Readonly<Partial<Record<"left" | "right", SceneRailLayout>>>;
   readonly notes: readonly SceneNote[];
 }
 
