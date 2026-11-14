@@ -36,7 +36,7 @@
 import { rect, type Point, type Rect, type Size } from "../geometry";
 import type { Target } from "../targets/target";
 import { floatAt, lift, moveTo, use, type ColumnPlace, type RailPlace } from "./changes";
-import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_STRIP, ZONES, axisOf, zoneOf, type Edge, type Scene, type SceneLayout, type Zone } from "./model";
+import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_STRIP, ZONES, axisOf, formsOf, zoneOf, type Edge, type Scene, type SceneLayout, type Zone } from "./model";
 import { solve } from "./solve";
 
 export type ScenePlace =
@@ -112,8 +112,22 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   const reach = Math.max(0, Number.isFinite(options.endReach) ? options.endReach! : 0);
   const chrome = scene.chrome ?? [];
   // No hit covers a fixed item or chrome: fixed items of every edge (an end reach may run into the next bar), where they
-  // are drawn now and where they are with the item lifted out.
-  const fixedRects = (l: SceneLayout): Rect[] => Object.values(l.items).filter((it) => it.fixed).map((it) => it.rect);
+  // are drawn now and where they are with the item lifted out. A fixed item that grows reserves only its natural length
+  // (from its start; from its end in the end zone): the length it grew by is spare room a drop may take, so a title that
+  // fills its bar still leaves gaps beside it.
+  const fixedRects = (l: SceneLayout): Rect[] =>
+    Object.entries(l.items)
+      .filter(([, it]) => it.fixed)
+      .map(([id, it]) => {
+        const e = it.edge ? l.edges[it.edge] : undefined;
+        const f = e ? formsOf(scene.items[id]!, axisOf(e.side))[it.form] : undefined;
+        if (!e || !f?.main.grows) return it.rect;
+        const column = axisOf(e.side) === "column";
+        const len = column ? it.rect.height : it.rect.width;
+        const keep = Math.min(len, Math.max(0, Number.isFinite(f.main.natural) ? f.main.natural : len));
+        const shift = it.zone === "end" ? len - keep : it.zone === "center" ? (len - keep) / 2 : 0;
+        return column ? rect(it.rect.x, it.rect.y + shift, it.rect.width, keep) : rect(it.rect.x + shift, it.rect.y, keep, it.rect.height);
+      });
   const blockers = [...fixedRects(now), ...fixedRects(base), ...chrome];
   const out: SceneTarget[] = [];
 

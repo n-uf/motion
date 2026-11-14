@@ -174,6 +174,24 @@ describe("gaps are gaps, not halves of items (hitBand)", () => {
   });
 });
 
+describe("a growing fixed title", () => {
+  it("never blocks the gaps beside it: it shrinks toward its min; only a gap before it (which would move it) is refused", () => {
+    const s = windowScene();
+    const open: Scene = { ...s, edges: s.edges.map((e) => (e.id === "titlebar" ? { ...e, accepts: ["group"] } : e)) };
+    const ids = targets(open, "views").map((t) => t.id).filter((id) => id.startsWith("gap:titlebar"));
+    // The end zone's first gap lies on the same line, so it is the same target.
+    expect(ids).toEqual(["gap:titlebar:start:1"]);
+    const hit = targets(open, "views").find((t) => t.id === "gap:titlebar:start:1")!.hit;
+    // Clear of the title's natural 160 px and of the controls; the grown part is spare room.
+    expect(hit.x).toBeGreaterThanOrEqual(160);
+    expect(hit.x + hit.width).toBeLessThanOrEqual(1116);
+    const after = targets(open, "views").find((t) => t.id === "gap:titlebar:start:1")!.after({ x: 0, y: 0 }).layout;
+    expect(after.items.title!.rect.x).toBe(0);
+    expect(after.items.title!.rect.width).toBeLessThan(1116);
+    expect(after.items.title!.rect.width).toBeGreaterThanOrEqual(80);
+  });
+});
+
 describe("content-changed", () => {
   it("is noted under previous whenever the content's rect changes, and only then", () => {
     const s = windowScene();
