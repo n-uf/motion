@@ -154,13 +154,10 @@ describe("scene sweeps", () => {
     for (const seed of SEEDS.slice(0, 120)) {
       const s = randomScene(seed);
       const previous = solve(s);
-      // What a fixed item reserves: its rect, or for a title that grows, its natural length from its start.
-      const fixed = Object.entries(previous.items)
-        .filter(([, it]) => it.fixed)
-        .map(([fid, it]) => {
-          const f = s.items[fid]!.forms.row?.[it.form];
-          return f?.main.grows ? { ...it.rect, width: Math.min(it.rect.width, f.main.natural) } : it.rect;
-        });
+      // No hit covers a fixed item's drawn rect.
+      const fixed = Object.values(previous.items)
+        .filter((it) => it.fixed)
+        .map((it) => it.rect);
       for (const id of Object.keys(s.items)) {
         for (const t of targets(s, id, { previous, endReach: 8 })) {
           const a = t.after({ x: s.stage.width / 2, y: s.stage.height / 2 });
