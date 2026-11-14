@@ -807,8 +807,10 @@ and one whose kind changed starts over. Whenever `content` isn't the rect `previ
 refits it. Columns that gave way stay folded, in the order they folded (the fold notes' order), while the content still
 fits; room that comes back unfolds them in the reverse of that order, never by age, so a press unfolds nothing, and
 solving again from a layout changes nothing. An item docked now that was closed or absent in `previous` has just
-opened: it counts as the newest, keeps its largest form while it fits, and its column is weighed anew. `fresh` (edge
-or item ids, on `solve` and `targets`) solves those edges without `previous`.
+opened: it counts as the newest and takes its largest form that fits its edge as laid out. The columns' fold and shrink
+state still follows `previous` (only a column folded by give-way that holds the opened item is weighed again), so to
+reweigh a column fully, pass `fresh: [columnId]`. `fresh` (edge or item ids, on `solve` and `targets`) solves those
+edges without `previous`.
 
 **Targets.** `targets(scene, id, { previous, endReach, floatSize })` gives, in the `@n-uf/motion/drag` shape:
 
@@ -841,7 +843,9 @@ or item ids, on `solve` and `targets`) solves those edges without `previous`.
 
 A gap, column or rail target exists only where the drop keeps the whole scene sound (C29): it adds no `overflow` or
 `too-wide` note to any edge, changes no fixed item's form, squeezes none under its `main.min` anywhere (a between bar
-under a new column included), and lands its slot on no chrome.
+under a new column included), and lands its slot on no chrome. The rule compares notes: in an edge that already
+overflows (or holds an item already too wide), a drop that adds no new note is accepted, even when it shifts a fixed
+item that was already squeezed.
 
 `stops(scene, id)` gives the same targets, home and none left out, in reading order (the left side outer to inner, the
 top bars, the bottom bars, the right side inner to outer, floating last) for "Move to ›" and the arrow keys.
@@ -866,8 +870,9 @@ gone.
 width, height, orient?, anchor? }], items: { [id]: { used, kept?, from?, closed?, align?, floatSize? } } }`; no float has a
 pinned field. `readScene(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
 the store, never throws, and lists what it drops: unknown edges and items, kinds an edge doesn't accept, fixed items
-placed elsewhere (they stay where `base` has them, trailing ones last), bad fields, an old `pinned`. An item the store
-places nowhere goes where `base` has it, and floats are clamped into the stage by what `solve` draws (a folded float by
+stored in another edge than `base`'s, bad fields, an old `pinned`. A stored edge's order is kept exactly, fixed items
+where the store put them, so a drop after a fixed item round-trips; a fixed item the store lacks goes back to its base
+place (trailing ones last). An item the store places nowhere goes where `base` has it, and floats are clamped into the stage by what `solve` draws (a folded float by
 its bar), never cut, so a reload lands where it was drawn. Dynamic columns are the store's: one
 `base` lacks is made from `base.columns[side]` at its stored ring, and empty ones are deleted. Anything but version 1
 gives `base` back with an `error`.
