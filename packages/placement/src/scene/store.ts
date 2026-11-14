@@ -19,9 +19,11 @@
  *
  * Reading is lenient: anything but an object of version 1 gives `base` back with the reason in `error`. Inside one,
  * whatever can't be used is dropped and listed in `dropped` (an unknown edge `edge:<id>`, an unknown or repeated item,
- * an item an edge doesn't accept `edge:<edge>:<id>`, a fixed item placed elsewhere, a float of a kind that doesn't
- * float `float:<id>`, a bad field `item:<id>:<field>`, an unknown top-level field `<field>`). Fixed items stay where
- * `base` has them: trailing ones (window controls) stay last. An item the store places nowhere goes where `base` has it.
+ * an item an edge doesn't accept `edge:<edge>:<id>`, a fixed item in another edge than `base`'s `edge:<edge>:<id>`, a
+ * float of a kind that doesn't float `float:<id>`, a bad field `item:<id>:<field>`, an unknown top-level field
+ * `<field>`). A stored edge's order is kept exactly, fixed items where the store put them (in their own edge); a fixed
+ * item the store lacks goes back to its base place (trailing ones last). An item the store places nowhere goes where
+ * `base` has it, before a stored trailing run of fixed items.
  * A float's rect is clamped into the stage on read.
  */
 import { rect, type Size } from "../geometry";
@@ -112,17 +114,19 @@ export function readScene(data: unknown, base: Scene): SceneRead {
 
 const words = (v: unknown): string => (typeof v === "number" ? String(v) : typeof v === "string" ? JSON.stringify(v.length > 24 ? `${v.slice(0, 24)}…` : v) : typeof v);
 
-/** Fixed items of `baseIds` put back into `movable` at their places: leading ones from the start, trailing ones from the end. */
-export function withFixed(baseIds: readonly string[], movable: readonly string[], isFixed: (id: string) => boolean): string[] {
-  const out = [...movable];
+/**
+ * The fixed items of `baseIds` that `stored` lacks, put back at their places: leading ones from the start, trailing ones
+ * at the end. Fixed items the store has keep the place it gives them, so a stored order round-trips exactly.
+ */
+export function withFixed(baseIds: readonly string[], stored: readonly string[], isFixed: (id: string) => boolean): string[] {
+  const out = [...stored];
+  const missing = (id: string): boolean => isFixed(id) && !stored.includes(id);
   let tail = baseIds.length;
   while (tail > 0 && isFixed(baseIds[tail - 1]!)) tail--;
-  const lead: [number, string][] = [];
   baseIds.forEach((id, i) => {
-    if (isFixed(id) && i < tail) lead.push([i, id]);
+    if (missing(id) && i < tail) out.splice(Math.min(i, out.length), 0, id);
   });
-  for (const [i, id] of lead) out.splice(Math.min(i, out.length), 0, id);
-  return [...out, ...baseIds.slice(tail)];
+  return [...out, ...baseIds.slice(tail).filter(missing)];
 }
 
 function read(data: unknown, base: Scene): SceneRead {
@@ -197,7 +201,13 @@ function read(data: unknown, base: Scene): SceneRead {
     const ids: string[] = [];
     for (const id of Array.isArray(e.items) ? (e.items as unknown[]) : []) {
       if (!known(id) || placed.has(id)) drop(`edge:${edge.id}:${String(id)}`);
-      else if (isFixed(id)) continue; // fixed items stay where base has them
+      // A fixed item stays in the edge `base` has it in, at the place the store gives it there; elsewhere it is dropped.
+      else if (isFixed(id)) {
+        if (edge.items.includes(id) && base.edges.some((x) => x.id === edge.id)) {
+          ids.push(id);
+          placed.add(id);
+        } else drop(`edge:${edge.id}:${id}`);
+      }
       else if (!edge.accepts.includes(items[id]!.kind)) drop(`edge:${edge.id}:${id}`);
       else {
         ids.push(id);
@@ -234,13 +244,16 @@ function read(data: unknown, base: Scene): SceneRead {
     floats.push({ id, rect: clampFloat(r, base.stage, drawn), ...(o ? { orient: o } : {}), ...(a ? { anchor: a } : {}) });
   }
 
-  // Each base edge: its stored order (fixed items at their base places), then its base items the store placed nowhere.
+  // Each base edge: its stored order exactly (fixed items where the store put them), its base items the store placed
+  // nowhere before a stored trailing run of fixed items, and fixed items the store lacks at their base places.
   const edges: Edge[] = [...base.edges, ...made].map((edge) => {
-    const stored = order.get(edge.id);
+    const stored = order.get(edge.id) ?? [];
     const rest = edge.items.filter((id) => !isFixed(id) && !placed.has(id));
     for (const id of rest) placed.add(id);
-    const movable = [...(stored ?? []), ...rest];
-    const items1 = withFixed(edge.items, movable, isFixed);
+    let tail = stored.length;
+    while (tail > 0 && isFixed(stored[tail - 1]!)) tail--;
+    const listed = [...stored.slice(0, tail), ...rest, ...stored.slice(tail)];
+    const items1 = withFixed(edge.items, listed, isFixed);
     const size = sizes.has(edge.id) ? sizes.get(edge.id) : edge.size;
     const { size: _s, ...plain } = edge;
     return { ...plain, ring: rings.get(edge.id) ?? edge.ring, items: items1, ...(size !== undefined ? { size } : {}) };
