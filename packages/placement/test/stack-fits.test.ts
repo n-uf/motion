@@ -51,13 +51,29 @@ describe("onlyFits", () => {
     expect(ids({ ...input, length: 480 }, words("marks", 5))).toEqual([]);
   });
 
-  it("a fixed item squeezed to make room is a refusal: it is drawn at the size it had", () => {
-    // The title can be squeezed from 200 to 120, so the group's icons fit by length (380 of 420) but not at its natural size.
+  it("a fixed item may shrink down to its main.min to make room; below the minimums there is no room", () => {
+    // The title shrinks from 200 to 120, so the group's icons fit (380 of 380) beside the readout and the controls.
     const squeezable = [fixed("title", 120, 200), chrome[1]!, chrome[2]!];
-    const input = bar(squeezable, 420);
-    expect(stackTargets(input, words("marks", 5)).length).toBe(4);
-    expect(ids(input, words("marks", 5))).toEqual([]);
-    expect(ids(bar(squeezable, 460), words("marks", 5))).toEqual(["gap:0", "gap:1", "gap:2", "gap:3"]);
+    expect(ids(bar(squeezable, 420), words("marks", 5))).toEqual(["gap:0", "gap:1", "gap:2", "gap:3"]);
+    const fit = stackTargets(bar(squeezable, 380), words("marks", 5), { onlyFits: true });
+    expect(fit.map((t) => t.id)).toEqual(["gap:0", "gap:1", "gap:2", "gap:3"]);
+    expect(fit[0]!.fit.items.find((p) => p.id === "title")!.rect.width).toBe(120);
+    expect(stackTargets(bar(squeezable, 379), words("marks", 5)).length).toBe(4);
+    expect(ids(bar(squeezable, 379), words("marks", 5))).toEqual([]);
+  });
+
+  it("a growing title 80/160 beside the controls shrinks to 80 for a drop; below that it is refused", () => {
+    const title: StackItem = { id: "title", used: 0, fixed: true, forms: [{ kind: "row", main: { min: 80, natural: 160, grows: true }, cross: { natural: 26 } }] };
+    const controls = fixed("controls", 90);
+    const dragged = words("marks", 5);
+    // 80 + 90 + the group's icons (90) = 260.
+    const at260 = stackTargets(bar([title, controls], 260), dragged, { onlyFits: true });
+    expect(at260.map((t) => t.id)).toEqual(["gap:0", "gap:1", "gap:2"]);
+    expect(at260[0]!.fit.items.find((p) => p.id === "title")!.rect.width).toBe(80);
+    expect(ids(bar([title, controls], 259), dragged)).toEqual([]);
+    expect(stackTargets(bar([title, controls], 259), dragged).length).toBe(3);
+    // With room the title is anywhere from 80 up, and the row form (220) fits from 390.
+    expect(ids(bar([title, controls], 600), dragged)).toEqual(["gap:0", "gap:1", "gap:2"]);
   });
 
   it("a fixed title that grows is not squeezed by a drop: it only gives back what it took", () => {
@@ -67,7 +83,7 @@ describe("onlyFits", () => {
     const dragged: StackItem = { id: "d", used: 1, forms: [form("row", 80), form("menu", 0)] };
     expect(stackTargets(input, dragged).length).toBe(2);
     expect(ids(input, dragged)).toEqual(["gap:0", "gap:1"]);
-    // Down to the title's natural length plus the group (100 + 80) it is still a target; under it the bar overflows.
+    // Down to the title's minimum plus the group (100 + 80) it is still a target; under it the bar overflows.
     expect(ids({ ...input, length: 180 }, dragged)).toEqual(["gap:0", "gap:1"]);
     expect(ids({ ...input, length: 179 }, dragged)).toEqual([]);
   });
@@ -86,10 +102,14 @@ describe("onlyFits", () => {
       expect(t.fit.items.find((p) => p.id === "a")!.kind).toBe("icons");
       expect(t.fit.items.find((p) => p.id === "title")!.rect.width).toBeGreaterThan(base.items[0]!.rect.width);
     }
-    // Squeezed further (a longer dragged item, the group already as small as it gets): refused.
+    // A longer dragged item squeezes the title again, down to its 120, the group going into the » menu (28): still a target
+    // from 120 + 28 + 150 = 298; below the minimums there is no room.
     const wider: StackItem = { id: "d", used: 5, forms: [form("row", 150), form("menu", 0)] };
-    expect(ids(input, wider)).toEqual([]);
-    expect(stackTargets(input, wider).length).toBe(3);
+    const at298 = stackTargets({ ...input, length: 298 }, wider, { onlyFits: true });
+    expect(at298.map((t) => t.id)).toEqual(["gap:0", "gap:1", "gap:2"]);
+    expect(at298[0]!.fit.items.find((p) => p.id === "title")!.rect.width).toBe(120);
+    expect(ids({ ...input, length: 297 }, wider)).toEqual([]);
+    expect(stackTargets({ ...input, length: 297 }, wider).length).toBe(3);
   });
 
   it("a dragged item that is too wide across is a refusal; so is a gap that makes another item too wide", () => {
@@ -119,7 +139,7 @@ describe("onlyFits", () => {
 });
 
 describe("onlyFits: sweep", () => {
-  /** The rule, read from a drop's fit (not from the solver's code): the dragged item is drawn, nothing overflows or is newly too wide, no fixed item is squeezed. */
+  /** The rule, read from a drop's fit (not from the solver's code): the dragged item is drawn, nothing overflows or is newly too wide, no fixed item is squeezed (another form, under its main.min, or narrower). */
   const fitsBeside = (base: StackFit, fit: StackFit, dragged: string, fixedItems: readonly StackItem[], axis: StackInput["axis"]): boolean => {
     if (fit.items.find((p) => p.id === dragged)!.kind === "menu") return false;
     if (fit.notes.some((n) => n.code === "overflow")) return false;
@@ -131,9 +151,7 @@ describe("onlyFits: sweep", () => {
       const a = base.items.find((p) => p.id === it.id)!;
       const b = fit.items.find((p) => p.id === it.id)!;
       if (a.kind === "menu" || b.kind === "menu") return true;
-      const f = it.forms[b.form]!;
-      const natural = Math.max(f.main.min, f.main.natural);
-      return b.form === a.form && along(b.rect) >= Math.min(along(a.rect), natural) - EPS && cross(b.rect) >= cross(a.rect) - EPS;
+      return b.form === a.form && along(b.rect) >= it.forms[b.form]!.main.min - EPS && cross(b.rect) >= cross(a.rect) - EPS;
     });
   };
 
