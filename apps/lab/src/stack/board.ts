@@ -103,19 +103,23 @@ export interface BoardOptions {
 
 /** The Edge stack page's settings, and their defaults. */
 export interface EdgeSettings {
-  /** The stage's width: the bar's length. */
+  /** The stage's width. */
   readonly width: number;
   /** The stage's height: the column is what is left under the bar. */
   readonly height: number;
+  /** The top bar's length, from the stage's left edge; at most the stage's width. */
+  readonly barLength: number;
   /** The column's width limit (an open panel's cross.max). */
   readonly widthLimit: number;
   readonly gap: number;
   readonly pad: number;
   readonly preview: DragPreview;
 }
-export const EDGE_DEFAULTS: EdgeSettings = { width: 840, height: 500, widthLimit: 360, gap: 8, pad: 12, preview: "gap" };
+export const EDGE_DEFAULTS: EdgeSettings = { width: 840, height: 500, barLength: 840, widthLimit: 360, gap: 8, pad: 12, preview: "gap" };
 export const EDGE_BAR_H = 40;
 export const EDGE_WIDTH = { min: 420, max: 1000 };
+/** Short enough that every group of the bar folds, the ranked primary too (T3). */
+export const EDGE_BAR_LENGTH = { min: 120, max: 1000 };
 
 /** Where an item is: a docked place, a float or the » menu. */
 export type Where = { readonly kind: "dock"; readonly side: Side; readonly at: number } | { readonly kind: "float" };
@@ -844,13 +848,15 @@ export function createBoard(opt: BoardOptions) {
     settle(true);
     say(`${titleOf(id)} pressed: a use of it. ${readout()}`);
   }
-  /** The Edge stack's settings: the stage's size, the column's width limit, the bar's gap and padding, the preview mode. */
+  /** The Edge stack's settings: the stage's size, the bar's length, gap and padding, the column's width limit, the preview mode. */
   function setEdge(patch: Partial<EdgeSettings>): void {
     if (drag) endDrag(true);
     settings = { ...settings, ...patch };
     applyWidth(settings.width);
     applyHeight(settings.height);
-    settings = { ...settings, width: STAGE.width, height: STAGE.height };
+    const barLength = Math.min(Math.max(Math.round(settings.barLength), EDGE_BAR_LENGTH.min), EDGE_BAR_LENGTH.max, STAGE.width);
+    LENGTH.bar = barLength;
+    settings = { ...settings, width: STAGE.width, height: STAGE.height, barLength };
     refloat();
     settle();
   }
@@ -858,7 +864,7 @@ export function createBoard(opt: BoardOptions) {
     const width = Math.min(Math.max(Math.round(w), EDGE_WIDTH.min), EDGE_WIDTH.max);
     STAGE.width = width;
     STAGE_RECT.width = width;
-    LENGTH.bar = width;
+    LENGTH.bar = Math.min(settings.barLength, width);
     stage.style.width = px(width);
   }
   /** The no-jump control: size bar groups' row form from their words and badge (the badge grows with its digits). */
