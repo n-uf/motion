@@ -44,15 +44,15 @@ export const BAR_RAIL = 32;
 export const MENU = 28;
 
 /** An item's forms along an axis, largest first. A header fits any column 56 px wide (its `cross.min`). */
-export function formsOf(id: ItemId, axis: StackAxis): StackForm[] {
+export function formsOf(id: ItemId, axis: StackAxis, badge = false): StackForm[] {
   const s = SAMPLES[id];
   return isPanel(id)
     ? axis === "column"
       ? [f("open", 90, s.natural!.column, s.wide!, true), f("header", 30, 30, s.wide!, false, 56), f("rail", 26, 26, RAIL), f("menu", 0, 0, 0)]
       : [f("open", 150, s.natural!.row, 120, true), f("header", 110, 110, 28), f("rail", 26, 26, 26), f("menu", 0, 0, 0)]
     : axis === "column"
-      ? [f("row", 30, 30, 190), f("stacked", 84, 84, 84), f("icons", 72, 72, 28), f("menu", 0, 0, 0)]
-      : [f("row", 200, 200, 28), f("stacked", 140, 140, 30), f("icons", 84, 84, 28), f("menu", 0, 0, 0)];
+      ? [f("row", 30, 30, badge ? 240 : 190), f("stacked", 84, 84, 84), f("icons", 72, 72, 28), f("menu", 0, 0, 0)]
+      : [f("row", badge ? 244 : 200, badge ? 244 : 200, 28), f("stacked", 140, 140, 30), f("icons", 84, 84, 28), f("menu", 0, 0, 0)];
 }
 
 export interface Placed {
@@ -61,9 +61,11 @@ export interface Placed {
   readonly kept?: boolean;
   /** The first form the user allows (1 for a panel folded by hand). */
   readonly from?: number;
+  /** The item shows a count badge (a group's row form then asks for room for it). */
+  readonly badge?: boolean;
 }
 
-export const itemOf = (p: Placed, axis: StackAxis): StackItem => ({ id: p.id, used: p.used, ...(p.kept ? { kept: true } : {}), ...(p.from ? { from: p.from } : {}), forms: formsOf(p.id, axis) });
+export const itemOf = (p: Placed, axis: StackAxis): StackItem => ({ id: p.id, used: p.used, ...(p.kept ? { kept: true } : {}), ...(p.from ? { from: p.from } : {}), forms: formsOf(p.id, axis, p.badge) });
 
 /** An item's state the pages show without ever changing its size: a count badge and a phase. */
 export type Phase = "idle" | "busy" | "done";
@@ -88,9 +90,9 @@ export const FLOAT_SIZE: Record<ItemId, { readonly width: number; readonly heigh
   pages: { width: 200, height: 170 },
   annotations: { width: 240, height: 150 },
   findings: { width: 220, height: 190 },
-  views: { width: 214, height: 34 },
-  tools: { width: 214, height: 34 },
-  zoom: { width: 214, height: 34 },
+  views: { width: 244, height: 34 },
+  tools: { width: 244, height: 34 },
+  zoom: { width: 244, height: 34 },
 };
 
 /** The stack's input along an axis: a column's limits follow the width slider, a bar's are its thickness. */

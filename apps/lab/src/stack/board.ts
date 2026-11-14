@@ -204,7 +204,7 @@ export function createBoard(opt: BoardOptions) {
 
   // --- layout ----------------------------------------------------------------------------------------------------------------
 
-  const placedOf = (id: ItemId): Placed => ({ id, used: st.used[id], kept: st.kept.has(id), from: st.from[id] ?? 0 });
+  const placedOf = (id: ItemId): Placed => ({ id, used: st.used[id], kept: st.kept.has(id), from: st.from[id] ?? 0, badge: true });
   const inputFor = (side: Side, without?: ItemId): StackInput => inputOf(AXIS[side], LENGTH[side], st.orders[side].filter((id) => id !== without).map(placedOf));
   const fitsWithout = (without?: ItemId): Record<Side, StackFit> => ({ column: fitStack(inputFor("column", without)), bar: fitStack(inputFor("bar", without)) });
 
