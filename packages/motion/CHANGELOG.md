@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.16
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.16 (the new `./scene` entry: one
+  model of a whole window, with its drop targets; and kinds, fixed items and own widths in `./stack`).
+
 ## 26.11.15
 
 - No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.15 (a fix to `fitStack`'s opt-in

@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.16
 
 - `@n-uf/placement/stack`, the cases a host with several kinds of item and a title bar needs. Additive: no rename, no
   removed export, no new required field, and an input that uses none of the new options gives the 26.11.15 fit and
