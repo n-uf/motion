@@ -158,14 +158,11 @@ export interface ViewerOptions {
    * gliding (the default), or an instant swap, everything jumping (case 4).
    */
   readonly fold?: () => "reveal" | "instant";
-  /** Start frozen (case 8); `setFrozen` changes it. A frozen layout hides the grips; holding Alt shows them. */
-  readonly frozen?: boolean;
   /**
-   * When the freeze is looked at (case 8): at the press only, so a drag in flight always finishes (the default); or on
-   * every move, a plain per-move "is it frozen?" guard, which cancels a drag when Alt comes up and starts one when Alt
-   * goes down mid-press.
+   * Start frozen; `setFrozen` changes it. A frozen layout hides the grips; holding Alt shows them. The freeze is read
+   * once, at the press, so a drag in flight always finishes.
    */
-  readonly freezeGate?: "press" | "move";
+  readonly frozen?: boolean;
   /**
    * A hairline indicator (case 5): a naive drag, no intent, no preview motion; a 3 px line marks the insertion point
    * under the pointer on the last move (a float: its outline), and the group lands there.
@@ -261,7 +258,6 @@ export function createViewer(host: HTMLElement, options: ViewerOptions): Viewer 
   const floats = options.floats ?? (() => "row" as const);
   const preview = options.preview ?? (() => "snap" as const);
   const fold = options.fold ?? (() => "reveal" as const);
-  const freezeGate = options.freezeGate ?? "press";
   const start0 = options.home ?? HOME;
   let geo = geometryAt(options.width ?? W, options.keep);
   let a: Arrangement<GroupId> = start0;
@@ -517,8 +513,8 @@ export function createViewer(host: HTMLElement, options: ViewerOptions): Viewer 
     closePopover();
     if (keys) cancelKeys();
     setAlt(e.altKey || altHeld);
-    // The freeze is read once, at the press: a frozen press never becomes a drag, whatever Alt does later (case 8).
-    if (freezeGate === "press" && !unlocked(e.altKey || altHeld)) return;
+    // The freeze is read once, at the press: a frozen press never becomes a drag, whatever Alt does later.
+    if (!unlocked(e.altKey || altHeld)) return;
     const from = { x: e.clientX, y: e.clientY };
     try {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -528,12 +524,6 @@ export function createViewer(host: HTMLElement, options: ViewerOptions): Viewer 
     let lifted = false;
     const move = (ev: PointerEvent): void => {
       const c = { x: ev.clientX, y: ev.clientY };
-      // A per-move guard (case 8): "is it frozen?" on every move; it cancels a drag in flight when Alt comes up, and
-      // lets a frozen press start one when Alt goes down.
-      if (freezeGate === "move" && !unlocked(ev.altKey || altHeld)) {
-        if (lifted && drag) end(true);
-        return;
-      }
       if (!lifted) {
         if (Math.hypot(c.x - from.x, c.y - from.y) < 4) return;
         lifted = true;
@@ -772,7 +762,7 @@ export function createViewer(host: HTMLElement, options: ViewerOptions): Viewer 
     if (e.key === "Escape" && popEl) closePopover();
   });
 
-  // --- freeze and Alt (case 8): frozen hides the grips; holding Alt shows them ---
+  // --- freeze and Alt: frozen hides the grips; holding Alt shows them ---
 
   function setAlt(on: boolean): void {
     altHeld = on;
