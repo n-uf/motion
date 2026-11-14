@@ -90,7 +90,9 @@ const c13: Scenario<Page> = {
       const frame = document.createElement("iframe");
       frame.title = "the page, reloaded";
       Object.assign(frame.style, { position: "fixed", left: "0", top: "0", width: "1600px", height: "1100px", border: "0", opacity: "0", pointerEvents: "none", zIndex: "-1" });
-      frame.src = `${location.pathname}${routeHash("stack/keep", { embed: true })}`;
+      // A query that differs from the page's own: the browser refuses a frame that is the third of the same URL in a row
+      // (this page is itself in the Checks page's frame), fragment aside.
+      frame.src = `${location.pathname}?reload-check=1${routeHash("stack/keep", { embed: true })}`;
       document.body.append(frame);
       try {
         const w1 = await ready(frame);
