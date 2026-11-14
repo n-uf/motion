@@ -198,11 +198,18 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   if (grow) {
     // Room came back and the kept forms fit: they grow back one at a time, the reverse of how they gave way (the form an
     // item is in now was stepped into at its rank, so the highest rank first, then `kept`, the newest used, the earlier
-    // in the stack). An item goes back to the nearest form above that is longer, if the stack still fits and the cross
-    // size doesn't change.
+    // in the stack). An item goes back to the nearest earlier form the stack still fits with, the cross size unchanged:
+    // a larger form is what counts, not a longer stack (the last item leaving the menu takes the » entry with it).
+    const comesBefore = (a: number, b: number): boolean => {
+      const ra = rankOf(items[a]!.forms[at[a]!]!);
+      const rb = rankOf(items[b]!.forms[at[b]!]!);
+      const ka = items[a]!.kept ? 1 : 0;
+      const kb = items[b]!.kept ? 1 : 0;
+      return ra !== rb ? ra > rb : ka !== kb ? ka > kb : items[a]!.used !== items[b]!.used ? items[a]!.used > items[b]!.used : a < b;
+    };
     for (;;) {
-      const base = minSum();
       const c0 = crossOf();
+      const fitsWith = (changed: readonly number[]): boolean => minSum() <= length + EPS && crossOf() === c0 && changed.every((j) => !tooWide(j, c0));
       let best = -1;
       let bestTo = -1;
       for (const i of idx) {
@@ -210,26 +217,30 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
         let to = -1;
         for (let k = cur - 1; k >= start[i]! && to < 0; k--) {
           at[i] = k;
-          if (minSum() > base + EPS) to = k;
+          if (fitsWith([i])) to = k;
         }
-        const fits = to >= 0 && minSum() <= length + EPS && crossOf() === c0 && !tooWide(i, c0);
         at[i] = cur;
-        if (!fits) continue;
-        if (best >= 0) {
-          const a = items[i]!;
-          const b = items[best]!;
-          const ra = rankOf(a.forms[cur]!);
-          const rb = rankOf(b.forms[at[best]!]!);
-          const ka = a.kept ? 1 : 0;
-          const kb = b.kept ? 1 : 0;
-          const better = ra !== rb ? ra > rb : ka !== kb ? ka > kb : a.used !== b.used ? a.used > b.used : false;
-          if (!better) continue;
+        if (to >= 0 && (best < 0 || comesBefore(i, best))) {
+          best = i;
+          bestTo = to;
         }
-        best = i;
-        bestTo = to;
       }
-      if (best < 0) break;
-      at[best] = bestTo;
+      if (best >= 0) {
+        at[best] = bestTo;
+        continue;
+      }
+      // None fits alone. Items in the menu come out together when only all of them leaving removes the » entry: the fewest,
+      // in the same order, that fit.
+      const inside = idx.filter((i) => isMenu(form(i)) && at[i]! > start[i]!).sort((a, b) => (comesBefore(a, b) ? -1 : 1));
+      let out = false;
+      for (let n = 2; n <= inside.length && !out; n++) {
+        const group = inside.slice(0, n);
+        const was = group.map((i) => at[i]!);
+        for (const i of group) at[i] = at[i]! - 1;
+        if (fitsWith(group)) out = true;
+        else group.forEach((i, k) => (at[i] = was[k]!));
+      }
+      if (!out) break;
     }
   }
   let cross = crossOf();
