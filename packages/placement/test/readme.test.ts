@@ -209,4 +209,30 @@ describe("README examples", () => {
     const gaps = stackTargets(bar, group("marks", 4), { endReach: 24 });
     expect(gaps.map((t) => [t.hit.x, t.hit.x + t.hit.width])).toEqual([[-24, 30], [30, 106], [106, 214], [214, 354]]);
   });
+
+  it("a title bar, targets by kind, a group's own size", () => {
+    const form = (kind: StackForm["kind"], min: number, natural: number, cross: number): StackForm => ({ kind, main: { min, natural }, cross: { natural: cross } });
+    const title: StackItem = { id: "title", used: 0, fixed: true, forms: [form("row", 160, 160, 26)] };
+    const controls: StackItem = { id: "controls", used: 0, fixed: true, forms: [form("row", 72, 72, 26)] };
+    const group = (id: string, used: number): StackItem => ({ id, used, forms: [form("row", 100, 100, 26), form("fold", 36, 36, 26), form("menu", 0, 0, 0)] });
+    const panels = new Set(["pages"]);
+    const bar = { axis: "row", length: 400, cross: { min: 36, max: 40 }, accepts: (item: StackItem) => !panels.has(item.id), items: [title, group("views", 1), group("tools", 2), controls] } as const;
+
+    const row = fitStack(bar);
+    expect(row.items.map((p) => [p.id, p.kind, p.rect.x, p.rect.width])).toEqual([["title", "row", 0, 160], ["views", "fold", 160, 36], ["tools", "row", 196, 100], ["controls", "row", 296, 72]]);
+
+    const gaps = stackTargets(bar, group("marks", 4));
+    expect(gaps.map((t) => [t.hit.x, t.hit.x + t.hit.width])).toEqual([[0, 0], [160, 178], [178, 246], [246, 296], [368, 400]]);
+    expect(stackTargets(bar, group("pages", 4))).toEqual([]);
+    expect(stackTargets(bar, title)).toEqual([]);
+    expect(stackTargets(bar, group("marks", 4), { allows: (_dragged, at) => at !== 2 }).map((t) => t.id)).toEqual(["gap:0", "gap:1", "gap:3", "gap:4"]);
+
+    const column = { axis: "column", length: 400, cross: { min: 120, max: 360 }, ownCross: true } as const;
+    const open: StackItem = { id: "pages", used: 1, forms: [{ kind: "open", main: { min: 90, natural: 160, grows: true }, cross: { natural: 240 } }, form("menu", 0, 0, 0)] };
+    const words = (id: string, used: number, wide: number): StackItem => ({ id, used, forms: [{ ...form("stacked", 78, 78, wide), setsCross: true }, form("icons", 72, 72, 28), form("menu", 0, 0, 0)] });
+    const side = fitStack({ ...column, items: [open, words("views", 2, 84), words("tools", 3, 110)] });
+    expect(side.items.map((p) => [p.id, p.rect.x, p.rect.width])).toEqual([["pages", 0, 240], ["views", 0, 84], ["tools", 0, 110]]);
+    const groups = fitStack({ ...column, cross: { min: 40, max: 360 }, items: [words("views", 2, 84), words("tools", 3, 110)] });
+    expect(groups.cross).toBe(110);
+  });
 });
