@@ -23,14 +23,14 @@ const storedOut = $<HTMLPreElement>("es-stored");
 const inputs = {
   height: $<HTMLInputElement>("es-height"),
   widthLimit: $<HTMLInputElement>("es-width"),
-  width: $<HTMLInputElement>("es-bar"),
+  barLength: $<HTMLInputElement>("es-bar"),
   gap: $<HTMLInputElement>("es-gap"),
   pad: $<HTMLInputElement>("es-pad"),
 };
 const outs: Record<keyof typeof inputs, HTMLOutputElement> = {
   height: $("es-height-out"),
   widthLimit: $("es-width-out"),
-  width: $("es-bar-out"),
+  barLength: $("es-bar-out"),
   gap: $("es-gap-out"),
   pad: $("es-pad-out"),
 };
@@ -40,8 +40,13 @@ const countItem = $<HTMLSelectElement>("es-count-item");
 const count = $<HTMLInputElement>("es-count");
 const phase = $<HTMLSelectElement>("es-phase");
 
-/** The page's own state across a reload: the case picked, the settings, the freeze. The arrangement is the board's stored form. */
-const PAGE_KEY = "motion-lab:edge-stack:page";
+/**
+ * The page's own state across a reload: the case picked, the settings, the freeze. The arrangement is the board's stored
+ * form. The Checks page's frame (`embed`) keeps its own keys, so a run never touches what a person left on this page.
+ */
+const EMBED = parseRoute().embed;
+const KEY = EMBED ? "motion-lab:edge-stack:checks" : "motion-lab:edge-stack";
+const PAGE_KEY = `${KEY}:page`;
 interface PageState {
   readonly case?: string;
   readonly settings?: Partial<EdgeSettings>;
@@ -56,8 +61,6 @@ function readPage(): PageState {
   }
 }
 function writePage(): void {
-  // The Checks page's frame never writes over what a person left on this page.
-  if (parseRoute().embed) return;
   try {
     localStorage.setItem(PAGE_KEY, JSON.stringify({ case: current?.id, settings: board.settings, frozen: board.frozen } satisfies PageState));
   } catch {
@@ -67,13 +70,18 @@ function writePage(): void {
 
 let current: EdgeCase | null = null;
 let checking = false;
+/** A case clicked while a check runs: it is picked once the check is over. */
+let queued: EdgeCase | null = null;
 const results = new Map<string, Verdict>();
+
+/** The cases of a group in id order: C before T, then by number. */
+const byId = (a: EdgeCase, b: EdgeCase): number => a.id[0]!.localeCompare(b.id[0]!) || Number.parseInt(a.id.slice(1), 10) - Number.parseInt(b.id.slice(1), 10);
 
 // --- the stage -------------------------------------------------------------------------------------------------------
 
 // The board restores the stored form while it is made, before `board` is assigned: the readouts wait for it.
 let made = false;
-const board: Board = createBoard({ stage, status, key: "motion-lab:edge-stack", autosave: true, restore: true, edge: true, onChange: () => made && refresh() });
+const board: Board = createBoard({ stage, status, key: KEY, autosave: true, restore: true, edge: true, onChange: () => made && refresh() });
 made = true;
 const d = createDriver(stage);
 const ctx: Ctx = { b: board, d, aim: aimers(d, board) };
@@ -108,6 +116,13 @@ function refresh(): void {
   const st = board.stored();
   storedOut.textContent = `column ${st.column}\nbar ${st.bar}\nfloats ${st.floats}`;
   highlight();
+  markControls();
+}
+
+/** Mark the settings strip's controls the picked case uses: those its preset sets and those its steps name. */
+function markControls(): void {
+  const uses = new Set<string>([...Object.keys(current?.preset.settings ?? {}), ...(current?.preset.frozen ? ["freeze"] : []), ...(current?.preset.meta ? ["counts"] : []), ...(current?.controls ?? [])]);
+  for (const el of document.querySelectorAll<HTMLElement>(".es-settings [data-ctl]")) el.classList.toggle("es-uses", uses.has(el.dataset.ctl!));
 }
 
 // --- a case ----------------------------------------------------------------------------------------------------------
@@ -150,9 +165,10 @@ const markClass = (id: string): string => {
 function renderList(): void {
   list.innerHTML = CASE_GROUPS.map((g) => {
     const items = EDGE_CASES.filter((c) => c.group === g.id)
+      .sort(byId)
       .map(
         (c) =>
-          `<li><button type="button" data-case="${c.id}"${c === current ? ' aria-current="true"' : ""}><span class="es-m ${markClass(c.id)}" aria-label="${results.get(c.id) ? (results.get(c.id)!.ok ? "passes" : "fails") : "not run"}">${markOf(c.id)}</span><span class="es-n">${c.id}</span><span class="es-t">${c.title}</span></button></li>`,
+          `<li><button type="button" data-case="${c.id}"${c === current ? ' aria-current="true"' : ""}${c === queued ? ' class="es-queued" title="Next, once the running check is over"' : ""}><span class="es-m ${markClass(c.id)}" aria-label="${results.get(c.id) ? (results.get(c.id)!.ok ? "passes" : "fails") : "not run"}">${markOf(c.id)}</span><span class="es-n">${c.id}</span><span class="es-t">${c.title}</span></button></li>`,
       )
       .join("");
     return `<div class="es-group"><p class="es-group-k">${g.title}</p><ul>${items}</ul></div>`;
@@ -169,16 +185,21 @@ function renderCase(): void {
   $("es-case-try").innerHTML = c.tries.map((t) => `<li>${t}</li>`).join("");
   const v = results.get(c.id);
   $("es-expected").textContent = v?.expected ?? c.expect;
-  $("es-now").textContent = checking ? "Checking…" : (v?.now ?? "Not checked yet: press Check again.");
+  $("es-now").textContent = checking ? `Running…${queued ? ` (${queued.id} next)` : ""}` : (v?.now ?? "Not checked yet: press Check again.");
   const mark = $("es-mark");
   mark.textContent = checking ? "" : v ? (v.ok ? "✓ pass" : "✗ fail") : "";
   mark.className = `es-mark ${checking ? "" : markClass(c.id)}`;
-  $("es-fixtures").textContent = c.fixtures.length ? `Also proven on the Checks page by: ${c.fixtures.join(" · ")}.` : "";
+  $("es-fixtures").textContent = c.fixtures.length ? `Also under Edge stack on the Checks page (add ?checks to the address): ${c.fixtures.join(" · ")}.` : "";
 }
 
-/** Pick a case: its preset, its words, its check. */
+/** Pick a case: its preset, its words, its check. A pick while a check runs waits for it, the last one clicked wins. */
 async function pick(c: EdgeCase, run = true): Promise<void> {
-  if (checking) return;
+  if (checking) {
+    queued = c;
+    renderList();
+    renderCase();
+    return;
+  }
   current = c;
   writePage();
   renderList();
@@ -199,6 +220,9 @@ async function pick(c: EdgeCase, run = true): Promise<void> {
     renderList();
     renderCase();
   }
+  const next = queued;
+  queued = null;
+  if (next) await pick(next);
 }
 
 list.addEventListener("click", (e) => {
@@ -244,7 +268,7 @@ $("es-reload").addEventListener("click", () => {
 // In the Checks page's frame nothing runs on its own: the scenarios set every case up.
 const saved = readPage();
 const again = EDGE_CASES.find((c) => c.id === saved.case);
-if (parseRoute().embed) void pick(EDGE_CASES[0]!, false);
+if (EMBED) void pick(EDGE_CASES[0]!, false);
 else if (again) {
   board.setEdge({ ...EDGE_DEFAULTS, ...saved.settings });
   if (saved.frozen) board.setFrozen(true);
@@ -264,4 +288,5 @@ const scenarios: Scenario<null>[] = EDGE_CASES.map((c) => ({
     return [row(c.expect, v.ok ? [] : [`expected ${v.expected}; now ${v.now}`], `now ${v.now}`)];
   },
 }));
-install(null, scenarios, () => board.reset(), $<HTMLButtonElement>("es-run"), $<HTMLTableSectionElement>("es-runs"));
+// After a run the stage goes back to the picked case's start, as a person left it.
+install(null, scenarios, () => board.reset(), $<HTMLButtonElement>("es-run"), $<HTMLTableSectionElement>("es-runs"), () => current && applyPreset(current));

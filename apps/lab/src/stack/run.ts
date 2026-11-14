@@ -30,7 +30,8 @@ export const near = (a: Rect, b: Rect, tol = 0.5): boolean => Math.abs(a.x - b.x
 export const fmt = (r: Rect | null | undefined): string => (r ? `${Math.round(r.x * 10) / 10},${Math.round(r.y * 10) / 10} ${Math.round(r.width * 10) / 10} × ${Math.round(r.height * 10) / 10}` : "none");
 
 /** Install `window.__motionLab` for a page: its scenarios, run one at a time, and a table of the last run. */
-export function install<P>(page: P, scenarios: readonly Scenario<P>[], reset: () => void | Promise<void>, runButton: HTMLButtonElement, table: HTMLTableSectionElement): void {
+/** `after` runs once a run is over (after the last reset): a page puts back what the person was looking at. */
+export function install<P>(page: P, scenarios: readonly Scenario<P>[], reset: () => void | Promise<void>, runButton: HTMLButtonElement, table: HTMLTableSectionElement, after?: () => void): void {
   const runs: LabRun[] = [];
   let lastRows: Row[] = [];
   let running = false;
@@ -71,6 +72,7 @@ export function install<P>(page: P, scenarios: readonly Scenario<P>[], reset: ()
       return await runEach(filter);
     } finally {
       running = false;
+      after?.();
     }
   }
   runButton.addEventListener("click", async () => {

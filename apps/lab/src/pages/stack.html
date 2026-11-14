@@ -3,52 +3,43 @@
   <nav class="es-list" id="es-list" aria-label="Cases"></nav>
 
   <div class="es-main">
-    <section class="controls st-controls es-settings" aria-label="Settings">
-      <fieldset>
-        <legend>Column</legend>
-        <label>Length <input type="range" id="es-height" min="240" max="500" step="2" value="500" /> <output id="es-height-out"></output></label>
-        <label>Width <input type="range" id="es-width" min="60" max="360" step="2" value="360" /> <output id="es-width-out"></output></label>
-      </fieldset>
-      <fieldset>
-        <legend>Bar</legend>
-        <label>Length <input type="range" id="es-bar" min="420" max="1000" step="2" value="840" /> <output id="es-bar-out"></output></label>
-        <label>Gap <input type="range" id="es-gap" min="0" max="24" step="1" value="8" /> <output id="es-gap-out"></output></label>
-        <label>Pad <input type="range" id="es-pad" min="0" max="40" step="1" value="12" /> <output id="es-pad-out"></output></label>
-      </fieldset>
-      <fieldset>
-        <legend>Drag</legend>
-        <label>Preview <select id="es-preview" aria-label="Preview mode"><option value="gap">open gap</option><option value="indicator">indicator</option><option value="snap">snap to slot</option></select></label>
-        <label class="st-lock"><input type="checkbox" id="es-freeze" /> Freeze <span class="st-hint">· hold <kbd>Alt</kbd> to move</span></label>
-      </fieldset>
-      <fieldset>
-        <legend>Counts</legend>
-        <select id="es-count-item" aria-label="Item"></select>
-        <input type="number" id="es-count" min="0" max="100000" step="1" aria-label="Count" style="width:6em" />
-        <select id="es-phase" aria-label="Phase"></select>
-      </fieldset>
-      <fieldset>
-        <legend>Saved layout</legend>
-        <button type="button" id="es-reload" title="Reload the browser tab: the layout comes back from the stored form">Reload</button>
-        <button type="button" id="es-rebuild" title="Forget the layout in memory, then rebuild it from the stored form">Rebuild from the stored form</button>
-        <button type="button" id="es-reset" title="Back to this case's starting state">Reset the case</button>
-      </fieldset>
+    <section class="es-case" id="es-case" aria-label="The case">
+      <div class="es-case-head">
+        <p class="es-case-k"><span class="es-case-id" id="es-case-id"></span><span id="es-case-group"></span></p>
+        <h2 class="es-case-title" id="es-case-title"></h2>
+        <p class="es-case-expect" id="es-case-expect"></p>
+        <p class="es-case-foot"><button type="button" class="lab-btn" id="es-check">Check again</button></p>
+      </div>
+      <div>
+        <h3>Try</h3>
+        <ol class="es-try" id="es-case-try"></ol>
+      </div>
+      <div class="es-result" id="es-result">
+        <h3>Expected</h3><p id="es-expected"></p>
+        <h3>Now <span class="es-mark" id="es-mark"></span></h3><p id="es-now"></p>
+      </div>
+      <p class="es-fixtures" id="es-fixtures"></p>
     </section>
 
-    <section class="es-case" id="es-case" aria-label="The case">
-      <p class="es-case-k"><span class="es-case-id" id="es-case-id"></span><span id="es-case-group"></span></p>
-      <h2 class="es-case-title" id="es-case-title"></h2>
-      <p class="es-case-expect" id="es-case-expect"></p>
-      <div class="es-case-body">
-        <div>
-          <h3>Try</h3>
-          <ol class="es-try" id="es-case-try"></ol>
-        </div>
-        <div class="es-result" id="es-result">
-          <div><h3>Expected</h3><p id="es-expected"></p></div>
-          <div><h3>Now <span class="es-mark" id="es-mark"></span></h3><p id="es-now"></p></div>
-        </div>
-      </div>
-      <p class="es-case-foot"><button type="button" class="lab-btn" id="es-check">Check again</button> <span class="es-fixtures" id="es-fixtures"></span></p>
+    <section class="es-settings" aria-label="Settings">
+      <span class="es-k">Column</span>
+      <label data-ctl="height">length <input type="range" id="es-height" min="240" max="500" step="2" value="500" /> <output id="es-height-out"></output></label>
+      <label data-ctl="widthLimit">width <input type="range" id="es-width" min="60" max="360" step="2" value="360" /> <output id="es-width-out"></output></label>
+      <span class="es-k">Bar</span>
+      <label data-ctl="barLength">length <input type="range" id="es-bar" min="120" max="840" step="2" value="840" /> <output id="es-bar-out"></output></label>
+      <label data-ctl="gap">gap <input type="range" id="es-gap" min="0" max="24" step="1" value="8" /> <output id="es-gap-out"></output></label>
+      <label data-ctl="pad">pad <input type="range" id="es-pad" min="0" max="40" step="1" value="12" /> <output id="es-pad-out"></output></label>
+      <span class="es-k">Drag</span>
+      <label data-ctl="preview">preview <select id="es-preview" aria-label="Preview mode"><option value="gap">open gap</option><option value="indicator">indicator</option><option value="snap">snap to slot</option></select></label>
+      <label data-ctl="freeze" title="Hold Alt to move while frozen"><input type="checkbox" id="es-freeze" /> freeze</label>
+      <span class="es-k">Counts</span>
+      <span class="es-ctl" data-ctl="counts"><select id="es-count-item" aria-label="Item"></select><input type="number" id="es-count" min="0" max="100000" step="1" aria-label="Count" /><select id="es-phase" aria-label="Phase"></select></span>
+      <span class="es-k">Saved</span>
+      <span class="es-ctl" data-ctl="stored">
+        <button type="button" id="es-reload" title="Reload the browser tab: the layout comes back from the stored form">Reload</button>
+        <button type="button" id="es-rebuild" title="Forget the layout in memory, then rebuild it from the stored form">Rebuild</button>
+      </span>
+      <button type="button" id="es-reset" title="Back to this case's starting state">Reset the case</button>
     </section>
 
     <div class="st-wrap"><div class="st-stage es-stage" id="es-stage"></div></div>
@@ -63,7 +54,7 @@
 
 <section>
   <h2>Checks</h2>
-  <p class="readout"><button type="button" class="lab-btn" id="es-run">Run every case</button> Each case is set up on the stage and checked as above; the Checks page runs these with the Edge stack's check fixtures.</p>
+  <p class="readout"><button type="button" class="lab-btn" id="es-run">Run every case</button> Each case is set up on the stage and checked as above; the Checks page (add ?checks to the address) runs these under Edge stack, with the Edge stack's check fixtures.</p>
   <table>
     <thead><tr><th>Case</th><th>Mode</th><th>Result</th><th>Why</th></tr></thead>
     <tbody id="es-runs"><tr><td colspan="4">Run the cases to fill this table (window.__motionLab.runAll() does the same).</td></tr></tbody>
