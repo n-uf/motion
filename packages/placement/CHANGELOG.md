@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.12
 
 - New entry `@n-uf/placement/stack`: the items along one edge of a stage (a column or a row), each a panel or a control
   group with forms from largest to smallest. Pure, and not tied to `./panels` columns; `./panels`, `./dock` and `./desk`
