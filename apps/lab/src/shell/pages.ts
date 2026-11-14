@@ -82,7 +82,7 @@ const panels = {
   reset: "#pn-reset",
   wide: true,
 };
-/** The Edge stacks pages: each has its own markup, module and scenarios. */
+/** The Edge stack's check fixtures (FIXTURES below): each has its own markup, module and scenarios. */
 const stackForms = {
   markup: raw(() => import("../pages/stack-forms.html?raw")),
   load: () => Promise.all([import("../stack/stack.css"), import("../stack/forms").then(() => import("../stack/forms-scenarios"))]),
@@ -178,54 +178,18 @@ export const PAGES: readonly PageDef[] = [
     view: INTENT,
   },
   {
-    id: "stack/forms",
+    id: "stack",
     group: "stack",
-    nav: "Forms",
-    title: "Stack · forms",
-    line: "A column and a bar of panels and groups, two independent examples: each item takes the largest form that fits, the oldest gives way first, and a stack with nothing open is a rail.",
+    nav: "Edge stack",
+    title: "Edge stack",
+    line: "One stage: a side column, a top bar, pages that scroll under them and floats above. Pick a case to set it up, see what to expect and check it.",
     about:
-      "<code>@n-uf/placement/stack</code>'s <code>fitStack</code>: panels (Pages, Annotations, Findings) go open → header → rail icon → the » menu, groups (Views, Tools, Zoom) a row of words → stacked words → icons → the » menu, the item used longest ago first (kept ones last). Spare length goes to the open panels. A group never sets a column's width, so a group alone makes a rail of about 30 px. Length and width sliders and a toggle per item drive the same solver for the column and the bar; the status lists its coded notes. The column and the bar have their own ages, kept and open state (a click in one never changes the other); in the bar, a toolbar edge at most 40 px tall, a panel has no open form and starts at its header. Cases C2, C6, C8, C9 and C10.",
-    ...stackForms,
-  },
-  {
-    id: "stack/drop",
-    group: "stack",
-    nav: "Drop",
-    title: "Stack · drop",
-    line: "Drag any panel or group into any gap of the column or the bar: the dashed preview is the exact rect it gets after the drop.",
-    about:
-      "<code>@n-uf/placement/stack</code>'s <code>stackTargets</code> on <code>@n-uf/motion/drag</code>'s intent: a target for every gap (before each item and after the last), each carrying the solve with the item inserted. The dashed rectangle is that solve's rect for the dragged item and a line marks where its leading edge lands; hold over a gap and the others move to the places the solve gives them. A release lands on the same rect. Cases C1, C3 and C4.",
-    ...stackDrop,
-  },
-  {
-    id: "stack/floats",
-    group: "stack",
-    nav: "Floats",
-    title: "Stack · floats",
-    line: "Floats lie above the pages in the window's px: they stay put while the pages scroll, land beside docked items, and a drop past the stage's edge is clamped into it.",
-    about:
-      "<code>@n-uf/placement/stack</code>'s <code>fitFloat</code> and <code>floatTarget</code> on <code>@n-uf/motion/drag</code>'s intent. A window with a bar and a column of docked items, a sheet of pages that scrolls under them and floats above it. A float is in the stage's px, so scrolling never moves it and there is no pinned kind; the preview and the drop are one answer: the float's rect with the pointer holding it, clamped into the stage and moved beside any docked item it would cover. The float target's zone covers the whole plane, so a pointer past the stage's edge still drops a clamped float. Cases C5, C7, C16 and C17.",
-    ...stackFloats,
-  },
-  {
-    id: "stack/keep",
-    group: "stack",
-    nav: "Store, freeze, no jump",
-    title: "Stack · store, freeze, no jump",
-    line: "A reload restores every item's place and form; frozen hides the grips and nothing moves (Alt moves); a count or a phase changing moves no other item.",
-    about:
-      "The same window on <code>storeStack</code> / <code>readStack</code> and <code>storeFloats</code> / <code>readFloats</code> in localStorage: Reload forgets the arrangement in memory and rebuilds it from the stored form. Freeze is the app's flag, read at the press: a press without Alt never becomes a drag (no targets, no drop), holding Alt shows the grips and everything works, including the stacked headers; a drag that began finishes. Every item has a count badge and a phase in fixed slots: changing one moves no other item more than 0.5 px. Cases C13, C14 and C15.",
-    ...stackKeep,
-  },
-  {
-    id: "stack/toolbar",
-    group: "stack",
-    nav: "Toolbar",
-    title: "Stack · toolbar",
-    line: "A top bar of four groups: each folds to its own » in line, the primary folds last, gaps and padding are real, and an open panel dropped in lands as a header.",
-    about:
-      "<code>@n-uf/placement/stack</code> as a toolbar needs it. A group steps from its row to <code>fold</code> (its handle with its own », taking its own length; the shared » entry is a later step). A step goes only to a form that is shorter, so Mark's stacked form, as long as its row, is skipped. Tools is the ranked primary (<code>rank</code>): its one main tool, then a fold after every other group's fold. <code>gap</code> and <code>pad</code> count in the bar's length and in every rectangle, so the groups are drawn where the solver puts them; <code>stackTargets</code>'s <code>endReach</code> lets the first and last gaps reach past the bar. The bar is 40 px tall at most (<code>cross.max</code>): the Findings panel dragged in lands as a header, not open. Hysteresis is <code>@n-uf/motion/drag</code>'s, not placement's. Cases T1 to T6.",
-    ...stackToolbar,
+      "<code>@n-uf/placement/stack</code> on one stage, driven by <code>@n-uf/motion/drag</code>'s intent. Panels (Pages, Annotations, Findings) go open → header → rail icon → the » menu; groups (Views, Tools, Zoom) a row of words → stacked words → icons → the » menu in the column, and in the top bar, a toolbar edge 40 px tall at most, a row → a fold in line → the » menu, with Tools the ranked primary. The item used longest ago gives way first, kept ones last; spare length goes to the open panels. Drag any item by its grip into any gap, or onto the pages to float it; floats stay put while the pages scroll and are kept clear of the docked items and inside the stage. The layout is stored (Reload restores it), Freeze hides the grips (hold Alt to move), and counts and phases never move another item. Each case on the left is a preset of the settings and the starting state, with its check; the stage stays live to play with.",
+    markup: raw(() => import("../pages/stack.html?raw")),
+    load: () => Promise.all([import("../stack/stack.css"), import("../stack/edge.css"), import("../stack/edge")]),
+    module: "stack-edge",
+    reset: "#es-reset",
+    wide: true,
   },
   {
     id: "checks",
@@ -283,4 +247,18 @@ export const PAGES: readonly PageDef[] = [
   ...KIT_LIST.slice(1).flatMap(kitPage),
 ];
 
-export const pageById = (id: string): PageDef | undefined => PAGES.find((p) => p.id === id);
+/**
+ * The Edge stack's check fixtures: the five earlier stages its scenarios were written on (forms, drop, floats, store
+ * and freeze, toolbar). They are in no menu; the Checks page runs every one of their scenarios under Edge stack, so no
+ * assertion was lost when their pages became the one Edge stack page. Each Edge stack case names the fixture scenarios
+ * that prove it in more depth.
+ */
+export const FIXTURES: readonly PageDef[] = [
+  { id: "stack/forms", group: "stack", title: "Edge stack fixture · forms", line: "Two independent stacks of the same six items, for C2, C6, C8, C9, C10 and C23.", ...stackForms },
+  { id: "stack/drop", group: "stack", title: "Edge stack fixture · drop", line: "A column and a bar, for drops into every gap: C1, C3 and C4.", ...stackDrop },
+  { id: "stack/floats", group: "stack", title: "Edge stack fixture · floats", line: "Floats over scrolling pages: C5, C7, C16 and C17.", ...stackFloats },
+  { id: "stack/keep", group: "stack", title: "Edge stack fixture · store, freeze, no jump", line: "The stored form, the freeze and the counts: C13, C14 and C15.", ...stackKeep },
+  { id: "stack/toolbar", group: "stack", title: "Edge stack fixture · toolbar", line: "A toolbar of four groups and a panel: T1 to T6, N1 and N2.", ...stackToolbar },
+];
+
+export const pageById = (id: string): PageDef | undefined => PAGES.find((p) => p.id === id) ?? FIXTURES.find((p) => p.id === id);

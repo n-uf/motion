@@ -6,7 +6,10 @@
  */
 import { passes, type LabRun, type ScenarioFilter } from "../shared/hooks";
 import { routeHash } from "./api";
-import { GROUPS, PAGES, type GroupId, type PageDef, type View } from "./pages";
+import { FIXTURES, GROUPS, PAGES as LISTED, type GroupId, type PageDef, type View } from "./pages";
+
+/** The listed pages and the check fixtures (pages in no menu whose scenarios still run here). */
+const PAGES: readonly PageDef[] = [...LISTED, ...FIXTURES];
 
 /** The frame's size: the viewport the headless runs use. */
 const FRAME = { width: 1600, height: 1100 };
