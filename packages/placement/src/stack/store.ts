@@ -71,7 +71,8 @@ export function readStack(data: unknown, known?: readonly string[]): StackRead {
   }
 }
 
-const versionWords = (v: unknown): string => (typeof v === "number" ? String(v) : typeof v === "string" ? JSON.stringify(v.length > 24 ? `${v.slice(0, 24)}…` : v) : typeof v);
+/** A stored version in words for an error (a string is quoted and cut); shared with the floats' reader, not exported from the entry. */
+export const versionWords = (v: unknown): string => (typeof v === "number" ? String(v) : typeof v === "string" ? JSON.stringify(v.length > 24 ? `${v.slice(0, 24)}…` : v) : typeof v);
 
 function read(data: unknown, known?: readonly string[]): StackRead {
   if (!isObject(data)) return { ok: false, error: "not an object" };

@@ -5,7 +5,7 @@ import { deskDrop, deskTargets, floatTarget, hostTargets, keyboardStops, paneZon
 import { arrangement, hostOf, layoutHost, readArrangement, storeArrangement, type Place } from "../src/toolbar";
 import { createPanels, homePlace, keep, layoutPanels, panelDrop, panelTargets, readPanels, storePanels, type PanelDef } from "../src/panels";
 import { PRESETS, presetLayout, presetTargets } from "../src/desk";
-import { fitFloat, fitStack, floatTarget as stackFloatTarget, readFloats, readStack, stackTargets, storeFloats, storeStack, type StackForm, type StackItem } from "../src/stack";
+import { fitFloat, fitStack, readFloats, readStack, stackFloatTarget, stackTargets, storeFloats, storeStack, type StackForm, type StackItem } from "../src/stack";
 
 describe("README examples", () => {
   it("desk presets", () => {
