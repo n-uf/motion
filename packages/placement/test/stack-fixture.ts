@@ -1,19 +1,19 @@
 /** Sample items for the stack tests: panels (open, header, rail, menu) and groups (row, stacked, icons, menu). */
 import type { StackForm, StackInput, StackItem } from "../src/stack";
 
-const form = (kind: StackForm["kind"], min: number, natural: number, cross: number, extra: { grows?: boolean; setsCross?: boolean } = {}): StackForm => ({
+const form = (kind: StackForm["kind"], min: number, natural: number, cross: number, extra: { grows?: boolean; setsCross?: boolean; crossMin?: number } = {}): StackForm => ({
   kind,
   main: { min, natural, ...(extra.grows ? { grows: true } : {}) },
-  cross: { natural: cross },
+  cross: { natural: cross, ...(extra.crossMin !== undefined ? { min: extra.crossMin } : {}) },
   ...(extra.setsCross !== undefined ? { setsCross: extra.setsCross } : {}),
 });
 
-/** A panel: open (min 90, natural `natural`, grows, `wide` across), a 28 header, a 24 rail icon, the menu. */
+/** A panel: open (min 90, natural `natural`, grows, `wide` across), a 28 header (fits a column 100 wide), a 24 rail icon, the menu. */
 export const panel = (id: string, used: number, natural = 160, kept = false, wide = 240): StackItem => ({
   id,
   used,
   kept,
-  forms: [form("open", 90, natural, wide, { grows: true }), form("header", 28, 28, wide), form("rail", 24, 24, 30), form("menu", 0, 0, 0)],
+  forms: [form("open", 90, natural, wide, { grows: true }), form("header", 28, 28, wide, { crossMin: Math.min(wide, 100) }), form("rail", 24, 24, 30), form("menu", 0, 0, 0)],
 });
 
 /** A group in a column: words in a block (never sets the cross size), stacked words, icons, the menu. */
@@ -53,6 +53,11 @@ export function mix(rand: () => number, n: number): StackItem[] {
   return Array.from({ length: n }, (_, i) => {
     const used = Math.floor(rand() * 6);
     const kept = rand() < 0.25;
-    return rand() < 0.55 ? panel(`p${i}`, used, 100 + Math.floor(rand() * 120), kept) : group(`g${i}`, used, kept);
+    if (rand() < 0.55) {
+      const p = panel(`p${i}`, used, 100 + Math.floor(rand() * 120), kept);
+      // Some are folded by hand: they start at their header.
+      return rand() < 0.15 ? { ...p, from: 1 } : p;
+    }
+    return group(`g${i}`, used, kept);
   });
 }
