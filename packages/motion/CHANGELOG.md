@@ -3,6 +3,13 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## Unreleased
+
+- `@n-uf/motion/drag`: `DragFrame.atHome`, true when the pointer is back inside `home` after it has left it (never
+  before it left). The intent still shows no target over home and `release` over home is still null; `atHome` lets a
+  host draw its own "back to its place" indicator there. A new field on the frame `update` returns; nothing else
+  changes.
+
 ## 26.11.12
 
 - No change in `@n-uf/motion`. Released together with `@n-uf/placement`

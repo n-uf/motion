@@ -9,18 +9,24 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   so are `./panels`, `./dock` and `./desk`). A float is an item above the pages, in the stage's own px (view space), so
   the pages scrolling under it never move it; it has no pinned flag.
   - `fitFloat(rect, stage, avoid?)`: the float's rect moved (never resized) inside the stage, then beside the docked
-    items it would cover, at the nearest clear place; `FloatFit` has `rect`, `clamped`, `snapped` and `covers` (indexes
-    into `avoid` it still covers when the stage has no clear place). A float larger than the stage keeps its top-left
-    corner on the stage's.
-  - `floatTarget({ id, stage, size, avoid?, label? })`: a free, priority 3 drop target in the shape `@n-uf/motion/drag`
-    takes, whose `hit` covers the whole plane, so a pointer past the stage's edge still hits it. `make(point, grab?)`
-    gives the float's rect (clamped, clear of the docked items) for the preview and for the drop: one answer, so a drop
-    past the edge lands clamped and never cancels.
+    items it would cover, at the nearest clear place; `FloatFit` has `rect`, `clamped` (also when a position that wasn't a
+    number was replaced), `snapped` and `covers` (indexes into `avoid` it still covers when the stage has no clear
+    place). A float larger than the stage keeps its top-left corner on the stage's. The candidate places are tried
+    nearest first and rects that can't touch the float are left out: 300 `avoid` rects take a millisecond or two, and
+    the search looks at 20,000 places at most (2,048 for the least covered when none is clear).
+  - `stackFloatTarget({ id, stage, size, avoid?, label? })`: a free, priority 3 drop target in the shape
+    `@n-uf/motion/drag` takes, `kind: "float"`, id `float:<id>` (so it can't collide with `./desk`'s `"float"`; the
+    toolbar `floatTarget` in `./targets` keeps its name), whose `hit` covers the whole plane, so a pointer past the
+    stage's edge still hits it. `make(point, grab?)` gives the float's rect (clamped, clear of the docked items) for the
+    preview and for the drop: one answer, so a drop past the edge lands clamped and never cancels. A gap's `hit`
+    thinner than 8 px (twice the intent's 4 px breakthrough) can't take over from it.
   - `storeFloats` / `readFloats`: `{ v: 1, floats: [{ id, x, y, width, height }] }` in stacking order; never throws,
-    drops what it can't use and lists it in `dropped`. It writes no `pinned`; one an old store has is read and ignored
-    (listed as `pinned:<id>`), and the float loads as a plain float.
-  - Exports: `fitFloat`, `floatTarget`, `storeFloats`, `readFloats` and the types `StackFloat`, `FloatFit`,
-    `FloatTarget`, `FloatTargetInput`, `FloatDrop`, `StoredFloats`, `FloatsRead`.
+    drops what it can't use and lists it in `dropped`. `storeFloats` leaves out a float with a zero size or a bad number,
+    and of a repeated id keeps the last readable entry (the one on top); `readFloats` does the same and words a bad
+    version as the stack's reader does. It writes no `pinned`; one an old store has is read and ignored (listed as
+    `pinned:<id>`), and the float loads as a plain float.
+  - Exports: `fitFloat`, `stackFloatTarget`, `storeFloats`, `readFloats` and the types `StackFloat`, `FloatFit`,
+    `FloatTarget`, `StackFloatTargetInput`, `FloatDrop`, `StoredFloats`, `FloatsRead`.
 
 ## 26.11.12
 
