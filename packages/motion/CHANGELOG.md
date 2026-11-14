@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.14
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.14 (the toolbar cases in `./stack` and
+  `fitStack(…, { previous })`).
+
 ## 26.11.13
 
 - `@n-uf/motion/drag`: `DragFrame.atHome`, true when the pointer is back inside `home` after it has been outside `home`

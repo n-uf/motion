@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.14
 
 - `@n-uf/placement/stack`, the cases a toolbar needs. Additive: no rename, no removed export, no new required field, and
   an input that uses none of the new options gives the 26.11.13 fit, except in the three cases under "Changed
@@ -42,7 +42,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     otherwise the kept forms grow back in the reverse of give-way order while the stack fits (so a badge losing a digit
     after a press moves nothing; an item goes back to the nearest larger form the stack fits with, even if that makes it
     shorter, and items in the menu come out together when only all of them leaving fits). Results under `previous` depend
-    on history but are never worse: a shrink then a grow may end at a larger arrangement than a fresh solve. An item whose
+    on history but are never worse: a shrink then a grow may end at a larger arrangement than a fresh solve. Growing back
+    is meant for stacks of up to about 50 items (60 small menu items take about 9 ms). An item whose
     form at the kept index is of another kind starts over; one only
     re-measured keeps its place (smaller: room that grows the kept forms; larger: it gives way from them). A lowered `cross.min`, or any
     change of the forms' cross sizes, doesn't bring a form back under `previous`: solve once without it.
