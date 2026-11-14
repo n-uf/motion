@@ -28,9 +28,10 @@ export function dress(id: string, kind: StackFormKind, meta?: ItemMeta): string 
       return `<span class="st-gh" data-grab>${dots}</span><span class="st-col">${s.words.map((w) => `<span class="st-pill">${w}</span>`).join("")}</span>${num}`;
     case "icons":
       return `<span class="st-gh" data-grab title="${title}">${dots}</span>${s.words.map((w) => `<span class="st-pill st-ico" title="${w}">${w[0]}</span>`).join("")}`;
-    case "menu":
     case "fold":
-      // The `fold` kind is the toolbar page's (src/stack/toolbar.ts draws it); these pages have none.
+      // A group folded in line along a toolbar (the Edge stack page's top bar): its grip and its own ».
+      return `<span class="st-gh" data-grab title="${title}">${dots}</span><span class="st-more" aria-hidden="true">»</span>`;
+    case "menu":
       return "";
   }
 }

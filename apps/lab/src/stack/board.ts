@@ -15,9 +15,15 @@
  *   never a count or a phase, so with sizes that don't depend on them changing one moves no other item. `setMeasured`
  *   is the control that breaks that on purpose: a bar group's row form is then measured from its words and its badge
  *   (which grows with its digits), so a count with more digits does move the items after it.
+ *
+ * With `edge` it is the Edge stack page's one stage: the top bar is a toolbar edge (40 px tall at most, `strictCross`;
+ * groups fold in line, the ranked primary last, real gaps and padding, ends that reach past it: T1 to T6), the column's
+ * width limit, the stage's width, the gap and the padding and the preview mode are settings, a press or a count solves
+ * with the fit on screen as `previous` (C23), and while a drop is previewed every other item, floats too, is drawn at
+ * its rect after the drop (C22). Without it the board is the one the floats and keep fixtures always had.
  */
 import type { Rect } from "@n-uf/motion";
-import { DRAG_DEFAULTS, createDragIntent, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
+import { DRAG_DEFAULTS, createDragIntent, previewPlan, type DragIntent, type DragPreview, type DragTarget } from "@n-uf/motion/drag";
 import {
   fitFloat,
   fitStack,
@@ -34,7 +40,7 @@ import {
   type StackState,
   type StackTarget,
 } from "@n-uf/placement/stack";
-import { ALL, FLOAT_SIZE, defaultMeta, inputOf, isPanel, itemOf, titleOf, type ItemId, type ItemMeta, type Phase, type Placed } from "./sample";
+import { ALL, FLOAT_SIZE, defaultMeta, inputOf, isPanel, itemOf, titleOf, toolbarInputOf, toolbarItemOf, type ItemId, type ItemMeta, type Phase, type Placed } from "./sample";
 import { createStackView, dress, type StackView } from "./view";
 import { sayFit } from "./words";
 
@@ -91,7 +97,29 @@ export interface BoardOptions {
   readonly restore?: boolean;
   /** Called after the arrangement, a count or phase, or the freeze changed (the page refreshes its readouts). */
   readonly onChange?: () => void;
+  /** The Edge stack page's stage (see the file's header). */
+  readonly edge?: boolean;
 }
+
+/** The Edge stack page's settings, and their defaults. */
+export interface EdgeSettings {
+  /** The stage's width. */
+  readonly width: number;
+  /** The stage's height: the column is what is left under the bar. */
+  readonly height: number;
+  /** The top bar's length, from the stage's left edge; at most the stage's width. */
+  readonly barLength: number;
+  /** The column's width limit (an open panel's cross.max). */
+  readonly widthLimit: number;
+  readonly gap: number;
+  readonly pad: number;
+  readonly preview: DragPreview;
+}
+export const EDGE_DEFAULTS: EdgeSettings = { width: 840, height: 500, barLength: 840, widthLimit: 360, gap: 8, pad: 12, preview: "gap" };
+export const EDGE_BAR_H = 40;
+export const EDGE_WIDTH = { min: 420, max: 1000 };
+/** Short enough that every group of the bar folds, the ranked primary too (T3). */
+export const EDGE_BAR_LENGTH = { min: 120, max: 1000 };
 
 /** Where an item is: a docked place, a float or the » menu. */
 export type Where = { readonly kind: "dock"; readonly side: Side; readonly at: number } | { readonly kind: "float" };
@@ -159,6 +187,12 @@ export function createBoard(opt: BoardOptions) {
   const keys = sideKeys(opt.key);
   const autosave = opt.autosave ?? true;
   const clearStage = (): void => stage.replaceChildren();
+  const edge = !!opt.edge;
+  /** The bar's thickness: the column starts under it. */
+  const barH = edge ? EDGE_BAR_H : BAR_H;
+  ORIGIN.column.y = barH;
+  LENGTH.column = STAGE.height - barH;
+  let settings: EdgeSettings = { ...EDGE_DEFAULTS };
 
   // --- state -----------------------------------------------------------------------------------------------------------
 
@@ -226,8 +260,20 @@ export function createBoard(opt: BoardOptions) {
   // --- layout ----------------------------------------------------------------------------------------------------------------
 
   const placedOf = (id: ItemId): Placed => ({ id, used: st.used[id], kept: st.kept.has(id), from: st.from[id] ?? 0, badge: true, ...(measured && !isPanel(id) ? { rowMain: measureRow(id) } : {}) });
-  const inputFor = (side: Side, without?: ItemId): StackInput => inputOf(AXIS[side], LENGTH[side], st.orders[side].filter((id) => id !== without).map(placedOf));
-  const fitsWithout = (without?: ItemId): Record<Side, StackFit> => ({ column: fitStack(inputFor("column", without)), bar: fitStack(inputFor("bar", without)) });
+  function inputFor(side: Side, without?: ItemId): StackInput {
+    const items = st.orders[side].filter((id) => id !== without).map(placedOf);
+    if (!edge) return inputOf(AXIS[side], LENGTH[side], items);
+    return side === "bar" ? toolbarInputOf({ length: LENGTH.bar, height: barH, gap: settings.gap, pad: settings.pad }, items) : inputOf("column", LENGTH.column, items, settings.widthLimit);
+  }
+  const itemFor = (side: Side, id: ItemId) => (edge && side === "bar" ? toolbarItemOf(placedOf(id)) : itemOf(placedOf(id), AXIS[side]));
+  /** Each stack's fit; `keep` solves with the fit on screen as `previous`, so the forms that still fit stay (C23). */
+  function fitsWithout(without?: ItemId, keep = false): Record<Side, StackFit> {
+    const fit = (n: Side): StackFit => {
+      const prev = keep ? views[n].fit() : null;
+      return fitStack(inputFor(n, without), prev ? { previous: prev } : {});
+    };
+    return { column: fit("column"), bar: fit("bar") };
+  }
 
   /** The docked content, in stage px: every drawn item's rect and each » entry (the dragged item `without` left out). */
   function avoidRects(without?: ItemId): Rect[] {
@@ -260,7 +306,8 @@ export function createBoard(opt: BoardOptions) {
 
   const floatKind = (id: ItemId): "open" | "row" => (isPanel(id) ? "open" : "row");
 
-  function drawFloats(lifted?: ItemId): void {
+  /** `avoid`: the docked content a previewed drop makes; each float is drawn where it goes after that drop (C22). */
+  function drawFloats(lifted?: ItemId, avoid?: readonly Rect[]): void {
     const live = new Set(st.floats.map((f) => f.id));
     for (const [id, el] of floatEls) {
       if (!live.has(id as ItemId)) {
@@ -286,25 +333,40 @@ export function createBoard(opt: BoardOptions) {
       }
       el.dataset.phase = m.phase;
       el.hidden = f.id === lifted;
-      Object.assign(el.style, { left: px(f.rect.x), top: px(f.rect.y), width: px(f.rect.width), height: px(f.rect.height), zIndex: String(10 + i) });
+      const r = avoid ? fitFloat(f.rect, STAGE_RECT, avoid).rect : f.rect;
+      Object.assign(el.style, { left: px(r.x), top: px(r.y), width: px(r.width), height: px(r.height), zIndex: String(10 + i) });
     });
   }
 
-  /** Draw: the stacks from the state (the dragged item lifted out), or with the room a gap makes; then the floats. */
-  function draw(room: DockT | null, lifted?: ItemId, homing = false): void {
+  /** The docked content in stage px when the room's drop is made: the room's stack as its solve has it, the other as it stands. */
+  function roomAvoid(room: DockT, fits: Record<Side, StackFit>): Rect[] {
+    const out: Rect[] = [];
+    for (const n of SIDES) {
+      const fit = room.side === n ? room.target.fit : fits[n];
+      for (const p of fit.items) if (p.kind !== "menu") out.push(shiftBy(p.rect, ORIGIN[n]));
+      if (fit.menu) out.push(shiftBy(fit.menu.rect, ORIGIN[n]));
+    }
+    return out;
+  }
+
+  /**
+   * Draw: the stacks from the state (the dragged item lifted out), or with the room a gap makes; then the floats. `keep`
+   * solves with the fits on screen as `previous` (a press, a count).
+   */
+  function draw(room: DockT | null, lifted?: ItemId, homing = false, keep = false): void {
     // Homing: the pointer is back over the held item's own place, so the others stand where they were and the place is held for it.
-    const fits = fitsWithout(homing ? undefined : lifted);
+    const fits = fitsWithout(homing ? undefined : lifted, keep);
     for (const n of SIDES) {
       if (room && room.side === n) views[n].draw(room.target.fit, room.target.item);
       else views[n].draw(fits[n], homing ? lifted : undefined);
     }
     const colCross = room?.side === "column" ? room.target.fit.cross : fits.column.cross;
-    Object.assign(scroller.style, { left: px(colCross), top: px(BAR_H), width: px(STAGE.width - colCross), height: px(STAGE.height - BAR_H) });
-    drawFloats(lifted);
+    Object.assign(scroller.style, { left: px(colCross), top: px(barH), width: px(STAGE.width - colCross), height: px(STAGE.height - barH) });
+    drawFloats(lifted, edge && room ? roomAvoid(room, fits) : undefined);
     syncGrips();
   }
-  const settle = (): void => {
-    draw(null);
+  const settle = (keep = false): void => {
+    draw(null, undefined, false, keep);
     if (autosave) save();
     say(readout());
     opt.onChange?.();
@@ -449,14 +511,17 @@ export function createBoard(opt: BoardOptions) {
     const order = st.orders[side].filter((id) => id !== without);
     return `${Cap(side)} · ${at < order.length ? `before ${titleOf(order[at]!)}` : "at the end"}`;
   }
-  const sidesFor = (id: ItemId): readonly Side[] => (isPanel(id) ? ["column"] : SIDES);
+  // A panel docks in the column; on the Edge stack it may go to the toolbar bar too, where it lands as its header (T6).
+  const sidesFor = (id: ItemId): readonly Side[] => (isPanel(id) && !edge ? ["column"] : SIDES);
 
   /** Every place for dragging `id`: the gaps of the stacks it may dock in (stage px), and the float target. */
   function targetsFor(id: ItemId): BoardTarget[] {
     const out: BoardTarget[] = [];
     for (const side of sidesFor(id)) {
-      const dragged = itemOf(placedOf(id), AXIS[side]);
-      const targets = stackTargets(inputFor(side, id), dragged);
+      const dragged = itemFor(side, id);
+      // The Edge stack's bar is a toolbar: the solver's `endReach` lets its first and last gaps reach past its ends (T5).
+      const toolbar = edge && side === "bar";
+      const targets = stackTargets(inputFor(side, id), dragged, toolbar ? { endReach: END_REACH } : {});
       const o = ORIGIN[side];
       for (const t of targets) {
         const hit = shiftBy(t.hit, o);
@@ -467,6 +532,8 @@ export function createBoard(opt: BoardOptions) {
           wide = { ...hit, width: Math.max(hit.width, REACH.column) };
           // Past the column's far end (the stage's bottom edge); its near end is the bar's.
           wide = { ...wide, height: wide.height + (last ? END_REACH : 0) };
+        } else if (toolbar) {
+          wide = { ...hit, height: Math.max(hit.height, barH) };
         } else {
           wide = { ...hit, height: Math.max(hit.height, REACH.bar) };
           wide = { ...wide, x: wide.x - (first ? END_REACH : 0), width: wide.width + (first ? END_REACH : 0) + (last ? END_REACH : 0) };
@@ -501,6 +568,8 @@ export function createBoard(opt: BoardOptions) {
     readonly docked: boolean;
     /** The pointer is back over its place and the place is shown. */
     homing: boolean;
+    /** The held item's size as lifted. */
+    readonly size: { readonly width: number; readonly height: number };
     raf: number;
   }
   let drag: Held | null = null;
@@ -551,7 +620,7 @@ export function createBoard(opt: BoardOptions) {
     // A docked item's home is its place (a release there does nothing); a float is moved anywhere, so its home is the point.
     const home: Rect = where.kind === "dock" ? was : { x: start.x, y: start.y, width: 0, height: 0 };
     const intent = createDragIntent<BoardTarget>({ home });
-    drag = { id, grab, home, el, intent, targets, floatDrop: null, pointer: p, shown: null, room: null, docked: where.kind === "dock", homing: false, raf: 0 };
+    drag = { id, grab, home, el, intent, targets, floatDrop: null, pointer: p, shown: null, room: null, docked: where.kind === "dock", homing: false, size: { width: was.width, height: was.height }, raf: 0 };
     stage.classList.add("dragging");
     const loop = (): void => {
       if (!drag) return;
@@ -569,8 +638,13 @@ export function createBoard(opt: BoardOptions) {
     Object.assign(d.el.style, { left: px(d.pointer.x - d.grab.x), top: px(d.pointer.y - d.grab.y) });
     const wasHoming = d.homing;
     const f = d.intent.update(d.pointer, now, d.targets);
-    const plan = previewPlan(f, "gap");
+    const plan = previewPlan(f, edge ? settings.preview : "gap");
     const room = plan.makeRoom && f.shown?.kind === "dock" ? f.shown : null;
+    // Snap: the held item sits in its slot instead of under the pointer.
+    if (plan.snapItem && f.shown?.kind === "dock") {
+      const s = f.shown.slot;
+      Object.assign(d.el.style, { left: px(s.x), top: px(s.y), width: px(s.width), height: px(s.height) });
+    } else if (edge) Object.assign(d.el.style, { width: px(d.size.width), height: px(d.size.height) });
     // Back over its own place (a docked item): the intent shows no target there and a release puts it back, so say so.
     const homing = f.atHome && d.docked && f.shown === null;
     if (room?.id !== d.room?.id || homing !== d.homing) {
@@ -675,7 +749,7 @@ export function createBoard(opt: BoardOptions) {
       } else if (!lifted && ev.type === "pointerup" && opens(target)) {
         // A press and a release that never went past the lift distance is a click, never a drag; a drag is never a click.
         open(id);
-      }
+      } else if (edge && !lifted && ev.type === "pointerup") press(id);
     };
     const key = (ev: KeyboardEvent): void => {
       if (ev.key === "Escape" && drag) {
@@ -763,8 +837,35 @@ export function createBoard(opt: BoardOptions) {
   }
   function setMeta(id: ItemId, patch: Partial<{ count: number; phase: Phase }>): void {
     st.meta[id] = { ...st.meta[id], ...patch };
-    draw(null);
+    // On the Edge stack a re-measured item keeps the others' forms (`previous`), as a host does.
+    draw(null, undefined, false, edge);
     opt.onChange?.();
+  }
+  /** A press on an item's grip or header, no drag, nothing opened (the Edge stack): a use of it, and nothing else reshapes (C23). */
+  function press(id: ItemId): void {
+    if (!whereIs(id)) return;
+    st.used[id] = ++clock;
+    settle(true);
+    say(`${titleOf(id)} pressed: a use of it. ${readout()}`);
+  }
+  /** The Edge stack's settings: the stage's size, the bar's length, gap and padding, the column's width limit, the preview mode. */
+  function setEdge(patch: Partial<EdgeSettings>): void {
+    if (drag) endDrag(true);
+    settings = { ...settings, ...patch };
+    applyWidth(settings.width);
+    applyHeight(settings.height);
+    const barLength = Math.min(Math.max(Math.round(settings.barLength), EDGE_BAR_LENGTH.min), EDGE_BAR_LENGTH.max, STAGE.width);
+    LENGTH.bar = barLength;
+    settings = { ...settings, width: STAGE.width, height: STAGE.height, barLength };
+    refloat();
+    settle();
+  }
+  function applyWidth(w: number): void {
+    const width = Math.min(Math.max(Math.round(w), EDGE_WIDTH.min), EDGE_WIDTH.max);
+    STAGE.width = width;
+    STAGE_RECT.width = width;
+    LENGTH.bar = Math.min(settings.barLength, width);
+    stage.style.width = px(width);
   }
   /** The no-jump control: size bar groups' row form from their words and badge (the badge grows with its digits). */
   function setMeasured(on: boolean): void {
@@ -796,13 +897,14 @@ export function createBoard(opt: BoardOptions) {
     const height = Math.min(Math.max(Math.round(h), STAGE_HEIGHT.min), STAGE_HEIGHT.max);
     STAGE.height = height;
     STAGE_RECT.height = height;
-    LENGTH.column = height - BAR_H;
+    LENGTH.column = height - barH;
     stage.style.height = px(height);
   }
   /** Resize the window: the column gives way or grows, and a float the stage no longer holds is clamped back in. */
   function setHeight(h: number): void {
     if (drag) endDrag(true);
     applyHeight(h);
+    settings = { ...settings, height: STAGE.height };
     refloat();
     settle();
     say(readout());
@@ -811,6 +913,10 @@ export function createBoard(opt: BoardOptions) {
     if (drag) endDrag(true);
     clearStored();
     applyHeight(STAGE_HEIGHT.max);
+    if (edge) {
+      settings = { ...EDGE_DEFAULTS };
+      applyWidth(settings.width);
+    }
     st = fresh();
     clock = 6;
     frozen = false;
@@ -852,6 +958,7 @@ export function createBoard(opt: BoardOptions) {
     return out;
   }
 
+  if (edge) applyWidth(settings.width);
   draw(null);
   if (opt.restore) load();
   say(readout());
@@ -860,6 +967,19 @@ export function createBoard(opt: BoardOptions) {
     stage,
     views,
     scroller,
+    press,
+    setEdge,
+    get settings(): EdgeSettings {
+      return { ...settings };
+    },
+    barHeight: barH,
+    /** Every item's rect as drawn now (stage px), the held one left out: what a previewed drop shows (C22). */
+    drawnNow(): Map<ItemId, Rect> {
+      const out = new Map<ItemId, Rect>();
+      for (const n of SIDES) for (const [id, r] of views[n].drawn()) out.set(id as ItemId, shiftBy(r, ORIGIN[n]));
+      for (const [id, el] of floatEls) if (!el.hidden) out.set(id as ItemId, domRect(el));
+      return out;
+    },
     ind,
     indLabel,
     marker,

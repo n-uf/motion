@@ -1,0 +1,67 @@
+/* The Edge stack page: the case list on the left; the settings strip, the case and the one stage on the right. */
+.es { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: var(--s5); align-items: start; }
+.es-main { min-width: 0; }
+
+.es-list { position: sticky; top: var(--s4); display: grid; gap: var(--s4); max-height: calc(100vh - 2 * var(--s4)); overflow: auto; padding-right: 4px; }
+.es-group-k { margin: 0 0 4px; padding: 0 6px; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.es-group ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 1px; }
+.es-group button {
+  display: grid; grid-template-columns: 14px 44px minmax(0, 1fr); align-items: baseline; gap: 4px; width: 100%; min-height: 28px;
+  padding: 4px 6px; border: 0; border-radius: var(--r-sm, 6px); background: transparent; color: var(--text-2); font: 500 var(--t-sm) / 1.3 var(--font-sans);
+  text-align: left; cursor: pointer;
+}
+.es-group button:hover { background: var(--bg-raised); color: var(--text); }
+.es-group button[aria-current="true"] { background: var(--accent-soft, var(--bg-raised)); color: var(--text); box-shadow: inset 2px 0 0 var(--accent); }
+.es-m { font-weight: 700; color: var(--text-3); text-align: center; }
+.es-m.ok { color: var(--good); }
+.es-m.bad { color: var(--bad); }
+.es-n { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3); }
+.es-t { min-width: 0; }
+
+/* The settings strip: one wrapped line of small controls; the ones the picked case uses are marked. */
+.es-settings { display: grid; gap: 4px; margin: 0 0 var(--s2); font-size: 12px; color: var(--text-2); }
+/* Two rows: the column and the bar; then drag, counts and the saved layout. A label stays with its control. */
+.es-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.es-settings label, .es-ctl { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px; border-radius: 6px; white-space: nowrap; flex: none; }
+.es-settings input[type="range"] { width: 56px; margin: 0; }
+.es-settings output { font-family: var(--font-mono); font-size: 11px; min-width: 2.4em; color: var(--text-3); }
+.es-settings select, .es-settings button { height: 24px; font-size: 12px; }
+.es-settings input[type="number"] { width: 5.5em; height: 22px; }
+.es-k { margin-left: 4px; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+.es-k:first-child { margin-left: 0; }
+.es-settings .es-uses { background: var(--signal-soft); box-shadow: inset 0 0 0 1px var(--signal); color: var(--text); }
+
+/* The case: what it is and what to expect, the steps, Expected and Now, side by side. */
+.es-case { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 1fr); gap: 4px var(--s4); margin: 0 0 var(--s2); padding: 10px var(--s4); border: 1px solid var(--line-2); border-radius: var(--r); background: var(--bg-raised); font-size: var(--t-sm); }
+.es-case p { margin: 0; }
+.es-case-k { display: flex; gap: 10px; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.es-case-id { color: var(--accent-strong, var(--accent)); }
+.es-case-title { margin: 1px 0 3px; font-size: 1.05rem; }
+.es-case-expect { color: var(--text); }
+.es-case h3 { margin: 0 0 2px; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.es-try { margin: 0; padding-left: 1.2em; }
+.es-try li { margin: 0 0 2px; }
+.es-result p + h3 { margin-top: 6px; }
+.es-mark { margin-left: 6px; text-transform: none; letter-spacing: 0; font-size: 12px; }
+.es-mark.ok { color: var(--good); }
+.es-mark.bad { color: var(--bad); }
+.es-case-foot { margin-top: 6px !important; }
+.es-case-foot .lab-btn { height: 26px; font-size: 12px; }
+.es-fixtures { grid-column: 1 / -1; font-size: 11.5px; color: var(--text-3); }
+.es-fixtures:empty { display: none; }
+.es-group button.es-queued .es-m::after { content: "…"; }
+
+/* What the case asks to look at. */
+.es-stage .es-hi { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 6; }
+.es-stage .st-stack.es-hi { z-index: 6; }
+.es-stage.es-checking { pointer-events: none; }
+
+/* The top bar's in-line fold: a grip and its own ». */
+.es-stage .st-group[data-kind="fold"] { justify-content: center; gap: 2px; padding: 0 4px; }
+.st-more { font-weight: 700; color: var(--st-muted); }
+
+@media (max-width: 1100px) {
+  .es { grid-template-columns: minmax(0, 1fr); }
+  .es-list { position: static; max-height: none; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .es-case { grid-template-columns: minmax(0, 1fr); }
+}
