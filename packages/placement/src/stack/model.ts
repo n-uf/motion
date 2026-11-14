@@ -66,6 +66,16 @@ export interface StackItem {
    * left after `from`.
    */
   readonly from?: number;
+  /**
+   * A fixed item is a reserved room, such as the title and the window controls of a title bar. It never gives way:
+   * it keeps its first allowed form (`forms[from]`) whatever the length or the cross size, so it is never in the » menu
+   * unless that is the form it starts in, and it doesn't take part in `previous`'s growing back. It counts toward the
+   * length like any item (the others give way around it, and a stack too short for it overflows). It is never dragged:
+   * `stackTargets` gives no target for it. And no drop slot is inside it: the gaps before and after it stay, but its
+   * own area is in no gap's `hit`. Whether it may sit among others (or first, or last) is the host's; placement lays out
+   * the items it is given.
+   */
+  readonly fixed?: boolean;
 }
 
 /** The cross size a stack may take. With no form setting it, the stack is a `rail` wide (default {@link DEFAULT_RAIL}). */

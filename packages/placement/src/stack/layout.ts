@@ -23,6 +23,9 @@
  *    their natural sizes from the start of the stack. Between the minimum and natural sizes every item shrinks by the
  *    same share of what it can give.
  *
+ * A `fixed` item takes part in none of the steps above: it keeps its first allowed form, counts toward the length, and
+ * the others give way around it.
+ *
  * With `ownCross`, an item whose form doesn't set the cross size is drawn at its own `cross.natural` (clamped to the
  * stack's cross size) from the start edge instead of across the whole stack; nothing else changes.
  *
@@ -52,7 +55,7 @@ const rankOf = (f: StackForm): number => finite(f.rank ?? 0);
 function victim(items: readonly StackItem[], to: readonly number[]): number {
   let best = -1;
   for (let i = 0; i < items.length; i++) {
-    if (to[i]! < 0) continue;
+    if (to[i]! < 0 || items[i]!.fixed) continue;
     if (best < 0) {
       best = i;
       continue;
@@ -114,7 +117,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     for (const n of previous.notes) if (n.code === "form-down" && !began.has(n.id)) began.set(n.id, n.from);
     items.forEach((it, i) => {
       const p = had.get(it.id);
-      if (!p || p.form < start[i]! || p.form >= it.forms.length || start[i]! < (began.get(it.id) ?? p.form)) return;
+      if (it.fixed || !p || p.form < start[i]! || p.form >= it.forms.length || start[i]! < (began.get(it.id) ?? p.form)) return;
       const f = it.forms[p.form]!;
       // The size isn't compared: a form re-measured (a badge gained a digit) is still the form it was. A smaller one
       // frees room, which the fresh fit takes (`need`), a larger one gives way from the kept forms.
@@ -217,7 +220,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     for (;;) {
       const c0 = crossOf();
       const fitsWith = (changed: readonly number[]): boolean => minSum() <= length + EPS && crossOf() === c0 && changed.every((j) => !tooWide(j, c0));
-      const queue = idx.filter((i) => at[i]! > start[i]!).sort((a, b) => (comesBefore(a, b) ? -1 : 1));
+      const queue = idx.filter((i) => !items[i]!.fixed && at[i]! > start[i]!).sort((a, b) => (comesBefore(a, b) ? -1 : 1));
       const next = queue[0];
       if (next === undefined) break;
       const cur = at[next]!;
@@ -262,7 +265,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     // Too wide for the stack: step down, but never into the menu (that is the length's call).
     let stepped = false;
     for (const i of idx) {
-      if (tooWide(i, cross) && canStep(i) && !isMenu(items[i]!.forms[at[i]! + 1]!)) {
+      if (!items[i]!.fixed && tooWide(i, cross) && canStep(i) && !isMenu(items[i]!.forms[at[i]! + 1]!)) {
         step(i, at[i]! + 1);
         stepped = true;
       }
@@ -270,10 +273,11 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     if (stepped) continue;
     const over = minSum() - length;
     if (over <= EPS) break;
-    const to = idx.map(stepTo);
+    // A fixed item never gives way: it has no step.
+    const to = idx.map((i) => (items[i]!.fixed ? -1 : stepTo(i)));
     // Items that can't shorten the stack on their own but have the menu ahead: while the » entry doesn't exist, the
     // first one in costs the entry, so they go in together or not at all.
-    const pool = idx.map((i) => (to[i]! < 0 && !inMenu() ? menuFormAfter(i) : -1));
+    const pool = idx.map((i) => (to[i]! < 0 && !inMenu() && !items[i]!.fixed ? menuFormAfter(i) : -1));
     const v = victim(
       items,
       idx.map((i) => (to[i]! >= 0 ? to[i]! : pool[i]!)),
