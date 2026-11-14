@@ -455,17 +455,18 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   more spare length than before (the length grew, a gap or size shrank), the fresh fit is taken only if it is a pure gain
   over the kept forms (no item further down, one further up); otherwise room comes back in the reverse of give-way order,
   and growth stops at the first item that can't grow. The item that gave way most recently goes first (highest rank,
-  then `kept`, then items in the » menu before the rest, then the newest used, then the earlier in the stack): it goes
-  back to the nearest larger form the stack fits with, even if that makes it shorter (the last item out of the menu
-  takes the » entry along), and so on. When it fits no larger form nothing behind it grows, so a leading group never
-  opens while a trailing one that gave way after it stays folded; only items at the head of that order that are all in
-  the menu come out together when only their leaving together fits. One px of room, or a badge losing a digit after a
-  press, moves nothing. Results under `previous` depend on history: a shrink then a grow can end at another arrangement
-  than a fresh solve. Growing back is
-  meant for stacks of up to about 50 items (60 small menu items take about 9 ms). An item whose form at the kept
-  index is of another kind starts over; one only re-measured (a badge changed a digit) keeps its place: a smaller form
-  frees room that grows the kept forms, a larger one gives way from them. After changing the forms' cross sizes (a lowered `cross.min`, say)
-  solve once without `previous`: that alone doesn't bring a form back. `previous` is the `StackFit` last returned; a
+  then `kept`, then the newest used, then the earlier in the stack): it goes back to the nearest larger form the stack
+  fits with, even if that makes it shorter (the last item out of the menu takes the » entry along), and so on. When it
+  fits no larger form nothing behind it grows, so a leading group never opens while a trailing one that gave way after
+  it stays folded. Items in the menu still come out, alone or together when only their leaving together fits, but only
+  when that keeps the order: an item leaves only with every menu item ahead of it, and only for a form no larger than
+  that of every item ahead of it that isn't in the menu. One px of room, or a badge losing a digit after a press, moves
+  nothing. Results under `previous` depend on history: a shrink then a grow can end at another arrangement than a fresh
+  solve, and more room never undoes a growth along successive solves. Growing back is meant for stacks of up to about
+  50 items (60 small menu items take about 9 ms). An item whose form at the kept index is of another kind starts over;
+  one only re-measured (a badge changed a digit) keeps its place: a smaller form frees room that grows the kept forms, a
+  larger one gives way from them. After changing the forms' cross sizes (a lowered `cross.min`, say) solve once without
+  `previous`: that alone doesn't bring a form back. `previous` is the `StackFit` last returned; a
   hand-built one with no `need` is no help. `stackTargets(…, { previous })` solves every gap's preview the same way, so it
   equals the drop solved with the same `previous`.
 - The solver has no open or closed state: it lays out the items it is given. An item with no forms is left out
