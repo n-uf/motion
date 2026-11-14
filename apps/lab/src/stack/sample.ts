@@ -65,6 +65,34 @@ export interface Placed {
 
 export const itemOf = (p: Placed, axis: StackAxis): StackItem => ({ id: p.id, used: p.used, ...(p.kept ? { kept: true } : {}), ...(p.from ? { from: p.from } : {}), forms: formsOf(p.id, axis) });
 
+/** An item's state the pages show without ever changing its size: a count badge and a phase. */
+export type Phase = "idle" | "busy" | "done";
+export const PHASES: readonly Phase[] = ["idle", "busy", "done"];
+export interface ItemMeta {
+  readonly count: number;
+  readonly phase: Phase;
+}
+export const defaultMeta = (): Record<ItemId, ItemMeta> => ({
+  pages: { count: 12, phase: "idle" },
+  annotations: { count: 3, phase: "idle" },
+  findings: { count: 4, phase: "idle" },
+  views: { count: 3, phase: "idle" },
+  tools: { count: 2, phase: "idle" },
+  zoom: { count: 1, phase: "idle" },
+});
+/** The badge's text: a fixed slot, so the most it says is 99+. */
+export const badgeOf = (count: number): string => (count > 99 ? "99+" : String(Math.max(0, Math.floor(count))));
+
+/** The size an item takes when it floats: a panel open, a group as its row of words. */
+export const FLOAT_SIZE: Record<ItemId, { readonly width: number; readonly height: number }> = {
+  pages: { width: 200, height: 170 },
+  annotations: { width: 240, height: 150 },
+  findings: { width: 220, height: 190 },
+  views: { width: 214, height: 34 },
+  tools: { width: 214, height: 34 },
+  zoom: { width: 214, height: 34 },
+};
+
 /** The stack's input along an axis: a column's limits follow the width slider, a bar's are its thickness. */
 export function inputOf(axis: StackAxis,length: number, items: readonly Placed[], width = 360): StackInput {
   return {
