@@ -66,12 +66,20 @@ describe("fitStack: the menu entry only when it helps", () => {
     expect(kinds(fit.items)).toEqual(["rail"]);
     expect(fit.menu).toBeNull();
     expect(fit.notes).toEqual([{ code: "overflow", over: 4 }]);
-    // Another item doesn't change that: a step goes only to a form that shortens the stack, and the first item in the
-    // menu costs the entry (28) for its 24.
+    // Another item stuck the same way goes in with it: together they shorten the stack (48 for the entry's 28).
     const other: StackItem = { id: "o", used: 2, forms: [f("rail", 24, 30), f("menu", 0, 0)] };
     const both = fitStack({ ...stack([tiny, other], 20), menu: { main: 28 } });
-    expect(kinds(both.items)).toEqual(["rail", "rail"]);
-    expect(both.notes).toEqual([{ code: "overflow", over: 28 }]);
+    expect(kinds(both.items)).toEqual(["menu", "menu"]);
+    expect(both.menu!.items).toEqual(["t", "o"]);
+    // …and a bigger entry that all of them together don't beat keeps them out.
+    const huge = fitStack({ ...stack([tiny, other], 20), menu: { main: 60 } });
+    expect(kinds(huge.items)).toEqual(["rail", "rail"]);
+    expect(huge.notes).toEqual([{ code: "overflow", over: 28 }]);
+    // Four 26 px rails, too long: some go in together, the stack fits and doesn't overflow.
+    const rails = ["a", "b", "c", "d"].map((id, k): StackItem => ({ id, used: k, forms: [f("rail", 26, 30), f("menu", 0, 0)] }));
+    const column = fitStack({ ...stack(rails, 60), menu: { main: 28 } });
+    expect(kinds(column.items)).toEqual(["menu", "menu", "menu", "rail"]);
+    expect(column.notes.some((n) => n.code === "overflow")).toBe(false);
     // Items bigger than the entry do go in, and the entry stands for all of them.
     const big = (id: string, used: number): StackItem => ({ id, used, forms: [f("rail", 40, 30), f("menu", 0, 0)] });
     const fat = fitStack({ ...stack([big("a", 1), big("b", 2)], 70), menu: { main: 28 } });
