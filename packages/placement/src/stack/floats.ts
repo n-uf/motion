@@ -43,7 +43,7 @@ export interface FloatFit {
    * where it covers the least among the 2,048 nearest candidate places.
    */
   readonly covers: readonly number[];
-  /** The safety net on the clear search was hit (thousands of rects): a clear place may exist that was not found. Normally false. */
+  /** The safety net on the clear search was hit (thousands of rects): the place found may not be the nearest, or a clear place may exist that was not found. Normally false. */
   readonly searchCapped: boolean;
 }
 

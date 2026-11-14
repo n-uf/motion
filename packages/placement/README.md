@@ -514,8 +514,8 @@ pure.
   stretches of y the rects block are merged and skipped, so no clear place is missed however many lie between, and the
   search stops when no later x can be nearer. Measured in a test run on a laptop: about 100 `avoid` rects 0.1 ms, 300
   a few ms even when no place is clear (6 ms median, 15 ms worst), 1,000 about 17 ms. A safety net stops the clear
-  search after 3 million rect tests (thousands of rects) and sets `searchCapped`: a clear place may then exist that was
-  not found. Keep `avoid` to the docked items, not to every pixel.
+  search after 3 million rect tests (thousands of rects) and sets `searchCapped`: the place found may then not be the
+  nearest, or a clear place may exist that was not found. Keep `avoid` to the docked items, not to every pixel.
 - `stackFloatTarget({ id, stage, size, avoid?, label? })` is a drop target in the shape `@n-uf/motion/drag` takes: `id`
   `float:<id>` (not `"float"`, which `./desk` uses) and `kind: "float"`, priority 3 (a stack's gaps, priority 2, win
   where they are), `free` (no room is made for it) and a `hit` that covers the whole plane, so a pointer past the
