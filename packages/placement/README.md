@@ -573,10 +573,12 @@ fit and the targets it always gave. Item kinds are the host's; placement only ca
   size: dropping before a fixed item moves it along, as a drop anywhere moves what follows. The solve is the same for
   every gap of one dragged item (it is the newest, so the others give way first), so what `onlyFits` leaves is all the
   gaps or none; `allows` is what tells gaps apart.
-- **`StackInput.ownCross`** (default off): every item is drawn at its own `cross.natural`, clamped to the stack's
-  cross size and from its start edge (the left of a column, the top of a bar), not across the whole stack. A panel's
-  `open` form (one that sets the cross size) and the » entry still span the stack. `cross`, the forms, the notes and
-  the lengths are as without it. A target's `slot` is that rect, while its `hit` and `marker` still span the stack.
+- **`StackInput.ownCross`** (default off): an item whose current form is a group kind (`row`, `stacked`, `icons`,
+  `fold`) is drawn at its own `cross.natural`, clamped to the stack's cross size and from its start edge (the left of a
+  column, the top of a bar), not across the whole stack. Panel kinds (`open`, `header`, `rail`) and the » entry still
+  span it, so every open panel and header fills the column, as wide as the widest open panel. The kind decides, not
+  `setsCross`, which still decides the stack's cross size as before. `cross`, the forms, the notes and the lengths are
+  as without it. A target's `slot` is that rect, while its `hit` and `marker` still span the stack.
 - **Recommended column forms for a group.** In a side column give a group `stacked` (one word per line, `setsCross:
   true`, so a column of groups is as wide as its widest), then `icons` (28 across, sets nothing: with every group in
   icons the column is a rail), then `menu`. No `row`: a row of words asks for more than a column has, and the group
