@@ -23,6 +23,9 @@
  *    their natural sizes from the start of the stack. Between the minimum and natural sizes every item shrinks by the
  *    same share of what it can give.
  *
+ * With `ownCross`, an item whose form doesn't set the cross size is drawn at its own `cross.natural` (clamped to the
+ * stack's cross size) from the start edge instead of across the whole stack; nothing else changes.
+ *
  * `gap` sits between neighbouring drawn items (the » entry is one), `pad` before the first and after the last; both
  * count toward the length and the rects include them, so an app draws at the rects.
  *
@@ -313,12 +316,14 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     for (const i of drawn) size.set(i, min(i) + (nat(i) - min(i)) * t);
   }
 
-  const rectAt = (from: number, main: number): Rect => (input.axis === "column" ? { x: 0, y: from, width: cross, height: main } : { x: from, y: 0, width: main, height: cross });
+  const rectAt = (from: number, main: number, across = cross): Rect => (input.axis === "column" ? { x: 0, y: from, width: across, height: main } : { x: from, y: 0, width: main, height: across });
+  /** The size across an item is drawn: the stack's, or with `ownCross` and a form that doesn't set it, its own (clamped to the stack's), from the start edge. */
+  const acrossOf = (i: number): number => (input.ownCross === true && !formSetsCross(form(i)) ? Math.min(cross, Math.max(0, finite(form(i).cross.natural, cross))) : cross);
   const rects = new Map<number, Rect>();
   let cursor = sp.start;
   for (const i of drawn) {
     const s = size.get(i)!;
-    rects.set(i, rectAt(cursor, s));
+    rects.set(i, rectAt(cursor, s, acrossOf(i)));
     cursor += s + sp.gap;
   }
   // The » entry sits at the end of the stack, after the padding, or right after the last item when room is short.
