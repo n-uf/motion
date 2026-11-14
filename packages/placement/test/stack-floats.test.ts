@@ -13,7 +13,7 @@ const inStage = (r: Rect, s: Rect = stage): boolean => r.x >= s.x - 1e-9 && r.y 
 describe("fitFloat", () => {
   it("leaves a float that is inside the stage and clear of the docked content where it is", () => {
     const fit = fitFloat(rect(400, 100, 200, 150), stage, [column, bar]);
-    expect(fit).toEqual({ rect: rect(400, 100, 200, 150), clamped: false, snapped: false, covers: [] });
+    expect(fit).toEqual({ rect: rect(400, 100, 200, 150), clamped: false, snapped: false, covers: [], searchCapped: false });
     // Touching the docked content is clear.
     expect(fitFloat(rect(240, 32, 200, 150), stage, [column, bar]).snapped).toBe(false);
   });
@@ -170,7 +170,7 @@ describe("fitFloat", () => {
     expect(crowded).toBeLessThan(300);
   });
 
-  it("stays fast with many docked rects: 300 take well under a frame, and a crowded stage is bounded", () => {
+  it("stays fast with many docked rects (measured on a laptop: 100 about 0.1 ms, 300 a few ms even with no clear place)", () => {
     const rand = seeded(9);
     // A column, a bar, 280 small items packed on the right and 20 scattered over the pages: the float is dropped over the column.
     const small = (x0: number, w: number): Rect => rect(x0 + Math.floor(rand() * w), 40 + Math.floor(rand() * 440), 8 + Math.floor(rand() * 14), 8 + Math.floor(rand() * 14));
@@ -186,11 +186,56 @@ describe("fitFloat", () => {
     expect(covered(fit.rect, avoid)).toEqual([]);
     expect(inStage(fit.rect)).toBe(true);
     expect(best).toBeLessThan(8);
-    // Where nothing is clear (a float too big for the gaps), the answer is bounded too.
+    // Where nothing is clear (a float too big for the gaps), the search is exhaustive and still bounded.
     const t1 = performance.now();
     const full = fitFloat(rect(300, 100, 300, 420), stage, avoid);
     expect(performance.now() - t1).toBeLessThan(250);
     expect(full.covers.length).toBeGreaterThan(0);
+    // 100 scattered rects, the wanted place covered: a fraction of a frame.
+    const hundred = [column, bar, ...Array.from({ length: 100 }, () => small(250, 640))];
+    let best100 = Infinity;
+    for (let i = 0; i < 9; i++) {
+      const t2 = performance.now();
+      fitFloat(want, stage, hundred);
+      best100 = Math.min(best100, performance.now() - t2);
+    }
+    expect(best100).toBeLessThan(4);
+  });
+
+  it("finds a clear place whenever one exists, however many places it has to skip (a bounded search must not return a covering one)", () => {
+    // 100 rects over a big stage: a clear place exists far from the wanted one (the old 20,000-place cap missed it).
+    const big = rect(0, 0, 2000, 1200);
+    const avoid = Array.from({ length: 100 }, (_, i) => rect((i * 37) % 1900, (i * 53) % 1100, 60, 40));
+    const fit = fitFloat(rect(1000, 600, 300, 200), big, avoid);
+    expect(fit.covers).toEqual([]);
+    expect(covered(fit.rect, avoid)).toEqual([]);
+    expect(fit.searchCapped).toBe(false);
+    expect(fit.rect).toEqual(rect(1577, 887, 300, 200));
+  });
+
+  it("sweep up to 150 rects: as near as the exhaustive search whenever a clear place exists, and never covering then", () => {
+    const rand = seeded(21);
+    let clearCases = 0;
+    for (let trial = 0; trial < 10; trial++) {
+      const n = 40 + Math.floor(rand() * 111);
+      const area = rect(0, 0, 1200 + Math.floor(rand() * 1200), 700 + Math.floor(rand() * 700));
+      // Density varies: small rects scattered over a big stage leave places far from the wanted one, big ones don't.
+      const size = 25 + Math.floor(rand() * 90);
+      const avoid = Array.from({ length: n }, () => rect(Math.floor(rand() * area.width), Math.floor(rand() * area.height), 10 + Math.floor(rand() * size), 10 + Math.floor(rand() * size)));
+      const want = rect(Math.floor(rand() * area.width), Math.floor(rand() * area.height), 50 + Math.floor(rand() * 200), 40 + Math.floor(rand() * 160));
+      const fit = fitFloat(want, area, avoid);
+      const ref = brute(want, area, avoid);
+      const inside = clampInto(want, area);
+      const label = JSON.stringify({ n, want, trial });
+      expect(fit.searchCapped, label).toBe(false);
+      if (ref.left === 0) {
+        clearCases++;
+        expect(covered(fit.rect, avoid), label).toEqual([]);
+        expect(fit.covers, label).toEqual([]);
+        expect(Math.hypot(fit.rect.x - inside.x, fit.rect.y - inside.y), label).toBeCloseTo(ref.far, 6);
+      } else expect(fit.covers.length > 0, label).toBe(true);
+    }
+    expect(clearCases).toBeGreaterThan(4);
   });
 
   it("leaves out the rects that can't touch the float, and reports indexes into the whole `avoid` list", () => {
