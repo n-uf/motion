@@ -1,0 +1,326 @@
+/**
+ * Dynamic columns, one rail per side, column give-way by `contentMin`, riding bars, `homeFor` and `stops`; and the
+ * pinned width thresholds of two document windows (`fixtures/scene-window-*.json`), through a small adapter from their
+ * intent forms (card, bar, rail) to the library's forms.
+ */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { close, fold, homeFor, moveTo, open, readScene, solve, stops, storeScene, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
+import type { StackForm } from "../src/stack";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const fixture = (name: string): Fixture => JSON.parse(readFileSync(join(here, "fixtures", name), "utf8")) as Fixture;
+
+// --- the adapter ---------------------------------------------------------------------------------------------------
+
+interface RawScene {
+  extends?: string;
+  stage?: { x: number; y: number; w: number; h: number };
+  contentMin?: { width: number; height: number };
+  handFold?: "bar" | "ride";
+  floatKinds?: string[];
+  columns?: Record<"left" | "right", { accepts: string[]; cross: { min: number; max: number; rail: number }; gap: number }>;
+  rails?: Record<"left" | "right", { width: number; accepts: string[] }>;
+  pad?: { start: number; end: number };
+  items?: Record<string, null | { kind?: string; used?: number; forms?: { column: string[] }; from?: number }>;
+  edges?: { id: string; side: "left" | "right"; ring: number; column: boolean; items: string[] }[];
+}
+interface Expect {
+  stage: { w: number; h: number };
+  layout: { columns?: Partial<Record<"left" | "right", string[][]>>; rails?: Partial<Record<"left" | "right", string[]>>; contentWidthAtLeast?: number };
+}
+interface Fixture {
+  _numbers: { barMain?: number };
+  scenes: Record<string, { scene: RawScene; expect: Expect[] | unknown[]; variants?: { name: string; scene: RawScene; expect: unknown }[] }>;
+}
+
+/** A raw scene with its `extends` chain merged (items merge by id; `null` removes one). */
+function flatten(f: Fixture, raw: RawScene): RawScene {
+  if (!raw.extends) return raw;
+  const base = flatten(f, f.scenes[raw.extends]!.scene);
+  const items = { ...base.items };
+  for (const [id, v] of Object.entries(raw.items ?? {})) {
+    if (v === null) delete items[id];
+    else items[id] = { ...(items[id] ?? {}), ...v };
+  }
+  return { ...base, ...raw, items, extends: undefined };
+}
+
+/** card: an open form that grows and sets the column's width at its minimum; bar: a header `barMain` long; rail: a rail tab. */
+function adapt(f: Fixture, raw0: RawScene, width?: number): Scene {
+  const raw = flatten(f, raw0);
+  const left = raw.columns!.left;
+  const barMain = f._numbers.barMain ?? 30;
+  const formOf = (name: string): StackForm =>
+    name === "card"
+      ? { kind: "open", main: { min: 120, natural: 300, grows: true }, cross: { natural: left.cross.min, min: left.cross.min } }
+      : name === "bar"
+        ? { kind: "header", main: { min: barMain, natural: barMain }, cross: { natural: left.cross.min, min: 60 } }
+        : { kind: "rail", main: { min: 32, natural: 32 }, cross: { natural: left.cross.rail } };
+  const items: Record<string, SceneItem> = {};
+  for (const [id, v] of Object.entries(raw.items ?? {})) {
+    if (!v) continue;
+    items[id] = { id, kind: v.kind!, used: v.used!, forms: { column: v.forms!.column.map(formOf) }, ...(v.from !== undefined ? { from: v.from } : {}) };
+  }
+  const edges: Edge[] = raw.edges!.filter((e) => e.items.some((id) => items[id])).map((e) => {
+    const t = raw.columns![e.side];
+    return { id: e.id, side: e.side, ring: e.ring, column: e.column, items: e.items.filter((id) => items[id]), accepts: t.accepts, cross: t.cross, gap: t.gap };
+  });
+  return {
+    stage: { x: 0, y: 0, width: width ?? raw.stage!.w, height: raw.stage!.h },
+    edges,
+    items,
+    floats: [],
+    floatKinds: raw.floatKinds ?? [],
+    columns: raw.columns!,
+    rails: raw.rails!,
+    contentMin: raw.contentMin!,
+    handFold: raw.handFold ?? "bar",
+    inset: { left: raw.pad?.start ?? 0, right: raw.pad?.end ?? 0 },
+    gutter: left.gap,
+  };
+}
+
+/** Per side: the open columns' items (outer first), and the rail's segments. */
+function shape(s: Scene, l: SceneLayout) {
+  const out = { columns: { left: [] as string[][], right: [] as string[][] }, rails: { left: [] as string[], right: [] as string[] } };
+  for (const side of ["left", "right"] as const) {
+    for (const e of s.edges.filter((x) => x.side === side).sort((a, b) => a.ring - b.ring)) {
+      const el = l.edges[e.id]!;
+      if (!el.folded && !el.rides && el.cross > 0) out.columns[side].push(e.items.filter((id) => !s.items[id]!.closed));
+    }
+    out.rails[side] = (l.rails[side]?.segments ?? []).map((x) => x.id);
+  }
+  return out;
+}
+
+for (const file of ["scene-window-a.json", "scene-window-b.json"]) {
+  describe(`pinned thresholds: ${file}`, () => {
+    const f = fixture(file);
+    for (const [name, sc] of Object.entries(f.scenes)) {
+      for (const ex of sc.expect as Expect[]) {
+        if (!ex.layout.columns && !ex.layout.rails) continue;
+        it(`${name} at ${ex.stage.w}`, () => {
+          const s = adapt(f, sc.scene, ex.stage.w);
+          const l = solve(s);
+          const got = shape(s, l);
+          for (const side of ["left", "right"] as const) {
+            if (ex.layout.columns?.[side]) expect(got.columns[side]).toEqual(ex.layout.columns[side]);
+            if (ex.layout.rails?.[side]) expect(got.rails[side]).toEqual(ex.layout.rails[side]);
+          }
+          if (ex.layout.contentWidthAtLeast !== undefined) expect(l.content.width).toBeGreaterThanOrEqual(ex.layout.contentWidthAtLeast);
+          // The same thresholds hold when the stage shrinks a pixel at a time from the start (`previous` carried).
+          let previous = solve(adapt(f, sc.scene, 1400));
+          for (let w = 1400; w >= ex.stage.w; w -= 7) previous = solve(adapt(f, sc.scene, w), { previous });
+          const walked = shape(s, solve(s, { previous }));
+          expect(walked).toEqual(got);
+        });
+      }
+    }
+  });
+}
+
+describe("hand folds (window A)", () => {
+  const f = fixture("scene-window-a.json");
+  const hf = f.scenes["three-hand-folded"]!;
+
+  it("a member folded by hand is a 30 px bar in place; the card takes the height it leaves", () => {
+    const s = adapt(f, hf.scene);
+    const l = solve(s);
+    expect(l.items.annotations).toMatchObject({ formKind: "header" });
+    expect(l.items.annotations!.rect.height).toBe(30);
+    expect(l.items.annotations!.rect.width).toBe(l.edges["left-0"]!.rect.width);
+    expect(l.items.pages!.formKind).toBe("open");
+    expect(l.items.pages!.rect.height).toBe(800 - 30 - 12);
+  });
+
+  it("ride: a one-panel column folded by hand is a bar over the side's first open column, at its width, taking no width", () => {
+    const v = hf.variants!.find((x) => x.name === "ride")!;
+    const s = adapt(f, v.scene);
+    const l = solve(s);
+    expect(l.items.annotations).toMatchObject({ rides: "left-0", folded: "hand", formKind: "header" });
+    expect(l.items.annotations!.rect.width).toBe(l.edges["left-0"]!.rect.width);
+    const without = solve({ ...s, edges: s.edges.filter((e) => e.id !== "left-1") });
+    expect(l.content).toEqual(without.content);
+    expect(l.items.pages!.rect.y).toBe(30);
+  });
+
+  it("all folded: the column goes to the rail", () => {
+    const v = hf.variants!.find((x) => x.name === "all-folded")!;
+    const s = adapt(f, v.scene);
+    expect(shape(s, solve(s))).toMatchObject({ columns: { left: [] }, rails: { left: ["pages", "annotations"] } });
+  });
+});
+
+describe("dynamic columns", () => {
+  const f = fixture("scene-window-a.json");
+  const s = adapt(f, f.scenes.three!.scene);
+
+  it("a column place makes a new column from the side's template; an emptied one is deleted and rings close up", () => {
+    const m = moveTo(s, "annotations", { kind: "column", side: "right", ring: 0 });
+    const right = m.edges.filter((e) => e.side === "right").sort((a, b) => a.ring - b.ring);
+    expect(right.map((e) => [e.ring, e.items])).toEqual([[0, ["annotations"]], [1, ["findings"]]]);
+    expect(right[0]!).toMatchObject({ column: true, accepts: ["panel"], cross: { min: 220, max: 640, rail: 32 }, gap: 12 });
+    const back = moveTo(m, "findings", { kind: "column", side: "left", ring: Infinity });
+    expect(back.edges.filter((e) => e.side === "right").map((e) => [e.ring, e.items])).toEqual([[0, ["annotations"]]]);
+    expect(back.edges.filter((e) => e.side === "left").map((e) => [e.ring, e.items])).toEqual([[0, ["pages", "annotations"].filter((x) => x !== "annotations")], [1, ["findings"]]]);
+  });
+
+  it("a rail place docks folded: a new column holding the item folded by hand, shown in the rail", () => {
+    const m = moveTo(s, "findings", { kind: "rail", side: "left", ring: 0 });
+    const l = solve(m);
+    expect(l.items.findings).toMatchObject({ rail: "left", folded: "hand", formKind: "rail" });
+    expect(m.items.findings!.from).toBe(1);
+  });
+
+  it("refuses a side without a template and a kind its template or rail doesn't take", () => {
+    expect(moveTo({ ...s, columns: {} }, "pages", { kind: "column", side: "left", ring: 0 })).toEqual({ ...s, columns: {} });
+    const noRail = { ...s, rails: { left: { width: 32, accepts: [] } } };
+    expect(moveTo(noRail, "pages", { kind: "rail", side: "left", ring: 0 })).toBe(noRail);
+  });
+
+  it("a use under previous flips no column fold (C23), though the ages changed which column is oldest", () => {
+    const narrow = adapt(f, f.scenes.three!.scene, 700);
+    const before = solve(narrow);
+    expect(shape(narrow, before).rails.left).toEqual(["pages", "annotations"]);
+    const pressed = use(use(narrow, "pages"), "annotations");
+    const after = solve(pressed, { previous: before });
+    for (const id of Object.keys(before.items)) expect(after.items[id]!.rect).toEqual(before.items[id]!.rect);
+    // Without previous the ages decide anew.
+    expect(shape(pressed, solve(pressed)).rails.right).toEqual(["findings"]);
+  });
+
+  it("room coming back unfolds in the reverse of give-way order", () => {
+    let previous = solve(adapt(f, f.scenes.three!.scene, 500));
+    expect(shape(adapt(f, f.scenes.three!.scene, 500), previous).rails).toEqual({ left: ["pages", "annotations"], right: ["findings"] });
+    previous = solve(adapt(f, f.scenes.three!.scene, 700), { previous });
+    expect(shape(adapt(f, f.scenes.three!.scene, 700), previous).columns.right).toEqual([["findings"]]);
+    previous = solve(adapt(f, f.scenes.three!.scene, 900), { previous });
+    expect(shape(adapt(f, f.scenes.three!.scene, 900), previous).columns.left).toEqual([["pages", "annotations"]]);
+  });
+
+  it("close and open keep the item's place", () => {
+    const c = close(s, "annotations");
+    expect(shape(c, solve(c)).columns.left).toEqual([["pages"]]);
+    expect(open(c, "annotations").edges).toEqual(s.edges);
+  });
+
+  it("columns shrink toward their minimum before any folds", () => {
+    const wide: Scene = { ...s, edges: s.edges.map((e) => ({ ...e, size: 400 })), stage: { ...s.stage, width: 1000 } };
+    const l = solve(wide);
+    expect(l.notes.filter((n) => n.code === "column-shrunk").length).toBeGreaterThan(0);
+    expect(l.notes.some((n) => n.code === "column-folded")).toBe(false);
+    expect(l.content.width).toBeGreaterThanOrEqual(320);
+  });
+});
+
+describe("homeFor", () => {
+  const f = fixture("scene-window-a.json");
+  const start = adapt(f, f.scenes.three!.scene);
+
+  it("is the place the start scene gives: the same edge and neighbour, a new column at its ring, or its float", () => {
+    const moved = moveTo(start, "annotations", { kind: "gap", edge: "right-0", at: 1 });
+    const home = homeFor(moved, "annotations", start)!;
+    expect(home).toEqual({ kind: "gap", edge: "left-0", zone: "start", at: 1 });
+    expect(moveTo(moved, "annotations", home).edges).toEqual(start.edges);
+    const gone = moveTo(start, "findings", { kind: "gap", edge: "left-0", at: 2 });
+    expect(homeFor(gone, "findings", start)).toEqual({ kind: "column", side: "right", ring: 0 });
+    const floated = { ...start, floats: [{ id: "findings", rect: { x: 10, y: 10, width: 200, height: 200 } }], edges: start.edges.filter((e) => e.id !== "right-0") };
+    expect(homeFor(start, "findings", floated)).toEqual({ kind: "float", rect: { x: 10, y: 10, width: 200, height: 200 } });
+    expect(homeFor(start, "nobody", start)).toBeNull();
+  });
+});
+
+describe("column and rail targets", () => {
+  const f = fixture("scene-window-a.json");
+  const s = adapt(f, f.scenes.three!.scene);
+
+  it("gestures P2 and P3: a drop into another column at a position, then back above", () => {
+    const t = targets(s, "annotations").find((x) => x.id === "gap:right-0:start:1")!;
+    const a = t.after({ x: 0, y: 0 });
+    expect(shape(a.scene, a.layout).columns).toEqual({ left: [["pages"]], right: [["findings", "annotations"]] });
+    expect(a.layout.items.annotations!.rect).toEqual(t.slot);
+    const p1 = targets(s, "pages").find((x) => x.id === "gap:right-0:start:1")!.after({ x: 0, y: 0 });
+    expect(shape(p1.scene, p1.layout).columns).toEqual({ left: [["annotations"]], right: [["findings", "pages"]] });
+    const p2 = targets(p1.scene, "pages", { previous: p1.layout }).find((x) => x.id === "gap:left-0:start:0")!.after({ x: 0, y: 0 });
+    expect(shape(p2.scene, p2.layout).columns).toEqual({ left: [["pages", "annotations"]], right: [["findings"]] });
+  });
+
+  it("gesture P5: the gap beside the item's own place is its home: nothing changes, no slot", () => {
+    const t = targets(s, "annotations").find((x) => x.id === "gap:left-0:start:1")!;
+    expect(t.place.kind).toBe("home");
+    expect(t.slot).toBeUndefined();
+    expect(t.after({ x: 0, y: 0 }).scene).toBe(s);
+  });
+
+  it("gesture P6: a column line outside the right column makes a new outermost column", () => {
+    const t = targets(s, "annotations").find((x) => x.place.kind === "column" && x.place.side === "right" && x.place.ring === 0)!;
+    const a = t.after({ x: 0, y: 0 });
+    expect(shape(a.scene, a.layout).columns).toEqual({ left: [["pages"]], right: [["annotations"], ["findings"]] });
+    expect(a.layout.items.annotations!.rect).toEqual(t.slot);
+  });
+
+  it("gesture P9: a segment on its own side's rail changes nothing", () => {
+    const narrow = adapt(f, f.scenes.three!.scene, 700);
+    const rail = targets(narrow, "annotations").filter((x) => x.id.startsWith("rail:left"));
+    expect(rail.length).toBeGreaterThan(0);
+    for (const t of rail) expect(t.after({ x: 0, y: 0 }).scene).toBe(narrow);
+  });
+
+  it("a rail target docks folded into another side's rail", () => {
+    const narrow = adapt(f, f.scenes.three!.scene, 700);
+    const t = targets(narrow, "findings").find((x) => x.id.startsWith("rail:left"))!;
+    const a = t.after({ x: 0, y: 0 });
+    expect(a.layout.items.findings).toMatchObject({ rail: "left" });
+  });
+
+  it("kinds deny by default (P13): no rail, column or gap target for a kind the side doesn't take", () => {
+    const g: SceneItem = { id: "tools", kind: "group", used: 9, forms: { column: [{ kind: "icons", main: { min: 80, natural: 80 }, cross: { natural: 28 } }] } };
+    const withGroup: Scene = { ...s, items: { ...s.items, tools: g }, floats: [{ id: "tools", rect: { x: 400, y: 100, width: 100, height: 40 } }], floatKinds: ["panel", "group"] };
+    expect(targets(withGroup, "tools").map((t) => t.id)).toEqual(["float:tools", "home:tools"]);
+  });
+
+  it("preview = result for every target, and stops come in reading order without home", () => {
+    for (const w of [1120, 800, 700, 500]) {
+      const sc = adapt(f, f.scenes.three!.scene, w);
+      const previous = solve(sc);
+      for (const id of Object.keys(sc.items)) {
+        for (const t of targets(sc, id, { previous, endReach: 24 })) {
+          const a = t.after({ x: 300, y: 300 });
+          expect(solve(a.scene, { previous })).toEqual(a.layout);
+          // A drop never leaves an item in two places or in none.
+          const placed = [...a.scene.edges.flatMap((e) => e.items), ...a.scene.floats.map((x) => x.id)];
+          expect(placed.sort()).toEqual(Object.keys(sc.items).sort());
+        }
+        const st = stops(sc, id, { previous });
+        expect(st.some((t) => t.place.kind === "home" || t.place.kind === "none")).toBe(false);
+        const sides = st.map((t) => (t.place.kind === "float" ? 9 : t.place.kind === "gap" ? (sc.edges.find((e) => e.id === (t.place as { edge: string }).edge)!.side === "left" ? 0 : 3) : (t.place as { side: string }).side === "left" ? 0 : 3));
+        expect([...sides].sort((a, b) => a - b)).toEqual(sides);
+      }
+    }
+  });
+});
+
+describe("the stored form carries the columns", () => {
+  const f = fixture("scene-window-a.json");
+  const s = adapt(f, f.scenes.three!.scene);
+
+  it("round-trips a column the user made, its ring and size", () => {
+    const m = fold(moveTo(s, "annotations", { kind: "column", side: "right", ring: 0 }), "pages", true);
+    const sized = { ...m, edges: m.edges.map((e) => (e.items.includes("annotations") ? { ...e, size: 300 } : e)) };
+    const stored = JSON.parse(JSON.stringify(storeScene(sized)));
+    expect(stored.edges.find((e: { items: string[] }) => e.items.includes("annotations"))).toMatchObject({ column: true, ring: 0, size: 300 });
+    const read = readScene(stored, s);
+    expect(read.dropped).toEqual([]);
+    expect(storeScene(read.scene)).toEqual(storeScene(sized));
+    expect(solve(read.scene)).toEqual(solve(sized));
+  });
+
+  it("drops a stored column on a side with no template, and the item goes home", () => {
+    const read = readScene({ v: 1, edges: [{ id: "top-9", side: "top", ring: 0, items: ["pages"], column: true }], floats: [], items: {} }, s);
+    expect(read.dropped).toEqual(["edge:top-9"]);
+    expect(read.scene.edges.find((e) => e.id === "left-0")!.items).toEqual(["pages", "annotations"]);
+  });
+});

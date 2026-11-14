@@ -18,19 +18,31 @@
  * - `float:<id>` (3, free): when `floatKinds` lists the kind. The hit covers the whole plane; the landing is the float
  *   with the pointer holding it at `grab` (default its middle), in the stage and clear of the docked items, the bars
  *   and the chrome. Its size: `options.floatSize`, else its float's size, else the item's `floatSize`, else the default.
+ * - `column:<side>:<ring>` (2): a new column on each column line of a side whose `scene.columns[side]` takes the kind
+ *   (outside the outermost open column, between two, inside the innermost; on a side with none, at the content's
+ *   edge), `COLUMN_REACH` px each way, only where the new column shows open.
+ * - `rail:<side>:<ring>` (1): docking folded into a side's rail (its rail and its template take the kind), before each
+ *   folded column's segments and after the last, or a strip `RAIL_EDGE` px deep at the side's outer edge when no rail
+ *   shows.
  * - `none:<i>` (1): over each `scene.blocked` rect. It takes the pointer, and a release there commits nothing.
- * - `home:<id>` (1): over the item's own rect. A release there commits nothing.
+ * - `home:<id>` (1): over the item's own rect. A release there commits nothing. A gap, column line or rail drop that
+ *   would put the item back where it is (the gap beside it, its own column's line, its own side's rail) keeps its id but
+ *   is a home too: place `home`, no slot, nothing committed.
+ *
+ * `stops(scene, id)` orders the same targets (no home, no none) for "Move to ›" and the arrow keys.
  *
  * A dropped item counts as just used (`use`). An unknown, fixed or closed item has no targets.
  */
 import { rect, type Point, type Rect, type Size } from "../geometry";
 import type { Target } from "../targets/target";
-import { floatAt, lift, moveTo, use } from "./changes";
+import { floatAt, lift, moveTo, use, type ColumnPlace, type RailPlace } from "./changes";
 import { DEFAULT_FLOAT_SIZE, DEFAULT_STRIP, ZONES, axisOf, zoneOf, type Edge, type Scene, type SceneLayout, type Zone } from "./model";
 import { solve } from "./solve";
 
 export type ScenePlace =
   | { readonly kind: "gap"; readonly edge: string; readonly zone: Zone; readonly at: number }
+  | ColumnPlace
+  | RailPlace
   | { readonly kind: "float" }
   | { readonly kind: "home" }
   | { readonly kind: "none" };
@@ -105,9 +117,23 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   const blockers = [...fixedRects(now), ...fixedRects(base), ...chrome];
   const out: SceneTarget[] = [];
 
-  for (const edge of scene.edges) {
+  const docked: SceneTarget[] = [];
+  for (const edge of rest.edges) {
     if (!edge.accepts.includes(item.kind)) continue;
-    out.push(...edgeTargets(scene, rest, base, edge, dragged, reach, blockers, chrome, settle));
+    docked.push(...edgeTargets(scene, rest, base, edge, dragged, reach, blockers, chrome, settle));
+  }
+  for (const side of ["left", "right"] as const) {
+    if (scene.columns?.[side]?.accepts.includes(item.kind)) docked.push(...columnTargets(scene, rest, base, side, dragged, blockers, settle));
+    if (scene.columns?.[side]?.accepts.includes(item.kind) && scene.rails?.[side]?.accepts.includes(item.kind)) docked.push(...railTargets(scene, rest, base, side, dragged, blockers, settle));
+  }
+  // A drop that puts the item back where it is (the gap beside it, its own column's line, its own rail) is its home: it
+  // commits nothing and shows no slot.
+  const here = placeKey(scene, dragged);
+  const ownRail = now.items[dragged]?.rail;
+  for (const t of docked) {
+    const p = t.place;
+    const own = (p.kind === "rail" && p.side === ownRail) || placeKey(t.after({ x: 0, y: 0 }).scene, dragged) === here;
+    out.push(own ? { id: t.id, priority: t.priority, hit: t.hit, item: dragged, place: { kind: "home" }, after: () => ({ scene, layout: now }) } : t);
   }
 
   if (scene.floatKinds.includes(item.kind)) {
@@ -139,10 +165,152 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   return out;
 }
 
+/** Where things are, without ages or the ids of dynamic columns: two scenes with one key place every item alike. */
+function placeKey(s: Scene, id: string): string {
+  const it = Object.hasOwn(s.items, id) ? s.items[id] : undefined;
+  return JSON.stringify({
+    edges: s.edges.map((e) => JSON.stringify([e.side, e.ring, e.column === true ? "" : e.id, e.items, e.size ?? null])).sort(),
+    floats: s.floats.map((f) => [f.id, f.rect, f.anchor ?? null, f.orient ?? null]),
+    from: it?.from ?? 0,
+    align: it?.align ?? "start",
+  });
+}
+
+/** How far a column line's hit reaches on each side of the line, px; how deep a side's edge takes a rail drop when it has no rail. */
+export const COLUMN_REACH = 22;
+export const RAIL_EDGE = 10;
+
+/** The open dynamic columns of a side in `base`, outer first, with their ring in `rest`. */
+function openColumns(rest: Scene, base: SceneLayout, side: "left" | "right"): { edge: Edge; r: Rect }[] {
+  return rest.edges
+    .filter((e) => e.side === side && e.column === true)
+    .map((edge) => ({ edge, l: base.edges[edge.id] }))
+    .filter((x) => x.l && !x.l.folded && !x.l.rides && x.l.cross > 0)
+    .sort((a, b) => a.edge.ring - b.edge.ring)
+    .map((x) => ({ edge: x.edge, r: x.l!.rect }));
+}
+
+/** The side's columns' stretch down the stage: the open columns', else the content's. */
+function sideSpan(base: SceneLayout, side: "left" | "right"): { y: number; height: number } {
+  const own = Object.values(base.edges).filter((e) => e.side === side && e.rect.height > 0);
+  const r = own[0]?.rect ?? base.content;
+  return { y: r.y, height: r.height };
+}
+
+/**
+ * `column:<side>:<ring>` (priority 2): a new column on every column line of a side (outside its outermost open column,
+ * between two, inside the innermost; on a side with none, at the content's edge), when `scene.columns[side]` takes the
+ * kind. The hit is `COLUMN_REACH` px on each side of the line, down the columns' stretch. Only where the new column
+ * shows open.
+ */
+function columnTargets(scene: Scene, rest: Scene, base: SceneLayout, side: "left" | "right", dragged: string, blockers: readonly Rect[], settle: (s: Scene) => SceneAfter): SceneTarget[] {
+  const cols = openColumns(rest, base, side);
+  const span = sideSpan(base, side);
+  const mine = rest.edges.filter((e) => e.side === side);
+  const inner = mine.length === 0 ? 0 : Math.max(...mine.map((e) => e.ring)) + 1;
+  const lines: { x: number; ring: number }[] = [];
+  const outerX = (r: Rect): number => (side === "left" ? r.x : r.x + r.width);
+  const innerX = (r: Rect): number => (side === "left" ? r.x + r.width : r.x);
+  cols.forEach((c) => lines.push({ x: outerX(c.r), ring: c.edge.ring }));
+  if (cols.length > 0) lines.push({ x: innerX(cols[cols.length - 1]!.r), ring: cols[cols.length - 1]!.edge.ring + 1 });
+  else lines.push({ x: side === "left" ? base.content.x : base.content.x + base.content.width, ring: inner });
+  const out: SceneTarget[] = [];
+  for (const line of lines) {
+    const place: ColumnPlace = { kind: "column", side, ring: line.ring };
+    const result = settle(use(moveTo(scene, dragged, place), dragged));
+    const me = result.layout.items[dragged];
+    const el = me?.edge ? result.layout.edges[me.edge] : undefined;
+    if (!me || !el || me.inMenu || el.folded || el.rides || result.scene === scene) continue;
+    const keep = { x: line.x, y: span.y + span.height / 2 };
+    const hit = cutClear(rect(line.x - COLUMN_REACH, span.y, 2 * COLUMN_REACH, span.height), blockers, keep);
+    if (!hit) continue;
+    out.push({ id: `column:${side}:${line.ring}`, priority: 2, hit, slot: me.rect, marker: rect(line.x, span.y, 0, span.height), item: dragged, place, after: () => result });
+  }
+  return out;
+}
+
+/**
+ * `rail:<side>:<ring>` (priority 1): docking folded into the side's rail, when its rail and its column template take the
+ * kind: before each folded column's segments and after the last (the rail split halfway between them), or, with no
+ * rail shown, a strip `RAIL_EDGE` px deep at the side's outer edge. The drop makes a column at that ring with the item
+ * folded by hand, so it lands as a segment.
+ */
+function railTargets(scene: Scene, rest: Scene, base: SceneLayout, side: "left" | "right", dragged: string, blockers: readonly Rect[], settle: (s: Scene) => SceneAfter): SceneTarget[] {
+  const rail = base.rails[side];
+  const mine = rest.edges.filter((e) => e.side === side).sort((a, b) => a.ring - b.ring);
+  const ringOf = (id: string): number => rest.edges.find((e) => e.id === id)?.ring ?? 0;
+  const stops: { y: number; ring: number }[] = [];
+  let zone: Rect;
+  if (rail && rail.segments.length > 0) {
+    zone = rail.rect;
+    const groups: { edge: string; y0: number; y1: number }[] = [];
+    for (const s of rail.segments) {
+      const g = groups[groups.length - 1];
+      if (g && g.edge === s.edge) g.y1 = s.rect.y + s.rect.height;
+      else groups.push({ edge: s.edge, y0: s.rect.y, y1: s.rect.y + s.rect.height });
+    }
+    for (const g of groups) stops.push({ y: g.y0, ring: ringOf(g.edge) });
+    const last = groups[groups.length - 1]!;
+    stops.push({ y: last.y1, ring: ringOf(last.edge) + 1 });
+  } else {
+    const span = sideSpan(base, side);
+    const firstCol = mine.find((e) => e.column === true);
+    const outer = Object.values(base.edges).filter((e) => e.side === side && e.rect.height > 0);
+    const x = side === "left" ? Math.min(base.content.x, ...outer.map((e) => e.rect.x)) : Math.max(base.content.x + base.content.width, ...outer.map((e) => e.rect.x + e.rect.width));
+    zone = rect(side === "left" ? x : x - RAIL_EDGE, span.y, RAIL_EDGE, span.height);
+    stops.push({ y: span.y, ring: firstCol ? firstCol.ring : mine.length === 0 ? 0 : mine[mine.length - 1]!.ring + 1 });
+  }
+  const out: SceneTarget[] = [];
+  stops.forEach((s, i) => {
+    const from = i === 0 ? zone.y : (stops[i - 1]!.y + s.y) / 2;
+    const to = i === stops.length - 1 ? zone.y + zone.height : (s.y + stops[i + 1]!.y) / 2;
+    if (to - from <= EPS) return;
+    const place: RailPlace = { kind: "rail", side, ring: s.ring };
+    const result = settle(use(moveTo(scene, dragged, place), dragged));
+    const me = result.layout.items[dragged];
+    if (!me || me.rail !== side || result.scene === scene) return;
+    const hit = cutClear(rect(zone.x, from, zone.width, to - from), blockers, { x: zone.x + zone.width / 2, y: Math.min(Math.max(s.y, from), to) });
+    if (!hit) return;
+    out.push({ id: `rail:${side}:${s.ring}`, priority: 1, hit, slot: me.rect, marker: rect(zone.x, me.rect.y, zone.width, 0), item: dragged, place, after: () => result });
+  });
+  return out;
+}
+
+const SIDE_RANK: Record<string, number> = { left: 0, top: 1, bottom: 2, right: 3 };
+
+/**
+ * `stops(scene, id, options?)`: the places for "Move to ›" and the arrow keys, in reading order, from the same targets
+ * (`home` and `none` left out): the left side outer to inner, the top bars, the bottom bars, the right side inner to
+ * outer, floating last. Each stop is a target, so its `after` is the move.
+ */
+export function stops(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneTarget[] {
+  const list = targets(scene, dragged, options).filter((t) => t.place.kind !== "home" && t.place.kind !== "none");
+  const sideOf = (t: SceneTarget): string => {
+    const p = t.place;
+    if (p.kind === "float") return "float";
+    if (p.kind === "column" || p.kind === "rail") return p.side;
+    if (p.kind === "gap") return scene.edges.find((e) => e.id === p.edge)?.side ?? "float";
+    return "float";
+  };
+  const key = (t: SceneTarget): [number, number, number] => {
+    const side = sideOf(t);
+    const r = t.slot ?? t.hit;
+    const cx = r.x + r.width / 2;
+    const cy = r.y + r.height / 2;
+    const rank = side === "float" ? 4 : SIDE_RANK[side]!;
+    return side === "left" ? [rank, cx, cy] : side === "right" ? [rank, -cx, cy] : [rank, cy * (side === "bottom" ? -1 : 1), cx];
+  };
+  return list
+    .map((t, i) => ({ t, i, k: key(t) }))
+    .sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.i - b.i)
+    .map((x) => x.t);
+}
+
 /** One edge's gap or strip targets. `rest` is the scene with the dragged item lifted out and `base` its layout. */
 function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, dragged: string, reach: number, blockers: readonly Rect[], chrome: readonly Rect[], settle: (s: Scene) => SceneAfter): SceneTarget[] {
   const el = base.edges[edge.id];
-  if (!el) return [];
+  // A folded or riding column takes drops through its side's rail and column lines, not gaps.
+  if (!el || el.folded || el.rides) return [];
   const column = axisOf(edge.side) === "column";
   const restEdge = rest.edges.find((e) => e.id === edge.id)!;
   const fixedIds = restEdge.items.filter((id) => rest.items[id]?.fixed && base.items[id]?.edge === edge.id);

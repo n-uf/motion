@@ -1,0 +1,94 @@
+{
+  "_about": "Window A: a document window with a pages area and three side panels (ids: pages, annotations, findings). Wide cards, a 12 px gap between columns, 24 px stage padding (12 each side), a 32 px rail with a 12 px gap. Fixture format: { scene, expect: [{ stage, layout }] } as asked. `forms` here are plain intent: the runner maps each to the library's StackForm (card = full form with a cross range; bar = folded header with a fixed main size; rail = the side rail segment). All numbers are what a real window of this shape is pinned to today; widths are stage widths in px, height 800 unless stated.",
+  "_numbers": {
+    "contentMin": { "width": 320, "height": 240 },
+    "card": { "cross": { "min": 220, "max": 640 } },
+    "gap": 12,
+    "padding": 24,
+    "rail": { "width": 32, "slot": 44 },
+    "barMain": 30,
+    "sheetBelow": 576,
+    "sheetRule": "a host fallback, not a scene rule: stage width < padding 24 + contentMin 320 + one card slot 232 = 576; `layout.content` plus `contentMin` is what the host reads"
+  },
+  "scenes": {
+    "three": {
+      "_about": "Start layout: Pages above Annotations stacked in ONE left column, Findings in the right column. Use order (oldest to newest): pages, annotations, findings. All open.",
+      "scene": {
+        "stage": { "x": 0, "y": 0, "w": 1120, "h": 800 },
+        "contentMin": { "width": 320, "height": 240 },
+        "handFold": "bar",
+        "floatKinds": ["panel"],
+        "columns": {
+          "left": { "accepts": ["panel"], "cross": { "min": 220, "max": 640, "rail": 32 }, "gap": 12 },
+          "right": { "accepts": ["panel"], "cross": { "min": 220, "max": 640, "rail": 32 }, "gap": 12 }
+        },
+        "rails": { "left": { "width": 32, "accepts": ["panel"] }, "right": { "width": 32, "accepts": ["panel"] } },
+        "pad": { "start": 12, "end": 12 },
+        "items": {
+          "pages": { "kind": "panel", "used": 1, "forms": { "column": ["card", "bar", "rail"] }, "grows": 1 },
+          "annotations": { "kind": "panel", "used": 2, "forms": { "column": ["card", "bar", "rail"] }, "grows": 1 },
+          "findings": { "kind": "panel", "used": 3, "forms": { "column": ["card", "bar", "rail"] }, "grows": 1 }
+        },
+        "edges": [
+          { "id": "left-0", "side": "left", "ring": 0, "column": true, "items": ["pages", "annotations"] },
+          { "id": "right-0", "side": "right", "ring": 0, "column": true, "items": ["findings"] }
+        ],
+        "floats": []
+      },
+      "expect": [
+        { "stage": { "w": 808, "h": 800 }, "layout": { "columns": { "left": [["pages", "annotations"]], "right": [["findings"]] }, "rails": { "left": [], "right": [] }, "contentWidthAtLeast": 320 } },
+        { "stage": { "w": 807, "h": 800 }, "layout": { "columns": { "left": [], "right": [["findings"]] }, "rails": { "left": ["pages", "annotations"], "right": [] }, "note": "the left stack folds whole into its side's rail as two segments (a stack's minimum is its widest member's, so three panels cost the same as two); Findings stays open" } },
+        { "stage": { "w": 620, "h": 800 }, "layout": { "columns": { "left": [], "right": [["findings"]] }, "rails": { "left": ["pages", "annotations"], "right": [] }, "contentWidthAtLeast": 320 } },
+        { "stage": { "w": 619, "h": 800 }, "layout": { "columns": { "left": [], "right": [] }, "rails": { "left": ["pages", "annotations"], "right": ["findings"] }, "note": "everything in rails; the host shows the sheet below 576" } },
+        { "stage": { "w": 576, "h": 800 }, "layout": { "rails": { "left": ["pages", "annotations"], "right": ["findings"] }, "sheetFallback": false } },
+        { "stage": { "w": 575, "h": 800 }, "layout": { "rails": { "left": ["pages", "annotations"], "right": ["findings"] }, "sheetFallback": true } }
+      ]
+    },
+    "pair": {
+      "_about": "Two panels only: Annotations in the left column, Findings in the right. Use order: annotations (older), findings (newer). The oldest column folds first.",
+      "scene": {
+        "extends": "three",
+        "items": { "pages": null },
+        "edges": [
+          { "id": "left-0", "side": "left", "ring": 0, "column": true, "items": ["annotations"] },
+          { "id": "right-0", "side": "right", "ring": 0, "column": true, "items": ["findings"] }
+        ]
+      },
+      "expect": [
+        { "stage": { "w": 808, "h": 800 }, "layout": { "columns": { "left": [["annotations"]], "right": [["findings"]] } } },
+        { "stage": { "w": 807, "h": 800 }, "layout": { "columns": { "left": [], "right": [["findings"]] }, "rails": { "left": ["annotations"], "right": [] } } },
+        { "stage": { "w": 620, "h": 800 }, "layout": { "columns": { "left": [], "right": [["findings"]] }, "rails": { "left": ["annotations"], "right": [] } } },
+        { "stage": { "w": 619, "h": 800 }, "layout": { "columns": { "left": [], "right": [] }, "rails": { "left": ["annotations"], "right": ["findings"] } } }
+      ]
+    },
+    "three-bare": {
+      "_about": "The same three-panel scene with NO stage padding, NO gap and a 36 px rail: the pure placement arithmetic (a stack's minimum is its widest member's minimum).",
+      "scene": {
+        "extends": "three",
+        "pad": { "start": 0, "end": 0 },
+        "columns": {
+          "left": { "accepts": ["panel"], "cross": { "min": 220, "max": 640, "rail": 36 }, "gap": 0 },
+          "right": { "accepts": ["panel"], "cross": { "min": 220, "max": 640, "rail": 36 }, "gap": 0 }
+        },
+        "rails": { "left": { "width": 36, "accepts": ["panel"] }, "right": { "width": 36, "accepts": ["panel"] } }
+      },
+      "expect": [
+        { "stage": { "w": 760, "h": 800 }, "layout": { "columns": { "left": [["pages", "annotations"]], "right": [["findings"]] }, "note": "220 + 220 + 320" } },
+        { "stage": { "w": 759, "h": 800 }, "layout": { "columns": { "left": [], "right": [["findings"]] }, "rails": { "left": ["pages", "annotations"], "right": [] } } },
+        { "stage": { "w": 576, "h": 800 }, "layout": { "columns": { "left": [], "right": [["findings"]] }, "note": "320 + 220 + 36" } },
+        { "stage": { "w": 575, "h": 800 }, "layout": { "columns": { "left": [], "right": [] }, "rails": { "left": ["pages", "annotations"], "right": ["findings"] } } }
+      ]
+    },
+    "three-hand-folded": {
+      "_about": "Hand folds: Annotations folded by hand inside the stack = a bar in place (30 px); folding the only panel of a one-panel column with handFold 'ride' draws it as a title bar over the first open column of its side at THAT column's width and takes no width of its own; a column whose members are all folded goes to the rail.",
+      "scene": { "extends": "three", "stage": { "x": 0, "y": 0, "w": 1120, "h": 800 }, "items": { "annotations": { "from": 1 } } },
+      "expect": [
+        { "stage": { "w": 1120, "h": 800 }, "layout": { "columns": { "left": [["pages", "annotations"]] }, "form": { "annotations": "bar", "pages": "card" }, "barMain": 30, "note": "Pages takes the height the bar leaves; the bar is as wide as the column" } }
+      ],
+      "variants": [
+        { "name": "ride", "scene": { "extends": "three", "handFold": "ride", "edges": [ { "id": "left-0", "side": "left", "ring": 0, "column": true, "items": ["pages"] }, { "id": "left-1", "side": "left", "ring": 1, "column": true, "items": ["annotations"] }, { "id": "right-0", "side": "right", "ring": 0, "column": true, "items": ["findings"] } ], "items": { "annotations": { "from": 1 } } }, "expect": { "layout": { "form": { "annotations": "ride" }, "rideOver": "left-0", "annotationsWidth": "same as left-0", "extraWidthTaken": 0 } } },
+        { "name": "all-folded", "scene": { "extends": "three", "items": { "pages": { "from": 1 }, "annotations": { "from": 1 } } }, "expect": { "layout": { "columns": { "left": [] }, "rails": { "left": ["pages", "annotations"] } } } }
+      ]
+    }
+  }
+}

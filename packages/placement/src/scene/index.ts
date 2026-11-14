@@ -11,8 +11,11 @@ export {
   SIDES,
   ZONES,
   axisOf,
+  type ColumnTemplate,
   type Edge,
   type FloatAnchor,
+  type RailSpec,
+  type SceneRailLayout,
   type Kind,
   type Orient,
   type Scene,
@@ -28,6 +31,6 @@ export {
   type Zone,
 } from "./model";
 export { solve } from "./solve";
-export { close, fold, floatAt, keep, lift, moveTo, open, orient, raise, resize, use, type DockPlace } from "./changes";
+export { close, fold, floatAt, homeFor, keep, lift, moveTo, open, orient, prune, raise, resize, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";
 export { readScene, storeScene, type SceneRead, type StoredScene, type StoredSceneEdge, type StoredSceneFloat, type StoredSceneItem } from "./store";
-export { PLANE, targets, type SceneAfter, type ScenePlace, type SceneTarget, type SceneTargetOptions } from "./targets";
+export { COLUMN_REACH, PLANE, RAIL_EDGE, stops, targets, type SceneAfter, type ScenePlace, type SceneTarget, type SceneTargetOptions } from "./targets";
