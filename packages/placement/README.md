@@ -453,12 +453,15 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   wider across (a group's stacked form returns to its row, a header folded to a rail icon by its `cross.min` to its
   header) the largest forms are tried again, as without `previous`. When the fit's `need` (the length its forms need) left
   more spare length than before (the length grew, a gap or size shrank), the fresh fit is taken only if it is a pure gain
-  over the kept forms (no item further down, one further up); otherwise the kept forms grow back in the reverse of give-way
-  order (the item that gave way most recently first: highest rank, then `kept`, then the newest used) while the stack
-  still fits (an item goes back to the nearest larger form the stack fits with, even if that makes it shorter: the last
-  item out of the menu takes the » entry along, and items in the menu come out together when only all of them leaving
-  fits), so one px of room, or a badge losing a digit after a press, moves nothing. Results under `previous` depend on
-  history but are never worse: a shrink then a grow can end at a larger arrangement than a fresh solve. Growing back is
+  over the kept forms (no item further down, one further up); otherwise room comes back in the reverse of give-way order,
+  and growth stops at the first item that can't grow. The item that gave way most recently goes first (highest rank,
+  then `kept`, then items in the » menu before the rest, then the newest used, then the earlier in the stack): it goes
+  back to the nearest larger form the stack fits with, even if that makes it shorter (the last item out of the menu
+  takes the » entry along), and so on. When it fits no larger form nothing behind it grows, so a leading group never
+  opens while a trailing one that gave way after it stays folded; only items at the head of that order that are all in
+  the menu come out together when only their leaving together fits. One px of room, or a badge losing a digit after a
+  press, moves nothing. Results under `previous` depend on history: a shrink then a grow can end at another arrangement
+  than a fresh solve. Growing back is
   meant for stacks of up to about 50 items (60 small menu items take about 9 ms). An item whose form at the kept
   index is of another kind starts over; one only re-measured (a badge changed a digit) keeps its place: a smaller form
   frees room that grows the kept forms, a larger one gives way from them. After changing the forms' cross sizes (a lowered `cross.min`, say)

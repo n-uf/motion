@@ -193,12 +193,14 @@ export interface FitOptions {
    * The fit the stack had before. While the forms it chose still fit, they are kept: a change of `used` ages alone (a press
    * on a header) reshapes nothing. Ages decide only who gives way anew (the length shrank, an item was added or opened),
    * and room that came back is used, but growing never re-ranks: the fresh fit is taken only if it is a pure gain (no
-   * item's form is further down, one is further up) or the stack got wider across; otherwise the kept forms grow back in
-   * the reverse of give-way order while the stack still fits (one px of room moves nothing; an item goes back to the
-   * nearest larger form the stack fits with, even when that makes the stack shorter: the last item out of the menu takes
-   * the » entry with it, and items in the menu come out together when only all of them leaving fits). Results under
-   * `previous` depend on history but are never worse: a shrink then a grow may end at a larger arrangement than a fresh
-   * solve of the same input. Growing back is meant for stacks of up to about 50 items (60 small menu items take about 9 ms;
+   * item's form is further down, one is further up) or the stack got wider across; otherwise room comes back in the
+   * reverse of give-way order, and growth stops at the first item that can't grow: the item that gave way most recently
+   * (highest rank, then `kept`, then items in the » menu before the rest, then the newest used, then the earlier in the
+   * stack) goes back to the nearest larger form the stack fits with, even when that makes the stack shorter (the last
+   * item out of the menu takes the » entry with it), and so on; when it fits no larger form, nothing behind it grows,
+   * except that items at the head of that order that are all in the menu come out together when only their leaving
+   * together fits. One px of room moves nothing. Results under `previous` depend on history: a shrink then a grow may end
+   * at another arrangement than a fresh solve of the same input. Growing back is meant for stacks of up to about 50 items (60 small menu items take about 9 ms;
    * the cost grows with about the cube of the count). Items it doesn't know start
    * from their largest form; an item whose `from` went down since (a panel opened), or whose form at the kept index is of
    * another kind, starts over. A form that was only re-measured keeps its place: smaller, it frees room that grows the
