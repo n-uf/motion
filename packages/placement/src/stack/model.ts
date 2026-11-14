@@ -116,13 +116,15 @@ export interface StackInput {
    */
   readonly accepts?: (item: StackItem) => boolean;
   /**
-   * Items take their own size across (default false: every item spans the stack's cross size). With it, an item is drawn
-   * `cross.natural` across, clamped to the stack's cross size, from the stack's start edge across (the left of a column,
-   * the top of a bar), so a group in a side column is as wide as its own form asks, not as the column. A panel's `open`
-   * form (one that sets the cross size) still spans it, and so does the » entry. A group's form that sets the cross size
-   * (words in a column: `stacked` with `setsCross: true`) widens the column to the widest such group but is drawn at its
-   * own width. The stack's cross size, the forms, the notes and the lengths are as without it; only the rects of those
-   * items are narrower, and `stackTargets`' hits and markers still span the stack.
+   * Groups take their own size across (default false: every item spans the stack's cross size). With it, an item whose
+   * current form is a group kind (`row`, `stacked`, `icons`, `fold`) is drawn `cross.natural` across, clamped to the
+   * stack's cross size, from the stack's start edge across (the left of a column, the top of a bar), so a group in a
+   * side column is as wide as its own form asks, not as the column. Panel kinds (`open`, `header`, `rail`) and the »
+   * entry still span it: every open panel and header fills the column. The kind decides, not `setsCross`, which still
+   * decides the stack's cross size as before: a group's form that sets it (words in a column: `stacked` with
+   * `setsCross: true`) widens the column to the widest such group but is drawn at its own width. The stack's cross
+   * size, the forms, the notes and the lengths are as without it; only the rects of group forms are narrower, and
+   * `stackTargets`' hits and markers still span the stack.
    */
   readonly ownCross?: boolean;
 }

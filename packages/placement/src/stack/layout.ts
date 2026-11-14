@@ -26,8 +26,9 @@
  * A `fixed` item takes part in none of the steps above: it keeps its first allowed form, counts toward the length, and
  * the others give way around it.
  *
- * With `ownCross`, every item but a panel's `open` form (which spans the stack) is drawn at its own `cross.natural`
- * (clamped to the stack's cross size) from the start edge instead of across the whole stack; nothing else changes.
+ * With `ownCross`, an item in a group form (`row`, `stacked`, `icons`, `fold`) is drawn at its own `cross.natural`
+ * (clamped to the stack's cross size) from the start edge instead of across the whole stack; a panel form (`open`,
+ * `header`, `rail`) still spans it. Nothing else changes.
  *
  * `gap` sits between neighbouring drawn items (the » entry is one), `pad` before the first and after the last; both
  * count toward the length and the rects include them, so an app draws at the rects.
@@ -41,6 +42,8 @@ import { formSetsCross, limitsOf, menuMain, spacingOf, type FitOptions, type Pla
 
 const EPS = 1e-6;
 const isMenu = (f: StackForm): boolean => f.kind === "menu";
+/** The form kinds of a control group; `ownCross` draws these at their own size across. */
+const GROUP_KINDS: ReadonlySet<string> = new Set(["row", "stacked", "icons", "fold"]);
 const finite = (x: number, fallback = 0): number => (Number.isFinite(x) ? x : fallback);
 const mainOf = (f: StackForm, which: "min" | "natural"): number => (isMenu(f) ? 0 : Math.max(0, finite(f.main[which])));
 /** The least a form can be drawn across the stack. */
@@ -322,13 +325,14 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
 
   const rectAt = (from: number, main: number, across = cross): Rect => (input.axis === "column" ? { x: 0, y: from, width: across, height: main } : { x: from, y: 0, width: main, height: across });
   /**
-   * The size across an item is drawn: the stack's, or with `ownCross` and any form but a panel's `open` one that sets the
-   * cross size, its own `cross.natural` (clamped to the stack's), from the start edge. A group's form that sets the cross
-   * size (a column of words) widens the column but is drawn at its own width, like the rest.
+   * The size across an item is drawn: the stack's, or with `ownCross` and a group form (`row`, `stacked`, `icons`, `fold`),
+   * its own `cross.natural` (clamped to the stack's), from the start edge. The kind decides, not `setsCross`: a group's
+   * form that sets the cross size (a column of words) widens the column but is drawn at its own width, and a panel's form
+   * (`open`, `header`, `rail`) and the » entry fill the stack.
    */
   const acrossOf = (i: number): number => {
     const f = form(i);
-    return input.ownCross === true && !(f.kind === "open" && formSetsCross(f)) ? Math.min(cross, Math.max(0, finite(f.cross.natural, cross))) : cross;
+    return input.ownCross === true && GROUP_KINDS.has(f.kind) ? Math.min(cross, Math.max(0, finite(f.cross.natural, cross))) : cross;
   };
   const rects = new Map<number, Rect>();
   let cursor = sp.start;
