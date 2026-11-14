@@ -148,7 +148,7 @@ export interface StackMenu {
  *   or by cross size.
  * - `to-menu`: an item is in the » menu.
  * - `too-wide`: an item's form doesn't set the cross size and its `cross.min` is over the stack's, or it does and its
- *   `cross.min` is over the limits' `max`. Cross size never puts an item in the menu, so it keeps its last drawn form
+ *   explicit `cross.min` is over the limits' `max`. Cross size never puts an item in the menu, so it keeps its last drawn form
  *   and the app clips it.
  * - `no-forms`: an item with no forms, left out of `items`.
  * - `overflow`: no item can give more way and the stack is still `over` px too long (forms that don't end in a `menu`
@@ -173,4 +173,20 @@ export interface StackFit {
   readonly menu: StackMenu | null;
   /** `no-forms` first, then `form-down` per item in the order they gave way, `to-menu`, `too-wide`, and `overflow`. */
   readonly notes: readonly StackNote[];
+  /**
+   * The length the chosen forms need at least: their smallest sizes, the » entry, the gaps and the padding. Over `length`
+   * only when the stack overflows. `fitStack`'s `previous` reads it to tell room coming back from a change of ages.
+   */
+  readonly need?: number;
+}
+
+/** What `fitStack` and `stackTargets` take besides the input. */
+export interface FitOptions {
+  /**
+   * The fit the stack had before. While the forms it chose still fit, they are kept: a change of `used` ages alone (a press
+   * on a header) reshapes nothing. Ages decide only who gives way anew (the length shrank, an item was added or opened),
+   * and room that came back is used. Items it doesn't know start from their largest form; an item whose `from` went down
+   * since (a panel opened) starts over.
+   */
+  readonly previous?: StackFit;
 }

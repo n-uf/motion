@@ -24,7 +24,7 @@
 import { rect, type Rect } from "../geometry";
 import type { Target } from "../targets/target";
 import { fitStack } from "./layout";
-import { withItem, type StackFit, type StackInput, type StackItem } from "./model";
+import { withItem, type FitOptions, type StackFit, type StackInput, type StackItem } from "./model";
 
 export interface StackTargetOptions {
   /**
@@ -32,6 +32,11 @@ export interface StackTargetOptions {
    * pointer just outside the bar still drops at an end. The marker and the preview don't move.
    */
   readonly endReach?: number;
+  /**
+   * The stack's fit before the drag, as `fitStack`'s `previous`: the preview of every gap keeps the other items' forms while
+   * they still fit, so it is the fit the drop makes when the app solves with the same `previous`.
+   */
+  readonly previous?: StackFit;
 }
 
 export type StackPlace ={ readonly kind: "gap"; readonly at: number };
@@ -82,7 +87,8 @@ function bounds(input: StackInput, fit: StackFit, reach: number): number[] {
 export function stackTargets(input: StackInput, dragged: StackItem, options: StackTargetOptions = {}): StackTarget[] {
   if (dragged.forms.length === 0) return [];
   const rest: StackInput = { ...input, items: input.items.filter((it) => it.id !== dragged.id) };
-  const base = fitStack(rest);
+  const fitOptions: FitOptions = options.previous ? { previous: options.previous } : {};
+  const base = fitStack(rest, fitOptions);
   const reach = Math.max(0, Number.isFinite(options.endReach) ? options.endReach! : 0);
   const b = bounds(rest, base, reach);
   const column = rest.axis === "column";
@@ -91,7 +97,7 @@ export function stackTargets(input: StackInput, dragged: StackItem, options: Sta
   const out: StackTarget[] = [];
   for (let k = 0; k <= rest.items.length; k++) {
     const solved = withItem(rest, item, k);
-    const fit = fitStack(solved);
+    const fit = fitStack(solved, fitOptions);
     const slot = fit.items.find((p) => p.id === dragged.id)!.rect;
     const from = b[k]!;
     const to = b[k + 1]!;

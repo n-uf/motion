@@ -238,9 +238,18 @@ describe("T5: gap, pad and the targets", () => {
   });
 });
 
-describe("T6: a form too thick for the limits steps down", () => {
+describe("T6: a form that says it is too thick for the limits steps down", () => {
+  // Only a form with an explicit `cross.min` over the limits' `max` steps down; without one it is clamped, as it was.
   const panel = (): StackItem =>
-    item("p", 1, [form("open", 150, { natural: 200, cross: 120, setsCross: true }), form("header", 60, { cross: 28 }), form("rail", 26, { cross: 26 }), form("menu", 0)]);
+    item("p", 1, [form("open", 150, { natural: 200, cross: 120, crossMin: 120, setsCross: true }), form("header", 60, { cross: 28 }), form("rail", 26, { cross: 26 }), form("menu", 0)]);
+
+  it("a form with no cross.min is clamped to the bar's max, as before", () => {
+    const plain = item("p", 1, [form("open", 150, { natural: 200, cross: 120, setsCross: true }), form("header", 60, { cross: 28 })]);
+    const fit = fitStack({ axis: "row", length: 400, cross: { min: 30, max: 40 }, items: [plain] });
+    expect(kinds(fit)).toEqual(["open"]);
+    expect(fit.cross).toBe(40);
+    expect(fit.notes).toEqual([]);
+  });
 
   it("an open panel whose cross.min is over a bar's cross.max lands as a header, and the bar stays thin", () => {
     const fit = fitStack({ axis: "row", length: 400, cross: { min: 30, max: 40 }, items: [panel()] });
@@ -266,7 +275,7 @@ describe("T6: a form too thick for the limits steps down", () => {
   });
 
   it("never into the menu: the last drawn form stays, with too-wide", () => {
-    const stuck = item("p", 1, [form("open", 150, { cross: 120, setsCross: true }), form("menu", 0)]);
+    const stuck = item("p", 1, [form("open", 150, { cross: 120, crossMin: 120, setsCross: true }), form("menu", 0)]);
     const fit = fitStack({ axis: "row", length: 400, cross: { min: 30, max: 40 }, items: [stuck] });
     expect(kinds(fit)).toEqual(["open"]);
     expect(fit.cross).toBe(40);
