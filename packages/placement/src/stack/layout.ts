@@ -113,7 +113,8 @@ export function fitStack(input: StackInput): StackFit {
 
   let cross = crossOf();
   let overflow = 0;
-  const guard = items.reduce((s, it) => s + it.forms.length, 0) + 1;
+  // Every pass steps at least one item one form (by cross size or by length), so twice the forms is more than enough.
+  const guard = 2 * items.reduce((s, it) => s + it.forms.length, 0) + 2;
   for (let n = 0; n <= guard; n++) {
     cross = crossOf();
     // Too wide for the stack: step down, but never into the menu (that is the length's call).
