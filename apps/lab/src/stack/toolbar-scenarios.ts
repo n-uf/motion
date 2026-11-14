@@ -477,6 +477,65 @@ const n1: Scenario<Page> = {
   },
 };
 
-const SCENARIOS = [t1, t2, t3, t5, t6, n1];
+const n2: Scenario<Page> = {
+  name: "N2: a press, then a count losing a digit, reshapes nothing else",
+  modes: ["bar"],
+  async run(p) {
+    const rows = [];
+    const ids = ["views", "tools", "zoom", "mark"] as const;
+    const start = (l: number, id: TbId): StackFit => {
+      p.reset();
+      p.setLength(l);
+      p.setCount(id, 12345);
+      return p.fit();
+    };
+    // A length and a group where some group has given way and a fresh solve, after the presses and the count losing a digit,
+    // would give way differently (the ages changed): the case the check is for. The kept forms must not follow it.
+    let pick: { l: number; id: TbId } | null = null;
+    for (let l = 740; l >= 300 && !pick; l -= 2) {
+      for (const id of ids) {
+        const f0 = start(l, id);
+        if (!f0.items.some((i) => i.form > 0) || f0.menu) continue;
+        for (const other of ids) p.press(other);
+        p.setCount(id, 1234);
+        if (formsNow(p.fit()) === formsNow(f0) && formsNow(fitStack(p.input())) !== formsNow(f0)) {
+          pick = { l, id };
+          break;
+        }
+      }
+    }
+    const { l, id } = pick ?? { l: 500, id: "views" as TbId };
+    const before = start(l, id);
+    const forms0 = formsNow(before);
+    const failures: string[] = [];
+    for (const other of ids) {
+      await press(p, other);
+      await release(p);
+      if (formsNow(p.fit()) !== forms0) failures.push(`pressing ${other} reshaped the bar: ${formsNow(p.fit())}`);
+    }
+    p.setCount(id, 1234);
+    const after = p.fit();
+    const was = before.items.find((i) => i.id === id)!.rect.width;
+    const own = after.items.find((i) => i.id === id)!.rect.width;
+    rows.push(
+      await rule("After pressing every group, a count that loses a digit makes its group 7 px shorter and moves no other form, though a fresh solve would give way differently", (ok) => {
+        ok(pick !== null, "no length and group found where a fresh solve differs");
+        failures.forEach((m) => ok(false, m));
+        ok(formsNow(after) === forms0, `forms ${formsNow(after)}, were ${forms0}`);
+        ok(Math.abs(was - own - 7) < 0.5, `the group went from ${was} to ${own} px`);
+        ok(formsNow(fitStack(p.input())) !== forms0, "a fresh solve doesn't differ here, so the check proves nothing");
+      }),
+    );
+    // Room that really is a pure gain is still taken: the bar long enough for every row again.
+    p.reset();
+    p.setLength(300);
+    const small = p.fit();
+    p.setLength(740);
+    rows.push(await rule("A large room gain still restores every form", (ok) => ok(small.items.some((i) => i.form > 0) && p.fit().items.every((i) => i.form === 0), `at 740: ${formsNow(p.fit())}`)));
+    return rows;
+  },
+};
+
+const SCENARIOS = [t1, t2, t3, t5, t6, n1, n2];
 
 install(page, SCENARIOS, () => page.reset(), document.getElementById("tb-run") as HTMLButtonElement, document.getElementById("tb-runs") as HTMLTableSectionElement);
