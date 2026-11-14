@@ -2,7 +2,8 @@
  * The Stack · toolbar page's scenarios, on `window.__motionLab.runAll(filter?)`. Each drives the page (its sliders and
  * real pointer events) and asserts what the solver gave and what the page drew from it:
  * T1 (a » per collapsed group, in line), T2/T4 (a step goes only to a shorter form), T3 (the ranked primary gives way
- * last), T5 (gap, padding, the ends' reach, the marker's cross size) and T6 (a form too thick for the bar steps down).
+ * last), T5 (gap, padding, the ends' reach, the marker's cross size), T6 (a form too thick for the bar steps down), N1/N2
+ * (a press or a count reshapes nothing else) and G2 (under previous, room comes back in the reverse of give-way order).
  * The solver's own repro inputs run too, so a rule missing from the package fails here as well as on the page.
  */
 import type { Rect } from "@n-uf/motion";
@@ -536,6 +537,63 @@ const n2: Scenario<Page> = {
   },
 };
 
-const SCENARIOS = [t1, t2, t3, t5, t6, n1, n2];
+// --- G2: room comes back in the reverse of give-way order ----------------------------------------------------------
+
+const g2: Scenario<Page> = {
+  name: "G2: shrink, then grow under previous: room comes back in the reverse of give-way order",
+  modes: ["bar"],
+  async run(p) {
+    const rows = [];
+    // The solver's repro: b used earlier than a gives way first, then a. At 90 a can't open (130), so nothing does.
+    const two = [item("a", 2, [form("row", 100), form("fold", 30)]), item("b", 1, [form("row", 50), form("fold", 30)])];
+    const flat = { gap: 0, pad: { start: 0, end: 0 } };
+    const shrunk = fitStack(bar(two, 60, flat));
+    const grown = fitStack(bar(two, 90, flat), { previous: shrunk });
+    rows.push(
+      await rule("Repro: both fold at 60; at 90 under previous both stay folded (b doesn't open ahead of a), as a fresh solve says", (ok) => {
+        ok(kinds(shrunk).join() === "fold,fold", `at 60: ${kinds(shrunk).join()}`);
+        ok(kinds(grown).join() === "fold,fold", `at 90 with previous: ${kinds(grown).join()}`);
+        ok(kinds(fitStack(bar(two, 90, flat))).join() === "fold,fold", `fresh at 90: ${kinds(fitStack(bar(two, 90, flat))).join()}`);
+      }),
+    );
+    // The bar: shrink from 740, press every group (the ages change, the forms stay), then grow under previous. A group that
+    // gave way earlier (used longer ago) is never open while one that gave way later is folded, unless it already was or
+    // the fresh fit is a pure gain.
+    const ids = ["views", "tools", "zoom", "mark"] as const;
+    const failures: string[] = [];
+    let grows = 0;
+    for (let l0 = 700; l0 >= 300; l0 -= 20) {
+      for (const presses of [[], ["views", "zoom"], ["mark", "views", "tools", "zoom"]] as TbId[][]) {
+        p.reset();
+        p.setLength(l0);
+        for (const id of presses) p.press(id);
+        const kept = p.fit();
+        const used = p.used;
+        const open = (fit: StackFit, id: string): boolean => formOf(fit, id) === 0;
+        for (let l1 = l0 + 10; l1 <= Math.min(740, l0 + 240); l1 += 10) {
+          const input = { ...p.input(), length: l1 };
+          const fit = fitStack(input, { previous: kept });
+          const fresh = fitStack(input);
+          const gain = fresh.items.every((q, i) => q.form <= kept.items[i]!.form) && fresh.items.some((q, i) => q.form < kept.items[i]!.form);
+          if (gain || formsNow(fit) === formsNow(kept)) continue;
+          grows++;
+          for (const e of ids)
+            for (const l of ids)
+              if (used[e] < used[l] && open(fit, e) && !open(fit, l) && !(open(kept, e) && !open(kept, l))) failures.push(`${l0}→${l1} after pressing [${presses.join(" ")}]: ${e} opened while ${l} (gave way after it) is ${kindOf(fit, l)}`);
+        }
+      }
+    }
+    p.reset();
+    rows.push(
+      await rule("On the bar, a group that gave way earlier never opens while one that gave way later stays folded", (ok) => {
+        ok(grows > 0, "no grow under previous reshaped the bar, so the check proves nothing");
+        failures.slice(0, 5).forEach((m) => ok(false, m));
+      }),
+    );
+    return rows;
+  },
+};
+
+const SCENARIOS = [t1, t2, t3, t5, t6, n1, n2, g2];
 
 install(page, SCENARIOS, () => page.reset(), document.getElementById("tb-run") as HTMLButtonElement, document.getElementById("tb-runs") as HTMLTableSectionElement);
