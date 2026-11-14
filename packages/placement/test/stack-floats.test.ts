@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { overlap, rect, type Rect } from "../src/geometry";
-import { fitFloat, floatTarget, readFloats, storeFloats, type FloatFit, type StackFloat } from "../src/stack";
+import { clampInto, overlap, rect, type Rect } from "../src/geometry";
+import { fitFloat, readFloats, stackFloatTarget, storeFloats, type FloatFit, type StackFloat } from "../src/stack";
 import { seeded } from "./stack-fixture";
 
 const stage = rect(0, 0, 900, 500);
@@ -109,22 +109,115 @@ describe("fitFloat", () => {
     // The sweep reaches the snap, not only the clamp.
     expect(snapped).toBeGreaterThan(50);
   });
+
+  it("clamped is true also when a position that wasn't a number was replaced", () => {
+    expect(fitFloat(rect(NaN, 100, 50, 50), stage).clamped).toBe(true);
+    expect(fitFloat(rect(100, Infinity, 50, 50), stage).clamped).toBe(true);
+    expect(fitFloat(rect(100, 100, 50, 50), stage).clamped).toBe(false);
+    expect(fitFloat(rect(100, 100, NaN, 50), stage).clamped).toBe(false);
+  });
+
+  /** The old search, for small cases: every edge-aligned place crossed, the least covered first, then the nearest. */
+  function brute(want: Rect, area: Rect, avoid: readonly Rect[]): { far: number; left: number } {
+    const inside = clampInto(want, area);
+    const lo = (v: number, from: number, to: number): number => Math.min(Math.max(v, from), Math.max(from, to));
+    const xs = [inside.x, area.x, area.x + area.width - want.width];
+    const ys = [inside.y, area.y, area.y + area.height - want.height];
+    for (const a of avoid) {
+      xs.push(a.x - want.width, a.x + a.width);
+      ys.push(a.y - want.height, a.y + a.height);
+    }
+    let best: { far: number; left: number } | null = null;
+    for (const y of new Set(ys.map((v) => lo(v, area.y, area.y + area.height - want.height)))) {
+      for (const x of new Set(xs.map((v) => lo(v, area.x, area.x + area.width - want.width)))) {
+        const cand = rect(x, y, want.width, want.height);
+        const left = avoid.reduce((s, a) => s + overlap(cand, a), 0);
+        const far = Math.hypot(x - inside.x, y - inside.y);
+        const clear = left <= 1e-3;
+        if (!best || (clear ? 0 : left) < best.left - 1e-3 || (Math.abs((clear ? 0 : left) - best.left) <= 1e-3 && far < best.far - 1e-9)) best = { far, left: clear ? 0 : left };
+      }
+    }
+    return best!;
+  }
+
+  it("agrees with a search over every place on small cases: as near as any clear place, else as little covered", () => {
+    const rand = seeded(5);
+    let crowded = 0;
+    for (let trial = 0; trial < 400; trial++) {
+      const n = 1 + Math.floor(rand() * 6);
+      const avoid = Array.from({ length: n }, () => rect(Math.floor(rand() * 700), Math.floor(rand() * 400), 20 + Math.floor(rand() * 260), 20 + Math.floor(rand() * 200)));
+      // Some trials give a float big enough that no place may be clear.
+      const big = rand() < 0.25;
+      const want = rect(Math.floor(rand() * 900), Math.floor(rand() * 500), big ? 300 + Math.floor(rand() * 500) : 40 + Math.floor(rand() * 200), big ? 200 + Math.floor(rand() * 280) : 30 + Math.floor(rand() * 150));
+      const fit = fitFloat(want, stage, avoid);
+      const want0 = brute(want, stage, avoid);
+      const inside = clampInto(want, stage);
+      const far = Math.hypot(fit.rect.x - inside.x, fit.rect.y - inside.y);
+      const left = covered(fit.rect, avoid).reduce((s, i) => s + overlap(fit.rect, avoid[i]!), 0);
+      const label = JSON.stringify([want, avoid]);
+      if (want0.left === 0) {
+        expect(covered(fit.rect, avoid), label).toEqual([]);
+        expect(fit.covers, label).toEqual([]);
+        expect(far, label).toBeCloseTo(want0.far, 6);
+      } else {
+        crowded++;
+        expect(left, label).toBeCloseTo(want0.left, 1);
+        expect(fit.covers.length > 0, label).toBe(true);
+      }
+    }
+    // The cases reach both answers.
+    expect(crowded).toBeGreaterThan(5);
+    expect(crowded).toBeLessThan(300);
+  });
+
+  it("stays fast with many docked rects: 300 take well under a frame, and a crowded stage is bounded", () => {
+    const rand = seeded(9);
+    // A column, a bar, 280 small items packed on the right and 20 scattered over the pages: the float is dropped over the column.
+    const small = (x0: number, w: number): Rect => rect(x0 + Math.floor(rand() * w), 40 + Math.floor(rand() * 440), 8 + Math.floor(rand() * 14), 8 + Math.floor(rand() * 14));
+    const avoid = [column, bar, ...Array.from({ length: 280 }, () => small(620, 250)), ...Array.from({ length: 20 }, () => small(250, 340))];
+    const want = rect(100, 200, 120, 90);
+    let best = Infinity;
+    let fit = fitFloat(want, stage, avoid);
+    for (let i = 0; i < 9; i++) {
+      const t0 = performance.now();
+      fit = fitFloat(want, stage, avoid);
+      best = Math.min(best, performance.now() - t0);
+    }
+    expect(covered(fit.rect, avoid)).toEqual([]);
+    expect(inStage(fit.rect)).toBe(true);
+    expect(best).toBeLessThan(8);
+    // Where nothing is clear (a float too big for the gaps), the answer is bounded too.
+    const t1 = performance.now();
+    const full = fitFloat(rect(300, 100, 300, 420), stage, avoid);
+    expect(performance.now() - t1).toBeLessThan(250);
+    expect(full.covers.length).toBeGreaterThan(0);
+  });
+
+  it("leaves out the rects that can't touch the float, and reports indexes into the whole `avoid` list", () => {
+    // Outside the stage, empty, or NaN: none is in the way, and none changes the answer.
+    const far = [rect(2000, 2000, 100, 100), rect(10, 10, 0, 50), rect(NaN, 0, 10, 10)];
+    expect(fitFloat(rect(100, 100, 50, 50), stage, [...far, column]).rect).toEqual(rect(240, 100, 50, 50));
+    // A float bigger than the stage can reach past it: a rect there still counts, with its own index.
+    const fit = fitFloat(rect(0, 0, 1000, 600), stage, [rect(950, 10, 30, 30)]);
+    expect(fit.covers).toEqual([0]);
+  });
 });
 
-describe("floatTarget", () => {
+describe("stackFloatTarget", () => {
   const input = { id: "notes", stage, size: { width: 200, height: 150 }, avoid: [column, bar] };
 
   it("is a free, priority 3 target in the drag shape whose hit covers the whole plane", () => {
-    const t = floatTarget(input);
-    expect([t.id, t.priority, t.free, t.item, t.label, t.slot]).toEqual(["float", 3, true, "notes", "Float here", undefined]);
+    const t = stackFloatTarget(input);
+    // Its id names the item and its kind says what it is, so it can't be mistaken for ./desk's "float" target.
+    expect([t.id, t.kind, t.priority, t.free, t.item, t.label, t.slot]).toEqual(["float:notes", "float", 3, true, "notes", "Float here", undefined]);
     for (const p of [{ x: -5000, y: -5000 }, { x: 450, y: 250 }, { x: 99999, y: -3 }, { x: 0, y: 1e6 }]) {
       expect(p.x >= t.hit.x && p.x <= t.hit.x + t.hit.width && p.y >= t.hit.y && p.y <= t.hit.y + t.hit.height).toBe(true);
     }
-    expect(floatTarget({ ...input, label: "Tear off" }).label).toBe("Tear off");
+    expect(stackFloatTarget({ ...input, label: "Tear off" }).label).toBe("Tear off");
   });
 
   it("C17: a pointer past the stage's edge drops a float clamped into the stage; it never returns nothing", () => {
-    const t = floatTarget(input);
+    const t = stackFloatTarget(input);
     const grab = { x: 20, y: 10 };
     const above = t.make({ x: 500, y: -400 }, grab);
     // Clamped to the stage's top, which is the bar: it lands just below the bar.
@@ -144,7 +237,7 @@ describe("floatTarget", () => {
   });
 
   it("C7: the drop's rect is clear of the docked content; the preview and the drop are the same answer", () => {
-    const t = floatTarget(input);
+    const t = stackFloatTarget(input);
     // The pointer holds the float's right side just right of the column, so its body lies over the column.
     const d = t.make({ x: 300, y: 200 }, { x: 190, y: 10 });
     expect(d.fit.snapped).toBe(true);
@@ -153,14 +246,14 @@ describe("floatTarget", () => {
   });
 
   it("holds the float by the middle when no grab is given, and never resizes it", () => {
-    const t = floatTarget(input);
+    const t = stackFloatTarget(input);
     expect(t.make({ x: 500, y: 250 }).rect).toEqual(rect(400, 175, 200, 150));
-    const big = floatTarget({ ...input, size: { width: 2000, height: 1000 } });
+    const big = stackFloatTarget({ ...input, size: { width: 2000, height: 1000 } });
     expect(big.make({ x: 500, y: 250 }).rect).toMatchObject({ width: 2000, height: 1000 });
   });
 
   it("types: the target is the drag shape, free and at priority 3", () => {
-    const t = floatTarget(input);
+    const t = stackFloatTarget(input);
     expectTypeOf(t.priority).toEqualTypeOf<3>();
     expectTypeOf(t.free).toEqualTypeOf<true>();
     expectTypeOf(t.hit).toEqualTypeOf<Rect>();
@@ -232,6 +325,11 @@ describe("the floats' stored form", () => {
       ["a", "b", "c", "d", "e"],
     );
     expect(read.ok && read.floats.map((f) => f.id)).toEqual(["a", "e"]);
+    // A repeated id keeps its last entry (the list is in stacking order).
+    expect(read.ok && read.floats[0]!.rect).toEqual(rect(9, 9, 9, 9));
+    // The version in words: a string is quoted, as the stack's own reader says it.
+    expect(readFloats({ v: "1", floats: [] })).toEqual({ ok: false, error: 'unknown version "1" (this reads version 1)' });
+    expect(readFloats({ v: null, floats: [] })).toEqual({ ok: false, error: "unknown version object (this reads version 1)" });
     expect(read.ok && read.dropped).toEqual(["extra", "float:a", "float:b", "float:c", "float:d", "a float with no id", "float:gone", "float:e:colour", "a null where a float goes", "a list where a float goes", "a number where a float goes"]);
     // A throwing getter and a proxy don't throw either.
     const trap = { v: 1, get floats(): unknown { throw new Error("boom"); } };
@@ -239,7 +337,7 @@ describe("the floats' stored form", () => {
     expect(readFloats(new Proxy({}, { ownKeys() { throw new Error("no keys"); }, get() { return 1; } })).ok).toBe(false);
   });
 
-  it("stores only floats it can read back: a repeated id (the first stays) and a bad rect are left out", () => {
+  it("stores only floats it can read back: of a repeated id the last readable entry stays, and a bad rect is left out", () => {
     const stored = storeFloats([
       { id: "a", rect: rect(1, 2, 3, 4) },
       { id: "a", rect: rect(5, 6, 7, 8) },
@@ -248,7 +346,10 @@ describe("the floats' stored form", () => {
       { id: "__proto__", rect: rect(0, 0, 5, 5) },
     ]);
     expect(stored.floats.map((f) => f.id)).toEqual(["a", "__proto__"]);
-    expect(stored.floats[0]).toEqual({ id: "a", x: 1, y: 2, width: 3, height: 4 });
+    expect(stored.floats[0]).toEqual({ id: "a", x: 5, y: 6, width: 7, height: 8 });
+    // The last readable entry: a later one that can't be stored doesn't take the id away, and the order is the stacking order.
+    expect(storeFloats([{ id: "a", rect: rect(1, 2, 3, 4) }, { id: "b", rect: rect(0, 0, 5, 5) }, { id: "a", rect: rect(NaN, 0, 5, 5) }]).floats.map((f) => [f.id, f.x])).toEqual([["a", 1], ["b", 0]]);
+    expect(storeFloats([{ id: "a", rect: rect(1, 2, 3, 4) }, { id: "b", rect: rect(0, 0, 5, 5) }, { id: "a", rect: rect(9, 2, 3, 4) }]).floats.map((f) => [f.id, f.x])).toEqual([["b", 0], ["a", 9]]);
     const back = readFloats(JSON.parse(JSON.stringify(stored)));
     expect(back.ok && back.floats.map((f) => f.id)).toEqual(["a", "__proto__"]);
   });

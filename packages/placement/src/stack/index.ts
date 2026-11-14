@@ -5,7 +5,7 @@
  * stacked words, icons, the menu) and handing spare length to the panels that grow. A stack with nothing open in it
  * is a rail, and a form that is too wide for the stack steps down (never into the menu: that is the length's call).
  * `stackTargets` gives a drop target for every gap, each with the exact solve a drop makes; the store keeps order,
- * kept and closed items, the use order and chosen forms. Floats (`fitFloat`, `floatTarget`, `storeFloats`) are items
+ * kept and closed items, the use order and chosen forms. Floats (`fitFloat`, `stackFloatTarget`, `storeFloats`) are items
  * above the pages in the stage's own px: clamped into the stage, clear of the docked content, never pinned. Pure:
  * items and a length in; forms, rects and coded notes out. Not tied to `./panels` columns.
  */
@@ -32,4 +32,4 @@ export {
 } from "./model";
 export { stackTargets, type StackPlace, type StackTarget } from "./targets";
 export { createStack, readStack, storeStack, type StackRead, type StackState, type StoredStack } from "./store";
-export { fitFloat, floatTarget, readFloats, storeFloats, type FloatDrop, type FloatFit, type FloatsRead, type FloatTarget, type FloatTargetInput, type StackFloat, type StoredFloats } from "./floats";
+export { fitFloat, readFloats, stackFloatTarget, storeFloats, type FloatDrop, type FloatFit, type FloatsRead, type FloatTarget, type StackFloat, type StackFloatTargetInput, type StoredFloats } from "./floats";

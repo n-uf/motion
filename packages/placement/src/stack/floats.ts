@@ -7,15 +7,20 @@
  *   beside whatever docked content it would cover: the nearest place inside the stage that is clear of every `avoid`
  *   rect (the docked items' rects, in the same px). One larger than the stage keeps its top-left corner on the
  *   stage's; if no clear place exists the float stays where it covers the least and `covers` says which rects.
- * - `floatTarget(input)`: a drop target in the shape `@n-uf/motion/drag` takes, free (no room is made for it), whose
- *   `hit` covers the whole plane, so a pointer past the stage's edge still hits it (a float drop never cancels), at
- *   priority 3 so a docked stack's gaps win where they are. `make(point, grab)` is the one answer for the preview
- *   and the drop: the float's rect with the pointer holding it at `grab`, clamped and clear of the docked content.
+ *   Cost: the candidate places are tried nearest first and the first clear one wins; rects that can't touch the float
+ *   are left out first. 300 docked rects fit in well under a frame (a few ms); the search looks at 20,000 places at
+ *   most, then at 2,048 for the least covered.
+ * - `stackFloatTarget(input)`: a drop target in the shape `@n-uf/motion/drag` takes, free (no room is made for it),
+ *   `kind` `"float"`, id `float:<item>`, whose `hit` covers the whole plane, so a pointer past the stage's edge still
+ *   hits it (a float drop never cancels), at priority 3 so a docked stack's gaps win where they are. `make(point,
+ *   grab)` is the one answer for the preview and the drop: the float's rect with the pointer holding it at `grab`,
+ *   clamped and clear of the docked content.
  * - `storeFloats` / `readFloats`: the stored form, `{ v: 1, floats: [{ id, x, y, width, height }] }`, in stacking
  *   order (the last is on top). It writes no `pinned`; one an old store has is read, ignored and listed.
  */
 import { clampInto, rect, type Point, type Rect, type Size } from "../geometry";
 import type { Target } from "../targets/target";
+import { versionWords } from "./store";
 
 /** A float: the item's id and its rect in view space (the stage's px). */
 export interface StackFloat {
@@ -45,37 +50,114 @@ const shared = (a: Rect, b: Rect): number =>
 /** `r` with a non-number replaced and no negative size. */
 const clean = (r: Rect, at: Rect): Rect => rect(finite(r.x, at.x), finite(r.y, at.y), Math.max(0, finite(r.width, 0)), Math.max(0, finite(r.height, 0)));
 
+/** The most candidate places the clear search looks at (nearest first), and the least-covered search after it. */
+const CLEAR_PLACES = 20000;
+const COVERED_PLACES = 2048;
+
+type Triple = [number, number, number];
+
+/** A binary min-heap of `[index, index, distance]` triples, by distance then indexes (a fixed order). */
+class Nearest {
+  private readonly h: Triple[] = [];
+  private less(a: Triple, b: Triple): boolean {
+    return a[2] !== b[2] ? a[2] < b[2] : a[0] !== b[0] ? a[0] < b[0] : a[1] < b[1];
+  }
+  get size(): number {
+    return this.h.length;
+  }
+  push(t: Triple): void {
+    const h = this.h;
+    let i = h.push(t) - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (!this.less(h[i]!, h[p]!)) break;
+      [h[i], h[p]] = [h[p]!, h[i]!];
+      i = p;
+    }
+  }
+  pop(): Triple {
+    const h = this.h;
+    const top = h[0]!;
+    const last = h.pop()!;
+    if (h.length > 0) {
+      h[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = 2 * i + 1;
+        const r = l + 1;
+        let m = i;
+        if (l < h.length && this.less(h[l]!, h[m]!)) m = l;
+        if (r < h.length && this.less(h[r]!, h[m]!)) m = r;
+        if (m === i) break;
+        [h[i], h[m]] = [h[m]!, h[i]!];
+        i = m;
+      }
+    }
+    return top;
+  }
+}
+
+/** The places `xs` crossed with `ys`, nearest to `(fx, fy)` first (Euclidean), without building the cross product. */
+function* byDistance(xs: readonly number[], ys: readonly number[], fx: number, fy: number): Generator<{ x: number; y: number; far: number }> {
+  const sx = [...xs].sort((a, b) => Math.abs(a - fx) - Math.abs(b - fx) || a - b);
+  const sy = [...ys].sort((a, b) => Math.abs(a - fy) - Math.abs(b - fy) || a - b);
+  const q = new Nearest();
+  const d = (i: number, j: number): number => Math.hypot(sx[i]! - fx, sy[j]! - fy);
+  // Each x starts at its nearest y; popping a place pushes the same x's next y.
+  if (sy.length > 0) for (let i = 0; i < sx.length; i++) q.push([i, 0, d(i, 0)]);
+  while (q.size > 0) {
+    const [i, j, far] = q.pop();
+    yield { x: sx[i]!, y: sy[j]!, far };
+    if (j + 1 < sy.length) q.push([i, j + 1, d(i, j + 1)]);
+  }
+}
+
 export function fitFloat(want: Rect, stage: Rect, avoid: readonly Rect[] = []): FloatFit {
   const area = clean(stage, rect(0, 0, 0, 0));
   const r = clean(want, area);
   const inside = clampInto(r, area);
-  const clamped = inside.x !== r.x || inside.y !== r.y;
-  const others = avoid.map((a) => clean(a, area));
-  const under = (at: Rect): number[] => others.flatMap((a, i) => (a.width > EPS && a.height > EPS && overlaps(at, a) ? [i] : []));
-  if (under(inside).length === 0) return { rect: inside, clamped, snapped: false, covers: [] };
+  // Compared with what was asked, so a position that wasn't a number (and was replaced) counts as moved.
+  const clamped = inside.x !== want.x || inside.y !== want.y;
+  // Only rects that can touch the float wherever the stage lets it be: its reach.
+  const reach = rect(area.x, area.y, Math.max(area.width, r.width), Math.max(area.height, r.height));
+  const near: { at: Rect; index: number }[] = [];
+  avoid.forEach((a, index) => {
+    const at = clean(a, area);
+    if (at.width > EPS && at.height > EPS && overlaps(at, reach)) near.push({ at, index });
+  });
+  const under = (cand: Rect): number[] => near.filter((n) => overlaps(cand, n.at)).map((n) => n.index);
+  const blocked = (cand: Rect): boolean => near.some((n) => overlaps(cand, n.at));
+  if (!blocked(inside)) return { rect: inside, clamped, snapped: false, covers: [] };
 
-  // The nearest place that is clear: every x that puts the float against an edge of the stage or of a rect (or where
-  // it is), crossed with every such y. A clear place exists if one does at all, as a float slid against edges.
+  // The places to look at: every x that puts the float against an edge of the stage or of a rect (or where it is),
+  // crossed with every such y; a clear place exists if one does at all, as a float slid against edges. They are
+  // tried nearest first (never all built), and the first clear one is the answer.
   const lo = (v: number, from: number, to: number): number => Math.min(Math.max(v, from), Math.max(from, to));
   const xs = [inside.x, area.x, area.x + area.width - r.width];
   const ys = [inside.y, area.y, area.y + area.height - r.height];
-  for (const a of others) {
-    xs.push(a.x - r.width, a.x + a.width);
-    ys.push(a.y - r.height, a.y + a.height);
+  for (const { at } of near) {
+    xs.push(at.x - r.width, at.x + at.width);
+    ys.push(at.y - r.height, at.y + at.height);
   }
-  const at = (list: number[], from: number, size: number, extent: number): number[] => [...new Set(list.map((v) => lo(v, from, from + extent - size)))];
+  const places = (list: number[], from: number, size: number, extent: number): number[] => [...new Set(list.map((v) => lo(v, from, from + extent - size)))];
+  const px = places(xs, area.x, r.width, area.width);
+  const py = places(ys, area.y, r.height, area.height);
+  let tried = 0;
+  for (const p of byDistance(px, py, inside.x, inside.y)) {
+    if (tried++ >= CLEAR_PLACES) break;
+    const cand = rect(p.x, p.y, r.width, r.height);
+    if (!blocked(cand)) return { rect: cand, clamped, snapped: p.far > EPS, covers: [] };
+  }
+  // None is clear: the nearest places that cover the least.
   let best: { rect: Rect; left: number; far: number; hits: number[] } | null = null;
-  for (const y of at(ys, area.y, r.height, area.height)) {
-    for (const x of at(xs, area.x, r.width, area.width)) {
-      const cand = rect(x, y, r.width, r.height);
-      const hits = under(cand);
-      const left = hits.reduce((s, i) => s + shared(cand, others[i]!), 0);
-      const far = Math.hypot(x - inside.x, y - inside.y);
-      // Least still covered first (none, normally), then the shortest move.
-      if (!best || left < best.left - EPS || (Math.abs(left - best.left) <= EPS && far < best.far - EPS)) best = { rect: cand, left, far, hits };
-    }
+  tried = 0;
+  for (const p of byDistance(px, py, inside.x, inside.y)) {
+    if (tried++ >= COVERED_PLACES) break;
+    const cand = rect(p.x, p.y, r.width, r.height);
+    const left = near.reduce((s, n) => s + shared(cand, n.at), 0);
+    if (!best || left < best.left - EPS) best = { rect: cand, left, far: p.far, hits: under(cand) };
   }
-  const out = best!;
+  const out = best ?? { rect: inside, far: 0, hits: under(inside) };
   return { rect: out.rect, clamped, snapped: out.far > EPS, covers: out.hits };
 }
 
@@ -88,7 +170,7 @@ export interface FloatDrop {
   readonly fit: FloatFit;
 }
 
-export interface FloatTargetInput {
+export interface StackFloatTargetInput {
   /** The item dragged. */
   readonly id: string;
   /** The stage, in view space. */
@@ -102,6 +184,8 @@ export interface FloatTargetInput {
 }
 
 export interface FloatTarget extends Target {
+  /** What kind of place it is, for a consumer that holds targets of several kinds. */
+  readonly kind: "float";
   readonly priority: 3;
   readonly free: true;
   /** The item dragged. */
@@ -116,13 +200,15 @@ export interface FloatTarget extends Target {
 /** A zone that covers any pointer the page can see: large and finite (an infinite rect has no far edge to compare). */
 const PLANE = rect(-1e9, -1e9, 2e9, 2e9);
 
-export function floatTarget(input: FloatTargetInput): FloatTarget {
+export function stackFloatTarget(input: StackFloatTargetInput): FloatTarget {
   const { stage, size } = input;
   const avoid = input.avoid ?? [];
   const w = Math.max(0, finite(size.width, 0));
   const h = Math.max(0, finite(size.height, 0));
   return {
-    id: "float",
+    // Not "float": `./desk` has a target of that id, and a consumer may hold both.
+    id: `float:${input.id}`,
+    kind: "float",
     priority: 3,
     free: true,
     hit: PLANE,
@@ -148,16 +234,22 @@ export type FloatsRead = { readonly ok: true; readonly floats: StackFloat[]; rea
 const isSize = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n > 0;
 const isAt = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
 
-/** The floats as plain JSON-safe data, in the order given (the stacking order, the last on top). Never a `pinned`. */
+/**
+ * The floats as plain JSON-safe data, in the order given (the stacking order, the last on top). Never a `pinned`.
+ * What it can't read back is left out, silently: a float whose position isn't a finite number or whose size isn't over
+ * 0 (a zero-size float), and an earlier entry of a repeated id (the last readable entry of an id is the one on top,
+ * so it stays, at its own place in the order).
+ */
 export function storeFloats(floats: readonly StackFloat[]): StoredFloats {
-  const seen = new Set<string>();
-  const out: StoredFloats["floats"] = [];
-  for (const f of floats) {
+  const last = new Map<string, number>();
+  floats.forEach((f, i) => {
     const r = f.rect;
-    if (seen.has(f.id) || !isAt(r.x) || !isAt(r.y) || !isSize(r.width) || !isSize(r.height)) continue;
-    seen.add(f.id);
-    out.push({ id: f.id, x: r.x, y: r.y, width: r.width, height: r.height });
-  }
+    if (isAt(r.x) && isAt(r.y) && isSize(r.width) && isSize(r.height)) last.set(f.id, i);
+  });
+  const out: StoredFloats["floats"] = [];
+  floats.forEach((f, i) => {
+    if (last.get(f.id) === i) out.push({ id: f.id, x: f.rect.x, y: f.rect.y, width: f.rect.width, height: f.rect.height });
+  });
   return { v: 1, floats: out };
 }
 
@@ -166,12 +258,13 @@ const FIELDS = ["id", "x", "y", "width", "height"];
 
 /**
  * Reads parsed data back; never throws. Anything but an object of version 1 with a `floats` array is `{ ok: false,
- * error }`. Inside one it is lenient: a float that isn't an object, has no string id, repeats an id, isn't one the
+ * error }`. Inside one it is lenient: a float that isn't an object, has no string id, isn't one the
  * consumer has (with `known`) or has a position or size that isn't a finite number (a size over 0) is dropped and
  * listed in `dropped` as `float:<id>` (or `a <type> where a float goes`); a top-level field this version doesn't
  * know is listed as `"<field>"`, and so is a float's own (`float:<id>:<field>`) while the float itself is kept.
  * A `pinned` key (an old store's flag, whatever its value) is ignored: the float loads as a plain float, in view
- * space as stored, and `pinned:<id>` is listed.
+ * space as stored, and `pinned:<id>` is listed. A repeated id keeps its last readable entry (the list is in stacking
+ * order, the last on top); the earlier ones are dropped and listed as `float:<id>`.
  */
 export function readFloats(data: unknown, known?: readonly string[]): FloatsRead {
   try {
@@ -184,7 +277,7 @@ export function readFloats(data: unknown, known?: readonly string[]): FloatsRead
 
 function read(data: unknown, known?: readonly string[]): FloatsRead {
   if (!isObject(data)) return { ok: false, error: "not an object" };
-  if (data.v !== 1) return { ok: false, error: `unknown version ${typeof data.v === "number" ? data.v : typeof data.v} (this reads version 1)` };
+  if (data.v !== 1) return { ok: false, error: `unknown version ${versionWords(data.v)} (this reads version 1)` };
   if (!Array.isArray(data.floats)) return { ok: false, error: "floats is missing" };
   const dropped: string[] = [];
   const drop = (what: string): void => {
@@ -202,13 +295,19 @@ function read(data: unknown, known?: readonly string[]): FloatsRead {
       drop("a float with no id");
       continue;
     }
-    if ((known && !known.includes(id)) || floats.some((f) => f.id === id) || !isAt(x.x) || !isAt(x.y) || !isSize(x.width) || !isSize(x.height)) {
+    if ((known && !known.includes(id)) || !isAt(x.x) || !isAt(x.y) || !isSize(x.width) || !isSize(x.height)) {
       drop(`float:${id}`);
       continue;
     }
     for (const k of Object.keys(x)) {
       if (k === "pinned") drop(`pinned:${id}`);
       else if (!FIELDS.includes(k)) drop(`float:${id}:${k}`);
+    }
+    // A repeated id: the last readable entry is the one on top (the list is in stacking order), the earlier is dropped.
+    const before = floats.findIndex((f) => f.id === id);
+    if (before >= 0) {
+      floats.splice(before, 1);
+      drop(`float:${id}`);
     }
     floats.push({ id, rect: rect(x.x, x.y, x.width, x.height) });
   }
