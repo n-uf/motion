@@ -4,25 +4,28 @@
  */
 import type { Rect } from "@n-uf/motion";
 import type { StackAxis, StackFit, StackFormKind } from "@n-uf/placement/stack";
-import { SAMPLES, isPanel, titleOf, type ItemId } from "./sample";
+import { SAMPLES, badgeOf, isPanel, titleOf, type ItemId, type ItemMeta } from "./sample";
 
 const dots = '<span class="st-grip" aria-hidden="true">' + "<i></i>".repeat(6) + "</span>";
 
 /** What an item's element holds in a form. */
-export function dress(id: string, kind: StackFormKind): string {
+export function dress(id: string, kind: StackFormKind, meta?: ItemMeta): string {
   const s = SAMPLES[id as ItemId];
   const title = titleOf(id);
+  // With a meta: a count badge in a fixed slot (it never changes the item's size), and a phase line in an open panel.
+  const num = meta ? `<span class="st-num" title="${meta.count}">${badgeOf(meta.count)}</span>` : "";
+  const phase = meta ? `<li class="st-phase">${meta.phase}</li>` : "";
   switch (kind) {
     case "open":
-      return `<div class="st-head" data-grab>${dots}<b>${title}</b></div><ul class="st-body">${s.words.map((w) => `<li>${w}</li>`).join("")}</ul>`;
+      return `<div class="st-head" data-grab>${dots}<b>${title}</b>${num}</div><ul class="st-body">${phase}${s.words.map((w) => `<li>${w}</li>`).join("")}</ul>`;
     case "header":
-      return `<div class="st-head" data-grab>${dots}<b>${title}</b><span class="st-caret" aria-hidden="true">▸</span></div>`;
+      return `<div class="st-head" data-grab>${dots}<b>${title}</b>${num}<span class="st-caret" aria-hidden="true">▸</span></div>`;
     case "rail":
-      return `<span class="st-badge" data-grab title="${title}">${title[0]}</span><i class="st-count">${s.words.length}</i>`;
+      return `<span class="st-badge" data-grab title="${title}">${title[0]}</span><i class="st-count">${meta ? badgeOf(meta.count) : s.words.length}</i>`;
     case "row":
-      return `<span class="st-gh" data-grab>${dots}</span>${s.words.map((w) => `<span class="st-pill">${w}</span>`).join("")}`;
+      return `<span class="st-gh" data-grab>${dots}</span>${s.words.map((w) => `<span class="st-pill">${w}</span>`).join("")}${num}`;
     case "stacked":
-      return `<span class="st-gh" data-grab>${dots}</span><span class="st-col">${s.words.map((w) => `<span class="st-pill">${w}</span>`).join("")}</span>`;
+      return `<span class="st-gh" data-grab>${dots}</span><span class="st-col">${s.words.map((w) => `<span class="st-pill">${w}</span>`).join("")}</span>${num}`;
     case "icons":
       return `<span class="st-gh" data-grab title="${title}">${dots}</span>${s.words.map((w) => `<span class="st-pill st-ico" title="${w}">${w[0]}</span>`).join("")}`;
     case "menu":
@@ -46,7 +49,8 @@ export interface StackView {
 
 const px = (n: number): string => `${n}px`;
 
-export function createStackView(parent: HTMLElement, axis: StackAxis, label: string): StackView {
+/** `meta` gives an item's count and phase (the pages that show them); without it nothing is badged. */
+export function createStackView(parent: HTMLElement, axis: StackAxis, label: string, meta?: (id: string) => ItemMeta | undefined): StackView {
   const el = document.createElement("div");
   el.className = `st-stack st-${axis}`;
   el.dataset.axis = axis;
@@ -98,10 +102,14 @@ export function createStackView(parent: HTMLElement, axis: StackAxis, label: str
           el.append(n);
           items.set(p.id, n);
         }
-        if (n.dataset.kind !== p.kind) {
+        const m = meta?.(p.id);
+        const sig = `${p.kind}|${m?.count}|${m?.phase}`;
+        if (n.dataset.sig !== sig) {
+          n.dataset.sig = sig;
           n.dataset.kind = p.kind;
-          n.innerHTML = dress(p.id, p.kind);
+          n.innerHTML = dress(p.id, p.kind, m);
         }
+        if (m) n.dataset.phase = m.phase;
         n.dataset.form = String(p.form);
         n.hidden = p.kind === "menu" || p.id === skip;
         if (p.kind !== "menu") put(n, p.rect);
