@@ -8,7 +8,7 @@
         <p class="es-case-k"><span class="es-case-id" id="es-case-id"></span><span id="es-case-group"></span></p>
         <h2 class="es-case-title" id="es-case-title"></h2>
         <p class="es-case-expect" id="es-case-expect"></p>
-        <p class="es-case-foot"><button type="button" class="lab-btn" id="es-check">Check again</button></p>
+        <p class="es-case-foot"><button type="button" class="lab-btn" id="es-check">Check again</button> <button type="button" class="lab-btn" id="es-reset" title="Back to this case's starting state">Reset the case</button></p>
       </div>
       <div>
         <h3>Try</h3>
@@ -22,6 +22,7 @@
     </section>
 
     <section class="es-settings" aria-label="Settings">
+      <div class="es-row">
       <span class="es-k">Column</span>
       <label data-ctl="height">length <input type="range" id="es-height" min="240" max="500" step="2" value="500" /> <output id="es-height-out"></output></label>
       <label data-ctl="widthLimit">width <input type="range" id="es-width" min="60" max="360" step="2" value="360" /> <output id="es-width-out"></output></label>
@@ -29,6 +30,8 @@
       <label data-ctl="barLength">length <input type="range" id="es-bar" min="120" max="840" step="2" value="840" /> <output id="es-bar-out"></output></label>
       <label data-ctl="gap">gap <input type="range" id="es-gap" min="0" max="24" step="1" value="8" /> <output id="es-gap-out"></output></label>
       <label data-ctl="pad">pad <input type="range" id="es-pad" min="0" max="40" step="1" value="12" /> <output id="es-pad-out"></output></label>
+      </div>
+      <div class="es-row">
       <span class="es-k">Drag</span>
       <label data-ctl="preview">preview <select id="es-preview" aria-label="Preview mode"><option value="gap">open gap</option><option value="indicator">indicator</option><option value="snap">snap to slot</option></select></label>
       <label data-ctl="freeze" title="Hold Alt to move while frozen"><input type="checkbox" id="es-freeze" /> freeze</label>
@@ -39,7 +42,7 @@
         <button type="button" id="es-reload" title="Reload the browser tab: the layout comes back from the stored form">Reload</button>
         <button type="button" id="es-rebuild" title="Forget the layout in memory, then rebuild it from the stored form">Rebuild</button>
       </span>
-      <button type="button" id="es-reset" title="Back to this case's starting state">Reset the case</button>
+      </div>
     </section>
 
     <div class="st-wrap"><div class="st-stage es-stage" id="es-stage"></div></div>

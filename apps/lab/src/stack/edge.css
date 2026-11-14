@@ -19,10 +19,12 @@
 .es-t { min-width: 0; }
 
 /* The settings strip: one wrapped line of small controls; the ones the picked case uses are marked. */
-.es-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 var(--s2); font-size: 12px; color: var(--text-2); }
-.es-settings label, .es-ctl { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px; border-radius: 6px; white-space: nowrap; }
-.es-settings input[type="range"] { width: 76px; }
-.es-settings output { font-family: var(--font-mono); font-size: 11px; min-width: 3.4em; color: var(--text-3); }
+.es-settings { display: grid; gap: 4px; margin: 0 0 var(--s2); font-size: 12px; color: var(--text-2); }
+/* Two rows: the column and the bar; then drag, counts and the saved layout. A label stays with its control. */
+.es-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.es-settings label, .es-ctl { display: inline-flex; align-items: center; gap: 4px; padding: 1px 4px; border-radius: 6px; white-space: nowrap; flex: none; }
+.es-settings input[type="range"] { width: 64px; margin: 0; }
+.es-settings output { font-family: var(--font-mono); font-size: 11px; min-width: 3.2em; color: var(--text-3); }
 .es-settings select, .es-settings button { height: 24px; font-size: 12px; }
 .es-settings input[type="number"] { width: 5.5em; height: 22px; }
 .es-k { margin-left: 4px; font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
