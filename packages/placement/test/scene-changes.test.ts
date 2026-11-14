@@ -1,11 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { close, floatAt, fold, keep, moveTo, open, orient, raise, readScene, resize, solve, storeScene, use, type Scene } from "../src/scene";
+import { close, floatAt, fold, keep, lift, moveTo, open, orient, raise, readScene, resize, solve, storeScene, use, type Scene } from "../src/scene";
 import { STORED_WINDOW, windowScene } from "./scene-fixture";
 
 const s = windowScene();
 const edge = (sc: Scene, id: string) => sc.edges.find((e) => e.id === id)!;
 
 describe("pure changes", () => {
+  it("lift is the scene while an item is held: the item gone, an emptied dynamic column deleted, rings closed up", () => {
+    const template = { accepts: ["panel"], cross: { min: 160, max: 480, rail: 30 } };
+    const cols: Scene = {
+      ...s,
+      columns: { left: template },
+      edges: [...s.edges.filter((e) => e.id !== "left"), { id: "a", side: "left", ring: 0, column: true, items: ["pages"], ...template }, { id: "b", side: "left", ring: 1, column: true, items: ["notes"], ...template }],
+      floats: [],
+    };
+    const held = lift(cols, "pages");
+    expect(held.edges.some((e) => e.items.includes("pages"))).toBe(false);
+    expect(held.edges.find((e) => e.id === "a")).toBeUndefined();
+    expect(held.edges.find((e) => e.id === "b")!.ring).toBe(0);
+    expect(solve(held).items.pages).toBeUndefined();
+    // A float is lifted too; an item placed nowhere gives the scene back as it was.
+    expect(lift(s, "notes").floats).toEqual([]);
+    expect(lift(s, "nobody")).toBe(s);
+  });
+
   it("moveTo docks an item before the at-th item of a zone, and the zone becomes its align", () => {
     const m = moveTo(s, "views", { edge: "toolbar", zone: "end", at: 0 });
     expect(edge(m, "toolbar").items).toEqual(["tools", "views", "zoom"]);

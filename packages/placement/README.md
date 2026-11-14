@@ -857,7 +857,10 @@ Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (
 side, ring }` (`ring: Infinity` is the side's inner end: "Move to › Dock left"), `{ kind: "rail", side, ring }` (docked
 folded) and `{ kind: "float", rect?, anchor? }`. `homeFor(scene, id, start)` is the place a start scene gives the item
 (the same edge before the same neighbour, a new column at its ring when its column is gone, or its float), for Dock,
-Put back and Reset position: `moveTo(scene, id, homeFor(scene, id, start)!)`.
+Put back and Reset position: `moveTo(scene, id, homeFor(scene, id, start)!)`. `lift(scene, id)` is the scene while an
+item is held: the item out of every edge and float, and a dynamic column it leaves empty gone (its side's rings closed
+up). During a drag a host draws everything else from `solve(lift(scene, id), { previous })`, as if the held item were
+gone.
 
 **Stored form.** `storeScene(scene)` gives `{ v: 1, edges: [{ id, side, ring, items, size?, column? }], floats: [{ id, x, y,
 width, height, orient?, anchor? }], items: { [id]: { used, kept?, from?, closed?, align?, floatSize? } } }`; no float has a
