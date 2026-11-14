@@ -54,7 +54,20 @@ function randomScene(seed: number): Scene {
     return { id, rect: { x: rnd() * W - 50, y: rnd() * H - 50, width: 120 + rnd() * 200, height: 60 + rnd() * 200 }, ...(rnd() < 0.2 ? { anchor: "content-top-right" as const } : {}) };
   });
   const chrome = rnd() < 0.4 ? [{ x: rnd() * W, y: rnd() * H, width: 40 + rnd() * 100, height: 20 + rnd() * 40 }] : [];
-  return { stage: { x: 0, y: 0, width: W, height: H }, edges, items: byId(items), floats, floatKinds: ["panel", "group"], chrome };
+  const base: Scene = { stage: { x: 0, y: 0, width: W, height: H }, edges, items: byId(items), floats, floatKinds: ["panel", "group"], chrome };
+  if (rnd() < 0.5) return base;
+  // Dynamic columns: templates, rails, give-way by contentMin, hand folds that ride or rail.
+  const template = { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 } };
+  return {
+    ...base,
+    edges: edges.map((e) => (e.side === "left" || e.side === "right" ? { ...e, column: true, accepts: template.accepts } : e)),
+    columns: { left: template, right: template },
+    rails: { left: { width: 30, accepts: ["panel"] }, right: { width: 30, accepts: ["panel"] } },
+    contentMin: { width: 200 + Math.floor(rnd() * 200), height: 200 },
+    handFold: rnd() < 0.5 ? "ride" : "bar",
+    gutter: rnd() < 0.5 ? 0 : 8,
+    ...(rnd() < 0.3 ? { inset: { left: 6, right: 6, top: 4, bottom: 4 } } : {}),
+  };
 }
 
 const SEEDS = Array.from({ length: 400 }, (_, i) => i + 1);
@@ -74,7 +87,17 @@ describe("scene sweeps", () => {
         }
       }
       // Every docked item is inside its edge, and every edge inside the stage.
-      for (const [id, it] of docked) if (!inside(it.rect, l.edges[it.edge!]!.rect)) throw new Error(`seed ${seed}: ${id} outside its edge`);
+      for (const [id, it] of docked) {
+        // A rail segment lies in its side's rail; a riding bar on its host column; the rest in their own edge.
+        if (it.rides) {
+          const host = l.edges[it.rides]!.rect;
+          if (it.rect.x !== host.x || it.rect.width !== host.width || it.rect.y + it.rect.height > host.y + 1e-6) throw new Error(`seed ${seed}: ${id} doesn't ride on top of ${it.rides}`);
+          continue;
+        }
+        const box = it.rail ? l.rails[it.rail]!.rect : l.edges[it.edge!]!.rect;
+        if (!inside(it.rect, box)) throw new Error(`seed ${seed}: ${id} outside its edge`);
+      }
+      for (const [side, r] of Object.entries(l.rails)) if (!inside(r!.rect, s.stage)) throw new Error(`seed ${seed}: the ${side} rail outside the stage`);
       for (const [id, e] of Object.entries(l.edges)) if (!inside(e.rect, s.stage)) throw new Error(`seed ${seed}: edge ${id} outside the stage`);
     }
   });
