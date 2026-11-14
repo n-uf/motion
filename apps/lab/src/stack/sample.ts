@@ -60,7 +60,7 @@ export function formsOf(id: ItemId, axis: StackAxis, badge = false, rowMain?: nu
   const row = rowMain ?? (badge ? 244 : 200);
   return isPanel(id)
     ? axis === "column"
-      ? [f("open", 90, s.natural!.column, s.wide!, true), f("header", 30, 30, s.wide!, false, 56), f("rail", 26, 26, RAIL), f("menu", 0, 0, 0)]
+      ? [f("open", 90, s.natural!.column, s.wide!, true, 100), f("header", 30, 30, s.wide!, false, 56), f("rail", 26, 26, RAIL), f("menu", 0, 0, 0)]
       : // A bar is a toolbar edge: a panel there has no open form, it starts at its header (then a rail icon, then the menu).
         [f("header", 110, 110, 28), f("rail", 26, 26, 26), f("menu", 0, 0, 0)]
     : axis === "column"
