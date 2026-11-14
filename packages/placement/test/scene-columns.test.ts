@@ -367,3 +367,47 @@ describe("C29 across the whole scene", () => {
     expect(ids).not.toContain(one.id);
   });
 });
+
+describe("a just-opened item under previous", () => {
+  const f = fixture("scene-window-a.json");
+
+  it("takes its largest form when it fits; only the item that must give way changes form", () => {
+    const three = adapt(f, f.scenes.three!.scene, 1120);
+    // A short stage (230 px): one card and a bar fit the left column, two cards (120 + 12 + 120) don't. Annotations,
+    // used longer ago than Pages, starts closed.
+    const short: Scene = { ...three, stage: { ...three.stage, height: 230 }, items: { ...three.items, annotations: { ...three.items.annotations!, used: 0, closed: true } } };
+    const before = solve(short);
+    expect(before.items.annotations).toBeUndefined();
+    expect(before.items.pages!.formKind).toBe("open");
+    const after = solve(open(short, "annotations"), { previous: before });
+    // It opens in its largest form; Pages is the one that must give way, to its bar; Findings keeps its form.
+    expect(after.items.annotations!.formKind).toBe("open");
+    expect(after.items.pages!.formKind).toBe("header");
+    expect(after.items.findings!.formKind).toBe(before.items.findings!.formKind);
+    // Roomy enough for both: nothing else changes form.
+    const tall: Scene = { ...short, stage: { ...short.stage, height: 800 } };
+    const tallBefore = solve(tall);
+    const tallAfter = solve(open(tall, "annotations"), { previous: tallBefore });
+    expect([tallAfter.items.annotations!.formKind, tallAfter.items.pages!.formKind, tallAfter.items.findings!.formKind]).toEqual(["open", "open", "open"]);
+  });
+
+  it("opening an item in a column give-way folded weighs that column anew: it opens and the older column folds", () => {
+    const pair = adapt(f, f.scenes.pair!.scene, 700);
+    const withPages: Scene = { ...pair, items: { ...pair.items, pages: { id: "pages", kind: "panel", used: 0, closed: true, forms: pair.items.annotations!.forms } }, edges: pair.edges.map((e) => (e.id === "left-0" ? { ...e, items: ["pages", "annotations"] } : e)) };
+    const before = solve(withPages);
+    expect(before.items.annotations!.rail).toBe("left");
+    const after = solve(open(withPages, "pages"), { previous: before });
+    expect(after.items.pages!.formKind).toBe("open");
+    expect(after.items.findings!.rail).toBe("right");
+  });
+
+  it("fresh: an edge or item listed is solved without previous", () => {
+    const three = adapt(f, f.scenes.three!.scene, 700);
+    const before = solve(three);
+    const pressed = use(use(three, "pages"), "annotations");
+    expect(solve(pressed, { previous: before }).items.findings!.rail).toBeUndefined();
+    const fresh = solve(pressed, { previous: before, fresh: ["left-0", "right-0"] });
+    expect(fresh.items.findings!.rail).toBe(solve(pressed).items.findings!.rail);
+    expect(fresh.edges["left-0"]!.stack).toEqual(solve(pressed).edges["left-0"]!.stack);
+  });
+});

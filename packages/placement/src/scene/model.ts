@@ -269,8 +269,14 @@ export interface SceneLayout {
 }
 
 export interface SolveOptions {
-  /** The layout the scene had before: each edge's fit goes to `fitStack` as `previous`, so a press reshapes nothing. */
+  /**
+   * The layout the scene had before: each edge's fit goes to `fitStack` as `previous`, so a press reshapes nothing. An
+   * item docked now that was closed or absent then has just opened: it counts as the newest (its largest form while it
+   * fits; the others give way by the usual rules), and its column is weighed anew by give-way.
+   */
   readonly previous?: SceneLayout;
+  /** Edge or item ids solved without `previous` (an edge, or the edges holding the item; a column weighed anew). */
+  readonly fresh?: readonly string[];
 }
 
 /** A drop strip's depth inside the content while an edge is empty, px. */
