@@ -26,6 +26,21 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     width.
   - Affected: none unless the options are used. The README has the recommended column forms for a group and a title bar
     example.
+- **New entry `@n-uf/placement/scene`**: one model of a whole window, built on `./stack`. Additive: a new export path
+  (`./scene` in `exports`, the tsup entry and the dist check); nothing else changes.
+  - `Scene`, `Edge`, `SceneItem`, `SceneFloat`, `SceneLayout`. Edges are cut ring by ring (full bars, columns, between
+    bars; overlay edges over the content), each a stack along its length with `forms.column` or `forms.row`; zones
+    (`align`: start, center, end); fixed items that shrink and grow but never change form; closed items; a column with
+    nothing setting its width is a rail of tabs (`railShowsClosed`); `Edge.size`, clamped to the widest open setter's
+    `cross.min`; floats inside the stage, clear of docked items, bars and `chrome`, with `anchor`, `orient` and a bar form
+    when folded.
+  - `solve(scene, { previous })`: every rect; `previous` goes to each edge's `fitStack`.
+  - `targets(scene, id, { previous, endReach, floatSize })`: `gap:<edge>:<zone>:<at>` where the item fits (kinds deny by
+    default, no menu, no overflow, fixed items unmoved, hits clear of fixed items and chrome), `strip:<edge>` for an
+    empty edge, `float:<id>` over the plane, `none:<i>` over `blocked`, `home:<id>`; each with `after(point, grab)`, the
+    scene to commit and `solve` of it, so the preview is the result.
+  - Pure changes `moveTo`, `floatAt`, `fold`, `use`, `keep`, `raise`, `open`, `close`, `orient`, `resize`, `lift`; and
+    `storeScene` / `readScene` (`StoredScene` v1, lenient, never throws, lists what it drops, no pinned field).
 
 ## 26.11.15
 

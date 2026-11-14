@@ -46,6 +46,10 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
   sets the width, `gap` and `pad` in the length; a drop target for every gap, each with the exact solve a drop makes; a
   stored form; and floats (an item above the pages, in the stage's own px, kept inside the stage and clear of the docked
   items, with its drop target and stored form). Not tied to `/panels`.
+- **`/scene`**: one model of a whole window on `/stack`: edges cut ring by ring along the stage's sides (full and
+  between bars, columns, overlay edges), each a stack with start, center and end zones, fixed items (a title, window
+  controls), floats clear of every bar and chrome, one `solve` for every rect, one `targets` for every drop target
+  of one item (each carrying the layout a release makes, so the preview is the result), pure changes and a stored form.
 
 Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
@@ -690,6 +694,127 @@ Freezing the layout needs nothing from the library: the freeze is the app's flag
 A press on a grip while frozen (and Alt not held) never becomes a drag, so no target is built and nothing is dropped;
 holding Alt shows the grips and everything works, a drag that began finishes. `fitStack` reads sizes, not what an item
 says, so a count or a phase that leaves its forms' sizes alone moves no other item.
+
+## Scenes
+
+`@n-uf/placement/scene` holds a whole window in one model, so every rule that spans it (kinds, chrome, fixed room,
+preview equals result) has one owner. A `Scene` is the stage (the window's inner rect), its `edges`, the `items`
+(each with a host `kind`, its forms along a column and along a row from `./stack`, its age, and its flags), the
+`floats` and the `chrome` they keep clear of. `solve(scene)` gives every rect the host draws; `targets(scene, id)` gives
+every drop target for one item. Nothing is module-global, so two windows on a page are two scenes.
+
+```ts
+import { readScene, solve, storeScene, targets, type Scene, type SceneItem } from "@n-uf/placement/scene";
+import type { StackForm } from "@n-uf/placement/stack";
+
+const f = (kind: StackForm["kind"], min: number, natural: number, cross: number, more: Partial<StackForm> = {}): StackForm => ({ kind, main: { min, natural }, cross: { natural: cross }, ...more });
+const panel = (id: string, used: number): SceneItem => ({
+  id, kind: "panel", used,
+  forms: { column: [f("open", 120, 240, 260, { main: { min: 120, natural: 240, grows: true }, cross: { natural: 260, min: 180 } }), f("header", 28, 28, 260, { cross: { natural: 260, min: 60 } }), f("rail", 28, 28, 30), f("menu", 0, 0, 0)] },
+});
+const group = (id: string, used: number, align?: "end"): SceneItem => ({
+  id, kind: "group", used, ...(align ? { align } : {}),
+  forms: { row: [f("row", 180, 200, 28), f("icons", 84, 84, 28), f("menu", 0, 0, 0)], column: [f("stacked", 96, 96, 84), f("icons", 84, 84, 28), f("menu", 0, 0, 0)] },
+});
+const fixed = (id: string, kind: string, form: StackForm, align?: "center" | "end"): SceneItem => ({ id, kind, used: 0, fixed: true, forms: { row: [form] }, ...(align ? { align } : {}) });
+const bar = { accepts: ["group"], cross: { min: 36, max: 36, rail: 36 }, gap: 4, pad: { start: 8, end: 8 } };
+const column = { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 } };
+const items = [
+  fixed("title", "title", f("row", 80, 160, 32, { main: { min: 80, natural: 160, grows: true } })),
+  fixed("controls", "controls", f("row", 84, 84, 32), "end"),
+  fixed("readout", "readout", f("row", 72, 72, 28), "center"),
+  panel("pages", 1), panel("findings", 2), panel("notes", 3),
+  group("views", 4), group("tools", 5), group("zoom", 6, "end"), group("search", 7, "end"), group("marks", 8),
+];
+const scene: Scene = {
+  stage: { x: 0, y: 0, width: 1200, height: 800 },
+  edges: [
+    { id: "titlebar", side: "top", ring: 0, accepts: [], items: ["title", "controls"], cross: { min: 32, max: 32, rail: 32 } },
+    { id: "toolbar", side: "top", ring: 1, items: ["views", "tools", "zoom"], ...bar },
+    { id: "status", side: "bottom", ring: 0, span: "between", items: ["readout", "search"], ...bar, cross: { min: 28, max: 28, rail: 28 } },
+    { id: "left", side: "left", ring: 0, items: ["pages"], ...column },
+    { id: "right", side: "right", ring: 0, items: ["findings", "marks"], ...column },
+  ],
+  items: Object.fromEntries(items.map((it) => [it.id, it])),
+  floats: [{ id: "notes", rect: { x: 500, y: 200, width: 280, height: 320 } }],
+  floatKinds: ["panel", "group"],
+};
+const layout = solve(scene);
+console.log(layout.content); // { x: 260, y: 68, width: 680, height: 704 }
+console.log(layout.items.title!.rect.width, layout.items.controls!.rect.x, layout.items.marks!.rect.width); // 1116 1116 84
+const drops = targets(scene, "views", { previous: layout });
+console.log(drops.filter((t) => t.id.startsWith("gap:status")).map((t) => t.id)); // [ 'gap:status:start:0' ]
+const drop = drops.find((t) => t.id === "gap:right:start:2")!.after({ x: 0, y: 0 });
+console.log(JSON.stringify(solve(drop.scene, { previous: layout })) === JSON.stringify(drop.layout)); // true
+console.log(readScene(JSON.parse(JSON.stringify(storeScene(drop.scene))), scene).dropped); // []
+```
+
+**The cut.** Reserved edges cut the stage from the outside in: the full bars first (top then bottom, each by `ring`,
+0 outermost), across the whole width; then the columns (left then right, by ring), down the height the full bars
+leave; then the `span: "between"` bars, across the width the columns leave. What remains is `layout.content`. Edges
+with `mode: "overlay"` are cut the same way from a copy of the content: they lie over it and leave it as it is. An edge
+with nothing drawn in it takes no room.
+
+**Each edge is a stack.** Left and right edges are columns (`forms.column`), top and bottom ones bars (`forms.row`),
+each solved by `fitStack` along the length it gets, with `gap`, `pad` and `menu` passed through, its cross limits never
+wider than the room the cut leaves. Group forms in a column take their own width (`ownCross`); open panels and headers
+span it. Spare room goes to the forms that grow, so a column's open panels share its height through `grows` and equal
+naturals. A column where nothing sets the width is a rail: its items that have a `rail` form take it and are listed in
+`edges[id].tabs` (with `railShowsClosed`, closed items too, marked `closed`); the host draws tabs only from the layout.
+`Edge.size` is the user's size across, clamped to the widest open setter's `cross.min` (and the edge's `cross.min`) at
+least and `cross.max` at most; `resize` sets it.
+
+**Zones.** An item's `align` (`start`, the default, `center` or `end`) is its zone in its edge. Give-way is as without
+zones (it sums the minimum sizes); when room is spare, start items pack from the start, end items from the end (before
+the » entry) and center items sit on the edge's middle, moved only as far as they must to stay between the other two.
+
+**Fixed items** (a title, window controls, a page readout) never change form, are never reordered, never dragged, and
+no hit covers them. Their length shrinks toward `main.min` and grows with spare room when the form `grows`; window
+controls have `min` equal to `natural`. A stage too short for them overflows instead of folding them. A `kept` item with
+no smaller form never folds either: it reports `overflow` or `too-wide`.
+
+**Closed items** keep their place in their edge (or their float rect) but take no room and have no targets.
+
+**Floats** lie above the content in stage px, last on top. Each is moved inside the stage and clear of every docked
+item, every bar and every `chrome` rect (`fitFloat`), with `float-clamped`, `float-moved` or `float-covers` notes. With
+`anchor` (such as `"content-top-right"`) it sits flush with that side or corner of the content and follows it until a
+drop gives it a real rect. `orient` picks the forms it uses (default `"column"`); folded by hand (`from` over 0) it is its
+bar: that form's natural length along its orient, its other size kept.
+
+**`previous`.** `solve(scene, { previous })` hands each edge's fits (`edges[id].free` and `.stack`) to `fitStack`, so a
+change of ages alone (a press, `use`) or `raise` changes no rect (C23), a form that was only re-measured keeps its place,
+and one whose kind changed starts over.
+
+**Targets.** `targets(scene, id, { previous, endReach, floatSize })` gives, in the `@n-uf/motion/drag` shape:
+
+- `gap:<edge>:<zone>:<at>` (priority 2) for every edge whose `accepts` lists the item's kind (deny by default), before
+  each item of each zone and at each zone's end, so an empty center or end zone can be opened; only where the item
+  fits: not in the » menu, no `overflow`, nothing newly `too-wide`, every fixed item of the edge keeping its form and its
+  place, and no chrome under its slot. The hit runs halfway to the neighbouring gaps, across the larger of the edge's
+  thickness before and after the drop, the outer gaps `endReach` px past the ends, cut clear of fixed items and chrome.
+  `slot` is the item's rect after the drop and `marker` the insertion line across the edge.
+- `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side.
+- `float:<id>` (3, free) when `floatKinds` lists the kind: the whole plane, landing with the pointer holding the float
+  at `grab`, clamped and moved clear.
+- `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over the item's own rect: a release there commits
+  nothing.
+
+Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (the item moved and just used) and
+`solve(scene, { previous })`. The host draws every item from `after.layout` during the preview and commits
+`after.scene` on release, so the preview is the result by construction.
+
+**Changes** are pure and return the scene given when nothing applies: `moveTo(scene, id, { edge, zone?, at })`,
+`floatAt(scene, id, rect?, orient?)` (with no rect: its last `floatSize`, anchored to the content's top-right), `fold`,
+`use`, `keep`, `raise` (a float on top: no use, no reshape), `open`, `close`, `orient` and `resize`. `moveTo` and
+`floatAt` refuse fixed items and kinds the edge or `floatKinds` doesn't list.
+
+**Stored form.** `storeScene(scene)` gives `{ v: 1, edges: [{ id, side, ring, items, size? }], floats: [{ id, x, y,
+width, height, orient?, anchor? }], items: { [id]: { used, kept?, from?, closed?, align?, floatSize? } } }`; no float has a
+pinned field. `readScene(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
+the store, never throws, and lists what it drops: unknown edges and items, kinds an edge doesn't accept, fixed items
+placed elsewhere (they stay where `base` has them, trailing ones last), bad fields, an old `pinned`. An item the store
+places nowhere goes where `base` has it, and floats are clamped into the stage. Anything but version 1 gives `base`
+back with an `error`.
 
 ## Pane zones
 

@@ -6,6 +6,7 @@ import { arrangement, hostOf, layoutHost, readArrangement, storeArrangement, typ
 import { createPanels, homePlace, keep, layoutPanels, panelDrop, panelTargets, readPanels, storePanels, type PanelDef } from "../src/panels";
 import { PRESETS, presetLayout, presetTargets } from "../src/desk";
 import { fitFloat, fitStack, readFloats, readStack, stackFloatTarget, stackTargets, storeFloats, storeStack, type StackForm, type StackItem } from "../src/stack";
+import { readScene, solve, storeScene, targets, type Scene, type SceneItem } from "../src/scene";
 
 describe("README examples", () => {
   it("desk presets", () => {
@@ -234,5 +235,48 @@ describe("README examples", () => {
     expect(side.items.map((p) => [p.id, p.rect.x, p.rect.width])).toEqual([["pages", 0, 240], ["views", 0, 84], ["tools", 0, 110]]);
     const groups = fitStack({ ...column, cross: { min: 40, max: 360 }, items: [words("views", 2, 84), words("tools", 3, 110)] });
     expect(groups.cross).toBe(110);
+  });
+
+  it("scenes", () => {
+    const f = (kind: StackForm["kind"], min: number, natural: number, cross: number, more: Partial<StackForm> = {}): StackForm => ({ kind, main: { min, natural }, cross: { natural: cross }, ...more });
+    const panel = (id: string, used: number): SceneItem => ({
+      id, kind: "panel", used,
+      forms: { column: [f("open", 120, 240, 260, { main: { min: 120, natural: 240, grows: true }, cross: { natural: 260, min: 180 } }), f("header", 28, 28, 260, { cross: { natural: 260, min: 60 } }), f("rail", 28, 28, 30), f("menu", 0, 0, 0)] },
+    });
+    const group = (id: string, used: number, align?: "end"): SceneItem => ({
+      id, kind: "group", used, ...(align ? { align } : {}),
+      forms: { row: [f("row", 180, 200, 28), f("icons", 84, 84, 28), f("menu", 0, 0, 0)], column: [f("stacked", 96, 96, 84), f("icons", 84, 84, 28), f("menu", 0, 0, 0)] },
+    });
+    const fixed = (id: string, kind: string, form: StackForm, align?: "center" | "end"): SceneItem => ({ id, kind, used: 0, fixed: true, forms: { row: [form] }, ...(align ? { align } : {}) });
+    const bar = { accepts: ["group"], cross: { min: 36, max: 36, rail: 36 }, gap: 4, pad: { start: 8, end: 8 } };
+    const column = { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 } };
+    const items = [
+      fixed("title", "title", f("row", 80, 160, 32, { main: { min: 80, natural: 160, grows: true } })),
+      fixed("controls", "controls", f("row", 84, 84, 32), "end"),
+      fixed("readout", "readout", f("row", 72, 72, 28), "center"),
+      panel("pages", 1), panel("findings", 2), panel("notes", 3),
+      group("views", 4), group("tools", 5), group("zoom", 6, "end"), group("search", 7, "end"), group("marks", 8),
+    ];
+    const scene: Scene = {
+      stage: { x: 0, y: 0, width: 1200, height: 800 },
+      edges: [
+        { id: "titlebar", side: "top", ring: 0, accepts: [], items: ["title", "controls"], cross: { min: 32, max: 32, rail: 32 } },
+        { id: "toolbar", side: "top", ring: 1, items: ["views", "tools", "zoom"], ...bar },
+        { id: "status", side: "bottom", ring: 0, span: "between", items: ["readout", "search"], ...bar, cross: { min: 28, max: 28, rail: 28 } },
+        { id: "left", side: "left", ring: 0, items: ["pages"], ...column },
+        { id: "right", side: "right", ring: 0, items: ["findings", "marks"], ...column },
+      ],
+      items: Object.fromEntries(items.map((it) => [it.id, it])),
+      floats: [{ id: "notes", rect: { x: 500, y: 200, width: 280, height: 320 } }],
+      floatKinds: ["panel", "group"],
+    };
+    const layout = solve(scene);
+    expect(layout.content).toEqual({ x: 260, y: 68, width: 680, height: 704 });
+    expect([layout.items.title!.rect.width, layout.items.controls!.rect.x, layout.items.marks!.rect.width]).toEqual([1116, 1116, 84]);
+    const drops = targets(scene, "views", { previous: layout });
+    expect(drops.filter((t) => t.id.startsWith("gap:status")).map((t) => t.id)).toEqual(["gap:status:start:0"]);
+    const drop = drops.find((t) => t.id === "gap:right:start:2")!.after({ x: 0, y: 0 });
+    expect(JSON.stringify(solve(drop.scene, { previous: layout })) === JSON.stringify(drop.layout)).toBe(true);
+    expect(readScene(JSON.parse(JSON.stringify(storeScene(drop.scene))), scene).dropped).toEqual([]);
   });
 });
