@@ -301,40 +301,65 @@ describe("previous: room comes back in the reverse of give-way order, and stops 
     expect(kinds(fitStack(bar(items, 200), { previous: shrunk }))).toEqual(["row", "row", "row"]);
   });
 
-  it("a sweep: after a grow, no item that gave way earlier is in a larger form than one that gave way later, unless the fresh fit was a pure gain", () => {
+  it("a trailing item whose menu step was an ordinary one doesn't leave the menu ahead of a leading one that can't open", () => {
+    // b (row 50, then the menu) gave way first, alone: the entry (30) is shorter than its row. Then a folded.
+    const items: StackItem[] = [item("a", 2, 100), { id: "b", used: 1, forms: [f("row", 50), f("menu", 0)] }];
+    const input = (length: number): StackInput => ({ ...bar(items, length), menu: { main: 30 } });
+    const shrunk = fitStack(input(60));
+    expect(kinds(shrunk)).toEqual(["fold", "menu"]);
+    // 80 to 129: a can't open (100 + 30 = 130), so b stays in the menu, as the fresh fit says.
+    for (let length = 80; length <= 129; length++) {
+      const grown = fitStack(input(length), { previous: shrunk });
+      expect(kinds(grown), `${length}`).toEqual(["fold", "menu"]);
+      expect(grown, `${length}`).toEqual(fitStack(input(length)));
+    }
+    expect(kinds(fitStack(input(130), { previous: shrunk }))).toEqual(["row", "menu"]);
+  });
+
+  it("a sweep: after a grow, no item that gave way earlier is in a larger form than one that gave way later, unless the fresh fit was a pure gain; along successive solves more room never undoes a growth", () => {
     const rand = seeded(25);
+    // Shapes, some with a menu step that follows an ordinary form (row, then the menu) and so is taken alone.
+    const shapes: StackForm["kind"][][] = [["row", "fold"], ["row", "menu"], ["row", "fold", "menu"], ["row", "fold", "icons", "menu"], ["row", "icons", "menu"]];
+    const size = { row: () => 50 + Math.floor(rand() * 90), fold: () => 30 + Math.floor(rand() * 25), icons: () => 18 + Math.floor(rand() * 14), menu: () => 0 } as Record<string, () => number>;
     let checked = 0;
-    for (let trial = 0; trial < 300; trial++) {
+    for (let trial = 0; trial < 600; trial++) {
       const n = 2 + Math.floor(rand() * 4);
-      const withIcons = rand() < 0.5;
-      const withMenu = rand() < 0.5;
+      const mixed = rand() < 0.6;
+      const one = shapes[Math.floor(rand() * shapes.length)]!;
       // Distinct ages: the one used longest ago gives way first.
       const ages = Array.from({ length: n }, (_, i) => i + 1).sort(() => rand() - 0.5);
       const list: StackItem[] = ages.map((used, i) => {
-        const row = 60 + Math.floor(rand() * 80);
-        const fold = 30 + Math.floor(rand() * 25);
-        const forms = [f("row", row), f("fold", fold)];
-        if (withIcons) forms.push(f("icons", 20 + Math.floor(rand() * 9)));
-        if (withMenu) forms.push(f("menu", 0));
-        return { id: `g${i}`, used, forms };
+        const shape = mixed ? shapes[Math.floor(rand() * shapes.length)]! : one;
+        return { id: `g${i}`, used, forms: shape.map((k) => f(k, size[k]!())) };
       });
+      const entry = 24 + Math.floor(rand() * 12);
+      const input = (length: number): StackInput => ({ ...bar(list, length), menu: { main: entry } });
       const length = 40 + Math.floor(rand() * 300);
-      const kept = fitStack(bar(list, length));
-      // Give-way order: older first. A pair already out of order in the kept fit isn't growth's doing.
-      const outOfOrder = (fit: StackFit, e: number, l: number): boolean => fit.items[e]!.form < fit.items[l]!.form;
+      const kept = fitStack(input(length));
+      // Give-way order: older first. A pair already out of order in the kept fit isn't growth's doing. Two items with the
+      // same forms compare by form; others by open (the first form), drawn smaller, or in the menu.
+      const shape = (i: number): string => list[i]!.forms.map((q) => q.kind).join();
+      const level = (fit: StackFit, i: number): number => (fit.items[i]!.kind === "menu" ? 2 : fit.items[i]!.form === 0 ? 0 : 1);
+      const outOfOrder = (fit: StackFit, e: number, l: number): boolean => (shape(e) === shape(l) ? fit.items[e]!.form < fit.items[l]!.form : level(fit, e) < level(fit, l));
       const pairs: [number, number][] = [];
       for (let e = 0; e < n; e++) for (let l = 0; l < n; l++) if (list[e]!.used < list[l]!.used && !outOfOrder(kept, e, l)) pairs.push([e, l]);
       for (const delta of [1, 10, 30, 60, 120, 400]) {
-        const input = bar(list, length + delta);
-        const fit = fitStack(input, { previous: kept });
+        const fit = fitStack(input(length + delta), { previous: kept });
         expect(fit.items.every((p, i) => p.form <= kept.items[i]!.form)).toBe(true);
-        const fresh = fitStack(input);
+        const fresh = fitStack(input(length + delta));
         const pureGain = fresh.items.every((p, i) => p.form <= kept.items[i]!.form) && fresh.items.some((p, i) => p.form < kept.items[i]!.form);
         if (pureGain) continue;
         checked++;
         for (const [e, l] of pairs) expect(outOfOrder(fit, e, l), `trial ${trial} +${delta}: ${list[e]!.id} grew past ${list[l]!.id}`).toBe(false);
       }
+      // A chain: each solve takes the one before as previous, the length growing a few px at a time.
+      let last = kept;
+      for (let l = length + 3; l <= length + 200; l += 3) {
+        const next = fitStack(input(l), { previous: last });
+        next.items.forEach((p, i) => expect(p.form, `trial ${trial} chain ${l}: ${p.id}`).toBeLessThanOrEqual(last.items[i]!.form));
+        last = next;
+      }
     }
-    expect(checked).toBeGreaterThan(300);
+    expect(checked).toBeGreaterThan(600);
   });
 });
