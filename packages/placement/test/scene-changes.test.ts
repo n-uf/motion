@@ -126,7 +126,7 @@ describe("the stored form", () => {
       items: { pages: { used: "x", from: 0 }, nobody: { used: 1 }, zoom: { align: "middle", odd: 1 } },
     };
     const read = readScene(bad, s);
-    expect(read.dropped).toEqual(["extra", "item:pages:used", "item:pages:from", "item:nobody", "item:zoom:odd", "item:zoom:align", "edge:ghost", "edge:toolbar:pages", "edge:toolbar:views", "edge:toolbar:7", "pinned:notes", "float:title"]);
+    expect(read.dropped).toEqual(["extra", "item:pages:used", "item:pages:from", "item:nobody", "item:zoom:odd", "item:zoom:align", "edge:ghost", "edge:toolbar:pages", "edge:toolbar:title", "edge:toolbar:views", "edge:toolbar:7", "pinned:notes", "float:title"]);
     // Fixed items stay where base has them; items placed nowhere go home.
     expect(edge(read.scene, "titlebar").items).toEqual(["title", "controls"]);
     expect(edge(read.scene, "toolbar").items).toEqual(["views", "tools", "zoom"]);
@@ -140,6 +140,20 @@ describe("the stored form", () => {
     const read = readScene({ v: 1, edges: [{ id: "toolbar", side: "top", ring: 1, items: ["views", "tools", "zoom", "marks"] }], floats: [], items: {} }, s);
     expect(edge(read.scene, "toolbar").items).toEqual(["views", "tools", "zoom", "marks"]);
     expect(edge(read.scene, "right").items).toEqual(["findings"]);
+  });
+
+  it("keeps a stored order exactly: a drop after a fixed item in the start zone round-trips", () => {
+    // The toolbar holds two groups and a fixed readout in the start zone; a group dropped after the readout.
+    const fx: Scene = { ...s, items: { ...s.items, readout: { ...s.items.readout!, align: "start" } }, edges: s.edges.map((e) => (e.id === "toolbar" ? { ...e, items: ["views", "tools", "readout"] } : e.id === "status" ? { ...e, items: ["search"] } : e)) };
+    const dropped = moveTo(fx, "marks", { edge: "toolbar", zone: "start", at: 3 });
+    expect(edge(dropped, "toolbar").items).toEqual(["views", "tools", "readout", "marks"]);
+    const read = readScene(JSON.parse(JSON.stringify(storeScene(dropped))), fx);
+    expect(read.dropped).toEqual([]);
+    expect(edge(read.scene, "toolbar").items).toEqual(["views", "tools", "readout", "marks"]);
+    expect(solve(read.scene)).toEqual(solve(dropped));
+    // A fixed item the store lacks goes back to its base place.
+    const lacking = readScene({ v: 1, edges: [{ id: "toolbar", side: "top", ring: 1, items: ["tools", "views"] }], floats: [], items: {} }, fx);
+    expect(edge(lacking.scene, "toolbar").items).toEqual(["tools", "views", "readout"]);
   });
 
   it("stores no pinned field", () => {
