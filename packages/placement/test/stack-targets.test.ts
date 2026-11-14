@@ -13,9 +13,64 @@ describe("stackTargets", () => {
     expect(targets.map((t) => t.place)).toEqual([0, 1, 2, 3].map((at) => ({ kind: "gap", at })));
     expect(targets.every((t) => t.priority === 2 && t.item === "notes")).toBe(true);
     // An empty stack has its one gap, over the whole rail.
-    const empty = stackTargets(stack([], 600), panel("notes", 9));
+    const empty = stackTargets(stack([], 600), group("zoom", 9));
     expect(empty.map((t) => t.id)).toEqual(["gap:0"]);
     expect(empty[0]!.hit).toEqual({ x: 0, y: 0, width: 30, height: 600 });
+  });
+
+  it("A4: a hit is as wide across as the stack or the drop's fit, whichever is larger, so the preview is under it", () => {
+    // A panel dropped into a rail: the column opens to 240, the hits already reach that far.
+    const rail = stackTargets(stack([group("views", 1)], 600), panel("pages", 9));
+    for (const t of rail) {
+      expect(t.fit.cross).toBe(240);
+      expect(t.hit.width).toBe(240);
+      expect(t.slot!.x + t.slot!.width).toBeLessThanOrEqual(t.hit.x + t.hit.width);
+    }
+    // A group dropped into an open column: the stack's own width.
+    const open = stackTargets(stack([panel("pages", 1)], 600), group("tools", 9));
+    for (const t of open) expect(t.hit.width).toBe(Math.max(240, t.fit.cross));
+    // A bar: the same, across is the height.
+    const bar = stackTargets(stack([group("views", 1)], 600, "row"), panel("pages", 9));
+    for (const t of bar) expect(t.hit.height).toBe(Math.max(30, t.fit.cross));
+    // Whatever the case, the preview lies inside the target's hit across.
+    const rand = seeded(3);
+    for (let trial = 0; trial < 20; trial++) {
+      const input = stack(mix(rand, Math.floor(rand() * 5)), 100 + Math.floor(rand() * 500));
+      for (const t of stackTargets(input, panel("d", 0, 140, false, 80 + Math.floor(rand() * 200)))) expect(t.slot!.x + t.slot!.width).toBeLessThanOrEqual(t.hit.x + t.hit.width + 1e-6);
+    }
+  });
+
+  it("A3: an item of the input with the dragged id is lifted out first: a reorder within a stack", () => {
+    const targets = stackTargets(stack(items, 600), items[0]!);
+    // Three items, one lifted out: two left, three gaps.
+    expect(targets.map((t) => t.id)).toEqual(["gap:0", "gap:1", "gap:2"]);
+    for (const t of targets) {
+      expect(t.input.items.map((i) => i.id).filter((id) => id === "pages")).toEqual(["pages"]);
+      expect(t.fit.items).toHaveLength(3);
+    }
+    // After Findings: Views, Findings, Pages.
+    expect(targets[2]!.input.items.map((i) => i.id)).toEqual(["views", "findings", "pages"]);
+    expect(targets[2]!.fit.items.map((i) => i.id)).toEqual(["views", "findings", "pages"]);
+    // The preview is the rect it gets after the move, as for an item from elsewhere.
+    for (const t of targets) expect(t.slot).toEqual(fitStack(t.input).items[t.place.at]!.rect);
+  });
+
+  it("A2: a dragged item with no forms has no targets; an item with no forms in the stack still has its gaps", () => {
+    expect(stackTargets(stack(items, 600), { id: "x", used: 1, forms: [] })).toEqual([]);
+    const withEmpty = stack([panel("a", 1), { id: "none", used: 2, forms: [] }, panel("b", 3)], 600);
+    const targets = stackTargets(withEmpty, group("g", 9));
+    expect(targets).toHaveLength(4);
+    for (const t of targets) expect(t.fit.items.find((i) => i.id === "g")!.rect).toEqual(t.slot);
+    for (let i = 1; i < targets.length; i++) expect(targets[i]!.hit.y).toBeGreaterThanOrEqual(targets[i - 1]!.hit.y);
+  });
+
+  it("N6: with every item in the menu only the gap at the end has any length", () => {
+    const input = stack([group("a", 1), group("b", 2), group("c", 3)], 28);
+    const fit = fitStack(input);
+    expect(fit.items.every((i) => i.kind === "menu")).toBe(true);
+    const targets = stackTargets(input, group("d", 9));
+    expect(targets.slice(0, -1).every((t) => t.hit.height === 0)).toBe(true);
+    expect(targets.at(-1)!.hit.height).toBe(28);
   });
 
   it("the hits split the stack at the items' middles, gap after gap, with no hole", () => {
@@ -55,7 +110,7 @@ describe("stackTargets", () => {
     for (const axis of ["column", "row"] as const) {
       for (let trial = 0; trial < 25; trial++) {
         const base = mix(rand, Math.floor(rand() * 6));
-        for (const dragged of [panel("d", 0, 180), group("d", 0), panel("d", 0, 120, true)]) {
+        for (const dragged of [panel("d", 0, 180), group("d", 0), panel("d", 0, 120, true), { ...panel("d", 0, 150), from: 1 }]) {
           for (let length = 0; length <= 700; length += 37) {
             const input = stack(base, length, axis);
             for (const t of stackTargets(input, dragged)) {
@@ -115,8 +170,8 @@ describe("stackTargets", () => {
   it("a panel dropped into a rail column opens it to the panel's width", () => {
     const targets = stackTargets(stack([group("views", 1), group("tools", 2)], 600), panel("pages", 9));
     expect(targets.every((t) => t.fit.cross === 240 && t.fit.items[t.place.at]!.kind === "open")).toBe(true);
-    // The hits are the column as it is now: a rail wide.
-    expect(targets[0]!.hit.width).toBe(30);
+    // The hits reach as far across as the column will be after the drop.
+    expect(targets[0]!.hit.width).toBe(240);
   });
 
   it("a gap next to an item in the menu has a hit of its own, ordered with the rest", () => {
