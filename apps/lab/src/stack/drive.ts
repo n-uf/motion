@@ -105,7 +105,8 @@ export function aimers(d: Driver, b: Aimable) {
     },
     async float(to: Point): Promise<boolean> {
       await d.approach(to);
-      return d.until(() => b.dragging?.shown === "float" && !b.ind.hidden);
+      // The float target's id is float:<item>.
+      return d.until(() => (b.dragging?.shown?.startsWith("float:") ?? false) && !b.ind.hidden);
     },
     async dock(to: Point): Promise<boolean> {
       await d.approach(to);
