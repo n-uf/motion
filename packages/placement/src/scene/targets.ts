@@ -70,6 +70,8 @@ export interface SceneTargetOptions {
   readonly endReach?: number;
   /** The float's size for the float target. */
   readonly floatSize?: Size;
+  /** As `solve`'s: edge or item ids solved without `previous`, in every `after` too. */
+  readonly fresh?: readonly string[];
 }
 
 const EPS = 1e-6;
@@ -105,7 +107,7 @@ export function cutClear(hit: Rect, blockers: readonly Rect[], keep: Point): Rec
 export function targets(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneTarget[] {
   const item = Object.hasOwn(scene.items, dragged) ? scene.items[dragged] : undefined;
   if (!item || item.fixed || item.closed) return [];
-  const prev = options.previous ? { previous: options.previous } : {};
+  const prev = { ...(options.previous ? { previous: options.previous } : {}), ...(options.fresh ? { fresh: options.fresh } : {}) };
   const settle = (s: Scene): SceneAfter => ({ scene: s, layout: solve(s, prev) });
   const now = solve(scene, prev);
   const rest = lift(scene, dragged);

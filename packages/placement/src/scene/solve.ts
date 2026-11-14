@@ -211,8 +211,25 @@ export function anchored(content: Rect, w: number, h: number, anchor: FloatAncho
   return rect(x, y, w, h);
 }
 
-export function solve(scene: Scene, options: SolveOptions = {}): SceneLayout {
+export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
   const previous = options.previous;
+  // Under `previous`, an item docked now that was closed or absent then has just opened: it counts as the newest, so it
+  // keeps its largest form while it fits and the others give way by the usual rules.
+  const opened = new Set<string>();
+  if (previous) {
+    for (const e of given.edges) {
+      for (const id of e.items) {
+        const it = Object.hasOwn(given.items, id) ? given.items[id] : undefined;
+        const was = previous.items[id];
+        if (it && !it.closed && !it.fixed && (!was || was.closed)) opened.add(id);
+      }
+    }
+  }
+  const newest = Object.values(given.items).reduce((m, it) => Math.max(m, finite(it.used, 0)), 0) + 1;
+  const scene: Scene = opened.size === 0 ? given : { ...given, items: { ...given.items, ...Object.fromEntries([...opened].map((id) => [id, { ...given.items[id]!, used: newest }])) } };
+  // `fresh` edges, and edges holding a `fresh` item, are solved without `previous`.
+  const fresh = new Set(options.fresh ?? []);
+  const prevEdge = (edge: Edge): SceneEdgeLayout | undefined => (!previous || fresh.has(edge.id) || edge.items.some((id) => fresh.has(id)) ? undefined : previous.edges[edge.id]);
   const notes: SceneNote[] = [];
   const items: Record<string, SceneItemLayout> = {};
   const edges: Record<string, SceneEdgeLayout> = {};
@@ -283,7 +300,7 @@ export function solve(scene: Scene, options: SolveOptions = {}): SceneLayout {
     const column = axisOf(edge.side) === "column";
     const length = column ? area.height : area.width;
     const room = Math.max(0, column ? area.width : area.height);
-    const solved = solveEdge(scene, edge, owned.get(edge)!, length, room, previous?.edges[edge.id]);
+    const solved = solveEdge(scene, edge, owned.get(edge)!, length, room, prevEdge(edge));
     const thick = solved.stack.items.length === 0 ? 0 : Math.min(solved.stack.cross, room);
     const r =
       edge.side === "top"
@@ -329,7 +346,7 @@ export function solve(scene: Scene, options: SolveOptions = {}): SceneLayout {
     }
     const cols: Col[] = sideEdges.map((edge) => {
       const side = edge.side as "left" | "right";
-      const solved = solveEdge(scene, edge, owned.get(edge)!, H, Math.max(0, area.width), previous?.edges[edge.id]);
+      const solved = solveEdge(scene, edge, owned.get(edge)!, H, Math.max(0, area.width), prevEdge(edge));
       const width = solved.stack.items.length === 0 ? 0 : Math.min(solved.stack.cross, area.width);
       const visible = owned.get(edge)!.filter((id) => !scene.items[id]!.closed);
       const dyn = edge.column === true && scene.rails?.[side] !== undefined && visible.length > 0;
@@ -394,7 +411,9 @@ export function solve(scene: Scene, options: SolveOptions = {}): SceneLayout {
       if (previous) {
         // What gave way before stays folded, in the order it folded, while the content still fits without it coming back.
         const byId = new Map(order.map((c) => [c.edge.id, c]));
-        const was = previous.notes.flatMap((n) => ((n.code === "column-folded" || n.code === "kept-folded") && byId.has(n.edge) ? [byId.get(n.edge)!] : []));
+        // A column with a just-opened or `fresh` item is weighed anew.
+        const anew = (c: Col): boolean => fresh.has(c.edge.id) || c.visible.some((id) => opened.has(id) || fresh.has(id));
+        const was = previous.notes.flatMap((n) => ((n.code === "column-folded" || n.code === "kept-folded") && byId.has(n.edge) && !anew(byId.get(n.edge)!) ? [byId.get(n.edge)!] : []));
         auto = new Set(was);
         if (evaluate(auto).excess <= EPS) unfold();
       }
@@ -458,7 +477,7 @@ export function solve(scene: Scene, options: SolveOptions = {}): SceneLayout {
         if (top > 0 || Math.abs(w - c.width) > EPS) {
           const forced: Edge = { ...c.edge, cross: { ...c.edge.cross, min: w, max: w } };
           const { size: _s, ...plain } = forced;
-          solved = solveEdge(scene, plain, owned.get(c.edge)!, H - top, w, previous?.edges[c.edge.id]);
+          solved = solveEdge(scene, plain, owned.get(c.edge)!, H - top, w, prevEdge(c.edge));
         }
         let r: Rect;
         if (side === "left") {
