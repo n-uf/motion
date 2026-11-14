@@ -14,6 +14,8 @@ const status = document.getElementById("st-status") as HTMLParagraphElement;
 const freeze = document.getElementById("sk-freeze") as HTMLInputElement;
 const table = document.getElementById("sk-items") as HTMLTableSectionElement;
 const stored = document.getElementById("sk-stored") as HTMLPreElement;
+const heightIn = document.getElementById("sk-height") as HTMLInputElement;
+const heightOut = document.getElementById("sk-height-out") as HTMLOutputElement;
 
 let board: Board | undefined;
 const rows = new Map<ItemId, HTMLTableRowElement>();
@@ -35,6 +37,8 @@ function refresh(): void {
     if (fold) fold.textContent = (from[id] ?? 0) >= 1 ? "open" : "fold";
   }
   freeze.checked = board.frozen;
+  heightIn.value = String(board.height);
+  heightOut.textContent = `${board.height} px`;
   const s = board.stored();
   stored.textContent = `column ${s.column}\nbar ${s.bar}\nfloats ${s.floats}`;
 }
@@ -58,6 +62,7 @@ for (const id of ALL) {
   table.append(tr);
 }
 freeze.addEventListener("change", () => board!.setFrozen(freeze.checked));
+heightIn.addEventListener("input", () => board!.setHeight(Number(heightIn.value)));
 document.getElementById("sk-reload")!.addEventListener("click", () => board!.reload());
 document.getElementById("sk-reset")!.addEventListener("click", () => board!.reset());
 refresh();

@@ -39,13 +39,16 @@ export type Side = "column" | "bar";
 const SIDES: readonly Side[] = ["column", "bar"];
 const AXIS = { column: "column", bar: "row" } as const;
 
-/** The stage, and the bar's fixed thickness (a bar of groups is a rail tall). */
-export const STAGE = { width: 880, height: 500 } as const;
+/**
+ * The stage (its height is the window's: `setHeight` changes it, in place, and the column is as long as what is left
+ * under the bar), and the bar's fixed thickness (a bar of groups is a rail tall).
+ */
+export const STAGE = { width: 880, height: 500 };
+export const STAGE_HEIGHT = { min: 240, max: 500 };
 export const BAR_H = 32;
-const COLUMN_LENGTH = STAGE.height - BAR_H;
 export const ORIGIN: Record<Side, { x: number; y: number }> = { bar: { x: 0, y: 0 }, column: { x: 0, y: BAR_H } };
 export const STAGE_RECT: Rect = { x: 0, y: 0, width: STAGE.width, height: STAGE.height };
-const LENGTH: Record<Side, number> = { column: COLUMN_LENGTH, bar: STAGE.width };
+const LENGTH: Record<Side, number> = { column: STAGE.height - BAR_H, bar: STAGE.width };
 /** The app widens a gap's zone across a thin stack so it is easy to hit, and past the stack's far ends. */
 const REACH = { column: 44, bar: 40 };
 const END_REACH = 24;
@@ -727,9 +730,26 @@ export function createBoard(opt: BoardOptions) {
     refloat();
     settle();
   }
+  /** The window's height: the stage, the column (what is left under the bar) and the pages. */
+  function applyHeight(h: number): void {
+    const height = Math.min(Math.max(Math.round(h), STAGE_HEIGHT.min), STAGE_HEIGHT.max);
+    STAGE.height = height;
+    STAGE_RECT.height = height;
+    LENGTH.column = height - BAR_H;
+    stage.style.height = px(height);
+  }
+  /** Resize the window: the column gives way or grows, and a float the stage no longer holds is clamped back in. */
+  function setHeight(h: number): void {
+    if (drag) endDrag(true);
+    applyHeight(h);
+    refloat();
+    settle();
+    say(readout());
+  }
   function reset(): void {
     if (drag) endDrag(true);
     clearStored();
+    applyHeight(STAGE_HEIGHT.max);
     st = fresh();
     clock = 6;
     frozen = false;
@@ -785,6 +805,7 @@ export function createBoard(opt: BoardOptions) {
     save,
     stored,
     setLayout,
+    setHeight,
     setMeta,
     setFrozen,
     fold,
@@ -829,6 +850,9 @@ export function createBoard(opt: BoardOptions) {
     },
     get kept() {
       return [...st.kept];
+    },
+    get height() {
+      return STAGE.height;
     },
     get frozen() {
       return frozen;
