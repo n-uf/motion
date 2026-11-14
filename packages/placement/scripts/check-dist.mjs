@@ -95,6 +95,8 @@ if (problems.length === 0) {
     };
     const solved = m.scene.solve(scene);
     if (solved.content.x !== 240 || solved.items.a?.edge !== "left") problems.push("scene.js: the left column didn't take its panel's width");
+    const sceneTargets = m.scene.targets(scene, "b");
+    if (sceneTargets.length !== 2 || sceneTargets.some((t) => JSON.stringify(m.scene.solve(t.after({ x: 0, y: 0 }).scene)) !== JSON.stringify(t.after({ x: 0, y: 0 }).layout))) problems.push("scene.js: a column of one panel doesn't have two gaps whose preview is the result");
     if (m.desk.presetTargets(m.desk.PRESETS.docks, { defs, state: m.desk.PRESETS.docks.start(defs), id: "files", stage: { width: 1200, height: 500 } }).some((t) => t.id === "float")) problems.push("desk.js: docks offers a float target");
   } catch (error) {
     problems.push(`import: ${error instanceof Error ? error.message : String(error)}`);

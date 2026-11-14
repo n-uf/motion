@@ -30,3 +30,4 @@ export {
 export { solve } from "./solve";
 export { close, fold, floatAt, keep, lift, moveTo, open, orient, raise, resize, use, type DockPlace } from "./changes";
 export { readScene, storeScene, type SceneRead, type StoredScene, type StoredSceneEdge, type StoredSceneFloat, type StoredSceneItem } from "./store";
+export { PLANE, targets, type SceneAfter, type ScenePlace, type SceneTarget, type SceneTargetOptions } from "./targets";
