@@ -775,6 +775,25 @@ no smaller form never folds either: it reports `overflow` or `too-wide`.
 
 **Closed items** keep their place in their edge (or their float rect) but take no room and have no targets.
 
+**Columns and rails.** A left or right edge with `column: true` is a dynamic column: drops make it (a `column` place, from
+`scene.columns[side]`: `accepts`, `cross`, `gap`, `pad`, `menu`), and it is deleted, its side's rings closed up, when it
+holds no item. On a side with `scene.rails[side]` (`{ width, accepts }`), folded columns show as segments of that side's
+one rail (`layout.rails[side]`, each member at its `rail` form's length, in ring order), lying just outside the side's
+first column. A column folds:
+
+- by give-way: while the content is narrower than `scene.contentMin.width` (after `inset`, and a `gutter` after each side
+  edge and rail), dynamic columns shrink toward their minimum (the edge's `cross.min` and the widest open setter's
+  `cross.min`: a stack costs its widest member's minimum), then fold whole, unkept before kept, the one whose newest use
+  is oldest first, the outer first, the left first (`column-shrunk`, `column-folded`, `kept-folded`). Under `previous`,
+  what gave way stays so while the content still fits, room that comes back unfolds in the reverse order, and ages alone
+  change nothing. Still too narrow: `content-narrow`; under `contentMin.height` (overlay bars counted): `content-short`.
+- by hand: when every member is folded by hand (`from` over 0) it goes to the rail; with `handFold: "ride"` a one-member
+  column instead rides as a title bar over the side's first open column, at that column's width, taking no width
+  (`rides`), while the side has an open column.
+
+A member folded by hand in a column with others is a bar in place (its header form). The open members share the height
+through `grows`. Anchors (a thumbnails column, a fixed drawer) are ring-0 edges with `accepts: []` and fixed items.
+
 **Floats** lie above the content in stage px, last on top. Each is moved inside the stage and clear of every docked
 item, every bar and every `chrome` rect (`fitFloat`), with `float-clamped`, `float-moved` or `float-covers` notes. With
 `anchor` (such as `"content-top-right"`) it sits flush with that side or corner of the content and follows it until a
@@ -796,8 +815,16 @@ and one whose kind changed starts over.
 - `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side.
 - `float:<id>` (3, free) when `floatKinds` lists the kind: the whole plane, landing with the pointer holding the float
   at `grab`, clamped and moved clear.
+- `column:<side>:<ring>` (2): a new column on each column line of a side whose template takes the kind (outside the
+  outermost open column, between two, inside the innermost, or at the content's edge), `COLUMN_REACH` (22) px each way.
+- `rail:<side>:<ring>` (1): docking folded into the side's rail, before each folded column's segments and after the
+  last, or a `RAIL_EDGE` (10) px strip at the side's outer edge while no rail shows.
 - `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over the item's own rect: a release there commits
-  nothing.
+  nothing. A gap, column line or rail drop that would put the item back where it is (the gap beside it, its own
+  column's line, its own side's rail) keeps its id but is a home too: no slot, nothing committed.
+
+`stops(scene, id)` gives the same targets, home and none left out, in reading order (the left side outer to inner, the
+top bars, the bottom bars, the right side inner to outer, floating last) for "Move to ›" and the arrow keys.
 
 Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (the item moved and just used) and
 `solve(scene, { previous })`. The host draws every item from `after.layout` during the preview and commits
@@ -806,15 +833,20 @@ Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (
 **Changes** are pure and return the scene given when nothing applies: `moveTo(scene, id, { edge, zone?, at })`,
 `floatAt(scene, id, rect?, orient?)` (with no rect: its last `floatSize`, anchored to the content's top-right), `fold`,
 `use`, `keep`, `raise` (a float on top: no use, no reshape), `open`, `close`, `orient` and `resize`. `moveTo` and
-`floatAt` refuse fixed items and kinds the edge or `floatKinds` doesn't list.
+`floatAt` refuse fixed items and kinds the edge or `floatKinds` doesn't list. `moveTo` also takes `{ kind: "column",
+side, ring }` (`ring: Infinity` is the side's inner end: "Move to › Dock left"), `{ kind: "rail", side, ring }` (docked
+folded) and `{ kind: "float", rect?, anchor? }`. `homeFor(scene, id, start)` is the place a start scene gives the item
+(the same edge before the same neighbour, a new column at its ring when its column is gone, or its float), for Dock,
+Put back and Reset position: `moveTo(scene, id, homeFor(scene, id, start)!)`.
 
-**Stored form.** `storeScene(scene)` gives `{ v: 1, edges: [{ id, side, ring, items, size? }], floats: [{ id, x, y,
+**Stored form.** `storeScene(scene)` gives `{ v: 1, edges: [{ id, side, ring, items, size?, column? }], floats: [{ id, x, y,
 width, height, orient?, anchor? }], items: { [id]: { used, kept?, from?, closed?, align?, floatSize? } } }`; no float has a
 pinned field. `readScene(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
 the store, never throws, and lists what it drops: unknown edges and items, kinds an edge doesn't accept, fixed items
 placed elsewhere (they stay where `base` has them, trailing ones last), bad fields, an old `pinned`. An item the store
-places nowhere goes where `base` has it, and floats are clamped into the stage. Anything but version 1 gives `base`
-back with an `error`.
+places nowhere goes where `base` has it, and floats are clamped into the stage. Dynamic columns are the store's: one
+`base` lacks is made from `base.columns[side]` at its stored ring, and empty ones are deleted. Anything but version 1
+gives `base` back with an `error`.
 
 ## Pane zones
 

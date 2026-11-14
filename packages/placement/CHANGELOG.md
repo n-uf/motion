@@ -41,6 +41,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     scene to commit and `solve` of it, so the preview is the result.
   - Pure changes `moveTo`, `floatAt`, `fold`, `use`, `keep`, `raise`, `open`, `close`, `orient`, `resize`, `lift`; and
     `storeScene` / `readScene` (`StoredScene` v1, lenient, never throws, lists what it drops, no pinned field).
+  - Panels as products have them (planned for the release after the bars): dynamic columns (`Edge.column`, made from
+    `Scene.columns[side]`, deleted when empty, rings closed up), one rail per side (`Scene.rails`, `layout.rails`),
+    column give-way by `Scene.contentMin` (shrink, then fold whole: unkept first, oldest newest use; held under
+    `previous`), `handFold: "ride"`, `inset` and `gutter`; `moveTo` with `column`, `rail` and `float` places, `homeFor`,
+    `prune`; `column:<side>:<ring>` and `rail:<side>:<ring>` targets, own-place drops as homes, `stops`; stored columns
+    (`column: true`). Two document windows' width thresholds are pinned in tests.
 
 ## 26.11.15
 
