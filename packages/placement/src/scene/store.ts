@@ -25,7 +25,7 @@
  * A float's rect is clamped into the stage on read.
  */
 import { rect, type Size } from "../geometry";
-import { clampFloat, closeRings, prune } from "./changes";
+import { clampFloat, closeRings, drawnFloatSize, prune } from "./changes";
 import { SIDES, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
 
 export interface StoredSceneEdge {
@@ -228,7 +228,10 @@ function read(data: unknown, base: Scene): SceneRead {
     const a = ANCHORS.includes(f.anchor as FloatAnchor) ? (f.anchor as FloatAnchor) : undefined;
     if (f.anchor !== undefined && !a) drop(`float:${id}:anchor`);
     placed.add(id);
-    floats.push({ id, rect: clampFloat(rect(f.x, f.y, f.width, f.height), base.stage), ...(o ? { orient: o } : {}), ...(a ? { anchor: a } : {}) });
+    // Clamped by what solve draws (a folded float's bar), never cut: a reload lands where solve put it.
+    const r = rect(f.x, f.y, f.width, f.height);
+    const drawn = drawnFloatSize(items[id]!, { rect: r, ...(o ? { orient: o } : {}) });
+    floats.push({ id, rect: clampFloat(r, base.stage, drawn), ...(o ? { orient: o } : {}), ...(a ? { anchor: a } : {}) });
   }
 
   // Each base edge: its stored order (fixed items at their base places), then its base items the store placed nowhere.

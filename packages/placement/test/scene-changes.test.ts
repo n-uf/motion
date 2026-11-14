@@ -127,4 +127,16 @@ describe("the stored form", () => {
   it("stores no pinned field", () => {
     expect(JSON.stringify(storeScene(s))).not.toContain("pinned");
   });
+
+  it("clamps a float on read by what solve draws: a folded float by its bar, and never cuts one larger than the stage", () => {
+    // No edges, so nothing moves the float but the stage.
+    const folded = { ...s, edges: [], items: { ...s.items, notes: { ...s.items.notes!, from: 1 } } };
+    const near = readScene({ v: 1, edges: [], floats: [{ id: "notes", x: 500, y: 780, width: 300, height: 340 }], items: { notes: { used: 3, from: 1 } } }, folded);
+    // The bar is 28 tall: it lands at 772, where solve draws it, not 340 px up.
+    expect(near.scene.floats[0]!.rect).toEqual({ x: 500, y: 772, width: 300, height: 340 });
+    expect(solve(near.scene).items.notes!.rect.y).toBe(772);
+    const tall = readScene({ v: 1, edges: [], floats: [{ id: "notes", x: 100, y: 100, width: 300, height: 900 }], items: {} }, { ...s, edges: [] });
+    expect(tall.scene.floats[0]!.rect).toEqual({ x: 100, y: 0, width: 300, height: 900 });
+    expect(solve(tall.scene).items.notes!.rect.height).toBe(900);
+  });
 });
