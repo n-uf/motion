@@ -13,9 +13,12 @@
  * `legacy/` holds the 26.11.13 solver, copied verbatim (git show 5eaa31b).
  */
 import { describe, expect, it } from "vitest";
-import { fitStack, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
+import { fitStack, stackTargets, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
 import { fitStack as legacyFit } from "./legacy/layout-26.11.13";
+import { fitStack as legacy15Fit } from "./legacy/layout-26.11.15";
 import type { StackFit as LegacyFit, StackInput as LegacyInput } from "./legacy/model-26.11.13";
+import type { StackInput as Legacy15Input } from "./legacy/model-26.11.15";
+import { stackTargets as legacy15Targets } from "./legacy/targets-26.11.15";
 import { barGroup, group, limits, panel, seeded } from "./stack-fixture";
 
 const EPS = 1e-6;
@@ -176,5 +179,73 @@ describe("26.11.13 compatibility", () => {
     const items = [panel("pages", 1), panel("findings", 2), group("tools", 3)];
     expect(plain(fitStack({ ...column, items }))).toEqual(legacyFit({ ...column, items } as unknown as LegacyInput));
     expect(plain(fitStack({ ...column, items: [group("tools", 3)] }))).toEqual(legacyFit({ ...column, items: [group("tools", 3)] } as unknown as LegacyInput));
+  });
+});
+
+/**
+ * 26.11.15 compatibility (the C25, C28, C29 options: `accepts`, `allows`, `ownCross`, `fixed`). An input that uses none
+ * of them gives exactly the 26.11.15 fit, with every earlier option in play: `previous`, `rank`, `gap`, `pad`,
+ * `strictCross`, `fold`, `endReach`. `legacy/*-26.11.15.ts` holds the solver and the targets at origin/main 821b6a1,
+ * copied verbatim.
+ */
+describe("26.11.15 compatibility", () => {
+  /** A random input using the earlier options too (gap, pad, rank, fold, strictCross, `from`, `kept`, a menu size). */
+  function richInput(rand: () => number): StackInput {
+    const base = randomInput(rand);
+    const items = base.items.map((it): StackItem => {
+      const forms = it.forms.map((f, k): StackForm => {
+        const kind = rand() < 0.1 && f.kind !== "menu" && k > 0 ? ("fold" as const) : f.kind;
+        return { ...f, kind, ...(rand() < 0.25 && f.kind !== "menu" ? { rank: Math.floor(rand() * 3) } : {}) };
+      });
+      return { ...it, forms };
+    });
+    return { ...base, items, ...(rand() < 0.4 ? { gap: Math.floor(rand() * 10) } : {}), ...(rand() < 0.4 ? { pad: { start: Math.floor(rand() * 12), end: Math.floor(rand() * 12) } } : {}), ...(rand() < 0.3 ? { strictCross: true } : {}) };
+  }
+  const asLegacy = (input: StackInput): Legacy15Input => input as unknown as Legacy15Input;
+
+  it("fitStack, with and without previous, equals the 26.11.15 solver", () => {
+    const rand = seeded(26115);
+    let chained = 0;
+    for (let trial = 0; trial < 3000; trial++) {
+      const input = richInput(rand);
+      expect(canon(fitStack(input)), JSON.stringify(input)).toBe(canon(legacy15Fit(asLegacy(input))));
+      // A chain of lengths, the fit of each as `previous` of the next: the same fits as the old solver gives along the same chain.
+      let now: StackFit = fitStack(input);
+      let old = legacy15Fit(asLegacy(input));
+      for (let step = 0; step < 4; step++) {
+        const next = { ...input, length: Math.max(0, input.length + Math.floor((rand() - 0.5) * 400)) };
+        now = fitStack(next, { previous: now });
+        old = legacy15Fit(asLegacy(next), { previous: old });
+        expect(canon(now), JSON.stringify(next)).toBe(canon(old));
+        chained++;
+      }
+    }
+    expect(chained).toBe(12000);
+  });
+
+  it("stackTargets equals the 26.11.15 targets, with endReach and previous", () => {
+    const rand = seeded(2611);
+    for (let trial = 0; trial < 1500; trial++) {
+      const input = richInput(rand);
+      const dragged = (richInput(rand).items[0] ?? input.items[0])!;
+      const options = { ...(rand() < 0.5 ? { endReach: Math.floor(rand() * 20) } : {}), ...(rand() < 0.4 ? { previous: fitStack(input) } : {}) };
+      expect(canon(stackTargets(input, dragged, options)), JSON.stringify(input)).toBe(canon(legacy15Targets(asLegacy(input), dragged as never, options)));
+    }
+  });
+
+  it("the new options at their defaults change nothing: false, undefined, accepts and allows that allow all", () => {
+    const rand = seeded(1115);
+    for (let trial = 0; trial < 500; trial++) {
+      const input = richInput(rand);
+      const off: StackInput = { ...input, ownCross: false, accepts: () => true };
+      const items = input.items.map((it) => ({ ...it, fixed: false }));
+      expect(canon(fitStack({ ...off, items }))).toBe(canon(fitStack(input)));
+      const dragged = input.items[0];
+      if (dragged) {
+        const same = stackTargets({ ...off, items }, { ...dragged, fixed: false }, { allows: () => true });
+        const was = legacy15Targets(asLegacy(input), dragged as never, {});
+        expect(same.map((t) => [t.id, t.place, t.hit, t.slot, t.marker, t.fit])).toEqual(was.map((t) => [t.id, t.place, t.hit, t.slot, t.marker, t.fit]));
+      }
+    }
   });
 });
