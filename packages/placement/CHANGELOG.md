@@ -38,7 +38,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     when the forms kept leave more spare length than before (`StackFit.need`, optional and always set by the solver, is the
     length the chosen forms need) or when the stack got wider across (a wider limit: a group that stepped to its stacked
     form for a narrow column returns to its row, a header folded to a rail by its `cross.min` to its header). An item whose
-    forms changed since (another kind or smallest size at the kept index, `PlacedStackItem.min`) starts over.
+    form at the kept index is of another kind starts over; one only re-measured (a badge gained a digit) keeps its place
+    (smaller: room came back, the fresh fit; larger: it gives way from the kept forms). A lowered `cross.min`, or any
+    change of the forms' cross sizes, doesn't bring a form back under `previous`: solve once without it.
     `stackTargets(…, { previous })` solves every gap the same way.
   - `StackForm.rank` (default 0): the step taken is the one into the lowest-ranked form across all items; ties go
     unkept before kept, then the item used longest ago, then the later in the stack.
