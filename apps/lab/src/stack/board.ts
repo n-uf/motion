@@ -498,8 +498,10 @@ export function createBoard(opt: BoardOptions) {
     }
     Object.assign(ind.style, { left: px(rectOf.x), top: px(rectOf.y), width: px(rectOf.width), height: px(rectOf.height) });
     indLabel.textContent = `${titleOf(id)} → ${text}`;
-    Object.assign(indLabel.style, { left: px(Math.max(4, rectOf.x + 4)), top: px(Math.max(4, rectOf.y + 4)) });
     ind.hidden = indLabel.hidden = false;
+    // The label sits at the preview's corner, kept inside the stage (a clamped preview touches its edge).
+    const room = Math.max(4, STAGE.width - indLabel.offsetWidth - 4);
+    Object.assign(indLabel.style, { left: px(Math.min(Math.max(4, rectOf.x + 4), room)), top: px(Math.max(4, rectOf.y + 4)) });
     if (line) {
       Object.assign(marker.style, line.height === 0 ? { left: px(line.x), top: px(line.y - 1.5), width: px(line.width), height: "3px" } : { left: px(line.x - 1.5), top: px(line.y), width: "3px", height: px(line.height) });
       marker.hidden = false;
