@@ -23,8 +23,8 @@
  *    their natural sizes from the start of the stack. Between the minimum and natural sizes every item shrinks by the
  *    same share of what it can give.
  *
- * A `fixed` item takes part in none of the steps above: it keeps its first allowed form, counts toward the length, and
- * the others give way around it.
+ * A `fixed` item takes part in none of steps 1 to 4: it keeps its first allowed form, counts toward the length, and the
+ * others give way around it. In step 5 it shrinks and grows like any item.
  *
  * With `ownCross`, an item in a group form (`row`, `stacked`, `icons`, `fold`) is drawn at its own `cross.natural`
  * (clamped to the stack's cross size) from the start edge instead of across the whole stack; a panel form (`open`,
