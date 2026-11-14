@@ -1,4 +1,5 @@
 <!-- The Stack · forms page (src/stack/forms.ts): the shell renders the header. -->
+<p class="st-lead">The column and the bar are two independent examples of the same six items: each has its own ages, kept and open state, so a click on the left never changes the bar on the right. The bar is a toolbar edge: a panel there has no open form (it starts at its header), and the bar is at most 40 px tall.</p>
 <section class="controls st-controls" aria-label="Controls">
   <fieldset>
     <legend>Stack</legend>
@@ -8,7 +9,7 @@
   <fieldset>
     <legend>Items</legend>
     <table class="st-items">
-      <thead><tr><th></th><th>In the stacks</th><th>Panel</th><th>Kept</th><th>Used</th></tr></thead>
+      <thead><tr><th></th><th>Column: shown, open (panels), kept, age</th><th>Bar: shown, kept, age (a panel starts at its header)</th></tr></thead>
       <tbody id="sf-items"></tbody>
     </table>
   </fieldset>
@@ -26,7 +27,7 @@
   <h2>Try this</h2>
   <ol>
     <li>Drag Length down. The panel used longest ago folds first (Pages): to its header, then a rail icon, then into the » menu; then the next. Drag it up: they come back. Spare length goes to the open panels.</li>
-    <li>Click a panel's title (a use) and shorten again: the order changes. Tick Kept for a panel: it goes last.</li>
+    <li>Click a panel's title in the column (a use) and shorten again: the column's order changes and the bar's does not. Tick Kept for a panel: it goes last in that stack.</li>
     <li>Untick every panel's open: the column has nothing open to set its width, so it becomes a rail of about 30 px. Untick the panels' shown too, leaving only groups: still a rail, with icons.</li>
     <li>Open or fold one panel: no other panel's open state changes.</li>
     <li>Drag the Column width limit down: the groups beside an open panel step from a row of words to stacked words, then icons, as the column narrows. The bar along the top does the same along its length.</li>

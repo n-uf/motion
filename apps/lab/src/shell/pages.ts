@@ -256,9 +256,9 @@ export const PAGES: readonly PageDef[] = [
     group: "stack",
     nav: "Forms",
     title: "Stack · forms",
-    line: "A column and a bar of panels and groups: each item takes the largest form that fits, the oldest gives way first, and a stack with nothing open is a rail.",
+    line: "A column and a bar of panels and groups, two independent examples: each item takes the largest form that fits, the oldest gives way first, and a stack with nothing open is a rail.",
     about:
-      "<code>@n-uf/placement/stack</code>'s <code>fitStack</code>: panels (Pages, Annotations, Findings) go open → header → rail icon → the » menu, groups (Views, Tools, Zoom) a row of words → stacked words → icons → the » menu, the item used longest ago first (kept ones last). Spare length goes to the open panels. A group never sets a column's width, so a group alone makes a rail of about 30 px. Length and width sliders and a toggle per item drive the same solver for the column and the bar; the status lists its coded notes. Cases C2, C6, C8, C9 and C10.",
+      "<code>@n-uf/placement/stack</code>'s <code>fitStack</code>: panels (Pages, Annotations, Findings) go open → header → rail icon → the » menu, groups (Views, Tools, Zoom) a row of words → stacked words → icons → the » menu, the item used longest ago first (kept ones last). Spare length goes to the open panels. A group never sets a column's width, so a group alone makes a rail of about 30 px. Length and width sliders and a toggle per item drive the same solver for the column and the bar; the status lists its coded notes. The column and the bar have their own ages, kept and open state (a click in one never changes the other); in the bar, a toolbar edge at most 40 px tall, a panel has no open form and starts at its header. Cases C2, C6, C8, C9 and C10.",
     ...stackForms,
   },
   {

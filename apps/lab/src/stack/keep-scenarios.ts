@@ -511,12 +511,12 @@ function matchesSolver(id: ItemId): string[] {
   return out;
 }
 
-const CLICKS: Record<string, { layout: Layout; from: Partial<Record<ItemId, number>>; id: ItemId; kind: string }> = {
+const CLICKS: Record<string, { layout: Layout; from: Partial<Record<ItemId, number>>; id: ItemId; kind: string; opens: string }> = {
   // A header stays a header beside an open panel (it has a small cross.min); alone, a column is a rail.
-  "a header in a column": { layout: { column: ["annotations", "pages"], bar: [], floats: [] }, from: { pages: 1 }, id: "pages", kind: "header" },
-  "a rail icon in a column": { layout: { column: ["pages"], bar: [], floats: [] }, from: { pages: 2 }, id: "pages", kind: "rail" },
-  "a header in a bar": { layout: { column: [], bar: ["annotations"], floats: [] }, from: { annotations: 1 }, id: "annotations", kind: "header" },
-  "a rail icon in a bar": { layout: { column: [], bar: ["annotations"], floats: [] }, from: { annotations: 2 }, id: "annotations", kind: "rail" },
+  "a header in a column": { layout: { column: ["annotations", "pages"], bar: [], floats: [] }, from: { pages: 1 }, id: "pages", kind: "header", opens: "open" },
+  "a rail icon in a column": { layout: { column: ["pages"], bar: [], floats: [] }, from: { pages: 2 }, id: "pages", kind: "rail", opens: "open" },
+  // A panel in a bar has no open form: its forms are header, rail, menu, so a rail icon opens to its header.
+  "a rail icon in a bar": { layout: { column: [], bar: ["annotations"], floats: [] }, from: { annotations: 1 }, id: "annotations", kind: "rail", opens: "header" },
 };
 
 const click: Scenario<Page> = {
@@ -537,7 +537,7 @@ const click: Scenario<Page> = {
         await rule("The click opens the panel: its form from the first, the newest used, with a real pointer and no drag", (ok) => {
           ok(was === c.kind, `the panel was ${was}, not ${c.kind}`);
           ok(b.from[c.id] === undefined, `its form is still ${b.from[c.id]}`);
-          ok(now.kind === "open", `it is ${now.kind}`);
+          ok(now.kind === c.opens, `it is ${now.kind}, not ${c.opens}`);
           ok(b.used[c.id] === Math.max(...Object.values(b.used)), "it isn't the newest used");
           ok(b.dragging === null && b.lastDrop === null, "a drag began or a drop was made");
         }),

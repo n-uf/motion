@@ -1,7 +1,9 @@
 /**
  * The Stack · forms page: a column and a bar of the same six sample items (three panels, three groups) on
  * @n-uf/placement/stack. The length and width sliders, and a toggle per item, drive `fitStack`; every rect drawn is the
- * solver's. The page writes every word: the package gives forms, kinds and coded notes.
+ * solver's. The column and the bar are independent examples with their own ages, kept and open state: a use in one never
+ * changes the other. A bar is a toolbar edge, so a panel there starts at its header (it has no open form) and the bar is
+ * at most 40 px tall. The page writes every word: the package gives forms, kinds and coded notes.
  * The scripted scenarios (forms-scenarios.ts) drive it through `page`.
  */
 import { fitStack, type StackFit } from "@n-uf/placement/stack";
@@ -32,8 +34,16 @@ const freshState = (): Record<ItemId, State> => ({
   zoom: item(6),
 });
 
-let items = freshState();
-let clock = 6;
+/**
+ * The column and the bar are two independent examples: each has its own items' state (shown, open, kept, used) and its
+ * own use clock, so a click or a use in one never changes the other. They share the sliders and nothing else.
+ */
+type Side = "column" | "bar";
+const SIDES: readonly Side[] = ["column", "bar"];
+const bothFresh = (): Record<Side, Record<ItemId, State>> => ({ column: freshState(), bar: freshState() });
+let items = bothFresh();
+let clock: Record<Side, number> = { column: 6, bar: 6 };
+const sidesOf = (side?: Side): readonly Side[] => (side ? [side] : SIDES);
 let length = DEFAULT_LENGTH;
 let width = DEFAULT_WIDTH;
 
@@ -62,18 +72,20 @@ column.el.style.top = `${COLUMN_AT.y}px`;
 bar.el.style.left = `${BAR_AT.x}px`;
 bar.el.style.top = `${BAR_AT.y}px`;
 
-/** The items as placed: those shown, a panel folded by hand starting at its header. */
-const placed = (): Placed[] =>
-  ALL.filter((id) => items[id].shown).map((id) => ({ id, used: items[id].used, kept: items[id].kept, from: isPanel(id) && !items[id].open ? 1 : 0 }));
+/** One stack's items as placed: those shown; in the column a panel folded by hand starts at its header (the bar's panels already do). */
+const placedIn = (side: Side): Placed[] =>
+  ALL.filter((id) => items[side][id].shown).map((id) => ({ id, used: items[side][id].used, kept: items[side][id].kept, from: side === "column" && isPanel(id) && !items[side][id].open ? 1 : 0 }));
+/** The column's items as placed (for the scenarios that look at one list). */
+const placed = (): Placed[] => placedIn("column");
 
 // --- the page --------------------------------------------------------------------------------------------------------
 
-let colFit: StackFit = fitStack(inputOf("column", length, placed(), width));
-let barFit: StackFit = fitStack(inputOf("row", length, placed()));
+let colFit: StackFit = fitStack(inputOf("column", length, placedIn("column"), width));
+let barFit: StackFit = fitStack(inputOf("row", length, placedIn("bar")));
 
 function render(): void {
-  colFit = fitStack(inputOf("column", length, placed(), width));
-  barFit = fitStack(inputOf("row", length, placed()));
+  colFit = fitStack(inputOf("column", length, placedIn("column"), width));
+  barFit = fitStack(inputOf("row", length, placedIn("bar")));
   column.draw(colFit);
   bar.draw(barFit);
   stage.style.width = `${BAR_AT.x + length + 24}px`;
@@ -83,29 +95,38 @@ function render(): void {
   for (const id of ALL) {
     const row = table.querySelector<HTMLElement>(`[data-id="${id}"]`);
     if (!row) continue;
-    row.querySelector<HTMLInputElement>(".sf-shown")!.checked = items[id].shown;
-    const open = row.querySelector<HTMLInputElement>(".sf-open");
-    if (open) open.checked = items[id].open;
-    row.querySelector<HTMLInputElement>(".sf-kept")!.checked = items[id].kept;
-    row.querySelector<HTMLElement>(".sf-used")!.textContent = String(items[id].used);
+    for (const side of SIDES) {
+      const cell = row.querySelector<HTMLElement>(`[data-side="${side}"]`)!;
+      cell.querySelector<HTMLInputElement>(".sf-shown")!.checked = items[side][id].shown;
+      const open = cell.querySelector<HTMLInputElement>(".sf-open");
+      if (open) open.checked = items[side][id].open;
+      cell.querySelector<HTMLInputElement>(".sf-kept")!.checked = items[side][id].kept;
+      cell.querySelector<HTMLElement>(".sf-used")!.textContent = String(items[side][id].used);
+    }
   }
   status.textContent = `${sayFit("Column", colFit)} ${sayFit("Bar", barFit)}`;
 }
+
+/** One stack's controls for an item: shown, open (a column's panel; a bar's has no open form), kept, and its age with a use button. */
+const cellFor = (id: ItemId, side: Side): string =>
+  `<td data-side="${side}"><label><input type="checkbox" class="sf-shown" aria-label="Show ${titleOf(id)} in the ${side}" /> shown</label> ` +
+  (isPanel(id) && side === "column" ? `<label><input type="checkbox" class="sf-open" aria-label="${titleOf(id)} open in the column" /> open</label> ` : "") +
+  `<label><input type="checkbox" class="sf-kept" aria-label="Keep ${titleOf(id)} in the ${side}" /> kept</label> ` +
+  `<span class="sf-used"></span> <button type="button" class="sf-use" aria-label="Use ${titleOf(id)} in the ${side}">use</button></td>`;
 
 function buildTable(): void {
   table.replaceChildren(
     ...ALL.map((id) => {
       const tr = document.createElement("tr");
       tr.dataset.id = id;
-      tr.innerHTML = `<th scope="row">${titleOf(id)}</th>` +
-        `<td><label><input type="checkbox" class="sf-shown" aria-label="Show ${titleOf(id)}" /> shown</label></td>` +
-        `<td>${isPanel(id) ? `<label><input type="checkbox" class="sf-open" aria-label="${titleOf(id)} open" /> open</label>` : ""}</td>` +
-        `<td><label><input type="checkbox" class="sf-kept" aria-label="Keep ${titleOf(id)}" /> kept</label></td>` +
-        `<td><span class="sf-used"></span> <button type="button" class="sf-use" aria-label="Use ${titleOf(id)}">use</button></td>`;
-      tr.querySelector(".sf-shown")!.addEventListener("change", (e) => setShown(id, (e.target as HTMLInputElement).checked));
-      tr.querySelector(".sf-open")?.addEventListener("change", (e) => setOpen(id, (e.target as HTMLInputElement).checked));
-      tr.querySelector(".sf-kept")!.addEventListener("change", (e) => setKept(id, (e.target as HTMLInputElement).checked));
-      tr.querySelector(".sf-use")!.addEventListener("click", () => use(id));
+      tr.innerHTML = `<th scope="row">${titleOf(id)}</th>${cellFor(id, "column")}${cellFor(id, "bar")}`;
+      for (const side of SIDES) {
+        const cell = tr.querySelector<HTMLElement>(`[data-side="${side}"]`)!;
+        cell.querySelector(".sf-shown")!.addEventListener("change", (e) => setShown(id, (e.target as HTMLInputElement).checked, side));
+        cell.querySelector(".sf-open")?.addEventListener("change", (e) => setOpen(id, (e.target as HTMLInputElement).checked, side));
+        cell.querySelector(".sf-kept")!.addEventListener("change", (e) => setKept(id, (e.target as HTMLInputElement).checked, side));
+        cell.querySelector(".sf-use")!.addEventListener("click", () => use(id, side));
+      }
       return tr;
     }),
   );
@@ -121,35 +142,42 @@ function setWidth(n: number): void {
   widthIn.value = String(width);
   render();
 }
-function setShown(id: ItemId, shown: boolean): void {
-  items[id].shown = shown;
-  // Showing is a use of it.
-  if (shown) items[id].used = ++clock;
+// Each takes the side it acts on; none means both (a scenario setting up a start for both examples).
+function setShown(id: ItemId, shown: boolean, side?: Side): void {
+  for (const s of sidesOf(side)) {
+    items[s][id].shown = shown;
+    // Showing is a use of it.
+    if (shown) items[s][id].used = ++clock[s];
+  }
   render();
 }
-function setOpen(id: ItemId, open: boolean): void {
-  items[id].open = open;
-  // Opening is a use of it.
-  if (open) items[id].used = ++clock;
+function setOpen(id: ItemId, open: boolean, side?: Side): void {
+  for (const s of sidesOf(side)) {
+    items[s][id].open = open;
+    // Opening is a use of it.
+    if (open) items[s][id].used = ++clock[s];
+  }
   render();
 }
-function setKept(id: ItemId, kept: boolean): void {
-  items[id].kept = kept;
+function setKept(id: ItemId, kept: boolean, side?: Side): void {
+  for (const s of sidesOf(side)) items[s][id].kept = kept;
   render();
 }
-function use(id: ItemId): void {
-  items[id].used = ++clock;
+function use(id: ItemId, side?: Side): void {
+  for (const s of sidesOf(side)) items[s][id].used = ++clock[s];
   render();
 }
 /** Give every item an age by hand (oldest first), for the scenarios. */
-function setAges(order: readonly ItemId[]): void {
-  order.forEach((id, i) => (items[id].used = i + 1));
-  clock = order.length;
+function setAges(order: readonly ItemId[], side?: Side): void {
+  for (const s of sidesOf(side)) {
+    order.forEach((id, i) => (items[s][id].used = i + 1));
+    clock[s] = order.length;
+  }
   render();
 }
 function reset(): void {
-  items = freshState();
-  clock = 6;
+  items = bothFresh();
+  clock = { column: 6, bar: 6 };
   length = DEFAULT_LENGTH;
   width = DEFAULT_WIDTH;
   lengthIn.value = String(length);
@@ -160,10 +188,11 @@ function reset(): void {
 lengthIn.addEventListener("input", () => setLength(Number(lengthIn.value)));
 widthIn.addEventListener("input", () => setWidth(Number(widthIn.value)));
 document.getElementById("sf-reset")!.addEventListener("click", reset);
-// A click on an item is a use of it.
+// A click on an item is a use of it, in the stack it is in: the other stack has its own ages.
 stage.addEventListener("click", (e) => {
   const it = (e.target as HTMLElement).closest<HTMLElement>(".st-item");
-  if (it?.dataset.id) use(it.dataset.id as ItemId);
+  const stack = it?.closest<HTMLElement>(".st-stack");
+  if (it?.dataset.id && stack) use(it.dataset.id as ItemId, stack.dataset.axis === "row" ? "bar" : "column");
 });
 
 buildTable();
@@ -203,7 +232,8 @@ export const page = {
   get status() {
     return status.textContent ?? "";
   },
-  /** Items as given to the solver (axis-independent). */
+  /** The column's items as given to the solver. */
   placed,
+  placedIn,
 };
 export type FormsPage = typeof page;
