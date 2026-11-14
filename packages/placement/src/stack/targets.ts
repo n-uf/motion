@@ -7,7 +7,8 @@
  * - `id` `gap:<k>`, priority 2, `place` `{ kind: "gap", at: k }` (k counts the input's items, the dragged one lifted
  *   out, including any with no forms; it is not an index into `fit.items`, which leaves those out: look the dragged
  *   item up there by its id, as `slot` already does).
- * - `hit`: the gap's zone along the axis, the stack split at its items' middles (an item in the menu has no place of
+ * - `hit`: the gap's zone along the axis, the stack split at its items' middles, so it covers the gap and the padding
+ *   between its neighbours; the first and the last reach `options.endReach` px past the stack's ends (an item in the menu has no place of
  *   its own: the gaps next to it split the stretch where the stack's drawn items end; with every item in the menu only
  *   the last gap, "at the end", has any length, and the others are a point at the start). Across, it is the larger of
  *   the stack's current size and the size the drop gives it, so the pointer over the preview is over the target.
@@ -25,7 +26,15 @@ import type { Target } from "../targets/target";
 import { fitStack } from "./layout";
 import { withItem, type StackFit, type StackInput, type StackItem } from "./model";
 
-export type StackPlace = { readonly kind: "gap"; readonly at: number };
+export interface StackTargetOptions {
+  /**
+   * How far the first gap's hit reaches before the stack's start and the last gap's past its end, px (default 0), so a
+   * pointer just outside the bar still drops at an end. The marker and the preview don't move.
+   */
+  readonly endReach?: number;
+}
+
+export type StackPlace ={ readonly kind: "gap"; readonly at: number };
 
 export interface StackTarget extends Target {
   readonly priority: 2;
@@ -40,8 +49,11 @@ export interface StackTarget extends Target {
   readonly fit: StackFit;
 }
 
-/** The gap boundaries along the axis: `b[0]` is the start, `b[k]` the middle of item k - 1, `b[n + 1]` the length. */
-function bounds(input: StackInput, fit: StackFit): number[] {
+/**
+ * The gap boundaries along the axis: `b[0]` is `reach` before the start, `b[k]` the middle of item k - 1, `b[n + 1]`
+ * `reach` past the length.
+ */
+function bounds(input: StackInput, fit: StackFit, reach: number): number[] {
   const column = input.axis === "column";
   const start = (r: Rect): number => (column ? r.y : r.x);
   const size = (r: Rect): number => (column ? r.height : r.width);
@@ -61,14 +73,18 @@ function bounds(input: StackInput, fit: StackFit): number[] {
   b.push(fit.length);
   // Monotone, whatever the sizes did (a stack that overflows).
   for (let i = 1; i < b.length; i++) b[i] = Math.min(Math.max(b[i]!, b[i - 1]!), fit.length);
+  // The first and last gaps reach past the stack's ends.
+  b[0] = 0 - reach;
+  b[b.length - 1] = fit.length + reach;
   return b;
 }
 
-export function stackTargets(input: StackInput, dragged: StackItem): StackTarget[] {
+export function stackTargets(input: StackInput, dragged: StackItem, options: StackTargetOptions = {}): StackTarget[] {
   if (dragged.forms.length === 0) return [];
   const rest: StackInput = { ...input, items: input.items.filter((it) => it.id !== dragged.id) };
   const base = fitStack(rest);
-  const b = bounds(rest, base);
+  const reach = Math.max(0, Number.isFinite(options.endReach) ? options.endReach! : 0);
+  const b = bounds(rest, base, reach);
   const column = rest.axis === "column";
   const newest = rest.items.reduce((m, it) => Math.max(m, it.used), dragged.used) + 1;
   const item: StackItem = { ...dragged, used: newest };
@@ -87,7 +103,8 @@ export function stackTargets(input: StackInput, dragged: StackItem): StackTarget
       place: { kind: "gap", at: k },
       hit: column ? rect(0, from, across, to - from) : rect(from, 0, to - from, across),
       slot,
-      marker: column ? rect(slot.x, slot.y, slot.width, 0) : rect(slot.x, slot.y, 0, slot.height),
+      // The line spans the stack's cross size (the drop's fit: the bar's height, the column's width).
+      marker: column ? rect(0, slot.y, fit.cross, 0) : rect(slot.x, 0, 0, fit.cross),
       input: solved,
       fit,
     });

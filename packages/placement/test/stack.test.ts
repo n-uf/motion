@@ -101,19 +101,22 @@ describe("fitStack: give-way", () => {
     const one = fitStack(stack(items, 250));
     expect(kinds(one)).toEqual(["header", "open", "open"]);
     expect(one.notes).toEqual([{ code: "form-down", id: "pages", from: 0, to: 1 }]);
-    // The oldest keeps giving way (header 28, rail icon 24, the menu) before the next one folds: it stays the oldest.
+    // The oldest keeps giving way (header 28, rail icon 24) before the next one folds: it stays the oldest. The menu
+    // is no step for it: the » entry (28) is bigger than the icon (24).
     expect(kinds(fitStack(stack(items, 205)))).toEqual(["rail", "open", "open"]);
-    const menu = fitStack(stack(items, 190));
-    // The » entry takes 28 itself, so with Pages in it the next one has to fold too.
-    expect(kinds(menu)).toEqual(["menu", "header", "open"]);
-    expect(menu.menu!.items).toEqual(["pages"]);
-    expect(menu.notes).toEqual([
-      { code: "form-down", id: "pages", from: 0, to: 3 },
+    const next = fitStack(stack(items, 190));
+    expect(kinds(next)).toEqual(["rail", "header", "open"]);
+    expect(next.menu).toBeNull();
+    expect(next.notes).toEqual([
+      { code: "form-down", id: "pages", from: 0, to: 2 },
       { code: "form-down", id: "notes", from: 0, to: 1 },
-      { code: "to-menu", id: "pages" },
     ]);
-    // Findings is the only one left, and folds: nothing open sets the width, so the column is a rail and it is an icon.
-    expect(kinds(fitStack(stack(items, 100)))).toEqual(["menu", "menu", "rail"]);
+    // Nothing open sets the width any more: the column is a rail and every header is an icon.
+    expect(kinds(fitStack(stack(items, 100)))).toEqual(["rail", "rail", "rail"]);
+    // Three icons are 72 px: under that the stack overflows rather than step to a longer form.
+    const tight = fitStack(stack(items, 60));
+    expect(kinds(tight)).toEqual(["rail", "rail", "rail"]);
+    expect(tight.notes.at(-1)).toEqual({ code: "overflow", over: 12 });
   });
 
   it("an item's use age is what orders it, not its place", () => {
@@ -131,9 +134,9 @@ describe("fitStack: give-way", () => {
     const items = [panel("pages", 1, 160, true), panel("notes", 4), panel("findings", 5)];
     const fit = fitStack(stack(items, 250));
     expect(kinds(fit)).toEqual(["open", "header", "open"]);
-    // Both unkept ones go all the way to the menu before the kept one goes a form down.
-    expect(kinds(fitStack(stack(items, 90 + 28)))).toEqual(["open", "menu", "menu"]);
-    expect(kinds(fitStack(stack(items, 60)))).toEqual(["rail", "menu", "menu"]);
+    // Both unkept ones go all the way to their icons before the kept one goes a form down.
+    expect(kinds(fitStack(stack(items, 90 + 48)))).toEqual(["open", "rail", "rail"]);
+    expect(kinds(fitStack(stack(items, 60)))).toEqual(["rail", "rail", "rail"]);
   });
 
   it("groups and panels give way by the same age", () => {
@@ -166,7 +169,11 @@ describe("fitStack: the cross size and the rail", () => {
   it("the widest open panel sets it, within the limits", () => {
     expect(fitStack(stack([panel("a", 1, 160, false, 200), panel("b", 2, 160, false, 300)], 900)).cross).toBe(300);
     expect(fitStack(stack([panel("a", 1, 160, false, 80)], 900)).cross).toBe(limits.min);
-    expect(fitStack(stack([panel("a", 1, 160, false, 900)], 900)).cross).toBe(limits.max);
+    // Clamped to the limits when the form can be drawn that thin (its `cross.min`); one that can't steps down (T6).
+    const thin = panel("a", 1, 160, false, 900);
+    const open = { ...thin.forms[0]!, cross: { natural: 900, min: 200 } };
+    expect(fitStack(stack([{ ...thin, forms: [open, ...thin.forms.slice(1)] }], 900)).cross).toBe(limits.max);
+    expect(fitStack(stack([thin], 900)).items[0]!.kind).not.toBe("open");
   });
 
   it("C2: a group alone never sets the column's width: the column is a rail", () => {

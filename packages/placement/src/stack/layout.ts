@@ -5,23 +5,30 @@
  * 2. The stack's cross size is the largest `cross.natural` among the items whose form sets it (an open panel's, by
  *    default), clamped to the limits; with none, the rail width.
  * 3. Cross-fit: an item whose form doesn't set the cross size and whose `cross.min` is over it steps down until it
- *    fits (a group never sets a column's width, so a group alone becomes a rail of icons). Cross size never steps
- *    an item into the menu: when only the menu is left it keeps its last drawn form and a `too-wide` note says so.
- * 4. Give-way: while the smallest sizes (`main.min`) don't fit the length, the item used longest ago steps down one
- *    form; unkept before kept, the later in the stack first on a tie. The same item keeps giving way until its forms
- *    end, then the next does. A `menu` form takes no room; the » entry does, while any item is in it (and an item
- *    doesn't go into the menu when that would only make the stack longer and nothing else can give way).
- *    Steps 2 to 4 repeat until nothing changes: a panel folding can narrow the column, which asks more of the groups.
+ *    fits (a group never sets a column's width, so a group alone becomes a rail of icons); so does one whose form does
+ *    set it but whose `cross.min` is over the limits' `max` (an open panel in a thin bar becomes a header). Cross size
+ *    never steps an item into the menu: when only the menu is left it keeps its last drawn form and a `too-wide` note
+ *    says so.
+ * 4. Give-way: while the smallest sizes (`main.min`, plus the gaps and the padding) don't fit the length, one item
+ *    steps down. Each item's next step goes to the first later form that shortens the stack (a smaller total: the
+ *    form's `main.min`, the » entry when the form is the menu, the gaps gained or lost); forms that don't are skipped,
+ *    and an item with none stays. Of those steps the one into the lowest `rank` is taken; ties go unkept before kept,
+ *    then the item used longest ago, then the later in the stack. A `menu` form takes no room; the » entry does, while
+ *    any item is in it. A `fold` form is an ordinary form with its own length. Steps 2 to 4 repeat until nothing
+ *    changes: a panel folding can narrow the column, which asks more of the groups.
  * 5. The room the items leave goes to the forms that grow, shared by their natural sizes. With none, the items keep
  *    their natural sizes from the start of the stack. Between the minimum and natural sizes every item shrinks by the
  *    same share of what it can give.
+ *
+ * `gap` sits between neighbouring drawn items (the » entry is one), `pad` before the first and after the last; both
+ * count toward the length and the rects include them, so an app draws at the rects.
  *
  * The solver has no open or closed state: it lays out the items it is given, and a consumer closes a panel by not
  * passing it (or by starting it at a later form with `from`). An item with no forms is left out (`no-forms`). Pure:
  * same input, same fit.
  */
 import type { Rect } from "../geometry";
-import { formSetsCross, limitsOf, menuMain, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote } from "./model";
+import { formSetsCross, limitsOf, menuMain, spacingOf, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote } from "./model";
 
 const EPS = 1e-6;
 const isMenu = (f: StackForm): boolean => f.kind === "menu";
@@ -30,20 +37,27 @@ const mainOf = (f: StackForm, which: "min" | "natural"): number => (isMenu(f) ? 
 /** The least a form can be drawn across the stack. */
 const crossMin = (f: StackForm): number => finite(f.cross.min ?? f.cross.natural);
 
-/** The item that gives way next: unkept before kept, used longest ago, the later in the stack on a tie. */
-function victim(items: readonly StackItem[], at: readonly number[]): number {
+const rankOf = (f: StackForm): number => finite(f.rank ?? 0);
+
+/**
+ * The item that gives way next, among those with a step (`to[i]`, the form it would take, or -1): the lowest rank of the
+ * form it steps into, unkept before kept, used longest ago, the later in the stack on a tie.
+ */
+function victim(items: readonly StackItem[], to: readonly number[]): number {
   let best = -1;
   for (let i = 0; i < items.length; i++) {
-    if (at[i]! + 1 >= items[i]!.forms.length) continue;
+    if (to[i]! < 0) continue;
     if (best < 0) {
       best = i;
       continue;
     }
     const a = items[i]!;
     const b = items[best]!;
+    const ra = rankOf(a.forms[to[i]!]!);
+    const rb = rankOf(b.forms[to[best]!]!);
     const ka = a.kept ? 1 : 0;
     const kb = b.kept ? 1 : 0;
-    if (ka !== kb ? ka < kb : a.used !== b.used ? a.used < b.used : true) best = i;
+    if (ra !== rb ? ra < rb : ka !== kb ? ka < kb : a.used !== b.used ? a.used < b.used : true) best = i;
   }
   return best;
 }
@@ -59,9 +73,9 @@ export function fitStack(input: StackInput): StackFit {
 
   const firstStep: number[] = [];
   const menuOrder: number[] = [];
-  const step = (i: number): void => {
+  const step = (i: number, j: number): void => {
     if (!firstStep.includes(i)) firstStep.push(i);
-    at[i]!++;
+    at[i] = j;
     if (isMenu(form(i)) && !menuOrder.includes(i)) menuOrder.push(i);
   };
   // An item that starts in the menu is in it from the start.
@@ -74,9 +88,28 @@ export function fitStack(input: StackInput): StackFit {
     return Math.min(Math.max(want, lim.min), lim.max);
   };
   const inMenu = (): boolean => idx.some((i) => isMenu(form(i)));
-  const minSum = (): number => idx.reduce((s, i) => s + mainOf(form(i), "min"), 0) + (inMenu() ? menuMain(input) : 0);
+  const sp = spacingOf(input);
+  /** The gaps between `slots` neighbours: the drawn items, and the » entry while any item is in it. */
+  const gapsOf = (): number => {
+    const slots = idx.filter((i) => !isMenu(form(i))).length + (inMenu() ? 1 : 0);
+    return slots > 1 ? (slots - 1) * sp.gap : 0;
+  };
+  /** The shortest the stack can be drawn now: the smallest sizes, the » entry, the gaps and the padding. */
+  const minSum = (): number => idx.reduce((s, i) => s + mainOf(form(i), "min"), 0) + (inMenu() ? menuMain(input) : 0) + gapsOf() + sp.start + sp.end;
+  /** The form item `i` would step to: the first later one that shortens the stack, else -1 (it stays). */
+  const stepTo = (i: number): number => {
+    const from = at[i]!;
+    const base = minSum();
+    let found = -1;
+    for (let j = from + 1; j < items[i]!.forms.length && found < 0; j++) {
+      at[i] = j;
+      if (minSum() < base - EPS) found = j;
+    }
+    at[i] = from;
+    return found;
+  };
   const canStep = (i: number): boolean => at[i]! + 1 < items[i]!.forms.length;
-  const tooWide = (i: number, cross: number): boolean => !isMenu(form(i)) && !formSetsCross(form(i)) && crossMin(form(i)) > cross + EPS;
+  const tooWide = (i: number, cross: number): boolean => !isMenu(form(i)) && crossMin(form(i)) > (formSetsCross(form(i)) ? lim.max : cross) + EPS;
 
   let cross = crossOf();
   let overflow = 0;
@@ -87,32 +120,26 @@ export function fitStack(input: StackInput): StackFit {
     let stepped = false;
     for (const i of idx) {
       if (tooWide(i, cross) && canStep(i) && !isMenu(items[i]!.forms[at[i]! + 1]!)) {
-        step(i);
+        step(i, at[i]! + 1);
         stepped = true;
       }
     }
     if (stepped) continue;
     const over = minSum() - length;
     if (over <= EPS) break;
-    const v = victim(items, at);
+    const to = idx.map(stepTo);
+    const v = victim(items, to);
     if (v < 0) {
-      overflow = over;
+      overflow = items.length > 0 ? over : 0;
       break;
     }
-    // Into the menu only when that helps, or when something else can still give way.
-    const intoMenu = isMenu(items[v]!.forms[at[v]! + 1]!);
-    const gain = mainOf(form(v), "min") - (inMenu() ? 0 : menuMain(input));
-    if (intoMenu && gain < 0 && idx.filter(canStep).length === 1) {
-      overflow = over;
-      break;
-    }
-    step(v);
+    step(v, to[v]!);
   }
   cross = crossOf();
 
   // Sizes along the stack.
   const menuSize = inMenu() ? menuMain(input) : 0;
-  const avail = Math.max(0, length - menuSize);
+  const avail = Math.max(0, length - sp.start - sp.end - gapsOf() - menuSize);
   const drawn = idx.filter((i) => !isMenu(form(i)));
   const min = (i: number): number => mainOf(form(i), "min");
   const nat = (i: number): number => Math.max(min(i), mainOf(form(i), "natural"));
@@ -134,13 +161,14 @@ export function fitStack(input: StackInput): StackFit {
 
   const rectAt = (from: number, main: number): Rect => (input.axis === "column" ? { x: 0, y: from, width: cross, height: main } : { x: from, y: 0, width: main, height: cross });
   const rects = new Map<number, Rect>();
-  let cursor = 0;
+  let cursor = sp.start;
   for (const i of drawn) {
     const s = size.get(i)!;
     rects.set(i, rectAt(cursor, s));
-    cursor += s;
+    cursor += s + sp.gap;
   }
-  const menuRect = rectAt(Math.max(cursor, length - menuSize), menuSize);
+  // The » entry sits at the end of the stack, after the padding, or right after the last item when room is short.
+  const menuRect = rectAt(Math.max(drawn.length > 0 ? cursor : sp.start, length - sp.end - menuSize), menuSize);
   const inside = idx.filter((i) => isMenu(form(i)));
   const menu: StackMenu | null = inside.length > 0 ? { rect: menuRect, items: inside.map((i) => items[i]!.id) } : null;
 
