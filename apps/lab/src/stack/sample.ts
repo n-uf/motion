@@ -124,3 +124,53 @@ export function inputOf(axis: StackAxis,length: number, items: readonly Placed[]
     strictCross: true,
   };
 }
+
+/** A group's fold along a toolbar: its grip and its own » in line (T1). */
+export const FOLD = 40;
+
+/**
+ * An item's forms along the Edge stack page's top bar, a toolbar edge (the toolbar cases T1 to T6). A group gives way to
+ * its own fold before the shared » entry (T1). Tools is the ranked primary: its icons, then its fold only after every
+ * other group's fold (T3). Zoom's stacked words are as long as its row, so a step never takes them (T2/T4). A panel
+ * starts at its header, as in any bar.
+ */
+export function toolbarFormsOf(id: ItemId, badge = false, rowMain?: number): StackForm[] {
+  if (isPanel(id)) return formsOf(id, "row", badge);
+  const row = rowMain ?? (badge ? 244 : 200);
+  const icons = iconsMain(SAMPLES[id].words.length, "row");
+  const ranked = (form: StackForm, rank: number): StackForm => ({ ...form, rank });
+  switch (id) {
+    case "tools":
+      return [ranked(f("row", row, row, 28), 0), ranked(f("icons", icons, icons, 28), 0), ranked(f("fold", FOLD, FOLD, 28), 1)];
+    case "zoom":
+      return [f("row", row, row, 28), f("stacked", row, row, 30), f("fold", FOLD, FOLD, 28), ranked(f("menu", 0, 0, 0), 2)];
+    default:
+      return [f("row", row, row, 28), f("fold", FOLD, FOLD, 28), ranked(f("menu", 0, 0, 0), 2)];
+  }
+}
+
+/** The top bar's measures on the Edge stack page. */
+export interface ToolbarBar {
+  readonly length: number;
+  /** At most this tall: an open panel never fits (C21, T6). */
+  readonly height: number;
+  readonly gap: number;
+  readonly pad: number;
+}
+
+/** An item in the top bar on the Edge stack page (a panel's fold by hand is a column's: in the bar it starts at its header anyway). */
+export const toolbarItemOf = (p: Placed): StackItem => ({ id: p.id, used: p.used, ...(p.kept ? { kept: true } : {}), forms: toolbarFormsOf(p.id, p.badge, p.rowMain) });
+
+/** The top bar's input on the Edge stack page: gaps and padding count in its length and in every rect (T5). */
+export function toolbarInputOf(bar: ToolbarBar, items: readonly Placed[]): StackInput {
+  return {
+    axis: "row",
+    length: bar.length,
+    cross: { min: bar.height - 4, max: bar.height, rail: bar.height },
+    items: items.map(toolbarItemOf),
+    menu: { main: MENU },
+    gap: bar.gap,
+    pad: { start: bar.pad, end: bar.pad },
+    strictCross: true,
+  };
+}
