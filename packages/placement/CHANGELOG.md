@@ -17,10 +17,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     `hit`.
   - **`stackTargets(…, { onlyFits: true })`**: a gap is offered only where the dragged item fits beside the others: not in
     the menu, no `overflow`, no new `too-wide`, no fixed item drawn at another size.
-  - **`StackInput.ownCross`** (C28, opt-in): items are drawn at their own `cross.natural`, clamped to the stack's and
-    from its start edge; a panel's `open` form and the » entry still span, and hits and markers span the stack. A
-    group's form that sets the cross size (the recommended column form for words, `stacked` with `setsCross`, then
-    `icons`, then `menu`, no `row`) widens the column but is drawn at its own width.
+  - **`StackInput.ownCross`** (C28, opt-in): an item in a group form (`row`, `stacked`, `icons`, `fold`) is drawn at its
+    own `cross.natural`, clamped to the stack's and from its start edge; panel forms (`open`, `header`, `rail`) and the
+    » entry still span, so every open panel fills the column, and hits and markers span the stack. The kind decides, not
+    `setsCross`: a group's form that sets the cross size (the recommended column form for words, `stacked` with
+    `setsCross`, then `icons`, then `menu`, no `row`) widens the column to the widest such group but is drawn at its own
+    width.
   - Affected: none unless the options are used. The README has the recommended column forms for a group and a title bar
     example.
 
