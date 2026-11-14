@@ -27,14 +27,19 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     3. The pass limit: the old limit (as many passes as forms in all) could run out before a long run of cross-fit and
        give-way steps ended and return a stack that doesn't fit with no `overflow` note. It now counts twice the forms.
        Affected: such stacks only (none in the sweep).
-  - **Opt-in, cross size:** a form that sets the cross size and has an explicit `cross.min` over the limits' `max` steps
-    down (an open panel with `cross.min` 120 in a bar with `cross.max` 40 becomes a header), never into the menu
-    (`too-wide` if it is the last drawn form). A form with no `cross.min` is clamped as before.
+  - **Opt-in via `strictCross`** (new optional `StackInput.strictCross`, default false): forms are never drawn thinner than
+    their `cross.min` (default their `natural`), so a form that sets the cross size and has a `cross.min` over the limits'
+    `max` steps down (an open panel with `cross.min` 120 in a bar with `cross.max` 40 becomes a header), never into the
+    menu (`too-wide` if it is the last drawn form). Without it a form that sets the cross size is clamped to `max` whatever
+    its `cross.min`, as in 26.11.13 (where `cross.min` already existed; a test holds that).
   - `fitStack(input, { previous })` (new optional second argument, `FitOptions`): keeps the forms of the previous fit while
     they still fit, so a change of `used` ages alone (a press on a header) reshapes nothing. Ages decide only who gives
-    way anew (the length shrank, an item was added, a panel was opened). When the forms kept leave more spare length than
-    before, the largest forms are tried again, as without it. `StackFit.need` (optional, always set by the solver) is the
-    length the chosen forms need, what `previous` compares. `stackTargets(…, { previous })` solves every gap the same way.
+    way anew (the length shrank, an item was added, a panel was opened). The largest forms are tried again, as without it,
+    when the forms kept leave more spare length than before (`StackFit.need`, optional and always set by the solver, is the
+    length the chosen forms need) or when the stack got wider across (a wider limit: a group that stepped to its stacked
+    form for a narrow column returns to its row, a header folded to a rail by its `cross.min` to its header). An item whose
+    forms changed since (another kind or smallest size at the kept index, `PlacedStackItem.min`) starts over.
+    `stackTargets(…, { previous })` solves every gap the same way.
   - `StackForm.rank` (default 0): the step taken is the one into the lowest-ranked form across all items; ties go
     unkept before kept, then the item used longest ago, then the later in the stack.
   - `StackInput.gap` (between neighbouring drawn items, the » entry included) and `StackInput.pad` (`{ start, end }`):
