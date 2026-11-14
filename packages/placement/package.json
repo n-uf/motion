@@ -55,6 +55,10 @@
     "./stack": {
       "types": "./src/stack/index.ts",
       "default": "./src/stack/index.ts"
+    },
+    "./scene": {
+      "types": "./src/scene/index.ts",
+      "default": "./src/scene/index.ts"
     }
   },
   "publishConfig": {
@@ -89,6 +93,10 @@
       "./stack": {
         "types": "./dist/stack.d.ts",
         "default": "./dist/stack.js"
+      },
+      "./scene": {
+        "types": "./dist/scene.d.ts",
+        "default": "./dist/scene.js"
       },
       "./package.json": "./package.json"
     }
