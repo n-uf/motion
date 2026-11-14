@@ -39,7 +39,7 @@ export interface StackTargetOptions {
   readonly previous?: StackFit;
 }
 
-export type StackPlace ={ readonly kind: "gap"; readonly at: number };
+export type StackPlace = { readonly kind: "gap"; readonly at: number };
 
 export interface StackTarget extends Target {
   readonly priority: 2;

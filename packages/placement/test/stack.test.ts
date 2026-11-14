@@ -176,14 +176,17 @@ describe("fitStack: the cross size and the rail", () => {
   it("the widest open panel sets it, within the limits", () => {
     expect(fitStack(stack([panel("a", 1, 160, false, 200), panel("b", 2, 160, false, 300)], 900)).cross).toBe(300);
     expect(fitStack(stack([panel("a", 1, 160, false, 80)], 900)).cross).toBe(limits.min);
-    // Clamped to the limits: with no `cross.min`, or with one the form can live with (T6 applies to an explicit one only).
+    // Clamped to the limits, whatever `cross.min` says (26.11.13 did, and `cross.min` already existed then).
     const wide = panel("a", 1, 160, false, 900);
     expect(fitStack(stack([wide], 900)).cross).toBe(limits.max);
-    const open = { ...wide.forms[0]!, cross: { natural: 900, min: 200 } };
-    expect(fitStack(stack([{ ...wide, forms: [open, ...wide.forms.slice(1)] }], 900)).cross).toBe(limits.max);
-    // An explicit `cross.min` over the limits' max steps down.
     const stuck = { ...wide.forms[0]!, cross: { natural: 900, min: 500 } };
-    expect(fitStack(stack([{ ...wide, forms: [stuck, ...wide.forms.slice(1)] }], 900)).items[0]!.kind).not.toBe("open");
+    const stuckItem = { ...wide, forms: [stuck, ...wide.forms.slice(1)] };
+    expect(fitStack(stack([stuckItem], 900)).cross).toBe(limits.max);
+    expect(fitStack(stack([stuckItem], 900)).items[0]!.kind).toBe("open");
+    // With `strictCross` a `cross.min` over the limits' max steps down (T6); one it can live with is only clamped.
+    expect(fitStack({ ...stack([stuckItem], 900), strictCross: true }).items[0]!.kind).not.toBe("open");
+    const fine = { ...wide.forms[0]!, cross: { natural: 900, min: 200 } };
+    expect(fitStack({ ...stack([{ ...wide, forms: [fine, ...wide.forms.slice(1)] }], 900), strictCross: true }).cross).toBe(limits.max);
   });
 
   it("C2: a group alone never sets the column's width: the column is a rail", () => {
