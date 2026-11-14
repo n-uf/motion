@@ -1,0 +1,35 @@
+<!-- The Stack · floats page (src/stack/floats.ts): the shell renders the header. -->
+<section class="controls st-controls" aria-label="Controls">
+  <fieldset>
+    <legend>Pages</legend>
+    <label>Scroll <input type="range" id="fl-scroll" min="0" max="1000" step="1" value="0" /> <output id="fl-scroll-out">0 px</output></label>
+  </fieldset>
+  <fieldset>
+    <legend>Page</legend>
+    <button type="button" id="fl-reset">Reset</button>
+    <button type="button" id="fl-run">Run all scenarios</button>
+  </fieldset>
+</section>
+
+<div class="st-wrap"><div class="st-stage" id="fl-stage"></div></div>
+<p id="st-status" role="status" aria-live="polite"></p>
+
+<section class="st-try">
+  <h2>Try this</h2>
+  <ol>
+    <li>Scroll the pages with the slider or the wheel over the sheet: Findings, the float, stays where it is, and so do the bar and the column. A float is in the window's px, never the pages'.</li>
+    <li>Drag Findings by its header over the column or the bar and hold: the dashed rectangle is where it will land, beside the docked items and inside the stage. The pointer can be outside the gap zones while its body is over the column; it never lands over a docked item's content.</li>
+    <li>Drag it with the pointer past the stage's edge, above, below or to either side: the dashed rectangle is clamped into the stage, and a release lands it there. Escape is the only way to cancel.</li>
+    <li>Drag a panel (Pages, Annotations) out of the column onto the sheet, and a group (Views, Tools, Zoom) out of the bar: each floats. Drag a float into a gap of the column or the bar: it docks.</li>
+    <li>Float Pages and Annotations out, put Findings near the left edge, and dock Pages again: the column opens to the panel's width and the float is moved clear of it.</li>
+    <li>A float has no pin: there is one kind, in the window's px, and the stored form writes no pinned flag (an old one is read and ignored).</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Checks</h2>
+  <table>
+    <thead><tr><th>Scenario</th><th>Mode</th><th>Result</th><th>Why</th></tr></thead>
+    <tbody id="fl-runs"><tr><td colspan="4">Run the scenarios to fill this table (window.__motionLab.runAll() does the same).</td></tr></tbody>
+  </table>
+</section>
