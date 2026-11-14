@@ -448,9 +448,39 @@ const centreOf = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height 
 
 const home: Scenario<Page> = {
   name: "Back over its own place shows where a drop returns it",
-  modes: ["a docked panel", "a docked group", "a float shows nothing (its home is a point)"],
+  modes: ["a docked panel", "a docked group", "a float shows nothing (its home is a point)", "a press near a header's edge shows nothing at the lift", "a press near a rail icon's edge shows nothing at the lift"],
   async run(p, mode) {
     const b = p.board;
+    if (mode.startsWith("a press near")) {
+      // The pointer is inside the item's own place, within a few px of its edge, so it hasn't gone out of it: the lift
+      // must draw no "back to its place" (the intent's left-home flag turns on near the edge, `atHome` must not).
+      const rail = mode.includes("rail");
+      if (rail) b.setLayout({ column: ["pages"], bar: ["tools", "zoom"], floats: [] }, { from: { pages: 2 } });
+      const id: ItemId = rail ? "pages" : "annotations";
+      const el = b.itemEl(id)!;
+      const was = d.domRect(el);
+      await d.press(b.gripOf(id)!, rail ? 2 : 12, rail ? 2 : 3);
+      // Past the lift distance, still inside the item's rect.
+      await d.glide({ x: d.at.x, y: d.at.y + 7 }, 1);
+      await d.frames(3);
+      const rows = [];
+      const inside = d.at.x >= was.x && d.at.x <= was.x + was.width && d.at.y >= was.y && d.at.y <= was.y + was.height;
+      const nearEdge = d.at.y - was.y < 12 || d.at.x - was.x < 6;
+      const lifted = b.dragging !== null;
+      const shown = !b.ind.hidden;
+      const said = b.status;
+      const at = d.at;
+      await d.release();
+      rows.push(
+        await rule("Right after the lift, with the press near the edge of its own place, no indicator and no status line say it is back", (ok) => {
+          ok(lifted, "no drag began");
+          ok(inside && nearEdge, `the pointer (${Math.round(at.x)}, ${Math.round(at.y)}) is not inside the item ${fmt(was)} near its edge`);
+          ok(!shown, `an indicator showed: "${b.indLabel.textContent}"`);
+          ok(!said.includes("Back to its place"), `the status says "${said}"`);
+        }),
+      );
+      return rows;
+    }
     const id: ItemId = mode === "a docked panel" ? "annotations" : mode === "a docked group" ? "tools" : "findings";
     const before = b.seen();
     const was = d.domRect(b.itemEl(id)!);
