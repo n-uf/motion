@@ -14,8 +14,11 @@
  *    form's `main.min`, the » entry when the form is the menu, the gaps gained or lost); forms that don't are skipped,
  *    and an item with none stays. Of those steps the one into the lowest `rank` is taken; ties go unkept before kept,
  *    then the item used longest ago, then the later in the stack. A `menu` form takes no room; the » entry does, while
- *    any item is in it. A `fold` form is an ordinary form with its own length. Steps 2 to 4 repeat until nothing
- *    changes: a panel folding can narrow the column, which asks more of the groups.
+ *    any item is in it. The first item into the menu opens the entry: when it is stuck (no shorter form but the
+ *    menu) and alone is shorter than the entry, the stuck items go in as one batch, in give-way order, as few as
+ *    together shorten the stack; if all of them together don't, they stay. A `fold` form is an ordinary form with its
+ *    own length. Steps 2 to 4 repeat until nothing changes: a panel folding can narrow the column, which asks more of
+ *    the groups.
  * 5. The room the items leave goes to the forms that grow, shared by their natural sizes. With none, the items keep
  *    their natural sizes from the start of the stack. Between the minimum and natural sizes every item shrinks by the
  *    same share of what it can give.
@@ -108,6 +111,31 @@ export function fitStack(input: StackInput): StackFit {
     at[i] = from;
     return found;
   };
+  /** The first menu form after item `i`'s current one, or -1. */
+  const menuFormAfter = (i: number): number => {
+    for (let j = at[i]! + 1; j < items[i]!.forms.length; j++) if (isMenu(items[i]!.forms[j]!)) return j;
+    return -1;
+  };
+  /**
+   * The items to step into the menu together, as [item, form] pairs in give-way order: the fewest from `pool` (the form
+   * each would take, -1 for an item not in it) that together shorten the stack, entry and gaps counted. Null when even
+   * all of them don't.
+   */
+  const menuBatch = (pool: readonly number[]): [number, number][] | null => {
+    const saved = [...at];
+    const base = minSum();
+    const left = [...pool];
+    const batch: [number, number][] = [];
+    let found = false;
+    for (let b = victim(items, left); b >= 0 && !found; b = victim(items, left)) {
+      batch.push([b, left[b]!]);
+      at[b] = left[b]!;
+      left[b] = -1;
+      found = minSum() < base - EPS;
+    }
+    at.splice(0, at.length, ...saved);
+    return found ? batch : null;
+  };
   const canStep = (i: number): boolean => at[i]! + 1 < items[i]!.forms.length;
   const tooWide = (i: number, cross: number): boolean => !isMenu(form(i)) && crossMin(form(i)) > (formSetsCross(form(i)) ? lim.max : cross) + EPS;
 
@@ -129,12 +157,26 @@ export function fitStack(input: StackInput): StackFit {
     const over = minSum() - length;
     if (over <= EPS) break;
     const to = idx.map(stepTo);
-    const v = victim(items, to);
-    if (v < 0) {
+    // Items that can't shorten the stack on their own but have the menu ahead: while the » entry doesn't exist, the
+    // first one in costs the entry, so they go in together or not at all.
+    const pool = idx.map((i) => (to[i]! < 0 && !inMenu() ? menuFormAfter(i) : -1));
+    const v = victim(
+      items,
+      idx.map((i) => (to[i]! >= 0 ? to[i]! : pool[i]!)),
+    );
+    if (v >= 0 && to[v]! < 0) {
+      const batch = menuBatch(pool);
+      if (batch) {
+        for (const [i, j] of batch) step(i, j);
+        continue;
+      }
+    }
+    const w = v >= 0 && to[v]! >= 0 ? v : victim(items, to);
+    if (w < 0) {
       overflow = items.length > 0 ? over : 0;
       break;
     }
-    step(v, to[v]!);
+    step(w, to[w]!);
   }
   cross = crossOf();
 

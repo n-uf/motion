@@ -91,8 +91,11 @@ describe("T2/T4: a give-way step goes only to a form that shortens the stack", (
     // Two rows and a gap: 40 + 10 + 40 = 90. One in the menu: 40 + 10 + 28 = 78 (shorter).
     const one = fitStack(bar([g("a", 1), g("b", 2)], 80, { menu: { main: 28 }, gap: 10 }));
     expect(kinds(one)).toEqual(["menu", "row"]);
-    // An entry of 52 makes the same step longer (40 + 10 + 52 = 102): the item stays.
-    const none = fitStack(bar([g("a", 1), g("b", 2)], 80, { menu: { main: 52 }, gap: 10 }));
+    // An entry of 52 makes one step longer (40 + 10 + 52 = 102), but both together (52) are shorter: one batch.
+    const batch = fitStack(bar([g("a", 1), g("b", 2)], 80, { menu: { main: 52 }, gap: 10 }));
+    expect(kinds(batch)).toEqual(["menu", "menu"]);
+    // An entry of 100 isn't beaten even by both: the items stay.
+    const none = fitStack(bar([g("a", 1), g("b", 2)], 80, { menu: { main: 100 }, gap: 10 }));
     expect(kinds(none)).toEqual(["row", "row"]);
     expect(none.notes).toEqual([{ code: "overflow", over: 10 }]);
   });

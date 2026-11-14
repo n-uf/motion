@@ -102,7 +102,7 @@ describe("fitStack: give-way", () => {
     expect(kinds(one)).toEqual(["header", "open", "open"]);
     expect(one.notes).toEqual([{ code: "form-down", id: "pages", from: 0, to: 1 }]);
     // The oldest keeps giving way (header 28, rail icon 24) before the next one folds: it stays the oldest. The menu
-    // is no step for it: the » entry (28) is bigger than the icon (24).
+    // is no step for it alone: the » entry (28) is bigger than the icon (24), and nothing else is stuck with it.
     expect(kinds(fitStack(stack(items, 205)))).toEqual(["rail", "open", "open"]);
     const next = fitStack(stack(items, 190));
     expect(kinds(next)).toEqual(["rail", "header", "open"]);
@@ -111,12 +111,17 @@ describe("fitStack: give-way", () => {
       { code: "form-down", id: "pages", from: 0, to: 2 },
       { code: "form-down", id: "notes", from: 0, to: 1 },
     ]);
-    // Nothing open sets the width any more: the column is a rail and every header is an icon.
-    expect(kinds(fitStack(stack(items, 100)))).toEqual(["rail", "rail", "rail"]);
-    // Three icons are 72 px: under that the stack overflows rather than step to a longer form.
+    // At 100, Pages and Notes (both icons, the oldest) go into the menu together (48 for the entry's 28), while
+    // Findings folds to its icon: nothing open sets the width, so the column is a rail.
+    expect(kinds(fitStack(stack(items, 100)))).toEqual(["menu", "menu", "rail"]);
+    expect(kinds(fitStack(stack(items, 138)))).toEqual(["rail", "rail", "open"]);
+    // Three icons are 72 px. Under that, icons go into the menu together: one alone (24 for the entry's 28) would
+    // lengthen the stack, two shorten it (48 for 28), and each one after that saves its whole size.
     const tight = fitStack(stack(items, 60));
-    expect(kinds(tight)).toEqual(["rail", "rail", "rail"]);
-    expect(tight.notes.at(-1)).toEqual({ code: "overflow", over: 12 });
+    expect(kinds(tight)).toEqual(["menu", "menu", "rail"]);
+    expect(tight.menu!.items).toEqual(["pages", "notes"]);
+    expect(tight.notes.some((n) => n.code === "overflow")).toBe(false);
+    expect(kinds(fitStack(stack(items, 30)))).toEqual(["menu", "menu", "menu"]);
   });
 
   it("an item's use age is what orders it, not its place", () => {
@@ -134,9 +139,11 @@ describe("fitStack: give-way", () => {
     const items = [panel("pages", 1, 160, true), panel("notes", 4), panel("findings", 5)];
     const fit = fitStack(stack(items, 250));
     expect(kinds(fit)).toEqual(["open", "header", "open"]);
-    // Both unkept ones go all the way to their icons before the kept one goes a form down.
+    // Both unkept ones go all the way to the menu (together: the first alone would only lengthen the stack) before
+    // the kept one goes a form down.
     expect(kinds(fitStack(stack(items, 90 + 48)))).toEqual(["open", "rail", "rail"]);
-    expect(kinds(fitStack(stack(items, 60)))).toEqual(["rail", "rail", "rail"]);
+    expect(kinds(fitStack(stack(items, 90 + 28)))).toEqual(["open", "menu", "menu"]);
+    expect(kinds(fitStack(stack(items, 60)))).toEqual(["rail", "menu", "menu"]);
   });
 
   it("groups and panels give way by the same age", () => {
