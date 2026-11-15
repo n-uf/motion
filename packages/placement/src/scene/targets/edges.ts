@@ -8,6 +8,7 @@ import { lift, moveTo, use } from "../changes";
 import { axisOf, formsOf, zoneOf, zoneTakes } from "../helpers";
 import { DEFAULT_STRIP, ZONES, type Edge, type Scene, type SceneLayout, type Zone } from "../model";
 import { solve } from "../solve";
+import { targetId } from "./ids";
 import { EDGE_KINDS, edgeKindOf, opensEmpty } from "./kinds";
 import type { Ctx, EdgeSpec, SceneAfter, SceneTargetOptions, Slot, Span } from "./model";
 
@@ -119,7 +120,7 @@ function edgeSlots(c: Ctx, edge: Edge, accepts: boolean): Slot[] {
   const restEdge = rest.edges.find((e) => e.id === edge.id)!;
   // `strip:<edge>:<zone>` names a slot only on an edge with no members at all (a zone there has one slot); every other
   // slot, beside closed members or the item's own place too, is named by its gap, so no two slots share an id.
-  const slotId = (zone: Zone, k: number): string => (restEdge.items.length === 0 ? `strip:${edge.id}:${zone}` : `gap:${edge.id}:${zone}:${k}`);
+  const slotId = (zone: Zone, k: number): string => targetId(restEdge.items.length === 0 ? { kind: "strip", edge: edge.id, zone } : { kind: "gap", edge: edge.id, zone, at: k });
   // Where a drop lands on this edge: in it, shown (no » entry); on a title bar (a fixed item that grows), in a form of its
   // first form's kind (the full row or one of its compact variants, read from the forms, not from their index), the
   // title at its natural width and nothing else changing form or going into the menu.

@@ -9,7 +9,7 @@
  * place), the two pure steps a host needs to turn a gesture's `place` into a pointer.
  */
 import { area, centre, contains as inside, type Point, type Rect } from "../../geometry";
-import { close, dockHome, fold, floatAt, homeFor, open, raise, readScene, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
+import { close, dockHome, fold, floatAt, homeFor, open, placeTargetId, raise, readScene, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
 import type { CaseHost, CaseSettings, Gesture } from "./types";
 
 /** The lift threshold: the pointer moves this far (px) from the press before the item lifts. */
@@ -33,27 +33,9 @@ export function pickTarget<T extends { readonly priority: number; readonly hit: 
   return best;
 }
 
-/** The id `targets` gives the target for `place`, or null for a place with no fixed id (`none`). */
-function targetIdOf(place: ScenePlace, item: string): string | null {
-  switch (place.kind) {
-    case "gap":
-      return `gap:${place.edge}:${place.zone}:${place.at}`;
-    case "column":
-      return `column:${place.side}:${place.ring}`;
-    case "rail":
-      return `rail:${place.side}:${place.ring}`;
-    case "float":
-      return `float:${item}`;
-    case "home":
-      return `home:${item}`;
-    default:
-      return null;
-  }
-}
-
-/** The target for `place` among `list`: by id, else by the place's kind. */
+/** The target for `place` among `list`: by its id (`placeTargetId`), else by the place's kind. */
 function targetAt(list: readonly SceneTarget[], place: ScenePlace, item: string): SceneTarget | null {
-  const id = targetIdOf(place, item);
+  const id = placeTargetId(place, item);
   return (id ? list.find((t) => t.id === id) : undefined) ?? list.find((t) => t.place.kind === place.kind && (place.kind === "none" || id === null)) ?? null;
 }
 

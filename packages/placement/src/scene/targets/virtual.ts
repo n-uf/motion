@@ -6,6 +6,7 @@ import { RAIL_EDGE, rect, type Rect } from "../../geometry";
 import { sideRings } from "../changes";
 import type { Edge } from "../model";
 import { slotAt } from "./edges";
+import { targetId, virtualEdgeId } from "./ids";
 import { EDGE_KINDS } from "./kinds";
 import type { Ctx, EdgeSpec, SceneAfter, Slot, Span } from "./model";
 
@@ -45,13 +46,13 @@ export function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec[] {
   // One spec per line: a new column's place, owning a band of `place` px about its line (ranked where that column would
   // be laid), its slot's tile reaching `reach` each way past it as overreach.
   return lines.map((l) => ({
-    id: `column:${side}`,
-    key: `column:${side}:${l.ring}`,
+    id: virtualEdgeId("column", side),
+    key: targetId({ kind: "column", side, ring: l.ring }),
     kind: "columnLine" as const,
     lay: { phase: EDGE_KINDS.columnLine.phase, side, at: l.at },
     vertical: false,
     zones: [{ zone: "start" as const, a: l.x - reach, b: l.x + reach }],
-    slots: [slotAt(c, "start", l.x, `column:${side}:${l.ring}`, { kind: "column", side, ring: l.ring }, lands)],
+    slots: [slotAt(c, "start", l.x, targetId({ kind: "column", side, ring: l.ring }), { kind: "column", side, ring: l.ring }, lands)],
     refuse: () => "no-room" as const,
     own: null,
     holds: false,
@@ -99,14 +100,14 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
   const lands = (r: SceneAfter): boolean => r.layout.items[dragged]!.rail === side && r.scene !== c.scene;
   const at = zone;
   return {
-    id: `rail:${side}`,
-    key: `rail:${side}`,
+    id: virtualEdgeId("rail", side),
+    key: virtualEdgeId("rail", side),
     kind: "railStop",
     // The rail lies outside every edge on its side: laid first among them.
     lay: { phase: EDGE_KINDS.railStop.phase, side, at: -1 },
     vertical: true,
     zones: [{ zone: "start", a: at.y, b: at.y + at.height }],
-    slots: stops.map((s) => slotAt(c, "start", s.y, `rail:${side}:${s.ring}`, { kind: "rail", side, ring: s.ring }, lands, ownRail)),
+    slots: stops.map((s) => slotAt(c, "start", s.y, targetId({ kind: "rail", side, ring: s.ring }), { kind: "rail", side, ring: s.ring }, lands, ownRail)),
     refuse: () => "no-room",
     own: null,
     holds: false,
