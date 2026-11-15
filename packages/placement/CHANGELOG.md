@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.22
 
 - `@n-uf/placement/scene`, **fixed:** `isOutsideSideBar` counts an edge as a side bar only when its side has a column
   template or a rail and the edge takes none of their kinds. On a side with neither, no edge is a bar, so a static
