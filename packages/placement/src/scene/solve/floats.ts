@@ -4,8 +4,8 @@
  * corner of `content` first. A float with `from` over 0 is its bar: its form's natural length along its `orient`, its
  * other size kept.
  */
+import { fitFloat } from "../../float-fit";
 import { EPS, rect, type Rect } from "../../geometry";
-import { fitFloat } from "../../stack";
 import { axisOf, floatOrientOf, floatShape, formsOf, type FloatAnchor } from "../model";
 import { shapeOf, type Draft } from "./draft";
 import type { Inset } from "./insets";

@@ -8,6 +8,13 @@
  * kept and closed items, the use order and chosen forms. Floats (`fitFloat`, `stackFloatTarget`, `storeFloats`) are items
  * above the pages in the stage's own px: clamped into the stage, clear of the docked content, never pinned. Pure:
  * items and a length in; forms, rects and coded notes out. Not tied to `./panels` columns.
+ *
+ * `./stack` is the edge solver the Scene lays each edge with: `fitStack`, its input and fit (`StackInput`, `StackItem`,
+ * `StackFit`) and the form vocabulary (`StackForm`, `CrossLimits` and the form helpers). Its window-level parts are
+ * **deprecated**, each replaced by `@n-uf/placement/scene`, and stay until the next breaking release:
+ * `stackTargets` / `StackTarget` → `targets(scene, id)`; `createStack` / `storeStack` / `readStack` → `storeScene` /
+ * `readScene`; `stackFloatTarget` → the `float:<id>` target of `targets()`; `storeFloats` / `readFloats` → the stored
+ * scene's floats; `fitFloat` / `FloatFit` → the same names from `./scene`.
  */
 export { fitStack } from "./layout";
 export {

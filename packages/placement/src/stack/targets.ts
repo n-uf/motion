@@ -23,12 +23,17 @@
  * inside it: the gaps before and after it stay, but the hit of a gap ends where the fixed item starts and the next one
  * begins where it ends, so no hit overlaps it. Nor has one the stack doesn't accept (`input.accepts`); `options.allows` leaves out
  * single gaps.
+ *
+ * Deprecated: drop targets belong to the window. `targets(scene, id)` from `@n-uf/placement/scene` gives every gap of
+ * every edge (and the column lines, the rail, the float), each with the layout a release there makes. These names
+ * stay until the next breaking release.
  */
 import { rect, type Rect } from "../geometry";
 import type { Target } from "../target";
 import { fitStack } from "./layout";
 import { formMain, withItem, type FitOptions, type PlacedStackItem, type StackFit, type StackInput, type StackItem } from "./model";
 
+/** @deprecated Use `SceneTargetOptions` and `targets(scene, id)` from `@n-uf/placement/scene`. */
 export interface StackTargetOptions {
   /**
    * How far the first gap's hit reaches before the stack's start and the last gap's past its end, px (default 0), so a
@@ -58,8 +63,10 @@ export interface StackTargetOptions {
   readonly onlyFits?: boolean;
 }
 
+/** @deprecated Use `ScenePlace` from `@n-uf/placement/scene` (a gap is `{ kind: "gap", edge, zone, at }`). */
 export type StackPlace = { readonly kind: "gap"; readonly at: number };
 
+/** @deprecated Use `SceneTarget` and `targets(scene, id)` from `@n-uf/placement/scene`. */
 export interface StackTarget extends Target {
   readonly priority: 2;
   /** The item dragged. */
@@ -151,6 +158,7 @@ function fitsBeside(
   return true;
 }
 
+/** @deprecated Use `targets(scene, id)` from `@n-uf/placement/scene`: every edge's gaps, each with the layout a release makes. */
 export function stackTargets(input: StackInput, dragged: StackItem, options: StackTargetOptions = {}): StackTarget[] {
   if (dragged.forms.length === 0) return [];
   if (dragged.fixed) return [];
