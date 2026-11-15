@@ -5,8 +5,10 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.25
 
-- `./gestures`, **`GesturePointer`**: the new name of the pointer the gesture stream reports. `SurfacePointer` stays
-  as a deprecated alias of it, removed once its users have moved. **Migration:** import `GesturePointer`.
+- **Removed:** `SurfacePointer` (deprecated in 26.11.25); use `GesturePointer`.
+
+- `./gestures`, **`GesturePointer`**: the new name of the pointer the gesture stream reports. **Migration:** import
+  `GesturePointer`.
 
 ## 26.11.24
 

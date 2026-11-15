@@ -45,9 +45,6 @@ export interface GesturePointer {
   pressure?: number;
 }
 
-/** @deprecated The old name of {@link GesturePointer}; it goes once its users have moved. */
-export type SurfacePointer = GesturePointer;
-
 // ----------------------------------------------------------------------------
 // Raw events (copied out of DOM events by the host)
 // ----------------------------------------------------------------------------
