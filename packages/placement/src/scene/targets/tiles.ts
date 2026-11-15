@@ -3,7 +3,7 @@
  * each clear of the tiles before it, of what outranks its edge, of the fixed items that don't grow and of the chrome.
  */
 import { EPS, area, rect, subtract, type Point, type Rect } from "../../geometry";
-import { axisOf, zoneOf, zoneTakes } from "../helpers";
+import { axisOf, hitBandOf, zoneOf, zoneTakes } from "../helpers";
 import { DEFAULT_HIT_BAND, type SceneLayout, type Zone } from "../model";
 import { distinctSlots } from "./edges";
 import { targetId } from "./ids";
@@ -290,7 +290,7 @@ export function seenRefusals(c: Ctx, live: readonly EdgeSpec[], placed: readonly
     const e = c.scene.edges.find((x) => x.id === edge);
     if (!e) continue;
     const vertical = axisOf(e.side) === "column";
-    const band = e.hitBand ?? DEFAULT_HIT_BAND;
+    const band = hitBandOf(c.scene, e);
     const half = band === "middle" ? 0 : Math.max(0, Number.isFinite(band) ? band : DEFAULT_HIT_BAND) / 2;
     const bodies =
       band === "middle"

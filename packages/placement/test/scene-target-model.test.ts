@@ -39,7 +39,7 @@ function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edg
 }
 
 /** Runs the check over `seeds`; returns the failure counts per category and a few examples. */
-export function propertyCheck(seeds: readonly number[], flush = false): { points: number; counts: Record<Failure, number>; examples: string[] } {
+export function propertyCheck(seeds: readonly number[], flush = false, middle = false): { points: number; counts: Record<Failure, number>; examples: string[] } {
   const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0 };
   const examples: string[] = [];
   const fail = (k: Failure, msg: string): void => {
@@ -48,7 +48,7 @@ export function propertyCheck(seeds: readonly number[], flush = false): { points
   };
   let points = 0;
   for (const seed of seeds) {
-    const s = modelScene(seed, flush);
+    const s = modelScene(seed, flush, middle);
     const now = solve(s);
     for (const id of Object.keys(s.items)) {
       const it = s.items[id]!;
@@ -422,6 +422,16 @@ describe("the target model's property check", () => {
     if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, counts: r.counts }), "\n" + r.examples.join("\n"));
     expect(r.points).toBeGreaterThan(2000);
     for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
+  });
+
+  it("windows whose columns and column templates split panels in halves (hitBand \"middle\") keep every category at zero", () => {
+    for (const flush of [false, true]) {
+      const r = propertyCheck(Array.from({ length: 300 }, (_, i) => i + 1), flush, true);
+      // eslint-disable-next-line no-console
+      if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, counts: r.counts }), "\n" + r.examples.join("\n"));
+      expect(r.points).toBeGreaterThan(1000);
+      for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${flush ? "flush " : ""}${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
+    }
   });
 
   it("an edge whose id holds ':' is an edge like any other (virtual edges are flagged, not named)", () => {

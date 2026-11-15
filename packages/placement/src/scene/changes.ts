@@ -106,6 +106,7 @@ function newColumn(scene: Scene, side: "left" | "right", kind: string, ring: num
     ...(t.pad ? { pad: t.pad } : {}),
     ...(t.menu ? { menu: t.menu } : {}),
     ...(t.zoneAccepts ? { zoneAccepts: t.zoneAccepts } : {}),
+    ...(t.hitBand !== undefined ? { hitBand: t.hitBand } : {}),
     column: true,
   };
 }

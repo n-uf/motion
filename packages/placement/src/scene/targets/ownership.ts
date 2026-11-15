@@ -9,7 +9,7 @@
  * one laid first wins. Home's tile is owned before all. A virtual edge owns nothing and yields to every owner.
  */
 import { EPS, area, overlaps, rect, subtract, type Rect } from "../../geometry";
-import { axisOf, formsOf } from "../helpers";
+import { axisOf, formsOf, hitBandOf } from "../helpers";
 import { DEFAULT_HIT_BAND, type SceneLayout } from "../model";
 import { pushes, type LayKey } from "../solve";
 import { EDGE_KINDS } from "./kinds";
@@ -144,8 +144,9 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
   // zones' room.
   const bodySpans = (id: string): Span[] => {
     const e = rest.edges.find((x) => x.id === id);
-    const bandOpt = e?.hitBand ?? DEFAULT_HIT_BAND;
-    if (!e || bandOpt === "middle") return [];
+    if (!e) return [];
+    const bandOpt = hitBandOf(scene, e);
+    if (bandOpt === "middle") return [];
     const column = axisOf(e.side) === "column";
     const half = Math.max(0, Number.isFinite(bandOpt) ? bandOpt : DEFAULT_HIT_BAND) / 2;
     return Object.entries(base.items)

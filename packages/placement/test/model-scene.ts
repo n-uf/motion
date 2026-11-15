@@ -6,7 +6,7 @@ import { bar, byId, column, controls, group, panel, seeded, title } from "./scen
  * A generated window: a top bar (plain or title), a bottom bar, each side one edge kind, maybe a side bar; floats of each
  * kind. `flush`: no inset, rails on both sides, hand folds that ride, and a panel column inside every side bar.
  */
-export function modelScene(seed: number, flush = false): Scene {
+export function modelScene(seed: number, flush = false, middle = false): Scene {
   const rnd = seeded(seed);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;
   const items: SceneItem[] = [];
@@ -61,9 +61,12 @@ export function modelScene(seed: number, flush = false): Scene {
       edges.push(column(`${side}-col`, side, 1, [`${side}-p`]));
     }
   }
+  // `middle`: the side columns and the templates new columns are made from split panels in halves (`hitBand: "middle"`).
+  const band = middle ? { hitBand: "middle" as const } : {};
+  const cols = edges.map((e) => (e.id.endsWith("-col") ? { ...e, ...band, ...(rails ? { column: true } : {}) } : e));
   return {
     stage: { x: 0, y: 0, width: W, height: H },
-    edges: rails ? edges.map((e) => (e.id.endsWith("-col") ? { ...e, column: true } : e)) : edges,
+    edges: cols,
     ...(rails ? { rails: { left: { width: 30, accepts: ["panel"] }, right: { width: 30, accepts: ["panel"] } }, contentMin: { width: flush ? 300 : W - 250, height: 200 } } : {}),
     ...(flush ? { handFold: "ride" as const } : {}),
     items: byId(items),
@@ -72,7 +75,7 @@ export function modelScene(seed: number, flush = false): Scene {
       { id: fp, rect: { x: W / 2, y: H / 3, width: 220, height: 200 } },
     ],
     floatKinds: ["group", "panel"],
-    columns: { left: { accepts: ["panel"], cross: { min: 160, max: 480, rail: 30 } }, right: { accepts: ["panel"], cross: { min: 160, max: 480, rail: 30 } } },
+    columns: { left: { accepts: ["panel"], cross: { min: 160, max: 480, rail: 30 }, ...band }, right: { accepts: ["panel"], cross: { min: 160, max: 480, rail: 30 }, ...band } },
     gutter: 8,
     ...(inset ? { inset: { left: inset, right: inset, top: inset, bottom: inset } } : {}),
   };
