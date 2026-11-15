@@ -445,11 +445,36 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
   const otherEdges = Object.entries(base.edges)
     .filter(([id, e]) => id !== edge.id && e.rect.width > EPS && e.rect.height > EPS && !(edge.compact && e.side === edge.side))
     .map(([, e]) => e.rect);
+  /**
+   * `h` trimmed clear of each rect in `others`, never dropped. A rect across from the edge's own rect (a bar above a
+   * column) trims the hit's end along the edge; one beside it (a neighbouring column) trims the hit's side across.
+   */
+  const own = el.rect;
+  const trimOff = (h: Rect, others: readonly Rect[], k: Point): Rect => {
+    let [a0, a1] = column ? [h.y, h.y + h.height] : [h.x, h.x + h.width];
+    let [c0, c1] = column ? [h.x, h.x + h.width] : [h.y, h.y + h.height];
+    const km = column ? k.y : k.x;
+    const kc = column ? k.x : k.y;
+    const [w0, w1] = column ? [own.x, own.x + own.width] : [own.y, own.y + own.height];
+    for (const o of others) {
+      const [o0, o1] = column ? [o.y, o.y + o.height] : [o.x, o.x + o.width];
+      const [p0, p1] = column ? [o.x, o.x + o.width] : [o.y, o.y + o.height];
+      if (Math.min(a1, o1) - Math.max(a0, o0) <= EPS || Math.min(c1, p1) - Math.max(c0, p0) <= EPS) continue;
+      const across = Math.min(w1, p1) - Math.max(w0, p0) > EPS;
+      if (!across) {
+        if (p1 <= kc + EPS) c0 = Math.max(c0, p1);
+        else if (p0 >= kc - EPS) c1 = Math.min(c1, p0);
+      } else if (o1 <= km + EPS) a0 = Math.max(a0, o1);
+      else if (o0 >= km - EPS) a1 = Math.min(a1, o0);
+    }
+    return column ? rect(c0, a0, Math.max(0, c1 - c0), Math.max(0, a1 - a0)) : rect(a0, c0, Math.max(0, a1 - a0), Math.max(0, c1 - c0));
+  };
   const target = (id: string, place: Extract<ScenePlace, { kind: "gap" }>, hit: Rect, keep: Point, solved?: SceneAfter): SceneTarget | null => {
     const result = solved ?? settle(use(moveTo(scene, dragged, place), dragged));
     if (!fits(result.layout)) return null;
     // A gap's hit (its end reach included) never enters another edge's rect: a column's top gap stops at the bar above.
-    const clear = cutClear(hit, id.startsWith("gap:") ? [...blockers, ...otherEdges] : blockers, keep);
+    // Along the edge only, from the keep point (inside the edge's own rect); a neighbour beside it trims the hit across.
+    const clear = cutClear(id.startsWith("gap:") ? trimOff(hit, otherEdges, keep) : hit, blockers, keep);
     if (!clear) return null;
     return { id, priority: 2, hit: clear, slot: result.layout.items[dragged]!.rect, marker: markerOf(result.layout), item: dragged, place, after: () => result };
   };
@@ -556,7 +581,8 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
       ? rect(edge.side === "left" ? r.x : r.x + r.width - (thick - inward) - inward, from, thick, to - from)
       : rect(from, edge.side === "top" ? r.y : r.y + r.height - (thick - inward) - inward, to - from, thick);
     const line = Math.min(Math.max(g.line, from), to);
-    const keep = column ? { x: edge.side === "left" ? r.x + Math.min(el.cross, thick) / 2 : r.x + r.width - Math.min(el.cross, thick) / 2, y: line } : { x: line, y: hit.y + hit.height / 2 };
+    // The point a hit must keep: on the gap's line, across in the middle of the edge's own rect as it is now.
+    const keep = column ? { x: r.x + r.width / 2, y: line } : { x: line, y: r.y + r.height / 2 };
     const t = target(`gap:${edge.id}:${g.zone}:${g.at}`, g.place, hit, keep, g.result);
     if (t) out.push(t);
   });
