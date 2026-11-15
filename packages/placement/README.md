@@ -863,9 +863,11 @@ none lays out as before.
 - **`Scene.insetWhen`** (`"always"`, the default, or `"docked"`): with `"docked"` the inset applies only while something is
   docked beside the content, that is an open column or a rail (an edge that takes something and holds an item that isn't
   closed). An anchor alone doesn't count; with nothing docked, the content is the whole stage.
-- **`layout.columnRoom`** and the note **`no-column-room`** (`{ width, need }`): with `contentMin` and a dynamic column
-  (or, before any exists, a `Scene.columns` template), whether one column at its minimum fits beside the content's
-  minimum. Anchors and rails don't count: every column, an anchor included, can fold into its rail. `false` comes with the
+- **`layout.columnRoom`** and the note **`no-column-room`** (`{ width, need }`): with `contentMin` and a dynamic column,
+  whether one column at its minimum fits beside the content's minimum. Anchors and rails don't count: every column, an
+  anchor included, can fold into its rail. A docked column counts whether or not its side has a rail. Before any column
+  holds an item, the `Scene.columns` template answers, with the larger of its `cross.min` and the least width the items
+  it takes need, so docking a panel doesn't flip the answer. `false` comes with the
   note, where `width` is the room the stage leaves and `need` the content's minimum plus that column and its gutter. A
   host shows its narrow fallback (one panel over the content) while it is `false`. An exhaustive `switch` over
   `SceneNote["code"]` needs the new code.

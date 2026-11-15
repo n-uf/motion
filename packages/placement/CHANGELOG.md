@@ -9,12 +9,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   **`runCasesAsync(rows, makeHost, { onResult? })`** play the rows on an **`AsyncCaseHost`** (a `CaseHost` whose `load`,
   `perform`, `layout`, `root`, `stored` and `stops` may return promises; `itemSelector` stays plain), so a kit's page can
   be driven from a browser runner with real pointer events and timers. They await each host call in the order `runCase`
-  makes them, with the same checks (both play one list of steps); a rejected `load` or `perform` is a failed result, as a
-  thrown one is. A sync `CaseHost` works with both. `runCase`, `runCases` and `CaseHost` are unchanged.
-- `@n-uf/placement/scene`, **`layout.columnRoom`** (**Changed**): with `contentMin` and a column (or, before any exists,
-  a `Scene.columns` template), whether one column at its minimum fits beside the content's minimum. Anchors and rails
-  don't count any more (26.11.19 counted the anchors' room): every column, an anchor included, can fold into its rail. A
-  host's narrow fallback (the sheet) reads it.
+  makes them, with the same checks (both play one list of steps). A failing `load`, `perform`, `layout` or `stored` is a
+  failed result, as a thrown one is; a failing `root` or `stops` rejects `runCaseAsync` (and throws from `runCase`). A
+  sync `CaseHost` works with both. `runCase`, `runCases` and `CaseHost` are unchanged.
+- `@n-uf/placement/scene`, **`layout.columnRoom`** (**Changed**): with `contentMin` and a column, whether one column at
+  its minimum fits beside the content's minimum. Anchors and rails don't count any more (26.11.19 counted the anchors'
+  room): every column, an anchor included, can fold into its rail. A docked column counts whether or not its side has a
+  rail. Before any column holds an item, the answer comes from the `Scene.columns` template: the larger of its
+  `cross.min` and the least width the items it takes need, so docking a panel doesn't flip the answer. A host's narrow
+  fallback (the sheet) reads it.
 - `@n-uf/placement/scene`, `setSide` ticks no use clock, like every change: a host that moves an edge by hand calls
   `use()` on its items afterwards, as a drop does (documented, with a test).
 
