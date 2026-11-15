@@ -49,7 +49,7 @@
 import { rect, type Point, type Rect, type Size } from "../geometry";
 import type { Target } from "../targets/target";
 import { formMain } from "../stack/model";
-import { floatAt, lift, moveTo, use, type ColumnPlace, type RailPlace } from "./changes";
+import { floatAt, lift, moveTo, sideRings, use, type ColumnPlace, type RailPlace } from "./changes";
 import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_STRIP, ZONES, axisOf, formsOf, zoneOf, zoneTakes, zonesTaking, type Edge, type Scene, type SceneLayout, type Zone } from "./model";
 import { solve } from "./solve";
 
@@ -450,13 +450,16 @@ function sideSpan(base: SceneLayout, side: "left" | "right"): { y: number; heigh
 function columnTargets(scene: Scene, rest: Scene, base: SceneLayout, side: "left" | "right", dragged: string, blockers: readonly Rect[], settle: (s: Scene) => SceneAfter): SceneTarget[] {
   const cols = openColumns(rest, base, side);
   const span = sideSpan(base, side);
-  const mine = rest.edges.filter((e) => e.side === side);
-  const inner = mine.length === 0 ? 0 : Math.max(...mine.map((e) => e.ring)) + 1;
+  // Rings as the side's edges lie (no ties): a static edge outer to the columns keeps its place, so no line offers a
+  // ring outside it (`insertColumn` keeps a new column inside it).
+  const rings = sideRings(rest.edges, side);
+  const ringOf = (e: Edge): number => rings.get(e.id) ?? e.ring;
+  const inner = rings.size;
   const lines: { x: number; ring: number }[] = [];
   const outerX = (r: Rect): number => (side === "left" ? r.x : r.x + r.width);
   const innerX = (r: Rect): number => (side === "left" ? r.x + r.width : r.x);
-  cols.forEach((c) => lines.push({ x: outerX(c.r), ring: c.edge.ring }));
-  if (cols.length > 0) lines.push({ x: innerX(cols[cols.length - 1]!.r), ring: cols[cols.length - 1]!.edge.ring + 1 });
+  cols.forEach((c) => lines.push({ x: outerX(c.r), ring: ringOf(c.edge) }));
+  if (cols.length > 0) lines.push({ x: innerX(cols[cols.length - 1]!.r), ring: ringOf(cols[cols.length - 1]!.edge) + 1 });
   else lines.push({ x: side === "left" ? base.content.x : base.content.x + base.content.width, ring: inner });
   const out: SceneTarget[] = [];
   for (const line of lines) {
@@ -481,8 +484,10 @@ function columnTargets(scene: Scene, rest: Scene, base: SceneLayout, side: "left
  */
 function railTargets(scene: Scene, rest: Scene, base: SceneLayout, side: "left" | "right", dragged: string, blockers: readonly Rect[], settle: (s: Scene) => SceneAfter): SceneTarget[] {
   const rail = base.rails[side];
-  const mine = rest.edges.filter((e) => e.side === side).sort((a, b) => a.ring - b.ring);
-  const ringOf = (id: string): number => rest.edges.find((e) => e.id === id)?.ring ?? 0;
+  // Rings as the side's edges lie (no ties), as `insertColumn` counts them.
+  const rings = sideRings(rest.edges, side);
+  const mine = rest.edges.filter((e) => e.side === side).sort((a, b) => (rings.get(a.id) ?? 0) - (rings.get(b.id) ?? 0));
+  const ringOf = (id: string): number => rings.get(id) ?? 0;
   const stops: { y: number; ring: number }[] = [];
   let zone: Rect;
   if (rail && rail.segments.length > 0) {
@@ -502,7 +507,7 @@ function railTargets(scene: Scene, rest: Scene, base: SceneLayout, side: "left" 
     const outer = Object.values(base.edges).filter((e) => e.side === side && e.rect.height > 0);
     const x = side === "left" ? Math.min(base.content.x, ...outer.map((e) => e.rect.x)) : Math.max(base.content.x + base.content.width, ...outer.map((e) => e.rect.x + e.rect.width));
     zone = rect(side === "left" ? x : x - RAIL_EDGE, span.y, RAIL_EDGE, span.height);
-    stops.push({ y: span.y, ring: firstCol ? firstCol.ring : mine.length === 0 ? 0 : mine[mine.length - 1]!.ring + 1 });
+    stops.push({ y: span.y, ring: firstCol ? ringOf(firstCol.id) : mine.length });
   }
   const out: SceneTarget[] = [];
   stops.forEach((s, i) => {

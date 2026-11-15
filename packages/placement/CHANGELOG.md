@@ -5,6 +5,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.21
 
+- `@n-uf/placement/scene`, **fixed:** static edges keep their place. A new column (a `column:` or `rail:` target,
+  `moveTo` with a column or rail place, `dockHome`) goes no further out than just inside the static edges outer to the
+  side's dynamic columns, so a bar or an anchor at the window edge is never pushed inward. Column and rail places count
+  rings as the side's edges lie (by ring, then by order, no ties), and `homeFor` gives a start column's ring that way.
+
 - `@n-uf/placement/stack` (and so every Scene edge), **Changed:** growing back under `previous` is exactly the reverse
   of giving way, the » menu included. A fit now carries its give-way history, **`StackFit.steps`** (`StackStep { id,
   from, to, batch? }`, in the order taken; new type `StackStep`), and the next fit carries it on: room coming back undoes
