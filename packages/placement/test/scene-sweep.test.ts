@@ -1,6 +1,7 @@
 /** Property sweeps over random scenes: several edges, rings, spans and modes, fixed items, zones, floats and kinds. */
 import { describe, expect, it } from "vitest";
 import { lift, solve, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
+import { pickTarget } from "../src/scene/cases";
 import { bar, byId, column, controls, group, panel, readout, seeded, title } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
@@ -219,5 +220,28 @@ describe("scene sweeps", () => {
         }
       }
     }
+  });
+
+  it("home covers every docked item's whole own rect: no point across it picks a target that moves the item", () => {
+    let points = 0;
+    for (const seed of SEEDS) {
+      const s = randomScene(seed);
+      const l = solve(s);
+      for (const [id, it] of Object.entries(l.items)) {
+        const si = s.items[id]!;
+        if (si.fixed || si.closed || it.floating || it.inMenu || !it.edge || it.rect.width < 2 || it.rect.height < 2) continue;
+        const ts = targets(s, id, { previous: l });
+        if (ts.length === 0) continue;
+        // A 5 × 5 grid across the rect, half a px in from its sides.
+        for (let i = 0; i < 5; i++)
+          for (let j = 0; j < 5; j++) {
+            const p = { x: it.rect.x + 0.5 + ((it.rect.width - 1) * i) / 4, y: it.rect.y + 0.5 + ((it.rect.height - 1) * j) / 4 };
+            points++;
+            const t = pickTarget(ts, p);
+            if (t && t.place.kind !== "home" && t.place.kind !== "none") throw new Error(`seed ${seed} drag ${id}: ${JSON.stringify(p)} on its own rect picks ${t.id}`);
+          }
+      }
+    }
+    expect(points).toBeGreaterThan(10000);
   });
 });
