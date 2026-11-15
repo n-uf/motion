@@ -703,11 +703,20 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     }
     const from = shape.form;
     const form = formsOf(it, f.orient === "row" ? "row" : "column")[from];
-    // Into that region; a float larger than it is shrunk to fit it.
-    const w = Math.min(shape.width, floatRegion.width);
-    const h = Math.min(shape.height, floatRegion.height);
+    // Into that region; a float larger than it is shrunk to fit it, never under its floor: the item's `floatMin`, else
+    // its form's own minimums. A folded float (its bar) keeps its height. Wider than the region at its floor, it keeps
+    // the floor and lies at the region's left edge.
+    const row = f.orient === "row";
+    // The form's own minimums only stop a shrink (a float asked smaller keeps its size); `floatMin` is laid out as given.
+    const floor = {
+      width: it.floatMin ? px(it.floatMin.width) : Math.min(shape.width, px(row ? form?.main.min : form?.cross.min)),
+      height: it.floatMin ? px(it.floatMin.height) : Math.min(shape.height, px(row ? form?.cross.min : form?.main.min)),
+    };
+    const w = Math.max(floor.width, Math.min(shape.width, floatRegion.width));
+    const h = from > 0 ? shape.height : Math.max(floor.height, Math.min(shape.height, floatRegion.height));
     const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);
-    const fit = fitFloat(want, floatRegion, avoid);
+    const fit0 = fitFloat(want, floatRegion, avoid);
+    const fit = w > floatRegion.width + EPS ? { ...fit0, rect: rect(floatRegion.x, fit0.rect.y, w, fit0.rect.height) } : fit0;
     if (fit.clamped) notes.push({ code: "float-clamped", id: f.id });
     if (fit.snapped) notes.push({ code: "float-moved", id: f.id });
     if (fit.covers.length > 0) notes.push({ code: "float-covers", id: f.id });

@@ -62,6 +62,11 @@ export interface SceneItem {
   readonly align?: Zone;
   /** Its size as a float: `floatAt` with no rect uses it, and a float drop sets it. */
   readonly floatSize?: Size;
+  /**
+   * The least a float of it is shrunk to: a float larger than the region floats lie in is laid out at
+   * `max(floatMin, min(its size, the region))` each way. A folded float keeps its height. No minimum when left out.
+   */
+  readonly floatMin?: Size;
 }
 
 export interface Edge {
