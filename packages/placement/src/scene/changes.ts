@@ -262,7 +262,8 @@ export function setSide(scene: Scene, edgeId: string, side: Side): Scene {
 /**
  * The place `start` (a scene as it began: the host's start or reset scene) gives an item, for Dock, Put back and Reset
  * position: its zone and place in the same edge (before the first item that followed it there and is still there), a
- * new column at its ring when its column is gone, or its float rect (and anchor). Null when `start` places it nowhere
+ * new column at its ring when its column is gone (a column under the same id that holds none of the start column's
+ * items is another column), or its float rect (and anchor). Null when `start` places it nowhere
  * or in an edge `scene` no longer has that isn't a column. `moveTo(scene, id, place)` puts it there.
  */
 export function homeFor(scene: Scene, id: string, start: Scene): Place | null {
@@ -270,7 +271,10 @@ export function homeFor(scene: Scene, id: string, start: Scene): Place | null {
     const k = e.items.indexOf(id);
     if (k < 0) continue;
     const zone = zoneOf(itemOf(start, id) ?? itemOf(scene, id));
-    const here = scene.edges.find((x) => x.id === e.id);
+    // A dynamic column's id is reused once it is pruned: the edge under that id is home only while it still holds one of
+    // the start column's items (the item itself, or another). Static edges match by id.
+    const found = scene.edges.find((x) => x.id === e.id);
+    const here = found && (e.column !== true || found.items.some((x) => e.items.includes(x))) ? found : undefined;
     if (here) {
       const now = here.items.filter((x) => x !== id && zoneOf(itemOf(scene, x)) === zone);
       const next = e.items.slice(k + 1).find((x) => now.includes(x));

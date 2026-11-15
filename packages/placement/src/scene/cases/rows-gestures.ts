@@ -298,6 +298,17 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
     expectLayout: { items: { pages: { rect: r(12, 0, 300, 394) }, annotations: { rect: r(12, 406, 300, 394) }, findings: { rect: r(808, 0, 300, 800) } }, columns: { left: [["pages", "annotations"]], right: [["findings"]] } },
   },
   {
+    id: "P14b-dock-after-a-column-id-is-reused",
+    title: "Dock when a new column took a pruned column's id",
+    expect:
+      "Findings moved into the left column empties its right column, which goes; Pages opened in a new right column gets that column's id again. Dock then gives Findings its own column at the right side's outer end, as at the start, with Pages inside it: never a place beside Pages.",
+    group: "gestures",
+    scene: win(),
+    gestures: [g.moveTo("findings", g.gap("left-0", 2)), g.moveTo("pages", g.column("right", 0)), g.click("findings", "dock")],
+    checkpoints: [{ at: 1, layout: { columns: { left: [["annotations", "findings"]], right: [["pages"]] } }, note: "Pages in a new right column" }],
+    expectLayout: { columns: { left: [["annotations"]], right: [["findings"], ["pages"]] } },
+  },
+  {
     id: "P15-stops-for-the-keyboard",
     title: "Move to › stops",
     expect: "The places \"Move to ›\" offers for Annotations are, in this order: the left rail, a new column at the left side's outer end, the gap before Pages, a new column at its inner end, the right rail, a new column at the right side's inner end, the gaps before and after Findings, a new column at its outer end, and a float; each one moves Annotations there, and Dock puts it back.",

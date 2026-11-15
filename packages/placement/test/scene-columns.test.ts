@@ -258,6 +258,19 @@ describe("homeFor", () => {
     expect(homeFor(start, "findings", floated)).toEqual({ kind: "float", rect: { x: 10, y: 10, width: 200, height: 200 } });
     expect(homeFor(start, "nobody", start)).toBeNull();
   });
+
+  it("a pruned column's id reused by a new column isn't home: Dock gives the item its own column at its ring again", () => {
+    // Findings joins the left column (right-0 is pruned), then Pages opens a new right column: it is right-0 again.
+    const joined = moveTo(start, "findings", { kind: "gap", edge: "left-0", at: 2 });
+    expect(joined.edges.some((e) => e.id === "right-0")).toBe(false);
+    const reused = moveTo(joined, "pages", { kind: "column", side: "right", ring: 0 });
+    expect(reused.edges.find((e) => e.id === "right-0")!.items).toEqual(["pages"]);
+    expect(homeFor(reused, "findings", start)).toEqual({ kind: "column", side: "right", ring: 0 });
+    // Docked: Findings in its own outermost right column, Pages inside it.
+    const docked = dockHome(reused, "findings", start);
+    const right = docked.edges.filter((e) => e.side === "right").sort((a, b) => a.ring - b.ring);
+    expect(right.map((e) => e.items)).toEqual([["findings"], ["pages"]]);
+  });
 });
 
 describe("column and rail targets", () => {
