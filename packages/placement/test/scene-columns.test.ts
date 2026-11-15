@@ -165,6 +165,18 @@ describe("dynamic columns", () => {
   const f = fixture("scene-window-a.json");
   const s = adapt(f, f.scenes.three!.scene);
 
+  it("an item moved into a new column keeps its zone (end, center) when the column takes it there", () => {
+    for (const align of ["end", "center"] as const) {
+      const aligned: Scene = { ...s, items: { ...s.items, annotations: { ...s.items.annotations!, align } } };
+      const m = moveTo(aligned, "annotations", { kind: "column", side: "right", ring: 0 });
+      expect(m.items.annotations!.align).toBe(align);
+      expect(m.edges.find((e) => e.items.includes("annotations"))!.items).toEqual(["annotations"]);
+      expect(solve(m).items.annotations!.zone).toBe(align);
+    }
+    // A start item stays without an align.
+    expect(moveTo(s, "annotations", { kind: "column", side: "right", ring: 0 }).items.annotations!.align).toBeUndefined();
+  });
+
   it("a column place makes a new column from the side's template; an emptied one is deleted and rings close up", () => {
     const m = moveTo(s, "annotations", { kind: "column", side: "right", ring: 0 });
     const right = m.edges.filter((e) => e.side === "right").sort((a, b) => a.ring - b.ring);
