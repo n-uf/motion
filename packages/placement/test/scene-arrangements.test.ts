@@ -351,10 +351,26 @@ describe("the options the rows need", () => {
       floats: ["pages", "annotations", "findings"].map((id, i) => ({ id, rect: { x: 20 + i * 30, y: 40, width: 300, height: 300 } })),
     };
     const l = solve(floating);
-    // Nothing docked, so no inset (insetWhen docked): 400 < contentMin 320 + one column 220 + 12, the sheet is needed.
+    // A column that opened would bring the inset (insetWhen docked): 400 − 24 < contentMin 320 + one column 220 + 12.
     expect(l.columnRoom).toBe(false);
-    expect(l.notes).toContainEqual({ code: "no-column-room", width: 400, need: 552 });
+    expect(l.notes).toContainEqual({ code: "no-column-room", width: 376, need: 552 });
     expect(solve({ ...floating, stage: { ...floating.stage, width: 1000 } }).columnRoom).toBe(true);
+  });
+
+  it("columnRoom is answered as if the column were open: the inset it would bring, a hand-folded column at its open minimum", () => {
+    const three = rows.scenes.three!.scene;
+    // Every panel floating, nothing docked (no inset drawn): 552..575 has no room once the inset comes with the column.
+    for (const w of [552, 560, 575]) {
+      const s = adapt(three, w, 800);
+      const floating: Scene = { ...s, edges: s.edges.filter((e) => e.column !== true), floats: ["pages", "annotations", "findings"].map((id, i) => ({ id, rect: { x: 20 + i * 30, y: 40, width: 300, height: 300 } })) };
+      expect(solve(floating).columnRoom, `floating at ${w}`).toBe(false);
+    }
+    // All three folded by hand: the same answer as with them open, at every width; the layout is untouched.
+    for (let w = 380; w <= 700; w += 8) {
+      const open = adapt(three, w, 800);
+      const folded: Scene = { ...open, items: Object.fromEntries(Object.entries(open.items).map(([id, it]) => [id, { ...it, from: 1 }])) };
+      expect(solve(folded).columnRoom, `folded at ${w}`).toBe(solve(open).columnRoom);
+    }
   });
 
   it("insetWhen docked: no inset while nothing is docked beside the content", () => {

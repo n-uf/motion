@@ -5,6 +5,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
+- `@n-uf/placement/scene`, **fixed:** `columnRoom` is answered as if the one column were open: under
+  `insetWhen: "docked"` with nothing docked it counts the inset that column would bring, and a column folded whole by
+  hand (and a template's floating items) counts at its open minimum, not as a rail. Layouts don't change; only
+  `columnRoom` and its `no-column-room` note do.
+
 - `@n-uf/placement/scene`, give-way priority (additive): **`SceneItem.priority`** and **`Edge.priority`** (its items'
   default). When an edge runs short its items step down their forms (row, wrap in a column, icons, then the edge's »
   menu) lowest priority first, ties to the one used longest ago; it adds to every one of the item's forms' `rank`
