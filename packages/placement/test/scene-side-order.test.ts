@@ -79,6 +79,25 @@ describe("a side's order with an inset", () => {
 });
 
 describe("the rail strip lies where the rail lands", () => {
+  it("railPlaces: where each side's rail lies, drawn or not; a shown rail's rect, else where a rail drop lands", () => {
+    let n = 0;
+    for (const sideBar of [false, true])
+      for (const anchor of [false, true])
+        for (const inset of [0, 12])
+          for (const fold of [false, true]) {
+            const s = scene({ sideBar, anchor, inset, fold });
+            const l = solve(s);
+            const at = `bar ${sideBar} anchor ${anchor} inset ${inset} fold ${fold}`;
+            expect(Object.keys(l.railPlaces).sort(), at).toEqual(["left", "right"]);
+            if (l.rails.left) expect(l.railPlaces.left, at).toEqual(l.rails.left.rect);
+            const t = targets(s, "p2").find((x) => x.id.startsWith("rail:left:"));
+            if (!t || l.rails.left) continue;
+            expect(t.after({ x: 0, y: 0 }).layout.rails.left!.rect, at).toEqual(l.railPlaces.left);
+            n++;
+          }
+    expect(n).toBeGreaterThan(4);
+  });
+
   it("with and without a side bar, an anchor and an inset: the strip's outer edge is the landed rail's", () => {
     let n = 0;
     for (const sideBar of [false, true])
