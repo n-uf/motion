@@ -7,6 +7,7 @@ import { createPanels, homePlace, keep, layoutPanels, panelDrop, panelTargets, r
 import { PRESETS, presetLayout, presetTargets } from "../src/desk";
 import { fitFloat, fitStack, readFloats, readStack, stackFloatTarget, stackTargets, storeFloats, storeStack, type StackForm, type StackItem } from "../src/stack";
 import { readScene, solve, storeScene, targets, type Scene, type SceneItem } from "../src/scene";
+import { CASES, createSceneHost, runCase } from "../src/scene/cases";
 
 describe("README examples", () => {
   it("desk presets", () => {
@@ -278,5 +279,11 @@ describe("README examples", () => {
     const drop = drops.find((t) => t.id === "gap:right:start:2")!.after({ x: 0, y: 0 });
     expect(JSON.stringify(solve(drop.scene, { previous: layout })) === JSON.stringify(drop.layout)).toBe(true);
     expect(readScene(JSON.parse(JSON.stringify(storeScene(drop.scene))), scene).dropped).toEqual([]);
+  });
+
+  it("conformance rows", () => {
+    const row = CASES.find((c) => c.id === "C1")!;
+    const result = runCase(row, createSceneHost());
+    expect([result.ok, result.failures, result.skipped.length]).toEqual([true, [], 6]);
   });
 });
