@@ -56,6 +56,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
       `at` keeping its id.
     - An overlay column is drawn on top, and what shows on top wins: an empty rail's place under an overlay column
       offers no `rail:` stop there, and a column line beside an overlay column yields to it.
+    - A refused place owns nothing against other edges: ownership is ranked among the edges with a slot the filter
+      keeps, and refusals take only what every surviving target's tile leaves (within its own edge a refusal keeps its
+      tile). So a panel can always become its own column beside the others: in a window with no inset and a side bar,
+      an empty rail that would refuse the drop no longer hides the new-column target just inside the bar
+      (`column:<side>:<ring>`); the rail's refusal shrinks to what is left.
 
   - Typing: `SceneRefusal["reason"]` gains `own-place`; an exhaustive `switch` over it needs the case.
 
