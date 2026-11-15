@@ -1,0 +1,6744 @@
+{
+ "_about": "Acceptance rows for placement 26.11.19: today's panels model (layoutPanels with the kits' rooms) against the Scene, window A and window B numbers, every window width 280..1279 px, height 800. 22 arrangements of the panels pages, annotations, findings, plus the generic thumbs anchor scenes and the sheet, padding and stored-width scenes. A row with no kind is a REGRESSION row: the Scene and today agree and must keep agreeing. kind target: the Scene differs today and the row holds TODAY'S result (what the kits draw), the value the library should reach; its gap names the gap (see _gaps). kind option: the library's own option, not a kit rule. A row with intended true holds the Scene's own result where it differs from today on purpose (a ruling: C9 vertical give-way, C27 float clearance), a regression row for the Scene, not a target; the anchorRailOrder and anchorGiveWayOrder scenes are rulings where today wins (target rows; fields anchorRect {x,y,w,h} and railX {side: x} added), the anchorRiderOverAnchor, pressWhileNarrow and resizeMemoryAfterJump scenes rulings where the Scene wins (intended rows; riderRects, press and history added: a row after a press or a resize history carries the Scene's previous layout, so it is history-dependent); the heightSweep scenes have heights (the panels' drawn heights, px) and forms rail (a panel in its rail form, a column of them is 32 wide). Format as window-a.json / window-b.json. extends window-a.json#three / window-b.json#three is that file's scenes.three; fields beside it replace (edges, floats) or merge per id (items). handFold is ride (the kits' rule; window-a's own three says bar) unless a scene says otherwise. items: closed = not open (keeps its place, takes no room), from 1 = folded by hand, kept = keeps open, thumbs = a fixed anchor edge item. floats rects are {x,y,w,h} in the window; the stage is the window (inset = pad). layout fields: columns / columnWidths (open columns per side, outer first, members top to bottom, width as drawn), rails (segments per side, outer first), rides (a bar riding over its side's first open column), forms (bar = folded in place), floats (rect; form bar when folded), contentWidth (the pages, exact), columnX (drawn x of the open columns, anchor scenes), sheetFallback. A scene's known names its KNOWN_DIFFS entries; variants named window-b carry window B rows only where it differs.",
+ "_gaps": {
+  "ride-for-stacks": "a column of two or more panels, all folded by hand, beside an open column rides over it (a bar each, as wide as that column, taking no width); the Scene sends it to the rail",
+  "float-clamp-region": "today clamps a float to the stage less the padding at both ends; the Scene to the whole window (window A: 24 px at the far edge)",
+  "float-shrink": "today makes a float no wider than a stage narrower than it; the Scene never resizes a float",
+  "float-clear-decision": "today lets a float cover docked items and rail segments; the Scene moves it clear (host rule C27, operator): INTENDED, not a gap and not a target; the kits adapt, and the rows marked with it hold TODAY's result for reference only",
+  "sheet-signal": "the narrow fallback (one panel over the pages) is not readable from layout.content, which stays above contentMin because rails are narrow: the library should say it",
+  "inset-only-while-docked": "window A draws its stage padding only while something is beside the pages; the Scene insets always (contentWidth here is what is drawn)",
+  "anchor-outside-inset": "a fixed edge outside the stage padding with no gutter after it",
+  "anchor-shrink-fold": "a fixed edge that shrinks toward its minimum and folds into the rail under give-way, as the oldest column",
+  "anchor-change-sides": "a pure change that moves a fixed edge to the other side",
+  "rail-order": "a compact rail beside the thumbnail rail is the OUTERMOST strip, at the window edge, and the thumbnails sit inside it (placement 7b: today wins)"
+ },
+ "_numbers": {
+  "windowA": "card 220..640, gap 12, padding 24 (12 each side), rail 32 (slot 44), bar 30, thumbs 72 (56..200)",
+  "windowB": "card 200..560, gap 0, padding 0, rail 32 (slot 32), bar 38",
+  "contentMin": {
+   "width": 320,
+   "height": 240
+  },
+  "floatSize": {
+   "width": 300,
+   "height": 300
+  },
+  "scenesAndRows": {
+   "scenes": 35,
+   "rows": 155
+  }
+ },
+ "scenes": {
+  "three": {
+   "_about": "Window A's start, all open: the left stack folds whole into the rail, then everything is in rails.",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride"
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 472
+     }
+    },
+    {
+     "stage": {
+      "w": 808,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 807,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 427
+     }
+    },
+    {
+     "stage": {
+      "w": 619,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 507
+     }
+    }
+   ]
+  },
+  "pair": {
+   "_about": "Pages closed: it keeps its place and takes no room.",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "items": {
+     "pages": {
+      "closed": true
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 472
+     }
+    },
+    {
+     "stage": {
+      "w": 808,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 807,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 427
+     }
+    },
+    {
+     "stage": {
+      "w": 619,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 507
+     }
+    }
+   ]
+  },
+  "one": {
+   "_about": "",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "items": {
+     "pages": {
+      "closed": true
+     },
+     "annotations": {
+      "closed": true
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784
+     }
+    },
+    {
+     "stage": {
+      "w": 576,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 575,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 507
+     }
+    }
+   ]
+  },
+  "none": {
+   "_about": "Nothing open: the layout's content is the stage less the padding (see padding-always for what is drawn).",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "items": {
+     "pages": {
+      "closed": true
+     },
+     "annotations": {
+      "closed": true
+     },
+     "findings": {
+      "closed": true
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 1096
+     }
+    }
+   ]
+  },
+  "separate": {
+   "_about": "Three columns: they fold oldest first.",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages"
+      ]
+     },
+     {
+      "id": "left-1",
+      "side": "left",
+      "ring": 1,
+      "column": true,
+      "items": [
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ]
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ],
+        [
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220,
+        220
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 1040,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ],
+        [
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220,
+        220
+       ],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 1039,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages"
+       ],
+       "right": []
+      },
+      "contentWidth": 347
+     }
+    },
+    {
+     "stage": {
+      "w": 851,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 471
+     }
+    },
+    {
+     "stage": {
+      "w": 619,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 507
+     }
+    }
+   ]
+  },
+  "rightTwo": {
+   "_about": "",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-1",
+      "side": "right",
+      "ring": 1,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ]
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ]
+       ],
+       "right": [
+        [
+         "annotations"
+        ],
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        220,
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 1040,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ]
+       ],
+       "right": [
+        [
+         "annotations"
+        ],
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        220,
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 1039,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "annotations"
+        ],
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300,
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages"
+       ],
+       "right": []
+      },
+      "contentWidth": 347
+     }
+    },
+    {
+     "stage": {
+      "w": 851,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages"
+       ],
+       "right": [
+        "annotations"
+       ]
+      },
+      "contentWidth": 427
+     }
+    },
+    {
+     "stage": {
+      "w": 663,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages"
+       ],
+       "right": [
+        "annotations",
+        "findings"
+       ]
+      },
+      "contentWidth": 551
+     }
+    }
+   ]
+  },
+  "keptAnnotations": {
+   "_about": "A kept panel's column folds last.",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "items": {
+     "annotations": {
+      "kept": true
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 472
+     }
+    },
+    {
+     "stage": {
+      "w": 808,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 807,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 427
+     }
+    },
+    {
+     "stage": {
+      "w": 619,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 507
+     }
+    }
+   ]
+  },
+  "keptFindings": {
+   "_about": "",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "items": {
+     "findings": {
+      "kept": true
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 472
+     }
+    },
+    {
+     "stage": {
+      "w": 808,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 807,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 427
+     }
+    },
+    {
+     "stage": {
+      "w": 619,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 507
+     }
+    }
+   ]
+  },
+  "keptPages": {
+   "_about": "",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages"
+      ]
+     },
+     {
+      "id": "left-1",
+      "side": "left",
+      "ring": 1,
+      "column": true,
+      "items": [
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ],
+    "items": {
+     "pages": {
+      "kept": true
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ],
+        [
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300,
+        220
+       ],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 1040,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ],
+        [
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220,
+        220
+       ],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 1039,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 347
+     }
+    },
+    {
+     "stage": {
+      "w": 851,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 427
+     }
+    },
+    {
+     "stage": {
+      "w": 663,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 551
+     }
+    }
+   ]
+  },
+  "foldedInStack": {
+   "_about": "Folded by hand in a stack: a bar in place (forms.annotations bar), as wide as the column.",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "items": {
+     "annotations": {
+      "from": 1
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 472,
+      "forms": {
+       "annotations": "bar"
+      }
+     }
+    },
+    {
+     "stage": {
+      "w": 808,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "forms": {
+       "annotations": "bar"
+      }
+     }
+    },
+    {
+     "stage": {
+      "w": 807,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 427
+     }
+    },
+    {
+     "stage": {
+      "w": 619,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 507
+     }
+    }
+   ]
+  },
+  "foldedWholeStack": {
+   "_about": "Every panel of the column folded by hand: the column goes to its side's rail.",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "items": {
+     "pages": {
+      "from": 1
+     },
+     "annotations": {
+      "from": 1
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 740
+     }
+    },
+    {
+     "stage": {
+      "w": 620,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 619,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 507
+     }
+    }
+   ]
+  },
+  "foldedFindings": {
+   "_about": "",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "items": {
+     "findings": {
+      "from": 1
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 740
+     }
+    },
+    {
+     "stage": {
+      "w": 620,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 320
+     }
+    },
+    {
+     "stage": {
+      "w": 619,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 507
+     }
+    }
+   ]
+  },
+  "foldedEverything": {
+   "_about": "",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "items": {
+     "pages": {
+      "from": 1
+     },
+     "annotations": {
+      "from": 1
+     },
+     "findings": {
+      "from": 1
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 1008
+     }
+    }
+   ]
+  },
+  "foldedAlone": {
+   "_about": "A one-panel column folded by hand rides over its side's first open column, at its width, taking none.",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages"
+      ]
+     },
+     {
+      "id": "left-1",
+      "side": "left",
+      "ring": 1,
+      "column": true,
+      "items": [
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ],
+    "items": {
+     "annotations": {
+      "from": 1
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 472,
+      "rides": {
+       "annotations": "left"
+      }
+     }
+    },
+    {
+     "stage": {
+      "w": 808,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "rides": {
+       "annotations": "left"
+      }
+     }
+    },
+    {
+     "stage": {
+      "w": 807,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 427
+     }
+    },
+    {
+     "stage": {
+      "w": 619,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 507
+     }
+    }
+   ]
+  },
+  "foldedAloneBar": {
+   "_about": "handFold bar: the same panel goes to the rail instead of riding. Rows are the library's option, not today's kits (they ride: see foldedAlone).",
+   "known": "hand-fold-bar",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "bar",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages"
+      ]
+     },
+     {
+      "id": "left-1",
+      "side": "left",
+      "ring": 1,
+      "column": true,
+      "items": [
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ],
+    "items": {
+     "annotations": {
+      "from": 1
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "rails": {
+       "left": [
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 428
+     },
+     "kind": "option"
+    },
+    {
+     "stage": {
+      "w": 808,
+      "h": 800
+     },
+     "layout": {
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 428
+     },
+     "kind": "option"
+    },
+    {
+     "stage": {
+      "w": 807,
+      "h": 800
+     },
+     "layout": {
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 427
+     },
+     "kind": "option"
+    },
+    {
+     "stage": {
+      "w": 619,
+      "h": 800
+     },
+     "layout": {
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 507
+     },
+     "kind": "option"
+    }
+   ]
+  },
+  "foldedStackBesideColumn": {
+   "_about": "Two panels, all folded by hand, in a column beside an open column: today every one rides over that column (a bar each, as wide as it, taking no width). Target rows; the Scene sends the stack to the rail.",
+   "known": "ride-of-a-stack",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     },
+     {
+      "id": "left-1",
+      "side": "left",
+      "ring": 1,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ],
+    "items": {
+     "pages": {
+      "from": 1
+     },
+     "annotations": {
+      "from": 1
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "rides": {
+       "pages": "left",
+       "annotations": "left"
+      }
+     },
+     "kind": "target",
+     "gap": "ride-for-stacks"
+    },
+    {
+     "stage": {
+      "w": 700,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 364,
+      "rides": {
+       "pages": "left",
+       "annotations": "left"
+      }
+     },
+     "kind": "target",
+     "gap": "ride-for-stacks"
+    },
+    {
+     "stage": {
+      "w": 600,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        244
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "rides": {
+       "pages": "left",
+       "annotations": "left"
+      }
+     },
+     "kind": "target",
+     "gap": "ride-for-stacks"
+    },
+    {
+     "stage": {
+      "w": 576,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "rides": {
+       "pages": "left",
+       "annotations": "left"
+      }
+     },
+     "kind": "target",
+     "gap": "ride-for-stacks"
+    },
+    {
+     "stage": {
+      "w": 575,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations",
+        "findings"
+       ],
+       "right": []
+      },
+      "contentWidth": 507
+     }
+    }
+   ],
+   "variants": [
+    {
+     "name": "window-b",
+     "scene": {
+      "extends": "window-b.json#three",
+      "handFold": "ride",
+      "edges": [
+       {
+        "id": "left-0",
+        "side": "left",
+        "ring": 0,
+        "column": true,
+        "items": [
+         "pages",
+         "annotations"
+        ]
+       },
+       {
+        "id": "left-1",
+        "side": "left",
+        "ring": 1,
+        "column": true,
+        "items": [
+         "findings"
+        ]
+       }
+      ],
+      "items": {
+       "pages": {
+        "from": 1
+       },
+       "annotations": {
+        "from": 1
+       }
+      }
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 1120,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "findings"
+          ]
+         ],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [
+          280
+         ],
+         "right": []
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 840,
+        "rides": {
+         "pages": "left",
+         "annotations": "left"
+        }
+       },
+       "kind": "target",
+       "gap": "ride-for-stacks"
+      },
+      {
+       "stage": {
+        "w": 600,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "findings"
+          ]
+         ],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [
+          280
+         ],
+         "right": []
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 320,
+        "rides": {
+         "pages": "left",
+         "annotations": "left"
+        }
+       },
+       "kind": "target",
+       "gap": "ride-for-stacks"
+      },
+      {
+       "stage": {
+        "w": 520,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "findings"
+          ]
+         ],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [
+          200
+         ],
+         "right": []
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 320,
+        "rides": {
+         "pages": "left",
+         "annotations": "left"
+        }
+       },
+       "kind": "target",
+       "gap": "ride-for-stacks"
+      }
+     ]
+    }
+   ]
+  },
+  "floating": {
+   "_about": "",
+   "known": "float-clamp-window,float-not-resized,float-clear-of-docked",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     }
+    ],
+    "floats": [
+     {
+      "id": "findings",
+      "rect": {
+       "x": 400,
+       "y": 60,
+       "w": 300,
+       "h": 300
+      }
+     }
+    ]
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "floats": {
+       "findings": {
+        "x": 400,
+        "y": 60,
+        "w": 300,
+        "h": 300
+       }
+      }
+     }
+    },
+    {
+     "stage": {
+      "w": 700,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 364,
+      "floats": {
+       "findings": {
+        "x": 376,
+        "y": 60,
+        "w": 300,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clamp-region"
+    },
+    {
+     "stage": {
+      "w": 400,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 332,
+      "floats": {
+       "findings": {
+        "x": 76,
+        "y": 60,
+        "w": 300,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clamp-region"
+    },
+    {
+     "stage": {
+      "w": 300,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 232,
+      "floats": {
+       "findings": {
+        "x": 0,
+        "y": 60,
+        "w": 276,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-shrink+float-clear-decision"
+    }
+   ],
+   "variants": [
+    {
+     "name": "window-b",
+     "scene": {
+      "extends": "window-b.json#three",
+      "handFold": "ride",
+      "edges": [
+       {
+        "id": "left-0",
+        "side": "left",
+        "ring": 0,
+        "column": true,
+        "items": [
+         "pages",
+         "annotations"
+        ]
+       }
+      ],
+      "floats": [
+       {
+        "id": "findings",
+        "rect": {
+         "x": 400,
+         "y": 60,
+         "w": 300,
+         "h": 300
+        }
+       }
+      ]
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 300,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [],
+         "right": []
+        },
+        "rails": {
+         "left": [
+          "pages",
+          "annotations"
+         ],
+         "right": []
+        },
+        "contentWidth": 268,
+        "floats": {
+         "findings": {
+          "x": 0,
+          "y": 60,
+          "w": 300,
+          "h": 300
+         }
+        }
+       },
+       "kind": "target",
+       "gap": "float-clear-decision"
+      },
+      {
+       "stage": {
+        "w": 320,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [],
+         "right": []
+        },
+        "rails": {
+         "left": [
+          "pages",
+          "annotations"
+         ],
+         "right": []
+        },
+        "contentWidth": 288,
+        "floats": {
+         "findings": {
+          "x": 20,
+          "y": 60,
+          "w": 300,
+          "h": 300
+         }
+        }
+       },
+       "kind": "target",
+       "gap": "float-clear-decision"
+      }
+     ]
+    }
+   ]
+  },
+  "floatingFolded": {
+   "_about": "",
+   "known": "float-clamp-window,float-not-resized,float-clear-of-docked",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     }
+    ],
+    "items": {
+     "findings": {
+      "from": 1
+     }
+    },
+    "floats": [
+     {
+      "id": "findings",
+      "rect": {
+       "x": 400,
+       "y": 60,
+       "w": 300,
+       "h": 300
+      }
+     }
+    ]
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "floats": {
+       "findings": {
+        "x": 400,
+        "y": 60,
+        "w": 300,
+        "h": 30,
+        "form": "bar"
+       }
+      }
+     }
+    },
+    {
+     "stage": {
+      "w": 700,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 364,
+      "floats": {
+       "findings": {
+        "x": 376,
+        "y": 60,
+        "w": 300,
+        "h": 30,
+        "form": "bar"
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clamp-region"
+    },
+    {
+     "stage": {
+      "w": 400,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 332,
+      "floats": {
+       "findings": {
+        "x": 76,
+        "y": 60,
+        "w": 300,
+        "h": 30,
+        "form": "bar"
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clamp-region"
+    },
+    {
+     "stage": {
+      "w": 300,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 232,
+      "floats": {
+       "findings": {
+        "x": 0,
+        "y": 60,
+        "w": 276,
+        "h": 30,
+        "form": "bar"
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-shrink+float-clear-decision"
+    }
+   ],
+   "variants": [
+    {
+     "name": "window-b",
+     "scene": {
+      "extends": "window-b.json#three",
+      "handFold": "ride",
+      "edges": [
+       {
+        "id": "left-0",
+        "side": "left",
+        "ring": 0,
+        "column": true,
+        "items": [
+         "pages",
+         "annotations"
+        ]
+       }
+      ],
+      "items": {
+       "findings": {
+        "from": 1
+       }
+      },
+      "floats": [
+       {
+        "id": "findings",
+        "rect": {
+         "x": 400,
+         "y": 60,
+         "w": 300,
+         "h": 300
+        }
+       }
+      ]
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 300,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [],
+         "right": []
+        },
+        "rails": {
+         "left": [
+          "pages",
+          "annotations"
+         ],
+         "right": []
+        },
+        "contentWidth": 268,
+        "floats": {
+         "findings": {
+          "x": 0,
+          "y": 60,
+          "w": 300,
+          "h": 38,
+          "form": "bar"
+         }
+        }
+       },
+       "kind": "target",
+       "gap": "float-clear-decision"
+      },
+      {
+       "stage": {
+        "w": 320,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [],
+         "right": []
+        },
+        "rails": {
+         "left": [
+          "pages",
+          "annotations"
+         ],
+         "right": []
+        },
+        "contentWidth": 288,
+        "floats": {
+         "findings": {
+          "x": 20,
+          "y": 60,
+          "w": 300,
+          "h": 38,
+          "form": "bar"
+         }
+        }
+       },
+       "kind": "target",
+       "gap": "float-clear-decision"
+      }
+     ]
+    }
+   ]
+  },
+  "floatingOverColumn": {
+   "_about": "A float dropped over a column: today it covers the column (target for the clamp rows); the Scene moves it clear (host rule C27). Decide which the kits want.",
+   "known": "float-clear-of-docked",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     }
+    ],
+    "floats": [
+     {
+      "id": "findings",
+      "rect": {
+       "x": 100,
+       "y": 60,
+       "w": 300,
+       "h": 300
+      }
+     }
+    ]
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "floats": {
+       "findings": {
+        "x": 100,
+        "y": 60,
+        "w": 300,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clear-decision"
+    },
+    {
+     "stage": {
+      "w": 800,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 464,
+      "floats": {
+       "findings": {
+        "x": 100,
+        "y": 60,
+        "w": 300,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clear-decision"
+    },
+    {
+     "stage": {
+      "w": 600,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        244
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "floats": {
+       "findings": {
+        "x": 100,
+        "y": 60,
+        "w": 300,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clear-decision"
+    },
+    {
+     "stage": {
+      "w": 400,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 332,
+      "floats": {
+       "findings": {
+        "x": 76,
+        "y": 60,
+        "w": 300,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clamp-region"
+    }
+   ],
+   "variants": [
+    {
+     "name": "window-b",
+     "scene": {
+      "extends": "window-b.json#three",
+      "handFold": "ride",
+      "edges": [
+       {
+        "id": "left-0",
+        "side": "left",
+        "ring": 0,
+        "column": true,
+        "items": [
+         "pages",
+         "annotations"
+        ]
+       }
+      ],
+      "floats": [
+       {
+        "id": "findings",
+        "rect": {
+         "x": 100,
+         "y": 60,
+         "w": 300,
+         "h": 300
+        }
+       }
+      ]
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 1120,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations"
+          ]
+         ],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [
+          280
+         ],
+         "right": []
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 840,
+        "floats": {
+         "findings": {
+          "x": 100,
+          "y": 60,
+          "w": 300,
+          "h": 300
+         }
+        }
+       },
+       "kind": "target",
+       "gap": "float-clear-decision"
+      },
+      {
+       "stage": {
+        "w": 600,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations"
+          ]
+         ],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [
+          280
+         ],
+         "right": []
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 320,
+        "floats": {
+         "findings": {
+          "x": 100,
+          "y": 60,
+          "w": 300,
+          "h": 300
+         }
+        }
+       },
+       "kind": "target",
+       "gap": "float-clear-decision"
+      }
+     ]
+    }
+   ]
+  },
+  "floatingAtEdge": {
+   "_about": "",
+   "known": "float-clamp-window,float-not-resized",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     }
+    ],
+    "floats": [
+     {
+      "id": "findings",
+      "rect": {
+       "x": 5000,
+       "y": 700,
+       "w": 300,
+       "h": 300
+      }
+     }
+    ]
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "floats": {
+       "findings": {
+        "x": 796,
+        "y": 500,
+        "w": 300,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clamp-region"
+    },
+    {
+     "stage": {
+      "w": 700,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 364,
+      "floats": {
+       "findings": {
+        "x": 376,
+        "y": 500,
+        "w": 300,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clamp-region"
+    },
+    {
+     "stage": {
+      "w": 300,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 232,
+      "floats": {
+       "findings": {
+        "x": 0,
+        "y": 500,
+        "w": 276,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-shrink"
+    }
+   ],
+   "variants": [
+    {
+     "name": "window-b",
+     "scene": {
+      "extends": "window-b.json#three",
+      "handFold": "ride",
+      "edges": [
+       {
+        "id": "left-0",
+        "side": "left",
+        "ring": 0,
+        "column": true,
+        "items": [
+         "pages",
+         "annotations"
+        ]
+       }
+      ],
+      "floats": [
+       {
+        "id": "findings",
+        "rect": {
+         "x": 5000,
+         "y": 700,
+         "w": 300,
+         "h": 300
+        }
+       }
+      ]
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 290,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [],
+         "right": []
+        },
+        "rails": {
+         "left": [
+          "pages",
+          "annotations"
+         ],
+         "right": []
+        },
+        "contentWidth": 258,
+        "floats": {
+         "findings": {
+          "x": 0,
+          "y": 500,
+          "w": 290,
+          "h": 300
+         }
+        }
+       },
+       "kind": "target",
+       "gap": "float-shrink"
+      }
+     ]
+    }
+   ]
+  },
+  "floatingAtCorner": {
+   "_about": "",
+   "known": "float-clear-of-docked,float-not-resized",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     }
+    ],
+    "floats": [
+     {
+      "id": "findings",
+      "rect": {
+       "x": 0,
+       "y": 0,
+       "w": 300,
+       "h": 300
+      }
+     }
+    ]
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "floats": {
+       "findings": {
+        "x": 0,
+        "y": 0,
+        "w": 300,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clear-decision"
+    },
+    {
+     "stage": {
+      "w": 400,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 332,
+      "floats": {
+       "findings": {
+        "x": 0,
+        "y": 0,
+        "w": 300,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-clear-decision"
+    },
+    {
+     "stage": {
+      "w": 300,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 232,
+      "floats": {
+       "findings": {
+        "x": 0,
+        "y": 0,
+        "w": 276,
+        "h": 300
+       }
+      }
+     },
+     "kind": "target",
+     "gap": "float-shrink+float-clear-decision"
+    }
+   ],
+   "variants": [
+    {
+     "name": "window-b",
+     "scene": {
+      "extends": "window-b.json#three",
+      "handFold": "ride",
+      "edges": [
+       {
+        "id": "left-0",
+        "side": "left",
+        "ring": 0,
+        "column": true,
+        "items": [
+         "pages",
+         "annotations"
+        ]
+       }
+      ],
+      "floats": [
+       {
+        "id": "findings",
+        "rect": {
+         "x": 0,
+         "y": 0,
+         "w": 300,
+         "h": 300
+        }
+       }
+      ]
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 1120,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations"
+          ]
+         ],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [
+          280
+         ],
+         "right": []
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 840,
+        "floats": {
+         "findings": {
+          "x": 0,
+          "y": 0,
+          "w": 300,
+          "h": 300
+         }
+        }
+       },
+       "kind": "target",
+       "gap": "float-clear-decision"
+      },
+      {
+       "stage": {
+        "w": 290,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [],
+         "right": []
+        },
+        "rails": {
+         "left": [
+          "pages",
+          "annotations"
+         ],
+         "right": []
+        },
+        "contentWidth": 258,
+        "floats": {
+         "findings": {
+          "x": 0,
+          "y": 0,
+          "w": 290,
+          "h": 300
+         }
+        }
+       },
+       "kind": "target",
+       "gap": "float-shrink+float-clear-decision"
+      }
+     ]
+    }
+   ]
+  },
+  "floatingClosed": {
+   "_about": "A closed float keeps its rect and takes no room.",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     }
+    ],
+    "items": {
+     "findings": {
+      "closed": true
+     }
+    },
+    "floats": [
+     {
+      "id": "findings",
+      "rect": {
+       "x": 400,
+       "y": 60,
+       "w": 300,
+       "h": 300
+      }
+     }
+    ]
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784
+     }
+    },
+    {
+     "stage": {
+      "w": 700,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 364
+     }
+    },
+    {
+     "stage": {
+      "w": 400,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 332
+     }
+    },
+    {
+     "stage": {
+      "w": 300,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 232
+     }
+    }
+   ]
+  },
+  "sheet-not-in-the-layout": {
+   "_about": "All open; the narrow fallback (one panel at a time over the pages). Pinned: window A below 576, window B below 520.",
+   "known": "sheet-not-in-the-layout",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride"
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 576,
+      "h": 800
+     },
+     "layout": {
+      "sheetFallback": false,
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidthAtLeast": 320
+     },
+     "kind": "target",
+     "gap": "sheet-signal"
+    },
+    {
+     "stage": {
+      "w": 575,
+      "h": 800
+     },
+     "layout": {
+      "sheetFallback": true,
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidthAtLeast": 320
+     },
+     "kind": "target",
+     "gap": "sheet-signal"
+    },
+    {
+     "stage": {
+      "w": 560,
+      "h": 800
+     },
+     "layout": {
+      "sheetFallback": true,
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidthAtLeast": 320
+     },
+     "kind": "target",
+     "gap": "sheet-signal"
+    }
+   ],
+   "variants": [
+    {
+     "name": "window-b",
+     "scene": {
+      "extends": "window-b.json#three",
+      "handFold": "ride"
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 520,
+        "h": 800
+       },
+       "layout": {
+        "sheetFallback": false,
+        "rails": {
+         "left": [
+          "pages",
+          "annotations"
+         ],
+         "right": [
+          "findings"
+         ]
+        },
+        "contentWidthAtLeast": 320
+       },
+       "kind": "target",
+       "gap": "sheet-signal"
+      },
+      {
+       "stage": {
+        "w": 519,
+        "h": 800
+       },
+       "layout": {
+        "sheetFallback": true,
+        "rails": {
+         "left": [
+          "pages",
+          "annotations"
+         ],
+         "right": [
+          "findings"
+         ]
+        },
+        "contentWidthAtLeast": 320
+       },
+       "kind": "target",
+       "gap": "sheet-signal"
+      },
+      {
+       "stage": {
+        "w": 500,
+        "h": 800
+       },
+       "layout": {
+        "sheetFallback": true,
+        "rails": {
+         "left": [
+          "pages",
+          "annotations"
+         ],
+         "right": [
+          "findings"
+         ]
+        },
+        "contentWidthAtLeast": 320
+       },
+       "kind": "target",
+       "gap": "sheet-signal"
+      }
+     ]
+    }
+   ]
+  },
+  "padding-always": {
+   "_about": "GAP inset only while docked: window A draws its 12 px stage padding only while something is beside the pages (an open column or a rail). With nothing docked the pages are the whole window; contentWidth here is the width DRAWN (body less the slots, less the padding while padded).",
+   "known": "padding-always",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "items": {
+     "pages": {
+      "closed": true
+     },
+     "annotations": {
+      "closed": true
+     },
+     "findings": {
+      "closed": true
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1000,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": []
+      },
+      "columnWidths": {
+       "left": [],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 1000
+     },
+     "kind": "target",
+     "gap": "inset-only-while-docked"
+    },
+    {
+     "stage": {
+      "w": 1000,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 352
+     }
+    }
+   ]
+  },
+  "stored-widths-are-slots": {
+   "_about": "Host-side, no library gap: the old store holds a column width as a slot (card + gap). The scene's Edge.size is the card as drawn, so the host takes the gap off a width read from an old store. Row: sizes 400 and 320 drawn.",
+   "known": "stored-widths-are-slots",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ],
+      "size": 400
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ],
+      "size": 320
+     }
+    ]
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1400,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        400
+       ],
+       "right": [
+        320
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 632
+     }
+    }
+   ]
+  },
+  "anchor-outside-the-padding": {
+   "_about": "Window A's thumbnail rail (generic id thumbs): a ring-0 edge that takes nothing, 72 wide (56..200). Today it sits OUTSIDE the stage padding (x 0) with no gap after it; columnX are the drawn x. GAP anchor outside the inset: a per-edge gutter/inset exemption.",
+   "known": "anchor-outside-the-padding",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "anchor:thumbs",
+      "side": "left",
+      "ring": 0,
+      "accepts": [],
+      "items": [
+       "thumbs"
+      ],
+      "cross": {
+       "min": 56,
+       "max": 200
+      }
+     },
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ],
+    "items": {
+     "thumbs": {
+      "kind": "anchor",
+      "fixed": true,
+      "width": {
+       "natural": 72,
+       "min": 56,
+       "max": 200
+      }
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1200,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "thumbs"
+        ],
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        72,
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 480,
+      "columnX": {
+       "left": [
+        0,
+        84
+       ],
+       "right": [
+        888
+       ]
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-outside-inset"
+    },
+    {
+     "stage": {
+      "w": 1000,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "thumbs"
+        ],
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        56,
+        276
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "columnX": {
+       "left": [
+        0,
+        68
+       ],
+       "right": [
+        688
+       ]
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-outside-inset"
+    }
+   ]
+  },
+  "anchor-never-gives-way": {
+   "_about": "Same scene. Today the thumbnail column is the OLDEST column: under give-way it shrinks toward 56 then folds into the left rail before the other columns. GAP shrink-fold under give-way for a fixed edge (the Scene's anchor never shrinks or folds).",
+   "known": "anchor-never-gives-way",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "anchor:thumbs",
+      "side": "left",
+      "ring": 0,
+      "accepts": [],
+      "items": [
+       "thumbs"
+      ],
+      "cross": {
+       "min": 56,
+       "max": 200
+      }
+     },
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ],
+    "items": {
+     "thumbs": {
+      "kind": "anchor",
+      "fixed": true,
+      "width": {
+       "natural": 72,
+       "min": 56,
+       "max": 200
+      }
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 900,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "thumbs"
+        ],
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        56,
+        220
+       ],
+       "right": [
+        256
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "columnX": {
+       "left": [
+        0,
+        68
+       ],
+       "right": [
+        632
+       ]
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 880,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "thumbs"
+        ],
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        56,
+        220
+       ],
+       "right": [
+        236
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "columnX": {
+       "left": [
+        0,
+        68
+       ],
+       "right": [
+        632
+       ]
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 868,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "thumbs"
+        ],
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        56,
+        220
+       ],
+       "right": [
+        224
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "columnX": {
+       "left": [
+        0,
+        68
+       ],
+       "right": [
+        632
+       ]
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 860,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        228
+       ]
+      },
+      "rails": {
+       "left": [
+        "thumbs"
+       ],
+       "right": []
+      },
+      "contentWidth": 320,
+      "columnX": {
+       "left": [
+        56
+       ],
+       "right": [
+        620
+       ]
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 850,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "thumbs",
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 470,
+      "columnX": {
+       "left": [],
+       "right": [
+        538
+       ]
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 800,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "thumbs",
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 420,
+      "columnX": {
+       "left": [],
+       "right": [
+        488
+       ]
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    }
+   ]
+  },
+  "anchor-keeps-its-side": {
+   "_about": "Same scene with the thumbnail rail moved to the RIGHT (Move to): today it is the outermost column of whichever side. GAP change sides: a pure change that moves a fixed edge to the other side.",
+   "known": "anchor-keeps-its-side",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "anchor:thumbs",
+      "side": "right",
+      "ring": 0,
+      "accepts": [],
+      "items": [
+       "thumbs"
+      ],
+      "cross": {
+       "min": 56,
+       "max": 200
+      }
+     },
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ],
+    "items": {
+     "thumbs": {
+      "kind": "anchor",
+      "fixed": true,
+      "width": {
+       "natural": 72,
+       "min": 56,
+       "max": 200
+      }
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1200,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "thumbs"
+        ],
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        72,
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 480,
+      "columnX": {
+       "left": [
+        12
+       ],
+       "right": [
+        1116,
+        816
+       ]
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-change-sides"
+    },
+    {
+     "stage": {
+      "w": 900,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "thumbs"
+        ],
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        72,
+        240
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "columnX": {
+       "left": [
+        12
+       ],
+       "right": [
+        816,
+        576
+       ]
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-change-sides"
+    }
+   ]
+  },
+  "heightSweepThree": {
+   "_about": "INTENDED (C9 vertical give-way): a window 1120 wide, all open, from 900 down to 200 px high. Today shares the height equally at every height; the Scene folds the panel used longest ago to its header (forms bar) when the column is shorter than its panels' least heights (160 each, and the gaps), and a column of nothing but headers is its rail form (forms rail, the column 32 wide). Rows hold the Scene's result (heights = the panels' drawn heights), at the top and the bottom of each state.",
+   "known": "vertical-give-way",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride"
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 900
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 472,
+      "heights": {
+       "pages": 432,
+       "annotations": 432,
+       "findings": 876
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 356
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 472,
+      "heights": {
+       "pages": 160,
+       "annotations": 160,
+       "findings": 332
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 355
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 472,
+      "heights": {
+       "pages": 30,
+       "annotations": 289,
+       "findings": 331
+      },
+      "forms": {
+       "pages": "bar"
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 226
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 472,
+      "heights": {
+       "pages": 30,
+       "annotations": 160,
+       "findings": 202
+      },
+      "forms": {
+       "pages": "bar"
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 225
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 740,
+      "heights": {
+       "pages": 36,
+       "annotations": 36,
+       "findings": 201
+      },
+      "forms": {
+       "pages": "rail",
+       "annotations": "rail"
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 200
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 740,
+      "heights": {
+       "pages": 36,
+       "annotations": 36,
+       "findings": 176
+      },
+      "forms": {
+       "pages": "rail",
+       "annotations": "rail"
+      }
+     },
+     "intended": true
+    }
+   ],
+   "variants": [
+    {
+     "name": "window-b",
+     "scene": {
+      "extends": "window-b.json#three",
+      "handFold": "ride"
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 1120,
+        "h": 900
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations"
+          ]
+         ],
+         "right": [
+          [
+           "findings"
+          ]
+         ]
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 560,
+        "heights": {
+         "pages": 450,
+         "annotations": 450,
+         "findings": 900
+        }
+       },
+       "intended": true
+      },
+      {
+       "stage": {
+        "w": 1120,
+        "h": 320
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations"
+          ]
+         ],
+         "right": [
+          [
+           "findings"
+          ]
+         ]
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 560,
+        "heights": {
+         "pages": 160,
+         "annotations": 160,
+         "findings": 320
+        }
+       },
+       "intended": true
+      },
+      {
+       "stage": {
+        "w": 1120,
+        "h": 319
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations"
+          ]
+         ],
+         "right": [
+          [
+           "findings"
+          ]
+         ]
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 560,
+        "heights": {
+         "pages": 38,
+         "annotations": 281,
+         "findings": 319
+        },
+        "forms": {
+         "pages": "bar"
+        }
+       },
+       "intended": true
+      },
+      {
+       "stage": {
+        "w": 1120,
+        "h": 200
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations"
+          ]
+         ],
+         "right": [
+          [
+           "findings"
+          ]
+         ]
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 560,
+        "heights": {
+         "pages": 38,
+         "annotations": 162,
+         "findings": 200
+        },
+        "forms": {
+         "pages": "bar"
+        }
+       },
+       "intended": true
+      }
+     ]
+    }
+   ]
+  },
+  "heightSweepThreeInOne": {
+   "_about": "INTENDED (C9): the three panels in ONE left column, 1120 wide, from 900 down to 200 px high: the oldest folds to its header first, then the next, then the whole column is its rail form. Today shares the height among the three at every height. Window B rows between 357 and 231 px are left out: there the stack steps the oldest panel to its RAIL form inside the open column, because that window's bar (38) is taller than the rail segment (36): a finding for placement, not a target. (Placement 7b: the bar 38 taller than the rail segment 36 is a library rule; the drawn heights are passed as they are, so there are no rows for it.)",
+   "known": "vertical-give-way",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations",
+       "findings"
+      ]
+     }
+    ]
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1120,
+      "h": 900
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations",
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "heights": {
+       "pages": 284,
+       "annotations": 284,
+       "findings": 284
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 528
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations",
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "heights": {
+       "pages": 160,
+       "annotations": 160,
+       "findings": 160
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 527
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations",
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "heights": {
+       "pages": 30,
+       "annotations": 224.5,
+       "findings": 224.5
+      },
+      "forms": {
+       "pages": "bar"
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 398
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations",
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "heights": {
+       "pages": 30,
+       "annotations": 160,
+       "findings": 160
+      },
+      "forms": {
+       "pages": "bar"
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 397
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations",
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "heights": {
+       "pages": 30,
+       "annotations": 30,
+       "findings": 289
+      },
+      "forms": {
+       "pages": "bar",
+       "annotations": "bar"
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 268
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations",
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 784,
+      "heights": {
+       "pages": 30,
+       "annotations": 30,
+       "findings": 160
+      },
+      "forms": {
+       "pages": "bar",
+       "annotations": "bar"
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 267
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations",
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 1052,
+      "heights": {
+       "pages": 36,
+       "annotations": 36,
+       "findings": 36
+      },
+      "forms": {
+       "pages": "rail",
+       "annotations": "rail",
+       "findings": "rail"
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1120,
+      "h": 200
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations",
+         "findings"
+        ]
+       ],
+       "right": []
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 1052,
+      "heights": {
+       "pages": 36,
+       "annotations": 36,
+       "findings": 36
+      },
+      "forms": {
+       "pages": "rail",
+       "annotations": "rail",
+       "findings": "rail"
+      }
+     },
+     "intended": true
+    }
+   ],
+   "variants": [
+    {
+     "name": "window-b",
+     "scene": {
+      "extends": "window-b.json#three",
+      "handFold": "ride",
+      "edges": [
+       {
+        "id": "left-0",
+        "side": "left",
+        "ring": 0,
+        "column": true,
+        "items": [
+         "pages",
+         "annotations",
+         "findings"
+        ]
+       }
+      ]
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 1120,
+        "h": 900
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations",
+           "findings"
+          ]
+         ],
+         "right": []
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 840,
+        "heights": {
+         "pages": 300,
+         "annotations": 300,
+         "findings": 300
+        }
+       },
+       "intended": true
+      },
+      {
+       "stage": {
+        "w": 1120,
+        "h": 480
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations",
+           "findings"
+          ]
+         ],
+         "right": []
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 840,
+        "heights": {
+         "pages": 160,
+         "annotations": 160,
+         "findings": 160
+        }
+       },
+       "intended": true
+      },
+      {
+       "stage": {
+        "w": 1120,
+        "h": 479
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations",
+           "findings"
+          ]
+         ],
+         "right": []
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 840,
+        "heights": {
+         "pages": 38,
+         "annotations": 220.5,
+         "findings": 220.5
+        },
+        "forms": {
+         "pages": "bar"
+        }
+       },
+       "intended": true
+      },
+      {
+       "stage": {
+        "w": 1120,
+        "h": 358
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations",
+           "findings"
+          ]
+         ],
+         "right": []
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 840,
+        "heights": {
+         "pages": 38,
+         "annotations": 160,
+         "findings": 160
+        },
+        "forms": {
+         "pages": "bar"
+        }
+       },
+       "intended": true
+      },
+      {
+       "stage": {
+        "w": 1120,
+        "h": 200
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "pages",
+           "annotations",
+           "findings"
+          ]
+         ],
+         "right": []
+        },
+        "rails": {
+         "left": [],
+         "right": []
+        },
+        "contentWidth": 1088,
+        "heights": {
+         "pages": 36,
+         "annotations": 36,
+         "findings": 36
+        },
+        "forms": {
+         "pages": "rail",
+         "annotations": "rail",
+         "findings": "rail"
+        }
+       },
+       "intended": true
+      }
+     ]
+    }
+   ]
+  },
+  "anchorRailOrder": {
+   "_about": "RULING (placement 7b): TODAY WINS. The thumbnail rail on the right (generic id thumbs), a column folded into the rail beside it: today's compact rail is the OUTERMOST strip, at the window edge, and the thumbnails sit inside it (railX.right > anchorRect.x); the Scene put the anchor outermost and the rail inside it. Rows are today's result, the target. Window A, rails left [pages, annotations] and right [findings] with the anchor open.",
+   "known": "anchor-rail-order",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "anchor:thumbs",
+      "side": "right",
+      "ring": 0,
+      "accepts": [],
+      "items": [
+       "thumbs"
+      ],
+      "cross": {
+       "min": 56,
+       "max": 200
+      }
+     },
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ],
+    "items": {
+     "thumbs": {
+      "kind": "anchor",
+      "fixed": true,
+      "width": {
+       "natural": 72,
+       "min": 56,
+       "max": 200
+      }
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 675,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "thumbs"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        72
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 491,
+      "anchorRect": {
+       "x": 559,
+       "y": 0,
+       "w": 72,
+       "h": 800
+      },
+      "railX": {
+       "left": 12,
+       "right": 631
+      }
+     },
+     "kind": "target",
+     "gap": "rail-order"
+    },
+    {
+     "stage": {
+      "w": 600,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "thumbs"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        72
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 416,
+      "anchorRect": {
+       "x": 484,
+       "y": 0,
+       "w": 72,
+       "h": 800
+      },
+      "railX": {
+       "left": 12,
+       "right": 556
+      }
+     },
+     "kind": "target",
+     "gap": "rail-order"
+    },
+    {
+     "stage": {
+      "w": 520,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "thumbs"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        72
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": [
+        "findings"
+       ]
+      },
+      "contentWidth": 336,
+      "anchorRect": {
+       "x": 404,
+       "y": 0,
+       "w": 72,
+       "h": 800
+      },
+      "railX": {
+       "left": 12,
+       "right": 476
+      }
+     },
+     "kind": "target",
+     "gap": "rail-order"
+    }
+   ]
+  },
+  "anchorRiderOverAnchor": {
+   "_about": "RULING (placement 7b): THE SCENE WINS. A panel folded by hand in a column of its own, with the thumbnail rail open: today rides it over the thumbnails (a 72 px bar at the window edge); the Scene rides it over the first open PANEL column, as wide as that column (riderRects), and, where none is open on its side, sends it to the side's rail. Rows are the Scene's result.",
+   "known": "anchor-rider-host",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "anchor:thumbs",
+      "side": "left",
+      "ring": 0,
+      "accepts": [],
+      "items": [
+       "thumbs"
+      ],
+      "cross": {
+       "min": 56,
+       "max": 200
+      }
+     },
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages"
+      ]
+     },
+     {
+      "id": "left-1",
+      "side": "left",
+      "ring": 1,
+      "column": true,
+      "items": [
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ],
+    "items": {
+     "thumbs": {
+      "kind": "anchor",
+      "fixed": true,
+      "width": {
+       "natural": 72,
+       "min": 56,
+       "max": 200
+      }
+     },
+     "annotations": {
+      "from": 1
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1279,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 547,
+      "anchorRect": {
+       "x": 12,
+       "y": 12,
+       "w": 72,
+       "h": 776
+      },
+      "rides": {
+       "annotations": "left"
+      },
+      "riderRects": {
+       "annotations": {
+        "x": 96,
+        "y": 12,
+        "w": 300,
+        "h": 30
+       }
+      }
+     },
+     "intended": true
+    },
+    {
+     "stage": {
+      "w": 1100,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 368,
+      "anchorRect": {
+       "x": 12,
+       "y": 12,
+       "w": 72,
+       "h": 776
+      },
+      "rides": {
+       "annotations": "left"
+      },
+      "riderRects": {
+       "annotations": {
+        "x": 96,
+        "y": 12,
+        "w": 300,
+        "h": 30
+       }
+      }
+     },
+     "intended": true
+    }
+   ],
+   "variants": [
+    {
+     "name": "anchor-right-no-open-column",
+     "scene": {
+      "extends": "window-a.json#three",
+      "handFold": "ride",
+      "edges": [
+       {
+        "id": "anchor:thumbs",
+        "side": "right",
+        "ring": 0,
+        "accepts": [],
+        "items": [
+         "thumbs"
+        ],
+        "cross": {
+         "min": 56,
+         "max": 200
+        }
+       },
+       {
+        "id": "left-0",
+        "side": "left",
+        "ring": 0,
+        "column": true,
+        "items": [
+         "pages"
+        ]
+       },
+       {
+        "id": "right-0",
+        "side": "right",
+        "ring": 0,
+        "column": true,
+        "items": [
+         "annotations"
+        ]
+       },
+       {
+        "id": "right-1",
+        "side": "right",
+        "ring": 1,
+        "column": true,
+        "items": [
+         "findings"
+        ]
+       }
+      ],
+      "items": {
+       "thumbs": {
+        "kind": "anchor",
+        "fixed": true,
+        "width": {
+         "natural": 72,
+         "min": 56,
+         "max": 200
+        }
+       },
+       "annotations": {
+        "from": 1
+       }
+      }
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 600,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [],
+         "right": []
+        },
+        "columnWidths": {
+         "left": [],
+         "right": []
+        },
+        "rails": {
+         "left": [
+          "pages"
+         ],
+         "right": [
+          "annotations",
+          "findings"
+         ]
+        },
+        "contentWidth": 404,
+        "anchorRect": {
+         "x": 516,
+         "y": 12,
+         "w": 72,
+         "h": 776
+        },
+        "railX": {
+         "left": 12,
+         "right": 472
+        }
+       },
+       "intended": true,
+       "note": "no panel column is open on the anchor's side: the panel goes to the rail"
+      }
+     ]
+    }
+   ]
+  },
+  "anchorGiveWayOrder": {
+   "_about": "RULING (placement 7b): TODAY WINS. The thumbnail rail is the oldest column: under give-way it shrinks first, 72 to 56 (from 1039 down; a card first shrinks at 1023, so the thumbs reach 56 at 1024), then folds into the left rail at 863, and the left stack follows at 851; with no anchor the stack folds at 807, and the Scene (the anchor never shrinks) folds it at 891. Bare arithmetic (no gap, no padding, rail 36): thumbs shrink from 991, a card from 975, the thumbs fold at 815, the stack at 795; the Scene 831, no anchor 759. Rows are today's result, the target.",
+   "known": "anchor-never-gives-way",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "anchor:thumbs",
+      "side": "left",
+      "ring": 0,
+      "accepts": [],
+      "items": [
+       "thumbs"
+      ],
+      "cross": {
+       "min": 56,
+       "max": 200
+      }
+     },
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages",
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ],
+    "items": {
+     "thumbs": {
+      "kind": "anchor",
+      "fixed": true,
+      "width": {
+       "natural": 72,
+       "min": 56,
+       "max": 200
+      }
+     }
+    }
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1040,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "thumbs"
+        ],
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        72,
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "anchorRect": {
+       "x": 0,
+       "y": 0,
+       "w": 72,
+       "h": 800
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 1039,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "thumbs"
+        ],
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        71,
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "anchorRect": {
+       "x": 0,
+       "y": 0,
+       "w": 71,
+       "h": 800
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 1024,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "thumbs"
+        ],
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        56,
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "anchorRect": {
+       "x": 0,
+       "y": 0,
+       "w": 56,
+       "h": 800
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 1023,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "thumbs"
+        ],
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        56,
+        299
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "anchorRect": {
+       "x": 0,
+       "y": 0,
+       "w": 56,
+       "h": 800
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 864,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "thumbs"
+        ],
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        56,
+        220
+       ],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 320,
+      "anchorRect": {
+       "x": 0,
+       "y": 0,
+       "w": 56,
+       "h": 800
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 863,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        231
+       ]
+      },
+      "rails": {
+       "left": [
+        "thumbs"
+       ],
+       "right": []
+      },
+      "contentWidth": 320,
+      "railX": {
+       "left": 12
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 852,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        220
+       ],
+       "right": [
+        220
+       ]
+      },
+      "rails": {
+       "left": [
+        "thumbs"
+       ],
+       "right": []
+      },
+      "contentWidth": 320,
+      "railX": {
+       "left": 12
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 851,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "thumbs",
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 471,
+      "railX": {
+       "left": 12
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 850,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "thumbs",
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 470,
+      "railX": {
+       "left": 12
+      }
+     },
+     "kind": "target",
+     "gap": "anchor-shrink-fold"
+    }
+   ]
+  },
+  "pressWhileNarrow": {
+   "_about": "INTENDED (C23, a press reshapes nothing): the window narrowed from 1400 to 700 px in steps of 10 (the left stack is folded into the rail by give-way), then a press on Pages. The Scene carries its previous layout: the layout after the press is the layout before it. Today re-ranks the columns by newest use and folds Findings instead. Rows are the Scene's result.",
+   "known": "press-reshapes-nothing",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride"
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 700,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages",
+        "annotations"
+       ],
+       "right": []
+      },
+      "contentWidth": 320,
+      "railX": {
+       "left": 12
+      }
+     },
+     "intended": true,
+     "history": "narrowed 1400 to 700 in steps of 10",
+     "press": [
+      "pages"
+     ],
+     "note": "unchanged by the press"
+    },
+    {
+     "stage": {
+      "w": 1400,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 752
+     },
+     "intended": true,
+     "history": "1400",
+     "press": [
+      "pages"
+     ],
+     "note": "room to spare: nothing changes in either model"
+    }
+   ],
+   "variants": [
+    {
+     "name": "window-b",
+     "scene": {
+      "extends": "window-b.json#three",
+      "handFold": "ride"
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 700,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [],
+         "right": [
+          [
+           "findings"
+          ]
+         ]
+        },
+        "columnWidths": {
+         "left": [],
+         "right": [
+          280
+         ]
+        },
+        "rails": {
+         "left": [
+          "pages",
+          "annotations"
+         ],
+         "right": []
+        },
+        "contentWidth": 388,
+        "railX": {
+         "left": 0
+        }
+       },
+       "intended": true,
+       "history": "narrowed 1400 to 700 in steps of 10",
+       "press": [
+        "pages"
+       ],
+       "note": "unchanged by the press"
+      }
+     ]
+    }
+   ]
+  },
+  "resizeMemoryAfterJump": {
+   "_about": "INTENDED (history under previous): three columns, pages and annotations on the left, findings on the right, the window jumped 1000 to 640 to 1000 px. The Scene carries its previous layout, so which column is the narrower after the jump depends on the history: it shrinks first the column it shrank before (here Findings, 288 and Annotations 300); today is stateless by age (Annotations 288, Findings 300). A resize a pixel at a time agrees in both. Rows are the Scene's result after the jump.",
+   "known": "previous-order-of-shrink-and-fold",
+   "scene": {
+    "extends": "window-a.json#three",
+    "handFold": "ride",
+    "edges": [
+     {
+      "id": "left-0",
+      "side": "left",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "pages"
+      ]
+     },
+     {
+      "id": "left-1",
+      "side": "left",
+      "ring": 1,
+      "column": true,
+      "items": [
+       "annotations"
+      ]
+     },
+     {
+      "id": "right-0",
+      "side": "right",
+      "ring": 0,
+      "column": true,
+      "items": [
+       "findings"
+      ]
+     }
+    ]
+   },
+   "expect": [
+    {
+     "stage": {
+      "w": 1000,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        288
+       ]
+      },
+      "rails": {
+       "left": [
+        "pages"
+       ],
+       "right": []
+      },
+      "contentWidth": 320,
+      "railX": {
+       "left": 12
+      }
+     },
+     "intended": true,
+     "history": [
+      1000,
+      640
+     ],
+     "note": "history-dependent under previous: the same total width, the shrink on the other column than today"
+    }
+   ],
+   "variants": [
+    {
+     "name": "window-b",
+     "scene": {
+      "extends": "window-b.json#three",
+      "handFold": "ride",
+      "edges": [
+       {
+        "id": "left-0",
+        "side": "left",
+        "ring": 0,
+        "column": true,
+        "items": [
+         "pages"
+        ]
+       },
+       {
+        "id": "left-1",
+        "side": "left",
+        "ring": 1,
+        "column": true,
+        "items": [
+         "annotations"
+        ]
+       },
+       {
+        "id": "right-0",
+        "side": "right",
+        "ring": 0,
+        "column": true,
+        "items": [
+         "findings"
+        ]
+       }
+      ]
+     },
+     "expect": [
+      {
+       "stage": {
+        "w": 900,
+        "h": 800
+       },
+       "layout": {
+        "columns": {
+         "left": [
+          [
+           "annotations"
+          ]
+         ],
+         "right": [
+          [
+           "findings"
+          ]
+         ]
+        },
+        "columnWidths": {
+         "left": [
+          280
+         ],
+         "right": [
+          268
+         ]
+        },
+        "rails": {
+         "left": [
+          "pages"
+         ],
+         "right": []
+        },
+        "contentWidth": 320,
+        "railX": {
+         "left": 0
+        }
+       },
+       "intended": true,
+       "history": [
+        900,
+        600
+       ],
+       "note": "history-dependent under previous: Findings 268 and Annotations 280 where today has 280 and 268"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}
