@@ -7,13 +7,13 @@
 import { PRESETS, presetLayout, type PresetId } from "@n-uf/placement/desk";
 import { float, type PanelDef, type PanelsNote, type PanelsOptions } from "@n-uf/placement/panels";
 
-export const G = 6, BAR = 34, RAIL = 34, TITLE = 22;
-export const PANELS: Record<string, number> = { Files: 130, Outline: 110, Notes: 100, Inspector: 100, History: 150 };
-export const LEFT = ["Files", "Outline"], RIGHT = ["Notes", "Inspector", "History"];
-export const DOCS = ["Quarterly plan", "Meeting notes", "Reading list", "Budget draft"];
-export const DOC_MIN = { w: 240, h: 160 };
+const G = 6, BAR = 34, RAIL = 34, TITLE = 22;
+const PANELS: Record<string, number> = { Files: 130, Outline: 110, Notes: 100, Inspector: 100, History: 150 };
+const LEFT = ["Files", "Outline"], RIGHT = ["Notes", "Inspector", "History"];
+const DOCS = ["Quarterly plan", "Meeting notes", "Reading list", "Budget draft"];
+const DOC_MIN = { w: 240, h: 160 };
 
-export type Kind = "toolbar" | "panel" | "header" | "rail" | "tabs" | "tabsFloat" | "doc" | "float" | "palette" | "track" | "thumb";
+type Kind = "toolbar" | "panel" | "header" | "rail" | "tabs" | "tabsFloat" | "doc" | "float" | "palette" | "track" | "thumb";
 export interface Box {
   x: number; y: number; w: number; h: number; kind: Kind; label: string;
   /** What the glide follows it by, when not its label (a panel keeps its key as it moves between a column and the band). */
@@ -24,10 +24,10 @@ export interface Box {
 }
 /** The stage's switches: the toolbar (top or bottom; room kept clear or over the documents) and the bottom band. */
 export interface Opt { toolbar: string; toolbarSpace: string; band: string; span: string }
-export type Area = { x: number; y: number; w: number; h: number };
+type Area = { x: number; y: number; w: number; h: number };
 
 const box = (x: number, y: number, w: number, h: number, kind: Kind, label: string, extra: Partial<Box> = {}): Box => ({ x, y, w, h, kind, label, ...extra });
-export const OPT: Opt = { toolbar: "top", toolbarSpace: "reserved", band: "reserved", span: "between" };
+const OPT: Opt ={ toolbar: "top", toolbarSpace: "reserved", band: "reserved", span: "between" };
 
 /** A toolbar pill floating at the top or the bottom of the region [y0, y1]; returns the pill and the band left for documents. */
 function pill(cx: number, cw: number, H: number, y0 = 0, y1 = H): { box: Box; top: number; bottom: number } {
@@ -88,7 +88,7 @@ const def = (id: string, natural: number, sides?: PanelDef["sides"]): PanelDef =
   float: { min: { width: 160, height: 120 }, natural: { width: 200, height: 150 } },
   ...(sides ? { sides } : {}),
 });
-export const PANEL_DEFS: readonly PanelDef[] = [def("Files", 170), def("Outline", 190), def("Notes", 150), def("Inspector", 170), def("History", 160, ["left", "right", "bottom"])];
+const PANEL_DEFS:readonly PanelDef[] = [def("Files", 170), def("Outline", 190), def("Notes", 150), def("Inspector", 170), def("History", 160, ["left", "right", "bottom"])];
 /** Where they start: History in the band when it is on (else on the right, before Inspector, so dockTear tears Inspector off either way). */
 const PRESET_RIGHT = ["Notes", "History", "Inspector"];
 /** The drawing's chrome sizes, handed to the layout so its bars and rails are the size they are drawn. */
@@ -175,7 +175,7 @@ const railBox = (x: number, y: number, h: number, names: string[], side?: string
 // ---- The sketches: five more ways this page draws by its own rules (no library preset lays them out) ------------------
 
 type Build = (W: number, H: number, n: number, notes: string[]) => Box[];
-export const C: Record<string, Build> = {
+const C: Record<string, Build> = {
   tree(W, H, n, notes) {
     const out = [box(0, 0, W, BAR, "toolbar", "Toolbar")];
     const area = { x: G, y: BAR + G, w: W - 2 * G, h: H - BAR - 2 * G };

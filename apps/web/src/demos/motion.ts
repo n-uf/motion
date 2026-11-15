@@ -41,7 +41,7 @@ const series = (fn: (ms: number) => number, T: number, dt: number): Series => {
  * The proposal, stepped by the library itself: a settle at tempo `omega` from
  * `from` to `to`, optionally retargeted to `retarget.to` at `retarget.at` ms.
  */
-export function settleSeries(omega: number, T: number, dt: number, from = 0, to = 1, retarget?: { at: number; to: number }): Series {
+function settleSeries(omega: number, T: number, dt: number, from = 0, to = 1, retarget?: { at: number; to: number }): Series {
   const s = createSettle(from, { omega, restDelta: 1e-5 });
   s.setTarget(to);
   const out: Series = [[0, from]];
@@ -71,7 +71,7 @@ export function at(data: Series, ms: number): number {
 }
 
 /** `legend` is the plain name the legend shows; `lib` tags the curve as the library's own. */
-export interface Line { name: string; color: string; dash?: string; w?: number; data: Series; legend?: string; lib?: boolean }
+interface Line {name: string; color: string; dash?: string; w?: number; data: Series; legend?: string; lib?: boolean }
 export interface ChartOpt {
   /** The one sentence above the legend: what the chart's axes mean. */
   read?: string;
@@ -87,7 +87,7 @@ export interface ChartOpt {
 const dt = 3;
 // 1 · settle
 const T1 = 450;
-export const settleOpt: ChartOpt = {
+const settleOpt:ChartOpt = {
   read: "Up is progress from A to B; above the dashed target line means overshoot.",
   T: T1, xstep: 50, ymin: 0, ymax: 1.06, yticks: [0, 0.25, 0.5, 0.75, 0.9, 1], yfmt: (v) => Math.round(v * 100) + "%",
   marks: [{ v: 1, color: "--line-3", label: "target" }],
@@ -134,7 +134,7 @@ const fol: Series = [];
     fol.push([ms, x]);
   }
 }
-export const dragOpt: ChartOpt = {
+const dragOpt:ChartOpt = {
   read: "Up is how far the window has travelled from where it started; the dashed line is the slot it lands in, and the vertical dashed line is the release.",
   T: Tdrag, xstep: 50, ymin: 0, ymax: slot * 1.08, yticks: [0, slot], yfmt: (v) => (v === 0 ? "start" : "slot"),
   marks: [{ v: slot, color: "--line-3", label: "slot" }], vmarks: [{ ms: REL, label: "release" }],
@@ -170,7 +170,7 @@ function restRestart(): Series {
   }
   return o;
 }
-export const retargetOpt: ChartOpt = {
+const retargetOpt:ChartOpt = {
   read: "Up is progress from A to B; at the vertical dashed line the target moves to the nearer dashed line, and a curve that goes past it has overshot.",
   T: T3, xstep: 50, ymin: 0, ymax: 1.05, yticks: [0, 0.25, 0.5, NEW, 1], yfmt: (v) => (v === NEW ? "new" : v === 1 ? "old" : Math.round(v * 100) + "%"),
   marks: [{ v: NEW, color: "--line-3", label: "new target" }, { v: 1, color: "--line-3", label: "" }], vmarks: [{ ms: RT, label: "retarget" }],
@@ -187,7 +187,7 @@ export const retargetOpt: ChartOpt = {
 // ---- A chart as strings ---------------------------------------------------------------------------------------------
 const V = (n: string): string => `var(${n})`;
 const f1 = (v: number): string => v.toFixed(1);
-export const LANE = 14;
+const LANE = 14;
 
 /** The chart's frame for a given width: scales from ms and values to pixels. */
 export function chartFrame(opt: ChartOpt, w: number) {
@@ -281,7 +281,7 @@ export function legendHTML(opt: ChartOpt): string {
 }
 
 /** The chart's leader-line notes as a plain key (shown on a phone, where the notes in the chart are hidden): the case's own notes. */
-export function notesKeyHTML(opt: ChartOpt): string {
+function notesKeyHTML(opt: ChartOpt): string {
   return opt.notes?.length ? `<ul class="notes-key" aria-hidden="true">${opt.notes.map((n) => `<li>${n.text}</li>`).join("")}</ul>` : "";
 }
 
