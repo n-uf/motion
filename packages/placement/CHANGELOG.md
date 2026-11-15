@@ -5,6 +5,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.26
 
+- `@n-uf/placement/stack` and `/scene`, **forms carry what they hide** (additive). A toolbar's compact variants are
+  more row forms between its full row and its next form, each at its own size (its "+N" cell counted) with
+  **`StackForm.hides`**, the control ids it leaves out against the item's first form (any form may set it). The ladder
+  is unchanged: variants are taken in order, give way by priority then age and come back in the exact reverse.
+  **`SceneItemLayout.hidden`** is the chosen form's `hides` on every item (empty when none, or in a » menu); `form`
+  already names the variant, so there is no separate field. `after()` previews the variant a drop lands in. A drop onto
+  a title bar lands in a form of its first form's kind (the full row or a variant), read from the forms rather than
+  from index 0. **Typing:** code that builds a `SceneItemLayout` itself needs `hidden`.
+
 - `@n-uf/placement/scene` and `/stack`, **the Scene owns the whole window**. Nothing published is removed.
   - **What moved:** `fitFloat` and `FloatFit` are exported by `./scene` (the Scene fits its floats with it). `./scene`
     no longer reaches into `./stack`'s files: it uses `./stack` only as the edge solver, through its entry.
