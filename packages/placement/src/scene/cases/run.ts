@@ -318,7 +318,9 @@ export function runCase(row: CaseRow, host: CaseHost): CaseResult {
 /**
  * `runCase` for a host whose calls may be async (a page driven from a browser runner, with real pointer events and
  * timers): every host call is awaited, in the same order as `runCase` makes them, with the same checks. A rejected call
- * counts as a thrown one: a failed `load` or `perform` is a failed result, as in `runCase`. A sync `CaseHost` works too.
+ * counts as a thrown one: a failed `load`, `perform`, `layout` or `stored` is a failed result, as in `runCase`, while a
+ * rejection or throw from `root` or `stops` rejects `runCaseAsync` (as it throws from `runCase`). A sync `CaseHost`
+ * works too.
  */
 export async function runCaseAsync(row: CaseRow, host: AsyncCaseHost | CaseHost): Promise<CaseResult> {
   const run = steps(row, host);
