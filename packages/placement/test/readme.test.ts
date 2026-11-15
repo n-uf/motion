@@ -1,4 +1,5 @@
 /** The README's examples, run as written (their console output checked). */
+import { targetAt } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_OPTIONS, createDesk, liftOut } from "../src/dock";
 import { deskDrop, deskTargets, floatTarget, hostTargets, keyboardStops, paneZone, type PaneZone } from "../src/targets";
@@ -283,7 +284,7 @@ describe("README examples", () => {
 
   it("conformance rows", () => {
     const row = CASES.find((c) => c.id === "C1")!;
-    const result = runCase(row, createSceneHost());
+    const result = runCase(row, createSceneHost({ pick: targetAt })); // motion's pick rule
     expect([result.ok, result.failures, result.skipped.length]).toEqual([true, [], 6]);
   });
 });

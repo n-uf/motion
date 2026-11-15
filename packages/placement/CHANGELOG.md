@@ -9,6 +9,20 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
   (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
+- **One pick rule, one id scheme** (what moved, what's deprecated; no id and no row changes).
+  - **The pick rule moved to `@n-uf/motion/drag`'s `targetAt`.** `./scene/cases` takes it as an input:
+    `createSceneHost({ pick })`, `resolvePlace(list, place, item, area, pick?)`, and an optional `pick` on
+    `CaseHost`/`AsyncCaseHost` (type `PickRule`). The reference host exposes the rule it aims with as `pick`. Pass
+    `targetAt`, so the reference host and a kit's drag intent agree on every boundary pixel.
+  - **Deprecated: `pickTarget`.** It is only the default when no `pick` is given, now with `targetAt`'s tolerances: a
+    rect holds its edges exactly (it used to accept 1e-6 px past them), and a zone's size is its pieces' width × height
+    (it used to count a negative side as 0). A test holds the two equal. Removed with the legacy entries.
+  - **Ids come from one module.** `./scene` exports `targetId(parts)`, `parseTargetId(id)`, `placeTargetId(place, item)`,
+    `virtualEdgeId(kind, side)` and `TargetIdParts`. These build and read every `gap:`, `strip:`, `column:`, `rail:`,
+    `home:`, `float:`, `none:` and `refuse:` id, so a host never splits strings, even when an edge id holds `:`. The
+    ids themselves are unchanged. The legacy entries (`./panels`, `./targets`, `./stack`) keep their own ids until
+    they are removed.
+
 - `@n-uf/placement/stack` and `/scene`, **forms carry what they hide** (additive). A toolbar's compact variants are
   more row forms between its full row and its next form, each at its own size (its "+N" cell counted) with
   **`StackForm.hides`**, the control ids it leaves out against the item's first form (any form may set it). The ladder

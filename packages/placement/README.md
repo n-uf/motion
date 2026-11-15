@@ -1104,6 +1104,16 @@ across it), so an id holds from one frame to the next; no id is given twice by o
 its own tile. A host shows "no room here" at the pointer over one, with no slot anywhere; a release there commits
 nothing, the item goes home. It takes the same `previous` and `fresh` as `targets`.
 
+**Ids, read and built.** These formats exist in one place. A host reads an id with `parseTargetId(id)` and builds one
+with `targetId(parts)`, so it never splits strings (an edge id may hold `:`):
+
+| Helper | What it does |
+|---|---|
+| `targetId(parts)` | The id for `{ kind: "gap", edge, zone, at }`, `{ kind: "strip", edge, zone }`, `{ kind: "column" \| "rail", side, ring }`, `{ kind: "home" \| "float", item }`, `{ kind: "none", index }` or `{ kind: "refuse", edge, zone, n }` (`n` 0 for a zone's first refusal). |
+| `parseTargetId(id)` | The same parts (`TargetIdParts`), or null for an id outside the scheme. |
+| `placeTargetId(place, item)` | The id `targets` gives the target at a `ScenePlace` (null for `none`). |
+| `virtualEdgeId(kind, side)` | `column:<side>` or `rail:<side>`: the virtual edge a refusal names in `edge`. |
+
 A gap, column or rail target exists only where the drop keeps the whole scene sound (C29): it adds no `overflow` or
 `too-wide` note to any edge, changes no fixed item's form, squeezes none under its `main.min` anywhere (a between bar
 under a new column included), and lands its slot on no chrome. The rule compares notes: in an edge that already
@@ -1170,10 +1180,11 @@ place left empty and nothing else moved. A row with `lacks` names a library rule
 to fail until it lands. A host reaches the end gaps 24 px (`END_REACH`) past an edge's ends.
 
 ```ts
+import { targetAt } from "@n-uf/motion/drag";
 import { CASES, createSceneHost, runCase } from "@n-uf/placement/scene/cases";
 
 const row = CASES.find((c) => c.id === "C1")!; // the drop preview is the rect the item gets
-const result = runCase(row, createSceneHost());
+const result = runCase(row, createSceneHost({ pick: targetAt })); // motion's pick rule
 console.log(result.ok, result.failures, result.skipped.length); // true [] 6
 ```
 
@@ -1184,10 +1195,17 @@ anything with `getAttribute` and `querySelectorAll` (and `getBoundingClientRect`
 selector under it of the element that draws an item (default `[data-dock-item="<id>"]`, also exported as
 `defaultItemSelector`), `stored()` the stored form and `stops(item)` the "Move to ›" places; a check the host can't make is skipped and listed in `skipped`. A check pointing at
 a gesture the row doesn't have fails the row. `createSceneHost()` is the reference: no page, no pointer, no clock, a drag
-session that lifts past 4 px, asks `targets` for every target, takes the most precise one under the pointer (`pickTarget`:
-the lowest priority number, then the smallest hit), draws the preview from its `after.layout` and commits `after.scene` on
-release, every solve carrying the layout before it as `previous`. A kit's host does the same with its own pointer;
-`resolvePlace(targets, place, item, { stage, content })` turns a `place` into a point that reaches the target. Every row
+session that lifts past 4 px, asks `targets` for every target, takes the one under the pointer by its pick rule,
+draws the preview from its `after.layout` and commits `after.scene` on release, every solve carrying the layout before
+it as `previous`. A kit's host does the same with its own pointer; `resolvePlace(targets, place, item, { stage, content
+}, pick)` turns a `place` into a point that reaches the target.
+
+**The pick rule** (which target the pointer is over: the lowest priority number, then the smallest zone, every piece of
+`hits` counted, a rect holding its edges exactly) is `@n-uf/motion/drag`'s `targetAt`, the rule the drag intent runs.
+Placement doesn't import motion, so the host takes it as an input: `createSceneHost({ pick: targetAt })`, the last
+argument of `resolvePlace`, and a host's optional `pick` (`PickRule`). Without one, the default is the same rule
+(`pickTarget`, deprecated, held equal to `targetAt` by a test).
+ Every row
 passes on the in-memory host except its DOM checks, which it skips, and the rows with `lacks`, which fail on it until the
 library rule lands. `CASE_GROUPS` lists the groups.
 
@@ -1197,7 +1215,7 @@ played in order:
 | `type` | What a host does |
 |---|---|
 | `press` | Pointer down on `item`'s handle (its grip, or its header); `point` is the grab, relative to the item's top-left corner, and is the row's, not the host's. Nothing lifts yet. |
-| `move` | The pointer moves to `point` (stage px) or to the target at `place` (`resolvePlace` finds a point that reaches it). With an item pressed, the first move past the lift threshold lifts it (a `place` always lifts), and the pointer is then over whichever target `pickTarget` finds. With no target under it, the host draws the committed layout with the held item's place left empty and nothing else moved. |
+| `move` | The pointer moves to `point` (stage px) or to the target at `place` (`resolvePlace` finds a point that reaches it). With an item pressed, the first move past the lift threshold lifts it (a `place` always lifts), and the pointer is then over whichever target the host's pick rule finds. With no target under it, the host draws the committed layout with the held item's place left empty and nothing else moved. |
 | `hold` | The pointer rests for `ms`, so a host with a drag intent settles on its target. A checkpoint or DOM check is never read right after a `move`. |
 | `release` | Pointer up: after a lift, it drops on the target under the pointer (a `home` or `none` target, or none, drops nothing); without one it was a press and nothing changes. |
 | `key` | `"Escape"` cancels the drag, `"Alt"` holds Alt down and `"Alt:up"` lets it go (a frozen window moves while it is down), `"Reload"` stores the scene, drops the live one and reads it back. |
