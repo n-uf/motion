@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.17
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.17 (a title bar keeps room for groups
+  to drop back into it).
+
 ## 26.11.16
 
 - No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.16 (the new `./scene` entry: one

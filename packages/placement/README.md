@@ -825,7 +825,8 @@ edges without `previous`.
   stays `gap:<edge>:start:<n>`). The first and last reach `endReach` px past the edge's ends. Across, the hit is the
   larger of the edge's thickness before and after the drop, and it is cut clear of chrome and of what each fixed item
   reserves: its drawn rect, or for a fixed item that grows (a title filling its bar) only its natural rect, placed by
-  its zone (from its start, from its end in the end zone, centred in the centre zone). The length it grew by is spare
+  its zone (from its start, from its end in the end zone, centred in the centre zone); `reservedRect(scene, layout, id)`
+  gives that rect, for a host that marks where nothing may drop. The length it grew by is spare
   room: gap hits may lie there, and the drop shrinks it toward its natural size (to its `min` if the room needs it), so
   a group moved out of a title bar can always go back while the room allows. A title already at its natural size leaves
   no such room. No slot lies over a fixed item's reserved rect. `slot` is the item's rect after the drop and `marker`
