@@ -13,8 +13,8 @@
  *   the edge (panel columns) a zone's extent is the span the solver gives it: a plain column is one zone, a tray column
  *   its panels' span and its tray's (`EDGE_KINDS`, the only data keyed on the kind of edge). The outer extents reach
  *   `endReach` past the edge's ends.
- * - **Slots.** A zone's insertion lines, from the layout with the item lifted (`gap:<edge>:<zone>:<at>`; an empty edge's
- *   zone has one, `strip:<edge>:<zone>`). The item's own place is an interval, its own rect along the edge: home.
+ * - **Slots.** A zone's insertion lines, from the layout with the item lifted (`gap:<edge>:<zone>:<at>`; on an edge with
+ *   no members at all a zone has one, `strip:<edge>:<zone>`). The item's own place is an interval, its own rect along the edge: home.
  * - **Tiles.** A zone's extent split halfway between its slots' lines (lines that lie past the extent are spread into
  *   it); the own interval keeps exactly its length, its neighbours meeting it, and a stretch of a zone with no other
  *   slot is home's. Across: the edge's thickness (the larger of now and after the drop), an empty edge's strip depth
@@ -289,7 +289,10 @@ function edgeTiles(c: Ctx, edge: Edge): Tile[] {
   if (!accepts && (empty || area(el.rect) <= EPS)) return onlyHome();
   if (accepts && empty && !opensEmpty(rest, edge, kind)) return onlyHome();
   const restEdge = rest.edges.find((e) => e.id === edge.id)!;
-  const pad = { start: Math.max(0, edge.pad?.start ?? 0), end: Math.max(0, edge.pad?.end ?? 0) };
+  // `strip:<edge>:<zone>` names a slot only on an edge with no members at all (a zone there has one slot); every other
+  // slot, beside closed members or the item's own place too, is named by its gap, so no two slots share an id.
+  const slotId = (zone: Zone, at: number): string => (restEdge.items.length === 0 ? `strip:${edge.id}:${zone}` : `gap:${edge.id}:${zone}:${at}`);
+  const pad ={ start: Math.max(0, edge.pad?.start ?? 0), end: Math.max(0, edge.pad?.end ?? 0) };
   const menuLen = el.menu ? len(el.menu.rect) : 0;
 
   // Slots: a zone's insertion lines, from the layout with the item lifted. What an item takes of the edge for its lines:
@@ -371,7 +374,7 @@ function edgeTiles(c: Ctx, edge: Edge): Tile[] {
     zone: homeId?.zone ?? zoneOf(scene.items[dragged]),
     order: 0,
     kind: "home",
-    id: homeId ? (empty ? `strip:${edge.id}:${homeId.zone}` : `gap:${edge.id}:${homeId.zone}:${homeId.at}`) : `home:${dragged}`,
+    id: homeId ? slotId(homeId.zone, homeId.at) : `home:${dragged}`,
     // A slot's priority; `home:<id>` (1) over the own rect within it.
     priority: homeId ? 2 : 1,
     place: { kind: "home" },
@@ -440,7 +443,7 @@ function edgeTiles(c: Ctx, edge: Edge): Tile[] {
             zone: z.zone,
             order,
             kind: "slot",
-            id: empty ? `strip:${edge.id}:${s.zone}` : `gap:${edge.id}:${s.zone}:${s.at}`,
+            id: slotId(s.zone, s.at),
             priority: 2,
             place: s.place,
             result: s.result,
