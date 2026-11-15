@@ -481,7 +481,10 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   fits no larger form nothing behind it grows, so a leading group never opens while a trailing one that gave way after
   it stays folded. Items in the menu still come out, alone or together when only their leaving together fits, but only
   when that keeps the order: an item leaves only with every menu item ahead of it, and only for a form no fewer steps
-  down (from its `from`) than every item ahead of it that isn't in the menu. One px of room, or a badge losing a digit after a press, moves
+  down (from its `from`) than every item ahead of it that isn't in the menu, and never ahead of an item whose step down
+  ranked higher than its own step into the menu (that step came after it). So growing back is strictly the reverse of
+  giving way, the menu included: under a priority (see Scenes), a higher-priority toolbar is back at its form before a
+  lower one leaves the menu. One px of room, or a badge losing a digit after a press, moves
   nothing. Results under `previous` depend on history: a shrink then a grow can end at another arrangement than a fresh
   solve, and more room never undoes a growth along successive solves. Growing back is meant for stacks of up to about
   50 items (60 small menu items take about 9 ms). An item whose form at the kept index is of another kind starts over;
@@ -810,6 +813,16 @@ no hit covers them. Their length shrinks toward `main.min` and grows with spare 
 controls have `min` equal to `natural`. A stage too short for them overflows instead of folding them. A `kept` item with
 no smaller form never folds either: it reports `overflow` or `too-wide`.
 
+**Give-way priority.** `SceneItem.priority` (number, default the edge's `Edge.priority`, else 0) says who steps down
+first when an edge runs short. Items step down their forms in a fixed ladder, row, then wrap (in a column), then icons,
+then the edge's » menu; the lowest priority steps first, and among equals the one used longest ago. Priority adds to every
+one of the item's forms' `rank` (`./stack`), which is the mechanism, so a host may still rank single forms. Give the
+controls that must stay out of the menu the highest priority, and a title bar's `Edge.priority` a lower one than the items
+moved into it from other bars, so its own toolbars step down first. Room coming back brings items up in exactly the
+reverse order, each to its remembered form, the » menu included. A host reads, and never decides: each item's layout has
+`form` (the index into the forms of its axis), `formKind` and `inMenu`, and `edges[id].menu.items` lists the ids in the
+» menu in order. Without priorities nothing changes.
+
 **Closed items** keep their place in their edge (or their float rect) but take no room and have no targets.
 
 **Toolbar shapes.** A group in a column draws its words in rows that wrap to the column: give it the column forms
@@ -867,7 +880,9 @@ none lays out as before.
   whether one column at its minimum fits beside the content's minimum. Anchors and rails don't count: every column, an
   anchor included, can fold into its rail. A docked column counts whether or not its side has a rail. Before any column
   holds an item, the `Scene.columns` template answers, with the larger of its `cross.min` and the least width the items
-  it takes need, so docking a panel doesn't flip the answer. `false` comes with the
+  it takes need, so docking a panel doesn't flip the answer. It answers as if the one column were open: under
+  `insetWhen: "docked"` with nothing docked it counts the inset that column would bring, and a column folded whole by hand
+  (and a template's floating items) counts at its open minimum, not as a rail. `false` comes with the
   note, where `width` is the room the stage leaves and `need` the content's minimum plus that column and its gutter. A
   host shows its narrow fallback (one panel over the content) while it is `false`. An exhaustive `switch` over
   `SceneNote["code"]` needs the new code.
@@ -942,6 +957,20 @@ edges without `previous`.
   drop that would put the item back where it is (the gap beside it, its own column's line) keeps its id but is a home
   too: no slot, nothing committed. Every rail target on the side whose rail already holds the item is a home: a segment
   dropped on its own rail, even below the last segment, never splits or reorders it (P9).
+
+**Local targets.** A target wins only where its own hit is. A home gap's hit keeps the item's own rect and half a band
+(`DEFAULT_HIT_BAND / 2`) each way along its edge, and the room it gives up goes to the gaps beside it on that edge, so
+home is offered only over the item's own place and the slot shown is at the pointer or right next to it, never a "back to
+its place" preview far away. Affected: the drag of an item in a bar whose zone held only its own gap (that zone's whole
+third used to preview home).
+
+**Refusals.** `refusals(scene, dragged, options?)` gives the places a drop is refused, as `{ id: "refuse:<edge>:<zone>",
+edge, zone, hit, reason }[]` (type `SceneRefusal`): the bar zones, by thirds, that have no target (`reason: "no-room"`
+when the zone takes the kind but no gap of it fits, a title bar at the title's natural width say; `"not-accepted"` when
+the zone or the bar doesn't take the kind), and the side edges that don't take the kind (as a whole, zone `start`). Each
+hit is cut clear of every target's hit, so a pointer over one has no target there but the float. A host shows "no room
+here" at the pointer over one, with no slot anywhere; a release there commits nothing, the item goes home. It takes the
+same `previous` and `fresh` as `targets`.
 
 A gap, column or rail target exists only where the drop keeps the whole scene sound (C29): it adds no `overflow` or
 `too-wide` note to any edge, changes no fixed item's form, squeezes none under its `main.min` anywhere (a between bar
