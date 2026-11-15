@@ -5,6 +5,19 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.25
 
+- `@n-uf/placement/scene` and `/stack`, **the Scene owns the whole window**. Nothing published is removed.
+  - **What moved:** `fitFloat` and `FloatFit` are exported by `./scene` (the Scene fits its floats with it). `./scene`
+    no longer reaches into `./stack`'s files: it uses `./stack` only as the edge solver, through its entry.
+    `solve` and `targets` are split by phase into smaller modules; their results are unchanged.
+  - **Deprecated in `./stack`**, each with its Scene replacement, until the next breaking release:
+    `stackTargets`, `StackTarget`, `StackPlace`, `StackTargetOptions` → `targets(scene, id)` (`SceneTarget`,
+    `ScenePlace`, `SceneTargetOptions`); `createStack`, `storeStack`, `readStack`, `StackState`, `StoredStack`,
+    `StackRead` → `storeScene` / `readScene`; `stackFloatTarget`, `FloatTarget`, `FloatDrop`, `StackFloatTargetInput`
+    → the `float:<id>` target of `targets()`; `storeFloats`, `readFloats`, `StoredFloats`, `FloatsRead`, `StackFloat`
+    → the stored scene's floats (`Scene.floats`); `fitFloat`, `FloatFit` → the same names from `./scene`.
+  - **Stays in `./stack`:** the edge solver, `fitStack` with `StackInput`, `StackItem`, `StackFit`, and the form
+    vocabulary (`StackForm`, `CrossLimits` and the form helpers).
+
 - `@n-uf/placement` (root), **one geometry** (additive): the rect math every entry shares is the root's: `EPS`,
   `PLANE`, `area`, `overlaps`, `contains`, `clamp`, `subtract` (a rect less another, as disjoint rects), and the hit
   sizes `COLUMN_REACH` and `RAIL_EDGE`, next to `rect`, `overlap`, `clampInto` and `centre`. The **`Target`** type

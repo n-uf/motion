@@ -47,13 +47,14 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
 - **`/stack`**: the items along one edge, a column or a bar, each a panel or a control group with forms from largest to
   smallest (open, header, rail icon, » menu; row, stacked, icons, fold, » menu): one form and rect per item, giving
   way by age and `rank`, only to a form that is shorter, spare room to the panels that grow, a rail when nothing open
-  sets the width, `gap` and `pad` in the length; a drop target for every gap, each with the exact solve a drop makes; a
-  stored form; and floats (an item above the pages, in the stage's own px, kept inside the stage and clear of the docked
-  items, with its drop target and stored form). Not tied to `/panels`.
-- **`/scene`**: one model of a whole window on `/stack`: edges cut ring by ring along the stage's sides (full and
-  between bars, columns, overlay edges), each a stack with start, center and end zones, fixed items (a title, window
-  controls), floats clear of every bar and chrome, one `solve` for every rect, one `targets` for every drop target
-  of one item (each carrying the layout a release makes, so the preview is the result), pure changes and a stored form.
+  sets the width, `gap` and `pad` in the length. It is the edge solver `/scene` lays each edge with. Its window-level
+  parts (a drop target for every gap, a stored form, floats with their drop target and stored form) are
+  **deprecated**: `/scene` owns the window and replaces each of them (see Edge stacks). Not tied to `/panels`.
+- **`/scene`**: one model of a whole window, each edge laid with `/stack`: edges cut ring by ring along the stage's
+  sides (full and between bars, columns, overlay edges), each a stack with start, center and end zones, fixed items (a
+  title, window controls), floats clear of every bar and chrome (`fitFloat`), one `solve` for every rect, one
+  `targets` for every drop target of one item (each carrying the layout a release makes, so the preview is the
+  result), pure changes and a stored form.
 - **`/scene/cases`**: the Scene's behaviour as data: conformance rows (a scene, what a user does, the layout and DOM
   expected after) and `runCase`, which plays one on a host, so a UI kit's suite and the lab run the same rows.
 
@@ -532,6 +533,12 @@ menu has the entry's rect; `menu.items` are exactly the items whose kind is `men
 (`id`, `from`, `to`: the item took a smaller form than the one it started in, by length or by cross size, as indexes
 into its forms), `to-menu` (`id`), `too-wide` (`id`), `no-forms` (`id`) and `overflow` (`over` px: no item can give
 more way and the stack is still too long; forms that don't end in a `menu` form can't give more).
+
+> **Deprecated:** `stackTargets`, `createStack`, `storeStack`, `readStack` and the floats below (`fitFloat`,
+> `stackFloatTarget`, `storeFloats`, `readFloats`) belong to the window, which `@n-uf/placement/scene` owns:
+> `targets(scene, id)` replaces `stackTargets` and `stackFloatTarget` (its `float:<id>` target), `storeScene` /
+> `readScene` replace the stack's and the floats' stored forms, and `fitFloat` is exported by `./scene`. They stay
+> until the next breaking release. `fitStack` and the forms are the edge solver and stay.
 
 `stackTargets(input, dragged)` takes the stack (an item of it with the dragged id is lifted out first, so a reorder
 within a stack works) and gives a target for every gap, before each item and after the last, in the shape
