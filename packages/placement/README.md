@@ -786,6 +786,25 @@ least and `cross.max` at most; `resize` sets it.
 zones (it sums the minimum sizes); when room is spare, start items pack from the start, end items from the end (before
 the » entry) and center items sit on the edge's middle, moved only as far as they must to stay between the other two.
 
+**Bar alignment zones.** A horizontal bar picks the zone of a drop by thirds of its length: a pointer in the left third
+is over the leading zone (`start`), in the middle third over the center zone, in the right third over the trailing zone
+(`end`), and within the zone the nearest of its gaps wins, each zone's gaps splitting only that zone's third. A zone whose
+toolbars run past its third spreads its gap lines inside the third, so its last gap keeps a slice of it. An empty bar's
+strip is three targets, `strip:<bar>:start`, `strip:<bar>:center` and `strip:<bar>:end` (it was one `strip:<bar>`), one
+per third. Columns keep their one `strip:<column>`.
+
+A **title bar**, a bar with a fixed item that grows (the window title), is a constrained host: a toolbar dropped there
+must land in its first form, nothing else in the bar may change form for it, and the title keeps its natural width (it may
+no longer shrink to its `min` to make room). A zone where that can't hold has no target and no slot, so a bar too full
+takes no drop in that zone. The zones are then laid with the title at its natural width, not at the width it grew to:
+
+- a leading toolbar sits right after the title's natural rect;
+- the trailing toolbars sit right before the end items (the window controls);
+- a center toolbar sits at the bar's true centre when that is clear of both, else it is centred in the free span between
+  the leading and the trailing ones;
+- the title takes the spare room only when nothing follows it in its zone, so a toolbar after the title is no longer
+  separated from it by a stretch of title.
+
 **Fixed items** (a title, window controls, a page readout) never change form, are never reordered, never dragged, and
 no hit covers them. Their length shrinks toward `main.min` and grows with spare room when the form `grows`; window
 controls have `min` equal to `natural`. A stage too short for them overflows instead of folding them. A `kept` item with
@@ -833,11 +852,37 @@ first column. A column folds:
 A member folded by hand in a column with others is a bar in place (its header form). The open members share the height
 through `grows`. Anchors (a thumbnails column, a fixed drawer) are ring-0 edges with `accepts: []` and fixed items.
 
+**Side parity options.** For a host with panel columns, anchors and a narrow fallback. All are opt-in; a scene that sets
+none lays out as before.
+
+- **`Edge.outsideInset`**: an anchor edge (a left or right edge that takes nothing, such as a thumbnail strip) lies
+  outside `Scene.inset` and the gutter: at the window's side, with the inset after it toward the content, and inside its
+  side's rail when one shows. It runs into the inset above and below only where no reserved bar lies on that side.
+- **`Edge.giveWay`**: a static left or right edge that gives way like a dynamic column. It shrinks toward its minimum,
+  then folds whole into its side's rail, in give-way order with the columns (by its items' ages). It is never deleted.
+- **`Scene.insetWhen`** (`"always"`, the default, or `"docked"`): with `"docked"` the inset applies only while something is
+  docked beside the content, that is an open column or a rail (an edge that takes something and holds an item that isn't
+  closed). An anchor alone doesn't count; with nothing docked, the content is the whole stage.
+- **`layout.columnRoom`** and the note **`no-column-room`** (`{ width, need }`): with `contentMin` and dynamic columns,
+  whether one column at its minimum fits beside the content's minimum and the room the anchors take (an open anchor's
+  width and gutter, a folded one's rail and gutter). `false` comes with the note, where `width` is the room the stage
+  leaves and `need` the content's minimum plus that column and its gutter. A host shows its narrow fallback (one panel
+  over the content) while it is `false`. An exhaustive `switch` over `SceneNote["code"]` needs the new code.
+- **`handFold: "ride"`** rides every column folded by hand, not only a one-panel one: each member is a bar over the
+  side's first open panel column (never over an anchor), stacked in zone order. A side's rail is its outermost edge.
+
 **Floats** lie above the content in stage px, last on top. Each is moved inside the stage and clear of every docked
 item, every bar and every `chrome` rect (`fitFloat`), with `float-clamped`, `float-moved` or `float-covers` notes. With
 `anchor` (such as `"content-top-right"`) it sits flush with that side or corner of the content and follows it until a
 drop gives it a real rect. `orient` picks the forms it uses (default `"column"`); folded by hand (`from` over 0) it is its
 bar: that form's natural length along its orient, its other size kept.
+
+The **float region** is [pad, W − pad] × the full height: the stage less `Scene.inset`'s left and right (its top and
+bottom don't cut it). A float is clamped into it, and one larger than it is shrunk to fit. **`SceneItem.floatMin`**
+(`Size`) is the floor of that shrink: a float of the item is laid out at `max(floatMin, min(its size, the region))` each
+way. Without it a shrink stops at the form's own minimums (`cross.min` across, `main.min` along), and a float asked for
+smaller than those keeps its size. A float wider than the region even at the floor keeps the floor and lies at the
+region's left edge; a folded float keeps its height.
 
 **`previous`.** `solve(scene, { previous })` hands each edge's fits (`edges[id].free` and `.stack`) to `fitStack`, so a
 change of ages alone (a press, `use`) or `raise` changes no rect (C23), a form that was only re-measured keeps its place,
@@ -874,7 +919,8 @@ edges without `previous`.
   by is spare room: the drop shrinks it toward its natural size (to its `min` if the room needs it), so a group moved
   out of a title bar can always go back while the room allows. No slot lies over a fixed item's reserved rect. `slot`
   is the item's rect after the drop and `marker` the insertion line across the edge.
-- `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side, inside the
+- `strip:<edge>` (2; for an empty horizontal bar three, `strip:<bar>:start`, `:center` and `:end`, one per third, see
+  Bar alignment zones): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side, inside the
   content and clear of the other edges (overlay ones included), so never over a docked edge or a panel's body: a
   full-width empty bar's strip covers only the content between the columns. A compact rail's strip alone stays at the
   window edge, its own place. A gap hit that spans it across trims its start or end (a bar's strip along the top never
@@ -909,7 +955,12 @@ Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (
 
 **Changes** are pure and return the scene given when nothing applies: `moveTo(scene, id, { edge, zone?, at })`,
 `floatAt(scene, id, rect?, orient?)` (with no rect: its last `floatSize`, anchored to the content's top-right), `fold`,
-`use`, `keep`, `raise` (a float on top: no use, no reshape), `open`, `close`, `orient` and `resize`. `moveTo` and
+`use`, `keep`, `raise` (a float on top: no use, no reshape), `open`, `close`, `orient`, `resize` and
+`setSide(scene, edgeId, side)`. `setSide` moves an edge to the other side of its axis (left ⇄ right, top ⇄ bottom) as
+its side's outermost edge: ring 0, before that side's other edges, whose rings close up behind it (the side it left
+closes up too). Its items, size and options go with it; the scene is given back unchanged for an unknown edge, the side
+it is already on, or a side across its axis. The stored form keeps the side, and `readScene` moves a static edge stored
+on the other side of `base`'s with `setSide`. `moveTo` and
 `floatAt` refuse fixed items and kinds the edge or `floatKinds` doesn't list. `moveTo` also takes `{ kind: "column",
 side, ring }` (`ring: Infinity` is the side's inner end: "Move to › Dock left"), `{ kind: "rail", side, ring }` (docked
 folded) and `{ kind: "float", rect?, anchor? }`. `homeFor(scene, id, start)` is the place a start scene gives the item
