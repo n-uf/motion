@@ -29,6 +29,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   - Typing: `SceneNote` gains `no-column-room`; an exhaustive `switch` over `SceneNote["code"]` needs it.
   - Affected: scenes with an inset and floats near its sides, scenes riding a hand-folded column of two or more panels
     (they went to the rail), and scenes with a static edge outside a dynamic column on a side whose rail shows.
+- `@n-uf/placement/scene`, **fixed:** an item moved into a new column (`moveTo` with a column or rail place) kept
+  only the start zone since 26.11.18; it keeps its own zone (`align` end or center) again where the new column takes
+  its kind there, else the first zone that does.
 - `@n-uf/placement/scene`, **fixed:** `homeFor` (and `dockHome`) took a new column that reused a pruned column's id
   for the item's home. A start column is home only while the column under its id holds one of its items; otherwise
   home is a new column at its ring. Static edges still match by id. Conformance row `P14b-dock-after-a-column-id-is-reused`.

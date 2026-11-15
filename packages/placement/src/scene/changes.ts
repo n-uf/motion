@@ -118,8 +118,12 @@ function insertColumn(scene: Scene, id: string, side: "left" | "right", ring: nu
   // A kind never opens a column on its own unless the column's start zone takes it (a group never opens a panel column
   // whose tray is its end zone).
   if (!zoneTakes(col, "start", kind)) return null;
-  const { align: _a, ...plain } = scene.items[id]!;
-  const placed = withItem(scene, plain);
+  // The item keeps its zone when the new column's zone takes it (as `moveTo` into a column that exists), else the first
+  // zone that does; `align` follows the zone chosen.
+  const item = scene.items[id]!;
+  const zone = zoneTakes(col, zoneOf(item), kind) ? zoneOf(item) : (zonesTaking(col, kind)[0] ?? "start");
+  const { align: _a, ...plain } = item;
+  const placed = withItem(scene, zone === "start" ? plain : { ...plain, align: zone });
   const shifted = placed.edges.map((e) => (e.side === side && e.ring >= r ? { ...e, ring: e.ring + 1 } : e));
   return { ...placed, edges: closeRings([...shifted, col], new Set([side])) };
 }
@@ -150,8 +154,8 @@ export function moveTo(scene: Scene, id: string, place: Place): Scene {
   }
   if (place.kind === "column" || place.kind === "rail") {
     if (place.kind === "rail" && !scene.rails?.[place.side]?.accepts.includes(item.kind)) return scene;
-    const { align: _a, ...plain } = item;
-    const folded: SceneItem = place.kind === "rail" ? { ...plain, from: Math.max(1, plain.from ?? 0) } : plain;
+    // Its zone goes with it: `insertColumn` keeps it where the new column takes the kind there.
+    const folded: SceneItem = place.kind === "rail" ? { ...item, from: Math.max(1, item.from ?? 0) } : item;
     const made = insertColumn(withItem(lift(scene, id), folded), id, place.side, place.ring);
     return made ?? scene;
   }
