@@ -192,7 +192,7 @@ function read(data: unknown, base: Scene): SceneRead {
     if (!edge && e.column === true && (e.side === "left" || e.side === "right") && base.columns?.[e.side]) {
       // A column the user made: from its side's template.
       const t = base.columns[e.side]!;
-      edge = { id: e.id, side: e.side, ring: isNum(e.ring) ? e.ring : Infinity, accepts: t.accepts, items: [], cross: t.cross, ...(t.gap !== undefined ? { gap: t.gap } : {}), ...(t.pad ? { pad: t.pad } : {}), ...(t.menu ? { menu: t.menu } : {}), column: true };
+      edge = { id: e.id, side: e.side, ring: isNum(e.ring) ? e.ring : Infinity, accepts: t.accepts, items: [], cross: t.cross, ...(t.gap !== undefined ? { gap: t.gap } : {}), ...(t.pad ? { pad: t.pad } : {}), ...(t.menu ? { menu: t.menu } : {}), ...(t.hitBand !== undefined ? { hitBand: t.hitBand } : {}), column: true };
       made.push(edge);
     }
     if (!edge || order.has(edge.id)) {

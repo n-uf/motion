@@ -145,7 +145,8 @@ export interface Edge {
   /**
    * A dynamic column (left and right only): made by a drop on a column line, deleted when it holds no item, folded whole
    * into its side's rail by give-way (`Scene.contentMin`) or when every member is folded by hand. Its `accepts`,
-   * `cross`, `gap`, `pad` and `menu` come from `Scene.columns[side]` when the changes make it.
+   * `cross`, `gap`, `pad`, `menu`, `zoneAccepts` and `hitBand` come from `Scene.columns[side]` when the changes make it;
+   * with no `hitBand` of its own it reads the template's.
    */
   readonly column?: boolean;
   /**
@@ -177,6 +178,12 @@ export interface ColumnTemplate {
   readonly menu?: { readonly main: number };
   /** The kinds each zone takes in the columns made from it (`Edge.zoneAccepts`). */
   readonly zoneAccepts?: ZoneAccepts;
+  /**
+   * How a gap's hit runs over the open panels of the columns made from it (`Edge.hitBand`): a band that many px about
+   * each line, or `"middle"` (a drop on a panel's upper or lower half means the gap before or after it). Default
+   * {@link DEFAULT_HIT_BAND}.
+   */
+  readonly hitBand?: number | "middle";
 }
 
 /** Per zone, the kinds it takes. */

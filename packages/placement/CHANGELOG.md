@@ -9,6 +9,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
   (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
+- `./scene`, **`ColumnTemplate.hitBand`** (additive): takes the same values as `Edge.hitBand`, a number or `"middle"`
+  (a drop on a card's upper half is the gap before it, on its lower half the gap after it). Columns made from the
+  template take it: by a drop on a column line, by `moveTo` a new column, by `dockHome`, and read back by `readScene`. A
+  dynamic column with no `hitBand` of its own reads its template's. The default is unchanged.
+
 - **One pick rule, one id scheme** (what moved, what's deprecated; no id and no row changes).
   - **The pick rule moved to `@n-uf/motion/drag`'s `targetAt`.** `./scene/cases` takes it as an input:
     `createSceneHost({ pick })`, `resolvePlace(list, place, item, area, pick?)`, and an optional `pick` on

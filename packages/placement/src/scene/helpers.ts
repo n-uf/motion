@@ -4,7 +4,7 @@
  */
 import type { Rect, Size } from "../geometry";
 import type { StackForm } from "../stack";
-import { DEFAULT_FLOAT_SIZE, ZONES, type Edge, type Kind, type Orient, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
+import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, ZONES, type Edge, type Kind, type Orient, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
 
 /** Whether `edge` takes kind `kind` in `zone`: its `accepts`, narrowed by `zoneAccepts` when given (a zone not listed takes nothing). */
 export const zoneTakes = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, zone: Zone, kind: Kind): boolean =>
@@ -12,6 +12,13 @@ export const zoneTakes = (edge: { readonly accepts: readonly Kind[]; readonly zo
 
 /** The zones of `edge` that take `kind`, in order. */
 export const zonesTaking = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, kind: Kind): Zone[] => ZONES.filter((z) => zoneTakes(edge, z, kind));
+
+/**
+ * How a gap's hit runs over `edge`'s open panels (`Edge.hitBand`): its own, else, for a dynamic column, its side's
+ * template's (`ColumnTemplate.hitBand`), else {@link DEFAULT_HIT_BAND}.
+ */
+export const hitBandOf = (scene: Scene, edge: Edge): number | "middle" =>
+  edge.hitBand ?? (edge.column === true && (edge.side === "left" || edge.side === "right") ? scene.columns?.[edge.side]?.hitBand : undefined) ?? DEFAULT_HIT_BAND;
 
 /** The axis an edge's stack runs along. */
 export const axisOf = (side: Side): Orient => (side === "left" || side === "right" ? "column" : "row");
