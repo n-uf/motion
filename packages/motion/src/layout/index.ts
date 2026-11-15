@@ -2,6 +2,8 @@ export { createLayoutMotion } from "./motion";
 export type { Drawable, DrawEntry, DrawFrame, LayoutItem, LayoutMotion, LayoutMotionOptions, LayoutTask } from "./motion";
 export { holdItem } from "./held";
 export type { HeldDrag } from "./held";
+export { anchoredMorph, MORPH_TEMPO } from "./anchored";
+export type { AnchoredMorph, BoxSize } from "./anchored";
 export { flip, rectOf } from "./flip";
 export type { FlipEntry, Measurable, RectLike } from "./flip";
 export { domDrawable, drawBox, layOutBox } from "./dom";
