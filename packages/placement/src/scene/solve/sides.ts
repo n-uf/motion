@@ -28,7 +28,7 @@ export function laySides(d: Draft, sideEdges: readonly Edge[], area: Rect, f: Fr
   const cols = columnsOf(d, sideEdges, area, tall);
   const g = giveWay(d, cols, area, f.gutter);
   columnRoom(d, cols, area, f);
-  giveWayNotes(d, g);
+  giveWayNotes(d, g, cols);
   const walk: Walk = { x0: area.x, x1: area.x + area.width };
   for (const side of ["left", "right"] as const) laySide(d, side, cols, g, area, f, walk, reach.up, tall);
   return rect(walk.x0, area.y, Math.max(0, walk.x1 - walk.x0), H);
