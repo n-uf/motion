@@ -248,8 +248,11 @@ describe("local targets: home only over the item's own place, refusals where a z
       expect((t.place as { zone: string }).zone).toBe("center");
     }
     for (let x = 2 * third + 1; x < v.x; x += 10) expect(at(x), `${x}`).toBeUndefined();
-    // That stretch is refused instead ("no room here"), never handed to another zone's slot.
-    expect(refusals(s, "views", { previous: l }).some((r) => r.edge === "titlebar" && r.zone === "end" && r.hit.x <= 2 * third + 1)).toBe(true);
+    // That stretch is refused instead, never handed to another zone's slot: there is room, but the zone's only place is
+    // Views' own (`own-place`).
+    const beside = refusals(s, "views", { previous: l }).filter((r) => r.edge === "titlebar" && r.zone === "end" && r.hit.x <= 2 * third + 1);
+    expect(beside.length).toBeGreaterThan(0);
+    expect(beside.every((r) => r.reason === "own-place")).toBe(true);
     expect(at(v.x + v.width / 2)!.place.kind).toBe("home");
   });
 

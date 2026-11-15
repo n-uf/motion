@@ -380,7 +380,7 @@ export function createScene(o: SceneOptions) {
     if (!r) return;
     place(refuseTint, r.hit);
     refuseTint.dataset.reason = r.reason;
-    refuseLabel.textContent = r.reason === "no-room" ? "No room here" : "Can't go here";
+    refuseLabel.textContent = r.reason === "no-room" ? "No room here" : r.reason === "own-place" ? "Already its place" : "Can't go here";
     refuseLabel.style.left = px(p.x + 12);
     refuseLabel.style.top = px(p.y + 12);
   }
