@@ -6432,6 +6432,18 @@
      },
      "kind": "target",
      "gap": "anchor-shrink-fold"
+    },
+    {
+     "stage": {
+      "w": 590,
+      "h": 800
+     },
+     "layout": {
+      "sheetFallback": true
+     },
+     "kind": "target",
+     "gap": "sheet-signal",
+     "note": "the anchor folded into the left rail takes its room: 32 + 12 + one column 220 + 12 + contentMin 320 = 596 > 566"
     }
    ]
   },

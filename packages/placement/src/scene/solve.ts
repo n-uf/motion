@@ -533,10 +533,23 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       }
     }
     const g = evaluate(auto);
-    // Whether one panel column at its minimum fits beside the content's minimum: a host's narrow fallback reads it.
+    // Whether one panel column at its minimum fits beside the content's minimum: a host's narrow fallback reads it. The
+    // static edges (anchors) take their room too: open, their width and gutter (none outside the inset); folded, their
+    // side's rail and its gutter. The rails of folded panel columns don't count: a column that opens leaves its rail.
     const colMins = cols.filter((c) => c.dyn && c.edge.column === true).map((c) => c.min);
     if (cmin !== undefined && colMins.length > 0) {
-      const need = cmin + Math.min(...colMins) + gutter;
+      let fixedRoom = 0;
+      const railedSides = new Set<"left" | "right">();
+      for (const c of cols) {
+        if (c.edge.column === true || c.visible.length === 0) continue;
+        if (g.railed(c)) railedSides.add(c.side);
+        else if (!g.riding(c)) {
+          const w = g.widths.get(c) ?? c.width;
+          if (w > 0) fixedRoom += w + (c.edge.outsideInset === true ? 0 : gutter);
+        }
+      }
+      for (const s of railedSides) fixedRoom += railW(s) + gutter;
+      const need = cmin + Math.min(...colMins) + gutter + fixedRoom;
       columnRoom = area.width >= need - EPS;
       if (!columnRoom) notes.push({ code: "no-column-room", width: area.width, need });
     }
