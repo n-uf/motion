@@ -132,18 +132,21 @@ const RAIL_REACH = 24;
  *   only space no edge owns. `overreach` orders the parts of tiles past their owned rect (the depth after a drop, an
  *   empty strip past its band, a compact rail's inward reach), which yield to the virtual edges and to every other
  *   edge's owned rect.
+ * - `phase`: the laying phase it ranks in (`LayKey.phase`), for the kinds `solve` doesn't lay itself: the rail and a
+ *   column line rank among the sides (phase 2), where the rail or a new column would be laid; null for the edges
+ *   `solve` lays (their phase is `layKeys`'s).
  * - `priority`: its targets' priority. `reach`: how far a slot's tile reaches each way from its line, px.
  * - `virtual`: an edge that owns nothing (the column lines). Its refused stretches take only what every other tile
  *   leaves.
  */
 const EDGE_KINDS = {
-  bar: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, layer: 10, overreach: 30, priority: 2, reach: Infinity, virtual: false },
-  sideBar: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, layer: 11, overreach: 31, priority: 2, reach: Infinity, virtual: false },
-  column: { zoneExtent: "solved", opens: "start", inward: 0, place: DEFAULT_HIT_BAND / 2, layer: 12, overreach: 32, priority: 2, reach: Infinity, virtual: false },
-  barBetween: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, layer: 13, overreach: 33, priority: 2, reach: Infinity, virtual: false },
-  rail: { zoneExtent: "thirds", opens: "any", inward: RAIL_REACH, place: DEFAULT_HIT_BAND / 2, layer: 14, overreach: 34, priority: 2, reach: Infinity, virtual: false },
-  railStop: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, layer: 9, overreach: 39, priority: 1, reach: Infinity, virtual: false },
-  columnLine: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, layer: 21, overreach: 41, priority: 2, reach: COLUMN_REACH, virtual: true },
+  bar: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 10, overreach: 30, priority: 2, reach: Infinity, virtual: false },
+  sideBar: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 11, overreach: 31, priority: 2, reach: Infinity, virtual: false },
+  column: { zoneExtent: "solved", opens: "start", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 12, overreach: 32, priority: 2, reach: Infinity, virtual: false },
+  barBetween: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 13, overreach: 33, priority: 2, reach: Infinity, virtual: false },
+  rail: { zoneExtent: "thirds", opens: "any", inward: RAIL_REACH, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 14, overreach: 34, priority: 2, reach: Infinity, virtual: false },
+  railStop: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: 2, layer: 9, overreach: 39, priority: 1, reach: Infinity, virtual: false },
+  columnLine: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: 2, layer: 21, overreach: 41, priority: 2, reach: COLUMN_REACH, virtual: true },
 } as const satisfies Record<
   string,
   {
@@ -152,6 +155,7 @@ const EDGE_KINDS = {
     readonly inward: number;
     readonly place: number;
     readonly layer: number;
+    readonly phase: number | null;
     readonly overreach: number;
     readonly priority: 1 | 2;
     readonly reach: number;
@@ -670,7 +674,7 @@ function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec[] {
     id: `column:${side}`,
     key: `column:${side}:${l.ring}`,
     kind: "columnLine" as const,
-    lay: { phase: 2, side, at: l.at },
+    lay: { phase: EDGE_KINDS.columnLine.phase, side, at: l.at },
     vertical: false,
     zones: [{ zone: "start" as const, a: l.x - reach, b: l.x + reach }],
     slots: [slotAt(c, "start", l.x, `column:${side}:${l.ring}`, { kind: "column", side, ring: l.ring }, lands)],
@@ -725,7 +729,7 @@ function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
     key: `rail:${side}`,
     kind: "railStop",
     // The rail lies outside every edge on its side: laid first among them.
-    lay: { phase: 2, side, at: -1 },
+    lay: { phase: EDGE_KINDS.railStop.phase, side, at: -1 },
     vertical: true,
     zones: [{ zone: "start", a: at.y, b: at.y + at.height }],
     slots: stops.map((s) => slotAt(c, "start", s.y, `rail:${side}:${s.ring}`, { kind: "rail", side, ring: s.ring }, lands, ownRail)),
