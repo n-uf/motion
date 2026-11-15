@@ -183,11 +183,8 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
 
 const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
 
-/**
- * Today's failures by category, before the one target model. The check passes while every count is at most these;
- * the refactor brings them to 0 and deletes this list.
- */
-const KNOWN: Record<Failure, number> = { hole: 8159, overlap: 4021, "other-zone": 14849, "own-not-home": 2667, "slot-not-landing": 0 };
+/** No failure of any kind (before the one target model: 8159 holes, 4021 overlaps, 14849 other-zone, 2667 own-not-home). */
+const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0 };
 
 describe("the target model's property check", () => {
   it("every point of an accepting edge maps to one target or refusal of its own zone; own rect → home; slot = landing", () => {
