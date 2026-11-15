@@ -27,7 +27,7 @@
 import { rect, type Rect } from "../geometry";
 import type { Target } from "../targets/target";
 import { fitStack } from "./layout";
-import { withItem, type FitOptions, type PlacedStackItem, type StackFit, type StackInput, type StackItem } from "./model";
+import { formMain, withItem, type FitOptions, type PlacedStackItem, type StackFit, type StackInput, type StackItem } from "./model";
 
 export interface StackTargetOptions {
   /**
@@ -144,7 +144,8 @@ function fitsBeside(
     const q = was.get(p.id);
     if (!item || !q || p.kind === "menu" || q.kind === "menu") continue;
     if (p.form !== q.form) return false;
-    if (main(p.rect) < Math.max(0, item.forms[p.form]!.main.min) - 1e-6) return false;
+    // Its least length: `main.min`, or a wrap form's rows at the stack's cross size.
+    if (main(p.rect) < formMain(item.forms[p.form]!, "min", fit.cross) - 1e-6) return false;
     if (across(p.rect) < across(q.rect) - 1e-6) return false;
   }
   return true;

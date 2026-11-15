@@ -26,7 +26,7 @@
  * A `fixed` item takes part in none of steps 1 to 4: it keeps its first allowed form, counts toward the length, and the
  * others give way around it. In step 5 it shrinks and grows like any item.
  *
- * With `ownCross`, an item in a group form (`row`, `stacked`, `icons`, `fold`) is drawn at its own `cross.natural`
+ * With `ownCross`, an item in a group form (`row`, `stacked`, `wrap`, `icons`, `fold`) is drawn at its own `cross.natural`
  * (clamped to the stack's cross size) from the start edge instead of across the whole stack; a panel form (`open`,
  * `header`, `rail`) still spans it. Nothing else changes.
  *
@@ -38,16 +38,19 @@
  * same input, same fit.
  */
 import type { Rect } from "../geometry";
-import { formSetsCross, limitsOf, menuMain, spacingOf, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote } from "./model";
+import { formCrossMin, formFitsCross, formMain, formSetsCross, limitsOf, menuMain, spacingOf, wrapCross, wrapRows, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote } from "./model";
 
 const EPS = 1e-6;
 const isMenu = (f: StackForm): boolean => f.kind === "menu";
 /** The form kinds of a control group; `ownCross` draws these at their own size across. */
-const GROUP_KINDS: ReadonlySet<string> = new Set(["row", "stacked", "icons", "fold"]);
+const GROUP_KINDS: ReadonlySet<string> = new Set(["row", "stacked", "wrap", "icons", "fold"]);
 const finite = (x: number, fallback = 0): number => (Number.isFinite(x) ? x : fallback);
-const mainOf = (f: StackForm, which: "min" | "natural"): number => (isMenu(f) ? 0 : Math.max(0, finite(f.main[which])));
-/** The least a form can be drawn across the stack. */
-const crossMin = (f: StackForm): number => finite(f.cross.min ?? f.cross.natural);
+/** A form's length along the stack; a `wrap` form's is its rows at cross size `cross` times the row height. */
+const mainOf = formMain;
+/** The least a form can be drawn across the stack (a `wrap` form: the narrowest cross its rows fit). */
+const crossMin = formCrossMin;
+/** What a form asks for across (a `wrap` form: its one-row width). */
+const crossNatural = (f: StackForm): number => (f.wrap ? wrapCross(f.wrap).natural : finite(f.cross.natural));
 
 const rankOf = (f: StackForm): number => finite(f.rank ?? 0);
 
@@ -146,7 +149,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   const crossOf = (): number => {
     const setters = idx.filter((i) => !isMenu(form(i)) && formSetsCross(form(i)));
     if (setters.length === 0) return lim.rail;
-    const want = Math.max(...setters.map((i) => finite(form(i).cross.natural)));
+    const want = Math.max(...setters.map((i) => crossNatural(form(i))));
     return Math.min(Math.max(want, lim.min), lim.max);
   };
   const inMenu = (): boolean => idx.some((i) => isMenu(form(i)));
@@ -157,7 +160,11 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     return slots > 1 ? (slots - 1) * sp.gap : 0;
   };
   /** The shortest the stack can be drawn now: the smallest sizes, the » entry, the gaps and the padding. */
-  const minSum = (): number => idx.reduce((s, i) => s + mainOf(form(i), "min"), 0) + (inMenu() ? menuMain(input) : 0) + gapsOf() + sp.start + sp.end;
+  const minSum = (): number => {
+    // A wrap form's length follows the cross size the forms make now.
+    const c = items.some((it) => it.forms.some((f) => f.wrap)) ? crossOf() : 0;
+    return idx.reduce((s, i) => s + mainOf(form(i), "min", c), 0) + (inMenu() ? menuMain(input) : 0) + gapsOf() + sp.start + sp.end;
+  };
   /** The form item `i` would step to: the first later one that shortens the stack, else -1 (it stays). */
   const stepTo = (i: number): number => {
     const from = at[i]!;
@@ -202,6 +209,8 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     // A form that sets the cross size is clamped to `max`, as it always was; only with `strictCross` is it never drawn
     // thinner than its `cross.min`, and steps down when that is over `max`.
     if (formSetsCross(f)) return input.strictCross === true && crossMin(f) > lim.max + EPS;
+    // A wrap form fits only where its rows do (no single word on a row but the last): checked at this cross itself.
+    if (f.wrap) return !formFitsCross(f, cross);
     return crossMin(f) > cross + EPS;
   };
 
@@ -305,8 +314,8 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   const menuSize = inMenu() ? menuMain(input) : 0;
   const avail = Math.max(0, length - sp.start - sp.end - gapsOf() - menuSize);
   const drawn = idx.filter((i) => !isMenu(form(i)));
-  const min = (i: number): number => mainOf(form(i), "min");
-  const nat = (i: number): number => Math.max(min(i), mainOf(form(i), "natural"));
+  const min = (i: number): number => mainOf(form(i), "min", cross);
+  const nat = (i: number): number => Math.max(min(i), mainOf(form(i), "natural", cross));
   const sumMin = drawn.reduce((s, i) => s + min(i), 0);
   const sumNat = drawn.reduce((s, i) => s + nat(i), 0);
   const size = new Map<number, number>();
@@ -325,14 +334,17 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
 
   const rectAt = (from: number, main: number, across = cross): Rect => (input.axis === "column" ? { x: 0, y: from, width: across, height: main } : { x: from, y: 0, width: main, height: across });
   /**
-   * The size across an item is drawn: the stack's, or with `ownCross` and a group form (`row`, `stacked`, `icons`, `fold`),
+   * The size across an item is drawn: the stack's, or with `ownCross` and a group form (`row`, `stacked`, `wrap`, `icons`, `fold`),
    * its own `cross.natural` (clamped to the stack's), from the start edge. The kind decides, not `setsCross`: a group's
    * form that sets the cross size (a column of words) widens the column but is drawn at its own width, and a panel's form
    * (`open`, `header`, `rail`) and the » entry fill the stack.
    */
   const acrossOf = (i: number): number => {
     const f = form(i);
-    return input.ownCross === true && GROUP_KINDS.has(f.kind) ? Math.min(cross, Math.max(0, finite(f.cross.natural, cross))) : cross;
+    if (input.ownCross !== true || !GROUP_KINDS.has(f.kind)) return cross;
+    // A wrap form is as wide as its rows need at the stack's cross size.
+    if (f.wrap) return Math.min(cross, wrapRows(f.wrap, cross).width);
+    return Math.min(cross, Math.max(0, finite(f.cross.natural, cross)));
   };
   const rects = new Map<number, Rect>();
   let cursor = sp.start;
