@@ -975,10 +975,21 @@ and one whose kind changed starts over. Whenever `content` isn't the rect `previ
 refits it. Columns that gave way stay folded, in the order they folded (the fold notes' order), while the content still
 fits; room that comes back unfolds them in the reverse of that order, never by age, so a press unfolds nothing, and
 solving again from a layout changes nothing. An item docked now that was closed or absent in `previous` has just
-opened: it counts as the newest and takes its largest form that fits its edge as laid out. The columns' fold and shrink
-state still follows `previous` (only a column folded by give-way that holds the opened item is weighed again), so to
-reweigh a column fully, pass `fresh: [columnId]`. `fresh` (edge or item ids, on `solve` and `targets`) solves those
-edges without `previous`.
+opened. Opened beside items that stayed open in its edge, it counts as the newest and takes its largest form that fits
+its edge as laid out, and its column is weighed again. A closed item is not a removed one: opened into an edge whose
+items were all closed, it comes back with its age, and the column's folds, kept while it was closed, apply again. The
+columns' fold and shrink state otherwise follows `previous`, so to reweigh a column fully, pass `fresh: [columnId]`.
+`fresh` (edge or item ids, on `solve` and `targets`) solves those edges without `previous`.
+
+`use` alone never reshapes anything: ages decide only who gives way anew. A user's explicit request to show an item
+is passed as `fresh`:
+
+| Action | What to pass |
+|---|---|
+| focus (a press on a header) | `use` only |
+| expand a folded or railed item | `use` + `fresh: [id]` |
+| Keep open | `keep` + `fresh: [id]` |
+| open a closed item | `open`: it counts as fresh by itself beside items that stayed open in its edge. Into an edge whose items were all closed it comes back as it was (its column may stay folded by give-way); to show it regardless, `open` + `use` + `fresh: [id]`, as for expanding |
 
 **Targets.** `targets(scene, id, { previous, endReach, floatSize, floatOrient })` gives, in the `@n-uf/motion/drag` shape:
 
