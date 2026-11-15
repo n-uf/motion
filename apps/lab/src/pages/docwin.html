@@ -1,0 +1,48 @@
+<!-- The Document window page (src/docwin/docwin.ts): a Window drawer, one live window with its Reset beside it, the cases and the case card. The shell renders the header; "About" is moved to the page's foot. -->
+<div class="dw-page">
+  <div class="dw-toprow">
+  <details class="dw-drawer" id="dw-drawer">
+    <summary>Window</summary>
+    <div class="dw-drawer-body">
+      <label>width <input type="range" id="dw-w" min="560" max="1400" step="10" /> <output id="dw-w-out"></output></label>
+      <label>height <input type="range" id="dw-h" min="320" max="900" step="4" /> <output id="dw-h-out"></output></label>
+      <label title="Hold Alt to move while frozen"><input type="checkbox" id="dw-freeze" /> freeze</label>
+      <label>Notes <input type="number" id="dw-c-notes" min="0" max="999" /></label>
+      <label>Findings <input type="number" id="dw-c-findings" min="0" max="999" /></label>
+      <label>marked <input type="number" id="dw-c-marked" min="0" max="999" /></label>
+      <button type="button" class="lab-btn" id="dw-reload" title="Reload the browser tab: the layout comes back from the stored form">Reload</button>
+      <button type="button" class="lab-btn" id="dw-reset" title="The default layout">Reset</button>
+    </div>
+  </details>
+  <!-- Where Reset goes when there's no room beside the window: right-aligned on the drawer's row, above the window. -->
+  <div class="dw-top-slot" id="dw-top-slot"></div>
+  </div>
+
+  <div class="dw-stage">
+    <div class="dw" id="dw-root"><div class="dw-win" id="dw-win"></div></div>
+    <div class="dw-side">
+      <button type="button" class="lab-btn" id="dw-reset-win" title="The default layout (window.__docwin.reset())">↺ Reset</button>
+    </div>
+  </div>
+  <p class="dw-status" id="dw-status" role="status" aria-live="polite"></p>
+
+  <nav class="dw-presets" id="dw-presets" aria-label="Cases"></nav>
+
+  <section class="dw-case" aria-label="The case">
+    <div class="dw-case-text">
+      <h2 class="dw-case-title"><span class="dw-mark" id="dw-mark"></span><span id="dw-case-title">Pick a case</span></h2>
+      <p class="dw-case-line"><b>Expected</b> <span id="dw-expect">Each case sets the window up and says what should happen.</span></p>
+      <p class="dw-case-line"><b>Now</b> <span id="dw-now">—</span></p>
+      <p class="dw-case-line dw-lacks" id="dw-lacks" hidden><b>Library rule missing</b> <span id="dw-lacks-t"></span></p>
+    </div>
+    <div class="dw-case-acts">
+      <button type="button" class="lab-btn" id="dw-check">Check again</button>
+      <button type="button" class="lab-btn" id="dw-check-all">Check every case</button>
+    </div>
+  </section>
+
+  <details class="dw-stored">
+    <summary>The stored form (what Reload reads)</summary>
+    <pre id="dw-stored"></pre>
+  </details>
+</div>

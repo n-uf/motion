@@ -1,0 +1,307 @@
+/**
+ * The Document window page: a document viewer's window (title bar, top and bottom bars, two side columns, scrolling
+ * pages, floats) as one `@n-uf/placement/scene` Scene, driven by `@n-uf/motion/drag` (./scene), a bar of presets that
+ * are the Scene's acceptance cases (./presets), a Window drawer, and a headless API at `window.__docwin` for a drag
+ * matrix driven by real mouse events:
+ *
+ * - `items()`: every item's id, kind, region, form, rect (window px) and client rect, and its grip's client point;
+ * - `targets(id)`: the Scene's targets a drag of `id` has now (with `accepted`: whether the scene's kinds allow it),
+ *   with window and client rects;
+ * - `layout()`: the stored form and the Scene's layout (edges, content, floats, notes);
+ * - `reset()`, `preset(name)` (sets it up and checks it), `presets()`, `checkAll()`.
+ */
+import type { Rect } from "@n-uf/placement";
+import type { SceneTarget } from "@n-uf/placement/scene";
+import { onReset, parseRoute } from "../shell/api";
+import { ALL, EDGES, type Counts, type ItemId } from "./model";
+import { PRESETS, type Preset, type Verdict } from "./presets";
+import { createScene } from "./scene";
+
+const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+const root = $<HTMLDivElement>("dw-root");
+const win = $<HTMLDivElement>("dw-win");
+const status = $<HTMLParagraphElement>("dw-status");
+const storedOut = $<HTMLPreElement>("dw-stored");
+const inputs = { w: $<HTMLInputElement>("dw-w"), h: $<HTMLInputElement>("dw-h") };
+const freeze = $<HTMLInputElement>("dw-freeze");
+const countInputs: Partial<Record<keyof Counts, HTMLInputElement>> = { notes: $("dw-c-notes"), findings: $("dw-c-findings"), marked: $("dw-c-marked") };
+
+const EMBED = parseRoute().embed;
+const KEY = EMBED ? "motion-lab:docwin:checks" : "motion-lab:docwin";
+const PAGE_KEY = `${KEY}:page`;
+
+const c = createScene({ root, win, status, storageKey: KEY, onChange: readouts });
+
+function readouts(): void {
+  const s = c.scene.stage;
+  inputs.w.value = String(s.width);
+  inputs.h.value = String(s.height);
+  $("dw-w-out").textContent = `${s.width}`;
+  $("dw-h-out").textContent = `${s.height}`;
+  freeze.checked = c.frozen;
+  for (const [k, el] of Object.entries(countInputs)) if (el && document.activeElement !== el) el.value = String(c.counts[k as keyof Counts]);
+  storedOut.textContent = JSON.stringify(c.stored(), null, 1);
+  placeReset();
+}
+
+/**
+ * The window's Reset: beside the window (outside its frame, level with the title bar) when the page has room for both;
+ * otherwise on the drawer's row, right-aligned above the window's top-right corner. The window is never clipped.
+ */
+function placeReset(): void {
+  const btn = document.getElementById("dw-reset-win");
+  const page = document.querySelector<HTMLElement>(".dw-page");
+  const side = document.querySelector<HTMLElement>(".dw-side");
+  const top = document.getElementById("dw-top-slot");
+  if (!btn || !page || !side || !top) return;
+  const winWidth = win.getBoundingClientRect().width;
+  const room = page.clientWidth >= winWidth + 10 + btn.getBoundingClientRect().width + 4;
+  const to = room ? side : top;
+  if (btn.parentElement !== to) to.append(btn);
+  // Above the window, its right edge on the window's right edge.
+  top.style.marginRight = "";
+  if (!room) top.style.marginRight = `${Math.max(0, top.getBoundingClientRect().right - win.getBoundingClientRect().right)}px`;
+}
+new ResizeObserver(() => placeReset()).observe(document.querySelector(".dw-page") ?? document.body);
+
+// --- presets ---------------------------------------------------------------------------------------------------------
+
+const results = new Map<string, Verdict>();
+let current: Preset | null = null;
+const list = $<HTMLElement>("dw-presets");
+
+/** A verdict's mark: pass, fail, or pending (a preset marked `pending` that still fails: not built yet, never red). */
+const markOf = (p: Preset, v: Verdict | null | undefined): "pass" | "fail" | "pending" | "none" => (!v ? "none" : v.pass ? "pass" : p.pending ? "pending" : "fail");
+const MARK_WORDS = { pass: "pass", fail: "fail", pending: "not built", none: "" } as const;
+
+function drawList(): void {
+  list.innerHTML = PRESETS.map((p, i) => {
+    const v = results.get(p.id);
+    const mark = markOf(p, v);
+    return `<button type="button" class="dw-chip" data-preset="${p.id}" data-mark="${mark}"${current?.id === p.id ? ' aria-current="true"' : ""} title="${p.expected.replace(/"/g, "&quot;")}"><span class="dw-dot"></span>${i + 1}. ${p.title}</button>`;
+  }).join("");
+}
+
+function showCase(p: Preset, v: Verdict | null): void {
+  $("dw-case-title").textContent = p.title;
+  $("dw-expect").textContent = p.expected;
+  $("dw-now").textContent = v ? v.now : "—";
+  const mark = $("dw-mark");
+  mark.dataset.mark = markOf(p, v);
+  mark.textContent = MARK_WORDS[markOf(p, v)];
+  $("dw-lacks").hidden = !p.lacks;
+  $("dw-lacks-t").textContent = p.lacks ?? "";
+}
+
+const findPreset = (name: string): Preset | undefined => {
+  const n = name.toLowerCase().replace(/[.\s]+$/, "");
+  return PRESETS.find((p) => p.id === n || p.title.toLowerCase() === n) ?? PRESETS.find((p) => p.title.toLowerCase().includes(n) || p.id.includes(n));
+};
+
+/** Set a preset up, check it, and set it up again so the window is at its start, free to play with. */
+function runPreset(p: Preset): Verdict {
+  c.setFrozen(false);
+  p.setup(c);
+  let v: Verdict;
+  try {
+    v = p.check(c);
+  } catch (e) {
+    v = { pass: false, now: `The check threw: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  c.drive(false);
+  c.setFrozen(false);
+  p.setup(c);
+  results.set(p.id, v);
+  return v;
+}
+
+function pick(p: Preset): Verdict {
+  current = p;
+  const v = runPreset(p);
+  showCase(p, v);
+  drawList();
+  try {
+    localStorage.setItem(PAGE_KEY, JSON.stringify({ preset: p.id }));
+  } catch {
+    // No storage.
+  }
+  // One short line; the detail stays in the case card.
+  c.say(`${PRESETS.indexOf(p) + 1}. ${p.title}: ${v.pass ? "pass" : p.pending ? "not built yet" : "broken"}`);
+  return v;
+}
+
+/** A case's result: `pass` true or false, or for a `pending` preset that still fails, `pending: true` and no `pass`. */
+type CaseResult = { id: string; title: string; now: string; lacks: string | null } & ({ pass: boolean; pending?: undefined } | { pending: true; pass?: undefined });
+const resultOf = (p: Preset, v: Verdict): CaseResult => {
+  const base = { id: p.id, title: p.title, now: v.now, lacks: p.lacks ?? null };
+  return !v.pass && p.pending ? { ...base, pending: true } : { ...base, pass: v.pass };
+};
+
+function checkAll(): CaseResult[] {
+  const was = current;
+  const out = PRESETS.map((p) => resultOf(p, runPreset(p)));
+  if (was) pick(was);
+  else {
+    c.reset();
+    drawList();
+  }
+  return out;
+}
+
+list.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest<HTMLElement>("[data-preset]");
+  const p = b && findPreset(b.dataset.preset!);
+  if (p) pick(p);
+});
+$("dw-check").addEventListener("click", () => current && pick(current));
+$("dw-check-all").addEventListener("click", () => {
+  const r = checkAll();
+  const pending = r.filter((x) => x.pending);
+  const nums = (xs: typeof r): string => (xs.length ? ` (${xs.map((x) => r.indexOf(x) + 1).join(", ")})` : "");
+  const broken = r.filter((x) => x.pass === false);
+  c.say(`${r.filter((x) => x.pass).length} pass · ${pending.length} not built yet${nums(pending)} · ${broken.length} broken${nums(broken)}`);
+});
+
+// --- the Window drawer ---------------------------------------------------------------------------------------------
+
+const resize = (): void => c.setSize(Number(inputs.w.value), Number(inputs.h.value));
+inputs.w.addEventListener("input", resize);
+inputs.h.addEventListener("input", resize);
+freeze.addEventListener("change", () => c.setFrozen(freeze.checked));
+for (const [k, el] of Object.entries(countInputs)) el?.addEventListener("input", () => c.setCount(k as keyof Counts, Math.max(0, Math.min(999, Number(el.value) || 0))));
+$("dw-reload").addEventListener("click", () => location.reload());
+const reset = (): void => {
+  current = null;
+  c.setFrozen(false);
+  c.reset();
+  $("dw-case-title").textContent = "Pick a case";
+  $("dw-mark").dataset.mark = "none";
+  $("dw-mark").textContent = "";
+  drawList();
+};
+$("dw-reset").addEventListener("click", reset);
+// The Reset beside the window: the same reset as the drawer's and `window.__docwin.reset()`.
+$("dw-reset-win").addEventListener("click", reset);
+onReset(reset);
+// "About this page" goes to the page's foot, after the case card.
+{
+  const about = document.querySelector(".lab-about");
+  const page = document.querySelector(".dw-page");
+  if (about && page) page.after(about);
+}
+
+// --- the headless API ----------------------------------------------------------------------------------------------
+
+const client = (r: Rect): Rect => {
+  const w = win.getBoundingClientRect();
+  return { x: r.x + w.left, y: r.y + w.top, width: r.width, height: r.height };
+};
+
+function gripPoint(id: ItemId): { x: number; y: number } | null {
+  const el = win.querySelector(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  if (r.width === 0 && r.height === 0) return null;
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
+/**
+ * Whether the scene's kinds allow the target, read from the scene's data (an edge's `accepts`, `floatKinds`, a side's
+ * column template); home and none allow any item. The Scene gives no target its kinds deny, so this is a cross-check.
+ */
+function accepted(t: SceneTarget, id: ItemId): boolean {
+  const kind = c.scene.items[id]?.kind ?? "";
+  const p = t.place;
+  if (p.kind === "gap") return !!c.scene.edges.find((e) => e.id === p.edge)?.accepts.includes(kind);
+  if (p.kind === "float") return c.scene.floatKinds.includes(kind);
+  if (p.kind === "column" || p.kind === "rail") return !!c.scene.columns?.[p.side]?.accepts.includes(kind);
+  return true;
+}
+
+const api = {
+  items: () =>
+    ALL.map((id) => {
+      const p = c.layout.items[id];
+      const it = c.scene.items[id]!;
+      return {
+        id,
+        kind: it.kind,
+        fixed: !!it.fixed,
+        closed: !!it.closed,
+        region: p ? (p.floating ? "float" : (p.edge ?? null)) : null,
+        form: p?.formKind ?? null,
+        inMenu: !!p?.inMenu,
+        rect: p?.rect ?? null,
+        client: p ? client(p.rect) : null,
+        grip: it.fixed ? null : gripPoint(id),
+      };
+    }),
+  targets: (id: ItemId) =>
+    c.targets(id).map((t) => {
+      const p = t.place;
+      return {
+        id: t.id,
+        kind: p.kind,
+        place: p,
+        edge: p.kind === "gap" ? p.edge : null,
+        zone: p.kind === "gap" ? p.zone : null,
+        at: p.kind === "gap" ? p.at : null,
+        priority: t.priority,
+        free: !!t.free,
+        accepted: accepted(t, id),
+        hit: t.hit,
+        hitClient: client(t.hit),
+        slot: t.slot ?? null,
+        slotClient: t.slot ? client(t.slot) : null,
+        marker: t.marker ?? null,
+      };
+    }),
+  layout: () => ({
+    stored: c.stored(),
+    window: client(c.scene.stage),
+    content: c.layout.content,
+    edges: Object.fromEntries(
+      EDGES.map((e) => {
+        const l = c.layout.edges[e];
+        return [e, l ? { rect: l.rect, cross: l.cross, items: Object.entries(c.layout.items).filter(([, p]) => p.edge === e).map(([id, p]) => ({ id, form: p.formKind, inMenu: !!p.inMenu })), menu: l.menu } : null];
+      }),
+    ),
+    floats: c.layout.floats.map((id) => ({ id, rect: c.layout.items[id]?.rect ?? null })),
+    notes: c.layout.notes,
+  }),
+  reset,
+  preset: (name: string) => {
+    const p = findPreset(name);
+    if (!p) return { error: `no preset "${name}"`, presets: PRESETS.map((x) => x.id) };
+    const v = pick(p);
+    return { expected: p.expected, ...resultOf(p, v) };
+  },
+  presets: () => PRESETS.map((p) => ({ id: p.id, title: p.title, expected: p.expected, lacks: p.lacks ?? null, pending: !!p.pending, result: results.get(p.id) ?? null })),
+  checkAll,
+  lastDrop: () => c.lastDrop,
+  dragging: () => c.dragging,
+  frozen: (on?: boolean) => {
+    if (on !== undefined) c.setFrozen(on);
+    return c.frozen;
+  },
+  size: (width: number, height: number) => c.setSize(width, height),
+};
+(window as unknown as { __docwin: typeof api }).__docwin = api;
+
+// --- start ---------------------------------------------------------------------------------------------------------
+
+const dropped = c.load();
+drawList();
+let last: string | undefined;
+try {
+  last = (JSON.parse(localStorage.getItem(PAGE_KEY) ?? "{}") as { preset?: string }).preset;
+} catch {
+  last = undefined;
+}
+const lastPreset = last ? PRESETS.find((p) => p.id === last) : undefined;
+if (lastPreset) {
+  current = lastPreset;
+  showCase(lastPreset, null);
+  drawList();
+}
+c.say(dropped.length ? `Layout restored; the store dropped: ${dropped.join(", ")}.` : "Drag a panel by its header or a group by its dots; the dashed slot is where it lands.");
