@@ -19,14 +19,17 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     vocabulary (`StackForm`, `CrossLimits` and the form helpers).
 
 - `@n-uf/placement/scene`, **Changed: space ownership, refined** (the 26.11.25 target model's rules):
-  - A refused place owns nothing against other edges, zone by zone: an edge owns its band only along the zones with
-    a slot the filter keeps (home's place aside), and a refusal of a zone with none takes only what every surviving
-    target's tile and every other edge's owned rect leave (within its own edge a refusal keeps its tile). So a panel
+  - A refused place owns nothing against other edges: an edge owns its band only along the stretches its surviving
+    slots tile (home's place aside), and a refusal takes only what every surviving target's tile and every other
+    edge's drawn rect leave (within its own edge a refusal keeps its tile). So a panel
     can always become its own column beside the others: in a window with no inset and a side bar, an empty rail that
     would refuse the drop no longer hides the new-column target just inside the bar (`column:<side>:<ring>`); and an
     empty top bar whose zone holds only the dragged item's place no longer covers a column's top band.
-  - An edge that only moves when the dragged item lifts (a side bar pushed inward by a rail that empties) owns where it
-    lies after the lift, where its tiles are, never its old place: that left a stretch beside a column with no target.
+  - A stretch is owned by what the user sees there; if the owner has no slot there, it refuses. Until a target shows,
+    the host draws the layout as it is now, so an edge that moves when the dragged item lifts (a side bar pushed inward
+    by a rail that empties) still owns where it is seen, unless another edge lies there once the item has lifted; what
+    its own tiles don't cover there is its refusal, with its zone's reason. No stretch under an edge as it is now is
+    left to the float.
   - Clipping changes a slot's shape, never who owns it: whatever is left of a slot's tile is the slot's. A target left
     in pieces has **`hits`** (every piece; additive, optional on `Target`), `hit` the largest piece for hosts that
     read one rect. `pickTarget` (`./scene/cases`) tests every piece. Nothing of a slot's own room is refused any more.
