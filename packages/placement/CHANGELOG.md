@@ -13,10 +13,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   the side's outside toolbar bars, else at the window's side less the inset. It used to lie at the side's outermost
   edge, so with an anchor at the window edge and an inset it sat in the inset gap, off the rail it makes.
 
-- `@n-uf/placement/scene`, **fixed:** home never takes a strip away. An empty bar's strip (or an empty edge's) over
-  the dragged item's own place keeps min(16 px, its slice) at home's end, or beside the item's centre inside it, as a
-  gap does, and home gives that slice up; no strip is narrower than 1 px. The item alone in a bar, lifted, could cut
-  the bar's center third to a sliver (0.67 px where 26.11.20 gave 24 px).
+- `@n-uf/placement/scene`, **fixed:** home covers the dragged item's whole own rect, and no strip is a sliver. An
+  empty bar's strip (or an empty edge's) keeps only what lies outside the item's own rect: the strip of the item's own
+  edge, which the item alone fills, means home there anyway, and what is left of a strip under 1 px has no target (the
+  item alone in a bar, lifted, could leave the bar's center third 0.67 px wide). The `rail:` strip (while no rail
+  shows) is cut clear of the item's own rect too. Across an item's own rect no point picks a target that moves it.
 
 - `@n-uf/placement/scene`, **fixed:** the order of a side's outer edges. From the window's side inward: the side's
   toolbar bars with `outsideInset`, the side's rail, its static column edges with `outsideInset` (anchors), the inset,
