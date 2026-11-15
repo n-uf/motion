@@ -114,11 +114,11 @@ export function simulateRun(from: Rect, to: Rect, omega: number): { samples: Rec
 
 // ---- The plan ------------------------------------------------------------------------------------------------------
 /** The desk the plan draws, in its own px: a stage of this size is laid out by placement's `dockTear` construction. */
-export const STAGE = { width: 1060, height: 480 };
+const STAGE = { width: 1060, height: 480 };
 const PANEL_KEY = "panel:2";
 
 /** One of the three drops the plan offers: where the pointer lets go, and what placement says of it. */
-export interface PlanSlot {
+interface PlanSlot {
   readonly id: string;
   /** What the plan calls it. */
   readonly name: string;
@@ -127,7 +127,7 @@ export interface PlanSlot {
   /** The pointer's place for this drop, stage px, and the grab (where the panel was held). */
   readonly at: { x: number; y: number };
 }
-export interface PlanRegion {
+interface PlanRegion {
   readonly key: string;
   readonly label: string;
   readonly look: string;

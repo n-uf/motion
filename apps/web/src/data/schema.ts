@@ -8,7 +8,7 @@ import type { PartId } from "./parts";
 const ctx = "https://schema.org";
 
 /** A reference to the shared n-uf Organization node. */
-export const orgRef = { "@id": "https://n-uf.com/#org" };
+const orgRef ={ "@id": "https://n-uf.com/#org" };
 /** The full Organization node; include it once on every page that refers to orgRef. */
 export const orgNode = {
   "@context": ctx,
@@ -19,10 +19,10 @@ export const orgNode = {
   sameAs: ["https://github.com/n-uf"],
 };
 /** A reference to a package's SoftwareSourceCode node on the home page. */
-export const softwareRef = (part: PartId) => ({ "@id": `${site}/#${part}` });
+const softwareRef =(part: PartId) => ({ "@id": `${site}/#${part}` });
 
 /** "/drag-intent/" -> "https://motion.n-uf.com/drag-intent/" */
-export const abs = (path: string) => new URL(path, site).href;
+const abs =(path: string) => new URL(path, site).href;
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
 /** The home page's WebSite node. Its url is the home page's canonical, with the trailing slash. */

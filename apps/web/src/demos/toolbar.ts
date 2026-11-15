@@ -6,7 +6,7 @@ import { icon } from "./icons";
 
 export type Host = "title" | "top" | "bottom" | "left" | "right";
 export type Zone = "start" | "center" | "end";
-export type Slots = Record<Zone, string[]>;
+type Slots =Record<Zone, string[]>;
 /** A floating group: at x, y in the window's body, or anchored ("bottom": centred above the body's bottom edge). */
 export interface Float { id: string; x: number; y: number; anchor?: "bottom" }
 export type Model = Record<Host, Slots> & { float: Float[]; collapsed: string[] };
@@ -56,7 +56,7 @@ export const CASES: Case[] = [
   { name: "A collapsed group", note: "Export double-clicked: its handle plus ».", m: Object.assign(make({ title: { start: ["doc"], end: ["view", "zoom"] }, left: { start: ["tools"] }, bottom: { start: ["panel"], end: ["export", "share"] } }), { collapsed: ["export"] }) },
 ];
 
-export const label = (g: string): string => GROUPS[g]!.label;
+const label = (g: string): string => GROUPS[g]!.label;
 const dots = (n: number): string => "<i></i>".repeat(n);
 
 /**
@@ -70,7 +70,7 @@ export function chromeGroupHTML(id: string, name: string, controls: string, coll
 /** Where a floating group sits in the window's body. */
 export const floatStyle = (f: Float): string =>
   f.anchor === "bottom" ? "left:0;right:0;bottom:12px;margin-inline:auto;width:max-content" : `left:${f.x}px;top:${f.y}px`;
-export function groupHTML(model: Model, g: string, auto: ReadonlySet<string> = new Set()): string {
+function groupHTML(model: Model, g: string, auto: ReadonlySet<string> = new Set()): string {
   return chromeGroupHTML(g, label(g), GROUPS[g]!.html, model.collapsed.includes(g) || auto.has(g));
 }
 const isEmptyHost = (model: Model, h: Host): boolean => ZONES.every((z) => model[h][z].length === 0);

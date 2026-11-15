@@ -7,7 +7,7 @@ import { faqPage } from "./schema";
 export interface QA { id?: string; q: string; a: string }
 
 /** An answer as plain text (tags removed), for the FAQPage structured data. */
-export const plain = (html: string) => html.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+const plain = (html: string) => html.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 
 /** The page's FAQPage node: exactly the questions and answers the page shows (answers as plain text). */
 export const faqJsonLd = (path: string) => faqPage((FAQS[path] ?? []).map(({ q, a }) => ({ q, a: plain(a) })));

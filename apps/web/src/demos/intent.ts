@@ -5,9 +5,9 @@
  * Aiming: moving slower than 0.45 px/ms, measured over the last 50 ms, or staying within 12 px for 90 ms. Time spent
  * crossing a big target doesn't count.
  */
-export interface Point { x: number; y: number }
+interface Point { x: number; y: number }
 
-export const AIM = { speed: 0.45, window: 50, still: 12, dwell: 90 } as const;
+const AIM ={ speed: 0.45, window: 50, still: 12, dwell: 90 } as const;
 
 export interface AimGate {
   /** Feed a pointer sample; returns whether the pointer is aiming now. */

@@ -8,7 +8,7 @@ import { DEFAULT_OPTIONS, createDesk } from "@n-uf/placement/dock";
 // ---- The hero demo -------------------------------------------------------------------------------------------------
 type Slot = (W: number, H: number) => Rect;
 /** The demo box at a 1440 px viewport (the hero's side edges hold Preview, Tempo and Speed). */
-export const DEMO = { w: 1106, h: 380 };
+const DEMO ={ w: 1106, h: 380 };
 /** The band at the bottom of the stage kept free for the floating tools, so no window's title bar is ever under them. */
 export const RESERVE = 50;
 /** The drawing tools (a floating group at the bottom of the hero): select, text, erase, box, pen. Pen is selected. */
@@ -26,13 +26,13 @@ const OPTIONS = { ...DEFAULT_OPTIONS, toolbarHidden: true };
  * the package's own title for it.
  */
 const CONSTRUCTIONS = ["navigator", "tree", "strip"] as const;
-export interface DeskLayout {
+interface DeskLayout {
   /** The three windows' rects, in the stage's px. */
   readonly rects: readonly Rect[];
 }
 let cached: { key: string; layout: DeskLayout } | null = null;
 /** Placement's layout `index` (see {@link LAYOUTS}) for a stage of `W` × `H`; the last answer is kept. */
-export function deskLayout(index: number, W: number, H: number): DeskLayout {
+function deskLayout(index: number, W: number, H: number): DeskLayout {
   const key = `${index}:${W}:${H}`;
   if (cached?.key === key) return cached.layout;
   const c = DESK.constructionOf(CONSTRUCTIONS[index]!);
@@ -100,10 +100,10 @@ function curves(): { settle: [number, number][]; spring: [number, number][] } {
   for (let ms = 0; ms <= CURVE.Tms; ms += 5) spring.push([ms, over(ms)]);
   return { settle, spring };
 }
-export const CURVES = curves();
+const CURVES =curves();
 /** A curve's value at `ms`. */
-export const curveAt = (d: [number, number][], ms: number): number => d[Math.min(d.length - 1, Math.round(ms / 5))]![1];
-export const curvePoint = (d: [number, number][], ms: number) => ({ x: cx(ms), y: cy(curveAt(d, ms)) });
+const curveAt = (d: [number, number][], ms: number): number => d[Math.min(d.length - 1, Math.round(ms / 5))]![1];
+const curvePoint = (d: [number, number][], ms: number) => ({ x: cx(ms), y: cy(curveAt(d, ms)) });
 export function curveSVG(ms: number): string {
   const path = (d: [number, number][]): string => d.map((p, i) => (i ? "L" : "M") + cx(p[0]).toFixed(1) + " " + cy(p[1]).toFixed(1)).join(" ");
   const a = curvePoint(CURVES.spring, ms), b = curvePoint(CURVES.settle, ms);
@@ -114,14 +114,14 @@ export function curveSVG(ms: number): string {
 }
 
 // ---- The desk preview: rails, panels, two documents and the bar ------------------------------------------------------
-export const DESK_A: Record<string, Rect> = {
+const DESK_A:Record<string, Rect> = {
   railL: { x: 0, y: 0, width: 14, height: 150 }, railR: { x: 266, y: 0, width: 14, height: 150 },
   p1: { x: 18, y: 4, width: 58, height: 70 }, p2: { x: 18, y: 78, width: 58, height: 68 },
   p3: { x: 204, y: 4, width: 58, height: 142 },
   d1: { x: 80, y: 26, width: 66, height: 120 }, d2: { x: 150, y: 26, width: 50, height: 120 },
   bar: { x: 104, y: 6, width: 72, height: 14 },
 };
-export const deskKind = (k: string): string => (k.startsWith("rail") ? "t-rail" : k.startsWith("d") ? "t-doc" : k === "bar" ? "t-pill" : "t-panel");
+const deskKind = (k: string): string => (k.startsWith("rail") ? "t-rail" : k.startsWith("d") ? "t-doc" : k === "bar" ? "t-pill" : "t-panel");
 export function deskThumbSVG(): string {
   return Object.entries(DESK_A).map(([k, r]) => `<rect data-k="${k}" rx="${k === "bar" ? 7 : 4}" class="${deskKind(k)}" x="${r.x}" y="${r.y}" width="${r.width}" height="${r.height}"/>`).join("");
 }
