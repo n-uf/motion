@@ -5,7 +5,7 @@
   "float-clamp-region": "today clamps a float to [0, W − 2·pad] × [0, H] in the body's px; the Scene clamps to [pad, W − pad] × [0, H]; INTENDED: the Scene wins",
   "float-bar-height": "a folded float's bar: the window-A rows hold h 30 (the Scene's bar form); today's kits draw 32 (their layout bar); INTENDED: the Scene's",
   "float-shrink": "today makes a float no wider than a stage narrower than it; the Scene shrinks it to fit the stage less the inset (down to the item's floatMin)",
-  "float-clear-decision": "today lets a float cover docked items and rail segments; the Scene moves it clear (host rule C27, operator): INTENDED, not a gap and not a target; the kits adapt, and the rows marked with it hold TODAY's result for reference only",
+  "float-clear-decision": "today lets a float cover docked items and rail segments; the Scene moves it clear (host rule C27): INTENDED, not a gap and not a target; the kits adapt, and the rows marked with it hold TODAY's result for reference only",
   "sheet-signal": "the narrow fallback (one panel over the pages) is not readable from layout.content, which stays above contentMin because rails are narrow: the library should say it",
   "inset-only-while-docked": "window A draws its stage padding only while something is beside the pages; the Scene insets always (contentWidth here is what is drawn)",
   "anchor-outside-inset": "a fixed edge outside the stage padding with no gutter after it",

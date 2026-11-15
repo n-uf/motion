@@ -169,7 +169,7 @@ describe("the stored form", () => {
     expect(solve(near.scene).items.notes!.rect.y).toBe(772);
     const tall = readScene({ v: 1, edges: [], floats: [{ id: "notes", x: 100, y: 100, width: 300, height: 900 }], items: {} }, { ...s, edges: [] });
     expect(tall.scene.floats[0]!.rect).toEqual({ x: 100, y: 0, width: 300, height: 900 });
-    // Revision 7: solve shrinks a float larger than the stage (less the inset) to fit it.
+    // Solve shrinks a float larger than the stage (less the inset) to fit it.
     expect(solve(tall.scene).items.notes!.rect.height).toBe(s.stage.height);
   });
 });

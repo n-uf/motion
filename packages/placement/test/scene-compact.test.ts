@@ -59,7 +59,7 @@ describe("a compact edge", () => {
       if (zone === "end") expect(me.rect.y + me.rect.height).toBeCloseTo(600, 6);
     });
     // An empty tray column alone at its side: a panel gets its start zone, which, holding the panel, fills the column
-    // (Revision 9a: a tray's zones are the solved spans), so nothing is refused for it. A group never opens it: no strip
+    // (a tray's zones are the solved spans), so nothing is refused for it. A group never opens it: no strip
     // and no refusal there.
     const alone: Scene = { ...empty, edges: empty.edges.filter((e) => e.id !== "rail") };
     expect(targets(alone, "p").filter((x) => x.id.startsWith("strip:col")).map((x) => x.id)).toEqual(["strip:col:start"]);
