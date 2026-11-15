@@ -146,6 +146,9 @@
 
 /* The drag: the held item, the dashed slot, the insertion marker. */
 .dw-held { z-index: 6; pointer-events: none; opacity: 0.92; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18); }
+/* The held copy's frame (the morph's box, its grip on the pointer): each form's content inside, cross-faded. */
+.dw-morph { position: absolute; overflow: hidden; border-radius: 6px; }
+.dw-morph > .dw-item { pointer-events: none; }
 /* An icon with its count under it. */
 .dw-sq-n { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; gap: 0; font-size: 10.5px; overflow: hidden; }
 .dw-sq-n small { font-size: 7.5px; line-height: 1; color: var(--win-muted); font-variant-numeric: tabular-nums; }
