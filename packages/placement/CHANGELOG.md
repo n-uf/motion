@@ -3,8 +3,9 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.17
 
+- `@n-uf/placement/scene` exports `reservedRect(scene, layout, id)`: what a fixed item keeps clear of hits and slots.
 - **Changed** (`@n-uf/placement/scene` targets): a fixed item that grows (a title filling its bar) reserves only its
   natural rect, placed by its zone, instead of its whole drawn rect. Gap hits may lie in the length it grew by, and the
   drop shrinks it toward its natural size (to its `min` if the room needs it), so a group moved out of a title bar can
