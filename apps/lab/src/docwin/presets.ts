@@ -751,8 +751,9 @@ export const PRESETS: readonly Preset[] = [
         const rail = c.layout.edges[side]!.rect;
         const zoom = rectOf(c, "zoom")!;
         const x = rail.x + rail.width / 2;
+        // The top spot lies past the empty top bar's own band (half the hit band, 12 px), which owns the rail's top.
         const spots: [string, Point, "start" | "center" | "end"][] = [
-          ["top", { x, y: rail.y + 6 }, "start"],
+          ["top", { x, y: rail.y + 18 }, "start"],
           ["below Zoom", { x, y: zoom.y + zoom.height + 10 }, "start"],
           ["middle", { x, y: rail.y + rail.height / 2 }, "center"],
           ["bottom", { x, y: rail.y + rail.height - 6 }, "end"],
@@ -873,6 +874,10 @@ export const PRESETS: readonly Preset[] = [
           // Its gaps and strips, a gap at the item's own place (shown as home) included, and its refusals ("No room
           // here" is a defined place, not a dead one).
           const mine = [...ts.filter((t) => t.id.startsWith(`gap:${e.id}:`) || t.id.startsWith(`strip:${e.id}:`) || t.id === `home:${id}`), ...c.refusals(id).filter((r) => r.edge === e.id)];
+          // An empty edge laid before this one owns a thin band (half the hit band) at its boundary, which may lie over
+          // this edge (the empty top bar over a rail's top, an empty rail over a column's outer edge): its places there
+          // are defined, not dead.
+          const emptyBands = [...ts.filter((t) => t.id.startsWith("strip:") && !t.id.startsWith(`strip:${e.id}:`)), ...c.refusals(id).filter((r) => r.edge !== e.id && !!held.edges[r.edge] && (held.edges[r.edge]!.rect.width <= 0 || held.edges[r.edge]!.rect.height <= 0))];
           const deadAt: string[] = [];
           let dead = 0;
           for (let x = l.rect.x + 4; x < l.rect.x + l.rect.width; x += 8)
@@ -880,7 +885,7 @@ export const PRESETS: readonly Preset[] = [
               const p = { x, y };
               // Past a fixed item that ends the edge (the controls, before the bar's end padding) nothing can go.
               const pastEnd = solid.some((s) => (l.side === "left" || l.side === "right" ? y >= s.y + s.height : x >= s.x + s.width) && !items.some(([, q]) => (l.side === "left" || l.side === "right" ? q.rect.y >= s.y + s.height : q.rect.x >= s.x + s.width)));
-              if (pastEnd || solid.some((s) => inside(s, p)) || bodies.some((b) => inside(b, p)) || y <= panelsEnd) continue;
+              if (pastEnd || solid.some((s) => inside(s, p)) || bodies.some((b) => inside(b, p)) || y <= panelsEnd || emptyBands.some((t) => inside(t.hit, p))) continue;
               n++;
               if (!mine.some((t) => inside(t.hit, p))) {
                 dead++;
