@@ -251,18 +251,21 @@ describe("content-changed", () => {
 });
 
 describe("an empty bar's strip", () => {
-  it("never swallows a column's first gap: a gap spanning the strip trims its end, a thinner one is smaller and wins the tie-break", () => {
+  it("is three zone strips along the content; a gap spanning one trims its end, a thinner one is smaller and wins the tie-break", () => {
     const s = windowScene();
-    // An empty top bar (its strip runs along the top of the content, over the columns' tops) and a group that may go there.
+    // An empty top bar (its strip runs along the top of the content) and a group that may go there.
     const empty: Scene = { ...s, edges: s.edges.map((e) => (e.id === "toolbar" ? { ...e, items: [] } : e)), floats: [{ id: "views", rect: r(500, 300, 200, 40) }] };
     const ts = targets(empty, "views");
-    const strip = ts.find((t) => t.id === "strip:toolbar")!;
-    expect(strip).toBeDefined();
+    const strips = ["start", "center", "end"].map((z) => ts.find((t) => t.id === `strip:toolbar:${z}`)!);
+    for (const strip of strips) expect(strip).toBeDefined();
     const area = (h: { width: number; height: number }) => h.width * h.height;
     const gapsHere = ts.filter((t) => t.id.startsWith("gap:"));
-    for (const g of gapsHere) if (overlaps(strip.hit, g.hit)) expect(area(g.hit)).toBeLessThan(area(strip.hit));
-    // The strip keeps its room: never cut down to a part of its own.
-    expect(strip.hit.width).toBeGreaterThan(0.5 * solve(empty).edges.toolbar!.rect.width);
+    for (const strip of strips) for (const g of gapsHere) if (overlaps(strip.hit, g.hit)) expect(area(g.hit)).toBeLessThan(area(strip.hit));
+    // Together they keep the content's width, in thirds, left to right; each lands in its zone.
+    const content = solve(empty).content;
+    expect(strips.reduce((w, t) => w + t.hit.width, 0)).toBeGreaterThan(0.9 * content.width);
+    expect(strips.map((t) => t.hit.x)).toEqual([...strips.map((t) => t.hit.x)].sort((a, b) => a - b));
+    strips.forEach((t, k) => expect(t.after({ x: 0, y: 0 }).layout.items.views!.zone).toBe(["start", "center", "end"][k]));
     // The columns' first gaps keep their hits.
     for (const id of ["gap:left:start:0", "gap:right:start:0"]) expect(ts.find((t) => t.id === id)!.hit.height).toBeGreaterThan(0);
   });
