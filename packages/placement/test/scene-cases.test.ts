@@ -6,8 +6,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { targetAt } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
-import { lift, solve, targets } from "../src/scene";
+import { lift, solve, targets, type SceneTarget } from "../src/scene";
 import {
   CASES,
   CASE_GROUPS,
@@ -25,6 +26,7 @@ import {
   type CaseRow,
   type DomRoot,
 } from "../src/scene/cases";
+import { modelScene } from "./model-scene";
 
 const dir = join(fileURLToPath(new URL("..", import.meta.url)), "src", "scene", "cases");
 
@@ -57,7 +59,7 @@ describe("the rows", () => {
   it("all pass on the in-memory host (the DOM checks are skipped), except the rows that name a rule the library lacks", () => {
     const failures: string[] = [];
     let skipped = 0;
-    for (const { id, result } of runCases(CASES, () => createSceneHost())) {
+    for (const { id, result } of runCases(CASES, () => createSceneHost({ pick: targetAt }))) {
       const row = caseById(id)!;
       skipped += result.skipped.length;
       if (row.lacks) {
@@ -70,6 +72,12 @@ describe("the rows", () => {
     }
     expect(failures).toEqual([]);
     expect(skipped).toBeGreaterThan(20);
+  });
+
+  it("give the same results on the default pick as on motion's targetAt", () => {
+    expect(runCases(CASES, () => createSceneHost())).toEqual(runCases(CASES, () => createSceneHost({ pick: targetAt })));
+    expect(createSceneHost({ pick: targetAt }).pick).toBe(targetAt);
+    expect(createSceneHost().pick).toBe(pickTarget);
   });
 
   it("don't depend on where a press holds the item: every row gives its own grab when it matters", () => {
@@ -296,24 +304,61 @@ describe("the in-memory host", () => {
   });
 });
 
-describe("pickTarget and resolvePlace", () => {
+describe("the pick rule and resolvePlace", () => {
   const s = winScene(WINDOW_A, { size: 300 });
   const list = targets(s, "annotations", { endReach: 24 });
 
-  it("picks the most precise target: the lowest priority number, then the smallest zone", () => {
-    expect(pickTarget(list, { x: 160, y: 600 })?.id).toBe("home:annotations");
-    expect(pickTarget(list, { x: 900, y: 10 })?.id).toBe("gap:right-0:start:0");
-    expect(pickTarget(list, { x: 560, y: 400 })?.id).toBe("float:annotations");
-    expect(pickTarget(list, { x: 1e12, y: 1e12 })).toBeNull();
+  it("motion's targetAt picks the most precise target: the lowest priority number, then the smallest zone", () => {
+    expect(targetAt(list, { x: 160, y: 600 })?.id).toBe("home:annotations");
+    expect(targetAt(list, { x: 900, y: 10 })?.id).toBe("gap:right-0:start:0");
+    expect(targetAt(list, { x: 560, y: 400 })?.id).toBe("float:annotations");
+    expect(targetAt(list, { x: 1e12, y: 1e12 })).toBeNull();
   });
 
-  it("finds a point that reaches the target, and null when none does", () => {
+  it("the default (pickTarget) is the same rule as motion's targetAt, edges and tolerances included", () => {
+    // One fixture for both: every target of generated windows, at grid points, on every hit's edges and corners, a
+    // hair inside and outside them; plus pieces (`hits`), negative sizes and equal zones (the first wins).
+    const lists = [list, ...[1, 2, 3, 4, 5, 6].flatMap((seed) => [false, true].map((flush) => {
+      const m = modelScene(seed, flush);
+      const id = Object.keys(m.items).find((k) => !m.items[k]!.fixed && !m.items[k]!.closed)!;
+      return targets(m, id);
+    }))];
+    const r = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
+    lists.push([
+      { id: "a", priority: 2, hit: r(0, 0, 10, 10), hits: [r(0, 0, 10, 10), r(20, 0, 5, -5)] },
+      { id: "b", priority: 2, hit: r(0, 0, 10, 10) },
+      { id: "c", priority: 2, hit: r(0, 0, 10, 10) },
+      { id: "d", priority: 1, hit: r(10, 10, -4, 4) },
+      { id: "e", priority: 3, hit: r(0, 0, 1 / 3, 2 / 3) },
+    ] as unknown as SceneTarget[]);
+    let n = 0;
+    for (const ts of lists) {
+      const points: { x: number; y: number }[] = [];
+      for (let x = -10; x <= 1300; x += 37) for (let y = -10; y <= 900; y += 41) points.push({ x, y });
+      for (const t of ts) {
+        for (const h of t.hits ?? [t.hit]) {
+          if (h.width > 1e6) continue;
+          for (const dx of [-1e-7, 0, 1e-7]) for (const dy of [-1e-7, 0, 1e-7]) {
+            for (const fx of [0, 0.5, 1]) for (const fy of [0, 0.5, 1]) points.push({ x: h.x + h.width * fx + dx, y: h.y + h.height * fy + dy });
+          }
+        }
+      }
+      for (const p of points) {
+        expect(pickTarget(ts, p)?.id ?? null, `${p.x},${p.y}`).toBe(targetAt(ts, p)?.id ?? null);
+        n++;
+      }
+    }
+    expect(n).toBeGreaterThan(10_000);
+  });
+
+  it("finds a point that reaches the target under the pick rule, and null when none does", () => {
     const area = { stage: s.stage, content: solve(s).content };
     for (const place of [g.gap("right-0", 0), g.column("left", 1), g.rail("right"), g.float, g.home]) {
-      const p = resolvePlace(list, place, "annotations", area);
+      const p = resolvePlace(list, place, "annotations", area, targetAt);
       expect(p, JSON.stringify(place)).not.toBeNull();
-      expect(pickTarget(list, p!)?.place.kind).toBe(place.kind);
+      expect(targetAt(list, p!)?.place.kind).toBe(place.kind);
+      expect(resolvePlace(list, place, "annotations", area)).toEqual(p);
     }
-    expect(resolvePlace(list, g.gap("nowhere", 0), "annotations", area)).toBeNull();
+    expect(resolvePlace(list, g.gap("nowhere", 0), "annotations", area, targetAt)).toBeNull();
   });
 });

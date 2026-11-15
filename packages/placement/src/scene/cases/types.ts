@@ -6,7 +6,7 @@
  */
 import type { Point, Rect } from "../../geometry";
 import type { StackFormKind } from "../../stack";
-import type { Scene, SceneLayout, SceneNoteCode, ScenePlace, Side, StoredScene, Zone } from "../index";
+import type { Scene, SceneLayout, SceneNoteCode, ScenePlace, SceneTarget, Side, StoredScene, Zone } from "../index";
 
 /** How a row is grouped (the lab's case browser and the kits' report list rows by it). */
 export type CaseGroup =
@@ -40,7 +40,7 @@ export type GestureType = "press" | "move" | "release" | "key" | "click" | "resi
  *   press that ends in a float gives one (a host's own default may differ, and no row may depend on it). Nothing lifts yet.
  * - `move`: the pointer moves, to `point` (stage px) or to the target at `place` (a host aims at the target's hit by its
  *   place, with `resolvePlace`). With an item pressed, the first move past the lift threshold lifts it (a `place` always
- *   lifts), and the pointer is then over whichever target `pickTarget` finds. Without a press it only moves. With no
+ *   lifts), and the pointer is then over whichever target the host's pick rule (`PickRule`) finds. Without a press it only moves. With no
  *   target under the pointer the page draws the committed layout with the held item's place left empty, and nothing else
  *   moves (a release there commits nothing). A host reaches the end gaps `END_REACH` (24) px past an edge's ends: that is
  *   required of it, since the rows aim there.
@@ -222,7 +222,17 @@ export interface CaseHost {
   stored?(): StoredScene;
   /** The places "Move to ›" offers for an item, in order (the library's `stops` places); absent: the stops check is skipped. */
   stops?(item: string): readonly ScenePlace[];
+  /** The pick rule the host aims with (see {@link PickRule}); the runner never calls it. */
+  readonly pick?: PickRule;
 }
+
+/**
+ * The pick rule: which of `list` the pointer at `point` is over, or null. There is one, `@n-uf/motion/drag`'s
+ * `targetAt` (the lowest priority number, then the smallest zone; a rect holds its edges exactly; `hits` all count), and
+ * every host passes it: placement doesn't import motion, so the host takes the rule as an input. A `move` lands the
+ * pointer over the target this rule picks, and `resolvePlace` aims with it.
+ */
+export type PickRule = (list: readonly SceneTarget[], point: Point) => SceneTarget | null;
 
 /**
  * A `CaseHost` whose calls may be async (a page a browser runner drives with real pointer events and timers): each of
@@ -237,6 +247,8 @@ export interface AsyncCaseHost {
   itemSelector?(id: string): string;
   stored?(): StoredScene | Promise<StoredScene>;
   stops?(item: string): readonly ScenePlace[] | Promise<readonly ScenePlace[]>;
+  /** The pick rule the host aims with, a plain value (see {@link PickRule}); the runner never calls it. */
+  readonly pick?: PickRule;
 }
 
 export interface CaseResult {

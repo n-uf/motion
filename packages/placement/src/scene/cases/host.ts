@@ -1,16 +1,17 @@
 /**
  * The in-memory reference host: a `CaseHost` with no page, no pointer and no clock, only the scene. It plays gestures
  * the way a page's drag session does: a press on a handle, the first move past the lift threshold lifting the item and
- * asking `targets` for every drop target, a pointer over the most precise of them (`pickTarget`), the preview drawn from
- * that target's `after.layout`, and a release committing `after.scene`. Every solve carries the layout before it as
- * `previous`. The kits' hosts do the same with their own pointer and DOM; the rows are the contract between them.
+ * asking `targets` for every drop target, a pointer over the most precise of them (its `pick`: pass
+ * `@n-uf/motion/drag`'s `targetAt`, the one pick rule), the preview drawn from that target's `after.layout`, and a
+ * release committing `after.scene`. Every solve carries the layout before it as `previous`. The kits' hosts do the same
+ * with their own pointer and DOM; the rows are the contract between them.
  *
- * Also exported: `pickTarget` (which target a point is over) and `resolvePlace` (a point that reaches the target at a
- * place), the two pure steps a host needs to turn a gesture's `place` into a pointer.
+ * Also exported: `resolvePlace` (a point that reaches the target at a place, under a pick rule), the pure step a host
+ * needs to turn a gesture's `place` into a pointer, and the deprecated `pickTarget` (the default pick).
  */
-import { area, centre, contains as inside, type Point, type Rect } from "../../geometry";
+import { centre, contains as inside, type Point, type Rect } from "../../geometry";
 import { close, dockHome, fold, floatAt, homeFor, open, placeTargetId, raise, readScene, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
-import type { CaseHost, CaseSettings, Gesture } from "./types";
+import type { CaseHost, CaseSettings, Gesture, PickRule } from "./types";
 
 /** The lift threshold: the pointer moves this far (px) from the press before the item lifts. */
 export const LIFT_THRESHOLD = 4;
@@ -21,10 +22,17 @@ export const END_REACH = 24;
 /**
  * The most precise target under `point`: the lowest priority number, then the smallest zone; null when none is. A
  * target with `hits` is under the point in any of them, and its zone's size is theirs together.
+ *
+ * @deprecated The pick rule is `@n-uf/motion/drag`'s `targetAt`: pass it as `createSceneHost({ pick: targetAt })` and
+ * to `resolvePlace`. This is only the reference host's default when none is given (placement doesn't import motion),
+ * the same rule with the same tolerances: a rect holds its edges exactly, with no epsilon, and a zone's size is the sum
+ * of width × height over its pieces. A test holds it equal to `targetAt`. Removed in the release that drops the legacy
+ * entries.
  */
 export function pickTarget<T extends { readonly priority: number; readonly hit: Rect; readonly hits?: readonly Rect[] }>(list: readonly T[], point: Point): T | null {
-  const under = (t: T): boolean => (t.hits ? t.hits.some((r) => inside(r, point)) : inside(t.hit, point));
-  const size = (t: T): number => (t.hits ? t.hits.reduce((s, r) => s + area(r), 0) : area(t.hit));
+  const holds = (r: Rect): boolean => point.x >= r.x && point.x <= r.x + r.width && point.y >= r.y && point.y <= r.y + r.height;
+  const under = (t: T): boolean => (t.hits ? t.hits.some(holds) : holds(t.hit));
+  const size = (t: T): number => (t.hits ? t.hits.reduce((s, r) => s + r.width * r.height, 0) : t.hit.width * t.hit.height);
   let best: T | null = null;
   for (const t of list) {
     if (!under(t)) continue;
@@ -47,11 +55,12 @@ export interface AimArea {
 
 /**
  * A pointer position that reaches the target at `place`: inside its hit and not covered by a more precise target
- * (`pickTarget` finds it there). It tries the hit's centre, then a grid across the hit; a target over the whole plane
- * (the float) is aimed at the content's centre, then the stage's, then a grid across the stage. Null when no point
- * reaches it (a gap that a home or a blocked spot covers entirely).
+ * (`pick` finds it there: the host's pick rule, `@n-uf/motion/drag`'s `targetAt`; default the same rule, `pickTarget`).
+ * It tries the hit's centre, then a grid across the hit; a target over the whole plane (the float) is aimed at the
+ * content's centre, then the stage's, then a grid across the stage. Null when no point reaches it (a gap that a home or
+ * a blocked spot covers entirely).
  */
-export function resolvePlace(list: readonly SceneTarget[], place: ScenePlace, item: string, area_: AimArea): Point | null {
+export function resolvePlace(list: readonly SceneTarget[], place: ScenePlace, item: string, area_: AimArea, pick: PickRule = pickTarget): Point | null {
   const t = targetAt(list, place, item);
   if (!t) return null;
   const big = t.hit.width > 1e6 || t.hit.height > 1e6;
@@ -66,7 +75,7 @@ export function resolvePlace(list: readonly SceneTarget[], place: ScenePlace, it
   for (const fy of [0.5, 0.25, 0.75, 0.1, 0.9, 0.4, 0.6, 0, 1]) {
     for (const fx of [0.5, 0.25, 0.75, 0.1, 0.9, 0.4, 0.6, 0, 1]) candidates.push({ x: region.x + region.width * fx, y: region.y + region.height * fy });
   }
-  return candidates.find((p) => inside(t.hit, p) && pickTarget(list, p) === t) ?? null;
+  return candidates.find((p) => inside(t.hit, p) && pick(list, p) === t) ?? null;
 }
 
 /** What the in-memory host knows about a drag in progress. */
@@ -88,6 +97,8 @@ export interface SceneHost extends CaseHost {
   stored(): StoredScene;
   /** The drag in progress, or null. */
   drag(): HostDrag | null;
+  /** The pick rule it aims with: the one in its options, else the default. */
+  readonly pick: PickRule;
 }
 
 export interface SceneHostOptions {
@@ -97,6 +108,11 @@ export interface SceneHostOptions {
   readonly lift?: number;
   /** Where a press with no `point` holds the item, px from its top-left corner (default 8, 8). A test varies it to prove no row depends on it. */
   readonly grab?: Point;
+  /**
+   * The pick rule: which target the pointer is over. Pass `@n-uf/motion/drag`'s `targetAt`, the rule a kit's drag intent
+   * runs, so the reference host and the kit agree on every boundary pixel. Default: the same rule (`pickTarget`).
+   */
+  readonly pick?: PickRule;
 }
 
 interface Session {
@@ -115,6 +131,7 @@ export function createSceneHost(options: SceneHostOptions = {}): SceneHost {
   const endReach = options.endReach ?? END_REACH;
   const lifted0 = options.lift ?? LIFT_THRESHOLD;
   const defaultGrab = options.grab ?? { x: 8, y: 8 };
+  const pick: PickRule = options.pick ?? pickTarget;
   let start: Scene | null = null;
   let scene: Scene | null = null;
   let committed: SceneLayout | null = null;
@@ -152,7 +169,7 @@ export function createSceneHost(options: SceneHostOptions = {}): SceneHost {
   function liftNow(s: Session): void {
     s.lifted = true;
     s.list = targets(now(), s.item, { previous: prev(), endReach });
-    s.target = pickTarget(s.list, s.point);
+    s.target = pick(s.list, s.point);
   }
 
   function move(g: Gesture): void {
@@ -160,16 +177,16 @@ export function createSceneHost(options: SceneHostOptions = {}): SceneHost {
     if (!s) return;
     if (g.place) {
       if (!s.lifted) liftNow(s);
-      const p = resolvePlace(s.list, g.place, s.item, aim());
+      const p = resolvePlace(s.list, g.place, s.item, aim(), pick);
       if (!p) throw new Error(`no point reaches the target at ${JSON.stringify(g.place)} (targets: ${s.list.map((t) => t.id).join(", ") || "none"})`);
       s.point = p;
-      s.target = pickTarget(s.list, p);
+      s.target = pick(s.list, p);
       return;
     }
     if (!g.point) throw new Error("a move needs a point or a place");
     s.point = { x: g.point.x, y: g.point.y };
     if (!s.lifted && Math.hypot(s.point.x - s.down.x, s.point.y - s.down.y) > lifted0) liftNow(s);
-    else if (s.lifted) s.target = pickTarget(s.list, s.point);
+    else if (s.lifted) s.target = pick(s.list, s.point);
   }
 
   function press(g: Gesture): void {
@@ -343,6 +360,7 @@ export function createSceneHost(options: SceneHostOptions = {}): SceneHost {
     scene: now,
     stored: () => storeScene(now()),
     stops: (item) => stops(now(), item, { previous: prev(), endReach }).map((t) => t.place),
+    pick,
     drag: () => (session ? { item: session.item, lifted: session.lifted, target: session.target?.id ?? null, point: session.point, grab: session.grab } : null),
   };
 }
