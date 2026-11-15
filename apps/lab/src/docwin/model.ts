@@ -77,7 +77,22 @@ export interface GroupMeasure {
   readonly icons: { readonly width: number; readonly height: number };
   readonly iconsRow: number;
   readonly fold: number;
+  /** Its compact row variants' widths, "+N" cell included, one per `ROW_VARIANTS[id]` entry (Zoom's two). */
+  readonly variants: readonly number[];
 }
+
+/** Zoom's controls in their row order; the value (id null) is never hidden. */
+export const ZOOM_CONTROLS: readonly { readonly id: string | null; readonly label: string }[] = [
+  { id: "-", label: "−" },
+  { id: null, label: "" },
+  { id: "+", label: "+" },
+  { id: "fit", label: "FIT" },
+];
+/**
+ * Each group's compact row variants, largest first, by the controls each hides: Zoom's compact "− 86% +" with "+1"
+ * (hides FIT) and minimal "86%" with "+3" (hides −, + and FIT). Review gets none (its design is on hold).
+ */
+export const ROW_VARIANTS: Readonly<Partial<Record<GroupId, readonly (readonly string[])[]>>> = { zoom: [["fit"], ["-", "+", "fit"]] };
 let measured: Readonly<Record<GroupId, GroupMeasure>> | null = null;
 /** The groups' measured widths, which every scene built afterwards uses. */
 export function setGroupSizes(m: Readonly<Record<GroupId, GroupMeasure>>): void {
@@ -95,9 +110,11 @@ const icons = (id: GroupId): StackForm => f("icons", groupSizes()[id].icons.heig
 
 // In a column: one row while the column is wide enough, then the words wrapping, then icons, then the menu.
 const groupColumn = (id: GroupId): StackForm[] => [f("row", 32, groupSizes()[id].row), wrap(id), icons(id), MENU];
-// In a bar: the row, then (Views and Review) the icons, then folded, then the menu.
+// In a bar: the row, its compact variants (Zoom), then (Views and Review) the icons, then folded, then the menu.
 const groupRow = (id: GroupId): StackForm[] => [
   f("row", groupSizes()[id].row, BAR),
+  // Its compact variants: row forms between the full row and the next form, each at its measured width with its "+N".
+  ...(ROW_VARIANTS[id] ?? []).map((hides, i) => f("row", groupSizes()[id].variants[i]!, BAR, { hides })),
   ...(id === "views" || id === "review" ? [f("icons", groupSizes()[id].iconsRow, BAR)] : []),
   f("fold", groupSizes()[id].fold, BAR),
   MENU,

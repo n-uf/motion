@@ -1357,7 +1357,123 @@ export const PRESETS: readonly Preset[] = [
       return { pass: bad.length === 0, now: `${r.targetChanges} target changes, ${r.switches} form switches, ${r.redraws} redraw frames; ends ${end.formKind} ${end.axis}; grip drift at most ${worst.toFixed(2)} px; opacity steps at most ${r.maxFade.toFixed(3)}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
     },
   },
+  {
+    id: "zoom-variants-sweep",
+    title: "Zoom's compact variants: full, compact, minimal, and back",
+    expected:
+      'Zoom alone in the title bar while the window narrows from 900 to 260 px in 2 px steps and widens back (the compact variant saves only the width FIT has over "+1", a few px): it steps full "− 86% + FIT" → compact "− 86% +" with "+1" → minimal "86%" with "+3", in that order, each step drawn whole (nothing clipped); its "+N" reads the number its form hides, and opened, its popover lists exactly the hidden controls; widening, the steps come back in the exact reverse.',
+    setup: (c) => c.setScene(sceneWith((s) => s, { width: 900, height: 640 })),
+    check(c) {
+      c.setScene(sceneWith((s) => s, { width: 900, height: 640 }));
+      const bad: string[] = [];
+      const widths: number[] = [];
+      for (let w = 900; w >= 260; w -= 2) widths.push(w);
+      const down = new Map<number, number>();
+      const seen = new Set<number>();
+      let last = -1;
+      const visit = (w: number, shrinking: boolean): void => {
+        c.setSize(w, 640);
+        const z = c.layout.items.zoom!;
+        const form = z.inMenu ? 99 : z.form;
+        if (shrinking) {
+          if (form < last) bad.push(`${w}: Zoom stepped up to form ${form} from ${last} while narrowing`);
+          down.set(w, form);
+        } else if (down.get(w) !== form) bad.push(`${w}: Zoom is at form ${form} growing back, ${down.get(w)} on the way down`);
+        last = form;
+        if (z.inMenu) return;
+        seen.add(form);
+        const issue = clipped(c, "zoom");
+        if (issue) bad.push(`${w}: ${issue}`);
+        const more = moreCell(c);
+        const want = z.hidden.length ? `+${z.hidden.length}` : null;
+        if ((more?.textContent ?? null) !== want) bad.push(`${w}: the "+N" reads "${more?.textContent ?? "nothing"}", its form hides [${z.hidden.join(", ")}]`);
+        if (more) {
+          const listed = openMore(c, more);
+          if (listed.join() !== z.hidden.join()) bad.push(`${w}: the popover lists [${listed.join(", ")}], the form hides [${z.hidden.join(", ")}]`);
+          closeByOutsideClick(c);
+        }
+      };
+      for (const w of widths) visit(w, true);
+      for (const w of [...widths].reverse()) visit(w, false);
+      for (const f of [0, 1, 2]) if (!seen.has(f)) bad.push(`Zoom never showed form ${f}`);
+      return { pass: bad.length === 0, now: `Forms seen: ${[...seen].sort().join(", ")}.${bad.length ? ` Broken: ${bad.slice(0, 6).join("; ")}${bad.length > 6 ? ` (+${bad.length - 6})` : ""}.` : " Every step held."}` };
+    },
+  },
+  {
+    id: "zoom-more-acts",
+    title: 'A hidden control acts from the "+N" popover',
+    expected: 'With Zoom minimal ("86%" and "+3"), the popover lists −, + and FIT; clicking + steps the zoom up by 10 % as the real + does, and closes the popover; an outside click closes it too.',
+    setup: minimalZoom,
+    check(c) {
+      const more = minimalZoom(c);
+      const bad: string[] = [];
+      const z = c.layout.items.zoom!;
+      if (z.hidden.join() !== "-,+,fit") bad.push(`at ${MINIMAL_WIDTH} px Zoom hides [${z.hidden.join(", ")}]`);
+      if (!more) return { pass: false, now: `No "+N" cell at ${MINIMAL_WIDTH} px.` };
+      const listed = openMore(c, more);
+      if (listed.join() !== "-,+,fit") bad.push(`the popover lists [${listed.join(", ")}]`);
+      const before = c.counts.zoom;
+      menuList(c).querySelector<HTMLElement>('[data-hidden-control="+"]')?.click();
+      if (c.counts.zoom !== before + 10) bad.push(`the zoom went ${before} → ${c.counts.zoom}, wanted ${before + 10}`);
+      if (!menuList(c).hidden) bad.push("the popover stayed open after a pick");
+      c.setCount("zoom", before);
+      const again = moreCell(c);
+      if (again) {
+        openMore(c, again);
+        closeByOutsideClick(c);
+        if (!menuList(c).hidden) bad.push("an outside click left the popover open");
+      }
+      return { pass: bad.length === 0, now: `Listed [${listed.join(", ")}].${bad.length ? ` Broken: ${bad.join("; ")}.` : " + acted and closed it."}` };
+    },
+  },
+  {
+    id: "zoom-more-keyboard",
+    title: 'The "+N" popover by keyboard',
+    expected: 'Enter or Space on "+3" opens the popover with the focus on its first control; the arrow keys move the focus through −, + and FIT (wrapping); Escape closes it and puts the focus back on "+3".',
+    setup: minimalZoom,
+    check(c) {
+      const more = minimalZoom(c);
+      const bad: string[] = [];
+      if (!more) return { pass: false, now: `No "+N" cell at ${MINIMAL_WIDTH} px.` };
+      // Enter and Space on a button click it with no pointer (detail 0), as `click()` does.
+      more.focus();
+      more.click();
+      const list = menuList(c);
+      const focused = (): string => (document.activeElement as HTMLElement | null)?.dataset.hiddenControl ?? "(not in the popover)";
+      if (list.hidden) bad.push("Enter left the popover closed");
+      if (more.getAttribute("aria-expanded") !== "true") bad.push("the cell isn't marked expanded");
+      const path = [focused()];
+      const key = (k: string): void => void document.activeElement?.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
+      for (const k of ["ArrowDown", "ArrowDown", "ArrowDown", "ArrowUp"]) {
+        key(k);
+        path.push(focused());
+      }
+      if (path.join() !== "-,+,fit,-,fit") bad.push(`the focus went ${path.join(" → ")}`);
+      key("Escape");
+      if (!list.hidden) bad.push("Escape left the popover open");
+      if (document.activeElement !== moreCell(c)) bad.push("the focus didn't go back to the cell");
+      return { pass: bad.length === 0, now: `Focus: ${path.join(" → ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : " Escape closed it, back on +3."}` };
+    },
+  },
 ];
+
+/** A width where Zoom, alone in the title bar, shows its minimal form ("86%" and "+3"). */
+const MINIMAL_WIDTH = 350;
+const menuList = (c: DocwinScene): HTMLElement => c.win.querySelector<HTMLElement>(".dw-menu-list")!;
+const moreCell = (c: DocwinScene): HTMLElement | null => c.win.querySelector<HTMLElement>('.dw-items [data-id="zoom"] .dw-more');
+/** The default window at `MINIMAL_WIDTH`: Zoom minimal in the title bar; returns its "+N" cell. */
+function minimalZoom(c: DocwinScene): HTMLElement | null {
+  c.setScene(sceneWith((s) => s, { width: MINIMAL_WIDTH, height: 640 }));
+  return moreCell(c);
+}
+/** Opens a "+N" cell's popover with a pointer click; returns the controls it lists. */
+function openMore(c: DocwinScene, more: HTMLElement): string[] {
+  // A drag earlier in the same run may still swallow the click that follows its pointer-up: spend it on the window.
+  c.win.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  more.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+  return [...menuList(c).querySelectorAll<HTMLElement>("[data-hidden-control]")].map((b) => b.dataset.hiddenControl!);
+}
+const closeByOutsideClick = (c: DocwinScene): void => void c.win.querySelector(".dw-scroll")?.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
 
 /** The held copy at a stop: its form, whether it is at rest, the target its form follows and the target shown. */
 type HeldAt = { readonly formKind: string; readonly axis: string; readonly settled: boolean; readonly target: string | null; readonly shown: string | null };
