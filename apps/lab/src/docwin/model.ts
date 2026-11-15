@@ -59,20 +59,27 @@ const PANEL_COLUMN: Record<PanelId, StackForm[]> = {
   findings: [f("open", { min: 140, natural: 260, grows: true }, 240, { cross: { natural: 240, min: COL_MIN } }), f("header", 32, 240, { cross: { natural: 240, min: 60 } }), f("rail", 28, 28), MENU],
 };
 
-/** A group's grip cell: the dots and their padding before the words (the lead of a `wrap` form). */
-export const GRIP = 17;
-/** A wrapped row's height. */
-export const WRAP_ROW = 28;
 /**
- * A group as the page draws it, measured from its rendered buttons (the page measures before it builds a scene): `row`
- * its one-row width (grip, words, padding and border: the box hugs its content), `words` each word's width in the order
- * the `wrap` form lists them (Views' "Pages · Notes 2 · Findings 20", Review's capsule, Zoom's −, value, +, FIT, Tools'
- * five tools), `gap` the room between neighbouring words (Views' "·" included).
+ * A group as the page draws it, measured from its rendered buttons (the page measures before it builds a scene; the box
+ * hugs its content, grip, padding and border included):
+ * - `row`: its one-row width;
+ * - `words`: each word's width in the order the `wrap` form lists them (Views' "Pages · Notes 2 · Findings 20",
+ *   Review's capsule, Zoom's −, value, +, FIT, Tools' five tools), `gap` the room between neighbouring words (Views' "·"
+ *   included), `wrapRow` a wrapped row's height;
+ * - `icons`: its vertical icons form (the grip on top, the icons stacked), `width` across and `height` along;
+ * - `iconsRow`: its icons form in a bar, its width (Views and Review have one);
+ * - `fold`: its folded form in a bar (the grip and its »), its width.
  */
 export interface GroupMeasure {
   readonly row: number;
   readonly words: readonly number[];
   readonly gap: number;
+  readonly wrapRow: number;
+  /** A wrapped row's lead: the grip's cell, plus what a row draws after its last word (Review's capsule edge). */
+  readonly lead: number;
+  readonly icons: { readonly width: number; readonly height: number };
+  readonly iconsRow: number;
+  readonly fold: number;
 }
 let measured: Readonly<Record<GroupId, GroupMeasure>> | null = null;
 /** The groups' measured widths, which every scene built afterwards uses. */
@@ -85,18 +92,17 @@ export function groupSizes(): Readonly<Record<GroupId, GroupMeasure>> {
   return measured;
 }
 /** Words that wrap beside the grip (a hanging indent), never one word alone on a row that isn't the last. */
-const wrap = (id: GroupId): StackForm => ({ kind: "wrap", main: { min: 0, natural: 0 }, cross: { natural: 0 }, wrap: { widths: [...groupSizes()[id].words], gap: groupSizes()[id].gap, lead: GRIP, row: WRAP_ROW } });
-/** Icons stacked under a horizontal grip on top (16 px). */
-const icons = (n: number): StackForm => f("icons", n * 26 + 16, 28, { grip: 16 });
-const ICONS: Record<GroupId, number> = { zoom: 3, tools: 5, views: 3, review: 4 };
+const wrap = (id: GroupId): StackForm => ({ kind: "wrap", main: { min: 0, natural: 0 }, cross: { natural: 0 }, wrap: { widths: [...groupSizes()[id].words], gap: groupSizes()[id].gap, lead: groupSizes()[id].lead, row: groupSizes()[id].wrapRow } });
+/** Icons stacked under a horizontal grip on top (16 px: the dots, their gap and the top padding), as measured. */
+const icons = (id: GroupId): StackForm => f("icons", groupSizes()[id].icons.height, groupSizes()[id].icons.width, { grip: 16 });
 
 // In a column: one row while the column is wide enough, then the words wrapping, then icons, then the menu.
-const groupColumn = (id: GroupId): StackForm[] => [f("row", 32, groupSizes()[id].row), wrap(id), icons(ICONS[id]), MENU];
+const groupColumn = (id: GroupId): StackForm[] => [f("row", 32, groupSizes()[id].row), wrap(id), icons(id), MENU];
 // In a bar: the row, then (Views and Review) the icons, then folded, then the menu.
 const groupRow = (id: GroupId): StackForm[] => [
   f("row", groupSizes()[id].row, BAR),
-  ...(id === "views" || id === "review" ? [f("icons", ICONS[id] * 26 + 24, BAR)] : []),
-  f("fold", 44, BAR),
+  ...(id === "views" || id === "review" ? [f("icons", groupSizes()[id].iconsRow, BAR)] : []),
+  f("fold", groupSizes()[id].fold, BAR),
   MENU,
 ];
 const PANEL_FLOAT: Record<PanelId, Size> = {
