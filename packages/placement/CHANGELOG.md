@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.19
+## Unreleased
 
 - `@n-uf/placement/scene/cases`, an async runner (additive): **`runCaseAsync(row, host)`** and
   **`runCasesAsync(rows, makeHost, { onResult? })`** play the rows on an **`AsyncCaseHost`** (a `CaseHost` whose `load`,
@@ -11,18 +11,26 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   be driven from a browser runner with real pointer events and timers. They await each host call in the order `runCase`
   makes them, with the same checks (both play one list of steps); a rejected `load` or `perform` is a failed result, as a
   thrown one is. A sync `CaseHost` works with both. `runCase`, `runCases` and `CaseHost` are unchanged.
+- `@n-uf/placement/scene`, **`layout.columnRoom`** (**Changed**): with `contentMin` and a column (or, before any exists,
+  a `Scene.columns` template), whether one column at its minimum fits beside the content's minimum. Anchors and rails
+  don't count any more (26.11.19 counted the anchors' room): every column, an anchor included, can fold into its rail. A
+  host's narrow fallback (the sheet) reads it.
+- `@n-uf/placement/scene`, `setSide` ticks no use clock, like every change: a host that moves an edge by hand calls
+  `use()` on its items afterwards, as a drop does (documented, with a test).
+
+## 26.11.19
+
 - `@n-uf/placement/scene`, parity with the panels hosts draw today (Revisions 7 and 7b):
-  - **`layout.columnRoom`** and the note **`no-column-room`** (`width`, `need`): with `contentMin` and a column (or a
-    `Scene.columns` template), whether one column at its minimum fits beside the content's minimum. Anchors and rails
-    don't count: every column, an anchor included, can fold into its rail. A host's narrow fallback (the sheet) reads it.
+  - **`layout.columnRoom`** and the note **`no-column-room`** (`width`, `need`): with `contentMin` and dynamic columns,
+    whether one column at its minimum fits beside the content's minimum and the anchors' room (an open anchor's width
+    and gutter, a folded one's rail and gutter). A host's narrow fallback reads it.
   - **`Edge.outsideInset`**: an anchor edge (a side edge that takes nothing, a thumbnail strip) lies outside the inset
     and the gutter: at the window's side, the inset after it; inside the side's rail when one shows. It runs into the
     inset above and below only where no reserved bar lies on that side.
   - **`Edge.giveWay`**: a static side edge shrinks toward its minimum, then folds into its side's rail, in give-way
     order with the columns (by its items' ages). It is never deleted.
   - **`setSide(scene, edgeId, side)`**: moves an edge to the other side of its axis as its side's outermost edge (ring
-    0); `readScene` moves a static edge stored on the other side. Like every change it ticks no use clock: a host that
-    moves an edge by hand calls `use()` on its items afterwards, as a drop does.
+    0); `readScene` moves a static edge stored on the other side.
   - **`Scene.insetWhen`** (`"always"`, the default, or `"docked"`): with `"docked"` the inset applies only while
     an open column or a rail is beside the content (an anchor alone doesn't count).
   - **Changed:** `handFold: "ride"` rides every column folded by hand, not only a one-panel one: each member a bar over
