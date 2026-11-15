@@ -1040,6 +1040,23 @@ played in order:
 | `resize` | With `edge`, the user's size across that edge (`size` px); with `item`, that item's measured length changed by `size` px; with neither, the window is now `point.x` by `point.y`. |
 | `scroll` | The pages scroll by `size` px. Nothing in a scene scrolls: only a host with a page can show it, with a DOM `rect` check. |
 
+**Driving the rows from a browser runner.** A kit's page is driven from outside (Playwright, say) with real pointer
+events and timers, so its host's calls are async. `runCaseAsync(row, host)` takes an `AsyncCaseHost`, the same members
+as a `CaseHost` but each of `load`, `perform`, `layout`, `root`, `stored` and `stops` may return a promise
+(`itemSelector` stays a plain function). It awaits every call, in the same order as `runCase` makes them, and checks the
+same way: both play one list of steps. A rejected `load` or `perform` is a failed result with the error's message, as a
+thrown one is in `runCase`. `runCasesAsync(rows, makeHost, { onResult })` runs the rows one after another (a page has one
+pointer), each on a fresh host (`makeHost` may be async), and reports each result as it is known. A sync `CaseHost` works
+with both.
+
+```ts
+import { CASES, runCasesAsync, type AsyncCaseHost } from "@n-uf/placement/scene/cases";
+
+// A host over a Playwright page: each call goes to the page and resolves when the page has done it.
+declare function pageHost(): Promise<AsyncCaseHost>;
+const results = await runCasesAsync(CASES, pageHost, { onResult: (id, r) => console.log(id, r.ok) });
+```
+
 ## Pane zones
 
 `paneZone(rect, point, previous, options?)` says which of a pane's five zones a point is in: the centre rectangle

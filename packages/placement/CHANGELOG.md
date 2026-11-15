@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.19
 
+- `@n-uf/placement/scene/cases`, an async runner (additive): **`runCaseAsync(row, host)`** and
+  **`runCasesAsync(rows, makeHost, { onResult? })`** play the rows on an **`AsyncCaseHost`** (a `CaseHost` whose `load`,
+  `perform`, `layout`, `root`, `stored` and `stops` may return promises; `itemSelector` stays plain), so a kit's page can
+  be driven from a browser runner with real pointer events and timers. They await each host call in the order `runCase`
+  makes them, with the same checks (both play one list of steps); a rejected `load` or `perform` is a failed result, as a
+  thrown one is. A sync `CaseHost` works with both. `runCase`, `runCases` and `CaseHost` are unchanged.
 - `@n-uf/placement/scene`, parity with the panels hosts draw today (Revisions 7 and 7b):
   - **`layout.columnRoom`** and the note **`no-column-room`** (`width`, `need`): with `contentMin` and dynamic columns,
     whether one column at its minimum fits beside the content's minimum and the anchors' room (an open anchor's width
