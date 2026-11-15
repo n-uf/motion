@@ -194,7 +194,7 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
     gestures: [g.click("annotations", "float"), g.scroll(600)],
     expectLayout: { items: { annotations: { floating: true, edge: null, rect: r(496, 0, 300, 440) }, pages: { rect: r(12, 0, 300, 800) } }, floats: ["annotations"], columns: { left: [["pages"]] } },
     // Only a page can show that the float didn't scroll with the pages: it measures where the float is drawn.
-    expectDom: [{ at: 1, select: '[data-item="annotations"]', count: 1, rect: r(496, 0, 300, 440), note: "the float is drawn where it was after the scroll" }],
+    expectDom: [{ at: 1, item: "annotations", count: 1, rect: r(496, 0, 300, 440), note: "the float is drawn where it was after the scroll" }],
   },
   {
     id: "P10-float-moves-by-the-pointer",

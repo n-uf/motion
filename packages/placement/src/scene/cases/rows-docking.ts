@@ -279,7 +279,7 @@ export const DOCKING_ROWS: readonly CaseRow[] = [
     gestures: [g.scroll(300)],
     expectLayout: { items: { findings: { floating: true, rect: r(440, 130, 220, 190) } } },
     // The layout alone can't tell a float that scrolled: only a page can, by measuring where the float is drawn.
-    expectDom: [{ select: '[data-item="findings"]', count: 1, rect: r(440, 130, 220, 190), note: "the float is drawn where it was after the scroll" }],
+    expectDom: [{ item: "findings", count: 1, rect: r(440, 130, 220, 190), note: "the float is drawn where it was after the scroll" }],
   },
   {
     id: "C7",
