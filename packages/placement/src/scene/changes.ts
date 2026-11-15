@@ -279,9 +279,11 @@ export function homeFor(scene: Scene, id: string, start: Scene): Place | null {
 export function dockHome(scene: Scene, id: string, start: Scene): Scene {
   const place = homeFor(scene, id, start);
   if (!place) return scene;
+  // An item already at its home place (the only item of its own column, which `moveTo` can't re-dock into) keeps its
+  // place and still takes the start fold.
   const moved = moveTo(scene, id, place);
-  if (moved === scene) return scene;
-  const item = itemOf(moved, id)!;
+  const item = itemOf(moved, id);
+  if (!item) return scene;
   const from = itemOf(start, id)?.from;
   if (item.from === from) return moved;
   const { from: _f, ...plain } = item;
