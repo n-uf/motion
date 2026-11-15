@@ -93,6 +93,20 @@ export interface Edge {
   readonly size?: number;
   /** A column drawn as a rail (nothing in it sets its width) shows its closed items too, as tabs marked `closed`. */
   readonly railShowsClosed?: boolean;
+  /**
+   * An icons-only edge (a thin rail of vertical toolbars along a window side): its items take only their `icons` form
+   * (and the » menu after it), stacked, each grip the divider. An item with no `icons` form is left out
+   * (`no-icons-form`).
+   */
+  readonly compact?: boolean;
+  /**
+   * The kinds each zone takes, narrowing `accepts`: with it, a zone not listed takes nothing. A panel column with
+   * `{ start: ["panel"], end: ["group"] }` has its panels at the top and a tray of toolbars at its foot (the end zone, one
+   * toolbar per row): a toolbar in the tray takes only its `wrap` or `icons` form (never the menu), and the panels give
+   * way first. A group never opens such a column on its own: an empty edge offers its strip only to the kinds its start
+   * zone takes.
+   */
+  readonly zoneAccepts?: ZoneAccepts;
   /** The drop strip's depth while the edge is empty, px (default {@link DEFAULT_STRIP}). */
   readonly strip?: number;
   /**
@@ -118,7 +132,19 @@ export interface ColumnTemplate {
   readonly gap?: number;
   readonly pad?: { readonly start?: number; readonly end?: number };
   readonly menu?: { readonly main: number };
+  /** The kinds each zone takes in the columns made from it (`Edge.zoneAccepts`). */
+  readonly zoneAccepts?: ZoneAccepts;
 }
+
+/** Per zone, the kinds it takes. */
+export type ZoneAccepts = Readonly<Partial<Record<Zone, readonly Kind[]>>>;
+
+/** Whether `edge` takes kind `kind` in `zone`: its `accepts`, narrowed by `zoneAccepts` when given (a zone not listed takes nothing). */
+export const zoneTakes = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, zone: Zone, kind: Kind): boolean =>
+  edge.accepts.includes(kind) && (edge.zoneAccepts === undefined || !!edge.zoneAccepts[zone]?.includes(kind));
+
+/** The zones of `edge` that take `kind`, in order. */
+export const zonesTaking = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, kind: Kind): Zone[] => ZONES.filter((z) => zoneTakes(edge, z, kind));
 
 /** A side's one rail strip: folded columns show in it as segments, in ring order. */
 export interface RailSpec {
@@ -196,6 +222,10 @@ export interface SceneItemLayout {
   readonly rides?: string;
   /** Its column folded: by hand (every member folded) or by give-way. */
   readonly folded?: "hand" | "auto";
+  /** A `wrap` form: the word indexes per row (the words wrap beside the grip, a hanging indent). */
+  readonly rows?: readonly (readonly number[])[];
+  /** Its grip: a `wrap` form's lead cell at the start of row one, or a form's `grip` strip (an icons strip's, on top). */
+  readonly grip?: Rect;
 }
 
 /** An edge as laid out. */
@@ -242,6 +272,8 @@ export interface SceneRailLayout {
  * - `content-narrow`, `content-short`: the content is still under `contentMin` (overlay bars count against the height).
  * - `content-changed`: under `previous`, `content` is not the rect `previous.content` was (`from`, `to`). A host refits
  *   its zoom only on this note.
+ * - `no-vertical-form`: an item left out of a vertical place (a rail, a vertical float) because only `wrap` forms are
+ *   left to it (vertical means icons: give a word group an `icons` form).
  */
 export type SceneNote =
   | ({ readonly edge: string } & StackNote)
@@ -252,7 +284,9 @@ export type SceneNote =
   | { readonly code: "column-folded" | "kept-folded"; readonly edge: string }
   | { readonly code: "content-narrow"; readonly width: number; readonly min: number }
   | { readonly code: "content-short"; readonly height: number; readonly min: number }
-  | { readonly code: "content-changed"; readonly from: Rect; readonly to: Rect };
+  | { readonly code: "content-changed"; readonly from: Rect; readonly to: Rect }
+  | { readonly code: "no-vertical-form"; readonly id: string; readonly edge?: string }
+  | { readonly code: "no-icons-form"; readonly id: string; readonly edge: string };
 export type SceneNoteCode = SceneNote["code"];
 
 export interface SceneLayout {
@@ -290,3 +324,35 @@ export const DEFAULT_FLOAT_SIZE: Size = { width: 280, height: 360 };
 export const axisOf = (side: Side): Orient => (side === "left" || side === "right" ? "column" : "row");
 export const zoneOf = (item: SceneItem | undefined): Zone => (item?.align === "center" || item?.align === "end" ? item.align : "start");
 export const formsOf = (item: SceneItem, axis: Orient): readonly StackForm[] => item.forms[axis] ?? [];
+
+/** The first form at or after `from` that isn't a `wrap` form (vertical means icons), or undefined when none is. */
+export function pastWrap(forms: readonly StackForm[], from: number): number | undefined {
+  for (let j = Math.max(0, Math.floor(from)); j < forms.length; j++) if (forms[j]!.kind !== "wrap" && !forms[j]!.wrap) return j;
+  return undefined;
+}
+
+/**
+ * How `solve` draws a float: the form it takes (an index into its `orient`'s forms) and its size. A vertical float
+ * (`orient: "column"`) skips `wrap` forms, which apply only in a column edge: any form it takes after a skipped `wrap`
+ * form (its icons) is drawn at that form's natural size, whatever its `from`. An item with only `wrap` forms left has no
+ * form there (`none`: `solve` leaves it out with a `no-vertical-form` note), so a word group needs an `icons` form.
+ * Otherwise a float with `from` over 0 is its bar (that form's natural length along its orient, its other size kept), and
+ * one at its first form is its rect's size.
+ */
+export function floatShape(item: SceneItem, f: { readonly rect: Rect; readonly orient?: Orient }): { form: number; width: number; height: number; none?: true } {
+  const orient = f.orient === "row" ? "row" : "column";
+  const forms = formsOf(item, orient);
+  const px = (v: number): number => (Number.isFinite(v) ? Math.max(0, v) : 0);
+  const w = px(f.rect.width);
+  const h = px(f.rect.height);
+  if (forms.length === 0) return { form: 0, width: w, height: h };
+  const asked = Math.min(Math.max(0, Math.floor(Number.isFinite(item.from) ? item.from! : 0)), forms.length - 1);
+  const isWrap = (x: StackForm): boolean => x.kind === "wrap" || !!x.wrap;
+  const skipped = orient === "column" ? pastWrap(forms, asked) : asked;
+  if (skipped === undefined) return { form: asked, width: w, height: h, none: true };
+  const form = skipped;
+  const fm = forms[form]!;
+  if (orient === "column" && forms.slice(0, form + 1).some(isWrap)) return { form, width: px(fm.cross.natural), height: px(fm.main.natural) };
+  if (form > 0) return orient === "column" ? { form, width: w, height: px(fm.main.natural) } : { form, width: px(fm.main.natural), height: h };
+  return { form, width: w, height: h };
+}

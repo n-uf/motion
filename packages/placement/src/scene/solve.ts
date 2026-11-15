@@ -34,8 +34,8 @@
 import { rect, type Rect } from "../geometry";
 import { fitFloat } from "../stack/floats";
 import { fitStack } from "../stack/layout";
-import { formSetsCross, type StackFit, type StackForm, type StackInput, type StackItem } from "../stack/model";
-import { axisOf, formsOf, zoneOf, type Edge, type FloatAnchor, type Scene, type SceneEdgeLayout, type SceneItem, type SceneItemLayout, type SceneLayout, type SceneNote, type SceneRailLayout, type SolveOptions, type Zone } from "./model";
+import { formCrossMin, formSetsCross, wrapLines, type StackFit, type StackForm, type StackInput, type StackItem } from "../stack/model";
+import { axisOf, floatShape, formsOf, pastWrap, zoneOf, type Edge, type FloatAnchor, type Scene, type SceneEdgeLayout, type SceneItem, type SceneItemLayout, type SceneLayout, type SceneNote, type SceneRailLayout, type SolveOptions, type Zone } from "./model";
 
 const EPS = 1e-6;
 const finite = (x: number | undefined, fallback: number): number => (typeof x === "number" && Number.isFinite(x) ? x : fallback);
@@ -61,7 +61,6 @@ export function zoneSorted(scene: Scene, ids: readonly string[]): string[] {
     .map((x) => x.id);
 }
 
-const crossMinOf = (f: StackForm): number => finite(f.cross.min ?? f.cross.natural, 0);
 
 const stackItemOf = (item: SceneItem, forms: readonly StackForm[], from?: number): StackItem => ({
   id: item.id,
@@ -83,7 +82,31 @@ interface EdgeSolve {
   readonly tabs: readonly string[];
   readonly closedTabs: ReadonlySet<string>;
   readonly input: StackInput;
+  /** Items left out of a rail: they have only `wrap` forms left (`no-vertical-form`). */
+  readonly leftOut?: readonly string[];
+  /** Items left out of a compact edge: they have no `icons` form (`no-icons-form`). */
+  readonly leftOutIcons?: readonly string[];
 }
+
+/**
+ * What a drawn item reports of its shape: a `wrap` form's rows (word indexes per row, at the edge's cross size `cross`)
+ * and its grip (the lead cell at the start of row one); a form with `grip` (an icons strip) its grip at its start along
+ * the axis (a horizontal strip on top in a column).
+ */
+export function shapeOf(f: StackForm | undefined, r: Rect, axis: "column" | "row", cross: number): { rows?: number[][]; grip?: Rect } {
+  if (!f) return {};
+  if (f.wrap) {
+    const lead = Math.max(0, finite(f.wrap.lead ?? 0, 0));
+    const row = Math.max(0, finite(f.wrap.row, 0));
+    return { rows: wrapLines(f.wrap, cross).lines, grip: rect(r.x, r.y, lead, Math.min(row, r.height)) };
+  }
+  const g = typeof f.grip === "number" && Number.isFinite(f.grip) && f.grip > 0 ? f.grip : 0;
+  if (!g) return {};
+  return { grip: axis === "column" ? rect(r.x, r.y, r.width, Math.min(g, r.height)) : rect(r.x, r.y, Math.min(g, r.width), r.height) };
+}
+
+/** How far a tray toolbar's steps rank after the panels' (its forms' `rank` plus this). */
+const TRAY_RANK = 100;
 
 /** One edge's stack along `length`: the free fit, then the rail or the user's size. */
 function solveEdge(scene: Scene, edge: Edge, ids: readonly string[], length: number, room: number, previous: SceneEdgeLayout | undefined): EdgeSolve {
@@ -103,8 +126,39 @@ function solveEdge(scene: Scene, edge: Edge, ids: readonly string[], length: num
     ...(edge.pad ? { pad: edge.pad } : {}),
     ...(column ? { ownCross: true } : {}),
   };
+  if (edge.compact) {
+    // An icons-only edge: each item starts at its icons form (the » menu may follow); one without is left out.
+    const iconsAt = (id: string): number => {
+      const forms = formsById(id);
+      for (let j = Math.max(0, Math.floor(finite(scene.items[id]!.from, 0))); j < forms.length; j++) if (forms[j]!.kind === "icons") return j;
+      return forms.findIndex((f) => f.kind === "icons");
+    };
+    const shown = ordered.filter((id) => !scene.items[id]!.closed && iconsAt(id) >= 0);
+    const leftOutIcons = ordered.filter((id) => !scene.items[id]!.closed && iconsAt(id) < 0);
+    const compactInput: StackInput = { ...base, ownCross: false, items: shown.map((id) => stackItemOf(scene.items[id]!, formsById(id), iconsAt(id))) };
+    const stack = fitStack(compactInput, previous ? { previous: previous.free } : {});
+    return { stack, free: stack, tabs: [], closedTabs: new Set(), input: compactInput, leftOutIcons };
+  }
   const open = ordered.filter((id) => !scene.items[id]!.closed);
-  const input: StackInput = { ...base, items: open.map((id) => stackItemOf(scene.items[id]!, formsById(id))) };
+  /**
+   * A toolbar in a column's tray (the end zone, when `zoneAccepts` lists it) takes only its `wrap` or `icons` form, never
+   * the menu, and its steps rank after every other item's, so the panels above give way first.
+   */
+  const asStackItem = (id: string): StackItem => {
+    const it = scene.items[id]!;
+    const forms = formsById(id);
+    if (!column || !edge.zoneAccepts?.end || zoneOf(it) !== "end") return stackItemOf(it, forms);
+    const tray = (f: StackForm): boolean => f.kind === "wrap" || f.kind === "icons" || !!f.wrap;
+    let first = -1;
+    for (let j = Math.max(0, Math.floor(finite(it.from, 0))); j < forms.length && first < 0; j++) if (tray(forms[j]!)) first = j;
+    let last = -1;
+    forms.forEach((f, j) => {
+      if (tray(f)) last = j;
+    });
+    if (first < 0) return stackItemOf(it, forms);
+    return stackItemOf(it, forms.slice(0, last + 1).map((f) => ({ ...f, rank: finite(f.rank ?? 0, 0) + TRAY_RANK })), first);
+  };
+  const input: StackInput = { ...base, items: open.map(asStackItem) };
   const free = fitStack(input, previous ? { previous: previous.free } : {});
   const none = new Set<string>();
   if (column && !hasSetter(free, formsById)) {
@@ -114,10 +168,14 @@ function solveEdge(scene: Scene, edge: Edge, ids: readonly string[], length: num
       for (let j = Math.max(0, Math.floor(finite(item.from, 0))); j < forms.length; j++) if (forms[j]!.kind === "rail") return j;
       return -1;
     };
+    // Vertical means icons: an item with only `wrap` forms left has no form for a rail, and is left out (noted).
+    const wrapOnly = (id: string): boolean => railIndex(scene.items[id]!, formsById(id)) < 0 && pastWrap(formsById(id), finite(scene.items[id]!.from, 0)) === undefined;
     const shown = ordered.filter((id) => {
       const it = scene.items[id]!;
+      if (!it.closed && wrapOnly(id)) return false;
       return !it.closed || (edge.railShowsClosed === true && railIndex(it, formsById(id)) >= 0);
     });
+    const leftOut = ordered.filter((id) => !scene.items[id]!.closed && wrapOnly(id));
     const anyRail = shown.some((id) => railIndex(scene.items[id]!, formsById(id)) >= 0);
     if (anyRail) {
       const railInput: StackInput = {
@@ -125,19 +183,21 @@ function solveEdge(scene: Scene, edge: Edge, ids: readonly string[], length: num
         items: shown.map((id) => {
           const it = scene.items[id]!;
           const j = railIndex(it, formsById(id));
-          return stackItemOf(it, formsById(id), j >= 0 ? j : undefined);
+          // Vertical means icons: in a rail a group skips its `wrap` forms (a tray toolbar keeps its tray forms, no menu).
+          const forms = asStackItem(id).forms;
+          return stackItemOf(it, forms, j >= 0 ? j : pastWrap(forms, finite(it.from, 0)));
         }),
       };
       const stack = fitStack(railInput, previous ? { previous: previous.stack } : {});
       const tabs = stack.items.filter((p) => p.kind === "rail").map((p) => p.id);
       const closedTabs = new Set(shown.filter((id) => scene.items[id]!.closed));
-      return { stack, free, tabs, closedTabs, input: railInput };
+      return { stack, free, tabs, closedTabs, input: railInput, leftOut };
     }
   }
   const size = edge.size;
   if (typeof size === "number" && Number.isFinite(size) && hasSetter(free, formsById)) {
     const setters = free.items.filter((p) => p.kind !== "menu" && formSetsCross(formsById(p.id)[p.form]!));
-    const lo = Math.max(px(edge.cross.min), ...setters.map((p) => crossMinOf(formsById(p.id)[p.form]!)));
+    const lo = Math.max(px(edge.cross.min), ...setters.map((p) => formCrossMin(formsById(p.id)[p.form]!)));
     const s = Math.min(Math.max(size, lo), Math.max(lo, maxOf), room);
     if (Math.abs(s - free.cross) > EPS) {
       const sized: StackInput = { ...input, cross: { ...cross, min: s, max: s } };
@@ -266,11 +326,16 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       return rect(r.x + x, r.y + y, l.width, l.height);
     };
     const tabs = new Set(solved.tabs);
+    for (const id of solved.leftOut ?? []) notes.push({ code: "no-vertical-form", edge: edge.id, id });
+    for (const id of solved.leftOutIcons ?? []) notes.push({ code: "no-icons-form", edge: edge.id, id });
     for (const p of stack.items) {
       const it = scene.items[p.id]!;
       const inMenu = p.kind === "menu";
+      const drawnRect = toStage(p.rect, inMenu ? undefined : p.id);
+      const shape = inMenu ? {} : shapeOf(formsOf(it, column ? "column" : "row")[p.form], drawnRect, column ? "column" : "row", stack.cross);
       items[p.id] = {
-        rect: toStage(p.rect, inMenu ? undefined : p.id),
+        ...shape,
+        rect: drawnRect,
         kind: it.kind,
         form: p.form,
         formKind: p.kind,
@@ -352,7 +417,7 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       const dyn = edge.column === true && scene.rails?.[side] !== undefined && visible.length > 0;
       const forms = (id: string): readonly StackForm[] => formsOf(scene.items[id]!, "column");
       const setters = solved.free.items.filter((p) => p.kind !== "menu" && formSetsCross(forms(p.id)[p.form]!));
-      const min = setters.length > 0 ? Math.min(width, Math.max(px(edge.cross.min), ...setters.map((p) => crossMinOf(forms(p.id)[p.form]!)))) : width;
+      const min = setters.length > 0 ? Math.min(width, Math.max(px(edge.cross.min), ...setters.map((p) => formCrossMin(forms(p.id)[p.form]!)))) : width;
       return {
         edge,
         side,
@@ -559,23 +624,22 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     if (!claim(f.id)) continue;
     const it = scene.items[f.id]!;
     if (it.closed) continue;
-    const orient = f.orient === "row" ? "row" : "column";
-    const forms = formsOf(it, orient);
-    const from = forms.length === 0 ? 0 : Math.min(Math.max(0, Math.floor(finite(it.from, 0))), forms.length - 1);
-    const form = forms[from];
-    let w = px(f.rect.width);
-    let h = px(f.rect.height);
-    if (from > 0 && form) {
-      // Its bar: the form's natural length along its orient, the other size kept.
-      if (orient === "column") h = px(form.main.natural);
-      else w = px(form.main.natural);
+    const shape = floatShape(it, f);
+    if (shape.none) {
+      // Vertical means icons: an item with only `wrap` forms left has no form for a vertical float.
+      notes.push({ code: "no-vertical-form", id: f.id });
+      continue;
     }
+    const from = shape.form;
+    const form = formsOf(it, f.orient === "row" ? "row" : "column")[from];
+    const w = shape.width;
+    const h = shape.height;
     const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);
     const fit = fitFloat(want, stage, avoid);
     if (fit.clamped) notes.push({ code: "float-clamped", id: f.id });
     if (fit.snapped) notes.push({ code: "float-moved", id: f.id });
     if (fit.covers.length > 0) notes.push({ code: "float-covers", id: f.id });
-    items[f.id] = { rect: fit.rect, kind: it.kind, form: from, formKind: form?.kind ?? "open", floating: true };
+    items[f.id] = { ...shapeOf(form, fit.rect, f.orient === "row" ? "row" : "column", fit.rect.width), rect: fit.rect, kind: it.kind, form: from, formKind: form?.kind ?? "open", floating: true };
     floats.push(f.id);
   }
   return { items, edges, content, floats, rails, notes };

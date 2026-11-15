@@ -34,7 +34,8 @@ describe("the window fixture", () => {
 
   it("a group in a column takes its own width (C28), an open panel spans it", () => {
     expect(l.items.findings!.rect.width).toBe(260);
-    expect(l.items.marks!.rect).toEqual(r(940, 704, 84, 96));
+    // Its words wrap to the 260 px column: one row, 144 wide, 28 tall.
+    expect(l.items.marks).toMatchObject({ rect: r(940, 772, 144, 28), formKind: "wrap" });
   });
 
   it("a float lies where it is, clear of everything docked", () => {

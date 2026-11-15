@@ -26,14 +26,18 @@ export const panel = (id: string, used: number, more: Partial<SceneItem> = {}, w
   ...more,
 });
 
-/** A control group: along a row words, icons, menu; along a column stacked words, icons, menu. */
+/** Three 40 px words after a 16 px grip, 4 px apart, in 28 px rows: one row is 144 wide, the widest row needs 56. */
+export const WORDS = { widths: [40, 40, 40], row: 28, gap: 4, lead: 16 } as const;
+export const wrapForm: StackForm = { kind: "wrap", main: { min: 0, natural: 0 }, cross: { natural: 0 }, wrap: WORDS };
+
+/** A control group: along a row words, icons, menu; along a column words that wrap, icons, menu (no stacked form). */
 export const group = (id: string, used: number, more: Partial<SceneItem> = {}): SceneItem => ({
   id,
   kind: "group",
   used,
   forms: {
     row: [form("row", 180, 200, 28), form("icons", 84, 84, 28), form("menu", 0, 0, 0)],
-    column: [form("stacked", 96, 96, 84), form("icons", 84, 84, 28), form("menu", 0, 0, 0)],
+    column: [wrapForm, form("icons", 84, 84, 28), form("menu", 0, 0, 0)],
   },
   ...more,
 });

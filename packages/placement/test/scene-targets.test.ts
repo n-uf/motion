@@ -175,7 +175,8 @@ describe("gaps are gaps, not halves of items (hitBand)", () => {
   it("the float target's after(point, grab).layout.items[id].rect is the slot to draw", () => {
     const f = targets(tall, "g").find((t) => t.id === "float:g")!;
     const a = f.after({ x: 300, y: 300 }, { x: 10, y: 10 });
-    expect(a.layout.items.g!.rect).toEqual(r(290, 290, 200, 40));
+    // A vertical float shows the group's icons (28 × 84), held where the pointer holds it.
+    expect(a.layout.items.g).toMatchObject({ rect: r(290, 290, 28, 84), formKind: "icons" });
   });
 });
 
@@ -239,5 +240,36 @@ describe("content-changed", () => {
     expect(pressed.notes.some((n) => n.code === "content-changed")).toBe(false);
     const wider = solve({ ...s, edges: s.edges.map((e) => (e.id === "left" ? { ...e, size: 320 } : e)) }, { previous: before });
     expect(wider.notes.filter((n) => n.code === "content-changed")).toEqual([{ code: "content-changed", from: r(260, 68, 680, 704), to: r(320, 68, 620, 704) }]);
+  });
+});
+
+describe("an empty bar's strip", () => {
+  it("never swallows a column's first gap: strip hits are clipped clear of every gap hit", () => {
+    const s = windowScene();
+    // An empty top bar (its strip runs along the top of the content, over the columns' tops) and a group that may go there.
+    const empty: Scene = { ...s, edges: s.edges.map((e) => (e.id === "toolbar" ? { ...e, items: [] } : e)), floats: [{ id: "views", rect: r(500, 300, 200, 40) }] };
+    const ts = targets(empty, "views");
+    const strip = ts.find((t) => t.id === "strip:toolbar")!;
+    expect(strip).toBeDefined();
+    const gapsHere = ts.filter((t) => t.id.startsWith("gap:"));
+    for (const g of gapsHere) expect(overlaps(strip.hit, g.hit)).toBe(false);
+    // The columns' first gaps keep their hits.
+    for (const id of ["gap:left:start:0", "gap:right:start:0"]) expect(ts.find((t) => t.id === id)!.hit.height).toBeGreaterThan(0);
+  });
+});
+
+describe("a gap's end reach", () => {
+  it("never enters another edge's rect: a column's top gap stops at the toolbar above", () => {
+    const s = windowScene();
+    const l = solve(s);
+    const toolbar = l.edges.toolbar!.rect;
+    const ts = targets(s, "views", { endReach: 24 });
+    for (const id of ["gap:left:start:0", "gap:right:start:0"]) {
+      const g = ts.find((t) => t.id === id)!;
+      expect(g.hit.y).toBeGreaterThanOrEqual(toolbar.y + toolbar.height - 1e-6);
+    }
+    for (const t of ts.filter((x) => x.id.startsWith("gap:left") || x.id.startsWith("gap:right"))) {
+      for (const [id, e] of Object.entries(l.edges)) if (id !== "left" && id !== "right" && e.rect.width > 0 && e.rect.height > 0) expect(overlaps(t.hit, e.rect)).toBe(false);
+    }
   });
 });

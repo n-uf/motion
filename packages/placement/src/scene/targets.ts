@@ -36,8 +36,9 @@
  */
 import { rect, type Point, type Rect, type Size } from "../geometry";
 import type { Target } from "../targets/target";
+import { formMain } from "../stack/model";
 import { floatAt, lift, moveTo, use, type ColumnPlace, type RailPlace } from "./changes";
-import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_STRIP, ZONES, axisOf, formsOf, zoneOf, type Edge, type Scene, type SceneLayout, type Zone } from "./model";
+import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_STRIP, axisOf, formsOf, zoneOf, zoneTakes, zonesTaking, type Edge, type Scene, type SceneLayout, type Zone } from "./model";
 import { solve } from "./solve";
 
 export type ScenePlace =
@@ -81,6 +82,25 @@ export const PLANE: Rect = rect(-1e9, -1e9, 2e9, 2e9);
 const area = (r: Rect): number => Math.max(0, r.width) * Math.max(0, r.height);
 const overlaps = (a: Rect, b: Rect): boolean => Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > EPS && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > EPS;
 const contains = (r: Rect, p: Point): boolean => p.x >= r.x - EPS && p.x <= r.x + r.width + EPS && p.y >= r.y - EPS && p.y <= r.y + r.height + EPS;
+
+/** `hit` with every blocker cut out: for each blocker it overlaps, the largest of the four parts beside it. Null when nothing is left. */
+export function cutAway(hit: Rect, blockers: readonly Rect[]): Rect | null {
+  let h = hit;
+  for (const b of blockers) {
+    if (!overlaps(h, b)) continue;
+    const right = h.x + h.width;
+    const bottom = h.y + h.height;
+    const parts = [
+      rect(h.x, h.y, Math.min(right, b.x) - h.x, h.height),
+      rect(Math.max(h.x, b.x + b.width), h.y, right - Math.max(h.x, b.x + b.width), h.height),
+      rect(h.x, h.y, h.width, Math.min(bottom, b.y) - h.y),
+      rect(h.x, Math.max(h.y, b.y + b.height), h.width, bottom - Math.max(h.y, b.y + b.height)),
+    ].filter((p) => area(p) > EPS);
+    if (parts.length === 0) return null;
+    h = parts.reduce((a, p) => (area(p) > area(a) ? p : a));
+  }
+  return area(h) > EPS ? h : null;
+}
 
 /**
  * `hit` with every blocker cut out: for each blocker it overlaps, the largest of the four parts beside the blocker that
@@ -149,7 +169,8 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
       if (!a || !e || a.form !== b.form || a.formKind !== b.formKind) return false;
       const f = formsOf(scene.items[id]!, axisOf(e.side))[a.form];
       const len = axisOf(e.side) === "column" ? a.rect.height : a.rect.width;
-      if (f && len < f.main.min - 0.5) return false;
+      // Its least length: `main.min`, or a wrap form's rows at the edge's cross size.
+      if (f && len < formMain(f, "min", e.cross) - 0.5) return false;
     }
     const me = after.items[dragged];
     if (!me) return true;
@@ -162,6 +183,16 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
     const own = (p.kind === "rail" && p.side === ownRail) || placeKey(t.after({ x: 0, y: 0 }).scene, dragged) === here;
     if (own) out.push({ id: t.id, priority: t.priority, hit: t.hit, item: dragged, place: { kind: "home" }, after: () => ({ scene, layout: now }) });
     else if (sound(t.after({ x: 0, y: 0 }).layout)) out.push(t);
+  }
+  // An empty edge's strip never swallows a gap: its hit is clipped clear of every gap's hit (a bar's strip along the top
+  // would otherwise cover the columns' first gaps). A strip left with no room has no target.
+  const gapHits = out.filter((t) => t.id.startsWith("gap:")).map((t) => t.hit);
+  for (let i = out.length - 1; i >= 0; i--) {
+    const t = out[i]!;
+    if (!t.id.startsWith("strip:")) continue;
+    const hit = cutAway(t.hit, gapHits);
+    if (!hit) out.splice(i, 1);
+    else if (hit !== t.hit) out[i] = { ...t, hit };
   }
 
   if (scene.floatKinds.includes(item.kind)) {
@@ -383,10 +414,14 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
     const e = after.edges[edge.id]!;
     return column ? rect(e.rect.x, slot.y, e.cross, 0) : rect(slot.x, e.rect.y, 0, e.cross);
   };
+  const otherEdges = Object.entries(base.edges)
+    .filter(([id, e]) => id !== edge.id && e.rect.width > EPS && e.rect.height > EPS)
+    .map(([, e]) => e.rect);
   const target = (id: string, place: Extract<ScenePlace, { kind: "gap" }>, hit: Rect, keep: Point, solved?: SceneAfter): SceneTarget | null => {
     const result = solved ?? settle(use(moveTo(scene, dragged, place), dragged));
     if (!fits(result.layout)) return null;
-    const clear = cutClear(hit, blockers, keep);
+    // A gap's hit (its end reach included) never enters another edge's rect: a column's top gap stops at the bar above.
+    const clear = cutClear(hit, id.startsWith("gap:") ? [...blockers, ...otherEdges] : blockers, keep);
     if (!clear) return null;
     return { id, priority: 2, hit: clear, slot: result.layout.items[dragged]!.rect, marker: markerOf(result.layout), item: dragged, place, after: () => result };
   };
@@ -405,6 +440,9 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
             ? rect(r.x, r.y, r.width, depth)
             : rect(r.x, r.y + r.height - depth, r.width, depth);
     const keep = { x: hit.x + hit.width / 2, y: hit.y + hit.height / 2 };
+    // A kind never opens an edge on its own unless its start zone takes it: a group's drag gets no strip for an empty
+    // panel column (whose tray is its end zone), only the compact rail's at the window edge.
+    if (!zoneTakes(edge, "start", scene.items[dragged]!.kind)) return [];
     const t = target(`strip:${edge.id}`, { kind: "gap", edge: edge.id, zone: "start", at: 0 }, hit, keep);
     return t ? [t] : [];
   }
@@ -427,7 +465,8 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
   })();
   const empty: Record<Zone, number> = { start: main0 + pad.start, center: Math.min(Math.max(main0 + length / 2, startEnd), Math.max(startEnd, endStart)), end: main0 + length - pad.end - menuLen };
   const gaps: { zone: Zone; at: number; line: number }[] = [];
-  for (const zone of ZONES) {
+  // Only the zones that take the dragged item's kind (`zoneAccepts`) offer gaps.
+  for (const zone of zonesTaking(edge, scene.items[dragged]!.kind)) {
     const members = restEdge.items.filter((id) => zoneOf(rest.items[id]) === zone);
     for (let k = 0; k <= members.length; k++) {
       const next = members.slice(k).find((id) => base.items[id]?.edge === edge.id && !base.items[id]!.inMenu);
@@ -455,8 +494,9 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
     // Never into a neighbour's band; the first and last reach `endReach` past the edge's ends.
     let from = Math.max(lo, g.line - band / 2);
     let to = Math.min(hi, g.line + band / 2);
-    if (i === 0) from = Math.min(from, main0 - reach);
-    if (i === sorted.length - 1) to = Math.max(to, main0 + length + reach);
+    // Only a band that reaches the edge's end goes on past it (a tray's gap at the foot never covers the top).
+    if (i === 0 && from <= main0 + pad.start + EPS) from = Math.min(from, main0 - reach);
+    if (i === sorted.length - 1 && to >= main0 + length - pad.end - menuLen - EPS) to = Math.max(to, main0 + length + reach);
     // Past the edge's ends only as far as `endReach`.
     from = Math.max(from, main0 - reach);
     to = Math.min(to, main0 + length + reach);
