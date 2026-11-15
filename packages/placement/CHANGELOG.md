@@ -16,21 +16,33 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   generation: edge → zones → slots → tiles, then one ordered filter (accepts and zones, fit, clipping, `blocked`). Every
   point of an edge that takes the dragged kind is one target or one refusal of its own zone (a property check over
   generated windows: no hole, no overlap, no other zone, the item's own rect only home, every slot its landing).
-  `targets`, `after`, `refusals`, `stops`, `SceneTarget`, the ids and the priorities keep their shape. What changes:
+  `targets`, `after`, `refusals`, `stops`, `SceneTarget` and the priorities keep their shape. Some ids change, as
+  listed below; no id is given twice by one call. What changes:
   - A zone's extent is where its items lie: the thirds of a bar, a compact rail or a side toolbar bar (compact bars and
     rails too, now); the solver's spans where items fill the edge (a plain panel column is one zone, its whole length;
     a tray column its panels' span and its tray's).
   - Home's tile is the item's own interval: no ±12 px band, no 16 px kept per gap. A stretch with no slot of its own
-    (beside the item, in a zone it is alone in) is refused (`no-room`), never home's and never another zone's.
+    is refused, never home's and never another zone's: beside an item alone in its zone with the new reason
+    **`own-place`** (there is room, but the zone's only place is the item's own), elsewhere `no-room`.
   - A refused slot is refused over its own tile; a zone may have more than one refusal: `refuse:<edge>:<zone>`, then
-    `refuse:<edge>:<zone>:<n>`.
+    `refuse:<edge>:<zone>:<n>`, numbered by where they lie along the edge (then across it), so an id holds from one
+    frame to the next.
+  - `strip:<edge>:<zone>` names a slot only on an edge with no members at all. On an edge that draws nothing but holds
+    closed members (or the dragged item's own place), every slot keeps its `gap:<edge>:<zone>:<at>` id.
   - A place that would move a fixed item of its edge (before a title, after the window controls) is no slot.
   - With no rail shown, the `rail:` strip is `RAIL_EDGE` px of `SceneLayout.railPlaces` (where the rail lands).
-  - Column lines and the rail clip the edges' tiles; a compact rail's inward reach covers the other edges' rects
-    but never their tiles; a full bar's empty strip owns the corners.
+  - The column lines and the rail are edges like the others, tiled by the same rule: two column lines nearer than
+    `2 × COLUMN_REACH` meet halfway; a column line or rail stop whose drop wouldn't land or fit, and any piece clipping
+    cuts off its tile, is refused (`refuse:column:<side>:start`, `refuse:rail:<side>:start`, `no-room`) instead of
+    being left to the float.
+  - **Precedence** where tiles meet: the item's own place first, then the column lines and the rail (their tiles cut
+    the edges' tiles), then the edges by layer: a full bar owns the corners, side edges run between the bars, then bars
+    between the columns, and a compact rail's inward reach covers the other edges' rects but never their tiles. The
+    column lines' and the rail's refused stretches come last: they take only what every other tile leaves.
 
-  **Migration:** match refusals by `refuse:<edge>:<zone>` prefix; read `home:<id>` (unchanged, over the own rect) for
-  "back to its place"; expect no target over a stretch beside a lone item, a refusal there instead.
+  **Migration:** match refusals by `refuse:<edge>:<zone>` prefix and read `own-place` as "back to its place"; read
+  `home:<id>` (unchanged, over the own rect) for "back to its place"; expect no target over a stretch beside a lone
+  item, a refusal there instead; match `gap:<edge>:<zone>:<at>` for an edge that holds only closed members.
 
 - `@n-uf/placement/scene`, **`SceneLayout.railPlaces`** (additive): where each side's rail lies, or would lie were one
   shown, for every side with a rail (`Scene.rails`): the shown rail's rect, else where a drop into the rail lands.
