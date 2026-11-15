@@ -536,7 +536,10 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     const g = evaluate(auto);
     // Whether one panel column at its minimum fits beside the content's minimum: a host's narrow fallback (the sheet)
     // reads it. Anchors and rails don't count: every column, an anchor included, can fold into its rail.
-    const colMins = cols.filter((c) => c.dyn && c.edge.column === true).map((c) => c.min);
+    // With no column edge yet (every panel floating), a side's column template says how narrow its column could be.
+    const open = cols.filter((c) => c.dyn && c.edge.column === true).map((c) => c.min);
+    const templates = (["left", "right"] as const).flatMap((s) => (scene.columns?.[s] ? [px(scene.columns[s]!.cross.min)] : []));
+    const colMins = open.length > 0 ? open : templates;
     if (cmin !== undefined && colMins.length > 0) {
       const need = cmin + Math.min(...colMins) + gutter;
       columnRoom = area.width >= need - EPS;

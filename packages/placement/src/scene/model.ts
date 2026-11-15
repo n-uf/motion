@@ -330,8 +330,9 @@ export interface SceneLayout {
   /** The rails shown (a side with a folded column). */
   readonly rails: Readonly<Partial<Record<"left" | "right", SceneRailLayout>>>;
   /**
-   * With `contentMin` and dynamic columns: whether one column at its minimum fits beside the content's minimum (`false`
-   * with a `no-column-room` note). A host shows its narrow fallback (one panel over the content) while it is `false`.
+   * With `contentMin` and a dynamic column (or, before any exists, a `columns` template): whether one column at its
+   * minimum fits beside the content's minimum (`false` with a `no-column-room` note). Anchors and rails don't count:
+   * every column can fold into its rail. A host shows its narrow fallback (one panel over the content) while it is `false`.
    */
   readonly columnRoom?: boolean;
   readonly notes: readonly SceneNote[];
