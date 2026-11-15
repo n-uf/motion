@@ -91,7 +91,8 @@
 .dw-k-rail { border: 0; background: none; }
 .dw-railbtn { position: relative; width: 28px; height: 28px; border: 1px solid var(--win-edge); border-radius: 6px; background: var(--bg-raised); font: inherit; font-weight: 600; cursor: pointer; padding: 0; }
 .dw-railbtn:hover { border-color: var(--accent); }
-.dw-railbtn .dw-badge { position: absolute; top: -5px; right: -8px; min-width: 2ch; font-size: 9px; }
+/* The count inside the button's top-right corner, never past the rail's box. */
+.dw-railbtn .dw-badge { position: absolute; top: 0; right: 0; min-width: 0; padding: 0 2px; font-size: 8px; line-height: 10px; }
 
 /* Groups */
 .dw-group { display: flex; align-items: center; gap: 4px; background: var(--bg-raised); border: 1px solid var(--win-edge); border-radius: 6px; padding: 0 4px; }
@@ -102,7 +103,8 @@
 .dw-ax-column.dw-k-icons > .dw-dots, .dw-k-stacked > .dw-dots { width: 16px; height: 8px; }
 /* Wrapped words: the grip's cell at the start of row one (17 px), the words in their own box beside it, rows 28 px tall
    (the layout's rows; no "·" at a row's end). */
-.dw-group.dw-k-wrap { display: grid; grid-template-columns: 17px max-content; align-items: start; gap: 0; padding: 0; }
+/* Its edge is drawn inside (no border), so the rows and words take exactly the room the layout gives them. */
+.dw-group.dw-k-wrap { display: grid; grid-template-columns: 17px max-content; align-items: start; gap: 0; padding: 0; border: 0; box-shadow: inset 0 0 0 1px var(--win-edge); }
 .dw-k-wrap > .dw-dots { margin: 6px 0 0 5px; }
 .dw-wrapbox { flex-direction: column; align-items: flex-start; gap: 0; }
 .dw-wrow { display: flex; align-items: center; gap: 4px; height: 28px; white-space: nowrap; }
