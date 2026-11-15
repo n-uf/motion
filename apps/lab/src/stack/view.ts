@@ -24,6 +24,9 @@ export function dress(id: string, kind: StackFormKind, meta?: ItemMeta): string 
       return `<span class="st-badge" data-grab title="${title}">${title[0]}</span><i class="st-count">${meta ? badgeOf(meta.count) : s.words.length}</i>`;
     case "row":
       return `<span class="st-gh" data-grab>${dots}</span>${s.words.map((w) => `<span class="st-pill">${w}</span>`).join("")}${num}`;
+    case "wrap":
+      // Words in rows that wrap to the item's width (the solver gives the rows' rect).
+      return `<span class="st-gh" data-grab>${dots}</span>${s.words.map((w) => `<span class="st-pill">${w}</span>`).join("")}${num}`;
     case "stacked":
       return `<span class="st-gh" data-grab>${dots}</span><span class="st-col">${s.words.map((w) => `<span class="st-pill">${w}</span>`).join("")}</span>${num}`;
     case "icons":

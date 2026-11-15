@@ -14,10 +14,24 @@ export type StackAxis = "column" | "row";
 /** How a panel draws: open (header and body), a header only, a rail icon, or an entry in the » menu. */
 export type PanelFormKind = "open" | "header" | "rail" | "menu";
 /**
- * How a control group draws: a row of words, the words stacked, icons only, `fold` (the group's handle with its own »,
+ * How a control group draws: a row of words, the words stacked, `wrap` (the words in rows that wrap to the cross size
+ * the item gets; its length follows from {@link StackForm.wrap}), icons only, `fold` (the group's handle with its own »,
  * in line at its place and with its own length) or an entry in the shared » menu.
  */
-export type GroupFormKind = "row" | "stacked" | "icons" | "fold" | "menu";
+export type GroupFormKind = "row" | "stacked" | "wrap" | "icons" | "fold" | "menu";
+
+/**
+ * Words that wrap: their widths in order, the row height, the gap between words on a row (default 0) and the lead (the
+ * grip's cell at the start of row one, default 0). The words wrap in their own box beside the lead, a hanging indent:
+ * every row starts after it, so the grip never has a row of its own. Words flow onto a row while they fit; with two
+ * words or more, every row but the last must hold at least two, or the form doesn't fit that cross size.
+ */
+export interface WrapSpec {
+  readonly widths: readonly number[];
+  readonly row: number;
+  readonly gap?: number;
+  readonly lead?: number;
+}
 export type StackFormKind = PanelFormKind | GroupFormKind;
 
 /** Along the stack: `min` is the least it can be drawn, `natural` what it asks for; `grows` takes spare length. */
@@ -50,6 +64,112 @@ export interface StackForm {
    * other group collapses before it does.
    */
   readonly rank?: number;
+  /**
+   * A form whose length depends on the cross size it gets (meant for a column of words). With it, `main` and `cross` are
+   * computed and the given ones ignored: the rows are laid once the stack's cross size is known (beside the lead, a
+   * hanging indent), and `main.min` and `main.natural` are rows × `row`. It fits a cross size only when no row but the
+   * last holds a single word (`formFitsCross`); below that it is too wide and takes its next form, and `cross.min` is the
+   * narrowest cross where it fits (`formCrossMin`). Its one-row width (lead, words and gaps) counts as `cross.natural` only
+   * with `setsCross: true`; such a setter is clamped to the stack's limits like any setter and, without `strictCross`,
+   * never goes to its next form. Give-way, fits, `previous` and growth use the computed length; under `ownCross` the item
+   * is drawn as wide as its rows need. A word group needs an `icons` form after it: vertical places skip `wrap` forms.
+   */
+  readonly wrap?: WrapSpec;
+  /**
+   * A grip at the form's start along the stack, this long (an icons strip's horizontal grip on top). The scene reports
+   * its rect; a `wrap` form's grip is its lead cell instead.
+   */
+  readonly grip?: number;
+}
+
+const nonNeg = (x: number | undefined): number => (typeof x === "number" && Number.isFinite(x) ? Math.max(0, x) : 0);
+
+/**
+ * The least a form can be drawn across the stack: its `cross.min` (default its `natural`), or for a `wrap` form the
+ * narrowest cross size at which its rows fit (no single word on a row but the last). The scene's size clamp and column
+ * shrink read it too.
+ */
+export function formCrossMin(f: StackForm): number {
+  if (f.wrap) return wrapCross(f.wrap).min;
+  const v = f.cross.min ?? f.cross.natural;
+  return Number.isFinite(v) ? v : 0;
+}
+
+/** A form's length along the stack: its `main` size, or for a `wrap` form its rows at cross size `cross` times the row height. */
+export function formMain(f: StackForm, which: "min" | "natural", cross: number): number {
+  if (f.kind === "menu") return 0;
+  if (f.wrap) return wrapRows(f.wrap, cross).rows * nonNeg(f.wrap.row);
+  return nonNeg(f.main[which]);
+}
+
+/**
+ * Whether a `wrap` form fits cross size `cross`: every word fits beside the lead, and no row but the last holds a single
+ * word. True for any other form (their `cross.min` decides).
+ */
+export function formFitsCross(f: StackForm, cross: number): boolean {
+  if (!f.wrap) return true;
+  const widest = Math.max(0, ...f.wrap.widths.map(nonNeg));
+  return cross + 1e-6 >= nonNeg(f.wrap.lead) + widest && wrapLines(f.wrap, cross).fits;
+}
+
+/**
+ * A wrap form's rows at cross size `cross`: the word indexes per row, how wide the widest row is (the lead included),
+ * and whether the form fits (with two words or more, no row but the last holds a single word).
+ */
+export function wrapLines(spec: WrapSpec, cross: number): { lines: number[][]; width: number; fits: boolean } {
+  const gap = nonNeg(spec.gap);
+  const lead = nonNeg(spec.lead);
+  const widths = spec.widths.map(nonNeg);
+  if (widths.length === 0) return { lines: [], width: lead, fits: true };
+  // A hanging indent: every row starts after the lead; a row takes words while they fit, and always takes one.
+  const box = cross - lead;
+  const lines: number[][] = [[]];
+  let x = 0;
+  let widest = 0;
+  widths.forEach((w, i) => {
+    const row = lines[lines.length - 1]!;
+    if (row.length > 0 && x + gap + w > box + 1e-6) {
+      widest = Math.max(widest, x);
+      lines.push([i]);
+      x = w;
+    } else {
+      x = row.length > 0 ? x + gap + w : w;
+      row.push(i);
+    }
+  });
+  widest = Math.max(widest, x);
+  const fits = widths.length < 2 || lines.slice(0, -1).every((l) => l.length >= 2);
+  return { lines, width: lead + widest, fits };
+}
+
+/** A wrap form's rows at cross size `cross`: how many, how wide the widest is, and whether it fits. */
+export function wrapRows(spec: WrapSpec, cross: number): { rows: number; width: number; fits: boolean } {
+  const w = wrapLines(spec, cross);
+  return { rows: Math.max(1, w.lines.length), width: w.width, fits: w.fits };
+}
+
+/**
+ * A wrap form's one-row width, and the narrowest cross size at which it fits: its rows hold no single word on a row but
+ * the last (with one word, the lead and that word). Looked for among the widths a row can take (the lead and a run of
+ * words), the narrowest that fits.
+ */
+export function wrapCross(spec: WrapSpec): { natural: number; min: number } {
+  const gap = nonNeg(spec.gap);
+  const lead = nonNeg(spec.lead);
+  const widths = spec.widths.map(nonNeg);
+  const natural = lead + widths.reduce((s, w) => s + w, 0) + Math.max(0, widths.length - 1) * gap;
+  if (widths.length < 2) return { natural, min: natural };
+  const candidates: number[] = [];
+  for (let i = 0; i < widths.length; i++) {
+    let run = 0;
+    for (let j = i; j < widths.length; j++) {
+      run += widths[j]! + (j > i ? gap : 0);
+      candidates.push(lead + run);
+    }
+  }
+  candidates.sort((a, b) => a - b);
+  const min = candidates.find((c) => c >= lead + Math.max(...widths) && wrapLines(spec, c).fits) ?? natural;
+  return { natural, min };
 }
 
 export interface StackItem {
@@ -117,7 +237,7 @@ export interface StackInput {
   readonly accepts?: (item: StackItem) => boolean;
   /**
    * Groups take their own size across (default false: every item spans the stack's cross size). With it, an item whose
-   * current form is a group kind (`row`, `stacked`, `icons`, `fold`) is drawn `cross.natural` across, clamped to the
+   * current form is a group kind (`row`, `stacked`, `wrap`, `icons`, `fold`; a `wrap` form as wide as its rows need) is drawn `cross.natural` across, clamped to the
    * stack's cross size, from the stack's start edge across (the left of a column, the top of a bar), so a group in a
    * side column is as wide as its own form asks, not as the column. Panel kinds (`open`, `header`, `rail`) and the »
    * entry still span it: every open panel and header fills the column. The kind decides, not `setsCross`, which still

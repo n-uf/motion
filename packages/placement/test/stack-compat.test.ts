@@ -229,7 +229,7 @@ describe("26.11.15 compatibility", () => {
       const input = richInput(rand);
       const dragged = (richInput(rand).items[0] ?? input.items[0])!;
       const options = { ...(rand() < 0.5 ? { endReach: Math.floor(rand() * 20) } : {}), ...(rand() < 0.4 ? { previous: fitStack(input) } : {}) };
-      expect(canon(stackTargets(input, dragged, options)), JSON.stringify(input)).toBe(canon(legacy15Targets(asLegacy(input), dragged as never, options)));
+      expect(canon(stackTargets(input, dragged, options)), JSON.stringify(input)).toBe(canon(legacy15Targets(asLegacy(input), dragged as never, options as never)));
     }
   });
 
