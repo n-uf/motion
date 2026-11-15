@@ -3,6 +3,46 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## 26.11.18
+
+- `@n-uf/placement/stack`: **`StackForm.wrap`** (`{ widths, row, gap?, lead? }`, a form of the new group kind `wrap`):
+  words in rows that wrap to the cross size the item gets, beside a lead cell (the grip) as a hanging indent. Its length
+  is rows × `row`, its natural cross the one-row width, and it fits a cross size only when no row but the last holds a
+  single word. Give-way, fits, `previous` and growth use the computed length; under `ownCross` it is drawn as wide as
+  its rows need. New exports `formMain`, `formCrossMin`, `formFitsCross`, `wrapLines`, `wrapRows`, `wrapCross` and
+  `WrapSpec`. **`StackForm.grip`** (px) is a grip strip at a form's start along the stack. Additive: both are optional,
+  and a stack without them fits as before.
+  - **Type change:** `GroupFormKind` and `StackFormKind` gain `"wrap"`. An exhaustive `switch` over them needs a `wrap`
+    case.
+- `@n-uf/placement/scene`, the toolbar rules:
+  - A `wrap` form applies only in a column edge, and the layout reports a wrapped item's `rows` and its `grip` rect
+    (`SceneItemLayout.rows`, `.grip`). In a column drawn as a rail and in a float with `orient: "column"`, a group skips
+    its `wrap` forms and shows its next form (icons) at its natural size (vertical means icons); an item with only
+    `wrap` forms left is left out with the new note `no-vertical-form`. Affected: a vertical float of a group whose
+    first column form was a `wrap` form is drawn as its icons.
+  - **`Edge.compact`**: an icons-only edge (a thin rail of vertical toolbars along a window side). Items take only
+    their `icons` form; one without is left out with the new note `no-icons-form`.
+  - **`Edge.zoneAccepts`** (and `ColumnTemplate.zoneAccepts`): the kinds each zone takes, narrowing `accepts`. A panel
+    column with `{ start: ["panel"], end: ["group"] }` has a tray of toolbars at its foot: a toolbar there takes only
+    its `wrap` or `icons` form, never the menu, and the panels give way first. Gaps are offered only in zones that take
+    the kind, `moveTo` and a new column put an item in a zone that takes it, and a group never opens such a column by
+    its strip.
+  - **`dockHome(scene, id, start)`**: Dock, Put back and Reset position restore the start scene's fold too, so a
+    "Move to › rail" followed by Dock brings an item back open.
+  - **Changed** (targets): an empty edge's `strip:` hit is clipped clear of every gap's hit, and has no target when none
+    is left. A gap's hit never enters another edge's rect (a column's top gap stops at the bar above), and only a band
+    that reaches the edge's end goes on past it by `endReach`. Affected: hits in scenes with an empty bar or columns
+    under a bar are smaller than in 26.11.17.
+  - `SceneNote` gains the codes `no-vertical-form` and `no-icons-form`; an exhaustive `switch` over `SceneNote["code"]`
+    needs them.
+- New entry **`@n-uf/placement/scene/cases`**: the Scene's behaviour as data. `CASES` (conformance rows: a `Scene`, the
+  gestures a user makes and the layout and DOM expected after them), `CASE_GROUPS`, `runCase` and `runCases`, the
+  in-memory reference host `createSceneHost()`, the `CaseHost` contract (`load`, `perform`, `layout`, `root?`,
+  `itemSelector?`, `stored?`, `stops?`), the gesture constructors `g`, `pickTarget` and `resolvePlace`, so a UI kit's
+  suite and the lab run the same rows. A DOM check names an item with `item`, found with the host's `itemSelector(id)`
+  (default `[data-dock-item="<id>"]`, `defaultItemSelector`). Pure data and logic, no DOM and no dependencies; a new
+  `scene-cases` file in the build, checked by `check-dist` (every row runs on the built code).
+
 ## 26.11.17
 
 - `@n-uf/placement/scene` exports `reservedRect(scene, layout, id)`: what a fixed item keeps clear of hits and slots.
