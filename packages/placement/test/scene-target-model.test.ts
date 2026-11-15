@@ -186,7 +186,29 @@ const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
 /** No failure of any kind (before the one target model: 8159 holes, 4021 overlaps, 14849 other-zone, 2667 own-not-home). */
 const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0 };
 
+/** Every edge renamed to an id with ":" in it: the same targets and refusals, under the renamed ids. */
+export function colonRenameDiffs(seeds: readonly number[]): string[] {
+  const out: string[] = [];
+  const J = JSON.stringify;
+  const renamed = (id: string): string => id.replace(/^(gap|strip|refuse):([^:]+)/, "$1:x:$2");
+  for (const seed of seeds) {
+    const s = modelScene(seed);
+    const s2: Scene = { ...s, edges: s.edges.map((e) => ({ ...e, id: `x:${e.id}` })) };
+    for (const id of Object.keys(s.items)) {
+      if (s.items[id]!.fixed || s.items[id]!.closed) continue;
+      const a = J([targets(s, id).map((t) => [renamed(t.id), t.hit, t.slot]), refusals(s, id).map((r) => [renamed(r.id), r.hit, r.reason])]);
+      const b = J([targets(s2, id).map((t) => [t.id, t.hit, t.slot]), refusals(s2, id).map((r) => [r.id, r.hit, r.reason])]);
+      if (a !== b) out.push(`seed ${seed} drag ${id}`);
+    }
+  }
+  return out;
+}
+
 describe("the target model's property check", () => {
+  it("an edge whose id holds ':' is an edge like any other (virtual edges are flagged, not named)", () => {
+    expect(colonRenameDiffs(Array.from({ length: 40 }, (_, i) => i + 1))).toEqual([]);
+  });
+
   it("every point of an accepting edge maps to one target or refusal of its own zone; own rect → home; slot = landing", () => {
     const r = propertyCheck(SEEDS);
     // eslint-disable-next-line no-console
