@@ -68,8 +68,16 @@ export interface SceneItem {
    * menu the highest priority.
    */
   readonly priority?: number;
-  /** Its size as a float: `floatAt` with no rect uses it, and a float drop sets it. */
+  /**
+   * Its size as a float: `floatAt` with no rect uses it, and a float drop sets it. Without it, a float takes its first
+   * form's natural size along its orient (`floatSizeOf`), or `DEFAULT_FLOAT_SIZE` when that form grows (a panel's card).
+   */
   readonly floatSize?: Size;
+  /**
+   * Which of its forms it uses as a float when the float names no `orient` (`floatOrientOf`). Default: the axis of its
+   * first form, the first of `forms.row` / `forms.column` it declares (a group declared row first floats as a row).
+   */
+  readonly floatOrient?: Orient;
   /**
    * The least a float of it is shrunk to: a float larger than the region floats lie in is laid out at
    * `max(floatMin, min(its size, the region))` each way. A floor wider than the region keeps it at the region's left
@@ -192,7 +200,7 @@ export interface SceneFloat {
   readonly rect: Rect;
   /** Follow the content's side or corner until a drop gives it a real rect. */
   readonly anchor?: FloatAnchor;
-  /** Which of the item's forms it uses (default `"column"`). */
+  /** Which of the item's forms it uses (default: the item's `floatOrientOf`). */
   readonly orient?: Orient;
 }
 
@@ -377,6 +385,31 @@ export const axisOf = (side: Side): Orient => (side === "left" || side === "righ
 export const zoneOf = (item: SceneItem | undefined): Zone => (item?.align === "center" || item?.align === "end" ? item.align : "start");
 export const formsOf = (item: SceneItem, axis: Orient): readonly StackForm[] => item.forms[axis] ?? [];
 
+/**
+ * The orient a float of `item` takes when it names none: its `floatOrient`, else the axis of its first form (the first
+ * of `forms.row` / `forms.column` it declares with any form), else column.
+ */
+export const floatOrientOf = (item: SceneItem): Orient => {
+  if (item.floatOrient === "row" || item.floatOrient === "column") return item.floatOrient;
+  for (const k of Object.keys(item.forms)) if ((k === "row" || k === "column") && formsOf(item, k).length > 0) return k;
+  return "column";
+};
+
+/**
+ * A float's size when nothing gives one: the item's `floatSize`, else its first form's natural size along `orient`
+ * (default `floatOrientOf`), else `DEFAULT_FLOAT_SIZE` when that form grows (a panel's card has no natural float length)
+ * or the item has no form there.
+ */
+export function floatSizeOf(item: SceneItem, orient: Orient = floatOrientOf(item)): Size {
+  if (item.floatSize) return item.floatSize;
+  const f = formsOf(item, orient)[0];
+  if (!f || f.main.grows) return DEFAULT_FLOAT_SIZE;
+  const main = Number.isFinite(f.main.natural) ? Math.max(0, f.main.natural) : 0;
+  const cross = Number.isFinite(f.cross.natural) ? Math.max(0, f.cross.natural) : 0;
+  if (main <= 0 || cross <= 0) return DEFAULT_FLOAT_SIZE;
+  return orient === "row" ? { width: main, height: cross } : { width: cross, height: main };
+}
+
 /** The first form at or after `from` that isn't a `wrap` form (vertical means icons), or undefined when none is. */
 export function pastWrap(forms: readonly StackForm[], from: number): number | undefined {
   for (let j = Math.max(0, Math.floor(from)); j < forms.length; j++) if (forms[j]!.kind !== "wrap" && !forms[j]!.wrap) return j;
@@ -392,7 +425,7 @@ export function pastWrap(forms: readonly StackForm[], from: number): number | un
  * one at its first form is its rect's size.
  */
 export function floatShape(item: SceneItem, f: { readonly rect: Rect; readonly orient?: Orient }): { form: number; width: number; height: number; none?: true } {
-  const orient = f.orient === "row" ? "row" : "column";
+  const orient = f.orient ?? floatOrientOf(item);
   const forms = formsOf(item, orient);
   const px = (v: number): number => (Number.isFinite(v) ? Math.max(0, v) : 0);
   const w = px(f.rect.width);

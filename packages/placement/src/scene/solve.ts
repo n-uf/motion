@@ -35,7 +35,7 @@ import { rect, type Rect } from "../geometry";
 import { fitFloat } from "../stack/floats";
 import { fitStack } from "../stack/layout";
 import { formCrossMin, formMain, formSetsCross, wrapLines, type StackFit, type StackForm, type StackInput, type StackItem } from "../stack/model";
-import { axisOf, floatShape, formsOf, pastWrap, zoneOf, type Edge, type FloatAnchor, type Scene, type SceneEdgeLayout, type SceneItem, type SceneItemLayout, type SceneLayout, type SceneNote, type SceneRailLayout, type SolveOptions, type Zone } from "./model";
+import { axisOf, floatOrientOf, floatShape, formsOf, pastWrap, zoneOf, type Edge, type FloatAnchor, type Scene, type SceneEdgeLayout, type SceneItem, type SceneItemLayout, type SceneLayout, type SceneNote, type SceneRailLayout, type SolveOptions, type Zone } from "./model";
 
 const EPS = 1e-6;
 const finite = (x: number | undefined, fallback: number): number => (typeof x === "number" && Number.isFinite(x) ? x : fallback);
@@ -749,11 +749,13 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       continue;
     }
     const from = shape.form;
-    const form = formsOf(it, f.orient === "row" ? "row" : "column")[from];
+    // Its orient: the float's, else the item's (`floatOrientOf`: a toolbar group floats as a row).
+    const fo = f.orient ?? floatOrientOf(it);
+    const form = formsOf(it, fo)[from];
     // Into that region; a float larger than it is shrunk to fit it, never under its floor: the item's `floatMin`, else
     // its form's own minimums. A folded float (its bar) keeps its height. Wider than the region at its floor, it keeps
     // the floor and lies at the region's left edge.
-    const row = f.orient === "row";
+    const row = fo === "row";
     // The form's own minimums only stop a shrink (a float asked smaller keeps its size); `floatMin` is laid out as given.
     const floor = {
       width: it.floatMin ? px(it.floatMin.width) : Math.min(shape.width, px(row ? form?.main.min : form?.cross.min)),
@@ -769,7 +771,7 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     if (fit.clamped) notes.push({ code: "float-clamped", id: f.id });
     if (fit.snapped) notes.push({ code: "float-moved", id: f.id });
     if (fit.covers.length > 0) notes.push({ code: "float-covers", id: f.id });
-    items[f.id] = { ...shapeOf(form, fit.rect, f.orient === "row" ? "row" : "column", fit.rect.width), rect: fit.rect, kind: it.kind, form: from, formKind: form?.kind ?? "open", floating: true };
+    items[f.id] = { ...shapeOf(form, fit.rect, fo, fit.rect.width), rect: fit.rect, kind: it.kind, form: from, formKind: form?.kind ?? "open", floating: true };
     floats.push(f.id);
   }
   return { items, edges, content, floats, rails, ...(columnRoom !== undefined ? { columnRoom } : {}), notes };

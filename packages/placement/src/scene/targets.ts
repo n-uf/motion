@@ -29,7 +29,9 @@
  *   and with nothing left it has no target. `after` shows the edge holding the item.
  * - `float:<id>` (3, free): when `floatKinds` lists the kind. The hit covers the whole plane; the landing is the float
  *   with the pointer holding it at `grab` (default its middle), in the stage and clear of the docked items, the bars
- *   and the chrome. Its size: `options.floatSize`, else its float's size, else the item's `floatSize`, else the default.
+ *   and the chrome. Its orient: `options.floatOrient`, else its float's, else the item's (`floatOrientOf`). Its size:
+ *   `options.floatSize`, else its float's size, else `floatSizeOf` (the item's `floatSize`, else its form's natural
+ *   size along that orient, else the default).
  * - `column:<side>:<ring>` (2): a new column on each column line of a side whose `scene.columns[side]` takes the kind
  *   (outside the outermost open column, between two, inside the innermost; on a side with none, at the content's
  *   edge), `COLUMN_REACH` px each way, only where the new column shows open.
@@ -50,7 +52,7 @@ import { rect, type Point, type Rect, type Size } from "../geometry";
 import type { Target } from "../targets/target";
 import { formMain } from "../stack/model";
 import { floatAt, lift, moveTo, sideRings, use, type ColumnPlace, type RailPlace } from "./changes";
-import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_STRIP, ZONES, axisOf, formsOf, zoneOf, zoneTakes, zonesTaking, type Edge, type Scene, type SceneLayout, type Zone } from "./model";
+import { DEFAULT_HIT_BAND, DEFAULT_STRIP, ZONES, axisOf, floatOrientOf, floatSizeOf, formsOf, zoneOf, zoneTakes, zonesTaking, type Edge, type Orient, type Scene, type SceneLayout, type Zone } from "./model";
 import { solve } from "./solve";
 
 const ZONE_ORDER: Record<Zone, number> = { start: 0, center: 1, end: 2 };
@@ -85,6 +87,8 @@ export interface SceneTargetOptions {
   readonly endReach?: number;
   /** The float's size for the float target. */
   readonly floatSize?: Size;
+  /** The float's orient for the float target (default: its float's, else the item's `floatOrientOf`). */
+  readonly floatOrient?: Orient;
   /** As `solve`'s: edge or item ids solved without `previous`, in every `after` too. */
   readonly fresh?: readonly string[];
 }
@@ -364,7 +368,8 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
 
   if (scene.floatKinds.includes(item.kind)) {
     const was = scene.floats.find((f) => f.id === dragged);
-    const size = options.floatSize ?? (was ? { width: was.rect.width, height: was.rect.height } : (item.floatSize ?? DEFAULT_FLOAT_SIZE));
+    const fo: Orient = options.floatOrient ?? was?.orient ?? floatOrientOf(item);
+    const size = options.floatSize ?? (was ? { width: was.rect.width, height: was.rect.height } : floatSizeOf(item, fo));
     out.push({
       id: `float:${dragged}`,
       priority: 3,
@@ -375,9 +380,9 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
       after(point, grab) {
         const g = grab ?? { x: size.width / 2, y: size.height / 2 };
         const raw = rect(point.x - g.x, point.y - g.y, size.width, size.height);
-        const first = solve(use(floatAt(scene, dragged, raw), dragged), prev);
+        const first = solve(use(floatAt(scene, dragged, raw, options.floatOrient), dragged), prev);
         const at = first.items[dragged]?.rect ?? raw;
-        return settle(use(floatAt(scene, dragged, rect(at.x, at.y, size.width, size.height)), dragged));
+        return settle(use(floatAt(scene, dragged, rect(at.x, at.y, size.width, size.height), options.floatOrient), dragged));
       },
     });
   }
