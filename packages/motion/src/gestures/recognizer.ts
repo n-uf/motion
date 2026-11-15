@@ -31,7 +31,7 @@ import type {
   RawPointerEvent,
   RawSafariGestureEvent,
   RawWheelEvent,
-  SurfacePointer,
+  GesturePointer,
 } from "./types";
 import { classifyWheel, WHEEL_DEFAULTS, wheelDeltaPx, type WheelOptions } from "./wheel";
 
@@ -80,8 +80,8 @@ export interface Recognizer {
 }
 
 interface Press {
-  origin: SurfacePointer;
-  last: SurfacePointer;
+  origin: GesturePointer;
+  last: GesturePointer;
   dragging: boolean;
   longPressed: boolean;
   /** What a modifier-drag would do; decided at the press, confirmed (modifier still held) at dragStart */
@@ -152,7 +152,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
   let lastTime = 0;
   let disposed = false;
 
-  const pointerOf = (e: RawPointerEvent): SurfacePointer => {
+  const pointerOf = (e: RawPointerEvent): GesturePointer => {
     const screen = finitePoint(e.screen);
     return {
       screen,
@@ -179,13 +179,13 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
     return p;
   };
 
-  const cancelPress = (reason: CancelReason, pointer?: SurfacePointer) => {
+  const cancelPress = (reason: CancelReason, pointer?: GesturePointer) => {
     const p = endPress();
     if (!p) return;
     emit({ type: "cancel", pointer: pointer ?? p.last, origin: p.origin, reason, dragged: p.dragging });
   };
 
-  const releasePress = (pointer: SurfacePointer) => {
+  const releasePress = (pointer: GesturePointer) => {
     const p = endPress();
     if (!p) return;
     const click = !p.dragging && !p.longPressed;
@@ -219,7 +219,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
     scale: number,
     pan: Point,
     time: number,
-    modifiers: SurfacePointer["modifiers"],
+    modifiers: GesturePointer["modifiers"],
     source: "touch" | "trackpad",
     kind: "pinch" | "pan",
   ): InputGesture => ({
@@ -234,7 +234,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
     time,
   });
 
-  const endPinch = (phase: "end" | "cancel", time: number, modifiers: SurfacePointer["modifiers"]) => {
+  const endPinch = (phase: "end" | "cancel", time: number, modifiers: GesturePointer["modifiers"]) => {
     const p = pinch;
     pinch = null;
     touchLocked = touches.size > 0;
@@ -245,7 +245,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
    * A pinch finger moved (`id`), or lifts (`lifting`: the last look, whatever moved). The kind is decided on both
    * fingers' latest positions (see SOLO_MOVES); the thresholds keep their meaning.
    */
-  const updatePinch = (id: number, time: number, modifiers: SurfacePointer["modifiers"], moved: boolean, lifting = false) => {
+  const updatePinch = (id: number, time: number, modifiers: GesturePointer["modifiers"], moved: boolean, lifting = false) => {
     const p = pinch;
     const now = pinchState();
     if (!p || !now) return;
@@ -305,7 +305,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
   const onDown = (e: RawPointerEvent) => {
     const down = pointerOf(e);
     // The press's button as the platform means it (macOS: Ctrl+click is a secondary click)
-    const pointer: SurfacePointer = { ...down, button: platformButton(down, platform, dragModifier) };
+    const pointer: GesturePointer = { ...down, button: platformButton(down, platform, dragModifier) };
     dropMissedUps(e, pointer.kind);
     if (pointer.kind === "touch") {
       touches.set(e.pointerId, { screen: pointer.screen, time: pointer.time });

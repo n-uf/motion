@@ -10,6 +10,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.23
 
+- `./gestures`, **`GesturePointer`**: the new name of the pointer the gesture stream reports. `SurfacePointer` stays
+  as a deprecated alias of it, removed once its users have moved. **Migration:** import `GesturePointer`.
+
 - `./layout`, **`anchoredMorph(size, anchor, config?)`** (additive): a box held at a point that changes size about an
   anchor. `to(size, anchor)` settles the size and the anchor together, interruptible (a retarget mid-flight turns from
   where it is drawn: no jump, no overshoot), at `MORPH_TEMPO` (90 % in about 60 ms, within 1 % in about 125 ms; the

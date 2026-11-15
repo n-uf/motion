@@ -32,7 +32,7 @@ export const NO_MODIFIERS: Readonly<Modifiers> = Object.freeze({ shift: false, a
  * modifiers) plus the fields a recogniser needs: which pointer, which button
  * changed, when.
  */
-export interface SurfacePointer {
+export interface GesturePointer {
   screen: Point; // CSS px relative to the host's view
   canvas: Point; // the host's world units, through its camera at the time of the event (RecognizerOptions.toCanvas)
   kind: PointerKind;
@@ -44,6 +44,9 @@ export interface SurfacePointer {
   time: number; // event timeStamp, ms
   pressure?: number;
 }
+
+/** @deprecated The old name of {@link GesturePointer}; it goes once its users have moved. */
+export type SurfacePointer = GesturePointer;
 
 // ----------------------------------------------------------------------------
 // Raw events (copied out of DOM events by the host)
@@ -108,14 +111,14 @@ export type CancelReason =
   | (string & {});
 
 interface PointerGestureBase {
-  pointer: SurfacePointer;
+  pointer: GesturePointer;
   /** The press that started this gesture */
-  origin: SurfacePointer;
+  origin: GesturePointer;
 }
 
 export type InputGesture =
   /** A pointer went down (one per gesture; a second touch becomes a pinch instead) */
-  | { type: "press"; pointer: SurfacePointer; modifierDrag: ModifierDrag | null }
+  | { type: "press"; pointer: GesturePointer; modifierDrag: ModifierDrag | null }
   /** The pointer travelled past the click threshold; modifierDrag is set when the drag modifier was held then */
   | (PointerGestureBase & { type: "dragStart"; modifierDrag: ModifierDrag | null })
   /** A move after dragStart (moves inside the threshold are not reported) */
@@ -129,7 +132,7 @@ export type InputGesture =
   | (PointerGestureBase & { type: "release"; click: boolean; clickCount: number; dragged: boolean })
   | (PointerGestureBase & { type: "cancel"; reason: CancelReason; dragged: boolean })
   /** A pointer moving with no press (mouse and pen hover): cursor and chrome hover */
-  | { type: "hover"; pointer: SurfacePointer }
+  | { type: "hover"; pointer: GesturePointer }
   /**
    * Two fingers (touch) or a trackpad pinch. scale is the change since the last update (multiply it in);
    * pan is the centre's screen-px change since the last update. kind is what was recognised first.
