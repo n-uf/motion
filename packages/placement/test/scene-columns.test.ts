@@ -231,6 +231,15 @@ describe("homeFor", () => {
     expect(dockHome(fold(foldedStart, "annotations", false), "annotations", foldedStart).items.annotations!.from).toBe(1);
   });
 
+  it("dockHome restores the fold of a dynamic column's only item, already at its home place", () => {
+    // Findings is right-0's only item: lifting it deletes the column, so moveTo can't re-dock it; it is home already.
+    const folded = fold(start, "findings", true);
+    expect(folded.items.findings!.from).toBe(1);
+    const docked = dockHome(folded, "findings", start);
+    expect(docked.items.findings!.from).toBeUndefined();
+    expect(docked.edges.find((e) => e.id === "right-0")!.items).toEqual(["findings"]);
+  });
+
   it("is the place the start scene gives: the same edge and neighbour, a new column at its ring, or its float", () => {
     const moved = moveTo(start, "annotations", { kind: "gap", edge: "right-0", at: 1 });
     const home = homeFor(moved, "annotations", start)!;
