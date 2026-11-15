@@ -275,8 +275,8 @@ export const RULE_ROWS: readonly CaseRow[] = [
   },
   {
     id: "R5-group-never-opens-a-column",
-    title: "A group never opens a column on its own",
-    expect: "An empty column whose start zone takes panels offers its strip to panels only: a group held over the strip is offered nothing.",
+    title: "A group gets no strip where the column's zone takes no group",
+    expect: "An empty column whose start zone takes panels and whose end zone (its tray) takes groups offers a group only its bottom third: a group held over the middle third is offered nothing.",
     group: "kinds",
     scene: tweakEdge(trayColumn(), "left", { items: [] }),
     gestures: [g.press("tools"), g.at(10, 400), g.hold()],
@@ -286,10 +286,10 @@ export const RULE_ROWS: readonly CaseRow[] = [
   {
     id: "R5-panel-opens-an-empty-column",
     title: "A panel opens the empty column",
-    expect: "The same strip takes a panel: Findings let go over it opens the column.",
+    expect: "The column's top third (its start zone, which takes panels) takes a panel: Findings let go over it opens the column.",
     group: "kinds",
     scene: tweakEdge(trayColumn(), "left", { items: [] }),
-    gestures: [g.press("findings"), g.at(10, 400), g.hold(), g.release()],
+    gestures: [g.press("findings"), g.at(10, 150), g.hold(), g.release()],
     expectLayout: { items: { findings: { formKind: "open", edge: "left", rect: r(0, 68, 260, 732) } }, order: { left: ["findings"] } },
   },
 ];

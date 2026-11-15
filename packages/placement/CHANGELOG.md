@@ -5,6 +5,16 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.24
 
+- `@n-uf/placement/scene`, **Changed:** every empty edge's strip is by zone, as an empty bar's has been since
+  26.11.19: `strip:<edge>:start|center|end`, by thirds along the edge (a side edge's or a compact rail's height), the
+  item docking aligned in that third (top, middle or bottom of a side). It used to be one `strip:<edge>` landing at the
+  start, so an empty rail took every drop at its top. Affected: left and right edges (static columns, column trays,
+  side toolbar bars) and compact rails on any side. Only the thirds whose zone takes the kind (`Edge.zoneAccepts`) are
+  strips; the others are refusals (`refusals()`), so a group now gets an empty tray column's bottom third (a new
+  `column:` target still never opens for a kind its start zone doesn't take). The strips keep every strip rule
+  (clipped, clear of home, no sliver, preview = landing). **Migration:** match `strip:<edge>:<zone>` where a host
+  matched `strip:<edge>`.
+
 - `@n-uf/placement/scene`, **fixed:** `columnRoom` counts a side toolbar bar. A left or right bar that lays out an item
   never folds (unless it gives way), so its width (and the gutter after it, when it lies inside the inset) comes off the room before the
   column's minimum is tested, and the `no-column-room` note's `width` is the room left after it. Anchors and rails

@@ -21,12 +21,12 @@
  *   lines taken inside the third). A title bar (a bar with a fixed item that grows) is a constrained host: a gap there
  *   is a target only when the item lands in its first form, nothing in the bar changes form for it, and the title keeps
  *   its natural width.
- * - `strip:<bar>:<zone>` (2): an empty horizontal bar that accepts the kind: its strip along the content in thirds, one
- *   target per zone that takes the kind.
- * - `strip:<edge>` (2): an empty edge that accepts the kind (its start zone takes it): a strip `Edge.strip` px (default
- *   24) deep along its side, inside the content and clear of overlay edges, so never over a docked edge or a panel's
- *   body (a compact rail's strip alone stays at the window edge, its own place); a gap hit that spans it trims its ends,
- *   and under 1 px left it has no target. Home covers all of the dragged item's own rect: a strip (a `rail:` strip
+ * - `strip:<edge>:<zone>` (2): an empty edge (a bar, a side edge, a compact rail) that accepts the kind: its strip in
+ *   thirds along the edge, one target per zone that takes the kind (`Edge.zoneAccepts`; the other thirds are
+ *   refusals), the item docking aligned there (leading, centred, trailing; top, middle, bottom). The strip is
+ *   `Edge.strip` px (default 24) deep along its side, inside the content and clear of overlay edges, so never over a
+ *   docked edge or a panel's body (a compact rail's strip alone stays at the window edge, its own place); a gap hit that
+ *   spans it trims its ends, and under 1 px left it has no target. Home covers all of the dragged item's own rect: a strip (a `rail:` strip
  *   too) keeps only what lies outside it. `after` shows the edge holding the item.
  * - `float:<id>` (3, free): when `floatKinds` lists the kind. The hit covers the whole plane; the landing is the float
  *   with the pointer holding it at `grab` (default its middle), in the stage and clear of the docked items, the bars
@@ -592,7 +592,20 @@ export function refusals(scene: Scene, dragged: string, options: SceneTargetOpti
     if (clear) out.push({ id: `refuse:${edge}:${zone}`, edge, zone, hit: clear, reason });
   };
   for (const e of scene.edges) {
-    const r = base.edges[e.id]?.rect;
+    const le = base.edges[e.id];
+    // An empty edge that takes the kind somewhere: each third of its strip with no strip target of its own is refused
+    // (a zone that doesn't take the kind, or one with no room).
+    if (le && !le.folded && !le.rides && !le.menu && le.stack.items.every((p) => p.kind === "menu")) {
+      if (zonesTaking(e, item.kind).length === 0) continue;
+      const parts = stripThirds(e, le.rect, base.content);
+      if (!parts) continue;
+      ZONES.forEach((zone, k) => {
+        if (ts.some((t) => t.id === `strip:${e.id}:${zone}`)) return;
+        add(e.id, zone, parts[k]!, zoneTakes(e, zone, item.kind) ? "no-room" : "not-accepted");
+      });
+      continue;
+    }
+    const r = le?.rect;
     if (!r || r.width <= EPS || r.height <= EPS) continue;
     const bar = (e.side === "top" || e.side === "bottom") && !e.compact;
     if (!bar) {
@@ -637,6 +650,34 @@ export function stops(scene: Scene, dragged: string, options: SceneTargetOptions
     .map((t, i) => ({ t, i, k: key(t) }))
     .sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.i - b.i)
     .map((x) => x.t);
+}
+
+/**
+ * An empty edge's strip in thirds along the edge (start, center, end): the strip `Edge.strip` px (default
+ * {@link DEFAULT_STRIP}) deep inside the content along its side, cut along the edge to the content (a full bar runs over
+ * the columns; a side edge lies between the bars), except a compact rail's, which keeps its own rect at the window
+ * edge. Null when nothing of it is left.
+ */
+function stripThirds(edge: Edge, r: Rect, content: Rect): [Rect, Rect, Rect] | null {
+  const depth = Math.max(0, Number.isFinite(edge.strip) ? edge.strip! : DEFAULT_STRIP);
+  const hit =
+    edge.side === "left"
+      ? rect(r.x, r.y, depth, r.height)
+      : edge.side === "right"
+        ? rect(r.x + r.width - depth, r.y, depth, r.height)
+        : edge.side === "top"
+          ? rect(r.x, r.y, r.width, depth)
+          : rect(r.x, r.y + r.height - depth, r.width, depth);
+  const column = axisOf(edge.side) === "column";
+  let [a0, a1] = column ? [hit.y, hit.y + hit.height] : [hit.x, hit.x + hit.width];
+  if (!edge.compact) {
+    a0 = Math.max(a0, column ? content.y : content.x);
+    a1 = Math.min(a1, column ? content.y + content.height : content.x + content.width);
+  }
+  if (a1 - a0 <= EPS) return null;
+  const w = (a1 - a0) / 3;
+  const part = (k: number): Rect => (column ? rect(hit.x, a0 + k * w, hit.width, w) : rect(a0 + k * w, hit.y, w, hit.height));
+  return [part(0), part(1), part(2)];
 }
 
 /** One edge's gap or strip targets. `rest` is the scene with the dragged item lifted out and `base` its layout. */
@@ -738,39 +779,18 @@ function edgeTargets(scene: Scene, rest: Scene, now: SceneLayout, base: SceneLay
 
   const drawn = base.edges[edge.id]!.stack.items.filter((p) => p.kind !== "menu").map((p) => p.id);
   if (drawn.length === 0 && !el.menu) {
-    // An empty edge: one strip inside the content along its side.
-    const depth = Math.max(0, Number.isFinite(edge.strip) ? edge.strip! : DEFAULT_STRIP);
-    const r = el.rect;
-    const hit =
-      edge.side === "left"
-        ? rect(r.x, r.y, depth, r.height)
-        : edge.side === "right"
-          ? rect(r.x + r.width - depth, r.y, depth, r.height)
-          : edge.side === "top"
-            ? rect(r.x, r.y, r.width, depth)
-            : rect(r.x, r.y + r.height - depth, r.width, depth);
-    const keep = { x: hit.x + hit.width / 2, y: hit.y + hit.height / 2 };
-    if (thirds) {
-      // An empty bar: its strip (along the content) in thirds, one target per zone that takes the kind.
-      const c = base.content;
-      const x0 = Math.max(hit.x, c.x);
-      const x1 = Math.min(hit.x + hit.width, c.x + c.width);
-      if (x1 - x0 <= EPS) return [];
-      const w = (x1 - x0) / 3;
-      const out: SceneTarget[] = [];
-      ZONES.forEach((zone, k) => {
-        if (!zoneTakes(edge, zone, scene.items[dragged]!.kind)) return;
-        const part = rect(x0 + k * w, hit.y, w, hit.height);
-        const t = target(`strip:${edge.id}:${zone}`, { kind: "gap", edge: edge.id, zone, at: 0 }, part, { x: part.x + part.width / 2, y: part.y + part.height / 2 });
-        if (t) out.push(t);
-      });
-      return out;
-    }
-    // A kind never opens an edge on its own unless its start zone takes it: a group's drag gets no strip for an empty
-    // panel column (whose tray is its end zone), only the compact rail's at the window edge.
-    if (!zoneTakes(edge, "start", scene.items[dragged]!.kind)) return [];
-    const t = target(`strip:${edge.id}`, { kind: "gap", edge: edge.id, zone: "start", at: 0 }, hit, keep);
-    return t ? [t] : [];
+    // An empty edge: its strip in thirds along the edge, one target per zone that takes the kind (the item docks
+    // aligned there: leading, centred or trailing; top, middle or bottom of a side edge).
+    const parts = stripThirds(edge, el.rect, base.content);
+    if (!parts) return [];
+    const out: SceneTarget[] = [];
+    ZONES.forEach((zone, k) => {
+      if (!zoneTakes(edge, zone, scene.items[dragged]!.kind)) return;
+      const part = parts[k]!;
+      const t = target(`strip:${edge.id}:${zone}`, { kind: "gap", edge: edge.id, zone, at: 0 }, part, { x: part.x + part.width / 2, y: part.y + part.height / 2 });
+      if (t) out.push(t);
+    });
+    return out;
   }
 
   // Each gap's insertion line along the edge, in the layout without the dragged item.

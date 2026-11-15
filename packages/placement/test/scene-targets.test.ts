@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reservedRect, solve, targets, use, type Scene } from "../src/scene";
+import { ZONES, reservedRect, solve, targets, use, type Scene } from "../src/scene";
 import { bar, byId, column, group, panel, windowScene } from "./scene-fixture";
 
 const r = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
@@ -11,8 +11,9 @@ describe("targets", () => {
   const s = windowScene();
 
   it("only edges whose accepts lists the kind (C25): a panel never lands in a bar", () => {
-    // Lifted out, the left column is empty: it offers a strip.
-    expect(ids(s, "pages").filter((t) => t.startsWith("gap:") || t.startsWith("strip:"))).toEqual(["strip:left", "gap:right:start:0", "gap:right:start:1", "gap:right:start:2"]);
+    // Lifted out, the left column is empty: it offers its strip in thirds. Its center and end thirds lie on Pages' own
+    // rect, which home covers, so only the start third (its own place, home) is left.
+    expect(ids(s, "pages").filter((t) => t.startsWith("gap:") || t.startsWith("strip:"))).toEqual(["strip:left:start", "gap:right:start:0", "gap:right:start:1", "gap:right:start:2"]);
     expect(ids(s, "views").some((t) => t.startsWith("gap:left"))).toBe(true);
     // The title bar takes groups, never a panel.
     expect(ids(s, "views").some((t) => t.startsWith("gap:titlebar"))).toBe(true);
@@ -57,12 +58,20 @@ describe("targets", () => {
     }
   });
 
-  it("an empty accepting edge gets a strip; its after shows the edge holding the item", () => {
+  it("an empty accepting edge gets a strip in thirds; each third's after holds the item in that zone", () => {
     const sc: Scene = { ...s, edges: [...s.edges, column("drawer", "right", 1, [], { strip: 20 })] };
-    const strip = targets(sc, "pages").find((t) => t.id === "strip:drawer")!;
-    // Inside the content: it stops at the status bar below.
-    expect(strip.hit).toEqual(r(920, 68, 20, 704));
-    expect(strip.after({ x: 0, y: 0 }).layout.items.pages!.edge).toBe("drawer");
+    // Inside the content (it stops at the status bar below): 68..772 in thirds down the side.
+    const third = 704 / 3;
+    ZONES.forEach((zone, k) => {
+      const strip = targets(sc, "pages").find((t) => t.id === `strip:drawer:${zone}`)!;
+      expect(strip.hit.x, zone).toBe(920);
+      expect(strip.hit.width, zone).toBe(20);
+      expect(strip.hit.y, zone).toBeCloseTo(68 + k * third, 6);
+      expect(strip.hit.height, zone).toBeCloseTo(third, 6);
+      const after = strip.after({ x: 0, y: 0 }).layout.items.pages!;
+      expect(after.edge, zone).toBe("drawer");
+      expect(after.zone, zone).toBe(zone);
+    });
   });
 
   it("a float target over the whole plane when floatKinds has the kind; it lands clear", () => {

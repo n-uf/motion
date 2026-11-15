@@ -126,8 +126,9 @@ export interface Edge {
    * The kinds each zone takes, narrowing `accepts`: with it, a zone not listed takes nothing. A panel column with
    * `{ start: ["panel"], end: ["group"] }` has its panels at the top and a tray of toolbars at its foot (the end zone, one
    * toolbar per row): a toolbar in the tray takes only its `wrap` or `icons` form (never the menu), and the panels give
-   * way first. A group never opens such a column on its own: an empty edge offers its strip only to the kinds its start
-   * zone takes.
+   * way first. An empty edge offers each third of its strip only to the kinds that third's zone takes: a group gets an
+   * empty tray column's bottom third, a panel its top third. A group never opens a new column (a `column:` target)
+   * whose start zone doesn't take it.
    */
   readonly zoneAccepts?: ZoneAccepts;
   /** The drop strip's depth while the edge is empty, px (default {@link DEFAULT_STRIP}). */

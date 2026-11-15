@@ -1,6 +1,6 @@
 /** `Edge.compact`: an icons-only edge, a thin rail of vertical toolbars along a window side. */
 import { describe, expect, it } from "vitest";
-import { solve, targets, type Scene } from "../src/scene";
+import { ZONES, refusals, solve, targets, type Scene } from "../src/scene";
 import { byId, column, form, group, panel } from "./scene-fixture";
 
 const r = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
@@ -35,13 +35,38 @@ describe("a compact edge", () => {
     expect(l.notes).toContainEqual({ code: "no-icons-form", id: "b", edge: "rail" });
   });
 
-  it("one strip per drag kind: a group at an empty side gets the rail's strip, a panel the column's (a group never opens a column)", () => {
+  it("an empty side's strips, by thirds, per the zones that take the kind: a group gets the rail's three and the column tray's third, a panel the column's top third", () => {
     const s = scene();
     const zoneAccepts = { start: ["panel"], end: ["group"] };
     const empty: Scene = { ...s, edges: s.edges.map((e) => ({ ...e, items: [], ...(e.id === "col" ? { zoneAccepts } : {}) })), floats: [{ id: "a", rect: r(500, 100, 200, 40) }, { id: "p", rect: r(500, 200, 200, 200) }], floatKinds: ["group", "panel"] };
     const strips = (id: string) => targets(empty, id).map((t) => t.id).filter((x) => x.startsWith("strip:"));
-    expect(strips("a")).toEqual(["strip:rail"]);
-    expect(strips("p")).toEqual(["strip:col"]);
+    expect(strips("a").sort()).toEqual(["strip:col:end", "strip:rail:center", "strip:rail:end", "strip:rail:start"]);
+    expect(strips("p")).toEqual(["strip:col:start"]);
+    // The rail's thirds run down its own rect at the window edge (0..600), and each lands the group in its zone: top,
+    // middle, bottom; the slot is the landing.
+    ZONES.forEach((zone, k) => {
+      const t = targets(empty, "a").find((x) => x.id === `strip:rail:${zone}`)!;
+      expect(t.hit.y, zone).toBeCloseTo(k * 200, 6);
+      expect(t.hit.height, zone).toBeCloseTo(200, 6);
+      const a = t.after({ x: 0, y: 0 }).layout;
+      const me = a.items.a!;
+      expect(me, zone).toMatchObject({ edge: "rail", zone, formKind: "icons" });
+      expect(t.slot, zone).toEqual(me.rect);
+      // Aligned in its third: at the top, centred, at the bottom.
+      const mid = me.rect.y + me.rect.height / 2;
+      if (zone === "start") expect(me.rect.y).toBe(0);
+      if (zone === "center") expect(mid).toBeCloseTo(300, 6);
+      if (zone === "end") expect(me.rect.y + me.rect.height).toBeCloseTo(600, 6);
+    });
+    // An empty tray column alone at its side: its thirds that take no group (start, center) are refused for a group, and
+    // its end third is a strip. (Beside a rail, the rail's inward reach covers the column's strip.)
+    const beside: Scene = { ...empty, edges: empty.edges.filter((e) => e.id !== "rail") };
+    expect(targets(beside, "a").some((x) => x.id === "strip:col:end")).toBe(true);
+    const rs = refusals(beside, "a").filter((x) => x.edge === "col");
+    expect(rs.map((x) => [x.zone, x.reason])).toEqual([
+      ["start", "not-accepted"],
+      ["center", "not-accepted"],
+    ]);
   });
 
   it("a group dropped in takes its icons form, and the preview is the landing", () => {
