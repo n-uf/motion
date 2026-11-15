@@ -5,6 +5,13 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.21
 
+- `@n-uf/placement/scene`, **fixed:** the order of a side's outer edges. From the window's side inward: the side's
+  toolbar bars with `outsideInset`, the side's rail, its static column edges with `outsideInset` (anchors), the inset,
+  the columns. A side bar used to land after the rail when the side folded into it; now it stays at the window edge and
+  the rail lies inside it (the rail is the outermost *panel* edge). The kinds tell them apart, with no new option: a
+  side bar takes something and nothing the side's columns take (`Scene.columns[side].accepts`), an anchor takes
+  nothing (**`isOutsideSideBar`**). With no rail shown, the `rail:` strip lies past the side's bars too.
+
 - `@n-uf/placement/scene`, **floated group orient and size** (additive, one default changed): a new
   **`SceneItem.floatOrient`** (`"row" | "column"`) picks the forms a float of it uses when the float names no `orient`;
   its default, **`floatOrientOf(item)`**, is the axis of the first form the item declares, so a toolbar group declared

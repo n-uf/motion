@@ -35,7 +35,7 @@ import { rect, type Rect } from "../geometry";
 import { fitFloat } from "../stack/floats";
 import { fitStack } from "../stack/layout";
 import { formCrossMin, formMain, formSetsCross, wrapLines, type StackFit, type StackForm, type StackInput, type StackItem } from "../stack/model";
-import { axisOf, floatOrientOf, floatShape, formsOf, pastWrap, zoneOf, type Edge, type FloatAnchor, type Scene, type SceneEdgeLayout, type SceneItem, type SceneItemLayout, type SceneLayout, type SceneNote, type SceneRailLayout, type SolveOptions, type Zone } from "./model";
+import { axisOf, floatOrientOf, floatShape, formsOf, isOutsideSideBar, pastWrap, zoneOf, type Edge, type FloatAnchor, type Scene, type SceneEdgeLayout, type SceneItem, type SceneItemLayout, type SceneLayout, type SceneNote, type SceneRailLayout, type SolveOptions, type Zone } from "./model";
 
 const EPS = 1e-6;
 const finite = (x: number | undefined, fallback: number): number => (typeof x === "number" && Number.isFinite(x) ? x : fallback);
@@ -589,7 +589,11 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     let x0 = area.x;
     let x1 = area.x + area.width;
     for (const side of ["left", "right"] as const) {
-      const mine = cols.filter((c) => c.side === side);
+      // From the window's side inward: the side's bars outside the inset (toolbar bars, `isOutsideSideBar`), the side's
+      // rail, the static column edges outside the inset (anchors), the inset, then the columns.
+      const outsideSideBar = (c: Col): boolean => isOutsideSideBar(scene, c.edge) && !g.railed(c) && !g.riding(c);
+      const all = cols.filter((c) => c.side === side);
+      const mine = [...all.filter(outsideSideBar), ...all.filter((c) => !outsideSideBar(c))];
       const railed = mine.filter((c) => g.railed(c));
       const riders = mine.filter((c) => g.riding(c));
       const host = mine.find((c) => c.dyn && c.edge.column === true && !c.hand && !g.auto.has(c) && c.width > 0);
@@ -606,8 +610,9 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       // (an anchor) lies before that gap, which then follows it.
       let gap = px(side === "left" ? inset.left : inset.right);
       for (const c of mine) {
-        // The side's rail is its outermost edge, at the window's side (inside the inset): an anchor lies inside it.
-        if (!railRect && railed.length > 0) {
+        // The side's rail is its outermost panel edge: past the side's outside bars only, at the window's side otherwise
+        // (inside the inset); an anchor lies inside it.
+        if (!railRect && railed.length > 0 && !outsideSideBar(c)) {
           const w = railW(side);
           if (side === "left") {
             railRect = rect(x0, area.y, w, H);
