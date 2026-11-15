@@ -56,7 +56,12 @@ interface HeldForm {
   /** The grip's top-left corner in the form. */
   readonly grip: Point;
   readonly el: HTMLElement;
+  /** How shown it is now, 0 to 1: it fades from there toward 1 (heading in) or 0 (any other form), never jumping. */
+  opacity: number;
 }
+
+/** A form's fade from fully hidden to fully shown, or back (linear, so no frame changes it by more than 16 / FADE_MS). */
+const FADE_MS = 120;
 
 /** A form to draw the held copy in: its kind, its axis, its rows (a wrap form) and its measured size. */
 interface FormSpec {
@@ -96,9 +101,9 @@ interface Held {
   /** The form it had when lifted, and every form drawn so far in this drag, by key. */
   readonly homeForm: HeldForm;
   readonly forms: Map<string, HeldForm>;
-  /** The form heading in, and the one fading out (null at rest). */
+  /** The form heading in, and the forms still fading out (none at rest). */
   current: HeldForm;
-  leaving: HeldForm | null;
+  readonly fading: HeldForm[];
   /** The target the held form follows (its id; null: the home form), the form switches so far, the last frame's time. */
   formOf: string | null;
   switches: number;
@@ -408,13 +413,14 @@ export function createScene(o: SceneOptions) {
     const el = document.createElement("section");
     el.className = `dw-item dw-${kind} dw-k-${spec.formKind} dw-ax-${spec.axis}`;
     el.innerHTML = inner(id, spec.formKind, spec.rows);
-    Object.assign(el.style, { left: "0px", top: "0px", width: px(w), height: px(h) });
+    // Hidden until it heads in; it fades in from there.
+    Object.assign(el.style, { left: "0px", top: "0px", width: px(w), height: px(h), opacity: "0", visibility: "hidden" });
     frame.append(el);
     const g = el.matches("[data-grip]") ? el : el.querySelector<HTMLElement>("[data-grip]");
     const grip = g ? offsetIn(g, el) : { x: 0, y: 0 };
     const clamp = (v: number, hi: number): number => Math.min(Math.max(v, 0), hi);
     const anchor = fromGrip ? { x: clamp(grip.x + fromGrip.x, w), y: clamp(grip.y + fromGrip.y, h) } : grip;
-    const f: HeldForm = { key, formKind: spec.formKind, axis: spec.axis, size: { width: w, height: h }, anchor, grip, el };
+    const f: HeldForm = { key, formKind: spec.formKind, axis: spec.axis, size: { width: w, height: h }, anchor, grip, el, opacity: 0 };
     if (fromGrip) forms.set(key, f);
     return f;
   }
@@ -428,36 +434,46 @@ export function createScene(o: SceneOptions) {
   }
 
   /**
-   * The held copy takes `next`'s form: the morph heads for its size and grip anchor from where it is drawn. The form
-   * mostly shown keeps fading out (one in, one out at most), so a fast sweep retargets mid-flight with no snap.
+   * The held copy takes `next`'s form: the morph heads for its size and grip anchor from where it is drawn, `next`
+   * fades in from its opacity now and every other form shown fades out from its own, so a fast sweep retargets
+   * mid-flight with no snap and no pop.
    */
   function switchForm(d: Held, next: HeldForm): void {
     if (next === d.current) return;
-    const out = d.leaving && d.morph.progress < 0.5 ? d.leaving : d.current;
-    for (const f of [d.current, d.leaving]) if (f && f !== out && f !== next) f.el.style.visibility = "hidden";
-    d.leaving = out === next ? null : out;
+    if (d.current.opacity > 0 && !d.fading.includes(d.current)) d.fading.push(d.current);
+    const i = d.fading.indexOf(next);
+    if (i >= 0) d.fading.splice(i, 1);
     d.current = next;
     next.el.style.visibility = "";
     d.morph.to(next.size, next.anchor);
     d.switches++;
   }
 
-  /** Draw the held copy for this frame: the frame at the morph's box, each form with its own anchor on the pointer. */
+  /**
+   * Draw the held copy for this frame: the frame at the morph's box, each form shown with its own anchor on the
+   * pointer. The form heading in fades toward 1, the others toward 0, each from where it is (`FADE_MS` for the whole
+   * way); a form is dropped once it is all gone.
+   */
   function drawHeld(d: Held, now: number): void {
-    d.morph.step(Math.max(0, now - d.last));
+    const dt = Math.max(0, now - d.last);
+    d.morph.step(dt);
     d.last = now;
     place(d.el, d.morph.rectAt(d.pointer));
     const at = d.morph.anchor;
-    const p = d.morph.progress;
-    if (d.leaving && d.morph.settled) {
-      d.leaving.el.style.visibility = "hidden";
-      d.leaving = null;
+    const by = dt / FADE_MS;
+    d.current.opacity = Math.min(1, d.current.opacity + by);
+    for (const f of d.fading) f.opacity = Math.max(0, f.opacity - by);
+    for (let i = d.fading.length - 1; i >= 0; i--) {
+      const f = d.fading[i]!;
+      if (f.opacity > 0) continue;
+      f.el.style.visibility = "hidden";
+      f.el.style.opacity = "0";
+      d.fading.splice(i, 1);
     }
-    for (const f of [d.current, d.leaving]) {
-      if (!f) continue;
+    for (const f of [d.current, ...d.fading]) {
       f.el.style.left = px(at.x - f.anchor.x);
       f.el.style.top = px(at.y - f.anchor.y);
-      f.el.style.opacity = f === d.current ? String(d.leaving ? p : 1) : String(1 - p);
+      f.el.style.opacity = String(f.opacity);
     }
   }
 
@@ -477,7 +493,9 @@ export function createScene(o: SceneOptions) {
     const homeForm = heldForm(el, forms, id, was.kind, { formKind: was.formKind, axis: axisOf(scene, layout, id), rows: was.rows, size: was.rect }, null);
     // The pointer's offset from the grip in the lifted form: every form keeps it, so the grip stays under the pointer.
     const fromGrip = { x: grab.x - homeForm.anchor.x, y: grab.y - homeForm.anchor.y };
-    const home0 = { ...homeForm, anchor: grab };
+    // Shown in full from the lift.
+    const home0: HeldForm = { ...homeForm, anchor: grab, opacity: 1 };
+    Object.assign(home0.el.style, { opacity: "1", visibility: "" });
     forms.set(home0.key, home0);
     const docked = !was.floating;
     const home: Rect = docked ? was.rect : { x: start.x, y: start.y, width: 0, height: 0 };
@@ -493,7 +511,7 @@ export function createScene(o: SceneOptions) {
       homeForm: home0,
       forms,
       current: home0,
-      leaving: null,
+      fading: [],
       formOf: null,
       switches: 0,
       last: now,
