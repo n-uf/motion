@@ -321,14 +321,14 @@ describe("the options the rows need", () => {
     expect(narrow.notes).toContainEqual({ code: "no-column-room", width: 551, need: 552 });
   });
 
-  it("columnRoom counts the anchor's room: folded into its rail, the rail and its gutter; open, its width", () => {
-    const s = (w: number) => adapt(rows.scenes.anchorGiveWayOrder!.scene, w, 800);
-    // At 590 the anchor is folded into the left rail: 32 + 12 + a column 220 + 12 + the content 320 = 596 > 566.
-    const at590 = solve(s(590));
-    expect(at590.rails.left!.segments.map((x) => x.id)).toContain("thumbs");
-    expect(at590.columnRoom).toBe(false);
-    expect(at590.notes).toContainEqual({ code: "no-column-room", width: 566, need: 596 });
-    expect(solve(s(620)).columnRoom).toBe(true);
+  it("columnRoom ignores the anchor and the rails: every column, the anchor too, folds into its rail", () => {
+    // All panels open, the thumbnails on the left, a 600 px body: every panel a rail segment, the pages 488 wide.
+    const l = solve(adapt(anchorLeft, 600, 800));
+    expect(l.content.width).toBe(488);
+    expect(l.columnRoom).toBe(true);
+    expect(l.notes.some((n) => n.code === "no-column-room")).toBe(false);
+    // The give-way order's anchor scene at 590: one column 220 + 12 + contentMin 320 = 552 fits the 566 left.
+    expect(solve(adapt(rows.scenes.anchorGiveWayOrder!.scene, 590, 800)).columnRoom).toBe(true);
   });
 
   it("insetWhen docked: no inset while nothing is docked beside the content", () => {

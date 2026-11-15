@@ -6439,11 +6439,11 @@
       "h": 800
      },
      "layout": {
-      "sheetFallback": true
+      "sheetFallback": false
      },
      "kind": "target",
      "gap": "sheet-signal",
-     "note": "the anchor folded into the left rail takes its room: 32 + 12 + one column 220 + 12 + contentMin 320 = 596 > 566"
+     "note": "the sheet ignores the anchor (it folds into the rail like every column): one column 220 + 12 + contentMin 320 = 552 ≤ 566"
     }
    ]
   },
