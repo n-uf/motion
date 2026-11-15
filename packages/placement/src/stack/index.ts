@@ -30,6 +30,7 @@ export {
   type PlacedStackItem,
   type StackAxis,
   type StackFit,
+  type StackStep,
   type StackForm,
   type StackFormKind,
   type StackInput,

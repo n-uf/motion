@@ -66,12 +66,14 @@ describe("the fit ladder", () => {
           }
         }
       };
+      const downAt = new Map<number, Record<string, number>>();
       for (const w of widths) {
         const s = { ...s0, stage: { ...s0.stage, width: w } };
         const l = solve(s, { previous });
         const st = steps(s, l);
         for (const id of Object.keys(st)) expect(st[id]!, `seed ${seed} at ${w}: ${id} stepped up while shrinking`).toBeGreaterThanOrEqual(last[id]!);
         check(s, l, w, true);
+        downAt.set(w, st);
         previous = l;
         last = st;
       }
@@ -80,6 +82,8 @@ describe("the fit ladder", () => {
         const l = solve(s, { previous });
         const st = steps(s, l);
         for (const id of Object.keys(st)) expect(st[id]!, `seed ${seed} at ${w}: ${id} stepped down while growing`).toBeLessThanOrEqual(last[id]!);
+        // Exactly the reverse: at every width the way back holds what the way down held.
+        expect(st, `seed ${seed} at ${w}: growing back`).toEqual(downAt.get(w));
         check(s, l, w, false);
         previous = l;
         last = st;

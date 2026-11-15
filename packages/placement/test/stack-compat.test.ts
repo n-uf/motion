@@ -51,11 +51,14 @@ function randomInput(rand: () => number): StackInput {
 
 /** The fit without the field the new solver adds (`need`). */
 const plain = (f: StackFit): unknown => {
-  const { need: _need, ...rest } = f;
+  // `need` and the give-way history (`steps`) are newer than the old solvers.
+  const { need: _need, steps: _steps, ...rest } = f;
   return rest;
 };
 /** JSON with the keys sorted, so two fits compare by content, not by the order their keys were made in. */
-const canon = (x: unknown): string => JSON.stringify(x, (_k, v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v));
+// The give-way history (`steps`, 26.11.21) is new: the old solvers have none, so it is left out of the comparison.
+const canon = (x: unknown): string =>
+  JSON.stringify(x, (k, v: unknown) => (k === "steps" ? undefined : v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v));
 
 /**
  * The items whose path in a fit passes a hop that is not shorter (the T2 skip), or a step into the menu from a form that is
@@ -203,37 +206,49 @@ describe("26.11.15 compatibility", () => {
   }
   const asLegacy = (input: StackInput): Legacy15Input => input as unknown as Legacy15Input;
 
-  it("fitStack, with and without previous, equals the 26.11.15 solver (chains: where no form has a rank of its own)", () => {
+  it("fitStack, with and without previous, equals the 26.11.15 solver, chains up to where the strict reverse holds items back", () => {
     const rand = seeded(26115);
     let chained = 0;
+    let diverged = 0;
+    const down = (f: StackFit): number => f.items.reduce((s, p) => s + p.form, 0);
     for (let trial = 0; trial < 3000; trial++) {
       const input = richInput(rand);
       expect(canon(fitStack(input)), JSON.stringify(input)).toBe(canon(legacy15Fit(asLegacy(input))));
       // A chain of lengths, the fit of each as `previous` of the next: the same fits as the old solver gives along the same
-      // chain. Since 26.11.21 a menu item no longer leaves the menu ahead of an item whose step down ranked higher than
-      // its own step into the menu (growing back is the strict reverse of giving way), so chains with ranked forms differ
-      // from the old solver by design and are left out here (stack-previous.test.ts covers them).
-      const ranked = input.items.some((it) => it.forms.some((f) => (f.rank ?? 0) !== 0));
+      // chain, until the first step where they differ. Since 26.11.21 growing back undoes the give-way history exactly in
+      // reverse (`steps`), so it may hold items further down than the old solver, which let menu items out early and took
+      // a fresh fit that was a pure gain; there the chain stops (its later fits follow from different histories).
       let now: StackFit = fitStack(input);
       let old = legacy15Fit(asLegacy(input));
       for (let step = 0; step < 4; step++) {
         const next = { ...input, length: Math.max(0, input.length + Math.floor((rand() - 0.5) * 400)) };
         now = fitStack(next, { previous: now });
         old = legacy15Fit(asLegacy(next), { previous: old });
-        if (ranked) continue;
-        expect(canon(now), JSON.stringify(next)).toBe(canon(old));
+        if (canon(now) !== canon(old)) {
+          // Only by holding items further down (never by giving way more than the old solver while shrinking).
+          expect(down(now), JSON.stringify(next)).toBeGreaterThan(down(old as unknown as StackFit));
+          diverged++;
+          break;
+        }
         chained++;
       }
     }
-    expect(chained).toBeGreaterThan(2000);
+    // About 700 of the 3,000 chains reach such a step (seeded); every other step of every chain matches.
+    expect(chained).toBeGreaterThan(9000);
+    expect(diverged).toBeLessThan(1000);
   });
 
-  it("stackTargets equals the 26.11.15 targets, with endReach and previous", () => {
+  it("stackTargets equals the 26.11.15 targets, with endReach and previous (a previous without a give-way history)", () => {
     const rand = seeded(2611);
+    // The old targets have no history to undo; a previous without one keeps the old growing back, for the comparison.
+    const noSteps = (f: StackFit): StackFit => {
+      const { steps: _s, ...rest } = f;
+      return rest;
+    };
     for (let trial = 0; trial < 1500; trial++) {
       const input = richInput(rand);
       const dragged = (richInput(rand).items[0] ?? input.items[0])!;
-      const options = { ...(rand() < 0.5 ? { endReach: Math.floor(rand() * 20) } : {}), ...(rand() < 0.4 ? { previous: fitStack(input) } : {}) };
+      const options = { ...(rand() < 0.5 ? { endReach: Math.floor(rand() * 20) } : {}), ...(rand() < 0.4 ? { previous: noSteps(fitStack(input)) } : {}) };
       expect(canon(stackTargets(input, dragged, options)), JSON.stringify(input)).toBe(canon(legacy15Targets(asLegacy(input), dragged as never, options as never)));
     }
   });
@@ -249,7 +264,7 @@ describe("26.11.15 compatibility", () => {
       if (dragged) {
         const same = stackTargets({ ...off, items }, { ...dragged, fixed: false }, { allows: () => true });
         const was = legacy15Targets(asLegacy(input), dragged as never, {});
-        expect(same.map((t) => [t.id, t.place, t.hit, t.slot, t.marker, t.fit])).toEqual(was.map((t) => [t.id, t.place, t.hit, t.slot, t.marker, t.fit]));
+        expect(canon(same.map((t) => [t.id, t.place, t.hit, t.slot, t.marker, t.fit]))).toBe(canon(was.map((t) => [t.id, t.place, t.hit, t.slot, t.marker, t.fit])));
       }
     }
   });

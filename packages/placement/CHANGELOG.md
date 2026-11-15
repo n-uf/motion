@@ -5,11 +5,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.21
 
-- `@n-uf/placement/stack` (and so every Scene edge), **Changed:** growing back under `previous` is strictly the reverse
-  of giving way, the » menu included: an item no longer leaves the menu ahead of an item whose step down ranked higher
-  than its own step into the menu (that step came after it). With a priority, a higher-priority toolbar is back at its
-  form before a lower one leaves the menu. Affected: chains under `previous` with ranked forms whose menu items used to
-  come out early; fits without `previous`, and stacks whose forms all rank alike, are unchanged.
+- `@n-uf/placement/stack` (and so every Scene edge), **Changed:** growing back under `previous` is exactly the reverse
+  of giving way, the » menu included. A fit now carries its give-way history, **`StackFit.steps`** (`StackStep { id,
+  from, to, batch? }`, in the order taken; new type `StackStep`), and the next fit carries it on: room coming back undoes
+  it from the last step (a batch into the menu comes out together, an item goes to the nearest earlier form that fits),
+  and the first step that can't be undone stops all growth. At every length the way back holds what the way down held,
+  ties broken by use included, whatever presses changed the ages since. A `previous` without `steps` (built by hand, or
+  by an older version) grows the old way. Affected: growing back under `previous`; about 700 of 3,000 seeded length
+  chains now hold items further down at some step than 26.11.20 did (it let menu items out early, took a fresh fit that
+  was a pure gain, and grew the newest used at growth time). Fits without `previous` are unchanged.
 
 - `@n-uf/placement/scene`, **fixed:** `columnRoom` is answered as if the one column were open: under
   `insetWhen: "docked"` with nothing docked it counts the inset that column would bring, and a column folded whole by

@@ -1195,8 +1195,14 @@ export const PRESETS: readonly Preset[] = [
         c.setSize(w, h);
         const now = fitState(c);
         for (const issue of fitIssues(c, start, now, last, shrinking)) bad.push(`${w}×${h}: ${issue}`);
+        // Exactly the reverse: the toolbars' steps on the way back are those on the way down at the same size.
+        const key = `${w}×${h}`;
+        const groups = (st: FitState) => JSON.stringify(Object.keys(st.step).filter(isGroup).map((id) => [id, st.step[id]]));
+        if (shrinking) down.set(key, groups(now));
+        else if (down.get(key) !== groups(now)) bad.push(`${key}: growing back ${groups(now)}, on the way down ${down.get(key)}`);
         last = now;
       };
+      const down = new Map<string, string>();
       for (const [w, h] of sizes) visit(w, h, true);
       for (const [w, h] of [...sizes].reverse()) visit(w, h, false);
       const end = fitState(c);
