@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.24
+## Unreleased
 
 - `@n-uf/placement` (root), **one geometry** (additive): the rect math every entry shares is the root's: `EPS`,
   `PLANE`, `area`, `overlaps`, `contains`, `clamp`, `subtract` (a rect less another, as disjoint rects), and the hit
@@ -76,6 +76,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   take (a group gets the rail, never a column of one toolbar). The strips keep every strip rule
   (clipped, clear of home, no sliver, preview = landing). **Migration:** match `strip:<edge>:<zone>` where a host
   matched `strip:<edge>`.
+
+## 26.11.24
 
 - `@n-uf/placement/scene`, **fixed:** `columnRoom` counts a side toolbar bar. A left or right bar that lays out an item
   never folds (unless it gives way), so its width (and the gutter after it, when it lies inside the inset) comes off the room before the
