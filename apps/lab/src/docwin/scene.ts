@@ -30,7 +30,7 @@ import {
   type SceneRefusal,
   type SceneTarget,
 } from "@n-uf/placement/scene";
-import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, EDGES, GROUPS, RAIL, TITLES, defaultScene, edgeOf, isSideEdge, setGroupSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId } from "./model";
+import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, EDGES, GROUPS, RAIL, ROW_VARIANTS, TITLES, ZOOM_CONTROLS, defaultScene, edgeOf, isSideEdge, setGroupSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId } from "./model";
 import { readDocwin, storeDocwin, type StoredDocwin } from "./store";
 
 export interface LastDrop {
@@ -70,6 +70,8 @@ interface FormSpec {
   readonly formKind: string;
   readonly axis: "row" | "column";
   readonly rows?: readonly (readonly number[])[] | undefined;
+  /** The controls the form leaves out (`SceneItemLayout.hidden`): a "+N" cell stands for them. */
+  readonly hidden: readonly string[];
   readonly size: { readonly width: number; readonly height: number };
 }
 
@@ -205,10 +207,13 @@ export function createScene(o: SceneOptions) {
     return `<header class="dw-head" data-grip><span class="dw-dots" aria-hidden="true"></span><b>${TITLES[id]}</b>${c === null ? "" : badge(c)}<button type="button" class="dw-x" data-close="${id}" aria-label="Close ${TITLES[id]}">×</button></header>`;
   }
 
-  /** A group's words, one HTML piece each, in the order the `wrap` form's widths list them. */
-  function groupWords(id: ItemId): string[] {
+  /** A group's words, one HTML piece each, in the order the `wrap` form's widths list them; `hidden` controls left out. */
+  function groupWords(id: ItemId, hidden: readonly string[] = []): string[] {
     if (id === "tools") return Array.from({ length: 5 }, (_, i) => `<button type="button" class="dw-tool" aria-label="Tool ${i + 1}"><i></i></button>`);
-    if (id === "zoom") return [`<button type="button" class="dw-w" data-zoom="-">−</button>`, `<span class="dw-zv">${counts.zoom}%</span>`, `<button type="button" class="dw-w" data-zoom="+">+</button>`, `<button type="button" class="dw-w" data-zoom="fit">FIT</button>`];
+    if (id === "zoom")
+      return ZOOM_CONTROLS.filter((c) => c.id === null || !hidden.includes(c.id)).map((c) =>
+        c.id === null ? `<span class="dw-zv">${counts.zoom}%</span>` : `<button type="button" class="dw-w" data-zoom="${c.id}">${c.label}</button>`,
+      );
     if (id === "views")
       return (["pages", "notes", "findings"] as const).map((p) => {
         const c = p === "pages" ? "" : ` <span class="dw-n">${countOf(p)}</span>`;
@@ -224,7 +229,14 @@ export function createScene(o: SceneOptions) {
     return words.join("");
   }
 
-  function groupContent(id: ItemId, kind: string): string {
+  /**
+   * The "+N" cell of a form that hides controls: it opens the popover listing exactly them (the » menu's component, one
+   * level down), drawn after the form's words.
+   */
+  const moreCell = (id: ItemId, hidden: readonly string[]): string =>
+    hidden.length === 0 ? "" : `<button type="button" class="dw-more" data-more="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${hidden.length} more ${esc(TITLES[id])} controls">+${hidden.length}</button>`;
+
+  function groupContent(id: ItemId, kind: string, hidden: readonly string[] = []): string {
     const sq = (label: string, attrs = ""): string => `<button type="button" class="dw-sq" ${attrs}>${label}</button>`;
     if (kind === "icons") {
       if (id === "tools") return groupWords(id).join("");
@@ -239,10 +251,10 @@ export function createScene(o: SceneOptions) {
           .join("");
       return sq("M") + sq("O") + sq("R") + sq("⬇");
     }
-    return wordRow(id, groupWords(id));
+    return wordRow(id, groupWords(id, hidden)) + moreCell(id, hidden);
   }
 
-  function inner(id: ItemId, kind: string, rows?: readonly (readonly number[])[]): string {
+  function inner(id: ItemId, kind: string, rows?: readonly (readonly number[])[], hidden: readonly string[] = []): string {
     const it = scene.items[id]!;
     if (it.kind === "chrome") return id === "title" ? '<span class="dw-title-t">Document title</span>' : '<span class="dw-ctl"></span><span class="dw-ctl"></span><span class="dw-ctl"></span>';
     if (it.kind === "panel") {
@@ -257,7 +269,7 @@ export function createScene(o: SceneOptions) {
       const words = groupWords(id);
       return `<span class="dw-dots" data-grip aria-hidden="true"></span><div class="dw-gc dw-wrapbox">${rows.map((row) => `<div class="dw-wrow">${wordRow(id, row.map((i) => words[i] ?? ""))}</div>`).join("")}</div>`;
     }
-    return `<span class="dw-dots" data-grip aria-hidden="true"></span><div class="dw-gc">${groupContent(id, kind)}</div>`;
+    return `<span class="dw-dots" data-grip aria-hidden="true"></span><div class="dw-gc">${groupContent(id, kind, hidden)}</div>`;
   }
 
   /** The axis an item lies along in `l`: its edge's, or its float's orient (default the item's, `floatOrientOf`). */
@@ -276,7 +288,7 @@ export function createScene(o: SceneOptions) {
     const region = p.floating ? "float" : (p.edge ?? "none");
     const cls = `dw-item dw-${p.kind} dw-k-${p.formKind} dw-ax-${axisOf(s, l, id)}${p.floating ? " dw-float" : ""}`;
     const r = p.rect;
-    return `<section class="${cls}" data-id="${id}" data-kind="${p.kind}" data-form="${p.formKind}" data-region="${region}" style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}">${inner(id, p.formKind, p.rows)}</section>`;
+    return `<section class="${cls}" data-id="${id}" data-kind="${p.kind}" data-form="${p.formKind}" data-region="${region}" style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}">${inner(id, p.formKind, p.rows, p.hidden)}</section>`;
   }
 
   /**
@@ -336,6 +348,8 @@ export function createScene(o: SceneOptions) {
    * solves without it (true), or without it for the edges listed (an opened panel takes its largest form that fits).
    */
   function commit(next: Scene, opts: { fresh?: boolean | EdgeId[] } = {}): SceneLayout {
+    // A "+N" popover belongs to the form it was opened from: any change redraws the items, and closes it.
+    closeMore(false);
     scene = next;
     let previous: SceneLayout | undefined = layout;
     if (opts.fresh === true) previous = undefined;
@@ -409,12 +423,12 @@ export function createScene(o: SceneOptions) {
   function heldForm(frame: HTMLElement, forms: Map<string, HeldForm>, id: ItemId, kind: string, spec: FormSpec, fromGrip: Point | null): HeldForm {
     const w = spec.size.width;
     const h = spec.size.height;
-    const key = `${spec.formKind}|${spec.axis}|${JSON.stringify(spec.rows ?? null)}|${Math.round(w)}x${Math.round(h)}`;
+    const key = `${spec.formKind}|${spec.axis}|${JSON.stringify(spec.rows ?? null)}|${spec.hidden.join(",")}|${Math.round(w)}x${Math.round(h)}`;
     const had = forms.get(key);
     if (had) return had;
     const el = document.createElement("section");
     el.className = `dw-item dw-${kind} dw-k-${spec.formKind} dw-ax-${spec.axis}`;
-    el.innerHTML = inner(id, spec.formKind, spec.rows);
+    el.innerHTML = inner(id, spec.formKind, spec.rows, spec.hidden);
     // Hidden until it heads in; it fades in from there.
     Object.assign(el.style, { left: "0px", top: "0px", width: px(w), height: px(h), opacity: "0", visibility: "hidden" });
     frame.append(el);
@@ -431,7 +445,7 @@ export function createScene(o: SceneOptions) {
     const a = t.after(d.pointer, d.grab);
     const it = a.layout.items[d.id];
     if (!it || it.inMenu || it.floating) return null;
-    return { formKind: it.formKind, axis: axisOf(a.scene, a.layout, d.id), rows: it.rows, size: it.rect };
+    return { formKind: it.formKind, axis: axisOf(a.scene, a.layout, d.id), rows: it.rows, hidden: it.hidden, size: it.rect };
   }
 
   /**
@@ -491,7 +505,7 @@ export function createScene(o: SceneOptions) {
     place(el, { x: p.x - grab.x, y: p.y - grab.y, width: was.rect.width, height: was.rect.height });
     win.append(el);
     const forms = new Map<string, HeldForm>();
-    const homeForm = heldForm(el, forms, id, was.kind, { formKind: was.formKind, axis: axisOf(scene, layout, id), rows: was.rows, size: was.rect }, null);
+    const homeForm = heldForm(el, forms, id, was.kind, { formKind: was.formKind, axis: axisOf(scene, layout, id), rows: was.rows, hidden: was.hidden, size: was.rect }, null);
     // The pointer's offset from the grip in the lifted form: every form keeps it, so the grip stays under the pointer.
     const fromGrip = { x: grab.x - homeForm.anchor.x, y: grab.y - homeForm.anchor.y };
     // Shown in full from the lift.
@@ -734,6 +748,66 @@ export function createScene(o: SceneOptions) {
     window.addEventListener("keydown", key);
   });
 
+  // --- the "+N" popover: the » menu's list, one level down ----------------------------------------------------------
+
+  /** The item whose "+N" popover is open, or null. */
+  let moreOf: ItemId | null = null;
+  const moreButton = (id: ItemId): HTMLElement | null => layer.querySelector<HTMLElement>(`.dw-item[data-id="${id}"] .dw-more`);
+  const controlLabel = (id: ItemId, c: string): string => (id === "zoom" ? (ZOOM_CONTROLS.find((x) => x.id === c)?.label ?? c) : c);
+
+  /** Opens `btn`'s popover under it, listing exactly its form's hidden controls (each acts as the real one). */
+  function openMore(btn: HTMLElement, focusFirst: boolean): void {
+    const id = btn.dataset.more as ItemId;
+    if (moreOf === id && !menuList.hidden) return closeMore(true);
+    const hidden = layout.items[id]?.hidden ?? [];
+    moreOf = id;
+    menuList.dataset.edge = "";
+    menuList.dataset.more = id;
+    menuList.setAttribute("aria-label", `More ${TITLES[id]} controls`);
+    menuList.innerHTML = hidden
+      .map((c) => `<button type="button" role="menuitem" tabindex="-1" data-hidden-control="${esc(c)}"${id === "zoom" ? ` data-zoom="${esc(c)}"` : ""}>${esc(controlLabel(id, c))}</button>`)
+      .join("");
+    const r = btn.getBoundingClientRect();
+    const w = win.getBoundingClientRect();
+    menuList.style.left = px(Math.max(0, Math.min(r.left - w.left, w.width - 160)));
+    menuList.style.top = px(r.bottom - w.top + 4);
+    menuList.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+    if (focusFirst) menuList.querySelector<HTMLElement>("button")?.focus();
+  }
+
+  /** Closes the "+N" popover, the focus back on its cell when `refocus`. */
+  function closeMore(refocus: boolean): void {
+    if (moreOf === null) return;
+    const id = moreOf;
+    moreOf = null;
+    delete menuList.dataset.more;
+    menuList.hidden = true;
+    const btn = moreButton(id);
+    btn?.setAttribute("aria-expanded", "false");
+    if (refocus) btn?.focus();
+  }
+
+  // Arrows move between the popover's controls, Home and End to its ends; Escape closes it, the focus back on "+N".
+  menuList.addEventListener("keydown", (e) => {
+    if (moreOf === null) return;
+    const items = [...menuList.querySelectorAll<HTMLElement>("button")];
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const go = (i: number): void => {
+      e.preventDefault();
+      items[(i + items.length) % items.length]?.focus();
+    };
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") go(at + 1);
+    else if (e.key === "ArrowUp" || e.key === "ArrowLeft") go(at < 0 ? items.length - 1 : at - 1);
+    else if (e.key === "Home") go(0);
+    else if (e.key === "End") go(items.length - 1);
+    else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      closeMore(true);
+    }
+  });
+
   win.addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
     // An edge's » menu: the items it holds, in order; picking one acts as its control would (here, a stub).
@@ -743,8 +817,17 @@ export function createScene(o: SceneOptions) {
       say(`${TITLES[pick.dataset.menuItem as ItemId]}, from the » menu: its controls would act here.`);
       return;
     }
+    // A "+N" cell: the popover lists exactly the controls its form hides; picking one acts as the real control.
+    const more = t.closest<HTMLElement>(".dw-more[data-more]");
+    if (more) {
+      // A keyboard press (Enter or Space) clicks with no pointer: the first control then takes the focus.
+      openMore(more, (e as MouseEvent).detail === 0);
+      return;
+    }
+    if (t.closest("[data-hidden-control]")) closeMore(false);
     const m = t.closest<HTMLElement>(".dw-menu[data-edge]");
     if (m) {
+      closeMore(false);
       const held = layout.edges[m.dataset.edge!]?.menu?.items ?? [];
       const open = !menuList.hidden && menuList.dataset.edge === m.dataset.edge;
       menuList.hidden = open;
@@ -757,7 +840,10 @@ export function createScene(o: SceneOptions) {
       menuList.style.top = px(r.bottom - w.top + 4);
       return;
     }
-    if (!t.closest(".dw-menu-list")) menuList.hidden = true;
+    if (!t.closest(".dw-menu-list")) {
+      closeMore(false);
+      menuList.hidden = true;
+    }
     const tg = t.closest<HTMLElement>("[data-toggle]");
     if (tg) return toggle(tg.dataset.toggle as ItemId);
     const x = t.closest<HTMLElement>("[data-close]");
@@ -866,8 +952,10 @@ export function createScene(o: SceneOptions) {
       const iconsCol = copy(id, "icons", "column", `${dots}<div class="dw-gc">${groupContent(id, "icons")}</div>`);
       const iconsRow = copy(id, "icons", "row", `${dots}<div class="dw-gc">${groupContent(id, "icons")}</div>`, `${BAR}px`);
       const fold = copy(id, "fold", "row", `${dots}<button type="button" class="dw-sq" title="${TITLES[id]}">»</button>`, `${BAR}px`);
-      out[id] = { row: size(row).width, words: widths.map(round), gap: Math.max(0, Math.round(gap)), wrapRow, lead, icons: size(iconsCol), iconsRow: size(iconsRow).width, fold: size(fold).width };
-      for (const el of [row, wrapped, iconsCol, iconsRow, fold]) el.remove();
+      // Each compact variant as `inner` draws it: the words it keeps and its "+N" cell.
+      const variants = (ROW_VARIANTS[id] ?? []).map((hides) => copy(id, "row", "row", `${dots}<div class="dw-gc">${groupContent(id, "row", hides)}</div>`, `${BAR}px`));
+      out[id] = { row: size(row).width, words: widths.map(round), gap: Math.max(0, Math.round(gap)), wrapRow, lead, icons: size(iconsCol), iconsRow: size(iconsRow).width, fold: size(fold).width, variants: variants.map((v) => size(v).width) };
+      for (const el of [row, wrapped, iconsCol, iconsRow, fold, ...variants]) el.remove();
     }
     return out;
   }
