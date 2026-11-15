@@ -5,6 +5,11 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.26
 
+- `./values`: the spring and the settle share one critically damped step and one store of components (value,
+  velocity, target), instead of two copies. Nothing public changes, and the numbers are bit-for-bit the same.
+- `./drag`: `targetAt` is the one pick rule. `@n-uf/placement/scene/cases` takes it as an input
+  (`createSceneHost({ pick: targetAt })`) instead of keeping a copy of its own.
+
 - **Removed:** `SurfacePointer` (deprecated in 26.11.25); use `GesturePointer`.
 
 - `./drag`, **`DragTarget.hits`** (additive, optional): a target's zone as several rects when it isn't one rect (`hit`
