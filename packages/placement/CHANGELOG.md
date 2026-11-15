@@ -6,7 +6,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 ## 26.11.24
 
 - `@n-uf/placement/scene`, **fixed:** `columnRoom` counts a side toolbar bar. A left or right bar that lays out an item
-  never folds, so its width (and the gutter after it, when it lies inside the inset) comes off the room before the
+  never folds (unless it gives way), so its width (and the gutter after it, when it lies inside the inset) comes off the room before the
   column's minimum is tested, and the `no-column-room` note's `width` is the room left after it. Anchors and rails
   still don't count (they fold into the rail), nor do empty or all-closed bars. Layouts don't change. New
   **`isSideBar(scene, edge)`** (a side toolbar bar, by its kinds; `isOutsideSideBar` is it with `outsideInset`).
