@@ -164,11 +164,8 @@ export function propertyCheck(seeds: readonly number[], flush = false): { points
         const key = (list: readonly SceneTarget[]): string => JSON.stringify(list.map((t) => [t.id, t.hit]));
         if (key(all) !== key(targets({ ...s, rails }, id).filter((t) => !t.free))) fail("refused-owns", `seed ${seed} drag ${id}: the refused rail:${side} moves other targets`);
       }
-      // Per zone: a refusal of a zone with no target but home owns nothing, so it never lies on another edge's drawn rect.
+      // A refusal owns nothing, whether its zone has targets or not: it never lies on another edge's drawn rect.
       for (const r of rs) {
-        // A zone with a target, or a column line or rail with one (their pieces are one id per side).
-        const live = (t: SceneTarget): boolean => t.id.startsWith(`gap:${r.edge}:${r.zone}:`) || t.id === `strip:${r.edge}:${r.zone}` || ((t.place.kind === "column" || t.place.kind === "rail") && t.id.startsWith(`${r.edge}:`));
-        if (all.some((t) => t.place.kind !== "home" && live(t))) continue;
         for (const [eid, e] of Object.entries(base.edges)) {
           if (eid === r.edge || e.rect.width <= 1e-6 || e.rect.height <= 1e-6) continue;
           const w = Math.min(r.hit.x + r.hit.width, e.rect.x + e.rect.width) - Math.max(r.hit.x, e.rect.x);
@@ -447,6 +444,17 @@ describe("the target model's property check", () => {
     const rs = refusals(s, "g0");
     expect(rs.filter((r) => r.edge === "top").some((r) => r.hit.x < col.x + col.width && r.hit.x + r.hit.width > col.x)).toBe(false);
     expect(rs.some((r) => r.edge === "left-col" && r.zone === "start" && r.reason === "not-accepted" && r.hit.y === col.y)).toBe(true);
+  });
+
+  it("a refused stretch owns nothing: an empty bottom bar's stretch with no slot of its own leaves a column's foot to it", () => {
+    // Seed 359, the group dragged out of the bottom bar (0 high once lifted): its start zone has a slot, but past the
+    // group's own place it has none. That stretch's band over the left column's foot is the column's: its last gap.
+    const s = modelScene(359);
+    const col = solve(lift(s, "g3")).edges["left-col"]!.rect;
+    const on = (r: R): boolean => r.x < col.x + col.width && r.x + r.width > col.x && r.y < col.y + col.height && r.y + r.height > col.y;
+    expect(refusals(s, "g3").filter((r) => r.edge === "bottom" && on(r.hit))).toEqual([]);
+    const foot = targets(s, "g3").find((t) => t.id.startsWith("gap:left-col:") && t.hit.y + t.hit.height === col.y + col.height);
+    expect(foot).toBeDefined();
   });
 
   it("an edge that only moves when the item lifts owns where it lies after the lift, not where it lay before", () => {
