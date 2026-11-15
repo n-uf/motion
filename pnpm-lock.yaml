@@ -83,6 +83,9 @@ importers:
 
   packages/placement:
     devDependencies:
+      '@n-uf/motion':
+        specifier: workspace:*
+        version: link:../motion
       '@types/node':
         specifier: ^25.5.0
         version: 25.9.9

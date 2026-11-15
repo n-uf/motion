@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { lift, refusals, solve, targets, type Scene, type SceneLayout, type SceneTarget, type Zone } from "../src/scene";
 import { lostSlots, opensEmpty, zoneExtents } from "../src/scene/targets";
-import { pickTarget } from "../src/scene/cases";
+import { targetAt } from "@n-uf/motion/drag";
 import { modelScene } from "./model-scene";
 import { bar, byId, column, group, panel } from "./scene-fixture";
 
@@ -374,7 +374,7 @@ describe("the target model's property check", () => {
     expect(gap.hit).toEqual(pieces.reduce((a, p) => (p.width * p.height > a.width * a.height ? p : a)));
     expect(refusals(s, "g0").filter((r) => r.edge === "left0")).toEqual([]);
     // A host that reads one rect still finds the target there by `hits` (the pick rule tests every piece).
-    expect(pickTarget(ts, { x: 4, y: home.y + 10 })?.id).toBe("gap:left0:start:1");
+    expect(targetAt(ts, { x: 4, y: home.y + 10 })?.id).toBe("gap:left0:start:1");
     expect(lostSlots(s, "g0")).toEqual([]);
   });
 

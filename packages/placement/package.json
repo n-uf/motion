@@ -123,6 +123,7 @@
     "prepack": "pnpm run build"
   },
   "devDependencies": {
+    "@n-uf/motion": "workspace:*",
     "@types/node": "^25.5.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",

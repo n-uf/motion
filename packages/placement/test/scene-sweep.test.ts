@@ -1,7 +1,7 @@
 /** Property sweeps over random scenes: several edges, rings, spans and modes, fixed items, zones, floats and kinds. */
+import { targetAt } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import { lift, solve, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
-import { pickTarget } from "../src/scene/cases";
 import { bar, byId, column, controls, group, panel, readout, seeded, title } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
@@ -269,7 +269,7 @@ describe("scene sweeps", () => {
           for (let j = 0; j < 5; j++) {
             const p = { x: it.rect.x + 0.5 + ((it.rect.width - 1) * i) / 4, y: it.rect.y + 0.5 + ((it.rect.height - 1) * j) / 4 };
             points++;
-            const t = pickTarget(ts, p);
+            const t = targetAt(ts, p);
             if (t && t.place.kind !== "home" && t.place.kind !== "none") throw new Error(`seed ${seed} drag ${id}: ${JSON.stringify(p)} on its own rect picks ${t.id}`);
           }
       }
