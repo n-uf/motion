@@ -12,7 +12,8 @@
  * ```
  *
  * Nothing about kinds, forms or limits is stored: those are the host's (`base`). An edge is matched by its id: its
- * side, ring and limits come from `base`, its order of items and its `size` from the store. Dynamic columns
+ * side, ring and limits come from `base`, its order of items and its `size` from the store; a static edge stored on
+ * the other side of its axis is moved there (`setSide`, as its side's outermost edge). Dynamic columns
  * (`column: true`) are the store's: one `base` lacks is made from `base.columns[side]`, its ring is the stored one, and
  * columns left empty are deleted, the rings closed up. No float has a pinned field: one an old store has is listed and
  * ignored.
@@ -27,8 +28,8 @@
  * A float's rect is clamped into the stage on read.
  */
 import { rect, type Size } from "../geometry";
-import { clampFloat, closeRings, drawnFloatSize, prune } from "./changes";
-import { SIDES, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
+import { clampFloat, closeRings, drawnFloatSize, prune, setSide } from "./changes";
+import { SIDES, axisOf, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
 
 export interface StoredSceneEdge {
   readonly id: string;
@@ -179,6 +180,7 @@ function read(data: unknown, base: Scene): SceneRead {
   const sizes = new Map<string, number | undefined>();
   const made: Edge[] = [];
   const rings = new Map<string, number>();
+  const moves = new Map<string, Side>();
   if (data.edges !== undefined && !Array.isArray(data.edges)) drop("edges");
   for (const e of Array.isArray(data.edges) ? (data.edges as unknown[]) : []) {
     if (!isObject(e) || typeof e.id !== "string") {
@@ -198,6 +200,7 @@ function read(data: unknown, base: Scene): SceneRead {
     }
     if (edge.column === true && isNum(e.ring)) rings.set(edge.id, e.ring);
     if (e.side !== undefined && !SIDES.includes(e.side as Side)) drop(`edge:${e.id}:side`);
+    else if (edge.column !== true && typeof e.side === "string" && e.side !== edge.side && axisOf(e.side as Side) === axisOf(edge.side)) moves.set(edge.id, e.side as Side);
     const ids: string[] = [];
     for (const id of Array.isArray(e.items) ? (e.items as unknown[]) : []) {
       if (!known(id) || placed.has(id)) drop(`edge:${edge.id}:${String(id)}`);
@@ -261,6 +264,7 @@ function read(data: unknown, base: Scene): SceneRead {
   // Base floats the store placed nowhere keep their base place.
   for (const f of base.floats) if (!placed.has(f.id)) floats.push(f);
   // Empty columns go; the sides' rings close up.
-  const scene = prune({ ...base, items, edges: closeRings(edges, new Set(made.length > 0 || rings.size > 0 ? ["left", "right"] : [])), floats });
+  let scene = prune({ ...base, items, edges: closeRings(edges, new Set(made.length > 0 || rings.size > 0 ? ["left", "right"] : [])), floats });
+  for (const [id, side] of moves) scene = setSide(scene, id, side);
   return { scene, dropped };
 }
