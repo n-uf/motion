@@ -37,8 +37,8 @@
  *   (outside the outermost open column, between two, inside the innermost; on a side with none, at the content's
  *   edge), `COLUMN_REACH` px each way, only where the new column shows open.
  * - `rail:<side>:<ring>` (1): docking folded into a side's rail (its rail and its template take the kind), before each
- *   folded column's segments and after the last, or a strip `RAIL_EDGE` px deep at the side's outer edge (past its
- *   outside toolbar bars, `isOutsideSideBar`) when no rail shows.
+ *   folded column's segments and after the last, or a strip `RAIL_EDGE` px deep where the rail lands (flush after its
+ *   outside toolbar bars, `isOutsideSideBar`, else at the window's side less the inset) when no rail shows.
  * - `none:<i>` (1): over each `scene.blocked` rect. It takes the pointer, and a release there commits nothing.
  * - `home:<id>` (1): over a docked item's own rect (or its » entry); a floating item has none, so a move inside its own
  *   rect is a float move. A release there commits nothing. A gap, column line or rail drop that
@@ -544,7 +544,7 @@ function columnTargets(scene: Scene, rest: Scene, base: SceneLayout, side: "left
 /**
  * `rail:<side>:<ring>` (priority 1): docking folded into the side's rail, when its rail and its column template take the
  * kind: before each folded column's segments and after the last (the rail split halfway between them), or, with no
- * rail shown, a strip `RAIL_EDGE` px deep at the side's outer edge, past its outside toolbar bars. The drop makes a column at that ring with the item
+ * rail shown, a strip `RAIL_EDGE` px deep where the rail lands (after the side's outside toolbar bars). The drop makes a column at that ring with the item
  * folded by hand, so it lands as a segment.
  */
 function railTargets(scene: Scene, rest: Scene, base: SceneLayout, side: "left" | "right", dragged: string, blockers: readonly Rect[], settle: (s: Scene) => SceneAfter): SceneTarget[] {
@@ -569,17 +569,21 @@ function railTargets(scene: Scene, rest: Scene, base: SceneLayout, side: "left" 
   } else {
     const span = sideSpan(base, side);
     const firstCol = mine.find((e) => e.column === true);
-    // At the side's outermost panel edge: past the side's bars outside the inset (they lie outermost, before the rail).
+    // Where `solve` lays the rail: flush after the side's bars outside the inset when it has any (they lie outermost),
+    // else at the window's side less the inset.
     const bars = new Set(rest.edges.filter((e) => e.side === side && isOutsideSideBar(rest, e)).map((e) => e.id));
-    const laid = Object.entries(base.edges).filter(([, e]) => e.side === side && e.rect.height > 0);
-    const outer = laid.filter(([id]) => !bars.has(id)).map(([, e]) => e);
-    // The bars' inner edge (where the rail would start), when the side has any.
-    const inner = laid.filter(([id]) => bars.has(id)).map(([, e]) => (side === "left" ? e.rect.x + e.rect.width : e.rect.x));
-    const barEnd = inner.length === 0 ? [] : [side === "left" ? Math.max(...inner) : Math.min(...inner)];
+    const inner = Object.entries(base.edges)
+      .filter(([id, e]) => bars.has(id) && e.rect.height > 0 && e.rect.width > 0)
+      .map(([, e]) => (side === "left" ? e.rect.x + e.rect.width : e.rect.x));
+    const pad = Number.isFinite(rest.inset?.[side]) ? Math.max(0, rest.inset![side]!) : 0;
     const x =
-      side === "left"
-        ? Math.min(base.content.x, ...outer.map((e) => e.rect.x), ...barEnd)
-        : Math.max(base.content.x + base.content.width, ...outer.map((e) => e.rect.x + e.rect.width), ...barEnd);
+      inner.length > 0
+        ? side === "left"
+          ? Math.max(...inner)
+          : Math.min(...inner)
+        : side === "left"
+          ? rest.stage.x + pad
+          : rest.stage.x + rest.stage.width - pad;
     zone = rect(side === "left" ? x : x - RAIL_EDGE, span.y, RAIL_EDGE, span.height);
     stops.push({ y: span.y, ring: firstCol ? ringOf(firstCol.id) : mine.length });
   }
