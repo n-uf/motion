@@ -1,6 +1,7 @@
-import type { Animatable, Layout, Widen } from "../shapes";
-import { layoutOf, makeValue, sameLayout, writeComponents } from "../shapes";
+import type { Animatable, Widen } from "../shapes";
+import { writeComponents } from "../shapes";
 import type { Animator } from "./animator";
+import { ComponentAnimator, criticalStep } from "./step";
 
 /**
  * Tempos for {@link createSettle}, in 1/s: a settle covers 90 % of the way in
@@ -67,44 +68,17 @@ function positive(name: string, value: number): number {
   return value;
 }
 
-class SettleAnimator implements Settle<Animatable> {
-  readonly layout: Layout;
-  readonly x: Float64Array;
-  readonly v: Float64Array;
-  readonly goal: Float64Array;
+class SettleAnimator extends ComponentAnimator implements Settle<Animatable> {
   omega: number;
   restDelta: number;
-  settled = true;
-  cachedValue: Animatable | null = null;
+  // One step's shared numbers (`begin`): e^(−omega·t) and the rest speed.
+  private e = 1;
+  private restSpeed = 0;
 
   constructor(initial: Animatable, config: SettleConfig) {
-    this.layout = layoutOf(initial);
-    this.x = new Float64Array(this.layout.size);
-    this.v = new Float64Array(this.layout.size);
-    this.goal = new Float64Array(this.layout.size);
-    writeComponents(initial, this.x);
-    writeComponents(initial, this.goal);
+    super(initial, "settle");
     this.omega = positive("omega", config.omega ?? SETTLE_DEFAULTS.omega);
     this.restDelta = positive("restDelta", config.restDelta ?? SETTLE_DEFAULTS.restDelta);
-  }
-
-  get value(): Animatable {
-    if (this.cachedValue === null) this.cachedValue = makeValue(this.layout, this.x);
-    return this.cachedValue;
-  }
-
-  get velocity(): Animatable {
-    return makeValue(this.layout, this.v);
-  }
-
-  get target(): Animatable {
-    return makeValue(this.layout, this.goal);
-  }
-
-  check(value: Animatable, what: string): void {
-    if (!sameLayout(layoutOf(value), this.layout)) {
-      throw new TypeError(`settle: ${what} has a different shape than the settle's value`);
-    }
   }
 
   /** The launch/clamp/carry rule on component `i`: `launch` for a new target, else clamp or carry. */
@@ -123,16 +97,6 @@ class SettleAnimator implements Settle<Animatable> {
     if (Math.abs(v) > Math.abs(limit)) this.v[i] = limit;
   }
 
-  updateSettled(): void {
-    for (let i = 0; i < this.x.length; i++) {
-      if (this.x[i] !== this.goal[i] || this.v[i] !== 0) {
-        this.settled = false;
-        return;
-      }
-    }
-    this.settled = true;
-  }
-
   setTarget(target: Animatable): void {
     this.check(target, "the target");
     writeComponents(target, this.goal);
@@ -147,24 +111,8 @@ class SettleAnimator implements Settle<Animatable> {
     this.updateSettled();
   }
 
-  jumpTo(value: Animatable): void {
-    this.check(value, "the value");
-    writeComponents(value, this.x);
-    writeComponents(value, this.goal);
-    this.v.fill(0);
-    this.cachedValue = null;
-    this.settled = true;
-  }
-
   hold(value: Animatable): void {
     this.jumpTo(value);
-  }
-
-  snap(): void {
-    this.x.set(this.goal);
-    this.v.fill(0);
-    this.cachedValue = null;
-    this.settled = true;
   }
 
   configure(config: SettleConfig): void {
@@ -173,30 +121,20 @@ class SettleAnimator implements Settle<Animatable> {
     for (let i = 0; i < this.x.length; i++) this.rule(i, false);
   }
 
-  step(dtMs: number): boolean {
-    if (this.settled) return false;
-    if (!(dtMs > 0)) return true;
-    const w = this.omega;
-    const t = dtMs / 1000;
-    const e = Math.exp(-w * t);
-    const { x, v, goal, restDelta } = this;
+  protected begin(t: number): void {
+    this.e = Math.exp(-this.omega * t);
     // At rest when every component is within restDelta and no faster than a launch from there would be.
-    const restSpeed = w * restDelta * 1.000001;
-    let resting = true;
-    for (let i = 0; i < x.length; i++) {
-      // The exact critically damped step: d(t) = e^(−wt)·(d + b·t), b = v + w·d.
-      const d = x[i]! - goal[i]!;
-      const b = v[i]! + w * d;
-      const nd = e * (d + b * t);
-      v[i] = e * (v[i]! - w * b * t);
-      x[i] = goal[i]! + nd;
-      // Within a few float steps of the goal counts as arrived too: a restDelta finer than that would never be met.
-      const near = Math.max(restDelta, 4 * Number.EPSILON * Math.abs(goal[i]!));
-      if (resting && (Math.abs(nd) > near || Math.abs(v[i]!) > Math.max(restSpeed, w * near))) resting = false;
-    }
-    this.cachedValue = null;
-    if (resting) this.snap();
-    return !this.settled;
+    this.restSpeed = this.omega * this.restDelta * 1.000001;
+  }
+
+  protected advance(d0: number, v0: number, t: number, out: Float64Array): void {
+    criticalStep(this.omega, this.e, d0, v0, t, out);
+  }
+
+  protected rests(i: number, d: number, v: number): boolean {
+    // Within a few float steps of the goal counts as arrived too: a restDelta finer than that would never be met.
+    const near = Math.max(this.restDelta, 4 * Number.EPSILON * Math.abs(this.goal[i]!));
+    return !(Math.abs(d) > near || Math.abs(v) > Math.max(this.restSpeed, this.omega * near));
   }
 }
 

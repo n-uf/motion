@@ -1,6 +1,7 @@
-import type { Animatable, Layout, Widen } from "../shapes";
-import { layoutOf, makeValue, sameLayout, writeComponents } from "../shapes";
+import type { Animatable, Widen } from "../shapes";
+import { writeComponents } from "../shapes";
 import type { Animator } from "./animator";
+import { ComponentAnimator, criticalStep } from "./step";
 
 /**
  * Spring settings. Time is in milliseconds everywhere in the API; the physics
@@ -101,11 +102,7 @@ function solverFor(params: SpringParams): Solver {
  */
 function advance(solver: Solver, d0: number, v0: number, t: number, out: Float64Array): void {
   if (solver.mode === CRITICAL) {
-    const w = solver.omega;
-    const e = Math.exp(-w * t);
-    const b = v0 + w * d0;
-    out[0] = e * (d0 + b * t);
-    out[1] = e * (v0 - w * b * t);
+    criticalStep(solver.omega, Math.exp(-solver.omega * t), d0, v0, t, out);
   } else if (solver.mode === UNDERDAMPED) {
     const a = solver.decay;
     const wd = solver.omegaD;
@@ -151,59 +148,16 @@ export interface Spring<T> extends Animator<T> {
   configure(config: SpringConfig): void;
 }
 
-class SpringAnimator implements Spring<Animatable> {
-  readonly layout: Layout;
-  readonly x: Float64Array;
-  readonly v: Float64Array;
-  readonly goal: Float64Array;
-  readonly scratch = new Float64Array(2);
+class SpringAnimator extends ComponentAnimator implements Spring<Animatable> {
   config: SpringConfig;
   params: SpringParams;
   solver: Solver;
-  settled = true;
-  cachedValue: Animatable | null = null;
 
   constructor(initial: Animatable, config: SpringConfig) {
-    this.layout = layoutOf(initial);
-    const size = this.layout.size;
-    this.x = new Float64Array(size);
-    this.v = new Float64Array(size);
-    this.goal = new Float64Array(size);
-    writeComponents(initial, this.x);
-    writeComponents(initial, this.goal);
+    super(initial, "spring");
     this.config = config;
     this.params = resolveSpring(config);
     this.solver = solverFor(this.params);
-  }
-
-  get value(): Animatable {
-    if (this.cachedValue === null) this.cachedValue = makeValue(this.layout, this.x);
-    return this.cachedValue;
-  }
-
-  get velocity(): Animatable {
-    return makeValue(this.layout, this.v);
-  }
-
-  get target(): Animatable {
-    return makeValue(this.layout, this.goal);
-  }
-
-  check(value: Animatable, what: string): void {
-    if (!sameLayout(layoutOf(value), this.layout)) {
-      throw new TypeError(`spring: ${what} has a different shape than the spring's value`);
-    }
-  }
-
-  /** At rest exactly when on the target and not moving. */
-  updateSettled(): void {
-    for (let i = 0; i < this.x.length; i++) {
-      if (this.x[i] !== this.goal[i] || this.v[i] !== 0) {
-        this.settled = false;
-        return;
-      }
-    }
-    this.settled = true;
   }
 
   setTarget(target: Animatable): void {
@@ -219,44 +173,20 @@ class SpringAnimator implements Spring<Animatable> {
     this.updateSettled();
   }
 
-  jumpTo(value: Animatable): void {
-    this.check(value, "the value");
-    writeComponents(value, this.x);
-    writeComponents(value, this.goal);
-    this.v.fill(0);
-    this.cachedValue = null;
-    this.settled = true;
-  }
-
-  snap(): void {
-    this.x.set(this.goal);
-    this.v.fill(0);
-    this.cachedValue = null;
-    this.settled = true;
-  }
-
   configure(config: SpringConfig): void {
     this.config = { ...this.config, ...config };
     this.params = resolveSpring(this.config);
     this.solver = solverFor(this.params);
   }
 
-  step(dtMs: number): boolean {
-    if (this.settled) return false;
-    if (!(dtMs > 0)) return true;
-    const t = dtMs / 1000;
-    const { x, v, goal, scratch } = this;
-    const { restDelta, restSpeed } = this.params;
-    let resting = true;
-    for (let i = 0; i < x.length; i++) {
-      advance(this.solver, x[i]! - goal[i]!, v[i]!, t, scratch);
-      x[i] = goal[i]! + scratch[0]!;
-      v[i] = scratch[1]!;
-      if (resting && (Math.abs(scratch[0]!) > restDelta || Math.abs(scratch[1]!) > restSpeed)) resting = false;
-    }
-    this.cachedValue = null;
-    if (resting) this.snap();
-    return !this.settled;
+  protected begin(): void {}
+
+  protected advance(d0: number, v0: number, t: number, out: Float64Array): void {
+    advance(this.solver, d0, v0, t, out);
+  }
+
+  protected rests(_i: number, d: number, v: number): boolean {
+    return !(Math.abs(d) > this.params.restDelta || Math.abs(v) > this.params.restSpeed);
   }
 }
 
