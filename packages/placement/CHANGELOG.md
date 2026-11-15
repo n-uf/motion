@@ -14,6 +14,14 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   a title bar lands in a form of its first form's kind (the full row or a variant), read from the forms rather than
   from index 0. **Typing:** code that builds a `SceneItemLayout` itself needs `hidden`.
 
+- `@n-uf/placement/stack`, **Changed: a growing fixed item (a title) holds its natural length first.** While the other
+  items of its stack can still step to a form of the kind they are in (a toolbar's compact variants) or shrink toward
+  their least, they do so before the title gives up any of its natural width; then the title shrinks, and after it come
+  the steps that change a form's kind (icons, fold, the » menu), by priority then age. Room coming back is the exact
+  reverse. In a title bar a narrowing window now steps toolbar variants (and shrinks toolbars) before the title, and a
+  toolbar dropped onto a crowded title bar lands in its compact variant. `StackFit.need` is the forms' least with every
+  growing fixed item at its minimum.
+
 - `@n-uf/placement/scene` and `/stack`, **the Scene owns the whole window**. Nothing published is removed.
   - **What moved:** `fitFloat` and `FloatFit` are exported by `./scene` (the Scene fits its floats with it). `./scene`
     no longer reaches into `./stack`'s files: it uses `./stack` only as the edge solver, through its entry.
