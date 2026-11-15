@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.25
+## Unreleased
 
 - `@n-uf/placement/scene` and `/stack`, **the Scene owns the whole window**. Nothing published is removed.
   - **What moved:** `fitFloat` and `FloatFit` are exported by `./scene` (the Scene fits its floats with it). `./scene`
@@ -17,6 +17,21 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     → the stored scene's floats (`Scene.floats`); `fitFloat`, `FloatFit` → the same names from `./scene`.
   - **Stays in `./stack`:** the edge solver, `fitStack` with `StackInput`, `StackItem`, `StackFit`, and the form
     vocabulary (`StackForm`, `CrossLimits` and the form helpers).
+
+- `@n-uf/placement/scene`, **Changed: space ownership, refined** (the 26.11.25 target model's rules):
+  - A refused place owns nothing against other edges, zone by zone: an edge owns its band only along the zones with
+    a slot the filter keeps (home's place aside), and a refusal of a zone with none takes only what every surviving
+    target's tile and every other edge's owned rect leave (within its own edge a refusal keeps its tile). So a panel
+    can always become its own column beside the others: in a window with no inset and a side bar, an empty rail that
+    would refuse the drop no longer hides the new-column target just inside the bar (`column:<side>:<ring>`); and an
+    empty top bar whose zone holds only the dragged item's place no longer covers a column's top band.
+  - An edge that only moves when the dragged item lifts (a side bar pushed inward by a rail that empties) owns where it
+    lies after the lift, where its tiles are, never its old place: that left a stretch beside a column with no target.
+  - Clipping changes a slot's shape, never who owns it: whatever is left of a slot's tile is the slot's. A target left
+    in pieces has **`hits`** (every piece; additive, optional on `Target`), `hit` the largest piece for hosts that
+    read one rect. `pickTarget` (`./scene/cases`) tests every piece. Nothing of a slot's own room is refused any more.
+
+## 26.11.25
 
 - `@n-uf/placement` (root), **one geometry** (additive): the rect math every entry shares is the root's: `EPS`,
   `PLANE`, `area`, `overlaps`, `contains`, `clamp`, `subtract` (a rect less another, as disjoint rects), and the hit
@@ -69,17 +84,6 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
       `at` keeping its id.
     - An overlay column is drawn on top, and what shows on top wins: an empty rail's place under an overlay column
       offers no `rail:` stop there, and a column line beside an overlay column yields to it.
-    - A refused place owns nothing against other edges, zone by zone: an edge owns its band only along the zones with
-      a slot the filter keeps (home's place aside), and a refusal of a zone with none takes only what every surviving
-      target's tile and every other edge's owned rect leave (within its own edge a refusal keeps its tile). So a panel
-      can always become its own column beside the others: in a window with no inset and a side bar, an empty rail that
-      would refuse the drop no longer hides the new-column target just inside the bar (`column:<side>:<ring>`); and an
-      empty top bar whose zone holds only the dragged item's place no longer covers a column's top band.
-    - An edge that only moves when the dragged item lifts (a side bar pushed inward by a rail that empties) owns where it
-      lies after the lift, where its tiles are, never its old place: that left a stretch beside a column with no target.
-    - Clipping changes a slot's shape, never who owns it: whatever is left of a slot's tile is the slot's. A target left
-      in pieces has **`hits`** (every piece; additive, optional on `Target`), `hit` the largest piece for hosts that
-      read one rect. `pickTarget` (`./scene/cases`) tests every piece. Nothing of a slot's own room is refused any more.
 
   - Typing: `SceneRefusal["reason"]` gains `own-place`; an exhaustive `switch` over it needs the case.
 
