@@ -7,7 +7,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 - `./layout`, **`anchoredMorph(size, anchor, config?)`** (additive): a box held at a point that changes size about an
   anchor. `to(size, anchor)` settles the size and the anchor together, interruptible (a retarget mid-flight turns from
-  where it is drawn: no jump, no overshoot), at `MORPH_TEMPO` (about 125 ms) unless the settle config says otherwise;
+  where it is drawn: no jump, no overshoot), at `MORPH_TEMPO` (90 % in about 60 ms, within 1 % in about 125 ms; the
+  last pixels take longer for large size changes) unless the settle config says otherwise;
   `rectAt(point)` keeps the anchor exactly on the point every frame, and `progress` (0 to 1 since the last retarget)
   drives a fade between the content it came from and the target's. Types `AnchoredMorph`, `BoxSize`. For a held item
   that takes another form mid-drag with its grip kept under the pointer: the caller anchors each form at its grip.
