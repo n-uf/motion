@@ -7,6 +7,7 @@
  * "Conformance rows" runs every row of `@n-uf/placement/scene/cases` on its in-memory host, right here (no frame): the
  * same rows the UI kits' suites run on their own hosts. The DOM checks have no page behind them here and are skipped.
  */
+import { targetAt } from "@n-uf/motion/drag";
 import { CASES, CASE_GROUPS, createSceneHost, runCase } from "@n-uf/placement/scene/cases";
 import { passes, type LabRun, type ScenarioFilter } from "../shared/hooks";
 import { routeHash } from "./api";
@@ -81,7 +82,8 @@ function conformance(filter?: ScenarioFilter): CheckRow[] {
   for (const row of CASES) {
     const scenario = `${row.id} ${row.title}`;
     if (!passes(scenario, filter)) continue;
-    const result = runCase(row, createSceneHost());
+    // The one pick rule: motion's, the rule the lab's drag sessions run.
+    const result = runCase(row, createSceneHost({ pick: targetAt }));
     out.push({
       page: ROWS_PAGE,
       scenario,
