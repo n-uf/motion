@@ -660,11 +660,17 @@ function edgeTargets(scene: Scene, rest: Scene, now: SceneLayout, base: SceneLay
       const k = ZONE_ORDER[g.zone];
       const prev = live[i - 1]?.zone === g.zone ? live[i - 1] : undefined;
       const next = live[i + 1]?.zone === g.zone ? live[i + 1] : undefined;
-      // The nearest gap to the pointer, its line taken inside the third (a zone whose items run past its third still
-      // offers its last gap at the third's edge).
-      const lo = k === 0 ? -Infinity : main0 + (length * k) / 3;
-      const hi = k === 2 ? Infinity : main0 + (length * (k + 1)) / 3;
-      const inThird = (x: number): number => Math.min(Math.max(x, lo), hi);
+      // The nearest gap to the pointer within the third. When the zone's lines run past its third (long toolbars, or a
+      // center zone reaching into a side's third), they are spread proportionally inside it, so every gap of the zone
+      // keeps a slice of its own.
+      const a = main0 + (length * k) / 3;
+      const b = main0 + (length * (k + 1)) / 3;
+      const lines = live.filter((x) => x.zone === g.zone).map((x) => x.line);
+      const span0 = Math.min(a, ...lines);
+      const span1 = Math.max(b, ...lines);
+      const inThird = (x: number): number => (span1 - span0 > EPS ? a + ((x - span0) / (span1 - span0)) * (b - a) : x);
+      const lo = k === 0 ? -Infinity : a;
+      const hi = k === 2 ? Infinity : b;
       from = Math.max(lo, prev ? (inThird(prev.line) + inThird(g.line)) / 2 : lo);
       to = Math.min(hi, next ? (inThird(g.line) + inThird(next.line)) / 2 : hi);
     }

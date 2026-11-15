@@ -73,6 +73,28 @@ describe("a bar's zones by thirds", () => {
     expect(after.hit.width).toBeGreaterThan(0);
   });
 
+  it("a zone whose toolbars run past its third still offers every gap a slice of the third (the last one too)", () => {
+    // A 615 px bar: two leading toolbars (8..208, 212..412) run past its left third (205).
+    const base = windowScene(615, 600);
+    const s: Scene = {
+      ...base,
+      edges: base.edges.map((e) => (e.id === "toolbar" ? { ...e, items: ["views", "tools"] } : e.id === "titlebar" ? e : { ...e, items: e.items.filter((x) => x !== "views" && x !== "tools") })),
+      floats: [{ id: "zoom", rect: { x: 300, y: 300, width: 200, height: 36 } }],
+      items: { ...base.items, zoom: { ...base.items.zoom!, align: "start" } },
+    };
+    const l = solve(s);
+    expect(l.items.tools!.rect.x + l.items.tools!.rect.width).toBeGreaterThan(615 / 3);
+    const ts = targets(s, "zoom");
+    for (const at of [0, 1, 2]) {
+      const t = ts.find((x) => x.id === `gap:toolbar:start:${at}`)!;
+      expect(t, `gap:toolbar:start:${at}`).toBeDefined();
+      expect(t.hit.width * t.hit.height).toBeGreaterThan(0);
+      expect(t.hit.x + t.hit.width).toBeLessThanOrEqual(615 / 3 + 1e-6);
+    }
+    // Every bar gap target of every zone has an area.
+    for (const t of ts) if (t.id.startsWith("gap:toolbar:")) expect(t.hit.width * t.hit.height).toBeGreaterThan(0);
+  });
+
   it("every target's slot is its landing, and a title bar's slot never covers the title's natural rect or the controls", () => {
     for (const s of [put(windowScene(), "toolbar", ["tools", "zoom"]), align(put(windowScene(), "titlebar", ["tools"]), "tools", "center"), align(put(windowScene(), "titlebar", ["tools"]), "tools", "end")]) {
       for (const t of targets(s, "views")) {
