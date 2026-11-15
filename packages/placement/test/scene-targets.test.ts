@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { solve, targets, use, type Scene } from "../src/scene";
+import { reservedRect, solve, targets, use, type Scene } from "../src/scene";
 import { bar, byId, column, group, panel, windowScene } from "./scene-fixture";
 
 const r = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
@@ -196,6 +196,12 @@ describe("a growing fixed title", () => {
     expect(after.items.title!.rect.width).toBeGreaterThanOrEqual(80);
     // The slot never lies over the title's natural rect.
     expect(overlapsX(gap.slot!, 0, 160)).toBe(false);
+  });
+
+  it("reservedRect gives what a fixed item keeps clear: the grown title its natural rect, other fixed items their rect", () => {
+    const l = solve(s);
+    expect(reservedRect(s, l, "title")).toEqual({ ...l.items.title!.rect, width: 160 });
+    for (const [id, it] of Object.entries(l.items)) if (it.fixed && id !== "title") expect(reservedRect(s, l, id)).toEqual(it.rect);
   });
 
   it("a group moved out of the title bar can always go back (the operator's zoom case)", () => {

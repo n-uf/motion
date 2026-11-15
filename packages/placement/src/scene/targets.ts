@@ -194,12 +194,12 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   return out;
 }
 
-/** Where things are, without ages or the ids of dynamic columns: two scenes with one key place every item alike. */
 /**
  * What a fixed item reserves in `l`: its drawn rect, or for a form that grows only its natural length, placed by its
- * zone (from its start, from its end in the end zone, centred in the centre zone).
+ * zone (from its start, from its end in the end zone, centred in the centre zone). No hit or slot ever lies there, so a
+ * host that draws "no drop" areas reads them from here.
  */
-function reservedRect(scene: Scene, l: SceneLayout, id: string): Rect {
+export function reservedRect(scene: Scene, l: SceneLayout, id: string): Rect {
   const it = l.items[id]!;
   const e = it.edge ? l.edges[it.edge] : undefined;
   const f = e ? formsOf(scene.items[id]!, axisOf(e.side))[it.form] : undefined;
@@ -211,6 +211,7 @@ function reservedRect(scene: Scene, l: SceneLayout, id: string): Rect {
   return column ? rect(it.rect.x, it.rect.y + shift, it.rect.width, keep) : rect(it.rect.x + shift, it.rect.y, keep, it.rect.height);
 }
 
+/** Where things are, without ages or the ids of dynamic columns: two scenes with one key place every item alike. */
 function placeKey(s: Scene, id: string): string {
   const it = Object.hasOwn(s.items, id) ? s.items[id] : undefined;
   return JSON.stringify({
