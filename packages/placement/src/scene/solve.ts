@@ -609,21 +609,26 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       // The gap just outside the next edge: the inset at the window's side, then a gutter. An edge outside the inset
       // (an anchor) lies before that gap, which then follows it.
       let gap = px(side === "left" ? inset.left : inset.right);
+      /** Whether one of the side's outside bars is laid already (the rail then lies flush after it). */
+      let barLaid = false;
       for (const c of mine) {
-        // The side's rail is its outermost panel edge: past the side's outside bars only, at the window's side otherwise
-        // (inside the inset); an anchor lies inside it.
+        // The side's rail is its outermost panel edge; an anchor lies flush inside it. After the side's outside bars it
+        // lies outside the inset too, flush after them, the inset (at least a gutter) then following it and the anchor.
+        // With no such bar it lies at the window's side inside the inset, a gutter after it (the hosts' rows).
         if (!railRect && railed.length > 0 && !outsideSideBar(c)) {
           const w = railW(side);
+          const lead = barLaid ? gap : 0;
+          const after = barLaid ? Math.max(gap, gutter) : gutter;
           if (side === "left") {
-            railRect = rect(x0, area.y, w, H);
-            x0 += w + gutter;
+            railRect = rect(x0 - lead, area.y, w, H);
+            x0 += w - lead + after;
           } else {
-            x1 -= w;
-            railRect = rect(x1, area.y, w, H);
-            x1 -= gutter;
+            railRect = rect(x1 + lead - w, area.y, w, H);
+            x1 -= w - lead + after;
           }
-          gap = gutter;
+          gap = after;
         }
+        if (outsideSideBar(c)) barLaid = true;
         const base = { side: c.edge.side, ring: finite(c.edge.ring, 0), cross: 0, menu: null, tabs: [], stack: c.solved.stack, free: c.solved.free };
         if (g.railed(c)) {
           edges[c.edge.id] = { ...base, rect: rect(railRect!.x, area.y, 0, H), folded: g.auto.has(c) ? "auto" : "hand" };
