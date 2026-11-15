@@ -23,10 +23,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `menu.items` in order: it draws, never decides. Without priorities nothing changes.
 
 - `@n-uf/placement/scene`, local targets (**Changed**): a target wins only where its own hit is. Home is offered only
-  over the item's own place: a home gap's hit keeps the item's rect and half a band (`DEFAULT_HIT_BAND / 2`) each way
-  along its edge, and the room it gives up goes to the gaps beside it on that edge, so the slot shown is at the pointer
-  or right next to it, never a "back to its place" preview far away. Affected: drags of an item in a bar whose zone held
-  only its own gap (that zone's whole third used to preview home).
+  over the item's own place: its hit is the item's rect and half a band (`DEFAULT_HIT_BAND / 2`) each way along its
+  edge, across the edge's full hit thickness, cut out of every other gap hit (and empty-edge strip) there. The rest of
+  its gaps' slices goes only to the gap beside it in the same zone; with none there, that stretch has no target (the
+  pointer shows nothing, a release goes home), never a "back to its place" preview far away and never a gap of another
+  zone. Affected: drags of an item in a bar whose zone held only its own gap (that zone's whole third used to preview
+  home), and items whose own rect lay outside their gap's slice (home now always covers them).
 - `@n-uf/placement/scene`, **`refusals(scene, dragged, options?)`** (additive): `{ id: "refuse:<edge>:<zone>", edge,
   zone, hit, reason: "no-room" | "not-accepted" }[]`, the bar zones (by thirds) with no target and the side edges that
   don't take the kind, each hit cut clear of every target's hit. A host shows "no room here" at the pointer over one,

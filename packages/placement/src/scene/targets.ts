@@ -142,10 +142,11 @@ export function cutClear(hit: Rect, blockers: readonly Rect[], keep: Point): Rec
 }
 
 /**
- * Home is offered only over the item's own place: a home gap's hit (the gap beside the item, in its own edge) keeps only
- * the item's rect and half a band (`DEFAULT_HIT_BAND / 2`) each way along the edge. What it gives up goes to the gap hits
- * next to it on that edge (each extended to meet what home keeps), so a pointer there sees the slot beside it, never a
- * home preview far away. A home gap with nothing left is dropped.
+ * Home is offered only over the item's own place: its hit is the item's rect and half a band (`DEFAULT_HIT_BAND / 2`)
+ * each way along the edge, across the full thickness of its gaps' hits, wherever the home gaps' slices were; it is cut
+ * out of every other gap hit on that edge. The rest of the home gaps' slices goes to the gap beside it in the same zone
+ * (each extended to meet it); a stretch with no such neighbour has no target (a pointer there shows nothing, and a
+ * release goes home), and home never grows back over it.
  */
 function homeOnlyOverItsPlace(out: SceneTarget[], now: SceneLayout): void {
   const dragged = out[0]?.item;
@@ -156,24 +157,45 @@ function homeOnlyOverItsPlace(out: SceneTarget[], now: SceneLayout): void {
   const r = mine.rect;
   const band = DEFAULT_HIT_BAND / 2;
   const edgeOf = (t: SceneTarget): string | undefined => (t.id.startsWith("gap:") ? t.id.split(":")[1] : undefined);
+  const zoneOfId = (t: SceneTarget): string | undefined => (t.id.startsWith("gap:") ? t.id.split(":")[2] : undefined);
   const span = (x: SceneTarget): [number, number] => (column ? [x.hit.y, x.hit.y + x.hit.height] : [x.hit.x, x.hit.x + x.hit.width]);
-  const withSpan = (x: SceneTarget, from: number, to: number): SceneTarget => ({ ...x, hit: column ? rect(x.hit.x, from, x.hit.width, to - from) : rect(from, x.hit.y, to - from, x.hit.height) });
-  for (let i = out.length - 1; i >= 0; i--) {
-    const t = out[i]!;
-    if (t.place.kind !== "home" || edgeOf(t) !== mine.edge) continue;
-    const [a0, a1] = span(t);
-    const k0 = Math.max(a0, (column ? r.y : r.x) - band);
-    const k1 = Math.min(a1, (column ? r.y + r.height : r.x + r.width) + band);
-    // The gap hits that meet this one along the edge, before and after it.
-    const near = out.filter((x) => x !== t && edgeOf(x) === mine.edge && x.place.kind === "gap");
+  const cross = (x: SceneTarget): [number, number] => (column ? [x.hit.x, x.hit.x + x.hit.width] : [x.hit.y, x.hit.y + x.hit.height]);
+  const make = (x: SceneTarget, from: number, to: number, c?: [number, number]): SceneTarget => {
+    const [c0, c1] = c ?? cross(x);
+    return { ...x, hit: column ? rect(c0, from, c1 - c0, to - from) : rect(from, c0, to - from, c1 - c0) };
+  };
+  const homes = out.filter((t) => t.place.kind === "home" && edgeOf(t) === mine.edge);
+  const k0 = (column ? r.y : r.x) - band;
+  const k1 = (column ? r.y + r.height : r.x + r.width) + band;
+  const c0 = Math.min(...homes.map((h) => cross(h)[0]));
+  const c1 = Math.max(...homes.map((h) => cross(h)[1]));
+  // What each home slice gives up goes to its same-zone neighbour that meets it there, else to nothing.
+  for (const h of homes) {
+    const [a0, a1] = span(h);
+    const near = out.filter((x) => x.place.kind === "gap" && edgeOf(x) === mine.edge && zoneOfId(x) === zoneOfId(h));
     const before = near.find((x) => Math.abs(span(x)[1] - a0) < 1);
     const after = near.find((x) => Math.abs(span(x)[0] - a1) < 1);
-    const kept = k1 - k0 > EPS;
-    if (before && (!kept || k0 > a0 + EPS)) out[out.indexOf(before)] = withSpan(before, span(before)[0], kept ? k0 : after ? (a0 + a1) / 2 : a1);
-    if (after && (!kept || k1 < a1 - EPS)) out[out.indexOf(after)] = withSpan(after, kept ? k1 : before ? (a0 + a1) / 2 : a0, span(after)[1]);
-    if (!kept) out.splice(i, 1);
-    else out[i] = withSpan(t, k0, k1);
+    if (before && a0 < k0 - EPS) out[out.indexOf(before)] = make(before, span(before)[0], Math.min(a1, k0));
+    if (after && a1 > k1 + EPS) out[out.indexOf(after)] = make(after, Math.max(a0, k1), span(after)[1]);
   }
+  const first = homes[0];
+  // One home target, where the first home gap was in the list (none when no gap beside the item is its home: the
+  // `home:<id>` target over its rect is, and the gaps are still cut clear of it).
+  for (const h of homes.slice(1)) out.splice(out.indexOf(h), 1);
+  const at = first ? out.indexOf(first) : -1;
+  if (first) out.splice(at, 1);
+  // Cut the home stretch out of the other gap hits on the edge (a gap hit straddling it keeps its larger side).
+  for (let i = out.length - 1; i >= 0; i--) {
+    const x = out[i]!;
+    if (x.place.kind !== "gap" || edgeOf(x) !== mine.edge) continue;
+    const [s0, s1] = span(x);
+    if (s1 <= k0 + EPS || s0 >= k1 - EPS) continue;
+    const left = k0 - s0;
+    const right = s1 - k1;
+    if (left <= EPS && right <= EPS) out.splice(i, 1);
+    else out[i] = left >= right ? make(x, s0, k0) : make(x, k1, s1);
+  }
+  if (first) out.splice(Math.min(at, out.length), 0, make(first, k0, k1, [c0, c1]));
 }
 
 export function targets(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneTarget[] {
@@ -282,6 +304,9 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
     const docks = [...Object.entries(base.edges), ...Object.entries(now.edges).filter(([id]) => id !== now.items[dragged]?.edge)]
       .filter(([id, d]) => id !== e.id && area(d.rect) > EPS)
       .map(([, d]) => d.rect);
+    // Nor over the dragged item's own place: home wins there.
+    const mineNow = now.items[dragged];
+    if (mineNow?.edge && !mineNow.floating) docks.push(mineNow.rect);
     // A compact rail's strip stays at the window edge, outside the columns it lies beyond (as a rail target's strip does
     // while no rail shows): that thin stretch along the window's side is the rail's own.
     const h = e.compact ? t.hit : x1 - x0 > EPS && y1 - y0 > EPS ? cutAway(rect(x0, y0, x1 - x0, y1 - y0), docks) : null;

@@ -155,14 +155,12 @@ describe("a bar's zones by thirds", () => {
     expect(t!.hit.x + t!.hit.width).toBeLessThanOrEqual(ctl.x + 1e-6);
   });
 
-  it("every gap target of every bar zone has a hit inside its third (its own bar aside: home's spare room goes next door)", () => {
+  it("every gap target of every bar zone has a hit inside its third, on the dragged item's own bar too", () => {
     for (let seed = 1; seed <= 200; seed++) {
       const s = barScene(seed);
       const l = solve(s);
       for (const id of Object.keys(s.items).filter((k) => s.items[k]!.kind === "group")) {
         for (const t of targets(s, id)) {
-          // On the dragged item's own bar, the room its home gap gives up goes to the gaps beside it.
-          if (t.id.startsWith(`gap:${l.items[id]?.edge}:`)) continue;
           // Gaps (an empty bar's strips are thirds of the content, not of the bar).
           if (t.place.kind !== "gap" || !t.id.startsWith("gap:")) continue;
           const e = s.edges.find((x) => x.id === (t.place as { edge: string }).edge)!;
@@ -207,6 +205,23 @@ describe("local targets: home only over the item's own place, refusals where a z
     }
   });
 
+  it("over every docked item's own centre, home wins: no gap there would move it", () => {
+    for (let seed = 1; seed <= 200; seed++) {
+      const s = barScene(seed);
+      const l = solve(s);
+      for (const id of Object.keys(s.items).filter((k) => !s.items[k]!.fixed)) {
+        const me = l.items[id];
+        if (!me?.edge || me.inMenu || me.floating || me.rail) continue;
+        const p = { x: me.rect.x + me.rect.width / 2, y: me.rect.y + me.rect.height / 2 };
+        const under = targets(s, id, { previous: l }).filter((t) => !t.free && t.hit.x <= p.x && p.x <= t.hit.x + t.hit.width && t.hit.y <= p.y && p.y <= t.hit.y + t.hit.height);
+        const won = under.sort((a, b) => a.priority - b.priority || a.hit.width * a.hit.height - b.hit.width * b.hit.height)[0];
+        if (!won || won.place.kind !== "home") throw new Error(`seed ${seed} ${id}: ${won?.id ?? "nothing"} wins over its own centre`);
+        // No gap of its own edge lies there (another edge that moves up once it is lifted may, under home).
+        for (const t of under) if (t.place.kind === "gap" && t.id.startsWith(`gap:${me.edge}:`)) throw new Error(`seed ${seed} ${id}: ${t.id} lies over its own centre`);
+      }
+    }
+  });
+
   it("the reported state: Views over the title bar's middle gets the center slot there, home only over its own place", () => {
     // A 1200 px title bar: title, Tools and Zoom leading, Views trailing (its home), the controls.
     const base = windowScene(1200, 700);
@@ -219,12 +234,15 @@ describe("local targets: home only over the item's own place, refusals where a z
     const v = l.items.views!.rect;
     const ts = targets(s, "views", { previous: l });
     const at = (x: number) => ts.filter((t) => !t.free && t.hit.x <= x && x <= t.hit.x + t.hit.width && t.hit.y <= 16 && 16 <= t.hit.y + t.hit.height).sort((a, b) => a.priority - b.priority || a.hit.width * a.hit.height - b.hit.width * b.hit.height)[0];
-    // Left of its own place (less half a band) the slot is the center zone's, beside the pointer; over its place, home.
-    for (let x = 600; x < v.x - BAND; x += 10) {
+    // In the middle third, the center zone's slot, beside the pointer. In the trailing third, home only over its own place
+    // (and half a band): the stretch before it has no target at all (no gap of that zone there), never a far home preview.
+    const third = 1200 / 3;
+    for (let x = 600; x < 2 * third - 1; x += 10) {
       const t = at(x)!;
       expect(t.place.kind, `${x}`).toBe("gap");
       expect((t.place as { zone: string }).zone).toBe("center");
     }
+    for (let x = 2 * third + 1; x < v.x - BAND; x += 10) expect(at(x), `${x}`).toBeUndefined();
     expect(at(v.x + v.width / 2)!.place.kind).toBe("home");
   });
 
