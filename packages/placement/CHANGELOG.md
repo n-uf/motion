@@ -5,14 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.23
 
-- No change in `@n-uf/placement`. Released together with `@n-uf/motion` 26.11.23 (`anchoredMorph` in `./layout`).
-
-## 26.11.22
-
 - `@n-uf/placement/scene`, **fixed:** a side bar outside the inset counts for the side's order only while it lays out
   an item. An empty or all-closed side bar draws as nothing, so the layout is the one without it: the rail stays at
   the window's side inside the inset (it used to land flush at the window edge, as if the bar were there). An empty
   top or bottom bar outside the inset keeps nothing from the inset either.
+
+## 26.11.22
 
 - `@n-uf/placement/scene`, **fixed:** `isOutsideSideBar` counts an edge as a side bar only when its side has a column
   template or a rail and the edge takes none of their kinds. On a side with neither, no edge is a bar, so a static
