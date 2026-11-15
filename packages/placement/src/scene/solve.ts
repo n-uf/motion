@@ -414,7 +414,11 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
 
   const rails: Partial<Record<"left" | "right", SceneRailLayout>> = {};
   const gutter = px(scene.gutter);
+  let columnRoom: boolean | undefined;
   const isSide = (e: Edge): boolean => e.side === "left" || e.side === "right";
+  // The inset, or none with `insetWhen: "docked"` while nothing is docked beside the content.
+  const docked = order.some((e) => isSide(e) && owned.get(e)!.some((id) => !scene.items[id]!.closed));
+  const inset = scene.insetWhen === "docked" && !docked ? {} : (scene.inset ?? {});
 
   /**
    * The reserved left and right edges, ring by ring, with column give-way: dynamic columns shrink toward their minimum,
@@ -435,12 +439,15 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       readonly kept: boolean;
       readonly age: number;
     }
+    // An edge outside the inset (an anchor) runs the inset's height too, from the stage's top to its bottom.
+    const tall = (edge: Edge): number => H + (edge.outsideInset === true ? px(inset.top) + px(inset.bottom) : 0);
     const cols: Col[] = sideEdges.map((edge) => {
       const side = edge.side as "left" | "right";
-      const solved = solveEdge(scene, edge, owned.get(edge)!, H, Math.max(0, area.width), prevEdge(edge));
+      const solved = solveEdge(scene, edge, owned.get(edge)!, tall(edge), Math.max(0, area.width), prevEdge(edge));
       const width = solved.stack.items.length === 0 ? 0 : Math.min(solved.stack.cross, area.width);
       const visible = owned.get(edge)!.filter((id) => !scene.items[id]!.closed);
-      const dyn = edge.column === true && scene.rails?.[side] !== undefined && visible.length > 0;
+      // A dynamic column, or a static edge that gives way like one (`giveWay`).
+      const dyn = (edge.column === true || edge.giveWay === true) && scene.rails?.[side] !== undefined && visible.length > 0;
       const forms = (id: string): readonly StackForm[] => formsOf(scene.items[id]!, "column");
       const setters = solved.free.items.filter((p) => p.kind !== "menu" && formSetsCross(forms(p.id)[p.form]!));
       const min = setters.length > 0 ? Math.min(width, Math.max(px(edge.cross.min), ...setters.map((p) => formCrossMin(forms(p.id)[p.form]!)))) : width;
@@ -452,7 +459,7 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
         min,
         visible,
         dyn,
-        hand: dyn && visible.every((id) => finite(scene.items[id]!.from, 0) >= 1),
+        hand: dyn && edge.column === true && visible.every((id) => finite(scene.items[id]!.from, 0) >= 1),
         kept: visible.some((id) => scene.items[id]!.kept === true),
         age: Math.max(-Infinity, ...visible.map((id) => finite(scene.items[id]!.used, 0))),
       };
@@ -467,13 +474,15 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     const shrinkOrder = order.map((c, i) => ({ c, i })).sort((a, b) => (rankOf(a.c) === rankOf(b.c) ? a.i - b.i : rankOf(a.c) < rankOf(b.c) ? -1 : 1)).map((x) => x.c);
     const railW = (side: "left" | "right"): number => px(scene.rails?.[side]?.width);
     const evaluate = (auto: ReadonlySet<Col>) => {
-      const openOn = (side: "left" | "right"): boolean => cols.some((c) => c.side === side && c.dyn && !c.hand && !auto.has(c) && c.width > 0);
-      const riding = (c: Col): boolean => ride && c.hand && c.visible.length === 1 && openOn(c.side);
+      // Riders ride over an open panel column (never an anchor), every member of a hand-folded column a bar.
+      const openOn = (side: "left" | "right"): boolean => cols.some((c) => c.side === side && c.dyn && c.edge.column === true && !c.hand && !auto.has(c) && c.width > 0);
+      const riding = (c: Col): boolean => ride && c.hand && openOn(c.side);
       const railed = (c: Col): boolean => c.dyn && (auto.has(c) || (c.hand && !riding(c)));
       const widths = new Map(cols.filter((c) => !railed(c) && !riding(c)).map((c) => [c, c.width]));
       const railSides = (["left", "right"] as const).filter((s) => cols.some((c) => c.side === s && railed(c)));
       let used = 0;
-      for (const w of widths.values()) used += w > 0 ? w + gutter : 0;
+      // An edge outside the inset has no gutter after it (the inset is there).
+      for (const [c, w] of widths) used += w > 0 ? w + (c.edge.outsideInset === true ? 0 : gutter) : 0;
       for (const s of railSides) used += railW(s) + gutter;
       let excess = cmin === undefined ? -Infinity : used + cmin - area.width;
       for (const c of shrinkOrder) {
@@ -521,6 +530,13 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       }
     }
     const g = evaluate(auto);
+    // Whether one panel column at its minimum fits beside the content's minimum: a host's narrow fallback reads it.
+    const colMins = cols.filter((c) => c.dyn && c.edge.column === true).map((c) => c.min);
+    if (cmin !== undefined && colMins.length > 0) {
+      const need = cmin + Math.min(...colMins) + gutter;
+      columnRoom = area.width >= need - EPS;
+      if (!columnRoom) notes.push({ code: "no-column-room", width: area.width, need });
+    }
     for (const c of shrinkOrder) {
       const w = g.widths.get(c);
       if (w !== undefined && w < c.width - EPS) notes.push({ code: "column-shrunk", edge: c.edge.id, from: c.width, to: w });
@@ -534,17 +550,22 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       const mine = cols.filter((c) => c.side === side);
       const railed = mine.filter((c) => g.railed(c));
       const riders = mine.filter((c) => g.riding(c));
-      const host = mine.find((c) => c.dyn && !c.hand && !g.auto.has(c) && c.width > 0);
-      const riderBar = (c: Col): { id: string; form: number; f: StackForm | undefined; h: number } => {
-        const id = c.visible[0]!;
-        const forms = formsOf(scene.items[id]!, "column");
-        const form = forms.length === 0 ? 0 : Math.min(Math.max(0, Math.floor(finite(scene.items[id]!.from, 0))), forms.length - 1);
-        return { id, form, f: forms[form], h: px(forms[form]?.main.natural) };
-      };
-      const ridersTop = riders.reduce((s, c) => s + riderBar(c).h, 0);
+      const host = mine.find((c) => c.dyn && c.edge.column === true && !c.hand && !g.auto.has(c) && c.width > 0);
+      /** A riding column's bars: each member's folded form, in zone order. */
+      const riderBars = (c: Col): { id: string; form: number; f: StackForm | undefined; h: number }[] =>
+        zoneSorted(scene, c.visible).map((id) => {
+          const forms = formsOf(scene.items[id]!, "column");
+          const form = forms.length === 0 ? 0 : Math.min(Math.max(0, Math.floor(finite(scene.items[id]!.from, 0))), forms.length - 1);
+          return { id, form, f: forms[form], h: px(forms[form]?.main.natural) };
+        });
+      const ridersTop = riders.reduce((s, c) => s + riderBars(c).reduce((t, b) => t + b.h, 0), 0);
       let railRect: Rect | null = null;
+      // The gap just outside the next edge: the inset at the window's side, then a gutter. An edge outside the inset
+      // (an anchor) lies before that gap, which then follows it.
+      let gap = px(side === "left" ? inset.left : inset.right);
       for (const c of mine) {
-        if (!railRect && railed.length > 0 && c.edge.column === true) {
+        // The side's rail is its outermost edge, at the window's side (inside the inset): an anchor lies inside it.
+        if (!railRect && railed.length > 0) {
           const w = railW(side);
           if (side === "left") {
             railRect = rect(x0, area.y, w, H);
@@ -554,6 +575,7 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
             railRect = rect(x1, area.y, w, H);
             x1 -= gutter;
           }
+          gap = gutter;
         }
         const base = { side: c.edge.side, ring: finite(c.edge.ring, 0), cross: 0, menu: null, tabs: [], stack: c.solved.stack, free: c.solved.free };
         if (g.railed(c)) {
@@ -571,13 +593,31 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
           solved = solveEdge(scene, plain, owned.get(c.edge)!, H - top, w, prevEdge(c.edge));
         }
         let r: Rect;
-        if (side === "left") {
+        if (c.edge.outsideInset === true) {
+          // Outside the inset: at the stage's side, full height; the inset (not a gutter) follows it.
+          const y0 = area.y - px(inset.top);
+          const h = tall(c.edge);
+          if (side === "left") {
+            r = rect(x0 - gap, y0, w, h);
+            x0 += w;
+          } else {
+            r = rect(x1 + gap - w, y0, w, h);
+            x1 -= w;
+          }
+          if (Math.abs(h - H) > EPS || Math.abs(w - c.width) > EPS) {
+            const forced: Edge = { ...c.edge, cross: { ...c.edge.cross, min: w, max: w } };
+            const { size: _s, ...plain } = forced;
+            solved = solveEdge(scene, plain, owned.get(c.edge)!, h, w, prevEdge(c.edge));
+          }
+        } else if (side === "left") {
           r = rect(x0, area.y + top, w, H - top);
           x0 += w > 0 ? w + gutter : 0;
+          if (w > 0) gap = gutter;
         } else {
           x1 -= w;
           r = rect(x1, area.y + top, w, H - top);
           x1 -= w > 0 ? gutter : 0;
+          if (w > 0) gap = gutter;
         }
         emit(c.edge, r, solved, w < c.width - EPS ? { shrunk: true } : {});
       }
@@ -585,12 +625,15 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
         const hr = edges[host.edge.id]!.rect;
         let y = area.y;
         for (const c of riders) {
-          const b = riderBar(c);
-          const at = rect(hr.x, y, hr.width, b.h);
-          const it = scene.items[b.id]!;
-          items[b.id] = { rect: at, kind: it.kind, form: b.form, formKind: b.f?.kind ?? "header", edge: c.edge.id, zone: zoneOf(it), rides: host.edge.id, folded: "hand" };
-          edges[c.edge.id] = { side: c.edge.side, ring: finite(c.edge.ring, 0), rect: at, cross: 0, menu: null, tabs: [], stack: c.solved.stack, free: c.solved.free, rides: host.edge.id, folded: "hand" };
-          y += b.h;
+          const bars = riderBars(c);
+          const y0 = y;
+          for (const b of bars) {
+            const at = rect(hr.x, y, hr.width, b.h);
+            const it = scene.items[b.id]!;
+            items[b.id] = { rect: at, kind: it.kind, form: b.form, formKind: b.f?.kind ?? "header", edge: c.edge.id, zone: zoneOf(it), rides: host.edge.id, folded: "hand" };
+            y += b.h;
+          }
+          edges[c.edge.id] = { side: c.edge.side, ring: finite(c.edge.ring, 0), rect: rect(hr.x, y0, hr.width, y - y0), cross: 0, menu: null, tabs: [], stack: c.solved.stack, free: c.solved.free, rides: host.edge.id, folded: "hand" };
         }
       }
       if (railRect) {
@@ -616,7 +659,6 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     return rect(x0, area.y, Math.max(0, x1 - x0), H);
   };
 
-  const inset = scene.inset ?? {};
   let area = rect(stage.x + px(inset.left), stage.y + px(inset.top), Math.max(0, stage.width - px(inset.left) - px(inset.right)), Math.max(0, stage.height - px(inset.top) - px(inset.bottom)));
   const reserved = order.filter((e) => e.mode !== "overlay");
   for (const e of reserved) if (!isSide(e) && e.span !== "between") area = lay(e, area, true);
@@ -646,6 +688,8 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     if (e.menu) avoid.push(e.menu.rect);
   }
   for (const c of scene.chrome ?? []) avoid.push(c);
+  // Floats lie within the stage less the inset at its left and right (the sides the columns pad), the stage's full height.
+  const floatRegion = rect(stage.x + px(inset.left), stage.y, Math.max(0, stage.width - px(inset.left) - px(inset.right)), stage.height);
   const floats: string[] = [];
   for (const f of scene.floats) {
     if (!claim(f.id)) continue;
@@ -659,15 +703,16 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     }
     const from = shape.form;
     const form = formsOf(it, f.orient === "row" ? "row" : "column")[from];
-    const w = shape.width;
-    const h = shape.height;
+    // Into that region; a float larger than it is shrunk to fit it.
+    const w = Math.min(shape.width, floatRegion.width);
+    const h = Math.min(shape.height, floatRegion.height);
     const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);
-    const fit = fitFloat(want, stage, avoid);
+    const fit = fitFloat(want, floatRegion, avoid);
     if (fit.clamped) notes.push({ code: "float-clamped", id: f.id });
     if (fit.snapped) notes.push({ code: "float-moved", id: f.id });
     if (fit.covers.length > 0) notes.push({ code: "float-covers", id: f.id });
     items[f.id] = { ...shapeOf(form, fit.rect, f.orient === "row" ? "row" : "column", fit.rect.width), rect: fit.rect, kind: it.kind, form: from, formKind: form?.kind ?? "open", floating: true };
     floats.push(f.id);
   }
-  return { items, edges, content, floats, rails, notes };
+  return { items, edges, content, floats, rails, ...(columnRoom !== undefined ? { columnRoom } : {}), notes };
 }

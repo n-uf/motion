@@ -123,6 +123,16 @@ export interface Edge {
    * `cross`, `gap`, `pad` and `menu` come from `Scene.columns[side]` when the changes make it.
    */
   readonly column?: boolean;
+  /**
+   * An anchor edge (a left or right edge that takes nothing, holding a fixed item such as a thumbnail strip) lies outside
+   * `Scene.inset` and the gutter: at the window's side, the inset after it, toward the content.
+   */
+  readonly outsideInset?: boolean;
+  /**
+   * A static left or right edge that gives way like a dynamic column: it shrinks toward its minimum, then folds whole
+   * into its side's rail, in give-way order with the columns (its items' ages). It is never deleted.
+   */
+  readonly giveWay?: boolean;
 }
 
 /** What a side's new columns are made from. */
@@ -188,12 +198,21 @@ export interface Scene {
    */
   readonly contentMin?: { readonly width: number; readonly height: number };
   /**
-   * How a one-panel column folded by hand shows (default `"bar"`): `"bar"` sends it to its side's rail; `"ride"` draws it
-   * as a title bar over the first open column of its side, at that column's width, taking no width of its own.
+   * How a column folded by hand shows (default `"bar"`): `"bar"` sends it to its side's rail; `"ride"` draws each of its
+   * members as a title bar over the first open column of its side (stacked, in zone order), at that column's width,
+   * taking no width of their own.
    */
   readonly handFold?: "bar" | "ride";
-  /** Space kept clear inside the stage's edges, px (default 0 each). */
+  /**
+   * Space kept clear inside the stage's edges, px (default 0 each). Floats are clamped into the stage less its left and
+   * right (the stage's full height), and shrunk to fit that region when larger.
+   */
   readonly inset?: { readonly top?: number; readonly right?: number; readonly bottom?: number; readonly left?: number };
+  /**
+   * When `inset` applies (default `"always"`): `"docked"` keeps it only while something is docked beside the content (a
+   * left or right edge with an item that isn't closed); with nothing there, the content is the whole stage.
+   */
+  readonly insetWhen?: "always" | "docked";
   /** Space after each left or right edge and each rail that takes room, toward the content, px (default 0). */
   readonly gutter?: number;
 }
@@ -270,6 +289,8 @@ export interface SceneRailLayout {
  * - `float-covers`: no clear place exists, and it covers the least it can.
  * - `column-shrunk`, `column-folded`, `kept-folded`: give-way by `contentMin.width`, in give-way order;
  * - `content-narrow`, `content-short`: the content is still under `contentMin` (overlay bars count against the height).
+ * - `no-column-room`: not even one column at its minimum fits beside `contentMin.width` (`layout.columnRoom` false):
+ *   `width` is the room the stage leaves, `need` the content's minimum plus that column and its gutter.
  * - `content-changed`: under `previous`, `content` is not the rect `previous.content` was (`from`, `to`). A host refits
  *   its zoom only on this note.
  * - `no-vertical-form`: an item left out of a vertical place (a rail, a vertical float) because only `wrap` forms are
@@ -282,6 +303,7 @@ export type SceneNote =
   | { readonly code: "float-clamped" | "float-moved" | "float-covers"; readonly id: string }
   | { readonly code: "column-shrunk"; readonly edge: string; readonly from: number; readonly to: number }
   | { readonly code: "column-folded" | "kept-folded"; readonly edge: string }
+  | { readonly code: "no-column-room"; readonly width: number; readonly need: number }
   | { readonly code: "content-narrow"; readonly width: number; readonly min: number }
   | { readonly code: "content-short"; readonly height: number; readonly min: number }
   | { readonly code: "content-changed"; readonly from: Rect; readonly to: Rect }
@@ -299,6 +321,11 @@ export interface SceneLayout {
   readonly floats: readonly string[];
   /** The rails shown (a side with a folded column). */
   readonly rails: Readonly<Partial<Record<"left" | "right", SceneRailLayout>>>;
+  /**
+   * With `contentMin` and dynamic columns: whether one column at its minimum fits beside the content's minimum (`false`
+   * with a `no-column-room` note). A host shows its narrow fallback (one panel over the content) while it is `false`.
+   */
+  readonly columnRoom?: boolean;
   readonly notes: readonly SceneNote[];
 }
 
