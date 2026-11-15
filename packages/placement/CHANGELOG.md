@@ -61,6 +61,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
       tile). So a panel can always become its own column beside the others: in a window with no inset and a side bar,
       an empty rail that would refuse the drop no longer hides the new-column target just inside the bar
       (`column:<side>:<ring>`); the rail's refusal shrinks to what is left.
+    - Where clipping leaves a slot's tile an L (another tile takes a corner of it), the slot keeps the larger rect on
+      its line, cut either way, and only the rest is refused: a narrow column's outer pixels beside the dragged item's
+      own place stay its gap's instead of being refused.
 
   - Typing: `SceneRefusal["reason"]` gains `own-place`; an exhaustive `switch` over it needs the case.
 
