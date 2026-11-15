@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.20
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.20 (the async case runner in
+  `./scene/cases`; `columnRoom` as the sheet signal in `./scene`).
+
 ## 26.11.19
 
 - No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.19 (bar alignment zones, `setSide`, the
