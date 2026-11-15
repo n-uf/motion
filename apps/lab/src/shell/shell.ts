@@ -8,7 +8,12 @@ import motionPkg from "../../../../packages/motion/package.json?raw";
 import placementPkg from "../../../../packages/placement/package.json?raw";
 import type { LabRun } from "../shared/hooks";
 import { parseRoute, registeredReset, routeHash } from "./api";
-import { GROUPS, PAGES, pageById, type PageDef, type View } from "./pages";
+import { GROUPS, type PageDef, type View } from "./page-defs";
+import { setPageList } from "./page-list";
+import { FIXTURES, PAGES, pageById } from "./pages";
+
+// The Checks page runs every page: it reads them here (it never imports ./pages, which loads it).
+setPageList([...PAGES, ...FIXTURES]);
 
 const version = (raw: string): string => (JSON.parse(raw) as { version: string }).version;
 export const VERSIONS = { motion: version(motionPkg), placement: version(placementPkg) };

@@ -10,10 +10,12 @@
 import { CASES, CASE_GROUPS, createSceneHost, runCase } from "@n-uf/placement/scene/cases";
 import { passes, type LabRun, type ScenarioFilter } from "../shared/hooks";
 import { routeHash } from "./api";
-import { FIXTURES, GROUPS, PAGES as LISTED, type GroupId, type PageDef, type View } from "./pages";
+import { GROUPS, type GroupId, type PageDef, type View } from "./page-defs";
+import { pageList } from "./page-list";
 
 /** The listed pages and the check fixtures (pages in no menu whose scenarios still run here). */
-const PAGES: readonly PageDef[] = [...LISTED, ...FIXTURES];
+/** Every page the shell registered (the listed pages and the fixtures). */
+const PAGES: readonly PageDef[] = pageList();
 
 /** The frame's size: the viewport the headless runs use. */
 const FRAME = { width: 1600, height: 1100 };
