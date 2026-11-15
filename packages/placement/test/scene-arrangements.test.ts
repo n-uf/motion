@@ -3,8 +3,9 @@
  * (a fixed thumbnail edge), sheet, padding and stored-width scenes, at window widths 280..1279 (window A and window B
  * numbers). A row with no kind is a regression row; `kind: "target"` holds the result the library should reach, its
  * `gap` naming why it once differed; `intended` rows hold the Scene's own result where it differs on purpose (C9 height
- * give-way, C27 floats clear of docked items). Rows whose gap names `float-clear-decision` hold the old result for
- * reference only: the Scene keeps floats clear of columns (C27), so they are skipped.
+ * give-way, C27 floats clear of docked items, floats clamped to the stage less the inset's sides). Rows whose gap names
+ * `float-clear-decision` and aren't `intended` hold the old result for reference only: the Scene keeps floats clear of
+ * columns (C27), so they are skipped.
  *
  * The adapter maps the fixture's intent forms (card, bar, rail) to the library's forms, as `scene-columns.test.ts`
  * does, and declares the hosts' own rules as scene options: an anchor edge (`accepts: []`, a fixed item) lies outside
@@ -241,29 +242,10 @@ function diff(s: Scene, l: SceneLayout, row: Row): string[] {
   return out;
 }
 
-/** Gaps still to close (each its revision); their rows are listed, not asserted. */
-const PENDING = new Set<string>([]);
 /**
- * Rows that disagree with another row of the file or with the revision's rule, listed (not asserted) until ruled:
- * `scene` (with its variant), the stage width, and why.
+ * Kept on purpose (C27): the Scene moves a float clear of docked items; a row with this gap that isn't `intended` holds
+ * the old result for reference only. An intended row holds the Scene's own result and is asserted.
  */
-const QUESTIONS: { scene: string; w: number; why: string }[] = [
-  ...[
-    ["floating", 700],
-    ["floating", 400],
-    ["floatingFolded", 700],
-    ["floatingFolded", 400],
-    ["floatingOverColumn", 400],
-    ["floatingAtEdge", 1120],
-    ["floatingAtEdge", 700],
-    ["floatingAtEdge", 300],
-  ].map(([scene, w]) => ({ scene: scene as string, w: w as number, why: "float x 12 px left of the stage less the inset: the row clamps into [0, W − 24], the rule into [12, W − 12]" })),
-  { scene: "padding-always", w: 1000, why: "a regression row with every panel open in a scene whose panels are all closed" },
-  { scene: "anchor-keeps-its-side", w: 1200, why: "the right anchor inside the inset (x 1116) while the left one lies outside it (x 0, anchor-outside-the-padding)" },
-  { scene: "anchor-keeps-its-side", w: 900, why: "the right anchor inside the inset (x 816) while the left one lies outside it" },
-  { scene: "anchorRiderOverAnchor (anchor-right-no-open-column)", w: 600, why: "recorded with the anchor outside the rail; 7b makes the rail the side's outermost edge" },
-];
-/** Kept on purpose (C27): the Scene moves a float clear of docked items; the row holds the old result for reference. */
 const REFERENCE = "float-clear-decision";
 
 describe("panel arrangements: the acceptance rows", () => {
@@ -273,12 +255,7 @@ describe("panel arrangements: the acceptance rows", () => {
       for (const row of set.expect) {
         const tag = `${set.label} at ${row.stage.w}×${row.stage.h}${row.kind ? ` [${row.kind}${row.gap ? `: ${row.gap}` : ""}]` : row.intended ? " [intended]" : ""}`;
         const gaps = (row.gap ?? "").split("+").filter(Boolean);
-        if (gaps.includes(REFERENCE)) continue;
-        const q = QUESTIONS.find((x) => x.scene === set.label && x.w === row.stage.w && (set.label !== "padding-always" || !row.kind));
-        if (gaps.some((g) => PENDING.has(g)) || q) {
-          it.todo(`${tag}${q ? `: ${q.why}` : ""}`);
-          continue;
-        }
+        if (gaps.includes(REFERENCE) && !row.intended) continue;
         it(tag, () => {
           const { s, l } = layoutOf(set.scene, row);
           expect(diff(s, l, row)).toEqual([]);
