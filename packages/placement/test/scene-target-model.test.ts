@@ -367,6 +367,35 @@ describe("the target model's property check", () => {
     expect(lostSlots(s, "p")).toEqual([]);
   });
 
+  it("a slot keeps the larger rect of what clipping leaves it: a 30 px overlay column's outer px stay its gap's", () => {
+    // The group's own place (home, in the bottom bar from x 8) takes a corner of the overlay column's last gap tile; what
+    // is left is an L. The column owns its whole 30 px (drawn), so the gap keeps the full width above the bar; only the
+    // corner beside home is refused. The column line outside it owns nothing of the column's drawn rect.
+    const s: Scene = {
+      stage: { x: 0, y: 0, width: 536, height: 869 },
+      edges: [
+        bar("bottom", "bottom", 0, ["g0"], { gap: 4, pad: { start: 8, end: 8 }, span: "between" }),
+        column("left0", "left", 0, ["p1"], { mode: "overlay", column: true }),
+        column("left1", "left", 1, [], { column: true }),
+      ],
+      items: byId([group("g0", 43), panel("p1", 29, { from: 1 })]),
+      floats: [],
+      floatKinds: ["panel", "group"],
+      columns: { left: { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 } } },
+      rails: { left: { width: 30, accepts: ["panel"] } },
+      gutter: 0,
+    };
+    const l = solve(s);
+    expect(l.edges.left0!.rect.width).toBe(30);
+    const home = l.items.g0!.rect;
+    const ts = targets(s, "g0");
+    const gap = ts.find((t) => t.id === "gap:left0:start:1")!;
+    expect([gap.hit.x, gap.hit.width, gap.hit.y + gap.hit.height]).toEqual([0, 30, home.y]);
+    const corner = refusals(s, "g0").filter((r) => r.edge === "left0");
+    expect(corner.map((r) => r.hit)).toEqual([{ x: 0, y: home.y, width: home.x, height: home.height }]);
+    expect(lostSlots(s, "g0")).toEqual([]);
+  });
+
   it("flush windows (no inset, a column inside each side bar, rails, riding folds) keep every category at zero", () => {
     const r = propertyCheck(Array.from({ length: 60 }, (_, i) => i + 1), true);
     // eslint-disable-next-line no-console

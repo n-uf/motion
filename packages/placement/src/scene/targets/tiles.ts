@@ -163,6 +163,10 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, cuts: readonly Span[], lost: st
 }
 
 const clip = (r: Rect, cuts: readonly Rect[]): Rect[] => cuts.reduce<Rect[]>((ps, cut) => ps.flatMap((p) => subtract(p, cut)), [r]);
+/** A rect with x and y swapped. */
+const flip = (r: Rect): Rect => rect(r.y, r.x, r.height, r.width);
+/** `clip` cut the other way: what each cut leaves split into its top and bottom strips first, then the sides between. */
+const clipAcross = (r: Rect, cuts: readonly Rect[]): Rect[] => clip(flip(r), cuts.map(flip)).map(flip);
 
 /** An overreach tile `t` placed: joined to its owned part where it meets that part whole, or standing in for it. */
 function placeReach(t: Tile, pieces: readonly Rect[], placed: Tile[], landed: ReadonlyMap<Tile, number[]>, gone: Set<Tile>): void {
@@ -238,7 +242,7 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
     // An owned part: clear of the tiles before it, of the owners that win over its edge, its panel bodies, solid items
     // and chrome. A virtual edge's tile: clear of the tiles before it and of every owner.
     const cuts = [...placed.map((p) => p.hit), ...(taken.get(t.key) ?? []), ...(data.virtual ? [] : bodies(t.edge)), ...solid, ...chrome];
-    const pieces = clip(t.hit, cuts);
+    let pieces = clip(t.hit, cuts);
     if (pieces.length === 0) {
       if (t.kind !== "refuse") gone.add(t);
       return;
@@ -249,9 +253,19 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
       return;
     }
     // A slot keeps the piece that holds its line (else its largest); its other pieces are refused for its zone, a virtual
-    // edge's as a real one's, so clipping never leaves a hole the float fills.
-    const held = t.keep ? pieces.filter((p) => contains(p, t.keep!)) : [];
-    const kept = (held.length > 0 ? held : pieces).reduce((a, p) => (area(p) > area(a) ? p : a));
+    // edge's as a real one's, so clipping never leaves a hole the float fills. What is left of a tile can be one
+    // connected region that isn't a rect (an L where a cut takes a corner): it is cut into rects both ways, side strips
+    // first and top and bottom strips first, and the slot keeps the larger piece on its line, so no part of its own
+    // region next to that piece is refused only for the way it was cut.
+    const keptOf = (ps: readonly Rect[]): Rect => {
+      const held = t.keep ? ps.filter((p) => contains(p, t.keep!)) : [];
+      return (held.length > 0 ? held : ps).reduce((a, p) => (area(p) > area(a) ? p : a));
+    };
+    if (pieces.length > 1) {
+      const other = clipAcross(t.hit, cuts);
+      if (other.length > 0 && area(keptOf(other)) > area(keptOf(pieces)) + EPS) pieces = other;
+    }
+    const kept = keptOf(pieces);
     // No sliver: a slot left under 1 px along its edge is no target (its piece is refused).
     const sliver = (t.vertical ? kept.height : kept.width) < 1;
     if (!sliver) {
