@@ -141,6 +141,41 @@ export function cutClear(hit: Rect, blockers: readonly Rect[], keep: Point): Rec
   return area(h) > EPS ? h : null;
 }
 
+/**
+ * Home is offered only over the item's own place: a home gap's hit (the gap beside the item, in its own edge) keeps only
+ * the item's rect and half a band (`DEFAULT_HIT_BAND / 2`) each way along the edge. What it gives up goes to the gap hits
+ * next to it on that edge (each extended to meet what home keeps), so a pointer there sees the slot beside it, never a
+ * home preview far away. A home gap with nothing left is dropped.
+ */
+function homeOnlyOverItsPlace(out: SceneTarget[], now: SceneLayout): void {
+  const dragged = out[0]?.item;
+  const mine = dragged !== undefined ? now.items[dragged] : undefined;
+  const side = mine?.edge ? now.edges[mine.edge]?.side : undefined;
+  if (!mine || !side) return;
+  const column = side === "left" || side === "right";
+  const r = mine.rect;
+  const band = DEFAULT_HIT_BAND / 2;
+  const edgeOf = (t: SceneTarget): string | undefined => (t.id.startsWith("gap:") ? t.id.split(":")[1] : undefined);
+  const span = (x: SceneTarget): [number, number] => (column ? [x.hit.y, x.hit.y + x.hit.height] : [x.hit.x, x.hit.x + x.hit.width]);
+  const withSpan = (x: SceneTarget, from: number, to: number): SceneTarget => ({ ...x, hit: column ? rect(x.hit.x, from, x.hit.width, to - from) : rect(from, x.hit.y, to - from, x.hit.height) });
+  for (let i = out.length - 1; i >= 0; i--) {
+    const t = out[i]!;
+    if (t.place.kind !== "home" || edgeOf(t) !== mine.edge) continue;
+    const [a0, a1] = span(t);
+    const k0 = Math.max(a0, (column ? r.y : r.x) - band);
+    const k1 = Math.min(a1, (column ? r.y + r.height : r.x + r.width) + band);
+    // The gap hits that meet this one along the edge, before and after it.
+    const near = out.filter((x) => x !== t && edgeOf(x) === mine.edge && x.place.kind === "gap");
+    const before = near.find((x) => Math.abs(span(x)[1] - a0) < 1);
+    const after = near.find((x) => Math.abs(span(x)[0] - a1) < 1);
+    const kept = k1 - k0 > EPS;
+    if (before && (!kept || k0 > a0 + EPS)) out[out.indexOf(before)] = withSpan(before, span(before)[0], kept ? k0 : after ? (a0 + a1) / 2 : a1);
+    if (after && (!kept || k1 < a1 - EPS)) out[out.indexOf(after)] = withSpan(after, kept ? k1 : before ? (a0 + a1) / 2 : a0, span(after)[1]);
+    if (!kept) out.splice(i, 1);
+    else out[i] = withSpan(t, k0, k1);
+  }
+}
+
 export function targets(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneTarget[] {
   const item = Object.hasOwn(scene.items, dragged) ? scene.items[dragged] : undefined;
   if (!item || item.fixed || item.closed) return [];
@@ -208,6 +243,7 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
     if (own) out.push({ id: t.id, priority: t.priority, hit: t.hit, item: dragged, place: { kind: "home" }, after: () => ({ scene, layout: now }) });
     else if (sound(t.after({ x: 0, y: 0 }).layout)) out.push(t);
   }
+  homeOnlyOverItsPlace(out, now);
   // A compact rail's inward reach never covers another edge's gap (a column's tray, say): where it would, the hit keeps
   // only the rail's own thickness.
   const edgeOfGap = (t: SceneTarget): Edge | undefined => (t.place.kind === "gap" ? rest.edges.find((e) => e.id === (t.place as { edge: string }).edge) : undefined);
@@ -425,6 +461,56 @@ function railTargets(scene: Scene, rest: Scene, base: SceneLayout, side: "left" 
     if (!hit) return;
     out.push({ id: `rail:${side}:${s.ring}`, priority: 1, hit, slot: me.rect, marker: rect(zone.x, me.rect.y, zone.width, 0), item: dragged, place, after: () => result });
   });
+  return out;
+}
+
+/** Where a drop of the dragged item is refused: a host shows "no room here" at the pointer, with no slot anywhere. */
+export interface SceneRefusal {
+  /** `refuse:<edge>:<zone>`. */
+  readonly id: string;
+  readonly edge: string;
+  readonly zone: Zone;
+  /** Where the pointer means it; never over a target's hit. */
+  readonly hit: Rect;
+  /** `no-room`: the zone takes the kind, but no gap of it fits (a title bar at the title's natural width, say). `not-accepted`: the edge or zone doesn't take the kind. */
+  readonly reason: "no-room" | "not-accepted";
+}
+
+/**
+ * `refusals(scene, dragged, options?)`: the places a drop of `dragged` is refused, so a host can say so at the pointer
+ * (a tint and "No room here") instead of showing a slot elsewhere. A bar's zone (its third, as `targets` picks zones)
+ * that has no target is refused: `no-room` when the zone takes the kind, `not-accepted` when it or the bar doesn't; a
+ * left or right edge that doesn't take the kind is refused as a whole (zone `start`). Each hit is cut clear of every
+ * target's hit (the float target aside), so a pointer over one has no target there but the float. A release over a
+ * refusal commits nothing: the item goes home.
+ */
+export function refusals(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneRefusal[] {
+  const item = Object.hasOwn(scene.items, dragged) ? scene.items[dragged] : undefined;
+  if (!item || item.fixed || item.closed) return [];
+  const prev = { ...(options.previous ? { previous: options.previous } : {}), ...(options.fresh ? { fresh: options.fresh } : {}) };
+  const ts = targets(scene, dragged, options).filter((t) => !t.free);
+  const base = solve(lift(scene, dragged), prev);
+  const hits = ts.map((t) => t.hit);
+  const out: SceneRefusal[] = [];
+  const add = (edge: string, zone: Zone, hit: Rect, reason: SceneRefusal["reason"]): void => {
+    const clear = cutAway(hit, hits);
+    if (clear) out.push({ id: `refuse:${edge}:${zone}`, edge, zone, hit: clear, reason });
+  };
+  for (const e of scene.edges) {
+    const r = base.edges[e.id]?.rect;
+    if (!r || r.width <= EPS || r.height <= EPS) continue;
+    const bar = (e.side === "top" || e.side === "bottom") && !e.compact;
+    if (!bar) {
+      if (!e.accepts.includes(item.kind)) add(e.id, "start", r, "not-accepted");
+      continue;
+    }
+    ZONES.forEach((zone, k) => {
+      const third = rect(r.x + (r.width * k) / 3, r.y, r.width / 3, r.height);
+      const mine = ts.some((t) => (t.place.kind === "gap" || t.place.kind === "home") && t.id.startsWith(`gap:${e.id}:`) && overlaps(t.hit, third));
+      if (mine) return;
+      add(e.id, zone, third, zoneTakes(e, zone, item.kind) ? "no-room" : "not-accepted");
+    });
+  }
   return out;
 }
 

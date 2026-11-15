@@ -39,4 +39,4 @@ export {
 export { solve } from "./solve";
 export { close, dockHome, fold, floatAt, homeFor, keep, lift, moveTo, open, orient, raise, resize, setSide, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";
 export { readScene, storeScene, type SceneRead, type StoredScene, type StoredSceneEdge, type StoredSceneFloat, type StoredSceneItem } from "./store";
-export { reservedRect, stops, targets, type SceneAfter, type ScenePlace, type SceneTarget, type SceneTargetOptions } from "./targets";
+export { refusals, reservedRect, stops, targets, type SceneAfter, type ScenePlace, type SceneRefusal, type SceneTarget, type SceneTargetOptions } from "./targets";
