@@ -141,12 +141,17 @@ export function cutClear(hit: Rect, blockers: readonly Rect[], keep: Point): Rec
   return area(h) > EPS ? h : null;
 }
 
+/** The least a gap keeps along its edge where home takes its place: this much, or all its slice when shorter (px). */
+const GAP_KEEP = 16;
+
 /**
  * Home is offered only over the item's own place: its hit is the item's rect and half a band (`DEFAULT_HIT_BAND / 2`)
- * each way along the edge, across the full thickness of its gaps' hits, wherever the home gaps' slices were; it is cut
- * out of every other gap hit on that edge. The rest of the home gaps' slices goes to the gap beside it in the same zone
- * (each extended to meet it); a stretch with no such neighbour has no target (a pointer there shows nothing, and a
- * release goes home), and home never grows back over it.
+ * each way along the edge, across the full thickness of its gaps' hits, wherever the home gaps' slices were. Home never
+ * removes a gap: every other gap hit on that edge it would cover keeps at least `GAP_KEEP` px of its slice (or all of
+ * it, when shorter), at home's end, or for one inside the item's own rect at its own place (beside the item's centre,
+ * which home always keeps), and home gives that up. The rest of the home gaps' slices goes to the gap beside it in the
+ * same zone (each extended to meet it, never over another gap); a stretch with no such neighbour has no target (a
+ * pointer there shows nothing, and a release goes home), and home never grows back over it.
  */
 function homeOnlyOverItsPlace(out: SceneTarget[], now: SceneLayout): void {
   const dragged = out[0]?.item;
@@ -165,37 +170,63 @@ function homeOnlyOverItsPlace(out: SceneTarget[], now: SceneLayout): void {
     return { ...x, hit: column ? rect(c0, from, c1 - c0, to - from) : rect(from, c0, to - from, c1 - c0) };
   };
   const homes = out.filter((t) => t.place.kind === "home" && edgeOf(t) === mine.edge);
-  const k0 = (column ? r.y : r.x) - band;
-  const k1 = (column ? r.y + r.height : r.x + r.width) + band;
+  const mid = column ? r.y + r.height / 2 : r.x + r.width / 2;
+  let h0 = (column ? r.y : r.x) - band;
+  let h1 = (column ? r.y + r.height : r.x + r.width) + band;
   const c0 = Math.min(...homes.map((h) => cross(h)[0]));
   const c1 = Math.max(...homes.map((h) => cross(h)[1]));
-  // What each home slice gives up goes to its same-zone neighbour that meets it there, else to nothing.
+  const first = homes[0];
+  // One home target, where the first home gap was in the list (none when no gap beside the item is its home: the
+  // `home:<id>` target over its rect is, and the gaps are still kept clear of the item's centre).
+  for (const h of homes.slice(1)) out.splice(out.indexOf(h), 1);
+  const at = first ? out.indexOf(first) : -1;
+  if (first) out.splice(at, 1);
+  // Every other gap on the edge that home would cover keeps a slice of its own, and home gives it up.
+  for (let i = 0; i < out.length; i++) {
+    const x = out[i]!;
+    if (x.place.kind !== "gap" || edgeOf(x) !== mine.edge) continue;
+    const [s0, s1] = span(x);
+    if (s1 <= h0 + EPS || s0 >= h1 - EPS) continue;
+    const keep = Math.min(GAP_KEEP, s1 - s0);
+    if (s0 < h0) {
+      // Across home's start: it keeps what lies before home, and at least `keep`.
+      const e = Math.min(s1, Math.max(h0, s0 + keep));
+      out[i] = make(x, s0, e);
+      h0 = Math.max(h0, e);
+    } else if (s1 > h1) {
+      const b = Math.max(s0, Math.min(h1, s1 - keep));
+      out[i] = make(x, b, s1);
+      h1 = Math.min(h1, b);
+    } else {
+      // Inside home: a slice at its own place, never over the item's centre.
+      // At its own line (where its marker says the item would land), within its slice.
+      const line = x.marker ? (column ? x.marker.y : x.marker.x) : (s0 + s1) / 2;
+      let a = Math.min(Math.max(line - keep / 2, s0), s1 - keep);
+      // Over the centre: moved just beside it, on the side its slice mostly lies.
+      if (a <= mid + 1 && a + keep >= mid - 1) a = (s0 + s1) / 2 < mid ? mid - 1 - keep : mid + 1;
+      out[i] = make(x, a, a + keep);
+      if (a + keep <= mid + EPS) h0 = Math.max(h0, a + keep);
+      else h1 = Math.min(h1, a);
+    }
+  }
+  // What each home slice gives up goes to its same-zone neighbour that meets it there (never over another gap), else
+  // to nothing.
+  const others = (x: SceneTarget) => out.filter((y) => y !== x && y.place.kind === "gap" && edgeOf(y) === mine.edge).map(span);
   for (const h of homes) {
     const [a0, a1] = span(h);
     const near = out.filter((x) => x.place.kind === "gap" && edgeOf(x) === mine.edge && zoneOfId(x) === zoneOfId(h));
     const before = near.find((x) => Math.abs(span(x)[1] - a0) < 1);
     const after = near.find((x) => Math.abs(span(x)[0] - a1) < 1);
-    if (before && a0 < k0 - EPS) out[out.indexOf(before)] = make(before, span(before)[0], Math.min(a1, k0));
-    if (after && a1 > k1 + EPS) out[out.indexOf(after)] = make(after, Math.max(a0, k1), span(after)[1]);
+    if (before && a0 < h0 - EPS) {
+      const stop = Math.min(a1, h0, ...others(before).filter(([b]) => b >= span(before)[1] - EPS).map(([b]) => b));
+      if (stop > span(before)[1]) out[out.indexOf(before)] = make(before, span(before)[0], stop);
+    }
+    if (after && a1 > h1 + EPS) {
+      const stop = Math.max(a0, h1, ...others(after).filter(([, e]) => e <= span(after)[0] + EPS).map(([, e]) => e));
+      if (stop < span(after)[0]) out[out.indexOf(after)] = make(after, stop, span(after)[1]);
+    }
   }
-  const first = homes[0];
-  // One home target, where the first home gap was in the list (none when no gap beside the item is its home: the
-  // `home:<id>` target over its rect is, and the gaps are still cut clear of it).
-  for (const h of homes.slice(1)) out.splice(out.indexOf(h), 1);
-  const at = first ? out.indexOf(first) : -1;
-  if (first) out.splice(at, 1);
-  // Cut the home stretch out of the other gap hits on the edge (a gap hit straddling it keeps its larger side).
-  for (let i = out.length - 1; i >= 0; i--) {
-    const x = out[i]!;
-    if (x.place.kind !== "gap" || edgeOf(x) !== mine.edge) continue;
-    const [s0, s1] = span(x);
-    if (s1 <= k0 + EPS || s0 >= k1 - EPS) continue;
-    const left = k0 - s0;
-    const right = s1 - k1;
-    if (left <= EPS && right <= EPS) out.splice(i, 1);
-    else out[i] = left >= right ? make(x, s0, k0) : make(x, k1, s1);
-  }
-  if (first) out.splice(Math.min(at, out.length), 0, make(first, k0, k1, [c0, c1]));
+  if (first && h1 - h0 > EPS) out.splice(Math.min(at, out.length), 0, make(first, h0, h1, [c0, c1]));
 }
 
 export function targets(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneTarget[] {
