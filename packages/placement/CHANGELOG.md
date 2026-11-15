@@ -5,6 +5,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.21
 
+- `@n-uf/placement/scene`, **fixed:** home never takes a strip away. An empty bar's strip (or an empty edge's) over
+  the dragged item's own place keeps min(16 px, its slice) at home's end, or beside the item's centre inside it, as a
+  gap does, and home gives that slice up; no strip is narrower than 1 px. The item alone in a bar, lifted, could cut
+  the bar's center third to a sliver (0.67 px where 26.11.20 gave 24 px).
+
 - `@n-uf/placement/scene`, **fixed:** the order of a side's outer edges. From the window's side inward: the side's
   toolbar bars with `outsideInset`, the side's rail, its static column edges with `outsideInset` (anchors), the inset,
   the columns. A side bar used to land after the rail when the side folded into it; now it stays at the window edge and
