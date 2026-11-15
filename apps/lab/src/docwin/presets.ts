@@ -610,18 +610,18 @@ export const PRESETS: readonly Preset[] = [
     id: "strip-keeps-gaps",
     title: "An empty bar's strip keeps the columns' first gaps",
     expected:
-      "With the top bar empty, a group's drag shows the top bar's drop strip along the top of the content, and it never swallows a gap: the strip's hit overlaps no gap's hit, and every gap (the columns' trays, the bars' gaps) has a point of its own a drop can reach.",
+      "With the top bar empty, a group's drag shows the top bar's three zone strips (leading, center, trailing) along the top of the content, and they never swallow a gap: no strip's hit overlaps a gap's hit, and every gap (the columns' trays, the bars' gaps) has a point of its own a drop can reach.",
     setup: (c) => c.setScene(defaultScene()),
     check(c) {
       const ts = c.targets("views");
-      const strip = ts.find((t) => t.id === "strip:top");
-      if (!strip) return { pass: false, now: `No strip for the empty top bar: ${ts.map((t) => t.id).join(", ")}.` };
+      const strips = ["start", "center", "end"].map((z) => ts.find((t) => t.id === `strip:top:${z}`));
+      if (strips.some((s) => !s)) return { pass: false, now: `No zone strips for the empty top bar: ${ts.map((t) => t.id).join(", ")}.` };
       const bad: string[] = [];
       const gapTs = ts.filter((t) => t.id.startsWith("gap:"));
-      for (const g of gapTs) if (overlap(strip.hit, g.hit) > 0) bad.push(`the strip covers ${g.id}`);
+      for (const strip of strips) for (const g of gapTs) if (overlap(strip!.hit, g.hit) > 0) bad.push(`${strip!.id} covers ${g.id}`);
       for (const g of gapTs) if (!aim(c, "views", g)) bad.push(`${g.id} has no point of its own`);
       if (!gapTs.some((g) => g.id.startsWith("gap:left:")) || !gapTs.some((g) => g.id.startsWith("gap:right:"))) bad.push("no gap in a column's tray");
-      return { pass: bad.length === 0, now: `strip:top ${say(strip.hit)}; ${gapTs.map((g) => `${g.id} ${say(g.hit)}`).join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+      return { pass: bad.length === 0, now: `${strips.map((s) => `${s!.id} ${say(s!.hit)}`).join("; ")}; ${gapTs.map((g) => `${g.id} ${say(g.hit)}`).join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
     },
   },
   {
@@ -832,4 +832,167 @@ export const PRESETS: readonly Preset[] = [
       return { pass: ok, now: d ? `Dropped on ${d.target}; slot ${d.preview ? say(d.preview) : "none"}, landed ${d.landed ? say(d.landed) : "none"} (${l?.formKind} in ${l?.edge}).` : "The drag never lifted." };
     },
   },
+  {
+    id: "title-bar-zones",
+    title: "The title bar's zones: leading, center, trailing",
+    expected:
+      "Tools dropped by mouse in the title bar's left third lands leading (right after the title's natural width, or after the toolbars there), in the middle third at the bar's true centre (or, where that isn't clear of the title and the trailing toolbars, centred in the free span between them), in the right third trailing, right before the window controls. The slot is the landing, never over the title's natural rect or the controls; with Zoom in the title bar, Zoom moved out, and Review leading.",
+    setup: (c) => c.setScene(defaultScene()),
+    check(c) {
+      const bad: string[] = [];
+      const seen: string[] = [];
+      const worlds: [string, Scene][] = [
+        ["Zoom in the title bar", defaultScene()],
+        ["Zoom moved out", sceneWith((s) => put(s, "rail-left", ["zoom"]))],
+        ["Review leading", sceneWith((s) => put(put(s, "rail-left", ["zoom"]), "title", ["review"]))],
+      ];
+      for (const [world, base] of worlds) {
+        for (const zone of ["start", "center", "end"] as const) {
+          c.setScene(base);
+          const r = barZoneDrop(c, "tools", "title", zone);
+          seen.push(`${world}, ${zone}: ${r.now}`);
+          if (!r.ok) bad.push(`${world}, ${zone}: ${r.now}`);
+        }
+      }
+      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
+  {
+    id: "zoom-after-title",
+    title: "Zoom right after the title, with Review in the title bar's center or right",
+    expected:
+      "With Zoom moved out and Review in the title bar's center (or its right), Zoom dropped by mouse just right of the title's text gets a slot right after the title's natural width and lands there; the slot is the landing.",
+    setup: (c) => c.setScene(sceneWith((s) => aligned(put(put(s, "rail-left", ["zoom"]), "title", ["review"]), "review", "center"))),
+    check(c) {
+      const bad: string[] = [];
+      const seen: string[] = [];
+      for (const align of ["center", "end"] as const) {
+        c.setScene(sceneWith((s) => aligned(put(put(s, "rail-left", ["zoom"]), "title", ["review"]), "review", align)));
+        const title = reservedRect(c.scene, c.layout, "title");
+        const bar = c.layout.edges.title!.rect;
+        const r = mouseDrag(c, "zoom", { x: title.x + title.width + 12, y: bar.y + bar.height / 2 });
+        const d = c.lastDrop;
+        const l = c.layout.items.zoom;
+        const gap = c.edge("title").gap ?? 0;
+        const ok = r.lifted && !!d && d.committed && l?.edge === "title" && l.zone === "start" && sameRect(d.preview, d.landed) && !!d.landed && Math.abs(d.landed.x - (title.x + title.width + gap)) <= 0.5;
+        seen.push(`Review ${align}: ${d?.target ?? "nothing"} ${d?.landed ? say(d.landed) : ""}`);
+        if (!ok) bad.push(`Review ${align}: dropped on ${d?.target ?? "nothing"}, landed in ${l?.edge ?? "none"} ${d?.landed ? say(d.landed) : ""}`);
+      }
+      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
+  {
+    id: "top-bar-zones",
+    title: "The top bar's zones, empty and with Zoom at its start",
+    expected:
+      "Tools dropped by mouse in the top bar's left, middle and right thirds lands leading, centred and trailing; with the bar empty (its strip is three zone targets) and with Zoom at its start (a toolbar can go to its right, not only to its left). The slot is the landing; with Zoom in the title bar and moved out.",
+    setup: (c) => c.setScene(defaultScene()),
+    check(c) {
+      return zonesOfBar(c, "top", [
+        ["empty, Zoom in the title bar", defaultScene()],
+        ["Zoom at its start", sceneWith((s) => put(s, "top", ["zoom"]))],
+      ]);
+    },
+  },
+  {
+    id: "bottom-bar-zones",
+    title: "The bottom bar's zones, empty and with Zoom at its start",
+    expected:
+      "With Views and Review moved to the top bar, Tools dropped by mouse in the bottom bar's left, middle and right thirds lands leading, centred and trailing; with the bar empty and with Zoom at its start. The slot is the landing.",
+    setup: (c) => c.setScene(sceneWith((s) => put(s, "top", ["views", "review"]))),
+    check(c) {
+      return zonesOfBar(c, "bottom", [
+        ["empty, Zoom in the title bar", sceneWith((s) => put(s, "top", ["views", "review"]))],
+        ["Zoom at its start", sceneWith((s) => put(put(s, "top", ["views", "review"]), "bottom", ["zoom"]))],
+      ]);
+    },
+  },
+  {
+    id: "title-bar-too-full",
+    title: "A title bar too full takes no toolbar",
+    expected:
+      "With Review, Views and Zoom in the title bar, Tools has no room without pushing the title under its natural width: no zone of the title bar offers a target or a slot, a drop over any third lands elsewhere (or goes home), and nothing overlaps the title or the controls.",
+    setup: (c) => c.setScene(sceneWith((s) => put(s, "title", ["review", "views", "zoom"]))),
+    check(c) {
+      const base = sceneWith((s) => put(s, "title", ["review", "views", "zoom"]));
+      c.setScene(base);
+      const bad: string[] = [];
+      const titleGaps = c.targets("tools").filter((t) => (t.place as { edge?: string }).edge === "title");
+      if (titleGaps.length) bad.push(`targets in the title bar: ${titleGaps.map((t) => t.id).join(", ")}`);
+      const bar = c.layout.edges.title!.rect;
+      for (const k of [0, 1, 2]) {
+        c.setScene(base);
+        mouseDrag(c, "tools", { x: bar.x + ((k + 0.5) * bar.width) / 3, y: bar.y + bar.height / 2 });
+        const l = c.layout.items.tools;
+        const title = reservedRect(c.scene, c.layout, "title");
+        const ctl = rectOf(c, "controls")!;
+        if (l?.edge === "title") bad.push(`third ${k + 1}: landed in the title bar`);
+        if (l && !l.floating && l.edge === "title" && (overlap(l.rect, title) > 0 || overlap(l.rect, ctl) > 0)) bad.push(`third ${k + 1}: over the title or the controls`);
+        if ((c.layout.items.title?.rect.width ?? 0) < title.width - 0.5) bad.push(`third ${k + 1}: the title under its natural width`);
+      }
+      return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "No title-bar target for Tools; drops over each third went elsewhere." };
+    },
+  },
 ];
+
+/** The scene with `id` aligned to `align` (its zone). */
+function aligned(s: Scene, id: ItemId, align: "start" | "center" | "end"): Scene {
+  return { ...s, items: { ...s.items, [id]: { ...s.items[id]!, align } } };
+}
+
+/**
+ * Drops `id` by mouse in the bar's third for `zone`, half way into the third, and checks it lands in that zone with the
+ * slot equal to the landing, clear of the title's natural rect and the controls, at the zone's place: leading right
+ * after the items before it, trailing right before the controls (or the bar's end), center at the bar's centre or the
+ * free span's.
+ */
+function barZoneDrop(c: DocwinScene, id: ItemId, edge: EdgeId, zone: "start" | "center" | "end"): { ok: boolean; now: string } {
+  const bar = c.layout.edges[edge]!.rect;
+  const k = zone === "start" ? 0 : zone === "center" ? 1 : 2;
+  // An empty bar: its zone strip (thirds of its strip along the content); else the bar's third.
+  const strip = c.targets(id).find((t) => t.id === `strip:${edge}:${zone}`);
+  const p = strip ? centre(strip.hit) : { x: bar.x + ((k + 0.5) * bar.width) / 3, y: bar.y + bar.height / 2 };
+  const r = mouseDrag(c, id, p);
+  const d = c.lastDrop;
+  const l = c.layout.items[id];
+  if (!r.lifted || !d || !d.committed || !d.landed || l?.edge !== edge) return { ok: false, now: `dropped on ${d?.target ?? "nothing"}, landed in ${l?.edge ?? "none"}` };
+  const got = d.landed;
+  const fixed = Object.keys(c.layout.items).filter((x) => c.layout.items[x]!.fixed && c.layout.items[x]!.edge === edge);
+  const clear = fixed.every((f) => overlap(got, reservedRect(c.scene, c.layout, f)) === 0);
+  const gap = c.edge(edge).gap ?? 0;
+  const pad = c.edge(edge).pad ?? { start: 0, end: 0 };
+  const others = Object.entries(c.layout.items).filter(([x, it]) => x !== id && it.edge === edge && !it.inMenu);
+  const rectFor = (x: string, it: { fixed?: boolean; rect: Rect }): Rect => (it.fixed ? reservedRect(c.scene, c.layout, x) : it.rect);
+  let placed = l.zone === zone && sameRect(d.preview, got);
+  if (zone === "end") {
+    const after = others.filter(([, it]) => it.rect.x >= got.x + got.width - 0.5).map(([x, it]) => rectFor(x, it).x);
+    const limit = after.length ? Math.min(...after) - gap : bar.x + bar.width - (pad.end ?? 0);
+    placed &&= Math.abs(got.x + got.width - limit) <= 0.5;
+  } else if (zone === "start") {
+    const before = others.filter(([, it]) => it.rect.x + it.rect.width <= got.x + 0.5).map(([x, it]) => { const q = rectFor(x, it); return q.x + q.width; });
+    const limit = before.length ? Math.max(...before) + gap : bar.x + (pad.start ?? 0);
+    placed &&= Math.abs(got.x - limit) <= 0.5;
+  } else {
+    const lo = Math.max(bar.x + (pad.start ?? 0), ...others.filter(([, it]) => it.zone === "start").map(([x, it]) => { const q = rectFor(x, it); return q.x + q.width + gap; }));
+    const hi = Math.min(bar.x + bar.width - (pad.end ?? 0), ...others.filter(([, it]) => it.zone === "end").map(([x, it]) => rectFor(x, it).x - gap));
+    const mid = bar.x + (bar.width - got.width) / 2;
+    const want = mid >= lo - 0.5 && mid + got.width <= hi + 0.5 ? mid : (lo + hi - got.width) / 2;
+    placed &&= Math.abs(got.x - want) <= 0.5;
+  }
+  return { ok: placed && clear, now: `${d.target} ${say(got)}${placed ? "" : " (off its zone's place)"}${clear ? "" : " (over a fixed item)"}` };
+}
+
+/** Each world: Tools into the bar's three zones by mouse. */
+function zonesOfBar(c: DocwinScene, edge: EdgeId, worlds: [string, Scene][]): Verdict {
+  const bad: string[] = [];
+  const seen: string[] = [];
+  for (const [world, base] of worlds) {
+    for (const zone of ["start", "center", "end"] as const) {
+      c.setScene(base);
+      const r = barZoneDrop(c, "tools", edge, zone);
+      seen.push(`${world}, ${zone}: ${r.now}`);
+      if (!r.ok) bad.push(`${world}, ${zone}: ${r.now}`);
+    }
+  }
+  return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+}
