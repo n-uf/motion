@@ -83,6 +83,9 @@ const area = (r: Rect): number => Math.max(0, r.width) * Math.max(0, r.height);
 const overlaps = (a: Rect, b: Rect): boolean => Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > EPS && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > EPS;
 const contains = (r: Rect, p: Point): boolean => p.x >= r.x - EPS && p.x <= r.x + r.width + EPS && p.y >= r.y - EPS && p.y <= r.y + r.height + EPS;
 
+/** How far a compact rail's gap hits reach inward past the rail, px. */
+const RAIL_REACH = 24;
+
 /** `hit` with every blocker cut out: for each blocker it overlaps, the largest of the four parts beside it. Null when nothing is left. */
 export function cutAway(hit: Rect, blockers: readonly Rect[]): Rect | null {
   let h = hit;
@@ -134,12 +137,16 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   const base = solve(rest, prev);
   const reach = Math.max(0, Number.isFinite(options.endReach) ? options.endReach! : 0);
   const chrome = scene.chrome ?? [];
-  // No hit covers a fixed item's reserved rect, nor chrome: fixed items of every edge (an end reach may run into the next
-  // bar), where they are drawn now and where they are with the item lifted out. A growing fixed item (a title filling
-  // its bar) reserves only its natural rect; the length it grew by is spare room where gaps may lie, and a drop there
-  // shrinks it toward its natural size (to its `min` if the room needs it), so a group lifted out of a title bar can
-  // always go back while the room allows.
-  const fixedRects = (l: SceneLayout): Rect[] => Object.entries(l.items).filter(([, it]) => it.fixed).map(([id]) => reservedRect(scene, l, id));
+  // No hit covers a non-growing fixed item (window controls, a readout) of any edge, where it is drawn now and with the
+  // item lifted out, nor chrome. A growing fixed item (a title filling its bar) may lie under hits: the pointer over it
+  // picks the nearest gap (just after it). The slot never covers any fixed item's reserved rect (`sound`), and a drop
+  // shrinks a growing one toward its natural size (to its `min` if the room needs it).
+  const grows = (l: SceneLayout, id: string): boolean => {
+    const it = l.items[id]!;
+    const e = it.edge ? l.edges[it.edge] : undefined;
+    return !!e && !!formsOf(scene.items[id]!, axisOf(e.side))[it.form]?.main.grows;
+  };
+  const fixedRects = (l: SceneLayout): Rect[] => Object.entries(l.items).filter(([id, it]) => it.fixed && !grows(l, id)).map(([, it]) => it.rect);
   const blockers = [...fixedRects(now), ...fixedRects(base), ...chrome];
   const out: SceneTarget[] = [];
 
@@ -186,6 +193,25 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   }
   // An empty edge's strip never swallows a gap: its hit is clipped clear of every gap's hit (a bar's strip along the top
   // would otherwise cover the columns' first gaps). A strip left with no room has no target.
+  // A compact rail's inward reach never covers another edge's gap (a column's tray, say): where it would, the hit keeps
+  // only the rail's own thickness.
+  const edgeOfGap = (t: SceneTarget): Edge | undefined => (t.place.kind === "gap" ? rest.edges.find((e) => e.id === (t.place as { edge: string }).edge) : undefined);
+  const plainGapHits = out.filter((t) => t.id.startsWith("gap:") && !edgeOfGap(t)?.compact).map((t) => t.hit);
+  for (let i = 0; i < out.length; i++) {
+    const t = out[i]!;
+    const e = edgeOfGap(t);
+    if (!t.id.startsWith("gap:") || !e?.compact || !plainGapHits.some((h) => overlaps(h, t.hit))) continue;
+    const h = t.hit;
+    const core =
+      e.side === "left"
+        ? rect(h.x, h.y, h.width - RAIL_REACH, h.height)
+        : e.side === "right"
+          ? rect(h.x + RAIL_REACH, h.y, h.width - RAIL_REACH, h.height)
+          : e.side === "top"
+            ? rect(h.x, h.y, h.width, h.height - RAIL_REACH)
+            : rect(h.x, h.y + RAIL_REACH, h.width, h.height - RAIL_REACH);
+    out[i] = { ...t, hit: core };
+  }
   const gapHits = out.filter((t) => t.id.startsWith("gap:")).map((t) => t.hit);
   for (let i = out.length - 1; i >= 0; i--) {
     const t = out[i]!;
@@ -414,8 +440,10 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
     const e = after.edges[edge.id]!;
     return column ? rect(e.rect.x, slot.y, e.cross, 0) : rect(slot.x, e.rect.y, 0, e.cross);
   };
+  // Other edges' rects stop a gap's hit; a compact rail's inward reach may lie over the columns of its own side (the
+  // columns' gaps are cut out of it afterwards).
   const otherEdges = Object.entries(base.edges)
-    .filter(([id, e]) => id !== edge.id && e.rect.width > EPS && e.rect.height > EPS)
+    .filter(([id, e]) => id !== edge.id && e.rect.width > EPS && e.rect.height > EPS && !(edge.compact && e.side === edge.side))
     .map(([, e]) => e.rect);
   const target = (id: string, place: Extract<ScenePlace, { kind: "gap" }>, hit: Rect, keep: Point, solved?: SceneAfter): SceneTarget | null => {
     const result = solved ?? settle(use(moveTo(scene, dragged, place), dragged));
@@ -454,7 +482,10 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
   const len = (r: Rect): number => (column ? r.height : r.width);
   const pad = { start: Math.max(0, edge.pad?.start ?? 0), end: Math.max(0, edge.pad?.end ?? 0) };
   const menuLen = el.menu ? len(el.menu.rect) : 0;
-  const drawnOf = (z: Zone): Rect[] => restEdge.items.filter((id) => zoneOf(rest.items[id]) === z && base.items[id]?.edge === edge.id && !base.items[id]!.inMenu).map((id) => base.items[id]!.rect);
+  // What an item takes of the edge for its gaps' lines: its rect, or a growing fixed item's natural rect (a title's text),
+  // so the length it grew by is free room the gaps after it reach into.
+  const occupied = (id: string): Rect => (base.items[id]?.fixed ? reservedRect(scene, base, id) : base.items[id]!.rect);
+  const drawnOf = (z: Zone): Rect[] => restEdge.items.filter((id) => zoneOf(rest.items[id]) === z && base.items[id]?.edge === edge.id && !base.items[id]!.inMenu).map(occupied);
   const startEnd = ((): number => {
     const s = drawnOf("start");
     return s.length ? at(s[s.length - 1]!) + len(s[s.length - 1]!) : main0 + pad.start;
@@ -474,7 +505,7 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
         .slice(0, k)
         .reverse()
         .find((id) => base.items[id]?.edge === edge.id && !base.items[id]!.inMenu);
-      const line = next ? at(base.items[next]!.rect) : before ? at(base.items[before]!.rect) + len(base.items[before]!.rect) : empty[zone];
+      const line = next ? at(occupied(next)) : before ? at(occupied(before)) + len(occupied(before)) : empty[zone];
       gaps.push({ zone, at: k, line });
     }
   }
@@ -484,34 +515,49 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
     .sort((a, b) => a.line - b.line || a.i - b.i)
     .filter((g, i, all) => i === 0 || Math.abs(g.line - all[i - 1]!.line) > EPS);
   const out: SceneTarget[] = [];
-  // `hitBand`: "middle" splits the edge halfway between the insertion lines (an item's halves belong to its gaps); a
-  // number is a band that many px around each line, so the middle of an item is no gap. Columns default to a band.
-  const bandOpt = edge.hitBand ?? (column ? DEFAULT_HIT_BAND : "middle");
+  // The gaps a drop may take: solved once each; the hits are split among these only, so a refused gap leaves no hole.
+  const live = sorted
+    .map((g) => {
+      const place = { kind: "gap" as const, edge: edge.id, zone: g.zone, at: g.at };
+      return { ...g, place, result: settle(use(moveTo(scene, dragged, place), dragged)) };
+    })
+    .filter((g) => fits(g.result.layout));
+  // `hitBand`: the edge's whole length is split among its gaps, halfway between their insertion lines (free space and
+  // short items such as toolbars belong to the nearest gap), except over a panel's body (an `open` form): a number is a
+  // band that many px around each line there, so the middle of a panel is no gap. `"middle"` splits panels too.
+  const bandOpt = edge.hitBand ?? DEFAULT_HIT_BAND;
   const band = bandOpt === "middle" ? Infinity : Math.max(0, Number.isFinite(bandOpt) ? bandOpt : DEFAULT_HIT_BAND);
-  sorted.forEach((g, i) => {
-    const lo = i === 0 ? -Infinity : (sorted[i - 1]!.line + g.line) / 2;
-    const hi = i === sorted.length - 1 ? Infinity : (g.line + sorted[i + 1]!.line) / 2;
-    // Never into a neighbour's band; the first and last reach `endReach` past the edge's ends.
-    let from = Math.max(lo, g.line - band / 2);
-    let to = Math.min(hi, g.line + band / 2);
-    // Only a band that reaches the edge's end goes on past it (a tray's gap at the foot never covers the top).
-    if (i === 0 && from <= main0 + pad.start + EPS) from = Math.min(from, main0 - reach);
-    if (i === sorted.length - 1 && to >= main0 + length - pad.end - menuLen - EPS) to = Math.max(to, main0 + length + reach);
-    // Past the edge's ends only as far as `endReach`.
+  const bodies = Number.isFinite(band)
+    ? Object.values(base.items)
+        .filter((p) => p.edge === edge.id && p.formKind === "open")
+        .map((p) => ({ a: at(p.rect), b: at(p.rect) + len(p.rect) }))
+    : [];
+  // A compact rail's hits reach a little way inward past its edge, so a pointer just inside the rail still catches it.
+  const inward = edge.compact ? RAIL_REACH : 0;
+  live.forEach((g, i) => {
+    let from = i === 0 ? -Infinity : (live[i - 1]!.line + g.line) / 2;
+    let to = i === live.length - 1 ? Infinity : (g.line + live[i + 1]!.line) / 2;
+    // Over a panel's body, only `band / 2` from its edge.
+    for (const p of bodies) {
+      if (p.b <= g.line + EPS && p.b > from) from = Math.max(from, p.b - band / 2);
+      if (p.a >= g.line - EPS && p.a < to) to = Math.min(to, p.a + band / 2);
+    }
+    // Only a hit that reaches the edge's end goes on past it, as far as `endReach` (a tray's gap at the foot never
+    // covers the panels at the top).
+    from = from <= main0 + pad.start + EPS ? main0 - reach : from;
+    to = to >= main0 + length - pad.end - menuLen - EPS ? main0 + length + reach : to;
     from = Math.max(from, main0 - reach);
     to = Math.min(to, main0 + length + reach);
     if (to - from <= EPS) return;
-    const place = { kind: "gap" as const, edge: edge.id, zone: g.zone, at: g.at };
-    // Across: from the edge's outer side, the larger of its thickness now and after the drop (known after the solve).
-    const result = settle(use(moveTo(scene, dragged, place), dragged));
-    const thick = Math.max(el.cross, result.layout.edges[edge.id]?.cross ?? 0);
+    // Across: from the edge's outer side, the larger of its thickness now and after the drop, and a rail's inward reach.
+    const thick = Math.max(el.cross, g.result.layout.edges[edge.id]?.cross ?? 0) + inward;
     const r = el.rect;
     const hit = column
-      ? rect(edge.side === "left" ? r.x : r.x + r.width - thick, from, thick, to - from)
-      : rect(from, edge.side === "top" ? r.y : r.y + r.height - thick, to - from, thick);
+      ? rect(edge.side === "left" ? r.x : r.x + r.width - (thick - inward) - inward, from, thick, to - from)
+      : rect(from, edge.side === "top" ? r.y : r.y + r.height - (thick - inward) - inward, to - from, thick);
     const line = Math.min(Math.max(g.line, from), to);
-    const keep = column ? { x: hit.x + hit.width / 2, y: line } : { x: line, y: hit.y + hit.height / 2 };
-    const t = target(`gap:${edge.id}:${g.zone}:${g.at}`, place, hit, keep, result);
+    const keep = column ? { x: edge.side === "left" ? r.x + Math.min(el.cross, thick) / 2 : r.x + r.width - Math.min(el.cross, thick) / 2, y: line } : { x: line, y: hit.y + hit.height / 2 };
+    const t = target(`gap:${edge.id}:${g.zone}:${g.at}`, g.place, hit, keep, g.result);
     if (t) out.push(t);
   });
   return out;

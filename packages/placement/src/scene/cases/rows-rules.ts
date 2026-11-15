@@ -143,34 +143,36 @@ export const RULE_ROWS: readonly CaseRow[] = [
   },
   {
     id: "C29b",
-    title: "Nothing is offered over the title",
-    expect: "Held over the title's reserved start, a group is offered no slot at all.",
+    title: "Over the title, the gap just after it",
+    expect:
+      "Held over the title's text, a group is offered the nearest gap, just after the title (a bar's gap hits tile its whole length, a growing title included); the slot never covers the title's reserved text: the title gives up room, the controls keep theirs.",
     group: "kinds",
     scene: panelsOnly(),
     gestures: [g.press("tools"), g.at(80, 16), g.hold()],
-    expectLayout: { items: { tools: null, title: { rect: r(0, 0, 1116, 32) }, controls: { rect: r(1116, 0, 84, 32) } } },
-    expectDom: [{ select: "[data-drag-slot]", count: 0, note: "no slot over the title" }],
+    expectLayout: { items: { tools: { edge: "titlebar", rect: r(916, 0, 200, 32) }, title: { rect: r(0, 0, 916, 32) }, controls: { rect: r(1116, 0, 84, 32) } }, order: { titlebar: ["title", "tools", "controls"] } },
+    expectDom: [{ select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:titlebar:start:1" }, note: "the slot just after the title" }],
   },
 
   // --- revision 4 -------------------------------------------------------------------------------------------------------
   {
     id: "R4-band-at-a-boundary",
     title: "A gap is a band around a boundary",
-    expect: "Within 12 px of the boundary between two panels (the 24 px band) there is a gap and its slot opens there, 11 px either side; 13 px either side there is none, and the held group is out of the preview with nothing else moved.",
+    expect:
+      "Beside a panel's body the gap is a band: within 12 px of the boundary between the Findings panel and the Marks toolbar below it there is a gap, 11 px above; 13 px above, over the panel's body, there is none. Below the boundary the toolbar is a short item, not a body: its whole length belongs to the nearest gap, so 11 and 13 px below are both that gap.",
     group: "bands",
     scene: panelsOnly(),
-    // The boundary is at y 704. In: 693 and 715. Out: 691 and 717.
+    // The boundary is at y 704. In: 693, 715 and 717 (over the toolbar). Out: 691 (over the body).
     gestures: [g.press("tools"), g.at(1070, 693), g.hold(), g.at(1070, 715), g.hold(), g.at(1070, 691), g.hold(), g.at(1070, 717), g.hold()],
     checkpoints: [
       { at: 2, layout: { items: { findings: { rect: r(940, 68, 260, 540) }, tools: { edge: "right", rect: r(940, 608, 84, 96) }, marks: { rect: r(940, 704, 84, 96) } }, order: { right: ["findings", "tools", "marks"] } }, note: "11 px above the boundary: in the band" },
-      { at: 4, layout: { items: { findings: { rect: r(940, 68, 260, 540) }, tools: { edge: "right", rect: r(940, 608, 84, 96) } }, order: { right: ["findings", "tools", "marks"] } }, note: "11 px below: in the band" },
-      { at: 6, layout: { items: { tools: null, findings: { rect: r(940, 68, 260, 636) }, marks: { rect: r(940, 704, 84, 96) } } }, note: "13 px above: out" },
+      { at: 4, layout: { items: { findings: { rect: r(940, 68, 260, 540) }, tools: { edge: "right", rect: r(940, 608, 84, 96) } }, order: { right: ["findings", "tools", "marks"] } }, note: "11 px below: over the toolbar" },
+      { at: 6, layout: { items: { tools: null, findings: { rect: r(940, 68, 260, 636) }, marks: { rect: r(940, 704, 84, 96) } } }, note: "13 px above, over the body: out" },
     ],
-    expectLayout: { items: { tools: null, findings: { rect: r(940, 68, 260, 636) }, marks: { rect: r(940, 704, 84, 96) } }, order: { right: ["findings", "marks"] } },
+    expectLayout: { items: { findings: { rect: r(940, 68, 260, 540) }, tools: { edge: "right", rect: r(940, 608, 84, 96) }, marks: { rect: r(940, 704, 84, 96) } }, order: { right: ["findings", "tools", "marks"] } },
     expectDom: [
       { at: 2, select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:right:start:1" }, note: "the slot on the boundary's gap" },
-      { at: 6, select: "[data-drag-slot]", count: 0, note: "no slot 13 px off" },
-      { at: 8, select: "[data-drag-slot]", count: 0, note: "no slot 13 px off, the other side" },
+      { at: 6, select: "[data-drag-slot]", count: 0, note: "no slot 13 px off, over the body" },
+      { at: 8, select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:right:start:1" }, note: "13 px below, over the toolbar: the same gap" },
     ],
   },
   {

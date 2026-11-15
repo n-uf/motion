@@ -36,18 +36,23 @@ describe("targets", () => {
     }
   });
 
-  it("no hit covers a fixed item or chrome", () => {
+  it("no hit covers a non-growing fixed item or chrome; no slot covers any fixed item's reserved rect", () => {
     const chrome = [r(600, 32, 60, 36)];
     const sc: Scene = { ...s, chrome };
     const before = solve(sc);
-    // What fixed items reserve: the title only its natural 160 px (it grows), the controls and readout their rects.
-    const fixedRects = Object.entries(before.items)
-      .filter(([, i]) => i.fixed)
-      .map(([id, i]) => (id === "title" ? { ...i.rect, width: 160 } : i.rect));
+    // The controls and the readout don't grow: no hit over them. The title grows: hits may lie over it, slots never over
+    // its natural 160 px.
+    const solid = Object.entries(before.items)
+      .filter(([id, i]) => i.fixed && id !== "title")
+      .map(([, i]) => i.rect);
+    const reserved = Object.keys(before.items)
+      .filter((id) => before.items[id]!.fixed)
+      .map((id) => reservedRect(sc, before, id));
     for (const id of ["views", "tools", "pages", "search"]) {
       for (const t of targets(sc, id)) {
         if (t.place.kind !== "gap") continue;
-        for (const f of [...fixedRects, ...chrome]) expect(overlaps(t.hit, f)).toBe(false);
+        for (const f of [...solid, ...chrome]) expect(overlaps(t.hit, f)).toBe(false);
+        if (t.slot) for (const f of [...reserved, ...chrome]) expect(overlaps(t.slot, f)).toBe(false);
       }
     }
   });
@@ -185,10 +190,11 @@ describe("a growing fixed title", () => {
   const s = windowScene();
   const overlapsX = (a: { x: number; width: number }, from: number, to: number) => Math.min(a.x + a.width, to) - Math.max(a.x, from) > 1e-6;
 
-  it("reserves only its natural rect: the grown part takes a gap, and the drop shrinks the title to make room", () => {
+  it("hits tile the bar over the growing title; the slot stays off its natural rect, and the drop shrinks it to make room", () => {
     const gap = targets(s, "views").find((t) => t.id === "gap:titlebar:start:1")!;
     expect(gap).toBeDefined();
-    expect(gap.hit.x).toBeGreaterThanOrEqual(160);
+    // The pointer over the title's text picks the gap just after it.
+    expect(gap.hit.x).toBe(0);
     expect(gap.hit.x + gap.hit.width).toBeLessThanOrEqual(1116);
     const after = gap.after({ x: 0, y: 0 }).layout;
     expect(after.items.views!.edge).toBe("titlebar");
