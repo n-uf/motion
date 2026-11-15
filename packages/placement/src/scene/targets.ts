@@ -9,12 +9,17 @@
  *   empty center or end zone can be opened. Only where the item fits (C29): after the drop it isn't in the » menu, the
  *   edge doesn't overflow, nothing in the edge is newly `too-wide`, every fixed item of the edge keeps its form and its
  *   place (a growing one may give up its spare length), and its slot covers no chrome. The hit is the edge's stretch
- *   between the neighbouring gaps (split halfway between their insertion lines), across the larger of the edge's
- *   thickness before and after the drop, the first and last reaching `endReach` px past the edge's ends; it is cut
- *   clear of the edge's fixed items and the chrome rects (a gap whose line lies inside one has no target). `marker`
- *   is the insertion line after the drop, across the edge; `slot` the item's rect after the drop.
- * - `strip:<edge>` (2): an empty edge that accepts the kind: a strip `Edge.strip` px (default 24) deep along its side,
- *   inside the content. `after` shows the edge holding the item.
+ *   between the neighbouring gaps (split halfway between their insertion lines; over an open item's body only a
+ *   `hitBand` around the line), across the larger of the edge's thickness before and after the drop (a compact edge's
+ *   reaching `RAIL_REACH` further inward), the first and last reaching `endReach` px past the edge's ends. Other edges'
+ *   rects, as they are now and with the item lifted, trim it: one across from the edge at its end along the edge, one
+ *   beside it at its side. It is cut clear of every fixed item that doesn't grow and of the chrome rects (a gap whose
+ *   line lies inside one has no target); a growing fixed item (a title) is not cut out, so a pointer over it picks the
+ *   nearest gap. `marker` is the insertion line after the drop, across the edge; `slot` the item's rect after the drop.
+ * - `strip:<edge>` (2): an empty edge that accepts the kind (its start zone takes it): a strip `Edge.strip` px (default
+ *   24) deep along its side, inside the content and clear of overlay edges, so never over a docked edge or a panel's
+ *   body (a compact rail's strip alone stays at the window edge, its own place); a gap hit that spans it trims its ends,
+ *   and with nothing left it has no target. `after` shows the edge holding the item.
  * - `float:<id>` (3, free): when `floatKinds` lists the kind. The hit covers the whole plane; the landing is the float
  *   with the pointer holding it at `grab` (default its middle), in the stage and clear of the docked items, the bars
  *   and the chrome. Its size: `options.floatSize`, else its float's size, else the item's `floatSize`, else the default.

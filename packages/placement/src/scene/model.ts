@@ -110,11 +110,11 @@ export interface Edge {
   /** The drop strip's depth while the edge is empty, px (default {@link DEFAULT_STRIP}). */
   readonly strip?: number;
   /**
-   * How a gap's hit runs along the edge. A number: a band that many px around the gap's insertion line (the first and
-   * last also reach `endReach` past the edge's ends), clamped so neighbouring bands never overlap, so the body of an item
-   * away from its edges is no gap and the pointer falls through to the float target, or to none. `"middle"`: the edge
-   * split halfway between neighbouring lines, so every point of it is some gap. Default {@link DEFAULT_HIT_BAND} for left
-   * and right edges, `"middle"` for bars.
+   * How a gap's hit runs along the edge. The gaps always split the edge halfway between neighbouring insertion lines, so
+   * free space and short items (a toolbar, a closed or folded panel) are covered end to end. A number: over an open
+   * item's body only (a panel), the hit narrows to a band that many px around the line, so the middle of a panel is no
+   * gap and the pointer falls through to the float target, or to none. `"middle"`: no band, so panels are split too.
+   * Default {@link DEFAULT_HIT_BAND}.
    */
   readonly hitBand?: number | "middle";
   /**
@@ -315,7 +315,7 @@ export interface SolveOptions {
 
 /** A drop strip's depth inside the content while an edge is empty, px. */
 export const DEFAULT_STRIP = 24;
-/** A column's gap hit: a band this many px around each gap's insertion line. */
+/** A gap's hit over an open item's body (a panel): a band this many px around the gap's insertion line. */
 export const DEFAULT_HIT_BAND = 24;
 /** A float's size when neither the item nor the call gives one, px. */
 export const DEFAULT_FLOAT_SIZE: Size = { width: 280, height: 360 };
