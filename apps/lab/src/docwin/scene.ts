@@ -13,7 +13,7 @@
  *   drag's pointer-up is swallowed and focus goes back to where it was before the press;
  * - the store is `storeScene` / `readScene` (./store).
  */
-import type { Point, Rect } from "@n-uf/placement";
+import { clamp, contains, type Point, type Rect } from "@n-uf/placement";
 import { DRAG_DEFAULTS, createDragIntent, previewPlan, type DragIntent } from "@n-uf/motion/drag";
 import { anchoredMorph, type AnchoredMorph } from "@n-uf/motion/layout";
 import {
@@ -372,7 +372,7 @@ export function createScene(o: SceneOptions) {
 
   const targetsOf = (id: ItemId): SceneTarget[] => sceneTargets(scene, id, { previous: layout, endReach: END_REACH });
   const refusalsOf = (id: ItemId): SceneRefusal[] => sceneRefusals(scene, id, { previous: layout, endReach: END_REACH });
-  const inside = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+  const inside = (r: Rect, p: Point): boolean => contains(r, p, 0);
 
   /** Over a refusal: the zone tinted, "No room here" at the pointer; elsewhere both hidden. */
   function showRefusal(r: SceneRefusal | null, p: Point): void {
@@ -420,8 +420,7 @@ export function createScene(o: SceneOptions) {
     frame.append(el);
     const g = el.matches("[data-grip]") ? el : el.querySelector<HTMLElement>("[data-grip]");
     const grip = g ? offsetIn(g, el) : { x: 0, y: 0 };
-    const clamp = (v: number, hi: number): number => Math.min(Math.max(v, 0), hi);
-    const anchor = fromGrip ? { x: clamp(grip.x + fromGrip.x, w), y: clamp(grip.y + fromGrip.y, h) } : grip;
+    const anchor = fromGrip ? { x: clamp(grip.x + fromGrip.x, 0, w), y: clamp(grip.y + fromGrip.y, 0, h) } : grip;
     const f: HeldForm = { key, formKind: spec.formKind, axis: spec.axis, size: { width: w, height: h }, anchor, grip, el, opacity: 0 };
     if (fromGrip) forms.set(key, f);
     return f;
