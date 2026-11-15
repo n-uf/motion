@@ -242,6 +242,22 @@ export function colonRenameDiffs(seeds: readonly number[]): string[] {
 }
 
 describe("the target model's property check", () => {
+  it("the column lines tile like any edge: neighbouring lines meet halfway, each at most its reach from its line", () => {
+    // A 30 px column (its panel in rail form): its outer line at 0 and its inner line at 30.
+    const s: Scene = {
+      stage: { x: 0, y: 0, width: 800, height: 500 },
+      edges: [column("left0", "left", 0, ["p1"], { column: true })],
+      items: byId([panel("p1", 1, { from: 1 }), group("g", 1)]),
+      floats: [{ id: "g", rect: { x: 300, y: 200, width: 200, height: 40 } }],
+      floatKinds: ["group", "panel"],
+      columns: { left: { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 } } },
+    };
+    expect(solve(s).edges.left0!.rect.width).toBe(30);
+    const hit = (id: string): R | undefined => targets(s, "g").find((t) => t.id === id)?.hit;
+    expect(hit("column:left:0")).toEqual({ x: -22, y: 0, width: 37, height: 500 });
+    expect(hit("column:left:1")).toEqual({ x: 15, y: 0, width: 37, height: 500 });
+  });
+
   it("an edge whose id holds ':' is an edge like any other (virtual edges are flagged, not named)", () => {
     expect(colonRenameDiffs(Array.from({ length: 40 }, (_, i) => i + 1))).toEqual([]);
   });
