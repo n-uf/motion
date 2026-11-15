@@ -3,13 +3,15 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.23
+## Unreleased
 
 - `@n-uf/placement/scene`, **fixed:** `columnRoom` counts a side toolbar bar. A left or right bar that lays out an item
   never folds, so its width (and the gutter after it, when it lies inside the inset) comes off the room before the
   column's minimum is tested, and the `no-column-room` note's `width` is the room left after it. Anchors and rails
   still don't count (they fold into the rail), nor do empty or all-closed bars. Layouts don't change. New
   **`isSideBar(scene, edge)`** (a side toolbar bar, by its kinds; `isOutsideSideBar` is it with `outsideInset`).
+
+## 26.11.23
 
 - `@n-uf/placement/scene`, **fixed:** a side bar outside the inset counts for the side's order only while it lays out
   an item. An empty or all-closed side bar draws as nothing, so the layout is the one without it: the rail stays at

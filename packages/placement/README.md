@@ -883,7 +883,9 @@ none lays out as before.
   in a side bar. With nothing docked, the content is the whole stage.
 - **`layout.columnRoom`** and the note **`no-column-room`** (`{ width, need }`): with `contentMin` and a dynamic column,
   whether one column at its minimum fits beside the content's minimum. Anchors and rails don't count: every column, an
-  anchor included, can fold into its rail. A docked column counts whether or not its side has a rail. Before any column
+  anchor included, can fold into its rail. A side toolbar bar that lays out an item does count: it never folds, so its
+  width (and the gutter after it, when it lies inside the inset) comes off the room before the column's minimum is
+  tested, and the note's `width` is the room left after it; an empty or all-closed bar counts for nothing. A docked column counts whether or not its side has a rail. Before any column
   holds an item, the `Scene.columns` template answers, with the larger of its `cross.min` and the least width the items
   it takes need, so docking a panel doesn't flip the answer. It answers as if the one column were open: under
   `insetWhen: "docked"` with nothing docked it counts the inset that column would bring, and a column folded whole by hand
@@ -896,8 +898,9 @@ none lays out as before.
 - **The order of a side's outer edges.** A side's rail is its outermost *panel* edge. With a side bar, from the window's
   edge inward a side lies: its toolbar bars with `outsideInset`, the rail, its static column edges with `outsideInset`
   (anchors), then the inset, then the columns. The kinds tell them apart, with no new option: a side bar takes something
-  and nothing the side's columns take (`Scene.columns[side].accepts`), an anchor takes nothing; `isOutsideSideBar(scene,
-  edge)` says whether an edge is a side bar (only on a side that has a column template or a rail). On a side with no side
+  and nothing the side's columns or rail take (`Scene.columns[side].accepts`, `Scene.rails[side].accepts`), an anchor takes nothing; `isSideBar(scene, edge)`
+  says whether an edge is a side toolbar bar (only on a side that has a column template or a rail), and
+  `isOutsideSideBar(scene, edge)` whether it is one with `outsideInset`. On a side with no side
   bar the rail stays inside the inset, as before. With no rail shown, the `rail:` strip lies past the side's bars too.
 - **Static edges keep their place.** A new column (a `column:` or `rail:` target, `moveTo` with a column or rail place,
   `dockHome`) goes no further out than just inside the static edges that lie outer to the side's dynamic columns, so a
