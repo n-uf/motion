@@ -9,6 +9,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
   (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
+- **Fixed:** `readScene` lost a stored column's tray. It made a column the user had created from its side's template
+  without the template's `zoneAccepts`, so after a reload the column took any kind in any zone. Every column the Scene
+  makes (a drop on a column line, `moveTo` a new column, `dockHome`, `readScene`) now comes from one helper and takes
+  every template field.
+
 - `./scene`, **`ColumnTemplate.hitBand`** (additive): takes the same values as `Edge.hitBand`, a number or `"middle"`
   (a drop on a card's upper half is the gap before it, on its lower half the gap after it). Columns made from the
   template take it: by a drop on a column line, by `moveTo` a new column, by `dockHome`, and read back by `readScene`. A

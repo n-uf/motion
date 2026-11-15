@@ -29,7 +29,7 @@
  */
 import { rect, type Size } from "../geometry";
 import { clampFloat, closeRings, drawnFloatSize, prune, setSide } from "./changes";
-import { axisOf } from "./helpers";
+import { axisOf, columnFromTemplate } from "./helpers";
 import { SIDES, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
 
 export interface StoredSceneEdge {
@@ -191,8 +191,7 @@ function read(data: unknown, base: Scene): SceneRead {
     let edge = base.edges.find((x) => x.id === e.id) ?? made.find((x) => x.id === e.id);
     if (!edge && e.column === true && (e.side === "left" || e.side === "right") && base.columns?.[e.side]) {
       // A column the user made: from its side's template.
-      const t = base.columns[e.side]!;
-      edge = { id: e.id, side: e.side, ring: isNum(e.ring) ? e.ring : Infinity, accepts: t.accepts, items: [], cross: t.cross, ...(t.gap !== undefined ? { gap: t.gap } : {}), ...(t.pad ? { pad: t.pad } : {}), ...(t.menu ? { menu: t.menu } : {}), ...(t.hitBand !== undefined ? { hitBand: t.hitBand } : {}), column: true };
+      edge = columnFromTemplate(base.columns[e.side]!, e.id, e.side, isNum(e.ring) ? e.ring : Infinity, []);
       made.push(edge);
     }
     if (!edge || order.has(edge.id)) {

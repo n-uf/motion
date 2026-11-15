@@ -1,6 +1,6 @@
 /** `Edge.zoneAccepts`: a panel column with panels at its start and a tray of toolbars at its foot. */
 import { describe, expect, it } from "vitest";
-import { moveTo, solve, targets, type Scene } from "../src/scene";
+import { moveTo, readScene, solve, storeScene, targets, type Scene } from "../src/scene";
 import { byId, column, group, panel } from "./scene-fixture";
 
 const r = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
@@ -72,5 +72,23 @@ describe("a column's tray", () => {
     expect(col.zoneAccepts).toEqual(zoneAccepts);
     expect(col.items).toEqual(["r"]);
     expect(targets(withPanel, "r").some((t) => t.place.kind === "column")).toBe(true);
+  });
+
+  it("a tray column the template made is the same column read back from the store: its solve and its targets", () => {
+    const s: Scene = { ...scene(), columns: { right: { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 }, zoneAccepts, hitBand: "middle" } }, rails: undefined };
+    const withPanel: Scene = { ...s, items: { ...s.items, r: panel("r", 9) }, floats: [...s.floats, { id: "r", rect: r(400, 300, 200, 200) }], floatKinds: ["group", "panel"] };
+    const made = moveTo(withPanel, "r", { kind: "column", side: "right", ring: 0 });
+    const col = made.edges.find((e) => e.side === "right")!;
+    const tray = moveTo(made, "h", { kind: "gap", edge: col.id, zone: "end", at: 0 });
+    expect(tray.edges.find((e) => e.id === col.id)!.items).toEqual(["r", "h"]);
+    // Read back against the scene before the column was made: the column comes from the template again.
+    const read = readScene(JSON.parse(JSON.stringify(storeScene(tray))), withPanel);
+    expect(read.dropped).toEqual([]);
+    expect(read.scene.edges.find((e) => e.id === col.id)).toEqual(tray.edges.find((e) => e.id === col.id));
+    expect(solve(read.scene)).toEqual(solve(tray));
+    for (const id of ["r", "h", "p"]) {
+      const want = targets(tray, id).map((t) => [t.id, t.hit, t.hits ?? null, t.slot ?? null]);
+      expect(targets(read.scene, id).map((t) => [t.id, t.hit, t.hits ?? null, t.slot ?? null]), id).toEqual(want);
+    }
   });
 });
