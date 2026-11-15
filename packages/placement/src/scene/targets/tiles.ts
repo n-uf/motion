@@ -6,6 +6,7 @@ import { EPS, area, rect, subtract, type Point, type Rect } from "../../geometry
 import { axisOf, zoneOf, zoneTakes } from "../helpers";
 import { DEFAULT_HIT_BAND, type SceneLayout, type Zone } from "../model";
 import { distinctSlots } from "./edges";
+import { targetId } from "./ids";
 import { EDGE_KINDS, edgeKindOf } from "./kinds";
 import { less, type Ctx, type EdgeSpec, type SceneRefusal, type Slot, type Span, type Tile } from "./model";
 import { seenOf, type Ownership } from "./ownership";
@@ -144,7 +145,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, cuts: readonly Span[], lost: st
     const h = band(a, b);
     const o = spec.own;
     const hit = v ? rect(Math.min(h.x, o.x), a, Math.max(h.x + h.width, o.x + o.width) - Math.min(h.x, o.x), b - a) : rect(a, Math.min(h.y, o.y), b - a, Math.max(h.y + h.height, o.y + o.height) - Math.min(h.y, o.y));
-    out.push(tile(home?.zone ?? zoneOf(c.scene.items[c.dragged]), hit, { kind: "home", id: home ? home.id : `home:${c.dragged}`, order: 0, priority: home ? data.priority : 1, keep: null, place: { kind: "home" } }));
+    out.push(tile(home?.zone ?? zoneOf(c.scene.items[c.dragged]), hit, { kind: "home", id: home ? home.id : targetId({ kind: "home", item: c.dragged }), order: 0, priority: home ? data.priority : 1, keep: null, place: { kind: "home" } }));
   }
   return out;
 }

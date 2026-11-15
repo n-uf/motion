@@ -65,6 +65,7 @@ import type { Orient, Scene } from "./model";
 import { solve } from "./solve";
 import { edgeSpec } from "./targets/edges";
 import { context } from "./targets/filter";
+import { targetId } from "./targets/ids";
 import { edgeKindOf } from "./targets/kinds";
 import type { Ctx, EdgeSpec, Generated, SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions, Span, Tile } from "./targets/model";
 import { ownership } from "./targets/ownership";
@@ -72,6 +73,7 @@ import { clipTiles, seenRefusals, tileEdge } from "./targets/tiles";
 import { columnLines, railStops } from "./targets/virtual";
 
 export { reservedRect, zoneExtents } from "./targets/edges";
+export { parseTargetId, placeTargetId, targetId, virtualEdgeId, type TargetIdParts } from "./targets/ids";
 export { opensEmpty } from "./targets/kinds";
 export type { SceneAfter, ScenePlace, SceneRefusal, SceneTarget, SceneTargetOptions } from "./targets/model";
 
@@ -94,12 +96,13 @@ function specsOf(c: Ctx, kind: string): EdgeSpec[] {
 /** The placed tiles as targets and refusals; a zone's refusals numbered by where they lie along the edge. */
 function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refused: SceneRefusal[]; ownHome: Rect | null } {
   const { scene, now, dragged } = c;
+  const homeId = targetId({ kind: "home", item: dragged });
   const targets: SceneTarget[] = [];
   const refused: SceneRefusal[] = [];
   const homeAfter = (): SceneAfter => ({ scene, layout: now });
   // A zone's refusals are numbered by where they lie along the edge (then across it), not by clipping order, so a
   // refusal keeps its id from one frame to the next.
-  const keyOf = (t: Tile): string => `refuse:${t.edge}:${t.zone}`;
+  const keyOf = (t: Tile): string => targetId({ kind: "refuse", edge: t.edge, zone: t.zone, n: 0 });
   const pos = (t: Tile): [number, number] => (t.vertical ? [t.hit.y, t.hit.x] : [t.hit.x, t.hit.y]);
   const rank = new Map<Tile, number>();
   const byKey = new Map<string, Tile[]>();
@@ -109,12 +112,12 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
   for (const t of placed) {
     if (t.kind === "refuse") {
       const n = rank.get(t)!;
-      refused.push({ id: n === 0 ? keyOf(t) : `${keyOf(t)}:${n}`, edge: t.edge, zone: t.zone, hit: t.hit, reason: t.reason! });
+      refused.push({ id: targetId({ kind: "refuse", edge: t.edge, zone: t.zone, n }), edge: t.edge, zone: t.zone, hit: t.hit, reason: t.reason! });
       continue;
     }
     if (t.kind === "home") {
       if (t.order === 0) ownHome = t.hit;
-      if (t.id === `home:${dragged}`) continue;
+      if (t.id === homeId) continue;
       targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), item: dragged, place: { kind: "home" }, after: homeAfter });
       continue;
     }
@@ -155,7 +158,7 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   const ownRect = now.items[dragged];
   const homeEdge = scene.edges.find((e) => e.id === ownRect?.edge);
   if (ownRect && homeEdge && !ownRect.floating && !tiles.some((t) => t.order === 0))
-    tiles.push({ edge: homeEdge.id, key: homeEdge.id, edgeKind: edgeKindOf(scene, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: `home:${dragged}`, priority: 1, place: { kind: "home" }, hit: ownRect.rect, keep: null });
+    tiles.push({ edge: homeEdge.id, key: homeEdge.id, edgeKind: edgeKindOf(scene, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: targetId({ kind: "home", item: dragged }), priority: 1, place: { kind: "home" }, hit: ownRect.rect, keep: null });
   const placed = clipTiles(tiles, own, scene.chrome ?? [], lost);
   placed.push(...seenRefusals(c, live, placed, own, scene.chrome ?? []));
   const { targets, refused, ownHome } = emit(c, placed);
@@ -166,7 +169,7 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
     const fo: Orient = options.floatOrient ?? was?.orient ?? floatOrientOf(item);
     const size = options.floatSize ?? (was ? { width: was.rect.width, height: was.rect.height } : floatSizeOf(item, fo));
     targets.push({
-      id: `float:${dragged}`,
+      id: targetId({ kind: "float", item: dragged }),
       priority: 3,
       free: true,
       hit: PLANE,
@@ -184,11 +187,11 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
 
   // Filter (iv): `blocked` rects take the pointer and commit nothing.
   (scene.blocked ?? []).forEach((b, i) => {
-    targets.push({ id: `none:${i}`, priority: 1, hit: rect(b.x, b.y, b.width, b.height), item: dragged, place: { kind: "none" }, after: homeAfter });
+    targets.push({ id: targetId({ kind: "none", index: i }), priority: 1, hit: rect(b.x, b.y, b.width, b.height), item: dragged, place: { kind: "none" }, after: homeAfter });
   });
 
   // `home:<id>`, for hosts that read it: over the item's own rect, inside home's tile (all of it when only it is home's).
-  if (ownRect && !ownRect.floating) targets.push({ id: `home:${dragged}`, priority: 1, hit: ownHome && !targets.some((t) => t.place.kind === "home") ? ownHome : ownRect.rect, item: dragged, place: { kind: "home" }, after: homeAfter });
+  if (ownRect && !ownRect.floating) targets.push({ id: targetId({ kind: "home", item: dragged }), priority: 1, hit: ownHome && !targets.some((t) => t.place.kind === "home") ? ownHome : ownRect.rect, item: dragged, place: { kind: "home" }, after: homeAfter });
   return { targets, refusals: refused, lost };
 }
 
