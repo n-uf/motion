@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.26
 
 - **Removed:** `SurfacePointer` (deprecated in 26.11.25); use `GesturePointer`.
 
