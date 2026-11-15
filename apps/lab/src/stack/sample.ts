@@ -39,18 +39,18 @@ const f = (kind: StackForm["kind"], min: number, natural: number, cross: number,
 });
 
 /** A bar is 30 px tall when nothing open sets it; a column 30 px wide. */
-export const RAIL = 30;
-export const BAR_RAIL = 32;
+const RAIL = 30;
+const BAR_RAIL = 32;
 /** A bar is a toolbar edge: nothing can make it taller than this. */
-export const BAR_MAX = 40;
-export const MENU = 28;
+const BAR_MAX = 40;
+const MENU = 28;
 
 /**
  * A group's icon form along its stack: its grip and one 22 px icon per word. In a column the grip is a horizontal
  * one above the icons (14 px) and each icon takes 26 with its gap; along a bar the grip is a vertical one before
  * them (16 px with the padding). Derived from the words, so a longer group doesn't overflow.
  */
-export const iconsMain = (words: number, axis: StackAxis): number => (axis === "column" ? 18 : 16) + 26 * words;
+const iconsMain = (words: number, axis: StackAxis): number => (axis === "column" ? 18 : 16) + 26 * words;
 
 /** An item's forms along an axis, largest first. A header fits any column 56 px wide (its `cross.min`). */
 export function formsOf(id: ItemId, axis: StackAxis, badge = false, rowMain?: number): StackForm[] {
@@ -134,7 +134,7 @@ export const FOLD = 40;
  * other group's fold (T3). Zoom's stacked words are as long as its row, so a step never takes them (T2/T4). A panel
  * starts at its header, as in any bar.
  */
-export function toolbarFormsOf(id: ItemId, badge = false, rowMain?: number): StackForm[] {
+function toolbarFormsOf(id: ItemId, badge = false, rowMain?: number): StackForm[] {
   if (isPanel(id)) return formsOf(id, "row", badge);
   const row = rowMain ?? (badge ? 244 : 200);
   const icons = iconsMain(SAMPLES[id].words.length, "row");

@@ -26,7 +26,7 @@ let open: Open | null = null;
 export const overflowOpen = (): HTMLElement | null => open?.root ?? null;
 
 /** Close the popover (focus back on its » when `refocus`). */
-export function closeOverflow(refocus = true): void {
+function closeOverflow(refocus = true): void {
   open?.close(refocus);
 }
 

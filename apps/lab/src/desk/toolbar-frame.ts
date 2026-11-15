@@ -52,9 +52,9 @@ import {
 import { CASES, DEFAULT_ARRANGEMENT, GROUPS, GROUP_LABEL, type Arrangement, type GroupId } from "./groups";
 
 /** Bar sizes (px): the title bar's and bottom bar's height, a side toolbar's width; what each end keeps. */
-export const TITLE_H = 38;
-export const BAR_H = 38;
-export const SIDE_W = 40;
+const TITLE_H = 38;
+const BAR_H = 38;
+const SIDE_W = 40;
 /** The title bar's start: its glyph and the window controls. */
 const TITLE_LEAD = 96;
 const LEAD = 8;
@@ -172,7 +172,7 @@ function pillFor(a: Arrangement): Placed | undefined {
 }
 
 /** The window as the arrangement lays it out, at the stage's size as set (targets, not what is drawn). */
-export function geometry(a: Arrangement, dragging = false): Geometry {
+function geometry(a: Arrangement, dragging = false): Geometry {
   const size = lab!.size();
   // With Fit on, side bars this arrangement adds narrow the stage: the window keeps its width.
   const SW = fittedWidth(a) + 2;
@@ -236,7 +236,7 @@ export interface Placement {
   readonly collapsed: boolean;
 }
 
-export function placements(a: Arrangement, g: Geometry): Map<GroupId, Placement> {
+function placements(a: Arrangement, g: Geometry): Map<GroupId, Placement> {
   const out = new Map<GroupId, Placement>();
   for (const h of HOSTS) {
     const host = g.hosts[h];
@@ -258,7 +258,7 @@ export function placements(a: Arrangement, g: Geometry): Map<GroupId, Placement>
  * What breaks the layout's promises: groups of one host overlapping, a group outside its host, a host or group
  * outside the window, a floating group off the stage, groups of different hosts overlapping.
  */
-export function layoutFailures(a: Arrangement = arrangement): string[] {
+function layoutFailures(a: Arrangement = arrangement): string[] {
   const g = geometry(a);
   const out: string[] = [];
   const fmt = (r: Rect): string => `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)} × ${Math.round(r.height)}`;
@@ -494,7 +494,7 @@ function setAlt(on: boolean): void {
 }
 
 /** Show a new arrangement (and bottom mode): everything glides there; the desk lays out again for the pill. */
-export function setArrangement(a: Arrangement, mode: BottomMode = bottomMode): void {
+function setArrangement(a: Arrangement, mode: BottomMode = bottomMode): void {
   arrangement = a;
   bottomMode = mode;
   const radio = document.querySelector<HTMLInputElement>(`input[name=bottom-toolbar][value=${mode}]`);

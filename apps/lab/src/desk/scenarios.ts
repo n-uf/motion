@@ -111,7 +111,7 @@ const sameRect = (a: Rect, b: Rect): boolean => Math.max(Math.abs(a.x - b.x), Ma
 const fmt = (r: Rect): string => `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)} × ${Math.round(r.height)}`;
 
 /** Everything shown rests where the layout puts it. */
-export function settledAsLaidOut(lab: DeskLab, expect: Expect): void {
+function settledAsLaidOut(lab: DeskLab, expect: Expect): void {
   for (const [key, p] of lab.layout().items) {
     if (p.hidden) continue;
     const d = lab.drawn(key);

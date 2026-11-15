@@ -1,6 +1,6 @@
 {
   "depcruise:cross-folder-via-index": 26,
   "jscpd:clones": 89,
-  "knip:exports": 78,
-  "knip:types": 19
+  "knip:exports": 45,
+  "knip:types": 8
 }

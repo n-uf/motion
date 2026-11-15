@@ -14,7 +14,7 @@ export type ScenarioFilter = string | ((name: string) => boolean);
 /** Whether scenario `name` passes `filter` (no filter: every one does). */
 export const passes = (name: string, filter?: ScenarioFilter): boolean => (filter === undefined || filter === "" ? true : typeof filter === "string" ? name.includes(filter) : filter(name));
 
-export interface LabHooks {
+interface LabHooks {
   /** Run the page's scenarios: only those whose name contains `filter` (or passes it), when given. */
   runAll: (filter?: ScenarioFilter) => Promise<LabRun[]>;
   runs: LabRun[];
