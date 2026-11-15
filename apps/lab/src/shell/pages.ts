@@ -11,11 +11,12 @@
  * whose cases move into the edge stack. Archived pages still run on the Checks page; they leave once covered.
  */
 
-export type GroupId = "overview" | "motion" | "stack" | "checks" | "archive";
+export type GroupId = "overview" | "motion" | "stack" | "docwin" | "checks" | "archive";
 export const GROUPS: readonly { id: GroupId; title: string }[] = [
   { id: "overview", title: "Overview" },
   { id: "motion", title: "Motion" },
   { id: "stack", title: "Edge stack" },
+  { id: "docwin", title: "Document window" },
   { id: "checks", title: "Checks" },
   { id: "archive", title: "Archive" },
 ];
@@ -189,6 +190,20 @@ export const PAGES: readonly PageDef[] = [
     load: () => Promise.all([import("../stack/stack.css"), import("../stack/edge.css"), import("../stack/edge")]),
     module: "stack-edge",
     reset: "#es-reset",
+    wide: true,
+  },
+  {
+    id: "docwin",
+    group: "docwin",
+    nav: "Document window",
+    title: "Document window",
+    line: "A document viewer's window: bars, side columns, scrolling pages and floats, as one Scene. Each preset sets up a real docking case and checks the Scene's own rules: the page is the Scene's acceptance test.",
+    about:
+      "The whole window is one <code>@n-uf/placement/scene</code> Scene: the title bar with its fixed title and controls, the top and bottom bars, the left and right columns, each edge with the kinds it accepts, the floats and the kinds that may float. Every rect drawn comes from <code>solve</code>; a drag runs <code>@n-uf/motion/drag</code>'s intent over <code>targets(scene, dragged)</code>, draws the dashed slot and marker from the shown target only, and the drop commits that target's <code>after(...).scene</code>. While a drag is on, the root carries <code>data-drag-session</code> and one CSS rule turns hover, resize handles and selection off. Drag a panel by its header, a group by its dots. The Window drawer sets the size, freeze, counts, reload and reset. Headless: <code>window.__docwin</code>.",
+    markup: raw(() => import("../pages/docwin.html?raw")),
+    load: () => Promise.all([import("../docwin/docwin.css"), import("../docwin/docwin")]),
+    module: "docwin",
+    reset: "#dw-reset",
     wide: true,
   },
   {

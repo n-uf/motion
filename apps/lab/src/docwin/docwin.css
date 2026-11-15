@@ -1,0 +1,158 @@
+/* The Document window page: plain boxes in the lab's window tokens. Every rect comes from the solver; CSS only dresses. */
+
+.dw-page { display: grid; gap: 10px; --pending: #7c4dbd; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .dw-page { --pending: #b79af0; } }
+:root[data-theme="dark"] .dw-page { --pending: #b79af0; }
+
+/* The window, never clipped, with its Reset beside it (outside its frame, level with the title bar) when there's room;
+   otherwise Reset sits on the drawer's row, right-aligned above the window's top-right corner (docwin.ts decides). */
+.dw-toprow { display: flex; align-items: flex-start; gap: 10px; }
+.dw-toprow > .dw-drawer { flex: 1; min-width: 0; }
+.dw-top-slot { flex: none; display: flex; }
+.dw-top-slot:empty { display: none; }
+.dw-stage { display: flex; align-items: flex-start; gap: 10px; }
+.dw-stage > .dw { flex: none; }
+.dw-side { flex: none; display: flex; flex-direction: column; gap: 6px; }
+.dw-side:empty { display: none; }
+
+/* --- the presets and the case ------------------------------------------------------------------------------------- */
+.dw-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.dw-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line-2); border-radius: 999px;
+  background: var(--bg-raised); color: var(--text-2); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.dw-chip[aria-current="true"] { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.dw-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line-3); }
+.dw-chip[data-mark="pass"] .dw-dot { background: var(--good); }
+.dw-chip[data-mark="fail"] .dw-dot { background: var(--bad); }
+/* Not built yet (a preset with `pending`): violet, never the red of a real break. */
+.dw-chip[data-mark="pending"] .dw-dot { background: var(--pending); }
+
+.dw-case { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-raised); }
+.dw-case-title { margin: 0 0 4px; font-size: 15px; display: flex; gap: 8px; align-items: center; }
+.dw-case-line { margin: 2px 0; font-size: 13px; color: var(--text-2); }
+.dw-case-line b { color: var(--text); margin-right: 4px; }
+.dw-case-acts { display: flex; gap: 6px; flex: none; }
+.dw-mark { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 4px; }
+.dw-mark[data-mark="pass"] { background: var(--good); color: #fff; }
+.dw-mark[data-mark="fail"] { background: var(--bad); color: #fff; }
+.dw-mark[data-mark="pending"] { background: var(--pending); color: #fff; }
+.dw-mark[data-mark="none"] { display: none; }
+
+.dw-drawer { border: 1px solid var(--line); border-radius: 8px; background: var(--bg-raised); font-size: 13px; }
+.dw-drawer summary { padding: 6px 12px; cursor: pointer; color: var(--text-2); }
+.dw-drawer-body { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 4px 12px 10px; }
+.dw-drawer-body input[type="number"] { width: 5em; }
+.dw-status { margin: 0; min-height: 1.4em; font-size: 13px; color: var(--text-2); }
+.dw-stored pre { max-height: 240px; overflow: auto; font-size: 11px; }
+
+/* --- the window --------------------------------------------------------------------------------------------------- */
+.dw { overflow: visible; }
+.dw-win {
+  position: relative; overflow: hidden; border: 1px solid var(--win-edge); border-radius: var(--win-r);
+  background: var(--win-frame); color: var(--win-text); font-size: 12px; user-select: none; touch-action: none;
+}
+.dw-win > * { position: absolute; box-sizing: border-box; }
+.dw-bar { background: var(--win-bar); border-bottom: 1px solid var(--win-edge); }
+.dw-bar[data-bar="bottom"] { border-bottom: 0; border-top: 1px solid var(--win-edge); }
+.dw-colbg { background: var(--win-bar); }
+.dw-colbg[data-col="left"] { border-right: 1px solid var(--win-edge); }
+.dw-colbg[data-col="right"] { border-left: 1px solid var(--win-edge); }
+
+.dw-scroll { overflow: auto; background: var(--win-well); }
+.dw-sheets { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 20px 0 40px; }
+.dw-sheet { position: relative; flex: none; background: var(--win-paper); border: 1px solid var(--win-paper-line); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); display: grid; align-content: start; gap: 10px; padding: 32px; box-sizing: border-box; }
+.dw-sheet span { position: absolute; right: 8px; bottom: 6px; color: var(--win-muted); font-size: 11px; }
+.dw-sheet i { display: block; height: 8px; background: var(--win-well); border-radius: 2px; }
+.dw-sheet i:nth-child(3) { width: 70%; }
+
+.dw-items { inset: 0; pointer-events: none; }
+.dw-item { position: absolute; box-sizing: border-box; pointer-events: auto; overflow: hidden; }
+
+/* Panels */
+.dw-panel { background: var(--bg-raised); border: 1px solid var(--win-edge); border-radius: 6px; display: flex; flex-direction: column; }
+.dw-head { display: flex; align-items: center; gap: 6px; height: 30px; flex: none; padding: 0 6px; border-bottom: 1px solid var(--win-edge); cursor: grab; }
+.dw-head:hover { background: var(--accent-soft); }
+.dw-head b { flex: 1; font-weight: 600; }
+.dw-badge { display: inline-block; min-width: 3.2ch; padding: 0 3px; border-radius: 8px; background: var(--win-well); color: var(--win-muted); font-size: 10.5px; text-align: center; font-variant-numeric: tabular-nums; }
+.dw-x { border: 0; background: none; color: var(--win-muted); font: inherit; cursor: pointer; padding: 0 4px; }
+.dw-x:hover { color: var(--win-text); }
+.dw-body { flex: 1; overflow: auto; padding: 6px; }
+.dw-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 8px; }
+.dw-thumbs i { position: relative; aspect-ratio: 0.77; background: var(--win-paper); border: 1px solid var(--win-paper-line); }
+.dw-thumbs i:hover { border-color: var(--accent); }
+.dw-thumbs span { position: absolute; bottom: 2px; right: 4px; font-size: 10px; color: var(--win-muted); }
+.dw-list { list-style: none; margin: 0; padding: 0; }
+.dw-list li { display: flex; justify-content: space-between; padding: 4px 6px; border-radius: 4px; }
+.dw-list li:hover { background: var(--accent-soft); }
+.dw-list span { color: var(--win-muted); }
+.dw-k-header { border-radius: 6px; }
+.dw-k-header .dw-head { border-bottom: 0; height: 100%; }
+.dw-k-rail { border: 0; background: none; }
+.dw-railbtn { position: relative; width: 28px; height: 28px; border: 1px solid var(--win-edge); border-radius: 6px; background: var(--bg-raised); font: inherit; font-weight: 600; cursor: pointer; padding: 0; }
+.dw-railbtn:hover { border-color: var(--accent); }
+.dw-railbtn .dw-badge { position: absolute; top: -5px; right: -8px; min-width: 2ch; font-size: 9px; }
+
+/* Groups */
+.dw-group { display: flex; align-items: center; gap: 4px; background: var(--bg-raised); border: 1px solid var(--win-edge); border-radius: 6px; padding: 0 4px; }
+.dw-group.dw-ax-column.dw-k-icons, .dw-group.dw-k-stacked { flex-direction: column; justify-content: flex-start; padding: 4px 2px; }
+.dw-gc { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.dw-k-stacked .dw-gc, .dw-ax-column.dw-k-icons .dw-gc { flex-direction: column; align-items: stretch; }
+.dw-dots { flex: none; width: 8px; height: 16px; cursor: grab; background-image: radial-gradient(var(--grip) 1.2px, transparent 1.4px); background-size: 4px 4px; }
+.dw-ax-column.dw-k-icons > .dw-dots, .dw-k-stacked > .dw-dots { width: 16px; height: 8px; }
+/* Wrapped words: the grip's cell at the start of row one (17 px), the words in their own box beside it, rows 28 px tall
+   (the layout's rows; no "·" at a row's end). */
+.dw-group.dw-k-wrap { display: grid; grid-template-columns: 17px max-content; align-items: start; gap: 0; padding: 0; }
+.dw-k-wrap > .dw-dots { margin: 6px 0 0 5px; }
+.dw-wrapbox { flex-direction: column; align-items: flex-start; gap: 0; }
+.dw-wrow { display: flex; align-items: center; gap: 4px; height: 28px; white-space: nowrap; }
+.dw-wrow .dw-cap { height: 24px; }
+.dw-w, .dw-sq, .dw-tool { border: 1px solid transparent; border-radius: 4px; background: none; font: inherit; color: inherit; padding: 2px 5px; cursor: pointer; white-space: nowrap; }
+.dw-w:hover, .dw-sq:hover, .dw-tool:hover { background: var(--accent-soft); }
+.dw-sq, .dw-tool { width: 24px; height: 24px; padding: 0; display: inline-grid; place-items: center; }
+.dw-tool i { width: 12px; height: 12px; border: 1.5px solid var(--win-muted); border-radius: 2px; }
+.dw-word[aria-pressed="false"] { color: var(--win-muted); text-decoration: line-through; }
+.dw-sq[aria-pressed="false"] { color: var(--win-muted); }
+.dw-n { display: inline-block; min-width: 3ch; text-align: left; font-variant-numeric: tabular-nums; color: var(--win-muted); }
+.dw-zv { display: inline-block; min-width: 4.5ch; text-align: center; font-variant-numeric: tabular-nums; }
+.dw-sep { color: var(--win-muted); }
+.dw-cap { display: inline-flex; align-items: center; border: 1px solid var(--win-edge); border-radius: 999px; overflow: hidden; }
+.dw-cap > * + * { border-left: 1px solid var(--win-edge); border-radius: 0; }
+.dw-cap [aria-pressed="true"] { background: var(--accent-soft); }
+.dw-k-stacked .dw-cap { flex-direction: column; border-radius: 6px; }
+.dw-k-stacked .dw-cap > * + * { border-left: 0; border-top: 1px solid var(--win-edge); }
+
+/* Chrome: the title and the window controls, never dragged. */
+.dw-chrome { display: flex; align-items: center; gap: 8px; }
+.dw-item[data-id="title"] { padding-left: 4px; }
+.dw-title-t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dw-item[data-id="controls"] { justify-content: flex-end; padding-right: 4px; }
+.dw-ctl { width: 14px; height: 14px; border-radius: 50%; background: var(--line-2); }
+.dw-ctl:hover { background: var(--line-3); }
+
+.dw-menu { position: absolute; pointer-events: auto; border: 1px solid var(--win-edge); border-radius: 6px; background: var(--bg-raised); font: inherit; cursor: pointer; }
+
+/* Floats lie above the docked items and the pages. */
+.dw-float { z-index: 2; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); }
+
+/* The columns' resize edges: a plain hover highlight and cursor. */
+.dw-resize { z-index: 3; cursor: col-resize; }
+.dw-resize:hover { background: var(--accent-line); }
+
+/* The drag: the held item, the dashed slot, the insertion marker. */
+.dw-held { z-index: 6; pointer-events: none; opacity: 0.92; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18); }
+/* An icon with its count under it. */
+.dw-sq-n { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; gap: 0; font-size: 10.5px; overflow: hidden; }
+.dw-sq-n small { font-size: 7.5px; line-height: 1; color: var(--win-muted); font-variant-numeric: tabular-nums; }
+.dw-slot { z-index: 5; pointer-events: none; border: 2px dashed var(--signal); border-radius: 6px; background: var(--signal-soft); }
+.dw-slot-label { position: absolute; left: 4px; top: 2px; font-size: 10.5px; color: var(--signal); white-space: nowrap; }
+.dw-marker { z-index: 5; pointer-events: none; background: var(--signal); border-radius: 2px; }
+.dw-slot[hidden], .dw-marker[hidden], .dw-resize[hidden], .dw-bar[hidden], .dw-colbg[hidden] { display: none; }
+
+/* The drag session (host contract): while a drag is on, nothing under the root takes hover, a resize handle or a
+   selection; the session listens on the window and draws the slot from its shown target only. */
+[data-drag-session] .dw-win * { pointer-events: none !important; user-select: none !important; cursor: grabbing !important; }
+
+/* Frozen: grips hidden, nothing lifts; holding Alt shows them and everything works. */
+.dw[data-frozen]:not([data-alt]) .dw-dots { visibility: hidden; }
+.dw[data-frozen]:not([data-alt]) .dw-head { cursor: default; }
