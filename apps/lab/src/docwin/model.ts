@@ -86,7 +86,8 @@ export const ZOOM_CONTROLS: readonly { readonly id: string | null; readonly labe
   { id: "-", label: "−" },
   { id: null, label: "" },
   { id: "+", label: "+" },
-  { id: "fit", label: "FIT" },
+  // The fit control as the kits draw it (their FitToggle): the fit's word in capitals, H-FIT for the height fit.
+  { id: "fit", label: "H-FIT" },
 ];
 /**
  * Each group's compact row variants, largest first, by the controls each hides: Zoom's compact "− 86% +" with "+1"
