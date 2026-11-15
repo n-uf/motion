@@ -1289,7 +1289,7 @@ export const PRESETS: readonly Preset[] = [
     id: "held-form-fast-sweep",
     title: "A fast sweep: the right form at the end, no thrash",
     expected:
-      "Views swept fast by mouse across a column gap, the rail and the top bar (a few frames over each) ends as a row over the top bar; it switches form at most once per target change, the window's items are redrawn only when the shown target changes, and the grip stays within 2 px of the pointer at the start, middle and end of every morph.",
+      "Views swept fast by mouse across a column gap, the rail and the top bar (a few frames over each) ends as a row over the top bar; it switches form at most once per target change, the window's items are redrawn only when the shown target changes, the grip stays within 2 px of the pointer at the start, middle and end of every morph, and no form's opacity jumps (at most 0.15 from one frame to the next: each fades from where it is).",
     setup: (c) => c.setScene(defaultScene()),
     check(c) {
       c.setScene(defaultScene());
@@ -1309,7 +1309,8 @@ export const PRESETS: readonly Preset[] = [
       if (r.switches > r.targetChanges) bad.push(`${r.switches} form switches for ${r.targetChanges} target changes`);
       if (r.redraws > r.targetChanges) bad.push(`the window's items redrawn on ${r.redraws} frames for ${r.targetChanges} target changes`);
       if (worst > 2) bad.push(`the grip drifted ${worst.toFixed(2)} px from the pointer`);
-      return { pass: bad.length === 0, now: `${r.targetChanges} target changes, ${r.switches} form switches, ${r.redraws} redraw frames; ends ${end.formKind} ${end.axis}; grip drift at most ${worst.toFixed(2)} px.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+      if (r.maxFade > 0.15) bad.push(`a form's opacity jumped ${r.maxFade.toFixed(2)} between frames`);
+      return { pass: bad.length === 0, now: `${r.targetChanges} target changes, ${r.switches} form switches, ${r.redraws} redraw frames; ends ${end.formKind} ${end.axis}; grip drift at most ${worst.toFixed(2)} px; opacity steps at most ${r.maxFade.toFixed(3)}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
     },
   },
 ];
@@ -1352,15 +1353,16 @@ function formStops(c: DocwinScene): { readonly stops: readonly FormStop[]; reado
  * Hold `id` by mouse (pointerdown on its grip, then pointermoves `step` px apart, one frame each) through `stops`,
  * holding `hold` frames at each, then let go where it is. Every frame it reads the held copy: `onFrame` gets it and
  * the grip's drift from the pointer (px, against its offset at the lift). Counts the target changes, the form switches
- * and the frames on which the window's items were redrawn (DOM changes under `.dw-items`).
+ * and the frames on which the window's items were redrawn (DOM changes under `.dw-items`), and the most any form's
+ * opacity changed from one frame to the next (`maxFade`; a hidden form counts as 0).
  */
 function heldSweep(
   c: DocwinScene,
   id: ItemId,
   stops: readonly { to: Point; step: number; hold: number }[],
   onFrame: (h: NonNullable<DocwinScene["held"]>, drift: number) => void,
-): { lifted: boolean; atStops: HeldAt[]; home: { formKind: string; axis: string }; switches: number; targetChanges: number; redraws: number } {
-  const none = { lifted: false, atStops: [], home: { formKind: "", axis: "" }, switches: 0, targetChanges: 0, redraws: 0 };
+): { lifted: boolean; atStops: HeldAt[]; home: { formKind: string; axis: string }; switches: number; targetChanges: number; redraws: number; maxFade: number } {
+  const none = { lifted: false, atStops: [], home: { formKind: "", axis: "" }, switches: 0, targetChanges: 0, redraws: 0, maxFade: 0 };
   const grip = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
   if (!grip) return none;
   const w = c.win.getBoundingClientRect();
@@ -1378,6 +1380,9 @@ function heldSweep(
   let targetChanges = 0;
   let redraws = 0;
   let home = { formKind: "", axis: "" };
+  /** Each form's opacity on the last frame (a form first seen counts as 0 before it: it starts hidden). */
+  const shown = new Map<HTMLElement, number>();
+  let maxFade = 0;
   const gripOff = (h: NonNullable<DocwinScene["held"]>, el: HTMLElement): Point | null => {
     const n = el.matches("[data-grip]") ? el : el.querySelector<HTMLElement>("[data-grip]");
     if (!n) return null;
@@ -1396,7 +1401,12 @@ function heldSweep(
     target = h.target;
     // Every form drawn now (heading in, fading out) keeps its grip where the pointer held it at the lift.
     let drift = 0;
+    const first = shown.size === 0;
     for (const el of h.frame.querySelectorAll<HTMLElement>(":scope > .dw-item")) {
+      // No form's opacity jumps: it fades from where it was (the first frame sets where each starts).
+      const op = el.style.visibility === "hidden" ? 0 : Number(el.style.opacity || "1");
+      if (!first) maxFade = Math.max(maxFade, Math.abs(op - (shown.get(el) ?? 0)));
+      shown.set(el, op);
       if (el.style.visibility === "hidden") continue;
       const off = gripOff(h, el);
       if (!off) continue;
@@ -1425,7 +1435,7 @@ function heldSweep(
   window.dispatchEvent(ev("pointerup", at));
   watch.disconnect();
   c.drive(false);
-  return { lifted, atStops, home, switches, targetChanges, redraws };
+  return { lifted, atStops, home, switches, targetChanges, redraws, maxFade };
 }
 
 /** A window narrow enough that the title bar's toolbars, folded, still don't all fit: some go into its » menu. */
