@@ -7,7 +7,7 @@
  * the pointer, the previous zone held for `hysteresis` px past its boundary so a pointer resting on a boundary
  * doesn't flicker. A zone that takes no drop is the consumer's to answer with a null place.
  */
-import type { Point, Rect, Size } from "../geometry";
+import { clamp, type Point, type Rect, type Size } from "../geometry";
 
 export type PaneZone = "center" | "top" | "right" | "bottom" | "left";
 
@@ -39,7 +39,6 @@ export interface PaneCentre {
   readonly bottom: number;
 }
 
-const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), hi);
 const snap = (v: number, ratio: number): number => Math.round(v * ratio) / ratio;
 
 /** Where the centre rectangle of a pane of `size` lies, by these options. */

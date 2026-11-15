@@ -8,7 +8,7 @@
  * Also exported: `pickTarget` (which target a point is over) and `resolvePlace` (a point that reaches the target at a
  * place), the two pure steps a host needs to turn a gesture's `place` into a pointer.
  */
-import type { Point, Rect } from "../../geometry";
+import { area, centre, contains as inside, type Point, type Rect } from "../../geometry";
 import { close, dockHome, fold, floatAt, homeFor, open, raise, readScene, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
 import type { CaseHost, CaseSettings, Gesture } from "./types";
 
@@ -17,10 +17,6 @@ export const LIFT_THRESHOLD = 4;
 /** How far past an edge's ends its first and last gaps reach (px); the kits' toolbars use 24. */
 export const END_REACH = 24;
 
-const EPS = 1e-6;
-const inside = (r: Rect, p: Point): boolean => p.x >= r.x - EPS && p.x <= r.x + r.width + EPS && p.y >= r.y - EPS && p.y <= r.y + r.height + EPS;
-const area = (r: Rect): number => Math.max(0, r.width) * Math.max(0, r.height);
-const centre = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
 
 /** The most precise target under `point`: the lowest priority number, then the smallest hit; null when none is. */
 export function pickTarget<T extends { readonly priority: number; readonly hit: Rect }>(list: readonly T[], point: Point): T | null {

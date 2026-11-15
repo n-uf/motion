@@ -37,10 +37,8 @@
  * passing it (or by starting it at a later form with `from`). An item with no forms is left out (`no-forms`). Pure:
  * same input, same fit.
  */
-import type { Rect } from "../geometry";
+import { EPS, type Rect } from "../geometry";
 import { formCrossMin, formFitsCross, formMain, formSetsCross, limitsOf, menuMain, spacingOf, wrapCross, wrapRows, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote, type StackStep } from "./model";
-
-const EPS = 1e-6;
 const isMenu = (f: StackForm): boolean => f.kind === "menu";
 /** The form kinds of a control group; `ownCross` draws these at their own size across. */
 const GROUP_KINDS: ReadonlySet<string> = new Set(["row", "stacked", "wrap", "icons", "fold"]);

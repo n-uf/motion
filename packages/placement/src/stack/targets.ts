@@ -25,7 +25,7 @@
  * single gaps.
  */
 import { rect, type Rect } from "../geometry";
-import type { Target } from "../targets/target";
+import type { Target } from "../target";
 import { fitStack } from "./layout";
 import { formMain, withItem, type FitOptions, type PlacedStackItem, type StackFit, type StackInput, type StackItem } from "./model";
 

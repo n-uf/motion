@@ -36,3 +36,44 @@ export const clampInto = (r: Rect, area: Rect): Rect => ({
 
 /** The centre of a rect. */
 export const centre = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+
+/** The tolerance the geometry compares with, px. */
+export const EPS = 1e-6;
+
+/** A rect that covers any point a page can see (a float target's hit). */
+export const PLANE: Rect = rect(-1e9, -1e9, 2e9, 2e9);
+
+/** A rect's area (a negative side counts as 0). */
+export const area = (r: Rect): number => Math.max(0, r.width) * Math.max(0, r.height);
+
+/** Whether two rects share more than `eps` each way (touching edges don't overlap). */
+export const overlaps = (a: Rect, b: Rect, eps = EPS): boolean =>
+  Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > eps && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > eps;
+
+/** Whether `p` lies in `r`, its edges included (within `eps`). */
+export const contains = (r: Rect, p: Point, eps = EPS): boolean => p.x >= r.x - eps && p.x <= r.x + r.width + eps && p.y >= r.y - eps && p.y <= r.y + r.height + eps;
+
+/** `v` within `lo..hi` (`lo` wins when `hi` is under it). */
+export const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), Math.max(lo, hi));
+
+/** `r` less `cut`, as disjoint rects: the parts beside the cut whole, then above and below it within its width. */
+export function subtract(r: Rect, cut: Rect): Rect[] {
+  if (!overlaps(r, cut)) return [r];
+  const right = r.x + r.width;
+  const bottom = r.y + r.height;
+  const x0 = Math.max(r.x, cut.x);
+  const x1 = Math.min(right, cut.x + cut.width);
+  return [
+    rect(r.x, r.y, x0 - r.x, r.height),
+    rect(x1, r.y, right - x1, r.height),
+    rect(x0, r.y, x1 - x0, Math.min(bottom, cut.y) - r.y),
+    rect(x0, Math.max(r.y, cut.y + cut.height), x1 - x0, bottom - Math.max(r.y, cut.y + cut.height)),
+  ].filter((p) => area(p) > EPS);
+}
+
+/**
+ * Hit sizes the targets share: how far a column line's hit reaches on each side of the line, and how deep a side takes
+ * a rail drop while it shows no rail, px.
+ */
+export const COLUMN_REACH = 22;
+export const RAIL_EDGE = 10;

@@ -48,8 +48,8 @@
  *
  * A dropped item counts as just used (`use`). An unknown, fixed or closed item has no targets.
  */
-import { rect, type Point, type Rect, type Size } from "../geometry";
-import type { Target } from "../targets/target";
+import { COLUMN_REACH, EPS, PLANE, RAIL_EDGE, area, contains, overlaps, rect, subtract, type Point, type Rect, type Size } from "../geometry";
+import type { Target } from "../target";
 import { formMain } from "../stack/model";
 import { floatAt, lift, moveTo, sideRings, use, type ColumnPlace, type RailPlace } from "./changes";
 import { DEFAULT_HIT_BAND, DEFAULT_STRIP, ZONES, axisOf, floatOrientOf, floatSizeOf, formsOf, isSideBar, zoneOf, zoneTakes, type Edge, type Orient, type Scene, type SceneLayout, type Zone } from "./model";
@@ -103,19 +103,8 @@ export interface SceneRefusal {
   readonly reason: "no-room" | "not-accepted";
 }
 
-const EPS = 1e-6;
-/** A zone that covers any pointer the page can see. */
-export const PLANE: Rect = rect(-1e9, -1e9, 2e9, 2e9);
-
-/** How far a column line's hit reaches on each side of the line, px; how deep a side takes a rail drop when it has no rail. */
-export const COLUMN_REACH = 22;
-export const RAIL_EDGE = 10;
 /** How far a compact rail's hits reach inward past the rail, px. */
 const RAIL_REACH = 24;
-
-const area = (r: Rect): number => Math.max(0, r.width) * Math.max(0, r.height);
-const overlaps = (a: Rect, b: Rect): boolean => Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > EPS && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > EPS;
-const contains = (r: Rect, p: Point): boolean => p.x >= r.x - EPS && p.x <= r.x + r.width + EPS && p.y >= r.y - EPS && p.y <= r.y + r.height + EPS;
 
 /**
  * The edge kinds and their data, the only place target generation tells them apart. `zoneExtent`: `thirds` where items
@@ -124,17 +113,17 @@ const contains = (r: Rect, p: Point): boolean => p.x >= r.x - EPS && p.x <= r.x 
  * never over their tiles. `layer`: clipping precedence (lower first: a full bar owns the corners; a side edge runs
  * between the bars; a rail's reach takes what the edges beside it leave).
  */
-export const EDGE_KINDS = {
+const EDGE_KINDS = {
   bar: { zoneExtent: "thirds", inward: 0, layer: 0 },
   rail: { zoneExtent: "thirds", inward: RAIL_REACH, layer: 4 },
   sideBar: { zoneExtent: "thirds", inward: 0, layer: 1 },
   column: { zoneExtent: "solved", inward: 0, layer: 2 },
   barBetween: { zoneExtent: "thirds", inward: 0, layer: 3 },
 } as const satisfies Record<string, { readonly zoneExtent: "thirds" | "solved"; readonly inward: number; readonly layer: number }>;
-export type EdgeKind = keyof typeof EDGE_KINDS;
+type EdgeKind = keyof typeof EDGE_KINDS;
 
 /** Which of `EDGE_KINDS` an edge is. */
-export function edgeKindOf(scene: Scene, e: Edge): EdgeKind {
+function edgeKindOf(scene: Scene, e: Edge): EdgeKind {
   if (e.compact) return "rail";
   if (e.side === "top" || e.side === "bottom") return e.span === "between" ? "barBetween" : "bar";
   return isSideBar(scene, e) ? "sideBar" : "column";
@@ -554,20 +543,6 @@ function railTiles(c: Ctx, side: "left" | "right"): Tile[] {
   return out;
 }
 
-/** `hit` less `cut`, as disjoint rects (beside the cut whole, above and below it within its width). */
-function minus(hit: Rect, cut: Rect): Rect[] {
-  if (!overlaps(hit, cut)) return [hit];
-  const right = hit.x + hit.width;
-  const bottom = hit.y + hit.height;
-  const x0 = Math.max(hit.x, cut.x);
-  const x1 = Math.min(right, cut.x + cut.width);
-  return [
-    rect(hit.x, hit.y, x0 - hit.x, hit.height),
-    rect(x1, hit.y, right - x1, hit.height),
-    rect(x0, hit.y, x1 - x0, Math.min(bottom, cut.y) - hit.y),
-    rect(x0, Math.max(hit.y, cut.y + cut.height), x1 - x0, bottom - Math.max(hit.y, cut.y + cut.height)),
-  ].filter((p) => area(p) > EPS);
-}
 
 function generate(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
   const item = Object.hasOwn(scene.items, dragged) ? scene.items[dragged] : undefined;
@@ -679,7 +654,7 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
     const reachesOver = !!edge && EDGE_KINDS[edgeKindOf(rest, edge)].inward > 0;
     const cuts = [...placed.map((p) => p.hit), ...(realEdge ? [...(reachesOver ? [] : edgeRects(t.edge)), ...bodies(t.edge)] : []), ...solid, ...chrome];
     let pieces: Rect[] = [t.hit];
-    for (const cut of cuts) pieces = pieces.flatMap((p) => minus(p, cut));
+    for (const cut of cuts) pieces = pieces.flatMap((p) => subtract(p, cut));
     if (pieces.length === 0) continue;
     if (t.kind === "refuse") {
       for (const p of pieces) placed.push({ ...t, hit: p });

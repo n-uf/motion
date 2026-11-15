@@ -25,7 +25,7 @@
  * item with no forms has no targets.
  */
 import { rect, type Rect } from "../../src/geometry";
-import type { Target } from "../../src/targets/target";
+import type { Target } from "../../src/target";
 import { fitStack } from "./layout-26.11.15";
 import { withItem, type FitOptions, type StackFit, type StackInput, type StackItem } from "./model-26.11.15";
 

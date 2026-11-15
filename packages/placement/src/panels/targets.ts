@@ -19,8 +19,8 @@
  * A place the panel may not take (its def's `sides` and `floats`, and `allows`) is no target, and neither is its own
  * place (a drop there changes nothing). Targets carry a structured `place`, never words: the consumer names them.
  */
-import { rect, type Point, type Rect, type Size } from "../geometry";
-import type { Target } from "../targets/target";
+import { COLUMN_REACH, RAIL_EDGE, rect, type Point, type Rect, type Size } from "../geometry";
+import type { Target } from "../target";
 import { layoutPanels, type PanelsLayout } from "./layout";
 import { DEFAULT_PANELS_OPTIONS, EDGES, SIDES, defOf, dock, dockBand, float, floatSize, liftPanel, ownWidth, samePlaces, toPage, whereIs, type Edge, type PanelDef, type PanelsOptions, type PanelsState, type Side } from "./model";
 
@@ -67,9 +67,8 @@ export interface PanelTargetInput {
   readonly stackSlots?: boolean;
 }
 
-/** How far a column band reaches on each side of its line, px; how wide a side's edge takes a rail drop when it has no rail. */
-export const COLUMN_REACH = 22;
-export const RAIL_EDGE = 10;
+/** How far a column band reaches on each side of its line, and how wide a side takes a rail drop with no rail: the root's. */
+export { COLUMN_REACH, RAIL_EDGE };
 
 /**
  * A place's rank in reading order: the left side outer to inner, the right side inner to outer, then the top band and
