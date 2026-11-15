@@ -244,4 +244,32 @@ describe("scene sweeps", () => {
     }
     expect(points).toBeGreaterThan(10000);
   });
+
+  it("every empty edge's strip is by zone (no single start-only strip): each lands in its zone of that edge, preview = landing", () => {
+    let strips = 0;
+    const zonesSeen = new Set<string>();
+    for (const seed of SEEDS) {
+      const s = randomScene(seed);
+      const l = solve(s);
+      for (const id of Object.keys(s.items)) {
+        const it = s.items[id]!;
+        if (it.fixed || it.closed) continue;
+        for (const t of targets(s, id, { previous: l })) {
+          if (!t.id.startsWith("strip:")) continue;
+          const [, edge, zone, more] = t.id.split(":");
+          if (!zone || more !== undefined || !["start", "center", "end"].includes(zone)) throw new Error(`seed ${seed} drag ${id}: ${t.id} names no zone`);
+          if (t.place.kind === "home") continue;
+          const me = t.after({ x: 0, y: 0 }).layout.items[id];
+          if (!me || me.edge !== edge || me.zone !== zone) throw new Error(`seed ${seed} drag ${id}: ${t.id} lands in ${me?.edge}:${me?.zone}`);
+          if (t.slot && (Math.abs(t.slot.x - me.rect.x) > 1e-6 || Math.abs(t.slot.y - me.rect.y) > 1e-6 || Math.abs(t.slot.width - me.rect.width) > 1e-6 || Math.abs(t.slot.height - me.rect.height) > 1e-6))
+            throw new Error(`seed ${seed} drag ${id}: ${t.id}'s slot isn't its landing`);
+          strips++;
+          zonesSeen.add(`${s.edges.find((e) => e.id === edge)!.side}:${zone}`);
+        }
+      }
+    }
+    expect(strips).toBeGreaterThan(100);
+    // Side edges' middle and bottom thirds are among them.
+    for (const z of ["left:center", "left:end", "right:center", "right:end", "top:center", "bottom:end"]) expect(zonesSeen.has(z), z).toBe(true);
+  });
 });

@@ -796,7 +796,8 @@ is over the leading zone (`start`), in the middle third over the center zone, in
 (`end`), and within the zone the nearest of its gaps wins, each zone's gaps splitting only that zone's third. A zone whose
 toolbars run past its third spreads its gap lines inside the third, so its last gap keeps a slice of it. An empty bar's
 strip is three targets, `strip:<bar>:start`, `strip:<bar>:center` and `strip:<bar>:end` (it was one `strip:<bar>`), one
-per third. Columns keep their one `strip:<column>`.
+per third. Every empty edge does the same along its own axis: a side edge or a compact rail by thirds of its height
+(`strip:<edge>:start|center|end`, top, middle, bottom).
 
 A **title bar**, a bar with a fixed item that grows (the window title), is a constrained host: a toolbar dropped there
 must land in its first form, nothing else in the bar may change form for it, and the title keeps its natural width (it may
@@ -844,9 +845,10 @@ out of it with a `no-icons-form` note.
 the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`
 has its panels at the top and a tray of toolbars at its foot (the end zone, one toolbar per row): a toolbar in the tray
 takes only its `wrap` or `icons` form, never the menu, and the panels give way first. Gaps are offered only in the zones
-that take the dragged kind, `moveTo` puts an item in the zone asked for, else in its own zone if that takes its kind, else in the first that does, and a group never opens such a
-column on its own: an empty edge offers its strip only to the kinds its start zone takes, so a group's drag gets the compact
-rail's strip but none for an empty panel column.
+that take the dragged kind, `moveTo` puts an item in the zone asked for, else in its own zone if that takes its kind, else in the first that does. An empty edge offers
+each third of its strip only to the kinds that third's zone takes (the other thirds are refusals): a group's drag gets
+an empty tray column's bottom third, a panel's its top third. A group never opens a new column whose start zone doesn't
+take it.
 
 **Columns and rails.** A left or right edge with `column: true` is a dynamic column: drops make it (a `column` place, from
 `scene.columns[side]`: `accepts`, `cross`, `gap`, `pad`, `menu`), and it is deleted, its side's rings closed up, when it
@@ -962,14 +964,14 @@ edges without `previous`.
   by is spare room: the drop shrinks it toward its natural size (to its `min` if the room needs it), so a group moved
   out of a title bar can always go back while the room allows. No slot lies over a fixed item's reserved rect. `slot`
   is the item's rect after the drop and `marker` the insertion line across the edge.
-- `strip:<edge>` (2; for an empty horizontal bar three, `strip:<bar>:start`, `:center` and `:end`, one per third, see
-  Bar alignment zones): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side, inside the
+- `strip:<edge>:<zone>` (2; three per empty edge, `:start`, `:center` and `:end`, one per third along the edge: a bar's
+  width, a side edge's height, see Bar alignment zones): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side, inside the
   content and clear of the other edges (overlay ones included), so never over a docked edge or a panel's body: a
   full-width empty bar's strip covers only the content between the columns. A compact rail's strip alone stays at the
   window edge, its own place. A gap hit that spans it across trims its start or end (a bar's strip along the top never
   covers the columns' first gaps); one across its middle is left to the smaller-hit tie-break. With nothing left (an
-  empty outer bar on a non-empty inner one, a bar's strip all under an overlay column) it has no target. Only for a
-  kind its start zone takes (`Edge.zoneAccepts`).
+  empty outer bar on a non-empty inner one, a bar's strip all under an overlay column) it has no target. A third is
+  offered only for a kind its zone takes (`Edge.zoneAccepts`); the others are refusals.
 - `float:<id>` (3, free) when `floatKinds` lists the kind: the whole plane, landing with the pointer holding the float
   at `grab`, clamped and moved clear. It has no fixed `slot`: the slot to draw is
   `after(point, grab).layout.items[id].rect`, for the pointer at the time.
