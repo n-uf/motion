@@ -5,9 +5,9 @@
  * and is expected to be red until the rule lands: the page never fakes it.
  */
 import type { Point, Rect } from "@n-uf/placement";
-import { lift, moveTo, reservedRect, solve, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
+import { lift, moveTo, reservedRect, resize, solve, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { wrapCross } from "@n-uf/placement/stack";
-import { DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, put, type EdgeId, type ItemId } from "./model";
+import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, put, type EdgeId, type ItemId } from "./model";
 import type { DocwinScene } from "./scene";
 import { readDocwin, storeDocwin } from "./store";
 
@@ -546,7 +546,8 @@ export const PRESETS: readonly Preset[] = [
     title: "A word toolbar keeps its shape",
     expected:
       "Views (Pages · Notes 2 · Findings 20, with a grip), dropped into a column narrower than its one row, stays horizontal as a wrap form: the grip is a cell at the start of row one, the words wrap in their own box beside it (a hanging indent, no grip row of its own, never one word alone on a row that isn't the last: a column too narrow for two words per row shows icons), its rect is rows × the row height tall and no wider than the column. Dropped onto a vertical place (an empty column's strip, a column drawn as a rail), it shows icons only, one per item, stacked (the host draws their grip on top). The slot a target shows is the rect after the real drop.",
-    setup: (c) => c.setScene(defaultScene()),
+    // The left column at its least width (the panels' 180 px), narrower than Views' measured one row.
+    setup: (c) => c.setScene(resize(defaultScene(), "left", COL_MIN)),
     check(c) {
       const forms = c.scene.items.views!.forms.column!;
       const wrapSpec = forms.find((f) => f.kind === "wrap")?.wrap;
@@ -1105,7 +1106,10 @@ export const PRESETS: readonly Preset[] = [
       for (let x = bar.x + 300; x < bar.x + bar.width; x += 40) {
         h.move({ x, y });
         const s = c.shown;
-        if (s?.place.kind !== "home") continue;
+        // Home: its target, or the session homing ("Back to its place" with no target).
+        const slotEl = c.win.querySelector<HTMLElement>(".dw-slot")!;
+        const homing = !s && !slotEl.hidden && slotEl.title === "Back to its place";
+        if (s?.place.kind !== "home" && !homing) continue;
         homes++;
         if (x < own.x - 12 || x > own.x + own.width + 12) bad.push(`home at x ${r0(x)}, its place is ${r0(own.x)}..${r0(own.x + own.width)}`);
       }
@@ -1140,7 +1144,66 @@ export const PRESETS: readonly Preset[] = [
       return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "No room here over each third, no slot, Tools back home." };
     },
   },
+  {
+    id: "even-separators",
+    title: "Even spacing around every separator",
+    expected: "In every word group with a \"·\" between its words (Views: Pages · Notes 2 · Findings 20), in its row form in a bar and its wrap form in a tray, the room from the words' ink to the \"·\" is the same on both sides, within 1 px.",
+    setup: (c) => c.setScene(defaultScene()),
+    check(c) {
+      const bad: string[] = [];
+      let n = 0;
+      const places: [string, Scene][] = [
+        ["the bottom bar (row)", defaultScene()],
+        ["the left column's tray (wrap)", resize(moveTo(defaultScene(), "views", { kind: "gap", edge: "left", zone: "end", at: 0 }), "left", COL_MIN)],
+      ];
+      for (const [where, s] of places) {
+        c.setScene(s);
+        const el = c.win.querySelector<HTMLElement>('.dw-items [data-id="views"]');
+        if (!el) {
+          bad.push(`Views not drawn in ${where}`);
+          continue;
+        }
+        for (const sep of el.querySelectorAll<HTMLElement>(".dw-sep")) {
+          const prev = sep.previousElementSibling as HTMLElement | null;
+          const next = sep.nextElementSibling as HTMLElement | null;
+          if (!prev || !next) continue;
+          const left = sep.getBoundingClientRect().left + inkInset(sep).left - ink(prev).right;
+          const right = ink(next).left - (sep.getBoundingClientRect().right - inkInset(sep).right);
+          n++;
+          if (Math.abs(left - right) > 1) bad.push(`${where}: ${r0(left)} px before a "·", ${r0(right)} px after it`);
+        }
+      }
+      return { pass: bad.length === 0 && n > 0, now: `${n} separators measured.${bad.length ? ` Uneven: ${bad.join("; ")}.` : n ? " All even." : " None found."}` };
+    },
+  },
 ];
+
+/** The ink of an element's text: the union of its text nodes' rects (its padding and empty room left out). */
+function ink(el: Element): { left: number; right: number } {
+  const range = document.createRange();
+  let left = Infinity;
+  let right = -Infinity;
+  const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  for (let t = walk.nextNode(); t; t = walk.nextNode()) {
+    if (!t.textContent?.trim()) continue;
+    range.selectNodeContents(t);
+    for (const r of range.getClientRects()) {
+      left = Math.min(left, r.left);
+      right = Math.max(right, r.right);
+    }
+  }
+  if (!Number.isFinite(left)) {
+    const b = el.getBoundingClientRect();
+    return { left: b.left, right: b.right };
+  }
+  return { left, right };
+}
+/** How far an element's ink sits inside its box, each side. */
+function inkInset(el: Element): { left: number; right: number } {
+  const b = el.getBoundingClientRect();
+  const i = ink(el);
+  return { left: i.left - b.left, right: b.right - i.right };
+}
 
 /** The reported state: a 1200 px window, the title, Tools and Zoom leading and Views trailing in the title bar, Pages floating, Notes left, Findings right. */
 function reportedTitle(): Scene {
