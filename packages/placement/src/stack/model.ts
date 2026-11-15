@@ -112,11 +112,42 @@ export function formFitsCross(f: StackForm, cross: number): boolean {
   return cross + 1e-6 >= nonNeg(f.wrap.lead) + widest && wrapLines(f.wrap, cross).fits;
 }
 
+/** The widths a row can take: the lead and a run of neighbouring words, narrowest first. */
+function rowWidths(spec: WrapSpec): number[] {
+  const gap = nonNeg(spec.gap);
+  const lead = nonNeg(spec.lead);
+  const widths = spec.widths.map(nonNeg);
+  const out: number[] = [];
+  for (let i = 0; i < widths.length; i++) {
+    let run = 0;
+    for (let j = i; j < widths.length; j++) {
+      run += widths[j]! + (j > i ? gap : 0);
+      out.push(lead + run);
+    }
+  }
+  return out.sort((a, b) => a - b);
+}
+
 /**
  * A wrap form's rows at cross size `cross`: the word indexes per row, how wide the widest row is (the lead included),
- * and whether the form fits (with two words or more, no row but the last holds a single word).
+ * and whether the form fits (with two words or more, no row but the last holds a single word). Greedy rows can leave a
+ * single word on a row at one width and not at a narrower one, so when the rows at `cross` don't fit they are laid at
+ * the widest narrower width that fits: a form that fits a cross size fits every wider one, and widening never turns
+ * its words into icons.
  */
 export function wrapLines(spec: WrapSpec, cross: number): { lines: number[][]; width: number; fits: boolean } {
+  const g = greedyLines(spec, cross);
+  if (g.fits) return g;
+  const narrower = rowWidths(spec).filter((c) => c <= cross + 1e-6);
+  for (let i = narrower.length - 1; i >= 0; i--) {
+    const h = greedyLines(spec, narrower[i]!);
+    if (h.fits) return h;
+  }
+  return g;
+}
+
+/** Rows laid greedily at cross size `cross`: each takes words while they fit, and always takes one. */
+function greedyLines(spec: WrapSpec, cross: number): { lines: number[][]; width: number; fits: boolean } {
   const gap = nonNeg(spec.gap);
   const lead = nonNeg(spec.lead);
   const widths = spec.widths.map(nonNeg);
@@ -159,16 +190,9 @@ export function wrapCross(spec: WrapSpec): { natural: number; min: number } {
   const widths = spec.widths.map(nonNeg);
   const natural = lead + widths.reduce((s, w) => s + w, 0) + Math.max(0, widths.length - 1) * gap;
   if (widths.length < 2) return { natural, min: natural };
-  const candidates: number[] = [];
-  for (let i = 0; i < widths.length; i++) {
-    let run = 0;
-    for (let j = i; j < widths.length; j++) {
-      run += widths[j]! + (j > i ? gap : 0);
-      candidates.push(lead + run);
-    }
-  }
-  candidates.sort((a, b) => a - b);
-  const min = candidates.find((c) => c >= lead + Math.max(...widths) && wrapLines(spec, c).fits) ?? natural;
+  // The narrowest cross where some width no wider fits (`wrapLines` lays the rows there) and every word fits beside the lead.
+  const first = rowWidths(spec).find((c) => greedyLines(spec, c).fits) ?? natural;
+  const min = Math.max(lead + Math.max(...widths), first);
   return { natural, min };
 }
 

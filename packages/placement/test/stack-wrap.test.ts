@@ -37,6 +37,19 @@ describe("wrapLines", () => {
     expect(formFitsCross(wrapForm(), 129)).toBe(false);
   });
 
+  it("fitting is monotone: a form that fits a cross fits every wider one, laid out at the widest narrower width that fits", () => {
+    const odd: WrapSpec = { widths: [47, 20, 32, 59, 68], row: 24, gap: 4, lead: 19 };
+    const min = formCrossMin(wrapForm(odd));
+    for (let c = Math.ceil(min); c <= wrapCross(odd).natural; c++) {
+      expect(formFitsCross(wrapForm(odd), c)).toBe(true);
+      const l = wrapLines(odd, c);
+      expect(l.lines.slice(0, -1).every((row) => row.length >= 2)).toBe(true);
+      expect(l.width).toBeLessThanOrEqual(c + 1e-6);
+    }
+    // Greedily at 126 the rows would be [0,1,2], [3], [4]; laid at a narrower width that fits instead.
+    expect(wrapLines(odd, 126).lines).not.toEqual([[0, 1, 2], [3], [4]]);
+  });
+
   it("a single-word group rows normally: one row while the word fits beside the lead", () => {
     const one: WrapSpec = { widths: [80], row: 28, lead: 16 };
     expect(wrapLines(one, 100)).toEqual({ lines: [[0]], width: 96, fits: true });
