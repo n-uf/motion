@@ -15,6 +15,7 @@
  */
 import type { Point, Rect } from "@n-uf/placement";
 import { DRAG_DEFAULTS, createDragIntent, previewPlan, type DragIntent } from "@n-uf/motion/drag";
+import { anchoredMorph, type AnchoredMorph } from "@n-uf/motion/layout";
 import {
   close as closeItem,
   floatOrientOf,
@@ -44,14 +45,64 @@ export interface LastDrop {
   readonly cancelled: boolean;
 }
 
+/** One form of the held copy, drawn at its measured size: its content, and where its grip anchors it to the pointer. */
+interface HeldForm {
+  readonly key: string;
+  readonly formKind: string;
+  readonly axis: "row" | "column";
+  readonly size: { readonly width: number; readonly height: number };
+  /** The spot that sits on the pointer: the grip's top-left corner plus the pointer's offset from it when lifted. */
+  readonly anchor: Point;
+  /** The grip's top-left corner in the form. */
+  readonly grip: Point;
+  readonly el: HTMLElement;
+}
+
+/** A form to draw the held copy in: its kind, its axis, its rows (a wrap form) and its measured size. */
+interface FormSpec {
+  readonly formKind: string;
+  readonly axis: "row" | "column";
+  readonly rows?: readonly (readonly number[])[] | undefined;
+  readonly size: { readonly width: number; readonly height: number };
+}
+
+/** What the held copy reports to checks: its form, the target it follows, the switches so far, the morph and the DOM. */
+export interface HeldInfo {
+  readonly formKind: string;
+  readonly axis: "row" | "column";
+  /** The target whose form it heads for (null: its own form, off every target). */
+  readonly target: string | null;
+  readonly switches: number;
+  readonly settled: boolean;
+  readonly progress: number;
+  /** The pointer (window px), the held frame and the form heading in (its element carries `[data-grip]`). */
+  readonly pointer: Point;
+  readonly frame: HTMLElement;
+  readonly el: HTMLElement;
+}
+
 interface Held {
   readonly id: ItemId;
   readonly kind: string;
   readonly grab: Point;
   readonly home: Rect;
   readonly docked: boolean;
-  readonly size: { width: number; height: number };
+  /** The held copy's frame: the morph's box with its anchor (the grip) on the pointer; each form's content inside. */
   readonly el: HTMLElement;
+  /** The held copy's size and grip anchor, settling to the shown target's form and back (`@n-uf/motion/layout`). */
+  readonly morph: AnchoredMorph;
+  /** The pointer's offset from the grip's top-left corner when lifted, kept in every form. */
+  readonly fromGrip: Point;
+  /** The form it had when lifted, and every form drawn so far in this drag, by key. */
+  readonly homeForm: HeldForm;
+  readonly forms: Map<string, HeldForm>;
+  /** The form heading in, and the one fading out (null at rest). */
+  current: HeldForm;
+  leaving: HeldForm | null;
+  /** The target the held form follows (its id; null: the home form), the form switches so far, the last frame's time. */
+  formOf: string | null;
+  switches: number;
+  last: number;
   readonly intent: DragIntent<SceneTarget>;
   readonly targets: readonly SceneTarget[];
   /** Where a drop is refused (`refusals`): over one, "No room here" at the pointer and no slot; a release goes home. */
@@ -331,18 +382,103 @@ export function createScene(o: SceneOptions) {
 
   const frozen = (): boolean => root.dataset.frozen !== undefined && root.dataset.alt === undefined;
 
+  /** `node`'s top-left corner in `box`'s border box (layout px, so a scaled window doesn't change it). */
+  const offsetIn = (node: HTMLElement, box: HTMLElement): Point => {
+    let x = 0;
+    let y = 0;
+    for (let n: HTMLElement | null = node; n && n !== box; n = n.offsetParent as HTMLElement | null) {
+      // An offset is from the offset parent's padding edge: its border lies outside that.
+      const parent = n.offsetParent as HTMLElement | null;
+      x += n.offsetLeft + (parent?.clientLeft ?? 0);
+      y += n.offsetTop + (parent?.clientTop ?? 0);
+    }
+    return { x, y };
+  };
+
+  /**
+   * One form of the held copy, in its `frame`: the content drawn at the form's measured size, anchored at its grip plus
+   * `fromGrip` (the pointer's offset from the grip when lifted; null: the grip's own corner). Drawn once per drag.
+   */
+  function heldForm(frame: HTMLElement, forms: Map<string, HeldForm>, id: ItemId, kind: string, spec: FormSpec, fromGrip: Point | null): HeldForm {
+    const w = spec.size.width;
+    const h = spec.size.height;
+    const key = `${spec.formKind}|${spec.axis}|${JSON.stringify(spec.rows ?? null)}|${Math.round(w)}x${Math.round(h)}`;
+    const had = forms.get(key);
+    if (had) return had;
+    const el = document.createElement("section");
+    el.className = `dw-item dw-${kind} dw-k-${spec.formKind} dw-ax-${spec.axis}`;
+    el.innerHTML = inner(id, spec.formKind, spec.rows);
+    Object.assign(el.style, { left: "0px", top: "0px", width: px(w), height: px(h) });
+    frame.append(el);
+    const g = el.matches("[data-grip]") ? el : el.querySelector<HTMLElement>("[data-grip]");
+    const grip = g ? offsetIn(g, el) : { x: 0, y: 0 };
+    const clamp = (v: number, hi: number): number => Math.min(Math.max(v, 0), hi);
+    const anchor = fromGrip ? { x: clamp(grip.x + fromGrip.x, w), y: clamp(grip.y + fromGrip.y, h) } : grip;
+    const f: HeldForm = { key, formKind: spec.formKind, axis: spec.axis, size: { width: w, height: h }, anchor, grip, el };
+    if (fromGrip) forms.set(key, f);
+    return f;
+  }
+
+  /** The form the drop at `t` gives the held item, at its measured size; null when it lands in no drawn form. */
+  function formAt(d: Held, t: SceneTarget): FormSpec | null {
+    const a = t.after(d.pointer, d.grab);
+    const it = a.layout.items[d.id];
+    if (!it || it.inMenu || it.floating) return null;
+    return { formKind: it.formKind, axis: axisOf(a.scene, a.layout, d.id), rows: it.rows, size: it.rect };
+  }
+
+  /**
+   * The held copy takes `next`'s form: the morph heads for its size and grip anchor from where it is drawn. The form
+   * mostly shown keeps fading out (one in, one out at most), so a fast sweep retargets mid-flight with no snap.
+   */
+  function switchForm(d: Held, next: HeldForm): void {
+    if (next === d.current) return;
+    const out = d.leaving && d.morph.progress < 0.5 ? d.leaving : d.current;
+    for (const f of [d.current, d.leaving]) if (f && f !== out && f !== next) f.el.style.visibility = "hidden";
+    d.leaving = out === next ? null : out;
+    d.current = next;
+    next.el.style.visibility = "";
+    d.morph.to(next.size, next.anchor);
+    d.switches++;
+  }
+
+  /** Draw the held copy for this frame: the frame at the morph's box, each form with its own anchor on the pointer. */
+  function drawHeld(d: Held, now: number): void {
+    d.morph.step(Math.max(0, now - d.last));
+    d.last = now;
+    place(d.el, d.morph.rectAt(d.pointer));
+    const at = d.morph.anchor;
+    const p = d.morph.progress;
+    if (d.leaving && d.morph.settled) {
+      d.leaving.el.style.visibility = "hidden";
+      d.leaving = null;
+    }
+    for (const f of [d.current, d.leaving]) {
+      if (!f) continue;
+      f.el.style.left = px(at.x - f.anchor.x);
+      f.el.style.top = px(at.y - f.anchor.y);
+      f.el.style.opacity = f === d.current ? String(d.leaving ? p : 1) : String(1 - p);
+    }
+  }
+
   /** Lift `id`, pressed at `start` and now at `p` (window px). False when nothing can be lifted. */
   function begin(id: ItemId, start: Point, p: Point, now = performance.now()): boolean {
     if (drag || frozen() || scene.items[id]?.fixed) return false;
     const was = layout.items[id];
     if (!was) return false;
     const targets = targetsOf(id);
-    const el = document.createElement("section");
-    el.className = `dw-item dw-held dw-${was.kind} dw-k-${was.formKind} dw-ax-${axisOf(scene, layout, id)}`;
-    el.innerHTML = inner(id, was.formKind, was.rows);
+    // The held copy: a frame (the morph's box, its anchor on the pointer) holding each form's content.
+    const el = document.createElement("div");
+    el.className = `dw-held dw-morph dw-${was.kind}`;
     const grab = { x: start.x - was.rect.x, y: start.y - was.rect.y };
     place(el, { x: p.x - grab.x, y: p.y - grab.y, width: was.rect.width, height: was.rect.height });
     win.append(el);
+    const forms = new Map<string, HeldForm>();
+    const homeForm = heldForm(el, forms, id, was.kind, { formKind: was.formKind, axis: axisOf(scene, layout, id), rows: was.rows, size: was.rect }, null);
+    // The pointer's offset from the grip in the lifted form: every form keeps it, so the grip stays under the pointer.
+    const fromGrip = { x: grab.x - homeForm.anchor.x, y: grab.y - homeForm.anchor.y };
+    const home0 = { ...homeForm, anchor: grab };
+    forms.set(home0.key, home0);
     const docked = !was.floating;
     const home: Rect = docked ? was.rect : { x: start.x, y: start.y, width: 0, height: 0 };
     drag = {
@@ -351,8 +487,16 @@ export function createScene(o: SceneOptions) {
       grab,
       home,
       docked,
-      size: { width: was.rect.width, height: was.rect.height },
       el,
+      morph: anchoredMorph(was.rect, grab),
+      fromGrip,
+      homeForm: home0,
+      forms,
+      current: home0,
+      leaving: null,
+      formOf: null,
+      switches: 0,
+      last: now,
       intent: createDragIntent<SceneTarget>({ home }),
       targets,
       refusals: refusalsOf(id),
@@ -409,11 +553,20 @@ export function createScene(o: SceneOptions) {
   function frame(now: number): void {
     const d = drag;
     if (!d) return;
-    place(d.el, { x: d.pointer.x - d.grab.x, y: d.pointer.y - d.grab.y, width: d.size.width, height: d.size.height });
     const f = d.intent.update(d.pointer, now, d.targets);
     const plan = previewPlan(f, "gap");
     const room = plan.makeRoom && docks(f.shown) ? f.shown : null;
     const homing = f.atHome && d.docked && f.shown === null;
+    // A toolbar group held over a target takes the form the drop there gives it (row, wrap, icons down a rail or along
+    // a bar); off every target, the form it was lifted in. One switch per target change, the grip under the pointer.
+    const over = plan.showIndicator && docks(f.shown) && !homing ? f.shown : null;
+    const follows = d.kind === "group" ? (over?.id ?? null) : null;
+    if (follows !== d.formOf) {
+      d.formOf = follows;
+      const spec = over && follows ? formAt(d, over) : null;
+      switchForm(d, spec ? heldForm(d.el, d.forms, d.id, d.kind, spec, d.fromGrip) : d.homeForm);
+    }
+    drawHeld(d, now);
     if (room?.id !== d.room?.id || homing !== d.homing) {
       d.room = room;
       d.homing = homing;
@@ -721,6 +874,12 @@ export function createScene(o: SceneOptions) {
     },
     get shown(): SceneTarget | null {
       return drag?.shown ?? null;
+    },
+    /** The held copy during a drag (its form, the morph, its elements), or none. */
+    get held(): HeldInfo | null {
+      const d = drag;
+      if (!d) return null;
+      return { formKind: d.current.formKind, axis: d.current.axis, target: d.formOf, switches: d.switches, settled: d.morph.settled, progress: d.morph.progress, pointer: d.pointer, frame: d.el, el: d.current.el };
     },
     /** The refusal under the pointer during a drag ("No room here"), or none. */
     get refused(): SceneRefusal | null {

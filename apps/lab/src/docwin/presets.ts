@@ -1260,7 +1260,173 @@ export const PRESETS: readonly Preset[] = [
       return { pass: bad.length === 0, now: `The » holds [${m.items.join(", ")}].${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
     },
   },
+  {
+    id: "held-takes-target-form",
+    title: "The held toolbar takes the target's form",
+    expected:
+      "Views held by mouse over a column gap shows its wrapped words, over the window-edge rail its icons down the rail, over the top bar a row; moved off every target it takes its own form back. Each change is a short settle with the grip under the pointer (within 2 px at every frame).",
+    setup: (c) => c.setScene(defaultScene()),
+    check(c) {
+      c.setScene(defaultScene());
+      const fs = formStops(c);
+      if (typeof fs === "string") return { pass: false, now: fs };
+      const { stops, off } = fs;
+      const bad: string[] = [];
+      const seen: string[] = [];
+      let worst = 0;
+      const r = heldSweep(c, "views", [...stops.map((s) => ({ to: s.p, step: 4, hold: 25 })), { to: off, step: 4, hold: 25 }], (_, drift) => (worst = Math.max(worst, drift)));
+      if (!r.lifted) return { pass: false, now: "The drag never lifted." };
+      for (const [i, s] of r.atStops.entries()) {
+        const want = i < stops.length ? stops[i]! : { name: "off every target", formKind: r.home.formKind, axis: r.home.axis };
+        seen.push(`${want.name}: ${s.formKind} ${s.axis}${s.settled ? "" : " (moving)"}`);
+        if (s.formKind !== want.formKind || s.axis !== want.axis || !s.settled) bad.push(`${want.name} shows ${s.formKind} ${s.axis}, wanted ${want.formKind} ${want.axis}`);
+      }
+      if (worst > 2) bad.push(`the grip drifted ${worst.toFixed(2)} px from the pointer`);
+      return { pass: bad.length === 0, now: `${seen.join("; ")}; grip drift at most ${worst.toFixed(2)} px.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
+  {
+    id: "held-form-fast-sweep",
+    title: "A fast sweep: the right form at the end, no thrash",
+    expected:
+      "Views swept fast by mouse across a column gap, the rail and the top bar (a few frames over each) ends as a row over the top bar; it switches form at most once per target change, the window's items are redrawn only when the shown target changes, and the grip stays within 2 px of the pointer at the start, middle and end of every morph.",
+    setup: (c) => c.setScene(defaultScene()),
+    check(c) {
+      c.setScene(defaultScene());
+      const fs = formStops(c);
+      if (typeof fs === "string") return { pass: false, now: fs };
+      const { stops } = fs;
+      let worst = 0;
+      // 40 px a frame between stops, and just past the intent's dwell (90 ms) at each: the target shows, and the next
+      // move retargets the morph mid-flight (it takes about 125 ms).
+      const r = heldSweep(c, "views", stops.map((s, i) => ({ to: s.p, step: 40, hold: i === stops.length - 1 ? 25 : 7 })), (_, drift) => (worst = Math.max(worst, drift)));
+      if (!r.lifted) return { pass: false, now: "The drag never lifted." };
+      if (r.switches < 2) return { pass: false, now: `Only ${r.switches} form switches over ${r.targetChanges} target changes: the sweep never showed the targets (${r.atStops.map((s) => `${s.shown ?? "none"} → ${s.target ?? "own form"}`).join("; ")}).` };
+      const end = r.atStops[r.atStops.length - 1]!;
+      const last = stops[stops.length - 1]!;
+      const bad: string[] = [];
+      if (end.formKind !== last.formKind || end.axis !== last.axis || !end.settled) bad.push(`it ends as ${end.formKind} ${end.axis}${end.settled ? "" : " (moving)"}, wanted ${last.formKind} ${last.axis}`);
+      if (r.switches > r.targetChanges) bad.push(`${r.switches} form switches for ${r.targetChanges} target changes`);
+      if (r.redraws > r.targetChanges) bad.push(`the window's items redrawn on ${r.redraws} frames for ${r.targetChanges} target changes`);
+      if (worst > 2) bad.push(`the grip drifted ${worst.toFixed(2)} px from the pointer`);
+      return { pass: bad.length === 0, now: `${r.targetChanges} target changes, ${r.switches} form switches, ${r.redraws} redraw frames; ends ${end.formKind} ${end.axis}; grip drift at most ${worst.toFixed(2)} px.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
 ];
+
+/** The held copy at a stop: its form, whether it is at rest, the target its form follows and the target shown. */
+type HeldAt = { readonly formKind: string; readonly axis: string; readonly settled: boolean; readonly target: string | null; readonly shown: string | null };
+type FormStop = { readonly name: string; readonly p: Point; readonly formKind: string; readonly axis: "row" | "column" };
+
+/**
+ * Views' three form stops in the default window, each a point of its own over a target: a column gap (it lands
+ * wrapped), the rail (icons down it), the top bar (a row); and a point off every target. A string when one is missing.
+ */
+function formStops(c: DocwinScene): { readonly stops: readonly FormStop[]; readonly off: Point } | string {
+  const ts = c.targets("views").filter((t) => t.place.kind === "gap" || t.place.kind === "column" || t.place.kind === "rail");
+  const own = c.layout.items.views?.edge;
+  const find = (name: string, ok: (formKind: string, side: string) => boolean): FormStop | string => {
+    for (const t of ts) {
+      const a = t.after({ x: 0, y: 0 });
+      const it = a.layout.items.views;
+      const side = it?.edge ? a.layout.edges[it.edge]?.side : undefined;
+      // Another edge than its own: a stop there is a change of edge (its own bar's gaps are home or nearby).
+      if (!it || !side || it.inMenu || it.edge === own || !ok(it.formKind, side)) continue;
+      const p = aim(c, "views", t);
+      if (p) return { name, p, formKind: it.formKind, axis: side === "left" || side === "right" ? "column" : "row" };
+    }
+    return `No target gives Views its form for ${name}.`;
+  };
+  const col = find("a column gap", (k, s) => k === "wrap" && (s === "left" || s === "right"));
+  const rail = find("the rail", (k, s) => k === "icons" && (s === "left" || s === "right"));
+  const top = find("the top bar", (k, s) => k === "row" && s === "top");
+  if (typeof col === "string") return col;
+  if (typeof rail === "string") return rail;
+  if (typeof top === "string") return top;
+  // Off every target: the middle of the pages, where only the float target is.
+  const content = c.layout.content;
+  return { stops: [col, rail, top], off: { x: content.x + content.width / 2, y: content.y + content.height * 0.6 } };
+}
+
+/**
+ * Hold `id` by mouse (pointerdown on its grip, then pointermoves `step` px apart, one frame each) through `stops`,
+ * holding `hold` frames at each, then let go where it is. Every frame it reads the held copy: `onFrame` gets it and
+ * the grip's drift from the pointer (px, against its offset at the lift). Counts the target changes, the form switches
+ * and the frames on which the window's items were redrawn (DOM changes under `.dw-items`).
+ */
+function heldSweep(
+  c: DocwinScene,
+  id: ItemId,
+  stops: readonly { to: Point; step: number; hold: number }[],
+  onFrame: (h: NonNullable<DocwinScene["held"]>, drift: number) => void,
+): { lifted: boolean; atStops: HeldAt[]; home: { formKind: string; axis: string }; switches: number; targetChanges: number; redraws: number } {
+  const none = { lifted: false, atStops: [], home: { formKind: "", axis: "" }, switches: 0, targetChanges: 0, redraws: 0 };
+  const grip = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
+  if (!grip) return none;
+  const w = c.win.getBoundingClientRect();
+  const g = grip.getBoundingClientRect();
+  let at = { x: g.left + g.width / 2, y: g.top + g.height / 2 };
+  const ev = (type: string, p: Point): PointerEvent => new PointerEvent(type, { clientX: p.x, clientY: p.y, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerType: "mouse", isPrimary: true, bubbles: true, cancelable: true });
+  const items = c.win.querySelector(".dw-items") ?? c.win;
+  const watch = new MutationObserver(() => undefined);
+  watch.observe(items, { childList: true, subtree: true, attributes: true, characterData: true });
+  c.drive(true);
+  let now = performance.now();
+  grip.dispatchEvent(ev("pointerdown", at));
+  let base: Point | null = null;
+  let target: string | null | undefined;
+  let targetChanges = 0;
+  let redraws = 0;
+  let home = { formKind: "", axis: "" };
+  const gripOff = (h: NonNullable<DocwinScene["held"]>, el: HTMLElement): Point | null => {
+    const n = el.matches("[data-grip]") ? el : el.querySelector<HTMLElement>("[data-grip]");
+    if (!n) return null;
+    const r = n.getBoundingClientRect();
+    return { x: h.pointer.x - (r.left - w.left), y: h.pointer.y - (r.top - w.top) };
+  };
+  const tick = (): void => {
+    if (!c.dragging) return;
+    watch.takeRecords();
+    c.frame((now += 16));
+    if (watch.takeRecords().length > 0) redraws++;
+    const h = c.held;
+    if (!h) return;
+    if (target === undefined) home = { formKind: h.formKind, axis: h.axis };
+    else if (h.target !== target) targetChanges++;
+    target = h.target;
+    // Every form drawn now (heading in, fading out) keeps its grip where the pointer held it at the lift.
+    let drift = 0;
+    for (const el of h.frame.querySelectorAll<HTMLElement>(":scope > .dw-item")) {
+      if (el.style.visibility === "hidden") continue;
+      const off = gripOff(h, el);
+      if (!off) continue;
+      base ??= off;
+      drift = Math.max(drift, Math.hypot(off.x - base.x, off.y - base.y));
+    }
+    onFrame(h, drift);
+  };
+  const atStops: HeldAt[] = [];
+  for (const s of stops) {
+    const end = { x: w.left + s.to.x, y: w.top + s.to.y };
+    const n = Math.max(1, Math.ceil(Math.hypot(end.x - at.x, end.y - at.y) / s.step));
+    for (let i = 1; i <= n; i++) {
+      window.dispatchEvent(ev("pointermove", { x: at.x + ((end.x - at.x) * i) / n, y: at.y + ((end.y - at.y) * i) / n }));
+      tick();
+    }
+    for (let k = 0; k < s.hold; k++) tick();
+    at = end;
+    const h = c.held;
+    atStops.push(h ? { formKind: h.formKind, axis: h.axis, settled: h.settled, target: h.target, shown: c.shown?.id ?? null } : { formKind: "none", axis: "", settled: false, target: null, shown: null });
+  }
+  const switches = c.held?.switches ?? 0;
+  const lifted = target !== undefined;
+  // Let go off every target's form change: cancel, so the window is as it was.
+  c.release(performance.now(), true);
+  window.dispatchEvent(ev("pointerup", at));
+  watch.disconnect();
+  c.drive(false);
+  return { lifted, atStops, home, switches, targetChanges, redraws };
+}
 
 /** A window narrow enough that the title bar's toolbars, folded, still don't all fit: some go into its » menu. */
 const MENU_WIDTH = 360;
