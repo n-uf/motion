@@ -50,6 +50,8 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
   between bars, columns, overlay edges), each a stack with start, center and end zones, fixed items (a title, window
   controls), floats clear of every bar and chrome, one `solve` for every rect, one `targets` for every drop target
   of one item (each carrying the layout a release makes, so the preview is the result), pure changes and a stored form.
+- **`/scene/cases`**: the Scene's behaviour as data: conformance rows (a scene, what a user does, the layout and DOM
+  expected after) and `runCase`, which plays one on a host, so a UI kit's suite and the lab run the same rows.
 
 Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
@@ -880,6 +882,44 @@ place (trailing ones last). An item the store places nowhere goes where `base` h
 its bar), never cut, so a reload lands where it was drawn. Dynamic columns are the store's: one
 `base` lacks is made from `base.columns[side]` at its stored ring, and empty ones are deleted. Anything but version 1
 gives `base` back with an `error`.
+
+## Scene conformance rows
+
+`@n-uf/placement/scene/cases` is the Scene's behaviour as data, so a UI kit's suite and the lab run the same rows. A row
+is `{ id, title, expect, scene, settings?, gestures, expectLayout, expectDom? }`: a scene, the stage and freeze it runs
+at, what a user does (`press`, `move`, `release`, `key`, `click`, `resize`, `scroll`, `hold`; a `move` may name a target
+by its `place` instead of pixels), and what must be true after: a partial layout (per item: `rect`, `formKind`, `edge`,
+`floating`, `inMenu`, `rail`…, within a tolerance, 0.5 px by default) and, for a host with a page, DOM checks on the
+session's marks (`data-drag-session` on the root during a drag only, `[data-drag-slot][data-drag-target]`,
+`[data-drag-marker]`, `[data-drag-held]`; every drawn item is `[data-item="<id>"]`, and a DOM check may pin its `rect` in
+stage px). A row may also carry `checkpoints`: the layout after an earlier gesture, for what the preview shows while the
+pointer is still down; a checkpoint or DOM check is never read right after a `move`, a `hold` comes first so a host's drag
+intent can settle. `expectStored` pins the stored form (ages, folds, no `pinned` flag) and `expectStops` the places "Move
+to ›" offers, in order. A press's grab (`point`) is the row's: a float lands at the pointer minus the grab, so every press
+that ends in a float gives one. A `move` with no target under the pointer draws the committed layout with the held item's
+place left empty and nothing else moved. A row with `lacks` names a library rule the Scene doesn't have yet and is expected
+to fail until it lands. A host reaches the end gaps 24 px (`END_REACH`) past an edge's ends.
+
+```ts
+import { CASES, createSceneHost, runCase } from "@n-uf/placement/scene/cases";
+
+const row = CASES.find((c) => c.id === "C1")!; // the drop preview is the rect the item gets
+const result = runCase(row, createSceneHost());
+console.log(result.ok, result.failures, result.skipped.length); // true [] 6
+```
+
+`runCase(row, host)` loads the scene, performs the gestures in order and compares; it returns `{ ok, failures, skipped }`.
+A host is `{ load(scene, settings), perform(gesture), layout(), root?(), stored?(), stops?(item) }`: `layout()` is what the
+page draws now (during a drag, the target's `after.layout`, the preview), `root()` is its root, anything with
+`getAttribute` and `querySelectorAll` (and `getBoundingClientRect` for rect checks), `stored()` the stored form and
+`stops(item)` the "Move to ›" places; a check the host can't make is skipped and listed in `skipped`. A check pointing at
+a gesture the row doesn't have fails the row. `createSceneHost()` is the reference: no page, no pointer, no clock, a drag
+session that lifts past 4 px, asks `targets` for every target, takes the most precise one under the pointer (`pickTarget`:
+the lowest priority number, then the smallest hit), draws the preview from its `after.layout` and commits `after.scene` on
+release, every solve carrying the layout before it as `previous`. A kit's host does the same with its own pointer;
+`resolvePlace(targets, place, item, { stage, content })` turns a `place` into a point that reaches the target. Every row
+passes on the in-memory host except its DOM checks, which it skips, and the rows with `lacks`, which fail on it until the
+library rule lands. `CASE_GROUPS` lists the groups.
 
 ## Pane zones
 
