@@ -224,6 +224,21 @@ export interface CaseHost {
   stops?(item: string): readonly ScenePlace[];
 }
 
+/**
+ * A `CaseHost` whose calls may be async (a page a browser runner drives with real pointer events and timers): each of
+ * `load`, `perform`, `layout`, `root`, `stored` and `stops` may return a promise. `itemSelector` stays a plain value.
+ * `runCaseAsync` awaits every call.
+ */
+export interface AsyncCaseHost {
+  load(scene: Scene, settings?: CaseSettings): void | Promise<void>;
+  perform(gesture: Gesture): void | Promise<void>;
+  layout(): SceneLayout | Promise<SceneLayout>;
+  root?(): DomRoot | null | Promise<DomRoot | null>;
+  itemSelector?(id: string): string;
+  stored?(): StoredScene | Promise<StoredScene>;
+  stops?(item: string): readonly ScenePlace[] | Promise<readonly ScenePlace[]>;
+}
+
 export interface CaseResult {
   readonly ok: boolean;
   readonly failures: string[];

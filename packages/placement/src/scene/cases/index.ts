@@ -8,6 +8,8 @@
  * check names an item by `item`, found with the host's `itemSelector(id)` (default `[data-dock-item="<id>"]`). `createSceneHost()` is the
  * in-memory reference host: every row passes on it except the DOM checks. `CASES` is every row, `CASE_GROUPS` the groups.
  * `pickTarget` and `resolvePlace` are the two pure steps a host needs to aim a gesture's `place` with `targets()`.
+ * `runCaseAsync` and `runCasesAsync` play the same rows on an `AsyncCaseHost` (a page driven from a browser runner),
+ * awaiting each host call.
  *
  * Pure data and logic: no DOM, no time, no globals.
  */
@@ -19,10 +21,10 @@ import { WINDOW_ROWS } from "./rows-windows";
 import type { CaseGroup, CaseRow } from "./types";
 
 export { createSceneHost, END_REACH, LIFT_THRESHOLD, pickTarget, resolvePlace, type AimArea, type SceneHost, type SceneHostOptions } from "./host";
-export { defaultItemSelector, layoutIssues, runCase, runCases } from "./run";
+export { defaultItemSelector, layoutIssues, runCase, runCaseAsync, runCases, runCasesAsync } from "./run";
 export { g } from "./gestures";
 export { WINDOW_A, WINDOW_B, WINDOW_BARE, winScene, type WinOptions, type WinSpec } from "./windows";
-export type { CaseGroup, CaseHost, CaseResult, CaseRow, CaseSettings, Checkpoint, DomCheck, DomRoot, EdgeExpect, Gesture, GestureType, ItemExpect, LayoutExpect, StoredExpect } from "./types";
+export type { AsyncCaseHost, CaseGroup, CaseHost, CaseResult, CaseRow, CaseSettings, Checkpoint, DomCheck, DomRoot, EdgeExpect, Gesture, GestureType, ItemExpect, LayoutExpect, StoredExpect } from "./types";
 
 /** Every row, in order: the docking cases, the bar cases, the built-in rules, the kits' gestures, the two windows. */
 export const CASES: readonly CaseRow[] = [...DOCKING_ROWS, ...BAR_ROWS, ...RULE_ROWS, ...GESTURE_ROWS, ...WINDOW_ROWS];
