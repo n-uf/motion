@@ -149,7 +149,10 @@
 .dw-slot { z-index: 5; pointer-events: none; border: 2px dashed var(--signal); border-radius: 6px; background: var(--signal-soft); }
 .dw-slot-label { position: absolute; left: 4px; top: 2px; font-size: 10.5px; color: var(--signal); white-space: nowrap; }
 .dw-marker { z-index: 5; pointer-events: none; background: var(--signal); border-radius: 2px; }
-.dw-slot[hidden], .dw-marker[hidden], .dw-resize[hidden], .dw-bar[hidden], .dw-colbg[hidden] { display: none; }
+/* Over a refused zone: the zone tinted and "No room here" at the pointer, no slot anywhere. */
+.dw-refuse { position: absolute; z-index: 5; pointer-events: none; border-radius: 6px; background: color-mix(in srgb, var(--win-muted) 18%, transparent); outline: 1px solid color-mix(in srgb, var(--win-muted) 45%, transparent); }
+.dw-refuse-label { position: absolute; z-index: 7; pointer-events: none; padding: 2px 6px; border-radius: 4px; background: var(--bg-raised); border: 1px solid var(--win-edge); color: var(--win-muted); font-size: 11px; white-space: nowrap; }
+.dw-slot[hidden], .dw-marker[hidden], .dw-resize[hidden], .dw-bar[hidden], .dw-colbg[hidden], .dw-refuse[hidden], .dw-refuse-label[hidden] { display: none; }
 
 /* The drag session (host contract): while a drag is on, nothing under the root takes hover, a resize handle or a
    selection; the session listens on the window and draws the slot from its shown target only. */

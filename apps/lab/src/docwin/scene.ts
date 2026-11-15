@@ -18,12 +18,14 @@ import { DRAG_DEFAULTS, createDragIntent, previewPlan, type DragIntent } from "@
 import {
   close as closeItem,
   open as openItem,
+  refusals as sceneRefusals,
   resize,
   solve,
   targets as sceneTargets,
   use,
   type Scene,
   type SceneLayout,
+  type SceneRefusal,
   type SceneTarget,
 } from "@n-uf/placement/scene";
 import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, EDGES, GROUPS, RAIL, TITLES, defaultScene, edgeOf, isSideEdge, setGroupSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId } from "./model";
@@ -51,9 +53,12 @@ interface Held {
   readonly el: HTMLElement;
   readonly intent: DragIntent<SceneTarget>;
   readonly targets: readonly SceneTarget[];
+  /** Where a drop is refused (`refusals`): over one, "No room here" at the pointer and no slot; a release goes home. */
+  readonly refusals: readonly SceneRefusal[];
   readonly focus: Element | null;
   pointer: Point;
   shown: SceneTarget | null;
+  refused: SceneRefusal | null;
   room: SceneTarget | null;
   homing: boolean;
   preview: Rect | null;
@@ -105,7 +110,9 @@ export function createScene(o: SceneOptions) {
     <div class="dw-resize" data-resize="left" title="Drag to change the column's width"></div>
     <div class="dw-resize" data-resize="right" title="Drag to change the column's width"></div>
     <div class="dw-slot" hidden><span class="dw-slot-label"></span></div>
-    <div class="dw-marker" hidden></div>`;
+    <div class="dw-marker" hidden></div>
+    <div class="dw-refuse" hidden></div>
+    <div class="dw-refuse-label" hidden>No room here</div>`;
   const q = <T extends HTMLElement>(sel: string): T => win.querySelector(sel) as T;
   const layer = q<HTMLDivElement>(".dw-items");
   const scroll = q<HTMLDivElement>(".dw-scroll");
@@ -113,6 +120,8 @@ export function createScene(o: SceneOptions) {
   const slot = q<HTMLDivElement>(".dw-slot");
   const slotLabel = q<HTMLSpanElement>(".dw-slot-label");
   const marker = q<HTMLDivElement>(".dw-marker");
+  const refuseTint = q<HTMLDivElement>(".dw-refuse");
+  const refuseLabel = q<HTMLDivElement>(".dw-refuse-label");
 
   const say = (t: string): void => {
     status.textContent = t;
@@ -300,6 +309,19 @@ export function createScene(o: SceneOptions) {
   const toggle = (id: ItemId): void => (scene.items[id]!.closed ? open(id) : close(id));
 
   const targetsOf = (id: ItemId): SceneTarget[] => sceneTargets(scene, id, { previous: layout, endReach: END_REACH });
+  const refusalsOf = (id: ItemId): SceneRefusal[] => sceneRefusals(scene, id, { previous: layout, endReach: END_REACH });
+  const inside = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+
+  /** Over a refusal: the zone tinted, "No room here" at the pointer; elsewhere both hidden. */
+  function showRefusal(r: SceneRefusal | null, p: Point): void {
+    refuseTint.hidden = refuseLabel.hidden = !r;
+    if (!r) return;
+    place(refuseTint, r.hit);
+    refuseTint.dataset.reason = r.reason;
+    refuseLabel.textContent = r.reason === "no-room" ? "No room here" : "Can't go here";
+    refuseLabel.style.left = px(p.x + 12);
+    refuseLabel.style.top = px(p.y + 12);
+  }
 
   // --- the drag session ----------------------------------------------------------------------------------------------
 
@@ -329,9 +351,11 @@ export function createScene(o: SceneOptions) {
       el,
       intent: createDragIntent<SceneTarget>({ home }),
       targets,
+      refusals: refusalsOf(id),
       focus: document.activeElement,
       pointer: p,
       shown: null,
+      refused: null,
       room: null,
       homing: false,
       preview: null,
@@ -400,8 +424,15 @@ export function createScene(o: SceneOptions) {
       }
     }
     d.shown = f.shown;
+    // A refused place under the pointer (nothing but the float target there): no slot anywhere, "No room here" at it.
+    const refused = !homing && (!f.shown || f.shown.place.kind === "float") ? (d.refusals.find((r) => inside(r.hit, d.pointer)) ?? null) : null;
+    d.refused = refused;
+    showRefusal(refused, d.pointer);
     const s = plan.showIndicator ? f.shown : null;
-    if (homing || s?.place.kind === "home") {
+    if (refused) {
+      d.preview = null;
+      showSlot(null);
+    } else if (homing || s?.place.kind === "home") {
       d.preview = d.docked ? d.home : (layout.items[d.id]?.rect ?? null);
       showSlot(d.preview, "Back to its place");
     } else if (!s || s.place.kind === "none") {
@@ -436,7 +467,9 @@ export function createScene(o: SceneOptions) {
     const d = drag;
     if (!d) return null;
     if (!cancel) frame(now);
-    const t = cancel ? null : d.intent.release(d.pointer, d.targets);
+    // A release over a refusal commits nothing: the item goes home.
+    const refused = cancel ? null : d.refused;
+    const t = cancel || refused ? null : d.intent.release(d.pointer, d.targets);
     cancelAnimationFrame(d.raf);
     drag = null;
     // The press's own pointer, key and cancel listeners go with the drag: a reset mid-drag leaves none behind.
@@ -444,6 +477,7 @@ export function createScene(o: SceneOptions) {
     d.el.remove();
     delete root.dataset.dragSession;
     showSlot(null);
+    showRefusal(null, d.pointer);
     const id = d.id;
     let preview = d.preview;
     const go = commits(t);
@@ -453,10 +487,10 @@ export function createScene(o: SceneOptions) {
       commit(after.scene);
     } else draw(scene, layout);
     const landed = go ? (layout.items[id]?.rect ?? null) : null;
-    lastDrop = { id, target: t?.id ?? null, place: t?.place.kind ?? null, preview: go ? preview : t?.place.kind === "home" || d.homing ? d.preview : null, landed, committed: go, cancelled: cancel };
+    lastDrop = { id, target: t?.id ?? refused?.id ?? null, place: t?.place.kind ?? null, preview: go ? preview : t?.place.kind === "home" || d.homing ? d.preview : null, landed, committed: go, cancelled: cancel };
     if (go && preview && landed && !sameRect(preview, landed)) say(`${TITLES[id]} → ${labelOf(t!)}, but it landed off its slot.`);
     else if (go) say(`${TITLES[id]} → ${labelOf(t!)}.`);
-    else say(cancel ? "Cancelled: back where it was." : t?.place.kind === "none" ? "No drop here." : d.homing || t?.place.kind === "home" ? "Back in its place." : "No target: it went home.");
+    else say(cancel ? "Cancelled: back where it was." : refused ? "No room here: back where it was." : t?.place.kind === "none" ? "No drop here." : d.homing || t?.place.kind === "home" ? "Back in its place." : "No target: it went home.");
     if (d.focus instanceof HTMLElement && d.focus.isConnected) d.focus.focus({ preventScroll: true });
     return lastDrop;
   }
@@ -662,6 +696,11 @@ export function createScene(o: SceneOptions) {
     get shown(): SceneTarget | null {
       return drag?.shown ?? null;
     },
+    /** The refusal under the pointer during a drag ("No room here"), or none. */
+    get refused(): SceneRefusal | null {
+      return drag?.refused ?? null;
+    },
+    refusals: refusalsOf,
     win,
     root,
     layer,
