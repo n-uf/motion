@@ -846,9 +846,10 @@ the kinds each zone takes, and a zone not listed takes nothing. A panel column w
 has its panels at the top and a tray of toolbars at its foot (the end zone, one toolbar per row): a toolbar in the tray
 takes only its `wrap` or `icons` form, never the menu, and the panels give way first. Gaps are offered only in the zones
 that take the dragged kind, `moveTo` puts an item in the zone asked for, else in its own zone if that takes its kind, else in the first that does. An empty edge offers
-each third of its strip only to the kinds that third's zone takes (the other thirds are refusals): a group's drag gets
-an empty tray column's bottom third, a panel's its top third. A group never opens a new column whose start zone doesn't
-take it.
+each third of its strip only to the kinds that third's zone takes (the other thirds are refusals), and a group never
+opens such a column on its own: an empty side column offers its strip only to the kinds its start zone takes, so a
+group's drag gets the compact rail's strips but none for an empty panel column, and a panel's gets the column's top
+third.
 
 **Columns and rails.** A left or right edge with `column: true` is a dynamic column: drops make it (a `column` place, from
 `scene.columns[side]`: `accepts`, `cross`, `gap`, `pad`, `menu`), and it is deleted, its side's rings closed up, when it

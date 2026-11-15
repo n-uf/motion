@@ -10,8 +10,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   item docking aligned in that third (top, middle or bottom of a side). It used to be one `strip:<edge>` landing at the
   start, so an empty rail took every drop at its top. Affected: left and right edges (static columns, column trays,
   side toolbar bars) and compact rails on any side. Only the thirds whose zone takes the kind (`Edge.zoneAccepts`) are
-  strips; the others are refusals (`refusals()`), so a group now gets an empty tray column's bottom third (a new
-  `column:` target still never opens for a kind its start zone doesn't take). The strips keep every strip rule
+  strips; the others are refusals (`refusals()`). A kind still never opens an empty side column its start zone doesn't
+  take (a group gets the rail, never a column of one toolbar). The strips keep every strip rule
   (clipped, clear of home, no sliver, preview = landing). **Migration:** match `strip:<edge>:<zone>` where a host
   matched `strip:<edge>`.
 

@@ -35,12 +35,12 @@ describe("a compact edge", () => {
     expect(l.notes).toContainEqual({ code: "no-icons-form", id: "b", edge: "rail" });
   });
 
-  it("an empty side's strips, by thirds, per the zones that take the kind: a group gets the rail's three and the column tray's third, a panel the column's top third", () => {
+  it("an empty side's strips, by thirds, per the zones that take the kind: a group gets the rail's three (never opening a column), a panel the column's top third", () => {
     const s = scene();
     const zoneAccepts = { start: ["panel"], end: ["group"] };
     const empty: Scene = { ...s, edges: s.edges.map((e) => ({ ...e, items: [], ...(e.id === "col" ? { zoneAccepts } : {}) })), floats: [{ id: "a", rect: r(500, 100, 200, 40) }, { id: "p", rect: r(500, 200, 200, 200) }], floatKinds: ["group", "panel"] };
     const strips = (id: string) => targets(empty, id).map((t) => t.id).filter((x) => x.startsWith("strip:"));
-    expect(strips("a").sort()).toEqual(["strip:col:end", "strip:rail:center", "strip:rail:end", "strip:rail:start"]);
+    expect(strips("a")).toEqual(["strip:rail:start", "strip:rail:center", "strip:rail:end"]);
     expect(strips("p")).toEqual(["strip:col:start"]);
     // The rail's thirds run down its own rect at the window edge (0..600), and each lands the group in its zone: top,
     // middle, bottom; the slot is the landing.
@@ -58,15 +58,16 @@ describe("a compact edge", () => {
       if (zone === "center") expect(mid).toBeCloseTo(300, 6);
       if (zone === "end") expect(me.rect.y + me.rect.height).toBeCloseTo(600, 6);
     });
-    // An empty tray column alone at its side: its thirds that take no group (start, center) are refused for a group, and
-    // its end third is a strip. (Beside a rail, the rail's inward reach covers the column's strip.)
-    const beside: Scene = { ...empty, edges: empty.edges.filter((e) => e.id !== "rail") };
-    expect(targets(beside, "a").some((x) => x.id === "strip:col:end")).toBe(true);
-    const rs = refusals(beside, "a").filter((x) => x.edge === "col");
-    expect(rs.map((x) => [x.zone, x.reason])).toEqual([
-      ["start", "not-accepted"],
+    // An empty tray column alone at its side: a panel gets its top third, and its middle and bottom thirds (zones that
+    // take no panel) are refused for it. A group never opens it: no strip and no refusal there.
+    const alone: Scene = { ...empty, edges: empty.edges.filter((e) => e.id !== "rail") };
+    expect(targets(alone, "p").filter((x) => x.id.startsWith("strip:col")).map((x) => x.id)).toEqual(["strip:col:start"]);
+    expect(refusals(alone, "p").filter((x) => x.edge === "col").map((x) => [x.zone, x.reason])).toEqual([
       ["center", "not-accepted"],
+      ["end", "not-accepted"],
     ]);
+    expect(targets(alone, "a").some((x) => x.id.startsWith("strip:col"))).toBe(false);
+    expect(refusals(alone, "a").some((x) => x.edge === "col")).toBe(false);
   });
 
   it("a group dropped in takes its icons form, and the preview is the landing", () => {
