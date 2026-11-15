@@ -104,8 +104,12 @@ export interface SceneRefusal {
   readonly zone: Zone;
   /** Where the pointer means it: the refused slot's tile, never over a target's hit. */
   readonly hit: Rect;
-  /** `no-room`: the zone takes the kind, but the drop there doesn't fit (a title bar at the title's natural width, say). `not-accepted`: the edge or zone doesn't take the kind. */
-  readonly reason: "no-room" | "not-accepted";
+  /**
+   * `no-room`: the zone takes the kind, but the drop there doesn't fit (a title bar at the title's natural width, say).
+   * `own-place`: the stretch beside an item alone in its zone: there is room, but the zone's only place is the item's
+   * own (a release there puts it back). `not-accepted`: the edge or zone doesn't take the kind.
+   */
+  readonly reason: "no-room" | "own-place" | "not-accepted";
 }
 
 /** How far a compact rail's hits reach inward past the rail, px. */
@@ -514,9 +518,11 @@ function tileEdge(c: Ctx, spec: EdgeSpec): Tile[] {
       };
       const inPiece = mine.filter((s) => proj(s.line) >= pa - EPS && proj(s.line) <= pb + EPS).sort((a, b) => proj(a.line) - proj(b.line));
       if (inPiece.length === 0) {
-        // A stretch of a zone with no slot of its own (beside the item, its only slot home) is refused: home is only
-        // over the item's own place, and no stretch is handed to another zone's slot.
-        if (reason) out.push(refused(z.zone, band(pa, pb), reason));
+        // A stretch of a zone with no slot of its own is refused: home is only over the item's own place, and no stretch
+        // is handed to another zone's slot. Beside a lone item (the zone's only slot is home) there is room, but no
+        // place other than its own: `own-place`.
+        const lone = reason === "no-room" && mine.length === 0 && spec.slots.some((s) => s.zone === z.zone && s.home);
+        if (reason) out.push(refused(z.zone, band(pa, pb), lone ? "own-place" : reason));
         continue;
       }
       inPiece.forEach((s, i) => {
