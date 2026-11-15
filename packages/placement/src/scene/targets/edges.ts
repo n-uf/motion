@@ -120,14 +120,16 @@ function edgeSlots(c: Ctx, edge: Edge, accepts: boolean): Slot[] {
   // `strip:<edge>:<zone>` names a slot only on an edge with no members at all (a zone there has one slot); every other
   // slot, beside closed members or the item's own place too, is named by its gap, so no two slots share an id.
   const slotId = (zone: Zone, k: number): string => (restEdge.items.length === 0 ? `strip:${edge.id}:${zone}` : `gap:${edge.id}:${zone}:${k}`);
-  // Where a drop lands on this edge: in it, shown (no » entry); on a title bar (a fixed item that grows), in its first
-  // form, the title at its natural width and nothing else changing form or going into the menu.
+  // Where a drop lands on this edge: in it, shown (no » entry); on a title bar (a fixed item that grows), in a form of its
+  // first form's kind (the full row or one of its compact variants, read from the forms, not from their index), the
+  // title at its natural width and nothing else changing form or going into the menu.
+  const firstKind = formsOf(scene.items[dragged]!, axisOf(edge.side))[0]?.kind;
   const titles = edge.items.filter((id) => base.items[id]?.edge === edge.id && base.items[id]!.fixed && !!formsOf(scene.items[id]!, axisOf(edge.side))[base.items[id]!.form]?.main.grows);
   const lands = ({ layout: after }: SceneAfter): boolean => {
     const me = after.items[dragged]!;
     if (me.edge !== edge.id || me.inMenu) return false;
     if (titles.length === 0) return true;
-    if (me.form !== 0) return false;
+    if (formsOf(scene.items[dragged]!, axisOf(edge.side))[me.form]?.kind !== firstKind) return false;
     return edge.items.every((id) => {
       const a = after.items[id];
       const b = base.items[id];
