@@ -219,10 +219,15 @@ describe("scene sweeps", () => {
           if (!e || (t.place.kind !== "gap" && !t.id.startsWith("strip:"))) continue;
           const strip = t.id.startsWith("strip:");
           for (const { l, skip } of layouts) {
-            // A neighbour that, as it is now, lies on this edge's lifted rect can't trim the hit without dropping it.
-            const stale = (oe: string) => l === now && !strip && overlaps(now.edges[oe]!.rect, lifted.edges[e]!.rect);
+            // A neighbour that, as it is now, lies on this edge's lifted rect can't trim the hit without dropping it. Nor
+            // does one that moves when the item lifts: it owns where it lies once lifted, where the tiles are.
+            const moved = (oe: string): boolean => {
+              const [a, b] = [now.edges[oe]?.rect, lifted.edges[oe]?.rect];
+              return !!a && !!b && b.width * b.height > 1e-6 && (Math.abs(a.x - b.x) > 1e-6 || Math.abs(a.y - b.y) > 1e-6 || Math.abs(a.width - b.width) > 1e-6 || Math.abs(a.height - b.height) > 1e-6);
+            };
+            const stale = (oe: string) => l === now && (moved(oe) || (!strip && overlaps(now.edges[oe]!.rect, lifted.edges[e]!.rect)));
             const own = lifted.edges[e];
-            if (strip) for (const [oe, d] of Object.entries(l.edges)) if (oe !== e && oe !== skip && overlaps(t.hit, d.rect) && !(own && inside(meet(t.hit, d.rect), bandOf(own.rect, own.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over edge ${oe}`);
+            if (strip) for (const [oe, d] of Object.entries(l.edges)) if (oe !== e && oe !== skip && !stale(oe) && overlaps(t.hit, d.rect) && !(own && inside(meet(t.hit, d.rect), bandOf(own.rect, own.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over edge ${oe}`);
             for (const [oid, it] of Object.entries(l.items)) {
               if (oid === id || it.formKind !== "open" || !it.edge || it.edge === e || it.edge === skip || stale(it.edge)) continue;
               // An empty edge's own band may lie over it; nothing else of a hit may.

@@ -396,8 +396,25 @@ describe("the target model's property check", () => {
     expect(lostSlots(s, "g0")).toEqual([]);
   });
 
+  it("an edge that only moves when the item lifts owns where it lies after the lift, not where it lay before", () => {
+    // Flush seed 223: with the item docked, the left column is folded into the rail and the side bar lies inside it
+    // (x 38–70); with the item lifted, the column opens at x 40–300 and the bar lies at the window's side. The bar's
+    // place before the lift is the column's now: the column's gap keeps it, no hole is left there.
+    const s = modelScene(223, true);
+    expect(solve(s).edges["left-bar"]!.rect.x).toBe(38);
+    // Dragging p4 the column opens at x 40: its first gap starts after the column line's band (to x 46). Dragging the
+    // column's own panel the column goes: the column line at the content's edge (x 40) reaches there instead.
+    const gap = targets(s, "p4").find((t) => t.id === "gap:left-col:start:0")!;
+    expect(gap.hit.x).toBe(46);
+    for (const id of ["p4", "left-p"]) {
+      const hits = [...targets(s, id).filter((t) => !t.free).map((t) => t.hit), ...refusals(s, id).map((r) => r.hit)];
+      // Up to the column line's reach (x 40 + 22); past it lies the content, the float's.
+      for (let x = 39; x < 62; x += 2) expect(hits.filter((h) => inside(h, { x, y: 40 })).length, `${id} at ${x},40`).toBe(1);
+    }
+  });
+
   it("flush windows (no inset, a column inside each side bar, rails, riding folds) keep every category at zero", () => {
-    const r = propertyCheck(Array.from({ length: 60 }, (_, i) => i + 1), true);
+    const r = propertyCheck(Array.from({ length: 600 }, (_, i) => i + 1), true);
     // eslint-disable-next-line no-console
     if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, counts: r.counts }), "\n" + r.examples.join("\n"));
     expect(r.points).toBeGreaterThan(2000);
