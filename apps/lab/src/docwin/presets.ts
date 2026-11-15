@@ -109,6 +109,44 @@ function mouseDrag(c: DocwinScene, id: ItemId, to: Point): { lifted: boolean } {
   return { lifted };
 }
 
+/**
+ * A mouse press on the item's grip held over window point `to` (pointermoves about 4 px apart, then a hold), still
+ * down: `move(p)` glides on to another point and holds, `up()` lets go there.
+ */
+function mouseHold(c: DocwinScene, id: ItemId, to: Point): { lifted: boolean; move: (p: Point) => void; up: () => void } {
+  const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
+  const none = { lifted: false, move: () => undefined, up: () => undefined };
+  if (!el) return none;
+  const w = c.win.getBoundingClientRect();
+  const g = el.getBoundingClientRect();
+  let at = { x: g.left + g.width / 2, y: g.top + g.height / 2 };
+  const ev = (type: string, p: Point): PointerEvent => new PointerEvent(type, { clientX: p.x, clientY: p.y, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerType: "mouse", isPrimary: true, bubbles: true, cancelable: true });
+  c.drive(true);
+  let now = performance.now();
+  el.dispatchEvent(ev("pointerdown", at));
+  let lifted = false;
+  const glide = (p: Point): void => {
+    const end = { x: w.left + p.x, y: w.top + p.y };
+    const steps = Math.max(8, Math.ceil(Math.hypot(end.x - at.x, end.y - at.y) / 4));
+    for (let i = 1; i <= steps; i++) {
+      window.dispatchEvent(ev("pointermove", { x: at.x + ((end.x - at.x) * i) / steps, y: at.y + ((end.y - at.y) * i) / steps }));
+      lifted ||= c.dragging;
+      if (c.dragging) c.frame((now += 16));
+    }
+    for (let k = 0; k < 25; k++) if (c.dragging) c.frame((now += 16));
+    at = end;
+  };
+  glide(to);
+  return {
+    lifted,
+    move: glide,
+    up: () => {
+      window.dispatchEvent(ev("pointerup", at));
+      c.drive(false);
+    },
+  };
+}
+
 const endDrag = (c: DocwinScene): void => {
   c.release(performance.now(), true);
   c.drive(false);
@@ -1013,7 +1051,101 @@ export const PRESETS: readonly Preset[] = [
       return { pass: bad.length === 0, now: `Zoom ${say(rectOf(c, "zoom")!)}, Tools ${t ? say(t.rect) : "none"}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
     },
   },
+  {
+    id: "views-over-title-thirds",
+    title: "Views over the title bar's thirds: the slot is where the pointer is",
+    expected:
+      "The reported state (1200 px: the title, Tools and Zoom leading, Views trailing, Pages floating, Notes left, Findings right). Views held by mouse over the title bar's leading, center and trailing thirds shows a slot in that third (over its own place, home) or \"No room here\" there, never a slot far away; let go, it lands where the slot showed.",
+    setup: (c) => c.setScene(reportedTitle()),
+    check(c) {
+      const bad: string[] = [];
+      const seen: string[] = [];
+      for (const k of [0, 1, 2]) {
+        c.setScene(reportedTitle());
+        const bar = c.layout.edges.title!.rect;
+        const x0 = bar.x + (k * bar.width) / 3;
+        const x1 = bar.x + ((k + 1) * bar.width) / 3;
+        const h = mouseHold(c, "views", { x: (x0 + x1) / 2, y: bar.y + bar.height / 2 });
+        const refused = c.refused;
+        // Over its own place the session is homing (no target; "Back to its place", or nothing while the pointer never
+        // left the item's own rect): that is home.
+        const slotEl = c.win.querySelector<HTMLElement>(".dw-slot")!;
+        const own = rectOf(c, "views");
+        const p = { x: (x0 + x1) / 2, y: bar.y + bar.height / 2 };
+        const overOwn = !!own && inside(own, p);
+        const homing = !c.shown && ((!slotEl.hidden && slotEl.title === "Back to its place") || overOwn);
+        const s = c.shown ?? (homing ? ({ id: "home", place: { kind: "home" } } as SceneTarget) : null);
+        const slot = s?.place.kind === "home" ? rectOf(c, "views") : (s?.slot ?? null);
+        h.up();
+        const d = c.lastDrop;
+        const near = !!slot && slot.x < x1 + 1 && slot.x + slot.width > x0 - 1;
+        seen.push(`third ${k + 1}: ${refused ? `no room (${refused.id})` : `${s?.id ?? "nothing"}${slot ? ` ${say(slot)}` : ""}`}`);
+        if (!h.lifted) bad.push(`third ${k + 1}: the drag never lifted`);
+        else if (refused) {
+          if (d?.committed) bad.push(`third ${k + 1}: a release over "no room" committed`);
+        } else if (!s || (s.place.kind !== "gap" && s.place.kind !== "home") || !near) bad.push(`third ${k + 1}: ${s?.id ?? "no target"} with its slot ${slot ? say(slot) : "none"} away from the third ${r0(x0)}..${r0(x1)}`);
+        else if (s.place.kind === "gap" && !(d?.committed && sameRect(d.preview, d.landed))) bad.push(`third ${k + 1}: the landing isn't the slot`);
+      }
+      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
+  {
+    id: "home-only-over-its-place",
+    title: "Home shows only over the item's own place",
+    expected: "In the reported state, Views held by mouse and moved along the title bar shows \"Back to its place\" only while the pointer is over its own place (or within half a band of it); everywhere else along the bar the slot is beside the pointer.",
+    setup: (c) => c.setScene(reportedTitle()),
+    check(c) {
+      c.setScene(reportedTitle());
+      const bar = c.layout.edges.title!.rect;
+      const own = rectOf(c, "views")!;
+      const y = bar.y + bar.height / 2;
+      const h = mouseHold(c, "views", { x: bar.x + 300, y });
+      const bad: string[] = [];
+      let homes = 0;
+      for (let x = bar.x + 300; x < bar.x + bar.width; x += 40) {
+        h.move({ x, y });
+        const s = c.shown;
+        if (s?.place.kind !== "home") continue;
+        homes++;
+        if (x < own.x - 12 || x > own.x + own.width + 12) bad.push(`home at x ${r0(x)}, its place is ${r0(own.x)}..${r0(own.x + own.width)}`);
+      }
+      h.up();
+      if (!homes) bad.push("home never showed, even over its own place");
+      return { pass: bad.length === 0, now: `Home showed at ${homes} of the points along the bar.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
+  {
+    id: "full-title-no-room",
+    title: "A full title bar: \"No room here\", no distant slot",
+    expected: "With Review, Views and Zoom in the title bar, Tools held over each third of it shows \"No room here\" at the pointer, the zone tinted, and no slot anywhere; let go there, Tools goes back home.",
+    setup: (c) => c.setScene(sceneWith((s) => put(s, "title", ["review", "views", "zoom"]))),
+    check(c) {
+      const bad: string[] = [];
+      for (const k of [0, 1, 2]) {
+        c.setScene(sceneWith((s) => put(s, "title", ["review", "views", "zoom"])));
+        const before = rectOf(c, "tools");
+        const bar = c.layout.edges.title!.rect;
+        const h = mouseHold(c, "tools", { x: bar.x + ((k + 0.5) * bar.width) / 3, y: bar.y + bar.height / 2 });
+        const refused = c.refused;
+        const tint = c.win.querySelector<HTMLElement>(".dw-refuse");
+        const label = c.win.querySelector<HTMLElement>(".dw-refuse-label");
+        const slotShown = !c.win.querySelector<HTMLElement>(".dw-slot")!.hidden;
+        if (!refused || refused.reason !== "no-room") bad.push(`third ${k + 1}: ${refused ? refused.reason : "no refusal"} (shown ${c.shown?.id ?? "nothing"})`);
+        if (tint?.hidden || label?.hidden || label?.textContent !== "No room here") bad.push(`third ${k + 1}: no tint or label`);
+        if (slotShown) bad.push(`third ${k + 1}: a slot shows`);
+        h.up();
+        const d = c.lastDrop;
+        if (d?.committed || !sameRect(rectOf(c, "tools"), before)) bad.push(`third ${k + 1}: the release moved Tools`);
+      }
+      return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "No room here over each third, no slot, Tools back home." };
+    },
+  },
 ];
+
+/** The reported state: a 1200 px window, the title, Tools and Zoom leading and Views trailing in the title bar, Pages floating, Notes left, Findings right. */
+function reportedTitle(): Scene {
+  return sceneWith((s) => aligned(floating(put(s, "title", ["tools", "zoom", "views"]), "pages", { x: 420, y: 160, width: 260, height: 360 }), "views", "end"), { width: 1200, height: 640 });
+}
 
 /**
  * Whether item `id`'s drawn content leaves its box: the union of its buttons' and labels' rects (outside a panel's
