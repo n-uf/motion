@@ -955,7 +955,7 @@ edges without `previous`.
 - `column:<side>:<ring>` (2): a new column on each column line of a side whose template's start zone takes the kind (outside the
   outermost open column, between two, inside the innermost, or at the content's edge), 22 px each way.
 - `rail:<side>:<ring>` (1): docking folded into the side's rail, before each folded column's segments and after the
-  last, or a 10 px strip at the side's outer edge (past its outside toolbar bars) while no rail shows.
+  last, or a 10 px strip where the rail lands (after the side's outside toolbar bars) while no rail shows.
 - `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
   commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail
   drop that would put the item back where it is (the gap beside it, its own column's line) keeps its id but is a home

@@ -4,7 +4,7 @@
  * the inset too; the `rail:` strip lies where the rail lands.
  */
 import { describe, expect, it } from "vitest";
-import { solve, type Edge, type Scene, type SceneItem } from "../src/scene";
+import { solve, targets, type Edge, type Scene, type SceneItem } from "../src/scene";
 import { bar, byId, column, group, panel } from "./scene-fixture";
 
 const thumbs: SceneItem = { id: "thumbs", kind: "anchor", used: 0, fixed: true, forms: { column: [{ kind: "open", main: { min: 0, natural: 0, grows: true }, cross: { natural: 72, min: 56 }, setsCross: true }] } };
@@ -75,5 +75,23 @@ describe("a side's order with an inset", () => {
             if (col.width > 0) expect(col.x, at).toBe(a.x + a.width + inset);
           }
         }
+  });
+});
+
+describe("the rail strip lies where the rail lands", () => {
+  it("with and without a side bar, an anchor and an inset: the strip's outer edge is the landed rail's", () => {
+    let n = 0;
+    for (const sideBar of [false, true])
+      for (const anchor of [false, true])
+        for (const inset of [0, 12]) {
+          const s = scene({ sideBar, anchor, inset });
+          expect(solve(s).rails.left, "no rail shown").toBeUndefined();
+          for (const t of targets(s, "p2").filter((x) => x.id.startsWith("rail:left:"))) {
+            const landed = t.after({ x: t.hit.x + t.hit.width / 2, y: t.hit.y + t.hit.height / 2 }).layout.rails.left!.rect;
+            expect(t.hit.x, `${t.id} bar ${sideBar} anchor ${anchor} inset ${inset}`).toBe(landed.x);
+            n++;
+          }
+        }
+    expect(n).toBeGreaterThanOrEqual(8);
   });
 });

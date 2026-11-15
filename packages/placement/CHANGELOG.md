@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.21
 
+- `@n-uf/placement/scene`, **fixed:** with no rail shown, the `rail:` strip lies where the rail lands: flush after
+  the side's outside toolbar bars, else at the window's side less the inset. It used to lie at the side's outermost
+  edge, so with an anchor at the window edge and an inset it sat in the inset gap, off the rail it makes.
+
 - `@n-uf/placement/scene`, **fixed:** home never takes a strip away. An empty bar's strip (or an empty edge's) over
   the dragged item's own place keeps min(16 px, its slice) at home's end, or beside the item's centre inside it, as a
   gap does, and home gives that slice up; no strip is narrower than 1 px. The item alone in a bar, lifted, could cut
