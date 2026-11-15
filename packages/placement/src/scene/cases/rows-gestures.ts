@@ -101,7 +101,7 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P5-neighbour-half-facing-it",
     title: "Over a neighbour's body there is no gap",
-    expect: "Annotations let go over Pages' body, away from its edges, finds no gap (revision 4: a gap is a band around a boundary), so it falls through to the float target: it floats, where the pointer let go. The kits' older \"neighbour half that faces it is its own place\" no longer holds.",
+    expect: "Annotations let go over Pages' body, away from its edges, finds no gap (over a panel's body a gap is a band around a boundary), so it falls through to the float target: it floats, where the pointer let go. The kits' older \"neighbour half that faces it is its own place\" no longer holds.",
     group: "gestures",
     scene: win(),
     gestures: [g.press("annotations", { x: 20, y: 10 }), g.at(160, 392), g.hold(), g.release()],

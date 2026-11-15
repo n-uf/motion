@@ -4,7 +4,7 @@
  * a release there commits and its layout, `solve(after.scene, { previous })`: the host draws every item from that layout
  * during the preview (C22), so the preview is the result by construction.
  *
- * One model makes every docked target and refusal (Revision 9): **edge → zones → slots → tiles**, then one ordered
+ * One model makes every docked target and refusal: **edge → zones → slots → tiles**, then one ordered
  * filter.
  *
  * - **Edges.** Every edge, empty or occupied, and two virtual edges per side: the column lines and the rail.

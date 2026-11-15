@@ -42,9 +42,9 @@ describe("gap hits tile short-item edges", () => {
       return Array.from({ length: Math.floor(rr.width / 4) + 1 }, (_, i) => ({ x: rr.x + i * 4, y: rr.y + rr.height / 2 }));
     };
     expect(dead(ts, "toolbar", along("toolbar"))).toEqual([]);
-    // The window controls and the title's natural rect (its text) are reserved, no drop place (Revision 9).
-    // Where Search fits nowhere in a zone, that stretch is a refusal: covered too, never dead.
-    const reserved = ["controls", "title"].map((id) => reservedRect(s, l, id));
+    // The window controls are reserved, no drop place (the title's text is the gap after it). Where Search fits nowhere
+    // in a zone, that stretch is a refusal: covered too, never dead.
+    const reserved = [reservedRect(s, l, "controls")];
     const refused = refusals(s, "search").filter((x) => x.edge === "titlebar").map((x) => x.hit);
     const off = dead(ts, "titlebar", along("titlebar")).filter((p) => !reserved.some((q) => inside(q, p)) && !refused.some((q) => inside(q, p)));
     expect(off).toEqual([]);

@@ -498,7 +498,7 @@ const independent: Scenario<Page> = {
         p.setLength(length);
         const before = fitOf(other);
         if (mode.startsWith("a click")) {
-          // A real click on the item, as the operator does.
+          // A real click on the item, as a user does.
           const el = (side === "column" ? p.column : p.bar).itemEl(id);
           if (el && !el.hidden) el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
           else continue;

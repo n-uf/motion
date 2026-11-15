@@ -587,7 +587,7 @@ const click: Scenario<Page> = {
       return rows;
     }
     if (mode.startsWith("the sequence")) {
-      // The operator's: both panels folded by hand, so nothing open sets the column's width and the headers become rails.
+      // Both panels folded by hand, so nothing open sets the column's width and the headers become rails.
       b.setLayout({ column: ["pages", "annotations"], bar: ["views", "tools", "zoom"], floats: [] });
       await d.frames(2);
       dblclick(b.itemEl("pages")!.querySelector(".st-head")!);

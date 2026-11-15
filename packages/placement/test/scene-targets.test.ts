@@ -59,7 +59,7 @@ describe("targets", () => {
   });
 
   it("an empty plain panel column is one zone: one strip down its whole length, holding the item at its start", () => {
-    // Items fill a panel column, so it has one zone, the whole column (Revision 9a); its strip is 20 px deep inward.
+    // Items fill a panel column, so it has one zone, the whole column; its strip is 20 px deep inward.
     const sc: Scene = { ...s, edges: [...s.edges, column("drawer", "right", 1, [], { strip: 20 })] };
     const ts = targets(sc, "pages");
     expect(ts.filter((t) => t.id.startsWith("strip:drawer")).map((t) => t.id)).toEqual(["strip:drawer:start"]);
@@ -87,7 +87,7 @@ describe("targets", () => {
     const none = all.find((t) => t.id === "none:0")!;
     expect(none).toMatchObject({ priority: 1, hit: r(300, 300, 50, 50), place: { kind: "none" } });
     expect(none.after({ x: 0, y: 0 }).scene).toBe(sc);
-    // `home:<id>` is home's tile (Revision 9): it covers the item's own rect, the home slot's hit.
+    // `home:<id>` is home's: it covers the item's own rect, the home slot's hit.
     const home = all.find((t) => t.id === "home:views")!;
     const own = solve(sc).items.views!.rect;
     expect(home.hit.x <= own.x && home.hit.x + home.hit.width >= own.x + own.width && home.hit.y <= own.y && home.hit.y + home.hit.height >= own.y + own.height).toBe(true);
@@ -220,7 +220,7 @@ describe("a growing fixed title", () => {
     for (const [id, it] of Object.entries(l.items)) if (it.fixed && id !== "title") expect(reservedRect(s, l, id)).toEqual(it.rect);
   });
 
-  it("a group moved out of the title bar can always go back (the operator's zoom case)", () => {
+  it("a group moved out of the title bar can always go back (Zoom out of the title bar and back)", () => {
     const into = targets(s, "zoom").find((t) => t.id.startsWith("gap:titlebar"))!;
     const s1 = into.after({ x: 0, y: 0 }).scene;
     expect(s1.edges.find((e) => e.id === "titlebar")!.items).toContain("zoom");

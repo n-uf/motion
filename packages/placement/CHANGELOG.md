@@ -5,7 +5,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.24
 
-- `@n-uf/placement/scene`, **Changed: one target model** (Revision 9). `targets` and `refusals` come from one
+- `@n-uf/placement/scene`, **Changed: one target model**. `targets` and `refusals` come from one
   generation: edge → zones → slots → tiles, then one ordered filter (accepts and zones, fit, clipping, `blocked`). Every
   point of an edge that takes the dragged kind is one target or one refusal of its own zone (a property check over
   generated windows: no hole, no overlap, no other zone, the item's own rect only home, every slot its landing).

@@ -1,5 +1,5 @@
 /**
- * The target model's property check (Revision 9): over generated windows (edge kinds × empty or occupied × item kinds ×
+ * The target model's property check: over generated windows (edge kinds × empty or occupied × item kinds ×
  * sides × insets × side bars), every point inside an edge that takes the dragged kind maps to exactly one target or
  * refusal of that edge (no hole, no overlap), in the point's own zone; the item's own rect maps only to home; and every
  * docked target's slot is its landing.

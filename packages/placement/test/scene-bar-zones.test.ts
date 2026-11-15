@@ -1,5 +1,5 @@
 /**
- * Revision 8: a horizontal bar's leading, center and trailing zones are picked by thirds of the bar, the nearest gap
+ * A horizontal bar's leading, center and trailing zones are picked by thirds of the bar, the nearest gap
  * within; an empty bar's strip is three zone targets; a title bar is a constrained host (a toolbar fits there in its
  * first form without pushing the title under its natural width, or that zone has no target).
  */
@@ -180,7 +180,7 @@ describe("a bar's zones by thirds", () => {
 
 describe("local targets: home only over the item's own place, refusals where a zone takes nothing", () => {
   it("a home slot's hit holds the item's own rect, and no other docked target lies over it; refusals never overlap a target", () => {
-    // Revision 9: home's tile is the own interval and the stretches beside it with no slot of their own (no ±12 band).
+    // Home's tile is the own interval (no band around it).
     for (let seed = 1; seed <= 200; seed++) {
       const s = barScene(seed);
       const l = solve(s);
@@ -255,7 +255,7 @@ describe("local targets: home only over the item's own place, refusals where a z
 
   it("a title bar too full: its zones are refused for lack of room, a panel's for the kind", () => {
     const s = put(windowScene(), "titlebar", ["tools", "zoom", "marks", "search"]);
-    // Each refused slot is refused over its own tile (Revision 9): every zone of the bar is refused, for lack of room.
+    // Each refused slot is refused over its own tile: every zone of the bar is refused, for lack of room.
     const rs = refusals(s, "views").filter((r) => r.edge === "titlebar");
     expect([...new Set(rs.map((r) => r.zone))].sort()).toEqual(["center", "end", "start"]);
     expect(rs.every((r) => r.reason === "no-room")).toBe(true);
@@ -272,7 +272,7 @@ describe("local targets: home only over the item's own place, refusals where a z
     const before = ts.find((t) => t.place.kind === "gap" && t.id.startsWith("gap:toolbar:end:0"));
     expect(before, "the gap before Tools").toBeDefined();
     expect(before!.hit.width).toBeGreaterThan(0);
-    // A panel that fills its column above a toolbar: the column's zones are the solver's spans (Revision 9a), so the end
+    // A panel that fills its column above a toolbar: the column's zones are the solver's spans, so the end
     // zone (the toolbar's) keeps its gaps; home still covers the panel's centre.
     const col: Scene = { stage: { x: 0, y: 0, width: 900, height: 600 }, edges: [column("c", "left", 0, ["p", "g"])], items: byId([panel("p", 1), group("g", 2, { align: "end" })]), floats: [], floatKinds: [] };
     const cl = solve(col);

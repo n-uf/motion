@@ -1,5 +1,5 @@
 /**
- * The rules the Scene builds in (C24 to C29) and the revision 4 cases (gaps as bands, `content-changed`, the float slot,
+ * The rules the Scene builds in (C24 to C29) and the gap cases (gaps as bands, `content-changed`, the float slot,
  * every gap its own slot), on the document window of `doc()`: a title bar (fixed title that grows, fixed controls), a
  * toolbar, a status bar, a left and a right column, panels (pages, findings, notes) and groups (views, tools, zoom,
  * search, marks).
@@ -154,7 +154,7 @@ export const RULE_ROWS: readonly CaseRow[] = [
     expectDom: [{ select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:titlebar:start:1" }, note: "the slot just after the title" }],
   },
 
-  // --- revision 4 -------------------------------------------------------------------------------------------------------
+  // --- gaps as bands, content changes, the float slot ---------------------------------------------------------------------
   {
     id: "R4-band-at-a-boundary",
     title: "A gap is a band around a boundary",
