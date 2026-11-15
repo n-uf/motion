@@ -80,4 +80,20 @@ describe("the async runner", () => {
     const got = await runCaseAsync(row, asyncHost);
     expect(got).toEqual(want);
   });
+
+  it("a failing root or stops rejects runCaseAsync, as it throws from runCase; layout and stored failures are results", async () => {
+    const domRow = CASES.find((r) => (r.expectDom ?? []).length > 0)!;
+    const base = createSceneHost();
+    const badRoot: CaseHost = { ...base, root: () => { throw new Error("no page"); } };
+    expect(() => runCase(domRow, badRoot)).toThrow("no page");
+    await expect(runCaseAsync(domRow, { load: (s, o) => base.load(s, o), perform: (g) => base.perform(g), layout: () => base.layout(), root: () => Promise.reject(new Error("no page")) })).rejects.toThrow("no page");
+    const stopsRow = CASES.find((r) => r.expectStops)!;
+    const s2 = createSceneHost();
+    await expect(runCaseAsync(stopsRow, { load: (s, o) => s2.load(s, o), perform: (g) => s2.perform(g), layout: () => s2.layout(), stops: () => Promise.reject(new Error("no stops")) })).rejects.toThrow("no stops");
+    // A failing layout is a failed result, not a rejection.
+    const s3 = createSceneHost();
+    const r = await runCaseAsync(CASES[0]!, { load: (s, o) => s3.load(s, o), perform: (g) => s3.perform(g), layout: () => Promise.reject(new Error("no layout")) });
+    expect(r.ok).toBe(false);
+    expect(r.failures.join("\n")).toContain("no layout");
+  });
 });
