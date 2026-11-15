@@ -1,6 +1,8 @@
 /**
- * Space ownership (filter iii). A drawn edge owns its current rect, with the item lifted or as it is now (but for the
- * item's own edge as it is now: the item has left it); an empty edge owns a thin band of its place at its boundary; the
+ * Space ownership (filter iii). A stretch is owned by what the user sees there; if the owner has no slot there, it
+ * refuses. A drawn edge owns its rect with the item lifted, and its rect as it is now where no edge lies once the item
+ * lifts (`seenOf`; never the item's own edge as it is now: the item has left it); an empty edge owns a thin band of its
+ * place at its boundary, along its surviving slots' tiles only; the
  * rail likewise. Owned rects rank in the order `solve` lays edges out: one laid before another and pushing it when
  * filled wins (outer before inner, full bars before the sides they push, the rail before its side); between edges laid
  * independently a drawn rect wins over an empty edge's band, two drawn rects yield to each other, and of two bands the
@@ -32,6 +34,11 @@ export interface Ownership {
   readonly bodies: (id: string) => Rect[];
   /** The fixed items that don't grow, with the item lifted and as it is now. */
   readonly solid: readonly Rect[];
+  /**
+   * Every edge's drawn rects but `key`'s: where it lies once the item lifts, and where it is seen and nothing lies once
+   * lifted (`seenOf`). A refusal owns nothing, so it yields to them: a stretch is owned by what the user sees there.
+   */
+  readonly drawnBesides: (key: string) => readonly Rect[];
 }
 
 const bandOf = (s: EdgeSpec): Rect => {
@@ -61,6 +68,20 @@ function ownedRectsOf(s: EdgeSpec, along: readonly Span[]): Rect[] {
   return along.map(([a, b]) => (s.vertical ? rect(o.x, a, o.width, b - a) : rect(a, o.y, b - a, o.height)));
 }
 
+/**
+ * Where each edge is seen and no edge lies once the item lifts: its rect as it is now (the host draws the committed
+ * layout until a target shows) less every edge's lifted rect, the dragged item's own edge aside. A stretch is owned by
+ * what the user sees there; where its owner has no slot, it refuses (`seenRefusals` in `./targets`).
+ */
+export function seenOf(c: Ctx): { edge: string; rect: Rect }[] {
+  const { now, base, dragged } = c;
+  const ownEdge = now.items[dragged]?.edge;
+  const lifted = Object.values(base.edges).filter((e) => area(e.rect) > EPS).map((e) => e.rect);
+  return Object.entries(now.edges)
+    .filter(([id, e]) => id !== ownEdge && area(e.rect) > EPS && c.lay.has(id))
+    .flatMap(([id, e]) => lifted.reduce<Rect[]>((ps, r) => ps.flatMap((p) => subtract(p, r)), [e.rect]).map((r) => ({ edge: id, rect: r })));
+}
+
 /** Every owner: home first, then each edge the tiler reads, then every drawn rect. */
 function ownersOf(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSpec) => readonly Span[]): Owner[] {
   const { now, base, dragged } = c;
@@ -75,8 +96,6 @@ function ownersOf(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSpec) => r
     const [c0, c1] = s.across();
     return s.vertical ? rect(Math.min(c0, o.x), o.y, Math.max(c1, o.x + o.width) - Math.min(c0, o.x), o.height) : rect(o.x, Math.min(c0, o.y), o.width, Math.max(c1, o.y + o.height) - Math.min(c0, o.y));
   })();
-  /** The edges with a rect once the item lifts. */
-  const lifted = new Set(Object.entries(base.edges).filter(([, e]) => area(e.rect) > EPS).map(([id]) => id));
   return [
     // Home first: its tile is its own, for every edge but its own (which tiles it as its own interval).
     ...(homeRect && ownEdge ? [{ id: ownEdge, key: ownEdge, rect: homeRect, lay: { phase: -1, side: "", at: -Infinity }, place: false }] : []),
@@ -85,13 +104,14 @@ function ownersOf(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSpec) => r
     // (its drawn rect still counts, below).
     ...live.flatMap((s) => ownedRectsOf(s, alongOf(s)).map((r) => ({ id: s.id, key: s.key, rect: r, lay: s.lay, place: !s.drawn }))).filter((o) => area(o.rect) > EPS),
     // Every drawn rect with the item lifted, the layout the tiles lie in: the edges the tiler doesn't read (folded,
-    // riding, taking nothing) among them. An edge's rect as it is now counts only where the lift leaves it no rect at
-    // all (drawn now, gone once the item lifts; the item's own edge excepted). An edge that only moves when the item
-    // lifts owns where it lies after the lift, where its tiles are, never where it lay before: that space is another
-    // edge's once the item has lifted, or nobody's, and a stale owner there would leave it to no tile at all.
-    ...[...Object.entries(base.edges), ...Object.entries(now.edges).filter(([id]) => id !== ownEdge && !lifted.has(id))]
+    // riding, taking nothing) among them.
+    ...Object.entries(base.edges)
       .filter(([id, e]) => area(e.rect) > EPS && c.lay.has(id))
       .map(([id, e]) => ({ id, key: id, rect: e.rect, lay: c.lay.get(id)!, place: false })),
+    // And where each edge is seen, as it is now, and no edge lies once lifted (`seenOf`): a stretch is owned by what the
+    // user sees there. An edge that moves when the item lifts never owns, where it lay before, a stretch another edge
+    // lies in once lifted.
+    ...seenOf(c).map(({ edge, rect: r }) => ({ id: edge, key: edge, rect: r, lay: c.lay.get(edge)!, place: false })),
   ];
 }
 
@@ -169,5 +189,12 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
       .map(([, p]) => (column ? across(p.rect.y, p.rect.y + p.rect.height) : across(p.rect.x, p.rect.x + p.rect.width)));
     return [...reserved, ...bodySpans(id).map(([a, b]) => across(a, b))].filter((b) => area(b) > EPS);
   };
-  return { owners, taken, cutsOf, bodies, solid };
+  const drawn = [...Object.entries(base.edges).filter(([, e]) => area(e.rect) > EPS).map(([id, e]) => ({ key: id, rect: e.rect })), ...seenOf(c).map((x) => ({ key: x.edge, rect: x.rect }))];
+  const drawnByKey = new Map<string, Rect[]>();
+  const drawnBesides = (key: string): Rect[] => {
+    let rs = drawnByKey.get(key);
+    if (!rs) drawnByKey.set(key, (rs = drawn.filter((d) => d.key !== key).map((d) => d.rect)));
+    return rs;
+  };
+  return { owners, taken, cutsOf, bodies, solid, drawnBesides };
 }

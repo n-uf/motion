@@ -3,12 +3,12 @@
  * each clear of the tiles before it, of what outranks its edge, of the fixed items that don't grow and of the chrome.
  */
 import { EPS, area, rect, subtract, type Point, type Rect } from "../../geometry";
-import { zoneOf } from "../helpers";
-import type { SceneLayout, Zone } from "../model";
+import { axisOf, zoneOf, zoneTakes } from "../helpers";
+import { DEFAULT_HIT_BAND, type SceneLayout, type Zone } from "../model";
 import { distinctSlots } from "./edges";
-import { EDGE_KINDS } from "./kinds";
+import { EDGE_KINDS, edgeKindOf } from "./kinds";
 import { less, type Ctx, type EdgeSpec, type SceneRefusal, type Slot, type Span, type Tile } from "./model";
-import type { Ownership } from "./ownership";
+import { seenOf, type Ownership } from "./ownership";
 
 /** How one edge makes its tiles: its band, the point a tile keeps, and a tile's split into owned part and overreach. */
 interface Tiler {
@@ -245,7 +245,7 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
     // An owned part: clear of the tiles before it, of the owners that win over its edge, its panel bodies, solid items
     // and chrome. A virtual edge's tile: clear of the tiles before it and of every owner. A refusal owns nothing: it
     // yields to every other edge's owned rect too.
-    const yields = t.kind === "refuse" ? others(t) : [];
+    const yields = t.kind === "refuse" ? own.drawnBesides(t.key) : [];
     const cuts = [...placed.flatMap(coverOf), ...(taken.get(t.key) ?? []), ...yields, ...(data.virtual ? [] : bodies(t.edge)), ...solid, ...chrome];
     const pieces = clip(t.hit, cuts);
     if (pieces.length === 0) {
@@ -272,6 +272,45 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
   for (const t of tiles.filter((x) => !isRefused(x)).sort(byOrder)) place(t);
   for (const t of refused.sort(byOrder)) place(t);
   for (const t of gone) lost.push(t.id);
-  for (const t of later) for (const p of clip(t.hit, [...placed.flatMap(coverOf), ...others(t), ...solid, ...chrome])) placed.push({ ...t, hit: p });
+  for (const t of later) for (const p of clip(t.hit, [...placed.flatMap(coverOf), ...own.drawnBesides(t.key), ...solid, ...chrome])) placed.push({ ...t, hit: p });
   return placed;
+}
+
+/**
+ * A stretch is owned by what the user sees there; if the owner has no slot there, it refuses. Where an edge is seen as
+ * it is now and no edge lies once the item lifts (`seenOf`: a side bar pushed in by a rail that empties on the lift),
+ * what no tile covers is that edge's refusal, with its zone's reason. Its panel bodies (but for `hitBand / 2` at each
+ * end), fixed items and the chrome stay no drop place, as on any edge.
+ */
+export function seenRefusals(c: Ctx, live: readonly EdgeSpec[], placed: readonly Tile[], own: Ownership, chrome: readonly Rect[]): Tile[] {
+  const out: Tile[] = [];
+  const covered = placed.flatMap(coverOf);
+  for (const { edge, rect: r } of seenOf(c)) {
+    const e = c.scene.edges.find((x) => x.id === edge);
+    if (!e) continue;
+    const vertical = axisOf(e.side) === "column";
+    const band = e.hitBand ?? DEFAULT_HIT_BAND;
+    const half = band === "middle" ? 0 : Math.max(0, Number.isFinite(band) ? band : DEFAULT_HIT_BAND) / 2;
+    const bodies =
+      band === "middle"
+        ? []
+        : Object.entries(c.now.items)
+            .filter(([id, p]) => p.edge === edge && p.formKind === "open" && id !== c.dragged)
+            .map(([, p]) => (vertical ? rect(p.rect.x, p.rect.y + half, p.rect.width, p.rect.height - 2 * half) : rect(p.rect.x + half, p.rect.y, p.rect.width - 2 * half, p.rect.height)))
+            .filter((b) => b.width > EPS && b.height > EPS);
+    const spec = live.find((s) => s.key === edge);
+    // Each stretch by the zone it lies in along the edge (the edge's zones as tiled; the start zone where it has none).
+    const zones = spec?.zones ?? [{ zone: "start" as Zone, a: -Infinity, b: Infinity }];
+    const kind = edgeKindOf(c.rest, e);
+    for (const p of clip(r, [...covered, ...bodies, ...own.solid, ...chrome]))
+      for (const z of zones) {
+        const [p0, p1] = vertical ? [p.y, p.y + p.height] : [p.x, p.x + p.width];
+        const [a, b] = [Math.max(p0, z.a), Math.min(p1, z.b)];
+        if (b - a <= EPS) continue;
+        const hit = vertical ? rect(p.x, a, p.width, b - a) : rect(a, p.y, b - a, p.height);
+        const reason = spec?.refuse(z.zone) ?? (zoneTakes(e, z.zone, c.kind) ? "no-room" : "not-accepted");
+        out.push({ edge, key: edge, edgeKind: kind, vertical, zone: z.zone, order: 99, kind: "refuse", id: "", priority: EDGE_KINDS[kind].priority, hit, keep: null, reason });
+      }
+  }
+  return out;
 }
