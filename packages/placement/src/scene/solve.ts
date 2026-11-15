@@ -439,8 +439,11 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       readonly kept: boolean;
       readonly age: number;
     }
-    // An edge outside the inset (an anchor) runs the inset's height too, from the stage's top to its bottom.
-    const tall = (edge: Edge): number => H + (edge.outsideInset === true ? px(inset.top) + px(inset.bottom) : 0);
+    // An edge outside the inset (an anchor) runs into the inset above and below too, where no reserved bar lies on that
+    // side (a bar there keeps it below or above the bar).
+    const upInset = area.y <= stage.y + px(inset.top) + EPS ? px(inset.top) : 0;
+    const downInset = area.y + area.height >= stage.y + stage.height - px(inset.bottom) - EPS ? px(inset.bottom) : 0;
+    const tall = (edge: Edge): number => H + (edge.outsideInset === true ? upInset + downInset : 0);
     const cols: Col[] = sideEdges.map((edge) => {
       const side = edge.side as "left" | "right";
       const solved = solveEdge(scene, edge, owned.get(edge)!, tall(edge), Math.max(0, area.width), prevEdge(edge));
@@ -595,7 +598,7 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
         let r: Rect;
         if (c.edge.outsideInset === true) {
           // Outside the inset: at the stage's side, full height; the inset (not a gutter) follows it.
-          const y0 = area.y - px(inset.top);
+          const y0 = area.y - upInset;
           const h = tall(c.edge);
           if (side === "left") {
             r = rect(x0 - gap, y0, w, h);

@@ -298,6 +298,21 @@ describe("the options the rows need", () => {
     expect(r.items.thumbs!.rect).toEqual({ x: 559, y: 0, width: 72, height: 800 });
   });
 
+  it("an anchor outside the inset stays clear of a full top or bottom bar: it runs into the inset only where no bar is", () => {
+    const s = adapt(anchorLeft, 1200, 800);
+    const bar = (id: string, side: "top" | "bottom"): Edge => ({ id, side, ring: 0, accepts: ["group"], items: [id === "tb" ? "g1" : "g2"], cross: { min: 40, max: 40, rail: 40 } });
+    const g = (id: string): SceneItem => ({ id, kind: "group", used: 9, forms: { row: [{ kind: "row", main: { min: 100, natural: 100 }, cross: { natural: 40 } }] } });
+    const withBars = (sides: ("top" | "bottom")[]): Scene => ({ ...s, edges: [...sides.map((x) => bar(x === "top" ? "tb" : "bb", x)), ...s.edges], items: { ...s.items, g1: g("g1"), g2: g("g2") } });
+    const overlaps = (a: { x: number; y: number; width: number; height: number }, b: typeof a) => Math.min(a.x + a.width, b.x + b.width) > Math.max(a.x, b.x) && Math.min(a.y + a.height, b.y + b.height) > Math.max(a.y, b.y);
+    const top = solve(withBars(["top"]));
+    expect(top.edges.tb!.rect).toEqual({ x: 12, y: 12, width: 1176, height: 40 });
+    expect(top.items.thumbs!.rect).toEqual({ x: 0, y: 52, width: 72, height: 748 });
+    expect(overlaps(top.items.thumbs!.rect, top.edges.tb!.rect)).toBe(false);
+    const both = solve(withBars(["top", "bottom"]));
+    expect(both.items.thumbs!.rect).toEqual({ x: 0, y: 52, width: 72, height: 696 });
+    expect(overlaps(both.items.thumbs!.rect, both.edges.bb!.rect)).toBe(false);
+  });
+
   it("no-column-room: columnRoom false with a note once one column at its minimum no longer fits beside contentMin", () => {
     const three = rows.scenes.three!.scene;
     expect(solve(adapt(three, 576, 800)).columnRoom).toBe(true);
