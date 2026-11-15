@@ -652,6 +652,10 @@ function edgeTargets(scene: Scene, rest: Scene, now: SceneLayout, base: SceneLay
     : [];
   // A compact rail's hits reach a little way inward past its edge, so a pointer just inside the rail still catches it.
   const inward = edge.compact ? RAIL_REACH : 0;
+  // The edge's solid items along it (fixed items that don't grow), as the lift leaves them.
+  const solidSpans = fixedIds
+    .filter((id) => !formsOf(scene.items[id]!, axisOf(edge.side))[base.items[id]!.form]?.main.grows)
+    .map((id) => ({ a: at(base.items[id]!.rect), b: at(base.items[id]!.rect) + len(base.items[id]!.rect) }));
   live.forEach((g, i) => {
     let from = i === 0 ? -Infinity : (live[i - 1]!.line + g.line) / 2;
     let to = i === live.length - 1 ? Infinity : (g.line + live[i + 1]!.line) / 2;
@@ -663,14 +667,21 @@ function edgeTargets(scene: Scene, rest: Scene, now: SceneLayout, base: SceneLay
       // The nearest gap to the pointer within the third. When the zone's lines run past its third (long toolbars, or a
       // center zone reaching into a side's third), they are spread proportionally inside it, so every gap of the zone
       // keeps a slice of its own.
-      const a = main0 + (length * k) / 3;
-      const b = main0 + (length * (k + 1)) / 3;
+      const a0 = main0 + (length * k) / 3;
+      const b0 = main0 + (length * (k + 1)) / 3;
       const lines = live.filter((x) => x.zone === g.zone).map((x) => x.line);
+      // The part of the third free of the edge's solid items (window controls, a readout): the lines are spread inside
+      // it only, never over a blocker the hits are cut clear of.
+      const first = Math.min(...lines);
+      const last = Math.max(...lines);
+      const a1 = Math.max(a0, ...solidSpans.filter((s) => s.b <= first + EPS).map((s) => s.b));
+      const b1 = Math.min(b0, ...solidSpans.filter((s) => s.a >= last - EPS).map((s) => s.a));
+      const [a, b] = b1 - a1 > EPS ? [a1, b1] : [a0, b0];
       const span0 = Math.min(a, ...lines);
       const span1 = Math.max(b, ...lines);
       const inThird = (x: number): number => (span1 - span0 > EPS ? a + ((x - span0) / (span1 - span0)) * (b - a) : x);
-      const lo = k === 0 ? -Infinity : a;
-      const hi = k === 2 ? Infinity : b;
+      const lo = k === 0 ? -Infinity : a0;
+      const hi = k === 2 ? Infinity : b0;
       from = Math.max(lo, prev ? (inThird(prev.line) + inThird(g.line)) / 2 : lo);
       to = Math.min(hi, next ? (inThird(g.line) + inThird(next.line)) / 2 : hi);
     }
