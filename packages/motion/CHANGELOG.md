@@ -3,15 +3,17 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## Unreleased
+
+- `./gestures`, **`GesturePointer`**: the new name of the pointer the gesture stream reports. `SurfacePointer` stays
+  as a deprecated alias of it, removed once its users have moved. **Migration:** import `GesturePointer`.
+
 ## 26.11.24
 
 - No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.24 (`columnRoom` counts laid-out side
   bars; `isSideBar` in `./scene`).
 
 ## 26.11.23
-
-- `./gestures`, **`GesturePointer`**: the new name of the pointer the gesture stream reports. `SurfacePointer` stays
-  as a deprecated alias of it, removed once its users have moved. **Migration:** import `GesturePointer`.
 
 - `./layout`, **`anchoredMorph(size, anchor, config?)`** (additive): a box held at a point that changes size about an
   anchor. `to(size, anchor)` settles the size and the anchor together, interruptible (a retarget mid-flight turns from

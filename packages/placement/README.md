@@ -22,8 +22,12 @@ Its sibling [`@n-uf/motion`](https://www.npmjs.com/package/@n-uf/motion) owns ho
 without importing each other: a target list from `@n-uf/placement/targets` is exactly what
 `@n-uf/motion/drag`'s drag intent takes, and a rect from any layout here is what `@n-uf/motion/layout` glides to.
 
-- **`@n-uf/placement`**: the shapes (`Rect`, `Size`, `Point`) and a popup positioner, as Wayland's xdg-positioner: an anchor
-  point, gravity and offset, then flip, slide and resize, each only when the rule allows it.
+- **`@n-uf/placement`**: the shapes (`Rect`, `Size`, `Point`), the geometry every entry shares, and a popup positioner,
+  as Wayland's xdg-positioner: an anchor point, gravity and offset, then flip, slide and resize, each only when the
+  rule allows it. The geometry is `rect`, `overlap`, `clampInto`, `centre`, `EPS`, `PLANE`, `area`, `overlaps`,
+  `contains`, `clamp` and `subtract` (a rect less another, as disjoint rects), with the hit sizes `COLUMN_REACH` (22 px,
+  each way of a column line) and `RAIL_EDGE` (10 px). The `Target` type (a drop target's shape, as
+  `@n-uf/motion/drag` takes it) is exported here too; `./targets` and `./panels` still export it and the hit sizes.
 - **`/dock`**: a desk of documents and tool panels. Side docks and a bottom dock (between the side docks or across
   the full width), rails, natural-height sections whose last one takes the rest, fold and unfold, the give-way
   rules (sections fold least recently used first, docks fold to their rails), floating palettes with corner stacks,
@@ -966,7 +970,8 @@ edges without `previous`.
   out of a title bar can always go back while the room allows. No slot lies over a fixed item's reserved rect. `slot`
   is the item's rect after the drop and `marker` the insertion line across the edge.
 - `strip:<edge>:<zone>` (2; three per empty edge, `:start`, `:center` and `:end`, one per third along the edge: a bar's
-  width, a side edge's height, see Bar alignment zones): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side, inside the
+  width, a side edge's height, see Bar alignment zones): an accepting edge with no members at all (one that holds only
+  closed members keeps its `gap:` ids), a strip `Edge.strip` px deep (default 24) along its side, inside the
   content and clear of the other edges (overlay ones included), so never over a docked edge or a panel's body: a
   full-width empty bar's strip covers only the content between the columns. A compact rail's strip alone stays at the
   window edge, its own place. A gap hit that spans it across trims its start or end (a bar's strip along the top never
@@ -986,24 +991,54 @@ edges without `previous`.
   too: no slot, nothing committed. Every rail target on the side whose rail already holds the item is a home: a segment
   dropped on its own rail, even below the last segment, never splits or reorders it (P9).
 
-**Local targets.** A target wins only where its own hit is. Home's hit is the item's own rect and half a band
-(`DEFAULT_HIT_BAND / 2`, 12 px) each way along its edge, across the edge's full hit thickness, cut out of every other gap
-hit there, so home is offered only over the item's own place, and it always covers the item's whole own rect: across
-it no point picks a target that moves the item. An empty bar's or edge's strip (and the `rail:` strip while no rail
-shows) keeps only what lies outside the item's own rect; the strip of the item's own edge, which the item alone fills,
-means home there, and what is left of a strip under 1 px has no target. The rest of its gaps' slices goes
-only to the gap beside it in the same zone; with none there, that stretch has no target (the pointer shows nothing, and a
-release goes home), never a "back to its place" preview far away and never a gap of another zone. Affected: the drag of
-an item in a bar whose zone held only its own gap (that zone's whole third used to preview home), and items whose own
-rect lay outside their gap's slice (home now always covers them).
+**The target model.** `targets` and `refusals` come from one generation: edge, then zones, then slots, then tiles, then
+one ordered filter (accepts and zones, fit, clipping, `blocked`). A target wins only where its own hit is, and every point
+of an edge that takes the dragged kind is one target or one refusal of its own zone, never a hole, an overlap or another
+zone's.
 
-**Refusals.** `refusals(scene, dragged, options?)` gives the places a drop is refused, as `{ id: "refuse:<edge>:<zone>",
-edge, zone, hit, reason }[]` (type `SceneRefusal`): the bar zones, by thirds, that have no target (`reason: "no-room"`
-when the zone takes the kind but no gap of it fits, a title bar at the title's natural width say; `"not-accepted"` when
-the zone or the bar doesn't take the kind), and the side edges that don't take the kind (as a whole, zone `start`). Each
-hit is cut clear of every target's hit, so a pointer over one has no target there but the float. A host shows "no room
-here" at the pointer over one, with no slot anywhere; a release there commits nothing, the item goes home. It takes the
-same `previous` and `fresh` as `targets`.
+- **Zones.** A zone's extent is where its items lie: the thirds of a bar, of a compact rail or of a side toolbar bar;
+  the solver's spans where items fill the edge (a plain panel column is one zone, its whole length; a tray column its
+  panels' span and its tray's). An **empty zone is one slot**, a single place that takes the drop.
+- **Slots and tiles.** A zone's slots are the places a drop can land (before each item, after the last); the zone's
+  extent is cut into one tile per slot, each tile meeting its neighbour halfway. Slots that are the same move (one line
+  and one landing, or both putting the item back) are one slot, the lowest `at` keeping its id. A place that would move a
+  fixed item of its edge (before a title, after the window controls) is no slot.
+- **Home.** Home's tile is the item's own interval, with no band around it: a stretch with no slot of its own is refused,
+  never home's and never another zone's. Beside an item alone in its zone it is refused as `own-place`.
+- **Space ownership** decides where tiles of different edges meet: owned, then virtual, then overreach.
+  - A drawn edge owns its rect. An empty edge owns only a thin place band of 12 px (half the hit band) at the boundary
+    where it would appear; so does the side's rail where none shows. The item's own place is owned before everything.
+  - A column line is where a new column would appear, so it owns a 12 px place band too, centred on its line. Owned rects
+    are ranked by the order the layout lays edges out: an edge laid first, whose filling pushes the other, wins (outer
+    before inner on one side, full bars before the sides, the rail before its side's columns, a column line over the
+    inner column it would push but not the outer one). Between edges laid independently a drawn rect wins over an empty
+    edge's band. Two columns that touch keep the line at their seam.
+  - A zone loses what an edge ranked before it owns, and its panel bodies and reserved rects before it is tiled; a zone
+    left with no room offers no slot.
+  - Overreach, the part of a tile past what its edge owns (the depth a column will have after the drop, an empty
+    strip past its band, a compact rail's inward reach), comes last: it yields to the column lines and to every other
+    edge's owned rect.
+  - An overlay column is drawn on top, and what shows on top wins: an empty rail's place under it offers no `rail:` stop
+    there, and a column line beside it yields to it.
+- **The column lines and the rail are edges like the others**, tiled by the same rule. A column line or rail stop whose
+  drop wouldn't land or fit, and any piece clipping cuts off its tile, is refused (`refuse:column:<side>:start`,
+  `refuse:rail:<side>:start`, `no-room`) rather than left to the float.
+- **Strips.** `strip:<edge>:<zone>` names a slot only on an edge with no members at all. On an edge that draws nothing
+  but holds closed members (or the dragged item's own place), every slot keeps its `gap:<edge>:<zone>:<at>` id.
+- **`SceneLayout.railPlaces`:** where each side's rail lies, or would lie were one shown, for every side with a rail
+  (`Scene.rails`): the shown rail's rect, else where a drop into the rail lands. With no rail shown, the `rail:` strip is
+  `RAIL_EDGE` px of it. Targets read it; a host draws `rails` (the shown rails), never `railPlaces`.
+
+**Refusals.** `refusals(scene, dragged, options?)` gives the places a drop is refused, as `{ id, edge, zone, hit,
+reason }[]` (type `SceneRefusal`): the stretches of a zone with no slot of their own, and the side edges that don't take
+the kind (as a whole, zone `start`). `reason` is `"no-room"` when the zone takes the kind but no place of it fits (a
+title bar at the title's natural width say), `"not-accepted"` when the zone or the edge doesn't take the kind, and
+**`"own-place"`** for the stretch beside an item alone in its zone: there is room, but the zone's only place is the item's
+own. An exhaustive `switch` over `SceneRefusal["reason"]` needs the `own-place` case. Ids are `refuse:<edge>:<zone>` and,
+when a zone has more than one refusal, `refuse:<edge>:<zone>:<n>`, numbered by where they lie along the edge (then
+across it), so an id holds from one frame to the next; no id is given twice by one call. A refused slot is refused over
+its own tile. A host shows "no room here" at the pointer over one, with no slot anywhere; a release there commits
+nothing, the item goes home. It takes the same `previous` and `fresh` as `targets`.
 
 A gap, column or rail target exists only where the drop keeps the whole scene sound (C29): it adds no `overflow` or
 `too-wide` note to any edge, changes no fixed item's form, squeezes none under its `main.min` anywhere (a between bar

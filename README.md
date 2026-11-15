@@ -32,3 +32,19 @@ pnpm lab     # the motion lab on http://localhost:3060
   `window.__motionLab.runAll()` returns the results for a headless try.
 - Versions are calendar versions `YY.M.R`, as in hypr-tiling: `pnpm version:bump`.
 - Licensed under [PolyForm Perimeter 1.0.1](./LICENSE).
+
+## Contributing checks
+
+`pnpm check` runs, besides the typechecks, tests, builds and the lab's typecheck, two repository checks:
+
+- `pnpm dirt`: a ratchet over the code's dirt. It counts dependency-cruiser rule violations (import cycles; the two
+  packages importing each other; a package reaching into an app; an app reaching past a package's public entries; a
+  folder reaching into another's files instead of its index), jscpd clones of 50 tokens and more, and knip findings (unused files, exports and dependencies) per
+  kind, against the ceilings in `dirt-baseline.json`. A count above its ceiling fails; a count below it is reported, so
+  the ceiling can come down (never up). `node scripts/dirt.mjs --write` stores today's counts as the new ceilings, and
+  refuses to raise any of them.
+- `pnpm public-words`: this is a public repository, so the check lists no private names and no process words (such as
+  revision numbers or role names) in `packages/` and `apps/`. It keeps the names only as SHA-256 hashes, so the check
+  itself leaks nothing; a node test (`scripts/public-words.test.mjs`) covers it with made-up words. A hit names the line
+  and the word; reword the line, or, for a quote of third-party text, add the whole phrase to the allowed list in
+  `scripts/public-words.mjs` with a reason.
