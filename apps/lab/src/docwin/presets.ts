@@ -5,9 +5,9 @@
  * and is expected to be red until the rule lands: the page never fakes it.
  */
 import type { Point, Rect } from "@n-uf/placement";
-import { lift, moveTo, reservedRect, solve, type Scene, type SceneTarget } from "@n-uf/placement/scene";
+import { lift, moveTo, reservedRect, solve, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { wrapCross } from "@n-uf/placement/stack";
-import { DEFAULT_SIZE, ages, defaultScene, edgeOf, floating, put, type EdgeId, type ItemId } from "./model";
+import { DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, put, type EdgeId, type ItemId } from "./model";
 import type { DocwinScene } from "./scene";
 import { readDocwin, storeDocwin } from "./store";
 
@@ -934,7 +934,108 @@ export const PRESETS: readonly Preset[] = [
       return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "No title-bar target for Tools; drops over each third went elsewhere." };
     },
   },
+  {
+    id: "nothing-clipped",
+    title: "Nothing is clipped, in any form, on any edge",
+    expected:
+      "Every movable item, in every form it can take (row, wrap, icons, fold; open, header, rail), on every kind of edge it can go to (a bar, a column, the tray, the rail, a float), draws its buttons and labels inside its own rect: their bounding box stays inside the item's box, and the box doesn't scroll (scrollWidth and scrollHeight within its size).",
+    setup: (c) => c.setScene(defaultScene()),
+    check(c) {
+      const bad: string[] = [];
+      let n = 0;
+      // A float at the item's own float size (what a float drop gives it).
+      const float = (id: ItemId): Place => {
+        const size = defaultScene().items[id]!.floatSize!;
+        return { kind: "float", rect: { x: 300, y: 120, width: size.width, height: size.height } };
+      };
+      const groupPlaces = (id: ItemId): [string, Place][] => [
+        ["bar", { kind: "gap", edge: "top", zone: "start", at: 0 }],
+        ["tray", { kind: "gap", edge: "left", zone: "end", at: 0 }],
+        ["rail", { kind: "gap", edge: "rail-left", zone: "start", at: 0 }],
+        ["float", float(id)],
+      ];
+      const panelPlaces = (id: ItemId): [string, Place][] => [
+        ["column", { kind: "gap", edge: "left", zone: "start", at: 0 }],
+        ["float", float(id)],
+      ];
+      for (const id of MOVABLE) {
+        const group = isGroup(id);
+        for (const [where, place] of group ? groupPlaces(id) : panelPlaces(id)) {
+          const placed = moveTo(defaultScene(), id, place);
+          const forms = placed.items[id]!.forms[where === "bar" ? "row" : "column"] ?? [];
+          for (let k = 0; k < forms.length; k++) {
+            const kind = forms[k]!.kind;
+            if (kind === "menu") continue;
+            c.setScene({ ...placed, items: { ...placed.items, [id]: { ...placed.items[id]!, from: k } } });
+            const p = c.layout.items[id];
+            // The form it took (a vertical place skips a group's wrap forms); each form drawn is checked once.
+            if (!p || p.inMenu) continue;
+            const issue = clipped(c, id);
+            n++;
+            if (issue) bad.push(`${id} ${p.formKind} in the ${where}: ${issue}`);
+          }
+        }
+      }
+      // The panels' rail form: every panel of the left column folded by hand, in the left column's rail form.
+      c.setScene(sceneWith((s) => ({ ...s, items: { ...s.items, pages: { ...s.items.pages!, from: 2 }, notes: { ...s.items.notes!, from: 2 } } })));
+      for (const id of ["pages", "notes"] as const) {
+        const p = c.layout.items[id];
+        if (!p || p.inMenu) continue;
+        n++;
+        const issue = clipped(c, id);
+        if (issue) bad.push(`${id} ${p.formKind} in the column: ${issue}`);
+      }
+      return { pass: bad.length === 0, now: `${n} item × form × edge cases drawn.${bad.length ? ` Clipped: ${bad.join("; ")}.` : " None clipped."}` };
+    },
+  },
+  {
+    id: "rail-of-two",
+    title: "A rail of two toolbars, neither clipped",
+    expected: "With Zoom in the left rail, Tools dropped by mouse on the rail below it stacks under Zoom: both show every icon inside their own box, and the preview is the landing.",
+    setup: (c) => c.setScene(sceneWith((s) => put(s, "rail-left", ["zoom"]))),
+    check(c) {
+      c.setScene(sceneWith((s) => put(s, "rail-left", ["zoom"])));
+      const z = rectOf(c, "zoom")!;
+      const r = mouseDrag(c, "tools", { x: z.x + z.width / 2, y: z.y + z.height + 30 });
+      const d = c.lastDrop;
+      const t = c.layout.items.tools;
+      const order = c.layout.items.zoom && t ? c.layout.items.zoom.rect.y < t.rect.y : false;
+      const bad: string[] = [];
+      if (!r.lifted || !d?.committed || t?.edge !== "rail-left") bad.push(`Tools dropped on ${d?.target ?? "nothing"}, in ${t?.edge ?? "none"}`);
+      else {
+        if (!sameRect(d.preview, d.landed)) bad.push("the preview isn't the landing");
+        if (!order) bad.push("Tools isn't under Zoom");
+        for (const id of ["zoom", "tools"] as const) {
+          const issue = clipped(c, id);
+          if (issue) bad.push(`${id}: ${issue}`);
+        }
+      }
+      return { pass: bad.length === 0, now: `Zoom ${say(rectOf(c, "zoom")!)}, Tools ${t ? say(t.rect) : "none"}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
 ];
+
+/**
+ * Whether item `id`'s drawn content leaves its box: the union of its buttons' and labels' rects (outside a panel's
+ * scrolling body) against the box, and the box's scroll size against its size. Null when nothing is clipped.
+ */
+function clipped(c: DocwinScene, id: ItemId): string | null {
+  const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"]`);
+  if (!el) return "not drawn";
+  const box = el.getBoundingClientRect();
+  const parts = [...el.querySelectorAll<HTMLElement>("button, b, small, .dw-dots, .dw-badge, .dw-zv, .dw-n, .dw-w, .dw-cap, .dw-sep")].filter((x) => !x.closest(".dw-body"));
+  const tol = 0.5;
+  for (const p of parts) {
+    const r = p.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) continue;
+    if (r.left < box.left - tol || r.top < box.top - tol || r.right > box.right + tol || r.bottom > box.bottom + tol)
+      return `${p.className || p.tagName.toLowerCase()} at ${r0(r.left - box.left)},${r0(r.top - box.top)} ${r0(r.width)}×${r0(r.height)} outside the ${r0(box.width)}×${r0(box.height)} box`;
+  }
+  // The box's own scroll size (a panel's body scrolls inside it, which is fine).
+  const body = el.querySelector(".dw-body");
+  if (!body && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)) return `its content is ${el.scrollWidth}×${el.scrollHeight}, its box ${el.clientWidth}×${el.clientHeight}`;
+  return null;
+}
 
 /** The scene with `id` aligned to `align` (its zone). */
 function aligned(s: Scene, id: ItemId, align: "start" | "center" | "end"): Scene {
