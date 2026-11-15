@@ -88,7 +88,8 @@ function victim(items: readonly StackItem[], to: readonly number[]): number {
  * is further down, at least one is further up); otherwise room comes back in the reverse of give-way order (the item
  * that gave way most recently first, so the newest used, with rank and `kept` respected), one item at a time, and growth
  * stops at the first item that can't grow: no item behind it jumps the queue. Items in the » menu come out together
- * only when that keeps the order. A `previous` with no `need` (one an app built by hand) is no help and the fresh fit
+ * only when that keeps the order, and never ahead of an item whose step down ranked higher than their step into the
+ * menu: growing back is strictly the reverse of giving way, the menu included. A `previous` with no `need` (one an app built by hand) is no help and the fresh fit
  * is returned.
  */
 export function fitStack(input: StackInput, options: FitOptions = {}): StackFit {
@@ -248,13 +249,16 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
       }
       // The next item can't grow alone. Items in the menu may still come out, the fewest in the same order that fit
       // (together when only their leaving together removes the » entry), but only while that keeps the order: an item
-      // leaves the menu only with every menu item ahead of it, and only for a form no fewer steps down from its start
-      // than every item ahead of it that isn't in the menu (the items that opened the entry went in together, after
-      // the others had stepped down as far as they could). Steps count from each item's `from`.
+      // leaves the menu only with every menu item ahead of it, only for a form no fewer steps down from its start than
+      // every item ahead of it that isn't in the menu (the items that opened the entry went in together, after the others
+      // had stepped down as far as they could), and never ahead of an item whose step down ranked higher than its own
+      // step into the menu (that step came after it: room returns to the most recent give-way first). Steps count from
+      // each item's `from`.
       const inside: number[] = [];
       for (const [q, i] of queue.entries()) {
         if (!isMenu(form(i))) continue;
-        if (!queue.slice(0, q).every((j) => isMenu(form(j)) || at[i]! - 1 - start[i]! >= at[j]! - start[j]!)) break;
+        const ahead = queue.slice(0, q);
+        if (!ahead.every((j) => isMenu(form(j)) || (at[i]! - 1 - start[i]! >= at[j]! - start[j]! && rankOf(form(i)) >= rankOf(form(j))))) break;
         inside.push(i);
       }
       let out = false;

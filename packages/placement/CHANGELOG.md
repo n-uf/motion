@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
+- `@n-uf/placement/stack` (and so every Scene edge), **Changed:** growing back under `previous` is strictly the reverse
+  of giving way, the » menu included: an item no longer leaves the menu ahead of an item whose step down ranked higher
+  than its own step into the menu (that step came after it). With a priority, a higher-priority toolbar is back at its
+  form before a lower one leaves the menu. Affected: chains under `previous` with ranked forms whose menu items used to
+  come out early; fits without `previous`, and stacks whose forms all rank alike, are unchanged.
+
 - `@n-uf/placement/scene`, **fixed:** `columnRoom` is answered as if the one column were open: under
   `insetWhen: "docked"` with nothing docked it counts the inset that column would bring, and a column folded whole by
   hand (and a template's floating items) counts at its open minimum, not as a rail. Layouts don't change; only

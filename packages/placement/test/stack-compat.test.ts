@@ -203,24 +203,29 @@ describe("26.11.15 compatibility", () => {
   }
   const asLegacy = (input: StackInput): Legacy15Input => input as unknown as Legacy15Input;
 
-  it("fitStack, with and without previous, equals the 26.11.15 solver", () => {
+  it("fitStack, with and without previous, equals the 26.11.15 solver (chains: where no form has a rank of its own)", () => {
     const rand = seeded(26115);
     let chained = 0;
     for (let trial = 0; trial < 3000; trial++) {
       const input = richInput(rand);
       expect(canon(fitStack(input)), JSON.stringify(input)).toBe(canon(legacy15Fit(asLegacy(input))));
-      // A chain of lengths, the fit of each as `previous` of the next: the same fits as the old solver gives along the same chain.
+      // A chain of lengths, the fit of each as `previous` of the next: the same fits as the old solver gives along the same
+      // chain. Since 26.11.21 a menu item no longer leaves the menu ahead of an item whose step down ranked higher than
+      // its own step into the menu (growing back is the strict reverse of giving way), so chains with ranked forms differ
+      // from the old solver by design and are left out here (stack-previous.test.ts covers them).
+      const ranked = input.items.some((it) => it.forms.some((f) => (f.rank ?? 0) !== 0));
       let now: StackFit = fitStack(input);
       let old = legacy15Fit(asLegacy(input));
       for (let step = 0; step < 4; step++) {
         const next = { ...input, length: Math.max(0, input.length + Math.floor((rand() - 0.5) * 400)) };
         now = fitStack(next, { previous: now });
         old = legacy15Fit(asLegacy(next), { previous: old });
+        if (ranked) continue;
         expect(canon(now), JSON.stringify(next)).toBe(canon(old));
         chained++;
       }
     }
-    expect(chained).toBe(12000);
+    expect(chained).toBeGreaterThan(2000);
   });
 
   it("stackTargets equals the 26.11.15 targets, with endReach and previous", () => {

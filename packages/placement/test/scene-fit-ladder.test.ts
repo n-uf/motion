@@ -53,10 +53,10 @@ describe("the fit ladder", () => {
           const held = e.items.filter((id) => l.items[id]?.inMenu);
           expect(l.edges[e.id]!.menu?.items ?? [], `seed ${seed} at ${w}: ${e.id}'s menu`).toEqual(held);
           for (const id of e.items) expect(l.items[id]!.edge, `seed ${seed} at ${w}: ${id} left its edge`).toBe(e.id);
-          // Lowest priority first: while shrinking, an item stepped down only once every lower-priority item of its edge is
-          // in the menu. (Growing back, `./stack` lets menu items out as soon as they are no further down than the items
-          // ahead of them, so the order up isn't checked here.)
-          if (!shrinking) continue;
+          // Lowest priority first: an item is down only while every lower-priority item of its edge is in the menu, shrinking
+          // and, growing back in the strict reverse order, growing too (a higher-priority item is back at its form before a
+          // lower one leaves the menu).
+          void shrinking;
           const st = steps(s, l);
           for (const id of e.items) {
             if (st[id]! === startSteps[id]!) continue;

@@ -1300,9 +1300,8 @@ function fitIssues(c: DocwinScene, start: FitState, now: FitState, last: FitStat
     const held = ids.filter((id) => l.items[id]?.edge === eid && l.items[id]!.inMenu);
     const listed = e.menu?.items ?? [];
     if ([...listed].sort().join() !== [...held].sort().join()) out.push(`${eid}'s menu lists [${listed.join(", ")}], holds [${held.join(", ")}]`);
-    // Lowest priority first, the oldest first: while shrinking, a toolbar stepped down only once every toolbar of its
-    // edge with a lower priority (or the same, used longer ago) is in the menu.
-    if (!shrinking) continue;
+    // Lowest priority first, the oldest first: a toolbar is down only while every toolbar of its edge with a lower
+    // priority (or the same, used longer ago) has stepped down too, shrinking and, in the strict reverse, growing back.
     const bars = ids.filter((id) => isGroup(id) && l.items[id]?.edge === eid);
     const prio = (id: string): number => c.scene.items[id]!.priority ?? c.scene.edges.find((x) => x.id === eid)?.priority ?? 0;
     for (const id of bars) {
