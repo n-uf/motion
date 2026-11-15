@@ -4,7 +4,8 @@
  */
 import { EPS, rect, type Rect } from "../../geometry";
 import { formMain, wrapLines, type StackFit, type StackForm, type StackInput } from "../../stack";
-import { axisOf, formsOf, zoneOf, type Edge, type Scene, type SceneEdgeLayout, type SceneItemLayout, type SceneLayout, type SceneNote, type SceneRailLayout, type SolveOptions, type Zone } from "../model";
+import { axisOf, formsOf, zoneOf } from "../helpers";
+import type { Edge, Scene, SceneEdgeLayout, SceneItemLayout, SceneLayout, SceneNote, SceneRailLayout, SolveOptions, Zone } from "../model";
 import type { EdgeSolve } from "./edge";
 import { cutOrder, finite, px } from "./order";
 

@@ -6,7 +6,8 @@
  */
 import { EPS, type Rect } from "../../geometry";
 import { formCrossMin, formSetsCross, type StackForm } from "../../stack";
-import { formsOf, isSideBar, type Edge } from "../model";
+import { formsOf, isSideBar } from "../helpers";
+import type { Edge } from "../model";
 import type { Draft } from "./draft";
 import { solveEdge, type EdgeSolve } from "./edge";
 import type { Frame } from "./insets";

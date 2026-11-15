@@ -3,7 +3,8 @@
  * each clear of the tiles before it, of what outranks its edge, of the fixed items that don't grow and of the chrome.
  */
 import { EPS, area, rect, subtract, type Point, type Rect } from "../../geometry";
-import { zoneOf, type SceneLayout, type Zone } from "../model";
+import { zoneOf } from "../helpers";
+import type { SceneLayout, Zone } from "../model";
 import { distinctSlots } from "./edges";
 import { EDGE_KINDS } from "./kinds";
 import { less, type Ctx, type EdgeSpec, type SceneRefusal, type Slot, type Span, type Tile } from "./model";

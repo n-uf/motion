@@ -6,7 +6,8 @@
  */
 import { fitFloat } from "../../float-fit";
 import { EPS, rect, type Rect } from "../../geometry";
-import { axisOf, floatOrientOf, floatShape, formsOf, type FloatAnchor } from "../model";
+import { axisOf, floatOrientOf, floatShape, formsOf } from "../helpers";
+import type { FloatAnchor } from "../model";
 import { shapeOf, type Draft } from "./draft";
 import type { Inset } from "./insets";
 import { finite, px } from "./order";

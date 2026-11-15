@@ -4,7 +4,8 @@
  */
 import { EPS } from "../../geometry";
 import { fitStack, formCrossMin, formSetsCross, type StackFit, type StackForm, type StackInput, type StackItem } from "../../stack";
-import { axisOf, formsOf, pastWrap, zoneOf, type Edge, type Scene, type SceneEdgeLayout, type SceneItem } from "../model";
+import { axisOf, formsOf, pastWrap, zoneOf } from "../helpers";
+import type { Edge, Scene, SceneEdgeLayout, SceneItem } from "../model";
 import { finite, px, zoneSorted } from "./order";
 
 const stackItemOf =(item: SceneItem, forms: readonly StackForm[], from?: number): StackItem => ({

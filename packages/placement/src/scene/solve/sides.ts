@@ -5,7 +5,8 @@
  * (`./rails`).
  */
 import { EPS, rect, type Rect } from "../../geometry";
-import { isOutsideSideBar, type Edge } from "../model";
+import { isOutsideSideBar } from "../helpers";
+import type { Edge } from "../model";
 import { columnRoom, columnsOf, giveWay, giveWayNotes, type Col, type GiveWay } from "./columns";
 import { emit, type Draft } from "./draft";
 import { solveEdge, type EdgeSolve } from "./edge";
