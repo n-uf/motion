@@ -2,7 +2,7 @@
  * Tiles: each edge's zones split into its slots' tiles (`tileEdge`), then clipped in precedence order (`clipTiles`):
  * each clear of the tiles before it, of what outranks its edge, of the fixed items that don't grow and of the chrome.
  */
-import { EPS, area, contains, rect, subtract, type Point, type Rect } from "../../geometry";
+import { EPS, area, rect, subtract, type Point, type Rect } from "../../geometry";
 import { zoneOf, type SceneLayout, type Zone } from "../model";
 import { distinctSlots } from "./edges";
 import { EDGE_KINDS } from "./kinds";
@@ -149,10 +149,14 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, cuts: readonly Span[], lost: st
 }
 
 const clip = (r: Rect, cuts: readonly Rect[]): Rect[] => cuts.reduce<Rect[]>((ps, cut) => ps.flatMap((p) => subtract(p, cut)), [r]);
-/** A rect with x and y swapped. */
-const flip = (r: Rect): Rect => rect(r.y, r.x, r.height, r.width);
-/** `clip` cut the other way: what each cut leaves split into its top and bottom strips first, then the sides between. */
-const clipAcross = (r: Rect, cuts: readonly Rect[]): Rect[] => clip(flip(r), cuts.map(flip)).map(flip);
+/** Every rect a placed tile covers: its pieces, else its hit. */
+const coverOf = (t: Tile): readonly Rect[] => t.hits ?? [t.hit];
+const largest = (ps: readonly Rect[]): Rect => ps.reduce((a, p) => (area(p) > area(a) ? p : a));
+/** `t` with these pieces: `hit` the largest, `hits` all of them when there is more than one. */
+const withPieces = (t: Tile, ps: readonly Rect[]): Tile => {
+  const { hits: _h, ...rest } = t;
+  return { ...rest, hit: largest(ps), ...(ps.length > 1 ? { hits: ps } : {}) };
+};
 
 /** An overreach tile `t` placed: joined to its owned part where it meets that part whole, or standing in for it. */
 function placeReach(t: Tile, pieces: readonly Rect[], placed: Tile[], landed: ReadonlyMap<Tile, number[]>, gone: Set<Tile>): void {
@@ -170,18 +174,22 @@ function placeReach(t: Tile, pieces: readonly Rect[], placed: Tile[], landed: Re
     return;
   }
   for (const i of at) {
-    const h = placed[i]!.hit;
-    const joint = pieces.find((p) =>
-      t.vertical
-        ? p.y <= h.y + EPS && p.y + p.height >= h.y + h.height - EPS && (Math.abs(p.x - h.x - h.width) < EPS || Math.abs(p.x + p.width - h.x) < EPS)
-        : p.x <= h.x + EPS && p.x + p.width >= h.x + h.width - EPS && (Math.abs(p.y - h.y - h.height) < EPS || Math.abs(p.y + p.height - h.y) < EPS),
-    );
-    if (!joint) continue;
-    const merged = t.vertical
-      ? rect(Math.min(h.x, joint.x), h.y, Math.max(h.x + h.width, joint.x + joint.width) - Math.min(h.x, joint.x), h.height)
-      : rect(h.x, Math.min(h.y, joint.y), h.width, Math.max(h.y + h.height, joint.y + joint.height) - Math.min(h.y, joint.y));
-    placed[i] = { ...placed[i]!, hit: merged };
-    break;
+    // Joined to the first piece of the owned part it meets along that piece's whole length.
+    const cover = coverOf(placed[i]!);
+    for (let k = 0; k < cover.length; k++) {
+      const h = cover[k]!;
+      const joint = pieces.find((p) =>
+        t.vertical
+          ? p.y <= h.y + EPS && p.y + p.height >= h.y + h.height - EPS && (Math.abs(p.x - h.x - h.width) < EPS || Math.abs(p.x + p.width - h.x) < EPS)
+          : p.x <= h.x + EPS && p.x + p.width >= h.x + h.width - EPS && (Math.abs(p.y - h.y - h.height) < EPS || Math.abs(p.y + p.height - h.y) < EPS),
+      );
+      if (!joint) continue;
+      const merged = t.vertical
+        ? rect(Math.min(h.x, joint.x), h.y, Math.max(h.x + h.width, joint.x + joint.width) - Math.min(h.x, joint.x), h.height)
+        : rect(h.x, Math.min(h.y, joint.y), h.width, Math.max(h.y + h.height, joint.y + joint.height) - Math.min(h.y, joint.y));
+      placed[i] = cover.length > 1 ? withPieces(placed[i]!, cover.map((r, j) => (j === k ? merged : r))) : { ...placed[i]!, hit: merged };
+      return;
+    }
   }
 }
 
@@ -222,15 +230,15 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
     if (t.kind === "reach") {
       // Overreach: what the virtual edges and every other edge's owned rect leave, joined to its owned part where it
       // meets that part along the part's whole length. The rest is nobody's (the float's).
-      placeReach(t, clip(t.hit, [...placed.map((p) => p.hit), ...owners.filter((o) => o.key !== t.key).map((o) => o.rect), ...bodies(t.edge), ...solid, ...chrome]), placed, landed, gone);
+      placeReach(t, clip(t.hit, [...placed.flatMap(coverOf), ...owners.filter((o) => o.key !== t.key).map((o) => o.rect), ...bodies(t.edge), ...solid, ...chrome]), placed, landed, gone);
       return;
     }
     // An owned part: clear of the tiles before it, of the owners that win over its edge, its panel bodies, solid items
     // and chrome. A virtual edge's tile: clear of the tiles before it and of every owner. A refusal of a zone with no
     // slot the filter keeps owns nothing: it yields to every other edge's owned rect too.
     const yields = t.kind === "refuse" && own.refusedZone(t.key, t.zone) ? owners.filter((o) => o.key !== t.key).map((o) => o.rect) : [];
-    const cuts = [...placed.map((p) => p.hit), ...(taken.get(t.key) ?? []), ...yields, ...(data.virtual ? [] : bodies(t.edge)), ...solid, ...chrome];
-    let pieces = clip(t.hit, cuts);
+    const cuts = [...placed.flatMap(coverOf), ...(taken.get(t.key) ?? []), ...yields, ...(data.virtual ? [] : bodies(t.edge)), ...solid, ...chrome];
+    const pieces = clip(t.hit, cuts);
     if (pieces.length === 0) {
       if (t.kind !== "refuse") gone.add(t);
       return;
@@ -240,27 +248,16 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
       for (const p of pieces) placed.push({ ...t, hit: p });
       return;
     }
-    // A slot keeps the piece that holds its line (else its largest); its other pieces are refused for its zone, a virtual
-    // edge's as a real one's, so clipping never leaves a hole the float fills. What is left of a tile can be one
-    // connected region that isn't a rect (an L where a cut takes a corner): it is cut into rects both ways, side strips
-    // first and top and bottom strips first, and the slot keeps the larger piece on its line, so no part of its own
-    // region next to that piece is refused only for the way it was cut.
-    const keptOf = (ps: readonly Rect[]): Rect => {
-      const held = t.keep ? ps.filter((p) => contains(p, t.keep!)) : [];
-      return (held.length > 0 ? held : ps).reduce((a, p) => (area(p) > area(a) ? p : a));
-    };
-    if (pieces.length > 1) {
-      const other = clipAcross(t.hit, cuts);
-      if (other.length > 0 && area(keptOf(other)) > area(keptOf(pieces)) + EPS) pieces = other;
+    // Clipping changes a slot's shape, never who owns the stretch: whatever is left of its tile stays the slot's, every
+    // piece (`hits`, `hit` the largest), so clipping never leaves a hole the float fills nor a refusal in the slot's room.
+    // No sliver: a slot whose largest piece is under 1 px along its edge is no target (its pieces are refused).
+    const big = largest(pieces);
+    if ((t.vertical ? big.height : big.width) < 1) {
+      for (const p of pieces) (data.virtual ? later : refused).push({ ...t, kind: "refuse", reason: "no-room", hit: p, keep: null });
+      return;
     }
-    const kept = keptOf(pieces);
-    // No sliver: a slot left under 1 px along its edge is no target (its piece is refused).
-    const sliver = (t.vertical ? kept.height : kept.width) < 1;
-    if (!sliver) {
-      landed.set(t, [placed.length]);
-      placed.push({ ...t, hit: kept });
-    }
-    for (const p of pieces) if (sliver || p !== kept) (data.virtual ? later : refused).push({ ...t, kind: "refuse", reason: "no-room", hit: p, keep: null });
+    landed.set(t, [placed.length]);
+    placed.push(withPieces(t, pieces));
   };
   const byOrder = (a: Tile, b: Tile): number => a.order - b.order;
   for (const t of tiles.filter((x) => !isRefused(x)).sort(byOrder)) place(t);
@@ -268,7 +265,7 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
   for (const t of gone) lost.push(t.id);
   for (const t of later) {
     const yields = own.refusedZone(t.key, t.zone) ? owners.filter((o) => o.key !== t.key).map((o) => o.rect) : [];
-    for (const p of clip(t.hit, [...placed.map((q) => q.hit), ...yields, ...solid, ...chrome])) placed.push({ ...t, hit: p });
+    for (const p of clip(t.hit, [...placed.flatMap(coverOf), ...yields, ...solid, ...chrome])) placed.push({ ...t, hit: p });
   }
   return placed;
 }

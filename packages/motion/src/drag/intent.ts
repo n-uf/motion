@@ -60,12 +60,15 @@ export const DRAG_DEFAULTS: DragTuning = {
  * `priority` how precise it is (1 beats 2 beats 3; equal priorities go to the
  * smaller zone). `slot` is where the dragged item would land, `label` what to
  * call it; the model reads neither. A `free` target has no slot (the item
- * floats where it is dropped): no room is made for it.
+ * floats where it is dropped): no room is made for it. `hits`, when given, is
+ * the whole zone as several rects (a zone that isn't one rect, `hit` the
+ * largest of them): the pointer is in the zone when it is in any of them.
  */
 export interface DragTarget {
   readonly id: string;
   readonly priority: 1 | 2 | 3;
   readonly hit: Rect;
+  readonly hits?: readonly Rect[];
   readonly slot?: Rect;
   readonly label?: string;
   readonly free?: boolean;
@@ -76,14 +79,19 @@ export function inRect(rect: Rect, point: Point, margin = 0): boolean {
   return point.x >= rect.x - margin && point.x <= rect.x + rect.width + margin && point.y >= rect.y - margin && point.y <= rect.y + rect.height + margin;
 }
 
+/** Whether `point` lies in a target's zone (`hits` when it has them, else `hit`), grown by `margin` px. */
+const inZone = (t: DragTarget, point: Point, margin = 0): boolean => (t.hits ? t.hits.some((r) => inRect(r, point, margin)) : inRect(t.hit, point, margin));
+
 const area = (r: Rect): number => r.width * r.height;
+/** A target's zone's area: its `hits` together, else its `hit`. */
+const zoneArea = (t: DragTarget): number => (t.hits ? t.hits.reduce((s, r) => s + area(r), 0) : area(t.hit));
 
 /** The most precise target under `point`: the lowest priority number, then the smallest zone; null when none is. */
 export function targetAt<T extends DragTarget>(targets: readonly T[], point: Point): T | null {
   let best: T | null = null;
   for (const t of targets) {
-    if (!inRect(t.hit, point)) continue;
-    if (!best || t.priority < best.priority || (t.priority === best.priority && area(t.hit) < area(best.hit))) best = t;
+    if (!inZone(t, point)) continue;
+    if (!best || t.priority < best.priority || (t.priority === best.priority && zoneArea(t) < zoneArea(best))) best = t;
   }
   return best;
 }
@@ -271,17 +279,17 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         return places.get(x.id)!;
       };
       const live = (x: T | null): x is T => x !== null && placeAt(x) !== null;
-      const raw = atHome ? null : targetAt(targets.filter((x) => inRect(x.hit, p) && live(x)), p);
+      const raw = atHome ? null : targetAt(targets.filter((x) => inZone(x, p) && live(x)), p);
       cur = follow(cur, targets);
       shown = follow(shown, targets);
       if (!live(cur)) cur = null;
       let next = raw;
-      if (cur && !atHome && inRect(cur.hit, p, tuning.band)) {
-        const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && inRect(raw.hit, p, -tuning.breakthrough);
+      if (cur && !atHome && inZone(cur, p, tuning.band)) {
+        const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && inZone(raw, p, -tuning.breakthrough);
         next = breaks ? raw : cur;
       }
       if (!next && cur && !atHome && t - lastInside < tuning.gapGrace) next = cur;
-      if (next && inRect(next.hit, p)) lastInside = t;
+      if (next && inZone(next, p)) lastInside = t;
       if (!same(next, cur)) curSince = t;
       cur = next;
       const aiming = !restart && (speed < tuning.aimSpeed || t - stillSince >= tuning.dwell);
@@ -291,7 +299,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         shown = s;
       };
       // Under the pointer (within its band), not just kept by the gap grace.
-      const under = !!cur && inRect(cur.hit, p, tuning.band);
+      const under = !!cur && inZone(cur, p, tuning.band);
       // A shown target with no place here is no drop: the indicator hides at once (the switch hold is for targets).
       if (shown && !live(shown)) show(null);
       if (!shown) {
@@ -302,7 +310,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         else shown = cur;
       } else if (!cur || !aiming) {
         show(null);
-      } else if ((cur.priority < shown.priority && inRect(cur.hit, p, -tuning.breakthrough)) || (under && t - curSince >= tuning.switchHold)) {
+      } else if ((cur.priority < shown.priority && inZone(cur, p, -tuning.breakthrough)) || (under && t - curSince >= tuning.switchHold)) {
         show(cur);
       }
       // The place within the shown target, and the room: after the target and the place have both held.
@@ -324,7 +332,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       if (s) return s;
       // Else the target under the pointer that has a place there (a null place is no drop).
       return targetAt(
-        targets.filter((x) => inRect(x.hit, point) && placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null),
+        targets.filter((x) => inZone(x, point) && placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null),
         point,
       );
     },

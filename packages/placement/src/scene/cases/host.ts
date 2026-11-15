@@ -18,12 +18,17 @@ export const LIFT_THRESHOLD = 4;
 export const END_REACH = 24;
 
 
-/** The most precise target under `point`: the lowest priority number, then the smallest hit; null when none is. */
-export function pickTarget<T extends { readonly priority: number; readonly hit: Rect }>(list: readonly T[], point: Point): T | null {
+/**
+ * The most precise target under `point`: the lowest priority number, then the smallest zone; null when none is. A
+ * target with `hits` is under the point in any of them, and its zone's size is theirs together.
+ */
+export function pickTarget<T extends { readonly priority: number; readonly hit: Rect; readonly hits?: readonly Rect[] }>(list: readonly T[], point: Point): T | null {
+  const under = (t: T): boolean => (t.hits ? t.hits.some((r) => inside(r, point)) : inside(t.hit, point));
+  const size = (t: T): number => (t.hits ? t.hits.reduce((s, r) => s + area(r), 0) : area(t.hit));
   let best: T | null = null;
   for (const t of list) {
-    if (!inside(t.hit, point)) continue;
-    if (!best || t.priority < best.priority || (t.priority === best.priority && area(t.hit) < area(best.hit))) best = t;
+    if (!under(t)) continue;
+    if (!best || t.priority < best.priority || (t.priority === best.priority && size(t) < size(best))) best = t;
   }
   return best;
 }

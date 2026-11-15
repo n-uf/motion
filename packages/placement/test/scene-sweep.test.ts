@@ -227,12 +227,15 @@ describe("scene sweeps", () => {
             };
             const stale = (oe: string) => l === now && (moved(oe) || (!strip && overlaps(now.edges[oe]!.rect, lifted.edges[e]!.rect)));
             const own = lifted.edges[e];
-            if (strip) for (const [oe, d] of Object.entries(l.edges)) if (oe !== e && oe !== skip && !stale(oe) && overlaps(t.hit, d.rect) && !(own && inside(meet(t.hit, d.rect), bandOf(own.rect, own.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over edge ${oe}`);
-            for (const [oid, it] of Object.entries(l.items)) {
-              if (oid === id || it.formKind !== "open" || !it.edge || it.edge === e || it.edge === skip || stale(it.edge)) continue;
-              // An empty edge's own band may lie over it; nothing else of a hit may.
-              const empty = !!own && (own.rect.width <= 1e-6 || own.rect.height <= 1e-6);
-              if (overlaps(t.hit, it.rect) && !(empty && inside(meet(t.hit, it.rect), bandOf(own!.rect, own!.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over ${oid}'s body`);
+            // Every piece of the target's zone (`hits`), not just its largest.
+            for (const hit of t.hits ?? [t.hit]) {
+              if (strip) for (const [oe, d] of Object.entries(l.edges)) if (oe !== e && oe !== skip && !stale(oe) && overlaps(hit, d.rect) && !(own && inside(meet(hit, d.rect), bandOf(own.rect, own.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over edge ${oe}`);
+              for (const [oid, it] of Object.entries(l.items)) {
+                if (oid === id || it.formKind !== "open" || !it.edge || it.edge === e || it.edge === skip || stale(it.edge)) continue;
+                // An empty edge's own band may lie over it; nothing else of a hit may.
+                const empty = !!own && (own.rect.width <= 1e-6 || own.rect.height <= 1e-6);
+                if (overlaps(hit, it.rect) && !(empty && inside(meet(hit, it.rect), bandOf(own!.rect, own!.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over ${oid}'s body`);
+              }
             }
           }
         }

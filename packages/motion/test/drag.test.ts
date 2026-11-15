@@ -100,6 +100,17 @@ describe("drag/ targets", () => {
     expect(targetAt(DOCK, { x: 210, y: 500 })).toBeNull();
   });
 
+  it("a target with hits is under the point in any of them; its zone's size is theirs together", () => {
+    // An L: the largest rect is `hit`, the corner beside it is in `hits` too.
+    const l: DragTarget = { id: "l", priority: 2, hit: rect(0, 0, 30, 100), hits: [rect(0, 0, 30, 100), rect(30, 80, 40, 20)] };
+    const small: DragTarget = { id: "small", priority: 2, hit: rect(50, 85, 10, 10) };
+    expect(targetAt([l], { x: 50, y: 90 })?.id).toBe("l");
+    expect(targetAt([l], { x: 50, y: 50 })).toBeNull();
+    // Equal priority: the smaller zone wins, `hits` counted together (3800 px² against 100).
+    expect(targetAt([l, small], { x: 55, y: 90 })?.id).toBe("small");
+    expect(targetAt([small, { ...l, hits: [rect(0, 0, 5, 5), rect(50, 85, 6, 6)] }], { x: 52, y: 87 })?.id).toBe("l");
+  });
+
   it("inRect grows and shrinks by a margin", () => {
     expect(inRect(rect(0, 0, 10, 10), { x: 12, y: 5 })).toBe(false);
     expect(inRect(rect(0, 0, 10, 10), { x: 12, y: 5 }, 2)).toBe(true);

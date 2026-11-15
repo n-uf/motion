@@ -26,10 +26,11 @@
  *   reason (`refusals()`). (iii) Space ownership and clipping (`EDGE_KINDS`): owned > virtual > overreach. A zone's
  *   room loses its panel bodies, its reserved rects and what edges ranked before it own (in `solve`'s laying order); a
  *   zone with no room, or a slot with none in reach, isn't offered. Each tile's owned part is cut clear of the tiles
- *   before it, of what outranks its edge, of every fixed item that doesn't grow and of the chrome, keeping the part
- *   that holds its slot's line (its other parts refused); then the virtual edges take what no edge owns; then each
- *   overreach takes what is left and joins its owned part where it meets it whole. Slots that are the same move are
- *   one. (iv) `blocked` rects are `none:<i>`.
+ *   before it, of what outranks its edge, of every fixed item that doesn't grow and of the chrome; clipping changes a
+ *   slot's shape, never who owns it, so every piece left is the slot's (`hits`, `hit` the largest); then the virtual
+ *   edges take what no edge owns; then each overreach takes what is left and joins its owned part where it meets it
+ *   whole. Refused places own nothing, by zone: they take what the surviving tiles and the other edges leave. Slots
+ *   that are the same move are one. (iv) `blocked` rects are `none:<i>`.
  *
  * Ids: `gap:<edge>:<zone>:<at>` (priority 2), `strip:<edge>:<zone>` (2), `column:<side>:<ring>` (2), `rail:<side>:<ring>`
  * (1), `none:<i>` (1), `float:<id>` (3, free). A slot that would put the item back where it is keeps its id with place
@@ -111,11 +112,11 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
     if (t.kind === "home") {
       if (t.order === 0) ownHome = t.hit;
       if (t.id === `home:${dragged}`) continue;
-      targets.push({ id: t.id, priority: t.priority, hit: t.hit, item: dragged, place: { kind: "home" }, after: homeAfter });
+      targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), item: dragged, place: { kind: "home" }, after: homeAfter });
       continue;
     }
     const result = t.result!;
-    targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), item: dragged, place: t.place!, after: () => result });
+    targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), item: dragged, place: t.place!, after: () => result });
   }
   return { targets, refused, ownHome };
 }
