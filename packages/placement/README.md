@@ -474,6 +474,8 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   A word 1 px wider moves nothing else while the rows don't change.
 - `StackForm.grip` (px): a grip at the form's start along the stack, this long (an icons strip's horizontal grip on
   top); `./scene` reports its rect as the item's `grip`. A `wrap` form's grip is its lead cell instead.
+- `StackForm.hides` (control ids): what the form leaves out against the item's first form, for a toolbar's compact
+  variants (see Compact variants under Scenes). The stack never reads it; `./scene` reports it as the item's `hidden`.
 - `fitStack(input, { previous })` keeps the forms of the fit the stack had before, while they still fit: a change of
   `used` ages alone (a press on a header) reshapes nothing. Ages decide only who gives way anew (the length shrank, an
   item was added, or a panel opened: its `from` went down, so it starts over). Growing never re-ranks. When the stack got
@@ -848,6 +850,30 @@ axis). A `wrap` form applies only in a column edge. Vertical means icons: in a c
 with `orient: "column"`, a group skips its `wrap` forms and shows its next form (its icons) at that form's natural size,
 whatever its `from`. An item with only `wrap` forms left has no form there: it is left out with a `no-vertical-form` note,
 so give a word group an `icons` form. A drop's `after()` gives the wrapped rect as the slot.
+
+**Compact variants.** A toolbar that can drop controls before it wraps declares them as more row forms between its full
+row and its next form, largest first, each at its own measured size with its "+N" cell counted, and each naming the
+control ids it leaves out (`StackForm.hides`, against the item's first form; any form may set it). Variants are forms
+like any other: taken in declared order, giving way by priority then age, coming back in the exact reverse. The layout
+reports the chosen form's ids as `hidden` on every item (empty when it hides none or sits in a » menu), and `form`
+names the variant; a host draws the kept controls and a "+N" control that lists exactly `hidden`. A drop's `after()`
+previews the variant the drop lands in. A drop onto a title bar lands in a form of its first form's kind (the full row
+or a variant), read from the forms.
+
+```ts
+const zoom: SceneItem = {
+  id: "zoom", kind: "group", used: 3,
+  forms: {
+    row: [
+      f("row", 150, 150, 28),                          // − 86% + FIT
+      { ...f("row", 118, 118, 28), hides: ["fit"] },        // − 86% + "+1"
+      { ...f("row", 70, 70, 28), hides: ["-", "+", "fit"] }, // 86% "+3"
+      f("fold", 30, 30, 28),
+      f("menu", 0, 0, 0),
+    ],
+  },
+};
+```
 
 **Compact edges.** `Edge.compact: true` makes a thin rail of vertical toolbars along a window side: its items take only
 their `icons` form (and the » menu after it), stacked, each item's grip the divider. An item with no `icons` form is left
