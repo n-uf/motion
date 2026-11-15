@@ -132,14 +132,16 @@ export interface LayoutExpect {
 /**
  * What a page's DOM must be. The elements are the session's: `data-drag-session="<kind>"` on the root during a drag
  * only, `[data-drag-slot][data-drag-target]` for the slot (the attribute holds the target's id), `[data-drag-marker]`
- * for the insertion line, `[data-drag-held]` for the held item. Every drawn item is `[data-item="<id>"]` (a rect check reads
- * it).
+ * for the insertion line, `[data-drag-held]` for the held item. A drawn item's element is found by `item`: the host's
+ * `itemSelector(id)`, by default `[data-dock-item="<id>"]` (a rect check reads it).
  */
 export interface DomCheck {
   /** After which gesture (its index) it is checked; default: after the last one. */
   readonly at?: number;
-  /** A selector under the root; omitted: the root itself. */
+  /** A selector under the root; omitted (and no `item`): the root itself. */
   readonly select?: string;
+  /** The element of this item, found with the host's `itemSelector` (never together with `select`). */
+  readonly item?: string;
   /** How many elements match: a number, or a range. Default: at least one when `select` is given. */
   readonly count?: number | { readonly min?: number; readonly max?: number };
   /** Attribute values on every match; `null` means the attribute is absent. */
@@ -214,6 +216,8 @@ export interface CaseHost {
   layout(): SceneLayout;
   /** The page's root; absent in a host without a page, and then the DOM checks are skipped. */
   root?(): DomRoot | null;
+  /** The selector, under the root, of the element that draws item `id`; default `[data-dock-item="<id>"]`. A DOM check's `item` is aimed with it. */
+  itemSelector?(id: string): string;
   /** The stored form as a reload would read it back; absent: the stored checks are skipped. */
   stored?(): StoredScene;
   /** The places "Move to ›" offers for an item, in order (the library's `stops` places); absent: the stops check is skipped. */

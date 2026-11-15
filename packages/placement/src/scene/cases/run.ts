@@ -8,6 +8,9 @@ import type { SceneLayout, SceneNote } from "../index";
 import type { CaseHost, CaseResult, CaseRow, DomCheck, DomRoot, EdgeExpect, Gesture, ItemExpect, LayoutExpect, StoredExpect } from "./types";
 
 const DEFAULT_TOLERANCE = 0.5;
+
+/** The selector of an item's element when the host has no `itemSelector`: `[data-dock-item="<id>"]`. */
+export const defaultItemSelector = (id: string): string => `[data-dock-item="${id.replace(/["\\]/g, "\\$&")}"]`;
 const KEYS: (keyof Rect)[] = ["x", "y", "width", "height"];
 
 const px = (n: number): string => String(Math.round(n * 100) / 100);
@@ -200,8 +203,14 @@ export function runCase(row: CaseRow, host: CaseHost): CaseResult {
     if (at === undefined) return;
     if (!Number.isInteger(at) || at < 0 || at >= n) fail([`${what} is at gesture ${at}, but the row has ${n} gestures (0 to ${last})`], "");
   };
+  // A check that targets an item (`item`) is aimed with the host's `itemSelector`, the kits' `[data-dock-item]` by default.
+  const itemSelector = (id: string): string => (host.itemSelector ? host.itemSelector(id) : defaultItemSelector(id));
+  const aimed = (c: DomCheck): DomCheck => (c.item !== undefined && c.select === undefined ? { ...c, select: itemSelector(c.item) } : c);
   for (const cp of row.checkpoints ?? []) range("a checkpoint", cp.at);
-  for (const c of row.expectDom ?? []) range(`the DOM check ${labelOf(c)}`, c.at);
+  for (const c of row.expectDom ?? []) {
+    range(`the DOM check ${labelOf(aimed(c))}`, c.at);
+    if (c.item !== undefined && c.select !== undefined) fail([`the DOM check ${labelOf(c)} has both item and select`], "");
+  }
   range("the stops check", row.expectStops?.at);
   if (failures.length > 0) return { ok: false, failures, skipped };
 
@@ -216,12 +225,13 @@ export function runCase(row: CaseRow, host: CaseHost): CaseResult {
   const dom = (index: number): void => {
     for (const c of row.expectDom ?? []) {
       if ((c.at ?? last) !== index) continue;
+      const check = aimed(c);
       const root = host.root ? host.root() : null;
       if (!root) {
-        skipped.push(labelOf(c));
+        skipped.push(labelOf(check));
         continue;
       }
-      fail(domIssues(c, root), ` after gesture ${index + 1} (${labelOf(c)})`);
+      fail(domIssues(check, root), ` after gesture ${index + 1} (${labelOf(check)})`);
     }
   };
   const stops = (index: number): void => {

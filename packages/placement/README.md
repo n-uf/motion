@@ -890,9 +890,11 @@ is `{ id, title, expect, scene, settings?, gestures, expectLayout, expectDom? }`
 at, what a user does (`press`, `move`, `release`, `key`, `click`, `resize`, `scroll`, `hold`; a `move` may name a target
 by its `place` instead of pixels), and what must be true after: a partial layout (per item: `rect`, `formKind`, `edge`,
 `floating`, `inMenu`, `rail`…, within a tolerance, 0.5 px by default) and, for a host with a page, DOM checks on the
-session's marks (`data-drag-session` on the root during a drag only, `[data-drag-slot][data-drag-target]`,
-`[data-drag-marker]`, `[data-drag-held]`; every drawn item is `[data-item="<id>"]`, and a DOM check may pin its `rect` in
-stage px). A row may also carry `checkpoints`: the layout after an earlier gesture, for what the preview shows while the
+session's marks (`data-drag-session` on the root during a drag only, `[data-drag-slot][data-drag-target]` for the slot
+(the attribute holds the target's id), `[data-drag-marker]` for the insertion line, `[data-drag-held]` for the held item).
+A drawn item's element is `[data-dock-item="<id>"]` by default, and a DOM check names it with `item` (not a literal
+selector), optionally pinning its `rect` in stage px; a host that marks items another way gives `itemSelector(id)`. A row
+may also carry `checkpoints`: the layout after an earlier gesture, for what the preview shows while the
 pointer is still down; a checkpoint or DOM check is never read right after a `move`, a `hold` comes first so a host's drag
 intent can settle. `expectStored` pins the stored form (ages, folds, no `pinned` flag) and `expectStops` the places "Move
 to ›" offers, in order. A press's grab (`point`) is the row's: a float lands at the pointer minus the grab, so every press
@@ -909,10 +911,11 @@ console.log(result.ok, result.failures, result.skipped.length); // true [] 6
 ```
 
 `runCase(row, host)` loads the scene, performs the gestures in order and compares; it returns `{ ok, failures, skipped }`.
-A host is `{ load(scene, settings), perform(gesture), layout(), root?(), stored?(), stops?(item) }`: `layout()` is what the
-page draws now (during a drag, the target's `after.layout`, the preview), `root()` is its root, anything with
-`getAttribute` and `querySelectorAll` (and `getBoundingClientRect` for rect checks), `stored()` the stored form and
-`stops(item)` the "Move to ›" places; a check the host can't make is skipped and listed in `skipped`. A check pointing at
+A host is `{ load(scene, settings), perform(gesture), layout(), root?(), itemSelector?(id), stored?(), stops?(item) }`:
+`layout()` is what the page draws now (during a drag, the target's `after.layout`, the preview), `root()` is its root,
+anything with `getAttribute` and `querySelectorAll` (and `getBoundingClientRect` for rect checks), `itemSelector(id)` the
+selector under it of the element that draws an item (default `[data-dock-item="<id>"]`, also exported as
+`defaultItemSelector`), `stored()` the stored form and `stops(item)` the "Move to ›" places; a check the host can't make is skipped and listed in `skipped`. A check pointing at
 a gesture the row doesn't have fails the row. `createSceneHost()` is the reference: no page, no pointer, no clock, a drag
 session that lifts past 4 px, asks `targets` for every target, takes the most precise one under the pointer (`pickTarget`:
 the lowest priority number, then the smallest hit), draws the preview from its `after.layout` and commits `after.scene` on

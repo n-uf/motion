@@ -4,7 +4,8 @@
  *
  * A row (`CaseRow`) is plain data: a `Scene`, the `settings` it runs at, the `gestures` a user makes, and the layout (and
  * DOM) expected after them. `runCase(row, host)` plays one on a `CaseHost` (`load`, `perform`, `layout`, and optionally
- * `root`) and says what differs; DOM checks are skipped, and listed, when the host has no root. `createSceneHost()` is the
+ * `root` and `itemSelector`) and says what differs; DOM checks are skipped, and listed, when the host has no root. A DOM
+ * check names an item by `item`, found with the host's `itemSelector(id)` (default `[data-dock-item="<id>"]`). `createSceneHost()` is the
  * in-memory reference host: every row passes on it except the DOM checks. `CASES` is every row, `CASE_GROUPS` the groups.
  * `pickTarget` and `resolvePlace` are the two pure steps a host needs to aim a gesture's `place` with `targets()`.
  *
@@ -18,7 +19,7 @@ import { WINDOW_ROWS } from "./rows-windows";
 import type { CaseGroup, CaseRow } from "./types";
 
 export { createSceneHost, END_REACH, LIFT_THRESHOLD, pickTarget, resolvePlace, type AimArea, type SceneHost, type SceneHostOptions } from "./host";
-export { layoutIssues, runCase, runCases } from "./run";
+export { defaultItemSelector, layoutIssues, runCase, runCases } from "./run";
 export { g } from "./gestures";
 export { WINDOW_A, WINDOW_B, WINDOW_BARE, winScene, type WinOptions, type WinSpec } from "./windows";
 export type { CaseGroup, CaseHost, CaseResult, CaseRow, CaseSettings, Checkpoint, DomCheck, DomRoot, EdgeExpect, Gesture, GestureType, ItemExpect, LayoutExpect, StoredExpect } from "./types";

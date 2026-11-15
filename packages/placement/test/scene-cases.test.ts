@@ -13,6 +13,7 @@ import {
   CASE_GROUPS,
   caseById,
   createSceneHost,
+  defaultItemSelector,
   g,
   pickTarget,
   resolvePlace,
@@ -178,7 +179,37 @@ describe("the runner", () => {
     expect(runCase(scroll, mk(0)).ok).toBe(true);
     expect(runCase(scroll, mk(0.4)).ok).toBe(true);
     // The float moved 300 px with the pages: a host whose layout says nothing moved still fails.
-    expect(runCase(scroll, mk(-300)).failures.join()).toMatch(/\[data-item="findings"\] y is -170, expected 130/);
+    expect(runCase(scroll, mk(-300)).failures.join()).toMatch(/\[data-dock-item="findings"\] y is -170, expected 130/);
+  });
+
+  it("aims a check at an item with the host's itemSelector, `[data-dock-item]` by default", () => {
+    const box = (left: number, top: number, width: number, height: number) => ({ left, top, width, height });
+    const asked: string[] = [];
+    // A root whose one element answers only the selector `answers`; every selector asked is recorded.
+    const rootFor = (answers: string): DomRoot => ({
+      getAttribute: () => null,
+      getBoundingClientRect: () => box(100, 50, 840, 500),
+      querySelectorAll: (sel) => {
+        asked.push(sel);
+        return sel === answers ? [{ getAttribute: () => null, querySelectorAll: () => [], getBoundingClientRect: () => box(540, 180, 220, 190) }] : [];
+      },
+    });
+    const scroll = caseById("C5")!;
+    // A kit that marks items another way names its selector, and the row passes through it.
+    const custom: CaseHost = { ...createSceneHost(), root: () => rootFor('.card[data-id="findings"]'), itemSelector: (id) => `.card[data-id="${id}"]` };
+    expect(runCase(scroll, custom).ok).toBe(true);
+    expect(asked).toEqual(['.card[data-id="findings"]']);
+    // The same root under the default selector finds nothing, and the failure names the selector it tried.
+    asked.length = 0;
+    const plain: CaseHost = { ...createSceneHost(), root: () => rootFor('.card[data-id="findings"]') };
+    expect(runCase(scroll, plain).failures.join("\n")).toMatch(/0 elements match \[data-dock-item="findings"\], expected 1/);
+    expect(asked).toEqual(['[data-dock-item="findings"]']);
+    expect(defaultItemSelector("a\"b")).toBe('[data-dock-item="a\\"b"]');
+    // P10's float check goes through it too, and a check with both `item` and `select` is a bad row.
+    const p10 = caseById("P10-float-keeps-its-place-and-last-size")!;
+    expect(p10.expectDom?.[0]?.item).toBe("annotations");
+    const both: CaseRow = { ...scroll, expectDom: [{ item: "findings", select: ".x", count: 1 }] };
+    expect(runCase(both, createSceneHost()).failures.join()).toMatch(/has both item and select/);
   });
 
   it("skips DOM checks without a root, and runs them with one", () => {
