@@ -4,7 +4,7 @@
  * first form without pushing the title under its natural width, or that zone has no target).
  */
 import { describe, expect, it } from "vitest";
-import { solve, targets, type Edge, type Scene, type SceneItem, type SceneTarget } from "../src/scene";
+import { refusals, solve, targets, type Edge, type Scene, type SceneItem, type SceneTarget } from "../src/scene";
 import { bar, byId, column, controls, group, panel, seeded, title, windowScene } from "./scene-fixture";
 
 /** Random bars: a title bar (title, toolbars, controls), one or two top bars, a bottom bar, columns maybe. */
@@ -155,12 +155,14 @@ describe("a bar's zones by thirds", () => {
     expect(t!.hit.x + t!.hit.width).toBeLessThanOrEqual(ctl.x + 1e-6);
   });
 
-  it("every gap target of every bar zone has a hit inside its third", () => {
+  it("every gap target of every bar zone has a hit inside its third (its own bar aside: home's spare room goes next door)", () => {
     for (let seed = 1; seed <= 200; seed++) {
       const s = barScene(seed);
       const l = solve(s);
       for (const id of Object.keys(s.items).filter((k) => s.items[k]!.kind === "group")) {
         for (const t of targets(s, id)) {
+          // On the dragged item's own bar, the room its home gap gives up goes to the gaps beside it.
+          if (t.id.startsWith(`gap:${l.items[id]?.edge}:`)) continue;
           // Gaps (an empty bar's strips are thirds of the content, not of the bar).
           if (t.place.kind !== "gap" || !t.id.startsWith("gap:")) continue;
           const e = s.edges.find((x) => x.id === (t.place as { edge: string }).edge)!;
@@ -175,5 +177,65 @@ describe("a bar's zones by thirds", () => {
         }
       }
     }
+  });
+});
+
+describe("local targets: home only over the item's own place, refusals where a zone takes nothing", () => {
+  const BAND = 12;
+  it("a home gap's hit lies within the item's own rect and half a band along its edge; refusals never overlap a target", () => {
+    for (let seed = 1; seed <= 200; seed++) {
+      const s = barScene(seed);
+      const l = solve(s);
+      for (const id of Object.keys(s.items).filter((k) => !s.items[k]!.fixed)) {
+        const ts = targets(s, id, { previous: l });
+        const mine = l.items[id];
+        for (const t of ts) {
+          if (t.place.kind !== "home" || !t.id.startsWith("gap:") || !mine) continue;
+          const column = s.edges.find((e) => e.id === mine.edge)?.side === "left" || s.edges.find((e) => e.id === mine.edge)?.side === "right";
+          const [a, b, h0, h1] = column ? [mine.rect.y, mine.rect.y + mine.rect.height, t.hit.y, t.hit.y + t.hit.height] : [mine.rect.x, mine.rect.x + mine.rect.width, t.hit.x, t.hit.x + t.hit.width];
+          if (h0 < a - BAND - 1e-6 || h1 > b + BAND + 1e-6) throw new Error(`seed ${seed} ${id} ${t.id}: home hit ${h0}..${h1} past its place ${a}..${b}`);
+        }
+        const rs = refusals(s, id, { previous: l });
+        for (const r of rs) {
+          for (const t of ts) {
+            if (t.free) continue;
+            const o = Math.min(r.hit.x + r.hit.width, t.hit.x + t.hit.width) - Math.max(r.hit.x, t.hit.x) > 1e-6 && Math.min(r.hit.y + r.hit.height, t.hit.y + t.hit.height) - Math.max(r.hit.y, t.hit.y) > 1e-6;
+            if (o) throw new Error(`seed ${seed} ${id}: ${r.id} overlaps ${t.id}`);
+          }
+        }
+      }
+    }
+  });
+
+  it("the reported state: Views over the title bar's middle gets the center slot there, home only over its own place", () => {
+    // A 1200 px title bar: title, Tools and Zoom leading, Views trailing (its home), the controls.
+    const base = windowScene(1200, 700);
+    const s: Scene = {
+      ...base,
+      edges: base.edges.map((e) => (e.id === "titlebar" ? { ...e, items: ["title", "tools", "zoom", "views", "controls"] } : { ...e, items: e.items.filter((x) => !["tools", "zoom", "views"].includes(x)) })),
+      items: { ...base.items, zoom: { ...base.items.zoom!, align: "start" }, views: { ...base.items.views!, align: "end" } },
+    };
+    const l = solve(s);
+    const v = l.items.views!.rect;
+    const ts = targets(s, "views", { previous: l });
+    const at = (x: number) => ts.filter((t) => !t.free && t.hit.x <= x && x <= t.hit.x + t.hit.width && t.hit.y <= 16 && 16 <= t.hit.y + t.hit.height).sort((a, b) => a.priority - b.priority || a.hit.width * a.hit.height - b.hit.width * b.hit.height)[0];
+    // Left of its own place (less half a band) the slot is the center zone's, beside the pointer; over its place, home.
+    for (let x = 600; x < v.x - BAND; x += 10) {
+      const t = at(x)!;
+      expect(t.place.kind, `${x}`).toBe("gap");
+      expect((t.place as { zone: string }).zone).toBe("center");
+    }
+    expect(at(v.x + v.width / 2)!.place.kind).toBe("home");
+  });
+
+  it("a title bar too full: its zones are refused for lack of room, a panel's for the kind", () => {
+    const s = put(windowScene(), "titlebar", ["tools", "zoom", "marks", "search"]);
+    const rs = refusals(s, "views");
+    expect(rs.filter((r) => r.edge === "titlebar").map((r) => [r.zone, r.reason])).toEqual([
+      ["start", "no-room"],
+      ["center", "no-room"],
+      ["end", "no-room"],
+    ]);
+    expect(refusals(s, "notes").filter((r) => r.edge === "titlebar").every((r) => r.reason === "not-accepted")).toBe(true);
   });
 });
