@@ -80,7 +80,7 @@ export function modelScene(seed: number): Scene {
 }
 
 /** The categories a point can fail by. */
-type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap";
+type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order";
 
 /** The edge a target or refusal belongs to, and its zone (null: no zone). */
 function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edge: string | null; zone: Zone | null } {
@@ -98,7 +98,7 @@ function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edg
 
 /** Runs the check over `seeds`; returns the failure counts per category and a few examples. */
 export function propertyCheck(seeds: readonly number[]): { points: number; counts: Record<Failure, number>; examples: string[] } {
-  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0 };
+  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0 };
   const examples: string[] = [];
   const fail = (k: Failure, msg: string): void => {
     counts[k]++;
@@ -122,6 +122,16 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
       for (const ids of [all.map((t) => t.id), rs.map((x) => x.id)]) {
         const twice = ids.filter((x, i) => ids.indexOf(x) !== i);
         if (twice.length) fail("duplicate-id", `seed ${seed} ${id} ${twice.join(", ")}`);
+      }
+      // A zone's refusals are numbered by where they lie along the edge: `refuse:<edge>:<zone>`, then `:1`, `:2`, …
+      for (const r of rs) {
+        const n = r.id === `refuse:${r.edge}:${r.zone}` ? 0 : Number(r.id.slice(`refuse:${r.edge}:${r.zone}:`.length));
+        const side = s.edges.find((e) => e.id === r.edge)?.side;
+        const vertical = side ? side === "left" || side === "right" : r.edge.startsWith("rail:");
+        const at = (x: typeof r): [number, number] => (vertical ? [x.hit.y, x.hit.x] : [x.hit.x, x.hit.y]);
+        const earlier = (x: typeof r): boolean => at(x)[0] < at(r)[0] || (at(x)[0] === at(r)[0] && at(x)[1] < at(r)[1]);
+        const before = rs.filter((x) => x.edge === r.edge && x.zone === r.zone && earlier(x)).length;
+        if (n !== before) fail("refusal-order", `seed ${seed} ${id} ${r.id} is number ${before} along its edge`);
       }
       // Preview = landing, once per docked target.
       for (const t of ts) {
@@ -220,7 +230,7 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
 const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
 
 /** No failure of any kind (before the one target model: 8159 holes, 4021 overlaps, 14849 other-zone, 2667 own-not-home). */
-const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0 };
+const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0 };
 
 /** Every edge renamed to an id with ":" in it: the same targets and refusals, under the renamed ids. */
 export function colonRenameDiffs(seeds: readonly number[]): string[] {

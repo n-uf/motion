@@ -95,7 +95,10 @@ export interface SceneTargetOptions {
 
 /** Where a drop of the dragged item is refused: a host shows "no room here" at the pointer, with no slot anywhere. */
 export interface SceneRefusal {
-  /** `refuse:<edge>:<zone>` (with `:<n>` after it for a zone's second refused tile and on). */
+  /**
+   * `refuse:<edge>:<zone>`, with `:<n>` after it for a zone's second refused tile and on, numbered by where they lie
+   * along the edge (then across it), so an id is stable from one frame to the next.
+   */
   readonly id: string;
   readonly edge: string;
   readonly zone: Zone;
@@ -761,14 +764,19 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   const targets: SceneTarget[] = [];
   const refused: SceneRefusal[] = [];
   const homeAfter = (): SceneAfter => ({ scene, layout: now });
-  const seen = new Map<string, number>();
+  // A zone's refusals are numbered by where they lie along the edge (then across it), not by clipping order, so a
+  // refusal keeps its id from one frame to the next.
+  const keyOf = (t: Tile): string => `refuse:${t.edge}:${t.zone}`;
+  const pos = (t: Tile): [number, number] => (t.vertical ? [t.hit.y, t.hit.x] : [t.hit.x, t.hit.y]);
+  const rank = new Map<Tile, number>();
+  const byKey = new Map<string, Tile[]>();
+  for (const t of placed) if (t.kind === "refuse") byKey.set(keyOf(t), [...(byKey.get(keyOf(t)) ?? []), t]);
+  for (const group of byKey.values()) group.sort((a, b) => pos(a)[0] - pos(b)[0] || pos(a)[1] - pos(b)[1]).forEach((t, n) => rank.set(t, n));
   let ownHome: Rect | null = null;
   for (const t of placed) {
     if (t.kind === "refuse") {
-      const key = `refuse:${t.edge}:${t.zone}`;
-      const n = seen.get(key) ?? 0;
-      seen.set(key, n + 1);
-      refused.push({ id: n === 0 ? key : `${key}:${n}`, edge: t.edge, zone: t.zone, hit: t.hit, reason: t.reason! });
+      const n = rank.get(t)!;
+      refused.push({ id: n === 0 ? keyOf(t) : `${keyOf(t)}:${n}`, edge: t.edge, zone: t.zone, hit: t.hit, reason: t.reason! });
       continue;
     }
     if (t.kind === "home") {
