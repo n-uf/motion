@@ -22,7 +22,7 @@ const same = (a: R, b: R): boolean => Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y
 export { modelScene };
 
 /** The categories a point can fail by. */
-type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order" | "lost-slot" | "refused-owns";
+type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order" | "lost-slot" | "refused-owns" | "seen-hole";
 
 /** The edge a target or refusal belongs to, and its zone (null: no zone). */
 function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edge: string | null; zone: Zone | null } {
@@ -40,7 +40,7 @@ function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edg
 
 /** Runs the check over `seeds`; returns the failure counts per category and a few examples. */
 export function propertyCheck(seeds: readonly number[], flush = false): { points: number; counts: Record<Failure, number>; examples: string[] } {
-  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0 };
+  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0 };
   const examples: string[] = [];
   const fail = (k: Failure, msg: string): void => {
     counts[k]++;
@@ -147,6 +147,21 @@ export function propertyCheck(seeds: readonly number[], flush = false): { points
         if (hits.length === 0) fail("virtual-hole", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}`);
         else if (hits.length > 1) fail("virtual-overlap", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}: ${hits.join(", ")}`);
       }
+      // What the user sees: until a target shows, the host draws the layout as it is now. Every point under an edge's
+      // rect as it is now (but the item's own edge) maps to a target or a refusal: a stretch is owned by what is seen
+      // there, and refuses where its owner has no slot. Panel bodies, fixed items and chrome stay no drop place.
+      const nowBody = Object.values(now.items).filter((x) => x.edge && x.formKind === "open" && !x.floating).map((x) => ({ x: x.rect.x, y: x.rect.y + 12, width: x.rect.width, height: x.rect.height - 24 }));
+      const fixedRects = [...Object.values(now.items), ...Object.values(base.items)].filter((x) => x.fixed).map((x) => x.rect);
+      for (const [eid, e] of Object.entries(now.edges)) {
+        if (eid === own?.edge || e.rect.width < 1 || e.rect.height < 1) continue;
+        for (let x = e.rect.x + 3; x < e.rect.x + e.rect.width - 1; x += 6)
+          for (let y = e.rect.y + 3; y < e.rect.y + e.rect.height - 1; y += 6) {
+            const pt = { x, y };
+            if (!inside(s.stage, pt) || [...(s.chrome ?? []), ...anyBody, ...nowBody, ...fixedRects].some((r) => inside(r, pt)) || (ownRect && inside(ownRect, pt))) continue;
+            points++;
+            if (!ts.some((t) => inTarget(t, pt)) && !rs.some((r) => inside(r.hit, pt))) fail("seen-hole", `seed ${seed} drag ${id} under ${eid} at ${x.toFixed(0)},${y.toFixed(0)}`);
+          }
+      }
       for (const e of s.edges) {
         if (!e.accepts.includes(it.kind)) continue;
         const le = base.edges[e.id];
@@ -215,7 +230,7 @@ export function propertyCheck(seeds: readonly number[], flush = false): { points
 const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
 
 /** No failure of any kind (before the one target model: 8159 holes, 4021 overlaps, 14849 other-zone, 2667 own-not-home). */
-const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0 };
+const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0 };
 
 /** Every edge renamed to an id with ":" in it: the same targets and refusals, under the renamed ids. */
 export function colonRenameDiffs(seeds: readonly number[]): string[] {

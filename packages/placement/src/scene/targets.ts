@@ -29,8 +29,10 @@
  *   before it, of what outranks its edge, of every fixed item that doesn't grow and of the chrome; clipping changes a
  *   slot's shape, never who owns it, so every piece left is the slot's (`hits`, `hit` the largest); then the virtual
  *   edges take what no edge owns; then each overreach takes what is left and joins its owned part where it meets it
- *   whole. Refused places own nothing, by zone: they take what the surviving tiles and the other edges leave. Slots
- *   that are the same move are one. (iv) `blocked` rects are `none:<i>`.
+ *   whole. Refused places own nothing: they take what the surviving tiles and the other edges' drawn rects leave. One
+ *   rule decides where the item's lift leaves things apart (the host draws the layout as it is now until a target
+ *   shows): **a stretch is owned by what the user sees there; if the owner has no slot there, it refuses**. Slots that
+ *   are the same move are one. (iv) `blocked` rects are `none:<i>`.
  *
  * Ids: `gap:<edge>:<zone>:<at>` (priority 2), `strip:<edge>:<zone>` (2), `column:<side>:<ring>` (2), `rail:<side>:<ring>`
  * (1), `none:<i>` (1), `float:<id>` (3, free). A slot that would put the item back where it is keeps its id with place
@@ -66,7 +68,7 @@ import { context } from "./targets/filter";
 import { edgeKindOf } from "./targets/kinds";
 import type { Ctx, EdgeSpec, Generated, SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions, Span, Tile } from "./targets/model";
 import { ownership } from "./targets/ownership";
-import { clipTiles, tileEdge } from "./targets/tiles";
+import { clipTiles, seenRefusals, tileEdge } from "./targets/tiles";
 import { columnLines, railStops } from "./targets/virtual";
 
 export { reservedRect, zoneExtents } from "./targets/edges";
@@ -155,6 +157,7 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   if (ownRect && homeEdge && !ownRect.floating && !tiles.some((t) => t.order === 0))
     tiles.push({ edge: homeEdge.id, key: homeEdge.id, edgeKind: edgeKindOf(scene, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: `home:${dragged}`, priority: 1, place: { kind: "home" }, hit: ownRect.rect, keep: null });
   const placed = clipTiles(tiles, own, scene.chrome ?? [], lost);
+  placed.push(...seenRefusals(c, live, placed, own, scene.chrome ?? []));
   const { targets, refused, ownHome } = emit(c, placed);
   const homeAfter = (): SceneAfter => ({ scene, layout: now });
 
