@@ -7,20 +7,22 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 - `@n-uf/placement/scene`, parity with the panels hosts draw today (Revisions 7 and 7b):
   - **`layout.columnRoom`** and the note **`no-column-room`** (`width`, `need`): with `contentMin` and dynamic columns,
-    whether one column at its minimum fits beside the content's minimum. A host's narrow fallback reads it.
+    whether one column at its minimum fits beside the content's minimum and the anchors' room (an open anchor's width
+    and gutter, a folded one's rail and gutter). A host's narrow fallback reads it.
   - **`Edge.outsideInset`**: an anchor edge (a side edge that takes nothing, a thumbnail strip) lies outside the inset
-    and the gutter: at the window's side, full height, the inset after it; inside the side's rail when one shows.
+    and the gutter: at the window's side, the inset after it; inside the side's rail when one shows. It runs into the
+    inset above and below only where no reserved bar lies on that side.
   - **`Edge.giveWay`**: a static side edge shrinks toward its minimum, then folds into its side's rail, in give-way
     order with the columns (by its items' ages). It is never deleted.
   - **`setSide(scene, edgeId, side)`**: moves an edge to the other side of its axis as its side's outermost edge (ring
     0); `readScene` moves a static edge stored on the other side.
   - **`Scene.insetWhen`** (`"always"`, the default, or `"docked"`): with `"docked"` the inset applies only while
-    something is docked beside the content.
+    an open column or a rail is beside the content (an anchor alone doesn't count).
   - **Changed:** `handFold: "ride"` rides every column folded by hand, not only a one-panel one: each member a bar over
     the side's first open panel column (never over an anchor), stacked in zone order.
   - **Changed:** the side's rail is its outermost edge (it was placed just outside the first dynamic column).
-  - **Changed:** floats are clamped into the stage less the inset's left and right (the full height), and a float larger
-    than that region is shrunk to fit it (they were clamped into the whole stage, never resized).
+  - **Changed:** floats are clamped into [pad, W − pad] × full height (the stage less the inset's left and right), and a
+    float larger than that region is shrunk to fit it (they were clamped into the whole stage, never resized).
   - **`SceneItem.floatMin`** (`Size`): a float of the item is laid out at `max(floatMin, min(its size, the region))`
     each way. Without it a shrink stops at its form's own minimums (`cross.min` across, `main.min` along). A float
     wider than the region at that floor keeps it and lies at the region's left edge; a folded float keeps its height.
@@ -35,14 +37,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     center zone's, the right the trailing (end) zone's, the nearest of the zone's gaps within. An empty bar's strip is
     three targets, `strip:<bar>:start`, `strip:<bar>:center` and `strip:<bar>:end` (was one `strip:<bar>`).
   - A title bar (a bar with a fixed item that grows) is a constrained host: a toolbar there must land in its first
-    form, nothing in the bar may change form for it, and the title keeps its natural width (26.11.17 let it shrink to
+    form, nothing in the bar may change form for it, and the title keeps its natural width (26.11.18 let it shrink to
     its `min`); otherwise that zone has no target and no slot.
   - In a title bar the zones are laid with the title at its natural width: a leading toolbar sits right after the
     title's natural rect, trailing ones right before the end items, and a center one at the bar's true centre when that
     is clear of both, else centred in the free span between them. The title takes the spare room only when nothing
     follows it in its zone.
-  - Affected: bars' hits (a pointer in a bar's middle third now always offers the center zone), empty bars' strip ids,
-    and the layout of title bars with a toolbar after the title (the title no longer grows between them).
+  - Affected: bars' hits (a pointer in a bar's middle third now always offers the center zone, unless the toolbar
+    doesn't fit there in a title bar), empty bars' strip ids, and the layout of title bars with a toolbar after the
+    title (the title no longer grows between them).
 
 ## 26.11.18
 
