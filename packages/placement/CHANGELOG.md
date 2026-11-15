@@ -38,15 +38,18 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     where a column's gap is. A hit lies over a growing fixed item (a title) and lands in the nearest gap, never over a
     fixed item that doesn't grow (controls, a readout) or chrome; a slot never covers a fixed item's reserved rect.
     Another edge's rect trims a gap's hit: one across from the edge (a bar above a column) at the hit's end along the
-    edge, one beside it at its side. An empty edge's `strip:` hit is trimmed at its ends by a gap hit that spans it and
-    is dropped only when nothing is left (an empty outer bar lying on a non-empty inner one).
+    edge, one beside it at its side; the edges as they are now (not the dragged item's own) trim it at its side too. An
+    empty edge's `strip:` hit lies inside the content and clear of overlay edges, so never over a docked edge or a
+    panel's body (a compact rail's strip keeps its place at the window edge); a gap hit that spans it trims its ends,
+    and it is dropped only when nothing is left (an empty outer bar lying on a non-empty inner one).
   - **Changed** (layout): a side rail shows a column's segments in zone order (start, center, end), as the column shows
     its items.
   - Affected, for scenes that set none of the new options (`wrap`, `compact`, `zoneAccepts`): gap hits on bars and
     rails are longer (they now meet halfway, also over the stretch beside a short item), bands over closed or folded
     items are gone, a title bar's stretch left of its controls and the text of a growing title take drops, columns'
-    hits stop at the bars and columns around them, an empty bar's strip is shorter at an end where a column's gap
-    spans it (or gone, when an inner bar covers it), and a rail with center or end items orders its segments by zone.
+    hits stop at the bars and columns around them, an empty bar's strip covers only the content (no longer the columns'
+    tops; gone when an inner bar or an overlay column covers it), an empty column's strip stops at the bars above and
+    below it, and a rail with center or end items orders its segments by zone.
     The layout of every scene is otherwise as in 26.11.17.
   - `SceneNote` gains the codes `no-vertical-form` and `no-icons-form`; an exhaustive `switch` over `SceneNote["code"]`
     needs them.
