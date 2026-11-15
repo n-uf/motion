@@ -729,7 +729,7 @@ const items = [
 const scene: Scene = {
   stage: { x: 0, y: 0, width: 1200, height: 800 },
   edges: [
-    { id: "titlebar", side: "top", ring: 0, accepts: [], items: ["title", "controls"], cross: { min: 32, max: 32, rail: 32 } },
+    { id: "titlebar", side: "top", ring: 0, accepts: ["group"], items: ["title", "controls"], cross: { min: 32, max: 32, rail: 32 } },
     { id: "toolbar", side: "top", ring: 1, items: ["views", "tools", "zoom"], ...bar },
     { id: "status", side: "bottom", ring: 0, span: "between", items: ["readout", "search"], ...bar, cross: { min: 28, max: 28, rail: 28 } },
     { id: "left", side: "left", ring: 0, items: ["pages"], ...column },
@@ -823,10 +823,13 @@ edges without `previous`.
   edge split halfway between neighbouring lines. Gaps on one line are one target, the first in zone order: when a bar
   has no spare length, `center:0` and `end:0` lie on the start zone's last line and merge into that start gap (its id
   stays `gap:<edge>:start:<n>`). The first and last reach `endReach` px past the edge's ends. Across, the hit is the
-  larger of the edge's thickness before and after the drop, and it is cut clear of every fixed item's drawn rect (a
-  title grown over its bar's spare room included, so a bar it fills offers no gap; a drop beside it may still shrink it
-  toward its `min`) and of chrome. `slot` is the item's rect after the drop and `marker` the insertion line across the
-  edge.
+  larger of the edge's thickness before and after the drop, and it is cut clear of chrome and of what each fixed item
+  reserves: its drawn rect, or for a fixed item that grows (a title filling its bar) only its natural rect, placed by
+  its zone (from its start, from its end in the end zone, centred in the centre zone). The length it grew by is spare
+  room: gap hits may lie there, and the drop shrinks it toward its natural size (to its `min` if the room needs it), so
+  a group moved out of a title bar can always go back while the room allows. A title already at its natural size leaves
+  no such room. No slot lies over a fixed item's reserved rect. `slot` is the item's rect after the drop and `marker`
+  the insertion line across the edge.
 - `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side.
 - `float:<id>` (3, free) when `floatKinds` lists the kind: the whole plane, landing with the pointer holding the float
   at `grab`, clamped and moved clear. It has no fixed `slot`: the slot to draw is

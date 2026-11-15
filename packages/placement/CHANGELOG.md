@@ -3,6 +3,14 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+- **Changed** (`@n-uf/placement/scene` targets): a fixed item that grows (a title filling its bar) reserves only its
+  natural rect, placed by its zone, instead of its whole drawn rect. Gap hits may lie in the length it grew by, and the
+  drop shrinks it toward its natural size (to its `min` if the room needs it), so a group moved out of a title bar can
+  go back. No hit and no slot lies over the natural rect. Affected: bars whose growing fixed item filled them offered no
+  gap in 26.11.16; they now offer one where a group fits.
+
 ## 26.11.16
 
 - `@n-uf/placement/stack`, the cases a host with several kinds of item and a title bar needs. Additive: no rename, no
