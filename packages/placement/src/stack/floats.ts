@@ -20,8 +20,8 @@
  * - `storeFloats` / `readFloats`: the stored form, `{ v: 1, floats: [{ id, x, y, width, height }] }`, in stacking
  *   order (the last is on top). It writes no `pinned`; one an old store has is read, ignored and listed.
  */
-import { clampInto, rect, type Point, type Rect, type Size } from "../geometry";
-import type { Target } from "../targets/target";
+import { PLANE, clampInto, overlap, overlaps, rect, type Point, type Rect, type Size } from "../geometry";
+import type { Target } from "../target";
 import { versionWords } from "./store";
 
 /** A float: the item's id and its rect in view space (the stage's px). */
@@ -47,13 +47,9 @@ export interface FloatFit {
   readonly searchCapped: boolean;
 }
 
+/** How far floats compare loosely: a float's px are rounded, so a thousandth is touching. */
 const EPS = 1e-3;
 const finite = (x: number, fallback: number): number => (Number.isFinite(x) ? x : fallback);
-
-/** Whether two rects share an area (touching edges don't). */
-const overlaps = (a: Rect, b: Rect): boolean => Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > EPS && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > EPS;
-const shared = (a: Rect, b: Rect): number =>
-  Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
 
 /** `r` with a non-number replaced and no negative size. */
 const clean = (r: Rect, at: Rect): Rect => rect(finite(r.x, at.x), finite(r.y, at.y), Math.max(0, finite(r.width, 0)), Math.max(0, finite(r.height, 0)));
@@ -131,10 +127,10 @@ export function fitFloat(want: Rect, stage: Rect, avoid: readonly Rect[] = []): 
   const near: { at: Rect; index: number }[] = [];
   avoid.forEach((a, index) => {
     const at = clean(a, area);
-    if (at.width > EPS && at.height > EPS && overlaps(at, reach)) near.push({ at, index });
+    if (at.width > EPS && at.height > EPS && overlaps(at, reach, EPS)) near.push({ at, index });
   });
-  const under = (cand: Rect): number[] => near.filter((n) => overlaps(cand, n.at)).map((n) => n.index);
-  const blocked = (cand: Rect): boolean => near.some((n) => overlaps(cand, n.at));
+  const under = (cand: Rect): number[] => near.filter((n) => overlaps(cand, n.at, EPS)).map((n) => n.index);
+  const blocked = (cand: Rect): boolean => near.some((n) => overlaps(cand, n.at, EPS));
   if (!blocked(inside)) return { rect: inside, clamped, snapped: false, covers: [], searchCapped: false };
 
   // The places to look at: every x that puts the float against an edge of the stage or of a rect (or where it is),
@@ -197,7 +193,7 @@ export function fitFloat(want: Rect, stage: Rect, avoid: readonly Rect[] = []): 
   for (const p of byDistance(px, py, inside.x, inside.y)) {
     if (tried++ >= COVERED_PLACES) break;
     const cand = rect(p.x, p.y, r.width, r.height);
-    const left = near.reduce((s, n) => s + shared(cand, n.at), 0);
+    const left = near.reduce((s, n) => s + overlap(cand, n.at), 0);
     if (!best || left < best.left - EPS) best = { rect: cand, left, far: p.far, hits: under(cand) };
   }
   const out = best ?? { rect: inside, far: 0, hits: under(inside) };
@@ -240,8 +236,6 @@ export interface FloatTarget extends Target {
   make(point: Point, grab?: Point): FloatDrop;
 }
 
-/** A zone that covers any pointer the page can see: large and finite (an infinite rect has no far edge to compare). */
-const PLANE = rect(-1e9, -1e9, 2e9, 2e9);
 
 export function stackFloatTarget(input: StackFloatTargetInput): FloatTarget {
   const { stage, size } = input;

@@ -5,7 +5,7 @@
  */
 import { rect, type Point, type Rect } from "../geometry";
 import { ZONES, floatGroup, insertGroup, insertions, isOwnPlace, layoutHost, vertical, withoutGroup, type Arrangement, type GroupSize, type HostId, type HostSpec, type Place } from "../toolbar";
-import type { Target } from "./target";
+import type { Target } from "../target";
 
 /** How far a line's hit reaches beyond the host's thickness on each side; an empty zone's. */
 export const LINE_REACH = 12;

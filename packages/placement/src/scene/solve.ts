@@ -31,13 +31,11 @@
  * changes no rect; columns folded or shrunk by give-way stay so while the content still fits, and room coming back
  * unfolds them in the reverse of give-way order. Pure: the same scene always lays out the same.
  */
-import { rect, type Rect } from "../geometry";
+import { EPS, rect, type Rect } from "../geometry";
 import { fitFloat } from "../stack/floats";
 import { fitStack } from "../stack/layout";
 import { formCrossMin, formMain, formSetsCross, wrapLines, type StackFit, type StackForm, type StackInput, type StackItem } from "../stack/model";
 import { axisOf, floatOrientOf, floatShape, formsOf, isOutsideSideBar, isSideBar, pastWrap, zoneOf, type Edge, type FloatAnchor, type Scene, type SceneEdgeLayout, type SceneItem, type SceneItemLayout, type SceneLayout, type SceneNote, type SceneRailLayout, type SolveOptions, type Zone } from "./model";
-
-const EPS = 1e-6;
 const finite = (x: number | undefined, fallback: number): number => (typeof x === "number" && Number.isFinite(x) ? x : fallback);
 const px = (x: number | undefined): number => Math.max(0, finite(x, 0));
 

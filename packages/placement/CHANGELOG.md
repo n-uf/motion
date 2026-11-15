@@ -5,6 +5,13 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.24
 
+- `@n-uf/placement` (root), **one geometry** (additive): the rect math every entry shares is the root's: `EPS`,
+  `PLANE`, `area`, `overlaps`, `contains`, `clamp`, `subtract` (a rect less another, as disjoint rects), and the hit
+  sizes `COLUMN_REACH` and `RAIL_EDGE`, next to `rect`, `overlap`, `clampInto` and `centre`. The **`Target`** type
+  (a drop target's shape) is the root's too. **What moved:** `Target` from `./targets` (which still exports it) to
+  the root; `COLUMN_REACH` and `RAIL_EDGE` from `./panels` (which still exports them) to the root; the private copies
+  in `./scene`, `./stack`, `./panels` and `./targets` are gone. Nothing else changes.
+
 - `@n-uf/placement/scene`, **Changed: one target model**. `targets` and `refusals` come from one
   generation: edge → zones → slots → tiles, then one ordered filter (accepts and zones, fit, clipping, `blocked`). Every
   point of an edge that takes the dragged kind is one target or one refusal of its own zone (a property check over

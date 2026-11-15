@@ -1,4 +1,4 @@
-import type { Rect } from "../geometry";
+import type { Rect } from "./geometry";
 
 /**
  * A drop target in the shape @n-uf/motion/drag takes: an id, a priority (1 most precise: a rail or a tab strip;

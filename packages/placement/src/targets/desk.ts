@@ -13,7 +13,7 @@
  * - Palettes (`floatOver`, `floatAround`): a corner stack's column (2) at the place under the pointer; anywhere
  *   else in the area (3), snapped to the area's edges (over the documents, also to other palettes' edges).
  */
-import { centre, overlap, rect, type Point, type Rect, type Size } from "../geometry";
+import { centre, clamp, overlap, rect, type Point, type Rect, type Size } from "../geometry";
 import type { Construction } from "../dock/constructions";
 import { BAR, G, RAIL, TITLE, idOf, isDocKey, isPanelKey, panelKey, touch, type DeskState, type Layout, type Options, type Side } from "../dock/model";
 import {
@@ -33,7 +33,7 @@ import {
   treeShown,
   treeTiles,
 } from "../dock/parts";
-import type { Target } from "./target";
+import type { Target } from "../target";
 
 /** A target's drop for a pointer: the state with the item there, a label, and a key (same key, same place). */
 export interface Made {
@@ -74,7 +74,6 @@ export interface DeskTargetInput {
 export const SNAP = 18;
 
 const insert = <T>(list: readonly T[], i: number, x: T): T[] => [...list.slice(0, i), x, ...list.slice(i)];
-const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), Math.max(lo, hi));
 const Cap = (s: Side): string => (s === "left" ? "Left" : "Right");
 const fixed = (state: DeskState, label: string) => (): Made => ({ state, label, key: label });
 

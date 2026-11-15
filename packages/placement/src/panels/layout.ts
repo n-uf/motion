@@ -48,7 +48,7 @@
  *   reserves lie between the overlay bands.
  * - A band in the state on an edge the options don't enable: its panels are left out (`band-off`).
  */
-import { rect, type Rect, type Size } from "../geometry";
+import { clamp, rect, type Rect, type Size } from "../geometry";
 import { DEFAULT_PANELS_OPTIONS, EDGES, SIDES, bandSize, defOf, floatSize, toView, type Edge, type PanelDef, type PanelsOptions, type PanelsState, type Side } from "./model";
 
 /**
@@ -212,7 +212,6 @@ interface Col {
   readonly active?: string;
 }
 
-const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), Math.max(lo, hi));
 
 /** The order columns give way in: unkept before kept, then the policy (oldest or newest), outer first, left first. */
 export function giveWayOrder<C extends { readonly side: Side; readonly index: number; readonly kept: boolean; readonly age: number }>(cols: readonly C[], order: "oldest" | "newest"): C[] {
