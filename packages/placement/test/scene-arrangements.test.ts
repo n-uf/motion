@@ -331,6 +331,20 @@ describe("the options the rows need", () => {
     expect(solve(adapt(rows.scenes.anchorGiveWayOrder!.scene, 590, 800)).columnRoom).toBe(true);
   });
 
+  it("columnRoom answers from the column template when no column edge exists (every panel floating)", () => {
+    const s = adapt(rows.scenes.three!.scene, 400, 800);
+    const floating: Scene = {
+      ...s,
+      edges: s.edges.filter((e) => e.column !== true),
+      floats: ["pages", "annotations", "findings"].map((id, i) => ({ id, rect: { x: 20 + i * 30, y: 40, width: 300, height: 300 } })),
+    };
+    const l = solve(floating);
+    // Nothing docked, so no inset (insetWhen docked): 400 < contentMin 320 + one column 220 + 12, the sheet is needed.
+    expect(l.columnRoom).toBe(false);
+    expect(l.notes).toContainEqual({ code: "no-column-room", width: 400, need: 552 });
+    expect(solve({ ...floating, stage: { ...floating.stage, width: 1000 } }).columnRoom).toBe(true);
+  });
+
   it("insetWhen docked: no inset while nothing is docked beside the content", () => {
     const none = rows.scenes.none!.scene;
     const s = adapt(none, 1000, 800, false);
