@@ -61,11 +61,16 @@ describe("a column's tray", () => {
     }
   });
 
-  it("the column template carries zoneAccepts: a group dropped as a new column goes to its tray", () => {
+  it("the column template carries zoneAccepts; a group never opens such a column, a panel does", () => {
     const s: Scene = { ...scene(), columns: { right: { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 }, zoneAccepts } }, rails: undefined };
-    const m = moveTo(s, "h", { kind: "column", side: "right", ring: 0 });
+    // No column target and no column place for a group: its start zone takes panels only.
+    expect(moveTo(s, "h", { kind: "column", side: "right", ring: 0 })).toBe(s);
+    expect(targets(s, "h").some((t) => t.place.kind === "column")).toBe(false);
+    const withPanel: Scene = { ...s, items: { ...s.items, r: panel("r", 9) }, floats: [...s.floats, { id: "r", rect: r(400, 300, 200, 200) }], floatKinds: ["group", "panel"] };
+    const m = moveTo(withPanel, "r", { kind: "column", side: "right", ring: 0 });
     const col = m.edges.find((e) => e.side === "right")!;
     expect(col.zoneAccepts).toEqual(zoneAccepts);
-    expect(m.items.h!.align).toBe("end");
+    expect(col.items).toEqual(["r"]);
+    expect(targets(withPanel, "r").some((t) => t.place.kind === "column")).toBe(true);
   });
 });
