@@ -59,6 +59,10 @@
     "./scene": {
       "types": "./src/scene/index.ts",
       "default": "./src/scene/index.ts"
+    },
+    "./scene/cases": {
+      "types": "./src/scene/cases/index.ts",
+      "default": "./src/scene/cases/index.ts"
     }
   },
   "publishConfig": {
@@ -97,6 +101,10 @@
       "./scene": {
         "types": "./dist/scene.d.ts",
         "default": "./dist/scene.js"
+      },
+      "./scene/cases": {
+        "types": "./dist/scene-cases.d.ts",
+        "default": "./dist/scene-cases.js"
       },
       "./package.json": "./package.json"
     }

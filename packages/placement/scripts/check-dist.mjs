@@ -1,5 +1,5 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, dock, toolbar, targets, panels, desk, stack, scene) and its type definitions exist;
+// - every entry (the root, dock, toolbar, targets, panels, desk, stack, scene, scene-cases) and its type definitions exist;
 // - the JavaScript imports only its own chunks (no dependencies at all, @n-uf/motion included);
 // - no file touches a host global, and no type mentions a DOM type;
 // - Node can import every entry, and a desk lays out, a host collapses, a drop lands and a panel column gives way from
@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const ENTRIES = ["index", "dock", "toolbar", "targets", "panels", "desk", "stack", "scene"];
+const ENTRIES = ["index", "dock", "toolbar", "targets", "panels", "desk", "stack", "scene", "scene-cases"];
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|globalThis|matchMedia)\b/;
 const DOM_TYPES = /\b(Window|Document|Element|HTMLElement|Event|PointerEvent|MouseEvent|DOMRect)\b/;
 const problems = [];
@@ -59,6 +59,14 @@ if (problems.length === 0) {
     for (const entry of ENTRIES) m[entry] = await import(pathToFileURL(join(dist, `${entry}.js`)).href);
     if (typeof m.index.positionPopup !== "function") problems.push("index.js: no positionPopup");
     const desk = m.dock.createDesk({ panels: [{ id: 1, title: "Files", natural: 160 }, { id: 2, title: "History", natural: 160 }], start: { left: [1], right: [], bottom: [2] } });
+    // The conformance rows run on the in-memory host from the built code, and a wrong expectation fails.
+    const sc = m["scene-cases"];
+    if (!Array.isArray(sc.CASES) || sc.CASES.length < 80) problems.push(`scene-cases.js: ${sc.CASES?.length} rows`);
+    // Rows that name a rule the library lacks (`lacks`) are expected to fail until it lands.
+    const failed = sc.CASES.filter((row) => !row.lacks && !sc.runCase(row, sc.createSceneHost()).ok).map((row) => row.id);
+    if (failed.length > 0) problems.push(`scene-cases.js: rows fail on the in-memory host: ${failed.slice(0, 5).join(", ")}`);
+    const broken = { ...sc.CASES[0], expectLayout: { items: { pages: { rect: { x: 9999 } } } } };
+    if (sc.runCase(broken, sc.createSceneHost()).ok) problems.push("scene-cases.js: a wrong expectation passed");
     if (desk.constructions.length !== 9) problems.push(`dock.js: ${desk.constructions.length} constructions, expected 9`);
     const c = desk.constructionOf("dockTear");
     const l = c.layout(c.initial([1]), { width: 960, height: 420 }, m.dock.DEFAULT_OPTIONS);
