@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { close, fold, homeFor, moveTo, open, readScene, solve, stops, storeScene, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
+import { close, dockHome, fold, homeFor, moveTo, open, readScene, solve, stops, storeScene, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
 import type { StackForm } from "../src/stack";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -219,6 +219,17 @@ describe("dynamic columns", () => {
 describe("homeFor", () => {
   const f = fixture("scene-window-a.json");
   const start = adapt(f, f.scenes.three!.scene);
+
+  it("dockHome restores the start fold too: a Move to › rail, then Dock, brings the panel back open", () => {
+    const railed = moveTo(start, "findings", { kind: "rail", side: "left", ring: 0 });
+    expect(solve(railed).items.findings!.formKind).toBe("rail");
+    const docked = dockHome(railed, "findings", start);
+    expect(docked.items.findings!.from).toBeUndefined();
+    expect(solve(docked).items.findings!.formKind).toBe("open");
+    // A start fold is restored as well.
+    const foldedStart = fold(start, "annotations", true);
+    expect(dockHome(fold(foldedStart, "annotations", false), "annotations", foldedStart).items.annotations!.from).toBe(1);
+  });
 
   it("is the place the start scene gives: the same edge and neighbour, a new column at its ring, or its float", () => {
     const moved = moveTo(start, "annotations", { kind: "gap", edge: "right-0", at: 1 });

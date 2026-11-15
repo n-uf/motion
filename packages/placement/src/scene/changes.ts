@@ -20,7 +20,7 @@
  * - `resize(scene, edge, size)`: the user's size across; a size that isn't a finite number clears it.
  */
 import { clampInto, type Rect } from "../geometry";
-import { DEFAULT_FLOAT_SIZE, zoneOf, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Zone } from "./model";
+import { DEFAULT_FLOAT_SIZE, floatShape, zoneOf, zoneTakes, zonesTaking, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
 export interface DockPlace {
@@ -103,6 +103,7 @@ function newColumn(scene: Scene, side: "left" | "right", kind: string, ring: num
     ...(t.gap !== undefined ? { gap: t.gap } : {}),
     ...(t.pad ? { pad: t.pad } : {}),
     ...(t.menu ? { menu: t.menu } : {}),
+    ...(t.zoneAccepts ? { zoneAccepts: t.zoneAccepts } : {}),
     column: true,
   };
 }
@@ -114,8 +115,13 @@ function insertColumn(scene: Scene, id: string, side: "left" | "right", ring: nu
   const r = Math.max(0, Math.min(Number.isNaN(ring) ? Infinity : Math.floor(ring), mine.length === 0 ? 0 : Math.max(...mine.map((e) => e.ring)) + 1));
   const col = newColumn(scene, side, kind, r, [id]);
   if (!col) return null;
-  const shifted = scene.edges.map((e) => (e.side === side && e.ring >= r ? { ...e, ring: e.ring + 1 } : e));
-  return { ...scene, edges: closeRings([...shifted, col], new Set([side])) };
+  // The item goes to the first zone of the new column that takes its kind (a group to a panel column's tray).
+  const zone = zonesTaking(col, kind)[0];
+  if (!zone) return null;
+  const { align: _a, ...plain } = scene.items[id]!;
+  const placed = withItem(scene, zone === "start" ? plain : { ...plain, align: zone });
+  const shifted = placed.edges.map((e) => (e.side === side && e.ring >= r ? { ...e, ring: e.ring + 1 } : e));
+  return { ...placed, edges: closeRings([...shifted, col], new Set([side])) };
 }
 
 /** The index in `edge.items` where the `at`-th item of `zone` is (or where the zone ends). */
@@ -151,7 +157,9 @@ export function moveTo(scene: Scene, id: string, place: Place): Scene {
   }
   const edge = scene.edges.find((e) => e.id === place.edge);
   if (!edge || !edge.accepts.includes(item.kind)) return scene;
-  const zone = place.zone ?? zoneOf(item);
+  // The zone asked for (or the item's own, or the first that takes its kind) must take the kind (`zoneAccepts`).
+  const zone = place.zone ?? (zoneTakes(edge, zoneOf(item), item.kind) ? zoneOf(item) : zonesTaking(edge, item.kind)[0]);
+  if (!zone || !zoneTakes(edge, zone, item.kind)) return scene;
   const { align: _drop, ...rest } = item;
   const moved: SceneItem = zone === "start" ? rest : { ...rest, align: zone };
   const lifted = withItem(lift(scene, id), moved);
@@ -264,6 +272,23 @@ export function homeFor(scene: Scene, id: string, start: Scene): Place | null {
 }
 
 /**
+ * Dock, Put back and Reset position: the item where `start` (the loaded scene) has it, fold included. It goes to
+ * `homeFor`'s place and takes `start`'s `from` (unfolded when `start` has none), so a "Move to › rail" (which folds it)
+ * followed by Dock brings it back open. The scene given back unchanged when `start` places it nowhere.
+ */
+export function dockHome(scene: Scene, id: string, start: Scene): Scene {
+  const place = homeFor(scene, id, start);
+  if (!place) return scene;
+  const moved = moveTo(scene, id, place);
+  if (moved === scene) return scene;
+  const item = itemOf(moved, id)!;
+  const from = itemOf(start, id)?.from;
+  if (item.from === from) return moved;
+  const { from: _f, ...plain } = item;
+  return withItem(moved, from === undefined ? plain : { ...plain, from });
+}
+
+/**
  * A float's rect moved (never resized) so that what `solve` draws of it lies in the stage: `drawn` is its drawn size (the
  * bar's when it is folded). As in `solve`, one drawn larger than the stage keeps its top-left corner on the stage's.
  */
@@ -272,13 +297,8 @@ export function clampFloat(r: Rect, stage: Rect, drawn: { readonly width: number
   return { x: at.x, y: at.y, width: r.width, height: r.height };
 }
 
-/** The size `solve` draws a float at: its rect's, or with `from` over 0 its bar (that form's natural length along `orient`). */
+/** The size `solve` draws a float at (`floatShape`): its rect's, its bar's when folded, its icons' when vertical. */
 export function drawnFloatSize(item: SceneItem, f: { readonly rect: Rect; readonly orient?: Orient }): { width: number; height: number } {
-  const orient = f.orient === "row" ? "row" : "column";
-  const forms = item.forms[orient] ?? [];
-  const from = forms.length === 0 ? 0 : Math.min(Math.max(0, Math.floor(Number.isFinite(item.from) ? item.from! : 0)), forms.length - 1);
-  const form = forms[from];
-  const px = (v: number): number => (Number.isFinite(v) ? Math.max(0, v) : 0);
-  if (from > 0 && form) return orient === "column" ? { width: px(f.rect.width), height: px(form.main.natural) } : { width: px(form.main.natural), height: px(f.rect.height) };
-  return { width: px(f.rect.width), height: px(f.rect.height) };
+  const s = floatShape(item, f);
+  return { width: s.width, height: s.height };
 }
