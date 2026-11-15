@@ -281,13 +281,28 @@ describe("local targets: home only over the item's own place, refusals where a z
     expect(home.hit.y <= p.y + p.height / 2 && p.y + p.height / 2 <= home.hit.y + home.hit.height).toBe(true);
   });
 
-  it("no hit along a bar or column is narrower than 1 px (no slivers)", () => {
+  it("home never takes a strip away: an empty bar's strip over the item's own place keeps 16 px, and home gives it up", () => {
+    // Seed 154: g3 alone in top0 (268..308 of 260..333). Lifted, the bar is empty: its thirds are 24.3 px each, and
+    // the center third (284.3..308.7) lies mostly over g3's own rect. It used to be cut to 0.67 px.
+    const s = barScene(154);
+    const ts = targets(s, "g3");
+    const center = ts.find((t) => t.id === "strip:top0:center")!;
+    expect(center, "the center strip").toBeDefined();
+    expect(center.hit.width).toBeCloseTo(16, 6);
+    expect(center.hit.x + center.hit.width).toBeCloseTo(308 + 2 / 3, 6);
+    // Home gives up that slice and keeps the item's centre (288).
+    const home = ts.find((t) => t.id === "home:g3")!;
+    expect(home.hit.x + home.hit.width).toBeLessThanOrEqual(center.hit.x + 1e-6);
+    expect(home.hit.x <= 288 && 288 <= home.hit.x + home.hit.width).toBe(true);
+  });
+
+  it("no hit along a bar or column is narrower than 1 px (no slivers), gaps and strips alike", () => {
     for (let seed = 1; seed <= 300; seed++) {
       const s = barScene(seed);
       const l = solve(s);
       for (const id of Object.keys(s.items).filter((k) => !s.items[k]!.fixed)) {
-        for (const t of targets(s, id, { previous: l })) {
-          if (!t.id.startsWith("gap:")) continue;
+        for (const t of [...targets(s, id, { previous: l }), ...targets(s, id)]) {
+          if (!t.id.startsWith("gap:") && !t.id.startsWith("strip:")) continue;
           const e = s.edges.find((x) => x.id === t.id.split(":")[1])!;
           const along = e.side === "left" || e.side === "right" ? t.hit.height : t.hit.width;
           if (along < 1) throw new Error(`seed ${seed} ${id}: ${t.id} is ${along} px along its edge`);

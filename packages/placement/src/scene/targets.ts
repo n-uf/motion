@@ -26,7 +26,8 @@
  * - `strip:<edge>` (2): an empty edge that accepts the kind (its start zone takes it): a strip `Edge.strip` px (default
  *   24) deep along its side, inside the content and clear of overlay edges, so never over a docked edge or a panel's
  *   body (a compact rail's strip alone stays at the window edge, its own place); a gap hit that spans it trims its ends,
- *   and with nothing left it has no target. `after` shows the edge holding the item.
+ *   and under 1 px left it has no target. Home never takes a strip away: over the dragged item's own place a strip
+ *   keeps min(`GAP_KEEP`, its slice), as a gap does, and home gives that up. `after` shows the edge holding the item.
  * - `float:<id>` (3, free): when `floatKinds` lists the kind. The hit covers the whole plane; the landing is the float
  *   with the pointer holding it at `grab` (default its middle), in the stage and clear of the docked items, the bars
  *   and the chrome. Its orient: `options.floatOrient`, else its float's, else the item's (`floatOrientOf`). Its size:
@@ -326,6 +327,8 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   // strip with room is never cut down to a part. A strip with nothing left has no target.
   const gapHits = out.filter((t) => t.id.startsWith("gap:")).map((t) => t.hit);
   const c = base.content;
+  /** The strip slices kept over the item's own place: every home target gives them up. */
+  const carved: { hit: Rect; vertical: boolean }[] = [];
   for (let i = out.length - 1; i >= 0; i--) {
     const t = out[i]!;
     const e = edgeOfGap(t);
@@ -339,12 +342,16 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
     const docks = [...Object.entries(base.edges), ...Object.entries(now.edges).filter(([id]) => id !== now.items[dragged]?.edge)]
       .filter(([id, d]) => id !== e.id && area(d.rect) > EPS)
       .map(([, d]) => d.rect);
-    // Nor over the dragged item's own place: home wins there.
+    // Nor over the dragged item's own place, where home wins, but home never takes a strip away: as a gap does
+    // (`homeOnlyOverItsPlace`), a strip home covers keeps min(`GAP_KEEP`, its slice) at home's end (or beside the item's
+    // centre, inside it), and home gives that up below.
     const mineNow = now.items[dragged];
-    if (mineNow?.edge && !mineNow.floating) docks.push(mineNow.rect);
+    const ownRect = mineNow?.edge && !mineNow.floating ? mineNow.rect : undefined;
     // A compact rail's strip stays at the window edge, outside the columns it lies beyond (as a rail target's strip does
     // while no rail shows): that thin stretch along the window's side is the rail's own.
-    const h = e.compact ? t.hit : x1 - x0 > EPS && y1 - y0 > EPS ? cutAway(rect(x0, y0, x1 - x0, y1 - y0), docks) : null;
+    const slice = e.compact ? t.hit : x1 - x0 > EPS && y1 - y0 > EPS ? cutAway(rect(x0, y0, x1 - x0, y1 - y0), docks) : null;
+    const h = !e.compact && slice && ownRect && overlaps(slice, ownRect) ? keptBesideHome(slice, ownRect, vertical) : slice;
+    if (h && h !== slice) carved.push({ hit: h, vertical });
     if (!h) {
       out.splice(i, 1);
       continue;
@@ -359,7 +366,8 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
       if (g0 <= a0 + EPS && g1 > a0) a0 = Math.min(a1, g1);
       else if (g1 >= a1 - EPS && g0 < a1) a1 = Math.max(a0, g0);
     }
-    if (a1 - a0 <= EPS) out.splice(i, 1);
+    // No sliver: a strip under 1 px along its edge has no target.
+    if (a1 - a0 < 1) out.splice(i, 1);
     else {
       const hit = vertical ? rect(h.x, a0, h.width, a1 - a0) : rect(a0, h.y, a1 - a0, h.height);
       if (hit.x !== t.hit.x || hit.y !== t.hit.y || hit.width !== t.hit.width || hit.height !== t.hit.height) out[i] = { ...t, hit };
@@ -394,7 +402,59 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   // A docked item's own place is its home. A floating item has none: a move inside its own rect is a float move.
   const own = now.items[dragged];
   if (own && !own.floating) out.push({ id: `home:${dragged}`, priority: 1, hit: own.rect, item: dragged, place: { kind: "home" }, after: () => ({ scene, layout: now }) });
+  // Home gives up the strip slices kept over the item's own place (along their edge, across home's full thickness).
+  for (const k of carved) {
+    for (let i = out.length - 1; i >= 0; i--) {
+      const t = out[i]!;
+      if (t.place.kind !== "home" || !overlaps(t.hit, k.hit)) continue;
+      const hit = trimAlong(t.hit, k.hit, k.vertical);
+      if (!hit) out.splice(i, 1);
+      else out[i] = { ...t, hit };
+    }
+  }
   return out;
+}
+
+/**
+ * The part of `slice` (a strip's hit, cut clear of everything else) a strip keeps where it overlaps the dragged item's
+ * own rect `own`, as a gap does (`homeOnlyOverItsPlace`): what lies outside `own`, and at least min(`GAP_KEEP`, the
+ * slice) at home's end, never over the item's centre (±1 px); one inside `own` keeps that much at its middle, moved
+ * just beside the item's centre. With `own` inside it, the larger side outside is its share.
+ */
+function keptBesideHome(slice: Rect, own: Rect, vertical: boolean): Rect {
+  const [s0, s1] = vertical ? [slice.y, slice.y + slice.height] : [slice.x, slice.x + slice.width];
+  const [m0, m1] = vertical ? [own.y, own.y + own.height] : [own.x, own.x + own.width];
+  const mid = (m0 + m1) / 2;
+  const keep = Math.min(GAP_KEEP, s1 - s0);
+  let a: number;
+  let b: number;
+  // Own inside the strip: the side outside it with more room.
+  const before = s0 < m0 - EPS && (s1 <= m1 + EPS || m0 - s0 >= s1 - m1);
+  if (before) {
+    a = s0;
+    b = Math.min(s1, Math.max(m0, Math.min(s0 + keep, mid - 1)));
+  } else if (s1 > m1 + EPS) {
+    a = Math.max(s0, Math.min(m1, Math.max(s1 - keep, mid + 1)));
+    b = s1;
+  } else {
+    a = Math.min(Math.max((s0 + s1) / 2 - keep / 2, s0), s1 - keep);
+    if (a <= mid + 1 && a + keep >= mid - 1) a = (s0 + s1) / 2 < mid ? mid - 1 - keep : mid + 1;
+    b = a + keep;
+  }
+  return vertical ? rect(slice.x, a, slice.width, b - a) : rect(a, slice.y, b - a, slice.height);
+}
+
+/** `hit` less `cut` along one axis: trimmed at the end `cut` covers, else the larger side kept; null when nothing is left. */
+function trimAlong(hit: Rect, cut: Rect, vertical: boolean): Rect | null {
+  const [h0, h1] = vertical ? [hit.y, hit.y + hit.height] : [hit.x, hit.x + hit.width];
+  const [c0, c1] = vertical ? [cut.y, cut.y + cut.height] : [cut.x, cut.x + cut.width];
+  let [a, b] = [h0, h1];
+  if (c0 <= h0 + EPS) a = Math.max(h0, c1);
+  else if (c1 >= h1 - EPS) b = Math.min(h1, c0);
+  else if (c0 - h0 >= h1 - c1) b = c0;
+  else a = c1;
+  if (b - a <= EPS) return null;
+  return vertical ? rect(hit.x, a, hit.width, b - a) : rect(a, hit.y, b - a, hit.height);
 }
 
 /**
