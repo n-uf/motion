@@ -4,7 +4,7 @@ import { createRecognizer, type RecognizerOptions, type RecognizerTimers } from 
 import type { InputGesture, Modifiers, PointerKind, RawPointerEvent, RawPointerType } from "../types";
 
 /** Timers driven by hand, on motion's fake clock: advance(ms) runs what is due */
-export function fakeTimers(): RecognizerTimers & { advance(ms: number): void; pending(): number } {
+function fakeTimers(): RecognizerTimers & { advance(ms: number): void; pending(): number } {
   const clock = createFakeClock();
   return {
     setTimer: clock.setTimer,
@@ -16,7 +16,7 @@ export function fakeTimers(): RecognizerTimers & { advance(ms: number): void; pe
 
 /** Camera: canvas = (screen − offset) / scale */
 export const camera = { scale: 2, offset: { x: 100, y: 50 } };
-export const toCanvas = (p: Point): Point => ({ x: (p.x - camera.offset.x) / camera.scale, y: (p.y - camera.offset.y) / camera.scale });
+const toCanvas = (p: Point): Point => ({ x: (p.x - camera.offset.x) / camera.scale, y: (p.y - camera.offset.y) / camera.scale });
 
 export function setup(opts: Partial<RecognizerOptions> = {}) {
   const out: InputGesture[] = [];

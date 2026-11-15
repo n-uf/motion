@@ -33,7 +33,7 @@ export function pickTarget<T extends { readonly priority: number; readonly hit: 
 }
 
 /** The id `targets` gives the target for `place`, or null for a place with no fixed id (`none`). */
-export function targetIdOf(place: ScenePlace, item: string): string | null {
+function targetIdOf(place: ScenePlace, item: string): string | null {
   switch (place.kind) {
     case "gap":
       return `gap:${place.edge}:${place.zone}:${place.at}`;
@@ -51,7 +51,7 @@ export function targetIdOf(place: ScenePlace, item: string): string | null {
 }
 
 /** The target for `place` among `list`: by id, else by the place's kind. */
-export function targetAt(list: readonly SceneTarget[], place: ScenePlace, item: string): SceneTarget | null {
+function targetAt(list: readonly SceneTarget[], place: ScenePlace, item: string): SceneTarget | null {
   const id = targetIdOf(place, item);
   return (id ? list.find((t) => t.id === id) : undefined) ?? list.find((t) => t.place.kind === place.kind && (place.kind === "none" || id === null)) ?? null;
 }
@@ -87,7 +87,7 @@ export function resolvePlace(list: readonly SceneTarget[], place: ScenePlace, it
 }
 
 /** What the in-memory host knows about a drag in progress. */
-export interface HostDrag {
+interface HostDrag {
   readonly item: string;
   /** False between the press and the lift. */
   readonly lifted: boolean;

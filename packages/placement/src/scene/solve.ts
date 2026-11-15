@@ -42,7 +42,7 @@ const finite = (x: number | undefined, fallback: number): number => (typeof x ==
 const px = (x: number | undefined): number => Math.max(0, finite(x, 0));
 
 /** The order edges are cut in: full bars (top, bottom), columns (left, right), between bars (top, bottom); each by ring. */
-export function cutOrder(edges: readonly Edge[]): Edge[] {
+function cutOrder(edges: readonly Edge[]): Edge[] {
   const phase = (e: Edge): number => (e.side === "left" || e.side === "right" ? 1 : e.span === "between" ? 2 : 0);
   const sideRank = (e: Edge): number => (e.side === "top" || e.side === "left" ? 0 : 1);
   return edges
@@ -54,7 +54,7 @@ export function cutOrder(edges: readonly Edge[]): Edge[] {
 const ZONE_RANK: Record<Zone, number> = { start: 0, center: 1, end: 2 };
 
 /** The ids of an edge in drawing order: its items stably sorted by zone. */
-export function zoneSorted(scene: Scene, ids: readonly string[]): string[] {
+function zoneSorted(scene: Scene, ids: readonly string[]): string[] {
   return ids
     .map((id, i) => ({ id, i, z: ZONE_RANK[zoneOf(scene.items[id])] }))
     .sort((a, b) => a.z - b.z || a.i - b.i)
@@ -93,7 +93,7 @@ interface EdgeSolve {
  * and its grip (the lead cell at the start of row one); a form with `grip` (an icons strip) its grip at its start along
  * the axis (a horizontal strip on top in a column).
  */
-export function shapeOf(f: StackForm | undefined, r: Rect, axis: "column" | "row", cross: number): { rows?: number[][]; grip?: Rect } {
+function shapeOf(f: StackForm | undefined, r: Rect, axis: "column" | "row", cross: number): { rows?: number[][]; grip?: Rect } {
   if (!f) return {};
   if (f.wrap) {
     const lead = Math.max(0, finite(f.wrap.lead ?? 0, 0));
@@ -281,7 +281,7 @@ function zoneStarts(scene: Scene, fit: StackFit, input: StackInput): { starts: M
 }
 
 /** A float's rect flush with `content`'s side or corner. */
-export function anchored(content: Rect, w: number, h: number, anchor: FloatAnchor): Rect {
+function anchored(content: Rect, w: number, h: number, anchor: FloatAnchor): Rect {
   const left = content.x;
   const right = content.x + content.width - w;
   const midX = content.x + (content.width - w) / 2;

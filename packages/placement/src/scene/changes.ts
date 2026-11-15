@@ -222,7 +222,7 @@ export function fold(scene: Scene, id: string, on: boolean): Scene {
 }
 
 /** The newest age in the scene, plus one. */
-export const nextAge = (scene: Scene): number => Object.values(scene.items).reduce((m, it) => Math.max(m, Number.isFinite(it.used) ? it.used : 0), 0) + 1;
+const nextAge =(scene: Scene): number => Object.values(scene.items).reduce((m, it) => Math.max(m, Number.isFinite(it.used) ? it.used : 0), 0) + 1;
 
 export function use(scene: Scene, id: string): Scene {
   const item = itemOf(scene, id);

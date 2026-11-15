@@ -47,7 +47,7 @@ export function tiles(out: Out, r: Rect, ids: readonly number[], min?: Size): vo
  * The ones of `ids` to fold, least recently used first, until what stays open fits `avail`. An accordion keeps one
  * section open whatever (`keepOne`); a palette stack shades even its last palette rather than run off the stage.
  */
-export function lruFold(s: DeskState, ids: readonly number[], avail: number, open: (id: number) => number, closed: number, keepOne = true): number[] {
+function lruFold(s: DeskState, ids: readonly number[], avail: number, open: (id: number) => number, closed: number, keepOne = true): number[] {
   const byHand = ids.filter((id) => s.folded.includes(id));
   const auto: number[] = [];
   const isOpen = (id: number): boolean => !byHand.includes(id) && !auto.includes(id);
@@ -82,7 +82,7 @@ export function accordion(cat: Catalog, out: Out, s: DeskState, x: number, y: nu
 }
 
 /** A rail of icons at x, y; the rect of its icon `i`. */
-export const railIcon = (x: number, y: number, i: number): Rect => rect(x + 6, y + 10 + i * 32, RAIL - 12, 24);
+const railIcon =(x: number, y: number, i: number): Rect => rect(x + 6, y + 10 + i * 32, RAIL - 12, 24);
 
 /** A rail (a column whose panels are all folded) at x, y, h: one icon per panel. */
 export function rail(out: Out, side: Side, x: number, y: number, h: number, ids: readonly number[], hidden = false): void {
@@ -104,10 +104,10 @@ export function intoRail(cat: Catalog, out: Out, x: number, y: number, w: number
  * before a dock folds.
  */
 export const DOCK = 246;
-export const WORK_MIN = 380;
+const WORK_MIN = 380;
 /** The bottom dock's height when open, and the most of the stage's height it takes. */
-export const BOTTOM = 190;
-export const BOTTOM_SHARE = 0.36;
+const BOTTOM = 190;
+const BOTTOM_SHARE = 0.36;
 
 /** What the edge docks put where: shared by their layouts and their drop targets. */
 export interface DockGeometry {
@@ -254,8 +254,8 @@ export const DRAWER_DOCK = { left: 760, right: 1040 } as const;
 
 // --- the scrolling strip -------------------------------------------------------------------------------------------
 
-export const STRIP_PANEL_W = 180;
-export const stripDocW = (W: number): number => Math.max(360, Math.min(520, W * 0.5));
+const STRIP_PANEL_W = 180;
+const stripDocW =(W: number): number => Math.max(360, Math.min(520, W * 0.5));
 export const stripMin = (cat: Catalog, k: string): number => (isDocKey(k) ? DOC_MIN.height : cat.natural(idOf(k)));
 
 /** The strip's columns as laid out: a column whose minimums don't fit the height splits in two, recursively. */
