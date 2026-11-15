@@ -7,7 +7,8 @@
  * one laid first wins. Home's tile is owned before all. A virtual edge owns nothing and yields to every owner.
  */
 import { EPS, area, overlaps, rect, subtract, type Rect } from "../../geometry";
-import { DEFAULT_HIT_BAND, axisOf, formsOf, type SceneLayout } from "../model";
+import { axisOf, formsOf } from "../helpers";
+import { DEFAULT_HIT_BAND, type SceneLayout } from "../model";
 import { pushes, type LayKey } from "../solve";
 import { distinctSlots } from "./edges";
 import { EDGE_KINDS } from "./kinds";

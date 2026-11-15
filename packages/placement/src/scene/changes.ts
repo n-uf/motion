@@ -21,7 +21,8 @@
  * - `resize(scene, edge, size)`: the user's size across; a size that isn't a finite number clears it.
  */
 import { clampInto, type Rect } from "../geometry";
-import { axisOf, floatOrientOf, floatShape, floatSizeOf, zoneOf, zoneTakes, zonesTaking, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
+import { axisOf, floatOrientOf, floatShape, floatSizeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
+import type { Edge, FloatAnchor, Orient, Scene, SceneFloat, SceneItem, Side, Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
 export interface DockPlace {

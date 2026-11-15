@@ -5,7 +5,8 @@
 import { overlaps } from "../../geometry";
 import { formMain } from "../../stack";
 import { lift } from "../changes";
-import { ZONES, axisOf, formsOf, zoneOf, type Scene, type SceneItem, type SceneLayout, type SolveOptions } from "../model";
+import { axisOf, formsOf, zoneOf } from "../helpers";
+import { ZONES, type Scene, type SceneItem, type SceneLayout, type SolveOptions } from "../model";
 import { layKeys, solve } from "../solve";
 import { reservedRect } from "./edges";
 import type { Ctx, SceneAfter, SceneTargetOptions } from "./model";

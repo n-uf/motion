@@ -1,6 +1,7 @@
 /** The edge kinds and their data (`EDGE_KINDS`): the only place target generation tells edges apart. */
 import { COLUMN_REACH } from "../../geometry";
-import { DEFAULT_HIT_BAND, isSideBar, zoneTakes, type Edge, type Scene } from "../model";
+import { isSideBar, zoneTakes } from "../helpers";
+import { DEFAULT_HIT_BAND, type Edge, type Scene } from "../model";
 
 /** How far a compact rail's hits reach inward past the rail, px. */
 const RAIL_REACH = 24;

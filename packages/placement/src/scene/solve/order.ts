@@ -2,7 +2,8 @@
  * The order `solve` lays edges in, and the small number helpers every phase shares. Internal to the scene: `targets`
  * ranks the space each edge owns by the same order (`layKeys`, `pushes`).
  */
-import { zoneOf, type Edge, type Scene, type Zone } from "../model";
+import { zoneOf } from "../helpers";
+import type { Edge, Scene, Zone } from "../model";
 
 export const finite = (x: number | undefined, fallback: number): number => (typeof x === "number" && Number.isFinite(x) ? x : fallback);
 export const px = (x: number | undefined): number => Math.max(0, finite(x, 0));

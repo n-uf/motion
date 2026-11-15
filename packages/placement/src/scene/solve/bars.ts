@@ -3,7 +3,8 @@
  * length, drawn at the area's side as thick as the stack, the area less that thickness after it.
  */
 import { rect, type Rect } from "../../geometry";
-import { axisOf, type Edge } from "../model";
+import { axisOf } from "../helpers";
+import type { Edge } from "../model";
 import { emit, type Draft } from "./draft";
 import { solveEdge } from "./edge";
 

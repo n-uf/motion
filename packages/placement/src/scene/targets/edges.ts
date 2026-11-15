@@ -5,7 +5,8 @@
 import { EPS, area, rect, type Rect } from "../../geometry";
 import { formMain } from "../../stack";
 import { lift, moveTo, use } from "../changes";
-import { DEFAULT_STRIP, ZONES, axisOf, formsOf, zoneOf, zoneTakes, type Edge, type Scene, type SceneLayout, type Zone } from "../model";
+import { axisOf, formsOf, zoneOf, zoneTakes } from "../helpers";
+import { DEFAULT_STRIP, ZONES, type Edge, type Scene, type SceneLayout, type Zone } from "../model";
 import { solve } from "../solve";
 import { EDGE_KINDS, edgeKindOf, opensEmpty } from "./kinds";
 import type { Ctx, EdgeSpec, SceneAfter, SceneTargetOptions, Slot, Span } from "./model";

@@ -3,7 +3,8 @@
  * beside the content. `Frame` carries it, with the gutter and the area the outside bars leave, to the side phase.
  */
 import { EPS, rect, type Rect } from "../../geometry";
-import { formsOf, type Scene } from "../model";
+import { formsOf } from "../helpers";
+import type { Scene } from "../model";
 import type { Draft } from "./draft";
 import { isSide, px } from "./order";
 

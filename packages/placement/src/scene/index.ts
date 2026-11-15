@@ -37,13 +37,8 @@ export {
   type SolveOptions,
   type Zone,
   type ZoneAccepts,
-  floatOrientOf,
-  floatSizeOf,
-  isOutsideSideBar,
-  isSideBar,
-  zoneTakes,
-  zonesTaking,
 } from "./model";
+export { floatOrientOf, floatSizeOf, isOutsideSideBar, isSideBar, zoneTakes, zonesTaking } from "./helpers";
 export { solve } from "./solve";
 export { fitFloat, type FloatFit } from "../float-fit";
 export { close, dockHome, fold, floatAt, homeFor, keep, lift, moveTo, open, orient, raise, resize, setSide, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";

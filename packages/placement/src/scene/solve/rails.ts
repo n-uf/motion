@@ -4,7 +4,7 @@
  */
 import { rect, type Rect } from "../../geometry";
 import type { StackForm } from "../../stack";
-import { formsOf, zoneOf } from "../model";
+import { formsOf, zoneOf } from "../helpers";
 import type { Col, GiveWay } from "./columns";
 import type { Draft } from "./draft";
 import { finite, px, zoneSorted } from "./order";

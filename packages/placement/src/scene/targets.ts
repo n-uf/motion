@@ -58,7 +58,8 @@
  */
 import { PLANE, rect, type Rect } from "../geometry";
 import { floatAt, use } from "./changes";
-import { axisOf, floatOrientOf, floatSizeOf, zoneOf, zoneTakes, type Orient, type Scene } from "./model";
+import { axisOf, floatOrientOf, floatSizeOf, zoneOf, zoneTakes } from "./helpers";
+import type { Orient, Scene } from "./model";
 import { solve } from "./solve";
 import { edgeSpec } from "./targets/edges";
 import { context } from "./targets/filter";
