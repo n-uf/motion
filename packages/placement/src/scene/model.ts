@@ -140,7 +140,9 @@ export interface Edge {
   readonly column?: boolean;
   /**
    * An anchor edge (a left or right edge that takes nothing, holding a fixed item such as a thumbnail strip) lies outside
-   * `Scene.inset` and the gutter: at the window's side, the inset after it, toward the content.
+   * `Scene.inset` and the gutter: at the window's side, the inset after it, toward the content. A full top or bottom bar
+   * with it lies at the window's edge, full width, the inset after it; the side edges then run between such bars (an
+   * anchor through the inset beside them).
    */
   readonly outsideInset?: boolean;
   /**

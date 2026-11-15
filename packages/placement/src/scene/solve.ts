@@ -421,6 +421,8 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
   const rails: Partial<Record<"left" | "right", SceneRailLayout>> = {};
   const gutter = px(scene.gutter);
   let columnRoom: boolean | undefined;
+  /** The stage less the full bars outside the inset (set before the sides are laid). */
+  let outerArea: Rect = stage;
   const isSide = (e: Edge): boolean => e.side === "left" || e.side === "right";
   // The inset, or none with `insetWhen: "docked"` while nothing is docked beside the content: an open column or a rail
   // (a side edge that takes something, with an item that isn't closed). An anchor alone (it takes nothing) doesn't count.
@@ -448,8 +450,9 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     }
     // An edge outside the inset (an anchor) runs into the inset above and below too, where no reserved bar lies on that
     // side (a bar there keeps it below or above the bar).
-    const upInset = area.y <= stage.y + px(inset.top) + EPS ? px(inset.top) : 0;
-    const downInset = area.y + area.height >= stage.y + stage.height - px(inset.bottom) - EPS ? px(inset.bottom) : 0;
+    // (Outside bars lie beyond the inset already: measured from what they leave.)
+    const upInset = area.y <= outerArea.y + px(inset.top) + EPS ? px(inset.top) : 0;
+    const downInset = area.y + area.height >= outerArea.y + outerArea.height - px(inset.bottom) - EPS ? px(inset.bottom) : 0;
     const tall = (edge: Edge): number => H + (edge.outsideInset === true ? upInset + downInset : 0);
     const cols: Col[] = sideEdges.map((edge) => {
       const side = edge.side as "left" | "right";
@@ -692,9 +695,14 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     return rect(x0, area.y, Math.max(0, x1 - x0), H);
   };
 
-  let area = rect(stage.x + px(inset.left), stage.y + px(inset.top), Math.max(0, stage.width - px(inset.left) - px(inset.right)), Math.max(0, stage.height - px(inset.top) - px(inset.bottom)));
   const reserved = order.filter((e) => e.mode !== "overlay");
-  for (const e of reserved) if (!isSide(e) && e.span !== "between") area = lay(e, area, true);
+  // A full top or bottom bar outside the inset lies at the window's edge, full width; the inset follows it.
+  const outsideBar = (e: Edge): boolean => !isSide(e) && e.span !== "between" && e.outsideInset === true;
+  let outer = stage;
+  for (const e of reserved) if (outsideBar(e)) outer = lay(e, outer, true);
+  outerArea = outer;
+  let area = rect(outer.x + px(inset.left), outer.y + px(inset.top), Math.max(0, outer.width - px(inset.left) - px(inset.right)), Math.max(0, outer.height - px(inset.top) - px(inset.bottom)));
+  for (const e of reserved) if (!isSide(e) && e.span !== "between" && !outsideBar(e)) area = lay(e, area, true);
   area = laySides(reserved.filter(isSide), area);
   for (const e of reserved) if (!isSide(e) && e.span === "between") area = lay(e, area, true);
   const content = area;

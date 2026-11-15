@@ -346,6 +346,20 @@ describe("the options the rows need", () => {
     expect(overlaps(both.items.thumbs!.rect, both.edges.bb!.rect)).toBe(false);
   });
 
+  it("a top or bottom bar outside the inset lies at the window edge, full width; the inset follows it, the sides run between", () => {
+    const s = adapt(anchorLeft, 1200, 800);
+    const bar = (id: string, side: "top" | "bottom", ring: number): Edge => ({ id, side, ring, accepts: ["group"], items: [id === "tb" ? "g1" : "g2"], cross: { min: 40, max: 40, rail: 40 }, outsideInset: true });
+    const g = (id: string): SceneItem => ({ id, kind: "group", used: 9, forms: { row: [{ kind: "row", main: { min: 100, natural: 100 }, cross: { natural: 40 } }] } });
+    const l = solve({ ...s, edges: [bar("tb", "top", 0), bar("bb", "bottom", 0), ...s.edges], items: { ...s.items, g1: g("g1"), g2: g("g2") } });
+    expect(l.edges.tb!.rect).toEqual({ x: 0, y: 0, width: 1200, height: 40 });
+    expect(l.edges.bb!.rect).toEqual({ x: 0, y: 760, width: 1200, height: 40 });
+    // The anchor runs between the outside bars, through the inset under and over them.
+    expect(l.items.thumbs!.rect).toEqual({ x: 0, y: 40, width: 72, height: 720 });
+    // The content keeps the inset after the bars.
+    expect(l.content.y).toBe(52);
+    expect(l.content.y + l.content.height).toBe(748);
+  });
+
   it("no-column-room: columnRoom false with a note once one column at its minimum no longer fits beside contentMin", () => {
     const three = rows.scenes.three!.scene;
     expect(solve(adapt(three, 576, 800)).columnRoom).toBe(true);

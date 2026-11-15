@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.21
 
+- `@n-uf/placement/scene`, **`Edge.outsideInset` on top and bottom bars** (additive): a full bar with it lies at the
+  window's edge, full width, with the inset after it; the side edges run between such bars, an anchor through the inset
+  beside them. Without it nothing changes.
+
 - `@n-uf/placement/scene`, **fixed:** static edges keep their place. A new column (a `column:` or `rail:` target,
   `moveTo` with a column or rail place, `dockHome`) goes no further out than just inside the static edges outer to the
   side's dynamic columns, so a bar or an anchor at the window edge is never pushed inward. Column and rail places count
