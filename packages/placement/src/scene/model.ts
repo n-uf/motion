@@ -387,13 +387,20 @@ export const zoneOf = (item: SceneItem | undefined): Zone => (item?.align === "c
 export const formsOf = (item: SceneItem, axis: Orient): readonly StackForm[] => item.forms[axis] ?? [];
 
 /**
- * A left or right toolbar bar outside the inset: told from a column edge by its kinds, it takes something and nothing
- * the side's columns or its rail take (`Scene.columns[side].accepts`, `Scene.rails[side].accepts`); an anchor takes
- * nothing. A side with neither a column template nor a rail has nothing to tell them apart by, so no edge there is a
- * bar. It lies outermost on its side, before the side's rail.
+ * A left or right toolbar bar outside the inset (`isSideBar` with `outsideInset`). It lies outermost on its side,
+ * before the side's rail.
  */
 export function isOutsideSideBar(scene: Scene, e: Edge): boolean {
-  if ((e.side !== "left" && e.side !== "right") || e.outsideInset !== true || e.column === true || e.accepts.length === 0) return false;
+  return e.outsideInset === true && isSideBar(scene, e);
+}
+
+/**
+ * A left or right toolbar bar: told from a column edge by its kinds, it takes something and nothing the side's columns
+ * or its rail take (`Scene.columns[side].accepts`, `Scene.rails[side].accepts`); an anchor takes nothing. A side with
+ * neither a column template nor a rail has nothing to tell them apart by, so no edge there is a bar.
+ */
+export function isSideBar(scene: Scene, e: Edge): boolean {
+  if ((e.side !== "left" && e.side !== "right") || e.column === true || e.accepts.length === 0) return false;
   const template = scene.columns?.[e.side];
   const rail = scene.rails?.[e.side];
   if (!template && !rail) return false;

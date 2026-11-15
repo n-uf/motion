@@ -35,7 +35,7 @@ import { rect, type Rect } from "../geometry";
 import { fitFloat } from "../stack/floats";
 import { fitStack } from "../stack/layout";
 import { formCrossMin, formMain, formSetsCross, wrapLines, type StackFit, type StackForm, type StackInput, type StackItem } from "../stack/model";
-import { axisOf, floatOrientOf, floatShape, formsOf, isOutsideSideBar, pastWrap, zoneOf, type Edge, type FloatAnchor, type Scene, type SceneEdgeLayout, type SceneItem, type SceneItemLayout, type SceneLayout, type SceneNote, type SceneRailLayout, type SolveOptions, type Zone } from "./model";
+import { axisOf, floatOrientOf, floatShape, formsOf, isOutsideSideBar, isSideBar, pastWrap, zoneOf, type Edge, type FloatAnchor, type Scene, type SceneEdgeLayout, type SceneItem, type SceneItemLayout, type SceneLayout, type SceneNote, type SceneRailLayout, type SolveOptions, type Zone } from "./model";
 
 const EPS = 1e-6;
 const finite = (x: number | undefined, fallback: number): number => (typeof x === "number" && Number.isFinite(x) ? x : fallback);
@@ -550,7 +550,8 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     }
     const g = evaluate(auto);
     // Whether one panel column at its minimum fits beside the content's minimum: a host's narrow fallback (the sheet)
-    // reads it. Anchors and rails don't count: every column, an anchor included, can fold into its rail.
+    // reads it. Anchors and rails don't count: every column, an anchor included, can fold into its rail. A side toolbar
+    // bar with an item does: it never folds.
     // With no column edge yet (every panel floating), a side's column template says how narrow its column could be: its
     // `cross.min`, or more where the items it takes need more (their form's least width), as a column holding them would.
     // The question is hypothetical (could one column open?), so it is answered as if that column were open: a column
@@ -573,8 +574,13 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     });
     const colMins = open.length > 0 ? open : templates;
     if (cmin !== undefined && colMins.length > 0) {
+      // A side toolbar bar never folds: one that lays out an item takes its width (and the gutter after it, unless it
+      // lies outside the inset, which the area already leaves out) from the room a column could have.
+      const bars = cols
+        .filter((c) => c.width > 0 && !c.dyn && isSideBar(scene, c.edge))
+        .reduce((s, c) => s + c.width + (c.edge.outsideInset === true ? 0 : gutter), 0);
       // With `insetWhen: "docked"` and nothing docked now, the column that opens brings the inset with it.
-      const width = area.width - (scene.insetWhen === "docked" && !docked ? px(scene.inset?.left) + px(scene.inset?.right) : 0);
+      const width = area.width - bars - (scene.insetWhen === "docked" && !docked ? px(scene.inset?.left) + px(scene.inset?.right) : 0);
       const need = cmin + Math.min(...colMins) + gutter;
       columnRoom = width >= need - EPS;
       if (!columnRoom) notes.push({ code: "no-column-room", width, need });
