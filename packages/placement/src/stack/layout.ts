@@ -38,7 +38,7 @@
  * same input, same fit.
  */
 import type { Rect } from "../geometry";
-import { formCrossMin, formFitsCross, formMain, formSetsCross, limitsOf, menuMain, spacingOf, wrapCross, wrapRows, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote } from "./model";
+import { formCrossMin, formFitsCross, formMain, formSetsCross, limitsOf, menuMain, spacingOf, wrapCross, wrapRows, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote, type StackStep } from "./model";
 
 const EPS = 1e-6;
 const isMenu = (f: StackForm): boolean => f.kind === "menu";
@@ -84,13 +84,13 @@ function victim(items: readonly StackItem[], to: readonly number[]): number {
  * was added or opened. Room that came back is used, but growing never re-ranks. When the stack got wider across (a wider
  * limit lets a panel open wider, and the forms that stepped down for the old width may come back) the fresh fit is
  * taken. When the forms kept leave more spare length than they did (the length grew, a gap or a size shrank; `need` is
- * what each fit says its forms need) the fresh fit is taken only if it is a pure gain over the kept one (no item's form
- * is further down, at least one is further up); otherwise room comes back in the reverse of give-way order (the item
- * that gave way most recently first, so the newest used, with rank and `kept` respected), one item at a time, and growth
- * stops at the first item that can't grow: no item behind it jumps the queue. Items in the » menu come out together
- * only when that keeps the order, and never ahead of an item whose step down ranked higher than their step into the
- * menu: growing back is strictly the reverse of giving way, the menu included. A `previous` with no `need` (one an app built by hand) is no help and the fresh fit
- * is returned.
+ * what each fit says its forms need) room comes back by undoing the give-way history (`steps`, carried on from fit to
+ * fit) from its last step, a batch into the » menu together, an item to the nearest earlier form that fits; the first
+ * step that can't be undone stops all growth. So growing back is exactly the reverse of giving way: at every length the
+ * way back holds what the way down held. A `previous` without a history (built by hand, or by an older version) grows
+ * the old way: a fresh fit that is a pure gain over the kept one, else the item that gave way most recently by its
+ * rank, `kept` and age first, one at a time, menu items out only when that keeps the order. A `previous` with no `need`
+ * (one an app built by hand) is no help and the fresh fit is returned.
  */
 export function fitStack(input: StackInput, options: FitOptions = {}): StackFit {
   const fresh = solve(input);
@@ -101,7 +101,9 @@ export function fitStack(input: StackInput, options: FitOptions = {}): StackFit 
   if (kept.cross > previous.cross + EPS) return fresh;
   const moreLength = Math.max(0, kept.length) - seed.need > previous.length - previous.need + EPS;
   if (!moreLength) return kept;
-  const gain = fresh.items.every((p, i) => p.form <= kept.items[i]!.form) && fresh.items.some((p, i) => p.form < kept.items[i]!.form);
+  // With the give-way history, room comes back by undoing it from the last step (exactly the reverse); without one (a
+  // previous fit built by hand, or by an older version), a fresh fit that is a pure gain is taken.
+  const gain = !previous.steps && fresh.items.every((p, i) => p.form <= kept.items[i]!.form) && fresh.items.some((p, i) => p.form < kept.items[i]!.form);
   return gain ? fresh : solve(input, previous, { need: 0 }, true);
 }
 
@@ -134,10 +136,36 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   const form = (i: number): StackForm => items[i]!.forms[at[i]!]!;
   const idx = items.map((_, i) => i);
 
+  // The give-way history: carried on from `previous` for the items whose steps still lead from their start to the form
+  // they keep, then every step taken here. Room coming back undoes it from the last step.
+  const hist: StackStep[] = [];
+  const withHistory = new Set<string>();
+  let batches = 0;
+  if (previous?.steps) {
+    const byId = new Map(items.map((it, i) => [it.id, i]));
+    const ends = new Map<string, number>();
+    const good = new Set<string>(items.map((it) => it.id));
+    for (const s of previous.steps) {
+      const i = byId.get(s.id);
+      if (i === undefined) continue;
+      if (s.from !== (ends.get(s.id) ?? start[i]!)) good.delete(s.id);
+      ends.set(s.id, s.to);
+    }
+    items.forEach((it, i) => {
+      if ((ends.get(it.id) ?? start[i]!) !== at[i]) good.delete(it.id);
+    });
+    for (const s of previous.steps) if (good.has(s.id) && byId.has(s.id)) hist.push(s);
+    for (const s of hist) {
+      withHistory.add(s.id);
+      if (s.batch !== undefined) batches = Math.max(batches, s.batch + 1);
+    }
+  }
   const firstStep: number[] = [];
   const menuOrder: number[] = [];
-  const step = (i: number, j: number): void => {
+  const step = (i: number, j: number, batch?: number): void => {
     if (!firstStep.includes(i)) firstStep.push(i);
+    hist.push({ id: items[i]!.id, from: at[i]!, to: j, ...(batch !== undefined ? { batch } : {}) });
+    withHistory.add(items[i]!.id);
     at[i] = j;
     if (isMenu(form(i)) && !menuOrder.includes(i)) menuOrder.push(i);
   };
@@ -228,12 +256,46 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
       const kb = items[b]!.kept ? 1 : 0;
       return ra !== rb ? ra > rb : ka !== kb ? ka > kb : items[a]!.used !== items[b]!.used ? items[a]!.used > items[b]!.used : a < b;
     };
-    // Strictly as a stack: only the item next in that order may grow. When it can't, growth stops; no item behind it
-    // jumps the queue (a leading group never opens while a trailing one that gave way after it stays folded).
+    // With the give-way history: undo it from the last step (a batch into the menu comes out together) while the stack
+    // still fits; the first step that can't be undone stops all growth. Exactly the reverse of giving way.
+    const index = new Map(items.map((it, i) => [it.id, i]));
+    let stuck = false;
+    const undoes = (n: number, c0: number): boolean => {
+      const group = hist.slice(hist.length - n);
+      const changed = [...new Set(group.map((s) => index.get(s.id)!))];
+      const was = changed.map((i) => at[i]!);
+      for (const s of [...group].reverse()) at[index.get(s.id)!] = s.from;
+      if (minSum() <= length + EPS && crossOf() === c0 && changed.every((j) => !tooWide(j, c0))) return true;
+      changed.forEach((i, k) => (at[i] = was[k]!));
+      return false;
+    };
+    while (hist.length > 0) {
+      const c0 = crossOf();
+      const last = hist[hist.length - 1]!;
+      let n = 1;
+      if (last.batch !== undefined) while (n < hist.length && hist[hist.length - 1 - n]!.batch === last.batch) n++;
+      // An item goes back to the nearest earlier form the stack fits with: when undoing its last step doesn't fit, its
+      // steps just before it (in a row at the end of the history) are undone with it.
+      let took = 0;
+      for (let m = n; m <= hist.length && took === 0; m++) {
+        if (m > n && (last.batch !== undefined || hist[hist.length - m]!.id !== last.id)) break;
+        if (undoes(m, c0)) took = m;
+      }
+      if (took === 0) {
+        stuck = true;
+        break;
+      }
+      hist.length -= took;
+    }
+    // Without a history (a previous fit built by hand, or items whose steps it lost): the items next in the reverse of
+    // give-way order. Strictly as a stack: only the item next in that order may grow. When it can't, growth stops; no
+    // item behind it jumps the queue (a leading group never opens while a trailing one that gave way after it stays
+    // folded).
     for (;;) {
+      if (stuck) break;
       const c0 = crossOf();
       const fitsWith = (changed: readonly number[]): boolean => minSum() <= length + EPS && crossOf() === c0 && changed.every((j) => !tooWide(j, c0));
-      const queue = idx.filter((i) => !items[i]!.fixed && at[i]! > start[i]!).sort((a, b) => (comesBefore(a, b) ? -1 : 1));
+      const queue = idx.filter((i) => !items[i]!.fixed && at[i]! > start[i]! && !withHistory.has(items[i]!.id)).sort((a, b) => (comesBefore(a, b) ? -1 : 1));
       const next = queue[0];
       if (next === undefined) break;
       const cur = at[next]!;
@@ -301,7 +363,8 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     if (v >= 0 && to[v]! < 0) {
       const batch = menuBatch(pool);
       if (batch) {
-        for (const [i, j] of batch) step(i, j);
+        const id = batches++;
+        for (const [i, j] of batch) step(i, j, id);
         continue;
       }
     }
@@ -370,5 +433,5 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   for (const i of menuOrder) if (isMenu(form(i))) notes.push({ code: "to-menu", id: items[i]!.id });
   for (const i of idx) if (tooWide(i, cross)) notes.push({ code: "too-wide", id: items[i]!.id });
   if (overflow > EPS) notes.push({ code: "overflow", over: overflow });
-  return { axis: input.axis, length, cross, items: placed, menu, notes, need: minSum() };
+  return { axis: input.axis, length, cross, items: placed, menu, notes, need: minSum(), steps: hist };
 }

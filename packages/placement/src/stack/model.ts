@@ -358,6 +358,20 @@ export interface StackFit {
    * only when the stack overflows. `fitStack`'s `previous` reads it to tell room coming back from a change of ages.
    */
   readonly need?: number;
+  /**
+   * The give-way history: every step down from the items' starting forms to the forms chosen, in the order taken (items
+   * that went into the » menu together share a `batch`). `fitStack`'s `previous` carries it on, and room coming back
+   * undoes it from the last step: growing back is exactly the reverse of giving way.
+   */
+  readonly steps?: readonly StackStep[];
+}
+
+/** One give-way step: item `id` went from form `from` to form `to`; steps sharing a `batch` were taken together. */
+export interface StackStep {
+  readonly id: string;
+  readonly from: number;
+  readonly to: number;
+  readonly batch?: number;
 }
 
 /** What `fitStack` and `stackTargets` take besides the input. */
@@ -365,16 +379,15 @@ export interface FitOptions {
   /**
    * The fit the stack had before. While the forms it chose still fit, they are kept: a change of `used` ages alone (a press
    * on a header) reshapes nothing. Ages decide only who gives way anew (the length shrank, an item was added or opened),
-   * and room that came back is used, but growing never re-ranks: the fresh fit is taken only if it is a pure gain (no
-   * item's form is further down, one is further up) or the stack got wider across; otherwise room comes back in the
-   * reverse of give-way order, and growth stops at the first item that can't grow: the item that gave way most recently
-   * (highest rank, then `kept`, then the newest used, then the earlier in the stack) goes back to the nearest larger form
-   * the stack fits with, even when that makes the stack shorter (the last item out of the menu takes the » entry with
-   * it), and so on; when it fits no larger form, nothing behind it grows. Items in the menu still come out, alone or
-   * together when only their leaving together fits, but only when that keeps the order: an item leaves only with every
-   * menu item ahead of it, only for a form no fewer steps down (from its `from`) than every item ahead of it that isn't
-   * in the menu, and never ahead of an item whose step down ranked higher than its own step into the menu (that step
-   * came after it): growing back is strictly the reverse of giving way, the menu included.
+   * and room that came back is used, but growing never re-ranks: the fresh fit is taken when the stack got wider across;
+   * otherwise room comes back by undoing the give-way history (`StackFit.steps`, carried on from fit to fit) from its
+   * last step: a batch that went into the » menu together comes out together, an item goes back to the nearest earlier
+   * form the stack fits with (the last item out of the menu takes the » entry with it), and the first step that can't
+   * be undone stops all growth. Growing back is exactly the reverse of giving way, the menu included: at every length
+   * the way back holds what the way down held, whatever presses changed the ages since. A `previous` without a history
+   * (built by hand, or by an older version) grows the old way: a fresh fit that is a pure gain, else the item that gave
+   * way most recently (highest rank, then `kept`, the newest used, the earlier in the stack) first, menu items out only
+   * while that keeps the order.
    * One px of room moves nothing. Results under `previous` depend on history: a shrink then a grow may end at another
    * arrangement than a fresh solve of the same input, and more room never undoes a growth along successive solves.
    * Growing back is meant for stacks of up to about 50 items (60 small menu items take about 9 ms; the cost grows with

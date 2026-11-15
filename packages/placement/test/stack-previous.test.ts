@@ -225,18 +225,22 @@ describe("previous: a wider stack, and forms that changed", () => {
     expect(kinds(fitStack(row(139, 0), { previous: B }))).toEqual(["menu", "menu", "row"]);
   });
 
-  it("room grows the item that gave way most recently first (newest used, with rank and kept respected)", () => {
-    // All three icons (120 px); room for one row (+110) but not two. The newest used goes back first, whatever the place.
+  it("room grows the item that gave way most recently first: exactly the reverse of the steps taken, a press after them aside", () => {
+    // All three icons (120 px); room for one row (+110) but not two. The last to give way (c, the newest used when they
+    // gave way) goes back first, whatever the place. (Before 26.11.21 the ages at growth decided, so a press after the
+    // give-way that made b the newest grew b; growing back is now exactly the reverse of the steps taken.)
     const g = (id: string, used: number, kept = false): StackItem => ({ id, used, ...(kept ? { kept } : {}), forms: [f("row", 150, 28), f("icons", 40, 28), { ...f("menu", 0, 0), rank: 1 }] });
     const input = (ages: [number, number, number], length: number, keptC = false): StackInput => ({ axis: "row", length, cross: { min: 28, max: 40 }, items: [g("a", ages[0]), g("b", ages[1]), g("c", ages[2], keptC)] });
     const tight = fitStack(input([1, 2, 3], 200));
     expect(kinds(tight)).toEqual(["icons", "icons", "icons"]);
-    // Ages flipped by a press (b is now the newest), then 100 px more: b grows back, not the oldest or the last.
+    expect(tight.steps!.map((s) => s.id)).toEqual(["a", "b", "c"]);
+    // Ages flipped by a press (b is now the newest), then 100 px more: c, the last to give way, grows back.
     const press = fitStack(input([1, 5, 3], 200), { previous: tight });
     expect(kinds(press)).toEqual(["icons", "icons", "icons"]);
-    expect(kinds(fitStack(input([1, 5, 3], 300), { previous: press }))).toEqual(["icons", "row", "icons"]);
-    // A kept item grows back before the others, whatever its age.
-    expect(kinds(fitStack(input([1, 5, 0], 300, true), { previous: press }))).toEqual(["icons", "icons", "row"]);
+    expect(kinds(fitStack(input([1, 5, 3], 300), { previous: press }))).toEqual(["icons", "icons", "row"]);
+    // A previous fit without a give-way history (built by hand): the newest used at growth goes back first, as before.
+    const { steps: _s, ...legacy } = press;
+    expect(kinds(fitStack(input([1, 5, 3], 300), { previous: legacy }))).toEqual(["icons", "row", "icons"]);
   });
 
   it("a sweep: after a press, shrinking only steps items down and growing never moves one down", () => {
@@ -381,5 +385,62 @@ describe("previous: room comes back in the reverse of give-way order, and stops 
       }
     }
     expect(checked).toBeGreaterThan(600);
+  });
+});
+
+describe("growing back is exactly the reverse of giving way (the history in `steps`)", () => {
+  const one = (kind: StackForm["kind"], main: number): StackForm => ({ kind, main: { min: main, natural: main }, cross: { natural: kind === "menu" ? 0 : 28 } });
+  const forms = (row: number, icons: number): StackForm[] => [one("row", row), one("icons", icons), one("menu", 0)];
+  /** Narrowing then widening by `by` px, the fits at each length on the way down and on the way back. */
+  function there(input: (length: number) => StackInput, from: number, to: number, by: number): { down: Map<number, string>; up: Map<number, string> } {
+    const down = new Map<number, string>();
+    const up = new Map<number, string>();
+    const key = (fit: StackFit) => fit.items.map((p) => `${p.id}:${p.form}`).join(" ");
+    let previous: StackFit | undefined;
+    const lengths: number[] = [];
+    for (let l = from; l >= to; l -= by) lengths.push(l);
+    for (const l of lengths) {
+      previous = fitStack(input(l), previous ? { previous } : {});
+      down.set(l, key(previous));
+    }
+    for (const l of [...lengths].reverse()) {
+      previous = fitStack(input(l), { previous: previous! });
+      up.set(l, key(previous));
+    }
+    return { down, up };
+  }
+
+  it("the reported stack: b goes back to its row before a leaves the menu, the steps undone in reverse", () => {
+    const input = (length: number): StackInput => ({
+      axis: "row",
+      length,
+      gap: 4,
+      cross: { min: 28, max: 40 },
+      items: [
+        { id: "a", used: 6, forms: forms(86, 39) },
+        { id: "b", used: 18, forms: forms(190, 60) },
+        { id: "c", used: 1, forms: forms(61, 72) },
+      ],
+    });
+    const { down, up } = there(input, 400, 60, 4);
+    // At every length, the way back holds what the way down held.
+    for (const [l, k] of up) expect(k, `${l}`).toBe(down.get(l));
+    // At 136 (a in the menu, b at icons on the way down) b is not back yet, so a stays in the menu.
+    expect(up.get(136)).toBe(down.get(136));
+  });
+
+  it("on random unranked stacks: at every length, the way back holds what the way down held", () => {
+    const rand = seeded(2621);
+    let n = 0;
+    for (let trial = 0; trial < 300; trial++) {
+      const items: StackItem[] = Array.from({ length: 2 + Math.floor(rand() * 4) }, (_, i) => ({ id: `g${i}`, used: Math.floor(rand() * 30), forms: forms(40 + Math.floor(rand() * 180), 20 + Math.floor(rand() * 60)) }));
+      const input = (length: number): StackInput => ({ axis: "row", length, gap: 4, cross: { min: 28, max: 40 }, menu: { main: 24 }, items });
+      const { down, up } = there(input, 900, 40, 8);
+      for (const [l, k] of up) {
+        expect(k, `trial ${trial} at ${l}`).toBe(down.get(l));
+        n++;
+      }
+    }
+    expect(n).toBeGreaterThan(30000);
   });
 });
