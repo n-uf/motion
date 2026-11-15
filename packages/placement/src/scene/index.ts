@@ -32,6 +32,9 @@ export {
   type Side,
   type SolveOptions,
   type Zone,
+  type ZoneAccepts,
+  zoneTakes,
+  zonesTaking,
 } from "./model";
 export { solve } from "./solve";
 export { close, dockHome, fold, floatAt, homeFor, keep, lift, moveTo, open, orient, raise, resize, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";
