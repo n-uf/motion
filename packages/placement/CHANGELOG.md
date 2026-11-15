@@ -57,6 +57,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     - An overlay column is drawn on top, and what shows on top wins: an empty rail's place under an overlay column
       offers no `rail:` stop there, and a column line beside an overlay column yields to it.
 
+  - Typing: `SceneRefusal["reason"]` gains `own-place`; an exhaustive `switch` over it needs the case.
+
   **Migration:** match refusals by `refuse:<edge>:<zone>` prefix and read `own-place` as "back to its place"; read
   `home:<id>` (unchanged, over the own rect) for "back to its place"; expect no target over a stretch beside a lone
   item, a refusal there instead; match `gap:<edge>:<zone>:<at>` for an edge that holds only closed members.
