@@ -24,7 +24,7 @@ export const CASE_GROUPS: readonly { id: CaseGroup; title: string }[] = [
 ];
 
 /** A case's starting state on the stage. Anything left out is the stage's default. */
-export interface Preset {
+interface Preset {
   readonly settings?: Partial<EdgeSettings>;
   readonly layout?: Layout;
   readonly used?: Partial<Record<ItemId, number>>;
@@ -36,7 +36,7 @@ export interface Preset {
 }
 
 /** A control of the settings strip: a setting, or the freeze, the counts, the stored layout. */
-export type Control = keyof EdgeSettings | "freeze" | "counts" | "stored";
+type Control =keyof EdgeSettings | "freeze" | "counts" | "stored";
 
 /** What to look at: items, or a whole stack, or the pages under them. */
 export type Look = ItemId | "column" | "bar" | "pages";

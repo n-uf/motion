@@ -20,7 +20,7 @@ function position(place: Place, zone: readonly GroupId[]): string {
 }
 
 /** Word set 1: an app's own words, one set several apps can share. */
-export const WORD_SET_1: Words = (_g, place, zone) => {
+const WORD_SET_1:Words = (_g, place, zone) => {
   if (place === "float") return "Float over the page";
   const host = { title: "Title bar", top: "Top bar", bottom: "Bottom bar", left: "Left bar", right: "Right bar" }[place.host];
   const side = place.host === "left" || place.host === "right";

@@ -18,7 +18,7 @@ import { floatTarget, hostTargets, keyboardStops, type Allows, type KeyboardStop
 import { HOSTS, arrangement, hostOf, layoutHost, sameArrangement, toggleCollapsed, vertical, withoutGroup, type Arrangement, type GroupSize, type HostId, type HostSpec, type Place } from "@n-uf/placement/toolbar";
 
 export type GroupId = "navigate" | "zoom" | "annotate" | "review" | "share";
-export const GROUPS: readonly GroupId[] = ["navigate", "zoom", "annotate", "review", "share"];
+const GROUPS: readonly GroupId[] = ["navigate", "zoom", "annotate", "review", "share"];
 export const GROUP_LABEL: Readonly<Record<GroupId, string>> = { navigate: "Navigate", zoom: "Zoom", annotate: "Annotate", review: "Review", share: "Share" };
 const CELLS: Readonly<Record<GroupId, readonly (readonly [string, string])[]>> = {
   navigate: [["‹", "Previous page"], ["›", "Next page"], ["⤒", "First page"]],
@@ -31,7 +31,7 @@ const CELLS: Readonly<Record<GroupId, readonly (readonly [string, string])[]>> =
 /** Where the groups start. */
 export const HOME: Arrangement<GroupId> = arrangement<GroupId>({ title: { end: ["share"] }, top: { start: ["navigate", "zoom"], end: ["annotate", "review"] } });
 
-export type KTarget = ToolbarTarget<GroupId> | ToolbarFloatTarget<GroupId>;
+type KTarget =ToolbarTarget<GroupId> | ToolbarFloatTarget<GroupId>;
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 const inRect = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
@@ -56,7 +56,7 @@ export interface Geometry {
   /** How long each group keeps its full form when a bar runs out of room (case 4); placement's default when unset. */
   readonly keep?: Readonly<Partial<Record<GroupId, number>>>;
 }
-export function geometryAt(width: number, keep?: Geometry["keep"]): Geometry {
+function geometryAt(width: number, keep?: Geometry["keep"]): Geometry {
   return {
     width,
     hostRect: {
@@ -171,14 +171,14 @@ export interface ViewerOptions {
 }
 
 /** One frame of a drag, as the viewer drew it. */
-export interface DragFrameRecord {
+interface DragFrameRecord {
   readonly t: number;
   /** The point the intent read (page space). */
   readonly read: Point;
   readonly shown: string | null;
 }
 
-export interface DragRecord {
+interface DragRecord {
   readonly group: GroupId;
   readonly frames: readonly DragFrameRecord[];
   readonly landed: string | null;

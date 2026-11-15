@@ -43,7 +43,6 @@ export const desk = createDesk({
 
 export const CONSTRUCTIONS = desk.constructions;
 export const constructionOf = desk.constructionOf;
-export const natural = desk.natural;
 export const titleOf = desk.titleOf;
 export const DEFAULT_CONSTRUCTION: ConstructionId = "dockTear";
 

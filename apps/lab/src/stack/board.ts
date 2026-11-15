@@ -53,10 +53,10 @@ const AXIS = { column: "column", bar: "row" } as const;
  * under the bar), and the bar's fixed thickness (a bar of groups is a rail tall).
  */
 export const STAGE = { width: 880, height: 500 };
-export const STAGE_HEIGHT = { min: 240, max: 500 };
-export const BAR_H = 32;
-export const ORIGIN: Record<Side, { x: number; y: number }> = { bar: { x: 0, y: 0 }, column: { x: 0, y: BAR_H } };
-export const STAGE_RECT: Rect = { x: 0, y: 0, width: STAGE.width, height: STAGE.height };
+const STAGE_HEIGHT = { min: 240, max: 500 };
+const BAR_H = 32;
+const ORIGIN:Record<Side, { x: number; y: number }> = { bar: { x: 0, y: 0 }, column: { x: 0, y: BAR_H } };
+const STAGE_RECT: Rect ={ x: 0, y: 0, width: STAGE.width, height: STAGE.height };
 const LENGTH: Record<Side, number> = { column: STAGE.height - BAR_H, bar: STAGE.width };
 /** The app widens a gap's zone across a thin stack so it is easy to hit, and past the stack's far ends. */
 const REACH = { column: 44, bar: 40 };
@@ -116,8 +116,8 @@ export interface EdgeSettings {
   readonly preview: DragPreview;
 }
 export const EDGE_DEFAULTS: EdgeSettings = { width: 840, height: 500, barLength: 840, widthLimit: 360, gap: 8, pad: 12, preview: "gap" };
-export const EDGE_BAR_H = 40;
-export const EDGE_WIDTH = { min: 420, max: 1000 };
+const EDGE_BAR_H = 40;
+const EDGE_WIDTH ={ min: 420, max: 1000 };
 /** Short enough that every group of the bar folds, the ranked primary too (T3). */
 export const EDGE_BAR_LENGTH = { min: 120, max: 1000 };
 
@@ -135,7 +135,7 @@ export interface Seen {
 }
 
 /** What a drop did, as the DOM and the solvers say. */
-export interface DropRecord {
+interface DropRecord {
   readonly id: ItemId;
   readonly landed: Where | null;
   readonly shown: string | null;
@@ -164,7 +164,6 @@ interface FloatT extends DragTarget {
   readonly label: string;
 }
 export type BoardTarget = DockT | FloatT;
-export type { DockT, FloatT };
 
 export interface LoadReport {
   /** Something stored was read and applied (otherwise the arrangement is left as it was). */

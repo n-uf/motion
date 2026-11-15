@@ -8,20 +8,17 @@ import type { Rect, Size } from "@n-uf/placement";
 import type { StackForm } from "@n-uf/placement/stack";
 import type { Edge, Scene, SceneItem } from "@n-uf/placement/scene";
 
-export type Kind = "panel" | "group" | "chrome";
 export type EdgeId = "title" | "top" | "left" | "right" | "bottom" | "rail-left" | "rail-right";
 
-export const PANELS = ["pages", "notes", "findings"] as const;
+const PANELS = ["pages", "notes", "findings"] as const;
 export const GROUPS = ["zoom", "tools", "views", "review"] as const;
-export const CHROME = ["title", "controls"] as const;
-export type PanelId = (typeof PANELS)[number];
+const CHROME = ["title", "controls"] as const;
+type PanelId =(typeof PANELS)[number];
 export type GroupId = (typeof GROUPS)[number];
 export type ItemId = PanelId | GroupId | (typeof CHROME)[number];
 export const MOVABLE: readonly ItemId[] = [...PANELS, ...GROUPS];
 export const ALL: readonly ItemId[] = [...MOVABLE, ...CHROME];
 export const EDGES: readonly EdgeId[] = ["title", "top", "left", "right", "bottom", "rail-left", "rail-right"];
-/** The thin rails of vertical toolbars, one per side at the window's edge (compact: icons only). */
-export const RAILS: readonly EdgeId[] = ["rail-left", "rail-right"];
 export const isSideEdge = (e: EdgeId): boolean => e === "left" || e === "right" || e === "rail-left" || e === "rail-right";
 
 export interface Counts {
@@ -87,7 +84,7 @@ export function setGroupSizes(m: Readonly<Record<GroupId, GroupMeasure>>): void 
   measured = m;
 }
 /** The measured widths (the page measures them on start, before its first scene). */
-export function groupSizes(): Readonly<Record<GroupId, GroupMeasure>> {
+function groupSizes():Readonly<Record<GroupId, GroupMeasure>> {
   if (!measured) throw new Error("docwin: the groups are measured on the page before a scene is built");
   return measured;
 }
@@ -112,7 +109,7 @@ const PANEL_FLOAT: Record<PanelId, Size> = {
 };
 const floatSize = (id: PanelId | GroupId): Size => (isPanel(id) ? PANEL_FLOAT[id] : { width: groupSizes()[id].row, height: BAR });
 
-export const isPanel = (id: string): id is PanelId => (PANELS as readonly string[]).includes(id);
+const isPanel = (id: string): id is PanelId => (PANELS as readonly string[]).includes(id);
 export const isGroup = (id: string): id is GroupId => (GROUPS as readonly string[]).includes(id);
 
 export const TITLES: Record<ItemId, string> = {
@@ -128,9 +125,9 @@ export const TITLES: Record<ItemId, string> = {
 };
 
 /** The toolbars that go into a » menu last (the highest give-way priority): Zoom and Review. */
-export const PRIORITY: Partial<Record<GroupId, number>> = { zoom: 10, review: 10 };
+const PRIORITY: Partial<Record<GroupId, number>> = { zoom: 10, review: 10 };
 /** The title bar's toolbars step down before other bars' (its default priority). */
-export const TITLE_BAR_PRIORITY = -1;
+const TITLE_BAR_PRIORITY = -1;
 
 function itemOf(id: ItemId, used: number): SceneItem {
   if (isPanel(id)) return { id, kind: "panel", forms: { column: PANEL_COLUMN[id] }, floatSize: floatSize(id), used };

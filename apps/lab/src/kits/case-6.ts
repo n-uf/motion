@@ -10,7 +10,7 @@ import { drag, fmt, mid, off, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
 /** Review stays in the top bar; Share can't float. */
-export const constraint: Allows<GroupId> = (g, place) => {
+const constraint:Allows<GroupId> = (g, place) => {
   if (g === "review") return place !== "float" && place.host === "top";
   if (g === "share") return place !== "float";
   return true;

@@ -50,7 +50,7 @@ export interface GripHost {
 }
 
 /** One entry of a unit's menu. */
-export interface MenuEntry {
+interface MenuEntry {
   readonly label: string;
   /** A hint at the right edge (the mouse's way to the same thing). */
   readonly hint?: string;
