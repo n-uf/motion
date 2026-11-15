@@ -1177,7 +1177,144 @@ export const PRESETS: readonly Preset[] = [
       return { pass: bad.length === 0 && n > 0, now: `${n} separators measured.${bad.length ? ` Uneven: ${bad.join("; ")}.` : n ? " All even." : " None found."}` };
     },
   },
+  {
+    id: "fit-sweep",
+    title: "Toolbars that don't fit: shrink and grow back",
+    expected:
+      "The window shrinks from 1440 to 600 px wide in 40 px steps, then from 900 to 500 px tall, and grows back. At every step: nothing is clipped, no docked items overlap, every item is in place or in its edge's » menu (which lists exactly what it holds), no item changes edges, and toolbars step down lowest priority first (Zoom and Review last), the oldest used first; growing back they only step up, and the window ends as it began.",
+    setup: (c) => c.setScene(sceneWith((s) => put(s, "top", ["tools", "views"]), { width: 1440, height: 900 })),
+    check(c) {
+      c.setScene(sceneWith((s) => put(s, "top", ["tools", "views"]), { width: 1440, height: 900 }));
+      const bad: string[] = [];
+      const start = fitState(c);
+      const sizes: [number, number][] = [];
+      for (let w = 1440; w >= 600; w -= 40) sizes.push([w, 900]);
+      for (let h = 900; h >= 500; h -= 40) sizes.push([600, h]);
+      let last = start;
+      const visit = (w: number, h: number, shrinking: boolean): void => {
+        c.setSize(w, h);
+        const now = fitState(c);
+        for (const issue of fitIssues(c, start, now, last, shrinking)) bad.push(`${w}×${h}: ${issue}`);
+        last = now;
+      };
+      for (const [w, h] of sizes) visit(w, h, true);
+      for (const [w, h] of [...sizes].reverse()) visit(w, h, false);
+      const end = fitState(c);
+      for (const id of Object.keys(start.step)) if (end.step[id] !== start.step[id] || end.edge[id] !== start.edge[id]) bad.push(`back at 1440×900, ${id} is at step ${end.step[id]} in ${end.edge[id]}, it began at ${start.step[id]} in ${start.edge[id]}`);
+      return { pass: bad.length === 0, now: `${2 * sizes.length} sizes.${bad.length ? ` Broken: ${bad.slice(0, 6).join("; ")}${bad.length > 6 ? ` (+${bad.length - 6})` : ""}.` : " Every step held."}` };
+    },
+  },
+  {
+    id: "crowded-title-bar",
+    title: "A crowded title bar gives way before the top bar",
+    expected: "With the title, Tools, Zoom and Views in the title bar and Review in the top bar, a narrowing window steps the title bar's toolbars down to icons and then into its » menu before the top bar's do.",
+    setup: (c) => c.setScene(sceneWith((s) => put(put(s, "title", ["tools", "zoom", "views"]), "top", ["review"]), { width: 1440, height: 640 })),
+    check(c) {
+      c.setScene(sceneWith((s) => put(put(s, "title", ["tools", "zoom", "views"]), "top", ["review"]), { width: 1440, height: 640 }));
+      const start = fitState(c);
+      let titleAt = 0;
+      let topAt = 0;
+      for (let w = 1440; w >= 480; w -= 20) {
+        c.setSize(w, 640);
+        const s = fitState(c);
+        const moved = (ids: string[]) => ids.some((id) => s.step[id] !== start.step[id]);
+        if (!titleAt && moved(["tools", "zoom", "views"])) titleAt = w;
+        if (!topAt && moved(["review"])) topAt = w;
+      }
+      const ok = titleAt > 0 && (topAt === 0 || titleAt > topAt);
+      return { pass: ok, now: `The title bar's toolbars first step down at ${titleAt || "never"} px, the top bar's at ${topAt || "never"} px.` };
+    },
+  },
+  {
+    id: "menu-lists-held",
+    title: "The » menu lists exactly what it holds",
+    expected: "In a narrow window the title bar's » menu shows the count of the toolbars it holds; opened, it lists exactly them, in order; picking one acts as its control would (a stub here) and leaves the window as it was.",
+    setup: (c) => c.setScene(sceneWith((s) => put(s, "title", ["tools", "zoom", "views"]), { width: MENU_WIDTH, height: 640 })),
+    check(c) {
+      c.setScene(sceneWith((s) => put(s, "title", ["tools", "zoom", "views"]), { width: MENU_WIDTH, height: 640 }));
+      const m = c.layout.edges.title?.menu;
+      if (!m || !m.items.length) return { pass: false, now: `The title bar has no » menu at ${MENU_WIDTH} px.` };
+      const held = (Object.keys(c.layout.items) as ItemId[]).filter((id) => c.layout.items[id]!.edge === "title" && c.layout.items[id]!.inMenu);
+      const bad: string[] = [];
+      if (m.items.join() !== held.join()) bad.push(`the menu lists [${m.items.join(", ")}], the items in it are [${held.join(", ")}]`);
+      const btn = c.win.querySelector<HTMLElement>('.dw-menu[data-edge="title"]');
+      if (!btn || !btn.textContent?.includes(String(m.items.length))) bad.push(`the » button reads "${btn?.textContent ?? "nothing"}"`);
+      // A drag earlier in the same run may still swallow the click that follows its pointer-up: spend it on the window.
+      c.win.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      btn?.click();
+      const list = c.win.querySelector<HTMLElement>(".dw-menu-list")!;
+      const listed = [...list.querySelectorAll<HTMLElement>("[data-menu-item]")].map((b) => b.dataset.menuItem);
+      if (list.hidden || listed.join() !== m.items.join()) bad.push(`opened, it lists [${listed.join(", ")}]${list.hidden ? " (hidden)" : ""}`);
+      const before = JSON.stringify(c.layout.items);
+      list.querySelector<HTMLElement>("[data-menu-item]")?.click();
+      if (!list.hidden) bad.push("picking an item left the menu open");
+      if (JSON.stringify(c.layout.items) !== before) bad.push("picking an item changed the window");
+      return { pass: bad.length === 0, now: `The » holds [${m.items.join(", ")}].${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
 ];
+
+/** A window narrow enough that the title bar's toolbars, folded, still don't all fit: some go into its » menu. */
+const MENU_WIDTH = 360;
+
+/** Each item's step (its form index, past the last while in a menu) and edge, for the fit sweeps. */
+interface FitState {
+  readonly step: Record<string, number>;
+  readonly edge: Record<string, string | null>;
+}
+function fitState(c: DocwinScene): FitState {
+  const step: Record<string, number> = {};
+  const edge: Record<string, string | null> = {};
+  for (const [id, it] of Object.entries(c.layout.items)) {
+    step[id] = it.inMenu ? 99 : it.form;
+    edge[id] = it.floating ? "float" : (it.edge ?? null);
+  }
+  return { step, edge };
+}
+/** What a fit-sweep step breaks: clipping, overlap, unreachable items, a menu that isn't its items, edge jumps, the order. */
+function fitIssues(c: DocwinScene, start: FitState, now: FitState, last: FitState, shrinking: boolean): string[] {
+  const out: string[] = [];
+  const l = c.layout;
+  const ids = MOVABLE.filter((id) => !c.scene.items[id]!.closed);
+  for (const id of ids) {
+    const it = l.items[id];
+    if (!it) {
+      out.push(`${id} is nowhere`);
+      continue;
+    }
+    if (now.edge[id] !== start.edge[id]) out.push(`${id} moved from ${start.edge[id]} to ${now.edge[id]}`);
+    if (!it.inMenu && !it.rail) {
+      const issue = clipped(c, id);
+      if (issue) out.push(`${id} clipped: ${issue}`);
+    }
+    const grew = now.step[id]! < last.step[id]!;
+    const shrank = now.step[id]! > last.step[id]!;
+    if (shrinking && grew) out.push(`${id} stepped up while shrinking`);
+    if (!shrinking && shrank && isGroup(id)) out.push(`${id} stepped down while growing`);
+  }
+  // No two docked items overlap.
+  const docked = ids.filter((id) => l.items[id] && !l.items[id]!.floating && !l.items[id]!.inMenu);
+  for (let i = 0; i < docked.length; i++)
+    for (let j = i + 1; j < docked.length; j++) if (overlap(l.items[docked[i]!]!.rect, l.items[docked[j]!]!.rect) > 0.5) out.push(`${docked[i]} overlaps ${docked[j]}`);
+  for (const [eid, e] of Object.entries(l.edges)) {
+    const held = ids.filter((id) => l.items[id]?.edge === eid && l.items[id]!.inMenu);
+    const listed = e.menu?.items ?? [];
+    if ([...listed].sort().join() !== [...held].sort().join()) out.push(`${eid}'s menu lists [${listed.join(", ")}], holds [${held.join(", ")}]`);
+    // Lowest priority first, the oldest first: while shrinking, a toolbar stepped down only once every toolbar of its
+    // edge with a lower priority (or the same, used longer ago) is in the menu.
+    if (!shrinking) continue;
+    const bars = ids.filter((id) => isGroup(id) && l.items[id]?.edge === eid);
+    const prio = (id: string): number => c.scene.items[id]!.priority ?? c.scene.edges.find((x) => x.id === eid)?.priority ?? 0;
+    for (const id of bars) {
+      if (now.step[id] === start.step[id]) continue;
+      for (const other of bars) {
+        const before = prio(other) < prio(id) || (prio(other) === prio(id) && c.scene.items[other]!.used < c.scene.items[id]!.used);
+        if (before && now.step[other] !== 99 && now.step[other] === start.step[other]) out.push(`${id} stepped down before ${other}`);
+      }
+    }
+  }
+  return out;
+}
 
 /** The ink of an element's text: the union of its text nodes' rects (its padding and empty room left out). */
 function ink(el: Element): { left: number; right: number } {
