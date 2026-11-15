@@ -4,7 +4,7 @@
  * `targets` give and what the page draws from them. A preset whose rule the Scene doesn't have yet names it in `lacks`
  * and is expected to be red until the rule lands: the page never fakes it.
  */
-import type { Point, Rect } from "@n-uf/placement";
+import { centre, contains, overlap, type Point, type Rect } from "@n-uf/placement";
 import { floatOrientOf, lift, moveTo, reservedRect, resize, solve, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { wrapCross } from "@n-uf/placement/stack";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, put, type EdgeId, type ItemId } from "./model";
@@ -32,13 +32,12 @@ export interface Preset {
 
 // --- helpers ---------------------------------------------------------------------------------------------------------
 
-const overlap = (a: Rect, b: Rect): number => Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
-const inside = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+/** `p` in `r`, its edges included, exactly. */
+const inside = (r: Rect, p: Point): boolean => contains(r, p, 0);
 const sameRect = (a: Rect | null | undefined, b: Rect | null | undefined, eps = 0.5): boolean =>
   !!a && !!b && Math.abs(a.x - b.x) <= eps && Math.abs(a.y - b.y) <= eps && Math.abs(a.width - b.width) <= eps && Math.abs(a.height - b.height) <= eps;
 const r0 = (n: number): number => Math.round(n);
 const say = (r: Rect): string => `${r0(r.x)},${r0(r.y)} ${r0(r.width)}×${r0(r.height)}`;
-const centre = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
 
 /** The default window, changed by `edit`, at `size`. */
 const sceneWith = (edit: (s: Scene) => Scene, size = DEFAULT_SIZE): Scene => edit(defaultScene(size));
