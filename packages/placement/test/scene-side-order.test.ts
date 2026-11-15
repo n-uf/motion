@@ -165,3 +165,41 @@ describe("an empty bar outside the inset draws as nothing", () => {
         }
   });
 });
+
+describe("columnRoom counts a side toolbar bar's width", () => {
+  const without = (s: Scene, id: string): Scene => ({ ...s, edges: s.edges.filter((e) => e.id !== id) });
+  const room = (s: Scene) => {
+    const l = solve(s);
+    return { room: l.columnRoom, note: l.notes.find((n) => n.code === "no-column-room") ?? null };
+  };
+
+  it("a bar with an item takes its width (and its gutter when inside the inset): as no bar in a window that much narrower", () => {
+    let flips = 0;
+    for (const inset of [0, 12])
+      for (const fold of [false, true])
+        for (const outside of [true, false])
+          for (let W = 400; W <= 900; W += 10) {
+            const at = `inset ${inset} fold ${fold} outside ${outside} W ${W}`;
+            const base = scene({ sideBar: true, inset, fold, W });
+            const s: Scene = { ...base, edges: base.edges.map((e) => (e.id === "sbar" ? { ...e, outsideInset: outside } : e)) };
+            // The bar is 36 wide; inside the inset a gutter (8) follows it.
+            const taken = 36 + (outside ? 0 : GUTTER);
+            const narrower = without(scene({ sideBar: true, inset, fold, W: W - taken }), "sbar");
+            expect(room(s), at).toEqual(room(narrower));
+            if (room(s).room !== room(without(s, "sbar")).room) flips++;
+          }
+    // The bar decides it at some widths.
+    expect(flips).toBeGreaterThan(0);
+  });
+
+  it("an empty or closed side bar takes nothing; the layout never changes, only columnRoom and its note", () => {
+    for (let W = 400; W <= 900; W += 10) {
+      const s = scene({ sideBar: true, inset: 12, W });
+      const empty: Scene = { ...s, edges: s.edges.map((e) => (e.id === "sbar" ? { ...e, items: [] } : e)) };
+      const closed: Scene = { ...s, items: { ...s.items, g1: { ...s.items.g1!, closed: true } } };
+      const none = room(without(s, "sbar"));
+      expect(room(empty), `empty at ${W}`).toEqual(none);
+      expect(room(closed), `closed at ${W}`).toEqual(none);
+    }
+  });
+});
