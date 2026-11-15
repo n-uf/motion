@@ -230,11 +230,13 @@ export function createScene(o: SceneOptions) {
   }
 
   /**
-   * The "+N" cell of a form that hides controls: it opens the popover listing exactly them (the » menu's component, one
-   * level down), drawn after the form's words.
+   * The overflow cell of a form that hides controls: a narrow "»" (12 px) with a small count badge, the edge's "» N" menu
+   * one level down. It opens the popover listing exactly the hidden controls, and is drawn after the form's words.
    */
   const moreCell = (id: ItemId, hidden: readonly string[]): string =>
-    hidden.length === 0 ? "" : `<button type="button" class="dw-more" data-more="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${hidden.length} more ${esc(TITLES[id])} controls">+${hidden.length}</button>`;
+    hidden.length === 0
+      ? ""
+      : `<button type="button" class="dw-more" data-more="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${hidden.length} more ${esc(TITLES[id])} controls"><span class="dw-chev" aria-hidden="true">»</span><span class="dw-cnt" aria-hidden="true">${hidden.length}</span></button>`;
 
   function groupContent(id: ItemId, kind: string, hidden: readonly string[] = []): string {
     const sq = (label: string, attrs = ""): string => `<button type="button" class="dw-sq" ${attrs}>${label}</button>`;

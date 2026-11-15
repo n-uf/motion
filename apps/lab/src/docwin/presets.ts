@@ -1361,7 +1361,7 @@ export const PRESETS: readonly Preset[] = [
     id: "zoom-variants-sweep",
     title: "Zoom's compact variants: full, compact, minimal, and back",
     expected:
-      'Zoom alone in the title bar while the window narrows from 900 to 260 px in 2 px steps and widens back (the compact variant saves only the width FIT has over "+1", a few px): it steps full "− 86% + FIT" → compact "− 86% +" with "+1" → minimal "86%" with "+3", in that order, each step drawn whole (nothing clipped); its "+N" reads the number its form hides, and opened, its popover lists exactly the hidden controls; widening, the steps come back in the exact reverse.',
+      'Zoom alone in the title bar while the window narrows from 900 to 260 px in 2 px steps and widens back: it steps full "− 86% + FIT" → compact "− 86% +" with "»1" → minimal "86%" with "»3", in that order, each step drawn whole (nothing clipped); its overflow cell\'s badge reads the number its form hides and its name says "N more Zoom controls", and opened, its popover lists exactly the hidden controls; widening, the steps come back in the exact reverse. The readout gives the width band compact shows in.',
     setup: (c) => c.setScene(sceneWith((s) => s, { width: 900, height: 640 })),
     check(c) {
       c.setScene(sceneWith((s) => s, { width: 900, height: 640 }));
@@ -1370,6 +1370,8 @@ export const PRESETS: readonly Preset[] = [
       for (let w = 900; w >= 260; w -= 2) widths.push(w);
       const down = new Map<number, number>();
       const seen = new Set<number>();
+      /** The widths compact shows at on the way down. */
+      const compact: number[] = [];
       let last = -1;
       const visit = (w: number, shrinking: boolean): void => {
         c.setSize(w, 640);
@@ -1384,9 +1386,11 @@ export const PRESETS: readonly Preset[] = [
         seen.add(form);
         const issue = clipped(c, "zoom");
         if (issue) bad.push(`${w}: ${issue}`);
+        if (form === 1 && shrinking) compact.push(w);
         const more = moreCell(c);
-        const want = z.hidden.length ? `+${z.hidden.length}` : null;
-        if ((more?.textContent ?? null) !== want) bad.push(`${w}: the "+N" reads "${more?.textContent ?? "nothing"}", its form hides [${z.hidden.join(", ")}]`);
+        const count = more?.querySelector(".dw-cnt")?.textContent ?? null;
+        if (count !== (z.hidden.length ? String(z.hidden.length) : null)) bad.push(`${w}: the cell's badge reads "${count ?? "nothing"}", its form hides [${z.hidden.join(", ")}]`);
+        if (more && more.getAttribute("aria-label") !== `${z.hidden.length} more Zoom controls`) bad.push(`${w}: the cell is named "${more.getAttribute("aria-label")}"`);
         if (more) {
           const listed = openMore(c, more);
           if (listed.join() !== z.hidden.join()) bad.push(`${w}: the popover lists [${listed.join(", ")}], the form hides [${z.hidden.join(", ")}]`);
@@ -1396,13 +1400,14 @@ export const PRESETS: readonly Preset[] = [
       for (const w of widths) visit(w, true);
       for (const w of [...widths].reverse()) visit(w, false);
       for (const f of [0, 1, 2]) if (!seen.has(f)) bad.push(`Zoom never showed form ${f}`);
-      return { pass: bad.length === 0, now: `Forms seen: ${[...seen].sort().join(", ")}.${bad.length ? ` Broken: ${bad.slice(0, 6).join("; ")}${bad.length > 6 ? ` (+${bad.length - 6})` : ""}.` : " Every step held."}` };
+      const band = compact.length ? `${Math.min(...compact)}–${Math.max(...compact)} px (${Math.max(...compact) - Math.min(...compact) + 2} px wide)` : "none";
+      return { pass: bad.length === 0, now: `Forms seen: ${[...seen].sort().join(", ")}; compact at ${band}.${bad.length ? ` Broken: ${bad.slice(0, 6).join("; ")}${bad.length > 6 ? ` (+${bad.length - 6})` : ""}.` : " Every step held."}` };
     },
   },
   {
     id: "zoom-more-acts",
-    title: 'A hidden control acts from the "+N" popover',
-    expected: 'With Zoom minimal ("86%" and "+3"), the popover lists −, + and FIT; clicking + steps the zoom up by 10 % as the real + does, and closes the popover; an outside click closes it too.',
+    title: "A hidden control acts from the overflow cell's popover",
+    expected: 'With Zoom minimal ("86%" and "»3"), the popover lists −, + and FIT; clicking + steps the zoom up by 10 % as the real + does, and closes the popover; an outside click closes it too.',
     setup: minimalZoom,
     check(c) {
       const more = minimalZoom(c);
@@ -1428,8 +1433,8 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "zoom-more-keyboard",
-    title: 'The "+N" popover by keyboard',
-    expected: 'Enter or Space on "+3" opens the popover with the focus on its first control; the arrow keys move the focus through −, + and FIT (wrapping); Escape closes it and puts the focus back on "+3".',
+    title: "The overflow cell's popover by keyboard",
+    expected: 'Enter or Space on "»3" opens the popover with the focus on its first control; the arrow keys move the focus through −, + and FIT (wrapping); Escape closes it and puts the focus back on "»3".',
     setup: minimalZoom,
     check(c) {
       const more = minimalZoom(c);
@@ -1452,7 +1457,7 @@ export const PRESETS: readonly Preset[] = [
       key("Escape");
       if (!list.hidden) bad.push("Escape left the popover open");
       if (document.activeElement !== moreCell(c)) bad.push("the focus didn't go back to the cell");
-      return { pass: bad.length === 0, now: `Focus: ${path.join(" → ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : " Escape closed it, back on +3."}` };
+      return { pass: bad.length === 0, now: `Focus: ${path.join(" → ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : " Escape closed it, back on »3."}` };
     },
   },
 ];
