@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.25
 
 - `@n-uf/placement` (root), **one geometry** (additive): the rect math every entry shares is the root's: `EPS`,
   `PLANE`, `area`, `overlaps`, `contains`, `clamp`, `subtract` (a rect less another, as disjoint rects), and the hit

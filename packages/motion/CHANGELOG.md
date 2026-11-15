@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.25
 
 - `./gestures`, **`GesturePointer`**: the new name of the pointer the gesture stream reports. `SurfacePointer` stays
   as a deprecated alias of it, removed once its users have moved. **Migration:** import `GesturePointer`.
