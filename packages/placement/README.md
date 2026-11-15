@@ -863,11 +863,12 @@ none lays out as before.
 - **`Scene.insetWhen`** (`"always"`, the default, or `"docked"`): with `"docked"` the inset applies only while something is
   docked beside the content, that is an open column or a rail (an edge that takes something and holds an item that isn't
   closed). An anchor alone doesn't count; with nothing docked, the content is the whole stage.
-- **`layout.columnRoom`** and the note **`no-column-room`** (`{ width, need }`): with `contentMin` and dynamic columns,
-  whether one column at its minimum fits beside the content's minimum and the room the anchors take (an open anchor's
-  width and gutter, a folded one's rail and gutter). `false` comes with the note, where `width` is the room the stage
-  leaves and `need` the content's minimum plus that column and its gutter. A host shows its narrow fallback (one panel
-  over the content) while it is `false`. An exhaustive `switch` over `SceneNote["code"]` needs the new code.
+- **`layout.columnRoom`** and the note **`no-column-room`** (`{ width, need }`): with `contentMin` and a dynamic column
+  (or, before any exists, a `Scene.columns` template), whether one column at its minimum fits beside the content's
+  minimum. Anchors and rails don't count: every column, an anchor included, can fold into its rail. `false` comes with the
+  note, where `width` is the room the stage leaves and `need` the content's minimum plus that column and its gutter. A
+  host shows its narrow fallback (one panel over the content) while it is `false`. An exhaustive `switch` over
+  `SceneNote["code"]` needs the new code.
 - **`handFold: "ride"`** rides every column folded by hand, not only a one-panel one: each member is a bar over the
   side's first open panel column (never over an anchor), stacked in zone order. A side's rail is its outermost edge.
 
@@ -959,7 +960,8 @@ Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (
 `setSide(scene, edgeId, side)`. `setSide` moves an edge to the other side of its axis (left ⇄ right, top ⇄ bottom) as
 its side's outermost edge: ring 0, before that side's other edges, whose rings close up behind it (the side it left
 closes up too). Its items, size and options go with it; the scene is given back unchanged for an unknown edge, the side
-it is already on, or a side across its axis. The stored form keeps the side, and `readScene` moves a static edge stored
+it is already on, or a side across its axis. Like every change it ticks no use clock: a host that moves an edge by hand
+calls `use()` on its items afterwards, as a drop does. The stored form keeps the side, and `readScene` moves a static edge stored
 on the other side of `base`'s with `setSide`. `moveTo` and
 `floatAt` refuse fixed items and kinds the edge or `floatKinds` doesn't list. `moveTo` also takes `{ kind: "column",
 side, ring }` (`ring: Infinity` is the side's inner end: "Move to › Dock left"), `{ kind: "rail", side, ring }` (docked
