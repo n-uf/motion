@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { readScene, setSide, solve, storeScene, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
+import { dockHome, moveTo, readScene, setSide, solve, storeScene, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
 import type { StackForm } from "../src/stack";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -268,6 +268,27 @@ describe("panel arrangements: the acceptance rows", () => {
 describe("the options the rows need", () => {
   const anchorLeft = rows.scenes["anchor-outside-the-padding"]!.scene;
   const anchorRight = rows.scenes["anchor-keeps-its-side"]!.scene;
+
+  it("a static edge keeps its place: a column drop or Dock never goes outside the anchor at the window edge", () => {
+    const s = adapt(anchorLeft, 1400, 800);
+    const l = solve(s);
+    const anchorX = l.items.thumbs!.rect.x;
+    const columns = targets(s, "findings", { previous: l }).filter((t) => t.place.kind === "column" && (t.place as { side: string }).side === "left");
+    expect(columns.length).toBeGreaterThan(0);
+    for (const t of columns) {
+      const a = t.after({ x: 0, y: 0 });
+      expect(a.layout.items.thumbs!.rect.x, t.id).toBe(anchorX);
+      const ring = (id: string) => a.scene.edges.find((e) => e.id === id)!.ring;
+      for (const e of a.scene.edges.filter((x) => x.side === "left" && x.column === true)) expect(ring(e.id), `${t.id}: ${e.id}`).toBeGreaterThan(ring("anchor:thumbs"));
+      expect(a.layout.items.findings!.rect.x, t.id).toBeGreaterThan(anchorX);
+    }
+    // moveTo a column at ring 0 and Dock back to a start column at ring 0: inside the anchor too.
+    const m = moveTo(s, "findings", { kind: "column", side: "left", ring: 0 });
+    expect(solve(m).items.findings!.rect.x).toBeGreaterThan(anchorX);
+    const docked = dockHome(moveTo(s, "pages", { kind: "column", side: "right", ring: 0 }), "pages", s);
+    expect(solve(docked).items.pages!.rect.x).toBeGreaterThan(anchorX);
+    expect(solve(docked).items.thumbs!.rect.x).toBe(anchorX);
+  });
 
   it("setSide moves an anchor to the other side as its outermost edge, the same layout as declaring it there; the store keeps it", () => {
     const moved = setSide(adapt(anchorLeft, 1200, 800), "anchor:thumbs", "right");

@@ -108,11 +108,34 @@ function newColumn(scene: Scene, side: "left" | "right", kind: string, ring: num
   };
 }
 
-/** `scene` with a new column holding `id` at `ring` on `side` (already lifted out). */
-function insertColumn(scene: Scene, id: string, side: "left" | "right", ring: number): Scene | null {
+/**
+ * The rings of a side's edges as they lie, outer first, 0 up with no ties (by ring, then by their order in the scene):
+ * the numbers column and rail places count in.
+ */
+export function sideRings(edges: readonly Edge[], side: string): Map<string, number> {
+  return new Map(closeRings(edges, new Set([side])).filter((e) => e.side === side).map((e) => [e.id, e.ring]));
+}
+
+/** The first ring a new column may take on `side`: inside every static edge outer to the side's dynamic columns. */
+function columnFloor(edges: readonly Edge[], side: string): number {
+  const mine = edges.filter((e) => e.side === side).sort((a, b) => a.ring - b.ring);
+  let n = 0;
+  while (n < mine.length && mine[n]!.column !== true) n++;
+  // With no dynamic column, every static edge on the side is outer to the new one.
+  return n;
+}
+
+/**
+ * `scene` with a new column holding `id` at `ring` on `side` (already lifted out). The side's rings are made distinct
+ * first; static edges keep their place, so a new column goes no further out than just inside the static edges outer to
+ * the side's dynamic columns (a bar or an anchor at the window edge stays there).
+ */
+function insertColumn(scene0: Scene, id: string, side: "left" | "right", ring: number): Scene | null {
+  const scene: Scene = { ...scene0, edges: closeRings(scene0.edges, new Set([side])) };
   const kind = scene.items[id]!.kind;
   const mine = scene.edges.filter((e) => e.side === side);
-  const r = Math.max(0, Math.min(Number.isNaN(ring) ? Infinity : Math.floor(ring), mine.length === 0 ? 0 : Math.max(...mine.map((e) => e.ring)) + 1));
+  const floor = columnFloor(scene.edges, side);
+  const r = Math.max(floor, Math.min(Number.isNaN(ring) ? Infinity : Math.floor(ring), mine.length === 0 ? 0 : Math.max(...mine.map((e) => e.ring)) + 1));
   const col = newColumn(scene, side, kind, r, [id]);
   if (!col) return null;
   // A kind never opens a column on its own unless the column's start zone takes it (a group never opens a panel column
@@ -285,7 +308,8 @@ export function homeFor(scene: Scene, id: string, start: Scene): Place | null {
       const next = e.items.slice(k + 1).find((x) => now.includes(x));
       return { kind: "gap", edge: e.id, zone, at: next ? now.indexOf(next) : now.length };
     }
-    if (e.column === true && (e.side === "left" || e.side === "right")) return { kind: "column", side: e.side, ring: e.ring };
+    // Its ring as the start scene's side lay (no ties); `insertColumn` keeps it inside the static edges outer to it.
+    if (e.column === true && (e.side === "left" || e.side === "right")) return { kind: "column", side: e.side, ring: sideRings(start.edges, e.side).get(e.id) ?? e.ring };
     return null;
   }
   const f = start.floats.find((x) => x.id === id);
