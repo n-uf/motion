@@ -109,4 +109,37 @@ describe("compact variants as forms", () => {
       expect(t.slot).toEqual(z.rect);
     }
   });
+
+  it("in a title bar, toolbars step through their compact variants before the title shrinks below its natural width", () => {
+    // Narrowing: while Zoom is above its smallest row form, the title keeps its natural 160 px.
+    for (const l of sweep(down)) {
+      const z = l.items.zoom!;
+      const titleW = l.items.title!.rect.width;
+      if (!z.inMenu && z.form < 2) expect(titleW, `Zoom at form ${z.form}`).toBeGreaterThanOrEqual(160 - 1e-6);
+    }
+  });
+
+  it("dropping Zoom onto a crowded title bar lands in its compact variant, the title kept at its natural width", () => {
+    // 400 − 16 padding − 8 gaps − the title's natural 160 − the controls' 84 leaves 132: the compact form (118) fits,
+    // the full row (150) doesn't. The title holds its width while Zoom can still step to a smaller row.
+    const s: Scene = {
+      stage: { x: 0, y: 0, width: 400, height: 400 },
+      edges: [bar("titlebar", "top", 0, ["title", "controls"]), bar("bottom", "bottom", 0, [])],
+      items: byId([title(), zoom(9), controls()]),
+      floats: [{ id: "zoom", rect: { x: 100, y: 200, width: 150, height: 28 } }],
+      floatKinds: ["group"],
+    };
+    const ts = targets(s, "zoom").filter((t) => t.place.kind === "gap" && (t.place as { edge: string }).edge === "titlebar");
+    expect(ts.length).toBeGreaterThan(0);
+    for (const t of ts) {
+      const after = t.after({ x: t.hit.x + 1, y: t.hit.y + 1 });
+      const z = after.layout.items.zoom!;
+      expect(z.form).toBe(1);
+      expect(z.hidden).toEqual(["fit"]);
+      expect(after.layout.items.title!.rect.width).toBeGreaterThanOrEqual(160 - 1e-6);
+      // Preview = landing: the slot is where the drop puts it, and committing it lays it out the same.
+      expect(t.slot).toEqual(z.rect);
+      expect(solve(after.scene).items.zoom!.rect).toEqual(z.rect);
+    }
+  });
 });

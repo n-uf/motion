@@ -88,8 +88,10 @@ describe("a bar's zones by thirds", () => {
   });
 
   it("a title bar too full offers no zone: a toolbar may not push the title under its natural width", () => {
-    // 160 + 4 × 200 + 84 leaves 156: Views fits only by shrinking the title toward its 80 px minimum, which is refused.
-    const s = put(windowScene(), "titlebar", ["tools", "zoom", "marks", "search"]);
+    // At 1140 px, 160 + 4 × 200 + 84 leaves 96: even with the four toolbars shrunk to their 180 px rows (which they do
+    // before the title gives up any of its natural width) Views fits only by shrinking the title toward its 80 px
+    // minimum, which is refused.
+    const s = put(windowScene(1140), "titlebar", ["tools", "zoom", "marks", "search"]);
     const ts = targets(s, "views");
     expect(ts.filter((t) => (t.place as { edge?: string }).edge === "titlebar")).toEqual([]);
     expect(solve(s).items.title!.rect.width).toBeGreaterThanOrEqual(160);
@@ -257,7 +259,8 @@ describe("local targets: home only over the item's own place, refusals where a z
   });
 
   it("a title bar too full: its zones are refused for lack of room, a panel's for the kind", () => {
-    const s = put(windowScene(), "titlebar", ["tools", "zoom", "marks", "search"]);
+    // At 1140 px even the four toolbars at their least leave Views no room beside the title's natural width.
+    const s = put(windowScene(1140), "titlebar", ["tools", "zoom", "marks", "search"]);
     // Each refused slot is refused over its own tile: every zone of the bar is refused, for lack of room.
     const rs = refusals(s, "views").filter((r) => r.edge === "titlebar");
     expect([...new Set(rs.map((r) => r.zone))].sort()).toEqual(["center", "end", "start"]);

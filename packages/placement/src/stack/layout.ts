@@ -186,12 +186,23 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     const slots = idx.filter((i) => !isMenu(form(i))).length + (inMenu() ? 1 : 0);
     return slots > 1 ? (slots - 1) * sp.gap : 0;
   };
+  /**
+   * A fixed item whose form grows (a title) holds its natural length while the other items can still step to a form of
+   * the kind they are in (a toolbar's compact variants: row to a smaller row): its shrink below natural is a give-way
+   * step that ranks after every such step and before every step that changes a form's kind (icons, fold, the menu).
+   * `hold` is on while those steps come first.
+   */
+  const holds = (i: number): boolean => items[i]!.fixed === true && form(i).main.grows === true;
+  let hold = idx.some(holds);
   /** The shortest the stack can be drawn now: the smallest sizes, the » entry, the gaps and the padding. */
-  const minSum = (): number => {
+  const minSumWith = (held: boolean): number => {
     // A wrap form's length follows the cross size the forms make now.
     const c = items.some((it) => it.forms.some((f) => f.wrap)) ? crossOf() : 0;
-    return idx.reduce((s, i) => s + mainOf(form(i), "min", c), 0) + (inMenu() ? menuMain(input) : 0) + gapsOf() + sp.start + sp.end;
+    return idx.reduce((s, i) => s + mainOf(form(i), held && holds(i) ? "natural" : "min", c), 0) + (inMenu() ? menuMain(input) : 0) + gapsOf() + sp.start + sp.end;
   };
+  const minSum = (): number => minSumWith(hold);
+  /** Whether stepping item `i` to form `j` keeps its form's kind (a compact variant of the form it is in). */
+  const sameKind = (i: number, j: number): boolean => items[i]!.forms[j]!.kind === form(i).kind;
   /** The form item `i` would step to: the first later one that shortens the stack, else -1 (it stays). */
   const stepTo = (i: number): number => {
     const from = at[i]!;
@@ -241,7 +252,8 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     return crossMin(f) > cross + EPS;
   };
 
-  if (seed) seed.need = minSum();
+  // What the forms need at least, every growing fixed item at its minimum (the measure room coming back is read by).
+  if (seed) seed.need = minSumWith(false);
   if (grow) {
     // Room came back and the kept forms fit: they grow back one at a time, the reverse of how they gave way (the form an
     // item is in now was stepped into at its rank, so the highest rank first, then `kept`, the newest used, the earlier
@@ -262,6 +274,10 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
       const group = hist.slice(hist.length - n);
       const changed = [...new Set(group.map((s) => index.get(s.id)!))];
       const was = changed.map((i) => at[i]!);
+      // A step to a form of the same kind (a compact variant) was taken while the growing fixed items held their natural
+      // length: it comes back only when they still do. Every other step came after their shrink.
+      const forms = (s: StackStep) => items[index.get(s.id)!]!.forms;
+      hold = group.every((s) => forms(s)[s.from]!.kind === forms(s)[s.to]!.kind) && idx.some(holds);
       for (const s of [...group].reverse()) at[index.get(s.id)!] = s.from;
       if (minSum() <= length + EPS && crossOf() === c0 && changed.every((j) => !tooWide(j, c0))) return true;
       changed.forEach((i, k) => (at[i] = was[k]!));
@@ -289,6 +305,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     // give-way order. Strictly as a stack: only the item next in that order may grow. When it can't, growth stops; no
     // item behind it jumps the queue (a leading group never opens while a trailing one that gave way after it stays
     // folded).
+    hold = false;
     for (;;) {
       if (stuck) break;
       const c0 = crossOf();
@@ -332,6 +349,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
       if (!out) break;
     }
   }
+  hold = idx.some(holds);
   let cross = crossOf();
   let overflow = 0;
   // Every pass steps at least one item one form (by cross size or by length), so twice the forms is more than enough.
@@ -351,6 +369,17 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     if (over <= EPS) break;
     // A fixed item never gives way: it has no step.
     const to = idx.map((i) => (items[i]!.fixed ? -1 : stepTo(i)));
+    if (hold) {
+      // First the steps that keep a form's kind (compact variants), the growing fixed items at their natural length;
+      // with none left, they may shrink (`hold` off) and the other steps follow.
+      const variant = victim(
+        items,
+        idx.map((i) => (to[i]! >= 0 && sameKind(i, to[i]!) ? to[i]! : -1)),
+      );
+      if (variant >= 0) step(variant, to[variant]!);
+      else hold = false;
+      continue;
+    }
     // Items that can't shorten the stack on their own but have the menu ahead: while the » entry doesn't exist, the
     // first one in costs the entry, so they go in together or not at all.
     const pool = idx.map((i) => (to[i]! < 0 && !inMenu() && !items[i]!.fixed ? menuFormAfter(i) : -1));
@@ -379,7 +408,9 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   const menuSize = inMenu() ? menuMain(input) : 0;
   const avail = Math.max(0, length - sp.start - sp.end - gapsOf() - menuSize);
   const drawn = idx.filter((i) => !isMenu(form(i)));
-  const min = (i: number): number => mainOf(form(i), "min", cross);
+  // While the growing fixed items still hold (the forms fit with them at their natural length), the others take the
+  // shortage first: a held item's least is its natural length.
+  const min = (i: number): number => mainOf(form(i), hold && holds(i) ? "natural" : "min", cross);
   const nat = (i: number): number => Math.max(min(i), mainOf(form(i), "natural", cross));
   const sumMin = drawn.reduce((s, i) => s + min(i), 0);
   const sumNat = drawn.reduce((s, i) => s + nat(i), 0);
@@ -431,5 +462,5 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   for (const i of menuOrder) if (isMenu(form(i))) notes.push({ code: "to-menu", id: items[i]!.id });
   for (const i of idx) if (tooWide(i, cross)) notes.push({ code: "too-wide", id: items[i]!.id });
   if (overflow > EPS) notes.push({ code: "overflow", over: overflow });
-  return { axis: input.axis, length, cross, items: placed, menu, notes, need: minSum(), steps: hist };
+  return { axis: input.axis, length, cross, items: placed, menu, notes, need: minSumWith(false), steps: hist };
 }
