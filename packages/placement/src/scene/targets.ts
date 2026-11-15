@@ -114,10 +114,12 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   const base = solve(rest, prev);
   const reach = Math.max(0, Number.isFinite(options.endReach) ? options.endReach! : 0);
   const chrome = scene.chrome ?? [];
-  // No hit covers a fixed item's drawn rect, nor chrome: fixed items of every edge (an end reach may run into the next
-  // bar), where they are drawn now and where they are with the item lifted out. A growing title drawn over its bar's
-  // spare room covers it all: the pointer reaches only the gaps outside it (a drop's `after` may still shrink it).
-  const fixedRects = (l: SceneLayout): Rect[] => Object.values(l.items).filter((it) => it.fixed).map((it) => it.rect);
+  // No hit covers a fixed item's reserved rect, nor chrome: fixed items of every edge (an end reach may run into the next
+  // bar), where they are drawn now and where they are with the item lifted out. A growing fixed item (a title filling
+  // its bar) reserves only its natural rect; the length it grew by is spare room where gaps may lie, and a drop there
+  // shrinks it toward its natural size (to its `min` if the room needs it), so a group lifted out of a title bar can
+  // always go back while the room allows.
+  const fixedRects = (l: SceneLayout): Rect[] => Object.entries(l.items).filter(([, it]) => it.fixed).map(([id]) => reservedRect(scene, l, id));
   const blockers = [...fixedRects(now), ...fixedRects(base), ...chrome];
   const out: SceneTarget[] = [];
 
@@ -150,7 +152,10 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
       if (f && len < f.main.min - 0.5) return false;
     }
     const me = after.items[dragged];
-    return !me || !chrome.some((c) => overlaps(me.rect, c));
+    if (!me) return true;
+    // The slot never lies over chrome, nor over a fixed item's reserved (natural) rect after the drop.
+    const fixedAfter = Object.entries(after.items).filter(([id, it]) => it.fixed && id !== dragged).map(([id]) => reservedRect(scene, after, id));
+    return !chrome.some((c) => overlaps(me.rect, c)) && !fixedAfter.some((f) => overlaps(me.rect, f));
   };
   for (const t of docked) {
     const p = t.place;
@@ -190,6 +195,22 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
 }
 
 /** Where things are, without ages or the ids of dynamic columns: two scenes with one key place every item alike. */
+/**
+ * What a fixed item reserves in `l`: its drawn rect, or for a form that grows only its natural length, placed by its
+ * zone (from its start, from its end in the end zone, centred in the centre zone).
+ */
+function reservedRect(scene: Scene, l: SceneLayout, id: string): Rect {
+  const it = l.items[id]!;
+  const e = it.edge ? l.edges[it.edge] : undefined;
+  const f = e ? formsOf(scene.items[id]!, axisOf(e.side))[it.form] : undefined;
+  if (!e || !f?.main.grows) return it.rect;
+  const column = axisOf(e.side) === "column";
+  const len = column ? it.rect.height : it.rect.width;
+  const keep = Math.min(len, Math.max(0, Number.isFinite(f.main.natural) ? f.main.natural : len));
+  const shift = it.zone === "end" ? len - keep : it.zone === "center" ? (len - keep) / 2 : 0;
+  return column ? rect(it.rect.x, it.rect.y + shift, it.rect.width, keep) : rect(it.rect.x + shift, it.rect.y, keep, it.rect.height);
+}
+
 function placeKey(s: Scene, id: string): string {
   const it = Object.hasOwn(s.items, id) ? s.items[id] : undefined;
   return JSON.stringify({

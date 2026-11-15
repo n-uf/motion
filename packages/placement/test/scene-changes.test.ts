@@ -46,7 +46,7 @@ describe("pure changes", () => {
     expect(moveTo(s, "title", { edge: "toolbar", at: 0 })).toBe(s);
     expect(moveTo(s, "views", { edge: "nowhere", at: 0 })).toBe(s);
     expect(moveTo(s, "pages", { edge: "toolbar", at: 0 })).toBe(s);
-    expect(moveTo(s, "views", { edge: "titlebar", at: 0 })).toBe(s);
+    expect(moveTo(s, "pages", { edge: "titlebar", at: 0 })).toBe(s);
   });
 
   it("floatAt floats on top, records the size; with no rect it anchors at its last size", () => {

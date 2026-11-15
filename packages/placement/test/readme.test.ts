@@ -260,7 +260,7 @@ describe("README examples", () => {
     const scene: Scene = {
       stage: { x: 0, y: 0, width: 1200, height: 800 },
       edges: [
-        { id: "titlebar", side: "top", ring: 0, accepts: [], items: ["title", "controls"], cross: { min: 32, max: 32, rail: 32 } },
+        { id: "titlebar", side: "top", ring: 0, accepts: ["group"], items: ["title", "controls"], cross: { min: 32, max: 32, rail: 32 } },
         { id: "toolbar", side: "top", ring: 1, items: ["views", "tools", "zoom"], ...bar },
         { id: "status", side: "bottom", ring: 0, span: "between", items: ["readout", "search"], ...bar, cross: { min: 28, max: 28, rail: 28 } },
         { id: "left", side: "left", ring: 0, items: ["pages"], ...column },

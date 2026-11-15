@@ -73,7 +73,8 @@ export function windowScene(width = 1200, height = 800): Scene {
   return {
     stage: { x: 0, y: 0, width, height },
     edges: [
-      { id: "titlebar", side: "top", ring: 0, accepts: [], items: ["title", "controls"], cross: { min: 32, max: 32, rail: 32 } },
+      // The title bar takes groups beside its fixed title and controls.
+      { id: "titlebar", side: "top", ring: 0, accepts: ["group"], items: ["title", "controls"], cross: { min: 32, max: 32, rail: 32 } },
       bar("toolbar", "top", 1, ["views", "tools", "zoom"]),
       bar("status", "bottom", 0, ["readout", "search"], { span: "between", cross: { min: 28, max: 28, rail: 28 } }),
       column("left", "left", 0, ["pages"]),

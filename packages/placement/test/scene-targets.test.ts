@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moveTo, solve, targets, use, type Scene } from "../src/scene";
+import { solve, targets, use, type Scene } from "../src/scene";
 import { bar, byId, column, group, panel, windowScene } from "./scene-fixture";
 
 const r = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
@@ -14,7 +14,9 @@ describe("targets", () => {
     // Lifted out, the left column is empty: it offers a strip.
     expect(ids(s, "pages").filter((t) => t.startsWith("gap:") || t.startsWith("strip:"))).toEqual(["strip:left", "gap:right:start:0", "gap:right:start:1", "gap:right:start:2"]);
     expect(ids(s, "views").some((t) => t.startsWith("gap:left"))).toBe(true);
-    expect(ids(s, "views").some((t) => t.startsWith("gap:titlebar"))).toBe(false);
+    // The title bar takes groups, never a panel.
+    expect(ids(s, "views").some((t) => t.startsWith("gap:titlebar"))).toBe(true);
+    expect(ids(s, "pages").some((t) => t.startsWith("gap:titlebar") || t.startsWith("gap:toolbar"))).toBe(false);
   });
 
   it("gap ids name the edge, the zone and the place; an empty zone still has one", () => {
@@ -38,7 +40,10 @@ describe("targets", () => {
     const chrome = [r(600, 32, 60, 36)];
     const sc: Scene = { ...s, chrome };
     const before = solve(sc);
-    const fixedRects = Object.values(before.items).filter((i) => i.fixed).map((i) => i.rect);
+    // What fixed items reserve: the title only its natural 160 px (it grows), the controls and readout their rects.
+    const fixedRects = Object.entries(before.items)
+      .filter(([, i]) => i.fixed)
+      .map(([id, i]) => (id === "title" ? { ...i.rect, width: 160 } : i.rect));
     for (const id of ["views", "tools", "pages", "search"]) {
       for (const t of targets(sc, id)) {
         if (t.place.kind !== "gap") continue;
@@ -175,23 +180,46 @@ describe("gaps are gaps, not halves of items (hitBand)", () => {
 });
 
 describe("a growing fixed title", () => {
+  // The fixture's title (natural 160, min 80, grows) fills its bar up to the 84 px controls: drawn 0..1116.
   const s = windowScene();
-  const open: Scene = { ...s, edges: s.edges.map((e) => (e.id === "titlebar" ? { ...e, accepts: ["group"] } : e)) };
+  const overlapsX = (a: { x: number; width: number }, from: number, to: number) => Math.min(a.x + a.width, to) - Math.max(a.x, from) > 1e-6;
 
-  it("drawn over its bar's spare room, it covers it all: no hit over its drawn rect, so a bar it fills offers none (C29)", () => {
-    expect(targets(open, "views").filter((t) => t.id.startsWith("gap:titlebar"))).toEqual([]);
+  it("reserves only its natural rect: the grown part takes a gap, and the drop shrinks the title to make room", () => {
+    const gap = targets(s, "views").find((t) => t.id === "gap:titlebar:start:1")!;
+    expect(gap).toBeDefined();
+    expect(gap.hit.x).toBeGreaterThanOrEqual(160);
+    expect(gap.hit.x + gap.hit.width).toBeLessThanOrEqual(1116);
+    const after = gap.after({ x: 0, y: 0 }).layout;
+    expect(after.items.views!.edge).toBe("titlebar");
+    expect(after.items.title!.rect.x).toBe(0);
+    expect(after.items.title!.rect.width).toBeLessThan(1116);
+    expect(after.items.title!.rect.width).toBeGreaterThanOrEqual(80);
+    // The slot never lies over the title's natural rect.
+    expect(overlapsX(gap.slot!, 0, 160)).toBe(false);
   });
 
-  it("beside a group in its bar, the gaps there are reachable but never over the title; a drop shrinks it toward its min", () => {
-    const withGroup = moveTo(open, "tools", { edge: "titlebar", at: 1 });
-    const title = solve(withGroup).items.title!.rect;
-    const gaps = targets(withGroup, "views").filter((t) => t.id.startsWith("gap:titlebar"));
-    expect(gaps.length).toBeGreaterThan(0);
-    for (const t of gaps) expect(t.hit.x).toBeGreaterThanOrEqual(title.x + title.width - 1e-6);
-    const after = gaps[0]!.after({ x: 0, y: 0 }).layout;
-    expect(after.items.title!.rect.x).toBe(0);
-    expect(after.items.title!.rect.width).toBeLessThan(title.width);
-    expect(after.items.title!.rect.width).toBeGreaterThanOrEqual(80);
+  it("a group moved out of the title bar can always go back (the operator's zoom case)", () => {
+    const into = targets(s, "zoom").find((t) => t.id.startsWith("gap:titlebar"))!;
+    const s1 = into.after({ x: 0, y: 0 }).scene;
+    expect(s1.edges.find((e) => e.id === "titlebar")!.items).toContain("zoom");
+    // Held in the title bar, it is offered its place there: dropped back it sits in the bar, the title shrunk.
+    const held = targets(s1, "zoom").find((t) => t.id.startsWith("gap:titlebar"))!;
+    expect(held).toBeDefined();
+    const back = held.after({ x: 0, y: 0 }).layout;
+    expect(back.items.zoom!.edge).toBe("titlebar");
+    expect(back.items.title!.rect.width).toBeLessThan(1116);
+    // Out to the toolbar, then back into the title bar.
+    const out = targets(s1, "zoom").find((t) => t.id.startsWith("gap:toolbar") && t.place.kind === "gap")!;
+    const s2 = out.after({ x: 0, y: 0 }).scene;
+    expect(s2.edges.find((e) => e.id === "toolbar")!.items).toContain("zoom");
+    const again = targets(s2, "zoom").find((t) => t.id.startsWith("gap:titlebar") && t.place.kind === "gap")!;
+    expect(again.after({ x: 0, y: 0 }).layout.items.zoom!.edge).toBe("titlebar");
+  });
+
+  it("a title already at its natural size leaves no room: the bar offers no gap over it", () => {
+    const bare: Scene = { stage: { x: 0, y: 0, width: 244, height: 300 }, edges: [s.edges[0]!], items: { title: s.items.title!, controls: s.items.controls!, views: s.items.views! }, floats: [{ id: "views", rect: { x: 0, y: 100, width: 200, height: 30 } }], floatKinds: ["group"] };
+    expect(solve(bare).items.title!.rect.width).toBe(160);
+    expect(targets(bare, "views").filter((t) => t.id.startsWith("gap:titlebar"))).toEqual([]);
   });
 });
 
