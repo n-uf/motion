@@ -212,7 +212,10 @@ export function createScene(o: SceneOptions) {
     if (id === "tools") return Array.from({ length: 5 }, (_, i) => `<button type="button" class="dw-tool" aria-label="Tool ${i + 1}"><i></i></button>`);
     if (id === "zoom")
       return ZOOM_CONTROLS.filter((c) => c.id === null || !hidden.includes(c.id)).map((c) =>
-        c.id === null ? `<span class="dw-zv">${counts.zoom}%</span>` : `<button type="button" class="dw-w" data-zoom="${c.id}">${c.label}</button>`,
+        c.id === null
+          ? `<span class="dw-zv">${counts.zoom}%</span>`
+          : // The fit control mirrors the kits' FitToggle: one fixed-width outlined button, its word in capitals.
+            `<button type="button" class="${c.id === "fit" ? "dw-fit" : "dw-w"}" data-zoom="${c.id}"${c.id === "fit" ? ' aria-pressed="false"' : ""}>${c.label}</button>`,
       );
     if (id === "views")
       return (["pages", "notes", "findings"] as const).map((p) => {

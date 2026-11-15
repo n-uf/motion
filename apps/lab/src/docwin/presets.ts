@@ -1400,7 +1400,10 @@ export const PRESETS: readonly Preset[] = [
       for (const w of widths) visit(w, true);
       for (const w of [...widths].reverse()) visit(w, false);
       for (const f of [0, 1, 2]) if (!seen.has(f)) bad.push(`Zoom never showed form ${f}`);
-      const band = compact.length ? `${Math.min(...compact)}–${Math.max(...compact)} px (${Math.max(...compact) - Math.min(...compact) + 2} px wide)` : "none";
+      // Compact shows in a real band of window widths, not a pixel or two (the kits' compact saves about 33 px).
+      const wide = compact.length ? Math.max(...compact) - Math.min(...compact) + 2 : 0;
+      if (wide < COMPACT_BAND_MIN) bad.push(`compact shows for only ${wide} px of window width, under ${COMPACT_BAND_MIN}`);
+      const band = compact.length ? `${Math.min(...compact)}–${Math.max(...compact)} px (${wide} px wide)` : "none";
       return { pass: bad.length === 0, now: `Forms seen: ${[...seen].sort().join(", ")}; compact at ${band}.${bad.length ? ` Broken: ${bad.slice(0, 6).join("; ")}${bad.length > 6 ? ` (+${bad.length - 6})` : ""}.` : " Every step held."}` };
     },
   },
@@ -1462,8 +1465,10 @@ export const PRESETS: readonly Preset[] = [
   },
 ];
 
-/** A width where Zoom, alone in the title bar, shows its minimal form ("86%" and "+3"). */
+/** A width where Zoom, alone in the title bar, shows its minimal form ("86%" and "»3"). */
 const MINIMAL_WIDTH = 350;
+/** The least band of window widths compact Zoom must show in, px. */
+const COMPACT_BAND_MIN = 15;
 const menuList = (c: DocwinScene): HTMLElement => c.win.querySelector<HTMLElement>(".dw-menu-list")!;
 const moreCell = (c: DocwinScene): HTMLElement | null => c.win.querySelector<HTMLElement>('.dw-items [data-id="zoom"] .dw-more');
 /** The default window at `MINIMAL_WIDTH`: Zoom minimal in the title bar; returns its "+N" cell. */
