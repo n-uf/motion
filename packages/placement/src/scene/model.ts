@@ -214,8 +214,9 @@ export interface Scene {
    */
   readonly inset?: { readonly top?: number; readonly right?: number; readonly bottom?: number; readonly left?: number };
   /**
-   * When `inset` applies (default `"always"`): `"docked"` keeps it only while something is docked beside the content (a
-   * left or right edge with an item that isn't closed); with nothing there, the content is the whole stage.
+   * When `inset` applies (default `"always"`): `"docked"` keeps it only while something is docked beside the content (an
+   * open column or a rail: a left or right edge that takes something, with an item that isn't closed; an anchor alone
+   * doesn't count); with nothing there, the content is the whole stage.
    */
   readonly insetWhen?: "always" | "docked";
   /** Space after each left or right edge and each rail that takes room, toward the content, px (default 0). */

@@ -416,8 +416,9 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
   const gutter = px(scene.gutter);
   let columnRoom: boolean | undefined;
   const isSide = (e: Edge): boolean => e.side === "left" || e.side === "right";
-  // The inset, or none with `insetWhen: "docked"` while nothing is docked beside the content.
-  const docked = order.some((e) => isSide(e) && owned.get(e)!.some((id) => !scene.items[id]!.closed));
+  // The inset, or none with `insetWhen: "docked"` while nothing is docked beside the content: an open column or a rail
+  // (a side edge that takes something, with an item that isn't closed). An anchor alone (it takes nothing) doesn't count.
+  const docked = order.some((e) => isSide(e) && e.accepts.length > 0 && owned.get(e)!.some((id) => !scene.items[id]!.closed));
   const inset = scene.insetWhen === "docked" && !docked ? {} : (scene.inset ?? {});
 
   /**

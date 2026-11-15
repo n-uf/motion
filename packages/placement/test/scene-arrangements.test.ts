@@ -336,6 +336,12 @@ describe("the options the rows need", () => {
     const s = adapt(none, 1000, 800, false);
     expect(solve(s).content.width).toBe(976);
     expect(solve({ ...s, insetWhen: "docked" }).content).toEqual({ x: 0, y: 0, width: 1000, height: 800 });
+    // An anchor alone isn't docked: with every panel closed, no inset beside it either.
+    const anchorOnly = adapt(anchorLeft, 1000, 800);
+    const closed: Scene = { ...anchorOnly, items: Object.fromEntries(Object.entries(anchorOnly.items).map(([id, it]) => [id, it.kind === "panel" ? { ...it, closed: true } : it])) };
+    const l = solve(closed);
+    expect(l.items.thumbs!.rect).toMatchObject({ x: 0, y: 0, height: 800 });
+    expect(l.content).toEqual({ x: 72, y: 0, width: 928, height: 800 });
   });
 
   it("a float larger than the stage less the inset is shrunk to fit it", () => {
