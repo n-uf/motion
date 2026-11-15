@@ -9,6 +9,17 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
   (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
+- **Fixed:** the new-column target at the window's edge.
+  - The outermost column line (at a flush window's edge, or where the rail stop lies) used to have its band centred on
+    the line. Half of the band lay past the stage. The rail stop's band then cut the part inside the window off from
+    the line, and that part was refused as `no-room` although a column fits.
+  - Now the band is laid inward: the rail stop keeps its 10 px at the boundary, and the line's band (`DEFAULT_HIT_BAND`)
+    follows it. A point 28 px in from an empty or outermost side picks `column:<side>:0`, in flush and inset windows
+    alike.
+  - No column line's hit lies past the stage.
+  - A stretch of a column line that another edge's band cuts off from the line is still that line's slot, one more
+    piece of its `hits`, not a refusal.
+
 - **Fixed:** `readScene` lost a stored column's tray. It made a column the user had created from its side's template
   without the template's `zoneAccepts`, so after a reload the column took any kind in any zone. Every column the Scene
   makes (a drop on a column line, `moveTo` a new column, `dockHome`, `readScene`) now comes from one helper and takes

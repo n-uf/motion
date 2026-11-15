@@ -58,7 +58,7 @@
  * The phases live in `./targets/`: `kinds` (`EDGE_KINDS`), `model` (the shapes), `filter` (the drag's context and
  * filter ii), `edges` and `virtual` (generation), `ownership` and `tiles` (filter iii and clipping).
  */
-import { PLANE, rect, type Rect } from "../geometry";
+import { PLANE, area, rect, type Rect } from "../geometry";
 import { floatAt, use } from "./changes";
 import { axisOf, floatOrientOf, floatSizeOf, zoneOf, zoneTakes } from "./helpers";
 import type { Orient, Scene } from "./model";
@@ -119,6 +119,15 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
       if (t.order === 0) ownHome = t.hit;
       if (t.id === homeId) continue;
       targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), item: dragged, place: { kind: "home" }, after: homeAfter });
+      continue;
+    }
+    // A slot whose tile came in more than one piece (a virtual edge's stretch cut off from its line) is one target: its
+    // pieces in `hits`, `hit` the largest.
+    const first = targets.findIndex((x) => x.id === t.id);
+    if (first >= 0) {
+      const was = targets[first]!;
+      const pieces = [...(was.hits ?? [was.hit]), ...(t.hits ?? [t.hit])];
+      targets[first] = { ...was, hit: pieces.reduce((m, p) => (area(p) > area(m) ? p : m)), hits: pieces };
       continue;
     }
     const result = t.result!;

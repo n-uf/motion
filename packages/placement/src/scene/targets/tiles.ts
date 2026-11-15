@@ -115,16 +115,29 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, cuts: readonly Span[], lost: st
         // place other than its own: `own-place`.
         // A stretch out of every slot's reach is no part of this edge.
         const lone = reason === "no-room" && mine.length === 0 && slots.some((s) => s.zone === z.zone && s.home);
-        const near = mine.length === 0 || mine.some((s) => pb > s.line - data.reach + EPS && pa < s.line + data.reach - EPS);
+        // (A virtual edge's zone is its slot's reach already: all of it is near.)
+        const near = mine.length === 0 || data.virtual || mine.some((s) => pb > s.line - data.reach + EPS && pa < s.line + data.reach - EPS);
+        // A virtual edge's stretch cut off from its line by another edge's owned band (the rail stop between a column
+        // line and the window's inset) is still that line's: there is room and a slot, so it is no refusal. It joins the
+        // nearest fitting slot of the zone as one more piece of its tile (the zone's extent already bounds it).
+        const joins = data.virtual ? mine.filter((s) => s.ok && !s.home) : [];
+        if (joins.length > 0) {
+          const s = joins.reduce((m, x) => (Math.abs(x.line - (pa + pb) / 2) < Math.abs(m.line - (pa + pb) / 2) ? x : m));
+          const hit = band(pa, pb, s.result.layout);
+          out.push(...split(tile(z.zone, hit, { kind: "slot", id: s.id, order: data.layer, priority: data.priority, keep: keepAt(Math.min(Math.max(s.line, pa), pb), hit), place: s.place, result: s.result, marker: spec.marker(s), slot: s.result.layout.items[c.dragged]!.rect })));
+          continue;
+        }
         if (reason && near) out.push(...split(refused(z.zone, band(pa, pb), lone ? "own-place" : reason)));
         continue;
       }
       inPiece.forEach((s, i) => {
         // Halfway between neighbouring lines, the piece's ends at its ends (the own interval's ends are one), and no
-        // further from its line than the kind's reach.
+        // further from its line than the kind's reach (a virtual edge's zone is that reach already: an outermost column
+        // line's zone runs from the window's edge, past where the line's reach would end).
         const p = at[i]!;
-        const a = Math.max(i === 0 ? pa : (at[i - 1]! + p) / 2, p - data.reach);
-        const b = Math.min(i === inPiece.length - 1 ? pb : (p + at[i + 1]!) / 2, p + data.reach);
+        const lim = data.virtual ? Infinity : data.reach;
+        const a = Math.max(i === 0 ? pa : (at[i - 1]! + p) / 2, p - lim);
+        const b = Math.min(i === inPiece.length - 1 ? pb : (p + at[i + 1]!) / 2, p + lim);
         if (b - a <= EPS) {
           if (s.ok) lost.push(s.id);
           return;
