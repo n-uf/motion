@@ -596,7 +596,7 @@ export function refusals(scene: Scene, dragged: string, options: SceneTargetOpti
     // An empty edge that takes the kind somewhere: each third of its strip with no strip target of its own is refused
     // (a zone that doesn't take the kind, or one with no room).
     if (le && !le.folded && !le.rides && !le.menu && le.stack.items.every((p) => p.kind === "menu")) {
-      if (zonesTaking(e, item.kind).length === 0) continue;
+      if (zonesTaking(e, item.kind).length === 0 || !opensEmpty(e, item.kind)) continue;
       const parts = stripThirds(e, le.rect, base.content);
       if (!parts) continue;
       ZONES.forEach((zone, k) => {
@@ -651,6 +651,13 @@ export function stops(scene: Scene, dragged: string, options: SceneTargetOptions
     .sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.i - b.i)
     .map((x) => x.t);
 }
+
+/**
+ * Whether an empty `edge` offers its strip to `kind` at all: an empty side column (not compact) only to a kind its start
+ * zone takes, so a kind never opens a column on its own (a group never makes a column of one toolbar: a tray column's
+ * tray is its end zone). Bars, side toolbar bars and compact rails offer it to any kind they take.
+ */
+const opensEmpty = (edge: Edge, kind: string): boolean => axisOf(edge.side) !== "column" || !!edge.compact || zoneTakes(edge, "start", kind);
 
 /**
  * An empty edge's strip in thirds along the edge (start, center, end): the strip `Edge.strip` px (default
@@ -780,7 +787,9 @@ function edgeTargets(scene: Scene, rest: Scene, now: SceneLayout, base: SceneLay
   const drawn = base.edges[edge.id]!.stack.items.filter((p) => p.kind !== "menu").map((p) => p.id);
   if (drawn.length === 0 && !el.menu) {
     // An empty edge: its strip in thirds along the edge, one target per zone that takes the kind (the item docks
-    // aligned there: leading, centred or trailing; top, middle or bottom of a side edge).
+    // aligned there: leading, centred or trailing; top, middle or bottom of a side edge). A kind never opens an empty
+    // side column its start zone doesn't take: a group's drag gets the rail's strip, never a column with one toolbar.
+    if (!opensEmpty(edge, scene.items[dragged]!.kind)) return [];
     const parts = stripThirds(edge, el.rect, base.content);
     if (!parts) return [];
     const out: SceneTarget[] = [];

@@ -275,8 +275,8 @@ export const RULE_ROWS: readonly CaseRow[] = [
   },
   {
     id: "R5-group-never-opens-a-column",
-    title: "A group gets no strip where the column's zone takes no group",
-    expect: "An empty column whose start zone takes panels and whose end zone (its tray) takes groups offers a group only its bottom third: a group held over the middle third is offered nothing.",
+    title: "A group never opens a column on its own",
+    expect: "An empty column whose start zone takes panels offers its strip (by thirds) to panels only: a group held over it is offered nothing.",
     group: "kinds",
     scene: tweakEdge(trayColumn(), "left", { items: [] }),
     gestures: [g.press("tools"), g.at(10, 400), g.hold()],
