@@ -371,8 +371,10 @@ export interface SceneLayout {
 export interface SolveOptions {
   /**
    * The layout the scene had before: each edge's fit goes to `fitStack` as `previous`, so a press reshapes nothing. An
-   * item docked now that was closed or absent then has just opened: it counts as the newest (its largest form while it
-   * fits; the others give way by the usual rules), and its column is weighed anew by give-way.
+   * item docked now that was closed or absent then has just opened. Opened beside items that stayed open in its edge, it
+   * counts as the newest (its largest form while it fits; the others give way by the usual rules) and its column is
+   * weighed anew. A closed item is not a removed one: opened into an edge whose items were all closed, it comes back as
+   * it was, with its age, and its column's folds (kept while it was closed) apply again.
    */
   readonly previous?: SceneLayout;
   /** Edge or item ids solved without `previous` (an edge, or the edges holding the item; a column weighed anew). */

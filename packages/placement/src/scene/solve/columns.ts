@@ -7,7 +7,7 @@
 import { EPS, type Rect } from "../../geometry";
 import { formCrossMin, formSetsCross, type StackForm } from "../../stack";
 import { formsOf, isSideBar } from "../helpers";
-import type { Edge } from "../model";
+import type { Edge, SceneNote } from "../model";
 import type { Draft } from "./draft";
 import { solveEdge, type EdgeSolve } from "./edge";
 import type { Frame } from "./insets";
@@ -119,8 +119,11 @@ export function giveWay(d: Draft, cols: readonly Col[], area: Rect, gutter: numb
     if (previous) {
       // What gave way before stays folded, in the order it folded, while the content still fits without it coming back.
       const byId = new Map(foldOrder.map((c) => [c.edge.id, c]));
-      // A column with a just-opened or `fresh` item is weighed anew.
-      const anew = (c: Col): boolean => fresh.has(c.edge.id) || c.visible.some((id) => opened.has(id) || fresh.has(id));
+      // A column with a `fresh` item (or itself `fresh`) is weighed anew, and so is one an item opens into beside items
+      // already open there (a request to show it). A column whose items were all closed and open again is not: a closed
+      // item is not a removed one, and its column's give-way, kept while it was closed, applies again.
+      const anew = (c: Col): boolean =>
+        fresh.has(c.edge.id) || c.visible.some((id) => fresh.has(id)) || (c.visible.some((id) => opened.has(id)) && c.visible.some((id) => !opened.has(id)));
       const was = previous.notes.flatMap((n) => ((n.code === "column-folded" || n.code === "kept-folded") && byId.has(n.edge) && !anew(byId.get(n.edge)!) ? [byId.get(n.edge)!] : []));
       auto = new Set(was);
       if (evaluate(auto).excess <= EPS) unfold();
@@ -180,11 +183,36 @@ export function columnRoom(d: Draft, cols: readonly Col[], area: Rect, f: Frame)
   if (!d.columnRoom) d.notes.push({ code: "no-column-room", width, need });
 }
 
-/** The give-way notes: each column shrunk, then each folded, in the order they folded (`previous` unfolds in reverse). */
-export function giveWayNotes(d: Draft, g: GiveWay): void {
+/**
+ * The give-way notes: each column shrunk, then each folded, in the order they folded (`previous` unfolds in reverse). A
+ * column whose items are all closed keeps its notes from `previous`, at their place in that order: a closed item is not
+ * a removed one, and its column's give-way applies again when it opens.
+ */
+export function giveWayNotes(d: Draft, g: GiveWay, cols: readonly Col[]): void {
+  const { scene, previous } = d;
+  const dormant = new Set(cols.filter((c) => c.visible.length === 0 && (c.edge.column === true || c.edge.giveWay === true) && scene.rails?.[c.side] !== undefined).map((c) => c.edge.id));
+  const before = previous?.notes ?? [];
+  const shrunk = new Map<string, SceneNote>();
   for (const c of g.shrinkOrder) {
     const w = g.widths.get(c);
-    if (w !== undefined && w < c.width - EPS) d.notes.push({ code: "column-shrunk", edge: c.edge.id, from: c.width, to: w });
+    if (w !== undefined && w < c.width - EPS) shrunk.set(c.edge.id, { code: "column-shrunk", edge: c.edge.id, from: c.width, to: w });
   }
-  for (const c of g.auto) d.notes.push({ code: c.kept ? "kept-folded" : "column-folded", edge: c.edge.id });
+  const folded = new Map<string, SceneNote>([...g.auto].map((c) => [c.edge.id, { code: c.kept ? "kept-folded" : "column-folded", edge: c.edge.id }]));
+  // Kept notes go where they were in `previous`'s order; the others after them, in their own order.
+  const merge = (now: Map<string, SceneNote>, kept: (n: SceneNote) => boolean): void => {
+    const order: SceneNote[] = [];
+    for (const n of before) {
+      const edge = kept(n) && "edge" in n ? n.edge : undefined;
+      if (edge === undefined) continue;
+      if (dormant.has(edge)) order.push(n);
+      else if (now.has(edge)) {
+        order.push(now.get(edge)!);
+        now.delete(edge);
+      }
+    }
+    d.notes.push(...order, ...now.values());
+  };
+  // A shrink is no history to keep: a column shrinks again by the usual order when it opens.
+  d.notes.push(...shrunk.values());
+  merge(folded, (n) => n.code === "column-folded" || n.code === "kept-folded");
 }

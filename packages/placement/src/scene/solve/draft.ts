@@ -48,8 +48,16 @@ export function createDraft(given: Scene, options: SolveOptions): Draft {
       }
     }
   }
+  // A closed item is not a removed one. One that opens into an edge where items stayed open is a request to show it: it
+  // counts as the newest there. One that opens into an edge whose items were all closed comes back as it was, with its
+  // age (its edge's give-way, kept while it was closed, applies again). Opened together, the newest keep their order
+  // among themselves, the one used longer ago still the older.
+  const stayedOpen = (e: Scene["edges"][number]): boolean => e.items.some((id) => !opened.has(id) && Object.hasOwn(given.items, id) && !given.items[id]!.closed && !given.items[id]!.fixed);
   const newest = Object.values(given.items).reduce((m, it) => Math.max(m, finite(it.used, 0)), 0) + 1;
-  const scene: Scene = opened.size === 0 ? given : { ...given, items: { ...given.items, ...Object.fromEntries([...opened].map((id) => [id, { ...given.items[id]!, used: newest }])) } };
+  const byAge = [...opened]
+    .filter((id) => given.edges.some((e) => e.items.includes(id) && stayedOpen(e)))
+    .sort((a, b) => finite(given.items[a]!.used, 0) - finite(given.items[b]!.used, 0) || (a < b ? -1 : 1));
+  const scene: Scene = byAge.length === 0 ? given : { ...given, items: { ...given.items, ...Object.fromEntries(byAge.map((id, k) => [id, { ...given.items[id]!, used: newest + k }])) } };
   // `fresh` edges, and edges holding a `fresh` item, are solved without `previous`.
   const fresh = new Set(options.fresh ?? []);
   const prevEdge = (edge: Edge): SceneEdgeLayout | undefined => (!previous || fresh.has(edge.id) || edge.items.some((id) => fresh.has(id)) ? undefined : previous.edges[edge.id]);

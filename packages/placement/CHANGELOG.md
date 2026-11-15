@@ -22,6 +22,14 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   toolbar dropped onto a crowded title bar lands in its compact variant. `StackFit.need` is the forms' least with every
   growing fixed item at its minimum.
 
+- `@n-uf/placement/scene`, **Fixed: a closed item is not a removed one.** A column whose items are all closed keeps its
+  fold history (`column-folded` / `kept-folded` notes, at their place in the order) while they are closed, and when its
+  items open again (`previous` being the layout with them closed) they come back with their ages and that history
+  applies again: closing whole columns and opening them at the same width gives the layout from before the close.
+  Items opened together keep their order among themselves. An item opened beside items that stayed open in its edge is
+  still a request to show it (the newest there, its column weighed anew). A shrink isn't kept: a reopened column
+  shrinks again by the usual order.
+
 - `@n-uf/placement/scene` and `/stack`, **the Scene owns the whole window**. Nothing published is removed.
   - **What moved:** `fitFloat` and `FloatFit` are exported by `./scene` (the Scene fits its floats with it). `./scene`
     no longer reaches into `./stack`'s files: it uses `./stack` only as the edge solver, through its entry.
