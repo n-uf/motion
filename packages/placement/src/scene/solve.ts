@@ -571,7 +571,8 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
         const segments: { id: string; edge: string; rect: Rect }[] = [];
         let y = railRect.y;
         for (const c of railed) {
-          for (const id of c.visible) {
+          // In zone order, as the column itself shows them: start, center, end.
+          for (const id of zoneSorted(scene, c.visible)) {
             const it = scene.items[id]!;
             const forms = formsOf(it, "column");
             const ri = forms.findIndex((f) => f.kind === "rail");
