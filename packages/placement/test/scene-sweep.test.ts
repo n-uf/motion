@@ -191,7 +191,17 @@ describe("scene sweeps", () => {
     }
   });
 
-  it("no strip lies over a docked edge or a panel's body, and no gap's hit over another edge's panel body", () => {
+  it("no strip lies over a docked edge (but for its own band) or a panel's body, and no gap's hit over another edge's panel body", () => {
+    // An empty edge owns half the hit band (12 px) at the boundary where it would appear; there it may lie over an edge
+    // it pushes. Its overreach past that band never does.
+    const BAND = 12;
+    const bandOf = (r: R, side: string): R =>
+      side === "left" ? { ...r, width: BAND } : side === "right" ? { ...r, x: r.x + r.width - BAND, width: BAND } : side === "top" ? { ...r, height: BAND } : { ...r, y: r.y + r.height - BAND, height: BAND };
+    const meet = (a: R, b: R): R => {
+      const x = Math.max(a.x, b.x);
+      const y = Math.max(a.y, b.y);
+      return { x, y, width: Math.min(a.x + a.width, b.x + b.width) - x, height: Math.min(a.y + a.height, b.y + b.height) - y };
+    };
     for (const seed of SEEDS.slice(0, 200)) {
       const s = randomScene(seed);
       const now = solve(s);
@@ -211,10 +221,13 @@ describe("scene sweeps", () => {
           for (const { l, skip } of layouts) {
             // A neighbour that, as it is now, lies on this edge's lifted rect can't trim the hit without dropping it.
             const stale = (oe: string) => l === now && !strip && overlaps(now.edges[oe]!.rect, lifted.edges[e]!.rect);
-            if (strip) for (const [oe, d] of Object.entries(l.edges)) if (oe !== e && oe !== skip && overlaps(t.hit, d.rect)) throw new Error(`seed ${seed} drag ${id}: ${t.id} over edge ${oe}`);
+            const own = lifted.edges[e];
+            if (strip) for (const [oe, d] of Object.entries(l.edges)) if (oe !== e && oe !== skip && overlaps(t.hit, d.rect) && !(own && inside(meet(t.hit, d.rect), bandOf(own.rect, own.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over edge ${oe}`);
             for (const [oid, it] of Object.entries(l.items)) {
               if (oid === id || it.formKind !== "open" || !it.edge || it.edge === e || it.edge === skip || stale(it.edge)) continue;
-              if (overlaps(t.hit, it.rect)) throw new Error(`seed ${seed} drag ${id}: ${t.id} over ${oid}'s body`);
+              // An empty edge's own band may lie over it; nothing else of a hit may.
+              const empty = !!own && (own.rect.width <= 1e-6 || own.rect.height <= 1e-6);
+              if (overlaps(t.hit, it.rect) && !(empty && inside(meet(t.hit, it.rect), bandOf(own!.rect, own!.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over ${oid}'s body`);
             }
           }
         }

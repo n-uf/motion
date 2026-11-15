@@ -29,8 +29,9 @@ describe("gap hits tile short-item edges", () => {
     expect(dead(ts, "rail", pts)).toEqual([]);
     const ids = gapsOf(ts, "rail").map((t) => t.id);
     expect(ids).toEqual(expect.arrayContaining(["gap:rail:start:0", "gap:rail:start:1", "gap:rail:center:0", "gap:rail:end:0"]));
-    // A little way inside the rail, over the column, still the rail.
-    expect(gapsOf(ts, "rail").some((t) => inside(t.hit, { x: 40, y: 300 }))).toBe(true);
+    // The rail's inward reach is overreach: it never takes the column's own rect (x 30 on), which the column owns.
+    expect(gapsOf(ts, "rail").some((t) => inside(t.hit, { x: 40, y: 300 }))).toBe(false);
+    expect(gapsOf(ts, "rail").every((t) => t.hit.x + t.hit.width <= 30 + 1e-6)).toBe(true);
   });
 
   it("the bars: every point along the toolbar and the title bar is some gap, except over the reserved rects", () => {

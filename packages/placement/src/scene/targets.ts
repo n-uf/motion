@@ -23,11 +23,13 @@
  *   only through its start zone; (ii) the drop fits (C29: no » entry, no new overflow or `too-wide`, every fixed item
  *   keeps its form, place and least length, a title bar's title its natural width with the toolbar in its first form;
  *   the slot covers no chrome or reserved rect). A slot (i) or (ii) removes is a refusal over its own tile, with that
- *   reason (`refusals()`). (iii) Clipping, in precedence order: home, the virtual edges, then the edges by layer (full
- *   bars, side edges, bars between), each tile cut clear of the tiles before it, of the other edges' rects, of every
- *   fixed item that doesn't grow and of the chrome, keeping the part that holds its slot's line; its other parts are
- *   refused, a virtual edge's as a real one's (a virtual edge's refused stretches take only what every other tile
- *   leaves). (iv) `blocked` rects are `none:<i>`.
+ *   reason (`refusals()`). (iii) Space ownership and clipping (`EDGE_KINDS`): owned > virtual > overreach. A zone's
+ *   room loses its panel bodies, its reserved rects and what edges ranked before it own (in `solve`'s laying order); a
+ *   zone with no room, or a slot with none in reach, isn't offered. Each tile's owned part is cut clear of the tiles
+ *   before it, of what outranks its edge, of every fixed item that doesn't grow and of the chrome, keeping the part
+ *   that holds its slot's line (its other parts refused); then the virtual edges take what no edge owns; then each
+ *   overreach takes what is left and joins its owned part where it meets it whole. Slots that are the same move are
+ *   one. (iv) `blocked` rects are `none:<i>`.
  *
  * Ids: `gap:<edge>:<zone>:<at>` (priority 2), `strip:<edge>:<zone>` (2), `column:<side>:<ring>` (2), `rail:<side>:<ring>`
  * (1), `none:<i>` (1), `float:<id>` (3, free). A slot that would put the item back where it is keeps its id with place
@@ -55,7 +57,7 @@ import type { Target } from "../target";
 import { formMain } from "../stack/model";
 import { floatAt, lift, moveTo, sideRings, use, type ColumnPlace, type RailPlace } from "./changes";
 import { DEFAULT_HIT_BAND, DEFAULT_STRIP, ZONES, axisOf, floatOrientOf, floatSizeOf, formsOf, isSideBar, zoneOf, zoneTakes, type Edge, type Orient, type Scene, type SceneLayout, type Zone } from "./model";
-import { solve } from "./solve";
+import { layKeys, pushes, solve, type LayKey } from "./solve";
 
 export type ScenePlace =
   | { readonly kind: "gap"; readonly edge: string; readonly zone: Zone; readonly at: number }
@@ -121,28 +123,36 @@ const RAIL_REACH = 24;
  * - `zoneExtent`: `thirds` where items keep their length and the zones only align them, `solved` where items fill the
  *   edge (each zone's extent is the span the solver gives it), `whole` for an edge of one zone.
  * - `opens`: through which zones an empty edge opens: `any` zone that takes the kind, or only its `start` zone.
- * - `inward`: how far hits reach inward past the edge's thickness, over the other edges' rects but never their tiles.
- * - `layer`: clipping precedence (lower first: the virtual edges, then a full bar owns the corners, a side edge runs
- *   between the bars, a rail's reach takes what the edges beside it leave).
+ * - `inward`: how far hits reach inward past the edge's thickness (overreach, below).
+ * - Space ownership, one ordering: **owned > virtual > overreach**. A drawn edge owns its current rect; an empty edge
+ *   owns only `place` px of its strip, at the boundary where it would appear (the side's rail likewise, where it lies
+ *   or would lie, `railPlaces`). Owned rects rank in the order `solve` lays edges out (`layKeys`, `pushes`): an edge
+ *   laid first, whose filling pushes the other, wins; between edges laid independently a drawn rect wins over an empty
+ *   edge's band. `layer` orders the owned tiles where they meet. The virtual edges (the column lines) come next and get
+ *   only space no edge owns. `overreach` orders the parts of tiles past their owned rect (the depth after a drop, an
+ *   empty strip past its band, a compact rail's inward reach), which yield to the virtual edges and to every other
+ *   edge's owned rect.
  * - `priority`: its targets' priority. `reach`: how far a slot's tile reaches each way from its line, px.
- * - `virtual`: an edge the scene doesn't draw. Its tiles aren't cut by the other edges' rects, and its refused
- *   stretches take only what every other tile leaves.
+ * - `virtual`: an edge that owns nothing (the column lines). Its refused stretches take only what every other tile
+ *   leaves.
  */
 const EDGE_KINDS = {
-  bar: { zoneExtent: "thirds", opens: "any", inward: 0, layer: 10, priority: 2, reach: Infinity, virtual: false },
-  rail: { zoneExtent: "thirds", opens: "any", inward: RAIL_REACH, layer: 14, priority: 2, reach: Infinity, virtual: false },
-  sideBar: { zoneExtent: "thirds", opens: "any", inward: 0, layer: 11, priority: 2, reach: Infinity, virtual: false },
-  column: { zoneExtent: "solved", opens: "start", inward: 0, layer: 12, priority: 2, reach: Infinity, virtual: false },
-  barBetween: { zoneExtent: "thirds", opens: "any", inward: 0, layer: 13, priority: 2, reach: Infinity, virtual: false },
-  railStop: { zoneExtent: "whole", opens: "any", inward: 0, layer: 4, priority: 1, reach: Infinity, virtual: true },
-  columnLine: { zoneExtent: "whole", opens: "any", inward: 0, layer: 5, priority: 2, reach: COLUMN_REACH, virtual: true },
+  bar: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, layer: 10, overreach: 30, priority: 2, reach: Infinity, virtual: false },
+  sideBar: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, layer: 11, overreach: 31, priority: 2, reach: Infinity, virtual: false },
+  column: { zoneExtent: "solved", opens: "start", inward: 0, place: DEFAULT_HIT_BAND / 2, layer: 12, overreach: 32, priority: 2, reach: Infinity, virtual: false },
+  barBetween: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, layer: 13, overreach: 33, priority: 2, reach: Infinity, virtual: false },
+  rail: { zoneExtent: "thirds", opens: "any", inward: RAIL_REACH, place: DEFAULT_HIT_BAND / 2, layer: 14, overreach: 34, priority: 2, reach: Infinity, virtual: false },
+  railStop: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, layer: 9, overreach: 39, priority: 1, reach: Infinity, virtual: false },
+  columnLine: { zoneExtent: "whole", opens: "any", inward: 0, place: 0, layer: 21, overreach: 41, priority: 2, reach: COLUMN_REACH, virtual: true },
 } as const satisfies Record<
   string,
   {
     readonly zoneExtent: "thirds" | "solved" | "whole";
     readonly opens: "any" | "start";
     readonly inward: number;
+    readonly place: number;
     readonly layer: number;
+    readonly overreach: number;
     readonly priority: 1 | 2;
     readonly reach: number;
     readonly virtual: boolean;
@@ -207,7 +217,9 @@ interface Tile {
   readonly zone: Zone;
   /** Clipping precedence: lower first. */
   readonly order: number;
-  readonly kind: "slot" | "home" | "refuse";
+  /** `reach`: the overreach of the tile `of` (its part past its edge's owned rect), clipped after the virtual edges. */
+  readonly kind: "slot" | "home" | "refuse" | "reach";
+  readonly of?: Tile;
   readonly id: string;
   readonly priority: 1 | 2 | 3;
   readonly place?: ScenePlace;
@@ -224,6 +236,8 @@ interface Tile {
 interface Generated {
   readonly targets: SceneTarget[];
   readonly refusals: SceneRefusal[];
+  /** Slots the filter kept, with room in their zone, that end with no hit (none, by the property check). */
+  readonly lost: string[];
 }
 
 /** The context every edge's generator shares. */
@@ -239,6 +253,8 @@ interface Ctx {
   readonly isHome: (r: SceneAfter) => boolean;
   /** Whether a drop's layout fits the window (filter ii): what every edge checks; its own landing rule comes on top. */
   readonly sound: (after: SceneLayout) => boolean;
+  /** Where `solve` lays each edge of the scene out. */
+  readonly lay: ReadonlyMap<string, LayKey>;
 }
 
 /** A slot: an insertion line along an edge and the drop it makes. */
@@ -263,6 +279,8 @@ interface Slot {
 interface EdgeSpec {
   readonly id: string;
   readonly kind: EdgeKind;
+  /** Where `solve` lays it out (`layKeys`): what it owns ranks by this. */
+  readonly lay: LayKey;
   /** It runs along y (side edges, the rail), not x (bars, the column lines). */
   readonly vertical: boolean;
   readonly zones: readonly { readonly zone: Zone; readonly a: number; readonly b: number }[];
@@ -276,6 +294,10 @@ interface EdgeSpec {
   readonly reserved: readonly Span[];
   /** The band across, `[from, to]`, as deep as the edge is now or after `after`. */
   readonly across: (after?: SceneLayout) => Span;
+  /** The part of the band across it owns: its current thickness, or an empty edge's thin band at its boundary. */
+  readonly owned: Span;
+  /** It draws now; else what it owns is a band of its place (where it lands once filled). */
+  readonly drawn: boolean;
   /** A slot's marker: the zero-thick line where the item's leading edge lands. */
   readonly marker: (s: Slot) => Rect;
 }
@@ -289,6 +311,10 @@ function slotAt(c: Ctx, zone: Zone, line: number, id: string, place: Slot["place
 
 /** `[a, b]` along an edge. */
 type Span = readonly [number, number];
+
+/** Spans along an edge less other spans along it. */
+const less = (spans: readonly Span[], away: readonly Span[]): Span[] =>
+  away.reduce<Span[]>((acc, [ra, rb]) => acc.flatMap(([a, b]) => (rb <= a || ra >= b ? [[a, b] as Span] : ([[a, Math.max(a, ra)], [Math.min(b, rb), b]] as Span[]).filter(([u, w]) => w - u > EPS))), [...spans]);
 
 /**
  * The zones of `edge` with their extents along it, for a drag of `kind` (`EDGE_KINDS[...].zoneExtent`). `probe(zone)`:
@@ -438,11 +464,13 @@ function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
   const r = el.rect;
   const strip = Math.max(0, Number.isFinite(edge.strip) ? edge.strip! : DEFAULT_STRIP);
   const nowCross = now.edges[edge.id]?.cross ?? 0;
-  const across = (after?: SceneLayout): Span => {
-    const depth = (el.cross > 0 || nowCross > 0 ? Math.max(el.cross, nowCross, after?.edges[edge.id]?.cross ?? 0) : strip) + data.inward;
-    const outer = edge.side === "left" ? r.x : edge.side === "right" ? r.x + r.width : edge.side === "top" ? r.y : r.y + r.height;
-    return edge.side === "left" || edge.side === "top" ? [outer, outer + depth] : [outer - depth, outer];
-  };
+  const outer = edge.side === "left" ? r.x : edge.side === "right" ? r.x + r.width : edge.side === "top" ? r.y : r.y + r.height;
+  const inward = (depth: number): Span => (edge.side === "left" || edge.side === "top" ? [outer, outer + depth] : [outer - depth, outer]);
+  const across = (after?: SceneLayout): Span => inward((el.cross > 0 || nowCross > 0 ? Math.max(el.cross, nowCross, after?.edges[edge.id]?.cross ?? 0) : strip) + data.inward);
+  // What it owns: its current thickness, with the item lifted or as it is now, but the item's own edge only as lifted
+  // (the item has left it); an edge with no thickness owns only a thin band of its place, at its boundary.
+  const ownCross = ownNow?.edge === edge.id ? el.cross : Math.max(el.cross, nowCross);
+  const drawn = ownCross > 0;
   const marker = (s: Slot): Rect => {
     const slot = s.result.layout.items[dragged]!.rect;
     const e = s.result.layout.edges[edge.id]!;
@@ -452,6 +480,7 @@ function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
   return {
     id: edge.id,
     kind: edgeKind,
+    lay: c.lay.get(edge.id)!,
     vertical: column,
     zones,
     slots,
@@ -460,6 +489,8 @@ function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
     holds: !!ownNow && ownNow.edge === edge.id && !ownNow.floating,
     reserved,
     across,
+    owned: inward(drawn ? ownCross : Math.min(strip, data.place)),
+    drawn,
     marker,
   };
 }
@@ -471,7 +502,7 @@ function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
  * (across, the edge's band and the own rect), named after the home slot when there is one. Where the item has no rect
  * on the edge, home's tile is its slot's.
  */
-function tileEdge(c: Ctx, spec: EdgeSpec): Tile[] {
+function tileEdge(c: Ctx, spec: EdgeSpec, cuts: readonly Span[], lost: string[]): Tile[] {
   const data = EDGE_KINDS[spec.kind];
   const v = spec.vertical;
   const own: Span | null = spec.own ? (v ? [spec.own.y, spec.own.y + spec.own.height] : [spec.own.x, spec.own.x + spec.own.width]) : null;
@@ -485,11 +516,38 @@ function tileEdge(c: Ctx, spec: EdgeSpec): Tile[] {
   const tile = (zone: Zone, hit: Rect, more: More): Tile => ({ edge: spec.id, edgeKind: spec.kind, vertical: v, zone, hit, ...more });
   const refused = (zone: Zone, hit: Rect, reason: SceneRefusal["reason"]): Tile => tile(zone, hit, { kind: "refuse", id: "", order: data.layer, priority: data.priority, keep: null, reason });
   const reserved = spec.reserved;
+  // A tile's part across that its edge owns, and the rest, its overreach: clipped after the virtual edges, then joined
+  // back where it still meets the owned part whole.
+  const split = (t: Tile): Tile[] => {
+    const h = t.hit;
+    const [h0, h1] = v ? [h.x, h.x + h.width] : [h.y, h.y + h.height];
+    const [c0, c1] = [Math.max(h0, spec.owned[0]), Math.min(h1, spec.owned[1])];
+    const part = (a: number, b: number): Rect => (v ? rect(a, h.y, b - a, h.height) : rect(h.x, a, h.width, b - a));
+    const beyond = less([[h0, h1]], [spec.owned]);
+    if (beyond.length === 0) return [t];
+    if (c1 - c0 <= EPS) return [{ ...t, order: data.overreach }];
+    const core: Tile = { ...t, hit: part(c0, c1), keep: t.keep && keepAt(v ? t.keep.y : t.keep.x, part(c0, c1)) };
+    return [core, ...beyond.map(([a, b]): Tile => ({ ...t, kind: "reach", of: core, order: data.overreach, hit: part(a, b), keep: null }))];
+  };
+  // Slots that are the same move are one slot, the first (the lowest `at`) keeping it: one line and one landing, or
+  // both home (both put the item back, wherever their lines lie).
+  const landing = (s: Slot): Rect | undefined => s.result.layout.items[c.dragged]?.rect;
+  const sameMove = (a: Slot, b: Slot): boolean => {
+    if (a.zone !== b.zone) return false;
+    if (a.home && b.home) return true;
+    const [p, q] = [landing(a), landing(b)];
+    return Math.abs(a.line - b.line) < EPS && (!p || !q ? p === q : Math.abs(p.x - q.x) + Math.abs(p.y - q.y) + Math.abs(p.width - q.width) + Math.abs(p.height - q.height) < 0.01);
+  };
+  const slots = spec.slots.filter((s, i) => !spec.slots.slice(0, i).some((o) => sameMove(o, s)));
   const out: Tile[] = [];
   for (const z of spec.zones) {
-    // The zone's extent less the own interval: up to two pieces.
-    const pieces: Span[] = (own ? [[z.a, Math.min(z.b, own[0])] as Span, [Math.max(z.a, own[1]), z.b] as Span] : [[z.a, z.b] as Span]).filter(([a, b]) => b - a > EPS);
-    const mine = spec.slots.filter((s) => s.zone === z.zone && !(spec.holds && s.home));
+    // The zone's extent less its reserved rects and what other edges own: a zone left with nothing has no slot.
+    const room = less([[z.a, z.b]], [...cuts, ...reserved]).filter(([a, b]) => b - a > EPS);
+    if (room.length === 0) continue;
+    // Less the own interval, which home owns: a zone wholly under the item's own place has no room left either.
+    const pieces = own ? less(room, [own]) : room;
+    // A slot with no room within its kind's reach of its line isn't offered.
+    const mine = slots.filter((s) => s.zone === z.zone && !(spec.holds && s.home) && pieces.some(([a, b]) => b > s.line - data.reach + EPS && a < s.line + data.reach - EPS));
     const reason = spec.refuse(z.zone);
     for (const [pa, pb] of pieces) {
       // Lines spread into the zone's extent less its reserved rects when they lie past it: their share of the span
@@ -497,7 +555,7 @@ function tileEdge(c: Ctx, spec: EdgeSpec): Tile[] {
       const lines = mine.map((s) => s.line);
       const lo = Math.min(z.a, ...lines);
       const hi = Math.max(z.b, ...lines);
-      const free = reserved.reduce<Span[]>((acc, [ra, rb]) => acc.flatMap(([a, b]) => (rb <= a || ra >= b ? [[a, b] as Span] : ([[a, Math.max(a, ra)], [Math.min(b, rb), b]] as Span[]).filter(([u, v]) => v - u > EPS))), [[z.a, z.b]]);
+      const free = less([[z.a, z.b]], reserved);
       const freeLen = free.reduce((n, [a, b]) => n + (b - a), 0);
       const spread = (x: number): number => {
         if (hi - lo <= EPS || freeLen <= EPS) return x;
@@ -512,31 +570,43 @@ function tileEdge(c: Ctx, spec: EdgeSpec): Tile[] {
       // Lines inside the extent stay where they are, one inside a reserved rect going to its nearer end.
       const past = lines.some((x) => x < z.a - EPS || x > z.b + EPS);
       const nearer = (p: number, [a, b]: Span): number => (p > a && p < b ? (p - a < b - p ? a : b) : p);
+      // A line left outside the zone's pieces (under what another edge owns) goes to the nearest point of one.
       const proj = (x: number): number => {
-        const p = reserved.reduce((q, s) => nearer(q, s), past ? spread(x) : x);
-        return own ? nearer(p, own) : p;
+        const q = reserved.reduce((r, s) => nearer(r, s), past ? spread(x) : x);
+        const p = own ? nearer(q, own) : q;
+        if (pieces.some(([a, b]) => p >= a - EPS && p <= b + EPS)) return p;
+        return pieces.map(([a, b]) => Math.min(Math.max(p, a), b)).reduce((m, y) => (Math.abs(y - p) < Math.abs(m - p) ? y : m));
       };
-      const inPiece = mine.filter((s) => proj(s.line) >= pa - EPS && proj(s.line) <= pb + EPS).sort((a, b) => proj(a.line) - proj(b.line));
+      const inPiece = mine.filter((s) => proj(s.line) >= pa - EPS && proj(s.line) <= pb + EPS).sort((a, b) => proj(a.line) - proj(b.line) || a.line - b.line);
+      // Where projection lays two different moves on one point (lines under the own place or another edge's), the
+      // piece's lines are laid out in their order along it instead, one share each.
+      const projected = inPiece.map((s) => proj(s.line));
+      const at = projected.some((p, i) => i > 0 && p - projected[i - 1]! <= EPS) ? inPiece.map((_, i) => pa + ((i + 0.5) * (pb - pa)) / inPiece.length) : projected;
       if (inPiece.length === 0) {
         // A stretch of a zone with no slot of its own is refused: home is only over the item's own place, and no stretch
         // is handed to another zone's slot. Beside a lone item (the zone's only slot is home) there is room, but no
         // place other than its own: `own-place`.
-        const lone = reason === "no-room" && mine.length === 0 && spec.slots.some((s) => s.zone === z.zone && s.home);
-        if (reason) out.push(refused(z.zone, band(pa, pb), lone ? "own-place" : reason));
+        // A stretch out of every slot's reach is no part of this edge.
+        const lone = reason === "no-room" && mine.length === 0 && slots.some((s) => s.zone === z.zone && s.home);
+        const near = mine.length === 0 || mine.some((s) => pb > s.line - data.reach + EPS && pa < s.line + data.reach - EPS);
+        if (reason && near) out.push(...split(refused(z.zone, band(pa, pb), lone ? "own-place" : reason)));
         continue;
       }
       inPiece.forEach((s, i) => {
         // Halfway between neighbouring lines, the piece's ends at its ends (the own interval's ends are one), and no
         // further from its line than the kind's reach.
-        const p = proj(s.line);
-        const a = Math.max(i === 0 ? pa : (proj(inPiece[i - 1]!.line) + p) / 2, p - data.reach);
-        const b = Math.min(i === inPiece.length - 1 ? pb : (p + proj(inPiece[i + 1]!.line)) / 2, p + data.reach);
-        if (b - a <= EPS) return;
+        const p = at[i]!;
+        const a = Math.max(i === 0 ? pa : (at[i - 1]! + p) / 2, p - data.reach);
+        const b = Math.min(i === inPiece.length - 1 ? pb : (p + at[i + 1]!) / 2, p + data.reach);
+        if (b - a <= EPS) {
+          if (s.ok) lost.push(s.id);
+          return;
+        }
         const line = Math.min(Math.max(p, a), b);
         const hit = band(a, b, s.result.layout);
-        if (!s.ok) out.push(refused(z.zone, hit, "no-room"));
-        else if (s.home) out.push(tile(z.zone, hit, { kind: "home", id: s.id, order: 1, priority: data.priority, keep: keepAt(line, hit), place: { kind: "home" } }));
-        else out.push(tile(z.zone, hit, { kind: "slot", id: s.id, order: data.layer, priority: data.priority, keep: keepAt(line, hit), place: s.place, result: s.result, marker: spec.marker(s), slot: s.result.layout.items[c.dragged]!.rect }));
+        if (!s.ok) out.push(...split(refused(z.zone, hit, "no-room")));
+        else if (s.home) out.push(...split(tile(z.zone, hit, { kind: "home", id: s.id, order: data.layer, priority: data.priority, keep: keepAt(line, hit), place: { kind: "home" } })));
+        else out.push(...split(tile(z.zone, hit, { kind: "slot", id: s.id, order: data.layer, priority: data.priority, keep: keepAt(line, hit), place: s.place, result: s.result, marker: spec.marker(s), slot: s.result.layout.items[c.dragged]!.rect })));
       });
     }
   }
@@ -587,14 +657,18 @@ function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec {
   return {
     id: `column:${side}`,
     kind: "columnLine",
+    // Laid by nobody: it owns nothing and pushes nothing.
+    lay: { phase: 4, side, at: Infinity },
     vertical: false,
     zones: [{ zone: "start", a: Math.min(...xs) - reach, b: Math.max(...xs) + reach }],
     slots: lines.map((l) => slotAt(c, "start", l.x, `column:${side}:${l.ring}`, { kind: "column", side, ring: l.ring }, lands)),
-    refuse: () => null,
+    refuse: () => "no-room",
     own: null,
     holds: false,
     reserved: [],
     across: () => [span.y, span.y + span.height],
+    owned: [span.y, span.y + span.height],
+    drawn: false,
     marker: (s) => rect(s.line, span.y, 0, span.height),
   };
 }
@@ -636,21 +710,26 @@ function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
   return {
     id: `rail:${side}`,
     kind: "railStop",
+    // The rail lies outside every edge on its side: laid first among them.
+    lay: { phase: 2, side, at: -1 },
     vertical: true,
     zones: [{ zone: "start", a: at.y, b: at.y + at.height }],
     slots: stops.map((s) => slotAt(c, "start", s.y, `rail:${side}:${s.ring}`, { kind: "rail", side, ring: s.ring }, lands, ownRail)),
-    refuse: () => null,
+    refuse: () => "no-room",
     own: null,
     holds: false,
     reserved: [],
     across: () => [at.x, at.x + at.width],
+    // A drawn rail owns its rect; where none shows, a thin band of its place at the side's outer boundary.
+    owned: rail && rail.segments.length > 0 ? [at.x, at.x + at.width] : side === "left" ? [at.x, at.x + Math.min(at.width, EDGE_KINDS.railStop.place)] : [at.x + at.width - Math.min(at.width, EDGE_KINDS.railStop.place), at.x + at.width],
+    drawn: !!rail && rail.segments.length > 0,
     marker: (s) => rect(at.x, s.result.layout.items[dragged]!.rect.y, at.width, 0),
   };
 }
 
 function generate(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
   const item = Object.hasOwn(scene.items, dragged) ? scene.items[dragged] : undefined;
-  if (!item || item.fixed || item.closed) return { targets: [], refusals: [] };
+  if (!item || item.fixed || item.closed) return { targets: [], refusals: [], lost: [] };
   const prev = { ...(options.previous ? { previous: options.previous } : {}), ...(options.fresh ? { fresh: options.fresh } : {}) };
   const settle = (s: Scene): SceneAfter => ({ scene: s, layout: solve(s, prev) });
   const now = solve(scene, prev);
@@ -679,7 +758,7 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
     const fixedAfter = Object.entries(after.items).filter(([id, it]) => it.fixed && id !== dragged).map(([id]) => reservedRect(scene, after, id));
     return !chrome.some((c) => overlaps(me.rect, c)) && !fixedAfter.some((f) => overlaps(me.rect, f));
   };
-  const c: Ctx = { scene, rest, now, base, dragged, kind: item.kind, reach: Math.max(0, Number.isFinite(options.endReach) ? options.endReach! : 0), settle, isHome: (r) => placeKey(r.scene, dragged) === here, sound };
+  const c: Ctx = { scene, rest, now, base, dragged, kind: item.kind, reach: Math.max(0, Number.isFinite(options.endReach) ? options.endReach! : 0), settle, isHome: (r) => placeKey(r.scene, dragged) === here, sound, lay: layKeys(scene) };
 
   // The edges as the tiler reads them: every real edge, then each side's column lines and rail, only for kinds the
   // side's template opens with (its start zone).
@@ -690,9 +769,86 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
     specs.push(columnLines(c, side));
     if (scene.rails?.[side]?.accepts.includes(item.kind)) specs.push(railStops(c, side));
   }
-  const tiles: Tile[] = specs.flatMap((spec) => (spec ? tileEdge(c, spec) : []));
-  // The item's own place is home's even where no edge tiles it (its column, deleted by the lift; its » entry).
+  // Space ownership. A drawn edge owns its current rect, with the item lifted or as it is now (but for the item's own
+  // edge as it is now: the item has left it); an empty edge owns a thin band of its place at its boundary; the rail
+  // likewise. Owned rects rank in the order `solve` lays edges out: one laid before another and pushing it when filled
+  // wins (outer before inner, full bars before the sides they push, the rail before its side); between edges laid
+  // independently a drawn rect wins over an empty edge's band, two drawn rects yield to each other, and of two bands
+  // the one laid first wins. Home's tile is owned before all. A virtual edge owns nothing and yields to every owner.
+  const ownEdge = now.items[dragged]?.edge;
+  const live = specs.filter((s): s is EdgeSpec => s !== null);
+  const bandOf = (s: EdgeSpec): Rect => {
+    const a = Math.min(...s.zones.map((z) => z.a));
+    const b = Math.max(...s.zones.map((z) => z.b));
+    return s.vertical ? rect(s.owned[0], a, s.owned[1] - s.owned[0], b - a) : rect(a, s.owned[0], b - a, s.owned[1] - s.owned[0]);
+  };
+  interface Owner {
+    readonly id: string;
+    readonly rect: Rect;
+    readonly lay: LayKey;
+    readonly place: boolean;
+  }
   const ownRect = now.items[dragged];
+  // Home's tile: the item's own rect, and, along it, its edge's band (the own interval across the band).
+  const homeRect = ((): Rect | null => {
+    if (!ownRect || ownRect.floating || !ownEdge) return null;
+    const o = ownRect.rect;
+    const s = live.find((x) => x.id === ownEdge);
+    if (!s || ownRect.inMenu) return o;
+    const [c0, c1] = s.across();
+    return s.vertical ? rect(Math.min(c0, o.x), o.y, Math.max(c1, o.x + o.width) - Math.min(c0, o.x), o.height) : rect(o.x, Math.min(c0, o.y), o.width, Math.max(c1, o.y + o.height) - Math.min(c0, o.y));
+  })();
+  const owners: Owner[] = [
+    // Home first: its tile is its own, for every edge but its own (which tiles it as its own interval).
+    ...(homeRect && ownEdge ? [{ id: ownEdge, rect: homeRect, lay: { phase: -1, side: "", at: -Infinity }, place: false }] : []),
+    // Every edge the tiler reads: what it owns, drawn or a band of its place.
+    ...live.filter((s) => !EDGE_KINDS[s.kind].virtual).map((s) => ({ id: s.id, rect: bandOf(s), lay: s.lay, place: !s.drawn })),
+    // Every drawn rect, with the item lifted and as it is now (the item's own edge only lifted): the edges the tiler
+    // doesn't read (folded, riding, taking nothing) and the ones that move when the item lifts.
+    ...[...Object.entries(base.edges), ...Object.entries(now.edges).filter(([id]) => id !== ownEdge)]
+      .filter(([id, e]) => area(e.rect) > EPS && c.lay.has(id))
+      .map(([id, e]) => ({ id, rect: e.rect, lay: c.lay.get(id)!, place: false })),
+  ];
+  const wins = (o: Owner, s: EdgeSpec): boolean => {
+    if (o.id === s.id) return false;
+    if (EDGE_KINDS[s.kind].virtual || pushes(o.lay, s.lay)) return true;
+    if (pushes(s.lay, o.lay)) return false;
+    const place = !s.drawn;
+    return o.place === place ? !place || o.lay.at < s.lay.at : !o.place;
+  };
+  const taken = new Map(live.map((s) => [s.id, owners.filter((o) => wins(o, s)).map((o) => o.rect)]));
+  // Panel bodies (an open item's), but for `hitBand / 2` at each end: no drop place of their edge, so no part of its
+  // zones' room.
+  const bodySpans = (id: string): Span[] => {
+    const e = rest.edges.find((x) => x.id === id);
+    const bandOpt = e?.hitBand ?? DEFAULT_HIT_BAND;
+    if (!e || bandOpt === "middle") return [];
+    const column = axisOf(e.side) === "column";
+    const half = Math.max(0, Number.isFinite(bandOpt) ? bandOpt : DEFAULT_HIT_BAND) / 2;
+    return Object.entries(base.items)
+      .filter(([iid, p]) => p.edge === id && p.formKind === "open" && iid !== dragged)
+      .map(([, p]): Span => (column ? [p.rect.y + half, p.rect.y + p.rect.height - half] : [p.rect.x + half, p.rect.x + p.rect.width - half]))
+      .filter(([a, b]) => b - a > EPS);
+  };
+  // A zone's room: less its panel bodies, and less the stretches where the owners that win over its edge together hold
+  // the edge's whole depth (a thinner owner, an empty rail's band over a column, clips its tiles instead).
+  const cutsOf = (s: EdgeSpec): Span[] => {
+    const b = bandOf(s);
+    const along = (r: Rect): Span => (s.vertical ? [r.y, r.y + r.height] : [r.x, r.x + r.width]);
+    const across = (r: Rect): Span => (s.vertical ? [r.x, r.x + r.width] : [r.y, r.y + r.height]);
+    const rs = taken.get(s.id)!.filter((r) => overlaps(r, b));
+    const ends = [...new Set([...along(b), ...rs.flatMap(along)])].filter((x) => x >= along(b)[0] && x <= along(b)[1]).sort((p, q) => p - q);
+    const owned: Span[] = [];
+    for (let k = 1; k < ends.length; k++) {
+      const [u, w] = [ends[k - 1]!, ends[k]!];
+      const over = rs.filter((r) => along(r)[0] <= u + EPS && along(r)[1] >= w - EPS).map(across);
+      if (w - u > EPS && less([across(b)], over).length === 0) owned.push([u, w]);
+    }
+    return [...owned, ...bodySpans(s.id)];
+  };
+  const lost: string[] = [];
+  const tiles: Tile[] = live.flatMap((spec) => tileEdge(c, spec, cutsOf(spec), lost));
+  // The item's own place is home's even where no edge tiles it (its column, deleted by the lift; its » entry).
   const homeEdge = scene.edges.find((e) => e.id === ownRect?.edge);
   if (ownRect && homeEdge && !ownRect.floating && !tiles.some((t) => t.order === 0))
     tiles.push({ edge: homeEdge.id, edgeKind: edgeKindOf(scene, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: `home:${dragged}`, priority: 1, place: { kind: "home" }, hit: ownRect.rect, keep: null });
@@ -705,11 +861,6 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
     return !!e && !!formsOf(scene.items[id]!, axisOf(e.side))[it.form]?.main.grows;
   };
   const solid = [...new Set([now, base])].flatMap((l) => Object.entries(l.items).filter(([id, it]) => it.fixed && !grows(l, id)).map(([, it]) => it.rect));
-  const ownEdge = now.items[dragged]?.edge;
-  const edgeRects = (id: string): Rect[] => [
-    ...Object.entries(base.edges).filter(([eid, e]) => eid !== id && area(e.rect) > EPS).map(([, e]) => e.rect),
-    ...Object.entries(now.edges).filter(([eid, e]) => eid !== id && eid !== ownEdge && area(e.rect) > EPS).map(([, e]) => e.rect),
-  ];
   // Panel bodies (an open item's), but for `hitBand / 2` at each end, aren't drop places of their edge.
   // Nor are its fixed items' reserved rects (a growing title's natural rect): each cut across the edge's whole band.
   const bodies = (id: string): Rect[] => {
@@ -720,18 +871,16 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
     const reserved = Object.entries(base.items)
       .filter(([iid, p]) => p.edge === id && p.fixed && !p.inMenu && !grows(base, iid))
       .map(([, p]) => (column ? across(p.rect.y, p.rect.y + p.rect.height) : across(p.rect.x, p.rect.x + p.rect.width)));
-    const bandOpt = e.hitBand ?? DEFAULT_HIT_BAND;
-    if (bandOpt === "middle") return reserved;
-    const half = Math.max(0, Number.isFinite(bandOpt) ? bandOpt : DEFAULT_HIT_BAND) / 2;
-    const open = Object.entries(base.items)
-      .filter(([iid, p]) => p.edge === id && p.formKind === "open" && iid !== dragged)
-      .map(([, p]) => (column ? across(p.rect.y + half, p.rect.y + p.rect.height - half) : across(p.rect.x + half, p.rect.x + p.rect.width - half)));
-    return [...reserved, ...open].filter((b) => area(b) > EPS);
+    return [...reserved, ...bodySpans(id).map(([a, b]) => across(a, b))].filter((b) => area(b) > EPS);
   };
   const placed: Tile[] = [];
   // A virtual edge's refused stretches (its refused slots, its slots' clipped-off pieces) come after every other tile:
   // they take only what no tile takes, never a real edge's room.
   const later: Tile[] = [];
+  const clip = (r: Rect, cuts: readonly Rect[]): Rect[] => cuts.reduce<Rect[]>((ps, cut) => ps.flatMap((p) => subtract(p, cut)), [r]);
+  // Where each owned part landed in `placed` (its overreach joins it there), and the slots whose owned part went whole.
+  const landed = new Map<Tile, number[]>();
+  const gone = new Set<Tile>();
   for (const t of [...tiles].sort((a, b) => a.order - b.order)) {
     // Home's tile is the item's own place: nothing clips it.
     if (t.order === 0) {
@@ -743,12 +892,49 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
       later.push(t);
       continue;
     }
-    // An edge that reaches inward (a compact rail) reaches over the other edges' rects, never over their tiles.
-    const cuts = [...placed.map((p) => p.hit), ...(data.virtual ? [] : [...(data.inward > 0 ? [] : edgeRects(t.edge)), ...bodies(t.edge)]), ...solid, ...chrome];
-    let pieces: Rect[] = [t.hit];
-    for (const cut of cuts) pieces = pieces.flatMap((p) => subtract(p, cut));
-    if (pieces.length === 0) continue;
+    if (t.kind === "reach") {
+      // Overreach: what the virtual edges and every other edge's owned rect leave, joined to its owned part where it
+      // meets that part along the part's whole length. The rest is nobody's (the float's).
+      const of = t.of!;
+      const pieces = clip(t.hit, [...placed.map((p) => p.hit), ...owners.filter((o) => o.id !== t.edge).map((o) => o.rect), ...bodies(t.edge), ...solid, ...chrome]);
+      const at = landed.get(of) ?? [];
+      if (at.length === 0 && gone.has(of)) {
+        // Its owned part went whole: the overreach stands in for it, the piece on its line (else its largest).
+        const line = t.vertical ? of.keep!.y : of.keep!.x;
+        const on = pieces.filter((p) => (t.vertical ? p.y <= line + EPS && line <= p.y + p.height + EPS : p.x <= line + EPS && line <= p.x + p.width + EPS));
+        const kept = (on.length > 0 ? on : pieces).reduce<Rect | null>((a, p) => (!a || area(p) > area(a) ? p : a), null);
+        if (kept) {
+          placed.push({ ...of, hit: kept });
+          gone.delete(of);
+        }
+        continue;
+      }
+      for (const i of at) {
+        const h = placed[i]!.hit;
+        const joint = pieces.find((p) =>
+          t.vertical
+            ? p.y <= h.y + EPS && p.y + p.height >= h.y + h.height - EPS && (Math.abs(p.x - h.x - h.width) < EPS || Math.abs(p.x + p.width - h.x) < EPS)
+            : p.x <= h.x + EPS && p.x + p.width >= h.x + h.width - EPS && (Math.abs(p.y - h.y - h.height) < EPS || Math.abs(p.y + p.height - h.y) < EPS),
+        );
+        if (!joint) continue;
+        const merged = t.vertical
+          ? rect(Math.min(h.x, joint.x), h.y, Math.max(h.x + h.width, joint.x + joint.width) - Math.min(h.x, joint.x), h.height)
+          : rect(h.x, Math.min(h.y, joint.y), h.width, Math.max(h.y + h.height, joint.y + joint.height) - Math.min(h.y, joint.y));
+        placed[i] = { ...placed[i]!, hit: merged };
+        break;
+      }
+      continue;
+    }
+    // An owned part: clear of the tiles before it, of the owners that win over its edge, its panel bodies, solid items
+    // and chrome. A virtual edge's tile: clear of the tiles before it and of every owner.
+    const cuts = [...placed.map((p) => p.hit), ...(taken.get(t.edge) ?? []), ...(data.virtual ? [] : bodies(t.edge)), ...solid, ...chrome];
+    const pieces = clip(t.hit, cuts);
+    if (pieces.length === 0) {
+      if (t.kind !== "refuse") gone.add(t);
+      continue;
+    }
     if (t.kind === "refuse") {
+      landed.set(t, pieces.map((_, k) => placed.length + k));
       for (const p of pieces) placed.push({ ...t, hit: p });
       continue;
     }
@@ -758,14 +944,14 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
     const kept = (held.length > 0 ? held : pieces).reduce((a, p) => (area(p) > area(a) ? p : a));
     // No sliver: a slot left under 1 px along its edge is no target (its piece is refused).
     const sliver = (t.vertical ? kept.height : kept.width) < 1;
-    if (!sliver) placed.push({ ...t, hit: kept });
+    if (!sliver) {
+      landed.set(t, [placed.length]);
+      placed.push({ ...t, hit: kept });
+    }
     for (const p of pieces) if (sliver || p !== kept) (data.virtual ? later : placed).push({ ...t, kind: "refuse", reason: "no-room", hit: p, keep: null });
   }
-  for (const t of later) {
-    let pieces: Rect[] = [t.hit];
-    for (const cut of [...placed.map((p) => p.hit), ...solid, ...chrome]) pieces = pieces.flatMap((p) => subtract(p, cut));
-    for (const p of pieces) placed.push({ ...t, hit: p });
-  }
+  for (const t of gone) lost.push(t.id);
+  for (const t of later) for (const p of clip(t.hit, [...placed.map((q) => q.hit), ...solid, ...chrome])) placed.push({ ...t, hit: p });
 
   const targets: SceneTarget[] = [];
   const refused: SceneRefusal[] = [];
@@ -824,7 +1010,7 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   // `home:<id>`, for hosts that read it: over the item's own rect, inside home's tile (all of it when only it is home's).
   const own = now.items[dragged];
   if (own && !own.floating) targets.push({ id: `home:${dragged}`, priority: 1, hit: ownHome && !targets.some((t) => t.place.kind === "home") ? ownHome : own.rect, item: dragged, place: { kind: "home" }, after: homeAfter });
-  return { targets, refusals: refused };
+  return { targets, refusals: refused, lost };
 }
 
 export function targets(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneTarget[] {
@@ -839,6 +1025,14 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
  */
 export function refusals(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneRefusal[] {
   return generate(scene, dragged, options).refusals;
+}
+
+/**
+ * `lostSlots(scene, dragged, options?)`: the ids of slots the filter kept, with room in their zone, that clipping left
+ * with no hit. None: the property check holds it at zero.
+ */
+export function lostSlots(scene: Scene, dragged: string, options: SceneTargetOptions = {}): string[] {
+  return generate(scene, dragged, options).lost;
 }
 
 const SIDE_RANK: Record<string, number> = { left: 0, top: 1, bottom: 2, right: 3 };

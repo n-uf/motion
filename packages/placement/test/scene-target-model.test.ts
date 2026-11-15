@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { lift, refusals, solve, targets, type Edge, type Scene, type SceneItem, type SceneLayout, type SceneTarget, type Zone } from "../src/scene";
-import { opensEmpty, zoneExtents } from "../src/scene/targets";
+import { lostSlots, opensEmpty, zoneExtents } from "../src/scene/targets";
 import { bar, byId, column, controls, group, panel, seeded, title } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
@@ -80,7 +80,7 @@ export function modelScene(seed: number): Scene {
 }
 
 /** The categories a point can fail by. */
-type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order";
+type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order" | "lost-slot";
 
 /** The edge a target or refusal belongs to, and its zone (null: no zone). */
 function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edge: string | null; zone: Zone | null } {
@@ -98,7 +98,7 @@ function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edg
 
 /** Runs the check over `seeds`; returns the failure counts per category and a few examples. */
 export function propertyCheck(seeds: readonly number[]): { points: number; counts: Record<Failure, number>; examples: string[] } {
-  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0 };
+  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0 };
   const examples: string[] = [];
   const fail = (k: Failure, msg: string): void => {
     counts[k]++;
@@ -116,6 +116,8 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
       const slotHome = all.some((t) => t.place.kind === "home" && !t.id.startsWith("home:"));
       const ts = all.filter((t) => !(slotHome && t.id.startsWith("home:")));
       const rs = refusals(s, id);
+      // Every slot the filter keeps, with room in its zone, keeps a hit.
+      for (const x of lostSlots(s, id)) fail("lost-slot", `seed ${seed} drag ${id} ${x}`);
       const lifted = lift(s, id);
       const base = solve(lifted);
       // Ids are unique per call: every target's, and every refusal's.
@@ -154,9 +156,11 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
       }
       const own = now.items[id];
       const ownRect = own?.edge && !own.floating ? own.rect : null;
+      // A panel's body (but for a band at each end) is its column's, and no drop place: the float's.
+      const anyBody = Object.values(base.items).filter((x) => x.edge && x.formKind === "open" && !x.floating).map((x) => ({ x: x.rect.x, y: x.rect.y + 12, width: x.rect.width, height: x.rect.height - 24 }));
       for (const pt of virtualPoints) {
         // The item's own rect is home's (the own-not-home category checks it).
-        if (!inside(s.stage, pt) || (s.chrome ?? []).some((c) => inside(c, pt)) || (ownRect && inside(ownRect, pt))) continue;
+        if (!inside(s.stage, pt) || (s.chrome ?? []).some((c) => inside(c, pt)) || (ownRect && inside(ownRect, pt)) || anyBody.some((b) => inside(b, pt))) continue;
         points++;
         const hits = [...ts.filter((t) => inside(t.hit, pt)).map((t) => t.id), ...rs.filter((x) => inside(x.hit, pt)).map((x) => x.id)];
         if (hits.length === 0) fail("virtual-hole", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}`);
@@ -230,7 +234,7 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
 const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
 
 /** No failure of any kind (before the one target model: 8159 holes, 4021 overlaps, 14849 other-zone, 2667 own-not-home). */
-const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0 };
+const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0 };
 
 /** Every edge renamed to an id with ":" in it: the same targets and refusals, under the renamed ids. */
 export function colonRenameDiffs(seeds: readonly number[]): string[] {
@@ -252,7 +256,7 @@ export function colonRenameDiffs(seeds: readonly number[]): string[] {
 }
 
 describe("the target model's property check", () => {
-  it("the column lines tile like any edge: neighbouring lines meet halfway, each at most its reach from its line", () => {
+  it("space ownership: a narrow column keeps its gaps inside its own rect; the column lines take the space beside it", () => {
     // A 30 px column (its panel in rail form): its outer line at 0 and its inner line at 30.
     const s: Scene = {
       stage: { x: 0, y: 0, width: 800, height: 500 },
@@ -263,9 +267,17 @@ describe("the target model's property check", () => {
       columns: { left: { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 } } },
     };
     expect(solve(s).edges.left0!.rect.width).toBe(30);
-    const hit = (id: string): R | undefined => targets(s, "g").find((t) => t.id === id)?.hit;
-    expect(hit("column:left:0")).toEqual({ x: -22, y: 0, width: 37, height: 500 });
-    expect(hit("column:left:1")).toEqual({ x: 15, y: 0, width: 37, height: 500 });
+    const ts = targets(s, "g");
+    const hit = (id: string): R | undefined => ts.find((t) => t.id === id)?.hit;
+    // The lines, at 0 and 30, each up to COLUMN_REACH from its line, outside the column.
+    expect(hit("column:left:0")).toEqual({ x: -22, y: 0, width: 22, height: 500 });
+    expect(hit("column:left:1")).toEqual({ x: 30, y: 0, width: 22, height: 500 });
+    // The column's gaps, inside its 30 px: it owns that rect (their reach past it, where the wider column would be, is
+    // the lines' first).
+    const gaps = ts.filter((t) => t.id.startsWith("gap:left0:"));
+    expect(gaps.map((t) => t.id).sort()).toEqual(["gap:left0:start:0", "gap:left0:start:1"]);
+    for (const t of gaps) expect([t.hit.x, t.hit.x + t.hit.width]).toEqual([0, 30]);
+    expect(lostSlots(s, "g")).toEqual([]);
   });
 
   it("an edge whose id holds ':' is an edge like any other (virtual edges are flagged, not named)", () => {

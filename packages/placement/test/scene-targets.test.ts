@@ -59,13 +59,15 @@ describe("targets", () => {
   });
 
   it("an empty plain panel column is one zone: one strip down its whole length, holding the item at its start", () => {
-    // Items fill a panel column, so it has one zone, the whole column; its strip is 20 px deep inward.
+    // Items fill a panel column, so it has one zone, the whole column; its strip is 20 px deep inward. An empty edge
+    // owns only half the hit band of it at its boundary (x 928..940); the rest is overreach, which the column line at
+    // the content's edge takes first.
     const sc: Scene = { ...s, edges: [...s.edges, column("drawer", "right", 1, [], { strip: 20 })] };
     const ts = targets(sc, "pages");
     expect(ts.filter((t) => t.id.startsWith("strip:drawer")).map((t) => t.id)).toEqual(["strip:drawer:start"]);
     const strip = ts.find((t) => t.id === "strip:drawer:start")!;
-    expect(strip.hit.x).toBe(920);
-    expect(strip.hit.width).toBe(20);
+    expect(strip.hit.x).toBe(928);
+    expect(strip.hit.width).toBe(12);
     const after = strip.after({ x: 0, y: 0 }).layout.items.pages!;
     expect(after.edge).toBe("drawer");
     expect(ZONES).toContain(after.zone);
