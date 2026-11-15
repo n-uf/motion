@@ -150,7 +150,8 @@ export interface Edge {
    * An anchor edge (a left or right edge that takes nothing, holding a fixed item such as a thumbnail strip) lies outside
    * `Scene.inset` and the gutter: at the window's side, the inset after it, toward the content. A full top or bottom bar
    * with it lies at the window's edge, full width, the inset after it; the side edges then run between such bars (an
-   * anchor through the inset beside them).
+   * anchor through the inset beside them). On a left or right side, from the window's side inward: its toolbar bars
+   * with it (`isOutsideSideBar`), the side's rail, its anchors, the inset, the columns.
    */
   readonly outsideInset?: boolean;
   /**
@@ -384,6 +385,17 @@ export const DEFAULT_FLOAT_SIZE: Size = { width: 280, height: 360 };
 export const axisOf = (side: Side): Orient => (side === "left" || side === "right" ? "column" : "row");
 export const zoneOf = (item: SceneItem | undefined): Zone => (item?.align === "center" || item?.align === "end" ? item.align : "start");
 export const formsOf = (item: SceneItem, axis: Orient): readonly StackForm[] => item.forms[axis] ?? [];
+
+/**
+ * A left or right toolbar bar outside the inset: told from a column edge by its kinds, it takes something and nothing
+ * the side's columns take (`Scene.columns[side].accepts`); an anchor takes nothing. It lies outermost on its side,
+ * before the side's rail.
+ */
+export function isOutsideSideBar(scene: Scene, e: Edge): boolean {
+  if ((e.side !== "left" && e.side !== "right") || e.outsideInset !== true || e.column === true || e.accepts.length === 0) return false;
+  const columnKinds = scene.columns?.[e.side]?.accepts ?? [];
+  return !e.accepts.some((k) => columnKinds.includes(k));
+}
 
 /**
  * The orient a float of `item` takes when it names none: its `floatOrient`, else the axis of its first form (the first

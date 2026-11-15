@@ -35,6 +35,7 @@ export {
   type ZoneAccepts,
   floatOrientOf,
   floatSizeOf,
+  isOutsideSideBar,
   zoneTakes,
   zonesTaking,
 } from "./model";

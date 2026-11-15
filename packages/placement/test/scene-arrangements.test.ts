@@ -331,6 +331,54 @@ describe("the options the rows need", () => {
     expect(r.items.thumbs!.rect).toEqual({ x: 559, y: 0, width: 72, height: 800 });
   });
 
+  // A side's toolbar bar outside the inset: a group in it, declared after the side's other edges (the order is by kind).
+  const withSideBar = (s: Scene, side: "left" | "right"): Scene => {
+    const g: SceneItem = { id: "tools", kind: "group", used: 9, forms: { column: [{ kind: "icons", main: { min: 80, natural: 80 }, cross: { natural: 28 } }] } };
+    const ring = s.edges.filter((e) => e.side === side).length;
+    const bar: Edge = { id: `bar:${side}`, side, ring, accepts: ["group"], items: ["tools"], cross: { min: 28, max: 28, rail: 28 }, outsideInset: true };
+    return { ...s, edges: [...s.edges, bar], items: { ...s.items, tools: g } };
+  };
+
+  it("a side bar outside the inset lies outermost, before the side's rail: folded into the rail, the rail lies inside the bar", () => {
+    // Body 700: the left stack folds into the rail. The bar at the window edge, the inset, then the rail.
+    const s = adapt(anchorLeft, 700, 800);
+    const bare = solve(s);
+    const l = solve(withSideBar(s, "left"));
+    expect(bare.rails.left!.rect.x).toBe(12);
+    expect(l.edges["bar:left"]!.rect).toEqual({ x: 0, y: 0, width: 28, height: 800 });
+    expect(l.rails.left!.rect.x).toBe(40);
+    expect(l.content.x).toBe(84);
+    // No rail shown: the rail's strip lies past the bar (here the right one, 1172..1200), never over it.
+    const wide = withSideBar(adapt(anchorLeft, 1200, 800), "right");
+    expect(solve(wide).edges["bar:right"]!.rect.x).toBe(1172);
+    const strip = targets(wide, "findings").filter((t) => t.id.startsWith("rail:right:"));
+    expect(strip.length).toBeGreaterThan(0);
+    for (const t of strip) expect(t.hit.x + t.hit.width, t.id).toBeLessThanOrEqual(1172);
+  });
+
+  it("sweep: a side bar is always outermost and an anchor always inside the side's rail, on either side, at every width", () => {
+    for (const [raw, side] of [[anchorLeft, "left"], [anchorRight, "right"], [rows.scenes.anchorRailOrder!.scene, "right"]] as const) {
+      // Some widths show the rail: the sweep crosses the fold.
+      expect([400, 1600].map((w) => solve(withSideBar(adapt(raw, w, 800), side)).rails[side] !== undefined), side).toEqual([true, false]);
+      for (let w = 400; w <= 1600; w += 25) {
+        const l = solve(withSideBar(adapt(raw, w, 800), side));
+        const bar = l.edges[`bar:${side}`]!.rect;
+        const at = `${side} at ${w}`;
+        // Outermost: at the window's side.
+        if (side === "left") expect(bar.x, at).toBe(0);
+        else expect(bar.x + bar.width, at).toBe(w);
+        const outside = (r: { x: number; width: number }) => (side === "left" ? r.x >= bar.x + bar.width : r.x + r.width <= bar.x);
+        const rail = l.rails[side]?.rect;
+        if (rail) expect(outside(rail), `${at}: the rail inside the bar`).toBe(true);
+        const thumbs = l.items.thumbs;
+        if (!thumbs) continue;
+        expect(outside(thumbs.rect), `${at}: the anchor inside the bar`).toBe(true);
+        // The anchor inside the rail: in it as a segment, or past it toward the content.
+        if (rail && thumbs.rail !== side) expect(side === "left" ? thumbs.rect.x >= rail.x + rail.width : thumbs.rect.x + thumbs.rect.width <= rail.x, `${at}: the anchor inside the rail`).toBe(true);
+      }
+    }
+  });
+
   it("an anchor outside the inset stays clear of a full top or bottom bar: it runs into the inset only where no bar is", () => {
     const s = adapt(anchorLeft, 1200, 800);
     const bar = (id: string, side: "top" | "bottom"): Edge => ({ id, side, ring: 0, accepts: ["group"], items: [id === "tb" ? "g1" : "g2"], cross: { min: 40, max: 40, rail: 40 } });

@@ -889,7 +889,9 @@ none lays out as before.
   host shows its narrow fallback (one panel over the content) while it is `false`. An exhaustive `switch` over
   `SceneNote["code"]` needs the new code.
 - **`handFold: "ride"`** rides every column folded by hand, not only a one-panel one: each member is a bar over the
-  side's first open panel column (never over an anchor), stacked in zone order. A side's rail is its outermost edge.
+  side's first open panel column (never over an anchor), stacked in zone order. A side's rail is its outermost panel edge. From
+  the window's side inward a side lies: its toolbar bars with `outsideInset` (an edge that takes something, nothing
+  the side's columns take), the rail, its static column edges with `outsideInset` (anchors), the inset, the columns.
 
 **Floats** lie above the content in stage px, last on top. Each is moved inside the stage and clear of every docked
 item, every bar and every `chrome` rect (`fitFloat`), with `float-clamped`, `float-moved` or `float-covers` notes. With
@@ -953,7 +955,7 @@ edges without `previous`.
 - `column:<side>:<ring>` (2): a new column on each column line of a side whose template's start zone takes the kind (outside the
   outermost open column, between two, inside the innermost, or at the content's edge), 22 px each way.
 - `rail:<side>:<ring>` (1): docking folded into the side's rail, before each folded column's segments and after the
-  last, or a 10 px strip at the side's outer edge while no rail shows.
+  last, or a 10 px strip at the side's outer edge (past its outside toolbar bars) while no rail shows.
 - `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
   commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail
   drop that would put the item back where it is (the gap beside it, its own column's line) keeps its id but is a home
