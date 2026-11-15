@@ -14,8 +14,13 @@
  *   it; one the list lacks is older than all). An id listed twice counts at its last place: the newest use wins.
  * - `forms`: the user's chosen form per item, the index of the largest form it may take (`StackItem.from`). 0, the
  *   first, is not stored.
+ *
+ * Deprecated: the stored form belongs to the window. `storeScene` / `readScene` from `@n-uf/placement/scene` keep every
+ * edge's order, kept, closed and chosen forms, the use order and the floats. These names stay until the next breaking
+ * release.
  */
 
+/** @deprecated Use `Scene` and `storeScene` / `readScene` from `@n-uf/placement/scene`. */
 export interface StackState {
   /** The items' order along the stack. */
   readonly order: readonly string[];
@@ -29,6 +34,7 @@ export interface StackState {
   readonly forms: Readonly<Record<string, number>>;
 }
 
+/** @deprecated Use `StoredScene` from `@n-uf/placement/scene`. */
 export interface StoredStack {
   readonly v: 1;
   readonly order: string[];
@@ -38,9 +44,13 @@ export interface StoredStack {
   readonly forms: Record<string, number>;
 }
 
+/** @deprecated Use `SceneRead` from `@n-uf/placement/scene`. */
 export type StackRead = { readonly ok: true; readonly state: StackState; readonly dropped: readonly string[] } | { readonly ok: false; readonly error: string };
 
-/** A state with these items in this order, none kept or closed, used in that order, every form the first. */
+/**
+ * A state with these items in this order, none kept or closed, used in that order, every form the first.
+ * @deprecated A Scene's edge holds its items in order (`Edge.items`); see `@n-uf/placement/scene`.
+ */
 export const createStack = (order: readonly string[]): StackState => ({ order: [...order], kept: [], closed: [], used: [...order], forms: {} });
 
 const isForm = (f: unknown): f is number => typeof f === "number" && Number.isInteger(f) && f >= 1;
@@ -51,6 +61,7 @@ const uniqLast = (ids: readonly string[], order: readonly string[]): string[] =>
 /** Forms live in an object with no prototype, so no key (`constructor`, `prototype`) is more than a key; only `__proto__` is refused. */
 const noForms = (): Record<string, number> => Object.create(null) as Record<string, number>;
 
+/** @deprecated Use `storeScene` from `@n-uf/placement/scene`. */
 export function storeStack(state: StackState): StoredStack {
   const forms = noForms();
   for (const id of state.order) {
@@ -62,6 +73,7 @@ export function storeStack(state: StackState): StoredStack {
 
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
 
+/** @deprecated Use `readScene` from `@n-uf/placement/scene`. */
 export function readStack(data: unknown, known?: readonly string[]): StackRead {
   try {
     return read(data, known);
