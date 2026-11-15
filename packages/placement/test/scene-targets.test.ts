@@ -250,15 +250,18 @@ describe("content-changed", () => {
 });
 
 describe("an empty bar's strip", () => {
-  it("never swallows a column's first gap: strip hits are clipped clear of every gap hit", () => {
+  it("never swallows a column's first gap: a gap spanning the strip trims its end, a thinner one is smaller and wins the tie-break", () => {
     const s = windowScene();
     // An empty top bar (its strip runs along the top of the content, over the columns' tops) and a group that may go there.
     const empty: Scene = { ...s, edges: s.edges.map((e) => (e.id === "toolbar" ? { ...e, items: [] } : e)), floats: [{ id: "views", rect: r(500, 300, 200, 40) }] };
     const ts = targets(empty, "views");
     const strip = ts.find((t) => t.id === "strip:toolbar")!;
     expect(strip).toBeDefined();
+    const area = (h: { width: number; height: number }) => h.width * h.height;
     const gapsHere = ts.filter((t) => t.id.startsWith("gap:"));
-    for (const g of gapsHere) expect(overlaps(strip.hit, g.hit)).toBe(false);
+    for (const g of gapsHere) if (overlaps(strip.hit, g.hit)) expect(area(g.hit)).toBeLessThan(area(strip.hit));
+    // The strip keeps its room: never cut down to a part of its own.
+    expect(strip.hit.width).toBeGreaterThan(0.5 * solve(empty).edges.toolbar!.rect.width);
     // The columns' first gaps keep their hits.
     for (const id of ["gap:left:start:0", "gap:right:start:0"]) expect(ts.find((t) => t.id === id)!.hit.height).toBeGreaterThan(0);
   });

@@ -212,13 +212,27 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
             : rect(h.x, h.y + RAIL_REACH, h.width, h.height - RAIL_REACH);
     out[i] = { ...t, hit: core };
   }
+  // Only the strip's ends are trimmed (a gap over its start or its end); a gap across its middle is left to the
+  // smaller-hit tie-break, so a strip with room is never cut down to a part or deleted.
   const gapHits = out.filter((t) => t.id.startsWith("gap:")).map((t) => t.hit);
   for (let i = out.length - 1; i >= 0; i--) {
     const t = out[i]!;
-    if (!t.id.startsWith("strip:")) continue;
-    const hit = cutAway(t.hit, gapHits);
-    if (!hit) out.splice(i, 1);
-    else if (hit !== t.hit) out[i] = { ...t, hit };
+    const e = edgeOfGap(t);
+    if (!t.id.startsWith("strip:") || !e) continue;
+    const vertical = e.side === "left" || e.side === "right";
+    const h = t.hit;
+    let [a0, a1] = vertical ? [h.y, h.y + h.height] : [h.x, h.x + h.width];
+    for (const g of gapHits) {
+      if (!overlaps(g, h)) continue;
+      // Only a gap that spans the strip across trims it; a thinner one overlapping it wins by the tie-break.
+      const spans = vertical ? g.x <= h.x + EPS && g.x + g.width >= h.x + h.width - EPS : g.y <= h.y + EPS && g.y + g.height >= h.y + h.height - EPS;
+      if (!spans) continue;
+      const [g0, g1] = vertical ? [g.y, g.y + g.height] : [g.x, g.x + g.width];
+      if (g0 <= a0 + EPS && g1 > a0) a0 = Math.min(a1, g1);
+      else if (g1 >= a1 - EPS && g0 < a1) a1 = Math.max(a0, g0);
+    }
+    if (a1 - a0 <= EPS) out.splice(i, 1);
+    else if (a0 !== (vertical ? h.y : h.x) || a1 !== (vertical ? h.y + h.height : h.x + h.width)) out[i] = { ...t, hit: vertical ? rect(h.x, a0, h.width, a1 - a0) : rect(a0, h.y, a1 - a0, h.height) };
   }
 
   if (scene.floatKinds.includes(item.kind)) {
