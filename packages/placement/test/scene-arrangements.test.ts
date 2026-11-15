@@ -419,6 +419,14 @@ describe("the options the rows need", () => {
     const l = solve(closed);
     expect(l.items.thumbs!.rect).toMatchObject({ x: 0, y: 0, height: 800 });
     expect(l.content).toEqual({ x: 72, y: 0, width: 928, height: 800 });
+    // A toolbar group in a side bar isn't docked either: only panels count. Every panel closed, a group on the left.
+    const g: SceneItem = { id: "tools", kind: "group", used: 9, forms: { column: [{ kind: "icons", main: { min: 80, natural: 80 }, cross: { natural: 28 } }] } };
+    const sideBar: Edge = { id: "bar:left", side: "left", ring: 0, accepts: ["group"], items: ["tools"], cross: { min: 28, max: 28, rail: 28 } };
+    const shut: Scene = { ...s, insetWhen: "docked", items: Object.fromEntries(Object.entries(s.items).map(([id, it]) => [id, it.kind === "panel" ? { ...it, closed: true } : it])) };
+    const withGroup = solve({ ...shut, edges: [sideBar, ...shut.edges], items: { ...shut.items, tools: g } });
+    expect(withGroup.edges["bar:left"]!.rect).toMatchObject({ x: 0, width: 28 });
+    // The bar and the gutter (12) only: no inset on either side (with it: x 52, width 936).
+    expect(withGroup.content).toEqual({ x: 40, y: 0, width: 960, height: 800 });
   });
 
   it("a float larger than the stage less the inset is shrunk to fit it", () => {
