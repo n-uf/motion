@@ -61,9 +61,12 @@ export function modelScene(seed: number): Scene {
   const W = 700 + Math.floor(rnd() * 700);
   const H = 500 + Math.floor(rnd() * 300);
   const inset = rnd() < 0.4 ? 12 : 0;
+  // Every third window has rails: its side columns are dynamic and fold into their rail to keep the content's minimum.
+  const rails = seed % 3 === 0;
   return {
     stage: { x: 0, y: 0, width: W, height: H },
-    edges,
+    edges: rails ? edges.map((e) => (e.id.endsWith("-col") ? { ...e, column: true } : e)) : edges,
+    ...(rails ? { rails: { left: { width: 30, accepts: ["panel"] }, right: { width: 30, accepts: ["panel"] } }, contentMin: { width: W - 250, height: 200 } } : {}),
     items: byId(items),
     floats: [
       { id: fg, rect: { x: W / 2, y: H / 2, width: 200, height: 40 } },
@@ -77,7 +80,7 @@ export function modelScene(seed: number): Scene {
 }
 
 /** The categories a point can fail by. */
-type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id";
+type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap";
 
 /** The edge a target or refusal belongs to, and its zone (null: no zone). */
 function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edge: string | null; zone: Zone | null } {
@@ -95,7 +98,7 @@ function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edg
 
 /** Runs the check over `seeds`; returns the failure counts per category and a few examples. */
 export function propertyCheck(seeds: readonly number[]): { points: number; counts: Record<Failure, number>; examples: string[] } {
-  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0 };
+  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0 };
   const examples: string[] = [];
   const fail = (k: Failure, msg: string): void => {
     counts[k]++;
@@ -113,7 +116,8 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
       const slotHome = all.some((t) => t.place.kind === "home" && !t.id.startsWith("home:"));
       const ts = all.filter((t) => !(slotHome && t.id.startsWith("home:")));
       const rs = refusals(s, id);
-      const base = solve(lift(s, id));
+      const lifted = lift(s, id);
+      const base = solve(lifted);
       // Ids are unique per call: every target's, and every refusal's.
       for (const ids of [all.map((t) => t.id), rs.map((x) => x.id)]) {
         const twice = ids.filter((x, i) => ids.indexOf(x) !== i);
@@ -125,8 +129,29 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
         const landed = t.after({ x: t.hit.x + t.hit.width / 2, y: t.hit.y + t.hit.height / 2 }).layout.items[id]?.rect;
         if (!landed || !same(landed, t.slot)) fail("slot-not-landing", `seed ${seed} ${id} ${t.id}`);
       }
+      // The virtual edges: points either side of each column line, and down the rail where it lies or would lie, map to
+      // exactly one target or refusal: never to nothing (a hole the float fills) and never to two.
+      const virtualPoints: { x: number; y: number }[] = [];
+      for (const side of ["left", "right"] as const) {
+        if (!s.columns?.[side]?.accepts.includes(it.kind)) continue;
+        const open = lifted.edges.filter((e) => e.side === side && e.column === true).flatMap((e) => base.edges[e.id] ?? []).filter((x) => !x.folded && !x.rides && x.cross > 0);
+        const xs = open.length ? open.flatMap((x) => [x.rect.x, x.rect.x + x.rect.width]) : [side === "left" ? base.content.x : base.content.x + base.content.width];
+        for (const x of xs) for (let y = base.content.y + 3; y < base.content.y + base.content.height - 3; y += 6) virtualPoints.push({ x: x - 11, y }, { x: x + 11, y });
+        const rail = base.rails[side]?.rect ?? base.railPlaces[side];
+        if (!rail || !s.rails?.[side]?.accepts.includes(it.kind)) continue;
+        const rx = base.rails[side] ? rail.x + rail.width / 2 : side === "left" ? rail.x + 5 : rail.x + rail.width - 5;
+        for (let y = rail.y + 3; y < rail.y + rail.height - 3; y += 6) virtualPoints.push({ x: rx, y });
+      }
       const own = now.items[id];
       const ownRect = own?.edge && !own.floating ? own.rect : null;
+      for (const pt of virtualPoints) {
+        // The item's own rect is home's (the own-not-home category checks it).
+        if (!inside(s.stage, pt) || (s.chrome ?? []).some((c) => inside(c, pt)) || (ownRect && inside(ownRect, pt))) continue;
+        points++;
+        const hits = [...ts.filter((t) => inside(t.hit, pt)).map((t) => t.id), ...rs.filter((x) => inside(x.hit, pt)).map((x) => x.id)];
+        if (hits.length === 0) fail("virtual-hole", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}`);
+        else if (hits.length > 1) fail("virtual-overlap", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}: ${hits.join(", ")}`);
+      }
       for (const e of s.edges) {
         if (!e.accepts.includes(it.kind)) continue;
         const le = base.edges[e.id];
@@ -195,15 +220,16 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
 const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
 
 /** No failure of any kind (before the one target model: 8159 holes, 4021 overlaps, 14849 other-zone, 2667 own-not-home). */
-const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0 };
+const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0 };
 
 /** Every edge renamed to an id with ":" in it: the same targets and refusals, under the renamed ids. */
 export function colonRenameDiffs(seeds: readonly number[]): string[] {
   const out: string[] = [];
   const J = JSON.stringify;
-  const renamed = (id: string): string => id.replace(/^(gap|strip|refuse):([^:]+)/, "$1:x:$2");
   for (const seed of seeds) {
     const s = modelScene(seed);
+    const real = new Set(s.edges.map((e) => e.id));
+    const renamed = (id: string): string => id.replace(/^(gap|strip|refuse):([^:]+)/, (all, kind: string, edge: string) => (real.has(edge) ? `${kind}:x:${edge}` : all));
     const s2: Scene = { ...s, edges: s.edges.map((e) => ({ ...e, id: `x:${e.id}` })) };
     for (const id of Object.keys(s.items)) {
       if (s.items[id]!.fixed || s.items[id]!.closed) continue;
