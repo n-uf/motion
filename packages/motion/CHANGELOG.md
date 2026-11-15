@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.23
 
 - `./layout`, **`anchoredMorph(size, anchor, config?)`** (additive): a box held at a point that changes size about an
   anchor. `to(size, anchor)` settles the size and the anchor together, interruptible (a retarget mid-flight turns from
