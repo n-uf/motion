@@ -21,7 +21,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   - **`Edge.giveWay`**: a static side edge shrinks toward its minimum, then folds into its side's rail, in give-way
     order with the columns (by its items' ages). It is never deleted.
   - **`setSide(scene, edgeId, side)`**: moves an edge to the other side of its axis as its side's outermost edge (ring
-    0); `readScene` moves a static edge stored on the other side.
+    0); `readScene` moves a static edge stored on the other side. Like every change it ticks no use clock: a host that
+    moves an edge by hand calls `use()` on its items afterwards, as a drop does.
   - **`Scene.insetWhen`** (`"always"`, the default, or `"docked"`): with `"docked"` the inset applies only while
     an open column or a rail is beside the content (an anchor alone doesn't count).
   - **Changed:** `handFold: "ride"` rides every column folded by hand, not only a one-panel one: each member a bar over

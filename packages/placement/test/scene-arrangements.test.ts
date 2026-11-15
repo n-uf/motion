@@ -288,6 +288,18 @@ describe("the options the rows need", () => {
     expect(setSide(moved, "anchor:thumbs", "top")).toBe(moved);
   });
 
+  it("setSide ticks no use clock; the host's use() afterwards makes the moved anchor the newest, so an older item gives way", () => {
+    const moved = setSide(adapt(anchorLeft, 900, 800), "anchor:thumbs", "right");
+    // Pure: the anchor keeps its age (the oldest), so under give-way it shrinks first.
+    expect(moved.items.thumbs!.used).toBe(adapt(anchorLeft, 900, 800).items.thumbs!.used);
+    expect(solve(moved).items.thumbs!.rect).toMatchObject({ x: 844, width: 56 });
+    // As a drop does: the host calls use() on the moved edge's items.
+    const used = use(moved, "thumbs");
+    const l = solve(used);
+    expect(l.items.thumbs!.rect).toMatchObject({ x: 828, width: 72 });
+    expect(l.edges["left-0"]!.cross + l.edges["right-0"]!.cross).toBeLessThan(600);
+  });
+
   it("an anchor outside the inset lies at the window's side, full height, the inset after it; inside the side's rail when one shows", () => {
     const l = solve(adapt(anchorLeft, 1200, 800));
     expect(l.items.thumbs!.rect).toEqual({ x: 0, y: 0, width: 72, height: 800 });

@@ -253,7 +253,8 @@ export function resize(scene: Scene, edgeId: string, size: number): Scene {
 /**
  * The edge moved to the other side of its axis (left ⇄ right, top ⇄ bottom), as its side's outermost edge: ring 0, before
  * that side's other edges (whose rings close up behind it; the side it left closes up too). Its items, size and options
- * go with it. Unchanged for an unknown edge, the side it is on, or a side across its axis.
+ * go with it. Unchanged for an unknown edge, the side it is on, or a side across its axis. Like every change it does not
+ * tick the use clock: a host that moves an edge by hand calls `use()` on its items afterwards, as a drop does.
  */
 export function setSide(scene: Scene, edgeId: string, side: Side): Scene {
   const edge = scene.edges.find((e) => e.id === edgeId);
