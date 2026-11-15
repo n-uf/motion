@@ -4,7 +4,7 @@
  */
 import type { Rect, Size } from "../geometry";
 import type { StackForm } from "../stack";
-import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, ZONES, type Edge, type Kind, type Orient, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
+import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, ZONES, type ColumnTemplate, type Edge, type Kind, type Orient, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
 
 /** Whether `edge` takes kind `kind` in `zone`: its `accepts`, narrowed by `zoneAccepts` when given (a zone not listed takes nothing). */
 export const zoneTakes = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, zone: Zone, kind: Kind): boolean =>
@@ -19,6 +19,26 @@ export const zonesTaking = (edge: { readonly accepts: readonly Kind[]; readonly 
  */
 export const hitBandOf = (scene: Scene, edge: Edge): number | "middle" =>
   edge.hitBand ?? (edge.column === true && (edge.side === "left" || edge.side === "right") ? scene.columns?.[edge.side]?.hitBand : undefined) ?? DEFAULT_HIT_BAND;
+
+/**
+ * A dynamic column made from its side's template: every column the scene makes (a drop on a column line, `moveTo` a new
+ * column, `dockHome`, a stored column `readScene` reads back) is made here, so each takes every template field
+ * (`accepts`, `cross`, `gap`, `pad`, `menu`, `zoneAccepts`, `hitBand`).
+ */
+export const columnFromTemplate = (t: ColumnTemplate, id: string, side: "left" | "right", ring: number, items: readonly string[]): Edge => ({
+  id,
+  side,
+  ring,
+  accepts: t.accepts,
+  items,
+  cross: t.cross,
+  ...(t.gap !== undefined ? { gap: t.gap } : {}),
+  ...(t.pad ? { pad: t.pad } : {}),
+  ...(t.menu ? { menu: t.menu } : {}),
+  ...(t.zoneAccepts ? { zoneAccepts: t.zoneAccepts } : {}),
+  ...(t.hitBand !== undefined ? { hitBand: t.hitBand } : {}),
+  column: true,
+});
 
 /** The axis an edge's stack runs along. */
 export const axisOf = (side: Side): Orient => (side === "left" || side === "right" ? "column" : "row");

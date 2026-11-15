@@ -21,7 +21,7 @@
  * - `resize(scene, edge, size)`: the user's size across; a size that isn't a finite number clears it.
  */
 import { clampInto, type Rect } from "../geometry";
-import { axisOf, floatOrientOf, floatShape, floatSizeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
+import { axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
 import type { Edge, FloatAnchor, Orient, Scene, SceneFloat, SceneItem, Side, Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
@@ -95,20 +95,7 @@ function newColumn(scene: Scene, side: "left" | "right", kind: string, ring: num
   const taken = new Set(scene.edges.map((e) => e.id));
   let n = 0;
   while (taken.has(`${side}-${n}`)) n++;
-  return {
-    id: `${side}-${n}`,
-    side,
-    ring,
-    accepts: t.accepts,
-    items,
-    cross: t.cross,
-    ...(t.gap !== undefined ? { gap: t.gap } : {}),
-    ...(t.pad ? { pad: t.pad } : {}),
-    ...(t.menu ? { menu: t.menu } : {}),
-    ...(t.zoneAccepts ? { zoneAccepts: t.zoneAccepts } : {}),
-    ...(t.hitBand !== undefined ? { hitBand: t.hitBand } : {}),
-    column: true,
-  };
+  return columnFromTemplate(t, `${side}-${n}`, side, ring, items);
 }
 
 /**
