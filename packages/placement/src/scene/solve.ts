@@ -419,6 +419,7 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
   };
 
   const rails: Partial<Record<"left" | "right", SceneRailLayout>> = {};
+  const railPlaces: Partial<Record<"left" | "right", Rect>> = {};
   const gutter = px(scene.gutter);
   let columnRoom: boolean | undefined;
   /** The stage less the full bars outside the inset (set before the sides are laid). */
@@ -618,22 +619,27 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       let gap = px(side === "left" ? inset.left : inset.right);
       /** Whether one of the side's outside bars is laid already (the rail then lies flush after it). */
       let barLaid = false;
+      /** Where the side's rail lies, or would lie were one shown (`railPlaces`). */
+      let railPlace: Rect | null = null;
+      const placeRail = (): Rect => {
+        const w = railW(side);
+        const lead = barLaid ? gap : 0;
+        return side === "left" ? rect(x0 - lead, area.y, w, H) : rect(x1 + lead - w, area.y, w, H);
+      };
       for (const c of mine) {
         // The side's rail is its outermost panel edge; an anchor lies flush inside it. After the side's outside bars it
         // lies outside the inset too, flush after them, the inset (at least a gutter) then following it and the anchor.
         // With no such bar it lies at the window's side inside the inset, a gutter after it (the hosts' rows).
-        if (!railRect && railed.length > 0 && !outsideSideBar(c)) {
-          const w = railW(side);
-          const lead = barLaid ? gap : 0;
-          const after = barLaid ? Math.max(gap, gutter) : gutter;
-          if (side === "left") {
-            railRect = rect(x0 - lead, area.y, w, H);
-            x0 += w - lead + after;
-          } else {
-            railRect = rect(x1 + lead - w, area.y, w, H);
-            x1 -= w - lead + after;
+        if (!railPlace && !outsideSideBar(c)) {
+          railPlace = placeRail();
+          if (railed.length > 0) {
+            railRect = railPlace;
+            const lead = barLaid ? gap : 0;
+            const after = barLaid ? Math.max(gap, gutter) : gutter;
+            if (side === "left") x0 += railPlace.width - lead + after;
+            else x1 -= railPlace.width - lead + after;
+            gap = after;
           }
-          gap = after;
         }
         if (outsideSideBar(c)) barLaid = true;
         const base = { side: c.edge.side, ring: finite(c.edge.ring, 0), cross: 0, menu: null, tabs: [], stack: c.solved.stack, free: c.solved.free };
@@ -714,6 +720,8 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
         }
         rails[side] = { rect: railRect, segments };
       }
+      // A side that can have a rail: where it lies, or would lie (after every outside bar when the side has nothing else).
+      if (scene.rails?.[side]) railPlaces[side] = railPlace ?? placeRail();
     }
     return rect(x0, area.y, Math.max(0, x1 - x0), H);
   };
@@ -791,5 +799,5 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     items[f.id] = { ...shapeOf(form, fit.rect, fo, fit.rect.width), rect: fit.rect, kind: it.kind, form: from, formKind: form?.kind ?? "open", floating: true };
     floats.push(f.id);
   }
-  return { items, edges, content, floats, rails, ...(columnRoom !== undefined ? { columnRoom } : {}), notes };
+  return { items, edges, content, floats, rails, railPlaces, ...(columnRoom !== undefined ? { columnRoom } : {}), notes };
 }

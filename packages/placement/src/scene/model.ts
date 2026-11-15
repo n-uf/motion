@@ -353,8 +353,13 @@ export interface SceneLayout {
   readonly content: Rect;
   /** The floats drawn, in stacking order (the last on top). */
   readonly floats: readonly string[];
-  /** The rails shown (a side with a folded column). */
+  /** The rails shown (a side with a folded column). Hosts draw these. */
   readonly rails: Readonly<Partial<Record<"left" | "right", SceneRailLayout>>>;
+  /**
+   * Where each side's rail lies, or would lie were one shown, for every side that has a rail (`Scene.rails`), drawn or
+   * not: the place a drop into the rail lands (`targets` reads it). Hosts draw `rails`, never `railPlaces`.
+   */
+  readonly railPlaces: Readonly<Partial<Record<"left" | "right", Rect>>>;
   /**
    * With `contentMin` and a dynamic column (or, before any exists, a `columns` template): whether one column at its
    * minimum fits beside the content's minimum (`false` with a `no-column-room` note). Anchors and rails don't count:

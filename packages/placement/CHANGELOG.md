@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.24
 
+- `@n-uf/placement/scene`, **`SceneLayout.railPlaces`** (additive): where each side's rail lies, or would lie were one
+  shown, for every side with a rail (`Scene.rails`): the shown rail's rect, else where a drop into the rail lands.
+  `targets` reads it. Hosts draw `rails` (only shown rails, unchanged), never `railPlaces`.
+
 - `@n-uf/placement/scene`, **Changed:** every empty edge's strip is by zone, as an empty bar's has been since
   26.11.19: `strip:<edge>:start|center|end`, by thirds along the edge (a side edge's or a compact rail's height), the
   item docking aligned in that third (top, middle or bottom of a side). It used to be one `strip:<edge>` landing at the
