@@ -136,8 +136,10 @@
 .dw-ctl:hover { background: var(--win-text); }
 
 .dw-menu { position: absolute; pointer-events: auto; border: 1px solid var(--win-edge); border-radius: 6px; background: var(--bg-raised); font: inherit; cursor: pointer; }
-/* A form's "+N" cell: the » menu's entry one level down (the same border and fill), inline after the form's words. */
-.dw-more { flex: none; height: 22px; padding: 0 4px; font-size: 11px; border: 1px solid var(--win-edge); border-radius: 6px; background: var(--bg-raised); font: inherit; font-variant-numeric: tabular-nums; color: inherit; cursor: pointer; white-space: nowrap; }
+/* A form's overflow cell: the edge's "» N" menu one level down, a narrow » (12 px) and a small count badge after it. */
+.dw-more { flex: none; display: inline-flex; align-items: center; height: 24px; padding: 0; border: 0; border-radius: 4px; background: none; font: inherit; color: inherit; cursor: pointer; white-space: nowrap; }
+.dw-more .dw-chev { display: inline-block; width: 12px; text-align: center; line-height: 1; }
+.dw-more .dw-cnt { align-self: flex-start; margin-top: 3px; min-width: 6px; padding: 0 1px; border-radius: 5px; background: var(--win-well); color: var(--win-muted); font-size: 8px; line-height: 10px; text-align: center; font-variant-numeric: tabular-nums; }
 .dw-more:hover, .dw-more[aria-expanded="true"] { background: var(--accent-soft); }
 .dw-menu-list button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
