@@ -372,19 +372,20 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "folds-oldest",
     title: "A narrow or short window folds the oldest first",
-    expected: "In a short window the panel used longest ago (Pages) folds to its header first; in a narrow one the oldest group (Zoom) folds first in the bottom bar.",
+    expected:
+      "In a short window the panel used longest ago (Pages) folds to its header first; in a narrow one the oldest group of the lowest priority (Tools, Review being kept out of the menu longest) folds first in the bottom bar.",
     setup: (c) =>
       c.setScene(
         sceneWith(
-          (s) => ages(put(put(s, "left", ["pages", "notes", "findings"]), "bottom", ["views", "zoom", "review"]), ["zoom", "pages", "notes", "findings", "views", "review"]),
-          // Narrow enough that the bottom bar's three toolbars (249 + 137 + 249 and the gaps) don't fit in a row.
+          (s) => ages(put(put(s, "left", ["pages", "notes", "findings"]), "bottom", ["views", "tools", "review"]), ["tools", "pages", "notes", "findings", "views", "review"]),
+          // Narrow enough that the bottom bar's three toolbars (Views, Tools, Review and the gaps) don't fit in a row.
           { width: 600, height: 464 },
         ),
       ),
     check(c) {
       const l = firstFold(c, "left");
       const b = firstFold(c, "bottom");
-      return { pass: l === "pages" && b === "zoom", now: `First to fold: ${l} in the left column, ${b} in the bottom bar.` };
+      return { pass: l === "pages" && b === "tools", now: `First to fold: ${l} in the left column, ${b} in the bottom bar.` };
     },
   },
   {

@@ -127,9 +127,14 @@ export const TITLES: Record<ItemId, string> = {
   controls: "Window controls",
 };
 
+/** The toolbars that go into a » menu last (the highest give-way priority): Zoom and Review. */
+export const PRIORITY: Partial<Record<GroupId, number>> = { zoom: 10, review: 10 };
+/** The title bar's toolbars step down before other bars' (its default priority). */
+export const TITLE_BAR_PRIORITY = -1;
+
 function itemOf(id: ItemId, used: number): SceneItem {
   if (isPanel(id)) return { id, kind: "panel", forms: { column: PANEL_COLUMN[id] }, floatSize: floatSize(id), used };
-  if (isGroup(id)) return { id, kind: "group", forms: { column: groupColumn(id), row: groupRow(id) }, floatSize: floatSize(id), used };
+  if (isGroup(id)) return { id, kind: "group", forms: { column: groupColumn(id), row: groupRow(id) }, floatSize: floatSize(id), used, ...(PRIORITY[id] !== undefined ? { priority: PRIORITY[id] } : {}) };
   // The title takes the bar's spare length and shrinks to its minimum; the controls are one fixed size at the end.
   if (id === "title") return { id, kind: "chrome", forms: { row: [f("row", { min: 140, natural: 220, grows: true }, BAR)] }, used: 0, fixed: true };
   return { id, kind: "chrome", forms: { row: [f("row", 3 * 22 + 8, BAR)] }, used: 0, fixed: true, align: "end" };
@@ -179,7 +184,7 @@ export function defaultScene(size: Size = DEFAULT_SIZE): Scene {
   const items = Object.fromEntries(ALL.map((id) => [id, itemOf(id, order.indexOf(id) + 1)])) as Record<ItemId, SceneItem>;
   return {
     stage: { x: 0, y: 0, width: size.width, height: size.height },
-    edges: [bar("title", "top", 0, ["title", "zoom", "controls"]), bar("top", "top", 1, []), column("left", "left", ["pages", "notes"]), column("right", "right", ["findings"]), bar("bottom", "bottom", 0, ["views", "review"]), rail("rail-left", "left", []), rail("rail-right", "right", [])],
+    edges: [{ ...bar("title", "top", 0, ["title", "zoom", "controls"]), priority: TITLE_BAR_PRIORITY }, bar("top", "top", 1, []), column("left", "left", ["pages", "notes"]), column("right", "right", ["findings"]), bar("bottom", "bottom", 0, ["views", "review"]), rail("rail-left", "left", []), rail("rail-right", "right", [])],
     items,
     floats: [{ id: "tools", rect: { x: 0, y: 0, width: floatSize("tools").width, height: floatSize("tools").height }, anchor: "content-top-right" }],
     floatKinds: ["panel", "group"],
