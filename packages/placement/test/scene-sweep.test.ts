@@ -82,6 +82,22 @@ const drawn = (l: SceneLayout) => ({
 });
 
 describe("scene sweeps", () => {
+  it("no target is a sub-pixel place: every piece of its zone is at least 1 px each way", () => {
+    // Seed 195, the group dragged out of its bar: an empty bottom bar's zones are split where its thirds fall, and the
+    // column's last gap used to keep the 0.45 px between two of them; it is no room, and the gap lies where it has some.
+    const s195 = randomScene(195);
+    const gap = targets(s195, "g0").find((t) => t.id === "gap:right0:start:1")!;
+    expect(gap.hit.height).toBeGreaterThanOrEqual(1);
+    expect(gap.hit.width).toBeGreaterThan(300);
+    for (const seed of SEEDS) {
+      const s = randomScene(seed);
+      for (const id of Object.keys(s.items)) {
+        if (s.items[id]!.fixed || s.items[id]!.closed) continue;
+        for (const t of targets(s, id)) for (const p of t.hits ?? [t.hit]) if (p.width < 1 || p.height < 1) throw new Error(`seed ${seed} drag ${id}: ${t.id} ${JSON.stringify(p)}`);
+      }
+    }
+  });
+
   it("no docked items overlap (so none covers a fixed item), each lies in its edge and each edge in the stage", () => {
     for (const seed of SEEDS) {
       const s = randomScene(seed);
