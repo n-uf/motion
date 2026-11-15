@@ -321,6 +321,16 @@ describe("the options the rows need", () => {
     expect(narrow.notes).toContainEqual({ code: "no-column-room", width: 551, need: 552 });
   });
 
+  it("columnRoom counts the anchor's room: folded into its rail, the rail and its gutter; open, its width", () => {
+    const s = (w: number) => adapt(rows.scenes.anchorGiveWayOrder!.scene, w, 800);
+    // At 590 the anchor is folded into the left rail: 32 + 12 + a column 220 + 12 + the content 320 = 596 > 566.
+    const at590 = solve(s(590));
+    expect(at590.rails.left!.segments.map((x) => x.id)).toContain("thumbs");
+    expect(at590.columnRoom).toBe(false);
+    expect(at590.notes).toContainEqual({ code: "no-column-room", width: 566, need: 596 });
+    expect(solve(s(620)).columnRoom).toBe(true);
+  });
+
   it("insetWhen docked: no inset while nothing is docked beside the content", () => {
     const none = rows.scenes.none!.scene;
     const s = adapt(none, 1000, 800, false);
