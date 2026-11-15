@@ -60,7 +60,8 @@ describe("targets", () => {
   it("an empty accepting edge gets a strip; its after shows the edge holding the item", () => {
     const sc: Scene = { ...s, edges: [...s.edges, column("drawer", "right", 1, [], { strip: 20 })] };
     const strip = targets(sc, "pages").find((t) => t.id === "strip:drawer")!;
-    expect(strip.hit).toEqual(r(920, 68, 20, 732));
+    // Inside the content: it stops at the status bar below.
+    expect(strip.hit).toEqual(r(920, 68, 20, 704));
     expect(strip.after({ x: 0, y: 0 }).layout.items.pages!.edge).toBe("drawer");
   });
 

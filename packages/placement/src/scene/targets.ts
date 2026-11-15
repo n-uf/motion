@@ -194,8 +194,6 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
     if (own) out.push({ id: t.id, priority: t.priority, hit: t.hit, item: dragged, place: { kind: "home" }, after: () => ({ scene, layout: now }) });
     else if (sound(t.after({ x: 0, y: 0 }).layout)) out.push(t);
   }
-  // An empty edge's strip never swallows a gap: its hit is clipped clear of every gap's hit (a bar's strip along the top
-  // would otherwise cover the columns' first gaps). A strip left with no room has no target.
   // A compact rail's inward reach never covers another edge's gap (a column's tray, say): where it would, the hit keeps
   // only the rail's own thickness.
   const edgeOfGap = (t: SceneTarget): Edge | undefined => (t.place.kind === "gap" ? rest.edges.find((e) => e.id === (t.place as { edge: string }).edge) : undefined);
@@ -215,15 +213,32 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
             : rect(h.x, h.y + RAIL_REACH, h.width, h.height - RAIL_REACH);
     out[i] = { ...t, hit: core };
   }
-  // Only the strip's ends are trimmed (a gap over its start or its end); a gap across its middle is left to the
-  // smaller-hit tie-break, so a strip with room is never cut down to a part or deleted.
+  // An empty edge's strip lies inside the content (a full-span bar's edge rect runs over the columns; its strip never
+  // does), and never swallows a gap: a gap hit spanning it across trims its start or end (a bar's strip along the top
+  // would otherwise cover the columns' first gaps); a gap across its middle is left to the smaller-hit tie-break, so a
+  // strip with room is never cut down to a part. A strip with nothing left has no target.
   const gapHits = out.filter((t) => t.id.startsWith("gap:")).map((t) => t.hit);
+  const c = base.content;
   for (let i = out.length - 1; i >= 0; i--) {
     const t = out[i]!;
     const e = edgeOfGap(t);
     if (!t.id.startsWith("strip:") || !e) continue;
     const vertical = e.side === "left" || e.side === "right";
-    const h = t.hit;
+    const x0 = Math.max(t.hit.x, c.x);
+    const y0 = Math.max(t.hit.y, c.y);
+    const x1 = Math.min(t.hit.x + t.hit.width, c.x + c.width);
+    const y1 = Math.min(t.hit.y + t.hit.height, c.y + c.height);
+    // Nor over an overlay edge lying on the content (where an empty bar runs under an overlay column).
+    const docks = [...Object.entries(base.edges), ...Object.entries(now.edges).filter(([id]) => id !== now.items[dragged]?.edge)]
+      .filter(([id, d]) => id !== e.id && area(d.rect) > EPS)
+      .map(([, d]) => d.rect);
+    // A compact rail's strip stays at the window edge, outside the columns it lies beyond (as a rail target's strip does
+    // while no rail shows): that thin stretch along the window's side is the rail's own.
+    const h = e.compact ? t.hit : x1 - x0 > EPS && y1 - y0 > EPS ? cutAway(rect(x0, y0, x1 - x0, y1 - y0), docks) : null;
+    if (!h) {
+      out.splice(i, 1);
+      continue;
+    }
     let [a0, a1] = vertical ? [h.y, h.y + h.height] : [h.x, h.x + h.width];
     for (const g of gapHits) {
       if (!overlaps(g, h)) continue;
@@ -235,7 +250,10 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
       else if (g1 >= a1 - EPS && g0 < a1) a1 = Math.max(a0, g0);
     }
     if (a1 - a0 <= EPS) out.splice(i, 1);
-    else if (a0 !== (vertical ? h.y : h.x) || a1 !== (vertical ? h.y + h.height : h.x + h.width)) out[i] = { ...t, hit: vertical ? rect(h.x, a0, h.width, a1 - a0) : rect(a0, h.y, a1 - a0, h.height) };
+    else {
+      const hit = vertical ? rect(h.x, a0, h.width, a1 - a0) : rect(a0, h.y, a1 - a0, h.height);
+      if (hit.x !== t.hit.x || hit.y !== t.hit.y || hit.width !== t.hit.width || hit.height !== t.hit.height) out[i] = { ...t, hit };
+    }
   }
 
   if (scene.floatKinds.includes(item.kind)) {
