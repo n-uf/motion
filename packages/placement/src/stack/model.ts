@@ -372,8 +372,9 @@ export interface FitOptions {
    * the stack fits with, even when that makes the stack shorter (the last item out of the menu takes the » entry with
    * it), and so on; when it fits no larger form, nothing behind it grows. Items in the menu still come out, alone or
    * together when only their leaving together fits, but only when that keeps the order: an item leaves only with every
-   * menu item ahead of it, and only for a form no fewer steps down (from its `from`) than every item ahead of it that
-   * isn't in the menu.
+   * menu item ahead of it, only for a form no fewer steps down (from its `from`) than every item ahead of it that isn't
+   * in the menu, and never ahead of an item whose step down ranked higher than its own step into the menu (that step
+   * came after it): growing back is strictly the reverse of giving way, the menu included.
    * One px of room moves nothing. Results under `previous` depend on history: a shrink then a grow may end at another
    * arrangement than a fresh solve of the same input, and more room never undoes a growth along successive solves.
    * Growing back is meant for stacks of up to about 50 items (60 small menu items take about 9 ms; the cost grows with
