@@ -164,7 +164,7 @@ export function createScene(o: SceneOptions) {
         return (["pages", "notes", "findings"] as const)
           .map((p) => {
             const n = p === "pages" ? null : countOf(p);
-            return `<button type="button" class="dw-sq dw-sq-n" data-toggle="${p}" aria-pressed="${!scene.items[p]!.closed}" title="${TITLES[p]}${n === null ? "" : ` ${n}`}">${TITLES[p][0]!}${n === null ? "" : `<small>${n}</small>`}</button>`;
+            return `<button type="button" class="dw-sq dw-sq-n" data-toggle="${p}" aria-pressed="${!scene.items[p]?.closed}" title="${TITLES[p]}${n === null ? "" : ` ${n}`}">${TITLES[p][0]!}${n === null ? "" : `<small>${n}</small>`}</button>`;
           })
           .join("");
       return sq("M") + sq("O") + sq("R") + sq("⬇");
@@ -591,28 +591,51 @@ export function createScene(o: SceneOptions) {
   // --- measuring -------------------------------------------------------------------------------------------------
 
   /**
-   * Each group's one-row width and its words' widths, from its buttons as the page renders them (a hidden copy in a bar's
-   * row form, at its own content width): the scene's items hug what is drawn.
+   * Each group's sizes, from its buttons as the page renders them (hidden copies of its forms, each at its own content
+   * size): the one-row width and its words' widths, a wrapped row's height, the vertical icons form's width and height,
+   * the bar icons and fold widths. The scene's items hug what is drawn.
    */
   function measureGroups(): Record<GroupId, GroupMeasure> {
+    const round = (x: number): number => Math.ceil(x - 0.01);
+    /** A hidden copy of a group form: its section, appended (the caller removes it). */
+    const copy = (id: GroupId, kind: string, axis: "row" | "column", html: string, height = "max-content"): HTMLElement => {
+      const el = document.createElement("section");
+      el.className = `dw-item dw-group dw-k-${kind} dw-ax-${axis}`;
+      el.dataset.id = id;
+      el.style.cssText = `left:0;top:0;width:max-content;height:${height};visibility:hidden`;
+      el.innerHTML = html;
+      layer.append(el);
+      return el;
+    };
+    const size = (el: HTMLElement): { width: number; height: number } => {
+      const r = el.getBoundingClientRect();
+      return { width: round(Math.max(r.width, el.scrollWidth)), height: round(Math.max(r.height, el.scrollHeight)) };
+    };
+    const dots = '<span class="dw-dots" data-grip aria-hidden="true"></span>';
     const out = {} as Record<GroupId, GroupMeasure>;
     for (const id of GROUPS) {
-      const el = document.createElement("section");
-      el.className = "dw-item dw-group dw-k-row dw-ax-row";
-      el.style.cssText = `left:0;top:0;width:max-content;height:${BAR}px;visibility:hidden`;
-      // As `inner` draws a group's row form.
-      el.innerHTML = `<span class="dw-dots" data-grip aria-hidden="true"></span><div class="dw-gc">${groupContent(id, "row")}</div>`;
-      layer.append(el);
-      const gc = el.querySelector<HTMLElement>(".dw-gc")!;
+      // As `inner` draws each form.
+      const row = copy(id, "row", "row", `${dots}<div class="dw-gc">${groupContent(id, "row")}</div>`, `${BAR}px`);
+      const gc = row.querySelector<HTMLElement>(".dw-gc")!;
       // The words: the capsule's pieces for Review, else the row's own children but the "·" separators.
       const box = gc.querySelector<HTMLElement>(".dw-cap") ?? gc;
       const words = [...box.children].filter((x) => !x.classList.contains("dw-sep")) as HTMLElement[];
       const widths = words.map((w) => w.getBoundingClientRect().width);
       const span = words.length > 0 ? words[words.length - 1]!.getBoundingClientRect().right - words[0]!.getBoundingClientRect().left : 0;
       const gap = words.length > 1 ? (span - widths.reduce((s, w) => s + w, 0)) / (words.length - 1) : 0;
-      const round = (x: number): number => Math.ceil(x - 0.01);
-      out[id] = { row: round(el.getBoundingClientRect().width), words: widths.map(round), gap: Math.max(0, Math.round(gap)) };
-      el.remove();
+      const wrapped = copy(id, "wrap", "column", `${dots}<div class="dw-gc dw-wrapbox"><div class="dw-wrow">${wordRow(id, groupWords(id))}</div></div>`);
+      const wrapRow = round(wrapped.querySelector<HTMLElement>(".dw-wrow")!.getBoundingClientRect().height);
+      // A wrapped row's lead: from the box's start to the first word, plus what a row draws after its last word (Review's
+      // capsule edge), so the layout's row width is the drawn one.
+      const wbox = wrapped.querySelector<HTMLElement>(".dw-wrow .dw-cap") ?? wrapped.querySelector<HTMLElement>(".dw-wrow")!;
+      const wwords = [...wbox.children].filter((x) => !x.classList.contains("dw-sep") && !x.classList.contains("dw-cap")) as HTMLElement[];
+      const capEnd = wbox.classList.contains("dw-cap") ? wbox.getBoundingClientRect().right - wwords[wwords.length - 1]!.getBoundingClientRect().right : 0;
+      const lead = round(wwords[0]!.getBoundingClientRect().left - wrapped.getBoundingClientRect().left + capEnd);
+      const iconsCol = copy(id, "icons", "column", `${dots}<div class="dw-gc">${groupContent(id, "icons")}</div>`);
+      const iconsRow = copy(id, "icons", "row", `${dots}<div class="dw-gc">${groupContent(id, "icons")}</div>`, `${BAR}px`);
+      const fold = copy(id, "fold", "row", `${dots}<button type="button" class="dw-sq" title="${TITLES[id]}">»</button>`, `${BAR}px`);
+      out[id] = { row: size(row).width, words: widths.map(round), gap: Math.max(0, Math.round(gap)), wrapRow, lead, icons: size(iconsCol), iconsRow: size(iconsRow).width, fold: size(fold).width };
+      for (const el of [row, wrapped, iconsCol, iconsRow, fold]) el.remove();
     }
     return out;
   }
