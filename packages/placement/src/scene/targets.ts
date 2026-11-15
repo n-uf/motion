@@ -172,6 +172,8 @@ function placeKey(s: Scene, id: string): string {
 /** One tile before clipping: a slot's, home's, or a refused slot's. */
 interface Tile {
   readonly edge: string;
+  /** A virtual edge's (column lines, the rail), set by its generator: never read from an edge's id. */
+  readonly virtual: boolean;
   readonly zone: Zone;
   /** Clipping precedence: lower first. */
   readonly order: number;
@@ -283,7 +285,7 @@ function edgeTiles(c: Ctx, edge: Edge): Tile[] {
   // The item's own rect, where it lies in this edge now: home's, whatever else the edge offers.
   const ownNow = now.items[dragged];
   const ownHere = ownNow && ownNow.edge === edge.id && !ownNow.floating && !ownNow.inMenu ? ownNow.rect : null;
-  const onlyHome = (): Tile[] => (ownHere ? [{ edge: edge.id, zone: zoneOf(scene.items[dragged]), order: 0, kind: "home", id: `home:${dragged}`, priority: 1, place: { kind: "home" }, hit: ownHere, keep: null }] : []);
+  const onlyHome = (): Tile[] => (ownHere ? [{ edge: edge.id, virtual: false, zone: zoneOf(scene.items[dragged]), order: 0, kind: "home", id: `home:${dragged}`, priority: 1, place: { kind: "home" }, hit: ownHere, keep: null }] : []);
   if (!accepts && (empty || area(el.rect) <= EPS)) return onlyHome();
   if (accepts && empty && !opensEmpty(rest, edge, kind)) return onlyHome();
   const restEdge = rest.edges.find((e) => e.id === edge.id)!;
@@ -365,6 +367,7 @@ function edgeTiles(c: Ctx, edge: Edge): Tile[] {
   const homeId = slots.find((s) => s.home);
   const homeTile = (a: number, b: number): Tile => ({
     edge: edge.id,
+    virtual: false,
     zone: homeId?.zone ?? zoneOf(scene.items[dragged]),
     order: 0,
     kind: "home",
@@ -416,7 +419,7 @@ function edgeTiles(c: Ctx, edge: Edge): Tile[] {
         // A stretch of a zone with no slot of its own (beside the item, its only slot home) is refused: home is only
         // over the item's own place, and no stretch is handed to another zone's slot.
         if (takes || accepts || area(el.rect) > EPS) {
-          out.push({ edge: edge.id, zone: z.zone, order, kind: "refuse", id: "", priority: 2, reason: takes ? "no-room" : "not-accepted", hit: band(pa, pb, depthOf()), keep: null });
+          out.push({ edge: edge.id, virtual: false, zone: z.zone, order, kind: "refuse", id: "", priority: 2, reason: takes ? "no-room" : "not-accepted", hit: band(pa, pb, depthOf()), keep: null });
         }
         continue;
       }
@@ -429,10 +432,11 @@ function edgeTiles(c: Ctx, edge: Edge): Tile[] {
         const fits = c.fits(s.result.layout, edge);
         const me = s.result.layout.items[dragged];
         const hit = band(a, b, depthOf(s.result.layout));
-        if (!fits || !me) out.push({ edge: edge.id, zone: z.zone, order, kind: "refuse", id: "", priority: 2, reason: "no-room", hit, keep: null });
+        if (!fits || !me) out.push({ edge: edge.id, virtual: false, zone: z.zone, order, kind: "refuse", id: "", priority: 2, reason: "no-room", hit, keep: null });
         else
           out.push({
             edge: edge.id,
+            virtual: false,
             zone: z.zone,
             order,
             kind: "slot",
@@ -488,7 +492,7 @@ function columnTiles(c: Ctx, side: "left" | "right"): Tile[] {
     const hit = rect(line.x - COLUMN_REACH, span.y, 2 * COLUMN_REACH, span.height);
     const keep = { x: line.x, y: span.y + span.height / 2 };
     const id = `column:${side}:${line.ring}`;
-    out.push(home ? { edge: `column:${side}`, zone: "start", order: 1, kind: "home", id, priority: 2, place: { kind: "home" }, hit, keep } : { edge: `column:${side}`, zone: "start", order: 5, kind: "slot", id, priority: 2, place, result, hit, keep, marker: rect(line.x, span.y, 0, span.height), slot: me.rect });
+    out.push(home ? { edge: `column:${side}`, virtual: true, zone: "start", order: 1, kind: "home", id, priority: 2, place: { kind: "home" }, hit, keep } : { edge: `column:${side}`, virtual: true, zone: "start", order: 5, kind: "slot", id, priority: 2, place, result, hit, keep, marker: rect(line.x, span.y, 0, span.height), slot: me.rect });
   }
   return out;
 }
@@ -538,7 +542,7 @@ function railTiles(c: Ctx, side: "left" | "right"): Tile[] {
     const hit = rect(zone.x, from, zone.width, to - from);
     const keep = { x: zone.x + zone.width / 2, y: Math.min(Math.max(s.y, from), to) };
     const id = `rail:${side}:${s.ring}`;
-    out.push(home ? { edge: `rail:${side}`, zone: "start", order: 1, kind: "home", id, priority: 1, place: { kind: "home" }, hit, keep } : { edge: `rail:${side}`, zone: "start", order: 4, kind: "slot", id, priority: 1, place, result, hit, keep, marker: rect(zone.x, me.rect.y, zone.width, 0), slot: me.rect });
+    out.push(home ? { edge: `rail:${side}`, virtual: true, zone: "start", order: 1, kind: "home", id, priority: 1, place: { kind: "home" }, hit, keep } : { edge: `rail:${side}`, virtual: true, zone: "start", order: 4, kind: "slot", id, priority: 1, place, result, hit, keep, marker: rect(zone.x, me.rect.y, zone.width, 0), slot: me.rect });
   });
   return out;
 }
@@ -601,7 +605,7 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   // The item's own place is home's even where no edge tiles it (its column, deleted by the lift; its » entry).
   const ownRect = now.items[dragged];
   if (ownRect && !ownRect.floating && !tiles.some((t) => t.order === 0))
-    tiles.push({ edge: ownRect.edge ?? "", zone: zoneOf(item), order: 0, kind: "home", id: `home:${dragged}`, priority: 1, place: { kind: "home" }, hit: ownRect.rect, keep: null });
+    tiles.push({ edge: ownRect.edge ?? "", virtual: false, zone: zoneOf(item), order: 0, kind: "home", id: `home:${dragged}`, priority: 1, place: { kind: "home" }, hit: ownRect.rect, keep: null });
   for (const side of ["left", "right"] as const) {
     // A new column, or the rail, only for kinds the side's template opens with (its start zone).
     const template = scene.columns?.[side];
@@ -648,7 +652,7 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
       placed.push(t);
       continue;
     }
-    const realEdge = !t.edge.includes(":");
+    const realEdge = !t.virtual;
     // An edge that reaches inward (a compact rail) reaches over the other edges' rects, never over their tiles.
     const edge = realEdge ? rest.edges.find((e) => e.id === t.edge) : undefined;
     const reachesOver = !!edge && EDGE_KINDS[edgeKindOf(rest, edge)].inward > 0;
