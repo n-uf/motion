@@ -152,6 +152,13 @@ describe("hand folds (window A)", () => {
     const s = adapt(f, v.scene);
     expect(shape(s, solve(s))).toMatchObject({ columns: { left: [] }, rails: { left: ["pages", "annotations"] } });
   });
+
+  it("the rail shows a column's segments in zone order, as the column shows its items", () => {
+    const v = hf.variants!.find((x) => x.name === "all-folded")!;
+    const s = adapt(f, v.scene);
+    const pagesAtEnd: Scene = { ...s, items: { ...s.items, pages: { ...s.items.pages!, align: "end" } } };
+    expect(shape(pagesAtEnd, solve(pagesAtEnd)).rails.left).toEqual(["annotations", "pages"]);
+  });
 });
 
 describe("dynamic columns", () => {
