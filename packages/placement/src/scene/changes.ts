@@ -20,7 +20,7 @@
  * - `resize(scene, edge, size)`: the user's size across; a size that isn't a finite number clears it.
  */
 import { clampInto, type Rect } from "../geometry";
-import { DEFAULT_FLOAT_SIZE, floatShape, zoneOf, zoneTakes, zonesTaking, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Zone } from "./model";
+import { DEFAULT_FLOAT_SIZE, axisOf, floatShape, zoneOf, zoneTakes, zonesTaking, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
 export interface DockPlace {
@@ -244,6 +244,19 @@ export function resize(scene: Scene, edgeId: string, size: number): Scene {
     return { ...scene, edges: scene.edges.map((e) => (e === edge ? rest : e)) };
   }
   return { ...scene, edges: scene.edges.map((e) => (e === edge ? { ...e, size } : e)) };
+}
+
+/**
+ * The edge moved to the other side of its axis (left ⇄ right, top ⇄ bottom), as its side's outermost edge: ring 0, before
+ * that side's other edges (whose rings close up behind it; the side it left closes up too). Its items, size and options
+ * go with it. Unchanged for an unknown edge, the side it is on, or a side across its axis.
+ */
+export function setSide(scene: Scene, edgeId: string, side: Side): Scene {
+  const edge = scene.edges.find((e) => e.id === edgeId);
+  if (!edge || edge.side === side || axisOf(edge.side) !== axisOf(side)) return scene;
+  const moved: Edge = { ...edge, side, ring: 0 };
+  const others = scene.edges.filter((e) => e !== edge).map((e) => (e.side === side ? { ...e, ring: e.ring + 1 } : e));
+  return { ...scene, edges: closeRings([moved, ...others], new Set([edge.side, side])) };
 }
 
 /**
