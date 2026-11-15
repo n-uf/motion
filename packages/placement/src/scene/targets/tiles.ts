@@ -209,6 +209,13 @@ const isRefused = (t: Tile): boolean => t.kind === "refuse" || (t.kind === "reac
  */
 export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readonly Rect[], lost: string[]): Tile[] {
   const { owners, taken, bodies, solid } = own;
+  /** Every other edge's owned rects: what a refusal (which owns nothing) and an overreach yield to. */
+  const byKey = new Map<string, Rect[]>();
+  const others = (t: Tile): Rect[] => {
+    let rs = byKey.get(t.key);
+    if (!rs) byKey.set(t.key, (rs = owners.filter((o) => o.key !== t.key).map((o) => o.rect)));
+    return rs;
+  };
   const placed: Tile[] = [];
   // A virtual edge's refused stretches (its refused slots, its slots' clipped-off pieces) come after every other tile:
   // they take only what no tile takes, never a real edge's room.
@@ -232,13 +239,13 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
     if (t.kind === "reach") {
       // Overreach: what the virtual edges and every other edge's owned rect leave, joined to its owned part where it
       // meets that part along the part's whole length. The rest is nobody's (the float's).
-      placeReach(t, clip(t.hit, [...placed.flatMap(coverOf), ...owners.filter((o) => o.key !== t.key).map((o) => o.rect), ...bodies(t.edge), ...solid, ...chrome]), placed, landed, gone);
+      placeReach(t, clip(t.hit, [...placed.flatMap(coverOf), ...others(t), ...bodies(t.edge), ...solid, ...chrome]), placed, landed, gone);
       return;
     }
     // An owned part: clear of the tiles before it, of the owners that win over its edge, its panel bodies, solid items
-    // and chrome. A virtual edge's tile: clear of the tiles before it and of every owner. A refusal of a zone with no
-    // slot the filter keeps owns nothing: it yields to every other edge's owned rect too.
-    const yields = t.kind === "refuse" && own.refusedZone(t.key, t.zone) ? owners.filter((o) => o.key !== t.key).map((o) => o.rect) : [];
+    // and chrome. A virtual edge's tile: clear of the tiles before it and of every owner. A refusal owns nothing: it
+    // yields to every other edge's owned rect too.
+    const yields = t.kind === "refuse" ? others(t) : [];
     const cuts = [...placed.flatMap(coverOf), ...(taken.get(t.key) ?? []), ...yields, ...(data.virtual ? [] : bodies(t.edge)), ...solid, ...chrome];
     const pieces = clip(t.hit, cuts);
     if (pieces.length === 0) {
@@ -265,9 +272,6 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
   for (const t of tiles.filter((x) => !isRefused(x)).sort(byOrder)) place(t);
   for (const t of refused.sort(byOrder)) place(t);
   for (const t of gone) lost.push(t.id);
-  for (const t of later) {
-    const yields = own.refusedZone(t.key, t.zone) ? owners.filter((o) => o.key !== t.key).map((o) => o.rect) : [];
-    for (const p of clip(t.hit, [...placed.flatMap(coverOf), ...yields, ...solid, ...chrome])) placed.push({ ...t, hit: p });
-  }
+  for (const t of later) for (const p of clip(t.hit, [...placed.flatMap(coverOf), ...others(t), ...solid, ...chrome])) placed.push({ ...t, hit: p });
   return placed;
 }

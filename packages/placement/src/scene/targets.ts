@@ -64,7 +64,7 @@ import { solve } from "./solve";
 import { edgeSpec } from "./targets/edges";
 import { context } from "./targets/filter";
 import { edgeKindOf } from "./targets/kinds";
-import type { Ctx, EdgeSpec, Generated, SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions, Tile } from "./targets/model";
+import type { Ctx, EdgeSpec, Generated, SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions, Span, Tile } from "./targets/model";
 import { ownership } from "./targets/ownership";
 import { clipTiles, tileEdge } from "./targets/tiles";
 import { columnLines, railStops } from "./targets/virtual";
@@ -122,13 +122,31 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
   return { targets, refused, ownHome };
 }
 
+/** The stretches along an edge its slot tiles cover (home's and refusals' aside), merged where they meet. */
+function alongOfSlots(s: EdgeSpec, tiles: readonly Tile[]): Span[] {
+  const spans = tiles
+    .filter((t) => t.kind === "slot")
+    .map((t): Span => (s.vertical ? [t.hit.y, t.hit.y + t.hit.height] : [t.hit.x, t.hit.x + t.hit.width]))
+    .sort((a, b) => a[0] - b[0]);
+  const out: [number, number][] = [];
+  for (const [a, b] of spans) {
+    const last = out[out.length - 1];
+    if (last && a <= last[1] + 1e-6) last[1] = Math.max(last[1], b);
+    else out.push([a, b]);
+  }
+  return out;
+}
+
 function generate(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
   const ctx = context(scene, dragged, options);
   if (!ctx) return { targets: [], refusals: [], lost: [] };
   const { c, item, prev } = ctx;
   const { now } = c;
   const live = specsOf(c, item.kind);
-  const own = ownership(c, live);
+  // Ownership is ranked among what survives the filter: each edge tiled on its own first, an edge owning its band only
+  // along its surviving slots' tiles (a refused stretch owns nothing).
+  const along = new Map(live.map((s) => [s.key, alongOfSlots(s, tileEdge(c, s, [], []))]));
+  const own = ownership(c, live, (s) => along.get(s.key)!);
   const lost: string[] = [];
   const tiles: Tile[] = live.flatMap((spec) => tileEdge(c, spec, own.cutsOf(spec), lost));
   // The item's own place is home's even where no edge tiles it (its column, deleted by the lift; its » entry).
