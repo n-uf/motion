@@ -318,6 +318,23 @@ describe("the options the rows need", () => {
     expect(solve(s).items.findings!.rect.width).toBe(276);
   });
 
+  it("floatMin: a shrunk float never goes under it, each way; a folded float keeps its bar's height", () => {
+    const s = adapt(rows.scenes.floatingAtEdge!.scene, 300, 200);
+    const withMin = (m: { width: number; height: number }, from?: number): Scene => ({ ...s, items: { ...s.items, findings: { ...s.items.findings!, floatMin: m, ...(from !== undefined ? { from } : {}) } } });
+    // The region is 276 × 200: under the minimum it stays at the minimum, above it it shrinks to the region.
+    expect(solve(withMin({ width: 290, height: 250 })).items.findings!.rect).toMatchObject({ width: 290, height: 250 });
+    expect(solve(withMin({ width: 220, height: 160 })).items.findings!.rect).toMatchObject({ width: 276, height: 200 });
+    // Folded: its bar's height, whatever the minimum.
+    const folded = solve(withMin({ width: 220, height: 160 }, 1)).items.findings!;
+    expect(folded.formKind).toBe("header");
+    expect(folded.rect.height).toBe(30);
+    // No floatMin: the form's own minimums are the floor (a card 220 wide, 160 tall at least).
+    expect(solve(s).items.findings!.rect).toMatchObject({ width: 276, height: 200 });
+    const narrow = solve(adapt(rows.scenes.floatingAtEdge!.scene, 150, 800)).items.findings!.rect;
+    // The region (12..138) is narrower than the floor: the float keeps 220 and lies at the region's left edge.
+    expect(narrow).toMatchObject({ x: 12, width: 220 });
+  });
+
   it("a panel's rail form shows only in a column drawn as a rail: an open column steps open → header, then is drawn as a rail", () => {
     const three = rows.scenes.heightSweepThreeInOne!.scene;
     for (let h = 900; h >= 120; h -= 7) {

@@ -21,6 +21,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   - **Changed:** the side's rail is its outermost edge (it was placed just outside the first dynamic column).
   - **Changed:** floats are clamped into the stage less the inset's left and right (the full height), and a float larger
     than that region is shrunk to fit it (they were clamped into the whole stage, never resized).
+  - **`SceneItem.floatMin`** (`Size`): a float of the item is laid out at `max(floatMin, min(its size, the region))`
+    each way. Without it a shrink stops at its form's own minimums (`cross.min` across, `main.min` along). A float
+    wider than the region at that floor keeps it and lies at the region's left edge; a folded float keeps its height.
   - Typing: `SceneNote` gains `no-column-room`; an exhaustive `switch` over `SceneNote["code"]` needs it.
   - Affected: scenes with an inset and floats near its sides, scenes riding a hand-folded column of two or more panels
     (they went to the rail), and scenes with a static edge outside a dynamic column on a side whose rail shows.
