@@ -5,7 +5,7 @@
  * and is expected to be red until the rule lands: the page never fakes it.
  */
 import type { Point, Rect } from "@n-uf/placement";
-import { moveTo, reservedRect, type Scene, type SceneTarget } from "@n-uf/placement/scene";
+import { lift, moveTo, reservedRect, solve, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { wrapCross } from "@n-uf/placement/stack";
 import { DEFAULT_SIZE, ages, defaultScene, edgeOf, floating, put, type EdgeId, type ItemId } from "./model";
 import type { DocwinScene } from "./scene";
@@ -81,6 +81,34 @@ function dragTo(c: DocwinScene, id: ItemId, path: Point[], keep = false): { lift
   }
   return { lifted: true, t };
 }
+/**
+ * A drag like a mouse, through the page's own pointer listeners: pointerdown on the item's grip, pointermoves about 4 px
+ * apart on the window to `to` (window px), a short hold, pointerup. Frames are driven by hand.
+ */
+function mouseDrag(c: DocwinScene, id: ItemId, to: Point): { lifted: boolean } {
+  const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
+  if (!el) return { lifted: false };
+  const w = c.win.getBoundingClientRect();
+  const g = el.getBoundingClientRect();
+  const from = { x: g.left + g.width / 2, y: g.top + g.height / 2 };
+  const end = { x: w.left + to.x, y: w.top + to.y };
+  const ev = (type: string, at: Point): PointerEvent => new PointerEvent(type, { clientX: at.x, clientY: at.y, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerType: "mouse", isPrimary: true, bubbles: true, cancelable: true });
+  c.drive(true);
+  let now = performance.now();
+  el.dispatchEvent(ev("pointerdown", from));
+  const steps = Math.max(8, Math.ceil(Math.hypot(end.x - from.x, end.y - from.y) / 4));
+  let lifted = false;
+  for (let i = 1; i <= steps; i++) {
+    window.dispatchEvent(ev("pointermove", { x: from.x + ((end.x - from.x) * i) / steps, y: from.y + ((end.y - from.y) * i) / steps }));
+    lifted ||= c.dragging;
+    if (c.dragging) c.frame((now += 16));
+  }
+  for (let k = 0; k < 25; k++) if (c.dragging) c.frame((now += 16));
+  window.dispatchEvent(ev("pointerup", end));
+  c.drive(false);
+  return { lifted };
+}
+
 const endDrag = (c: DocwinScene): void => {
   c.release(performance.now(), true);
   c.drive(false);
@@ -166,8 +194,7 @@ export const PRESETS: readonly Preset[] = [
     id: "no-slot-over-chrome",
     title: "No slot over the title or controls",
     expected:
-      "Dragging Views to the title bar offers slots only between the title and the window controls: none before the title or after the controls. No gap's hit, slot or marker lies over the controls or over the title's reserved room, its natural text placed by its zone; the length the title grew by is spare room where gaps may lie.",
-    lacks: "a growing fixed item reserves only its natural rect; the spare room accepts groups",
+      "Dragging Views to the title bar offers slots only between the title and the window controls: none before the title or after the controls. No gap's hit, slot or marker lies over the controls. The title grows, so a hit may lie over its text (the pointer there picks the gap just after it), but no slot or marker lies over its reserved room, its natural text placed by its zone.",
     setup: (c) => c.setScene(defaultScene()),
     check(c) {
       const ts = gaps(c, "views").filter((g) => g.place.edge === "title");
@@ -180,7 +207,6 @@ export const PRESETS: readonly Preset[] = [
         if (at <= ids.indexOf("title")) return "before the title";
         if (at > ids.indexOf("controls")) return "after the controls";
         if (overlap(g.hit, ctl) > 0) return `its hit ${say(g.hit)} covers the controls ${say(ctl)}`;
-        if (overlap(g.hit, title) > 0) return `its hit ${say(g.hit)} covers the title's reserved ${say(title)}`;
         const ctlA = after.layout.items.controls?.rect;
         const titleA = after.layout.items.title ? reservedRect(after.scene, after.layout, "title") : null;
         if (g.slot && ctlA && overlap(g.slot, ctlA) > 0) return `its slot ${say(g.slot)} covers the controls ${say(ctlA)}`;
@@ -194,7 +220,7 @@ export const PRESETS: readonly Preset[] = [
         pass: bad.length === 0 && ts.length > 0,
         now: bad.length
           ? `${bad.length} of ${ts.length} title-bar gaps break the reserved room: ${bad.map(([g, w]) => `${g.id}, ${w}`).join("; ")}.`
-          : `${ts.length} gaps, all between the title and the controls, clear of the controls and the title's reserved ${say(title)} (${ts.map((g) => g.id).join(", ")}).`,
+          : `${ts.length} gaps, all between the title and the controls, hits clear of the controls, slots and markers clear of the controls and the title's reserved ${say(title)} (${ts.map((g) => g.id).join(", ")}).`,
       };
     },
   },
@@ -668,6 +694,124 @@ export const PRESETS: readonly Preset[] = [
       const d = c.lastDrop;
       const ok = lifted && !!d && d.target === t.id && d.committed && sameRect(d.preview, d.landed) && sameRect(d.landed, want);
       return { pass: ok, now: `${steps} moves of about ${r0(Math.hypot(to.x - from.x, to.y - from.y) / steps)} px from ${r0(from.x)},${r0(from.y)} to ${r0(to.x)},${r0(to.y)}: ${lifted ? "lifted" : "never lifted"}; ${d ? `dropped on ${d.target ?? "nothing"}, slot ${d.preview ? say(d.preview) : "none"}, landed ${d.landed ? say(d.landed) : "none"}` : "no drop"}.` };
+    },
+  },
+  {
+    id: "toolbar-on-a-rail",
+    title: "A second toolbar onto a rail: top, between, middle, bottom",
+    expected:
+      "With Zoom on a window-edge rail, Tools dropped by mouse anywhere on that rail lands there: at its top above Zoom (start), just below Zoom (start), in the middle (center) and at the bottom (end), each with the slot equal to the landing. No dead stretch along the rail. The same on the right rail.",
+    setup: (c) => c.setScene(sceneWith((s) => put(s, "rail-left", ["zoom"]))),
+    check(c) {
+      const bad: string[] = [];
+      const seen: string[] = [];
+      for (const side of ["rail-left", "rail-right"] as const) {
+        const base = sceneWith((s) => put(s, side, ["zoom"]));
+        c.setScene(base);
+        const rail = c.layout.edges[side]!.rect;
+        const zoom = rectOf(c, "zoom")!;
+        const x = rail.x + rail.width / 2;
+        const spots: [string, Point, "start" | "center" | "end"][] = [
+          ["top", { x, y: rail.y + 6 }, "start"],
+          ["below Zoom", { x, y: zoom.y + zoom.height + 10 }, "start"],
+          ["middle", { x, y: rail.y + rail.height / 2 }, "center"],
+          ["bottom", { x, y: rail.y + rail.height - 6 }, "end"],
+        ];
+        for (const [name, p, zone] of spots) {
+          c.setScene(base);
+          const r = mouseDrag(c, "tools", p);
+          const d = c.lastDrop;
+          const l = c.layout.items.tools;
+          const ok = r.lifted && !!d && d.committed && l?.edge === side && l.zone === zone && sameRect(d.preview, d.landed);
+          seen.push(`${side} ${name}: ${d?.target ?? "nothing"} (${l?.edge ?? "-"} ${l?.zone ?? ""})`);
+          if (!ok) bad.push(`${side} ${name}: dropped on ${d?.target ?? "nothing"}, landed in ${l?.edge ?? "none"} ${l?.zone ?? ""}, slot ${d?.preview ? say(d.preview) : "none"} vs ${d?.landed ? say(d.landed) : "none"}`);
+        }
+      }
+      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
+  {
+    id: "toolbar-into-title-bar",
+    title: "A toolbar into the title bar: over the title, the middle, by the controls",
+    expected:
+      "Tools dropped by mouse with its grip over the title's text, over the empty middle of the title bar, and just left of the window controls lands in the title bar each time, the slot equal to the landing, never over the title's text or the controls; with Zoom in the title bar and with Zoom moved out to the rail.",
+    setup: (c) => c.setScene(defaultScene()),
+    check(c) {
+      const bad: string[] = [];
+      const seen: string[] = [];
+      const worlds: [string, Scene][] = [
+        ["Zoom in the title bar", defaultScene()],
+        ["Zoom on the rail", sceneWith((s) => put(s, "rail-left", ["zoom"]))],
+      ];
+      for (const [world, base] of worlds) {
+        c.setScene(base);
+        const bar = c.layout.edges.title!.rect;
+        const title = reservedRect(c.scene, c.layout, "title");
+        const ctl = rectOf(c, "controls")!;
+        const y = bar.y + bar.height / 2;
+        const spots: [string, Point][] = [
+          ["over the title", { x: title.x + title.width / 2, y }],
+          ["the middle", { x: bar.x + bar.width / 2, y }],
+          ["left of the controls", { x: ctl.x - 6, y }],
+        ];
+        for (const [name, p] of spots) {
+          c.setScene(base);
+          const r = mouseDrag(c, "tools", p);
+          const d = c.lastDrop;
+          const l = c.layout.items.tools;
+          const titleA = reservedRect(c.scene, c.layout, "title");
+          const ctlA = rectOf(c, "controls")!;
+          const ok = r.lifted && !!d && d.committed && l?.edge === "title" && sameRect(d.preview, d.landed) && !!d.landed && overlap(d.landed, titleA) === 0 && overlap(d.landed, ctlA) === 0;
+          seen.push(`${world}, ${name}: ${d?.target ?? "nothing"}`);
+          if (!ok) bad.push(`${world}, ${name}: dropped on ${d?.target ?? "nothing"}, landed in ${l?.edge ?? "none"} ${d?.landed ? say(d.landed) : ""}`);
+        }
+      }
+      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
+  {
+    id: "no-dead-stretch",
+    title: "Every point of an edge that takes the item is a gap",
+    expected:
+      "For a panel and a toolbar, every point inside every edge that accepts it, swept at 8 px, hits a gap; except over a non-growing fixed item (the window controls) and over a panel's body (where a gap is a band), and, for a toolbar in a panel column, over the panels' own zone above the tray.",
+    setup: (c) => c.setScene(sceneWith((s) => put(s, "rail-left", ["zoom"]))),
+    check(c) {
+      const bad: string[] = [];
+      let n = 0;
+      for (const id of ["notes", "tools"] as const) {
+        const kind = c.scene.items[id]!.kind;
+        const ts = c.targets(id);
+        // The window as it is while the item is held (lifted out): that is what the pointer moves over.
+        const held = solve(lift(c.scene, id), { previous: c.layout });
+        for (const e of c.scene.edges) {
+          if (!e.accepts.includes(kind)) continue;
+          const l = held.edges[e.id];
+          if (!l || l.rect.width <= 0 || l.rect.height <= 0) continue;
+          const items = Object.entries(held.items).filter(([iid, p]) => p.edge === e.id && iid !== id);
+          const solid = items.filter(([iid, p]) => p.fixed && iid !== "title").map(([, p]) => p.rect);
+          const bodies = items.filter(([, p]) => p.formKind === "open").map(([, p]) => p.rect);
+          // A toolbar's drag in a panel column: only the tray, below the panels.
+          const panelsEnd = e.zoneAccepts && !e.zoneAccepts.start?.includes(kind) ? Math.max(-Infinity, ...items.filter(([, p]) => p.kind === "panel").map(([, p]) => p.rect.y + p.rect.height)) : -Infinity;
+          // Its gaps, a gap at the item's own place (shown as home) included.
+          const mine = ts.filter((t) => t.id.startsWith(`gap:${e.id}:`) || t.id === `strip:${e.id}`);
+          const deadAt: string[] = [];
+          let dead = 0;
+          for (let x = l.rect.x + 4; x < l.rect.x + l.rect.width; x += 8)
+            for (let y = l.rect.y + 4; y < l.rect.y + l.rect.height; y += 8) {
+              const p = { x, y };
+              // Past a fixed item that ends the edge (the controls, before the bar's end padding) nothing can go.
+              const pastEnd = solid.some((s) => (l.side === "left" || l.side === "right" ? y >= s.y + s.height : x >= s.x + s.width) && !items.some(([, q]) => (l.side === "left" || l.side === "right" ? q.rect.y >= s.y + s.height : q.rect.x >= s.x + s.width)));
+              if (pastEnd || solid.some((s) => inside(s, p)) || bodies.some((b) => inside(b, p)) || y <= panelsEnd) continue;
+              n++;
+              if (!mine.some((t) => inside(t.hit, p))) {
+                dead++;
+                if (deadAt.length < 4) deadAt.push(`${r0(x)},${r0(y)}`);
+              }
+            }
+          if (dead) bad.push(`${id} over ${e.id}: ${dead} dead points (${deadAt.join(" ")})`);
+        }
+      }
+      return { pass: bad.length === 0, now: `${n} points swept.${bad.length ? ` Broken: ${bad.join("; ")}.` : " No dead stretch."}` };
     },
   },
   {
