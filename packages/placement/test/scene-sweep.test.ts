@@ -1,6 +1,6 @@
 /** Property sweeps over random scenes: several edges, rings, spans and modes, fixed items, zones, floats and kinds. */
 import { describe, expect, it } from "vitest";
-import { solve, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
+import { lift, solve, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
 import { bar, byId, column, controls, group, panel, readout, seeded, title } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
@@ -185,6 +185,37 @@ describe("scene sweeps", () => {
           expect(edge.accepts).toContain(s.items[id]!.kind);
           expect(me.inMenu).toBeUndefined();
           for (const f of [...fixed, ...(s.chrome ?? [])]) if (overlaps(t.hit, f)) throw new Error(`seed ${seed}: ${t.id} covers ${JSON.stringify(f)}`);
+        }
+      }
+    }
+  });
+
+  it("no strip lies over a docked edge or a panel's body, and no gap's hit over another edge's panel body", () => {
+    for (const seed of SEEDS.slice(0, 200)) {
+      const s = randomScene(seed);
+      const now = solve(s);
+      for (const id of Object.keys(s.items)) {
+        if (s.items[id]!.fixed || s.items[id]!.closed) continue;
+        const lifted = solve(lift(s, id), { previous: now });
+        // The dragged item's own edge counts only as lifted: as it is now it may lie where its neighbours move to.
+        const ownNow = now.items[id]?.edge;
+        const layouts = [
+          { l: lifted, skip: undefined as string | undefined },
+          { l: now, skip: ownNow },
+        ];
+        for (const t of targets(s, id, { previous: now, endReach: 8 })) {
+          const e = (t.place as { edge?: string }).edge;
+          if (!e || (t.place.kind !== "gap" && !t.id.startsWith("strip:"))) continue;
+          const strip = t.id.startsWith("strip:");
+          for (const { l, skip } of layouts) {
+            // A neighbour that, as it is now, lies on this edge's lifted rect can't trim the hit without dropping it.
+            const stale = (oe: string) => l === now && !strip && overlaps(now.edges[oe]!.rect, lifted.edges[e]!.rect);
+            if (strip) for (const [oe, d] of Object.entries(l.edges)) if (oe !== e && oe !== skip && overlaps(t.hit, d.rect)) throw new Error(`seed ${seed} drag ${id}: ${t.id} over edge ${oe}`);
+            for (const [oid, it] of Object.entries(l.items)) {
+              if (oid === id || it.formKind !== "open" || !it.edge || it.edge === e || it.edge === skip || stale(it.edge)) continue;
+              if (overlaps(t.hit, it.rect)) throw new Error(`seed ${seed} drag ${id}: ${t.id} over ${oid}'s body`);
+            }
+          }
         }
       }
     }

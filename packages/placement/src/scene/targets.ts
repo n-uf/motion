@@ -153,7 +153,7 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   const docked: SceneTarget[] = [];
   for (const edge of rest.edges) {
     if (!edge.accepts.includes(item.kind)) continue;
-    docked.push(...edgeTargets(scene, rest, base, edge, dragged, reach, blockers, chrome, settle));
+    docked.push(...edgeTargets(scene, rest, now, base, edge, dragged, reach, blockers, chrome, settle));
   }
   for (const side of ["left", "right"] as const) {
     // A new column only for kinds its template's start zone takes: a group never opens a panel column on its own.
@@ -445,7 +445,7 @@ export function stops(scene: Scene, dragged: string, options: SceneTargetOptions
 }
 
 /** One edge's gap or strip targets. `rest` is the scene with the dragged item lifted out and `base` its layout. */
-function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, dragged: string, reach: number, blockers: readonly Rect[], chrome: readonly Rect[], settle: (s: Scene) => SceneAfter): SceneTarget[] {
+function edgeTargets(scene: Scene, rest: Scene, now: SceneLayout, base: SceneLayout, edge: Edge, dragged: string, reach: number, blockers: readonly Rect[], chrome: readonly Rect[], settle: (s: Scene) => SceneAfter): SceneTarget[] {
   const el = base.edges[edge.id];
   // A folded or riding column takes drops through its side's rail and column lines, not gaps.
   if (!el || el.folded || el.rides) return [];
@@ -475,17 +475,24 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
     const e = after.edges[edge.id]!;
     return column ? rect(e.rect.x, slot.y, e.cross, 0) : rect(slot.x, e.rect.y, 0, e.cross);
   };
-  // Other edges' rects stop a gap's hit; a compact rail's inward reach may lie over the columns of its own side (the
+  // Other edges' rects stop a gap's hit, with the item lifted and as they are now (a neighbour that moves once the item
+  // is lifted keeps its panels clear of the hit too); the dragged item's own edge counts only as lifted (as it is now it
+  // may lie where its neighbours move to). A compact rail's inward reach may lie over the columns of its own side (the
   // columns' gaps are cut out of it afterwards).
-  const otherEdges = Object.entries(base.edges)
-    .filter(([id, e]) => id !== edge.id && e.rect.width > EPS && e.rect.height > EPS && !(edge.compact && e.side === edge.side))
-    .map(([, e]) => e.rect);
+  const ownNow = now.items[dragged]?.edge;
+  const otherOf = (edges: SceneLayout["edges"], skip?: string): Rect[] =>
+    Object.entries(edges)
+      .filter(([id, e]) => id !== edge.id && id !== skip && e.rect.width > EPS && e.rect.height > EPS && !(edge.compact && e.side === edge.side))
+      .map(([, e]) => e.rect);
+  const otherEdges = otherOf(base.edges);
+  const nowEdges = otherOf(now.edges, ownNow);
   /**
    * `h` trimmed clear of each rect in `others`, never dropped. A rect across from the edge's own rect (a bar above a
    * column) trims the hit's end along the edge; one beside it (a neighbouring column) trims the hit's side across.
+   * `besideOnly` (the edges as they are now, which the lift may have moved onto this edge's rect) trims only across.
    */
   const own = el.rect;
-  const trimOff = (h: Rect, others: readonly Rect[], k: Point): Rect => {
+  const trimOff = (h: Rect, others: readonly Rect[], k: Point, besideOnly = false): Rect => {
     let [a0, a1] = column ? [h.y, h.y + h.height] : [h.x, h.x + h.width];
     let [c0, c1] = column ? [h.x, h.x + h.width] : [h.y, h.y + h.height];
     const km = column ? k.y : k.x;
@@ -495,7 +502,7 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
       const [o0, o1] = column ? [o.y, o.y + o.height] : [o.x, o.x + o.width];
       const [p0, p1] = column ? [o.x, o.x + o.width] : [o.y, o.y + o.height];
       if (Math.min(a1, o1) - Math.max(a0, o0) <= EPS || Math.min(c1, p1) - Math.max(c0, p0) <= EPS) continue;
-      const across = Math.min(w1, p1) - Math.max(w0, p0) > EPS;
+      const across = !besideOnly && Math.min(w1, p1) - Math.max(w0, p0) > EPS;
       if (!across) {
         if (p1 <= kc + EPS) c0 = Math.max(c0, p1);
         else if (p0 >= kc - EPS) c1 = Math.min(c1, p0);
@@ -509,7 +516,7 @@ function edgeTargets(scene: Scene, rest: Scene, base: SceneLayout, edge: Edge, d
     if (!fits(result.layout)) return null;
     // A gap's hit (its end reach included) never enters another edge's rect: a column's top gap stops at the bar above.
     // Along the edge only, from the keep point (inside the edge's own rect); a neighbour beside it trims the hit across.
-    const clear = cutClear(id.startsWith("gap:") ? trimOff(hit, otherEdges, keep) : hit, blockers, keep);
+    const clear = cutClear(id.startsWith("gap:") ? trimOff(trimOff(hit, otherEdges, keep), nowEdges, keep, true) : hit, blockers, keep);
     if (!clear) return null;
     return { id, priority: 2, hit: clear, slot: result.layout.items[dragged]!.rect, marker: markerOf(result.layout), item: dragged, place, after: () => result };
   };
