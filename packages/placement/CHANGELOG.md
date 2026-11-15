@@ -28,8 +28,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 - `@n-uf/placement/scene`, local targets (**Changed**): a target wins only where its own hit is. Home is offered only
   over the item's own place: its hit is the item's rect and half a band (`DEFAULT_HIT_BAND / 2`) each way along its
-  edge, across the edge's full hit thickness, cut out of every other gap hit (and empty-edge strip) there. The rest of
-  its gaps' slices goes only to the gap beside it in the same zone; with none there, that stretch has no target (the
+  edge, across the edge's full hit thickness, kept clear of empty-edge strips. Home never removes a gap: every other gap
+  hit it would cover keeps at least 16 px of its slice (or all of it, when shorter), at home's end, or for one inside
+  the item's own stretch at its own line beside the item's centre, which home always keeps. The rest of its gaps'
+  slices goes only to the gap beside it in the same zone; with none there, that stretch has no target (the
   pointer shows nothing, a release goes home), never a "back to its place" preview far away and never a gap of another
   zone. Affected: drags of an item in a bar whose zone held only its own gap (that zone's whole third used to preview
   home), and items whose own rect lay outside their gap's slice (home now always covers them).

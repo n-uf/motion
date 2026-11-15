@@ -217,7 +217,7 @@ describe("local targets: home only over the item's own place, refusals where a z
         const won = under.sort((a, b) => a.priority - b.priority || a.hit.width * a.hit.height - b.hit.width * b.hit.height)[0];
         if (!won || won.place.kind !== "home") throw new Error(`seed ${seed} ${id}: ${won?.id ?? "nothing"} wins over its own centre`);
         // No gap of its own edge lies there (another edge that moves up once it is lifted may, under home).
-        for (const t of under) if (t.place.kind === "gap" && t.id.startsWith(`gap:${me.edge}:`)) throw new Error(`seed ${seed} ${id}: ${t.id} lies over its own centre`);
+        for (const t of under) if (t.place.kind === "gap" && t.id.startsWith(`gap:${me.edge}:`)) throw new Error(`seed ${seed} ${id}: ${t.id} ${JSON.stringify(t.hit)} lies over its own centre (${JSON.stringify(me.rect)})`);
       }
     }
   });
@@ -255,5 +255,44 @@ describe("local targets: home only over the item's own place, refusals where a z
       ["end", "no-room"],
     ]);
     expect(refusals(s, "notes").filter((r) => r.edge === "titlebar").every((r) => r.reason === "not-accepted")).toBe(true);
+  });
+
+  it("home never removes a gap: one inside the item's stretch keeps 16 px at its own line, beside the item's centre", () => {
+    // Two trailing toolbars in the top bar: Zoom can still go before Tools, though that gap lies by Zoom's own place.
+    const base = windowScene(1200, 700);
+    const s: Scene = { ...base, items: { ...base.items, tools: { ...base.items.tools!, align: "end" } } };
+    const l = solve(s);
+    const ts = targets(s, "zoom", { previous: l });
+    const before = ts.find((t) => t.place.kind === "gap" && t.id.startsWith("gap:toolbar:end:0"));
+    expect(before, "the gap before Tools").toBeDefined();
+    expect(before!.hit.width).toBeGreaterThanOrEqual(16 - 1e-6);
+    // A panel that fills its column above a toolbar: the empty center zone and the end zone keep their gaps, home still
+    // covers its centre.
+    const col: Scene = { stage: { x: 0, y: 0, width: 900, height: 600 }, edges: [column("c", "left", 0, ["p", "g"])], items: byId([panel("p", 1), group("g", 2, { align: "end" })]), floats: [], floatKinds: [] };
+    const cl = solve(col);
+    const ct = targets(col, "p", { previous: cl });
+    for (const zone of ["center", "end"]) {
+      const g = ct.find((t) => t.id.startsWith(`gap:c:${zone}:`));
+      expect(g, zone).toBeDefined();
+      expect(g!.hit.height).toBeGreaterThanOrEqual(16 - 1e-6);
+    }
+    const p = cl.items.p!.rect;
+    const home = ct.find((t) => t.place.kind === "home" && t.id.startsWith("gap:"))!;
+    expect(home.hit.y <= p.y + p.height / 2 && p.y + p.height / 2 <= home.hit.y + home.hit.height).toBe(true);
+  });
+
+  it("no hit along a bar or column is narrower than 1 px (no slivers)", () => {
+    for (let seed = 1; seed <= 300; seed++) {
+      const s = barScene(seed);
+      const l = solve(s);
+      for (const id of Object.keys(s.items).filter((k) => !s.items[k]!.fixed)) {
+        for (const t of targets(s, id, { previous: l })) {
+          if (!t.id.startsWith("gap:")) continue;
+          const e = s.edges.find((x) => x.id === t.id.split(":")[1])!;
+          const along = e.side === "left" || e.side === "right" ? t.hit.height : t.hit.width;
+          if (along < 1) throw new Error(`seed ${seed} ${id}: ${t.id} is ${along} px along its edge`);
+        }
+      }
+    }
   });
 });
