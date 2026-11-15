@@ -864,7 +864,8 @@ edges without `previous`.
   merge into that start gap (its id stays `gap:<edge>:start:<n>`). The first and last reach `endReach` px past the
   edge's ends, but only a hit that reaches the edge's end goes on past it (a tray's gap at the foot never covers the
   top). Another edge's rect trims a gap's hit: one across from the edge (a bar above a column) at the hit's end along
-  the edge, one beside it (a neighbouring column) at its side. Across, the hit is the larger of the edge's thickness
+  the edge, one beside it (a neighbouring column) at its side; the edges as they are now, before the item is lifted,
+  trim it at its side too (but the dragged item's own edge). Across, the hit is the larger of the edge's thickness
   before and after the drop; a compact edge's hits reach 24 px further inward, except where another edge's gap is.
   Hits are cut clear of chrome and of every fixed item that doesn't grow (controls, a readout). A fixed item that grows
   (a title filling its bar) takes hits over its text, which land in the nearest gap; it reserves only its natural rect,
@@ -873,10 +874,13 @@ edges without `previous`.
   by is spare room: the drop shrinks it toward its natural size (to its `min` if the room needs it), so a group moved
   out of a title bar can always go back while the room allows. No slot lies over a fixed item's reserved rect. `slot`
   is the item's rect after the drop and `marker` the insertion line across the edge.
-- `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side. A gap hit that
-  spans it across trims its start or end (a bar's strip along the top never covers the columns' first gaps); one across
-  its middle is left to the smaller-hit tie-break. With nothing left (an empty outer bar on a non-empty inner one) it
-  has no target. Only for a kind its start zone takes (`Edge.zoneAccepts`).
+- `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side, inside the
+  content and clear of the other edges (overlay ones included), so never over a docked edge or a panel's body: a
+  full-width empty bar's strip covers only the content between the columns. A compact rail's strip alone stays at the
+  window edge, its own place. A gap hit that spans it across trims its start or end (a bar's strip along the top never
+  covers the columns' first gaps); one across its middle is left to the smaller-hit tie-break. With nothing left (an
+  empty outer bar on a non-empty inner one, a bar's strip all under an overlay column) it has no target. Only for a
+  kind its start zone takes (`Edge.zoneAccepts`).
 - `float:<id>` (3, free) when `floatKinds` lists the kind: the whole plane, landing with the pointer holding the float
   at `grab`, clamped and moved clear. It has no fixed `slot`: the slot to draw is
   `after(point, grab).layout.items[id].rect`, for the pointer at the time.
