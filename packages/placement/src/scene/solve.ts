@@ -34,7 +34,7 @@
 import { rect, type Rect } from "../geometry";
 import { fitFloat } from "../stack/floats";
 import { fitStack } from "../stack/layout";
-import { formCrossMin, formSetsCross, wrapLines, type StackFit, type StackForm, type StackInput, type StackItem } from "../stack/model";
+import { formCrossMin, formMain, formSetsCross, wrapLines, type StackFit, type StackForm, type StackInput, type StackItem } from "../stack/model";
 import { axisOf, floatShape, formsOf, pastWrap, zoneOf, type Edge, type FloatAnchor, type Scene, type SceneEdgeLayout, type SceneItem, type SceneItemLayout, type SceneLayout, type SceneNote, type SceneRailLayout, type SolveOptions, type Zone } from "./model";
 
 const EPS = 1e-6;
@@ -212,41 +212,66 @@ function solveEdge(scene: Scene, edge: Edge, ids: readonly string[], length: num
  * The fit with zones packed: when the drawn items leave spare length, start items pack from the start, end items from
  * the end (before the » entry), center items centred between. Returns the main-axis start per id.
  */
-function zoneStarts(scene: Scene, fit: StackFit, input: StackInput): Map<string, number> {
+function zoneStarts(scene: Scene, fit: StackFit, input: StackInput): { starts: Map<string, number>; lengths: Map<string, number> } {
   const column = fit.axis === "column";
   const at = (r: Rect): number => (column ? r.y : r.x);
-  const len = (r: Rect): number => (column ? r.height : r.width);
   const out = new Map<string, number>();
+  const lengths = new Map<string, number>();
   const drawn = fit.items.filter((p) => p.kind !== "menu");
-  for (const p of drawn) out.set(p.id, at(p.rect));
+  for (const p of drawn) {
+    out.set(p.id, at(p.rect));
+    lengths.set(p.id, column ? p.rect.height : p.rect.width);
+  }
+  const len = (p: { id: string }): number => lengths.get(p.id)!;
   const gap = px(input.gap);
   const start = px(input.pad?.start);
   const end = px(input.pad?.end);
-  const menu = fit.menu ? len(fit.menu.rect) + (drawn.length > 0 ? gap : 0) : 0;
-  const used = drawn.reduce((s, p) => s + len(p.rect), 0) + Math.max(0, drawn.length - 1) * gap;
-  const spare = fit.length - start - end - menu - used;
-  if (spare <= EPS) return out;
+  const menu = fit.menu ? (column ? fit.menu.rect.height : fit.menu.rect.width) + (drawn.length > 0 ? gap : 0) : 0;
   const zone = (z: Zone) => drawn.filter((p) => zoneOf(scene.items[p.id]) === z);
-  const total = (ps: readonly { rect: Rect }[]): number => ps.reduce((s, p) => s + len(p.rect), 0) + Math.max(0, ps.length - 1) * gap;
-  const lay = (ps: readonly { id: string; rect: Rect }[], from: number): void => {
-    let c = from;
-    for (const p of ps) {
-      out.set(p.id, c);
-      c += len(p.rect) + gap;
-    }
-  };
   const s = zone("start");
   const c = zone("center");
   const e = zone("end");
+  /**
+   * A bar's title (a fixed item that grows, in the start zone): the zones are laid with it at its natural length, so
+   * a toolbar right after it sits right after its natural rect (leading), and the title then takes the room up to the
+   * next item only when nothing follows it in its zone.
+   */
+  const title = column
+    ? undefined
+    : s.find((p) => {
+        const it = scene.items[p.id]!;
+        const f = formsOf(it, "row")[p.form];
+        return it.fixed && f?.main.grows && len(p) > formMain(f, "natural", fit.cross) + EPS;
+      });
+  if (title) lengths.set(title.id, formMain(formsOf(scene.items[title.id]!, "row")[title.form]!, "natural", fit.cross));
+  const used = drawn.reduce((sum, p) => sum + len(p), 0) + Math.max(0, drawn.length - 1) * gap;
+  const spare = fit.length - start - end - menu - used;
+  if (spare <= EPS) return { starts: out, lengths };
+  const total = (ps: readonly { id: string }[]): number => ps.reduce((sum, p) => sum + len(p), 0) + Math.max(0, ps.length - 1) * gap;
+  const lay = (ps: readonly { id: string }[], from: number): void => {
+    let x = from;
+    for (const p of ps) {
+      out.set(p.id, x);
+      x += len(p) + gap;
+    }
+  };
   lay(s, start);
   const endStart = fit.length - end - menu - total(e);
   lay(e, endStart);
   const lo = start + total(s) + (s.length > 0 ? gap : 0);
   const hi = endStart - (e.length > 0 ? gap : 0);
-  // Centred on the edge's middle (so a centred readout stays put while the other zones change), kept between them.
+  // Centred on the edge's middle (so a centred readout stays put while the other zones change), kept between them; in
+  // a title bar, where the middle isn't clear of the title and the trailing items, centred in the free span instead.
   const mid = (fit.length - total(c)) / 2;
-  lay(c, Math.max(lo, Math.min(mid, hi - total(c))));
-  return out;
+  const clear = mid >= lo - EPS && mid + total(c) <= hi + EPS;
+  lay(c, title && !clear ? Math.max(lo, (lo + hi - total(c)) / 2) : Math.max(lo, Math.min(mid, hi - total(c))));
+  if (title && s[s.length - 1] === title) {
+    // Nothing after the title in its zone: it grows into the room up to the next item.
+    const next = [...c, ...e].map((p) => out.get(p.id)!);
+    const until = next.length ? Math.min(...next) - gap : fit.length - end - menu;
+    lengths.set(title.id, Math.max(len(title), until - out.get(title.id)!));
+  }
+  return { starts: out, lengths };
 }
 
 /** A float's rect flush with `content`'s side or corner. */
@@ -318,12 +343,13 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     const column = axisOf(edge.side) === "column";
     const { stack } = solved;
     const thick = column ? r.width : r.height;
-    const starts = zoneStarts(scene, stack, solved.input);
+    const { starts, lengths } = zoneStarts(scene, stack, solved.input);
     const toStage = (l: Rect, id?: string): Rect => {
       const s = id !== undefined ? starts.get(id) : undefined;
+      const n = id !== undefined ? lengths.get(id) : undefined;
       const x = column ? l.x : (s ?? l.x);
       const y = column ? (s ?? l.y) : l.y;
-      return rect(r.x + x, r.y + y, l.width, l.height);
+      return rect(r.x + x, r.y + y, column ? l.width : (n ?? l.width), column ? (n ?? l.height) : l.height);
     };
     const tabs = new Set(solved.tabs);
     for (const id of solved.leftOut ?? []) notes.push({ code: "no-vertical-form", edge: edge.id, id });
