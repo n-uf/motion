@@ -7,8 +7,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 - `@n-uf/placement/stack`: **`StackForm.wrap`** (`{ widths, row, gap?, lead? }`, a form of the new group kind `wrap`):
   words in rows that wrap to the cross size the item gets, beside a lead cell (the grip) as a hanging indent. Its length
-  is rows × `row`, its natural cross the one-row width, and it fits a cross size only when no row but the last holds a
-  single word. Give-way, fits, `previous` and growth use the computed length; under `ownCross` it is drawn as wide as
+  is rows × `row`, its natural cross the one-row width, and it fits a cross size when some row width up to it leaves no
+  row but the last with a single word; it is laid out at the widest such width, so fitting is monotone (a form that fits
+  a cross fits every wider one) and `formCrossMin` is the narrowest width that fits. Give-way, fits, `previous` and growth use the computed length; under `ownCross` it is drawn as wide as
   its rows need. New exports `formMain`, `formCrossMin`, `formFitsCross`, `wrapLines`, `wrapRows`, `wrapCross` and
   `WrapSpec`. **`StackForm.grip`** (px) is a grip strip at a form's start along the stack. Additive: both are optional,
   and a stack without them fits as before.
@@ -25,14 +26,28 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   - **`Edge.zoneAccepts`** (and `ColumnTemplate.zoneAccepts`): the kinds each zone takes, narrowing `accepts`. A panel
     column with `{ start: ["panel"], end: ["group"] }` has a tray of toolbars at its foot: a toolbar there takes only
     its `wrap` or `icons` form, never the menu, and the panels give way first. Gaps are offered only in zones that take
-    the kind, `moveTo` and a new column put an item in a zone that takes it, and a group never opens such a column by
-    its strip.
+    the kind, and `moveTo` puts an item in a zone that takes it. A new column (a `column:` target, a `rail:` target, a
+    `moveTo` column or rail place) is offered only for a kind the template's start zone takes, so a group never opens
+    such a column. New exports `ZoneAccepts`, `zoneTakes` and `zonesTaking`.
   - **`dockHome(scene, id, start)`**: Dock, Put back and Reset position restore the start scene's fold too, so a
-    "Move to › rail" followed by Dock brings an item back open.
-  - **Changed** (targets): an empty edge's `strip:` hit is clipped clear of every gap's hit, and has no target when none
-    is left. A gap's hit never enters another edge's rect (a column's top gap stops at the bar above), and only a band
-    that reaches the edge's end goes on past it by `endReach`. Affected: hits in scenes with an empty bar or columns
-    under a bar are smaller than in 26.11.17.
+    "Move to › rail" followed by Dock brings an item back open; an item already at its home place (the only item of a
+    dynamic column) takes the start fold in place.
+  - **Changed** (targets), the hit tiling: an edge's gap hits split halfway between the lines of the gaps a drop fits
+    in and together cover the whole edge, short items included (a bar of a few toolbars, a rail, a column's tray); the
+    24 px band (`hitBand`) lies over an open item's body only. A compact rail's hits reach 24 px inward past it, except
+    where a column's gap is. A hit lies over a growing fixed item (a title) and lands in the nearest gap, never over a
+    fixed item that doesn't grow (controls, a readout) or chrome; a slot never covers a fixed item's reserved rect.
+    Another edge's rect trims a gap's hit: one across from the edge (a bar above a column) at the hit's end along the
+    edge, one beside it at its side. An empty edge's `strip:` hit is trimmed at its ends by a gap hit that spans it and
+    is dropped only when nothing is left (an empty outer bar lying on a non-empty inner one).
+  - **Changed** (layout): a side rail shows a column's segments in zone order (start, center, end), as the column shows
+    its items.
+  - Affected, for scenes that set none of the new options (`wrap`, `compact`, `zoneAccepts`): gap hits on bars and
+    rails are longer (they now meet halfway, also over the stretch beside a short item), bands over closed or folded
+    items are gone, a title bar's stretch left of its controls and the text of a growing title take drops, columns'
+    hits stop at the bars and columns around them, an empty bar's strip is shorter at an end where a column's gap
+    spans it (or gone, when an inner bar covers it), and a rail with center or end items orders its segments by zone.
+    The layout of every scene is otherwise as in 26.11.17.
   - `SceneNote` gains the codes `no-vertical-form` and `no-icons-form`; an exhaustive `switch` over `SceneNote["code"]`
     needs them.
 - New entry **`@n-uf/placement/scene/cases`**: the Scene's behaviour as data. `CASES` (conformance rows: a `Scene`, the

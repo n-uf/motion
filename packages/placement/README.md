@@ -856,29 +856,31 @@ edges without `previous`.
 - `gap:<edge>:<zone>:<at>` (priority 2) for every edge whose `accepts` lists the item's kind (deny by default), before
   each item of each zone and at each zone's end, so an empty center or end zone can be opened; only where the item
   fits: not in the » menu, no `overflow`, nothing newly `too-wide`, every fixed item of the edge keeping its form and its
-  place, and no chrome under its slot. Along the edge the hit follows `Edge.hitBand`: in a column (default 24) a band
-  that many px around the gap's insertion line, never into a neighbour's band, so the body of a panel away from its
-  edges is no gap and the pointer falls through to the float target (or to none); in a bar (default `"middle"`) the
-  edge split halfway between neighbouring lines. Gaps on one line are one target, the first in zone order: when a bar
-  has no spare length, `center:0` and `end:0` lie on the start zone's last line and merge into that start gap (its id
-  stays `gap:<edge>:start:<n>`). The first and last reach `endReach` px past the edge's ends, but only a band that
-  reaches the edge's end goes on past it (a tray's gap at the foot never covers the top), and a gap's hit never enters
-  another edge's rect (a column's top gap stops at the bar above). Across, the hit is the
-  larger of the edge's thickness before and after the drop, and it is cut clear of chrome and of what each fixed item
-  reserves: its drawn rect, or for a fixed item that grows (a title filling its bar) only its natural rect, placed by
-  its zone (from its start, from its end in the end zone, centred in the centre zone); `reservedRect(scene, layout, id)`
-  gives that rect, for a host that marks where nothing may drop. The length it grew by is spare
-  room: gap hits may lie there, and the drop shrinks it toward its natural size (to its `min` if the room needs it), so
-  a group moved out of a title bar can always go back while the room allows. A title already at its natural size leaves
-  no such room. No slot lies over a fixed item's reserved rect. `slot` is the item's rect after the drop and `marker`
-  the insertion line across the edge.
-- `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side, clipped clear of
-  every gap's hit (a bar's strip along the top never covers the columns' first gaps; with no room left it has no target).
-  Only for a kind its start zone takes (`Edge.zoneAccepts`).
+  place, and no chrome under its slot. Along the edge the gaps tile it: each hit runs halfway to the neighbouring
+  gaps' lines, so an edge of a few short items (a bar, a rail, a column's tray) is covered from end to end. Only over an
+  open item's body (a panel) the hit narrows to `Edge.hitBand` px around its line (default 24), so the middle of a
+  panel is no gap and the pointer falls through to the float target (or to none). Gaps on one line are one target, the
+  first in zone order: when a bar has no spare length, `center:0` and `end:0` lie on the start zone's last line and
+  merge into that start gap (its id stays `gap:<edge>:start:<n>`). The first and last reach `endReach` px past the
+  edge's ends, but only a hit that reaches the edge's end goes on past it (a tray's gap at the foot never covers the
+  top). Another edge's rect trims a gap's hit: one across from the edge (a bar above a column) at the hit's end along
+  the edge, one beside it (a neighbouring column) at its side. Across, the hit is the larger of the edge's thickness
+  before and after the drop; a compact edge's hits reach 24 px further inward, except where another edge's gap is.
+  Hits are cut clear of chrome and of every fixed item that doesn't grow (controls, a readout). A fixed item that grows
+  (a title filling its bar) takes hits over its text, which land in the nearest gap; it reserves only its natural rect,
+  placed by its zone (from its start, from its end in the end zone, centred in the centre zone), and
+  `reservedRect(scene, layout, id)` gives that rect, for a host that marks where nothing may drop. The length it grew
+  by is spare room: the drop shrinks it toward its natural size (to its `min` if the room needs it), so a group moved
+  out of a title bar can always go back while the room allows. No slot lies over a fixed item's reserved rect. `slot`
+  is the item's rect after the drop and `marker` the insertion line across the edge.
+- `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side. A gap hit that
+  spans it across trims its start or end (a bar's strip along the top never covers the columns' first gaps); one across
+  its middle is left to the smaller-hit tie-break. With nothing left (an empty outer bar on a non-empty inner one) it
+  has no target. Only for a kind its start zone takes (`Edge.zoneAccepts`).
 - `float:<id>` (3, free) when `floatKinds` lists the kind: the whole plane, landing with the pointer holding the float
   at `grab`, clamped and moved clear. It has no fixed `slot`: the slot to draw is
   `after(point, grab).layout.items[id].rect`, for the pointer at the time.
-- `column:<side>:<ring>` (2): a new column on each column line of a side whose template takes the kind (outside the
+- `column:<side>:<ring>` (2): a new column on each column line of a side whose template's start zone takes the kind (outside the
   outermost open column, between two, inside the innermost, or at the content's edge), 22 px each way.
 - `rail:<side>:<ring>` (1): docking folded into the side's rail, before each folded column's segments and after the
   last, or a 10 px strip at the side's outer edge while no rail shows.
