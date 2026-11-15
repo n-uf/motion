@@ -538,7 +538,8 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     // reads it. Anchors and rails don't count: every column, an anchor included, can fold into its rail.
     // With no column edge yet (every panel floating), a side's column template says how narrow its column could be: its
     // `cross.min`, or more where the items it takes need more (their form's least width), as a column holding them would.
-    const open = cols.filter((c) => c.dyn && c.edge.column === true).map((c) => c.min);
+    // Every column edge with an item counts, whether its side has a rail or not.
+    const open = cols.filter((c) => c.edge.column === true && c.visible.length > 0).map((c) => c.min);
     const templates = (["left", "right"] as const).flatMap((s) => {
       const t = scene.columns?.[s];
       if (!t) return [];

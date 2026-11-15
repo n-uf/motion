@@ -493,4 +493,12 @@ describe("columnRoom, the sheet signal", () => {
     // 340 + the panel's least width 180 (over the template's 160) + 8.
     expect(a.notes).toContainEqual({ code: "no-column-room", width: 520, need: 528 });
   });
+
+  it("counts a docked column on a side with no rail: the template answer only applies with no column edge", () => {
+    const { noRails } = sheetScenes();
+    const l = solve(noRails);
+    expect(l.content.width).toBeLessThan(340);
+    expect(l.columnRoom).toBe(false);
+    expect(l.notes).toContainEqual({ code: "no-column-room", width: 520, need: 528 });
+  });
 });
