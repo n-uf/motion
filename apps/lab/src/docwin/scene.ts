@@ -26,7 +26,7 @@ import {
   type SceneLayout,
   type SceneTarget,
 } from "@n-uf/placement/scene";
-import { BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, EDGES, RAIL, TITLES, defaultScene, edgeOf, isSideEdge, withStage, type Counts, type EdgeId, type ItemId } from "./model";
+import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, EDGES, GROUPS, RAIL, TITLES, defaultScene, edgeOf, isSideEdge, setGroupSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId } from "./model";
 import { readDocwin, storeDocwin, type StoredDocwin } from "./store";
 
 export interface LastDrop {
@@ -86,7 +86,8 @@ export type DocwinScene = ReturnType<typeof createScene>;
 
 export function createScene(o: SceneOptions) {
   const { root, win, status } = o;
-  let scene: Scene = defaultScene();
+  // An empty window until the groups are measured (below, before the first scene is built).
+  let scene: Scene = { stage: { x: 0, y: 0, width: 0, height: 0 }, edges: [], items: {}, floats: [], floatKinds: [] };
   let layout: SceneLayout = solve(scene);
   let counts: Counts = { ...DEFAULT_COUNTS };
   let drag: Held | null = null;
@@ -141,7 +142,7 @@ export function createScene(o: SceneOptions) {
     if (id === "views")
       return (["pages", "notes", "findings"] as const).map((p) => {
         const c = p === "pages" ? "" : ` <span class="dw-n">${countOf(p)}</span>`;
-        return `<button type="button" class="dw-w dw-word" data-toggle="${p}" aria-pressed="${!scene.items[p]!.closed}">${TITLES[p]}${c}</button>`;
+        return `<button type="button" class="dw-w dw-word" data-toggle="${p}" aria-pressed="${!scene.items[p]?.closed}">${TITLES[p]}${c}</button>`;
       });
     return [`<span class="dw-w"><span class="dw-n">${counts.marked}</span> marked</span>`, `<button type="button" class="dw-w">Original</button>`, `<button type="button" class="dw-w" aria-pressed="true">Marked</button>`, `<button type="button" class="dw-w" aria-label="Download">⬇</button>`];
   }
@@ -586,6 +587,38 @@ export function createScene(o: SceneOptions) {
     commit(r.scene, { fresh: true });
     return r.dropped;
   }
+
+  // --- measuring -------------------------------------------------------------------------------------------------
+
+  /**
+   * Each group's one-row width and its words' widths, from its buttons as the page renders them (a hidden copy in a bar's
+   * row form, at its own content width): the scene's items hug what is drawn.
+   */
+  function measureGroups(): Record<GroupId, GroupMeasure> {
+    const out = {} as Record<GroupId, GroupMeasure>;
+    for (const id of GROUPS) {
+      const el = document.createElement("section");
+      el.className = "dw-item dw-group dw-k-row dw-ax-row";
+      el.style.cssText = `left:0;top:0;width:max-content;height:${BAR}px;visibility:hidden`;
+      // As `inner` draws a group's row form.
+      el.innerHTML = `<span class="dw-dots" data-grip aria-hidden="true"></span><div class="dw-gc">${groupContent(id, "row")}</div>`;
+      layer.append(el);
+      const gc = el.querySelector<HTMLElement>(".dw-gc")!;
+      // The words: the capsule's pieces for Review, else the row's own children but the "·" separators.
+      const box = gc.querySelector<HTMLElement>(".dw-cap") ?? gc;
+      const words = [...box.children].filter((x) => !x.classList.contains("dw-sep")) as HTMLElement[];
+      const widths = words.map((w) => w.getBoundingClientRect().width);
+      const span = words.length > 0 ? words[words.length - 1]!.getBoundingClientRect().right - words[0]!.getBoundingClientRect().left : 0;
+      const gap = words.length > 1 ? (span - widths.reduce((s, w) => s + w, 0)) / (words.length - 1) : 0;
+      const round = (x: number): number => Math.ceil(x - 0.01);
+      out[id] = { row: round(el.getBoundingClientRect().width), words: widths.map(round), gap: Math.max(0, Math.round(gap)) };
+      el.remove();
+    }
+    return out;
+  }
+  setGroupSizes(measureGroups());
+  scene = defaultScene();
+  layout = solve(scene);
 
   return {
     get scene(): Scene {

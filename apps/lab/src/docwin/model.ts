@@ -64,42 +64,47 @@ export const GRIP = 17;
 /** A wrapped row's height. */
 export const WRAP_ROW = 28;
 /**
- * The words of each group as drawn (px, measured on the page), and the gap between neighbouring words: Views'
- * "Pages · Notes 2 · Findings 20" (a "·" between words), Review's capsule, Zoom's −, value, +, FIT, Tools' five tools.
+ * A group as the page draws it, measured from its rendered buttons (the page measures before it builds a scene): `row`
+ * its one-row width (grip, words, padding and border: the box hugs its content), `words` each word's width in the order
+ * the `wrap` form lists them (Views' "Pages · Notes 2 · Findings 20", Review's capsule, Zoom's −, value, +, FIT, Tools'
+ * five tools), `gap` the room between neighbouring words (Views' "·" included).
  */
-export const WORD_WIDTHS: Record<GroupId, { widths: number[]; gap: number }> = {
-  views: { widths: [47, 72, 86], gap: 12 },
-  review: { widths: [80, 56, 66, 23], gap: 0 },
-  zoom: { widths: [20, 34, 20, 30], gap: 4 },
-  tools: { widths: [24, 24, 24, 24, 24], gap: 4 },
-};
+export interface GroupMeasure {
+  readonly row: number;
+  readonly words: readonly number[];
+  readonly gap: number;
+}
+let measured: Readonly<Record<GroupId, GroupMeasure>> | null = null;
+/** The groups' measured widths, which every scene built afterwards uses. */
+export function setGroupSizes(m: Readonly<Record<GroupId, GroupMeasure>>): void {
+  measured = m;
+}
+/** The measured widths (the page measures them on start, before its first scene). */
+export function groupSizes(): Readonly<Record<GroupId, GroupMeasure>> {
+  if (!measured) throw new Error("docwin: the groups are measured on the page before a scene is built");
+  return measured;
+}
 /** Words that wrap beside the grip (a hanging indent), never one word alone on a row that isn't the last. */
-const wrap = (id: GroupId): StackForm => ({ kind: "wrap", main: { min: 0, natural: 0 }, cross: { natural: 0 }, wrap: { widths: WORD_WIDTHS[id].widths, gap: WORD_WIDTHS[id].gap, lead: GRIP, row: WRAP_ROW } });
+const wrap = (id: GroupId): StackForm => ({ kind: "wrap", main: { min: 0, natural: 0 }, cross: { natural: 0 }, wrap: { widths: [...groupSizes()[id].words], gap: groupSizes()[id].gap, lead: GRIP, row: WRAP_ROW } });
 /** Icons stacked under a horizontal grip on top (16 px). */
 const icons = (n: number): StackForm => f("icons", n * 26 + 16, 28, { grip: 16 });
+const ICONS: Record<GroupId, number> = { zoom: 3, tools: 5, views: 3, review: 4 };
 
 // In a column: one row while the column is wide enough, then the words wrapping, then icons, then the menu.
-const GROUP_COLUMN: Record<GroupId, StackForm[]> = {
-  zoom: [f("row", 32, 168), wrap("zoom"), icons(3), MENU],
-  tools: [f("row", 32, 164), wrap("tools"), icons(5), MENU],
-  views: [f("row", 32, 250), wrap("views"), icons(3), MENU],
-  review: [f("row", 32, 320), wrap("review"), icons(4), MENU],
-};
-const GROUP_ROW: Record<GroupId, StackForm[]> = {
-  zoom: [f("row", 168, BAR), f("fold", 44, BAR), MENU],
-  tools: [f("row", 164, BAR), f("fold", 44, BAR), MENU],
-  views: [f("row", 250, BAR), f("icons", 3 * 26 + 24, BAR), f("fold", 44, BAR), MENU],
-  review: [f("row", 320, BAR), f("icons", 4 * 26 + 24, BAR), f("fold", 44, BAR), MENU],
-};
-const FLOAT_SIZE: Record<PanelId | GroupId, Size> = {
+const groupColumn = (id: GroupId): StackForm[] => [f("row", 32, groupSizes()[id].row), wrap(id), icons(ICONS[id]), MENU];
+// In a bar: the row, then (Views and Review) the icons, then folded, then the menu.
+const groupRow = (id: GroupId): StackForm[] => [
+  f("row", groupSizes()[id].row, BAR),
+  ...(id === "views" || id === "review" ? [f("icons", ICONS[id] * 26 + 24, BAR)] : []),
+  f("fold", 44, BAR),
+  MENU,
+];
+const PANEL_FLOAT: Record<PanelId, Size> = {
   pages: { width: 260, height: 360 },
   notes: { width: 260, height: 240 },
   findings: { width: 260, height: 300 },
-  zoom: { width: 168, height: BAR },
-  tools: { width: 164, height: BAR },
-  views: { width: 250, height: BAR },
-  review: { width: 320, height: BAR },
 };
+const floatSize = (id: PanelId | GroupId): Size => (isPanel(id) ? PANEL_FLOAT[id] : { width: groupSizes()[id].row, height: BAR });
 
 export const isPanel = (id: string): id is PanelId => (PANELS as readonly string[]).includes(id);
 export const isGroup = (id: string): id is GroupId => (GROUPS as readonly string[]).includes(id);
@@ -117,8 +122,8 @@ export const TITLES: Record<ItemId, string> = {
 };
 
 function itemOf(id: ItemId, used: number): SceneItem {
-  if (isPanel(id)) return { id, kind: "panel", forms: { column: PANEL_COLUMN[id] }, floatSize: FLOAT_SIZE[id], used };
-  if (isGroup(id)) return { id, kind: "group", forms: { column: GROUP_COLUMN[id], row: GROUP_ROW[id] }, floatSize: FLOAT_SIZE[id], used };
+  if (isPanel(id)) return { id, kind: "panel", forms: { column: PANEL_COLUMN[id] }, floatSize: floatSize(id), used };
+  if (isGroup(id)) return { id, kind: "group", forms: { column: groupColumn(id), row: groupRow(id) }, floatSize: floatSize(id), used };
   // The title takes the bar's spare length and shrinks to its minimum; the controls are one fixed size at the end.
   if (id === "title") return { id, kind: "chrome", forms: { row: [f("row", { min: 140, natural: 220, grows: true }, BAR)] }, used: 0, fixed: true };
   return { id, kind: "chrome", forms: { row: [f("row", 3 * 22 + 8, BAR)] }, used: 0, fixed: true, align: "end" };
@@ -170,7 +175,7 @@ export function defaultScene(size: Size = DEFAULT_SIZE): Scene {
     stage: { x: 0, y: 0, width: size.width, height: size.height },
     edges: [bar("title", "top", 0, ["title", "zoom", "controls"]), bar("top", "top", 1, []), column("left", "left", ["pages", "notes"]), column("right", "right", ["findings"]), bar("bottom", "bottom", 0, ["views", "review"]), rail("rail-left", "left", []), rail("rail-right", "right", [])],
     items,
-    floats: [{ id: "tools", rect: { x: 0, y: 0, width: FLOAT_SIZE.tools.width, height: FLOAT_SIZE.tools.height }, anchor: "content-top-right" }],
+    floats: [{ id: "tools", rect: { x: 0, y: 0, width: floatSize("tools").width, height: floatSize("tools").height }, anchor: "content-top-right" }],
     floatKinds: ["panel", "group"],
   };
 }

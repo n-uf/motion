@@ -339,7 +339,8 @@ export const PRESETS: readonly Preset[] = [
       c.setScene(
         sceneWith(
           (s) => ages(put(put(s, "left", ["pages", "notes", "findings"]), "bottom", ["views", "zoom", "review"]), ["zoom", "pages", "notes", "findings", "views", "review"]),
-          { width: 700, height: 464 },
+          // Narrow enough that the bottom bar's three toolbars (249 + 137 + 249 and the gaps) don't fit in a row.
+          { width: 600, height: 464 },
         ),
       ),
     check(c) {
