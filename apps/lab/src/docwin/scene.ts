@@ -17,6 +17,7 @@ import type { Point, Rect } from "@n-uf/placement";
 import { DRAG_DEFAULTS, createDragIntent, previewPlan, type DragIntent } from "@n-uf/motion/drag";
 import {
   close as closeItem,
+  floatOrientOf,
   open as openItem,
   refusals as sceneRefusals,
   resize,
@@ -201,14 +202,15 @@ export function createScene(o: SceneOptions) {
     return `<span class="dw-dots" data-grip aria-hidden="true"></span><div class="dw-gc">${groupContent(id, kind)}</div>`;
   }
 
-  /** The axis an item lies along in `l`: its edge's, or its float's orient. */
+  /** The axis an item lies along in `l`: its edge's, or its float's orient (default the item's, `floatOrientOf`). */
   function axisOf(s: Scene, l: SceneLayout, id: string): "column" | "row" {
     const p = l.items[id]!;
     if (p.edge) {
       const side = l.edges[p.edge]?.side;
       return side === "left" || side === "right" ? "column" : "row";
     }
-    return s.floats.find((f) => f.id === id)?.orient ?? "column";
+    const it = s.items[id];
+    return s.floats.find((f) => f.id === id)?.orient ?? (it ? floatOrientOf(it) : "column");
   }
 
   function itemHtml(s: Scene, l: SceneLayout, id: ItemId): string {

@@ -33,6 +33,8 @@ export {
   type SolveOptions,
   type Zone,
   type ZoneAccepts,
+  floatOrientOf,
+  floatSizeOf,
   zoneTakes,
   zonesTaking,
 } from "./model";

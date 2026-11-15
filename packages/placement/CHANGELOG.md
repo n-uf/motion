@@ -5,6 +5,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.21
 
+- `@n-uf/placement/scene`, **floated group orient and size** (additive, one default changed): a new
+  **`SceneItem.floatOrient`** (`"row" | "column"`) picks the forms a float of it uses when the float names no `orient`;
+  its default, **`floatOrientOf(item)`**, is the axis of the first form the item declares, so a toolbar group declared
+  row first floats as a row (it used to float as a column). **`SceneTargetOptions.floatOrient`** overrides it for the
+  drag's float target. With no `floatSize`, a float takes its first form's natural size along that orient
+  (**`floatSizeOf`**), not 280 × 360; a form that grows (a panel's card) keeps `DEFAULT_FLOAT_SIZE`, so panels float as
+  before. **Changed:** a float with no `orient` of an item whose first declared forms are its row forms is drawn as a
+  row; give it `orient: "column"` (or `floatOrient: "column"`) to keep it vertical.
+
 - `@n-uf/placement/scene`, **fixed:** `insetWhen: "docked"` counts only panel placements as docked: an open panel
   column or a rail showing panels (an item whose first column form is `open`, `header` or `rail`). A toolbar group in a
   side bar no longer brings the inset back, so with every panel closed the content keeps the whole stage.

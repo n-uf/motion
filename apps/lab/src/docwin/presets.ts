@@ -5,7 +5,7 @@
  * and is expected to be red until the rule lands: the page never fakes it.
  */
 import type { Point, Rect } from "@n-uf/placement";
-import { lift, moveTo, reservedRect, resize, solve, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
+import { floatOrientOf, lift, moveTo, reservedRect, resize, solve, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { wrapCross } from "@n-uf/placement/stack";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, put, type EdgeId, type ItemId } from "./model";
 import type { DocwinScene } from "./scene";
@@ -1002,7 +1002,9 @@ export const PRESETS: readonly Preset[] = [
         const group = isGroup(id);
         for (const [where, place] of group ? groupPlaces(id) : panelPlaces(id)) {
           const placed = moveTo(defaultScene(), id, place);
-          const forms = placed.items[id]!.forms[where === "bar" ? "row" : "column"] ?? [];
+          // A float uses its item's float orient (a toolbar group floats as a row), an edge its own axis.
+          const axis = where === "bar" || (where === "float" && floatOrientOf(placed.items[id]!) === "row") ? "row" : "column";
+          const forms = placed.items[id]!.forms[axis] ?? [];
           for (let k = 0; k < forms.length; k++) {
             const kind = forms[k]!.kind;
             if (kind === "menu") continue;

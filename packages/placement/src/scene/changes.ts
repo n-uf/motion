@@ -11,7 +11,8 @@
  *   and its side's rings are closed up.
  * - `homeFor(scene, id, start)`: the place a start scene gives the item, for `moveTo`.
  * - `floatAt(scene, id, rect?, orient?)`: floats it on top at `rect` (its size becomes `floatSize`); with no rect, at
- *   its `floatSize` (or the default size) anchored to the content's top-right corner.
+ *   its `floatSizeOf` size anchored to the content's top-right corner: its `floatSize`, else its form's natural size
+ *   along its orient (the float's, `orient`, else `floatOrientOf`), else the default size.
  * - `fold(scene, id, on)`: folded by hand starts it at its second form (`from: 1`); unfolding clears `from`.
  * - `use(scene, id)`: the newest age. Under `previous` it reshapes nothing.
  * - `keep(scene, id, on)`, `open(scene, id)`, `close(scene, id)`.
@@ -20,7 +21,7 @@
  * - `resize(scene, edge, size)`: the user's size across; a size that isn't a finite number clears it.
  */
 import { clampInto, type Rect } from "../geometry";
-import { DEFAULT_FLOAT_SIZE, axisOf, floatShape, zoneOf, zoneTakes, zonesTaking, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
+import { axisOf, floatOrientOf, floatShape, floatSizeOf, zoneOf, zoneTakes, zonesTaking, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
 export interface DockPlace {
@@ -202,7 +203,7 @@ export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): S
   if (!item || item.fixed || !scene.floatKinds.includes(item.kind)) return scene;
   const was = scene.floats.find((f) => f.id === id);
   const o: Orient | undefined = orient ?? was?.orient;
-  const size = item.floatSize ?? DEFAULT_FLOAT_SIZE;
+  const size = floatSizeOf(item, o ?? floatOrientOf(item));
   const float: SceneFloat = at
     ? { id, rect: { x: at.x, y: at.y, width: at.width, height: at.height }, ...(o ? { orient: o } : {}) }
     : { id, rect: { x: 0, y: 0, width: size.width, height: size.height }, anchor: "content-top-right", ...(o ? { orient: o } : {}) };
@@ -258,7 +259,8 @@ export function raise(scene: Scene, id: string): Scene {
 
 export function orient(scene: Scene, id: string, to: Orient): Scene {
   const i = scene.floats.findIndex((f) => f.id === id);
-  if (i < 0 || (scene.floats[i]!.orient ?? "column") === to) return scene;
+  const item = scene.items[id];
+  if (i < 0 || !item || (scene.floats[i]!.orient ?? floatOrientOf(item)) === to) return scene;
   return { ...scene, floats: scene.floats.map((f, k) => (k === i ? { ...f, orient: to } : f)) };
 }
 

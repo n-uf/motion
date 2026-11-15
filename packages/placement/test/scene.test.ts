@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { solve, use, type Scene, type SceneItem } from "../src/scene";
+import { DEFAULT_FLOAT_SIZE, floatAt, floatOrientOf, floatSizeOf, solve, targets, use, type Scene, type SceneItem } from "../src/scene";
 import { bar, byId, column, controls, form, group, panel, readout, title, windowScene } from "./scene-fixture";
 
 const r = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
@@ -206,6 +206,28 @@ describe("floats", () => {
     expect(solve(at({ id: "notes", rect: r(500, 200, 280, 320) }, { items: folded.items })).items.notes).toMatchObject({ rect: r(500, 200, 280, 28), formKind: "header" });
     const row = solve(at({ id: "views", rect: r(500, 200, 200, 40), orient: "row" }, { edges: s0.edges.map((e) => ({ ...e, items: e.items.filter((x) => x !== "views") })) }));
     expect(row.items.views!.formKind).toBe("row");
+  });
+
+  it("a floated group takes its first form's axis and natural size; a panel keeps the default size", () => {
+    // The axis of the first form it declares: the group's row, the panel's column; `floatOrient` overrides it.
+    expect(floatOrientOf(group("g", 0))).toBe("row");
+    expect(floatOrientOf(panel("p", 0))).toBe("column");
+    expect(floatOrientOf(group("g", 0, { floatOrient: "column" }))).toBe("column");
+    // No floatSize: the row form's natural size (200 × 28); a panel's card grows, so it keeps 280 × 360.
+    expect(floatSizeOf(group("g", 0))).toEqual({ width: 200, height: 28 });
+    expect(floatSizeOf(group("g", 0), "column")).toEqual(DEFAULT_FLOAT_SIZE);
+    expect(floatSizeOf(panel("p", 0))).toEqual({ width: 280, height: 360 });
+    expect(floatSizeOf(panel("p", 0, { floatSize: { width: 300, height: 200 } }))).toEqual({ width: 300, height: 200 });
+    // floatAt with no rect: the toolbar group floats as a row at its natural size, its words kept.
+    const l = solve(floatAt(s0, "views"));
+    expect(l.items.views).toMatchObject({ floating: true, formKind: "row" });
+    expect(l.items.views!.rect).toMatchObject({ width: 200, height: 28 });
+    const p = solve(floatAt(s0, "notes"));
+    expect(p.items.notes!.rect).toMatchObject({ width: 280, height: 360 });
+    // The drag's float target: a row by default; `floatOrient` on the call makes it vertical (its icons).
+    const t = (o?: { floatOrient: "column" }) => targets(s0, "views", o).find((x) => x.id === "float:views")!.after({ x: 600, y: 400 }).layout.items.views!;
+    expect(t()).toMatchObject({ floating: true, formKind: "row", rect: { width: 200, height: 28 } });
+    expect(t({ floatOrient: "column" })).toMatchObject({ floating: true, formKind: "icons" });
   });
 
   it("a closed float keeps its rect but isn't drawn", () => {

@@ -12,7 +12,8 @@ function scene(wide: number, height = 600, more: Partial<SceneItem> = {}): Scene
     stage: r(0, 0, 1000, height),
     edges: [column("l", "left", 0, ["p", "g"], { cross: { min: 40, max: 480, rail: 30 } })],
     items: byId([narrow, group("g", 1, more), group("h", 3)]),
-    floats: [{ id: "h", rect: r(500, 100, 200, 40) }],
+    // A vertical float (a group declared row first floats as a row unless it says otherwise).
+    floats: [{ id: "h", rect: r(500, 100, 200, 40), orient: "column" }],
     floatKinds: ["group"],
   };
 }

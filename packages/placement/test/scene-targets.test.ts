@@ -132,7 +132,7 @@ describe("targets", () => {
 
 describe("gaps are gaps, not halves of items (hitBand)", () => {
   const at = (ts: ReturnType<typeof targets>, p: { x: number; y: number }) => ts.filter((t) => t.place.kind !== "home" && p.x >= t.hit.x && p.x <= t.hit.x + t.hit.width && p.y >= t.hit.y && p.y <= t.hit.y + t.hit.height).map((t) => t.id);
-  const tall: Scene = { stage: r(0, 0, 1000, 600), edges: [column("l", "left", 0, ["a"])], items: byId([panel("a", 1), group("g", 2)]), floats: [{ id: "g", rect: r(500, 100, 200, 40) }], floatKinds: ["group"] };
+  const tall: Scene = { stage: r(0, 0, 1000, 600), edges: [column("l", "left", 0, ["a"])], items: byId([panel("a", 1), group("g", 2)]), floats: [{ id: "g", rect: r(500, 100, 200, 40), orient: "column" }], floatKinds: ["group"] };
 
   it("over the middle of a tall panel a group gets no gap; the pointer falls through to the float target", () => {
     const ts = targets(tall, "g");
