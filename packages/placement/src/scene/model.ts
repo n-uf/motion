@@ -64,7 +64,9 @@ export interface SceneItem {
   readonly floatSize?: Size;
   /**
    * The least a float of it is shrunk to: a float larger than the region floats lie in is laid out at
-   * `max(floatMin, min(its size, the region))` each way. A folded float keeps its height. No minimum when left out.
+   * `max(floatMin, min(its size, the region))` each way. A floor wider than the region keeps it at the region's left
+   * edge; one taller than the stage keeps it at the stage's top and runs past its bottom. A folded float (its header
+   * form) keeps its height. Without it, a shrink stops at the form's own minimums.
    */
   readonly floatMin?: Size;
 }

@@ -366,6 +366,12 @@ describe("the options the rows need", () => {
     expect(narrow).toMatchObject({ x: 12, width: 220 });
   });
 
+  it("a floatMin taller than the stage: the float keeps it, at the region's top, and runs past the bottom", () => {
+    const s = adapt(rows.scenes.floatingAtEdge!.scene, 1120, 200);
+    const tall: Scene = { ...s, items: { ...s.items, findings: { ...s.items.findings!, floatMin: { width: 220, height: 260 } } } };
+    expect(solve(tall).items.findings!.rect).toMatchObject({ y: 0, height: 260 });
+  });
+
   it("only a folded float (its header form) keeps its height: a second open form shrinks to the region", () => {
     const s = adapt(rows.scenes.floatingAtEdge!.scene, 300, 200);
     const card = s.items.findings!.forms.column![0]!;
