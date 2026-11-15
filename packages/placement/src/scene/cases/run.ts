@@ -1,11 +1,12 @@
 /**
  * `runCase(row, host)`: plays a row's gestures on a host and compares what the host draws with what the row expects.
  * It reads the layout after every gesture that has a checkpoint, the DOM after every gesture that has a DOM check, and
- * both at the end. Failures are lines of words with the row's expectation first; nothing throws.
+ * both at the end. Failures are lines of words with the row's expectation first; nothing throws. `runCaseAsync` does the
+ * same with a host whose calls may be async, awaiting each one; both play the same steps.
  */
 import type { Rect } from "../../geometry";
 import type { SceneLayout, SceneNote } from "../index";
-import type { CaseHost, CaseResult, CaseRow, DomCheck, DomRoot, EdgeExpect, Gesture, ItemExpect, LayoutExpect, StoredExpect } from "./types";
+import type { AsyncCaseHost, CaseHost, CaseResult, CaseRow, DomCheck, DomRoot, EdgeExpect, Gesture, ItemExpect, LayoutExpect, StoredExpect } from "./types";
 
 const DEFAULT_TOLERANCE = 0.5;
 
@@ -184,13 +185,19 @@ const gestureWords = (g: Gesture, i: number): string => {
   return `gesture ${i + 1} (${g.type}${bits.length ? ` ${bits.join(" ")}` : ""})`;
 };
 
+/** One host call the run asks for; the driver runs it (and awaits it, when async) and sends back its outcome. */
+type Call = () => unknown;
+type Outcome = { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly error: unknown };
+type Steps = Generator<Call, CaseResult, Outcome>;
+
+const words = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
 /**
- * Plays `row` on `host`: loads its scene at its settings, performs its gestures in order, and checks. A gesture the host
- * can't do is a failure and ends the run (what follows would be about another state), and so is a layout the host can't
- * give or a check pointing at a gesture the row doesn't have. With no `host.root` the DOM checks are skipped, with no
- * `host.stored` the stored checks and with no `host.stops` the stops check; each is listed in `skipped`.
+ * The run as steps: every host call is yielded for the driver to make, so the sync and async runners share one copy of
+ * the order and the checks. A call the run reports (load, perform, layout, stored) comes back as an outcome; a failing
+ * `root` or `stops` call is thrown on, as the sync runner always did.
  */
-export function runCase(row: CaseRow, host: CaseHost): CaseResult {
+function* steps(row: CaseRow, host: CaseHost | AsyncCaseHost): Steps {
   const failures: string[] = [];
   const skipped: string[] = [];
   const n = row.gestures.length;
@@ -214,80 +221,139 @@ export function runCase(row: CaseRow, host: CaseHost): CaseResult {
   range("the stops check", row.expectStops?.at);
   if (failures.length > 0) return { ok: false, failures, skipped };
 
-  const layoutOf = (when: string): SceneLayout | null => {
-    try {
-      return host.layout();
-    } catch (e) {
-      fail([`the host couldn't give its layout: ${e instanceof Error ? e.message : String(e)}`], when);
-      return null;
-    }
-  };
-  const dom = (index: number): void => {
+  /** A call whose failure throws on (the host's root and stops). */
+  function* must<T>(f: () => T | Promise<T>): Generator<Call, T, Outcome> {
+    const r = yield f;
+    if (!r.ok) throw r.error;
+    return r.value as T;
+  }
+  function* layoutOf(when: string): Generator<Call, SceneLayout | null, Outcome> {
+    const r = yield () => host.layout();
+    if (r.ok) return r.value as SceneLayout;
+    fail([`the host couldn't give its layout: ${words(r.error)}`], when);
+    return null;
+  }
+  function* dom(index: number): Generator<Call, void, Outcome> {
     for (const c of row.expectDom ?? []) {
       if ((c.at ?? last) !== index) continue;
       const check = aimed(c);
-      const root = host.root ? host.root() : null;
+      const root = host.root ? yield* must(() => host.root!()) : null;
       if (!root) {
         skipped.push(labelOf(check));
         continue;
       }
       fail(domIssues(check, root), ` after gesture ${index + 1} (${labelOf(check)})`);
     }
-  };
-  const stops = (index: number): void => {
+  }
+  function* stops(index: number): Generator<Call, void, Outcome> {
     const s = row.expectStops;
     if (!s || (s.at ?? last) !== index) return;
     if (!host.stops) {
       skipped.push(`the stops of ${s.item}`);
       return;
     }
-    const have = host.stops(s.item).map(placeKey);
+    const have = (yield* must(() => host.stops!(s.item))).map(placeKey);
     const want = s.places.map(placeKey);
     if (have.join("\n") !== want.join("\n")) fail([`${s.item}'s stops are\n   ${have.join("\n   ")}\n expected\n   ${want.join("\n   ")}`], "");
-  };
-  try {
-    host.load(row.scene, row.settings);
-  } catch (e) {
-    fail([`the host couldn't load the scene: ${e instanceof Error ? e.message : String(e)}`], "");
+  }
+  const loaded = yield () => host.load(row.scene, row.settings);
+  if (!loaded.ok) {
+    fail([`the host couldn't load the scene: ${words(loaded.error)}`], "");
     return { ok: false, failures, skipped };
   }
   for (let i = 0; i < n; i++) {
     const g = row.gestures[i]!;
-    try {
-      host.perform(g);
-    } catch (e) {
-      fail([`${gestureWords(g, i)} failed: ${e instanceof Error ? e.message : String(e)}`], "");
+    const done = yield () => host.perform(g);
+    if (!done.ok) {
+      fail([`${gestureWords(g, i)} failed: ${words(done.error)}`], "");
       return { ok: false, failures, skipped };
     }
     for (const cp of row.checkpoints ?? []) {
       if (cp.at !== i || !cp.layout) continue;
-      const l = layoutOf(` after ${gestureWords(g, i)}`);
+      const l = yield* layoutOf(` after ${gestureWords(g, i)}`);
       if (l) fail(layoutIssues(cp.layout, l), ` after ${gestureWords(g, i)}${cp.note ? ` (${cp.note})` : ""}`);
     }
-    dom(i);
-    stops(i);
+    yield* dom(i);
+    yield* stops(i);
   }
   // A row with no gestures is checked as loaded.
   if (last < 0) {
-    dom(-1);
-    stops(-1);
+    yield* dom(-1);
+    yield* stops(-1);
   }
-  const l = layoutOf("");
+  const l = yield* layoutOf("");
   if (l) fail(layoutIssues(row.expectLayout, l), "");
   if (row.expectStored) {
     if (!host.stored) skipped.push("the stored form");
     else {
-      try {
-        fail(storedIssues(row.expectStored, host.stored()), " (the stored form)");
-      } catch (e) {
-        fail([`the host couldn't give its stored form: ${e instanceof Error ? e.message : String(e)}`], "");
-      }
+      const r = yield () => host.stored!();
+      if (r.ok) fail(storedIssues(row.expectStored, r.value), " (the stored form)");
+      else fail([`the host couldn't give its stored form: ${words(r.error)}`], "");
     }
   }
   return { ok: failures.length === 0, failures, skipped };
 }
 
+/**
+ * Plays `row` on `host`: loads its scene at its settings, performs its gestures in order, and checks. A gesture the host
+ * can't do is a failure and ends the run (what follows would be about another state), and so is a layout the host can't
+ * give or a check pointing at a gesture the row doesn't have. With no `host.root` the DOM checks are skipped, with no
+ * `host.stored` the stored checks and with no `host.stops` the stops check; each is listed in `skipped`.
+ */
+export function runCase(row: CaseRow, host: CaseHost): CaseResult {
+  const run = steps(row, host);
+  let r = run.next();
+  while (!r.done) {
+    let out: Outcome;
+    try {
+      out = { ok: true, value: r.value() };
+    } catch (error) {
+      out = { ok: false, error };
+    }
+    r = run.next(out);
+  }
+  return r.value;
+}
+
+/**
+ * `runCase` for a host whose calls may be async (a page driven from a browser runner, with real pointer events and
+ * timers): every host call is awaited, in the same order as `runCase` makes them, with the same checks. A rejected call
+ * counts as a thrown one: a failed `load` or `perform` is a failed result, as in `runCase`. A sync `CaseHost` works too.
+ */
+export async function runCaseAsync(row: CaseRow, host: AsyncCaseHost | CaseHost): Promise<CaseResult> {
+  const run = steps(row, host);
+  let r = run.next();
+  while (!r.done) {
+    let out: Outcome;
+    try {
+      out = { ok: true, value: await r.value() };
+    } catch (error) {
+      out = { ok: false, error };
+    }
+    r = run.next(out);
+  }
+  return r.value;
+}
+
 /** Runs every row on a fresh host each (`makeHost`), and returns each row's result by id. */
 export function runCases(rows: readonly CaseRow[], makeHost: () => CaseHost): { id: string; result: CaseResult }[] {
   return rows.map((row) => ({ id: row.id, result: runCase(row, makeHost()) }));
+}
+
+/**
+ * `runCases` with `runCaseAsync`: one row after another (a page has one pointer), each on a fresh host (`makeHost` may be
+ * async). `options.onResult` hears each row's result as it is known.
+ */
+export async function runCasesAsync(
+  rows: readonly CaseRow[],
+  makeHost: () => AsyncCaseHost | CaseHost | Promise<AsyncCaseHost | CaseHost>,
+  options: { readonly onResult?: (id: string, result: CaseResult) => void } = {},
+): Promise<{ id: string; result: CaseResult }[]> {
+  const out: { id: string; result: CaseResult }[] = [];
+  for (const row of rows) {
+    const result = await runCaseAsync(row, await makeHost());
+    options.onResult?.(row.id, result);
+    out.push({ id: row.id, result });
+  }
+  return out;
 }
