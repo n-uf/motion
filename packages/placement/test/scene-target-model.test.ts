@@ -155,6 +155,30 @@ export function propertyCheck(seeds: readonly number[], flush = false): { points
         const key = (list: readonly SceneTarget[]): string => JSON.stringify(list.map((t) => [t.id, t.hit]));
         if (key(all) !== key(targets({ ...s, rails }, id).filter((t) => !t.free))) fail("refused-owns", `seed ${seed} drag ${id}: the refused rail:${side} moves other targets`);
       }
+      // Per zone: a refusal of a zone with no target but home owns nothing, so it never lies on another edge's drawn rect.
+      for (const r of rs) {
+        // A zone with a target, or a column line or rail with one (their pieces are one id per side).
+        const live = (t: SceneTarget): boolean => t.id.startsWith(`gap:${r.edge}:${r.zone}:`) || t.id === `strip:${r.edge}:${r.zone}` || ((t.place.kind === "column" || t.place.kind === "rail") && t.id.startsWith(`${r.edge}:`));
+        if (all.some((t) => t.place.kind !== "home" && live(t))) continue;
+        for (const [eid, e] of Object.entries(base.edges)) {
+          if (eid === r.edge || e.rect.width <= 1e-6 || e.rect.height <= 1e-6) continue;
+          const w = Math.min(r.hit.x + r.hit.width, e.rect.x + e.rect.width) - Math.max(r.hit.x, e.rect.x);
+          const h = Math.min(r.hit.y + r.hit.height, e.rect.y + e.rect.height) - Math.max(r.hit.y, e.rect.y);
+          if (w > 1e-6 && h > 1e-6) fail("refused-owns", `seed ${seed} drag ${id}: ${r.id} lies on ${eid}`);
+        }
+      }
+      // And a bar's zone that refuses every drop of the item (no target of that zone) changes no other target; without
+      // it (the zone not taking the kind) every target is the same.
+      for (const e of s.edges) {
+        if ((e.side !== "top" && e.side !== "bottom") || !e.accepts.includes(it.kind)) continue;
+        for (const z of ["start", "center", "end"] as const) {
+          if (!rs.some((r) => r.edge === e.id && r.zone === z) || all.some((t) => t.id.startsWith(`gap:${e.id}:${z}:`) || t.id === `strip:${e.id}:${z}`)) continue;
+          const zoneAccepts = Object.fromEntries((["start", "center", "end"] as const).map((x) => [x, x === z ? [] : (e.zoneAccepts?.[x] ?? e.accepts)]));
+          const s2: Scene = { ...s, edges: s.edges.map((x) => (x === e ? { ...x, zoneAccepts } : x)) };
+          const key = (list: readonly SceneTarget[]): string => JSON.stringify(list.map((t) => [t.id, t.hit]));
+          if (key(all) !== key(targets(s2, id).filter((t) => !t.free))) fail("refused-owns", `seed ${seed} drag ${id}: the refused zone ${e.id}:${z} moves other targets`);
+        }
+      }
       // Preview = landing, once per docked target.
       for (const t of ts) {
         if (t.place.kind === "home" || t.place.kind === "none" || !t.slot) continue;
@@ -360,9 +384,8 @@ describe("the target model's property check", () => {
     expect(line).toBeDefined();
     expect(line!.hit.x).toBe(bar.x + bar.width);
     expect(line!.hit.width).toBeGreaterThan(0);
-    // The rail's refusal takes only what the column line's and the column's targets leave.
+    // The rail's refusal takes only what the other edges leave: here nothing, the column's rect being the column's.
     const rail = refusals(s, "p").filter((r) => r.edge === "rail:left");
-    expect(rail.length).toBeGreaterThan(0);
     for (const r of rail) expect(r.hit.x).toBeGreaterThanOrEqual(line!.hit.x + line!.hit.width);
     expect(lostSlots(s, "p")).toEqual([]);
   });
@@ -394,6 +417,16 @@ describe("the target model's property check", () => {
     const corner = refusals(s, "g0").filter((r) => r.edge === "left0");
     expect(corner.map((r) => r.hit)).toEqual([{ x: 0, y: home.y, width: home.x, height: home.height }]);
     expect(lostSlots(s, "g0")).toEqual([]);
+  });
+
+  it("a refused zone owns nothing: an empty top bar's zone with only home's place leaves the column's top band to it", () => {
+    // Seed 5, the group dragged out of the empty top bar: the bar's start zone has no place but home's, so its band over
+    // the left column (y 12–24) is the column's: there the column refuses the group itself (its start zone takes panels).
+    const s = modelScene(5);
+    const col = solve(lift(s, "g0")).edges["left-col"]!.rect;
+    const rs = refusals(s, "g0");
+    expect(rs.filter((r) => r.edge === "top").some((r) => r.hit.x < col.x + col.width && r.hit.x + r.hit.width > col.x)).toBe(false);
+    expect(rs.some((r) => r.edge === "left-col" && r.zone === "start" && r.reason === "not-accepted" && r.hit.y === col.y)).toBe(true);
   });
 
   it("an edge that only moves when the item lifts owns where it lies after the lift, not where it lay before", () => {

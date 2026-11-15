@@ -35,6 +35,21 @@ export function slotAt(c: Ctx, zone: Zone, line: number, id: string, place: Slot
 }
 
 /**
+ * Slots that are the same move are one slot, the first (the lowest `at`) keeping it: one line and one landing, or both
+ * home (both put the item back, wherever their lines lie).
+ */
+export function distinctSlots(c: Ctx, slots: readonly Slot[]): Slot[] {
+  const landing = (s: Slot): Rect | undefined => s.result.layout.items[c.dragged]?.rect;
+  const sameMove = (a: Slot, b: Slot): boolean => {
+    if (a.zone !== b.zone) return false;
+    if (a.home && b.home) return true;
+    const [p, q] = [landing(a), landing(b)];
+    return Math.abs(a.line - b.line) < EPS && (!p || !q ? p === q : Math.abs(p.x - q.x) + Math.abs(p.y - q.y) + Math.abs(p.width - q.width) + Math.abs(p.height - q.height) < 0.01);
+  };
+  return slots.filter((s, i) => !slots.slice(0, i).some((o) => sameMove(o, s)));
+}
+
+/**
  * The zones of `edge` with their extents along it, for a drag of `kind` (`EDGE_KINDS[...].zoneExtent`). `probe(zone)`:
  * the span an empty zone takes once it holds the item (a `solved` edge's empty zone), or null (then a point at the
  * zone's anchor). The outer extents reach `reach` past the edge's ends.
