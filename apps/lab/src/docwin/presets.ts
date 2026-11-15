@@ -669,13 +669,13 @@ export const PRESETS: readonly Preset[] = [
     id: "empty-side-choice",
     title: "An empty side: a group gets the rail, a panel the column",
     expected:
-      "With every panel in the left column, the right side is empty. A group's drag there gets only the window-edge rail's strip (it becomes a 30 px icon rail, never a column with one toolbar); a panel's drag gets only the column's strip. One strip per drag kind, never two side by side.",
+      "With every panel in the left column, the right side is empty. A group's drag there gets only the window-edge rail's strips, one per third (it becomes a 30 px icon rail, never a column with one toolbar); a panel's drag gets only the column's top third (its start zone). One edge per drag kind, never two side by side.",
     setup: (c) => c.setScene(sceneWith((s) => put(s, "left", ["pages", "notes", "findings"]))),
     check(c) {
       const strips = (id: ItemId): string[] => c.targets(id).filter((t) => t.id.startsWith("strip:") && (t.place as { edge?: string }).edge?.includes("right")).map((t) => t.id);
       const group = strips("views");
       const panel = strips("notes");
-      const ok = group.length === 1 && group[0] === "strip:rail-right" && panel.length === 1 && panel[0] === "strip:right";
+      const ok = group.join() === "strip:rail-right:start,strip:rail-right:center,strip:rail-right:end" && panel.join() === "strip:right:start";
       return { pass: ok, now: `A group's strips at the right: ${group.join(", ") || "none"}; a panel's: ${panel.join(", ") || "none"}.` };
     },
   },
@@ -861,7 +861,7 @@ export const PRESETS: readonly Preset[] = [
     expected: "Dragging Views onto the left window edge's rail strip shows its slot; the drop lands exactly on it, as icons in the 30 px rail outside the left column. The preview is the landing.",
     setup: (c) => c.setScene(defaultScene()),
     check(c) {
-      const t = c.targets("views").find((x) => x.id === "strip:rail-left");
+      const t = c.targets("views").find((x) => x.id === "strip:rail-left:start");
       if (!t) return { pass: false, now: "No strip for the left rail." };
       const p = aim(c, "views", t);
       if (!p) return { pass: false, now: "The rail's strip has no point of its own." };
