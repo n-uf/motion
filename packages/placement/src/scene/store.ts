@@ -119,7 +119,7 @@ const words = (v: unknown): string => (typeof v === "number" ? String(v) : typeo
  * The fixed items of `baseIds` that `stored` lacks, put back at their places: leading ones from the start, trailing ones
  * at the end. Fixed items the store has keep the place it gives them, so a stored order round-trips exactly.
  */
-export function withFixed(baseIds: readonly string[], stored: readonly string[], isFixed: (id: string) => boolean): string[] {
+function withFixed(baseIds: readonly string[], stored: readonly string[], isFixed: (id: string) => boolean): string[] {
   const out = [...stored];
   const missing = (id: string): boolean => isFixed(id) && !stored.includes(id);
   let tail = baseIds.length;

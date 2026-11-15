@@ -7,7 +7,7 @@
  *   bar, a left and a right column, panels, groups and a float. This is the shape the kits draw.
  * - `windowScene(...)` (./windows): the two pinned document windows with dynamic columns and rails.
  */
-import type { Rect, Size } from "../../geometry";
+import type { Rect } from "../../geometry";
 import type { StackForm } from "../../stack";
 import type { Edge, Scene, SceneItem, SceneFloat } from "../index";
 
@@ -21,9 +21,9 @@ export const form = (kind: StackForm["kind"], min: number, natural: number, cros
 
 // --- the bench: the lab's Edge stack stage -------------------------------------------------------------------------
 
-export type BenchId = "pages" | "annotations" | "findings" | "views" | "tools" | "zoom";
-export const BENCH_PANELS: readonly BenchId[] = ["pages", "annotations", "findings"];
-export const BENCH_GROUPS: readonly BenchId[] = ["views", "tools", "zoom"];
+type BenchId ="pages" | "annotations" | "findings" | "views" | "tools" | "zoom";
+const BENCH_PANELS:readonly BenchId[] = ["pages", "annotations", "findings"];
+const BENCH_GROUPS:readonly BenchId[] = ["views", "tools", "zoom"];
 
 const PANEL_SIZE: Record<string, { column: number; wide: number }> = {
   pages: { column: 150, wide: 200 },
@@ -34,8 +34,8 @@ const WORDS = 3;
 const iconsMain = (axis: "column" | "row"): number => (axis === "column" ? 18 : 16) + 26 * WORDS;
 const FOLD = 40;
 const MENU = 28;
-export const BENCH_RAIL = 30;
-export const BENCH_BAR_MAX = 40;
+const BENCH_RAIL = 30;
+const BENCH_BAR_MAX = 40;
 
 /** A panel's forms down a column (open, header, rail icon, menu) and along a bar (a header, a rail icon, the menu). */
 function benchPanel(id: BenchId, used: number, more: Partial<SceneItem> = {}): SceneItem {
@@ -82,7 +82,7 @@ export interface BenchLayout {
   readonly bar: readonly BenchId[];
   readonly floats: readonly { readonly id: BenchId; readonly rect: Rect }[];
 }
-export const BENCH_LAYOUT: BenchLayout = {
+const BENCH_LAYOUT:BenchLayout = {
   column: ["pages", "annotations"],
   bar: ["views", "tools", "zoom"],
   floats: [{ id: "findings", rect: { x: 440, y: 130, width: 220, height: 190 } }],
@@ -124,7 +124,7 @@ export function bench(layout: BenchLayout = BENCH_LAYOUT, o: BenchOptions = {}):
 
 // --- the document window ---------------------------------------------------------------------------------------------
 
-export const panel = (id: string, used: number, more: Partial<SceneItem> = {}, wide = 260): SceneItem => ({
+const panel = (id: string, used: number, more: Partial<SceneItem> = {}, wide = 260): SceneItem => ({
   id,
   kind: "panel",
   used,
@@ -135,7 +135,7 @@ export const panel = (id: string, used: number, more: Partial<SceneItem> = {}, w
   ...more,
 });
 
-export const group = (id: string, used: number, more: Partial<SceneItem> = {}): SceneItem => ({
+const group = (id: string, used: number, more: Partial<SceneItem> = {}): SceneItem => ({
   id,
   kind: "group",
   used,
@@ -147,13 +147,13 @@ export const group = (id: string, used: number, more: Partial<SceneItem> = {}): 
 });
 
 /** A fixed title that shrinks to 80 and grows with spare room. */
-export const title = (id = "title"): SceneItem => ({ id, kind: "title", used: 0, fixed: true, forms: { row: [form("row", 80, 160, 32, { grows: true })] } });
+const title = (id = "title"): SceneItem => ({ id, kind: "title", used: 0, fixed: true, forms: { row: [form("row", 80, 160, 32, { grows: true })] } });
 /** Fixed window controls, 84 wide, at the end of their bar. */
-export const controls = (id = "controls"): SceneItem => ({ id, kind: "controls", used: 0, fixed: true, align: "end", forms: { row: [form("row", 84, 84, 32)] } });
+const controls = (id = "controls"): SceneItem => ({ id, kind: "controls", used: 0, fixed: true, align: "end", forms: { row: [form("row", 84, 84, 32)] } });
 /** A fixed page readout, 72 wide, centred in its bar. */
-export const readout = (id = "readout"): SceneItem => ({ id, kind: "readout", used: 0, fixed: true, align: "center", forms: { row: [form("row", 72, 72, 28)] } });
+const readout = (id = "readout"): SceneItem => ({ id, kind: "readout", used: 0, fixed: true, align: "center", forms: { row: [form("row", 72, 72, 28)] } });
 
-export const bar = (id: string, side: "top" | "bottom", ring: number, items: string[], more: Partial<Edge> = {}): Edge => ({
+const bar = (id: string, side: "top" | "bottom", ring: number, items: string[], more: Partial<Edge> = {}): Edge => ({
   id,
   side,
   ring,
@@ -165,7 +165,7 @@ export const bar = (id: string, side: "top" | "bottom", ring: number, items: str
   ...more,
 });
 
-export const column = (id: string, side: "left" | "right", ring: number, items: string[], more: Partial<Edge> = {}): Edge => ({
+const column = (id: string, side: "left" | "right", ring: number, items: string[], more: Partial<Edge> = {}): Edge => ({
   id,
   side,
   ring,
@@ -216,33 +216,7 @@ export function doc(o: DocOptions = {}): Scene {
   };
 }
 
-/** `scene` with the edge's items replaced (the item taken out of every other edge and every float). */
-export function put(scene: Scene, edge: string, ids: readonly string[]): Scene {
-  const moving = new Set(ids);
-  return {
-    ...scene,
-    edges: scene.edges.map((e) => (e.id === edge ? { ...e, items: [...ids] } : { ...e, items: e.items.filter((x) => !moving.has(x)) })),
-    floats: scene.floats.filter((f) => !moving.has(f.id)),
-  };
-}
-
-/** `scene` with the item floating at `rect`. */
-export function floating(scene: Scene, id: string, rect: Rect, orient?: "row" | "column"): Scene {
-  return {
-    ...scene,
-    edges: scene.edges.map((e) => ({ ...e, items: e.items.filter((x) => x !== id) })),
-    floats: [...scene.floats.filter((f) => f.id !== id), { id, rect: { ...rect }, ...(orient ? { orient } : {}) }],
-  };
-}
-
-/** `scene` with `patch` merged into the item. */
-export function tweak(scene: Scene, id: string, patch: Partial<SceneItem>): Scene {
-  return { ...scene, items: { ...scene.items, [id]: { ...scene.items[id]!, ...patch } } };
-}
-
 /** `scene` with `patch` merged into the edge. */
 export function tweakEdge(scene: Scene, id: string, patch: Partial<Edge>): Scene {
   return { ...scene, edges: scene.edges.map((e) => (e.id === id ? { ...e, ...patch } : e)) };
 }
-
-export const sizeOf = (r: Rect): Size => ({ width: r.width, height: r.height });
