@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.21
 
 - `@n-uf/placement/stack` (and so every Scene edge), **Changed:** growing back under `previous` is strictly the reverse
   of giving way, the » menu included: an item no longer leaves the menu ahead of an item whose step down ranked higher

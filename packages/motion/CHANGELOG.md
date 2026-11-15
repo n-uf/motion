@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.21
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.21 (local drop targets and refusals,
+  toolbar priority and a strict grow-back order in `./scene` and `./stack`).
+
 ## 26.11.20
 
 - No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.20 (the async case runner in
