@@ -3,7 +3,11 @@
  * failure. Each page module runs once, in a frame of its own (its route with `embed` and `all`), at the size the
  * headless runs use; a scenario is listed under the first page whose view takes it. `window.__motionLab.runAll` on
  * this page runs everything, so one headless call checks the whole lab.
+ *
+ * "Conformance rows" runs every row of `@n-uf/placement/scene/cases` on its in-memory host, right here (no frame): the
+ * same rows the UI kits' suites run on their own hosts. The DOM checks have no page behind them here and are skipped.
  */
+import { CASES, CASE_GROUPS, createSceneHost, runCase } from "@n-uf/placement/scene/cases";
 import { passes, type LabRun, type ScenarioFilter } from "../shared/hooks";
 import { routeHash } from "./api";
 import { FIXTURES, GROUPS, PAGES as LISTED, type GroupId, type PageDef, type View } from "./pages";
@@ -66,6 +70,28 @@ async function frameFor(page: PageDef): Promise<LabWindow> {
   throw new Error(`${page.title} didn't load`);
 }
 
+/** The page name the conformance rows are listed under. */
+const ROWS_PAGE = "Conformance rows";
+
+/** Every conformance row on the in-memory host, one run each (the scenario is the row's id and title, the mode its group). */
+function conformance(filter?: ScenarioFilter): CheckRow[] {
+  const out: CheckRow[] = [];
+  for (const row of CASES) {
+    const scenario = `${row.id} ${row.title}`;
+    if (!passes(scenario, filter)) continue;
+    const result = runCase(row, createSceneHost());
+    out.push({
+      page: ROWS_PAGE,
+      scenario,
+      mode: CASE_GROUPS.find((g) => g.id === row.group)?.title ?? row.group,
+      failed: result.ok ? [] : [row.id],
+      // A row that needs a library rule the Scene lacks shows red with the rule named: the page never fakes it.
+      rows: [{ name: row.expect, result: { ok: result.ok, failures: !result.ok && row.lacks ? [`lacks: ${row.lacks}`, ...result.failures] : result.failures } }],
+    });
+  }
+  return out;
+}
+
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 function render(): void {
   if (!rows.length) {
@@ -86,14 +112,14 @@ function render(): void {
 }
 
 /** Run the jobs, one frame at a time; `filter` narrows every job further. */
-async function run(group: GroupId | "all", filter?: ScenarioFilter): Promise<CheckRow[]> {
+async function run(group: GroupId | "all" | "rows", filter?: ScenarioFilter): Promise<CheckRow[]> {
   if (running) return [];
   running = true;
   stopped = false;
   rows = [];
   buttons.forEach((b) => (b.disabled = b.dataset.run !== "stop"));
   render();
-  const jobs = jobsFor(group);
+  const jobs = group === "rows" ? [] : jobsFor(group);
   try {
     for (const [i, job] of jobs.entries()) {
       if (stopped) break;
@@ -109,6 +135,12 @@ async function run(group: GroupId | "all", filter?: ScenarioFilter): Promise<Che
       } catch (e) {
         rows.push({ page: home.title, scenario: "the page ran", mode: "", failed: ["the page ran"], rows: [{ name: "the page ran", result: { ok: false, failures: [String(e)] } }] });
       }
+      render();
+    }
+    if (!stopped && (group === "all" || group === "rows")) {
+      status.textContent = `Running the conformance rows…`;
+      cap.textContent = ROWS_PAGE;
+      rows.push(...conformance(filter));
       render();
     }
     const bad = rows.filter((r) => r.failed.length).length;
@@ -131,7 +163,7 @@ for (const b of buttons) {
       status.textContent = "Stopping after this page…";
       return;
     }
-    void run(what as GroupId | "all");
+    void run(what as GroupId | "all" | "rows");
   });
 }
 // The groups that have pages with checks.
