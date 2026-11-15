@@ -544,25 +544,31 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     // reads it. Anchors and rails don't count: every column, an anchor included, can fold into its rail.
     // With no column edge yet (every panel floating), a side's column template says how narrow its column could be: its
     // `cross.min`, or more where the items it takes need more (their form's least width), as a column holding them would.
+    // The question is hypothetical (could one column open?), so it is answered as if that column were open: a column
+    // folded whole by hand counts at its open minimum, and the floating items a template takes at their open forms.
     // Every column edge with an item counts, whether its side has a rail or not.
-    const open = cols.filter((c) => c.edge.column === true && c.visible.length > 0).map((c) => c.min);
+    const openMin = (ids: readonly string[], least: number): number =>
+      Math.max(
+        least,
+        ...ids.map((id) => {
+          const f = formsOf(scene.items[id]!, "column")[0];
+          return f && formSetsCross(f) ? formCrossMin(f) : 0;
+        }),
+      );
+    const open = cols.filter((c) => c.edge.column === true && c.visible.length > 0).map((c) => (c.hand ? openMin(c.visible, px(c.edge.cross.min)) : c.min));
     const templates = (["left", "right"] as const).flatMap((s) => {
       const t = scene.columns?.[s];
       if (!t) return [];
-      const needs = Object.values(scene.items)
-        .filter((it) => !it.fixed && !it.closed && t.accepts.includes(it.kind))
-        .map((it) => {
-          const forms = formsOf(it, "column");
-          const f = forms[Math.min(Math.max(0, Math.floor(finite(it.from, 0))), Math.max(0, forms.length - 1))];
-          return f && formSetsCross(f) ? formCrossMin(f) : 0;
-        });
-      return [Math.max(px(t.cross.min), ...needs)];
+      const takes = Object.values(scene.items).filter((it) => !it.fixed && !it.closed && t.accepts.includes(it.kind));
+      return [openMin(takes.map((it) => it.id), px(t.cross.min))];
     });
     const colMins = open.length > 0 ? open : templates;
     if (cmin !== undefined && colMins.length > 0) {
+      // With `insetWhen: "docked"` and nothing docked now, the column that opens brings the inset with it.
+      const width = area.width - (scene.insetWhen === "docked" && !docked ? px(scene.inset?.left) + px(scene.inset?.right) : 0);
       const need = cmin + Math.min(...colMins) + gutter;
-      columnRoom = area.width >= need - EPS;
-      if (!columnRoom) notes.push({ code: "no-column-room", width: area.width, need });
+      columnRoom = width >= need - EPS;
+      if (!columnRoom) notes.push({ code: "no-column-room", width, need });
     }
     for (const c of shrinkOrder) {
       const w = g.widths.get(c);
