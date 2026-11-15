@@ -4,6 +4,7 @@
  */
 import { EPS, area, contains, rect, subtract, type Point, type Rect } from "../../geometry";
 import { zoneOf, type SceneLayout, type Zone } from "../model";
+import { distinctSlots } from "./edges";
 import { EDGE_KINDS } from "./kinds";
 import { less, type Ctx, type EdgeSpec, type SceneRefusal, type Slot, type Span, type Tile } from "./model";
 import type { Ownership } from "./ownership";
@@ -40,21 +41,6 @@ function tilerOf(spec: EdgeSpec): Tiler {
     return [core, ...beyond.map(([a, b]): Tile => ({ ...t, kind: "reach", of: core, order: data.overreach, hit: part(a, b), keep: null }))];
   };
   return { band, keepAt, tile, split };
-}
-
-/**
- * Slots that are the same move are one slot, the first (the lowest `at`) keeping it: one line and one landing, or both
- * home (both put the item back, wherever their lines lie).
- */
-function distinctSlots(c: Ctx, slots: readonly Slot[]): Slot[] {
-  const landing = (s: Slot): Rect | undefined => s.result.layout.items[c.dragged]?.rect;
-  const sameMove = (a: Slot, b: Slot): boolean => {
-    if (a.zone !== b.zone) return false;
-    if (a.home && b.home) return true;
-    const [p, q] = [landing(a), landing(b)];
-    return Math.abs(a.line - b.line) < EPS && (!p || !q ? p === q : Math.abs(p.x - q.x) + Math.abs(p.y - q.y) + Math.abs(p.width - q.width) + Math.abs(p.height - q.height) < 0.01);
-  };
-  return slots.filter((s, i) => !slots.slice(0, i).some((o) => sameMove(o, s)));
 }
 
 /** Where each slot's line lies in one free piece of a zone: projected into it, or spread in order when lines collide. */
@@ -240,8 +226,10 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
       return;
     }
     // An owned part: clear of the tiles before it, of the owners that win over its edge, its panel bodies, solid items
-    // and chrome. A virtual edge's tile: clear of the tiles before it and of every owner.
-    const cuts = [...placed.map((p) => p.hit), ...(taken.get(t.key) ?? []), ...(data.virtual ? [] : bodies(t.edge)), ...solid, ...chrome];
+    // and chrome. A virtual edge's tile: clear of the tiles before it and of every owner. A refusal of a zone with no
+    // slot the filter keeps owns nothing: it yields to every other edge's owned rect too.
+    const yields = t.kind === "refuse" && own.refusedZone(t.key, t.zone) ? owners.filter((o) => o.key !== t.key).map((o) => o.rect) : [];
+    const cuts = [...placed.map((p) => p.hit), ...(taken.get(t.key) ?? []), ...yields, ...(data.virtual ? [] : bodies(t.edge)), ...solid, ...chrome];
     let pieces = clip(t.hit, cuts);
     if (pieces.length === 0) {
       if (t.kind !== "refuse") gone.add(t);
@@ -278,6 +266,9 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
   for (const t of tiles.filter((x) => !isRefused(x)).sort(byOrder)) place(t);
   for (const t of refused.sort(byOrder)) place(t);
   for (const t of gone) lost.push(t.id);
-  for (const t of later) for (const p of clip(t.hit, [...placed.map((q) => q.hit), ...solid, ...chrome])) placed.push({ ...t, hit: p });
+  for (const t of later) {
+    const yields = own.refusedZone(t.key, t.zone) ? owners.filter((o) => o.key !== t.key).map((o) => o.rect) : [];
+    for (const p of clip(t.hit, [...placed.map((q) => q.hit), ...yields, ...solid, ...chrome])) placed.push({ ...t, hit: p });
+  }
   return placed;
 }

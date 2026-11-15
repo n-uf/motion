@@ -9,6 +9,7 @@
 import { EPS, area, overlaps, rect, subtract, type Rect } from "../../geometry";
 import { DEFAULT_HIT_BAND, axisOf, formsOf, type SceneLayout } from "../model";
 import { pushes, type LayKey } from "../solve";
+import { distinctSlots } from "./edges";
 import { EDGE_KINDS } from "./kinds";
 import { less, type Ctx, type EdgeSpec, type Span } from "./model";
 
@@ -31,6 +32,8 @@ export interface Ownership {
   readonly bodies: (id: string) => Rect[];
   /** The fixed items that don't grow, with the item lifted and as it is now. */
   readonly solid: readonly Rect[];
+  /** Whether a zone of the spec `key` has no slot the filter keeps: its refusals yield to every other owner. */
+  readonly refusedZone: (key: string, zone: string) => boolean;
 }
 
 const bandOf = (s: EdgeSpec): Rect => {
@@ -47,8 +50,25 @@ const ownedRectOf = (s: EdgeSpec): Rect => {
   return s.vertical ? rect(b.x, a0, b.width, a1 - a0) : rect(a0, b.y, a1 - a0, b.height);
 };
 
+/**
+ * The zones of an edge with a slot the filter keeps, home's aside (home's tile is owned on its own, and a slot that is
+ * the same move as home is home).
+ */
+const liveZones = (c: Ctx, s: EdgeSpec): Set<string> => new Set(distinctSlots(c, s.slots).filter((x) => x.ok && !x.home).map((x) => x.zone));
+
+/**
+ * What an edge owns against the others: its owned rect along each of its live zones only. A zone whose every slot the
+ * filter removes owns nothing (its drawn rect still counts, as every drawn rect does).
+ */
+function ownedRectsOf(s: EdgeSpec, zones: ReadonlySet<string>): Rect[] {
+  if (zones.size === 0) return [];
+  const o = ownedRectOf(s);
+  if (s.ownedAlong) return [o];
+  return s.zones.filter((z) => zones.has(z.zone)).map((z) => (s.vertical ? rect(o.x, z.a, o.width, z.b - z.a) : rect(z.a, o.y, z.b - z.a, o.height)));
+}
+
 /** Every owner: home first, then each edge the tiler reads, then every drawn rect. */
-function ownersOf(c: Ctx, live: readonly EdgeSpec[]): Owner[] {
+function ownersOf(c: Ctx, live: readonly EdgeSpec[], zonesOf: (s: EdgeSpec) => ReadonlySet<string>): Owner[] {
   const { now, base, dragged } = c;
   const ownEdge = now.items[dragged]?.edge;
   const ownRect = now.items[dragged];
@@ -66,10 +86,10 @@ function ownersOf(c: Ctx, live: readonly EdgeSpec[]): Owner[] {
   return [
     // Home first: its tile is its own, for every edge but its own (which tiles it as its own interval).
     ...(homeRect && ownEdge ? [{ id: ownEdge, key: ownEdge, rect: homeRect, lay: { phase: -1, side: "", at: -Infinity }, place: false }] : []),
-    // Every edge the tiler reads with a slot the filter keeps: what it owns, drawn or a band of its place (a column
-    // line's band about its line). An edge whose every slot is refused owns nothing against the others (its drawn
-    // rect still counts, below).
-    ...live.filter((s) => s.slots.some((x) => x.ok)).map((s) => ({ id: s.id, key: s.key, rect: ownedRectOf(s), lay: s.lay, place: !s.drawn })).filter((o) => area(o.rect) > EPS),
+    // Every edge the tiler reads, along each zone with a slot the filter keeps: what it owns, drawn or a band of its
+    // place (a column line's band about its line). A zone whose every slot is refused owns nothing against the others
+    // (its drawn rect still counts, below).
+    ...live.flatMap((s) => ownedRectsOf(s, zonesOf(s)).map((r) => ({ id: s.id, key: s.key, rect: r, lay: s.lay, place: !s.drawn }))).filter((o) => area(o.rect) > EPS),
     // Every drawn rect with the item lifted, the layout the tiles lie in: the edges the tiler doesn't read (folded,
     // riding, taking nothing) among them. An edge's rect as it is now counts only where the lift leaves it no rect at
     // all (drawn now, gone once the item lifts; the item's own edge excepted). An edge that only moves when the item
@@ -83,7 +103,8 @@ function ownersOf(c: Ctx, live: readonly EdgeSpec[]): Owner[] {
 
 export function ownership(c: Ctx, live: readonly EdgeSpec[]): Ownership {
   const { scene, rest, now, base, dragged } = c;
-  const owners = ownersOf(c, live);
+  const zonesByKey = new Map(live.map((s) => [s.key, liveZones(c, s)]));
+  const owners = ownersOf(c, live, (s) => zonesByKey.get(s.key)!);
   const wins = (o: Owner, s: EdgeSpec): boolean => {
     if (o.key === s.key) return false;
     if (pushes(o.lay, s.lay)) return true;
@@ -149,5 +170,6 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[]): Ownership {
       .map(([, p]) => (column ? across(p.rect.y, p.rect.y + p.rect.height) : across(p.rect.x, p.rect.x + p.rect.width)));
     return [...reserved, ...bodySpans(id).map(([a, b]) => across(a, b))].filter((b) => area(b) > EPS);
   };
-  return { owners, taken, cutsOf, bodies, solid };
+  const refusedZone = (key: string, zone: string): boolean => !(zonesByKey.get(key)?.has(zone) ?? false);
+  return { owners, taken, cutsOf, bodies, solid, refusedZone };
 }
