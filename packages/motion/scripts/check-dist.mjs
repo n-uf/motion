@@ -8,7 +8,8 @@
 //   (requestAnimationFrame, performance, setTimeout, window, document,
 //   globalThis, matchMedia), and their types mention no DOM type;
 // - Node can import every entry, and a spring on a frame loop on the fake
-//   clock settles: the built core runs with no host at all.
+//   clock settles: the built core runs with no host at all; a few real calls
+//   (a drag intent, a layout item, an anchoredMorph) behave.
 // Exits 1 with a list of problems.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -121,6 +122,16 @@ if (problems.length === 0) {
     item.moveTo({ x: 200, y: 0, width: 100, height: 100 });
     clock.runUntilIdle();
     if (item.drawn.x !== 200 || drawn[0] !== 0 || motion.running || loop.active) problems.push(`layout.js: an item didn't settle (x ${item.drawn.x})`);
+    // A box changing size about an anchor: it rests on the target, its anchor on the point at every step.
+    const morph = modules.layout.anchoredMorph({ width: 200, height: 28 }, { x: 10, y: 14 });
+    morph.to({ width: 96, height: 84 }, { x: 48, y: 6 });
+    let off = 0;
+    for (let i = 0; i < 60 && morph.step(16); i++) {
+      const r = morph.rectAt({ x: 300, y: 120 });
+      off = Math.max(off, Math.abs(r.x + morph.anchor.x - 300), Math.abs(r.y + morph.anchor.y - 120));
+    }
+    const end = morph.rectAt({ x: 300, y: 120 });
+    if (!morph.settled || off > 1e-9 || end.x !== 252 || end.y !== 114 || end.width !== 96 || end.height !== 84) problems.push(`layout.js: anchoredMorph didn't rest on its target with its anchor on the point (${JSON.stringify(end)}, off ${off})`);
   } catch (error) {
     problems.push(`import: ${error instanceof Error ? error.message : String(error)}`);
   }
