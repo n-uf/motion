@@ -35,10 +35,23 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     `2 × COLUMN_REACH` meet halfway; a column line or rail stop whose drop wouldn't land or fit, and any piece clipping
     cuts off its tile, is refused (`refuse:column:<side>:start`, `refuse:rail:<side>:start`, `no-room`) instead of
     being left to the float.
-  - **Precedence** where tiles meet: the item's own place first, then the column lines and the rail (their tiles cut
-    the edges' tiles), then the edges by layer: a full bar owns the corners, side edges run between the bars, then bars
-    between the columns, and a compact rail's inward reach covers the other edges' rects but never their tiles. The
-    column lines' and the rail's refused stretches come last: they take only what every other tile leaves.
+  - **Space ownership** decides where tiles meet: owned, then virtual, then overreach.
+    - A drawn edge owns its rect. An empty edge owns only a thin band of its place, half the hit band (12 px), at the
+      boundary where it would appear; so does the side's rail where none shows. The item's own place (home's tile) is
+      owned before everything.
+    - Owned rects rank in the order the layout lays edges out: an edge laid first, whose filling pushes the other, wins
+      (outer before inner on one side, full bars before the sides, the rail before its side's columns). Between edges
+      laid independently, a drawn rect wins over an empty edge's band.
+    - A zone loses what an edge ranked before it owns, its panel bodies and its reserved rects before it is tiled; a
+      zone left with no room offers no slot. Every slot that is offered keeps a hit.
+    - The column lines are virtual: they take only space no edge owns. A narrow column keeps its gaps inside its own
+      rect, and the lines take the space beside it.
+    - Overreach, the part of a tile past what its edge owns (the depth a column will have after the drop, an empty
+      strip past its band, a compact rail's inward reach), comes last: it yields to the column lines and to every other
+      edge's owned rect, and it stays a tile's only where it meets the owned part along its whole length. A compact
+      rail's reach no longer covers the next column's rect.
+    - Slots that are the same move (one line and one landing, or both putting the item back) are one slot, the lowest
+      `at` keeping its id.
 
   **Migration:** match refusals by `refuse:<edge>:<zone>` prefix and read `own-place` as "back to its place"; read
   `home:<id>` (unchanged, over the own rect) for "back to its place"; expect no target over a stretch beside a lone
