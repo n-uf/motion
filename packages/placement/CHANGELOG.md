@@ -5,6 +5,25 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
+- `@n-uf/placement/scene`, parity with the panels hosts draw today (Revisions 7 and 7b):
+  - **`layout.columnRoom`** and the note **`no-column-room`** (`width`, `need`): with `contentMin` and dynamic columns,
+    whether one column at its minimum fits beside the content's minimum. A host's narrow fallback reads it.
+  - **`Edge.outsideInset`**: an anchor edge (a side edge that takes nothing, a thumbnail strip) lies outside the inset
+    and the gutter: at the window's side, full height, the inset after it; inside the side's rail when one shows.
+  - **`Edge.giveWay`**: a static side edge shrinks toward its minimum, then folds into its side's rail, in give-way
+    order with the columns (by its items' ages). It is never deleted.
+  - **`setSide(scene, edgeId, side)`**: moves an edge to the other side of its axis as its side's outermost edge (ring
+    0); `readScene` moves a static edge stored on the other side.
+  - **`Scene.insetWhen`** (`"always"`, the default, or `"docked"`): with `"docked"` the inset applies only while
+    something is docked beside the content.
+  - **Changed:** `handFold: "ride"` rides every column folded by hand, not only a one-panel one: each member a bar over
+    the side's first open panel column (never over an anchor), stacked in zone order.
+  - **Changed:** the side's rail is its outermost edge (it was placed just outside the first dynamic column).
+  - **Changed:** floats are clamped into the stage less the inset's left and right (the full height), and a float larger
+    than that region is shrunk to fit it (they were clamped into the whole stage, never resized).
+  - Typing: `SceneNote` gains `no-column-room`; an exhaustive `switch` over `SceneNote["code"]` needs it.
+  - Affected: scenes with an inset and floats near its sides, scenes riding a hand-folded column of two or more panels
+    (they went to the rail), and scenes with a static edge outside a dynamic column on a side whose rail shows.
 - `@n-uf/placement/scene`, bar alignment zones (**Changed**):
   - A horizontal bar's targets are picked by thirds: the left third is the leading (start) zone's, the middle the
     center zone's, the right the trailing (end) zone's, the nearest of the zone's gaps within. An empty bar's strip is
