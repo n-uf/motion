@@ -10,7 +10,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   from, to, batch? }`, in the order taken; new type `StackStep`), and the next fit carries it on: room coming back undoes
   it from the last step (a batch into the menu comes out together, an item goes to the nearest earlier form that fits),
   and the first step that can't be undone stops all growth. At every length the way back holds what the way down held,
-  ties broken by use included, whatever presses changed the ages since. A `previous` without `steps` (built by hand, or
+  ties broken by use included, whatever presses changed the ages since; an item made `kept` after its step no longer
+  jumps ahead when growing, it comes back in step order. A `previous` without `steps` (built by hand, or
   by an older version) grows the old way. Affected: growing back under `previous`; about 700 of 3,000 seeded length
   chains now hold items further down at some step than 26.11.20 did (it let menu items out early, took a fresh fit that
   was a pure gain, and grew the newest used at growth time). Fits without `previous` are unchanged.

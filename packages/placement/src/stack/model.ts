@@ -384,7 +384,8 @@ export interface FitOptions {
    * last step: a batch that went into the » menu together comes out together, an item goes back to the nearest earlier
    * form the stack fits with (the last item out of the menu takes the » entry with it), and the first step that can't
    * be undone stops all growth. Growing back is exactly the reverse of giving way, the menu included: at every length
-   * the way back holds what the way down held, whatever presses changed the ages since. A `previous` without a history
+   * the way back holds what the way down held, whatever presses changed the ages since; an item made `kept` after its
+   * step comes back in step order, it doesn't jump ahead. A `previous` without a history
    * (built by hand, or by an older version) grows the old way: a fresh fit that is a pure gain, else the item that gave
    * way most recently (highest rank, then `kept`, the newest used, the earlier in the stack) first, menu items out only
    * while that keeps the order.
