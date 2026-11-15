@@ -61,6 +61,8 @@ function ownersOf(c: Ctx, live: readonly EdgeSpec[]): Owner[] {
     const [c0, c1] = s.across();
     return s.vertical ? rect(Math.min(c0, o.x), o.y, Math.max(c1, o.x + o.width) - Math.min(c0, o.x), o.height) : rect(o.x, Math.min(c0, o.y), o.width, Math.max(c1, o.y + o.height) - Math.min(c0, o.y));
   })();
+  /** The edges with a rect once the item lifts. */
+  const lifted = new Set(Object.entries(base.edges).filter(([, e]) => area(e.rect) > EPS).map(([id]) => id));
   return [
     // Home first: its tile is its own, for every edge but its own (which tiles it as its own interval).
     ...(homeRect && ownEdge ? [{ id: ownEdge, key: ownEdge, rect: homeRect, lay: { phase: -1, side: "", at: -Infinity }, place: false }] : []),
@@ -68,9 +70,12 @@ function ownersOf(c: Ctx, live: readonly EdgeSpec[]): Owner[] {
     // line's band about its line). An edge whose every slot is refused owns nothing against the others (its drawn
     // rect still counts, below).
     ...live.filter((s) => s.slots.some((x) => x.ok)).map((s) => ({ id: s.id, key: s.key, rect: ownedRectOf(s), lay: s.lay, place: !s.drawn })).filter((o) => area(o.rect) > EPS),
-    // Every drawn rect, with the item lifted and as it is now (the item's own edge only lifted): the edges the tiler
-    // doesn't read (folded, riding, taking nothing) and the ones that move when the item lifts.
-    ...[...Object.entries(base.edges), ...Object.entries(now.edges).filter(([id]) => id !== ownEdge)]
+    // Every drawn rect with the item lifted, the layout the tiles lie in: the edges the tiler doesn't read (folded,
+    // riding, taking nothing) among them. An edge's rect as it is now counts only where the lift leaves it no rect at
+    // all (drawn now, gone once the item lifts; the item's own edge excepted). An edge that only moves when the item
+    // lifts owns where it lies after the lift, where its tiles are, never where it lay before: that space is another
+    // edge's once the item has lifted, or nobody's, and a stale owner there would leave it to no tile at all.
+    ...[...Object.entries(base.edges), ...Object.entries(now.edges).filter(([id]) => id !== ownEdge && !lifted.has(id))]
       .filter(([id, e]) => area(e.rect) > EPS && c.lay.has(id))
       .map(([id, e]) => ({ id, key: id, rect: e.rect, lay: c.lay.get(id)!, place: false })),
   ];
