@@ -473,18 +473,20 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   item was added, or a panel opened: its `from` went down, so it starts over). Growing never re-ranks. When the stack got
   wider across (a group's stacked form returns to its row, a header folded to a rail icon by its `cross.min` to its
   header) the largest forms are tried again, as without `previous`. When the fit's `need` (the length its forms need) left
-  more spare length than before (the length grew, a gap or size shrank), the fresh fit is taken only if it is a pure gain
-  over the kept forms (no item further down, one further up); otherwise room comes back in the reverse of give-way order,
-  and growth stops at the first item that can't grow. The item that gave way most recently goes first (highest rank,
-  then `kept`, then the newest used, then the earlier in the stack): it goes back to the nearest larger form the stack
-  fits with, even if that makes it shorter (the last item out of the menu takes the » entry along), and so on. When it
-  fits no larger form nothing behind it grows, so a leading group never opens while a trailing one that gave way after
-  it stays folded. Items in the menu still come out, alone or together when only their leaving together fits, but only
-  when that keeps the order: an item leaves only with every menu item ahead of it, and only for a form no fewer steps
-  down (from its `from`) than every item ahead of it that isn't in the menu, and never ahead of an item whose step down
-  ranked higher than its own step into the menu (that step came after it). So growing back is strictly the reverse of
-  giving way, the menu included: under a priority (see Scenes), a higher-priority toolbar is back at its form before a
-  lower one leaves the menu. One px of room, or a badge losing a digit after a press, moves
+  more spare length than before (the length grew, a gap or size shrank), room comes back by undoing the give-way history
+  exactly in reverse. A fit carries that history as `StackFit.steps`, each step a `StackStep` (`{ id, from, to, batch? }`:
+  item `id` went from form `from` to form `to`), in the order taken, and the next fit with that `previous` carries it on.
+  Room coming back undoes the steps from the last one: an item goes back to the nearest earlier form the stack fits with
+  (the last item out of the menu takes the » entry along), a batch that went into the menu together (steps sharing a
+  `batch`) comes out together, and the first step that can't be undone stops all growth, so a leading group never opens
+  while a trailing one that gave way after it stays folded. At every length the way back holds what the way down held,
+  whatever presses changed the ages since, the menu included: under a priority (see Scenes), a higher-priority toolbar is
+  back at its form before a lower one leaves the menu. A `previous` without `steps` (built by hand, or by an older
+  version) grows the old way: a fresh fit that is a pure gain over the kept forms, else the item that gave way most
+  recently (highest rank, then `kept`, then the newest used, then the earlier in the stack) first, one at a time, menu
+  items out only while that keeps the order. A scene's `storeScene` doesn't store the steps, so the first growth after a
+  reload uses the old order; the steps are carried again from then on. One px of room, or a badge losing a digit after a
+  press, moves
   nothing. Results under `previous` depend on history: a shrink then a grow can end at another arrangement than a fresh
   solve, and more room never undoes a growth along successive solves. Growing back is meant for stacks of up to about
   50 items (60 small menu items take about 9 ms). An item whose form at the kept index is of another kind starts over;
@@ -958,11 +960,13 @@ edges without `previous`.
   too: no slot, nothing committed. Every rail target on the side whose rail already holds the item is a home: a segment
   dropped on its own rail, even below the last segment, never splits or reorders it (P9).
 
-**Local targets.** A target wins only where its own hit is. A home gap's hit keeps the item's own rect and half a band
-(`DEFAULT_HIT_BAND / 2`) each way along its edge, and the room it gives up goes to the gaps beside it on that edge, so
-home is offered only over the item's own place and the slot shown is at the pointer or right next to it, never a "back to
-its place" preview far away. Affected: the drag of an item in a bar whose zone held only its own gap (that zone's whole
-third used to preview home).
+**Local targets.** A target wins only where its own hit is. Home's hit is the item's own rect and half a band
+(`DEFAULT_HIT_BAND / 2`, 12 px) each way along its edge, across the edge's full hit thickness, cut out of every other gap
+hit (and empty-edge strip) there, so home is offered only over the item's own place. The rest of its gaps' slices goes
+only to the gap beside it in the same zone; with none there, that stretch has no target (the pointer shows nothing, and a
+release goes home), never a "back to its place" preview far away and never a gap of another zone. Affected: the drag of
+an item in a bar whose zone held only its own gap (that zone's whole third used to preview home), and items whose own
+rect lay outside their gap's slice (home now always covers them).
 
 **Refusals.** `refusals(scene, dragged, options?)` gives the places a drop is refused, as `{ id: "refuse:<edge>:<zone>",
 edge, zone, hit, reason }[]` (type `SceneRefusal`): the bar zones, by thirds, that have no target (`reason: "no-room"`
