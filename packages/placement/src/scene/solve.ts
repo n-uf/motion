@@ -424,9 +424,15 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
   /** The stage less the full bars outside the inset (set before the sides are laid). */
   let outerArea: Rect = stage;
   const isSide = (e: Edge): boolean => e.side === "left" || e.side === "right";
-  // The inset, or none with `insetWhen: "docked"` while nothing is docked beside the content: an open column or a rail
-  // (a side edge that takes something, with an item that isn't closed). An anchor alone (it takes nothing) doesn't count.
-  const docked = order.some((e) => isSide(e) && e.accepts.length > 0 && owned.get(e)!.some((id) => !scene.items[id]!.closed));
+  // The inset, or none with `insetWhen: "docked"` while nothing is docked beside the content: only a panel counts, in a
+  // column or a rail (an item there, not closed, whose first column form is a panel's: open, header or rail). Bars,
+  // toolbar groups and an anchor (it takes nothing) never do, wherever they sit.
+  const PANEL_FORMS = new Set(["open", "header", "rail"]);
+  const isPanel = (id: string): boolean => {
+    const it = scene.items[id]!;
+    return !it.closed && !it.fixed && PANEL_FORMS.has(formsOf(it, "column")[0]?.kind ?? "");
+  };
+  const docked = order.some((e) => isSide(e) && e.accepts.length > 0 && owned.get(e)!.some(isPanel));
   const inset = scene.insetWhen === "docked" && !docked ? {} : (scene.inset ?? {});
 
   /**

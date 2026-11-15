@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.21
 
+- `@n-uf/placement/scene`, **fixed:** `insetWhen: "docked"` counts only panel placements as docked: an open panel
+  column or a rail showing panels (an item whose first column form is `open`, `header` or `rail`). A toolbar group in a
+  side bar no longer brings the inset back, so with every panel closed the content keeps the whole stage.
+
 - `@n-uf/placement/scene`, **`Edge.outsideInset` on top and bottom bars** (additive): a full bar with it lies at the
   window's edge, full width, with the inset after it; the side edges run between such bars, an anchor through the inset
   beside them. Without it nothing changes.
