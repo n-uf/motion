@@ -7,11 +7,15 @@
 import { describe, expect, it } from "vitest";
 import { lift, refusals, solve, targets, type Edge, type Scene, type SceneItem, type SceneLayout, type SceneTarget, type Zone } from "../src/scene";
 import { lostSlots, opensEmpty, zoneExtents } from "../src/scene/targets";
+import { pickTarget } from "../src/scene/cases";
 import { bar, byId, column, controls, group, panel, seeded, title } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
 /** Half-open, so two tiles that meet share no point. */
 const inside = (r: R, p: { x: number; y: number }): boolean => p.x >= r.x - 1e-9 && p.x < r.x + r.width - 1e-9 && p.y >= r.y - 1e-9 && p.y < r.y + r.height - 1e-9;
+/** A target's zone: its pieces (`hits`) when it has them, else its `hit`. */
+const zoneOfT = (t: { hit: R; hits?: readonly R[] }): readonly R[] => t.hits ?? [t.hit];
+const inTarget = (t: { hit: R; hits?: readonly R[] }, p: { x: number; y: number }): boolean => zoneOfT(t).some((r) => inside(r, p));
 const same = (a: R, b: R): boolean => Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01 && Math.abs(a.width - b.width) < 0.01 && Math.abs(a.height - b.height) < 0.01;
 
 /**
@@ -179,11 +183,15 @@ export function propertyCheck(seeds: readonly number[], flush = false): { points
           if (key(all) !== key(targets(s2, id).filter((t) => !t.free))) fail("refused-owns", `seed ${seed} drag ${id}: the refused zone ${e.id}:${z} moves other targets`);
         }
       }
-      // Preview = landing, once per docked target.
+      // Preview = landing, from every piece of a docked target's zone.
       for (const t of ts) {
         if (t.place.kind === "home" || t.place.kind === "none" || !t.slot) continue;
-        const landed = t.after({ x: t.hit.x + t.hit.width / 2, y: t.hit.y + t.hit.height / 2 }).layout.items[id]?.rect;
-        if (!landed || !same(landed, t.slot)) fail("slot-not-landing", `seed ${seed} ${id} ${t.id}`);
+        for (const h of zoneOfT(t)) {
+          const landed = t.after({ x: h.x + h.width / 2, y: h.y + h.height / 2 }).layout.items[id]?.rect;
+          if (!landed || !same(landed, t.slot)) fail("slot-not-landing", `seed ${seed} ${id} ${t.id}`);
+        }
+        // `hit` is the largest of the pieces.
+        if (t.hits && !t.hits.some((h) => same(h, t.hit) && t.hits!.every((o) => o.width * o.height <= h.width * h.height + 1e-9))) fail("slot-not-landing", `seed ${seed} ${id} ${t.id}: hit isn't its largest piece`);
       }
       // The virtual edges: points either side of each column line, and down the rail where it lies or would lie, map to
       // exactly one target or refusal: never to nothing (a hole the float fills) and never to two.
@@ -206,7 +214,7 @@ export function propertyCheck(seeds: readonly number[], flush = false): { points
         // The item's own rect is home's (the own-not-home category checks it).
         if (!inside(s.stage, pt) || (s.chrome ?? []).some((c) => inside(c, pt)) || (ownRect && inside(ownRect, pt)) || anyBody.some((b) => inside(b, pt))) continue;
         points++;
-        const hits = [...ts.filter((t) => inside(t.hit, pt)).map((t) => t.id), ...rs.filter((x) => inside(x.hit, pt)).map((x) => x.id)];
+        const hits = [...ts.filter((t) => inTarget(t, pt)).map((t) => t.id), ...rs.filter((x) => inside(x.hit, pt)).map((x) => x.id)];
         if (hits.length === 0) fail("virtual-hole", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}`);
         else if (hits.length > 1) fail("virtual-overlap", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}: ${hits.join(", ")}`);
       }
@@ -240,7 +248,7 @@ export function propertyCheck(seeds: readonly number[], flush = false): { points
           if (ownRect && !inside(ownRect, pt) && [...Object.values(base.items)].some((x) => x !== own && x.edge && x.edge !== e.id && inside(x.rect, pt))) continue;
           points++;
           const zone = extents.find((z) => along >= z.a - 1e-9 && along < z.b - 1e-9)?.zone ?? null;
-          const hitT = ts.filter((t) => inside(t.hit, pt));
+          const hitT = ts.filter((t) => inTarget(t, pt));
           const hitR = rs.filter((x) => inside(x.hit, pt));
           const mine = hitT.filter((t) => {
             const ez = edgeZoneOf(s, now, id, t);
@@ -390,10 +398,10 @@ describe("the target model's property check", () => {
     expect(lostSlots(s, "p")).toEqual([]);
   });
 
-  it("a slot keeps the larger rect of what clipping leaves it: a 30 px overlay column's outer px stay its gap's", () => {
+  it("clipping changes a slot's shape, never who owns it: what is left of a slot's tile is all its own (hits)", () => {
     // The group's own place (home, in the bottom bar from x 8) takes a corner of the overlay column's last gap tile; what
-    // is left is an L. The column owns its whole 30 px (drawn), so the gap keeps the full width above the bar; only the
-    // corner beside home is refused. The column line outside it owns nothing of the column's drawn rect.
+    // is left is an L. The column owns its whole 30 px (drawn), so the whole L stays the gap's: `hits` holds its pieces,
+    // `hit` the largest; nothing of it is refused. The column line outside it owns nothing of the column's drawn rect.
     const s: Scene = {
       stage: { x: 0, y: 0, width: 536, height: 869 },
       edges: [
@@ -413,9 +421,16 @@ describe("the target model's property check", () => {
     const home = l.items.g0!.rect;
     const ts = targets(s, "g0");
     const gap = ts.find((t) => t.id === "gap:left0:start:1")!;
-    expect([gap.hit.x, gap.hit.width, gap.hit.y + gap.hit.height]).toEqual([0, 30, home.y]);
-    const corner = refusals(s, "g0").filter((r) => r.edge === "left0");
-    expect(corner.map((r) => r.hit)).toEqual([{ x: 0, y: home.y, width: home.x, height: home.height }]);
+    const pieces = gap.hits ?? [gap.hit];
+    // The L: the column's 30 px from the gap's line down to the bar, and the 8 px corner beside home below it.
+    const areaOf = (rs: readonly R[]): number => rs.reduce((n, r) => n + r.width * r.height, 0);
+    expect(areaOf(pieces)).toBeCloseTo(30 * (home.y - gap.hit.y) + home.x * home.height, 6);
+    expect(pieces.some((p) => inside(p, { x: 4, y: home.y + 10 }))).toBe(true);
+    expect(pieces.some((p) => inside(p, { x: 4, y: 400 }) || inside(p, { x: 20, y: 400 }))).toBe(true);
+    expect(gap.hit).toEqual(pieces.reduce((a, p) => (p.width * p.height > a.width * a.height ? p : a)));
+    expect(refusals(s, "g0").filter((r) => r.edge === "left0")).toEqual([]);
+    // A host that reads one rect still finds the target there by `hits` (the pick rule tests every piece).
+    expect(pickTarget(ts, { x: 4, y: home.y + 10 })?.id).toBe("gap:left0:start:1");
     expect(lostSlots(s, "g0")).toEqual([]);
   });
 
@@ -440,7 +455,7 @@ describe("the target model's property check", () => {
     const gap = targets(s, "p4").find((t) => t.id === "gap:left-col:start:0")!;
     expect(gap.hit.x).toBe(46);
     for (const id of ["p4", "left-p"]) {
-      const hits = [...targets(s, id).filter((t) => !t.free).map((t) => t.hit), ...refusals(s, id).map((r) => r.hit)];
+      const hits = [...targets(s, id).filter((t) => !t.free).flatMap(zoneOfT), ...refusals(s, id).map((r) => r.hit)];
       // Up to the column line's reach (x 40 + 22); past it lies the content, the float's.
       for (let x = 39; x < 62; x += 2) expect(hits.filter((h) => inside(h, { x, y: 40 })).length, `${id} at ${x},40`).toBe(1);
     }

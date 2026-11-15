@@ -85,6 +85,8 @@ export interface Tile {
   readonly result?: SceneAfter;
   readonly reason?: SceneRefusal["reason"];
   readonly hit: Rect;
+  /** A slot's tile left in pieces by clipping: every piece (`hit` the largest). */
+  readonly hits?: readonly Rect[];
   /** The point the tile must keep through clipping (on its slot's line), or null for a refusal (its largest part). */
   readonly keep: Point | null;
   readonly marker?: Rect;
