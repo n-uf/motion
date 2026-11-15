@@ -195,10 +195,17 @@ function placeReach(t: Tile, pieces: readonly Rect[], placed: Tile[], landed: Re
   }
 }
 
+/** A refused tile, or the overreach of one. */
+const isRefused = (t: Tile): boolean => t.kind === "refuse" || (t.kind === "reach" && t.of!.kind === "refuse");
+
 /**
  * Filter (iii), clipping in precedence order: each tile clear of the ones before it, of the other edges' rects (with the
  * item lifted, and as they are now), of the fixed items that don't grow and of the chrome. Returns the tiles placed;
  * slots whose every part went are added to `lost`.
+ *
+ * A slot the filter removed owns nothing against other edges: every surviving tile is placed first, in precedence
+ * order, and the refused tiles (with their overreach and the clipped-off pieces of slots) then take what is left, in
+ * the same order. Within its own edge a refusal keeps its tile: an edge's tiles never overlap each other.
  */
 export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readonly Rect[], lost: string[]): Tile[] {
   const { owners, taken, bodies, solid } = own;
@@ -206,25 +213,27 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
   // A virtual edge's refused stretches (its refused slots, its slots' clipped-off pieces) come after every other tile:
   // they take only what no tile takes, never a real edge's room.
   const later: Tile[] = [];
+  // A real edge's refused stretches, placed once every surviving tile is.
+  const refused: Tile[] = tiles.filter(isRefused);
   // Where each owned part landed in `placed` (its overreach joins it there), and the slots whose owned part went whole.
   const landed = new Map<Tile, number[]>();
   const gone = new Set<Tile>();
-  for (const t of [...tiles].sort((a, b) => a.order - b.order)) {
+  const place = (t: Tile): void => {
     // Home's tile is the item's own place: nothing clips it.
     if (t.order === 0) {
       placed.push(t);
-      continue;
+      return;
     }
     const data = EDGE_KINDS[t.edgeKind];
     if (data.virtual && t.kind === "refuse") {
       later.push(t);
-      continue;
+      return;
     }
     if (t.kind === "reach") {
       // Overreach: what the virtual edges and every other edge's owned rect leave, joined to its owned part where it
       // meets that part along the part's whole length. The rest is nobody's (the float's).
       placeReach(t, clip(t.hit, [...placed.map((p) => p.hit), ...owners.filter((o) => o.key !== t.key).map((o) => o.rect), ...bodies(t.edge), ...solid, ...chrome]), placed, landed, gone);
-      continue;
+      return;
     }
     // An owned part: clear of the tiles before it, of the owners that win over its edge, its panel bodies, solid items
     // and chrome. A virtual edge's tile: clear of the tiles before it and of every owner.
@@ -232,12 +241,12 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
     const pieces = clip(t.hit, cuts);
     if (pieces.length === 0) {
       if (t.kind !== "refuse") gone.add(t);
-      continue;
+      return;
     }
     if (t.kind === "refuse") {
       landed.set(t, pieces.map((_, k) => placed.length + k));
       for (const p of pieces) placed.push({ ...t, hit: p });
-      continue;
+      return;
     }
     // A slot keeps the piece that holds its line (else its largest); its other pieces are refused for its zone, a virtual
     // edge's as a real one's, so clipping never leaves a hole the float fills.
@@ -249,8 +258,11 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
       landed.set(t, [placed.length]);
       placed.push({ ...t, hit: kept });
     }
-    for (const p of pieces) if (sliver || p !== kept) (data.virtual ? later : placed).push({ ...t, kind: "refuse", reason: "no-room", hit: p, keep: null });
-  }
+    for (const p of pieces) if (sliver || p !== kept) (data.virtual ? later : refused).push({ ...t, kind: "refuse", reason: "no-room", hit: p, keep: null });
+  };
+  const byOrder = (a: Tile, b: Tile): number => a.order - b.order;
+  for (const t of tiles.filter((x) => !isRefused(x)).sort(byOrder)) place(t);
+  for (const t of refused.sort(byOrder)) place(t);
   for (const t of gone) lost.push(t.id);
   for (const t of later) for (const p of clip(t.hit, [...placed.map((q) => q.hit), ...solid, ...chrome])) placed.push({ ...t, hit: p });
   return placed;

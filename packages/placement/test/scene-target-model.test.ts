@@ -14,8 +14,11 @@ type R = { x: number; y: number; width: number; height: number };
 const inside = (r: R, p: { x: number; y: number }): boolean => p.x >= r.x - 1e-9 && p.x < r.x + r.width - 1e-9 && p.y >= r.y - 1e-9 && p.y < r.y + r.height - 1e-9;
 const same = (a: R, b: R): boolean => Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01 && Math.abs(a.width - b.width) < 0.01 && Math.abs(a.height - b.height) < 0.01;
 
-/** A generated window: a top bar (plain or title), a bottom bar, each side one edge kind, maybe a side bar; floats of each kind. */
-export function modelScene(seed: number): Scene {
+/**
+ * A generated window: a top bar (plain or title), a bottom bar, each side one edge kind, maybe a side bar; floats of each
+ * kind. `flush`: no inset, rails on both sides, hand folds that ride, and a panel column inside every side bar.
+ */
+export function modelScene(seed: number, flush = false): Scene {
   const rnd = seeded(seed);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;
   const items: SceneItem[] = [];
@@ -60,13 +63,21 @@ export function modelScene(seed: number): Scene {
   const fp = p();
   const W = 700 + Math.floor(rnd() * 700);
   const H = 500 + Math.floor(rnd() * 300);
-  const inset = rnd() < 0.4 ? 12 : 0;
+  const inset = rnd() < 0.4 && !flush ? 12 : 0;
   // Every third window has rails: its side columns are dynamic and fold into their rail to keep the content's minimum.
-  const rails = seed % 3 === 0;
+  const rails = seed % 3 === 0 || flush;
+  if (flush) {
+    for (const side of ["left", "right"] as const) {
+      if (!edges.some((e) => e.id === `${side}-bar`)) continue;
+      items.push(panel(`${side}-p`, 1));
+      edges.push(column(`${side}-col`, side, 1, [`${side}-p`]));
+    }
+  }
   return {
     stage: { x: 0, y: 0, width: W, height: H },
     edges: rails ? edges.map((e) => (e.id.endsWith("-col") ? { ...e, column: true } : e)) : edges,
-    ...(rails ? { rails: { left: { width: 30, accepts: ["panel"] }, right: { width: 30, accepts: ["panel"] } }, contentMin: { width: W - 250, height: 200 } } : {}),
+    ...(rails ? { rails: { left: { width: 30, accepts: ["panel"] }, right: { width: 30, accepts: ["panel"] } }, contentMin: { width: flush ? 300 : W - 250, height: 200 } } : {}),
+    ...(flush ? { handFold: "ride" as const } : {}),
     items: byId(items),
     floats: [
       { id: fg, rect: { x: W / 2, y: H / 2, width: 200, height: 40 } },
@@ -80,7 +91,7 @@ export function modelScene(seed: number): Scene {
 }
 
 /** The categories a point can fail by. */
-type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order" | "lost-slot";
+type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order" | "lost-slot" | "refused-owns";
 
 /** The edge a target or refusal belongs to, and its zone (null: no zone). */
 function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edge: string | null; zone: Zone | null } {
@@ -97,8 +108,8 @@ function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edg
 }
 
 /** Runs the check over `seeds`; returns the failure counts per category and a few examples. */
-export function propertyCheck(seeds: readonly number[]): { points: number; counts: Record<Failure, number>; examples: string[] } {
-  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0 };
+export function propertyCheck(seeds: readonly number[], flush = false): { points: number; counts: Record<Failure, number>; examples: string[] } {
+  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0 };
   const examples: string[] = [];
   const fail = (k: Failure, msg: string): void => {
     counts[k]++;
@@ -106,7 +117,7 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
   };
   let points = 0;
   for (const seed of seeds) {
-    const s = modelScene(seed);
+    const s = modelScene(seed, flush);
     const now = solve(s);
     for (const id of Object.keys(s.items)) {
       const it = s.items[id]!;
@@ -134,6 +145,15 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
         const earlier = (x: typeof r): boolean => at(x)[0] < at(r)[0] || (at(x)[0] === at(r)[0] && at(x)[1] < at(r)[1]);
         const before = rs.filter((x) => x.edge === r.edge && x.zone === r.zone && earlier(x)).length;
         if (n !== before) fail("refusal-order", `seed ${seed} ${id} ${r.id} is number ${before} along its edge`);
+      }
+      // A refused place owns nothing against other edges: a side's rail that refuses every drop of the item (it offers
+      // no rail target) changes no other target. Without it (its rail not taking the kind) every other target is the same.
+      for (const side of ["left", "right"] as const) {
+        if (!s.rails?.[side]?.accepts.includes(it.kind) || !s.columns?.[side]?.accepts.includes(it.kind)) continue;
+        if (!rs.some((r) => r.edge === `rail:${side}`) || all.some((t) => t.id.startsWith(`rail:${side}:`))) continue;
+        const rails = { ...s.rails, [side]: { ...s.rails[side]!, accepts: s.rails[side]!.accepts.filter((k) => k !== it.kind) } };
+        const key = (list: readonly SceneTarget[]): string => JSON.stringify(list.map((t) => [t.id, t.hit]));
+        if (key(all) !== key(targets({ ...s, rails }, id).filter((t) => !t.free))) fail("refused-owns", `seed ${seed} drag ${id}: the refused rail:${side} moves other targets`);
       }
       // Preview = landing, once per docked target.
       for (const t of ts) {
@@ -234,7 +254,7 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
 const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
 
 /** No failure of any kind (before the one target model: 8159 holes, 4021 overlaps, 14849 other-zone, 2667 own-not-home). */
-const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0 };
+const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0 };
 
 /** Every edge renamed to an id with ":" in it: the same targets and refusals, under the renamed ids. */
 export function colonRenameDiffs(seeds: readonly number[]): string[] {
@@ -316,6 +336,43 @@ describe("the target model's property check", () => {
     expect(line?.hit.x).toBe(seam);
     expect(line?.hit.width).toBe(6);
     expect(lostSlots(s, "g")).toEqual([]);
+  });
+
+  it("a refused place owns nothing: flush beside a side bar, the outer column line keeps its target over the refused rail", () => {
+    // No inset; a side bar outside it, then a column; hand folds ride, so a drop into the empty rail (its place right
+    // after the bar) would ride over the column, not show in the rail: the filter refuses it.
+    const s: Scene = {
+      stage: { x: 0, y: 0, width: 1000, height: 500 },
+      edges: [{ id: "left-bar", side: "left", ring: 0, accepts: ["group"], items: ["g1"], cross: { min: 32, max: 32, rail: 32 }, outsideInset: true }, column("left-col", "left", 1, ["p1"], { column: true })],
+      items: byId([group("g1", 1), panel("p1", 3), panel("p", 2)]),
+      floats: [{ id: "p", rect: { x: 500, y: 100, width: 220, height: 200 } }],
+      floatKinds: ["group", "panel"],
+      columns: { left: { accepts: ["panel"], cross: { min: 160, max: 480, rail: 30 } } },
+      rails: { left: { width: 30, accepts: ["panel"] } },
+      handFold: "ride",
+      gutter: 8,
+    };
+    const l = solve(s);
+    const bar = l.edges["left-bar"]!.rect;
+    expect(l.railPlaces.left!.x).toBe(bar.x + bar.width);
+    const line = targets(s, "p").find((t) => t.id === "column:left:1");
+    // The new column just inside the bar is offered, its hit starting at the bar's inner side.
+    expect(line).toBeDefined();
+    expect(line!.hit.x).toBe(bar.x + bar.width);
+    expect(line!.hit.width).toBeGreaterThan(0);
+    // The rail's refusal takes only what the column line's and the column's targets leave.
+    const rail = refusals(s, "p").filter((r) => r.edge === "rail:left");
+    expect(rail.length).toBeGreaterThan(0);
+    for (const r of rail) expect(r.hit.x).toBeGreaterThanOrEqual(line!.hit.x + line!.hit.width);
+    expect(lostSlots(s, "p")).toEqual([]);
+  });
+
+  it("flush windows (no inset, a column inside each side bar, rails, riding folds) keep every category at zero", () => {
+    const r = propertyCheck(Array.from({ length: 60 }, (_, i) => i + 1), true);
+    // eslint-disable-next-line no-console
+    if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, counts: r.counts }), "\n" + r.examples.join("\n"));
+    expect(r.points).toBeGreaterThan(2000);
+    for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
   });
 
   it("an edge whose id holds ':' is an edge like any other (virtual edges are flagged, not named)", () => {

@@ -64,8 +64,10 @@ function ownersOf(c: Ctx, live: readonly EdgeSpec[]): Owner[] {
   return [
     // Home first: its tile is its own, for every edge but its own (which tiles it as its own interval).
     ...(homeRect && ownEdge ? [{ id: ownEdge, key: ownEdge, rect: homeRect, lay: { phase: -1, side: "", at: -Infinity }, place: false }] : []),
-    // Every edge the tiler reads: what it owns, drawn or a band of its place (a column line's band about its line).
-    ...live.map((s) => ({ id: s.id, key: s.key, rect: ownedRectOf(s), lay: s.lay, place: !s.drawn })).filter((o) => area(o.rect) > EPS),
+    // Every edge the tiler reads with a slot the filter keeps: what it owns, drawn or a band of its place (a column
+    // line's band about its line). An edge whose every slot is refused owns nothing against the others (its drawn
+    // rect still counts, below).
+    ...live.filter((s) => s.slots.some((x) => x.ok)).map((s) => ({ id: s.id, key: s.key, rect: ownedRectOf(s), lay: s.lay, place: !s.drawn })).filter((o) => area(o.rect) > EPS),
     // Every drawn rect, with the item lifted and as it is now (the item's own edge only lifted): the edges the tiler
     // doesn't read (folded, riding, taking nothing) and the ones that move when the item lifts.
     ...[...Object.entries(base.edges), ...Object.entries(now.edges).filter(([id]) => id !== ownEdge)]
