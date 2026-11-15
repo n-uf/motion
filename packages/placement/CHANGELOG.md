@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.21
+## Unreleased
 
 - `@n-uf/placement/scene`, **fixed:** `isOutsideSideBar` counts an edge as a side bar only when its side has a column
   template or a rail and the edge takes none of their kinds. On a side with neither, no edge is a bar, so a static
@@ -23,7 +23,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   the columns. A side bar used to land after the rail when the side folded into it; now it stays at the window edge and
   the rail lies inside it (the rail is the outermost *panel* edge). The kinds tell them apart, with no new option: a
   side bar takes something and nothing the side's columns take (`Scene.columns[side].accepts`), an anchor takes
-  nothing (**`isOutsideSideBar`**). With no rail shown, the `rail:` strip lies past the side's bars too.
+  nothing (**`isOutsideSideBar`**). With no rail shown, the `rail:` strip lies past the side's bars too. On a side with
+  no side bar the rail stays inside the inset, as before.
 
 - `@n-uf/placement/scene`, **floated group orient and size** (additive, one default changed): a new
   **`SceneItem.floatOrient`** (`"row" | "column"`) picks the forms a float of it uses when the float names no `orient`;
@@ -46,6 +47,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `moveTo` with a column or rail place, `dockHome`) goes no further out than just inside the static edges outer to the
   side's dynamic columns, so a bar or an anchor at the window edge is never pushed inward. Column and rail places count
   rings as the side's edges lie (by ring, then by order, no ties), and `homeFor` gives a start column's ring that way.
+
+## 26.11.21
 
 - `@n-uf/placement/stack` (and so every Scene edge), **Changed:** growing back under `previous` is exactly the reverse
   of giving way, the » menu included. A fit now carries its give-way history, **`StackFit.steps`** (`StackStep { id,
