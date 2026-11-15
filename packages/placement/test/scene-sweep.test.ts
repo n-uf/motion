@@ -269,7 +269,8 @@ describe("scene sweeps", () => {
       }
     }
     expect(strips).toBeGreaterThan(100);
-    // Side edges' middle and bottom thirds are among them.
-    for (const z of ["left:center", "left:end", "right:center", "right:end", "top:center", "bottom:end"]) expect(zonesSeen.has(z), z).toBe(true);
+    // Bars' middle and trailing thirds are among them; these scenes' side edges are panel columns, one zone each
+    // (Revision 9a: items fill them), so their strips are start strips.
+    for (const z of ["top:center", "top:end", "bottom:center", "bottom:end", "left:start", "right:start"]) expect(zonesSeen.has(z), z).toBe(true);
   });
 });

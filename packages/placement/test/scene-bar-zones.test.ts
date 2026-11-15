@@ -179,8 +179,8 @@ describe("a bar's zones by thirds", () => {
 });
 
 describe("local targets: home only over the item's own place, refusals where a zone takes nothing", () => {
-  const BAND = 12;
-  it("a home gap's hit lies within the item's own rect and half a band along its edge; refusals never overlap a target", () => {
+  it("a home slot's hit holds the item's own rect, and no other docked target lies over it; refusals never overlap a target", () => {
+    // Revision 9: home's tile is the own interval and the stretches beside it with no slot of their own (no ±12 band).
     for (let seed = 1; seed <= 200; seed++) {
       const s = barScene(seed);
       const l = solve(s);
@@ -191,7 +191,12 @@ describe("local targets: home only over the item's own place, refusals where a z
           if (t.place.kind !== "home" || !t.id.startsWith("gap:") || !mine) continue;
           const column = s.edges.find((e) => e.id === mine.edge)?.side === "left" || s.edges.find((e) => e.id === mine.edge)?.side === "right";
           const [a, b, h0, h1] = column ? [mine.rect.y, mine.rect.y + mine.rect.height, t.hit.y, t.hit.y + t.hit.height] : [mine.rect.x, mine.rect.x + mine.rect.width, t.hit.x, t.hit.x + t.hit.width];
-          if (h0 < a - BAND - 1e-6 || h1 > b + BAND + 1e-6) throw new Error(`seed ${seed} ${id} ${t.id}: home hit ${h0}..${h1} past its place ${a}..${b}`);
+          if (h0 > a + 1e-6 || h1 < b - 1e-6) throw new Error(`seed ${seed} ${id} ${t.id}: home hit ${h0}..${h1} misses its place ${a}..${b}`);
+          for (const o of ts) {
+            if (o.free || o.place.kind === "home" || o.place.kind === "none") continue;
+            const over = Math.min(o.hit.x + o.hit.width, mine.rect.x + mine.rect.width) - Math.max(o.hit.x, mine.rect.x) > 1e-6 && Math.min(o.hit.y + o.hit.height, mine.rect.y + mine.rect.height) - Math.max(o.hit.y, mine.rect.y) > 1e-6;
+            if (over) throw new Error(`seed ${seed} ${id}: ${o.id} lies over its own rect`);
+          }
         }
         const rs = refusals(s, id, { previous: l });
         for (const r of rs) {
@@ -234,30 +239,31 @@ describe("local targets: home only over the item's own place, refusals where a z
     const v = l.items.views!.rect;
     const ts = targets(s, "views", { previous: l });
     const at = (x: number) => ts.filter((t) => !t.free && t.hit.x <= x && x <= t.hit.x + t.hit.width && t.hit.y <= 16 && 16 <= t.hit.y + t.hit.height).sort((a, b) => a.priority - b.priority || a.hit.width * a.hit.height - b.hit.width * b.hit.height)[0];
-    // In the middle third, the center zone's slot, beside the pointer. In the trailing third, home only over its own place
-    // (and half a band): the stretch before it has no target at all (no gap of that zone there), never a far home preview.
+    // In the middle third, the center zone's slot, beside the pointer. In the trailing third, home only over its own place:
+    // the stretch before it has no slot of its own (Views is the zone's only item), so no target, never a far home preview.
     const third = 1200 / 3;
     for (let x = 600; x < 2 * third - 1; x += 10) {
       const t = at(x)!;
       expect(t.place.kind, `${x}`).toBe("gap");
       expect((t.place as { zone: string }).zone).toBe("center");
     }
-    for (let x = 2 * third + 1; x < v.x - BAND; x += 10) expect(at(x), `${x}`).toBeUndefined();
+    for (let x = 2 * third + 1; x < v.x; x += 10) expect(at(x), `${x}`).toBeUndefined();
+    // That stretch is refused instead ("no room here"), never handed to another zone's slot.
+    expect(refusals(s, "views", { previous: l }).some((r) => r.edge === "titlebar" && r.zone === "end" && r.hit.x <= 2 * third + 1)).toBe(true);
     expect(at(v.x + v.width / 2)!.place.kind).toBe("home");
   });
 
   it("a title bar too full: its zones are refused for lack of room, a panel's for the kind", () => {
     const s = put(windowScene(), "titlebar", ["tools", "zoom", "marks", "search"]);
-    const rs = refusals(s, "views");
-    expect(rs.filter((r) => r.edge === "titlebar").map((r) => [r.zone, r.reason])).toEqual([
-      ["start", "no-room"],
-      ["center", "no-room"],
-      ["end", "no-room"],
-    ]);
+    // Each refused slot is refused over its own tile (Revision 9): every zone of the bar is refused, for lack of room.
+    const rs = refusals(s, "views").filter((r) => r.edge === "titlebar");
+    expect([...new Set(rs.map((r) => r.zone))].sort()).toEqual(["center", "end", "start"]);
+    expect(rs.every((r) => r.reason === "no-room")).toBe(true);
+    expect(targets(s, "views").some((t) => t.place.kind === "gap" && (t.place as { edge: string }).edge === "titlebar")).toBe(false);
     expect(refusals(s, "notes").filter((r) => r.edge === "titlebar").every((r) => r.reason === "not-accepted")).toBe(true);
   });
 
-  it("home never removes a gap: one inside the item's stretch keeps 16 px at its own line, beside the item's centre", () => {
+  it("home never removes a gap: a gap beside the item's own place meets home's tile, never under it", () => {
     // Two trailing toolbars in the top bar: Zoom can still go before Tools, though that gap lies by Zoom's own place.
     const base = windowScene(1200, 700);
     const s: Scene = { ...base, items: { ...base.items, tools: { ...base.items.tools!, align: "end" } } };
@@ -265,17 +271,15 @@ describe("local targets: home only over the item's own place, refusals where a z
     const ts = targets(s, "zoom", { previous: l });
     const before = ts.find((t) => t.place.kind === "gap" && t.id.startsWith("gap:toolbar:end:0"));
     expect(before, "the gap before Tools").toBeDefined();
-    expect(before!.hit.width).toBeGreaterThanOrEqual(16 - 1e-6);
-    // A panel that fills its column above a toolbar: the empty center zone and the end zone keep their gaps, home still
-    // covers its centre.
+    expect(before!.hit.width).toBeGreaterThan(0);
+    // A panel that fills its column above a toolbar: the column's zones are the solver's spans (Revision 9a), so the end
+    // zone (the toolbar's) keeps its gaps; home still covers the panel's centre.
     const col: Scene = { stage: { x: 0, y: 0, width: 900, height: 600 }, edges: [column("c", "left", 0, ["p", "g"])], items: byId([panel("p", 1), group("g", 2, { align: "end" })]), floats: [], floatKinds: [] };
     const cl = solve(col);
     const ct = targets(col, "p", { previous: cl });
-    for (const zone of ["center", "end"]) {
-      const g = ct.find((t) => t.id.startsWith(`gap:c:${zone}:`));
-      expect(g, zone).toBeDefined();
-      expect(g!.hit.height).toBeGreaterThanOrEqual(16 - 1e-6);
-    }
+    const g = ct.find((t) => t.id.startsWith("gap:c:end:"));
+    expect(g, "end").toBeDefined();
+    expect(g!.hit.height).toBeGreaterThan(0);
     const p = cl.items.p!.rect;
     const home = ct.find((t) => t.place.kind === "home" && t.id.startsWith("gap:"))!;
     expect(home.hit.y <= p.y + p.height / 2 && p.y + p.height / 2 <= home.hit.y + home.hit.height).toBe(true);

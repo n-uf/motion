@@ -833,8 +833,9 @@ export const PRESETS: readonly Preset[] = [
           const bodies = items.filter(([, p]) => p.formKind === "open").map(([, p]) => p.rect);
           // A toolbar's drag in a panel column: only the tray, below the panels.
           const panelsEnd = e.zoneAccepts && !e.zoneAccepts.start?.includes(kind) ? Math.max(-Infinity, ...items.filter(([, p]) => p.kind === "panel").map(([, p]) => p.rect.y + p.rect.height)) : -Infinity;
-          // Its gaps, a gap at the item's own place (shown as home) included.
-          const mine = ts.filter((t) => t.id.startsWith(`gap:${e.id}:`) || t.id === `strip:${e.id}`);
+          // Its gaps and strips, a gap at the item's own place (shown as home) included, and its refusals ("No room
+          // here" is a defined place, not a dead one).
+          const mine = [...ts.filter((t) => t.id.startsWith(`gap:${e.id}:`) || t.id.startsWith(`strip:${e.id}:`) || t.id === `home:${id}`), ...c.refusals(id).filter((r) => r.edge === e.id)];
           const deadAt: string[] = [];
           let dead = 0;
           for (let x = l.rect.x + 4; x < l.rect.x + l.rect.width; x += 8)

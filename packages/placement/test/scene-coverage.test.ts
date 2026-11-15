@@ -3,7 +3,7 @@
  * a non-growing fixed item (window controls, a readout); only over a panel's body a gap is a band.
  */
 import { describe, expect, it } from "vitest";
-import { solve, targets, type Scene, type SceneTarget } from "../src/scene";
+import { refusals, reservedRect, solve, targets, type Scene, type SceneTarget } from "../src/scene";
 import { byId, column, group, panel, windowScene } from "./scene-fixture";
 
 const r = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
@@ -33,7 +33,7 @@ describe("gap hits tile short-item edges", () => {
     expect(gapsOf(ts, "rail").some((t) => inside(t.hit, { x: 40, y: 300 }))).toBe(true);
   });
 
-  it("the bars: every point along the toolbar and the title bar is some gap, except over the window controls", () => {
+  it("the bars: every point along the toolbar and the title bar is some gap, except over the reserved rects", () => {
     const s = windowScene();
     const l = solve(s);
     const ts = targets(s, "search");
@@ -42,8 +42,11 @@ describe("gap hits tile short-item edges", () => {
       return Array.from({ length: Math.floor(rr.width / 4) + 1 }, (_, i) => ({ x: rr.x + i * 4, y: rr.y + rr.height / 2 }));
     };
     expect(dead(ts, "toolbar", along("toolbar"))).toEqual([]);
-    const controls = l.items.controls!.rect;
-    const off = dead(ts, "titlebar", along("titlebar")).filter((p) => !inside(controls, p));
+    // The window controls and the title's natural rect (its text) are reserved, no drop place (Revision 9).
+    // Where Search fits nowhere in a zone, that stretch is a refusal: covered too, never dead.
+    const reserved = ["controls", "title"].map((id) => reservedRect(s, l, id));
+    const refused = refusals(s, "search").filter((x) => x.edge === "titlebar").map((x) => x.hit);
+    const off = dead(ts, "titlebar", along("titlebar")).filter((p) => !reserved.some((q) => inside(q, p)) && !refused.some((q) => inside(q, p)));
     expect(off).toEqual([]);
   });
 
