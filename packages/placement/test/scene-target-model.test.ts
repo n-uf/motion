@@ -265,16 +265,16 @@ describe("the target model's property check", () => {
     expect(solve(s).edges.left0!.rect.width).toBe(30);
     const ts = targets(s, "g");
     const hit = (id: string): R | undefined => ts.find((t) => t.id === id)?.hit;
-    // The lines, at 0 and 30, each up to COLUMN_REACH from its line. A line owns half the hit band about it, ranked
-    // where its new column would be laid: the outer line pushes the column (it owns 0..6 of it), the inner line is
-    // pushed by it (the column keeps 24..30).
-    expect(hit("column:left:0")).toEqual({ x: -22, y: 0, width: 28, height: 500 });
+    // The lines, at 0 and 30, ranked where their new column would be laid. The outer line lies at the window's edge: its
+    // band (the whole hit band) is laid inward from the edge, never past the stage, and it pushes the column (it owns
+    // 0..24 of it). The inner line, up to COLUMN_REACH from it, is pushed by the column (the column keeps 24..30).
+    expect(hit("column:left:0")).toEqual({ x: 0, y: 0, width: 24, height: 500 });
     expect(hit("column:left:1")).toEqual({ x: 30, y: 0, width: 22, height: 500 });
     // The column's gaps, inside the rest of its 30 px (their reach past it, where the wider column would be, is the
     // lines' first).
     const gaps = ts.filter((t) => t.id.startsWith("gap:left0:"));
     expect(gaps.map((t) => t.id).sort()).toEqual(["gap:left0:start:0", "gap:left0:start:1"]);
-    for (const t of gaps) expect([t.hit.x, t.hit.x + t.hit.width]).toEqual([6, 30]);
+    for (const t of gaps) expect([t.hit.x, t.hit.x + t.hit.width]).toEqual([24, 30]);
     expect(lostSlots(s, "g")).toEqual([]);
   });
 

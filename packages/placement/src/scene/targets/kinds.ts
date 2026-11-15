@@ -25,6 +25,8 @@ const RAIL_REACH = 24;
  *   column line rank among the sides (phase 2), where the rail or a new column would be laid; null for the edges
  *   `solve` lays (their phase is `layKeys`'s).
  * - `priority`: its targets' priority. `reach`: how far a slot's tile reaches each way from its line, px.
+ * - `edgePlace` (column lines): the band the outermost line owns where it can't be centred on its line, at the side's
+ *   outer boundary: laid inward, right after the rail stop's `RAIL_EDGE` px.
  * - `virtual`: an edge that owns nothing (the column lines). Its refused stretches take only what every other tile
  *   leaves.
  */
@@ -35,7 +37,7 @@ export const EDGE_KINDS = {
   barBetween: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 13, overreach: 33, priority: 2, reach: Infinity, virtual: false },
   rail: { zoneExtent: "thirds", opens: "any", inward: RAIL_REACH, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 14, overreach: 34, priority: 2, reach: Infinity, virtual: false },
   railStop: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: 2, layer: 9, overreach: 39, priority: 1, reach: Infinity, virtual: false },
-  columnLine: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: 2, layer: 21, overreach: 41, priority: 2, reach: COLUMN_REACH, virtual: true },
+  columnLine: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, edgePlace: DEFAULT_HIT_BAND, phase: 2, layer: 21, overreach: 41, priority: 2, reach: COLUMN_REACH, virtual: true },
 } as const satisfies Record<
   string,
   {
@@ -43,6 +45,7 @@ export const EDGE_KINDS = {
     readonly opens: "any" | "start";
     readonly inward: number;
     readonly place: number;
+    readonly edgePlace?: number;
     readonly layer: number;
     readonly phase: number | null;
     readonly overreach: number;

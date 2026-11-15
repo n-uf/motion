@@ -2,13 +2,13 @@
  * Generation, the virtual edges of a side: its column lines (a new column on each, along x) and its rail (docking
  * folded into it, along y), tiled as every edge is.
  */
-import { RAIL_EDGE, rect, type Rect } from "../../geometry";
+import { EPS, RAIL_EDGE, clamp, rect, type Rect } from "../../geometry";
 import { sideRings } from "../changes";
 import type { Edge } from "../model";
 import { slotAt } from "./edges";
 import { targetId, virtualEdgeId } from "./ids";
 import { EDGE_KINDS } from "./kinds";
-import type { Ctx, EdgeSpec, SceneAfter, Slot, Span } from "./model";
+import type { Ctx, EdgeSpec, SceneAfter, Span } from "./model";
 
 /**
  * The side's column lines as an edge (virtual, along x): a slot on each line for a new column there, tiled as every
@@ -42,27 +42,51 @@ export function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec[] {
     const el = me.edge ? r.layout.edges[me.edge] : undefined;
     return !!el && !me.inMenu && !el.folded && !el.rides && r.scene !== c.scene;
   };
-  const { reach, place } = EDGE_KINDS.columnLine;
+  const { reach, place, edgePlace } = EDGE_KINDS.columnLine;
+  // No column line's zone lies past the stage. The outermost line, with no drawn edge outside it, at the window's edge
+  // (a flush window) or where the rail stop lies (the side's outer boundary): its band can't be centred there, half of
+  // it past the stage or under the rail stop. It is laid inward instead, its zone running from the window's edge (an
+  // inset's strip included): the rail stop keeps `RAIL_EDGE` px at the boundary (where an undrawn rail would land), the
+  // line's band of `edgePlace` px follows it inward, and its tile reaches `reach` px on from the band's middle.
+  const stage = c.scene.stage;
+  const dir = side === "left" ? 1 : -1;
+  const outside = (x: number): boolean =>
+    Object.values(base.edges).some((e) => e.side === side && e.rect.width > 0 && e.rect.height > 0 && (side === "left" ? e.rect.x + e.rect.width <= x + EPS : e.rect.x >= x - EPS));
+  const railFirst = !!c.scene.rails?.[side]?.accepts.includes(c.kind) && !!base.railPlaces[side] && !(base.rails[side]?.segments.length ?? 0);
+  const placeOf = (l: { x: number }, i: number): { line: number; zone: Span; owned: Span } => {
+    const atEdge = side === "left" ? l.x <= stage.x + EPS : l.x >= stage.x + stage.width - EPS;
+    if (i > 0 || outside(l.x) || !(atEdge || railFirst)) return { line: l.x, zone: [l.x - reach, l.x + reach], owned: [l.x - place / 2, l.x + place / 2] };
+    const windowEdge = side === "left" ? stage.x : stage.x + stage.width;
+    const boundary = clamp(l.x, stage.x, stage.x + stage.width);
+    const band0 = boundary + dir * (railFirst ? RAIL_EDGE : 0);
+    const line = band0 + (dir * edgePlace) / 2;
+    const span2 = (a: number, b: number): Span => [Math.min(a, b), Math.max(a, b)];
+    return { line, zone: span2(windowEdge, line + dir * reach), owned: span2(band0, band0 + dir * edgePlace) };
+  };
   // One spec per line: a new column's place, owning a band of `place` px about its line (ranked where that column would
   // be laid), its slot's tile reaching `reach` each way past it as overreach.
-  return lines.map((l) => ({
-    id: virtualEdgeId("column", side),
-    key: targetId({ kind: "column", side, ring: l.ring }),
-    kind: "columnLine" as const,
-    lay: { phase: EDGE_KINDS.columnLine.phase, side, at: l.at },
-    vertical: false,
-    zones: [{ zone: "start" as const, a: l.x - reach, b: l.x + reach }],
-    slots: [slotAt(c, "start", l.x, targetId({ kind: "column", side, ring: l.ring }), { kind: "column", side, ring: l.ring }, lands)],
-    refuse: () => "no-room" as const,
-    own: null,
-    holds: false,
-    reserved: [],
-    across: (): Span => [span.y, span.y + span.height],
-    owned: [span.y, span.y + span.height] as Span,
-    ownedAlong: [l.x - place / 2, l.x + place / 2] as Span,
-    drawn: false,
-    marker: (s: Slot) => rect(s.line, span.y, 0, span.height),
-  }));
+  return lines.map((l, i) => {
+    const p = placeOf(l, i);
+    return {
+      id: virtualEdgeId("column", side),
+      key: targetId({ kind: "column", side, ring: l.ring }),
+      kind: "columnLine" as const,
+      lay: { phase: EDGE_KINDS.columnLine.phase, side, at: l.at },
+      vertical: false,
+      zones: [{ zone: "start" as const, a: Math.max(p.zone[0], stage.x), b: Math.min(p.zone[1], stage.x + stage.width) }],
+      slots: [slotAt(c, "start", p.line, targetId({ kind: "column", side, ring: l.ring }), { kind: "column", side, ring: l.ring }, lands)],
+      refuse: () => "no-room" as const,
+      own: null,
+      holds: false,
+      reserved: [],
+      across: (): Span => [span.y, span.y + span.height],
+      owned: [span.y, span.y + span.height] as Span,
+      ownedAlong: p.owned,
+      drawn: false,
+      // Where the new column's edge lands: the line itself, inside the stage.
+      marker: () => rect(clamp(l.x, stage.x, stage.x + stage.width), span.y, 0, span.height),
+    };
+  });
 }
 
 /**
