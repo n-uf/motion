@@ -54,6 +54,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
       rail's reach no longer covers the next column's rect.
     - Slots that are the same move (one line and one landing, or both putting the item back) are one slot, the lowest
       `at` keeping its id.
+    - An overlay column is drawn on top, and what shows on top wins: an empty rail's place under an overlay column
+      offers no `rail:` stop there, and a column line beside an overlay column yields to it.
 
   **Migration:** match refusals by `refuse:<edge>:<zone>` prefix and read `own-place` as "back to its place"; read
   `home:<id>` (unchanged, over the own rect) for "back to its place"; expect no target over a stretch beside a lone
