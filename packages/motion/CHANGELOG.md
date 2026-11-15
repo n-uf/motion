@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.19
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.19 (bar alignment zones, `setSide`, the
+  side parity options and `floatMin` in `./scene`).
+
 ## 26.11.18
 
 - No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.18 (`wrap` forms and `grip` in `./stack`;
