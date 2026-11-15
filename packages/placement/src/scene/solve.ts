@@ -591,7 +591,8 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     for (const side of ["left", "right"] as const) {
       // From the window's side inward: the side's bars outside the inset (toolbar bars, `isOutsideSideBar`), the side's
       // rail, the static column edges outside the inset (anchors), the inset, then the columns.
-      const outsideSideBar = (c: Col): boolean => isOutsideSideBar(scene, c.edge) && !g.railed(c) && !g.riding(c);
+      // Only while it lays out an item: an empty (or all closed) bar draws as nothing, so it changes no order either.
+      const outsideSideBar = (c: Col): boolean => c.width > 0 && isOutsideSideBar(scene, c.edge) && !g.railed(c) && !g.riding(c);
       const all = cols.filter((c) => c.side === side);
       const mine = [...all.filter(outsideSideBar), ...all.filter((c) => !outsideSideBar(c))];
       const railed = mine.filter((c) => g.railed(c));
