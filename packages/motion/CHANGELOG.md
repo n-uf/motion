@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.24
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.24 (`columnRoom` counts laid-out side
+  bars; `isSideBar` in `./scene`).
+
 ## 26.11.23
 
 - `./layout`, **`anchoredMorph(size, anchor, config?)`** (additive): a box held at a point that changes size about an
