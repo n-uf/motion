@@ -60,8 +60,10 @@ interface HeldForm {
   opacity: number;
 }
 
-/** A form's fade from fully hidden to fully shown, or back (linear, so no frame changes it by more than 16 / FADE_MS). */
-const FADE_MS = 120;
+/** A form's fade from fully hidden to fully shown, or back (linear: a frame changes it by `min(dt, FADE_DT_CAP) / FADE_MS`). */
+export const FADE_MS = 120;
+/** The most of one frame's time a fade steps by (ms): a long frame on a slow machine doesn't make it jump. */
+export const FADE_DT_CAP = 32;
 
 /** A form to draw the held copy in: its kind, its axis, its rows (a wrap form) and its measured size. */
 interface FormSpec {
@@ -460,7 +462,7 @@ export function createScene(o: SceneOptions) {
     d.last = now;
     place(d.el, d.morph.rectAt(d.pointer));
     const at = d.morph.anchor;
-    const by = dt / FADE_MS;
+    const by = Math.min(dt, FADE_DT_CAP) / FADE_MS;
     d.current.opacity = Math.min(1, d.current.opacity + by);
     for (const f of d.fading) f.opacity = Math.max(0, f.opacity - by);
     for (let i = d.fading.length - 1; i >= 0; i--) {
