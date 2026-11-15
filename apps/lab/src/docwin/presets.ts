@@ -771,6 +771,44 @@ export const PRESETS: readonly Preset[] = [
     },
   },
   {
+    id: "rail-thirds",
+    title: "An empty rail's thirds, then a second toolbar into each third",
+    expected:
+      "Review dropped by mouse in the top, middle and bottom third of the empty left rail lands at its start, center and end, the slot equal to the landing; the same on the empty right rail. Then, with Review in each of those places, Tools dropped by mouse in each third of that rail lands in that third's zone, the slot equal to the landing.",
+    setup: (c) => c.setScene(defaultScene()),
+    check(c) {
+      const bad: string[] = [];
+      const seen: string[] = [];
+      const zones = ["start", "center", "end"] as const;
+      for (const side of ["rail-left", "rail-right"] as const) {
+        c.setScene(defaultScene());
+        const rail = c.layout.edges[side]!.rect;
+        // Inside the rail's strip while it is empty, inside the rail once it shows.
+        const x = side === "rail-left" ? rail.x + 6 : rail.x + rail.width - 6;
+        const third = (k: number): Point => ({ x, y: rail.y + ((k + 0.5) * rail.height) / 3 });
+        const drop = (id: "review" | "tools", k: number, label: string): boolean => {
+          const r = mouseDrag(c, id, third(k));
+          const d = c.lastDrop;
+          const l = c.layout.items[id];
+          const ok = r.lifted && !!d && d.committed && l?.edge === side && l.zone === zones[k] && sameRect(d.preview, d.landed);
+          seen.push(`${label}: ${l?.edge ?? "-"} ${l?.zone ?? ""}`);
+          if (!ok) bad.push(`${label}: dropped on ${d?.target ?? "nothing"}, landed in ${l?.edge ?? "none"} ${l?.zone ?? ""}, slot ${d?.preview ? say(d.preview) : "none"} vs ${d?.landed ? say(d.landed) : "none"}`);
+          return ok;
+        };
+        for (let k = 0; k < 3; k++) {
+          c.setScene(defaultScene());
+          if (!drop("review", k, `${side}, Review in third ${k + 1}`)) continue;
+          const withReview = c.scene;
+          for (let k2 = 0; k2 < 3; k2++) {
+            c.setScene(withReview);
+            drop("tools", k2, `${side}, Review ${zones[k]}, Tools in third ${k2 + 1}`);
+          }
+        }
+      }
+      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
+  {
     id: "toolbar-into-title-bar",
     title: "A toolbar into the title bar: over the title, the middle, by the controls",
     expected:
