@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
+- `@n-uf/placement/scene`, give-way priority (additive): **`SceneItem.priority`** and **`Edge.priority`** (its items'
+  default). When an edge runs short its items step down their forms (row, wrap in a column, icons, then the edge's »
+  menu) lowest priority first, ties to the one used longest ago; it adds to every one of the item's forms' `rank`
+  (`./stack`), which is the mechanism. A kit reads each item's `form`, `formKind` and `inMenu`, and each edge's
+  `menu.items` in order: it draws, never decides. Without priorities nothing changes.
+
 - `@n-uf/placement/scene`, local targets (**Changed**): a target wins only where its own hit is. Home is offered only
   over the item's own place: a home gap's hit keeps the item's rect and half a band (`DEFAULT_HIT_BAND / 2`) each way
   along its edge, and the room it gives up goes to the gaps beside it on that edge, so the slot shown is at the pointer

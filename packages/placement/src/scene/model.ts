@@ -60,6 +60,14 @@ export interface SceneItem {
   readonly closed?: boolean;
   /** Its zone in its edge (default start). */
   readonly align?: Zone;
+  /**
+   * Its give-way priority in its edge (default: the edge's `priority`, else 0). When an edge runs short, items step down
+   * their forms (row, wrap in a column, icons, then the edge's » menu) lowest priority first, ties to the one used longest
+   * ago; room coming back brings them up in the exact reverse order, each to its remembered form. It adds to every one
+   * of its forms' `rank` (`./stack`), so a host may still rank single forms. Give the controls that must stay out of the
+   * menu the highest priority.
+   */
+  readonly priority?: number;
   /** Its size as a float: `floatAt` with no rect uses it, and a float drop sets it. */
   readonly floatSize?: Size;
   /**
@@ -140,6 +148,11 @@ export interface Edge {
    * into its side's rail, in give-way order with the columns (its items' ages). It is never deleted.
    */
   readonly giveWay?: boolean;
+  /**
+   * The default give-way priority of its items (`SceneItem.priority` wins; default 0): a title bar given a lower one has
+   * its toolbars step down before an item moved in from another bar would.
+   */
+  readonly priority?: number;
 }
 
 /** What a side's new columns are made from. */

@@ -113,7 +113,13 @@ function solveEdge(scene: Scene, edge: Edge, ids: readonly string[], length: num
   const axis = axisOf(edge.side);
   const column = axis === "column";
   const ordered = zoneSorted(scene, ids);
-  const formsById = (id: string): readonly StackForm[] => formsOf(scene.items[id]!, axis);
+  // An item's give-way priority (its own, else its edge's default) adds to its forms' `rank`: lower steps down first.
+  const priorityOf = (id: string): number => finite(scene.items[id]!.priority ?? edge.priority ?? 0, 0);
+  const formsById = (id: string): readonly StackForm[] => {
+    const forms = formsOf(scene.items[id]!, axis);
+    const p = priorityOf(id);
+    return p === 0 ? forms : forms.map((f) => ({ ...f, rank: finite(f.rank ?? 0, 0) + p }));
+  };
   // Never wider across than the room the cut leaves it.
   const maxOf = Number.isNaN(edge.cross.max) ? Infinity : edge.cross.max;
   const cross = { min: Math.min(px(edge.cross.min), room), max: Math.min(maxOf, room), rail: Math.min(px(edge.cross.rail ?? 30), room) };
