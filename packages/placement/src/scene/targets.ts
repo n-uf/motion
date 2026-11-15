@@ -25,8 +25,9 @@
  *   the slot covers no chrome or reserved rect). A slot (i) or (ii) removes is a refusal over its own tile, with that
  *   reason (`refusals()`). (iii) Clipping, in precedence order: home, the virtual edges, then the edges by layer (full
  *   bars, side edges, bars between), each tile cut clear of the tiles before it, of the other edges' rects, of every
- *   fixed item that doesn't grow and of the chrome, keeping the part that holds its slot's line. (iv) `blocked` rects
- *   are `none:<i>`.
+ *   fixed item that doesn't grow and of the chrome, keeping the part that holds its slot's line; its other parts are
+ *   refused, a virtual edge's as a real one's (a virtual edge's refused stretches take only what every other tile
+ *   leaves). (iv) `blocked` rects are `none:<i>`.
  *
  * Ids: `gap:<edge>:<zone>:<at>` (priority 2), `strip:<edge>:<zone>` (2), `column:<side>:<ring>` (2), `rail:<side>:<ring>`
  * (1), `none:<i>` (1), `float:<id>` (3, free). A slot that would put the item back where it is keeps its id with place
@@ -489,13 +490,14 @@ function columnTiles(c: Ctx, side: "left" | "right"): Tile[] {
     const result = c.settle(use(moveTo(scene, dragged, place), dragged));
     const me = result.layout.items[dragged];
     const el = me?.edge ? result.layout.edges[me.edge] : undefined;
-    if (!me || !el || me.inMenu || el.folded || el.rides || result.scene === scene) continue;
-    const home = c.isHome(result);
-    if (!home && !c.fits(result.layout)) continue;
     const hit = rect(line.x - COLUMN_REACH, span.y, 2 * COLUMN_REACH, span.height);
     const keep = { x: line.x, y: span.y + span.height / 2 };
     const id = `column:${side}:${line.ring}`;
-    out.push(home ? { edge: `column:${side}`, virtual: true, zone: "start", order: 1, kind: "home", id, priority: 2, place: { kind: "home" }, hit, keep } : { edge: `column:${side}`, virtual: true, zone: "start", order: 5, kind: "slot", id, priority: 2, place, result, hit, keep, marker: rect(line.x, span.y, 0, span.height), slot: me.rect });
+    const lands = !!me && !!el && !me.inMenu && !el.folded && !el.rides && result.scene !== scene;
+    const home = lands && c.isHome(result);
+    // A line whose new column wouldn't show open, or wouldn't fit, is refused over its own tile.
+    if (!home && (!lands || !c.fits(result.layout))) out.push({ edge: `column:${side}`, virtual: true, zone: "start", order: 5, kind: "refuse", id: "", priority: 2, reason: "no-room", hit, keep: null });
+    else out.push(home ? { edge: `column:${side}`, virtual: true, zone: "start", order: 1, kind: "home", id, priority: 2, place: { kind: "home" }, hit, keep } : { edge: `column:${side}`, virtual: true, zone: "start", order: 5, kind: "slot", id, priority: 2, place, result, hit, keep, marker: rect(line.x, span.y, 0, span.height), slot: me!.rect });
   }
   return out;
 }
@@ -539,13 +541,14 @@ function railTiles(c: Ctx, side: "left" | "right"): Tile[] {
     const place: RailPlace = { kind: "rail", side, ring: s.ring };
     const result = c.settle(use(moveTo(scene, dragged, place), dragged));
     const me = result.layout.items[dragged];
-    if (!me || me.rail !== side || result.scene === scene) return;
-    const home = ownRail || c.isHome(result);
-    if (!home && !c.fits(result.layout)) return;
     const hit = rect(zone.x, from, zone.width, to - from);
     const keep = { x: zone.x + zone.width / 2, y: Math.min(Math.max(s.y, from), to) };
     const id = `rail:${side}:${s.ring}`;
-    out.push(home ? { edge: `rail:${side}`, virtual: true, zone: "start", order: 1, kind: "home", id, priority: 1, place: { kind: "home" }, hit, keep } : { edge: `rail:${side}`, virtual: true, zone: "start", order: 4, kind: "slot", id, priority: 1, place, result, hit, keep, marker: rect(zone.x, me.rect.y, zone.width, 0), slot: me.rect });
+    const lands = !!me && me.rail === side && result.scene !== scene;
+    const home = ownRail || (lands && c.isHome(result));
+    // A stop where the item wouldn't fold into the rail, or wouldn't fit, is refused over its own tile.
+    if (!home && (!lands || !c.fits(result.layout))) out.push({ edge: `rail:${side}`, virtual: true, zone: "start", order: 4, kind: "refuse", id: "", priority: 1, reason: "no-room", hit, keep: null });
+    else out.push(home ? { edge: `rail:${side}`, virtual: true, zone: "start", order: 1, kind: "home", id, priority: 1, place: { kind: "home" }, hit, keep } : { edge: `rail:${side}`, virtual: true, zone: "start", order: 4, kind: "slot", id, priority: 1, place, result, hit, keep, marker: rect(zone.x, me.rect.y, zone.width, 0), slot: me.rect });
   });
   return out;
 }
@@ -649,10 +652,17 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
     return [...reserved, ...open].filter((b) => area(b) > EPS);
   };
   const placed: Tile[] = [];
+  // A virtual edge's refused stretches (its refused slots, its slots' clipped-off pieces) come after every other tile:
+  // they take only what no tile takes, never a real edge's room.
+  const later: Tile[] = [];
   for (const t of [...tiles].sort((a, b) => a.order - b.order)) {
     // Home's tile is the item's own place: nothing clips it.
     if (t.order === 0) {
       placed.push(t);
+      continue;
+    }
+    if (t.virtual && t.kind === "refuse") {
+      later.push(t);
       continue;
     }
     const realEdge = !t.virtual;
@@ -667,14 +677,20 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
       for (const p of pieces) placed.push({ ...t, hit: p });
       continue;
     }
-    // A slot keeps the piece that holds its line (else its largest); a real edge's other pieces are refused for its zone.
+    // A slot keeps the piece that holds its line (else its largest); its other pieces are refused for its zone, a virtual
+    // edge's as a real one's, so clipping never leaves a hole the float fills.
     const held = t.keep ? pieces.filter((p) => contains(p, t.keep!)) : [];
     const kept = (held.length > 0 ? held : pieces).reduce((a, p) => (area(p) > area(a) ? p : a));
     // No sliver: a slot left under 1 px along its edge is no target (its piece is refused).
     const side = rest.edges.find((e) => e.id === t.edge)?.side;
     const along = side === "left" || side === "right" ? kept.height : kept.width;
     placed.push(realEdge && along < 1 ? { ...t, kind: "refuse", reason: "no-room", hit: kept, keep: null } : { ...t, hit: kept });
-    if (realEdge) for (const p of pieces) if (p !== kept) placed.push({ ...t, kind: "refuse", reason: "no-room", hit: p, keep: null });
+    for (const p of pieces) if (p !== kept) (t.virtual ? later : placed).push({ ...t, kind: "refuse", reason: "no-room", hit: p, keep: null });
+  }
+  for (const t of later) {
+    let pieces: Rect[] = [t.hit];
+    for (const cut of [...placed.map((p) => p.hit), ...solid, ...chrome]) pieces = pieces.flatMap((p) => subtract(p, cut));
+    for (const p of pieces) placed.push({ ...t, hit: p });
   }
 
   const targets: SceneTarget[] = [];
