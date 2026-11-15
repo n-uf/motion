@@ -9,6 +9,25 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { close, dockHome, fold, homeFor, moveTo, open, readScene, solve, stops, storeScene, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
 import type { StackForm } from "../src/stack";
+import { byId, column as fixtureColumn, panel } from "./scene-fixture";
+
+/** One panel (least width 180) and a column template (160) on each side: floating, docked, docked with no rails. */
+function sheetScenes() {
+  const tpl = { accepts: ["panel"], cross: { min: 160, max: 480, rail: 30 } };
+  const base = (edges: Edge[], floats: Scene["floats"], rails = true): Scene => ({
+    stage: { x: 0, y: 0, width: 520, height: 600 },
+    edges,
+    items: byId([panel("p", 1)]),
+    floats,
+    floatKinds: ["panel"],
+    columns: { left: tpl, right: tpl },
+    ...(rails ? { rails: { left: { width: 30, accepts: ["panel"] }, right: { width: 30, accepts: ["panel"] } } } : {}),
+    contentMin: { width: 340, height: 200 },
+    gutter: 8,
+  });
+  const col: Edge = { ...fixtureColumn("left-0", "left", 0, ["p"]), column: true, accepts: ["panel"], cross: tpl.cross };
+  return { floating: base([], [{ id: "p", rect: { x: 10, y: 10, width: 200, height: 200 } }]), docked: base([col], []), noRails: base([col], [], false) };
+}
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = (name: string): Fixture => JSON.parse(readFileSync(join(here, "fixtures", name), "utf8")) as Fixture;
@@ -461,5 +480,17 @@ describe("a just-opened item under previous", () => {
     const fresh = solve(pressed, { previous: before, fresh: ["left-0", "right-0"] });
     expect(fresh.items.findings!.rail).toBe(solve(pressed).items.findings!.rail);
     expect(fresh.edges["left-0"]!.stack).toEqual(solve(pressed).edges["left-0"]!.stack);
+  });
+});
+
+describe("columnRoom, the sheet signal", () => {
+  it("gives the same answer floating and docked: the template's answer counts the least width its items need", () => {
+    const { floating, docked } = sheetScenes();
+    const a = solve(floating);
+    const b = solve(docked);
+    expect(a.columnRoom).toBe(b.columnRoom);
+    expect(a.columnRoom).toBe(false);
+    // 340 + the panel's least width 180 (over the template's 160) + 8.
+    expect(a.notes).toContainEqual({ code: "no-column-room", width: 520, need: 528 });
   });
 });

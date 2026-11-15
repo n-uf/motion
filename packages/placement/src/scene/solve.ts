@@ -536,9 +536,21 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
     const g = evaluate(auto);
     // Whether one panel column at its minimum fits beside the content's minimum: a host's narrow fallback (the sheet)
     // reads it. Anchors and rails don't count: every column, an anchor included, can fold into its rail.
-    // With no column edge yet (every panel floating), a side's column template says how narrow its column could be.
+    // With no column edge yet (every panel floating), a side's column template says how narrow its column could be: its
+    // `cross.min`, or more where the items it takes need more (their form's least width), as a column holding them would.
     const open = cols.filter((c) => c.dyn && c.edge.column === true).map((c) => c.min);
-    const templates = (["left", "right"] as const).flatMap((s) => (scene.columns?.[s] ? [px(scene.columns[s]!.cross.min)] : []));
+    const templates = (["left", "right"] as const).flatMap((s) => {
+      const t = scene.columns?.[s];
+      if (!t) return [];
+      const needs = Object.values(scene.items)
+        .filter((it) => !it.fixed && !it.closed && t.accepts.includes(it.kind))
+        .map((it) => {
+          const forms = formsOf(it, "column");
+          const f = forms[Math.min(Math.max(0, Math.floor(finite(it.from, 0))), Math.max(0, forms.length - 1))];
+          return f && formSetsCross(f) ? formCrossMin(f) : 0;
+        });
+      return [Math.max(px(t.cross.min), ...needs)];
+    });
     const colMins = open.length > 0 ? open : templates;
     if (cmin !== undefined && colMins.length > 0) {
       const need = cmin + Math.min(...colMins) + gutter;
