@@ -112,7 +112,8 @@ export function createScene(o: SceneOptions) {
     <div class="dw-slot" hidden><span class="dw-slot-label"></span></div>
     <div class="dw-marker" hidden></div>
     <div class="dw-refuse" hidden></div>
-    <div class="dw-refuse-label" hidden>No room here</div>`;
+    <div class="dw-refuse-label" hidden>No room here</div>
+    <div class="dw-menu-list" role="menu" hidden></div>`;
   const q = <T extends HTMLElement>(sel: string): T => win.querySelector(sel) as T;
   const layer = q<HTMLDivElement>(".dw-items");
   const scroll = q<HTMLDivElement>(".dw-scroll");
@@ -122,6 +123,7 @@ export function createScene(o: SceneOptions) {
   const marker = q<HTMLDivElement>(".dw-marker");
   const refuseTint = q<HTMLDivElement>(".dw-refuse");
   const refuseLabel = q<HTMLDivElement>(".dw-refuse-label");
+  const menuList = q<HTMLDivElement>(".dw-menu-list");
 
   const say = (t: string): void => {
     status.textContent = t;
@@ -560,6 +562,28 @@ export function createScene(o: SceneOptions) {
 
   win.addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
+    // An edge's » menu: the items it holds, in order; picking one acts as its control would (here, a stub).
+    const pick = t.closest<HTMLElement>("[data-menu-item]");
+    if (pick) {
+      menuList.hidden = true;
+      say(`${TITLES[pick.dataset.menuItem as ItemId]}, from the » menu: its controls would act here.`);
+      return;
+    }
+    const m = t.closest<HTMLElement>(".dw-menu[data-edge]");
+    if (m) {
+      const held = layout.edges[m.dataset.edge!]?.menu?.items ?? [];
+      const open = !menuList.hidden && menuList.dataset.edge === m.dataset.edge;
+      menuList.hidden = open;
+      if (open) return;
+      menuList.dataset.edge = m.dataset.edge!;
+      menuList.innerHTML = held.map((id) => `<button type="button" data-menu-item="${id}">${esc(TITLES[id as ItemId])}</button>`).join("");
+      const r = m.getBoundingClientRect();
+      const w = win.getBoundingClientRect();
+      menuList.style.left = px(Math.min(r.left - w.left, w.width - 160));
+      menuList.style.top = px(r.bottom - w.top + 4);
+      return;
+    }
+    if (!t.closest(".dw-menu-list")) menuList.hidden = true;
     const tg = t.closest<HTMLElement>("[data-toggle]");
     if (tg) return toggle(tg.dataset.toggle as ItemId);
     const x = t.closest<HTMLElement>("[data-close]");
