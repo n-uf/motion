@@ -340,14 +340,15 @@ describe("the options the rows need", () => {
   };
 
   it("a side bar outside the inset lies outermost, before the side's rail: folded into the rail, the rail lies inside the bar", () => {
-    // Body 700: the left stack folds into the rail. The bar at the window edge, the inset, then the rail.
+    // Body 700: the left stack folds into the rail. The bar at the window edge, the rail flush after it (the anchor in it),
+    // then the inset (12) and the content.
     const s = adapt(anchorLeft, 700, 800);
     const bare = solve(s);
     const l = solve(withSideBar(s, "left"));
     expect(bare.rails.left!.rect.x).toBe(12);
     expect(l.edges["bar:left"]!.rect).toEqual({ x: 0, y: 0, width: 28, height: 800 });
-    expect(l.rails.left!.rect.x).toBe(40);
-    expect(l.content.x).toBe(84);
+    expect(l.rails.left!.rect.x).toBe(28);
+    expect(l.content.x).toBe(72);
     // No rail shown: the rail's strip lies past the bar (here the right one, 1172..1200), never over it.
     const wide = withSideBar(adapt(anchorLeft, 1200, 800), "right");
     expect(solve(wide).edges["bar:right"]!.rect.x).toBe(1172);
