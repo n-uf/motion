@@ -16,6 +16,13 @@
  *   beside it at its side. It is cut clear of every fixed item that doesn't grow and of the chrome rects (a gap whose
  *   line lies inside one has no target); a growing fixed item (a title) is not cut out, so a pointer over it picks the
  *   nearest gap. `marker` is the insertion line after the drop, across the edge; `slot` the item's rect after the drop.
+ *   A horizontal bar (top or bottom, not compact) has a hit per zone by thirds: its left third is the leading (start)
+ *   zone's, the middle the center zone's, the right the trailing (end) zone's, each split among its own gaps (their
+ *   lines taken inside the third). A title bar (a bar with a fixed item that grows) is a constrained host: a gap there
+ *   is a target only when the item lands in its first form, nothing in the bar changes form for it, and the title keeps
+ *   its natural width.
+ * - `strip:<bar>:<zone>` (2): an empty horizontal bar that accepts the kind: its strip along the content in thirds, one
+ *   target per zone that takes the kind.
  * - `strip:<edge>` (2): an empty edge that accepts the kind (its start zone takes it): a strip `Edge.strip` px (default
  *   24) deep along its side, inside the content and clear of overlay edges, so never over a docked edge or a panel's
  *   body (a compact rail's strip alone stays at the window edge, its own place); a gap hit that spans it trims its ends,
@@ -43,8 +50,10 @@ import { rect, type Point, type Rect, type Size } from "../geometry";
 import type { Target } from "../targets/target";
 import { formMain } from "../stack/model";
 import { floatAt, lift, moveTo, use, type ColumnPlace, type RailPlace } from "./changes";
-import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_STRIP, axisOf, formsOf, zoneOf, zoneTakes, zonesTaking, type Edge, type Scene, type SceneLayout, type Zone } from "./model";
+import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_STRIP, ZONES, axisOf, formsOf, zoneOf, zoneTakes, zonesTaking, type Edge, type Scene, type SceneLayout, type Zone } from "./model";
 import { solve } from "./solve";
+
+const ZONE_ORDER: Record<Zone, number> = { start: 0, center: 1, end: 2 };
 
 export type ScenePlace =
   | { readonly kind: "gap"; readonly edge: string; readonly zone: Zone; readonly at: number }
@@ -458,6 +467,15 @@ function edgeTargets(scene: Scene, rest: Scene, now: SceneLayout, base: SceneLay
   const restEdge = rest.edges.find((e) => e.id === edge.id)!;
   const fixedIds = restEdge.items.filter((id) => rest.items[id]?.fixed && base.items[id]?.edge === edge.id);
   const tooWideBefore = new Set(base.notes.flatMap((n) => ("edge" in n && n.edge === edge.id && n.code === "too-wide" ? [n.id] : [])));
+  // A bar's leading, center and trailing zones are picked by thirds of the bar (Revision 8).
+  const thirds = !column && !edge.compact;
+  const natural = (id: string, form: number): number => {
+    const f = formsOf(scene.items[id]!, "row")[form];
+    return f ? formMain(f, "natural", el.cross) : 0;
+  };
+  // A title bar: a bar with a fixed item that grows (the title).
+  const titles = thirds ? fixedIds.filter((id) => !!formsOf(scene.items[id]!, "row")[base.items[id]!.form]?.main.grows) : [];
+  const titled = titles.length > 0;
 
   /** Whether a drop's layout leaves room for the item in this edge (C29). */
   const fits = (after: SceneLayout): boolean => {
@@ -472,6 +490,17 @@ function edgeTargets(scene: Scene, rest: Scene, now: SceneLayout, base: SceneLay
       const a = after.items[id];
       const b = base.items[id]!;
       if (!a || a.form !== b.form || a.formKind !== b.formKind || Math.abs(a.rect.x - b.rect.x) > 0.5 || Math.abs(a.rect.y - b.rect.y) > 0.5) return false;
+    }
+    if (titled) {
+      // A title bar is a constrained host: the toolbar fits in its first form, nothing there gives way for it, and the
+      // title keeps its natural width.
+      if (me.form !== 0) return false;
+      for (const id of restEdge.items) {
+        const a = after.items[id];
+        const b = base.items[id];
+        if (!a || !b || b.edge !== edge.id) continue;
+        if (titles.includes(id) ? a.rect.width < natural(id, a.form) - 0.5 : a.form !== b.form || !!a.inMenu !== !!b.inMenu) return false;
+      }
     }
     return !chrome.some((c) => overlaps(me.rect, c));
   };
@@ -540,6 +569,22 @@ function edgeTargets(scene: Scene, rest: Scene, now: SceneLayout, base: SceneLay
             ? rect(r.x, r.y, r.width, depth)
             : rect(r.x, r.y + r.height - depth, r.width, depth);
     const keep = { x: hit.x + hit.width / 2, y: hit.y + hit.height / 2 };
+    if (thirds) {
+      // An empty bar: its strip (along the content) in thirds, one target per zone that takes the kind.
+      const c = base.content;
+      const x0 = Math.max(hit.x, c.x);
+      const x1 = Math.min(hit.x + hit.width, c.x + c.width);
+      if (x1 - x0 <= EPS) return [];
+      const w = (x1 - x0) / 3;
+      const out: SceneTarget[] = [];
+      ZONES.forEach((zone, k) => {
+        if (!zoneTakes(edge, zone, scene.items[dragged]!.kind)) return;
+        const part = rect(x0 + k * w, hit.y, w, hit.height);
+        const t = target(`strip:${edge.id}:${zone}`, { kind: "gap", edge: edge.id, zone, at: 0 }, part, { x: part.x + part.width / 2, y: part.y + part.height / 2 });
+        if (t) out.push(t);
+      });
+      return out;
+    }
     // A kind never opens an edge on its own unless its start zone takes it: a group's drag gets no strip for an empty
     // panel column (whose tray is its end zone), only the compact rail's at the window edge.
     if (!zoneTakes(edge, "start", scene.items[dragged]!.kind)) return [];
@@ -581,11 +626,12 @@ function edgeTargets(scene: Scene, rest: Scene, now: SceneLayout, base: SceneLay
       gaps.push({ zone, at: k, line });
     }
   }
-  // Gaps on one line are one place to the pointer: the first (in zone order) takes it.
+  // Gaps on one line are one place to the pointer: the first (in zone order) takes it. In a bar each zone has its third,
+  // so only a zone's own gaps merge.
   const sorted = gaps
     .map((g, i) => ({ ...g, i }))
-    .sort((a, b) => a.line - b.line || a.i - b.i)
-    .filter((g, i, all) => i === 0 || Math.abs(g.line - all[i - 1]!.line) > EPS);
+    .sort((a, b) => (thirds ? ZONE_ORDER[a.zone] - ZONE_ORDER[b.zone] : 0) || a.line - b.line || a.i - b.i)
+    .filter((g, i, all) => i === 0 || (thirds && g.zone !== all[i - 1]!.zone) || Math.abs(g.line - all[i - 1]!.line) > EPS);
   const out: SceneTarget[] = [];
   // The gaps a drop may take: solved once each; the hits are split among these only, so a refused gap leaves no hole.
   const live = sorted
@@ -609,6 +655,19 @@ function edgeTargets(scene: Scene, rest: Scene, now: SceneLayout, base: SceneLay
   live.forEach((g, i) => {
     let from = i === 0 ? -Infinity : (live[i - 1]!.line + g.line) / 2;
     let to = i === live.length - 1 ? Infinity : (g.line + live[i + 1]!.line) / 2;
+    if (thirds) {
+      // A bar: the zone's third, split among the zone's own gaps; the outer thirds reach past the bar's ends.
+      const k = ZONE_ORDER[g.zone];
+      const prev = live[i - 1]?.zone === g.zone ? live[i - 1] : undefined;
+      const next = live[i + 1]?.zone === g.zone ? live[i + 1] : undefined;
+      // The nearest gap to the pointer, its line taken inside the third (a zone whose items run past its third still
+      // offers its last gap at the third's edge).
+      const lo = k === 0 ? -Infinity : main0 + (length * k) / 3;
+      const hi = k === 2 ? Infinity : main0 + (length * (k + 1)) / 3;
+      const inThird = (x: number): number => Math.min(Math.max(x, lo), hi);
+      from = Math.max(lo, prev ? (inThird(prev.line) + inThird(g.line)) / 2 : lo);
+      to = Math.min(hi, next ? (inThird(g.line) + inThird(next.line)) / 2 : hi);
+    }
     // Over a panel's body, only `band / 2` from its edge.
     for (const p of bodies) {
       if (p.b <= g.line + EPS && p.b > from) from = Math.max(from, p.b - band / 2);

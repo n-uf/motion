@@ -3,6 +3,22 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+- `@n-uf/placement/scene`, bar alignment zones (**Changed**):
+  - A horizontal bar's targets are picked by thirds: the left third is the leading (start) zone's, the middle the
+    center zone's, the right the trailing (end) zone's, the nearest of the zone's gaps within. An empty bar's strip is
+    three targets, `strip:<bar>:start`, `strip:<bar>:center` and `strip:<bar>:end` (was one `strip:<bar>`).
+  - A title bar (a bar with a fixed item that grows) is a constrained host: a toolbar there must land in its first
+    form, nothing in the bar may change form for it, and the title keeps its natural width (26.11.17 let it shrink to
+    its `min`); otherwise that zone has no target and no slot.
+  - In a title bar the zones are laid with the title at its natural width: a leading toolbar sits right after the
+    title's natural rect, trailing ones right before the end items, and a center one at the bar's true centre when that
+    is clear of both, else centred in the free span between them. The title takes the spare room only when nothing
+    follows it in its zone.
+  - Affected: bars' hits (a pointer in a bar's middle third now always offers the center zone), empty bars' strip ids,
+    and the layout of title bars with a toolbar after the title (the title no longer grows between them).
+
 ## 26.11.18
 
 - `@n-uf/placement/stack`: **`StackForm.wrap`** (`{ widths, row, gap?, lead? }`, a form of the new group kind `wrap`):
