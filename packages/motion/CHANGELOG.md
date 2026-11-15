@@ -7,6 +7,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 - **Removed:** `SurfacePointer` (deprecated in 26.11.25); use `GesturePointer`.
 
+- `./drag`, **`DragTarget.hits`** (additive, optional): a target's zone as several rects when it isn't one rect (`hit`
+  the largest). `targetAt` and the drag intent's bands test every piece, and a zone's size is the pieces' together.
+
 - `./gestures`, **`GesturePointer`**: the new name of the pointer the gesture stream reports. **Migration:** import
   `GesturePointer`.
 
