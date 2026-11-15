@@ -27,7 +27,8 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
   rule allows it. The geometry is `rect`, `overlap`, `clampInto`, `centre`, `EPS`, `PLANE`, `area`, `overlaps`,
   `contains`, `clamp` and `subtract` (a rect less another, as disjoint rects), with the hit sizes `COLUMN_REACH` (22 px,
   each way of a column line) and `RAIL_EDGE` (10 px). The `Target` type (a drop target's shape, as
-  `@n-uf/motion/drag` takes it) is exported here too; `./targets` and `./panels` still export it and the hit sizes.
+  `@n-uf/motion/drag` takes it) is exported here too, with its optional `hits` (every piece of a zone that isn't one
+  rect; `hit` is the largest); `./targets` and `./panels` still export it and the hit sizes.
 - **`/dock`**: a desk of documents and tool panels. Side docks and a bottom dock (between the side docks or across
   the full width), rails, natural-height sections whose last one takes the rest, fold and unfold, the give-way
   rules (sections fold least recently used first, docks fold to their rails), floating palettes with corner stacks,
@@ -922,7 +923,7 @@ none lays out as before.
   lie (by ring, then by order, no ties), and `homeFor` gives a start column's ring that way.
 
 **Floats** lie above the content in stage px, last on top. Each is moved inside the stage and clear of every docked
-item, every bar and every `chrome` rect (`fitFloat`), with `float-clamped`, `float-moved` or `float-covers` notes. With
+item, every bar and every `chrome` rect (`fitFloat`, which `./scene` exports with `FloatFit`), with `float-clamped`, `float-moved` or `float-covers` notes. With
 `anchor` (such as `"content-top-right"`) it sits flush with that side or corner of the content and follows it until a
 drop gives it a real rect. `orient` picks the forms it uses; folded by hand (`from` over 0) it is its
 bar: that form's natural length along its orient, its other size kept.
@@ -1027,6 +1028,18 @@ zone's.
     edge's owned rect.
   - An overlay column is drawn on top, and what shows on top wins: an empty rail's place under it offers no `rail:` stop
     there, and a column line beside it yields to it.
+  - A refused place owns nothing against other edges, zone by zone: an edge owns its band only along the zones with a
+    slot the filter keeps (home's place aside), and a refusal of a zone with none takes only what every surviving target's
+    tile and every other edge's owned rect leave (within its own edge a refusal keeps its tile). So a panel can always
+    become its own column beside the others: an empty rail that would refuse the drop doesn't hide the new-column target
+    just inside a side bar, and an empty top bar whose zone holds only the dragged item's place doesn't cover a column's
+    top band.
+  - An edge that only moves when the dragged item lifts (a side bar pushed inward by a rail that empties) owns where it
+    lies after the lift, where its tiles are, never its old place.
+  - Clipping changes a slot's shape, never who owns it: whatever is left of a slot's tile is the slot's. A target left in
+    pieces has **`hits`**, every piece (optional on `Target`), and `hit` is the largest piece, for hosts that read one
+    rect; `pickTarget` (`./scene/cases`) tests every piece, as `@n-uf/motion/drag` does. Nothing of a slot's own room is
+    refused.
 - **The column lines and the rail are edges like the others**, tiled by the same rule. A column line or rail stop whose
   drop wouldn't land or fit, and any piece clipping cuts off its tile, is refused (`refuse:column:<side>:start`,
   `refuse:rail:<side>:start`, `no-room`) rather than left to the float.
