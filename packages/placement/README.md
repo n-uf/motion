@@ -872,12 +872,15 @@ none lays out as before.
 
 - **`Edge.outsideInset`**: an anchor edge (a left or right edge that takes nothing, such as a thumbnail strip) lies
   outside `Scene.inset` and the gutter: at the window's side, with the inset after it toward the content, and inside its
-  side's rail when one shows. It runs into the inset above and below only where no reserved bar lies on that side.
+  side's rail when one shows. It runs into the inset above and below only where no reserved bar lies on that side. On a
+  full top or bottom bar it lies at the window's edge, full width, with the inset after it; the side edges then run
+  between such bars, and an anchor runs through the inset beside them. Without it nothing changes.
 - **`Edge.giveWay`**: a static left or right edge that gives way like a dynamic column. It shrinks toward its minimum,
   then folds whole into its side's rail, in give-way order with the columns (by its items' ages). It is never deleted.
 - **`Scene.insetWhen`** (`"always"`, the default, or `"docked"`): with `"docked"` the inset applies only while something is
-  docked beside the content, that is an open column or a rail (an edge that takes something and holds an item that isn't
-  closed). An anchor alone doesn't count; with nothing docked, the content is the whole stage.
+  docked beside the content, that is an open panel column or a rail showing panels (an item whose first column form is
+  `open`, `header` or `rail`, not closed). Only panels count: an anchor alone doesn't, and neither does a toolbar group
+  in a side bar. With nothing docked, the content is the whole stage.
 - **`layout.columnRoom`** and the note **`no-column-room`** (`{ width, need }`): with `contentMin` and a dynamic column,
   whether one column at its minimum fits beside the content's minimum. Anchors and rails don't count: every column, an
   anchor included, can fold into its rail. A docked column counts whether or not its side has a rail. Before any column
@@ -889,15 +892,30 @@ none lays out as before.
   host shows its narrow fallback (one panel over the content) while it is `false`. An exhaustive `switch` over
   `SceneNote["code"]` needs the new code.
 - **`handFold: "ride"`** rides every column folded by hand, not only a one-panel one: each member is a bar over the
-  side's first open panel column (never over an anchor), stacked in zone order. A side's rail is its outermost panel edge. From
-  the window's side inward a side lies: its toolbar bars with `outsideInset` (an edge that takes something, nothing
-  the side's columns take), the rail, its static column edges with `outsideInset` (anchors), the inset, the columns.
+  side's first open panel column (never over an anchor), stacked in zone order.
+- **The order of a side's outer edges.** A side's rail is its outermost *panel* edge. With a side bar, from the window's
+  edge inward a side lies: its toolbar bars with `outsideInset`, the rail, its static column edges with `outsideInset`
+  (anchors), then the inset, then the columns. The kinds tell them apart, with no new option: a side bar takes something
+  and nothing the side's columns take (`Scene.columns[side].accepts`), an anchor takes nothing; `isOutsideSideBar(scene,
+  edge)` says whether an edge is a side bar (only on a side that has a column template or a rail). On a side with no side
+  bar the rail stays inside the inset, as before. With no rail shown, the `rail:` strip lies past the side's bars too.
+- **Static edges keep their place.** A new column (a `column:` or `rail:` target, `moveTo` with a column or rail place,
+  `dockHome`) goes no further out than just inside the static edges that lie outer to the side's dynamic columns, so a
+  bar or an anchor at the window's edge is never pushed inward. Column and rail places count rings as the side's edges
+  lie (by ring, then by order, no ties), and `homeFor` gives a start column's ring that way.
 
 **Floats** lie above the content in stage px, last on top. Each is moved inside the stage and clear of every docked
 item, every bar and every `chrome` rect (`fitFloat`), with `float-clamped`, `float-moved` or `float-covers` notes. With
 `anchor` (such as `"content-top-right"`) it sits flush with that side or corner of the content and follows it until a
-drop gives it a real rect. `orient` picks the forms it uses (default `"column"`); folded by hand (`from` over 0) it is its
+drop gives it a real rect. `orient` picks the forms it uses; folded by hand (`from` over 0) it is its
 bar: that form's natural length along its orient, its other size kept.
+
+A float that names no `orient` takes its item's: **`SceneItem.floatOrient`** (`"row"` or `"column"`), else
+**`floatOrientOf(item)`**, the axis of the first form the item declares, so a toolbar group declared row first floats as
+a row. **`SceneTargetOptions.floatOrient`** overrides that for the drag's float target. With no `floatSize`, a float takes
+its first form's natural size along that orient (**`floatSizeOf(item, orient?)`**), not 280 × 360; a form that grows (a
+panel's card) keeps `DEFAULT_FLOAT_SIZE` (280 × 360), so panels float as before. Give a float `orient: "column"` (or the
+item `floatOrient: "column"`) to keep a row-first group vertical.
 
 The **float region** is [pad, W − pad] × the full height: the stage less `Scene.inset`'s left and right (its top and
 bottom don't cut it). A float is clamped into it, and one larger than it is shrunk to fit. **`SceneItem.floatMin`**
@@ -918,7 +936,7 @@ state still follows `previous` (only a column folded by give-way that holds the 
 reweigh a column fully, pass `fresh: [columnId]`. `fresh` (edge or item ids, on `solve` and `targets`) solves those
 edges without `previous`.
 
-**Targets.** `targets(scene, id, { previous, endReach, floatSize })` gives, in the `@n-uf/motion/drag` shape:
+**Targets.** `targets(scene, id, { previous, endReach, floatSize, floatOrient })` gives, in the `@n-uf/motion/drag` shape:
 
 - `gap:<edge>:<zone>:<at>` (priority 2) for every edge whose `accepts` lists the item's kind (deny by default), before
   each item of each zone and at each zone's end, so an empty center or end zone can be opened; only where the item
@@ -964,7 +982,9 @@ edges without `previous`.
 
 **Local targets.** A target wins only where its own hit is. Home's hit is the item's own rect and half a band
 (`DEFAULT_HIT_BAND / 2`, 12 px) each way along its edge, across the edge's full hit thickness, cut out of every other gap
-hit (and empty-edge strip) there, so home is offered only over the item's own place. The rest of its gaps' slices goes
+hit (and empty-edge strip) there, so home is offered only over the item's own place. Home never takes a strip away: an
+empty bar's or edge's strip over the dragged item's own place keeps min(16 px, its slice) at home's end, or beside the
+item's centre inside it, as a gap does, and home gives that slice up. The rest of its gaps' slices goes
 only to the gap beside it in the same zone; with none there, that stretch has no target (the pointer shows nothing, and a
 release goes home), never a "back to its place" preview far away and never a gap of another zone. Affected: the drag of
 an item in a bar whose zone held only its own gap (that zone's whole third used to preview home), and items whose own
