@@ -366,6 +366,15 @@ describe("the options the rows need", () => {
     expect(narrow).toMatchObject({ x: 12, width: 220 });
   });
 
+  it("only a folded float (its header form) keeps its height: a second open form shrinks to the region", () => {
+    const s = adapt(rows.scenes.floatingAtEdge!.scene, 300, 200);
+    const card = s.items.findings!.forms.column![0]!;
+    const twoOpen: Scene = { ...s, items: { ...s.items, findings: { ...s.items.findings!, from: 1, forms: { column: [card, { ...card, main: { min: 100, natural: 300, grows: true } }] } } } };
+    const second = solve(twoOpen).items.findings!;
+    expect(second).toMatchObject({ form: 1, formKind: "open" });
+    expect(second.rect.height).toBe(200);
+  });
+
   it("a panel's rail form shows only in a column drawn as a rail: an open column steps open → header, then is drawn as a rail", () => {
     const three = rows.scenes.heightSweepThreeInOne!.scene;
     for (let h = 900; h >= 120; h -= 7) {
