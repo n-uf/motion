@@ -5,7 +5,7 @@
  * and is expected to be red until the rule lands: the page never fakes it.
  */
 import { centre, contains, overlap, type Point, type Rect } from "@n-uf/placement";
-import { floatOrientOf, lift, moveTo, reservedRect, resize, solve, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
+import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, reservedRect, resize, solve, targetId, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { wrapCross } from "@n-uf/placement/stack";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, put, type EdgeId, type ItemId } from "./model";
 import { FADE_DT_CAP, FADE_MS, type DocwinScene } from "./scene";
@@ -34,6 +34,16 @@ export interface Preset {
 
 /** `p` in `r`, its edges included, exactly. */
 const inside = (r: Rect, p: Point): boolean => contains(r, p, 0);
+/** The edge a gap, strip or refusal id names (read with the Scene's `parseTargetId`), or undefined. */
+const idEdge = (id: string): string | undefined => {
+  const p = parseTargetId(id);
+  return p && "edge" in p ? p.edge : undefined;
+};
+/** Whether `id` is a gap or strip of edge `edge`. */
+const isSlotOf = (id: string, edge: string): boolean => {
+  const p = parseTargetId(id);
+  return (p?.kind === "gap" || p?.kind === "strip") && p.edge === edge;
+};
 const sameRect = (a: Rect | null | undefined, b: Rect | null | undefined, eps = 0.5): boolean =>
   !!a && !!b && Math.abs(a.x - b.x) <= eps && Math.abs(a.y - b.y) <= eps && Math.abs(a.width - b.width) <= eps && Math.abs(a.height - b.height) <= eps;
 const r0 = (n: number): number => Math.round(n);
@@ -654,13 +664,13 @@ export const PRESETS: readonly Preset[] = [
     setup: (c) => c.setScene(defaultScene()),
     check(c) {
       const ts = c.targets("views");
-      const strips = ["start", "center", "end"].map((z) => ts.find((t) => t.id === `strip:top:${z}`));
+      const strips = ZONES.map((zone) => ts.find((t) => t.id === targetId({ kind: "strip", edge: "top", zone })));
       if (strips.some((s) => !s)) return { pass: false, now: `No zone strips for the empty top bar: ${ts.map((t) => t.id).join(", ")}.` };
       const bad: string[] = [];
-      const gapTs = ts.filter((t) => t.id.startsWith("gap:"));
+      const gapTs = ts.filter((t) => parseTargetId(t.id)?.kind === "gap");
       for (const strip of strips) for (const g of gapTs) if (overlap(strip!.hit, g.hit) > 0) bad.push(`${strip!.id} covers ${g.id}`);
       for (const g of gapTs) if (!aim(c, "views", g)) bad.push(`${g.id} has no point of its own`);
-      if (!gapTs.some((g) => g.id.startsWith("gap:left:")) || !gapTs.some((g) => g.id.startsWith("gap:right:"))) bad.push("no gap in a column's tray");
+      if (!gapTs.some((g) => idEdge(g.id) === "left") || !gapTs.some((g) => idEdge(g.id) === "right")) bad.push("no gap in a column's tray");
       return { pass: bad.length === 0, now: `${strips.map((s) => `${s!.id} ${say(s!.hit)}`).join("; ")}; ${gapTs.map((g) => `${g.id} ${say(g.hit)}`).join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
     },
   },
@@ -671,10 +681,10 @@ export const PRESETS: readonly Preset[] = [
       "With every panel in the left column, the right side is empty. A group's drag there gets only the window-edge rail's strips, one per third (it becomes a 30 px icon rail, never a column with one toolbar); a panel's drag gets only the column's top third (its start zone). One edge per drag kind, never two side by side.",
     setup: (c) => c.setScene(sceneWith((s) => put(s, "left", ["pages", "notes", "findings"]))),
     check(c) {
-      const strips = (id: ItemId): string[] => c.targets(id).filter((t) => t.id.startsWith("strip:") && (t.place as { edge?: string }).edge?.includes("right")).map((t) => t.id);
+      const strips = (id: ItemId): string[] => c.targets(id).filter((t) => parseTargetId(t.id)?.kind === "strip" && !!idEdge(t.id)?.includes("right")).map((t) => t.id);
       const group = strips("views");
       const panel = strips("notes");
-      const ok = group.join() === "strip:rail-right:start,strip:rail-right:center,strip:rail-right:end" && panel.join() === "strip:right:start";
+      const ok = group.join() === ZONES.map((zone) => targetId({ kind: "strip", edge: "rail-right", zone })).join() && panel.join() === targetId({ kind: "strip", edge: "right", zone: "start" });
       return { pass: ok, now: `A group's strips at the right: ${group.join(", ") || "none"}; a panel's: ${panel.join(", ") || "none"}.` };
     },
   },
@@ -873,11 +883,11 @@ export const PRESETS: readonly Preset[] = [
           const panelsEnd = e.zoneAccepts && !e.zoneAccepts.start?.includes(kind) ? Math.max(-Infinity, ...items.filter(([, p]) => p.kind === "panel").map(([, p]) => p.rect.y + p.rect.height)) : -Infinity;
           // Its gaps and strips, a gap at the item's own place (shown as home) included, and its refusals ("No room
           // here" is a defined place, not a dead one).
-          const mine = [...ts.filter((t) => t.id.startsWith(`gap:${e.id}:`) || t.id.startsWith(`strip:${e.id}:`) || t.id === `home:${id}`), ...c.refusals(id).filter((r) => r.edge === e.id)];
+          const mine = [...ts.filter((t) => isSlotOf(t.id, e.id) || t.id === targetId({ kind: "home", item: id })), ...c.refusals(id).filter((r) => r.edge === e.id)];
           // An empty edge laid before this one owns a thin band (half the hit band) at its boundary, which may lie over
           // this edge (the empty top bar over a rail's top, an empty rail over a column's outer edge): its places there
           // are defined, not dead.
-          const emptyBands = [...ts.filter((t) => t.id.startsWith("strip:") && !t.id.startsWith(`strip:${e.id}:`)), ...c.refusals(id).filter((r) => r.edge !== e.id && !!held.edges[r.edge] && (held.edges[r.edge]!.rect.width <= 0 || held.edges[r.edge]!.rect.height <= 0))];
+          const emptyBands = [...ts.filter((t) => parseTargetId(t.id)?.kind === "strip" && idEdge(t.id) !== e.id), ...c.refusals(id).filter((r) => r.edge !== e.id && !!held.edges[r.edge] && (held.edges[r.edge]!.rect.width <= 0 || held.edges[r.edge]!.rect.height <= 0))];
           const deadAt: string[] = [];
           let dead = 0;
           for (let x = l.rect.x + 4; x < l.rect.x + l.rect.width; x += 8)
@@ -904,7 +914,7 @@ export const PRESETS: readonly Preset[] = [
     expected: "Dragging Views onto the left window edge's rail strip shows its slot; the drop lands exactly on it, as icons in the 30 px rail outside the left column. The preview is the landing.",
     setup: (c) => c.setScene(defaultScene()),
     check(c) {
-      const t = c.targets("views").find((x) => x.id === "strip:rail-left:start");
+      const t = c.targets("views").find((x) => x.id === targetId({ kind: "strip", edge: "rail-left", zone: "start" }));
       if (!t) return { pass: false, now: "No strip for the left rail." };
       const p = aim(c, "views", t);
       if (!p) return { pass: false, now: "The rail's strip has no point of its own." };
@@ -1747,7 +1757,7 @@ function barZoneDrop(c: DocwinScene, id: ItemId, edge: EdgeId, zone: "start" | "
   const bar = c.layout.edges[edge]!.rect;
   const k = zone === "start" ? 0 : zone === "center" ? 1 : 2;
   // An empty bar: its zone strip (thirds of its strip along the content); else the bar's third.
-  const strip = c.targets(id).find((t) => t.id === `strip:${edge}:${zone}`);
+  const strip = c.targets(id).find((t) => t.id === targetId({ kind: "strip", edge, zone }));
   const p = strip ? centre(strip.hit) : { x: bar.x + ((k + 0.5) * bar.width) / 3, y: bar.y + bar.height / 2 };
   const r = mouseDrag(c, id, p);
   const d = c.lastDrop;
