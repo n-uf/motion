@@ -2,8 +2,9 @@
  "_about": "Acceptance rows for placement 26.11.19: today's panels model (layoutPanels with the kits' rooms) against the Scene, window A and window B numbers, every window width 280..1279 px, height 800. 22 arrangements of the panels pages, annotations, findings, plus the generic thumbs anchor scenes and the sheet, padding and stored-width scenes. A row with no kind is a REGRESSION row: the Scene and today agree and must keep agreeing. kind target: the Scene differs today and the row holds TODAY'S result (what the kits draw), the value the library should reach; its gap names the gap (see _gaps). kind option: the library's own option, not a kit rule. A row with intended true holds the Scene's own result where it differs from today on purpose (a ruling: C9 vertical give-way, C27 float clearance), a regression row for the Scene, not a target; the anchorRailOrder and anchorGiveWayOrder scenes are rulings where today wins (target rows; fields anchorRect {x,y,w,h} and railX {side: x} added), the anchorRiderOverAnchor, pressWhileNarrow and resizeMemoryAfterJump scenes rulings where the Scene wins (intended rows; riderRects, press and history added: a row after a press or a resize history carries the Scene's previous layout, so it is history-dependent); the heightSweep scenes have heights (the panels' drawn heights, px) and forms rail (a panel in its rail form, a column of them is 32 wide). Format as window-a.json / window-b.json. extends window-a.json#three / window-b.json#three is that file's scenes.three; fields beside it replace (edges, floats) or merge per id (items). handFold is ride (the kits' rule; window-a's own three says bar) unless a scene says otherwise. items: closed = not open (keeps its place, takes no room), from 1 = folded by hand, kept = keeps open, thumbs = a fixed anchor edge item. floats rects are {x,y,w,h} in the window; the stage is the window (inset = pad). layout fields: columns / columnWidths (open columns per side, outer first, members top to bottom, width as drawn), rails (segments per side, outer first), rides (a bar riding over its side's first open column), forms (bar = folded in place), floats (rect; form bar when folded), contentWidth (the pages, exact), columnX (drawn x of the open columns, anchor scenes), sheetFallback. A scene's known names its KNOWN_DIFFS entries; variants named window-b carry window B rows only where it differs.",
  "_gaps": {
   "ride-for-stacks": "a column of two or more panels, all folded by hand, beside an open column rides over it (a bar each, as wide as that column, taking no width); the Scene sends it to the rail",
-  "float-clamp-region": "today clamps a float to the stage less the padding at both ends; the Scene to the whole window (window A: 24 px at the far edge)",
-  "float-shrink": "today makes a float no wider than a stage narrower than it; the Scene never resizes a float",
+  "float-clamp-region": "today clamps a float to [0, W − 2·pad] × [0, H] in the body's px; the Scene clamps to [pad, W − pad] × [0, H]; INTENDED: the Scene wins",
+  "float-bar-height": "a folded float's bar: the window-A rows hold h 30 (the Scene's bar form); today's kits draw 32 (their layout bar); INTENDED: the Scene's",
+  "float-shrink": "today makes a float no wider than a stage narrower than it; the Scene shrinks it to fit the stage less the inset (down to the item's floatMin)",
   "float-clear-decision": "today lets a float cover docked items and rail segments; the Scene moves it clear (host rule C27, operator): INTENDED, not a gap and not a target; the kits adapt, and the rows marked with it hold TODAY's result for reference only",
   "sheet-signal": "the narrow fallback (one panel over the pages) is not readable from layout.content, which stays above contentMin because rails are narrow: the library should say it",
   "inset-only-while-docked": "window A draws its stage padding only while something is beside the pages; the Scene insets always (contentWidth here is what is drawn)",
@@ -36,6 +37,40 @@
     "handFold": "ride"
    },
    "expect": [
+    {
+     "stage": {
+      "w": 1000,
+      "h": 800
+     },
+     "layout": {
+      "columns": {
+       "left": [
+        [
+         "pages",
+         "annotations"
+        ]
+       ],
+       "right": [
+        [
+         "findings"
+        ]
+       ]
+      },
+      "columnWidths": {
+       "left": [
+        300
+       ],
+       "right": [
+        300
+       ]
+      },
+      "rails": {
+       "left": [],
+       "right": []
+      },
+      "contentWidth": 352
+     }
+    },
     {
      "stage": {
       "w": 1120,
@@ -2428,14 +2463,14 @@
       "contentWidth": 364,
       "floats": {
        "findings": {
-        "x": 376,
+        "x": 388,
         "y": 60,
         "w": 300,
         "h": 300
        }
       }
      },
-     "kind": "target",
+     "intended": true,
      "gap": "float-clamp-region"
     },
     {
@@ -2462,14 +2497,14 @@
       "contentWidth": 332,
       "floats": {
        "findings": {
-        "x": 76,
+        "x": 88,
         "y": 60,
         "w": 300,
         "h": 300
        }
       }
      },
-     "kind": "target",
+     "intended": true,
      "gap": "float-clamp-region"
     },
     {
@@ -2496,14 +2531,14 @@
       "contentWidth": 232,
       "floats": {
        "findings": {
-        "x": 0,
-        "y": 60,
+        "x": 12,
+        "y": 84,
         "w": 276,
         "h": 300
        }
       }
      },
-     "kind": "target",
+     "intended": true,
      "gap": "float-shrink+float-clear-decision"
     }
    ],
@@ -2711,7 +2746,7 @@
       "contentWidth": 364,
       "floats": {
        "findings": {
-        "x": 376,
+        "x": 388,
         "y": 60,
         "w": 300,
         "h": 30,
@@ -2719,8 +2754,8 @@
        }
       }
      },
-     "kind": "target",
-     "gap": "float-clamp-region"
+     "intended": true,
+     "gap": "float-clamp-region+float-bar-height"
     },
     {
      "stage": {
@@ -2746,7 +2781,7 @@
       "contentWidth": 332,
       "floats": {
        "findings": {
-        "x": 76,
+        "x": 88,
         "y": 60,
         "w": 300,
         "h": 30,
@@ -2754,8 +2789,8 @@
        }
       }
      },
-     "kind": "target",
-     "gap": "float-clamp-region"
+     "intended": true,
+     "gap": "float-clamp-region+float-bar-height"
     },
     {
      "stage": {
@@ -3072,14 +3107,14 @@
       "contentWidth": 332,
       "floats": {
        "findings": {
-        "x": 76,
+        "x": 88,
         "y": 60,
         "w": 300,
         "h": 300
        }
       }
      },
-     "kind": "target",
+     "intended": true,
      "gap": "float-clamp-region"
     }
    ],
@@ -3253,14 +3288,14 @@
       "contentWidth": 784,
       "floats": {
        "findings": {
-        "x": 796,
+        "x": 808,
         "y": 500,
         "w": 300,
         "h": 300
        }
       }
      },
-     "kind": "target",
+     "intended": true,
      "gap": "float-clamp-region"
     },
     {
@@ -3291,14 +3326,14 @@
       "contentWidth": 364,
       "floats": {
        "findings": {
-        "x": 376,
+        "x": 388,
         "y": 500,
         "w": 300,
         "h": 300
        }
       }
      },
-     "kind": "target",
+     "intended": true,
      "gap": "float-clamp-region"
     },
     {
@@ -3325,15 +3360,15 @@
       "contentWidth": 232,
       "floats": {
        "findings": {
-        "x": 0,
+        "x": 12,
         "y": 500,
         "w": 276,
         "h": 300
        }
       }
      },
-     "kind": "target",
-     "gap": "float-shrink"
+     "intended": true,
+     "gap": "float-clamp-region"
     }
    ],
    "variants": [
@@ -3979,40 +4014,6 @@
      },
      "kind": "target",
      "gap": "inset-only-while-docked"
-    },
-    {
-     "stage": {
-      "w": 1000,
-      "h": 800
-     },
-     "layout": {
-      "columns": {
-       "left": [
-        [
-         "pages",
-         "annotations"
-        ]
-       ],
-       "right": [
-        [
-         "findings"
-        ]
-       ]
-      },
-      "columnWidths": {
-       "left": [
-        300
-       ],
-       "right": [
-        300
-       ]
-      },
-      "rails": {
-       "left": [],
-       "right": []
-      },
-      "contentWidth": 352
-     }
     }
    ]
   },
@@ -4656,7 +4657,7 @@
         12
        ],
        "right": [
-        1116,
+        1128,
         816
        ]
       }
@@ -4705,7 +4706,7 @@
         12
        ],
        "right": [
-        816,
+        828,
         576
        ]
       }
@@ -5536,7 +5537,7 @@
    ]
   },
   "anchorRailOrder": {
-   "_about": "RULING (placement 7b): TODAY WINS. The thumbnail rail on the right (generic id thumbs), a column folded into the rail beside it: today's compact rail is the OUTERMOST strip, at the window edge, and the thumbnails sit inside it (railX.right > anchorRect.x); the Scene put the anchor outermost and the rail inside it. Rows are today's result, the target. Window A, rails left [pages, annotations] and right [findings] with the anchor open.",
+   "_about": "RULING (placement 7b): TODAY WINS. The thumbnail rail on the right (generic id thumbs), a column folded into the rail beside it: today's compact rail is the OUTERMOST strip, at the window edge, and the thumbnails sit inside it (railX.right > anchorRect.x); the Scene put the anchor outermost and the rail inside it. Rows are today's result, the target. Window A, rails left [pages, annotations] and right [findings] with the anchor open. rail-order applies to every row with an anchor and a rail beside it; a target and an intended row differ only by the host options (outsideInset: anchor at the window's edge, full height, no gutter, vs. inside the inset).",
    "known": "anchor-rail-order",
    "scene": {
     "extends": "window-a.json#three",
@@ -5978,14 +5979,14 @@
         },
         "contentWidth": 404,
         "anchorRect": {
-         "x": 516,
+         "x": 472,
          "y": 12,
          "w": 72,
          "h": 776
         },
         "railX": {
          "left": 12,
-         "right": 472
+         "right": 556
         }
        },
        "intended": true,
