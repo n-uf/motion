@@ -18,6 +18,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   edge, which the item alone fills, means home there anyway, and what is left of a strip under 1 px has no target (the
   item alone in a bar, lifted, could leave the bar's center third 0.67 px wide). The `rail:` strip (while no rail
   shows) is cut clear of the item's own rect too. Across an item's own rect no point picks a target that moves it.
+  Affected: the outermost panel, when no rail shows, can no longer be dragged into its own side's rail (the strip lay
+  over its own place); folding it there stays a menu action, or use `fold`.
 
 - `@n-uf/placement/scene`, **fixed:** the order of a side's outer edges. From the window's side inward: the side's
   toolbar bars with `outsideInset`, the side's rail, its static column edges with `outsideInset` (anchors), the inset,
