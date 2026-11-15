@@ -128,3 +128,40 @@ describe("isOutsideSideBar", () => {
     expect(l.edges.pan!.rect.x).toBe(72);
   });
 });
+
+describe("an empty bar outside the inset draws as nothing", () => {
+  /** What the layout draws, less one edge (its rect may sit anywhere at size 0). */
+  const drawn = (s: Scene, skip: string) => {
+    const l = solve(s);
+    return { content: l.content, rails: l.rails, items: l.items, edges: Object.fromEntries(Object.entries(l.edges).filter(([id]) => id !== skip)) };
+  };
+  const without = (s: Scene, id: string): Scene => ({ ...s, edges: s.edges.filter((e) => e.id !== id) });
+
+  it("an empty or closed side bar gives the layout of no bar, at every width, folded and open, with and without an inset", () => {
+    for (const inset of [0, 12])
+      for (const fold of [false, true])
+        for (const anchor of [false, true])
+          for (let W = 500; W <= 1400; W += 100) {
+            const at = `inset ${inset} fold ${fold} anchor ${anchor} W ${W}`;
+            const s = scene({ sideBar: true, anchor, inset, fold, W });
+            const empty: Scene = { ...s, edges: s.edges.map((e) => (e.id === "sbar" ? { ...e, items: [] } : e)) };
+            const closed: Scene = { ...s, items: { ...s.items, g1: { ...s.items.g1!, closed: true } } };
+            const none = drawn(without(s, "sbar"), "sbar");
+            expect(drawn(empty, "sbar"), `empty, ${at}`).toEqual(none);
+            // A closed item is drawn nowhere: everything else as with no bar.
+            const c = drawn(closed, "sbar");
+            expect({ ...c, items: Object.fromEntries(Object.entries(c.items).filter(([id]) => id !== "g1")) }, `closed, ${at}`).toEqual(none);
+          }
+  });
+
+  it("an empty top bar outside the inset keeps nothing from the inset: the layout of no bar", () => {
+    for (const inset of [0, 12])
+      for (const fold of [false, true])
+        for (let W = 500; W <= 1400; W += 100) {
+          const at = `inset ${inset} fold ${fold} W ${W}`;
+          const s = scene({ sideBar: true, anchor: true, inset, fold, W });
+          const out: Scene = { ...s, edges: s.edges.map((e) => (e.id === "top" ? { ...e, items: [], outsideInset: true } : e)) };
+          expect(drawn(out, "top"), at).toEqual(drawn(without(s, "top"), "top"));
+        }
+  });
+});
