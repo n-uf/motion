@@ -80,6 +80,14 @@ export interface StackForm {
    * its rect; a `wrap` form's grip is its lead cell instead.
    */
   readonly grip?: number;
+  /**
+   * The control ids this form leaves out, against the item's first form: a compact variant of a toolbar (a row form
+   * between the full row and its wrap, smaller, its "+N" cell counted in its size) hides some controls a "+N" control
+   * reaches. Any form may set it (a wrap, icons or menu form too). The ladder reads it nowhere: a variant is a form like
+   * any other, taken in order, giving way and coming back by the usual rules. `./scene` reports the chosen form's ids as
+   * `hidden`.
+   */
+  readonly hides?: readonly string[];
 }
 
 const nonNeg = (x: number | undefined): number => (typeof x === "number" && Number.isFinite(x) ? Math.max(0, x) : 0);

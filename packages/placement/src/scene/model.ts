@@ -273,6 +273,11 @@ export interface SceneItemLayout {
   readonly rows?: readonly (readonly number[])[];
   /** Its grip: a `wrap` form's lead cell at the start of row one, or a form's `grip` strip (an icons strip's, on top). */
   readonly grip?: Rect;
+  /**
+   * The control ids the form it took leaves out (`StackForm.hides`), empty when it hides none or sits in a » menu: a host
+   * draws a "+N" control with them. `form` already names the variant.
+   */
+  readonly hidden: readonly string[];
 }
 
 /** An edge as laid out. */

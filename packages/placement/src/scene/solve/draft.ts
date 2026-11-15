@@ -178,9 +178,11 @@ export function emit(d: Draft, edge: Edge, r: Rect, solved: EdgeSolve, extra: Pa
     const it = scene.items[p.id]!;
     const inMenu = p.kind === "menu";
     const drawnRect = toStage(p.rect, inMenu ? undefined : p.id);
-    const shape = inMenu ? {} : shapeOf(formsOf(it, column ? "column" : "row")[p.form], drawnRect, column ? "column" : "row", stack.cross);
+    const f = formsOf(it, column ? "column" : "row")[p.form];
+    const shape = inMenu ? {} : shapeOf(f, drawnRect, column ? "column" : "row", stack.cross);
     items[p.id] = {
       ...shape,
+      hidden: inMenu ? [] : (f?.hides ?? []),
       rect: drawnRect,
       kind: it.kind,
       form: p.form,
