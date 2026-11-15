@@ -269,14 +269,37 @@ describe("the target model's property check", () => {
     expect(solve(s).edges.left0!.rect.width).toBe(30);
     const ts = targets(s, "g");
     const hit = (id: string): R | undefined => ts.find((t) => t.id === id)?.hit;
-    // The lines, at 0 and 30, each up to COLUMN_REACH from its line, outside the column.
-    expect(hit("column:left:0")).toEqual({ x: -22, y: 0, width: 22, height: 500 });
+    // The lines, at 0 and 30, each up to COLUMN_REACH from its line. A line owns half the hit band about it, ranked
+    // where its new column would be laid: the outer line pushes the column (it owns 0..6 of it), the inner line is
+    // pushed by it (the column keeps 24..30).
+    expect(hit("column:left:0")).toEqual({ x: -22, y: 0, width: 28, height: 500 });
     expect(hit("column:left:1")).toEqual({ x: 30, y: 0, width: 22, height: 500 });
-    // The column's gaps, inside its 30 px: it owns that rect (their reach past it, where the wider column would be, is
-    // the lines' first).
+    // The column's gaps, inside the rest of its 30 px (their reach past it, where the wider column would be, is the
+    // lines' first).
     const gaps = ts.filter((t) => t.id.startsWith("gap:left0:"));
     expect(gaps.map((t) => t.id).sort()).toEqual(["gap:left0:start:0", "gap:left0:start:1"]);
-    for (const t of gaps) expect([t.hit.x, t.hit.x + t.hit.width]).toEqual([0, 30]);
+    for (const t of gaps) expect([t.hit.x, t.hit.x + t.hit.width]).toEqual([6, 30]);
+    expect(lostSlots(s, "g")).toEqual([]);
+  });
+
+  it("a column line between two touching columns owns its band: the seam keeps a new-column target", () => {
+    // Two columns side by side with no gutter: the line between them at their seam.
+    const s: Scene = {
+      stage: { x: 0, y: 0, width: 1000, height: 500 },
+      edges: [column("left0", "left", 0, ["p1"], { column: true }), column("left1", "left", 1, ["p2"], { column: true })],
+      items: byId([panel("p1", 1), panel("p2", 2), group("g", 3)]),
+      floats: [{ id: "g", rect: { x: 700, y: 200, width: 200, height: 40 } }],
+      floatKinds: ["group", "panel"],
+      columns: { left: { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 } } },
+      gutter: 0,
+    };
+    const l = solve(s);
+    const seam = l.edges.left1!.rect.x;
+    expect(l.edges.left0!.rect.x + l.edges.left0!.rect.width).toBe(seam);
+    const line = targets(s, "g").find((t) => t.id === "column:left:1");
+    // Its band about the seam is the line's against the inner column it would push; the outer column keeps its side.
+    expect(line?.hit.x).toBe(seam);
+    expect(line?.hit.width).toBe(6);
     expect(lostSlots(s, "g")).toEqual([]);
   });
 

@@ -44,8 +44,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
       laid independently, a drawn rect wins over an empty edge's band.
     - A zone loses what an edge ranked before it owns, its panel bodies and its reserved rects before it is tiled; a
       zone left with no room offers no slot. Every slot that is offered keeps a hit.
-    - The column lines are virtual: they take only space no edge owns. A narrow column keeps its gaps inside its own
-      rect, and the lines take the space beside it.
+    - A column line is where a new column would appear, so it owns a place band like an empty edge: half the hit band
+      (12 px) in all, centred on its line, ranked where that new column would be laid (it wins over the inner column it
+      would push, not over the outer one). Past that band its tile takes only space no edge owns. Two columns that
+      touch keep the line at their seam; a narrow column keeps its gaps in the rest of its own rect.
     - Overreach, the part of a tile past what its edge owns (the depth a column will have after the drop, an empty
       strip past its band, a compact rail's inward reach), comes last: it yields to the column lines and to every other
       edge's owned rect, and it stays a tile's only where it meets the owned part along its whole length. A compact
