@@ -282,6 +282,21 @@ describe("the target model's property check", () => {
     expect(lostSlots(s, "g")).toEqual([]);
   });
 
+  it("a column line ranks among the sides: an empty full bar's band, laid before the sides, outranks it", () => {
+    const s: Scene = {
+      stage: { x: 0, y: 0, width: 800, height: 500 },
+      edges: [bar("top", "top", 0, []), column("left0", "left", 1, ["p1"], { column: true })],
+      items: byId([panel("p1", 1), group("g", 2)]),
+      floats: [{ id: "g", rect: { x: 500, y: 200, width: 200, height: 40 } }],
+      floatKinds: ["group", "panel"],
+      columns: { left: { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 } } },
+    };
+    const top = solve(s).edges.top!.rect;
+    const line = targets(s, "g").find((t) => t.id === "column:left:1")!;
+    // The bar owns half the hit band below its boundary; the line's tile starts under it.
+    expect(line.hit.y).toBe(top.y + 12);
+  });
+
   it("a column line between two touching columns owns its band: the seam keeps a new-column target", () => {
     // Two columns side by side with no gutter: the line between them at their seam.
     const s: Scene = {
