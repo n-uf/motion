@@ -440,6 +440,11 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   can't go in alone: the items stuck that way go in together, in give-way order, as few as shorten the stack (two
   icons, 48 px, for one entry, 28 px); each item after that saves its whole size. If all of them together don't beat
   the entry, they stay.
+- A growing fixed item (a title: `fixed`, with a form that `grows`) holds its natural length first. While the other
+  items can still step to a form of the kind they are in (a toolbar's compact variants, a row to a smaller row) or shrink
+  toward their least, they do so before the title gives up any of its natural length; then the title shrinks toward its
+  `main.min`, and after it come the steps that change a form's kind (icons, fold, the » menu), by rank, then age. Room
+  coming back is the exact reverse. `StackFit.need` is the forms' least with every growing fixed item at its minimum.
 - `StackForm.rank` (default 0) orders the steps: the lowest rank of the form an item would step into goes first, then
   unkept before kept, then the oldest, then the later in the stack. Give a pinned primary's last forms a higher rank
   and every other group gives way before it does.
@@ -826,7 +831,9 @@ takes no drop in that zone. The zones are then laid with the title at its natura
   separated from it by a stretch of title.
 
 **Fixed items** (a title, window controls, a page readout) never change form, are never reordered, never dragged, and
-no hit covers them. Their length shrinks toward `main.min` and grows with spare room when the form `grows`; window
+no hit covers them. Their length shrinks toward `main.min` and grows with spare room when the form `grows` (a title
+holds its natural length while the toolbars of its bar can still step to a compact variant or shrink, and shrinks before
+any step that changes a form's kind); window
 controls have `min` equal to `natural`. A stage too short for them overflows instead of folding them. A `kept` item with
 no smaller form never folds either: it reports `overflow` or `too-wide`.
 
