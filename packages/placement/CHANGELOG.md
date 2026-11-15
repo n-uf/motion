@@ -5,6 +5,26 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.24
 
+- `@n-uf/placement/scene`, **Changed: one target model** (Revision 9). `targets` and `refusals` come from one
+  generation: edge → zones → slots → tiles, then one ordered filter (accepts and zones, fit, clipping, `blocked`). Every
+  point of an edge that takes the dragged kind is one target or one refusal of its own zone (a property check over
+  generated windows: no hole, no overlap, no other zone, the item's own rect only home, every slot its landing).
+  `targets`, `after`, `refusals`, `stops`, `SceneTarget`, the ids and the priorities keep their shape. What changes:
+  - A zone's extent is where its items lie: the thirds of a bar, a compact rail or a side toolbar bar (compact bars and
+    rails too, now); the solver's spans where items fill the edge (a plain panel column is one zone, its whole length;
+    a tray column its panels' span and its tray's).
+  - Home's tile is the item's own interval: no ±12 px band, no 16 px kept per gap. A stretch with no slot of its own
+    (beside the item, in a zone it is alone in) is refused (`no-room`), never home's and never another zone's.
+  - A refused slot is refused over its own tile; a zone may have more than one refusal: `refuse:<edge>:<zone>`, then
+    `refuse:<edge>:<zone>:<n>`.
+  - A place that would move a fixed item of its edge (before a title, after the window controls) is no slot.
+  - With no rail shown, the `rail:` strip is `RAIL_EDGE` px of `SceneLayout.railPlaces` (where the rail lands).
+  - Column lines and the rail clip the edges' tiles; a compact rail's inward reach covers the other edges' rects
+    but never their tiles; a full bar's empty strip owns the corners.
+
+  **Migration:** match refusals by `refuse:<edge>:<zone>` prefix; read `home:<id>` (unchanged, over the own rect) for
+  "back to its place"; expect no target over a stretch beside a lone item, a refusal there instead.
+
 - `@n-uf/placement/scene`, **`SceneLayout.railPlaces`** (additive): where each side's rail lies, or would lie were one
   shown, for every side with a rail (`Scene.rails`): the shown rail's rect, else where a drop into the rail lands.
   `targets` reads it. Hosts draw `rails` (only shown rails, unchanged), never `railPlaces`.

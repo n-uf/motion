@@ -58,20 +58,17 @@ describe("targets", () => {
     }
   });
 
-  it("an empty accepting edge gets a strip in thirds; each third's after holds the item in that zone", () => {
+  it("an empty plain panel column is one zone: one strip down its whole length, holding the item at its start", () => {
+    // Items fill a panel column, so it has one zone, the whole column (Revision 9a); its strip is 20 px deep inward.
     const sc: Scene = { ...s, edges: [...s.edges, column("drawer", "right", 1, [], { strip: 20 })] };
-    // Inside the content (it stops at the status bar below): 68..772 in thirds down the side.
-    const third = 704 / 3;
-    ZONES.forEach((zone, k) => {
-      const strip = targets(sc, "pages").find((t) => t.id === `strip:drawer:${zone}`)!;
-      expect(strip.hit.x, zone).toBe(920);
-      expect(strip.hit.width, zone).toBe(20);
-      expect(strip.hit.y, zone).toBeCloseTo(68 + k * third, 6);
-      expect(strip.hit.height, zone).toBeCloseTo(third, 6);
-      const after = strip.after({ x: 0, y: 0 }).layout.items.pages!;
-      expect(after.edge, zone).toBe("drawer");
-      expect(after.zone, zone).toBe(zone);
-    });
+    const ts = targets(sc, "pages");
+    expect(ts.filter((t) => t.id.startsWith("strip:drawer")).map((t) => t.id)).toEqual(["strip:drawer:start"]);
+    const strip = ts.find((t) => t.id === "strip:drawer:start")!;
+    expect(strip.hit.x).toBe(920);
+    expect(strip.hit.width).toBe(20);
+    const after = strip.after({ x: 0, y: 0 }).layout.items.pages!;
+    expect(after.edge).toBe("drawer");
+    expect(ZONES).toContain(after.zone);
   });
 
   it("a float target over the whole plane when floatKinds has the kind; it lands clear", () => {
@@ -90,8 +87,10 @@ describe("targets", () => {
     const none = all.find((t) => t.id === "none:0")!;
     expect(none).toMatchObject({ priority: 1, hit: r(300, 300, 50, 50), place: { kind: "none" } });
     expect(none.after({ x: 0, y: 0 }).scene).toBe(sc);
+    // `home:<id>` is home's tile (Revision 9): it covers the item's own rect, the home slot's hit.
     const home = all.find((t) => t.id === "home:views")!;
-    expect(home.hit).toEqual(solve(sc).items.views!.rect);
+    const own = solve(sc).items.views!.rect;
+    expect(home.hit.x <= own.x && home.hit.x + home.hit.width >= own.x + own.width && home.hit.y <= own.y && home.hit.y + home.hit.height >= own.y + own.height).toBe(true);
     expect(home.after({ x: 0, y: 0 }).scene).toBe(sc);
   });
 

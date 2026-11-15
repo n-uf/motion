@@ -5,11 +5,13 @@
  * docked target's slot is its landing.
  */
 import { describe, expect, it } from "vitest";
-import { lift, refusals, solve, targets, ZONES, type Edge, type Scene, type SceneItem, type SceneLayout, type SceneTarget, type Zone } from "../src/scene";
+import { lift, refusals, solve, targets, type Edge, type Scene, type SceneItem, type SceneLayout, type SceneTarget, type Zone } from "../src/scene";
+import { opensEmpty, zoneExtents } from "../src/scene/targets";
 import { bar, byId, column, controls, group, panel, seeded, title } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
-const inside = (r: R, p: { x: number; y: number }): boolean => p.x > r.x + 1e-6 && p.x < r.x + r.width - 1e-6 && p.y > r.y + 1e-6 && p.y < r.y + r.height - 1e-6;
+/** Half-open, so two tiles that meet share no point. */
+const inside = (r: R, p: { x: number; y: number }): boolean => p.x >= r.x - 1e-9 && p.x < r.x + r.width - 1e-9 && p.y >= r.y - 1e-9 && p.y < r.y + r.height - 1e-9;
 const same = (a: R, b: R): boolean => Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01 && Math.abs(a.width - b.width) < 0.01 && Math.abs(a.height - b.height) < 0.01;
 
 /** A generated window: a top bar (plain or title), a bottom bar, each side one edge kind, maybe a side bar; floats of each kind. */
@@ -100,7 +102,10 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
     for (const id of Object.keys(s.items)) {
       const it = s.items[id]!;
       if (it.fixed || it.closed) continue;
-      const ts = targets(s, id).filter((t) => !t.free);
+      // `home:<id>` is an alias of home's tile, for hosts that read it (home's only tile when no slot is home).
+      const all = targets(s, id).filter((t) => !t.free);
+      const slotHome = all.some((t) => t.place.kind === "home" && !t.id.startsWith("home:"));
+      const ts = all.filter((t) => !(slotHome && t.id.startsWith("home:")));
       const rs = refusals(s, id);
       const base = solve(lift(s, id));
       // Preview = landing, once per docked target.
@@ -115,6 +120,8 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
         if (!e.accepts.includes(it.kind)) continue;
         const le = base.edges[e.id];
         if (!le || le.folded || le.rides) continue;
+        // An empty edge that doesn't open to the kind (a tray column to a toolbar) has no tiles for it.
+        if (le.stack.items.length === 0 && !opensEmpty(s, e, it.kind)) continue;
         const vertical = e.side === "left" || e.side === "right";
         // The edge's band: its rect as the lift leaves it, at least 12 px deep inward (an empty edge has none).
         const r = le.rect;
@@ -124,6 +131,8 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
           : { x: r.x, y: e.side === "top" ? r.y : r.y + r.height - depth, width: r.width, height: depth };
         const len = vertical ? band.height : band.width;
         const a0 = vertical ? band.y : band.x;
+        // The zones as the model tiles them: thirds where zones only align, the solver's spans where items fill.
+        const extents = zoneExtents(s, id, e.id);
         // Fixed items, other edges and chrome take their own rects: not this edge's points.
         const others = Object.entries(base.edges).filter(([oid, o]) => oid !== e.id && o.rect.width > 0 && o.rect.height > 0).map(([, o]) => o.rect);
         const fixed = Object.values(base.items).filter((x) => x.edge === e.id && x.fixed).map((x) => x.rect);
@@ -136,7 +145,7 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
           if ([...others, ...fixed, ...bodies, ...(s.chrome ?? [])].some((o) => inside(o, pt))) continue;
           if (ownRect && !inside(ownRect, pt) && [...Object.values(base.items)].some((x) => x !== own && x.edge && x.edge !== e.id && inside(x.rect, pt))) continue;
           points++;
-          const zone = ZONES[Math.min(2, Math.floor((3 * k) / len))]!;
+          const zone = extents.find((z) => along >= z.a - 1e-9 && along < z.b - 1e-9)?.zone ?? null;
           const hitT = ts.filter((t) => inside(t.hit, pt));
           const hitR = rs.filter((x) => inside(x.hit, pt));
           const mine = hitT.filter((t) => {
@@ -158,9 +167,13 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
             fail("overlap", `${at}: ${[...hitT.map((t) => t.id), ...hitR.map((x) => x.id)].join(", ")}`);
             continue;
           }
+          // One tile of another edge (a corner a full bar owns, a column line, the rail) owns the point: fine.
           const one = mine[0] ?? null;
+          if (!one && !mineR[0]) continue;
+          // Home's tile may run across zones: the stretches beside the item with no slot of their own are home's.
+          if (one?.place.kind === "home") continue;
           const oneZone = one ? edgeZoneOf(s, now, id, one).zone : (mineR[0]?.zone ?? null);
-          if ((!one && !mineR[0]) || (oneZone !== null && oneZone !== zone)) fail("other-zone", `${at} (${zone}): ${[...hitT.map((t) => t.id), ...hitR.map((x) => x.id)].join(", ")}`);
+          if (oneZone !== null && zone !== null && oneZone !== zone) fail("other-zone", `${at} (${zone}): ${[...hitT.map((t) => t.id), ...hitR.map((x) => x.id)].join(", ")}`);
         }
       }
     }

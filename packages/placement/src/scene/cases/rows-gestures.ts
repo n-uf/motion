@@ -92,10 +92,10 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P5-gap-beside-it",
     title: "The gap beside it is its own place",
-    expect: "The gap just below Annotations in its own column is its own place: a release there changes nothing.",
+    expect: "The gap just below Annotations in its own column is its own place (home's tile, over Annotations itself): a release there changes nothing.",
     group: "gestures",
     scene: win(),
-    gestures: [g.press("annotations"), g.to(g.gap("left-0", 1)), g.release()],
+    gestures: [g.press("annotations"), g.to(g.home), g.release()],
     expectLayout: { items: { pages: { rect: r(12, 0, 300, 394) }, annotations: { rect: r(12, 406, 300, 394) }, findings: { rect: r(808, 0, 300, 800) } }, columns: { left: [["pages", "annotations"]], right: [["findings"]] } },
   },
   {
