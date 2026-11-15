@@ -134,22 +134,23 @@ export const RULE_ROWS: readonly CaseRow[] = [
   {
     id: "C29",
     title: "A bar's reserved room",
-    expect: "A slot in the title bar opens beside the title and controls, never over them: the controls keep their place and size, and the title gives up room, not its own start.",
+    expect:
+      "A slot in the title bar opens beside the title and controls, never over them: the controls keep their place and size, and the title keeps its start and its natural width. A leading toolbar sits right after the title's natural rect.",
     group: "kinds",
     scene: doc(),
     gestures: [g.press("tools"), g.to(g.gap("titlebar", 1)), g.hold(), g.release()],
-    checkpoints: [{ at: 2, layout: { items: { title: { rect: r(0, 0, 916, 32) }, tools: { edge: "titlebar", rect: r(916, 0, 200, 32) }, controls: { rect: r(1116, 0, 84, 32) } }, order: { titlebar: ["title", "tools", "controls"] } }, note: "the slot, beside the title" }],
-    expectLayout: { items: { title: { rect: r(0, 0, 916, 32) }, tools: { edge: "titlebar", rect: r(916, 0, 200, 32) }, controls: { rect: r(1116, 0, 84, 32) } }, order: { titlebar: ["title", "tools", "controls"] } },
+    checkpoints: [{ at: 2, layout: { items: { title: { rect: r(0, 0, 160, 32) }, tools: { edge: "titlebar", rect: r(160, 0, 200, 32) }, controls: { rect: r(1116, 0, 84, 32) } }, order: { titlebar: ["title", "tools", "controls"] } }, note: "the slot, right after the title" }],
+    expectLayout: { items: { title: { rect: r(0, 0, 160, 32) }, tools: { edge: "titlebar", rect: r(160, 0, 200, 32) }, controls: { rect: r(1116, 0, 84, 32) } }, order: { titlebar: ["title", "tools", "controls"] } },
   },
   {
     id: "C29b",
     title: "Over the title, the gap just after it",
     expect:
-      "Held over the title's text, a group is offered the nearest gap, just after the title (a bar's gap hits tile its whole length, a growing title included); the slot never covers the title's reserved text: the title gives up room, the controls keep theirs.",
+      "Held over the title's text (the bar's leading third), a group is offered the leading zone's gap, just after the title; the slot never covers the title's natural rect: the title keeps its natural width, the controls keep theirs.",
     group: "kinds",
     scene: panelsOnly(),
     gestures: [g.press("tools"), g.at(80, 16), g.hold()],
-    expectLayout: { items: { tools: { edge: "titlebar", rect: r(916, 0, 200, 32) }, title: { rect: r(0, 0, 916, 32) }, controls: { rect: r(1116, 0, 84, 32) } }, order: { titlebar: ["title", "tools", "controls"] } },
+    expectLayout: { items: { tools: { edge: "titlebar", rect: r(160, 0, 200, 32) }, title: { rect: r(0, 0, 160, 32) }, controls: { rect: r(1116, 0, 84, 32) } }, order: { titlebar: ["title", "tools", "controls"] } },
     expectDom: [{ select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:titlebar:start:1" }, note: "the slot just after the title" }],
   },
 
