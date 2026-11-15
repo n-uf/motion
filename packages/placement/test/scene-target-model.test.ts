@@ -36,18 +36,24 @@ export function modelScene(seed: number): Scene {
     return id;
   };
   const some = (make: () => string, max: number): string[] => (rnd() < 0.35 ? [] : Array.from({ length: 1 + Math.floor(rnd() * max) }, make));
+  // Every fifth group made for an edge is closed: a member that draws nothing but still bounds its gaps.
+  const gEdge = (): string => {
+    const id = g();
+    if (n % 5 === 3) items[items.length - 1] = { ...items[items.length - 1]!, closed: true };
+    return id;
+  };
   // Top: a title bar (title, groups, controls) or a plain bar; bottom: a bar.
   if (rnd() < 0.5) {
     items.push(title(), controls());
-    edges.push({ id: "titlebar", side: "top", ring: 0, accepts: ["group"], items: ["title", ...some(g, 2), "controls"], cross: { min: 32, max: 32, rail: 32 } });
-  } else edges.push(bar("top", "top", 0, some(g, 3)));
-  if (rnd() < 0.7) edges.push(bar("bottom", "bottom", 0, some(g, 2)));
+    edges.push({ id: "titlebar", side: "top", ring: 0, accepts: ["group"], items: ["title", ...some(gEdge, 2), "controls"], cross: { min: 32, max: 32, rail: 32 } });
+  } else edges.push(bar("top", "top", 0, some(gEdge, 3)));
+  if (rnd() < 0.7) edges.push(bar("bottom", "bottom", 0, some(gEdge, 2)));
   for (const side of ["left", "right"] as const) {
     const kind = pick(["none", "column", "tray", "rail", "sidebar"] as const);
     if (kind === "column") edges.push(column(`${side}-col`, side, 1, some(p, 2)));
-    if (kind === "tray") edges.push(column(`${side}-col`, side, 1, [...some(p, 1), ...some(g, 1)], { accepts: ["panel", "group"], zoneAccepts: { start: ["panel"], end: ["group"] } }));
-    if (kind === "rail") edges.push({ id: `${side}-rail`, side, ring: 0, accepts: ["group"], items: some(g, 2), cross: { min: 30, max: 30, rail: 30 }, compact: true });
-    if (kind === "sidebar") edges.push({ id: `${side}-bar`, side, ring: 0, accepts: ["group"], items: some(g, 2), cross: { min: 32, max: 32, rail: 32 }, outsideInset: rnd() < 0.5 });
+    if (kind === "tray") edges.push(column(`${side}-col`, side, 1, [...some(p, 1), ...some(gEdge, 1)], { accepts: ["panel", "group"], zoneAccepts: { start: ["panel"], end: ["group"] } }));
+    if (kind === "rail") edges.push({ id: `${side}-rail`, side, ring: 0, accepts: ["group"], items: some(gEdge, 2), cross: { min: 30, max: 30, rail: 30 }, compact: true });
+    if (kind === "sidebar") edges.push({ id: `${side}-bar`, side, ring: 0, accepts: ["group"], items: some(gEdge, 2), cross: { min: 32, max: 32, rail: 32 }, outsideInset: rnd() < 0.5 });
   }
   // Floats of each kind, so every edge has a kind to take.
   const fg = g();
@@ -71,7 +77,7 @@ export function modelScene(seed: number): Scene {
 }
 
 /** The categories a point can fail by. */
-type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing";
+type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id";
 
 /** The edge a target or refusal belongs to, and its zone (null: no zone). */
 function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edge: string | null; zone: Zone | null } {
@@ -89,7 +95,7 @@ function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edg
 
 /** Runs the check over `seeds`; returns the failure counts per category and a few examples. */
 export function propertyCheck(seeds: readonly number[]): { points: number; counts: Record<Failure, number>; examples: string[] } {
-  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0 };
+  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0 };
   const examples: string[] = [];
   const fail = (k: Failure, msg: string): void => {
     counts[k]++;
@@ -108,6 +114,11 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
       const ts = all.filter((t) => !(slotHome && t.id.startsWith("home:")));
       const rs = refusals(s, id);
       const base = solve(lift(s, id));
+      // Ids are unique per call: every target's, and every refusal's.
+      for (const ids of [all.map((t) => t.id), rs.map((x) => x.id)]) {
+        const twice = ids.filter((x, i) => ids.indexOf(x) !== i);
+        if (twice.length) fail("duplicate-id", `seed ${seed} ${id} ${twice.join(", ")}`);
+      }
       // Preview = landing, once per docked target.
       for (const t of ts) {
         if (t.place.kind === "home" || t.place.kind === "none" || !t.slot) continue;
@@ -184,7 +195,7 @@ export function propertyCheck(seeds: readonly number[]): { points: number; count
 const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
 
 /** No failure of any kind (before the one target model: 8159 holes, 4021 overlaps, 14849 other-zone, 2667 own-not-home). */
-const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0 };
+const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0 };
 
 /** Every edge renamed to an id with ":" in it: the same targets and refusals, under the renamed ids. */
 export function colonRenameDiffs(seeds: readonly number[]): string[] {
