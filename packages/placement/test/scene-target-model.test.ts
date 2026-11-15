@@ -133,6 +133,11 @@ export function propertyCheck(seeds: readonly number[], flush = false): { points
       const rs = refusals(s, id);
       // Every slot the filter keeps, with room in its zone, keeps a hit.
       for (const x of lostSlots(s, id)) fail("lost-slot", `seed ${seed} drag ${id} ${x}`);
+      // A target is a place a pointer can be: a zone under 1 px each way, or 1 px² in all, is as good as lost.
+      for (const t of all) {
+        const pieces = zoneOfT(t);
+        if (pieces.some((p) => p.width < 1 || p.height < 1) || pieces.reduce((n, p) => n + p.width * p.height, 0) < 1) fail("lost-slot", `seed ${seed} drag ${id} ${t.id}: a sub-pixel hit ${JSON.stringify(t.hit)}`);
+      }
       const lifted = lift(s, id);
       const base = solve(lifted);
       // Ids are unique per call: every target's, and every refusal's.

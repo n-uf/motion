@@ -166,8 +166,9 @@ function placeReach(t: Tile, pieces: readonly Rect[], placed: Tile[], landed: Re
   if (at.length === 0 && gone.has(of)) {
     // Its owned part went whole: the overreach stands in for it, the piece on its line (else its largest).
     const line = t.vertical ? of.keep!.y : of.keep!.x;
-    const on = pieces.filter((p) => (t.vertical ? p.y <= line + EPS && line <= p.y + p.height + EPS : p.x <= line + EPS && line <= p.x + p.width + EPS));
-    const kept = (on.length > 0 ? on : pieces).reduce<Rect | null>((a, p) => (!a || area(p) > area(a) ? p : a), null);
+    const whole = pieces.filter((p) => p.width >= 1 && p.height >= 1);
+    const on = whole.filter((p) => (t.vertical ? p.y <= line + EPS && line <= p.y + p.height + EPS : p.x <= line + EPS && line <= p.x + p.width + EPS));
+    const kept = (on.length > 0 ? on : whole).reduce<Rect | null>((a, p) => (!a || area(p) > area(a) ? p : a), null);
     if (kept) {
       placed.push({ ...of, hit: kept });
       gone.delete(of);
@@ -251,14 +252,14 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
     }
     // Clipping changes a slot's shape, never who owns the stretch: whatever is left of its tile stays the slot's, every
     // piece (`hits`, `hit` the largest), so clipping never leaves a hole the float fills nor a refusal in the slot's room.
-    // No sliver: a slot whose largest piece is under 1 px along its edge is no target (its pieces are refused).
-    const big = largest(pieces);
-    if ((t.vertical ? big.height : big.width) < 1) {
-      for (const p of pieces) (data.virtual ? later : refused).push({ ...t, kind: "refuse", reason: "no-room", hit: p, keep: null });
-      return;
-    }
+    // No sliver, after ownership: a piece under 1 px either way is no part of a target (it is refused), and a slot left
+    // with no other piece is no target. Under 1 px is no room (as in a zone's room), so the slot isn't lost: its line
+    // lay where its neighbours left it no place.
+    const solidPieces = pieces.filter((p) => p.width >= 1 && p.height >= 1);
+    for (const p of pieces) if (!solidPieces.includes(p)) (data.virtual ? later : refused).push({ ...t, kind: "refuse", reason: "no-room", hit: p, keep: null });
+    if (solidPieces.length === 0) return;
     landed.set(t, [placed.length]);
-    placed.push(withPieces(t, pieces));
+    placed.push(withPieces(t, solidPieces));
   };
   const byOrder = (a: Tile, b: Tile): number => a.order - b.order;
   for (const t of tiles.filter((x) => !isRefused(x)).sort(byOrder)) place(t);

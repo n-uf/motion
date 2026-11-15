@@ -138,7 +138,9 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[]): Ownership {
       .filter(([a, b]) => b - a > EPS);
   };
   // A zone's room: less its panel bodies, and less the stretches where the owners that win over its edge together hold
-  // the edge's whole depth (a thinner owner, an empty rail's band over a column, clips its tiles instead).
+  // the edge's whole depth (a thinner owner, an empty rail's band over a column, clips its tiles instead). Under 1 px of
+  // depth left is none: a sub-pixel strip between two owners (an empty bar's zones, split where the bar's thirds fall)
+  // is no room, so no slot lands its tile there.
   const cutsOf = (s: EdgeSpec): Span[] => {
     const b = bandOf(s);
     const along = (r: Rect): Span => (s.vertical ? [r.y, r.y + r.height] : [r.x, r.x + r.width]);
@@ -149,7 +151,7 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[]): Ownership {
     for (let k = 1; k < ends.length; k++) {
       const [u, w] = [ends[k - 1]!, ends[k]!];
       const over = rs.filter((r) => along(r)[0] <= u + EPS && along(r)[1] >= w - EPS).map(across);
-      if (w - u > EPS && less([across(b)], over).length === 0) owned.push([u, w]);
+      if (w - u > EPS && less([across(b)], over).reduce((n, [p, q]) => n + q - p, 0) < 1) owned.push([u, w]);
     }
     return [...owned, ...bodySpans(s.id)];
   };
