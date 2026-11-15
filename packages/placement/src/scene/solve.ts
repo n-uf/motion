@@ -730,7 +730,9 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
       height: it.floatMin ? px(it.floatMin.height) : Math.min(shape.height, px(row ? form?.cross.min : form?.main.min)),
     };
     const w = Math.max(floor.width, Math.min(shape.width, floatRegion.width));
-    const h = from > 0 ? shape.height : Math.max(floor.height, Math.min(shape.height, floatRegion.height));
+    // Folded means its bar (a `header` form), not any form past the first (a row float, a second open form).
+    const folded = form?.kind === "header";
+    const h = folded ? shape.height : Math.max(floor.height, Math.min(shape.height, floatRegion.height));
     const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);
     const fit0 = fitFloat(want, floatRegion, avoid);
     const fit = w > floatRegion.width + EPS ? { ...fit0, rect: rect(floatRegion.x, fit0.rect.y, w, fit0.rect.height) } : fit0;
