@@ -418,7 +418,7 @@ now.
 
 `@n-uf/placement/stack` lays out the items along one edge of a stage: a column (`axis: "column"`, a side region) or a
 row (`"row"`, a bar). An item is a panel or a control group and declares its forms, largest first. Each form has a
-structural `kind` (a panel's `open`, `header`, `rail`, `menu`; a group's `row`, `stacked`, `icons`, `fold`, `menu`), a `main`
+structural `kind` (a panel's `open`, `header`, `rail`, `menu`; a group's `row`, `stacked`, `wrap`, `icons`, `fold`, `menu`), a `main`
 size along the stack (`min`, `natural`, `grows`) and a `cross` size. `fitStack(input)` picks one form per item and
 places them; it is not tied to `./panels` columns, and nothing in it is a word.
 
@@ -453,6 +453,21 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   form that sets the cross size and has a `cross.min` over the limits' `max` steps down too: in a top bar with `cross.max`
   40, an open panel with `cross.min` 120 becomes a header instead of being squeezed to 40. Without it such a form is
   clamped to `max`, whatever its `cross.min`.
+- `StackForm.wrap` (`{ widths, row, gap?, lead? }`, a form of the group kind `wrap`, meant for a column of words): a form
+  whose length depends on the cross size it gets. The words flow into rows of at most the stack's cross size, in a box
+  beside `lead` (the grip's cell at the start of row one: a hanging indent, every row starts after it, so the grip never
+  has a row of its own). A row always takes its first word. Its length is rows × `row`; its natural cross is the one-row
+  width (the lead, the words and the gaps), which counts only with `setsCross: true`. It fits a cross size only when
+  every word fits beside the lead and no row but the last holds a single word: narrower, it is too wide and takes its
+  next form, and its `cross.min` is the narrowest cross where it fits. `main` and `cross` given on such a
+  form are ignored. Give-way, fits, `previous` and growth use the computed length, and under `ownCross` it is drawn as
+  wide as its rows need. A word group in a column needs an `icons` form after it: a vertical place skips `wrap` forms.
+  `wrapLines(spec, cross)` gives the word indexes per row, the widest row and whether the form fits; `wrapRows(spec,
+  cross)` the row count; `wrapCross(spec)` the one-row width and the narrowest cross it fits; `formFitsCross(form,
+  cross)`, `formCrossMin(form)` and `formMain(form, "min" | "natural", cross)` read any form, wrap or not.
+  A word 1 px wider moves nothing else while the rows don't change.
+- `StackForm.grip` (px): a grip at the form's start along the stack, this long (an icons strip's horizontal grip on
+  top); `./scene` reports its rect as the item's `grip`. A `wrap` form's grip is its lead cell instead.
 - `fitStack(input, { previous })` keeps the forms of the fit the stack had before, while they still fit: a change of
   `used` ages alone (a press on a header) reshapes nothing. Ages decide only who gives way anew (the length shrank, an
   item was added, or a panel opened: its `from` went down, so it starts over). Growing never re-ranks. When the stack got
@@ -581,8 +596,8 @@ fit and the targets it always gave. Item kinds are the host's; placement only ca
   item moves it along, as a drop anywhere moves what follows. The solve doesn't depend on where the dragged item is
   inserted (it counts as the newest, and the give-way order is the same at every gap), so what `onlyFits` leaves is all
   the gaps or none; `allows` is what tells gaps apart.
-- **`StackInput.ownCross`** (default off): an item whose current form is a group kind (`row`, `stacked`, `icons`,
-  `fold`) is drawn at its own `cross.natural`, clamped to the stack's cross size and from its start edge (the left of a
+- **`StackInput.ownCross`** (default off): an item whose current form is a group kind (`row`, `stacked`, `wrap`, `icons`,
+  `fold`) is drawn at its own `cross.natural` (a `wrap` form: as wide as its rows need), clamped to the stack's cross size and from its start edge (the left of a
   column, the top of a bar), not across the whole stack. Panel kinds (`open`, `header`, `rail`) and the » entry still
   span it, so every open panel and header fills the column, as wide as the widest open panel. The kind decides, not
   `setsCross`, which still decides the stack's cross size as before. `cross`, the forms, the notes and the lengths are
@@ -591,7 +606,8 @@ fit and the targets it always gave. Item kinds are the host's; placement only ca
   true`, so a column of groups is as wide as its widest), then `icons` (28 across, sets nothing: with every group in
   icons the column is a rail), then `menu`. No `row`: a row of words asks for more than a column has, and the group
   that keeps it widens the column. With `ownCross` each group is drawn at its own width, also beside a wider open panel.
-  A bar's group is `row`, `stacked` or `fold`, `icons`, `menu`, as in the toolbar above.
+  A bar's group is `row`, `stacked` or `fold`, `icons`, `menu`, as in the toolbar above. A group whose words should wrap to
+  the column rather than stand one per line takes `wrap` (above) in place of `stacked`.
 
 ```ts
 const title: StackItem = { id: "title", used: 0, fixed: true, forms: [form("row", 160, 160, 26)] };
@@ -777,6 +793,27 @@ no smaller form never folds either: it reports `overflow` or `too-wide`.
 
 **Closed items** keep their place in their edge (or their float rect) but take no room and have no targets.
 
+**Toolbar shapes.** A group in a column draws its words in rows that wrap to the column: give it the column forms
+`[wrap, icons, menu]` (a `wrap` form from `./stack`; no one-word-per-line `stacked` form). The layout reports a wrapped
+item's `rows` (the word indexes per row; the words wrap beside the grip, a hanging indent) and its `grip` (the lead cell at
+the start of row one; for a form with `StackForm.grip` such as an icons strip, that strip at the form's start along the
+axis). A `wrap` form applies only in a column edge. Vertical means icons: in a column drawn as a rail, and in a float
+with `orient: "column"`, a group skips its `wrap` forms and shows its next form (its icons) at that form's natural size,
+whatever its `from`. An item with only `wrap` forms left has no form there: it is left out with a `no-vertical-form` note,
+so give a word group an `icons` form. A drop's `after()` gives the wrapped rect as the slot.
+
+**Compact edges.** `Edge.compact: true` makes a thin rail of vertical toolbars along a window side: its items take only
+their `icons` form (and the » menu after it), stacked, each item's grip the divider. An item with no `icons` form is left
+out of it with a `no-icons-form` note.
+
+**Trays.** `Edge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
+the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`
+has its panels at the top and a tray of toolbars at its foot (the end zone, one toolbar per row): a toolbar in the tray
+takes only its `wrap` or `icons` form, never the menu, and the panels give way first. Gaps are offered only in the zones
+that take the dragged kind, `moveTo` puts an item in the zone asked for, else in its own zone if that takes its kind, else in the first that does, and a group never opens such a
+column on its own: an empty edge offers its strip only to the kinds its start zone takes, so a group's drag gets the compact
+rail's strip but none for an empty panel column.
+
 **Columns and rails.** A left or right edge with `column: true` is a dynamic column: drops make it (a `column` place, from
 `scene.columns[side]`: `accepts`, `cross`, `gap`, `pad`, `menu`), and it is deleted, its side's rings closed up, when it
 holds no item. On a side with `scene.rails[side]` (`{ width, accepts }`), folded columns show as segments of that side's
@@ -824,7 +861,9 @@ edges without `previous`.
   edges is no gap and the pointer falls through to the float target (or to none); in a bar (default `"middle"`) the
   edge split halfway between neighbouring lines. Gaps on one line are one target, the first in zone order: when a bar
   has no spare length, `center:0` and `end:0` lie on the start zone's last line and merge into that start gap (its id
-  stays `gap:<edge>:start:<n>`). The first and last reach `endReach` px past the edge's ends. Across, the hit is the
+  stays `gap:<edge>:start:<n>`). The first and last reach `endReach` px past the edge's ends, but only a band that
+  reaches the edge's end goes on past it (a tray's gap at the foot never covers the top), and a gap's hit never enters
+  another edge's rect (a column's top gap stops at the bar above). Across, the hit is the
   larger of the edge's thickness before and after the drop, and it is cut clear of chrome and of what each fixed item
   reserves: its drawn rect, or for a fixed item that grows (a title filling its bar) only its natural rect, placed by
   its zone (from its start, from its end in the end zone, centred in the centre zone); `reservedRect(scene, layout, id)`
@@ -833,7 +872,9 @@ edges without `previous`.
   a group moved out of a title bar can always go back while the room allows. A title already at its natural size leaves
   no such room. No slot lies over a fixed item's reserved rect. `slot` is the item's rect after the drop and `marker`
   the insertion line across the edge.
-- `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side.
+- `strip:<edge>` (2): an empty accepting edge, a strip `Edge.strip` px deep (default 24) along its side, clipped clear of
+  every gap's hit (a bar's strip along the top never covers the columns' first gaps; with no room left it has no target).
+  Only for a kind its start zone takes (`Edge.zoneAccepts`).
 - `float:<id>` (3, free) when `floatKinds` lists the kind: the whole plane, landing with the pointer holding the float
   at `grab`, clamped and moved clear. It has no fixed `slot`: the slot to draw is
   `after(point, grab).layout.items[id].rect`, for the pointer at the time.
@@ -867,10 +908,14 @@ Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (
 side, ring }` (`ring: Infinity` is the side's inner end: "Move to › Dock left"), `{ kind: "rail", side, ring }` (docked
 folded) and `{ kind: "float", rect?, anchor? }`. `homeFor(scene, id, start)` is the place a start scene gives the item
 (the same edge before the same neighbour, a new column at its ring when its column is gone, or its float), for Dock,
-Put back and Reset position: `moveTo(scene, id, homeFor(scene, id, start)!)`. `lift(scene, id)` is the scene while an
-item is held: the item out of every edge and float, and a dynamic column it leaves empty gone (its side's rings closed
-up). During a drag a host draws everything else from `solve(lift(scene, id), { previous })`, as if the held item were
-gone.
+Put back and Reset position: `moveTo(scene, id, homeFor(scene, id, start)!)`. `dockHome(scene, id, start)` is that and the
+start fold too: the item goes to `homeFor`'s place and takes `start`'s `from` (unfolded when `start` has none), so a "Move to ›
+rail" (which folds it) followed by Dock brings it back open; the scene is given back unchanged when `start` places it
+nowhere. `lift(scene, id)` is the scene while an item is held: the item out of every edge and float, and a dynamic
+column it leaves empty gone (its side's rings closed up). While an item is held, a host draws every item from the shown
+target's `after(point, grab).layout`; with **no target under the pointer** it draws the committed layout with the held
+item's place left empty and nothing else moved (a release there commits nothing). It does not reflow the others with
+`solve(lift(scene, id), { previous })`, which would show a result no drop gives.
 
 **Stored form.** `storeScene(scene)` gives `{ v: 1, edges: [{ id, side, ring, items, size?, column? }], floats: [{ id, x, y,
 width, height, orient?, anchor? }], items: { [id]: { used, kept?, from?, closed?, align?, floatSize? } } }`; no float has a
@@ -923,6 +968,20 @@ release, every solve carrying the layout before it as `previous`. A kit's host d
 `resolvePlace(targets, place, item, { stage, content })` turns a `place` into a point that reaches the target. Every row
 passes on the in-memory host except its DOM checks, which it skips, and the rows with `lacks`, which fail on it until the
 library rule lands. `CASE_GROUPS` lists the groups.
+
+**The gesture grammar.** A row's `gestures` are plain objects (`g.press(...)` and the other `g` constructors build them),
+played in order:
+
+| `type` | What a host does |
+|---|---|
+| `press` | Pointer down on `item`'s handle (its grip, or its header); `point` is the grab, relative to the item's top-left corner, and is the row's, not the host's. Nothing lifts yet. |
+| `move` | The pointer moves to `point` (stage px) or to the target at `place` (`resolvePlace` finds a point that reaches it). With an item pressed, the first move past the lift threshold lifts it (a `place` always lifts), and the pointer is then over whichever target `pickTarget` finds. With no target under it, the host draws the committed layout with the held item's place left empty and nothing else moved. |
+| `hold` | The pointer rests for `ms`, so a host with a drag intent settles on its target. A checkpoint or DOM check is never read right after a `move`. |
+| `release` | Pointer up: after a lift, it drops on the target under the pointer (a `home` or `none` target, or none, drops nothing); without one it was a press and nothing changes. |
+| `key` | `"Escape"` cancels the drag, `"Alt"` holds Alt down and `"Alt:up"` lets it go (a frozen window moves while it is down), `"Reload"` stores the scene, drops the live one and reads it back. |
+| `click` | The item's controls, not a drag. With neither `key` nor `place` it activates the item (a closed one opens, one folded by hand unfolds, a float rises). With `key`: `"use"`, `"open"`, `"close"`, `"fold"`, `"unfold"`, `"float"` or `"dock"` (`dockHome`: where the loaded scene had it). With `place`, the "Move to ›" row for that place. |
+| `resize` | With `edge`, the user's size across that edge (`size` px); with `item`, that item's measured length changed by `size` px; with neither, the window is now `point.x` by `point.y`. |
+| `scroll` | The pages scroll by `size` px. Nothing in a scene scrolls: only a host with a page can show it, with a DOM `rect` check. |
 
 ## Pane zones
 
