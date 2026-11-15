@@ -215,7 +215,9 @@ describe("floats", () => {
 });
 
 describe("speed", () => {
-  it("a window of 10 edges and 30 items solves in well under 1 ms (median)", () => {
+  // Locally the median is about 0.1–0.3 ms. Shared CI runners are several times slower and noisy, so the bound here
+  // is 3 ms: it still catches an order-of-magnitude regression without failing on a busy runner.
+  it("a window of 10 edges and 30 items solves fast enough to re-solve on every resize tick (median under 3 ms)", () => {
     const items: SceneItem[] = [title(), controls(), readout()];
     for (let i = 0; i < 27; i++) items.push(i % 3 === 0 ? panel(`p${i}`, i) : group(`g${i}`, i));
     const ids = items.slice(3).map((it) => it.id);
@@ -247,6 +249,6 @@ describe("speed", () => {
       times.push(performance.now() - t0);
     }
     times.sort((a, b) => a - b);
-    expect(times[100]!).toBeLessThan(1);
+    expect(times[100]!).toBeLessThan(3);
   });
 });

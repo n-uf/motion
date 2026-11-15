@@ -185,11 +185,12 @@ describe("fitFloat", () => {
     }
     expect(covered(fit.rect, avoid)).toEqual([]);
     expect(inStage(fit.rect)).toBe(true);
-    expect(best).toBeLessThan(8);
+    // Bounds leave room for shared CI runners (several times slower than a laptop); they still catch a blow-up.
+    expect(best).toBeLessThan(25);
     // Where nothing is clear (a float too big for the gaps), the search is exhaustive and still bounded.
     const t1 = performance.now();
     const full = fitFloat(rect(300, 100, 300, 420), stage, avoid);
-    expect(performance.now() - t1).toBeLessThan(250);
+    expect(performance.now() - t1).toBeLessThan(750);
     expect(full.covers.length).toBeGreaterThan(0);
     // 100 scattered rects, the wanted place covered: a fraction of a frame.
     const hundred = [column, bar, ...Array.from({ length: 100 }, () => small(250, 640))];
@@ -199,7 +200,7 @@ describe("fitFloat", () => {
       fitFloat(want, stage, hundred);
       best100 = Math.min(best100, performance.now() - t2);
     }
-    expect(best100).toBeLessThan(4);
+    expect(best100).toBeLessThan(10);
   });
 
   it("finds a clear place whenever one exists, however many places it has to skip (a bounded search must not return a covering one)", () => {
