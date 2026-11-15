@@ -17,5 +17,10 @@
     "lab": "pnpm --filter motion-lab dev",
     "release:next-version": "pnpm --filter @n-uf/motion release:next-version",
     "version:bump": "pnpm --filter @n-uf/motion version:bump && node scripts/sync-placement-version.mjs"
+  },
+  "devDependencies": {
+    "dependency-cruiser": "18.7.2",
+    "jscpd": "5.4.3",
+    "knip": "6.45.1"
   }
 }

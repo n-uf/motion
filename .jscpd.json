@@ -1,0 +1,9 @@
+{
+  "pattern": "{packages/motion/src,packages/placement/src,apps/lab/src}/**/*.ts",
+  "ignore": ["**/__tests__/**", "**/node_modules/**"],
+  "format": ["typescript"],
+  "minTokens": 50,
+  "reporters": ["json"],
+  "output": "node_modules/.cache/jscpd",
+  "silent": true
+}
