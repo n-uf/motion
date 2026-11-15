@@ -982,9 +982,10 @@ edges without `previous`.
 
 **Local targets.** A target wins only where its own hit is. Home's hit is the item's own rect and half a band
 (`DEFAULT_HIT_BAND / 2`, 12 px) each way along its edge, across the edge's full hit thickness, cut out of every other gap
-hit (and empty-edge strip) there, so home is offered only over the item's own place. Home never takes a strip away: an
-empty bar's or edge's strip over the dragged item's own place keeps min(16 px, its slice) at home's end, or beside the
-item's centre inside it, as a gap does, and home gives that slice up. The rest of its gaps' slices goes
+hit there, so home is offered only over the item's own place, and it always covers the item's whole own rect: across
+it no point picks a target that moves the item. An empty bar's or edge's strip (and the `rail:` strip while no rail
+shows) keeps only what lies outside the item's own rect; the strip of the item's own edge, which the item alone fills,
+means home there, and what is left of a strip under 1 px has no target. The rest of its gaps' slices goes
 only to the gap beside it in the same zone; with none there, that stretch has no target (the pointer shows nothing, and a
 release goes home), never a "back to its place" preview far away and never a gap of another zone. Affected: the drag of
 an item in a bar whose zone held only its own gap (that zone's whole third used to preview home), and items whose own
