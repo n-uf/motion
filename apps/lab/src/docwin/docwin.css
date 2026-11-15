@@ -115,7 +115,8 @@
 .dw-tool i { width: 12px; height: 12px; border: 1.5px solid var(--win-muted); border-radius: 2px; }
 .dw-word[aria-pressed="false"] { color: var(--win-muted); text-decoration: line-through; }
 .dw-sq[aria-pressed="false"] { color: var(--win-muted); }
-.dw-n { display: inline-block; min-width: 3ch; text-align: left; font-variant-numeric: tabular-nums; color: var(--win-muted); }
+/* A count hugs its digits (no trailing room), so the "·" between words sits evenly. */
+.dw-n { display: inline-block; font-variant-numeric: tabular-nums; color: var(--win-muted); }
 .dw-zv { display: inline-block; min-width: 4.5ch; text-align: center; font-variant-numeric: tabular-nums; }
 .dw-sep { color: var(--win-muted); }
 .dw-cap { display: inline-flex; align-items: center; border: 1px solid var(--win-edge); border-radius: 999px; overflow: hidden; }
