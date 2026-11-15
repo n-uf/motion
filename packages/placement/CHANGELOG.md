@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.21
 
+- `@n-uf/placement/scene`, **fixed:** `isOutsideSideBar` counts an edge as a side bar only when its side has a column
+  template or a rail and the edge takes none of their kinds. On a side with neither, no edge is a bar, so a static
+  panel edge there keeps its ring order instead of being laid outermost.
+
 - `@n-uf/placement/scene`, **fixed:** with no rail shown, the `rail:` strip lies where the rail lands: flush after
   the side's outside toolbar bars, else at the window's side less the inset. It used to lie at the side's outermost
   edge, so with an anchor at the window edge and an inset it sat in the inset gap, off the rail it makes.

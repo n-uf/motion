@@ -4,7 +4,7 @@
  * the inset too; the `rail:` strip lies where the rail lands.
  */
 import { describe, expect, it } from "vitest";
-import { solve, targets, type Edge, type Scene, type SceneItem } from "../src/scene";
+import { isOutsideSideBar, solve, targets, type Edge, type Scene, type SceneItem } from "../src/scene";
 import { bar, byId, column, group, panel } from "./scene-fixture";
 
 const thumbs: SceneItem = { id: "thumbs", kind: "anchor", used: 0, fixed: true, forms: { column: [{ kind: "open", main: { min: 0, natural: 0, grows: true }, cross: { natural: 72, min: 56 }, setsCross: true }] } };
@@ -93,5 +93,38 @@ describe("the rail strip lies where the rail lands", () => {
           }
         }
     expect(n).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe("isOutsideSideBar", () => {
+  const sbar: Edge = { id: "sbar", side: "left", ring: 0, accepts: ["group"], items: [], cross: { min: 36, max: 36, rail: 36 }, outsideInset: true };
+  const panels: Edge = { id: "pan", side: "left", ring: 0, accepts: ["panel"], items: [], cross: { min: 160, max: 480, rail: 30 }, outsideInset: true };
+  it("needs a template or a rail on the side, and takes none of their kinds", () => {
+    const s = scene({});
+    expect(isOutsideSideBar(s, sbar)).toBe(true);
+    expect(isOutsideSideBar(s, panels)).toBe(false);
+    // No template and no rail on the side: nothing tells a bar from a panel edge, so nothing is a bar.
+    const bare: Scene = { ...s, columns: { right: s.columns!.right! }, rails: { right: s.rails!.right! } };
+    expect(isOutsideSideBar(bare, sbar)).toBe(false);
+    expect(isOutsideSideBar(bare, panels)).toBe(false);
+    // A rail alone: its kinds count too.
+    const railOnly: Scene = { ...s, columns: { right: s.columns!.right! } };
+    expect(isOutsideSideBar(railOnly, sbar)).toBe(true);
+    expect(isOutsideSideBar(railOnly, panels)).toBe(false);
+    // An anchor (it takes nothing) and an edge inside the inset are never bars.
+    expect(isOutsideSideBar(s, { ...sbar, accepts: [] })).toBe(false);
+    expect(isOutsideSideBar(s, { ...sbar, outsideInset: false })).toBe(false);
+  });
+
+  it("a static panel edge outside the inset on a side with no template is not laid as a bar: it keeps its ring order", () => {
+    // Left, no template or rail: an anchor (ring 0) and a static panel edge outside the inset (ring 1). Taken for a
+    // bar, the panel edge would jump outside the anchor; it isn't one, so they lie by ring, the anchor at the window edge.
+    const s = scene({ anchor: true });
+    const anchor = s.edges.find((e) => e.id === "anchor")!;
+    const pe: Edge = { ...panels, ring: 1, items: ["p1"] };
+    const bare: Scene = { ...s, edges: [s.edges[0]!, { ...anchor, ring: 0 }, pe, s.edges.find((e) => e.id === "right-0")!], columns: { right: s.columns!.right! }, rails: { right: s.rails!.right! } };
+    const l = solve(bare);
+    expect(l.edges.anchor!.rect.x).toBe(0);
+    expect(l.edges.pan!.rect.x).toBe(72);
   });
 });
