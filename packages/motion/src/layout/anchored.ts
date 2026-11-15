@@ -39,7 +39,10 @@ export interface AnchoredMorph {
   rectAt(point: Point): Rect;
 }
 
-/** The default tempo: a quick settle, done in about 125 ms (`SETTLE_TEMPO.quick`). */
+/**
+ * The default tempo, a quick settle (`SETTLE_TEMPO.quick`): 90 % of the way in about 60 ms, within 1 % in about
+ * 125 ms; the last pixels take longer for large size changes (a 300 px change rests after about 225 ms).
+ */
 export const MORPH_TEMPO = SETTLE_TEMPO.quick;
 
 /** A box of `size` held at `anchor`, at rest; `config` is the settle's (default tempo {@link MORPH_TEMPO}). */
