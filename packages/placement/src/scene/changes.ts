@@ -115,11 +115,11 @@ function insertColumn(scene: Scene, id: string, side: "left" | "right", ring: nu
   const r = Math.max(0, Math.min(Number.isNaN(ring) ? Infinity : Math.floor(ring), mine.length === 0 ? 0 : Math.max(...mine.map((e) => e.ring)) + 1));
   const col = newColumn(scene, side, kind, r, [id]);
   if (!col) return null;
-  // The item goes to the first zone of the new column that takes its kind (a group to a panel column's tray).
-  const zone = zonesTaking(col, kind)[0];
-  if (!zone) return null;
+  // A kind never opens a column on its own unless the column's start zone takes it (a group never opens a panel column
+  // whose tray is its end zone).
+  if (!zoneTakes(col, "start", kind)) return null;
   const { align: _a, ...plain } = scene.items[id]!;
-  const placed = withItem(scene, zone === "start" ? plain : { ...plain, align: zone });
+  const placed = withItem(scene, plain);
   const shifted = placed.edges.map((e) => (e.side === side && e.ring >= r ? { ...e, ring: e.ring + 1 } : e));
   return { ...placed, edges: closeRings([...shifted, col], new Set([side])) };
 }

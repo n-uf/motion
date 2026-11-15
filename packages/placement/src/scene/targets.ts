@@ -156,8 +156,11 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
     docked.push(...edgeTargets(scene, rest, base, edge, dragged, reach, blockers, chrome, settle));
   }
   for (const side of ["left", "right"] as const) {
-    if (scene.columns?.[side]?.accepts.includes(item.kind)) docked.push(...columnTargets(scene, rest, base, side, dragged, blockers, settle));
-    if (scene.columns?.[side]?.accepts.includes(item.kind) && scene.rails?.[side]?.accepts.includes(item.kind)) docked.push(...railTargets(scene, rest, base, side, dragged, blockers, settle));
+    // A new column only for kinds its template's start zone takes: a group never opens a panel column on its own.
+    const template = scene.columns?.[side];
+    if (!template || !zoneTakes(template, "start", item.kind)) continue;
+    docked.push(...columnTargets(scene, rest, base, side, dragged, blockers, settle));
+    if (scene.rails?.[side]?.accepts.includes(item.kind)) docked.push(...railTargets(scene, rest, base, side, dragged, blockers, settle));
   }
   // A drop that puts the item back where it is (the gap beside it, its own column's line, its own rail) is its home: it
   // commits nothing and shows no slot.
