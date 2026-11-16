@@ -5,7 +5,7 @@
  * and is expected to be red until the rule lands: the page never fakes it.
  */
 import { centre, contains, overlap, type Point, type Rect } from "@n-uf/placement";
-import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, reservedRect, resize, targetId, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
+import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, railModeOf, reservedRect, resize, targetId, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { wrapCross } from "@n-uf/placement/stack";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
 import { FADE_DT_CAP, FADE_MS, type DocwinScene } from "./scene";
@@ -1833,7 +1833,219 @@ export const PRESETS: readonly Preset[] = [
       return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "Frozen: nothing. With Alt: both fold and unfold." };
     },
   },
+  ...RAIL_TITLE_PRESETS(),
 ];
+
+// --- rail titles -------------------------------------------------------------------------------------------------------
+
+/** The default window with `ids` folded by hand (each at its header, so a column of them is drawn as a rail). */
+const foldedScene = (ids: readonly ItemId[], edit: (s: Scene) => Scene = (s) => s, size = DEFAULT_SIZE): Scene =>
+  sceneWith((s0) => {
+    const s = edit(s0);
+    return { ...s, items: { ...s.items, ...Object.fromEntries(ids.map((id) => [id, { ...s.items[id]!, from: 1 }])) } };
+  }, size);
+/** Pages and Notes folded in the left rail, Findings folded in the right one. */
+const bothRails = (size = DEFAULT_SIZE): Scene => foldedScene(["pages", "notes", "findings"], (s) => s, size);
+/** The item's form index, or 99 in a » menu. */
+const stepOf = (c: DocwinScene, id: ItemId): number => (c.layout.items[id]?.inMenu ? 99 : (c.layout.items[id]?.form ?? -1));
+/** Whether the item is drawn in its rail title form (the layout's `railTitle`, and the page's turned title). */
+const isTitle = (c: DocwinScene, id: ItemId): boolean => !!c.layout.items[id]?.railTitle && !!c.win.querySelector(`.dw-items [data-id="${id}"] .dw-railtitle`);
+
+/** A mouse click on the item's grip (its rail title or tile): pointerdown and pointerup at its centre, through the page's listeners. */
+function mouseClick(c: DocwinScene, id: ItemId): boolean {
+  const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
+  if (!el) return false;
+  const g = el.getBoundingClientRect();
+  const at = { x: g.left + g.width / 2, y: g.top + g.height / 2 };
+  const ev = (type: string): PointerEvent => new PointerEvent(type, { clientX: at.x, clientY: at.y, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerType: "mouse", isPrimary: true, bubbles: true, cancelable: true });
+  el.dispatchEvent(ev("pointerdown"));
+  window.dispatchEvent(ev("pointerup"));
+  el.dispatchEvent(new MouseEvent("click", { clientX: at.x, clientY: at.y, bubbles: true, cancelable: true }));
+  return true;
+}
+
+function RAIL_TITLE_PRESETS(): Preset[] {
+  return [
+    {
+      id: "rail-titles-fit",
+      title: "Folded panels show their titles in the rails",
+      expected:
+        "Pages and Notes folded in the left column, Findings in the right: each column is a rail, and each panel shows its title with its count, turned along the rail, as long as the page measured it. The rails' default is titles.",
+      setup: (c) => c.setScene(bothRails()),
+      check(c) {
+        c.setScene(bothRails());
+        const bad: string[] = [];
+        for (const id of ["pages", "notes", "findings"] as const) {
+          const p = c.layout.items[id];
+          const f = p ? c.scene.items[id]!.forms.column?.[p.form] : undefined;
+          if (!p || !isTitle(c, id) || !f?.title) bad.push(`${id} is ${p?.formKind ?? "nowhere"} (form ${p?.form}), not its title`);
+          else if (Math.abs(p.rect.height - f.main.natural) > 0.5) bad.push(`${id} is ${r0(p.rect.height)} long, measured ${f.main.natural}`);
+          const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] .dw-railtitle`);
+          if (el && p && Math.abs(el.getBoundingClientRect().height - p.rect.height) > 1) bad.push(`${id}'s title is drawn ${r0(el.getBoundingClientRect().height)} long in a ${r0(p.rect.height)} slot`);
+        }
+        const lens = (["pages", "notes", "findings"] as const).map((id) => `${id} ${r0(c.layout.items[id]?.rect.height ?? 0)}`).join(", ");
+        return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : `Every folded panel shows its title: ${lens} px.` };
+      },
+    },
+    {
+      id: "rail-titles-overflow",
+      title: "A short rail steps titles down to icons, and back in exact reverse",
+      expected:
+        "All three panels folded in the left rail. Shrinking the window's height, the titles become icons one at a time, the one used longest ago first (Findings, Notes, then Pages); growing it back brings them back in exactly the reverse order, the same forms at every height.",
+      setup: (c) => c.setScene(foldedScene(["pages", "notes", "findings"], (s) => ages(put(s, "left", ["pages", "notes", "findings"]), ["findings", "notes", "pages"]))),
+      check(c) {
+        c.setScene(foldedScene(["pages", "notes", "findings"], (s) => ages(put(s, "left", ["pages", "notes", "findings"]), ["findings", "notes", "pages"])));
+        const ids = ["findings", "notes", "pages"] as const;
+        const heights: number[] = [];
+        for (let h = 640; h >= 120; h -= 6) heights.push(h);
+        const down = new Map<number, string>();
+        const order: string[] = [];
+        const bad: string[] = [];
+        for (const h of heights) {
+          c.setSize(DEFAULT_SIZE.width, h);
+          for (const id of ids) if (!isTitle(c, id) && !order.includes(id)) order.push(id);
+          // The ladder: a panel is a title only while every panel used before it still is.
+          ids.forEach((id, i) => {
+            if (isTitle(c, id) && ids.slice(0, i).some((x) => !isTitle(c, x))) return;
+            if (!isTitle(c, id) && ids.slice(i + 1).some((x) => !isTitle(c, x)) && ids.slice(0, i).some((x) => isTitle(c, x))) bad.push(`at ${h}: ${id} is an icon before an older one`);
+          });
+          down.set(h, ids.map((id) => stepOf(c, id)).join(","));
+        }
+        for (const h of [...heights].reverse()) {
+          c.setSize(DEFAULT_SIZE.width, h);
+          const now = ids.map((id) => stepOf(c, id)).join(",");
+          if (now !== down.get(h)) bad.push(`at ${h}: ${now} growing, ${down.get(h)} shrinking`);
+        }
+        const ok = order.join(",") === "findings,notes,pages";
+        return { pass: ok && bad.length === 0, now: `Titles became icons in the order ${order.join(", ") || "none"}.${bad.length ? ` Broken: ${bad.slice(0, 4).join("; ")}.` : " Growing back: the same forms at every height."}` };
+      },
+    },
+    {
+      id: "rail-titles-read",
+      title: "Both rails' titles read toward the pages",
+      expected: "The left rail's titles read bottom to top (turned −90°), the right rail's top to bottom (+90°), the count at the end of each title.",
+      setup: (c) => c.setScene(bothRails()),
+      check(c) {
+        c.setScene(bothRails());
+        const bad: string[] = [];
+        const seen: string[] = [];
+        for (const [id, side] of [["pages", "left"], ["notes", "left"], ["findings", "right"]] as const) {
+          const b = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] .dw-railtitle`);
+          const t = b?.querySelector<HTMLElement>(".dw-rt");
+          const n = b?.querySelector<HTMLElement>(".dw-badge");
+          if (!b || !t || !n) {
+            bad.push(`${id}: no title drawn`);
+            continue;
+          }
+          const vertical = getComputedStyle(t).writingMode.startsWith("vertical");
+          const turned = getComputedStyle(t).transform !== "none";
+          const tr = t.getBoundingClientRect();
+          const nr = n.getBoundingClientRect();
+          // Reading toward the pages: down the right rail (the count below the name), up the left one (above it).
+          const countAtEnd = side === "right" ? nr.top + nr.height / 2 > tr.top + tr.height / 2 : nr.top + nr.height / 2 < tr.top + tr.height / 2;
+          const reads = side === "right" ? vertical && !turned : vertical && turned;
+          if (c.layout.items[id]?.railTitle !== side) bad.push(`${id}: the layout says ${c.layout.items[id]?.railTitle ?? "no"} side`);
+          if (!reads || !countAtEnd) bad.push(`${id} (${side}): ${reads ? "" : "not turned to read toward the pages"}${countAtEnd ? "" : " the count isn't at the end"}`);
+          seen.push(`${id} ${side === "left" ? "bottom to top" : "top to bottom"}`);
+        }
+        return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : `${seen.join(", ")}, each count at its end.` };
+      },
+    },
+    {
+      id: "rail-title-click",
+      title: "A click on a rail title opens its panel",
+      expected: "Pages and Notes folded in the left rail: a mouse click on Notes' title opens Notes (the column opens with it, Pages at its header).",
+      setup: (c) => c.setScene(bothRails()),
+      check(c) {
+        c.setScene(bothRails());
+        const before = isTitle(c, "notes");
+        const clicked = mouseClick(c, "notes");
+        const after = c.layout.items.notes?.formKind ?? "none";
+        return { pass: before && clicked && after === "open" && !c.dragging, now: `Notes was ${before ? "its title" : "not its title"}; after the click it is ${after}, Pages ${c.layout.items.pages?.formKind ?? "none"}.` };
+      },
+    },
+    {
+      id: "rail-title-drag",
+      title: "A rail title drags like the tile",
+      expected: "Pages and Notes folded in the left rail, Findings open on the right: Notes dragged by its title onto the right column's first gap lifts, shows the slot and lands on it (preview = landing).",
+      setup: (c) => c.setScene(foldedScene(["pages", "notes"])),
+      check(c) {
+        c.setScene(foldedScene(["pages", "notes"]));
+        if (!isTitle(c, "notes")) return { pass: false, now: "Notes isn't its title in the left rail." };
+        const t = c.targets("notes").find((x) => x.place.kind === "gap" && x.place.edge === "right");
+        if (!t) return { pass: false, now: "No gap for Notes in the right column." };
+        const r = mouseDrag(c, "notes", centre(t.hit));
+        const d = c.lastDrop;
+        const ok = r.lifted && !!d && d.committed && d.target === t.id && sameRect(d.preview, d.landed) && c.layout.items.notes?.edge === "right";
+        return { pass: ok, now: `Notes ${r.lifted ? "lifted" : "never lifted"}; dropped on ${d?.target ?? "nothing"}, slot ${d?.preview ? say(d.preview) : "none"}, landed ${d?.landed ? say(d.landed) : "nowhere"} in ${c.layout.items.notes?.edge ?? "no edge"}.` };
+      },
+    },
+    {
+      id: "rail-title-double",
+      title: "A double-click on a rail title unfolds it, another folds it back",
+      expected: "Pages and Notes folded in the left rail: a mouse double-click on Notes' title opens Notes (no drag); a double-click on its header folds it back, and the rail shows Notes' title again.",
+      setup: (c) => c.setScene(bothRails()),
+      check(c) {
+        c.setScene(bothRails());
+        const bad: string[] = [];
+        const a = mouseDouble(c, "notes");
+        if (!a.pressed || a.dragged || c.layout.items.notes?.formKind !== "open") bad.push(`first double-click: ${a.dragged ? "a drag started, " : ""}Notes is ${c.layout.items.notes?.formKind ?? "none"}`);
+        c.pause();
+        const b = mouseDouble(c, "notes");
+        if (!b.pressed || b.dragged || !isTitle(c, "notes")) bad.push(`second double-click: ${b.dragged ? "a drag started, " : ""}Notes is ${c.layout.items.notes?.formKind ?? "none"}${isTitle(c, "notes") ? "" : ", not its title"}`);
+        return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "Notes opened, then folded back to its title in the rail." };
+      },
+    },
+    {
+      id: "rail-mode-controls",
+      title: "Rails: titles or icons, from the rail's menu and the Window drawer, kept on reload",
+      expected:
+        "Both rails show titles. The left rail's menu (a right-click on a rail title) → Show icons: the left rail shows tiles, the right keeps titles. The Window drawer's Rails: right → icons: the right rail shows tiles. The stored layout keeps both, and a reload reads them back; the menu's Show titles brings the left titles back.",
+      setup: (c) => c.setScene(bothRails()),
+      check(c) {
+        c.setScene(bothRails());
+        // The click a browser sends after an earlier check's last pointerup (synthetic pointers send none): a gesture's
+        // drop or double swallows the next click, as it would that one.
+        document.body.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        const bad: string[] = [];
+        const t = c.win.querySelector<HTMLElement>('.dw-items [data-id="notes"] .dw-railtitle');
+        if (!t) return { pass: false, now: "No rail title to open the menu on." };
+        const r = t.getBoundingClientRect();
+        t.dispatchEvent(new MouseEvent("contextmenu", { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, bubbles: true, cancelable: true, button: 2 }));
+        const icons = c.win.querySelector<HTMLElement>('[data-rail-mode="left:icons"]');
+        if (!icons || icons.closest<HTMLElement>(".dw-menu-list")?.hidden) bad.push("the rail's menu didn't open");
+        icons?.click();
+        if (railModeOf(c.scene, "left") !== "icons" || isTitle(c, "notes") || isTitle(c, "pages")) bad.push("Show icons left the left rail's titles");
+        if (!isTitle(c, "findings")) bad.push("the right rail lost its title");
+        const sel = document.getElementById("dw-rail-right") as HTMLSelectElement | null;
+        if (sel) {
+          sel.value = "icons";
+          sel.dispatchEvent(new Event("change", { bubbles: true }));
+          if (railModeOf(c.scene, "right") !== "icons" || isTitle(c, "findings")) bad.push("the drawer's Rails: right → icons didn't switch it");
+        } else if (!c.win.closest("[data-embed]")) bad.push("no Rails control in the Window drawer");
+        else c.setRailMode("right", "icons");
+        // A reload: the page reads its stored layout back.
+        const stored = c.stored();
+        if (stored.scene.railModes?.left !== "icons" || stored.scene.railModes?.right !== "icons") bad.push(`the store has ${JSON.stringify(stored.scene.railModes ?? {})}`);
+        c.load();
+        if (railModeOf(c.scene, "left") !== "icons" || railModeOf(c.scene, "right") !== "icons" || isTitle(c, "findings")) bad.push("a reload lost the modes");
+        const back = readDocwin(JSON.parse(JSON.stringify(storeDocwin(c.scene)))).scene;
+        if (railModeOf(back, "left") !== "icons") bad.push("readDocwin lost the mode");
+        // And back to titles from the menu.
+        const n = c.win.querySelector<HTMLElement>('.dw-items [data-id="notes"] [data-open]');
+        if (n) {
+          const q = n.getBoundingClientRect();
+          n.dispatchEvent(new MouseEvent("contextmenu", { clientX: q.left + 4, clientY: q.top + 4, bubbles: true, cancelable: true, button: 2 }));
+        }
+        c.win.querySelector<HTMLElement>('[data-rail-mode="left:titles"]')?.click();
+        if (!isTitle(c, "notes")) bad.push("Show titles didn't bring the left titles back");
+        c.setRailMode("right", "titles");
+        if (sel) sel.value = railModeOf(c.scene, "right");
+        return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "Menu and drawer switch each side; the stored layout and a reload keep it; Show titles brings them back." };
+      },
+    },
+  ];
+}
 
 /** A width where Zoom, alone in the title bar, shows its minimal form ("86%" and "»3"). */
 const MINIMAL_WIDTH = 350;
