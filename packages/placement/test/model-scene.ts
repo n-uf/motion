@@ -6,7 +6,7 @@ import { bar, byId, column, controls, group, panel, seeded, title } from "./scen
  * A generated window: a top bar (plain or title), a bottom bar, each side one edge kind, maybe a side bar; floats of each
  * kind. `flush`: no inset, rails on both sides, hand folds that ride, and a panel column inside every side bar.
  */
-export function modelScene(seed: number, flush = false, middle = false): Scene {
+export function modelScene(seed: number, flush = false, middle = false, railDrop = false): Scene {
   const rnd = seeded(seed);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;
   const items: SceneItem[] = [];
@@ -74,6 +74,8 @@ export function modelScene(seed: number, flush = false, middle = false): Scene {
     edges: cols,
     ...(rails ? { rails: { left: { width: 30, accepts: ["panel"] }, right: { width: 30, accepts: ["panel"] } }, contentMin: { width: flush ? 300 : W - 250, height: 200 } } : {}),
     ...(flush ? { handFold: "ride" as const } : {}),
+    // `railDrop`: panels drop into their side's rail through a spring-loaded strip (`Scene.railDrop`).
+    ...(railDrop ? { railDrop: { panel: {} } } : {}),
     items: byId(items),
     floats: [
       { id: fg, rect: { x: W / 2, y: H / 2, width: 200, height: 40 } },

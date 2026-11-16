@@ -29,6 +29,8 @@ export interface SceneTarget extends Target {
   readonly place: ScenePlace;
   /** Gaps and strips: the line where the item's leading edge lands, zero thick, across the edge after the drop. */
   readonly marker?: Rect;
+  /** A rail target under a kind's `Scene.railDrop` policy: the side's whole drop strip, for the host to draw. */
+  readonly strip?: Rect;
   /** The scene a release here commits and its layout. Only a float's depends on the pointer. */
   after(point: Point, grab?: Point): SceneAfter;
 }

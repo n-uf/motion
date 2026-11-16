@@ -26,7 +26,7 @@ function ringsOf(c: Ctx, side: "left" | "right"): { before: (e: Edge) => number;
  * Where the side's undrawn rail stop starts, across: the window's edge (an inset's strip included), or, with drawn edges
  * of the side lying outside the rail's place (its outside bars), the rail place's outer side, flush after them.
  */
-function railOuter(c: Ctx, side: "left" | "right"): number {
+export function railOuter(c: Ctx, side: "left" | "right"): number {
   const { now, scene } = c;
   const place = now.railPlaces[side];
   const windowEdge = side === "left" ? scene.stage.x : scene.stage.x + scene.stage.width;

@@ -7,7 +7,8 @@
  *   the zone's items without it, closed ones included), or at the zone's end. The zone becomes the item's `align`.
  *   `{ kind: "column", side, ring }` makes a new column from `scene.columns[side]` at that ring (`Infinity`: the side's
  *   inner end, "Move to › Dock left"); `{ kind: "rail", side, ring }` does the same with the item folded by hand, so it
- *   shows in the rail; `{ kind: "float", rect?, anchor? }` floats it. A dynamic column an item leaves empty is deleted
+ *   shows in the rail (on a side with no declared rail, `Scene.rails`, its rail is its outermost column that takes the
+ *   kind: the item docks at the end of its start zone, folded by hand); `{ kind: "float", rect?, anchor? }` floats it. A dynamic column an item leaves empty is deleted
  *   and its side's rings are closed up.
  * - `homeFor(scene, id, start)`: the place a start scene gives the item, for `moveTo`.
  * - `floatAt(scene, id, rect?, orient?)`: floats it on top at `rect` (its size becomes `floatSize`); with no rect, at
@@ -23,7 +24,7 @@
  */
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
+import { axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
 import { RAIL_MODES, type Edge, type FloatAnchor, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
@@ -166,6 +167,13 @@ export function moveTo(scene: Scene, id: string, place: Place): Scene {
     const anchor = place.anchor;
     if (!anchor || out === scene) return out;
     return { ...out, floats: out.floats.map((f) => (f.id === id ? { ...f, anchor } : f)) };
+  }
+  // A side with no declared rail: its rail is its outermost column that takes the kind (`railColumnOf`), the item docked
+  // at the end of its start zone, folded by hand.
+  const railColumn = place.kind === "rail" ? railColumnOf(scene, place.side, item.kind) : undefined;
+  if (railColumn) {
+    const docked = moveTo(scene, id, { edge: railColumn.id, zone: "start", at: Infinity });
+    return docked === scene ? scene : withItem(docked, { ...docked.items[id]!, from: Math.max(1, item.from ?? 0) });
   }
   if (place.kind === "column" || place.kind === "rail") {
     if (place.kind === "rail" && !scene.rails?.[place.side]?.accepts.includes(item.kind)) return scene;

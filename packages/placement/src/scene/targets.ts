@@ -50,7 +50,10 @@
  * - `rail:<side>:<ring>`: docking folded into a side's rail (its rail and its template take the kind), before each
  *   folded column's segments and after the last, or, with no rail shown, the outer `RAIL_EDGE` px from the side's
  *   outer edge (the window's, an inset's strip included; flush after the side's outside bars), landing where the rail
- *   lands (`SceneLayout.railPlaces`). The outermost column line's zone starts where it ends.
+ *   lands (`SceneLayout.railPlaces`). The outermost column line's zone starts where it ends. For a kind with a rail
+ *   drop policy (`Scene.railDrop`), the side's rail is a drop strip instead, spring-loaded, owning its rect
+ *   (`./targets/rail-strip`); on a side with no declared rail, its rail is its outermost column that takes the kind,
+ *   drawn as a rail once the item docks in it folded.
  * - `float:<id>`: when `floatKinds` lists the kind, the whole plane: the landing is the float with the pointer holding
  *   it at `grab` (default its middle), in the stage and clear of the docked items, the bars and the chrome. Its orient:
  *   `options.floatOrient`, else its float's, else the item's (`floatOrientOf`). Its size: `options.floatSize`, else its
@@ -78,6 +81,7 @@ import { edgeKindOf } from "./targets/kinds";
 import type { Ctx, EdgeSpec, Generated, SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions, Span, Tile } from "./targets/model";
 import { homeRectOf, ownership } from "./targets/ownership";
 import { clipTiles, tileEdge } from "./targets/tiles";
+import { withRailStrips } from "./targets/rail-strip";
 import { columnLines, railStops } from "./targets/virtual";
 
 export { reservedRect, zoneExtents } from "./targets/edges";
@@ -238,7 +242,10 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
     targets.push({ id: targetId({ kind: "home", item: dragged }), priority: 1, hit, ...pieces, item: dragged, place: { kind: "home" }, after: homeAfter });
   }
   // A slot is lost only where no target carries its id (two lines of one move, about the item's own column, are one).
-  return { targets, refusals: refused, lost: [...new Set(lost)].filter((id) => !targets.some((t) => t.id === id)) };
+  const lostIds = [...new Set(lost)].filter((id) => !targets.some((t) => t.id === id));
+  // The kind's rail drop strips (`Scene.railDrop`), laid over the rest: each owns its rect.
+  const layered = withRailStrips(c, targets, refused);
+  return { targets: layered.targets, refusals: layered.refusals, lost: lostIds };
 }
 
 export function targets(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneTarget[] {

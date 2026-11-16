@@ -22,7 +22,7 @@ const same = (a: R, b: R): boolean => Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y
 export { modelScene };
 
 /** The categories a point can fail by. */
-type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order" | "lost-slot" | "refused-owns" | "seen-hole" | "seen-refused" | "beside-own-not-home" | "aim-order";
+type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order" | "lost-slot" | "refused-owns" | "seen-hole" | "seen-refused" | "beside-own-not-home" | "aim-order" | "strip-owned";
 
 /** The edge a target or refusal belongs to, and its zone (null: no zone). */
 function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edge: string | null; zone: Zone | null } {
@@ -39,8 +39,8 @@ function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edg
 }
 
 /** Runs the check over `seeds`; returns the failure counts per category and a few examples. */
-export function propertyCheck(seeds: readonly number[], flush = false, middle = false): { points: number; aimPoints: number; counts: Record<Failure, number>; examples: string[] } {
-  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0, "aim-order": 0 };
+export function propertyCheck(seeds: readonly number[], flush = false, middle = false, railDrop = false): { points: number; aimPoints: number; stripPoints: number; counts: Record<Failure, number>; examples: string[] } {
+  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0, "aim-order": 0, "strip-owned": 0 };
   const examples: string[] = [];
   const fail = (k: Failure, msg: string): void => {
     counts[k]++;
@@ -49,8 +49,10 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
   let points = 0;
   // The points the aim-order category samples (counted in `points` too).
   let aimPoints = 0;
+  // The points the strip-owned category samples (counted in `points` too).
+  let stripPoints = 0;
   for (const seed of seeds) {
-    const s = modelScene(seed, flush, middle);
+    const s = modelScene(seed, flush, middle, railDrop);
     const now = solve(s);
     for (const id of Object.keys(s.items)) {
       const it = s.items[id]!;
@@ -60,6 +62,19 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
       const slotHome = all.some((t) => t.place.kind === "home" && !t.id.startsWith("home:"));
       const ts = all.filter((t) => !(slotHome && t.id.startsWith("home:")));
       const rs = refusals(s, id);
+      // A rail drop strip owns its rect: every point in it maps to one rail target, never to a refusal or another target.
+      // The other categories sample only outside the strips.
+      const strips = [...new Map(all.filter((t) => t.strip).map((t) => [JSON.stringify(t.strip), t.strip!])).values()];
+      const inStrip = (pt: { x: number; y: number }): boolean => strips.some((r) => inside(r, pt));
+      for (const r of strips)
+        for (let x = r.x + 2; x < r.x + r.width - 1; x += 6)
+          for (let y = r.y + 3; y < r.y + r.height - 1; y += 9) {
+            const pt = { x, y };
+            points++;
+            stripPoints++;
+            const hits = [...ts.filter((t) => inTarget(t, pt)).map((t) => t.id), ...rs.filter((x) => inside(x.hit, pt)).map((x) => x.id)];
+            if (hits.length !== 1 || !hits[0]!.startsWith("rail:")) fail("strip-owned", `seed ${seed} drag ${id} at ${x.toFixed(0)},${y.toFixed(0)}: ${hits.join(", ") || "nothing"}`);
+          }
       // Every slot the filter keeps, with room in its zone, keeps a hit.
       for (const x of lostSlots(s, id)) fail("lost-slot", `seed ${seed} drag ${id} ${x}`);
       // A target is a place a pointer can be: a zone under 1 px each way, or 1 px² in all, is as good as lost.
@@ -152,7 +167,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
       const anyBody = Object.values(seen.items).filter((x) => x.edge && x.formKind === "open" && !x.floating && !!s.edges.find((e) => e.id === x.edge)?.accepts.includes(it.kind)).map((x) => ({ x: x.rect.x, y: x.rect.y + 12, width: x.rect.width, height: x.rect.height - 24 }));
       for (const pt of virtualPoints) {
         // The item's own rect is home's (the own-not-home category checks it).
-        if (!inside(s.stage, pt) || (s.chrome ?? []).some((c) => inside(c, pt)) || (ownRect && inside(ownRect, pt)) || anyBody.some((b) => inside(b, pt))) continue;
+        if (!inside(s.stage, pt) || inStrip(pt) || (s.chrome ?? []).some((c) => inside(c, pt)) || (ownRect && inside(ownRect, pt)) || anyBody.some((b) => inside(b, pt))) continue;
         points++;
         const hits = [...ts.filter((t) => inTarget(t, pt)).map((t) => t.id), ...rs.filter((x) => inside(x.hit, pt)).map((x) => x.id)];
         if (hits.length === 0) fail("virtual-hole", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}`);
@@ -167,7 +182,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
         for (let x = e.rect.x + 3; x < e.rect.x + e.rect.width - 1; x += 6)
           for (let y = e.rect.y + 3; y < e.rect.y + e.rect.height - 1; y += 6) {
             const pt = { x, y };
-            if (!inside(s.stage, pt) || [...(s.chrome ?? []), ...anyBody, ...fixedRects].some((r) => inside(r, pt)) || (ownRect && inside(ownRect, pt))) continue;
+            if (!inside(s.stage, pt) || inStrip(pt) || [...(s.chrome ?? []), ...anyBody, ...fixedRects].some((r) => inside(r, pt)) || (ownRect && inside(ownRect, pt))) continue;
             points++;
             if (!ts.some((t) => inTarget(t, pt)) && !rs.some((r) => inside(r.hit, pt))) fail("seen-hole", `seed ${seed} drag ${id} under ${eid} at ${x.toFixed(0)},${y.toFixed(0)}`);
           }
@@ -182,7 +197,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
         for (let x = card.rect.x + 3; x < card.rect.x + card.rect.width - 1; x += 6)
           for (let y = card.rect.y + 3; y < card.rect.y + card.rect.height - 1; y += 6) {
             const pt = { x, y };
-            if (!inside(s.stage, pt) || [...(s.chrome ?? []), ...fixedRects].some((r) => inside(r, pt)) || (ownRect && inside(ownRect, pt))) continue;
+            if (!inside(s.stage, pt) || inStrip(pt) || [...(s.chrome ?? []), ...fixedRects].some((r) => inside(r, pt)) || (ownRect && inside(ownRect, pt))) continue;
             points++;
             const refused = rs.filter((r) => inside(r.hit, pt));
             if (refused.length) fail("seen-refused", `seed ${seed} drag ${id} over ${cid} (${e.id}:${zone}) at ${x.toFixed(0)},${y.toFixed(0)}: ${refused.map((r) => `${r.id}/${r.reason}`).join(", ")}`);
@@ -201,7 +216,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
         for (const along of [o0 - 2, o0 - 6, o1 + 2, o1 + 6])
           for (const f of [0.25, 0.5, 0.75]) {
             const pt = vertical ? { x: ownRect.x + ownRect.width * f, y: along } : { x: along, y: ownRect.y + ownRect.height * f };
-            if (!ext || along < ext.a || along >= ext.b || !inside(ownSeen.rect, pt) || !inside(s.stage, pt) || [...(s.chrome ?? []), ...fixedRects, ...others].some((r) => inside(r, pt))) continue;
+            if (!ext || along < ext.a || along >= ext.b || !inside(ownSeen.rect, pt) || !inside(s.stage, pt) || inStrip(pt) || [...(s.chrome ?? []), ...fixedRects, ...others].some((r) => inside(r, pt))) continue;
             points++;
             const picked = targetAt(all, pt) as SceneTarget | null;
             const ownEdgeSlot = picked?.place.kind === "gap" && picked.place.edge === ownEdge.id;
@@ -236,7 +251,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           const offs: [number, number] = card.formKind === "open" ? [6, c1 - c0 - 6] : [(c1 - c0) * 0.25, (c1 - c0) * 0.75];
           offs.forEach((off, half) => {
             const pt = vertical ? { x: card.rect.x + card.rect.width / 2, y: c0 + off } : { x: c0 + off, y: card.rect.y + card.rect.height / 2 };
-            if (!inside(s.stage, pt) || [...(s.chrome ?? []), ...fixedRects].some((r) => inside(r, pt))) return;
+            if (!inside(s.stage, pt) || inStrip(pt) || [...(s.chrome ?? []), ...fixedRects].some((r) => inside(r, pt))) return;
             points++;
             aimPoints++;
             const i = n + half;
@@ -285,7 +300,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           const along = a0 + k;
           const cross = vertical ? band.x + band.width / 2 : band.y + band.height / 2;
           const pt = vertical ? { x: cross, y: along } : { x: along, y: cross };
-          if ([...others, ...fixed, ...bodies, ...(s.chrome ?? [])].some((o) => inside(o, pt))) continue;
+          if (inStrip(pt) || [...others, ...fixed, ...bodies, ...(s.chrome ?? [])].some((o) => inside(o, pt))) continue;
           if (ownRect && !inside(ownRect, pt) && Object.values(seen.items).some((x) => x !== own && x.edge && x.edge !== e.id && inside(x.rect, pt))) continue;
           points++;
           const zone = extents.find((z) => along >= z.a - 1e-9 && along < z.b - 1e-9)?.zone ?? null;
@@ -324,13 +339,13 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
       }
     }
   }
-  return { points, aimPoints, counts, examples };
+  return { points, aimPoints, stripPoints, counts, examples };
 }
 
 const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
 
 /** No failure of any kind (before the one target model: 8159 holes, 4021 overlaps, 14849 other-zone, 2667 own-not-home). */
-const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0, "aim-order": 0 };
+const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0, "aim-order": 0, "strip-owned": 0 };
 
 /** Every edge renamed to an id with ":" in it: the same targets and refusals, under the renamed ids. */
 export function colonRenameDiffs(seeds: readonly number[]): string[] {
@@ -591,6 +606,21 @@ describe("the target model's property check", () => {
       expect(r.points).toBeGreaterThan(1000);
       expect(r.aimPoints).toBeGreaterThan(200);
       for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${flush ? "flush " : ""}${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
+    }
+  });
+
+  it("windows whose panels drop into their side's rail through a strip (Scene.railDrop) keep every category at zero, the strip included", () => {
+    for (const [flush, middle] of [
+      [false, false],
+      [true, false],
+      [false, true],
+      [true, true],
+    ] as const) {
+      const r = propertyCheck(Array.from({ length: flush ? 300 : 120 }, (_, i) => i + 1), flush, middle, true);
+      // eslint-disable-next-line no-console
+      if (process.env.MODEL_REPORT) console.log(JSON.stringify({ flush, middle, points: r.points, stripPoints: r.stripPoints, counts: r.counts }), "\n" + r.examples.join("\n"));
+      expect(r.stripPoints).toBeGreaterThan(500);
+      for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${flush ? "flush " : ""}${middle ? "middle " : ""}${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
     }
   });
 
