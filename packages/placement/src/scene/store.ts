@@ -162,9 +162,11 @@ function read(data: unknown, base: Scene): SceneRead {
       else if (s.used !== undefined) drop(`item:${id}:used`);
       if (s.kept === true) it = { ...it, kept: true };
       else if (s.kept !== undefined && s.kept !== false) drop(`item:${id}:kept`);
-      if (isNum(s.from) && Number.isInteger(s.from) && s.from >= 1 && !b.fixed) it = { ...it, from: s.from };
+      // A fixed item keeps `base`'s fold, but on an edge that lets the user fold it (`Edge.foldable`).
+      const byHand = !b.fixed || base.edges.some((e) => e.foldable === true && e.items.includes(id));
+      if (isNum(s.from) && Number.isInteger(s.from) && s.from >= 1 && byHand) it = { ...it, from: s.from };
       else if (s.from !== undefined) drop(`item:${id}:from`);
-      if (b.fixed && b.from !== undefined) it = { ...it, from: b.from };
+      if (!byHand && b.from !== undefined) it = { ...it, from: b.from };
       if (s.closed === true && !b.fixed) it = { ...it, closed: true };
       else if (s.closed !== undefined && s.closed !== false) drop(`item:${id}:closed`);
       if (s.align === "center" || s.align === "end") it = { ...it, align: s.align };

@@ -149,6 +149,12 @@ export interface Edge {
    */
   readonly moves?: "side";
   /**
+   * `true`: the user may fold this edge's fixed items (an anchor) by hand, like a panel: `fold(scene, id, true)` shows
+   * it in its rail form, `fold(scene, id, false)` reopens it, and `storeScene` / `readScene` keep it folded. Left out,
+   * `fold` leaves a fixed item as it is.
+   */
+  readonly foldable?: boolean;
+  /**
    * A dynamic column (left and right only): made by a drop on a column line, deleted when it holds no item, folded whole
    * into its side's rail by give-way (`Scene.contentMin`) or when every member is folded by hand. Its `accepts`,
    * `cross`, `gap`, `pad`, `menu`, `zoneAccepts` and `hitBand` come from `Scene.columns[side]` when the changes make it;

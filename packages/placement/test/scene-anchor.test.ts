@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { targetAt } from "@n-uf/motion/drag";
 import { centre } from "../src/geometry";
-import { parseTargetId, readScene, refusals, resize, setSide, solve, storeScene, targetId, targets, use, type Scene } from "../src/scene";
+import { fold, parseTargetId, readScene, refusals, resize, setSide, solve, storeScene, targetId, targets, use, type Scene } from "../src/scene";
 import { byId, column, form, panel } from "./scene-fixture";
 
 /** Thumbnails fixed on the left, a panel column beside them, a column on the right. */
@@ -49,6 +49,33 @@ describe("an anchor dragged to the other side", () => {
   it("a fixed item on an edge that doesn't move has no targets, and never a gap", () => {
     expect(targets(anchorScene(), "thumbs")).toEqual([]);
     for (const t of targets(movable(), "thumbs")) expect(t.place.kind === "gap").toBe(false);
+  });
+});
+
+describe("an anchor folded by hand", () => {
+  const foldable = (): Scene => ({ ...anchorScene(), edges: anchorScene().edges.map((e) => (e.id === "anchor:thumbs" ? { ...e, foldable: true } : e)) });
+
+  it("folds to its rail form and reopens, on an edge that allows it; the store keeps the fold", () => {
+    const s = foldable();
+    const folded = fold(s, "thumbs", true);
+    expect(solve(folded).items.thumbs!.formKind).toBe("rail");
+    expect(solve(fold(folded, "thumbs", false)).items.thumbs!.formKind).toBe("open");
+    // A click on its rail segment reopens it as it does a hand-folded panel: `fold(id, false)` + `use`.
+    const l = solve(folded);
+    expect(solve(use(fold(folded, "thumbs", false), "thumbs"), { previous: l, fresh: ["thumbs"] }).items.thumbs!.formKind).toBe("open");
+    const back = readScene(JSON.parse(JSON.stringify(storeScene(folded))), s);
+    expect(back.dropped).toEqual([]);
+    expect(solve(back.scene)).toEqual(solve(folded));
+  });
+
+  it("stays as it is on an edge that doesn't (the default): fold is a no-op, a stored fold is dropped", () => {
+    const s = anchorScene();
+    expect(fold(s, "thumbs", true)).toBe(s);
+    const stored = storeScene(s);
+    const withFrom = { ...stored, items: { ...stored.items, thumbs: { ...stored.items.thumbs!, from: 1 } } };
+    const back = readScene(JSON.parse(JSON.stringify(withFrom)), s);
+    expect(back.dropped).toEqual(["item:thumbs:from"]);
+    expect(solve(back.scene).items.thumbs!.formKind).toBe("open");
   });
 });
 

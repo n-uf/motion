@@ -203,7 +203,8 @@ export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): S
 
 export function fold(scene: Scene, id: string, on: boolean): Scene {
   const item = itemOf(scene, id);
-  if (!item || item.fixed) return scene;
+  // A fixed item folds only on an edge that allows it (`Edge.foldable`).
+  if (!item || (item.fixed && !scene.edges.some((e) => e.foldable === true && e.items.includes(id)))) return scene;
   if (on) return (item.from ?? 0) >= 1 ? scene : withItem(scene, { ...item, from: 1 });
   if (item.from === undefined) return scene;
   const { from: _f, ...rest } = item;
