@@ -96,13 +96,18 @@ export function withRailStrips(c: Ctx, targets: readonly SceneTarget[], refusals
     }
     const was = t.hits ?? [t.hit];
     const pieces = outside(was, rects);
-    if (pieces.length === 0) continue;
+    if (pieces.length === 0) {
+      // An empty edge's drop strip under the rail's (an empty column, where the side's rail would be too) moves just
+      // inside it: the rail lies outermost, the column opens from beside it.
+      const moved = t.id.startsWith("strip:") ? insideStrips(t.hit, strips) : null;
+      if (moved) out.push({ ...withoutHits(t), hit: moved });
+      continue;
+    }
     if (sameRects(pieces, was)) {
       out.push(t);
       continue;
     }
-    const { hits: _was, ...rest } = t;
-    out.push({ ...rest, hit: largest(pieces), ...(pieces.length > 1 ? { hits: pieces } : {}) });
+    out.push({ ...withoutHits(t), hit: largest(pieces), ...(pieces.length > 1 ? { hits: pieces } : {}) });
   }
   const refused: SceneRefusal[] = [];
   // The rail's own refusals go with its stops: the strip offers only the stops that take the drop.
@@ -148,6 +153,18 @@ export function withRailStrips(c: Ctx, targets: readonly SceneTarget[], refusals
     }
   }
   return { targets: out, refusals: renumbered, strips: rects };
+}
+
+const withoutHits = (t: SceneTarget): SceneTarget => {
+  const { hits: _pieces, ...rest } = t;
+  return rest;
+};
+
+/** `r` moved inward just past the strip of its side that covers it, or null when none does. */
+function insideStrips(r: Rect, strips: readonly Strip[]): Rect | null {
+  const s = strips.find((x) => overlaps(x.rect, r));
+  if (!s) return null;
+  return s.side === "left" ? rect(s.rect.x + s.rect.width, r.y, r.width, r.height) : rect(s.rect.x - r.width, r.y, r.width, r.height);
 }
 
 /** The float target with its landing kept clear of every strip (`floatNearEdge: false`): pushed inward past it. */
