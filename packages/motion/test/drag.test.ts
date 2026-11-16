@@ -560,3 +560,78 @@ describe("drag/ grip press", () => {
     expect(g.up(G, 5010)).toBe("doubleActivate");
   });
 });
+
+describe("drag/ spring-loading and keys", () => {
+  // A side's rail strip, spring-loaded, 30 px at the left of a free area; its armed zone grows 6 px inward (a magnet).
+  const STRIP_RAIL: DragTarget = { id: "rail:left", priority: 1, hit: rect(0, 0, 30, 400), armedHit: rect(0, 0, 36, 400), arm: "dwell" };
+  const FREE: DragTarget = { id: "float", priority: 3, hit: rect(-1000, -1000, 4000, 4000), free: true };
+  const SPRING = [STRIP_RAIL, FREE];
+  const H = rect(500, 100, 100, 50);
+  const run = (keys: readonly Key[], tuning: Partial<DragTuning> = {}, held?: { shift?: boolean; alt?: boolean }) => {
+    const intent = createDragIntent({ home: H, tuning });
+    const total = keys.at(-1)![0];
+    const frames: { t: number; shown: string | null; arming: string | null; forced: string | null }[] = [];
+    for (let t = 0; t <= total + 0.001; t += FRAME) {
+      const f = intent.update(along(keys, t), t, SPRING, held);
+      frames.push({ t, shown: f.shown?.id ?? null, arming: f.arming?.id ?? null, forced: f.forced });
+    }
+    return { frames, landed: intent.release(along(keys, total), SPRING, held)?.id ?? null };
+  };
+
+  it("a pass through the strip at travelling speed never arms it: the drop stays a float", () => {
+    // From the home leftward through the strip and back out, at 1.5 px/ms.
+    const r = run(hold(through([mid(H), { x: 15, y: 200 }, { x: 200, y: 200 }], 1.5), 200));
+    expect(r.frames.some((f) => f.shown === "rail:left")).toBe(false);
+    expect(r.landed).toBe("float");
+  });
+
+  it("a drop before the dwell is over is a float; held for the dwell it arms, shows at once and takes the drop", () => {
+    const into = through([mid(H), { x: 15, y: 200 }], 1);
+    const early = run(hold(into, 120));
+    expect(early.frames.at(-1)!.arming).toBe("rail:left");
+    expect(early.landed).toBe("float");
+    const armed = run(hold(into, 260));
+    const at = armed.frames.find((f) => f.shown === "rail:left")!.t;
+    const entered = armed.frames.find((f) => f.arming === "rail:left")!.t;
+    expect(at - entered).toBeGreaterThanOrEqual(DRAG_DEFAULTS.railArmDwellMs - FRAME);
+    expect(at - entered).toBeLessThan(DRAG_DEFAULTS.railArmDwellMs + 2 * FRAME);
+    expect(armed.landed).toBe("rail:left");
+  });
+
+  it("armed, the strip holds in its grown zone (the magnet) and disarms once the pointer leaves it", () => {
+    const keys = then(hold(through([mid(H), { x: 15, y: 200 }], 1), 260), (t0) => hold(through([{ x: 15, y: 200 }, { x: 33, y: 200 }], 0.05, t0), 100));
+    const r = run(keys);
+    expect(r.frames.at(-1)!.shown).toBe("rail:left");
+    const out = then(keys, (t0) => hold(through([{ x: 33, y: 200 }, { x: 80, y: 200 }], 0.2, t0), 200));
+    const r2 = run(out);
+    expect(r2.frames.at(-1)!.shown).toBe("float");
+    expect(r2.landed).toBe("float");
+  });
+
+  it("a dwell of 0 arms at once", () => {
+    const r = run(hold(through([mid(H), { x: 15, y: 200 }], 1), 60), { railArmDwellMs: 0 });
+    expect(r.landed).toBe("rail:left");
+  });
+
+  it("the float key floats even on the strip; the rail key goes to the nearest rail from anywhere, home included", () => {
+    const onStrip = hold(through([mid(H), { x: 15, y: 200 }], 1), 300);
+    expect(run(onStrip, {}, { shift: true }).landed).toBe("float");
+    expect(run(onStrip, {}, { shift: true }).frames.at(-1)!.forced).toBe("float");
+    const mid1 = hold(through([mid(H), { x: 300, y: 200 }], 1), 100);
+    const alt = run(mid1, {}, { alt: true });
+    expect(alt.landed).toBe("rail:left");
+    expect(alt.frames.at(-1)).toMatchObject({ shown: "rail:left", forced: "rail" });
+    // Both held: the float key wins.
+    expect(run(mid1, {}, { shift: true, alt: true }).landed).toBe("float");
+    // Modifiers off: the keys do nothing.
+    expect(run(mid1, { modifiers: { on: false, floatKey: "Shift", railKey: "Alt" } }, { alt: true }).landed).toBe("float");
+    // Over home, the rail key still wins.
+    const atHome = createDragIntent({ home: H });
+    expect(atHome.release(mid(H), SPRING, { alt: true })?.id).toBe("rail:left");
+  });
+
+  it("a target with no `arm` is unchanged by the new tuning", () => {
+    const r = drive(hold(through([FROM, { x: -20, y: 50 }], 0.3), 300), DOCK, HOME, { railArmDwellMs: 5000 });
+    expect(r.landed).toBe("rail");
+  });
+});
