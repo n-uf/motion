@@ -8,6 +8,7 @@
  *   edges: { id: string; side: Side; ring: number; items: string[]; size?: number; column?: true }[];
  *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor }[];
  *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; floatSize?: { width: number; height: number } }>;
+ *   railModes?: { left?: "titles" | "icons"; right?: "titles" | "icons" };
  * }
  * ```
  *
@@ -31,7 +32,7 @@ import { rect, type Size } from "../geometry";
 import { clampFloat, closeRings, drawnFloatSize, prune, setSide } from "./changes";
 import { axisOf, columnFromTemplate } from "./helpers";
 import { checkEdgeIds, isReservedEdgeId } from "./targets/ids";
-import { SIDES, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
+import { RAIL_MODES, SIDES, type Edge, type FloatAnchor, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
 
 export interface StoredSceneEdge {
   readonly id: string;
@@ -67,6 +68,8 @@ export interface StoredScene {
   readonly edges: readonly StoredSceneEdge[];
   readonly floats: readonly StoredSceneFloat[];
   readonly items: Readonly<Record<string, StoredSceneItem>>;
+  /** Per side, how its rails show their items (`Scene.railModes`), when the scene sets one. */
+  readonly railModes?: Readonly<Partial<Record<"left" | "right", RailMode>>>;
 }
 
 export interface SceneRead {
@@ -84,6 +87,22 @@ const isObject = (x: unknown): x is Record<string, unknown> => typeof x === "obj
 /** Records with no prototype, so an id such as `constructor` is only a key; `__proto__` is refused. */
 const record = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
 
+/** The valid rail modes of `v` (left and right only), or null when it has none. */
+function railModesOf(v: unknown, drop?: (what: string) => void): Partial<Record<"left" | "right", RailMode>> | null {
+  if (v === undefined) return null;
+  if (!isObject(v)) {
+    drop?.("railModes");
+    return null;
+  }
+  const out: Partial<Record<"left" | "right", RailMode>> = {};
+  for (const k of Object.keys(v)) {
+    const m = v[k];
+    if ((k === "left" || k === "right") && RAIL_MODES.includes(m as RailMode)) out[k] = m as RailMode;
+    else drop?.(`railModes:${k}`);
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 export function storeScene(scene: Scene): StoredScene {
   const items = record<StoredSceneItem>();
   for (const [id, it] of Object.entries(scene.items)) {
@@ -97,6 +116,7 @@ export function storeScene(scene: Scene): StoredScene {
       ...(it.floatSize && isSize(it.floatSize.width) && isSize(it.floatSize.height) ? { floatSize: { width: it.floatSize.width, height: it.floatSize.height } } : {}),
     };
   }
+  const modes = railModesOf(scene.railModes);
   return {
     v: 1,
     edges: scene.edges.map((e) => ({ id: e.id, side: e.side, ring: e.ring, items: [...e.items], ...(isNum(e.size) ? { size: e.size } : {}), ...(e.column === true ? { column: true as const } : {}) })),
@@ -104,6 +124,7 @@ export function storeScene(scene: Scene): StoredScene {
       .filter((f) => isNum(f.rect.x) && isNum(f.rect.y) && isSize(f.rect.width) && isSize(f.rect.height))
       .map((f) => ({ id: f.id, x: f.rect.x, y: f.rect.y, width: f.rect.width, height: f.rect.height, ...(f.orient ? { orient: f.orient } : {}), ...(f.anchor ? { anchor: f.anchor } : {}) })),
     items,
+    ...(modes ? { railModes: modes } : {}),
   };
 }
 
@@ -140,7 +161,10 @@ function read(data: unknown, base: Scene): SceneRead {
   const drop = (what: string): void => {
     if (!dropped.includes(what)) dropped.push(what);
   };
-  for (const k of Object.keys(data)) if (!["v", "edges", "floats", "items"].includes(k)) drop(k);
+  for (const k of Object.keys(data)) if (!["v", "edges", "floats", "items", "railModes"].includes(k)) drop(k);
+  // The rail modes: the store's per side, over `base`'s.
+  const storedModes = railModesOf(data.railModes, drop);
+  const railModes = storedModes ? { ...base.railModes, ...storedModes } : base.railModes;
   const known = (id: unknown): id is string => typeof id === "string" && id !== "__proto__" && Object.hasOwn(base.items, id);
   const isFixed = (id: string): boolean => known(id) && base.items[id]!.fixed === true;
 
@@ -289,7 +313,7 @@ function read(data: unknown, base: Scene): SceneRead {
   // Base floats the store placed nowhere keep their base place.
   for (const f of base.floats) if (!placed.has(f.id)) floats.push(f);
   // Empty columns go; the sides' rings close up.
-  let scene = prune({ ...base, items, edges: closeRings(edges, new Set(made.length > 0 || rings.size > 0 ? ["left", "right"] : [])), floats });
+  let scene = prune({ ...base, ...(railModes ? { railModes } : {}), items, edges: closeRings(edges, new Set(made.length > 0 || rings.size > 0 ? ["left", "right"] : [])), floats });
   for (const [id, side] of moves) scene = setSide(scene, id, side);
   return { scene, dropped };
 }

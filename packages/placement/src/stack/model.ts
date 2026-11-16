@@ -88,6 +88,15 @@ export interface StackForm {
    * `hidden`.
    */
   readonly hides?: readonly string[];
+  /**
+   * A `rail` form that draws the item's title along the rail (its name and count, turned to run along it) instead of
+   * its tile. Put it just before the item's tile `rail` form: in a rail the two are steps on the ladder, the title giving
+   * way to the tile by the usual rules and coming back in exact reverse. Its `main` is the title's length along the rail,
+   * measured by the host. A stack offers it only with `StackInput.titles`; otherwise it is passed over like a form that
+   * isn't there (never started in, stepped into or grown back to). `./scene` offers it in a rail whose side shows titles
+   * (`Scene.railModes`, default `"titles"`) and reports the side it reads from (`SceneItemLayout.railTitle`).
+   */
+  readonly title?: boolean;
 }
 
 const nonNeg = (x: number | undefined): number => (typeof x === "number" && Number.isFinite(x) ? Math.max(0, x) : 0);
@@ -279,6 +288,11 @@ export interface StackInput {
    * `stackTargets`' hits and markers still span the stack.
    */
   readonly ownCross?: boolean;
+  /**
+   * Offer the forms marked `title` (default false: they are passed over, so a stack without it lays out as if they
+   * weren't declared). A rail showing titles sets it.
+   */
+  readonly titles?: boolean;
 }
 
 /** The width of a stack nothing open holds, px. */

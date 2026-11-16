@@ -207,6 +207,10 @@ export interface ColumnTemplate {
 /** Per zone, the kinds it takes. */
 export type ZoneAccepts = Readonly<Partial<Record<Zone, readonly Kind[]>>>;
 
+/** How a side's rails show their items: their titles while they fit (the default), or their tiles only. */
+export type RailMode = "titles" | "icons";
+export const RAIL_MODES: readonly RailMode[] = ["titles", "icons"];
+
 /** A side's one rail strip: folded columns show in it as segments, in ring order. */
 export interface RailSpec {
   /** Its width, px. */
@@ -242,6 +246,14 @@ export interface Scene {
   readonly columns?: Partial<Record<"left" | "right", ColumnTemplate>>;
   /** Per side (left, right): its rail. A side without one keeps folded columns as columns. */
   readonly rails?: Partial<Record<"left" | "right", RailSpec>>;
+  /**
+   * Per side (left, right): how its rails show their items (default `"titles"`). It covers every rail on the side: a
+   * column drawn as a rail (nothing in it sets its width) and the side's rail strip (`rails`). `"titles"` offers the
+   * items' title rail forms (`StackForm.title`), each stepping down to its tile by the ladder when the rail runs short;
+   * `"icons"` passes them over, so every item shows its tile. An item with no title form shows its tile either way. A
+   * side needs no `rails` entry to have a mode: a column drawn as a rail reads it too. `storeScene` keeps it.
+   */
+  readonly railModes?: Partial<Record<"left" | "right", RailMode>>;
   /**
    * The least the content may be. While the content is narrower than `width`, dynamic columns shrink toward their
    * minimum, then fold whole into their side's rail: unkept before kept, the one whose newest use is oldest first, the
@@ -290,6 +302,12 @@ export interface SceneItemLayout {
   readonly fixed?: boolean;
   /** Drawn as a segment of this side's rail (its column is folded). */
   readonly rail?: "left" | "right";
+  /**
+   * Drawn in its title rail form (`StackForm.title`) on a rail of this side: a column drawn as a rail or the side's rail
+   * strip. The host turns the title to run along the rail and reads it toward the content: on the left from bottom to
+   * top (turned −90°), on the right from top to bottom (+90°), the count at the title's end.
+   */
+  readonly railTitle?: "left" | "right";
   /** Drawn as a title bar riding on this column (`handFold: "ride"`). */
   readonly rides?: string;
   /** Its column folded: by hand (every member folded) or by give-way. */
@@ -336,6 +354,11 @@ export interface SceneRailLayout {
   readonly rect: Rect;
   /** One per member of each folded column, in ring order. */
   readonly segments: readonly { readonly id: string; readonly edge: string; readonly rect: Rect }[];
+  /**
+   * The segments' fit along the rail, in rail-local px, while any of them offers a title form (titles step down to
+   * tiles by the ladder and come back in exact reverse): `solve`'s `previous` reads it; a host needs it not.
+   */
+  readonly stack?: StackFit;
 }
 
 /**

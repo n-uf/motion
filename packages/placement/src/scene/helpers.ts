@@ -4,7 +4,7 @@
  */
 import type { Rect, Size } from "../geometry";
 import type { StackForm } from "../stack";
-import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, ZONES, type ColumnTemplate, type Edge, type Kind, type Orient, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
+import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, ZONES, type ColumnTemplate, type Edge, type Kind, type Orient, type RailMode, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
 
 /** Whether `edge` takes kind `kind` in `zone`: its `accepts`, narrowed by `zoneAccepts` when given (a zone not listed takes nothing). */
 export const zoneTakes = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, zone: Zone, kind: Kind): boolean =>
@@ -39,6 +39,9 @@ export const columnFromTemplate = (t: ColumnTemplate, id: string, side: "left" |
   ...(t.hitBand !== undefined ? { hitBand: t.hitBand } : {}),
   column: true,
 });
+
+/** How the rails of `side` show their items (`Scene.railModes`, default `"titles"`); top and bottom have no rails. */
+export const railModeOf = (scene: Scene, side: Side): RailMode => (side === "left" || side === "right" ? (scene.railModes?.[side] === "icons" ? "icons" : "titles") : "icons");
 
 /** The axis an edge's stack runs along. */
 export const axisOf = (side: Side): Orient => (side === "left" || side === "right" ? "column" : "row");

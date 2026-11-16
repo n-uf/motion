@@ -23,8 +23,8 @@
  */
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
-import type { Edge, FloatAnchor, Orient, Scene, SceneFloat, SceneItem, Side, Zone } from "./model";
+import { axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
+import { RAIL_MODES, type Edge, type FloatAnchor, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
 export interface DockPlace {
@@ -285,6 +285,15 @@ function resizeEdge(scene: Scene, edgeId: string, size: number): Scene {
     return { ...scene, edges: scene.edges.map((e) => (e === edge ? rest : e)) };
   }
   return { ...scene, edges: scene.edges.map((e) => (e === edge ? { ...e, size } : e)) };
+}
+
+/**
+ * The side's rails show their items as `mode` (`Scene.railModes`): their titles while they fit, or their tiles only.
+ * Unchanged for a side other than left or right, an unknown mode, or the mode the side has already.
+ */
+export function setRailMode(scene: Scene, side: "left" | "right", mode: RailMode): Scene {
+  if ((side !== "left" && side !== "right") || !RAIL_MODES.includes(mode) || railModeOf(scene, side) === mode) return scene;
+  return { ...scene, railModes: { ...scene.railModes, [side]: mode } };
 }
 
 /**
