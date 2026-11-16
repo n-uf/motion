@@ -4,7 +4,7 @@
  */
 import type { Rect, Size } from "../geometry";
 import type { StackForm } from "../stack";
-import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, ZONES, type ColumnTemplate, type Edge, type Kind, type Orient, type RailMode, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
+import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_RAIL_MAGNET, RAIL_STRIP_MIN, ZONES, type ColumnTemplate, type Edge, type Kind, type Orient, type RailMode, type RailVisibility, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
 
 /** Whether `edge` takes kind `kind` in `zone`: its `accepts`, narrowed by `zoneAccepts` when given (a zone not listed takes nothing). */
 export const zoneTakes = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, zone: Zone, kind: Kind): boolean =>
@@ -45,6 +45,33 @@ export const railModeOf = (scene: Scene, side: Side): RailMode => (side === "lef
 
 /** The axis an edge's stack runs along. */
 export const axisOf = (side: Side): Orient => (side === "left" || side === "right" ? "column" : "row");
+
+/**
+ * The side's rail where the scene declares none (`Scene.rails[side]`): its outermost column that takes `kind` in its
+ * start zone (not an icons-only edge), which shows as a rail once nothing in it sets its width. Undefined where the side
+ * has a declared rail, or no such column.
+ */
+export function railColumnOf(scene: Scene, side: "left" | "right", kind: Kind): Edge | undefined {
+  if (scene.rails?.[side]) return undefined;
+  return scene.edges
+    .filter((e) => e.side === side && !e.compact && zoneTakes(e, "start", kind))
+    .reduce<Edge | undefined>((m, e) => (!m || e.ring < m.ring ? e : m), undefined);
+}
+
+/** A kind's rail drop policy with its defaults, or null where it has none or it is turned off (width 0, `"never"`). */
+export function railPolicyOf(scene: Scene, kind: Kind): { readonly railStripWidth: number | null; readonly railVisibility: RailVisibility; readonly magnet: number; readonly floatNearEdge: boolean } | null {
+  const p = Object.hasOwn(scene.railDrop ?? {}, kind) ? scene.railDrop![kind] : undefined;
+  if (!p) return null;
+  const visibility: RailVisibility = p.railVisibility === "always" || p.railVisibility === "never" ? p.railVisibility : "whileDragging";
+  const width = p.railStripWidth;
+  if (visibility === "never" || (width !== undefined && !(Number.isFinite(width) && width > 0))) return null;
+  return {
+    railStripWidth: width === undefined ? null : Math.max(RAIL_STRIP_MIN, width),
+    railVisibility: visibility,
+    magnet: Number.isFinite(p.magnet) ? Math.max(0, p.magnet!) : DEFAULT_RAIL_MAGNET,
+    floatNearEdge: p.floatNearEdge !== false,
+  };
+}
 export const zoneOf = (item: SceneItem | undefined): Zone => (item?.align === "center" || item?.align === "end" ? item.align : "start");
 export const formsOf = (item: SceneItem, axis: Orient): readonly StackForm[] => item.forms[axis] ?? [];
 

@@ -219,6 +219,41 @@ export interface RailSpec {
   readonly accepts: readonly Kind[];
 }
 
+/** When a host draws a side's rail drop strip: while an item of the kind is held (the default), always, or never. */
+export type RailVisibility = "whileDragging" | "always" | "never";
+export const RAIL_VISIBILITIES: readonly RailVisibility[] = ["whileDragging", "always", "never"];
+
+/** The least width of a rail drop strip, px: a target at the window's edge stays easy to hit (Fitts's law). */
+export const RAIL_STRIP_MIN = 24;
+/** How far an armed rail drop strip grows inward by default, px, so a hand that wobbles once armed keeps it. */
+export const DEFAULT_RAIL_MAGNET = 6;
+
+/**
+ * How an item of one kind drops into a side's rail (`Scene.railDrop[kind]`): the geometry of its drop strip. Each kind
+ * has its own; a kind with none keeps the rail targets as they were (immediate, no strip).
+ *
+ * With a policy, each side whose rail can take the kind shows one drop strip at the window's side, at the rail's real
+ * width, even while the rail is empty: its targets are `rail:<side>:<ring>` with `arm: "dwell"` (spring-loading: the
+ * drag intent arms them on a dwell), `armedHit` (the strip grown by `magnet`) and `strip` (the rect to draw). The strip
+ * owns its rect: a drop there is the rail's once armed, the float's before. The side's rail is `Scene.rails[side]`
+ * where the scene declares one, else the side's outermost column that takes the kind in its start zone, drawn as a
+ * rail (nothing in it sets its width): a drop there docks the item in it folded, and is offered only where it then
+ * shows in a rail.
+ */
+export interface RailDropPolicy {
+  /**
+   * The strip's width, px, from the window's side inward (default: the rail's drawn width). At least
+   * {@link RAIL_STRIP_MIN}; 0 turns the kind's rail docking off.
+   */
+  readonly railStripWidth?: number;
+  /** When the host draws the strip (default `"whileDragging"`); `"never"` turns the kind's rail docking off. */
+  readonly railVisibility?: RailVisibility;
+  /** How far the strip grows inward once armed, px (default {@link DEFAULT_RAIL_MAGNET}). */
+  readonly magnet?: number;
+  /** Whether a float may sit inside the strip's area (default true); false keeps a float's rect clear of every strip. */
+  readonly floatNearEdge?: boolean;
+}
+
 export interface SceneFloat {
   readonly id: string;
   /** Its rect in stage px (it never scrolls with the content). With `anchor`, only its size counts. */
@@ -254,6 +289,11 @@ export interface Scene {
    * side needs no `rails` entry to have a mode: a column drawn as a rail reads it too. `storeScene` keeps it.
    */
   readonly railModes?: Partial<Record<"left" | "right", RailMode>>;
+  /**
+   * Per item kind: how it drops into a side's rail ({@link RailDropPolicy}), keyed by the scene's own kind strings.
+   * Tuning one kind never changes another; a kind left out keeps the rail targets it had.
+   */
+  readonly railDrop?: Readonly<Partial<Record<Kind, RailDropPolicy>>>;
   /**
    * The least the content may be. While the content is narrower than `width`, dynamic columns shrink toward their
    * minimum, then fold whole into their side's rail: unkept before kept, the one whose newest use is oldest first, the

@@ -1,0 +1,172 @@
+/**
+ * The rail drop strips (`Scene.railDrop`): for a kind with a policy, each side whose rail can take it gets one drop
+ * strip at the window's side, at the rail's width (`railStripWidth`), even while the rail is empty. Its targets,
+ * `rail:<side>:<ring>`, are spring-loaded (`arm: "dwell"`), grow by `magnet` once armed (`armedHit`) and carry the
+ * strip to draw (`strip`). The strip owns its rect: every other target and refusal of the drag gives it up (home's
+ * too: an item alone in its column reaches its side's rail through the strip), so a drop there is the rail's once armed
+ * and the float's before. A target the strip covers whole isn't offered: over the rail, the kind collapses into it.
+ *
+ * The side's rail is one concept: `Scene.rails[side]` where the scene declares one (the strip split along it at its
+ * stops, `railStops`), else the side's outermost column that takes the kind in its start zone (`railColumnOf`), which
+ * the drop leaves drawn as a rail; a side where it wouldn't be (an open panel there sets its width) has no strip.
+ */
+import { EPS, overlaps, rect, subtract, type Point, type Rect } from "../../geometry";
+import { moveTo, use, type RailPlace } from "../changes";
+import { railColumnOf, railPolicyOf, zoneTakes } from "../helpers";
+import { RAIL_STRIP_MIN } from "../model";
+import { targetId, virtualEdgeId } from "./ids";
+import type { Ctx, SceneAfter, SceneRefusal, SceneTarget } from "./model";
+import { railOuter, railStops } from "./virtual";
+
+type Policy = NonNullable<ReturnType<typeof railPolicyOf>>;
+
+/** One side's strip and its slots along it, each with its stretch and its drop. */
+interface Strip {
+  readonly side: "left" | "right";
+  readonly rect: Rect;
+  readonly slots: readonly { readonly id: string; readonly place: RailPlace; readonly along: readonly [number, number]; readonly result: SceneAfter }[];
+}
+
+/** The strip's x and width: `width` px from the side's outer boundary `outer`, inward. */
+const across = (side: "left" | "right", outer: number, width: number): [number, number] => (side === "left" ? [outer, width] : [outer - width, width]);
+
+/** A side with no declared rail: its rail column, the item docked in it folded, offered only where it shows as a rail. */
+function columnStrip(c: Ctx, side: "left" | "right", policy: Policy): Strip | null {
+  const edge = railColumnOf(c.scene, side, c.kind);
+  if (!edge) return null;
+  const own = c.now.items[c.dragged];
+  // Already in this rail: every drop into it is home.
+  if (own?.edge === edge.id && own.tab) return null;
+  const place: RailPlace = { kind: "rail", side, ring: edge.ring };
+  const moved = moveTo(c.scene, c.dragged, place);
+  if (moved === c.scene) return null;
+  const result = c.settle(use(moved, c.dragged));
+  const me = result.layout.items[c.dragged];
+  const el = result.layout.edges[edge.id];
+  if (!me?.tab || me.edge !== edge.id || !el || el.rect.width <= EPS || c.isHome(result) || !c.sound(result.layout)) return null;
+  const r = el.rect;
+  const [x, w] = across(side, side === "left" ? r.x : r.x + r.width, policy.railStripWidth ?? Math.max(RAIL_STRIP_MIN, r.width));
+  return { side, rect: rect(x, r.y, w, r.height), slots: [{ id: targetId({ kind: "rail", side, ring: edge.ring }), place, along: [r.y, r.y + r.height], result }] };
+}
+
+/** A side with a declared rail (`Scene.rails`): its stops (`railStops`), the strip split halfway between them. */
+function declaredStrip(c: Ctx, side: "left" | "right", policy: Policy): Strip | null {
+  const template = c.scene.columns?.[side];
+  const spec = c.scene.rails?.[side];
+  if (!template || !spec || !zoneTakes(template, "start", c.kind) || !spec.accepts.includes(c.kind)) return null;
+  const stops = railStops(c, side);
+  const slots = (stops?.slots ?? []).filter((s) => s.ok && !s.home && s.place.kind === "rail").sort((a, b) => a.line - b.line);
+  if (!stops || slots.length === 0) return null;
+  const a = Math.min(...stops.zones.map((z) => z.a));
+  const b = Math.max(...stops.zones.map((z) => z.b));
+  const drawn = c.now.rails[side];
+  const outer = drawn && drawn.segments.length > 0 ? (side === "left" ? drawn.rect.x : drawn.rect.x + drawn.rect.width) : railOuter(c, side);
+  const [x, w] = across(side, outer, policy.railStripWidth ?? Math.max(RAIL_STRIP_MIN, spec.width));
+  const cuts = [a, ...slots.slice(1).map((s, i) => (slots[i]!.line + s.line) / 2), b];
+  return {
+    side,
+    rect: rect(x, a, w, b - a),
+    slots: slots.map((s, i) => ({ id: s.id, place: s.place as RailPlace, along: [cuts[i]!, cuts[i + 1]!] as const, result: s.result })),
+  };
+}
+
+/** Pieces of `pieces` left once every strip is taken out; under 1 px either way is no piece. */
+const outside = (pieces: readonly Rect[], strips: readonly Rect[]): Rect[] =>
+  strips.reduce<Rect[]>((acc, s) => acc.flatMap((p) => (overlaps(p, s) ? subtract(p, s) : [p])), [...pieces]).filter((p) => p.width >= 1 && p.height >= 1);
+const largest = (rs: readonly Rect[]): Rect => rs.reduce((m, r) => (r.width * r.height > m.width * m.height ? r : m));
+const sameRects = (a: readonly Rect[], b: readonly Rect[]): boolean => a.length === b.length && a.every((r, i) => r.x === b[i]!.x && r.y === b[i]!.y && r.width === b[i]!.width && r.height === b[i]!.height);
+
+/**
+ * The drag's targets and refusals with the kind's rail drop strips laid over them (unchanged for a kind with no policy),
+ * and the strips.
+ */
+export function withRailStrips(c: Ctx, targets: readonly SceneTarget[], refusals: readonly SceneRefusal[]): { targets: SceneTarget[]; refusals: SceneRefusal[]; strips: Rect[] } {
+  const policy = railPolicyOf(c.scene, c.kind);
+  const strips = policy ? (["left", "right"] as const).map((side) => (c.scene.rails?.[side] ? declaredStrip(c, side, policy) : columnStrip(c, side, policy))).filter((s): s is Strip => s !== null) : [];
+  if (!policy || strips.length === 0) return { targets: [...targets], refusals: [...refusals], strips: [] };
+  const sides = new Set(strips.map((s) => s.side));
+  const rects = strips.map((s) => s.rect);
+  const out: SceneTarget[] = [];
+  for (const t of targets) {
+    // The rail's own tiled stops give way to its strip.
+    if (t.place.kind === "rail" && sides.has(t.place.side)) continue;
+    if (t.free || t.place.kind === "none") {
+      out.push(t.free && !policy.floatNearEdge ? clearOfStrips(t, c.dragged, rects) : t);
+      continue;
+    }
+    const was = t.hits ?? [t.hit];
+    const pieces = outside(was, rects);
+    if (pieces.length === 0) continue;
+    if (sameRects(pieces, was)) {
+      out.push(t);
+      continue;
+    }
+    const { hits: _was, ...rest } = t;
+    out.push({ ...rest, hit: largest(pieces), ...(pieces.length > 1 ? { hits: pieces } : {}) });
+  }
+  const refused: SceneRefusal[] = [];
+  // The rail's own refusals go with its stops: the strip offers only the stops that take the drop.
+  const railEdges = new Set([...sides].map((side) => virtualEdgeId("rail", side)));
+  for (const r of refusals) {
+    if (railEdges.has(r.edge)) continue;
+    const pieces = outside([r.hit], rects);
+    if (pieces.length) refused.push(pieces.length === 1 && sameRects(pieces, [r.hit]) ? r : { ...r, hit: largest(pieces) });
+  }
+  // A zone's refusals stay numbered by where they lie along the edge (then across it), as cut.
+  const vertical = (r: SceneRefusal): boolean => {
+    const side = c.scene.edges.find((e) => e.id === r.edge)?.side;
+    // A virtual edge: the rail runs down, the column lines across.
+    return side ? side === "left" || side === "right" : r.edge === virtualEdgeId("rail", "left") || r.edge === virtualEdgeId("rail", "right");
+  };
+  const pos = (r: SceneRefusal): [number, number] => (vertical(r) ? [r.hit.y, r.hit.x] : [r.hit.x, r.hit.y]);
+  const groups = new Map<string, SceneRefusal[]>();
+  for (const r of refused) groups.set(`${r.edge}\n${r.zone}`, [...(groups.get(`${r.edge}\n${r.zone}`) ?? []), r]);
+  const numbered = new Map<SceneRefusal, string>();
+  for (const group of groups.values())
+    group
+      .sort((a, b) => pos(a)[0] - pos(b)[0] || pos(a)[1] - pos(b)[1])
+      .forEach((r, n) => numbered.set(r, targetId({ kind: "refuse", edge: r.edge, zone: r.zone, n })));
+  const renumbered = refused.map((r) => (numbered.get(r) === r.id ? r : { ...r, id: numbered.get(r)! }));
+  for (const s of strips) {
+    const grown = s.side === "left" ? rect(s.rect.x, s.rect.y, s.rect.width + policy.magnet, s.rect.height) : rect(s.rect.x - policy.magnet, s.rect.y, s.rect.width + policy.magnet, s.rect.height);
+    for (const sl of s.slots) {
+      const [a, b] = sl.along;
+      const slot = sl.result.layout.items[c.dragged]!.rect;
+      const result = sl.result;
+      out.push({
+        id: sl.id,
+        priority: 1,
+        hit: rect(s.rect.x, a, s.rect.width, b - a),
+        armedHit: rect(grown.x, a, grown.width, b - a),
+        arm: "dwell",
+        strip: s.rect,
+        slot,
+        item: c.dragged,
+        place: sl.place,
+        after: () => result,
+      });
+    }
+  }
+  return { targets: out, refusals: renumbered, strips: rects };
+}
+
+/** The float target with its landing kept clear of every strip (`floatNearEdge: false`): pushed inward past it. */
+function clearOfStrips(t: SceneTarget, dragged: string, strips: readonly Rect[]): SceneTarget {
+  return {
+    ...t,
+    after(point: Point, grab?: Point): SceneAfter {
+      const first = t.after(point, grab);
+      const at = first.layout.items[dragged]?.rect;
+      if (!at) return first;
+      let dx = 0;
+      for (const s of strips) {
+        const r = rect(at.x + dx, at.y, at.width, at.height);
+        if (!overlaps(r, s)) continue;
+        // A strip at the left pushes it right, one at the right pushes it left.
+        dx += s.x + s.width / 2 < r.x + r.width / 2 ? s.x + s.width - r.x : s.x - (r.x + r.width);
+      }
+      // The pointer that puts the float's left edge where it lands, moved past the strips (the landing may be clamped).
+      return dx === 0 ? first : t.after({ x: at.x + dx + (grab?.x ?? at.width / 2), y: point.y }, grab);
+    },
+  };
+}
