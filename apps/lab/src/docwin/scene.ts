@@ -18,6 +18,7 @@ import { DRAG_DEFAULTS, createDragIntent, previewPlan, type DragIntent } from "@
 import { anchoredMorph, type AnchoredMorph } from "@n-uf/motion/layout";
 import {
   close as closeItem,
+  fitResize,
   floatOrientOf,
   open as openItem,
   refusals as sceneRefusals,
@@ -25,7 +26,7 @@ import {
   solve,
   targets as sceneTargets,
   use,
-  type ResizeHandle,
+  type ResizeEdges,
   type Scene,
   type SceneLayout,
   type SceneRefusal,
@@ -150,7 +151,8 @@ const commits = (t: SceneTarget | null): boolean => !!t && t.place.kind !== "hom
 const END_REACH = BAR_INSET;
 
 /** A floating panel's resize handles: its four edges and four corners. */
-const FLOAT_HANDLES: readonly ResizeHandle[] = ["top", "right", "bottom", "left", "top-left", "top-right", "bottom-right", "bottom-left"];
+type FloatHandle = "top" | "right" | "bottom" | "left" | "top-left" | "top-right" | "bottom-right" | "bottom-left";
+const FLOAT_HANDLES: readonly FloatHandle[] =["top", "right", "bottom", "left", "top-left", "top-right", "bottom-right", "bottom-left"];
 
 export type DocwinScene = ReturnType<typeof createScene>;
 
@@ -710,7 +712,7 @@ export function createScene(o: SceneOptions) {
     if (rz) return resizeEdge(e, rz.dataset.resize as "left" | "right");
     const fh = t.closest<HTMLElement>("[data-fh]");
     const fhOf = fh?.closest<HTMLElement>("[data-id]");
-    if (fh && fhOf) return resizeFloat(e, fhOf.dataset.id as ItemId, fh.dataset.fh as ResizeHandle);
+    if (fh && fhOf) return resizeFloat(e, fhOf.dataset.id as ItemId, fh.dataset.fh as FloatHandle);
     const grip = t.closest<HTMLElement>("[data-grip]");
     const itemEl = t.closest<HTMLElement>("[data-id]");
     if (!grip || !itemEl) return;
@@ -895,7 +897,7 @@ export function createScene(o: SceneOptions) {
    * (each step is solved with the layout before). Escape puts the size back. Frozen without Alt, the handles are hidden
    * and a press does nothing.
    */
-  function resizeFloat(e: PointerEvent, id: ItemId, handle: ResizeHandle): void {
+  function resizeFloat(e: PointerEvent, id: ItemId, handle: FloatHandle): void {
     const r0 = layout.items[id]?.rect;
     if (frozen() || !r0) return;
     e.preventDefault();
@@ -903,15 +905,18 @@ export function createScene(o: SceneOptions) {
     const start = winPoint(e);
     root.dataset.dragSession = "resize";
     root.dataset.resizeHandle = handle;
+    const moving: ResizeEdges = { left: handle.includes("left"), right: handle.includes("right"), top: handle.includes("top"), bottom: handle.includes("bottom") };
+    let limits: readonly string[] = [];
     const mv = (ev: PointerEvent): void => {
       const p = winPoint(ev);
       const dx = Math.round(p.x - start.x);
       const dy = Math.round(p.y - start.y);
-      const left = handle.includes("left");
-      const top = handle.includes("top");
-      const width = left ? r0.width - dx : handle.includes("right") ? r0.width + dx : r0.width;
-      const height = top ? r0.height - dy : handle.includes("bottom") ? r0.height + dy : r0.height;
-      commit(resize(scene, id, { x: left ? r0.x + dx : r0.x, y: top ? r0.y + dy : r0.y, width, height }, handle));
+      const width = moving.left ? r0.width - dx : moving.right ? r0.width + dx : r0.width;
+      const height = moving.top ? r0.height - dy : moving.bottom ? r0.height + dy : r0.height;
+      const asked = { x: moving.left ? r0.x + dx : r0.x, y: moving.top ? r0.y + dy : r0.y, width, height };
+      // The one clamp a pointer move takes (what stopped it, for the status line); `resize` commits that same rect.
+      limits = fitResize(scene, id, asked, moving)?.limits ?? [];
+      commit(resize(scene, id, asked, moving));
     };
     const stop = (): void => {
       window.removeEventListener("pointermove", mv);
@@ -926,7 +931,7 @@ export function createScene(o: SceneOptions) {
       stop();
       swallowClick();
       const r = layout.items[id]?.rect;
-      if (r) say(`${TITLES[id]} resized to ${Math.round(r.width)} × ${Math.round(r.height)}.`);
+      if (r) say(`${TITLES[id]} resized to ${Math.round(r.width)} × ${Math.round(r.height)}${limits.length ? ` (stopped by: ${limits.join(", ")})` : ""}.`);
     };
     const key = (ev: KeyboardEvent): void => {
       if (ev.key !== "Escape") return;
