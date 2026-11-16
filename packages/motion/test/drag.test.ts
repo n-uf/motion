@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
 import {
   createDragIntent,
+  createGripPress,
   DRAG_DEFAULTS,
+  GRIP_DOUBLE_DEFAULTS,
   DRAG_PREVIEW_DEFAULT,
   inRect,
   liftDecision,
@@ -508,5 +510,53 @@ describe("drag/ previews", () => {
     expect(frames.at(-1)!.shown).toBe("area");
     expect(frames.some((f) => f.plan.snapItem || f.plan.makeRoom)).toBe(false);
     expect(frames.at(-1)!.plan.showIndicator).toBe(true);
+  });
+});
+
+describe("drag/ grip press", () => {
+  const G = { x: 10, y: 10 };
+  /** A press at `t` that moves `by` px (in 1 px steps), then ends: its lift answers and its release. */
+  const click = (g: ReturnType<typeof createGripPress>, t: number, by = 0, at: Point = G) => {
+    g.down(at, t);
+    const lifts: string[] = [];
+    for (let i = 1; i <= by; i++) lifts.push(g.move({ x: at.x + i, y: at.y }, t + i));
+    return { lifted: lifts.includes("lift"), release: g.up({ x: at.x + by, y: at.y }, t + by + 40) };
+  };
+
+  it("two quick clicks: one click, then one double-activate (not a second click), and no lift", () => {
+    const g = createGripPress();
+    const a = click(g, 0, 2);
+    const b = click(g, 180, 3);
+    expect([a, b]).toEqual([
+      { lifted: false, release: "click" },
+      { lifted: false, release: "doubleActivate" },
+    ]);
+    // A third click starts a new pair.
+    expect(click(g, 360).release).toBe("click");
+    expect(click(g, 520).release).toBe("doubleActivate");
+  });
+
+  it("a slow pair, or a far one, is two clicks", () => {
+    const g = createGripPress();
+    expect([click(g, 0).release, click(g, GRIP_DOUBLE_DEFAULTS.ms + 1).release]).toEqual(["click", "click"]);
+    const h = createGripPress();
+    expect([click(h, 0).release, click(h, 100, 0, { x: G.x + 8, y: G.y }).release]).toEqual(["click", "click"]);
+  });
+
+  it("press and move lifts (a drag, no click), also as the second press of a pair; the next press is a first click", () => {
+    const g = createGripPress();
+    expect(click(g, 0, DRAG_DEFAULTS.lift)).toEqual({ lifted: true, release: null });
+    expect(click(g, 100).release).toBe("click");
+    expect(click(g, 200, DRAG_DEFAULTS.lift)).toEqual({ lifted: true, release: null });
+    expect(click(g, 300).release).toBe("click");
+  });
+
+  it("the platform's count, when given, decides the double", () => {
+    const g = createGripPress();
+    g.down(G, 0, { clicks: 1 });
+    expect(g.up(G, 10)).toBe("click");
+    // Long after, but the platform says it is the second click.
+    g.down(G, 5000, { clicks: 2 });
+    expect(g.up(G, 5010)).toBe("doubleActivate");
   });
 });
