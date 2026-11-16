@@ -3,11 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.26
-
-- Notes for hosts: every `SceneItemLayout` now carries `hidden` (an empty array when nothing is hidden), so a host that
-  compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
-  (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
+## Unreleased
 
 - `./scene`, **a float resized by hand** (additive):
   - **`fitResize(scene, id, rect, moving)`** → `{ rect, limits } | null`: the one clamp a host calls per pointer move,
@@ -107,6 +103,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     `home:`, `float:`, `none:` and `refuse:` id, so a host never splits strings, even when an edge id holds `:`. The
     ids themselves are unchanged. The legacy entries (`./panels`, `./targets`, `./stack`) keep their own ids until
     they are removed.
+
+## 26.11.26
+
+- Notes for hosts: every `SceneItemLayout` now carries `hidden` (an empty array when nothing is hidden), so a host that
+  compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
+  (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
 - `@n-uf/placement/stack` and `/scene`, **forms carry what they hide** (additive). A toolbar's compact variants are
   more row forms between its full row and its next form, each at its own size (its "+N" cell counted) with
