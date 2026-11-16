@@ -86,43 +86,49 @@ function sweep(s: Scene, drag: string, y: number, xs: readonly number[]): { id: 
 const say = (runs: readonly { id: string; from: number; to: number }[]): string => runs.map((r) => `${r.id} ${r.from}..${r.to}`).join(", ");
 const range = (a: number, b: number): number[] => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
-export function KIT_PRESETS(): Preset[] {
-  const keep = (): void => undefined;
-  return [
-    {
-      id: "kit-rail-stop-no-landing",
-      title: "A rail that can't take the drop leaves the window's edge to the column line",
-      expected:
-        "In a kit's window (flush, and inset by 12 px) with hand folds riding, Notes or Findings dragged to the left window edge: the left rail's stops can't land (the left column stays open, so a folded panel would ride over it), so the rail owns nothing there and the new-column line covers the outer 10 px. No point of x 0–9 floats or is refused.",
-      setup: keep,
-      check(): Verdict {
-        const bad: string[] = [];
-        const seen: string[] = [];
-        for (const shape of ["flush", "inset"] as const)
-          for (const drag of ["notes", "findings"]) {
-            const runs = sweep(kitWindow(shape, false), drag, 400, range(0, 9));
-            seen.push(`${shape} ${drag}: ${say(runs)}`);
-            if (runs.length !== 1 || runs[0]!.id !== "column:left:0") bad.push(`${shape} ${drag}`);
-          }
-        return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join(", ")}.` : ""}` };
-      },
-    },
-    {
-      id: "kit-own-column-line-is-home",
-      title: "A new column where the item's own column is, is home",
-      expected:
-        "In a kit's window (flush, and inset by 12 px), Findings alone in the right column, dragged across the right side: a new column holding it alone where its column is now is the same move as home, so no new-column target shows beside it (no 1–2 px sliver between home and the rail). Every point from the column's left edge to the window's right edge is home, the rail or the float.",
-      setup: keep,
-      check(): Verdict {
-        const bad: string[] = [];
-        const seen: string[] = [];
-        for (const shape of ["flush", "inset"] as const) {
-          const runs = sweep(kitWindow(shape, false), "findings", 400, range(1100, 1439));
-          seen.push(`${shape}: ${say(runs)}`);
-          if (runs.some((r) => !/^(home:findings|rail:right:|float:)/.test(r.id))) bad.push(shape);
+/**
+ * A case that sweeps x across `xs` at y 400 in both window shapes, for each item dragged, and wants every run's id to
+ * pass `ok`.
+ */
+function sweepCase(id: string, title: string, expected: string, o: { anchor: boolean; drags: readonly string[]; xs: readonly number[]; ok: (id: string) => boolean }): Preset {
+  return {
+    id,
+    title,
+    expected,
+    setup: () => undefined,
+    check(): Verdict {
+      const bad: string[] = [];
+      const seen: string[] = [];
+      for (const shape of ["flush", "inset"] as const)
+        for (const drag of o.drags) {
+          const runs = sweep(kitWindow(shape, o.anchor), drag, 400, o.xs);
+          seen.push(`${shape} ${drag}: ${say(runs)}`);
+          if (!runs.every((r) => o.ok(r.id))) bad.push(`${shape} ${drag}`);
         }
-        return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join(", ")}.` : ""}` };
-      },
+      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join(", ")}.` : ""}` };
     },
+  };
+}
+
+export function KIT_PRESETS(): Preset[] {
+  return [
+    sweepCase(
+      "kit-rail-stop-no-landing",
+      "A rail that can't take the drop leaves the window's edge to the column line",
+      "In a kit's window (flush, and inset by 12 px) with hand folds riding, Notes or Findings dragged to the left window edge: the left rail's stops can't land (the left column stays open, so a folded panel would ride over it), so the rail owns nothing there and the new-column line covers the outer 10 px. No point of x 0–9 floats or is refused.",
+      { anchor: false, drags: ["notes", "findings"], xs: range(0, 9), ok: (id) => id === "column:left:0" },
+    ),
+    sweepCase(
+      "kit-anchor-refuses-whole",
+      "A thumbnail strip refuses a panel over all of it",
+      "In a kit's window (flush, and inset by 12 px) with a 72 px thumbnail strip at the far left (an edge that takes nothing), Notes or Findings dragged over the strip: every point of x 0–59 says \"Can't go here\" (a refusal of the strip), none floats. A panel body is no drop place, but that cut never makes a hole in a refusal.",
+      { anchor: true, drags: ["notes", "findings"], xs: range(0, 59), ok: (id) => id.startsWith("refuse:thumbs-edge:") },
+    ),
+    sweepCase(
+      "kit-own-column-line-is-home",
+      "A new column where the item's own column is, is home",
+      "In a kit's window (flush, and inset by 12 px), Findings alone in the right column, dragged across the right side: a new column holding it alone where its column is now is the same move as home, so no new-column target shows beside it (no 1–2 px sliver between home and the rail). Every point from the column's left edge to the window's right edge is home, the rail or the float.",
+      { anchor: false, drags: ["findings"], xs: range(1100, 1439), ok: (id) => /^(home:findings|rail:right:|float:)/.test(id) },
+    ),
   ];
 }

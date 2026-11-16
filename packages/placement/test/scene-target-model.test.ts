@@ -148,7 +148,8 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
       const own = now.items[id];
       const ownRect = own?.edge && !own.floating ? own.rect : null;
       // A panel's body (but for a band at each end) is its column's, and no drop place: the float's.
-      const anyBody = Object.values(seen.items).filter((x) => x.edge && x.formKind === "open" && !x.floating).map((x) => ({ x: x.rect.x, y: x.rect.y + 12, width: x.rect.width, height: x.rect.height - 24 }));
+      // An edge that doesn't take the kind (a thumbnail anchor) refuses its whole seen rect, its item's body included.
+      const anyBody = Object.values(seen.items).filter((x) => x.edge && x.formKind === "open" && !x.floating && !!s.edges.find((e) => e.id === x.edge)?.accepts.includes(it.kind)).map((x) => ({ x: x.rect.x, y: x.rect.y + 12, width: x.rect.width, height: x.rect.height - 24 }));
       for (const pt of virtualPoints) {
         // The item's own rect is home's (the own-not-home category checks it).
         if (!inside(s.stage, pt) || (s.chrome ?? []).some((c) => inside(c, pt)) || (ownRect && inside(ownRect, pt)) || anyBody.some((b) => inside(b, pt))) continue;

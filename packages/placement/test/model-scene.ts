@@ -64,6 +64,11 @@ export function modelScene(seed: number, flush = false, middle = false): Scene {
   // `middle`: the side columns and the templates new columns are made from split panels in halves (`hitBand: "middle"`).
   const band = middle ? { hitBand: "middle" as const } : {};
   const cols = edges.map((e) => (e.id.endsWith("-col") ? { ...e, ...band, ...(rails ? { column: true } : {}) } : e));
+  // Every fourth window has a thumbnail anchor at the far left: an edge that takes nothing, its fixed item open.
+  if (seed % 4 === 1 && !cols.some((e) => e.side === "left" && e.ring === 0)) {
+    items.push({ id: "thumbs", kind: "anchor", used: 0, fixed: true, forms: { column: [{ kind: "open", main: { min: 0, natural: 0, grows: true }, cross: { natural: 72, min: 56 }, setsCross: true }] } });
+    cols.unshift({ id: "thumbs-edge", side: "left", ring: 0, accepts: [], items: ["thumbs"], cross: { min: 56, max: 200, rail: 30 }, outsideInset: true });
+  }
   return {
     stage: { x: 0, y: 0, width: W, height: H },
     edges: cols,
