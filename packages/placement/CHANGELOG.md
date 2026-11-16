@@ -9,6 +9,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
   (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
+- `./scene`, **an anchor folded by hand** (additive, opt-in): on an edge with `Edge.foldable: true`, `fold(scene, id,
+  on)` folds a fixed item to its rail form and reopens it, as it does a panel, and `readScene` keeps a stored fold. Left
+  out, a fixed item stays as it is: `fold` is a no-op for it and a stored fold is dropped, as before.
+
 - `./scene`, **an anchor dragged to the other side** (additive): `Edge.moves: "side"` lets the user drag a static edge's
   fixed item (page thumbnails) to the other side of the edge's axis. `targets` then gives that item one target,
   `side:<other side>` (place `{ kind: "side", edge, side }`), over the place the edge takes there; its `after` is
