@@ -107,5 +107,22 @@ export function KIT_PRESETS(): Preset[] {
         return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join(", ")}.` : ""}` };
       },
     },
+    {
+      id: "kit-own-column-line-is-home",
+      title: "A new column where the item's own column is, is home",
+      expected:
+        "In a kit's window (flush, and inset by 12 px), Findings alone in the right column, dragged across the right side: a new column holding it alone where its column is now is the same move as home, so no new-column target shows beside it (no 1–2 px sliver between home and the rail). Every point from the column's left edge to the window's right edge is home, the rail or the float.",
+      setup: keep,
+      check(): Verdict {
+        const bad: string[] = [];
+        const seen: string[] = [];
+        for (const shape of ["flush", "inset"] as const) {
+          const runs = sweep(kitWindow(shape, false), "findings", 400, range(1100, 1439));
+          seen.push(`${shape}: ${say(runs)}`);
+          if (runs.some((r) => !/^(home:findings|rail:right:|float:)/.test(r.id))) bad.push(shape);
+        }
+        return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join(", ")}.` : ""}` };
+      },
+    },
   ];
 }

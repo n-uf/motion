@@ -73,7 +73,7 @@ import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
 import { edgeSpec } from "./targets/edges";
 import { context } from "./targets/filter";
-import { checkEdgeIds, targetId } from "./targets/ids";
+import { checkEdgeIds, parseTargetId, targetId } from "./targets/ids";
 import { edgeKindOf } from "./targets/kinds";
 import type { Ctx, EdgeSpec, Generated, SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions, Span, Tile } from "./targets/model";
 import { homeRectOf, ownership } from "./targets/ownership";
@@ -221,7 +221,22 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   });
 
   // `home:<id>`, for hosts that read it: over the item's own rect, inside home's tile (all of it when no slot names it).
-  if (ownRect && !ownRect.floating) targets.push({ id: targetId({ kind: "home", item: dragged }), priority: 1, hit: ownHome ?? ownRect.rect, item: dragged, place: { kind: "home" }, after: homeAfter });
+  // A new column holding the item alone where its own column is (a column line beside it, as the lift counts rings) is
+  // the same move as home: its pieces are home's, under home's id, never a target of their own (a sliver beside home).
+  const sameAsHome = targets.filter((t) => t.place.kind === "home" && parseTargetId(t.id)?.kind === "column");
+  const homePieces = sameAsHome.flatMap((t) => t.hits ?? [t.hit]);
+  if (sameAsHome.length) targets.splice(0, targets.length, ...targets.filter((t) => !sameAsHome.includes(t)));
+  // They join home's slot where one is home (a gap of its edge), else `home:<id>`.
+  const homeSlot = targets.findIndex((t) => t.place.kind === "home");
+  if (homeSlot >= 0 && homePieces.length) {
+    const t = targets[homeSlot]!;
+    targets[homeSlot] = { ...t, hits: [...(t.hits ?? [t.hit]), ...homePieces] };
+  }
+  if (ownRect && !ownRect.floating) {
+    const hit = ownHome ?? ownRect.rect;
+    const pieces = homeSlot < 0 && homePieces.length ? { hits: [hit, ...homePieces] } : {};
+    targets.push({ id: targetId({ kind: "home", item: dragged }), priority: 1, hit, ...pieces, item: dragged, place: { kind: "home" }, after: homeAfter });
+  }
   // A slot is lost only where no target carries its id (two lines of one move, about the item's own column, are one).
   return { targets, refusals: refused, lost: [...new Set(lost)].filter((id) => !targets.some((t) => t.id === id)) };
 }
