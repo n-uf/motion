@@ -76,8 +76,9 @@ const near = (a: { x: number; y: number; width: number; height: number }, b: typ
 describe("fitResize is what resize commits", () => {
   it("solve(resize(...)) draws the float at fitResize's rect, over random scenes and resizes", () => {
     let tried = 0;
+    let coverMoves = 0;
     const bad: string[] = [];
-    for (let seed = 1; seed <= 400; seed++) {
+    for (let seed = 1; seed <= 800; seed++) {
       const s = randomScene(seed);
       const l = solve(s);
       for (const f of s.floats) {
@@ -95,6 +96,17 @@ describe("fitResize is what resize commits", () => {
             if (!fit) continue;
             tried++;
             const got = solve(resize(s, f.id, asked, m)).items[f.id]!.rect;
+            // The edges not dragged stay put, for a float drawn clear of what floats keep clear of. One drawn covering
+            // something (no clear place at its size) may be moved by the one clamp once its new size has a clear place.
+            const covers = l.notes.some((n) => n.code === "float-covers" && n.id === f.id);
+            const fixedEdges: [string, number, number][] = [
+              ["left", drawn.x, fit.rect.x],
+              ["top", drawn.y, fit.rect.y],
+              ["right", drawn.x + drawn.width, fit.rect.x + fit.rect.width],
+              ["bottom", drawn.y + drawn.height, fit.rect.y + fit.rect.height],
+            ];
+            if (covers) coverMoves += fixedEdges.some(([edge, was, now]) => !m[edge as keyof ResizeEdges] && Math.abs(was - now) > 0.01) ? 1 : 0;
+            else for (const [edge, was, now] of fixedEdges) if (!m[edge as keyof ResizeEdges] && Math.abs(was - now) > 0.01) bad.push(`seed ${seed} ${f.id} ${JSON.stringify(m)} ${d}: ${edge} ${was.toFixed(1)} → ${now.toFixed(1)} (${fit.limits.join(",")})`);
             // Nothing moving changes nothing.
             if (!(m.left || m.right || m.top || m.bottom) && !near(fit.rect, drawn)) bad.push(`seed ${seed} ${f.id}: nothing moving, ${JSON.stringify(drawn)} → ${JSON.stringify(fit.rect)}`);
             if (!near(got, fit.rect)) bad.push(`seed ${seed} ${f.id} ${JSON.stringify(m)} ${d}: fit ${JSON.stringify(fit.rect)} ${fit.limits.join(",")} → drawn ${JSON.stringify(got)}`);
@@ -103,5 +115,7 @@ describe("fitResize is what resize commits", () => {
     }
     expect(tried).toBeGreaterThan(1000);
     expect(bad.slice(0, 10), `${bad.length} of ${tried}`).toEqual([]);
+    // Only floats with no clear place before the resize: a handful of resizes in the sweep.
+    expect(coverMoves).toBeLessThan(200);
   });
 });
