@@ -5,7 +5,7 @@
 import { EPS, type Point, type Rect, type Size } from "../../geometry";
 import type { Target } from "../../target";
 import type { ColumnPlace, RailPlace } from "../changes";
-import type { Edge, Orient, Scene, SceneLayout, Zone } from "../model";
+import type { Edge, Orient, Scene, SceneLayout, Side, Zone } from "../model";
 import type { LayKey } from "../solve";
 import type { EdgeKind } from "./kinds";
 
@@ -13,6 +13,7 @@ export type ScenePlace =
   | { readonly kind: "gap"; readonly edge: string; readonly zone: Zone; readonly at: number }
   | ColumnPlace
   | RailPlace
+  | { readonly kind: "side"; readonly edge: string; readonly side: Side }
   | { readonly kind: "float" }
   | { readonly kind: "home" }
   | { readonly kind: "none" };

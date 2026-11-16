@@ -8,6 +8,7 @@
  * | `strip:<edge>:<zone>` | a zone's one slot on an edge with no members at all | 2 |
  * | `column:<side>:<ring>` | a new column on a side's column line | 2 |
  * | `rail:<side>:<ring>` | docking folded into a side's rail | 1 |
+ * | `side:<side>` | a fixed anchor's edge moved to the other side of its axis (`Edge.moves: "side"`) | 2 |
  * | `home:<item>` | the item's own place (a release there puts it back) | 1 |
  * | `float:<item>` | floating anywhere | 3 |
  * | `none:<i>` | the `i`-th `blocked` rect | 1 |
@@ -16,7 +17,7 @@
  * An edge id may hold `:` (the zone and the numbers are read from the right). The virtual edges a refusal can name are
  * `column:<side>` (a side's column lines) and `rail:<side>` (its rail): `virtualEdgeId`.
  */
-import type { Scene, Zone } from "../model";
+import type { Scene, Side, Zone } from "../model";
 
 type ColumnSide = "left" | "right";
 
@@ -24,6 +25,7 @@ type ColumnSide = "left" | "right";
 type PlaceLike =
   | { readonly kind: "gap"; readonly edge: string; readonly zone: Zone; readonly at: number }
   | { readonly kind: "column" | "rail"; readonly side: ColumnSide; readonly ring: number }
+  | { readonly kind: "side"; readonly side: Side }
   | { readonly kind: "float" | "home" | "none" };
 
 /** A target or refusal id, read. */
@@ -31,6 +33,7 @@ export type TargetIdParts =
   | { readonly kind: "gap"; readonly edge: string; readonly zone: Zone; readonly at: number }
   | { readonly kind: "strip"; readonly edge: string; readonly zone: Zone }
   | { readonly kind: "column" | "rail"; readonly side: ColumnSide; readonly ring: number }
+  | { readonly kind: "side"; readonly side: Side }
   | { readonly kind: "home" | "float"; readonly item: string }
   | { readonly kind: "none"; readonly index: number }
   | { readonly kind: "refuse"; readonly edge: string; readonly zone: Zone; readonly n: number };
@@ -45,6 +48,8 @@ export function targetId(parts: TargetIdParts): string {
     case "column":
     case "rail":
       return `${parts.kind}:${parts.side}:${parts.ring}`;
+    case "side":
+      return `side:${parts.side}`;
     case "home":
     case "float":
       return `${parts.kind}:${parts.item}`;
@@ -60,6 +65,7 @@ const INT = "(-?\\d+)";
 const GAP = new RegExp(`^gap:(.+):${ZONE}:${INT}$`);
 const STRIP = new RegExp(`^strip:(.+):${ZONE}$`);
 const LINE = new RegExp(`^(column|rail):(left|right):${INT}$`);
+const SIDE = /^side:(left|right|top|bottom)$/;
 const ITEM = /^(home|float):(.+)$/;
 const NONE = new RegExp(`^none:${INT}$`);
 const REFUSE = new RegExp(`^refuse:(.+):${ZONE}(?::${INT})?$`);
@@ -70,6 +76,7 @@ export function parseTargetId(id: string): TargetIdParts | null {
   if ((m = GAP.exec(id))) return { kind: "gap", edge: m[1]!, zone: m[2] as Zone, at: Number(m[3]) };
   if ((m = STRIP.exec(id))) return { kind: "strip", edge: m[1]!, zone: m[2] as Zone };
   if ((m = LINE.exec(id))) return { kind: m[1] as "column" | "rail", side: m[2] as ColumnSide, ring: Number(m[3]) };
+  if ((m = SIDE.exec(id))) return { kind: "side", side: m[1] as Side };
   if ((m = ITEM.exec(id))) return { kind: m[1] as "home" | "float", item: m[2]! };
   if ((m = NONE.exec(id))) return { kind: "none", index: Number(m[1]) };
   if ((m = REFUSE.exec(id))) return { kind: "refuse", edge: m[1]!, zone: m[2] as Zone, n: m[3] === undefined ? 0 : Number(m[3]) };
@@ -101,6 +108,8 @@ export function placeTargetId(place: PlaceLike, item: string): string | null {
     case "column":
     case "rail":
       return targetId(place);
+    case "side":
+      return targetId({ kind: "side", side: place.side });
     case "float":
     case "home":
       return targetId({ kind: place.kind, item });

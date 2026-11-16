@@ -143,6 +143,12 @@ export interface Edge {
    */
   readonly hitBand?: number | "middle";
   /**
+   * `"side"`: a static edge whose fixed item (an anchor: page thumbnails) the user may drag to the other side of the
+   * edge's axis. `targets` then offers that item one target, `side:<other side>`, over the place the edge takes there
+   * (`setSide`); its own place is home. Left out, a fixed item has no targets.
+   */
+  readonly moves?: "side";
+  /**
    * A dynamic column (left and right only): made by a drop on a column line, deleted when it holds no item, folded whole
    * into its side's rail by give-way (`Scene.contentMin`) or when every member is folded by hand. Its `accepts`,
    * `cross`, `gap`, `pad`, `menu`, `zoneAccepts` and `hitBand` come from `Scene.columns[side]` when the changes make it;
