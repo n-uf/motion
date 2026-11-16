@@ -5,6 +5,10 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.26
 
+- `./drag`, **`createGripPress`: a double-click on a grip is its own gesture** (additive). A press tracker for grips:
+  `move` answers the lift rule, `up` gives `"click"`, `"doubleActivate"` (the second press of two within 500 ms and
+  5 px, `GRIP_DOUBLE_DEFAULTS`, or the platform's count when the host passes it) or null after a lift. The second
+  click of a double is not a click, and a double never lifts. Types `GripPress`, `GripRelease`, `GripDoubleTuning`.
 - `./drag`, **the band and the breakthrough scale with the zones** (`DragTuning.bandShare`, additive, default 0.2):
   along each axis they are at most a fifth of the held zone's extent and of the zone under the pointer, so a 28 px row
   holds 5.6 px past its edge, not 10, and a glide straight from home into a small neighbour's far half lands there.
