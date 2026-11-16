@@ -803,6 +803,19 @@ wider than the room the cut leaves. Group forms in a column take their own width
 span it. Spare room goes to the forms that grow, so a column's open panels share its height through `grows` and equal
 naturals. A column where nothing sets the width is a rail: its items that have a `rail` form take it and are listed in
 `edges[id].tabs` (with `railShowsClosed`, closed items too, marked `closed`); the host draws tabs only from the layout.
+
+**Rail titles.** A panel may declare two rail forms: its title (`{ kind: "rail", title: true }`, its `main` the length
+of its name and count turned along the rail, measured by the host) and then its tile (a plain `rail` form). In a rail
+they are two steps on its ladder: while the rail's length fits every title, each item shows its title; when it runs
+short, titles step down to tiles by the usual rules (priority, then the item used longest ago) and come back in exact
+reverse as room returns (`StackFit.steps`). That holds for a column drawn as a rail and for a side's rail strip
+(`layout.rails[side]`, whose fit is `rails[side].stack`). Each side has a mode, `scene.railModes[side]`: `"titles"`
+(the default) or `"icons"`, which passes title forms over so every item shows its tile; `setRailMode(scene, side,
+mode)` changes it and `storeScene` / `readScene` keep it. A title form is offered nowhere else (a stack offers it only
+with `StackInput.titles`), and an item with no title form shows its tile in either mode, so a host that hasn't measured
+titles sees no change. An item drawn in its title reports `railTitle: "left" | "right"`; the host turns it to read
+toward the content: on the left bottom to top (−90°), on the right top to bottom (+90°), the count at the title's end.
+Hits, clicks, drags and `after()` work as for the tile, at the title's length.
 `Edge.size` is the user's size across, clamped to the widest open setter's `cross.min` (and the edge's `cross.min`) at
 least and `cross.max` at most; `resize` sets it.
 
@@ -990,9 +1003,12 @@ larger float is laid out at it, its top-left corner kept (never under `floatMin`
 **Resizing a float by hand.** Per pointer move a host calls **`fitResize(scene, id, rect, moving)`**: `rect` is the
 rect asked for (the float as drawn, the dragged edges where the pointer put them) and `moving`
 (`{ left?, right?, top?, bottom? }`) names those edges; the others stay put, so a left-edge drag keeps the right edge.
-In one pass, with no iteration, it keeps the size within `floatMin` (else the open form's minimums) and `floatMax`, the
-float in the float region, and stops a dragged edge at what floats are kept clear of (a bar, a docked item, the
-chrome), so `solve` lays the result exactly there. It gives `{ rect, limits }`, `limits` naming what bound it:
+In one pass, with no iteration, it keeps the size within `floatMin` (else the open form's minimums, which only stop a
+shrink below the size drawn now, as `solve` lays it) and `floatMax`, the float in the float region, and stops every
+growing edge at what floats are kept clear of (a bar, a docked item, the chrome; such a stop beats the minimum). It
+then lays the rect through the one clamp `solve` lays floats with, so `solve` lays the result exactly there. A float
+that already covers something (no clear place at its size) may move to a clear place once a resize opens one; the
+preview is still the commit. It gives `{ rect, limits }`, `limits` naming what bound it:
 `"min"`, `"max"`, `"region"`, `"docked"`. It gives null for anything but a float drawn at a first form that grows (a
 panel's card): a toolbar group's size and a folded float's bar come from their forms. On commit (each move, or the
 release) `resize(scene, id, rect, moving)` stores that same rect as the float's rect and the item's `floatSize`, so the
@@ -1078,7 +1094,9 @@ facing halves is home's, and is no target of its own. The slot is where the item
 - `column:<side>:<ring>` (2): a new column on each column line of a side whose template's start zone takes the kind (outside the
   outermost open column, between two, inside the innermost, or at the content's edge), 22 px each way.
 - `rail:<side>:<ring>` (1): docking folded into the side's rail, before each folded column's segments and after the
-  last, or a 10 px strip where the rail lands (after the side's outside toolbar bars) while no rail shows.
+  last, or, while no rail shows, the outer 10 px from the side's outer edge (the window's, an inset's strip included;
+  flush after the side's outside toolbar bars), landing where the rail lands. The outermost column line starts where
+  it ends.
 - `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
   commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail
   drop that would put the item back where it is (the gap beside it, its own column's line) keeps its id but is a home
