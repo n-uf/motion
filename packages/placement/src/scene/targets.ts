@@ -61,7 +61,7 @@
 import { PLANE, area, rect, type Rect } from "../geometry";
 import { floatAt, use } from "./changes";
 import { axisOf, floatOrientOf, floatSizeOf, zoneOf, zoneTakes } from "./helpers";
-import type { Orient, Scene } from "./model";
+import type { Orient, Scene, Zone } from "./model";
 import { solve } from "./solve";
 import { edgeSpec } from "./targets/edges";
 import { context } from "./targets/filter";
@@ -101,13 +101,17 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
   const refused: SceneRefusal[] = [];
   const homeAfter = (): SceneAfter => ({ scene, layout: now });
   // A zone's refusals are numbered by where they lie along the edge (then across it), not by clipping order, so a
-  // refusal keeps its id from one frame to the next.
-  const keyOf = (t: Tile): string => targetId({ kind: "refuse", edge: t.edge, zone: t.zone, n: 0 });
+  // refusal keeps its id from one frame to the next. A side's column lines are one edge (one spec per line).
   const pos = (t: Tile): [number, number] => (t.vertical ? [t.hit.y, t.hit.x] : [t.hit.x, t.hit.y]);
   const rank = new Map<Tile, number>();
-  const byKey = new Map<string, Tile[]>();
-  for (const t of placed) if (t.kind === "refuse") byKey.set(keyOf(t), [...(byKey.get(keyOf(t)) ?? []), t]);
-  for (const group of byKey.values()) group.sort((a, b) => pos(a)[0] - pos(b)[0] || pos(a)[1] - pos(b)[1]).forEach((t, n) => rank.set(t, n));
+  const edgeOf = (t: Tile): EdgeSpec | string => (t.spec?.edge ? t.spec : t.edge);
+  const byZone = new Map<EdgeSpec | string, Map<Zone, Tile[]>>();
+  for (const t of placed) {
+    if (t.kind !== "refuse") continue;
+    const zones = byZone.get(edgeOf(t)) ?? new Map<Zone, Tile[]>();
+    byZone.set(edgeOf(t), zones.set(t.zone, [...(zones.get(t.zone) ?? []), t]));
+  }
+  for (const zones of byZone.values()) for (const group of zones.values()) group.sort((a, b) => pos(a)[0] - pos(b)[0] || pos(a)[1] - pos(b)[1]).forEach((t, n) => rank.set(t, n));
   let ownHome: Rect | null = null;
   for (const t of placed) {
     if (t.kind === "refuse") {
@@ -160,15 +164,15 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   const live = specsOf(c, item.kind);
   // Ownership is ranked among what survives the filter: each edge tiled on its own first, an edge owning its band only
   // along its surviving slots' tiles (a refused stretch owns nothing).
-  const along = new Map(live.map((s) => [s.key, alongOfSlots(s, tileEdge(c, s, [], []))]));
-  const own = ownership(c, live, (s) => along.get(s.key)!);
+  const along = new Map(live.map((s) => [s, alongOfSlots(s, tileEdge(c, s, [], []))]));
+  const own = ownership(c, live, (s) => along.get(s)!);
   const lost: string[] = [];
   const tiles: Tile[] = live.flatMap((spec) => tileEdge(c, spec, own.cutsOf(spec), lost));
   // The item's own place is home's even where no edge tiles it (its column, deleted by the lift; its » entry).
   const ownRect = now.items[dragged];
   const homeEdge = scene.edges.find((e) => e.id === ownRect?.edge);
   if (ownRect && homeEdge && !ownRect.floating && !tiles.some((t) => t.order === 0))
-    tiles.push({ edge: homeEdge.id, key: homeEdge.id, edgeKind: edgeKindOf(scene, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: targetId({ kind: "home", item: dragged }), priority: 1, place: { kind: "home" }, hit: ownRect.rect, keep: null });
+    tiles.push({ edge: homeEdge.id, spec: null, edgeKind: edgeKindOf(scene, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: targetId({ kind: "home", item: dragged }), priority: 1, place: { kind: "home" }, hit: ownRect.rect, keep: null });
   const placed = clipTiles(tiles, own, scene.chrome ?? [], lost);
   placed.push(...seenRefusals(c, live, placed, own, scene.chrome ?? []));
   const { targets, refused, ownHome } = emit(c, placed);

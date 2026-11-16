@@ -28,7 +28,7 @@ function tilerOf(spec: EdgeSpec): Tiler {
   };
   // The point a tile keeps through clipping: on its line, in the middle of its band across.
   const keepAt = (line: number, h: Rect): Point => (v ? { x: h.x + h.width / 2, y: line } : { x: line, y: h.y + h.height / 2 });
-  const tile: Tiler["tile"] = (zone, hit, more) => ({ edge: spec.id, key: spec.key, edgeKind: spec.kind, vertical: v, zone, hit, ...more });
+  const tile: Tiler["tile"] = (zone, hit, more) => ({ edge: spec.id, spec, edgeKind: spec.kind, vertical: v, zone, hit, ...more });
   // A tile's part across that its edge owns, and the rest, its overreach: clipped after the virtual edges, then joined
   // back where it still meets the owned part whole.
   const split = (t: Tile): Tile[] => {
@@ -224,12 +224,14 @@ const isRefused = (t: Tile): boolean => t.kind === "refuse" || (t.kind === "reac
 export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readonly Rect[], lost: string[]): Tile[] {
   const { owners, taken, bodies, solid } = own;
   /** Every other edge's owned rects: what a refusal (which owns nothing) and an overreach yield to. */
-  const byKey = new Map<string, Rect[]>();
+  const bySpec = new Map<EdgeSpec | null, Rect[]>();
   const others = (t: Tile): Rect[] => {
-    let rs = byKey.get(t.key);
-    if (!rs) byKey.set(t.key, (rs = owners.filter((o) => o.key !== t.key).map((o) => o.rect)));
+    let rs = bySpec.get(t.spec);
+    if (!rs) bySpec.set(t.spec, (rs = owners.filter((o) => o.spec !== t.spec).map((o) => o.rect)));
     return rs;
   };
+  const besides = (t: Tile): readonly Rect[] => (t.spec ? own.drawnBesides(t.spec) : []);
+  const bodiesOf = (t: Tile): Rect[] => (t.spec ? bodies(t.spec) : []);
   const placed: Tile[] = [];
   // A virtual edge's refused stretches (its refused slots, its slots' clipped-off pieces) come after every other tile:
   // they take only what no tile takes, never a real edge's room.
@@ -253,14 +255,14 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
     if (t.kind === "reach") {
       // Overreach: what the virtual edges and every other edge's owned rect leave, joined to its owned part where it
       // meets that part along the part's whole length. The rest is nobody's (the float's).
-      placeReach(t, clip(t.hit, [...placed.flatMap(coverOf), ...others(t), ...bodies(t.edge), ...solid, ...chrome]), placed, landed, gone);
+      placeReach(t, clip(t.hit, [...placed.flatMap(coverOf), ...others(t), ...bodiesOf(t), ...solid, ...chrome]), placed, landed, gone);
       return;
     }
     // An owned part: clear of the tiles before it, of the owners that win over its edge, its panel bodies, solid items
     // and chrome. A virtual edge's tile: clear of the tiles before it and of every owner. A refusal owns nothing: it
     // yields to every other edge's owned rect too.
-    const yields = t.kind === "refuse" ? own.drawnBesides(t.key) : [];
-    const cuts = [...placed.flatMap(coverOf), ...(taken.get(t.key) ?? []), ...yields, ...(data.virtual ? [] : bodies(t.edge)), ...solid, ...chrome];
+    const yields = t.kind === "refuse" ? besides(t) : [];
+    const cuts = [...placed.flatMap(coverOf), ...((t.spec && taken.get(t.spec)) ?? []), ...yields, ...(data.virtual ? [] : bodiesOf(t)), ...solid, ...chrome];
     const pieces = clip(t.hit, cuts);
     if (pieces.length === 0) {
       if (t.kind !== "refuse") gone.add(t);
@@ -286,7 +288,7 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
   for (const t of tiles.filter((x) => !isRefused(x)).sort(byOrder)) place(t);
   for (const t of refused.sort(byOrder)) place(t);
   for (const t of gone) lost.push(t.id);
-  for (const t of later) for (const p of clip(t.hit, [...placed.flatMap(coverOf), ...own.drawnBesides(t.key), ...solid, ...chrome])) placed.push({ ...t, hit: p });
+  for (const t of later) for (const p of clip(t.hit, [...placed.flatMap(coverOf), ...besides(t), ...solid, ...chrome])) placed.push({ ...t, hit: p });
   return placed;
 }
 
@@ -312,7 +314,7 @@ export function seenRefusals(c: Ctx, live: readonly EdgeSpec[], placed: readonly
             .filter(([id, p]) => p.edge === edge && p.formKind === "open" && id !== c.dragged)
             .map(([, p]) => (vertical ? rect(p.rect.x, p.rect.y + half, p.rect.width, p.rect.height - 2 * half) : rect(p.rect.x + half, p.rect.y, p.rect.width - 2 * half, p.rect.height)))
             .filter((b) => b.width > EPS && b.height > EPS);
-    const spec = live.find((s) => s.key === edge);
+    const spec = live.find((s) => s.edge?.id === edge) ?? null;
     // Each stretch by the zone it lies in along the edge (the edge's zones as tiled; the start zone where it has none).
     const zones = spec?.zones ?? [{ zone: "start" as Zone, a: -Infinity, b: Infinity }];
     const kind = edgeKindOf(c.rest, e);
@@ -323,7 +325,7 @@ export function seenRefusals(c: Ctx, live: readonly EdgeSpec[], placed: readonly
         if (b - a <= EPS) continue;
         const hit = vertical ? rect(p.x, a, p.width, b - a) : rect(a, p.y, b - a, p.height);
         const reason = spec?.refuse(z.zone) ?? (zoneTakes(e, z.zone, c.kind) ? "no-room" : "not-accepted");
-        out.push({ edge, key: edge, edgeKind: kind, vertical, zone: z.zone, order: 99, kind: "refuse", id: "", priority: EDGE_KINDS[kind].priority, hit, keep: null, reason });
+        out.push({ edge, spec, edgeKind: kind, vertical, zone: z.zone, order: 99, kind: "refuse", id: "", priority: EDGE_KINDS[kind].priority, hit, keep: null, reason });
       }
   }
   return out;

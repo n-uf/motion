@@ -69,7 +69,7 @@ export function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec[] {
     const p = placeOf(l, i);
     return {
       id: virtualEdgeId("column", side),
-      key: targetId({ kind: "column", side, ring: l.ring }),
+      edge: null,
       kind: "columnLine" as const,
       lay: { phase: EDGE_KINDS.columnLine.phase, side, at: l.at },
       vertical: false,
@@ -125,7 +125,7 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
   const at = zone;
   return {
     id: virtualEdgeId("rail", side),
-    key: virtualEdgeId("rail", side),
+    edge: null,
     kind: "railStop",
     // The rail lies outside every edge on its side: laid first among them.
     lay: { phase: EDGE_KINDS.railStop.phase, side, at: -1 },

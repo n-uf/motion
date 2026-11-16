@@ -10,14 +10,14 @@
  */
 import { EPS, area, overlaps, rect, subtract, type Rect } from "../../geometry";
 import { axisOf, formsOf, hitBandOf } from "../helpers";
-import { DEFAULT_HIT_BAND, type SceneLayout } from "../model";
+import { DEFAULT_HIT_BAND, type Edge, type SceneLayout } from "../model";
 import { pushes, type LayKey } from "../solve";
 import { EDGE_KINDS } from "./kinds";
 import { less, type Ctx, type EdgeSpec, type Span } from "./model";
 
 interface Owner {
-  readonly id: string;
-  readonly key: string;
+  /** The edge it is, as the tiler reads it; null for an edge the tiler doesn't read (folded, riding, taking nothing). */
+  readonly spec: EdgeSpec | null;
   readonly rect: Rect;
   readonly lay: LayKey;
   readonly place: boolean;
@@ -26,19 +26,19 @@ interface Owner {
 /** What clipping reads of ownership. */
 export interface Ownership {
   readonly owners: readonly Owner[];
-  /** Per spec key: the rects it yields (the owners that win over it; for a virtual edge, every other owner too). */
-  readonly taken: ReadonlyMap<string, readonly Rect[]>;
+  /** Per spec: the rects it yields (the owners that win over it; for a virtual edge, every other owner too). */
+  readonly taken: ReadonlyMap<EdgeSpec, readonly Rect[]>;
   /** A zone's room lost to its panel bodies and to the owners that win over its edge across its whole depth. */
   readonly cutsOf: (s: EdgeSpec) => Span[];
-  /** The panel bodies and reserved rects of an edge, each cut across its whole band. */
-  readonly bodies: (id: string) => Rect[];
+  /** The panel bodies and reserved rects of an edge, each cut across its whole band (none for a virtual edge). */
+  readonly bodies: (s: EdgeSpec) => Rect[];
   /** The fixed items that don't grow, with the item lifted and as it is now. */
   readonly solid: readonly Rect[];
   /**
-   * Every edge's drawn rects but `key`'s: where it lies once the item lifts, and where it is seen and nothing lies once
+   * Every edge's drawn rects but `s`'s: where it lies once the item lifts, and where it is seen and nothing lies once
    * lifted (`seenOf`). A refusal owns nothing, so it yields to them: a stretch is owned by what the user sees there.
    */
-  readonly drawnBesides: (key: string) => readonly Rect[];
+  readonly drawnBesides: (s: EdgeSpec) => readonly Rect[];
 }
 
 const bandOf = (s: EdgeSpec): Rect => {
@@ -87,31 +87,32 @@ function ownersOf(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSpec) => r
   const { now, base, dragged } = c;
   const ownEdge = now.items[dragged]?.edge;
   const ownRect = now.items[dragged];
+  const specOf = (id: string): EdgeSpec | null => live.find((s) => s.edge?.id === id) ?? null;
+  const ownSpec = ownEdge ? specOf(ownEdge) : null;
   // Home's tile: the item's own rect, and, along it, its edge's band (the own interval across the band).
   const homeRect = ((): Rect | null => {
     if (!ownRect || ownRect.floating || !ownEdge) return null;
     const o = ownRect.rect;
-    const s = live.find((x) => x.id === ownEdge);
-    if (!s || ownRect.inMenu) return o;
-    const [c0, c1] = s.across();
-    return s.vertical ? rect(Math.min(c0, o.x), o.y, Math.max(c1, o.x + o.width) - Math.min(c0, o.x), o.height) : rect(o.x, Math.min(c0, o.y), o.width, Math.max(c1, o.y + o.height) - Math.min(c0, o.y));
+    if (!ownSpec || ownRect.inMenu) return o;
+    const [c0, c1] = ownSpec.across();
+    return ownSpec.vertical ? rect(Math.min(c0, o.x), o.y, Math.max(c1, o.x + o.width) - Math.min(c0, o.x), o.height) : rect(o.x, Math.min(c0, o.y), o.width, Math.max(c1, o.y + o.height) - Math.min(c0, o.y));
   })();
   return [
     // Home first: its tile is its own, for every edge but its own (which tiles it as its own interval).
-    ...(homeRect && ownEdge ? [{ id: ownEdge, key: ownEdge, rect: homeRect, lay: { phase: -1, side: "", at: -Infinity }, place: false }] : []),
+    ...(homeRect ? [{ spec: ownSpec, rect: homeRect, lay: { phase: -1, side: "", at: -Infinity }, place: false }] : []),
     // Every edge the tiler reads, along each zone with a slot the filter keeps: what it owns, drawn or a band of its
     // place (a column line's band about its line). A zone whose every slot is refused owns nothing against the others
     // (its drawn rect still counts, below).
-    ...live.flatMap((s) => ownedRectsOf(s, alongOf(s)).map((r) => ({ id: s.id, key: s.key, rect: r, lay: s.lay, place: !s.drawn }))).filter((o) => area(o.rect) > EPS),
+    ...live.flatMap((s) => ownedRectsOf(s, alongOf(s)).map((r) => ({ spec: s, rect: r, lay: s.lay, place: !s.drawn }))).filter((o) => area(o.rect) > EPS),
     // Every drawn rect with the item lifted, the layout the tiles lie in: the edges the tiler doesn't read (folded,
     // riding, taking nothing) among them.
     ...Object.entries(base.edges)
       .filter(([id, e]) => area(e.rect) > EPS && c.lay.has(id))
-      .map(([id, e]) => ({ id, key: id, rect: e.rect, lay: c.lay.get(id)!, place: false })),
+      .map(([id, e]) => ({ spec: specOf(id), rect: e.rect, lay: c.lay.get(id)!, place: false })),
     // And where each edge is seen, as it is now, and no edge lies once lifted (`seenOf`): a stretch is owned by what the
     // user sees there. An edge that moves when the item lifts never owns, where it lay before, a stretch another edge
     // lies in once lifted.
-    ...seenOf(c).map(({ edge, rect: r }) => ({ id: edge, key: edge, rect: r, lay: c.lay.get(edge)!, place: false })),
+    ...seenOf(c).map(({ edge, rect: r }) => ({ spec: specOf(edge), rect: r, lay: c.lay.get(edge)!, place: false })),
   ];
 }
 
@@ -120,10 +121,10 @@ function ownersOf(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSpec) => r
  * `ownedRectsOf`).
  */
 export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSpec) => readonly Span[]): Ownership {
-  const { scene, rest, now, base, dragged } = c;
+  const { scene, now, base, dragged } = c;
   const owners = ownersOf(c, live, alongOf);
   const wins = (o: Owner, s: EdgeSpec): boolean => {
-    if (o.key === s.key) return false;
+    if (o.spec === s) return false;
     if (pushes(o.lay, s.lay)) return true;
     if (pushes(s.lay, o.lay)) return false;
     const place = !s.drawn;
@@ -131,26 +132,25 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
   };
   // What each edge yields: the owners that win over it; a virtual edge (a column line) also every other owner's rect
   // outside its own band, where its tile is overreach.
-  const taken = new Map(
+  const taken = new Map<EdgeSpec, readonly Rect[]>(
     live.map((s) => [
-      s.key,
+      s,
       [
         ...owners.filter((o) => wins(o, s)).map((o) => o.rect),
-        ...(EDGE_KINDS[s.kind].virtual ? owners.filter((o) => o.key !== s.key && !wins(o, s)).flatMap((o) => subtract(o.rect, ownedRectOf(s))) : []),
+        ...(EDGE_KINDS[s.kind].virtual ? owners.filter((o) => o.spec !== s && !wins(o, s)).flatMap((o) => subtract(o.rect, ownedRectOf(s))) : []),
       ],
     ]),
   );
   // Panel bodies (an open item's), but for `hitBand / 2` at each end: no drop place of their edge, so no part of its
   // zones' room.
-  const bodySpans = (id: string): Span[] => {
-    const e = rest.edges.find((x) => x.id === id);
+  const bodySpans = (e: Edge | null): Span[] => {
     if (!e) return [];
     const bandOpt = hitBandOf(scene, e);
     if (bandOpt === "middle") return [];
     const column = axisOf(e.side) === "column";
     const half = Math.max(0, Number.isFinite(bandOpt) ? bandOpt : DEFAULT_HIT_BAND) / 2;
     return Object.entries(base.items)
-      .filter(([iid, p]) => p.edge === id && p.formKind === "open" && iid !== dragged)
+      .filter(([iid, p]) => p.edge === e.id && p.formKind === "open" && iid !== dragged)
       .map(([, p]): Span => (column ? [p.rect.y + half, p.rect.y + p.rect.height - half] : [p.rect.x + half, p.rect.x + p.rect.width - half]))
       .filter(([a, b]) => b - a > EPS);
   };
@@ -162,7 +162,7 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
     const b = bandOf(s);
     const along = (r: Rect): Span => (s.vertical ? [r.y, r.y + r.height] : [r.x, r.x + r.width]);
     const across = (r: Rect): Span => (s.vertical ? [r.x, r.x + r.width] : [r.y, r.y + r.height]);
-    const rs = taken.get(s.key)!.filter((r) => overlaps(r, b));
+    const rs = taken.get(s)!.filter((r) => overlaps(r, b));
     const ends = [...new Set([...along(b), ...rs.flatMap(along)])].filter((x) => x >= along(b)[0] && x <= along(b)[1]).sort((p, q) => p - q);
     const owned: Span[] = [];
     for (let k = 1; k < ends.length; k++) {
@@ -170,7 +170,7 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
       const over = rs.filter((r) => along(r)[0] <= u + EPS && along(r)[1] >= w - EPS).map(across);
       if (w - u > EPS && less([across(b)], over).reduce((n, [p, q]) => n + q - p, 0) < 1) owned.push([u, w]);
     }
-    return [...owned, ...bodySpans(s.id)];
+    return [...owned, ...bodySpans(s.edge)];
   };
   const grows = (l: SceneLayout, id: string): boolean => {
     const it = l.items[id]!;
@@ -180,21 +180,22 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
   const solid = [...new Set([now, base])].flatMap((l) => Object.entries(l.items).filter(([id, it]) => it.fixed && !grows(l, id)).map(([, it]) => it.rect));
   // Panel bodies (an open item's), but for `hitBand / 2` at each end, aren't drop places of their edge.
   // Nor are its fixed items' reserved rects (a growing title's natural rect): each cut across the edge's whole band.
-  const bodies = (id: string): Rect[] => {
-    const e = rest.edges.find((x) => x.id === id);
+  const bodies = (s: EdgeSpec): Rect[] => {
+    const e = s.edge;
     if (!e) return [];
     const column = axisOf(e.side) === "column";
     const across = (a: number, b: number): Rect => (column ? rect(-1e9, a, 2e9, b - a) : rect(a, -1e9, b - a, 2e9));
     const reserved = Object.entries(base.items)
-      .filter(([iid, p]) => p.edge === id && p.fixed && !p.inMenu && !grows(base, iid))
+      .filter(([iid, p]) => p.edge === e.id && p.fixed && !p.inMenu && !grows(base, iid))
       .map(([, p]) => (column ? across(p.rect.y, p.rect.y + p.rect.height) : across(p.rect.x, p.rect.x + p.rect.width)));
-    return [...reserved, ...bodySpans(id).map(([a, b]) => across(a, b))].filter((b) => area(b) > EPS);
+    return [...reserved, ...bodySpans(e).map(([a, b]) => across(a, b))].filter((b) => area(b) > EPS);
   };
-  const drawn = [...Object.entries(base.edges).filter(([, e]) => area(e.rect) > EPS).map(([id, e]) => ({ key: id, rect: e.rect })), ...seenOf(c).map((x) => ({ key: x.edge, rect: x.rect }))];
-  const drawnByKey = new Map<string, Rect[]>();
-  const drawnBesides = (key: string): Rect[] => {
-    let rs = drawnByKey.get(key);
-    if (!rs) drawnByKey.set(key, (rs = drawn.filter((d) => d.key !== key).map((d) => d.rect)));
+  const specOf = (id: string): EdgeSpec | null => live.find((s) => s.edge?.id === id) ?? null;
+  const drawn = [...Object.entries(base.edges).filter(([, e]) => area(e.rect) > EPS).map(([id, e]) => ({ id, rect: e.rect })), ...seenOf(c).map((x) => ({ id: x.edge, rect: x.rect }))].map((d) => ({ spec: specOf(d.id), rect: d.rect }));
+  const drawnBySpec = new Map<EdgeSpec, Rect[]>();
+  const drawnBesides = (s: EdgeSpec): Rect[] => {
+    let rs = drawnBySpec.get(s);
+    if (!rs) drawnBySpec.set(s, (rs = drawn.filter((d) => d.spec !== s).map((d) => d.rect)));
     return rs;
   };
   return { owners, taken, cutsOf, bodies, solid, drawnBesides };

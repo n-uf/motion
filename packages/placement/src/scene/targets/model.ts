@@ -5,7 +5,7 @@
 import { EPS, type Point, type Rect, type Size } from "../../geometry";
 import type { Target } from "../../target";
 import type { ColumnPlace, RailPlace } from "../changes";
-import type { Orient, Scene, SceneLayout, Zone } from "../model";
+import type { Edge, Orient, Scene, SceneLayout, Zone } from "../model";
 import type { LayKey } from "../solve";
 import type { EdgeKind } from "./kinds";
 
@@ -67,8 +67,8 @@ export interface SceneRefusal {
 /** One tile before clipping: a slot's, home's, or a refused slot's. */
 export interface Tile {
   readonly edge: string;
-  /** Its spec's `key`. */
-  readonly key: string;
+  /** The edge it tiles, or null for home's own rect where no edge tiles it (its » entry). */
+  readonly spec: EdgeSpec | null;
   /** Its edge's kind, set by the edge's description (a virtual edge's too): never read from an edge's id. */
   readonly edgeKind: EdgeKind;
   /** Its edge runs along y. */
@@ -104,8 +104,11 @@ export interface Generated {
 /** The context every edge's generator shares. */
 export interface Ctx {
   readonly scene: Scene;
+  /** The scene with the item lifted: what a place counts in (a gap's `at`, a column's or rail's `ring`). */
   readonly rest: Scene;
+  /** The seen geometry: the committed layout, the item in place. Every tile lies in it. */
   readonly now: SceneLayout;
+  /** The layout with the item lifted: read only by the landing rules (fit, a title's natural width, fixed items). */
   readonly base: SceneLayout;
   readonly dragged: string;
   readonly kind: string;
@@ -145,9 +148,10 @@ export const less = (spans: readonly Span[], away: readonly Span[]): Span[] =>
  * tile takes, its band across and its markers.
  */
 export interface EdgeSpec {
+  /** The edge id its targets and refusals name (a side's column lines share one, one spec per line). */
   readonly id: string;
-  /** Unique among the specs (a side's column lines share their edge's id, one spec per line). */
-  readonly key: string;
+  /** The scene's edge, or null for a virtual edge. */
+  readonly edge: Edge | null;
   readonly kind: EdgeKind;
   /** Where `solve` lays it out (`layKeys`): what it owns ranks by this. */
   readonly lay: LayKey;
@@ -162,13 +166,13 @@ export interface EdgeSpec {
   /** The item lies on this edge now (drawn, or in its » menu): its home slot gets no tile, home is only its own rect. */
   readonly holds: boolean;
   readonly reserved: readonly Span[];
-  /** The band across, `[from, to]`, as deep as the edge is now or after `after`. */
+  /** The band across, `[from, to]`, as deep as the edge is seen or after `after`. */
   readonly across: (after?: SceneLayout) => Span;
-  /** The part of the band across it owns: its current thickness, or an empty edge's thin band at its boundary. */
+  /** The part of the band across it owns: its seen thickness, or an undrawn edge's thin band at its boundary. */
   readonly owned: Span;
   /** Along it, what it owns, where that is less than its zones (a column line's band about its line); else null. */
   readonly ownedAlong: Span | null;
-  /** It draws now; else what it owns is a band of its place (where it lands once filled). */
+  /** It is drawn in the seen geometry; else what it owns is a band of its place (where it lands once filled). */
   readonly drawn: boolean;
   /** A slot's marker: the zero-thick line where the item's leading edge lands. */
   readonly marker: (s: Slot) => Rect;
