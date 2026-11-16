@@ -1835,6 +1835,26 @@ export const PRESETS: readonly Preset[] = [
     },
   },
   ...RAIL_TITLE_PRESETS(),
+  {
+    id: "pointer-outside-window",
+    title: "A pointer past the window's edge picks the nearest point of the window",
+    expected:
+      "Tools dragged by mouse to 20 px past the window's left edge, level with the middle of the window, lands on the left window-edge rail (the pointer is clamped into the window before a target is picked); the same 20 px past the right edge lands on the right rail. The slot is the landing.",
+    setup: (c) => c.reset(),
+    check(c) {
+      const bad: string[] = [];
+      const seen: string[] = [];
+      for (const [side, x] of [["rail-left", -20], ["rail-right", c.scene.stage.width + 20]] as const) {
+        c.reset();
+        mouseDrag(c, "tools", { x, y: c.scene.stage.height / 2 });
+        const d = c.lastDrop;
+        const l = c.layout.items.tools;
+        seen.push(`${side}: ${d?.target ?? "nothing"}`);
+        if (!d?.committed || l?.edge !== side || !sameRect(d.preview, d.landed)) bad.push(side);
+      }
+      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join(", ")}.` : ""}` };
+    },
+  },
   ...KIT_PRESETS(),
 ];
 
