@@ -47,6 +47,68 @@ function railScene(seed: number, height = 900): Scene {
 /** Each item's step: its form index, or 99 in the menu. */
 const steps = (s: Scene, l: SceneLayout): Record<string, number> => Object.fromEntries(Object.keys(s.items).map((id) => [id, l.items[id]!.inMenu ? 99 : l.items[id]!.form]));
 
+/** The same panels in dynamic columns folded by hand, so each side's rail strip shows them as segments. */
+function stripScene(seed: number, height = 900): Scene {
+  const s = railScene(seed, height);
+  const template = { accepts: ["panel"], cross: { min: 160, max: 480, rail: 30 } };
+  const edges = s.edges.flatMap((e) => e.items.map((id, i) => ({ ...column(`${e.side}-${id}`, e.side as "left" | "right", i, [id]), accepts: ["panel"], column: true })));
+  return { ...s, edges, columns: { left: template, right: template }, rails: { left: { width: 30, accepts: ["panel"] }, right: { width: 30, accepts: ["panel"] } } };
+}
+
+describe("rail titles in a side's rail strip", () => {
+  it("titles fit, step down to tiles by the ladder, and come back in exact reverse", () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const s0 = stripScene(seed);
+      const l0 = solve(s0);
+      for (const id of Object.keys(s0.items)) {
+        expect(l0.items[id]!.rail, `seed ${seed}: ${id}`).toBeDefined();
+        expect(l0.items[id]!.form).toBe(TITLE);
+        expect(l0.items[id]!.railTitle).toBe(l0.items[id]!.rail);
+      }
+      let previous = l0;
+      const heights: number[] = [];
+      for (let h = 900; h >= 80; h -= 17) heights.push(h);
+      const down = new Map<number, Record<string, number>>();
+      for (const h of heights) {
+        const s = { ...s0, stage: { ...s0.stage, height: h } };
+        const l = solve(s, { previous });
+        const st = steps(s, l);
+        for (const side of ["left", "right"] as const) {
+          const ids = l.rails[side]?.segments.map((x) => x.id) ?? [];
+          for (const a of ids)
+            for (const b of ids) {
+              const pa = s.items[a]!.priority ?? 0;
+              const pb = s.items[b]!.priority ?? 0;
+              if ((pa < pb || (pa === pb && s.items[a]!.used < s.items[b]!.used)) && st[b]! > TITLE) expect(st[a]!, `seed ${seed} at ${h}: ${b} before ${a}`).toBeGreaterThan(TITLE);
+            }
+        }
+        down.set(h, st);
+        previous = l;
+      }
+      for (const h of [...heights].reverse()) {
+        const s = { ...s0, stage: { ...s0.stage, height: h } };
+        const l = solve(s, { previous });
+        expect(steps(s, l), `seed ${seed} at ${h} growing back`).toEqual(down.get(h));
+        previous = l;
+      }
+    }
+  });
+
+  it('"icons" draws the tiles exactly as panels with no title form', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const s = setRailMode(setRailMode(stripScene(seed), "left", "icons"), "right", "icons");
+      const plain: Scene = { ...s, items: Object.fromEntries(Object.entries(s.items).map(([id, it]) => [id, { ...it, forms: { column: it.forms.column!.filter((f) => !f.title) } }])) };
+      const l = solve(s);
+      const lp = solve(plain);
+      for (const id of Object.keys(s.items)) {
+        expect(l.items[id]!.rect, `seed ${seed}: ${id}`).toEqual(lp.items[id]!.rect);
+        expect(l.items[id]!.railTitle).toBeUndefined();
+      }
+      expect(l.rails.left?.stack).toBeUndefined();
+    }
+  });
+});
+
 describe("rail titles", () => {
   it("every item takes its title while the rail fits them all, reported with its side", () => {
     const s = railScene(1);
