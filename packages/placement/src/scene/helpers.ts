@@ -45,6 +45,10 @@ export const axisOf = (side: Side): Orient => (side === "left" || side === "righ
 export const zoneOf = (item: SceneItem | undefined): Zone => (item?.align === "center" || item?.align === "end" ? item.align : "start");
 export const formsOf = (item: SceneItem, axis: Orient): readonly StackForm[] => item.forms[axis] ?? [];
 
+const PANEL_FORMS: ReadonlySet<string> = new Set(["open", "header", "rail"]);
+/** A panel that counts as docked for `insetWhen: "docked"`: not closed, not fixed, its first column form a panel's (open, header or rail). */
+export const isDockingPanel = (item: SceneItem): boolean => !item.closed && !item.fixed && PANEL_FORMS.has(formsOf(item, "column")[0]?.kind ?? "");
+
 /**
  * A left or right toolbar bar outside the inset (`isSideBar` with `outsideInset`). It lies outermost on its side,
  * before the side's rail.

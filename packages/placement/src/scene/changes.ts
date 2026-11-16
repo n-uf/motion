@@ -19,9 +19,10 @@
  * - `raise(scene, id)`: a float to the top of the stack; no use, no reshape.
  * - `orient(scene, id, orient)`: a float's axis.
  * - `resize(scene, edge, size)`: the user's size across; a size that isn't a finite number clears it.
+ *   `resize(scene, id, rect, handle?)`: a float's rect by hand (see `resize`).
  */
 import { clampInto, type Rect } from "../geometry";
-import { axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
+import { axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, formsOf, isDockingPanel, zoneOf, zoneTakes, zonesTaking } from "./helpers";
 import type { Edge, FloatAnchor, Orient, Scene, SceneFloat, SceneItem, Side, Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
@@ -254,7 +255,75 @@ export function orient(scene: Scene, id: string, to: Orient): Scene {
   return { ...scene, floats: scene.floats.map((f, k) => (k === i ? { ...f, orient: to } : f)) };
 }
 
-export function resize(scene: Scene, edgeId: string, size: number): Scene {
+/** The edge or corner of a float a resize drags: its other edges stay put. */
+export type ResizeHandle = "top" | "right" | "bottom" | "left" | "top-left" | "top-right" | "bottom-right" | "bottom-left";
+
+/**
+ * The region floats lie in, as `solve` lays them: the stage less the inset at its left and right (none with
+ * `insetWhen: "docked"` while no panel is docked beside the content), the stage's full height.
+ */
+function floatRegion(scene: Scene): Rect {
+  const docked = scene.edges.some((e) => (e.side === "left" || e.side === "right") && e.accepts.length > 0 && e.items.some((id) => !scene.floats.some((f) => f.id === id) && !!itemOf(scene, id) && isDockingPanel(itemOf(scene, id)!)));
+  const inset = scene.insetWhen === "docked" && !docked ? {} : (scene.inset ?? {});
+  const px = (v: number | undefined): number => (Number.isFinite(v) ? Math.max(0, v!) : 0);
+  const { stage } = scene;
+  return { x: stage.x + px(inset.left), y: stage.y, width: Math.max(0, stage.width - px(inset.left) - px(inset.right)), height: stage.height };
+}
+
+/** One axis of a float resize: `[start, length]` clamped to `min` and into `[lo, hi]`, the edge not dragged kept. */
+function resizeAxis(start: number, length: number, min: number, lo: number, hi: number, drag: "start" | "end" | null): [number, number] {
+  const fin = (v: number, d: number): number => (Number.isFinite(v) ? v : d);
+  const s = fin(start, lo);
+  const len = Math.max(0, fin(length, min));
+  // A floor larger than the region: the floor, at the region's start (as `solve` lays it).
+  if (min >= hi - lo) return [lo, min];
+  if (drag === "start") {
+    const end = Math.min(hi, Math.max(lo + min, s + len));
+    const l = Math.min(end - lo, Math.max(min, len));
+    return [end - l, l];
+  }
+  const a = Math.max(lo, Math.min(hi - min, s));
+  return [a, Math.min(hi - a, Math.max(min, len))];
+}
+
+/**
+ * The user's size across an edge (`size` a number; one that isn't finite clears it). Or, with a rect, a float's rect by
+ * hand: `rect` is the rect asked for in stage px (the float as drawn, with the dragged `handle`'s edges moved; default
+ * `"bottom-right"`). It is clamped to the item's `floatMin` (else its open form's minimums) and into the region floats
+ * lie in (the stage less the inset at its left and right, its full height); the edges `handle` doesn't drag stay put,
+ * so a drag of the left or top edge keeps the right or bottom one. The float keeps its stacking order and orient, loses
+ * its anchor, and the size becomes the item's `floatSize` (stored with the scene). Refused (the scene given back) for
+ * anything but a float drawn at its first form when that form grows (a panel's card): a toolbar group's size comes
+ * from its forms, and so does a folded float's bar.
+ */
+export function resize(scene: Scene, edgeId: string, size: number): Scene;
+export function resize(scene: Scene, floatId: string, rect: Rect, handle?: ResizeHandle): Scene;
+export function resize(scene: Scene, id: string, size: number | Rect, handle: ResizeHandle = "bottom-right"): Scene {
+  if (typeof size === "number") return resizeEdge(scene, id, size);
+  const i = scene.floats.findIndex((f) => f.id === id);
+  const item = itemOf(scene, id);
+  if (i < 0 || !item || item.fixed) return scene;
+  const f = scene.floats[i]!;
+  const fo = f.orient ?? floatOrientOf(item);
+  const form = formsOf(item, fo)[0];
+  if (floatShape(item, f).form !== 0 || (form && !form.main.grows)) return scene;
+  const row = fo === "row";
+  const minOf = (v: number | undefined): number => (Number.isFinite(v) ? Math.max(0, v!) : 0);
+  const min = {
+    width: item.floatMin ? minOf(item.floatMin.width) : minOf(row ? form?.main.min : form?.cross.min),
+    height: item.floatMin ? minOf(item.floatMin.height) : minOf(row ? form?.cross.min : form?.main.min),
+  };
+  const region = floatRegion(scene);
+  const dragX = handle.includes("left") ? "start" : handle.includes("right") ? "end" : null;
+  const dragY = handle.includes("top") ? "start" : handle.includes("bottom") ? "end" : null;
+  const [x, width] = resizeAxis(size.x, size.width, min.width, region.x, region.x + region.width, dragX);
+  const [y, height] = resizeAxis(size.y, size.height, min.height, region.y, region.y + region.height, dragY);
+  const { anchor: _a, ...plain } = f;
+  const float: SceneFloat = { ...plain, rect: { x, y, width, height } };
+  return withItem({ ...scene, floats: scene.floats.map((g, k) => (k === i ? float : g)) }, { ...item, floatSize: { width, height } });
+}
+
+function resizeEdge(scene: Scene, edgeId: string, size: number): Scene {
   const edge = scene.edges.find((e) => e.id === edgeId);
   if (!edge) return scene;
   if (!Number.isFinite(size)) {

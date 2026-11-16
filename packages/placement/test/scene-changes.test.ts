@@ -89,6 +89,64 @@ describe("pure changes", () => {
   });
 });
 
+describe("a float resized by hand (resize with a rect)", () => {
+  // notes floats at 500,200 280×320; its open form's minimums are 180 across and 120 along.
+  const rectOf = (sc: Scene, id: string) => sc.floats.find((f) => f.id === id)!.rect;
+
+  it("sets the rect and the floatSize; a corner drag clamps at the open form's minimums, or at floatMin", () => {
+    const grown = resize(s, "notes", { x: 500, y: 200, width: 400, height: 450 });
+    expect(rectOf(grown, "notes")).toEqual({ x: 500, y: 200, width: 400, height: 450 });
+    expect(grown.items.notes!.floatSize).toEqual({ width: 400, height: 450 });
+    expect(solve(grown).items.notes!.rect).toEqual({ x: 500, y: 200, width: 400, height: 450 });
+    expect(rectOf(resize(s, "notes", { x: 500, y: 200, width: 40, height: 30 }), "notes")).toEqual({ x: 500, y: 200, width: 180, height: 120 });
+    const floored: Scene = { ...s, items: { ...s.items, notes: { ...s.items.notes!, floatMin: { width: 220, height: 160 } } } };
+    expect(rectOf(resize(floored, "notes", { x: 500, y: 200, width: 40, height: 30 }, "bottom-right"), "notes")).toEqual({ x: 500, y: 200, width: 220, height: 160 });
+  });
+
+  it("a left or top edge drag keeps the right or bottom edge put, also when it clamps", () => {
+    // Left edge to x 700: the right edge stays at 780, the width clamps at 180 (x 600).
+    expect(rectOf(resize(s, "notes", { x: 700, y: 200, width: 80, height: 320 }, "left"), "notes")).toEqual({ x: 600, y: 200, width: 180, height: 320 });
+    expect(rectOf(resize(s, "notes", { x: 400, y: 200, width: 380, height: 320 }, "left"), "notes")).toEqual({ x: 400, y: 200, width: 380, height: 320 });
+    // Top-left corner past the minimums: bottom stays at 520, right at 780.
+    expect(rectOf(resize(s, "notes", { x: 760, y: 500, width: 20, height: 20 }, "top-left"), "notes")).toEqual({ x: 600, y: 400, width: 180, height: 120 });
+  });
+
+  it("past the window's edge it clamps into the region floats lie in", () => {
+    // Right edge past the stage (1200): it ends there. Left edge past 0: it starts there, the right edge kept.
+    expect(rectOf(resize(s, "notes", { x: 500, y: 200, width: 1000, height: 320 }, "right"), "notes")).toEqual({ x: 500, y: 200, width: 700, height: 320 });
+    expect(rectOf(resize(s, "notes", { x: -300, y: 200, width: 1080, height: 320 }, "left"), "notes")).toEqual({ x: 0, y: 200, width: 780, height: 320 });
+    expect(rectOf(resize(s, "notes", { x: 500, y: -50, width: 280, height: 570 }, "top"), "notes")).toEqual({ x: 500, y: 0, width: 280, height: 520 });
+    expect(rectOf(resize(s, "notes", { x: 500, y: 200, width: 280, height: 900 }, "bottom"), "notes")).toEqual({ x: 500, y: 200, width: 280, height: 600 });
+    // The inset's left and right are kept clear, the full height is not.
+    const inset: Scene = { ...s, inset: { left: 16, right: 16, top: 16, bottom: 16 } };
+    expect(rectOf(resize(inset, "notes", { x: -300, y: -10, width: 1080, height: 530 }, "top-left"), "notes")).toEqual({ x: 16, y: 0, width: 764, height: 520 });
+  });
+
+  it("is stored: the size survives storeScene / readScene", () => {
+    const changed = resize(s, "notes", { x: 420, y: 150, width: 360, height: 400 }, "top-left");
+    const read = readScene(JSON.parse(JSON.stringify(storeScene(changed))), s);
+    expect(read.dropped).toEqual([]);
+    expect(rectOf(read.scene, "notes")).toEqual({ x: 420, y: 150, width: 360, height: 400 });
+    expect(read.scene.items.notes!.floatSize).toEqual({ width: 360, height: 400 });
+    expect(solve(read.scene).items.notes!.rect).toEqual(solve(changed).items.notes!.rect);
+  });
+
+  it("refuses a toolbar group (its size comes from its forms), a folded float, a docked item and an unknown one; an edge resize is unchanged", () => {
+    const tools = floatAt(s, "tools", { x: 300, y: 300, width: 200, height: 28 });
+    expect(resize(tools, "tools", { x: 300, y: 300, width: 400, height: 80 })).toBe(tools);
+    const folded = fold(s, "notes", true);
+    expect(resize(folded, "notes", { x: 500, y: 200, width: 400, height: 400 })).toBe(folded);
+    expect(resize(s, "pages", { x: 0, y: 0, width: 400, height: 400 })).toBe(s);
+    expect(resize(s, "nobody", { x: 0, y: 0, width: 400, height: 400 })).toBe(s);
+    expect(edge(resize(s, "left", 320), "left").size).toBe(320);
+    // The float keeps its stacking order; an anchored one gets a real rect.
+    const two = floatAt(s, "pages", { x: 0, y: 0, width: 300, height: 300 });
+    expect(resize(two, "notes", { x: 500, y: 200, width: 300, height: 300 }).floats.map((f) => f.id)).toEqual(["notes", "pages"]);
+    const anchored: Scene = { ...s, floats: [{ id: "notes", rect: { x: 0, y: 0, width: 280, height: 320 }, anchor: "content-top-right" }] };
+    expect(resize(anchored, "notes", { x: 600, y: 100, width: 300, height: 300 }).floats[0]).toEqual({ id: "notes", rect: { x: 600, y: 100, width: 300, height: 300 } });
+  });
+});
+
 describe("the stored form", () => {
   it("round-trips", () => {
     const changed = resize(fold(keep(floatAt(moveTo(s, "tools", { edge: "toolbar", at: 0 }), "notes", { x: 520, y: 180, width: 300, height: 340 }), "marks", true), "notes", true), "left", 320);

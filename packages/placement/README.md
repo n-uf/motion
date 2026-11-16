@@ -1150,7 +1150,12 @@ Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (
 **Changes** are pure and return the scene given when nothing applies: `moveTo(scene, id, { edge, zone?, at })`,
 `floatAt(scene, id, rect?, orient?)` (with no rect: its last `floatSize`, anchored to the content's top-right), `fold`,
 `use`, `keep`, `raise` (a float on top: no use, no reshape), `open`, `close`, `orient`, `resize` and
-`setSide(scene, edgeId, side)`. `setSide` moves an edge to the other side of its axis (left ⇄ right, top ⇄ bottom) as
+`setSide(scene, edgeId, side)`. `resize(scene, edgeId, size)` sets the user's size across an edge;
+`resize(scene, floatId, rect, handle?)` resizes a float by hand: `rect` is the rect asked for (the drawn float with the
+dragged `handle`'s edges moved, default `"bottom-right"`), clamped to the item's `floatMin` (else its open form's
+minimums) and into the region floats lie in, the edges `handle` doesn't drag kept put (a left-edge drag keeps the right
+edge). The size becomes `floatSize`, so it is stored. Only a float drawn at a first form that grows (a panel's card)
+resizes: a toolbar group's size, and a folded float's bar, come from their forms, and the scene is given back. `setSide` moves an edge to the other side of its axis (left ⇄ right, top ⇄ bottom) as
 its side's outermost edge: ring 0, before that side's other edges, whose rings close up behind it (the side it left
 closes up too). Its items, size and options go with it; the scene is given back unchanged for an unknown edge, the side
 it is already on, or a side across its axis. Like every change it ticks no use clock: a host that moves an edge by hand
