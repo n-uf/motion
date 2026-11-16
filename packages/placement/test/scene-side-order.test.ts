@@ -98,7 +98,9 @@ describe("the rail strip lies where the rail lands", () => {
     expect(n).toBeGreaterThan(4);
   });
 
-  it("with and without a side bar, an anchor and an inset: the strip's outer edge is the landed rail's", () => {
+  // The strip starts at the window's edge (an inset's strip included); after the side's outside bars, flush after them,
+  // where the rail lands.
+  it("with and without a side bar, an anchor and an inset: the strip's outer edge is the window's, or the landed rail's after a side bar", () => {
     let n = 0;
     for (const sideBar of [false, true])
       for (const anchor of [false, true])
@@ -107,7 +109,7 @@ describe("the rail strip lies where the rail lands", () => {
           expect(solve(s).rails.left, "no rail shown").toBeUndefined();
           for (const t of targets(s, "p2").filter((x) => x.id.startsWith("rail:left:"))) {
             const landed = t.after({ x: t.hit.x + t.hit.width / 2, y: t.hit.y + t.hit.height / 2 }).layout.rails.left!.rect;
-            expect(t.hit.x, `${t.id} bar ${sideBar} anchor ${anchor} inset ${inset}`).toBe(landed.x);
+            expect(t.hit.x, `${t.id} bar ${sideBar} anchor ${anchor} inset ${inset}`).toBe(sideBar ? landed.x : s.stage.x);
             n++;
           }
         }

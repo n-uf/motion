@@ -48,8 +48,9 @@
  *   edge), up to `COLUMN_REACH` px each way (two lines nearer than that meet halfway), only where the new column shows
  *   open (elsewhere refused).
  * - `rail:<side>:<ring>`: docking folded into a side's rail (its rail and its template take the kind), before each
- *   folded column's segments and after the last, or, with no rail shown, `RAIL_EDGE` px deep where the rail lands
- *   (`SceneLayout.railPlaces`).
+ *   folded column's segments and after the last, or, with no rail shown, the outer `RAIL_EDGE` px from the side's
+ *   outer edge (the window's, an inset's strip included; flush after the side's outside bars), landing where the rail
+ *   lands (`SceneLayout.railPlaces`). The outermost column line's zone starts where it ends.
  * - `float:<id>`: when `floatKinds` lists the kind, the whole plane: the landing is the float with the pointer holding
  *   it at `grab` (default its middle), in the stage and clear of the docked items, the bars and the chrome. Its orient:
  *   `options.floatOrient`, else its float's, else the item's (`floatOrientOf`). Its size: `options.floatSize`, else its

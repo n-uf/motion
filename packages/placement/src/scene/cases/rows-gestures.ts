@@ -26,8 +26,12 @@ function withTitle(s: Scene): Scene {
   };
 }
 
-const LEFT_OUT = 6;
 const RIGHT_EDGE = 1108;
+/**
+ * Past a column's outer edge, in the window's 12 px inset: the rail stop holds the outer 10 px from the window's edge,
+ * so the new column's line is reached 1 px past the column (11 px from the window's edge).
+ */
+const LINE_OUT = 1;
 
 export const GESTURE_ROWS: readonly CaseRow[] = [
   {
@@ -110,10 +114,10 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P6-new-outer-column-from-outside",
     title: "A new outer column from outside the right column",
-    expect: "Let go 6 px outside the right column's outer edge, at 5%, 50% or 95% of the stage's height, Annotations makes the outermost column, on the slot's rect.",
+    expect: "Let go 1 px outside the right column's outer edge (11 px from the window's edge, past the rail stop's 10), at 5%, 50% or 95% of the stage's height, Annotations makes the outermost column, on the slot's rect.",
     group: "gestures",
     scene: win(),
-    gestures: [g.press("annotations"), g.at(RIGHT_EDGE + LEFT_OUT, 40), g.hold(), g.at(RIGHT_EDGE + LEFT_OUT, 400), g.hold(), g.at(RIGHT_EDGE + LEFT_OUT, 760), g.hold(), g.release()],
+    gestures: [g.press("annotations"), g.at(RIGHT_EDGE + LINE_OUT, 40), g.hold(), g.at(RIGHT_EDGE + LINE_OUT, 400), g.hold(), g.at(RIGHT_EDGE + LINE_OUT, 760), g.hold(), g.release()],
     checkpoints: [
       { at: 2, layout: { items: { pages: { rect: r(12, 0, 220, 800) }, annotations: { edge: "right-1", rect: r(888, 0, 220, 800) }, findings: { edge: "right-0", rect: r(576, 0, 300, 800) } }, columns: { left: [["pages"]], right: [["annotations"], ["findings"]] }, notes: { has: ["column-shrunk"] } }, note: "5%" },
       { at: 4, layout: { items: { pages: { rect: r(12, 0, 220, 800) }, annotations: { edge: "right-1", rect: r(888, 0, 220, 800) }, findings: { edge: "right-0", rect: r(576, 0, 300, 800) } }, columns: { left: [["pages"]], right: [["annotations"], ["findings"]] }, notes: { has: ["column-shrunk"] } }, note: "50%" },
@@ -133,10 +137,10 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P6-left-outer-edge",
     title: "A new outer column on the left",
-    expect: "Findings let go 6 px outside the left column's outer edge makes the outermost left column; the right side is then empty.",
+    expect: "Findings let go 1 px outside the left column's outer edge (11 px from the window's edge, past the rail stop's 10) makes the outermost left column; the right side is then empty.",
     group: "gestures",
     scene: win(),
-    gestures: [g.press("findings"), g.at(12 - LEFT_OUT, 400), g.hold(), g.release()],
+    gestures: [g.press("findings"), g.at(12 - LINE_OUT, 400), g.hold(), g.release()],
     expectLayout: { items: { findings: { edge: "left-1", rect: r(12, 0, 220, 800) }, pages: { rect: r(244, 0, 300, 394) }, annotations: { rect: r(244, 406, 300, 394) } }, columns: { left: [["findings"], ["pages", "annotations"]], right: [] } },
   },
   {

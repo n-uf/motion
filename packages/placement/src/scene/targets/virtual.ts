@@ -23,6 +23,20 @@ function ringsOf(c: Ctx, side: "left" | "right"): { before: (e: Edge) => number;
 }
 
 /**
+ * Where the side's undrawn rail stop starts, across: the window's edge (an inset's strip included), or, with drawn edges
+ * of the side lying outside the rail's place (its outside bars), the rail place's outer side, flush after them.
+ */
+function railOuter(c: Ctx, side: "left" | "right"): number {
+  const { now, scene } = c;
+  const place = now.railPlaces[side];
+  const windowEdge = side === "left" ? scene.stage.x : scene.stage.x + scene.stage.width;
+  if (!place) return windowEdge;
+  const placeOuter = side === "left" ? place.x : place.x + place.width;
+  const barOutside = Object.values(now.edges).some((e) => e.side === side && e.rect.width > 0 && e.rect.height > 0 && (side === "left" ? e.rect.x + e.rect.width <= placeOuter + EPS : e.rect.x >= placeOuter - EPS));
+  return barOutside ? placeOuter : windowEdge;
+}
+
+/**
  * The side's column lines as an edge (virtual, along x): a slot on each line for a new column there, tiled as every
  * edge is (its kind's `reach` each way at most), down the columns' stretch. The lines lie where the user sees the
  * columns; each counts its ring with the item lifted.
@@ -70,10 +84,12 @@ export function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec[] {
     if (i > 0 || outside(l.x) || !(atEdge || railFirst)) return { line: l.x, zone: [l.x - reach, l.x + reach], owned: [l.x - place / 2, l.x + place / 2] };
     const windowEdge = side === "left" ? stage.x : stage.x + stage.width;
     const boundary = clamp(l.x, stage.x, stage.x + stage.width);
-    const band0 = boundary + dir * (railFirst ? RAIL_EDGE : 0);
+    // With the rail first, its stop holds the outer `RAIL_EDGE` px from the side's outer edge (the window's, an inset's
+    // strip included): the line's zone and band start where the stop ends. Without one, from the window's edge.
+    const band0 = railFirst ? railOuter(c, side) + dir * RAIL_EDGE : boundary;
     const line = band0 + (dir * edgePlace) / 2;
     const span2 = (a: number, b: number): Span => [Math.min(a, b), Math.max(a, b)];
-    return { line, zone: span2(windowEdge, line + dir * reach), owned: span2(band0, band0 + dir * edgePlace) };
+    return { line, zone: span2(railFirst ? band0 : windowEdge, line + dir * reach), owned: span2(band0, band0 + dir * edgePlace) };
   };
   // One spec per line: a new column's place, owning a band of `place` px about its line (ranked where that column would
   // be laid), its slot's tile reaching `reach` each way past it as overreach.
@@ -139,7 +155,10 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
     stops.push({ y: last.y1, ring: ringAfter(last.edge) });
   } else {
     const firstCol = mine.find((e) => e.column === true);
-    zone = rect(side === "left" ? placeRect.x : placeRect.x + placeRect.width - RAIL_EDGE, placeRect.y, RAIL_EDGE, placeRect.height);
+    // The outer `RAIL_EDGE` px from the side's outer edge: the window's (an inset's strip included), or flush after the
+    // side's outside bars.
+    const outer = railOuter(c, side);
+    zone = rect(side === "left" ? outer : outer - RAIL_EDGE, placeRect.y, RAIL_EDGE, placeRect.height);
     stops.push({ y: placeRect.y, ring: firstCol ? rings.before(firstCol) : rings.count });
   }
   // Folded into this rail; every stop is home while the item is folded here already.
