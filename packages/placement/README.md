@@ -1204,7 +1204,7 @@ never changes another. The policy's fields, each default with its reason:
 | `floatNearEdge` | `true` | Before the strip arms, a float may sit near the window's edge, as it may anywhere; `false` keeps a float's rect clear of every strip. |
 
 The time and the keys are the drag intent's (`@n-uf/motion/drag`): `railArmDwellMs` (200 ms) arms a target marked
-`arm: "dwell"` (spring-loading), and `modifiers` let Shift float anywhere and Alt collapse into the nearest rail.
+`arm: "dwell"` (spring-loading), and `modifiers` let Shift float anywhere and ⌘/Ctrl collapse into the nearest rail (Alt stays free: it unfreezes a frozen layout).
 
 A gap, column or rail target exists only where the drop keeps the whole scene sound (C29): it adds no `overflow` or
 `too-wide` note to any edge, changes no fixed item's form, squeezes none under its `main.min` anywhere (a between bar
