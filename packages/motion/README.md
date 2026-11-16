@@ -334,7 +334,7 @@ targets, and draws what it says. It is only there, not in the root.
 | | |
 |---|---|
 | `createDragIntent({ home, tuning?, placeOf? })` | `update(point, time, targets)` once a frame while an item is held, returning `{ shown, room, roomPlace, aiming, atHome }` (`atHome`: the pointer is back inside `home` after it has been outside `home` itself; never true at the press or while it moves about inside `home`. Over home no target is shown and a release does nothing, so a host that wants to say "a drop here returns it" draws its own indicator at the home rect for that frame); `release(point, targets)`, the target a release lands on or null (home); `hide(time)` while the view scrolls under the pointer; `moveHome(dx, dy)`; `state`; `tuning`. |
-| `DRAG_DEFAULTS` | Lift at 5 px (a touch: a 180 ms hold, then 8 px); aiming below 0.45 px/ms over 50 ms, or within 12 px for 90 ms; a 10 px band, a 4 px breakthrough, a 120 ms gap grace; a switch waits 150 ms; room after 160 ms. Each is overridable per intent. |
+| `DRAG_DEFAULTS` | Lift at 5 px (a touch: a 180 ms hold, then 8 px); aiming below 0.45 px/ms over 50 ms, or within 12 px for 90 ms; a 10 px band and a 4 px breakthrough, each at most a fifth of the zones' extents (`bandShare` 0.2), a 120 ms gap grace; a switch waits 150 ms; room after 160 ms. Each is overridable per intent. |
 | `targetAt(targets, point)`, `inRect(rect, point, margin?)` | The most precise target under a point (priority 1, 2, 3, then the smaller zone; a rect holds its edges exactly); a point in a rect grown or shrunk by a margin. A `DragTarget` whose zone isn't one rect gives `hits`, every piece of it (`hit` is then the largest): the pointer is in the zone when it is in any piece, and the zone's size, for the smaller-zone rule and the drag intent's bands, is the pieces' together. This is the one pick rule: `@n-uf/placement/scene/cases` takes it as its hosts' `pick`. |
 | `liftDecision({ touch, distance, elapsed }, tuning?)` | `"wait"`, `"lift"` or `"refuse"`: when a press becomes a drag. |
 | `previewPlan(frame, preview, slotted?)`, `DragPreview`, `DRAG_PREVIEW_DEFAULT` | What to draw for a frame under one of three previews: `{ showIndicator, makeRoom, snapItem }`. `"indicator"`: only the indicator, nothing moves. `"gap"`: the others make room once the intent does; the item stays under the pointer. `"snap"` (the default): the gap opens and the item glides into a slotted target's room, with no indicator (a target without a slot keeps it). |
@@ -347,7 +347,10 @@ a large area 3). The rules:
   is under it, and the pointer aims (slows down or holds still). Crossing
   targets at speed shows nothing.
 - The current target holds within a band around its zone, unless a more
-  precise target is clearly under the pointer. Leaving the shown target, a
+  precise target is clearly under the pointer. Both scale with the zones:
+  along each axis, at most a fifth of the held zone's extent and of the zone
+  under the pointer, so a small zone (a 28 px row) is entered by a direct
+  glide from its neighbour. Leaving the shown target, a
   flying pointer hides the indicator at once; an aiming one moves it once the
   new target has held 150 ms, so no indicator ever shows for less.
 - Room is made once the shown target, and the place in it (`placeOf`: a tab

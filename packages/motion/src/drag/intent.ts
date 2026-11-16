@@ -23,6 +23,12 @@ export interface DragTuning {
   readonly band: number;
   /** A higher-priority target takes over at once when the pointer is this far inside it. */
   readonly breakthrough: number;
+  /**
+   * The band and the breakthrough scale with the zones: along each axis they are at most this share of the held
+   * zone's extent and of the extent of the zone under the pointer (its `hit`), so a small zone (a 28 px row) can be
+   * entered by a direct glide from its neighbour. Below a quarter, the pointer at a quarter of a zone is past them.
+   */
+  readonly bandShare: number;
   /** A gap between zones shorter than this keeps the current target (for a pointer that aims). */
   readonly gapGrace: number;
   /** Aiming, the shown target moves to another one only once that one has held this long. */
@@ -36,8 +42,9 @@ export interface DragTuning {
 /**
  * The defaults: a mouse lifts after 5 px, a touch after a 180 ms hold and
  * 8 px; aiming is slower than 0.45 px/ms over 50 ms, or within 12 px for
- * 90 ms; a 10 px band, a 4 px breakthrough and a 120 ms gap grace; a switch
- * waits 150 ms (the shortest an indicator may show); room after 160 ms.
+ * 90 ms; a 10 px band and a 4 px breakthrough, each at most a fifth of the
+ * zones' extents, and a 120 ms gap grace; a switch waits 150 ms (the shortest
+ * an indicator may show); room after 160 ms.
  */
 export const DRAG_DEFAULTS: DragTuning = {
   lift: 5,
@@ -49,6 +56,7 @@ export const DRAG_DEFAULTS: DragTuning = {
   dwell: 90,
   band: 10,
   breakthrough: 4,
+  bandShare: 0.2,
   gapGrace: 120,
   switchHold: 150,
   roomAfter: 160,
@@ -81,6 +89,27 @@ export function inRect(rect: Rect, point: Point, margin = 0): boolean {
 
 /** Whether `point` lies in a target's zone (`hits` when it has them, else `hit`), grown by `margin` px. */
 const inZone = (t: DragTarget, point: Point, margin = 0): boolean => (t.hits ? t.hits.some((r) => inRect(r, point, margin)) : inRect(t.hit, point, margin));
+
+/** A margin per axis: px grown (shrunk, when negative) left and right, and above and below. */
+interface Margin {
+  readonly x: number;
+  readonly y: number;
+}
+/** Whether `point` lies in a target's zone grown by `m.x` px left and right and `m.y` px above and below. */
+const inZoneBy = (t: DragTarget, point: Point, m: Margin): boolean =>
+  (t.hits ?? [t.hit]).some((r) => point.x >= r.x - m.x && point.x <= r.x + r.width + m.x && point.y >= r.y - m.y && point.y <= r.y + r.height + m.y);
+/** `px`, but along each axis at most `share` of each zone's extent (its `hit`) along it. */
+const scaled = (px: number, share: number, zones: readonly (DragTarget | null)[]): Margin => {
+  let x = px;
+  let y = px;
+  for (const z of zones) {
+    if (!z) continue;
+    x = Math.min(x, share * z.hit.width);
+    y = Math.min(y, share * z.hit.height);
+  }
+  return { x, y };
+};
+const negate = (m: Margin): Margin => ({ x: -m.x, y: -m.y });
 
 const area = (r: Rect): number => r.width * r.height;
 /** A target's zone's area: its `hits` together, else its `hit`. */
@@ -216,7 +245,9 @@ export interface DragIntent<T extends DragTarget> {
  * - The most precise target wins (priority, then the smaller zone).
  * - Hysteresis: the current target holds while the pointer is within `band`
  *   px of its zone, unless a more precise one is clearly (`breakthrough` px)
- *   under the pointer; for a pointer that aims, a short gap between zones
+ *   under the pointer; both scale down for small zones (`bandShare` of the
+ *   held zone's and the entered zone's extents along each axis), so a small
+ *   zone is entered by a direct glide; for a pointer that aims, a short gap between zones
  *   (`gapGrace` ms) keeps it too.
  * - Leaving the shown target: flying, the indicator hides at once; aiming, it
  *   moves to the new target once that has held `switchHold` ms (so no
@@ -283,9 +314,12 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       cur = follow(cur, targets);
       shown = follow(shown, targets);
       if (!live(cur)) cur = null;
+      // The band about a held zone, and the breakthrough into a zone, scaled with the zones (see `bandShare`).
+      const bandOf = (held: T): Margin => scaled(tuning.band, tuning.bandShare, [held, raw && !same(raw, held) ? raw : null]);
+      const pastBreakthrough = (x: T): boolean => inZoneBy(x, p, negate(scaled(tuning.breakthrough, tuning.bandShare, [x])));
       let next = raw;
-      if (cur && !atHome && inZone(cur, p, tuning.band)) {
-        const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && inZone(raw, p, -tuning.breakthrough);
+      if (cur && !atHome && inZoneBy(cur, p, bandOf(cur))) {
+        const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && pastBreakthrough(raw);
         next = breaks ? raw : cur;
       }
       if (!next && cur && !atHome && t - lastInside < tuning.gapGrace) next = cur;
@@ -299,7 +333,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         shown = s;
       };
       // Under the pointer (within its band), not just kept by the gap grace.
-      const under = !!cur && inZone(cur, p, tuning.band);
+      const under = !!cur && inZoneBy(cur, p, bandOf(cur));
       // A shown target with no place here is no drop: the indicator hides at once (the switch hold is for targets).
       if (shown && !live(shown)) show(null);
       if (!shown) {
@@ -310,7 +344,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         else shown = cur;
       } else if (!cur || !aiming) {
         show(null);
-      } else if ((cur.priority < shown.priority && inZone(cur, p, -tuning.breakthrough)) || (under && t - curSince >= tuning.switchHold)) {
+      } else if ((cur.priority < shown.priority && pastBreakthrough(cur)) || (under && t - curSince >= tuning.switchHold)) {
         show(cur);
       }
       // The place within the shown target, and the room: after the target and the place have both held.
