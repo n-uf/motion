@@ -228,7 +228,7 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
   const takes = (zone: Zone): boolean => accepts && zoneTakes(edge, zone, kind);
   return {
     id: edge.id,
-    key: edge.id,
+    edge,
     kind: edgeKind,
     lay: c.lay.get(edge.id)!,
     vertical: column,
