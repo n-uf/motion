@@ -161,6 +161,46 @@ const endDrag = (c: DocwinScene): void => {
   c.drive(false);
 };
 
+/** A floating panel's resize handle as drawn, or null (none drawn). */
+const handleOf = (c: DocwinScene, id: ItemId, h: string): HTMLElement | null => c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-fh="${h}"]`);
+
+/**
+ * A mouse drag on a float's resize handle, through the page's own listeners: pointerdown on the handle's centre,
+ * pointermoves on the window about 4 px apart by (dx, dy), pointerup. `during` runs once halfway, the button still down.
+ */
+function mouseResize(c: DocwinScene, id: ItemId, h: string, dx: number, dy: number, during?: () => void): boolean {
+  const el = handleOf(c, id, h);
+  if (!el) return false;
+  const g = el.getBoundingClientRect();
+  const from = { x: g.left + g.width / 2, y: g.top + g.height / 2 };
+  const ev = (type: string, p: Point): PointerEvent => new PointerEvent(type, { clientX: p.x, clientY: p.y, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerType: "mouse", isPrimary: true, bubbles: true, cancelable: true });
+  el.dispatchEvent(ev("pointerdown", from));
+  const steps = Math.max(4, Math.ceil(Math.hypot(dx, dy) / 4));
+  for (let i = 1; i <= steps; i++) {
+    window.dispatchEvent(ev("pointermove", { x: from.x + (dx * i) / steps, y: from.y + (dy * i) / steps }));
+    if (i === Math.ceil(steps / 2)) during?.();
+  }
+  window.dispatchEvent(ev("pointerup", { x: from.x + dx, y: from.y + dy }));
+  return true;
+}
+
+/** Findings floating over the pages: the float the resize presets work on. */
+const RESIZE_AT: Rect = { x: 440, y: 160, width: 280, height: 320 };
+const resizeScene = (): Scene => sceneWith((s) => floating(s, "findings", RESIZE_AT));
+/** The least a floating panel resizes to: its `floatMin`, else its open form's minimums (across, along). */
+function panelMin(c: DocwinScene, id: ItemId): { width: number; height: number } {
+  const it = c.scene.items[id]!;
+  const open = it.forms.column?.[0];
+  return it.floatMin ?? { width: open?.cross.min ?? 0, height: open?.main.min ?? 0 };
+}
+/** Every item's rect but `id`'s, as one string (nothing else moved). */
+const othersOf = (c: DocwinScene, id: ItemId): string =>
+  Object.entries(c.layout.items)
+    .filter(([x]) => x !== id)
+    .map(([x, p]) => `${x}:${say(p.rect)}`)
+    .sort()
+    .join(" ");
+
 /** The targets that dock the item into an edge (gaps and strips). */
 const gaps = (c: DocwinScene, id: ItemId): (SceneTarget & { place: { kind: "gap"; edge: string; zone: string; at: number } })[] =>
   c.targets(id).filter((t): t is SceneTarget & { place: { kind: "gap"; edge: string; zone: string; at: number } } => t.place.kind === "gap");
@@ -1568,6 +1608,135 @@ export const PRESETS: readonly Preset[] = [
       if (!list.hidden) bad.push("Escape left the popover open");
       if (document.activeElement !== moreCell(c)) bad.push("the focus didn't go back to the cell");
       return { pass: bad.length === 0, now: `Focus: ${path.join(" → ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : " Escape closed it, back on »3."}` };
+    },
+  },
+  {
+    id: "float-resize-corner",
+    title: "A floating panel resized by its corner",
+    expected:
+      "Findings floating: its bottom-right corner dragged by mouse 120 px right and 80 down grows it by exactly that, its top-left corner put; while the button is down the window is in the resize session (no hover elsewhere) and nothing else moves; Findings' list fills the new size. Dragged back far past it, it stops at the panel's least size (floatMin, else its open form's minimums).",
+    setup: (c) => c.setScene(resizeScene()),
+    check(c) {
+      const bad: string[] = [];
+      const r0 = rectOf(c, "findings")!;
+      const others = othersOf(c, "findings");
+      let session = "";
+      let hover = "";
+      const pressed = mouseResize(c, "findings", "bottom-right", 120, 80, () => {
+        session = c.root.dataset.dragSession ?? "none";
+        hover = getComputedStyle(c.win.querySelector('.dw-items [data-id="pages"] .dw-head')!).pointerEvents;
+      });
+      const r1 = rectOf(c, "findings")!;
+      if (!pressed) bad.push("no bottom-right handle on the floating Findings");
+      if (!sameRect(r1, { x: r0.x, y: r0.y, width: r0.width + 120, height: r0.height + 80 })) bad.push(`grown to ${say(r1)} from ${say(r0)}`);
+      if (session !== "resize" || hover !== "none") bad.push(`mid-resize: session ${session}, a header's pointer-events ${hover}`);
+      if (c.root.dataset.dragSession !== undefined) bad.push("the resize session outlived the pointer-up");
+      if (othersOf(c, "findings") !== others) bad.push("something else moved");
+      const sec = c.win.querySelector<HTMLElement>('.dw-items [data-id="findings"]')!;
+      const body = sec.querySelector<HTMLElement>(".dw-body")!;
+      const list = sec.querySelector<HTMLElement>(".dw-list")!;
+      const sb = sec.getBoundingClientRect();
+      const bb = body.getBoundingClientRect();
+      const fills = Math.abs(bb.bottom - (sb.bottom - sec.clientTop)) <= 1.5 && Math.abs(bb.width - sec.clientWidth) <= 1.5 && list.getBoundingClientRect().width >= body.clientWidth - 12 - 1;
+      if (!fills) bad.push(`the body is ${Math.round(bb.width)}×${Math.round(bb.height)} in a ${Math.round(sb.width)}×${Math.round(sb.height)} float`);
+      mouseResize(c, "findings", "bottom-right", -900, -900);
+      const r2 = rectOf(c, "findings")!;
+      const min = panelMin(c, "findings");
+      if (!sameRect(r2, { x: r0.x, y: r0.y, width: min.width, height: min.height })) bad.push(`shrunk to ${say(r2)}, its least is ${min.width}×${min.height}`);
+      return { pass: bad.length === 0, now: `${say(r0)} → ${say(r1)} → ${say(r2)}.${bad.length ? ` Broken: ${bad.join("; ")}.` : " Its list fills it."}` };
+    },
+  },
+  {
+    id: "float-resize-left-edge",
+    title: "A floating panel resized by its left edge keeps its right edge",
+    expected: "Findings' left edge dragged by mouse 100 px left widens it by 100 with its right edge put; dragged 600 px right it stops at its least width, the right edge still put.",
+    setup: (c) => c.setScene(resizeScene()),
+    check(c) {
+      const bad: string[] = [];
+      const r0 = rectOf(c, "findings")!;
+      const right = r0.x + r0.width;
+      mouseResize(c, "findings", "left", -100, 0);
+      const r1 = rectOf(c, "findings")!;
+      if (!sameRect(r1, { x: r0.x - 100, y: r0.y, width: r0.width + 100, height: r0.height })) bad.push(`widened to ${say(r1)}`);
+      mouseResize(c, "findings", "left", 600, 0);
+      const r2 = rectOf(c, "findings")!;
+      const min = panelMin(c, "findings");
+      if (!sameRect(r2, { x: right - min.width, y: r0.y, width: min.width, height: r0.height })) bad.push(`narrowed to ${say(r2)}, the right edge at ${Math.round(right)}, least width ${min.width}`);
+      return { pass: bad.length === 0, now: `${say(r0)} → ${say(r1)} → ${say(r2)}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ` The right edge stayed at ${Math.round(right)}.`}` };
+    },
+  },
+  {
+    id: "float-resize-clamp",
+    title: "A floating panel resized past the window's edge stops at it",
+    expected:
+      "With the right column empty: Findings' right edge dragged by mouse past the window's right side ends at it (less the inset). Its top edge dragged past the window's top ends under the title bar, and its left edge dragged past the window's left side ends at the left column (floats are kept clear of bars and docked panels); each time the edges not dragged stay put, and the float is drawn where the drag left it.",
+    setup: (c) => c.setScene(resizeScene()),
+    check(c) {
+      const bad: string[] = [];
+      const st = c.scene.stage;
+      const hi = st.x + st.width - (c.scene.inset?.right ?? 0);
+      const barsEnd = Math.max(st.y, ...Object.values(c.layout.edges).filter((e) => e.side === "top" && e.cross > 0).map((e) => e.rect.y + e.rect.height));
+      const leftEnd = Math.max(st.x + (c.scene.inset?.left ?? 0), ...Object.values(c.layout.items).filter((p) => !p.floating && p.edge === "left").map((p) => p.rect.x + p.rect.width));
+      const drawnAsStored = (): boolean => sameRect(c.scene.floats.find((f) => f.id === "findings")!.rect, rectOf(c, "findings"));
+      const r0 = rectOf(c, "findings")!;
+      mouseResize(c, "findings", "right", st.width, 0);
+      const r1 = rectOf(c, "findings")!;
+      if (!sameRect(r1, { x: r0.x, y: r0.y, width: hi - r0.x, height: r0.height }) || !drawnAsStored()) bad.push(`right: ${say(r1)}, the window ends at ${Math.round(hi)}`);
+      mouseResize(c, "findings", "top", 0, -st.height);
+      const r2 = rectOf(c, "findings")!;
+      if (!sameRect(r2, { x: r1.x, y: barsEnd, width: r1.width, height: r0.y + r0.height - barsEnd }) || !drawnAsStored()) bad.push(`top: ${say(r2)}, the title bar ends at ${Math.round(barsEnd)}`);
+      mouseResize(c, "findings", "left", -st.width, 0);
+      const r3 = rectOf(c, "findings")!;
+      if (!sameRect(r3, { x: leftEnd, y: r2.y, width: hi - leftEnd, height: r2.height }) || !drawnAsStored()) bad.push(`left: ${say(r3)}, the left column ends at ${Math.round(leftEnd)}`);
+      return { pass: bad.length === 0, now: `${say(r0)} → ${say(r1)} → ${say(r2)} → ${say(r3)}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
+  {
+    id: "float-resize-reload",
+    title: "A floating panel's size survives a reload",
+    expected: "Findings resized by mouse (its top-left corner 60 px out each way), then the stored form read back: it comes back at that rect and size.",
+    setup: (c) => c.setScene(resizeScene()),
+    check(c) {
+      mouseResize(c, "findings", "top-left", -60, -60);
+      const r1 = rectOf(c, "findings")!;
+      const r = readDocwin(JSON.parse(JSON.stringify(c.stored())));
+      c.setScene(r.scene);
+      const r2 = rectOf(c, "findings")!;
+      const grown = sameRect(r1, { x: RESIZE_AT.x - 60, y: RESIZE_AT.y - 60, width: RESIZE_AT.width + 60, height: RESIZE_AT.height + 60 });
+      const size = c.scene.items.findings!.floatSize;
+      const ok = grown && sameRect(r1, r2) && size?.width === r1.width && size.height === r1.height && r.dropped.length === 0;
+      return { pass: ok, now: `Resized to ${say(r1)}; after the reload ${say(r2)}, floatSize ${size ? `${size.width}×${size.height}` : "none"}${r.dropped.length ? `; dropped ${r.dropped.join(", ")}` : ""}.` };
+    },
+  },
+  {
+    id: "float-resize-frozen",
+    title: "Frozen: no resize handles; Alt shows them",
+    expected:
+      "Frozen, the floating Findings shows no resize handles and a mouse drag on its corner changes nothing; holding Alt shows them and the drag resizes it. A floating toolbar (Tools) and a docked panel never have handles.",
+    setup: (c) => {
+      c.setScene(resizeScene());
+      c.setFrozen(true);
+    },
+    check(c) {
+      const bad: string[] = [];
+      c.setFrozen(true);
+      const vis = (): string => getComputedStyle(handleOf(c, "findings", "bottom-right")!).visibility;
+      const r0 = rectOf(c, "findings")!;
+      const v0 = vis();
+      mouseResize(c, "findings", "bottom-right", 80, 60);
+      const r1 = rectOf(c, "findings")!;
+      if (v0 !== "hidden" || !sameRect(r0, r1)) bad.push(`frozen: handles ${v0}, ${say(r0)} → ${say(r1)}`);
+      c.altOn(true);
+      const v1 = vis();
+      mouseResize(c, "findings", "bottom-right", 80, 60);
+      const r2 = rectOf(c, "findings")!;
+      c.altOn(false);
+      c.setFrozen(false);
+      if (v1 !== "visible" || !sameRect(r2, { x: r0.x, y: r0.y, width: r0.width + 80, height: r0.height + 60 })) bad.push(`with Alt: handles ${v1}, ${say(r0)} → ${say(r2)}`);
+      const none = ["tools", "pages"].filter((id) => c.win.querySelectorAll(`.dw-items [data-id="${id}"] [data-fh]`).length > 0);
+      if (!c.layout.items.tools?.floating) bad.push("Tools isn't floating");
+      if (none.length) bad.push(`handles on ${none.join(", ")}`);
+      return { pass: bad.length === 0, now: `Frozen: handles ${v0}, ${say(r1)}. With Alt: handles ${v1}, ${say(r2)}.${bad.length ? ` Broken: ${bad.join("; ")}.` : " No handles on Tools or a docked panel."}` };
     },
   },
 ];
