@@ -16,8 +16,9 @@ export interface GripPress {
   move(point: Point, time: number): LiftDecision;
   /**
    * The press ended. `"click"`, or `"doubleActivate"` when it is the second click of a double (it is not a click
-   * then); null when it lifted or was refused. A press that never moved past the lift distance never lifts, so a
-   * double never starts a drag. A third click after a double starts a new pair.
+   * then); null when it lifted or was refused. A press that never moved past the lift distance never lifts, so an
+   * unmoved double never starts a drag (a second press that moves past it is a drag like any other). A third click
+   * after a double starts a new pair.
    */
   up(point: Point, time: number): GripRelease;
   /** Forget the press and the click before it (a cancelled press, a scroll). */
@@ -27,7 +28,10 @@ export interface GripPress {
 /**
  * A grip's press, double-click included: a press that moves past the lift distance is a drag; one that doesn't is a
  * click, and a second such press within the double interval and distance is a double-activate (the host folds or
- * unfolds, say), never a second click and never a lift.
+ * unfolds, say), never a second click and never a lift: an unmoved double never starts a drag.
+ *
+ * The first click of a double is delivered as `"click"` before the double is known (nothing waits for a second press),
+ * so a host keeps a grip's click harmless (a use, a focus): the double-activate that follows must not have to undo it.
  */
 export function createGripPress(options: { readonly tuning?: Partial<DragTuning>; readonly double?: Partial<DoubleClick> } = {}): GripPress {
   const tuning = options.tuning ?? {};
