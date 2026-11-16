@@ -16,6 +16,8 @@ import { onReset, parseRoute } from "../shell/api";
 import { ALL, EDGES, type Counts, type ItemId } from "./model";
 import { PRESETS, type Preset, type Verdict } from "./presets";
 import { createScene } from "./scene";
+import { DEFAULT_FEEL, type DragFeel } from "./feel";
+import { feelPanel } from "./feel-panel";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const root = $<HTMLDivElement>("dw-root");
@@ -33,6 +35,8 @@ const KEY = EMBED ? "motion-lab:docwin:checks" : "motion-lab:docwin";
 const PAGE_KEY = `${KEY}:page`;
 
 const c = createScene({ root, win, status, storageKey: KEY, onChange: readouts });
+// The drag feel: the drawer's controls, stored per viewer; the next drag reads it.
+const feel = feelPanel($("dw-feel-body"), `${KEY}:feel`, (f) => c.setFeel(f));
 
 function readouts(): void {
   const s = c.scene.stage;
@@ -104,6 +108,10 @@ const findPreset = (name: string): Preset | undefined => {
 /** Set a preset up, check it, and set it up again so the window is at its start, free to play with. */
 function runPreset(p: Preset): Verdict {
   c.setFrozen(false);
+  // Every case starts from the default feel (a case that tunes it sets its own); the viewer's comes back afterwards.
+  const viewerFeel = c.feel;
+  c.setFeel(DEFAULT_FEEL);
+  c.setReducedMotion(false);
   p.setup(c);
   let v: Verdict;
   try {
@@ -113,6 +121,8 @@ function runPreset(p: Preset): Verdict {
   }
   c.drive(false);
   c.setFrozen(false);
+  c.setFeel(viewerFeel);
+  c.setReducedMotion(false);
   p.setup(c);
   results.set(p.id, v);
   return v;
@@ -289,6 +299,11 @@ const api = {
     return c.frozen;
   },
   size: (width: number, height: number) => c.setSize(width, height),
+  /** The drag feel (`./feel`): read it, or set and store it (as the drawer's controls do). */
+  feel: (next?: DragFeel) => {
+    if (next) feel.set(next);
+    return c.feel;
+  },
 };
 (window as unknown as { __docwin: typeof api }).__docwin = api;
 
