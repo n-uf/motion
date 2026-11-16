@@ -1034,6 +1034,9 @@ drop, so where the lift would reflow a neighbour the preview moves it under a fi
   covers the columns' first gaps); one across its middle is left to the smaller-hit tie-break. With nothing left (an
   empty outer bar on a non-empty inner one, a bar's strip all under an overlay column) it has no target. A third is
   offered only for a kind its zone takes (`Edge.zoneAccepts`); the others are refusals.
+- `side:<side>` (2), only for a fixed item on an edge with `moves: "side"` (an anchor such as page thumbnails): the
+  place its edge takes on the other side of its axis, landing as `setSide` puts it. A fixed item has no other target
+  but home.
 - `float:<id>` (3, free) when `floatKinds` lists the kind: the whole plane, landing with the pointer holding the float
   at `grab`, clamped and moved clear. It has no fixed `slot`: the slot to draw is
   `after(point, grab).layout.items[id].rect`, for the pointer at the time.

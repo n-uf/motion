@@ -57,7 +57,9 @@
  *
  * `stops(scene, id)` orders the same targets (no home, no none) for "Move to ›" and the arrow keys.
  *
- * A dropped item counts as just used (`use`). An unknown, fixed or closed item has no targets.
+ * A dropped item counts as just used (`use`). An unknown or closed item has no targets; a fixed item has none either,
+ * but on an edge that `moves: "side"` (an anchor): `side:<other side>` (2), over the place its edge takes there
+ * (`setSide`), and `home:<id>` over its own rect (`./targets/anchor`).
  *
  * The phases live in `./targets/`: `kinds` (`EDGE_KINDS`), `model` (the shapes), `filter` (the drag's context and
  * filter ii), `edges` and `virtual` (generation), `ownership` and `tiles` (filter iii and clipping).
@@ -67,6 +69,7 @@ import { floatAt, use } from "./changes";
 import { axisOf, floatOrientOf, floatSizeOf, zoneOf, zoneTakes } from "./helpers";
 import type { Orient, Scene, Zone } from "./model";
 import { solve } from "./solve";
+import { anchorTargets } from "./targets/anchor";
 import { edgeSpec } from "./targets/edges";
 import { context } from "./targets/filter";
 import { checkEdgeIds, targetId } from "./targets/ids";
@@ -164,6 +167,8 @@ function alongOfSlots(s: EdgeSpec, tiles: readonly Tile[]): Span[] {
 
 function generate(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
   checkEdgeIds(scene);
+  // A fixed item takes no gap: on an edge that `moves: "side"` it has its `side:` target and home.
+  if (Object.hasOwn(scene.items, dragged) && scene.items[dragged]!.fixed) return anchorTargets(scene, dragged, options);
   const ctx = context(scene, dragged, options);
   if (!ctx) return { targets: [], refusals: [], lost: [] };
   const { c, item, prev } = ctx;
@@ -252,7 +257,7 @@ export function stops(scene: Scene, dragged: string, options: SceneTargetOptions
   const sideOf = (t: SceneTarget): string => {
     const p = t.place;
     if (p.kind === "float") return "float";
-    if (p.kind === "column" || p.kind === "rail") return p.side;
+    if (p.kind === "column" || p.kind === "rail" || p.kind === "side") return p.side;
     if (p.kind === "gap") return scene.edges.find((e) => e.id === p.edge)?.side ?? "float";
     return "float";
   };

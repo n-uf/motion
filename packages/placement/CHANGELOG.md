@@ -9,6 +9,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
   (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
+- `./scene`, **an anchor dragged to the other side** (additive): `Edge.moves: "side"` lets the user drag a static edge's
+  fixed item (page thumbnails) to the other side of the edge's axis. `targets` then gives that item one target,
+  `side:<other side>` (place `{ kind: "side", edge, side }`), over the place the edge takes there; its `after` is
+  `setSide` and `use`, solved, so the preview is the landing. Its own place is home, and it never gets a gap.
+  `targetId` and `parseTargetId` read and build `side:<side>`.
+
 - `./scene`, **targets lie where the user sees things** (hits change; ids, `after` and the API don't).
   - Every hit is laid in one layout: the committed one, the dragged item in place. Lines, zone extents, ownership and
     bands come from it. They used to come from the layout with the item lifted, mixed with the one as it is now.
