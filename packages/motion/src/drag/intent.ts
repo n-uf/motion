@@ -37,6 +37,35 @@ export interface DragTuning {
   readonly roomAfter: number;
   /** The pointer has left the item's home once it is outside the home shrunk by this much on every side. */
   readonly homeInset: number;
+  /**
+   * Spring-loading: a target marked `arm: "dwell"` takes the drop only once the pointer has stayed in its zone this long
+   * (ms); before that it is no target, so a fast pass, or a drop before it, lands on what lies beneath. 0 arms it at once.
+   */
+  readonly railArmDwellMs: number;
+  /** The keys that win over geometry while held (see {@link DragModifiers}). */
+  readonly modifiers: DragModifiers;
+}
+
+/** A modifier key, by its `KeyboardEvent.key` name. */
+export type ModifierKey = "Shift" | "Alt" | "Control" | "Meta";
+
+/** The modifier keys held on a sample (a pointer event's `shiftKey`, `altKey`, `ctrlKey`, `metaKey`). */
+export interface DragKeys {
+  readonly shift?: boolean;
+  readonly alt?: boolean;
+  readonly ctrl?: boolean;
+  readonly meta?: boolean;
+}
+
+/**
+ * Keys that win over geometry: while `floatKey` is held the drop floats (the `free` target) wherever the pointer is;
+ * while `railKey` is held it goes to the nearest target marked `arm` (a side's rail), without reaching it. `floatKey`
+ * wins when both are held. `on: false` turns both off.
+ */
+export interface DragModifiers {
+  readonly on: boolean;
+  readonly floatKey: ModifierKey;
+  readonly railKey: ModifierKey;
 }
 
 /**
@@ -44,7 +73,10 @@ export interface DragTuning {
  * 8 px; aiming is slower than 0.45 px/ms over 50 ms, or within 12 px for
  * 90 ms; a 10 px band and a 4 px breakthrough, each at most a fifth of the
  * zones' extents, and a 120 ms gap grace; a switch waits 150 ms (the shortest
- * an indicator may show); room after 160 ms.
+ * an indicator may show); room after 160 ms. A spring-loaded target arms after
+ * 200 ms of dwell (long enough that a pass at travelling speed never arms it,
+ * short enough to feel like the platforms' spring-loading); Shift floats, Alt
+ * goes to the nearest rail.
  */
 export const DRAG_DEFAULTS: DragTuning = {
   lift: 5,
@@ -61,7 +93,13 @@ export const DRAG_DEFAULTS: DragTuning = {
   switchHold: 150,
   roomAfter: 160,
   homeInset: 6,
+  railArmDwellMs: 200,
+  modifiers: { on: true, floatKey: "Shift", railKey: "Alt" },
 };
+
+const KEY_FIELD: Record<ModifierKey, keyof DragKeys> = { Shift: "shift", Alt: "alt", Control: "ctrl", Meta: "meta" };
+/** Whether `key` is held in `keys`. */
+const held = (keys: DragKeys | undefined, key: ModifierKey): boolean => !!keys?.[KEY_FIELD[key]];
 
 /**
  * A drop target: plain data. `hit` is the zone the pointer can be in;
@@ -71,6 +109,10 @@ export const DRAG_DEFAULTS: DragTuning = {
  * floats where it is dropped): no room is made for it. `hits`, when given, is
  * the whole zone as several rects (a zone that isn't one rect, `hit` the
  * largest of them): the pointer is in the zone when it is in any of them.
+ *
+ * `arm: "dwell"` makes it spring-loaded: it is no target until the pointer has
+ * dwelt in its zone for `railArmDwellMs`; once armed its zone is `armedHit`
+ * when given (a magnet: the zone grown), and leaving that disarms it.
  */
 export interface DragTarget {
   readonly id: string;
@@ -80,12 +122,18 @@ export interface DragTarget {
   readonly slot?: Rect;
   readonly label?: string;
   readonly free?: boolean;
+  readonly arm?: "dwell";
+  readonly armedHit?: Rect;
 }
 
 /** Whether `point` lies in `rect` grown by `margin` px on every side (shrunk, for a negative margin). */
 export function inRect(rect: Rect, point: Point, margin = 0): boolean {
   return point.x >= rect.x - margin && point.x <= rect.x + rect.width + margin && point.y >= rect.y - margin && point.y <= rect.y + rect.height + margin;
 }
+
+/** How far `point` lies from `rect` (0 inside it). */
+const distanceTo = (rect: Rect, point: Point): number =>
+  Math.hypot(Math.max(rect.x - point.x, 0, point.x - (rect.x + rect.width)), Math.max(rect.y - point.y, 0, point.y - (rect.y + rect.height)));
 
 /** Whether `point` lies in a target's zone (`hits` when it has them, else `hit`), grown by `margin` px. */
 const inZone = (t: DragTarget, point: Point, margin = 0): boolean => (t.hits ? t.hits.some((r) => inRect(r, point, margin)) : inRect(t.hit, point, margin));
@@ -163,6 +211,13 @@ export interface DragFrame<T extends DragTarget> {
    * rect); the intent still shows no target.
    */
   readonly atHome: boolean;
+  /**
+   * A spring-loaded target (`arm: "dwell"`) the pointer is in and dwelling on, not armed yet (a host highlights it), or
+   * null. Once it arms it is a target like any other and may show.
+   */
+  readonly arming: T | null;
+  /** A key held wins over geometry this frame: `"float"` (the float key) or `"rail"` (the rail key), else null. */
+  readonly forced: "float" | "rail" | null;
 }
 
 /** What a drag intent knows now. */
@@ -211,17 +266,17 @@ export interface DragIntent<T extends DragTarget> {
    * A pointer sample at `time` (ms), with the targets as they stand (they may
    * be rebuilt between calls: the model follows them by id). Call it once a
    * frame while the item is held, also when the pointer doesn't move: a
-   * dwell is time passing.
+   * dwell is time passing. `keys`: the modifier keys held now (see {@link DragModifiers}).
    */
-  update(point: Point, time: number, targets: readonly T[]): DragFrame<T>;
+  update(point: Point, time: number, targets: readonly T[], keys?: DragKeys): DragFrame<T>;
   /**
    * What a release at `point` lands on: the shown target whenever one shows
    * (a drop lands where the indicator was), else the target under the
    * pointer, else null (the item goes home). A release over home is null: it
    * does nothing. Feed the release point to `update` first, so a last jump
-   * of the pointer counts.
+   * of the pointer counts. With a modifier key held (`keys`), the target the key picks, even over home.
    */
-  release(point: Point, targets: readonly T[]): T | null;
+  release(point: Point, targets: readonly T[], keys?: DragKeys): T | null;
   /**
    * Hide the indicator (the view is scrolling under the pointer, say). The
    * aim starts afresh: the next sample never counts as aiming, and a dwell
@@ -257,6 +312,13 @@ export interface DragIntent<T extends DragTarget> {
  *   free target, and closes at once when it changes.
  * - Where `placeOf` gives a target no place (null), it is no target: it is
  *   neither shown nor landed on there.
+ * - Spring-loading: a target marked `arm: "dwell"` is no target until the
+ *   pointer has stayed in its zone `railArmDwellMs` (the frame's `arming` says
+ *   which one it dwells on); then it is armed: its zone is `armedHit` (the
+ *   magnet) and it shows at once. Leaving that zone disarms it.
+ * - Keys win over geometry (`modifiers`): the float key shows the `free` target
+ *   wherever the pointer is, the rail key the nearest target marked `arm`; a
+ *   release with the key held lands there.
  */
 export function createDragIntent<T extends DragTarget>(options: DragIntentOptions<T>): DragIntent<T> {
   const tuning: DragTuning = { ...DRAG_DEFAULTS, ...options.tuning };
@@ -280,16 +342,49 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   let anchor: Point | null = null;
   let stillSince = 0;
   let restart = false;
+  // Spring-loading: the target armed (by id), and the one the pointer dwells on and since when.
+  let armedId: string | null = null;
+  let armingId: string | null = null;
+  let armingSince = 0;
   const same = (a: T | null, b: T | null): boolean => (a === null || b === null ? a === b : a.id === b.id);
   // Targets may be rebuilt between calls: follow the ones held by id.
   const follow = (t: T | null, targets: readonly T[]): T | null => (t ? (targets.find((x) => x.id === t.id) ?? t) : null);
+  /** An armed target as it acts: its zone is `armedHit` (the magnet) when it has one. */
+  const asArmed = (x: T): T => {
+    if (!x.armedHit) return x;
+    const { hits: _pieces, ...rest } = x;
+    return { ...rest, hit: x.armedHit } as T;
+  };
+  /** The targets as they act now: a spring-loaded one only once armed, in its armed zone. */
+  const acting = (targets: readonly T[]): T[] => targets.filter((x) => x.arm !== "dwell" || x.id === armedId).map((x) => (x.id === armedId ? asArmed(x) : x));
+  /** The target a held key picks at `p`: the float key the `free` target, the rail key the nearest spring-loaded one. */
+  const forcedBy = (keys: DragKeys | undefined, p: Point, targets: readonly T[], ok: (x: T) => boolean): { kind: "float" | "rail"; target: T } | null => {
+    const m = tuning.modifiers;
+    if (!m.on || !keys) return null;
+    if (held(keys, m.floatKey)) {
+      const f = targets.find((x) => x.free && ok(x));
+      return f ? { kind: "float", target: f } : null;
+    }
+    if (!held(keys, m.railKey)) return null;
+    let best: T | null = null;
+    let bestD = Infinity;
+    for (const x of targets) {
+      if (x.arm !== "dwell" || !ok(x)) continue;
+      const d = distanceTo(asArmed(x).hit, p);
+      if (d < bestD) {
+        best = x;
+        bestD = d;
+      }
+    }
+    return best ? { kind: "rail", target: asArmed(best) } : null;
+  };
 
   return {
     tuning,
     get state(): DragIntentState<T> {
       return { speed, current: cur, shown, leftHome };
     },
-    update(point, time, targets) {
+    update(point, time, given, keys) {
       const p = point;
       const t = time;
       samples.push({ x: p.x, y: p.y, t });
@@ -310,9 +405,34 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         return places.get(x.id)!;
       };
       const live = (x: T | null): x is T => x !== null && placeAt(x) !== null;
+      // Spring-loading: the armed target holds while the pointer is in its armed zone; a target the pointer dwells in
+      // arms once it has held `railArmDwellMs`. A key held wins over both.
+      const forced = forcedBy(keys, p, given, () => true);
+      if (armedId !== null) {
+        const was = given.find((x) => x.id === armedId);
+        if (!was || forced || !inZone(asArmed(was), p) || !live(was)) armedId = null;
+      }
+      const dwelling = forced || atHome ? null : targetAt(given.filter((x) => x.arm === "dwell" && x.id !== armedId && inZone(x, p) && live(x)), p);
+      let armedNow = false;
+      if (!dwelling || armedId !== null) armingId = null;
+      else {
+        if (armingId !== dwelling.id) {
+          armingId = dwelling.id;
+          armingSince = t;
+        }
+        if (t - armingSince >= tuning.railArmDwellMs) {
+          armedId = dwelling.id;
+          armingId = null;
+          armedNow = true;
+        }
+      }
+      const arming = armingId === null ? null : (given.find((x) => x.id === armingId) ?? null);
+      const targets = acting(given);
       const raw = atHome ? null : targetAt(targets.filter((x) => inZone(x, p) && live(x)), p);
-      cur = follow(cur, targets);
-      shown = follow(shown, targets);
+      // A spring-loaded target that isn't armed (any more) is no target: neither held nor shown.
+      const disarmed = (x: T | null): boolean => x?.arm === "dwell" && x.id !== armedId;
+      cur = disarmed(cur) ? null : follow(cur, targets);
+      shown = disarmed(shown) ? null : follow(shown, targets);
       if (!live(cur)) cur = null;
       // The band about a held zone, and the breakthrough into a zone, scaled with the zones (see `bandShare`).
       const bandOf = (held: T): Margin => scaled(tuning.band, tuning.bandShare, [held, raw && !same(raw, held) ? raw : null]);
@@ -347,6 +467,13 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       } else if ((cur.priority < shown.priority && pastBreakthrough(cur)) || (under && t - curSince >= tuning.switchHold)) {
         show(cur);
       }
+      // An armed target shows at once: the dwell was the aim. A key held wins over all of it.
+      if (armedNow && cur?.id === armedId && under) show(cur);
+      if (forced) {
+        if (!same(forced.target, cur)) curSince = t;
+        cur = forced.target;
+        show(forced.target);
+      }
       // The place within the shown target, and the room: after the target and the place have both held.
       const at = shown ? placeAt(shown) : null;
       if (at !== place) {
@@ -357,22 +484,29 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       else if (t - shownSince >= tuning.roomAfter && t - placeSince >= tuning.roomAfter) roomPlace = place;
       else if (shownSince === t) roomPlace = null;
       lastPlaces = places;
-      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: wentOut && atHome };
+      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && atHome, arming, forced: forced?.kind ?? null };
     },
-    release(point, targets) {
+    release(point, given, keys) {
+      // A key held wins over geometry, home included.
+      const forced = forcedBy(keys, point, given, () => true);
+      if (forced) return given.find((x) => x.id === forced.target.id) ?? forced.target;
       if (inRect(home, point)) return null;
+      const targets = acting(given);
       // Drop = shown: a shown target is kept until it hides (flying out past its band hides it at once).
-      const s = follow(shown, targets);
+      const s = shown && !(shown.arm === "dwell" && shown.id !== armedId) ? follow(shown, given) : null;
       if (s) return s;
       // Else the target under the pointer that has a place there (a null place is no drop).
-      return targetAt(
+      const under = targetAt(
         targets.filter((x) => inZone(x, point) && placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null),
         point,
       );
+      return under ? (given.find((x) => x.id === under.id) ?? under) : null;
     },
     hide(time) {
       shown = null;
       cur = null;
+      armedId = null;
+      armingId = null;
       shownSince = time;
       place = null;
       roomPlace = null;
