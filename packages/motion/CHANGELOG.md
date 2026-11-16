@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.29
 
 - `./drag`, **spring-loading and keys that win over geometry** (additive; targets without `arm` and hosts that pass
   no keys behave as before):
