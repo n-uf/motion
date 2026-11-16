@@ -54,9 +54,9 @@ function renderSegs(): void {
   if (HAS_BAND.has(v.c.key)) {
     const modes: Mode[] = BAND_MODES.map(([m, text]) => ({ text, on: () => o.band === m, pick: () => { o.band = m; } }));
     if (o.band !== "off") modes.push({ text: FULL_WIDTH, on: () => o.span === "full", pick: () => { o.span = o.span === "full" ? "between" : "full"; } });
-    host.appendChild(segmented("Bottom band", modes));
+    host.appendChild(segmented("Bottom dock", modes));
   }
-  if (!host.children.length) host.innerHTML = `<span class="quiet">No floating toolbar or bottom band to switch</span>`;
+  if (!host.children.length) host.innerHTML = `<span class="quiet">No floating toolbar or bottom dock to switch</span>`;
   if (focused >= 0) host.querySelectorAll("button")[focused]?.focus();
   $("desk-name").textContent = v.c.title;
 }

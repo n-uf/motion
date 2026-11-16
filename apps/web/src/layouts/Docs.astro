@@ -22,7 +22,7 @@ const jsonLd = [
   software(doc.part),
   orgNode,
 ];
-// the neighbours in reading order: the index, then each package
+// the neighbors in reading order: the index, then each package
 const order = [{ path: docsIndex.path, nav: "All docs" }, ...DOCS];
 const at = order.findIndex((d) => d.path === doc.path);
 const prev = order[at - 1] ?? order[order.length - 1]!;

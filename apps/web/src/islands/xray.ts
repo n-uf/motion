@@ -1,11 +1,11 @@
 /**
  * X-ray: a demo window's switch (the title bar's "X-ray", window chrome like ↺ Reset) that shows which package does
- * what. Each part draws its own layer over the window, in its own colour:
+ * what. Each part draws its own layer over the window, in its own color:
  *
  * - placement (where things go): every drop target's hit zone as a thin dashed outline labelled with its id and
  *   priority, and the slot rects it computed (the one shown drawn stronger);
  * - motion (how things move): the settle's target against the rect drawn now, the held item's trail, and the aiming
- *   state as a dot at the pointer (grey while flying, accent while aiming, a ring once the room opens).
+ *   state as a dot at the pointer (gray while travelling, accent while aiming, a ring once the room opens).
  *
  * Owners (the window's chrome, its demo) draw frames in viewport coordinates; the layer keeps them relative to the
  * window, so a static frame stays right while the page scrolls. Off by default, and never stored.

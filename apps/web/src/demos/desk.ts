@@ -234,7 +234,7 @@ const C: Record<string, Build> = {
     DOCS.slice(0, n).forEach((d) => cols.push({ w: dw, items: [d], kind: "doc" }));
     panelCols(RIGHT).forEach((c) => cols.push({ w: pw, items: c, kind: "panel" }));
     const total = cols.reduce((s, c) => s + c.w, 0) + G * (cols.length + 1);
-    // Focus the first document: centre it, clamped to the strip.
+    // Focus the first document: center it, clamped to the scrolling row.
     let x = G, focusX = 0;
     cols.forEach((c) => { if (c.kind === "doc" && !focusX) focusX = x + c.w / 2; x += c.w + G; });
     const scroll = Math.max(0, Math.min(total - W, focusX - W / 2));
@@ -290,14 +290,14 @@ const C: Record<string, Build> = {
     const docs = { x: x0, y: area.y, w: x1 - x0, h: area.h };
     const used = pals.reduce((s, b) => s + b.w * b.h, 0) + docs.w * docs.h;
     const empty = 1 - used / (area.w * area.h);
-    notes.push(`documents get ${Math.round(docs.w)} px of width; ${Math.round(empty * 100)}% of the desk stays empty under short stacks`);
+    notes.push(`documents get ${Math.round(docs.w)} px of width; ${Math.round(empty * 100)}% of the workspace stays empty under short stacks`);
     return [...tiles(docs, DOCS.slice(0, n)), ...pals, p.box];
   },
 };
 
 /**
- * Palettes at their natural size, stuck to the top corners of `area` (`m` in from the edges); a stack too tall for
- * the area shades its least recently used palettes to their title bars. Narrow: the left stack joins the right one.
+ * Floating panels at their natural size, anchored to the top corners of `area` (`m` in from the edges); a stack too
+ * tall for the area collapses its least recently used panels to their headers. Narrow: the left stack joins the right one.
  */
 function palettes(area: Area, W: number, m: number, notes: string[]): Box[] {
   const pw = Math.min(200, Math.max(140, W * 0.22));
@@ -319,22 +319,22 @@ function palettes(area: Area, W: number, m: number, notes: string[]): Box[] {
       y += h + G;
     }
   });
-  if (shaded) notes.push(`${shaded} palette${shaded > 1 ? "s" : ""} shaded to ${shaded > 1 ? "title bars" : "a title bar"}`);
+  if (shaded) notes.push(`${shaded} floating panel${shaded > 1 ? "s" : ""} collapsed to ${shaded > 1 ? "headers" : "a header"}`);
   return out;
 }
 
-const SKETCH = "<b>A sketch this page draws, not a library preset.</b> ";
-/** The nine, in the page's order. `preset` names the @n-uf/placement/desk preset that lays a card out; the others are sketches. */
+const SKETCH = "<b>A demo layout this page draws, not a library preset.</b> ";
+/** The nine, in the page's order. `preset` names the @n-uf/placement/desk preset that lays a card out; the others are demo layouts. */
 export const CARDS: { key: string; title: string; note: string; idea: string; preset?: PresetId; pick?: boolean }[] = [
-  { key: "docks", preset: "docks", title: "A · Edge docks", note: "Preset docks: a column on each side, a bottom band between them.", idea: "Laid out live by the <code>docks</code> preset. Each side has one column of stacked sections; each section is as tall as it wants, and the last one takes the rest. When height runs out, the section used longest ago folds to its title bar. When width runs out, the columns narrow, then the oldest folds to its rail. <b>The bottom band (outlined) sits between the columns</b> and shortens the documents; on a short stage it gets lower, then folds to a bar." },
-  { key: "docksFull", preset: "docksFull", title: "A2 · Full-width bottom band", note: "Preset docksFull: as A, with the band under everything.", idea: "Laid out live by the <code>docksFull</code> preset. The same as A except for one thing: <b>the bottom band (outlined) runs the full width</b>, and the columns and their rails stand on it. History gets the whole desk's width, which suits a log or a timeline; the columns are shorter." },
-  { key: "tree", title: "B · One tiling tree", note: "Sketch: panels and documents are tiles; the newest that breaks a minimum floats.", idea: SKETCH + "Panels and documents are tiles of one tree, so a panel can sit beside a document. One rule for all: the newest tile that breaks a minimum floats." },
-  { key: "navigator", preset: "navigator", title: "C · Navigator + inspector", note: "Preset navigator: tabs on the left, a stack on the right.", idea: "Laid out live by the <code>navigator</code> preset. The left column shows one panel at a time under a row of tabs; the right column is a stack of sections. There is no band and nothing floats. When width runs out, the columns narrow, then fold to their rails." },
-  { key: "strip", title: "D · Scrolling strip", note: "Sketch: columns on a strip wider than the screen; the view scrolls.", idea: SKETCH + "Panels and documents are columns of a strip wider than the screen; nothing shrinks below its minimum, and the view scrolls to the focus instead. Short on height, a column splits in two." },
-  { key: "drawers", title: "E · Drawers", note: "Sketch: drawers with tabs; wide they push, narrow they slide over.", idea: SKETCH + "Documents take the screen; each side is a drawer with tabs. Wide, the drawers dock and push the documents aside. Narrow, they slide over the documents." },
-  { key: "floatOver", title: "F1 · Palettes over", note: "Sketch: palettes float over the documents, stuck to the top corners.", idea: SKETCH + "Documents take the whole desk; panels are palettes floating over them at their natural size, stuck to the top corners and draggable anywhere. The toolbar floats too (top or bottom). Short on height, the least recently used shade to their title bars; the documents never move." },
-  { key: "floatAround", title: "F2 · Palettes, docs around", note: "Sketch: palettes float, and the documents tile around them.", idea: SKETCH + "Palettes float at their natural size, but they keep their footprint free: the documents tile in the space between them. Nothing is covered, and the space under a short stack stays empty." },
-  { key: "dockTear", preset: "dockTear", title: "F3 · Docks + tear-off", pick: true, note: "Preset dockTear: A's docks, and any panel can float.", idea: "Laid out live by the <code>dockTear</code> preset: A's columns and bottom band, and any panel can be torn off to float over the documents, then dropped back on a column or a rail. Inspector starts torn off here. Docked is the default; floating is the exception you choose, and a float always stays in view." },
+  { key: "docks", preset: "docks", title: "A · Edge docks", note: "Preset docks: a column on each side, a bottom dock between them.", idea: "Laid out live by the <code>docks</code> preset. Each side has one column of stacked sections; each section is as tall as it wants, and the last one takes the rest. When height runs out, the least recently used section collapses to its header. When width runs out, the columns narrow, then the least recently used collapses to its rail. <b>The bottom dock (outlined) sits between the columns</b> and shortens the documents; on a short stage it shrinks, then collapses to a header bar." },
+  { key: "docksFull", preset: "docksFull", title: "A2 · Full-width bottom dock", note: "Preset docksFull: as A, with the dock under everything.", idea: "Laid out live by the <code>docksFull</code> preset. The same as A except for one thing: <b>the bottom dock (outlined) runs the full width</b>, and the columns and their rails stand on it. History gets the whole workspace's width, which suits a log or a timeline; the columns are shorter." },
+  { key: "tree", title: "B · One tiling tree", note: "Demo: panels and documents are tiles; the newest that breaks a minimum floats.", idea: SKETCH + "Panels and documents are tiles of one tree, so a panel can sit beside a document. One rule for all: the newest tile that breaks a minimum floats." },
+  { key: "navigator", preset: "navigator", title: "C · Navigator + inspector", note: "Preset navigator: tabs on the left, a stack on the right.", idea: "Laid out live by the <code>navigator</code> preset. The left column shows one panel at a time under a row of tabs; the right column is a stack of sections. There is no bottom dock and nothing floats. When width runs out, the columns narrow, then collapse to their rails." },
+  { key: "strip", title: "D · Scrolling columns", note: "Demo: columns in a row wider than the screen; the view scrolls.", idea: SKETCH + "Panels and documents are columns of a row wider than the screen; nothing shrinks below its minimum, and the view scrolls to the focus instead. Short on height, a column splits in two." },
+  { key: "drawers", title: "E · Drawers", note: "Demo: drawers with tabs; wide they push, narrow they overlay.", idea: SKETCH + "Documents take the screen; each side is a drawer with tabs. Wide, the drawers dock and push the documents aside. Narrow, they overlay the documents." },
+  { key: "floatOver", title: "F1 · Floating panels over", note: "Demo: floating panels over the documents, anchored to the top corners.", idea: SKETCH + "Documents take the whole workspace; panels are floating panels over them at their natural size, anchored to the top corners and draggable anywhere. The toolbar floats too (top or bottom). Short on height, the least recently used collapse to their headers; the documents never move." },
+  { key: "floatAround", title: "F2 · Floating panels, documents around", note: "Demo: floating panels, and the documents tile around them.", idea: SKETCH + "Floating panels sit at their natural size, but they keep their footprint free: the documents tile in the space between them. Nothing is covered, and the space under a short stack stays empty." },
+  { key: "dockTear", preset: "dockTear", title: "F3 · Docks + tear-off", pick: true, note: "Preset dockTear: A's docks, and any panel can float.", idea: "Laid out live by the <code>dockTear</code> preset: A's columns and bottom dock, and any panel can be torn off to float over the documents, then docked back on a column or a rail. Inspector starts torn off here. Docked is the default; floating is the exception you choose, and a float always stays in view." },
 ];
 
 
@@ -439,7 +439,7 @@ export function defaultOpts(key: string): Opt {
 }
 export const DEFAULT = { W: 960, H: 560, n: 2 };
 
-/** The cards with a toolbar pill to switch, and the presets with a bottom band. */
+/** The cards with a toolbar to switch, and the presets with a bottom dock. */
 export const HAS_PILL = new Set(["docks", "docksFull", "navigator", "floatOver", "floatAround", "dockTear"]);
 export const HAS_BAND = new Set(["docks", "docksFull", "dockTear"]);
 /** The toolbar: top or bottom; "reserved" keeps room clear for it (a preset's `options.reserve`), "overlay" floats it over the documents. */
@@ -450,7 +450,7 @@ export const TOOLBAR_MODES: [string, string, string][] = [
   ["bottom", "overlay", "Bottom · floating"],
 ];
 /**
- * The bottom band (`options.bands.bottom`): off, reserved (it shortens the documents) or overlay (over them); while it
+ * The bottom dock (`options.bands.bottom`): off, reserved (it shortens the documents) or overlay (over them); while it
  * is on, one more toggle switches its span between the columns and the full width.
  */
 export const BAND_MODES: [string, string][] = [
@@ -460,19 +460,19 @@ export const BAND_MODES: [string, string][] = [
 ];
 export const FULL_WIDTH = "Full width";
 
-// ---- The comparison table: one row per construction, one column per question -----------------------------------------
-export const ASPECTS = ["Laid out by", "Toolbar", "Panels on one side", "Height runs out", "Width runs out", "Covers documents", "Things move by themselves", "Drop targets while dragging", "Known from"];
-const PILL = "floating pill, top or bottom; reserved space or overlay";
-const ROOM_PILL = "pill, top or bottom; room kept clear for it, or floating over the documents";
-const SKETCHED = "a sketch on this page";
+// ---- The comparison table: one row per desk layout, one column per question -------------------------------------------
+export const ASPECTS = ["Laid out by", "Toolbar", "Panels on one side", "When height runs out", "When width runs out", "Covers documents", "Reflows on its own", "Drop targets while dragging", "Known from"];
+const FLOATING_BAR = "floating toolbar, top or bottom; reserved space or overlay";
+const ROOM_BAR = "toolbar, top or bottom; space reserved for it, or floating over the documents";
+const SKETCHED = "a demo layout on this page";
 export const TABLE: Record<string, string[]> = {
-  docks: ["preset docks", ROOM_PILL, "stacked sections at their natural heights; a bottom band between the columns", "the section used longest ago folds to its title bar; the band gets lower, then folds to a bar", "columns narrow, then the oldest folds to its rail", "never, unless you lay the band over them", "rarely: sections, columns and the band fold", "a new column, into a column, a rail, the bottom band", "IDE tool windows (panel \"centred\")"],
-  docksFull: ["preset docksFull", "as A", "as A; the bottom band runs under the columns", "as A; the columns are shorter", "as A; the band keeps the full width", "as A", "rarely", "as A", "IDE tool windows (panel \"justified\")"],
+  docks: ["preset docks", ROOM_BAR, "stacked sections at their natural heights; a bottom dock between the columns", "the least recently used section collapses to its header; the bottom dock shrinks, then collapses to a header bar", "columns narrow, then the least recently used collapses to its rail", "never, unless you lay the bottom dock over them", "rarely: sections, columns and the bottom dock collapse", "a new column, into a column, a rail, the bottom dock", "IDE tool windows (VS Code's bottom panel, alignment \"center\")"],
+  docksFull: ["preset docksFull", "as A", "as A; the bottom dock runs under the columns", "as A; the columns are shorter", "as A; the bottom dock keeps the full width", "as A", "rarely", "as A", "IDE tool windows (VS Code's bottom panel, alignment \"justify\")"],
   tree: [SKETCHED, "bar across the top", "tiles in the same tree as documents", "newest tile floats", "newest tile floats", "only floated tiles", "often: opening a document reshapes panels", "any tile edge", "tiling window managers"],
-  navigator: ["preset navigator", ROOM_PILL, "left: tabs, one panel shows; right: stacked sections", "sections on the right fold to title bars; the tabs never change", "columns narrow, then fold to their rails", "never", "rarely: columns fold", "a new column, into a column (a tab on the left), a rail", "design tools"],
-  strip: [SKETCHED, "bar across the top", "stacked in columns of the strip", "a column splits in two", "the strip scrolls", "never", "the view scrolls to the focus", "between columns, inside a column", "scrollable tiling window managers"],
-  drawers: [SKETCHED, "bar across the top", "tabs: one panel per drawer", "nothing happens", "drawers slide over instead of pushing", "narrow only", "drawers switch at a width", "left / right tab rows", "tablet apps"],
-  floatOver: [SKETCHED, PILL, "palettes stacked in a corner, or anywhere", "least-recent palettes shade to title bars", "palettes cover more; narrow, stacks merge in one corner", "always (shown under the stage)", "never", "anywhere (snap to corners, edges, palettes)", "creative tools' floating palettes"],
-  floatAround: [SKETCHED, PILL, "palettes stacked in a corner, or anywhere", "least-recent palettes shade to title bars", "documents get narrower", "never; leaves empty space under short stacks", "documents re-tile when a palette moves", "anywhere (snap to corners, edges)", "window managers' \"struts\""],
-  dockTear: ["preset dockTear", ROOM_PILL, "as A; any panel can float", "as A; a float stays in view", "as A", "what floats (Inspector starts torn off), or the band if you lay it over them", "rarely", "as A, or anywhere to float", "IDE tool windows (floating mode)"],
+  navigator: ["preset navigator", ROOM_BAR, "left: tabs, one panel shows; right: stacked sections", "sections on the right collapse to headers; the tabs never change", "columns narrow, then collapse to their rails", "never", "rarely: columns collapse", "a new column, into a column (a tab on the left), a rail", "design tools"],
+  strip: [SKETCHED, "bar across the top", "stacked in the columns of a scrolling row", "a column splits in two", "the row scrolls", "never", "the view scrolls to the focus", "between columns, inside a column", "scrollable tiling window managers"],
+  drawers: [SKETCHED, "bar across the top", "tabs: one panel per drawer", "nothing happens", "drawers overlay the documents instead of pushing", "narrow only", "drawers switch at a width", "left / right tab rows", "tablet apps"],
+  floatOver: [SKETCHED, FLOATING_BAR, "floating panels stacked in a corner, or anywhere", "the least recently used floating panels collapse to headers", "floating panels cover more; narrow, stacks merge in one corner", "always (shown under the stage)", "never", "anywhere (snap to corners, edges, other panels)", "creative tools' floating panels"],
+  floatAround: [SKETCHED, FLOATING_BAR, "floating panels stacked in a corner, or anywhere", "the least recently used floating panels collapse to headers", "documents get narrower", "never; leaves empty space under short stacks", "documents re-tile when a panel moves", "anywhere (snap to corners, edges)", "window managers' \"struts\""],
+  dockTear: ["preset dockTear", ROOM_BAR, "as A; any panel can float", "as A; a float stays in view", "as A", "what floats (Inspector starts torn off), or the bottom dock if you lay it over them", "rarely", "as A, or anywhere to float", "IDE tool windows (floating mode)"],
 };

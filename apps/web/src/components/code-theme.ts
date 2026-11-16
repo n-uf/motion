@@ -1,5 +1,5 @@
 // A Shiki theme made of the site's tokens: light and dark come from tokens.css, contrast included. Shared by every
-// code block the site colours at build time (CodeTabs, PairCode).
+// code block the site colors at build time (CodeTabs, PairCode).
 export const codeTheme = {
   name: "motion-tokens",
   type: "light",

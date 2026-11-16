@@ -15,7 +15,7 @@ sitemap and linked only from the footer.
 ## How a page is built
 
 - `src/pages/*.astro`: the home page and the four demo pages. All their text (the h1, the intro, an h2 per rule or
-  construction, captions) is server HTML, and so is the first state of each demo (`src/demos/*.ts` render it as
+  desk layout, captions) is server HTML, and so is the first state of each demo (`src/demos/*.ts` render it as
   strings).
 - `src/islands/*.ts`: the interactive part of each demo, plain TypeScript with no framework. A page's `<script>`
   imports its island when the figure scrolls into view (`whenVisible` in `islands/rail.ts`). The islands bind the
@@ -30,13 +30,13 @@ sitemap and linked only from the footer.
 - Every figure is a window (`src/components/Chrome.astro`) whose controls are toolbar groups: the server renders the
   default arrangement, and `src/islands/chrome.ts` (the same module the toolbar-groups page demonstrates) makes the
   groups draggable between the title bar, top and bottom bars, edges and floating, collapsible, and remembered per
-  figure. Shared bar controls: `DropModeSwitch.astro` (Drop indicator · Open gap · Snap to slot, `previewPlan` in
+  figure. Shared bar controls: `DropModeSwitch.astro` (Indicator only · Make room · Snap to slot, `previewPlan` in
   `islands/drop-mode.ts`) and `Playback.astro` (Speed, Tempo). Automatic showcases register with
   `islands/showcase.ts`, which pauses them at the first user action and resumes them 10 s after the last.
 - Each window's title bar ends with its own controls: **X-ray** and **↺ Reset**. Reset puts the groups, the demo and
-  the lock back (each island registers its demo with `figureChrome(fig, { demo })`) and keeps the visitor's
-  preferences. X-ray (`islands/xray.ts`) lets each part draw its layer over the window: placement's hit zones (with
-  their priorities) and slots in one colour, motion's settle target, trail and aim in the accent. The chrome draws
+  the freeze switch back (each island registers its demo with `figureChrome(fig, { demo })`) and keeps the visitor's
+  preferences. X-ray (`islands/xray.ts`) lets each part draw its layer over the window: placement's hit areas (with
+  their priorities) and slots in one color, motion's settle target, trail and aim in the accent. The chrome draws
   the group drags; each island draws its own demo (`xrayOf(fig).draw(owner, frame)`).
 - Code on the home page (`CodeTabs.astro`, `PairCode.astro`) is shown from files in `src/snippets/`. Snippets that use
   entries the workspace packages don't export yet are left out of the site's typecheck and checked against the live

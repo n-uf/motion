@@ -60,7 +60,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
       <li><b>The real element moves:</b> no copies, it lands from where you let go.</li>
       <li><b>Neither imports the other:</b> plain data between them, any framework or none.</li>
     </ul>
-    <p class="caveat">The demo windows' slots are rects from placement's dock constructions; they glide on motion's settle, and the swap runs motion's own drag intent (<code>createDragIntent</code>), as the hero does along with <code>holdItem</code>. The examples below are compiled against both packages. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink></p>
+    <p class="caveat">The demo windows' slots are rects from placement's dock layouts; they glide on motion's settle, and the swap runs motion's own drag intent (<code>createDragIntent</code>), as the hero does with <code>holdItem</code>, a direct drag. The examples below are compiled against both packages. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink></p>
     </div>
   </section>
 
@@ -75,12 +75,12 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
         <h3 id="does-motion"><code>@n-uf/motion</code> <span>how things move</span></h3>
         <p>{motionPart.does}</p>
         <dl class="entries">
-          <div><dt><code>@n-uf/motion</code></dt><dd>The frame loop on an injected clock, signals, springs and tweens with the settle, and the gesture recogniser; each also on its own as <code>./clock</code>, <code>./signals</code>, <code>./values</code>, <code>./gestures</code>.</dd></div>
-          <div><dt><code>./layout</code></dt><dd>Give items rects: the real elements settle there, size changes revealed, never stretched; a held drag (<code>holdItem</code>), FLIP for DOM groups, reduced motion and batched drawing.</dd></div>
-          <div><dt><code>./drag</code></dt><dd>The drag intent: aiming, priority, hysteresis, the switch hold, room after a delay, a drop that lands where it was shown, and the three previews.</dd></div>
-          <div><dt><code>./gestures</code></dt><dd>Gestures alone: the recogniser, wheel classification, a frame coalescer, and dwell, touch-press and paged-swipe machines.</dd></div>
+          <div><dt><code>@n-uf/motion</code></dt><dd>The frame loop on an injected clock, signals, springs and tweens with the settle, and the gesture recognizer; each also on its own as <code>./clock</code>, <code>./signals</code>, <code>./values</code>, <code>./gestures</code>.</dd></div>
+          <div><dt><code>./layout</code></dt><dd>Give items rects: the real elements settle there, size changes revealed, never stretched; a direct drag (<code>holdItem</code>), FLIP for DOM groups, reduced motion and batched drawing.</dd></div>
+          <div><dt><code>./drag</code></dt><dd>The drag intent: aiming, target priority, hysteresis, a switch delay, room made after a delay, a drop that lands where it was shown, and the three drop preview modes.</dd></div>
+          <div><dt><code>./gestures</code></dt><dd>Gestures alone: the recognizer, wheel classification, a frame coalescer, and dwell, touch-press and paged-swipe machines.</dd></div>
           <div><dt><code>./browser</code></dt><dd>The <code>requestAnimationFrame</code> clock and the reduced-motion query.</dd></div>
-          <div><dt><code>./testing</code></dt><dd>Frame-sampled checks of the motion rules: no overshoot, no jumps, held under the pointer, monotonic, tempo, and content scale.</dd></div>
+          <div><dt><code>./testing</code></dt><dd>Frame-sampled checks of the motion rules: no overshoot, no jumps, the item stays under the pointer, monotonic, tempo, and content scale.</dd></div>
         </dl>
         <p class="not"><b>It doesn't</b> decide where anything goes, and it draws nothing of its own. The core touches no DOM; no framework.</p>
         <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code> <ExtLink href={motionPart.readme}>README on GitHub</ExtLink> <a href="/docs/motion/">Docs</a></p>
@@ -90,11 +90,11 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
         <p>{placementPart.does}</p>
         <dl class="entries">
           <div><dt><code>@n-uf/placement</code></dt><dd>Rects and points (<code>rect</code>, <code>overlap</code>, <code>clampInto</code>) and a popup positioner that flips, slides or resizes to fit, as far as its rule allows.</dd></div>
-          <div><dt><code>./dock</code></dt><dd>The older all-in-one desk model, still shipped: nine constructions as pure layouts (edge docks, a tiling tree, a navigator, a scrolling strip, drawers, floating palettes, tear-off), with give-way notes that carry a code per rule. Desks built on <code>./panels</code> start from the presets in <code>./desk</code>.</dd></div>
-          <div><dt><code>./toolbar</code></dt><dd>Toolbar groups in five hosts × three zones, or floating; insertion points, and collapse by keep priority (trailing groups first among equals) when a host runs out of room.</dd></div>
-          <div><dt><code>./targets</code></dt><dd>Drop targets in the shape motion's drag takes, for the desk's constructions, toolbar hosts and pane zones. Every host target carries its slot; <code>allows</code> drops places a group may not take, and <code>keyboardStops</code> gives one ordered list for the arrow keys and a "Move to" menu.</dd></div>
-          <div><dt><code>./panels</code></dt><dd>Panels in full-height columns per side, as stacked sections or tabs, and in top and bottom bands (reserved or over the pages, between the columns or full width); columns fold to title bars and a rail, bands to a bar, and give way by age (oldest by use, by default) when room runs out. Kept panels, room kept clear for a toolbar, floats clamped to the view, free or pinned to it, drop targets and a stored form.</dd></div>
-          <div><dt><code>./desk</code></dt><dd>Desk presets as data on <code>./panels</code>: edge docks with a bottom band between the columns or full width, edge docks with tear-off, and a navigator: a tabbed column on the left, a stack column on the right.</dd></div>
+          <div><dt><code>./dock</code></dt><dd>The older all-in-one desk model, still shipped: nine desk layouts as pure functions (side docks, a tiling tree, a navigator, scrolling columns, drawers, floating panels, tear-off), with notes that say what gave way, one code per rule. Workspaces built on <code>./panels</code> start from the presets in <code>./desk</code>.</dd></div>
+          <div><dt><code>./toolbar</code></dt><dd>Toolbar groups in five toolbar areas × three zones, or floating; insertion points, and collapse by keep priority (trailing groups first among equal keep priorities) when a toolbar area runs out of room.</dd></div>
+          <div><dt><code>./targets</code></dt><dd>Drop targets in the shape motion's drag takes, for the desk layouts, toolbar areas and pane drop zones. Every toolbar-area target carries its slot; <code>allows</code> drops places a group may not take, and <code>keyboardStops</code> gives one ordered list for the arrow keys and a "Move to" menu.</dd></div>
+          <div><dt><code>./panels</code></dt><dd>Panels in full-height columns per side, as stacked sections or tabs, and in top and bottom docks (reserved, or laid over the content area, between the columns or full width); columns collapse to headers and a rail, docks to a header bar, and give way least recently used first when room runs out. Kept-open panels, reserved space for a toolbar, floats clamped to the viewport, free or view-fixed, drop targets and a stored form.</dd></div>
+          <div><dt><code>./desk</code></dt><dd>Desk presets as data on <code>./panels</code>: side docks with a bottom dock between the columns or full width, side docks with tear-off, and a navigator: a tabbed column on the left, a stack column on the right.</dd></div>
         </dl>
         <p class="not"><b>It doesn't</b> move or draw anything: plain state in, rects and targets out. No DOM, no dependencies.</p>
         <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code> <ExtLink href={placementPart.readme}>README on GitHub</ExtLink> <a href="/docs/placement/">Docs</a></p>
@@ -150,11 +150,11 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
     <div class="plates">
       <article class="xe">
         <div class="thumb"><div class="fig"><svg id="thumb-desk" viewBox="0 0 280 150" width="280" height="150" aria-hidden="true" set:html={deskThumbSVG()} /></div></div>
-        <div class="card-body"><span class="eyebrow"><span class="n">03</span> Desk layouts</span><h3><a href="/desk-layouts/">Nine ways to build a desk</a></h3><p>The four desk presets on <code>./panels</code>, laid out live as width and height run out, next to five sketches: a tiling tree, a strip, drawers and palettes.</p></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">03</span> Desk layouts</span><h3><a href="/desk-layouts/">Nine ways to lay out a workspace</a></h3><p>The four desk presets on <code>./panels</code>, laid out live as width and height run out, next to five demo layouts: a tiling tree, scrolling columns, drawers and floating panels.</p></div>
       </article>
       <article class="xe">
         <div class="thumb"><div class="fig"><div class="t-win" aria-hidden="true"><div class="t-bar"><span class="t-group"><i class="t-g"></i><b style="width:46px"></b></span><span class="t-group"><i class="t-g"></i><b></b><b></b><b></b></span><span class="t-group"><i class="t-g"></i><b></b><b class="on"></b></span><span class="t-group"><i class="t-g"></i><b style="width:30px"></b></span></div><div class="t-doc"><span></span></div></div></div></div>
-        <div class="card-body"><span class="eyebrow"><span class="n">04</span> Toolbar groups</span><h3><a href="/toolbar-groups/">One handle per group</a></h3><p>Five hosts, three zones, floating and collapsing groups, all from one drag handle each.</p></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">04</span> Toolbar groups</span><h3><a href="/toolbar-groups/">One grip per group</a></h3><p>Five toolbar areas, three zones, floating and collapsing groups, all from one grip each.</p></div>
       </article>
     </div>
     </div>
@@ -163,7 +163,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
     <div class="plates">
       <article class="xe">
         <div class="thumb"><div class="fig"><svg viewBox="0 0 280 150" width="280" height="150" aria-hidden="true"><g class="lab-tiles"><rect x="14" y="14" width="76" height="58" rx="5"/><rect x="100" y="14" width="76" height="26" rx="5"/><rect x="186" y="14" width="80" height="58" rx="5"/><rect x="100" y="50" width="76" height="22" rx="5"/><rect x="14" y="82" width="120" height="54" rx="5"/><rect x="144" y="82" width="122" height="54" rx="5"/></g></svg></div></div>
-        <div class="card-body"><span class="eyebrow"><span class="n">05</span> Lab</span><h3><a href="/lab/">The lab</a></h3><p>15 interactive demos for both packages, from the settle to panel columns and nine kit cases, and a checks page that runs every scenario.</p></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">05</span> Lab</span><h3><a href="/lab/">The lab</a></h3><p>15 interactive demos for both packages, from the settle to panel columns and nine integration cases, and a checks page that runs every scenario.</p></div>
       </article>
     </div>
     </div>

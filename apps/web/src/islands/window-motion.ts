@@ -101,14 +101,14 @@ function framesStage(): Built {
   }
   const node = h("div", "sbody");
   const live = h("div", "live", node);
-  const liveScenes = ([["stretch", "Stretch (today), live"], ["reveal", "Reveal (proposed), live"]] as const).map(([m, t]) => {
+  const liveScenes = ([["stretch", "Stretch (today), live"], ["reveal", "Reveal (@n-uf/motion), live"]] as const).map(([m, t]) => {
     const f = h("div", "", live);
     h("div", "fh", f, t);
     return scene(f, m);
   });
   const snaps = h("div", "snaps", node);
   const marked: HTMLElement[][] = [];
-  ([["stretch", "Stretch (today)"], ["reveal", "Reveal (proposed)"]] as const).forEach(([m, t]) => {
+  ([["stretch", "Stretch (today)"], ["reveal", "Reveal (@n-uf/motion)"]] as const).forEach(([m, t]) => {
     h("div", "fh", snaps, t);
     times.forEach((ms, i) => {
       const wrap = h("div", "", snaps);

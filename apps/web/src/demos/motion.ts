@@ -1,5 +1,5 @@
 /**
- * Window motion: the curves of each case (Hyprland's, a typical host app's, and the proposal's, which the library's
+ * Window motion: the curves of each case (Hyprland's, a typical app's, and @n-uf/motion's, which the library's
  * own settle steps), the case texts, and a chart as an SVG string. Pure, so the server renders the first chart and the
  * island every later frame.
  */
@@ -94,11 +94,11 @@ const settleOpt:ChartOpt = {
   lines: [
     { name: "Hyprland shipped: spring easy (ratio 0.785)", legend: "Hyprland spring 'easy'", color: "--series-a", dash: "6 4", data: springSeries(238.1191, 24.21279, 0, 0, 1, T1, dt) },
     { name: "Hyprland older: easeOutQuint 479 ms", legend: "Hyprland older ease-out", color: "--series-a2", dash: "6 4", data: series((ms) => bez(0.23, 1, 0.32, 1)(ms / 479), T1, dt) },
-    { name: "Host app rect spring 320, from rest", legend: "Typical app: re-layout spring from rest", color: "--series-d", data: springSeries(320, 2 * Math.sqrt(320), 0, 0, 1, T1, dt) },
-    { name: "Host app maximize/restore: snappy 220 ms (y2 1.05)", legend: "Typical app: maximize/restore (overshoots)", color: "--series-e", data: series((ms) => bez(0.05, 0.9, 0.1, 1.05)(ms / 220), T1, dt) },
-    { name: "Proposed settle ω=37 (recording)", legend: "n-uf motion settle, quick ω 37", color: "--series-c2", dash: "1 3", data: settleSeries(37, T1, dt) },
-    { name: "Proposed settle ω=25 (default)", legend: "n-uf motion settle, default ω 25", lib: true, color: "--series-c", w: 3.2, data: settleSeries(25, T1, dt) },
-    { name: "Proposed settle ω=20 (calm)", legend: "n-uf motion settle, calm ω 20", color: "--series-c2", dash: "6 4", data: settleSeries(20, T1, dt) },
+    { name: "Typical app rect spring 320, from rest", legend: "Typical app: re-layout spring from rest", color: "--series-d", data: springSeries(320, 2 * Math.sqrt(320), 0, 0, 1, T1, dt) },
+    { name: "Typical app maximize/restore: snappy 220 ms (y2 1.05)", legend: "Typical app: maximize/restore (overshoots)", color: "--series-e", data: series((ms) => bez(0.05, 0.9, 0.1, 1.05)(ms / 220), T1, dt) },
+    { name: "Settle ω=37 (recording)", legend: "n-uf motion settle, quick ω 37", color: "--series-c2", dash: "1 3", data: settleSeries(37, T1, dt) },
+    { name: "Settle ω=25 (default)", legend: "n-uf motion settle, default ω 25", lib: true, color: "--series-c", w: 3.2, data: settleSeries(25, T1, dt) },
+    { name: "Settle ω=20 (calm)", legend: "n-uf motion settle, calm ω 20", color: "--series-c2", dash: "6 4", data: settleSeries(20, T1, dt) },
   ],
   points: [{ name: "Recording: window open (measured)", legend: "Measured: a real Hyprland window (dots)", color: "--series-a", data: [[0, 0], [15, 0.44], [45, 0.755], [65, 0.965], [85, 0.985], [180, 1]] }],
   // motion's launched settle: fast at the start, flat into the target, never past it
@@ -140,8 +140,8 @@ const dragOpt:ChartOpt = {
   marks: [{ v: slot, color: "--line-3", label: "slot" }], vmarks: [{ ms: REL, label: "release" }],
   lines: [
     { name: "Pointer − grab offset", legend: "Pointer position, until release", color: "--series-ink", dash: "1 3", w: 2.5, data: pointerLine.filter((p) => p[0] <= REL) },
-    { name: "Host app own drag: localDrag 1400, then rect 320", legend: "Typical app: own drag spring, then re-layout spring", color: "--series-d", data: fol },
-    { name: "Hyprland / proposed: held 1:1, then settle ω=25", legend: "Hyprland and n-uf motion: held 1:1, then settle ω 25", lib: true, color: "--series-c", w: 3.2, data: held },
+    { name: "Typical app own drag: spring 1400, then rect 320", legend: "Typical app: own drag spring, then re-layout spring", color: "--series-d", data: fol },
+    { name: "Hyprland / @n-uf/motion: held 1:1, then settle ω=25", legend: "Hyprland and n-uf motion: held 1:1, then settle ω 25", lib: true, color: "--series-c", w: 3.2, data: held },
   ],
 };
 
@@ -175,10 +175,10 @@ const retargetOpt:ChartOpt = {
   T: T3, xstep: 50, ymin: 0, ymax: 1.05, yticks: [0, 0.25, 0.5, NEW, 1], yfmt: (v) => (v === NEW ? "new" : v === 1 ? "old" : Math.round(v * 100) + "%"),
   marks: [{ v: NEW, color: "--line-3", label: "new target" }, { v: 1, color: "--line-3", label: "" }], vmarks: [{ ms: RT, label: "retarget" }],
   lines: [
-    { name: "Tween restart (hypr-tiling CSS, host app tweens)", legend: "Tween restart: hypr-tiling and typical app tweens", color: "--series-a2", dash: "6 4", data: tweenR },
-    { name: "Host app docked / space change: restart from rest", legend: "Typical app: docked or space change, restarts from rest", color: "--series-d", data: restRestart() },
+    { name: "Tween restart (hypr-tiling CSS, typical app tweens)", legend: "Tween restart: hypr-tiling and typical app tweens", color: "--series-a2", dash: "6 4", data: tweenR },
+    { name: "Typical app docked / space change: restart from rest", legend: "Typical app: docked or space change, restarts from rest", color: "--series-d", data: restRestart() },
     { name: "Velocity kept, no clamp (crosses the new target)", legend: "Speed kept, no clamp (crosses the new target)", color: "--series-e", dash: "1 3", data: unclamped() },
-    { name: "Proposed: relaunched from drawn", legend: "n-uf motion settle ω 25: relaunched from where it is drawn", lib: true, color: "--series-c", w: 3.2, data: settleSeries(w25, T3, dt, 0, 1, { at: RT, to: NEW }) },
+    { name: "Relaunched from drawn", legend: "n-uf motion settle ω 25: relaunched from where it is drawn", lib: true, color: "--series-c", w: 3.2, data: settleSeries(w25, T3, dt, 0, 1, { at: RT, to: NEW }) },
   ],
   notes: [{ ms: RT, dx: 40, dy: 70, text: "relaunched from where it is drawn" }],
 };
@@ -265,7 +265,7 @@ export function lanesHTML(opt: ChartOpt, ms = 0): string {
 
 /**
  * The legend under a chart: one sentence on what the axes mean, then one row per curve actually drawn (the measured
- * dots first), each with a swatch drawn like the curve itself: same colour, weight and dash. Library curves are tagged.
+ * dots first), each with a swatch drawn like the curve itself: same color, weight and dash. Library curves are tagged.
  */
 export function legendHTML(opt: ChartOpt): string {
   const row = (s: Line, isPoint: boolean): string => {
@@ -288,24 +288,24 @@ function notesKeyHTML(opt: ChartOpt): string {
 // ---- The cases --------------------------------------------------------------------------------------------------------
 export type CaseKind = "settle" | "drag" | "retarget" | "frames";
 export const CASES: { kind: CaseKind; name: string; note: string; desc: string; label: string }[] = [
-  { kind: "settle", name: "Settle: one move from A to B", note: "Seven curves for one move; the proposed settle starts fast and cannot overshoot.", label: "Settle curves",
-    desc: "Hyprland front-loads the move and never bounces. A host app's re-layout spring starts slowly, and its maximize/restore curve overshoots. The proposed settle starts fast like Hyprland, cannot overshoot, and has one tempo knob ω." },
+  { kind: "settle", name: "Settle: one move from A to B", note: "Seven curves for one move; the settle starts fast and cannot overshoot.", label: "Settle curves",
+    desc: "Hyprland front-loads the move and never bounces. A typical app's re-layout spring starts slowly, and its maximize/restore curve overshoots. The settle in @n-uf/motion starts fast like Hyprland, cannot overshoot, and has one tempo knob ω." },
   { kind: "drag", name: "Drag: pointer vs window, then drop", note: "Held 1:1, then a settle into the slot at 260 ms.", label: "Drag timeline",
-    desc: "Held means held: the window is the pointer minus the grab offset in the same frame. The host app's own-drag spring (stiffness 1400) trails by about 50 ms. On release the window settles from where it was let go into its slot (drop at 260 ms)." },
+    desc: "In a direct drag the window is the pointer minus the grab offset in the same frame. A typical app's own-drag spring (stiffness 1400) trails by about 50 ms. On release the window settles from where it was let go into its slot (drop at 260 ms)." },
   { kind: "retarget", name: "Retarget mid-flight", note: "A nearer target at 40 ms: who keeps the speed, who restarts.", label: "Retarget curves",
-    desc: "A nearer target at 40 ms. The proposed settle relaunches from the drawn rect toward the nearer target, at its tempo times the distance left, so it can't overshoot it. A tween restart kinks the speed, and the host app's docked branch (and a space change) stops and restarts from rest." },
+    desc: "A nearer target at 40 ms. The settle relaunches from the drawn rect toward the nearer target, at its tempo times the distance left, so it can't overshoot it. A tween restart kinks the speed, and a typical app's docked branch (and a space change) stops and restarts from rest." },
   { kind: "frames", name: "A window shrinking 220 → 140 px wide", note: "Stretch versus reveal, frames at 0, 30, 60 and 120 ms.", label: "Stretch and reveal frames",
-    desc: "Frames at 0, 30, 60 and 120 ms after the change. Stretch (today, and Hyprland for ~40 ms): content is painted at the final size and scaled to the drawn box. Reveal (proposed): content is laid out at the final size and never scaled, and the frame's background band closes in." },
+    desc: "Frames at 0, 30, 60 and 120 ms after the change. Stretch (today, and Hyprland for ~40 ms): content is painted at the final size and scaled to the drawn box. Reveal (what @n-uf/motion does): content is laid out at the final size and never scaled, and the frame's background band closes in." },
 ];
 export const OPTS: Record<Exclude<CaseKind, "frames">, ChartOpt> = { settle: settleOpt, drag: dragOpt, retarget: retargetOpt };
 
 /**
  * The charts at a tempo (the Tempo switch: 20 calm, 25 default, 37 quick): the settle case draws that tempo's
- * proposed curve bold; the drag's landing and the retarget are the proposal at that tempo.
+ * settle curve bold; the drag's landing and the retarget are the settle at that tempo.
  */
 export function optsFor(omega: number): Record<Exclude<CaseKind, "frames">, ChartOpt> {
   if (omega === 25) return OPTS;
-  const proposed = (name: string): boolean => name.startsWith("Proposed settle");
+  const proposed = (name: string): boolean => name.startsWith("Settle ω");
   const settle: ChartOpt = {
     ...settleOpt,
     lines: settleOpt.lines.map((l) => (proposed(l.name) ? { ...l, lib: l.name.includes(`ω=${omega}`), w: l.name.includes(`ω=${omega}`) ? 3.2 : 1.75, color: l.name.includes(`ω=${omega}`) ? "--series-c" : "--series-c2" } : l)),
@@ -313,11 +313,11 @@ export function optsFor(omega: number): Record<Exclude<CaseKind, "frames">, Char
   const landing = settleSeries(omega, Tdrag - REL, 2, relX, slot);
   const drag: ChartOpt = {
     ...dragOpt,
-    lines: dragOpt.lines.map((l, i) => (i === 2 ? { ...l, name: `Hyprland / proposed: held 1:1, then settle ω=${omega}`, legend: `Hyprland and n-uf motion: held 1:1, then settle ω ${omega}`, data: series((ms) => (ms <= REL ? ptr(Math.min(ms, 240)) : at(landing, ms - REL)), Tdrag, 2) } : l)),
+    lines: dragOpt.lines.map((l, i) => (i === 2 ? { ...l, name: `Hyprland / @n-uf/motion: held 1:1, then settle ω=${omega}`, legend: `Hyprland and n-uf motion: held 1:1, then settle ω ${omega}`, data: series((ms) => (ms <= REL ? ptr(Math.min(ms, 240)) : at(landing, ms - REL)), Tdrag, 2) } : l)),
   };
   const retarget: ChartOpt = {
     ...retargetOpt,
-    lines: retargetOpt.lines.map((l, i) => (i === 3 ? { ...l, name: `Proposed ω=${omega}: relaunched from drawn`, legend: `n-uf motion settle ω ${omega}: relaunched from where it is drawn`, data: settleSeries(omega, T3, dt, 0, 1, { at: RT, to: NEW }) } : l)),
+    lines: retargetOpt.lines.map((l, i) => (i === 3 ? { ...l, name: `Relaunched from drawn, ω=${omega}`, legend: `n-uf motion settle ω ${omega}: relaunched from where it is drawn`, data: settleSeries(omega, T3, dt, 0, 1, { at: RT, to: NEW }) } : l)),
   };
   return { settle, drag, retarget };
 }

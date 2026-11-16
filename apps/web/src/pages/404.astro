@@ -1,6 +1,6 @@
 ---
 // The 404: noindex, no canonical, one h1. The headline's words are the demo (island not-found.ts): the left ones are
-// held and settle back (@n-uf/motion), the right ones are panels that tear off and dock back. The words are server
+// follow the pointer and settle back (@n-uf/motion), the right ones are panels that tear off and dock back. The words are server
 // HTML; the overlay layer is aria-hidden and outside the h1. The links below are the way out, not the words.
 import Site from "../layouts/Site.astro";
 import { demoPages } from "../data/pages";
@@ -27,7 +27,7 @@ const way = [{ path: "/", nav: "Home" }, ...demoPages, { path: "/lab/", nav: "La
           {way.map((p) => <li><a href={p.path}>{p.nav}</a></li>)}
         </ul>
       </nav>
-      <p class="nf-note">The words above are live, if you want to play: drag one. The left words are held by the pointer and settle back without overshoot (<code>@n-uf/motion</code>); a right panel shows where it docks once you aim at its slot, and lands there when you let go (<code>@n-uf/motion/drag</code>); and <code>@n-uf/placement</code> keeps whatever you drag on the page.</p>
+      <p class="nf-note">The words above are live, if you want to play: drag one. The left words follow the pointer 1:1 and settle back without overshoot (<code>@n-uf/motion</code>); a right panel shows where it docks once you aim at its slot, and lands there when you let go (<code>@n-uf/motion/drag</code>); and <code>@n-uf/placement</code> keeps whatever you drag on the page.</p>
     </div>
   </section>
 </Site>

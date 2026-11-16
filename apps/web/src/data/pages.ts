@@ -18,17 +18,17 @@ export const pages: PageInfo[] = [
     description: "Two TypeScript packages for windows, panels and toolbars: @n-uf/motion moves them without overshoot, @n-uf/placement works out where they dock." },
   // Inner pages: what the page is, plus " | n-uf motion & placement" only when the whole fits in 60 characters.
   { path: "/window-motion/", updated: updated["/window-motion/"], nav: "Window motion",
-    title: "Window motion rules: settle, hold, reveal",
-    description: "How windows move in Hyprland, in a typical app and under settle: real curves, a held drag, a retarget mid-flight, and stretch versus reveal in frames." },
+    title: "Window motion rules: settle, direct drag, reveal",
+    description: "How windows move in Hyprland, in a typical app and under settle: real curves, a direct drag, a retarget mid-flight, and stretch versus reveal in frames." },
   { path: "/drag-intent/", updated: updated["/drag-intent/"], nav: "Drag intent",
-    title: "Drag intent: drop targets once you aim",
-    description: "How a dragged panel finds its drop target: the indicator shows only once you aim, holds on borders without flicker, and the drop lands where it showed." },
+    title: "Drag intent: a drop indicator only once you aim",
+    description: "How a dragged panel finds its target: the indicator shows only once you aim, stays put at boundaries without flicker, and the drop lands where it showed." },
   { path: "/desk-layouts/", updated: updated["/desk-layouts/"], nav: "Desk layouts",
     title: "Desk layouts: nine ways to dock panels",
-    description: "Nine ways to lay out a desk of tool panels and documents, from edge docks to floating palettes, and what each gives way as width or height runs out." },
+    description: "Nine ways to lay out a workspace of tool panels and documents, from side docks to floating panels, and what gives way first as room runs out." },
   { path: "/toolbar-groups/", updated: updated["/toolbar-groups/"], nav: "Toolbar groups",
-    title: "Toolbar groups: one drag handle per group",
-    description: "Toolbar groups that dock into five hosts of three zones or float, each led by one drag handle that is also its separator, collapsing by keep priority, trailing groups first among equals." },
+    title: "Toolbar groups: one grip per group",
+    description: "Toolbar groups that dock into five toolbar areas of three zones or float, each led by one grip that is also its separator, collapsing by keep priority." },
 ];
 export const pageOf = (path: string): PageInfo => {
   const p = pages.find((x) => x.path === path);

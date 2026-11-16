@@ -26,21 +26,21 @@ const box = (r: { x: number; y: number; w: number; h: number }) => `left:${r.x}p
 const RULES: [string, string, string][] = [
   ["When does the drag start?", "After the pointer moves past a threshold. A click below it does nothing. On touch: a 180 ms hold, then the threshold.", "mouse 5 px; touch 180 ms + 8 px"],
   ["What does the dragged panel look like?", "The real panel, raised, following the pointer 1:1 from the point you grabbed. It never stretches; it changes size only when it lands.", ""],
-  ["When does the indicator appear?", "Only when all three hold: the pointer has left the panel's own place (home), there is a target under it, and you are aiming: moving slower than the aim speed, or holding nearly still for a moment. Time spent crossing a big target doesn't count.", "aim speed 0.45 px/ms (450 px/s); still = within 12 px for 90 ms"],
+  ["When does the indicator appear?", "Only when all three hold: the pointer has left the panel's home (where it was when the drag started), there is a target under it, and you are aiming: moving slower than the aim speed, or holding nearly still for a moment. Time spent crossing a big target doesn't count.", "aim speed 0.45 px/ms (450 px/s); still = within 12 px for 90 ms"],
   ["How is speed measured?", "Distance over the last few frames, smoothed, so one slow frame doesn't count as aiming.", "window 50 ms"],
-  ["Which target wins when several overlap?", "The most precise one: a rail icon or a tab strip beats a slot between sections, which beats \"float here\". Equal kinds: the smaller zone.", "priority 1 · 2 · 3"],
-  ["What stops flicker on borders?", "The current target holds until the pointer is clearly in another one (a band past the border), or is clearly out of all of them for a moment. A more precise target takes over at once, once the pointer is 4 px inside it.", "band 10 px; gap grace 120 ms; breakthrough 4 px"],
-  ["When does a shown indicator move or go?", "Leaving its target while flying hides it at once. While aiming, it moves to a new target only once that target has held for a moment, so moving between targets never flashes. A more precise target still takes over at once, 4 px inside it.", "150 ms"],
+  ["Which target wins when several overlap?", "The most precise one: a rail icon or a tab strip beats an insertion point between sections, which beats \"float here\". Equal priority: the smaller hit area.", "priority 1 · 2 · 3"],
+  ["What stops flicker on boundaries?", "Hysteresis: the current target keeps the pointer until it is clearly in another one (a margin past the boundary), or is clearly out of all of them for a moment. A more precise target takes over at once, once the pointer is 4 px inside it.", "hysteresis margin 10 px; grace across the gap between two hit areas 120 ms; breakthrough 4 px"],
+  ["When does a shown indicator move or go?", "Leaving its target while travelling hides it at once. While aiming, it moves to a new target only after a switch delay, so moving between targets never flashes. A more precise target still takes over at once, 4 px inside it.", "150 ms"],
   ["When do the other panels make room?", "Only after the indicator has stayed on the same target for a while, so nothing reflows while you pass over it. Leaving the target closes the room at once.", "160 ms"],
   ["What does a release do?", "Lands where the indicator shows. If no indicator was showing yet (a quick flick), it lands on the target under the pointer at release; with none, the panel glides home. A release always lands on what is shown, so the drop follows the indicator, not the exact release point.", ""],
   ["How do you cancel?", "Escape, a release back over home, or the browser cancelling the pointer: the panel glides home and nothing else changes.", ""],
   ["How do things move?", "The indicator fades in and glides between targets; the landing and the room-making use settle (no overshoot, no jumps).", "fade 90 ms; glide 110 ms; settle tempo 25"],
-  ["Long desks (the scrolling strip)", "Near the stage's edge the strip scrolls, faster the closer the pointer is; the indicator is hidden while it scrolls.", "edge 40 px"],
+  ["Auto-scroll", "Near the stage's edge a scrolling layout scrolls, faster the closer the pointer is; the indicator is hidden while it scrolls.", "edge 40 px"],
   ["Keyboard", "The same targets in a fixed order: a key to pick up, arrows to step through targets (the indicator shows each), Enter to drop, Escape to cancel.", ""],
 ];
 ---
-<Site title={page.title} description={page.description} path={path} headline="An indicator only once you aim." jsonLd={jsonLd} ogImage="/og/drag-intent.png">
-  <p class="lead" slot="lead">This page shows how a dragged panel finds its drop target. The drop indicator appears only once you are aiming, never flashes while you fly over targets or sit on a border, and the drop lands exactly where it said. Drag the <b>Outline</b> panel yourself, or pick a recorded path and compare the counts in this model and in a naive one that highlights whatever is under the pointer.</p>
+<Site title={page.title} description={page.description} path={path} headline="A drop indicator only once you aim." jsonLd={jsonLd} ogImage="/og/drag-intent.png">
+  <p class="lead" slot="lead">This page shows how a dragged panel finds its drop target. The drop indicator appears only once you are aiming, never flashes while you travel across targets or sit on a boundary, and the drop lands exactly where it said. Drag the <b>Outline</b> panel yourself, or pick a recorded path and compare the counts in this model and in a naive one that highlights whatever is under the pointer.</p>
 
   <Chrome id="figure" class="dragfig" label="Drag intent: a desk with a panel to drag, and recorded paths in two models"
     groups={[{ id: "title", name: "Title" }, { id: "model", name: "Model" }, { id: "preview", name: "Preview" }, { id: "speed", name: "Speed" }, { id: "tempo", name: "Tempo" }, { id: "stats", name: "Counts" }, { id: "hint", name: "Hint" }]}
@@ -53,17 +53,17 @@ const RULES: [string, string, string][] = [
     <span class="mono" slot="stats">changes <b id="s-changes">0</b> · flashes <b id="s-flashes">0</b> · drop <b id="s-drop">–</b></span>
     <Fragment slot="hint"><span class="quiet">Orange: where it lands · <kbd>Esc</kbd> cancels</span><span class="quiet" data-slowmo hidden></span></Fragment>
     <div class="figure-body">
-      <CaseRail id="cases" label="Cases" items={CASES} />
+      <CaseRail id="cases" label="Recorded paths" items={CASES} />
       <div class="stage-wrap stage-host">
         <div id="stage">
-          <div class="z home" style={box(HOME)}>Outline's place (home)</div>
+          <div class="z home" style={box(HOME)}>Outline's home</div>
           {ZONES.map((z) => <div class={`z ${z.cls}`} style={box(z)}>{z.label}</div>)}
           <div id="ind"></div><div id="indlabel"></div>
           {ICONS.map((i) => <div class="icon" style={`left:${i.x}px;top:${i.y}px`}>{i.t}</div>)}
           <div id="chip" style={`left:${CHIP_HOME.x}px;top:${CHIP_HOME.y}px`}>Outline<small>drag me</small><span class="grip" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
           <div id="ptr"></div>
           <ul class="notes anchored" aria-hidden="true">
-            <li class="note up" data-on="held"><span>held under the pointer</span><i></i></li>
+            <li class="note up" data-on="held"><span>the item stays under the pointer</span><i></i></li>
             <li class="note rt" data-on="aim"><i></i><span>aiming: slows down or holds still</span></li>
             <li class="note dn sig" data-on="drop"><i></i><span>a release lands on what is shown</span></li>
           </ul>
@@ -72,24 +72,24 @@ const RULES: [string, string, string][] = [
     </div>
   </Chrome>
   <p class="figure-note" id="log" role="status" aria-live="polite">Drag the Outline panel yourself, or pick a recorded path on the left.</p>
-  <p class="figure-note">Changes count the times the indicator appeared or moved; flashes count indicators shown for under 150 ms. Orange marks where the drop will land; the dashed box is Outline's own place.</p>
-  <ul class="notes-key anchored" aria-hidden="true"><li>held under the pointer</li><li>aiming: slows down or holds still</li><li class="sig">a release lands on what is shown</li></ul>
-  <p class="aside lab-link"><a href="/lab/#/motion/intent">Try drag intent and previews in the lab</a>, with scripted flies, wobbles and flicks across the targets.</p>
+  <p class="figure-note">Changes count the times the indicator appeared or moved; flashes count indicators shown for under 150 ms. Orange marks where the drop will land; the dashed box is Outline's home.</p>
+  <ul class="notes-key anchored" aria-hidden="true"><li>the item stays under the pointer</li><li>aiming: slows down or holds still</li><li class="sig">a release lands on what is shown</li></ul>
+  <p class="aside lab-link"><a href="/lab/#/motion/intent">Try drag intent and previews in the lab</a>, with scripted paths that travel across targets, wobble and flick.</p>
   <div id="compare" hidden></div>
 
   <section class="section">
     <div class="section-head">
       <span class="eyebrow">The phases</span>
-      <h2 class="section-title">Pressed, lifted, flying, aiming, settling</h2>
-      <p>A press moves nothing until the pointer passes 5 px; then the panel lifts and follows the pointer 1:1. While it flies there is no indicator. Slowing down or dwelling is aiming: the indicator shows, then the other panels make room. A release settles the panel into place; a release while flying lands on the target under the pointer, or returns home if there is none; Escape returns home.</p>
+      <h2 class="section-title">Pressed, lifted, travelling, aiming, settling</h2>
+      <p>A press moves nothing until the pointer passes 5 px; then the panel lifts and follows the pointer 1:1. While it travels there is no indicator. Slowing down or dwelling is aiming: the indicator shows, then the other panels make room. A release settles the panel into place; a release while travelling lands on the target under the pointer, or returns home if there is none; Escape returns home.</p>
     </div>
     <div class="diagram">
-      <svg class="phases" viewBox="0 0 1130 166" width="1130" height="166" role="img" aria-label="Drag phases: pressed, lifted, flying, aiming, settling, with cancel back to home">
+      <svg class="phases" viewBox="0 0 1130 166" width="1130" height="166" role="img" aria-label="Drag phases: pressed, lifted, travelling, aiming, settling, with cancel back to home">
         <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="mk" d="M0 0 L10 5 L0 10z"/></marker></defs>
         <g>
           <rect class="box" x="10" y="20" width="150" height="56" rx="8"/><text class="t" x="85" y="45" text-anchor="middle">Pressed</text><text class="s" x="85" y="64" text-anchor="middle">nothing moves yet</text>
           <rect class="box" x="245" y="20" width="150" height="56" rx="8"/><text class="t" x="320" y="45" text-anchor="middle">Lifted</text><text class="s" x="320" y="64" text-anchor="middle">panel follows 1:1</text>
-          <rect class="box" x="480" y="20" width="150" height="56" rx="8"/><text class="t" x="555" y="45" text-anchor="middle">Flying</text><text class="s" x="555" y="64" text-anchor="middle">no indicator</text>
+          <rect class="box" x="480" y="20" width="150" height="56" rx="8"/><text class="t" x="555" y="45" text-anchor="middle">Travelling</text><text class="s" x="555" y="64" text-anchor="middle">no indicator</text>
           <rect class="box aim" x="715" y="20" width="150" height="56" rx="8"/><text class="t" x="790" y="45" text-anchor="middle">Aiming</text><text class="s" x="790" y="64" text-anchor="middle">indicator, then room</text>
           <rect class="box" x="950" y="20" width="170" height="56" rx="8"/><text class="t" x="1035" y="45" text-anchor="middle">Settling</text><text class="s" x="1035" y="64" text-anchor="middle">glides into place</text>
           <path class="arr" d="M163 48 H242"/><path class="arr" d="M398 48 H477"/><path class="arr" d="M633 40 H712"/><path class="arr" d="M712 58 H633"/><path class="arr" d="M868 48 H947"/>
@@ -99,7 +99,7 @@ const RULES: [string, string, string][] = [
           <text class="k" x="672" y="32" text-anchor="middle">slows / dwells</text>
           <text class="k" x="672" y="76" text-anchor="middle">speeds up</text>
           <text class="k" x="907" y="38" text-anchor="middle">release</text>
-          <text class="s" x="795" y="138" text-anchor="middle">release while flying: lands on the target under the pointer, or returns home if there is none</text>
+          <text class="s" x="795" y="138" text-anchor="middle">release while travelling: lands on the target under the pointer, or returns home if there is none</text>
           <text class="s" x="795" y="156" text-anchor="middle">Escape: returns home</text>
         </g>
       </svg>
@@ -109,7 +109,7 @@ const RULES: [string, string, string][] = [
   <section class="section">
     <div class="section-head">
       <span class="eyebrow">The rules</span>
-      <h2 class="section-title">Thresholds, holds and what a release does</h2>
+      <h2 class="section-title">Thresholds, hysteresis and what a release does</h2>
     </div>
     <div class="rules">
       {RULES.map(([q, r, v]) => <div class="rule"><h3>{q}</h3><p>{r}</p><p class="value">{v}</p></div>)}
@@ -122,9 +122,9 @@ const RULES: [string, string, string][] = [
       <h2 class="section-title">Four properties, every path</h2>
     </div>
     <ul class="checks">
-      <li>Flying over targets at speed shows <b>no</b> indicator (scenario: fly over, then aim).</li>
-      <li>Holding on a border changes the indicator at most once (scenario: hold on a border).</li>
-      <li>Moving between targets never flashes: a new target must hold 150 ms before the indicator moves to it (the flash count stays zero in every recorded path).</li>
+      <li>Travelling across targets at speed shows <b>no</b> indicator (path: travel across, then aim).</li>
+      <li>Holding on a boundary changes the indicator at most once (path: hold on a boundary).</li>
+      <li>Moving between targets never flashes: a new target must wait out the 150 ms switch delay before the indicator moves to it (the flash count stays zero in every recorded path).</li>
       <li>The drop always equals the last indicator shown, or the target under the pointer when none was shown.</li>
     </ul>
     <p class="aside">These rules are <code>@n-uf/motion/drag</code>'s; the page runs them in its own code, and the cancel, glide, edge-scroll and keyboard details above are the demo's own behaviour around the model. Toolbar groups drop by the same model: see <a href="/toolbar-groups/">how a group finds its place</a>. The landing glide is <a href="/window-motion/">the settle curve</a>.</p>

@@ -7,7 +7,7 @@ import { icon } from "./icons";
 export type Host = "title" | "top" | "bottom" | "left" | "right";
 export type Zone = "start" | "center" | "end";
 type Slots =Record<Zone, string[]>;
-/** A floating group: at x, y in the window's body, or anchored ("bottom": centred above the body's bottom edge). */
+/** A floating group: at x, y in the window's body, or anchored ("bottom": centered above the body's bottom edge). */
 export interface Float { id: string; x: number; y: number; anchor?: "bottom" }
 export type Model = Record<Host, Slots> & { float: Float[]; collapsed: string[] };
 type Spec = Partial<Record<Host, Partial<Slots>>>;
@@ -28,7 +28,7 @@ export const GROUPS: Record<string, { label: string; html: string }> = {
 export const HOSTS: Host[] = ["title", "top", "bottom", "left", "right"];
 export const ZONES: Zone[] = ["start", "center", "end"];
 export const HOSTNAME: Record<Host, string> = { title: "Title bar", top: "Top bar", bottom: "Bottom bar", left: "Left edge", right: "Right edge" };
-export const ZONENAME = (h: Host, z: Zone): string => (h === "left" || h === "right" ? { start: "top", center: "middle", end: "bottom" } : { start: "left", center: "centre", end: "right" })[z];
+export const ZONENAME = (h: Host, z: Zone): string => (h === "left" || h === "right" ? { start: "top", center: "middle", end: "bottom" } : { start: "left", center: "center", end: "right" })[z];
 const empty = (): Slots => ({ start: [], center: [], end: [] });
 export const clone = (m: Model): Model => JSON.parse(JSON.stringify(m)) as Model;
 /** An arrangement from the hosts and zones that have groups. */
@@ -41,31 +41,31 @@ const make = (spec: Spec, float: Float[] = []): Model => {
 
 export interface Case { name: string; note: string; m: Model }
 export const CASES: Case[] = [
-  { name: "Like the viewer today", note: "Document left, view and zoom right; tools on the left edge; a bottom bar.", m: make({ title: { start: ["doc"], end: ["view", "zoom"] }, left: { start: ["tools"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
+  { name: "A typical document window", note: "Document left, view and zoom right; tools on the left edge; a bottom bar.", m: make({ title: { start: ["doc"], end: ["view", "zoom"] }, left: { start: ["tools"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
   { name: "Tools in the title bar, before all", note: "Tools lead the title bar's left zone, ahead of the document.", m: make({ title: { start: ["tools", "doc"], end: ["view", "zoom"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
-  { name: "Zoom to the title bar's centre", note: "Zoom sits centred on the bar.", m: make({ title: { start: ["doc"], center: ["zoom"], end: ["view"] }, left: { start: ["tools"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
+  { name: "Zoom to the title bar's center", note: "Zoom sits centered on the bar.", m: make({ title: { start: ["doc"], center: ["zoom"], end: ["view"] }, left: { start: ["tools"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
   { name: "View after all, title bar right", note: "View moves past zoom to the very end.", m: make({ title: { start: ["doc"], end: ["zoom", "view"] }, left: { start: ["tools"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
   { name: "A top bar", note: "Tools and view open a top bar on the left; zoom on its right.", m: make({ title: { start: ["doc"] }, top: { start: ["tools", "view"], end: ["zoom"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
-  { name: "Zoom to the bottom bar's centre", note: "The bottom bar gets a centre zone.", m: make({ title: { start: ["doc"], end: ["view"] }, left: { start: ["tools"] }, bottom: { start: ["panel"], center: ["zoom"], end: ["export", "share"] } }) },
+  { name: "Zoom to the bottom bar's center", note: "The bottom bar gets a center zone.", m: make({ title: { start: ["doc"], end: ["view"] }, left: { start: ["tools"] }, bottom: { start: ["panel"], center: ["zoom"], end: ["export", "share"] } }) },
   { name: "Bottom bar: export before all", note: "Export moves to the bottom bar's left, ahead of the panels.", m: make({ title: { start: ["doc"], end: ["view", "zoom"] }, left: { start: ["tools"] }, bottom: { start: ["export", "panel"], end: ["share"] } }) },
   { name: "Tools on the right edge", note: "Tools move from the left edge to the right edge.", m: make({ title: { start: ["doc"], end: ["view", "zoom"] }, right: { start: ["tools"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
   { name: "Bottom bar's groups to the left edge", note: "All of the bottom bar's groups move together (their menu: Move this bar's groups to › Left edge).", m: make({ title: { start: ["doc"], end: ["view", "zoom"] }, left: { start: ["tools", "panel"], end: ["export", "share"] } }) },
-  { name: "Two side edges", note: "Tools left; view and zoom on the right, middle zone.", m: make({ title: { start: ["doc"] }, left: { start: ["tools"] }, right: { center: ["view", "zoom"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
-  { name: "Everything in the title bar", note: "One bar, no others; when it runs out of room, trailing groups collapse to handle + ».", m: make({ title: { start: ["doc", "tools"], center: ["zoom"], end: ["view", "panel", "export", "share"] } }) },
+  { name: "Two side edges", note: "Tools left; view and zoom on the right, in the middle zone of that side.", m: make({ title: { start: ["doc"] }, left: { start: ["tools"] }, right: { center: ["view", "zoom"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
+  { name: "Everything in the title bar", note: "One bar, no others; when it runs out of room, trailing groups collapse to grip + ».", m: make({ title: { start: ["doc", "tools"], center: ["zoom"], end: ["view", "panel", "export", "share"] } }) },
   { name: "Tools floating", note: "Tools float over the document: the same group plus a frame and shadow.", m: make({ title: { start: ["doc"], end: ["view", "zoom"] }, bottom: { start: ["panel"], end: ["export", "share"] } }, [{ id: "tools", x: 30, y: 30 }]) },
-  { name: "A collapsed group", note: "Export double-clicked: its handle plus ».", m: Object.assign(make({ title: { start: ["doc"], end: ["view", "zoom"] }, left: { start: ["tools"] }, bottom: { start: ["panel"], end: ["export", "share"] } }), { collapsed: ["export"] }) },
+  { name: "A collapsed group", note: "Export double-clicked: its grip plus ».", m: Object.assign(make({ title: { start: ["doc"], end: ["view", "zoom"] }, left: { start: ["tools"] }, bottom: { start: ["panel"], end: ["export", "share"] } }), { collapsed: ["export"] }) },
 ];
 
 const label = (g: string): string => GROUPS[g]!.label;
 const dots = (n: number): string => "<i></i>".repeat(n);
 
 /**
- * A toolbar group: its handle, its controls, and the » that stands in for them while collapsed (the `collapsed` class
+ * A toolbar group: its grip, its controls, and the » that stands in for them while collapsed (the `collapsed` class
  * switches between the two, so a group's controls keep their listeners when it collapses or moves). » is a real
  * button: it opens a popover with the group's full horizontal form (islands/chrome.ts).
  */
 export function chromeGroupHTML(id: string, name: string, controls: string, collapsed = false): string {
-  return `<div class="group${collapsed ? " collapsed" : ""}" data-g="${id}"><span class="g c" tabindex="0" role="button" aria-label="${name} handle" title="${name}" data-handle="${id}">${dots(3)}</span><span class="ctl">${controls}</span><button type="button" class="tb ovf" data-ovf="${id}" aria-haspopup="dialog" aria-expanded="false" aria-label="${name}: show its controls" title="${name}">»</button></div>`;
+  return `<div class="group${collapsed ? " collapsed" : ""}" data-g="${id}"><span class="g c" tabindex="0" role="button" aria-label="${name} grip" title="${name}" data-handle="${id}">${dots(3)}</span><span class="ctl">${controls}</span><button type="button" class="tb ovf" data-ovf="${id}" aria-haspopup="dialog" aria-expanded="false" aria-label="${name}: show its controls" title="${name}">»</button></div>`;
 }
 /** Where a floating group sits in the window's body. */
 export const floatStyle = (f: Float): string =>

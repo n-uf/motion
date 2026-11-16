@@ -1,22 +1,22 @@
 /**
  * Window chrome made of toolbar groups: every figure's bars (and the toolbar-groups page's sample window) are a set
- * of hosts (the title bar, a top and a bottom bar, the left and right edges, floating) with start, centre and end
- * zones. Each group has one dotted handle that leads it and is its separator; it carries the group's actions:
+ * of toolbar areas (the title bar, a top and a bottom bar, the left and right edges, floating) with start, center and
+ * end zones. Each group has one dotted grip that leads it and is its separator; it carries the group's actions:
  *
- * - drag: move the group (before all, after all, between two; over the stage it floats). The drop follows the drag
- *   intent (an aim gate, a 160 ms hold before it shows, held at borders) and the figure's preview mode. The slot is
- *   always the group's own outline at its size in the target's axis: in the opened gap (Open gap), filled by the group
- *   gliding in (Snap to slot), or drawn over the insertion point while nothing moves (Drop indicator). A group's own
- *   place is home, never a target. The real group is held, no copy; over a side edge it takes its vertical form (and
- *   back), its size revealed; it lands from where it was let go.
- * - double-click, Enter or Space: collapse to handle + », or expand. Bars never wrap: when one runs out of room its
+ * - drag: move the group (at the start, at the end, between two; over the stage it floats). The drop follows the drag
+ *   intent (an aim gate, a 160 ms switch delay before it shows, hysteresis at boundaries) and the figure's preview mode.
+ *   The slot is always the group's own outline at its size in the target's axis: in the room made (Make room), filled
+ *   by the group gliding in (Snap to slot), or drawn over the insertion point while nothing moves (Indicator only). A
+ *   group's home is never a target. The real group follows the pointer, no copy; over a side edge it takes its vertical
+ *   form (and back), its size revealed; it lands from where it was let go.
+ * - double-click, Enter or Space: collapse to grip + », or expand. Bars never wrap: when one runs out of room its
  *   trailing groups collapse. » opens a popover with the group's full horizontal form, its controls working.
  * - right-click, long-press or Shift+F10: its menu (Collapse, Move to ›, Float/Dock, Move this bar's groups to ›,
  *   Reset position, Reset all).
- * - frozen (the lock): no grips, nothing moves; holding Alt brings them back while held.
+ * - frozen (the freeze switch): no grips, nothing moves; holding Alt brings them back while held.
  *
- * On a side edge a group shows its compact form (styles/chrome.css); a group with none (a title, a hint, sliders)
- * collapses to handle + ». A side edge never makes the window taller. The window's ↺ Reset puts every group back,
+ * On a side edge a group shows its icon form (styles/chrome.css); a group with none (a title, a hint, sliders)
+ * collapses to grip + ». A side edge never makes the window taller. The window's ↺ Reset puts every group back,
  * unfreezes, forgets the stored arrangement and resets the demo (setDemo), keeping the visitor's preferences.
  *
  * The module moves the server-rendered group elements between zones (so their controls keep their listeners), and
@@ -126,7 +126,7 @@ export function createChrome(o: ChromeOptions): Chrome {
   const own = <T extends Element>(sel: string): T[] => [...root.querySelectorAll<T>(sel)].filter((e) => e.closest(".win") === root);
   const groups = new Map<string, HTMLElement>();
   own<HTMLElement>(".group[data-g]").forEach((g) => groups.set(g.dataset.g!, g));
-  // A group with no compact form collapses to handle + » on a side edge.
+  // A group with no icon form collapses to grip + » on a side edge.
   groups.forEach((g) => g.classList.toggle("noside", ![...g.querySelector(":scope > .ctl")!.children].every(compact)));
   const mid = own<HTMLElement>(".mid")[0]!;
   const stage = own<HTMLElement>(".stage-host")[0] ?? mid;
@@ -215,12 +215,12 @@ export function createChrome(o: ChromeOptions): Chrome {
     });
   }
   const syncCollapsed = (): void => groups.forEach((g, id) => g.classList.toggle("collapsed", model.collapsed.includes(id) || auto.has(id)));
-  /** Bars never wrap and side edges never grow: when one lacks room, its trailing groups collapse to handle + ». */
+  /** Bars never wrap and side edges never grow: when one lacks room, its trailing groups collapse to grip + ». */
   function collapseOverflow(): void {
     own<HTMLElement>(".bar").forEach((bar) => {
       const v = bar.classList.contains("v");
       const need = (): boolean => {
-        // What the bar's contents need along its axis: the groups and their 12 px gaps, the centre zone (its 12 px
+        // What the bar's contents need along its axis: the groups and their 12 px spacing, the center zone (its 12 px
         // margins and, when empty, its minimum drop size), the window's lights and fixed controls (with their 12 px),
         // within the bar's padding.
         let n = 0;
@@ -452,7 +452,7 @@ export function createChrome(o: ChromeOptions): Chrome {
     changed();
   });
 
-  // ---- Dragging a group by its handle -----------------------------------------------------------------------------
+  // ---- Dragging a group by its grip -----------------------------------------------------------------------------
   const indlabel = document.createElement("div");
   indlabel.className = "chrome-label";
   indlabel.setAttribute("aria-hidden", "true");
@@ -479,14 +479,14 @@ export function createChrome(o: ChromeOptions): Chrome {
     const zones: { r: XR; label?: string }[] = [], slots: { r: XR; label?: string; on?: boolean }[] = [], hosts = new Set<Host>();
     for (const tg of d.targets!) {
       if (tg.float) {
-        zones.push({ r: xr(tg.doc), label: "float · p3" });
+        zones.push({ r: xr(tg.doc), label: "float · priority 3" });
         continue;
       }
       if (tg.area) zones.push({ r: xr(tg.zone), label: `${tg.h}.${tg.z} · p1` });
       else if (!hosts.has(tg.h)) {
         hosts.add(tg.h);
         const b = tg.bar;
-        zones.push({ r: { x: b.left - 12, y: b.top - 12, w: b.width + 24, h: b.height + 24 }, label: `${tg.h} lines · p2` });
+        zones.push({ r: { x: b.left - 12, y: b.top - 12, w: b.width + 24, h: b.height + 24 }, label: `${tg.h} lines · priority 2` });
       }
       if (tg === d.shown) slots.push({ r: outline(d, tg), on: true, label: tg.label });
       else if (!tg.area) slots.push({ r: { x: tg.at.x - 3, y: tg.at.y - 3, w: 6, h: 6 } });
@@ -543,11 +543,11 @@ export function createChrome(o: ChromeOptions): Chrome {
   function outline(d: Drag, tg: Target): R {
     const s = isV(tg.h) ? d.sizeV! : d.sizeH!, b = tg.bar, zr = tg.zone, v = isV(tg.h);
     if (tg.area) {
-      // An empty zone: flush at its start or end, or centred, exactly where the group lands.
+      // An empty zone: flush at its start or end, or centered, exactly where the group lands.
       if (v) return { x: b.left + b.width / 2 - s.w / 2, y: tg.z === "start" ? zr.top : tg.z === "end" ? zr.bottom - s.h : zr.top + zr.height / 2 - s.h / 2, w: s.w, h: s.h };
       return { x: tg.z === "start" ? zr.left : tg.z === "end" ? zr.right - s.w : zr.left + zr.width / 2 - s.w / 2, y: b.top + b.height / 2 - s.h / 2, w: s.w, h: s.h };
     }
-    // Between groups: centred on the insertion point, over the neighbours (nothing moves).
+    // Between groups: centered on the insertion point, over the neighbors (nothing moves).
     return { x: tg.at.x - s.w / 2, y: tg.at.y - s.h / 2, w: s.w, h: s.h };
   }
 
@@ -557,7 +557,7 @@ export function createChrome(o: ChromeOptions): Chrome {
     if (e.button !== 0) return;
     const h = (e.target as HTMLElement).closest<HTMLElement>("[data-handle]");
     if (!h || h.closest(".win") !== root) return;
-    // A second press on the same handle within 350 ms is a double-click: collapse or expand.
+    // A second press on the same grip within 350 ms is a double-click: collapse or expand.
     const now = performance.now();
     if (lastPress && lastPress.id === h.dataset.handle && now - lastPress.t < 350) {
       lastPress = null;
@@ -673,7 +673,7 @@ export function createChrome(o: ChromeOptions): Chrome {
   /**
    * Reorient the held group: over a side edge it takes its vertical form, over a bar or the stage its horizontal one.
    * The frame's size is revealed from the old to the new (the content laid out at its new form and clipped, never
-   * stretched), and the handle comes back under the pointer by settle.
+   * stretched), and the grip comes back under the pointer by settle.
    */
   function reorient(d: Drag, vertical: boolean): void {
     if (!d.ghost || d.vert === vertical) return;
@@ -739,10 +739,10 @@ export function createChrome(o: ChromeOptions): Chrome {
       const r = f.doc;
       if (p.x > r.left && p.x < r.right && p.y > r.top && p.y < r.bottom) best = f;
     }
-    // The group's own place is home, not a target: no outline there, and a release there is a no-op.
+    // The group's home is not a target: no outline there, and a release there is a no-op.
     const hm = d.home;
     if (best && !best.float && hm && best.h === hm.h && best.z === hm.z && best.i === hm.i) best = null;
-    // It appears once aiming has held on one target for 160 ms; flying hides it at once.
+    // It appears once aiming has held on one target for 160 ms; travelling hides it at once.
     if (!aiming) {
       if (best !== d.shown) setShown(d, null, p);
       d.pending = undefined;
@@ -757,7 +757,7 @@ export function createChrome(o: ChromeOptions): Chrome {
   }
   /**
    * Show a target by the preview plan, always as the group's own outline: drawn over the insertion point while nothing
-   * moves (Drop indicator); in the gap the neighbours open (Open gap); or that gap, filled by the group gliding in (Snap
+   * moves (Indicator only); in the room the neighbors make (Make room); or that room, filled by the group gliding in (Snap
    * to slot). Over the stage: the floating frame's outline. A side-edge target reorients the held group.
    */
   function setShown(d: Drag, tg: AnyTarget | null, p: Point): void {

@@ -59,8 +59,8 @@ export const FAQS: Record<string, QA[]> = {
       a: "Feed the pointer to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code> and draw what it says. It shows an indicator only once the pointer has left the item's home, a target is under it, and the pointer aims, meaning it slows down or holds still. Crossing targets at speed shows nothing.",
     },
     {
-      q: "What do hold and hysteresis do in drag intent?",
-      a: "Hysteresis keeps the current target: it holds within a band around its zone, 10 px by default, unless a more precise target is clearly under the pointer. The hold applies to switching: an aiming pointer moves the indicator only once the new target has held 150 ms. The other panels make room after 160 ms on one target.",
+      q: "What do hysteresis and the switch delay do in drag intent?",
+      a: "Hysteresis keeps the current target while the pointer stays within a 10 px margin of its hit area, unless a more precise target is under the pointer. A switch delay applies to changing targets: an aiming pointer moves the indicator only once the new target has held 150 ms. The other panels make room after 160 ms on one target.",
     },
     {
       q: "Does drag intent fix the HTML5 dragenter and dragleave problem?",
@@ -78,25 +78,25 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "Which desk layouts can I build?",
-      a: "Four, as presets in <code>@n-uf/placement/desk</code> on <code>./panels</code>: <code>docks</code>, <code>docksFull</code> with a full-width bottom band, <code>dockTear</code> with panels that can float, and <code>navigator</code> with a tabbed left column. Each is a set of panels options plus a start state. The older <code>./dock</code> entry still ships nine constructions, among them drawers, a scrolling strip and corner palettes.",
+      a: "Four, as presets in <code>@n-uf/placement/desk</code> on <code>./panels</code>: <code>docks</code>, <code>docksFull</code> with a full-width bottom dock, <code>dockTear</code> with panels that can float, and <code>navigator</code> with a tabbed left column. Each is a set of panel options plus a start state. The older <code>./dock</code> entry still ships nine desk layouts, among them drawers, scrolling columns and corner stacks of floating panels.",
     },
     {
       q: "What gives way when a desk runs out of room?",
-      a: "In the presets, the section used longest ago folds to its title bar when a stacked column runs short of height, and the bottom band gets lower, then folds to a bar. When width runs out, the columns narrow, then the oldest folds to its rail. Each layout returns coded notes such as <code>column-folded</code>; your app supplies the wording.",
+      a: "In the presets, the least recently used section collapses to its header when a stacked column runs short of height, and the bottom dock shrinks, then collapses to a header bar. When width runs out, the columns narrow, then the least recently used collapses to its rail. Each layout returns coded notes such as <code>column-folded</code>; your app supplies the wording.",
     },
   ],
   "/toolbar-groups/": [
     {
       q: "What happens to toolbar groups when the toolbar runs out of room?",
-      a: "They fold from the trailing end first. <code>layoutHost</code> from <code>@n-uf/placement/toolbar</code> lists the folded groups in <code>overflow</code>. Give a primary group a higher <code>keep</code> and it keeps its full form longest; groups with equal keeps still fold from the trailing end. Your app draws the folded groups.",
+      a: "They collapse from the trailing end first. <code>layoutHost</code> from <code>@n-uf/placement/toolbar</code> lists the groups that room collapsed in <code>overflow</code>. Give a primary group a higher <code>keep</code> and it keeps its full form longest; groups with equal keeps still collapse from the trailing end. Your app draws the collapsed groups.",
     },
     {
-      q: "How many hosts and zones can a toolbar group go in?",
-      a: "Five hosts, title, top, bottom, left and right, each with three zones: start, centre and end. A group can also float. Insertion points cover before all, between groups, after all and an empty zone. <code>@n-uf/placement/toolbar</code> lays this out, and your app draws the result.",
+      q: "How many toolbar areas and zones can a toolbar group go in?",
+      a: "Five toolbar areas, title, top, bottom, left and right, each with three zones: start, center and end. A group can also float. Insertion points cover before all, between groups, after all and an empty zone. <code>@n-uf/placement/toolbar</code> lays this out, and your app draws the result.",
     },
     {
       q: "How do I make toolbar groups draggable?",
-      a: "Take drop targets from <code>hostTargets</code> and <code>floatTarget</code> in <code>@n-uf/placement/targets</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. <code>hostTargets</code> leaves the group's own place out and returns it as <code>own</code>, for the drag's home, and every host target carries its <code>slot</code>, the rect the group fills once it lands there.",
+      a: "Take drop targets from <code>hostTargets</code> and <code>floatTarget</code> in <code>@n-uf/placement/targets</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. <code>hostTargets</code> leaves the group's home out and returns it as <code>own</code>, for the drag's home, and every target it returns carries its <code>slot</code>, the rect the group fills once it lands there.",
     },
     {
       q: "How do I save and restore a toolbar layout?",
@@ -104,7 +104,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do I step through drop targets with the keyboard?",
-      a: "Order the targets with <code>keyboardStops</code> from <code>@n-uf/placement/targets</code>. It puts a toolbar group's targets in reading order, title, top, left, right, bottom and then start, centre, end, for the arrow keys and a \"Move to\" menu, with the group's own place as <code>home</code>. Your app handles the keys and draws the focus.",
+      a: "Order the targets with <code>keyboardStops</code> from <code>@n-uf/placement/targets</code>. It puts a toolbar group's targets in reading order, title, top, left, right, bottom and then start, center, end, for the arrow keys and a \"Move to\" menu, with the group's home marked as <code>home</code>. Your app handles the keys and draws the focus.",
     },
   ],
 };
