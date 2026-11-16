@@ -9,6 +9,21 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
   (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
+- `./scene`, **targets lie where the user sees things** (hits change; ids, `after` and the API don't).
+  - Every hit is laid in one layout: the committed one, the dragged item in place. Lines, zone extents, ownership and
+    bands come from it. They used to come from the layout with the item lifted, mixed with the one as it is now.
+  - Each target's `after` is still the solved drop, so preview = landing. Where the lift would reflow a neighbour, the
+    preview moves it under a fixed pointer; the hits stay put. Dragging the only panel of a column, the neighbouring
+    column's gaps lie over its cards where they are drawn.
+  - The gaps right beside the item's own place are home (the same move), never the float or another slot. The item's
+    own column, when the lift would delete it, is home as a whole.
+  - A bar's zone reaches over every card seen in it, so a card past its third is never refused by the next zone.
+  - A panel's body no longer splits its column's tiling: the card's band beside the item meets the nearest slot past
+    it. A slot whose whole hit would lie over bodies and another edge's band is not offered (it used to be moved to a
+    far stretch).
+  - Slots that are the same move keep the home one (beside a closed member). An empty dynamic column in the scene no
+    longer stops a drop back at home from counting as home.
+
 - `./scene`, **reserved edge ids:** `column:<side>` and `rail:<side>` name a side's virtual edges (its column lines and
   its rail, as `SceneRefusal.edge` gives them). A real edge with such an id used to change targets. Now `solve`,
   `targets` (and so `refusals`, `stops`) and `readScene` throw a clear error for it. A stored column under such an id is

@@ -13,26 +13,30 @@
  *   the edge (panel columns) a zone's extent is the span the solver gives it: a plain column is one zone, a tray column
  *   its panels' span and its tray's (`EDGE_KINDS`, the only data keyed on the kind of edge). The outer extents reach
  *   `endReach` past the edge's ends.
- * - **Slots.** A zone's insertion lines, from the layout with the item lifted (`gap:<edge>:<zone>:<at>`; on an edge with
- *   no members at all a zone has one, `strip:<edge>:<zone>`). The item's own place is an interval, its own rect along the edge: home.
+ * - **The seen geometry.** Every tile is laid in one layout: the committed one, the item in place, as the user sees it
+ *   (lines, zone extents, ownership, bands). A place counts in the scene with the item lifted (a gap's `at`, a column's
+ *   or rail's `ring`); its `after` is the solved drop. An edge the lift deletes offers nothing: the item's own column
+ *   collapses into home. A zone where items keep their length reaches over the cards seen in it.
+ * - **Slots.** A zone's insertion lines (`gap:<edge>:<zone>:<at>`; on an edge with no members at all a zone has one,
+ *   `strip:<edge>:<zone>`). The item's own place is an interval, its own rect along the edge (its » entry in the menu):
+ *   home. The home slot's line lies at both ends of it, so the gaps right beside it are home's (the same move).
  * - **Tiles.** A zone's extent split halfway between its slots' lines (lines that lie past the extent are spread into
- *   it); the own interval keeps exactly its length, its neighbours meeting it, and a stretch of a zone with no other
- *   slot is home's. Across: the edge's thickness (the larger of now and after the drop), an empty edge's strip depth
- *   (`Edge.strip`, default 24, inward), a compact rail's `RAIL_REACH` further inward.
+ *   it); the own interval keeps exactly its length. Panel bodies don't split the tiling: clipping takes them out, and a
+ *   slot whose tile is all body has no room. Across: the edge's thickness (the larger of seen and after the drop), an
+ *   empty edge's strip depth (`Edge.strip`, default 24, inward), a compact rail's `RAIL_REACH` further inward.
  * - **Filter**, in order: (i) the edge and zone take the kind (`accepts`, `zoneAccepts`), and an empty side column opens
  *   only through its start zone; (ii) the drop fits (C29: no » entry, no new overflow or `too-wide`, every fixed item
  *   keeps its form, place and least length, a title bar's title its natural width with the toolbar in its first form;
  *   the slot covers no chrome or reserved rect). A slot (i) or (ii) removes is a refusal over its own tile, with that
  *   reason (`refusals()`). (iii) Space ownership and clipping (`EDGE_KINDS`): owned > virtual > overreach. A zone's
- *   room loses its panel bodies, its reserved rects and what edges ranked before it own (in `solve`'s laying order); a
- *   zone with no room, or a slot with none in reach, isn't offered. Each tile's owned part is cut clear of the tiles
- *   before it, of what outranks its edge, of every fixed item that doesn't grow and of the chrome; clipping changes a
+ *   room loses its reserved rects and what edges ranked before it own (in `solve`'s laying order); a zone with no room,
+ *   or a slot with none in reach, isn't offered. Each tile's owned part is cut clear of the tiles before it, of what
+ *   outranks its edge, of its panel bodies, of every fixed item that doesn't grow and of the chrome; clipping changes a
  *   slot's shape, never who owns it, so every piece left is the slot's (`hits`, `hit` the largest); then the virtual
  *   edges take what no edge owns; then each overreach takes what is left and joins its owned part where it meets it
- *   whole. Refused places own nothing: they take what the surviving tiles and the other edges' drawn rects leave. One
- *   rule decides where the item's lift leaves things apart (the host draws the layout as it is now until a target
- *   shows): **a stretch is owned by what the user sees there; if the owner has no slot there, it refuses**. Slots that
- *   are the same move are one. (iv) `blocked` rects are `none:<i>`.
+ *   whole. Refused places own nothing: they take what the surviving tiles and the other edges' seen rects leave. A
+ *   stretch is owned by what the user sees there; if the owner has no slot there, it refuses. Slots that are the same
+ *   move are one (home's, where one of them is home). (iv) `blocked` rects are `none:<i>`.
  *
  * Ids: `gap:<edge>:<zone>:<at>` (priority 2), `strip:<edge>:<zone>` (2), `column:<side>:<ring>` (2), `rail:<side>:<ring>`
  * (1), `none:<i>` (1), `float:<id>` (3, free). A slot that would put the item back where it is keeps its id with place
