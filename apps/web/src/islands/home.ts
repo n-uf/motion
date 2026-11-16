@@ -144,7 +144,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     // Placement: at rest, the layout's slots; during a drag, each window's slot as a target zone (priority 2, a slot;
     // the dragged window's own is home), and the one the drop shows.
     xray.draw("hero:place", d ? {
-      zones: wins.map((w) => ({ r: vr(slotRect(w.slot)), label: w === d.w ? "home" : `${WINDOWS[w.i]!.title} · p2` })),
+      zones: wins.map((w) => ({ r: vr(slotRect(w.slot)), label: w === d.w ? "home" : `${WINDOWS[w.i]!.title} · priority 2` })),
       slots: d.shown ? [{ r: vr(slotRect(d.shown.slot)), on: true, label: `swap with ${WINDOWS[d.shown.i]!.title}` }] : [],
     } : { slots: wins.map((w) => ({ r: vr(slotRect(w.slot)), label: `${LAYOUTS[layout]!.name} · slot ${w.slot}` })) });
     // Motion: each window's settle target against what is drawn; the held one's trail and the aim.

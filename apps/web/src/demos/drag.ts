@@ -1,6 +1,6 @@
 /**
- * The drag-intent model's desk: zones drawn for orientation, the drop targets with their hit zone, indicator rect and
- * priority, the dragged panel's home, and the recorded paths. Plain data, shared by the server (which draws the desk)
+ * The drag-intent model's workspace: regions drawn for orientation, the drop targets with their hit area, indicator rect
+ * and priority, the dragged panel's home, and the recorded paths. Plain data, shared by the server (which draws the desk)
  * and the island (which runs the model).
  */
 export interface R { x: number; y: number; w: number; h: number }
@@ -46,15 +46,15 @@ export type Key = [number, number, number];
 export interface Path { name: string; expect: string; note: string; keys: Key[] }
 export const PATHS: Record<string, Path> = {
   fly: {
-    name: "Fly over, then aim",
+    name: "Travel across, then aim",
     expect: "Right dock, between Notes and Inspector",
-    note: "Crosses the desk at speed, then slows over the border between Notes and Inspector. No indicator until it slows.",
+    note: "Crosses the workspace at speed, then slows over the boundary between Notes and Inspector. No indicator until it slows.",
     keys: [[0, 110, 250], [80, 170, 230], [200, 330, 60], [300, 450, 20], [420, 600, 25], [520, 700, 90], [600, 740, 135], [720, 752, 142], [1100, 754, 141], [1400, 755, 141]],
   },
   jitter: {
-    name: "Hold on a border",
+    name: "Hold on a boundary",
     expect: "Right dock, between Notes and Inspector",
-    note: "Waggles up and down on that border for a second. The indicator must not flicker.",
+    note: "Waggles up and down on that boundary for a second. The indicator must not flicker.",
     keys: (() => {
       const k: Key[] = [[0, 110, 250], [500, 740, 150]];
       for (let i = 0; i < 14; i++) k.push([620 + i * 70, 745, i % 2 ? 160 : 168]);

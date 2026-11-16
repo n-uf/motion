@@ -3,7 +3,7 @@
  * slot"; Snap to slot is the default, remembered per visitor):
  *
  * - "indicator": nothing moves while dragging; only the outline or the insertion marker.
- * - "gap": after the room delay the neighbours open the slot; the item stays under the pointer.
+ * - "gap": after the room delay the neighbors open the slot; the item stays under the pointer.
  * - "snap": the gap opens and the item glides into it.
  *
  * `previewPlan` turns a mode into what a demo does, the site's own counterpart of `previewPlan` in `@n-uf/motion/drag`
@@ -16,7 +16,7 @@ const KEY = "motion-drop-mode";
 export interface PreviewPlan {
   /** Draw the outline or insertion marker. */
   readonly outline: boolean;
-  /** The neighbours make room: the slot opens. */
+  /** The neighbors make room: the slot opens. */
   readonly room: boolean;
   /** The dragged item glides into the opened slot. */
   readonly glide: boolean;

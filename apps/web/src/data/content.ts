@@ -17,7 +17,7 @@ export const sections = {
   blog: {
     label: "Blog", path: "/blog/", collection: "blog" as const,
     title: "Window motion blog | n-uf motion",
-    description: "Short articles on window motion with n-uf motion: settle curves, reveal without stretching, held drags and drop targets that wait until you aim.",
+    description: "Short articles on window motion with n-uf motion: settle curves, reveal without stretching, direct drags and drop targets that wait until you aim.",
   },
 };
 

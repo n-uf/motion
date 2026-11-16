@@ -22,20 +22,20 @@ const jsonLd = [
   orgNode,
 ];
 const RULES: [string, string][] = [
-  ["What carries a handle?", "Every group of two or more controls has exactly one: compact dots (one line of 3), at its left edge in a row, on its top edge, centred, in a column. A handle only goes where something can move: the window itself cannot, so its title bar starts with the lights; a toolbar (the host) and a lone control have none."],
-  ["How do you tell which group a handle leads?", "It sits at the start of its group, 3 px from its controls and 12 px from the previous group; pointing at it or focusing it dims every other group. No frames, bands, tints or divider lines."],
-  ["What can the handle do?", "Drag: move the group. Double-click: collapse to handle + » (or expand). Right-click, long-press or Shift+F10: its menu (Collapse, Move to ›, Float/Dock, Move this bar's groups to ›, Reset position). No ⋯, ⋮ or ▾ buttons anywhere."],
-  ["Where can a group go?", "Five hosts × three zones; before all, after all or between. Over the document it floats: the same group, plus a frame and shadow. On a side it takes its compact form: icons and mono numbers, never rotated text."],
-  ["Whole toolbars to a side?", "Move a bar's groups together from any of their menus (\"Move this bar's groups to › Left edge\"); there is no toolbar handle."],
-  ["Running out of room", "Toolbars never wrap: groups collapse to handle + » by keep priority, trailing groups first among equals; clicking » shows the hidden controls."],
-  ["Empty hosts", "Take no space; while dragging they show as drop strips over the edge, so nothing moves."],
-  ["Frozen layout", "The lock switch freezes or unfreezes the layout. Frozen, the grips disappear (nothing can move, so nothing invites a drag). Holding Alt brings them back, working, for as long as it is held."],
-  ["Dropping", "An indicator only once you aim, the nearest insertion point in the host under the pointer, the group's own outline as the slot, held at borders; the drop lands where it shows. Escape puts the group back."],
-  ["Keyboard", "Tab focuses handles; Shift+F10 opens the menu; Enter or Space collapses; arrow keys move the group to the next host; Esc cancels."],
+  ["What carries a grip?", "Every group of two or more controls has exactly one: three dots at the start of its group, to the left of a row and above a column. A grip only goes where something can move: the window itself cannot, so its title bar starts with the window controls; a toolbar area and a lone control have none."],
+  ["How do you tell which group a grip leads?", "It sits at the start of its group, 3 px from its controls and 12 px from the previous group; pointing at it or focusing it dims every other group. No frames, tints or divider lines."],
+  ["What can the grip do?", "Drag: move the group. Double-click: collapse to grip + » (or expand). Right-click, long-press or Shift+F10: its menu (Collapse, Move to ›, Float/Dock, Move this bar's groups to ›, Reset position). No ⋯, ⋮ or ▾ buttons anywhere."],
+  ["Where can a group go?", "Five toolbar areas × three zones; at the start, at the end or between groups. Over the document it floats: the same group, plus a frame and shadow. On a side it takes its icon form: icons and mono numbers, never rotated text."],
+  ["Whole toolbars to a side?", "Move a bar's groups together from any of their menus (\"Move this bar's groups to › Left edge\"); there is no toolbar grip."],
+  ["Running out of room", "Toolbars never wrap: groups collapse to grip + » by keep priority, trailing groups first among equal keep priorities; clicking » opens the group's controls in a menu."],
+  ["Empty toolbar areas", "Take no space; while you drag they appear as drop targets over the edge, so nothing moves."],
+  ["Frozen layout", "The freeze switch freezes or unfreezes the layout. Frozen, the grips disappear (nothing can move, so nothing invites a drag). Holding Alt brings them back, working, for as long as it is held."],
+  ["Dropping", "A drop indicator only once you aim: the nearest insertion point in the toolbar area under the pointer, with the group's own outline as the slot; it stays put on boundaries. The drop lands where it shows. Escape puts the group back."],
+  ["Keyboard", "Tab focuses grips; Shift+F10 opens the menu; Enter or Space collapses; arrow keys move the group to the next toolbar area; Esc cancels."],
 ];
 ---
-<Site title={page.title} description={page.description} path={path} headline="One handle per group, and it is the separator." jsonLd={jsonLd} ogImage="/og/toolbar-groups.png">
-  <p class="lead" slot="lead">This page shows toolbar groups with one drag handle each. Commands come in groups: document, tools, view, zoom, panels, export, share. A group docks into five hosts (the title bar, a top or bottom toolbar, the left or right edge, where it turns vertical), each with a start, centre and end zone; dropped over the document, it floats. Drag a handle to move its group, double-click it to collapse the group to handle + », right-click it or press <kbd>Shift</kbd> <kbd>F10</kbd> for its menu. There are no frames, dividers or ⋯ buttons, and a toolbar is only a host.</p>
+<Site title={page.title} description={page.description} path={path} headline="One grip per group, and it is the separator." jsonLd={jsonLd} ogImage="/og/toolbar-groups.png">
+  <p class="lead" slot="lead">This page shows toolbar groups with one grip each. Commands come in groups: document, tools, view, zoom, panels, export, share. A group docks into five toolbar areas (the title bar, a top or bottom toolbar, the left or right edge, where it turns vertical), each with start, center and end zones; dropped over the document, it floats. Drag a grip to move its group, double-click it to collapse the group to grip + », right-click it or press <kbd>Shift</kbd> <kbd>F10</kbd> for its menu. There are no frames, dividers or ⋯ buttons, and a toolbar is only an area.</p>
 
   <Chrome id="figure" class="tbfig" label="Toolbar groups: a sample window whose groups you can drag, collapse and float" lock
     groups={[{ id: "title", name: "Title" }, { id: "preview", name: "Preview" }, { id: "speed", name: "Speed" }, { id: "status", name: "Status" }, { id: "hint", name: "Hint" }]}
@@ -44,32 +44,32 @@ const RULES: [string, string][] = [
     <Fragment slot="preview"><DropModeSwitch /></Fragment>
     <Fragment slot="speed"><Playback part="speed" /></Fragment>
     <Fragment slot="status"><span class="quiet" id="status" role="status">{CASES[0]!.note}</span><span class="quiet"><kbd>Esc</kbd> puts a dragged group back</span></Fragment>
-    <Fragment slot="hint"><span class="quiet">Point at a handle: the others dim</span><span class="quiet" data-slowmo hidden></span></Fragment>
+    <Fragment slot="hint"><span class="quiet">Point at a grip: the others dim</span><span class="quiet" data-slowmo hidden></span></Fragment>
     <div class="figure-body">
-      <CaseRail id="cases" label="Cases" items={CASES} />
+      <CaseRail id="cases" label="Arrangements" items={CASES} />
       <div class="stage-wrap stage-host">
         <div id="win" class="win" set:html={windowHTML(CASES[0]!.m)} />
         <ul class="notes anchored" aria-hidden="true">
-          <li class="note up ctr" data-on="handle"><span>one handle leads each group</span><i></i></li>
-          <li class="note up ctr" data-on="zone"><span>host · zone · drop target</span><i></i></li>
-          <li class="note up ctr" data-on="ovf"><span>trailing groups fold behind »</span><i></i></li>
+          <li class="note up ctr" data-on="handle"><span>one grip leads each group</span><i></i></li>
+          <li class="note up ctr" data-on="zone"><span>toolbar area · zone · drop target</span><i></i></li>
+          <li class="note up ctr" data-on="ovf"><span>trailing groups collapse behind »</span><i></i></li>
         </ul>
       </div>
     </div>
   </Chrome>
-  <p class="figure-note">Every window on this site is built from the same groups: drag a handle in any figure's bars to rearrange them, and right-click it for <b>Reset position</b>.</p>
-  <ul class="notes-key anchored" aria-hidden="true"><li>one handle leads each group</li><li>host · zone · drop target (dashed, while a group is dragged)</li><li>trailing groups fold behind »</li></ul>
-  <p class="aside lab-link"><a href="/lab/#/placement/toolbar">Drag toolbar groups between hosts and zones in the lab</a>, and watch them collapse as room runs out.</p>
+  <p class="figure-note">Every window on this site is built from the same groups: drag a grip in any figure's bars to rearrange them, and right-click it for <b>Reset position</b>.</p>
+  <ul class="notes-key anchored" aria-hidden="true"><li>one grip leads each group</li><li>toolbar area · zone · drop target (dashed, while a group is dragged)</li><li>trailing groups collapse behind »</li></ul>
+  <p class="aside lab-link"><a href="/lab/#/placement/toolbar">Drag toolbar groups between toolbar areas and zones in the lab</a>, and watch them collapse as room runs out.</p>
 
   <section class="section">
     <div class="section-head">
       <span class="eyebrow">The rules</span>
-      <h2 class="section-title">What the handle does, and where a group can go</h2>
+      <h2 class="section-title">What the grip does, and where a group can go</h2>
     </div>
     <div class="rules two">
       {RULES.map(([q, r]) => <div class="rule"><h3>{q}</h3><p>{r}</p></div>)}
     </div>
-    <p class="aside"><code>@n-uf/placement</code> gives the groups, hosts, zones, overflow and drop targets; <code>@n-uf/motion</code> gives the drag intent and the glides. The handles, menus, the lock with <kbd>Alt</kbd>, Escape and the keys are this demo's own behaviour around them. How the drop finds its target is the <a href="/drag-intent/">drag-intent model</a>; how a group glides into place is the <a href="/window-motion/">settle curve</a>.</p>
+    <p class="aside"><code>@n-uf/placement</code> gives the groups, toolbar areas, zones, overflow and drop targets; <code>@n-uf/motion</code> gives the drag intent and the glides. The grips, menus, the freeze switch with <kbd>Alt</kbd>, Escape and the keys are this demo's own behaviour around them. How the drop finds its target is the <a href="/drag-intent/">drag-intent model</a>; how a group glides into place is the <a href="/window-motion/">settle curve</a>.</p>
   </section>
 
   <Faq path={path} />

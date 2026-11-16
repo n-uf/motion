@@ -32,8 +32,8 @@ const groups: [string, string, string[]][] = [
   ["Accent", "One blue teal, for interaction and focus only, on the site and in the demo windows.", pick(/^accent/)],
   ["Signal", "Orange, for drop targets and indicators only.", pick(/^signal/)],
   ["Results and series", "Good and bad results; chart series (the proposal takes the accent).", [...pick(/^(good|bad)$/), ...pick(/^series/)]],
-  ["Grips", "The drag handle's dots, at rest and hot.", pick(/^grip/)],
-  ["Window chrome", "Demo windows: bars a step lighter than the well, a lifted paper with readable lines, coloured lights.", pick(/^win/)],
+  ["Grips", "The grip's dots, at rest and hot.", pick(/^grip/)],
+  ["Window chrome", "Demo windows: bars a step lighter than the well, a lifted paper with readable lines, colored window controls.", pick(/^win/)],
   ["Diagrams", "The desk and drag stages' fills.", pick(/^d-/)],
 ];
 const resolve = (map: Map<string, string>, v: string): string => {
@@ -52,7 +52,7 @@ const shadows = pick(/^shadow/);
   <p class="lead" slot="lead">Check here before adding UI. Every value below is read from <code>src/styles/tokens.css</code> when the site builds, and every sample is the site's own markup and classes, so this page can't drift from the pages it describes. Calm, precise, editorial-technical: warm paper in light, deep graphite in dark, one accent and one signal.</p>
 
   <section class="section">
-    <div class="section-head"><span class="eyebrow">Palette</span><h2 class="section-title">Colours, light and dark</h2></div>
+    <div class="section-head"><span class="eyebrow">Palette</span><h2 class="section-title">Colors, light and dark</h2></div>
     {groups.map(([name, note, keys]) => (
       <div class="ds-group">
         <h3>{name}</h3>
@@ -74,7 +74,7 @@ const shadows = pick(/^shadow/);
   </section>
 
   <section class="section" data-part="placement">
-    <div class="section-head"><span class="eyebrow">Parts</span><h2 class="section-title">Cyan is motion, violet is placement</h2><p>The pair has two colours with a meaning. A page of a part sets <code>data-part</code> on its <code>main</code>; <code>--part</code> (and <code>--part-strong</code> for text on a tint) then carries that part's colour to everything that takes it: the eyebrow and its rule, the nav underline, the pressed case, the figure caption's tick, the callout and the pager hover. This section is set to placement, so it shows violet.</p></div>
+    <div class="section-head"><span class="eyebrow">Parts</span><h2 class="section-title">Cyan is motion, violet is placement</h2><p>The pair has two colors with a meaning. A page of a part sets <code>data-part</code> on its <code>main</code>; <code>--part</code> (and <code>--part-strong</code> for text on a tint) then carries that part's color to everything that takes it: the eyebrow and its rule, the nav underline, the pressed case, the figure caption's tick, the callout and the pager hover. This section is set to placement, so it shows violet.</p></div>
     <div class="rules two ds-rules">
       <div class="rule"><h3><code>--motion</code> · <code>--place</code></h3><p>Cyan (<code>--accent</code>) for @n-uf/motion, violet (<code>--series-b</code>) for @n-uf/placement. Violet means placement and nothing else: other engines in a chart take the slates <code>--series-d</code> and <code>--series-e</code>.</p></div>
       <div class="rule"><h3>Figure caption</h3><p>A mono caption, with a <code>--part</code> tick, above each figure's first note (<code>.fig-plan</code>): <em>SCOPE · MOTION CARRIES THE PANEL</em> on a Move page, <em>PLAN · PLACEMENT RETURNS RECTS</em> on a Place page. CSS content only.</p></div>
@@ -122,7 +122,7 @@ const shadows = pick(/^shadow/);
   </section>
 
   <section class="section">
-    <div class="section-head"><span class="eyebrow">Page shell</span><h2 class="section-title">The figure's anatomy</h2><p>Every interactive page: eyebrow, h1 and lead in the page head, then one figure, a window (<code>components/Chrome.astro</code>). The window cannot move, so it has no grip: its title bar starts with the coloured lights and ends with the window's fixed controls, the freeze lock where a page has one, <b>X-ray</b> (each package's layer over the window: placement's hit zones, priorities and slots, motion's settle target, trail and aim; off by default) and <b>↺ Reset</b>, which puts every group, the demo and the lock back to their defaults (keeping the visitor's preview mode, speed, tempo and theme) and is disabled while there is nothing to reset. Every control lives in a toolbar group led by a compact dot handle, in the title bar, a top or bottom bar, an edge, or floating, and a visitor can drag, collapse and rearrange them (the arrangement is remembered per figure; right-click a handle for <b>Reset position</b>). On a side edge each group shows its compact form (icons, mono numbers, no captions, text never rotated) or collapses to its handle and <b>»</b>, which opens the group's full form in a popover. Between the bars: a numbered case rail exactly as tall as the stage (it scrolls; under 900 px it becomes a strip) and the stage on the flat well. Long status lines go under the window. Then an h3 per rule under the section's h2, and the pager. This sample is live.</p></div>
+    <div class="section-head"><span class="eyebrow">Page shell</span><h2 class="section-title">The figure's anatomy</h2><p>Every interactive page: eyebrow, h1 and lead in the page head, then one figure, a window (<code>components/Chrome.astro</code>). The window cannot move, so it has no grip: its title bar starts with the colored window controls and ends with the window's fixed controls, the freeze switch where a page has one, <b>X-ray</b> (each package's layer over the window: placement's hit areas, priorities and slots, motion's settle target, trail and aim; off by default) and <b>↺ Reset</b>, which puts every group, the demo and the freeze switch back to their defaults (keeping the visitor's preview mode, speed, tempo and theme) and is disabled while there is nothing to reset. Every control lives in a toolbar group led by a compact dot grip, in the title bar, a top or bottom bar, an edge, or floating, and a visitor can drag, collapse and rearrange them (the arrangement is remembered per figure; right-click a grip for <b>Reset position</b>). On a side edge each group shows its icon form (icons, mono numbers, no captions, text never rotated) or collapses to its grip and <b>»</b>, which opens the group's full form in a popover. Between the bars: a numbered case rail exactly as tall as the stage (it scrolls; under 900 px it becomes a strip) and the stage on the flat well. Long status lines go under the window. Then an h3 per rule under the section's h2, and the pager. This sample is live.</p></div>
     <Chrome id="ds-figure" label="Figure anatomy" class="ds-anatomy" lock
       groups={[{ id: "title", name: "Title" }, { id: "actions", name: "Actions" }, { id: "preview", name: "Preview" }, { id: "speed", name: "Speed" }, { id: "tempo", name: "Tempo" }, { id: "readout", name: "Readout" }, { id: "hint", name: "Hint" }]}
       model={arrangement({ title: { start: ["title"], end: ["actions"] }, top: { start: ["preview"], end: ["speed", "tempo"] }, bottom: { start: ["readout"], end: ["hint"] } })}>
@@ -144,12 +144,12 @@ const shadows = pick(/^shadow/);
   </section>
 
   <section class="section">
-    <div class="section-head"><span class="eyebrow">Demo window</span><h2 class="section-title">The window chrome</h2><p>The window every demo draws: coloured lights (<code>--win-light-1…3</code>), bars on <code>--win-bar</code> over the <code>--win-well</code>, a lifted paper (<code>--win-paper</code>) with lines in <code>--win-paper-line</code>. The active tool is an accent ring, hover a soft accent tint. This is the toolbar page's own markup, at rest.</p></div>
+    <div class="section-head"><span class="eyebrow">Demo window</span><h2 class="section-title">The window chrome</h2><p>The window every demo draws: colored window controls (<code>--win-light-1…3</code>), bars on <code>--win-bar</code> over the <code>--win-well</code>, a lifted paper (<code>--win-paper</code>) with lines in <code>--win-paper-line</code>. The active tool is an accent ring, hover a soft accent tint. This is the toolbar page's own markup, at rest.</p></div>
     <div class="ds-window-wrap"><div id="win" class="win" set:html={windowHTML(CASES[0]!.m)} /></div>
   </section>
 
   <section class="section">
-    <div class="section-head"><span class="eyebrow">Grip</span><h2 class="section-title">The drag handle's states</h2><p>3 px dots with 2 px gaps, one line of 3, only on what can be dragged (a toolbar group); a window that cannot move has none. Muted at rest, darker on hover or focus, accent while dragging. Frozen, grips are hidden; holding Alt brings them back. These are specimens, not handles.</p></div>
+    <div class="section-head"><span class="eyebrow">Grip</span><h2 class="section-title">The grip's states</h2><p>3 px dots with 2 px spacing, one line of 3, only on what can be dragged (a toolbar group); a window that cannot move has none. Muted at rest, darker on hover or focus, accent while dragging. Frozen, grips are hidden; holding Alt brings them back. These are specimens, not working grips.</p></div>
     <div class="ds-grips">
       <div><span class="g c" aria-hidden="true"><i></i><i></i><i></i></span><span class="muted">rest</span></div>
       <div><span class="g c is-hot" aria-hidden="true"><i></i><i></i><i></i></span><span class="muted">hover or focus</span></div>

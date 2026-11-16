@@ -1,6 +1,6 @@
 /**
- * Toolbar groups (island): the sample window's groups dock into five hosts of three zones each, or float; one dotted
- * handle leads each group and carries all its actions. It runs on the same chrome module as every figure's bars
+ * Toolbar groups (island): the sample window's groups dock into five toolbar areas of three zones each, or float; one dotted
+ * grip leads each group and carries all its actions. It runs on the same chrome module as every figure's bars
  * (islands/chrome.ts); the server rendered the default state and the cases, and this binds them.
  */
 import { $, caseRail } from "./rail";
@@ -12,7 +12,7 @@ const figure = $("figure");
 const statusEl = $("status");
 const setStatus = (t: string): void => void (statusEl.textContent = t);
 
-// The figure's own chrome; its lock freezes the sample window too, and its ↺ Reset puts the sample back to case 1.
+// The figure's own chrome; its freeze switch freezes the sample window too, and its ↺ Reset puts the sample back to case 1.
 let activeCase = 0;
 const outer = figureChrome(figure);
 const freezeInput = figure.querySelector<HTMLInputElement>("[data-chrome-freeze]")!;

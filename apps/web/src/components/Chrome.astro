@@ -1,16 +1,16 @@
 ---
 // A figure as a window whose chrome is toolbar groups (islands/chrome.ts). The server renders the default arrangement:
-// the title bar (the lights, then groups, then the window's fixed controls: the freeze lock and ↺ Reset), a top and a
+// the title bar (the window controls, then groups, then the window's fixed controls: the freeze lock and ↺ Reset), a top and a
 // bottom bar, the left and right edges, floating groups, and between them the figure's body (the default slot: the
 // case rail and the stage). Each group's controls come from the slot of the same name; every group gets one compact
-// dot handle. The window itself cannot move, so it has no grip. A visitor's own arrangement replaces the default once
+// dot grip. The window itself cannot move, so it has no grip. A visitor's own arrangement replaces the default once
 // the island starts (and only then: the default never shifts).
 import { chromeGroupHTML, floatStyle, ZONES, type Host, type Model } from "../demos/toolbar";
 
 interface Props {
   id: string;
   label: string;
-  /** The groups, by slot name, with their names (for handles and the menu). */
+  /** The groups, by slot name, with their names (for grips and the menu). */
   groups: { id: string; name: string }[];
   /** The default arrangement. */
   model: Model;

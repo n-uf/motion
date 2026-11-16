@@ -164,7 +164,7 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
     const grab = { x: p.x - d.x, y: p.y - d.y };
     const held = holdItem(w.item, grab);
     // A panel is dragged by the drag intent: its slot is the target, a ring around it the zone you aim in.
-    const targets: DragTarget[] = w.kind === "p" ? [{ id: "dock", priority: 1, hit: grow(w.home, RING), slot: w.home, label: "Docks here" }] : [];
+    const targets: DragTarget[] = w.kind === "p" ? [{ id: "dock", priority: 1, hit: grow(w.home, RING), slot: w.home, label: "Dock here" }] : [];
     const intent = w.kind === "p" ? createDragIntent<DragTarget>({ home: w.home }) : null;
     session = { w, held, grab, auto, intent, targets, ptr: p };
     homing.delete(w);
@@ -187,7 +187,7 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
     s.held.move(p);
     at(ptrEl, p.x, p.y);
     if (!s.intent) {
-      caption("held under the pointer", s.w, p);
+      caption("follows the pointer", s.w, p);
       return;
     }
     const frame = s.intent.update(p, now, s.targets);
@@ -215,7 +215,7 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
     ptrEl.classList.remove("on");
     homing.add(s.w);
     session = null;
-    caption(s.w.kind === "p" ? (docked ? "docked" : "back in its slot") : "settles, never past it", s.w, p);
+    caption(s.w.kind === "p" ? (docked ? "docked" : "back in its place") : "settles, never past it", s.w, p);
     fadeCaption(1400);
     motion.wake();
   }

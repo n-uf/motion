@@ -1,7 +1,7 @@
 ---
 // Every page's frame: the sticky top bar (the wordmark, the four pages in the pair's two parts, the theme switch), and
 // on inner pages the visible breadcrumb, the page head with its one <h1> and its "Built with" line, and links to the
-// neighbouring pages; the footer closes it. The home page brings its own h1 (no `headline`).
+// neighboring pages; the footer closes it. The home page brings its own h1 (no `headline`).
 import Base from "./Base.astro";
 import BuiltWith from "../components/BuiltWith.astro";
 import ExtLink from "../components/ExtLink.astro";
@@ -13,7 +13,7 @@ import { repoUrl, npmUrl, npmPlacementUrl } from "../data/site";
 interface Props {
   title: string;
   description: string;
-  /** this page's path, for the current nav item, the breadcrumb and the neighbours */
+  /** this page's path, for the current nav item, the breadcrumb and the neighbors */
   path: string;
   /** the page's h1, in the page head (omit on the home page, which has its own) */
   headline?: string;
@@ -24,7 +24,7 @@ interface Props {
   crumbs?: { name: string; path: string }[];
   /** the small label above the h1 of such a page */
   eyebrow?: string;
-  /** the package a page that isn't one of the four belongs to (a docs page): its colour and the nav's Docs underline */
+  /** the package a page that isn't one of the four belongs to (a docs page): its color and the nav's Docs underline */
   partId?: PartId;
 }
 const { title, description, path, headline, jsonLd, ogImage, noindex, crumbs, eyebrow, partId } = Astro.props;
@@ -134,7 +134,7 @@ const themes = [
       function sync(t) { document.querySelectorAll("[data-theme-pick]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.themePick === t)); }); }
       var cur = "system"; try { var s = localStorage.getItem(KEY); if (s === "light" || s === "dark") cur = s; } catch (e) {}
       sync(cur);
-      // An explicit pick also colours the browser's own bar; "system" gives the two media-matched colours back.
+      // An explicit pick also colors the browser's own bar; "system" gives the two media-matched colors back.
       function chrome(t) {
         document.querySelectorAll("meta[name=theme-color]").forEach(function (m, i) {
           if (t === "light" || t === "dark") { m.content = t === "dark" ? "#111214" : "#f7f6f3"; m.removeAttribute("media"); }

@@ -39,11 +39,11 @@ export const webSite = {
 const SOFTWARE: Record<PartId, { name: string; description: string }> = {
   motion: {
     name: "@n-uf/motion",
-    description: "How things move: a TypeScript library for windows, panels and toolbars with one frame loop on an injected clock, a settle that never overshoots, reveal without stretching, held drags and drag intent. No DOM in the core, no framework.",
+    description: "How things move: a TypeScript library for windows, panels and toolbars with one frame loop on an injected clock, a settle that never overshoots, reveal without stretching, direct drags and drag intent. No DOM in the core, no framework.",
   },
   placement: {
     name: "@n-uf/placement",
-    description: "Where things go: a TypeScript library that works out where windows, panels and toolbar groups go. Desks of docks, rails and palettes, panel columns and bands, desk presets, toolbar hosts and zones, and the drop targets for each, as plain state in and rects out.",
+    description: "Where things go: a TypeScript library that works out where windows, panels and toolbar groups go. Workspaces of docks, rails and floating panels, panel columns and top and bottom docks, desk presets, toolbar areas and zones, and the drop targets for each, as plain state in and rects out.",
   },
 };
 

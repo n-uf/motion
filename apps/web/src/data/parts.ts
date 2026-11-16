@@ -24,7 +24,7 @@ export const PARTS: Part[] = [
     title: "How things move",
     short: "Move",
     pkg: "@n-uf/motion",
-    idea: "One frame loop, a settle that never overshoots, sizes revealed instead of stretched, held drags, and a drag intent that shows a drop only once you aim.",
+    idea: "One frame loop, a settle that never overshoots, sizes revealed instead of stretched, direct drags, and a drag intent that shows a drop only once you aim.",
     does: "For desktop-style web apps with windows, panels, docks and toolbars: every change of layout moves the way a good tiling window manager does, and a drag reads what you mean. You give it rects and pointer samples; it moves the real elements.",
     readme: `${repoUrl}/blob/main/packages/motion/README.md`,
     pages: ["/window-motion/", "/drag-intent/"],
@@ -34,7 +34,7 @@ export const PARTS: Part[] = [
     title: "Where things go",
     short: "Place",
     pkg: "@n-uf/placement",
-    idea: "Pure state in, rects and drop targets out: desks of docks, rails and palettes, panel columns and bands, desk presets, toolbar groups in hosts and zones, and the targets for each.",
+    idea: "Pure state in, rects and drop targets out: workspaces of docks, rails and floating panels, panel columns and top and bottom docks, desk presets, toolbar groups in toolbar areas and zones, and the targets for each.",
     does: "For the same apps: it works out where windows, panels and toolbar groups go, as the space changes and while something is dragged. You give it state and a size; it gives back rects, notes on what gave way, and drop targets.",
     readme: `${repoUrl}/blob/main/packages/placement/README.md`,
     pages: ["/desk-layouts/", "/toolbar-groups/"],
@@ -50,15 +50,15 @@ export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; 
   "/window-motion/": [{ part: "motion", kind: "uses", what: "createSettle, SETTLE_TEMPO, reveal, createFrameLoop" }],
   "/drag-intent/": [
     { part: "motion", kind: "uses", what: "createSettle, createFrameLoop" },
-    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and the three previews" },
+    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and the three drop preview modes" },
   ],
   "/desk-layouts/": [
     { part: "motion", kind: "uses", what: "createSettle (every box glides)" },
-    { part: "placement", kind: "uses", what: "PRESETS and presetLayout from ./desk, on ./panels (A, A2, C and F3; the other five are the page's sketches)" },
+    { part: "placement", kind: "uses", what: "PRESETS and presetLayout from ./desk, on ./panels (the four presets; the page's other five layouts are demos drawn by the page itself)" },
   ],
   "/toolbar-groups/": [
     { part: "motion", kind: "uses", what: "createSettle" },
-    { part: "placement", kind: "shows", entry: "/toolbar + /targets", what: "hosts, zones, overflow and drop targets" },
-    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and the three previews" },
+    { part: "placement", kind: "shows", entry: "/toolbar + /targets", what: "toolbar areas, zones, overflow and drop targets" },
+    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and the three drop preview modes" },
   ],
 };
