@@ -236,9 +236,10 @@ export const DEFAULT_RAIL_MAGNET = 6;
  * width, even while the rail is empty: its targets are `rail:<side>:<ring>` with `arm: "dwell"` (spring-loading: the
  * drag intent arms them on a dwell), `armedHit` (the strip grown by `magnet`) and `strip` (the rect to draw). The strip
  * owns its rect: a drop there is the rail's once armed, the float's before. The side's rail is `Scene.rails[side]`
- * where the scene declares one, else the side's outermost column that takes the kind in its start zone, drawn as a
- * rail (nothing in it sets its width): a drop there docks the item in it folded, and is offered only where it then
- * shows in a rail.
+ * where the scene declares one, else the side's outermost column that takes the kind in its start zone ("the column
+ * drawn as a rail"): a drop there docks the item in it as a collapsed header, a rail tile once nothing in it sets its
+ * width. The strip means "collapse it at this side": the drop is `moveTo` that side's rail, and lands wherever the
+ * scene shows a collapsed panel there (a rail tile, a rider bar under `handFold: "ride"`, a header); the slot is that.
  */
 export interface RailDropPolicy {
   /**
