@@ -18,6 +18,7 @@
  */
 
 import type { ClockPort } from "../clock/port";
+import { DOUBLE_CLICK } from "../double-click";
 import type { Point } from "../shapes";
 import { isHeld, platformButton, toModifiers } from "./modifiers";
 import type {
@@ -50,7 +51,7 @@ export interface RecognizerOptions {
   /** Click vs drag: a press becomes a drag after travelling more than this many screen px */
   thresholds?: Partial<Record<PointerKind, number>>;
   longPress?: { ms?: number; kinds?: readonly PointerKind[] };
-  /** Two clicks within ms and px of each other count as a double click */
+  /** Two clicks within ms and px of each other count as a double click (default `DOUBLE_CLICK`: 500 ms, 5 px) */
   multiClick?: { ms?: number; px?: number };
   pinch?: { scaleThreshold?: number; panThreshold?: number };
   wheel?: Partial<WheelOptions>;
@@ -61,7 +62,8 @@ export interface RecognizerOptions {
 export const RECOGNIZER_DEFAULTS = Object.freeze({
   thresholds: Object.freeze({ mouse: 4, pen: 6, touch: 8 }) as Readonly<Record<PointerKind, number>>,
   longPress: Object.freeze({ ms: 500, kinds: Object.freeze(["touch", "pen"]) as readonly PointerKind[] }),
-  multiClick: Object.freeze({ ms: 300, px: 5 }),
+  // The package's one double click (`DOUBLE_CLICK`, shared with a grip's double-activate).
+  multiClick: DOUBLE_CLICK,
   pinch: Object.freeze({ scaleThreshold: 0.05, panThreshold: 10 }),
 });
 

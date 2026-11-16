@@ -13,5 +13,6 @@ export * from "./src/clock";
 export * from "./src/signals";
 export * from "./src/values";
 export * from "./src/gestures";
+export { DOUBLE_CLICK, type DoubleClick } from "./src/double-click";
 export type { Animatable, Point, Rect, Vector, Widen } from "./src/shapes";
 export { shapeEquals } from "./src/shapes";
