@@ -14,12 +14,13 @@
  * - the store is `storeScene` / `readScene` (./store).
  */
 import { clamp, contains, type Point, type Rect } from "@n-uf/placement";
-import { DRAG_DEFAULTS, createDragIntent, previewPlan, type DragIntent } from "@n-uf/motion/drag";
+import { createDragIntent, createGripPress, previewPlan, type DragIntent } from "@n-uf/motion/drag";
 import { anchoredMorph, type AnchoredMorph } from "@n-uf/motion/layout";
 import {
   close as closeItem,
   fitResize,
   floatOrientOf,
+  fold,
   open as openItem,
   refusals as sceneRefusals,
   resize,
@@ -166,6 +167,8 @@ export function createScene(o: SceneOptions) {
   /** Removes the window listeners of the press that began the drag: every end of a drag (a drop, Escape, a reset) calls it. */
   let endInput: (() => void) | null = null;
   let lastDrop: LastDrop | null = null;
+  /** Every grip's press, one at a time: it remembers the last click, so a second one soon after is a double. */
+  const gripPress = createGripPress();
   /** Checks drive the drag themselves: no animation frames then. */
   let driven = false;
   let pageKey = "";
@@ -380,6 +383,17 @@ export function createScene(o: SceneOptions) {
   const edgeHolding = (id: ItemId): EdgeId | null => (scene.edges.find((e) => e.items.includes(id))?.id as EdgeId | undefined) ?? null;
 
   // --- actions -----------------------------------------------------------------------------------------------------
+
+  /** A grip's double-click: folded by hand, or unfolded (`fold`); only its own edge reflows. */
+  function toggleFold(id: ItemId): void {
+    const it = scene.items[id];
+    if (!it) return;
+    const on = !((it.from ?? 0) >= 1);
+    const next = fold(scene, id, on);
+    if (next === scene) return;
+    commit(next);
+    say(`${TITLES[id]} ${on ? "folded" : "unfolded"}. Double-click its grip again to ${on ? "unfold" : "fold"} it.`);
+  }
 
   /** A press on a header: the item counts as just used. With the layout before, nothing moves. */
   function press(id: ItemId): void {
@@ -723,12 +737,17 @@ export function createScene(o: SceneOptions) {
     e.preventDefault();
     const start = winPoint(e);
     let lifted = false;
+    // The grip's press (`createGripPress`): past the lift distance a drag; else a click, or the second of a double.
+    gripPress.down(start, performance.now());
     const mv = (ev: PointerEvent): void => {
       const p = winPoint(ev);
       if (!lifted) {
-        if (Math.hypot(p.x - start.x, p.y - start.y) < DRAG_DEFAULTS.lift) return;
+        if (gripPress.move(p, performance.now()) !== "lift") return;
         lifted = begin(id, start, p);
-        if (!lifted) return stop();
+        if (!lifted) {
+          gripPress.cancel();
+          return stop();
+        }
       }
       move(p);
     };
@@ -742,11 +761,17 @@ export function createScene(o: SceneOptions) {
     endInput = stop;
     const up = (ev: PointerEvent): void => {
       stop();
+      if (ev.type !== "pointerup") gripPress.cancel();
+      const ended = ev.type === "pointerup" ? gripPress.up(winPoint(ev), performance.now()) : null;
       if (lifted && drag) {
         move(winPoint(ev));
         swallowClick();
         release(performance.now(), ev.type === "pointercancel");
-      } else if (!lifted && ev.type === "pointerup") {
+      } else if (ended === "doubleActivate") {
+        // A double-click on a grip folds it, or unfolds it; frozen without Alt it does nothing (it isn't a click either).
+        swallowClick();
+        if (!frozen()) toggleFold(id);
+      } else if (ended === "click") {
         // A press that never lifted is a click: a rail icon opens its panel, a header press is a use.
         if (t.closest("[data-open]")) open(id);
         else if (t.closest(".dw-head")) press(id);
@@ -1074,6 +1099,8 @@ export function createScene(o: SceneOptions) {
     /** Replace the scene (a preset): solved afresh. */
     setScene(next: Scene): void {
       if (drag) release(performance.now(), true);
+      // A click before the scene was replaced doesn't pair with one after it.
+      gripPress.cancel();
       commit(next, { fresh: true });
     },
     reset(size?: { width: number; height: number }): void {

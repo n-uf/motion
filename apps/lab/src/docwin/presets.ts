@@ -184,6 +184,53 @@ function mouseResize(c: DocwinScene, id: ItemId, h: string, dx: number, dy: numb
   return true;
 }
 
+/**
+ * A mouse double-click on the item's grip, through the page's own listeners: two pointerdown/pointerup pairs at the
+ * grip's centre (the grip found again for the second, as the first click may redraw it). Whether a drag ever started.
+ */
+function mouseDouble(c: DocwinScene, id: ItemId): { pressed: boolean; dragged: boolean } {
+  let dragged = false;
+  for (let k = 0; k < 2; k++) {
+    const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
+    if (!el) return { pressed: false, dragged };
+    const g = el.getBoundingClientRect();
+    const at = { x: g.left + Math.min(6, g.width / 2), y: g.top + g.height / 2 };
+    const ev = (type: string): PointerEvent => new PointerEvent(type, { clientX: at.x, clientY: at.y, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerType: "mouse", isPrimary: true, bubbles: true, cancelable: true });
+    el.dispatchEvent(ev("pointerdown"));
+    window.dispatchEvent(ev("pointermove"));
+    dragged ||= c.dragging;
+    window.dispatchEvent(ev("pointerup"));
+    dragged ||= c.dragging;
+  }
+  return { pressed: true, dragged };
+}
+/** Every item's rect outside edge `edge`, as one string. */
+const outsideOf = (c: DocwinScene, edge: string): string =>
+  Object.entries(c.layout.items)
+    .filter(([, p]) => p.edge !== edge)
+    .map(([x, p]) => `${x}:${say(p.rect)}`)
+    .sort()
+    .join(" ");
+const allOf = (c: DocwinScene): string => outsideOf(c, "\u0000");
+
+/** A double-click on the grip of `id` (in `edge`) folds it, another unfolds it; nothing drags, nothing outside its edge moves. */
+function doubleFold(c: DocwinScene, id: ItemId, edge: EdgeId, folded: (p: { form: number; formKind: string }) => boolean): string[] {
+  const bad: string[] = [];
+  const start = allOf(c);
+  const outside = outsideOf(c, edge);
+  const drop = c.lastDrop;
+  const a = mouseDouble(c, id);
+  const p1 = c.layout.items[id]!;
+  if (!a.pressed || a.dragged || !folded(p1) || c.scene.items[id]!.from !== 1) bad.push(`first double-click: ${a.dragged ? "a drag started, " : ""}${p1.formKind} (form ${p1.form})`);
+  if (outsideOf(c, edge) !== outside) bad.push("something outside its edge moved");
+  const b = mouseDouble(c, id);
+  const p2 = c.layout.items[id]!;
+  if (!b.pressed || b.dragged || folded(p2) || c.scene.items[id]!.from !== undefined) bad.push(`second double-click: ${b.dragged ? "a drag started, " : ""}${p2.formKind} (form ${p2.form})`);
+  if (allOf(c) !== start) bad.push("the window isn't back as it was");
+  if (c.lastDrop !== drop) bad.push("a drop happened");
+  return bad;
+}
+
 /** Findings floating over the pages: the float the resize presets work on. */
 const RESIZE_AT: Rect = { x: 440, y: 160, width: 280, height: 320 };
 const resizeScene = (): Scene => sceneWith((s) => floating(s, "findings", RESIZE_AT));
@@ -1737,6 +1784,53 @@ export const PRESETS: readonly Preset[] = [
       if (!c.layout.items.tools?.floating) bad.push("Tools isn't floating");
       if (none.length) bad.push(`handles on ${none.join(", ")}`);
       return { pass: bad.length === 0, now: `Frozen: handles ${v0}, ${say(r1)}. With Alt: handles ${v1}, ${say(r2)}.${bad.length ? ` Broken: ${bad.join("; ")}.` : " No handles on Tools or a docked panel."}` };
+    },
+  },
+  {
+    id: "grip-double-panel",
+    title: "A double-click on a panel's grip folds it, another unfolds it",
+    expected:
+      "Notes beside Pages in the left column: a mouse double-click on its header folds it to its header; another opens it again, the window as it was. No drag starts, no drop happens, and nothing outside the column moves.",
+    setup: (c) => c.setScene(defaultScene()),
+    check(c) {
+      const bad = doubleFold(c, "notes", "left", (p) => p.formKind === "header");
+      return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "Folded to its header, then open again; no drag, nothing else moved." };
+    },
+  },
+  {
+    id: "grip-double-group",
+    title: "A double-click on a toolbar's grip folds it, another unfolds it",
+    expected:
+      "Views in the bottom bar: a mouse double-click on its grip folds it (its second form); another brings its first form back, the window as it was. No drag starts, no drop happens, and nothing outside the bar moves.",
+    setup: (c) => c.setScene(defaultScene()),
+    check(c) {
+      const bad = doubleFold(c, "views", "bottom", (p) => p.form >= 1);
+      return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "Folded to its second form, then its first again; no drag, nothing else moved." };
+    },
+  },
+  {
+    id: "grip-double-frozen",
+    title: "Frozen: a grip's double-click does nothing; with Alt it folds",
+    expected: "Frozen, a mouse double-click on Notes' header and on Views' grip changes nothing. Holding Alt, each folds and unfolds as it does unfrozen.",
+    setup: (c) => {
+      c.setScene(defaultScene());
+      c.setFrozen(true);
+    },
+    check(c) {
+      const bad: string[] = [];
+      c.setFrozen(true);
+      const before = allOf(c);
+      for (const id of ["notes", "views"] as const) {
+        const r = mouseDouble(c, id);
+        if (!r.pressed || r.dragged || c.scene.items[id]!.from !== undefined) bad.push(`frozen: ${id} ${r.dragged ? "dragged" : `from ${c.scene.items[id]!.from}`}`);
+      }
+      if (allOf(c) !== before) bad.push("frozen: something moved");
+      c.altOn(true);
+      bad.push(...doubleFold(c, "notes", "left", (p) => p.formKind === "header").map((x) => `with Alt, Notes: ${x}`));
+      bad.push(...doubleFold(c, "views", "bottom", (p) => p.form >= 1).map((x) => `with Alt, Views: ${x}`));
+      c.altOn(false);
+      c.setFrozen(false);
+      return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "Frozen: nothing. With Alt: both fold and unfold." };
     },
   },
 ];
