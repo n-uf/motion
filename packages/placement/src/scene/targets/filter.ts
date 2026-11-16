@@ -4,7 +4,7 @@
  */
 import { overlaps } from "../../geometry";
 import { formMain } from "../../stack";
-import { lift } from "../changes";
+import { lift, prune } from "../changes";
 import { axisOf, formsOf, zoneOf } from "../helpers";
 import { ZONES, type Scene, type SceneItem, type SceneLayout, type SolveOptions } from "../model";
 import { layKeys, solve } from "../solve";
@@ -62,7 +62,8 @@ export function context(scene: Scene, dragged: string, options: SceneTargetOptio
   const now = solve(scene, prev);
   const rest = lift(scene, dragged);
   const base = solve(rest, prev);
-  const here = placeKey(scene, dragged);
+  // Every drop prunes the dynamic columns left empty: the place the item is in now counts without them too.
+  const here = placeKey(prune(scene), dragged);
   const c: Ctx = {
     scene,
     rest,

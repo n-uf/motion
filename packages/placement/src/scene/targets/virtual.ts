@@ -11,31 +11,43 @@ import { EDGE_KINDS } from "./kinds";
 import type { Ctx, EdgeSpec, SceneAfter, Span } from "./model";
 
 /**
+ * A side's rings as a place counts them, with the item lifted, for lines that lie in the seen geometry: `before(e)`,
+ * just outside the seen edge `e`; `after(e)`, just inside it. The item's own column, which the lift deletes, counts
+ * no ring: both lines about it are one place (home's).
+ */
+function ringsOf(c: Ctx, side: "left" | "right"): { before: (e: Edge) => number; after: (e: Edge) => number; count: number } {
+  const seen = sideRings(c.scene.edges, side);
+  const kept = c.rest.edges.filter((e) => e.side === side).map((e) => seen.get(e.id) ?? e.ring);
+  const at = (e: Edge): number => seen.get(e.id) ?? e.ring;
+  return { before: (e) => kept.filter((r) => r < at(e)).length, after: (e) => kept.filter((r) => r <= at(e)).length, count: kept.length };
+}
+
+/**
  * The side's column lines as an edge (virtual, along x): a slot on each line for a new column there, tiled as every
- * edge is (its kind's `reach` each way at most), down the columns' stretch.
+ * edge is (its kind's `reach` each way at most), down the columns' stretch. The lines lie where the user sees the
+ * columns; each counts its ring with the item lifted.
  */
 export function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec[] {
-  const { rest, base, dragged } = c;
-  const cols = rest.edges
+  const { scene, now, dragged } = c;
+  const cols = scene.edges
     .filter((e) => e.side === side && e.column === true)
-    .map((edge) => ({ edge, l: base.edges[edge.id] }))
+    .map((edge) => ({ edge, l: now.edges[edge.id] }))
     .filter((x) => x.l && !x.l.folded && !x.l.rides && x.l.cross > 0)
     .sort((a, b) => a.edge.ring - b.edge.ring)
     .map((x) => ({ edge: x.edge, r: x.l!.rect }));
-  const own = Object.values(base.edges).filter((e) => e.side === side && e.rect.height > 0);
-  const span = own[0]?.rect ?? base.content;
+  const own = Object.values(now.edges).filter((e) => e.side === side && e.rect.height > 0);
+  const span = own[0]?.rect ?? now.content;
   // Rings as the side's edges lie (no ties): a static edge outer to the columns keeps its place.
-  const rings = sideRings(rest.edges, side);
-  const ringOf = (e: Edge): number => rings.get(e.id) ?? e.ring;
+  const rings = ringsOf(c, side);
   // Each line with the place a new column there would take in `solve`'s laying order: just before the column it lies
   // outside of (which it would push), just after the innermost (or every edge of the side, with no column).
   const lines: { x: number; ring: number; at: number }[] = [];
   const outerX = (r: Rect): number => (side === "left" ? r.x : r.x + r.width);
   const innerX = (r: Rect): number => (side === "left" ? r.x + r.width : r.x);
   const atOf = (e: Edge): number => c.lay.get(e.id)?.at ?? 0;
-  cols.forEach((x) => lines.push({ x: outerX(x.r), ring: ringOf(x.edge), at: atOf(x.edge) - 0.5 }));
-  if (cols.length > 0) lines.push({ x: innerX(cols[cols.length - 1]!.r), ring: ringOf(cols[cols.length - 1]!.edge) + 1, at: atOf(cols[cols.length - 1]!.edge) + 0.5 });
-  else lines.push({ x: side === "left" ? base.content.x : base.content.x + base.content.width, ring: rings.size, at: Math.max(-1, ...rest.edges.filter((e) => e.side === side).map(atOf)) + 0.5 });
+  cols.forEach((x) => lines.push({ x: outerX(x.r), ring: rings.before(x.edge), at: atOf(x.edge) - 0.5 }));
+  if (cols.length > 0) lines.push({ x: innerX(cols[cols.length - 1]!.r), ring: rings.after(cols[cols.length - 1]!.edge), at: atOf(cols[cols.length - 1]!.edge) + 0.5 });
+  else lines.push({ x: side === "left" ? now.content.x : now.content.x + now.content.width, ring: rings.count, at: Math.max(-1, ...scene.edges.filter((e) => e.side === side).map(atOf)) + 0.5 });
   // A new column lands where it shows open.
   const lands = (r: SceneAfter): boolean => {
     const me = r.layout.items[dragged]!;
@@ -51,8 +63,8 @@ export function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec[] {
   const stage = c.scene.stage;
   const dir = side === "left" ? 1 : -1;
   const outside = (x: number): boolean =>
-    Object.values(base.edges).some((e) => e.side === side && e.rect.width > 0 && e.rect.height > 0 && (side === "left" ? e.rect.x + e.rect.width <= x + EPS : e.rect.x >= x - EPS));
-  const railFirst = !!c.scene.rails?.[side]?.accepts.includes(c.kind) && !!base.railPlaces[side] && !(base.rails[side]?.segments.length ?? 0);
+    Object.values(now.edges).some((e) => e.side === side && e.rect.width > 0 && e.rect.height > 0 && (side === "left" ? e.rect.x + e.rect.width <= x + EPS : e.rect.x >= x - EPS));
+  const railFirst = !!c.scene.rails?.[side]?.accepts.includes(c.kind) && !!now.railPlaces[side] && !(now.rails[side]?.segments.length ?? 0);
   const placeOf = (l: { x: number }, i: number): { line: number; zone: Span; owned: Span } => {
     const atEdge = side === "left" ? l.x <= stage.x + EPS : l.x >= stage.x + stage.width - EPS;
     if (i > 0 || outside(l.x) || !(atEdge || railFirst)) return { line: l.x, zone: [l.x - reach, l.x + reach], owned: [l.x - place / 2, l.x + place / 2] };
@@ -91,16 +103,26 @@ export function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec[] {
 
 /**
  * The side's rail as an edge (virtual, along y): a slot before each folded column's segments and after the last, or,
- * with no rail shown, one slot `RAIL_EDGE` px deep where the rail lands (`railPlaces`); tiled as every edge is.
+ * with no rail shown, one slot `RAIL_EDGE` px deep where the rail lands (`railPlaces`); tiled as every edge is. The
+ * stops lie where the user sees the rail; each counts its ring with the item lifted.
  */
 export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
-  const { rest, base, now, dragged } = c;
-  const rail = base.rails[side];
-  const placeRect = base.railPlaces[side];
+  const { scene, now, dragged } = c;
+  const rail = now.rails[side];
+  const placeRect = now.railPlaces[side];
   if (!placeRect) return null;
-  const rings = sideRings(rest.edges, side);
-  const mine = rest.edges.filter((e) => e.side === side).sort((a, b) => (rings.get(a.id) ?? 0) - (rings.get(b.id) ?? 0));
-  const ringOf = (id: string): number => rings.get(id) ?? 0;
+  const rings = ringsOf(c, side);
+  const seenRings = sideRings(scene.edges, side);
+  const mine = scene.edges.filter((e) => e.side === side).sort((a, b) => (seenRings.get(a.id) ?? 0) - (seenRings.get(b.id) ?? 0));
+  const edgeOf = (id: string): Edge | undefined => mine.find((e) => e.id === id);
+  const ringBefore = (id: string): number => {
+    const e = edgeOf(id);
+    return e ? rings.before(e) : 0;
+  };
+  const ringAfter = (id: string): number => {
+    const e = edgeOf(id);
+    return e ? rings.after(e) : 1;
+  };
   const stops: { y: number; ring: number }[] = [];
   let zone: Rect;
   if (rail && rail.segments.length > 0) {
@@ -111,13 +133,13 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
       if (g && g.edge === s.edge) g.y1 = s.rect.y + s.rect.height;
       else groups.push({ edge: s.edge, y0: s.rect.y, y1: s.rect.y + s.rect.height });
     }
-    for (const g of groups) stops.push({ y: g.y0, ring: ringOf(g.edge) });
+    for (const g of groups) stops.push({ y: g.y0, ring: ringBefore(g.edge) });
     const last = groups[groups.length - 1]!;
-    stops.push({ y: last.y1, ring: ringOf(last.edge) + 1 });
+    stops.push({ y: last.y1, ring: ringAfter(last.edge) });
   } else {
     const firstCol = mine.find((e) => e.column === true);
     zone = rect(side === "left" ? placeRect.x : placeRect.x + placeRect.width - RAIL_EDGE, placeRect.y, RAIL_EDGE, placeRect.height);
-    stops.push({ y: placeRect.y, ring: firstCol ? ringOf(firstCol.id) : mine.length });
+    stops.push({ y: placeRect.y, ring: firstCol ? rings.before(firstCol) : rings.count });
   }
   // Folded into this rail; every stop is home while the item is folded here already.
   const ownRail = now.items[dragged]?.rail === side;

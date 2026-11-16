@@ -1,7 +1,7 @@
 /** Property sweeps over random scenes: several edges, rings, spans and modes, fixed items, zones, floats and kinds. */
 import { targetAt } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
-import { lift, solve, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
+import { solve, targets, use, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
 import { bar, byId, column, controls, group, panel, readout, seeded, title } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
@@ -84,11 +84,12 @@ const drawn = (l: SceneLayout) => ({
 describe("scene sweeps", () => {
   it("no target is a sub-pixel place: every piece of its zone is at least 1 px each way", () => {
     // Seed 195, the group dragged out of its bar: an empty bottom bar's zones are split where its thirds fall, and the
-    // column's last gap used to keep the 0.45 px between two of them; it is no room, and the gap lies where it has some.
+    // column's last gap used to keep the 0.45 px between two of them; it is no room. Its band at the column's foot is
+    // the empty bar's (laid before the sides), the rest of its tile is the panel's body: the gap has no place, so it
+    // isn't offered (it used to be projected to the column's top).
     const s195 = randomScene(195);
-    const gap = targets(s195, "g0").find((t) => t.id === "gap:right0:start:1")!;
-    expect(gap.hit.height).toBeGreaterThanOrEqual(1);
-    expect(gap.hit.width).toBeGreaterThan(300);
+    expect(targets(s195, "g0").find((t) => t.id === "gap:right0:start:1")).toBeUndefined();
+    expect(targets(s195, "g0").find((t) => t.id === "gap:right0:start:0")!.hit.height).toBeGreaterThanOrEqual(1);
     for (const seed of SEEDS) {
       const s = randomScene(seed);
       for (const id of Object.keys(s.items)) {
@@ -223,30 +224,20 @@ describe("scene sweeps", () => {
       const now = solve(s);
       for (const id of Object.keys(s.items)) {
         if (s.items[id]!.fixed || s.items[id]!.closed) continue;
-        const lifted = solve(lift(s, id), { previous: now });
-        // The dragged item's own edge counts only as lifted: as it is now it may lie where its neighbours move to.
-        const ownNow = now.items[id]?.edge;
-        const layouts = [
-          { l: lifted, skip: undefined as string | undefined },
-          { l: now, skip: ownNow },
-        ];
+        // One layout: the seen one, the item in place. Every tile lies in it.
         for (const t of targets(s, id, { previous: now, endReach: 8 })) {
           const e = (t.place as { edge?: string }).edge;
           if (!e || (t.place.kind !== "gap" && !t.id.startsWith("strip:"))) continue;
           const strip = t.id.startsWith("strip:");
-          for (const { l, skip } of layouts) {
-            // A neighbour that, as it is now, lies on this edge's lifted rect can't trim the hit without dropping it.
-            const stale = (oe: string) => l === now && !strip && overlaps(now.edges[oe]!.rect, lifted.edges[e]!.rect);
-            const own = lifted.edges[e];
-            // Every piece of the target's zone (`hits`), not just its largest.
-            for (const hit of t.hits ?? [t.hit]) {
-              if (strip) for (const [oe, d] of Object.entries(l.edges)) if (oe !== e && oe !== skip && overlaps(hit, d.rect) && !(own && inside(meet(hit, d.rect), bandOf(own.rect, own.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over edge ${oe}`);
-              for (const [oid, it] of Object.entries(l.items)) {
-                if (oid === id || it.formKind !== "open" || !it.edge || it.edge === e || it.edge === skip || stale(it.edge)) continue;
-                // An empty edge's own band may lie over it; nothing else of a hit may.
-                const empty = !!own && (own.rect.width <= 1e-6 || own.rect.height <= 1e-6);
-                if (overlaps(hit, it.rect) && !(empty && inside(meet(hit, it.rect), bandOf(own!.rect, own!.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over ${oid}'s body`);
-              }
+          const own = now.edges[e];
+          // Every piece of the target's zone (`hits`), not just its largest.
+          for (const hit of t.hits ?? [t.hit]) {
+            if (strip) for (const [oe, d] of Object.entries(now.edges)) if (oe !== e && overlaps(hit, d.rect) && !(own && inside(meet(hit, d.rect), bandOf(own.rect, own.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over edge ${oe}`);
+            for (const [oid, it] of Object.entries(now.items)) {
+              if (oid === id || it.formKind !== "open" || !it.edge || it.edge === e) continue;
+              // An empty edge's own band may lie over it; nothing else of a hit may.
+              const empty = !!own && (own.rect.width <= 1e-6 || own.rect.height <= 1e-6);
+              if (overlaps(hit, it.rect) && !(empty && inside(meet(hit, it.rect), bandOf(own!.rect, own!.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over ${oid}'s body`);
             }
           }
         }
