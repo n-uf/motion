@@ -3,13 +3,13 @@
  * each clear of the tiles before it, of what outranks its edge, of the fixed items that don't grow and of the chrome.
  */
 import { EPS, area, rect, subtract, type Point, type Rect } from "../../geometry";
-import { axisOf, hitBandOf, zoneOf, zoneTakes } from "../helpers";
-import { DEFAULT_HIT_BAND, type SceneLayout, type Zone } from "../model";
+import { zoneOf } from "../helpers";
+import type { SceneLayout, Zone } from "../model";
 import { distinctSlots } from "./edges";
 import { targetId } from "./ids";
-import { EDGE_KINDS, edgeKindOf } from "./kinds";
-import { less, type Ctx, type EdgeSpec, type SceneRefusal, type Slot, type Span, type Tile } from "./model";
-import { seenOf, type Ownership } from "./ownership";
+import { EDGE_KINDS } from "./kinds";
+import { less, type Ctx, type EdgeSpec, type Room, type SceneRefusal, type Slot, type Span, type Tile } from "./model";
+import type { Ownership } from "./ownership";
 
 /** How one edge makes its tiles: its band, the point a tile keeps, and a tile's split into owned part and overreach. */
 interface Tiler {
@@ -44,6 +44,9 @@ function tilerOf(spec: EdgeSpec): Tiler {
   };
   return { band, keepAt, tile, split };
 }
+
+/** Whether `spans` keep any length past `away`. */
+const hasRoom = (spans: readonly Span[], away: readonly Span[]): boolean => less(spans, away).some(([a, b]) => b - a > EPS);
 
 /** Where each slot's line lies in one free piece of a zone: projected into it, or spread in order when lines collide. */
 function linesIn(spec: EdgeSpec, z: { a: number; b: number }, mine: readonly Slot[], pieces: readonly Span[], [pa, pb]: Span, own: Span | null): { inPiece: Slot[]; at: number[] } {
@@ -90,7 +93,7 @@ function linesIn(spec: EdgeSpec, z: { a: number; b: number }, mine: readonly Slo
  * (across, the edge's band and the own rect), named after the home slot when there is one. Where the item has no rect
  * on the edge, home's tile is its slot's.
  */
-export function tileEdge(c: Ctx, spec: EdgeSpec, cuts: readonly Span[], lost: string[]): Tile[] {
+export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: string[]): Tile[] {
   const data = EDGE_KINDS[spec.kind];
   const v = spec.vertical;
   const own: Span | null = spec.own ? (v ? [spec.own.y, spec.own.y + spec.own.height] : [spec.own.x, spec.own.x + spec.own.width]) : null;
@@ -101,11 +104,17 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, cuts: readonly Span[], lost: st
   for (const z of spec.zones) {
     // The zone's extent less its reserved rects and what other edges own: a zone left with nothing has no slot.
     const room = less([[z.a, z.b]], [...cuts, ...spec.reserved]).filter(([a, b]) => b - a > EPS);
-    if (room.length === 0) continue;
     // Less the own interval, which home owns: a zone wholly under the item's own place has no room left either.
     const pieces = own ? less(room, [own]) : room;
+    // Panel bodies don't split the pieces (the tiles run across them, clipping takes them out), but a zone whose room
+    // is all bodies has no drop place.
+    if (!hasRoom(pieces, bodies)) continue;
     // A slot with no room within its kind's reach of its line isn't offered.
-    const mine = slots.filter((s) => s.zone === z.zone && !(spec.holds && s.home) && pieces.some(([a, b]) => b > s.line - data.reach + EPS && a < s.line + data.reach - EPS));
+    // On the item's own edge the home slot's line is the own interval itself: it lies at both of its ends, so the gaps
+    // right beside the item (the same move as home) are home's. In its » menu the item has no interval: home is only
+    // its entry.
+    const lined = slots.flatMap((s) => (spec.holds && s.home ? (own ? [{ ...s, line: own[0] }, { ...s, line: own[1] }] : []) : [s]));
+    const mine = lined.filter((s) => s.zone === z.zone && pieces.some(([a, b]) => b > s.line - data.reach + EPS && a < s.line + data.reach - EPS));
     const reason = spec.refuse(z.zone);
     for (const [pa, pb] of pieces) {
       const { inPiece, at } = linesIn(spec, z, mine, pieces, [pa, pb], own);
@@ -139,9 +148,11 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, cuts: readonly Span[], lost: st
         const a = Math.max(i === 0 ? pa : (at[i - 1]! + p) / 2, p - lim);
         const b = Math.min(i === inPiece.length - 1 ? pb : (p + at[i + 1]!) / 2, p + lim);
         if (b - a <= EPS) {
-          if (s.ok) lost.push(s.id);
+          if (s.ok && !s.home) lost.push(s.id);
           return;
         }
+        // A tile wholly over panel bodies has no drop place: the slot has no room here, so it isn't offered.
+        if (!hasRoom([[a, b]], bodies)) return;
         const line = Math.min(Math.max(p, a), b);
         const hit = band(a, b, s.result.layout);
         if (!s.ok) out.push(...split(refused(z.zone, hit, "no-room")));
@@ -213,8 +224,8 @@ function placeReach(t: Tile, pieces: readonly Rect[], placed: Tile[], landed: Re
 const isRefused = (t: Tile): boolean => t.kind === "refuse" || (t.kind === "reach" && t.of!.kind === "refuse");
 
 /**
- * Filter (iii), clipping in precedence order: each tile clear of the ones before it, of the other edges' rects (with the
- * item lifted, and as they are now), of the fixed items that don't grow and of the chrome. Returns the tiles placed;
+ * Filter (iii), clipping in precedence order: each tile clear of the ones before it, of the other edges' seen rects, of
+ * the fixed items that don't grow and of the chrome. Returns the tiles placed;
  * slots whose every part went are added to `lost`.
  *
  * A slot the filter removed owns nothing against other edges: every surviving tile is placed first, in precedence
@@ -287,46 +298,8 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
   const byOrder = (a: Tile, b: Tile): number => a.order - b.order;
   for (const t of tiles.filter((x) => !isRefused(x)).sort(byOrder)) place(t);
   for (const t of refused.sort(byOrder)) place(t);
-  for (const t of gone) lost.push(t.id);
+  // Home is never lost: its own rect carries it.
+  for (const t of gone) if (t.kind !== "home") lost.push(t.id);
   for (const t of later) for (const p of clip(t.hit, [...placed.flatMap(coverOf), ...besides(t), ...solid, ...chrome])) placed.push({ ...t, hit: p });
   return placed;
-}
-
-/**
- * A stretch is owned by what the user sees there; if the owner has no slot there, it refuses. Where an edge is seen as
- * it is now and no edge lies once the item lifts (`seenOf`: a side bar pushed in by a rail that empties on the lift),
- * what no tile covers is that edge's refusal, with its zone's reason. Its panel bodies (but for `hitBand / 2` at each
- * end), fixed items and the chrome stay no drop place, as on any edge.
- */
-export function seenRefusals(c: Ctx, live: readonly EdgeSpec[], placed: readonly Tile[], own: Ownership, chrome: readonly Rect[]): Tile[] {
-  const out: Tile[] = [];
-  const covered = placed.flatMap(coverOf);
-  for (const { edge, rect: r } of seenOf(c)) {
-    const e = c.scene.edges.find((x) => x.id === edge);
-    if (!e) continue;
-    const vertical = axisOf(e.side) === "column";
-    const band = hitBandOf(c.scene, e);
-    const half = band === "middle" ? 0 : Math.max(0, Number.isFinite(band) ? band : DEFAULT_HIT_BAND) / 2;
-    const bodies =
-      band === "middle"
-        ? []
-        : Object.entries(c.now.items)
-            .filter(([id, p]) => p.edge === edge && p.formKind === "open" && id !== c.dragged)
-            .map(([, p]) => (vertical ? rect(p.rect.x, p.rect.y + half, p.rect.width, p.rect.height - 2 * half) : rect(p.rect.x + half, p.rect.y, p.rect.width - 2 * half, p.rect.height)))
-            .filter((b) => b.width > EPS && b.height > EPS);
-    const spec = live.find((s) => s.edge?.id === edge) ?? null;
-    // Each stretch by the zone it lies in along the edge (the edge's zones as tiled; the start zone where it has none).
-    const zones = spec?.zones ?? [{ zone: "start" as Zone, a: -Infinity, b: Infinity }];
-    const kind = edgeKindOf(c.rest, e);
-    for (const p of clip(r, [...covered, ...bodies, ...own.solid, ...chrome]))
-      for (const z of zones) {
-        const [p0, p1] = vertical ? [p.y, p.y + p.height] : [p.x, p.x + p.width];
-        const [a, b] = [Math.max(p0, z.a), Math.min(p1, z.b)];
-        if (b - a <= EPS) continue;
-        const hit = vertical ? rect(p.x, a, p.width, b - a) : rect(a, p.y, b - a, p.height);
-        const reason = spec?.refuse(z.zone) ?? (zoneTakes(e, z.zone, c.kind) ? "no-room" : "not-accepted");
-        out.push({ edge, spec, edgeKind: kind, vertical, zone: z.zone, order: 99, kind: "refuse", id: "", priority: EDGE_KINDS[kind].priority, hit, keep: null, reason });
-      }
-  }
-  return out;
 }

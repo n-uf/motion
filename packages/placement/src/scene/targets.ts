@@ -68,8 +68,8 @@ import { context } from "./targets/filter";
 import { checkEdgeIds, targetId } from "./targets/ids";
 import { edgeKindOf } from "./targets/kinds";
 import type { Ctx, EdgeSpec, Generated, SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions, Span, Tile } from "./targets/model";
-import { ownership } from "./targets/ownership";
-import { clipTiles, seenRefusals, tileEdge } from "./targets/tiles";
+import { homeRectOf, ownership } from "./targets/ownership";
+import { clipTiles, tileEdge } from "./targets/tiles";
 import { columnLines, railStops } from "./targets/virtual";
 
 export { reservedRect, zoneExtents } from "./targets/edges";
@@ -82,8 +82,8 @@ export type { SceneAfter, ScenePlace, SceneRefusal, SceneTarget, SceneTargetOpti
  * template opens with (its start zone).
  */
 function specsOf(c: Ctx, kind: string): EdgeSpec[] {
-  const { scene, rest } = c;
-  const specs: (EdgeSpec | null)[] = rest.edges.map((edge) => edgeSpec(c, edge));
+  const { scene } = c;
+  const specs: (EdgeSpec | null)[] = scene.edges.map((edge) => edgeSpec(c, edge));
   for (const side of ["left", "right"] as const) {
     const template = scene.columns?.[side];
     if (!template || !zoneTakes(template, "start", kind)) continue;
@@ -119,19 +119,22 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
       refused.push({ id: targetId({ kind: "refuse", edge: t.edge, zone: t.zone, n }), edge: t.edge, zone: t.zone, hit: t.hit, reason: t.reason! });
       continue;
     }
-    if (t.kind === "home") {
+    // Home's own tile when no slot names it: `home:<id>` covers it (below).
+    if (t.kind === "home" && t.id === homeId) {
       if (t.order === 0) ownHome = t.hit;
-      if (t.id === homeId) continue;
-      targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), item: dragged, place: { kind: "home" }, after: homeAfter });
       continue;
     }
-    // A slot whose tile came in more than one piece (a virtual edge's stretch cut off from its line) is one target: its
-    // pieces in `hits`, `hit` the largest.
+    // A slot whose tile came in more than one piece (a virtual edge's stretch cut off from its line; the two column
+    // lines about the item's own column, one place) is one target: its pieces in `hits`, `hit` the largest.
     const first = targets.findIndex((x) => x.id === t.id);
     if (first >= 0) {
       const was = targets[first]!;
       const pieces = [...(was.hits ?? [was.hit]), ...(t.hits ?? [t.hit])];
       targets[first] = { ...was, hit: pieces.reduce((m, p) => (area(p) > area(m) ? p : m)), hits: pieces };
+      continue;
+    }
+    if (t.kind === "home") {
+      targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), item: dragged, place: { kind: "home" }, after: homeAfter });
       continue;
     }
     const result = t.result!;
@@ -164,17 +167,18 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   const live = specsOf(c, item.kind);
   // Ownership is ranked among what survives the filter: each edge tiled on its own first, an edge owning its band only
   // along its surviving slots' tiles (a refused stretch owns nothing).
-  const along = new Map(live.map((s) => [s, alongOfSlots(s, tileEdge(c, s, [], []))]));
+  const along = new Map(live.map((s) => [s, alongOfSlots(s, tileEdge(c, s, { cuts: [], bodies: [] }, []))]));
   const own = ownership(c, live, (s) => along.get(s)!);
   const lost: string[] = [];
   const tiles: Tile[] = live.flatMap((spec) => tileEdge(c, spec, own.cutsOf(spec), lost));
-  // The item's own place is home's even where no edge tiles it (its column, deleted by the lift; its » entry).
+  // The item's own place is home's even where no edge tiles it: its » entry, or its column, which the lift deletes
+  // (the whole column collapses into home).
   const ownRect = now.items[dragged];
   const homeEdge = scene.edges.find((e) => e.id === ownRect?.edge);
-  if (ownRect && homeEdge && !ownRect.floating && !tiles.some((t) => t.order === 0))
-    tiles.push({ edge: homeEdge.id, spec: null, edgeKind: edgeKindOf(scene, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: targetId({ kind: "home", item: dragged }), priority: 1, place: { kind: "home" }, hit: ownRect.rect, keep: null });
+  const homeHit = homeRectOf(c, null);
+  if (ownRect && homeEdge && homeHit && !tiles.some((t) => t.order === 0))
+    tiles.push({ edge: homeEdge.id, spec: null, edgeKind: edgeKindOf(scene, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: targetId({ kind: "home", item: dragged }), priority: 1, place: { kind: "home" }, hit: homeHit, keep: null });
   const placed = clipTiles(tiles, own, scene.chrome ?? [], lost);
-  placed.push(...seenRefusals(c, live, placed, own, scene.chrome ?? []));
   const { targets, refused, ownHome } = emit(c, placed);
   const homeAfter = (): SceneAfter => ({ scene, layout: now });
 
@@ -204,9 +208,10 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
     targets.push({ id: targetId({ kind: "none", index: i }), priority: 1, hit: rect(b.x, b.y, b.width, b.height), item: dragged, place: { kind: "none" }, after: homeAfter });
   });
 
-  // `home:<id>`, for hosts that read it: over the item's own rect, inside home's tile (all of it when only it is home's).
-  if (ownRect && !ownRect.floating) targets.push({ id: targetId({ kind: "home", item: dragged }), priority: 1, hit: ownHome && !targets.some((t) => t.place.kind === "home") ? ownHome : ownRect.rect, item: dragged, place: { kind: "home" }, after: homeAfter });
-  return { targets, refusals: refused, lost };
+  // `home:<id>`, for hosts that read it: over the item's own rect, inside home's tile (all of it when no slot names it).
+  if (ownRect && !ownRect.floating) targets.push({ id: targetId({ kind: "home", item: dragged }), priority: 1, hit: ownHome ?? ownRect.rect, item: dragged, place: { kind: "home" }, after: homeAfter });
+  // A slot is lost only where no target carries its id (two lines of one move, about the item's own column, are one).
+  return { targets, refusals: refused, lost: [...new Set(lost)].filter((id) => !targets.some((t) => t.id === id)) };
 }
 
 export function targets(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneTarget[] {

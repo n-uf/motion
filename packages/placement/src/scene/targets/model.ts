@@ -138,6 +138,15 @@ export interface Slot {
 /** `[a, b]` along an edge. */
 export type Span = readonly [number, number];
 
+/**
+ * What an edge's zones lose along it: `cuts`, what other edges own across its whole depth (no room); `bodies`, its
+ * panel bodies (no drop place, but the tiles run across them and clipping takes them out).
+ */
+export interface Room {
+  readonly cuts: readonly Span[];
+  readonly bodies: readonly Span[];
+}
+
 /** Spans along an edge less other spans along it. */
 export const less = (spans: readonly Span[], away: readonly Span[]): Span[] =>
   away.reduce<Span[]>((acc, [ra, rb]) => acc.flatMap(([a, b]) => (rb <= a || ra >= b ? [[a, b] as Span] : ([[a, Math.max(a, ra)], [Math.min(b, rb), b]] as Span[]).filter(([u, w]) => w - u > EPS))), [...spans]);

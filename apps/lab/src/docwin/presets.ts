@@ -5,7 +5,7 @@
  * and is expected to be red until the rule lands: the page never fakes it.
  */
 import { centre, contains, overlap, type Point, type Rect } from "@n-uf/placement";
-import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, reservedRect, resize, solve, targetId, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
+import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, reservedRect, resize, targetId, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { wrapCross } from "@n-uf/placement/stack";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, put, type EdgeId, type ItemId } from "./model";
 import { FADE_DT_CAP, FADE_MS, type DocwinScene } from "./scene";
@@ -870,10 +870,12 @@ export const PRESETS: readonly Preset[] = [
       for (const id of ["notes", "tools"] as const) {
         const kind = c.scene.items[id]!.kind;
         const ts = c.targets(id);
-        // The window as it is while the item is held (lifted out): that is what the pointer moves over.
-        const held = solve(lift(c.scene, id), { previous: c.layout });
+        // The window as the user sees it while the item is held (the item in place): that is what the pointer moves over.
+        const held = c.layout;
+        const kept = lift(c.scene, id).edges;
         for (const e of c.scene.edges) {
-          if (!e.accepts.includes(kind)) continue;
+          // An edge the lift deletes (the item's own column) offers no place: it is home's.
+          if (!e.accepts.includes(kind) || !kept.some((k) => k.id === e.id)) continue;
           const l = held.edges[e.id];
           if (!l || l.rect.width <= 0 || l.rect.height <= 0) continue;
           const items = Object.entries(held.items).filter(([iid, p]) => p.edge === e.id && iid !== id);
@@ -897,7 +899,7 @@ export const PRESETS: readonly Preset[] = [
               const pastEnd = solid.some((s) => (l.side === "left" || l.side === "right" ? y >= s.y + s.height : x >= s.x + s.width) && !items.some(([, q]) => (l.side === "left" || l.side === "right" ? q.rect.y >= s.y + s.height : q.rect.x >= s.x + s.width)));
               if (pastEnd || solid.some((s) => inside(s, p)) || bodies.some((b) => inside(b, p)) || y <= panelsEnd || emptyBands.some((t) => inside(t.hit, p))) continue;
               n++;
-              if (!mine.some((t) => inside(t.hit, p))) {
+              if (!mine.some((t) => ("hits" in t && t.hits ? t.hits : [t.hit]).some((h) => inside(h, p)))) {
                 dead++;
                 if (deadAt.length < 4) deadAt.push(`${r0(x)},${r0(y)}`);
               }
@@ -1148,8 +1150,8 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "home-only-over-its-place",
-    title: "Home shows only over the item's own place",
-    expected: "In the reported state, Views held by mouse and moved along the title bar shows \"Back to its place\" only while the pointer is over its own place (or within half a band of it); everywhere else along the bar the slot is beside the pointer.",
+    title: "Home shows only over the item's own place and the gaps beside it",
+    expected: "In the reported state, Views held by mouse and moved along the title bar shows \"Back to its place\" only over its own place and the gaps beside it (a drop there is the same move), never past another toolbar of the bar; everywhere else along the bar the slot is beside the pointer.",
     setup: (c) => c.setScene(reportedTitle()),
     check(c) {
       c.setScene(reportedTitle());
@@ -1167,7 +1169,10 @@ export const PRESETS: readonly Preset[] = [
         const homing = !s && !slotEl.hidden && slotEl.title === "Back to its place";
         if (s?.place.kind !== "home" && !homing) continue;
         homes++;
-        if (x < own.x - 12 || x > own.x + own.width + 12) bad.push(`home at x ${r0(x)}, its place is ${r0(own.x)}..${r0(own.x + own.width)}`);
+        // Never past another toolbar of the bar: between the pointer and its own place lies no other item.
+        const [a, b] = x < own.x ? [x, own.x] : [own.x + own.width, x];
+        const across = Object.entries(c.layout.items).find(([iid, p]) => iid !== "views" && p.edge === "title" && !p.inMenu && p.rect.x >= a - 0.5 && p.rect.x + p.rect.width <= b + 0.5);
+        if (across) bad.push(`home at x ${r0(x)}, past ${across[0]}; its place is ${r0(own.x)}..${r0(own.x + own.width)}`);
       }
       h.up();
       if (!homes) bad.push("home never showed, even over its own place");
