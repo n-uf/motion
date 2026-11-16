@@ -40,6 +40,8 @@ export interface DragTuning {
   /**
    * Spring-loading: a target marked `arm: "dwell"` takes the drop only once the pointer has stayed in its zone this long
    * (ms); before that it is no target, so a fast pass, or a drop before it, lands on what lies beneath. 0 arms it at once.
+   * Armed, its zone is its `armedHit` (the magnet: its band); moving out past that band's outer edge disarms it, and
+   * re-entering needs a new full dwell.
    */
   readonly railArmDwellMs: number;
   /** The keys that win over geometry while held (see {@link DragModifiers}). */

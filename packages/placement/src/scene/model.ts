@@ -248,7 +248,10 @@ export interface RailDropPolicy {
   readonly railStripWidth?: number;
   /** When the host draws the strip (default `"whileDragging"`); `"never"` turns the kind's rail docking off. */
   readonly railVisibility?: RailVisibility;
-  /** How far the strip grows inward once armed, px (default {@link DEFAULT_RAIL_MAGNET}). */
+  /**
+   * How far the strip grows inward once armed, px (default {@link DEFAULT_RAIL_MAGNET}): the armed target's band
+   * (`armedHit`). Moving out past its outer edge disarms it, and re-entering the strip needs a new full dwell.
+   */
   readonly magnet?: number;
   /** Whether a float may sit inside the strip's area (default true); false keeps a float's rect clear of every strip. */
   readonly floatNearEdge?: boolean;
