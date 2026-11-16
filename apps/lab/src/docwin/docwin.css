@@ -82,8 +82,8 @@
 .dw-head:hover { background: var(--accent-soft); }
 .dw-head b { flex: 1; font-weight: 600; }
 .dw-badge { display: inline-block; min-width: 3.2ch; padding: 0 3px; border-radius: 8px; background: var(--win-well); color: var(--win-muted); font-size: 10.5px; text-align: center; font-variant-numeric: tabular-nums; }
-.dw-x { border: 0; background: none; color: var(--win-muted); font: inherit; cursor: pointer; padding: 0 4px; }
-.dw-x:hover { color: var(--win-text); }
+.dw-x, .dw-pm { border: 0; background: none; color: var(--win-muted); font: inherit; cursor: pointer; padding: 0 4px; }
+.dw-x:hover, .dw-pm:hover { color: var(--win-text); }
 .dw-body { flex: 1; overflow: auto; padding: 6px; }
 .dw-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); gap: 8px; }
 .dw-thumbs i { position: relative; aspect-ratio: 0.77; background: var(--win-paper); border: 1px solid var(--win-paper-line); }

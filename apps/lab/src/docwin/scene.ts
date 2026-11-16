@@ -23,6 +23,7 @@ import {
   fold,
   open as openItem,
   refusals as sceneRefusals,
+  stops as sceneStops,
   railModeOf,
   resize,
   setRailMode as setRailModeOf,
@@ -230,7 +231,7 @@ export function createScene(o: SceneOptions) {
 
   function head(id: ItemId): string {
     const c = countOf(id);
-    return `<header class="dw-head" data-grip><span class="dw-dots" aria-hidden="true"></span><b>${TITLES[id]}</b>${c === null ? "" : badge(c)}<button type="button" class="dw-x" data-close="${id}" aria-label="Close ${TITLES[id]}">×</button></header>`;
+    return `<header class="dw-head" data-grip><span class="dw-dots" aria-hidden="true"></span><b>${TITLES[id]}</b>${c === null ? "" : badge(c)}<button type="button" class="dw-pm" data-pmenu="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${TITLES[id]} menu">⋯</button><button type="button" class="dw-x" data-close="${id}" aria-label="Close ${TITLES[id]}">×</button></header>`;
   }
 
   /** A group's words, one HTML piece each, in the order the `wrap` form's widths list them; `hidden` controls left out. */
@@ -977,15 +978,17 @@ export function createScene(o: SceneOptions) {
 
   // Arrows move between the popover's controls, Home and End to its ends; Escape closes it, the focus back on "+N".
   menuList.addEventListener("keydown", (e) => {
-    if (moreOf === null && !menuList.dataset.rail) return;
-    if (menuList.dataset.rail && e.key === "Escape") {
+    const pmenu = menuList.dataset.pmenu;
+    if (moreOf === null && !menuList.dataset.rail && !pmenu) return;
+    if ((menuList.dataset.rail || pmenu) && e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
       delete menuList.dataset.rail;
+      closePanelMenu(true);
       menuList.hidden = true;
       return;
     }
-    const items = [...menuList.querySelectorAll<HTMLElement>("button")];
+    const items = [...menuList.querySelectorAll<HTMLElement>("button:not([aria-disabled])")];
     const at = items.indexOf(document.activeElement as HTMLElement);
     const go = (i: number): void => {
       e.preventDefault();
@@ -1019,6 +1022,22 @@ export function createScene(o: SceneOptions) {
       return;
     }
     if (t.closest("[data-hidden-control]")) closeMore(false);
+    // A panel's menu: its ⋯ button opens it (a keyboard press focuses the first item); "Move to › Rail (side)" moves.
+    const pm = t.closest<HTMLElement>("button[data-pmenu]");
+    if (pm) {
+      if (menuList.dataset.pmenu === pm.dataset.pmenu && !menuList.hidden) closePanelMenu(true);
+      else openPanelMenu(pm, (e as MouseEvent).detail === 0);
+      return;
+    }
+    const mr = t.closest<HTMLElement>("[data-move-rail]");
+    if (mr) {
+      if (mr.getAttribute("aria-disabled") === "true") return;
+      const [pid, side] = mr.dataset.moveRail!.split(":") as [ItemId, "left" | "right"];
+      closePanelMenu(false);
+      moveToRail(pid, side);
+      return;
+    }
+    if (!t.closest(".dw-menu-list")) closePanelMenu(false);
     // The rail's menu: titles or icons for that side's rails.
     const rm = t.closest<HTMLElement>("[data-rail-mode]");
     if (rm) {
@@ -1087,6 +1106,52 @@ export function createScene(o: SceneOptions) {
     menuList.hidden = false;
     if (focusFirst) menuList.querySelector<HTMLElement>("button")?.focus();
   }
+  /**
+   * A panel's menu (its header's ⋯ button): "Move to › Rail (left)" and "(right)", the keyboard path to the side rails
+   * a drag reaches by its strips. Each is the Scene's own stop (`stops`), so its move is the drop's; a side with no rail
+   * for the panel now (an open panel there sets the column's width) is listed as unavailable.
+   */
+  function openPanelMenu(btn: HTMLElement, focusFirst: boolean): void {
+    closeMore(false);
+    const id = btn.dataset.pmenu as ItemId;
+    const rails = sceneStops(withFeel(scene, feel), id, { previous: layout, endReach: END_REACH }).filter((t) => t.place.kind === "rail");
+    menuList.dataset.edge = "";
+    delete menuList.dataset.rail;
+    menuList.dataset.pmenu = id;
+    menuList.setAttribute("aria-label", `${TITLES[id]} menu`);
+    menuList.innerHTML = (["left", "right"] as const)
+      .map((side) => {
+        const t = rails.find((x) => x.place.kind === "rail" && x.place.side === side);
+        return `<button type="button" role="menuitem" tabindex="-1" data-move-rail="${id}:${side}"${t ? "" : ' aria-disabled="true" title="No rail on this side for it now"'}>Move to › Rail (${side})</button>`;
+      })
+      .join("");
+    const r = btn.getBoundingClientRect();
+    const w = win.getBoundingClientRect();
+    menuList.style.left = px(Math.max(0, Math.min(r.left - w.left, w.width - 170)));
+    menuList.style.top = px(r.bottom - w.top + 4);
+    menuList.hidden = false;
+    btn.setAttribute("aria-expanded", "true");
+    if (focusFirst) menuList.querySelector<HTMLElement>("button:not([aria-disabled])")?.focus();
+  }
+  /** Closes the panel menu (if open), the focus back on its ⋯ button when `refocus`. */
+  function closePanelMenu(refocus: boolean): void {
+    const id = menuList.dataset.pmenu;
+    if (!id) return;
+    delete menuList.dataset.pmenu;
+    menuList.hidden = true;
+    const btn = layer.querySelector<HTMLElement>(`button[data-pmenu="${id}"]`);
+    btn?.setAttribute("aria-expanded", "false");
+    if (refocus) btn?.focus();
+  }
+  /** "Move to › Rail (side)": the panel collapsed into that side's rail, as a drop there does. */
+  function moveToRail(id: ItemId, side: "left" | "right"): boolean {
+    const t = sceneStops(withFeel(scene, feel), id, { previous: layout, endReach: END_REACH }).find((x) => x.place.kind === "rail" && x.place.side === side);
+    if (!t) return false;
+    commit(t.after({ x: 0, y: 0 }).scene);
+    say(`${TITLES[id]} collapsed into the ${side} rail. Its rail button opens it again.`);
+    return true;
+  }
+
   win.addEventListener("contextmenu", (e) => {
     const side = railSideOf(e.target as Element);
     if (!side) return;
@@ -1376,6 +1441,7 @@ export function createScene(o: SceneOptions) {
       else delete root.dataset.reducedMotion;
     },
     stripLayer,
+    moveToRail,
     targets: targetsOf,
     edge: (id: EdgeId) => edgeOf(scene, id),
     press,
