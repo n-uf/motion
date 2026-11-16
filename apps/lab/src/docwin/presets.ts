@@ -2403,11 +2403,23 @@ function zonesOfBar(c: DocwinScene, edge: EdgeId, worlds: [string, Scene][]): Ve
 
 // --- rail docking for panels ---------------------------------------------------------------------------------------------
 
-/** One leg of a mouse gesture: glide to `to` (window px) `step` px per 16 ms frame, then rest `hold` ms. */
+/** The modifier flags a pointer event carries. */
+interface Mods {
+  readonly shiftKey?: boolean;
+  readonly altKey?: boolean;
+  readonly ctrlKey?: boolean;
+  readonly metaKey?: boolean;
+}
+/**
+ * One leg of a mouse gesture: glide to `to` (window px) `step` px per 16 ms frame, then rest `hold` ms. `keys` changes the
+ * modifiers held from this leg on; `after` runs once the leg is done (the pointer still down).
+ */
 interface Leg {
   readonly to: Point;
   readonly step: number;
   readonly hold: number;
+  readonly keys?: Mods;
+  readonly after?: () => void;
 }
 /** What the gesture saw on each frame: the target shown, and whether a rail strip was dwelt on or armed. */
 interface Seen {
@@ -2420,14 +2432,15 @@ interface Seen {
  * A mouse gesture on the item's grip through the page's own pointer listeners, the modifier `keys` held on every event:
  * the legs in turn, frames driven by hand. Still down at the end: `up()` lets go where it is.
  */
-function mouseGesture(c: DocwinScene, id: ItemId, legs: readonly Leg[], keys: { shiftKey?: boolean; altKey?: boolean } = {}): { lifted: boolean; seen: Seen[]; up: () => void } {
+function mouseGesture(c: DocwinScene, id: ItemId, legs: readonly Leg[], keys: Mods = {}, onDown?: (grip: HTMLElement) => void): { lifted: boolean; seen: Seen[]; up: () => void } {
+  let cur: Mods = keys;
   const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
   if (!el) return { lifted: false, seen: [], up: () => undefined };
   const w = c.win.getBoundingClientRect();
   const g = el.getBoundingClientRect();
   let at = { x: g.left + g.width / 2, y: g.top + g.height / 2 };
   const ev = (type: string, p: Point): PointerEvent =>
-    new PointerEvent(type, { clientX: p.x, clientY: p.y, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerType: "mouse", isPrimary: true, bubbles: true, cancelable: true, ...keys });
+    new PointerEvent(type, { clientX: p.x, clientY: p.y, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerType: "mouse", isPrimary: true, bubbles: true, cancelable: true, ...cur });
   const seen: Seen[] = [];
   let now = performance.now();
   const tick = (): void => {
@@ -2438,8 +2451,10 @@ function mouseGesture(c: DocwinScene, id: ItemId, legs: readonly Leg[], keys: { 
   };
   c.drive(true);
   el.dispatchEvent(ev("pointerdown", at));
+  onDown?.(el);
   let lifted = false;
   for (const leg of legs) {
+    if (leg.keys) cur = leg.keys;
     const end = { x: w.left + leg.to.x, y: w.top + leg.to.y };
     const steps = Math.max(1, Math.ceil(Math.hypot(end.x - at.x, end.y - at.y) / leg.step));
     for (let i = 1; i <= steps; i++) {
@@ -2449,6 +2464,7 @@ function mouseGesture(c: DocwinScene, id: ItemId, legs: readonly Leg[], keys: { 
     }
     for (let k = 0; k < Math.round(leg.hold / 16); k++) tick();
     at = end;
+    leg.after?.();
   }
   return {
     lifted,
@@ -2544,14 +2560,21 @@ function RAIL_DOCK_PRESETS(): Preset[] {
     },
     {
       id: "rail-alt-from-content",
-      title: "Alt collapses a panel into the nearest rail from mid-content",
-      expected: "Findings dragged by mouse with Alt held into the pages, 300 px from the right window edge (nowhere near it, nearer the right than the left): the preview is its folded tile in the nearest rail (the right one), and the drop collapses it there, on its slot.",
+      title: "⌘/Ctrl collapses a panel into the nearest rail from mid-content",
+      expected: "Findings dragged by mouse with ⌘ (or Ctrl) held into the pages, 300 px from the right window edge (nowhere near it, nearer the right than the left): the preview is its collapsed tile in the nearest rail (the right one), and the drop collapses it there, on its slot. Alt does not: it is the unfreeze key, and the drop is a float.",
       setup: fresh,
       check(c) {
-        const m = mouseGesture(c, "findings", [{ to: { x: c.scene.stage.width - 300, y: c.scene.stage.height / 2 }, step: 6, hold: 120 }], { altKey: true });
-        m.up();
-        const ok = c.lastDrop?.place === "rail" && inRightRail(c) && landedOnSlot(c);
-        return { pass: ok, now: `Drop: ${dropSaid(c)}.` };
+        const out: string[] = [];
+        let ok = true;
+        for (const [name, keys] of [["⌘", { metaKey: true }], ["Ctrl", { ctrlKey: true }], ["Alt", { altKey: true }]] as const) {
+          c.reset();
+          const m = mouseGesture(c, "findings", [{ to: { x: c.scene.stage.width - 300, y: c.scene.stage.height / 2 }, step: 6, hold: 120 }], keys);
+          m.up();
+          const pass = name === "Alt" ? c.lastDrop?.place !== "rail" && !inRightRail(c) : c.lastDrop?.place === "rail" && inRightRail(c) && landedOnSlot(c);
+          ok &&= pass;
+          out.push(`${name}: ${dropSaid(c)}`);
+        }
+        return { pass: ok, now: `${out.join("; ")}.` };
       },
     },
     {
@@ -2607,22 +2630,129 @@ function RAIL_DOCK_PRESETS(): Preset[] {
     },
     {
       id: "rail-findings-alone",
-      title: "Findings alone on the right reaches the rail by a dwell or by Alt; the column closes",
+      title: "Findings alone on the right reaches the rail by a dwell or by ⌘/Ctrl; the column closes",
       expected:
-        "Findings alone in the right column, dragged by mouse to the right window edge: held still there, it arms and the drop collapses it into the right rail; with Alt held, the same from anywhere. Each time the right column closes down to the 30 px rail holding Findings' folded tile, on the slot the preview showed.",
+        "Findings alone in the right column, dragged by mouse to the right window edge: held still there, it arms and the drop collapses it into the right rail; with ⌘/Ctrl held, the same from anywhere. Each time the right column closes down to the 30 px rail holding Findings' folded tile, on the slot the preview showed.",
       setup: fresh,
       check(c) {
         const out: string[] = [];
         let ok = true;
-        for (const way of ["dwell", "Alt"] as const) {
+        for (const way of ["dwell", "⌘/Ctrl"] as const) {
           c.reset();
-          const m = mouseGesture(c, "findings", [{ to: way === "dwell" ? rightStrip(c) : { x: c.scene.stage.width - 120, y: c.scene.stage.height / 2 }, step: 6, hold: way === "dwell" ? 360 : 120 }], way === "Alt" ? { altKey: true } : {});
+          const m = mouseGesture(c, "findings", [{ to: way === "dwell" ? rightStrip(c) : { x: c.scene.stage.width - 120, y: c.scene.stage.height / 2 }, step: 6, hold: way === "dwell" ? 360 : 120 }], way === "⌘/Ctrl" ? { metaKey: true } : {});
           m.up();
           const pass = inRightRail(c) && landedOnSlot(c);
           ok &&= pass;
           out.push(`${way}: ${dropSaid(c)}, right column ${r0(c.layout.edges.right?.cross ?? 0)} px`);
         }
         return { pass: ok, now: `${out.join("; ")}.` };
+      },
+    },
+    {
+      id: "rail-frozen-alt-no-rail",
+      title: "Frozen: Alt held at the lift unfreezes and does not rail; ⌘/Ctrl rails",
+      expected:
+        "Frozen, Findings is pressed with Alt held and dragged into the pages: it lifts (Alt unfreezes) and the drop is not the rail. With only ⌘ (no Alt) in the frozen window nothing lifts. Alt keeps exactly one meaning, the temporary unfreeze.",
+      setup: fresh,
+      check(c) {
+        const mid = { x: c.scene.stage.width - 300, y: c.scene.stage.height / 2 };
+        c.setFrozen(true);
+        c.altOn(true);
+        const withAlt = mouseGesture(c, "findings", [{ to: mid, step: 6, hold: 120 }], { altKey: true });
+        withAlt.up();
+        const altRail = c.lastDrop?.place === "rail" || inRightRail(c);
+        const altLifted = withAlt.lifted;
+        c.altOn(false);
+        c.reset();
+        c.setFrozen(true);
+        const mod = mouseGesture(c, "findings", [{ to: mid, step: 6, hold: 120 }], { metaKey: true });
+        mod.up();
+        const modLifted = mod.lifted;
+        c.setFrozen(false);
+        return { pass: altLifted && !altRail && !modLifted, now: `Alt at the lift: ${altLifted ? "lifted" : "didn't lift"}, ${altRail ? "railed" : "no rail"} (${dropSaid(c)}). ⌘ without Alt, frozen: ${modLifted ? "lifted" : "didn't lift"}.` };
+      },
+    },
+    {
+      id: "rail-frozen-alt-then-mod",
+      title: "Frozen: Alt at the lift, then ⌘/Ctrl pressed mid-drag, collapses into the rail",
+      expected:
+        "Frozen, Findings is pressed with Alt held (the drag is unfrozen), dragged into the pages, and ⌘ (then, in a second drag, Ctrl) is pressed with Alt still down: the keys combine, the preview is Findings' collapsed tile in the nearest rail, and the drop collapses it there.",
+      setup: fresh,
+      check(c) {
+        const out: string[] = [];
+        let ok = true;
+        for (const [name, mod] of [["⌘", { metaKey: true }], ["Ctrl", { ctrlKey: true }]] as const) {
+          c.reset();
+          c.setFrozen(true);
+          c.altOn(true);
+          const mid = { x: c.scene.stage.width - 300, y: c.scene.stage.height / 2 };
+          const m = mouseGesture(c, "findings", [
+            { to: mid, step: 6, hold: 60, keys: { altKey: true } },
+            { to: { x: mid.x + 10, y: mid.y }, step: 6, hold: 120, keys: { altKey: true, ...mod } },
+          ], { altKey: true });
+          m.up();
+          const pass = m.lifted && c.lastDrop?.place === "rail" && inRightRail(c);
+          ok &&= pass;
+          out.push(`Alt then ${name}: ${m.lifted ? "lifted" : "didn't lift"}, ${dropSaid(c)}`);
+          c.altOn(false);
+          c.setFrozen(false);
+        }
+        return { pass: ok, now: `${out.join("; ")}.` };
+      },
+    },
+    {
+      id: "rail-mod-no-context-menu",
+      title: "⌘/Ctrl at the lift or mid-drag opens no context menu and fires no shortcut",
+      expected:
+        "Findings is pressed with Ctrl held (on macOS a Ctrl-click opens a context menu) and dragged with ⌘ or Ctrl held: no contextmenu event and no ⌘/Ctrl keydown reaches the page's defaults (each is defaultPrevented) while the drag lasts, and the drag continues to the rail drop. Once it has ended, keys and menus are left alone.",
+      setup: fresh,
+      check(c) {
+        const prevented: string[] = [];
+        const probe = (name: string, e: Event): void => {
+          if (!e.defaultPrevented) prevented.push(`${name} not prevented`);
+        };
+        const menu = (target: EventTarget, init: MouseEventInit = {}): Event => {
+          const e = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2, ...init });
+          target.dispatchEvent(e);
+          return e;
+        };
+        const keydown = (key: string, init: KeyboardEventInit = {}): Event => {
+          const e = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init });
+          window.dispatchEvent(e);
+          return e;
+        };
+        let still = true;
+        const mid = { x: c.scene.stage.width - 300, y: c.scene.stage.height / 2 };
+        const m = mouseGesture(
+          c,
+          "findings",
+          [
+            {
+              to: mid,
+              step: 6,
+              hold: 60,
+              keys: { ctrlKey: true },
+              after: () => {
+                probe("mid-drag contextmenu", menu(c.win, { ctrlKey: true }));
+                probe("mid-drag Control keydown", keydown("Control", { ctrlKey: true }));
+                probe("mid-drag ⌘+R", keydown("r", { metaKey: true }));
+                still &&= c.dragging;
+              },
+            },
+            { to: { x: mid.x + 10, y: mid.y }, step: 6, hold: 120, keys: { metaKey: true }, after: () => (still &&= c.dragging) },
+          ],
+          { ctrlKey: true },
+          (grip) => probe("contextmenu at the lift", menu(grip, { ctrlKey: true })),
+        );
+        m.up();
+        const railed = c.lastDrop?.place === "rail" && inRightRail(c);
+        // Nothing is swallowed once the drag is over.
+        const idle = [menu(document.body), keydown("Control", { ctrlKey: true }), keydown("r", { metaKey: true })];
+        const swallowed = idle.filter((e) => e.defaultPrevented).length;
+        return {
+          pass: prevented.length === 0 && still && m.lifted && railed && swallowed === 0,
+          now: `${prevented.length ? `${prevented.join("; ")}. ` : "Every menu and shortcut was prevented during the drag. "}The drag ${still ? "continued" : "stopped"}; drop ${dropSaid(c)}; ${swallowed} of 3 events swallowed after it.`,
+        };
       },
     },
     {

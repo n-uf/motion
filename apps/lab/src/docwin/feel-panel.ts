@@ -3,7 +3,7 @@
  * Toolbars). A change applies to the next drag and is stored. Each control says the default's reason in its title.
  */
 import { RAIL_STRIP_MIN, RAIL_VISIBILITIES } from "@n-uf/placement/scene";
-import { DEFAULT_FEEL, MODIFIER_KEYS, readFeel, storeFeel, type DragFeel, type FeelKind, type KindFeel } from "./feel";
+import { DEFAULT_FEEL, MODIFIER_KEYS, keyName, readFeel, storeFeel, type DragFeel, type FeelKind, type KindFeel } from "./feel";
 
 const SECTIONS: readonly { readonly kind: FeelKind; readonly title: string }[] = [
   { kind: "panel", title: "Panels" },
@@ -17,7 +17,7 @@ const WHY = {
   magnet: "How far the armed strip grows inward, px: a hand that wobbles once armed keeps it. No animation under reduced motion.",
   floatNearEdge: "Whether a float may sit inside the strip's area before it arms.",
   railArmDwellMs: "Spring-loading: how long the pointer rests in the strip before it arms, ms (platform spring-loading is a few hundred ms); 0 arms at once.",
-  modifiers: "Keys win over geometry: the float key floats anywhere, the rail key collapses into the nearest rail.",
+  modifiers: "Keys win over geometry: the float key (Shift) floats anywhere, the rail key (⌘/Ctrl) collapses into the nearest rail. Alt stays free: it unfreezes a frozen layout.",
 } as const;
 
 const opt = (v: string, now: string, label = v): string => `<option value="${v}"${v === now ? " selected" : ""}>${label}</option>`;
@@ -33,8 +33,8 @@ function sectionHtml(kind: FeelKind, title: string, f: KindFeel): string {
     <label title="${WHY.floatNearEdge}"><input type="checkbox" ${k("floatNearEdge")}${f.floatNearEdge ? " checked" : ""} /> float near the edge</label>
     <label title="${WHY.railArmDwellMs}">dwell <input type="range" min="0" max="800" step="10" ${k("railArmDwellMs")} value="${f.railArmDwellMs}" /> <output>${f.railArmDwellMs} ms</output></label>
     <label title="${WHY.modifiers}"><input type="checkbox" ${k("modifiers.on")}${f.modifiers.on ? " checked" : ""} /> keys</label>
-    <label title="${WHY.modifiers}">float <select ${k("modifiers.floatKey")}>${MODIFIER_KEYS.map((m) => opt(m, f.modifiers.floatKey)).join("")}</select></label>
-    <label title="${WHY.modifiers}">rail <select ${k("modifiers.railKey")}>${MODIFIER_KEYS.map((m) => opt(m, f.modifiers.railKey)).join("")}</select></label>
+    <label title="${WHY.modifiers}">float <select ${k("modifiers.floatKey")}>${MODIFIER_KEYS.map((m) => opt(m, f.modifiers.floatKey, keyName(m))).join("")}</select></label>
+    <label title="${WHY.modifiers}">rail <select ${k("modifiers.railKey")}>${MODIFIER_KEYS.map((m) => opt(m, f.modifiers.railKey, keyName(m))).join("")}</select></label>
   </fieldset>`;
 }
 
