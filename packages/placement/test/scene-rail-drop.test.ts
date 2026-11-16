@@ -81,6 +81,17 @@ describe("rail docking under a kind's rail drop policy", () => {
     expect(after.layout.items.c!.tab && after.layout.items.b!.tab).toBe(true);
   });
 
+  it("an empty side: the rail's strip lies outermost and the column opens from just inside it", () => {
+    const s = withPolicy(docScene([], ["a", "b", "c"]));
+    const ts = targets(s, "b");
+    const rail = rails(ts).find((t) => t.place.kind === "rail" && t.place.side === "right")!;
+    const open = ts.find((t) => t.id === "strip:right:start")!;
+    expect(rail.strip).toMatchObject({ x: W - 30, width: 30 });
+    expect(open.hit.x + open.hit.width).toBe(W - 30);
+    expect(overlap(open.hit, rail.strip!)).toBe(false);
+    expect(open.after({ x: W - 40, y: 100 }).layout.items.b!.formKind).toBe("open");
+  });
+
   it("railStripWidth sets the strip (at least 24); 0 and railVisibility \"never\" turn it off cleanly", () => {
     expect(rails(targets(withPolicy(docScene(), { railStripWidth: 48 }), "c"))[0]!.strip).toMatchObject({ x: W - 48, width: 48 });
     expect(rails(targets(withPolicy(docScene(), { railStripWidth: 10 }), "c"))[0]!.strip).toMatchObject({ width: 24 });
