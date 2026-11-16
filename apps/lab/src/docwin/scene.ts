@@ -639,11 +639,20 @@ export function createScene(o: SceneOptions) {
     return p.kind;
   };
 
+  /**
+   * The point a drag picks with: the pointer clamped into the window (the stage), so a pointer past the window's edge
+   * means its nearest point of the window. The held copy still follows the pointer itself.
+   */
+  const pickPoint = (d: Held): Point => {
+    const s = scene.stage;
+    return { x: clamp(d.pointer.x, s.x, s.x + s.width - 0.5), y: clamp(d.pointer.y, s.y, s.y + s.height - 0.5) };
+  };
+
   /** One frame of the drag: the intent says what shows; the preview plan whether the room is open. */
   function frame(now: number): void {
     const d = drag;
     if (!d) return;
-    const f = d.intent.update(d.pointer, now, d.targets);
+    const f = d.intent.update(pickPoint(d), now, d.targets);
     const plan = previewPlan(f, "gap");
     const room = plan.makeRoom && docks(f.shown) ? f.shown : null;
     const homing = f.atHome && d.docked && f.shown === null;
@@ -672,7 +681,7 @@ export function createScene(o: SceneOptions) {
     }
     d.shown = f.shown;
     // A refused place under the pointer (nothing but the float target there): no slot anywhere, "No room here" at it.
-    const refused = !homing && (!f.shown || f.shown.place.kind === "float") ? (d.refusals.find((r) => inside(r.hit, d.pointer)) ?? null) : null;
+    const refused = !homing && (!f.shown || f.shown.place.kind === "float") ? (d.refusals.find((r) => inside(r.hit, pickPoint(d))) ?? null) : null;
     d.refused = refused;
     showRefusal(refused, d.pointer);
     const s = plan.showIndicator ? f.shown : null;
@@ -716,7 +725,7 @@ export function createScene(o: SceneOptions) {
     if (!cancel) frame(now);
     // A release over a refusal commits nothing: the item goes home.
     const refused = cancel ? null : d.refused;
-    const t = cancel || refused ? null : d.intent.release(d.pointer, d.targets);
+    const t = cancel || refused ? null : d.intent.release(pickPoint(d), d.targets);
     cancelAnimationFrame(d.raf);
     drag = null;
     // The press's own pointer, key and cancel listeners go with the drag: a reset mid-drag leaves none behind.
