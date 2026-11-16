@@ -38,7 +38,7 @@ import {
   type SceneTarget,
 } from "@n-uf/placement/scene";
 import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, EDGES, GROUPS, PANELS, RAIL, ROW_VARIANTS, TITLES, ZOOM_CONTROLS, defaultScene, edgeOf, isSideEdge, reformPanels, setGroupSizes, setTitleSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId, type PanelId } from "./model";
-import { DEFAULT_FEEL, tuningOf, withFeel, type DragFeel } from "./feel";
+import { DEFAULT_FEEL, keyName, tuningOf, withFeel, type DragFeel } from "./feel";
 import { readDocwin, storeDocwin, type StoredDocwin } from "./store";
 
 export interface LastDrop {
@@ -740,7 +740,7 @@ export function createScene(o: SceneOptions) {
     drawStrips(d.targets, f.arming?.id ?? null, armed);
     if ((armed?.id ?? null) !== d.armedSaid) {
       d.armedSaid = armed?.id ?? null;
-      if (armed && armed.place.kind === "rail") say(`${TITLES[d.id]}: release to collapse it into the ${armed.place.side} rail${f.forced === "rail" ? ` (${feel.panel.modifiers.railKey} held)` : ""}.`);
+      if (armed && armed.place.kind === "rail") say(`${TITLES[d.id]}: release to collapse it into the ${armed.place.side} rail${f.forced === "rail" ? ` (${keyName(feel.panel.modifiers.railKey)} held)` : ""}.`);
       else if (f.arming) say(`${TITLES[d.id]} over the ${f.arming.place.kind === "rail" ? f.arming.place.side : ""} rail: hold still to collapse it there.`);
     }
     const room = plan.makeRoom && docks(f.shown) ? f.shown : null;
@@ -894,9 +894,14 @@ export function createScene(o: SceneOptions) {
       window.removeEventListener("pointercancel", up);
       window.removeEventListener("keydown", key);
       window.removeEventListener("keyup", key);
+      window.removeEventListener("contextmenu", noMenu, true);
       if (endInput === stop) endInput = null;
     };
     endInput = stop;
+    // ⌘/Ctrl is the rail key: while a drag is armed or in progress it never opens a context menu (a Ctrl-click on macOS)
+    // and fires no browser shortcut. The listeners live only from the press to the end of the drag.
+    const noMenu = (ev: Event): void => ev.preventDefault();
+    window.addEventListener("contextmenu", noMenu, true);
     const up = (ev: PointerEvent): void => {
       stop();
       if (ev.type !== "pointerup") gripPress.cancel();
@@ -923,11 +928,10 @@ export function createScene(o: SceneOptions) {
         stop();
         return;
       }
+      // The rail key (⌘/Ctrl) and Alt (the unfreeze key) belong to the drag: no browser shortcut while it lasts.
+      if (ev.type === "keydown" && (ev.key === "Control" || ev.key === "Meta" || ev.key === "Alt" || ev.ctrlKey || ev.metaKey)) ev.preventDefault();
       // A modifier pressed or let go while held still: the keys win over geometry from the next frame.
-      if (drag && (ev.key === "Shift" || ev.key === "Alt" || ev.key === "Control" || ev.key === "Meta")) {
-        if (ev.key === "Alt") ev.preventDefault();
-        setKeys(keysOf(ev));
-      }
+      if (drag && (ev.key === "Shift" || ev.key === "Alt" || ev.key === "Control" || ev.key === "Meta")) setKeys(keysOf(ev));
     };
     window.addEventListener("pointermove", mv);
     window.addEventListener("pointerup", up);
