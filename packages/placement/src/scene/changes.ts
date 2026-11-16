@@ -23,7 +23,8 @@
  */
 import { clampInto, type Rect } from "../geometry";
 import { axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, formsOf, isDockingPanel, zoneOf, zoneTakes, zonesTaking } from "./helpers";
-import type { Edge, FloatAnchor, Orient, Scene, SceneFloat, SceneItem, Side, Zone } from "./model";
+import type { Edge, FloatAnchor, Orient, Scene, SceneFloat, SceneItem, SceneLayout, Side, Zone } from "./model";
+import { solve } from "./solve";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
 export interface DockPlace {
@@ -270,28 +271,68 @@ function floatRegion(scene: Scene): Rect {
   return { x: stage.x + px(inset.left), y: stage.y, width: Math.max(0, stage.width - px(inset.left) - px(inset.right)), height: stage.height };
 }
 
-/** One axis of a float resize: `[start, length]` clamped to `min` and into `[lo, hi]`, the edge not dragged kept. */
-function resizeAxis(start: number, length: number, min: number, lo: number, hi: number, drag: "start" | "end" | null): [number, number] {
+/**
+ * What a float resize stops at: what `solve` keeps floats clear of (`layFloats`), as laid out now: the docked items
+ * (» entries included), the bars and their » menus, the chrome.
+ */
+function floatObstacles(scene: Scene, l: SceneLayout, id: string): Rect[] {
+  const out: Rect[] = [];
+  for (const [k, p] of Object.entries(l.items)) if (k !== id && !p.floating) out.push(p.rect);
+  for (const e of Object.values(l.edges)) {
+    if (axisOf(e.side) === "row" && e.cross > 0) out.push(e.rect);
+    if (e.menu) out.push(e.menu.rect);
+  }
+  for (const c of scene.chrome ?? []) out.push(c);
+  return out.filter((r) => r.width > 0 && r.height > 0);
+}
+
+/**
+ * Where the dragged edge of `drawn` along `axis` stops: the nearest obstacle beyond it on that side that lies across
+ * `span` (the float's extent on the other axis). An obstacle the float already overlaps doesn't stop it.
+ */
+function obstacleStop(drawn: Rect | undefined, obstacles: readonly Rect[], axis: "x" | "y", drag: "start" | "end" | null, span: readonly [number, number]): number {
+  const none = drag === "start" ? -Infinity : Infinity;
+  if (!drawn || !drag) return none;
+  const lo = (r: Rect): number => (axis === "x" ? r.x : r.y);
+  const len = (r: Rect): number => (axis === "x" ? r.width : r.height);
+  const across = (r: Rect): [number, number] => (axis === "x" ? [r.y, r.y + r.height] : [r.x, r.x + r.width]);
+  let at = none;
+  for (const o of obstacles) {
+    const [c0, c1] = across(o);
+    if (c0 >= span[1] - 0.5 || c1 <= span[0] + 0.5) continue;
+    if (drag === "start" && lo(o) + len(o) <= lo(drawn) + 0.5) at = Math.max(at, lo(o) + len(o));
+    if (drag === "end" && lo(o) >= lo(drawn) + len(drawn) - 0.5) at = Math.min(at, lo(o));
+  }
+  return at;
+}
+
+/**
+ * One axis of a float resize: `[start, length]` with the edge not dragged kept, at least `min` long, inside `[lo, hi]`;
+ * the dragged edge also stops at `stop` (an obstacle), unless that leaves less than `min`.
+ */
+function resizeAxis(start: number, length: number, min: number, lo: number, hi: number, drag: "start" | "end" | null, stop: number): [number, number] {
   const fin = (v: number, d: number): number => (Number.isFinite(v) ? v : d);
   const s = fin(start, lo);
-  const len = Math.max(0, fin(length, min));
+  const raw = fin(length, min);
   // A floor larger than the region: the floor, at the region's start (as `solve` lays it).
   if (min >= hi - lo) return [lo, min];
   if (drag === "start") {
-    const end = Math.min(hi, Math.max(lo + min, s + len));
-    const l = Math.min(end - lo, Math.max(min, len));
-    return [end - l, l];
+    const end = Math.min(hi, Math.max(lo + min, s + raw));
+    const from = Math.min(end - min, Math.max(lo, stop, end - raw));
+    return [from, end - from];
   }
   const a = Math.max(lo, Math.min(hi - min, s));
-  return [a, Math.min(hi - a, Math.max(min, len))];
+  const to = Math.max(a + min, Math.min(hi, stop, a + raw));
+  return [a, to - a];
 }
 
 /**
  * The user's size across an edge (`size` a number; one that isn't finite clears it). Or, with a rect, a float's rect by
  * hand: `rect` is the rect asked for in stage px (the float as drawn, with the dragged `handle`'s edges moved; default
  * `"bottom-right"`). It is clamped to the item's `floatMin` (else its open form's minimums) and into the region floats
- * lie in (the stage less the inset at its left and right, its full height); the edges `handle` doesn't drag stay put,
- * so a drag of the left or top edge keeps the right or bottom one. The float keeps its stacking order and orient, loses
+ * lie in (the stage less the inset at its left and right, its full height); a dragged edge also stops at what `solve`
+ * keeps floats clear of (a bar, a docked item, the chrome), so the float isn't moved off it. The edges `handle` doesn't
+ * drag stay put, so a drag of the left or top edge keeps the right or bottom one. The float keeps its stacking order and orient, loses
  * its anchor, and the size becomes the item's `floatSize` (stored with the scene). Refused (the scene given back) for
  * anything but a float drawn at its first form when that form grows (a panel's card): a toolbar group's size comes
  * from its forms, and so does a folded float's bar.
@@ -316,8 +357,13 @@ export function resize(scene: Scene, id: string, size: number | Rect, handle: Re
   const region = floatRegion(scene);
   const dragX = handle.includes("left") ? "start" : handle.includes("right") ? "end" : null;
   const dragY = handle.includes("top") ? "start" : handle.includes("bottom") ? "end" : null;
-  const [x, width] = resizeAxis(size.x, size.width, min.width, region.x, region.x + region.width, dragX);
-  const [y, height] = resizeAxis(size.y, size.height, min.height, region.y, region.y + region.height, dragY);
+  // The dragged edges stop at what the float is kept clear of, as drawn now (else `solve` would move it off, and the
+  // edges not dragged with it): across first, over its height now; then along, over its new width.
+  const l = dragX || dragY ? solve(scene) : null;
+  const drawn = l?.items[id]?.rect;
+  const obstacles = l ? floatObstacles(scene, l, id) : [];
+  const [x, width] = resizeAxis(size.x, size.width, min.width, region.x, region.x + region.width, dragX, obstacleStop(drawn, obstacles, "x", dragX, drawn ? [drawn.y, drawn.y + drawn.height] : [0, 0]));
+  const [y, height] = resizeAxis(size.y, size.height, min.height, region.y, region.y + region.height, dragY, obstacleStop(drawn, obstacles, "y", dragY, [x, x + width]));
   const { anchor: _a, ...plain } = f;
   const float: SceneFloat = { ...plain, rect: { x, y, width, height } };
   return withItem({ ...scene, floats: scene.floats.map((g, k) => (k === i ? float : g)) }, { ...item, floatSize: { width, height } });
