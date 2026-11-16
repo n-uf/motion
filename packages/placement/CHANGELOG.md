@@ -5,6 +5,28 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.27
 
+- `./scene`, **rail titles** (additive; scenes without title forms lay out and target exactly as before):
+  - **`StackForm.title`**: a `rail` form that draws the item's title (its name and count turned along the rail; its
+    `main` is that length, measured by the host). Declared just before the item's tile `rail` form, the two are steps on
+    the ladder in a rail: every item takes its title while the rail fits them all, and titles step down to tiles by
+    priority, then age, coming back in exact reverse (`StackFit.steps`). In a column drawn as a rail and in a side's
+    rail strip (`SceneRailLayout.stack` carries the strip's fit).
+  - **`Scene.railModes`** (`{ left?, right? }`, each `RailMode`: `"titles"`, the default, or `"icons"`, which passes
+    title forms over). **`setRailMode(scene, side, mode)`** changes it; **`railModeOf(scene, side)`** reads it;
+    `storeScene` / `readScene` keep it (`StoredScene.railModes`). `RAIL_MODES` lists the modes.
+  - **`SceneItemLayout.railTitle`** (`"left" | "right"`): the side an item drawn in its title lies on. The host turns it
+    to read toward the content: the left rail bottom to top, the right one top to bottom, the count at the end.
+  - `./stack`: **`StackInput.titles`** offers title forms; without it they are passed over (never started in, stepped
+    into or grown back to).
+- `./scene`, **the rail stop at the window's edge**: while no rail shows, the rail stop holds the outer 10 px from the
+  side's outer edge (the window's, an inset's strip included; flush after the side's outside bars), and the outermost
+  column line's zone starts where it ends. With an inset the inset's strip used to go to the column line.
+- `./scene`, `fitResize`: the form's minimums stop only a shrink below the size drawn now (as `solve` lays it), every
+  growing edge stops at obstacles (beating the minimum), and the rect goes through the clamp `solve` lays floats with,
+  so `solve(resize(...))` draws exactly `fitResize`'s rect and the edges not dragged stay put. A float that already
+  covers something (no clear place at its size) may move to a clear place once a resize opens one; the preview is still
+  the commit.
+
 - `./scene`, **a float resized by hand** (additive):
   - **`fitResize(scene, id, rect, moving)`** → `{ rect, limits } | null`: the one clamp a host calls per pointer move,
     in one pass. `moving` (`ResizeEdges`: `{ left?, right?, top?, bottom? }`) names the dragged edges; the others stay
