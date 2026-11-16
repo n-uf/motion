@@ -4,7 +4,7 @@
  */
 import { EPS } from "../../geometry";
 import { fitStack, formCrossMin, formSetsCross, type StackFit, type StackForm, type StackInput, type StackItem } from "../../stack";
-import { axisOf, formsOf, pastWrap, zoneOf } from "../helpers";
+import { axisOf, formsOf, pastWrap, railModeOf, zoneOf } from "../helpers";
 import type { Edge, Scene, SceneEdgeLayout, SceneItem } from "../model";
 import { finite, px, zoneSorted } from "./order";
 
@@ -86,6 +86,8 @@ function railEdge(f: EdgeFrame, free: StackFit, asStackItem: (id: string) => Sta
   if (!anyRail) return null;
   const railInput: StackInput = {
     ...f.base,
+    // The side's rail mode: a title rail form is offered only while the side shows titles.
+    ...(railModeOf(scene, edge.side) === "titles" ? { titles: true } : {}),
     items: shown.map((id) => {
       const it = scene.items[id]!;
       const j = railIndex(it, formsById(id));

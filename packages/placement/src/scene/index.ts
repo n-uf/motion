@@ -16,11 +16,13 @@ export {
   DEFAULT_FLOAT_SIZE,
   DEFAULT_HIT_BAND,
   DEFAULT_STRIP,
+  RAIL_MODES,
   SIDES,
   ZONES,
   type ColumnTemplate,
   type Edge,
   type FloatAnchor,
+  type RailMode,
   type RailSpec,
   type SceneRailLayout,
   type Kind,
@@ -38,10 +40,10 @@ export {
   type Zone,
   type ZoneAccepts,
 } from "./model";
-export { floatOrientOf, floatSizeOf, isOutsideSideBar, isSideBar, zoneTakes, zonesTaking } from "./helpers";
+export { floatOrientOf, floatSizeOf, isOutsideSideBar, isSideBar, railModeOf, zoneTakes, zonesTaking } from "./helpers";
 export { solve } from "./solve";
 export { fitFloat, type FloatFit } from "../float-fit";
-export { close, dockHome, fold, floatAt, homeFor, keep, lift, moveTo, open, orient, raise, resize, setSide, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";
+export { close, dockHome, fold, floatAt, homeFor, keep, lift, moveTo, open, orient, raise, resize, setRailMode, setSide, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";
 export { fitResize, type FloatResize, type ResizeEdges, type ResizeLimit } from "./float-resize";
 export { readScene, storeScene, type SceneRead, type StoredScene, type StoredSceneEdge, type StoredSceneFloat, type StoredSceneItem } from "./store";
 export { refusals, reservedRect, stops, targets, type SceneAfter, type ScenePlace, type SceneRefusal, type SceneTarget, type SceneTargetOptions } from "./targets";

@@ -199,6 +199,7 @@ export function emit(d: Draft, edge: Edge, r: Rect, solved: EdgeSolve, extra: Pa
       zone: zoneOf(it),
       ...(inMenu ? { inMenu: true } : {}),
       ...(tabs.has(p.id) ? { tab: true } : {}),
+      ...(tabs.has(p.id) && f?.title === true && (edge.side === "left" || edge.side === "right") ? { railTitle: edge.side } : {}),
       ...(solved.closedTabs.has(p.id) ? { closed: true } : {}),
       ...(it.fixed ? { fixed: true } : {}),
     };

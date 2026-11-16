@@ -50,7 +50,8 @@ export function layRail(d: Draft, side: "left" | "right", railRect: Rect, railed
     for (const id of zoneSorted(scene, c.visible)) {
       const it = scene.items[id]!;
       const forms = formsOf(it, "column");
-      const ri = forms.findIndex((f) => f.kind === "rail");
+      // Its tile: a title rail form (`StackForm.title`) is passed over here.
+      const ri = forms.findIndex((f) => f.kind === "rail" && f.title !== true);
       const form = ri >= 0 ? ri : Math.min(Math.max(0, Math.floor(finite(it.from, 0))), Math.max(0, forms.length - 1));
       const h = ri >= 0 ? px(forms[ri]!.main.natural) : railRect.width;
       const at = rect(railRect.x, y, railRect.width, h);

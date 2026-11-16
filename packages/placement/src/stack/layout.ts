@@ -113,7 +113,14 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   const length = Math.max(0, finite(input.length));
   const lim = limitsOf(input);
   const items = input.items.filter((it) => it.forms.length > 0);
-  const start = items.map((it) => Math.min(Math.max(0, Math.floor(finite(it.from ?? 0))), it.forms.length - 1));
+  // A `title` form is offered only with `input.titles`; otherwise it is passed over like a form that isn't there.
+  const offered = (f: StackForm): boolean => f.title !== true || input.titles === true;
+  /** The first form at or after `j` that is offered (`j` itself when none is: an item keeps a form to draw). */
+  const offeredFrom = (it: StackItem, j: number): number => {
+    for (let k = j; k < it.forms.length; k++) if (offered(it.forms[k]!)) return k;
+    return j;
+  };
+  const start = items.map((it) => offeredFrom(it, Math.min(Math.max(0, Math.floor(finite(it.from ?? 0))), it.forms.length - 1)));
   const at = [...start];
   if (previous) {
     // An item the previous fit had keeps its form while `from` still allows it and the form at that index is still of the
@@ -128,7 +135,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
       const f = it.forms[p.form]!;
       // The size isn't compared: a form re-measured (a badge gained a digit) is still the form it was. A smaller one
       // frees room, which the fresh fit takes (`need`), a larger one gives way from the kept forms.
-      if (f.kind === p.kind) at[i] = p.form;
+      if (f.kind === p.kind && offered(f)) at[i] = p.form;
     });
   }
   const form = (i: number): StackForm => items[i]!.forms[at[i]!]!;
@@ -209,6 +216,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     const base = minSum();
     let found = -1;
     for (let j = from + 1; j < items[i]!.forms.length && found < 0; j++) {
+      if (!offered(items[i]!.forms[j]!)) continue;
       at[i] = j;
       if (minSum() < base - EPS) found = j;
     }
@@ -240,7 +248,12 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     at.splice(0, at.length, ...saved);
     return found ? batch : null;
   };
-  const canStep = (i: number): boolean => at[i]! + 1 < items[i]!.forms.length;
+  /** The next offered form after item `i`'s current one, or -1. */
+  const nextOffered = (i: number): number => {
+    for (let j = at[i]! + 1; j < items[i]!.forms.length; j++) if (offered(items[i]!.forms[j]!)) return j;
+    return -1;
+  };
+  const canStep = (i: number): boolean => nextOffered(i) >= 0;
   const tooWide = (i: number, cross: number): boolean => {
     const f = form(i);
     if (isMenu(f)) return false;
@@ -316,6 +329,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
       const cur = at[next]!;
       let to = -1;
       for (let k = cur - 1; k >= start[next]! && to < 0; k--) {
+        if (!offered(items[next]!.forms[k]!)) continue;
         at[next] = k;
         if (fitsWith([next])) to = k;
       }
@@ -359,8 +373,8 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     // Too wide for the stack: step down, but never into the menu (that is the length's call).
     let stepped = false;
     for (const i of idx) {
-      if (!items[i]!.fixed && tooWide(i, cross) && canStep(i) && !isMenu(items[i]!.forms[at[i]! + 1]!)) {
-        step(i, at[i]! + 1);
+      if (!items[i]!.fixed && tooWide(i, cross) && canStep(i) && !isMenu(items[i]!.forms[nextOffered(i)]!)) {
+        step(i, nextOffered(i));
         stepped = true;
       }
     }
