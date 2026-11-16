@@ -251,6 +251,48 @@ describe("drag/ intent", () => {
     expect(rail.t - entered).toBeLessThanOrEqual(FRAME + 0.001);
   });
 
+  // A tray of 28 px rows: the item in row 1 (y 28–56); home's slot reaches over row 2's leading half, the next slots
+  // meet at the rows' midpoints.
+  const ROW_HOME = rect(0, 28, 200, 28);
+  const TRAY: DragTarget[] = [
+    { id: "home-slot", priority: 2, hit: rect(0, 28, 200, 42) },
+    { id: "after-2", priority: 2, hit: rect(0, 70, 200, 28) },
+    { id: "after-3", priority: 2, hit: rect(0, 98, 200, 14) },
+  ];
+
+  it("small zones: a direct glide from home into a 28 px row's far half lands there; a fixed 10 px band would keep home's slot", () => {
+    for (const [y, want] of [
+      [77, "after-2"],
+      [105, "after-3"],
+    ] as const) {
+      const keys = hold(through([mid(ROW_HOME), { x: 100, y }], 0.3), 500);
+      expect(drive(keys, TRAY, ROW_HOME).landed).toBe(want);
+      expect(shows(drive(keys, TRAY, ROW_HOME).log).at(-1)?.id).toBe(want);
+    }
+    // The old rule (the band whole, whatever the zones' size) held home's slot 7 px into the next zone.
+    expect(drive(hold(through([mid(ROW_HOME), { x: 100, y: 77 }], 0.3), 500), TRAY, ROW_HOME, { bandShare: 1 }).landed).toBe("home-slot");
+  });
+
+  it("small zones: a narrow more precise zone breaks through at a fifth of its width, not 4 px", () => {
+    const thin: DragTarget = { id: "thin", priority: 1, hit: rect(-10, 0, 10, 200) };
+    const keys = then(hold(through([FROM, { x: 20, y: 50 }], 0.8), 400), (t0) => hold(through([{ x: 20, y: 50 }, { x: -5, y: 50 }], 0.05, t0), 30));
+    const r = drive(keys, [A, B, thin], HOME);
+    const entered = r.frames.find((f) => inRect(thin.hit, f.p, -2))!.t;
+    const took = r.log.find((e) => e.id === "thin")!.t;
+    expect(took - entered).toBeLessThanOrEqual(FRAME + 0.001);
+    expect(r.landed).toBe("thin");
+    // The old rule waited for 4 px, two fifths of it.
+    const old = drive(keys, [A, B, thin], HOME, { bandShare: 1 });
+    expect(old.log.find((e) => e.id === "thin")!.t - entered).toBeGreaterThan(FRAME * 2);
+  });
+
+  it("large zones keep the whole band: 100 px slots hold 9 px into the neighbour, not 11", () => {
+    const aimed = hold(through([FROM, mid(A.hit)], 0.8), 500);
+    const at = (y: number) => drive(hold(then(aimed, (t0) => through([mid(A.hit), { x: 100, y }], 0.3, t0)), 400), DOCK, HOME).landed;
+    expect(at(109)).toBe("slot-a");
+    expect(at(111)).toBe("slot-b");
+  });
+
   it("room is made after the shown target has held, never for a free target, and a new place in it waits again", () => {
     const tabs: DragTarget = { id: "tabs", priority: 1, hit: rect(0, 0, 300, 30) };
     const placeOf = (t: DragTarget, p: Point): string => `${t.id}:${Math.floor(p.x / 100)}`;

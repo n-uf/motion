@@ -5,6 +5,10 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.26
 
+- `./drag`, **the band and the breakthrough scale with the zones** (`DragTuning.bandShare`, additive, default 0.2):
+  along each axis they are at most a fifth of the held zone's extent and of the zone under the pointer, so a 28 px row
+  holds 5.6 px past its edge, not 10, and a glide straight from home into a small neighbour's far half lands there.
+  Zones 50 px and larger keep the whole 10 px band and 4 px breakthrough; `bandShare: 1` gives the old rule for zones over 10 px.
 - `./values`: the spring and the settle share one critically damped step and one store of components (value,
   velocity, target), instead of two copies. Nothing public changes, and the numbers are bit-for-bit the same.
 - `./drag`: `targetAt` is the one pick rule. `@n-uf/placement/scene/cases` takes it as an input
