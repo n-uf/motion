@@ -975,7 +975,20 @@ bottom don't cut it). A float is clamped into it, and one larger than it is shru
 (`Size`) is the floor of that shrink: a float of the item is laid out at `max(floatMin, min(its size, the region))` each
 way. Without it a shrink stops at the form's own minimums (`cross.min` across, `main.min` along), and a float asked for
 smaller than those keeps its size. A float wider than the region even at the floor keeps the floor and lies at the
-region's left edge; a folded float keeps its height.
+region's left edge; a folded float keeps its height. **`SceneItem.floatMax`** (`Size`, optional) is the ceiling: a
+larger float is laid out at it, its top-left corner kept (never under `floatMin`).
+
+**Resizing a float by hand.** Per pointer move a host calls **`fitResize(scene, id, rect, moving)`**: `rect` is the
+rect asked for (the float as drawn, the dragged edges where the pointer put them) and `moving`
+(`{ left?, right?, top?, bottom? }`) names those edges; the others stay put, so a left-edge drag keeps the right edge.
+In one pass, with no iteration, it keeps the size within `floatMin` (else the open form's minimums) and `floatMax`, the
+float in the float region, and stops a dragged edge at what floats are kept clear of (a bar, a docked item, the
+chrome), so `solve` lays the result exactly there. It gives `{ rect, limits }`, `limits` naming what bound it:
+`"min"`, `"max"`, `"region"`, `"docked"`. It gives null for anything but a float drawn at a first form that grows (a
+panel's card): a toolbar group's size and a folded float's bar come from their forms. On commit (each move, or the
+release) `resize(scene, id, rect, moving)` stores that same rect as the float's rect and the item's `floatSize`, so the
+preview is the commit and the size survives `storeScene`. `fitFloat` is the other half: it moves a float to a clear
+place and never resizes it.
 
 **`previous`.** `solve(scene, { previous })` hands each edge's fits (`edges[id].free` and `.stack`) to `fitStack`, so a
 change of ages alone (a press, `use`) or `raise` changes no rect (C23), a form that was only re-measured keeps its place,
@@ -1151,11 +1164,8 @@ Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (
 `floatAt(scene, id, rect?, orient?)` (with no rect: its last `floatSize`, anchored to the content's top-right), `fold`,
 `use`, `keep`, `raise` (a float on top: no use, no reshape), `open`, `close`, `orient`, `resize` and
 `setSide(scene, edgeId, side)`. `resize(scene, edgeId, size)` sets the user's size across an edge;
-`resize(scene, floatId, rect, handle?)` resizes a float by hand: `rect` is the rect asked for (the drawn float with the
-dragged `handle`'s edges moved, default `"bottom-right"`), clamped to the item's `floatMin` (else its open form's
-minimums) and into the region floats lie in, a dragged edge stopping at what floats are kept clear of (a bar, a docked
-item, the chrome), the edges `handle` doesn't drag kept put (a left-edge drag keeps the right edge). The size becomes `floatSize`, so it is stored. Only a float drawn at a first form that grows (a panel's card)
-resizes: a toolbar group's size, and a folded float's bar, come from their forms, and the scene is given back. `setSide` moves an edge to the other side of its axis (left ⇄ right, top ⇄ bottom) as
+`resize(scene, floatId, rect, moving?)` resizes a float by hand at `fitResize`'s rect (see "Resizing a float by hand";
+the scene given back where `fitResize` gives null). `setSide` moves an edge to the other side of its axis (left ⇄ right, top ⇄ bottom) as
 its side's outermost edge: ring 0, before that side's other edges, whose rings close up behind it (the side it left
 closes up too). Its items, size and options go with it; the scene is given back unchanged for an unknown edge, the side
 it is already on, or a side across its axis. Like every change it ticks no use clock: a host that moves an edge by hand

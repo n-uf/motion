@@ -1,0 +1,166 @@
+/**
+ * `fitResize(scene, id, rect, moving)`: the rect a float takes when the user drags some of its edges, clamped in one
+ * pass (no iteration) and with the limits that bound it. Hosts call it on every pointer move for the preview; the
+ * scene change `resize(scene, id, rect, moving)` commits the same rect, so the preview is the commit.
+ *
+ * It is not `fitFloat`: that one moves a float (never resizes it) to a clear place; this one resizes it with the edges
+ * not dragged kept put, and stops a dragged edge before anything `fitFloat` would move it off, so `solve` lays the
+ * result exactly where it is asked.
+ */
+import type { Rect } from "../geometry";
+import { axisOf, floatOrientOf, floatShape, formsOf, isDockingPanel } from "./helpers";
+import type { Scene, SceneLayout } from "./model";
+import { solve } from "./solve";
+
+/** The edges of a float a resize drags; the others stay put. Left beats right, top beats bottom, when both are set. */
+export interface ResizeEdges {
+  readonly left?: boolean;
+  readonly right?: boolean;
+  readonly top?: boolean;
+  readonly bottom?: boolean;
+}
+
+/**
+ * Why a resized float isn't the rect asked for: `"min"` its least size (`floatMin`, else its open form's minimums),
+ * `"max"` its `floatMax`, `"region"` the region floats lie in (the stage less the inset at its left and right, its full
+ * height), `"docked"` what floats are kept clear of (a bar, a docked item, the chrome).
+ */
+export type ResizeLimit = "min" | "max" | "region" | "docked";
+
+export interface FloatResize {
+  /** The float's rect: what `resize` stores and `solve` draws. */
+  readonly rect: Rect;
+  /** The limits that bound it, in this order: min, max, region, docked. Empty when it is the rect asked for. */
+  readonly limits: readonly ResizeLimit[];
+}
+
+const LIMITS: readonly ResizeLimit[] = ["min", "max", "region", "docked"];
+const EPS = 0.5;
+const fin = (v: number | undefined, d: number): number => (Number.isFinite(v) ? v! : d);
+const nonNeg = (v: number | undefined): number => Math.max(0, fin(v, 0));
+
+/**
+ * The region floats lie in, as `solve` lays them: the stage less the inset at its left and right (none with
+ * `insetWhen: "docked"` while no panel is docked beside the content), the stage's full height.
+ */
+function floatRegion(scene: Scene): Rect {
+  const floating = new Set(scene.floats.map((f) => f.id));
+  const docked = scene.edges.some((e) => (e.side === "left" || e.side === "right") && e.accepts.length > 0 && e.items.some((id) => !floating.has(id) && !!scene.items[id] && isDockingPanel(scene.items[id]!)));
+  const inset = scene.insetWhen === "docked" && !docked ? {} : (scene.inset ?? {});
+  const { stage } = scene;
+  return { x: stage.x + nonNeg(inset.left), y: stage.y, width: Math.max(0, stage.width - nonNeg(inset.left) - nonNeg(inset.right)), height: stage.height };
+}
+
+/** What `solve` keeps floats clear of, as laid out now: docked items (» entries included), bars and their » menus, the chrome. */
+function floatObstacles(scene: Scene, l: SceneLayout, id: string): Rect[] {
+  const out: Rect[] = [];
+  for (const [k, p] of Object.entries(l.items)) if (k !== id && !p.floating) out.push(p.rect);
+  for (const e of Object.values(l.edges)) {
+    if (axisOf(e.side) === "row" && e.cross > 0) out.push(e.rect);
+    if (e.menu) out.push(e.menu.rect);
+  }
+  for (const c of scene.chrome ?? []) out.push(c);
+  return out.filter((r) => r.width > 0 && r.height > 0);
+}
+
+/**
+ * Where the dragged edge of `drawn` along `axis` stops: the nearest obstacle beyond it on that side that lies across
+ * `span` (the float's extent on the other axis). An obstacle the float already overlaps doesn't stop it.
+ */
+function obstacleStop(drawn: Rect | undefined, obstacles: readonly Rect[], axis: "x" | "y", drag: "start" | "end" | null, span: readonly [number, number]): number {
+  const none = drag === "start" ? -Infinity : Infinity;
+  if (!drawn || !drag) return none;
+  const lo = (r: Rect): number => (axis === "x" ? r.x : r.y);
+  const len = (r: Rect): number => (axis === "x" ? r.width : r.height);
+  const across = (r: Rect): [number, number] => (axis === "x" ? [r.y, r.y + r.height] : [r.x, r.x + r.width]);
+  let at = none;
+  for (const o of obstacles) {
+    const [c0, c1] = across(o);
+    if (c0 >= span[1] - EPS || c1 <= span[0] + EPS) continue;
+    if (drag === "start" && lo(o) + len(o) <= lo(drawn) + EPS) at = Math.max(at, lo(o) + len(o));
+    if (drag === "end" && lo(o) >= lo(drawn) + len(drawn) - EPS) at = Math.min(at, lo(o));
+  }
+  return at;
+}
+
+/** One axis: `[start, length]` asked; the bounds; which edge is dragged. The limits that bind go into `hit`. */
+function fitAxis(start: number, length: number, b: { min: number; max: number; lo: number; hi: number; stop: number }, drag: "start" | "end" | null, hit: Set<ResizeLimit>): [number, number] {
+  const { min, lo, hi, stop } = b;
+  const max = Math.max(min, b.max);
+  const raw = fin(length, min);
+  // A floor larger than the region: the floor, at the region's start (as `solve` lays it).
+  if (min >= hi - lo) {
+    hit.add("region");
+    return [lo, min];
+  }
+  // The bound a dragged edge reaches first, with every limit that sits there.
+  const bind = (cands: [number, ResizeLimit][], pick: (a: number, b: number) => number): [number, ResizeLimit[]] => {
+    const at = cands.reduce((m, [v]) => pick(m, v), cands[0]![0]);
+    return [at, cands.filter(([v]) => Math.abs(v - at) <= EPS).map(([, k]) => k)];
+  };
+  if (drag === "start") {
+    // The end is kept (moved into the region only when it lies outside it).
+    const asked = fin(start, lo) + raw;
+    const end = Math.min(hi, Math.max(lo + min, asked));
+    if (Math.abs(end - asked) > EPS) hit.add("region");
+    const [down, why] = bind([[end - max, "max"], [lo, "region"], [stop, "docked"]], Math.max);
+    let from = end - raw;
+    if (from > end - min) {
+      from = end - min;
+      hit.add("min");
+    } else if (from < down - EPS) {
+      from = Math.min(down, end - min);
+      for (const k of from === down ? why : (["min"] as ResizeLimit[])) hit.add(k);
+    }
+    return [from, end - from];
+  }
+  // The start is kept (moved into the region only when it lies outside it); an axis not dragged keeps its start too.
+  const asked = fin(start, lo);
+  const a = Math.max(lo, Math.min(hi - min, asked));
+  if (Math.abs(a - asked) > EPS) hit.add("region");
+  const [up, why] = bind([[a + max, "max"], [hi, "region"], [stop, "docked"]], Math.min);
+  let to = a + raw;
+  if (to < a + min) {
+    to = a + min;
+    hit.add("min");
+  } else if (to > up + EPS) {
+    to = Math.max(up, a + min);
+    for (const k of to === up ? why : (["min"] as ResizeLimit[])) hit.add(k);
+  }
+  return [a, to - a];
+}
+
+/**
+ * The rect float `id` takes for a resize: `rect` is the rect asked for in stage px (the float as drawn, with the
+ * `moving` edges where the pointer put them). In one pass: the edges not moving stay put; the size is at least the
+ * item's `floatMin` (else its open form's minimums) and at most its `floatMax`; the float stays in the region floats lie
+ * in; a moving edge stops at what floats are kept clear of, as drawn now (across first, over its height now; then
+ * along, over its new width), so `solve` never moves it off. `limits` says which of these bound it.
+ *
+ * Null for anything but a float drawn at its first form when that form grows (a panel's card): a toolbar group's size
+ * comes from its forms, and so does a folded float's bar. Pure: it solves the scene once, for what is drawn now.
+ */
+export function fitResize(scene: Scene, id: string, rect: Rect, moving: ResizeEdges): FloatResize | null {
+  const f = scene.floats.find((x) => x.id === id);
+  const item = Object.hasOwn(scene.items, id) ? scene.items[id] : undefined;
+  if (!f || !item || item.fixed) return null;
+  const fo = f.orient ?? floatOrientOf(item);
+  const form = formsOf(item, fo)[0];
+  if (floatShape(item, f).form !== 0 || (form && !form.main.grows)) return null;
+  const row = fo === "row";
+  const min = {
+    width: item.floatMin ? nonNeg(item.floatMin.width) : nonNeg(row ? form?.main.min : form?.cross.min),
+    height: item.floatMin ? nonNeg(item.floatMin.height) : nonNeg(row ? form?.cross.min : form?.main.min),
+  };
+  const max = { width: fin(item.floatMax?.width, Infinity), height: fin(item.floatMax?.height, Infinity) };
+  const region = floatRegion(scene);
+  const dragX = moving.left ? "start" : moving.right ? "end" : null;
+  const dragY = moving.top ? "start" : moving.bottom ? "end" : null;
+  const l = dragX || dragY ? solve(scene) : null;
+  const drawn = l?.items[id]?.rect;
+  const obstacles = l ? floatObstacles(scene, l, id) : [];
+  const hit = new Set<ResizeLimit>();
+  const [x, width] = fitAxis(rect.x, rect.width, { min: min.width, max: max.width, lo: region.x, hi: region.x + region.width, stop: obstacleStop(drawn, obstacles, "x", dragX, drawn ? [drawn.y, drawn.y + drawn.height] : [0, 0]) }, dragX, hit);
+  const [y, height] = fitAxis(rect.y, rect.height, { min: min.height, max: max.height, lo: region.y, hi: region.y + region.height, stop: obstacleStop(drawn, obstacles, "y", dragY, [x, x + width]) }, dragY, hit);
+  return { rect: { x, y, width, height }, limits: LIMITS.filter((k) => hit.has(k)) };
+}

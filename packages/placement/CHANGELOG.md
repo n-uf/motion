@@ -9,12 +9,19 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
   (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
-- `./scene`, **`resize` resizes a float by hand** (additive): `resize(scene, floatId, rect, handle?)` with
-  `ResizeHandle` (`"left"`, `"top-right"`, …; default `"bottom-right"`). The rect is clamped to `floatMin` (else the
-  open form's minimums) and into the floats' region (the stage less the inset at its left and right, its full height);
-  a dragged edge stops at what floats are kept clear of (a bar, a docked item, the chrome), so `solve` never moves the
-  float off; the edges the handle doesn't drag stay put. The size becomes the item's `floatSize`, so `storeScene` keeps it. A
-  toolbar group (sized by its forms) and a folded float are refused. `resize(scene, edgeId, size)` is unchanged.
+- `./scene`, **a float resized by hand** (additive):
+  - **`fitResize(scene, id, rect, moving)`** → `{ rect, limits } | null`: the one clamp a host calls per pointer move,
+    in one pass. `moving` (`ResizeEdges`: `{ left?, right?, top?, bottom? }`) names the dragged edges; the others stay
+    put. The size stays within `floatMin` (else the open form's minimums) and `floatMax`, the float in the floats'
+    region (the stage less the inset at its left and right, its full height), and a dragged edge stops at what floats
+    are kept clear of (a bar, a docked item, the chrome), so `solve` never moves the float off. `limits`
+    (`ResizeLimit[]`: `"min"`, `"max"`, `"region"`, `"docked"`) says what bound it. Null for a toolbar group (sized by
+    its forms) and a folded float.
+  - **`resize(scene, floatId, rect, moving?)`** commits `fitResize`'s rect (default `moving`: right and bottom) as the
+    float's rect and the item's `floatSize`, so `storeScene` keeps it and the preview is the commit.
+    `resize(scene, edgeId, size)` is unchanged.
+  - **`SceneItem.floatMax`** (`Size`, optional, beside `floatMin`): `solve` lays a larger float at it, its top-left
+    corner kept, and `fitResize` stops there.
 
 - `./scene`, **aim order: a pointer over an item's half means before or after it** (hits change; ids, `after` and the
   API don't).

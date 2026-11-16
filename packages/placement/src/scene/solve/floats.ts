@@ -71,10 +71,12 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
       width: it.floatMin ? px(it.floatMin.width) : Math.min(shape.width, px(row ? form?.main.min : form?.cross.min)),
       height: it.floatMin ? px(it.floatMin.height) : Math.min(shape.height, px(row ? form?.cross.min : form?.main.min)),
     };
-    const w = Math.max(floor.width, Math.min(shape.width, floatRegion.width));
+    // `floatMax` caps it (never under the floor).
+    const cap = { width: Number.isFinite(it.floatMax?.width) ? it.floatMax!.width : Infinity, height: Number.isFinite(it.floatMax?.height) ? it.floatMax!.height : Infinity };
+    const w = Math.max(floor.width, Math.min(shape.width, floatRegion.width, cap.width));
     // Folded means its bar (a `header` form), not any form past the first (a row float, a second open form).
     const folded = form?.kind === "header";
-    const h = folded ? shape.height : Math.max(floor.height, Math.min(shape.height, floatRegion.height));
+    const h = folded ? shape.height : Math.max(floor.height, Math.min(shape.height, floatRegion.height, cap.height));
     const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);
     const fit0 = fitFloat(want, floatRegion, avoid);
     const fit = w > floatRegion.width + EPS ? { ...fit0, rect: rect(floatRegion.x, fit0.rect.y, w, fit0.rect.height) } : fit0;
