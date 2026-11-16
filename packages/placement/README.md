@@ -1000,6 +1000,11 @@ is passed as `fresh`:
 
 **Targets.** `targets(scene, id, { previous, endReach, floatSize, floatOrient })` gives, in the `@n-uf/motion/drag` shape:
 
+Every hit lies where the user sees things: the layout as it is, the dragged item in place. Its own place is home, and so
+are the gaps right beside it (a drop there is the same move). An edge the lift would delete (the item alone in its
+column) is home as a whole. A zone of a bar reaches over every card seen in it. Each target's `after` is the solved
+drop, so where the lift would reflow a neighbour the preview moves it under a fixed pointer, and the tiles stay put.
+
 - `gap:<edge>:<zone>:<at>` (priority 2) for every edge whose `accepts` lists the item's kind (deny by default), before
   each item of each zone and at each zone's end, so an empty center or end zone can be opened; only where the item
   fits: not in the » menu, no `overflow`, nothing newly `too-wide`, every fixed item of the edge keeping its form and its
@@ -1011,8 +1016,7 @@ is passed as `fresh`:
   merge into that start gap (its id stays `gap:<edge>:start:<n>`). The first and last reach `endReach` px past the
   edge's ends, but only a hit that reaches the edge's end goes on past it (a tray's gap at the foot never covers the
   top). Another edge's rect trims a gap's hit: one across from the edge (a bar above a column) at the hit's end along
-  the edge, one beside it (a neighbouring column) at its side; the edges as they are now, before the item is lifted,
-  trim it at its side too (but the dragged item's own edge). Across, the hit is the larger of the edge's thickness
+  the edge, one beside it (a neighbouring column) at its side. Across, the hit is the larger of the edge's thickness
   before and after the drop; a compact edge's hits reach 24 px further inward, except where another edge's gap is.
   Hits are cut clear of chrome and of every fixed item that doesn't grow (controls, a readout). A fixed item that grows
   (a title filling its bar) takes hits over its text, which land in the nearest gap; it reserves only its natural rect,
