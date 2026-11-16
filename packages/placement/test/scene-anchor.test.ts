@@ -90,4 +90,21 @@ describe("a fixed anchor's edge in the store", () => {
     expect(back.dropped).toEqual([]);
     expect(solve(back.scene)).toEqual(l);
   });
+
+  it("listed inside another edge's entry (a legacy store), that entry moves the anchor's own edge: its side and its size", () => {
+    const base = anchorScene();
+    const expected = solve(resize(setSide(base, "anchor:thumbs", "right"), "anchor:thumbs", 120));
+    const stored = storeScene(base);
+    const others = stored.edges.filter((e) => e.id !== "anchor:thumbs");
+    // An entry of its own under another id, on the right at 120 px.
+    const own = { ...stored, edges: [...others, { id: "thumbs-right", side: "right" as const, ring: 0, items: ["thumbs"], size: 120 }] };
+    const a = readScene(JSON.parse(JSON.stringify(own)), base);
+    expect(a.dropped).toEqual([]);
+    expect(solve(a.scene)).toEqual(expected);
+    // Listed in the right column's entry, before its panel: the column keeps its items and its own size.
+    const inRight = { ...stored, edges: others.map((e) => (e.id === "right" ? { ...e, items: ["thumbs", ...e.items], size: 120 } : e)) };
+    const b = readScene(JSON.parse(JSON.stringify(inRight)), base);
+    expect(b.dropped).toEqual([]);
+    expect(solve(b.scene)).toEqual(expected);
+  });
 });
