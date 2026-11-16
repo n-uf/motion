@@ -10,6 +10,20 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     at the window's edge, its drawn rect owns the space, so the line ends at the column (about 18–24 px).
   - A home target's `hit` is the item's own place. Its other `hits` pieces (e.g. the rest of a rail) may be larger.
 
+- `./scene`, **rail docking per item kind** (additive; a kind with no policy targets exactly as before):
+  - **`Scene.railDrop`**: per kind (the scene's own kind strings), a **`RailDropPolicy`**: `railStripWidth` (default
+    the rail's drawn width, at least `RAIL_STRIP_MIN`, 24; 0 turns it off), `railVisibility` (`RailVisibility`:
+    `"whileDragging"`, the default, `"always"`, `"never"`, which turns it off; `RAIL_VISIBILITIES` lists them),
+    `magnet` (default `DEFAULT_RAIL_MAGNET`, 6 px) and `floatNearEdge` (default true).
+  - Each side whose rail takes the kind gets one drop strip at the window's side, even while the rail is empty:
+    `rail:<side>:<ring>` targets with `arm: "dwell"` (spring-loading, armed by the drag intent's dwell), `armedHit`
+    (the strip grown by the magnet) and `strip` (the rect to draw). The strip owns its rect, home's included; an empty
+    column's drop strip moves just inside it. `Target` gains `arm` and `armedHit`, `SceneTarget` gains `strip`.
+  - **The side's rail is one concept.** On a side with no declared rail (`Scene.rails`), it is the side's outermost
+    column that takes the kind in its start zone, drawn as a rail: `moveTo(scene, id, { kind: "rail", side, ring })`
+    now docks the item at the end of that column's start zone, folded by hand (it was a no-op there), and `stops`
+    lists it for "Move to › Rail". The strip is offered only where the drop shows in a rail.
+  - `floatNearEdge: false` keeps a float's landing clear of every strip.
 - `./scene`, fixed: **a rail stop with no slot that lands owns nothing.** Under hand folds that ride, a panel dropped on
   the rail while its side keeps an open column rides over it, so every rail stop is refused; the stop still held the
   outer 10 px at the window's side, which in a flush window floated. The rail stop now takes its place only when one of

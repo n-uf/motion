@@ -11,6 +11,18 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.27
 
+- `./drag`, **spring-loading and keys that win over geometry** (additive; targets without `arm` and hosts that pass
+  no keys behave as before):
+  - `DragTarget.arm: "dwell"` marks a spring-loaded target: no target until the pointer has dwelt in its zone for
+    **`DragTuning.railArmDwellMs`** (default 200 ms, as platforms spring-load a few hundred ms after the pointer rests;
+    0 arms at once). Armed, its zone is `DragTarget.armedHit` (a magnet), it shows at once, and leaving that zone
+    disarms it. `DragFrame.arming` names the target dwelt on, for the host to highlight.
+  - **`DragTuning.modifiers`** (`DragModifiers`: `{ on, floatKey, railKey }`, default Shift and Alt, on):
+    `update(point, time, targets, keys?)` and `release(point, targets, keys?)` take the keys held (`DragKeys`); the
+    float key shows and lands on the `free` target anywhere, the rail key on the nearest spring-loaded target.
+    `DragFrame.forced` says which one won. Type `ModifierKey`.
+- README, drag: a host clamps the pointer into the stage before `update` and `release`.
+
 - `./drag`, **`createGripPress`: a double-click on a grip is its own gesture** (additive). A press tracker for grips:
   `move` answers the lift rule, `up` gives `"click"`, `"doubleActivate"` (the second press of two within
   `DOUBLE_CLICK`, or the platform's count when the host passes it) or null after a lift. The second click of a double
