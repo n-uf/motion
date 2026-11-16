@@ -86,6 +86,12 @@ export interface SceneItem {
    * form) keeps its height. Without it, a shrink stops at the form's own minimums.
    */
   readonly floatMin?: Size;
+  /**
+   * The most a float of it is laid out at, each way (optional, the same shape as `floatMin`, never under it): a larger
+   * float rect is drawn at this size, its top-left corner kept (a folded float keeps its bar's height), and `fitResize`
+   * stops a resize here (`"max"`).
+   */
+  readonly floatMax?: Size;
 }
 
 export interface Edge {

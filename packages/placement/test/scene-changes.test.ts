@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { close, floatAt, fold, keep, lift, moveTo, open, orient, raise, readScene, resize, solve, storeScene, use, type Scene } from "../src/scene";
+import { close, fitResize, floatAt, fold, keep, lift, moveTo, open, orient, raise, readScene, resize, solve, storeScene, use, type Scene } from "../src/scene";
 import { STORED_WINDOW, windowScene } from "./scene-fixture";
 
 const s = windowScene();
@@ -92,6 +92,15 @@ describe("pure changes", () => {
 describe("a float resized by hand (resize with a rect)", () => {
   // notes floats at 500,200 280×320; its open form's minimums are 180 across and 120 along.
   const rectOf = (sc: Scene, id: string) => sc.floats.find((f) => f.id === id)!.rect;
+  // The edges a handle drags.
+  const E = {
+    left: { left: true },
+    right: { right: true },
+    top: { top: true },
+    bottom: { bottom: true },
+    "top-left": { top: true, left: true },
+    "bottom-right": { bottom: true, right: true },
+  } as const;
 
   it("sets the rect and the floatSize; a corner drag clamps at the open form's minimums, or at floatMin", () => {
     const grown = resize(s, "notes", { x: 500, y: 200, width: 400, height: 450 });
@@ -100,28 +109,28 @@ describe("a float resized by hand (resize with a rect)", () => {
     expect(solve(grown).items.notes!.rect).toEqual({ x: 500, y: 200, width: 400, height: 450 });
     expect(rectOf(resize(s, "notes", { x: 500, y: 200, width: 40, height: 30 }), "notes")).toEqual({ x: 500, y: 200, width: 180, height: 120 });
     const floored: Scene = { ...s, items: { ...s.items, notes: { ...s.items.notes!, floatMin: { width: 220, height: 160 } } } };
-    expect(rectOf(resize(floored, "notes", { x: 500, y: 200, width: 40, height: 30 }, "bottom-right"), "notes")).toEqual({ x: 500, y: 200, width: 220, height: 160 });
+    expect(rectOf(resize(floored, "notes", { x: 500, y: 200, width: 40, height: 30 }, E["bottom-right"]), "notes")).toEqual({ x: 500, y: 200, width: 220, height: 160 });
   });
 
   it("a left or top edge drag keeps the right or bottom edge put, also when it clamps", () => {
     // Left edge to x 700: the right edge stays at 780, the width clamps at 180 (x 600).
-    expect(rectOf(resize(s, "notes", { x: 700, y: 200, width: 80, height: 320 }, "left"), "notes")).toEqual({ x: 600, y: 200, width: 180, height: 320 });
-    expect(rectOf(resize(s, "notes", { x: 400, y: 200, width: 380, height: 320 }, "left"), "notes")).toEqual({ x: 400, y: 200, width: 380, height: 320 });
+    expect(rectOf(resize(s, "notes", { x: 700, y: 200, width: 80, height: 320 }, E.left), "notes")).toEqual({ x: 600, y: 200, width: 180, height: 320 });
+    expect(rectOf(resize(s, "notes", { x: 400, y: 200, width: 380, height: 320 }, E.left), "notes")).toEqual({ x: 400, y: 200, width: 380, height: 320 });
     // Top-left corner past the minimums: bottom stays at 520, right at 780.
-    expect(rectOf(resize(s, "notes", { x: 760, y: 500, width: 20, height: 20 }, "top-left"), "notes")).toEqual({ x: 600, y: 400, width: 180, height: 120 });
+    expect(rectOf(resize(s, "notes", { x: 760, y: 500, width: 20, height: 20 }, E["top-left"]), "notes")).toEqual({ x: 600, y: 400, width: 180, height: 120 });
   });
 
   it("past the window's edge it clamps into the region floats lie in", () => {
     // The window with nothing docked: only the stage bounds it.
     const bare: Scene = { ...s, edges: [] };
     // Right edge past the stage (1200): it ends there. Left edge past 0: it starts there, the right edge kept.
-    expect(rectOf(resize(bare, "notes", { x: 500, y: 200, width: 1000, height: 320 }, "right"), "notes")).toEqual({ x: 500, y: 200, width: 700, height: 320 });
-    expect(rectOf(resize(bare, "notes", { x: -300, y: 200, width: 1080, height: 320 }, "left"), "notes")).toEqual({ x: 0, y: 200, width: 780, height: 320 });
-    expect(rectOf(resize(bare, "notes", { x: 500, y: -50, width: 280, height: 570 }, "top"), "notes")).toEqual({ x: 500, y: 0, width: 280, height: 520 });
-    expect(rectOf(resize(bare, "notes", { x: 500, y: 200, width: 280, height: 900 }, "bottom"), "notes")).toEqual({ x: 500, y: 200, width: 280, height: 600 });
+    expect(rectOf(resize(bare, "notes", { x: 500, y: 200, width: 1000, height: 320 }, E.right), "notes")).toEqual({ x: 500, y: 200, width: 700, height: 320 });
+    expect(rectOf(resize(bare, "notes", { x: -300, y: 200, width: 1080, height: 320 }, E.left), "notes")).toEqual({ x: 0, y: 200, width: 780, height: 320 });
+    expect(rectOf(resize(bare, "notes", { x: 500, y: -50, width: 280, height: 570 }, E.top), "notes")).toEqual({ x: 500, y: 0, width: 280, height: 520 });
+    expect(rectOf(resize(bare, "notes", { x: 500, y: 200, width: 280, height: 900 }, E.bottom), "notes")).toEqual({ x: 500, y: 200, width: 280, height: 600 });
     // The inset's left and right are kept clear, the full height is not.
     const inset: Scene = { ...bare, inset: { left: 16, right: 16, top: 16, bottom: 16 } };
-    expect(rectOf(resize(inset, "notes", { x: -300, y: -10, width: 1080, height: 530 }, "top-left"), "notes")).toEqual({ x: 16, y: 0, width: 764, height: 520 });
+    expect(rectOf(resize(inset, "notes", { x: -300, y: -10, width: 1080, height: 530 }, E["top-left"]), "notes")).toEqual({ x: 16, y: 0, width: 764, height: 520 });
   });
 
   it("a dragged edge stops at what floats keep clear of (a bar, a docked panel), so solve never moves it off", () => {
@@ -129,16 +138,39 @@ describe("a float resized by hand (resize with a rect)", () => {
     // Up: the lowest top bar above it. Right: the right column's items.
     const barsEnd = Math.max(...Object.values(l.edges).filter((e) => e.side === "top" && e.cross > 0).map((e) => e.rect.y + e.rect.height));
     const colStart = Math.min(...Object.values(l.items).filter((p) => p.edge === "right").map((p) => p.rect.x));
-    const up = resize(s, "notes", { x: 500, y: -50, width: 280, height: 570 }, "top");
+    const up = resize(s, "notes", { x: 500, y: -50, width: 280, height: 570 }, E.top);
     expect(rectOf(up, "notes")).toEqual({ x: 500, y: barsEnd, width: 280, height: 520 - barsEnd });
     expect(solve(up).items.notes!.rect).toEqual(rectOf(up, "notes"));
-    const right = resize(s, "notes", { x: 500, y: 200, width: 1000, height: 320 }, "right");
+    const right = resize(s, "notes", { x: 500, y: 200, width: 1000, height: 320 }, E.right);
     expect(rectOf(right, "notes")).toEqual({ x: 500, y: 200, width: colStart - 500, height: 320 });
     expect(solve(right).items.notes!.rect).toEqual(rectOf(right, "notes"));
   });
 
+  it("fitResize: one pass, the limits that bound it, and resize commits exactly its rect", () => {
+    const bare: Scene = { ...s, edges: [], floats: [{ id: "notes", rect: { x: 500, y: 200, width: 300, height: 320 } }] };
+    // The kits' case: a right-edge width of 3000 keeps x 500 and ends at the region's right edge.
+    const wide = fitResize(bare, "notes", { x: 500, y: 200, width: 3000, height: 320 }, { right: true })!;
+    expect(wide).toEqual({ rect: { x: 500, y: 200, width: 700, height: 320 }, limits: ["region"] });
+    expect(rectOf(resize(bare, "notes", { x: 500, y: 200, width: 3000, height: 320 }, { right: true }), "notes")).toEqual(wide.rect);
+    // Asked for what fits: no limit.
+    expect(fitResize(bare, "notes", { x: 500, y: 200, width: 400, height: 320 }, { right: true })).toEqual({ rect: { x: 500, y: 200, width: 400, height: 320 }, limits: [] });
+    // Under the minimums: "min", the right edge kept for a left drag.
+    expect(fitResize(bare, "notes", { x: 790, y: 200, width: 10, height: 320 }, { left: true })).toEqual({ rect: { x: 620, y: 200, width: 180, height: 320 }, limits: ["min"] });
+    // floatMax: "max" before the region; layout honours it too.
+    const capped: Scene = { ...bare, items: { ...bare.items, notes: { ...bare.items.notes!, floatMax: { width: 520, height: 400 } } } };
+    expect(fitResize(capped, "notes", { x: 500, y: 200, width: 3000, height: 3000 }, { right: true, bottom: true })).toEqual({ rect: { x: 500, y: 200, width: 520, height: 400 }, limits: ["max"] });
+    expect(fitResize(capped, "notes", { x: -2000, y: 200, width: 2800, height: 320 }, { left: true })).toEqual({ rect: { x: 280, y: 200, width: 520, height: 320 }, limits: ["max"] });
+    const big: Scene = { ...capped, floats: [{ id: "notes", rect: { x: 100, y: 100, width: 900, height: 700 } }] };
+    expect(solve(big).items.notes!.rect).toEqual({ x: 100, y: 100, width: 520, height: 400 });
+    // A bar in the way: "docked".
+    const up = fitResize(s, "notes", { x: 500, y: -50, width: 280, height: 570 }, { top: true })!;
+    expect(up.limits).toEqual(["docked"]);
+    // Refused: a toolbar group.
+    expect(fitResize(floatAt(s, "tools", { x: 300, y: 300, width: 200, height: 28 }), "tools", { x: 300, y: 300, width: 400, height: 80 }, { right: true })).toBeNull();
+  });
+
   it("is stored: the size survives storeScene / readScene", () => {
-    const changed = resize(s, "notes", { x: 420, y: 150, width: 360, height: 400 }, "top-left");
+    const changed = resize(s, "notes", { x: 420, y: 150, width: 360, height: 400 }, E["top-left"]);
     const read = readScene(JSON.parse(JSON.stringify(storeScene(changed))), s);
     expect(read.dropped).toEqual([]);
     expect(rectOf(read.scene, "notes")).toEqual({ x: 420, y: 150, width: 360, height: 400 });
