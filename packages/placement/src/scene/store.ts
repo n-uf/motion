@@ -186,6 +186,8 @@ function read(data: unknown, base: Scene): SceneRead {
   const made: Edge[] = [];
   const rings = new Map<string, number>();
   const moves = new Map<string, Side>();
+  const anchorMoves = new Map<string, Side>();
+  const anchorSizes = new Map<string, number>();
   if (data.edges !== undefined && !Array.isArray(data.edges)) drop("edges");
   for (const e of Array.isArray(data.edges) ? (data.edges as unknown[]) : []) {
     if (!isObject(e) || typeof e.id !== "string") {
@@ -193,6 +195,19 @@ function read(data: unknown, base: Scene): SceneRead {
       continue;
     }
     let edge = base.edges.find((x) => x.id === e.id) ?? made.find((x) => x.id === e.id);
+    // An anchor (a fixed item) listed in an entry other than its own edge's: the entry says where and how big the
+    // anchor's edge is (a store that kept the anchor inside a side edge). Its own static edge goes to that side and
+    // takes that size; the anchor stays in it. An anchor's edge takes nothing (`accepts: []`); a fixed item of an edge
+    // that takes items (a title in its title bar) listed elsewhere is dropped, as before.
+    const listed = Array.isArray(e.items) ? (e.items as unknown[]) : [];
+    const anchorEdges = base.edges.filter((b) => b.column !== true && b.accepts.length === 0 && b.id !== edge?.id && b.items.some((id) => isFixed(id) && listed.includes(id)));
+    for (const b of anchorEdges) {
+      const side = SIDES.includes(e.side as Side) ? (e.side as Side) : edge?.side;
+      if (side && side !== b.side && axisOf(side) === axisOf(b.side)) anchorMoves.set(b.id, side);
+      if (isNum(e.size)) anchorSizes.set(b.id, e.size);
+    }
+    const describesAnchor = anchorEdges.length > 0;
+    if (!edge && describesAnchor) continue;
     // A stored column under a virtual edge's id (`column:<side>`, `rail:<side>`) is dropped, never made.
     if (!edge && e.column === true && (e.side === "left" || e.side === "right") && base.columns?.[e.side] && !isReservedEdgeId(e.id)) {
       // A column the user made: from its side's template.
@@ -205,7 +220,7 @@ function read(data: unknown, base: Scene): SceneRead {
     }
     if (edge.column === true && isNum(e.ring)) rings.set(edge.id, e.ring);
     if (e.side !== undefined && !SIDES.includes(e.side as Side)) drop(`edge:${e.id}:side`);
-    else if (edge.column !== true && typeof e.side === "string" && e.side !== edge.side && axisOf(e.side as Side) === axisOf(edge.side)) moves.set(edge.id, e.side as Side);
+    else if (!describesAnchor && edge.column !== true && typeof e.side === "string" && e.side !== edge.side && axisOf(e.side as Side) === axisOf(edge.side)) moves.set(edge.id, e.side as Side);
     const ids: string[] = [];
     for (const id of Array.isArray(e.items) ? (e.items as unknown[]) : []) {
       if (!known(id) || placed.has(id)) drop(`edge:${edge.id}:${String(id)}`);
@@ -214,7 +229,7 @@ function read(data: unknown, base: Scene): SceneRead {
         if (edge.items.includes(id) && base.edges.some((x) => x.id === edge.id)) {
           ids.push(id);
           placed.add(id);
-        } else drop(`edge:${edge.id}:${id}`);
+        } else if (!anchorEdges.some((b) => b.items.includes(id))) drop(`edge:${edge.id}:${id}`);
       }
       else if (!edge.accepts.includes(items[id]!.kind)) drop(`edge:${edge.id}:${id}`);
       else {
@@ -223,10 +238,15 @@ function read(data: unknown, base: Scene): SceneRead {
       }
     }
     order.set(edge.id, ids);
-    if (isNum(e.size)) sizes.set(edge.id, e.size);
+    // The size of an entry that describes an anchor is the anchor's edge's.
+    if (describesAnchor) {
+      if (!sizes.has(edge.id)) sizes.set(edge.id, edge.size);
+    } else if (isNum(e.size)) sizes.set(edge.id, e.size);
     else if (e.size !== undefined) drop(`edge:${edge.id}:size`);
     else sizes.set(edge.id, undefined);
   }
+  for (const [id, side] of anchorMoves) moves.set(id, side);
+  for (const [id, size] of anchorSizes) sizes.set(id, size);
   const floats: SceneFloat[] = [];
   if (data.floats !== undefined && !Array.isArray(data.floats)) drop("floats");
   for (const f of Array.isArray(data.floats) ? (data.floats as unknown[]) : []) {
