@@ -138,14 +138,16 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
       ],
     ]),
   );
-  // Panel bodies (an open item's), but for `hitBand / 2` at each end: no drop place of their edge, so no part of its
-  // zones' room.
-  const bodySpans = (e: Edge | null): Span[] => {
-    if (!e) return [];
+  // Half the hit band of an edge's panels, or null where they are split in halves (`hitBand: "middle"`, no body).
+  const halfBandOf = (e: Edge): number | null => {
     const bandOpt = hitBandOf(scene, e);
-    if (bandOpt === "middle") return [];
+    return bandOpt === "middle" ? null : Math.max(0, Number.isFinite(bandOpt) ? bandOpt : DEFAULT_HIT_BAND) / 2;
+  };
+  // Panel bodies (an open item's), but for `hitBand / 2` at each end: no drop place of their edge.
+  const bodySpans = (e: Edge | null): Span[] => {
+    const half = e ? halfBandOf(e) : null;
+    if (!e || half === null) return [];
     const column = axisOf(e.side) === "column";
-    const half = Math.max(0, Number.isFinite(bandOpt) ? bandOpt : DEFAULT_HIT_BAND) / 2;
     return Object.entries(now.items)
       .filter(([iid, p]) => p.edge === e.id && p.formKind === "open" && iid !== dragged)
       .map(([, p]): Span => (column ? [p.rect.y + half, p.rect.y + p.rect.height - half] : [p.rect.x + half, p.rect.x + p.rect.width - half]))
@@ -156,7 +158,16 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
   // sub-pixel strip between two owners (an empty bar's zones, split where the bar's thirds fall) is no room, so no slot
   // lands its tile there. Panel bodies are no drop place, but they don't split the room: the tiles run across them and
   // clipping takes them out (`bodies`), so a card's band beside the item's own place meets the nearest slot past it.
+  // A body cuts only beyond half a band of each slot's line, the line where the room puts it: a line under another
+  // edge's owned band (the first gap of a column under an empty bar's place band) lies at that band's far side, and its
+  // half band reaches into the body from there.
+  const rooms = new Map<EdgeSpec, Room>();
   const cutsOf = (s: EdgeSpec): Room => {
+    let room = rooms.get(s);
+    if (!room) rooms.set(s, (room = roomOf(s)));
+    return room;
+  };
+  const roomOf = (s: EdgeSpec): Room => {
     const b = bandOf(s);
     const along = (r: Rect): Span => (s.vertical ? [r.y, r.y + r.height] : [r.x, r.x + r.width]);
     const across = (r: Rect): Span => (s.vertical ? [r.x, r.x + r.width] : [r.y, r.y + r.height]);
@@ -168,7 +179,24 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
       const over = rs.filter((r) => along(r)[0] <= u + EPS && along(r)[1] >= w - EPS).map(across);
       if (w - u > EPS && less([across(b)], over).reduce((n, [p, q]) => n + q - p, 0) < 1) owned.push([u, w]);
     }
-    return { cuts: owned, bodies: bodySpans(s.edge) };
+    const half = s.edge ? halfBandOf(s.edge) : null;
+    const raw = bodySpans(s.edge);
+    if (half === null || raw.length === 0) return { cuts: owned, bodies: raw };
+    const merged = owned.reduce<[number, number][]>((m, [u, w]) => {
+      const last = m[m.length - 1];
+      if (last && u <= last[1] + EPS) last[1] = Math.max(last[1], w);
+      else m.push([u, w]);
+      return m;
+    }, []);
+    const [lo, hi] = along(b);
+    const placed = (p: number): number => {
+      const cut = merged.find(([u, w]) => p >= u - EPS && p <= w + EPS);
+      if (!cut) return p;
+      const sides = [...(cut[0] > lo + EPS ? [cut[0]] : []), ...(cut[1] < hi - EPS ? [cut[1]] : [])];
+      return sides.length === 0 ? p : sides.reduce((m, x) => (Math.abs(x - p) < Math.abs(m - p) ? x : m));
+    };
+    const bands = s.slots.map((sl): Span => [placed(sl.line) - half, placed(sl.line) + half]);
+    return { cuts: owned, bodies: less(raw, bands) };
   };
   const grows = (id: string): boolean => {
     const it = now.items[id]!;
@@ -186,7 +214,7 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
     const reserved = Object.entries(now.items)
       .filter(([iid, p]) => p.edge === e.id && p.fixed && !p.inMenu && !grows(iid))
       .map(([, p]) => (column ? across(p.rect.y, p.rect.y + p.rect.height) : across(p.rect.x, p.rect.x + p.rect.width)));
-    return [...reserved, ...bodySpans(e).map(([a, b]) => across(a, b))].filter((b) => area(b) > EPS);
+    return [...reserved, ...cutsOf(s).bodies.map(([a, b]) => across(a, b))].filter((b) => area(b) > EPS);
   };
   const drawnBySpec = new Map<EdgeSpec, Rect[]>();
   const drawnBesides = (s: EdgeSpec): Rect[] => {

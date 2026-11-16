@@ -276,9 +276,13 @@ describe("an empty bar's strip", () => {
     expect(strips.reduce((w, t) => w + t.hit.width, 0)).toBeGreaterThan(0.9 * content.width);
     expect(strips.map((t) => t.hit.x)).toEqual([...strips.map((t) => t.hit.x)].sort((a, b) => a - b));
     strips.forEach((t, k) => expect(t.after({ x: 0, y: 0 }).layout.items.views!.zone).toBe(["start", "center", "end"][k]));
-    // The columns' first gaps lie under the empty bar's place band (laid before the sides) and their panels' bodies: no
-    // room, so they aren't offered (never projected to a far stretch). The columns' last gaps keep their hits.
-    for (const id of ["gap:left:start:0", "gap:right:start:0"]) expect(ts.find((t) => t.id === id)).toBeUndefined();
+    // The columns' tops are the empty bar's place band (laid before the sides): their first gaps keep their half band
+    // into the panels' bodies just below it, local to their lines. The columns' last gaps keep their hits.
+    const top = solve(empty).edges.left!.rect.y;
+    for (const id of ["gap:left:start:0", "gap:right:start:0"]) {
+      const t = ts.find((x) => x.id === id)!;
+      expect([t.hit.y, t.hit.y + t.hit.height], id).toEqual([top + 12, top + 24]);
+    }
     for (const id of ["gap:left:start:1", "gap:right:start:2"]) expect(ts.find((t) => t.id === id)!.hit.height).toBeGreaterThan(0);
   });
 });
