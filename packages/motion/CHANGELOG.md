@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## 26.11.26
+## Unreleased
 
 - `./drag`, **`createGripPress`: a double-click on a grip is its own gesture** (additive). A press tracker for grips:
   `move` answers the lift rule, `up` gives `"click"`, `"doubleActivate"` (the second press of two within
@@ -21,6 +21,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   velocity, target), instead of two copies. Nothing public changes, and the numbers are bit-for-bit the same.
 - `./drag`: `targetAt` is the one pick rule. `@n-uf/placement/scene/cases` takes it as an input
   (`createSceneHost({ pick: targetAt })`) instead of keeping a copy of its own.
+
+## 26.11.26
 
 - **Removed:** `SurfacePointer` (deprecated in 26.11.25); use `GesturePointer`.
 

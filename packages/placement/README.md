@@ -927,6 +927,15 @@ none lays out as before.
   between such bars, and an anchor runs through the inset beside them. Without it nothing changes.
 - **`Edge.giveWay`**: a static left or right edge that gives way like a dynamic column. It shrinks toward its minimum,
   then folds whole into its side's rail, in give-way order with the columns (by its items' ages). It is never deleted.
+- **`Edge.moves: "side"`**: a static edge whose fixed item (an anchor, such as page thumbnails) the user may drag to the
+  other side of the edge's axis. `targets` then gives that item one target, `side:<other side>`, over the place the edge
+  takes there, landing as `setSide` puts it; its own place is home. Left out, a fixed item has no targets. `readScene`
+  moves an anchor's edge to the side and size of the stored entry that lists it.
+- **`Edge.foldable: true`**: the user may fold this edge's fixed items (an anchor) by hand, like a panel:
+  `fold(scene, id, true)` shows the item in its rail form, `fold(scene, id, false)` reopens it, and `storeScene` /
+  `readScene` keep it folded. Left out, `fold` leaves a fixed item as it is and a stored fold is dropped.
+- **`ColumnTemplate.hitBand`**: the `Edge.hitBand` (a number of px, or `"middle"`) that the columns a template makes
+  inherit; see the gap targets below.
 - **`Scene.insetWhen`** (`"always"`, the default, or `"docked"`): with `"docked"` the inset applies only while something is
   docked beside the content, that is an open panel column or a rail showing panels (an item whose first column form is
   `open`, `header` or `rail`, not closed). Only panels count: an anchor alone doesn't, and neither does a toolbar group
@@ -1233,16 +1242,15 @@ a gesture the row doesn't have fails the row. `createSceneHost()` is the referen
 session that lifts past 4 px, asks `targets` for every target, takes the one under the pointer by its pick rule,
 draws the preview from its `after.layout` and commits `after.scene` on release, every solve carrying the layout before
 it as `previous`. A kit's host does the same with its own pointer; `resolvePlace(targets, place, item, { stage, content
-}, pick)` turns a `place` into a point that reaches the target.
+}, pick)` turns a `place` into a point that reaches the target. Every row
+passes on the in-memory host except its DOM checks, which it skips, and the rows with `lacks`, which fail on it until the
+library rule lands. `CASE_GROUPS` lists the groups.
 
 **The pick rule** (which target the pointer is over: the lowest priority number, then the smallest zone, every piece of
 `hits` counted, a rect holding its edges exactly) is `@n-uf/motion/drag`'s `targetAt`, the rule the drag intent runs.
 Placement doesn't import motion, so the host takes it as an input: `createSceneHost({ pick: targetAt })`, the last
 argument of `resolvePlace`, and a host's optional `pick` (`PickRule`). Without one, the default is the same rule
 (`pickTarget`, deprecated, held equal to `targetAt` by a test).
- Every row
-passes on the in-memory host except its DOM checks, which it skips, and the rows with `lacks`, which fail on it until the
-library rule lands. `CASE_GROUPS` lists the groups.
 
 **The gesture grammar.** A row's `gestures` are plain objects (`g.press(...)` and the other `g` constructors build them),
 played in order:
