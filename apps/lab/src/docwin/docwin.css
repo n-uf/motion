@@ -43,6 +43,13 @@
 .dw-drawer summary { padding: 6px 12px; cursor: pointer; color: var(--text-2); }
 .dw-drawer-body { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 4px 12px 10px; }
 .dw-drawer-body input[type="number"] { width: 5em; }
+/* The drag feel: one section per kind, its controls wrapping. */
+.dw-feel { flex-basis: 100%; }
+.dw-feel summary { padding: 2px 0; }
+.dw-feel-body { display: grid; gap: 6px; padding-top: 4px; }
+.dw-feel-sec { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 0; padding: 4px 10px 8px; border: 1px solid var(--line); border-radius: 6px; }
+.dw-feel-sec legend { padding: 0 4px; color: var(--text-2); }
+.dw-feel-sec input[type="range"] { width: 90px; }
 .dw-status { margin: 0; min-height: 1.4em; font-size: 13px; color: var(--text-2); }
 .dw-stored pre { max-height: 240px; overflow: auto; font-size: 11px; }
 
@@ -191,6 +198,18 @@
 .dw-slot { z-index: 5; pointer-events: none; border: 2px dashed var(--signal); border-radius: 6px; background: var(--signal-soft); }
 .dw-slot-label { position: absolute; left: 4px; top: 2px; font-size: 10.5px; color: var(--signal); white-space: nowrap; }
 .dw-marker { z-index: 5; pointer-events: none; background: var(--signal); border-radius: 2px; }
+/* A side rail's drop strip: faint at its real width while a panel is held; highlighted while dwelt on; armed, it grows by
+   its magnet (no animation under reduced motion). */
+.dw-strips { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.dw-railstrip {
+  position: absolute; pointer-events: none; box-sizing: border-box; border-radius: 4px;
+  background: color-mix(in srgb, var(--signal) 7%, transparent); outline: 1px dashed color-mix(in srgb, var(--signal) 35%, transparent); outline-offset: -2px;
+  transition: left 120ms ease-out, width 120ms ease-out, background-color 120ms linear;
+}
+.dw-railstrip[data-arming] { background: color-mix(in srgb, var(--signal) 18%, transparent); outline-style: solid; }
+.dw-railstrip[data-armed] { background: var(--signal-soft); outline: 2px solid var(--signal); }
+@media (prefers-reduced-motion: reduce) { .dw-railstrip { transition: none; } }
+.dw[data-reduced-motion] .dw-railstrip { transition: none; }
 /* Over a refused zone: the zone tinted and "No room here" at the pointer, no slot anywhere. */
 .dw-refuse { position: absolute; z-index: 5; pointer-events: none; border-radius: 6px; background: color-mix(in srgb, var(--win-muted) 18%, transparent); outline: 1px solid color-mix(in srgb, var(--win-muted) 45%, transparent); }
 .dw-refuse-label { position: absolute; z-index: 7; pointer-events: none; padding: 2px 6px; border-radius: 4px; background: var(--bg-raised); border: 1px solid var(--win-edge); color: var(--win-muted); font-size: 11px; white-space: nowrap; }

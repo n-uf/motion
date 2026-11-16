@@ -14,7 +14,7 @@
  * - the store is `storeScene` / `readScene` (./store).
  */
 import { clamp, contains, type Point, type Rect } from "@n-uf/placement";
-import { createDragIntent, createGripPress, previewPlan, type DragIntent } from "@n-uf/motion/drag";
+import { createDragIntent, createGripPress, previewPlan, type DragIntent, type DragKeys } from "@n-uf/motion/drag";
 import { anchoredMorph, type AnchoredMorph } from "@n-uf/motion/layout";
 import {
   close as closeItem,
@@ -37,6 +37,7 @@ import {
   type SceneTarget,
 } from "@n-uf/placement/scene";
 import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, EDGES, GROUPS, PANELS, RAIL, ROW_VARIANTS, TITLES, ZOOM_CONTROLS, defaultScene, edgeOf, isSideEdge, reformPanels, setGroupSizes, setTitleSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId, type PanelId } from "./model";
+import { DEFAULT_FEEL, tuningOf, withFeel, type DragFeel } from "./feel";
 import { readDocwin, storeDocwin, type StoredDocwin } from "./store";
 
 export interface LastDrop {
@@ -132,6 +133,11 @@ interface Held {
   homing: boolean;
   preview: Rect | null;
   raf: number;
+  /** The modifier keys held now; Alt held at the lift (it unfreezes a frozen window) counts only once pressed again. */
+  keys: DragKeys;
+  altFromLift: boolean;
+  /** The rail target last said armed in the live region (its id), or null. */
+  armedSaid: string | null;
 }
 
 export interface SceneOptions {
@@ -179,6 +185,8 @@ export function createScene(o: SceneOptions) {
   /** Checks drive the drag themselves: no animation frames then. */
   let driven = false;
   let pageKey = "";
+  /** The drag feel (`./feel`): read by every drag's targets and tuning. */
+  let feel: DragFeel = DEFAULT_FEEL;
 
   win.innerHTML = `
     ${EDGES.map((e) => `<div class="${isSideEdge(e) ? "dw-colbg" : "dw-bar"}" data-edge="${e}"></div>`).join("")}
@@ -186,6 +194,7 @@ export function createScene(o: SceneOptions) {
     <div class="dw-items"></div>
     <div class="dw-resize" data-resize="left" title="Drag to change the column's width"></div>
     <div class="dw-resize" data-resize="right" title="Drag to change the column's width"></div>
+    <div class="dw-strips" aria-hidden="true"></div>
     <div class="dw-slot" hidden><span class="dw-slot-label"></span></div>
     <div class="dw-marker" hidden></div>
     <div class="dw-refuse" hidden></div>
@@ -196,6 +205,7 @@ export function createScene(o: SceneOptions) {
   const scroll = q<HTMLDivElement>(".dw-scroll");
   const sheets = q<HTMLDivElement>(".dw-sheets");
   const slot = q<HTMLDivElement>(".dw-slot");
+  const stripLayer = q<HTMLDivElement>(".dw-strips");
   const slotLabel = q<HTMLSpanElement>(".dw-slot-label");
   const marker = q<HTMLDivElement>(".dw-marker");
   const refuseTint = q<HTMLDivElement>(".dw-refuse");
@@ -393,6 +403,7 @@ export function createScene(o: SceneOptions) {
     }
     layout = solve(scene, previous ? { previous } : {});
     draw(scene, layout, undefined, !previous || layout.notes.some((n) => n.code === "content-changed"));
+    restingStrips();
     store();
     o.onChange?.();
     return layout;
@@ -441,8 +452,45 @@ export function createScene(o: SceneOptions) {
     say(`The ${side} rail shows ${mode === "titles" ? "the panels' titles while they fit" : "icons"}.`);
   }
 
-  const targetsOf = (id: ItemId): SceneTarget[] => sceneTargets(scene, id, { previous: layout, endReach: END_REACH });
-  const refusalsOf = (id: ItemId): SceneRefusal[] => sceneRefusals(scene, id, { previous: layout, endReach: END_REACH });
+  // The drag feel: the rail drop policies per kind go into the scene the targets read; the tuning into each drag.
+  const targetsOf = (id: ItemId): SceneTarget[] => sceneTargets(withFeel(scene, feel), id, { previous: layout, endReach: END_REACH });
+  const refusalsOf = (id: ItemId): SceneRefusal[] => sceneRefusals(withFeel(scene, feel), id, { previous: layout, endReach: END_REACH });
+
+  /**
+   * The side rails' drop strips: while a panel is held, each rail target's strip (`whileDragging`); with `always`, also
+   * at rest (the strips a docked panel's drag would offer). The one dwelt on is highlighted (`arming`), the armed one
+   * grown by its magnet (`armed`); under reduced motion it grows with no animation.
+   */
+  function drawStrips(list: readonly SceneTarget[], arming: string | null, armed: SceneTarget | null): void {
+    const seen = new Map<string, SceneTarget>();
+    for (const t of list) if (t.strip) seen.set(`${t.strip.x}:${t.strip.y}`, t);
+    const els = [...stripLayer.children] as HTMLElement[];
+    let i = 0;
+    for (const t of seen.values()) {
+      const el = els[i++] ?? stripLayer.appendChild(document.createElement("div"));
+      el.className = "dw-railstrip";
+      const side = t.place.kind === "rail" ? t.place.side : "left";
+      el.dataset.side = side;
+      const on = armed && armed.place.kind === "rail" && armed.place.side === side;
+      el.toggleAttribute("data-arming", !on && list.some((x) => x.id === arming && x.place.kind === "rail" && x.place.side === side));
+      el.toggleAttribute("data-armed", !!on);
+      const r = on && armed.armedHit ? { ...t.strip!, x: Math.min(t.strip!.x, armed.armedHit.x), width: Math.max(t.strip!.width, armed.armedHit.width) } : t.strip!;
+      place(el, r);
+    }
+    for (; i < els.length; i++) els[i]!.remove();
+  }
+  /** At rest, with `always`: the strips a docked panel's drag would offer, one per side. */
+  function restingStrips(): void {
+    if (drag) return;
+    if (feel.panel.railVisibility !== "always") return drawStrips([], null, null);
+    const found: SceneTarget[] = [];
+    for (const id of PANELS) {
+      if (!layout.items[id] || layout.items[id]!.floating || scene.items[id]?.closed) continue;
+      for (const t of targetsOf(id)) if (t.strip && !found.some((x) => x.place.kind === "rail" && t.place.kind === "rail" && x.place.side === t.place.side)) found.push(t);
+      if (found.length >= 2) break;
+    }
+    drawStrips(found, null, null);
+  }
   const inside = (r: Rect, p: Point): boolean => contains(r, p, 0);
 
   /** Over a refusal: the zone tinted, "No room here" at the pointer; elsewhere both hidden. */
@@ -549,6 +597,30 @@ export function createScene(o: SceneOptions) {
     }
   }
 
+  /** `r` less every rail strip of `targets` that overlaps it across its height: the larger part left. */
+  function cutStrips(r: Rect, targets: readonly SceneTarget[]): Rect {
+    let out = r;
+    for (const t of targets) {
+      const s = t.strip;
+      if (!s || s.x >= out.x + out.width || s.x + s.width <= out.x) continue;
+      const left = s.x - out.x;
+      const right = out.x + out.width - (s.x + s.width);
+      out = left >= right ? { ...out, width: Math.max(0, left) } : { ...out, x: s.x + s.width, width: Math.max(0, right) };
+    }
+    return out;
+  }
+
+  /** The keys held when the next drag lifts (a press's modifier state). */
+  let liftKeys: DragKeys = {};
+  const keysOf = (e: { shiftKey: boolean; altKey: boolean; ctrlKey: boolean; metaKey: boolean }): DragKeys => ({ shift: e.shiftKey, alt: e.altKey, ctrl: e.ctrlKey, meta: e.metaKey });
+  /** The keys held now, during a drag: Alt held since the lift counts only once let go and pressed again. */
+  function setKeys(k: DragKeys): void {
+    const d = drag;
+    if (!d) return;
+    if (d.altFromLift && !k.alt) d.altFromLift = false;
+    d.keys = { ...k, alt: !!k.alt && !d.altFromLift };
+  }
+
   /** Lift `id`, pressed at `start` and now at `p` (window px). False when nothing can be lifted. */
   function begin(id: ItemId, start: Point, p: Point, now = performance.now()): boolean {
     if (drag || frozen() || scene.items[id]?.fixed) return false;
@@ -570,7 +642,9 @@ export function createScene(o: SceneOptions) {
     Object.assign(home0.el.style, { opacity: "1", visibility: "" });
     forms.set(home0.key, home0);
     const docked = !was.floating;
-    const home: Rect = docked ? was.rect : { x: start.x, y: start.y, width: 0, height: 0 };
+    // A side rail's drop strip owns its rect, the item's own included: home is its rect less the strips (the larger part
+    // left), so an item alone in its column reaches the rail at its window edge.
+    const home: Rect = docked ? cutStrips(was.rect, targets) : { x: start.x, y: start.y, width: 0, height: 0 };
     drag = {
       id,
       kind: was.kind,
@@ -587,7 +661,7 @@ export function createScene(o: SceneOptions) {
       formOf: null,
       switches: 0,
       last: now,
-      intent: createDragIntent<SceneTarget>({ home }),
+      intent: createDragIntent<SceneTarget>({ home, tuning: tuningOf(feel, was.kind) }),
       targets,
       refusals: refusalsOf(id),
       focus: document.activeElement,
@@ -598,7 +672,12 @@ export function createScene(o: SceneOptions) {
       homing: false,
       preview: null,
       raf: 0,
+      // In a frozen window Alt unfreezes it for the lift: that Alt isn't the rail key until pressed again.
+      keys: root.dataset.frozen !== undefined ? { ...liftKeys, alt: false } : { ...liftKeys },
+      altFromLift: root.dataset.frozen !== undefined && !!liftKeys.alt,
+      armedSaid: null,
     };
+    liftKeys = {};
     root.dataset.dragSession = was.kind;
     // No target shown yet: the committed layout, the held item's place left empty, nothing else moving.
     draw(scene, layout, id);
@@ -635,6 +714,7 @@ export function createScene(o: SceneOptions) {
   const labelOf = (t: SceneTarget): string => {
     const p = t.place;
     if (p.kind === "gap") return `${p.edge} · ${p.zone} ${p.at}`;
+    if (p.kind === "rail" && t.arm) return `collapse into the ${p.side} rail`;
     if (p.kind === "column" || p.kind === "rail") return `new ${p.kind} ${p.side} ${p.ring}`;
     return p.kind;
   };
@@ -652,8 +732,16 @@ export function createScene(o: SceneOptions) {
   function frame(now: number): void {
     const d = drag;
     if (!d) return;
-    const f = d.intent.update(pickPoint(d), now, d.targets);
+    const f = d.intent.update(pickPoint(d), now, d.targets, d.keys);
     const plan = previewPlan(f, "gap");
+    // The side rails' strips, the one dwelt on highlighted, the armed one grown; the armed state said in the live region.
+    const armed = f.shown && f.shown.place.kind === "rail" ? f.shown : null;
+    drawStrips(d.targets, f.arming?.id ?? null, armed);
+    if ((armed?.id ?? null) !== d.armedSaid) {
+      d.armedSaid = armed?.id ?? null;
+      if (armed && armed.place.kind === "rail") say(`${TITLES[d.id]}: release to collapse it into the ${armed.place.side} rail${f.forced === "rail" ? ` (${feel.panel.modifiers.railKey} held)` : ""}.`);
+      else if (f.arming) say(`${TITLES[d.id]} over the ${f.arming.place.kind === "rail" ? f.arming.place.side : ""} rail: hold still to collapse it there.`);
+    }
     const room = plan.makeRoom && docks(f.shown) ? f.shown : null;
     const homing = f.atHome && d.docked && f.shown === null;
     // A toolbar group held over a target takes the form the drop there gives it (row, wrap, icons down a rail or along
@@ -681,7 +769,8 @@ export function createScene(o: SceneOptions) {
     }
     d.shown = f.shown;
     // A refused place under the pointer (nothing but the float target there): no slot anywhere, "No room here" at it.
-    const refused = !homing && (!f.shown || f.shown.place.kind === "float") ? (d.refusals.find((r) => inside(r.hit, pickPoint(d))) ?? null) : null;
+    // A key held wins over geometry: no refusal then.
+    const refused = !homing && !f.forced && (!f.shown || f.shown.place.kind === "float") ? (d.refusals.find((r) => inside(r.hit, pickPoint(d))) ?? null) : null;
     d.refused = refused;
     showRefusal(refused, d.pointer);
     const s = plan.showIndicator ? f.shown : null;
@@ -689,7 +778,7 @@ export function createScene(o: SceneOptions) {
       d.preview = null;
       showSlot(null);
     } else if (homing || s?.place.kind === "home") {
-      d.preview = d.docked ? d.home : (layout.items[d.id]?.rect ?? null);
+      d.preview = layout.items[d.id]?.rect ?? null;
       showSlot(d.preview, "Back to its place");
     } else if (!s || s.place.kind === "none") {
       d.preview = null;
@@ -725,7 +814,7 @@ export function createScene(o: SceneOptions) {
     if (!cancel) frame(now);
     // A release over a refusal commits nothing: the item goes home.
     const refused = cancel ? null : d.refused;
-    const t = cancel || refused ? null : d.intent.release(pickPoint(d), d.targets);
+    const t = cancel || refused ? null : d.intent.release(pickPoint(d), d.targets, d.keys);
     cancelAnimationFrame(d.raf);
     drag = null;
     // The press's own pointer, key and cancel listeners go with the drag: a reset mid-drag leaves none behind.
@@ -734,6 +823,7 @@ export function createScene(o: SceneOptions) {
     delete root.dataset.dragSession;
     showSlot(null);
     showRefusal(null, d.pointer);
+    restingStrips();
     const id = d.id;
     let preview = d.preview;
     const go = commits(t);
@@ -787,12 +877,14 @@ export function createScene(o: SceneOptions) {
       const p = winPoint(ev);
       if (!lifted) {
         if (gripPress.move(p, performance.now()) !== "lift") return;
+        liftKeys = keysOf(ev);
         lifted = begin(id, start, p);
         if (!lifted) {
           gripPress.cancel();
           return stop();
         }
       }
+      setKeys(keysOf(ev));
       move(p);
     };
     const stop = (): void => {
@@ -800,6 +892,7 @@ export function createScene(o: SceneOptions) {
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
       window.removeEventListener("keydown", key);
+      window.removeEventListener("keyup", key);
       if (endInput === stop) endInput = null;
     };
     endInput = stop;
@@ -809,6 +902,7 @@ export function createScene(o: SceneOptions) {
       const ended = ev.type === "pointerup" ? gripPress.up(winPoint(ev), performance.now()) : null;
       if (lifted && drag) {
         move(winPoint(ev));
+        setKeys(keysOf(ev));
         swallowClick();
         release(performance.now(), ev.type === "pointercancel");
       } else if (ended === "doubleActivate") {
@@ -826,12 +920,19 @@ export function createScene(o: SceneOptions) {
       if (ev.key === "Escape" && drag) {
         release(performance.now(), true);
         stop();
+        return;
+      }
+      // A modifier pressed or let go while held still: the keys win over geometry from the next frame.
+      if (drag && (ev.key === "Shift" || ev.key === "Alt" || ev.key === "Control" || ev.key === "Meta")) {
+        if (ev.key === "Alt") ev.preventDefault();
+        setKeys(keysOf(ev));
       }
     };
     window.addEventListener("pointermove", mv);
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
     window.addEventListener("keydown", key);
+    window.addEventListener("keyup", key);
   });
 
   // --- the "+N" popover: the » menu's list, one level down ----------------------------------------------------------
@@ -1257,6 +1358,24 @@ export function createScene(o: SceneOptions) {
       return root.dataset.frozen !== undefined;
     },
     altOn,
+    /** The drag feel (`./feel`): the next drag reads it. */
+    get feel(): DragFeel {
+      return feel;
+    },
+    setFeel(next: DragFeel): void {
+      feel = next;
+      restingStrips();
+    },
+    /** The modifier keys held during a drag driven by hand (the checks). */
+    keys(k: DragKeys): void {
+      setKeys(k);
+    },
+    /** Reduced motion forced on (the checks), as `prefers-reduced-motion: reduce` does: no strip animation. */
+    setReducedMotion(on: boolean): void {
+      if (on) root.dataset.reducedMotion = "";
+      else delete root.dataset.reducedMotion;
+    },
+    stripLayer,
     targets: targetsOf,
     edge: (id: EdgeId) => edgeOf(scene, id),
     press,
