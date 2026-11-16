@@ -134,6 +134,11 @@ export interface Slot {
   readonly home: boolean;
   /** It passes the filter: home, or the item lands where the slot aims and the window fits. */
   readonly ok: boolean;
+  /**
+   * A real edge's slot: its place in the order of the edge's shown items, the item taken out (how many of them, across
+   * every zone, lie before it). Slots of one order are the same aim, whatever their zone.
+   */
+  readonly order?: number;
 }
 
 /** `[a, b]` along an edge. */
@@ -176,6 +181,11 @@ export interface EdgeSpec {
   /** The item lies on this edge now (drawn, or in its » menu): its home slot gets no tile, home is only its own rect. */
   readonly holds: boolean;
   readonly reserved: readonly Span[];
+  /**
+   * The seen spans of the edge's shown items other than the dragged one (fixed items aside), the items a pointer aims
+   * at: tiles split at their midpoints, their leading half before them, their trailing half after them.
+   */
+  readonly cards: readonly Span[];
   /** The band across, `[from, to]`, as deep as the edge is seen or after `after`. */
   readonly across: (after?: SceneLayout) => Span;
   /** The part of the band across it owns: its seen thickness, or an undrawn edge's thin band at its boundary. */

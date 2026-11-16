@@ -78,7 +78,12 @@ function linesIn(spec: EdgeSpec, z: { a: number; b: number }, mine: readonly Slo
     if (pieces.some(([a, b]) => p >= a - EPS && p <= b + EPS)) return p;
     return pieces.map(([a, b]) => Math.min(Math.max(p, a), b)).reduce((m, y) => (Math.abs(y - p) < Math.abs(m - p) ? y : m));
   };
-  const inPiece = mine.filter((s) => proj(s.line) >= pa - EPS && proj(s.line) <= pb + EPS).sort((a, b) => proj(a.line) - proj(b.line) || a.line - b.line);
+  // Home's lines are the own interval's ends: each is a line only in the piece it bounds, never projected into another
+  // (where it would fall on the other end's point and spread the piece's lines evenly).
+  const ownEnd = (s: Slot): boolean => !!own && s.home && (Math.abs(s.line - own[0]) < EPS || Math.abs(s.line - own[1]) < EPS);
+  const inPiece = mine
+    .filter((s) => (ownEnd(s) ? s.line >= pa - EPS && s.line <= pb + EPS : proj(s.line) >= pa - EPS && proj(s.line) <= pb + EPS))
+    .sort((a, b) => proj(a.line) - proj(b.line) || a.line - b.line);
   // Where projection lays two different moves on one point (lines under the own place or another edge's), the piece's
   // lines are laid out in their order along it instead, one share each.
   const projected = inPiece.map((s) => proj(s.line));
@@ -100,6 +105,8 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
   const { band, keepAt, tile, split } = tilerOf(spec);
   const refused = (zone: Zone, hit: Rect, reason: SceneRefusal["reason"]): Tile => tile(zone, hit, { kind: "refuse", id: "", order: data.layer, priority: data.priority, keep: null, reason });
   const slots = distinctSlots(c, spec.slots);
+  // Home's slot where the item lies on this edge: its order is the aim that puts the item back.
+  const homeSlot = spec.holds && own ? slots.find((s) => s.home && s.order !== undefined) : undefined;
   const out: Tile[] = [];
   for (const z of spec.zones) {
     // The zone's extent less its reserved rects and what other edges own: a zone left with nothing has no slot.
@@ -139,25 +146,49 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
         if (reason && near) out.push(...split(refused(z.zone, band(pa, pb), lone ? "own-place" : reason)));
         continue;
       }
+      // Where two neighbouring slots meet: at the midpoint of the item between their lines (the one item a pointer
+      // aims at there: its leading half is the place before it, its trailing half the place after it), else halfway
+      // between the lines.
+      // (The item lies between the lines as seen, before projection: a line past the piece, under another edge's band,
+      // still bounds it.)
+      const meet = (i: number): number => {
+        const [lo, hi] = [at[i - 1]!, at[i]!];
+        const between = spec.cards.filter(([u, w]) => u >= inPiece[i - 1]!.line - EPS && w <= inPiece[i]!.line + EPS);
+        const mid = between.length === 1 ? (between[0]![0] + between[0]![1]) / 2 : NaN;
+        return mid > lo + EPS && mid < hi - EPS ? mid : (lo + hi) / 2;
+      };
       inPiece.forEach((s, i) => {
-        // Halfway between neighbouring lines, the piece's ends at its ends (the own interval's ends are one), and no
-        // further from its line than the kind's reach (a virtual edge's zone is that reach already: an outermost column
-        // line's zone runs from the window's edge, past where the line's reach would end).
+        // The meeting points with the neighbouring slots, the piece's ends at its ends (the own interval's ends are one),
+        // and no further from its line than the kind's reach (a virtual edge's zone is that reach already: an outermost
+        // column line's zone runs from the window's edge, past where the line's reach would end).
         const p = at[i]!;
         const lim = data.virtual ? Infinity : data.reach;
-        const a = Math.max(i === 0 ? pa : (at[i - 1]! + p) / 2, p - lim);
-        const b = Math.min(i === inPiece.length - 1 ? pb : (p + at[i + 1]!) / 2, p + lim);
+        const a = Math.max(i === 0 ? pa : meet(i), p - lim);
+        const b = Math.min(i === inPiece.length - 1 ? pb : meet(i + 1), p + lim);
         if (b - a <= EPS) {
           if (s.ok && !s.home) lost.push(s.id);
           return;
         }
         // A tile wholly over panel bodies has no drop place: the slot has no room here, so it isn't offered.
         if (!hasRoom([[a, b]], bodies)) return;
-        const line = Math.min(Math.max(p, a), b);
-        const hit = band(a, b, s.result.layout);
-        if (!s.ok) out.push(...split(refused(z.zone, hit, "no-room")));
-        else if (s.home) out.push(...split(tile(z.zone, hit, { kind: "home", id: s.id, order: data.layer, priority: data.priority, keep: keepAt(line, hit), place: { kind: "home" } })));
-        else out.push(...split(tile(z.zone, hit, { kind: "slot", id: s.id, order: data.layer, priority: data.priority, keep: keepAt(line, hit), place: s.place, result: s.result, marker: spec.marker(s), slot: s.result.layout.items[c.dragged]!.rect })));
+        const homeTile = (id: string, u: number, w: number, line: number): Tile => {
+          const hit = band(u, w, s.home ? s.result.layout : undefined);
+          return tile(z.zone, hit, { kind: "home", id, order: data.layer, priority: data.priority, keep: keepAt(Math.min(Math.max(line, u), w), hit), place: { kind: "home" } });
+        };
+        if (s.home) {
+          out.push(...split(homeTile(s.id, a, b, p)));
+          return;
+        }
+        // A slot of home's order in another zone is the same aim as home over the items it faces: their halves are
+        // home's; the rest of its tile, the free stretch beside them, is its own (the item re-aligned, its order kept).
+        const faced = homeSlot && s.order === homeSlot.order ? spec.cards.filter(([u, w]) => w > a + EPS && u < b - EPS) : [];
+        for (const [u, w] of faced) out.push(...split(homeTile(homeSlot!.id, Math.max(u, a), Math.min(w, b), p)));
+        for (const [u, w] of less([[a, b]], faced)) {
+          const line = Math.min(Math.max(p, u), w);
+          const hit = band(u, w, s.result.layout);
+          if (!s.ok) out.push(...split(refused(z.zone, hit, "no-room")));
+          else out.push(...split(tile(z.zone, hit, { kind: "slot", id: s.id, order: data.layer, priority: data.priority, keep: keepAt(line, hit), place: s.place, result: s.result, marker: spec.marker(s), slot: s.result.layout.items[c.dragged]!.rect })));
+        }
       });
     }
   }

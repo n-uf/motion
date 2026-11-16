@@ -91,6 +91,7 @@ export function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec[] {
       own: null,
       holds: false,
       reserved: [],
+      cards: [],
       across: (): Span => [span.y, span.y + span.height],
       owned: [span.y, span.y + span.height] as Span,
       ownedAlong: p.owned,
@@ -158,6 +159,7 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
     own: null,
     holds: false,
     reserved: [],
+    cards: [],
     across: () => [at.x, at.x + at.width],
     // A drawn rail owns its rect; where none shows, a thin band of its place at the side's outer boundary.
     owned: rail && rail.segments.length > 0 ? [at.x, at.x + at.width] : side === "left" ? [at.x, at.x + Math.min(at.width, EDGE_KINDS.railStop.place)] : [at.x + at.width - Math.min(at.width, EDGE_KINDS.railStop.place), at.x + at.width],
