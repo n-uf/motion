@@ -7,8 +7,9 @@
  * and the float's before. A target the strip covers whole isn't offered: over the rail, the kind collapses into it.
  *
  * The side's rail is one concept: `Scene.rails[side]` where the scene declares one (the strip split along it at its
- * stops, `railStops`), else the side's outermost column that takes the kind in its start zone (`railColumnOf`), which
- * the drop leaves drawn as a rail; a side where it wouldn't be (an open panel there sets its width) has no strip.
+ * stops, `railStops`), else the side's outermost column that takes the kind in its start zone (`railColumnOf`). The
+ * strip means "collapse it at this side": its drop is `moveTo` that side's rail, landing wherever the scene's hand fold
+ * shows a collapsed panel there (a rail tile, a rider bar over the side's open column, a header in its column).
  */
 import { EPS, overlaps, rect, subtract, type Point, type Rect } from "../../geometry";
 import { moveTo, use, type RailPlace } from "../changes";

@@ -8,7 +8,8 @@
  *   `{ kind: "column", side, ring }` makes a new column from `scene.columns[side]` at that ring (`Infinity`: the side's
  *   inner end, "Move to › Dock left"); `{ kind: "rail", side, ring }` does the same with the item folded by hand, so it
  *   shows in the rail (on a side with no declared rail, `Scene.rails`, its rail is its outermost column that takes the
- *   kind: the item docks at the end of its start zone, folded by hand); `{ kind: "float", rect?, anchor? }` floats it. A dynamic column an item leaves empty is deleted
+ *   kind, "the column drawn as a rail": the item docks at the end of its start zone as a collapsed header, folded by
+ *   hand, a rail tile once nothing there sets the width); `{ kind: "float", rect?, anchor? }` floats it. A dynamic column an item leaves empty is deleted
  *   and its side's rings are closed up.
  * - `homeFor(scene, id, start)`: the place a start scene gives the item, for `moveTo`.
  * - `floatAt(scene, id, rect?, orient?)`: floats it on top at `rect` (its size becomes `floatSize`); with no rect, at

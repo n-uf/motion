@@ -20,9 +20,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     (the strip grown by the magnet) and `strip` (the rect to draw). The strip owns its rect, home's included; an empty
     column's drop strip moves just inside it. `Target` gains `arm` and `armedHit`, `SceneTarget` gains `strip`.
   - **The side's rail is one concept.** On a side with no declared rail (`Scene.rails`), it is the side's outermost
-    column that takes the kind in its start zone, drawn as a rail: `moveTo(scene, id, { kind: "rail", side, ring })`
-    now docks the item at the end of that column's start zone, folded by hand (it was a no-op there), and `stops`
-    lists it for "Move to › Rail". The strip is offered only where the drop shows in a rail.
+    column that takes the kind in its start zone ("the column drawn as a rail"): `moveTo(scene, id, { kind: "rail",
+    side, ring })` now docks the item at the end of that column's start zone as a collapsed header (folded by hand; a
+    rail tile once nothing there sets the width; it was a no-op there), and `stops` lists it for "Move to › Rail".
+  - **The strip means "collapse it at this side"**, on every side whose rail takes the kind, whether a rail is drawn
+    or not: the drop is `moveTo` that side's rail, landing wherever the scene shows a collapsed panel there (a rail
+    tile; under `handFold: "ride"` a rider bar over the side's open column; a header). The slot is that landing.
   - `floatNearEdge: false` keeps a float's landing clear of every strip.
 - `./scene`, fixed: **a rail stop with no slot that lands owns nothing.** Under hand folds that ride, a panel dropped on
   the rail while its side keeps an open column rides over it, so every rail stop is refused; the stop still held the

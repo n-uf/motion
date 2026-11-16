@@ -1185,9 +1185,12 @@ panels show. Where the scene declares it (`Scene.rails[side]`) it is that rail; 
 outermost column that takes the kind in its start zone, drawn as a rail once nothing in it sets its width. A kind with
 a `RailDropPolicy` reaches it through one drop strip per side, at the window's side, at the rail's real width, even
 while the rail is empty: its targets are `rail:<side>:<ring>` with `arm: "dwell"`, `armedHit` and `strip`. The drop
-collapses the item into the rail (on a side without a declared rail, `moveTo(scene, id, { kind: "rail", side, ring })`
-docks it at the end of that column's start zone, folded by hand), and is offered only where it then shows in a rail:
-while an open panel there sets the column's width, that side has no strip, so there is never a dead target. The strip
+means "collapse it at this side" and is offered on every side whose rail takes the kind, whether a rail is drawn now or
+not: it is the same change as "Move to › Rail", `moveTo(scene, id, { kind: "rail", side, ring })`, and lands wherever
+the scene shows a collapsed panel there. With a rail drawn that is a rail tile; under `handFold: "ride"`, with the
+side's column open, a rider bar over it; on a side without a declared rail, `moveTo` puts the item at the end of the
+side's outermost column's start zone as a collapsed header ("the column drawn as a rail"), a rail tile once nothing
+in that column sets its width. The slot is that landing, so the preview is the drop. The strip
 owns its rect: every other target and refusal of the drag gives it up, home's included (an item alone in its column
 reaches its side's rail from its own place), and an empty column's own drop strip moves just inside it. Before the
 strip arms, a drop there is the float's. A kind with no policy keeps its targets exactly as before; tuning one kind
