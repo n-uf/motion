@@ -194,6 +194,37 @@ describe("a float resized by hand (resize with a rect)", () => {
   });
 });
 
+describe("fold and unfold round-trip (a grip's double-click)", () => {
+  const toggled = (sc: Scene, id: string) => fold(sc, id, !((sc.items[id]!.from ?? 0) >= 1));
+
+  it("a panel beside another: open, then its header, then open again, the layout as it was", () => {
+    const two: Scene = moveTo(s, "notes", { edge: "left", at: 1 });
+    const before = solve(two);
+    const once = toggled(two, "pages");
+    expect(solve(once).items.pages!.formKind).toBe("header");
+    const twice = toggled(once, "pages");
+    expect(twice.items.pages).toEqual(two.items.pages);
+    expect(solve(twice)).toEqual(before);
+  });
+
+  it("a panel alone in a column with a rail: its rail word, then open in its column again", () => {
+    const railed: Scene = { ...s, rails: { left: { width: 30, accepts: ["panel"] } } };
+    const once = toggled(railed, "pages");
+    expect(solve(once).items.pages).toMatchObject({ edge: "left", formKind: "rail", tab: true });
+    const twice = toggled(once, "pages");
+    expect(solve(twice).items.pages).toMatchObject({ edge: "left", formKind: "open" });
+    expect(solve(twice)).toEqual(solve(railed));
+  });
+
+  it("a toolbar group: its folded form (its second), then its first again", () => {
+    const before = solve(s);
+    const once = toggled(s, "views");
+    expect(solve(once).items.views!.form).toBe(1);
+    const twice = toggled(once, "views");
+    expect(solve(twice)).toEqual(before);
+  });
+});
+
 describe("the stored form", () => {
   it("round-trips", () => {
     const changed = resize(fold(keep(floatAt(moveTo(s, "tools", { edge: "toolbar", at: 0 }), "notes", { x: 520, y: 180, width: 300, height: 340 }), "marks", true), "notes", true), "left", 320);
