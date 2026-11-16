@@ -847,7 +847,7 @@ export const PRESETS: readonly Preset[] = [
     id: "aim-order-sweep",
     title: "Aim at a toolbar's half: before or after it, on every edge, in every order",
     expected:
-      "On the rail, the top bar, the bottom bar, the title bar and the left column's tray, with Tools, Views and Zoom in each of their 6 orders: each, dragged by mouse with its grip in the leading half of another, lands right before it, and in its trailing half right after it (the item taken out first). Where that order is the one seen, it is home (\"Back to its place\") and nothing moves. A drop's slot is where it lands, at its landed size.",
+      "On the rail, the top bar, the bottom bar, the title bar and the left column's tray, with Tools, Views and Zoom in each of their 6 orders: each, dragged by mouse with its grip in the leading half of another (entering from outside the window, and gliding straight from its place), lands right before it, and in its trailing half right after it (the item taken out first). Where that order is the one seen, it is home (\"Back to its place\") and nothing moves. A drop's slot is where it lands, at its landed size.",
     setup: (c) => c.setScene(sweepScene("rail-left", SWEEP_GROUPS)),
     check(c) {
       const t0 = performance.now();
@@ -855,7 +855,7 @@ export const PRESETS: readonly Preset[] = [
       const counts: string[] = [];
       for (const [kind, edge] of SWEEP_EDGES) {
         let n = 0;
-        let ok = 0;
+        const ok = { outside: 0, direct: 0 };
         const vertical = isSideEdge(edge);
         const along = (r: Rect): number => (vertical ? r.y : r.x);
         // The groups shown on the edge, in their order along it.
@@ -882,28 +882,30 @@ export const PRESETS: readonly Preset[] = [
                 const to = vertical ? { x: r.x + r.width / 2, y: r.y + r.height * f } : { x: r.x + r.width * f, y: r.y + r.height / 2 };
                 const aimed = [...others.slice(0, k + half), id, ...others.slice(k + half)];
                 const home = aimed.join() === order.join();
-                // By way of a point just outside the window, level with the point, then straight in across the edge's
-                // outer side: the aim is the point, not the intent's hysteresis on the way (a target holds within 10 px
-                // of its zone, more than a quarter of a 28 px tray row; another edge's band crossed along the way
-                // would hold the same).
-                const side = edgeOf(c.scene, edge).side;
-                const via = side === "left" ? { x: -24, y: to.y } : side === "top" ? { x: to.x, y: -24 } : { x: to.x, y: c.scene.stage.height + 24 };
-                const m = mouseHold(c, id, via);
-                m.move(to);
-                m.up();
-                const d = c.lastDrop;
-                const got = shown();
                 n++;
-                const pass = home
-                  ? m.lifted && !!d && !d.committed && d.place === "home" && sameRect(d.preview, own) && got.join() === order.join()
-                  : m.lifted && !!d && d.committed && got.includes(id) && aimed.filter((x) => got.includes(x)).join() === got.join() && sameRect(d.preview, d.landed);
-                if (pass) ok++;
-                else bad.push(`${kind} ${order.join(" ")}: ${id} ${half ? "after" : "before"} ${nb} → ${d?.target ?? "nothing"}, now ${got.join(" ")}, slot ${d?.preview ? say(d.preview) : "none"} vs landed ${d?.landed ? say(d.landed) : "none"}`);
+                // Two ways in. By way of a point just outside the window, level with the point, then straight in across
+                // the edge's outer side: the tiles alone. And a direct glide from home: the intent's band about a held
+                // zone scales with the zones (a fifth of a 28 px row's extent, not 10 px), so the aim still wins.
+                for (const way of ["outside", "direct"] as const) {
+                  c.setScene(base);
+                  const side = edgeOf(c.scene, edge).side;
+                  const via = side === "left" ? { x: -24, y: to.y } : side === "top" ? { x: to.x, y: -24 } : { x: to.x, y: c.scene.stage.height + 24 };
+                  const m = mouseHold(c, id, way === "outside" ? via : to);
+                  if (way === "outside") m.move(to);
+                  m.up();
+                  const d = c.lastDrop;
+                  const got = shown();
+                  const pass = home
+                    ? m.lifted && !!d && !d.committed && d.place === "home" && sameRect(d.preview, own) && got.join() === order.join()
+                    : m.lifted && !!d && d.committed && got.includes(id) && aimed.filter((x) => got.includes(x)).join() === got.join() && sameRect(d.preview, d.landed);
+                  if (pass) ok[way]++;
+                  else bad.push(`${kind} ${order.join(" ")} (${way}): ${id} ${half ? "after" : "before"} ${nb} → ${d?.target ?? "nothing"}, now ${got.join(" ")}, slot ${d?.preview ? say(d.preview) : "none"} vs landed ${d?.landed ? say(d.landed) : "none"}`);
+                }
               }
             });
           }
         }
-        counts.push(`${kind} ${ok}/${n}`);
+        counts.push(`${kind} ${ok.outside}/${n} from outside, ${ok.direct}/${n} direct`);
       }
       c.setScene(sweepScene("rail-left", SWEEP_GROUPS));
       return { pass: bad.length === 0, now: `${counts.join(", ")} in ${r0((performance.now() - t0) / 1000)} s.${bad.length ? ` Broken: ${bad.slice(0, 12).join("; ")}${bad.length > 12 ? `; and ${bad.length - 12} more` : ""}.` : ""}` };
