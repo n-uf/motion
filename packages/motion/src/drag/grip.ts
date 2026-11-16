@@ -1,16 +1,6 @@
+import { DOUBLE_CLICK, type DoubleClick } from "../double-click";
 import type { Point } from "../shapes";
 import { liftDecision, type DragTuning, type LiftDecision } from "./intent";
-
-/**
- * A grip's double-click: two presses within `ms` of each other (press to press) and `px` of the first. 500 ms and 5 px
- * by default, the desktop systems' own default interval (browsers don't expose the user's setting); a host that reads
- * the platform's count (a `mousedown`'s `detail`) passes it to `down` instead.
- */
-export interface GripDoubleTuning {
-  readonly ms: number;
-  readonly px: number;
-}
-export const GRIP_DOUBLE_DEFAULTS: GripDoubleTuning = { ms: 500, px: 5 };
 
 /** How a press on a grip ended: a click, the second click of a double (`doubleActivate`, not a click), or a drag (`null`). */
 export type GripRelease = "click" | "doubleActivate" | null;
@@ -39,9 +29,10 @@ export interface GripPress {
  * click, and a second such press within the double interval and distance is a double-activate (the host folds or
  * unfolds, say), never a second click and never a lift.
  */
-export function createGripPress(options: { readonly tuning?: Partial<DragTuning>; readonly double?: Partial<GripDoubleTuning> } = {}): GripPress {
+export function createGripPress(options: { readonly tuning?: Partial<DragTuning>; readonly double?: Partial<DoubleClick> } = {}): GripPress {
   const tuning = options.tuning ?? {};
-  const dbl: GripDoubleTuning = { ...GRIP_DOUBLE_DEFAULTS, ...options.double };
+  // The package's one double click (`DOUBLE_CLICK`), unless the host tunes it.
+  const dbl: DoubleClick = { ...DOUBLE_CLICK, ...options.double };
   let press: { at: Point; time: number; touch: boolean; double: boolean; state: LiftDecision } | null = null;
   // The last click (a press that ended as one): where and when it was pressed.
   let last: { at: Point; time: number } | null = null;

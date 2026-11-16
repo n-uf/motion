@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { DOUBLE_CLICK } from "../../double-click";
+import { RECOGNIZER_DEFAULTS } from "../recognizer";
 import type { InputGesture } from "../types";
 import { camera, setup } from "./helpers";
 
@@ -57,8 +59,11 @@ describe("recognizer: mouse", () => {
     expect(click(12)).toBe(2);
     expect(click(11)).toBe(3);
     expect(click(40)).toBe(1); // too far
-    expect(click(40, 0, 400)).toBe(1); // too slow
+    expect(click(40, 0, DOUBLE_CLICK.ms + 100)).toBe(1); // too slow
     expect(click(40)).toBe(2);
+    // Within the package's one double click (500 ms), not the old 300 ms.
+    expect(click(40, 0, 400)).toBe(3);
+    expect(RECOGNIZER_DEFAULTS.multiClick).toBe(DOUBLE_CLICK);
   });
 
   it("a drag in between resets the click count; another button does not count", () => {

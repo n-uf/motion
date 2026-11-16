@@ -4,7 +4,7 @@ import {
   createDragIntent,
   createGripPress,
   DRAG_DEFAULTS,
-  GRIP_DOUBLE_DEFAULTS,
+  DOUBLE_CLICK,
   DRAG_PREVIEW_DEFAULT,
   inRect,
   liftDecision,
@@ -538,7 +538,7 @@ describe("drag/ grip press", () => {
 
   it("a slow pair, or a far one, is two clicks", () => {
     const g = createGripPress();
-    expect([click(g, 0).release, click(g, GRIP_DOUBLE_DEFAULTS.ms + 1).release]).toEqual(["click", "click"]);
+    expect([click(g, 0).release, click(g, DOUBLE_CLICK.ms + 1).release]).toEqual(["click", "click"]);
     const h = createGripPress();
     expect([click(h, 0).release, click(h, 100, 0, { x: G.x + 8, y: G.y }).release]).toEqual(["click", "click"]);
   });
