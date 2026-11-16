@@ -811,7 +811,7 @@ short, titles step down to tiles by the usual rules (priority, then the item use
 reverse as room returns (`StackFit.steps`). That holds for a column drawn as a rail and for a side's rail strip
 (`layout.rails[side]`, whose fit is `rails[side].stack`). Each side has a mode, `scene.railModes[side]`: `"titles"`
 (the default) or `"icons"`, which passes title forms over so every item shows its tile; `setRailMode(scene, side,
-mode)` changes it and `storeScene` / `readScene` keep it. A title form is offered nowhere else (a stack offers it only
+mode)` changes it, `railModeOf(scene, side)` reads it (`RAIL_MODES` lists the modes), and `storeScene` / `readScene` keep it. A title form is offered nowhere else (a stack offers it only
 with `StackInput.titles`), and an item with no title form shows its tile in either mode, so a host that hasn't measured
 titles sees no change. An item drawn in its title reports `railTitle: "left" | "right"`; the host turns it to read
 toward the content: on the left bottom to top (−90°), on the right top to bottom (+90°), the count at the title's end.
@@ -1094,11 +1094,15 @@ facing halves is home's, and is no target of its own. The slot is where the item
   at `grab`, clamped and moved clear. It has no fixed `slot`: the slot to draw is
   `after(point, grab).layout.items[id].rect`, for the pointer at the time.
 - `column:<side>:<ring>` (2): a new column on each column line of a side whose template's start zone takes the kind (outside the
-  outermost open column, between two, inside the innermost, or at the content's edge), 22 px each way.
+  outermost open column, between two, inside the innermost, or at the content's edge), 22 px each way. Column lines
+  about the item's own column when it is alone in it are the same move as home, so their pieces join home's hits
+  (`home:<id>`), leaving no sliver beside it.
 - `rail:<side>:<ring>` (1): docking folded into the side's rail, before each folded column's segments and after the
   last, or, while no rail shows, the outer 10 px from the side's outer edge (the window's, an inset's strip included;
   flush after the side's outside toolbar bars), landing where the rail lands. The outermost column line starts where
-  it ends.
+  it ends. A rail stop takes its place at the side's edge only where one of its slots lands (home's counts); when the
+  rail would be covered (every stop refused, a panel riding over it), the outermost column line is laid from the
+  window's edge instead.
 - `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
   commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail
   drop that would put the item back where it is (the gap beside it, its own column's line) keeps its id but is a home

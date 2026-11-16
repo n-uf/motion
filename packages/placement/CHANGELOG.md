@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.27
+## Unreleased
 
 - `./scene`, fixed: **a rail stop with no slot that lands owns nothing.** Under hand folds that ride, a panel dropped on
   the rail while its side keeps an open column rides over it, so every rail stop is refused; the stop still held the
@@ -40,6 +40,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   so `solve(resize(...))` draws exactly `fitResize`'s rect and the edges not dragged stay put. A float that already
   covers something (no clear place at its size) may move to a clear place once a resize opens one; the preview is still
   the commit.
+
+## 26.11.27
 
 - `./scene`, **a float resized by hand** (additive):
   - **`fitResize(scene, id, rect, moving)`** → `{ rect, limits } | null`: the one clamp a host calls per pointer move,
