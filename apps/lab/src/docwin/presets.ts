@@ -7,7 +7,7 @@
 import { centre, contains, overlap, type Point, type Rect } from "@n-uf/placement";
 import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, reservedRect, resize, targetId, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { wrapCross } from "@n-uf/placement/stack";
-import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, put, type EdgeId, type ItemId } from "./model";
+import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
 import { FADE_DT_CAP, FADE_MS, type DocwinScene } from "./scene";
 import { readDocwin, storeDocwin } from "./store";
 
@@ -190,6 +190,30 @@ const firstFold = (c: DocwinScene, e: EdgeId): string => {
   const n = c.layout.notes.find((x) => "edge" in x && x.edge === e && x.code === "form-down");
   return n && "id" in n ? n.id : "none";
 };
+
+/** The aim-order sweep: three toolbars ordered on one edge of each kind. */
+const SWEEP_GROUPS: readonly ItemId[] = ["tools", "views", "zoom"];
+const SWEEP_EDGES: readonly (readonly [string, EdgeId])[] = [
+  ["rail", "rail-left"],
+  ["top bar", "top"],
+  ["bottom bar", "bottom"],
+  ["title bar", "title"],
+  ["tray", "left"],
+];
+const permutations = <T,>(xs: readonly T[]): T[][] => (xs.length <= 1 ? [[...xs]] : xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p])));
+/**
+ * The default window with `order` on `edge` (Review left alone in the bottom bar, or in the top bar when the bottom bar
+ * is swept); in the tray, at the column's foot.
+ */
+function sweepScene(edge: EdgeId, order: readonly ItemId[]): Scene {
+  return sceneWith((s) => {
+    const out = put(put(s, edge === "bottom" ? "top" : "bottom", ["review"]), edge, edge === "left" ? ["pages", "notes", ...order] : [...order]);
+    if (edge !== "left") return out;
+    const items = { ...out.items };
+    for (const id of order) items[id] = { ...items[id]!, align: "end" };
+    return { ...out, items };
+  });
+}
 
 // --- the presets -------------------------------------------------------------------------------------------------------
 
@@ -817,6 +841,72 @@ export const PRESETS: readonly Preset[] = [
         }
       }
       return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  },
+  {
+    id: "aim-order-sweep",
+    title: "Aim at a toolbar's half: before or after it, on every edge, in every order",
+    expected:
+      "On the rail, the top bar, the bottom bar, the title bar and the left column's tray, with Tools, Views and Zoom in each of their 6 orders: each, dragged by mouse with its grip in the leading half of another, lands right before it, and in its trailing half right after it (the item taken out first). Where that order is the one seen, it is home (\"Back to its place\") and nothing moves. A drop's slot is where it lands, at its landed size.",
+    setup: (c) => c.setScene(sweepScene("rail-left", SWEEP_GROUPS)),
+    check(c) {
+      const t0 = performance.now();
+      const bad: string[] = [];
+      const counts: string[] = [];
+      for (const [kind, edge] of SWEEP_EDGES) {
+        let n = 0;
+        let ok = 0;
+        const vertical = isSideEdge(edge);
+        const along = (r: Rect): number => (vertical ? r.y : r.x);
+        // The groups shown on the edge, in their order along it.
+        const shown = (): ItemId[] =>
+          SWEEP_GROUPS.filter((g) => {
+            const p = c.layout.items[g];
+            return p?.edge === edge && !p.inMenu && p.rect.width >= 1 && p.rect.height >= 1;
+          }).sort((a, b) => along(c.layout.items[a]!.rect) - along(c.layout.items[b]!.rect));
+        for (const order of permutations(SWEEP_GROUPS)) {
+          const base = sweepScene(edge, order);
+          c.setScene(base);
+          if (shown().join() !== order.join()) {
+            bad.push(`${kind} ${order.join(" ")}: set up as ${shown().join(" ")}`);
+            continue;
+          }
+          for (const id of order) {
+            const others = order.filter((x) => x !== id);
+            others.forEach((nb, k) => {
+              for (const half of [0, 1]) {
+                c.setScene(base);
+                const own = rectOf(c, id)!;
+                const r = rectOf(c, nb)!;
+                const f = half ? 0.75 : 0.25;
+                const to = vertical ? { x: r.x + r.width / 2, y: r.y + r.height * f } : { x: r.x + r.width * f, y: r.y + r.height / 2 };
+                const aimed = [...others.slice(0, k + half), id, ...others.slice(k + half)];
+                const home = aimed.join() === order.join();
+                // By way of a point just outside the window, level with the point, then straight in across the edge's
+                // outer side: the aim is the point, not the intent's hysteresis on the way (a target holds within 10 px
+                // of its zone, more than a quarter of a 28 px tray row; another edge's band crossed along the way
+                // would hold the same).
+                const side = edgeOf(c.scene, edge).side;
+                const via = side === "left" ? { x: -24, y: to.y } : side === "top" ? { x: to.x, y: -24 } : { x: to.x, y: c.scene.stage.height + 24 };
+                const m = mouseHold(c, id, via);
+                m.move(to);
+                m.up();
+                const d = c.lastDrop;
+                const got = shown();
+                n++;
+                const pass = home
+                  ? m.lifted && !!d && !d.committed && d.place === "home" && sameRect(d.preview, own) && got.join() === order.join()
+                  : m.lifted && !!d && d.committed && got.includes(id) && aimed.filter((x) => got.includes(x)).join() === got.join() && sameRect(d.preview, d.landed);
+                if (pass) ok++;
+                else bad.push(`${kind} ${order.join(" ")}: ${id} ${half ? "after" : "before"} ${nb} → ${d?.target ?? "nothing"}, now ${got.join(" ")}, slot ${d?.preview ? say(d.preview) : "none"} vs landed ${d?.landed ? say(d.landed) : "none"}`);
+              }
+            });
+          }
+        }
+        counts.push(`${kind} ${ok}/${n}`);
+      }
+      c.setScene(sweepScene("rail-left", SWEEP_GROUPS));
+      return { pass: bad.length === 0, now: `${counts.join(", ")} in ${r0((performance.now() - t0) / 1000)} s.${bad.length ? ` Broken: ${bad.slice(0, 12).join("; ")}${bad.length > 12 ? `; and ${bad.length - 12} more` : ""}.` : ""}` };
     },
   },
   {
