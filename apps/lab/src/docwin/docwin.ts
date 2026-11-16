@@ -11,7 +11,7 @@
  * - `reset()`, `preset(name)` (sets it up and checks it), `presets()`, `checkAll()`.
  */
 import type { Rect } from "@n-uf/placement";
-import type { SceneTarget } from "@n-uf/placement/scene";
+import { railModeOf, type RailMode, type SceneTarget } from "@n-uf/placement/scene";
 import { onReset, parseRoute } from "../shell/api";
 import { ALL, EDGES, type Counts, type ItemId } from "./model";
 import { PRESETS, type Preset, type Verdict } from "./presets";
@@ -24,6 +24,8 @@ const status = $<HTMLParagraphElement>("dw-status");
 const storedOut = $<HTMLPreElement>("dw-stored");
 const inputs = { w: $<HTMLInputElement>("dw-w"), h: $<HTMLInputElement>("dw-h") };
 const freeze = $<HTMLInputElement>("dw-freeze");
+/** Each side's rails: titles (the default) or icons, as `rails[side].mode`. */
+const railInputs = { left: $<HTMLSelectElement>("dw-rail-left"), right: $<HTMLSelectElement>("dw-rail-right") };
 const countInputs: Partial<Record<keyof Counts, HTMLInputElement>> = { notes: $("dw-c-notes"), findings: $("dw-c-findings"), marked: $("dw-c-marked") };
 
 const EMBED = parseRoute().embed;
@@ -39,6 +41,7 @@ function readouts(): void {
   $("dw-w-out").textContent = `${s.width}`;
   $("dw-h-out").textContent = `${s.height}`;
   freeze.checked = c.frozen;
+  for (const side of ["left", "right"] as const) railInputs[side].value = railModeOf(c.scene, side);
   for (const [k, el] of Object.entries(countInputs)) if (el && document.activeElement !== el) el.value = String(c.counts[k as keyof Counts]);
   storedOut.textContent = JSON.stringify(c.stored(), null, 1);
   placeReset();
@@ -168,6 +171,7 @@ const resize = (): void => c.setSize(Number(inputs.w.value), Number(inputs.h.val
 inputs.w.addEventListener("input", resize);
 inputs.h.addEventListener("input", resize);
 freeze.addEventListener("change", () => c.setFrozen(freeze.checked));
+for (const side of ["left", "right"] as const) railInputs[side].addEventListener("change", () => c.setRailMode(side, railInputs[side].value as RailMode));
 for (const [k, el] of Object.entries(countInputs)) el?.addEventListener("input", () => c.setCount(k as keyof Counts, Math.max(0, Math.min(999, Number(el.value) || 0))));
 $("dw-reload").addEventListener("click", () => location.reload());
 const reset = (): void => {

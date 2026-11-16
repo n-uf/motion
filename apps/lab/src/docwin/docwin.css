@@ -93,6 +93,15 @@
 .dw-railbtn:hover { border-color: var(--accent); }
 /* The count inside the button's top-right corner, never past the rail's box. */
 .dw-railbtn .dw-badge { position: absolute; top: 0; right: 0; min-width: 0; padding: 0 2px; font-size: 8px; line-height: 10px; }
+/*
+ * A rail title: the name and count turned to run along the rail, read toward the pages. The right rail reads top to
+ * bottom (+90°, vertical writing); the left one bottom to top (the same, turned 180°). The count sits at the title's end.
+ */
+.dw-railtitle { height: max-content; min-height: 28px; display: flex; align-items: center; justify-content: center; padding: 7px 0; font-weight: 600; font-size: 12px; }
+.dw-k-rail .dw-railtitle { height: 100%; }
+.dw-rt { writing-mode: vertical-rl; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; line-height: 1; }
+.dw-rt-left .dw-rt { transform: rotate(180deg); }
+.dw-railtitle .dw-badge { position: static; min-width: 0; padding: 2px 0; font-size: 10px; line-height: 14px; width: 14px; }
 
 /* Groups */
 .dw-group { display: flex; align-items: center; gap: 4px; background: var(--bg-raised); border: 1px solid var(--win-edge); border-radius: 6px; padding: 0 4px; }
