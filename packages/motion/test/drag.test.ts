@@ -567,7 +567,7 @@ describe("drag/ spring-loading and keys", () => {
   const FREE: DragTarget = { id: "float", priority: 3, hit: rect(-1000, -1000, 4000, 4000), free: true };
   const SPRING = [STRIP_RAIL, FREE];
   const H = rect(500, 100, 100, 50);
-  const run = (keys: readonly Key[], tuning: Partial<DragTuning> = {}, held?: { shift?: boolean; alt?: boolean }) => {
+  const run = (keys: readonly Key[], tuning: Partial<DragTuning> = {}, held?: { shift?: boolean; alt?: boolean; ctrl?: boolean; meta?: boolean }) => {
     const intent = createDragIntent({ home: H, tuning });
     const total = keys.at(-1)![0];
     const frames: { t: number; shown: string | null; arming: string | null; forced: string | null }[] = [];
@@ -618,16 +618,28 @@ describe("drag/ spring-loading and keys", () => {
     expect(run(onStrip, {}, { shift: true }).landed).toBe("float");
     expect(run(onStrip, {}, { shift: true }).frames.at(-1)!.forced).toBe("float");
     const mid1 = hold(through([mid(H), { x: 300, y: 200 }], 1), 100);
-    const alt = run(mid1, {}, { alt: true });
-    expect(alt.landed).toBe("rail:left");
-    expect(alt.frames.at(-1)).toMatchObject({ shown: "rail:left", forced: "rail" });
+    const mod = run(mid1, {}, { meta: true });
+    expect(mod.landed).toBe("rail:left");
+    expect(mod.frames.at(-1)).toMatchObject({ shown: "rail:left", forced: "rail" });
     // Both held: the float key wins.
-    expect(run(mid1, {}, { shift: true, alt: true }).landed).toBe("float");
+    expect(run(mid1, {}, { shift: true, meta: true }).landed).toBe("float");
     // Modifiers off: the keys do nothing.
-    expect(run(mid1, { modifiers: { on: false, floatKey: "Shift", railKey: "Alt" } }, { alt: true }).landed).toBe("float");
+    expect(run(mid1, { modifiers: { on: false, floatKey: "Shift", railKey: "Mod" } }, { meta: true }).landed).toBe("float");
     // Over home, the rail key still wins.
     const atHome = createDragIntent({ home: H });
-    expect(atHome.release(mid(H), SPRING, { alt: true })?.id).toBe("rail:left");
+    expect(atHome.release(mid(H), SPRING, { ctrl: true })?.id).toBe("rail:left");
+  });
+
+  it("the default rail key is Mod: ⌘ (meta) or Ctrl either one rails, and Alt does not", () => {
+    const mid1 = hold(through([mid(H), { x: 300, y: 200 }], 1), 100);
+    expect(DRAG_DEFAULTS.modifiers.railKey).toBe("Mod");
+    expect(run(mid1, {}, { meta: true }).landed).toBe("rail:left");
+    expect(run(mid1, {}, { ctrl: true }).landed).toBe("rail:left");
+    expect(run(mid1, {}, { alt: true }).landed).toBe("float");
+    expect(run(mid1, {}, { alt: true }).frames.at(-1)!.forced).toBe(null);
+    // A host may still choose Alt, or one specific key.
+    expect(run(mid1, { modifiers: { on: true, floatKey: "Shift", railKey: "Alt" } }, { alt: true }).landed).toBe("rail:left");
+    expect(run(mid1, { modifiers: { on: true, floatKey: "Shift", railKey: "Meta" } }, { ctrl: true }).landed).toBe("float");
   });
 
   it("a target with no `arm` is unchanged by the new tuning", () => {

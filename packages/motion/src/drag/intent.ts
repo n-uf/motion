@@ -48,8 +48,11 @@ export interface DragTuning {
   readonly modifiers: DragModifiers;
 }
 
-/** A modifier key, by its `KeyboardEvent.key` name. */
-export type ModifierKey = "Shift" | "Alt" | "Control" | "Meta";
+/**
+ * A modifier key, by its `KeyboardEvent.key` name, or `"Mod"`: ⌘ (Meta) on macOS and Ctrl elsewhere. `"Mod"` counts
+ * either key as held, so no platform detection is needed.
+ */
+export type ModifierKey = "Shift" | "Alt" | "Control" | "Meta" | "Mod";
 
 /** The modifier keys held on a sample (a pointer event's `shiftKey`, `altKey`, `ctrlKey`, `metaKey`). */
 export interface DragKeys {
@@ -77,8 +80,9 @@ export interface DragModifiers {
  * zones' extents, and a 120 ms gap grace; a switch waits 150 ms (the shortest
  * an indicator may show); room after 160 ms. A spring-loaded target arms after
  * 200 ms of dwell (long enough that a pass at travelling speed never arms it,
- * short enough to feel like the platforms' spring-loading); Shift floats, Alt
- * goes to the nearest rail.
+ * short enough to feel like the platforms' spring-loading); Shift floats, ⌘/Ctrl
+ * (`"Mod"`) goes to the nearest rail. Alt is left free: an app with a frozen
+ * layout uses it to unfreeze temporarily, and a key should have one meaning.
  */
 export const DRAG_DEFAULTS: DragTuning = {
   lift: 5,
@@ -96,12 +100,13 @@ export const DRAG_DEFAULTS: DragTuning = {
   roomAfter: 160,
   homeInset: 6,
   railArmDwellMs: 200,
-  modifiers: { on: true, floatKey: "Shift", railKey: "Alt" },
+  modifiers: { on: true, floatKey: "Shift", railKey: "Mod" },
 };
 
-const KEY_FIELD: Record<ModifierKey, keyof DragKeys> = { Shift: "shift", Alt: "alt", Control: "ctrl", Meta: "meta" };
-/** Whether `key` is held in `keys`. */
-const held = (keys: DragKeys | undefined, key: ModifierKey): boolean => !!keys?.[KEY_FIELD[key]];
+const KEY_FIELD: Record<Exclude<ModifierKey, "Mod">, keyof DragKeys> = { Shift: "shift", Alt: "alt", Control: "ctrl", Meta: "meta" };
+/** Whether `key` is held in `keys` (`"Mod"`: ⌘ or Ctrl). */
+const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
+  !!keys && (key === "Mod" ? !!(keys.meta || keys.ctrl) : !!keys[KEY_FIELD[key]]);
 
 /**
  * A drop target: plain data. `hit` is the zone the pointer can be in;

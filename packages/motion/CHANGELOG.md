@@ -11,10 +11,16 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
     **`DragTuning.railArmDwellMs`** (default 200 ms, as platforms spring-load a few hundred ms after the pointer rests;
     0 arms at once). Armed, its zone is `DragTarget.armedHit` (a magnet), it shows at once, and leaving that zone
     disarms it. `DragFrame.arming` names the target dwelt on, for the host to highlight.
-  - **`DragTuning.modifiers`** (`DragModifiers`: `{ on, floatKey, railKey }`, default Shift and Alt, on):
+  - **`DragTuning.modifiers`** (`DragModifiers`: `{ on, floatKey, railKey }`, default Shift and ⌘/Ctrl, on):
     `update(point, time, targets, keys?)` and `release(point, targets, keys?)` take the keys held (`DragKeys`); the
     float key shows and lands on the `free` target anywhere, the rail key on the nearest spring-loaded target.
     `DragFrame.forced` says which one won. Type `ModifierKey`.
+  - **The default rail key is now ⌘/Ctrl (`"Mod"`), not Alt.** `ModifierKey` gains `"Mod"`: ⌘ (Meta) or Ctrl,
+    whichever is held, so no platform detection is needed. Alt is left free, so an app can keep it for unfreezing a
+    frozen layout. **Migration:** pass `modifiers: { on: true, floatKey: "Shift", railKey: "Alt" }` to keep Alt.
+    README, host contract: while a drag is in progress, the host suppresses the context menu (a Ctrl-click on macOS)
+    and the ⌘/Ctrl keydown shortcuts.
+- README, drag: a host clamps the pointer into the stage before `update` and `release`.
 - `./drag`, fixed: **leaving the float for a tile switches at once.** The breakthrough held the float (a `free`
   target) until the pointer was 4 px into a more precise zone, so a zone ending at the window's edge (a new-column
   line in a flush window) floated over its first px when the pointer came from outside. Hysteresis is for the seam

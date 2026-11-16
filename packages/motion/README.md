@@ -336,7 +336,7 @@ targets, and draws what it says. It is only there, not in the root.
 | | |
 |---|---|
 | `createDragIntent({ home, tuning?, placeOf? })` | `update(point, time, targets, keys?)` once a frame while an item is dragged, returning `{ shown, room, roomPlace, aiming, atHome, arming, forced }` (`arming`: the spring-loaded target the pointer dwells on, not armed yet; `forced`: `"float"` or `"rail"` when a modifier key won; `atHome`: the pointer is back inside `home` after it has been outside `home` itself; never true at the press or while it moves about inside `home`. Over home no target is shown and a release does nothing, so a host that wants to say "a drop here returns it" draws its own indicator at the home rect for that frame); `release(point, targets, keys?)`, the target a release lands on or null (home); `hide(time)` while the view scrolls under the pointer; `moveHome(dx, dy)`; `state`; `tuning`. |
-| `DRAG_DEFAULTS` | Lift at 5 px (a touch: a 180 ms hold, then 8 px); aiming below 0.45 px/ms over 50 ms, or within 12 px for 90 ms; a 10 px hysteresis margin (`band`) and a 4 px breakthrough, each at most a fifth of the hit areas' extents (`bandShare` 0.2), a 120 ms grace across the gap between two hit areas (`gapGrace`); a switch waits 150 ms (the switch delay); room after 160 ms; a spring-loaded target arms after a 200 ms dwell (`railArmDwellMs`: a pass at travelling speed never arms it, and platforms spring-load after a similar rest); Shift floats and Alt goes to the nearest rail (`modifiers`). Each is overridable per intent. |
+| `DRAG_DEFAULTS` | Lift at 5 px (a touch: a 180 ms hold, then 8 px); aiming below 0.45 px/ms over 50 ms, or within 12 px for 90 ms; a 10 px hysteresis margin (`band`) and a 4 px breakthrough, each at most a fifth of the hit areas' extents (`bandShare` 0.2), a 120 ms grace across the gap between two hit areas (`gapGrace`); a switch waits 150 ms (the switch delay); room after 160 ms; a spring-loaded target arms after a 200 ms dwell (`railArmDwellMs`: a pass at travelling speed never arms it, and platforms spring-load after a similar rest); Shift floats and ⌘/Ctrl (`"Mod"`, either key) goes to the nearest rail (`modifiers`; Alt is left free, so an app can keep it for unfreezing a frozen layout). Each is overridable per intent. |
 | `targetAt(targets, point)`, `inRect(rect, point, margin?)` | The most precise target under a point (priority 1, 2, 3, then the smaller hit area; a rect holds its edges exactly); a point in a rect grown or shrunk by a margin. A `DragTarget` whose hit area isn't one rect gives `hits`, every piece of it (`hit` is then the largest): the pointer is in the hit area when it is in any piece, and the hit area's size, for the smaller-hit-area rule and the drag intent's bands, is the pieces' together. This is the one pick rule: `@n-uf/placement/scene/cases` takes it as its hosts' `pick`. |
 | `liftDecision({ touch, distance, elapsed }, tuning?)` | `"wait"`, `"lift"` or `"refuse"`: when a press becomes a drag (`"refuse"` is a touch that moved before the hold: scroll wins). |
 | `createGripPress({ tuning?, double? })`, `GripRelease`, `DOUBLE_CLICK` | A press on a grip, start to end: `down(point, time, { touch?, clicks? })`, `move(point, time)` (the lift rule), `up(point, time)` → `"click"`, `"doubleActivate"` or null (it lifted). Two presses within `DOUBLE_CLICK` (500 ms and 5 px, the package's one double click, which the recogniser's `clickCount` uses too; browsers don't expose the system setting, so this is the common desktop default; `double` tunes it, and `clicks`, a `mousedown`'s `detail`, overrides it) give a click, then a double-activate: never a second click, never a lift. A press past the lift distance is a drag, also as the second press. |
@@ -382,10 +382,10 @@ insertion point 2, a large area 3). The rules:
   strip while the dwell runs, and say the armed state in its live region.
 - Keys win over geometry: with `keys` passed (`DragKeys`: `{ shift?, alt?, ctrl?,
   meta? }`, the modifiers held on a pointer event; `tuning.modifiers` says which
-  key does what, default Shift and Alt), the float key (Shift) shows and lands
+  key does what, default Shift and ⌘/Ctrl), the float key (Shift) shows and lands
   on the `free` target anywhere, even over a spring-loaded one; the rail key
-  (Alt) on the nearest spring-loaded target, from anywhere. The frame's `forced`
-  says which won.
+  (⌘/Ctrl, `"Mod"`) on the nearest spring-loaded target, from anywhere. The frame's
+  `forced` says which won.
 - The three drop preview modes only change what is drawn: all follow these rules, so a
   drop lands where the preview showed it in each.
 
@@ -426,7 +426,10 @@ console.log(onPage.state.shown?.id, onPage.release(toPage(screen), [slot])?.id);
 A host contract: clamp the pointer into the stage (the window the targets tile) before it reaches `update` and
 `release`, so a pointer past the window's edge means its nearest point of the window. A drop target at the window's
 edge then stays under a hand that overshoots it, which is what makes an edge target easy to hit. Draw the dragged item at
-the pointer itself.
+the pointer itself. While a drag is in progress, suppress the context menu (a Ctrl-click on macOS opens one) and the
+browser shortcuts of the rail key (⌘/Ctrl): `preventDefault` on `contextmenu`, and on the `keydown` of Meta or Control.
+The intent doesn't see DOM events, and the gesture recognizer has no hook for this, so it is the host's job; leave keys
+alone when no drag is active.
 
 ## @n-uf/motion/browser
 
