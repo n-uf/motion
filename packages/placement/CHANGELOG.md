@@ -12,7 +12,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     region (the stage less the inset at its left and right, its full height), and a dragged edge stops at what floats
     are kept clear of (a bar, a docked item, the chrome), so `solve` never moves the float off. `limits`
     (`ResizeLimit[]`: `"min"`, `"max"`, `"region"`, `"docked"`) says what bound it. Null for a toolbar group (sized by
-    its forms) and a folded float.
+    its forms) and a folded float. One exception to "the others stay put": a float that already covers something
+    (`solve` notes `float-covers`, as it has no clear place at its size) may move to a clear place once a resize opens
+    one. The preview is still the commit.
   - **`resize(scene, floatId, rect, moving?)`** commits `fitResize`'s rect (default `moving`: right and bottom) as the
     float's rect and the item's `floatSize`, so `storeScene` keeps it and the preview is the commit.
     `resize(scene, edgeId, size)` is unchanged.
