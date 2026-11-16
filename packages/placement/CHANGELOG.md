@@ -29,8 +29,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     own column, when the lift would delete it, is home as a whole.
   - A bar's zone reaches over every card seen in it, so a card past its third is never refused by the next zone.
   - A panel's body no longer splits its column's tiling: the card's band beside the item meets the nearest slot past
-    it. A slot whose whole hit would lie over bodies and another edge's band is not offered (it used to be moved to a
-    far stretch).
+    it. A body cuts only beyond half a band of each gap's line: a column's first gap under an empty bar's place band
+    keeps its half band into the panel's body just past that band, local to its line (it used to be moved to the
+    column's far end).
   - Slots that are the same move keep the home one (beside a closed member). An empty dynamic column in the scene no
     longer stops a drop back at home from counting as home.
 

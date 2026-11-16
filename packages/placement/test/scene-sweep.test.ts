@@ -84,11 +84,14 @@ const drawn = (l: SceneLayout) => ({
 describe("scene sweeps", () => {
   it("no target is a sub-pixel place: every piece of its zone is at least 1 px each way", () => {
     // Seed 195, the group dragged out of its bar: an empty bottom bar's zones are split where its thirds fall, and the
-    // column's last gap used to keep the 0.45 px between two of them; it is no room. Its band at the column's foot is
-    // the empty bar's (laid before the sides), the rest of its tile is the panel's body: the gap has no place, so it
-    // isn't offered (it used to be projected to the column's top).
+    // column's last gap used to keep the 0.45 px between two of them; it is no room. The column's foot is the empty
+    // bar's place band (laid before the sides); the gap keeps its half band into the panel's body just above it, local
+    // to its line, never moved to the column's top.
     const s195 = randomScene(195);
-    expect(targets(s195, "g0").find((t) => t.id === "gap:right0:start:1")).toBeUndefined();
+    const foot = solve(s195).edges.right0!.rect;
+    const last = targets(s195, "g0").find((t) => t.id === "gap:right0:start:1")!;
+    expect(last.hits).toBeUndefined();
+    expect([last.hit.y, last.hit.y + last.hit.height]).toEqual([foot.y + foot.height - 24, foot.y + foot.height - 12]);
     expect(targets(s195, "g0").find((t) => t.id === "gap:right0:start:0")!.hit.height).toBeGreaterThanOrEqual(1);
     for (const seed of SEEDS) {
       const s = randomScene(seed);
