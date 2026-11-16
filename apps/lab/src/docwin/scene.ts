@@ -23,17 +23,20 @@ import {
   fold,
   open as openItem,
   refusals as sceneRefusals,
+  railModeOf,
   resize,
+  setRailMode as setRailModeOf,
   solve,
   targets as sceneTargets,
   use,
+  type RailMode,
   type ResizeEdges,
   type Scene,
   type SceneLayout,
   type SceneRefusal,
   type SceneTarget,
 } from "@n-uf/placement/scene";
-import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, EDGES, GROUPS, RAIL, ROW_VARIANTS, TITLES, ZOOM_CONTROLS, defaultScene, edgeOf, isSideEdge, setGroupSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId } from "./model";
+import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, EDGES, GROUPS, PANELS, RAIL, ROW_VARIANTS, TITLES, ZOOM_CONTROLS, defaultScene, edgeOf, isSideEdge, reformPanels, setGroupSizes, setTitleSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId, type PanelId } from "./model";
 import { readDocwin, storeDocwin, type StoredDocwin } from "./store";
 
 export interface LastDrop {
@@ -76,6 +79,8 @@ interface FormSpec {
   /** The controls the form leaves out (`SceneItemLayout.hidden`): a "+N" cell stands for them. */
   readonly hidden: readonly string[];
   readonly size: { readonly width: number; readonly height: number };
+  /** A rail title's side (`SceneItemLayout.railTitle`): which way it reads. */
+  readonly railTitle?: "left" | "right" | undefined;
 }
 
 /** What the held copy reports to checks: its form, the target it follows, the switches so far, the morph and the DOM. */
@@ -268,12 +273,23 @@ export function createScene(o: SceneOptions) {
     return wordRow(id, groupWords(id, hidden)) + moreCell(id, hidden);
   }
 
-  function inner(id: ItemId, kind: string, rows?: readonly (readonly number[])[], hidden: readonly string[] = []): string {
+  /**
+   * A panel's rail title: its name and count turned to run along the rail, read toward the pages (the left rail bottom
+   * to top, the right one top to bottom), the count at the title's end. The same button as the tile: a click opens it,
+   * a drag moves it, a double-click on it unfolds it.
+   */
+  const railTitle = (id: ItemId, side: "left" | "right"): string => {
+    const c = countOf(id);
+    return `<button type="button" class="dw-railbtn dw-railtitle dw-rt-${side}" data-grip data-open="${id}" aria-label="Open ${TITLES[id]}"><span class="dw-rt">${TITLES[id]}${c === null ? "" : badge(c)}</span></button>`;
+  };
+
+  function inner(id: ItemId, kind: string, rows?: readonly (readonly number[])[], hidden: readonly string[] = [], titleSide?: "left" | "right"): string {
     const it = scene.items[id]!;
     if (it.kind === "chrome") return id === "title" ? '<span class="dw-title-t">Document title</span>' : '<span class="dw-ctl"></span><span class="dw-ctl"></span><span class="dw-ctl"></span>';
     if (it.kind === "panel") {
       if (kind === "open") return head(id) + `<div class="dw-body">${body(id)}</div>`;
       if (kind === "header") return head(id);
+      if (titleSide) return railTitle(id, titleSide);
       const c = countOf(id);
       return `<button type="button" class="dw-railbtn" data-grip data-open="${id}" aria-label="Open ${TITLES[id]}">${TITLES[id][0]}${c === null ? "" : badge(c)}</button>`;
     }
@@ -304,7 +320,7 @@ export function createScene(o: SceneOptions) {
     const r = p.rect;
     // A floating open panel takes resize handles on its four edges and corners (a toolbar's size comes from its forms).
     const handles = p.floating && p.kind === "panel" && p.formKind === "open" ? FLOAT_HANDLES.map((h) => `<div class="dw-fh" data-fh="${h}" aria-hidden="true"></div>`).join("") : "";
-    return `<section class="${cls}" data-id="${id}" data-kind="${p.kind}" data-form="${p.formKind}" data-region="${region}" style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}">${inner(id, p.formKind, p.rows, p.hidden)}${handles}</section>`;
+    return `<section class="${cls}" data-id="${id}" data-kind="${p.kind}" data-form="${p.formKind}" data-region="${region}" style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}">${inner(id, p.formKind, p.rows, p.hidden, p.railTitle)}${handles}</section>`;
   }
 
   /**
@@ -410,6 +426,13 @@ export function createScene(o: SceneOptions) {
     say(`${TITLES[id]} closed. Its Views word opens it again.`);
   }
   const toggle = (id: ItemId): void => (scene.items[id]!.closed ? open(id) : close(id));
+  /** A side's rails show their panels' titles (while they fit) or their tiles: `rails[side].mode`, stored. */
+  function setRailMode(side: "left" | "right", mode: RailMode): void {
+    const next = setRailModeOf(scene, side, mode);
+    if (next === scene) return;
+    commit(next);
+    say(`The ${side} rail shows ${mode === "titles" ? "the panels' titles while they fit" : "icons"}.`);
+  }
 
   const targetsOf = (id: ItemId): SceneTarget[] => sceneTargets(scene, id, { previous: layout, endReach: END_REACH });
   const refusalsOf = (id: ItemId): SceneRefusal[] => sceneRefusals(scene, id, { previous: layout, endReach: END_REACH });
@@ -450,12 +473,12 @@ export function createScene(o: SceneOptions) {
   function heldForm(frame: HTMLElement, forms: Map<string, HeldForm>, id: ItemId, kind: string, spec: FormSpec, fromGrip: Point | null): HeldForm {
     const w = spec.size.width;
     const h = spec.size.height;
-    const key = `${spec.formKind}|${spec.axis}|${JSON.stringify(spec.rows ?? null)}|${spec.hidden.join(",")}|${Math.round(w)}x${Math.round(h)}`;
+    const key = `${spec.formKind}|${spec.axis}|${JSON.stringify(spec.rows ?? null)}|${spec.hidden.join(",")}|${spec.railTitle ?? ""}|${Math.round(w)}x${Math.round(h)}`;
     const had = forms.get(key);
     if (had) return had;
     const el = document.createElement("section");
     el.className = `dw-item dw-${kind} dw-k-${spec.formKind} dw-ax-${spec.axis}`;
-    el.innerHTML = inner(id, spec.formKind, spec.rows, spec.hidden);
+    el.innerHTML = inner(id, spec.formKind, spec.rows, spec.hidden, spec.railTitle);
     // Hidden until it heads in; it fades in from there.
     Object.assign(el.style, { left: "0px", top: "0px", width: px(w), height: px(h), opacity: "0", visibility: "hidden" });
     frame.append(el);
@@ -472,7 +495,7 @@ export function createScene(o: SceneOptions) {
     const a = t.after(d.pointer, d.grab);
     const it = a.layout.items[d.id];
     if (!it || it.inMenu || it.floating) return null;
-    return { formKind: it.formKind, axis: axisOf(a.scene, a.layout, d.id), rows: it.rows, hidden: it.hidden, size: it.rect };
+    return { formKind: it.formKind, axis: axisOf(a.scene, a.layout, d.id), rows: it.rows, hidden: it.hidden, size: it.rect, railTitle: it.railTitle };
   }
 
   /**
@@ -831,7 +854,14 @@ export function createScene(o: SceneOptions) {
 
   // Arrows move between the popover's controls, Home and End to its ends; Escape closes it, the focus back on "+N".
   menuList.addEventListener("keydown", (e) => {
-    if (moreOf === null) return;
+    if (moreOf === null && !menuList.dataset.rail) return;
+    if (menuList.dataset.rail && e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      delete menuList.dataset.rail;
+      menuList.hidden = true;
+      return;
+    }
     const items = [...menuList.querySelectorAll<HTMLElement>("button")];
     const at = items.indexOf(document.activeElement as HTMLElement);
     const go = (i: number): void => {
@@ -866,6 +896,15 @@ export function createScene(o: SceneOptions) {
       return;
     }
     if (t.closest("[data-hidden-control]")) closeMore(false);
+    // The rail's menu: titles or icons for that side's rails.
+    const rm = t.closest<HTMLElement>("[data-rail-mode]");
+    if (rm) {
+      const [side, mode] = rm.dataset.railMode!.split(":") as ["left" | "right", RailMode];
+      menuList.hidden = true;
+      delete menuList.dataset.rail;
+      setRailMode(side, mode);
+      return;
+    }
     const m = t.closest<HTMLElement>(".dw-menu[data-edge]");
     if (m) {
       closeMore(false);
@@ -896,6 +935,49 @@ export function createScene(o: SceneOptions) {
       pageKey = "";
       commit(scene);
     }
+  });
+
+  /** The side a rail item (a panel drawn in its rail form, in a column drawn as a rail) lies on, or null. */
+  const railSideOf = (el: Element | null): "left" | "right" | null => {
+    const sec = el?.closest<HTMLElement>(".dw-items [data-id]");
+    const p = sec ? layout.items[sec.dataset.id!] : undefined;
+    const side = p?.tab && p.edge ? layout.edges[p.edge]?.side : undefined;
+    return side === "left" || side === "right" ? side : null;
+  };
+
+  /**
+   * A rail's menu (its context menu, or Shift+F10 / the menu key on one of its buttons): "Show titles" or "Show icons"
+   * for that side's rails, the one it shows now checked.
+   */
+  function openRailMenu(side: "left" | "right", at: Rect, focusFirst: boolean): void {
+    closeMore(false);
+    const now = railModeOf(scene, side);
+    menuList.dataset.edge = "";
+    menuList.dataset.rail = side;
+    menuList.setAttribute("aria-label", `The ${side} rail`);
+    menuList.innerHTML = (["titles", "icons"] as const)
+      .map((m) => `<button type="button" role="menuitemradio" tabindex="-1" aria-checked="${now === m}" data-rail-mode="${side}:${m}">${m === "titles" ? "Show titles" : "Show icons"}</button>`)
+      .join("");
+    const w = win.getBoundingClientRect();
+    menuList.style.left = px(Math.max(0, Math.min(at.x - w.left + (side === "left" ? at.width + 4 : -164), w.width - 160)));
+    menuList.style.top = px(at.y - w.top);
+    menuList.hidden = false;
+    if (focusFirst) menuList.querySelector<HTMLElement>("button")?.focus();
+  }
+  win.addEventListener("contextmenu", (e) => {
+    const side = railSideOf(e.target as Element);
+    if (!side) return;
+    e.preventDefault();
+    const r = (e.target as Element).closest<HTMLElement>("[data-id]")!.getBoundingClientRect();
+    openRailMenu(side, { x: r.left, y: e.clientY, width: r.width, height: 0 }, false);
+  });
+  win.addEventListener("keydown", (e) => {
+    if (!(e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey))) return;
+    const side = railSideOf(e.target as Element);
+    if (!side) return;
+    e.preventDefault();
+    const r = (e.target as Element).getBoundingClientRect();
+    openRailMenu(side, { x: r.left, y: r.top, width: r.width, height: r.height }, true);
   });
 
   /** The column's resize edge: a plain pointer drag that sets the user's size across (`resize`). */
@@ -1056,7 +1138,26 @@ export function createScene(o: SceneOptions) {
     }
     return out;
   }
+  /**
+   * Each panel's rail title length along the rail: its name and count as `railTitle` draws them (turned), measured from a
+   * hidden copy, padding and border included. Counts change it, so a count change measures again.
+   */
+  function measureTitles(): Record<PanelId, number> {
+    const out = {} as Record<PanelId, number>;
+    for (const id of PANELS) {
+      const el = document.createElement("section");
+      el.className = "dw-item dw-panel dw-k-rail dw-ax-column";
+      el.style.cssText = "left:0;top:0;width:28px;height:max-content;visibility:hidden";
+      el.innerHTML = railTitle(id, "right");
+      layer.append(el);
+      const b = el.querySelector<HTMLElement>(".dw-railtitle")!;
+      out[id] = Math.ceil(Math.max(b.getBoundingClientRect().height, b.scrollHeight) - 0.01);
+      el.remove();
+    }
+    return out;
+  }
   setGroupSizes(measureGroups());
+  setTitleSizes(measureTitles());
   scene = defaultScene();
   layout = solve(scene);
 
@@ -1115,8 +1216,12 @@ export function createScene(o: SceneOptions) {
     setCount(k: keyof Counts, v: number): void {
       counts[k] = v;
       pageKey = "";
-      commit(scene);
+      // A count is part of its panel's rail title: measured again, the forms re-built.
+      setTitleSizes(measureTitles());
+      commit(reformPanels(scene));
     },
+    /** How a side's rails show their panels: their titles while they fit (the default), or their tiles. Stored. */
+    setRailMode,
     setFrozen(on: boolean): void {
       if (on) root.dataset.frozen = "";
       else delete root.dataset.frozen;

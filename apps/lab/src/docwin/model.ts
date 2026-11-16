@@ -10,10 +10,10 @@ import type { Edge, Scene, SceneItem } from "@n-uf/placement/scene";
 
 export type EdgeId = "title" | "top" | "left" | "right" | "bottom" | "rail-left" | "rail-right";
 
-const PANELS = ["pages", "notes", "findings"] as const;
+export const PANELS = ["pages", "notes", "findings"] as const;
 export const GROUPS = ["zoom", "tools", "views", "review"] as const;
 const CHROME = ["title", "controls"] as const;
-type PanelId =(typeof PANELS)[number];
+export type PanelId = (typeof PANELS)[number];
 export type GroupId = (typeof GROUPS)[number];
 export type ItemId = PanelId | GroupId | (typeof CHROME)[number];
 export const MOVABLE: readonly ItemId[] = [...PANELS, ...GROUPS];
@@ -50,11 +50,28 @@ const f = (kind: StackForm["kind"], main: number | { min: number; natural: numbe
 });
 const MENU = f("menu", 0, 0);
 
-const PANEL_COLUMN: Record<PanelId, StackForm[]> = {
-  pages: [f("open", { min: 160, natural: 320, grows: true }, 240, { cross: { natural: 240, min: COL_MIN } }), f("header", 32, 240, { cross: { natural: 240, min: 60 } }), f("rail", 28, 28), MENU],
-  notes: [f("open", { min: 120, natural: 200, grows: true }, 240, { cross: { natural: 240, min: COL_MIN } }), f("header", 32, 240, { cross: { natural: 240, min: 60 } }), f("rail", 28, 28), MENU],
-  findings: [f("open", { min: 140, natural: 260, grows: true }, 240, { cross: { natural: 240, min: COL_MIN } }), f("header", 32, 240, { cross: { natural: 240, min: 60 } }), f("rail", 28, 28), MENU],
+/**
+ * Each panel's rail title, its length along the rail (its name and count turned to run along it, padding included), as
+ * the page measures it. Until measured, a panel has no title form and its rail shows its tile, as before.
+ */
+let titleSizes: Readonly<Partial<Record<PanelId, number>>> = {};
+/** The panels' measured rail-title lengths, which every scene built (or re-formed) afterwards uses. */
+export function setTitleSizes(m: Readonly<Partial<Record<PanelId, number>>>): void {
+  titleSizes = m;
+}
+/** A panel's rail forms: its title (measured), then its 28 px tile. */
+const railForms = (id: PanelId): StackForm[] => [...(titleSizes[id] ? [{ ...f("rail", titleSizes[id]!, 28), title: true }] : []), f("rail", 28, 28)];
+const panelColumn = (id: PanelId): StackForm[] => {
+  const open: Record<PanelId, { min: number; natural: number }> = { pages: { min: 160, natural: 320 }, notes: { min: 120, natural: 200 }, findings: { min: 140, natural: 260 } };
+  return [f("open", { ...open[id], grows: true }, 240, { cross: { natural: 240, min: COL_MIN } }), f("header", 32, 240, { cross: { natural: 240, min: 60 } }), ...railForms(id), MENU];
 };
+
+/** `s` with every panel's forms built anew from the measured sizes (a count changed the titles' lengths). */
+export function reformPanels(s: Scene): Scene {
+  const items = { ...s.items };
+  for (const id of PANELS) if (items[id]) items[id] = { ...items[id]!, forms: { column: panelColumn(id) } };
+  return { ...s, items };
+}
 
 /**
  * A group as the page draws it, measured from its rendered buttons (the page measures before it builds a scene; the box
@@ -148,7 +165,7 @@ const PRIORITY: Partial<Record<GroupId, number>> = { zoom: 10, review: 10 };
 const TITLE_BAR_PRIORITY = -1;
 
 function itemOf(id: ItemId, used: number): SceneItem {
-  if (isPanel(id)) return { id, kind: "panel", forms: { column: PANEL_COLUMN[id] }, floatSize: floatSize(id), used };
+  if (isPanel(id)) return { id, kind: "panel", forms: { column: panelColumn(id) }, floatSize: floatSize(id), used };
   // A toolbar group declares its row forms first, so it floats as a row (`floatOrientOf`).
   if (isGroup(id)) return { id, kind: "group", forms: { row: groupRow(id), column: groupColumn(id) }, floatSize: floatSize(id), used, ...(PRIORITY[id] !== undefined ? { priority: PRIORITY[id] } : {}) };
   // The title takes the bar's spare length and shrinks to its minimum; the controls are one fixed size at the end.
