@@ -333,8 +333,8 @@ targets, and draws what it says. It is only there, not in the root.
 
 | | |
 |---|---|
-| `createDragIntent({ home, tuning?, placeOf? })` | `update(point, time, targets)` once a frame while an item is held, returning `{ shown, room, roomPlace, aiming, atHome }` (`atHome`: the pointer is back inside `home` after it has been outside `home` itself; never true at the press or while it moves about inside `home`. Over home no target is shown and a release does nothing, so a host that wants to say "a drop here returns it" draws its own indicator at the home rect for that frame); `release(point, targets)`, the target a release lands on or null (home); `hide(time)` while the view scrolls under the pointer; `moveHome(dx, dy)`; `state`; `tuning`. |
-| `DRAG_DEFAULTS` | Lift at 5 px (a touch: a 180 ms hold, then 8 px); aiming below 0.45 px/ms over 50 ms, or within 12 px for 90 ms; a 10 px band and a 4 px breakthrough, each at most a fifth of the zones' extents (`bandShare` 0.2), a 120 ms gap grace; a switch waits 150 ms; room after 160 ms. Each is overridable per intent. |
+| `createDragIntent({ home, tuning?, placeOf? })` | `update(point, time, targets, keys?)` once a frame while an item is held, returning `{ shown, room, roomPlace, aiming, atHome, arming, forced }` (`arming`: the spring-loaded target the pointer dwells on, not armed yet; `forced`: `"float"` or `"rail"` when a held key won; `atHome`: the pointer is back inside `home` after it has been outside `home` itself; never true at the press or while it moves about inside `home`. Over home no target is shown and a release does nothing, so a host that wants to say "a drop here returns it" draws its own indicator at the home rect for that frame); `release(point, targets, keys?)`, the target a release lands on or null (home); `hide(time)` while the view scrolls under the pointer; `moveHome(dx, dy)`; `state`; `tuning`. |
+| `DRAG_DEFAULTS` | Lift at 5 px (a touch: a 180 ms hold, then 8 px); aiming below 0.45 px/ms over 50 ms, or within 12 px for 90 ms; a 10 px band and a 4 px breakthrough, each at most a fifth of the zones' extents (`bandShare` 0.2), a 120 ms gap grace; a switch waits 150 ms; room after 160 ms; a spring-loaded target arms after a 200 ms dwell (`railArmDwellMs`: a pass at travelling speed never arms it, and platforms spring-load after a similar rest); Shift floats and Alt goes to the nearest rail (`modifiers`). Each is overridable per intent. |
 | `targetAt(targets, point)`, `inRect(rect, point, margin?)` | The most precise target under a point (priority 1, 2, 3, then the smaller zone; a rect holds its edges exactly); a point in a rect grown or shrunk by a margin. A `DragTarget` whose zone isn't one rect gives `hits`, every piece of it (`hit` is then the largest): the pointer is in the zone when it is in any piece, and the zone's size, for the smaller-zone rule and the drag intent's bands, is the pieces' together. This is the one pick rule: `@n-uf/placement/scene/cases` takes it as its hosts' `pick`. |
 | `liftDecision({ touch, distance, elapsed }, tuning?)` | `"wait"`, `"lift"` or `"refuse"`: when a press becomes a drag. |
 | `createGripPress({ tuning?, double? })`, `GripRelease`, `DOUBLE_CLICK` | A press on a grip, start to end: `down(point, time, { touch?, clicks? })`, `move(point, time)` (the lift rule), `up(point, time)` → `"click"`, `"doubleActivate"` or null (it lifted). Two presses within `DOUBLE_CLICK` (500 ms and 5 px, the package's one double click, which the recogniser's `clickCount` uses too; browsers don't expose the system setting, so this is the common desktop default; `double` tunes it, and `clicks`, a `mousedown`'s `detail`, overrides it) give a click, then a double-activate: never a second click, never a lift. A press past the lift distance is a drag, also as the second press. |
@@ -367,6 +367,15 @@ a large area 3). The rules:
 - A release lands on the shown target whenever one shows (drop = shown), else
   on the target under the pointer, else nowhere. A release over home does
   nothing.
+- Spring-loading: a target marked `arm: "dwell"` (a side's rail, say) is no
+  target until the pointer has rested in its zone for `railArmDwellMs`; a
+  fast pass, or a drop before then, lands on what lies beneath (the float).
+  Armed, it shows at once and its zone is `armedHit` (grown: a magnet);
+  leaving that zone disarms it. The frame's `arming` lets a host highlight the
+  strip while the dwell runs, and say the armed state in its live region.
+- Keys win over geometry: with `keys` passed, the float key (Shift) shows and
+  lands on the `free` target anywhere, even over a spring-loaded one; the rail
+  key (Alt) on the nearest spring-loaded target, from anywhere.
 - The three previews only change what is drawn: all follow these rules, so a
   drop lands where the preview showed it in each.
 

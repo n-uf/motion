@@ -1102,7 +1102,7 @@ facing halves is home's, and is no target of its own. The slot is where the item
   flush after the side's outside toolbar bars), landing where the rail lands. The outermost column line starts where
   it ends. A rail stop takes its place at the side's edge only where one of its slots lands (home's counts); when the
   rail would be covered (every stop refused, a panel riding over it), the outermost column line is laid from the
-  window's edge instead.
+  window's edge instead. For a kind with a rail drop policy, the rail is a spring-loaded drop strip instead (below).
 - `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
   commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail
   drop that would put the item back where it is (the gap beside it, its own column's line) keeps its id but is a home
@@ -1179,6 +1179,29 @@ with `targetId(parts)`, so it never splits strings (an edge id may hold `:`):
 | `parseTargetId(id)` | The same parts (`TargetIdParts`), or null for an id outside the scheme. |
 | `placeTargetId(place, item)` | The id `targets` gives the target at a `ScenePlace` (null for `none`). |
 | `virtualEdgeId(kind, side)` | `column:<side>` or `rail:<side>`: the virtual edge a refusal names in `edge`. |
+
+**Rail docking: a drop strip per kind (`Scene.railDrop`).** A side's rail is one concept: the strip where its collapsed
+panels show. Where the scene declares it (`Scene.rails[side]`) it is that rail; where it doesn't, it is the side's
+outermost column that takes the kind in its start zone, drawn as a rail once nothing in it sets its width. A kind with
+a `RailDropPolicy` reaches it through one drop strip per side, at the window's side, at the rail's real width, even
+while the rail is empty: its targets are `rail:<side>:<ring>` with `arm: "dwell"`, `armedHit` and `strip`. The drop
+collapses the item into the rail (on a side without a declared rail, `moveTo(scene, id, { kind: "rail", side, ring })`
+docks it at the end of that column's start zone, folded by hand), and is offered only where it then shows in a rail:
+while an open panel there sets the column's width, that side has no strip, so there is never a dead target. The strip
+owns its rect: every other target and refusal of the drag gives it up, home's included (an item alone in its column
+reaches its side's rail from its own place), and an empty column's own drop strip moves just inside it. Before the
+strip arms, a drop there is the float's. A kind with no policy keeps its targets exactly as before; tuning one kind
+never changes another. The policy's fields, each default with its reason:
+
+| Field | Default | Why |
+|---|---|---|
+| `railStripWidth` | the rail's drawn width, at least `RAIL_STRIP_MIN` (24) | A target at the window's edge is easy to hit when it is wide enough to aim at (Fitts's law); the rail's own width keeps the strip where the panel will land. `0` turns the kind's rail docking off. |
+| `railVisibility` | `"whileDragging"` | A drop target shows while it can be used. `"always"` draws it at rest too; `"never"` turns rail docking off. |
+| `magnet` | `DEFAULT_RAIL_MAGNET` (6 px) | Once armed, the strip grows inward so a hand that wobbles keeps it. A host draws the growth with no animation under `prefers-reduced-motion: reduce`. |
+| `floatNearEdge` | `true` | Before the strip arms, a float may sit near the window's edge, as it may anywhere; `false` keeps a float's rect clear of every strip. |
+
+The time and the keys are the drag intent's (`@n-uf/motion/drag`): `railArmDwellMs` (200 ms) arms a target marked
+`arm: "dwell"` (spring-loading), and `modifiers` let Shift float anywhere and Alt collapse into the nearest rail.
 
 A gap, column or rail target exists only where the drop keeps the whole scene sound (C29): it adds no `overflow` or
 `too-wide` note to any edge, changes no fixed item's form, squeezes none under its `main.min` anywhere (a between bar
