@@ -22,6 +22,10 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
     float key shows and lands on the `free` target anywhere, the rail key on the nearest spring-loaded target.
     `DragFrame.forced` says which one won. Type `ModifierKey`.
 - README, drag: a host clamps the pointer into the stage before `update` and `release`.
+- `./drag`, fixed: **leaving the float for a tile switches at once.** The breakthrough held the float (a `free`
+  target) until the pointer was 4 px into a more precise zone, so a zone ending at the window's edge (a new-column
+  line in a flush window) floated over its first px when the pointer came from outside. Hysteresis is for the seam
+  between two tiles only: from a `free` target, or from none, the zone under the pointer takes over at once.
 
 - `./drag`, **`createGripPress`: a double-click on a grip is its own gesture** (additive). A press tracker for grips:
   `move` answers the lift rule, `up` gives `"click"`, `"doubleActivate"` (the second press of two within

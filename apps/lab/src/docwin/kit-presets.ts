@@ -3,7 +3,8 @@
  * on both sides, a 32 px rail each side, hand folds that ride, maybe a thumbnail anchor. Each reads `targets` and
  * `refusals` at the window's sides; the document window is left as it is.
  */
-import type { Edge, Scene, SceneItem } from "@n-uf/placement/scene";
+import { createDragIntent, targetAt } from "@n-uf/motion/drag";
+import type { Edge, Scene, SceneItem, SceneTarget } from "@n-uf/placement/scene";
 import { pickTarget } from "@n-uf/placement/scene/cases";
 import { refusals, targets } from "@n-uf/placement/scene";
 
@@ -110,8 +111,58 @@ function sweepCase(id: string, title: string, expected: string, o: { anchor: boo
   };
 }
 
+/**
+ * The window's first px (x 0–3 and the last 4), a column open on each side of a flush window: what `targetAt` picks
+ * there, and what a drag lands on that rests on the float mid-window and then jumps to that px and rests (the intent).
+ */
+function edgeCase(): Preset {
+  return {
+    id: "kit-first-px",
+    title: "The window's first px is the new-column line, not the float",
+    expected:
+      "In a flush kit window with a column open on each side, Notes dragged to x 0, 1, 2 and 3 from the left window edge, and the same from the right: `targetAt` picks the side's new-column line, and a drag that shows the float mid-window, then jumps to that px and rests, lands on the column line too (the breakthrough doesn't hold the float at the window's edge). Never the float.",
+    setup: () => undefined,
+    check(): Verdict {
+      const s = kitWindow("flush", false);
+      const ts = targets(s, "notes");
+      const W = s.stage.width;
+      const bad: string[] = [];
+      const seen: string[] = [];
+      for (const [side, xs] of [
+        ["left", [0, 1, 2, 3]],
+        ["right", [W - 1, W - 2, W - 3, W - 4]],
+      ] as const) {
+        const picks = xs.map((x) => {
+          const at = { x, y: 400 };
+          const pick = targetAt(ts, at)?.id ?? "-";
+          if (!pick.startsWith(`column:${side}:`)) bad.push(`${side} x ${x}: targetAt ${pick}`);
+          // Three ways in, each resting on the float first: from mid-window (a jump), from outside the window (inward),
+          // and from inside the column's tile (outward).
+          const outside = side === "left" ? -24 : W + 24;
+          const inside = side === "left" ? 40 : W - 40;
+          const drops = ([["jump", W / 2], ["inward", outside], ["outward", inside]] as const).map(([way, from]) => {
+            const d = createDragIntent<SceneTarget>({ home: { x: -50, y: -50, width: 1, height: 1 } });
+            let t = 0;
+            for (let k = 0; k < 20; k++) d.update({ x: from, y: 400 }, (t += 16), ts);
+            const n = Math.max(1, Math.ceil(Math.abs(x - from) / 4));
+            for (let k = 1; k <= n; k++) d.update({ x: from + ((x - from) * k) / n, y: 400 }, (t += 16), ts);
+            for (let k = 0; k < 20; k++) d.update(at, (t += 16), ts);
+            const drop = d.release(at, ts)?.id ?? "-";
+            if (!drop.startsWith(`column:${side}:`)) bad.push(`${side} x ${x} ${way}: drop ${drop}`);
+            return drop;
+          });
+          return `x ${x} ${pick}/${[...new Set(drops)].join("|")}`;
+        });
+        seen.push(`${side}: ${picks.join(", ")}`);
+      }
+      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  };
+}
+
 export function KIT_PRESETS(): Preset[] {
   return [
+    edgeCase(),
     sweepCase(
       "kit-rail-stop-no-landing",
       "A rail that can't take the drop leaves the window's edge to the column line",

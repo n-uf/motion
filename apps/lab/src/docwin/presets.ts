@@ -2647,6 +2647,41 @@ function RAIL_DOCK_PRESETS(): Preset[] {
       },
     },
     {
+      id: "edge-first-px",
+      title: "The window's first px over an open column is that column's gap, from outside and from inside",
+      expected:
+        "With the panels' rail strips off, Findings dragged by mouse to the left column's top (Pages' header) at x 0, 1, 2 and 3, and Notes to the right column's top (Findings' header) at the window's last 4 px: arriving from outside the window (resting on the float there, the pointer clamped into the window) and from inside the column, each drop lands in that column's gap on its slot. Leaving the float for a tile switches at once: never the float.",
+      setup: fresh,
+      check(c) {
+        const bad: string[] = [];
+        const seen: string[] = [];
+        const W = c.scene.stage.width;
+        for (const [side, id, over] of [
+          ["left", "findings", "pages"],
+          ["right", "notes", "findings"],
+        ] as const) {
+          for (const d of [0, 1, 2, 3]) {
+            const x = side === "left" ? d : W - 1 - d;
+            for (const way of ["inward", "outward"] as const) {
+              c.reset();
+              c.setFeel(panelFeel(c, { railVisibility: "never" }));
+              const y = c.layout.items[over]!.rect.y + 10;
+              const from = way === "inward" ? { x: side === "left" ? -24 : W + 24, y } : { x: side === "left" ? 60 : W - 60, y };
+              const m = mouseGesture(c, id, [
+                { to: from, step: 6, hold: 200 },
+                { to: { x, y }, step: 4, hold: 200 },
+              ]);
+              m.up();
+              const ok = c.lastDrop?.place === "gap" && landedOnSlot(c);
+              if (!ok) bad.push(`${side} ${way} x ${x}: ${dropSaid(c)}`);
+              else seen.push(`${side} ${way} x ${x}: ${c.lastDrop!.target}`);
+            }
+          }
+        }
+        return { pass: bad.length === 0, now: `${seen.length} of 16 land in the column's gap.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+      },
+    },
+    {
       id: "rail-toolbars-untouched",
       title: "Changing every panel setting leaves the toolbars' aim order as it was",
       expected:

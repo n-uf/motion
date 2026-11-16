@@ -348,7 +348,10 @@ a large area 3). The rules:
   is under it, and the pointer aims (slows down or holds still). Crossing
   targets at speed shows nothing.
 - The current target holds within a band around its zone, unless a more
-  precise target is clearly under the pointer. Both scale with the zones:
+  precise target is clearly under the pointer. That is for the seam between
+  two tiles only: leaving a `free` target (the float) for a tile, or nothing,
+  switches at once, so a zone at the window's edge takes its first px. Both
+  scale with the zones:
   along each axis, at most a fifth of the held zone's extent and of the zone
   under the pointer, so a small zone (a 28 px row) is entered by a direct
   glide from its neighbour. Leaving the shown target, a
