@@ -29,6 +29,8 @@ function docScene(right: string[] = ["c"], left: string[] = ["a", "b"], more: Pa
 }
 const withPolicy = (s: Scene, policy: NonNullable<Scene["railDrop"]>[string] = {}): Scene => ({ ...s, railDrop: { panel: policy } });
 const rails = (ts: readonly SceneTarget[]): SceneTarget[] => ts.filter((t) => t.place.kind === "rail");
+/** The rail target of `side`. */
+const railOf = (ts: readonly SceneTarget[], side: "left" | "right"): SceneTarget | undefined => ts.find((t) => t.place.kind === "rail" && t.place.side === side);
 const overlap = (a: { x: number; y: number; width: number; height: number }, b: typeof a): boolean =>
   Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 1e-6 && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 1e-6;
 
@@ -40,9 +42,8 @@ describe("rail docking under a kind's rail drop policy", () => {
   it("an item alone in its column gets its side's rail: a strip at the window's side, spring-loaded, the slot its folded tile", () => {
     const s = withPolicy(docScene());
     const ts = targets(s, "c");
-    const r = rails(ts);
-    expect(r.map((t) => t.id)).toEqual(["rail:right:1"]);
-    const t = r[0]!;
+    const t = railOf(ts, "right")!;
+    expect(t.id).toBe("rail:right:1");
     expect(t.arm).toBe("dwell");
     expect(t.priority).toBe(1);
     expect(t.strip).toMatchObject({ x: W - 30, width: 30 });
@@ -61,12 +62,23 @@ describe("rail docking under a kind's rail drop policy", () => {
     for (const o of ts) if (o !== t && !o.free) for (const h of o.hits ?? [o.hit]) expect(overlap(h, t.strip!), o.id).toBe(false);
   });
 
-  it("a side whose column keeps an open panel has no rail: no strip, no dead target", () => {
+  it("a side whose column keeps an open panel: its strip collapses the panel there, a header, as the hand fold shows it", () => {
     const s = withPolicy(docScene());
-    // b: the left column keeps a open; the right column keeps c open.
-    expect(rails(targets(s, "b"))).toEqual([]);
-    // c dragged: the left column keeps a and b open, so no left rail.
-    expect(rails(targets(s, "c")).every((t) => t.place.kind === "rail" && t.place.side === "right")).toBe(true);
+    // b: the right column keeps c open, so b collapses there as a header; the slot is that header.
+    for (const side of ["left", "right"] as const) {
+      const t = railOf(targets(s, "b"), side);
+      if (side === "left") {
+        // Its own column: b collapsed where it is, beside a.
+        expect(t?.arm).toBe("dwell");
+        continue;
+      }
+      const after = t!.after({ x: W - 10, y: 200 });
+      const me = after.layout.items.b!;
+      expect(me.edge).toBe("right");
+      expect(me.formKind).toBe("header");
+      expect(t!.slot).toEqual(me.rect);
+      expect(t!.strip).toMatchObject({ x: W - 30, width: 30 });
+    }
   });
 
   it("a rail that shows already takes a second panel; an item already in the rail has no target into it", () => {
@@ -93,8 +105,8 @@ describe("rail docking under a kind's rail drop policy", () => {
   });
 
   it("railStripWidth sets the strip (at least 24); 0 and railVisibility \"never\" turn it off cleanly", () => {
-    expect(rails(targets(withPolicy(docScene(), { railStripWidth: 48 }), "c"))[0]!.strip).toMatchObject({ x: W - 48, width: 48 });
-    expect(rails(targets(withPolicy(docScene(), { railStripWidth: 10 }), "c"))[0]!.strip).toMatchObject({ width: 24 });
+    expect(railOf(targets(withPolicy(docScene(), { railStripWidth: 48 }), "c"), "right")!.strip).toMatchObject({ x: W - 48, width: 48 });
+    expect(railOf(targets(withPolicy(docScene(), { railStripWidth: 10 }), "c"), "right")!.strip).toMatchObject({ width: 24 });
     const none = targets(docScene(), "c");
     for (const off of [{ railStripWidth: 0 }, { railVisibility: "never" as const }]) {
       const ts = targets(withPolicy(docScene(), off), "c");
@@ -120,7 +132,7 @@ describe("rail docking under a kind's rail drop policy", () => {
 
   it("the keyboard path: \"Move to › Rail\" is a stop, and its move folds the panel into the rail", () => {
     const s = withPolicy(docScene());
-    const stop = stops(s, "c").find((t) => t.place.kind === "rail");
+    const stop = stops(s, "c").find((t) => t.place.kind === "rail" && t.place.side === "right");
     expect(stop?.id).toBe("rail:right:1");
     expect(stop!.after({ x: 0, y: 0 }).layout.items.c!.tab).toBe(true);
   });

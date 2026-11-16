@@ -1108,8 +1108,9 @@ export function createScene(o: SceneOptions) {
   }
   /**
    * A panel's menu (its header's ⋯ button): "Move to › Rail (left)" and "(right)", the keyboard path to the side rails
-   * a drag reaches by its strips. Each is the Scene's own stop (`stops`), so its move is the drop's; a side with no rail
-   * for the panel now (an open panel there sets the column's width) is listed as unavailable.
+   * a drag reaches by its strips. Each is the Scene's own stop (`stops`), so its move is the drop's: the panel collapsed
+   * at that side (a tile where the column shows as a rail, a header beside open panels). A side with no stop for it
+   * (it is collapsed there already) is listed as unavailable.
    */
   function openPanelMenu(btn: HTMLElement, focusFirst: boolean): void {
     closeMore(false);

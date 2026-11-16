@@ -1070,7 +1070,8 @@ export const PRESETS: readonly Preset[] = [
           // An empty edge laid before this one owns a thin band (half the hit band) at its boundary, which may lie over
           // this edge (the empty top bar over a rail's top, an empty rail over a column's outer edge): its places there
           // are defined, not dead.
-          const emptyBands = [...ts.filter((t) => parseTargetId(t.id)?.kind === "strip" && idEdge(t.id) !== e.id), ...c.refusals(id).filter((r) => r.edge !== e.id && !!held.edges[r.edge] && (held.edges[r.edge]!.rect.width <= 0 || held.edges[r.edge]!.rect.height <= 0))];
+          // A side rail's drop strip (a panel's) owns its rect over the column too: its places there are the rail's.
+          const emptyBands = [...ts.filter((t) => (parseTargetId(t.id)?.kind === "strip" && idEdge(t.id) !== e.id) || !!t.strip), ...c.refusals(id).filter((r) => r.edge !== e.id && !!held.edges[r.edge] && (held.edges[r.edge]!.rect.width <= 0 || held.edges[r.edge]!.rect.height <= 0))];
           const deadAt: string[] = [];
           let dead = 0;
           for (let x = l.rect.x + 4; x < l.rect.x + l.rect.width; x += 8)
@@ -2544,10 +2545,10 @@ function RAIL_DOCK_PRESETS(): Preset[] {
     {
       id: "rail-alt-from-content",
       title: "Alt collapses a panel into the nearest rail from mid-content",
-      expected: "Findings dragged by mouse with Alt held to the middle of the pages (nowhere near an edge): the preview is its folded tile in the nearest rail (the right one), and the drop collapses it there, on its slot.",
+      expected: "Findings dragged by mouse with Alt held into the pages, 300 px from the right window edge (nowhere near it, nearer the right than the left): the preview is its folded tile in the nearest rail (the right one), and the drop collapses it there, on its slot.",
       setup: fresh,
       check(c) {
-        const m = mouseGesture(c, "findings", [{ to: midContent(c), step: 6, hold: 120 }], { altKey: true });
+        const m = mouseGesture(c, "findings", [{ to: { x: c.scene.stage.width - 300, y: c.scene.stage.height / 2 }, step: 6, hold: 120 }], { altKey: true });
         m.up();
         const ok = c.lastDrop?.place === "rail" && inRightRail(c) && landedOnSlot(c);
         return { pass: ok, now: `Drop: ${dropSaid(c)}.` };
@@ -2628,7 +2629,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
       id: "rail-keyboard-move",
       title: "The keyboard path: the panel menu's \"Move to › Rail\"",
       expected:
-        "Findings' header has a ⋯ menu button; pressed from the keyboard it lists \"Move to › Rail (left)\" and \"Move to › Rail (right)\" (the left one unavailable while the left column keeps open panels) and focuses the first available item; choosing the right one collapses Findings into the right rail, as the drop does.",
+        "Findings' header has a ⋯ menu button; pressed from the keyboard it lists \"Move to › Rail (left)\" and \"Move to › Rail (right)\" (the left one collapses it in the left column, beside its open panels, as a header) and focuses the first; choosing the right one collapses Findings into the right rail, as the drop does.",
       setup: fresh,
       check(c) {
         const btn = c.win.querySelector<HTMLElement>('[data-pmenu="findings"]');
@@ -2641,7 +2642,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
         const words = items.map((b) => `${b.textContent}${b.getAttribute("aria-disabled") === "true" ? " (unavailable)" : ""}`);
         const focused = (c.win.ownerDocument.activeElement as HTMLElement | null)?.dataset.moveRail ?? "none";
         items.find((b) => b.dataset.moveRail === "findings:right")?.click();
-        const ok = words.join() === "Move to › Rail (left) (unavailable),Move to › Rail (right)" && focused === "findings:right" && inRightRail(c);
+        const ok = words.join() === "Move to › Rail (left),Move to › Rail (right)" && focused === "findings:left" && inRightRail(c);
         return { pass: ok, now: `Menu: ${words.join(", ") || "none"}; focus on ${focused}; Findings ${inRightRail(c) ? "in the right rail" : "not in the right rail"}.` };
       },
     },

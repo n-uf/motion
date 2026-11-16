@@ -609,7 +609,8 @@ describe("the target model's property check", () => {
     }
   });
 
-  it("windows whose panels drop into their side's rail through a strip (Scene.railDrop) keep every category at zero, the strip included", () => {
+  // The flush windows are the ride mode: hand folds ride (`handFold: "ride"`), so a strip's drop rides over an open column.
+  it("windows whose panels drop into their side's rail through a strip (Scene.railDrop), riding folds included, keep every category at zero, the strip included", () => {
     for (const [flush, middle] of [
       [false, false],
       [true, false],

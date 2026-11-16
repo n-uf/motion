@@ -30,22 +30,35 @@ interface Strip {
 /** The strip's x and width: `width` px from the side's outer boundary `outer`, inward. */
 const across = (side: "left" | "right", outer: number, width: number): [number, number] => (side === "left" ? [outer, width] : [outer - width, width]);
 
-/** A side with no declared rail: its rail column, the item docked in it folded, offered only where it shows as a rail. */
+/**
+ * Whether a drop's result collapses the item at `side`: folded by hand and drawn there, wherever the scene's `handFold`
+ * puts a collapsed panel (a tile in a rail, a rider bar over the side's first open column, a header in its column);
+ * not home, and the window fits.
+ */
+function lands(c: Ctx, result: SceneAfter, side: "left" | "right"): boolean {
+  const me = result.layout.items[c.dragged];
+  if (!me || me.floating || me.inMenu || (result.scene.items[c.dragged]?.from ?? 0) < 1 || c.isHome(result) || !c.sound(result.layout)) return false;
+  const sideOf = (edgeId: string | undefined): string | undefined => (edgeId ? result.layout.edges[edgeId]?.side : undefined);
+  return me.rail === side || sideOf(me.rides) === side || sideOf(me.edge) === side;
+}
+
+/** A side with no declared rail: its rail column, the item docked in it collapsed (`moveTo` its rail). */
 function columnStrip(c: Ctx, side: "left" | "right", policy: Policy): Strip | null {
   const edge = railColumnOf(c.scene, side, c.kind);
   if (!edge) return null;
   const own = c.now.items[c.dragged];
-  // Already in this rail: every drop into it is home.
-  if (own?.edge === edge.id && own.tab) return null;
+  // Already collapsed in this column: every drop into it is home.
+  if (own?.edge === edge.id && (c.scene.items[c.dragged]?.from ?? 0) >= 1) return null;
   const place: RailPlace = { kind: "rail", side, ring: edge.ring };
   const moved = moveTo(c.scene, c.dragged, place);
   if (moved === c.scene) return null;
   const result = c.settle(use(moved, c.dragged));
-  const me = result.layout.items[c.dragged];
   const el = result.layout.edges[edge.id];
-  if (!me?.tab || me.edge !== edge.id || !el || el.rect.width <= EPS || c.isHome(result) || !c.sound(result.layout)) return null;
+  if (!el || el.rect.width <= EPS || !lands(c, result, side)) return null;
   const r = el.rect;
-  const [x, w] = across(side, side === "left" ? r.x : r.x + r.width, policy.railStripWidth ?? Math.max(RAIL_STRIP_MIN, r.width));
+  // The rail's width: the column's drawn as a rail (a tile there), else the width it takes as one.
+  const railWidth = result.layout.items[c.dragged]!.tab ? r.width : (edge.cross.rail ?? 30);
+  const [x, w] = across(side, side === "left" ? r.x : r.x + r.width, policy.railStripWidth ?? Math.max(RAIL_STRIP_MIN, railWidth));
   return { side, rect: rect(x, r.y, w, r.height), slots: [{ id: targetId({ kind: "rail", side, ring: edge.ring }), place, along: [r.y, r.y + r.height], result }] };
 }
 
@@ -55,7 +68,9 @@ function declaredStrip(c: Ctx, side: "left" | "right", policy: Policy): Strip | 
   const spec = c.scene.rails?.[side];
   if (!template || !spec || !zoneTakes(template, "start", c.kind) || !spec.accepts.includes(c.kind)) return null;
   const stops = railStops(c, side);
-  const slots = (stops?.slots ?? []).filter((s) => s.ok && !s.home && s.place.kind === "rail").sort((a, b) => a.line - b.line);
+  // A stop's drop collapses the item at this side wherever the scene's `handFold` shows it (in the rail, or riding over
+  // the side's open column): the strip means "collapse it here", whether a rail is drawn now or not.
+  const slots = (stops?.slots ?? []).filter((s) => !s.home && s.place.kind === "rail" && lands(c, s.result, side)).sort((a, b) => a.line - b.line);
   if (!stops || slots.length === 0) return null;
   const a = Math.min(...stops.zones.map((z) => z.a));
   const b = Math.max(...stops.zones.map((z) => z.b));

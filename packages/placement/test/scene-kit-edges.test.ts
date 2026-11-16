@@ -33,6 +33,23 @@ describe("kit-shaped windows: the window's sides", () => {
       }
   });
 
+  it("hand folds that ride: the rail strip on each side collapses the panel there, a rider bar over the open column", () => {
+    for (const k of [FLUSH, INSET]) {
+      const s: Scene = { ...kitScene(k, { W: 1280, H: 800 }), railDrop: { panel: { railStripWidth: 24 } } };
+      const ts = targets(s, "notes");
+      for (const side of ["left", "right"] as const) {
+        const t = ts.find((x) => x.arm === "dwell" && x.place.kind === "rail" && x.place.side === side);
+        expect(t, `${side}`).toBeDefined();
+        const after = t!.after({ x: t!.hit.x + 2, y: t!.hit.y + t!.hit.height / 2 });
+        const me = after.layout.items.notes!;
+        // It rides over the side's open column (the scene's hand fold), and the slot is that rider bar.
+        expect(me.rides, `${side}`).toBeDefined();
+        expect(after.layout.edges[me.rides!]!.side).toBe(side);
+        expect(t!.slot).toEqual(me.rect);
+      }
+    }
+  });
+
   it("a new column holding the item alone where its own column is is home: no column-line sliver beside it", () => {
     for (const k of [FLUSH, INSET]) {
       const s = kitScene(k);
