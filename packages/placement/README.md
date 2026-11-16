@@ -1050,7 +1050,9 @@ first and the pointer aims at the other items: over the leading half of one (its
 half on a bar) the drop goes right before it, over its trailing half right after it. The tiles split at the midpoints of
 the remaining items, whatever their order and zones. Where that aim gives the order the edge has now, the target is home
 (no slot elsewhere): home covers the item's own rect and the facing halves of its two neighbours, even a neighbour in
-another zone. Zones come in only where no item is aimed at: in the free stretch between two items, beyond the last one
+another zone. That holds for **cards**, items whose bodies are drop places (toolbar groups, and panels under
+`hitBand: "middle"`); an open panel's body is no drop place, so over a panel the pointer aims only in the bands at its
+ends. Zones come in only where no item is aimed at: in the free stretch between two items, beyond the last one
 and on an empty zone or edge, the zone extents (thirds, or the solved spans) say which zone's slot the pointer is over,
 so a drop there can move the item to another zone with its order kept. A slot whose whole tile lies over its neighbours'
 facing halves is home's, and is no target of its own. The slot is where the item lands, at its size in that edge's form.

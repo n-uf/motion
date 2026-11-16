@@ -404,6 +404,11 @@ for (let t = 0; t <= 300; t += 16) onPage.update(toPage(screen), t, [slot]); // 
 console.log(onPage.state.shown?.id, onPage.release(toPage(screen), [slot])?.id); // "slot" "slot"
 ```
 
+A host contract: clamp the pointer into the stage (the window the targets tile) before it reaches `update` and
+`release`, so a pointer past the window's edge means its nearest point of the window. A drop target at the window's
+edge then stays under a hand that overshoots it, which is what makes an edge target easy to hit. Draw the held item at
+the pointer itself.
+
 ## @n-uf/motion/browser
 
 | | |

@@ -5,6 +5,20 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.27
 
+- `./scene`, fixed: **a rail stop with no slot that lands owns nothing.** Under hand folds that ride, a panel dropped on
+  the rail while its side keeps an open column rides over it, so every rail stop is refused; the stop still held the
+  outer 10 px at the window's side, which in a flush window floated. The rail stop now takes its place only when one of
+  its slots lands (home's counts); otherwise the outermost column line is laid from the window's edge.
+- `./scene`, fixed: **a new column where the item's own column is, is home.** Dragging a panel alone in its column, the
+  column lines about that column are the same move as home; they were offered as a `column:<side>:<ring>` target with
+  place home, a 1–2 px sliver between home and the rail stop in an inset window. Their pieces now join home's slot (or
+  `home:<id>`, as `hits`).
+- `./scene`, fixed: **the panel-body cut removes drop places only, never refusals.** An edge that takes nothing (a
+  thumbnail anchor) refuses its whole seen rect, its fixed item's open body included; that body used to be cut out as a
+  panel body, so nothing covered it and the pointer there floated.
+- `./scene`, **aim order** (below), clarified: home covers its neighbours' facing halves where the neighbours are
+  **cards**, items whose bodies are drop places (toolbar groups, and panels under `hitBand: "middle"`). An open
+  panel's body is no drop place: over it the pointer reaches only the bands at its ends.
 - `./scene`, **rail titles** (additive; scenes without title forms lay out and target exactly as before):
   - **`StackForm.title`**: a `rail` form that draws the item's title (its name and count turned along the rail; its
     `main` is that length, measured by the host). Declared just before the item's tile `rail` form, the two are steps on
