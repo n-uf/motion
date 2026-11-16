@@ -8,6 +8,7 @@ import { centre, contains, overlap, type Point, type Rect } from "@n-uf/placemen
 import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, railModeOf, reservedRect, resize, targetId, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { wrapCross } from "@n-uf/placement/stack";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
+import { KIT_PRESETS } from "./kit-presets";
 import { FADE_DT_CAP, FADE_MS, type DocwinScene } from "./scene";
 import { readDocwin, storeDocwin } from "./store";
 
@@ -1834,6 +1835,7 @@ export const PRESETS: readonly Preset[] = [
     },
   },
   ...RAIL_TITLE_PRESETS(),
+  ...KIT_PRESETS(),
 ];
 
 // --- rail titles -------------------------------------------------------------------------------------------------------

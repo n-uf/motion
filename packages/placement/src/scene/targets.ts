@@ -95,8 +95,10 @@ function specsOf(c: Ctx, kind: string): EdgeSpec[] {
   for (const side of ["left", "right"] as const) {
     const template = scene.columns?.[side];
     if (!template || !zoneTakes(template, "start", kind)) continue;
-    specs.push(...columnLines(c, side));
-    if (scene.rails?.[side]?.accepts.includes(kind)) specs.push(railStops(c, side));
+    const rail = scene.rails?.[side]?.accepts.includes(kind) ? railStops(c, side) : null;
+    // The rail stop keeps its place at the side's boundary only when one of its slots lands (home's counts).
+    specs.push(...columnLines(c, side, !!rail?.slots.some((s) => s.ok)));
+    specs.push(rail);
   }
   return specs.filter((s): s is EdgeSpec => s !== null);
 }

@@ -1,0 +1,111 @@
+/**
+ * Cases from UI kits' windows, checked on the Scene directly (this window has no declared rails): dynamic panel columns
+ * on both sides, a 32 px rail each side, hand folds that ride, maybe a thumbnail anchor. Each reads `targets` and
+ * `refusals` at the window's sides; the document window is left as it is.
+ */
+import type { Edge, Scene, SceneItem } from "@n-uf/placement/scene";
+import { pickTarget } from "@n-uf/placement/scene/cases";
+import { refusals, targets } from "@n-uf/placement/scene";
+
+/** A case's verdict and the case itself, in the presets' shape (it needs no window). */
+interface Verdict {
+  readonly pass: boolean;
+  readonly now: string;
+}
+interface Preset {
+  readonly id: string;
+  readonly title: string;
+  readonly expected: string;
+  setup(): void;
+  check(): Verdict;
+}
+
+/** An inset window (12 px inset and gaps) or a flush one. */
+type Shape = "inset" | "flush";
+
+/** A kit-shaped window: Pages and Notes on the left, Findings alone on the right; with `anchor`, thumbnails at the far left. */
+function kitWindow(shape: Shape, anchor: boolean, width = 1440): Scene {
+  const inset = shape === "inset";
+  const card = inset ? { min: 220, max: 640, natural: 300 } : { min: 200, max: 560, natural: 280 };
+  const gap = inset ? 12 : 0;
+  const items: Record<string, SceneItem> = {};
+  for (const [i, id] of ["pages", "notes", "findings"].entries())
+    items[id] = {
+      id,
+      kind: "panel",
+      used: i + 1,
+      forms: {
+        column: [
+          { kind: "open", main: { min: 120, natural: 300, grows: true }, cross: { natural: card.natural, min: card.min } },
+          { kind: "header", main: { min: 34, natural: 34 }, cross: { natural: card.natural, min: 32 } },
+          { kind: "rail", main: { min: 36, natural: 36 }, cross: { natural: 32 } },
+        ],
+      },
+      floatSize: { width: card.natural, height: 440 },
+    };
+  const template = { accepts: ["panel"], cross: { min: card.min, max: card.max, rail: 32 }, gap };
+  const edges: Edge[] = [
+    { id: "left-0", side: "left", ring: anchor ? 1 : 0, column: true, items: ["pages", "notes"], ...template },
+    { id: "right-0", side: "right", ring: 0, column: true, items: ["findings"], ...template },
+  ];
+  if (anchor) {
+    edges.unshift({ id: "thumbs-edge", side: "left", ring: 0, accepts: [], items: ["thumbs"], cross: { min: 56, max: 200, rail: 32 }, outsideInset: true, giveWay: true });
+    items.thumbs = { id: "thumbs", kind: "anchor", used: 0, fixed: true, forms: { column: [{ kind: "open", main: { min: 0, natural: 0, grows: true }, cross: { natural: 72, min: 56 }, setsCross: true }] } };
+  }
+  return {
+    stage: { x: 0, y: 0, width, height: 900 },
+    edges,
+    items,
+    floats: [],
+    floatKinds: ["panel"],
+    columns: { left: template, right: template },
+    rails: { left: { width: 32, accepts: ["panel"] }, right: { width: 32, accepts: ["panel"] } },
+    contentMin: { width: 320, height: 240 },
+    handFold: "ride",
+    inset: { top: gap, right: gap, bottom: gap, left: gap },
+    ...(inset ? { insetWhen: "docked" as const } : {}),
+    gutter: gap,
+  };
+}
+
+/** What each x in `xs` picks at height `y` for a drag of `drag`, as runs: `id a..b`. */
+function sweep(s: Scene, drag: string, y: number, xs: readonly number[]): { id: string; from: number; to: number }[] {
+  const ts = targets(s, drag);
+  const rs = refusals(s, drag);
+  const runs: { id: string; from: number; to: number }[] = [];
+  for (const x of xs) {
+    const t = pickTarget(ts, { x, y });
+    const r = rs.find((q) => x >= q.hit.x && x < q.hit.x + q.hit.width && y >= q.hit.y && y < q.hit.y + q.hit.height);
+    const id = t && !t.free ? t.id : r ? r.id : t ? t.id : "-";
+    const last = runs[runs.length - 1];
+    if (last && last.id === id) last.to = x;
+    else runs.push({ id, from: x, to: x });
+  }
+  return runs;
+}
+const say = (runs: readonly { id: string; from: number; to: number }[]): string => runs.map((r) => `${r.id} ${r.from}..${r.to}`).join(", ");
+const range = (a: number, b: number): number[] => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+
+export function KIT_PRESETS(): Preset[] {
+  const keep = (): void => undefined;
+  return [
+    {
+      id: "kit-rail-stop-no-landing",
+      title: "A rail that can't take the drop leaves the window's edge to the column line",
+      expected:
+        "In a kit's window (flush, and inset by 12 px) with hand folds riding, Notes or Findings dragged to the left window edge: the left rail's stops can't land (the left column stays open, so a folded panel would ride over it), so the rail owns nothing there and the new-column line covers the outer 10 px. No point of x 0–9 floats or is refused.",
+      setup: keep,
+      check(): Verdict {
+        const bad: string[] = [];
+        const seen: string[] = [];
+        for (const shape of ["flush", "inset"] as const)
+          for (const drag of ["notes", "findings"]) {
+            const runs = sweep(kitWindow(shape, false), drag, 400, range(0, 9));
+            seen.push(`${shape} ${drag}: ${say(runs)}`);
+            if (runs.length !== 1 || runs[0]!.id !== "column:left:0") bad.push(`${shape} ${drag}`);
+          }
+        return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join(", ")}.` : ""}` };
+      },
+    },
+  ];
+}

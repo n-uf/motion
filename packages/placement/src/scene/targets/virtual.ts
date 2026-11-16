@@ -41,7 +41,7 @@ function railOuter(c: Ctx, side: "left" | "right"): number {
  * edge is (its kind's `reach` each way at most), down the columns' stretch. The lines lie where the user sees the
  * columns; each counts its ring with the item lifted.
  */
-export function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec[] {
+export function columnLines(c: Ctx, side: "left" | "right", railLands: boolean): EdgeSpec[] {
   const { scene, now, dragged } = c;
   const cols = scene.edges
     .filter((e) => e.side === side && e.column === true)
@@ -78,7 +78,9 @@ export function columnLines(c: Ctx, side: "left" | "right"): EdgeSpec[] {
   const dir = side === "left" ? 1 : -1;
   const outside = (x: number): boolean =>
     Object.values(now.edges).some((e) => e.side === side && e.rect.width > 0 && e.rect.height > 0 && (side === "left" ? e.rect.x + e.rect.width <= x + EPS : e.rect.x >= x - EPS));
-  const railFirst = !!c.scene.rails?.[side]?.accepts.includes(c.kind) && !!now.railPlaces[side] && !(now.rails[side]?.segments.length ?? 0);
+  // The rail stop takes its place only when one of its slots lands (`railLands`): a virtual edge with no landing slot
+  // owns nothing, so the line is laid from the window's edge then (a panel that would ride over an open column).
+  const railFirst = railLands && !!c.scene.rails?.[side]?.accepts.includes(c.kind) && !!now.railPlaces[side] && !(now.rails[side]?.segments.length ?? 0);
   const placeOf = (l: { x: number }, i: number): { line: number; zone: Span; owned: Span } => {
     const atEdge = side === "left" ? l.x <= stage.x + EPS : l.x >= stage.x + stage.width - EPS;
     if (i > 0 || outside(l.x) || !(atEdge || railFirst)) return { line: l.x, zone: [l.x - reach, l.x + reach], owned: [l.x - place / 2, l.x + place / 2] };
