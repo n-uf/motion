@@ -24,4 +24,16 @@ describe("kit-shaped windows: the window's sides", () => {
         for (let x = 0; x <= 9; x++) expect(pickAt(s, drag, x, 400), `${k === FLUSH ? "flush" : "inset"} ${drag} x ${x}`).toBe("column:left:0");
       }
   });
+
+  it("a new column holding the item alone where its own column is is home: no column-line sliver beside it", () => {
+    for (const k of [FLUSH, INSET]) {
+      const s = kitScene(k);
+      const ts = targets(s, "findings");
+      expect(ts.some((t) => t.id.startsWith("column:right:"))).toBe(false);
+      const own = ts.find((t) => t.id === "home:findings")!;
+      // Home's pieces: its own rect, and the column lines' stretches beside it.
+      for (let x = 1100; x < 1440; x++) expect(pickAt(s, "findings", x, 400), `x ${x}`).toMatch(/^home:findings$|^float:|^rail:right:/);
+      expect((own.hits ?? [own.hit]).length).toBeGreaterThan(1);
+    }
+  });
 });
