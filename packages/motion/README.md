@@ -3,14 +3,14 @@
 > [!CAUTION]
 > ## Not yet stable
 >
-> **@n-uf/motion is young and still changing. Its API (the frame loop, signals, springs and tweens, and the gesture recogniser) and its timing behaviour are not final.**
+> **@n-uf/motion is young and still changing. Its API (the frame loop, signals, springs and tweens, and the gesture recognizer) and its timing behavior are not final.**
 >
 > Version numbers are dates (YY.M.R), not semantic versions, so any release may break things, including how frames are scheduled, how springs settle and how gestures are timed. Pin an exact version and read the [CHANGELOG](https://github.com/n-uf/motion/blob/main/packages/motion/CHANGELOG.md) before you upgrade. If you need a stable animation library, use [Motion](https://motion.dev) or [GSAP](https://gsap.com). Both work on the DOM, so neither is a drop-in replacement.
 
 Site and live demos: [motion.n-uf.com](https://motion.n-uf.com)
 
 One frame loop with an injected clock, fine-grained signals, springs and
-tweens, and a DOM-free gesture recogniser. No DOM, no framework, no globals:
+tweens, and a DOM-free gesture recognizer. No DOM, no framework, no globals:
 the host hands in a clock, and tests hand in a fake one.
 
 ```sh
@@ -24,20 +24,22 @@ npm i @n-uf/motion
 - **values/**: springs and tweens over numbers, points, rects and vectors,
   stepped by the clock, with velocity that carries over a retarget, settle
   detection and a reduced-motion switch; and the window motion rules:
-  `settle` (one fast-then-gentle curve that never passes its target), hold
-  (what a pointer owns sits exactly under it) and `reveal` (glide a window
-  without stretching its content).
-- **gestures/**: a recogniser that turns pointer, wheel and trackpad events
+  `settle` (one fast-then-gentle curve that never passes its target), direct
+  drag (`settle.hold`: what a pointer owns sits exactly under it) and `reveal`
+  (glide a window without stretching its content).
+- **gestures/**: a recognizer that turns pointer, wheel and trackpad events
   (plain objects) into one gesture stream (click or drag, double click, long
   press, pinch, scroll, zoom, recovery from lost releases), a frame coalescer,
-  and a dwell (spring-load) machine.
+  and a dwell machine, for spring-loading.
 
-One package, seven entries: `@n-uf/motion` (everything in the core), its four
+One package, nine entries: `@n-uf/motion` (everything in the core), its four
 folders on their own (`@n-uf/motion/clock`, `/signals`, `/values`,
-`/gestures`), `@n-uf/motion/testing` (frame-sampled checks of the motion
-rules, for tests and browser specs), and `@n-uf/motion/browser`, the clock on
-`requestAnimationFrame` and the reduced-motion media query. The core entries
-touch no host; importing several of them still gives one signal graph.
+`/gestures`), `@n-uf/motion/drag` (the drag intent), `@n-uf/motion/layout`
+(the window motion rules applied to a whole layout), `@n-uf/motion/testing`
+(frame-sampled checks of the motion rules, for tests and browser specs), and
+`@n-uf/motion/browser`, the clock on `requestAnimationFrame` and the
+reduced-motion media query. The core entries touch no DOM; importing several of
+them still gives one signal graph.
 
 ## One frame
 
@@ -161,10 +163,10 @@ rect.set({ x: 300, y: 40, width: 240, height: 100 });
 clock.runUntilIdle(); // settled at { x: 300, y: 40, width: 240, height: 100 }
 ```
 
-### Window motion: settle, hold, reveal
+### Window motion: settle, direct drag, reveal
 
 Three rules make windows move the way a tiling window manager feels smooth
-(Hyprland is the reference): what the pointer holds is glued to it, everything
+(Hyprland is the reference): what the pointer drags is glued to it, everything
 else moves on one front-loaded curve that never passes its target, and content
 is never stretched.
 
@@ -172,10 +174,10 @@ is never stretched.
 |---|---|
 | `createSettle(initial, { omega?, restDelta? })` | The one curve for moving to a new place. On a new target every component gets the velocity `omega · distance` toward it from wherever it is drawn, so it follows `distance · e^(−omega·t)`: 90 % in `ln(10)/omega` s, then it eases in, and never passes the target (no overshoot on position, no wobble on size), however often it is retargeted. A velocity set by hand toward the target is capped at that speed; one away from it is kept, and the value turns around without crossing. |
 | `SETTLE_TEMPO` | `{ calm: 20, default: 25, quick: 37 }` (1/s): 90 % in 115, 92 or 62 ms. |
-| `settle.hold(value)` | Hold: put the value exactly there, at rest (same as `jumpTo`). Call it on each pointer move; the next `setTarget` launches from there. |
-| `settleValue(loop, initial, { omega?, restDelta?, phase?, reducedMotion? })` | The settle on a frame loop. Hold it with `mv.jump(rect)`. |
+| `settle.hold(value)` | Pin the value exactly there, at rest (same as `jumpTo`), for a direct drag. Call it on each pointer move; the next `setTarget` launches from there. |
+| `settleValue(loop, initial, { omega?, restDelta?, phase?, reducedMotion? })` | The settle on a frame loop. Pin it with `mv.jump(rect)`. |
 | `reveal(drawn, target)` | How to draw a window gliding at `drawn` whose content is laid out at `target`: move the element by `dx, dy`, draw the frame (chrome) at `width × height`, clip the content by `clipRight, clipBottom`. No scale, no layout per frame. |
-| `popIn(progress, from = 0.87)` | Opening and closing: a uniform scale about the centre plus opacity. Drive `progress` with a settle on a number with `{ restDelta: 0.001 }` (the default 0.1 is for pixels) or a tween. |
+| `popIn(progress, from = 0.87)` | Opening and closing: a uniform scale about the center plus opacity. Drive `progress` with a settle on a number with `{ restDelta: 0.001 }` (the default 0.1 is for pixels) or a tween. |
 
 ```ts
 import { createFakeClock, createFrameLoop, settleValue } from "@n-uf/motion";
@@ -192,7 +194,7 @@ console.log(win.value); // { x: 300, y: 0, width: 300, height: 300 }, never past
 
 ## layout/
 
-`@n-uf/motion/layout` applies the window motion rules to a whole surface:
+`@n-uf/motion/layout` applies the window motion rules to a whole layout:
 give each item an id and a target rect, and it moves the real elements, every
 one on one frame loop that runs only while something moves. It animates the
 rects it is given and nothing else: which items move where (making room,
@@ -200,16 +202,16 @@ drop targets) is the caller's layout.
 
 | | |
 |---|---|
-| `createLayoutMotion({ loop, omega?, phase?, popFrom?, reducedMotion?, onDraw?, onActiveChange? })` | The surface: `add(id, drawable, at, { shown? })`, `get`, `remove`, `retain(ids)` (removes every item not listed), `items`; `task(fn)` runs before the items step each frame, `onFrame(fn)` after; `onIdle`, `idle()`, `running`, `wake()`, `configure({ omega })`, `flush()`, `dispose()`. |
+| `createLayoutMotion({ loop, omega?, phase?, popFrom?, reducedMotion?, onDraw?, onActiveChange? })` | The layout motion: `add(id, drawable, at, { shown? })`, `get`, `remove`, `retain(ids)` (removes every item not listed), `items`; `task(fn)` runs before the items step each frame, `onFrame(fn)` after; `onIdle`, `idle()`, `running`, `wake()`, `configure({ omega })`, `flush()`, `dispose()`. |
 | `reducedMotion` | A boolean or the host's query (the reduced-motion media query), read on every new target and every show or hide: while true, items are placed and shown at once, with no glide and no fade. |
 | `onDraw(batch)`, `flush()` | Batched drawing: every item that moved is drawn in one pass per frame (its drawable, then `onDraw` once with all their frames); an item at rest is not drawn. A change made between frames waits for the next frame, or `flush()` draws it now, which a host calls right after it commits a layout so the next paint shows no frame at the new box. |
 | `onActiveChange(active)` | Called once when the frames start and once when they stop. |
 | `item.moveTo(rect)` | Settle there from wherever it is drawn (a retarget mid-flight goes on from the drawn rect). The content is laid out at the new box once, and the item redrawn at once, so no frame shows the old offset from the new box. A size change is revealed, never scaled. |
-| `item.retarget(rect)` | Optional on a `LayoutItem`. Settle there like `moveTo`, but keep the content laid out where it is while the size is unchanged: for chasing a moving point (the held drag's glide back to the pointer uses it), which would otherwise lay the content out on every frame. `holdItem` falls back to `moveTo` for an item without it. |
-| `item.jumpTo(rect)`, `item.hold(rect)`, `item.glideFrom(from, to)` | At once; held exactly where a pointer puts it (the content moves with it); drawn at `from`, then settle to `to`. |
-| `item.show(on, { now? })` | Appear or disappear with a uniform-scale fade (`popIn`); folding is a `moveTo` to the folded size, revealed. |
+| `item.retarget(rect)` | Optional on a `LayoutItem`. Settle there like `moveTo`, but keep the content laid out where it is while the size is unchanged: for chasing a moving point (the direct drag's glide back to the pointer uses it), which would otherwise lay the content out on every frame. `holdItem` falls back to `moveTo` for an item without it. |
+| `item.jumpTo(rect)`, `item.hold(rect)`, `item.glideFrom(from, to)` | At once; drawn exactly where a pointer puts it (the content moves with it); drawn at `from`, then settle to `to`. |
+| `item.show(on, { now? })` | Appear or disappear with a uniform-scale fade (`popIn`); collapsing is a `moveTo` to the collapsed size, revealed. |
 | `item.drawn`, `target`, `box`, `settled`, `shown`, `showing`, `shownSettled` | Where it is drawn, where it is heading, where its content is laid out. |
-| `holdItem(item, grab)` | A held drag of the real item, no copy: `move(pointer)` holds it 1:1 from the grab offset; `snapTo(slot)` glides into a slot, `snapTo(null)` back to the pointer (`follow()` once a frame until it is under it again); `land(slot)` and `cancel(home)` settle from the release rect, which they return. `preview(plan, slot)` once a frame plays a drop preview (`plan` from `@n-uf/motion/drag`'s `previewPlan`): indicator and gap keep the item under the pointer (gap with the caller's room open), snap glides it into the slot, and a release there finishes that glide. `resize(size)` holds it at a new size from now on (the caller laid its content out for it): the grab point keeps its share of the item, and it settles there from where it is drawn, revealed, never stretched (in a slot it stays put and takes the size when it leaves). |
+| `holdItem(item, grab)` | A direct drag of the real item, no copy: `move(pointer)` draws it 1:1 from the grab offset; `snapTo(slot)` glides into a slot, `snapTo(null)` back to the pointer (`follow()` once a frame until it is under it again); `land(slot)` and `cancel(home)` settle from the release rect, which they return. `preview(plan, slot)` once a frame plays a drop preview (`plan` from `@n-uf/motion/drag`'s `previewPlan`): `indicator` and `gap` (make room) keep the item under the pointer (`gap` with the caller's room open), `snap` glides it into the slot, and a release there finishes that glide. `resize(size)` holds it at a new size from now on (the caller laid its content out for it): the grab point keeps its share of the item, and it settles there from where it is drawn, revealed, never stretched (in a slot it stays put and takes the size when it leaves). |
 | `anchoredMorph(size, anchor, config?)` | A box held at a point that changes size about an anchor (its spot that sits on the point). `to(size, anchor)` settles the size and the anchor together from where they are drawn (at `MORPH_TEMPO`, which is `SETTLE_TEMPO.quick`: 90 % in about 60 ms, within 1 % in about 125 ms, the last pixels longer for large size changes, unless `config` says otherwise; a retarget mid-flight turns at once, no jump, no overshoot; true when the target changed); `jumpTo(size, anchor)` is there at once; `step(dt)` once a frame; `size`, `anchor`, `target` and `settled` read where it is drawn, heading and at rest; `rectAt(point)` is the box with its anchor exactly on the point, every frame; `progress` (0 to 1 since the last retarget) fades the content it came from out and the target's in. Draw each content with its own anchor on the point and neither moves from under the pointer. |
 | `flip(entries, change)` | FLIP for DOM groups on settle: record where each node is drawn, run `change` (the DOM moves), then each item glides from its old rect. |
 | `domDrawable({ node, frame?, content? })`, `layOutBox`, `drawBox` | Draw onto DOM styles: the node laid out at the box, moved by one transform, the frame at the drawn size, the content (or the node) clipped; hidden when gone. Any `{ layOut, draw }` drawable works (a canvas, a test). |
@@ -225,7 +227,7 @@ const panel = motion.add("panel", { layOut: () => {}, draw: () => {} }, { x: 0, 
 panel.moveTo({ x: 300, y: 0, width: 240, height: 100 }); // a settle, its new width revealed
 clock.runUntilIdle();
 const held = holdItem(panel, { x: 20, y: 10 }); // grabbed 20 px in, 10 px down
-held.move({ x: 120, y: 60 }); // held 1:1: drawn at { x: 100, y: 50 }
+held.move({ x: 120, y: 60 }); // a direct drag, 1:1: drawn at { x: 100, y: 50 }
 const release = held.land({ x: 0, y: 0, width: 200, height: 100 });
 console.log(release); // { x: 100, y: 50, width: 240, height: 100 }: the landing starts there
 clock.runUntilIdle();
@@ -264,7 +266,7 @@ animation frame) and ask:
 | `checkNoOvershoot(samples, from, to, tolerance?)` | Every component stays between its start and end: no overshoot, no size wobble. |
 | `checkMonotonic(samples, to, tolerance?)` | The distance to the target never grows: no bounce, no restart backwards. |
 | `checkNoJumps(samples, omega, slack?)` | No frame moves further than a settle at `omega` could: catches snaps and restarts from an old place. Sample times are the stepped time (the loop's `delta`s), not wall-clock timestamps. |
-| `checkHeld(samples, tolerance?)` | A held rect is where the pointer puts it, every frame. |
+| `checkHeld(samples, tolerance?)` | A directly dragged rect is where the pointer puts it, every frame. |
 | `checkContentScale(samples, { uniformOnly?, tolerance? })` | Content's transform is never non-uniform (stretched); with `uniformOnly: false`, never scaled at all. |
 | `checkTempo(samples, from, to, t90, tolerance?, startT?)` | 90 % of the way within `t90` ms of `startT` (default: the first sample, so record the frame the move began); returns the measured time too. |
 
@@ -279,7 +281,7 @@ The motion lab in the [n-uf/motion repository](https://github.com/n-uf/motion)
 | `createRecognizer({ toCanvas, timers?, dragModifier?, platform?, thresholds?, longPress?, multiClick?, pinch?, wheel?, staleMs? }, emit)` | Raw pointer, wheel and Safari gesture events in, `InputGesture`s out: `press`, `dragStart`, `move`, `longPress`, `release` (with `click` and `clickCount`), `cancel` (with a reason), `hover`, `pinch` (touch or trackpad, pinch or two-finger pan), `scroll`, `zoom`. Methods: `feed`, `cancel(reason)`, `reset`, `active`, `pinching`, `setDragModifier`, `dispose`. |
 | `GesturePointer` | The pointer every gesture reports (`screen`, `canvas`, `kind`, `buttons`, `modifiers`, `pointerId`, `button`). `SurfacePointer`, its old name, is removed: import `GesturePointer`. |
 | `RECOGNIZER_DEFAULTS` | Click-or-drag thresholds 4 / 6 / 8 px (mouse / pen / touch), long press after 500 ms for touch and pen, double click within 500 ms and 5 px (`DOUBLE_CLICK`, the package's one double click), pinch at 5 % scale or 10 px pan (read once both fingers have moved as often as each other, or one is three moves ahead, or one lifts). |
-| `wheelDeltaPx`, `classifyWheel`, `dampWheelPan`, `WHEEL_DEFAULTS`, `WHEEL_PAN_DEFAULTS` | Wheel normalisation: lines and pages to px, Cmd/Ctrl+wheel (and the ctrl+wheel trackpad pinch) zooms by 2^(−dy / 300), Shift turns a vertical wheel horizontal, and a damped pan per event. |
+| `wheelDeltaPx`, `classifyWheel`, `dampWheelPan`, `WHEEL_DEFAULTS`, `WHEEL_PAN_DEFAULTS` | Wheel normalization: lines and pages to px, Cmd/Ctrl+wheel (and the ctrl+wheel trackpad pinch) zooms by 2^(−dy / 300), Shift turns a vertical wheel horizontal, and a damped pan per event. |
 | `toModifiers`, `resolveDragModifier`, `defaultDragModifier`, `isHeld`, `modHeld`, `platformButton` | Modifier keys in one shape; the drag modifier per platform (Cmd on macOS, Alt elsewhere); on macOS a Ctrl+click is the secondary button. |
 | `createFrameCoalescer(onFrame, frames, { merge? })` | `schedule(sample)`, `flush()`, `cancel()`, `pending`. One delivery per frame with the latest sample (or `merge`d ones) and how many were folded. Same shape as hypr-tiling's. |
 | `dwellReducer`, `DWELL_IDLE`, `dwellDeadline`, `createDwellMachine` | `idle → dwelling → fired`, for spring-loaded targets: hold over the same key long enough and it fires once. |
@@ -287,7 +289,7 @@ The motion lab in the [n-uf/motion repository](https://github.com/n-uf/motion)
 | `touchPressReducer`, `TOUCH_PRESS_IDLE`, `touchPressDeadline`, `createTouchPress`, `TOUCH_PRESS_DEFAULTS` | A touch on something draggable in a scrolling page, `idle → pressed → lifted \| scrolled`: before the hold (220 ms), travel mostly along the page's scroll direction (`scroll: "y"` or `"x"`) past 10 px is a scroll, which never lifts (short of 10 px it waits, so a finger scroll reported a few px at a time never lifts on the way); travel past 6 px mostly across it lifts where the finger is; a still finger lifts where it was pressed after the hold. |
 | `pagedSwipeReducer`, `PAGED_SWIPE_IDLE`, `pagedSwipeDeadline`, `createPagedSwipe`, `PAGED_SWIPE_DEFAULTS`, `swipeProgress` | Swiping between pages with a trackpad's wheel run or a finger, `idle → armed → tracking → settling → lockout`. It arms only along the swipe (more than twice the cross movement), without Ctrl, with the configured modifier, when nothing under the pointer scrolls further and a page is there; a run that breaks a rule belongs to scrolling until the wheel rests 120 ms. Past 24 px it tracks: `progress` is the travel over the page size, −1 to 1, held at 0 towards a missing page. At the end it commits at 35 % of the page or a peak of 0.6 px/ms towards it (the peak starts over when the travel crosses zero); the host sends `settled` after its transition, and a 350 ms lockout swallows the trackpad's momentum. On x or y (`along`). |
 
-The recogniser takes plain objects the host copies out of DOM events, with
+The recognizer takes plain objects the host copies out of DOM events, with
 their timestamps; nothing in it touches the DOM. Mouse, pen and touch share
 one path. There is one press at a time, a second finger turns it into a
 pinch, and a press only becomes a drag past its device's threshold, so a
@@ -333,47 +335,48 @@ targets, and draws what it says. It is only there, not in the root.
 
 | | |
 |---|---|
-| `createDragIntent({ home, tuning?, placeOf? })` | `update(point, time, targets, keys?)` once a frame while an item is held, returning `{ shown, room, roomPlace, aiming, atHome, arming, forced }` (`arming`: the spring-loaded target the pointer dwells on, not armed yet; `forced`: `"float"` or `"rail"` when a held key won; `atHome`: the pointer is back inside `home` after it has been outside `home` itself; never true at the press or while it moves about inside `home`. Over home no target is shown and a release does nothing, so a host that wants to say "a drop here returns it" draws its own indicator at the home rect for that frame); `release(point, targets, keys?)`, the target a release lands on or null (home); `hide(time)` while the view scrolls under the pointer; `moveHome(dx, dy)`; `state`; `tuning`. |
-| `DRAG_DEFAULTS` | Lift at 5 px (a touch: a 180 ms hold, then 8 px); aiming below 0.45 px/ms over 50 ms, or within 12 px for 90 ms; a 10 px band and a 4 px breakthrough, each at most a fifth of the zones' extents (`bandShare` 0.2), a 120 ms gap grace; a switch waits 150 ms; room after 160 ms; a spring-loaded target arms after a 200 ms dwell (`railArmDwellMs`: a pass at travelling speed never arms it, and platforms spring-load after a similar rest); Shift floats and Alt goes to the nearest rail (`modifiers`). Each is overridable per intent. |
-| `targetAt(targets, point)`, `inRect(rect, point, margin?)` | The most precise target under a point (priority 1, 2, 3, then the smaller zone; a rect holds its edges exactly); a point in a rect grown or shrunk by a margin. A `DragTarget` whose zone isn't one rect gives `hits`, every piece of it (`hit` is then the largest): the pointer is in the zone when it is in any piece, and the zone's size, for the smaller-zone rule and the drag intent's bands, is the pieces' together. This is the one pick rule: `@n-uf/placement/scene/cases` takes it as its hosts' `pick`. |
-| `liftDecision({ touch, distance, elapsed }, tuning?)` | `"wait"`, `"lift"` or `"refuse"`: when a press becomes a drag. |
+| `createDragIntent({ home, tuning?, placeOf? })` | `update(point, time, targets, keys?)` once a frame while an item is dragged, returning `{ shown, room, roomPlace, aiming, atHome, arming, forced }` (`arming`: the spring-loaded target the pointer dwells on, not armed yet; `forced`: `"float"` or `"rail"` when a modifier key won; `atHome`: the pointer is back inside `home` after it has been outside `home` itself; never true at the press or while it moves about inside `home`. Over home no target is shown and a release does nothing, so a host that wants to say "a drop here returns it" draws its own indicator at the home rect for that frame); `release(point, targets, keys?)`, the target a release lands on or null (home); `hide(time)` while the view scrolls under the pointer; `moveHome(dx, dy)`; `state`; `tuning`. |
+| `DRAG_DEFAULTS` | Lift at 5 px (a touch: a 180 ms hold, then 8 px); aiming below 0.45 px/ms over 50 ms, or within 12 px for 90 ms; a 10 px hysteresis margin (`band`) and a 4 px breakthrough, each at most a fifth of the hit areas' extents (`bandShare` 0.2), a 120 ms grace across the gap between two hit areas (`gapGrace`); a switch waits 150 ms (the switch delay); room after 160 ms; a spring-loaded target arms after a 200 ms dwell (`railArmDwellMs`: a pass at travelling speed never arms it, and platforms spring-load after a similar rest); Shift floats and Alt goes to the nearest rail (`modifiers`). Each is overridable per intent. |
+| `targetAt(targets, point)`, `inRect(rect, point, margin?)` | The most precise target under a point (priority 1, 2, 3, then the smaller hit area; a rect holds its edges exactly); a point in a rect grown or shrunk by a margin. A `DragTarget` whose hit area isn't one rect gives `hits`, every piece of it (`hit` is then the largest): the pointer is in the hit area when it is in any piece, and the hit area's size, for the smaller-hit-area rule and the drag intent's bands, is the pieces' together. This is the one pick rule: `@n-uf/placement/scene/cases` takes it as its hosts' `pick`. |
+| `liftDecision({ touch, distance, elapsed }, tuning?)` | `"wait"`, `"lift"` or `"refuse"`: when a press becomes a drag (`"refuse"` is a touch that moved before the hold: scroll wins). |
 | `createGripPress({ tuning?, double? })`, `GripRelease`, `DOUBLE_CLICK` | A press on a grip, start to end: `down(point, time, { touch?, clicks? })`, `move(point, time)` (the lift rule), `up(point, time)` → `"click"`, `"doubleActivate"` or null (it lifted). Two presses within `DOUBLE_CLICK` (500 ms and 5 px, the package's one double click, which the recogniser's `clickCount` uses too; browsers don't expose the system setting, so this is the common desktop default; `double` tunes it, and `clicks`, a `mousedown`'s `detail`, overrides it) give a click, then a double-activate: never a second click, never a lift. A press past the lift distance is a drag, also as the second press. |
-| `previewPlan(frame, preview, slotted?)`, `DragPreview`, `DRAG_PREVIEW_DEFAULT` | What to draw for a frame under one of three previews: `{ showIndicator, makeRoom, snapItem }`. `"indicator"`: only the indicator, nothing moves. `"gap"`: the others make room once the intent does; the item stays under the pointer. `"snap"` (the default): the gap opens and the item glides into a slotted target's room, with no indicator (a target without a slot keeps it). |
+| `previewPlan(frame, preview, slotted?)`, `DragPreview`, `DRAG_PREVIEW_DEFAULT` | What to draw for a frame under one of three drop preview modes: `{ showIndicator, makeRoom, snapItem }`. `"indicator"`: only the indicator, nothing moves. `"gap"` (make room): the others make room once the intent does; the item stays under the pointer. `"snap"` (the default): room opens and the item glides into a slotted target's room, with no indicator (a target without a slot keeps it). |
 
-A target is `{ id, priority, hit, slot?, label?, free? }`: `hit` is the zone
-the pointer can be in, `priority` how precise it is (a tab strip 1, a slot 2,
-a large area 3). The rules:
+A target is `{ id, priority, hit, slot?, label?, free? }`: `hit` is the hit
+area the pointer can be in, `priority` how precise it is (a tab strip 1, an
+insertion point 2, a large area 3). The rules:
 
 - The indicator shows only when the pointer has left the item's home, a target
   is under it, and the pointer aims (slows down or holds still). Crossing
   targets at speed shows nothing.
-- The current target holds within a band around its zone, unless a more
-  precise target is clearly under the pointer. That is for the seam between
-  two tiles only: leaving a `free` target (the float) for a tile, or nothing,
-  switches at once, so a zone at the window's edge takes its first px. Both
-  scale with the zones:
-  along each axis, at most a fifth of the held zone's extent and of the zone
-  under the pointer, so a small zone (a 28 px row) is entered by a direct
-  glide from its neighbour. Leaving the shown target, a
-  flying pointer hides the indicator at once; an aiming one moves it once the
-  new target has held 150 ms, so no indicator ever shows for less.
+- Hysteresis: the current target keeps the pointer within a margin (`band`)
+  around its hit area, unless a more precise target is clearly under the
+  pointer. That is for the seam between two tiles only: leaving a `free`
+  target (the float) for a tile, or nothing, switches at once, so a hit area at
+  the window's edge takes its first px. Both scale with the hit areas:
+  along each axis, at most a fifth of the current hit area's extent and of the
+  hit area under the pointer, so a small one (a 28 px row) is entered by a
+  direct glide from its neighbor. Leaving the shown target, a
+  travelling pointer hides the indicator at once; an aiming one moves it once
+  the new target has held 150 ms (the switch delay), so no indicator ever shows
+  for less.
 - Room is made once the shown target, and the place in it (`placeOf`: a tab
   index, say), have held 160 ms; never for a `free` target.
 - `placeOf(target, point, previous)` gets the place it gave that target on the
   last sample, so a place can hold near its boundary. A null place is no
   target: nothing shows there (a target beneath with a place can), no room
   opens, and a release there lands on a target beneath, else goes home.
-  `placeOf` is also asked about the current target just outside its zone
-  (within the band or the gap grace): answer the nearest place there, and
+  `placeOf` is also asked about the current target just outside its hit area
+  (within the margin or the gap grace): answer the nearest place there, and
   return null only for a part of the target that takes no drop. It runs on
   every sample for each target under the pointer, so keep it cheap.
 - A release lands on the shown target whenever one shows (drop = shown), else
   on the target under the pointer, else nowhere. A release over home does
   nothing.
 - Spring-loading: a target marked `arm: "dwell"` (a side's rail, say) is no
-  target until the pointer has rested in its zone for `railArmDwellMs`; a
+  target until the pointer has rested in its hit area for `railArmDwellMs`; a
   fast pass, or a drop before then, lands on what lies beneath (the float).
-  Armed, it shows at once and its zone is `armedHit` (grown: a magnet, the
+  Armed, it shows at once and its hit area is `armedHit` (grown: a magnet, the
   armed target's band); moving out past that band's outer edge disarms it, and
   re-entering needs a new full dwell. The frame's `arming` lets a host highlight the
   strip while the dwell runs, and say the armed state in its live region.
@@ -383,7 +386,7 @@ a large area 3). The rules:
   on the `free` target anywhere, even over a spring-loaded one; the rail key
   (Alt) on the nearest spring-loaded target, from anywhere. The frame's `forced`
   says which won.
-- The three previews only change what is drawn: all follow these rules, so a
+- The three drop preview modes only change what is drawn: all follow these rules, so a
   drop lands where the preview showed it in each.
 
 ```ts
@@ -407,7 +410,7 @@ console.log(zones.state.shown, zones.release({ x: 50, y: 50 }, [pane])); // null
 
 The intent works in one coordinate space: the one its targets and home are in. On a page drawn scaled (a zoomed
 canvas, a fitted preview), convert each pointer sample into page coordinates first, `(p − origin) / scale`, and the
-band, breakthrough and stillness distances stay page px:
+hysteresis margin, breakthrough and stillness distances stay page px:
 
 ```ts
 // The page is drawn at half size, its top-left corner at (300, 200) on screen; targets are in page px.
@@ -422,7 +425,7 @@ console.log(onPage.state.shown?.id, onPage.release(toPage(screen), [slot])?.id);
 
 A host contract: clamp the pointer into the stage (the window the targets tile) before it reaches `update` and
 `release`, so a pointer past the window's edge means its nearest point of the window. A drop target at the window's
-edge then stays under a hand that overshoots it, which is what makes an edge target easy to hit. Draw the held item at
+edge then stays under a hand that overshoots it, which is what makes an edge target easy to hit. Draw the dragged item at
 the pointer itself.
 
 ## @n-uf/motion/browser
