@@ -8,6 +8,7 @@ import { centre, contains, overlap, type Point, type Rect } from "@n-uf/placemen
 import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, railModeOf, reservedRect, resize, targetId, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { wrapCross } from "@n-uf/placement/stack";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
+import type { DragFeel, KindFeel } from "./feel";
 import { KIT_PRESETS } from "./kit-presets";
 import { FADE_DT_CAP, FADE_MS, type DocwinScene } from "./scene";
 import { readDocwin, storeDocwin } from "./store";
@@ -1855,6 +1856,7 @@ export const PRESETS: readonly Preset[] = [
       return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join(", ")}.` : ""}` };
     },
   },
+  ...RAIL_DOCK_PRESETS(),
   ...KIT_PRESETS(),
 ];
 
@@ -2396,4 +2398,266 @@ function zonesOfBar(c: DocwinScene, edge: EdgeId, worlds: [string, Scene][]): Ve
     }
   }
   return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+}
+
+// --- rail docking for panels ---------------------------------------------------------------------------------------------
+
+/** One leg of a mouse gesture: glide to `to` (window px) `step` px per 16 ms frame, then rest `hold` ms. */
+interface Leg {
+  readonly to: Point;
+  readonly step: number;
+  readonly hold: number;
+}
+/** What the gesture saw on each frame: the target shown, and whether a rail strip was dwelt on or armed. */
+interface Seen {
+  readonly shown: string | null;
+  readonly arming: boolean;
+  readonly armed: boolean;
+}
+
+/**
+ * A mouse gesture on the item's grip through the page's own pointer listeners, the modifier `keys` held on every event:
+ * the legs in turn, frames driven by hand. Still down at the end: `up()` lets go where it is.
+ */
+function mouseGesture(c: DocwinScene, id: ItemId, legs: readonly Leg[], keys: { shiftKey?: boolean; altKey?: boolean } = {}): { lifted: boolean; seen: Seen[]; up: () => void } {
+  const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
+  if (!el) return { lifted: false, seen: [], up: () => undefined };
+  const w = c.win.getBoundingClientRect();
+  const g = el.getBoundingClientRect();
+  let at = { x: g.left + g.width / 2, y: g.top + g.height / 2 };
+  const ev = (type: string, p: Point): PointerEvent =>
+    new PointerEvent(type, { clientX: p.x, clientY: p.y, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerType: "mouse", isPrimary: true, bubbles: true, cancelable: true, ...keys });
+  const seen: Seen[] = [];
+  let now = performance.now();
+  const tick = (): void => {
+    if (!c.dragging) return;
+    c.frame((now += 16));
+    const strips = [...c.stripLayer.querySelectorAll<HTMLElement>(".dw-railstrip")];
+    seen.push({ shown: c.shown?.id ?? null, arming: strips.some((s) => s.hasAttribute("data-arming")), armed: strips.some((s) => s.hasAttribute("data-armed")) });
+  };
+  c.drive(true);
+  el.dispatchEvent(ev("pointerdown", at));
+  let lifted = false;
+  for (const leg of legs) {
+    const end = { x: w.left + leg.to.x, y: w.top + leg.to.y };
+    const steps = Math.max(1, Math.ceil(Math.hypot(end.x - at.x, end.y - at.y) / leg.step));
+    for (let i = 1; i <= steps; i++) {
+      window.dispatchEvent(ev("pointermove", { x: at.x + ((end.x - at.x) * i) / steps, y: at.y + ((end.y - at.y) * i) / steps }));
+      lifted ||= c.dragging;
+      tick();
+    }
+    for (let k = 0; k < Math.round(leg.hold / 16); k++) tick();
+    at = end;
+  }
+  return {
+    lifted,
+    seen,
+    up: () => {
+      window.dispatchEvent(ev("pointerup", at));
+      c.drive(false);
+    },
+  };
+}
+
+/** The point at the middle of the right window edge's strip, and the content's middle. */
+const rightStrip = (c: DocwinScene): Point => ({ x: c.scene.stage.width - 10, y: c.scene.stage.height / 2 });
+const midContent = (c: DocwinScene): Point => centre(c.layout.content);
+/** Whether Findings now lies collapsed in the right rail, the column closed down to the rail's width. */
+const inRightRail = (c: DocwinScene): boolean => {
+  const p = c.layout.items.findings;
+  return !!p?.tab && p.edge === "right" && (c.layout.edges.right?.cross ?? 0) <= 30.5;
+};
+/** The last drop said in one line. */
+const dropSaid = (c: DocwinScene): string => {
+  const d = c.lastDrop;
+  return d ? `${d.target ?? "nothing"}${d.committed ? "" : " (nothing committed)"}, slot ${d.preview ? say(d.preview) : "none"}, landed ${d.landed ? say(d.landed) : "none"}` : "no drop";
+};
+/** A drop that committed with its slot the landing (preview = landing). */
+const landedOnSlot = (c: DocwinScene): boolean => !!c.lastDrop?.committed && sameRect(c.lastDrop.preview, c.lastDrop.landed);
+/** The default feel with the panels' changed by `edit`. */
+const panelFeel = (c: DocwinScene, edit: Partial<KindFeel>): DragFeel => ({ ...c.feel, panel: { ...c.feel.panel, ...edit } });
+
+function RAIL_DOCK_PRESETS(): Preset[] {
+  const fresh = (c: DocwinScene): void => c.reset();
+  return [
+    {
+      id: "rail-dwell-pass-by",
+      title: "A panel passing over the rail's strip stays a float",
+      expected:
+        "Findings dragged by mouse into the pages, then quickly to the right window edge and straight back (through the right rail's strip in about a tenth of a second) and dropped in the pages: the strip never arms (no rail shown), and the drop floats Findings where the preview showed it.",
+      setup: fresh,
+      check(c) {
+        const m = mouseGesture(c, "findings", [
+          { to: midContent(c), step: 6, hold: 120 },
+          { to: { x: c.scene.stage.width - 6, y: c.scene.stage.height / 2 }, step: 12, hold: 0 },
+          { to: midContent(c), step: 12, hold: 200 },
+        ]);
+        m.up();
+        const railShown = m.seen.some((s) => s.shown?.startsWith("rail:") || s.armed);
+        const ok = m.lifted && !railShown && c.lastDrop?.place === "float" && landedOnSlot(c);
+        return { pass: ok, now: `${railShown ? "The rail armed on the way. " : "The rail never armed. "}Drop: ${dropSaid(c)}.` };
+      },
+    },
+    {
+      id: "rail-dwell-arms",
+      title: "A panel held still on the rail's strip arms it; the drop collapses it there",
+      expected:
+        "Findings dragged by mouse onto the right rail's strip: the strip shows at the rail's width, highlights at once and, after a 200 ms dwell, arms (grows 6 px inward, the preview the folded tile in the rail, \"release to collapse it into the right rail\" said in the live region); the drop collapses Findings into the right rail, on its slot. A drop there before the dwell is over floats it instead.",
+      setup: fresh,
+      check(c) {
+        const out: string[] = [];
+        let ok = true;
+        // Before the dwell: a quick glide in and a short rest, then the drop.
+        const early = mouseGesture(c, "findings", [{ to: rightStrip(c), step: 14, hold: 48 }]);
+        early.up();
+        const floated = c.lastDrop?.place === "float" && !early.seen.some((s) => s.armed);
+        ok &&= floated;
+        out.push(`dropped before the dwell: ${dropSaid(c)}`);
+        c.reset();
+        const m = mouseGesture(c, "findings", [{ to: rightStrip(c), step: 6, hold: 360 }]);
+        const strip = c.stripLayer.querySelector<HTMLElement>('.dw-railstrip[data-side="right"]');
+        // The width it is drawn at (its transition may still run).
+        const width = parseFloat(strip?.style.width ?? "0");
+        const firstArming = m.seen.findIndex((s) => s.arming);
+        const firstArmed = m.seen.findIndex((s) => s.armed);
+        const said = c.win.ownerDocument.getElementById("dw-status")?.textContent ?? "";
+        m.up();
+        const armedOk = firstArming >= 0 && firstArmed > firstArming && Math.abs(width - 36) <= 1 && /release to collapse it into the right rail/.test(said);
+        ok &&= armedOk && inRightRail(c) && landedOnSlot(c);
+        out.push(`held: highlighted at frame ${firstArming}, armed at frame ${firstArmed}, armed strip ${r0(width)} px, said "${said}"; drop ${dropSaid(c)}`);
+        return { pass: ok, now: `${out.join("; ")}.` };
+      },
+    },
+    {
+      id: "rail-shift-floats",
+      title: "Shift floats a panel even on the rail's strip",
+      expected: "Findings dragged by mouse with Shift held onto the right rail's strip and held there past the dwell: the strip never arms, the preview is the float, and the drop floats Findings where the preview showed it.",
+      setup: fresh,
+      check(c) {
+        const m = mouseGesture(c, "findings", [{ to: rightStrip(c), step: 6, hold: 400 }], { shiftKey: true });
+        m.up();
+        const armed = m.seen.some((s) => s.armed || s.shown?.startsWith("rail:"));
+        const ok = !armed && c.lastDrop?.place === "float" && landedOnSlot(c);
+        return { pass: ok, now: `${armed ? "The rail armed. " : ""}Drop: ${dropSaid(c)}.` };
+      },
+    },
+    {
+      id: "rail-alt-from-content",
+      title: "Alt collapses a panel into the nearest rail from mid-content",
+      expected: "Findings dragged by mouse with Alt held to the middle of the pages (nowhere near an edge): the preview is its folded tile in the nearest rail (the right one), and the drop collapses it there, on its slot.",
+      setup: fresh,
+      check(c) {
+        const m = mouseGesture(c, "findings", [{ to: midContent(c), step: 6, hold: 120 }], { altKey: true });
+        m.up();
+        const ok = c.lastDrop?.place === "rail" && inRightRail(c) && landedOnSlot(c);
+        return { pass: ok, now: `Drop: ${dropSaid(c)}.` };
+      },
+    },
+    {
+      id: "rail-off-cleanly",
+      title: "Strip width 0, or never shown, turns rail docking off with no dead target",
+      expected:
+        "With the panels' strip width set to 0, and again with the strip never shown: Findings has no rail target, no strip is drawn while it is held at the right window edge past the dwell, and the drop there is a float or home, never the rail.",
+      setup: fresh,
+      check(c) {
+        const out: string[] = [];
+        let ok = true;
+        for (const [name, edit] of [
+          ["width 0", { railStripWidth: 0 }],
+          ['"never"', { railVisibility: "never" as const }],
+        ] as const) {
+          c.reset();
+          c.setFeel(panelFeel(c, edit));
+          const rails = c.targets("findings").filter((t) => t.place.kind === "rail" || !!t.strip);
+          const m = mouseGesture(c, "findings", [{ to: rightStrip(c), step: 6, hold: 400 }]);
+          const drawn = c.stripLayer.childElementCount;
+          m.up();
+          const pass = rails.length === 0 && drawn === 0 && c.lastDrop?.place !== "rail" && !m.seen.some((s) => s.arming || s.armed);
+          ok &&= pass;
+          out.push(`${name}: ${rails.length} rail targets, ${drawn} strips drawn, drop ${dropSaid(c)}`);
+        }
+        return { pass: ok, now: `${out.join("; ")}.` };
+      },
+    },
+    {
+      id: "rail-reduced-motion",
+      title: "Under reduced motion the armed strip grows with no animation",
+      expected: "Findings held on the right rail's strip past the dwell: with reduced motion the armed strip is 6 px wider at once, with no transition; with motion it grows with a short transition.",
+      setup: fresh,
+      check(c) {
+        const out: string[] = [];
+        let ok = true;
+        for (const reduced of [true, false]) {
+          c.reset();
+          c.setReducedMotion(reduced);
+          const m = mouseGesture(c, "findings", [{ to: rightStrip(c), step: 6, hold: 360 }]);
+          const strip = c.stripLayer.querySelector<HTMLElement>('.dw-railstrip[data-armed]');
+          const durations = strip ? getComputedStyle(strip).transitionDuration.split(",").map((s) => parseFloat(s)) : [];
+          const width = parseFloat(strip?.style.width ?? "0");
+          endDrag(c);
+          m.up();
+          const still = durations.length > 0 && durations.every((d) => d === 0);
+          ok &&= !!strip && Math.abs(width - 36) <= 1 && (reduced ? still : !still);
+          out.push(`${reduced ? "reduced" : "with motion"}: ${strip ? `armed, ${r0(width)} px, transition ${durations.join("/")} s` : "never armed"}`);
+        }
+        c.setReducedMotion(false);
+        return { pass: ok, now: `${out.join("; ")}.` };
+      },
+    },
+    {
+      id: "rail-findings-alone",
+      title: "Findings alone on the right reaches the rail by a dwell or by Alt; the column closes",
+      expected:
+        "Findings alone in the right column, dragged by mouse to the right window edge: held still there, it arms and the drop collapses it into the right rail; with Alt held, the same from anywhere. Each time the right column closes down to the 30 px rail holding Findings' folded tile, on the slot the preview showed.",
+      setup: fresh,
+      check(c) {
+        const out: string[] = [];
+        let ok = true;
+        for (const way of ["dwell", "Alt"] as const) {
+          c.reset();
+          const m = mouseGesture(c, "findings", [{ to: way === "dwell" ? rightStrip(c) : { x: c.scene.stage.width - 120, y: c.scene.stage.height / 2 }, step: 6, hold: way === "dwell" ? 360 : 120 }], way === "Alt" ? { altKey: true } : {});
+          m.up();
+          const pass = inRightRail(c) && landedOnSlot(c);
+          ok &&= pass;
+          out.push(`${way}: ${dropSaid(c)}, right column ${r0(c.layout.edges.right?.cross ?? 0)} px`);
+        }
+        return { pass: ok, now: `${out.join("; ")}.` };
+      },
+    },
+    {
+      id: "rail-keyboard-move",
+      title: "The keyboard path: the panel menu's \"Move to › Rail\"",
+      expected:
+        "Findings' header has a ⋯ menu button; pressed from the keyboard it lists \"Move to › Rail (left)\" and \"Move to › Rail (right)\" (the left one unavailable while the left column keeps open panels) and focuses the first available item; choosing the right one collapses Findings into the right rail, as the drop does.",
+      setup: fresh,
+      check(c) {
+        const btn = c.win.querySelector<HTMLElement>('[data-pmenu="findings"]');
+        if (!btn) return { pass: false, now: "Findings' header has no menu button." };
+        // A drag's pointer-up swallows the click that follows it (until its timer runs, which a synchronous check never
+        // lets happen): a click on the window's frame first takes it.
+        c.win.click();
+        btn.click();
+        const items = [...c.win.querySelectorAll<HTMLElement>(".dw-menu-list [data-move-rail]")];
+        const words = items.map((b) => `${b.textContent}${b.getAttribute("aria-disabled") === "true" ? " (unavailable)" : ""}`);
+        const focused = (c.win.ownerDocument.activeElement as HTMLElement | null)?.dataset.moveRail ?? "none";
+        items.find((b) => b.dataset.moveRail === "findings:right")?.click();
+        const ok = words.join() === "Move to › Rail (left) (unavailable),Move to › Rail (right)" && focused === "findings:right" && inRightRail(c);
+        return { pass: ok, now: `Menu: ${words.join(", ") || "none"}; focus on ${focused}; Findings ${inRightRail(c) ? "in the right rail" : "not in the right rail"}.` };
+      },
+    },
+    {
+      id: "rail-toolbars-untouched",
+      title: "Changing every panel setting leaves the toolbars' aim order as it was",
+      expected:
+        "With every panel setting changed (strip 48 px, always shown, magnet 20, no float near the edge, no dwell, keys off), the toolbars' aim-order sweep still passes every drop on every edge kind (72 of 72 from outside and direct), as with the defaults.",
+      setup: fresh,
+      check(c) {
+        const sweep = PRESETS.find((p) => p.id === "aim-order-sweep")!;
+        c.setFeel(panelFeel(c, { railStripWidth: 48, railVisibility: "always", magnet: 20, floatNearEdge: false, railArmDwellMs: 0, modifiers: { on: false, floatKey: "Shift", railKey: "Alt" } }));
+        sweep.setup(c);
+        const v = sweep.check(c);
+        return { pass: v.pass, now: v.now };
+      },
+    },
+  ];
 }
