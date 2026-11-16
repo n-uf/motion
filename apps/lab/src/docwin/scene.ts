@@ -25,6 +25,7 @@ import {
   solve,
   targets as sceneTargets,
   use,
+  type ResizeHandle,
   type Scene,
   type SceneLayout,
   type SceneRefusal,
@@ -147,6 +148,9 @@ const commits = (t: SceneTarget | null): boolean => !!t && t.place.kind !== "hom
 
 /** How far the first and last gaps of a bar reach past its ends. */
 const END_REACH = BAR_INSET;
+
+/** A floating panel's resize handles: its four edges and four corners. */
+const FLOAT_HANDLES: readonly ResizeHandle[] = ["top", "right", "bottom", "left", "top-left", "top-right", "bottom-right", "bottom-left"];
 
 export type DocwinScene = ReturnType<typeof createScene>;
 
@@ -293,7 +297,9 @@ export function createScene(o: SceneOptions) {
     const region = p.floating ? "float" : (p.edge ?? "none");
     const cls = `dw-item dw-${p.kind} dw-k-${p.formKind} dw-ax-${axisOf(s, l, id)}${p.floating ? " dw-float" : ""}`;
     const r = p.rect;
-    return `<section class="${cls}" data-id="${id}" data-kind="${p.kind}" data-form="${p.formKind}" data-region="${region}" style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}">${inner(id, p.formKind, p.rows, p.hidden)}</section>`;
+    // A floating open panel takes resize handles on its four edges and corners (a toolbar's size comes from its forms).
+    const handles = p.floating && p.kind === "panel" && p.formKind === "open" ? FLOAT_HANDLES.map((h) => `<div class="dw-fh" data-fh="${h}" aria-hidden="true"></div>`).join("") : "";
+    return `<section class="${cls}" data-id="${id}" data-kind="${p.kind}" data-form="${p.formKind}" data-region="${region}" style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}">${inner(id, p.formKind, p.rows, p.hidden)}${handles}</section>`;
   }
 
   /**
@@ -702,6 +708,9 @@ export function createScene(o: SceneOptions) {
     const t = e.target as HTMLElement;
     const rz = t.closest<HTMLElement>("[data-resize]");
     if (rz) return resizeEdge(e, rz.dataset.resize as "left" | "right");
+    const fh = t.closest<HTMLElement>("[data-fh]");
+    const fhOf = fh?.closest<HTMLElement>("[data-id]");
+    if (fh && fhOf) return resizeFloat(e, fhOf.dataset.id as ItemId, fh.dataset.fh as ResizeHandle);
     const grip = t.closest<HTMLElement>("[data-grip]");
     const itemEl = t.closest<HTMLElement>("[data-id]");
     if (!grip || !itemEl) return;
@@ -877,6 +886,59 @@ export function createScene(o: SceneOptions) {
     };
     window.addEventListener("pointermove", mv);
     window.addEventListener("pointerup", up);
+  }
+
+  /**
+   * A floating panel's resize handle: a plain pointer drag that sets the float's rect (`resize` with the handle), so
+   * the edges it doesn't drag stay put and the Scene clamps it to the panel's minimum and into the window. It runs
+   * under the drag-session rules (`data-drag-session="resize"`): nothing else takes hover, and only the float changes
+   * (each step is solved with the layout before). Escape puts the size back. Frozen without Alt, the handles are hidden
+   * and a press does nothing.
+   */
+  function resizeFloat(e: PointerEvent, id: ItemId, handle: ResizeHandle): void {
+    const r0 = layout.items[id]?.rect;
+    if (frozen() || !r0) return;
+    e.preventDefault();
+    const before = scene;
+    const start = winPoint(e);
+    root.dataset.dragSession = "resize";
+    root.dataset.resizeHandle = handle;
+    const mv = (ev: PointerEvent): void => {
+      const p = winPoint(ev);
+      const dx = Math.round(p.x - start.x);
+      const dy = Math.round(p.y - start.y);
+      const left = handle.includes("left");
+      const top = handle.includes("top");
+      const width = left ? r0.width - dx : handle.includes("right") ? r0.width + dx : r0.width;
+      const height = top ? r0.height - dy : handle.includes("bottom") ? r0.height + dy : r0.height;
+      commit(resize(scene, id, { x: left ? r0.x + dx : r0.x, y: top ? r0.y + dy : r0.y, width, height }, handle));
+    };
+    const stop = (): void => {
+      window.removeEventListener("pointermove", mv);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      window.removeEventListener("keydown", key);
+      delete root.dataset.dragSession;
+      delete root.dataset.resizeHandle;
+      if (endInput === stop) endInput = null;
+    };
+    const up = (): void => {
+      stop();
+      swallowClick();
+      const r = layout.items[id]?.rect;
+      if (r) say(`${TITLES[id]} resized to ${Math.round(r.width)} × ${Math.round(r.height)}.`);
+    };
+    const key = (ev: KeyboardEvent): void => {
+      if (ev.key !== "Escape") return;
+      stop();
+      commit(before);
+      say("Resize cancelled.");
+    };
+    endInput = stop;
+    window.addEventListener("pointermove", mv);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    window.addEventListener("keydown", key);
   }
 
   const altOn = (on: boolean): void => {

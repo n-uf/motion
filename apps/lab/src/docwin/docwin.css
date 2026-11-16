@@ -154,6 +154,23 @@
 .dw-resize { z-index: 3; cursor: col-resize; }
 .dw-resize:hover { background: var(--accent-line); }
 
+/* A floating panel's resize handles: 6 px along its edges, 12 px corners on top, each with its resize cursor. */
+.dw-fh { position: absolute; z-index: 1; }
+.dw-fh[data-fh="top"], .dw-fh[data-fh="bottom"] { left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
+.dw-fh[data-fh="top"] { top: 0; }
+.dw-fh[data-fh="bottom"] { bottom: 0; }
+.dw-fh[data-fh="left"], .dw-fh[data-fh="right"] { top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
+.dw-fh[data-fh="left"] { left: 0; }
+.dw-fh[data-fh="right"] { right: 0; }
+.dw-fh[data-fh$="-left"], .dw-fh[data-fh$="-right"] { width: 12px; height: 12px; z-index: 2; }
+.dw-fh[data-fh^="top-"] { top: 0; }
+.dw-fh[data-fh^="bottom-"] { bottom: 0; }
+.dw-fh[data-fh$="-left"] { left: 0; }
+.dw-fh[data-fh$="-right"] { right: 0; }
+.dw-fh[data-fh="top-left"], .dw-fh[data-fh="bottom-right"] { cursor: nwse-resize; }
+.dw-fh[data-fh="top-right"], .dw-fh[data-fh="bottom-left"] { cursor: nesw-resize; }
+.dw-fh:hover { background: var(--accent-line); }
+
 /* The drag: the held item, the dashed slot, the insertion marker. */
 .dw-held { z-index: 6; pointer-events: none; opacity: 0.92; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18); }
 /* The held copy's frame (the morph's box, its grip on the pointer): each form's content inside, cross-faded. */
@@ -178,7 +195,13 @@
 /* The drag session (host contract): while a drag is on, nothing under the root takes hover, a resize handle or a
    selection; the session listens on the window and draws the slot from its shown target only. */
 [data-drag-session] .dw-win * { pointer-events: none !important; user-select: none !important; cursor: grabbing !important; }
+/* A float's resize is a drag session too: the handle's cursor stays on the whole window while it runs. */
+[data-drag-session="resize"][data-resize-handle="left"], [data-drag-session="resize"][data-resize-handle="right"] { cursor: ew-resize; }
+[data-drag-session="resize"][data-resize-handle="top"], [data-drag-session="resize"][data-resize-handle="bottom"] { cursor: ns-resize; }
+[data-drag-session="resize"][data-resize-handle="top-left"], [data-drag-session="resize"][data-resize-handle="bottom-right"] { cursor: nwse-resize; }
+[data-drag-session="resize"][data-resize-handle="top-right"], [data-drag-session="resize"][data-resize-handle="bottom-left"] { cursor: nesw-resize; }
+[data-drag-session="resize"] .dw-win, [data-drag-session="resize"] .dw-win * { cursor: inherit !important; }
 
-/* Frozen: grips hidden, nothing lifts; holding Alt shows them and everything works. */
-.dw[data-frozen]:not([data-alt]) .dw-dots { visibility: hidden; }
+/* Frozen: grips and a float's resize handles hidden, nothing lifts or resizes; holding Alt shows them and everything works. */
+.dw[data-frozen]:not([data-alt]) .dw-dots, .dw[data-frozen]:not([data-alt]) .dw-fh { visibility: hidden; }
 .dw[data-frozen]:not([data-alt]) .dw-head { cursor: default; }
