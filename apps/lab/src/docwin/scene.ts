@@ -174,6 +174,8 @@ export function createScene(o: SceneOptions) {
   let lastDrop: LastDrop | null = null;
   /** Every grip's press, one at a time: it remembers the last click, so a second one soon after is a double. */
   const gripPress = createGripPress();
+  /** The item (and which of its grips: a rail button or another) the last grip press was on: a double pairs two presses on one. */
+  let lastClickOn: string | null = null;
   /** Checks drive the drag themselves: no animation frames then. */
   let driven = false;
   let pageKey = "";
@@ -415,10 +417,15 @@ export function createScene(o: SceneOptions) {
   function press(id: ItemId): void {
     commit(use(scene, id));
   }
-  /** Open a panel (a Views word, a rail icon): newest, and its edge solved afresh so it takes its largest form that fits. */
+  /**
+   * Open a panel (a Views word, a rail icon or title): newest, and its edge solved afresh so it takes its largest form
+   * that fits. A panel shown but folded by hand (in a rail) unfolds; a closed one comes back as it was.
+   */
   function open(id: ItemId): void {
     const e = edgeHolding(id);
-    commit(use(openItem(scene, id), id), { fresh: e ? [e] : [] });
+    const it = scene.items[id];
+    const s = it && !it.closed && (it.from ?? 0) >= 1 ? fold(scene, id, false) : openItem(scene, id);
+    commit(use(s, id), { fresh: e ? [e] : [] });
     say(`${TITLES[id]} opened.`);
   }
   function close(id: ItemId): void {
@@ -760,7 +767,12 @@ export function createScene(o: SceneOptions) {
     e.preventDefault();
     const start = winPoint(e);
     let lifted = false;
-    // The grip's press (`createGripPress`): past the lift distance a drag; else a click, or the second of a double.
+    // The grip's press (`createGripPress`): past the lift distance a drag; else a click, or the second of a double. A
+    // double pairs two presses on the same item only: a click that redrew the window (a rail title opening its panel)
+    // leaves another item under the second press, which is a plain click then.
+    const on = `${id}:${t.closest("[data-open]") ? "rail" : "grip"}`;
+    if (lastClickOn !== on) gripPress.cancel();
+    lastClickOn = on;
     gripPress.down(start, performance.now());
     const mv = (ev: PointerEvent): void => {
       const p = winPoint(ev);
@@ -793,7 +805,8 @@ export function createScene(o: SceneOptions) {
       } else if (ended === "doubleActivate") {
         // A double-click on a grip folds it, or unfolds it; frozen without Alt it does nothing (it isn't a click either).
         swallowClick();
-        if (!frozen()) toggleFold(id);
+        // On a rail item the first click has unfolded it already (a click opens it): the double only makes sure.
+        if (!frozen() && (!t.closest("[data-open]") || (scene.items[id]?.from ?? 0) >= 1)) toggleFold(id);
       } else if (ended === "click") {
         // A press that never lifted is a click: a rail icon opens its panel, a header press is a use.
         if (t.closest("[data-open]")) open(id);
@@ -1222,6 +1235,11 @@ export function createScene(o: SceneOptions) {
     },
     /** How a side's rails show their panels: their titles while they fit (the default), or their tiles. Stored. */
     setRailMode,
+    /** A pause between gestures (the checks): the next press is a first click, never the second of a double. */
+    pause(): void {
+      gripPress.cancel();
+      lastClickOn = null;
+    },
     setFrozen(on: boolean): void {
       if (on) root.dataset.frozen = "";
       else delete root.dataset.frozen;
