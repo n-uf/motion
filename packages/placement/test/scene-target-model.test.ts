@@ -93,8 +93,16 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
         const key = (list: readonly SceneTarget[]): string => JSON.stringify(list.map((t) => [t.id, t.hit]));
         if (key(all) !== key(targets({ ...s, rails }, id).filter((t) => !t.free))) fail("refused-owns", `seed ${seed} drag ${id}: the refused rail:${side} moves other targets`);
       }
-      // A refusal owns nothing, whether its zone has targets or not: it never lies on another edge's drawn rect.
+      // A refusal owns nothing, whether its zone has targets or not: it never lies on another edge's drawn rect (as
+      // seen, the item in place; an edge's lifted rect, which a preview may show, is not what owns space),
+      // nor on any piece of a target's hit.
       for (const r of rs) {
+        for (const t of all)
+          for (const h of t.hits ?? [t.hit]) {
+            const w = Math.min(r.hit.x + r.hit.width, h.x + h.width) - Math.max(r.hit.x, h.x);
+            const hh = Math.min(r.hit.y + r.hit.height, h.y + h.height) - Math.max(r.hit.y, h.y);
+            if (w > 1e-6 && hh > 1e-6) fail("refused-owns", `seed ${seed} drag ${id}: ${r.id} lies on ${t.id}`);
+          }
         for (const [eid, e] of Object.entries(seen.edges)) {
           if (eid === r.edge || e.rect.width <= 1e-6 || e.rect.height <= 1e-6) continue;
           const w = Math.min(r.hit.x + r.hit.width, e.rect.x + e.rect.width) - Math.max(r.hit.x, e.rect.x);
