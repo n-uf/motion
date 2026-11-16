@@ -373,12 +373,16 @@ a large area 3). The rules:
 - Spring-loading: a target marked `arm: "dwell"` (a side's rail, say) is no
   target until the pointer has rested in its zone for `railArmDwellMs`; a
   fast pass, or a drop before then, lands on what lies beneath (the float).
-  Armed, it shows at once and its zone is `armedHit` (grown: a magnet);
-  leaving that zone disarms it. The frame's `arming` lets a host highlight the
+  Armed, it shows at once and its zone is `armedHit` (grown: a magnet, the
+  armed target's band); moving out past that band's outer edge disarms it, and
+  re-entering needs a new full dwell. The frame's `arming` lets a host highlight the
   strip while the dwell runs, and say the armed state in its live region.
-- Keys win over geometry: with `keys` passed, the float key (Shift) shows and
-  lands on the `free` target anywhere, even over a spring-loaded one; the rail
-  key (Alt) on the nearest spring-loaded target, from anywhere.
+- Keys win over geometry: with `keys` passed (`DragKeys`: `{ shift?, alt?, ctrl?,
+  meta? }`, the modifiers held on a pointer event; `tuning.modifiers` says which
+  key does what, default Shift and Alt), the float key (Shift) shows and lands
+  on the `free` target anywhere, even over a spring-loaded one; the rail key
+  (Alt) on the nearest spring-loaded target, from anywhere. The frame's `forced`
+  says which won.
 - The three previews only change what is drawn: all follow these rules, so a
   drop lands where the preview showed it in each.
 
