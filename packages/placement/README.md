@@ -1197,7 +1197,7 @@ never changes another. The policy's fields, each default with its reason:
 |---|---|---|
 | `railStripWidth` | the rail's drawn width, at least `RAIL_STRIP_MIN` (24) | A target at the window's edge is easy to hit when it is wide enough to aim at (Fitts's law); the rail's own width keeps the strip where the panel will land. `0` turns the kind's rail docking off. |
 | `railVisibility` | `"whileDragging"` | A drop target shows while it can be used. `"always"` draws it at rest too; `"never"` turns rail docking off. |
-| `magnet` | `DEFAULT_RAIL_MAGNET` (6 px) | Once armed, the strip grows inward so a hand that wobbles keeps it. A host draws the growth with no animation under `prefers-reduced-motion: reduce`. |
+| `magnet` | `DEFAULT_RAIL_MAGNET` (6 px) | Once armed, the strip grows inward so a hand that wobbles keeps it: that grown strip (`armedHit`) is the armed target's band. Moving out past its outer edge disarms it, and re-entering needs a new full dwell. A host draws the growth with no animation under `prefers-reduced-motion: reduce`. |
 | `floatNearEdge` | `true` | Before the strip arms, a float may sit near the window's edge, as it may anywhere; `false` keeps a float's rect clear of every strip. |
 
 The time and the keys are the drag intent's (`@n-uf/motion/drag`): `railArmDwellMs` (200 ms) arms a target marked
