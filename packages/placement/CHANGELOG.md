@@ -9,6 +9,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
   (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
+- `./scene`, **reserved edge ids:** `column:<side>` and `rail:<side>` name a side's virtual edges (its column lines and
+  its rail, as `SceneRefusal.edge` gives them). A real edge with such an id used to change targets. Now `solve`,
+  `targets` (and so `refusals`, `stops`) and `readScene` throw a clear error for it. A stored column under such an id is
+  dropped on read.
+
 - **Fixed:** the new-column target at the window's edge.
   - The outermost column line (at a flush window's edge, or where the rail stop lies) used to have its band centred on
     the line. Half of the band lay past the stage. The rail stop's band then cut the part inside the window off from

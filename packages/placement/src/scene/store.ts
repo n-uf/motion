@@ -30,6 +30,7 @@
 import { rect, type Size } from "../geometry";
 import { clampFloat, closeRings, drawnFloatSize, prune, setSide } from "./changes";
 import { axisOf, columnFromTemplate } from "./helpers";
+import { checkEdgeIds, isReservedEdgeId } from "./targets/ids";
 import { SIDES, type Edge, type FloatAnchor, type Orient, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
 
 export interface StoredSceneEdge {
@@ -107,6 +108,7 @@ export function storeScene(scene: Scene): StoredScene {
 }
 
 export function readScene(data: unknown, base: Scene): SceneRead {
+  checkEdgeIds(base);
   try {
     return read(data, base);
   } catch (e) {
@@ -189,7 +191,8 @@ function read(data: unknown, base: Scene): SceneRead {
       continue;
     }
     let edge = base.edges.find((x) => x.id === e.id) ?? made.find((x) => x.id === e.id);
-    if (!edge && e.column === true && (e.side === "left" || e.side === "right") && base.columns?.[e.side]) {
+    // A stored column under a virtual edge's id (`column:<side>`, `rail:<side>`) is dropped, never made.
+    if (!edge && e.column === true && (e.side === "left" || e.side === "right") && base.columns?.[e.side] && !isReservedEdgeId(e.id)) {
       // A column the user made: from its side's template.
       edge = columnFromTemplate(base.columns[e.side]!, e.id, e.side, isNum(e.ring) ? e.ring : Infinity, []);
       made.push(edge);
