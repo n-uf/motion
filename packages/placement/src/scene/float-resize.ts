@@ -37,6 +37,8 @@ export interface FloatResize {
 
 const LIMITS: readonly ResizeLimit[] = ["min", "max", "region", "docked"];
 const EPS = 0.5;
+/** How far `fitFloat` reads two rects as touching rather than overlapping (its own tolerance). */
+const TOUCH = 1e-3;
 const fin = (v: number | undefined, d: number): number => (Number.isFinite(v) ? v! : d);
 const nonNeg = (v: number | undefined): number => Math.max(0, fin(v, 0));
 
@@ -77,11 +79,13 @@ function obstacleStop(drawn: Rect | undefined, obstacles: readonly Rect[], axis:
   let at = none;
   for (const o of obstacles) {
     const [c0, c1] = across(o);
-    if (c0 >= span[1] - EPS || c1 <= span[0] + EPS) continue;
+    // Across, as tight as `fitFloat` tells touching from covering: an obstacle a fraction of a px across it still stops it.
+    if (c0 >= span[1] - TOUCH || c1 <= span[0] + TOUCH) continue;
     if (drag === "start" && lo(o) + len(o) <= lo(drawn) + EPS) at = Math.max(at, lo(o) + len(o));
     if (drag === "end" && lo(o) >= lo(drawn) + len(drawn) - EPS) at = Math.min(at, lo(o));
   }
-  return at;
+  // It stops growth only: never inside where the edge is drawn now (an obstacle it touches within a fraction of a px).
+  return drag === "start" ? Math.min(at, lo(drawn)) : Math.max(at, lo(drawn) + len(drawn));
 }
 
 /** One axis: `[start, length]` asked; the bounds; which edge is dragged. The limits that bind go into `hit`. */
@@ -109,7 +113,7 @@ function fitAxis(start: number, length: number, b: { min: number; max: number; l
     if (from > end - min) {
       from = end - min;
       hit.add("min");
-    } else if (from < down - EPS) {
+    } else if (from < down - TOUCH) {
       // What floats are kept clear of beats the minimum (`solve` keeps a float asked smaller at its size).
       from = why.includes("docked") ? Math.min(down, end) : Math.min(down, end - min);
       for (const k of from === down ? why : (["min"] as ResizeLimit[])) hit.add(k);
@@ -125,7 +129,7 @@ function fitAxis(start: number, length: number, b: { min: number; max: number; l
   if (to < a + min) {
     to = a + min;
     hit.add("min");
-  } else if (to > up + EPS) {
+  } else if (to > up + TOUCH) {
     to = why.includes("docked") ? Math.max(up, a) : Math.max(up, a + min);
     for (const k of to === up ? why : (["min"] as ResizeLimit[])) hit.add(k);
   }
