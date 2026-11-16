@@ -3,7 +3,7 @@
  * beside the content. `Frame` carries it, with the gutter and the area the outside bars leave, to the side phase.
  */
 import { EPS, rect, type Rect } from "../../geometry";
-import { formsOf } from "../helpers";
+import { isDockingPanel } from "../helpers";
 import type { Scene } from "../model";
 import type { Draft } from "./draft";
 import { isSide, px } from "./order";
@@ -29,12 +29,7 @@ export interface Frame {
  */
 export function insetOf(d: Draft): { inset: Inset; docked: boolean } {
   const { scene } = d;
-  const PANEL_FORMS = new Set(["open", "header", "rail"]);
-  const isPanel = (id: string): boolean => {
-    const it = scene.items[id]!;
-    return !it.closed && !it.fixed && PANEL_FORMS.has(formsOf(it, "column")[0]?.kind ?? "");
-  };
-  const docked = d.order.some((e) => isSide(e) && e.accepts.length > 0 && d.owned.get(e)!.some(isPanel));
+  const docked = d.order.some((e) => isSide(e) && e.accepts.length > 0 && d.owned.get(e)!.some((id) => isDockingPanel(scene.items[id]!)));
   const inset = scene.insetWhen === "docked" && !docked ? {} : (scene.inset ?? {});
   return { inset, docked };
 }

@@ -9,6 +9,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
   (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
+- `./scene`, **`resize` resizes a float by hand** (additive): `resize(scene, floatId, rect, handle?)` with
+  `ResizeHandle` (`"left"`, `"top-right"`, …; default `"bottom-right"`). The rect is clamped to `floatMin` (else the
+  open form's minimums) and into the floats' region (the stage less the inset at its left and right, its full height);
+  the edges the handle doesn't drag stay put. The size becomes the item's `floatSize`, so `storeScene` keeps it. A
+  toolbar group (sized by its forms) and a folded float are refused. `resize(scene, edgeId, size)` is unchanged.
+
 - `./scene`, **aim order: a pointer over an item's half means before or after it** (hits change; ids, `after` and the
   API don't).
   - On every occupied edge the dragged item is taken out first; neighbouring gaps meet at the midpoint of the item
