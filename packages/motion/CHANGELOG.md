@@ -3,13 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## 26.11.28
-
-- No change in `@n-uf/motion`, apart from a README note on the drag intent: a host clamps the pointer into the stage
-  before it reaches `update` and `release`. Released together with `@n-uf/placement` 26.11.28 (rail titles and edge-target
-  fixes in `./scene`).
-
-## 26.11.27
+## Unreleased
 
 - `./drag`, **spring-loading and keys that win over geometry** (additive; targets without `arm` and hosts that pass
   no keys behave as before):
@@ -21,11 +15,18 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
     `update(point, time, targets, keys?)` and `release(point, targets, keys?)` take the keys held (`DragKeys`); the
     float key shows and lands on the `free` target anywhere, the rail key on the nearest spring-loaded target.
     `DragFrame.forced` says which one won. Type `ModifierKey`.
-- README, drag: a host clamps the pointer into the stage before `update` and `release`.
 - `./drag`, fixed: **leaving the float for a tile switches at once.** The breakthrough held the float (a `free`
   target) until the pointer was 4 px into a more precise zone, so a zone ending at the window's edge (a new-column
   line in a flush window) floated over its first px when the pointer came from outside. Hysteresis is for the seam
   between two tiles only: from a `free` target, or from none, the zone under the pointer takes over at once.
+
+## 26.11.28
+
+- No change in `@n-uf/motion`, apart from a README note on the drag intent: a host clamps the pointer into the stage
+  before it reaches `update` and `release`. Released together with `@n-uf/placement` 26.11.28 (rail titles and edge-target
+  fixes in `./scene`).
+
+## 26.11.27
 
 - `./drag`, **`createGripPress`: a double-click on a grip is its own gesture** (additive). A press tracker for grips:
   `move` answers the lift rule, `up` gives `"click"`, `"doubleActivate"` (the second press of two within

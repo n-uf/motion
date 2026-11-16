@@ -3,12 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.28
-
-- Notes for hosts:
-  - The outermost new-column line reaches its full 34 px only into space no edge owns. Where an open column lies
-    at the window's edge, its drawn rect owns the space, so the line ends at the column (about 18–24 px).
-  - A home target's `hit` is the item's own place. Its other `hits` pieces (e.g. the rest of a rail) may be larger.
+## Unreleased
 
 - `./scene`, **rail docking per item kind** (additive; a kind with no policy targets exactly as before):
   - **`Scene.railDrop`**: per kind (the scene's own kind strings), a **`RailDropPolicy`**: `railStripWidth` (default
@@ -27,6 +22,14 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     or not: the drop is `moveTo` that side's rail, landing wherever the scene shows a collapsed panel there (a rail
     tile; under `handFold: "ride"` a rider bar over the side's open column; a header). The slot is that landing.
   - `floatNearEdge: false` keeps a float's landing clear of every strip.
+
+## 26.11.28
+
+- Notes for hosts:
+  - The outermost new-column line reaches its full 34 px only into space no edge owns. Where an open column lies
+    at the window's edge, its drawn rect owns the space, so the line ends at the column (about 18–24 px).
+  - A home target's `hit` is the item's own place. Its other `hits` pieces (e.g. the rest of a rail) may be larger.
+
 - `./scene`, fixed: **a rail stop with no slot that lands owns nothing.** Under hand folds that ride, a panel dropped on
   the rail while its side keeps an open column rides over it, so every rail stop is refused; the stop still held the
   outer 10 px at the window's side, which in a flush window floated. The rail stop now takes its place only when one of
