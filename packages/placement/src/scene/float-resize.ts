@@ -11,6 +11,7 @@ import type { Rect } from "../geometry";
 import { axisOf, floatOrientOf, floatShape, formsOf, isDockingPanel } from "./helpers";
 import type { Scene, SceneLayout } from "./model";
 import { solve } from "./solve";
+import { floatFloor, placeFloat } from "./solve/floats";
 
 /** The edges of a float a resize drags; the others stay put. Left beats right, top beats bottom, when both are set. */
 export interface ResizeEdges {
@@ -109,7 +110,8 @@ function fitAxis(start: number, length: number, b: { min: number; max: number; l
       from = end - min;
       hit.add("min");
     } else if (from < down - EPS) {
-      from = Math.min(down, end - min);
+      // What floats are kept clear of beats the minimum (`solve` keeps a float asked smaller at its size).
+      from = why.includes("docked") ? Math.min(down, end) : Math.min(down, end - min);
       for (const k of from === down ? why : (["min"] as ResizeLimit[])) hit.add(k);
     }
     return [from, end - from];
@@ -124,7 +126,7 @@ function fitAxis(start: number, length: number, b: { min: number; max: number; l
     to = a + min;
     hit.add("min");
   } else if (to > up + EPS) {
-    to = Math.max(up, a + min);
+    to = why.includes("docked") ? Math.max(up, a) : Math.max(up, a + min);
     for (const k of to === up ? why : (["min"] as ResizeLimit[])) hit.add(k);
   }
   return [a, to - a];
@@ -133,9 +135,12 @@ function fitAxis(start: number, length: number, b: { min: number; max: number; l
 /**
  * The rect float `id` takes for a resize: `rect` is the rect asked for in stage px (the float as drawn, with the
  * `moving` edges where the pointer put them). In one pass: the edges not moving stay put; the size is at least the
- * item's `floatMin` (else its open form's minimums) and at most its `floatMax`; the float stays in the region floats lie
- * in; a moving edge stops at what floats are kept clear of, as drawn now (across first, over its height now; then
- * along, over its new width), so `solve` never moves it off. `limits` says which of these bound it.
+ * item's `floatMin` (else its open form's minimums, which only stop a shrink below the size drawn now, as `solve` lays
+ * it) and at most its `floatMax`; the float stays in the region floats lie in; every growing edge (a moving one, or the
+ * end of an axis not moving) stops at what floats are kept clear of, as drawn now (across first, over its height now;
+ * then along, over its new width), and such a stop beats the minimum. The rect is then laid by the one clamp `solve`
+ * lays floats with, so `solve(resize(...))` draws exactly this rect (where that clamp still moves it, a float with no
+ * clear place, `"docked"` says so). `limits` says which of these bound it.
  *
  * Null for anything but a float drawn at its first form when that form grows (a panel's card): a toolbar group's size
  * comes from its forms, and so does a folded float's bar. Pure: it solves the scene once, for what is drawn now.
@@ -147,20 +152,24 @@ export function fitResize(scene: Scene, id: string, rect: Rect, moving: ResizeEd
   const fo = f.orient ?? floatOrientOf(item);
   const form = formsOf(item, fo)[0];
   if (floatShape(item, f).form !== 0 || (form && !form.main.grows)) return null;
-  const row = fo === "row";
-  const min = {
-    width: item.floatMin ? nonNeg(item.floatMin.width) : nonNeg(row ? form?.main.min : form?.cross.min),
-    height: item.floatMin ? nonNeg(item.floatMin.height) : nonNeg(row ? form?.cross.min : form?.main.min),
-  };
+  const l = solve(scene);
+  const drawn = l.items[id]?.rect;
+  if (!drawn) return null;
+  // `solve`'s floor: `floatMin` as given, else the form's minimums, which only stop a shrink below the size drawn now.
+  const min = floatFloor(item, form, fo, drawn);
   const max = { width: fin(item.floatMax?.width, Infinity), height: fin(item.floatMax?.height, Infinity) };
   const region = floatRegion(scene);
   const dragX = moving.left ? "start" : moving.right ? "end" : null;
   const dragY = moving.top ? "start" : moving.bottom ? "end" : null;
-  const l = dragX || dragY ? solve(scene) : null;
-  const drawn = l?.items[id]?.rect;
-  const obstacles = l ? floatObstacles(scene, l, id) : [];
+  const obstacles = floatObstacles(scene, l, id);
   const hit = new Set<ResizeLimit>();
-  const [x, width] = fitAxis(rect.x, rect.width, { min: min.width, max: max.width, lo: region.x, hi: region.x + region.width, stop: obstacleStop(drawn, obstacles, "x", dragX, drawn ? [drawn.y, drawn.y + drawn.height] : [0, 0]) }, dragX, hit);
-  const [y, height] = fitAxis(rect.y, rect.height, { min: min.height, max: max.height, lo: region.y, hi: region.y + region.height, stop: obstacleStop(drawn, obstacles, "y", dragY, [x, x + width]) }, dragY, hit);
-  return { rect: { x, y, width, height }, limits: LIMITS.filter((k) => hit.has(k)) };
+  // Every growing edge stops at what floats are kept clear of: a dragged one, and the end of an axis not dragged.
+  const [x, width] = fitAxis(rect.x, rect.width, { min: min.width, max: max.width, lo: region.x, hi: region.x + region.width, stop: obstacleStop(drawn, obstacles, "x", dragX ?? "end", [drawn.y, drawn.y + drawn.height]) }, dragX, hit);
+  const [y, height] = fitAxis(rect.y, rect.height, { min: min.height, max: max.height, lo: region.y, hi: region.y + region.height, stop: obstacleStop(drawn, obstacles, "y", dragY ?? "end", [x, x + width]) }, dragY, hit);
+  // The one clamp `solve` lays floats with: what it gives is what the commit draws.
+  const { anchor: _a, ...plain } = f;
+  const placed = placeFloat(item, { ...plain, rect: { x, y, width, height } }, region, obstacles, l.content, scene.stage).fit.rect;
+  if (Math.abs(placed.x - x) > EPS || Math.abs(placed.y - y) > EPS) hit.add("docked");
+  if (Math.abs(placed.width - width) > EPS || Math.abs(placed.height - height) > EPS) hit.add("min");
+  return { rect: placed, limits: LIMITS.filter((k) => hit.has(k)) };
 }
