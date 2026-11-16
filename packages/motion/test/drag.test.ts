@@ -635,3 +635,36 @@ describe("drag/ spring-loading and keys", () => {
     expect(r.landed).toBe("rail");
   });
 });
+
+describe("drag/ a zone at the window's edge", () => {
+  it("from the float, a zone that ends at the window's edge takes the pointer at its very first px", () => {
+    // A new-column line's zone from the window's left edge, 18 px wide; the float everywhere.
+    const LINE: DragTarget = { id: "column", priority: 2, hit: rect(0, 0, 18, 800) };
+    const FLOAT: DragTarget = { id: "float", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true };
+    for (const x of [0, 1, 2, 3]) {
+      // Shown on the float mid-window, then a jump to the edge (the pointer clamped into the window) and a rest.
+      const keys = hold(then(hold(through([{ x: 600, y: 400 }, { x: 300, y: 400 }], 0.3), 300), (t0) => [[t0, 300, 400], [t0 + FRAME, x, 400]]), 300);
+      const r = drive(keys, [LINE, FLOAT], rect(900, 900, 10, 10));
+      expect(r.landed, `x ${x}`).toBe("column");
+    }
+  });
+
+  it("from the float into a tile the switch is at once; between two tiles the breakthrough holds as before", () => {
+    const WIDE: DragTarget = { id: "wide", priority: 2, hit: rect(0, 0, 200, 400) };
+    const NARROW: DragTarget = { id: "narrow", priority: 1, hit: rect(200, 0, 100, 400) };
+    const FLOAT: DragTarget = { id: "float", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true };
+    const at = (from: Point, to: Point): string | null => {
+      const d = createDragIntent<DragTarget>({ home: rect(900, 900, 10, 10) });
+      let t = 0;
+      for (let k = 0; k < 20; k++) d.update(from, (t += FRAME), [WIDE, NARROW, FLOAT]);
+      for (let k = 0; k < 20; k++) d.update(to, (t += FRAME), [WIDE, NARROW, FLOAT]);
+      return d.state.current?.id ?? null;
+    };
+    // From the float (outside both tiles, below them), 1 px into the narrow tile: it at once.
+    expect(at({ x: 250, y: 600 }, { x: 250, y: 399 })).toBe("narrow");
+    // From the wide tile, 2 px over the seam into the narrow one: the wide one holds (the breakthrough is 4 px)...
+    expect(at({ x: 150, y: 200 }, { x: 202, y: 200 })).toBe("wide");
+    // ...and 6 px over, the narrow one takes over.
+    expect(at({ x: 150, y: 200 }, { x: 206, y: 200 })).toBe("narrow");
+  });
+});

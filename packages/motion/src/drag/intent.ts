@@ -441,7 +441,9 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       const pastBreakthrough = (x: T): boolean => inZoneBy(x, p, negate(scaled(tuning.breakthrough, tuning.bandShare, [x])));
       let next = raw;
       if (cur && !atHome && inZoneBy(cur, p, bandOf(cur))) {
-        const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && pastBreakthrough(raw);
+        // Over a `free` target (the float everywhere) there is no edge to hold against: a more precise target takes over
+        // once the pointer is in it, so a zone that ends at the window's edge is reached at its very first px.
+        const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && (cur.free === true || pastBreakthrough(raw));
         next = breaks ? raw : cur;
       }
       if (!next && cur && !atHome && t - lastInside < tuning.gapGrace) next = cur;
@@ -466,7 +468,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         else shown = cur;
       } else if (!cur || !aiming) {
         show(null);
-      } else if ((cur.priority < shown.priority && pastBreakthrough(cur)) || (under && t - curSince >= tuning.switchHold)) {
+      } else if ((cur.priority < shown.priority && (shown.free === true || pastBreakthrough(cur))) || (under && t - curSince >= tuning.switchHold)) {
         show(cur);
       }
       // An armed target shows at once: the dwell was the aim. A key held wins over all of it.
