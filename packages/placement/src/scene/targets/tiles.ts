@@ -304,7 +304,9 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
     // and chrome. A virtual edge's tile: clear of the tiles before it and of every owner. A refusal owns nothing: it
     // yields to every other edge's owned rect too.
     const yields = t.kind === "refuse" ? besides(t) : [];
-    const cuts = [...placed.flatMap(coverOf), ...((t.spec && taken.get(t.spec)) ?? []), ...yields, ...(data.virtual ? [] : bodiesOf(t)), ...solid, ...chrome];
+    // Panel bodies are no drop places: they cut slots' tiles, never refusals (an edge that takes nothing, a thumbnail
+    // strip, refuses its whole seen rect).
+    const cuts = [...placed.flatMap(coverOf), ...((t.spec && taken.get(t.spec)) ?? []), ...yields, ...(data.virtual || t.kind === "refuse" ? [] : bodiesOf(t)), ...solid, ...chrome];
     const pieces = clip(t.hit, cuts);
     if (pieces.length === 0) {
       if (t.kind !== "refuse") gone.add(t);

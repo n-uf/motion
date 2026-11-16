@@ -25,6 +25,14 @@ describe("kit-shaped windows: the window's sides", () => {
       }
   });
 
+  it("an edge that takes nothing (a thumbnail anchor) refuses its whole seen rect, its item's body included: no point floats", () => {
+    for (const k of [FLUSH, INSET])
+      for (const drag of ["notes", "findings"]) {
+        const s = kitScene(k, { anchor: true });
+        for (let x = 0; x < 60; x++) expect(pickAt(s, drag, x, 400), `${drag} x ${x}`).toMatch(/^refuse:anchor:thumbs:/);
+      }
+  });
+
   it("a new column holding the item alone where its own column is is home: no column-line sliver beside it", () => {
     for (const k of [FLUSH, INSET]) {
       const s = kitScene(k);
