@@ -1,7 +1,24 @@
 /** The one id scheme: every id `targets` and `refusals` give is `targetId` of what `parseTargetId` reads from it. */
 import { describe, expect, it } from "vitest";
-import { parseTargetId, placeTargetId, refusals, targets, targetId, virtualEdgeId, type Scene, type TargetIdParts } from "../src/scene";
+import { parseTargetId, placeTargetId, readScene, refusals, solve, storeScene, targets, targetId, virtualEdgeId, type Scene, type TargetIdParts } from "../src/scene";
 import { modelScene } from "./model-scene";
+
+describe("reserved edge ids", () => {
+  it("a real edge may not take a virtual edge's id: solve, targets and readScene say so", () => {
+    const s = modelScene(7);
+    const e = s.edges.find((x) => x.side === "right") ?? s.edges[0]!;
+    for (const id of ["rail:right", "column:left"]) {
+      const bad: Scene = { ...s, edges: s.edges.map((x) => (x === e ? { ...x, id } : x)) };
+      expect(() => solve(bad)).toThrow(/reserved/);
+      expect(() => targets(bad, Object.keys(bad.items)[0]!)).toThrow(/reserved/);
+      expect(() => readScene(storeScene(s), bad)).toThrow(/reserved/);
+    }
+    // A stored column under such an id is dropped, never made from the template.
+    const stored = storeScene(s) as unknown as { edges?: { id: string }[] };
+    const data = { ...stored, edges: [...(stored.edges ?? []), { id: "column:left", side: "left", ring: 3, column: true, items: [] }] };
+    expect(readScene(data, s).scene.edges.some((x) => x.id === "column:left")).toBe(false);
+  });
+});
 
 /** Every id the generated windows give, for every item that lifts, with the place each target names. */
 function idsOf(s: Scene): { id: string; place?: TargetIdParts | null; edge?: string; item: string }[] {

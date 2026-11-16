@@ -35,6 +35,7 @@
  * `bars`, `insets`, `sides`, `columns` (give-way), `rails` (folded columns), `floats` and `notes`.
  */
 import { rect } from "../geometry";
+import { checkEdgeIds } from "./targets/ids";
 import type { Scene, SceneLayout, SolveOptions } from "./model";
 import { cutEdge } from "./solve/bars";
 import { createDraft } from "./solve/draft";
@@ -47,6 +48,7 @@ import { laySides } from "./solve/sides";
 export { layKeys, pushes, type LayKey } from "./solve/order";
 
 export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
+  checkEdgeIds(given);
   const d = createDraft(given, options);
   const { scene, order } = d;
   const stage = rect(finite(scene.stage.x, 0), finite(scene.stage.y, 0), px(scene.stage.width), px(scene.stage.height));

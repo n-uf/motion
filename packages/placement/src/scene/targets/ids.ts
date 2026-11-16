@@ -16,10 +16,15 @@
  * An edge id may hold `:` (the zone and the numbers are read from the right). The virtual edges a refusal can name are
  * `column:<side>` (a side's column lines) and `rail:<side>` (its rail): `virtualEdgeId`.
  */
-import type { Zone } from "../model";
-import type { ScenePlace } from "./model";
+import type { Scene, Zone } from "../model";
 
 type ColumnSide = "left" | "right";
+
+/** A `ScenePlace`, as much of it as an id reads (this module imports no more of the scene, so `solve` may use it). */
+type PlaceLike =
+  | { readonly kind: "gap"; readonly edge: string; readonly zone: Zone; readonly at: number }
+  | { readonly kind: "column" | "rail"; readonly side: ColumnSide; readonly ring: number }
+  | { readonly kind: "float" | "home" | "none" };
 
 /** A target or refusal id, read. */
 export type TargetIdParts =
@@ -74,11 +79,22 @@ export function parseTargetId(id: string): TargetIdParts | null {
 /** The id of a side's virtual edge: its column lines (`column:<side>`) or its rail (`rail:<side>`), as a refusal names it. */
 export const virtualEdgeId = (kind: "column" | "rail", side: ColumnSide): string => `${kind}:${side}`;
 
+/** The edge ids that name a side's virtual edges: no real edge may take one. */
+const RESERVED_EDGE_IDS = new Set((["column", "rail"] as const).flatMap((k) => (["left", "right"] as const).map((s) => virtualEdgeId(k, s))));
+export const isReservedEdgeId = (id: string): boolean => RESERVED_EDGE_IDS.has(id);
+
+/** Throws when a real edge of `scene` takes a virtual edge's id (`column:<side>`, `rail:<side>`); `solve`, `targets` and `readScene` check it. */
+export function checkEdgeIds(scene: Scene): void {
+  for (const e of scene.edges) {
+    if (isReservedEdgeId(e.id)) throw new Error(`placement: the edge id "${e.id}" is reserved for a side's virtual edge (column:<side>, rail:<side>); name the edge otherwise`);
+  }
+}
+
 /**
  * The id `targets` gives the target at `place` for `item`, or null for a place with no fixed id (`none`). A gap's id is
  * its `gap:` one; on an edge with no members its slot is `strip:<edge>:<zone>`.
  */
-export function placeTargetId(place: ScenePlace, item: string): string | null {
+export function placeTargetId(place: PlaceLike, item: string): string | null {
   switch (place.kind) {
     case "gap":
       return targetId(place);

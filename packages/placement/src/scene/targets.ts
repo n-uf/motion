@@ -65,7 +65,7 @@ import type { Orient, Scene } from "./model";
 import { solve } from "./solve";
 import { edgeSpec } from "./targets/edges";
 import { context } from "./targets/filter";
-import { targetId } from "./targets/ids";
+import { checkEdgeIds, targetId } from "./targets/ids";
 import { edgeKindOf } from "./targets/kinds";
 import type { Ctx, EdgeSpec, Generated, SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions, Span, Tile } from "./targets/model";
 import { ownership } from "./targets/ownership";
@@ -152,6 +152,7 @@ function alongOfSlots(s: EdgeSpec, tiles: readonly Tile[]): Span[] {
 }
 
 function generate(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
+  checkEdgeIds(scene);
   const ctx = context(scene, dragged, options);
   if (!ctx) return { targets: [], refusals: [], lost: [] };
   const { c, item, prev } = ctx;
