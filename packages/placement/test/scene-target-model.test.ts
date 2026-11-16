@@ -5,11 +5,11 @@
  * docked target's slot is its landing.
  */
 import { describe, expect, it } from "vitest";
-import { lift, refusals, solve, targets, zoneTakes, type Scene, type SceneLayout, type SceneTarget, type Zone } from "../src/scene";
+import { lift, refusals, solve, targets, zoneTakes, type Scene, type SceneItem, type SceneLayout, type SceneTarget, type Zone } from "../src/scene";
 import { lostSlots, opensEmpty, zoneExtents } from "../src/scene/targets";
 import { targetAt } from "@n-uf/motion/drag";
 import { modelScene } from "./model-scene";
-import { bar, byId, column, group, panel } from "./scene-fixture";
+import { bar, byId, column, form, group, panel } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
 /** Half-open, so two tiles that meet share no point. */
@@ -22,7 +22,7 @@ const same = (a: R, b: R): boolean => Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y
 export { modelScene };
 
 /** The categories a point can fail by. */
-type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order" | "lost-slot" | "refused-owns" | "seen-hole" | "seen-refused" | "beside-own-not-home";
+type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order" | "lost-slot" | "refused-owns" | "seen-hole" | "seen-refused" | "beside-own-not-home" | "aim-order";
 
 /** The edge a target or refusal belongs to, and its zone (null: no zone). */
 function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edge: string | null; zone: Zone | null } {
@@ -39,14 +39,16 @@ function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edg
 }
 
 /** Runs the check over `seeds`; returns the failure counts per category and a few examples. */
-export function propertyCheck(seeds: readonly number[], flush = false, middle = false): { points: number; counts: Record<Failure, number>; examples: string[] } {
-  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0 };
+export function propertyCheck(seeds: readonly number[], flush = false, middle = false): { points: number; aimPoints: number; counts: Record<Failure, number>; examples: string[] } {
+  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0, "aim-order": 0 };
   const examples: string[] = [];
   const fail = (k: Failure, msg: string): void => {
     counts[k]++;
     if (examples.length < 40) examples.push(`${k}: ${msg}`);
   };
   let points = 0;
+  // The points the aim-order category samples (counted in `points` too).
+  let aimPoints = 0;
   for (const seed of seeds) {
     const s = modelScene(seed, flush, middle);
     const now = solve(s);
@@ -197,6 +199,55 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
             if (!picked || picked.free || ownEdgeSlot) fail("beside-own-not-home", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}: ${picked?.id ?? "nothing"}${rs.some((r) => inside(r.hit, pt)) ? " (refused)" : ""}`);
           }
       }
+      // Aim order: on every occupied edge that takes the kind, the item taken out, a point in the leading half of a
+      // remaining item means "before it" and one in its trailing half "after it". The pick there lands the item in that
+      // order among the edge's shown items, or is home where that order is the one seen now. A refusal is right only
+      // where no target of the edge makes that order.
+      for (const e of s.edges) {
+        const le = seen.edges[e.id];
+        if (!e.accepts.includes(it.kind) || !le || le.folded || le.rides || !lift(s, id).edges.some((x) => x.id === e.id)) continue;
+        const vertical = e.side === "left" || e.side === "right";
+        const along = (r: R): [number, number] => (vertical ? [r.y, r.y + r.height] : [r.x, r.x + r.width]);
+        const shownOn = (l: SceneLayout): string[] =>
+          Object.entries(l.items)
+            .filter(([, x]) => x.edge === e.id && !x.inMenu && !x.floating && !x.fixed && x.rect.width >= 1 && x.rect.height >= 1)
+            .sort(([, a], [, b]) => along(a.rect)[0] - along(b.rect)[0])
+            .map(([iid]) => iid);
+        const seenOrder = shownOn(seen);
+        const others = seenOrder.filter((x) => x !== id);
+        const makes = (t: SceneTarget, aimed: readonly string[], pt: { x: number; y: number }): boolean => {
+          const o = shownOn(t.after(pt).layout);
+          return o.includes(id) && aimed.filter((x) => o.includes(x)).join() === o.join();
+        };
+        others.forEach((nb, n) => {
+          const card = seen.items[nb]!;
+          if (!zoneTakes(e, card.zone ?? "start", it.kind)) return;
+          const [c0, c1] = along(card.rect);
+          // An open panel's body is no drop place: its halves are aimed at in the bands at its ends.
+          const offs: [number, number] = card.formKind === "open" ? [6, c1 - c0 - 6] : [(c1 - c0) * 0.25, (c1 - c0) * 0.75];
+          offs.forEach((off, half) => {
+            const pt = vertical ? { x: card.rect.x + card.rect.width / 2, y: c0 + off } : { x: c0 + off, y: card.rect.y + card.rect.height / 2 };
+            if (!inside(s.stage, pt) || [...(s.chrome ?? []), ...fixedRects].some((r) => inside(r, pt))) return;
+            points++;
+            aimPoints++;
+            const i = n + half;
+            const aimed = [...others.slice(0, i), id, ...others.slice(i)];
+            const picked = targetAt(all, pt) as SceneTarget | null;
+            const at = `seed ${seed} drag ${id} ${half ? "after" : "before"} ${nb} on ${e.id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}: ${picked?.id ?? "nothing"}`;
+            const mine = (t: SceneTarget | null): boolean => t?.place.kind === "gap" && t.place.edge === e.id;
+            // Another edge owns the point (space ownership: an empty bar's band over a column's top, a column line's
+            // band over a narrow column): its pick, not this edge's.
+            if (picked && !picked.free && !mine(picked) && picked.place.kind !== "home") return;
+            if (aimed.join() === seenOrder.join()) {
+              if (picked?.place.kind !== "home") fail("aim-order", `${at} (want home)`);
+              return;
+            }
+            if (mine(picked) && makes(picked!, aimed, pt)) return;
+            // Not this edge's slot of that order: right only where none of its targets makes the order.
+            if (mine(picked) || ts.some((t) => mine(t) && makes(t, aimed, pt))) fail("aim-order", `${at} (want ${aimed.join(" ")})`);
+          });
+        });
+      }
       for (const e of s.edges) {
         if (!e.accepts.includes(it.kind)) continue;
         const le = seen.edges[e.id];
@@ -264,13 +315,13 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
       }
     }
   }
-  return { points, counts, examples };
+  return { points, aimPoints, counts, examples };
 }
 
 const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
 
 /** No failure of any kind (before the one target model: 8159 holes, 4021 overlaps, 14849 other-zone, 2667 own-not-home). */
-const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0 };
+const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0, "aim-order": 0 };
 
 /** Every edge renamed to an id with ":" in it: the same targets and refusals, under the renamed ids. */
 export function colonRenameDiffs(seeds: readonly number[]): string[] {
@@ -469,11 +520,57 @@ describe("the target model's property check", () => {
     expect(refusals(s, "p").some((r) => inside(r.hit, { x: own.x + 10, y: own.y - 2 }))).toBe(false);
   });
 
+  it("aim order on a rail: the dragged toolbar taken out, the others' halves say before or after; home is its own place and the facing halves", () => {
+    // A 30 px rail holding, top to bottom, three toolbars in its start zone (icons 158, 102 and 102 px down the rail).
+    const tb = (id: string, h: number, more: Partial<SceneItem> = {}): SceneItem => ({
+      id,
+      kind: "group",
+      used: 1,
+      forms: { row: [form("row", 150, 150, 32), form("menu", 0, 0, 0)], column: [form("icons", h, h, 28), form("menu", 0, 0, 0)] },
+      ...more,
+    });
+    const rail = (align: Partial<Record<string, "center" | "end">> = {}): Scene => ({
+      stage: { x: 0, y: 0, width: 1080, height: 640 },
+      edges: [{ id: "rail", side: "left", ring: 0, accepts: ["group"], items: ["tools", "views", "zoom"], cross: { min: 30, max: 30, rail: 30 }, compact: true, gap: 4, pad: { start: 4, end: 4 } }],
+      items: byId([tb("tools", 158, align.tools ? { align: align.tools } : {}), tb("views", 102, align.views ? { align: align.views } : {}), tb("zoom", 102, align.zoom ? { align: align.zoom } : {})]),
+      floats: [],
+      floatKinds: ["group"],
+    });
+    const s = rail();
+    const l = solve(s);
+    const [tools, views, zoom] = [l.items.tools!.rect, l.items.views!.rect, l.items.zoom!.rect];
+    const pick = (sc: Scene, id: string, y: number): SceneTarget | null => targetAt(targets(sc, id), { x: 15, y }) as SceneTarget | null;
+    // Zoom, its grip just inside the top of Views: between Tools and Views, the slot where it lands, at its rail size.
+    const between = pick(s, "zoom", views.y + 3)!;
+    expect(between.id).toBe("gap:rail:start:1");
+    expect(between.slot).toEqual(between.after({ x: 15, y: views.y + 3 }).layout.items.zoom!.rect);
+    expect(between.slot!.y).toBe(views.y);
+    expect(between.slot!.height).toBe(zoom.height);
+    // The halves of Views: its upper half before it, its lower half after it (Zoom's own place: home).
+    expect(pick(s, "zoom", views.y + views.height / 2 - 1)!.id).toBe("gap:rail:start:1");
+    expect(pick(s, "zoom", views.y + views.height / 2 + 1)!.place.kind).toBe("home");
+    expect(pick(s, "zoom", tools.y + tools.height / 2 - 1)!.id).toBe("gap:rail:start:0");
+    // Views held between Tools and Zoom is home over its own rect and the facing halves of both neighbours.
+    for (const y of [tools.y + tools.height / 2 + 1, views.y + 10, zoom.y + zoom.height / 2 - 1]) expect(pick(s, "views", y)!.place.kind, `views at ${y}`).toBe("home");
+    expect(pick(s, "views", zoom.y + zoom.height / 2 + 1)!.id).toBe("gap:rail:start:2");
+    // Across zones: Tools at the start, Views centred, Zoom at the end. Zoom over Views' upper half goes before it;
+    // Tools over Views' upper half is home (its order would be the same), over the free stretch below Tools it
+    // re-aligns into the centre zone.
+    const z = rail({ views: "center", zoom: "end" });
+    const zl = solve(z);
+    const v = zl.items.views!.rect;
+    expect(pick(z, "zoom", v.y + 3)!.id).toBe("gap:rail:center:0");
+    expect(pick(z, "zoom", v.y + v.height - 3)!.place.kind).toBe("home");
+    expect(pick(z, "tools", v.y + 3)!.place.kind).toBe("home");
+    expect(pick(z, "tools", v.y - 10)!.id).toBe("gap:rail:center:0");
+  });
+
   it("flush windows (no inset, a column inside each side bar, rails, riding folds) keep every category at zero", () => {
     const r = propertyCheck(Array.from({ length: 600 }, (_, i) => i + 1), true);
     // eslint-disable-next-line no-console
-    if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, counts: r.counts }), "\n" + r.examples.join("\n"));
+    if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, aimPoints: r.aimPoints, counts: r.counts }), "\n" + r.examples.join("\n"));
     expect(r.points).toBeGreaterThan(2000);
+    expect(r.aimPoints).toBeGreaterThan(500);
     for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
   });
 
@@ -481,8 +578,9 @@ describe("the target model's property check", () => {
     for (const flush of [false, true]) {
       const r = propertyCheck(Array.from({ length: 300 }, (_, i) => i + 1), flush, true);
       // eslint-disable-next-line no-console
-      if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, counts: r.counts }), "\n" + r.examples.join("\n"));
+      if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, aimPoints: r.aimPoints, counts: r.counts }), "\n" + r.examples.join("\n"));
       expect(r.points).toBeGreaterThan(1000);
+      expect(r.aimPoints).toBeGreaterThan(200);
       for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${flush ? "flush " : ""}${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
     }
   });
@@ -494,8 +592,9 @@ describe("the target model's property check", () => {
   it("every point of an accepting edge maps to one target or refusal of its own zone; own rect → home; slot = landing", () => {
     const r = propertyCheck(SEEDS);
     // eslint-disable-next-line no-console
-    if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, counts: r.counts }), "\n" + r.examples.join("\n"));
+    if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, aimPoints: r.aimPoints, counts: r.counts }), "\n" + r.examples.join("\n"));
     expect(r.points).toBeGreaterThan(5000);
+    expect(r.aimPoints).toBeGreaterThan(200);
     for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
   });
 });

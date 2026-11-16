@@ -173,14 +173,19 @@ function edgeSlots(c: Ctx, edge: Edge, accepts: boolean): Slot[] {
   })();
   const anchorLine: Record<Zone, number> = { start: main0 + pad.start, center: Math.min(Math.max(main0 + length / 2, startEnd), Math.max(startEnd, endStart)), end: main0 + length - pad.end - menuLen };
   const slots: Slot[] = [];
+  // A slot's order: how many of the edge's shown items (fixed ones aside) lie before it, the item taken out.
+  const aimed = (id: string): boolean => shown(id) && !now.items[id]!.fixed;
+  let earlier = 0;
   for (const zone of ZONES) {
-    if (!accepts || !zoneTakes(edge, zone, kind)) continue;
     const members = members0.filter((id) => zoneOf(rest.items[id]) === zone);
+    const before0 = earlier;
+    earlier += members.filter(aimed).length;
+    if (!accepts || !zoneTakes(edge, zone, kind)) continue;
     for (let k = 0; k <= members.length; k++) {
       const next = members.slice(k).find(shown);
       const before = members.slice(0, k).reverse().find(shown);
       const line = next ? at(occupied(next)) : before ? at(occupied(before)) + len(occupied(before)) : anchorLine[zone];
-      const s = slotAt(c, zone, line, slotId(zone, k), { kind: "gap", edge: edge.id, zone, at: k }, lands);
+      const s = { ...slotAt(c, zone, line, slotId(zone, k), { kind: "gap", edge: edge.id, zone, at: k }, lands), order: before0 + members.slice(0, k).filter(aimed).length };
       // A place that would move a fixed item of the edge (before a title, after the window controls) is no slot: a
       // fixed item keeps its place, so no drop ever lands there.
       const movesFixed = members0.some((id) => {
@@ -226,7 +231,10 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
   const reserved: Span[] = Object.entries(now.items)
     .filter(([id, p]) => p.edge === edge.id && p.fixed && !p.inMenu && !grows(id))
     .map(([, p]) => spanOf(p.rect));
-  const zones = zoneSpans(scene, now, edge, c.reach, (zone) => {
+  const cards: Span[] = Object.entries(now.items)
+    .filter(([id, p]) => id !== dragged && p.edge === edge.id && !p.fixed && !p.inMenu && !p.floating && area(p.rect) > EPS)
+    .map(([, p]) => spanOf(p.rect));
+  const zones =zoneSpans(scene, now, edge, c.reach, (zone) => {
     const s = slots.find((x) => x.zone === zone && x.place.kind === "gap" && x.place.at === 0);
     const me = s?.result.layout.items[dragged];
     return me && me.edge === edge.id && me.zone === zone ? spanOf(me.rect) : null;
@@ -259,6 +267,7 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
     own: ownHere,
     holds: !!ownNow && ownNow.edge === edge.id && !ownNow.floating,
     reserved,
+    cards,
     across,
     owned: inward(drawn ? el.cross : Math.min(strip, data.place)),
     ownedAlong: null,

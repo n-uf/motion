@@ -9,6 +9,20 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   compares layouts as JSON sees every item change once. A column whose items are all closed keeps its give-way notes
   (e.g. `column-folded`) in `layout.notes` while nothing of it is drawn; read notes for the edges you draw.
 
+- `./scene`, **aim order: a pointer over an item's half means before or after it** (hits change; ids, `after` and the
+  API don't).
+  - On every occupied edge the dragged item is taken out first; neighbouring gaps meet at the midpoint of the item
+    between them (they met halfway between the gaps' lines). Over a remaining item's leading half the drop goes right
+    before it, over its trailing half right after it.
+  - Home covers the item's own rect and the facing halves of its two neighbours, a neighbour in another zone too. A
+    slot of the same order in another zone keeps only the free stretch beside them; one with no free stretch is no
+    longer a target, so `stops` lists it no more.
+  - Fixed: dragging the last toolbar of a rail with the pointer just inside the top of the toolbar above it showed home
+    (the slot at its own place) instead of the place between the two toolbars above. Home's line at the far end of the
+    item's own place was laid into the stretch above it, which spread that stretch's lines evenly.
+  - The items' halves win over a bar's or rail's thirds where they disagree; the thirds still decide between and
+    beyond the items, and on empty zones and empty edges.
+
 - `./scene`, **`readScene`: an anchor listed inside another edge's entry** (a store that kept page thumbnails in a side
   edge): that entry now says where and how big the anchor's own static edge (one that takes nothing, `accepts: []`) is. The edge moves to the entry's side
   (`setSide`) and takes its `size`; the anchor stays in it, and the other edge keeps its items and its own size. The

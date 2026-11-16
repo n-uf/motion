@@ -816,7 +816,9 @@ is over the leading zone (`start`), in the middle third over the center zone, in
 toolbars run past its third spreads its gap lines inside the third, so its last gap keeps a slice of it. An empty bar's
 strip is three targets, `strip:<bar>:start`, `strip:<bar>:center` and `strip:<bar>:end` (it was one `strip:<bar>`), one
 per third. Every empty edge does the same along its own axis: a side edge or a compact rail by thirds of its height
-(`strip:<edge>:start|center|end`, top, middle, bottom).
+(`strip:<edge>:start|center|end`, top, middle, bottom). On an occupied edge the items' halves win over the thirds where
+they disagree: a pointer over an item's half aims before or after that item, in its zone (see Aim order under
+Targets); the thirds decide only between and beyond the items, and on empty zones and empty edges.
 
 A **title bar**, a bar with a fixed item that grows (the window title), is a constrained host: a toolbar dropped there
 must land in its first form, nothing else in the bar may change form for it, and the title keeps its natural width (it may
@@ -1005,11 +1007,22 @@ are the gaps right beside it (a drop there is the same move). An edge the lift w
 column) is home as a whole. A zone of a bar reaches over every card seen in it. Each target's `after` is the solved
 drop, so where the lift would reflow a neighbour the preview moves it under a fixed pointer, and the tiles stay put.
 
+**Aim order.** Along every occupied edge (a rail, a bar, a title bar, a tray, a column), the dragged item is taken out
+first and the pointer aims at the other items: over the leading half of one (its upper half on a side edge, its left
+half on a bar) the drop goes right before it, over its trailing half right after it. The tiles split at the midpoints of
+the remaining items, whatever their order and zones. Where that aim gives the order the edge has now, the target is home
+(no slot elsewhere): home covers the item's own rect and the facing halves of its two neighbours, even a neighbour in
+another zone. Zones come in only where no item is aimed at: in the free stretch between two items, beyond the last one
+and on an empty zone or edge, the zone extents (thirds, or the solved spans) say which zone's slot the pointer is over,
+so a drop there can move the item to another zone with its order kept. A slot whose whole tile lies over its neighbours'
+facing halves is home's, and is no target of its own. The slot is where the item lands, at its size in that edge's form.
+
 - `gap:<edge>:<zone>:<at>` (priority 2) for every edge whose `accepts` lists the item's kind (deny by default), before
   each item of each zone and at each zone's end, so an empty center or end zone can be opened; only where the item
   fits: not in the » menu, no `overflow`, nothing newly `too-wide`, every fixed item of the edge keeping its form and its
-  place, and no chrome under its slot. Along the edge the gaps tile it: each hit runs halfway to the neighbouring
-  gaps' lines, so an edge of a few short items (a bar, a rail, a column's tray) is covered from end to end. Only over an
+  place, and no chrome under its slot. Along the edge the gaps tile it: neighbouring gaps meet at the midpoint of the
+  item between them (see Aim order), else halfway between their lines, so an edge of a few short items (a bar, a rail,
+  a column's tray) is covered from end to end. Only over an
   open item's body (a panel) the hit narrows to `Edge.hitBand` px around its line (default 24), so the middle of a
   panel is no gap and the pointer falls through to the float target (or to none). Gaps on one line are one target, the
   first in zone order: when a bar has no spare length, `center:0` and `end:0` lie on the start zone's last line and
