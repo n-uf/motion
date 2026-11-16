@@ -3,6 +3,12 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.28
+
+- No change in `@n-uf/motion`, apart from a README note on the drag intent: a host clamps the pointer into the stage
+  before it reaches `update` and `release`. Released together with `@n-uf/placement` 26.11.28 (rail titles and edge-target
+  fixes in `./scene`).
+
 ## 26.11.27
 
 - `./drag`, **`createGripPress`: a double-click on a grip is its own gesture** (additive). A press tracker for grips:
