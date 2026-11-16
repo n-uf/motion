@@ -4,10 +4,11 @@
  * corner of `content` first. A float with `from` over 0 is its bar: its form's natural length along its `orient`, its
  * other size kept.
  */
-import { fitFloat } from "../../float-fit";
-import { EPS, rect, type Rect } from "../../geometry";
+import { fitFloat, type FloatFit } from "../../float-fit";
+import { EPS, rect, type Rect, type Size } from "../../geometry";
+import type { StackForm } from "../../stack";
 import { axisOf, floatOrientOf, floatShape, formsOf } from "../helpers";
-import type { FloatAnchor } from "../model";
+import type { FloatAnchor, Orient, SceneFloat, SceneItem } from "../model";
 import { shapeOf, type Draft } from "./draft";
 import type { Inset } from "./insets";
 import { finite, px } from "./order";
@@ -34,6 +35,41 @@ function anchored(content: Rect, w: number, h: number, anchor: FloatAnchor): Rec
   return rect(x, y, w, h);
 }
 
+/** The floor a float of `item` is laid out at: its `floatMin`, else its form's own minimums, which only stop a shrink. */
+export function floatFloor(item: SceneItem, form: StackForm | undefined, orient: Orient, size: Size): Size {
+  const row = orient === "row";
+  // The form's own minimums only stop a shrink (a float asked smaller keeps its size); `floatMin` is laid out as given.
+  return {
+    width: item.floatMin ? px(item.floatMin.width) : Math.min(size.width, px(row ? form?.main.min : form?.cross.min)),
+    height: item.floatMin ? px(item.floatMin.height) : Math.min(size.height, px(row ? form?.cross.min : form?.main.min)),
+  };
+}
+
+/**
+ * Where one float of `item` lies, as `solve` lays it (and `fitResize` previews it): its form and size, then `fitFloat`
+ * into `region`, clear of `avoid`. The one clamp for a float's rect; `shape.none` is the caller's to handle first.
+ */
+export function placeFloat(item: SceneItem, f: Pick<SceneFloat, "rect" | "orient" | "anchor">, region: Rect, avoid: readonly Rect[], content: Rect, stage: Rect): { from: number; fo: Orient; form: StackForm | undefined; fit: FloatFit } {
+  const shape = floatShape(item, f);
+  const from = shape.form;
+  // Its orient: the float's, else the item's (`floatOrientOf`: a toolbar group floats as a row).
+  const fo = f.orient ?? floatOrientOf(item);
+  const form = formsOf(item, fo)[from];
+  // Into that region; a float larger than it is shrunk to fit it, never under its floor. A folded float (its bar) keeps
+  // its height. Wider than the region at its floor, it keeps the floor and lies at the region's left edge.
+  const floor = floatFloor(item, form, fo, shape);
+  // `floatMax` caps it (never under the floor).
+  const cap = { width: Number.isFinite(item.floatMax?.width) ? item.floatMax!.width : Infinity, height: Number.isFinite(item.floatMax?.height) ? item.floatMax!.height : Infinity };
+  const w = Math.max(floor.width, Math.min(shape.width, region.width, cap.width));
+  // Folded means its bar (a `header` form), not any form past the first (a row float, a second open form).
+  const folded = form?.kind === "header";
+  const h = folded ? shape.height : Math.max(floor.height, Math.min(shape.height, region.height, cap.height));
+  const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);
+  const fit0 = fitFloat(want, region, avoid);
+  const fit = w > region.width + EPS ? { ...fit0, rect: rect(region.x, fit0.rect.y, w, fit0.rect.height) } : fit0;
+  return { from, fo, form, fit };
+}
+
 /** Lays every float of the scene that isn't placed already; returns their ids in stacking order. */
 export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): string[] {
   const { scene, notes, items, edges } = d;
@@ -58,28 +94,7 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
       notes.push({ code: "no-vertical-form", id: f.id });
       continue;
     }
-    const from = shape.form;
-    // Its orient: the float's, else the item's (`floatOrientOf`: a toolbar group floats as a row).
-    const fo = f.orient ?? floatOrientOf(it);
-    const form = formsOf(it, fo)[from];
-    // Into that region; a float larger than it is shrunk to fit it, never under its floor: the item's `floatMin`, else
-    // its form's own minimums. A folded float (its bar) keeps its height. Wider than the region at its floor, it keeps
-    // the floor and lies at the region's left edge.
-    const row = fo === "row";
-    // The form's own minimums only stop a shrink (a float asked smaller keeps its size); `floatMin` is laid out as given.
-    const floor = {
-      width: it.floatMin ? px(it.floatMin.width) : Math.min(shape.width, px(row ? form?.main.min : form?.cross.min)),
-      height: it.floatMin ? px(it.floatMin.height) : Math.min(shape.height, px(row ? form?.cross.min : form?.main.min)),
-    };
-    // `floatMax` caps it (never under the floor).
-    const cap = { width: Number.isFinite(it.floatMax?.width) ? it.floatMax!.width : Infinity, height: Number.isFinite(it.floatMax?.height) ? it.floatMax!.height : Infinity };
-    const w = Math.max(floor.width, Math.min(shape.width, floatRegion.width, cap.width));
-    // Folded means its bar (a `header` form), not any form past the first (a row float, a second open form).
-    const folded = form?.kind === "header";
-    const h = folded ? shape.height : Math.max(floor.height, Math.min(shape.height, floatRegion.height, cap.height));
-    const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);
-    const fit0 = fitFloat(want, floatRegion, avoid);
-    const fit = w > floatRegion.width + EPS ? { ...fit0, rect: rect(floatRegion.x, fit0.rect.y, w, fit0.rect.height) } : fit0;
+    const { from, fo, form, fit } = placeFloat(it, f, floatRegion, avoid, content, stage);
     if (fit.clamped) notes.push({ code: "float-clamped", id: f.id });
     if (fit.snapped) notes.push({ code: "float-moved", id: f.id });
     if (fit.covers.length > 0) notes.push({ code: "float-covers", id: f.id });
