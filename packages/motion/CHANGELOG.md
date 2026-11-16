@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.27
 
 - `./drag`, **`createGripPress`: a double-click on a grip is its own gesture** (additive). A press tracker for grips:
   `move` answers the lift rule, `up` gives `"click"`, `"doubleActivate"` (the second press of two within

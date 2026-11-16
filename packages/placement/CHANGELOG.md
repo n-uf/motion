@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.27
 
 - `./scene`, **a float resized by hand** (additive):
   - **`fitResize(scene, id, rect, moving)`** → `{ rect, limits } | null`: the one clamp a host calls per pointer move,
