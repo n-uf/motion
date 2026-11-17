@@ -5,6 +5,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.29
 
+- `./scene/cases`, **two `CASE_GROUPS` titles reworded** (data only; the group ids `bands` and `gestures` and every row
+  id are unchanged): "Gap bands, refits and slots" is now "Gap hit areas, refits and slots", and "The kits' panel
+  gestures" is now "Panel gestures".
 - `./scene`, **rail docking per item kind** (additive; a kind with no policy targets exactly as before):
   - **`Scene.railDrop`**: per kind (the scene's own kind strings), a **`RailDropPolicy`**: `railStripWidth` (default
     the rail's drawn width, at least `RAIL_STRIP_MIN`, 24; 0 turns it off), `railVisibility` (`RailVisibility`:
