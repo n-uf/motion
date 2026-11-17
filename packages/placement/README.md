@@ -1210,9 +1210,10 @@ side's outermost column's start zone as a collapsed header ("the column drawn as
 in that column sets its width. The slot is that landing, so the preview is the drop. The strip
 owns its rect: every other target and refusal of the drag gives it up, home's included (an item alone in its column
 reaches its side's rail from its home), and an empty column's own drop strip moves just inside it, as does the line for a
-new outermost column on an occupied side (flush, the strip owns the window's edge): it is laid after the strip, so it
-owns what the strip and the other targets and refusals leave, the column's own gaps and inner lines keeping theirs; it
-is one of `stops`, so a host's "Move to ›" reaches it. Before the
+new outermost column on an occupied side (flush, the strip owns the window's edge): it keeps the band it owns, as with
+no strip (it beats the inner column it would push, card halves included), giving way only to home, a blocked rect and
+the other column lines, and the inner columns' gaps and refusals on its side stop short of it; it is one of `stops`,
+so a host's "Move to ›" reaches it. Before the
 strip arms, a drop there is the float's. A kind with no policy keeps its targets exactly as before; tuning one kind
 never changes another. The policy's fields, each default with its reason:
 
@@ -1225,6 +1226,11 @@ never changes another. The policy's fields, each default with its reason:
 
 The time and the keys are the drag intent's (`@n-uf/motion/drag`): `railArmDwellMs` (200 ms) arms a target marked
 `arm: "dwell"` (spring-loading), and `modifiers` let Shift float anywhere and ⌘/Ctrl collapse into the nearest rail (Alt stays free: it unfreezes a frozen layout).
+
+**Over an unarmed strip.** While the pointer is in a strip that hasn't armed yet, the intent shows no target there (a
+drop is the float's), and its frame's `arming` names the strip being dwelt on. The host draws the strip's pre-arm
+highlight from `arming` (and the armed growth from the shown target), so that stretch never looks dead. A refusal never
+lies under an armable strip: the strip owns its rect, and every refusal gives it up (a property test holds it).
 
 A gap, column or rail target exists only where the drop keeps the whole scene sound: it adds no `overflow` or
 `too-wide` note to any edge, changes no fixed item's form, squeezes none under its `main.min` anywhere (a between bar

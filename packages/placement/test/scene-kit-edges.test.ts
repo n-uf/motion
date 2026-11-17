@@ -197,6 +197,30 @@ describe("kit-shaped windows: the window's sides", () => {
     expect(line!.after({ x: line!.hit.x + 2, y: 400 }).layout.items.notes!.edge).toBe("right-1");
   });
 
+  it("property: a refusal never lies under an armable strip (the strip owns its rect), at the window's edge bands", () => {
+    let checked = 0;
+    const holds = (r: { x: number; y: number; width: number; height: number }, x: number, y: number): boolean => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
+    for (const k of [FLUSH, INSET])
+      for (const band of [false, true])
+        for (const W of [560, 600, 650, 700, 750, 900, 1400])
+          for (const left of [[["pages", "notes"]], [["pages"], ["notes"]]])
+            for (const drag of ["pages", "notes", "findings"]) {
+              const base = band ? middle(W, k) : { ...kitScene(k, { W, H: 800 }), railDrop: { panel: {} } };
+              const s: Scene = { ...base, edges: [...base.edges.filter((e) => !e.column || e.side === "right"), ...left.map((items, i) => ({ ...base.edges.find((e) => e.id === "left-0")!, id: `left-${i}`, ring: i, items }))] };
+              const ts = targets(s, drag);
+              const rs = refusals(s, drag);
+              const label = `${k === FLUSH ? "flush" : "inset"} ${band ? "middle" : "default"} W ${W} ${JSON.stringify(left)} ${drag}`;
+              for (const x of [0, 2, 5, 7, 10, 15, 20, 25, 30, W - 1, W - 5, W - 10, W - 20, W - 30])
+                for (let y = 4; y < 800; y += 12) {
+                  const armable = ts.some((t) => t.arm && holds(t.hit, x, y));
+                  const refused = rs.some((r) => holds(r.hit, x, y));
+                  if (armable) expect(refused, `${label}: a refusal under a strip at ${x},${y}`).toBe(false);
+                  checked++;
+                }
+            }
+    expect(checked).toBeGreaterThan(100_000);
+  });
+
   it("property: with card halves and the strip on, every occupied side's line lies inside the strip, beats the card halves and is a stop", () => {
     let checked = 0;
     for (const k of [FLUSH, INSET])
