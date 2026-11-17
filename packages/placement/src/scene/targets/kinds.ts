@@ -25,7 +25,7 @@ const RAIL_REACH = 24;
  *   column line rank among the sides (phase 2), where the rail or a new column would be laid; null for the edges
  *   `solve` lays (their phase is `layKeys`'s).
  * - `priority`: its targets' priority. `reach`: how far a slot's tile reaches each way from its line, px.
- * - `edgePlace` (column lines): the band the outermost line owns where it can't be centred on its line, at the side's
+ * - `edgePlace` (column lines): the band the outermost line owns where it can't be centered on its line, at the side's
  *   outer boundary: laid inward, right after the rail stop's `RAIL_EDGE` px.
  * - `virtual`: an edge that owns nothing (the column lines). Its refused stretches take only what every other tile
  *   leaves.

@@ -1,6 +1,6 @@
 /**
  * A double click: two presses within `ms` of each other (press to press) and `px` of the first. One value for the whole
- * package: the gesture recogniser's `clickCount` (`RECOGNIZER_DEFAULTS.multiClick`) and a grip's double-activate
+ * package: the gesture recognizer's `clickCount` (`RECOGNIZER_DEFAULTS.multiClick`) and a grip's double-activate
  * (`createGripPress`) both default to it.
  */
 export interface DoubleClick {

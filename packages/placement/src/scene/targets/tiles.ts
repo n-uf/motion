@@ -84,7 +84,7 @@ function linesIn(spec: EdgeSpec, z: { a: number; b: number }, mine: readonly Slo
   const inPiece = mine
     .filter((s) => (ownEnd(s) ? s.line >= pa - EPS && s.line <= pb + EPS : proj(s.line) >= pa - EPS && proj(s.line) <= pb + EPS))
     .sort((a, b) => proj(a.line) - proj(b.line) || a.line - b.line);
-  // Where projection lays two different moves on one point (lines under the own place or another edge's), the piece's
+  // Where projection lays two different moves on one point (lines under the item's home or another edge's), the piece's
   // lines are laid out in their order along it instead, one share each.
   const projected = inPiece.map((s) => proj(s.line));
   const at = projected.some((p, i) => i > 0 && p - projected[i - 1]! <= EPS) ? inPiece.map((_, i) => pa + ((i + 0.5) * (pb - pa)) / inPiece.length) : projected;
@@ -146,7 +146,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
         if (reason && near) out.push(...split(refused(z.zone, band(pa, pb), lone ? "own-place" : reason)));
         continue;
       }
-      // Where two neighbouring slots meet: at the midpoint of the item between their lines (the one item a pointer
+      // Where two neighboring slots meet: at the midpoint of the item between their lines (the one item a pointer
       // aims at there: its leading half is the place before it, its trailing half the place after it), else halfway
       // between the lines.
       // (The item lies between the lines as seen, before projection: a line past the piece, under another edge's band,
@@ -158,7 +158,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
         return mid > lo + EPS && mid < hi - EPS ? mid : (lo + hi) / 2;
       };
       inPiece.forEach((s, i) => {
-        // The meeting points with the neighbouring slots, the piece's ends at its ends (the own interval's ends are one),
+        // The meeting points with the neighboring slots, the piece's ends at its ends (the own interval's ends are one),
         // and no further from its line than the kind's reach (a virtual edge's zone is that reach already: an outermost
         // column line's zone runs from the window's edge, past where the line's reach would end).
         const p = at[i]!;
@@ -321,7 +321,7 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
     // piece (`hits`, `hit` the largest), so clipping never leaves a hole the float fills nor a refusal in the slot's room.
     // No sliver, after ownership: a piece under 1 px either way is no part of a target (it is refused), and a slot left
     // with no other piece is no target. Under 1 px is no room (as in a zone's room), so the slot isn't lost: its line
-    // lay where its neighbours left it no place.
+    // lay where its neighbors left it no place.
     const solidPieces = pieces.filter((p) => p.width >= 1 && p.height >= 1);
     for (const p of pieces) if (!solidPieces.includes(p)) (data.virtual ? later : refused).push({ ...t, kind: "refuse", reason: "no-room", hit: p, keep: null });
     if (solidPieces.length === 0) return;

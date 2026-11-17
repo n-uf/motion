@@ -26,7 +26,7 @@ export interface DragTuning {
   /**
    * The band and the breakthrough scale with the zones: along each axis they are at most this share of the held
    * zone's extent and of the extent of the zone under the pointer (its `hit`), so a small zone (a 28 px row) can be
-   * entered by a direct glide from its neighbour. Below a quarter, the pointer at a quarter of a zone is past them.
+   * entered by a direct glide from its neighbor. Below a quarter, the pointer at a quarter of a zone is past them.
    */
   readonly bandShare: number;
   /** A gap between zones shorter than this keeps the current target (for a pointer that aims). */

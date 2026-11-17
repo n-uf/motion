@@ -129,7 +129,7 @@ export function formFitsCross(f: StackForm, cross: number): boolean {
   return cross + 1e-6 >= nonNeg(f.wrap.lead) + widest && wrapLines(f.wrap, cross).fits;
 }
 
-/** The widths a row can take: the lead and a run of neighbouring words, narrowest first. */
+/** The widths a row can take: the lead and a run of neighboring words, narrowest first. */
 function rowWidths(spec: WrapSpec): number[] {
   const gap = nonNeg(spec.gap);
   const lead = nonNeg(spec.lead);
@@ -256,7 +256,7 @@ export interface StackInput {
   /** The » menu entry's size along the stack, taken only while an item is in the menu (default {@link DEFAULT_MENU}). */
   readonly menu?: { readonly main: number };
   /**
-   * The space between neighbouring drawn items, px (default 0). The » entry is a neighbour of the last drawn item. It
+   * The space between neighboring drawn items, px (default 0). The » entry is a neighbor of the last drawn item. It
    * counts toward the length and the rects include it, so an app draws at the solver's rects.
    */
   readonly gap?: number;

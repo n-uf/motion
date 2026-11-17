@@ -1,7 +1,7 @@
 /**
- * A pane's drop zones: a centre rectangle (put it in the pane's place, merge or swap) and four edge trapezoids (put
+ * A pane's drop zones: a center rectangle (put it in the pane's place, merge or swap) and four edge trapezoids (put
  * it beside the pane on that side), formed by the diagonals from each pane corner to the nearest corner of the
- * centre. The five zones tile the pane with no gaps and no overlaps.
+ * center. The five zones tile the pane with no gaps and no overlaps.
  *
  * Meant for `@n-uf/motion/drag`'s `placeOf(target, point, previous)`: one target per pane, its place the zone under
  * the pointer, the previous zone held for `hysteresis` px past its boundary so a pointer resting on a boundary
@@ -15,21 +15,21 @@ export type PaneZone = "center" | "top" | "right" | "bottom" | "left";
 export const PANE_EDGES: readonly Exclude<PaneZone, "center">[] = ["top", "right", "bottom", "left"];
 
 export interface PaneZoneOptions {
-  /** The centre rectangle's share of each pane axis (0.05 to 0.95); `centreX` / `centreY` override one axis. */
+  /** The center rectangle's share of each pane axis (0.05 to 0.95); `centreX` / `centreY` override one axis. */
   readonly centre?: number;
   readonly centreX?: number;
   readonly centreY?: number;
-  /** The least the centre spans on either axis, px (a small pane keeps a usable centre). */
+  /** The least the center spans on either axis, px (a small pane keeps a usable center). */
   readonly centreMin?: number;
   /** How far past its boundary the previous zone holds, px. */
   readonly hysteresis?: number;
-  /** Device pixels per px: the centre's edges snap to that grid, as the browser draws them. */
+  /** Device pixels per px: the center's edges snap to that grid, as the browser draws them. */
   readonly pixelRatio?: number;
 }
 
 export const PANE_ZONE_DEFAULTS: Required<Omit<PaneZoneOptions, "centreX" | "centreY">> = { centre: 0.34, centreMin: 24, hysteresis: 6, pixelRatio: 1 };
 
-/** The centre rectangle of a pane of `size`, in pane-local px (origin at the pane's top-left corner). */
+/** The center rectangle of a pane of `size`, in pane-local px (origin at the pane's top-left corner). */
 export interface PaneCentre {
   readonly width: number;
   readonly height: number;
@@ -41,7 +41,7 @@ export interface PaneCentre {
 
 const snap = (v: number, ratio: number): number => Math.round(v * ratio) / ratio;
 
-/** Where the centre rectangle of a pane of `size` lies, by these options. */
+/** Where the center rectangle of a pane of `size` lies, by these options. */
 export function paneCentre(size: Size, options: PaneZoneOptions = {}): PaneCentre {
   const o = { ...PANE_ZONE_DEFAULTS, ...options };
   const width = Math.max(0, size.width);
@@ -54,7 +54,7 @@ export function paneCentre(size: Size, options: PaneZoneOptions = {}): PaneCentr
   return { width, height, left: snap((width - cw) / 2, ratio), top: snap((height - ch) / 2, ratio), right: snap((width + cw) / 2, ratio), bottom: snap((height + ch) / 2, ratio) };
 }
 
-/** How deep past the centre a point is toward each edge, as a share of that edge's band (positive: in that band). */
+/** How deep past the center a point is toward each edge, as a share of that edge's band (positive: in that band). */
 function depths(p: Point, c: PaneCentre): { zone: Exclude<PaneZone, "center">; depth: number }[] {
   return [
     { zone: "top", depth: (c.top - p.y) / Math.max(c.top, 1) },
@@ -78,7 +78,7 @@ function rawZone(p: Point, c: PaneCentre): PaneZone {
   return best;
 }
 
-/** `p` moved `by` px into `zone` (toward the pane's middle for the centre). */
+/** `p` moved `by` px into `zone` (toward the pane's middle for the center). */
 function toward(p: Point, zone: PaneZone, by: number, c: PaneCentre): Point {
   if (zone === "left") return { x: p.x - by, y: p.y };
   if (zone === "right") return { x: p.x + by, y: p.y };

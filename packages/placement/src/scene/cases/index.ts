@@ -1,5 +1,5 @@
 /**
- * @n-uf/placement/scene/cases: the conformance rows for the Scene and the runner that plays them, so a UI kit's suite and
+ * @n-uf/placement/scene/cases: the conformance rows for the Scene and the runner that plays them, so an integrating app's test suite and
  * the lab run the same rows.
  *
  * A row (`CaseRow`) is plain data: a `Scene`, the `settings` it runs at, the `gestures` a user makes, and the layout (and
@@ -28,7 +28,7 @@ export { g } from "./gestures";
 export { WINDOW_A, WINDOW_B, WINDOW_BARE, winScene, type WinOptions, type WinSpec } from "./windows";
 export type { AsyncCaseHost, CaseGroup, CaseHost, CaseResult, CaseRow, CaseSettings, Checkpoint, DomCheck, DomRoot, EdgeExpect, Gesture, GestureType, ItemExpect, LayoutExpect, PickRule, StoredExpect } from "./types";
 
-/** Every row, in order: the docking cases, the bar cases, the built-in rules, the kits' gestures, the two windows. */
+/** Every row, in order: the docking cases, the bar cases, the built-in rules, the panel gestures, the two windows. */
 export const CASES: readonly CaseRow[] = [...DOCKING_ROWS, ...BAR_ROWS, ...RULE_ROWS, ...GESTURE_ROWS, ...WINDOW_ROWS];
 
 /** The groups rows are listed under, in order, with their titles. */

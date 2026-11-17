@@ -291,7 +291,7 @@ export function panelDrop(input: PanelTargetInput, target: PanelTarget, p: Point
 // --- keyboard stops ------------------------------------------------------------------------------------------------
 
 export interface PanelStop {
-  /** The target's id ("home" for the panel's own place). */
+  /** The target's id ("home" for the panel's place when the drag started). */
   readonly id: string;
   readonly place: PanelPlace;
   /** The state a move here makes (the current one for home). */
@@ -300,7 +300,7 @@ export interface PanelStop {
 }
 
 export interface PanelStopsOptions {
-  /** The panel's own place (`homePlace`) and the state as it is: a stop of its own in its reading-order position. */
+  /** The panel's home (`homePlace`) and the state as it is: a stop of its own in its reading-order position. */
   readonly home?: { readonly place: PanelPlace; readonly state: PanelsState };
   /** Floating as a stop at the end (default: left out); `at` and `grab` as for a drop (default: the stage's middle, the corner). */
   readonly floats?: boolean | { readonly at: Point; readonly grab?: Point };

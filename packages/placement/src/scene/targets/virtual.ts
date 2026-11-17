@@ -70,7 +70,7 @@ export function columnLines(c: Ctx, side: "left" | "right", railLands: boolean):
   };
   const { reach, place, edgePlace } = EDGE_KINDS.columnLine;
   // No column line's zone lies past the stage. The outermost line, with no drawn edge outside it, at the window's edge
-  // (a flush window) or where the rail stop lies (the side's outer boundary): its band can't be centred there, half of
+  // (a flush window) or where the rail stop lies (the side's outer boundary): its band can't be centered there, half of
   // it past the stage or under the rail stop. It is laid inward instead, its zone running from the window's edge (an
   // inset's strip included): the rail stop keeps `RAIL_EDGE` px at the boundary (where an undrawn rail would land), the
   // line's band of `edgePlace` px follows it inward, and its tile reaches `reach` px on from the band's middle.

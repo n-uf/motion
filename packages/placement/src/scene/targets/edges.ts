@@ -14,7 +14,7 @@ import type { Ctx, EdgeSpec, SceneAfter, SceneTargetOptions, Slot, Span } from "
 
 /**
  * What a fixed item reserves in `l`: its drawn rect, or for a form that grows only its natural length, placed by its
- * zone (from its start, from its end in the end zone, centred in the centre zone). No hit or slot ever lies there, so a
+ * zone (from its start, from its end in the end zone, centered in the center zone). No hit or slot ever lies there, so a
  * host that draws "no drop" areas reads them from here.
  */
 export function reservedRect(scene: Scene, l: SceneLayout, id: string): Rect {
@@ -59,7 +59,7 @@ export function distinctSlots(c: Ctx, slots: readonly Slot[]): Slot[] {
  * zone's anchor). The outer extents reach `reach` past the edge's ends. `seen`: the layout as the user sees it.
  *
  * Thirds hold the cards seen in them: a zone's extent reaches over every card of its zone (a fixed item's reserved
- * rect, a title's text), its neighbour's starting past it, so a point over a card is that card's zone.
+ * rect, a title's text), its neighbor's starting past it, so a point over a card is that card's zone.
  */
 function zoneSpans(scene: Scene, seen: SceneLayout, edge: Edge, reach: number, probe: (z: Zone) => Span | null): { zone: Zone; a: number; b: number }[] {
   const el = seen.edges[edge.id]!;

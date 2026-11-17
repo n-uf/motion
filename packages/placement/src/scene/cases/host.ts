@@ -56,8 +56,8 @@ export interface AimArea {
 /**
  * A pointer position that reaches the target at `place`: inside its hit and not covered by a more precise target
  * (`pick` finds it there: the host's pick rule, `@n-uf/motion/drag`'s `targetAt`; default the same rule, `pickTarget`).
- * It tries the hit's centre, then a grid across the hit; a target over the whole plane (the float) is aimed at the
- * content's centre, then the stage's, then a grid across the stage. Null when no point reaches it (a gap that a home or
+ * It tries the hit's center, then a grid across the hit; a target over the whole plane (the float) is aimed at the
+ * content's center, then the stage's, then a grid across the stage. Null when no point reaches it (a gap that a home or
  * a blocked spot covers entirely).
  */
 export function resolvePlace(list: readonly SceneTarget[], place: ScenePlace, item: string, area_: AimArea, pick: PickRule = pickTarget): Point | null {

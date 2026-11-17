@@ -134,7 +134,7 @@ export interface DeskState {
   readonly active: { readonly left: number | null; readonly right: number | null };
   /** Panels torn off a dock, floating (edge docks + tear-off). */
   readonly torn: readonly Free[];
-  /** The tiling tree: item keys in the left column, the right column and the centre (dwindle order). */
+  /** The tiling tree: item keys in the left column, the right column and the center (dwindle order). */
   readonly tree: { readonly L: readonly string[]; readonly R: readonly string[]; readonly C: readonly string[] };
   /** The scrolling strip: its columns, left to right, each a list of item keys top to bottom. */
   readonly cols: readonly (readonly string[])[];
@@ -261,7 +261,7 @@ export function startState(cat: Catalog, docs: readonly number[] = []): DeskStat
 }
 
 /**
- * The same state with these documents open: new ones join the tiling tree's centre (the first one at its front)
+ * The same state with these documents open: new ones join the tiling tree's center (the first one at its front)
  * and get a strip column of their own after the last document column; closed ones leave both.
  */
 export function withDocs(s: DeskState, docs: readonly number[], focus: number | null): DeskState {

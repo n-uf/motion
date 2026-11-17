@@ -1,5 +1,5 @@
 /**
- * The gesture recogniser: raw pointer, wheel and Safari gesture events (plain
+ * The gesture recognizer: raw pointer, wheel and Safari gesture events (plain
  * objects) in, one stream of InputGesture out. Mouse, pen and touch share one
  * path; two fingers become a pinch (5 % scale or 10 px pan decides which, read
  * once both fingers have moved, so a pan's leading finger is no pinch); a

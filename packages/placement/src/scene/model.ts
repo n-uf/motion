@@ -16,7 +16,7 @@ export type Kind = string;
 export type Side = "top" | "right" | "bottom" | "left";
 export const SIDES: readonly Side[] = ["top", "right", "bottom", "left"];
 
-/** Where an item sits along its edge: packed from the start, centred in the spare length, or packed from the end. */
+/** Where an item sits along its edge: packed from the start, centered in the spare length, or packed from the end. */
 export type Zone = "start" | "center" | "end";
 export const ZONES: readonly Zone[] = ["start", "center", "end"];
 
@@ -141,7 +141,7 @@ export interface Edge {
   /** The drop strip's depth while the edge is empty, px (default {@link DEFAULT_STRIP}). */
   readonly strip?: number;
   /**
-   * How a gap's hit runs along the edge. The gaps always split the edge halfway between neighbouring insertion lines, so
+   * How a gap's hit runs along the edge. The gaps always split the edge halfway between neighboring insertion lines, so
    * free space and short items (a toolbar, a closed or folded panel) are covered end to end. A number: over an open
    * item's body only (a panel), the hit narrows to a band that many px around the line, so the middle of a panel is no
    * gap and the pointer falls through to the float target, or to none. `"middle"`: no band, so panels are split too.

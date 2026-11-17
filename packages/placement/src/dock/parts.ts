@@ -170,7 +170,7 @@ export const tileMin = (cat: Catalog, key: string): Size => (isDocKey(key) ? DOC
 /** A side column's width. */
 export const TREE_COLUMN = 180;
 
-/** The tree's tiles laid out (no floating): the left and right columns, the centre by dwindle. */
+/** The tree's tiles laid out (no floating): the left and right columns, the center by dwindle. */
 export function treeTiles(cat: Catalog, tree: DeskState["tree"], area: Rect): Map<string, Rect> {
   const res = new Map<string, Rect>();
   let x0 = area.x;
@@ -282,7 +282,7 @@ export interface StripGeometry {
   readonly scroll: number;
 }
 
-/** The strip's columns and scroll: scrolled by hand, else to centre the focused document's column. */
+/** The strip's columns and scroll: scrolled by hand, else to center the focused document's column. */
 export function stripGeometry(cat: Catalog, s: DeskState, size: Size, notes: Note[] = []): StripGeometry {
   const { width: W, height: H } = size;
   const y = BAR + G;
@@ -352,7 +352,7 @@ export function paletteArea(size: Size, opt: Options): { area: Rect } {
 
 /**
  * A floating pill among palettes: in a stretch of its band that no palette crosses, so it never covers one. Of the
- * stretches wide enough for a full-width pill (its minimum plus margins), the one nearest the centre; with none, the
+ * stretches wide enough for a full-width pill (its minimum plus margins), the one nearest the center; with none, the
  * widest, the pill shrunk to fit it.
  */
 export function pillBetween(opt: Options, size: Size, blocks: readonly Rect[]): Placed {
