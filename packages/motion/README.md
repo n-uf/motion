@@ -391,7 +391,10 @@ insertion point 2, a large area 3). The rules:
   counts. Nothing arms by dwell within `liftZone` (16 px, about a grip's size)
   of the point the drag was lifted at (`lift`, else the first sample): back
   where it was lifted, a pause is "changed my mind" and commits nothing, even
-  with the grip under a strip (a flush drawer at the window's edge). Elsewhere,
+  with the grip under a strip (a flush drawer at the window's edge). A host can
+  give the zone as a rect instead (`liftRect`, the part of the grip the strip
+  covers): then nothing arms inside that rect, the radius is not applied, and
+  the strip arms just past the grip. Elsewhere,
   home under the strip included, it arms as above, and the rail key still forces
   the rail anywhere, the lift zone too.
 - Keys win over geometry: with `keys` passed (`DragKeys`: `{ shift?, alt?, ctrl?,
