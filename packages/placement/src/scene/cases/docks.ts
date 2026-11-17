@@ -1,34 +1,43 @@
 /**
- * Which rows need docked panels (`requires: { docks: true }`): those whose expected outcome depends on panels being
- * docked (in columns or rails, an order along an edge, or a docked panel's rect or form). A host that docks panels only
- * from some stage width (`CaseHost.dockMinWidth`) has the runner skip them below it. The list is audited: a test
- * recomputes it from every row's expectations and the reference host's layout, and fails when the two differ.
+ * Which rows need docked panels (`requires.docks`): one rule, `needsDocks`, read from the row itself. A host that docks
+ * panels only from some stage width (`CaseHost.dockMinWidth`) has the runner skip those rows below it. A row that states
+ * `requires.docks` (true or false) keeps what it states.
  */
-import type { CaseRow } from "./types";
+import { solve } from "../index";
+import type { CaseRow, LayoutExpect } from "./types";
 
-const DOCKED = new Set([
-  "C6", "C8", "C9", "C9b", "C18", "C23", "C23b", "C2", "C10", "C10b", "C11", "C21", "C1", "C3", "C4", "C20", "C22", "C7",
-  "C13", "C14", "C14b", "C15", "C16", "T6", "C24", "C25", "C25b", "C25b-control-column", "C26a", "C26b", "C28",
-  "R4-band-at-a-boundary", "R4b-leaving-the-band", "R4-no-gap-over-a-body", "R4-between-gap-is-its-own-slot",
-  "R5-group-into-the-tray", "R5-group-is-offered-no-gap-above-the-tray", "R5-group-never-opens-a-column",
-  "R5-panel-opens-an-empty-column", "P1-lift-follows-and-nothing-reflows", "P2-drop-into-another-column-at-a-position",
-  "P3-restore-pages-above-annotations", "P4-escape-cancels", "P5-own-place-is-a-no-op", "P5-gap-beside-it",
-  "P5-neighbour-half-facing-it", "P6-new-outer-column-from-outside", "P6-outer-line-at-11-px",
-  "P6-new-outer-column-from-inside", "P6-left-outer-edge", "P6-between-columns-line", "P7-end-reach",
-  "P8-folded-bar-drags-like-a-card", "P9-rail-segment-on-its-own-rail", "P9-to-the-other-rail",
-  "P10-float-keeps-its-place-and-last-size", "P11-a-float-never-covers-chrome", "P11-big-stored-float-is-clamped",
-  "P12-a-press-is-no-use", "P12b-a-press-is-no-use-by-the-stored-ages", "P13-kinds", "P13-a-group-never-gets-panel-targets",
-  "P14-open-close-and-dock-at-default", "P14b-dock-after-a-column-id-is-reused", "P15-stops-for-the-keyboard",
-  "P15-rail-stop-then-dock", "P16-first-px-left", "P16-first-px-right", "P16-outer-reach-is-the-column-line",
-  "P16-own-column-line-is-home", "window-a-three-808", "window-a-three-807", "window-a-three-620", "window-a-three-619",
-  "window-a-three-576", "window-a-three-575", "window-a-three-807-walk", "window-a-three-619-walk", "window-a-pair-808",
-  "window-a-pair-807", "window-a-pair-620", "window-a-pair-619", "window-a-bare-760", "window-a-bare-759",
-  "window-a-bare-576", "window-a-bare-575", "window-b-three-720", "window-b-three-719", "window-b-three-552",
-  "window-b-three-551", "window-b-three-520", "window-b-three-519", "window-b-three-552-walk", "window-b-three-551-walk",
-  "window-b-pair-720", "window-b-pair-719", "window-b-pair-590", "window-b-pair-552", "window-b-pair-551",
-  "window-a-hand-bar", "window-a-hand-ride", "window-a-hand-all",
-]);
+/**
+ * Whether the row's expected outcome depends on panels being docked: an expectation (final or at a checkpoint) names
+ * columns or rails, a panel in an edge's order, a docked place of a panel (its edge, zone, rail, the column it rides,
+ * its » menu), the rect or form of a panel docked at the start that it doesn't say floats, the content's rect or least
+ * size while a panel is docked at the start, an edge that takes panels, or floats that leave out a panel (so it is
+ * docked).
+ */
+export function needsDocks(row: CaseRow): boolean {
+  if (row.requires?.docks !== undefined) return row.requires.docks;
+  const items = row.scene.items;
+  const isPanel = (id: string): boolean => items[id]?.kind === "panel";
+  const panels = Object.keys(items).filter((id) => isPanel(id) && !items[id]!.closed);
+  const start = solve(row.scene);
+  const dockedAtStart = new Set(panels.filter((id) => !!start.items[id]?.edge && !start.items[id]!.floating));
+  const takesPanels = (edge: string): boolean => !!row.scene.edges.find((e) => e.id === edge)?.accepts.includes("panel");
+  const expects: LayoutExpect[] = [row.expectLayout, ...(row.checkpoints ?? []).flatMap((c) => (c.layout ? [c.layout] : []))];
+  return expects.some(
+    (e) =>
+      e.columns !== undefined ||
+      e.rails !== undefined ||
+      Object.values(e.order ?? {}).some((ids) => ids.some(isPanel)) ||
+      Object.entries(e.items ?? {}).some(([id, x]) => {
+        if (!x || !isPanel(id)) return false;
+        if ((x.edge !== undefined && x.edge !== null) || x.zone !== undefined || (x.rail !== undefined && x.rail !== null) || x.rides || x.inMenu) return true;
+        return dockedAtStart.has(id) && !x.floating && x.edge !== null && (x.rect !== undefined || x.formKind !== undefined);
+      }) ||
+      ((e.content !== undefined || e.contentAtLeast !== undefined) && dockedAtStart.size > 0) ||
+      Object.keys(e.edges ?? {}).some(takesPanels) ||
+      (e.floats !== undefined && panels.some((id) => !e.floats!.includes(id))),
+  );
+}
 
-/** `rows`, each one that needs docked panels carrying `requires: { docks: true }` beside its other requirements. */
+/** `rows`, each carrying `requires.docks` by `needsDocks` (set only where it is true, or where the row states it). */
 export const withDocks = (rows: readonly CaseRow[]): CaseRow[] =>
-  rows.map((row) => (DOCKED.has(row.id) ? { ...row, requires: { ...row.requires, docks: true } } : row));
+  rows.map((row) => (row.requires?.docks === undefined && needsDocks(row) ? { ...row, requires: { ...row.requires, docks: true } } : row));

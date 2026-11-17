@@ -189,10 +189,12 @@ export interface CaseRequires {
    */
   readonly railDrop?: "scene";
   /**
-   * The row's expected outcome depends on panels being docked (in columns or rails, an order along an edge, a docked
-   * panel's rect or form). The runner skips it on a host whose `dockMinWidth` is above the row's stage width.
+   * The row's expected outcome depends on panels being docked (columns or rails, an order along an edge, a docked
+   * panel's place, rect or form, the content beside docked panels, floats that leave a panel out). `CASES` sets it by
+   * one rule (`needsDocks`); a row may state it, true or false, to override. The runner skips a row with it on a host
+   * whose `dockMinWidth` is above the row's stage width.
    */
-  readonly docks?: true;
+  readonly docks?: boolean;
 }
 
 export interface CaseRow {

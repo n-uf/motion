@@ -1,33 +1,33 @@
 /** `requires.docks` and `CaseHost.dockMinWidth`: which rows need docked panels, and the runner's skip below the width. */
 import { describe, expect, it } from "vitest";
-import { CASES, createSceneHost, runCase, runCaseAsync, type CaseRow, type LayoutExpect } from "../src/scene/cases";
+import { CASES, createSceneHost, runCase, runCaseAsync } from "../src/scene/cases";
+import { needsDocks, withDocks } from "../src/scene/cases/docks";
 
-/** The audit rule: a row needs docked panels when an expectation names columns, rails, a panel's order along an edge,
- * a docked place of a panel, or the rect or form of a panel the reference host leaves docked. */
-function needsDocks(row: CaseRow): boolean {
-  const host = createSceneHost();
-  runCase(row, host);
-  const after = host.layout();
-  const kind = (id: string): string | undefined => row.scene.items[id]?.kind;
-  const exps: LayoutExpect[] = [row.expectLayout, ...(row.checkpoints ?? []).flatMap((c) => (c.layout ? [c.layout] : []))];
-  return exps.some(
-    (e) =>
-      e.columns !== undefined ||
-      e.rails !== undefined ||
-      Object.values(e.order ?? {}).some((ids) => ids.some((id) => kind(id) === "panel")) ||
-      Object.entries(e.items ?? {}).some(([id, x]) => {
-        if (!x || kind(id) !== "panel") return false;
-        if ((x.edge !== undefined && x.edge !== null) || x.zone !== undefined || (x.rail !== undefined && x.rail !== null) || x.rides || x.inMenu) return true;
-        return Boolean(after.items[id]?.edge) && (x.rect !== undefined || x.formKind !== undefined);
-      }),
-  );
-}
+const row = (id: string) => CASES.find((c) => c.id === id)!;
 
-describe("rows that need docked panels", () => {
-  it("carry requires.docks exactly when their expected outcome depends on docked panels", () => {
-    const wrong = CASES.filter((row) => Boolean(row.requires?.docks) !== needsDocks(row)).map((row) => `${row.id}: ${row.requires?.docks ? "marked, needs none" : "needs it, unmarked"}`);
-    expect(wrong).toEqual([]);
-    expect(CASES.find((c) => c.id === "P9-to-the-other-rail")!.requires).toEqual({ rails: ["left", "right"], docks: true });
+describe("rows that need docked panels: one rule", () => {
+  it("marks the rows whose outcome depends on docked panels, content beside them included, and no pure float row", () => {
+    expect(row("P9-to-the-other-rail").requires).toEqual({ rails: ["left", "right"], docks: true });
+    expect(row("P9-to-the-other-rail").scene.stage.width).toBe(540);
+    // The content at x 260 holds only beside a docked left column.
+    for (const id of ["R4-content-changed", "C12"]) expect(row(id).requires?.docks, id).toBe(true);
+    expect(row("P10-float-moves-by-the-pointer").requires?.docks).toBeUndefined();
+    for (const r of CASES) expect(Boolean(r.requires?.docks), r.id).toBe(needsDocks(r));
+  });
+
+  it("a row that states requires.docks keeps it", () => {
+    const stated = { ...row("C12"), requires: { docks: false } };
+    expect(needsDocks(stated)).toBe(false);
+    expect(withDocks([stated])[0]!.requires).toEqual({ docks: false });
+  });
+
+  it("every unmarked row passes on the reference host that docks from no width at all", () => {
+    const host = (): ReturnType<typeof createSceneHost> & { dockMinWidth: number } => ({ ...createSceneHost(), dockMinWidth: 1e9 });
+    for (const r of CASES.filter((c) => !c.lacks && !c.requires?.intent)) {
+      const result = runCase(r, host());
+      if (r.requires?.docks) expect(result.skipped[0], r.id).toMatch(/^the row: /);
+      else expect(result.ok, `${r.id}: ${result.failures.join("; ")}`).toBe(true);
+    }
   });
 });
 
