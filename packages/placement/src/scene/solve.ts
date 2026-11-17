@@ -19,8 +19,8 @@
  *    stay between the other two zones.
  * 5. **Floats** are fitted inside the stage, clear of every docked item (fixed ones and » entries included), every bar
  *    and the chrome rects (`fitFloat`). An anchored float sits flush with that side or corner of `content` first, and
- *    keeps clear of every float with a rect of its own and of the anchored floats with smaller ids too, where room
- *    exists; the stacking order plays no part, so `raise` reshapes nothing. A
+ *    keeps clear of every float with a rect of its own and of the anchored floats floated before it (`since`, then id)
+ *    too, where room exists; the stacking order plays no part, so `raise` reshapes nothing. A
  *    float with `from` over 0 is its bar: its form's natural length along its `orient`, its other size kept.
  *
  * 6. **Dynamic columns** (`Edge.column`, on a side with `Scene.rails[side]`): while the content is narrower than

@@ -1,9 +1,9 @@
 /**
  * The floats: fitted inside the stage less the inset at its left and right, clear of every docked item (fixed ones and
  * » entries included), every bar and the chrome rects (`fitFloat`). An anchored float sits flush with that side or
- * corner of `content` first, then clear of every float with a rect of its own and of the anchored floats with smaller
- * ids too, where room exists (`fitBeside`); the stacking order plays no part. A float with `from` over 0 is its bar: its
- * form's natural length along its `orient`, its other size kept.
+ * corner of `content` first, then clear of every float with a rect of its own and of the anchored floats floated before
+ * it (smaller `since`, then smaller id) too, where room exists (`fitBeside`); the stacking order plays no part. A float
+ * with `from` over 0 is its bar: its form's natural length along its `orient`, its other size kept.
  */
 import { fitFloat, type FloatFit } from "../../float-fit";
 import { EPS, rect, type Rect, type Size } from "../../geometry";
@@ -13,6 +13,9 @@ import type { FloatAnchor, FloatAnchorAt, Orient, SceneFloat, SceneItem } from "
 import { shapeOf, type Draft } from "./draft";
 import type { Inset } from "./insets";
 import { finite, px } from "./order";
+
+/** When a float was floated, for the order among anchored floats: its `since`, a missing or unusable one 0. */
+const sinceOf = (f: SceneFloat): number => (Number.isFinite(f.since) && f.since! >= 0 ? f.since! : 0);
 
 /** A float's rect flush with `content`'s side or corner, moved by the anchor's offset (`dx` right, `dy` down). */
 function anchored(content: Rect, w: number, h: number, given: FloatAnchorAt): Rect {
@@ -142,8 +145,8 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
     drawn.push(f);
   }
   // Where each lies, apart from the stacking order (so `raise` reshapes nothing): a float with its own rect first, clear
-  // of what floats are kept clear of; then the anchored ones by id, each clear of every float with its own rect and of
-  // the anchored ones with smaller ids too, where room exists (`fitBeside`).
+  // of what floats are kept clear of; then the anchored ones, earliest floated first (`since`, then id), each clear of
+  // every float with its own rect and of the anchored ones floated before it too, where room exists (`fitBeside`).
   const placed = new Map<string, ReturnType<typeof placeFloat>>();
   const place = (f: SceneFloat, earlier: readonly Rect[] = []): void => {
     placed.set(f.id, placeFloat(scene.items[f.id]!, f, floatRegion, avoid, content, stage, earlier));
@@ -151,7 +154,7 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
   const live = drawn.filter((f) => !noForm.has(f.id));
   for (const f of live) if (!f.anchor) place(f);
   const own = [...placed.values()].map((p) => p.fit.rect);
-  const anchored = live.filter((f) => f.anchor).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const anchored = live.filter((f) => f.anchor).sort((a, b) => sinceOf(a) - sinceOf(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   anchored.forEach((f, i) => place(f, [...own, ...anchored.slice(0, i).map((a) => placed.get(a.id)!.fit.rect)]));
   const floats: string[] = [];
   for (const f of drawn) {
