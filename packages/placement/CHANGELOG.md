@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.31
+## Unreleased
 
 - `./scene/cases`, **refusals win, on every host.** The reference host (`createSceneHost`) now honours `refusals()`:
   over a refused tile, where nothing more precise than the float is under the pointer, nothing is picked, and a release
@@ -24,6 +24,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 - `./scene/cases`, **`resizeStep`** (additive): a `resize` gesture as a pure step (`resizeStep(scene, start, layout,
   gesture)` gives the scene and the loaded scene after it: an edge's size, an item measured again, the window's size), so
   a page's case host plays it as the reference host does. The reference host uses it.
+
+## 26.11.31
+
 - `./scene`, fixed: **a float that already covered a bar grew over it when resized.** `fitResize` stopped a growing edge
   at the nearest obstacle beyond it, and skipped one the float already overlapped, so a float with no clear place at its
   size (a short window, a tall `floatMin`) that lay 8 px over a toolbar went on over the bar, the chrome or a docked item

@@ -1,6 +1,6 @@
 /**
- * The lab's Edge stack cases C1 to C23, as rows on the bench (a top bar, a left column, floats). Each row sets one case
- * up, plays what a user does, and pins the layout the Scene must give. C11 and C12, which are drawing rules in the lab
+ * The edge stack cases C1 to C23, as rows on the bench (a top bar, a left column, floats). Each row sets one case
+ * up, plays what a user does, and pins the layout the Scene must give. C11 and C12, which are drawing rules for a page
  * (a grip on every movable item and none on the rest), are rows about what lifts: a press on a movable item lifts it, and
  * on a fixed one never does.
  */

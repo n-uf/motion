@@ -1,7 +1,7 @@
 /**
  * The sample worlds the rows are written on. Generic names, plain numbers.
  *
- * - `bench(...)`: the lab's Edge stack stage as a `Scene`: a top bar (a toolbar edge, 40 px at most) and a left column
+ * - `bench(...)`: the edge stack stage as a `Scene`: a top bar (a toolbar edge, 40 px at most) and a left column
  *   under it, three panels (pages, annotations, findings), three control groups (views, tools, zoom) and floats.
  * - `doc(...)`: a document window: a title bar (a fixed title that grows, fixed window controls), a toolbar, a status
  *   bar, a left and a right column, panels, groups and a float. This is the shape a document window draws.
@@ -19,7 +19,7 @@ export const form = (kind: StackForm["kind"], min: number, natural: number, cros
   ...(extra.setsCross !== undefined ? { setsCross: extra.setsCross } : {}),
 });
 
-// --- the bench: the lab's Edge stack stage -------------------------------------------------------------------------
+// --- the bench: the edge stack stage -------------------------------------------------------------------------
 
 type BenchId ="pages" | "annotations" | "findings" | "views" | "tools" | "zoom";
 const BENCH_PANELS:readonly BenchId[] = ["pages", "annotations", "findings"];
@@ -105,7 +105,7 @@ export interface BenchOptions {
 
 const DEFAULT_USED: Record<BenchId, number> = { pages: 1, annotations: 2, findings: 3, views: 4, tools: 5, zoom: 6 };
 
-/** The lab's Edge stack stage: a bar of groups along the top, a column down the left, floats above. */
+/** The edge stack stage: a bar of groups along the top, a column down the left, floats above. */
 export function bench(layout: BenchLayout = BENCH_LAYOUT, o: BenchOptions = {}): Scene {
   const width = o.width ?? 840;
   const height = o.height ?? 500;
