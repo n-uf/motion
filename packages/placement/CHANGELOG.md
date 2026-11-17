@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.30
 
+- `./scene`, **why an item is folded** (additive): `SceneItemLayout.foldedBy`, `"hand" | "auto"`, set from the scene's own
+  state, never inferred from rects. `"hand"`: the item's `from` is over 0 (`fold` sets it), whatever else gave way after;
+  `"auto"`: it gave way, a form below the one it started in, by length or width (a header, an icons form, a » menu entry, a
+  rail segment of a column folded by give-way; `"auto"` is the word `folded` already uses for give-way). Absent for an item
+  in its first form, a closed one, and the form an icons-only edge gives its items. A float is only ever `"hand"`. A host
+  shows "Expand" for `"hand"` only. `folded` still names the item's column.
 - `./scene`, fixed: **an occupied rail offered the same move twice.** With a side's tiles width-folded and an item dragged,
   `rail:left:0` and `rail:left:1` landed identically (a rider bar at the top), so `stops()` listed two identical "Move to"
   entries. Rail stops that land the same are now one stop, wherever their lines lie (the same-move merge slots already

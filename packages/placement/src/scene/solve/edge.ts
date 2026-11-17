@@ -28,6 +28,8 @@ export interface EdgeSolve {
   readonly tabs: readonly string[];
   readonly closedTabs: ReadonlySet<string>;
   readonly input: StackInput;
+  /** The form each open item started in (its stack item's `from` in the free fit): one drawn below it gave way. */
+  readonly starts: ReadonlyMap<string, number>;
   /** Items left out of a rail: they have only `wrap` forms left (`no-vertical-form`). */
   readonly leftOut?: readonly string[];
   /** Items left out of a compact edge: they have no `icons` form (`no-icons-form`). */
@@ -48,6 +50,9 @@ interface EdgeFrame {
   readonly previous: SceneEdgeLayout | undefined;
 }
 
+/** The form each item of `input` starts in. */
+const startsOf = (input: StackInput): ReadonlyMap<string, number> => new Map(input.items.map((i) => [i.id, i.from ?? 0]));
+
 /** An icons-only edge: each item starts at its icons form (the » menu may follow); one without is left out. */
 function compactEdge(f: EdgeFrame): EdgeSolve {
   const { scene, formsById } = f;
@@ -60,14 +65,14 @@ function compactEdge(f: EdgeFrame): EdgeSolve {
   const leftOutIcons = f.ordered.filter((id) => !scene.items[id]!.closed && iconsAt(id) < 0);
   const compactInput: StackInput = { ...f.base, ownCross: false, items: shown.map((id) => stackItemOf(scene.items[id]!, formsById(id), iconsAt(id))) };
   const stack = fitStack(compactInput, f.previous ? { previous: f.previous.free } : {});
-  return { stack, free: stack, tabs: [], closedTabs: new Set(), input: compactInput, leftOutIcons };
+  return { stack, free: stack, tabs: [], closedTabs: new Set(), input: compactInput, starts: startsOf(compactInput), leftOutIcons };
 }
 
 /**
  * A rail (a column in which nothing sets the width): the items with a rail form take it (closed ones too, with
  * `railShowsClosed`); null when no item shown has one.
  */
-function railEdge(f: EdgeFrame, free: StackFit, asStackItem: (id: string) => StackItem): EdgeSolve | null {
+function railEdge(f: EdgeFrame, free: StackFit, asStackItem: (id: string) => StackItem, starts: ReadonlyMap<string, number>): EdgeSolve | null {
   const { scene, edge, formsById } = f;
   const railIndex = (item: SceneItem, forms: readonly StackForm[]): number => {
     if (item.fixed) return -1;
@@ -99,7 +104,7 @@ function railEdge(f: EdgeFrame, free: StackFit, asStackItem: (id: string) => Sta
   const stack = fitStack(railInput, f.previous ? { previous: f.previous.stack } : {});
   const tabs = stack.items.filter((p) => p.kind === "rail").map((p) => p.id);
   const closedTabs = new Set(shown.filter((id) => scene.items[id]!.closed));
-  return { stack, free, tabs, closedTabs, input: railInput, leftOut };
+  return { stack, free, tabs, closedTabs, input: railInput, starts, leftOut };
 }
 
 /** One edge's stack along `length`: the free fit, then the rail or the user's size. */
@@ -150,8 +155,10 @@ export function solveEdge(scene: Scene, edge: Edge, ids: readonly string[], leng
   const input: StackInput = { ...base, items: open.map(asStackItem) };
   const free = fitStack(input, previous ? { previous: previous.free } : {});
   const none = new Set<string>();
+  // The forms the items started in, before the rail or the user's size re-solved them: what gave way is read against these.
+  const starts = startsOf(input);
   if (column && !hasSetter(free, formsById)) {
-    const rail = railEdge(frame, free, asStackItem);
+    const rail = railEdge(frame, free, asStackItem, starts);
     if (rail) return rail;
   }
   const size = edge.size;
@@ -162,8 +169,8 @@ export function solveEdge(scene: Scene, edge: Edge, ids: readonly string[], leng
     if (Math.abs(s - free.cross) > EPS) {
       const sized: StackInput = { ...input, cross: { ...cross, min: s, max: s } };
       const stack = fitStack(sized, previous ? { previous: previous.stack } : {});
-      return { stack, free, tabs: [], closedTabs: none, input: sized };
+      return { stack, free, tabs: [], closedTabs: none, input: sized, starts };
     }
   }
-  return { stack: free, free, tabs: [], closedTabs: none, input };
+  return { stack: free, free, tabs: [], closedTabs: none, input, starts };
 }

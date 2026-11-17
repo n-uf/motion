@@ -4,7 +4,7 @@
  */
 import { EPS, rect, type Rect } from "../../geometry";
 import { formMain, wrapLines, type StackFit, type StackForm, type StackInput } from "../../stack";
-import { axisOf, formsOf, zoneOf } from "../helpers";
+import { axisOf, foldedByOf, formsOf, zoneOf } from "../helpers";
 import type { Edge, Scene, SceneEdgeLayout, SceneItemLayout, SceneLayout, SceneNote, SceneRailLayout, SolveOptions, Zone } from "../model";
 import type { EdgeSolve } from "./edge";
 import { cutOrder, finite, px } from "./order";
@@ -188,6 +188,7 @@ export function emit(d: Draft, edge: Edge, r: Rect, solved: EdgeSolve, extra: Pa
     const drawnRect = toStage(p.rect, inMenu ? undefined : p.id);
     const f = formsOf(it, column ? "column" : "row")[p.form];
     const shape = inMenu ? {} : shapeOf(f, drawnRect, column ? "column" : "row", stack.cross);
+    const foldedBy = foldedByOf(it, p.form, solved.starts.get(p.id));
     items[p.id] = {
       ...shape,
       hidden: inMenu ? [] : (f?.hides ?? []),
@@ -201,6 +202,7 @@ export function emit(d: Draft, edge: Edge, r: Rect, solved: EdgeSolve, extra: Pa
       ...(tabs.has(p.id) ? { tab: true } : {}),
       ...(tabs.has(p.id) && f?.title === true && (edge.side === "left" || edge.side === "right") ? { railTitle: edge.side } : {}),
       ...(solved.closedTabs.has(p.id) ? { closed: true } : {}),
+      ...(foldedBy ? { foldedBy } : {}),
       ...(it.fixed ? { fixed: true } : {}),
     };
   }

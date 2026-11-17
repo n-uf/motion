@@ -126,6 +126,20 @@ export function floatSizeOf(item: SceneItem, orient: Orient = floatOrientOf(item
   return orient === "row" ? { width: main, height: cross } : { width: cross, height: main };
 }
 
+/**
+ * Why `item`, drawn in form `form`, counts as folded (`SceneItemLayout.foldedBy`): `"hand"` when its own `from` is over 0
+ * (folded by hand), else `"auto"` when `form` lies below `start`, the form it started in (it gave way), else undefined.
+ * A closed item, or one in its first form, is never folded. Leave `start` out where nothing gives way (a float).
+ */
+export function foldedByOf(item: SceneItem, form: number, start?: number): "hand" | "auto" | undefined {
+  if (item.closed || form < 1) return undefined;
+  if (foldedByHand(item)) return "hand";
+  return start !== undefined && form > start ? "auto" : undefined;
+}
+
+/** Whether `item` is folded by hand: its `from` is over 0 (`fold(scene, id, true)` sets it). */
+export const foldedByHand = (item: SceneItem): boolean => Number.isFinite(item.from) && Math.floor(item.from!) >= 1;
+
 /** The first form at or after `from` that isn't a `wrap` form (vertical means icons), or undefined when none is. */
 export function pastWrap(forms: readonly StackForm[], from: number): number | undefined {
   for (let j = Math.max(0, Math.floor(from)); j < forms.length; j++) if (forms[j]!.kind !== "wrap" && !forms[j]!.wrap) return j;
