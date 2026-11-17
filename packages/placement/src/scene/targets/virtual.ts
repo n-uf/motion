@@ -4,6 +4,7 @@
  */
 import { EPS, RAIL_EDGE, clamp, rect, type Rect } from "../../geometry";
 import { sideRings } from "../changes";
+import { isHandFolded } from "../helpers";
 import type { Edge } from "../model";
 import { slotAt } from "./edges";
 import { targetId, virtualEdgeId } from "./ids";
@@ -44,7 +45,7 @@ export function railOuter(c: Ctx, side: "left" | "right"): number {
  */
 export function collapsesAt(c: Ctx, result: SceneAfter, side: "left" | "right"): boolean {
   const me = result.layout.items[c.dragged];
-  if (!me || me.floating || me.inMenu || (result.scene.items[c.dragged]?.from ?? 0) < 1 || c.isHome(result) || !c.sound(result.layout)) return false;
+  if (!me || me.floating || me.inMenu || !isHandFolded(result.scene, c.dragged) || c.isHome(result) || !c.sound(result.layout)) return false;
   const sideOf = (edgeId: string | undefined): string | undefined => (edgeId ? result.layout.edges[edgeId]?.side : undefined);
   return me.rail === side || sideOf(me.rides) === side || sideOf(me.edge) === side;
 }

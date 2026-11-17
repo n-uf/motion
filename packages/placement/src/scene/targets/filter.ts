@@ -5,7 +5,7 @@
 import { overlaps } from "../../geometry";
 import { formMain } from "../../stack";
 import { lift, prune } from "../changes";
-import { axisOf, formsOf, zoneOf } from "../helpers";
+import { axisOf, formsOf, isHandFolded, zoneOf } from "../helpers";
 import { ZONES, type Scene, type SceneItem, type SceneLayout, type SolveOptions } from "../model";
 import { layKeys, solve } from "../solve";
 import { reservedRect } from "./edges";
@@ -22,7 +22,7 @@ function placeKey(s: Scene, id: string): string {
   return JSON.stringify({
     edges: s.edges.map((e) => JSON.stringify([e.side, e.ring, e.column === true ? "" : e.id, byZone(e.items), e.size ?? null])).sort(),
     floats: s.floats.map((f) => [f.id, f.rect, f.anchor ?? null, f.orient ?? null]),
-    from: it?.from ?? 0,
+    folded: isHandFolded(s, id),
     align: it?.align ?? "start",
   });
 }

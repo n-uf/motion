@@ -142,13 +142,14 @@ export function foldedByOf(item: SceneItem, forms: readonly StackForm[], form: n
 const foldedByHand = (item: SceneItem): boolean => Number.isFinite(item.from) && Math.floor(item.from!) >= 1;
 
 /**
- * The index of the form a hand fold puts an item in, among `forms`: a panel's `header` (its title bar) or a group's
- * `fold` (its grip and »), the first of either; for an item with neither (a thumbnail anchor), its first `rail` tile;
- * -1 when it has none (a hand fold means nothing on this axis).
+ * The index of the form a hand fold puts `item` in, among `forms`: a panel's `header` (its title bar) or a group's
+ * `fold` (its grip and »), the first of either. Only a fixed item (a thumbnail anchor on a `foldable` edge, whose column
+ * draws as a rail once it folds) with neither folds to its first `rail` tile. -1 when there is none: a hand fold means
+ * nothing on this axis.
  */
-export function foldedIndex(forms: readonly StackForm[]): number {
+export function foldedIndex(item: SceneItem, forms: readonly StackForm[]): number {
   const bar = forms.findIndex((f) => f.kind === "header" || f.kind === "fold");
-  return bar >= 0 ? bar : forms.findIndex((f) => f.kind === "rail");
+  return bar >= 0 || !item.fixed ? bar : forms.findIndex((f) => f.kind === "rail");
 }
 
 /**
@@ -159,8 +160,27 @@ export function foldedIndex(forms: readonly StackForm[]): number {
  */
 export function startOf(item: SceneItem, forms: readonly StackForm[]): number {
   if (!foldedByHand(item)) return 0;
-  const folded = foldedIndex(forms);
+  const folded = foldedIndex(item, forms);
   return folded < 0 ? 0 : Math.min(Math.max(folded, Math.floor(item.from!)), forms.length - 1);
+}
+
+/** The axes item `id` lies along: its edge's, its float's orient; both when it lies nowhere. */
+export function axesOf(scene: Scene, id: string): Orient[] {
+  const item = scene.items[id];
+  const edge = scene.edges.find((e) => e.items.includes(id));
+  if (edge) return [axisOf(edge.side)];
+  const float = scene.floats.find((f) => f.id === id);
+  return float && item ? [float.orient ?? floatOrientOf(item)] : ["row", "column"];
+}
+
+/**
+ * Whether item `id` is folded by hand where it lies, as `solve` draws it: its `from` is 1 or more and it has a folded
+ * form on the axis it lies along (`startOf` over 0). A stored `from` with no folded form there is no fold. Every reader
+ * of the hand fold asks this, never `from` itself.
+ */
+export function isHandFolded(scene: Scene, id: string): boolean {
+  const item = Object.hasOwn(scene.items, id) ? scene.items[id] : undefined;
+  return !!item && axesOf(scene, id).some((a) => startOf(item, formsOf(item, a)) > 0);
 }
 
 /** The first form at or after `from` that isn't a `wrap` form (vertical means icons), or undefined when none is. */

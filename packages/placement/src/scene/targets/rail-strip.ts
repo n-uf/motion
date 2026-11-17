@@ -13,7 +13,7 @@
  */
 import { EPS, overlaps, rect, subtract, type Point, type Rect } from "../../geometry";
 import { moveTo, use, type RailPlace } from "../changes";
-import { railColumnOf, railPolicyOf, zoneTakes } from "../helpers";
+import { isHandFolded, railColumnOf, railPolicyOf, zoneTakes } from "../helpers";
 import { RAIL_STRIP_MIN } from "../model";
 import { targetId, virtualEdgeId } from "./ids";
 import type { Ctx, SceneAfter, SceneRefusal, SceneTarget } from "./model";
@@ -38,7 +38,7 @@ function columnStrip(c: Ctx, side: "left" | "right", policy: Policy): Strip | nu
   if (!edge) return null;
   const own = c.now.items[c.dragged];
   // Already collapsed in this column: every drop into it is home.
-  if (own?.edge === edge.id && (c.scene.items[c.dragged]?.from ?? 0) >= 1) return null;
+  if (own?.edge === edge.id && isHandFolded(c.scene, c.dragged)) return null;
   const place: RailPlace = { kind: "rail", side, ring: edge.ring };
   const moved = moveTo(c.scene, c.dragged, place);
   if (moved === c.scene) return null;
