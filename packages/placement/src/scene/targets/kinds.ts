@@ -6,6 +6,9 @@ import { DEFAULT_HIT_BAND, type Edge, type Scene } from "../model";
 /** How far a compact rail's hits reach inward past the rail, px. */
 const RAIL_REACH = 24;
 
+/** The least a target's largest piece keeps where the space beside it can be spared: 12 px across by 24 px along. */
+const MIN_HIT = { across: 12, along: 24 } as const;
+
 /**
  * The edge kinds and their data, the only place target generation tells them apart, the virtual edges (the column
  * lines across a side, the stops down its rail) among them.
@@ -29,15 +32,17 @@ const RAIL_REACH = 24;
  *   outer boundary: laid inward, right after the rail stop's `RAIL_EDGE` px.
  * - `virtual`: an edge that owns nothing (the column lines). Its refused stretches take only what every other tile
  *   leaves.
+ * - `minHit`: the least its targets' largest piece keeps (`MIN_HIT`), taken from the space beside it where that can be
+ *   spared (`./min-hit`).
  */
 export const EDGE_KINDS = {
-  bar: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 10, overreach: 30, priority: 2, reach: Infinity, virtual: false },
-  sideBar: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 11, overreach: 31, priority: 2, reach: Infinity, virtual: false },
-  column: { zoneExtent: "solved", opens: "start", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 12, overreach: 32, priority: 2, reach: Infinity, virtual: false },
-  barBetween: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 13, overreach: 33, priority: 2, reach: Infinity, virtual: false },
-  rail: { zoneExtent: "thirds", opens: "any", inward: RAIL_REACH, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 14, overreach: 34, priority: 2, reach: Infinity, virtual: false },
-  railStop: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: 2, layer: 9, overreach: 39, priority: 1, reach: Infinity, virtual: false },
-  columnLine: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, edgePlace: DEFAULT_HIT_BAND, phase: 2, layer: 21, overreach: 41, priority: 2, reach: COLUMN_REACH, virtual: true },
+  bar: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 10, overreach: 30, priority: 2, reach: Infinity, virtual: false, minHit: MIN_HIT },
+  sideBar: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 11, overreach: 31, priority: 2, reach: Infinity, virtual: false, minHit: MIN_HIT },
+  column: { zoneExtent: "solved", opens: "start", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 12, overreach: 32, priority: 2, reach: Infinity, virtual: false, minHit: MIN_HIT },
+  barBetween: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 13, overreach: 33, priority: 2, reach: Infinity, virtual: false, minHit: MIN_HIT },
+  rail: { zoneExtent: "thirds", opens: "any", inward: RAIL_REACH, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 14, overreach: 34, priority: 2, reach: Infinity, virtual: false, minHit: MIN_HIT },
+  railStop: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: 2, layer: 9, overreach: 39, priority: 1, reach: Infinity, virtual: false, minHit: MIN_HIT },
+  columnLine: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, edgePlace: DEFAULT_HIT_BAND, phase: 2, layer: 21, overreach: 41, priority: 2, reach: COLUMN_REACH, virtual: true, minHit: MIN_HIT },
 } as const satisfies Record<
   string,
   {
@@ -52,6 +57,7 @@ export const EDGE_KINDS = {
     readonly priority: 1 | 2;
     readonly reach: number;
     readonly virtual: boolean;
+    readonly minHit: { readonly across: number; readonly along: number };
   }
 >;
 export type EdgeKind = keyof typeof EDGE_KINDS;

@@ -5,6 +5,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.34
 
+- `./scene`, fixed: **a target left too thin to reach.** The new-column line beside a 28 px rail drop strip was left a
+  6 px sliver (a kit saw 18 × 12): the column lines take only what the other edges leave. Now every target keeps a
+  reachable hit of at least 12 px across by 24 px along, taken from the space beside it in its own zone where nothing
+  else is aimed at, or from a neighbor's surplus that still keeps its own minimum (the lower-ranked one first). Home,
+  a drop strip, a refusal, the chrome and the stage's edge never give way, and a gap never grows over another drawn
+  edge; where nothing can spare the space, the target stays as it was (still a stop and in "Move to"). Some hits move
+  by a few px as a result: beside a 30 px column its gaps now take 12 px and the outer column line 18; the line
+  between two touching columns is 12 px, half of it from the outer column's side. No case row changed.
+
 - `./scene`, **refusals for the drag intent** (additive; host note). `refusalTargets(refusals)` gives each refusal as a
   target marked `refuse: true` (the root `Target` gains the optional `refuse`; `refusal` holds the `SceneRefusal`).
   Pass them to `@n-uf/motion/drag`'s intent with the targets and read the frame's `refused`: a kit's rail stop, held

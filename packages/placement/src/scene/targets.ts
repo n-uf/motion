@@ -83,6 +83,7 @@ import type { Ctx, EdgeSpec, Generated, SceneAfter, SceneRefusal, SceneTarget, S
 import { homeRectOf, ownership } from "./targets/ownership";
 import { clipTiles, tileEdge } from "./targets/tiles";
 import { withRailStrips } from "./targets/rail-strip";
+import { withMinHit } from "./targets/min-hit";
 import { columnLines, railStops } from "./targets/virtual";
 
 export { reservedRect, zoneExtents } from "./targets/edges";
@@ -184,7 +185,8 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   const live = specsOf(c, item.kind);
   // Ownership is ranked among what survives the filter: each edge tiled on its own first, an edge owning its band only
   // along its surviving slots' tiles (a refused stretch owns nothing).
-  const along = new Map(live.map((s) => [s, alongOfSlots(s, tileEdge(c, s, { cuts: [], bodies: [] }, []))]));
+  const alone = new Map(live.map((s) => [s, tileEdge(c, s, { cuts: [], bodies: [] }, [])]));
+  const along = new Map(live.map((s) => [s, alongOfSlots(s, alone.get(s)!)]));
   const own = ownership(c, live, (s) => along.get(s)!);
   const lost: string[] = [];
   const tiles: Tile[] = live.flatMap((spec) => tileEdge(c, spec, own.cutsOf(spec), lost));
@@ -246,7 +248,12 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   const lostIds = [...new Set(lost)].filter((id) => !targets.some((t) => t.id === id));
   // The kind's rail drop strips (`Scene.railDrop`), laid over the rest: each owns its rect.
   const layered = withRailStrips(c, targets, refused);
-  return { targets: layered.targets, refusals: layered.refusals, lost: lostIds };
+  // Every target keeps a reachable minimum where the space beside it can be spared (`EDGE_KINDS[kind].minHit`).
+  // A target's zone: its tiles with its edge tiled on its own (before any other edge owns a part), its overreach
+  // included. It grows to its minimum only inside that.
+  const zones = new Map<string, Rect[]>();
+  for (const t of [...alone.values()].flat()) if (t.kind !== "refuse" && t.id) zones.set(t.id, [...(zones.get(t.id) ?? []), t.hit]);
+  return { targets: withMinHit(c, layered.targets, layered.refusals, zones), refusals: layered.refusals, lost: lostIds, zones };
 }
 
 export function targets(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneTarget[] {
@@ -277,6 +284,14 @@ export interface SceneRefusalTarget extends Target {
  */
 export function refusalTargets(list: readonly SceneRefusal[]): SceneRefusalTarget[] {
   return list.map((r) => ({ id: r.id, priority: 2, hit: r.hit, ...(r.hits ? { hits: r.hits } : {}), refuse: true, refusal: r }));
+}
+
+/**
+ * `targetZones(scene, dragged, options?)`: each docked target's zone by id, the space it may grow to its minimum hit in
+ * (its tiles with its edge tiled on its own). For the property check.
+ */
+export function targetZones(scene: Scene, dragged: string, options: SceneTargetOptions = {}): ReadonlyMap<string, readonly Rect[]> {
+  return generate(scene, dragged, options).zones ?? new Map();
 }
 
 /**

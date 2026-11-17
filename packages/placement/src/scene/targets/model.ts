@@ -117,6 +117,8 @@ export interface Generated {
   readonly refusals: SceneRefusal[];
   /** Slots the filter kept, with room in their zone, that end with no hit (none, by the property check). */
   readonly lost: string[];
+  /** Each docked target's zone by id: its tiles with its edge tiled on its own (what it may grow to its minimum in). */
+  readonly zones?: ReadonlyMap<string, readonly Rect[]>;
 }
 
 /** The context every edge's generator shares. */
