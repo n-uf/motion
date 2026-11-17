@@ -31,16 +31,83 @@ function random(seed: number): () => number {
   };
 }
 
-/** A random tree over panes 0..n-1, with random axes (or none) and ratios (or none). */
+/** A random tree over panes 0..n-1 (shuffled), each split with a random axis (or none) and a random ratio (or none). */
 function randomTree(rnd: () => number, n: number): Split<number> | null {
-  let t: Split<number> | null = null;
-  for (let id = 0; id < n; id++) {
-    const panes: number[] = panesOf(t);
-    const at: number | null = panes.length ? panes[Math.floor(rnd() * panes.length)]! : null;
-    const side = (["top", "right", "bottom", "left", undefined] as const)[Math.floor(rnd() * 5)];
-    t = splitPane(t, at, id, side);
+  const ids = Array.from({ length: n }, (_, i) => i).sort(() => rnd() - 0.5);
+  const grow = (panes: readonly number[]): Split<number> => {
+    if (panes.length === 1) return { pane: panes[0]! };
+    const cut = 1 + Math.floor(rnd() * (panes.length - 1));
+    const axis = (["x", "y", undefined] as const)[Math.floor(rnd() * 3)];
+    const ratio = rnd() < 0.3 ? undefined : 0.1 + rnd() * 0.8;
+    return { a: grow(panes.slice(0, cut)), b: grow(panes.slice(cut)), ...(axis ? { axis } : {}), ...(ratio === undefined ? {} : { ratio }) };
+  };
+  return n === 0 ? null : grow(ids);
+}
+
+/** The rect the panes of `node` cover together in `layout` (a subtree covers its rect exactly). */
+function bounds(layout: ReadonlyMap<number, Rect>, node: Split<number>): Rect {
+  const rs = panesOf(node).map((p) => layout.get(p)!);
+  const x0 = Math.min(...rs.map((r) => r.x));
+  const y0 = Math.min(...rs.map((r) => r.y));
+  return { x: x0, y: y0, width: Math.max(...rs.map((r) => r.x + r.width)) - x0, height: Math.max(...rs.map((r) => r.y + r.height)) - y0 };
+}
+
+/** Every split's two sides plus the gap make exactly its rect, along its axis; across it, each side spans the whole rect. */
+function gapsExact(layout: ReadonlyMap<number, Rect>, node: Split<number>, rect: Rect, gap: number): string[] {
+  if ("pane" in node) return near(layout.get(node.pane)!, rect) ? [] : [`pane ${node.pane}: ${JSON.stringify(layout.get(node.pane))} != ${JSON.stringify(rect)}`];
+  const a = bounds(layout, node.a);
+  const b = bounds(layout, node.b);
+  const alongX = Math.abs(a.y - b.y) < 1e-9 && Math.abs(a.height - rect.height) < 1e-9;
+  const ok = alongX
+    ? Math.abs(a.width + gap + b.width - rect.width) < 1e-9 && Math.abs(b.x - (a.x + a.width + gap)) < 1e-9
+    : Math.abs(a.height + gap + b.height - rect.height) < 1e-9 && Math.abs(b.y - (a.y + a.height + gap)) < 1e-9 && Math.abs(a.width - rect.width) < 1e-9;
+  return [...(ok ? [] : [`split ${JSON.stringify(rect)}: ${JSON.stringify(a)} + ${gap} + ${JSON.stringify(b)}`]), ...gapsExact(layout, node.a, a, gap), ...gapsExact(layout, node.b, b, gap)];
+}
+
+const near = (a: Rect, b: Rect): boolean => Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.y - b.y) < 1e-9 && Math.abs(a.width - b.width) < 1e-9 && Math.abs(a.height - b.height) < 1e-9;
+
+/** The node that holds `pane` as a direct child, and that child's sibling. */
+function parentOf(node: Split<number>, pane: number): { parent: Split<number>; sibling: Split<number> } | null {
+  if ("pane" in node) return null;
+  if ("pane" in node.a && node.a.pane === pane) return { parent: node, sibling: node.b };
+  if ("pane" in node.b && node.b.pane === pane) return { parent: node, sibling: node.a };
+  return parentOf(node.a, pane) ?? parentOf(node.b, pane);
+}
+
+// The arrangers as they were before ./tiling (9754d88, dock/arrange.ts), copied verbatim as the oracle.
+function oldMasterStack<K>(ids: readonly K[], area: Rect, gap: number, ratio = 0.5): Map<K, Rect> {
+  const out = new Map<K, Rect>();
+  if (ids.length === 0) return out;
+  if (ids.length === 1) {
+    out.set(ids[0]!, { ...area });
+    return out;
   }
-  return t;
+  const mw = (area.width - gap) * ratio;
+  out.set(ids[0]!, { x: area.x, y: area.y, width: mw, height: area.height });
+  const k = ids.length - 1;
+  const sh = (area.height - gap * (k - 1)) / k;
+  ids.slice(1).forEach((id, i) => out.set(id, { x: area.x + mw + gap, y: area.y + i * (sh + gap), width: area.width - mw - gap, height: sh }));
+  return out;
+}
+function oldDwindle(area: Rect, n: number, gap: number): Rect[] {
+  const out: Rect[] = [];
+  let cur = { ...area };
+  for (let i = 0; i < n; i++) {
+    if (i === n - 1) {
+      out.push(cur);
+      break;
+    }
+    if (cur.width >= cur.height) {
+      const w = (cur.width - gap) / 2;
+      out.push({ x: cur.x, y: cur.y, width: w, height: cur.height });
+      cur = { x: cur.x + w + gap, y: cur.y, width: w, height: cur.height };
+    } else {
+      const h = (cur.height - gap) / 2;
+      out.push({ x: cur.x, y: cur.y, width: cur.width, height: h });
+      cur = { x: cur.x, y: cur.y + h + gap, width: cur.width, height: h };
+    }
+  }
+  return out;
 }
 
 /** No pane outside the area, no two overlapping, and (with no gap) their areas sum to the area's: full coverage. */
@@ -107,9 +174,52 @@ describe("the split tree", () => {
     expect(panesOf(swapPanes(splitFromOrder(["a", "b"]), "a", "b"))).toEqual(["b", "a"]);
   });
 
-  it("pane targets: one per pane, the dragged one left out", () => {
+  it("pane targets: one per pane, the dragged one left out, ids by key", () => {
     const l = layoutSplit(splitFromOrder([1, 2, 3]), AREA);
-    expect(paneTargets(l, 2).map((t) => [t.id, t.pane, t.priority])).toEqual([["pane:1", 1, 2], ["pane:3", 3, 2]]);
+    expect(paneTargets(l, { except: 2 }).map((t) => [t.id, t.pane, t.priority])).toEqual([["pane:1", 1, 2], ["pane:3", 3, 2]]);
+    expect(paneTargets(l, { key: (p) => `w${p}` }).map((t) => t.id)).toEqual(["pane:w1", "pane:w2", "pane:w3"]);
+  });
+
+  it("a single pane: it fills the area, a side drop splits it, the center puts the new one first", () => {
+    const one: Split<string> = { pane: "a" };
+    expect(layoutSplit(one, AREA).get("a")).toEqual(AREA);
+    expect(removePane(one, "a")).toBeNull();
+    const left = layoutSplit(dropOnPane(one, "b", "a", "left"), AREA);
+    expect([left.get("b"), left.get("a")]).toEqual([{ ...AREA, width: 450 }, { ...AREA, x: 460, width: 450 }]);
+    expect(panesOf(dropOnPane(one, "b", "a", "center"))).toEqual(["b", "a"]);
+  });
+
+  it("a drop on itself, or on a pane that isn't there, changes nothing (a missing dragged pane is added)", () => {
+    const t = splitFromOrder(["a", "b", "c"]);
+    for (const r of REGIONS) expect(dropOnPane(t, "b", "b", r)).toBe(t);
+    expect(dropOnPane(t, "a", "z", "left")).toBe(t);
+    expect(panesOf(dropOnPane(t, "x", "z", "center"))).toEqual(["a", "b", "c", "x"]);
+    expect(swapPanes(t, "a", "z")).toBe(t);
+  });
+
+  it("the ratio is clamped and no size is negative, however wide the gap", () => {
+    const l = layoutSplit({ a: { pane: 1 }, b: { pane: 2 }, axis: "x", ratio: 1.7 }, AREA);
+    expect([l.get(1)!.width, l.get(2)!.width]).toEqual([900, 0]);
+    const tight = layoutSplit(splitFromOrder([1, 2, 3]), { x: 0, y: 0, width: 4, height: 3 }, { gap: 10 });
+    expect([...tight.values()].every((r) => r.width >= 0 && r.height >= 0)).toBe(true);
+  });
+});
+
+describe("the same rects as before ./tiling", () => {
+  it("dwindle and master and stack match the old arrangers exactly (fuzzed)", () => {
+    const rnd = random(3);
+    for (let i = 0; i < 500; i++) {
+      const a: Rect = { x: rnd() * 100, y: rnd() * 100, width: 50 + rnd() * 1900, height: 50 + rnd() * 1100 };
+      const gap = Math.floor(rnd() * 12);
+      const n = Math.floor(rnd() * 10);
+      const ids = Array.from({ length: n }, (_, k) => k);
+      // Where the old code gave a negative size (more panes than room for their gaps) the new one clamps to 0 instead.
+      const old = oldDwindle(a, n, gap);
+      if (old.every((r) => r.width >= 0 && r.height >= 0)) expect([...layoutSplit(splitFromOrder(ids), a, { gap }).values()]).toEqual(old);
+      const ratio = 0.2 + rnd() * 0.6;
+      expect(masterStack(ids, a, { gap, ratio })).toEqual(oldMasterStack(ids, a, gap, ratio));
+      expect(masterStack(ids, a, { gap })).toEqual(oldMasterStack(ids, a, gap));
+    }
   });
 });
 
@@ -124,43 +234,82 @@ describe("pane drop regions", () => {
 });
 
 describe("properties (seeded sweeps)", () => {
-  it("layoutSplit: no holes, no overlaps, full coverage, for random trees", () => {
+  it("layoutSplit: no holes, no overlaps, full coverage, and exact gaps, for random trees and ratios", () => {
     const rnd = random(7);
     for (let i = 0; i < 300; i++) {
       const n = 1 + Math.floor(rnd() * 9);
-      const tree = randomTree(rnd, n);
+      const tree = randomTree(rnd, n)!;
       const rects = [...layoutSplit(tree, AREA).values()];
       expect(rects.length).toBe(n);
       expect(covers(rects, AREA, 0)).toEqual([]);
-      expect(covers([...layoutSplit(tree, AREA, { gap: 8 }).values()], AREA, 8)).toEqual([]);
+      const gap = 1 + Math.floor(rnd() * 10);
+      const spaced = layoutSplit(tree, AREA, { gap });
+      expect(covers([...spaced.values()], AREA, gap)).toEqual([]);
+      expect(gapsExact(spaced, tree, AREA, gap)).toEqual([]);
     }
   });
 
-  it("dropOnPane keeps the set of panes", () => {
+  it("dropOnPane keeps the set of panes, and lays the dropped pane where its region says", () => {
     const rnd = random(11);
-    for (let i = 0; i < 300; i++) {
+    const gap = 6;
+    for (let i = 0; i < 400; i++) {
       const n = 2 + Math.floor(rnd() * 7);
-      const tree = randomTree(rnd, n);
+      const tree = randomTree(rnd, n)!;
       const inside = rnd() < 0.5;
       const dragged = inside ? Math.floor(rnd() * n) : n;
-      const at = Math.floor(rnd() * n);
+      // `at` from the tree's panes, from outside it (n + 1), or `dragged` itself.
+      const at = Math.floor(rnd() * (n + 2));
       const region = REGIONS[Math.floor(rnd() * 5)]!;
-      const after = panesOf(dropOnPane(tree, dragged, at, region)).sort((a, b) => a - b);
-      expect(after).toEqual(Array.from({ length: inside ? n : n + 1 }, (_, k) => k));
+      const after = dropOnPane(tree, dragged, at, region);
+      expect(panesOf(after).sort((a, b) => a - b)).toEqual(Array.from({ length: inside ? n : n + 1 }, (_, k) => k));
+      if (at >= n || at === dragged) continue;
+      const before = layoutSplit(tree, AREA, { gap });
+      const l = layoutSplit(after, AREA, { gap });
+      const d = l.get(dragged)!;
+      const t = l.get(at)!;
+      if (region === "center" && inside) {
+        // A swap: each takes the other's rect.
+        expect([near(d, before.get(at)!), near(t, before.get(dragged)!)]).toEqual([true, true]);
+      } else if (region !== "center") {
+        // A side: the two share `at`'s place, `dragged` on that side of it, a gap between.
+        const together = bounds(l, { a: { pane: dragged }, b: { pane: at } });
+        const h = region === "left" || region === "right";
+        expect(h ? [d.y, d.height] : [d.x, d.width]).toEqual(h ? [t.y, t.height] : [t.x, t.width]);
+        const first = region === "left" || region === "top" ? d : t;
+        const second = first === d ? t : d;
+        expect(h ? second.x - (first.x + first.width) : second.y - (first.y + first.height)).toBeCloseTo(gap, 9);
+        if (!inside) expect(near(together, before.get(at)!)).toBe(true);
+      }
     }
   });
 
-  it("removePane then splitPane round-trips the pane count", () => {
+  it("removePane: the sibling takes the parent's rect; splitPane brings the count back", () => {
     const rnd = random(13);
     for (let i = 0; i < 300; i++) {
       const n = 2 + Math.floor(rnd() * 7);
-      const tree = randomTree(rnd, n);
+      const tree = randomTree(rnd, n)!;
       const pane = Math.floor(rnd() * n);
+      const { parent, sibling } = parentOf(tree, pane)!;
+      const parentRect = bounds(layoutSplit(tree, AREA, { gap: 4 }), parent);
       const rest = removePane(tree, pane);
       expect(panesOf(rest).length).toBe(n - 1);
+      expect(near(bounds(layoutSplit(rest, AREA, { gap: 4 }), sibling), parentRect)).toBe(true);
       const at = panesOf(rest)[Math.floor(rnd() * (n - 1))]!;
       const back = splitPane(rest, at, pane, (["top", "right", "bottom", "left", undefined] as const)[Math.floor(rnd() * 5)]);
       expect(panesOf(back).length).toBe(n);
+    }
+  });
+
+  it("paneRegion: the previous region only ever holds, it never invents one; no hysteresis ignores it", () => {
+    const rnd = random(17);
+    for (let i = 0; i < 2000; i++) {
+      const pane = { x: rnd() * 50, y: rnd() * 50, width: 20 + rnd() * 400, height: 20 + rnd() * 400 };
+      const p = { x: pane.x - 5 + rnd() * (pane.width + 10), y: pane.y - 5 + rnd() * (pane.height + 10) };
+      const raw = paneRegion(pane, p);
+      const previous = REGIONS[Math.floor(rnd() * 5)]!;
+      expect([raw, previous]).toContain(paneRegion(pane, p, previous));
+      expect(paneRegion(pane, p, raw)).toBe(raw);
+      expect(paneRegion(pane, p, previous, { hysteresis: 0 })).toBe(raw);
     }
   });
 });

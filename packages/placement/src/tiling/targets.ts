@@ -21,15 +21,26 @@ export interface OrderTarget<K> extends Target {
 /** The one shape both kinds share: a slot-sized drop with no precedence over any other. */
 const tilingTarget = (id: string, hit: Rect, slot?: Rect): Target => ({ id, priority: 2, hit, ...(slot ? { slot } : {}) });
 
-/** One target per pane of `layout` (`except` left out: the dragged pane, when it is still laid out). */
-export function paneTargets<K>(layout: ReadonlyMap<K, Rect>, except?: K): PaneTarget<K>[] {
-  return [...layout].filter(([k]) => k !== except).map(([pane, r]) => ({ ...tilingTarget(`pane:${String(pane)}`, r), pane }));
+export interface PaneTargetsOptions<K> {
+  /** A pane left out: the dragged one, when it is still laid out. */
+  readonly except?: K;
+  /**
+   * A pane's key in its target's id (`pane:<key>`); default `String`. Keys must be unique across the panes: a drag
+   * intent follows its targets by id, so two panes with one key would be one target.
+   */
+  readonly key?: (pane: K) => string;
+}
+
+/** One target per pane of `layout`, its id `pane:<key>`. */
+export function paneTargets<K>(layout: ReadonlyMap<K, Rect>, options: PaneTargetsOptions<K> = {}): PaneTarget<K>[] {
+  const key = options.key ?? String;
+  return [...layout].filter(([k]) => k !== options.except).map(([pane, r]) => ({ ...tilingTarget(`pane:${key(pane)}`, r), pane }));
 }
 
 /**
  * One target per index `dragged` could be inserted at among `panes` (which don't hold it), laid out by `arrange` in
  * `area`. Each target's hit and slot is `dragged`'s rect with it there, so the targets cover the area as the layout
- * does.
+ * does. Ids are `at:<index>`, unique whatever the panes are.
  */
 export function orderTargets<K>(arrange: OrderLayout, panes: readonly K[], dragged: K, area: Rect, options?: TileOptions): OrderTarget<K>[] {
   return Array.from({ length: panes.length + 1 }, (_, index) => {
