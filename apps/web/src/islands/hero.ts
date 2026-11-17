@@ -4,8 +4,8 @@
  * - **The panel** is a real element carried by `@n-uf/motion/layout` (`createLayoutMotion` + `drawBox` on the site's
  *   frame loop): a move settles, a size change is revealed rather than stretched, and a drag holds it under the pointer
  *   (`holdItem`). Whether it shows a target, and which, is `@n-uf/motion/drag`'s `createDragIntent` and `previewPlan`.
- * - **The plan** is `@n-uf/placement`: its `createDesk` (the `dockTear` construction) lays the stage out, `deskTargets`
- *   offers the drop targets, `deskDrop` says where the panel lands. The plan is drawn from those rects at once.
+ * - **The plan** is `@n-uf/placement/scene`: `solve` lays the window out, `targets` offers the drop targets, and each
+ *   target's `after` says where the panel lands. The plan is drawn from those rects at once.
  * - **The scope** reads the run off the real frames: each drawn rect of the panel is recorded and judged by
  *   `@n-uf/motion/testing` (`checkNoOvershoot`, `checkMonotonic`, `checkTempo`); the curve, the time to 90 % and the
  *   overshoot are what those frames did. The tempo is `SETTLE_TEMPO`, the speed the site's slow-motion clock.
@@ -21,14 +21,14 @@ import type { Point, Rect } from "@n-uf/motion";
 import { createDragIntent, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
 import { createLayoutMotion, drawBox, holdItem, type Drawable, type HeldDrag } from "@n-uf/motion/layout";
 import type { RectSample } from "@n-uf/motion/testing";
-import type { DeskTarget } from "@n-uf/placement/targets";
+import type { SceneTarget } from "@n-uf/placement/scene";
 import { drive, getSpeed, getTempo, loop, newSettle, omega, onMotionChange, reduced, setSpeed, setTempo, type Tempo } from "./motion";
 import { dropMode } from "./drop-mode";
 import { registerShowcase, setDragging, userAction } from "./showcase";
 import { NEEDLE, PLOT, TEMPOS, judge, pathOf, planOf, plotX, plotY, simulateRun, type RunReport } from "../demos/hero";
 
 interface DeskDragTarget extends DragTarget {
-  readonly target: DeskTarget;
+  readonly target: SceneTarget;
 }
 type Where = { readonly kind: "pad" } | { readonly kind: "stage"; readonly slot: Rect };
 
@@ -58,7 +58,7 @@ export function startHero(band: HTMLElement): void {
     O = { x: p.x + planEl.clientLeft, y: p.y + planEl.clientTop };
     S = planEl.clientWidth / STAGE.width;
     padRect = rel(padEl);
-    targets = plan.targets.map((t) => ({ id: t.id, priority: t.priority, hit: toOv(t.hit), free: t.free, target: t }));
+    targets = plan.targets.map((t) => ({ id: t.id, priority: t.priority, hit: toOv(t.hit), ...(t.hits ? { hits: t.hits.map(toOv) } : {}), free: t.free, target: t }));
   }
   measure();
 
