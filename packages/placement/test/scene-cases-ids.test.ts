@@ -109,7 +109,7 @@ function namingHost(prefix: string, ids: Readonly<Record<string, string>>): { ho
 describe("a row's `requires` is true of its own scene", () => {
   it("rows that name a precondition meet it themselves, and the ones that need a rail declare it", () => {
     const needing = CASES.filter((c) => c.requires);
-    expect(needing.map((c) => c.id)).toEqual(["C7", "R4b-leaving-the-band", "P5-neighbour-half-facing-it", "P6-outer-line-at-11-px", "P9-to-the-other-rail"]);
+    expect(needing.map((c) => c.id)).toEqual(["C7", "R4b-leaving-the-band", "P5-neighbour-half-facing-it", "P6-outer-line-at-11-px", "P9-to-the-other-rail", "P16-first-px-left", "P16-first-px-right", "P16-outer-reach-is-the-column-line"]);
     for (const row of needing) {
       if (row.requires?.hitBand === "default") for (const e of row.scene.edges) expect(e.hitBand, `${row.id} ${e.id}`).toBeUndefined();
       if (row.requires?.railDrop === "scene") expect(row.scene.railDrop, `${row.id}: no strip of its own`).toBeUndefined();
