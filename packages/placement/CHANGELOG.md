@@ -5,6 +5,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.30
 
+- `./scene`, **`stops()` is remembered per scene** (no API change): a scene is an immutable value, so the stops of an item
+  of one scene object with the same options are solved once; asking again (a menu redrawn, a kit asking on every render)
+  costs a lookup. A `WeakMap` keyed by the scene, then by item and options (by value, `previous` by identity). Each call
+  still returns a new array, over the same targets. A first call costs what it did (the solves are one per slot, and an
+  item's slots are its own, so a `stopsForAll` could share only the scene's own solve).
 - `./scene`, **why an item is folded** (additive): `SceneItemLayout.foldedBy`, `"hand" | "auto"`, set from the scene's own
   state, never inferred from rects. `"hand"`: the item's `from` is over 0 (`fold` sets it), whatever else gave way after;
   `"auto"`: it gave way, a form below the one it started in, by length or width (a header, an icons form, a » menu entry, a

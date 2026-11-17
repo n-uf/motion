@@ -71,7 +71,7 @@
 import { PLANE, area, rect, type Rect } from "../geometry";
 import { floatAt, use } from "./changes";
 import { axisOf, floatOrientOf, floatSizeOf, zoneOf, zoneTakes } from "./helpers";
-import type { Orient, Scene, Zone } from "./model";
+import type { Orient, Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
 import { edgeSpec } from "./targets/edges";
@@ -276,8 +276,42 @@ const SIDE_RANK: Record<string, number> = { left: 0, top: 1, bottom: 2, right: 3
  * `stops(scene, id, options?)`: the places for "Move to ›" and the arrow keys, in reading order, from the same targets
  * (`home` and `none` left out): the left side outer to inner, the top bars, the bottom bars, the right side inner to
  * outer, floating last. Each stop is a target, so its `after` is the move.
+ *
+ * Remembered per scene: a scene is an immutable value (every change returns a new one), so the stops of one item of one
+ * scene with the same options are solved once, and asking again (a menu redrawn, every group's list on each render) costs
+ * nothing until the scene is another object. The options count by value, `previous` by identity. The list is yours: a
+ * new array each call, over the same targets.
  */
 export function stops(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneTarget[] {
+  const key = stopsKey(dragged, options);
+  let memo = stopsMemo.get(scene);
+  if (!memo) stopsMemo.set(scene, (memo = new Map()));
+  let list = memo.get(key);
+  if (!list) {
+    // A scene asked about with many different options never holds more than this many lists.
+    if (memo.size >= STOPS_PER_SCENE) memo.clear();
+    memo.set(key, (list = orderedStops(scene, dragged, options)));
+  }
+  return [...list];
+}
+
+/** What `stops` has solved, by scene object, then by item and options. */
+const stopsMemo = new WeakMap<Scene, Map<string, readonly SceneTarget[]>>();
+const STOPS_PER_SCENE = 512;
+const layoutIds = new WeakMap<SceneLayout, number>();
+let nextLayoutId = 0;
+
+/** The item and options as one string: the options by value, `previous` by the identity of its layout. */
+function stopsKey(dragged: string, o: SceneTargetOptions): string {
+  let prev: number | null = null;
+  if (o.previous) {
+    prev = layoutIds.get(o.previous) ?? nextLayoutId++;
+    layoutIds.set(o.previous, prev);
+  }
+  return JSON.stringify([dragged, prev, o.endReach ?? null, o.floatOrient ?? null, o.floatSize ? [o.floatSize.width, o.floatSize.height] : null, o.fresh ?? null]);
+}
+
+function orderedStops(scene: Scene, dragged: string, options: SceneTargetOptions): SceneTarget[] {
   const list = targets(scene, dragged, options).filter((t) => t.place.kind !== "home" && t.place.kind !== "none");
   const sideOf = (t: SceneTarget): string => {
     const p = t.place;
