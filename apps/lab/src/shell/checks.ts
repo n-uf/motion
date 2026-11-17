@@ -82,6 +82,8 @@ function conformance(filter?: ScenarioFilter): CheckRow[] {
   for (const row of CASES) {
     const scenario = `${row.id} ${row.title}`;
     if (!passes(scenario, filter)) continue;
+    // A row that needs a drag intent is skipped here (the in-memory host picks at the point); the Document window runs it.
+    if (row.requires?.intent) continue;
     // The one pick rule: motion's, the rule the lab's drag sessions run.
     const result = runCase(row, createSceneHost({ pick: targetAt }));
     out.push({

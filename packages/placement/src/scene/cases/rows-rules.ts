@@ -170,9 +170,9 @@ export const RULE_ROWS: readonly CaseRow[] = [
   // --- gaps as bands, content changes, the float slot ---------------------------------------------------------------------
   {
     id: "R4-band-at-a-boundary",
-    title: "A gap is a band around a boundary",
+    title: "The hit area's boundary: 2 px past a gap's hit picks nothing (approached from the content)",
     expect:
-      "Beside a panel's body the gap is a band: within 12 px of the boundary between the Findings panel and the Marks toolbar below it there is a gap, 11 px above; 13 px above, over the panel's body, there is none. Below the boundary the toolbar is a short item, not a body: its whole length belongs to the nearest gap, so 11 and 13 px below are both that gap.",
+      "The geometry alone: beside a panel's body a gap's hit is a band around the boundary between the Findings panel and the Marks toolbar below it, so 11 px above the boundary is the gap and 13 px above, over the panel's body, reached from the content (where nothing is shown), picks nothing. Below the boundary the toolbar is a short item, not a body: its whole length belongs to the nearest gap, so 11 and 13 px below are both that gap. Leaving the gap from inside is R4b.",
     group: "bands",
     scene: panelsOnly(),
     // The boundary is at y 704. In: 693, 715 and 717 (over the toolbar). Out: 691 (over the body), reached from the
@@ -190,6 +190,27 @@ export const RULE_ROWS: readonly CaseRow[] = [
       { at: 2, select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:right:start:1" }, note: "the slot on the boundary's gap" },
       { at: 8, select: "[data-drag-slot]", count: 0, note: "no slot 13 px off, over the body" },
       { at: 10, select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:right:start:1" }, note: "13 px below, over the toolbar: the same gap" },
+    ],
+  },
+  {
+    id: "R4b-leaving-the-band",
+    title: "Leaving a gap: the drag intent holds it a band's width past its hit",
+    expect:
+      "A host with a drag intent: Tools shown on the gap 11 px below the boundary, then moved 13 px above it (over the panel's body, just past the gap's hit) and rested, still shows that gap (the intent's band holds a shown target); moved on past the band and rested, it shows nothing.",
+    group: "bands",
+    scene: panelsOnly(),
+    // The gap's hit reaches 12 px above the boundary (y 692); the intent's band 10 px more (682). 691: past the hit, inside
+    // the band. 678: past the band.
+    gestures: [g.press("tools"), g.at(1070, 715), g.hold(), g.at(1070, 691), g.hold(), g.at(1070, 678), g.hold()],
+    requires: { intent: true },
+    checkpoints: [
+      { at: 2, layout: { items: { tools: { edge: "right", rect: r(940, 608, 84, 96) } }, order: { right: ["findings", "tools", "marks"] } }, note: "on the gap" },
+      { at: 4, layout: { items: { tools: { edge: "right", rect: r(940, 608, 84, 96) } }, order: { right: ["findings", "tools", "marks"] } }, note: "past the hit, inside the band: the gap holds" },
+    ],
+    expectLayout: { items: { tools: null, findings: { rect: r(940, 68, 260, 636) }, marks: { rect: r(940, 704, 84, 96) } } },
+    expectDom: [
+      { at: 4, select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:right:start:1" }, note: "the band holds the gap's slot" },
+      { at: 6, select: "[data-drag-slot]", count: 0, note: "past the band: no slot" },
     ],
   },
   {
