@@ -16,6 +16,8 @@ import { onReset, parseRoute } from "../shell/api";
 import { ALL, EDGES, type Counts, type ItemId } from "./model";
 import { PRESETS, type Preset, type Verdict } from "./presets";
 import { createScene } from "./scene";
+import { DISAGREE, createDocwinHost } from "./host";
+import { CASES, runCasesAsync } from "@n-uf/placement/scene/cases";
 import { DEFAULT_FEEL, type DragFeel } from "./feel";
 import { feelPanel } from "./feel-panel";
 
@@ -150,9 +152,35 @@ const resultOf = (p: Preset, v: Verdict): CaseResult => {
   return !v.pass && p.pending ? { ...base, pending: true } : { ...base, pass: v.pass };
 };
 
-function checkAll(): CaseResult[] {
+/**
+ * The conformance rows (`@n-uf/placement/scene/cases`), each loaded into this window and played on its own drag session
+ * (./host): `row:<id>` results. Afterwards the window goes back to its own scene and rules.
+ */
+async function checkRows(filter?: (id: string) => boolean): Promise<CaseResult[]> {
+  const host = createDocwinHost(c);
+  const rows = CASES.filter((r) => !filter || filter(r.id));
+  const out: CaseResult[] = [];
+  try {
+    for (const { id, result } of await runCasesAsync(rows, () => host)) {
+      const row = rows.find((r) => r.id === id)!;
+      const base = { id: `row:${id}`, title: row.title, now: result.ok ? "ok" : result.failures.join(" · "), lacks: row.lacks ?? DISAGREE[id] ?? null };
+      // A row this window plays by a rule the in-memory host lacks: pending on the decision, never a pass.
+      out.push(!result.ok && DISAGREE[id] ? { ...base, pending: true } : { ...base, pass: result.ok });
+    }
+  } finally {
+    c.hostRules(null);
+    c.drive(false);
+    c.setFrozen(false);
+    c.altOn(false);
+    c.reset();
+  }
+  return out;
+}
+
+async function checkAll(): Promise<CaseResult[]> {
   const was = current;
   const out = PRESETS.map((p) => resultOf(p, runPreset(p)));
+  out.push(...(await checkRows()));
   if (was) pick(was);
   else {
     c.reset();
@@ -167,8 +195,8 @@ list.addEventListener("click", (e) => {
   if (p) pick(p);
 });
 $("dw-check").addEventListener("click", () => current && pick(current));
-$("dw-check-all").addEventListener("click", () => {
-  const r = checkAll();
+$("dw-check-all").addEventListener("click", async () => {
+  const r = await checkAll();
   const pending = r.filter((x) => x.pending);
   const nums = (xs: typeof r): string => (xs.length ? ` (${xs.map((x) => r.indexOf(x) + 1).join(", ")})` : "");
   const broken = r.filter((x) => x.pass === false);
@@ -292,6 +320,10 @@ const api = {
   },
   presets: () => PRESETS.map((p) => ({ id: p.id, title: p.title, expected: p.expected, lacks: p.lacks ?? null, pending: !!p.pending, result: results.get(p.id) ?? null })),
   checkAll,
+  /** The conformance rows only, played on this window (ids containing `filter`, if given). */
+  checkRows: (filter?: string) => checkRows(filter ? (id) => id.includes(filter) : undefined),
+  /** The rows this window plays by a rule the in-memory host lacks, and why. */
+  disagree: () => DISAGREE,
   lastDrop: () => c.lastDrop,
   dragging: () => c.dragging,
   frozen: (on?: boolean) => {
