@@ -146,6 +146,12 @@ a { color: var(--accent-strong); text-underline-offset: 3px; }
 .lab-page .controls button:hover { border-color: var(--accent-line); color: var(--accent-strong); }
 .lab-page input[type="radio"], .lab-page input[type="checkbox"], .lab-page input[type="range"] { accent-color: var(--accent); }
 .lab-page th { font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+/* The Glossary page: a term per row (its th is the word, not a column title), the definition, the API name. */
+.lab-glossary { max-width: 110ch; }
+.lab-glossary td { color: var(--text-2); }
+.lab-glossary tbody th { width: 11rem; font-size: var(--t-sm); font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--text); }
+.lab-glossary td:last-child { width: 15rem; font-size: var(--t-xs); }
+@media (max-width: 700px) { .lab-glossary tbody th, .lab-glossary td:last-child { width: auto; } }
 
 /* --- the Checks page --------------------------------------------------------------------------------------------- */
 .lab-checks-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-bottom: var(--s3); }
