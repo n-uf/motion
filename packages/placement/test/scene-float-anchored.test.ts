@@ -1,6 +1,6 @@
 /** Anchored floats keep clear of the floats before them: a group sent to Float never lands on one already floating. */
 import { describe, expect, it } from "vitest";
-import { FLOAT_ANCHORS, floatAt, moveTo, readScene, solve, storeScene, type Scene, type SceneFloat } from "../src/scene";
+import { FLOAT_ANCHORS, floatAt, moveTo, raise, readScene, solve, storeScene, type Scene, type SceneFloat } from "../src/scene";
 import { group, panel, seeded, windowScene } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
@@ -23,20 +23,28 @@ const floatRects = (s: Scene): [string, R][] => {
   return l.floats.map((id) => [id, l.items[id]!.rect]);
 };
 
-describe("an anchored float and the floats before it", () => {
+describe("an anchored float and the other floats", () => {
   it("a group sent to Float lands beside a strip that already floats at the same corner", () => {
     const strip = floatAt(base(), "strip");
     const [[, at]] = floatRects(strip) as [[string, R]];
-    const both = moveTo(strip, "g1", { kind: "float" });
+    // "strip" sorts before "tools": the strip keeps the corner, the group takes the nearest clear place beside it.
+    const both = moveTo(strip, "tools", { kind: "float" });
     expect(both.floats.map((f) => [f.id, f.anchor])).toEqual([
       ["strip", "content-top-right"],
-      ["g1", "content-top-right"],
+      ["tools", "content-top-right"],
     ]);
     const rects = Object.fromEntries(floatRects(both));
-    // The strip keeps its place; the group takes the nearest clear place beside it.
     expect(rects.strip).toEqual(at);
-    expect(overlaps(rects.g1!, rects.strip!)).toBe(false);
+    expect(overlaps(rects.tools!, rects.strip!)).toBe(false);
     expect(solve(both).notes.filter((n) => n.code === "float-covers")).toEqual([]);
+  });
+
+  it("among anchored floats the smaller id keeps the corner, whichever floated first", () => {
+    const strip = floatAt(base(), "strip");
+    const both = moveTo(strip, "g1", { kind: "float" });
+    const rects = Object.fromEntries(floatRects(both));
+    expect(rects.g1).toEqual(solve(floatAt(base(), "g1")).items.g1!.rect);
+    expect(overlaps(rects.g1!, rects.strip!)).toBe(false);
   });
 
   it("a second group sent to Float lands beside the first, and the first stays put", () => {
@@ -52,32 +60,45 @@ describe("an anchored float and the floats before it", () => {
     expect([three.g1, three.g2]).toEqual([rects.g1, rects.g2]);
   });
 
-  it("an anchored float clears a float the user placed by hand before it", () => {
+  it("an anchored float clears a float the user placed by hand, before or after it in the stack", () => {
     const corner = solve(floatAt(base(), "g1")).items.g1!.rect;
     const hand = floatAt(base(), "g2", corner);
     const s = moveTo(hand, "g1", { kind: "float" });
     const rects = Object.fromEntries(floatRects(s));
     expect(rects.g2).toEqual(corner);
     expect(overlaps(rects.g1!, rects.g2!)).toBe(false);
+    // The hand float later in the stack: the same rects.
+    expect(Object.fromEntries(floatRects({ ...s, floats: [...s.floats].reverse() }))).toEqual(rects);
   });
 
-  it("a float placed by hand keeps its rect, even over an anchored float before it", () => {
+  it("a float placed by hand keeps its rect; the anchored float under it moves beside it", () => {
     const anchored = floatAt(base(), "g1");
     const at = solve(anchored).items.g1!.rect;
     const s = floatAt(anchored, "g2", at);
     const rects = Object.fromEntries(floatRects(s));
-    expect(rects.g1).toEqual(at);
     expect(rects.g2).toEqual(at);
+    expect(overlaps(rects.g1!, rects.g2!)).toBe(false);
   });
 
-  it("earlier floats win: the order of `scene.floats` decides which one moves", () => {
+  it("the stacking order decides nothing: the smaller id wins among anchored floats", () => {
     const a: SceneFloat = { id: "g1", rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-top-right" };
     const b: SceneFloat = { id: "g2", rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-top-right" };
     const ab = Object.fromEntries(floatRects({ ...base(), floats: [a, b] }));
     const ba = Object.fromEntries(floatRects({ ...base(), floats: [b, a] }));
-    expect(ab.g1).toEqual(ba.g2);
-    expect(ab.g2).toEqual(ba.g1);
-    expect(ab.g1).not.toEqual(ab.g2);
+    expect(ab).toEqual(ba);
+    expect(ab.g1).toEqual(solve({ ...base(), floats: [a] }).items.g1!.rect);
+    expect(overlaps(ab.g1!, ab.g2!)).toBe(false);
+  });
+
+  it("raise reshapes nothing: an anchored float under a hand float it avoids stays put when raised", () => {
+    const corner = solve(floatAt(base(), "g1")).items.g1!.rect;
+    const a: SceneFloat = { id: "g1", rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-top-right" };
+    const b: SceneFloat = { id: "g2", rect: { ...corner } };
+    const s: Scene = { ...base(), floats: [a, b] };
+    const before = Object.fromEntries(floatRects(s));
+    expect(before.g2).toEqual(corner);
+    expect(overlaps(before.g1!, before.g2!)).toBe(false);
+    for (const id of ["g1", "g2"]) expect(Object.fromEntries(floatRects(raise(s, id)))).toEqual(before);
   });
 
   it("with no clear place, it lies where it would with no float before it (it never covers a docked item instead)", () => {
@@ -187,25 +208,49 @@ describe("anchored floats, over generated scenes", () => {
     expect(pairs).toBeGreaterThan(300);
   });
 
-  it("an anchored float never overlaps an earlier float when room exists", () => {
+  it("an anchored float never overlaps a float that wins over it (one placed by hand, an anchored one with a smaller id) when room exists", () => {
     let checked = 0;
     for (const seed of SEEDS) {
       const s = generated(seed, true);
       const l = solve(s);
       const anchored = new Set(s.floats.filter((f) => f.anchor).map((f) => f.id));
-      l.floats.forEach((id, i) => {
-        if (!anchored.has(id)) return;
-        for (const before of l.floats.slice(0, i)) {
+      for (const id of l.floats) {
+        if (!anchored.has(id)) continue;
+        for (const other of l.floats) {
+          if (other === id || (anchored.has(other) && other > id)) continue;
           checked++;
-          if (overlaps(l.items[id]!.rect, l.items[before]!.rect)) throw new Error(`seed ${seed}: ${id} covers ${before}`);
+          if (overlaps(l.items[id]!.rect, l.items[other]!.rect)) throw new Error(`seed ${seed}: ${id} covers ${other}`);
         }
-      });
+      }
       expect(l.notes.filter((n) => n.code === "float-covers")).toEqual([]);
     }
     expect(checked).toBeGreaterThan(300);
   });
 
-  it("the layout is the same on every run (pure, order-stable)", () => {
-    for (const seed of SEEDS.slice(0, 50)) expect(solve(generated(seed, false))).toEqual(solve(generated(seed, false)));
+  it("raise changes no rect: raising each float in turn leaves every rect as it was", () => {
+    let raised = 0;
+    for (const roomy of [false, true]) {
+      for (const seed of SEEDS) {
+        let s = generated(seed, roomy);
+        const rects = (x: Scene) => Object.fromEntries(floatRects(x));
+        const before = rects(s);
+        for (const f of [...s.floats]) {
+          s = raise(s, f.id);
+          raised++;
+          const after = rects(s);
+          if (JSON.stringify(Object.entries(after).sort()) !== JSON.stringify(Object.entries(before).sort())) throw new Error(`seed ${seed} roomy ${roomy}: raising ${f.id} moved a float`);
+        }
+      }
+    }
+    expect(raised).toBeGreaterThan(1000);
+  });
+
+  it("the layout is the same on every run, and the same whatever the stacking order", () => {
+    for (const seed of SEEDS.slice(0, 50)) {
+      const s = generated(seed, false);
+      expect(solve(s)).toEqual(solve(generated(seed, false)));
+      const flipped = solve({ ...s, floats: [...s.floats].reverse() });
+      for (const f of s.floats) expect(flipped.items[f.id]?.rect).toEqual(solve(s).items[f.id]?.rect);
+    }
   });
 });

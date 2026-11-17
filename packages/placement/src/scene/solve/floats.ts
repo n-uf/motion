@@ -1,8 +1,9 @@
 /**
  * The floats: fitted inside the stage less the inset at its left and right, clear of every docked item (fixed ones and
  * » entries included), every bar and the chrome rects (`fitFloat`). An anchored float sits flush with that side or
- * corner of `content` first, then clear of the floats laid before it too, where room exists (`fitBeside`: earlier floats
- * win). A float with `from` over 0 is its bar: its form's natural length along its `orient`, its other size kept.
+ * corner of `content` first, then clear of every float with a rect of its own and of the anchored floats with smaller
+ * ids too, where room exists (`fitBeside`); the stacking order plays no part. A float with `from` over 0 is its bar: its
+ * form's natural length along its `orient`, its other size kept.
  */
 import { fitFloat, type FloatFit } from "../../float-fit";
 import { EPS, rect, type Rect, type Size } from "../../geometry";
@@ -75,7 +76,7 @@ function clearSize(region: Rect, avoid: readonly Rect[]): Size {
 }
 
 /**
- * An anchored float's fit: `fitFloat` clear of `avoid` and of `earlier` (the floats laid before it), the same nearest
+ * An anchored float's fit: `fitFloat` clear of `avoid` and of `earlier` (the floats that win over it), the same nearest
  * clear place it finds beside docked items. Where no place is clear of both, it is `fitFloat` clear of `avoid` alone, as
  * if `earlier` were not there: a float may cover an earlier float, never a docked item it could have stayed clear of.
  * With no earlier floats it is exactly `fitFloat(want, region, avoid)`.
@@ -90,8 +91,8 @@ function fitBeside(want: Rect, region: Rect, avoid: readonly Rect[], earlier: re
  * Where one float of `item` lies, as `solve` lays it (and `fitResize` previews it): its form and size, then `fitFloat`
  * into `region`, clear of `avoid`. Its size is clamped to the room `region` leaves clear of the bars and chrome across
  * it (`clearSize`), never under its floor: only a floor larger than that room covers. The one clamp for a float's rect;
- * `shape.none` is the caller's to handle first. An anchored float is also kept clear of `earlier` (the floats laid before
- * it) where room exists (`fitBeside`); a float with a rect of its own ignores `earlier`.
+ * `shape.none` is the caller's to handle first. An anchored float is also kept clear of `earlier` (the floats that win
+ * over it) where room exists (`fitBeside`); a float with a rect of its own ignores `earlier`.
  */
 export function placeFloat(item: SceneItem, f: Pick<SceneFloat, "rect" | "orient" | "anchor">, region: Rect, avoid: readonly Rect[], content: Rect, stage: Rect, earlier: readonly Rect[] = []): { from: number; fo: Orient; form: StackForm | undefined; fit: FloatFit } {
   const shape = floatShape(item, f);
@@ -129,20 +130,37 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
   for (const c of chromeFor(scene, "floats")) avoid.push(c);
   // Floats lie within the stage less the inset at its left and right (the sides the columns pad), the stage's full height.
   const floatRegion = rect(stage.x + px(inset.left), stage.y, Math.max(0, stage.width - px(inset.left) - px(inset.right)), stage.height);
-  const floats: string[] = [];
+  // The floats drawn, in stacking order; a note for one with no vertical form, in that order too.
+  const drawn: SceneFloat[] = [];
+  const noForm = new Set<string>();
   for (const f of scene.floats) {
     if (!d.claim(f.id)) continue;
     const it = scene.items[f.id]!;
     if (it.closed) continue;
-    const shape = floatShape(it, f);
-    if (shape.none) {
-      // Vertical means icons: an item with only `wrap` forms left has no form for a vertical float.
+    // Vertical means icons: an item with only `wrap` forms left has no form for a vertical float.
+    if (floatShape(it, f).none) noForm.add(f.id);
+    drawn.push(f);
+  }
+  // Where each lies, apart from the stacking order (so `raise` reshapes nothing): a float with its own rect first, clear
+  // of what floats are kept clear of; then the anchored ones by id, each clear of every float with its own rect and of
+  // the anchored ones with smaller ids too, where room exists (`fitBeside`).
+  const placed = new Map<string, ReturnType<typeof placeFloat>>();
+  const place = (f: SceneFloat, earlier: readonly Rect[] = []): void => {
+    placed.set(f.id, placeFloat(scene.items[f.id]!, f, floatRegion, avoid, content, stage, earlier));
+  };
+  const live = drawn.filter((f) => !noForm.has(f.id));
+  for (const f of live) if (!f.anchor) place(f);
+  const own = [...placed.values()].map((p) => p.fit.rect);
+  const anchored = live.filter((f) => f.anchor).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  anchored.forEach((f, i) => place(f, [...own, ...anchored.slice(0, i).map((a) => placed.get(a.id)!.fit.rect)]));
+  const floats: string[] = [];
+  for (const f of drawn) {
+    if (noForm.has(f.id)) {
       notes.push({ code: "no-vertical-form", id: f.id });
       continue;
     }
-    // An anchored float keeps clear of the floats laid before it too (earlier floats win); one with its own rect doesn't.
-    const earlier = f.anchor ? floats.map((id) => items[id]!.rect) : [];
-    const { from, fo, form, fit } = placeFloat(it, f, floatRegion, avoid, content, stage, earlier);
+    const it = scene.items[f.id]!;
+    const { from, fo, form, fit } = placed.get(f.id)!;
     if (fit.clamped) notes.push({ code: "float-clamped", id: f.id });
     if (fit.snapped) notes.push({ code: "float-moved", id: f.id });
     if (fit.covers.length > 0) notes.push({ code: "float-covers", id: f.id });
