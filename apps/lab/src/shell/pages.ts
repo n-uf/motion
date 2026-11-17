@@ -4,16 +4,14 @@
  * share one module: `view` picks the scenarios the page runs (a name substring or a test on the name).
  *
  * To add a page: add an entry here. A page module needs nothing from the shell; it may call `onReset` (./api) to
- * give the header's Reset button its own reset. An integration case registers in src/kits/cases.ts instead and becomes a page
- * by itself (./kit-page).
+ * give the header's Reset button its own reset. A docking case is no page: it is a Document window case, or a
+ * conformance row of `@n-uf/placement/scene/cases`.
  *
  * The groups: Overview, Motion (two pages), Edge stack, Checks, and an Archive of pages whose models are on hold or
  * whose cases move into the edge stack. Archived pages still run on the Checks page; they leave once covered.
  */
 
-import { KIT_CASES } from "../kits/cases";
 import type { PageDef } from "./page-defs";
-import type { KitCase } from "../kits/kit-case";
 
 const raw = (load: () => Promise<{ default: string }>) => () => load().then((m) => m.default);
 
@@ -28,21 +26,6 @@ const docwin = {
   load: () => Promise.all([import("../docwin/docwin.css"), import("../docwin/docwin")]),
   module: "docwin",
   reset: "#dw-reset",
-  wide: true,
-};
-const kitsPanels = {
-  markup: raw(() => import("../pages/kits-panels.html?raw")),
-  load: () => Promise.all([import("../kits/kits-panels.css"), import("../kits/kits-panels").then(() => import("../kits/kits-panels-scenarios"))]),
-  module: "kits-panels",
-  reset: "#kp-reset",
-  wide: true,
-};
-
-const panels = {
-  markup: raw(() => import("../pages/panels.html?raw")),
-  load: () => Promise.all([import("../panels/panels.css"), import("../panels/panels").then(() => import("../panels/panels-scenarios"))]),
-  module: "panels",
-  reset: "#pn-reset",
   wide: true,
 };
 /** The Edge stack's check fixtures (FIXTURES below): each has its own markup, module and scenarios. */
@@ -84,31 +67,6 @@ const stackToolbar = {
 
 /** The Document window's runs the Motion page "Drag intent and previews" shows: the drag intent's cases. */
 const INTENT = (n: string): boolean => n.startsWith("intent-");
-
-/**
- * The integration cases, in order: patterns an app meets when it brings its own drag onto the pair. Case 1 is its own
- * page module (kits-panels); the others are the `KitCase`s registered in src/kits/cases.ts, each mounted as a page
- * (./kit-page). A number with no registered case has no page. They are archived: each becomes an Edge stack case.
- * Case 8 (Frozen layout) is gone: an Edge stack case proves the same rule.
- */
-const KIT_LIST: readonly { n: number; title: string; line: string }[] = [
-  { n: 1, title: "Panels vs groups", line: "Do toolbar groups and dock panels feel the same? Panels on ./dock next to a plain drag image." },
-  { n: 2, title: "Toolbar areas", line: "Which of an app's places map to which toolbar areas." },
-  { n: 3, title: "Floats and orientation", line: "Whether a floating group keeps a vertical form." },
-  { n: 4, title: "Fold or collapse", line: "An animated collapse, trailing-first, and which group collapses last." },
-  { n: 5, title: "Drop preview", line: "Snap to slot, make room or indicator only: three ways to show where a group lands." },
-  { n: 6, title: "Constraints", line: "A place a group may not take is no target: no slot, no label; a release there glides home." },
-  { n: 7, title: "Keyboard moves", line: "The arrows step through a group's places in order; Move to › lists the same places." },
-  { n: 9, title: "Vocabulary", line: "One set of place names, through the targets' labels." },
-  { n: 10, title: "Scaled page", line: "On a scaled page the app converts the pointer into content space, so the slot lands under it." },
-];
-
-const numberOf = (kc: KitCase): number => Number.parseInt(kc.title, 10);
-function kitPage(k: (typeof KIT_LIST)[number]): PageDef[] {
-  const kc = KIT_CASES.find((c) => numberOf(c) === k.n);
-  if (!kc) return [];
-  return [{ id: `kits/${kc.id}`, group: "archive", nav: `Case ${k.n} · ${k.title}`, title: kc.title, line: k.line, load: () => import("./kit-page").then((m) => m.mountKitCase(kc, document.getElementById("lab-page")!)), module: `kit:${kc.id}`, wide: true }];
-}
 
 export const PAGES: readonly PageDef[] = [
   {
@@ -180,28 +138,6 @@ export const PAGES: readonly PageDef[] = [
     load: () => import("./checks"),
     wide: true,
   },
-  // --- Archive: on hold, or moving into the Edge stack page; each still runs on the Checks page. -------------------
-  {
-    id: "panels",
-    group: "archive",
-    nav: "Panels",
-    title: "Panels",
-    line: "Columns per side on @n-uf/placement/panels: defaults, every option, and the desk presets, on one desk.",
-    about:
-      "<code>@n-uf/placement/panels</code>, on hold. <b>Defaults</b>: give-way least recently used first, floats clamped to the viewport; three columns on the left, two on the right, a float that moves with the page and one pinned to the view. <b>Options</b>: give-way least or most recently used first, by use or by opening, floats clamped or free, collapsed columns to the rail or riding, top and bottom docks (off, reserved, overlay; between the columns or full width), and reserved space for a toolbar. <b>Presets</b>: <code>@n-uf/placement/desk</code>'s presets, each panels options and a start state. Drag a panel by its title to tear it off, dock it back, stack it or put it on a rail; from the keyboard: Tab to a title, Space, the arrows, Enter; Escape cancels. Archived: the Edge stack's floats have no pin, so this page's pinned float is the old model.",
-    ...panels,
-  },
-  {
-    id: "kits/panels",
-    group: "archive",
-    nav: "Case 1 · Panels vs groups",
-    title: "1 · Panels vs groups",
-    line: KIT_LIST[0]!.line,
-    about:
-      "A document viewer window on the real packages: the toolbar groups on <code>@n-uf/placement</code>'s toolbar targets, the panels on its edge docks with tear-off, and every item on <code>@n-uf/motion</code>'s drag intent and direct drag. Drag a group by its grip, a panel by its title bar or its rail icon. The switch puts the panels on a naive drag (a drag image, an insert line, an instant drop), so both can be felt in one window. Sample content only.",
-    ...kitsPanels,
-  },
-  ...KIT_LIST.slice(1).flatMap(kitPage),
 ];
 
 /**
@@ -225,6 +161,7 @@ export const FIXTURES: readonly PageDef[] = [
 const ALIASES: Readonly<Record<string, string>> = {
   "placement/desk": "docwin",
   "placement/toolbar": "docwin",
+  panels: "docwin",
 };
 
 export const pageById = (id: string): PageDef | undefined => PAGES.find((p) => p.id === (ALIASES[id] ?? id)) ?? FIXTURES.find((p) => p.id === id);
