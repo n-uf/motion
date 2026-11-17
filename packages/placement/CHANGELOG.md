@@ -5,6 +5,17 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.35
 
+- `./scene`, **bars give way by height** (additive). A top or bottom bar with `Edge.giveWay` (which already made a
+  static side edge give way like a column) now gives way to `contentMin.height`: while the content is shorter (overlay
+  bars counted), such bars shrink across toward their minimum, then fold one by one, their items stepping to the next
+  form that fits across (a panel's title bar), unkept before kept, the oldest first. New notes `bar-shrunk`
+  `{ edge, from, to }` and `bar-folded` `{ edge }`; the edge's `shrunk` is set. A bar with `giveWay` never draws an item
+  thinner across than its form's `cross.min`. Scenes without `giveWay` on a bar lay out as before.
+
+- `./scene`, fixed: **a full overlay bar honours its span.** An overlay top or bottom bar with `span: "full"` (the
+  default) lay over the content only, between the columns, exactly like a `between` one. It now runs across the full
+  bars' width, over the side columns too, at the content's top or bottom; the columns keep their height.
+
 - `./scene`, fixed: **an edge whose zones take nothing for a kind is no drop place for it, and no refusal.** A side
   rail that lists toolbars but takes them in no zone (`zoneAccepts: {}`, a rail a host doesn't draw at a narrow width,
   keeping its stored items) still gave a toolbar drag a "not accepted" refusal band 12–24 px wide along the window's

@@ -162,6 +162,25 @@ export function solveEdge(scene: Scene, edge: Edge, ids: readonly string[], leng
     const rail = railEdge(frame, free, asStackItem, starts);
     if (rail) return rail;
   }
+  // A bar that gives way (a top or bottom edge with `giveWay`) never draws an item thinner across than its form allows:
+  // under its height give-way's cap, such an item starts at its next form that fits (a panel's title bar), counted as
+  // given way against the form it started in.
+  if (!column && edge.giveWay === true) {
+    const fits = (f: StackForm): boolean => !formSetsCross(f) || formCrossMin(f) <= cross.max + EPS;
+    let moved = false;
+    const items = input.items.map((it): StackItem => {
+      const from = it.from ?? 0;
+      if (it.fixed || fits(it.forms[from]!)) return it;
+      const j = it.forms.findIndex((f, k) => k > from && f.kind !== "menu" && fits(f));
+      if (j < 0) return it;
+      moved = true;
+      return { ...it, from: j };
+    });
+    if (moved) {
+      const folded: StackInput = { ...input, items };
+      return { stack: fitStack(folded), free, tabs: [], closedTabs: none, input: folded, starts };
+    }
+  }
   const size = edge.size;
   if (typeof size === "number" && Number.isFinite(size) && hasSetter(free, formsById)) {
     const setters = free.items.filter((p) => p.kind !== "menu" && formSetsCross(formsById(p.id)[p.form]!));

@@ -31,10 +31,15 @@ export interface Draft {
   readonly rails: Partial<Record<"left" | "right", SceneRailLayout>>;
   readonly railPlaces: Partial<Record<"left" | "right", Rect>>;
   columnRoom?: boolean;
+  /** Height give-way: the most a top or bottom bar that gives way may be across, by edge id. */
+  readonly caps: ReadonlyMap<string, number>;
 }
 
-/** A new draft of `given`: an item docked now that was closed or absent in `previous` counts as the newest. */
-export function createDraft(given: Scene, options: SolveOptions): Draft {
+/**
+ * A new draft of `given`: an item docked now that was closed or absent in `previous` counts as the newest. `caps` are
+ * height give-way's caps on bars, by edge id.
+ */
+export function createDraft(given: Scene, options: SolveOptions, caps: ReadonlyMap<string, number> = new Map()): Draft {
   const previous = options.previous;
   // Under `previous`, an item docked now that was closed or absent then has just opened: it counts as the newest, so it
   // keeps its largest form while it fits and the others give way by the usual rules.
@@ -79,7 +84,7 @@ export function createDraft(given: Scene, options: SolveOptions): Draft {
   };
   const owned = new Map<Edge, string[]>();
   for (const e of order) owned.set(e, e.items.filter(claim));
-  return { scene, previous, opened, fresh, order, owned, claim, prevEdge, notes, items: {}, edges: {}, rails: {}, railPlaces: {} };
+  return { scene, previous, opened, fresh, order, owned, claim, prevEdge, notes, items: {}, edges: {}, rails: {}, railPlaces: {}, caps };
 }
 
 /**
