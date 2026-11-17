@@ -158,6 +158,8 @@ export const TITLES: Record<ItemId, string> = {
   title: "Title",
   controls: "Window controls",
 };
+/** An item's title: this window's own, or, for an item of a scene loaded from elsewhere (a conformance row), its id in words. */
+export const titleOf = (id: string): string => (TITLES as Readonly<Record<string, string>>)[id] ?? id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, " ");
 
 /** The toolbars that go into a » menu last (the highest give-way priority): Zoom and Review. */
 const PRIORITY: Partial<Record<GroupId, number>> = { zoom: 10, review: 10 };

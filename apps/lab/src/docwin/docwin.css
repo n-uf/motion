@@ -60,6 +60,8 @@
   background: var(--win-frame); color: var(--win-text); font-size: 12px; user-select: none; touch-action: none;
 }
 .dw-win > * { position: absolute; box-sizing: border-box; }
+.dw-edges { inset: 0; pointer-events: none; }
+.dw-edges > * { position: absolute; box-sizing: border-box; }
 .dw-bar { background: var(--win-bar); border-bottom: 1px solid var(--win-edge); }
 .dw-bar[data-bar="bottom"] { border-bottom: 0; border-top: 1px solid var(--win-edge); }
 .dw-colbg { background: var(--win-bar); }

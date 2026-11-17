@@ -23,6 +23,7 @@ import {
   floatOrientOf,
   fold,
   open as openItem,
+  raise,
   refusals as sceneRefusals,
   stops as sceneStops,
   railModeOf,
@@ -38,7 +39,7 @@ import {
   type SceneRefusal,
   type SceneTarget,
 } from "@n-uf/placement/scene";
-import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, EDGES, GROUPS, PANELS, RAIL, ROW_VARIANTS, TITLES, ZOOM_CONTROLS, defaultScene, edgeOf, isSideEdge, reformPanels, setGroupSizes, setTitleSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId, type PanelId } from "./model";
+import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, GROUPS, PANELS, RAIL, ROW_VARIANTS, TITLES, ZOOM_CONTROLS, defaultScene, edgeOf, reformPanels, titleOf, setGroupSizes, setTitleSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId, type PanelId } from "./model";
 import { DEFAULT_FEEL, keyName, tuningOf, withFeel, type DragFeel } from "./feel";
 import { readDocwin, storeDocwin, type StoredDocwin } from "./store";
 import { createDragSession, followPointer, swallowClick } from "../shared/session";
@@ -185,7 +186,7 @@ export function createScene(o: SceneOptions) {
   let feel: DragFeel = DEFAULT_FEEL;
 
   win.innerHTML = `
-    ${EDGES.map((e) => `<div class="${isSideEdge(e) ? "dw-colbg" : "dw-bar"}" data-edge="${e}"></div>`).join("")}
+    <div class="dw-edges"></div>
     <div class="dw-scroll" tabindex="0" aria-label="Pages"><div class="dw-sheets"></div></div>
     <div class="dw-items"></div>
     <div class="dw-resize" data-resize="left" title="Drag to change the column's width"></div>
@@ -197,6 +198,7 @@ export function createScene(o: SceneOptions) {
     <div class="dw-refuse-label" hidden>No room here</div>
     <div class="dw-menu-list" role="menu" hidden></div>`;
   const q = <T extends HTMLElement>(sel: string): T => win.querySelector(sel) as T;
+  const edgeLayer = q<HTMLDivElement>(".dw-edges");
   const layer = q<HTMLDivElement>(".dw-items");
   const scroll = q<HTMLDivElement>(".dw-scroll");
   const sheets = q<HTMLDivElement>(".dw-sheets");
@@ -226,7 +228,7 @@ export function createScene(o: SceneOptions) {
 
   function head(id: ItemId): string {
     const c = countOf(id);
-    return `<header class="dw-head" data-grip><span class="dw-dots" aria-hidden="true"></span><b>${TITLES[id]}</b>${c === null ? "" : badge(c)}<button type="button" class="dw-pm" data-pmenu="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${TITLES[id]} menu">⋯</button><button type="button" class="dw-x" data-close="${id}" aria-label="Close ${TITLES[id]}">×</button></header>`;
+    return `<header class="dw-head" data-grip><span class="dw-dots" aria-hidden="true"></span><b>${titleOf(id)}</b>${c === null ? "" : badge(c)}<button type="button" class="dw-pm" data-pmenu="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${titleOf(id)} menu">⋯</button><button type="button" class="dw-x" data-close="${id}" aria-label="Close ${titleOf(id)}">×</button></header>`;
   }
 
   /** A group's words, one HTML piece each, in the order the `wrap` form's widths list them; `hidden` controls left out. */
@@ -261,7 +263,7 @@ export function createScene(o: SceneOptions) {
   const moreCell = (id: ItemId, hidden: readonly string[]): string =>
     hidden.length === 0
       ? ""
-      : `<button type="button" class="dw-more" data-more="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${hidden.length} more ${esc(TITLES[id])} controls"><span class="dw-chev" aria-hidden="true">»</span><span class="dw-cnt" aria-hidden="true">${hidden.length}</span></button>`;
+      : `<button type="button" class="dw-more" data-more="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${hidden.length} more ${esc(titleOf(id))} controls"><span class="dw-chev" aria-hidden="true">»</span><span class="dw-cnt" aria-hidden="true">${hidden.length}</span></button>`;
 
   function groupContent(id: ItemId, kind: string, hidden: readonly string[] = []): string {
     const sq = (label: string, attrs = ""): string => `<button type="button" class="dw-sq" ${attrs}>${label}</button>`;
@@ -288,7 +290,7 @@ export function createScene(o: SceneOptions) {
    */
   const railTitle = (id: ItemId, side: "left" | "right"): string => {
     const c = countOf(id);
-    return `<button type="button" class="dw-railbtn dw-railtitle dw-rt-${side}" data-grip data-open="${id}" aria-label="Open ${TITLES[id]}"><span class="dw-rt">${TITLES[id]}${c === null ? "" : badge(c)}</span></button>`;
+    return `<button type="button" class="dw-railbtn dw-railtitle dw-rt-${side}" data-grip data-open="${id}" aria-label="Open ${titleOf(id)}"><span class="dw-rt">${titleOf(id)}${c === null ? "" : badge(c)}</span></button>`;
   };
 
   function inner(id: ItemId, kind: string, rows?: readonly (readonly number[])[], hidden: readonly string[] = [], titleSide?: "left" | "right"): string {
@@ -299,9 +301,9 @@ export function createScene(o: SceneOptions) {
       if (kind === "header") return head(id);
       if (titleSide) return railTitle(id, titleSide);
       const c = countOf(id);
-      return `<button type="button" class="dw-railbtn" data-grip data-open="${id}" aria-label="Open ${TITLES[id]}">${TITLES[id][0]}${c === null ? "" : badge(c)}</button>`;
+      return `<button type="button" class="dw-railbtn" data-grip data-open="${id}" aria-label="Open ${titleOf(id)}">${titleOf(id)[0]}${c === null ? "" : badge(c)}</button>`;
     }
-    if (kind === "fold") return `<span class="dw-dots" data-grip aria-hidden="true"></span><button type="button" class="dw-sq" title="${TITLES[id]}">»</button>`;
+    if (kind === "fold") return `<span class="dw-dots" data-grip aria-hidden="true"></span><button type="button" class="dw-sq" title="${titleOf(id)}">»</button>`;
     if (kind === "wrap" && rows) {
       // The grip's cell at the start of row one, the words wrapping in their own box beside it (from the layout's rows).
       const words = groupWords(id);
@@ -348,12 +350,11 @@ export function createScene(o: SceneOptions) {
   function draw(s: Scene, l: SceneLayout, hide?: ItemId, refit = false): void {
     win.style.width = px(s.stage.width);
     win.style.height = px(s.stage.height);
-    for (const e of EDGES) {
-      const el = q<HTMLDivElement>(`[data-edge=${e}]`);
-      const r = l.edges[e]?.rect;
-      el.hidden = !r || r.width <= 0 || r.height <= 0;
-      if (r) place(el, r);
-    }
+    // Every edge the layout has (this window's, or any scene's): a bar's or a column's background.
+    edgeLayer.innerHTML = Object.entries(l.edges)
+      .filter(([, e]) => e.rect.width > 0 && e.rect.height > 0)
+      .map(([id, e]) => `<div class="${e.side === "left" || e.side === "right" ? "dw-colbg" : "dw-bar"}" data-edge="${esc(id)}" style="left:${px(e.rect.x)};top:${px(e.rect.y)};width:${px(e.rect.width)};height:${px(e.rect.height)}"></div>`)
+      .join("");
     place(scroll, l.content);
     if (refit || pageKey === "") drawPages(l.content);
     for (const side of ["left", "right"] as const) {
@@ -366,9 +367,9 @@ export function createScene(o: SceneOptions) {
     for (const id of Object.keys(l.items) as ItemId[]) if (id !== hide && !l.items[id]!.floating && !l.items[id]!.inMenu) docked.push(itemHtml(s, l, id));
     // Floats in their stacking order, the last on top.
     const floats = l.floats.filter((id) => id !== hide).map((id) => itemHtml(s, l, id as ItemId));
-    const menus = EDGES.flatMap((e) => {
+    const menus = Object.keys(l.edges).flatMap((e) => {
       const m = l.edges[e]?.menu;
-      return m ? [`<button type="button" class="dw-menu" data-edge="${e}" title="${esc(m.items.map((id) => TITLES[id as ItemId]).join(", "))}" style="left:${px(m.rect.x)};top:${px(m.rect.y)};width:${px(m.rect.width)};height:${px(m.rect.height)}">» ${m.items.length}</button>`] : [];
+      return m ? [`<button type="button" class="dw-menu" data-edge="${e}" title="${esc(m.items.map((id) => titleOf(id)).join(", "))}" style="left:${px(m.rect.x)};top:${px(m.rect.y)};width:${px(m.rect.width)};height:${px(m.rect.height)}">» ${m.items.length}</button>`] : [];
     });
     layer.innerHTML = docked.join("") + menus.join("") + floats.join("");
   }
@@ -417,7 +418,7 @@ export function createScene(o: SceneOptions) {
     const next = fold(scene, id, on);
     if (next === scene) return;
     commit(next);
-    say(`${TITLES[id]} ${on ? "folded" : "unfolded"}. Double-click its grip again to ${on ? "unfold" : "fold"} it.`);
+    say(`${titleOf(id)} ${on ? "folded" : "unfolded"}. Double-click its grip again to ${on ? "unfold" : "fold"} it.`);
   }
 
   /** A press on a header: the item counts as just used. With the layout before, nothing moves. */
@@ -433,11 +434,11 @@ export function createScene(o: SceneOptions) {
     const it = scene.items[id];
     const s = it && !it.closed && (it.from ?? 0) >= 1 ? fold(scene, id, false) : openItem(scene, id);
     commit(use(s, id), { fresh: e ? [e] : [] });
-    say(`${TITLES[id]} opened.`);
+    say(`${titleOf(id)} opened.`);
   }
   function close(id: ItemId): void {
     commit(closeItem(scene, id));
-    say(`${TITLES[id]} closed. Its Views word opens it again.`);
+    say(`${titleOf(id)} closed. Its Views word opens it again.`);
   }
   const toggle = (id: ItemId): void => (scene.items[id]!.closed ? open(id) : close(id));
   /** A side's rails show their panels' titles (while they fit) or their tiles: `rails[side].mode`, stored. */
@@ -449,8 +450,14 @@ export function createScene(o: SceneOptions) {
   }
 
   // The drag feel: the rail drop policies per kind go into the scene the targets read; the tuning into each drag.
-  const targetsOf = (id: ItemId): SceneTarget[] => sceneTargets(withFeel(scene, feel), id, { previous: layout, endReach: END_REACH });
-  const refusalsOf = (id: ItemId): SceneRefusal[] => sceneRefusals(withFeel(scene, feel), id, { previous: layout, endReach: END_REACH });
+  // A scene loaded from elsewhere (a conformance row, `hostRules`) keeps its own rail drop policies and the rows' end
+  // reach, and drags with the intent's default tuning.
+  let rowRules: { readonly endReach: number } | null = null;
+  const ruled = (): Scene => (rowRules ? scene : withFeel(scene, feel));
+  const reachOf = (): { previous: SceneLayout; endReach: number } => ({ previous: layout, endReach: rowRules?.endReach ?? END_REACH });
+  const targetsOf = (id: ItemId): SceneTarget[] => sceneTargets(ruled(), id, reachOf());
+  const refusalsOf = (id: ItemId): SceneRefusal[] => sceneRefusals(ruled(), id, reachOf());
+  const stopsOf = (id: ItemId): SceneTarget[] => sceneStops(ruled(), id, reachOf());
 
   /**
    * The side rails' drop strips: while a panel is held, each rail target's strip (`whileDragging`); with `always`, also
@@ -613,6 +620,7 @@ export function createScene(o: SceneOptions) {
     // The held copy: a frame (the morph's box, its anchor on the pointer) holding each form's content.
     const el = document.createElement("div");
     el.className = `dw-held dw-morph dw-${was.kind}`;
+    el.dataset.dragHeld = id;
     const grab = { x: start.x - was.rect.x, y: start.y - was.rect.y };
     place(el, { x: p.x - grab.x, y: p.y - grab.y, width: was.rect.width, height: was.rect.height });
     win.append(el);
@@ -644,7 +652,7 @@ export function createScene(o: SceneOptions) {
       formOf: null,
       switches: 0,
       last: now,
-      intent: createDragIntent<SceneTarget>({ home, tuning: tuningOf(feel, was.kind) }),
+      intent: createDragIntent<SceneTarget>({ home, tuning: rowRules ? {} : tuningOf(feel, was.kind) }),
       targets,
       refusals: refusalsOf(id),
       focus: document.activeElement,
@@ -662,12 +670,21 @@ export function createScene(o: SceneOptions) {
     liftKeys = {};
     // No target shown yet: the committed layout, the held item's place left empty, nothing else moving.
     draw(scene, layout, id);
-    say(`${TITLES[id]} lifted. Move over a gap, or anywhere else to float it.`);
+    say(`${titleOf(id)} lifted. Move over a gap, or anywhere else to float it.`);
     session.started(was.kind, now);
     return true;
   }
 
-  function showSlot(r: Rect | null, text = "", line?: Rect): void {
+  /**
+   * The dashed slot (and the marker's insertion line) at `r`. The host contract's marks: a slot where a drop commits
+   * carries `data-drag-slot` and `data-drag-target="<target id>"` (`target`), its line `data-drag-marker`; the "Back to
+   * its place" slot over home carries neither (a drop there commits nothing).
+   */
+  function showSlot(r: Rect | null, text = "", line?: Rect, target?: string): void {
+    slot.toggleAttribute("data-drag-slot", !!r && target !== undefined);
+    if (r && target !== undefined) slot.dataset.dragTarget = target;
+    else delete slot.dataset.dragTarget;
+    marker.toggleAttribute("data-drag-marker", !!r && !!line);
     if (!r) {
       slot.hidden = marker.hidden = true;
       return;
@@ -712,8 +729,8 @@ export function createScene(o: SceneOptions) {
     drawStrips(d.targets, f.arming?.id ?? null, armed);
     if ((armed?.id ?? null) !== d.armedSaid) {
       d.armedSaid = armed?.id ?? null;
-      if (armed && armed.place.kind === "rail") say(`${TITLES[d.id]}: release to collapse it into the ${armed.place.side} rail${f.forced === "rail" ? ` (${keyName(feel.panel.modifiers.railKey)} held)` : ""}.`);
-      else if (f.arming) say(`${TITLES[d.id]} over the ${f.arming.place.kind === "rail" ? f.arming.place.side : ""} rail: hold still to collapse it there.`);
+      if (armed && armed.place.kind === "rail") say(`${titleOf(d.id)}: release to collapse it into the ${armed.place.side} rail${f.forced === "rail" ? ` (${keyName(feel.panel.modifiers.railKey)} held)` : ""}.`);
+      else if (f.arming) say(`${titleOf(d.id)} over the ${f.arming.place.kind === "rail" ? f.arming.place.side : ""} rail: hold still to collapse it there.`);
     }
     const room = plan.makeRoom && docks(f.shown) ? f.shown : null;
     const homing = f.atHome && d.docked && f.shown === null;
@@ -759,15 +776,29 @@ export function createScene(o: SceneOptions) {
     } else if (s.place.kind === "float") {
       const r = s.after(d.pointer, d.grab).layout.items[d.id]?.rect ?? null;
       d.preview = r;
-      showSlot(r, "Float");
+      showSlot(r, "Float", undefined, s.id);
     } else {
       d.preview = s.slot ?? null;
-      showSlot(d.preview, labelOf(s), s.marker);
+      showSlot(d.preview, labelOf(s), s.marker, s.id);
     }
   }
 
   function move(p: Point): void {
     if (drag) drag.pointer = p;
+  }
+
+  /** What the page shows now: during a drag, the shown target's layout after its drop; with none, the held item's place empty. */
+  function preview(): SceneLayout {
+    const d = drag;
+    if (!d) return layout;
+    if (d.shown) return d.shown.after(d.pointer, d.grab).layout;
+    const { [d.id]: _held, ...items } = layout.items;
+    return { ...layout, items, floats: layout.floats.filter((f) => f !== d.id) };
+  }
+
+  /** A press on a grip: a float rises above the others (stacking only: no use, no reshape). */
+  function grip(id: ItemId): void {
+    if (layout.items[id]?.floating && layout.floats[layout.floats.length - 1] !== id) commit(raise(scene, id));
   }
 
   /** Let go (or cancel): the drop commits the shown target's `after(...).scene` as is. */
@@ -795,8 +826,8 @@ export function createScene(o: SceneOptions) {
     } else draw(scene, layout);
     const landed = go ? (layout.items[id]?.rect ?? null) : null;
     lastDrop = { id, target: t?.id ?? refused?.id ?? null, place: t?.place.kind ?? null, preview: go ? preview : t?.place.kind === "home" || d.homing ? d.preview : null, landed, committed: go, cancelled: cancel };
-    if (go && preview && landed && !sameRect(preview, landed)) say(`${TITLES[id]} → ${labelOf(t!)}, but it landed off its slot.`);
-    else if (go) say(`${TITLES[id]} → ${labelOf(t!)}.`);
+    if (go && preview && landed && !sameRect(preview, landed)) say(`${titleOf(id)} → ${labelOf(t!)}, but it landed off its slot.`);
+    else if (go) say(`${titleOf(id)} → ${labelOf(t!)}.`);
     else say(cancel ? "Cancelled: back where it was." : refused ? "No room here: back where it was." : t?.place.kind === "none" ? "No drop here." : d.homing || t?.place.kind === "home" ? "Back in its place." : "No target: it went home.");
     if (d.focus instanceof HTMLElement && d.focus.isConnected) d.focus.focus({ preventScroll: true });
     return lastDrop;
@@ -817,13 +848,14 @@ export function createScene(o: SceneOptions) {
     const fh = t.closest<HTMLElement>("[data-fh]");
     const fhOf = fh?.closest<HTMLElement>("[data-id]");
     if (fh && fhOf) return resizeFloat(e, fhOf.dataset.id as ItemId, fh.dataset.fh as FloatHandle);
-    const grip = t.closest<HTMLElement>("[data-grip]");
+    const gripEl = t.closest<HTMLElement>("[data-grip]");
     const itemEl = t.closest<HTMLElement>("[data-id]");
-    if (!grip || !itemEl) return;
+    if (!gripEl || !itemEl) return;
     // A button inside a grip (a header's ×) is a click, not a drag.
     const btn = t.closest("button");
     if (btn && !btn.hasAttribute("data-grip")) return;
     const id = itemEl.dataset.id as ItemId;
+    grip(id);
     // A double pairs two presses on the same item only: a click that redrew the window (a rail title opening its panel)
     // leaves another item under the second press, which is a plain click then.
     session.press(e, `${id}:${t.closest("[data-open]") ? "rail" : "grip"}`, {
@@ -873,7 +905,7 @@ export function createScene(o: SceneOptions) {
     moreOf = id;
     menuList.dataset.edge = "";
     menuList.dataset.more = id;
-    menuList.setAttribute("aria-label", `More ${TITLES[id]} controls`);
+    menuList.setAttribute("aria-label", `More ${titleOf(id)} controls`);
     menuList.innerHTML = hidden
       .map((c) => `<button type="button" role="menuitem" tabindex="-1" data-hidden-control="${esc(c)}"${id === "zoom" ? ` data-zoom="${esc(c)}"` : ""}>${esc(controlLabel(id, c))}</button>`)
       .join("");
@@ -933,7 +965,7 @@ export function createScene(o: SceneOptions) {
     const pick = t.closest<HTMLElement>("[data-menu-item]");
     if (pick) {
       menuList.hidden = true;
-      say(`${TITLES[pick.dataset.menuItem as ItemId]}, from the » menu: its controls would act here.`);
+      say(`${titleOf(pick.dataset.menuItem!)}, from the » menu: its controls would act here.`);
       return;
     }
     // A "+N" cell: the popover lists exactly the controls its form hides; picking one acts as the real control.
@@ -977,7 +1009,7 @@ export function createScene(o: SceneOptions) {
       menuList.hidden = open;
       if (open) return;
       menuList.dataset.edge = m.dataset.edge!;
-      menuList.innerHTML = held.map((id) => `<button type="button" data-menu-item="${id}">${esc(TITLES[id as ItemId])}</button>`).join("");
+      menuList.innerHTML = held.map((id) => `<button type="button" data-menu-item="${id}">${esc(titleOf(id))}</button>`).join("");
       const r = m.getBoundingClientRect();
       const w = win.getBoundingClientRect();
       menuList.style.left = px(Math.min(r.left - w.left, w.width - 160));
@@ -1037,11 +1069,11 @@ export function createScene(o: SceneOptions) {
   function openPanelMenu(btn: HTMLElement, focusFirst: boolean): void {
     closeMore(false);
     const id = btn.dataset.pmenu as ItemId;
-    const rails = sceneStops(withFeel(scene, feel), id, { previous: layout, endReach: END_REACH }).filter((t) => t.place.kind === "rail");
+    const rails = stopsOf(id).filter((t) => t.place.kind === "rail");
     menuList.dataset.edge = "";
     delete menuList.dataset.rail;
     menuList.dataset.pmenu = id;
-    menuList.setAttribute("aria-label", `${TITLES[id]} menu`);
+    menuList.setAttribute("aria-label", `${titleOf(id)} menu`);
     menuList.innerHTML = (["left", "right"] as const)
       .map((side) => {
         const t = rails.find((x) => x.place.kind === "rail" && x.place.side === side);
@@ -1068,10 +1100,10 @@ export function createScene(o: SceneOptions) {
   }
   /** "Move to › Rail (side)": the panel collapsed into that side's rail, as a drop there does. */
   function moveToRail(id: ItemId, side: "left" | "right"): boolean {
-    const t = sceneStops(withFeel(scene, feel), id, { previous: layout, endReach: END_REACH }).find((x) => x.place.kind === "rail" && x.place.side === side);
+    const t = stopsOf(id).find((x) => x.place.kind === "rail" && x.place.side === side);
     if (!t) return false;
     commit(t.after({ x: 0, y: 0 }).scene);
-    say(`${TITLES[id]} collapsed into the ${side} rail. Its rail button opens it again.`);
+    say(`${titleOf(id)} collapsed into the ${side} rail. Its rail button opens it again.`);
     return true;
   }
 
@@ -1146,7 +1178,7 @@ export function createScene(o: SceneOptions) {
       stop();
       swallowClick();
       const r = layout.items[id]?.rect;
-      if (r) say(`${TITLES[id]} resized to ${Math.round(r.width)} × ${Math.round(r.height)}${limits.length ? ` (stopped by: ${limits.join(", ")})` : ""}.`);
+      if (r) say(`${titleOf(id)} resized to ${Math.round(r.width)} × ${Math.round(r.height)}${limits.length ? ` (stopped by: ${limits.join(", ")})` : ""}.`);
     };
     const key = (ev: KeyboardEvent): void => {
       if (ev.type !== "keydown" || ev.key !== "Escape") return;
@@ -1235,7 +1267,7 @@ export function createScene(o: SceneOptions) {
       const lead = round(wwords[0]!.getBoundingClientRect().left - wrapped.getBoundingClientRect().left + capEnd);
       const iconsCol = copy(id, "icons", "column", `${dots}<div class="dw-gc">${groupContent(id, "icons")}</div>`);
       const iconsRow = copy(id, "icons", "row", `${dots}<div class="dw-gc">${groupContent(id, "icons")}</div>`, `${BAR}px`);
-      const fold = copy(id, "fold", "row", `${dots}<button type="button" class="dw-sq" title="${TITLES[id]}">»</button>`, `${BAR}px`);
+      const fold = copy(id, "fold", "row", `${dots}<button type="button" class="dw-sq" title="${titleOf(id)}">»</button>`, `${BAR}px`);
       // Each compact variant as `inner` draws it: the words it keeps and its "+N" cell.
       const variants = (ROW_VARIANTS[id] ?? []).map((hides) => copy(id, "row", "row", `${dots}<div class="dw-gc">${groupContent(id, "row", hides)}</div>`, `${BAR}px`));
       out[id] = { row: size(row).width, words: widths.map(round), gap: Math.max(0, Math.round(gap)), wrapRow, lead, icons: size(iconsCol), iconsRow: size(iconsRow).width, fold: size(fold).width, variants: variants.map((v) => size(v).width) };
@@ -1374,5 +1406,17 @@ export function createScene(o: SceneOptions) {
     release,
     stored: (): StoredDocwin => storeDocwin(scene),
     say,
+    preview,
+    grip,
+    stops: stopsOf,
+    /** Commit a scene as a change (solved with the layout before), drawn and stored. */
+    commit: (next: Scene): void => void commit(next),
+    /**
+     * A scene loaded from elsewhere (a conformance row): its own rail drop policies, `endReach` px of end reach and the
+     * intent's default tuning, until switched off (null).
+     */
+    hostRules(rules: { readonly endReach: number } | null): void {
+      rowRules = rules;
+    },
   };
 }
