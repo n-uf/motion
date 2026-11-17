@@ -1,8 +1,8 @@
 /**
  * The floats: fitted inside the stage less the inset at its left and right, clear of every docked item (fixed ones and
  * » entries included), every bar and the chrome rects (`fitFloat`). An anchored float sits flush with that side or
- * corner of `content` first. A float with `from` over 0 is its bar: its form's natural length along its `orient`, its
- * other size kept.
+ * corner of `content` first, then clear of the floats laid before it too, where room exists (`fitBeside`: earlier floats
+ * win). A float with `from` over 0 is its bar: its form's natural length along its `orient`, its other size kept.
  */
 import { fitFloat, type FloatFit } from "../../float-fit";
 import { EPS, rect, type Rect, type Size } from "../../geometry";
@@ -72,12 +72,25 @@ function clearSize(region: Rect, avoid: readonly Rect[]): Size {
 }
 
 /**
+ * An anchored float's fit: `fitFloat` clear of `avoid` and of `earlier` (the floats laid before it), the same nearest
+ * clear place it finds beside docked items. Where no place is clear of both, it is `fitFloat` clear of `avoid` alone, as
+ * if `earlier` were not there: a float may cover an earlier float, never a docked item it could have stayed clear of.
+ * With no earlier floats it is exactly `fitFloat(want, region, avoid)`.
+ */
+function fitBeside(want: Rect, region: Rect, avoid: readonly Rect[], earlier: readonly Rect[]): FloatFit {
+  if (earlier.length === 0) return fitFloat(want, region, avoid);
+  const both = fitFloat(want, region, [...avoid, ...earlier]);
+  return both.covers.length === 0 ? both : fitFloat(want, region, avoid);
+}
+
+/**
  * Where one float of `item` lies, as `solve` lays it (and `fitResize` previews it): its form and size, then `fitFloat`
  * into `region`, clear of `avoid`. Its size is clamped to the room `region` leaves clear of the bars and chrome across
  * it (`clearSize`), never under its floor: only a floor larger than that room covers. The one clamp for a float's rect;
- * `shape.none` is the caller's to handle first.
+ * `shape.none` is the caller's to handle first. An anchored float is also kept clear of `earlier` (the floats laid before
+ * it) where room exists (`fitBeside`); a float with a rect of its own ignores `earlier`.
  */
-export function placeFloat(item: SceneItem, f: Pick<SceneFloat, "rect" | "orient" | "anchor">, region: Rect, avoid: readonly Rect[], content: Rect, stage: Rect): { from: number; fo: Orient; form: StackForm | undefined; fit: FloatFit } {
+export function placeFloat(item: SceneItem, f: Pick<SceneFloat, "rect" | "orient" | "anchor">, region: Rect, avoid: readonly Rect[], content: Rect, stage: Rect, earlier: readonly Rect[] = []): { from: number; fo: Orient; form: StackForm | undefined; fit: FloatFit } {
   const shape = floatShape(item, f);
   const from = shape.form;
   // Its orient: the float's, else the item's (`floatOrientOf`: a toolbar group floats as a row).
@@ -95,7 +108,7 @@ export function placeFloat(item: SceneItem, f: Pick<SceneFloat, "rect" | "orient
   const folded = form?.kind === "header" || form?.kind === "fold";
   const h = folded ? shape.height : Math.max(floor.height, Math.min(shape.height, clear.height, cap.height));
   const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);
-  const fit0 = fitFloat(want, region, avoid);
+  const fit0 = f.anchor ? fitBeside(want, region, avoid, earlier) : fitFloat(want, region, avoid);
   const fit = w > region.width + EPS ? { ...fit0, rect: rect(region.x, fit0.rect.y, w, fit0.rect.height) } : fit0;
   return { from, fo, form, fit };
 }
@@ -124,7 +137,9 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
       notes.push({ code: "no-vertical-form", id: f.id });
       continue;
     }
-    const { from, fo, form, fit } = placeFloat(it, f, floatRegion, avoid, content, stage);
+    // An anchored float keeps clear of the floats laid before it too (earlier floats win); one with its own rect doesn't.
+    const earlier = f.anchor ? floats.map((id) => items[id]!.rect) : [];
+    const { from, fo, form, fit } = placeFloat(it, f, floatRegion, avoid, content, stage, earlier);
     if (fit.clamped) notes.push({ code: "float-clamped", id: f.id });
     if (fit.snapped) notes.push({ code: "float-moved", id: f.id });
     if (fit.covers.length > 0) notes.push({ code: "float-covers", id: f.id });

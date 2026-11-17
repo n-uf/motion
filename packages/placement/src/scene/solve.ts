@@ -18,7 +18,8 @@
  *    end (before the » entry) and center items sit centered on the edge's middle, moved only as far as they must to
  *    stay between the other two zones.
  * 5. **Floats** are fitted inside the stage, clear of every docked item (fixed ones and » entries included), every bar
- *    and the chrome rects (`fitFloat`). An anchored float sits flush with that side or corner of `content` first. A
+ *    and the chrome rects (`fitFloat`). An anchored float sits flush with that side or corner of `content` first, and
+ *    keeps clear of the floats before it in `scene.floats` too where room exists (earlier floats win). A
  *    float with `from` over 0 is its bar: its form's natural length along its `orient`, its other size kept.
  *
  * 6. **Dynamic columns** (`Edge.column`, on a side with `Scene.rails[side]`): while the content is narrower than
