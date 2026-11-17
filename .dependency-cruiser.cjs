@@ -30,6 +30,13 @@ module.exports = {
       from: { path: "^packages/([^/]+)/src/([^/]+)/" },
       to: { path: "^packages/$1/src/[^/]+/", pathNot: ["^packages/$1/src/$2/", "/index[.]ts$"] },
     },
+    {
+      // Tiling stands on the root (geometry, `Target`) alone: the legacy entries may import it, never the reverse.
+      name: "tiling-root-only",
+      severity: "error",
+      from: { path: "^packages/placement/src/tiling/" },
+      to: { path: "^packages/placement/src/[^/]+/", pathNot: "^packages/placement/src/tiling/" },
+    },
   ],
   options: {
     tsPreCompilationDeps: true,

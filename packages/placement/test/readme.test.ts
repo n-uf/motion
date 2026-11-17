@@ -9,6 +9,7 @@ import { PRESETS, presetLayout, presetTargets } from "../src/desk";
 import { fitFloat, fitStack, readFloats, readStack, stackFloatTarget, stackTargets, storeFloats, storeStack, type StackForm, type StackItem } from "../src/stack";
 import { readScene, solve, storeScene, targets, type Scene, type SceneItem } from "../src/scene";
 import { CASES, createSceneHost, runCase } from "../src/scene/cases";
+import { dropOnPane, layoutSplit, paneRegion, paneTargets, splitFromOrder, type PaneRegion, type PaneTarget } from "../src/tiling";
 
 describe("README examples", () => {
   it("desk presets", () => {
@@ -143,6 +144,17 @@ describe("README examples", () => {
       { x: 220, y: 0, width: 980, height: 40 },
       { x: 220, y: 40, width: 980, height: 660 },
     ]);
+  });
+
+  it("tiling", () => {
+    const area = { x: 0, y: 0, width: 800, height: 400 };
+    const tree = splitFromOrder(["a", "b"]);
+    const after = dropOnPane(tree, "c", "b", "top");
+    expect(layoutSplit(after, area).get("c")).toEqual({ x: 400, y: 0, width: 400, height: 200 });
+    const tiles = paneTargets(layoutSplit(tree, area));
+    const placeOf = (t: PaneTarget<string>, p: { x: number; y: number }, previous: string | null): string =>
+      `${t.id}:${paneRegion(t.hit, p, (previous?.split(":")[2] as PaneRegion | undefined) ?? null)}`;
+    expect(placeOf(tiles[1]!, { x: 600, y: 10 }, null)).toBe("pane:b:top");
   });
 
   it("pane zones", () => {
