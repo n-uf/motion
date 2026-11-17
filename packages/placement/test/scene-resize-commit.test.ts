@@ -240,3 +240,57 @@ describe("a float that already covers a bar does not grow over it", () => {
     expect(bad.slice(0, 10), `${bad.length} of ${tried}`).toEqual([]);
   });
 });
+
+/** A 900 x 600 window with a title bar and a toolbar at the top, a status bar across the bottom, and a float stored `h` tall. */
+function storedTall(h: number, floorHeight?: number): Scene {
+  return {
+    stage: { x: 0, y: 0, width: 900, height: 600 },
+    edges: [
+      { id: "titlebar", side: "top", ring: 0, accepts: [], items: ["title", "controls"], cross: { min: 32, max: 32, rail: 32 } },
+      bar("tools", "top", 1, ["g"]),
+      bar("status", "bottom", 0, ["s"], { span: "full" }),
+    ],
+    items: byId([title(), controls(), group("g", 1), group("s", 2), panel("q", 5, floorHeight === undefined ? {} : { floatMin: { width: 200, height: floorHeight } }, 260)]),
+    floats: [{ id: "q", rect: { x: 300, y: 0, width: 260, height: h } }],
+    floatKinds: ["panel"],
+  };
+}
+
+/** The room between the bars across the top and the bar across the bottom, as `solve` draws them. */
+function between(l: SceneLayout): { top: number; bottom: number } {
+  const rows = Object.values(l.edges).filter((e) => (e.side === "top" || e.side === "bottom") && e.cross > 0);
+  return { top: Math.max(...rows.filter((e) => e.side === "top").map((e) => e.rect.y + e.rect.height)), bottom: Math.min(...rows.filter((e) => e.side === "bottom").map((e) => e.rect.y)) };
+}
+
+describe("a float stored taller than the clear stage is drawn between the bars", () => {
+  it("stored at the stage's height, it is drawn from the top bars' end to the bottom bar's start, covering nothing", () => {
+    const l = solve(storedTall(600));
+    const { top, bottom } = between(l);
+    expect(top).toBeGreaterThan(0);
+    expect(bottom).toBeLessThan(600);
+    const r = l.items.q!.rect;
+    expect(r.y).toBe(top);
+    expect(r.y + r.height).toBe(bottom);
+    expect(l.notes.some((n) => n.code === "float-covers" && n.id === "q")).toBe(false);
+  });
+
+  it("a floor taller than the clear room keeps the floor and covers, and says so", () => {
+    const s = storedTall(600, 580);
+    const l = solve(s);
+    const { top, bottom } = between(l);
+    expect(580).toBeGreaterThan(bottom - top);
+    expect(l.items.q!.rect.height).toBe(580);
+    expect(l.notes.some((n) => n.code === "float-covers" && n.id === "q")).toBe(true);
+  });
+
+  it("a resize of the stored oversize float previews what it commits", () => {
+    const s = storedTall(600);
+    const drawn = solve(s).items.q!.rect;
+    for (const m of [{ top: true }, { bottom: true }, { right: true }] as ResizeEdges[]) {
+      const asked = { x: drawn.x, y: m.top ? drawn.y - 40 : drawn.y, width: m.right ? drawn.width + 40 : drawn.width, height: drawn.height + (m.right ? 0 : 40) };
+      const fit = fitResize(s, "q", asked, m)!;
+      expect(solve(resize(s, "q", asked, m)).items.q!.rect, JSON.stringify(m)).toEqual(fit.rect);
+      expect(fit.rect.height).toBeLessThanOrEqual(drawn.height);
+    }
+  });
+});

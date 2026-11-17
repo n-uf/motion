@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.32
 
+- `./scene`, fixed: **a float stored taller than the clear stage was drawn over the bars.** `solve` sized a float to the
+  floats' region (the stage less its left and right inset), so one stored at the body's height lay over the top and
+  bottom bars by their height. Its size is now clamped to the room that region leaves clear of the bars and chrome
+  across it, along each axis, never under its floor (`floatMin`, else its form's minimums); only a floor larger than
+  that room keeps the floor and covers (`float-covers`). It is the one clamp `fitResize` lays floats with, so a resize
+  still previews its commit. A stored oversize float is drawn clear on the next `solve`; `readScene` is unchanged.
 - `./scene/cases`, **`requires.intent`** (additive) and **row R4b-leaving-the-band**: a row that checks what a drag
   intent adds to the pick at a point names `requires: { intent: true }`, and a host without one (the in-memory host)
   skips it. R4b leaves a shown gap from inside its hit: just past the hit the intent's band holds it, past the band
