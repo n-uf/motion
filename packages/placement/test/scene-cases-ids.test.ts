@@ -109,14 +109,27 @@ function namingHost(prefix: string, ids: Readonly<Record<string, string>>): { ho
 describe("a row's `requires` is true of its own scene", () => {
   it("rows that name a precondition meet it themselves, and the ones that need a rail declare it", () => {
     const needing = CASES.filter((c) => c.requires);
-    expect(needing.map((c) => c.id)).toEqual(["C7", "R4b-leaving-the-band", "P5-neighbour-half-facing-it", "P9-to-the-other-rail"]);
+    expect(needing.map((c) => c.id)).toEqual(["C7", "R4b-leaving-the-band", "P5-neighbour-half-facing-it", "P6-outer-line-at-11-px", "P9-to-the-other-rail"]);
     for (const row of needing) {
       if (row.requires?.hitBand === "default") for (const e of row.scene.edges) expect(e.hitBand, `${row.id} ${e.id}`).toBeUndefined();
+      if (row.requires?.railDrop === "scene") expect(row.scene.railDrop, `${row.id}: no strip of its own`).toBeUndefined();
       for (const side of row.requires?.rails ?? []) {
         expect(row.scene.rails?.[side], `${row.id} ${side}`).toBeDefined();
         // The rail shows at the start: a folded column put panels in it.
         expect(solve(row.scene).rails[side]?.segments.length, `${row.id} ${side} rail shows`).toBeGreaterThan(0);
       }
+    }
+  });
+});
+
+describe("rows that mean a new outermost column aim by place", () => {
+  it("they hold with a 32 px rail drop strip for panels, as a UI kit lays it", () => {
+    for (const id of ["P6-new-outer-column-from-outside", "P6-new-outer-column-from-inside", "P6-left-outer-edge"]) {
+      const row = CASES.find((c) => c.id === id)!;
+      expect(row.gestures.some((x) => x.type === "move" && x.place?.kind === "column"), `${id} aims at a column place`).toBe(true);
+      const strip = { ...row, scene: { ...row.scene, railDrop: { panel: { railStripWidth: 32, railVisibility: "whileDragging" as const } } } };
+      const r = runCase(strip, createSceneHost());
+      expect(r.ok, `${id} with a strip: ${r.failures.join("; ")}`).toBe(true);
     }
   });
 });
