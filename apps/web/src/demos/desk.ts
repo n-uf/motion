@@ -7,6 +7,7 @@
 import type { Rect } from "@n-uf/placement";
 import { solve, type Edge, type Scene, type SceneItem, type SceneLayout, type SceneNote } from "@n-uf/placement/scene";
 import { layoutSplit, masterStack, splitFromOrder } from "@n-uf/placement/tiling";
+import { floatSpot, stripColumn } from "./sketch-rules";
 
 const G = 6, BAR = 34, RAIL = 34, TITLE = 22;
 const PANELS: Record<string, number> = { Files: 130, Outline: 110, Notes: 100, Inspector: 100, History: 150 };
@@ -273,7 +274,8 @@ const C: Record<string, Build> = {
     }
     floats.forEach((f, i) => {
       const m = f.kind === "doc" ? { w: 300, h: 190 } : { w: 200, h: PANELS[f.label]! + 50 };
-      out.push(box(W / 2 - m.w / 2 + 22 * i, BAR + 40 + 22 * i, m.w, m.h, "float", f.label));
+      const r = floatSpot(W, BAR, { width: m.w, height: m.h }, i);
+      out.push(box(r.x, r.y, r.width, r.height, "float", f.label));
     });
     if (floats.length) notes.push(`${floats.length} tile${floats.length > 1 ? "s" : ""} float (newest first): ${floats.map((f) => f.label).join(", ")}`);
     return out;
@@ -281,7 +283,7 @@ const C: Record<string, Build> = {
 
   strip(W, H, n, notes) {
     const out = [box(0, 0, W, BAR, "toolbar", "Toolbar")];
-    const y = BAR + G, h = H - BAR - 2 * G, pw = 180, dw = Math.max(360, Math.min(520, W * 0.5));
+    const y = BAR + G, h = H - BAR - 2 * G, pw = 180, dw = stripColumn(W);
     // Columns in order; a panel column whose minimums don't fit splits into two columns.
     const cols: { w: number; items: string[]; kind: Kind }[] = [];
     const panelCols = (names: string[]): string[][] => {
