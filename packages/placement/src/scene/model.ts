@@ -292,6 +292,13 @@ export interface SceneFloat {
   readonly anchor?: FloatAnchorAt;
   /** Which of the item's forms it uses (default: the item's `floatOrientOf`). */
   readonly orient?: Orient;
+  /**
+   * When it was floated, as a sequence: `floatAt` and `moveTo(…, { kind: "float" })` give a newly floated item one more
+   * than the largest `since` among the scene's floats (1 when there are none); moving a float that already floats,
+   * `raise`, `use` and `resize` keep it. Among anchored floats the earlier (smaller `since`, missing counting as 0, then
+   * the smaller id) wins the place both want.
+   */
+  readonly since?: number;
 }
 
 /**

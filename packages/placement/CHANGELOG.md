@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.35
 
+- `./scene`, **`SceneFloat.since`** (additive): when a float was floated, as a sequence. `floatAt` and
+  `moveTo(…, { kind: "float" })` give a newly floated item one more than the largest `since` among the scene's floats
+  (1 when there are none); moving a float that already floats, `raise`, `use` and `resize` keep it, and an item docked
+  and floated again gets a new one. `storeScene` / `readScene` round-trip it; `readScene` drops a value that isn't a
+  finite number of 0 or more as `float:<id>:since`. Scenes without it lay out as before.
+
 - `./scene`, **an anchor with an offset** (additive). A float's `anchor` (in `SceneFloat`, `moveTo`'s float place and
   the stored form) also takes `{ at, dx?, dy? }`: flush with `at`'s side or corner of the content, then `dx` px right and
   `dy` px down, still following the content. A host stores "the top-right corner, 12 px down" instead of a pixel x that
