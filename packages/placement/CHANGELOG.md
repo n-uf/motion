@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.29
+## Unreleased
 
 - `./scene`, fixed: **flush windows lost the new outermost column on an occupied side** when a kind's rail strip is on
   (`Scene.railDrop`): the strip owns the window's edge, which was all the line for a new outermost column had, so only
@@ -33,6 +33,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 - `./scene/cases`, **two `CASE_GROUPS` titles reworded** (data only; the group ids `bands` and `gestures` and every row
   id are unchanged): "Gap bands, refits and slots" is now "Gap hit areas, refits and slots", and "The kits' panel
   gestures" is now "Panel gestures".
+
+## 26.11.29
+
 - `./scene`, **rail docking per item kind** (additive; a kind with no policy targets exactly as before):
   - **`Scene.railDrop`**: per kind (the scene's own kind strings), a **`RailDropPolicy`**: `railStripWidth` (default
     the rail's drawn width, at least `RAIL_STRIP_MIN`, 24; 0 turns it off), `railVisibility` (`RailVisibility`:
@@ -69,7 +72,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 - `./scene`, fixed: **the panel-body cut removes drop places only, never refusals.** An edge that takes nothing (a
   thumbnail anchor) refuses its whole seen rect, its fixed item's open body included; that body used to be cut out as a
   panel body, so nothing covered it and the pointer there floated.
-- `./scene`, **aim order** (below), clarified: home covers its neighbors' facing halves where the neighbors are
+- `./scene`, **aim order** (below), clarified: home covers its neighbours' facing halves where the neighbours are
   **cards**, items whose bodies are drop places (toolbar groups, and panels under `hitBand: "middle"`). An open
   panel's body is no drop place: over it the pointer reaches only the bands at its ends.
 - `./scene`, **rail titles** (additive; scenes without title forms lay out and target exactly as before):
@@ -114,15 +117,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 - `./scene`, **aim order: a pointer over an item's half means before or after it** (hits change; ids, `after` and the
   API don't).
-  - On every occupied edge the dragged item is taken out first; neighboring gaps meet at the midpoint of the item
+  - On every occupied edge the dragged item is taken out first; neighbouring gaps meet at the midpoint of the item
     between them (they met halfway between the gaps' lines). Over a remaining item's leading half the drop goes right
     before it, over its trailing half right after it.
-  - Home covers the item's own rect and the facing halves of its two neighbors, a neighbor in another zone too. A
+  - Home covers the item's own rect and the facing halves of its two neighbours, a neighbour in another zone too. A
     slot of the same order in another zone keeps only the free stretch beside them; one with no free stretch is no
     longer a target, so `stops` lists it no more.
   - Fixed: dragging the last toolbar of a rail with the pointer just inside the top of the toolbar above it showed home
-    (the slot at its home) instead of the place between the two toolbars above. Home's line at the far end of the
-    item's home was laid into the stretch above it, which spread that stretch's lines evenly.
+    (the slot at its own place) instead of the place between the two toolbars above. Home's line at the far end of the
+    item's own place was laid into the stretch above it, which spread that stretch's lines evenly.
   - The items' halves win over a bar's or rail's thirds where they disagree; the thirds still decide between and
     beyond the items, and on empty zones and empty edges.
 
@@ -138,16 +141,16 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 - `./scene`, **an anchor dragged to the other side** (additive): `Edge.moves: "side"` lets the user drag a static edge's
   fixed item (page thumbnails) to the other side of the edge's axis. `targets` then gives that item one target,
   `side:<other side>` (place `{ kind: "side", edge, side }`), over the place the edge takes there; its `after` is
-  `setSide` and `use`, solved, so the preview is the landing. Its home is its own place, and it never gets a gap.
+  `setSide` and `use`, solved, so the preview is the landing. Its own place is home, and it never gets a gap.
   `targetId` and `parseTargetId` read and build `side:<side>`.
 
 - `./scene`, **targets lie where the user sees things** (hits change; ids, `after` and the API don't).
   - Every hit is laid in one layout: the committed one, the dragged item in place. Lines, zone extents, ownership and
     bands come from it. They used to come from the layout with the item lifted, mixed with the one as it is now.
-  - Each target's `after` is still the solved drop, so preview = landing. Where the lift would reflow a neighbor, the
-    preview moves it under a fixed pointer; the hits stay put. Dragging the only panel of a column, the neighboring
+  - Each target's `after` is still the solved drop, so preview = landing. Where the lift would reflow a neighbour, the
+    preview moves it under a fixed pointer; the hits stay put. Dragging the only panel of a column, the neighbouring
     column's gaps lie over its cards where they are drawn.
-  - The gaps right beside the item's home are home (the same move), never the float or another slot. The item's
+  - The gaps right beside the item's own place are home (the same move), never the float or another slot. The item's
     own column, when the lift would delete it, is home as a whole.
   - A bar's zone reaches over every card seen in it, so a card past its third is never refused by the next zone.
   - A panel's body no longer splits its column's tiling: the card's band beside the item meets the nearest slot past
@@ -163,7 +166,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   dropped on read.
 
 - **Fixed:** the new-column target at the window's edge.
-  - The outermost column line (at a flush window's edge, or where the rail stop lies) used to have its band centered on
+  - The outermost column line (at a flush window's edge, or where the rail stop lies) used to have its band centred on
     the line. Half of the band lay past the stage. The rail stop's band then cut the part inside the window off from
     the line, and that part was refused as `no-room` although a column fits.
   - Now the band is laid inward: the rail stop keeps its 10 px at the boundary, and the line's band (`DEFAULT_HIT_BAND`)
@@ -173,7 +176,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   - A stretch of a column line that another edge's band cuts off from the line is still that line's slot, one more
     piece of its `hits`, not a refusal.
 
-- **Fixed:** `readScene` lost a stored column's footer. It made a column the user had created from its side's template
+- **Fixed:** `readScene` lost a stored column's tray. It made a column the user had created from its side's template
   without the template's `zoneAccepts`, so after a reload the column took any kind in any zone. Every column the Scene
   makes (a drop on a column line, `moveTo` a new column, `dockHome`, `readScene`) now comes from one helper and takes
   every template field.
@@ -187,7 +190,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   - **The pick rule moved to `@n-uf/motion/drag`'s `targetAt`.** `./scene/cases` takes it as an input:
     `createSceneHost({ pick })`, `resolvePlace(list, place, item, area, pick?)`, and an optional `pick` on
     `CaseHost`/`AsyncCaseHost` (type `PickRule`). The reference host exposes the rule it aims with as `pick`. Pass
-    `targetAt`, so the reference host and an integrating app's drag intent agree on every boundary pixel.
+    `targetAt`, so the reference host and a kit's drag intent agree on every boundary pixel.
   - **Deprecated: `pickTarget`.** It is only the default when no `pick` is given, now with `targetAt`'s tolerances: a
     rect holds its edges exactly (it used to accept 1e-6 px past them), and a zone's size is its pieces' width × height
     (it used to count a negative side as 0). A test holds the two equal. Removed with the legacy entries.
@@ -274,7 +277,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   listed below; no id is given twice by one call. What changes:
   - A zone's extent is where its items lie: the thirds of a bar, a compact rail or a side toolbar bar (compact bars and
     rails too, now); the solver's spans where items fill the edge (a plain panel column is one zone, its whole length;
-    a footer column its panels' span and its footer's).
+    a tray column its panels' span and its tray's).
   - Home's tile is the item's own interval: no ±12 px band, no 16 px kept per gap. A stretch with no slot of its own
     is refused, never home's and never another zone's: beside an item alone in its zone with the new reason
     **`own-place`** (there is room, but the zone's only place is the item's own), elsewhere `no-room`.
@@ -282,7 +285,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     `refuse:<edge>:<zone>:<n>`, numbered by where they lie along the edge (then across it), so an id holds from one
     frame to the next.
   - `strip:<edge>:<zone>` names a slot only on an edge with no members at all. On an edge that draws nothing but holds
-    closed members (or the dragged item's home), every slot keeps its `gap:<edge>:<zone>:<at>` id.
+    closed members (or the dragged item's own place), every slot keeps its `gap:<edge>:<zone>:<at>` id.
   - A place that would move a fixed item of its edge (before a title, after the window controls) is no slot.
   - With no rail shown, the `rail:` strip is `RAIL_EDGE` px of `SceneLayout.railPlaces` (where the rail lands).
   - The column lines and the rail are edges like the others, tiled by the same rule: two column lines nearer than
@@ -291,7 +294,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     being left to the float.
   - **Space ownership** decides where tiles meet: owned, then virtual, then overreach.
     - A drawn edge owns its rect. An empty edge owns only a thin band of its place, half the hit band (12 px), at the
-      boundary where it would appear; so does the side's rail where none shows. The item's home (its hit region) is
+      boundary where it would appear; so does the side's rail where none shows. The item's own place (home's tile) is
       owned before everything.
     - Owned rects rank in the order the layout lays edges out: an edge laid first, whose filling pushes the other, wins
       (outer before inner on one side, full bars before the sides, the rail before its side's columns). Between edges
@@ -299,7 +302,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
     - A zone loses what an edge ranked before it owns, its panel bodies and its reserved rects before it is tiled; a
       zone left with no room offers no slot. Every slot that is offered keeps a hit.
     - A column line is where a new column would appear, so it owns a place band like an empty edge: half the hit band
-      (12 px) in all, centered on its line, ranked where that new column would be laid (it wins over the inner column it
+      (12 px) in all, centred on its line, ranked where that new column would be laid (it wins over the inner column it
       would push, not over the outer one). Past that band its tile takes only space no edge owns. Two columns that
       touch keep the line at their seam; a narrow column keeps its gaps in the rest of its own rect.
     - Overreach, the part of a tile past what its edge owns (the depth a column will have after the drop, an empty
@@ -324,7 +327,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 - `@n-uf/placement/scene`, **Changed:** every empty edge's strip is by zone, as an empty bar's has been since
   26.11.19: `strip:<edge>:start|center|end`, by thirds along the edge (a side edge's or a compact rail's height), the
   item docking aligned in that third (top, middle or bottom of a side). It used to be one `strip:<edge>` landing at the
-  start, so an empty rail took every drop at its top. Affected: left and right edges (static columns, column footers,
+  start, so an empty rail took every drop at its top. Affected: left and right edges (static columns, column trays,
   side toolbar bars) and compact rails on any side. Only the thirds whose zone takes the kind (`Edge.zoneAccepts`) are
   strips; the others are refusals (`refusals()`). A kind still never opens an empty side column its start zone doesn't
   take (a group gets the rail, never a column of one toolbar). The strips keep every strip rule
@@ -415,14 +418,14 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 - `@n-uf/placement/scene`, give-way priority (additive): **`SceneItem.priority`** and **`Edge.priority`** (its items'
   default). When an edge runs short its items step down their forms (row, wrap in a column, icons, then the edge's »
   menu) lowest priority first, ties to the one used longest ago; it adds to every one of the item's forms' `rank`
-  (`./stack`), which is the mechanism. An integrating app reads each item's `form`, `formKind` and `inMenu`, and each edge's
+  (`./stack`), which is the mechanism. A kit reads each item's `form`, `formKind` and `inMenu`, and each edge's
   `menu.items` in order: it draws, never decides. Without priorities nothing changes.
 
 - `@n-uf/placement/scene`, local targets (**Changed**): a target wins only where its own hit is. Home is offered only
-  over the item's home: its hit is the item's rect and half a band (`DEFAULT_HIT_BAND / 2`) each way along its
+  over the item's own place: its hit is the item's rect and half a band (`DEFAULT_HIT_BAND / 2`) each way along its
   edge, across the edge's full hit thickness, kept clear of empty-edge strips. Home never removes a gap: every other gap
   hit it would cover keeps at least 16 px of its slice (or all of it, when shorter), at home's end, or for one inside
-  the item's own stretch at its own line beside the item's center, which home always keeps. The rest of its gaps'
+  the item's own stretch at its own line beside the item's centre, which home always keeps. The rest of its gaps'
   slices goes only to the gap beside it in the same zone; with none there, that stretch has no target (the
   pointer shows nothing, a release goes home), never a "back to its place" preview far away and never a gap of another
   zone. Affected: drags of an item in a bar whose zone held only its own gap (that zone's whole third used to preview
@@ -436,7 +439,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 - `@n-uf/placement/scene/cases`, an async runner (additive): **`runCaseAsync(row, host)`** and
   **`runCasesAsync(rows, makeHost, { onResult? })`** play the rows on an **`AsyncCaseHost`** (a `CaseHost` whose `load`,
-  `perform`, `layout`, `root`, `stored` and `stops` may return promises; `itemSelector` stays plain), so an integrating app's page can
+  `perform`, `layout`, `root`, `stored` and `stops` may return promises; `itemSelector` stays plain), so a kit's page can
   be driven from a browser runner with real pointer events and timers. They await each host call in the order `runCase`
   makes them, with the same checks (both play one list of steps). A failing `load`, `perform`, `layout` or `stored` is a
   failed result, as a thrown one is; a failing `root` or `stops` rejects `runCaseAsync` (and throws from `runCase`). A
