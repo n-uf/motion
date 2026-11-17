@@ -204,15 +204,15 @@ function labelOf(t: SceneTarget): string {
 export function planOf(size = STAGE): Plan {
   const scene = planScene(size);
   const layout = solve(scene);
-  const inset = scene.inset!;
+  const all = targets(scene, HELD);
+  // The side rails are drawn where their drop targets are, so a drag over a drawn rail lands in it.
+  const railOf = (side: "left" | "right"): Rect => all.find((t) => t.place.kind === "rail" && t.place.side === side)!.hit;
   const regions: PlanRegion[] = [
-    // The side rails, drawn in the inset at the window's edges (a gutter in from the column and the documents).
-    { key: "rail:left", label: "", rect: { x: 0, y: 0, width: inset.left! - 6, height: size.height } },
-    { key: "rail:right", label: "", rect: { x: size.width - inset.right! + 6, y: 0, width: inset.right! - 6, height: size.height } },
+    { key: "rail:left", label: "", rect: railOf("left") },
+    { key: "rail:right", label: "", rect: railOf("right") },
     { key: "files", label: "Files", rect: layout.items.files!.rect },
     { key: "documents", label: "Documents", rect: layout.content },
   ];
-  const all = targets(scene, HELD);
   const grab = { x: 100, y: 60 };
   const drop = (target: SceneTarget, p: { x: number; y: number }): PlanDrop => ({ slot: target.after(p, grab).layout.items[HELD]!.rect, label: labelOf(target) });
   const pick = (id: string, name: string, at: (t: SceneTarget) => { x: number; y: number }): PlanSlot => {
