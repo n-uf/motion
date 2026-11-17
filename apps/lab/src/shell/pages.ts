@@ -93,7 +93,7 @@ const INTENT = (n: string): boolean => n.includes("drag model") || n.includes("s
  */
 const KIT_LIST: readonly { n: number; title: string; line: string }[] = [
   { n: 1, title: "Panels vs groups", line: "Do toolbar groups and dock panels feel the same? Panels on ./dock next to a plain drag image." },
-  { n: 2, title: "Host map", line: "Which of an app's places map to which toolbar areas." },
+  { n: 2, title: "Toolbar areas", line: "Which of an app's places map to which toolbar areas." },
   { n: 3, title: "Floats and orientation", line: "Whether a floating group keeps a vertical form." },
   { n: 4, title: "Fold or collapse", line: "An animated collapse, trailing-first, and which group collapses last." },
   { n: 5, title: "Drop preview", line: "Snap to slot, make room or indicator only: three ways to show where a group lands." },
