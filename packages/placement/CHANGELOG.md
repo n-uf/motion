@@ -5,6 +5,13 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.29
 
+- `./scene`, fixed: **an occupied rail's stops were a dead band** when lifting the item reopened the column that was
+  folded by width into that rail (flush window, rails on both sides, `handFold: "ride"`, no `railDrop`): the stops landed
+  only in the rail, so the item riding over the reopened column made every stop a `no-room` refusal and the rail had no
+  targets. A rail that shows now offers its stops by the one rule the rail strip uses, wherever the item ends up
+  collapsed at that side (its tile, a rider bar, or a header); the slot is that landing, and the stops split by the
+  halves of the rail's tiles, to the window's edge. A rail with none showing is unchanged. README: draw `refusals()`
+  as well as the targets, so a refusal never looks like a dead band.
 - `./scene/cases`, **two `CASE_GROUPS` titles reworded** (data only; the group ids `bands` and `gestures` and every row
   id are unchanged): "Gap bands, refits and slots" is now "Gap hit areas, refits and slots", and "The kits' panel
   gestures" is now "Panel gestures".
