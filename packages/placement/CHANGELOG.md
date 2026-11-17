@@ -11,7 +11,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   edge, where nothing is drawn. Drop targets and refusals now ask one test, `accepts` listing the kind and at least one
   zone taking it: such an edge counts exactly as one whose `accepts` lacks the kind. Empty, it gives nothing; drawn
   with its stored items, it gives that edge's one refusal over its drawn rect, as before for any edge that doesn't
-  take the kind. The stored form and `readScene` still read `accepts`. New row R9.
+  take the kind. The stored form and `readScene` still read `accepts`. The test is exported as `edgeTakes(edge, kind)`
+  (beside `zoneTakes` and `zonesTaking`), so a host can ask it too. New row R9.
 
 - `./scene`, **chrome with a scope** (additive). A `chrome` entry is now a `SceneChrome`: a rect with an optional
   `for`. The default, `"all"`, is the chrome as it was: floats keep clear of it and no drop target lies on it. With

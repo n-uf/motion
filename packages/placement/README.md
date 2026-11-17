@@ -1078,8 +1078,9 @@ and on an empty zone or edge, the zone extents (thirds, or the solved spans) say
 so a drop there can move the item to another zone with its order kept. A slot whose whole hit region lies over its neighbors'
 facing halves is home's, and is no target of its own. The slot is where the item lands, at its size in that edge's form.
 
-- `gap:<edge>:<zone>:<at>` (priority 2) for every edge whose `accepts` lists the item's kind (deny by default), before
-  each item of each zone and at each zone's end, so an empty center or end zone can be opened; only where the item
+- `gap:<edge>:<zone>:<at>` (priority 2) for every edge whose `accepts` lists the item's kind (deny by default) and one of
+  whose zones takes it (`edgeTakes`; an edge with `zoneAccepts: {}` takes it nowhere, as one that doesn't list it), in
+  each zone that takes it, before each item of the zone and at its end, so an empty center or end zone can be opened; only where the item
   fits: not in the » menu, no `overflow`, nothing newly `too-wide`, every fixed item of the edge keeping its form, every
   protected one its place, and no chrome under its slot. Protected: the fixed items at a zone's anchor (from the start
   zone's first member, or the end zone's last, up to the first movable one), every fixed item of the center zone, and
