@@ -18,6 +18,7 @@ import {
   type PaneRegion,
   type Split,
 } from "../src/tiling";
+import { shuffle } from "./stack-fixture";
 
 const AREA: Rect = { x: 10, y: 20, width: 900, height: 600 };
 const REGIONS: readonly PaneRegion[] = ["center", "top", "right", "bottom", "left"];
@@ -33,7 +34,7 @@ function random(seed: number): () => number {
 
 /** A random tree over panes 0..n-1 (shuffled), each split with a random axis (or none) and a random ratio (or none). */
 function randomTree(rnd: () => number, n: number): Split<number> | null {
-  const ids = Array.from({ length: n }, (_, i) => i).sort(() => rnd() - 0.5);
+  const ids = shuffle(rnd, Array.from({ length: n }, (_, i) => i));
   const grow = (panes: readonly number[]): Split<number> => {
     if (panes.length === 1) return { pane: panes[0]! };
     const cut = 1 + Math.floor(rnd() * (panes.length - 1));
@@ -52,16 +53,51 @@ function bounds(layout: ReadonlyMap<number, Rect>, node: Split<number>): Rect {
   return { x: x0, y: y0, width: Math.max(...rs.map((r) => r.x + r.width)) - x0, height: Math.max(...rs.map((r) => r.y + r.height)) - y0 };
 }
 
-/** Every split's two sides plus the gap make exactly its rect, along its axis; across it, each side spans the whole rect. */
+/**
+ * Every split's two sides plus the gap make exactly its rect along its axis (its own, else the rect's longer side), and
+ * across it each side spans the whole rect: the rects the spec gives each side, down to every pane. A split whose rect
+ * is no longer than the gap has no room: the documented clamp makes every pane under it zero along the axis, none
+ * negative, and no two of them overlap.
+ */
 function gapsExact(layout: ReadonlyMap<number, Rect>, node: Split<number>, rect: Rect, gap: number): string[] {
   if ("pane" in node) return near(layout.get(node.pane)!, rect) ? [] : [`pane ${node.pane}: ${JSON.stringify(layout.get(node.pane))} != ${JSON.stringify(rect)}`];
-  const a = bounds(layout, node.a);
-  const b = bounds(layout, node.b);
-  const alongX = Math.abs(a.y - b.y) < 1e-9 && Math.abs(a.height - rect.height) < 1e-9;
-  const ok = alongX
-    ? Math.abs(a.width + gap + b.width - rect.width) < 1e-9 && Math.abs(b.x - (a.x + a.width + gap)) < 1e-9
-    : Math.abs(a.height + gap + b.height - rect.height) < 1e-9 && Math.abs(b.y - (a.y + a.height + gap)) < 1e-9 && Math.abs(a.width - rect.width) < 1e-9;
-  return [...(ok ? [] : [`split ${JSON.stringify(rect)}: ${JSON.stringify(a)} + ${gap} + ${JSON.stringify(b)}`]), ...gapsExact(layout, node.a, a, gap), ...gapsExact(layout, node.b, b, gap)];
+  const s = sides(node, rect, gap);
+  if (!s) {
+    const x = axisOf(node, rect) === "x";
+    const rs = panesOf(node).map((p) => layout.get(p)!);
+    const bad = rs.filter((r) => r.width < 0 || r.height < 0 || (x ? r.width : r.height) !== 0);
+    const touching = rs.some((r, i) => rs.some((q, j) => j > i && overlap(r, q) > 0));
+    return bad.length || touching ? [`clamped split ${JSON.stringify(rect)} (gap ${gap}): ${JSON.stringify(rs)}`] : [];
+  }
+  return [...gapsExact(layout, node.a, s.a, gap), ...gapsExact(layout, node.b, s.b, gap)];
+}
+
+type Branch = Exclude<Split<number>, { readonly pane: number }>;
+/** A split's axis in `rect`: its own, else the rect's longer side. */
+const axisOf = (node: Branch, rect: Rect): "x" | "y" => node.axis ?? (rect.width >= rect.height ? "x" : "y");
+
+/** The rects the spec gives a split's two sides in `rect`, or null where the gap leaves no room (the documented clamp). */
+function sides(node: Branch, rect: Rect, gap: number): { a: Rect; b: Rect } | null {
+  const x = axisOf(node, rect) === "x";
+  const along = x ? rect.width : rect.height;
+  if (along <= gap) return null;
+  const ratio = Math.min(1, Math.max(0, node.ratio ?? 0.5));
+  const room = along - gap;
+  const first = room * ratio;
+  return {
+    a: x ? { ...rect, width: first } : { ...rect, height: first },
+    b: x ? { ...rect, x: rect.x + first + gap, width: room - first } : { ...rect, y: rect.y + first + gap, height: room - first },
+  };
+}
+
+/** The rect the spec gives `target`, a node of `tree`, in `rect`; null when a clamped split lies above it. */
+function rectOfNode(tree: Split<number>, target: Split<number>, rect: Rect, gap: number): Rect | null {
+  if (tree === target) return rect;
+  if ("pane" in tree) return null;
+  const s = sides(tree, rect, gap);
+  if (!s) return null;
+  const inA = panesOf(target).every((p) => panesOf(tree.a).includes(p));
+  return rectOfNode(inA ? tree.a : tree.b, target, inA ? s.a : s.b, gap);
 }
 
 const near = (a: Rect, b: Rect): boolean => Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.y - b.y) < 1e-9 && Math.abs(a.width - b.width) < 1e-9 && Math.abs(a.height - b.height) < 1e-9;
@@ -115,6 +151,9 @@ function covers(rects: readonly Rect[], whole: Rect, gap: number): string[] {
   const out: string[] = [];
   const e = 1e-6;
   for (const r of rects) {
+    // A pane of no size, which the gap's clamp leaves (and may leave a gap past its split's end), draws nothing.
+    if (r.width < 0 || r.height < 0) out.push(`negative ${JSON.stringify(r)}`);
+    if (r.width === 0 || r.height === 0) continue;
     if (r.x < whole.x - e || r.y < whole.y - e || r.x + r.width > whole.x + whole.width + e || r.y + r.height > whole.y + whole.height + e) out.push(`outside ${JSON.stringify(r)}`);
   }
   for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) if (overlap(rects[i]!, rects[j]!) > e) out.push(`overlap ${i} ${j}`);
@@ -271,14 +310,23 @@ describe("properties (seeded sweeps)", () => {
         // A swap: each takes the other's rect.
         expect([near(d, before.get(at)!), near(t, before.get(dragged)!)]).toEqual([true, true]);
       } else if (region !== "center") {
-        // A side: the two share `at`'s place, `dragged` on that side of it, a gap between.
-        const together = bounds(l, { a: { pane: dragged }, b: { pane: at } });
+        // A side: the two share `at`'s place (its rect once `dragged` is lifted out), `dragged` on that side of it.
+        const place = (inside ? layoutSplit(removePane(tree, dragged), AREA, { gap }) : before).get(at)!;
         const h = region === "left" || region === "right";
         expect(h ? [d.y, d.height] : [d.x, d.width]).toEqual(h ? [t.y, t.height] : [t.x, t.width]);
-        const first = region === "left" || region === "top" ? d : t;
-        const second = first === d ? t : d;
-        expect(h ? second.x - (first.x + first.width) : second.y - (first.y + first.height)).toBeCloseTo(gap, 9);
-        if (!inside) expect(near(together, before.get(at)!)).toBe(true);
+        if ((h ? place.width : place.height) > gap) {
+          // Room for both: a gap between them, and together they are the place.
+          const together = bounds(l, { a: { pane: dragged }, b: { pane: at } });
+          const first = region === "left" || region === "top" ? d : t;
+          const second = first === d ? t : d;
+          expect(h ? second.x - (first.x + first.width) : second.y - (first.y + first.height)).toBeCloseTo(gap, 9);
+          expect(near(together, place)).toBe(true);
+        } else {
+          // A place no wider than the gap: the documented clamp, two panes of no size along the axis, none negative,
+          // not overlapping.
+          for (const r of [d, t]) expect([h ? r.width : r.height, r.width >= 0 && r.height >= 0]).toEqual([0, true]);
+          expect(overlap(d, t)).toBe(0);
+        }
       }
     }
   });
@@ -290,10 +338,16 @@ describe("properties (seeded sweeps)", () => {
       const tree = randomTree(rnd, n)!;
       const pane = Math.floor(rnd() * n);
       const { parent, sibling } = parentOf(tree, pane)!;
-      const parentRect = bounds(layoutSplit(tree, AREA, { gap: 4 }), parent);
+      // The parent's rect as the spec gives it (its panes' bounds say nothing under the gap's clamp).
+      const parentRect = rectOfNode(tree, parent, AREA, 4);
       const rest = removePane(tree, pane);
       expect(panesOf(rest).length).toBe(n - 1);
-      expect(near(bounds(layoutSplit(rest, AREA, { gap: 4 }), sibling), parentRect)).toBe(true);
+      if (parentRect) {
+        // Every pane of the sibling lies as the sibling alone laid out in the parent's rect.
+        const l = layoutSplit(rest, AREA, { gap: 4 });
+        const alone = layoutSplit(sibling, parentRect, { gap: 4 });
+        expect(panesOf(sibling).every((p) => near(l.get(p)!, alone.get(p)!))).toBe(true);
+      }
       const at = panesOf(rest)[Math.floor(rnd() * (n - 1))]!;
       const back = splitPane(rest, at, pane, (["top", "right", "bottom", "left", undefined] as const)[Math.floor(rnd() * 5)]);
       expect(panesOf(back).length).toBe(n);
