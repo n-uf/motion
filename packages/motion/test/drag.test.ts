@@ -683,6 +683,14 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
           const label = `overlap ${overlap} dwell ${dwellMs} magnet ${magnet}`;
           const r = play(strip(overlap, magnet), dwellMs + 600, { railArmDwellMs: dwellMs }, start);
           const shownAt = r.frames.find((f) => f.shown === "rail:right");
+          // Resting within the lift zone of where it was lifted (a 90 px overlap leaves 10 px of home outside it) arms
+          // nothing: that is the "changed my mind" spot.
+          if (Math.hypot(r.to.x - start.x, r.to.y - start.y) <= DRAG_DEFAULTS.liftZone) {
+            expect(shownAt, `${label}: in the lift zone`).toBeUndefined();
+            expect(r.landed, `${label}: release`).toBeNull();
+            checked++;
+            continue;
+          }
           expect(shownAt, `${label}: shown`).toBeDefined();
           const armingAt = r.frames.find((f) => f.arming === "rail:right")?.t ?? shownAt!.t;
           if (dwellMs > 0) expect(shownAt!.t - armingAt, `${label}: after the dwell`).toBeGreaterThanOrEqual(dwellMs - FRAME);
@@ -713,12 +721,53 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
     for (let t = 0; t <= keysA.at(-1)![0]; t += FRAME) a.update(along(keysA, t), t, [left, FLOAT]);
     expect(a.state.shown?.id).toBe("rail:left");
     expect(a.release({ x: 10, y: 200 }, [left, FLOAT])?.id).toBe("rail:left");
-    // Lifted inside the strip, out of it, and back in to dwell.
+    // Lifted inside the strip, out of it, and back into it away from the lift point to dwell.
     const b = createDragIntent({ home });
-    const keysB = hold(through([{ x: 10, y: 200 }, { x: 120, y: 200 }, { x: 10, y: 200 }], 0.3), 500);
+    const keysB = hold(through([{ x: 10, y: 200 }, { x: 120, y: 200 }, { x: 10, y: 320 }], 0.3), 500);
     for (let t = 0; t <= keysB.at(-1)![0]; t += FRAME) b.update(along(keysB, t), t, [left, FLOAT]);
     expect(b.state.shown?.id).toBe("rail:left");
-    expect(b.release({ x: 10, y: 200 }, [left, FLOAT])?.id).toBe("rail:left");
+    expect(b.release({ x: 10, y: 320 }, [left, FLOAT])?.id).toBe("rail:left");
+  });
+
+  describe("the lift zone: back where it was lifted is \"changed my mind\"", () => {
+    // A flush drawer: the grip lies under the strip at the window's edge.
+    const home = rect(0, 100, 280, 300);
+    const left: DragTarget = { id: "rail:left", priority: 1, hit: rect(0, 0, 24, 800), arm: "dwell" };
+    const grip = { x: 10, y: 120 };
+    /** Lifted at the grip, away into the pages, back to `back` and resting; the shown target and the release. */
+    const away = (back: Point, keys?: { meta?: boolean }, lift?: Point) => {
+      const intent = createDragIntent({ home, ...(lift ? { lift } : {}) });
+      const path = hold(through([grip, { x: 400, y: 300 }, back], 0.5), 400);
+      for (let t = 0; t <= path.at(-1)![0]; t += FRAME) intent.update(along(path, t), t, [left, FLOAT], keys);
+      return { shown: intent.state.shown?.id ?? null, landed: intent.release(back, [left, FLOAT], keys)?.id ?? null };
+    };
+
+    it("property: away and back to the lift point, a pause commits nothing, wherever in the lift zone it rests", () => {
+      for (const [dx, dy] of [[0, 0], [3, 4], [-6, 8], [5, -12], [0, 15]]) {
+        const r = away({ x: grip.x + dx, y: grip.y + dy });
+        expect(r.shown, `${dx},${dy}`).toBeNull();
+        expect(r.landed, `${dx},${dy}`).toBeNull();
+      }
+      // The press point given to the intent counts as the lift point (the grip), not the first sample.
+      expect(away(grip, undefined, grip).landed).toBeNull();
+    });
+
+    it("with ⌘/Ctrl held it collapses into the rail, the lift zone too", () => {
+      expect(away(grip, { meta: true }).landed).toBe("rail:left");
+    });
+
+    it("a lone panel still reaches its own side's rail: lifted outside the strip, into it over home away from the lift point, a dwell", () => {
+      const intent = createDragIntent({ home });
+      const path = hold(through([{ x: 150, y: 250 }, { x: 10, y: 250 }], 0.3), 500);
+      for (let t = 0; t <= path.at(-1)![0]; t += FRAME) intent.update(along(path, t), t, [left, FLOAT]);
+      expect(intent.state.shown?.id).toBe("rail:left");
+      expect(intent.release({ x: 10, y: 250 }, [left, FLOAT])?.id).toBe("rail:left");
+      // Past the lift zone's 16 px, in the strip over home, it arms as before.
+      const near = createDragIntent({ home, lift: { x: 30, y: 250 } });
+      const p2 = hold(through([{ x: 30, y: 250 }, { x: 200, y: 250 }, { x: 10, y: 275 }], 0.3), 500);
+      for (let t = 0; t <= p2.at(-1)![0]; t += FRAME) near.update(along(p2, t), t, [left, FLOAT]);
+      expect(near.state.shown?.id).toBe("rail:left");
+    });
   });
 
   it("a short rest arms nothing and a release over home does nothing, as before", () => {

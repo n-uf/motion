@@ -20,6 +20,12 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.30
 
+- `./drag`, **the lift zone: back where it was lifted, a pause commits nothing.** A panel lifted by a grip under a
+  rail strip (a flush drawer at the window's edge), dragged away and brought back to its grip, collapsed into the rail
+  after the dwell. No spring-loaded target now arms by dwell within `DragTuning.liftZone` (new, 16 px: about a grip's
+  size) of the lift point, `DragIntentOptions.lift` (new; default the first sample). Elsewhere, home under a strip
+  included (an item alone in its column reaching its side's rail), arming is unchanged, and the rail key (⌘/Ctrl) still
+  forces the rail anywhere, the lift zone too.
 - `./drag`, fixed: **spring-loading is not gated by home.** A strip that overlaps the held item's own place (an item alone
   in its column, dragged to its own side's edge) never armed by dwell, and a release there did nothing, even armed; an
   armed magnet reaching back over home lost its marker. Now a `arm: "dwell"` target arms while the pointer is over home,

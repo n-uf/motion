@@ -2399,6 +2399,35 @@ function RAIL_DOCK_PRESETS(): Preset[] {
       },
     },
     {
+      id: "rail-lift-zone",
+      title: "Back where it was lifted, a pause commits nothing, even with the grip under the strip",
+      expected:
+        "Findings alone in the right column, with the rail strip so wide its grip lies under it (a flush drawer at the window's edge): dragged away into the pages and back to where it was lifted, held still past the dwell, the strip never arms and the drop changes nothing (\"changed my mind\"). The same with ⌘/Ctrl held collapses it into the right rail.",
+      setup: fresh,
+      check(c) {
+        const wide = (): void => c.setFeel(panelFeel(c, { railStripWidth: 280 }));
+        wide();
+        const grip = gripOf(c, "findings");
+        if (!grip) return { pass: false, now: "Findings has no grip." };
+        const before = JSON.stringify(c.stored());
+        const legs: Leg[] = [
+          { to: { x: c.scene.stage.width / 2, y: c.scene.stage.height / 2 }, step: 8, hold: 60 },
+          // Back at a hand's pace (a slow crawl across a 280 px strip would arm it on the way, by dwell).
+          { to: grip, step: 40, hold: 360 },
+        ];
+        const back = mouseGesture(c, "findings", legs);
+        const armed = back.seen.some((s) => s.armed);
+        back.up();
+        const unchanged = JSON.stringify(c.stored()) === before && !inRightRail(c);
+        c.reset();
+        wide();
+        const mod = mouseGesture(c, "findings", legs, { metaKey: true });
+        mod.up();
+        const railed = inRightRail(c);
+        return { pass: back.lifted && !armed && unchanged && railed, now: `Back at the lift point: ${armed ? "armed" : "not armed"}, layout ${unchanged ? "unchanged" : "changed"}; with ⌘/Ctrl: ${railed ? "in the right rail" : dropSaid(c)}.` };
+      },
+    },
+    {
       id: "rail-findings-alone",
       title: "Findings alone on the right reaches the rail by a dwell or by ⌘/Ctrl; the column closes",
       expected:

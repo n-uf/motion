@@ -46,6 +46,14 @@ export interface DragTuning {
    * the window's edge) must leave it and come back before it can arm; entering from over home counts.
    */
   readonly railArmDwellMs: number;
+  /**
+   * The lift zone, a radius in px about the point the drag was lifted at ({@link DragIntentOptions.lift}, else the first
+   * sample): no spring-loaded target arms by dwell inside it. Coming back to where you lifted and pausing is the
+   * "changed my mind" gesture, so it commits nothing even where a strip lies over the grip (a flush drawer's grip at the
+   * window's edge). 16 px is about a grip's size. Elsewhere, home under a strip included, arming works as before, and
+   * the rail key forces the rail anywhere, the lift zone too.
+   */
+  readonly liftZone: number;
   /** The keys that win over geometry while held (see {@link DragModifiers}). */
   readonly modifiers: DragModifiers;
 }
@@ -102,6 +110,7 @@ export const DRAG_DEFAULTS: DragTuning = {
   roomAfter: 160,
   homeInset: 6,
   railArmDwellMs: 200,
+  liftZone: 16,
   modifiers: { on: true, floatKey: "Shift", railKey: "Mod" },
 };
 
@@ -244,6 +253,8 @@ export interface DragIntentState<T extends DragTarget> {
 export interface DragIntentOptions<T extends DragTarget> {
   /** Where the item was lifted from: the indicator stays off until the pointer leaves it, and a release there does nothing. */
   readonly home: Rect;
+  /** Where the press that lifted the item was (the grip); default the first sample's point. The lift zone is about it. */
+  readonly lift?: Point;
   /** Overrides of {@link DRAG_DEFAULTS}. */
   readonly tuning?: Partial<DragTuning>;
   /**
@@ -357,7 +368,9 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   let armingSince = 0;
   // The spring-loaded targets (by id) the pointer has been outside of during this drag: only those can arm.
   const wasOutside = new Set<string>();
-  const same = (a: T | null, b: T | null): boolean => (a === null || b === null ? a === b : a.id === b.id);
+  // The point the drag was lifted at: no spring-loaded target arms by dwell within `liftZone` of it.
+  let liftAt: Point | null = options.lift ? { ...options.lift } : null;
+  const same =(a: T | null, b: T | null): boolean => (a === null || b === null ? a === b : a.id === b.id);
   // Targets may be rebuilt between calls: follow the ones held by id.
   const follow = (t: T | null, targets: readonly T[]): T | null => (t ? (targets.find((x) => x.id === t.id) ?? t) : null);
   /** An armed target as it acts: its zone is `armedHit` (the magnet) when it has one. */
@@ -426,7 +439,10 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       // Spring-loading is not gated by `atHome`: a strip that overlaps the item's own place still arms by dwell.
       // A spring-loaded target arms only after the pointer has entered it: one it has been outside of during the drag.
       for (const x of given) if (x.arm === "dwell" && !inZone(x, p)) wasOutside.add(x.id);
-      const dwelling = forced ? null : targetAt(given.filter((x) => x.arm === "dwell" && x.id !== armedId && wasOutside.has(x.id) && inZone(x, p) && live(x)), p);
+      // Inside the lift zone nothing arms by dwell ("changed my mind"); the rail key still forces the rail.
+      liftAt ??= { x: p.x, y: p.y };
+      const inLiftZone = Math.hypot(p.x - liftAt.x, p.y - liftAt.y) <= tuning.liftZone;
+      const dwelling = forced || inLiftZone ? null : targetAt(given.filter((x) => x.arm === "dwell" && x.id !== armedId && wasOutside.has(x.id) && inZone(x, p) && live(x)), p);
       let armedNow = false;
       if (!dwelling || armedId !== null) armingId = null;
       else {

@@ -700,7 +700,8 @@ export function createScene(o: SceneOptions) {
       formOf: null,
       switches: 0,
       last: now,
-      intent: createDragIntent<SceneTarget>({ home, tuning: rowRules ? {} : tuningOf(feel, was.kind) }),
+      // The lift zone is about the press (the grip): back there, a pause arms no strip ("changed my mind").
+      intent: createDragIntent<SceneTarget>({ home, lift: start, tuning: rowRules ? {} : tuningOf(feel, was.kind) }),
       targets,
       drawn: createSettle<Rect>({ x: p.x - grab.x, y: p.y - grab.y, width: was.rect.width, height: was.rect.height }, { omega: SETTLE_TEMPO.default }),
       snappedTo: null,
