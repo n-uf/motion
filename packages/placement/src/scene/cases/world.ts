@@ -4,7 +4,7 @@
  * - `bench(...)`: the lab's Edge stack stage as a `Scene`: a top bar (a toolbar edge, 40 px at most) and a left column
  *   under it, three panels (pages, annotations, findings), three control groups (views, tools, zoom) and floats.
  * - `doc(...)`: a document window: a title bar (a fixed title that grows, fixed window controls), a toolbar, a status
- *   bar, a left and a right column, panels, groups and a float. This is the shape the kits draw.
+ *   bar, a left and a right column, panels, groups and a float. This is the shape a document window draws.
  * - `windowScene(...)` (./windows): the two pinned document windows with dynamic columns and rails.
  */
 import type { Rect } from "../../geometry";

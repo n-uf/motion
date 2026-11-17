@@ -1,14 +1,14 @@
 /**
  * The conformance rows' shapes. A row is plain data: a scene, the settings it runs at, the gestures a user makes, and
  * what the layout (and, in a host with a page, the DOM) must be after them. `runCase(row, host)` (./run) plays a row on
- * a `CaseHost`; the in-memory host (./host) is the reference, and a UI kit's host is one more. Nothing here names a DOM
+ * a `CaseHost`; the in-memory host (./host) is the reference, and an integrating app's host is one more. Nothing here names a DOM
  * type: a page's root only has to answer `getAttribute` and `querySelectorAll`, which every DOM element does.
  */
 import type { Point, Rect } from "../../geometry";
 import type { StackFormKind } from "../../stack";
 import type { Scene, SceneLayout, SceneNoteCode, ScenePlace, SceneTarget, Side, StoredScene, Zone } from "../index";
 
-/** How a row is grouped (the lab's case browser and the kits' report list rows by it). */
+/** How a row is grouped (the lab's case browser and an integrating app's report list rows by it). */
 export type CaseGroup =
   | "panels"
   | "groups"
@@ -166,8 +166,19 @@ export interface Checkpoint {
   readonly note?: string;
 }
 
+/**
+ * What a row's scene needs of the host's window: a host that can't meet it skips the row or marks it. The runner reads
+ * none of it; it is data for the host's suite.
+ */
+export interface CaseRequires {
+  /** The scene's columns use the default `hitBand` (an open panel's body is no drop place); a host whose columns use `"middle"` gets card halves there. */
+  readonly hitBand?: "default";
+  /** The sides whose rail the scene declares (`Scene.rails`) and shows at the start (a folded column puts panels in it), so a host needs a rail to aim at there. */
+  readonly rails?: readonly ("left" | "right")[];
+}
+
 export interface CaseRow {
-  /** Generic and stable: the kits' suites name rows by it. */
+  /** Generic and stable: an integrating app's suite names rows by it. */
   readonly id: string;
   readonly title: string;
   /** One sentence: what must be true. */
@@ -187,9 +198,11 @@ export interface CaseRow {
   readonly expectStops?: { readonly item: string; readonly at?: number; readonly places: readonly ScenePlace[] };
   /**
    * The library rule this row needs and the Scene doesn't have yet. Such a row is expected to fail on the in-memory host
-   * until the rule lands (then its suite says to remove this), and a kit's suite may skip it.
+   * until the rule lands (then its suite says to remove this), and an integrating app's suite may skip it.
    */
   readonly lacks?: string;
+  /** What the scene needs of the host's window (see {@link CaseRequires}); a host that can't meet it skips or marks the row. */
+  readonly requires?: CaseRequires;
 }
 
 /** What a stored form must hold: per item the named fields exactly (`null`: absent), and strings its JSON never contains. */
@@ -224,6 +237,13 @@ export interface CaseHost {
   stops?(item: string): readonly ScenePlace[];
   /** The pick rule the host aims with (see {@link PickRule}); the runner never calls it. */
   readonly pick?: PickRule;
+  /**
+   * The host's names for a row's items and edges: row id to host id (`{ views: "panels", tools: "commands" }`). The
+   * runner passes every id to the host in the host's words (the scene, the gestures, `stops`, `itemSelector`) and reads
+   * the layout, the stored form and the stops back in the row's, so the row's expectations stay as written. One to one;
+   * an id left out keeps its name. See `./ids`.
+   */
+  readonly ids?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -249,6 +269,8 @@ export interface AsyncCaseHost {
   stops?(item: string): readonly ScenePlace[] | Promise<readonly ScenePlace[]>;
   /** The pick rule the host aims with, a plain value (see {@link PickRule}); the runner never calls it. */
   readonly pick?: PickRule;
+  /** The host's names for a row's items and edges, as {@link CaseHost.ids}. */
+  readonly ids?: Readonly<Record<string, string>>;
 }
 
 export interface CaseResult {

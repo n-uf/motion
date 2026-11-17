@@ -7,6 +7,11 @@
  * A panel's forms here are plain intent: a card (open: it grows and sets the column's width at its minimum), a bar (a
  * header 30 px long, taking the column's width) and a rail segment. `winScene` builds the `Scene`: dynamic columns, a
  * rail on each side, `contentMin`, and the padding and gap as `inset` and `gutter`.
+ *
+ * A window row's stage (`CaseSettings.stage`, a `resize` to `point.x` by `point.y`, the scene's own `stage`) is the
+ * window's BODY: the content area inside any canvas padding. Window A's 12 px padding on each side lies inside it
+ * (808 = 12 + 220 + 12 + 320 + 12 + 220 + 12), so a host whose own stage leaves its padding out sets its body to the row's
+ * stage and needs no table of its own. A row's pointer `point`s are body px too.
  */
 import type { StackForm } from "../../stack";
 import type { Edge, Scene, SceneItem } from "../index";
@@ -23,7 +28,9 @@ export interface WinSpec {
   readonly barMain: number;
 }
 
+/** Window A: wide cards, a 12 px gap and 12 px of padding each side; its stage is the window's body, padding inside. */
 export const WINDOW_A: WinSpec = { card: { min: 220, max: 640 }, gap: 12, pad: 12, rail: 32, contentMin: { width: 320, height: 240 }, barMain: 30 };
+/** Window B: narrower cards, flush (no gap, no padding); its stage is the window's body, as A's. */
 export const WINDOW_B: WinSpec = { card: { min: 200, max: 560 }, gap: 0, pad: 0, rail: 32, contentMin: { width: 320, height: 240 }, barMain: 30 };
 export const WINDOW_BARE: WinSpec = { ...WINDOW_A, gap: 0, pad: 0, rail: 36 };
 

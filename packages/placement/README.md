@@ -1277,6 +1277,22 @@ that ends in a float gives one. A `move` with no target under the pointer draws 
 place left empty and nothing else moved. A row with `lacks` names a library rule the Scene doesn't have yet and is expected
 to fail until it lands. A host reaches the end gaps 24 px (`END_REACH`) past an edge's ends.
 
+A window row's stage (`CaseSettings.stage`, a `resize` of the window, the scene's own `stage`) is the window's **body**: the
+content area inside any canvas padding, so window A's 12 px padding lies inside its 808 px (808 = 12 + 220 + 12 + 320 + 12 +
+220 + 12), and a host whose own stage leaves its padding out sets its body to the row's stage, with no table. A row's
+pointer `point`s are body px. The runner clamps every `move` to a `point` into the stage before it reaches the host (the
+host contract: a pointer past the window's edge means its nearest point of the window, so a drop target at the edge stays
+under a hand that overshoots it), so every host plays the same point, and a row such as C17 means what the clamped point
+picks. A row may carry `requires`, what its scene needs of the host's window (`hitBand: "default"`: an open panel's body
+is no drop place, as in C7 and P5-neighbour-half-facing-it, so a host whose columns use `hitBand: "middle"` skips or marks
+the row; `rails`: the sides whose rail the scene shows at the start, as in P9-to-the-other-rail); the runner reads none of it.
+
+A host that names things differently gives `ids`, a row id to its own id (`{ views: "panels", tools: "commands" }`, items and
+edges, one to one; an id left out keeps its name). The runner hands the host its own ids (the scene, the gestures, `stops`,
+`itemSelector`) and reads the layout, the stored form and the stops back in the row's, so no expectation changes. One
+function does both ways (`mapScene`, `mapGesture`, `mapLayout`, `mapStored`, `mapPlace`, each taking a `Rename` that
+`idRenames(ids)` gives as `to` and `from`), and a host may use them to translate for itself.
+
 ```ts
 import { targetAt } from "@n-uf/motion/drag";
 import { CASES, createSceneHost, runCase } from "@n-uf/placement/scene/cases";

@@ -5,6 +5,19 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.29
 
+- `./scene/cases`, **a host's id map** (additive): `CaseHost.ids` / `AsyncCaseHost.ids`, a row's item and edge ids to the
+  host's (`{ views: "panels", tools: "commands" }`). The runner hands the host its own ids (the scene, the gestures,
+  `stops`, `itemSelector`) and maps the layout, the stored form and the stops back before comparing, so the rows that
+  name control groups run on a host that names them otherwise. One function does both ways: `mapScene`, `mapGesture`,
+  `mapLayout`, `mapStored`, `mapPlace` with `idRenames(ids)`; a map that sends two row ids to one host id throws.
+- `./scene/cases`, **the runner clamps the pointer into the stage** (the host contract, now the runner's too): a `move` to
+  a `point` reaches the host clamped into the stage (the row's `settings.stage`, or the window after a `resize`), so
+  every host plays the same point. C17's text says what the clamped point picks.
+- `./scene/cases`, **`CaseRow.requires`** (additive, type `CaseRequires`): what a row's scene needs of the host's window,
+  for a host's suite to skip or mark the row: `hitBand: "default"` on C7 and P5-neighbour-half-facing-it (an open panel's
+  body is no drop place), `rails` on P9-to-the-other-rail. **P9-to-the-other-rail changed:** its scene is now 600 px wide
+  with Findings folded by hand, so both rails show at the start (at 700 px no right rail was drawn). The rows' docs say a
+  window row's stage is the window's body, canvas padding inside (README, `WINDOW_A`, `WINDOW_B`).
 - `./scene`, fixed: **an occupied rail's stops were a dead band** when lifting the item reopened the column that was
   folded by width into that rail (flush window, rails on both sides, `handFold: "ride"`, no `railDrop`): the stops landed
   only in the rail, so the item riding over the reopened column made every stop a `no-room` refusal and the rail had no

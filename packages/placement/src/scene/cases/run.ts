@@ -5,7 +5,8 @@
  * same with a host whose calls may be async, awaiting each one; both play the same steps.
  */
 import type { Rect } from "../../geometry";
-import type { SceneLayout, SceneNote } from "../index";
+import type { SceneLayout, SceneNote, StoredScene } from "../index";
+import { idRenames, mapGesture, mapLayout, mapPlace, mapScene, mapStored } from "./ids";
 import type { AsyncCaseHost, CaseHost, CaseResult, CaseRow, DomCheck, DomRoot, EdgeExpect, Gesture, ItemExpect, LayoutExpect, StoredExpect } from "./types";
 
 const DEFAULT_TOLERANCE = 0.5;
@@ -210,8 +211,10 @@ function* steps(row: CaseRow, host: CaseHost | AsyncCaseHost): Steps {
     if (at === undefined) return;
     if (!Number.isInteger(at) || at < 0 || at >= n) fail([`${what} is at gesture ${at}, but the row has ${n} gestures (0 to ${last})`], "");
   };
-  // A check that targets an item (`item`) is aimed with the host's `itemSelector`, the kits' `[data-dock-item]` by default.
-  const itemSelector = (id: string): string => (host.itemSelector ? host.itemSelector(id) : defaultItemSelector(id));
+  // The host's id map (`CaseHost.ids`): every id goes to the host in its words, and everything read back in the row's.
+  const ids = idRenames(host.ids);
+  // A check that targets an item (`item`) is aimed with the host's `itemSelector`, `[data-dock-item]` by default.
+  const itemSelector = (id: string): string => (host.itemSelector ? host.itemSelector(ids.to(id)) : defaultItemSelector(ids.to(id)));
   const aimed = (c: DomCheck): DomCheck => (c.item !== undefined && c.select === undefined ? { ...c, select: itemSelector(c.item) } : c);
   for (const cp of row.checkpoints ?? []) range("a checkpoint", cp.at);
   for (const c of row.expectDom ?? []) {
@@ -229,7 +232,7 @@ function* steps(row: CaseRow, host: CaseHost | AsyncCaseHost): Steps {
   }
   function* layoutOf(when: string): Generator<Call, SceneLayout | null, Outcome> {
     const r = yield () => host.layout();
-    if (r.ok) return r.value as SceneLayout;
+    if (r.ok) return ids.active ? mapLayout(r.value as SceneLayout, ids.from) : (r.value as SceneLayout);
     fail([`the host couldn't give its layout: ${words(r.error)}`], when);
     return null;
   }
@@ -252,18 +255,28 @@ function* steps(row: CaseRow, host: CaseHost | AsyncCaseHost): Steps {
       skipped.push(`the stops of ${s.item}`);
       return;
     }
-    const have = (yield* must(() => host.stops!(s.item))).map(placeKey);
+    const have = (yield* must(() => host.stops!(ids.to(s.item)))).map((p) => placeKey(mapPlace(p, ids.from)));
     const want = s.places.map(placeKey);
     if (have.join("\n") !== want.join("\n")) fail([`${s.item}'s stops are\n   ${have.join("\n   ")}\n expected\n   ${want.join("\n   ")}`], "");
   }
-  const loaded = yield () => host.load(row.scene, row.settings);
+  const loaded = yield () => host.load(ids.active ? mapScene(row.scene, ids.to) : row.scene, row.settings);
   if (!loaded.ok) {
     fail([`the host couldn't load the scene: ${words(loaded.error)}`], "");
     return { ok: false, failures, skipped };
   }
+  // The host contract: the pointer is clamped into the stage before a target is picked, so a pointer past the window's
+  // edge means its nearest point of the window. The runner clamps every `move` to a `point` itself, whatever the host
+  // does, so every host plays the same point; the stage is the row's, and a `resize` of the window changes it.
+  let stage: Rect = row.settings?.stage ? { x: 0, y: 0, width: row.settings.stage.w, height: row.settings.stage.h } : row.scene.stage;
+  const inStage = (g: Gesture): Gesture => {
+    if (g.type !== "move" || !g.point) return g;
+    return { ...g, point: { x: Math.min(stage.x + stage.width, Math.max(stage.x, g.point.x)), y: Math.min(stage.y + stage.height, Math.max(stage.y, g.point.y)) } };
+  };
   for (let i = 0; i < n; i++) {
     const g = row.gestures[i]!;
-    const done = yield () => host.perform(g);
+    const sent = inStage(g);
+    if (g.type === "resize" && g.edge === undefined && g.item === undefined && g.point) stage = { x: 0, y: 0, width: g.point.x, height: g.point.y };
+    const done = yield () => host.perform(ids.active ? mapGesture(sent, ids.to) : sent);
     if (!done.ok) {
       fail([`${gestureWords(g, i)} failed: ${words(done.error)}`], "");
       return { ok: false, failures, skipped };
@@ -287,7 +300,7 @@ function* steps(row: CaseRow, host: CaseHost | AsyncCaseHost): Steps {
     if (!host.stored) skipped.push("the stored form");
     else {
       const r = yield () => host.stored!();
-      if (r.ok) fail(storedIssues(row.expectStored, r.value), " (the stored form)");
+      if (r.ok) fail(storedIssues(row.expectStored, ids.active ? mapStored(r.value as StoredScene, ids.from) : r.value), " (the stored form)");
       else fail([`the host couldn't give its stored form: ${words(r.error)}`], "");
     }
   }

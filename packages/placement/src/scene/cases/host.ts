@@ -3,7 +3,7 @@
  * the way a page's drag session does: a press on a handle, the first move past the lift threshold lifting the item and
  * asking `targets` for every drop target, a pointer over the most precise of them (its `pick`: pass
  * `@n-uf/motion/drag`'s `targetAt`, the one pick rule), the preview drawn from that target's `after.layout`, and a
- * release committing `after.scene`. Every solve carries the layout before it as `previous`. The kits' hosts do the same
+ * release committing `after.scene`. Every solve carries the layout before it as `previous`. An integrating app's host does the same
  * with their own pointer and DOM; the rows are the contract between them.
  *
  * Also exported: `resolvePlace` (a point that reaches the target at a place, under a pick rule), the pure step a host
@@ -15,7 +15,7 @@ import type { CaseHost, CaseSettings, Gesture, PickRule } from "./types";
 
 /** The lift threshold: the pointer moves this far (px) from the press before the item lifts. */
 export const LIFT_THRESHOLD = 4;
-/** How far past an edge's ends its first and last gaps reach (px); the kits' toolbars use 24. */
+/** How far past an edge's ends its first and last gaps reach (px); toolbars use 24. */
 export const END_REACH = 24;
 
 
@@ -109,7 +109,7 @@ export interface SceneHostOptions {
   /** Where a press with no `point` holds the item, px from its top-left corner (default 8, 8). A test varies it to prove no row depends on it. */
   readonly grab?: Point;
   /**
-   * The pick rule: which target the pointer is over. Pass `@n-uf/motion/drag`'s `targetAt`, the rule a kit's drag intent
+   * The pick rule: which target the pointer is over. Pass `@n-uf/motion/drag`'s `targetAt`, the rule an app's drag intent
    * runs, so the reference host and the kit agree on every boundary pixel. Default: the same rule (`pickTarget`).
    */
   readonly pick?: PickRule;
