@@ -22,6 +22,9 @@ Its sibling [`@n-uf/motion`](https://www.npmjs.com/package/@n-uf/motion) owns ho
 without importing each other: a target list from `@n-uf/placement/targets` is exactly what
 `@n-uf/motion/drag`'s drag intent takes, and a rect from any layout here is what `@n-uf/motion/layout` glides to.
 
+The older entries `./dock`, `./desk`, `./panels`, `./toolbar` and `./targets` still ship: superseded by `./scene` and
+`./tiling`, removed in the next breaking release.
+
 - **`@n-uf/placement`**: the shapes (`Rect`, `Size`, `Point`), the geometry every entry shares, and a popup positioner,
   as Wayland's xdg-positioner: an anchor point, gravity and offset, then flip, slide and resize, each only when the
   rule allows it. The geometry is `rect`, `overlap`, `clampInto`, `centre`, `EPS`, `PLANE`, `area`, `overlaps`,
@@ -802,9 +805,10 @@ console.log(readScene(JSON.parse(JSON.stringify(storeScene(drop.scene))), scene)
 **The cut.** Reserved edges cut the stage from the outside in: the full bars first (top then bottom, each by `ring`,
 0 outermost), across the whole width; then the columns (left then right, by ring), down the height the full bars
 leave; then the `span: "between"` bars, across the width the columns leave. What remains is `layout.content`. Edges
-with `mode: "overlay"` are cut the same way from a copy of the content: they lie over it and leave it as it is. A full
-overlay bar (`span` not `"between"`) runs across the full bars' width instead, over the side columns too, at the
-content's top or bottom; a `between` one lies over the content only. An edge
+with `mode: "overlay"` are cut the same way from a copy of the content: they lie over it and leave it as it is. An overlay
+bar that sets `span: "full"` by name runs across the full bars' width instead (the window's whole width with
+`outsideInset`), over the side columns too, at the
+content's top or bottom; one with `span: "between"`, or with no `span`, lies over the content only. An edge
 with nothing drawn in it takes no room.
 
 **Each edge is a stack.** Left and right edges are columns (`forms.column`), top and bottom ones bars (`forms.row`),

@@ -12,9 +12,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `{ edge, from, to }` and `bar-folded` `{ edge }`; the edge's `shrunk` is set. A bar with `giveWay` never draws an item
   thinner across than its form's `cross.min`. Scenes without `giveWay` on a bar lay out as before.
 
-- `./scene`, fixed: **a full overlay bar honours its span.** An overlay top or bottom bar with `span: "full"` (the
-  default) lay over the content only, between the columns, exactly like a `between` one. It now runs across the full
-  bars' width, over the side columns too, at the content's top or bottom; the columns keep their height.
+- `./scene`, fixed: **an overlay bar honours an explicit `span: "full"`.** An overlay top or bottom bar lay over the
+  content only, between the columns, whatever its `span`. One that sets `span: "full"` by name now runs across the
+  full bars' width, over the side columns too, at the content's top or bottom; the columns keep their height. An
+  overlay bar with no `span` keeps exactly its old layout, content-wide (an undrawn bar marked overlay changes nothing),
+  and so does one with `span: "between"`.
 
 - `./scene`, fixed: **an edge whose zones take nothing for a kind is no drop place for it, and no refusal.** A side
   rail that lists toolbars but takes them in no zone (`zoneAccepts: {}`, a rail a host doesn't draw at a narrow width,

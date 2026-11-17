@@ -108,8 +108,8 @@ describe("scene sweeps", () => {
       const l = solve(s);
       const overflowing = new Set(l.notes.flatMap((n) => ("edge" in n && (n.code === "overflow" || n.code === "too-wide") ? [n.edge] : [])));
       const docked = Object.entries(l.items).filter(([, it]) => it.edge && !it.inMenu && !overflowing.has(it.edge) && it.rect.width > 1e-6 && it.rect.height > 1e-6);
-      // A full overlay bar lies over the side columns by design: only its items may cover theirs.
-      const over = new Set(s.edges.filter((e) => e.mode === "overlay" && (e.side === "top" || e.side === "bottom") && e.span !== "between").map((e) => e.id));
+      // An overlay bar with `span: "full"` lies over the side columns by design: only its items may cover theirs.
+      const over = new Set(s.edges.filter((e) => e.mode === "overlay" && (e.side === "top" || e.side === "bottom") && e.span === "full").map((e) => e.id));
       const side = new Set(s.edges.filter((e) => e.side === "left" || e.side === "right").map((e) => e.id));
       const lies = (x: string, y: string): boolean => over.has(x) && side.has(y);
       for (let i = 0; i < docked.length; i++) {
