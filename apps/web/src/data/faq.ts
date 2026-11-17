@@ -82,7 +82,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "What gives way when a desk runs out of room?",
-      a: "In a scene, the least recently used section collapses to its header when a stacked column runs short of height. When width runs out under <code>contentMin</code>, the columns narrow, then the least recently used collapses to its rail. <code>solve</code> returns coded notes such as <code>column-folded</code>; your app supplies the wording. On this page, the bottom dock's height is the page's own rule: it shrinks, then collapses to a header bar, to keep the documents their least height.",
+      a: "In a scene, the least recently used section collapses to its header when a stacked column runs short of height. When width runs out under <code>contentMin</code>, the columns narrow, then the least recently used collapses to its rail. <code>solve</code> returns coded notes such as <code>column-folded</code>; your app supplies the wording. A top or bottom dock with <code>giveWay</code> gives way by <code>contentMin.height</code> the same way: it shrinks, then collapses to a header bar (<code>bar-shrunk</code>, <code>bar-folded</code>).",
     },
   ],
   "/toolbar-groups/": [
