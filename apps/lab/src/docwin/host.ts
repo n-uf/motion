@@ -11,7 +11,8 @@
  */
 import { targetAt } from "@n-uf/motion/drag";
 import { centre } from "@n-uf/placement";
-import { close, dockHome, floatAt, fold, homeFor, open, readScene, storeScene, use, type Scene, type SceneLayout } from "@n-uf/placement/scene";
+import { close, dockHome, floatAt, fold, homeFor, open, storeScene, use, type Scene, type SceneLayout } from "@n-uf/placement/scene";
+import { readDocwin } from "./store";
 import { END_REACH, LIFT_THRESHOLD, resizeStep, resolvePlace, type AsyncCaseHost, type CaseSettings, type DomRoot, type Gesture } from "@n-uf/placement/scene/cases";
 import type { ItemId } from "./model";
 import type { DocwinScene } from "./scene";
@@ -122,7 +123,8 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
     }
     switch (g.key) {
       case undefined:
-        if (it.closed || (it.from ?? 0) > 0) return c.commit(use(it.closed ? open(s, id) : fold(s, id, false), id));
+        // The window's own control: a rail icon's or a Views word's click opens it (unfolded, or back from closed).
+        if (it.closed || (it.from ?? 0) > 0) return c.open(id);
         return c.grip(id);
       case "use":
         return c.press(id);
@@ -159,8 +161,9 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
     else if (k === "Alt:up") c.altOn(false);
     else if (k === "Reload") {
       pressed = null;
-      const data: unknown = JSON.parse(JSON.stringify(storeScene(scene())));
-      c.setScene(readScene(data, { ...start!, stage: scene().stage }).scene);
+      // The window's own stored form (the Scene's, plus the window's size), read back over the loaded scene.
+      const data: unknown = JSON.parse(JSON.stringify(c.stored()));
+      c.setScene(readDocwin(data, start!).scene);
     } else throw new Error(`no key ${k}`);
   }
 

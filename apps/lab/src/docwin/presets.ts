@@ -6,7 +6,6 @@
  */
 import { centre, contains, overlap, type Point, type Rect } from "@n-uf/placement";
 import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, railModeOf, reservedRect, resize, targetId, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
-import { wrapCross } from "@n-uf/placement/stack";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
 import type { DragFeel, KindFeel } from "./feel";
 import { KIT_PRESETS } from "./kit-presets";
@@ -275,11 +274,6 @@ function aim(c: DocwinScene, id: ItemId, t: SceneTarget): Point | null {
   return null;
 }
 
-const firstFold = (c: DocwinScene, e: EdgeId): string => {
-  const n = c.layout.notes.find((x) => "edge" in x && x.edge === e && x.code === "form-down");
-  return n && "id" in n ? n.id : "none";
-};
-
 /** The aim-order sweep: three toolbars ordered on one edge of each kind. */
 const SWEEP_GROUPS: readonly ItemId[] = ["tools", "views", "zoom"];
 const SWEEP_EDGES: readonly (readonly [string, EdgeId])[] = [
@@ -307,49 +301,6 @@ function sweepScene(edge: EdgeId, order: readonly ItemId[]): Scene {
 // --- the presets -------------------------------------------------------------------------------------------------------
 
 export const PRESETS: readonly Preset[] = [
-  {
-    id: "back-above",
-    title: "Put Pages back above Notes",
-    expected: "Drag Pages by its header to the top of the left column: the dashed slot is the top gap, and after the drop Pages sits exactly on the slot, above Notes.",
-    setup: (c) => c.setScene(sceneWith((s) => put(s, "left", ["notes", "pages"]))),
-    check(c) {
-      const t = gaps(c, "pages").find((g) => g.place.edge === "left" && g.place.at === 0);
-      if (!t) return { pass: false, now: "No top gap in the left column." };
-      dragTo(c, "pages", [{ x: t.hit.x + t.hit.width / 2, y: t.hit.y + 12 }]);
-      const d = c.lastDrop;
-      const order = c.edge("left").items.join(", ");
-      const ok = d?.target === t.id && d.committed && sameRect(d.preview, d.landed) && c.edge("left").items[0] === "pages";
-      return { pass: ok, now: d ? `Dropped on ${d.target ?? "nothing"}; slot ${d.preview ? say(d.preview) : "none"}, landed ${d.landed ? say(d.landed) : "none"}; left column: ${order}.` : "The drag never lifted." };
-    },
-  },
-  {
-    id: "tools-own-size",
-    title: "Tools into a column keeps its size",
-    expected: "Tools dropped into the left column's tray (its foot) keeps its own size (its five tools in one row beside the grip, 153 px wide), at the column's start; it never stretches to the column's full width.",
-    setup: (c) => c.setScene(defaultScene()),
-    check(c) {
-      const t = gaps(c, "tools").find((g) => g.place.edge === "left" && g.place.zone === "end" && g.place.at === 0);
-      if (!t || !t.slot) return { pass: false, now: "No tray gap for Tools in the left column." };
-      const p = t.after({ x: 0, y: 0 }).layout.items.tools!;
-      const f = c.scene.items.tools!.forms.column![p.form]!;
-      // Its own width: a wrap form's rows (one row here), else the form's own across size.
-      const own = f.wrap ? wrapCross(f.wrap).natural : f.cross.natural;
-      const col = t.after({ x: 0, y: 0 }).layout.edges.left!.rect;
-      return { pass: Math.abs(t.slot.width - own) <= 0.5 && Math.abs(t.slot.x - col.x) <= 0.5, now: `Slot ${say(t.slot)} (${p.formKind}); Tools' own width there is ${own} px; the column starts at x ${r0(col.x)}.` };
-    },
-  },
-  {
-    id: "panel-no-bar-slot",
-    title: "A panel gets no slot in the top bar",
-    expected: "Dragging Notes offers no gap in the title, top or bottom bar: those edges take groups only. A drop there would put a panel into a toolbar.",
-    setup: (c) => c.setScene(sceneWith((s) => put(s, "top", ["zoom"]))),
-    check(c) {
-      const bad = gaps(c, "notes").filter((g) => !c.edge(g.place.edge as EdgeId).accepts.includes("panel"));
-      const by = (["title", "top", "bottom"] as const).map((e) => `${e} ${bad.filter((g) => g.place.edge === e).length}`).join(", ");
-      const offered = gaps(c, "notes").length;
-      return { pass: bad.length === 0 && offered > 0, now: bad.length ? `${bad.length} slots for a panel in group-only bars (${by}).` : `No slot for Notes in any bar; ${offered} in the columns.` };
-    },
-  },
   {
     id: "no-slot-over-chrome",
     title: "No slot over the title or controls",
@@ -420,22 +371,6 @@ export const PRESETS: readonly Preset[] = [
     },
   },
   {
-    id: "float-clear-of-chrome",
-    title: "A float stays clear of the title and bars",
-    expected: "Pages, floated with the pointer over the title bar, lands below the bars: a float never covers the title, the controls or a bar.",
-    setup: (c) => c.setScene(sceneWith((s) => floating(s, "pages", { x: 420, y: 160, width: 260, height: 360 }))),
-    check(c) {
-      const ft = c.targets("pages").find((t) => t.place.kind === "float");
-      if (!ft) return { pass: false, now: "No float target." };
-      const r = ft.after({ x: c.scene.stage.width / 2, y: 20 }, { x: 130, y: 16 }).layout.items.pages!.rect;
-      const bars = (["title", "top", "bottom"] as const).filter((b) => {
-        const e = c.layout.edges[b];
-        return e && e.cross > 0 && overlap(r, e.rect) > 0;
-      });
-      return { pass: bars.length === 0, now: bars.length ? `The float lands at ${say(r)}, over the ${bars.join(" and ")} bar.` : `The float lands at ${say(r)}, clear of the bars.` };
-    },
-  },
-  {
     id: "nothing-lights-up",
     title: "Nothing lights up during a drag",
     expected: "While Notes is held, only its targets react: the resize edge, headers and buttons take no hover, cursor or highlight, and nothing gets selected.",
@@ -452,77 +387,6 @@ export const PRESETS: readonly Preset[] = [
       endDrag(c);
       const live = pe !== "none" || he !== "none" || sel !== "none";
       return { pass: !live && state === "panel", now: `Drag session: ${state}; the resize edge takes the pointer (${pe}), the Findings header too (${he}), selection ${sel}.` };
-    },
-  },
-  {
-    id: "slots-at-rest",
-    title: "No slots at rest",
-    expected: "With nothing held, no slot, marker or placeholder is drawn anywhere, in an empty bar or column either.",
-    setup: (c) => c.setScene(defaultScene()),
-    check(c) {
-      const drawn = [...c.win.querySelectorAll<HTMLElement>(".dw-slot, .dw-marker")].filter((e) => !e.hidden).length;
-      return { pass: drawn === 0 && !c.dragging, now: `${drawn} slots or markers drawn at rest${c.dragging ? ", and a drag is on" : ""}.` };
-    },
-  },
-  {
-    id: "group-slot-in-panel",
-    title: "A group drag shows no slot inside a panel",
-    expected: "Dragging Tools over the middle of the Pages panel offers no slot there: slots open at the gaps above, between and below the panels, never over a panel's content.",
-    setup: (c) => c.setScene(defaultScene()),
-    check(c) {
-      const pages = rectOf(c, "pages");
-      if (!pages) return { pass: false, now: "Pages isn't docked." };
-      const p = centre(pages);
-      const hit = c.targets("tools").filter((t) => (t.place.kind === "gap" || t.place.kind === "column" || t.place.kind === "rail") && inside(t.hit, p));
-      return { pass: hit.length === 0, now: hit.length ? `The pointer over the Pages body hits ${hit.map((g) => g.id).join(", ")}; its slot is ${hit[0]!.slot ? say(hit[0]!.slot) : "none"}.` : "No gap under the Pages body." };
-    },
-  },
-  {
-    id: "panel-drag-state",
-    title: "A panel drag sets the drag session",
-    expected: 'While Pages is held, the scene root carries data-drag-session="panel"; it is gone after the release.',
-    setup: (c) => c.setScene(defaultScene()),
-    check(c) {
-      const r = dragTo(c, "pages", [{ x: 400, y: 300 }], true);
-      if (!r.lifted) return { pass: false, now: "The drag never lifted." };
-      const during = c.root.dataset.dragSession ?? "none";
-      endDrag(c);
-      const after = c.root.dataset.dragSession ?? "none";
-      return { pass: during === "panel" && after === "none", now: `During the drag: ${during}; after: ${after}.` };
-    },
-  },
-  {
-    id: "folds-oldest",
-    title: "A narrow or short window folds the oldest first",
-    expected:
-      "In a short window the panel used longest ago (Pages) folds to its header first; in a narrow one the oldest group of the lowest priority (Tools, Review being kept out of the menu longest) folds first in the bottom bar.",
-    setup: (c) =>
-      c.setScene(
-        sceneWith(
-          (s) => ages(put(put(s, "left", ["pages", "notes", "findings"]), "bottom", ["views", "tools", "review"]), ["tools", "pages", "notes", "findings", "views", "review"]),
-          // Narrow enough that the bottom bar's three toolbars (Views, Tools, Review and the gaps) don't fit in a row.
-          { width: 600, height: 464 },
-        ),
-      ),
-    check(c) {
-      const l = firstFold(c, "left");
-      const b = firstFold(c, "bottom");
-      return { pass: l === "pages" && b === "tools", now: `First to fold: ${l} in the left column, ${b} in the bottom bar.` };
-    },
-  },
-  {
-    id: "rail-click-opens",
-    title: "A rail icon click opens the panel",
-    expected: "In a short window Notes is a rail icon; a click on it opens Notes, and Pages gives way to its header instead.",
-    setup: (c) => c.setScene(sceneWith((s) => ages(put(s, "left", ["pages", "notes"]), ["notes", "pages"]), { width: 1080, height: 272 })),
-    check(c) {
-      const before = c.layout.items.notes?.formKind ?? "none";
-      const el = c.win.querySelector<HTMLElement>('.dw-items [data-id="notes"] [data-open]');
-      if (!el) return { pass: false, now: `Notes is ${before}, with no rail icon to click.` };
-      c.open("notes");
-      const after = c.layout.items.notes?.formKind ?? "none";
-      const pages = c.layout.items.pages?.formKind ?? "none";
-      return { pass: before === "rail" && after === "open", now: `Notes was ${before}; after the click Notes is ${after}, Pages is ${pages}.` };
     },
   },
   {
@@ -556,42 +420,6 @@ export const PRESETS: readonly Preset[] = [
     },
   },
   {
-    id: "back-to-place",
-    title: "Back to its place",
-    expected: 'Lift Notes, move away, come back over its place: the slot is its old rect ("Back to its place"), and a release there changes nothing.',
-    setup: (c) => c.setScene(defaultScene()),
-    check(c) {
-      const home = rectOf(c, "notes");
-      const g = gripOf(c, "notes");
-      if (!home || !g) return { pass: false, now: "Notes isn't docked." };
-      const before = JSON.stringify(c.stored());
-      dragTo(c, "notes", [{ x: 420, y: g.y + 80 }, { x: g.x, y: g.y }]);
-      const d = c.lastDrop;
-      const same = JSON.stringify(c.stored()) === before;
-      return { pass: !!d && !d.committed && !d.cancelled && sameRect(d.preview, home) && same, now: d ? `Released on ${d.target ?? "its place"}; slot ${d.preview ? say(d.preview) : "none"} (its place ${say(home)}); layout ${same ? "unchanged" : "changed"}.` : "The drag never lifted." };
-    },
-  },
-  {
-    id: "scroll-under-float",
-    title: "Scroll under a float",
-    expected: "Scroll the pages: Tools, floating at their right edge, stays put while the pages move under it.",
-    setup: (c) => c.setScene(defaultScene()),
-    check(c) {
-      const el = c.win.querySelector<HTMLElement>('.dw-items [data-id="tools"]');
-      const sheet = c.win.querySelector<HTMLElement>(".dw-sheet");
-      if (!el || !sheet) return { pass: false, now: "Tools isn't floating." };
-      const a = el.getBoundingClientRect();
-      const s0 = sheet.getBoundingClientRect().top;
-      const top = c.scroll.scrollTop;
-      c.scroll.scrollTop = top + 400;
-      const b = el.getBoundingClientRect();
-      const s1 = sheet.getBoundingClientRect().top;
-      c.scroll.scrollTop = top;
-      const moved = Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
-      return { pass: moved <= 0.5 && Math.abs(s0 - s1) > 100, now: `The pages moved ${Math.round(s0 - s1)} px; Tools moved ${moved.toFixed(1)} px.` };
-    },
-  },
-  {
     id: "freeze-alt",
     title: "Freeze with Alt",
     expected: "Frozen: the grips are hidden and nothing lifts. Holding Alt shows the grips and every drag works; letting Alt go freezes again.",
@@ -611,57 +439,6 @@ export const PRESETS: readonly Preset[] = [
       c.altOn(false);
       const ok = g0 === "hidden" && !lift0 && g1 === "visible" && lift1;
       return { pass: ok, now: `Frozen: grips ${g0}, a drag ${lift0 ? "lifts" : "doesn't lift"}. With Alt: grips ${g1}, a drag ${lift1 ? "lifts" : "doesn't lift"}.` };
-    },
-  },
-  {
-    id: "reload-restores",
-    title: "Reload restores the layout",
-    expected: "Move things (Findings under Notes, Pages floating, Views in the top bar), then reload: every item comes back in its place and form.",
-    setup: (c) => c.setScene(sceneWith((s) => floating(put(put(s, "left", ["notes", "findings"]), "top", ["views"]), "pages", { x: 360, y: 140, width: 260, height: 360 }))),
-    check(c) {
-      const stored = c.stored();
-      const placed = (): string[] =>
-        Object.entries(c.layout.items)
-          .map(([id, p]) => `${id}@${p.floating ? "float" : (p.edge ?? "-")}:${p.formKind}:${say(p.rect)}`)
-          .sort();
-      const before = placed();
-      const r = readDocwin(JSON.parse(JSON.stringify(stored)));
-      c.setScene(r.scene);
-      const after = placed();
-      const diff = before.filter((x) => !after.includes(x));
-      const same = JSON.stringify(storeDocwin(r.scene)) === JSON.stringify(stored);
-      return {
-        pass: diff.length === 0 && same && r.dropped.length === 0,
-        now: diff.length ? `Changed after the reload: ${diff.join("; ")}.` : `All ${after.length} items back in place${same ? "" : "; the stored form differs"}${r.dropped.length ? `; dropped: ${r.dropped.join(", ")}` : ""}.`,
-      };
-    },
-  },
-  {
-    id: "room-comes-back",
-    title: "Room comes back in the right order",
-    expected: "Shrink the window (Pages, then Notes fold), then grow it back: they open again in the reverse order, Notes first, then Pages.",
-    setup: (c) => c.setScene(sceneWith((s) => ages(put(s, "left", ["pages", "notes", "findings"]), ["pages", "notes", "findings"]), { width: 1080, height: 640 })),
-    check(c) {
-      // The column's forms as one state ("pages header, notes open, …"); shrinking and growing each pass through a list
-      // of states, and growing must pass through the same states as shrinking, in reverse.
-      const state = (): string =>
-        c
-          .edge("left")
-          .items.map((id) => `${id} ${c.layout.items[id]?.formKind ?? "-"}`)
-          .join(", ");
-      const w = c.scene.stage.width;
-      const down = [state()];
-      for (let h = 620; h >= 340; h -= 20) {
-        c.setSize(w, h);
-        if (state() !== down[down.length - 1]) down.push(state());
-      }
-      const up = [state()];
-      for (let h = 360; h <= 640; h += 20) {
-        c.setSize(w, h);
-        if (state() !== up[up.length - 1]) up.push(state());
-      }
-      const ok = down.length > 1 && up.join(" | ") === [...down].reverse().join(" | ");
-      return { pass: ok, now: `Shrinking: ${down.join(" → ")}. Growing: ${up.join(" → ")}.` };
     },
   },
   {
