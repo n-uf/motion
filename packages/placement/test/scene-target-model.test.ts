@@ -140,7 +140,6 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           if (past) fail("refused-edge-drawn", `seed ${seed} drag ${id}: ${r.id} runs past ${e.id}'s ends`);
         }
       }
-      const key = (ps: readonly R[]): string => JSON.stringify([...ps].map((p) => [p.x, p.y, p.width, p.height].map((n) => Math.round(n * 100))).sort());
       for (const e of s.edges) {
         const d = seen.edges[e.id]?.rect;
         if (!d || d.width < 1e-6 || d.height < 1e-6 || (["start", "center", "end"] as const).some((z) => zoneTakes(e, z, it.kind))) continue;
@@ -156,11 +155,11 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
         const r = mine[0];
         const pieces = r ? zoneOfT(r) : [];
         const largestOk = !r || pieces.every((p) => area(p) <= area(r.hit) + 1e-9);
-        // The pieces cover the same space as what is left (cut up the same way or not, a sub-pixel rim aside), inside it.
-        const sum = (ps: readonly R[]): number => ps.reduce((n, p) => n + area(p), 0);
+        // The pieces cover what is left, piece by piece (cut up the same way or not): every `want` piece less the union
+        // of the pieces leaves at most a 1 px rim. And they lie inside it, apart.
         const within = pieces.every((p) => p.x >= shown.x - 1e-6 && p.y >= shown.y - 1e-6 && p.x + p.width <= shown.x + shown.width + 1e-6 && p.y + p.height <= shown.y + shown.height + 1e-6);
         const apart = pieces.every((p, i) => pieces.every((q, j) => i === j || !meets(p, q)));
-        const covers = key(pieces) === key(want) || Math.abs(sum(pieces) - sum(want)) <= shown.width + shown.height;
+        const covers = want.every((w) => pieces.reduce<R[]>((ps, cut) => ps.flatMap((p) => subtract(p, cut)), [w]).every((rest) => Math.min(rest.width, rest.height) <= 1 + 1e-6));
         if (mine.length !== (want.length ? 1 : 0) || (r && (r.id !== `refuse:${e.id}:start` || !covers || !within || !apart || !largestOk || pieces.some((p) => p.width < 1 || p.height < 1))))
           fail("refused-edge-drawn", `seed ${seed} drag ${id}: ${e.id} refuses as ${JSON.stringify(mine.map((x) => [x.id, zoneOfT(x)]))}, drawn ${JSON.stringify(want)}`);
       }
@@ -178,7 +177,9 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
       }
       // A reachable minimum: every docked target's largest piece is 12 px across by 24 px along, or the space it would
       // need beside it, in its own zone, is taken (another target, a refusal, the chrome, past the stage, or, but for a
-      // column line, another drawn edge).
+      // column line, another drawn edge). Checked each way: the narrow side to 12, the long side to 24, each by a strip
+      // of its whole length on one side. Growth over part of the length only (the library's fallback across, where a
+      // home band keeps one end) is not asked for here: a unit test below pins it.
       const zones = targetZones(s, id);
       for (const t of all) {
         if (t.place.kind === "home" || t.place.kind === "none" || t.place.kind === "float" || t.strip) continue;
@@ -193,13 +194,17 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           ...(line ? [] : Object.entries(seen.edges).filter(([eid, e]) => eid !== ownEdge && e.rect.width > 1e-6 && e.rect.height > 1e-6).map(([, e]) => e.rect)),
         ];
         const narrowX = l.width <= l.height;
-        const d = 12 - (narrowX ? l.width : l.height);
-        if (d <= 1e-6) continue;
-        const sides = narrowX ? [{ ...l, x: l.x - d, width: d }, { ...l, x: l.x + l.width, width: d }] : [{ ...l, y: l.y - d, height: d }, { ...l, y: l.y + l.height, height: d }];
         const zone = zones.get(t.id) ?? [];
         const inZone = (g: R): boolean => !zone.reduce<R[]>((ps, z) => ps.flatMap((p) => subtract(p, z)), [g]).some((p) => area(p) > 1e-6);
-        const free = sides.filter((g) => inZone(g) && g.x >= s.stage.x - 1e-6 && g.y >= s.stage.y - 1e-6 && g.x + g.width <= s.stage.x + s.stage.width + 1e-6 && g.y + g.height <= s.stage.y + s.stage.height + 1e-6 && !taken.some((r) => meets(r, g)));
-        if (free.length) fail("min-hit", `seed ${seed} drag ${id}: ${t.id} ${JSON.stringify(l)} could take ${JSON.stringify(free[0])}`);
+        const isFree = (g: R): boolean => inZone(g) && g.x >= s.stage.x - 1e-6 && g.y >= s.stage.y - 1e-6 && g.x + g.width <= s.stage.x + s.stage.width + 1e-6 && g.y + g.height <= s.stage.y + s.stage.height + 1e-6 && !taken.some((r) => meets(r, g));
+        // The narrow side short of 12 (across), the long side short of 24 (along): on x when it is the side, else on y.
+        for (const [onX, need] of [[narrowX, 12], [!narrowX, 24]] as const) {
+          const d = need - (onX ? l.width : l.height);
+          if (d <= 1e-6) continue;
+          const sides = onX ? [{ ...l, x: l.x - d, width: d }, { ...l, x: l.x + l.width, width: d }] : [{ ...l, y: l.y - d, height: d }, { ...l, y: l.y + l.height, height: d }];
+          const free = sides.filter(isFree);
+          if (free.length) fail("min-hit", `seed ${seed} drag ${id}: ${t.id} ${JSON.stringify(l)} could take ${JSON.stringify(free[0])}`);
+        }
       }
       // Preview = landing, from every piece of a docked target's zone.
       for (const t of ts) {
@@ -482,6 +487,7 @@ describe("the target model's property check", () => {
     const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;
     let checked = 0;
     let pushedAllowed = 0;
+    let refusedPush = 0;
     for (let n = 0; n < 160; n++) {
       const count = 2 + Math.floor(rnd() * 5);
       const ids = Array.from({ length: count }, (_, i) => `m${i}`);
@@ -511,7 +517,12 @@ describe("the target model's property check", () => {
           const me = after.items.g!;
           if (me.edge !== "top" || me.inMenu || me.zone !== zone) continue;
           const moved = ids.filter((id) => fixedIn(id) && Math.abs(after.items[id]!.rect.x - base.items[id]!.rect.x) > 0.5);
-          if (moved.some(isProtected)) continue;
+          // The other way too: a slot that would push a protected fixed item is no target.
+          if (moved.some(isProtected)) {
+            refusedPush++;
+            expect(ts.some((t) => t.id === `gap:top:${zone}:${k}`), `case ${n}: gap:top:${zone}:${k} pushes ${moved.filter(isProtected).join(", ")} but is a target`).toBe(false);
+            continue;
+          }
           if (k > 0 && k < members.length && fixedIn(members[k - 1]!) && fixedIn(members[k]!)) continue;
           if (moved.length) pushedAllowed++;
           checked++;
@@ -521,6 +532,7 @@ describe("the target model's property check", () => {
     }
     expect(checked).toBeGreaterThan(300);
     expect(pushedAllowed).toBeGreaterThan(20);
+    expect(refusedPush).toBeGreaterThan(20);
   });
 
   it("refused-edge-drawn: a target in the middle of a wholly refused bar leaves the refusal on both sides, no sliver", () => {
@@ -594,7 +606,7 @@ describe("the target model's property check", () => {
     expect(l.edges.left0!.rect.x + l.edges.left0!.rect.width).toBe(seam);
     const line = targets(s, "g").find((t) => t.id === "column:left:1");
     // Its band about the seam is the line's against the inner column it would push (6 px), grown to the 12 px minimum
-    // across from the outer column's side of its band, where nothing else is aimed at.
+    // across: it now overlays the outer column's edge by 6 px, where nothing else is aimed at.
     expect(line?.hit.x).toBe(seam - 6);
     expect(line?.hit.width).toBe(12);
     expect(lostSlots(s, "g")).toEqual([]);
