@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.34
 
 - `./drag`, **the lift zone: back where it was lifted, a pause commits nothing.** A panel lifted by a grip under a
   rail strip (a flush drawer at the window's edge), dragged away and brought back to its grip, collapsed into the rail
