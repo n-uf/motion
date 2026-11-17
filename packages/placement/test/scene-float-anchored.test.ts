@@ -1,6 +1,6 @@
 /** Anchored floats keep clear of the floats before them: a group sent to Float never lands on one already floating. */
 import { describe, expect, it } from "vitest";
-import { FLOAT_ANCHORS, anchorName, floatAt, moveTo, raise, readScene, solve, storeScene, type Scene, type SceneFloat } from "../src/scene";
+import { FLOAT_ANCHORS, anchorName, floatAt, moveTo, raise, readScene, resize, solve, storeScene, use, type Scene, type SceneFloat } from "../src/scene";
 import { group, panel, seeded, windowScene } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
@@ -27,24 +27,51 @@ describe("an anchored float and the other floats", () => {
   it("a group sent to Float lands beside a strip that already floats at the same corner", () => {
     const strip = floatAt(base(), "strip");
     const [[, at]] = floatRects(strip) as [[string, R]];
-    // "strip" sorts before "tools": the strip keeps the corner, the group takes the nearest clear place beside it.
-    const both = moveTo(strip, "tools", { kind: "float" });
-    expect(both.floats.map((f) => [f.id, f.anchor])).toEqual([
-      ["strip", "content-top-right"],
-      ["tools", "content-top-right"],
+    // "g1" sorts before "strip", but the strip floated first: it keeps the corner, the group goes beside it.
+    const both = moveTo(strip, "g1", { kind: "float" });
+    expect(both.floats.map((f) => [f.id, f.anchor, f.since])).toEqual([
+      ["strip", "content-top-right", 1],
+      ["g1", "content-top-right", 2],
     ]);
     const rects = Object.fromEntries(floatRects(both));
     expect(rects.strip).toEqual(at);
-    expect(overlaps(rects.tools!, rects.strip!)).toBe(false);
+    expect(overlaps(rects.g1!, rects.strip!)).toBe(false);
     expect(solve(both).notes.filter((n) => n.code === "float-covers")).toEqual([]);
   });
 
-  it("among anchored floats the smaller id keeps the corner, whichever floated first", () => {
-    const strip = floatAt(base(), "strip");
-    const both = moveTo(strip, "g1", { kind: "float" });
+  it("the ids the other way round: the float floated first still keeps the corner", () => {
+    const g1 = floatAt(base(), "g1");
+    const [[, at]] = floatRects(g1) as [[string, R]];
+    const both = moveTo(g1, "strip", { kind: "float" });
     const rects = Object.fromEntries(floatRects(both));
-    expect(rects.g1).toEqual(solve(floatAt(base(), "g1")).items.g1!.rect);
+    expect(rects.g1).toEqual(at);
     expect(overlaps(rects.g1!, rects.strip!)).toBe(false);
+  });
+
+  it("since: one more than the largest among the floats; kept by a move, raise, use and resize; new after a dock", () => {
+    const one = floatAt(base(), "g1");
+    const two = moveTo(one, "g2", { kind: "float" });
+    const sinceOf = (s: Scene, id: string) => s.floats.find((f) => f.id === id)?.since;
+    expect([sinceOf(two, "g1"), sinceOf(two, "g2")]).toEqual([1, 2]);
+    // Moved by hand (a drop, re-anchored), raised, used, resized: the same.
+    expect(sinceOf(floatAt(two, "g1", { x: 400, y: 300, width: 200, height: 28 }), "g1")).toBe(1);
+    expect(sinceOf(moveTo(two, "g1", { kind: "float", anchor: "content-bottom" }), "g1")).toBe(1);
+    expect(sinceOf(raise(two, "g1"), "g1")).toBe(1);
+    expect(sinceOf(use(two, "g1"), "g1")).toBe(1);
+    const notes = floatAt(base(), "notes", { x: 400, y: 200, width: 280, height: 320 });
+    expect(sinceOf(resize(notes, "notes", { x: 400, y: 200, width: 300, height: 340 }), "notes")).toBe(1);
+    // Docked, then floated again: after every float there now.
+    const docked = moveTo(two, "g1", { edge: "toolbar", at: 0 });
+    expect(sinceOf(floatAt(docked, "g1"), "g1")).toBe(3);
+  });
+
+  it("a missing since counts as 0 (an older stored scene's float wins), ties by id", () => {
+    const f = (id: string, since?: number): SceneFloat => ({ id, rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-top-right", ...(since !== undefined ? { since } : {}) });
+    const corner = solve({ ...base(), floats: [f("g1")] }).items.g1!.rect;
+    const stripAlone = solve({ ...base(), floats: [f("strip")] }).items.strip!.rect;
+    expect(solve({ ...base(), floats: [f("g2", 1), f("strip")] }).items.strip!.rect).toEqual(stripAlone);
+    expect(solve({ ...base(), floats: [f("g2", 3), f("g1", 3)] }).items.g1!.rect).toEqual(corner);
+    expect(solve({ ...base(), floats: [f("g1", 5), f("g2", 2)] }).items.g2!.rect).toEqual(corner);
   });
 
   it("a second group sent to Float lands beside the first, and the first stays put", () => {
@@ -80,7 +107,7 @@ describe("an anchored float and the other floats", () => {
     expect(overlaps(rects.g1!, rects.g2!)).toBe(false);
   });
 
-  it("the stacking order decides nothing: the smaller id wins among anchored floats", () => {
+  it("the stacking order decides nothing: with no since, the smaller id wins among anchored floats", () => {
     const a: SceneFloat = { id: "g1", rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-top-right" };
     const b: SceneFloat = { id: "g2", rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-top-right" };
     const ab = Object.fromEntries(floatRects({ ...base(), floats: [a, b] }));
@@ -169,6 +196,22 @@ describe("an anchor with an offset", () => {
     expect(up.notes).toContainEqual({ code: "float-moved", id: "g1" });
   });
 
+  it("since round-trips through storeScene and readScene, and so does who wins", () => {
+    const s = moveTo(floatAt(base(), "strip"), "g1", { kind: "float" });
+    const stored = storeScene(s);
+    expect(stored.floats.map((f) => [f.id, f.since])).toEqual([
+      ["strip", 1],
+      ["g1", 2],
+    ]);
+    const read = readScene(JSON.parse(JSON.stringify(stored)), base());
+    expect(read.dropped).toEqual([]);
+    expect(read.scene.floats.map((f) => [f.id, f.since])).toEqual([
+      ["strip", 1],
+      ["g1", 2],
+    ]);
+    expect(Object.fromEntries(floatRects(read.scene))).toEqual(Object.fromEntries(floatRects(s)));
+  });
+
   it("round-trips through storeScene and readScene; the clamp never turns it into a pixel position", () => {
     const s: Scene = { ...base(), floats: [{ id: "g1", rect: { x: 5000, y: -300, width: 200, height: 28 }, anchor: { at: "content-top-right", dx: -8, dy: 12 } }, { id: "g2", rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-bottom" }] };
     const stored = storeScene(s);
@@ -191,6 +234,14 @@ describe("an anchor with an offset", () => {
     expect(read({ at: "nowhere", dy: 4 }).dropped).toEqual(["float:g1:anchor"]);
     expect(read("nowhere").dropped).toEqual(["float:g1:anchor"]);
     expect(read("content-left").scene.floats[0]!.anchor).toBe("content-left");
+    // since: kept when a finite number of 0 or more, else dropped and listed.
+    const withSince = (since: unknown) => readScene({ v: 1, edges: [], items: {}, floats: [{ id: "g1", x: 10, y: 10, width: 200, height: 28, since }] }, base());
+    expect(withSince(3).scene.floats[0]!.since).toBe(3);
+    expect(withSince(0).dropped).toEqual([]);
+    for (const bad of [-1, Number.NaN, Infinity, "3", null]) {
+      expect(withSince(bad).scene.floats[0]!.since).toBeUndefined();
+      expect(withSince(bad).dropped).toEqual(["float:g1:since"]);
+    }
     // null and an array are no anchor: dropped and listed, the float kept at its rect.
     for (const bad of [null, ["content-top", 4], [], 12]) {
       const r = read(bad);
@@ -219,16 +270,18 @@ describe("anchored floats, over generated scenes", () => {
     expect(pairs).toBeGreaterThan(300);
   });
 
-  it("an anchored float never overlaps a float that wins over it (one placed by hand, an anchored one with a smaller id) when room exists", () => {
+  it("an anchored float never overlaps a float that wins over it (one placed by hand, an anchored one floated earlier) when room exists", () => {
     let checked = 0;
     for (const seed of SEEDS) {
       const s = generated(seed, true);
       const l = solve(s);
       const anchored = new Set(s.floats.filter((f) => f.anchor).map((f) => f.id));
+      const since = new Map(s.floats.map((f) => [f.id, f.since ?? 0]));
+      const later = (a: string, b: string) => since.get(a)! > since.get(b)! || (since.get(a) === since.get(b) && a > b);
       for (const id of l.floats) {
         if (!anchored.has(id)) continue;
         for (const other of l.floats) {
-          if (other === id || (anchored.has(other) && other > id)) continue;
+          if (other === id || (anchored.has(other) && later(other, id))) continue;
           checked++;
           if (overlaps(l.items[id]!.rect, l.items[other]!.rect)) throw new Error(`seed ${seed}: ${id} covers ${other}`);
         }

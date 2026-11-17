@@ -26,8 +26,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   bars and chrome only, never of each other, so Float from a menu (`moveTo(scene, id, { kind: "float" })` with no rect,
   anchored to the content's top-right) laid a group exactly on a float already at that corner, and a second group
   exactly on the first. An anchored float is now also kept clear of every float with a rect of its own and of the
-  anchored floats with smaller ids, by the same nearest-clear-place search (`fitFloat`). The stacking order plays no
-  part, so `raise` still reshapes nothing. With no place clear of them all, it lies where it did before. A float with a
+  anchored floats floated before it (smaller `since`, a missing one counting as 0, then smaller id), by the same
+  nearest-clear-place search (`fitFloat`): a float already at a corner stays there. The stacking order plays no part,
+  so `raise` still reshapes nothing. With no place clear of them all, it lies where it did before. A float with a
   rect of its own keeps it. Scenes with no anchored float, or whose anchored floats covered no float that wins over
   them, lay out exactly as before. Conformance row C14b's expected answer changed: its float now lies beside the float
   already at that corner, at x 240, so a host that runs the cases suite on an older library fails C14b until it
