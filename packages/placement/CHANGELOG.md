@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.33
 
+- `./scene/cases`, **P9-to-the-other-rail shows both rails in either window.** At 600 px window B's left column (200 px
+  card, flush, 32 px rail, `contentMin` 320: 552 px) still fits, so Pages stayed open. The row's width is now derived
+  from the windows (the least width at which A's or B's left column no longer fits, less a step: 540 px), so both rails
+  show on a host at either window's numbers; a test plays it at both.
 - `./scene`, fixed: **with card halves (`hitBand: "middle"`) and a rail drop strip, the new outermost column was
   missing.** Moved inside the strip, the line for `column:<side>:0` was cut again by every other target, and a column's
   card halves cover its whole width, so nothing was left: neither `targets()` nor `stops()` offered it. The line now keeps
