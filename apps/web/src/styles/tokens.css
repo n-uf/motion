@@ -57,8 +57,7 @@
   --series-b2: #9b6aa8;
   --series-c: var(--accent);
   --series-c2: #4ea7c3;
-  /* Other curves (hypr-tiling's, a no-clamp retarget): two slates, never violet (violet is placement's) */
-  --series-d: #566577;
+  /* Other curves (a no-clamp retarget): a slate, never violet (violet is placement's) */
   --series-e: #8795a6;
   --series-ink: #4b4d53;
 
@@ -173,7 +172,6 @@
     --series-b: #9a93ea;
     --series-b2: #d39be0;
     --series-c2: #9edff0;
-    --series-d: #a3afbf;
     --series-e: #6f7d8f;
     --series-ink: #c2c4ca;
     --grip: #7d838e;
@@ -235,7 +233,6 @@
   --series-b: #9a93ea;
   --series-b2: #d39be0;
   --series-c2: #9edff0;
-  --series-d: #a3afbf;
   --series-e: #6f7d8f;
   --series-ink: #c2c4ca;
   --grip: #7d838e;
