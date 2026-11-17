@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.32
 
 - `./scene/cases`, **refusals win, on every host.** The reference host (`createSceneHost`) now honours `refusals()`:
   over a refused tile, where nothing more precise than the float is under the pointer, nothing is picked, and a release
