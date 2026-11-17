@@ -5,7 +5,9 @@
  * rules. Pure, so the server renders the default desk and the island renders every later state with the same code.
  */
 import { PRESETS, presetLayout, type PresetId } from "@n-uf/placement/desk";
+import type { Rect } from "@n-uf/placement";
 import { float, type PanelDef, type PanelsNote, type PanelsOptions } from "@n-uf/placement/panels";
+import { layoutSplit, masterStack, splitFromOrder } from "@n-uf/placement/tiling";
 
 const G = 6, BAR = 34, RAIL = 34, TITLE = 22;
 const PANELS: Record<string, number> = { Files: 130, Outline: 110, Notes: 100, Inspector: 100, History: 150 };
@@ -42,39 +44,17 @@ function pill(cx: number, cw: number, H: number, y0 = 0, y1 = H): { box: Box; to
   };
 }
 
-/** Master and stack: the first document takes the left part, the rest stack on the right. */
+const rectOf = (r: Area): Rect => ({ x: r.x, y: r.y, width: r.w, height: r.h });
+
+/** Master and stack (@n-uf/placement/tiling): the first document takes the left part, the rest stack on the right. */
 function tiles(r: Area, names: string[]): Box[] {
-  if (names.length === 0) return [];
-  if (names.length === 1) return [box(r.x, r.y, r.w, r.h, "doc", names[0]!)];
-  const mw = Math.round((r.w - G) * 0.56);
-  const out = [box(r.x, r.y, mw, r.h, "doc", names[0]!)];
-  const rest = names.slice(1);
-  const sh = (r.h - G * (rest.length - 1)) / rest.length;
-  rest.forEach((n, i) => out.push(box(r.x + mw + G, r.y + i * (sh + G), r.w - mw - G, sh, "doc", n)));
-  return out;
+  return [...masterStack(names, rectOf(r), { gap: G, ratio: 0.56 })].map(([n, t]) => box(t.x, t.y, t.width, t.height, "doc", n));
 }
 
 interface Leaf { label: string; kind: Kind; where: "L" | "R" | "C"; born: number }
-/** Dwindle: each new tile splits the last one along its longer side. */
+/** Dwindle, split along the longer side (@n-uf/placement/tiling): each new tile splits the last one. */
 function dwindle(r: Area, names: Leaf[]): Box[] {
-  const out: Box[] = [];
-  let cur = { ...r };
-  names.forEach((n, i) => {
-    if (i === names.length - 1) {
-      out.push(box(cur.x, cur.y, cur.w, cur.h, n.kind, n.label));
-      return;
-    }
-    if (cur.w >= cur.h) {
-      const w = (cur.w - G) / 2;
-      out.push(box(cur.x, cur.y, w, cur.h, n.kind, n.label));
-      cur = { x: cur.x + w + G, y: cur.y, w, h: cur.h };
-    } else {
-      const h = (cur.h - G) / 2;
-      out.push(box(cur.x, cur.y, cur.w, h, n.kind, n.label));
-      cur = { x: cur.x, y: cur.y + h + G, w: cur.w, h };
-    }
-  });
-  return out;
+  return [...layoutSplit(splitFromOrder(names), rectOf(r), { gap: G })].map(([n, t]) => box(t.x, t.y, t.width, t.height, n.kind, n.label));
 }
 
 // ---- The presets: @n-uf/placement/desk lays them out, this maps the layout to boxes -----------------------------------
