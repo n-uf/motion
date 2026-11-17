@@ -2,7 +2,7 @@
  * The panel gestures P1 to P15 (and their variants) as rows, on window A with the left and right columns 300 px
  * wide (stored sizes): Pages above Annotations in the left column, Findings in the right, all open, 1120 x 800.
  *
- * The kits' steps map onto the gesture grammar like this: `lift(id)` is a `press` and a `move` (a `move` with a place
+ * An app's drag steps map onto the gesture grammar like this: `lift(id)` is a `press` and a `move` (a `move` with a place
  * lifts); `to(target)` is a `move` to a `place`; `toPoint` a `move` to a `point`; `hold` a `hold`; `drop` a `release`;
  * `escape` a `key` Escape; `press(id)` a `press` and a `release`; `scroll(dy)` a `scroll`; the commands are `click`s on
  * the item's controls (`close`, `open`, `float`, `dock`) or on a "Move to ›" row (`place`). A negative expectation ("no
@@ -105,8 +105,9 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P5-neighbour-half-facing-it",
     title: "Over a neighbor's body there is no gap",
-    expect: "Annotations let go over Pages' body, away from its edges, finds no gap (over a panel's body a gap is a band around a boundary), so it falls through to the float target: it floats, where the pointer let go. The older rule \"the neighbor half that faces it is its home\" no longer holds.",
+    expect: "Annotations let go over Pages' body, away from its edges, finds no gap (over a panel's body a gap is a band around a boundary), so it falls through to the float target: it floats, where the pointer let go. The older rule \"the neighbor half that faces it is its home\" no longer holds. This assumes the default `hitBand` (an open panel's body is no drop place): a host whose columns use `hitBand: \"middle\"` gets card halves there, and skips or marks this row.",
     group: "gestures",
+    requires: { hitBand: "default" },
     scene: win(),
     gestures: [g.press("annotations", { x: 20, y: 10 }), g.at(160, 200), g.hold(), g.release()],
     expectLayout: { items: { pages: { rect: r(12, 0, 300, 800) }, annotations: { floating: true, rect: r(312, 190, 280, 360) } }, floats: ["annotations"], columns: { left: [["pages"]], right: [["findings"]] } },
@@ -183,11 +184,12 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P9-to-the-other-rail",
     title: "A rail segment docks folded on the other rail",
-    expect: "Annotations dropped on the right side's rail docks folded there, as a segment.",
+    expect: "At 600 px the left column is folded by width into the left rail (Pages and Annotations), and Findings is folded by hand into the right rail, so both rails show. Annotations dropped on the right rail docks folded there, as a segment before Findings; Pages stays in the left rail.",
     group: "gestures",
-    scene: win({ width: 700 }),
+    requires: { rails: ["left", "right"] },
+    scene: win({ width: 600, from: { findings: 1 } }),
     gestures: g.drag("annotations", g.rail("right")),
-    expectLayout: { items: { pages: { rail: "left", rect: r(12, 0, 32, 32) }, findings: { rect: r(388, 0, 256, 800) }, annotations: { rail: "right", folded: "hand", rect: r(656, 0, 32, 32) } }, rails: { left: ["pages"], right: ["annotations"] } },
+    expectLayout: { items: { pages: { rail: "left", rect: r(12, 0, 32, 32) }, annotations: { rail: "right", folded: "hand", rect: r(556, 0, 32, 32) }, findings: { rail: "right", rect: r(556, 32, 32, 32) } }, rails: { left: ["pages"], right: ["annotations", "findings"] } },
   },
   {
     id: "P10-float-keeps-its-place-and-last-size",

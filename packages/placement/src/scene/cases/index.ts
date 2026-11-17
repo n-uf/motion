@@ -25,8 +25,9 @@ import type { CaseGroup, CaseRow } from "./types";
 export { createSceneHost, END_REACH, LIFT_THRESHOLD, pickTarget, resolvePlace, type AimArea, type SceneHost, type SceneHostOptions } from "./host";
 export { defaultItemSelector, layoutIssues, runCase, runCaseAsync, runCases, runCasesAsync } from "./run";
 export { g } from "./gestures";
+export { idRenames, mapGesture, mapLayout, mapPlace, mapScene, mapStored, type IdMap, type Rename } from "./ids";
 export { WINDOW_A, WINDOW_B, WINDOW_BARE, winScene, type WinOptions, type WinSpec } from "./windows";
-export type { AsyncCaseHost, CaseGroup, CaseHost, CaseResult, CaseRow, CaseSettings, Checkpoint, DomCheck, DomRoot, EdgeExpect, Gesture, GestureType, ItemExpect, LayoutExpect, PickRule, StoredExpect } from "./types";
+export type { AsyncCaseHost, CaseGroup, CaseHost, CaseRequires, CaseResult, CaseRow, CaseSettings, Checkpoint, DomCheck, DomRoot, EdgeExpect, Gesture, GestureType, ItemExpect, LayoutExpect, PickRule, StoredExpect } from "./types";
 
 /** Every row, in order: the docking cases, the bar cases, the built-in rules, the panel gestures, the two windows. */
 export const CASES: readonly CaseRow[] = [...DOCKING_ROWS, ...BAR_ROWS, ...RULE_ROWS, ...GESTURE_ROWS, ...WINDOW_ROWS];

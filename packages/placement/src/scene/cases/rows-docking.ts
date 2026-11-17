@@ -284,8 +284,9 @@ export const DOCKING_ROWS: readonly CaseRow[] = [
   {
     id: "C7",
     title: "A float over a docked panel",
-    expect: "A float never covers a docked item's content: dropped over one, it lands clear of it, and the preview says so.",
+    expect: "A float never covers a docked item's content: dropped over one, it lands clear of it, and the preview says so. This assumes the default `hitBand` (an open panel's body is no drop place): a host whose columns use `hitBand: \"middle\"` gets card halves over the panel, and skips or marks this row.",
     group: "floats",
+    requires: { hitBand: "default" },
     scene: bench(),
     gestures: [g.press("findings", { x: 200, y: 10 }), g.at(260, 230), g.hold(), g.release()],
     checkpoints: [{ at: 2, layout: { items: { findings: { floating: true, rect: r(240, 220, 220, 190) } } }, note: "the preview, clear of the column" }],
@@ -356,7 +357,7 @@ export const DOCKING_ROWS: readonly CaseRow[] = [
   {
     id: "C17",
     title: "A drop past the stage's edge",
-    expect: "A float dropped with the pointer past the stage's edge is clamped into the stage, and the preview shows it clamped; it never cancels.",
+    expect: "A float dropped with the pointer past the stage's edge: the pointer is clamped into the stage first (the host contract; the runner clamps every `move` to a point), and the clamped point picks what is there. Nothing is docked at this stage's right edge, so it picks the float, which lands clamped into the stage; the preview shows it clamped, and the drop never cancels. A window with a docked edge there picks that edge's last gap instead.",
     group: "floats",
     scene: bench(),
     gestures: [g.press("findings", { x: 40, y: 10 }), g.at(920, 240), g.hold(), g.release()],

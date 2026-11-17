@@ -34,7 +34,7 @@ export const ALLOWED = [
   { line: /\bconst centre = /, why: "a lab-local helper named centre (code, not copy)" },
   { file: /apps\/lab\/src\/desk\/grip\.ts$/, line: /"centre"/, why: "the desk lab's internal zone id (code, not copy)" },
   // Case ids are public data (`CaseRow.id`); renaming one breaks the integrators' suites.
-  { line: /id: "P5-neighbour/, why: "a case id (public data, API); not renamed" },
+  { line: /P5-neighbour-half-facing-it/, why: "a case id (public data, API); not renamed" },
   // A CSS class name in the footer, not copy.
   { line: /class="foot-licence"/, why: "a CSS class name" },
   // The default label of zoneLabel for a horizontal toolbar area is the string "centre" (data the app may show).
