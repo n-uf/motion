@@ -9,9 +9,9 @@
 
 Site and live demos: [motion.n-uf.com](https://motion.n-uf.com)
 
-Where things go. State in, rects and drop targets out: a desk of docks, rails and palettes, panels in columns per
-side that give way by age, toolbar groups in hosts and zones, and the drop targets for each. A tiling entry (a split
-tree with ratios, groups and workspaces) is planned. Pure functions over plain data: no DOM, no framework, no
+Where things go. State in, rects and drop targets out: a workspace of docks, rails and floating panels, panels in
+columns per side that give way least recently used first, toolbar groups in toolbar areas and zones, and the drop
+targets for each. A full tiling entry (a split tree with ratios, groups and workspaces) is planned. Pure functions over plain data: no DOM, no framework, no
 motion, no dependencies.
 
 ```sh
@@ -30,14 +30,14 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
   `@n-uf/motion/drag` takes it) is exported here too, with its optional `hits` (every piece of a zone that isn't one
   rect; `hit` is the largest); `./targets` and `./panels` still export it and the hit sizes.
 - **`/dock`**: a desk of documents and tool panels. Side docks and a bottom dock (between the side docks or across
-  the full width), rails, natural-height sections whose last one takes the rest, fold and unfold, the give-way
-  rules (sections fold least recently used first, docks fold to their rails), floating palettes with corner stacks,
-  tear-off and dock-back; and nine constructions built from these parts, as presets (`createDesk`).
-- **`/toolbar`**: toolbar groups in five hosts (title, top, bottom, left, right) and three zones (start, centre,
-  end), floating groups, insertion points (before all, between, after all, an empty zone), collapse when a host
-  runs out of room (lowest keep first, trailing groups first among equal keeps), and "own place is home".
-- **`/targets`**: drop targets (`{ id, priority, hit, slot?, label?, free? }`) for the desk's constructions,
-  toolbar hosts (each with its `slot`, and `allows` to leave out places a group may not take) and pane zones; and
+  the full width), rails, natural-height sections whose last one takes the rest, collapse and expand, the give-way
+  rules (sections collapse least recently used first, docks collapse to their rails), floating panels with corner
+  stacks, tear-off and dock-back; and nine desk layouts built from these parts, as presets (`createDesk`).
+- **`/toolbar`**: toolbar groups in five toolbar areas (title, top, bottom, left, right) and three zones (start, center,
+  end), floating groups, insertion points (before all, between, after all, an empty zone), collapse when a toolbar
+  area runs out of room (lowest keep first, trailing groups first among equal keeps), and a group's home is its own place.
+- **`/targets`**: drop targets (`{ id, priority, hit, slot?, label?, free? }`) for the desk layouts,
+  toolbar areas (each with its `slot`, and `allows` to leave out places a group may not take) and pane drop zones; and
   `keyboardStops`, one ordered list of places for the arrow keys and a "Move to" menu.
 - **`/panels`**: tool panels with string ids: full-height columns per side, each with its own width, shown as a
   stack of sections or as tabs; folding to a title bar or a rail; give-way by age when the pages run out of room (and,
@@ -56,8 +56,8 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
   title, window controls), floats clear of every bar and chrome (`fitFloat`), one `solve` for every rect, one
   `targets` for every drop target of one item (each carrying the layout a release makes, so the preview is the
   result), pure changes and a stored form.
-- **`/scene/cases`**: the Scene's behaviour as data: conformance rows (a scene, what a user does, the layout and DOM
-  expected after) and `runCase`, which plays one on a host, so a UI kit's suite and the lab run the same rows.
+- **`/scene/cases`**: the Scene's behavior as data: conformance rows (a scene, what a user does, the layout and DOM
+  expected after) and `runCase`, which plays one on a host, so an integrating app's test suite and the lab run the same rows.
 
 Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
@@ -90,17 +90,17 @@ notes saying how it gave way. A note's `code` (with its `side` and `items` where
 | `dock-folded` | a side dock folded to its rail | `side` |
 | `sections-folded` | sections folded to their headers by themselves, least recently used first | |
 | `torn-floating` | panels torn off a dock float | `items` |
-| `torn-shaded` | some torn-off panels shade because they don't fit | |
+| `torn-shaded` | some torn-off panels collapse to their headers because they don't fit | |
 | `columns-railed` | the tiling tree's side columns folded to rails | `side` when only one |
-| `tiles-float` | tiles that broke a minimum float, newest first | `items` |
+| `tiles-float` | tiles that broke a minimum float, most recently added first | `items` |
 | `tabs-folded` | a tabbed side folded to icon tabs | `side` |
 | `drawer-over` | a drawer slides over the documents | `side` |
-| `column-split` | a strip column split in two | `items` |
-| `strip-scrolls` | the strip is wider than the stage | |
-| `stacks-merged` | both palette stacks share one corner | |
-| `palettes-shaded` | palettes shaded to their title bars | |
-| `palettes-cover` | how much of the documents the palettes cover | |
-| `docs-room` | how much room the palettes leave the documents | |
+| `column-split` | a scrolling column split in two | `items` |
+| `strip-scrolls` | the scrolling columns are wider than the stage | |
+| `stacks-merged` | both stacks of floating panels share one corner | |
+| `palettes-shaded` | floating panels collapsed to their headers | |
+| `palettes-cover` | how much of the documents the floating panels cover | |
+| `docs-room` | how much room the floating panels leave the documents | |
 
 ## Toolbar groups
 
@@ -150,12 +150,12 @@ const drop = deskDrop(input, float, { x: 600, y: 300 }, { x: 20, y: 10 });
 console.log(drop.label, drop.slot.x, drop.slot.y); // Float here 580 290
 ```
 
-A toolbar group's targets come from `hostTargets` (a host's lines and empty zones, with its own place left out and
-returned as `own`, for the drag's home) and `floatTarget`. Each host target carries its `slot`, the group's rect
+A toolbar group's targets come from `hostTargets` (a toolbar area's lines and empty zones, with its home left out and
+returned as `own`, for the drag's home) and `floatTarget`. Each target it returns carries its `slot`, the group's rect
 once it lands there; `allows(group, place)` leaves out places a group may not go (its `place.index` counts the
 groups there without the dragged one, as `insertGroup` does). The same rule says whether a group may float: add
 `floatTarget` only when `allows(group, "float")`. `keyboardStops` puts the targets in reading order (title, top,
-left, right, bottom; start, centre, end) for the arrow keys and a "Move to" menu, with the group's own place as
+left, right, bottom; start, center, end) for the arrow keys and a "Move to" menu, with the group's home as
 `home`:
 
 ```ts
@@ -325,7 +325,7 @@ bands.
 **Drop targets**: `panelTargets({ defs, state, id, stage, options?, allows? })` gives `column:<side>:<i>` (a new
 column as wide as the panel's own width), `into:<side>:<i>` (stack into a column), `rail:<side>` (dock folded) and
 `float` (free), in the shape `@n-uf/motion/drag`'s `createDragIntent` takes. Each carries a structured `place`, not
-words. A place the panel may not take (its def's `sides` and `floats`, or `allows`) and its own place are no targets.
+words. A place the panel may not take (its def's `sides` and `floats`, or `allows`) and its home are no targets.
 `panelDrop(input, target, point, grab)` lays out the drop: its `slot` is where the panel lands. `keyboardStops` from
 `@n-uf/placement/targets` puts panel targets in reading order, with `homePlace(state, id)` as `home`:
 
@@ -430,7 +430,7 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
 
 - Every item starts in its largest form, or at `from` (an index into its forms; a panel the user folded by hand
   starts at its header). While the smallest sizes don't fit the `length`, one item takes a smaller form: the step into
-  the lowest `rank` (below), and among equals the item used longest ago (`used`: the smaller, the older), unkept
+  the lowest `rank` (below), and among equals the least recently used item (`used`: the smaller, the longer ago), unkept
   before `kept`, the later in the stack first on a tie. A `menu` form takes no room: the » entry does (`menu.main`,
   default 28 px), while any item is in it.
 - A give-way step goes only to a later form that shortens the stack: its `main.min` is smaller, counting the » entry
@@ -448,7 +448,7 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
 - `StackForm.rank` (default 0) orders the steps: the lowest rank of the form an item would step into goes first, then
   unkept before kept, then the oldest, then the later in the stack. Give a pinned primary's last forms a higher rank
   and every other group gives way before it does.
-- `gap` is the space between neighbouring drawn items (the » entry is a neighbour) and `pad` (`{ start, end }`) the
+- `gap` is the space between neighboring drawn items (the » entry is a neighbor) and `pad` (`{ start, end }`) the
   space before the first item and after the last (or the » entry). Both count toward the length and every rect
   includes them, so an app draws at the solver's rects and the preview is exact. A non-number or a negative one is 0.
 - Spare length goes to the forms that `grows`, shared by their natural sizes. With none, the items keep their
@@ -551,7 +551,7 @@ more way and the stack is still too long; forms that don't end in a `menu` form 
 `stackTargets(input, dragged)` takes the stack (an item of it with the dragged id is lifted out first, so a reorder
 within a stack works) and gives a target for every gap, before each item and after the last, in the shape
 `@n-uf/motion/drag` takes: `id` `gap:<k>`, priority 2, `place` `{ kind: "gap", at: k }`, `hit` (the stack split at
-its items' middles, so it covers the gap and padding between its neighbours, as wide across as the larger of the
+its items' middles, so it covers the gap and padding between its neighbors, as wide across as the larger of the
 stack and the drop's fit; with every item in the menu only the last gap has any length) and `slot`, the rect the
 dragged item gets.
 `fit` is the full solve with the item inserted at k (`input` the stack that was solved), so the preview is exactly the
@@ -570,10 +570,10 @@ console.log(targets.map((t) => t.id), targets[1]!.slot, targets[1]!.fit.items[1]
 
 A top bar of control groups uses the same solver, with a few more things it can say:
 
-- A group's `fold` form is its handle with its own » in line: it keeps its place in the stack and takes its own `main`
+- A group's `fold` form is its grip with its own » in line (the group collapsed): it keeps its place in the stack and takes its own `main`
   length. The shared » entry (`menu`) stays a later step: give the `menu` form a higher `rank` than the folds, or
   an older group may go into it before a newer one folds.
-- `rank`, `gap`, `pad`, `cross.max` and `endReach` as above. The kit draws every group at the solver's rect, so there
+- `rank`, `gap`, `pad`, `cross.max` and `endReach` as above. The app draws every group at the solver's rect, so there
   is nothing to measure and the drop preview is exact.
 - Hysteresis is not here: a pointer that flickers between two gaps is `@n-uf/motion/drag`'s to calm (the intent's
   band, and `placeOf` with `previous`), and `stackTargets` only says where the gaps are.
@@ -706,7 +706,7 @@ pure.
 - `storeFloats(floats)` and `readFloats(data, known?)`: `{ v: 1, floats: [{ id, x, y, width, height }] }`, in stacking
   order (the last is on top). It writes no `pinned`. `storeFloats` leaves out, silently, a float whose position isn't a
   finite number or whose size isn't over 0, and keeps the last readable entry of a repeated id (the one on top, at its
-  own place in the order). Reading never throws: anything but an object of version 1 with a `floats` array is
+  home in the order). Reading never throws: anything but an object of version 1 with a `floats` array is
   `{ ok: false, error }` (the version worded as the stack's reader words it, a string quoted); inside one, a float that
   isn't an object, has no string id, isn't one the consumer has (with `known`) or has a position that isn't a finite
   number or a size that isn't over 0 is dropped and listed in `dropped` as `float:<id>`; of a repeated id the last
@@ -807,7 +807,7 @@ naturals. A column where nothing sets the width is a rail: its items that have a
 **Rail titles.** A panel may declare two rail forms: its title (`{ kind: "rail", title: true }`, its `main` the length
 of its name and count turned along the rail, measured by the host) and then its tile (a plain `rail` form). In a rail
 they are two steps on its ladder: while the rail's length fits every title, each item shows its title; when it runs
-short, titles step down to tiles by the usual rules (priority, then the item used longest ago) and come back in exact
+short, titles step down to tiles by the usual rules (priority, then the least recently used item) and come back in exact
 reverse as room returns (`StackFit.steps`). That holds for a column drawn as a rail and for a side's rail strip
 (`layout.rails[side]`, whose fit is `rails[side].stack`). Each side has a mode, `scene.railModes[side]`: `"titles"`
 (the default) or `"icons"`, which passes title forms over so every item shows its tile; `setRailMode(scene, side,
@@ -840,7 +840,7 @@ takes no drop in that zone. The zones are then laid with the title at its natura
 
 - a leading toolbar sits right after the title's natural rect;
 - the trailing toolbars sit right before the end items (the window controls);
-- a center toolbar sits at the bar's true centre when that is clear of both, else it is centred in the free span between
+- a center toolbar sits at the bar's true center when that is clear of both, else it is centered in the free span between
   the leading and the trailing ones;
 - the title takes the spare room only when nothing follows it in its zone, so a toolbar after the title is no longer
   separated from it by a stretch of title.
@@ -901,9 +901,9 @@ const zoom: SceneItem = {
 their `icons` form (and the » menu after it), stacked, each item's grip the divider. An item with no `icons` form is left
 out of it with a `no-icons-form` note.
 
-**Trays.** `Edge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
+**Column footers.** `Edge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
 the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`
-has its panels at the top and a tray of toolbars at its foot (the end zone, one toolbar per row): a toolbar in the tray
+has its panels at the top and a footer of toolbar groups at its foot (the end zone, one group per row): a group in the footer
 takes only its `wrap` or `icons` form, never the menu, and the panels give way first. Gaps are offered only in the zones
 that take the dragged kind, `moveTo` puts an item in the zone asked for, else in its own zone if that takes its kind, else in the first that does. An empty edge offers
 each third of its strip only to the kinds that third's zone takes (the other thirds are refusals), and a group never
@@ -1016,7 +1016,7 @@ preview is the commit and the size survives `storeScene`. `fitFloat` is the othe
 place and never resizes it.
 
 **`previous`.** `solve(scene, { previous })` hands each edge's fits (`edges[id].free` and `.stack`) to `fitStack`, so a
-change of ages alone (a press, `use`) or `raise` changes no rect (C23), a form that was only re-measured keeps its place,
+change of ages alone (a press, `use`) or `raise` changes no rect, a form that was only re-measured keeps its place,
 and one whose kind changed starts over. Whenever `content` isn't the rect `previous.content` was, the layout has a
 `content-changed` note (`{ from, to }`): a host refits its zoom only on that note, so a press or a float move never
 refits it. Columns that gave way stay folded, in the order they folded (the fold notes' order), while the content still
@@ -1040,40 +1040,40 @@ is passed as `fresh`:
 
 **Targets.** `targets(scene, id, { previous, endReach, floatSize, floatOrient })` gives, in the `@n-uf/motion/drag` shape:
 
-Every hit lies where the user sees things: the layout as it is, the dragged item in place. Its own place is home, and so
+Every hit lies where the user sees things: the layout as it is, the dragged item in place. The item's home is its own place, and so
 are the gaps right beside it (a drop there is the same move). An edge the lift would delete (the item alone in its
 column) is home as a whole. A zone of a bar reaches over every card seen in it. Each target's `after` is the solved
-drop, so where the lift would reflow a neighbour the preview moves it under a fixed pointer, and the tiles stay put.
+drop, so where the lift would reflow a neighbor the preview moves it under a fixed pointer, and the hit regions stay put.
 
-**Aim order.** Along every occupied edge (a rail, a bar, a title bar, a tray, a column), the dragged item is taken out
+**Aim order.** Along every occupied edge (a rail, a bar, a title bar, a column footer, a column), the dragged item is taken out
 first and the pointer aims at the other items: over the leading half of one (its upper half on a side edge, its left
-half on a bar) the drop goes right before it, over its trailing half right after it. The tiles split at the midpoints of
+half on a bar) the drop goes right before it, over its trailing half right after it. The hit regions split at the midpoints of
 the remaining items, whatever their order and zones. Where that aim gives the order the edge has now, the target is home
-(no slot elsewhere): home covers the item's own rect and the facing halves of its two neighbours, even a neighbour in
+(no slot elsewhere): home covers the item's own rect and the facing halves of its two neighbors, even a neighbor in
 another zone. That holds for **cards**, items whose bodies are drop places (toolbar groups, and panels under
 `hitBand: "middle"`); an open panel's body is no drop place, so over a panel the pointer aims only in the bands at its
 ends. Zones come in only where no item is aimed at: in the free stretch between two items, beyond the last one
 and on an empty zone or edge, the zone extents (thirds, or the solved spans) say which zone's slot the pointer is over,
-so a drop there can move the item to another zone with its order kept. A slot whose whole tile lies over its neighbours'
+so a drop there can move the item to another zone with its order kept. A slot whose whole hit region lies over its neighbors'
 facing halves is home's, and is no target of its own. The slot is where the item lands, at its size in that edge's form.
 
 - `gap:<edge>:<zone>:<at>` (priority 2) for every edge whose `accepts` lists the item's kind (deny by default), before
   each item of each zone and at each zone's end, so an empty center or end zone can be opened; only where the item
   fits: not in the » menu, no `overflow`, nothing newly `too-wide`, every fixed item of the edge keeping its form and its
-  place, and no chrome under its slot. Along the edge the gaps tile it: neighbouring gaps meet at the midpoint of the
+  place, and no chrome under its slot. Along the edge the gaps tile it: neighboring gaps meet at the midpoint of the
   item between them (see Aim order), else halfway between their lines, so an edge of a few short items (a bar, a rail,
-  a column's tray) is covered from end to end. Only over an
+  a column's footer) is covered from end to end. Only over an
   open item's body (a panel) the hit narrows to `Edge.hitBand` px around its line (default 24), so the middle of a
   panel is no gap and the pointer falls through to the float target (or to none). Gaps on one line are one target, the
   first in zone order: when a bar has no spare length, `center:0` and `end:0` lie on the start zone's last line and
   merge into that start gap (its id stays `gap:<edge>:start:<n>`). The first and last reach `endReach` px past the
-  edge's ends, but only a hit that reaches the edge's end goes on past it (a tray's gap at the foot never covers the
+  edge's ends, but only a hit that reaches the edge's end goes on past it (a column footer's gap at the foot never covers the
   top). Another edge's rect trims a gap's hit: one across from the edge (a bar above a column) at the hit's end along
-  the edge, one beside it (a neighbouring column) at its side. Across, the hit is the larger of the edge's thickness
+  the edge, one beside it (a neighboring column) at its side. Across, the hit is the larger of the edge's thickness
   before and after the drop; a compact edge's hits reach 24 px further inward, except where another edge's gap is.
   Hits are cut clear of chrome and of every fixed item that doesn't grow (controls, a readout). A fixed item that grows
   (a title filling its bar) takes hits over its text, which land in the nearest gap; it reserves only its natural rect,
-  placed by its zone (from its start, from its end in the end zone, centred in the centre zone), and
+  placed by its zone (from its start, from its end in the end zone, centered in the center zone), and
   `reservedRect(scene, layout, id)` gives that rect, for a host that marks where nothing may drop. The length it grew
   by is spare room: the drop shrinks it toward its natural size (to its `min` if the room needs it), so a group moved
   out of a title bar can always go back while the room allows. No slot lies over a fixed item's reserved rect. `slot`
@@ -1083,7 +1083,7 @@ facing halves is home's, and is no target of its own. The slot is where the item
   closed members keeps its `gap:` ids), a strip `Edge.strip` px deep (default 24) along its side, inside the
   content and clear of the other edges (overlay ones included), so never over a docked edge or a panel's body: a
   full-width empty bar's strip covers only the content between the columns. A compact rail's strip alone stays at the
-  window edge, its own place. A gap hit that spans it across trims its start or end (a bar's strip along the top never
+  window edge, its home. A gap hit that spans it across trims its start or end (a bar's strip along the top never
   covers the columns' first gaps); one across its middle is left to the smaller-hit tie-break. With nothing left (an
   empty outer bar on a non-empty inner one, a bar's strip all under an overlay column) it has no target. A third is
   offered only for a kind its zone takes (`Edge.zoneAccepts`); the others are refusals.
@@ -1107,7 +1107,7 @@ facing halves is home's, and is no target of its own. The slot is where the item
   commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail
   drop that would put the item back where it is (the gap beside it, its own column's line) keeps its id but is a home
   too: no slot, nothing committed. Every rail target on the side whose rail already holds the item is a home: a segment
-  dropped on its own rail, even below the last segment, never splits or reorders it (P9).
+  dropped on its own rail, even below the last segment, never splits or reorders it.
 
 **The target model.** `targets` and `refusals` come from one generation: edge, then zones, then slots, then tiles, then
 one ordered filter (accepts and zones, fit, clipping, `blocked`). A target wins only where its own hit is, and every point
@@ -1192,7 +1192,7 @@ side's column open, a rider bar over it; on a side without a declared rail, `mov
 side's outermost column's start zone as a collapsed header ("the column drawn as a rail"), a rail tile once nothing
 in that column sets its width. The slot is that landing, so the preview is the drop. The strip
 owns its rect: every other target and refusal of the drag gives it up, home's included (an item alone in its column
-reaches its side's rail from its own place), and an empty column's own drop strip moves just inside it. Before the
+reaches its side's rail from its home), and an empty column's own drop strip moves just inside it. Before the
 strip arms, a drop there is the float's. A kind with no policy keeps its targets exactly as before; tuning one kind
 never changes another. The policy's fields, each default with its reason:
 
@@ -1206,7 +1206,7 @@ never changes another. The policy's fields, each default with its reason:
 The time and the keys are the drag intent's (`@n-uf/motion/drag`): `railArmDwellMs` (200 ms) arms a target marked
 `arm: "dwell"` (spring-loading), and `modifiers` let Shift float anywhere and ⌘/Ctrl collapse into the nearest rail (Alt stays free: it unfreezes a frozen layout).
 
-A gap, column or rail target exists only where the drop keeps the whole scene sound (C29): it adds no `overflow` or
+A gap, column or rail target exists only where the drop keeps the whole scene sound: it adds no `overflow` or
 `too-wide` note to any edge, changes no fixed item's form, squeezes none under its `main.min` anywhere (a between bar
 under a new column included), and lands its slot on no chrome. The rule compares notes: in an edge that already
 overflows (or holds an item already too wide), a drop that adds no new note is accepted, even when it shifts a fixed
@@ -1233,7 +1233,7 @@ on the other side of `base`'s with `setSide`. `moveTo` and
 `floatAt` refuse fixed items and kinds the edge or `floatKinds` doesn't list. `moveTo` also takes `{ kind: "column",
 side, ring }` (`ring: Infinity` is the side's inner end: "Move to › Dock left"), `{ kind: "rail", side, ring }` (docked
 folded) and `{ kind: "float", rect?, anchor? }`. `homeFor(scene, id, start)` is the place a start scene gives the item
-(the same edge before the same neighbour, a new column at its ring when its column is gone, or its float), for Dock,
+(the same edge before the same neighbor, a new column at its ring when its column is gone, or its float), for Dock,
 Put back and Reset position: `moveTo(scene, id, homeFor(scene, id, start)!)`. `dockHome(scene, id, start)` is that and the
 start fold too: the item goes to `homeFor`'s place and takes `start`'s `from` (unfolded when `start` has none), so a "Move to ›
 rail" (which folds it) followed by Dock brings it back open; the scene is given back unchanged when `start` places it
@@ -1256,7 +1256,7 @@ gives `base` back with an `error`.
 
 ## Scene conformance rows
 
-`@n-uf/placement/scene/cases` is the Scene's behaviour as data, so a UI kit's suite and the lab run the same rows. A row
+`@n-uf/placement/scene/cases` is the Scene's behavior as data, so an integrating app's test suite and the lab run the same rows. A row
 is `{ id, title, expect, scene, settings?, gestures, expectLayout, expectDom? }`: a scene, the stage and freeze it runs
 at, what a user does (`press`, `move`, `release`, `key`, `click`, `resize`, `scroll`, `hold`; a `move` may name a target
 by its `place` instead of pixels), and what must be true after: a partial layout (per item: `rect`, `formKind`, `edge`,
@@ -1291,7 +1291,7 @@ selector under it of the element that draws an item (default `[data-dock-item="<
 a gesture the row doesn't have fails the row. `createSceneHost()` is the reference: no page, no pointer, no clock, a drag
 session that lifts past 4 px, asks `targets` for every target, takes the one under the pointer by its pick rule,
 draws the preview from its `after.layout` and commits `after.scene` on release, every solve carrying the layout before
-it as `previous`. A kit's host does the same with its own pointer; `resolvePlace(targets, place, item, { stage, content
+it as `previous`. An integrating app's host does the same with its own pointer; `resolvePlace(targets, place, item, { stage, content
 }, pick)` turns a `place` into a point that reaches the target. Every row
 passes on the in-memory host except its DOM checks, which it skips, and the rows with `lacks`, which fail on it until the
 library rule lands. `CASE_GROUPS` lists the groups.
@@ -1307,7 +1307,7 @@ played in order:
 
 | `type` | What a host does |
 |---|---|
-| `press` | Pointer down on `item`'s handle (its grip, or its header); `point` is the grab, relative to the item's top-left corner, and is the row's, not the host's. Nothing lifts yet. |
+| `press` | Pointer down on `item`'s grip (or its header); `point` is the grab, relative to the item's top-left corner, and is the row's, not the host's. Nothing lifts yet. |
 | `move` | The pointer moves to `point` (stage px) or to the target at `place` (`resolvePlace` finds a point that reaches it). With an item pressed, the first move past the lift threshold lifts it (a `place` always lifts), and the pointer is then over whichever target the host's pick rule finds. With no target under it, the host draws the committed layout with the held item's place left empty and nothing else moved. |
 | `hold` | The pointer rests for `ms`, so a host with a drag intent settles on its target. A checkpoint or DOM check is never read right after a `move`. |
 | `release` | Pointer up: after a lift, it drops on the target under the pointer (a `home` or `none` target, or none, drops nothing); without one it was a press and nothing changes. |
@@ -1316,7 +1316,7 @@ played in order:
 | `resize` | With `edge`, the user's size across that edge (`size` px); with `item`, that item's measured length changed by `size` px; with neither, the window is now `point.x` by `point.y`. |
 | `scroll` | The pages scroll by `size` px. Nothing in a scene scrolls: only a host with a page can show it, with a DOM `rect` check. |
 
-**Driving the rows from a browser runner.** A kit's page is driven from outside (Playwright, say) with real pointer
+**Driving the rows from a browser runner.** An integrating app's page is driven from outside (Playwright, say) with real pointer
 events and timers, so its host's calls are async. `runCaseAsync(row, host)` takes an `AsyncCaseHost`, the same members
 as a `CaseHost` but each of `load`, `perform`, `layout`, `root`, `stored` and `stops` may return a promise
 (`itemSelector` stays a plain function). It awaits every call, in the same order as `runCase` makes them, and checks the
@@ -1335,7 +1335,7 @@ const results = await runCasesAsync(CASES, pageHost, { onResult: (id, r) => cons
 
 ## Pane zones
 
-`paneZone(rect, point, previous, options?)` says which of a pane's five zones a point is in: the centre rectangle
+`paneZone(rect, point, previous, options?)` says which of a pane's five drop zones a point is in: the center rectangle
 (34 % of each axis, at least 24 px) or one of four edge trapezoids. The previous zone holds for 6 px past its
 boundary. It fits `@n-uf/motion/drag`'s `placeOf(target, point, previous)`: one target per pane, the zone as the
 place, and a null place for a zone that takes no drop.
