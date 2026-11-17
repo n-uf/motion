@@ -118,14 +118,7 @@ function deskScene(card: SceneCard, W: number, H: number, o: Opt): Scene {
   const column = (ids: readonly string[]): void => ids.forEach((id, i) => (items[id] = panel(id, order.indexOf(id) + 1, i === ids.length - 1)));
   column(left);
   column(right);
-  // The scene gives way by width only, so the page sizes the dock by height: it keeps the documents their least height,
-  // shrinking toward its minimum, then folding to its title bar.
-  const dockRoom = H - (reserved ? ROOM : 0) - DOCS_AT_LEAST.height;
-  if (dock) {
-    const history = panel("History", order.indexOf("History") + 1, true);
-    const folded = dockRoom < DOCK.min;
-    items.History = folded ? { ...history, forms: { ...history.forms, row: history.forms.row!.slice(1) } } : history;
-  }
+  if (dock) items.History = panel("History", order.indexOf("History") + 1, true);
   if (tear) items.Inspector = panel("Inspector", order.indexOf("Inspector") + 1, true);
   if (reserved) items.toolbar = TOOLBAR_ROOM;
   const side = (s: "left" | "right", ids: readonly string[]): Edge => ({
@@ -136,7 +129,8 @@ function deskScene(card: SceneCard, W: number, H: number, o: Opt): Scene {
   const edges: Edge[] = [
     side("left", left),
     side("right", right),
-    ...(dock ? [{ id: "bottom", side: "bottom", ring: 0, span: dock.span, mode: dock.mode, accepts: ["panel"], items: ["History"], cross: { min: TITLE, max: Math.max(TITLE, Math.min(DOCK.max, dockRoom)) } } satisfies Edge] : []),
+    // The dock gives way by height: it shrinks, then folds to its title bar, to keep the documents their least height.
+    ...(dock ? [{ id: "bottom", side: "bottom", ring: 0, span: dock.span, mode: dock.mode, giveWay: true, accepts: ["panel"], items: ["History"], cross: { min: TITLE, max: DOCK.max } } satisfies Edge] : []),
     ...(reserved ? [{ id: "toolbar", side: toolbar, ring: toolbar === "bottom" && dock ? 1 : 0, span: "between", accepts: [], items: ["toolbar"], cross: { min: ROOM, max: ROOM } } satisfies Edge] : []),
   ];
   // Torn off next to the left column, clear of a toolbar at the top.
@@ -170,6 +164,8 @@ function noteText(card: SceneCard, n: SceneNote, l: SceneLayout): string | null 
     case "column-shrunk": return `${where(n.edge)} narrowed from ${px(n.from)} to ${px(n.to)}`;
     case "column-folded": case "kept-folded": return `${where(n.edge)} (${railIds(card, l, n.edge as "left" | "right").join(" + ")}) folded to its rail`;
     case "form-down": return "edge" in n && n.edge !== "bottom" ? `${n.id} folded to a title bar: ${where(n.edge)} ran short` : null;
+    case "bar-shrunk": return `the bottom dock shrank from ${px(n.from)} to ${px(n.to)}`;
+    case "bar-folded": return "the bottom dock folded to a bar";
     case "float-clamped": case "float-moved": return `${n.id} moved to stay in view`;
     case "content-narrow": return `the documents are ${px(n.width)} wide, under their ${px(n.min)} minimum, with every column folded`;
     case "content-short": return `the documents are ${px(n.height)} tall, under their ${px(n.min)} minimum`;
@@ -227,10 +223,6 @@ function sceneDesk(card: SceneCard, W: number, H: number, n: number, o: Opt): { 
   out.push(box(docs.x + docs.w / 2 - pw / 2, py, pw, ph, "toolbar", "Toolbar", { round: true, shadow: !reserved }));
 
   const notes: Note[] = [];
-  // The dock's own give-way, which the page sized: shrunk to keep the documents their least height, or folded.
-  const got = l.edges.bottom?.cross ?? DOCK.natural;
-  if (dock && l.items.History?.formKind === "header") notes.push({ text: "the bottom dock folded to a bar" });
-  else if (dock && got < DOCK.natural - 0.5) notes.push({ text: `the bottom dock shrank from ${DOCK.natural} px to ${Math.round(got)} px` });
   for (const note of l.notes) {
     const text = noteText(card, note, l);
     if (text && !notes.some((m) => m.text === text)) notes.push({ text, code: note.code });
