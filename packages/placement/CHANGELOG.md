@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.34
 
+- `./scene/cases`, **the three P16 rows that aim at the window's edge pixels** (first px, last px, 9 px in) carry
+  `requires: { railDrop: "scene" }`, as P6-outer-line-at-11-px does: a host that lays its own rail drop strips skips
+  them.
+
 - **New entry `@n-uf/placement/tiling`**: panes that divide an area with no overlap, on the root geometry and `Target`
   alone. Order layouts (`masterStack` with a `ratio`, `columns`, `grid`) and `orderTargets` (one target per index a
   dragged pane could be inserted at); the split tree (`Split`, `layoutSplit`, `splitPane`, `removePane`, `swapPanes`,
