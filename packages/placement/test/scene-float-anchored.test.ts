@@ -65,6 +65,17 @@ describe("an anchored float and the other floats", () => {
     expect(sinceOf(floatAt(docked, "g1"), "g1")).toBe(3);
   });
 
+  it("a new since never goes past Number.MAX_SAFE_INTEGER; one past it counts as unusable", () => {
+    const at = (since: number): Scene => ({ ...base(), floats: [{ id: "g1", rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-top-right", since }] });
+    const next = (s: Scene) => floatAt(s, "g2").floats.find((f) => f.id === "g2")!.since;
+    expect(next(at(Number.MAX_SAFE_INTEGER - 1))).toBe(Number.MAX_SAFE_INTEGER);
+    expect(next(at(Number.MAX_SAFE_INTEGER))).toBe(Number.MAX_SAFE_INTEGER);
+    // 2^60 is unusable: it counts as 0, so the next is 1, and the float with it lays out as one with none.
+    expect(next(at(2 ** 60))).toBe(1);
+    const none: Scene = { ...base(), floats: [{ id: "g1", rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-top-right" }] };
+    expect(solve(at(2 ** 60))).toEqual(solve(none));
+  });
+
   it("a missing since counts as 0 (an older stored scene's float wins), ties by id", () => {
     const f = (id: string, since?: number): SceneFloat => ({ id, rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-top-right", ...(since !== undefined ? { since } : {}) });
     const corner = solve({ ...base(), floats: [f("g1")] }).items.g1!.rect;
@@ -238,7 +249,8 @@ describe("an anchor with an offset", () => {
     const withSince = (since: unknown) => readScene({ v: 1, edges: [], items: {}, floats: [{ id: "g1", x: 10, y: 10, width: 200, height: 28, since }] }, base());
     expect(withSince(3).scene.floats[0]!.since).toBe(3);
     expect(withSince(0).dropped).toEqual([]);
-    for (const bad of [-1, Number.NaN, Infinity, "3", null]) {
+    expect(withSince(Number.MAX_SAFE_INTEGER).scene.floats[0]!.since).toBe(Number.MAX_SAFE_INTEGER);
+    for (const bad of [-1, Number.NaN, Infinity, "3", null, Number.MAX_SAFE_INTEGER + 1, 2 ** 60]) {
       expect(withSince(bad).scene.floats[0]!.since).toBeUndefined();
       expect(withSince(bad).dropped).toEqual(["float:g1:since"]);
     }

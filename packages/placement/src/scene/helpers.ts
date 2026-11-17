@@ -9,6 +9,12 @@ import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_RAIL_MAGNET, RAIL_STRIP_M
 /** The name of a float's anchor, with or without an offset: `"content-top-right"` for `{ at: "content-top-right", dy: 12 }`. */
 export const anchorName = (anchor: FloatAnchorAt): FloatAnchor => (typeof anchor === "string" ? anchor : anchor.at);
 
+/**
+ * Whether `x` is a usable `SceneFloat.since`: a number from 0 to `Number.MAX_SAFE_INTEGER`. Past that, one more is the
+ * same number, so new floats would tie.
+ */
+export const isSince = (x: unknown): x is number => typeof x === "number" && x >= 0 && x <= Number.MAX_SAFE_INTEGER;
+
 /** Whether `edge` takes kind `kind` in `zone`: its `accepts`, narrowed by `zoneAccepts` when given (a zone not listed takes nothing). */
 export const zoneTakes = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, zone: Zone, kind: Kind): boolean =>
   edge.accepts.includes(kind) && (edge.zoneAccepts === undefined || !!edge.zoneAccepts[zone]?.includes(kind));

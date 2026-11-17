@@ -27,7 +27,7 @@
  */
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axesOf, axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
+import { axesOf, axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
 import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
@@ -200,9 +200,13 @@ export function moveTo(scene: Scene, id: string, place: Place): Scene {
   return { ...lifted, edges: lifted.edges.map((e) => (e === target ? { ...e, items: [...e.items.slice(0, k), id, ...e.items.slice(k)] } : e)) };
 }
 
-/** One more than the largest `since` among the scene's floats (a missing one counts as 0); 1 when there are none. */
+/**
+ * One more than the largest `since` among the scene's floats (a missing or unusable one counts as 0); 1 when there are
+ * none. Never past `Number.MAX_SAFE_INTEGER`.
+ */
 function nextSince(scene: Scene): number {
-  return scene.floats.reduce((m, f) => Math.max(m, Number.isFinite(f.since) ? f.since! : 0), 0) + 1;
+  const most = scene.floats.reduce((m, f) => Math.max(m, isSince(f.since) ? f.since : 0), 0);
+  return Math.min(most + 1, Number.MAX_SAFE_INTEGER);
 }
 
 export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): Scene {

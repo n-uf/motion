@@ -29,11 +29,11 @@
  * A float's rect is clamped into the stage on read; its anchor, with any offset, is kept as stored (an anchored float
  * lies by its anchor, so the clamp never turns it into a pixel position). An unusable anchor is dropped
  * (`float:<id>:anchor`), and so is a bad offset field (`float:<id>:anchor:dx`, `float:<id>:anchor:<field>`). A float's
- * `since` is kept as stored; one that isn't a finite number of 0 or more is dropped (`float:<id>:since`).
+ * `since` is kept as stored; one that isn't a number from 0 to `Number.MAX_SAFE_INTEGER` is dropped (`float:<id>:since`).
  */
 import { rect, type Size } from "../geometry";
 import { clampFloat, closeRings, drawnFloatSize, prune, setSide } from "./changes";
-import { axisOf, columnFromTemplate } from "./helpers";
+import { axisOf, columnFromTemplate, isSince } from "./helpers";
 import { checkEdgeIds, isReservedEdgeId } from "./targets/ids";
 import { FLOAT_ANCHORS, RAIL_MODES, SIDES, type Edge, type FloatAnchor, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
 
@@ -90,8 +90,6 @@ const isNum = (x: unknown): x is number => typeof x === "number" && Number.isFin
 const isSize = (x: unknown): x is number => isNum(x) && x > 0;
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
 const isAnchor = (x: unknown): x is FloatAnchor => FLOAT_ANCHORS.includes(x as FloatAnchor);
-/** A float's `since`: a finite number, not negative. */
-const isSince = (x: unknown): x is number => isNum(x) && x >= 0;
 
 /**
  * The float anchor in `v`, as plain data: a name, or `{ at, dx?, dy? }` with its finite offsets; undefined when there is
