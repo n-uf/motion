@@ -34,7 +34,7 @@ export const PARTS: Part[] = [
     title: "Where things go",
     short: "Place",
     pkg: "@n-uf/placement",
-    idea: "Pure state in, rects and drop targets out: workspaces of docks, rails and floating panels, panel columns and top and bottom docks, desk presets, toolbar groups in toolbar areas and zones, and the targets for each.",
+    idea: "Pure state in, rects and drop targets out: workspaces of docks, rails and floating panels, panel columns and top and bottom docks, toolbar groups in toolbar areas and zones, tiled panes, and the targets for each.",
     does: "For the same apps: it works out where windows, panels and toolbar groups go, as the space changes and while something is dragged. You give it state and a size; it gives back rects, notes on what gave way, and drop targets.",
     readme: `${repoUrl}/blob/main/packages/placement/README.md`,
     pages: ["/desk-layouts/", "/toolbar-groups/"],
@@ -54,7 +54,7 @@ export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; 
   ],
   "/desk-layouts/": [
     { part: "motion", kind: "uses", what: "createSettle (every box glides)" },
-    { part: "placement", kind: "uses", what: "PRESETS and presetLayout from ./desk, on ./panels (the four presets; the page's other five layouts are demos drawn by the page itself)" },
+    { part: "placement", kind: "uses", what: "solve from ./scene (the four scene layouts; the page's other five layouts are demos drawn by the page itself)" },
   ],
   "/toolbar-groups/": [
     { part: "motion", kind: "uses", what: "createSettle" },

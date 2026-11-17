@@ -32,7 +32,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do @n-uf/motion and @n-uf/placement work together?",
-      a: "Placement computes where things go and motion moves them, and neither imports the other. A target list from <code>@n-uf/placement/targets</code> is exactly what the drag intent in <code>@n-uf/motion/drag</code> takes, and a rect from any placement layout is what <code>@n-uf/motion/layout</code> glides to. Each package also works alone.",
+      a: "Placement computes where things go and motion moves them, and neither imports the other. A target list from <code>targets</code> in <code>@n-uf/placement/scene</code> is exactly what the drag intent in <code>@n-uf/motion/drag</code> takes, and a rect from any placement layout is what <code>@n-uf/motion/layout</code> glides to. Each package also works alone.",
     },
   ],
   "/window-motion/": [
@@ -74,37 +74,37 @@ export const FAQS: Record<string, QA[]> = {
   "/desk-layouts/": [
     {
       q: "How do I drag a panel from one dock to another?",
-      a: "Take drop targets from <code>presetTargets</code> in <code>@n-uf/placement/desk</code>, which lists only the places the preset allows, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. When the intent names a target, <code>presetDrop</code> returns the slot the panel lands in. Placement draws nothing, so your app draws the rects, and <code>@n-uf/motion/layout</code> can glide the panels there.",
+      a: "Take drop targets from <code>targets(scene, id)</code> in <code>@n-uf/placement/scene</code>, which lists only the places the scene's edges accept, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. Each target carries what a release there makes: <code>target.after(point, grab)</code> returns the new scene and its layout, so the preview is the result. Placement draws nothing, so your app draws the rects, and <code>@n-uf/motion/layout</code> can glide the panels there.",
     },
     {
       q: "Which desk layouts can I build?",
-      a: "Four, as presets in <code>@n-uf/placement/desk</code> on <code>./panels</code>: <code>docks</code>, <code>docksFull</code> with a full-width bottom dock, <code>dockTear</code> with panels that can float, and <code>navigator</code> with a tabbed left column. Each is a set of panel options plus a start state. The older <code>./dock</code> entry still ships nine desk layouts, among them drawers, scrolling columns and corner stacks of floating panels.",
+      a: "Any you can describe as a <code>Scene</code> from <code>@n-uf/placement/scene</code>: edges along the window's sides (side columns, top and bottom docks, toolbars, reserved or over the content), the panels in them, and floats. This page lays out four: side docks with a bottom dock between the columns, the same with a full-width bottom dock, the same with panels that can float, and a navigator with tabs on the left. Panes that share an area with no overlap come from <code>./tiling</code>. The page's other five layouts are demos it draws by its own rules.",
     },
     {
       q: "What gives way when a desk runs out of room?",
-      a: "In the presets, the least recently used section collapses to its header when a stacked column runs short of height, and the bottom dock shrinks, then collapses to a header bar. When width runs out, the columns narrow, then the least recently used collapses to its rail. Each layout returns coded notes such as <code>column-folded</code>; your app supplies the wording.",
+      a: "In a scene, the least recently used section collapses to its header when a stacked column runs short of height. When width runs out under <code>contentMin</code>, the columns narrow, then the least recently used collapses to its rail. <code>solve</code> returns coded notes such as <code>column-folded</code>; your app supplies the wording. On this page, the bottom dock's height is the page's own rule: it shrinks, then collapses to a header bar, to keep the documents their least height.",
     },
   ],
   "/toolbar-groups/": [
     {
       q: "What happens to toolbar groups when the toolbar runs out of room?",
-      a: "They collapse from the trailing end first. <code>layoutHost</code> from <code>@n-uf/placement/toolbar</code> lists the groups that room collapsed in <code>overflow</code>. Give a primary group a higher <code>keep</code> and it keeps its full form longest; groups with equal keeps still collapse from the trailing end. Your app draws the collapsed groups.",
+      a: "They step down their forms, a row of words, then icons, then the bar's » menu, lowest <code>priority</code> first and, among equal priorities, the one used longest ago. <code>solve</code> from <code>@n-uf/placement/scene</code> gives each group the form it took and lists the groups in the » menu in the bar's <code>menu</code>. Give a primary group a higher <code>priority</code> and it keeps its full form longest. Your app draws the groups.",
     },
     {
       q: "How many toolbar areas and zones can a toolbar group go in?",
-      a: "Five toolbar areas, title, top, bottom, left and right, each with three zones: start, center and end. A group can also float. Insertion points cover before all, between groups, after all and an empty zone. <code>@n-uf/placement/toolbar</code> lays this out, and your app draws the result.",
+      a: "Five toolbar areas, title, top, bottom, left and right, each with three zones: start, center and end. A group can also float. Insertion points cover before all, between groups, after all and an empty zone. In <code>@n-uf/placement/scene</code> each toolbar area is a bar edge, <code>solve</code> lays them out, and your app draws the result.",
     },
     {
       q: "How do I make toolbar groups draggable?",
-      a: "Take drop targets from <code>hostTargets</code> and <code>floatTarget</code> in <code>@n-uf/placement/targets</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. <code>hostTargets</code> leaves the group's home out and returns it as <code>own</code>, for the drag's home, and every target it returns carries its <code>slot</code>, the rect the group fills once it lands there.",
+      a: "Take drop targets from <code>targets(scene, id)</code> in <code>@n-uf/placement/scene</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. The list holds every gap in every bar that accepts the group, the float target when groups may float, and the group's own place as its home. Every target carries the layout a release there makes, so the rect the group fills once it lands is <code>target.after(point, grab).layout.items[id].rect</code>.",
     },
     {
       q: "How do I save and restore a toolbar layout?",
-      a: "Use <code>storeArrangement</code> and <code>readArrangement</code> from <code>@n-uf/placement/toolbar</code>. <code>storeArrangement</code> returns versioned plain data that you stringify. Pass the parsed data, not the string, to <code>readArrangement</code>: it never throws, and an unknown version comes back as <code>ok: false</code>. Place groups added since the save with <code>resetGroup</code>.",
+      a: "Use <code>storeScene</code> and <code>readScene</code> from <code>@n-uf/placement/scene</code>. <code>storeScene</code> returns versioned plain data that you stringify. Pass the parsed data, not the string, to <code>readScene</code> with your starting scene: it never throws, an unknown version gives your starting scene back with the reason in <code>error</code>, and whatever it can't use is listed in <code>dropped</code>. Groups added since the save go where the starting scene has them.",
     },
     {
       q: "How do I step through drop targets with the keyboard?",
-      a: "Order the targets with <code>keyboardStops</code> from <code>@n-uf/placement/targets</code>. It puts a toolbar group's targets in reading order, title, top, left, right, bottom and then start, center, end, for the arrow keys and a \"Move to\" menu, with the group's home marked as <code>home</code>. Your app handles the keys and draws the focus.",
+      a: "Use <code>stops(scene, id)</code> from <code>@n-uf/placement/scene</code>. It returns the group's targets in reading order, the left side, the top bars, the bottom bars, the right side and floating last, for the arrow keys and a \"Move to\" menu. Each stop is a target, so its <code>after</code> is the move. Your app handles the keys and draws the focus.",
     },
   ],
 };
