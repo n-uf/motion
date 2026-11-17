@@ -772,41 +772,60 @@ describe("the target model's property check", () => {
     expect(pick(z, "tools", v.y - 10)!.id).toBe("gap:rail:center:0");
   });
 
-  it("flush windows (no inset, a column inside each side bar, rails, riding folds) keep every category at zero", () => {
-    const r = propertyCheck(Array.from({ length: 600 }, (_, i) => i + 1), true);
+  // The heavy sweeps run in chunks of at most 100 seeds, each its own test with its own timeout, so no single test runs
+  // long on a slow runner. The same seeds as one sweep; the point counts are summed and checked after the last chunk.
+  const SWEEP_TIMEOUT = 120_000;
+  const chunks = (n: number, size = 100): number[][] => Array.from({ length: Math.ceil(n / size) }, (_, c) => Array.from({ length: Math.min(size, n - c * size) }, (_, i) => c * size + i + 1));
+  const range = (seeds: readonly number[]): string => `seeds ${seeds[0]}–${seeds.at(-1)}`;
+  type Totals = { points: number; aimPoints: number; stripPoints: number };
+  /** One chunk's run: its counts at zero, its points added to `totals`. */
+  const sweep = (totals: Totals, label: string, seeds: readonly number[], flush: boolean, middle: boolean, railDrop: boolean): void => {
+    const r = propertyCheck(seeds, flush, middle, railDrop);
     // eslint-disable-next-line no-console
-    if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, aimPoints: r.aimPoints, counts: r.counts }), "\n" + r.examples.join("\n"));
-    expect(r.points).toBeGreaterThan(2000);
-    expect(r.aimPoints).toBeGreaterThan(500);
-    for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
+    if (process.env.MODEL_REPORT) console.log(JSON.stringify({ label, flush, middle, railDrop, points: r.points, aimPoints: r.aimPoints, stripPoints: r.stripPoints, counts: r.counts }), "\n" + r.examples.join("\n"));
+    totals.points += r.points;
+    totals.aimPoints += r.aimPoints;
+    totals.stripPoints += r.stripPoints;
+    for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${label}${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
+  };
+  const totals = (): Totals => ({ points: 0, aimPoints: 0, stripPoints: 0 });
+
+  const flushAll = totals();
+  for (const seeds of chunks(600)) {
+    it(`flush windows (no inset, a column inside each side bar, rails, riding folds) keep every category at zero, ${range(seeds)}`, () => sweep(flushAll, "", seeds, true, false, false), SWEEP_TIMEOUT);
+  }
+  it("flush windows: the sweep reaches enough points", () => {
+    expect(flushAll.points).toBeGreaterThan(2000);
+    expect(flushAll.aimPoints).toBeGreaterThan(500);
   });
 
-  it("windows whose columns and column templates split panels in halves (hitBand \"middle\") keep every category at zero", () => {
-    for (const flush of [false, true]) {
-      const r = propertyCheck(Array.from({ length: 300 }, (_, i) => i + 1), flush, true);
-      // eslint-disable-next-line no-console
-      if (process.env.MODEL_REPORT) console.log(JSON.stringify({ points: r.points, aimPoints: r.aimPoints, counts: r.counts }), "\n" + r.examples.join("\n"));
-      expect(r.points).toBeGreaterThan(1000);
-      expect(r.aimPoints).toBeGreaterThan(200);
-      for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${flush ? "flush " : ""}${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
+  for (const flush of [false, true]) {
+    const all = totals();
+    for (const seeds of chunks(300)) {
+      it(`windows whose columns and column templates split panels in halves (hitBand "middle")${flush ? ", flush" : ""}, keep every category at zero, ${range(seeds)}`, () => sweep(all, flush ? "flush " : "", seeds, flush, true, false), SWEEP_TIMEOUT);
     }
-  });
+    it(`hitBand "middle"${flush ? ", flush" : ""}: the sweep reaches enough points`, () => {
+      expect(all.points).toBeGreaterThan(1000);
+      expect(all.aimPoints).toBeGreaterThan(200);
+    });
+  }
 
   // The flush windows are the ride mode: hand folds ride (`handFold: "ride"`), so a strip's drop rides over an open column.
-  it("windows whose panels drop into their side's rail through a strip (Scene.railDrop), riding folds included, keep every category at zero, the strip included", () => {
-    for (const [flush, middle] of [
-      [false, false],
-      [true, false],
-      [false, true],
-      [true, true],
-    ] as const) {
-      const r = propertyCheck(Array.from({ length: flush ? 300 : 120 }, (_, i) => i + 1), flush, middle, true);
-      // eslint-disable-next-line no-console
-      if (process.env.MODEL_REPORT) console.log(JSON.stringify({ flush, middle, points: r.points, stripPoints: r.stripPoints, counts: r.counts }), "\n" + r.examples.join("\n"));
-      expect(r.stripPoints).toBeGreaterThan(500);
-      for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${flush ? "flush " : ""}${middle ? "middle " : ""}${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
+  for (const [flush, middle] of [
+    [false, false],
+    [true, false],
+    [false, true],
+    [true, true],
+  ] as const) {
+    const all = totals();
+    const mode = `${flush ? "flush " : ""}${middle ? "middle " : ""}`;
+    for (const seeds of chunks(flush ? 300 : 120)) {
+      it(`windows whose panels drop into their side's rail through a strip (Scene.railDrop)${mode ? `, ${mode.trim()}` : ""}, riding folds included, keep every category at zero, the strip included, ${range(seeds)}`, () => sweep(all, mode, seeds, flush, middle, true), SWEEP_TIMEOUT);
     }
-  });
+    it(`Scene.railDrop${mode ? `, ${mode.trim()}` : ""}: the sweep reaches enough strip points`, () => {
+      expect(all.stripPoints).toBeGreaterThan(500);
+    });
+  }
 
   it("an edge whose id holds ':' is an edge like any other (virtual edges are flagged, not named)", () => {
     expect(colonRenameDiffs(Array.from({ length: 40 }, (_, i) => i + 1))).toEqual([]);
@@ -819,5 +838,5 @@ describe("the target model's property check", () => {
     expect(r.points).toBeGreaterThan(5000);
     expect(r.aimPoints).toBeGreaterThan(200);
     for (const k of Object.keys(KNOWN) as Failure[]) expect(r.counts[k], `${k}: ${r.examples.filter((x) => x.startsWith(k)).slice(0, 5).join(" | ")}`).toBeLessThanOrEqual(KNOWN[k]);
-  });
+  }, SWEEP_TIMEOUT);
 });
