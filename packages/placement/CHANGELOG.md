@@ -5,6 +5,13 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.30
 
+- `./scene`, fixed: **a float that already covered a bar grew over it when resized.** `fitResize` stopped a growing edge
+  at the nearest obstacle beyond it, and skipped one the float already overlapped, so a float with no clear place at its
+  size (a short window, a tall `floatMin`) that lay 8 px over a toolbar went on over the bar, the chrome or a docked item
+  when its top, or any edge, was dragged outward. An edge that lies inside an obstacle now stays where it is drawn
+  (`"docked"`): a resize never covers more than the float did, and a float clear of everything stops at the obstacle, as
+  before. The property test covers both (no float overlaps a bar, chrome or docked item after `resize`; a covering one
+  covers no more).
 - `./scene`, **an edge's items in order** (additive): `SceneEdgeLayout.items`, the ids the layout draws for the edge in its
   stack order: the zones in order (start, center, end), then the order within each zone. An item in the » menu keeps its
   place (`menu.items` names those), a rail tab is listed, a closed item is left out; a column folded into its rail or

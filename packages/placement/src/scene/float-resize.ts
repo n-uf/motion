@@ -68,7 +68,8 @@ function floatObstacles(scene: Scene, l: SceneLayout, id: string): Rect[] {
 
 /**
  * Where the dragged edge of `drawn` along `axis` stops: the nearest obstacle beyond it on that side that lies across
- * `span` (the float's extent on the other axis). An obstacle the float already overlaps doesn't stop it.
+ * `span` (the float's extent on the other axis). An obstacle the float already overlaps (it covers the edge: no clear
+ * place existed at the float's size) keeps the edge where it is drawn: growing would cover it more.
  */
 function obstacleStop(drawn: Rect | undefined, obstacles: readonly Rect[], axis: "x" | "y", drag: "start" | "end" | null, span: readonly [number, number]): number {
   const none = drag === "start" ? -Infinity : Infinity;
@@ -81,8 +82,18 @@ function obstacleStop(drawn: Rect | undefined, obstacles: readonly Rect[], axis:
     const [c0, c1] = across(o);
     // Across, as tight as `fitFloat` tells touching from covering: an obstacle a fraction of a px across it still stops it.
     if (c0 >= span[1] - TOUCH || c1 <= span[0] + TOUCH) continue;
-    if (drag === "start" && lo(o) + len(o) <= lo(drawn) + EPS) at = Math.max(at, lo(o) + len(o));
-    if (drag === "end" && lo(o) >= lo(drawn) + len(drawn) - EPS) at = Math.min(at, lo(o));
+    const begin = lo(o);
+    const finish = begin + len(o);
+    const edge = drag === "start" ? lo(drawn) : lo(drawn) + len(drawn);
+    if (drag === "start") {
+      if (finish <= edge + EPS) at = Math.max(at, finish);
+      // Straddling the edge: the float already covers it (no clear place at its size), and growing past the edge would
+      // cover it more, so the edge stays where it is drawn.
+      else if (begin < edge - TOUCH) at = edge;
+    } else {
+      if (begin >= edge - EPS) at = Math.min(at, begin);
+      else if (finish > edge + TOUCH) at = edge;
+    }
   }
   // It stops growth only: never inside where the edge is drawn now (an obstacle it touches within a fraction of a px).
   return drag === "start" ? Math.min(at, lo(drawn)) : Math.max(at, lo(drawn) + len(drawn));
@@ -145,7 +156,8 @@ function fitAxis(start: number, length: number, b: { min: number; max: number; l
  * then along, over its new width), and such a stop beats the minimum. The rect is then laid by the one clamp `solve`
  * lays floats with, so `solve(resize(...))` draws exactly this rect. A float that already covers something (no clear
  * place at its size) may move to a clear place once a resize opens one; the preview is still the commit, and
- * `"docked"` says so. `limits` says which of these bound it.
+ * `"docked"` says so. Such a float never grows over what it covers: a dragged edge that lies inside an obstacle stays
+ * where it is drawn (`"docked"`), so a resize never covers more than the float did. `limits` says which of these bound it.
  *
  * Null for anything but a float drawn at its first form when that form grows (a panel's card): a toolbar group's size
  * comes from its forms, and so does a folded float's bar. Pure: it solves the scene once, for what is drawn now.
