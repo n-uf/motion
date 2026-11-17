@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## 26.11.34
+## 26.11.35
 
 - `./drag`, **a lift zone as a rect** (additive). `DragIntentOptions.liftRect` gives the "changed my mind" spot as a
   rect: while the pointer is inside it, no spring-loaded target arms by dwell, and the 16 px `liftZone` radius is not
@@ -17,6 +17,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   longer reach over it: a kit's rail stop, held, hid the "No room here" under its band. The frame's new `refused` says
   which refusal the pointer is over. Between real targets the band and the breakthrough are unchanged. Hosts: pass
   your refusals to `update` and `release` with the targets, and read `frame.refused` instead of looking them up.
+
+## 26.11.34
 
 - `./drag`, **the lift zone: back where it was lifted, a pause commits nothing.** A panel lifted by a grip under a
   rail strip (a flush drawer at the window's edge), dragged away and brought back to its grip, collapsed into the rail
