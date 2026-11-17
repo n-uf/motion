@@ -69,7 +69,7 @@ export const DOCS: DocPage[] = [
     slug: "placement",
     path: "/docs/placement/",
     title: "@n-uf/placement docs: docking, popups and drop targets",
-    description: "Reference for @n-uf/placement: rects, positionPopup, desk layout presets, panel columns, toolbar groups, drop targets and stored arrangements.",
+    description: "Reference for @n-uf/placement: rects, positionPopup, scenes (panel columns, docks, toolbar groups), tiling, drop targets and stored scenes.",
     nav: "@n-uf/placement",
     pkg: "@n-uf/placement",
     version: placementPkg.version,
