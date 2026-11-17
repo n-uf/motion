@@ -9,8 +9,8 @@
   </fieldset>
   <fieldset class="pn-options" id="pn-options">
     <legend>Give-way</legend>
-    <label><input type="radio" name="pn-order" value="oldest" checked /> Oldest first <em>(default)</em></label>
-    <label><input type="radio" name="pn-order" value="newest" /> Newest first</label>
+    <label><input type="radio" name="pn-order" value="oldest" checked /> Least recently used first <em>(default)</em></label>
+    <label><input type="radio" name="pn-order" value="newest" /> Most recently used first</label>
     <span class="pn-sep" aria-hidden="true">·</span>
     <label><input type="radio" name="pn-by" value="used" checked /> by use <em>(default)</em></label>
     <label><input type="radio" name="pn-by" value="opened" /> by opening</label>
@@ -21,12 +21,12 @@
     <label><input type="radio" name="pn-floats" value="free" /> Free</label>
   </fieldset>
   <fieldset class="pn-options">
-    <legend>Folded columns</legend>
+    <legend>Collapsed columns</legend>
     <label><input type="radio" name="pn-fold" value="rail" checked /> To the rail <em>(default)</em></label>
     <label><input type="radio" name="pn-fold" value="ride" /> Ride on the first open column</label>
   </fieldset>
   <fieldset class="pn-options">
-    <legend>Top band</legend>
+    <legend>Top dock</legend>
     <label><input type="radio" name="pn-band-top" value="off" checked /> Off <em>(default)</em></label>
     <label><input type="radio" name="pn-band-top" value="reserved" /> Reserved</label>
     <label><input type="radio" name="pn-band-top" value="overlay" /> Overlay</label>
@@ -35,7 +35,7 @@
     <label><input type="radio" name="pn-span-top" value="full" disabled /> full width</label>
   </fieldset>
   <fieldset class="pn-options">
-    <legend>Bottom band</legend>
+    <legend>Bottom dock</legend>
     <label><input type="radio" name="pn-band-bottom" value="off" checked /> Off <em>(default)</em></label>
     <label><input type="radio" name="pn-band-bottom" value="reserved" /> Reserved</label>
     <label><input type="radio" name="pn-band-bottom" value="overlay" /> Overlay</label>
@@ -69,21 +69,21 @@
 <p id="pn-status" role="status" aria-live="polite"></p>
 
 <section class="pn-parity pn-presets-only" aria-label="Differences from ./dock">
-  <h2>Differences from the ./dock constructions</h2>
+  <h2>Differences from the ./dock desk layouts</h2>
   <h3>Edge docks (docks)</h3>
   <ul>
     <li>Width: a dock is a fixed 246 px; a preset column takes its panels' natural width within their min and max, and can be resized.</li>
     <li>Gaps: ./dock leaves 6 px between sections and around the docks; a preset lays columns and sections edge to edge.</li>
     <li>Rails: ./dock always shows a 34 px rail of icons on both sides; a preset shows a rail (36 px, an option) only while a column is folded to it.</li>
-    <li>Width give-way: ./dock folds a whole dock to its rail when the work area gets too narrow (the right one first, or the one not opened last); a preset first narrows columns toward their min, then folds columns by the give-way policy (oldest by use, kept last).</li>
-    <li>Height give-way: ./dock folds the least recently used sections to 22 px headers; a preset folds sections by the give-way policy (kept last, never the last open one) to 28 px bars (an option), and only for panels with a declared height.</li>
+    <li>Width give-way: ./dock collapses a whole dock to its rail when the content area gets too narrow (the right one first, or the one not opened last); a preset first narrows columns toward their min, then collapses columns by the give-way policy (least recently used first, kept-open last).</li>
+    <li>Height give-way: ./dock collapses the least recently used sections to 22 px headers; a preset collapses sections by the give-way policy (kept-open last, never the last open one) to 28 px headers (an option), and only for panels with a declared height.</li>
     <li>Last section: ./dock gives it at least its natural height; a preset gives it the rest, never under its min (it may go under its natural height).</li>
     <li>Not in the preset: the toolbar itself and the documents' tiles (the app wires and draws them). The preset keeps the toolbar's room clear when the app asks (<code>reserve</code>, the Toolbar room sliders).</li>
     <li>Notes: <code>dock-folded</code> and <code>sections-folded</code> become <code>column-folded</code> and <code>section-folded</code>, one per item. Panel ids are strings, not <code>panel:&lt;n&gt;</code> numbers.</li>
   </ul>
   <h3>Edge docks, full-width bottom (docksFull)</h3>
   <ul>
-    <li>All of the above; the bottom band spans the whole width and the columns stand on it.</li>
+    <li>All of the above; the bottom dock spans the whole width and the columns stand on it.</li>
   </ul>
   <h3>Edge docks + tear-off (dockTear)</h3>
   <ul>
@@ -91,14 +91,14 @@
     <li>Float size: a torn-off panel is 200 px wide and its natural height in ./dock; in a preset it has its def's float size, and can be resized.</li>
     <li>Where it floats: ./dock cascades torn-off panels from the documents' top right and snaps a drop to the documents' edges within 18 px; a preset lands a drop where it was let go, without snapping, and the clamp keeps it in the view.</li>
     <li>Floating area: ./dock offers floating only over the documents; a preset offers it anywhere on the stage, under the column and rail targets.</li>
-    <li>Too tall: ./dock shades a torn-off panel that doesn't fit the stage's height; a preset shrinks it to the view down to its min, and folds it to a bar only by hand.</li>
+    <li>Too tall: ./dock collapses a torn-off panel that doesn't fit the stage's height to its header; a preset shrinks it to the viewport down to its min, and collapses it only by hand.</li>
     <li>Start: ./dock starts with nothing torn off; the preset starts with one float.</li>
   </ul>
   <h3>Navigator + inspector (navigator)</h3>
   <ul>
     <li>Sides: ./dock shows tabs on both sides; the preset tabs the left column and stacks the right one.</li>
     <li>Width: ./dock's sides are a fixed 240 px; a preset column takes its natural width and can be resized.</li>
-    <li>Narrow: ./dock folds a side to icon tabs (a rail with a segment per panel) when the centre gets under 380 px; a preset narrows, then folds the whole column to its rail by the give-way policy with the pages' 320 px minimum. An icon-tab mode per column is not in this release.</li>
+    <li>Narrow: ./dock collapses a side to icon tabs (a rail with a segment per panel) when the content area gets under 380 px; a preset narrows, then collapses the whole column to its rail by the give-way policy with the pages' 320 px minimum. An icon-tab mode per column is not in this release.</li>
     <li>Tab strip: ./dock draws rail icons beside its tabs; a preset draws a strip (28 px, an option) at the column's top with equal-width tabs.</li>
     <li>Tab drop: ./dock inserts a dropped panel at the tab under the pointer; a preset adds it as the last tab, and shows it.</li>
   </ul>
@@ -118,13 +118,13 @@
 <section class="pn-try">
   <h2>Try this</h2>
   <ol>
-    <li>Drag the Width slider down. Columns narrow toward their minimum first, then whole columns fold to the rails, the one used longest ago first. Drag it back up: they return.</li>
-    <li>Click a panel's title (a use), or the keep button (◇ Keep open), and narrow again: the order changes, and a kept column folds last.</li>
+    <li>Drag the Width slider down. Columns narrow toward their minimum first, then whole columns collapse to the rails, the least recently used first. Drag it back up: they return.</li>
+    <li>Click a panel's title (a use), or the keep button (◇ Keep open), and narrow again: the order changes, and a kept-open column collapses last.</li>
     <li>Drag a panel by its title over the pages: it floats. Drag it to a line between columns, into a column, or onto a rail to dock it back.</li>
     <li>Scroll the page: Comments moves with it, the pinned Navigator stays put. Narrow the stage: floats stay in view (clamped), or not (Free).</li>
-    <li>Fold a float with ▾: it shades to its title bar where it is; ▾ again brings it back. On the Options page, pick "Ride on the first open column" and fold a column: its bar sits on top of the side's first open column.</li>
+    <li>Collapse a float with ▾: it collapses to its header where it is; ▾ again brings it back. On the Options page, pick "Ride on the first open column" and collapse a column: its bar sits on top of the side's first open column.</li>
     <li>From the keyboard: Tab to a title, Space picks it up, the arrows step through the places, Enter drops, Escape cancels.</li>
-    <li>On the Options page, switch a band on (top or bottom, reserved or overlay, between the columns or full width): a panel moves into it. Drag panels into the band and out to a side; drag its inner edge to resize it; lower the Height until it folds to a bar, and raise it again. The Toolbar room sliders keep room clear along the pages' edges.</li>
+    <li>On the Options page, switch a dock on (top or bottom, reserved or overlay, between the columns or full width): a panel moves into it. Drag panels into the dock and out to a side; drag its inner edge to resize it; lower the Height until it collapses to a header bar, and raise it again. The Toolbar room sliders reserve space along the pages' edges.</li>
   </ol>
 </section>
 

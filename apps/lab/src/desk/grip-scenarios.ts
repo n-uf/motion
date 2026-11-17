@@ -1,5 +1,5 @@
 /**
- * The drag handles' scenarios: one handle per panel with its glyph by state (full on an expanded header, compact on
+ * The grips' scenarios: one grip per panel with its glyph by state (full on an expanded header, compact on
  * a collapsed bar, across the top of a rail segment), in every construction; no fold or menu buttons anywhere; a
  * double-click, a click on a collapsed bar and Enter on the handle collapse and expand; the menu's order, Move to,
  * Float and Dock, Reset position; a frozen layout hides every grip and lifts nothing until Alt is held.
@@ -28,7 +28,7 @@ const winOf = (key: string): HTMLElement | null => document.querySelector<HTMLEl
 
 /**
  * Every shown unit has one handle, its glyph by state: an expanded header 8 × 13 at its left edge, a collapsed bar
- * 3 × 13 there, a tab row 8 × 13 at its left edge, a rail segment 13 × 3 across its top, centred.
+ * 3 × 13 there, a tab row 8 × 13 at its left edge, a rail segment 13 × 3 across its top, centered.
  */
 function checkGlyphs(lab: DeskLab, expect: Expect, what: string): void {
   for (const [key, p] of lab.layout().items) {
@@ -44,7 +44,7 @@ function checkGlyphs(lab: DeskLab, expect: Expect, what: string): void {
       const w = p.look === "header" ? 3 : 8;
       expect(near(d.width, w) && near(d.height, 13), `${what}: ${key} (${p.look}) glyph is ${fmt(d)}, not ${w} × 13`);
       expect(d.x - at.x >= 2 && d.x - at.x <= 12, `${what}: ${key} glyph starts ${Math.round(d.x - at.x)} px from its left edge`);
-      expect(near(d.y + d.height / 2, at.y + 11, 1.5), `${what}: ${key} glyph isn't centred on its 22 px header (${fmt(d)})`);
+      expect(near(d.y + d.height / 2, at.y + 11, 1.5), `${what}: ${key} glyph isn't centered on its 22 px header (${fmt(d)})`);
     }
     if (key.startsWith("tabs:")) {
       const dots = [...el.querySelectorAll(".grip-handle .grip-dots")];
@@ -66,7 +66,7 @@ function checkGlyphs(lab: DeskLab, expect: Expect, what: string): void {
         const s = box(lab, seg);
         const icon = seg.querySelector("svg.glyph");
         expect(near(d.width, 13) && near(d.height, 3), `${what}: ${key}'s ${name} glyph is ${fmt(d)}, not 13 × 3`);
-        expect(near(d.x + d.width / 2, s.x + s.width / 2, 1), `${what}: ${key}'s ${name} glyph isn't centred (${fmt(d)} in ${fmt(s)})`);
+        expect(near(d.x + d.width / 2, s.x + s.width / 2, 1), `${what}: ${key}'s ${name} glyph isn't centered (${fmt(d)} in ${fmt(s)})`);
         expect(!!icon && d.y + d.height <= box(lab, icon).y + 0.5 && d.y - s.y <= 10, `${what}: ${key}'s ${name} glyph isn't on top of its segment`);
       }
     }

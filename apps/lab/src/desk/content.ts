@@ -3,7 +3,7 @@
  * app rather than a set of boxes. Markup only: sizes come from the layouts, and every body clips to its item.
  */
 
-/** A 24-unit line icon drawn in the current colour. */
+/** A 24-unit line icon drawn in the current color. */
 const icon = (paths: string, size = 16): string =>
   `<svg class="glyph" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 

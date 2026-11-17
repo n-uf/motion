@@ -11,7 +11,7 @@ import { allIdle, caseFrame, type KitCase, type KitScenario } from "./kit-case";
 const RULE = `Tab to a handle. <b>→ ↓</b> step to the next place and <b>← ↑</b> to the previous one: the slot shows it
 and the group glides there. <b>Enter</b> or <b>Space</b> drops; <b>Esc</b> glides home. <b>Shift+F10</b> (or a right-click
 on the handle) opens the menu, whose <b>Move to ›</b> lists the same places in the same order. Both read placement's
-<code>keyboardStops</code>: title → top → left → right → bottom, zones start → centre → end, each insertion point in
+<code>keyboardStops</code>: title → top → left → right → bottom, zones start → center → end, each insertion point in
 order, the group's own place among them (where the arrows start).`;
 
 export const case7: KitCase = {
@@ -66,7 +66,7 @@ function scenarios(c7: Viewer): KitScenario[] {
         expect(n > 5, `only ${n} places`);
         expect(menuIds.join(" ") === stops.map((t) => t.id).join(" "), `Move to › lists ${menuIds.join(", ")}`);
         // Every arrow: the next place, its slot drawn, the group gliding (not jumping) there. The arrows start at its
-        // own place (a stop of its own), so the first goes to the one after it.
+        // home (a stop of its own), so the first goes to the one after it.
         const home = c7.homeIndex(g);
         expect(home >= 0 && stops[home]!.home, "its own place isn't among the stops");
         const first = (home + 1) % n;

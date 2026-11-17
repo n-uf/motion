@@ -278,7 +278,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
         const grip = lab.grip(key)!;
         const all = lab.targets(key);
         const home = lab.shown(key) ? lab.drawn(key) : null;
-        // Aim points: a target's centre (else a point a quarter in from its corners) where it is the target under the
+        // Aim points: a target's center (else a point a quarter in from its corners) where it is the target under the
         // pointer, away from the item's home and on the stage.
         const spots = all.flatMap((t) => {
           const r = t.hit;
@@ -357,14 +357,14 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
   const flash = flashOf;
   const sequence = (r: DragResult): string => r.log.map((e) => `${e.id ?? (e.flying ? "flying" : "none")}@${Math.round(e.t)}`).join(" → ");
   // Each path below shows a flash when the switch hold is 0 (checked against the pure model); the hold prevents it.
-  out["B · drag model: a slow diagonal across the centre's corner shows no indicator for under 150 ms"] = {
+  out["B · drag model: a slow diagonal across the center's corner shows no indicator for under 150 ms"] = {
     construction: "tree",
     drag: true,
     play: async (expect) => {
       const key = DRAGGED.tree;
-      // Where the centre's left part meets its two right regions: the corner below the top right region.
+      // Where the center's left part meets its two right regions: the corner below the top right region.
       const tr = lab.targets(key).find((t) => t.id === "tile:C:1");
-      if (!tr) return expect(false, "no centre region to cross");
+      if (!tr) return expect(false, "no center region to cross");
       const corner = { x: tr.hit.x - G / 2, y: tr.hit.y + tr.hit.height + G / 2 };
       const from = { x: corner.x - 63, y: corner.y + 58 };
       const to = { x: corner.x + 107, y: corner.y - 68 };
@@ -396,9 +396,9 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
     if (!showed) return `the item snapped into ${snap.id} at ${Math.round(snap.t)} ms with no indicator on it`;
     return snap.t - showed.t >= DRAG_DEFAULTS.roomAfter - 1000 / 60 ? null : `the item snapped into ${snap.id} ${Math.round(snap.t - showed.t)} ms after the indicator showed it, before the room was made`;
   };
-  // The three previews, one drag (aimed at a slot between neighbours until the room is made): what moves before the
-  // drop. Indicator: nothing but the indicator. Gap: the neighbours move aside; the item stays under the pointer. Snap:
-  // the neighbours move aside and the item glides into the slot. Each lands where it showed. (Where the room only
+  // The three previews, one drag (aimed at a slot between neighbors until the room is made): what moves before the
+  // drop. Indicator: nothing but the indicator. Gap: the neighbors move aside; the item stays under the pointer. Snap:
+  // the neighbors move aside and the item glides into the slot. Each lands where it showed. (Where the room only
   // cross-fades a side's panel, as in the navigator's tabs, nothing moves aside to see.)
   for (const [short, cid, goalId] of [
     ["A", "docks", "dock:left:0"],
@@ -626,11 +626,11 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
           const grip = lab.grip(key)!;
           const all = lab.targets(key);
           const ts = all.filter((t) => t.priority <= 2 && !inRect(t.hit, grip, 12) && mid(t.hit).x > 0 && mid(t.hit).x < lab.size().width);
-          // A target whose centre is clear of the band of every target as precise: aiming there shows it, whatever the way in.
+          // A target whose center is clear of the band of every target as precise: aiming there shows it, whatever the way in.
           const a = ts.find((t) => all.every((o) => o.id === t.id || o.priority > t.priority || !inRect(o.hit, mid(t.hit), DRAG_DEFAULTS.band)));
           const b = a && ts.filter((t) => t !== a).sort((x, y) => dist(mid(x.hit), mid(a.hit)) - dist(mid(y.hit), mid(a.hit)))[0];
-          if (!a || !b) return expect(false, "no two neighbouring targets");
-          // Aim at A for 600 ms, then flick 300 px through its neighbour.
+          if (!a || !b) return expect(false, "no two neighboring targets");
+          // Aim at A for 600 ms, then flick 300 px through its neighbor.
           const start = mid(a.hit);
           const d = { x: mid(b.hit).x - start.x, y: mid(b.hit).y - start.y };
           const len = Math.hypot(d.x, d.y);
@@ -690,7 +690,7 @@ function dragModel(lab: DeskLab): Record<string, Scenario> {
       expect(snapChanges <= 1, `the item snapped ${snapChanges} more times in the wobble`);
     },
   };
-  out["A · drag model: a release inside the shown slot's band lands on it, not on the neighbour under the pointer"] = {
+  out["A · drag model: a release inside the shown slot's band lands on it, not on the neighbor under the pointer"] = {
     construction: "docks",
     drag: true,
     play: async (expect) => {

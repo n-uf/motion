@@ -1,7 +1,7 @@
 /**
  * 5 · Drop preview in a document viewer: the same drag, three ways of showing where the group lands, through
- * @n-uf/motion/drag's `previewPlan(frame, mode)`: Drop indicator (nothing moves, the outline over the insertion
- * point), Open gap (after 160 ms the neighbours move aside), Snap to slot (the gap opens and the group glides into it).
+ * @n-uf/motion/drag's `previewPlan(frame, mode)`: Indicator only (nothing moves, the outline over the insertion
+ * point), Make room (after 160 ms the neighbors move aside), Snap to slot (room opens and the group glides into it).
  * The slot is always the group's own outline. Next to them, a hairline indicator: a naive drag that draws a 3 px line
  * at the nearest insertion point, wherever the pointer is.
  */
@@ -13,14 +13,14 @@ import { HOME, createViewer, type Viewer, type GroupId } from "./viewer";
 import { fmt, mid, off, pointer, settle } from "./drive";
 import { allIdle, caseFrame, type Expect, type KitCase, type KitScenario } from "./kit-case";
 
-const RULE = `Drag a handle in any window. A <b>hairline indicator</b>: no preview motion; a 3 px line marks the insertion
+const RULE = `Drag a grip in any window. A <b>hairline indicator</b>: no preview motion; a 3 px line marks the insertion
 point under the pointer on the last move, and the group lands there. <b>With the intent</b>: <code>previewPlan(frame, mode)</code>
 with the mode picked here; whatever the mode, the slot is the group's own outline (dashed, tinted), it shows only while you
-aim, holds 150 ms before switching, and a release lands where it shows. The second row is a side edge, where the groups
+aim, waits a 150 ms switch delay before switching, and a release lands where it shows. The second row is a side edge, where the groups
 take their compact column form.`;
 
 const MODES: readonly DragPreview[] = ["indicator", "gap", "snap"];
-const MODE_NAME: Record<DragPreview, string> = { indicator: "Drop indicator", gap: "Open gap", snap: "Snap to slot" };
+const MODE_NAME: Record<DragPreview, string> = { indicator: "Indicator only", gap: "Make room", snap: "Snap to slot" };
 const ALL: readonly GroupId[] = ["navigate", "zoom", "annotate", "review", "share"];
 /** The side edge, sparse (three groups that fit) and dense (five: some fold to handle + »). */
 const EDGE: Record<"sparse" | "dense", Arrangement<GroupId>> = {
@@ -167,7 +167,7 @@ function scenarios(w: Windows): KitScenario[] {
       const m = r.hold.flatMap(moved);
       expect(m.length === 0, `${tag}: ${[...new Set(m)].join(", ")} moved; the indicator moves nothing`);
     } else {
-      expect(late.some((f) => moved(f).length > 0), `${tag}: the neighbours never moved aside`);
+      expect(late.some((f) => moved(f).length > 0), `${tag}: the neighbors never moved aside`);
     }
     // Snap: the group sits in its slot; indicator and gap: it stays under the pointer (turned into a column over a
     // side edge, so the pointer is on it rather than at the same grab offset).

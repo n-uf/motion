@@ -889,7 +889,7 @@ function showIndicator(t: GTarget | null, d: Drag): void {
     return;
   }
   // The slot is the group's own outline, never a hairline: the rect it lands in (its size and form there), drawn over
-  // its neighbours in the indicator preview, in the opened gap in the others. A drop lands exactly there.
+  // its neighbors in the indicator preview, in the opened gap in the others. A drop lands exactly there.
   const made = t.make(d.pointer);
   let r = placements(made, geometry(made)).get(d.id)?.rect ?? t.line;
   if (t.kind === "float" && r === t.line) {
@@ -1041,7 +1041,7 @@ export const toolbarGroups = {
   failures: (): string[] => layoutFailures(arrangement),
   /** The targets a drag of "g:<group>" would have now. */
   targets: (kind: string): GTarget[] => groupTargets(groupOf(kind)),
-  /** Where a drag of "g:<group>" starts: its handle's centre (window coordinates). */
+  /** Where a drag of "g:<group>" starts: its grip's center (window coordinates). */
   grip(kind: string): Point | null {
     const h = groupEls.get(groupOf(kind))?.handle;
     if (!h) return null;

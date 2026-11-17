@@ -1,9 +1,9 @@
 /**
- * Drag handles (grips) for the desk's panels: one handle per movable unit, and it carries every action the unit has.
+ * Grips for the desk's panels: one grip per movable unit, and it carries every action the unit has.
  *
  * - The glyph: dots in a line along the edge they sit on. A horizontal unit (a panel's header, a collapsed bar, a tab
  *   row) has it at its left edge, the dots running top to bottom; a vertical unit (a rail segment) on its top edge,
- *   centred, the dots running left to right. Full density (two lines of 3) on expanded headers, compact (one line)
+ *   centered, the dots running left to right. Full density (two lines of 3) on expanded headers, compact (one line)
  *   on thin units: collapsed bars and rail segments. The lab can draw a short line instead, plain, engraved or in a
  *   well.
  * - The actions: a drag moves the unit (the header drags along its whole length, the handle shows where from); a
@@ -136,7 +136,7 @@ function zoneLabel(c: ConstructionId, z: string, s0: DeskState): string {
     case "docks":
       return z === "bottom" ? "Bottom dock" : `${side} dock`;
     case "tree":
-      return z === "centre" ? "Centre" : `${side} column`;
+      return z === "centre" ? "Center" : `${side} column`;
     case "strip":
       return z === "new" ? "A new column" : `Column with ${titleOf(s0.cols[Number(z.slice(4))]![0]!)}`;
     case "sides":
@@ -608,7 +608,7 @@ export function createGrips(host: GripHost): Grips {
     const fs = document.createElement("fieldset");
     fs.id = "grip-options";
     fs.innerHTML =
-      "<legend>Drag handle</legend>" +
+      "<legend>Grip</legend>" +
       '<label><input type="radio" name="grip-glyph" value="dots" checked /> Dots</label>' +
       '<label><input type="radio" name="grip-glyph" value="line" /> Short line</label>' +
       '<span class="sep">·</span>' +

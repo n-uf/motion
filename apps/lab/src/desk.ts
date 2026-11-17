@@ -1214,7 +1214,7 @@ async function scriptedDrag(key: string, to: () => Point, opts: { escapeAt?: num
 /** How long a plain drag holds still at its end: aim, indicator, room, and the others settling. */
 const DWELL_THEN_ROOM = 650;
 
-/** The panels' drag handles: their glyphs, their menus and the frozen layout (desk/grip.ts). */
+/** The panels' grips: their glyphs, their menus and the frozen layout (desk/grip.ts). */
 const grips = createGrips({
   stage,
   construction,

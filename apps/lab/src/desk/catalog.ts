@@ -20,7 +20,7 @@ export const MAX_DOCS = DOC_TITLES.length;
 
 /**
  * Files and Outline dock left, Notes and Inspector right, History at the bottom. In the tiling tree Notes and
- * History take the right column and Inspector the centre; in the strip the left and right docks are two columns.
+ * History take the right column and Inspector the center; in the strip the left and right docks are two columns.
  * The panels were opened Files, Notes, Outline, Inspector, History: the tree floats the newest first.
  */
 export const desk = createDesk({

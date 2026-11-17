@@ -140,7 +140,7 @@ const at = (base: Arrangement, patch: Partial<Record<HostId, Partial<Record<"sta
   return out as unknown as Arrangement;
 };
 
-/** The title bar: document left, zoom and panels right, centre empty. */
+/** The title bar: document left, zoom and panels right, center empty. */
 const TITLE_CASE = at(DEFAULT_ARRANGEMENT, { title: { start: ["doc"], end: ["zoom", "panel"] }, bottom: { end: ["share"] } });
 /** The top bar empty (its groups in the bottom bar). */
 const EMPTY_TOP = at(DEFAULT_ARRANGEMENT, { top: {}, bottom: { start: ["panel", "edit", "history"], end: ["view", "share"] } });
@@ -173,7 +173,7 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
     ["end, after all", "g:title:end:2", (a) => list(a, "title") === "doc | · | zoom,panel,view"],
     ["start, before all", "g:title:start:0", (a) => list(a, "title") === "view,doc | · | zoom,panel"],
     ["start, after all", "g:title:start:1", (a) => list(a, "title") === "doc,view | · | zoom,panel"],
-    ["centre (empty)", "g:title:center:0", (a) => list(a, "title") === "doc | view | zoom,panel"],
+    ["center (empty)", "g:title:center:0", (a) => list(a, "title") === "doc | view | zoom,panel"],
     ["the empty left edge", "g:left:start:0", (a) => list(a, "left") === "view | · | ·"],
   ];
   out["toolbar groups: a group dropped in each zone lands before all, between, or after all; an empty toolbar opens"] = {
@@ -306,7 +306,7 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
           expect(dots.length === 3 && dots[0]!.y < dots[1]!.y && dots[1]!.y < dots[2]!.y && Math.abs(dots[0]!.x - dots[2]!.x) < 0.5, `${what}: the dots don't run top to bottom`);
         } else {
           expect(Math.abs(h.width - 13) < 0.6 && Math.abs(h.height - 3) < 0.6, `${what}: the handle is ${fmt(h)}, not 13 × 3`);
-          expect(Math.abs(h.y - g.y) < 1 && Math.abs(mid(h).x - mid(g).x) < 1, `${what}: the handle at ${fmt(h)} isn't on top of ${fmt(g)}, centred`);
+          expect(Math.abs(h.y - g.y) < 1 && Math.abs(mid(h).x - mid(g).x) < 1, `${what}: the handle at ${fmt(h)} isn't on top of ${fmt(g)}, centered`);
           expect(dots.length === 3 && dots[0]!.x < dots[1]!.x && dots[1]!.x < dots[2]!.x && Math.abs(dots[0]!.y - dots[2]!.y) < 0.5, `${what}: the dots don't run left to right`);
         }
       };
@@ -470,7 +470,7 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
       });
       await settle(lab);
       expect(counts.length > 0 && counts.every((n) => n === 1), `the view group showed as ${[...new Set(counts)].join(" or ")} elements while dragged`);
-      expect(!!editEarly && Math.abs((editEarly as Rect).x - editBefore.x) < 0.5, "a neighbour moved before the room was made");
+      expect(!!editEarly && Math.abs((editEarly as Rect).x - editBefore.x) < 0.5, "a neighbor moved before the room was made");
       landsFromRelease(r, "into the bottom bar");
       // Floating, then dragged again: no empty frame stays behind, and it lands from where it was let go.
       const g = tg.geometry();
@@ -652,7 +652,7 @@ export function toolbarGroupScenarios(lab: DeskLab): Record<string, Scenario> {
     }),
   };
 
-  out["toolbar groups · snap: the group glides into its slot once room is made, its neighbours sliding"] = {
+  out["toolbar groups · snap: the group glides into its slot once room is made, its neighbors sliding"] = {
     construction: "docks",
     drag: true,
     preview: "snap",

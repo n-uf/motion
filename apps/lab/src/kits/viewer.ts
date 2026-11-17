@@ -154,7 +154,7 @@ export interface ViewerOptions {
   /** The drop preview (case 5); default snap to slot. */
   readonly preview?: () => DragPreview;
   /**
-   * A fold (a double-click on a handle, or the bar running out of room): revealed through ./layout, the neighbours
+   * A fold (a double-click on a handle, or the bar running out of room): revealed through ./layout, the neighbors
    * gliding (the default), or an instant swap, everything jumping (case 4).
    */
   readonly fold?: () => "reveal" | "instant";

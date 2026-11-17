@@ -1,7 +1,7 @@
-<!-- The desk stage (src/desk.ts), behind Drag intent, Held drag and previews, Desk constructions and Toolbar groups: the shell renders its header. -->
+<!-- The desk stage (src/desk.ts), behind Drag intent and previews, Desk layouts and Toolbar groups: the shell renders its header. -->
       <section class="controls" aria-label="Controls">
         <fieldset id="constructions">
-          <legend>Construction</legend>
+          <legend>Desk layout</legend>
         </fieldset>
         <fieldset id="toolbar-modes">
           <legend>Toolbar</legend>
@@ -27,9 +27,9 @@
           <button type="button" data-size="520,700">Narrow</button>
         </fieldset>
         <fieldset>
-          <legend>Preview</legend>
-          <label><input type="radio" name="preview" value="indicator" /> Drop indicator</label>
-          <label><input type="radio" name="preview" value="gap" /> Open gap</label>
+          <legend>Drop preview</legend>
+          <label><input type="radio" name="preview" value="indicator" /> Indicator only</label>
+          <label><input type="radio" name="preview" value="gap" /> Make room</label>
           <label><input type="radio" name="preview" value="snap" checked /> Snap to slot</label>
         </fieldset>
         <fieldset>
@@ -64,7 +64,7 @@
         <canvas id="trace" width="720" height="160" aria-label="Distance to target over time, one line per item"></canvas>
         <h2>Scenario runs</h2>
         <table id="runs">
-          <thead><tr><th>Scenario</th><th>Construction</th><th>Failed rules</th></tr></thead>
+          <thead><tr><th>Scenario</th><th>Desk layout</th><th>Failed rules</th></tr></thead>
           <tbody></tbody>
         </table>
       </section>
