@@ -1,7 +1,7 @@
 /**
- * The lab app's shell: a persistent sidebar (Overview, Motion, Placement, Kit cases, Checks), and for the page the
- * route names a header (eyebrow, title, one line, the packages it runs, Reset, previous and next), its markup and its
- * module. Routes live in the hash (`#/placement/desk`), so a deep link survives a reload. Page modules start when
+ * The lab app's shell: a persistent sidebar (Overview, Motion, Document window, Checks), and for the page the route
+ * names a header (eyebrow, title, one line, the packages it runs, Reset, previous and next), its markup and its
+ * module. Routes live in the hash (`#/docwin`), so a deep link survives a reload. Page modules start when
  * they are imported and keep global state, so going to another page reloads.
  */
 import motionPkg from "../../../../packages/motion/package.json?raw";
@@ -10,10 +10,10 @@ import type { LabRun } from "../shared/hooks";
 import { parseRoute, registeredReset, routeHash } from "./api";
 import { GROUPS, type PageDef, type View } from "./page-defs";
 import { setPageList } from "./page-list";
-import { FIXTURES, PAGES, pageById } from "./pages";
+import { PAGES, pageById } from "./pages";
 
 // The Checks page runs every page: it reads them here (it never imports ./pages, which loads it).
-setPageList([...PAGES, ...FIXTURES]);
+setPageList(PAGES);
 
 const version = (raw: string): string => (JSON.parse(raw) as { version: string }).version;
 export const VERSIONS = { motion: version(motionPkg), placement: version(placementPkg) };
