@@ -5,6 +5,13 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.35
 
+- `./scene`, **an anchor with an offset** (additive). A float's `anchor` (in `SceneFloat`, `moveTo`'s float place and
+  the stored form) also takes `{ at, dx?, dy? }`: flush with `at`'s side or corner of the content, then `dx` px right and
+  `dy` px down, still following the content. A host stores "the top-right corner, 12 px down" instead of a pixel x that
+  the clamp on reload moves. `storeScene` / `readScene` round-trip it; `readScene` keeps it as stored and drops a bad
+  offset field as `float:<id>:anchor:dx` (or `:dy`, or the field's name). New types `FloatAnchorAt` and
+  `FloatAnchorOffset`, and `FLOAT_ANCHORS` lists the names. The string form is unchanged.
+
 - `./scene`, fixed: **an anchored float keeps clear of the floats before it.** Floats were kept clear of docked items,
   bars and chrome only, never of each other, so Float from a menu (`moveTo(scene, id, { kind: "float" })` with no rect,
   anchored to the content's top-right) laid a group exactly on a float already at that corner, and a second group

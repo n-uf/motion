@@ -1,12 +1,11 @@
 /** Anchored floats keep clear of the floats before them: a group sent to Float never lands on one already floating. */
 import { describe, expect, it } from "vitest";
-import { floatAt, moveTo, solve, type FloatAnchor, type Scene, type SceneFloat } from "../src/scene";
+import { FLOAT_ANCHORS, floatAt, moveTo, readScene, solve, storeScene, type Scene, type SceneFloat } from "../src/scene";
 import { group, panel, seeded, windowScene } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
 const overlaps = (a: R, b: R) => Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 1e-3 && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 1e-3;
 const same = (a: R, b: R) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
-const ANCHORS: readonly FloatAnchor[] = ["content-top-left", "content-top", "content-top-right", "content-right", "content-bottom-right", "content-bottom", "content-bottom-left", "content-left"];
 
 /** The window scene with no float, plus a vertical strip group (`strip`) and two more groups that may float. */
 function base(width = 1200, height = 800): Scene {
@@ -112,10 +111,62 @@ function generated(seed: number, roomy: boolean): Scene {
     const size = roomy ? { width: 80 + rnd() * 80, height: 28 + rnd() * 92 } : { width: 80 + rnd() * 260, height: 28 + rnd() * 260 };
     const hand = rnd() < 0.2;
     const at = { x: rnd() * W, y: rnd() * H, ...size };
-    out = moveTo(out, id, hand ? { kind: "float", rect: at } : { kind: "float", rect: at, anchor: pick(ANCHORS) });
+    out = moveTo(out, id, hand ? { kind: "float", rect: at } : { kind: "float", rect: at, anchor: pick(FLOAT_ANCHORS) });
   }
   return out;
 }
+
+describe("an anchor with an offset", () => {
+  const one = (anchor: SceneFloat["anchor"]): Scene => ({ ...base(), floats: [{ id: "g1", rect: { x: 0, y: 0, width: 200, height: 28 }, ...(anchor ? { anchor } : {}) }] });
+  const at = (s: Scene) => solve(s).items.g1!.rect;
+
+  it("lies at its anchor moved by dx and dy, and follows the content", () => {
+    const plain = at(one("content-top-right"));
+    expect(at(one({ at: "content-top-right" }))).toEqual(plain);
+    expect(at(one({ at: "content-top-right", dy: 12 }))).toEqual({ ...plain, y: plain.y + 12 });
+    expect(at(one({ at: "content-top-right", dx: -20, dy: 12 }))).toEqual({ ...plain, x: plain.x - 20, y: plain.y + 12 });
+    // A wider window: it keeps the same offset from the corner.
+    const wide = (s: Scene): Scene => ({ ...s, stage: { ...s.stage, width: 1500 } });
+    expect(at(wide(one({ at: "content-top-right", dy: 12 })))).toEqual({ ...at(wide(one("content-top-right"))), y: plain.y + 12 });
+    // An offset that isn't a number is no offset.
+    expect(at(one({ at: "content-bottom-left", dx: Number.NaN }))).toEqual(at(one("content-bottom-left")));
+  });
+
+  it("moveTo takes it, and it keeps clear of what floats are kept clear of", () => {
+    const s = moveTo(base(), "g1", { kind: "float", anchor: { at: "content-top-right", dy: 12 } });
+    expect(s.floats.find((f) => f.id === "g1")!.anchor).toEqual({ at: "content-top-right", dy: 12 });
+    const plain = solve(moveTo(base(), "g1", { kind: "float" })).items.g1!.rect;
+    expect(solve(s).items.g1!.rect).toEqual({ ...plain, y: plain.y + 12 });
+    // Pushed up into the bars, it is moved back clear of them.
+    const up = solve(moveTo(base(), "g1", { kind: "float", anchor: { at: "content-top-right", dy: -30 } }));
+    expect(up.items.g1!.rect.y).toBe(plain.y);
+    expect(up.notes).toContainEqual({ code: "float-moved", id: "g1" });
+  });
+
+  it("round-trips through storeScene and readScene; the clamp never turns it into a pixel position", () => {
+    const s: Scene = { ...base(), floats: [{ id: "g1", rect: { x: 5000, y: -300, width: 200, height: 28 }, anchor: { at: "content-top-right", dx: -8, dy: 12 } }, { id: "g2", rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-bottom" }] };
+    const stored = storeScene(s);
+    expect(stored.floats.map((f) => f.anchor)).toEqual([{ at: "content-top-right", dx: -8, dy: 12 }, "content-bottom"]);
+    const read = readScene(JSON.parse(JSON.stringify(stored)), base());
+    expect(read.dropped).toEqual([]);
+    expect(read.scene.floats.map((f) => f.anchor)).toEqual([{ at: "content-top-right", dx: -8, dy: 12 }, "content-bottom"]);
+    // The stored x is far outside the stage; the float still lies by its anchor and offset.
+    expect(solve(read.scene).items.g1).toEqual(solve(s).items.g1);
+    expect(storeScene(read.scene)).toEqual(storeScene(readScene(stored, base()).scene));
+  });
+
+  it("readScene drops what it can't use and lists it", () => {
+    const stored = (anchor: unknown) => ({ v: 1, edges: [], items: {}, floats: [{ id: "g1", x: 10, y: 10, width: 200, height: 28, anchor }] });
+    const read = (anchor: unknown) => readScene(stored(anchor), base());
+    expect(read({ at: "content-top", dx: "12", dy: 4 }).scene.floats[0]!.anchor).toEqual({ at: "content-top", dy: 4 });
+    expect(read({ at: "content-top", dx: "12", dy: 4 }).dropped).toEqual(["float:g1:anchor:dx"]);
+    expect(read({ at: "content-top", z: 1 }).dropped).toEqual(["float:g1:anchor:z"]);
+    expect(read({ at: "nowhere", dy: 4 }).scene.floats[0]!.anchor).toBeUndefined();
+    expect(read({ at: "nowhere", dy: 4 }).dropped).toEqual(["float:g1:anchor"]);
+    expect(read("nowhere").dropped).toEqual(["float:g1:anchor"]);
+    expect(read("content-left").scene.floats[0]!.anchor).toBe("content-left");
+  });
+});
 
 describe("anchored floats, over generated scenes", () => {
   const SEEDS = Array.from({ length: 300 }, (_, i) => i + 1);

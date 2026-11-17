@@ -8,13 +8,16 @@ import { fitFloat, type FloatFit } from "../../float-fit";
 import { EPS, rect, type Rect, type Size } from "../../geometry";
 import type { StackForm } from "../../stack";
 import { axisOf, chromeFor, floatOrientOf, floatShape, foldedByOf, formsOf } from "../helpers";
-import type { FloatAnchor, Orient, SceneFloat, SceneItem } from "../model";
+import type { FloatAnchor, FloatAnchorAt, Orient, SceneFloat, SceneItem } from "../model";
 import { shapeOf, type Draft } from "./draft";
 import type { Inset } from "./insets";
 import { finite, px } from "./order";
 
-/** A float's rect flush with `content`'s side or corner. */
-function anchored(content: Rect, w: number, h: number, anchor: FloatAnchor): Rect {
+/** A float's rect flush with `content`'s side or corner, moved by the anchor's offset (`dx` right, `dy` down). */
+function anchored(content: Rect, w: number, h: number, given: FloatAnchorAt): Rect {
+  const anchor = typeof given === "string" ? given : given.at;
+  const dx = typeof given === "string" ? 0 : finite(given.dx ?? 0, 0);
+  const dy = typeof given === "string" ? 0 : finite(given.dy ?? 0, 0);
   const left = content.x;
   const right = content.x + content.width - w;
   const midX = content.x + (content.width - w) / 2;
@@ -32,7 +35,7 @@ function anchored(content: Rect, w: number, h: number, anchor: FloatAnchor): Rec
     "content-left": [left, midY],
   };
   const [x, y] = at[anchor] ?? at["content-top-right"];
-  return rect(x, y, w, h);
+  return rect(x + dx, y + dy, w, h);
 }
 
 /** The floor a float of `item` is laid out at: its `floatMin`, else its form's own minimums, which only stop a shrink. */

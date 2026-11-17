@@ -30,6 +30,21 @@ export type FloatAnchor =
   | "content-bottom"
   | "content-bottom-left"
   | "content-left";
+export const FLOAT_ANCHORS: readonly FloatAnchor[] = ["content-top-left", "content-top", "content-top-right", "content-right", "content-bottom-right", "content-bottom", "content-bottom-left", "content-left"];
+
+/**
+ * An anchor with an offset: flush with `at`'s side or corner of the content, then `dx` px to the right and `dy` px down
+ * (negative: left, up; default 0). It still follows the content, so a host stores "the top-right corner, 12 px down"
+ * rather than a pixel position.
+ */
+export interface FloatAnchorOffset {
+  readonly at: FloatAnchor;
+  readonly dx?: number;
+  readonly dy?: number;
+}
+
+/** Where an anchored float sits: an anchor's name, or one with an offset. */
+export type FloatAnchorAt = FloatAnchor | FloatAnchorOffset;
 
 /** Along which axis an item lies: a column runs down, a row (a bar) runs across. */
 export type Orient = "column" | "row";
@@ -273,8 +288,8 @@ export interface SceneFloat {
   readonly id: string;
   /** Its rect in stage px (it never scrolls with the content). With `anchor`, only its size counts. */
   readonly rect: Rect;
-  /** Follow the content's side or corner until a drop gives it a real rect. */
-  readonly anchor?: FloatAnchor;
+  /** Follow the content's side or corner (with an offset, `{ at, dx?, dy? }`) until a drop gives it a real rect. */
+  readonly anchor?: FloatAnchorAt;
   /** Which of the item's forms it uses (default: the item's `floatOrientOf`). */
   readonly orient?: Orient;
 }
