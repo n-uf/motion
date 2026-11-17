@@ -19,7 +19,7 @@ FAINT_LINE = (104, 105, 112)   # the mark's target line: the site's --text-3 in 
 # out file, small label, headline, sub line, capture (in scripts/og-src), picture box (width, height)
 CARDS = [
     ("public/og.png", "n-uf motion & placement", "Window motion and docking", "@n-uf/motion moves windows without overshoot; @n-uf/placement works out where they dock", "home.png", (560, 420)),
-    ("public/og/window-motion.png", "@n-uf/motion · Window motion", "Fast at the start, gentle at the end", "Settle against Hyprland's springs and a typical app's tweens", "window-motion.png", (560, 470)),
+    ("public/og/window-motion.png", "@n-uf/motion · Window motion", "Fast at the start, gentle at the end", "Settle against Hyprland's springs and hypr-tiling's tweens", "window-motion.png", (560, 470)),
     ("public/og/drag-intent.png", "@n-uf/motion · Drag intent", "An indicator only once you aim", "No flicker on borders; the drop lands where it showed", "drag-intent.png", (560, 440)),
     ("public/og/desk-layouts.png", "@n-uf/placement · Desk layouts", "Nine ways to build a desk", "Docks, a tiling tree, a strip, drawers and palettes", "desk-layouts.png", (560, 440)),
     ("public/og/toolbar-groups.png", "@n-uf/placement · Toolbar groups", "One handle per group", "Five hosts, three zones, and a lock that hides every grip", "toolbar-groups.png", (560, 440)),
