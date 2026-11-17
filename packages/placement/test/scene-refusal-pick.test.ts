@@ -16,11 +16,13 @@ const inRect = (r: R, p: { x: number; y: number }): boolean => p.x >= r.x && p.x
 const inZone = (t: DragTarget, p: { x: number; y: number }): boolean => [...(t.hits ?? [t.hit]), ...(t.armedHit ? [t.armedHit] : [])].some((r) => inRect(r, p));
 
 /** The sweeps over one scene: every movable item, every seen edge, slow lines across it. Returns the failures. */
-function sweep(s: Scene, label: string): { samples: number; refused: number; failures: string[] } {
+function sweep(s: Scene, label: string): { samples: number; refused: number; overFloat: number; failures: string[] } {
   const now = solve(s);
   const failures: string[] = [];
   let samples = 0;
   let refused = 0;
+  // Refused samples where the float target is in the list too (so the refusal had to win over it).
+  let overFloat = 0;
   for (const id of Object.keys(s.items)) {
     const it = s.items[id]!;
     if (it.fixed || it.closed || !now.items[id]) continue;
@@ -55,19 +57,23 @@ function sweep(s: Scene, label: string): { samples: number; refused: number; fai
           if (!raw?.refuse) continue;
           refused++;
           if (f.shown && !inZone(f.shown, p)) failures.push(`${label} drag ${id} over ${eid} at ${p.x.toFixed(1)},${p.y.toFixed(1)}: ${raw.id} under ${f.shown.id}'s band`);
+          // The float (priority 3, everywhere) never shows over a refusal: the refusal wins the pick.
+          if (f.shown?.free) failures.push(`${label} drag ${id} over ${eid} at ${p.x.toFixed(1)},${p.y.toFixed(1)}: the float shows over ${raw.id}`);
+          if (list.some((x) => x.free)) overFloat++;
           // Nothing shown over a refusal: the frame says which refusal it is.
           if (!f.shown && f.refused?.id !== raw.id) failures.push(`${label} drag ${id} over ${eid} at ${p.x.toFixed(1)},${p.y.toFixed(1)}: refused ${f.refused?.id ?? "nothing"}, the pick ${raw.id}`);
         }
       }
     }
   }
-  return { samples, refused, failures };
+  return { samples, refused, overFloat, failures };
 }
 
 describe("refusals in the pick", () => {
   it("over a refusal nothing shows but a target whose own zone holds the pointer, in every mode", () => {
     let samples = 0;
     let refused = 0;
+    let overFloat = 0;
     const failures: string[] = [];
     for (const [flush, middle, railDrop] of [
       [false, false, false],
@@ -81,6 +87,7 @@ describe("refusals in the pick", () => {
         const r = sweep(modelScene(seed, flush, middle, railDrop), `seed ${seed}${flush ? " flush" : ""}${middle ? " middle" : ""}${railDrop ? " strip" : ""}`);
         samples += r.samples;
         refused += r.refused;
+        overFloat += r.overFloat;
         failures.push(...r.failures);
       }
     for (const [name, spec] of [["A", WINDOW_A], ["B", WINDOW_B]] as const)
@@ -88,10 +95,13 @@ describe("refusals in the pick", () => {
         const r = sweep(winScene(spec, { width }), `window ${name} at ${width}`);
         samples += r.samples;
         refused += r.refused;
+        overFloat += r.overFloat;
         failures.push(...r.failures);
       }
     expect(failures.slice(0, 10)).toEqual([]);
     expect(refused).toBeGreaterThan(1000);
+    // Most of them with the float in the list: the refusal won over it there.
+    expect(overFloat).toBeGreaterThan(500);
     expect(samples).toBeGreaterThan(50000);
   });
 });
