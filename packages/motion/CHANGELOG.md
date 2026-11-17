@@ -16,6 +16,10 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   frozen layout. `DragTuning.modifiers` defaults to Shift and ⌘/Ctrl. **Migration:** pass
   `modifiers: { on: true, floatKey: "Shift", railKey: "Alt" }` to keep Alt. README, host contract: while a drag is in
   progress, the host suppresses the context menu (a Ctrl-click on macOS) and the ⌘/Ctrl keydown shortcuts.
+- `./drag`, fixed: **a spring-loaded target arms only after the pointer has entered it.** Dwelling on the item's own
+  place armed a strip lying under the lift point (a flush window's panel at the window's edge: lift, pause, let go
+  collapsed it into the rail). The lift point now counts as not entered: a drag that starts inside the hit area must
+  leave it and come back before it arms; entering it from over home still counts. `DragTuning.railArmDwellMs` says so.
 
 ## 26.11.29
 

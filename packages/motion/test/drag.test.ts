@@ -660,10 +660,10 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
     ...(magnet ? { armedHit: rect(800 - overlap - magnet, 0, overlap + 60 + magnet, 400) } : {}),
   });
   /** Press in home's middle, move into the overlap and rest; the frames and what a release there does. */
-  const play = (target: DragTarget, rest: number, tuning: Partial<DragTuning> = {}) => {
+  const play = (target: DragTarget, rest: number, tuning: Partial<DragTuning> = {}, start: Point = mid(HOME)) => {
     const intent = createDragIntent({ home: HOME, tuning });
     const to = { x: target.hit.x + 3, y: 200 };
-    const keys = hold(through([mid(HOME), to], 0.3), rest);
+    const keys = hold(through([start, to], 0.3), rest);
     const total = keys.at(-1)![0];
     const frames: { t: number; shown: string | null; arming: string | null; atHome: boolean }[] = [];
     for (let t = 0; t <= total + 0.001; t += FRAME) {
@@ -675,11 +675,13 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
 
   it("property: a dwell target overlapping home arms after the dwell and lands the drop, whatever the overlap", () => {
     let checked = 0;
-    for (const overlap of [2, 6, 12, 20, 36, 60, 99])
+    // The drag starts over home, outside the strip (its inner edge is at 800 - overlap), and enters it over home.
+    const start = { x: HOME.x + 1, y: 200 };
+    for (const overlap of [2, 6, 12, 20, 36, 60, 90])
       for (const dwellMs of [0, 120, 200, 320])
         for (const magnet of [0, 8]) {
           const label = `overlap ${overlap} dwell ${dwellMs} magnet ${magnet}`;
-          const r = play(strip(overlap, magnet), dwellMs + 600, { railArmDwellMs: dwellMs });
+          const r = play(strip(overlap, magnet), dwellMs + 600, { railArmDwellMs: dwellMs }, start);
           const shownAt = r.frames.find((f) => f.shown === "rail:right");
           expect(shownAt, `${label}: shown`).toBeDefined();
           const armingAt = r.frames.find((f) => f.arming === "rail:right")?.t ?? shownAt!.t;
@@ -688,6 +690,35 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
           checked++;
         }
     expect(checked).toBe(56);
+  });
+
+  it("a drag that starts inside the strip and rests there arms nothing: the lift point counts as not entered", () => {
+    // A flush window: the panel's grip lies under the strip at the window's edge. Lift, pause, let go: no rail.
+    const home = rect(0, 100, 280, 300);
+    const left: DragTarget = { id: "rail:left", priority: 1, hit: rect(0, 0, 24, 800), arm: "dwell" };
+    const intent = createDragIntent({ home });
+    const at = { x: 10, y: 200 };
+    let shown = false;
+    for (let t = 0; t <= 400; t += FRAME) shown ||= intent.update(at, t, [left, FLOAT]).shown !== null;
+    expect(shown).toBe(false);
+    expect(intent.release(at, [left, FLOAT])).toBeNull();
+  });
+
+  it("entering from over home counts (a lone panel reaching its own side's rail); so does leaving the strip and coming back", () => {
+    const home = rect(0, 100, 280, 300);
+    const left: DragTarget = { id: "rail:left", priority: 1, hit: rect(0, 0, 24, 800), arm: "dwell" };
+    // Lifted over home outside the strip, into the strip, dwelling.
+    const a = createDragIntent({ home });
+    const keysA = hold(through([{ x: 120, y: 200 }, { x: 10, y: 200 }], 0.3), 500);
+    for (let t = 0; t <= keysA.at(-1)![0]; t += FRAME) a.update(along(keysA, t), t, [left, FLOAT]);
+    expect(a.state.shown?.id).toBe("rail:left");
+    expect(a.release({ x: 10, y: 200 }, [left, FLOAT])?.id).toBe("rail:left");
+    // Lifted inside the strip, out of it, and back in to dwell.
+    const b = createDragIntent({ home });
+    const keysB = hold(through([{ x: 10, y: 200 }, { x: 120, y: 200 }, { x: 10, y: 200 }], 0.3), 500);
+    for (let t = 0; t <= keysB.at(-1)![0]; t += FRAME) b.update(along(keysB, t), t, [left, FLOAT]);
+    expect(b.state.shown?.id).toBe("rail:left");
+    expect(b.release({ x: 10, y: 200 }, [left, FLOAT])?.id).toBe("rail:left");
   });
 
   it("a short rest arms nothing and a release over home does nothing, as before", () => {

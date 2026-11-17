@@ -41,7 +41,9 @@ export interface DragTuning {
    * Spring-loading: a target marked `arm: "dwell"` takes the drop only once the pointer has stayed in its zone this long
    * (ms); before that it is no target, so a fast pass, or a drop before it, lands on what lies beneath. 0 arms it at once.
    * Armed, its zone is its `armedHit` (the magnet: its band); moving out past that band's outer edge disarms it, and
-   * re-entering needs a new full dwell.
+   * re-entering needs a new full dwell. It arms only after the pointer has ENTERED its zone during the drag: the point
+   * the drag starts at counts as not entered, so a drag that starts inside the zone (a panel's grip under the strip at
+   * the window's edge) must leave it and come back before it can arm; entering from over home counts.
    */
   readonly railArmDwellMs: number;
   /** The keys that win over geometry while held (see {@link DragModifiers}). */
@@ -353,6 +355,8 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   let armedId: string | null = null;
   let armingId: string | null = null;
   let armingSince = 0;
+  // The spring-loaded targets (by id) the pointer has been outside of during this drag: only those can arm.
+  const wasOutside = new Set<string>();
   const same = (a: T | null, b: T | null): boolean => (a === null || b === null ? a === b : a.id === b.id);
   // Targets may be rebuilt between calls: follow the ones held by id.
   const follow = (t: T | null, targets: readonly T[]): T | null => (t ? (targets.find((x) => x.id === t.id) ?? t) : null);
@@ -420,7 +424,9 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         if (!was || forced || !inZone(asArmed(was), p) || !live(was)) armedId = null;
       }
       // Spring-loading is not gated by `atHome`: a strip that overlaps the item's own place still arms by dwell.
-      const dwelling = forced ? null : targetAt(given.filter((x) => x.arm === "dwell" && x.id !== armedId && inZone(x, p) && live(x)), p);
+      // A spring-loaded target arms only after the pointer has entered it: one it has been outside of during the drag.
+      for (const x of given) if (x.arm === "dwell" && !inZone(x, p)) wasOutside.add(x.id);
+      const dwelling = forced ? null : targetAt(given.filter((x) => x.arm === "dwell" && x.id !== armedId && wasOutside.has(x.id) && inZone(x, p) && live(x)), p);
       let armedNow = false;
       if (!dwelling || armedId !== null) armingId = null;
       else {
