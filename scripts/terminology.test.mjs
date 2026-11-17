@@ -17,6 +17,7 @@ test('"own place" is fine as "its own place" and banned bare', () => {
   assert.equal(scan("Its own place is home."), null);
   assert.equal(scan("back in its own place"), null);
   assert.equal(scan("a group's own place is home"), null);
+  assert.equal(scan("over Findings' own place"), null);
   assert.match(scan("the own place of a group")?.use ?? "", /home/);
   assert.match(scan("Back to own place")?.use ?? "", /home/);
 });

@@ -102,10 +102,19 @@ export function withRailStrips(c: Ctx, targets: readonly SceneTarget[], refusals
     const was = t.hits ?? [t.hit];
     const pieces = outside(was, rects);
     if (pieces.length === 0) {
-      // An empty edge's drop strip under the rail's (an empty column, where the side's rail would be too) moves just
-      // inside it: the rail lies outermost, the column opens from beside it.
-      const moved = t.id.startsWith("strip:") ? insideStrips(t.hit, strips) : null;
-      if (moved) out.push({ ...withoutHits(t), hit: moved });
+      // An empty edge's drop strip under the rail's (an empty column, where the side's rail would be too), or the line for
+      // a new outermost column on an occupied side (flush, the strip owns the window's edge), moves just inside it: the
+      // rail lies outermost, the column opens from beside it, and the column's own gaps lie after.
+      let moved = t.id.startsWith("strip:") || t.place.kind === "column" ? insideStrips(t.hit, strips) : null;
+      let movedPieces: Rect[] = moved ? [moved] : [];
+      if (moved && t.place.kind === "column") {
+        // Laid after the strip, so it owns only what the strip and the rest of the drag's targets and refusals leave:
+        // the column's own gaps, the lines inside it and a refused stretch keep their space.
+        const others = [...targets.filter((x) => x !== t && !x.free && x.place.kind !== "none" && !(x.place.kind === "rail" && sides.has(x.place.side))).flatMap((x) => x.hits ?? [x.hit]), ...refusals.map((x) => x.hit)];
+        movedPieces = outside([moved], others);
+        moved = movedPieces.length ? largest(movedPieces) : null;
+      }
+      if (moved) out.push({ ...withoutHits(t), hit: moved, ...(movedPieces.length > 1 ? { hits: movedPieces } : {}) });
       continue;
     }
     if (sameRects(pieces, was)) {

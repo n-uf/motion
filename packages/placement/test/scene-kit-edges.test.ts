@@ -3,7 +3,7 @@
  * is never a hole the float fills.
  */
 import { describe, expect, it } from "vitest";
-import { refusals, solve, targets, type Scene } from "../src/scene";
+import { refusals, solve, stops, targets, type Scene } from "../src/scene";
 import { pickTarget } from "../src/scene/cases";
 import { FLUSH, INSET, kitScene } from "./kit-scene";
 
@@ -99,5 +99,58 @@ describe("kit-shaped windows: the window's sides", () => {
             }
           }
     expect(checked).toBeGreaterThan(20);
+  });
+
+  it("with the panel strip on, an occupied side keeps the line for a new outermost column: the strip, then the line just inside it, then the column's gaps", () => {
+    for (const k of [FLUSH, INSET]) {
+      const s: Scene = { ...kitScene(k, { W: 1280, H: 800 }), railDrop: { panel: { railStripWidth: 24 } } };
+      const ts = targets(s, "findings");
+      const strip = ts.find((t) => t.id === "rail:left:0")!.strip!;
+      const line = ts.find((t) => t.id === "column:left:0")!;
+      // Just inside the strip, and it lands as the outermost column.
+      expect(line.hit.x, k === FLUSH ? "flush" : "inset").toBe(strip.x + strip.width);
+      expect(line.place).toEqual({ kind: "column", side: "left", ring: 0 });
+      expect(line.after({ x: line.hit.x + 3, y: 30 }).layout.items.findings!.edge).toBeDefined();
+      // A sweep along the top, between the column's gaps: the strip, the line, then no gap there (the panel's body: the float).
+      const along = (y: number): string[] => {
+        const seen: string[] = [];
+        for (let x = 0; x < 330; x++) {
+          const id = pickAt(s, "findings", x, y);
+          if (seen.at(-1) !== id) seen.push(id);
+        }
+        return seen;
+      };
+      expect(along(30).slice(0, 3)).toEqual(["rail:left:0", "column:left:0", "float:findings"]);
+      // At the gap between the left column's two panels (y 400), the gap is the column's own, after the strip.
+      expect(along(400).slice(0, 2)).toEqual(["rail:left:0", "gap:left-0:start:1"]);
+      // A host's "Move to ›" reaches it: it is a stop.
+      expect(stops(s, "findings").some((t) => t.id === "column:left:0")).toBe(true);
+    }
+  });
+
+  it("property: wherever the panel strip is on, every occupied side offers the new outermost column line, inside the strip, with no category broken", () => {
+    let checked = 0;
+    for (const k of [FLUSH, INSET])
+      for (const W of [900, 1100, 1280, 1440])
+        for (const drag of ["notes", "findings"]) {
+          const s: Scene = { ...kitScene(k, { W, H: 800 }), railDrop: { panel: { railStripWidth: 24 } } };
+          const l = solve(s);
+          const ts = targets(s, drag);
+          for (const side of ["left", "right"] as const) {
+            // An occupied side: an open column holding something other than the item.
+            const col = s.edges.find((e) => e.side === side && e.items.some((x) => x !== drag) && !l.edges[e.id]?.folded);
+            if (!col) continue;
+            checked++;
+            const label = `${k === FLUSH ? "flush" : "inset"} W ${W} ${drag} ${side}`;
+            const strip = ts.find((t) => t.id === `rail:${side}:0`)?.strip;
+            const line = ts.find((t) => t.place.kind === "column" && t.place.side === side && t.place.ring === 0);
+            expect(strip, label).toBeDefined();
+            expect(line, label).toBeDefined();
+            // Lies beside the strip, on the window's inside: never under it.
+            const under = Math.min(line!.hit.x + line!.hit.width, strip!.x + strip!.width) - Math.max(line!.hit.x, strip!.x);
+            expect(under, label).toBeLessThanOrEqual(0);
+          }
+        }
+    expect(checked).toBeGreaterThanOrEqual(12);
   });
 });
