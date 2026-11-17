@@ -1,7 +1,7 @@
 // Questions and answers, shown on a page and in its FAQPage structured data (answers word for word as shown).
 // A page that shows questions has its list in FAQS below, keyed by its path. An answer is one paragraph (it may hold
 // <code>), opening with the direct answer, 40 to 60 words (scripts/faq.test.mjs checks the count). Facts come only
-// from the packages' READMEs; nothing about the tiling entry, which isn't shipped.
+// from the packages' READMEs. Tiling is named only as the shipped entry, `./tiling`, never as a topic of its own.
 import { faqPage } from "./schema";
 
 export interface QA { id?: string; q: string; a: string }
@@ -74,21 +74,21 @@ export const FAQS: Record<string, QA[]> = {
   "/desk-layouts/": [
     {
       q: "How do I drag a panel from one dock to another?",
-      a: "Take drop targets from <code>targets(scene, id)</code> in <code>@n-uf/placement/scene</code>, which lists only the places the scene's edges accept, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. Each target carries what a release there makes: <code>target.after(point, grab)</code> returns the new scene and its layout, so the preview is the result. Placement draws nothing, so your app draws the rects, and <code>@n-uf/motion/layout</code> can glide the panels there.",
+      a: "Take drop targets from <code>targets(scene, id)</code> in <code>@n-uf/placement/scene</code>, which lists only the places the scene's edges accept, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. Each target carries what a release there makes: <code>target.after(point, grab)</code> returns the new scene and its layout, so the preview is the result. Your app draws the rects; <code>@n-uf/motion/layout</code> can glide the panels there.",
     },
     {
       q: "Which desk layouts can I build?",
-      a: "Any you can describe as a <code>Scene</code> from <code>@n-uf/placement/scene</code>: edges along the window's sides (side columns, top and bottom docks, toolbars, reserved or over the content), the panels in them, and floats. This page lays out four: side docks with a bottom dock between the columns, the same with a full-width bottom dock, the same with panels that can float, and a navigator with tabs on the left. Panes that share an area with no overlap come from <code>./tiling</code>. The page's other five layouts are demos it draws by its own rules.",
+      a: "Any you can describe as a <code>Scene</code> from <code>@n-uf/placement/scene</code>: edges along the window's sides (columns, docks, toolbars), the panels in them, and floats. This page lays out four: side docks with a bottom dock, the same with a full-width dock, the same with floating panels, and a navigator. Panes that share an area come from <code>./tiling</code>.",
     },
     {
       q: "What gives way when a desk runs out of room?",
-      a: "In a scene, the least recently used section collapses to its header when a stacked column runs short of height. When width runs out under <code>contentMin</code>, the columns narrow, then the least recently used collapses to its rail. <code>solve</code> returns coded notes such as <code>column-folded</code>; your app supplies the wording. A top or bottom dock with <code>giveWay</code> gives way by <code>contentMin.height</code> the same way: it shrinks, then collapses to a header bar (<code>bar-shrunk</code>, <code>bar-folded</code>).",
+      a: "The least recently used section collapses to its header when a column runs short of height. Short of width (<code>contentMin</code>), columns narrow, then the least recently used collapses to its rail. A dock with <code>giveWay</code> shrinks, then collapses to a header bar. <code>solve</code> returns coded notes such as <code>column-folded</code>; your app supplies the wording.",
     },
   ],
   "/toolbar-groups/": [
     {
       q: "What happens to toolbar groups when the toolbar runs out of room?",
-      a: "They step down their forms, a row of words, then icons, then the bar's » menu, lowest <code>priority</code> first and, among equal priorities, the one used longest ago. <code>solve</code> from <code>@n-uf/placement/scene</code> gives each group the form it took and lists the groups in the » menu in the bar's <code>menu</code>. Give a primary group a higher <code>priority</code> and it keeps its full form longest. Your app draws the groups.",
+      a: "They step down their forms, a row of words, then icons, then the bar's » menu, lowest <code>priority</code> first, then the one used longest ago. <code>solve</code> from <code>@n-uf/placement/scene</code> gives each group its form and lists the menu's groups in the bar's <code>menu</code>. A higher <code>priority</code> keeps a group's full form longest.",
     },
     {
       q: "How many toolbar areas and zones can a toolbar group go in?",
@@ -96,11 +96,11 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do I make toolbar groups draggable?",
-      a: "Take drop targets from <code>targets(scene, id)</code> in <code>@n-uf/placement/scene</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. The list holds every gap in every bar that accepts the group, the float target when groups may float, and the group's own place as its home. Every target carries the layout a release there makes, so the rect the group fills once it lands is <code>target.after(point, grab).layout.items[id].rect</code>.",
+      a: "Take drop targets from <code>targets(scene, id)</code> in <code>@n-uf/placement/scene</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. The list holds every gap in every bar that accepts the group, the float target when groups may float, and the group's home. Each target carries the layout a release makes: the group's rect once it lands is <code>target.after(point, grab).layout.items[id].rect</code>.",
     },
     {
       q: "How do I save and restore a toolbar layout?",
-      a: "Use <code>storeScene</code> and <code>readScene</code> from <code>@n-uf/placement/scene</code>. <code>storeScene</code> returns versioned plain data that you stringify. Pass the parsed data, not the string, to <code>readScene</code> with your starting scene: it never throws, an unknown version gives your starting scene back with the reason in <code>error</code>, and whatever it can't use is listed in <code>dropped</code>. Groups added since the save go where the starting scene has them.",
+      a: "Use <code>storeScene</code> and <code>readScene</code> from <code>@n-uf/placement/scene</code>. <code>storeScene</code> returns versioned plain data that you stringify. Pass the parsed data to <code>readScene</code> with your starting scene: it never throws, an unknown version gives that scene back with the reason in <code>error</code>, and what it can't use is listed in <code>dropped</code>. Groups added since the save go where the starting scene has them.",
     },
     {
       q: "How do I step through drop targets with the keyboard?",

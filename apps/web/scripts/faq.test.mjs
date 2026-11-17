@@ -1,5 +1,5 @@
 // The FAQ lists in src/data/faq.ts: 5 questions on the home and 3 to 5 on each other page, each answer 40 to 60 words
-// (the length Google lifts into a snippet) with no code block in it, and no mention of the unshipped tiling entry.
+// (the length Google lifts into a snippet) with no code block in it, and tiling named only as the `./tiling` entry.
 // The list is read as text, since the data is TypeScript (run: npm test).
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -40,6 +40,8 @@ test("every answer is one paragraph of 40 to 60 words, opening with its answer",
   }
 });
 
-test("no answer or question mentions tiling", () => {
-  for (const [p, items] of lists) for (const { q, a } of items) assert.doesNotMatch(`${q} ${a}`, /tiling/i, `${p}: ${q}`);
+// The rule kept the FAQ off the tiling entry while it was unshipped. `./tiling` ships now as a placement entry, so its
+// code name may appear; tiling as a topic of its own (tiling window managers, "tiling" in prose) still may not.
+test("no answer or question mentions tiling, but for the ./tiling entry's code name", () => {
+  for (const [p, items] of lists) for (const { q, a } of items) assert.doesNotMatch(`${q} ${a}`.replace(/<code>\.\/tiling<\/code>/g, ""), /tiling/i, `${p}: ${q}`);
 });
