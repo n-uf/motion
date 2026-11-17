@@ -391,4 +391,22 @@ export const RULE_ROWS: readonly CaseRow[] = [
       order: { titlebar: ["title", "zoom", "tools", "state", "page"] },
     },
   },
+  {
+    id: "R8-hand-fold-is-the-fold-form",
+    title: "A hand fold folds a toolbar group, it never steps to a variant",
+    expect:
+      "Zoom's forms along the toolbar are row, stacked, icons, its fold (its grip and ») and the menu. Folded by hand (a grip's double-click), it takes its fold form, not stacked, the next variant; unfolded, it takes the form the toolbar's room allows again, its row.",
+    group: "groups",
+    scene: zoomFive(),
+    gestures: [g.click("zoom", "fold"), g.click("zoom", "unfold")],
+    checkpoints: [{ at: 0, layout: { items: { zoom: { edge: "toolbar", formKind: "fold", form: 3 } } }, note: "folded by hand: its fold form" }],
+    expectLayout: { items: { zoom: { edge: "toolbar", formKind: "row", form: 0 } } },
+  },
 ];
+
+/** The window with Zoom's toolbar forms row, stacked, icons, fold and menu (R8). */
+function zoomFive(): Scene {
+  const s = doc();
+  const row = [form("row", 200, 200, 28), form("stacked", 120, 120, 30), form("icons", 84, 84, 28), form("fold", 24, 24, 28), form("menu", 0, 0, 0)];
+  return { ...s, items: { ...s.items, zoom: { ...s.items.zoom!, forms: { ...s.items.zoom!.forms, row } } } };
+}
