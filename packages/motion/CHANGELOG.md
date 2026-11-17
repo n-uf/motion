@@ -10,6 +10,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.35
 
+Not published: its release run failed on a test timeout. Everything below ships in 26.11.36.
+
 - `./drag`, **a lift zone as a rect** (additive). `DragIntentOptions.liftRect` gives the "changed my mind" spot as a
   rect: while the pointer is inside it, no spring-loaded target arms by dwell, and the 16 px `liftZone` radius is not
   applied. A kit passes the part of a wide grip that a drop strip covers, so the strip arms right beside the grip
