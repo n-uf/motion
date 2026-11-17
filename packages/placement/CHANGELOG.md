@@ -5,6 +5,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.35
 
+- The older entries `./dock`, `./desk`, `./panels`, `./toolbar` and `./targets` still ship: superseded by `./scene` and
+  `./tiling`, removed in the next breaking release.
+
 - `./scene`, **bars give way by height** (additive). A top or bottom bar with `Edge.giveWay` (which already made a
   static side edge give way like a column) now gives way to `contentMin.height`: while the content is shorter (overlay
   bars counted), such bars shrink across toward their minimum, then fold one by one, their items stepping to the next
