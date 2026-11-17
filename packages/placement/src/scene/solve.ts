@@ -4,7 +4,8 @@
  * 1. **The cut.** Reserved edges cut the stage from the outside in: first the full-span bars (top, then bottom, each
  *    by ring), across the stage's whole width; then the columns (left, then right, by ring), down the height the full
  *    bars left; then the `between` bars, across the width the columns left. What remains is `content`. Overlay edges
- *    are cut the same way from a copy of the content, so they lie over it without shortening it.
+ *    are cut the same way from a copy of the content, so they lie over it without shortening it; a full overlay bar
+ *    runs across the full bars' width, over the columns too, at the content's top or bottom.
  * 2. **Each edge is a stack** (`fitStack`): a column along the height it gets, a bar along the width, with each item's
  *    `forms.column` or `forms.row`. Items are taken in zone order (start, center, end); `fixed` items keep their form;
  *    closed items take no room. In a column, group forms take their own width (`ownCross`). The edge's thickness is
@@ -26,18 +27,21 @@
  *    goes to the rail too, or with `handFold: "ride"` and one member it rides as a title bar over the side's first open
  *    column, at its width, taking none. The rail lies just outside the side's first column, its segments (each member's
  *    `rail` form) in ring order.
+ * 7. **Bars by height** (`Edge.giveWay` on a top or bottom bar): while the content is shorter than `contentMin.height`
+ *    (overlay bars counted), those bars shrink across toward their minimum, then fold one by one to their items' next
+ *    form that fits across; the scene is laid out again under the caps this gives each bar (`heightGiveWay`).
  *
  * `previous` (the layout before) gives each edge's fits to `fitStack` as `previous`, so a change of ages alone (a press)
  * changes no rect; columns folded or shrunk by give-way stay so while the content still fits, and room coming back
  * unfolds them in the reverse of give-way order. Pure: the same scene always lays out the same.
  *
  * The phases live in `./solve/`: `order` (the laying order), `edge` (one edge's stack), `draft` (drawing an edge),
- * `bars`, `insets`, `sides`, `columns` (give-way), `rails` (folded columns), `floats` and `notes`.
+ * `bars` (and their height give-way), `insets`, `sides`, `columns` (give-way), `rails` (folded columns), `floats` and `notes`.
  */
-import { rect } from "../geometry";
+import { rect, type Rect } from "../geometry";
 import { checkEdgeIds } from "./targets/ids";
-import type { Scene, SceneLayout, SolveOptions } from "./model";
-import { cutEdge } from "./solve/bars";
+import type { Scene, SceneLayout, SceneNote, SolveOptions } from "./model";
+import { cutEdge, heightGiveWay } from "./solve/bars";
 import { createDraft } from "./solve/draft";
 import { layFloats } from "./solve/floats";
 import { insetOf, insideInset } from "./solve/insets";
@@ -49,7 +53,18 @@ export { layKeys, pushes, type LayKey } from "./solve/order";
 
 export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
   checkEdgeIds(given);
-  const d = createDraft(given, options);
+  const lay = (caps: ReadonlyMap<string, number>, gave: readonly SceneNote[] = []): SceneLayout => layOut(given, options, caps, gave);
+  const first = lay(new Map());
+  const way = heightGiveWay(given, first, lay);
+  return way ? lay(way.caps, way.notes) : first;
+}
+
+/** `area`'s top and height on `over`'s left and width. */
+const withHeightOf = (area: Rect, over: Rect): Rect => rect(over.x, area.y, over.width, area.height);
+
+/** One pass of the layout under height give-way's `caps`, its notes (`gave`) before the content's. */
+function layOut(given: Scene, options: SolveOptions, caps: ReadonlyMap<string, number>, gave: readonly SceneNote[]): SceneLayout {
+  const d = createDraft(given, options, caps);
   const { scene, order } = d;
   const stage = rect(finite(scene.stage.x, 0), finite(scene.stage.y, 0), px(scene.stage.width), px(scene.stage.height));
   const { inset, docked } = insetOf(d);
@@ -60,11 +75,22 @@ export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
   for (const e of reserved) if (outsideBar(e)) outer = cutEdge(d, e, outer, true);
   let area = insideInset(outer, inset);
   for (const e of reserved) if (!isSide(e) && e.span !== "between" && !outsideBar(e)) area = cutEdge(d, e, area, true);
+  // The width the full bars run across, before the columns: a full overlay bar lies over the columns too.
+  const wide = area;
   area = laySides(d, reserved.filter(isSide), area, { inset, gutter: px(scene.gutter), docked, outer });
   for (const e of reserved) if (!isSide(e) && e.span === "between") area = cutEdge(d, e, area, true);
   const content = area;
   let over = content;
-  for (const e of order) if (e.mode === "overlay") over = cutEdge(d, e, over, true);
+  for (const e of order) {
+    if (e.mode !== "overlay") continue;
+    if (isSide(e) || e.span === "between") over = cutEdge(d, e, over, true);
+    // Full: across the full bars' width, over the content's height left so far.
+    else over = withHeightOf(cutEdge(d, e, rect(wide.x, over.y, wide.width, over.height), true), over);
+  }
+  for (const n of gave) {
+    d.notes.push(n);
+    if (n.code === "bar-shrunk" && d.edges[n.edge]) d.edges[n.edge] = { ...d.edges[n.edge]!, shrunk: true };
+  }
   contentNotes(d, content);
   const floats = layFloats(d, stage, content, inset);
   const { items, edges, rails, railPlaces, columnRoom, notes } = d;

@@ -108,10 +108,15 @@ describe("scene sweeps", () => {
       const l = solve(s);
       const overflowing = new Set(l.notes.flatMap((n) => ("edge" in n && (n.code === "overflow" || n.code === "too-wide") ? [n.edge] : [])));
       const docked = Object.entries(l.items).filter(([, it]) => it.edge && !it.inMenu && !overflowing.has(it.edge) && it.rect.width > 1e-6 && it.rect.height > 1e-6);
+      // A full overlay bar lies over the side columns by design: only its items may cover theirs.
+      const over = new Set(s.edges.filter((e) => e.mode === "overlay" && (e.side === "top" || e.side === "bottom") && e.span !== "between").map((e) => e.id));
+      const side = new Set(s.edges.filter((e) => e.side === "left" || e.side === "right").map((e) => e.id));
+      const lies = (x: string, y: string): boolean => over.has(x) && side.has(y);
       for (let i = 0; i < docked.length; i++) {
         for (let j = i + 1; j < docked.length; j++) {
           const [a, ia] = docked[i]!;
           const [b, ib] = docked[j]!;
+          if (lies(ia.edge!, ib.edge!) || lies(ib.edge!, ia.edge!)) continue;
           if (overlaps(ia.rect, ib.rect)) throw new Error(`seed ${seed}: ${a} and ${b} overlap: ${JSON.stringify([ia.rect, ib.rect])}`);
         }
       }

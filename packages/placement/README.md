@@ -802,7 +802,9 @@ console.log(readScene(JSON.parse(JSON.stringify(storeScene(drop.scene))), scene)
 **The cut.** Reserved edges cut the stage from the outside in: the full bars first (top then bottom, each by `ring`,
 0 outermost), across the whole width; then the columns (left then right, by ring), down the height the full bars
 leave; then the `span: "between"` bars, across the width the columns leave. What remains is `layout.content`. Edges
-with `mode: "overlay"` are cut the same way from a copy of the content: they lie over it and leave it as it is. An edge
+with `mode: "overlay"` are cut the same way from a copy of the content: they lie over it and leave it as it is. A full
+overlay bar (`span` not `"between"`) runs across the full bars' width instead, over the side columns too, at the
+content's top or bottom; a `between` one lies over the content only. An edge
 with nothing drawn in it takes no room.
 
 **Each edge is a stack.** Left and right edges are columns (`forms.column`), top and bottom ones bars (`forms.row`),
@@ -959,6 +961,12 @@ none lays out as before.
   between such bars, and an anchor runs through the inset beside them. Without it nothing changes.
 - **`Edge.giveWay`**: a static left or right edge that gives way like a dynamic column. It shrinks toward its minimum,
   then folds whole into its side's rail, in give-way order with the columns (by its items' ages). It is never deleted.
+  On a top or bottom bar, reserved or overlay, it gives way by height, the same way: while the content is shorter than
+  `contentMin.height` (overlay bars counted), such bars shrink across toward their minimum (`cross.min` and each open
+  item's form's `cross.min`), then fold one by one, their items stepping to the next form that fits across (a panel's
+  title bar, `foldedBy: "auto"`), each fold letting the others take back what they can; unkept before kept, the oldest
+  newest use first, the outer first (`bar-shrunk` `{ edge, from, to }`, `bar-folded` `{ edge }`, and the edge's
+  `shrunk`). Room coming back undoes it in reverse. Still too short: `content-short`.
 - **`Edge.moves: "side"`**: a static edge whose fixed item (an anchor, such as page thumbnails) the user may drag to the
   other side of the edge's axis. `targets` then gives that item one target, `side:<other side>`, over the place the edge
   takes there, landing as `setSide` puts it; its own place is home. Left out, a fixed item has no targets. `readScene`

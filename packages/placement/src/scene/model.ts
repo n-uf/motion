@@ -181,6 +181,12 @@ export interface Edge {
   /**
    * A static left or right edge that gives way like a dynamic column: it shrinks toward its minimum, then folds whole
    * into its side's rail, in give-way order with the columns (its items' ages). It is never deleted.
+   *
+   * On a top or bottom bar (reserved or overlay), it gives way by height: while the content is shorter than
+   * `contentMin.height` (overlay bars counted), such bars shrink across toward their minimum (`cross.min`, and each
+   * open item's form's `cross.min`), then fold, their items stepping to the next form that fits across (a panel's
+   * title bar), unkept before kept, the oldest newest use first, the outer first (`bar-shrunk`, `bar-folded`). Room
+   * coming back undoes it in reverse. A bar never draws an item thinner across than its form's `cross.min`.
    */
   readonly giveWay?: boolean;
   /**
@@ -419,7 +425,7 @@ export interface SceneEdgeLayout {
   readonly free: StackFit;
   /** A dynamic column folded into its side's rail (its rect is zero wide there): by hand or by give-way. */
   readonly folded?: "hand" | "auto";
-  /** Shrunk by give-way below the width it asks for. */
+  /** Shrunk by give-way below the size across it asks for: a column's width, a bar's height (`Edge.giveWay`). */
   readonly shrunk?: boolean;
   /** Riding on this column (its rect is the bars'). */
   readonly rides?: string;
@@ -445,6 +451,8 @@ export interface SceneRailLayout {
  * - `float-clamped`, `float-moved`: a float was moved into the stage, or clear of what it would cover;
  * - `float-covers`: no clear place exists, and it covers the least it can.
  * - `column-shrunk`, `column-folded`, `kept-folded`: give-way by `contentMin.width`, in give-way order;
+ * - `bar-shrunk`, `bar-folded`: give-way by `contentMin.height`, in give-way order: a top or bottom bar with `giveWay`
+ *   shrank across (`from`, `to`), or its items stepped to the next form that fits (a panel's title bar);
  * - `content-narrow`, `content-short`: the content is still under `contentMin` (overlay bars count against the height).
  * - `no-column-room`: not even one column at its minimum fits beside `contentMin.width` (`layout.columnRoom` false):
  *   `width` is the room the stage leaves, `need` the content's minimum plus that column and its gutter.
@@ -460,6 +468,8 @@ export type SceneNote =
   | { readonly code: "float-clamped" | "float-moved" | "float-covers"; readonly id: string }
   | { readonly code: "column-shrunk"; readonly edge: string; readonly from: number; readonly to: number }
   | { readonly code: "column-folded" | "kept-folded"; readonly edge: string }
+  | { readonly code: "bar-shrunk"; readonly edge: string; readonly from: number; readonly to: number }
+  | { readonly code: "bar-folded"; readonly edge: string }
   | { readonly code: "no-column-room"; readonly width: number; readonly need: number }
   | { readonly code: "content-narrow"; readonly width: number; readonly min: number }
   | { readonly code: "content-short"; readonly height: number; readonly min: number }
