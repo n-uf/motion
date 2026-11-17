@@ -1,6 +1,6 @@
 /**
  * The rules the Scene builds in (C24 to C29) and the gap cases (gaps as bands, `content-changed`, the float slot,
- * every gap its own slot), on the document window of `doc()`: a title bar (fixed title that grows, fixed controls), a
+ * every gap its own slot), and a bar's three zones (R6), on the document window of `doc()`: a title bar (fixed title that grows, fixed controls), a
  * toolbar, a status bar, a left and a right column, panels (pages, findings, notes) and groups (views, tools, zoom,
  * search, marks).
  *
@@ -20,6 +20,12 @@ const panelsOnly = (): Scene => tweakEdge({ ...doc(), floatKinds: ["panel"] }, "
 
 /** The window with only panels floating, and its left column a panel column with a tray of toolbars at its foot. */
 const trayColumn = (): Scene => tweakEdge({ ...doc(), floatKinds: ["panel"] }, "left", { zoneAccepts: { start: ["panel"], end: ["group"] } });
+
+/** The window with Views leading and Zoom trailing in the toolbar, and Tools floating (the bar's zones, R6). */
+function barZones(): Scene {
+  const s = tweakEdge(doc(), "toolbar", { items: ["views", "zoom"] });
+  return { ...s, floats: [...s.floats, { id: "tools", rect: r(500, 300, 200, 28) }] };
+}
 
 export const RULE_ROWS: readonly CaseRow[] = [
   {
@@ -292,4 +298,22 @@ export const RULE_ROWS: readonly CaseRow[] = [
     gestures: [g.press("findings"), g.at(10, 150), g.hold(), g.release()],
     expectLayout: { items: { findings: { formKind: "open", edge: "left", rect: r(0, 68, 260, 732) } }, order: { left: ["findings"] } },
   },
+  ...(["start", "center", "end"] as const).map(
+    (zone): CaseRow => ({
+      id: `R6-bar-${zone}-zone`,
+      title: `A toolbar dropped in a bar's ${zone} zone`,
+      expect: {
+        start: "Tools, floating, dropped after Views in the toolbar's start zone lands leading, right after Views.",
+        center: "Tools dropped in the toolbar's center zone lands at the bar's true center, clear of Views at the start and Zoom at the end.",
+        end: "Tools dropped in the toolbar's end zone lands trailing, right before Zoom.",
+      }[zone],
+      group: "groups",
+      scene: barZones(),
+      gestures: g.drag("tools", g.gap("toolbar", zone === "start" ? 1 : 0, zone)),
+      expectLayout: {
+        items: { tools: { edge: "toolbar", zone, formKind: "row", rect: r({ start: 212, center: 500, end: 788 }[zone], 32, 200, 36) }, views: { rect: r(8, 32, 200, 36) }, zoom: { rect: r(992, 32, 200, 36) } },
+        order: { toolbar: ["views", "tools", "zoom"] },
+      },
+    }),
+  ),
 ];

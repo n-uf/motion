@@ -5,6 +5,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.31
 
+- `./scene/cases`, **three rows on a bar's zones** (R6, additive): a toolbar dropped in a bar's start zone lands
+  leading after the toolbars there, in the center zone at the bar's true center, in the end zone trailing before the
+  toolbars there.
 - `./scene/cases`, **four rows on the window's edges** (P16, additive): in a flush window, a panel rested over the float
   and then at the window's first or last px lands in a new outer column (the float never holds the window's edge); one
   let go 9 px in, with hand folds riding, lands in a new outer column too; one alone in its column, rested over its own
