@@ -85,6 +85,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.35
 
+Not published: its release run failed on a test timeout. Everything below ships in 26.11.36.
+
 - `./scene`, fixed: **a target left too thin to reach.** The new-column line beside a 28 px rail drop strip was left a
   6 px sliver (a kit saw 18 × 12): the column lines take only what the other edges leave. Now every target keeps a
   reachable hit of at least 12 px across by 24 px along, taken from the space beside it in its own zone where nothing
