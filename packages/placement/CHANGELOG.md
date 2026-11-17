@@ -23,7 +23,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   anchored floats with smaller ids, by the same nearest-clear-place search (`fitFloat`). The stacking order plays no
   part, so `raise` still reshapes nothing. With no place clear of them all, it lies where it did before. A float with a
   rect of its own keeps it. Scenes with no anchored float, or whose anchored floats covered no float that wins over
-  them, lay out exactly as before. Row C14b's float now lies beside the bench's float, at x 240.
+  them, lay out exactly as before. Conformance row C14b's expected answer changed: its float now lies beside the float
+  already at that corner, at x 240, so a host that runs the cases suite on an older library fails C14b until it
+  upgrades.
 
 - The older entries `./dock`, `./desk`, `./panels`, `./toolbar` and `./targets` still ship: superseded by `./scene` and
   `./tiling`, removed in the next breaking release.
