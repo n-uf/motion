@@ -54,7 +54,7 @@ const say = (r: Rect): string => `${r0(r.x)},${r0(r.y)} ${r0(r.width)}×${r0(r.h
 /** The default window, changed by `edit`, at `size`. */
 const sceneWith = (edit: (s: Scene) => Scene, size = DEFAULT_SIZE): Scene => edit(defaultScene(size));
 
-/** The window px of the element's centre. */
+/** The window px of the element's center. */
 function pointOf(c: DocwinScene, el: Element | null): Point | null {
   if (!el) return null;
   const w = c.win.getBoundingClientRect();
@@ -167,7 +167,7 @@ const endDrag = (c: DocwinScene): void => {
 const handleOf = (c: DocwinScene, id: ItemId, h: string): HTMLElement | null => c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-fh="${h}"]`);
 
 /**
- * A mouse drag on a float's resize handle, through the page's own listeners: pointerdown on the handle's centre,
+ * A mouse drag on a float's resize handle, through the page's own listeners: pointerdown on the handle's center,
  * pointermoves on the window about 4 px apart by (dx, dy), pointerup. `during` runs once halfway, the button still down.
  */
 function mouseResize(c: DocwinScene, id: ItemId, h: string, dx: number, dy: number, during?: () => void): boolean {
@@ -188,7 +188,7 @@ function mouseResize(c: DocwinScene, id: ItemId, h: string, dx: number, dy: numb
 
 /**
  * A mouse double-click on the item's grip, through the page's own listeners: two pointerdown/pointerup pairs at the
- * grip's centre (the grip found again for the second, as the first click may redraw it). Whether a drag ever started.
+ * grip's center (the grip found again for the second, as the first click may redraw it). Whether a drag ever started.
  */
 function mouseDouble(c: DocwinScene, id: ItemId): { pressed: boolean; dragged: boolean } {
   let dragged = false;
@@ -1114,7 +1114,7 @@ export const PRESETS: readonly Preset[] = [
     id: "title-bar-zones",
     title: "The title bar's zones: leading, center, trailing",
     expected:
-      "Tools dropped by mouse in the title bar's left third lands leading (right after the title's natural width, or after the toolbars there), in the middle third at the bar's true centre (or, where that isn't clear of the title and the trailing toolbars, centred in the free span between them), in the right third trailing, right before the window controls. The slot is the landing, never over the title's natural rect or the controls; with Zoom in the title bar, Zoom moved out, and Review leading.",
+      "Tools dropped by mouse in the title bar's left third lands leading (right after the title's natural width, or after the toolbars there), in the middle third at the bar's true center (or, where that isn't clear of the title and the trailing toolbars, centered in the free span between them), in the right third trailing, right before the window controls. The slot is the landing, never over the title's natural rect or the controls; with Zoom in the title bar, Zoom moved out, and Review leading.",
     setup: (c) => c.setScene(defaultScene()),
     check(c) {
       const bad: string[] = [];
@@ -1163,7 +1163,7 @@ export const PRESETS: readonly Preset[] = [
     id: "top-bar-zones",
     title: "The top bar's zones, empty and with Zoom at its start",
     expected:
-      "Tools dropped by mouse in the top bar's left, middle and right thirds lands leading, centred and trailing; with the bar empty (its strip is three zone targets) and with Zoom at its start (a toolbar can go to its right, not only to its left). The slot is the landing; with Zoom in the title bar and moved out.",
+      "Tools dropped by mouse in the top bar's left, middle and right thirds lands leading, centered and trailing; with the bar empty (its strip is three zone targets) and with Zoom at its start (a toolbar can go to its right, not only to its left). The slot is the landing; with Zoom in the title bar and moved out.",
     setup: (c) => c.setScene(defaultScene()),
     check(c) {
       return zonesOfBar(c, "top", [
@@ -1176,7 +1176,7 @@ export const PRESETS: readonly Preset[] = [
     id: "bottom-bar-zones",
     title: "The bottom bar's zones, empty and with Zoom at its start",
     expected:
-      "With Views and Review moved to the top bar, Tools dropped by mouse in the bottom bar's left, middle and right thirds lands leading, centred and trailing; with the bar empty and with Zoom at its start. The slot is the landing.",
+      "With Views and Review moved to the top bar, Tools dropped by mouse in the bottom bar's left, middle and right thirds lands leading, centered and trailing; with the bar empty and with Zoom at its start. The slot is the landing.",
     setup: (c) => c.setScene(sceneWith((s) => put(s, "top", ["views", "review"]))),
     check(c) {
       return zonesOfBar(c, "bottom", [
@@ -1876,7 +1876,7 @@ const stepOf = (c: DocwinScene, id: ItemId): number => (c.layout.items[id]?.inMe
 /** Whether the item is drawn in its rail title form (the layout's `railTitle`, and the page's turned title). */
 const isTitle = (c: DocwinScene, id: ItemId): boolean => !!c.layout.items[id]?.railTitle && !!c.win.querySelector(`.dw-items [data-id="${id}"] .dw-railtitle`);
 
-/** A mouse click on the item's grip (its rail title or tile): pointerdown and pointerup at its centre, through the page's listeners. */
+/** A mouse click on the item's grip (its rail title or tile): pointerdown and pointerup at its center, through the page's listeners. */
 function mouseClick(c: DocwinScene, id: ItemId): boolean {
   const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
   if (!el) return false;
@@ -2347,7 +2347,7 @@ function aligned(s: Scene, id: ItemId, align: "start" | "center" | "end"): Scene
 /**
  * Drops `id` by mouse in the bar's third for `zone`, half way into the third, and checks it lands in that zone with the
  * slot equal to the landing, clear of the title's natural rect and the controls, at the zone's place: leading right
- * after the items before it, trailing right before the controls (or the bar's end), center at the bar's centre or the
+ * after the items before it, trailing right before the controls (or the bar's end), center at the bar's center or the
  * free span's.
  */
 function barZoneDrop(c: DocwinScene, id: ItemId, edge: EdgeId, zone: "start" | "center" | "end"): { ok: boolean; now: string } {

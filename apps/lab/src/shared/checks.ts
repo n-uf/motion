@@ -41,7 +41,7 @@ export interface EpisodeRecord {
   readonly held: readonly HeldSample[];
   /** Per frame of the raised window: null when nothing covered it, else what did. */
   readonly onTop: readonly (string | null)[];
-  /** Per frame while a slot is previewed: null when no settled neighbour is in it, else which is. */
+  /** Per frame while a slot is previewed: null when no settled neighbor is in it, else which is. */
   readonly room: readonly (string | null)[];
   /** Windows that popped in or out (a uniform scale, not a rect move) */
   readonly pops?: number;
@@ -137,13 +137,13 @@ export function renderTrace(trace: HTMLCanvasElement, t0: number, segs: readonly
   ctx.fillText("100 %", 0, 14);
   ctx.fillText("0", 18, H - 22);
   ctx.fillText(`${Math.round(end)} ms`, W - 60, H - 6);
-  const colours = ["#4c6ef5", "#e8590c", "#2b8a3e", "#ae3ec9", "#1098ad", "#f08c00"];
+  const colors = ["#4c6ef5", "#e8590c", "#2b8a3e", "#ae3ec9", "#1098ad", "#f08c00"];
   const X = (t: number): number => 30 + ((W - 40) * (t - t0)) / end;
   const Y = (f: number): number => H - 20 - (H - 30) * f;
   for (const s of segs) {
     const span = Math.max(...KEYS.map((k) => Math.abs(s.to[k] - s.from[k])));
     if (span < 0.5) continue;
-    ctx.strokeStyle = colours[s.id % colours.length]!;
+    ctx.strokeStyle = colors[s.id % colors.length]!;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(X(s.t0), Y(1));

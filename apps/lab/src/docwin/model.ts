@@ -78,7 +78,7 @@ export function reformPanels(s: Scene): Scene {
  * hugs its content, grip, padding and border included):
  * - `row`: its one-row width;
  * - `words`: each word's width in the order the `wrap` form lists them (Views' "Pages · Notes 2 · Findings 20",
- *   Review's capsule, Zoom's −, value, +, FIT, Tools' five tools), `gap` the room between neighbouring words (Views' "·"
+ *   Review's capsule, Zoom's −, value, +, FIT, Tools' five tools), `gap` the room between neighboring words (Views' "·"
  *   included), `wrapRow` a wrapped row's height;
  * - `icons`: its vertical icons form (the grip on top, the icons stacked), `width` across and `height` along;
  * - `iconsRow`: its icons form in a bar, its width (Views and Review have one);

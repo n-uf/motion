@@ -1,5 +1,5 @@
 /**
- * 2 · Host map: placement's hosts are title, top, bottom, left and right, each with start, centre and end zones. An
+ * 2 · Host map: placement's hosts are title, top, bottom, left and right, each with start, center and end zones. An
  * app declares which of its places are hosts. Two layouts of the same window: one whose places match the five hosts one
  * to one, and one whose places differ from them: it maps a masthead row to title and a strip to top, and its side rail
  * and cards are not declared, so they are never a target.
@@ -10,7 +10,7 @@ import { HOST_RECT, STAGE, createViewer, inRect, sameArrangement, type Viewer } 
 import { drag, fmt, mid, off, settle } from "./drive";
 import { allIdle, caseFrame, type KitCase, type KitScenario } from "./kit-case";
 
-const RULE = `A host is <b>title</b>, <b>top</b>, <b>bottom</b>, <b>left</b> or <b>right</b>, each with start, centre and end
+const RULE = `A host is <b>title</b>, <b>top</b>, <b>bottom</b>, <b>left</b> or <b>right</b>, each with start, center and end
 zones (placement's host map). An app declares which of its places are hosts. In a <b>one-to-one layout</b> the places
 match the five hosts. In a layout with <b>places of its own</b>, the app maps a masthead row to title and a strip to top;
 its side rail and cards are not declared, so they are never a target. Drag a group and look at what lights up.`;
@@ -43,7 +43,7 @@ export const case2: KitCase = {
   },
 };
 
-/** Which bar a lit rect belongs to (the one its centre is in), or "document". */
+/** Which bar a lit rect belongs to (the one its center is in), or "document". */
 const barOf = (r: Rect): HostId | "document" => HOSTS.find((h) => inRect(HOST_RECT[h], mid(r))) ?? "document";
 
 function scenarios(oneToOne: Viewer, ownPlaces: Viewer): KitScenario[] {

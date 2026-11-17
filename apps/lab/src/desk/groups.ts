@@ -24,8 +24,8 @@ export const CASES: readonly { readonly name: string; readonly note: string; rea
     arrangement: arr<GroupId>({ title: { start: ["edit", "history", "doc"], end: ["zoom"] }, top: { center: ["view"] }, bottom: { start: ["panel"], end: ["share"] } }),
   },
   {
-    name: "Zoom to the title bar's centre",
-    note: "Zoom sits centred on the bar.",
+    name: "Zoom to the title bar's center",
+    note: "Zoom sits centered on the bar.",
     arrangement: arr<GroupId>({ title: { start: ["doc"], center: ["zoom"] }, top: { center: ["edit", "history", "view"] }, bottom: { start: ["panel"], end: ["share"] } }),
   },
   {
@@ -35,12 +35,12 @@ export const CASES: readonly { readonly name: string; readonly note: string; rea
   },
   {
     name: "A top bar with three zones",
-    note: "Edit and history on the top bar's left, view in its centre, zoom on its right.",
+    note: "Edit and history on the top bar's left, view in its center, zoom on its right.",
     arrangement: arr<GroupId>({ title: { start: ["doc"] }, top: { start: ["edit", "history"], center: ["view"], end: ["zoom"] }, bottom: { start: ["panel"], end: ["share"] } }),
   },
   {
-    name: "Zoom to the bottom bar's centre",
-    note: "The bottom bar gets a centre zone.",
+    name: "Zoom to the bottom bar's center",
+    note: "The bottom bar gets a center zone.",
     arrangement: arr<GroupId>({ title: { start: ["doc"] }, top: { center: ["edit", "history", "view"] }, bottom: { start: ["panel"], center: ["zoom"], end: ["share"] } }),
   },
   {
@@ -60,7 +60,7 @@ export const CASES: readonly { readonly name: string; readonly note: string; rea
   },
   {
     name: "Two side toolbars",
-    note: "Edit and history on the left; view and zoom on the right, centred.",
+    note: "Edit and history on the left; view and zoom on the right, centered.",
     arrangement: arr<GroupId>({ title: { start: ["doc"] }, left: { start: ["edit", "history"] }, right: { center: ["view", "zoom"] }, bottom: { start: ["panel"], end: ["share"] } }),
   },
   {
@@ -69,8 +69,8 @@ export const CASES: readonly { readonly name: string; readonly note: string; rea
     arrangement: arr<GroupId>({ title: { start: ["doc", "edit", "history"], center: ["zoom"], end: ["view", "panel", "share"] } }),
   },
   {
-    name: "Document centred in the top bar",
-    note: "The title bar keeps only share; the document centres in the top bar.",
+    name: "Document centered in the top bar",
+    note: "The title bar keeps only share; the document centers in the top bar.",
     arrangement: arr<GroupId>({ title: { end: ["share"] }, top: { start: ["edit", "history"], center: ["doc"], end: ["view", "zoom"] }, bottom: { start: ["panel"] } }),
   },
 ];

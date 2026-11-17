@@ -77,7 +77,7 @@ function scenarios(c6: Viewer): KitScenario[] {
         c6.reset();
         await settle(c6);
         const t = c6.targets("share").find((x) => x.id === "g:bottom:center:0");
-        if (!t || t.kind === "float") return expect(false, "no bottom centre target for Share");
+        if (!t || t.kind === "float") return expect(false, "no bottom center target for Share");
         await drag(c6, "share", mid(placements(t.arrangement).get("share")!.rect));
         await settle(c6);
         expect(c6.lastDrag()?.landed === t.id, `landed on ${c6.lastDrag()?.landed ?? "home"}`);
