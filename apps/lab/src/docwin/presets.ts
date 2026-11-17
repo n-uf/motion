@@ -2559,7 +2559,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
       },
     },
     {
-      id: "rail-alt-from-content",
+      id: "rail-mod-from-content",
       title: "⌘/Ctrl collapses a panel into the nearest rail from mid-content",
       expected: "Findings dragged by mouse with ⌘ (or Ctrl) held into the pages, 300 px from the right window edge (nowhere near it, nearer the right than the left): the preview is its collapsed tile in the nearest rail (the right one), and the drop collapses it there, on its slot. Alt does not: it is the unfreeze key, and the drop is a float.",
       setup: fresh,
