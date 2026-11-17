@@ -188,14 +188,23 @@ function targetsFor(id: number): TileTarget[] {
   return orderTargets(arrange(), order, id, FULL_AREA(), { gap: GAP });
 }
 
-/** A pane target's place for the drag intent: the pane and the drop region under the pointer (held past its boundary). */
-const placeOf = (t: TileTarget, p: Point, previous: string | null): string =>
-  isPane(t) ? `${t.id}:${paneRegion(t.hit, p, (previous?.split(":")[2] as PaneRegion | undefined) ?? null)}` : t.id;
+/** The place the drag intent last gave each target, by id: the region shown is the region a release lands in. */
+const places = new Map<string, string>();
 
-/** What a release on `t` at `at` makes: an insertion at its index, or in dwindle a drop on the pane's region. */
-function dropOf(t: TileTarget, id: number, at: Point): Drop {
+/**
+ * A target's place for the drag intent: an index's id, or the pane and the drop region under the pointer (held past
+ * its boundary). Kept in `places`, so the drop reads the region the intent used.
+ */
+function placeOf(t: TileTarget, p: Point, previous: string | null): string {
+  const place = isPane(t) ? `${t.id}:${paneRegion(t.hit, p, (previous?.split(":")[2] as PaneRegion | undefined) ?? null)}` : t.id;
+  places.set(t.id, place);
+  return place;
+}
+
+/** What a release on `t` makes: an insertion at its index, or in dwindle a drop on the region the intent gave it. */
+function dropOf(t: TileTarget, id: number): Drop {
   if (!isPane(t)) return { key: t.id, slot: t.slot!, layout: t.layout, commit: () => order.splice(t.index, 0, id) };
-  const region = paneRegion(t.hit, at, drop?.pane === t.pane ? (drop.region ?? null) : null);
+  const region = (places.get(t.id)?.split(":")[2] as PaneRegion | undefined) ?? "center";
   const next = dropOnPane(tree, id, t.pane, region);
   const map = layoutTree(next);
   return { key: `${t.id}:${region}`, slot: map.get(id)!, layout: map, pane: t.pane, region, commit: () => setTree(next) };
@@ -433,6 +442,7 @@ function beginDrag(w: Win, px: number, py: number): void {
   w.el.classList.add("lifted");
   // Home: the layout as it was, to put back on Escape or on a release with no target (over its own place, say).
   home = { tree, order: [...order], maxId, layout: layoutKind };
+  places.clear();
   intent = createDragIntent<TileTarget>({ home: { ...d }, lift: { x: px, y: py }, placeOf });
   session.started("window", performance.now());
   if (maxId === w.id) maxId = null;
@@ -465,7 +475,7 @@ function aim(): void {
   if (!lifted || !intent || !expected) return;
   const { x: px, y: py } = pointer;
   const f = intent.update(pointer, aimTime, targetsFor(lifted.id));
-  drop = f.shown ? dropOf(f.shown, lifted.id, pointer) : null;
+  drop = f.shown ? dropOf(f.shown, lifted.id) : null;
 
   if (dropMode === "snap") {
     // Snap in once the pointer is well inside the shown slot; stay until it leaves that slot.
@@ -507,8 +517,11 @@ function aim(): void {
 function endDrag(cancel = false): void {
   const w = lifted;
   if (!w) return;
-  const target = !cancel && intent ? intent.release(pointer, targetsFor(w.id)) : null;
-  const landing = cancel ? null : dropMode === "snap" && snapped ? snapped : target ? dropOf(target, w.id, pointer) : null;
+  // The release point is fed to the intent first, so a last jump of the pointer counts (and its places are current).
+  const targets = targetsFor(w.id);
+  if (!cancel && intent) intent.update(pointer, aimTime, targets);
+  const target = !cancel && intent ? intent.release(pointer, targets) : null;
+  const landing = cancel ? null : dropMode === "snap" && snapped ? snapped : target ? dropOf(target, w.id) : null;
   const backHome = home && landing === null ? home : null;
   intent = null;
   session.ended();
