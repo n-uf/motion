@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { solve, storeScene, type Scene } from "../src/scene";
-import { CASES, createSceneHost, idRenames, mapGesture, mapLayout, mapPlace, mapScene, mapStored, runCase, runCaseAsync, type CaseHost, type Gesture } from "../src/scene/cases";
+import { CASES, createSceneHost, idRenames, mapGesture, mapLayout, mapPlace, mapScene, mapStored, runCase, runCaseAsync, WINDOW_A, WINDOW_B, winScene, type CaseHost, type Gesture } from "../src/scene/cases";
 import { FLUSH, kitScene } from "./kit-scene";
 
 const IDS = { pages: "P·1", notes: "N·2", findings: "F·3", "left-0": "L·0", "right-0": "R·0" };
@@ -118,6 +118,21 @@ describe("a row's `requires` is true of its own scene", () => {
         // The rail shows at the start: a folded column put panels in it.
         expect(solve(row.scene).rails[side]?.segments.length, `${row.id} ${side} rail shows`).toBeGreaterThan(0);
       }
+    }
+  });
+});
+
+describe("P9-to-the-other-rail shows both rails in either window", () => {
+  it("at the row's width, window A's and window B's left columns both fold into the rail, and the drop docks on the other rail", () => {
+    const row = CASES.find((c) => c.id === "P9-to-the-other-rail")!;
+    const W = row.scene.stage.width;
+    for (const [name, spec] of [["A", WINDOW_A], ["B", WINDOW_B]] as const) {
+      const scene = winScene(spec, { width: W, size: 300, from: { findings: 1 } });
+      const l = solve(scene);
+      expect(l.rails.left?.segments.map((x) => x.id), `${name}: the left rail`).toEqual(["pages", "annotations"]);
+      expect(l.rails.right?.segments.map((x) => x.id), `${name}: the right rail`).toEqual(["findings"]);
+      const r = runCase({ ...row, scene, expectLayout: { rails: row.expectLayout.rails! } }, createSceneHost());
+      expect(r.ok, `${name}: ${r.failures.join("; ")}`).toBe(true);
     }
   });
 });

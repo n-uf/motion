@@ -14,9 +14,17 @@ import type { Scene } from "../index";
 import { g } from "./gestures";
 import type { CaseRow } from "./types";
 import { form } from "./world";
-import { WINDOW_A, WINDOW_B, winScene } from "./windows";
+import { WINDOW_A, WINDOW_B, winScene, type WinSpec } from "./windows";
 
 const win = (o: Parameters<typeof winScene>[1] = {}): Scene => winScene(WINDOW_A, { size: 300, ...o });
+
+/**
+ * The widest stage at which a window's left column (one card) no longer fits beside the content and the right rail:
+ * padding, the card's least width, the gaps, `contentMin` and the rail, less a step. P9's width is the least of A's and
+ * B's, so its column folds into the rail in either window (a host plays the row at its own window's numbers).
+ */
+const foldsBelow = (w: WinSpec): number => 2 * w.pad + w.card.min + 2 * w.gap + w.contentMin.width + w.rail;
+const BOTH_RAILS_W = Math.min(foldsBelow(WINDOW_A), foldsBelow(WINDOW_B)) - 12;
 
 /** A flush window (window B), 1440 x 900, hand folds riding: the window-edge rows (P16). */
 const FLUSH_W = 1440;
@@ -197,12 +205,12 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P9-to-the-other-rail",
     title: "A rail segment docks folded on the other rail",
-    expect: "At 600 px the left column is folded by width into the left rail (Pages and Annotations), and Findings is folded by hand into the right rail, so both rails show. Annotations dropped on the right rail docks folded there, as a segment before Findings; Pages stays in the left rail.",
+    expect: `At ${BOTH_RAILS_W} px (narrow enough for both windows, A and B) the left column is folded by width into the left rail (Pages and Annotations), and Findings is folded by hand into the right rail, so both rails show. Annotations dropped on the right rail docks folded there, as a segment before Findings; Pages stays in the left rail.`,
     group: "gestures",
     requires: { rails: ["left", "right"] },
-    scene: win({ width: 600, from: { findings: 1 } }),
+    scene: win({ width: BOTH_RAILS_W, from: { findings: 1 } }),
     gestures: g.drag("annotations", g.rail("right")),
-    expectLayout: { items: { pages: { rail: "left", rect: r(12, 0, 32, 32) }, annotations: { rail: "right", folded: "hand", rect: r(556, 0, 32, 32) }, findings: { rail: "right", rect: r(556, 32, 32, 32) } }, rails: { left: ["pages"], right: ["annotations", "findings"] } },
+    expectLayout: { items: { pages: { rail: "left", rect: r(12, 0, 32, 32) }, annotations: { rail: "right", folded: "hand", rect: r(BOTH_RAILS_W - 44, 0, 32, 32) }, findings: { rail: "right", rect: r(BOTH_RAILS_W - 44, 32, 32, 32) } }, rails: { left: ["pages"], right: ["annotations", "findings"] } },
   },
   {
     id: "P10-float-keeps-its-place-and-last-size",
