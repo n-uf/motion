@@ -15,18 +15,17 @@
     <thead><tr><th scope="col">Term</th><th scope="col">Definition</th><th scope="col">API name</th></tr></thead>
     <tbody>
       <tr><th scope="row">stage</th><td>The window's inner rectangle in px: the area everything is laid out in.</td><td><code>Scene.stage</code>, <code>stage</code></td></tr>
-      <tr><th scope="row">viewport</th><td>The visible part of the page or canvas. A view-fixed float stays at the same place in it.</td><td><code>pin(state, id, on, view?)</code></td></tr>
-      <tr><th scope="row">content area</th><td>What is left of the stage after bars, columns, docks and reserved space: where documents are drawn.</td><td><code>SceneLayout.content</code>, <code>pages</code></td></tr>
-      <tr><th scope="row">workspace</th><td>The whole arrangement of docks, panels, toolbars and documents in an app window.</td><td><code>createDesk</code>, <code>./desk</code></td></tr>
-      <tr><th scope="row">desk layout</th><td>One way of arranging a workspace: which docks exist, what floats, what collapses when. A layout shipped as plain data is a preset.</td><td><code>PRESETS</code>, <code>presetLayout</code></td></tr>
+      <tr><th scope="row">content area</th><td>What is left of the stage after bars, columns, docks and reserved space: where documents are drawn.</td><td><code>SceneLayout.content</code></td></tr>
+      <tr><th scope="row">workspace</th><td>The whole arrangement of docks, panels, toolbars and documents in an app window.</td><td><code>Scene</code></td></tr>
+      <tr><th scope="row">desk layout</th><td>One way of arranging a workspace: which docks exist, what floats, what collapses when. Written down as a scene.</td><td><code>Scene</code>, <code>solve</code></td></tr>
       <tr><th scope="row">Scene</th><td>The whole window as one plain-data model: the stage, its edges, the items on them, the floats and the chrome. <code>solve(scene)</code> returns every rect, <code>targets(scene, id)</code> every drop target.</td><td><code>Scene</code>, <code>solve</code>, <code>targets</code></td></tr>
       <tr><th scope="row">edge</th><td>A stack of items along one side of the stage: a bar (runs across) or a column (runs down).</td><td><code>Scene.edges</code>, <code>Edge</code></td></tr>
       <tr><th scope="row">side</th><td>One of the four sides of the stage: top, right, bottom, left.</td><td><code>Side</code></td></tr>
       <tr><th scope="row">bar</th><td>A horizontal edge holding toolbar groups: top, bottom, or the window's title bar.</td><td><code>axis: "row"</code></td></tr>
-      <tr><th scope="row">column</th><td>A vertical edge holding panels and toolbar groups, with its own width.</td><td><code>axis: "column"</code>, <code>PlacedColumn</code></td></tr>
-      <tr><th scope="row">title bar</th><td>The window's own bar: title, window controls, maybe toolbar groups.</td><td><code>title</code> toolbar area</td></tr>
+      <tr><th scope="row">column</th><td>A vertical edge holding panels and toolbar groups, with its own width.</td><td><code>axis: "column"</code>, <code>Edge.column</code></td></tr>
+      <tr><th scope="row">title bar</th><td>The window's own bar: title, window controls, maybe toolbar groups.</td><td>the outermost top <code>Edge</code> (<code>ring: 0</code>)</td></tr>
       <tr><th scope="row">chrome</th><td>Window UI that is not content (title bar, toolbars, controls). Floats and drop targets keep clear of it.</td><td><code>Scene.chrome</code></td></tr>
-      <tr><th scope="row">reserved space</th><td>Room along the content's edges kept clear for something the app draws, such as a toolbar.</td><td><code>options.reserve</code></td></tr>
+      <tr><th scope="row">reserved space</th><td>Room along the content's edges kept clear for something the app draws, such as a toolbar.</td><td>an edge holding a <code>SceneItem.fixed</code> item</td></tr>
       <tr><th scope="row">host</th><td>Only the app that embeds the library and feeds it input.</td><td><code>CaseHost</code>, the <code>host</code> a clock comes from</td></tr>
     </tbody>
   </table>
@@ -38,15 +37,14 @@
       <tr><th scope="row">item kind</th><td>The app's category for an item (panel, group, title). An edge accepts only the kinds it lists.</td><td><code>SceneItem.kind</code>, <code>Edge.accepts</code></td></tr>
       <tr><th scope="row">form</th><td>One size and shape an item can take: a panel open, as a header, as a rail icon; a toolbar group as a row, as icons.</td><td><code>StackForm</code>, <code>SceneItem.forms</code></td></tr>
       <tr><th scope="row">form ladder</th><td>An item's forms, largest first. As room runs out it steps down one rung at a time; when room returns it climbs back in the exact reverse order.</td><td><code>forms</code></td></tr>
-      <tr><th scope="row">Collapse / Expand</th><td>The reversible act of shrinking an item to a smaller form (a header, a rail icon, the overflow menu) and back.</td><td><code>fold</code>, <code>toggleFold</code>, <code>folded</code></td></tr>
-      <tr><th scope="row">header</th><td>A collapsed panel: just its title row.</td><td><code>PanelFormKind "header"</code></td></tr>
+      <tr><th scope="row">Collapse / Expand</th><td>The reversible act of shrinking an item to a smaller form (a header, a rail icon, the overflow menu) and back.</td><td><code>fold</code>, <code>canFold</code>, <code>foldedBy</code></td></tr>
+      <tr><th scope="row">header</th><td>A collapsed panel: just its title row.</td><td><code>formKind: "header"</code></td></tr>
       <tr><th scope="row">rail</th><td>A thin strip along a side with one icon per collapsed panel or column. Clicking an icon opens or docks it.</td><td><code>rail</code>, <code>Scene.rails</code></td></tr>
-      <tr><th scope="row">overflow menu</th><td>The menu behind the » control, holding the items that no longer fit.</td><td><code>menu</code> form, <code>HostLayout.overflow</code></td></tr>
-      <tr><th scope="row">keep priority</th><td>A number per toolbar group: a higher keep stays in its full form longer.</td><td><code>keep</code></td></tr>
-      <tr><th scope="row">kept open</th><td>A panel marked "Keep open": it gives way after every unkept one.</td><td><code>keep(state, id, true)</code>, <code>kept</code></td></tr>
-      <tr><th scope="row">give way</th><td>To yield space: when the stage is too small, items shrink or step to a smaller form in a fixed order. It never writes the user's own collapsed state.</td><td><code>options.giveWay</code></td></tr>
-      <tr><th scope="row">least recently used</th><td>The give-way order: the item (or column) used longest ago yields first. A use is opening, focusing, moving, resizing or expanding.</td><td><code>used</code>, <code>order: "oldest"</code></td></tr>
-      <tr><th scope="row">view-fixed float</th><td>A float that stays at the same place in the viewport while the content scrolls or pans.</td><td><code>pinned</code>, <code>pin</code></td></tr>
+      <tr><th scope="row">overflow menu</th><td>The menu behind the » control, holding the items that no longer fit.</td><td><code>menu</code> form, <code>SceneEdgeLayout.menu</code></td></tr>
+      <tr><th scope="row">keep priority</th><td>A number per toolbar group: a higher one stays in its full form longer.</td><td><code>SceneItem.priority</code></td></tr>
+      <tr><th scope="row">kept open</th><td>A panel marked "Keep open": it gives way after every unkept one.</td><td><code>keep(scene, id, true)</code>, <code>kept</code></td></tr>
+      <tr><th scope="row">give way</th><td>To yield space: when the stage is too small, items shrink or step to a smaller form in a fixed order. It never writes the user's own collapsed state.</td><td><code>contentMin</code>, <code>Edge.giveWay</code></td></tr>
+      <tr><th scope="row">least recently used</th><td>The give-way order: the item (or column) used longest ago yields first. A use is opening, focusing, moving, resizing or expanding.</td><td><code>SceneItem.used</code>, <code>use</code></td></tr>
     </tbody>
   </table>
 
@@ -54,10 +52,10 @@
   <table>
     <thead><tr><th scope="col">Term</th><th scope="col">Definition</th><th scope="col">API name</th></tr></thead>
     <tbody>
-      <tr><th scope="row">dock</th><td>An area along a side that holds panels: a side dock, a top dock, a bottom dock.</td><td><code>./dock</code>, <code>bands</code></td></tr>
-      <tr><th scope="row">float</th><td>An item that is not docked: drawn above the content at its own rect.</td><td><code>floats</code>, <code>floatAt</code></td></tr>
-      <tr><th scope="row">floating panel</th><td>A panel that floats, at its natural size, with a title bar.</td><td><code>Look "palette"</code></td></tr>
-      <tr><th scope="row">tear off / dock back</th><td>Dragging a docked panel out so it floats; dragging it back into a dock.</td><td><code>liftOut</code>, <code>dockTear</code></td></tr>
+      <tr><th scope="row">dock</th><td>An area along a side that holds panels: a side dock, a top dock, a bottom dock.</td><td>an <code>Edge</code> that accepts panels</td></tr>
+      <tr><th scope="row">float</th><td>An item that is not docked: drawn above the content at its own rect.</td><td><code>Scene.floats</code>, <code>floatAt</code></td></tr>
+      <tr><th scope="row">floating panel</th><td>A panel that floats, at its natural size, with a title bar.</td><td><code>SceneFloat</code>, <code>SceneItem.floatSize</code></td></tr>
+      <tr><th scope="row">tear off / dock back</th><td>Dragging a docked panel out so it floats; dragging it back into a dock.</td><td><code>lift</code>, <code>floatAt</code>, <code>dockHome</code></td></tr>
       <tr><th scope="row">drop target</th><td>Any place a dragged item can land.</td><td><code>Target</code>, <code>DragTarget</code></td></tr>
       <tr><th scope="row">hit area</th><td>The region where the pointer counts as being over a target.</td><td><code>Target.hit</code></td></tr>
       <tr><th scope="row">slot</th><td>The rect the dropped item will occupy: the landing rect.</td><td><code>Target.slot</code></td></tr>
@@ -66,7 +64,7 @@
       <tr><th scope="row">drop preview modes</th><td>Indicator only (nothing moves), Make room (others move aside, the item stays under the pointer), Snap to slot (room opens and the item glides into the slot).</td><td><code>"indicator"</code>, <code>"gap"</code>, <code>"snap"</code></td></tr>
       <tr><th scope="row">refusal</th><td>A place that accepts the item's kind but cannot take it now. A release over it goes home.</td><td><code>SceneRefusal</code>, <code>reason</code></td></tr>
       <tr><th scope="row">home</th><td>The item's own place when a drag starts. Dropping there changes nothing, and a cancelled or refused drag returns there.</td><td><code>home</code>, <code>own-place</code></td></tr>
-      <tr><th scope="row">keyboard stops</th><td>The same drop targets in reading order, for the arrow keys and a "Move to" menu.</td><td><code>keyboardStops</code></td></tr>
+      <tr><th scope="row">keyboard stops</th><td>The same drop targets in reading order, for the arrow keys and a "Move to" menu.</td><td><code>stops</code></td></tr>
     </tbody>
   </table>
 
@@ -74,8 +72,8 @@
   <table>
     <thead><tr><th scope="col">Term</th><th scope="col">Definition</th><th scope="col">API name</th></tr></thead>
     <tbody>
-      <tr><th scope="row">toolbar group</th><td>A set of related controls that moves, floats and collapses as one unit, led by one grip.</td><td><code>GroupId</code>, <code>./toolbar</code></td></tr>
-      <tr><th scope="row">toolbar area</th><td>One of the five places a group can dock: title, top, bottom, left, right.</td><td><code>HostId</code>, <code>layoutHost</code></td></tr>
+      <tr><th scope="row">toolbar group</th><td>A set of related controls that moves, floats and collapses as one unit, led by one grip.</td><td>a <code>SceneItem</code> with <code>GroupFormKind</code> forms</td></tr>
+      <tr><th scope="row">toolbar area</th><td>One of the five places a group can dock: title, top, bottom, left, right.</td><td>a bar <code>Edge</code>, or a <code>compact</code> one at a side</td></tr>
       <tr><th scope="row">zone</th><td>One third of a toolbar area's length where items align: start, center, end. Only for this.</td><td><code>Zone</code>, <code>align</code></td></tr>
       <tr><th scope="row">grip</th><td>The control you press to move a panel or toolbar group. Drag it to move, double-click to collapse or expand, right-click for its menu.</td><td><code>createGripPress</code>, <code>StackForm.grip</code></td></tr>
       <tr><th scope="row">freeze / frozen</th><td>The switch that stops items being moved. Holding Alt lets you move them anyway, while it is held.</td><td>the app's own <code>freeze</code> flag</td></tr>
