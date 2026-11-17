@@ -7,7 +7,7 @@
 import { fitFloat, type FloatFit } from "../../float-fit";
 import { EPS, rect, type Rect, type Size } from "../../geometry";
 import type { StackForm } from "../../stack";
-import { axisOf, floatOrientOf, floatShape, formsOf } from "../helpers";
+import { axisOf, floatOrientOf, floatShape, foldedByOf, formsOf } from "../helpers";
 import type { FloatAnchor, Orient, SceneFloat, SceneItem } from "../model";
 import { shapeOf, type Draft } from "./draft";
 import type { Inset } from "./insets";
@@ -98,7 +98,9 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
     if (fit.clamped) notes.push({ code: "float-clamped", id: f.id });
     if (fit.snapped) notes.push({ code: "float-moved", id: f.id });
     if (fit.covers.length > 0) notes.push({ code: "float-covers", id: f.id });
-    items[f.id] = { ...shapeOf(form, fit.rect, fo, fit.rect.width), hidden: form?.hides ?? [], rect: fit.rect, kind: it.kind, form: from, formKind: form?.kind ?? "open", floating: true };
+    // A float never gives way: it is folded by hand or not at all.
+    const foldedBy = foldedByOf(it, from);
+    items[f.id] = { ...shapeOf(form, fit.rect, fo, fit.rect.width), hidden: form?.hides ?? [], rect: fit.rect, kind: it.kind, form: from, formKind: form?.kind ?? "open", floating: true, ...(foldedBy ? { foldedBy } : {}) };
     floats.push(f.id);
   }
   return floats;

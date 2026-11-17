@@ -356,6 +356,16 @@ export interface SceneItemLayout {
   readonly rides?: string;
   /** Its column folded: by hand (every member folded) or by give-way. */
   readonly folded?: "hand" | "auto";
+  /**
+   * Why this item is drawn smaller than its first form, read from the scene's own state, never inferred from the rects:
+   * `"hand"` when it is folded by hand (`SceneItem.from` over 0, which `fold` sets), `"auto"` when it gave way (a form
+   * below the one it started in, by length or width, a » menu entry included: the same word `folded` uses for a column
+   * folded by give-way). Absent when the item shows its first form, is closed, or lies in an icons-only edge in the form
+   * that edge gives it. By hand wins: a hand-folded item that gave way further is `"hand"`, since expanding it
+   * (`fold(scene, id, false)`) is the user's to do, so a host shows "Expand" for `"hand"` only. A float is only ever
+   * folded by hand. `folded` is about the item's column; this one is about the item.
+   */
+  readonly foldedBy?: "hand" | "auto";
   /** A `wrap` form: the word indexes per row (the words wrap beside the grip, a hanging indent). */
   readonly rows?: readonly (readonly number[])[];
   /** Its grip: a `wrap` form's lead cell at the start of row one, or a form's `grip` strip (an icons strip's, on top). */
