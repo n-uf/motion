@@ -169,7 +169,7 @@ export interface Checkpoint {
 
 /**
  * What a row's scene needs of the host's window: a host that can't meet it skips the row or marks it. The runner reads
- * none of it; it is data for the host's suite.
+ * only `docks` (against `CaseHost.dockMinWidth`); the rest is data for the host's suite.
  */
 export interface CaseRequires {
   /** The scene's columns use the default `hitBand` (an open panel's body is no drop place); a host whose columns use `"middle"` gets card halves there. */
@@ -188,6 +188,11 @@ export interface CaseRequires {
    * `railDrop`) skips the row; rows that only mean a place aim by place and need no such precondition.
    */
   readonly railDrop?: "scene";
+  /**
+   * The row's expected outcome depends on panels being docked (in columns or rails, an order along an edge, a docked
+   * panel's rect or form). The runner skips it on a host whose `dockMinWidth` is above the row's stage width.
+   */
+  readonly docks?: true;
 }
 
 export interface CaseRow {
@@ -251,6 +256,12 @@ export interface CaseHost {
   /** The pick rule the host aims with (see {@link PickRule}); the runner never calls it. */
   readonly pick?: PickRule;
   /**
+   * The narrowest stage width, px, at which the host docks panels (below it, say, every panel floats or opens as a
+   * sheet). The runner skips a row that needs docked panels (`requires.docks`) when the row's stage is narrower at any
+   * point (its start, or a window `resize`), and lists the row in `skipped`. Absent: the host docks at every width.
+   */
+  readonly dockMinWidth?: number;
+  /**
    * The host's names for a row's items and edges: row id to host id (`{ views: "panels", tools: "commands" }`). The
    * runner passes every id to the host in the host's words (the scene, the gestures, `stops`, `itemSelector`) and reads
    * the layout, the stored form and the stops back in the row's, so the row's expectations stay as written. One to one;
@@ -282,6 +293,8 @@ export interface AsyncCaseHost {
   stops?(item: string): readonly ScenePlace[] | Promise<readonly ScenePlace[]>;
   /** The pick rule the host aims with, a plain value (see {@link PickRule}); the runner never calls it. */
   readonly pick?: PickRule;
+  /** The narrowest stage width at which the host docks panels, as {@link CaseHost.dockMinWidth}. */
+  readonly dockMinWidth?: number;
   /** The host's names for a row's items and edges, as {@link CaseHost.ids}. */
   readonly ids?: Readonly<Record<string, string>>;
 }
@@ -289,6 +302,9 @@ export interface AsyncCaseHost {
 export interface CaseResult {
   readonly ok: boolean;
   readonly failures: string[];
-  /** The checks not run because the host can't (no root, no stored form, no stops): each one's note, or its selector. */
+  /**
+   * The checks not run because the host can't (no root, no stored form, no stops): each one's note, or its selector. A
+   * row skipped whole (it needs docked panels below the host's `dockMinWidth`) is `ok` with one entry that says so.
+   */
   readonly skipped: string[];
 }

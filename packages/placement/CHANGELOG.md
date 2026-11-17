@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.34
 
+- `./scene/cases`, **a host-declared docking width** (additive): `CaseHost.dockMinWidth` (and `AsyncCaseHost`'s) is
+  the narrowest stage width at which the host docks panels (absent: every width). The 102 rows whose expected outcome
+  depends on docked panels carry `requires: { docks: true }` (audited by a test against every row's expectations), and
+  the runner skips such a row when its stage is narrower than that at any point: the result is `ok` with one `skipped`
+  entry that says why. `CaseRequires.docks` is the one requirement the runner reads.
+
 - `./scene/cases`, **the three P16 rows that aim at the window's edge pixels** (first px, last px, 9 px in) carry
   `requires: { railDrop: "scene" }`, as P6-outer-line-at-11-px does: a host that lays its own rail drop strips skips
   them.

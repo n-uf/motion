@@ -1315,7 +1315,13 @@ host contract: a pointer past the window's edge means its nearest point of the w
 under a hand that overshoots it), so every host plays the same point, and a row such as C17 means what the clamped point
 picks. A row may carry `requires`, what its scene needs of the host's window (`hitBand: "default"`: an open panel's body
 is no drop place, as in C7 and P5-neighbour-half-facing-it, so a host whose columns use `hitBand: "middle"` skips or marks
-the row; `rails`: the sides whose rail the scene shows at the start, as in P9-to-the-other-rail); the runner reads none of it.
+the row; `rails`: the sides whose rail the scene shows at the start, as in P9-to-the-other-rail); the runner reads none of it
+but `docks`.
+
+**A host-declared docking width.** A host that docks panels only from some stage width gives `dockMinWidth` (px; absent:
+it docks at every width). A row whose expected outcome depends on docked panels carries `requires: { docks: true }`, and
+the runner skips it when its stage is narrower than that at any point (its start, or a window `resize`): the result is
+`ok`, with one `skipped` entry, "the row: it needs docked panels at 540 px, and the host docks from 720 px".
 
 A host that names things differently gives `ids`, a row id to its own id (`{ views: "panels", tools: "commands" }`, items and
 edges, one to one; an id left out keeps its name). The runner hands the host its own ids (the scene, the gestures, `stops`,

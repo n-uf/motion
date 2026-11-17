@@ -198,11 +198,25 @@ const words = (e: unknown): string => (e instanceof Error ? e.message : String(e
  * the order and the checks. A call the run reports (load, perform, layout, stored) comes back as an outcome; a failing
  * `root` or `stops` call is thrown on, as the sync runner always did.
  */
+/** A window `resize` gesture: its point is the window's new size. */
+const isWindowResize = (g: Gesture): boolean => g.type === "resize" && g.edge === undefined && g.item === undefined && g.point !== undefined;
+
+/** The narrowest the row's stage gets: its width at the start (its settings', else its scene's), or after a window `resize`. */
+function narrowestStage(row: CaseRow): number {
+  const start = row.settings?.stage ? row.settings.stage.w : row.scene.stage.width;
+  return Math.min(start, ...row.gestures.filter(isWindowResize).map((g) => g.point!.x));
+}
+
 function* steps(row: CaseRow, host: CaseHost | AsyncCaseHost): Steps {
   const failures: string[] = [];
   const skipped: string[] = [];
   const n = row.gestures.length;
   const last = n - 1;
+  // A row that needs docked panels, on a stage narrower than the host docks at (anywhere in the row), is skipped whole.
+  const narrowest = narrowestStage(row);
+  if (row.requires?.docks && host.dockMinWidth !== undefined && narrowest < host.dockMinWidth) {
+    return { ok: true, failures, skipped: [`the row: it needs docked panels at ${px(narrowest)} px, and the host docks from ${px(host.dockMinWidth)} px`] };
+  }
   const fail = (lines: string[], when: string): void => {
     for (const l of lines) failures.push(`${row.id}${when}: ${l}`);
   };
@@ -275,7 +289,7 @@ function* steps(row: CaseRow, host: CaseHost | AsyncCaseHost): Steps {
   for (let i = 0; i < n; i++) {
     const g = row.gestures[i]!;
     const sent = inStage(g);
-    if (g.type === "resize" && g.edge === undefined && g.item === undefined && g.point) stage = { x: 0, y: 0, width: g.point.x, height: g.point.y };
+    if (isWindowResize(g)) stage = { x: 0, y: 0, width: g.point!.x, height: g.point!.y };
     const done = yield () => host.perform(ids.active ? mapGesture(sent, ids.to) : sent);
     if (!done.ok) {
       fail([`${gestureWords(g, i)} failed: ${words(done.error)}`], "");
