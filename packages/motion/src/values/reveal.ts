@@ -44,16 +44,16 @@ export function reveal(drawn: Rect, target: Rect): RevealFrame {
   };
 }
 
-/** A uniform pop-in (or pop-out, run backwards): scale about the centre and opacity. */
+/** A uniform pop-in (or pop-out, run backwards): scale about the center and opacity. */
 export interface PopIn {
-  /** Scale about the window's centre: the same on both axes, so nothing is stretched. */
+  /** Scale about the window's center: the same on both axes, so nothing is stretched. */
   readonly scale: number;
   readonly opacity: number;
 }
 
 /**
  * Opening and closing: the window grows from `from` of its size to full, about
- * its centre, while fading in. `progress` runs 0 to 1 (take it from a settle
+ * its center, while fading in. `progress` runs 0 to 1 (take it from a settle
  * on a number with `{ restDelta: 0.001 }`, since the default 0.1 is tuned for
  * pixels and would snap the last 10 %; or from a tween); closing runs it from
  * 1 to 0. Hyprland's default is `popin 87%`.

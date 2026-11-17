@@ -40,7 +40,7 @@ const rank = (p: Place): number => HOST_READING_ORDER.indexOf(p.host) * 3000 + Z
 const isPanelTargets = (targets: readonly object[], options: { readonly home?: object }): boolean => targets.some((t) => "panel" in t) || (targets.length === 0 && !!options.home && "state" in options.home);
 
 /**
- * The places a group can go, in reading order: hosts title → top → left → right → bottom, zones start → centre →
+ * The places a group can go, in reading order: toolbar areas title → top → left → right → bottom, zones start → center →
  * end, then each insertion point in order; the group's own place among them when `home` is given; floating targets
  * at the end only when `floats` asks for them. One list serves the arrow keys and a "Move to" menu.
  *

@@ -14,7 +14,7 @@ export interface DrawFrame {
   readonly box: Rect;
   /** How to draw `box`'s content at `drawn`: a move, the frame at the drawn size, the content clipped. */
   readonly reveal: RevealFrame;
-  /** Its uniform appearance: scale about its centre and opacity. */
+  /** Its uniform appearance: scale about its center and opacity. */
   readonly pop: PopIn;
   /** How shown it is, 0 (gone) to 1. */
   readonly shown: number;

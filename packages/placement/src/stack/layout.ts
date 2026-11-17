@@ -30,7 +30,7 @@
  * (clamped to the stack's cross size) from the start edge instead of across the whole stack; a panel form (`open`,
  * `header`, `rail`) still spans it. Nothing else changes.
  *
- * `gap` sits between neighbouring drawn items (the » entry is one), `pad` before the first and after the last; both
+ * `gap` sits between neighboring drawn items (the » entry is one), `pad` before the first and after the last; both
  * count toward the length and the rects include them, so an app draws at the rects.
  *
  * The solver has no open or closed state: it lays out the items it is given, and a consumer closes a panel by not
@@ -188,7 +188,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   };
   const inMenu = (): boolean => idx.some((i) => isMenu(form(i)));
   const sp = spacingOf(input);
-  /** The gaps between `slots` neighbours: the drawn items, and the » entry while any item is in it. */
+  /** The gaps between `slots` neighbors: the drawn items, and the » entry while any item is in it. */
   const gapsOf = (): number => {
     const slots = idx.filter((i) => !isMenu(form(i))).length + (inMenu() ? 1 : 0);
     return slots > 1 ? (slots - 1) * sp.gap : 0;

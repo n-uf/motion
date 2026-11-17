@@ -1,6 +1,6 @@
 /**
  * The arrangers the desk constructions build on, internal to `./dock`: master and stack for the documents, dwindle
- * for the tiling tree's centre, stacked columns at natural heights, and the minimum-size give-way (the newest tile
+ * for the tiling tree's center, stacked columns at natural heights, and the minimum-size give-way (the newest tile
  * that breaks a minimum floats). A public `./tiling` will come from a merge with a full split-tree model; these stay
  * the dock's own until then.
  */

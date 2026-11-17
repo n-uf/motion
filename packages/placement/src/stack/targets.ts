@@ -8,7 +8,7 @@
  *   out, including any with no forms; it is not an index into `fit.items`, which leaves those out: look the dragged
  *   item up there by its id, as `slot` already does).
  * - `hit`: the gap's zone along the axis, the stack split at its items' middles, so it covers the gap and the padding
- *   between its neighbours; the first and the last reach `options.endReach` px past the stack's ends (an item in the menu has no place of
+ *   between its neighbors; the first and the last reach `options.endReach` px past the stack's ends (an item in the menu has no place of
  *   its own: the gaps next to it split the stretch where the stack's drawn items end; with every item in the menu only
  *   the last gap, "at the end", has any length, and the others are a point at the start). Across, it is the larger of
  *   the stack's current size and the size the drop gives it, so the pointer over the preview is over the target.

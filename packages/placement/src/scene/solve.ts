@@ -13,7 +13,7 @@
  *    in it and listed as `tabs` (closed ones too with `railShowsClosed`). Otherwise, with `Edge.size`, the column is
  *    re-solved at the user's size, clamped to `[max(cross.min, the widest open setter's cross.min), cross.max]`.
  * 4. **Zones.** When the items leave spare length (nothing grows), start items pack from the start, end items from the
- *    end (before the » entry) and center items sit centred on the edge's middle, moved only as far as they must to
+ *    end (before the » entry) and center items sit centered on the edge's middle, moved only as far as they must to
  *    stay between the other two zones.
  * 5. **Floats** are fitted inside the stage, clear of every docked item (fixed ones and » entries included), every bar
  *    and the chrome rects (`fitFloat`). An anchored float sits flush with that side or corner of `content` first. A

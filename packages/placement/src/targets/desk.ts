@@ -6,7 +6,7 @@
  *   folded dock keeps it in the rail); a slot between sections (2) and the bottom dock (2) take it at that place;
  *   with tear-off, the documents area (3) tears it off to float there.
  * - Tiling tree (`tree`): each slot an insertion produces (2), a side column's row or a dwindle region of the
- *   centre; an empty side column's edge (2).
+ *   center; an empty side column's edge (2).
  * - Strip (`strip`): between two columns (2) makes a new column; a gap inside a column (2) puts it there.
  * - Navigator, drawers (`navigator`, `drawers`): a tab strip (1) at the tab under the pointer, a folded side's rail
  *   (1), a side's panel (3); the panel becomes the side's showing one.
@@ -45,7 +45,7 @@ export interface Made {
 export interface DeskTarget extends Target {
   /** The drop with the pointer at `p`, holding the item at `grab` from its top-left corner. */
   readonly make: (p: Point, grab: Point) => Made;
-  /** Where the keyboard stops in this target, in order (default: its zone's centre). */
+  /** Where the keyboard stops in this target, in order (default: its zone's center). */
   readonly stops?: readonly Point[];
 }
 
@@ -77,7 +77,7 @@ const insert = <T>(list: readonly T[], i: number, x: T): T[] => [...list.slice(0
 const Cap = (s: Side): string => (s === "left" ? "Left" : "Right");
 const fixed = (state: DeskState, label: string) => (): Made => ({ state, label, key: label });
 
-/** Zones `count + 1` slots split between items at `mids` (their centres), from `lo` to `hi`: slot i's span. */
+/** Zones `count + 1` slots split between items at `mids` (their centers), from `lo` to `hi`: slot i's span. */
 const slotSpan = (mids: readonly number[], lo: number, hi: number, i: number): [number, number] => [i === 0 ? lo : mids[i - 1]!, i === mids.length ? hi : mids[i]!];
 
 // --- edge docks ----------------------------------------------------------------------------------------------------
@@ -142,8 +142,8 @@ function dockTargets({ c, s0, key, size, opt }: DeskTargetInput): DeskTarget[] {
 
 /**
  * The tree's targets are the slots an insertion produces: inserting at place i of a side column gives row i of its
- * n + 1 rows, inserting at place i of the centre gives dwindle's region i of n + 1. Those regions tile the column and
- * the centre, so a zone is where the item lands (unless that makes the newest tile float, which reshapes the rest);
+ * n + 1 rows, inserting at place i of the center gives dwindle's region i of n + 1. Those regions tile the column and
+ * the center, so a zone is where the item lands (unless that makes the newest tile float, which reshapes the rest);
  * the label says where it lands in the tree as laid out, and what floats.
  */
 function treeTargets({ c, s0, key, size }: DeskTargetInput): DeskTarget[] {
@@ -190,7 +190,7 @@ function treeTargets({ c, s0, key, size }: DeskTargetInput): DeskTarget[] {
 
 /**
  * Where `key` lands in the tree as laid out (after the newest tiles that break a minimum float): its row of its
- * column, or its region of the centre; or that it floats, or what floats because of it.
+ * column, or its region of the center; or that it floats, or what floats because of it.
  */
 function landing(c: Construction, tree: DeskState["tree"], area: Rect, key: string, group: "L" | "R" | "C", middle: Rect): string {
   const cat = c.desk.catalog;

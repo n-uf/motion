@@ -34,7 +34,7 @@ export const clampInto = (r: Rect, area: Rect): Rect => ({
   y: Math.min(Math.max(r.y, area.y), Math.max(area.y, area.y + area.height - r.height)),
 });
 
-/** The centre of a rect. */
+/** The center of a rect. */
 export const centre = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
 
 /** The tolerance the geometry compares with, px. */

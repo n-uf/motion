@@ -150,7 +150,7 @@ const group = (id: string, used: number, more: Partial<SceneItem> = {}): SceneIt
 const title = (id = "title"): SceneItem => ({ id, kind: "title", used: 0, fixed: true, forms: { row: [form("row", 80, 160, 32, { grows: true })] } });
 /** Fixed window controls, 84 wide, at the end of their bar. */
 const controls = (id = "controls"): SceneItem => ({ id, kind: "controls", used: 0, fixed: true, align: "end", forms: { row: [form("row", 84, 84, 32)] } });
-/** A fixed page readout, 72 wide, centred in its bar. */
+/** A fixed page readout, 72 wide, centered in its bar. */
 const readout = (id = "readout"): SceneItem => ({ id, kind: "readout", used: 0, fixed: true, align: "center", forms: { row: [form("row", 72, 72, 28)] } });
 
 const bar = (id: string, side: "top" | "bottom", ring: number, items: string[], more: Partial<Edge> = {}): Edge => ({
@@ -184,7 +184,7 @@ export interface DocOptions {
 
 /**
  * A document window, 1200 x 800: a title bar (a fixed title and fixed controls; it takes groups too), a toolbar (views,
- * tools, zoom), a status bar between the columns (a centred readout and a search group at the end), a left column
+ * tools, zoom), a status bar between the columns (a centered readout and a search group at the end), a left column
  * (pages), a right column (findings, marks) and one float (notes). Panels: pages, findings, notes. Groups: views,
  * tools, zoom, search, marks. Ages: pages 1, findings 2, notes 3, views 4, tools 5, zoom 6, search 7, marks 8.
  */

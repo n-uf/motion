@@ -43,7 +43,7 @@ export function layOutBox(node: Styled, box: Rect): void {
 
 /**
  * Draw one frame of a box laid out by {@link layOutBox}: one transform (the move to the drawn rect, and the uniform
- * appearance about its centre), the frame at the drawn size, the content clipped (reveal); hidden when gone.
+ * appearance about its center), the frame at the drawn size, the content clipped (reveal); hidden when gone.
  */
 export function drawBox(nodes: BoxNodes, frame: DrawFrame): void {
   const { reveal: r, pop } = frame;

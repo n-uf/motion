@@ -4,7 +4,7 @@
  */
 import type { Point, Rect, Size } from "./geometry";
 
-/** -1: the start edge (left or top), 0: the centre, 1: the end edge. */
+/** -1: the start edge (left or top), 0: the center, 1: the end edge. */
 export type Align = -1 | 0 | 1;
 
 /**

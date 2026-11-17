@@ -142,7 +142,7 @@ function tree(cat: Catalog, s: DeskState, size: Size, notes: Note[]): Out {
 
 /**
  * The tree's start: on a stage too narrow for the documents to tile between the side columns, the columns start folded to
- * their rails (the right one first), then the centre's panels join the folded right column, so nothing floats
+ * their rails (the right one first), then the center's panels join the folded right column, so nothing floats
  * until a rail icon opens a column.
  */
 function treeStart(cat: Catalog, docs: readonly number[], size?: Size): DeskState {

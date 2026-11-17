@@ -101,7 +101,7 @@ export function shapeOf(f: StackForm | undefined, r: Rect, axis: "column" | "row
 
 /**
  * The fit with zones packed: when the drawn items leave spare length, start items pack from the start, end items from
- * the end (before the » entry), center items centred between. Returns the main-axis start per id.
+ * the end (before the » entry), center items centered between. Returns the main-axis start per id.
  */
 function zoneStarts(scene: Scene, fit: StackFit, input: StackInput): { starts: Map<string, number>; lengths: Map<string, number> } {
   const column = fit.axis === "column";
@@ -151,8 +151,8 @@ function zoneStarts(scene: Scene, fit: StackFit, input: StackInput): { starts: M
   lay(e, endStart);
   const lo = start + total(s) + (s.length > 0 ? gap : 0);
   const hi = endStart - (e.length > 0 ? gap : 0);
-  // Centred on the edge's middle (so a centred readout stays put while the other zones change), kept between them; in
-  // a title bar, where the middle isn't clear of the title and the trailing items, centred in the free span instead.
+  // Centered on the edge's middle (so a centered readout stays put while the other zones change), kept between them; in
+  // a title bar, where the middle isn't clear of the title and the trailing items, centered in the free span instead.
   const mid = (fit.length - total(c)) / 2;
   const clear = mid >= lo - EPS && mid + total(c) <= hi + EPS;
   lay(c, title && !clear ? Math.max(lo, (lo + hi - total(c)) / 2) : Math.max(lo, Math.min(mid, hi - total(c))));

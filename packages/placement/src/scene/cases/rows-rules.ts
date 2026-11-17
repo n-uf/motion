@@ -44,14 +44,14 @@ export const RULE_ROWS: readonly CaseRow[] = [
     expect: "An edge takes only the kinds it lists: a panel held over the toolbar is offered no gap there, it falls through to the float, and the toolbar is as it was.",
     group: "kinds",
     scene: doc(),
-    // (600, 50) is a real gap for a group (the toolbar's centre gap): the control row below lets a group go there.
+    // (600, 50) is a real gap for a group (the toolbar's center gap): the control row below lets a group go there.
     gestures: [g.press("pages", { x: 20, y: 10 }), g.at(600, 50), g.hold()],
     expectLayout: { items: { pages: { floating: true, rect: r(580, 68, 280, 360) }, views: { rect: r(8, 32, 200, 36) }, tools: { rect: r(212, 32, 200, 36) }, zoom: { rect: r(992, 32, 200, 36) } }, order: { toolbar: ["views", "tools", "zoom"] } },
   },
   {
     id: "C25-control-bar",
     title: "Targets by kind: the toolbar's gap is real for a group",
-    expect: "The same point, with a group held, is the toolbar's centre gap: Tools lands in the toolbar's centre zone. So the panel's refusal above is the kind's, not an empty spot's.",
+    expect: "The same point, with a group held, is the toolbar's center gap: Tools lands in the toolbar's center zone. So the panel's refusal above is the kind's, not an empty spot's.",
     group: "kinds",
     scene: doc(),
     gestures: [g.press("tools"), g.at(600, 50), g.hold(), g.release()],

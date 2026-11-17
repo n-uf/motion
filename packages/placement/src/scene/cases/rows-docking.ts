@@ -248,7 +248,7 @@ export const DOCKING_ROWS: readonly CaseRow[] = [
     expect: "Dragged away and back over its own place, the item shows that place, and a release puts it back; nothing else moved.",
     group: "drag",
     scene: bench(),
-    // Pressed 20 px in and 10 down; the float aimed at the content's centre lands at the pointer minus that grab.
+    // Pressed 20 px in and 10 down; the float aimed at the content's center lands at the pointer minus that grab.
     gestures: [g.press("pages", { x: 20, y: 10 }), g.to(g.float), g.hold(), g.to(g.home), g.hold(), g.release()],
     checkpoints: [
       { at: 2, layout: { items: { pages: { floating: true, rect: r(520, 260, 200, 190) }, annotations: { formKind: "open", rect: r(0, 40, 240, 460) } } }, note: "away, over the pages" },

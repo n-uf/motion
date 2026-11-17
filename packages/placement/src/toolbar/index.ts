@@ -1,15 +1,15 @@
 /**
  * @n-uf/placement/toolbar: toolbar groups as a pure model. Commands come in groups, each sitting in one of five
- * hosts (the title bar, the top toolbar, a bottom toolbar, a left and a right side toolbar), in one of three zones
- * (start, centre, end; top, middle, bottom on a side), in order; or floating. A toolbar is a slot: it never moves
+ * toolbar areas (the title bar, the top toolbar, a bottom toolbar, a left and a right side toolbar), in one of three
+ * zones (start, center, end; top, middle, bottom on a side), in order; or floating. A toolbar is a slot: it never moves
  * itself, its groups do. Group sizes come in as numbers; group ids are the consumer's strings.
  *
- * - A host lays its zones out along its length: start from the lead, end up to the tail, the centre centred on the
- *   whole host; when the centre would hit the start or end zone it centres in the space between them.
- * - Toolbars never wrap: when room runs out, groups collapse to their handle and » from the trailing end. A group
+ * - A toolbar area lays its zones out along its length: start from the lead, end up to the tail, the center centered on
+ *   the whole area; when the center would hit the start or end zone it centers in the space between them.
+ * - Toolbars never wrap: when room runs out, groups collapse to their grip and » from the trailing end. A group
  *   collapsed by hand stays collapsed.
  * - A group drop lands in a zone before all, after all, or between two groups. An empty zone is a target of its
- *   own. A group's own place is home: a drop there changes nothing.
+ *   own. A group's home is its own place: a drop there changes nothing.
  */
 import type { Rect } from "../geometry";
 
@@ -140,7 +140,7 @@ export function sameArrangement<G extends string>(a: Arrangement<G>, b: Arrangem
   });
 }
 
-/** Dropping `g` at `place` changes nothing: it is the group's own place, its home, never a target. */
+/** Dropping `g` at `place` changes nothing: it is the group's home, never a target. */
 export const isOwnPlace = <G extends string>(a: Arrangement<G>, g: G, place: Place): boolean => sameArrangement(insertGroup(a, g, place.host, place.zone, place.index), a);
 
 // --- stored arrangements -------------------------------------------------------------------------------------------
@@ -222,8 +222,8 @@ export interface HostSpec<G extends string = string> {
   readonly lead: number;
   readonly tail: number;
   /**
-   * The centre zone's minimum length and its margin on each side, counted in the need whether it holds groups or
-   * not (an empty centre keeps its drop size). Unset: the centre counts only its groups.
+   * The center zone's minimum length and its margin on each side, counted in the need whether it holds groups or
+   * not (an empty center keeps its drop size). Unset: the center counts only its groups.
    */
   readonly center?: { readonly min: number; readonly margin: number };
   /**
@@ -253,7 +253,7 @@ export function hostNeed<G extends string>(zones: Zones<G>, collapsed: readonly 
   const used = ZONES.filter((zn) => zones[zn].length > 0).length;
   const c = spec.center;
   if (!c) return spec.lead + spec.tail + lens.reduce((s, x) => s + x, 0) + ZONE_GAP * Math.max(0, used - 1);
-  // The centre always counts, at its minimum at least, and its margins keep it apart from the start and end zones.
+  // The center always counts, at its minimum at least, and its margins keep it apart from the start and end zones.
   return spec.lead + spec.tail + lens[0]! + lens[2]! + Math.max(lens[1]!, c.min) + 2 * c.margin;
 }
 
@@ -323,7 +323,7 @@ export interface Insertion extends Place {
 /**
  * The insertion points of a host laid out without the dragged group: in each zone before all, between two, after
  * all; each owns the stretch of the host nearest to it. An empty zone owns its own stretch: the host's first third
- * (start), middle third (centre) or last third (end), less what its neighbours' groups take. `label` names a group
+ * (start), middle third (center) or last third (end), less what its neighbors' groups take. `label` names a group
  * in the "between" labels (default: its id).
  */
 export function insertions<G extends string>(zones: Zones<G>, h: HostId, spec: HostSpec<G>, l: HostLayout<G>, label: (g: G) => string = (g) => g): Insertion[] {

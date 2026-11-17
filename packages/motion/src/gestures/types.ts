@@ -3,7 +3,7 @@
  * touches the DOM; the host copies the fields it needs out of PointerEvent /
  * WheelEvent / Safari's GestureEvent.
  *
- * Ported from a host app's input layer, whose recogniser this is.
+ * Extracted from an app's input layer: the recognizer that app used.
  * Hit testing and routing (what is under a point, who gets a gesture) stay
  * with the host.
  */
@@ -29,7 +29,7 @@ export const NO_MODIFIERS: Readonly<Modifiers> = Object.freeze({ shift: false, a
 
 /**
  * A pointer as the gesture stream reports it (screen, canvas, kind, buttons,
- * modifiers) plus the fields a recogniser needs: which pointer, which button
+ * modifiers) plus the fields a recognizer needs: which pointer, which button
  * changed, when.
  */
 export interface GesturePointer {
@@ -132,7 +132,7 @@ export type InputGesture =
   | { type: "hover"; pointer: GesturePointer }
   /**
    * Two fingers (touch) or a trackpad pinch. scale is the change since the last update (multiply it in);
-   * pan is the centre's screen-px change since the last update. kind is what was recognised first.
+   * pan is the center's screen-px change since the last update. kind is what was recognized first.
    */
   | {
       type: "pinch";
