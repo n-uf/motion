@@ -213,6 +213,8 @@ export function emit(d: Draft, edge: Edge, r: Rect, solved: EdgeSolve, extra: Pa
     rect: r,
     cross: thick,
     menu: stack.menu ? { rect: toStage(stack.menu.rect), items: stack.menu.items } : null,
+    // The stack's items are in zone order, the order `emit` drew them in.
+    items: stack.items.map((p) => p.id),
     tabs: solved.tabs,
     stack,
     free: solved.free,
