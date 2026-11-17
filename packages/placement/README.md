@@ -1410,14 +1410,17 @@ layout when panes only reorder, and the split tree when a drop splits a pane on 
 
 - **Order layouts**: `masterStack`, `columns` and `grid` take panes in order and an area (`{ gap, ratio }`), and give a
   rect per pane. A drop inserts the dragged pane at an index: `orderTargets(arrange, panes, dragged, area)` gives one
-  target per index, its slot the dragged pane's rect there and `layout` every pane's rect with it there.
-- **The split tree**: a `Split` is a pane or `{ a, b, axis?, ratio? }`. `layoutSplit(tree, area)` lays it out; a split
-  with no axis divides along the longer side in halves, so `splitFromOrder(panes)` is dwindle (split along the longer
+  target per index (`at:<index>`), its slot the dragged pane's rect there and `layout` every pane's rect with it there.
+- **The split tree**: a `Split` is a pane or `{ a, b, axis?, ratio? }`. `layoutSplit(tree, area, { gap })` lays it
+  out, the ratio clamped to 0..1 and no size below 0 however wide the gap; a split with no axis divides along the
+  longer side in halves, so `splitFromOrder(panes)` is dwindle (split along the longer
   side). `splitPane`, `removePane` and `swapPanes` change it. A drop on a pane goes by the pane's drop region:
   `paneRegion(rect, point, previous)` is the center (34 % of each axis, at least 24 px) or one of four side trapezoids,
   and holds the previous region for 6 px past its boundary. `dropOnPane(tree, dragged, at, region)` swaps for the
   center and splits `at` on a side, writing that side's axis and ratio 0.5, so a side means the same on any pane.
-  `paneTargets(layout, dragged)` gives one target per pane.
+  `paneTargets(layout, { except?, key? })` gives one target per pane, its id `pane:<key>` (`key` defaults to `String`;
+  keys must be unique, since a drag intent follows targets by id). A drop on a pane that isn't in the tree, or on the
+  dragged pane itself, changes nothing.
 - `giveWay(panes, layout, min, age)` floats the newest pane while any pane is laid out below its minimum.
 
 Both kinds of target are the root `Target`, so a drag intent from `@n-uf/motion/drag` takes them as they are; for the
@@ -1437,15 +1440,16 @@ const placeOf = (t: PaneTarget<string>, p: { x: number; y: number }, previous: s
 console.log(placeOf(targets[1]!, { x: 600, y: 10 }, null)); // pane:b:top
 ```
 
-## Pane zones
+## Pane drop regions (old names)
 
-**Deprecated**: these are the old names of the pane drop regions in Tiling (`paneRegion`, `paneCenter` and their types
-and defaults), kept as wrappers until the legacy entries go.
+**Deprecated**: `@n-uf/placement/targets` still exports the pane drop regions under their old names (`paneZone`,
+`paneCentre`, `PaneZone`, `PaneCentre`, `PaneZoneOptions`, `PANE_EDGES`, `PANE_ZONE_DEFAULTS`), as wrappers of
+`./tiling`'s `paneRegion`, `paneCenter` and their types and defaults, until the legacy entries go. Use `./tiling`.
 
-`paneZone(rect, point, previous, options?)` says which of a pane's five drop zones a point is in: the center rectangle
-(34 % of each axis, at least 24 px) or one of four edge trapezoids. The previous zone holds for 6 px past its
-boundary. It fits `@n-uf/motion/drag`'s `placeOf(target, point, previous)`: one target per pane, the zone as the
-place, and a null place for a zone that takes no drop.
+`paneZone(rect, point, previous, options?)` says which of a pane's five drop regions a point is in: the center
+rectangle (34 % of each axis, at least 24 px) or one of four side trapezoids. The previous region holds for 6 px past
+its boundary. It fits `@n-uf/motion/drag`'s `placeOf(target, point, previous)`: one target per pane, the region as the
+place, and a null place for a region that takes no drop.
 
 ```ts
 import { paneZone, type PaneZone } from "@n-uf/placement/targets";
@@ -1454,11 +1458,11 @@ const pane = { x: 0, y: 0, width: 200, height: 200 };
 console.log(paneZone(pane, { x: 100, y: 100 }), paneZone(pane, { x: 190, y: 100 })); // center right
 console.log(paneZone(pane, { x: 137, y: 100 }, "center")); // center: 3 px past the line, it holds
 
-// As a placeOf: the pane's id and zone, none where this pane can't take a drop beside it.
+// As a placeOf: the pane's id and region, none where this pane can't take a drop beside it.
 const canSplit = false;
 const placeOf = (t: { id: string; hit: typeof pane }, p: { x: number; y: number }, previous: string | null): string | null => {
-  const zone = paneZone(t.hit, p, (previous?.split(":")[1] as PaneZone | undefined) ?? null);
-  return zone === "center" || canSplit ? `${t.id}:${zone}` : null;
+  const region = paneZone(t.hit, p, (previous?.split(":")[1] as PaneZone | undefined) ?? null);
+  return region === "center" || canSplit ? `${t.id}:${region}` : null;
 };
 console.log(placeOf({ id: "a", hit: pane }, { x: 100, y: 100 }, null), placeOf({ id: "a", hit: pane }, { x: 10, y: 100 }, null)); // a:center null
 ```

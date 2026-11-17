@@ -193,7 +193,7 @@ export function treeTiles(cat: Catalog, tree: DeskState["tree"], area: Rect): Ma
     column(tree.R, x1 - TREE_COLUMN);
     x1 -= TREE_COLUMN + G;
   }
-  layoutSplit(splitFromOrder(tree.C), rect(x0, area.y, x1 - x0, area.height), { gap: G }, res);
+  for (const [k, r] of layoutSplit(splitFromOrder(tree.C), rect(x0, area.y, x1 - x0, area.height), { gap: G })) res.set(k, r);
   return res;
 }
 

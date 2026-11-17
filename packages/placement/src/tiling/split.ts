@@ -11,25 +11,35 @@ export type Split<K> =
   | { readonly pane: K }
   | { readonly a: Split<K>; readonly b: Split<K>; readonly axis?: "x" | "y"; readonly ratio?: number };
 
-/** The rect of every pane of `tree` in `area`, `gap` px between the two sides of each split. */
-export function layoutSplit<K>(tree: Split<K> | null, area: Rect, options: TileOptions = {}, out = new Map<K, Rect>()): Map<K, Rect> {
-  if (!tree) return out;
+/**
+ * The rect of every pane of `tree` in `area`, `gap` px between the two sides of each split. A split's `ratio` is
+ * clamped to 0..1; each side gets its share of the room the gap leaves (none when the gap is wider than the rect), so
+ * no size is ever negative, and at ratio 0.5 both sides are exactly equal.
+ */
+export function layoutSplit<K>(tree: Split<K> | null, area: Rect, options: TileOptions = {}): Map<K, Rect> {
+  const out = new Map<K, Rect>();
+  lay(tree, area, Math.max(0, options.gap ?? 0), out);
+  return out;
+}
+
+function lay<K>(tree: Split<K> | null, area: Rect, gap: number, out: Map<K, Rect>): void {
+  if (!tree) return;
   if ("pane" in tree) {
     out.set(tree.pane, { ...area });
-    return out;
+    return;
   }
-  const gap = options.gap ?? 0;
-  const ratio = tree.ratio ?? 0.5;
+  const ratio = Math.min(1, Math.max(0, tree.ratio ?? 0.5));
   if ((tree.axis ?? (area.width >= area.height ? "x" : "y")) === "x") {
-    const w = (area.width - gap) * ratio;
-    layoutSplit(tree.a, { x: area.x, y: area.y, width: w, height: area.height }, options, out);
-    layoutSplit(tree.b, { x: area.x + w + gap, y: area.y, width: area.width - w - gap, height: area.height }, options, out);
+    const room = Math.max(0, area.width - gap);
+    const w = room * ratio;
+    lay(tree.a, { x: area.x, y: area.y, width: w, height: area.height }, gap, out);
+    lay(tree.b, { x: area.x + w + gap, y: area.y, width: room * (1 - ratio), height: area.height }, gap, out);
   } else {
-    const h = (area.height - gap) * ratio;
-    layoutSplit(tree.a, { x: area.x, y: area.y, width: area.width, height: h }, options, out);
-    layoutSplit(tree.b, { x: area.x, y: area.y + h + gap, width: area.width, height: area.height - h - gap }, options, out);
+    const room = Math.max(0, area.height - gap);
+    const h = room * ratio;
+    lay(tree.a, { x: area.x, y: area.y, width: area.width, height: h }, gap, out);
+    lay(tree.b, { x: area.x, y: area.y + h + gap, width: area.width, height: room * (1 - ratio) }, gap, out);
   }
-  return out;
 }
 
 /** The panes of `tree` in order (`a` before `b`). */
@@ -70,9 +80,9 @@ export function removePane<K>(tree: Split<K> | null, pane: K): Split<K> | null {
   return a && b ? { ...tree, a, b } : (a ?? b);
 }
 
-/** `tree` with panes `x` and `y` in each other's place. */
+/** `tree` with panes `x` and `y` in each other's place; unchanged unless both are in it. */
 export function swapPanes<K>(tree: Split<K> | null, x: K, y: K): Split<K> | null {
-  if (!tree) return null;
+  if (!tree || !has(tree, x) || !has(tree, y)) return tree;
   return mapPanes(tree, (p) => ({ pane: p === x ? y : p === y ? x : p }));
 }
 
@@ -88,10 +98,12 @@ export function splitFromOrder<K>(panes: readonly K[]): Split<K> | null {
 /**
  * A drop of `dragged` on pane `at`'s `region`. A side splits `at` on that side (`dragged` taken out of its old place
  * first). The center swaps the two when `dragged` is in the tree; a pane from outside takes `at`'s place, with `at`
- * split off after it along the longer side. The set of panes is kept: the tree's, plus `dragged`.
+ * split off after it along the longer side. An `at` that isn't in the tree (or is `dragged` itself) changes nothing
+ * but adding `dragged` when it is missing, as `splitPane` does. The set of panes is kept: the tree's, plus `dragged`.
  */
 export function dropOnPane<K>(tree: Split<K> | null, dragged: K, at: K, region: PaneRegion): Split<K> {
-  if (dragged === at || !tree) return tree ?? { pane: dragged };
+  if (!tree) return { pane: dragged };
+  if (dragged === at || !has(tree, at)) return has(tree, dragged) ? tree : splitPane(tree, null, dragged);
   if (region !== "center") return splitPane(removePane(tree, dragged), at, dragged, region);
   if (has(tree, dragged)) return swapPanes(tree, dragged, at)!;
   return mapPanes(tree, (p) => (p === at ? { a: { pane: dragged }, b: { pane: p } } : { pane: p }));
