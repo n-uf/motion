@@ -13,9 +13,10 @@
     "typecheck": "pnpm --filter @n-uf/motion typecheck && pnpm --filter @n-uf/placement typecheck",
     "test": "pnpm --filter @n-uf/motion test && pnpm --filter @n-uf/placement test",
     "bench": "pnpm --filter @n-uf/motion bench",
-    "check": "pnpm --filter @n-uf/motion check && pnpm --filter @n-uf/placement check && pnpm --filter motion-lab typecheck && pnpm dirt && pnpm public-words",
+    "check": "pnpm --filter @n-uf/motion check && pnpm --filter @n-uf/placement check && pnpm --filter motion-lab typecheck && pnpm dirt && pnpm public-words && pnpm terminology",
     "dirt": "node scripts/dirt.mjs",
     "public-words": "node scripts/public-words.mjs && node --test scripts/public-words.test.mjs",
+    "terminology": "node scripts/terminology.mjs && node --test scripts/terminology.test.mjs",
     "lab": "pnpm --filter motion-lab dev",
     "release:next-version": "pnpm --filter @n-uf/motion release:next-version",
     "version:bump": "pnpm --filter @n-uf/motion version:bump && node scripts/sync-placement-version.mjs"
