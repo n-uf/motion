@@ -1133,6 +1133,11 @@ facing halves is home's, and is no target of its own. The slot is where the item
   reaches past the stage. Hand them to the drag intent with the targets: `refusalTargets(refusals(scene, id))` gives
   each one as a target marked `refuse: true` (its `refusal` the `SceneRefusal`), which the intent never holds or
   shows, so a held target's band never covers a refusal; read "No room here" from the frame's `refused`.
+  Every target keeps a reachable hit: its largest piece is at least 12 px across by 24 px along (`minHit`, data per
+  edge kind), taken from the space beside it in its own zone (a column line's band, a gap's tile) where nothing else is
+  aimed at, or from a neighbor that keeps its own minimum. Home, a drop strip, a refusal, the chrome and the stage's
+  edge never give way, and a gap never grows over another drawn edge; where nothing can spare the space the target
+  stays as it is, still a stop.
   For a kind with a rail drop policy, the rail is a spring-loaded drop strip instead (below).
 - `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
   commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail

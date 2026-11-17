@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { area, subtract } from "../index";
 import { lift, moveTo, refusals, solve, targets, use, zoneTakes, type Scene, type SceneItem, type SceneLayout, type SceneTarget, type Zone } from "../src/scene";
-import { lostSlots, opensEmpty, zoneExtents } from "../src/scene/targets";
+import { lostSlots, opensEmpty, targetZones, zoneExtents } from "../src/scene/targets";
 import type { Ownership } from "../src/scene/targets/ownership";
 import { clipTiles } from "../src/scene/targets/tiles";
 import { targetAt } from "@n-uf/motion/drag";
@@ -25,7 +25,7 @@ const same = (a: R, b: R): boolean => Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y
 export { modelScene };
 
 /** The categories a point can fail by. */
-type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order" | "lost-slot" | "refused-owns" | "seen-hole" | "seen-refused" | "beside-own-not-home" | "aim-order" | "strip-owned" | "refused-edge-drawn";
+type Failure = "hole" | "overlap" | "other-zone" | "own-not-home" | "slot-not-landing" | "duplicate-id" | "virtual-hole" | "virtual-overlap" | "refusal-order" | "lost-slot" | "refused-owns" | "seen-hole" | "seen-refused" | "beside-own-not-home" | "aim-order" | "strip-owned" | "refused-edge-drawn" | "min-hit";
 
 /** The edge a target or refusal belongs to, and its zone (null: no zone). */
 function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edge: string | null; zone: Zone | null } {
@@ -43,7 +43,7 @@ function edgeZoneOf(s: Scene, l: SceneLayout, id: string, t: SceneTarget): { edg
 
 /** Runs the check over `seeds`; returns the failure counts per category and a few examples. */
 export function propertyCheck(seeds: readonly number[], flush = false, middle = false, railDrop = false): { points: number; aimPoints: number; stripPoints: number; counts: Record<Failure, number>; examples: string[] } {
-  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0, "aim-order": 0, "strip-owned": 0, "refused-edge-drawn": 0 };
+  const counts: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0, "aim-order": 0, "strip-owned": 0, "refused-edge-drawn": 0, "min-hit": 0 };
   const examples: string[] = [];
   const fail = (k: Failure, msg: string): void => {
     counts[k]++;
@@ -175,6 +175,31 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           const key = (list: readonly SceneTarget[]): string => JSON.stringify(list.map((t) => [t.id, t.hit]));
           if (key(all) !== key(targets(s2, id).filter((t) => !t.free))) fail("refused-owns", `seed ${seed} drag ${id}: the refused zone ${e.id}:${z} moves other targets`);
         }
+      }
+      // A reachable minimum: every docked target's largest piece is 12 px across by 24 px along, or the space it would
+      // need beside it, in its own zone, is taken (another target, a refusal, the chrome, past the stage, or, but for a
+      // column line, another drawn edge).
+      const zones = targetZones(s, id);
+      for (const t of all) {
+        if (t.place.kind === "home" || t.place.kind === "none" || t.place.kind === "float" || t.strip) continue;
+        const l = t.hit;
+        if (Math.min(l.width, l.height) >= 12 - 1e-6 && Math.max(l.width, l.height) >= 24 - 1e-6) continue;
+        const line = t.place.kind === "column";
+        const ownEdge = t.place.kind === "gap" ? t.place.edge : null;
+        const taken = [
+          ...all.filter((o) => o !== t && !o.free).flatMap((o) => o.hits ?? [o.hit]),
+          ...rs.flatMap((r) => r.hits ?? [r.hit]),
+          ...(s.chrome ?? []),
+          ...(line ? [] : Object.entries(seen.edges).filter(([eid, e]) => eid !== ownEdge && e.rect.width > 1e-6 && e.rect.height > 1e-6).map(([, e]) => e.rect)),
+        ];
+        const narrowX = l.width <= l.height;
+        const d = 12 - (narrowX ? l.width : l.height);
+        if (d <= 1e-6) continue;
+        const sides = narrowX ? [{ ...l, x: l.x - d, width: d }, { ...l, x: l.x + l.width, width: d }] : [{ ...l, y: l.y - d, height: d }, { ...l, y: l.y + l.height, height: d }];
+        const zone = zones.get(t.id) ?? [];
+        const inZone = (g: R): boolean => !zone.reduce<R[]>((ps, z) => ps.flatMap((p) => subtract(p, z)), [g]).some((p) => area(p) > 1e-6);
+        const free = sides.filter((g) => inZone(g) && g.x >= s.stage.x - 1e-6 && g.y >= s.stage.y - 1e-6 && g.x + g.width <= s.stage.x + s.stage.width + 1e-6 && g.y + g.height <= s.stage.y + s.stage.height + 1e-6 && !taken.some((r) => meets(r, g)));
+        if (free.length) fail("min-hit", `seed ${seed} drag ${id}: ${t.id} ${JSON.stringify(l)} could take ${JSON.stringify(free[0])}`);
       }
       // Preview = landing, from every piece of a docked target's zone.
       for (const t of ts) {
@@ -384,7 +409,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
 const SEEDS = Array.from({ length: 120 }, (_, i) => i + 1);
 
 /** No failure of any kind (before the one target model: 8159 holes, 4021 overlaps, 14849 other-zone, 2667 own-not-home). */
-const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0, "aim-order": 0, "strip-owned": 0, "refused-edge-drawn": 0 };
+const KNOWN: Record<Failure, number> = { hole: 0, overlap: 0, "other-zone": 0, "own-not-home": 0, "slot-not-landing": 0, "duplicate-id": 0, "virtual-hole": 0, "virtual-overlap": 0, "refusal-order": 0, "lost-slot": 0, "refused-owns": 0, "seen-hole": 0, "seen-refused": 0, "beside-own-not-home": 0, "aim-order": 0, "strip-owned": 0, "refused-edge-drawn": 0, "min-hit": 0 };
 
 /** Every edge renamed to an id with ":" in it: the same targets and refusals, under the renamed ids. */
 export function colonRenameDiffs(seeds: readonly number[]): string[] {
@@ -419,6 +444,34 @@ describe("the target model's property check", () => {
     // A group's refusals in a bar that takes groups elsewhere keep their slots' tiles, inside the bar's ends.
     const status = drawn.status!.rect;
     for (const r of refusals(s, "views").filter((x) => x.edge === "status")) expect(r.hit.x >= status.x && r.hit.x + r.hit.width <= status.x + status.width + 1e-9, r.id).toBe(true);
+  });
+
+  it("min-hit: the new-column line beside a 28 px rail strip keeps 12 px across, from the column's side of its band", () => {
+    const f = (kind: "open" | "header" | "rail" | "icons", min: number, natural: number, cross: number, crossMin?: number) => ({ kind, main: { min, natural, ...(kind === "open" ? { grows: true } : {}) }, cross: { natural: cross, ...(crossMin ? { min: crossMin } : {}) } });
+    const p = (id: string, used: number): SceneItem => ({ id, kind: "panel", used, forms: { column: [f("open", 90, 300, 240, 200), f("header", 30, 30, 240, 56), f("rail", 26, 26, 32)] } });
+    const tool = (id: string): SceneItem => ({ id, kind: "group", used: 0, forms: { column: [f("icons", 28, 28, 28)], row: [f("icons", 28, 28, 28)] } });
+    const tpl = { accepts: ["panel"], cross: { min: 200, max: 480, rail: 32 } };
+    const s: Scene = {
+      stage: { x: 0, y: 0, width: 1100, height: 800 },
+      edges: [
+        { id: "sidebar", side: "left", ring: 0, accepts: ["group"], items: ["t1", "t2"], cross: { min: 28, max: 28, rail: 28 } },
+        { id: "left-1", side: "left", ring: 1, column: true, accepts: ["panel"], items: ["pages", "annotations"], cross: { min: 200, max: 480, rail: 32 } },
+        { id: "right-0", side: "right", ring: 0, column: true, accepts: ["panel"], items: ["findings"], cross: { min: 200, max: 480, rail: 32 } },
+      ],
+      items: byId([tool("t1"), tool("t2"), p("pages", 1), p("annotations", 2), p("findings", 3)]),
+      floats: [],
+      floatKinds: ["panel"],
+      columns: { left: tpl, right: tpl },
+      rails: { left: { width: 32, accepts: ["panel"] }, right: { width: 32, accepts: ["panel"] } },
+      railDrop: { panel: { railStripWidth: 28 } },
+    };
+    const line = targets(s, "findings").find((t) => t.id === "column:left:1")!;
+    // It was 6 px (28..34) beside the strip (0..28): now 28..40, the column's top gap giving up 6 px of its band.
+    expect(line.hit).toEqual({ x: 28, y: 0, width: 12, height: 800 });
+    expect(targets(s, "findings").find((t) => t.id === "gap:left-1:start:0")!.hit).toEqual({ x: 40, y: 0, width: 228, height: 12 });
+    // Beside the item's own place (home's band above Annotations keeps its space) it grows where it can.
+    const held = targets(s, "annotations").find((t) => t.id === "column:left:1")!;
+    expect(held.hit).toEqual({ x: 28, y: 0, width: 12, height: 388 });
   });
 
   it("anchored fixed runs: every slot of a zone whose drop lands is a target, but one that pushes a protected fixed item (fuzzed)", () => {
@@ -498,15 +551,15 @@ describe("the target model's property check", () => {
     const ts = targets(s, "g");
     const hit = (id: string): R | undefined => ts.find((t) => t.id === id)?.hit;
     // The lines, at 0 and 30, ranked where their new column would be laid. The outer line lies at the window's edge: its
-    // band (the whole hit band) is laid inward from the edge, never past the stage, and it pushes the column (it owns
-    // 0..24 of it). The inner line, up to COLUMN_REACH from it, is pushed by the column (the column keeps 24..30).
-    expect(hit("column:left:0")).toEqual({ x: 0, y: 0, width: 24, height: 500 });
+    // band (the whole hit band) is laid inward from the edge, never past the stage, and it pushes the column (it owned
+    // 0..24 of it). The inner line, up to COLUMN_REACH from it, is pushed by the column.
+    // The column's gaps, inside its 30 px, were left 6 px: they keep the 12 px minimum across, which the outer line's
+    // surplus gives (it keeps 0..18, over its own minimum).
+    expect(hit("column:left:0")).toEqual({ x: 0, y: 0, width: 18, height: 500 });
     expect(hit("column:left:1")).toEqual({ x: 30, y: 0, width: 22, height: 500 });
-    // The column's gaps, inside the rest of its 30 px (their reach past it, where the wider column would be, is the
-    // lines' first).
     const gaps = ts.filter((t) => t.id.startsWith("gap:left0:"));
     expect(gaps.map((t) => t.id).sort()).toEqual(["gap:left0:start:0", "gap:left0:start:1"]);
-    for (const t of gaps) expect([t.hit.x, t.hit.x + t.hit.width]).toEqual([24, 30]);
+    for (const t of gaps) expect([t.hit.x, t.hit.x + t.hit.width]).toEqual([18, 30]);
     expect(lostSlots(s, "g")).toEqual([]);
   });
 
@@ -540,9 +593,10 @@ describe("the target model's property check", () => {
     const seam = l.edges.left1!.rect.x;
     expect(l.edges.left0!.rect.x + l.edges.left0!.rect.width).toBe(seam);
     const line = targets(s, "g").find((t) => t.id === "column:left:1");
-    // Its band about the seam is the line's against the inner column it would push; the outer column keeps its side.
-    expect(line?.hit.x).toBe(seam);
-    expect(line?.hit.width).toBe(6);
+    // Its band about the seam is the line's against the inner column it would push (6 px), grown to the 12 px minimum
+    // across from the outer column's side of its band, where nothing else is aimed at.
+    expect(line?.hit.x).toBe(seam - 6);
+    expect(line?.hit.width).toBe(12);
     expect(lostSlots(s, "g")).toEqual([]);
   });
 
