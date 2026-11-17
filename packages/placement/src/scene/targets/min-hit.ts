@@ -11,6 +11,7 @@
  * Where nothing can spare the space the target stays as it is: still a stop, still in "Move to".
  */
 import { EPS, area, rect, subtract, type Rect } from "../../geometry";
+import { chromeFor } from "../helpers";
 import type { Ctx, SceneRefusal, SceneTarget } from "./model";
 import { parseTargetId } from "./ids";
 import { EDGE_KINDS, edgeKindOf, type EdgeKind } from "./kinds";
@@ -67,7 +68,7 @@ function mayGrow(c: Ctx, targets: readonly SceneTarget[], i: number, grow: reado
   const s = c.scene.stage;
   for (const g of grow) {
     if (g.x < s.x - EPS || g.y < s.y - EPS || g.x + g.width > s.x + s.width + EPS || g.y + g.height > s.y + s.height + EPS) return false;
-    if ([...(c.scene.chrome ?? []), ...away].some((r) => overlaps(r, g))) return false;
+    if ([...chromeFor(c.scene, "targets"), ...away].some((r) => overlaps(r, g))) return false;
     // Only within its own zone: the tile it had before clipping (its reach included), never past it.
     if (zone.reduce<Rect[]>((ps, z) => ps.flatMap((p) => subtract(p, z)), [g]).some((p) => area(p) > EPS)) return false;
   }

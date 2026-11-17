@@ -5,7 +5,7 @@
 import { overlaps } from "../../geometry";
 import { formMain } from "../../stack";
 import { lift, prune } from "../changes";
-import { axisOf, formsOf, isHandFolded, zoneOf } from "../helpers";
+import { axisOf, chromeFor, formsOf, isHandFolded, zoneOf } from "../helpers";
 import { ZONES, type Scene, type SceneItem, type SceneLayout, type SolveOptions } from "../model";
 import { layKeys, solve } from "../solve";
 import { reservedRect } from "./edges";
@@ -32,7 +32,7 @@ function placeKey(s: Scene, id: string): string {
  * length, nor lie over chrome or a fixed item's reserved rect (C29). Each edge adds where a drop on it lands (`lands`).
  */
 function soundness(scene: Scene, base: SceneLayout, dragged: string): (after: SceneLayout) => boolean {
-  const chrome = scene.chrome ?? [];
+  const chrome = chromeFor(scene, "targets");
   const noteKey = (n: SceneLayout["notes"][number]): string | null => ("edge" in n && (n.code === "overflow" || n.code === "too-wide") ? `${n.edge}:${n.code}:${"id" in n ? n.id : ""}` : null);
   const hadNotes = new Set(base.notes.map(noteKey).filter((k): k is string => k !== null));
   return (after) => {

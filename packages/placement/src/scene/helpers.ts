@@ -47,6 +47,13 @@ export const railModeOf = (scene: Scene, side: Side): RailMode => (side === "lef
 export const axisOf = (side: Side): Orient => (side === "left" || side === "right" ? "column" : "row");
 
 /**
+ * The chrome rects `who` keeps clear of (`SceneChrome`): floats keep clear of every entry; drop targets, slots and
+ * landings only of those for `"all"` (the default), never of a floats-only one.
+ */
+export const chromeFor = (scene: Scene, who: "floats" | "targets"): Rect[] =>
+  (scene.chrome ?? []).filter((c) => who === "floats" || c.for !== "floats").map((c) => ({ x: c.x, y: c.y, width: c.width, height: c.height }));
+
+/**
  * The side's rail where the scene declares none (`Scene.rails[side]`): its outermost column that takes `kind` in its
  * start zone (not an icons-only edge), which shows as a rail once nothing in it sets its width. Undefined where the side
  * has a declared rail, or no such column.

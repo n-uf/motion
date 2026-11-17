@@ -748,6 +748,11 @@ preview equals result) has one owner. A `Scene` is the stage (the window's inner
 `floats` and the `chrome` they keep clear of. `solve(scene)` gives every rect the host draws; `targets(scene, id)` gives
 every drop target for one item. Nothing is module-global, so two windows on a page are two scenes.
 
+A `chrome` entry (`SceneChrome`) is a rect with a scope. By default (`for: "all"`) floats keep clear of it and no drop
+target, slot or landing lies on it (a title the host draws itself). With `for: "floats"` only floats keep clear of it,
+in every way they are placed (a drop, opening one, a window resize, a resize by hand), while the edges, give-way and
+every docked target ignore it: a spine the host draws over a column keeps the column's gaps, lines and rail.
+
 ```ts
 import { readScene, solve, storeScene, targets, type Scene, type SceneItem } from "@n-uf/placement/scene";
 import type { StackForm } from "@n-uf/placement/stack";
