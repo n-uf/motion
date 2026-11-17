@@ -8,7 +8,7 @@
  * result exactly where it is asked.
  */
 import type { Rect } from "../geometry";
-import { axisOf, floatOrientOf, floatShape, formsOf, isDockingPanel } from "./helpers";
+import { axisOf, chromeFor, floatOrientOf, floatShape, formsOf, isDockingPanel } from "./helpers";
 import type { Scene, SceneLayout } from "./model";
 import { solve } from "./solve";
 import { floatFloor, placeFloat } from "./solve/floats";
@@ -62,7 +62,7 @@ function floatObstacles(scene: Scene, l: SceneLayout, id: string): Rect[] {
     if (axisOf(e.side) === "row" && e.cross > 0) out.push(e.rect);
     if (e.menu) out.push(e.menu.rect);
   }
-  for (const c of scene.chrome ?? []) out.push(c);
+  for (const c of chromeFor(scene, "floats")) out.push(c);
   return out.filter((r) => r.width > 0 && r.height > 0);
 }
 

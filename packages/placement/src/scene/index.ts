@@ -33,6 +33,7 @@ export {
   type Kind,
   type Orient,
   type Scene,
+  type SceneChrome,
   type SceneEdgeLayout,
   type SceneFloat,
   type SceneItem,

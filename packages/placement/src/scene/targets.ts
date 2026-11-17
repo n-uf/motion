@@ -71,7 +71,7 @@
 import { PLANE, area, rect, type Rect } from "../geometry";
 import type { Target } from "../target";
 import { floatAt, use } from "./changes";
-import { axisOf, floatOrientOf, floatSizeOf, zoneOf, zoneTakes } from "./helpers";
+import { axisOf, chromeFor, floatOrientOf, floatSizeOf, zoneOf, zoneTakes } from "./helpers";
 import type { Orient, Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
@@ -197,7 +197,7 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   const homeHit = homeRectOf(c, null);
   if (ownRect && homeEdge && homeHit && !tiles.some((t) => t.order === 0))
     tiles.push({ edge: homeEdge.id, spec: null, edgeKind: edgeKindOf(scene, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: targetId({ kind: "home", item: dragged }), priority: 1, place: { kind: "home" }, hit: homeHit, keep: null });
-  const placed = clipTiles(tiles, own, scene.chrome ?? [], lost);
+  const placed = clipTiles(tiles, own, chromeFor(scene, "targets"), lost);
   const { targets, refused, ownHome } = emit(c, placed);
   const homeAfter = (): SceneAfter => ({ scene, layout: now });
 

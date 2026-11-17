@@ -7,7 +7,7 @@
 import { fitFloat, type FloatFit } from "../../float-fit";
 import { EPS, rect, type Rect, type Size } from "../../geometry";
 import type { StackForm } from "../../stack";
-import { axisOf, floatOrientOf, floatShape, foldedByOf, formsOf } from "../helpers";
+import { axisOf, chromeFor, floatOrientOf, floatShape, foldedByOf, formsOf } from "../helpers";
 import type { FloatAnchor, Orient, SceneFloat, SceneItem } from "../model";
 import { shapeOf, type Draft } from "./draft";
 import type { Inset } from "./insets";
@@ -110,7 +110,7 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
     if (axisOf(e.side) === "row" && e.cross > 0) avoid.push(e.rect);
     if (e.menu) avoid.push(e.menu.rect);
   }
-  for (const c of scene.chrome ?? []) avoid.push(c);
+  for (const c of chromeFor(scene, "floats")) avoid.push(c);
   // Floats lie within the stage less the inset at its left and right (the sides the columns pad), the stage's full height.
   const floatRegion = rect(stage.x + px(inset.left), stage.y, Math.max(0, stage.width - px(inset.left) - px(inset.right)), stage.height);
   const floats: string[] = [];

@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.35
 
+- `./scene`, **chrome with a scope** (additive). A `chrome` entry is now a `SceneChrome`: a rect with an optional
+  `for`. The default, `"all"`, is the chrome as it was: floats keep clear of it and no drop target lies on it. With
+  `for: "floats"`, only floats keep clear of it (a drop, opening one, a window resize, a resize by hand), and the
+  edges, give-way and every docked target ignore it, so a kit's 24 px spine over the right column keeps that column's
+  gaps, lines and rail. Plain rects work as before. Chrome is not part of the stored form.
+
 - `./scene`, fixed: **a grip's double-click folds, it never steps to a variant** (host note). A toolbar group with
   forms full, compact, minimal and a menu went to compact when folded by hand: `fold` set `from: 1`, "one step down",
   which is a fold only for panels whose second form is their header. A hand fold now always goes to the folded form on

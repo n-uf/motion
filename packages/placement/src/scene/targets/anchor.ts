@@ -5,6 +5,7 @@
  */
 import { EPS, area, rect, subtract, type Rect } from "../../geometry";
 import { setSide, use } from "../changes";
+import { chromeFor } from "../helpers";
 import type { Scene, Side } from "../model";
 import { solve } from "../solve";
 import { targetId } from "./ids";
@@ -32,7 +33,7 @@ export function anchorTargets(scene: Scene, dragged: string, options: SceneTarge
   const placed = layout.edges[edge.id]?.rect;
   const slot = layout.items[dragged]?.rect;
   if (placed && slot && area(placed) > EPS) {
-    const pieces = (scene.chrome ?? []).reduce<Rect[]>((ps, c) => ps.flatMap((p) => subtract(p, rect(c.x, c.y, c.width, c.height))), [placed]).filter((p) => p.width >= 1 && p.height >= 1);
+    const pieces = chromeFor(scene, "targets").reduce<Rect[]>((ps, c) => ps.flatMap((p) => subtract(p, rect(c.x, c.y, c.width, c.height))), [placed]).filter((p) => p.width >= 1 && p.height >= 1);
     if (pieces.length > 0) {
       const hit = pieces.reduce((a, p) => (area(p) > area(a) ? p : a));
       const result: SceneAfter = { scene: moved, layout };

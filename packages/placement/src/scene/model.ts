@@ -271,6 +271,14 @@ export interface SceneFloat {
   readonly orient?: Orient;
 }
 
+/**
+ * A rect the scene keeps clear of, and who keeps clear: `"all"` (the default) for floats and drop targets alike (a
+ * slot or a target's landing never lies on it), `"floats"` for floats alone: their placement, drops, opening, a
+ * window resize and a resize by hand keep clear of it, while the edges, give-way and every docked target ignore it (a
+ * spine the host draws over a column).
+ */
+export type SceneChrome = Rect & { readonly for?: "all" | "floats" };
+
 export interface Scene {
   /** The window's inner rect. */
   readonly stage: Rect;
@@ -280,8 +288,11 @@ export interface Scene {
   readonly floats: readonly SceneFloat[];
   /** The kinds that may float. Deny by default. */
   readonly floatKinds: readonly Kind[];
-  /** Rects that floats and drop zones keep clear of (a title the host draws itself, a status line). */
-  readonly chrome?: readonly Rect[];
+  /**
+   * Rects the scene keeps clear of (a title the host draws itself, a status line): by default floats and drop targets
+   * both; an entry with `for: "floats"` (a spine drawn over a column) only floats. See {@link SceneChrome}.
+   */
+  readonly chrome?: readonly SceneChrome[];
   /** Spots where a release cancels: `targets` gives a `none` target over each. */
   readonly blocked?: readonly Rect[];
   /** Per side (left, right): what a new column is made from. A side without one gets no new columns. */
