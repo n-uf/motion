@@ -28,7 +28,7 @@
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
 import { axesOf, axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
-import { RAIL_MODES, type Edge, type FloatAnchor, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
+import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
 export interface DockPlace {
@@ -53,8 +53,8 @@ export interface RailPlace {
 export interface FloatPlace {
   readonly kind: "float";
   readonly rect?: Rect;
-  /** Following the content (only its size counts then). */
-  readonly anchor?: FloatAnchor;
+  /** Following the content (only its size counts then), at an anchor's name or `{ at, dx?, dy? }`. */
+  readonly anchor?: FloatAnchorAt;
 }
 export type Place = DockPlace | ColumnPlace | RailPlace | FloatPlace;
 

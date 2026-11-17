@@ -6,7 +6,7 @@
  * interface StoredScene {
  *   v: 1;
  *   edges: { id: string; side: Side; ring: number; items: string[]; size?: number; column?: true }[];
- *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor }[];
+ *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor | { at: FloatAnchor; dx?: number; dy?: number } }[];
  *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; floatSize?: { width: number; height: number } }>;
  *   railModes?: { left?: "titles" | "icons"; right?: "titles" | "icons" };
  * }
@@ -26,13 +26,15 @@
  * `<field>`). A stored edge's order is kept exactly, fixed items where the store put them (in their own edge); a fixed
  * item the store lacks goes back to its base place (trailing ones last). An item the store places nowhere goes where
  * `base` has it, before a stored trailing run of fixed items.
- * A float's rect is clamped into the stage on read.
+ * A float's rect is clamped into the stage on read; its anchor, with any offset, is kept as stored (an anchored float
+ * lies by its anchor, so the clamp never turns it into a pixel position). An unusable anchor is dropped
+ * (`float:<id>:anchor`), and so is a bad offset field (`float:<id>:anchor:dx`, `float:<id>:anchor:<field>`).
  */
 import { rect, type Size } from "../geometry";
 import { clampFloat, closeRings, drawnFloatSize, prune, setSide } from "./changes";
 import { axisOf, columnFromTemplate } from "./helpers";
 import { checkEdgeIds, isReservedEdgeId } from "./targets/ids";
-import { RAIL_MODES, SIDES, type Edge, type FloatAnchor, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
+import { FLOAT_ANCHORS, RAIL_MODES, SIDES, type Edge, type FloatAnchor, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
 
 export interface StoredSceneEdge {
   readonly id: string;
@@ -51,7 +53,8 @@ export interface StoredSceneFloat {
   readonly width: number;
   readonly height: number;
   readonly orient?: Orient;
-  readonly anchor?: FloatAnchor;
+  /** An anchor's name, or `{ at, dx?, dy? }`: an anchor with an offset in px. */
+  readonly anchor?: FloatAnchorAt;
 }
 
 export interface StoredSceneItem {
@@ -80,10 +83,27 @@ export interface SceneRead {
   readonly error?: string;
 }
 
-const ANCHORS: readonly FloatAnchor[] = ["content-top-left", "content-top", "content-top-right", "content-right", "content-bottom-right", "content-bottom", "content-bottom-left", "content-left"];
 const isNum = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
 const isSize = (x: unknown): x is number => isNum(x) && x > 0;
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
+const isAnchor = (x: unknown): x is FloatAnchor => FLOAT_ANCHORS.includes(x as FloatAnchor);
+
+/**
+ * The float anchor in `v`, as plain data: a name, or `{ at, dx?, dy? }` with its finite offsets; undefined when there is
+ * none or it can't be used. `drop` hears what is left out: `""` for the whole anchor (an unknown name, an offset with no
+ * valid `at`), `":dx"` / `":dy"` for an offset that isn't a number, `":<field>"` for an unknown field.
+ */
+function anchorOf(v: unknown, drop?: (what: string) => void): FloatAnchorAt | undefined {
+  if (v === undefined) return undefined;
+  if (isAnchor(v)) return v;
+  if (!isObject(v) || !isAnchor(v.at)) {
+    drop?.("");
+    return undefined;
+  }
+  for (const k of Object.keys(v)) if (k !== "at" && k !== "dx" && k !== "dy") drop?.(`:${k}`);
+  for (const k of ["dx", "dy"] as const) if (v[k] !== undefined && !isNum(v[k])) drop?.(`:${k}`);
+  return { at: v.at, ...(isNum(v.dx) ? { dx: v.dx } : {}), ...(isNum(v.dy) ? { dy: v.dy } : {}) };
+}
 /** Records with no prototype, so an id such as `constructor` is only a key; `__proto__` is refused. */
 const record = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
 
@@ -122,7 +142,10 @@ export function storeScene(scene: Scene): StoredScene {
     edges: scene.edges.map((e) => ({ id: e.id, side: e.side, ring: e.ring, items: [...e.items], ...(isNum(e.size) ? { size: e.size } : {}), ...(e.column === true ? { column: true as const } : {}) })),
     floats: scene.floats
       .filter((f) => isNum(f.rect.x) && isNum(f.rect.y) && isSize(f.rect.width) && isSize(f.rect.height))
-      .map((f) => ({ id: f.id, x: f.rect.x, y: f.rect.y, width: f.rect.width, height: f.rect.height, ...(f.orient ? { orient: f.orient } : {}), ...(f.anchor ? { anchor: f.anchor } : {}) })),
+      .map((f) => {
+        const anchor = anchorOf(f.anchor);
+        return { id: f.id, x: f.rect.x, y: f.rect.y, width: f.rect.width, height: f.rect.height, ...(f.orient ? { orient: f.orient } : {}), ...(anchor ? { anchor } : {}) };
+      }),
     items,
     ...(modes ? { railModes: modes } : {}),
   };
@@ -287,8 +310,7 @@ function read(data: unknown, base: Scene): SceneRead {
     else if (!["id", "x", "y", "width", "height", "orient", "anchor"].includes(k)) drop(`float:${id}:${k}`);
     const o = f.orient === "row" || f.orient === "column" ? f.orient : undefined;
     if (f.orient !== undefined && !o) drop(`float:${id}:orient`);
-    const a = ANCHORS.includes(f.anchor as FloatAnchor) ? (f.anchor as FloatAnchor) : undefined;
-    if (f.anchor !== undefined && !a) drop(`float:${id}:anchor`);
+    const a = anchorOf(f.anchor, (what) => drop(`float:${id}:anchor${what}`));
     placed.add(id);
     // Clamped by what solve draws (a folded float's bar), never cut: a reload lands where solve put it.
     const r = rect(f.x, f.y, f.width, f.height);

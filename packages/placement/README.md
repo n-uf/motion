@@ -1031,6 +1031,16 @@ would with no float before it (it may cover a float, never a docked item it coul
 of its own (a drop, a resize) keeps that rect as before, over another float or not. Scenes with no anchored float, or
 whose anchored floats cover no float before them, lay out exactly as before.
 
+**An anchor with an offset.** `anchor` also takes `{ at, dx?, dy? }`: flush with `at`'s side or corner of the content,
+then `dx` px to the right and `dy` px down (negative: left, up; default 0), still following the content as the window
+changes. So a host stores "the content's top-right corner, 12 px down" instead of a pixel position that a smaller window
+would clamp on reload. The string form is unchanged, and `FLOAT_ANCHORS` lists the names.
+
+```ts
+const s = moveTo(scene, "tools", { kind: "float", anchor: { at: "content-top-right", dy: 12 } });
+storeScene(s).floats; // [{ id: "tools", x, y, width, height, anchor: { at: "content-top-right", dy: 12 } }]
+```
+
 The **float region** is [pad, W − pad] × the full height: the stage less `Scene.inset`'s left and right (its top and
 bottom don't cut it). A float is clamped into it, and one larger than it is shrunk to fit. **`SceneItem.floatMin`**
 (`Size`) is the floor of that shrink: a float of the item is laid out at `max(floatMin, min(its size, the region))` each
@@ -1325,7 +1335,9 @@ item's place left empty and nothing else moved (a release there commits nothing)
 
 **Stored form.** `storeScene(scene)` gives `{ v: 1, edges: [{ id, side, ring, items, size?, column? }], floats: [{ id, x, y,
 width, height, orient?, anchor? }], items: { [id]: { used, kept?, from?, closed?, align?, floatSize? } } }`; no float has a
-pinned field. `readScene(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
+pinned field. A float's `anchor` is stored as given, a name or `{ at, dx?, dy? }`, and read back as stored: the clamp
+on read moves only its rect, which an anchored float doesn't lie by (an unusable anchor or offset field is dropped and
+listed, `float:<id>:anchor`, `float:<id>:anchor:dx`). `readScene(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
 the store, never throws, and lists what it drops: unknown edges and items, kinds an edge doesn't accept, fixed items
 stored in another edge than `base`'s, bad fields, an old `pinned`. A stored edge's order is kept exactly, fixed items
 where the store put them, so a drop after a fixed item round-trips; a fixed item the store lacks goes back to its base
