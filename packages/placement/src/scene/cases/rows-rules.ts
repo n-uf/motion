@@ -56,7 +56,7 @@ export const RULE_ROWS: readonly CaseRow[] = [
     checkpoints: [{ at: 2, layout: { items: { pages: null, views: { rect: r(8, 32, 200, 36) }, tools: { rect: r(212, 32, 200, 36) }, zoom: { rect: r(992, 32, 200, 36) } }, order: { toolbar: ["views", "tools", "zoom"] } }, note: "refused: no target, the held item out of the layout" }],
     expectLayout: { items: { pages: { edge: "left", floating: false }, views: { rect: r(8, 32, 200, 36) }, tools: { rect: r(212, 32, 200, 36) }, zoom: { rect: r(992, 32, 200, 36) } }, order: { toolbar: ["views", "tools", "zoom"], left: ["pages"] } },
     expectDom: [
-      { at: 2, select: "[data-drag-refusal]", count: 1, attr: { "data-drag-refusal": "refuse:toolbar:center" }, note: "the refusal shows where the pointer is" },
+      { at: 2, select: "[data-drag-refusal]", count: 1, attr: { "data-drag-refusal": "refuse:toolbar:start" }, note: "the toolbar's one refusal shows where the pointer is" },
       { at: 2, select: "[data-drag-slot]", count: 0, note: "no slot anywhere" },
     ],
   },

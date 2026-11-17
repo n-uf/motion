@@ -57,7 +57,11 @@ export interface SceneRefusal {
   readonly id: string;
   readonly edge: string;
   readonly zone: Zone;
-  /** Where the pointer means it: the refused slot's tile, never over a target's hit. */
+  /**
+   * Where the pointer means it, never over a target's hit and never past the stage. An edge that takes the kind in no
+   * zone gives one refusal (`n = 0`, zone `start`): its drawn rect, fixed items included, less what targets own. A
+   * refused zone of an edge that takes the kind elsewhere: the refused slot's tile, inside the edge's ends.
+   */
   readonly hit: Rect;
   /**
    * `no-room`: the zone takes the kind, but the drop there doesn't fit (a title bar at the title's natural width, say).
@@ -87,6 +91,11 @@ export interface Tile {
   readonly place?: ScenePlace;
   readonly result?: SceneAfter;
   readonly reason?: SceneRefusal["reason"];
+  /**
+   * The one refusal of an edge that takes the kind in no zone: its drawn rect in the stage, fixed items included. Only
+   * what targets own is cut from it.
+   */
+  readonly whole?: boolean;
   readonly hit: Rect;
   /** A slot's tile left in pieces by clipping: every piece (`hit` the largest). */
   readonly hits?: readonly Rect[];

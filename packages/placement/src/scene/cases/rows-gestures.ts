@@ -297,7 +297,7 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
     checkpoints: [{ at: 2, layout: { items: { pages: null, tools: { edge: "tools-bar", rect: r(12, 770, 120, 30) } }, order: { "tools-bar": ["tools"] } }, note: "refused: no target, the held item out of the layout" }],
     expectLayout: { items: { pages: { edge: "left-0", floating: false }, tools: { edge: "tools-bar", rect: r(12, 770, 120, 30) } }, order: { "tools-bar": ["tools"] }, columns: { left: [["pages", "annotations"]] } },
     expectDom: [
-      { at: 2, select: "[data-drag-refusal]", count: 1, attr: { "data-drag-refusal": "refuse:tools-bar:center" }, note: "the refusal shows where the pointer is" },
+      { at: 2, select: "[data-drag-refusal]", count: 1, attr: { "data-drag-refusal": "refuse:tools-bar:start" }, note: "the bar's one refusal shows where the pointer is" },
       { at: 2, select: "[data-drag-slot]", count: 0, note: "no slot anywhere" },
     ],
   },

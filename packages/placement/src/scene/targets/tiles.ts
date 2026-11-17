@@ -4,7 +4,7 @@
  */
 import { EPS, area, rect, subtract, type Point, type Rect } from "../../geometry";
 import { zoneOf } from "../helpers";
-import type { SceneLayout, Zone } from "../model";
+import { ZONES, type SceneLayout, type Zone } from "../model";
 import { distinctSlots } from "./edges";
 import { targetId } from "./ids";
 import { EDGE_KINDS } from "./kinds";
@@ -43,6 +43,30 @@ function tilerOf(spec: EdgeSpec): Tiler {
     return [core, ...beyond.map(([a, b]): Tile => ({ ...t, kind: "reach", of: core, order: data.overreach, hit: part(a, b), keep: null }))];
   };
   return { band, keepAt, tile, split };
+}
+
+/** The part two rects share, or null when it has no area. */
+function meet(a: Rect, b: Rect): Rect | null {
+  const x = Math.max(a.x, b.x);
+  const y = Math.max(a.y, b.y);
+  const w = Math.min(a.x + a.width, b.x + b.width) - x;
+  const h = Math.min(a.y + a.height, b.y + b.height) - y;
+  return w > EPS && h > EPS ? rect(x, y, w, h) : null;
+}
+
+/**
+ * An edge that takes the dragged kind in no zone refuses it outright: one refusal (`refuse:<edge>:start`, `n = 0`) over
+ * the edge's drawn rect (`SceneLayout.edges[id].rect`, fixed items included), in the stage. Clipping cuts only what the
+ * targets own from it, and a rail drop strip still takes its own rect. Null for any other edge (a zone that takes the
+ * kind, an edge not drawn, the item's own edge).
+ */
+function wholeRefusal(c: Ctx, spec: EdgeSpec): Tile | null {
+  if (!spec.edge || spec.own || spec.holds || ZONES.some((z) => spec.refuse(z) !== "not-accepted")) return null;
+  const drawn = c.now.edges[spec.id]?.rect;
+  const hit = drawn ? meet(drawn, c.scene.stage) : null;
+  if (!hit) return null;
+  const data = EDGE_KINDS[spec.kind];
+  return { edge: spec.id, spec, edgeKind: spec.kind, vertical: spec.vertical, zone: "start", hit, kind: "refuse", id: "", order: data.layer, priority: data.priority, keep: null, reason: "not-accepted", whole: true };
 }
 
 /** Whether `spans` keep any length past `away`. */
@@ -99,11 +123,20 @@ function linesIn(spec: EdgeSpec, z: { a: number; b: number }, mine: readonly Slo
  * on the edge, home's tile is its slot's.
  */
 export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: string[]): Tile[] {
+  const whole = wholeRefusal(c, spec);
+  if (whole) return [whole];
   const data = EDGE_KINDS[spec.kind];
   const v = spec.vertical;
   const own: Span | null = spec.own ? (v ? [spec.own.y, spec.own.y + spec.own.height] : [spec.own.x, spec.own.x + spec.own.width]) : null;
   const { band, keepAt, tile, split } = tilerOf(spec);
-  const refused = (zone: Zone, hit: Rect, reason: SceneRefusal["reason"]): Tile => tile(zone, hit, { kind: "refuse", id: "", order: data.layer, priority: data.priority, keep: null, reason });
+  // A zone's refusal keeps its slot's geometry, but never past the edge's ends (no `endReach`) nor past the stage.
+  const drawn = spec.edge ? c.now.edges[spec.id]?.rect : undefined;
+  const alongLimit = drawn && (v ? drawn.height : drawn.width) > EPS ? (v ? rect(-1e9, drawn.y, 2e9, drawn.height) : rect(drawn.x, -1e9, drawn.width, 2e9)) : null;
+  const refused = (zone: Zone, hit: Rect, reason: SceneRefusal["reason"]): Tile[] => {
+    const inEdge = alongLimit ? meet(hit, alongLimit) : hit;
+    const shown = inEdge && meet(inEdge, c.scene.stage);
+    return shown ? split(tile(zone, shown, { kind: "refuse", id: "", order: data.layer, priority: data.priority, keep: null, reason })) : [];
+  };
   const slots = distinctSlots(c, spec.slots);
   // Home's slot where the item lies on this edge: its order is the aim that puts the item back.
   const homeSlot = spec.holds && own ? slots.find((s) => s.home && s.order !== undefined) : undefined;
@@ -143,7 +176,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
           out.push(...split(tile(z.zone, hit, { kind: "slot", id: s.id, order: data.layer, priority: data.priority, keep: keepAt(Math.min(Math.max(s.line, pa), pb), hit), place: s.place, result: s.result, marker: spec.marker(s), slot: s.result.layout.items[c.dragged]!.rect })));
           continue;
         }
-        if (reason && near) out.push(...split(refused(z.zone, band(pa, pb), lone ? "own-place" : reason)));
+        if (reason && near) out.push(...refused(z.zone, band(pa, pb), lone ? "own-place" : reason));
         continue;
       }
       // Where two neighboring slots meet: at the midpoint of the item between their lines (the one item a pointer
@@ -186,7 +219,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
         for (const [u, w] of less([[a, b]], faced)) {
           const line = Math.min(Math.max(p, u), w);
           const hit = band(u, w, s.result.layout);
-          if (!s.ok) out.push(...split(refused(z.zone, hit, "no-room")));
+          if (!s.ok) out.push(...refused(z.zone, hit, "no-room"));
           else out.push(...split(tile(z.zone, hit, { kind: "slot", id: s.id, order: data.layer, priority: data.priority, keep: keepAt(line, hit), place: s.place, result: s.result, marker: spec.marker(s), slot: s.result.layout.items[c.dragged]!.rect })));
         }
       });
@@ -287,6 +320,13 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
     // Home's tile is the item's own place: nothing clips it.
     if (t.order === 0) {
       placed.push(t);
+      return;
+    }
+    // A wholly refused edge: its drawn rect less only what is placed (the targets, and refusals placed before it), one
+    // refusal, its largest piece.
+    if (t.whole) {
+      const pieces = clip(t.hit, placed.flatMap(coverOf));
+      if (pieces.length > 0) placed.push({ ...t, hit: largest(pieces) });
       return;
     }
     const data = EDGE_KINDS[t.edgeKind];

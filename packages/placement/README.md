@@ -1121,7 +1121,11 @@ facing halves is home's, and is no target of its own. The slot is where the item
   that was folded by width reopen; the slot is that landing. With no rail showing, the stop keeps its place only while
   one of its slots lands in the rail (home's counts): where every drop there is refused (a panel would ride over an
   open column), the outermost column line runs from the window's edge. Draw `refusals()` as well as the targets, so a
-  place that refuses a drop never looks like a dead band.
+  place that refuses a drop never looks like a dead band. A refusal matches what is drawn: an edge that takes the
+  dragged kind in no zone is one refusal, `refuse:<edge>:start` (`n = 0`), over its drawn rect (the `SceneEdgeLayout`
+  rect, fixed items included) less what targets own, so a host's tint and "Can't go here" cover the bar as drawn; a
+  refused zone of an edge that takes the kind elsewhere keeps its slot's tile, inside the edge's ends. No refusal
+  reaches past the stage.
   For a kind with a rail drop policy, the rail is a spring-loaded drop strip instead (below).
 - `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
   commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail
