@@ -92,6 +92,8 @@ export function withRailStrips(c: Ctx, targets: readonly SceneTarget[], refusals
   const sides = new Set(strips.map((s) => s.side));
   const rects = strips.map((s) => s.rect);
   const out: SceneTarget[] = [];
+  /** The new-outermost-column lines moved inside a strip, by side: the inner columns' gaps there give them up. */
+  const lines: { side: "left" | "right"; pieces: Rect[] }[] = [];
   for (const t of targets) {
     // The rail's own tiled stops give way to its strip.
     if (t.place.kind === "rail" && sides.has(t.place.side)) continue;
@@ -108,11 +110,14 @@ export function withRailStrips(c: Ctx, targets: readonly SceneTarget[], refusals
       let moved = t.id.startsWith("strip:") || t.place.kind === "column" ? insideStrips(t.hit, strips) : null;
       let movedPieces: Rect[] = moved ? [moved] : [];
       if (moved && t.place.kind === "column") {
-        // Laid after the strip, so it owns only what the strip and the rest of the drag's targets and refusals leave:
-        // the column's own gaps, the lines inside it and a refused stretch keep their space.
-        const others = [...targets.filter((x) => x !== t && !x.free && x.place.kind !== "none" && !(x.place.kind === "rail" && sides.has(x.place.side))).flatMap((x) => x.hits ?? [x.hit]), ...refusals.map((x) => x.hit)];
+        // It keeps the band it owns: a column line beats the inner column it would push, card halves included (ranked
+        // by the laying order of the new column it stands for). Moved inside the strip, it gives way only to home, a
+        // blocked rect and the other column lines; the inner columns' gaps and refusals on its side give it up below
+        // (`lines`), so it is never cut away.
+        const others = targets.filter((x) => x !== t && (x.place.kind === "home" || x.place.kind === "column" || (x.place.kind === "none" && !x.free))).flatMap((x) => x.hits ?? [x.hit]);
         movedPieces = outside([moved], others);
         moved = movedPieces.length ? largest(movedPieces) : null;
+        if (moved) lines.push({ side: t.place.side, pieces: movedPieces });
       }
       if (moved) out.push({ ...withoutHits(t), hit: moved, ...(movedPieces.length > 1 ? { hits: movedPieces } : {}) });
       continue;
@@ -123,12 +128,29 @@ export function withRailStrips(c: Ctx, targets: readonly SceneTarget[], refusals
     }
     out.push({ ...withoutHits(t), hit: largest(pieces), ...(pieces.length > 1 ? { hits: pieces } : {}) });
   }
+  // The inner columns' gaps (and refusals) on a moved line's side stop short of it: the line owns its band.
+  const columnSide = (edge: string): "left" | "right" | null => {
+    const e = c.scene.edges.find((x) => x.id === edge);
+    return e?.column && (e.side === "left" || e.side === "right") ? e.side : null;
+  };
+  const lineCut = (edge: string): Rect[] => lines.filter((l) => l.side === columnSide(edge)).flatMap((l) => l.pieces);
+  for (let i = 0; i < out.length; i++) {
+    const t = out[i]!;
+    if (t.place.kind !== "gap") continue;
+    const cut = lineCut(t.place.edge);
+    if (!cut.length) continue;
+    const was = t.hits ?? [t.hit];
+    const pieces = outside(was, cut);
+    if (sameRects(pieces, was)) continue;
+    if (pieces.length === 0) out.splice(i--, 1);
+    else out[i] = { ...withoutHits(t), hit: largest(pieces), ...(pieces.length > 1 ? { hits: pieces } : {}) };
+  }
   const refused: SceneRefusal[] = [];
   // The rail's own refusals go with its stops: the strip offers only the stops that take the drop.
   const railEdges = new Set([...sides].map((side) => virtualEdgeId("rail", side)));
   for (const r of refusals) {
     if (railEdges.has(r.edge)) continue;
-    const pieces = outside([r.hit], rects);
+    const pieces = outside([r.hit], [...rects, ...lineCut(r.edge)]);
     if (pieces.length) refused.push(pieces.length === 1 && sameRects(pieces, [r.hit]) ? r : { ...r, hit: largest(pieces) });
   }
   // A zone's refusals stay numbered by where they lie along the edge (then across it), as cut.

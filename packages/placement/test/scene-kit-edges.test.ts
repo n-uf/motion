@@ -139,8 +139,9 @@ describe("kit-shaped windows: the window's sides", () => {
         return seen;
       };
       expect(along(30).slice(0, 3)).toEqual(["rail:left:0", "column:left:0", "float:findings"]);
-      // At the gap between the left column's two panels (y 400), the gap is the column's own, after the strip.
-      expect(along(400).slice(0, 2)).toEqual(["rail:left:0", "gap:left-0:start:1"]);
+      // At the gap between the left column's two panels (y 400) the line keeps its band too, as it does with no strip (it
+      // beats the inner column it would push): the strip, the line, then the column's own gap.
+      expect(along(400).slice(0, 3)).toEqual(["rail:left:0", "column:left:0", "gap:left-0:start:1"]);
       // A host's "Move to ›" reaches it: it is a stop.
       expect(stops(s, "findings").some((t) => t.id === "column:left:0")).toBe(true);
     }
@@ -170,5 +171,58 @@ describe("kit-shaped windows: the window's sides", () => {
           }
         }
     expect(checked).toBeGreaterThanOrEqual(12);
+  });
+
+  /** A flush kit window with card halves (`hitBand: "middle"`) and the default panel strip. */
+  const middle = (W: number, k = FLUSH): Scene => {
+    const s = kitScene(k, { W, H: 800, left: [["pages", "notes"]], right: [["findings"]] });
+    return {
+      ...s,
+      edges: s.edges.map((e) => (e.column ? { ...e, hitBand: "middle" as const } : e)),
+      columns: { left: { ...s.columns!.left!, hitBand: "middle" }, right: { ...s.columns!.right!, hitBand: "middle" } },
+      railDrop: { panel: {} },
+    };
+  };
+
+  it("card halves (hitBand middle) and the strip: the line for a new outermost column keeps its band just inside the strip, and is a stop", () => {
+    const s = middle(1400);
+    const ts = targets(s, "notes");
+    const strip = ts.find((t) => t.id === "rail:right:0")!.strip!;
+    const line = ts.find((t) => t.id === "column:right:0");
+    expect(line, "column:right:0 is offered").toBeDefined();
+    expect(line!.hit.x + line!.hit.width).toBe(strip.x);
+    // The card halves stop short of it.
+    for (const g of ts.filter((t) => t.place.kind === "gap" && t.place.edge === "right-0")) for (const h of g.hits ?? [g.hit]) expect(h.x + h.width, g.id).toBeLessThanOrEqual(line!.hit.x);
+    expect(stops(s, "notes").some((t) => t.id === "column:right:0"), "Move to › reaches it").toBe(true);
+    expect(line!.after({ x: line!.hit.x + 2, y: 400 }).layout.items.notes!.edge).toBe("right-1");
+  });
+
+  it("property: with card halves and the strip on, every occupied side's line lies inside the strip, beats the card halves and is a stop", () => {
+    let checked = 0;
+    for (const k of [FLUSH, INSET])
+      for (const W of [900, 1100, 1280, 1400, 1440])
+        for (const drag of ["pages", "notes", "findings"]) {
+          const s = middle(W, k);
+          const l = solve(s);
+          const ts = targets(s, drag);
+          const st = stops(s, drag);
+          for (const side of ["left", "right"] as const) {
+            const col = s.edges.find((e) => e.side === side && e.items.some((x) => x !== drag) && !l.edges[e.id]?.folded);
+            const strip = ts.find((t) => t.id === `rail:${side}:0`)?.strip;
+            if (!col || !strip) continue;
+            checked++;
+            const label = `${k === FLUSH ? "flush" : "inset"} W ${W} ${drag} ${side}`;
+            const line = ts.find((t) => t.place.kind === "column" && t.place.side === side && t.place.ring === 0);
+            expect(line, label).toBeDefined();
+            expect(st.some((t) => t.id === line!.id), `${label}: a stop`).toBe(true);
+            const under = Math.min(line!.hit.x + line!.hit.width, strip.x + strip.width) - Math.max(line!.hit.x, strip.x);
+            expect(under, label).toBeLessThanOrEqual(0);
+            // At mid-height, beside the strip, the point picks the line, not a card half (in the item's own column its own
+            // place wins, as with no strip).
+            const x = side === "left" ? line!.hit.x + 1 : line!.hit.x + line!.hit.width - 1;
+            if (!col.items.includes(drag)) expect(pickAt(s, drag, x, 400), label).toBe(line!.id);
+          }
+        }
+    expect(checked).toBeGreaterThanOrEqual(20);
   });
 });
