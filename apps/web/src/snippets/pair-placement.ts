@@ -1,27 +1,32 @@
-import { arrangement, layoutHost } from "@n-uf/placement/toolbar";
-import { hostTargets } from "@n-uf/placement/targets";
+import { solve, targets, type Scene, type SceneItem } from "@n-uf/placement/scene";
 
-const bar = arrangement({ top: { start: ["file", "edit"], end: ["share"] } });
-const spec = { length: 320, thickness: 42, lead: 8, tail: 8 };
-const size = (_id: string, _vertical: boolean, collapsed: boolean) => ({
-  along: collapsed ? 30 : 120,
-  across: 28,
+// A toolbar group's forms along a bar, largest first: its row, its icons, the » menu.
+const group = (id: string, used: number): SceneItem => ({
+  id,
+  kind: "group",
+  used,
+  forms: {
+    row: [
+      { kind: "row", main: { min: 120, natural: 120 }, cross: { natural: 28 } },
+      { kind: "icons", main: { min: 30, natural: 30 }, cross: { natural: 28 } },
+      { kind: "menu", main: { min: 0, natural: 0 }, cross: { natural: 0 } },
+    ],
+  },
 });
+const scene: Scene = {
+  stage: { x: 0, y: 0, width: 320, height: 240 },
+  edges: [{ id: "top", side: "top", ring: 0, accepts: ["group"], items: ["file", "edit", "share"], cross: { min: 42, max: 42 }, pad: { start: 8, end: 8 } }],
+  items: { file: group("file", 3), edit: group("edit", 2), share: { ...group("share", 1), align: "end" } },
+  floats: [],
+  floatKinds: [],
+};
 
-// Where things go: each group's rect in the top bar; when the bar runs
-// out of room, trailing groups collapse first.
-const top = layoutHost(bar.top, "top", spec, size);
-console.log(top.overflow); // [ 'share' ]
+// Where things go: every item's rect and form; when the bar runs out
+// of room, the group used longest ago steps down first.
+const layout = solve(scene);
+console.log(layout.items.share?.formKind); // icons
 
-// Where "edit" may land: insertion lines and empty zones, the targets
-// @n-uf/motion/drag takes. Its own place is home, never a target.
-const { targets } = hostTargets({
-  group: "edit",
-  arrangement: bar,
-  host: "top",
-  origin: { x: 0, y: 0 },
-  spec,
-  size,
-});
-console.log(targets.map((t) => `${t.id} p${t.priority}`));
-// g:top:start:0 p2, g:top:center:0 p1, g:top:end:0 p2, g:top:end:1 p2
+// Where "edit" may land: every gap, each with the layout a release
+// there makes, the targets @n-uf/motion/drag takes. Its own place is home.
+console.log(targets(scene, "edit").map((t) => `${t.id} p${t.priority}`));
+// gap:top:start:1 p2, gap:top:start:0 p2, gap:top:end:0 p2, gap:top:end:1 p2, home:edit p1
