@@ -191,6 +191,12 @@ describe("an anchor with an offset", () => {
     expect(read({ at: "nowhere", dy: 4 }).dropped).toEqual(["float:g1:anchor"]);
     expect(read("nowhere").dropped).toEqual(["float:g1:anchor"]);
     expect(read("content-left").scene.floats[0]!.anchor).toBe("content-left");
+    // null and an array are no anchor: dropped and listed, the float kept at its rect.
+    for (const bad of [null, ["content-top", 4], [], 12]) {
+      const r = read(bad);
+      expect(r.scene.floats[0]).toEqual({ id: "g1", rect: { x: 10, y: 10, width: 200, height: 28 } });
+      expect(r.dropped).toEqual(["float:g1:anchor"]);
+    }
   });
 });
 
