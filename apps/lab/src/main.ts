@@ -1,35 +1,49 @@
 /**
  * The motion lab: a small tiling stage whose windows move by the window
  * motion rules (settle, hold, reveal). Every frame of every move is sampled
- * and checked with @n-uf/motion/testing.
+ * and checked with @n-uf/motion/testing. The tiling is @n-uf/placement/tiling;
+ * a drag goes through the lab's drag session (shared/session) and a drag
+ * intent over the tiling's targets.
  *
  * `window.__motionLab.runAll()` runs the scripted scenarios and returns which
  * rules failed where (the headless try uses it).
  */
 import { createFrameLoop, createSettle, popIn, reveal, SETTLE_TEMPO, type FrameInfo, type Rect, type Settle } from "@n-uf/motion";
 import { createBrowserClock } from "@n-uf/motion/browser";
+import { createDragIntent, type DragIntent } from "@n-uf/motion/drag";
 import { drawBox, layOutBox } from "@n-uf/motion/layout";
 import type { HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
+import type { Point } from "@n-uf/placement";
+import {
+  columns,
+  dropOnPane,
+  grid,
+  layoutSplit,
+  masterStack,
+  orderTargets,
+  paneRegion,
+  paneTargets,
+  panesOf,
+  removePane,
+  splitFromOrder,
+  splitPane,
+  swapPanes,
+  type OrderLayout,
+  type OrderTarget,
+  type PaneRegion,
+  type PaneTarget,
+  type Split,
+} from "@n-uf/placement/tiling";
 import { motionRows, renderChecks, renderTrace, type Row, type Segment } from "./shared/checks";
 import { measureFrame, onTopAt as onTopIn } from "./shared/frame";
 import { inside, nextFrame, overlap, same, wait } from "./shared/geometry";
 import { passes, type ScenarioFilter } from "./shared/hooks";
-import { cancelPress, trackPress } from "./shared/press";
-import {
-  PANE_SIDES,
-  columns,
-  grid,
-  layoutSplit,
-  masterStack,
-  panesOf as leafIds,
-  removePane as removeLeaf,
-  splitFromOrder as treeFromOrder,
-  splitPane,
-  swapPanes as swapLeaves,
-  type Split,
-} from "@n-uf/placement/tiling";
+import { createDragSession } from "./shared/session";
 
 type Tree = Split<number>;
+/** A drop target from @n-uf/placement/tiling: a pane of the split tree, or an index of an order layout. */
+type TileTarget = PaneTarget<number> | OrderTarget<number>;
+const isPane = (t: TileTarget): t is PaneTarget<number> => "pane" in t;
 
 type Tempo = keyof typeof SETTLE_TEMPO;
 
@@ -77,9 +91,16 @@ let expected: Rect | null = null;
 interface Drop {
   readonly key: string;
   readonly slot: Rect;
-  readonly layout: Map<number, Rect>;
+  readonly layout: ReadonlyMap<number, Rect>;
+  /** In dwindle: the pane it drops on, and the drop region of that pane. */
+  readonly pane?: number;
+  readonly region?: PaneRegion;
   commit(): void;
 }
+/** The drag intent of the drag in progress (@n-uf/motion/drag): what the indicator shows and what a release lands on. */
+let intent: DragIntent<TileTarget> | null = null;
+/** Unscaled ms for the intent (slow motion slows the windows, not the pointer). */
+let aimTime = 0;
 /** Where the lifted window would land now. */
 let drop: Drop | null = null;
 /** Where the pointer is, in stage units, while dragging. */
@@ -94,24 +115,23 @@ let liftSize = { width: 0, height: 0 };
  */
 type DropMode = "indicator" | "snap";
 let dropMode: DropMode = "indicator";
-/** Indicator mode only, opt-in: the others make room at the slot the indicator marks (live reorder). */
+/** Indicator mode only, opt-in: the others make room at the slot the indicator marks, once the intent says so. */
 let indicatorMakesRoom = false;
-/** This drag has laid the others out around the marked slot at least once. */
-let roomShown = false;
+/** Indicator mode: the drop the others make room for now (its key), or null. */
+let roomFor: string | null = null;
 
 /** Where the lifted window is previewed in the layout (the others make room there), or null. */
 function roomAt(): Drop | null {
   if (!lifted) return null;
   if (dropMode === "snap") return snapped;
-  return indicatorMakesRoom ? drop : null;
+  return roomFor !== null && drop?.key === roomFor ? drop : null;
 }
 /** In snap mode: the drop the window is snapped into, or null while it follows the pointer. */
 let snapped: Drop | null = null;
 /** The focused window: a new window splits it (dwindle). Set by a click, an open or a drop. */
 let focusId: number | null = null;
-/** The layout before the lift, and whether the pointer has left the lifted window's place since. */
-let home: { tree: Tree | null; order: number[]; maxId: number | null; rect: Rect; layout: LayoutKind } | null = null;
-let leftHome = false;
+/** The layout before the lift: a release with no target, or Escape, puts it back. */
+let home: { tree: Tree | null; order: number[]; maxId: number | null; layout: LayoutKind } | null = null;
 /** How far inside a slot the pointer must be to snap into it (it stays snapped until the pointer leaves the slot). */
 const SNAP_IN = 24;
 /** The window kept above all others: the one being dragged, and after the drop until it has settled. */
@@ -144,14 +164,15 @@ const omega = (): number => SETTLE_TEMPO[tempo];
 type LayoutKind = "master" | "dwindle" | "columns" | "grid";
 let layoutKind: LayoutKind = "master";
 
-/** The order layouts (master, columns, grid): a list of ids in, a rect per id out. */
+/** The order layout of the current kind (master, columns, grid), from @n-uf/placement/tiling. */
+const arrange = (): OrderLayout => (layoutKind === "columns" ? columns : layoutKind === "grid" ? grid : masterStack);
+
+/** The order layouts: a list of ids in, a rect per id out. */
 function layout(ids: readonly number[]): Map<number, Rect> {
-  if (layoutKind === "columns") return columns(ids, FULL_AREA(), { gap: GAP });
-  if (layoutKind === "grid") return grid(ids, FULL_AREA(), { gap: GAP });
-  return masterStack(ids, FULL_AREA(), { gap: GAP });
+  return arrange()(ids, FULL_AREA(), { gap: GAP });
 }
 
-/** Dwindle's split tree (@n-uf/placement/tiling); a drop splits the window under the pointer, on the pointer's side. */
+/** Dwindle's split tree (@n-uf/placement/tiling); a drop splits the window under the pointer on a side, or swaps. */
 let tree: Tree | null = null;
 
 const layoutTree = (node: Tree | null): Map<number, Rect> => layoutSplit(node, FULL_AREA(), { gap: GAP });
@@ -161,31 +182,35 @@ function baseLayout(): Map<number, Rect> {
   return layoutKind === "dwindle" ? layoutTree(tree) : layout(order);
 }
 
-/** Every place the lifted window `id` could land (the tree or order without it). */
-function drops(id: number): Drop[] {
-  if (layoutKind === "dwindle") {
-    if (!tree) {
-      const t: Tree = { pane: id };
-      return [{ key: "root", slot: FULL_AREA(), layout: layoutTree(t), commit: () => setTree(t) }];
-    }
-    return leafIds(tree).flatMap((target) =>
-      PANE_SIDES.map((side) => {
-        const t = splitPane(tree, target, id, side);
-        const map = layoutTree(t);
-        return { key: `${target}:${side}`, slot: map.get(id)!, layout: map, commit: () => setTree(t) };
-      }),
-    );
-  }
-  return Array.from({ length: order.length + 1 }, (_, i) => {
-    const ids = [...order.slice(0, i), id, ...order.slice(i)];
-    const map = layout(ids);
-    return { key: String(i), slot: map.get(id)!, layout: map, commit: () => order.splice(i, 0, id) };
-  });
+/** The drop targets for the lifted window `id` (the tree or the order without it): a pane each, or an index each. */
+function targetsFor(id: number): TileTarget[] {
+  if (layoutKind === "dwindle") return paneTargets(layoutTree(tree));
+  return orderTargets(arrange(), order, id, FULL_AREA(), { gap: GAP });
+}
+
+/** A pane target's place for the drag intent: the pane and the drop region under the pointer (held past its boundary). */
+const placeOf = (t: TileTarget, p: Point, previous: string | null): string =>
+  isPane(t) ? `${t.id}:${paneRegion(t.hit, p, (previous?.split(":")[2] as PaneRegion | undefined) ?? null)}` : t.id;
+
+/** What a release on `t` at `at` makes: an insertion at its index, or in dwindle a drop on the pane's region. */
+function dropOf(t: TileTarget, id: number, at: Point): Drop {
+  if (!isPane(t)) return { key: t.id, slot: t.slot!, layout: t.layout, commit: () => order.splice(t.index, 0, id) };
+  const region = paneRegion(t.hit, at, drop?.pane === t.pane ? (drop.region ?? null) : null);
+  const next = dropOnPane(tree, id, t.pane, region);
+  const map = layoutTree(next);
+  return { key: `${t.id}:${region}`, slot: map.get(id)!, layout: map, pane: t.pane, region, commit: () => setTree(next) };
+}
+
+/** No target (an empty tree, or a layout switched mid-drag): the window joins the end. */
+function dropAtEnd(id: number): Drop {
+  if (layoutKind !== "dwindle") return { key: "end", slot: FULL_AREA(), layout: new Map(), commit: () => order.push(id) };
+  const next = splitPane(tree, panesOf(tree).at(-1) ?? null, id);
+  return { key: "end", slot: FULL_AREA(), layout: new Map(), commit: () => setTree(next) };
 }
 
 function setTree(t: Tree | null): void {
   tree = t;
-  order = leafIds(t);
+  order = panesOf(t);
 }
 
 function FULL_AREA(): Rect {
@@ -284,15 +309,20 @@ function reset(count = 3): void {
   wins = [];
   order = [];
   maxId = null;
+  // A reset mid-drag ends the drag: no session mark, no press listeners, no intent.
+  if (lifted) session.ended();
   lifted = null;
+  intent = null;
   raised = null;
   snapped = null;
+  roomFor = null;
+  drop = null;
   hint.hidden = true;
   for (let i = 0; i < count; i++) {
     const w = makeWin(FULL);
     order.push(w.id);
   }
-  tree = treeFromOrder(order);
+  tree = splitFromOrder(order);
   focusId = order.at(-1) ?? null;
   const slots = baseLayout();
   for (const w of wins) {
@@ -332,7 +362,7 @@ function doOpen(): void {
   if (nextTree) setTree(nextTree);
   else {
     order.push(w.id);
-    tree = treeFromOrder(order);
+    tree = splitFromOrder(order);
   }
   focus(w.id);
   relayout();
@@ -347,10 +377,10 @@ function doClose(): void {
   ensureLoop();
   w.closing = true;
   w.pop.setTarget(0);
-  if (layoutKind === "dwindle") setTree(removeLeaf(tree, id));
+  if (layoutKind === "dwindle") setTree(removePane(tree, id));
   else {
     order = order.filter((x) => x !== id);
-    tree = treeFromOrder(order);
+    tree = splitFromOrder(order);
   }
   if (maxId === id) maxId = null;
   focus(order.at(-1) ?? null);
@@ -360,10 +390,10 @@ function doClose(): void {
 function doSwap(): void {
   if (lifted || order.length < 2) return;
   const [x, y] = [order[0]!, order[1]!];
-  if (layoutKind === "dwindle") setTree(swapLeaves(tree, x, y));
+  if (layoutKind === "dwindle") setTree(swapPanes(tree, x, y));
   else {
     [order[0], order[1]] = [y, x];
-    tree = treeFromOrder(order);
+    tree = splitFromOrder(order);
   }
   relayout();
 }
@@ -377,10 +407,17 @@ function doMaximize(): void {
 
 // --- drag --------------------------------------------------------------------
 
-function stagePoint(e: PointerEvent): { x: number; y: number } {
+function stagePoint(e: { clientX: number; clientY: number }): Point {
   const r = stage.getBoundingClientRect();
   return { x: ((e.clientX - r.left) * STAGE_W) / r.width, y: ((e.clientY - r.top) * STAGE_H) / r.height };
 }
+
+/**
+ * The lab's one drag session (shared/session): a title's press lifts past the lift distance, the stage carries
+ * `data-drag-session` while a window is dragged, Escape cancels, the click after the drop is the drag's. Frames are this
+ * page's own loop (`tick`), which feeds the drag intent.
+ */
+const session = createDragSession({ root: stage, point: stagePoint, frame: () => {} });
 
 function beginDrag(w: Win, px: number, py: number): void {
   if (w.closing || lifted) return;
@@ -389,20 +426,21 @@ function beginDrag(w: Win, px: number, py: number): void {
   grab = { x: px - d.x, y: py - d.y };
   liftSize = { width: d.width, height: d.height };
   snapped = null;
-  roomShown = false;
+  roomFor = null;
   lifted = w;
   raised = w;
   w.el.style.zIndex = Z_RAISED;
   w.el.classList.add("lifted");
-  // Home: the layout as it was, to put back on Escape or when the pointer never left the window's place.
-  home = { tree, order: [...order], maxId, rect: { ...d }, layout: layoutKind };
-  leftHome = false;
+  // Home: the layout as it was, to put back on Escape or on a release with no target (over its own place, say).
+  home = { tree, order: [...order], maxId, layout: layoutKind };
+  intent = createDragIntent<TileTarget>({ home: { ...d }, lift: { x: px, y: py }, placeOf });
+  session.started("window", performance.now());
   if (maxId === w.id) maxId = null;
   // Lifted out of the layout (out of the tree and the order both): the others close the gap.
-  if (layoutKind === "dwindle") setTree(removeLeaf(tree, w.id));
+  if (layoutKind === "dwindle") setTree(removePane(tree, w.id));
   else {
     order = order.filter((x) => x !== w.id);
-    tree = treeFromOrder(order);
+    tree = splitFromOrder(order);
   }
   drop = null;
   w.segment = null;
@@ -411,34 +449,30 @@ function beginDrag(w: Win, px: number, py: number): void {
   moveDrag(px, py);
 }
 
+/** The pointer moved during the drag: the held window follows it at once; the intent reads it on the next frame. */
 function moveDrag(px: number, py: number): void {
   if (!lifted) return;
   pointer = { x: px, y: py };
-  if (home && !inside(home.rect, px, py)) leftHome = true;
   expected = { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
-  // Where it would land: the slot under the pointer (else the nearest), over every place it could go
-  // (a split side of each window in dwindle, an index in the order elsewhere).
-  let best: Drop | null = null;
-  let bestDist = Infinity;
-  for (const d of drops(lifted.id)) {
-    const dx = px - (d.slot.x + d.slot.width / 2);
-    const dy = py - (d.slot.y + d.slot.height / 2);
-    const dist = (inside(d.slot, px, py) ? 0 : 1e6) + dx * dx + dy * dy;
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = d;
-    }
-  }
-  if (!best) return;
-  const previousDrop = drop?.key;
-  drop = best;
-  const slot = best.slot;
+  if (dropMode === "indicator") lifted.rect.hold(expected);
+}
+
+/**
+ * One frame of the drag: the drag intent (@n-uf/motion/drag) over the tiling targets says which target the indicator
+ * shows and when the others make room; a frame also counts when the pointer rests (a dwell).
+ */
+function aim(): void {
+  if (!lifted || !intent || !expected) return;
+  const { x: px, y: py } = pointer;
+  const f = intent.update(pointer, aimTime, targetsFor(lifted.id));
+  drop = f.shown ? dropOf(f.shown, lifted.id, pointer) : null;
 
   if (dropMode === "snap") {
-    // Snap in once the pointer is well inside a slot; stay until it leaves that slot.
+    // Snap in once the pointer is well inside the shown slot; stay until it leaves that slot.
     const was = snapped?.key;
     if (snapped !== null && !inside(snapped.slot, px, py)) snapped = null;
-    if (snapped === null && inside(slot, px, py, Math.min(SNAP_IN, Math.min(slot.width, slot.height) / 4))) snapped = best;
+    const slot = drop?.slot;
+    if (snapped === null && drop && slot && inside(slot, px, py, Math.min(SNAP_IN, Math.min(slot.width, slot.height) / 4))) snapped = drop;
     if (snapped !== null) drop = snapped;
     hint.hidden = true;
     // The others make room in the slot it snaps into, and close the gap again when it leaves.
@@ -455,32 +489,37 @@ function moveDrag(px: number, py: number): void {
     return;
   }
 
-  lifted.rect.hold(expected);
-  // Opt-in live reorder: the others make room at the marked slot as it changes.
-  if (indicatorMakesRoom && (drop.key !== previousDrop || !roomShown)) {
-    roomShown = true;
+  // Opt-in live reorder: the others make room at the shown slot once the intent says the aim has held.
+  const room = indicatorMakesRoom && f.room && drop ? drop.key : null;
+  if (room !== roomFor) {
+    roomFor = room;
     relayout();
   }
-  hint.hidden = false;
-  Object.assign(hint.style, { left: `${slot.x}px`, top: `${slot.y}px`, width: `${slot.width}px`, height: `${slot.height}px` });
+  hint.hidden = drop === null;
+  if (drop) Object.assign(hint.style, { left: `${drop.slot.x}px`, top: `${drop.slot.y}px`, width: `${drop.slot.width}px`, height: `${drop.slot.height}px` });
 }
 
 /**
- * Drop the lifted window. `cancel` (Escape), or a drag whose pointer never left the window's own place,
- * puts the whole layout back as it was before the lift; otherwise it lands where it was going.
+ * Drop the lifted window where the drag intent says a release lands (in snap mode, the slot it is snapped into).
+ * `cancel` (Escape), or a release with no target (over the window's own place), puts the whole layout back as it was
+ * before the lift.
  */
 function endDrag(cancel = false): void {
   const w = lifted;
   if (!w) return;
-  const backHome = home && (cancel || !leftHome) ? home : null;
+  const target = !cancel && intent ? intent.release(pointer, targetsFor(w.id)) : null;
+  const landing = cancel ? null : dropMode === "snap" && snapped ? snapped : target ? dropOf(target, w.id, pointer) : null;
+  const backHome = home && landing === null ? home : null;
+  intent = null;
+  session.ended();
   lifted = null;
   expected = null;
   snapped = null;
-  roomShown = false;
+  roomFor = null;
   hint.hidden = true;
   w.el.classList.remove("lifted");
-  // A cancel goes home whatever happened meanwhile, the layout kind included; a release that never left
-  // home goes back only if the layout kind is still the one it was lifted in.
+  // A cancel goes home whatever happened meanwhile, the layout kind included; a release with no target goes back
+  // only if the layout kind is still the one it was lifted in.
   if (backHome && cancel && layoutKind !== backHome.layout) {
     layoutKind = backHome.layout;
     (document.querySelector(`input[name=layout][value=${layoutKind}]`) as HTMLInputElement).checked = true;
@@ -490,38 +529,42 @@ function endDrag(cancel = false): void {
     order = [...backHome.order];
     maxId = backHome.maxId;
   } else {
-    // Land where it was going (no move at all: back to the end, or the root of an empty tree).
-    (drop ?? drops(w.id).at(-1)!).commit();
+    // Land where it was going (no target in a switched layout: the end, or the root of an empty tree).
+    (landing ?? dropAtEnd(w.id)).commit();
   }
   drop = null;
   home = null;
   // Keep the two in step whichever the drop committed to.
-  if (layoutKind === "dwindle") order = leafIds(tree);
-  else tree = treeFromOrder(order);
+  if (layoutKind === "dwindle") order = panesOf(tree);
+  else tree = splitFromOrder(order);
   focus(w.id);
   newRun(w);
   // It stays raised (above every other window) until its drop settle ends.
   relayout();
 }
 
-/** A press on a title bar: a click until it passes the threshold (shared/press), then a drag of `w`. */
+/**
+ * A press on a title bar, through the drag session: a click until it passes the lift distance, then a drag of `w`.
+ * Escape cancels it: everything goes back to where it was before the window was lifted.
+ */
 function onPointerDown(w: Win, e: PointerEvent): void {
-  trackPress(e, {
-    point: stagePoint,
-    lifted: () => lifted === w,
-    begin: (start) => beginDrag(w, start.x, start.y),
-    move: (q) => moveDrag(q.x, q.y),
-    end: (cancel) => endDrag(cancel),
+  if (e.button !== 0 || w.closing) return;
+  session.press(e, `window:${w.id}`, {
+    lift: (start, p) => {
+      beginDrag(w, start.x, start.y);
+      moveDrag(p.x, p.y);
+      return lifted === w;
+    },
+    move: (p) => moveDrag(p.x, p.y),
+    release: (p, _keys, cancel) => {
+      moveDrag(p.x, p.y);
+      endDrag(cancel);
+    },
+    escape: () => endDrag(true),
+    keys: () => {},
+    ended: () => {},
   });
 }
-
-// Escape cancels a drag: everything goes back to where it was before the window was lifted.
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && lifted) {
-    cancelPress();
-    endDrag(true);
-  }
-});
 
 // --- the frame ---------------------------------------------------------------
 
@@ -552,6 +595,8 @@ function measure(w: Win): { scale: ScaleSample; frame: Rect } {
 function tick(frame: FrameInfo): boolean {
   const dt = frame.delta * speed;
   time += dt;
+  aimTime += frame.delta;
+  aim();
   let moving = lifted !== null;
   for (const w of [...wins]) {
     if (w.rect.step(dt)) moving = true;
@@ -638,8 +683,9 @@ async function scriptedDrag(): Promise<void> {
     const e = f < 0.5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
     moveDrag(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
   }
-  await nextFrame();
-  await nextFrame();
+  // Rest there as a person aims: the drag intent shows the slot after a dwell, and in snap mode the window snaps in
+  // and the others make room (and settle) before the release.
+  await wait(dropMode === "snap" ? 700 : 250);
   endDrag();
 }
 
@@ -747,10 +793,11 @@ function setLayout(k: LayoutKind): void {
   // The lifted window is in neither the order nor the tree, so both describe the others; rebuild the
   // one the new layout reads from the other.
   // (Only when they disagree: a custom split tree survives a round trip through another layout.)
-  if (k === "dwindle" && leafIds(tree).join() !== order.join()) tree = treeFromOrder(order);
+  if (k === "dwindle" && panesOf(tree).join() !== order.join()) tree = splitFromOrder(order);
   if (lifted) {
     drop = null;
     snapped = null;
+    roomFor = null;
     relayout();
     moveDrag(pointer.x, pointer.y);
   } else relayout();
