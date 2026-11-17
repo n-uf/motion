@@ -1023,13 +1023,16 @@ its first form's natural size along that orient (**`floatSizeOf(item, orient?)`*
 panel's card) keeps `DEFAULT_FLOAT_SIZE` (280 × 360), so panels float as before. Give a float `orient: "column"` (or the
 item `floatOrient: "column"`) to keep a row-first group vertical.
 
-**Anchored floats keep clear of the floats before them.** An anchored float (Float from a menu: `moveTo(scene, id,
-{ kind: "float" })` with no rect, or any float with `anchor`) is also kept clear of every float laid before it in
-`scene.floats`, by the same nearest-clear-place search that keeps it clear of docked items: earlier floats win, and a
-second group sent to Float lies beside the first instead of on it. Where no place is clear of both, it lies where it
-would with no float before it (it may cover a float, never a docked item it could stay clear of). A float with a rect
-of its own (a drop, a resize) keeps that rect as before, over another float or not. Scenes with no anchored float, or
-whose anchored floats cover no float before them, lay out exactly as before.
+**Anchored floats keep clear of the other floats.** An anchored float (Float from a menu: `moveTo(scene, id,
+{ kind: "float" })` with no rect, or any float with `anchor`) is also kept clear of every float with a rect of its own
+and of the anchored floats with smaller ids, by the same nearest-clear-place search that keeps it clear of docked
+items, so a second group sent to Float lies beside the first instead of on it. Which float wins never depends on the
+stacking order, so `raise` reshapes nothing: a float with its own rect always wins, and among anchored floats the
+smaller id does (a group floated later with a smaller id takes the corner, and the one there moves beside it). Where no
+place is clear of them all, it lies where it would with no other float (it may cover a float, never a docked item it
+could stay clear of). A float with a rect of its own (a drop, a resize) keeps that rect as before, over another float
+or not. Scenes with no anchored float, or whose anchored floats cover no float that wins over them, lay out exactly as
+before.
 
 **An anchor with an offset.** `anchor` also takes `{ at, dx?, dy? }`: flush with `at`'s side or corner of the content,
 then `dx` px to the right and `dy` px down (negative: left, up; default 0), still following the content as the window

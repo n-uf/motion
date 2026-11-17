@@ -12,13 +12,14 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   offset field as `float:<id>:anchor:dx` (or `:dy`, or the field's name). New types `FloatAnchorAt` and
   `FloatAnchorOffset`, and `FLOAT_ANCHORS` lists the names. The string form is unchanged.
 
-- `./scene`, fixed: **an anchored float keeps clear of the floats before it.** Floats were kept clear of docked items,
+- `./scene`, fixed: **an anchored float keeps clear of the other floats.** Floats were kept clear of docked items,
   bars and chrome only, never of each other, so Float from a menu (`moveTo(scene, id, { kind: "float" })` with no rect,
   anchored to the content's top-right) laid a group exactly on a float already at that corner, and a second group
-  exactly on the first. An anchored float is now also kept clear of every float before it in `scene.floats`, by the
-  same nearest-clear-place search (`fitFloat`): earlier floats win. With no place clear of both, it lies where it did
-  before. A float with a rect of its own keeps it. Scenes with no anchored float, or whose anchored floats covered no
-  float before them, lay out exactly as before. Row C14b's float now lies beside the bench's float, at x 240.
+  exactly on the first. An anchored float is now also kept clear of every float with a rect of its own and of the
+  anchored floats with smaller ids, by the same nearest-clear-place search (`fitFloat`). The stacking order plays no
+  part, so `raise` still reshapes nothing. With no place clear of them all, it lies where it did before. A float with a
+  rect of its own keeps it. Scenes with no anchored float, or whose anchored floats covered no float that wins over
+  them, lay out exactly as before. Row C14b's float now lies beside the bench's float, at x 240.
 
 - The older entries `./dock`, `./desk`, `./panels`, `./toolbar` and `./targets` still ship: superseded by `./scene` and
   `./tiling`, removed in the next breaking release.
