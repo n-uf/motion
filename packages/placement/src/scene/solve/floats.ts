@@ -8,14 +8,14 @@
 import { fitFloat, type FloatFit } from "../../float-fit";
 import { EPS, rect, type Rect, type Size } from "../../geometry";
 import type { StackForm } from "../../stack";
-import { anchorName, axisOf, chromeFor, floatOrientOf, floatShape, foldedByOf, formsOf } from "../helpers";
+import { anchorName, axisOf, chromeFor, floatOrientOf, floatShape, foldedByOf, formsOf, isSince } from "../helpers";
 import type { FloatAnchor, FloatAnchorAt, Orient, SceneFloat, SceneItem } from "../model";
 import { shapeOf, type Draft } from "./draft";
 import type { Inset } from "./insets";
 import { finite, px } from "./order";
 
 /** When a float was floated, for the order among anchored floats: its `since`, a missing or unusable one 0. */
-const sinceOf = (f: SceneFloat): number => (Number.isFinite(f.since) && f.since! >= 0 ? f.since! : 0);
+const sinceOf = (f: SceneFloat): number => (isSince(f.since) ? f.since : 0);
 
 /** A float's rect flush with `content`'s side or corner, moved by the anchor's offset (`dx` right, `dy` down). */
 function anchored(content: Rect, w: number, h: number, given: FloatAnchorAt): Rect {
