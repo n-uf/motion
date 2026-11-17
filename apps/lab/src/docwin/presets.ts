@@ -9,6 +9,7 @@ import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, railModeOf, reserved
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
 import type { DragFeel, KindFeel } from "./feel";
 import { KIT_PRESETS } from "./kit-presets";
+import { INTENT_PRESETS } from "./intent-presets";
 import { FADE_DT_CAP, FADE_MS, type DocwinScene } from "./scene";
 import { readDocwin, storeDocwin } from "./store";
 
@@ -25,6 +26,8 @@ export interface Preset {
   readonly lacks?: string;
   /** Not built yet: while it fails it shows violet "not built", and `checkAll()` reports `pending`, not `pass: false`. */
   readonly pending?: boolean;
+  /** The group it is listed under: the docking cases (default), or the drag intent's timing (`"intent"`). */
+  readonly group?: "intent";
   /** Set the window up (the scene, size, freeze). */
   setup(c: DocwinScene): void;
   /** Check it on the live scene; the page sets the preset up again afterwards. */
@@ -53,14 +56,8 @@ const say = (r: Rect): string => `${r0(r.x)},${r0(r.y)} ${r0(r.width)}×${r0(r.h
 /** The default window, changed by `edit`, at `size`. */
 const sceneWith = (edit: (s: Scene) => Scene, size = DEFAULT_SIZE): Scene => edit(defaultScene(size));
 
-/** The window px of the element's center. */
-function pointOf(c: DocwinScene, el: Element | null): Point | null {
-  if (!el) return null;
-  const w = c.win.getBoundingClientRect();
-  const r = el.getBoundingClientRect();
-  return { x: r.left - w.left + r.width / 2, y: r.top - w.top + r.height / 2 };
-}
-const gripOf = (c: DocwinScene, id: ItemId): Point | null => pointOf(c, c.win.querySelector(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`));
+/** The window px of the grip's center. */
+const gripOf = (c: DocwinScene, id: ItemId): Point | null => c.gripOf(id);
 
 /**
  * A drag driven by hand on the page's own session (the same intent, targets and commit a mouse uses): press the grip,
@@ -1636,6 +1633,7 @@ export const PRESETS: readonly Preset[] = [
   },
   ...RAIL_DOCK_PRESETS(),
   ...KIT_PRESETS(),
+  ...INTENT_PRESETS(),
 ];
 
 // --- rail titles -------------------------------------------------------------------------------------------------------

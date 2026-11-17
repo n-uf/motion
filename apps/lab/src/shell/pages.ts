@@ -22,11 +22,12 @@ const tiling = {
   load: () => import("../main"),
   module: "tiling",
 };
-const desk = {
-  markup: raw(() => import("../pages/desk.html?raw")),
-  load: () => import("../desk"),
-  module: "desk",
-  reset: "[data-act=reset]",
+/** The Document window: the lab's one Scene host. The drag intent's page opens it on the drag intent's cases. */
+const docwin = {
+  markup: raw(() => import("../pages/docwin.html?raw")),
+  load: () => Promise.all([import("../docwin/docwin.css"), import("../docwin/docwin")]),
+  module: "docwin",
+  reset: "#dw-reset",
   wide: true,
 };
 const kitsPanels = {
@@ -81,9 +82,8 @@ const stackToolbar = {
   wide: true,
 };
 
-const TOOLBAR = "toolbar groups";
-/** The desk module's scenarios the Motion page "Drag intent and previews" shows: the drag model and the direct drag's snap. */
-const INTENT = (n: string): boolean => n.includes("drag model") || n.includes("snap");
+/** The Document window's runs the Motion page "Drag intent and previews" shows: the drag intent's cases. */
+const INTENT = (n: string): boolean => n.startsWith("intent-");
 
 /**
  * The integration cases, in order: patterns an app meets when it brings its own drag onto the pair. Case 1 is its own
@@ -141,10 +141,10 @@ export const PAGES: readonly PageDef[] = [
     group: "motion",
     nav: "Drag intent and previews",
     title: "Drag intent and previews",
-    line: "The drop indicator shows only while you aim, never while you travel across targets; the real item follows the pointer, and the three drop preview modes land the same.",
+    line: "The drop indicator shows only while you aim, never while you travel across targets; the held item follows the pointer, and the three drop preview modes land the same.",
     about:
-      "<code>@n-uf/motion/drag</code>'s intent: the indicator shows once the pointer slows down or holds still, waits a 150 ms switch delay before it switches, and a release lands where it showed. Drag a panel by its title bar; the drag-model scenarios travel across the targets, wobble and flick. <code>@n-uf/motion/layout</code>'s direct drag: no copy, the item itself under the pointer, gliding into a slot (snap) and back out, and landing from where it was let go. Pick the drop preview mode (indicator only, make room, snap to slot) in the Drop preview switch.",
-    ...desk,
+      "<code>@n-uf/motion/drag</code>'s intent, on the Document window: the indicator shows once the pointer slows down or holds still, waits a 150 ms switch delay before it switches, and a release lands where it showed. Drag a panel by its header or a toolbar by its grip; the cases wobble on a border, flick, cross a border slowly and let go inside a slot's band. With the snap preview the held item settles into its slot once the room is made, and back onto the pointer when it flies off. Pick the drop preview (indicator only, make room, snap to slot) in the Window drawer.",
+    ...docwin,
     view: INTENT,
   },
   {
@@ -169,11 +169,7 @@ export const PAGES: readonly PageDef[] = [
     line: "A document viewer's window: bars, side columns, scrolling pages and floats, as one Scene (the window as one data model). Each preset sets up a docking case and checks its rules.",
     about:
       "The whole window is one <code>@n-uf/placement/scene</code> Scene: the title bar with its fixed title and controls, the top and bottom bars, the left and right columns, each edge with the kinds it accepts, the floats and the kinds that may float. Every rect drawn comes from <code>solve</code>; a drag runs <code>@n-uf/motion/drag</code>'s intent over <code>targets(scene, dragged)</code>, draws the dashed slot and marker from the shown target only, and the drop commits that target's <code>after(...).scene</code>. While a drag is on, the root carries <code>data-drag-session</code> and one CSS rule turns hover, resize handles and selection off. Drag a panel by its header, a group by its grip. The Window drawer sets the size, freeze, counts, reload and reset. Headless: <code>window.__docwin</code>.",
-    markup: raw(() => import("../pages/docwin.html?raw")),
-    load: () => Promise.all([import("../docwin/docwin.css"), import("../docwin/docwin")]),
-    module: "docwin",
-    reset: "#dw-reset",
-    wide: true,
+    ...docwin,
   },
   {
     id: "checks",
@@ -185,29 +181,6 @@ export const PAGES: readonly PageDef[] = [
     wide: true,
   },
   // --- Archive: on hold, or moving into the Edge stack page; each still runs on the Checks page. -------------------
-  {
-    id: "placement/desk",
-    group: "archive",
-    nav: "Desk layouts",
-    title: "Desk layouts",
-    line: "Nine desk layouts built from docks, rails, floating panels and documents, and what gives way first.",
-    about:
-      "Nine ways to lay out a workspace of a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and open documents, from <code>@n-uf/placement/dock</code>. Pick one with the Desk layout switch; change the stage's size to see what gives way when width or height runs out. Drag a panel by its title bar (or its tab), and in the tiling tree and the scrolling columns a document too: each layout offers its own drop targets (<code>@n-uf/placement/targets</code>). From the keyboard: focus a title bar, Space picks it up, the arrow keys step through the targets, Enter drops, Escape cancels. Archived: the dock models are on hold.",
-    ...desk,
-    view: (n) => !n.startsWith(TOOLBAR),
-  },
-  {
-    id: "placement/toolbar",
-    group: "archive",
-    nav: "Toolbar groups",
-    title: "Toolbar groups",
-    line: "Groups in five toolbar areas and three zones, dragged by their grips, collapsing behind » when room runs out.",
-    about:
-      "<code>@n-uf/placement/toolbar</code> lays the groups out; its targets and <code>@n-uf/motion</code>'s intent and direct drag move them. The windows' cases switch the arrangement; drag a group by its grip, or Tab to it and use the arrows. Archived: its unique parts become Edge stack cases.",
-    ...desk,
-    view: TOOLBAR,
-    first: "#toolbar-cases",
-  },
   {
     id: "panels",
     group: "archive",
@@ -245,4 +218,13 @@ export const FIXTURES: readonly PageDef[] = [
   { id: "stack/toolbar", group: "stack", title: "Edge stack fixture · toolbar", line: "A toolbar of four groups and a panel.", ...stackToolbar },
 ];
 
-export const pageById = (id: string): PageDef | undefined => PAGES.find((p) => p.id === id) ?? FIXTURES.find((p) => p.id === id);
+/**
+ * The routes of pages the Document window replaced, each opening it: links from the site and older bookmarks keep
+ * working. Their models live on only as conformance rows and the Document window's cases.
+ */
+const ALIASES: Readonly<Record<string, string>> = {
+  "placement/desk": "docwin",
+  "placement/toolbar": "docwin",
+};
+
+export const pageById = (id: string): PageDef | undefined => PAGES.find((p) => p.id === (ALIASES[id] ?? id)) ?? FIXTURES.find((p) => p.id === id);

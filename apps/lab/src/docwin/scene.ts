@@ -15,7 +15,8 @@
  * - the store is `storeScene` / `readScene` (./store).
  */
 import { clamp, contains, type Point, type Rect } from "@n-uf/placement";
-import { createDragIntent, previewPlan, type DragIntent, type DragKeys } from "@n-uf/motion/drag";
+import { createSettle, SETTLE_TEMPO, type Settle } from "@n-uf/motion";
+import { createDragIntent, previewPlan, type DragIntent, type DragKeys, type DragPreview } from "@n-uf/motion/drag";
 import { anchoredMorph, type AnchoredMorph } from "@n-uf/motion/layout";
 import {
   close as closeItem,
@@ -126,7 +127,16 @@ interface Held {
   switches: number;
   last: number;
   readonly intent: DragIntent<SceneTarget>;
-  readonly targets: readonly SceneTarget[];
+  /** Its drop targets: asked again when the window changes under the drag (a resize). */
+  targets: readonly SceneTarget[];
+  /** Where the held frame is drawn: on the pointer, or settling into the snapped slot and back (`"snap"` preview). */
+  readonly drawn: Settle<Rect>;
+  /** The target the held frame sits in (snap preview), or null. */
+  snappedTo: string | null;
+  /** The held frame is settling into a slot or back onto the pointer (not held on it 1:1). */
+  gliding: boolean;
+  /** This drag, frame by frame (the checks read it): the shown target's changes, the snaps, every frame. */
+  readonly trace: DragTrace;
   /** Where a drop is refused (`refusals`): over one, "No room here" at the pointer and no slot; a release goes home. */
   readonly refusals: readonly SceneRefusal[];
   readonly focus: Element | null;
@@ -141,6 +151,17 @@ interface Held {
   altFromLift: boolean;
   /** The rail target last said armed in the live region (its id), or null. */
   armedSaid: string | null;
+}
+
+/**
+ * One drag, frame by frame: each change of the target the intent shows (`log`), each change of the slot the held item
+ * sits in under the snap preview (`snaps`; `flying`: it left because the pointer flew off), and every frame's pointer,
+ * speed and drawn rect of the held item (`frames`), at the session's times.
+ */
+export interface DragTrace {
+  readonly log: { readonly id: string | null; readonly t: number }[];
+  readonly snaps: { readonly id: string | null; readonly t: number; readonly flying: boolean }[];
+  readonly frames: { readonly t: number; readonly x: number; readonly y: number; readonly speed: number; readonly item: Rect }[];
 }
 
 export interface SceneOptions {
@@ -179,6 +200,13 @@ export function createScene(o: SceneOptions) {
   let counts: Counts = { ...DEFAULT_COUNTS };
   let drag: Held | null = null;
   let lastDrop: LastDrop | null = null;
+  /** The last drag's trace (the drag in progress, or the one before). */
+  let lastTrace: DragTrace | null = null;
+  /**
+   * The drop preview (`@n-uf/motion/drag`'s `previewPlan`): the dashed slot only (`"indicator"`), the slot and the room
+   * made for it (`"gap"`, the default), or the room with the item settling into its slot (`"snap"`).
+   */
+  let dropPreview: DragPreview = "gap";
   /** The press, the frames and the session mark: the lab's one wiring (../shared/session). */
   const session = createDragSession({ root, point: (e) => winPoint(e), frame: (now) => frame(now) });
   let pageKey = "";
@@ -399,7 +427,13 @@ export function createScene(o: SceneOptions) {
       previous = { ...layout, edges: Object.fromEntries(Object.entries(layout.edges).filter(([id]) => !drop.has(id))) };
     }
     layout = solve(scene, previous ? { previous } : {});
-    draw(scene, layout, undefined, !previous || layout.notes.some((n) => n.code === "content-changed"));
+    // During a drag (the window resized under it) the held item stays drawn by the drag, and its targets are asked again.
+    draw(scene, layout, drag?.id, !previous || layout.notes.some((n) => n.code === "content-changed"));
+    if (drag) {
+      drag.targets = targetsOf(drag.id);
+      // The room is drawn again from the new targets on the next frame.
+      drag.room = null;
+    }
     restingStrips();
     store();
     o.onChange?.();
@@ -575,13 +609,24 @@ export function createScene(o: SceneOptions) {
   /**
    * Draw the held copy for this frame: the frame at the morph's box, each form shown with its own anchor on the
    * pointer. The form heading in fades toward 1, the others toward 0, each from where it is (`FADE_MS` for the whole
-   * way); a form is dropped once it is all gone.
+   * way); a form is dropped once it is all gone. Under the snap preview the frame settles into `slot` (the shown
+   * target's) and, once the pointer leaves it, back onto the pointer; otherwise it is on the pointer 1:1.
    */
-  function drawHeld(d: Held, now: number): void {
+  function drawHeld(d: Held, now: number, slot: Rect | null, speed: number): void {
     const dt = Math.max(0, now - d.last);
     d.morph.step(dt);
     d.last = now;
-    place(d.el, d.morph.rectAt(d.pointer));
+    const onPointer = d.morph.rectAt(d.pointer);
+    // Into the slot, or out of it back to the pointer, on the settle; on the pointer, held 1:1.
+    if (slot) d.gliding = true;
+    if (d.gliding) {
+      d.drawn.setTarget(slot ?? onPointer);
+      d.drawn.step(dt);
+      if (!slot && d.drawn.settled) d.gliding = false;
+    } else d.drawn.hold(onPointer);
+    const item = d.drawn.value;
+    place(d.el, item);
+    d.trace.frames.push({ t: now, x: d.pointer.x, y: d.pointer.y, speed, item });
     const at = d.morph.anchor;
     const by = Math.min(dt, FADE_DT_CAP) / FADE_MS;
     d.current.opacity = Math.min(1, d.current.opacity + by);
@@ -654,6 +699,10 @@ export function createScene(o: SceneOptions) {
       last: now,
       intent: createDragIntent<SceneTarget>({ home, tuning: rowRules ? {} : tuningOf(feel, was.kind) }),
       targets,
+      drawn: createSettle<Rect>({ x: p.x - grab.x, y: p.y - grab.y, width: was.rect.width, height: was.rect.height }, { omega: SETTLE_TEMPO.default }),
+      snappedTo: null,
+      gliding: false,
+      trace: (lastTrace = { log: [], snaps: [], frames: [] }),
       refusals: refusalsOf(id),
       focus: document.activeElement,
       pointer: p,
@@ -723,7 +772,14 @@ export function createScene(o: SceneOptions) {
     const d = drag;
     if (!d) return;
     const f = d.intent.update(pickPoint(d), now, d.targets, d.keys);
-    const plan = previewPlan(f, "gap");
+    const plan = previewPlan(f, dropPreview);
+    // The trace: each change of the shown target, and of the slot the held item sits in (snap).
+    if ((f.shown?.id ?? null) !== (d.trace.log.at(-1)?.id ?? null)) d.trace.log.push({ id: f.shown?.id ?? null, t: now });
+    const snapTo = plan.snapItem && docks(f.shown) && f.shown!.slot ? f.shown! : null;
+    if ((snapTo?.id ?? null) !== d.snappedTo) {
+      d.snappedTo = snapTo?.id ?? null;
+      d.trace.snaps.push({ id: d.snappedTo, t: now, flying: !snapTo && !f.aiming });
+    }
     // The side rails' strips, the one dwelt on highlighted, the armed one grown; the armed state said in the live region.
     const armed = f.shown && f.shown.place.kind === "rail" ? f.shown : null;
     drawStrips(d.targets, f.arming?.id ?? null, armed);
@@ -736,14 +792,14 @@ export function createScene(o: SceneOptions) {
     const homing = f.atHome && d.docked && f.shown === null;
     // A toolbar group held over a target takes the form the drop there gives it (row, wrap, icons down a rail or along
     // a bar); off every target, the form it was lifted in. One switch per target change, the grip under the pointer.
-    const over = plan.showIndicator && docks(f.shown) && !homing ? f.shown : null;
+    const over = (plan.showIndicator || plan.snapItem) && docks(f.shown) && !homing ? f.shown : null;
     const follows = d.kind === "group" ? (over?.id ?? null) : null;
     if (follows !== d.formOf) {
       d.formOf = follows;
       const spec = over && follows ? formAt(d, over) : null;
       switchForm(d, spec ? heldForm(d.el, d.forms, d.id, d.kind, spec, d.fromGrip) : d.homeForm);
     }
-    drawHeld(d, now);
+    drawHeld(d, now, snapTo?.slot ?? null, d.intent.state.speed);
     if (room?.id !== d.room?.id || homing !== d.homing) {
       d.room = room;
       d.homing = homing;
@@ -795,6 +851,14 @@ export function createScene(o: SceneOptions) {
     if (d.shown) return d.shown.after(d.pointer, d.grab).layout;
     const { [d.id]: _held, ...items } = layout.items;
     return { ...layout, items, floats: layout.floats.filter((f) => f !== d.id) };
+  }
+
+  /** The center of `el`, in window px, or null. */
+  function pointOf(el: Element | null): Point | null {
+    if (!el) return null;
+    const w = win.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    return { x: r.left - w.left + r.width / 2, y: r.top - w.top + r.height / 2 };
   }
 
   /** A press on a grip: a float rises above the others (stacking only: no use, no reshape). */
@@ -1414,6 +1478,20 @@ export function createScene(o: SceneOptions) {
     preview,
     grip,
     stops: stopsOf,
+    pointOf,
+    /** The center of `id`'s grip, in window px, or null (no grip drawn). */
+    gripOf: (id: ItemId): Point | null => pointOf(win.querySelector(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`)),
+    /** The drop preview the next drag uses: indicator, gap (the default) or snap. */
+    get dropPreview(): DragPreview {
+      return dropPreview;
+    },
+    setDropPreview(mode: DragPreview): void {
+      dropPreview = mode;
+    },
+    /** The last drag's trace: what the intent showed, the snaps, every frame. */
+    get trace(): DragTrace | null {
+      return lastTrace;
+    },
     /** Commit a scene as a change (solved with the layout before), drawn and stored. */
     commit: (next: Scene): void => void commit(next),
     /**
