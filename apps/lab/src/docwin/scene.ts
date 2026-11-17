@@ -8,13 +8,14 @@
  *   target only (a gap's `slot` and `marker`, a float's `after(point, grab)` rect, home's own rect), the other items are
  *   drawn from the shown target's `after(...).layout` once the room opens (with no target shown: the committed layout, the
  *   held item's place left empty, nothing else moving), and the drop commits `after(...).scene` as is;
- * - the host contract: while a drag is on, the root carries `data-drag-session="<kind>"` and one base CSS rule turns
- *   off hover, resize handles and selection under it; the content keeps its fit until the drop; the click after a
- *   drag's pointer-up is swallowed and focus goes back to where it was before the press;
+ * - the host contract, through the lab's one session wiring (../shared/session): while a drag is on, the root carries
+ *   `data-drag-session="<kind>"` and one base CSS rule turns off hover, resize handles and selection under it; the
+ *   content keeps its fit until the drop; the click after a drag's pointer-up is swallowed and focus goes back to where
+ *   it was before the press;
  * - the store is `storeScene` / `readScene` (./store).
  */
 import { clamp, contains, type Point, type Rect } from "@n-uf/placement";
-import { createDragIntent, createGripPress, previewPlan, type DragIntent, type DragKeys } from "@n-uf/motion/drag";
+import { createDragIntent, previewPlan, type DragIntent, type DragKeys } from "@n-uf/motion/drag";
 import { anchoredMorph, type AnchoredMorph } from "@n-uf/motion/layout";
 import {
   close as closeItem,
@@ -40,6 +41,7 @@ import {
 import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, EDGES, GROUPS, PANELS, RAIL, ROW_VARIANTS, TITLES, ZOOM_CONTROLS, defaultScene, edgeOf, isSideEdge, reformPanels, setGroupSizes, setTitleSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId, type PanelId } from "./model";
 import { DEFAULT_FEEL, keyName, tuningOf, withFeel, type DragFeel } from "./feel";
 import { readDocwin, storeDocwin, type StoredDocwin } from "./store";
+import { createDragSession, followPointer, swallowClick } from "../shared/session";
 
 export interface LastDrop {
   readonly id: ItemId;
@@ -133,7 +135,6 @@ interface Held {
   room: SceneTarget | null;
   homing: boolean;
   preview: Rect | null;
-  raf: number;
   /** The modifier keys held now; Alt held at the lift (it unfreezes a frozen window) counts only once pressed again. */
   keys: DragKeys;
   altFromLift: boolean;
@@ -176,15 +177,9 @@ export function createScene(o: SceneOptions) {
   let layout: SceneLayout = solve(scene);
   let counts: Counts = { ...DEFAULT_COUNTS };
   let drag: Held | null = null;
-  /** Removes the window listeners of the press that began the drag: every end of a drag (a drop, Escape, a reset) calls it. */
-  let endInput: (() => void) | null = null;
   let lastDrop: LastDrop | null = null;
-  /** Every grip's press, one at a time: it remembers the last click, so a second one soon after is a double. */
-  const gripPress = createGripPress();
-  /** The item (and which of its grips: a rail button or another) the last grip press was on: a double pairs two presses on one. */
-  let lastClickOn: string | null = null;
-  /** Checks drive the drag themselves: no animation frames then. */
-  let driven = false;
+  /** The press, the frames and the session mark: the lab's one wiring (../shared/session). */
+  const session = createDragSession({ root, point: (e) => winPoint(e), frame: (now) => frame(now) });
   let pageKey = "";
   /** The drag feel (`./feel`): read by every drag's targets and tuning. */
   let feel: DragFeel = DEFAULT_FEEL;
@@ -601,7 +596,6 @@ export function createScene(o: SceneOptions) {
 
   /** The keys held when the next drag lifts (a press's modifier state). */
   let liftKeys: DragKeys = {};
-  const keysOf = (e: { shiftKey: boolean; altKey: boolean; ctrlKey: boolean; metaKey: boolean }): DragKeys => ({ shift: e.shiftKey, alt: e.altKey, ctrl: e.ctrlKey, meta: e.metaKey });
   /** The keys held now, during a drag: Alt held since the lift counts only once let go and pressed again. */
   function setKeys(k: DragKeys): void {
     const d = drag;
@@ -660,26 +654,16 @@ export function createScene(o: SceneOptions) {
       room: null,
       homing: false,
       preview: null,
-      raf: 0,
       // In a frozen window Alt unfreezes it for the lift: that Alt isn't the rail key until pressed again.
       keys: root.dataset.frozen !== undefined ? { ...liftKeys, alt: false } : { ...liftKeys },
       altFromLift: root.dataset.frozen !== undefined && !!liftKeys.alt,
       armedSaid: null,
     };
     liftKeys = {};
-    root.dataset.dragSession = was.kind;
     // No target shown yet: the committed layout, the held item's place left empty, nothing else moving.
     draw(scene, layout, id);
     say(`${TITLES[id]} lifted. Move over a gap, or anywhere else to float it.`);
-    frame(now);
-    if (!driven) {
-      const loop = (): void => {
-        if (!drag) return;
-        frame(performance.now());
-        drag.raf = requestAnimationFrame(loop);
-      };
-      drag.raf = requestAnimationFrame(loop);
-    }
+    session.started(was.kind, now);
     return true;
   }
 
@@ -786,16 +770,6 @@ export function createScene(o: SceneOptions) {
     if (drag) drag.pointer = p;
   }
 
-  /** The click that follows a drag's pointer-up is the drag's, not a press on whatever lies under the pointer. */
-  function swallowClick(): void {
-    const eat = (e: Event): void => {
-      e.stopPropagation();
-      e.preventDefault();
-    };
-    window.addEventListener("click", eat, { capture: true, once: true });
-    setTimeout(() => window.removeEventListener("click", eat, { capture: true }), 0);
-  }
-
   /** Let go (or cancel): the drop commits the shown target's `after(...).scene` as is. */
   function release(now = performance.now(), cancel = false): LastDrop | null {
     const d = drag;
@@ -804,12 +778,10 @@ export function createScene(o: SceneOptions) {
     // A release over a refusal commits nothing: the item goes home.
     const refused = cancel ? null : d.refused;
     const t = cancel || refused ? null : d.intent.release(pickPoint(d), d.targets, d.keys);
-    cancelAnimationFrame(d.raf);
     drag = null;
-    // The press's own pointer, key and cancel listeners go with the drag: a reset mid-drag leaves none behind.
-    endInput?.();
+    // The frames, the session mark and the press's own listeners go with the drag: a reset mid-drag leaves none behind.
+    session.ended();
     d.el.remove();
-    delete root.dataset.dragSession;
     showSlot(null);
     showRefusal(null, d.pointer);
     restingStrips();
@@ -852,80 +824,38 @@ export function createScene(o: SceneOptions) {
     const btn = t.closest("button");
     if (btn && !btn.hasAttribute("data-grip")) return;
     const id = itemEl.dataset.id as ItemId;
-    e.preventDefault();
-    const start = winPoint(e);
-    let lifted = false;
-    // The grip's press (`createGripPress`): past the lift distance a drag; else a click, or the second of a double. A
-    // double pairs two presses on the same item only: a click that redrew the window (a rail title opening its panel)
+    // A double pairs two presses on the same item only: a click that redrew the window (a rail title opening its panel)
     // leaves another item under the second press, which is a plain click then.
-    const on = `${id}:${t.closest("[data-open]") ? "rail" : "grip"}`;
-    if (lastClickOn !== on) gripPress.cancel();
-    lastClickOn = on;
-    gripPress.down(start, performance.now());
-    const mv = (ev: PointerEvent): void => {
-      const p = winPoint(ev);
-      if (!lifted) {
-        if (gripPress.move(p, performance.now()) !== "lift") return;
-        liftKeys = keysOf(ev);
-        lifted = begin(id, start, p);
-        if (!lifted) {
-          gripPress.cancel();
-          return stop();
-        }
-      }
-      setKeys(keysOf(ev));
-      move(p);
-    };
-    const stop = (): void => {
-      window.removeEventListener("pointermove", mv);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
-      window.removeEventListener("keydown", key);
-      window.removeEventListener("keyup", key);
-      window.removeEventListener("contextmenu", noMenu, true);
-      if (endInput === stop) endInput = null;
-    };
-    endInput = stop;
-    // ⌘/Ctrl is the rail key: while a drag is armed or in progress it never opens a context menu (a Ctrl-click on macOS)
-    // and fires no browser shortcut. The listeners live only from the press to the end of the drag.
-    const noMenu = (ev: Event): void => ev.preventDefault();
-    window.addEventListener("contextmenu", noMenu, true);
-    const up = (ev: PointerEvent): void => {
-      stop();
-      if (ev.type !== "pointerup") gripPress.cancel();
-      const ended = ev.type === "pointerup" ? gripPress.up(winPoint(ev), performance.now()) : null;
-      if (lifted && drag) {
-        move(winPoint(ev));
-        setKeys(keysOf(ev));
-        swallowClick();
-        release(performance.now(), ev.type === "pointercancel");
-      } else if (ended === "doubleActivate") {
-        // A double-click on a grip folds it, or unfolds it; frozen without Alt it does nothing (it isn't a click either).
-        swallowClick();
-        // On a rail item the first click has unfolded it already (a click opens it): the double only makes sure.
-        if (!frozen() && (!t.closest("[data-open]") || (scene.items[id]?.from ?? 0) >= 1)) toggleFold(id);
-      } else if (ended === "click") {
-        // A press that never lifted is a click: a rail icon opens its panel, a header press is a use.
-        if (t.closest("[data-open]")) open(id);
-        else if (t.closest(".dw-head")) press(id);
-      }
-    };
-    const key = (ev: KeyboardEvent): void => {
-      if (ev.key === "Escape" && drag) {
-        release(performance.now(), true);
-        stop();
-        return;
-      }
-      // The rail key (⌘/Ctrl) and Alt (the unfreeze key) belong to the drag: no browser shortcut while it lasts.
-      if (ev.type === "keydown" && (ev.key === "Control" || ev.key === "Meta" || ev.key === "Alt" || ev.ctrlKey || ev.metaKey)) ev.preventDefault();
+    session.press(e, `${id}:${t.closest("[data-open]") ? "rail" : "grip"}`, {
+      lift: (start, p, keys) => {
+        liftKeys = keys;
+        if (!begin(id, start, p)) return false;
+        move(p);
+        return true;
+      },
+      move: (p, keys) => {
+        setKeys(keys);
+        move(p);
+      },
+      release: (p, keys, cancel) => {
+        move(p);
+        setKeys(keys);
+        release(performance.now(), cancel);
+      },
+      escape: () => release(performance.now(), true),
       // A modifier pressed or let go while held still: the keys win over geometry from the next frame.
-      if (drag && (ev.key === "Shift" || ev.key === "Alt" || ev.key === "Control" || ev.key === "Meta")) setKeys(keysOf(ev));
-    };
-    window.addEventListener("pointermove", mv);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
-    window.addEventListener("keydown", key);
-    window.addEventListener("keyup", key);
+      keys: setKeys,
+      ended: (how) => {
+        if (how === "doubleActivate") {
+          // A double-click on a grip folds it, or unfolds it; frozen without Alt it does nothing (it isn't a click either).
+          swallowClick();
+          // On a rail item the first click has unfolded it already (a click opens it): the double only makes sure.
+          if (!frozen() && (!t.closest("[data-open]") || (scene.items[id]?.from ?? 0) >= 1)) toggleFold(id);
+        } else if (t.closest("[data-open]")) open(id);
+        // A press that never lifted is a click: a rail icon opens its panel, a header press is a use.
+        else if (t.closest(".dw-head")) press(id);
+      },
+    });
   });
 
   // --- the "+N" popover: the » menu's list, one level down ----------------------------------------------------------
@@ -1207,13 +1137,10 @@ export function createScene(o: SceneOptions) {
       commit(resize(scene, id, asked, moving));
     };
     const stop = (): void => {
-      window.removeEventListener("pointermove", mv);
-      window.removeEventListener("pointerup", up);
-      window.removeEventListener("pointercancel", up);
-      window.removeEventListener("keydown", key);
+      unlisten();
       delete root.dataset.dragSession;
       delete root.dataset.resizeHandle;
-      if (endInput === stop) endInput = null;
+      session.releaseInput(stop);
     };
     const up = (): void => {
       stop();
@@ -1222,16 +1149,13 @@ export function createScene(o: SceneOptions) {
       if (r) say(`${TITLES[id]} resized to ${Math.round(r.width)} × ${Math.round(r.height)}${limits.length ? ` (stopped by: ${limits.join(", ")})` : ""}.`);
     };
     const key = (ev: KeyboardEvent): void => {
-      if (ev.key !== "Escape") return;
+      if (ev.type !== "keydown" || ev.key !== "Escape") return;
       stop();
       commit(before);
       say("Resize cancelled.");
     };
-    endInput = stop;
-    window.addEventListener("pointermove", mv);
-    window.addEventListener("pointerup", up);
-    window.addEventListener("pointercancel", up);
-    window.addEventListener("keydown", key);
+    session.holdInput(stop);
+    const unlisten = followPointer({ move: mv, up, key });
   }
 
   const altOn = (on: boolean): void => {
@@ -1382,7 +1306,7 @@ export function createScene(o: SceneOptions) {
     setScene(next: Scene): void {
       if (drag) release(performance.now(), true);
       // A click before the scene was replaced doesn't pair with one after it.
-      gripPress.cancel();
+      session.pause();
       commit(next, { fresh: true });
     },
     reset(size?: { width: number; height: number }): void {
@@ -1405,8 +1329,7 @@ export function createScene(o: SceneOptions) {
     setRailMode,
     /** A pause between gestures (the checks): the next press is a first click, never the second of a double. */
     pause(): void {
-      gripPress.cancel();
-      lastClickOn = null;
+      session.pause();
     },
     setFrozen(on: boolean): void {
       if (on) root.dataset.frozen = "";
@@ -1443,7 +1366,7 @@ export function createScene(o: SceneOptions) {
     toggle,
     /** The drag, driven by hand (the checks): no animation frames while `on`. */
     drive(on: boolean): void {
-      driven = on;
+      session.drive(on);
     },
     begin,
     move,
