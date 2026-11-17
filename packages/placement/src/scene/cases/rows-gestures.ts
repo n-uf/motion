@@ -229,10 +229,11 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P11-a-float-never-covers-chrome",
     title: "A float never covers chrome",
-    expect: "Annotations let go over the title bar lands below it, clear of every bar, and the slot never covers the title.",
+    expect: "Annotations let go just under the title bar, where its grab would put its top over the bar, lands below it, clear of every bar, and the slot never covers the title.",
     group: "gestures",
     scene: withTitle(win()),
-    gestures: [g.press("annotations", { x: 20, y: 10 }), g.at(600, 12), g.hold(), g.release()],
+    // (600, 32): 4 px under the title bar; the grab (10 px down) would put the float's top at 22, over the bar.
+    gestures: [g.press("annotations", { x: 20, y: 10 }), g.at(600, 32), g.hold(), g.release()],
     checkpoints: [{ at: 2, layout: { items: { annotations: { floating: true, rect: r(528, 28, 280, 360) }, "window-title": { rect: r(12, 0, 1096, 28) }, pages: { rect: r(12, 28, 300, 772) } } }, note: "the preview, below the title bar" }],
     expectLayout: { items: { annotations: { floating: true, rect: r(528, 28, 280, 360) }, "window-title": { rect: r(12, 0, 1096, 28) }, pages: { rect: r(12, 28, 300, 772) } } },
   },
@@ -268,16 +269,21 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P13-kinds",
     title: "Targets by kind: a panel",
-    expect: "Lifting a panel offers panel columns, rails, new-column lines and the float target, never a toolbar's gaps: over the tools bar it floats.",
+    expect:
+      "Lifting a panel offers panel columns, rails, new-column lines and the float target, never a toolbar's gaps: over the tools bar it is refused (\"No room here\"), and a release there puts it back.",
     group: "gestures",
     scene: {
       ...win(),
       edges: [...win().edges, { id: "tools-bar", side: "bottom", ring: 0, span: "full", accepts: ["group"], items: ["tools"], cross: { min: 28, max: 60 } }],
       items: { ...win().items, tools: { id: "tools", kind: "group", used: 0, forms: { row: [form("stacked", 60, 120, 28), form("icons", 40, 40, 28), form("menu", 0, 0, 0)] } } },
     },
-    gestures: [g.press("pages", { x: 20, y: 10 }), g.at(560, 780), g.hold()],
-    expectLayout: { items: { pages: { floating: true, rect: r(528, 410, 280, 360) }, tools: { edge: "tools-bar", rect: r(12, 770, 120, 30) }, annotations: { rect: r(12, 0, 300, 770) } }, order: { "tools-bar": ["tools"] } },
-    expectDom: [{ select: "[data-drag-slot]", count: 1, note: "only the float's slot" }],
+    gestures: [g.press("pages", { x: 20, y: 10 }), g.at(560, 780), g.hold(), g.release()],
+    checkpoints: [{ at: 2, layout: { items: { pages: null, tools: { edge: "tools-bar", rect: r(12, 770, 120, 30) } }, order: { "tools-bar": ["tools"] } }, note: "refused: no target, the held item out of the layout" }],
+    expectLayout: { items: { pages: { edge: "left-0", floating: false }, tools: { edge: "tools-bar", rect: r(12, 770, 120, 30) } }, order: { "tools-bar": ["tools"] }, columns: { left: [["pages", "annotations"]] } },
+    expectDom: [
+      { at: 2, select: "[data-drag-refusal]", count: 1, attr: { "data-drag-refusal": "refuse:tools-bar:center" }, note: "the refusal shows where the pointer is" },
+      { at: 2, select: "[data-drag-slot]", count: 0, note: "no slot anywhere" },
+    ],
   },
   {
     id: "P13-a-group-never-gets-panel-targets",

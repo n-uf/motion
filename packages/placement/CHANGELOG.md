@@ -5,6 +5,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.31
 
+- `./scene/cases`, **refusals win, on every host.** The reference host (`createSceneHost`) now honours `refusals()`:
+  over a refused tile, where nothing more precise than the float is under the pointer, nothing is picked, and a release
+  there puts the item back ("No room here"), as a page does. The rule is `withRefusals(pick, refusals(scene, dragged))`
+  (additive), which a page's host also aims `resolvePlace` with. The host contract gains `[data-drag-refusal]` (the
+  refusal shown at the pointer, by id). Rows changed with it: **C25** and **P13-kinds** (a panel over a group-only bar
+  is refused, the release is home, the refusal shows); **C27** and **P11-a-float-never-covers-chrome** let go just under
+  the bar, where nothing refuses, and keep their check that the float lands clear of it. **R4-band-at-a-boundary**
+  reaches its "out" point from the content, where nothing is shown, so it reads the geometry alone: holding a shown gap
+  a band's width past its hit is the drag intent's rule, covered by `@n-uf/motion/drag`'s tests.
 - `./scene/cases`, **three rows on a bar's zones** (R6, additive): a toolbar dropped in a bar's start zone lands
   leading after the toolbars there, in the center zone at the bar's true center, in the end zone trailing before the
   toolbars there.

@@ -16,7 +16,7 @@ import { onReset, parseRoute } from "../shell/api";
 import { ALL, EDGES, type Counts, type ItemId } from "./model";
 import { PRESETS, type Preset, type Verdict } from "./presets";
 import { createScene } from "./scene";
-import { DISAGREE, createDocwinHost } from "./host";
+import { createDocwinHost } from "./host";
 import { CASES, runCasesAsync } from "@n-uf/placement/scene/cases";
 import { DEFAULT_FEEL, type DragFeel } from "./feel";
 import { feelPanel } from "./feel-panel";
@@ -180,9 +180,7 @@ async function checkRows(filter?: (id: string) => boolean): Promise<CaseResult[]
   try {
     for (const { id, result } of await runCasesAsync(rows, () => host)) {
       const row = rows.find((r) => r.id === id)!;
-      const base = { id: `row:${id}`, title: row.title, now: result.ok ? "ok" : result.failures.join(" · "), lacks: row.lacks ?? DISAGREE[id] ?? null };
-      // A row this window plays by a rule the in-memory host lacks: pending on the decision, never a pass.
-      out.push(!result.ok && DISAGREE[id] ? { ...base, pending: true } : { ...base, pass: result.ok });
+      out.push({ id: `row:${id}`, title: row.title, now: result.ok ? "ok" : result.failures.join(" · "), lacks: row.lacks ?? null, pass: result.ok });
     }
   } finally {
     c.hostRules(null);
@@ -340,8 +338,6 @@ const api = {
   checkAll,
   /** The conformance rows only, played on this window (ids containing `filter`, if given). */
   checkRows: (filter?: string) => checkRows(filter ? (id) => id.includes(filter) : undefined),
-  /** The rows this window plays by a rule the in-memory host lacks, and why. */
-  disagree: () => DISAGREE,
   lastDrop: () => c.lastDrop,
   /** The last drag's trace: the shown target's changes, the snaps and every frame (pointer, speed, the held item's rect). */
   trace: () => c.trace,
