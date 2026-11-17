@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { targetAt } from "@n-uf/motion/drag";
 import { centre } from "../src/geometry";
-import { fold, parseTargetId, readScene, refusals, resize, setSide, solve, storeScene, targetId, targets, use, type Scene } from "../src/scene";
+import { canFold, fold, parseTargetId, readScene, refusals, resize, setSide, solve, storeScene, targetId, targets, use, type Scene } from "../src/scene";
 import { byId, column, form, panel } from "./scene-fixture";
 
 /** Thumbnails fixed on the left, a panel column beside them, a column on the right. */
@@ -76,6 +76,15 @@ describe("an anchor folded by hand", () => {
     const back = readScene(JSON.parse(JSON.stringify(withFrom)), s);
     expect(back.dropped).toEqual(["item:thumbs:from"]);
     expect(solve(back.scene).items.thumbs!.formKind).toBe("open");
+  });
+
+  it("a `from` set on it all the same draws unfolded: only a foldable edge folds a fixed item to its rail tile", () => {
+    const s = anchorScene();
+    const set: Scene = { ...s, items: { ...s.items, thumbs: { ...s.items.thumbs!, from: 1 } } };
+    const at = solve(set).items.thumbs!;
+    expect(at.formKind).toBe("open");
+    expect(at.foldedBy).toBeUndefined();
+    expect(canFold(set, "thumbs")).toBe(false);
   });
 });
 

@@ -139,9 +139,9 @@ export function floatSizeOf(item: SceneItem, orient: Orient = floatOrientOf(item
  * else `"auto"` when `form` lies below `start`, the form it started in (it gave way), else undefined. A closed item, or
  * one in its first form, is never folded. Leave `start` out where nothing gives way (a float).
  */
-export function foldedByOf(item: SceneItem, forms: readonly StackForm[], form: number, start?: number): "hand" | "auto" | undefined {
+export function foldedByOf(item: SceneItem, forms: readonly StackForm[], form: number, start?: number, edge?: Edge): "hand" | "auto" | undefined {
   if (item.closed || form < 1) return undefined;
-  if (startOf(item, forms) > 0) return "hand";
+  if (startOf(item, forms, edge) > 0) return "hand";
   return start !== undefined && form > start ? "auto" : undefined;
 }
 
@@ -149,25 +149,30 @@ export function foldedByOf(item: SceneItem, forms: readonly StackForm[], form: n
 const foldedByHand = (item: SceneItem): boolean => Number.isFinite(item.from) && Math.floor(item.from!) >= 1;
 
 /**
- * The index of the form a hand fold puts `item` in, among `forms`: a panel's `header` (its title bar) or a group's
- * `fold` (its grip and »), the first of either. Only a fixed item (a thumbnail anchor on a `foldable` edge, whose column
- * draws as a rail once it folds) with neither folds to its first `rail` tile. -1 when there is none: a hand fold means
- * nothing on this axis.
+ * Whether `item`, lying on `edge`, folds to its `rail` tile when it has no header or fold: a fixed item on a `foldable`
+ * edge (a thumbnail anchor, whose column draws as a rail once it folds). The one rule `solve`, `canFold` and `fold` share.
  */
-export function foldedIndex(item: SceneItem, forms: readonly StackForm[]): number {
+const foldsToRail = (item: SceneItem, edge: Edge | undefined): boolean => !!item.fixed && edge?.foldable === true;
+
+/**
+ * The index of the form a hand fold puts `item` in, among `forms`: a panel's `header` (its title bar) or a group's
+ * `fold` (its grip and »), the first of either; where it `foldsToRail` on `edge` and has neither, its first `rail` tile.
+ * -1 when there is none: a hand fold means nothing on this axis.
+ */
+export function foldedIndex(item: SceneItem, forms: readonly StackForm[], edge?: Edge): number {
   const bar = forms.findIndex((f) => f.kind === "header" || f.kind === "fold");
-  return bar >= 0 || !item.fixed ? bar : forms.findIndex((f) => f.kind === "rail");
+  return bar >= 0 || !foldsToRail(item, edge) ? bar : forms.findIndex((f) => f.kind === "rail");
 }
 
 /**
- * Where `item`'s ladder starts among `forms`, the forms of the axis it lies along. Not folded by hand: its first form.
- * Folded by hand (`from` 1 or more): its folded form there (`foldedIndex`), or `from` itself where a stored scene put it
- * further down; with no folded form on this axis, its first form (a hand fold means nothing there). Give-way steps down
- * from there.
+ * Where `item`'s ladder starts among `forms`, the forms of the axis it lies along (on `edge`, when docked). Not folded
+ * by hand: its first form. Folded by hand (`from` 1 or more): its folded form there (`foldedIndex`), or `from` itself
+ * where a stored scene put it further down; with no folded form there, its first form (a hand fold means nothing).
+ * Give-way steps down from there.
  */
-export function startOf(item: SceneItem, forms: readonly StackForm[]): number {
+export function startOf(item: SceneItem, forms: readonly StackForm[], edge?: Edge): number {
   if (!foldedByHand(item)) return 0;
-  const folded = foldedIndex(item, forms);
+  const folded = foldedIndex(item, forms, edge);
   return folded < 0 ? 0 : Math.min(Math.max(folded, Math.floor(item.from!)), forms.length - 1);
 }
 
@@ -187,7 +192,8 @@ export function axesOf(scene: Scene, id: string): Orient[] {
  */
 export function isHandFolded(scene: Scene, id: string): boolean {
   const item = Object.hasOwn(scene.items, id) ? scene.items[id] : undefined;
-  return !!item && axesOf(scene, id).some((a) => startOf(item, formsOf(item, a)) > 0);
+  const edge = scene.edges.find((e) => e.items.includes(id));
+  return !!item && axesOf(scene, id).some((a) => startOf(item, formsOf(item, a), edge) > 0);
 }
 
 /** The first form at or after `from` that isn't a `wrap` form (vertical means icons), or undefined when none is. */
