@@ -48,6 +48,19 @@ export function seeded(seed: number): () => number {
   };
 }
 
+/**
+ * `list` shuffled by `rnd` (Fisher–Yates): exactly `length - 1` draws, so a seeded stream stays the same on every
+ * engine. (`sort(() => rnd() - 0.5)` is no shuffle: how often it draws depends on the engine's sort.)
+ */
+export function shuffle<T>(rnd: () => number, list: readonly T[]): T[] {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+}
+
 /** A mix of panels and groups in a random order, with random use ages and kept flags. */
 export function mix(rand: () => number, n: number): StackItem[] {
   return Array.from({ length: n }, (_, i) => {

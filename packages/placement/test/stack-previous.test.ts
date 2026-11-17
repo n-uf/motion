@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { fitStack, stackTargets, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
-import { group, mix, panel, seeded, stack } from "./stack-fixture";
+import { group, mix, panel, seeded, shuffle, stack } from "./stack-fixture";
 
 const kinds = (fit: StackFit) => fit.items.map((i) => i.kind);
 /** `items` with item `id` pressed: it counts as just used. */
@@ -351,7 +351,7 @@ describe("previous: room comes back in the reverse of give-way order, and stops 
       const mixed = rand() < 0.6;
       const one = shapes[Math.floor(rand() * shapes.length)]!;
       // Distinct ages: the one used longest ago gives way first.
-      const ages = Array.from({ length: n }, (_, i) => i + 1).sort(() => rand() - 0.5);
+      const ages = shuffle(rand, Array.from({ length: n }, (_, i) => i + 1));
       const list: StackItem[] = ages.map((used, i) => {
         const shape = mixed ? shapes[Math.floor(rand() * shapes.length)]! : one;
         return { id: `g${i}`, used, forms: shape.map((k) => f(k, size[k]!())) };

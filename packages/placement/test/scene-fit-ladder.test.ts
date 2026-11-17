@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { solve, type Edge, type Scene, type SceneItem, type SceneLayout } from "../src/scene";
 import { byId, seeded } from "./scene-fixture";
+import { shuffle } from "./stack-fixture";
 
 function barScene(seed: number): Scene {
   const rnd = seeded(seed);
@@ -27,7 +28,7 @@ function barScene(seed: number): Scene {
   for (const [i, side] of (["top", "top", "bottom"] as const).entries()) {
     const count = 2 + Math.floor(rnd() * 4);
     // Distinct priorities within an edge, in a random order; the first bar's default priority is lower (a title bar's).
-    const ps = Array.from({ length: count }, (_, k) => k).sort(() => rnd() - 0.5);
+    const ps = shuffle(rnd, Array.from({ length: count }, (_, k) => k));
     edges.push({ id: `bar${i}`, side, ring: i, accepts: ["group"], items: ps.map((p) => group(p)), cross: { min: 32, max: 32, rail: 32 }, gap: 4, pad: { start: 8, end: 8 }, menu: { main: 28 }, ...(i === 0 ? { priority: -10 } : {}) });
   }
   return { stage: { x: 0, y: 0, width: 1400, height: 600 }, edges, items: byId(items), floats: [], floatKinds: ["group"] };
