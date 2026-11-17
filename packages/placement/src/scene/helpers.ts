@@ -4,7 +4,10 @@
  */
 import type { Rect, Size } from "../geometry";
 import type { StackForm } from "../stack";
-import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_RAIL_MAGNET, RAIL_STRIP_MIN, ZONES, type ColumnTemplate, type Edge, type Kind, type Orient, type RailMode, type RailVisibility, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
+import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_RAIL_MAGNET, RAIL_STRIP_MIN, ZONES, type ColumnTemplate, type Edge, type FloatAnchor, type FloatAnchorAt, type Kind, type Orient, type RailMode, type RailVisibility, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
+
+/** The name of a float's anchor, with or without an offset: `"content-top-right"` for `{ at: "content-top-right", dy: 12 }`. */
+export const anchorName = (anchor: FloatAnchorAt): FloatAnchor => (typeof anchor === "string" ? anchor : anchor.at);
 
 /** Whether `edge` takes kind `kind` in `zone`: its `accepts`, narrowed by `zoneAccepts` when given (a zone not listed takes nothing). */
 export const zoneTakes = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, zone: Zone, kind: Kind): boolean =>

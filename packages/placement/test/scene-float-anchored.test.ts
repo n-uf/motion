@@ -1,6 +1,6 @@
 /** Anchored floats keep clear of the floats before them: a group sent to Float never lands on one already floating. */
 import { describe, expect, it } from "vitest";
-import { FLOAT_ANCHORS, floatAt, moveTo, raise, readScene, solve, storeScene, type Scene, type SceneFloat } from "../src/scene";
+import { FLOAT_ANCHORS, anchorName, floatAt, moveTo, raise, readScene, solve, storeScene, type Scene, type SceneFloat } from "../src/scene";
 import { group, panel, seeded, windowScene } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
@@ -140,6 +140,11 @@ function generated(seed: number, roomy: boolean): Scene {
 describe("an anchor with an offset", () => {
   const one = (anchor: SceneFloat["anchor"]): Scene => ({ ...base(), floats: [{ id: "g1", rect: { x: 0, y: 0, width: 200, height: 28 }, ...(anchor ? { anchor } : {}) }] });
   const at = (s: Scene) => solve(s).items.g1!.rect;
+
+  it("anchorName gives the name with or without an offset", () => {
+    expect(anchorName("content-left")).toBe("content-left");
+    expect(anchorName({ at: "content-top-right", dy: 12 })).toBe("content-top-right");
+  });
 
   it("lies at its anchor moved by dx and dy, and follows the content", () => {
     const plain = at(one("content-top-right"));

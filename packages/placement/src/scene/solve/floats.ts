@@ -8,7 +8,7 @@
 import { fitFloat, type FloatFit } from "../../float-fit";
 import { EPS, rect, type Rect, type Size } from "../../geometry";
 import type { StackForm } from "../../stack";
-import { axisOf, chromeFor, floatOrientOf, floatShape, foldedByOf, formsOf } from "../helpers";
+import { anchorName, axisOf, chromeFor, floatOrientOf, floatShape, foldedByOf, formsOf } from "../helpers";
 import type { FloatAnchor, FloatAnchorAt, Orient, SceneFloat, SceneItem } from "../model";
 import { shapeOf, type Draft } from "./draft";
 import type { Inset } from "./insets";
@@ -16,7 +16,7 @@ import { finite, px } from "./order";
 
 /** A float's rect flush with `content`'s side or corner, moved by the anchor's offset (`dx` right, `dy` down). */
 function anchored(content: Rect, w: number, h: number, given: FloatAnchorAt): Rect {
-  const anchor = typeof given === "string" ? given : given.at;
+  const anchor = anchorName(given);
   const dx = typeof given === "string" ? 0 : finite(given.dx ?? 0, 0);
   const dy = typeof given === "string" ? 0 : finite(given.dy ?? 0, 0);
   const left = content.x;
