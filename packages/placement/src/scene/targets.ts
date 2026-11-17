@@ -255,8 +255,9 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
 /**
  * `refusals(scene, dragged, options?)`: the places a drop of `dragged` is refused, so a host can say so at the pointer
  * (a tint and "No room here") instead of showing a slot elsewhere: each slot the filter removed, over its own tile,
- * `not-accepted` where the edge or zone doesn't take the kind, `no-room` where the drop wouldn't fit. A release over a
- * refusal commits nothing: the item goes home.
+ * `not-accepted` where the edge or zone doesn't take the kind, `no-room` where the drop wouldn't fit. An edge that takes
+ * the kind in no zone is one refusal over its drawn rect (fixed items included) less what targets own; every refusal
+ * lies in the stage, a zone's inside its edge's ends. A release over a refusal commits nothing: the item goes home.
  */
 export function refusals(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneRefusal[] {
   return generate(scene, dragged, options).refusals;

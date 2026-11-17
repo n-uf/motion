@@ -5,6 +5,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.34
 
+- `./scene`, **refusals match the drawn edge** (host note). An edge that takes the dragged kind in no zone (a title
+  bar or toolbar for a panel) now gives one refusal, `refuse:<edge>:start` (`n = 0`), per wholly refused edge: its
+  drawn rect, fixed items included, in the stage, less what targets own. It used to give a refusal per zone, reaching
+  `endReach` (24 px) past the edge's ends and leaving its fixed items uncovered, so a host's tint and "Can't go here"
+  tag didn't match the drawn bar. A refused zone of an edge that takes the kind elsewhere keeps its slot's tile, now
+  inside the edge's ends. No refusal reaches past the stage any more. A host that keyed on `refuse:<edge>:<zone>` for
+  the other zones of such an edge reads the one id instead: rows C25 and P13-kinds now expect `refuse:toolbar:start`
+  and `refuse:tools-bar:start` at the pointer. A new property category, `refused-edge-drawn`, holds it in every mode.
+
 - `./scene/cases`, **a host-declared docking width** (additive): `CaseHost.dockMinWidth` (and `AsyncCaseHost`'s) is
   the narrowest stage width at which the host docks panels (absent: every width). The 102 rows whose expected outcome
   depends on docked panels carry `requires: { docks: true }` (audited by a test against every row's expectations), and
