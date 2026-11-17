@@ -59,7 +59,7 @@ function framesResult(frames: readonly (string | null)[]): CheckResult {
 }
 
 /** A rule checked by hand: ok with no failures. */
-export const verdict = (failures: readonly string[]): CheckResult => ({ ok: failures.length === 0, failures });
+const verdict =(failures: readonly string[]): CheckResult => ({ ok: failures.length === 0, failures });
 
 const KEYS = ["x", "y", "width", "height"] as const;
 

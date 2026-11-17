@@ -3,14 +3,12 @@
  * reads them from ./page-list, which the shell fills, so it never imports the list that loads it.
  */
 
-export type GroupId = "overview" | "motion" | "stack" | "docwin" | "checks" | "archive";
+export type GroupId = "overview" | "motion" | "docwin" | "checks";
 export const GROUPS: readonly { id: GroupId; title: string }[] = [
   { id: "overview", title: "Overview" },
   { id: "motion", title: "Motion" },
-  { id: "stack", title: "Edge stack" },
   { id: "docwin", title: "Document window" },
   { id: "checks", title: "Checks" },
-  { id: "archive", title: "Archive" },
 ];
 
 /** Which scenarios a page runs: those whose name contains it, or passes it. */

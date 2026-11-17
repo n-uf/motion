@@ -1,12 +1,12 @@
-<!-- The overview: what the lab is, its four sections and the archive, how to run the checks. -->
+<!-- The overview: what the lab is, its sections, how to run the checks. -->
 <section class="lab-section">
   <p class="eyebrow"><span>What this is</span></p>
   <h2 class="section-title">One lab for both packages</h2>
   <p>
     Every page here runs the real packages from this repository's sources, so a change in a package shows at once.
-    Each page is a live demo you can drag around, and a set of scripted scenarios that drive it with real pointer and
-    key events, frame by frame, and check the rules from what the page drew. There are two subjects: how things move
-    (<code>@n-uf/motion</code>) and where things go along an edge (<code>@n-uf/placement/stack</code>).
+    Each page is a live demo you can drag around, and a set of scripted cases that drive it with real pointer and key
+    events, frame by frame, and check the rules from what the page drew. There are two subjects: how things move
+    (<code>@n-uf/motion</code>) and where things go in a window (<code>@n-uf/placement/scene</code>).
   </p>
 </section>
 
@@ -16,31 +16,24 @@
     <h3>How things move</h3>
     <p>Two pages. Settle and tiling: every move is one critically damped settle that never passes its target, size
       changes reveal instead of stretching, and tiled windows reorder by drag. Drag intent and previews: a drop target
-      shows only while you aim, and the direct drag moves the real item into its slot.</p>
+      shows only while you aim, and with the snap preview the held item settles into its slot.</p>
     <p class="lab-card-links"><span>Settle and tiling</span> · <span>Drag intent and previews</span></p>
   </a>
-  <a class="lab-card" href="#/stack">
-    <p class="eyebrow"><span>Edge stack</span></p>
+  <a class="lab-card" href="#/docwin">
+    <p class="eyebrow"><span>Document window</span></p>
     <h3>Where things go</h3>
-    <p>One stage: a side column, a top bar, pages that scroll under them and floats above. Panels and control groups
-      take the largest form that fits and give way least recently used first; you drag them to any insertion point, float them, freeze them and
-      reload them. Each case is a preset on that stage, with its expectation and its check.</p>
-    <p class="lab-card-links"><span>Panels in a column</span> · <span>Groups and toolbars</span> · <span>Dragging</span> · <span>Floats, saving, freeze</span></p>
+    <p>One window as one Scene: a title bar, top and bottom bars, side columns, pages that scroll under them and floats
+      above. Panels and toolbars take the largest form that fits and give way least recently used first; you drag them
+      to any gap, float them, freeze them and reload them. Each case sets the window up, says what should happen and
+      checks it, and every conformance row of <code>@n-uf/placement/scene/cases</code> plays on the same window.</p>
+    <p class="lab-card-links"><span>Docking cases</span> · <span>Drag intent</span> · <span>Conformance rows</span></p>
   </a>
   <a class="lab-card" href="?checks#/checks">
     <p class="eyebrow"><span>Checks</span></p>
-    <h3>Every scenario, green or red</h3>
-    <p>Runs every page's scenarios, or one section's, and lists each one with its first failure: the Motion pages, the
-      Edge stack's cases and everything in the Archive.</p>
-    <p class="lab-card-links"><span>Motion</span> · <span>Edge stack</span> · <span>Archive</span></p>
-  </a>
-  <a class="lab-card" href="#/placement/desk">
-    <p class="eyebrow"><span>Archive</span></p>
-    <h3>On hold, still checked</h3>
-    <p>Earlier models kept visible but no longer grown: the desk layouts, toolbar groups in toolbar areas and zones,
-      panels in columns, and the integration cases. Their scenarios still run on the Checks page; each page leaves once the Edge
-      stack covers its cases.</p>
-    <p class="lab-card-links"><span>Desk layouts</span> · <span>Toolbar groups</span> · <span>Panels</span> · <span>Integration cases</span></p>
+    <h3>Every case, green or red</h3>
+    <p>Runs every page's cases, or one section's, and the conformance rows in memory, and lists each one with its first
+      failure.</p>
+    <p class="lab-card-links"><span>Motion</span> · <span>Document window</span> · <span>Conformance rows</span></p>
   </a>
 </section>
 
@@ -48,11 +41,11 @@
   <p class="eyebrow"><span>Checks</span></p>
   <h2 class="section-title">Green or red, without a terminal</h2>
   <p>
-    <a href="?checks#/checks">Checks</a> runs every page's scenarios, or one group's, and lists each scenario as passing or
-    failing with its first failure. Each page also has its own checks under its demo.
+    <a href="?checks#/checks">Checks</a> runs every page's cases, or one group's, and lists each one as passing or
+    failing with its first failure. Each page also has its own checks beside its demo.
   </p>
-  <p>Headless, every page answers <code>window.__motionLab.runAll(filter?)</code>; for example:</p>
-  <pre class="lab-code"><code>node desk-run-all.mjs "&lt;the lab's address&gt;#/placement/desk"</code></pre>
+  <p>Headless, every page answers <code>window.__motionLab.runAll(filter?)</code>, and the Document window also
+    <code>window.__docwin.checkAll()</code> (its cases and every conformance row).</p>
 </section>
 
 <section class="lab-section">
