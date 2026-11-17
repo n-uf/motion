@@ -315,6 +315,25 @@ export const PRESETS: readonly Preset[] = [
     },
   },
   {
+    id: "overlay-bar-full-span",
+    title: "A full overlay bar lies over the columns",
+    expected:
+      "With the bottom bar laid over the content (mode overlay, the default full span), it runs across the window's full width at the content's bottom, over both side columns; the columns keep their height, down to the window's foot.",
+    setup: (c) => c.setScene(sceneWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, mode: "overlay" as const } : e)) }))),
+    check(c) {
+      const bar = c.layout.edges.bottom?.rect;
+      const left = c.layout.edges.left?.rect;
+      const right = c.layout.edges.right?.rect;
+      if (!bar || !left || !right || bar.height <= 0) return { pass: false, now: "The bottom bar, or a side column, isn't drawn." };
+      const across = bar.x <= left.x + 0.5 && bar.x + bar.width >= right.x + right.width - 0.5;
+      const under = left.y + left.height > bar.y + 0.5 && right.y + right.height > bar.y + 0.5;
+      return {
+        pass: across && under,
+        now: `The bar is ${say(bar)}; the columns ${say(left)} and ${say(right)}: ${across ? "it spans both" : "it doesn't span both"}, and they ${under ? "run under it" : "stop above it"}.`,
+      };
+    },
+  },
+  {
     id: "zoom-back-to-title",
     title: "Zoom out of the title bar and back",
     expected:
