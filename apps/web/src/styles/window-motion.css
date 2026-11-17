@@ -64,9 +64,9 @@
 @container (min-width: 700px) { .snaps { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .snaps .fh { grid-column: 1 / -1; margin: 10px 0 0; }
 
-/* The rules: one row per rule (its own h2), four engines side by side; on a phone each engine is labelled. */
+/* The rules: one row per rule (its own h2), three implementations side by side; on a phone each one is labeled. */
 .engines { border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); box-shadow: var(--shadow-1); overflow: clip; }
-.engines-head, .engine-rule { display: grid; grid-template-columns: minmax(0, 11rem) repeat(4, minmax(0, 1fr)); gap: 0 var(--s4); padding: 12px var(--s4); }
+.engines-head, .engine-rule { display: grid; grid-template-columns: minmax(0, 11rem) repeat(3, minmax(0, 1fr)); gap: 0 var(--s4); padding: 12px var(--s4); }
 .engines-head { background: var(--bg-subtle); border-bottom: 1px solid var(--line); font-size: var(--t-2xs); font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
 .engines-head span:last-child { color: var(--accent-strong); }
 .engine-rule + .engine-rule { border-top: 1px solid var(--line); }

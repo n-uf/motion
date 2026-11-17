@@ -24,19 +24,19 @@ const jsonLd = [
 const first = CASES[0]!;
 // The first case at its end state: every curve drawn, the playhead at 450 ms.
 const firstOpt = OPTS.settle;
-const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: string; cls: [string, string, string] }[] = [
-  { rule: "Direct drag", hypr: "warped 1:1; only 1 frame of capture latency", tiling: "a separate drag image at 90%, jumps to its slot", host: "own-drag spring ≈ 50 ms lag (a live move only for docked panels)", prop: "pointer − grab, same frame", cls: ["bad", "bad", "good"] },
-  { rule: "Interactive resize", hypr: "all tiles warped, content unscaled", tiling: "divider 1:1", host: "sprung and scaled", prop: "direct drag + reveal", cls: ["good", "bad", "good"] },
-  { rule: "Reflow curve", hypr: "90% ≈ 60 ms (recording) / 175–190 ms (shipped)", tiling: "170 ms CSS, only during drags; others jump", host: "stiffness 320 from rest: 90% at 218 ms, slow start", prop: "settle ω=25: 90% at 92 ms, done at 184 ms", cls: ["bad", "bad", "good"] },
-  { rule: "Overshoot on size", hypr: "none seen (shipped spring allows 1.8%)", tiling: "none by default; swap dip to 0.7", host: "maximize/restore \"snappy\" y2 = 1.05", prop: "impossible (launch + clamp)", cls: ["", "bad", "good"] },
-  { rule: "Retarget", hypr: "from drawn; spring keeps velocity", tiling: "restarts CSS transition; settle strip snaps", host: "spring keeps velocity; tweens, space changes and docked restart", prop: "always from drawn; a new target relaunches toward it, so it never passes it", cls: ["bad", "", "good"] },
-  { rule: "Content", hypr: "stretched ~40–50 ms on reflow", tiling: "stretched the whole 170 ms", host: "stretched (non-docked), docked size jumps", prop: "never stretched; uniform popin only for open/close", cls: ["bad", "bad", "good"] },
-  { rule: "Open / close", hypr: "popin 87% + fade, ~100 ms", tiling: "appear/vanish instantly", host: "fade + 8 px rise 180 ms / 140 ms", prop: "popin 0.87 → 1 (uniform) + fade on settle", cls: ["bad", "", "good"] },
-  { rule: "Neighbors during drag", hypr: "reflow at once when the window lifts", tiling: "a reserved slot keeps the space open", host: "old slot kept (live move)", prop: "left to your layout; motion glides whatever rects it is given", cls: ["", "", ""] },
+const RULES: { rule: string; hypr: string; tiling: string; prop: string; cls: [string, string] }[] = [
+  { rule: "Direct drag", hypr: "warped 1:1; only 1 frame of capture latency", tiling: "a separate drag image at 90%, jumps to its slot", prop: "pointer − grab, same frame", cls: ["bad", "good"] },
+  { rule: "Interactive resize", hypr: "all tiles warped, content unscaled", tiling: "divider 1:1", prop: "direct drag + reveal", cls: ["good", "good"] },
+  { rule: "Reflow curve", hypr: "90% ≈ 60 ms (recording) / 175–190 ms (shipped)", tiling: "170 ms CSS, only during drags; others jump", prop: "settle ω=25: 90% at 92 ms, done at 184 ms", cls: ["bad", "good"] },
+  { rule: "Overshoot on size", hypr: "none seen (shipped spring allows 1.8%)", tiling: "none by default; swap dip to 0.7", prop: "impossible (launch + clamp)", cls: ["bad", "good"] },
+  { rule: "Retarget", hypr: "from drawn; spring keeps velocity", tiling: "restarts CSS transition; settle strip snaps", prop: "always from drawn; a new target relaunches toward it, so it never passes it", cls: ["", "good"] },
+  { rule: "Content", hypr: "stretched ~40–50 ms on reflow", tiling: "stretched the whole 170 ms", prop: "never stretched; uniform popin only for open/close", cls: ["bad", "good"] },
+  { rule: "Open / close", hypr: "popin 87% + fade, ~100 ms", tiling: "appear/vanish instantly", prop: "popin 0.87 → 1 (uniform) + fade on settle", cls: ["", "good"] },
+  { rule: "Neighbors during drag", hypr: "reflow at once when the window lifts", tiling: "a reserved slot keeps the space open", prop: "left to your layout; motion glides whatever rects it is given", cls: ["", ""] },
 ];
 ---
 <Site title={page.title} description={page.description} path={path} headline="Fast at the start, gentle at the end, never past the target." jsonLd={jsonLd} ogImage="/og/window-motion.png">
-  <p class="lead" slot="lead">This page compares how windows move in Hyprland, in a typical app today, and under the rules in @n-uf/motion. The curves come from their real parameters: Hyprland's source, that app's springs and tokens, and the settle in @n-uf/motion, which is launched and critically damped, stepped by this library. The dots are measured from a screen recording. Time runs left to right in milliseconds.</p>
+  <p class="lead" slot="lead">This page compares how windows move in Hyprland, in hypr-tiling, and under the rules in @n-uf/motion. The curves come from their real parameters: Hyprland's source, hypr-tiling's transitions, and the settle in @n-uf/motion, which is launched and critically damped, stepped by this library. The dots are measured from a screen recording. Time runs left to right in milliseconds.</p>
 
   <Chrome id="figure" class="motionfig" label="Window motion timings: four cases played on a chart"
     groups={[{ id: "title", name: "Title" }, { id: "replay", name: "Replay" }, { id: "speed", name: "Speed" }, { id: "tempo", name: "Tempo" }, { id: "readout", name: "Time" }, { id: "hint", name: "Hint" }]}
@@ -79,19 +79,18 @@ const RULES: { rule: string; hypr: string; tiling: string; host: string; prop: s
   <section class="section">
     <div class="section-head">
       <span class="eyebrow">The rules</span>
-      <h2 class="section-title">Eight rules, four implementations</h2>
-      <p>What Hyprland does (from its source and a recording), what a tiling library and a typical app do today, and what @n-uf/motion does: one settle for every move, direct drags, reveal instead of stretch.</p>
+      <h2 class="section-title">Eight rules, three implementations</h2>
+      <p>What Hyprland does (from its source and a recording), what a tiling library does today, and what @n-uf/motion does: one settle for every move, direct drags, reveal instead of stretch.</p>
     </div>
     <div class="engines">
-      <div class="engines-head" aria-hidden="true"><span></span><span>Hyprland (source + recording)</span><span>hypr-tiling today</span><span>Typical app today</span><span>@n-uf/motion</span></div>
+      <div class="engines-head" aria-hidden="true"><span></span><span>Hyprland (source + recording)</span><span>hypr-tiling today</span><span>@n-uf/motion</span></div>
       {RULES.map((r) => (
         <div class="engine-rule">
           <h3>{r.rule}</h3>
           <dl>
             <div class="h"><dt>Hyprland</dt><dd>{r.hypr}</dd></div>
             <div class={r.cls[0]}><dt>hypr-tiling today</dt><dd>{r.tiling}</dd></div>
-            <div class={r.cls[1]}><dt>Typical app today</dt><dd>{r.host}</dd></div>
-            <div class={r.cls[2]}><dt>@n-uf/motion</dt><dd>{r.prop}</dd></div>
+            <div class={r.cls[1]}><dt>@n-uf/motion</dt><dd>{r.prop}</dd></div>
           </dl>
         </div>
       ))}
