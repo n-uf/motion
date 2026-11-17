@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.36
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.36 (`./tiling` fixes, bars that give way by
+  height, an overlay bar's `span: "full"`, anchored floats that keep clear of other floats and more in `./scene`).
+
 ## 26.11.35
 
 - `./drag`, **a lift zone as a rect** (additive). `DragIntentOptions.liftRect` gives the "changed my mind" spot as a

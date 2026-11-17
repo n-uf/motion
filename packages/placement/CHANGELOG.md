@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.35
+## 26.11.36
 
 - `./tiling`, fixed: **a split with no room for its gap keeps its panes inside its rect.** When a split's rect was
   narrower than the gap, `layoutSplit` laid its second side a gap past the split's start, past the rect's end and even
@@ -82,6 +82,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   whose second form is their header behave exactly as before (a panel with another form before its header now folds
   to the header); a group's old `from: 1` now folds it. `foldedBy`, the rail drop strips and the new-column lines read
   the fold as it shows. New row R8 and a sweep property.
+
+## 26.11.35
 
 - `./scene`, fixed: **a target left too thin to reach.** The new-column line beside a 28 px rail drop strip was left a
   6 px sliver (a kit saw 18 × 12): the column lines take only what the other edges leave. Now every target keeps a
