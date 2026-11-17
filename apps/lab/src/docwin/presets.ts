@@ -318,8 +318,8 @@ export const PRESETS: readonly Preset[] = [
     id: "overlay-bar-full-span",
     title: "A full overlay bar lies over the columns",
     expected:
-      "With the bottom bar laid over the content (mode overlay, the default full span), it runs across the window's full width at the content's bottom, over both side columns; the columns keep their height, down to the window's foot.",
-    setup: (c) => c.setScene(sceneWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, mode: "overlay" as const } : e)) }))),
+      "With the bottom bar laid over the content (mode overlay) and span full set by name, it runs across the window's full width at the content's bottom, over both side columns; the columns keep their height, down to the window's foot.",
+    setup: (c) => c.setScene(sceneWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, mode: "overlay" as const, span: "full" as const } : e)) }))),
     check(c) {
       const bar = c.layout.edges.bottom?.rect;
       const left = c.layout.edges.left?.rect;
