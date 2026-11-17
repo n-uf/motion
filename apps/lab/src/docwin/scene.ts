@@ -533,6 +533,9 @@ export function createScene(o: SceneOptions) {
   /** Over a refusal: the zone tinted, "No room here" at the pointer; elsewhere both hidden. */
   function showRefusal(r: SceneRefusal | null, p: Point): void {
     refuseTint.hidden = refuseLabel.hidden = !r;
+    // The host contract's mark: the refusal shown, by its id.
+    if (r) refuseTint.dataset.dragRefusal = r.id;
+    else delete refuseTint.dataset.dragRefusal;
     if (!r) return;
     place(refuseTint, r.hit);
     refuseTint.dataset.reason = r.reason;
@@ -848,7 +851,8 @@ export function createScene(o: SceneOptions) {
     const d = drag;
     // Back over its own place: the item drawn where it was ("Back to its place").
     if (!d || d.homing) return layout;
-    if (d.shown) return d.shown.after(d.pointer, d.grab).layout;
+    // Over a refusal nothing is shown and a release commits nothing: the held item's place left empty.
+    if (d.shown && !d.refused) return d.shown.after(d.pointer, d.grab).layout;
     const { [d.id]: _held, ...items } = layout.items;
     return { ...layout, items, floats: layout.floats.filter((f) => f !== d.id) };
   }

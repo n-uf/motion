@@ -47,12 +47,18 @@ export const RULE_ROWS: readonly CaseRow[] = [
   {
     id: "C25",
     title: "Targets by kind: a panel in a toolbar",
-    expect: "An edge takes only the kinds it lists: a panel held over the toolbar is offered no gap there, it falls through to the float, and the toolbar is as it was.",
+    expect:
+      "An edge takes only the kinds it lists: a panel held over the toolbar is offered no gap there and no float either: the toolbar refuses it (\"No room here\"), and a release there puts it back, the toolbar as it was.",
     group: "kinds",
     scene: doc(),
     // (600, 50) is a real gap for a group (the toolbar's center gap): the control row below lets a group go there.
-    gestures: [g.press("pages", { x: 20, y: 10 }), g.at(600, 50), g.hold()],
-    expectLayout: { items: { pages: { floating: true, rect: r(580, 68, 280, 360) }, views: { rect: r(8, 32, 200, 36) }, tools: { rect: r(212, 32, 200, 36) }, zoom: { rect: r(992, 32, 200, 36) } }, order: { toolbar: ["views", "tools", "zoom"] } },
+    gestures: [g.press("pages", { x: 20, y: 10 }), g.at(600, 50), g.hold(), g.release()],
+    checkpoints: [{ at: 2, layout: { items: { pages: null, views: { rect: r(8, 32, 200, 36) }, tools: { rect: r(212, 32, 200, 36) }, zoom: { rect: r(992, 32, 200, 36) } }, order: { toolbar: ["views", "tools", "zoom"] } }, note: "refused: no target, the held item out of the layout" }],
+    expectLayout: { items: { pages: { edge: "left", floating: false }, views: { rect: r(8, 32, 200, 36) }, tools: { rect: r(212, 32, 200, 36) }, zoom: { rect: r(992, 32, 200, 36) } }, order: { toolbar: ["views", "tools", "zoom"], left: ["pages"] } },
+    expectDom: [
+      { at: 2, select: "[data-drag-refusal]", count: 1, attr: { "data-drag-refusal": "refuse:toolbar:center" }, note: "the refusal shows where the pointer is" },
+      { at: 2, select: "[data-drag-slot]", count: 0, note: "no slot anywhere" },
+    ],
   },
   {
     id: "C25-control-bar",
@@ -110,10 +116,11 @@ export const RULE_ROWS: readonly CaseRow[] = [
   {
     id: "C27",
     title: "Floats never cover the bars",
-    expect: "A float let go over the title bar lands clear of every bar, not on them.",
+    expect: "A float let go just under the toolbar, where its grab would put its top over the bar, lands clear of every bar, not on them.",
     group: "kinds",
     scene: doc(),
-    gestures: [g.press("notes", { x: 20, y: 10 }), g.at(600, 12), g.hold(), g.release()],
+    // (600, 72): the content, 4 px under the toolbar; the grab (10 px down) would put the float's top at 62, over the bar.
+    gestures: [g.press("notes", { x: 20, y: 10 }), g.at(600, 72), g.hold(), g.release()],
     checkpoints: [{ at: 2, layout: { items: { notes: { floating: true, rect: r(580, 68, 280, 320) }, title: { rect: r(0, 0, 1116, 32) }, controls: { rect: r(1116, 0, 84, 32) } } }, note: "the preview" }],
     expectLayout: { items: { notes: { floating: true, rect: r(580, 68, 280, 320) }, title: { rect: r(0, 0, 1116, 32) }, controls: { rect: r(1116, 0, 84, 32) } } },
   },
@@ -168,18 +175,21 @@ export const RULE_ROWS: readonly CaseRow[] = [
       "Beside a panel's body the gap is a band: within 12 px of the boundary between the Findings panel and the Marks toolbar below it there is a gap, 11 px above; 13 px above, over the panel's body, there is none. Below the boundary the toolbar is a short item, not a body: its whole length belongs to the nearest gap, so 11 and 13 px below are both that gap.",
     group: "bands",
     scene: panelsOnly(),
-    // The boundary is at y 704. In: 693, 715 and 717 (over the toolbar). Out: 691 (over the body).
-    gestures: [g.press("tools"), g.at(1070, 693), g.hold(), g.at(1070, 715), g.hold(), g.at(1070, 691), g.hold(), g.at(1070, 717), g.hold()],
+    // The boundary is at y 704. In: 693, 715 and 717 (over the toolbar). Out: 691 (over the body), reached from the
+    // content (600, 400), where a group has no target: the geometry alone, with no target carried over (a host's intent
+    // keeps a shown gap a band's width past its hit; that is the intent's rule, checked in @n-uf/motion/drag).
+    gestures: [g.press("tools"), g.at(1070, 693), g.hold(), g.at(1070, 715), g.hold(), g.at(600, 400), g.hold(), g.at(1070, 691), g.hold(), g.at(1070, 717), g.hold()],
     checkpoints: [
       { at: 2, layout: { items: { findings: { rect: r(940, 68, 260, 540) }, tools: { edge: "right", rect: r(940, 608, 84, 96) }, marks: { rect: r(940, 704, 84, 96) } }, order: { right: ["findings", "tools", "marks"] } }, note: "11 px above the boundary: in the band" },
       { at: 4, layout: { items: { findings: { rect: r(940, 68, 260, 540) }, tools: { edge: "right", rect: r(940, 608, 84, 96) } }, order: { right: ["findings", "tools", "marks"] } }, note: "11 px below: over the toolbar" },
-      { at: 6, layout: { items: { tools: null, findings: { rect: r(940, 68, 260, 636) }, marks: { rect: r(940, 704, 84, 96) } } }, note: "13 px above, over the body: out" },
+      { at: 6, layout: { items: { tools: null } }, note: "over the content: no target for a group" },
+      { at: 8, layout: { items: { tools: null, findings: { rect: r(940, 68, 260, 636) }, marks: { rect: r(940, 704, 84, 96) } } }, note: "13 px above, over the body: out" },
     ],
     expectLayout: { items: { findings: { rect: r(940, 68, 260, 540) }, tools: { edge: "right", rect: r(940, 608, 84, 96) }, marks: { rect: r(940, 704, 84, 96) } }, order: { right: ["findings", "tools", "marks"] } },
     expectDom: [
       { at: 2, select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:right:start:1" }, note: "the slot on the boundary's gap" },
-      { at: 6, select: "[data-drag-slot]", count: 0, note: "no slot 13 px off, over the body" },
-      { at: 8, select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:right:start:1" }, note: "13 px below, over the toolbar: the same gap" },
+      { at: 8, select: "[data-drag-slot]", count: 0, note: "no slot 13 px off, over the body" },
+      { at: 10, select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:right:start:1" }, note: "13 px below, over the toolbar: the same gap" },
     ],
   },
   {

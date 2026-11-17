@@ -4,7 +4,8 @@
  * preview and commit a mouse uses, frames driven by a clock the host steps), and reads back what the page draws.
  *
  * - `press` / `move` / `hold` / `release`: the session's `begin`, `move`, `frame` and `release`; a `move` to a `place` aims
- *   with `resolvePlace` under `@n-uf/motion/drag`'s `targetAt`, the one pick rule.
+ *   with `resolvePlace` under `@n-uf/motion/drag`'s `targetAt`, the one pick rule, with the scene's refusals
+ *   (`withRefusals`); the page itself refuses a drop there and marks the refusal (`data-drag-refusal`).
  * - `click`: the window's controls (open, close, a use), or the Scene's change that the menu row commits.
  * - `key`: Escape cancels, Alt holds the unfreeze key, Reload stores the scene and reads it back.
  * - the root: the session mark on the page's root, slots, markers and items in window px.
@@ -13,21 +14,9 @@ import { targetAt } from "@n-uf/motion/drag";
 import { centre } from "@n-uf/placement";
 import { close, dockHome, floatAt, fold, homeFor, open, storeScene, use, type Scene, type SceneLayout } from "@n-uf/placement/scene";
 import { readDocwin } from "./store";
-import { END_REACH, LIFT_THRESHOLD, resizeStep, resolvePlace, type AsyncCaseHost, type CaseSettings, type DomRoot, type Gesture } from "@n-uf/placement/scene/cases";
+import { END_REACH, LIFT_THRESHOLD, resizeStep, resolvePlace, withRefusals, type AsyncCaseHost, type CaseSettings, type DomRoot, type Gesture } from "@n-uf/placement/scene/cases";
 import type { ItemId } from "./model";
 import type { DocwinScene } from "./scene";
-
-/**
- * Rows this window plays differently from the in-memory host, for a rule of the libraries the in-memory host doesn't run
- * (it has no refusals and no drag intent). Each waits on a decision between two library rules; while it fails here it is
- * listed as pending with its reason, never as a pass. Once one passes, remove it.
- */
-export const DISAGREE: Readonly<Record<string, string>> = {
-  C27: "the Scene's refusals (a release over a tile that doesn't take the kind commits nothing) against the row's float that lands clear of the bar",
-  "P11-a-float-never-covers-chrome": "the Scene's refusals (over the title bar a panel is refused) against the row's float that lands below the title bar",
-  "P13-kinds": "the Scene's refusals (over a group-only bar a panel is refused) against the row's float slot there",
-  "R4-band-at-a-boundary": "the drag intent's band (the shown gap stays while the pointer rests 2 px outside it) against the row's pick at the point",
-};
 
 /** A frame every 16 ms of the host's clock. */
 const FRAME = 16;
@@ -81,7 +70,7 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
       const d = c.drag;
       if (!d) return;
       const list = d.targets;
-      const p = resolvePlace(list, g.place, d.id, { stage: scene().stage, content: c.layout.content }, targetAt);
+      const p = resolvePlace(list, g.place, d.id, { stage: scene().stage, content: c.layout.content }, withRefusals(targetAt, c.refusals(d.id)));
       if (!p) throw new Error(`no point reaches the target at ${JSON.stringify(g.place)} (targets: ${list.map((x) => x.id).join(", ") || "none"})`);
       c.move(p);
       t += FRAME;

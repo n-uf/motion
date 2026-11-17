@@ -10,7 +10,7 @@
  * needs to turn a gesture's `place` into a pointer, and the deprecated `pickTarget` (the default pick).
  */
 import { centre, contains as inside, type Point, type Rect } from "../../geometry";
-import { close, dockHome, fold, floatAt, homeFor, open, placeTargetId, raise, readScene, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
+import { close, dockHome, fold, floatAt, homeFor, open, placeTargetId, raise, readScene, refusals, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneRefusal, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
 import type { CaseHost, CaseSettings, Gesture, PickRule } from "./types";
 
 /** The lift threshold: the pointer moves this far (px) from the press before the item lifts. */
@@ -39,6 +39,20 @@ export function pickTarget<T extends { readonly priority: number; readonly hit: 
     if (!best || t.priority < best.priority || (t.priority === best.priority && size(t) < size(best))) best = t;
   }
   return best;
+}
+
+/**
+ * The pick rule with the scene's refusals (`refusals(scene, dragged)`): where nothing more precise than the float is
+ * under the point and a refusal's hit holds it, nothing is picked, so a release there commits nothing and the item goes
+ * home ("No room here"). Every host aims and drops with it: the reference host, and a page's host for `resolvePlace`.
+ */
+export function withRefusals(pick: PickRule, refused: readonly SceneRefusal[]): PickRule {
+  if (refused.length === 0) return pick;
+  return (list, point) => {
+    const t = pick(list, point);
+    if (t && t.place.kind !== "float") return t;
+    return refused.some((r) => inside(r.hit, point, 0)) ? null : t;
+  };
 }
 
 /** The target for `place` among `list`: by its id (`placeTargetId`), else by the place's kind. */
@@ -159,6 +173,8 @@ interface Session {
   point: Point;
   lifted: boolean;
   list: SceneTarget[];
+  /** The pick rule with this drag's refusals (`withRefusals`). */
+  pickAt: PickRule;
   target: SceneTarget | null;
 }
 
@@ -206,7 +222,8 @@ export function createSceneHost(options: SceneHostOptions = {}): SceneHost {
   function liftNow(s: Session): void {
     s.lifted = true;
     s.list = targets(now(), s.item, { previous: prev(), endReach });
-    s.target = pick(s.list, s.point);
+    s.pickAt = withRefusals(pick, refusals(now(), s.item, { previous: prev(), endReach }));
+    s.target = s.pickAt(s.list, s.point);
   }
 
   function move(g: Gesture): void {
@@ -214,16 +231,16 @@ export function createSceneHost(options: SceneHostOptions = {}): SceneHost {
     if (!s) return;
     if (g.place) {
       if (!s.lifted) liftNow(s);
-      const p = resolvePlace(s.list, g.place, s.item, aim(), pick);
+      const p = resolvePlace(s.list, g.place, s.item, aim(), s.pickAt);
       if (!p) throw new Error(`no point reaches the target at ${JSON.stringify(g.place)} (targets: ${s.list.map((t) => t.id).join(", ") || "none"})`);
       s.point = p;
-      s.target = pick(s.list, p);
+      s.target = s.pickAt(s.list, p);
       return;
     }
     if (!g.point) throw new Error("a move needs a point or a place");
     s.point = { x: g.point.x, y: g.point.y };
     if (!s.lifted && Math.hypot(s.point.x - s.down.x, s.point.y - s.down.y) > lifted0) liftNow(s);
-    else if (s.lifted) s.target = pick(s.list, s.point);
+    else if (s.lifted) s.target = s.pickAt(s.list, s.point);
   }
 
   function press(g: Gesture): void {
@@ -242,7 +259,7 @@ export function createSceneHost(options: SceneHostOptions = {}): SceneHost {
     const down = { x: l.rect.x + grab.x, y: l.rect.y + grab.y };
     // A press on a float raises it: stacking only, no use and no reshape.
     if (l.floating) settle(raise(s, id));
-    session = { item: id, grab, down, point: down, lifted: false, list: [], target: null };
+    session = { item: id, grab, down, point: down, lifted: false, list: [], pickAt: pick, target: null };
   }
 
   function release(): void {

@@ -11,6 +11,8 @@
  * step of a `resize` gesture (an edge's size, an item measured again, the window's size). The pick rule (which target
  * the pointer is over) is `@n-uf/motion/drag`'s `targetAt`, taken as an input: `createSceneHost({ pick: targetAt })`,
  * `resolvePlace(…, targetAt)`, a host's `pick` (`PickRule`). `pickTarget`, the default when none is given, is deprecated.
+ * `withRefusals(pick, refusals(scene, dragged))` is that rule with the scene's refusals: over a refused tile, where
+ * nothing but the float would be picked, nothing is, and a release there puts the item back.
  * `runCaseAsync` and `runCasesAsync` play the same rows on an `AsyncCaseHost` (a page driven from a browser runner),
  * awaiting each host call.
  *
@@ -23,7 +25,7 @@ import { GESTURE_ROWS } from "./rows-gestures";
 import { WINDOW_ROWS } from "./rows-windows";
 import type { CaseGroup, CaseRow } from "./types";
 
-export { createSceneHost, END_REACH, LIFT_THRESHOLD, pickTarget, resizeStep, resolvePlace, type AimArea, type SceneHost, type SceneHostOptions } from "./host";
+export { createSceneHost, END_REACH, LIFT_THRESHOLD, pickTarget, resizeStep, resolvePlace, withRefusals, type AimArea, type SceneHost, type SceneHostOptions } from "./host";
 export { defaultItemSelector, layoutIssues, runCase, runCaseAsync, runCases, runCasesAsync } from "./run";
 export { g } from "./gestures";
 export { idRenames, mapGesture, mapLayout, mapPlace, mapScene, mapStored, type IdMap, type Rename } from "./ids";
