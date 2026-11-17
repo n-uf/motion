@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.33
 
+- `./scene`, fixed: **with card halves (`hitBand: "middle"`) and a rail drop strip, the new outermost column was
+  missing.** Moved inside the strip, the line for `column:<side>:0` was cut again by every other target, and a column's
+  card halves cover its whole width, so nothing was left: neither `targets()` nor `stops()` offered it. The line now keeps
+  the band it owns, as without a strip (it beats the inner column it would push, card halves included); only home, a
+  blocked rect and the other column lines take from it, and the inner columns' gaps and refusals on its side stop short
+  of it. With default bands, the gap between two panels at the side's edge now also gives the line its band.
 - `./scene/cases`, **rows that mean a new outermost column aim by place.** P6-new-outer-column-from-outside (now
   reached from the content, resting on the float first) and P6-left-outer-edge aim at `column:<side>:0` with
   `resolvePlace` instead of 11 px from the window's edge, so they hold with a rail drop strip (a UI kit's panel
