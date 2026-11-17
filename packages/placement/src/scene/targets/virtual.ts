@@ -37,6 +37,19 @@ export function railOuter(c: Ctx, side: "left" | "right"): number {
 }
 
 /**
+ * The one rule for "collapse it at this side": whether a drop's result has the item folded by hand and drawn at `side`,
+ * wherever the scene's `handFold` shows a collapsed panel there (a tile in a rail, a rider bar over the side's first
+ * open column, a header in its column); not home, and the window fits. The rail strip and an occupied rail's stops
+ * both land by it.
+ */
+export function collapsesAt(c: Ctx, result: SceneAfter, side: "left" | "right"): boolean {
+  const me = result.layout.items[c.dragged];
+  if (!me || me.floating || me.inMenu || (result.scene.items[c.dragged]?.from ?? 0) < 1 || c.isHome(result) || !c.sound(result.layout)) return false;
+  const sideOf = (edgeId: string | undefined): string | undefined => (edgeId ? result.layout.edges[edgeId]?.side : undefined);
+  return me.rail === side || sideOf(me.rides) === side || sideOf(me.edge) === side;
+}
+
+/**
  * The side's column lines as an edge (virtual, along x): a slot on each line for a new column there, tiled as every
  * edge is (its kind's `reach` each way at most), down the columns' stretch. The lines lie where the user sees the
  * columns; each counts its ring with the item lifted.
@@ -163,9 +176,13 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
     zone = rect(side === "left" ? outer : outer - RAIL_EDGE, placeRect.y, RAIL_EDGE, placeRect.height);
     stops.push({ y: placeRect.y, ring: firstCol ? rings.before(firstCol) : rings.count });
   }
-  // Folded into this rail; every stop is home while the item is folded here already.
+  // Every stop is home while the item is folded here already. A rail that shows (occupied) offers its stops wherever the
+  // item ends up collapsed at this side (`collapsesAt`: its tile, or a rider bar when the lifted item's column reopens
+  // over it). With no rail shown, a stop is only the item folded into the rail: a thin band that would otherwise take
+  // the side's edge from the column line for a panel that rides.
   const ownRail = now.items[dragged]?.rail === side;
-  const lands = (r: SceneAfter): boolean => r.layout.items[dragged]!.rail === side && r.scene !== c.scene;
+  const shown = !!rail && rail.segments.length > 0;
+  const lands = (r: SceneAfter): boolean => (shown ? collapsesAt(c, r, side) : r.layout.items[dragged]!.rail === side && r.scene !== c.scene);
   const at = zone;
   return {
     id: virtualEdgeId("rail", side),

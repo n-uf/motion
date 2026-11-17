@@ -1100,9 +1100,13 @@ facing halves is home's, and is no target of its own. The slot is where the item
 - `rail:<side>:<ring>` (1): docking folded into the side's rail, before each folded column's segments and after the
   last, or, while no rail shows, the outer 10 px from the side's outer edge (the window's, an inset's strip included;
   flush after the side's outside toolbar bars), landing where the rail lands. The outermost column line starts where
-  it ends. A rail stop takes its place at the side's edge only where one of its slots lands (home's counts); when the
-  rail would be covered (every stop refused, a panel riding over it), the outermost column line is laid from the
-  window's edge instead. For a kind with a rail drop policy, the rail is a spring-loaded drop strip instead (below).
+  it ends. A rail that shows offers its stops wherever the item ends up collapsed at that side (the same rule as the
+  strip's below): its tile in the rail, or a rider bar over the side's open column when lifting the item lets a column
+  that was folded by width reopen; the slot is that landing. With no rail showing, the stop keeps its place only while
+  one of its slots lands in the rail (home's counts): where every drop there is refused (a panel would ride over an
+  open column), the outermost column line runs from the window's edge. Draw `refusals()` as well as the targets, so a
+  place that refuses a drop never looks like a dead band.
+  For a kind with a rail drop policy, the rail is a spring-loaded drop strip instead (below).
 - `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
   commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail
   drop that would put the item back where it is (the gap beside it, its own column's line) keeps its id but is a home
