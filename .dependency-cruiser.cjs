@@ -37,6 +37,14 @@ module.exports = {
       from: { path: "^packages/placement/src/tiling/" },
       to: { path: "^packages/placement/src/[^/]+/", pathNot: "^packages/placement/src/tiling/" },
     },
+    {
+      // The apps build on `./scene` and `./tiling`, never on the legacy entries. Placement's own code may still reach them
+      // until those folders are deleted, when `from` widens to everything.
+      name: "no-legacy-folders",
+      severity: "error",
+      from: { path: "^apps" },
+      to: { path: "^packages/placement/src/(dock|desk|panels|toolbar|targets)/" },
+    },
   ],
   options: {
     tsPreCompilationDeps: true,
