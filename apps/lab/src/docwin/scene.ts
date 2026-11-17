@@ -790,7 +790,8 @@ export function createScene(o: SceneOptions) {
   /** What the page shows now: during a drag, the shown target's layout after its drop; with none, the held item's place empty. */
   function preview(): SceneLayout {
     const d = drag;
-    if (!d) return layout;
+    // Back over its own place: the item drawn where it was ("Back to its place").
+    if (!d || d.homing) return layout;
     if (d.shown) return d.shown.after(d.pointer, d.grab).layout;
     const { [d.id]: _held, ...items } = layout.items;
     return { ...layout, items, floats: layout.floats.filter((f) => f !== d.id) };
@@ -1310,6 +1311,10 @@ export function createScene(o: SceneOptions) {
     },
     get dragging(): boolean {
       return drag !== null;
+    },
+    /** The drag in progress: the held item and its targets, or null. */
+    get drag(): { readonly id: ItemId; readonly targets: readonly SceneTarget[] } | null {
+      return drag ? { id: drag.id, targets: drag.targets } : null;
     },
     get lastDrop(): LastDrop | null {
       return lastDrop;
