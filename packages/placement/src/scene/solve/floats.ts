@@ -90,8 +90,8 @@ export function placeFloat(item: SceneItem, f: Pick<SceneFloat, "rect" | "orient
   const cap = { width: Number.isFinite(item.floatMax?.width) ? item.floatMax!.width : Infinity, height: Number.isFinite(item.floatMax?.height) ? item.floatMax!.height : Infinity };
   const clear = clearSize(region, avoid);
   const w = Math.max(floor.width, Math.min(shape.width, clear.width, cap.width));
-  // Folded means its bar (a folded form: a panel's `header`, a group's `fold`), not any form past the first (a row
-  // float, a second open form).
+  // A float folded by hand is its bar (a panel's `header`, a group's `fold`): it keeps the bar's own height. Any other
+  // form (its first, or a later one a stored scene names) fits the region.
   const folded = form?.kind === "header" || form?.kind === "fold";
   const h = folded ? shape.height : Math.max(floor.height, Math.min(shape.height, clear.height, cap.height));
   const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);

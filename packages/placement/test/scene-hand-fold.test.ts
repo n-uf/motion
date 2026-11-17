@@ -4,10 +4,11 @@
  * Never a variant before the folded form (a group's stacked or icons). Swept over the model windows in every mode.
  */
 import { describe, expect, it } from "vitest";
-import { canFold, fold, solve, type Scene } from "../src/scene";
+import { canFold, fold, solve, targets, type Scene } from "../src/scene";
 import type { StackForm } from "../src/stack";
-import { axisOf, foldedIndex, formsOf } from "../src/scene/helpers";
+import { axisOf, foldedIndex, formsOf, isHandFolded } from "../src/scene/helpers";
 import { modelScene } from "./model-scene";
+import { windowScene } from "./scene-fixture";
 
 describe("a hand fold is the folded form", () => {
   it("every folded item is in a folded form, or a smaller one give-way chose after it", () => {
@@ -30,7 +31,7 @@ describe("a hand fold is the folded form", () => {
           if (!at || at.inMenu) continue;
           const edge = s.edges.find((e) => e.id === at.edge);
           const forms = formsOf(it, edge ? axisOf(edge.side) : (s.floats.find((f) => f.id === id)?.orient ?? (it.kind === "group" ? "row" : "column")));
-          const f = foldedIndex(forms);
+          const f = foldedIndex(it, forms);
           const ok = at.formKind === "header" || at.formKind === "fold" || (at.form >= f && (at.formKind === "rail" || at.formKind === "menu"));
           folded++;
           if (it.kind === "group") groups++;
@@ -41,6 +42,39 @@ describe("a hand fold is the folded form", () => {
     expect(failures.slice(0, 10)).toEqual([]);
     expect(folded).toBeGreaterThan(500);
     expect(groups).toBeGreaterThan(200);
+  });
+
+  // A panel shaped [open, rail] on an open column: no header, and not a fixed anchor, so it has no folded form there.
+  const railOnly = (from?: number): Scene => {
+    const s = windowScene();
+    const open = s.items.pages!.forms.column![0]!;
+    const rail: StackForm = { kind: "rail", main: { min: 26, natural: 26 }, cross: { natural: 32 } };
+    return { ...s, items: { ...s.items, pages: { ...s.items.pages!, forms: { column: [open, rail] }, ...(from ? { from } : {}) } } };
+  };
+
+  it("an [open, rail] panel on an open column can't be folded by hand: canFold is false, and it draws no rail form", () => {
+    const s = railOnly();
+    expect(canFold(s, "pages")).toBe(false);
+    expect(fold(s, "pages", true)).toBe(s);
+    // Stored folded by hand all the same (`from: 1`): it draws open, and nothing reads it as folded.
+    const l = solve(railOnly(1));
+    expect(l.items.pages).toMatchObject({ formKind: "open", form: 0 });
+    expect(l.items.pages!.foldedBy).toBeUndefined();
+    expect(isHandFolded(railOnly(1), "pages")).toBe(false);
+  });
+
+  it("a stored from: 1 reads as the fold solve draws: the own column's rail drop strip goes only where the item shows folded", () => {
+    // A kind with a rail drop policy and no declared rail: each side's outermost column is its rail (`columnStrip`).
+    const strip = (s: Scene): Scene => ({ ...s, railDrop: { panel: { railStripWidth: 28 } } });
+    const ids = (s: Scene): string[] => targets(strip(s), "pages").map((t) => `${t.id}${t.strip ? "*" : ""}`);
+    // No folded form (an [open, rail] panel): `from: 1` is no fold, so the targets are those of the item unfolded.
+    expect(ids(railOnly(1))).toEqual(ids(railOnly()));
+    // With a header it shows folded: its own column's strip is home (no strip there), the other side's stays.
+    const s = windowScene();
+    expect(ids(s)).toContain("rail:left:0*");
+    const folded = ids({ ...s, items: { ...s.items, pages: { ...s.items.pages!, from: 1 } } });
+    expect(folded).not.toContain("rail:left:0*");
+    expect(folded).toContain("rail:right:0*");
   });
 });
 

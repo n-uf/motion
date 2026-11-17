@@ -506,12 +506,17 @@ describe("the options the rows need", () => {
     expect(solve(tall).items.findings!.rect).toMatchObject({ y: 0, height: 260 });
   });
 
-  it("only a folded float (its header form) keeps its height: with no folded form, folded by hand is its open form, shrunk to the region", () => {
+  it("a float folded by hand goes to its folded form, past a second open form, and only that bar keeps its height", () => {
     const s = adapt(rows.scenes.floatingAtEdge!.scene, 300, 200);
-    const card = s.items.findings!.forms.column![0]!;
-    // Two open forms and no header: `from: 1` is folded by hand, which means nothing here (never "the next form").
-    const twoOpen: Scene = { ...s, items: { ...s.items, findings: { ...s.items.findings!, from: 1, forms: { column: [card, { ...card, main: { min: 100, natural: 300, grows: true } }] } } } };
-    const first = solve(twoOpen).items.findings!;
+    const [card, header] = [s.items.findings!.forms.column![0]!, s.items.findings!.forms.column!.find((f) => f.kind === "header")!];
+    const open2 = { ...card, main: { min: 100, natural: 300, grows: true } };
+    const withForms = (forms: typeof card[]): Scene => ({ ...s, items: { ...s.items, findings: { ...s.items.findings!, from: 1, forms: { column: forms } } } });
+    // [open, open2, header]: folded by hand is its header (the bar, at the bar's height), never open2, the next form.
+    const bar = solve(withForms([card, open2, header])).items.findings!;
+    expect(bar).toMatchObject({ form: 2, formKind: "header", foldedBy: "hand" });
+    expect(bar.rect.height).toBe(header.main.natural);
+    // [open, open2]: no folded form, so `from: 1` is no fold: its first form, shrunk to the 200 px region.
+    const first = solve(withForms([card, open2])).items.findings!;
     expect(first).toMatchObject({ form: 0, formKind: "open" });
     expect(first.foldedBy).toBeUndefined();
     expect(first.rect.height).toBe(200);

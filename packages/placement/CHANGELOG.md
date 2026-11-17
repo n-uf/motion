@@ -7,13 +7,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 - `./scene`, fixed: **a grip's double-click folds, it never steps to a variant** (host note). A toolbar group with
   forms full, compact, minimal and a menu went to compact when folded by hand: `fold` set `from: 1`, "one step down",
-  which is a fold only for panels (their second form is their header). Folded by hand, an item now takes its folded
-  form on the axis it lies along: a panel's `header`, a group's `fold` (its grip and »), else its `rail` tile; give-way
-  still steps down from there (rail, menu), and unfolding brings back the form the room allows. `from` keeps its
-  stored meaning, "folded by hand" (1 or more), so stored scenes read as before: a panel's `from: 1` is its header as
-  it was; a group's old `from: 1` now folds it. New `canFold(scene, id)`: false where the item has no folded form on its
-  axis, and there `fold(on)` changes nothing, so a host can leave the double-click off. `foldedBy` says `"hand"` only
-  where the fold shows. Panels behave as before. New row R8 and a sweep property.
+  which is a fold only for panels whose second form is their header. A hand fold now always goes to the folded form on
+  the axis the item lies along: a panel's `header`, a group's `fold` (its grip and »); a thumbnail anchor (a fixed item
+  on a `foldable` edge) with neither folds to its `rail` tile as before. Give-way still steps down from there (rail,
+  menu), and unfolding brings back the form the room allows. An item with no folded form there can't be folded by
+  hand: new `canFold(scene, id)` is false, `fold(on)` changes nothing (a host leaves the double-click off), and it draws
+  unfolded. `from` keeps its stored meaning, "folded by hand" (1 or more), so stored scenes read as before: panels
+  whose second form is their header behave exactly as before (a panel with another form before its header now folds
+  to the header); a group's old `from: 1` now folds it. `foldedBy`, the rail drop strips and the new-column lines read
+  the fold as it shows. New row R8 and a sweep property.
 
 - `./scene`, fixed: **a target left too thin to reach.** The new-column line beside a 28 px rail drop strip was left a
   6 px sliver (a kit saw 18 × 12): the column lines take only what the other edges leave. Now every target keeps a
