@@ -10,22 +10,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   dragged pane could be inserted at); the split tree (`Split`, `layoutSplit`, `splitPane`, `removePane`, `swapPanes`,
   `panesOf`, and `splitFromOrder` for dwindle, split along the longer side), where a split may carry an `axis` and a
   `ratio`; a pane's drop regions (`paneRegion`, `paneCenter`, `PANE_SIDES`, `PANE_REGION_DEFAULTS`: the center and
-  four sides), `dropOnPane` (the center swaps, a side splits with that side's axis and ratio 0.5) and `paneTargets`;
-  and `giveWay`, which floats the newest pane while one breaks its minimum. README: Tiling.
+  four sides), `dropOnPane` (the center swaps, a side splits with that side's axis and ratio 0.5; a drop on a pane
+  that isn't there, or on itself, changes nothing) and `paneTargets` (`{ except, key }`: ids `pane:<key>`, keys
+  unique); and `giveWay`, which floats the newest pane while one breaks its minimum. `layoutSplit` clamps a ratio to
+  0..1 and never gives a negative size. README: Tiling.
 - `./targets`, **deprecated: the pane drop zones.** `paneZone`, `paneCentre`, `PaneZone`, `PaneCentre`,
   `PaneZoneOptions`, `PANE_EDGES` and `PANE_ZONE_DEFAULTS` now wrap `./tiling`'s `paneRegion`, `paneCenter`,
   `PaneRegion`, `PaneCenter`, `PaneRegionOptions`, `PANE_SIDES` and `PANE_REGION_DEFAULTS` (same results; the old
   option names are mapped). They stay until the legacy entries go. `./dock` lays out its documents and its tiling tree
-  with `./tiling` (same rects).
-
-- `./scene`, **over an unarmed strip** (docs and a property test, no behavior change). A kit reported that at 700 px
-  with a flush 200 px card window, x 0–4 showed the rail's `no-room` refusal and x 5–10 showed nothing. The library
-  doesn't reproduce it: with those numbers (Annotations lifted, the left column folded into its rail), x 0–9 is the
-  refusal and x 10 on the new-column line, and across widths 560–1400, both hit bands, both window shapes and every
-  item, no refusal lies under an armable strip and no edge point is a hole. Nothing shown over a strip that hasn't armed
-  is the pre-arm state: the README's host contract now says a host draws the strip's highlight from the intent frame's
-  `arming`, and that a refusal never lies under an armable strip (the new property test). The README's paragraph on the
-  new outermost column's line inside a strip now matches its band rule.
+  with `./tiling` (the same rects, to the bit).
 - `./scene/cases`, **`resolvePlace` aims outside the dragged item's own rect** whenever a point there reaches the
   target, as a person aims; a drag intent's home gate then never holds the aim. `AimArea.own` (additive) is that rect
   (a held float's too); without it, the list's `home` target's hit. The reference host passes it.
