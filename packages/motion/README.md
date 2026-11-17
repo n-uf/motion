@@ -384,6 +384,11 @@ insertion point 2, a large area 3). The rules:
   column, dragged to its own side's edge) arms by dwell there, shows while armed,
   and takes a release over home; an unarmed target, and a target that isn't
   spring-loaded, still never show over home, and a release there does nothing.
+  A spring-loaded target arms only after the pointer has entered its hit area
+  during the drag: the point the drag starts at counts as not entered, so a drag
+  that starts inside the strip (a panel's grip under it at the window's edge)
+  must leave it and come back before it arms, while entering from over home
+  counts.
 - Keys win over geometry: with `keys` passed (`DragKeys`: `{ shift?, alt?, ctrl?,
   meta? }`, the modifiers held on a pointer event; `tuning.modifiers` says which
   key does what, default Shift and ⌘/Ctrl), the float key (Shift) shows and lands
