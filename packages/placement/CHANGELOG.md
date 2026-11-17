@@ -10,7 +10,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `dy` px down, still following the content. A host stores "the top-right corner, 12 px down" instead of a pixel x that
   the clamp on reload moves. `storeScene` / `readScene` round-trip it; `readScene` keeps it as stored and drops a bad
   offset field as `float:<id>:anchor:dx` (or `:dy`, or the field's name). New types `FloatAnchorAt` and
-  `FloatAnchorOffset`, and `FLOAT_ANCHORS` lists the names. The string form is unchanged.
+  `FloatAnchorOffset`, and `FLOAT_ANCHORS` lists the names. The string form is unchanged. **Source break for hosts
+  that read `anchor`:** it is now `FloatAnchorAt`, not `FloatAnchor`, so code that reads it into a `FloatAnchor`,
+  indexes a `Record<FloatAnchor, …>` with it or switches over its names no longer type-checks. Hosts that read `anchor`
+  as a name now narrow first: `typeof a === "string" ? a : a.at`, or the new `anchorName(a)`. Hosts that only write
+  names are unaffected.
 
 - `./scene`, fixed: **an anchored float keeps clear of the other floats.** Floats were kept clear of docked items,
   bars and chrome only, never of each other, so Float from a menu (`moveTo(scene, id, { kind: "float" })` with no rect,

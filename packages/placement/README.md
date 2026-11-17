@@ -1037,7 +1037,8 @@ before.
 **An anchor with an offset.** `anchor` also takes `{ at, dx?, dy? }`: flush with `at`'s side or corner of the content,
 then `dx` px to the right and `dy` px down (negative: left, up; default 0), still following the content as the window
 changes. So a host stores "the content's top-right corner, 12 px down" instead of a pixel position that a smaller window
-would clamp on reload. The string form is unchanged, and `FLOAT_ANCHORS` lists the names.
+would clamp on reload. The string form is unchanged, and `FLOAT_ANCHORS` lists the names. A host that reads `anchor`
+as a name narrows it first: `anchorName(a)` is `a` for a name and `a.at` for one with an offset.
 
 ```ts
 const s = moveTo(scene, "tools", { kind: "float", anchor: { at: "content-top-right", dy: 12 } });
