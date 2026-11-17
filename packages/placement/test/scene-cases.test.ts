@@ -62,6 +62,11 @@ describe("the rows", () => {
     for (const { id, result } of runCases(CASES, () => createSceneHost({ pick: targetAt }))) {
       const row = caseById(id)!;
       skipped += result.skipped.length;
+      if (row.requires?.intent) {
+        // The in-memory host picks at the point, with no drag intent: such a row is skipped there, and goes red on it.
+        expect(result.ok, `${id} passes on a host without a drag intent: it doesn't need \`requires.intent\``).toBe(false);
+        continue;
+      }
       if (row.lacks) {
         // Expected red until the rule lands; when it does, this says to take `lacks` off the row.
         expect(result.ok, `${id} passes now: remove its \`lacks\` (${row.lacks})`).toBe(false);
@@ -82,7 +87,7 @@ describe("the rows", () => {
 
   it("don't depend on where a press holds the item: every row gives its own grab when it matters", () => {
     for (const grab of [{ x: 2, y: 3 }, { x: 15, y: 6 }]) {
-      for (const row of CASES.filter((c) => !c.lacks)) {
+      for (const row of CASES.filter((c) => !c.lacks && !c.requires?.intent)) {
         const r = runCase(row, createSceneHost({ grab }));
         expect(r.ok, `${row.id} with a grab of ${grab.x},${grab.y}: ${r.failures.join("; ")}`).toBe(true);
       }

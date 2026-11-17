@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.32
 
+- `./scene/cases`, **`requires.intent`** (additive) and **row R4b-leaving-the-band**: a row that checks what a drag
+  intent adds to the pick at a point names `requires: { intent: true }`, and a host without one (the in-memory host)
+  skips it. R4b leaves a shown gap from inside its hit: just past the hit the intent's band holds it, past the band
+  nothing shows. R4-band-at-a-boundary keeps its id, retitled to what it checks: the hit area's boundary alone.
 - `./scene/cases`, **refusals win, on every host.** The reference host (`createSceneHost`) now honours `refusals()`:
   over a refused tile, where nothing more precise than the float is under the pointer, nothing is picked, and a release
   there puts the item back ("No room here"), as a page does. The rule is `withRefusals(pick, refusals(scene, dragged))`

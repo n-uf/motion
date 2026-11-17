@@ -176,6 +176,12 @@ export interface CaseRequires {
   readonly hitBand?: "default";
   /** The sides whose rail the scene declares (`Scene.rails`) and shows at the start (a folded column puts panels in it), so a host needs a rail to aim at there. */
   readonly rails?: readonly ("left" | "right")[];
+  /**
+   * The host drags with a drag intent (`@n-uf/motion/drag`'s `createDragIntent`, or one with its timing): the row checks
+   * what the intent adds to the pick at a point (a shown target held a band's width past its hit while the pointer
+   * rests there). A host that picks at the point alone, the in-memory reference host among them, skips the row.
+   */
+  readonly intent?: true;
 }
 
 export interface CaseRow {

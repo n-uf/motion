@@ -62,8 +62,9 @@ if (problems.length === 0) {
     // The conformance rows run on the in-memory host from the built code, and a wrong expectation fails.
     const sc = m["scene-cases"];
     if (!Array.isArray(sc.CASES) || sc.CASES.length < 80) problems.push(`scene-cases.js: ${sc.CASES?.length} rows`);
-    // Rows that name a rule the library lacks (`lacks`) are expected to fail until it lands.
-    const failed = sc.CASES.filter((row) => !row.lacks && !sc.runCase(row, sc.createSceneHost()).ok).map((row) => row.id);
+    // Rows that name a rule the library lacks (`lacks`) are expected to fail until it lands; rows that need a drag
+    // intent (`requires.intent`) are skipped on a host without one.
+    const failed = sc.CASES.filter((row) => !row.lacks && !row.requires?.intent && !sc.runCase(row, sc.createSceneHost()).ok).map((row) => row.id);
     if (failed.length > 0) problems.push(`scene-cases.js: rows fail on the in-memory host: ${failed.slice(0, 5).join(", ")}`);
     const broken = { ...sc.CASES[0], expectLayout: { items: { pages: { rect: { x: 9999 } } } } };
     if (sc.runCase(broken, sc.createSceneHost()).ok) problems.push("scene-cases.js: a wrong expectation passed");
