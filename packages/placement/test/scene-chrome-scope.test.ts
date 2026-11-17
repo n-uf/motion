@@ -8,6 +8,22 @@ import { fitResize, floatAt, refusals, solve, targets, type Scene, type SceneChr
 import { modelScene } from "./model-scene";
 import { windowScene } from "./scene-fixture";
 
+/**
+ * Whether a `w` × `h` rect fits somewhere in `stage` clear of every rect in `avoid`. A clear place, if any, can be slid
+ * left and up until it touches the stage or an obstacle, so only those corners need trying.
+ */
+function clearPlaceExists(stage: Rect, avoid: readonly Rect[], w: number, h: number): boolean {
+  const xs = [stage.x, ...avoid.map((a) => a.x + a.width)];
+  const ys = [stage.y, ...avoid.map((a) => a.y + a.height)];
+  for (const x of xs)
+    for (const y of ys) {
+      const r = { x, y, width: w, height: h };
+      if (x + w > stage.x + stage.width + 1e-6 || y + h > stage.y + stage.height + 1e-6) continue;
+      if (!avoid.some((a) => overlaps(r, a))) return true;
+    }
+  return false;
+}
+
 /** A 24 px spine at the window's right edge, over the right column (940–1200) and its gaps. */
 const SPINE: Rect = { x: 1176, y: 0, width: 24, height: 800 };
 /** The same spine just left of the right column, over the content, where floats could otherwise go. */
@@ -134,9 +150,13 @@ describe("property: floats-only chrome changes nothing but the floats", () => {
           const r = l.items[f.id]?.rect;
           if (!r) continue;
           floats++;
-          // A float with no clear place anywhere says so (`float-covers`), as it does over plain chrome: that one is no failure.
-          const noRoom = l.notes.some((n) => n.code === "float-covers" && "id" in n && n.id === f.id);
-          if (!noRoom && spines.some((sp) => overlaps(r, sp))) failures.push(`seed ${seed}: float ${f.id} ${JSON.stringify(r)} lies on a spine`);
+          // Exempt only a float for which no clear place of its size exists anywhere in the stage (as over plain chrome).
+          const avoid = [
+            ...Object.values(l.items).filter((x) => !x.floating).map((x) => x.rect),
+            ...Object.values(l.edges).flatMap((e) => [...((e.side === "top" || e.side === "bottom") && e.cross > 0 ? [e.rect] : []), ...(e.menu ? [e.menu.rect] : [])]),
+            ...(spined.chrome ?? []),
+          ].filter((x) => x.width > 0 && x.height > 0);
+          if (spines.some((sp) => overlaps(r, sp)) && clearPlaceExists(spined.stage, avoid, r.width, r.height)) failures.push(`seed ${seed}: float ${f.id} ${JSON.stringify(r)} lies on a spine though a clear place exists`);
         }
       }
     expect(failures.slice(0, 10)).toEqual([]);

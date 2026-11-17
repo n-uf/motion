@@ -223,7 +223,8 @@ export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): S
 export function canFold(scene: Scene, id: string): boolean {
   const item = itemOf(scene, id);
   if (!item || (item.fixed && !scene.edges.some((e) => e.foldable === true && e.items.includes(id)))) return false;
-  return axesOf(scene, id).some((a) => foldedIndex(item, formsOf(item, a)) >= 0);
+  const edge = scene.edges.find((e) => e.items.includes(id));
+  return axesOf(scene, id).some((a) => foldedIndex(item, formsOf(item, a), edge) >= 0);
 }
 
 export function fold(scene: Scene, id: string, on: boolean): Scene {
