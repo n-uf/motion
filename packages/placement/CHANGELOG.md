@@ -5,6 +5,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.29
 
+- `./scene`, fixed: **flush windows lost the new outermost column on an occupied side** when a kind's rail strip is on
+  (`Scene.railDrop`): the strip owns the window's edge, which was all the line for a new outermost column had, so only
+  the inner lines remained (an inset window kept a sliver beside its padding). That line now lies just inside the strip,
+  as an empty column's drop strip already does (laid after the strip, so it owns what the strip and the other targets and
+  refusals leave); it is in `stops`, so a host's "Move to ›" reaches it.
 - `./scene/cases`, **a host's id map** (additive): `CaseHost.ids` / `AsyncCaseHost.ids`, a row's item and edge ids to the
   host's (`{ views: "panels", tools: "commands" }`). The runner hands the host its own ids (the scene, the gestures,
   `stops`, `itemSelector`) and maps the layout, the stored form and the stops back before comparing, so the rows that

@@ -1196,7 +1196,10 @@ side's column open, a rider bar over it; on a side without a declared rail, `mov
 side's outermost column's start zone as a collapsed header ("the column drawn as a rail"), a rail tile once nothing
 in that column sets its width. The slot is that landing, so the preview is the drop. The strip
 owns its rect: every other target and refusal of the drag gives it up, home's included (an item alone in its column
-reaches its side's rail from its home), and an empty column's own drop strip moves just inside it. Before the
+reaches its side's rail from its home), and an empty column's own drop strip moves just inside it, as does the line for a
+new outermost column on an occupied side (flush, the strip owns the window's edge): it is laid after the strip, so it
+owns what the strip and the other targets and refusals leave, the column's own gaps and inner lines keeping theirs; it
+is one of `stops`, so a host's "Move to ›" reaches it. Before the
 strip arms, a drop there is the float's. A kind with no policy keeps its targets exactly as before; tuning one kind
 never changes another. The policy's fields, each default with its reason:
 
