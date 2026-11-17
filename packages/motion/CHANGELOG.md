@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.31
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.31 (`foldedBy`, an edge's items in order,
+  remembered `stops()` and resize never over bars in `./scene`).
+
 ## 26.11.30
 
 - `./drag`, fixed: **spring-loading is not gated by home.** A strip that overlaps the held item's own place (an item alone
