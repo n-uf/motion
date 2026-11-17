@@ -7,9 +7,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 - `./drag`, **spring-loading and keys that win over geometry** (additive; targets without `arm` and hosts that pass
   no keys behave as before):
-  - `DragTarget.arm: "dwell"` marks a spring-loaded target: no target until the pointer has dwelt in its zone for
+  - `DragTarget.arm: "dwell"` marks a spring-loaded target: no target until the pointer has dwelt in its hit area for
     **`DragTuning.railArmDwellMs`** (default 200 ms, as platforms spring-load a few hundred ms after the pointer rests;
-    0 arms at once). Armed, its zone is `DragTarget.armedHit` (a magnet), it shows at once, and leaving that zone
+    0 arms at once). Armed, its hit area is `DragTarget.armedHit` (a magnet), it shows at once, and leaving that hit area
     disarms it. `DragFrame.arming` names the target dwelt on, for the host to highlight.
   - **`DragTuning.modifiers`** (`DragModifiers`: `{ on, floatKey, railKey }`, default Shift and ⌘/Ctrl, on):
     `update(point, time, targets, keys?)` and `release(point, targets, keys?)` take the keys held (`DragKeys`); the
@@ -22,9 +22,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
     and the ⌘/Ctrl keydown shortcuts.
 - README, drag: a host clamps the pointer into the stage before `update` and `release`.
 - `./drag`, fixed: **leaving the float for a tile switches at once.** The breakthrough held the float (a `free`
-  target) until the pointer was 4 px into a more precise zone, so a zone ending at the window's edge (a new-column
+  target) until the pointer was 4 px into a more precise hit area, so a hit area ending at the window's edge (a new-column
   line in a flush window) floated over its first px when the pointer came from outside. Hysteresis is for the seam
-  between two tiles only: from a `free` target, or from none, the zone under the pointer takes over at once.
+  between two tiles only: from a `free` target, or from none, the hit area under the pointer takes over at once.
 
 ## 26.11.28
 
@@ -39,13 +39,14 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   `DOUBLE_CLICK`, or the platform's count when the host passes it) or null after a lift. The second click of a double
   is not a click, and a double never lifts. Types `GripPress`, `GripRelease`.
 - **`DOUBLE_CLICK`** (`{ ms: 500, px: 5 }`, type `DoubleClick`; from the root and `./drag`): the package's one double
-  click. **Changed:** the gesture recogniser's default (`RECOGNIZER_DEFAULTS.multiClick`, now this same object) goes
+  click. **Changed:** the gesture recognizer's default (`RECOGNIZER_DEFAULTS.multiClick`, now this same object) goes
   from 300 ms to 500 ms, the desktop systems' own default, so two clicks 300–500 ms apart now count as a double
   (`clickCount` 2). Pass `multiClick: { ms: 300 }` to keep the old interval.
-- `./drag`, **the band and the breakthrough scale with the zones** (`DragTuning.bandShare`, additive, default 0.2):
-  along each axis they are at most a fifth of the held zone's extent and of the zone under the pointer, so a 28 px row
-  holds 5.6 px past its edge, not 10, and a glide straight from home into a small neighbour's far half lands there.
-  Zones 50 px and larger keep the whole 10 px band and 4 px breakthrough; `bandShare: 1` gives the old rule for zones over 10 px.
+- `./drag`, **the hysteresis margin and the breakthrough scale with the hit areas** (`DragTuning.bandShare`, additive, default 0.2):
+  along each axis they are at most a fifth of the current hit area's extent and of the hit area under the pointer, so a
+  28 px row holds 5.6 px past its edge, not 10, and a glide straight from home into a small neighbor's far half lands
+  there. Hit areas 50 px and larger keep the whole 10 px margin and 4 px breakthrough; `bandShare: 1` gives the old rule
+  for hit areas over 10 px.
 - `./values`: the spring and the settle share one critically damped step and one store of components (value,
   velocity, target), instead of two copies. Nothing public changes, and the numbers are bit-for-bit the same.
 - `./drag`: `targetAt` is the one pick rule. `@n-uf/placement/scene/cases` takes it as an input
@@ -55,8 +56,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 - **Removed:** `SurfacePointer` (deprecated in 26.11.25); use `GesturePointer`.
 
-- `./drag`, **`DragTarget.hits`** (additive, optional): a target's zone as several rects when it isn't one rect (`hit`
-  the largest). `targetAt` and the drag intent's bands test every piece, and a zone's size is the pieces' together.
+- `./drag`, **`DragTarget.hits`** (additive, optional): a target's hit area as several rects when it isn't one rect (`hit`
+  the largest). `targetAt` and the drag intent's hysteresis margins test every piece, and a hit area's size is the pieces' together.
 
 ## 26.11.25
 
@@ -75,7 +76,7 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   where it is drawn: no jump, no overshoot), at `MORPH_TEMPO` (90 % in about 60 ms, within 1 % in about 125 ms; the
   last pixels take longer for large size changes) unless the settle config says otherwise;
   `rectAt(point)` keeps the anchor exactly on the point every frame, and `progress` (0 to 1 since the last retarget)
-  drives a fade between the content it came from and the target's. Types `AnchoredMorph`, `BoxSize`. For a held item
+  drives a fade between the content it came from and the target's. Types `AnchoredMorph`, `BoxSize`. For a dragged item
   that takes another form mid-drag with its grip kept under the pointer: the caller anchors each form at its grip.
 
 ## 26.11.22
