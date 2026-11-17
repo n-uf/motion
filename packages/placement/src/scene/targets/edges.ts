@@ -5,7 +5,7 @@
 import { EPS, area, rect, type Rect } from "../../geometry";
 import { formMain } from "../../stack";
 import { moveTo, use } from "../changes";
-import { axisOf, formsOf, zoneOf, zoneTakes } from "../helpers";
+import { axisOf, edgeTakes, formsOf, zoneOf, zoneTakes } from "../helpers";
 import { DEFAULT_STRIP, ZONES, type Edge, type Scene, type SceneLayout, type Zone } from "../model";
 import { solve } from "../solve";
 import { targetId } from "./ids";
@@ -231,7 +231,9 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
   const at = (r: Rect): number => (column ? r.y : r.x);
   const len = (r: Rect): number => (column ? r.height : r.width);
   const empty = el.stack.items.every((p) => p.kind === "menu") && !el.menu;
-  const accepts = edge.accepts.includes(kind);
+  // Whether it takes the kind at all: listed in `accepts` and taken by at least one zone. An edge whose zones take
+  // nothing for it (`zoneAccepts: {}`, a rail the host doesn't draw) is one that doesn't accept it.
+  const accepts = edgeTakes(edge, kind);
   // An edge that takes the kind nowhere and draws nothing has nothing to say; an empty edge opens only as it may.
   if (!accepts && (empty || area(el.rect) <= EPS)) return null;
   if (accepts && empty && !opensEmpty(scene, edge, kind)) return null;
