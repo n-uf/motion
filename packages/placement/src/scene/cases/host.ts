@@ -51,7 +51,7 @@ export function withRefusals(pick: PickRule, refused: readonly SceneRefusal[]): 
   return (list, point) => {
     const t = pick(list, point);
     if (t && t.place.kind !== "float") return t;
-    return refused.some((r) => inside(r.hit, point, 0)) ? null : t;
+    return refused.some((r) => (r.hits ?? [r.hit]).some((h) => inside(h, point, 0))) ? null : t;
   };
 }
 

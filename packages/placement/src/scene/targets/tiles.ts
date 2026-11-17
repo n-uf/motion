@@ -323,10 +323,11 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
       return;
     }
     // A wholly refused edge: its drawn rect less only what is placed (the targets, and refusals placed before it), one
-    // refusal, its largest piece.
+    // refusal with every piece of 1 px and more each way (`hits`, `hit` the largest): a target in the middle of a bar
+    // leaves the refusal on both sides of it.
     if (t.whole) {
-      const pieces = clip(t.hit, placed.flatMap(coverOf));
-      if (pieces.length > 0) placed.push({ ...t, hit: largest(pieces) });
+      const pieces = clip(t.hit, placed.flatMap(coverOf)).filter((p) => p.width >= 1 && p.height >= 1);
+      if (pieces.length > 0) placed.push(withPieces(t, pieces));
       return;
     }
     const data = EDGE_KINDS[t.edgeKind];

@@ -150,8 +150,16 @@ export function withRailStrips(c: Ctx, targets: readonly SceneTarget[], refusals
   const railEdges = new Set([...sides].map((side) => virtualEdgeId("rail", side)));
   for (const r of refusals) {
     if (railEdges.has(r.edge)) continue;
-    const pieces = outside([r.hit], [...rects, ...lineCut(r.edge)]);
-    if (pieces.length) refused.push(pieces.length === 1 && sameRects(pieces, [r.hit]) ? r : { ...r, hit: largest(pieces) });
+    const was = r.hits ?? [r.hit];
+    const pieces = outside(was, [...rects, ...lineCut(r.edge)]);
+    if (!pieces.length || sameRects(pieces, was)) {
+      if (pieces.length) refused.push(r);
+      continue;
+    }
+    // A refusal in pieces (a wholly refused edge) keeps every piece of 1 px and more; any other keeps its largest.
+    const kept = r.hits ? pieces.filter((p) => p.width >= 1 && p.height >= 1) : [largest(pieces)];
+    const { hits: _h, ...one } = r;
+    if (kept.length) refused.push({ ...one, hit: largest(kept), ...(kept.length > 1 ? { hits: kept } : {}) });
   }
   // A zone's refusals stay numbered by where they lie along the edge (then across it), as cut.
   const vertical = (r: SceneRefusal): boolean => {

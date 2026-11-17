@@ -537,7 +537,8 @@ export function createScene(o: SceneOptions) {
     if (r) refuseTint.dataset.dragRefusal = r.id;
     else delete refuseTint.dataset.dragRefusal;
     if (!r) return;
-    place(refuseTint, r.hit);
+    // A refusal in pieces (a wholly refused bar a target splits): the piece under the pointer is tinted.
+    place(refuseTint, (r.hits ?? [r.hit]).find((h) => inside(h, p)) ?? r.hit);
     refuseTint.dataset.reason = r.reason;
     refuseLabel.textContent = r.reason === "no-room" ? "No room here" : r.reason === "own-place" ? "Already its place" : "Can't go here";
     refuseLabel.style.left = px(p.x + 12);
@@ -820,7 +821,7 @@ export function createScene(o: SceneOptions) {
     d.shown = f.shown;
     // A refused place under the pointer (nothing but the float target there): no slot anywhere, "No room here" at it.
     // A key held wins over geometry: no refusal then.
-    const refused = !homing && !f.forced && (!f.shown || f.shown.place.kind === "float") ? (d.refusals.find((r) => inside(r.hit, pickPoint(d))) ?? null) : null;
+    const refused = !homing && !f.forced && (!f.shown || f.shown.place.kind === "float") ? (d.refusals.find((r) => (r.hits ?? [r.hit]).some((h) => inside(h, pickPoint(d)))) ?? null) : null;
     d.refused = refused;
     showRefusal(refused, d.pointer);
     const s = plan.showIndicator ? f.shown : null;

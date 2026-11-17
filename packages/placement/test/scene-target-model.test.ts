@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import { area, subtract } from "../index";
 import { lift, refusals, solve, targets, zoneTakes, type Scene, type SceneItem, type SceneLayout, type SceneTarget, type Zone } from "../src/scene";
 import { lostSlots, opensEmpty, zoneExtents } from "../src/scene/targets";
+import type { Ownership } from "../src/scene/targets/ownership";
+import { clipTiles } from "../src/scene/targets/tiles";
 import { targetAt } from "@n-uf/motion/drag";
 import { modelScene } from "./model-scene";
 import { bar, byId, column, form, group, panel, windowScene } from "./scene-fixture";
@@ -73,7 +75,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
             const pt = { x, y };
             points++;
             stripPoints++;
-            const hits = [...ts.filter((t) => inTarget(t, pt)).map((t) => t.id), ...rs.filter((x) => inside(x.hit, pt)).map((x) => x.id)];
+            const hits = [...ts.filter((t) => inTarget(t, pt)).map((t) => t.id), ...rs.filter((x) => inTarget(x, pt)).map((x) => x.id)];
             if (hits.length !== 1 || !hits[0]!.startsWith("rail:")) fail("strip-owned", `seed ${seed} drag ${id} at ${x.toFixed(0)},${y.toFixed(0)}: ${hits.join(", ") || "nothing"}`);
           }
       // Every slot the filter keeps, with room in its zone, keeps a hit.
@@ -112,33 +114,33 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
       // A refusal owns nothing, whether its zone has targets or not: it never lies on another edge's drawn rect (as
       // seen, the item in place; an edge's lifted rect, which a preview may show, is not what owns space),
       // nor on any piece of a target's hit.
+      const meets = (a: R, b: R): boolean => Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 1e-6 && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 1e-6;
       for (const r of rs) {
-        for (const t of all)
-          for (const h of t.hits ?? [t.hit]) {
-            const w = Math.min(r.hit.x + r.hit.width, h.x + h.width) - Math.max(r.hit.x, h.x);
-            const hh = Math.min(r.hit.y + r.hit.height, h.y + h.height) - Math.max(r.hit.y, h.y);
-            if (w > 1e-6 && hh > 1e-6) fail("refused-owns", `seed ${seed} drag ${id}: ${r.id} lies on ${t.id}`);
+        for (const p of zoneOfT(r)) {
+          for (const t of all) for (const h of t.hits ?? [t.hit]) if (meets(p, h)) fail("refused-owns", `seed ${seed} drag ${id}: ${r.id} lies on ${t.id}`);
+          for (const [eid, e] of Object.entries(seen.edges)) {
+            if (eid === r.edge || e.rect.width <= 1e-6 || e.rect.height <= 1e-6) continue;
+            if (meets(p, e.rect)) fail("refused-owns", `seed ${seed} drag ${id}: ${r.id} lies on ${eid}`);
           }
-        for (const [eid, e] of Object.entries(seen.edges)) {
-          if (eid === r.edge || e.rect.width <= 1e-6 || e.rect.height <= 1e-6) continue;
-          const w = Math.min(r.hit.x + r.hit.width, e.rect.x + e.rect.width) - Math.max(r.hit.x, e.rect.x);
-          const h = Math.min(r.hit.y + r.hit.height, e.rect.y + e.rect.height) - Math.max(r.hit.y, e.rect.y);
-          if (w > 1e-6 && h > 1e-6) fail("refused-owns", `seed ${seed} drag ${id}: ${r.id} lies on ${eid}`);
         }
       }
       // A refusal matches what is drawn: an edge that takes the kind in no zone gives one refusal, `refuse:<edge>:start`,
-      // its drawn rect in the stage less what the targets own (its largest piece); every refusal lies in the stage, and a
-      // zone's refusal on a real edge never runs past the edge's ends.
+      // whose pieces (`hits`, else `hit`) are its drawn rect in the stage less what the targets own, every piece at least
+      // 1 px each way and `hit` the largest; every refusal lies in the stage, and a zone's refusal on a real edge never runs
+      // past the edge's ends.
       for (const r of rs) {
-        const out = r.hit.x < s.stage.x - 1e-6 || r.hit.y < s.stage.y - 1e-6 || r.hit.x + r.hit.width > s.stage.x + s.stage.width + 1e-6 || r.hit.y + r.hit.height > s.stage.y + s.stage.height + 1e-6;
-        if (out) fail("refused-edge-drawn", `seed ${seed} drag ${id}: ${r.id} reaches past the stage`);
-        const e = s.edges.find((x) => x.id === r.edge);
-        const d = e && seen.edges[e.id]?.rect;
-        if (!e || !d || d.width < 1e-6 || d.height < 1e-6) continue;
-        const v = e.side === "left" || e.side === "right";
-        const past = v ? r.hit.y < d.y - 1e-6 || r.hit.y + r.hit.height > d.y + d.height + 1e-6 : r.hit.x < d.x - 1e-6 || r.hit.x + r.hit.width > d.x + d.width + 1e-6;
-        if (past) fail("refused-edge-drawn", `seed ${seed} drag ${id}: ${r.id} runs past ${e.id}'s ends`);
+        for (const p of zoneOfT(r)) {
+          const out = p.x < s.stage.x - 1e-6 || p.y < s.stage.y - 1e-6 || p.x + p.width > s.stage.x + s.stage.width + 1e-6 || p.y + p.height > s.stage.y + s.stage.height + 1e-6;
+          if (out) fail("refused-edge-drawn", `seed ${seed} drag ${id}: ${r.id} reaches past the stage`);
+          const e = s.edges.find((x) => x.id === r.edge);
+          const d = e && seen.edges[e.id]?.rect;
+          if (!e || !d || d.width < 1e-6 || d.height < 1e-6) continue;
+          const v = e.side === "left" || e.side === "right";
+          const past = v ? p.y < d.y - 1e-6 || p.y + p.height > d.y + d.height + 1e-6 : p.x < d.x - 1e-6 || p.x + p.width > d.x + d.width + 1e-6;
+          if (past) fail("refused-edge-drawn", `seed ${seed} drag ${id}: ${r.id} runs past ${e.id}'s ends`);
+        }
       }
+      const key = (ps: readonly R[]): string => JSON.stringify([...ps].map((p) => [p.x, p.y, p.width, p.height].map((n) => Math.round(n * 100))).sort());
       for (const e of s.edges) {
         const d = seen.edges[e.id]?.rect;
         if (!d || d.width < 1e-6 || d.height < 1e-6 || (["start", "center", "end"] as const).some((z) => zoneTakes(e, z, it.kind))) continue;
@@ -146,11 +148,21 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
         const y0 = Math.max(d.y, s.stage.y);
         const shown = { x: x0, y: y0, width: Math.min(d.x + d.width, s.stage.x + s.stage.width) - x0, height: Math.min(d.y + d.height, s.stage.y + s.stage.height) - y0 };
         if (shown.width <= 1e-6 || shown.height <= 1e-6) continue;
-        const left = all.flatMap((t) => t.hits ?? [t.hit]).reduce<R[]>((ps, cut) => ps.flatMap((p) => subtract(p, cut)), [shown]);
+        const want = all
+          .flatMap((t) => t.hits ?? [t.hit])
+          .reduce<R[]>((ps, cut) => ps.flatMap((p) => subtract(p, cut)), [shown])
+          .filter((p) => p.width >= 1 && p.height >= 1);
         const mine = rs.filter((r) => r.edge === e.id);
-        const want = left.length ? left.reduce((m, p) => (area(p) > area(m) ? p : m)) : null;
-        if (mine.length !== (want ? 1 : 0) || (want && (mine[0]!.id !== `refuse:${e.id}:start` || !same(mine[0]!.hit, want))))
-          fail("refused-edge-drawn", `seed ${seed} drag ${id}: ${e.id} refuses as ${JSON.stringify(mine.map((r) => [r.id, r.hit]))}, drawn ${JSON.stringify(want)}`);
+        const r = mine[0];
+        const pieces = r ? zoneOfT(r) : [];
+        const largestOk = !r || pieces.every((p) => area(p) <= area(r.hit) + 1e-9);
+        // The pieces cover the same space as what is left (cut up the same way or not, a sub-pixel rim aside), inside it.
+        const sum = (ps: readonly R[]): number => ps.reduce((n, p) => n + area(p), 0);
+        const within = pieces.every((p) => p.x >= shown.x - 1e-6 && p.y >= shown.y - 1e-6 && p.x + p.width <= shown.x + shown.width + 1e-6 && p.y + p.height <= shown.y + shown.height + 1e-6);
+        const apart = pieces.every((p, i) => pieces.every((q, j) => i === j || !meets(p, q)));
+        const covers = key(pieces) === key(want) || Math.abs(sum(pieces) - sum(want)) <= shown.width + shown.height;
+        if (mine.length !== (want.length ? 1 : 0) || (r && (r.id !== `refuse:${e.id}:start` || !covers || !within || !apart || !largestOk || pieces.some((p) => p.width < 1 || p.height < 1))))
+          fail("refused-edge-drawn", `seed ${seed} drag ${id}: ${e.id} refuses as ${JSON.stringify(mine.map((x) => [x.id, zoneOfT(x)]))}, drawn ${JSON.stringify(want)}`);
       }
       // And a bar's zone that refuses every drop of the item (no target of that zone) changes no other target; without
       // it (the zone not taking the kind) every target is the same.
@@ -196,7 +208,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
         // The item's own rect is home's (the own-not-home category checks it).
         if (!inside(s.stage, pt) || inStrip(pt) || (s.chrome ?? []).some((c) => inside(c, pt)) || (ownRect && inside(ownRect, pt)) || anyBody.some((b) => inside(b, pt))) continue;
         points++;
-        const hits = [...ts.filter((t) => inTarget(t, pt)).map((t) => t.id), ...rs.filter((x) => inside(x.hit, pt)).map((x) => x.id)];
+        const hits = [...ts.filter((t) => inTarget(t, pt)).map((t) => t.id), ...rs.filter((x) => inTarget(x, pt)).map((x) => x.id)];
         if (hits.length === 0) fail("virtual-hole", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}`);
         else if (hits.length > 1) fail("virtual-overlap", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}: ${hits.join(", ")}`);
       }
@@ -211,7 +223,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
             const pt = { x, y };
             if (!inside(s.stage, pt) || inStrip(pt) || [...(s.chrome ?? []), ...anyBody, ...fixedRects].some((r) => inside(r, pt)) || (ownRect && inside(ownRect, pt))) continue;
             points++;
-            if (!ts.some((t) => inTarget(t, pt)) && !rs.some((r) => inside(r.hit, pt))) fail("seen-hole", `seed ${seed} drag ${id} under ${eid} at ${x.toFixed(0)},${y.toFixed(0)}`);
+            if (!ts.some((t) => inTarget(t, pt)) && !rs.some((r) => inTarget(r, pt))) fail("seen-hole", `seed ${seed} drag ${id} under ${eid} at ${x.toFixed(0)},${y.toFixed(0)}`);
           }
       }
       // A seen card of an edge that takes the kind, in a zone with a fitting slot (a target of that zone), is never a
@@ -226,7 +238,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
             const pt = { x, y };
             if (!inside(s.stage, pt) || inStrip(pt) || [...(s.chrome ?? []), ...fixedRects].some((r) => inside(r, pt)) || (ownRect && inside(ownRect, pt))) continue;
             points++;
-            const refused = rs.filter((r) => inside(r.hit, pt));
+            const refused = rs.filter((r) => inTarget(r, pt));
             if (refused.length) fail("seen-refused", `seed ${seed} drag ${id} over ${cid} (${e.id}:${zone}) at ${x.toFixed(0)},${y.toFixed(0)}: ${refused.map((r) => `${r.id}/${r.reason}`).join(", ")}`);
           }
       }
@@ -247,7 +259,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
             points++;
             const picked = targetAt(all, pt) as SceneTarget | null;
             const ownEdgeSlot = picked?.place.kind === "gap" && picked.place.edge === ownEdge.id;
-            if (!picked || picked.free || ownEdgeSlot) fail("beside-own-not-home", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}: ${picked?.id ?? "nothing"}${rs.some((r) => inside(r.hit, pt)) ? " (refused)" : ""}`);
+            if (!picked || picked.free || ownEdgeSlot) fail("beside-own-not-home", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}: ${picked?.id ?? "nothing"}${rs.some((r) => inTarget(r, pt)) ? " (refused)" : ""}`);
           }
       }
       // Aim order: on every occupied edge that takes the kind, the item taken out, a point in the leading half of a
@@ -332,7 +344,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           points++;
           const zone = extents.find((z) => along >= z.a - 1e-9 && along < z.b - 1e-9)?.zone ?? null;
           const hitT = ts.filter((t) => inTarget(t, pt));
-          const hitR = rs.filter((x) => inside(x.hit, pt));
+          const hitR = rs.filter((x) => inTarget(x, pt));
           const mine = hitT.filter((t) => {
             const ez = edgeZoneOf(s, now, id, t);
             return ez.edge === e.id || (t.place.kind === "home" && ez.edge === null);
@@ -407,6 +419,20 @@ describe("the target model's property check", () => {
     // A group's refusals in a bar that takes groups elsewhere keep their slots' tiles, inside the bar's ends.
     const status = drawn.status!.rect;
     for (const r of refusals(s, "views").filter((x) => x.edge === "status")) expect(r.hit.x >= status.x && r.hit.x + r.hit.width <= status.x + status.width + 1e-9, r.id).toBe(true);
+  });
+
+  it("refused-edge-drawn: a target in the middle of a wholly refused bar leaves the refusal on both sides, no sliver", () => {
+    const base = { edge: "top", spec: null, edgeKind: "bar" as const, vertical: false, zone: "start" as const, id: "", priority: 2 as const, keep: null };
+    const own: Ownership = { owners: [], taken: new Map(), cutsOf: () => ({ cuts: [], bodies: [] }), bodies: () => [], solid: [], drawnBesides: () => [] };
+    const slot = { ...base, edge: "other", kind: "slot" as const, id: "gap:other:start:0", order: 1, hit: { x: 400, y: 0, width: 100, height: 36 }, keep: { x: 450, y: 18 } };
+    const sliver = { ...base, edge: "other", kind: "slot" as const, id: "gap:other:start:1", order: 1, hit: { x: 0, y: 0, width: 999.5, height: 35.5 }, keep: { x: 10, y: 10 } };
+    const whole = { ...base, kind: "refuse" as const, order: 10, reason: "not-accepted" as const, whole: true, hit: { x: 0, y: 0, width: 1000, height: 36 } };
+    const placed = clipTiles([slot, whole], own, [], []);
+    const r = placed.find((t) => t.whole)!;
+    expect(r.hits).toEqual([{ x: 0, y: 0, width: 400, height: 36 }, { x: 500, y: 0, width: 500, height: 36 }]);
+    expect(r.hit).toEqual({ x: 500, y: 0, width: 500, height: 36 });
+    // What a target leaves under 1 px either way is no piece of it: two 0.5 px slivers are no refusal at all.
+    expect(clipTiles([sliver, whole], own, [], []).find((t) => t.whole)).toBeUndefined();
   });
 
   it("space ownership: a narrow column keeps its gaps inside its own rect; the column lines take the space beside it", () => {

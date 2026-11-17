@@ -130,7 +130,7 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
   for (const t of placed) {
     if (t.kind === "refuse") {
       const n = rank.get(t)!;
-      refused.push({ id: targetId({ kind: "refuse", edge: t.edge, zone: t.zone, n }), edge: t.edge, zone: t.zone, hit: t.hit, reason: t.reason! });
+      refused.push({ id: targetId({ kind: "refuse", edge: t.edge, zone: t.zone, n }), edge: t.edge, zone: t.zone, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), reason: t.reason! });
       continue;
     }
     // Home's own tile when no slot names it: `home:<id>` covers it (below).

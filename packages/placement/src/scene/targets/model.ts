@@ -64,6 +64,12 @@ export interface SceneRefusal {
    */
   readonly hit: Rect;
   /**
+   * A wholly refused edge left in pieces by what targets own (a target in the middle of a bar): every piece, each at
+   * least 1 px each way, `hit` the largest. Absent when the refusal is one rect. The pointer is in the refusal when it is
+   * in any piece.
+   */
+  readonly hits?: readonly Rect[];
+  /**
    * `no-room`: the zone takes the kind, but the drop there doesn't fit (a title bar at the title's natural width, say).
    * `own-place`: the stretch beside an item alone in its zone: there is room, but the zone's only place is the item's
    * own (a release there puts it back). `not-accepted`: the edge or zone doesn't take the kind.
