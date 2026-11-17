@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.34
+## 26.11.35
 
 - `./scene`, fixed: **a target left too thin to reach.** The new-column line beside a 28 px rail drop strip was left a
   6 px sliver (a kit saw 18 × 12): the column lines take only what the other edges leave. Now every target keeps a
@@ -71,6 +71,17 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   with `./tiling` (the same rects, to the bit).
 - `./dock`, **no negative tile sizes**: where a tiling tree's center held more documents than its gaps leave room
   for, a tile's width or height went below 0; it is now 0.
+
+## 26.11.34
+
+- `./scene`, **over an unarmed strip** (docs and a property test, no behavior change). A kit reported that at 700 px
+  with a flush 200 px card window, x 0–4 showed the rail's `no-room` refusal and x 5–10 showed nothing. The library
+  doesn't reproduce it: with those numbers (Annotations lifted, the left column folded into its rail), x 0–9 is the
+  refusal and x 10 on the new-column line, and across widths 560–1400, both hit bands, both window shapes and every
+  item, no refusal lies under an armable strip and no edge point is a hole. Nothing shown over a strip that hasn't armed
+  is the pre-arm state: the README's host contract now says a host draws the strip's highlight from the intent frame's
+  `arming`, and that a refusal never lies under an armable strip (the new property test). The README's paragraph on the
+  new outermost column's line inside a strip now matches its band rule.
 - `./scene/cases`, **`resolvePlace` aims outside the dragged item's own rect** whenever a point there reaches the
   target, as a person aims; a drag intent's home gate then never holds the aim. `AimArea.own` (additive) is that rect
   (a held float's too); without it, the list's `home` target's hit. The reference host passes it.
