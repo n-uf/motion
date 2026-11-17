@@ -20,4 +20,6 @@ export interface Target {
   readonly slot?: Rect;
   readonly label?: string;
   readonly free?: boolean;
+  /** A refusal, not a target: it takes part in the pick under the pointer, but nothing lands on it (`refusalTargets`). */
+  readonly refuse?: true;
 }

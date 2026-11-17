@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.34
 
+- `./scene`, **refusals for the drag intent** (additive; host note). `refusalTargets(refusals)` gives each refusal as a
+  target marked `refuse: true` (the root `Target` gains the optional `refuse`; `refusal` holds the `SceneRefusal`).
+  Pass them to `@n-uf/motion/drag`'s intent with the targets and read the frame's `refused`: a kit's rail stop, held
+  by its band, used to hide the refusal under it. `./scene/cases`' `withRefusals`, and so the reference host, picks the
+  same way. A host that doesn't pass refusals keeps working as before.
+
 - `./scene`, fixed: **a toolbar dropped next to a movable item behind fixed ones was refused.** In a title bar whose
   end zone holds two fixed readouts and then a movable toolbar, packed from the end, every drop in the zone after the
   readouts was turned away, because it pushed them, and the stretch over the toolbar showed "No room here". Now only

@@ -131,6 +131,11 @@ const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
  * `arm: "dwell"` makes it spring-loaded: it is no target until the pointer has
  * dwelt in its zone for `railArmDwellMs`; once armed its zone is `armedHit`
  * when given (a magnet: the zone grown), and leaving that disarms it.
+ *
+ * `refuse: true` makes it a refusal: a place that takes no drop (a host says "No room here" there). It takes part in
+ * the pick under the pointer, but it never becomes the current or the shown target, and a release over it lands
+ * nowhere. Where the pick under the pointer is a refusal, no held target's band or gap grace keeps it: nothing shows,
+ * and the frame's `refused` says which refusal it is.
  */
 export interface DragTarget {
   readonly id: string;
@@ -142,6 +147,7 @@ export interface DragTarget {
   readonly free?: boolean;
   readonly arm?: "dwell";
   readonly armedHit?: Rect;
+  readonly refuse?: true;
 }
 
 /** Whether `point` lies in `rect` grown by `margin` px on every side (shrunk, for a negative margin). */
@@ -236,6 +242,11 @@ export interface DragFrame<T extends DragTarget> {
   readonly arming: T | null;
   /** A key held wins over geometry this frame: `"float"` (the float key) or `"rail"` (the rail key), else null. */
   readonly forced: "float" | "rail" | null;
+  /**
+   * The refusal (a target with `refuse: true`) the pointer is over, when it is the pick there: no target shows, and a
+   * host says so at the pointer ("No room here"). Null otherwise, and while a key forces a target.
+   */
+  readonly refused: T | null;
 }
 
 /** What a drag intent knows now. */
@@ -461,7 +472,9 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       // Over home no target is picked, except a spring-loaded one that is armed (its zone overlaps home): home gates
       // geometry, not an armed dwell.
       const pickable = (x: T): boolean => !atHome || (x.arm === "dwell" && x.id === armedId);
-      const raw = targetAt(targets.filter((x) => pickable(x) && inZone(x, p) && live(x)), p);
+      // A refusal takes part in the pick (it needs no place), but it is never a target: never held, never shown.
+      const raw = targetAt(targets.filter((x) => pickable(x) && inZone(x, p) && (x.refuse === true || live(x))), p);
+      const refusedRaw = raw?.refuse === true ? raw : null;
       // A spring-loaded target that isn't armed (any more) is no target: neither held nor shown.
       const disarmed = (x: T | null): boolean => x?.arm === "dwell" && x.id !== armedId;
       cur = disarmed(cur) ? null : follow(cur, targets);
@@ -470,14 +483,15 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       // The band about a held zone, and the breakthrough into a zone, scaled with the zones (see `bandShare`).
       const bandOf = (held: T): Margin => scaled(tuning.band, tuning.bandShare, [held, raw && !same(raw, held) ? raw : null]);
       const pastBreakthrough = (x: T): boolean => inZoneBy(x, p, negate(scaled(tuning.breakthrough, tuning.bandShare, [x])));
-      let next = raw;
-      if (cur && pickable(cur) && inZoneBy(cur, p, bandOf(cur))) {
+      // Over a refusal nothing is held: no band and no gap grace keep the current target there.
+      let next = refusedRaw ? null : raw;
+      if (!refusedRaw && cur && pickable(cur) && inZoneBy(cur, p, bandOf(cur))) {
         // Over a `free` target (the float everywhere) there is no edge to hold against: a more precise target takes over
         // once the pointer is in it, so a zone that ends at the window's edge is reached at its very first px.
         const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && (cur.free === true || pastBreakthrough(raw));
         next = breaks ? raw : cur;
       }
-      if (!next && cur && pickable(cur) && t - lastInside < tuning.gapGrace) next = cur;
+      if (!refusedRaw && !next && cur && pickable(cur) && t - lastInside < tuning.gapGrace) next = cur;
       if (next && inZone(next, p)) lastInside = t;
       if (!same(next, cur)) curSince = t;
       cur = next;
@@ -519,7 +533,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       else if (t - shownSince >= tuning.roomAfter && t - placeSince >= tuning.roomAfter) roomPlace = place;
       else if (shownSince === t) roomPlace = null;
       lastPlaces = places;
-      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && atHome, arming, forced: forced?.kind ?? null };
+      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && atHome, arming, forced: forced?.kind ?? null, refused: forced ? null : refusedRaw };
     },
     release(point, given, keys) {
       // A key held wins over geometry, home included.
@@ -534,12 +548,12 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       // Drop = shown: a shown target is kept until it hides (flying out past its band hides it at once).
       const s = shown && !(shown.arm === "dwell" && shown.id !== armedId) ? follow(shown, given) : null;
       if (s) return s;
-      // Else the target under the pointer that has a place there (a null place is no drop).
+      // Else the target under the pointer that has a place there (a null place is no drop); a refusal there lands nowhere.
       const under = targetAt(
-        targets.filter((x) => inZone(x, point) && placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null),
+        targets.filter((x) => inZone(x, point) && (x.refuse === true || placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null)),
         point,
       );
-      return under ? (given.find((x) => x.id === under.id) ?? under) : null;
+      return under && !under.refuse ? (given.find((x) => x.id === under.id) ?? under) : null;
     },
     hide(time) {
       shown = null;
