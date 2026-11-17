@@ -1122,7 +1122,7 @@ zone's.
   the solver's spans where items fill the edge (a plain panel column is one zone, its whole length; a tray column its
   panels' span and its tray's). An **empty zone is one slot**, a single place that takes the drop.
 - **Slots and tiles.** A zone's slots are the places a drop can land (before each item, after the last); the zone's
-  extent is cut into one tile per slot, each tile meeting its neighbour halfway. Slots that are the same move (one line
+  extent is cut into one tile per slot, each tile meeting its neighbor halfway. Slots that are the same move (one line
   and one landing, or both putting the item back) are one slot, the lowest `at` keeping its id. A place that would move a
   fixed item of its edge (before a title, after the window controls) is no slot.
 - **Home.** Home's tile is the item's own interval, with no band around it: a stretch with no slot of its own is refused,
@@ -1130,7 +1130,7 @@ zone's.
 - **Space ownership** decides where tiles of different edges meet: owned, then virtual, then overreach.
   - A drawn edge owns its rect. An empty edge owns only a thin place band of 12 px (half the hit band) at the boundary
     where it would appear; so does the side's rail where none shows. The item's own place is owned before everything.
-  - A column line is where a new column would appear, so it owns a 12 px place band too, centred on its line. Owned rects
+  - A column line is where a new column would appear, so it owns a 12 px place band too, centered on its line. Owned rects
     are ranked by the order the layout lays edges out: an edge laid first, whose filling pushes the other, wins (outer
     before inner on one side, full bars before the sides, the rail before its side's columns, a column line over the
     inner column it would push but not the outer one). Between edges laid independently a drawn rect wins over an empty
