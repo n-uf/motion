@@ -47,7 +47,10 @@ export function distinctSlots(c: Ctx, slots: readonly Slot[]): Slot[] {
     if (a.zone !== b.zone) return false;
     if (a.home && b.home) return true;
     const [p, q] = [landing(a), landing(b)];
-    return Math.abs(a.line - b.line) < EPS && (!p || !q ? p === q : Math.abs(p.x - q.x) + Math.abs(p.y - q.y) + Math.abs(p.width - q.width) + Math.abs(p.height - q.height) < 0.01);
+    // Two rail stops that land the same (a rider bar at the top, whichever tile's line it was taken from) are one move,
+    // wherever their lines lie; other slots are the same move only on one line.
+    const sameLine = (a.place.kind === "rail" && b.place.kind === "rail") || Math.abs(a.line - b.line) < EPS;
+    return sameLine && (!p || !q ? p === q : Math.abs(p.x - q.x) + Math.abs(p.y - q.y) + Math.abs(p.width - q.width) + Math.abs(p.height - q.height) < 0.01);
   };
   const wins = (o: Slot, j: number, s: Slot, i: number): boolean => (o.home !== s.home ? o.home : j < i);
   return slots.filter((s, i) => !slots.some((o, j) => j !== i && sameMove(o, s) && wins(o, j, s, i)));
