@@ -200,15 +200,23 @@ export function moveTo(scene: Scene, id: string, place: Place): Scene {
   return { ...lifted, edges: lifted.edges.map((e) => (e === target ? { ...e, items: [...e.items.slice(0, k), id, ...e.items.slice(k)] } : e)) };
 }
 
+/** One more than the largest `since` among the scene's floats (a missing one counts as 0); 1 when there are none. */
+function nextSince(scene: Scene): number {
+  return scene.floats.reduce((m, f) => Math.max(m, Number.isFinite(f.since) ? f.since! : 0), 0) + 1;
+}
+
 export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): Scene {
   const item = itemOf(scene, id);
   if (!item || item.fixed || !scene.floatKinds.includes(item.kind)) return scene;
   const was = scene.floats.find((f) => f.id === id);
   const o: Orient | undefined = orient ?? was?.orient;
   const size = floatSizeOf(item, o ?? floatOrientOf(item));
+  // A float moved keeps its `since`; one newly floated comes after every float there.
+  const since = was ? was.since : nextSince(scene);
+  const seq = since !== undefined ? { since } : {};
   const float: SceneFloat = at
-    ? { id, rect: { x: at.x, y: at.y, width: at.width, height: at.height }, ...(o ? { orient: o } : {}) }
-    : { id, rect: { x: 0, y: 0, width: size.width, height: size.height }, anchor: "content-top-right", ...(o ? { orient: o } : {}) };
+    ? { id, rect: { x: at.x, y: at.y, width: at.width, height: at.height }, ...(o ? { orient: o } : {}), ...seq }
+    : { id, rect: { x: 0, y: 0, width: size.width, height: size.height }, anchor: "content-top-right", ...(o ? { orient: o } : {}), ...seq };
   const next = at && at.width > 0 && at.height > 0 ? { ...item, floatSize: { width: at.width, height: at.height } } : item;
   const lifted = lift(withItem(scene, next), id);
   return { ...lifted, floats: [...lifted.floats, float] };

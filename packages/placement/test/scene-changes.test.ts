@@ -55,7 +55,8 @@ describe("pure changes", () => {
     expect(f.items.pages!.floatSize).toEqual({ width: 240, height: 200 });
     expect(edge(f, "left").items).toEqual([]);
     const again = floatAt(moveTo(f, "pages", { edge: "left", at: 0 }), "pages");
-    expect(again.floats.at(-1)).toEqual({ id: "pages", rect: { x: 0, y: 0, width: 240, height: 200 }, anchor: "content-top-right" });
+    // Floated again after a dock: one more than the largest `since` among the floats there (the base float has none).
+    expect(again.floats.at(-1)).toEqual({ id: "pages", rect: { x: 0, y: 0, width: 240, height: 200 }, anchor: "content-top-right", since: 1 });
     expect(floatAt(s, "title", { x: 0, y: 0, width: 10, height: 10 })).toBe(s);
     const noFloat = { ...s, floatKinds: [] };
     expect(floatAt(noFloat, "pages")).toBe(noFloat);

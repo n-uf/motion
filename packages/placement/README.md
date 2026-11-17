@@ -1338,8 +1338,9 @@ item's place left empty and nothing else moved (a release there commits nothing)
 `solve(lift(scene, id), { previous })`, which would show a result no drop gives.
 
 **Stored form.** `storeScene(scene)` gives `{ v: 1, edges: [{ id, side, ring, items, size?, column? }], floats: [{ id, x, y,
-width, height, orient?, anchor? }], items: { [id]: { used, kept?, from?, closed?, align?, floatSize? } } }`; no float has a
-pinned field. A float's `anchor` is stored as given, a name or `{ at, dx?, dy? }`, and read back as stored: the clamp
+width, height, orient?, anchor?, since? }], items: { [id]: { used, kept?, from?, closed?, align?, floatSize? } } }`; no float has a
+pinned field. A float's `since` (when it was floated) is kept as stored; one that isn't a finite number of 0 or more is
+dropped and listed (`float:<id>:since`). A float's `anchor` is stored as given, a name or `{ at, dx?, dy? }`, and read back as stored: the clamp
 on read moves only its rect, which an anchored float doesn't lie by (an unusable anchor or offset field is dropped and
 listed, `float:<id>:anchor`, `float:<id>:anchor:dx`). `readScene(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
 the store, never throws, and lists what it drops: unknown edges and items, kinds an edge doesn't accept, fixed items

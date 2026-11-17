@@ -6,7 +6,7 @@
  * interface StoredScene {
  *   v: 1;
  *   edges: { id: string; side: Side; ring: number; items: string[]; size?: number; column?: true }[];
- *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor | { at: FloatAnchor; dx?: number; dy?: number } }[];
+ *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor | { at: FloatAnchor; dx?: number; dy?: number }; since?: number }[];
  *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; floatSize?: { width: number; height: number } }>;
  *   railModes?: { left?: "titles" | "icons"; right?: "titles" | "icons" };
  * }
@@ -28,7 +28,8 @@
  * `base` has it, before a stored trailing run of fixed items.
  * A float's rect is clamped into the stage on read; its anchor, with any offset, is kept as stored (an anchored float
  * lies by its anchor, so the clamp never turns it into a pixel position). An unusable anchor is dropped
- * (`float:<id>:anchor`), and so is a bad offset field (`float:<id>:anchor:dx`, `float:<id>:anchor:<field>`).
+ * (`float:<id>:anchor`), and so is a bad offset field (`float:<id>:anchor:dx`, `float:<id>:anchor:<field>`). A float's
+ * `since` is kept as stored; one that isn't a finite number of 0 or more is dropped (`float:<id>:since`).
  */
 import { rect, type Size } from "../geometry";
 import { clampFloat, closeRings, drawnFloatSize, prune, setSide } from "./changes";
@@ -55,6 +56,8 @@ export interface StoredSceneFloat {
   readonly orient?: Orient;
   /** An anchor's name, or `{ at, dx?, dy? }`: an anchor with an offset in px. */
   readonly anchor?: FloatAnchorAt;
+  /** When it was floated (`SceneFloat.since`). */
+  readonly since?: number;
 }
 
 export interface StoredSceneItem {
@@ -87,6 +90,8 @@ const isNum = (x: unknown): x is number => typeof x === "number" && Number.isFin
 const isSize = (x: unknown): x is number => isNum(x) && x > 0;
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
 const isAnchor = (x: unknown): x is FloatAnchor => FLOAT_ANCHORS.includes(x as FloatAnchor);
+/** A float's `since`: a finite number, not negative. */
+const isSince = (x: unknown): x is number => isNum(x) && x >= 0;
 
 /**
  * The float anchor in `v`, as plain data: a name, or `{ at, dx?, dy? }` with its finite offsets; undefined when there is
@@ -144,7 +149,7 @@ export function storeScene(scene: Scene): StoredScene {
       .filter((f) => isNum(f.rect.x) && isNum(f.rect.y) && isSize(f.rect.width) && isSize(f.rect.height))
       .map((f) => {
         const anchor = anchorOf(f.anchor);
-        return { id: f.id, x: f.rect.x, y: f.rect.y, width: f.rect.width, height: f.rect.height, ...(f.orient ? { orient: f.orient } : {}), ...(anchor ? { anchor } : {}) };
+        return { id: f.id, x: f.rect.x, y: f.rect.y, width: f.rect.width, height: f.rect.height, ...(f.orient ? { orient: f.orient } : {}), ...(anchor ? { anchor } : {}), ...(isSince(f.since) ? { since: f.since } : {}) };
       }),
     items,
     ...(modes ? { railModes: modes } : {}),
@@ -307,15 +312,17 @@ function read(data: unknown, base: Scene): SceneRead {
       continue;
     }
     for (const k of Object.keys(f)) if (k === "pinned") drop(`pinned:${id}`);
-    else if (!["id", "x", "y", "width", "height", "orient", "anchor"].includes(k)) drop(`float:${id}:${k}`);
+    else if (!["id", "x", "y", "width", "height", "orient", "anchor", "since"].includes(k)) drop(`float:${id}:${k}`);
     const o = f.orient === "row" || f.orient === "column" ? f.orient : undefined;
     if (f.orient !== undefined && !o) drop(`float:${id}:orient`);
     const a = anchorOf(f.anchor, (what) => drop(`float:${id}:anchor${what}`));
+    const since = isSince(f.since) ? f.since : undefined;
+    if (f.since !== undefined && since === undefined) drop(`float:${id}:since`);
     placed.add(id);
     // Clamped by what solve draws (a folded float's bar), never cut: a reload lands where solve put it.
     const r = rect(f.x, f.y, f.width, f.height);
     const drawn = drawnFloatSize(items[id]!, { rect: r, ...(o ? { orient: o } : {}) });
-    floats.push({ id, rect: clampFloat(r, base.stage, drawn), ...(o ? { orient: o } : {}), ...(a ? { anchor: a } : {}) });
+    floats.push({ id, rect: clampFloat(r, base.stage, drawn), ...(o ? { orient: o } : {}), ...(a ? { anchor: a } : {}), ...(since !== undefined ? { since } : {}) });
   }
 
   // Each base edge: its stored order exactly (fixed items where the store put them), its base items the store placed
