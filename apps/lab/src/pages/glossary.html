@@ -82,6 +82,17 @@
     </tbody>
   </table>
 
+  <h2>Tiling</h2>
+  <table>
+    <thead><tr><th scope="col">Term</th><th scope="col">Definition</th><th scope="col">API name</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">pane</th><td>One item of a tiling: panes divide an area between them, with no overlap and no hole. Not a "tile", which is a rail's icon form.</td><td><code>./tiling</code>, <code>PaneTarget.pane</code></td></tr>
+      <tr><th scope="row">order layout</th><td>Panes laid out by their order alone: master and stack, columns, a grid. A drop on one inserts the dragged pane at an index.</td><td><code>masterStack</code>, <code>columns</code>, <code>grid</code>, <code>orderTargets</code></td></tr>
+      <tr><th scope="row">split tree</th><td>How panes divide an area: each node is a pane, or a split of its rect in two along an axis at a ratio. With no axis it splits along the longer side: dwindle.</td><td><code>Split</code>, <code>layoutSplit</code>, <code>splitFromOrder</code></td></tr>
+      <tr><th scope="row">pane drop region</th><td>The part of a pane under the pointer during a drag: its center (a drop swaps with the pane) or one of its four sides (a drop splits the pane on that side). Not a "zone", which stays a toolbar area's third.</td><td><code>PaneRegion</code>, <code>paneRegion</code>, <code>dropOnPane</code></td></tr>
+    </tbody>
+  </table>
+
   <h2>Drag intent and motion</h2>
   <table>
     <thead><tr><th scope="col">Term</th><th scope="col">Definition</th><th scope="col">API name</th></tr></thead>
