@@ -5,6 +5,16 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.34
 
+- `./scene`, fixed: **a toolbar dropped next to a movable item behind fixed ones was refused.** In a title bar whose
+  end zone holds two fixed readouts and then a movable toolbar, packed from the end, every drop in the zone after the
+  readouts was turned away, because it pushed them, and the stretch over the toolbar showed "No room here". Now only
+  the fixed items at a zone's anchor (from the start zone's first item, or the end zone's last, up to the first movable
+  one) keep their place against a drop in that zone; a fixed item behind a movable one is placed by that movable's size
+  and may be pushed. Every fixed item of the center zone, and of the other zones, keeps its place as before. A gap
+  between two fixed items has no place to aim at and is not offered, so a movable item's leading half is the gap before
+  it and its trailing half the gap after it. New rows R7 (two pushed, one where the anchored readouts stay) and a
+  property test over fixed items in all three zones.
+
 - `./scene`, **refusals match the drawn edge** (host note). An edge that takes the dragged kind in no zone (a title
   bar or toolbar for a panel) now gives one refusal, `refuse:<edge>:start` (`n = 0`), per wholly refused edge: its
   drawn rect, fixed items included, in the stage, less what targets own; where a target splits it, every piece of 1 px

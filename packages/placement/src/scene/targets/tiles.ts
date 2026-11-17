@@ -138,6 +138,14 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     return shown ? split(tile(zone, shown, { kind: "refuse", id: "", order: data.layer, priority: data.priority, keep: null, reason })) : [];
   };
   const slots = distinctSlots(c, spec.slots);
+  // The edge's reserved spans merged where they touch: a line strictly inside one is wedged between fixed items.
+  const runs = [...spec.reserved].sort((p, q) => p[0] - q[0]).reduce<Span[]>((acc, [a, b]) => {
+    const last = acc[acc.length - 1];
+    if (last && a <= last[1] + EPS) acc[acc.length - 1] = [last[0], Math.max(last[1], b)];
+    else acc.push([a, b]);
+    return acc;
+  }, []);
+  const wedged = (line: number): boolean => runs.some(([a, b]) => line > a + EPS && line < b - EPS);
   // Home's slot where the item lies on this edge: its order is the aim that puts the item back.
   const homeSlot = spec.holds && own ? slots.find((s) => s.home && s.order !== undefined) : undefined;
   const out: Tile[] = [];
@@ -154,7 +162,10 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     // right beside the item (the same move as home) are home's. In its » menu the item has no interval: home is only
     // its entry.
     const lined = slots.flatMap((s) => (spec.holds && s.home ? (own ? [{ ...s, line: own[0] }, { ...s, line: own[1] }] : []) : [s]));
-    const mine = lined.filter((s) => s.zone === z.zone && pieces.some(([a, b]) => b > s.line - data.reach + EPS && a < s.line + data.reach - EPS));
+    // A slot whose line lies between two fixed items (inside a run of reserved spans, not at its ends) has no place a
+    // pointer can aim at: a drop there would push fixed items the pointer never sees apart. It gets no tile, so its
+    // order's stretch beside the run stays with the slot at the run's end (the card's leading half is "before it").
+    const mine = lined.filter((s) => s.zone === z.zone && !wedged(s.line) && pieces.some(([a, b]) => b > s.line - data.reach + EPS && a < s.line + data.reach - EPS));
     const reason = spec.refuse(z.zone);
     for (const [pa, pb] of pieces) {
       const { inPiece, at } = linesIn(spec, z, mine, pieces, [pa, pb], own);

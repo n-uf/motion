@@ -10,16 +10,27 @@
  * preview layout and no slot is drawn.
  */
 import { rect as r } from "../../geometry";
-import type { Scene } from "../index";
+import type { Scene, SceneItem } from "../index";
 import { g } from "./gestures";
 import type { CaseRow } from "./types";
-import { doc, tweakEdge } from "./world";
+import { doc, form, tweakEdge } from "./world";
 
 /** The window with only panels floating (groups don't), and its left column taking panels only. */
 const panelsOnly = (): Scene => tweakEdge({ ...doc(), floatKinds: ["panel"] }, "left", { accepts: ["panel"] });
 
 /** The window with only panels floating, and its left column a panel column with a tray of toolbars at its foot. */
 const trayColumn = (): Scene => tweakEdge({ ...doc(), floatKinds: ["panel"] }, "left", { zoneAccepts: { start: ["panel"], end: ["group"] } });
+
+/**
+ * The window whose title bar's end zone holds two fixed readouts (State 96 px, Page 42 px) and Zoom, in `items` order,
+ * with Tools in the toolbar beside Views (R7). With `["state", "page", "zoom"]` the readouts sit behind Zoom, so a drop
+ * in the end zone may push them; with `["zoom", "state", "page"]` they are the zone's anchored fixed run and stay put.
+ */
+function titleEnd(end: readonly string[]): Scene {
+  const s = tweakEdge(tweakEdge(doc(), "titlebar", { items: ["title", ...end] }), "toolbar", { items: ["views", "tools"] });
+  const readout = (id: string, w: number): SceneItem => ({ id, kind: "readout", used: 0, fixed: true, align: "end", forms: { row: [form("row", w, w, 28)] } });
+  return { ...s, items: { ...s.items, state: readout("state", 96), page: readout("page", 42) } };
+}
 
 /** The window with Views leading and Zoom trailing in the toolbar, and Tools floating (the bar's zones, R6). */
 function barZones(): Scene {
@@ -347,4 +358,37 @@ export const RULE_ROWS: readonly CaseRow[] = [
       },
     }),
   ),
+  ...(["leading", "trailing"] as const).map(
+    (half): CaseRow => ({
+      id: `R7-end-zone-pushes-fixed-behind-a-movable-${half}`,
+      title: `Fixed items behind a movable one are pushed: Zoom's ${half} half`,
+      expect: {
+        leading: "In a title bar whose end zone is State and Page (fixed) then Zoom, Tools let go over Zoom's leading half lands before Zoom (gap end:2): State and Page, placed only by Zoom's size, move left to make room.",
+        trailing: "The same title bar: Tools let go over Zoom's trailing half lands after Zoom (gap end:3), State, Page and Zoom moving left to make room.",
+      }[half],
+      group: "groups",
+      scene: titleEnd(["state", "page", "zoom"]),
+      gestures: [g.press("tools"), g.at(half === "leading" ? 1050 : 1150, 16), g.hold(), g.release()],
+      expectLayout: {
+        items:
+          half === "leading"
+            ? { tools: { edge: "titlebar", zone: "end", rect: r(800, 0, 200, 32) }, state: { rect: r(662, 0, 96, 32) }, page: { rect: r(758, 0, 42, 32) }, zoom: { rect: r(1000, 0, 200, 32) } }
+            : { tools: { edge: "titlebar", zone: "end", rect: r(1000, 0, 200, 32) }, state: { rect: r(662, 0, 96, 32) }, page: { rect: r(758, 0, 42, 32) }, zoom: { rect: r(800, 0, 200, 32) } },
+        order: { titlebar: half === "leading" ? ["title", "state", "page", "tools", "zoom"] : ["title", "state", "page", "zoom", "tools"] },
+      },
+    }),
+  ),
+  {
+    id: "R7-end-zone-anchored-fixed-stay",
+    title: "The anchored fixed run stays put",
+    expect:
+      "With Zoom first in the end zone and State and Page (fixed) after it, at the bar's end, the readouts are the zone's anchored fixed run: no place after them is offered, so Tools let go over Zoom's trailing half lands right after Zoom (gap end:1) and State and Page keep their places.",
+    group: "groups",
+    scene: titleEnd(["zoom", "state", "page"]),
+    gestures: [g.press("tools"), g.at(1012, 16), g.hold(), g.release()],
+    expectLayout: {
+      items: { tools: { edge: "titlebar", zone: "end", rect: r(862, 0, 200, 32) }, zoom: { rect: r(662, 0, 200, 32) }, state: { rect: r(1062, 0, 96, 32) }, page: { rect: r(1158, 0, 42, 32) } },
+      order: { titlebar: ["title", "zoom", "tools", "state", "page"] },
+    },
+  },
 ];

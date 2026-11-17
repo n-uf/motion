@@ -127,7 +127,11 @@ export function zoneExtents(scene: Scene, dragged: string, edgeId: string, optio
  * An edge's slots: each zone's insertion lines, in the seen geometry (the item in place; its own place is an interval,
  * home's). A slot counts its place among the edge's members with the item lifted (`at`); its drop is solved. What an
  * item takes of the edge for its lines: its rect, or a growing fixed item's natural rect (a title's text), so the
- * length it grew by is free room. A place that would move a fixed item of the edge is no slot.
+ * length it grew by is free room. A place that would move a protected fixed item of the edge is no slot. Protected: a
+ * fixed item in the slot's zone's anchored fixed run (the fixed members contiguous from the zone's anchor with no
+ * movable member between: the start zone's from its first member, the end zone's from its last), any fixed item of the
+ * center zone, and any fixed item of another zone. A fixed item behind a movable one in the slot's own zone is placed
+ * by that movable's size, so a drop there may push it.
  */
 function edgeSlots(c: Ctx, edge: Edge, accepts: boolean): Slot[] {
   const { scene, rest, now, base, dragged, kind } = c;
@@ -184,17 +188,26 @@ function edgeSlots(c: Ctx, edge: Edge, accepts: boolean): Slot[] {
     const before0 = earlier;
     earlier += members.filter(aimed).length;
     if (!accepts || !zoneTakes(edge, zone, kind)) continue;
+    // The zone's anchored fixed run, read from its anchor (the start zone's first member, the end zone's last) up to its
+    // first shown movable member. The center zone has none: every fixed item there keeps the geometric test.
+    const fixedHere = (id: string): boolean => !!base.items[id]?.fixed && base.items[id]!.edge === edge.id;
+    const fromAnchor = (zone === "start" ? members : zone === "end" ? [...members].reverse() : []).filter((id) => fixedHere(id) || shown(id));
+    const firstMovable = fromAnchor.findIndex((id) => !fixedHere(id));
+    const anchored = new Set(firstMovable < 0 ? fromAnchor : fromAnchor.slice(0, firstMovable));
+    const isProtected = (id: string): boolean => fixedHere(id) && (zone === "center" || zoneOf(rest.items[id]) !== zone || anchored.has(id));
     for (let k = 0; k <= members.length; k++) {
       const next = members.slice(k).find(shown);
       const before = members.slice(0, k).reverse().find(shown);
       const line = next ? at(occupied(next)) : before ? at(occupied(before)) + len(occupied(before)) : anchorLine[zone];
       const s = { ...slotAt(c, zone, line, slotId(zone, k), { kind: "gap", edge: edge.id, zone, at: k }, lands), order: before0 + members.slice(0, k).filter(aimed).length };
-      // A place that would move a fixed item of the edge (before a title, after the window controls) is no slot: a
-      // fixed item keeps its place, so no drop ever lands there.
+      // A place that would move a protected fixed item (before a title, after the window controls) is no slot: it keeps
+      // its place, so no drop ever lands there. A fixed item behind a movable one in this zone may be pushed.
       const movesFixed = members0.some((id) => {
         const b = base.items[id];
         const a = s.result.layout.items[id];
-        return !!b?.fixed && b.edge === edge.id && (!a || Math.abs(a.rect.x - b.rect.x) > 0.5 || Math.abs(a.rect.y - b.rect.y) > 0.5);
+        // (Pushed is not gone: a drop that would take any fixed item out of the layout is no slot either.)
+        if (fixedHere(id) && !a) return true;
+        return isProtected(id) && (Math.abs(a!.rect.x - b!.rect.x) > 0.5 || Math.abs(a!.rect.y - b!.rect.y) > 0.5);
       });
       if (!movesFixed) slots.push(s);
     }

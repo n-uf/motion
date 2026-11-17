@@ -6,13 +6,13 @@
  */
 import { describe, expect, it } from "vitest";
 import { area, subtract } from "../index";
-import { lift, refusals, solve, targets, zoneTakes, type Scene, type SceneItem, type SceneLayout, type SceneTarget, type Zone } from "../src/scene";
+import { lift, moveTo, refusals, solve, targets, use, zoneTakes, type Scene, type SceneItem, type SceneLayout, type SceneTarget, type Zone } from "../src/scene";
 import { lostSlots, opensEmpty, zoneExtents } from "../src/scene/targets";
 import type { Ownership } from "../src/scene/targets/ownership";
 import { clipTiles } from "../src/scene/targets/tiles";
 import { targetAt } from "@n-uf/motion/drag";
 import { modelScene } from "./model-scene";
-import { bar, byId, column, form, group, panel, windowScene } from "./scene-fixture";
+import { bar, byId, column, form, group, panel, seeded, windowScene } from "./scene-fixture";
 
 type R = { x: number; y: number; width: number; height: number };
 /** Half-open, so two tiles that meet share no point. */
@@ -419,6 +419,55 @@ describe("the target model's property check", () => {
     // A group's refusals in a bar that takes groups elsewhere keep their slots' tiles, inside the bar's ends.
     const status = drawn.status!.rect;
     for (const r of refusals(s, "views").filter((x) => x.edge === "status")) expect(r.hit.x >= status.x && r.hit.x + r.hit.width <= status.x + status.width + 1e-9, r.id).toBe(true);
+  });
+
+  it("anchored fixed runs: every slot of a zone whose drop lands is a target, but one that pushes a protected fixed item (fuzzed)", () => {
+    // A wide top bar of fixed readouts and movable groups in random zones and order, a floating group dragged. Protected:
+    // a fixed item in another zone than the slot's, any in the center zone, and the slot's zone's anchored fixed run (from its anchor to its first movable member). A slot whose line lies between two fixed items has no
+    // place to aim at and is no target either.
+    const rnd = seeded(29);
+    const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;
+    let checked = 0;
+    let pushedAllowed = 0;
+    for (let n = 0; n < 160; n++) {
+      const count = 2 + Math.floor(rnd() * 5);
+      const ids = Array.from({ length: count }, (_, i) => `m${i}`);
+      const items: SceneItem[] = ids.map((id) => {
+        const align = pick(["start", "center", "end"] as const);
+        const w = 30 + Math.floor(rnd() * 80);
+        return rnd() < 0.5 ? { id, kind: "readout", used: 0, fixed: true, align, forms: { row: [form("row", w, w, 28)] } } : group(id, 1 + Math.floor(rnd() * 9), { align });
+      });
+      const s: Scene = {
+        stage: { x: 0, y: 0, width: 2000, height: 600 },
+        edges: [bar("top", "top", 0, ids)],
+        items: byId([...items, group("g", 20)]),
+        floats: [{ id: "g", rect: { x: 800, y: 300, width: 200, height: 36 } }],
+        floatKinds: ["group"],
+      };
+      const base = solve(s);
+      const ts = targets(s, "g");
+      const fixedIn = (id: string): boolean => !!s.items[id]!.fixed;
+      for (const zone of ["start", "center", "end"] as const) {
+        const members = ids.filter((id) => (s.items[id]!.align ?? "start") === zone);
+        const fromAnchor = zone === "start" ? members : zone === "end" ? [...members].reverse() : [];
+        const firstMovable = fromAnchor.findIndex((id) => !fixedIn(id));
+        const anchored = new Set(firstMovable < 0 ? fromAnchor : fromAnchor.slice(0, firstMovable));
+        const isProtected = (id: string): boolean => fixedIn(id) && (zone === "center" || (s.items[id]!.align ?? "start") !== zone || anchored.has(id));
+        for (let k = 0; k <= members.length; k++) {
+          const after = solve(use(moveTo(s, "g", { kind: "gap", edge: "top", zone, at: k }), "g"));
+          const me = after.items.g!;
+          if (me.edge !== "top" || me.inMenu || me.zone !== zone) continue;
+          const moved = ids.filter((id) => fixedIn(id) && Math.abs(after.items[id]!.rect.x - base.items[id]!.rect.x) > 0.5);
+          if (moved.some(isProtected)) continue;
+          if (k > 0 && k < members.length && fixedIn(members[k - 1]!) && fixedIn(members[k]!)) continue;
+          if (moved.length) pushedAllowed++;
+          checked++;
+          expect(ts.some((t) => t.id === `gap:top:${zone}:${k}`), `case ${n}: ${ids.map((id) => `${id}${fixedIn(id) ? "*" : ""}@${s.items[id]!.align ?? "start"}`).join(" ")}: gap:top:${zone}:${k} lands but isn't a target`).toBe(true);
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(300);
+    expect(pushedAllowed).toBeGreaterThan(20);
   });
 
   it("refused-edge-drawn: a target in the middle of a wholly refused bar leaves the refusal on both sides, no sliver", () => {
