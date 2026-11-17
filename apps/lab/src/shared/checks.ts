@@ -47,13 +47,13 @@ export interface EpisodeRecord {
   readonly pops?: number;
 }
 
-export function merge(results: readonly CheckResult[]): CheckResult {
+function merge(results: readonly CheckResult[]): CheckResult {
   const failures = results.flatMap((r) => r.failures);
   return { ok: failures.length === 0, failures };
 }
 
 /** A per-frame verdict list (null: fine) as a check result. */
-export function framesResult(frames: readonly (string | null)[]): CheckResult {
+function framesResult(frames: readonly (string | null)[]): CheckResult {
   const failures = frames.filter((x): x is string => x !== null);
   return { ok: failures.length === 0, failures };
 }

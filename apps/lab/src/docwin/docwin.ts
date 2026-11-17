@@ -20,6 +20,8 @@ import { DISAGREE, createDocwinHost } from "./host";
 import { CASES, runCasesAsync } from "@n-uf/placement/scene/cases";
 import { DEFAULT_FEEL, type DragFeel } from "./feel";
 import { feelPanel } from "./feel-panel";
+import type { DragPreview } from "@n-uf/motion/drag";
+import { passes, type LabRun, type ScenarioFilter } from "../shared/hooks";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const root = $<HTMLDivElement>("dw-root");
@@ -31,8 +33,15 @@ const freeze = $<HTMLInputElement>("dw-freeze");
 /** Each side's rails: titles (the default) or icons, as `rails[side].mode`. */
 const railInputs = { left: $<HTMLSelectElement>("dw-rail-left"), right: $<HTMLSelectElement>("dw-rail-right") };
 const countInputs: Partial<Record<keyof Counts, HTMLInputElement>> = { notes: $("dw-c-notes"), findings: $("dw-c-findings"), marked: $("dw-c-marked") };
+/** The drop preview: indicator only, make room (the default), snap to slot. */
+const previewInput = $<HTMLSelectElement>("dw-preview");
 
 const EMBED = parseRoute().embed;
+/**
+ * The routes that open this page on one group of cases: the drag intent's (`motion/intent`), or, for the routes of the
+ * pages this one replaced, all of them.
+ */
+const GROUP = parseRoute().id === "motion/intent" ? "intent" : null;
 const KEY = EMBED ? "motion-lab:docwin:checks" : "motion-lab:docwin";
 const PAGE_KEY = `${KEY}:page`;
 
@@ -49,6 +58,7 @@ function readouts(): void {
   freeze.checked = c.frozen;
   for (const side of ["left", "right"] as const) railInputs[side].value = railModeOf(c.scene, side);
   for (const [k, el] of Object.entries(countInputs)) if (el && document.activeElement !== el) el.value = String(c.counts[k as keyof Counts]);
+  previewInput.value = c.dropPreview;
   storedOut.textContent = JSON.stringify(c.stored(), null, 1);
   placeReset();
 }
@@ -85,6 +95,8 @@ const MARK_WORDS = { pass: "pass", fail: "fail", pending: "not built", none: "" 
 
 function drawList(): void {
   list.innerHTML = PRESETS.map((p, i) => {
+    // Opened on one group (the drag intent's route): only its cases are listed; every case still runs in checkAll.
+    if (GROUP && p.group !== GROUP) return "";
     const v = results.get(p.id);
     const mark = markOf(p, v);
     return `<button type="button" class="dw-chip" data-preset="${p.id}" data-mark="${mark}"${current?.id === p.id ? ' aria-current="true"' : ""} title="${p.expected.replace(/"/g, "&quot;")}"><span class="dw-dot"></span>${i + 1}. ${p.title}</button>`;
@@ -112,7 +124,9 @@ function runPreset(p: Preset): Verdict {
   c.setFrozen(false);
   // Every case starts from the default feel (a case that tunes it sets its own); the viewer's comes back afterwards.
   const viewerFeel = c.feel;
+  const viewerPreview = c.dropPreview;
   c.setFeel(DEFAULT_FEEL);
+  c.setDropPreview("gap");
   c.setReducedMotion(false);
   p.setup(c);
   let v: Verdict;
@@ -124,8 +138,11 @@ function runPreset(p: Preset): Verdict {
   c.drive(false);
   c.setFrozen(false);
   c.setFeel(viewerFeel);
+  // The viewer's drop preview comes back, unless the case sets its own (a drag intent case) to play with.
+  c.setDropPreview(viewerPreview);
   c.setReducedMotion(false);
   p.setup(c);
+  previewInput.value = c.dropPreview;
   results.set(p.id, v);
   return v;
 }
@@ -209,6 +226,7 @@ const resize = (): void => c.setSize(Number(inputs.w.value), Number(inputs.h.val
 inputs.w.addEventListener("input", resize);
 inputs.h.addEventListener("input", resize);
 freeze.addEventListener("change", () => c.setFrozen(freeze.checked));
+previewInput.addEventListener("change", () => c.setDropPreview(previewInput.value as DragPreview));
 for (const side of ["left", "right"] as const) railInputs[side].addEventListener("change", () => c.setRailMode(side, railInputs[side].value as RailMode));
 for (const [k, el] of Object.entries(countInputs)) el?.addEventListener("input", () => c.setCount(k as keyof Counts, Math.max(0, Math.min(999, Number(el.value) || 0))));
 $("dw-reload").addEventListener("click", () => location.reload());
@@ -325,6 +343,8 @@ const api = {
   /** The rows this window plays by a rule the in-memory host lacks, and why. */
   disagree: () => DISAGREE,
   lastDrop: () => c.lastDrop,
+  /** The last drag's trace: the shown target's changes, the snaps and every frame (pointer, speed, the held item's rect). */
+  trace: () => c.trace,
   dragging: () => c.dragging,
   frozen: (on?: boolean) => {
     if (on !== undefined) c.setFrozen(on);
@@ -338,6 +358,26 @@ const api = {
   },
 };
 (window as unknown as { __docwin: typeof api }).__docwin = api;
+
+/**
+ * The Checks page's hooks: every case (`<id> · <title>`) and every conformance row (`row:<id> · <title>`) as a run, a
+ * pending one (not built, or played by a rule the in-memory host lacks) listed with its reason and never failed.
+ */
+const labRuns: LabRun[] = [];
+window.__motionLab = {
+  runAll: async (filter?: ScenarioFilter) => {
+    const named = (r: CaseResult): string => `${r.id} · ${r.title}`;
+    const wanted = (r: { id: string; title: string }): boolean => passes(`${r.id} · ${r.title}`, filter);
+    const out: CaseResult[] = PRESETS.filter((p) => wanted(p)).map((p) => resultOf(p, runPreset(p)));
+    out.push(...(await checkRows((id) => wanted({ id: `row:${id}`, title: CASES.find((r) => r.id === id)?.title ?? "" }))));
+    c.reset();
+    drawList();
+    labRuns.splice(0, labRuns.length, ...out.map((r): LabRun => ({ scenario: named(r), mode: r.id.startsWith("row:") ? "row" : "case", failed: r.pass === false ? [r.now] : [], rows: [{ name: named(r), result: { ok: r.pass !== false, failures: r.pass === false ? [r.now] : [] }, ...(r.pending ? { info: `pending: ${r.lacks ?? r.now}` } : {}) }] })));
+    return labRuns;
+  },
+  runs: labRuns,
+  lastRows: () => labRuns.at(-1)?.rows ?? [],
+};
 
 // --- start ---------------------------------------------------------------------------------------------------------
 

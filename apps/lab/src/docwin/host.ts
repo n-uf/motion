@@ -183,6 +183,8 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
       pressed = null;
       c.drive(true);
       c.hostRules({ endReach: END_REACH });
+      // The rows' preview: the slot and the room made for it (the snap preview draws no slot for a slotted target).
+      c.setDropPreview("gap");
       c.altOn(false);
       c.setFrozen(settings.frozen === true);
       const stage = settings.stage ? { x: 0, y: 0, width: settings.stage.w, height: settings.stage.h } : s.stage;
