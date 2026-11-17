@@ -46,8 +46,36 @@ export function floatFloor(item: SceneItem, form: StackForm | undefined, orient:
 }
 
 /**
+ * The room `region` leaves a float along each axis, clear of what spans it whole: down it, the region less the bars and
+ * chrome across its full width at its top and bottom; across it, less what runs its full height at its left and right.
+ * What spans only part of it is no limit on the size (a float fits beside it).
+ */
+function clearSize(region: Rect, avoid: readonly Rect[]): Size {
+  const span = (axis: "x" | "y"): number => {
+    const lo = axis === "y" ? region.y : region.x;
+    const hi = lo + (axis === "y" ? region.height : region.width);
+    const mid = (lo + hi) / 2;
+    let a = lo;
+    let b = hi;
+    for (const r of avoid) {
+      // Across the region whole, the other way.
+      const whole = axis === "y" ? r.x <= region.x + EPS && r.x + r.width >= region.x + region.width - EPS : r.y <= region.y + EPS && r.y + r.height >= region.y + region.height - EPS;
+      const s = axis === "y" ? r.y : r.x;
+      const e = s + (axis === "y" ? r.height : r.width);
+      if (!whole || e <= lo || s >= hi) continue;
+      if (s + e <= 2 * mid) a = Math.max(a, e);
+      else b = Math.min(b, s);
+    }
+    return Math.max(0, b - a);
+  };
+  return { width: span("x"), height: span("y") };
+}
+
+/**
  * Where one float of `item` lies, as `solve` lays it (and `fitResize` previews it): its form and size, then `fitFloat`
- * into `region`, clear of `avoid`. The one clamp for a float's rect; `shape.none` is the caller's to handle first.
+ * into `region`, clear of `avoid`. Its size is clamped to the room `region` leaves clear of the bars and chrome across
+ * it (`clearSize`), never under its floor: only a floor larger than that room covers. The one clamp for a float's rect;
+ * `shape.none` is the caller's to handle first.
  */
 export function placeFloat(item: SceneItem, f: Pick<SceneFloat, "rect" | "orient" | "anchor">, region: Rect, avoid: readonly Rect[], content: Rect, stage: Rect): { from: number; fo: Orient; form: StackForm | undefined; fit: FloatFit } {
   const shape = floatShape(item, f);
@@ -60,10 +88,11 @@ export function placeFloat(item: SceneItem, f: Pick<SceneFloat, "rect" | "orient
   const floor = floatFloor(item, form, fo, shape);
   // `floatMax` caps it (never under the floor).
   const cap = { width: Number.isFinite(item.floatMax?.width) ? item.floatMax!.width : Infinity, height: Number.isFinite(item.floatMax?.height) ? item.floatMax!.height : Infinity };
-  const w = Math.max(floor.width, Math.min(shape.width, region.width, cap.width));
+  const clear = clearSize(region, avoid);
+  const w = Math.max(floor.width, Math.min(shape.width, clear.width, cap.width));
   // Folded means its bar (a `header` form), not any form past the first (a row float, a second open form).
   const folded = form?.kind === "header";
-  const h = folded ? shape.height : Math.max(floor.height, Math.min(shape.height, region.height, cap.height));
+  const h = folded ? shape.height : Math.max(floor.height, Math.min(shape.height, clear.height, cap.height));
   const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);
   const fit0 = fitFloat(want, region, avoid);
   const fit = w > region.width + EPS ? { ...fit0, rect: rect(region.x, fit0.rect.y, w, fit0.rect.height) } : fit0;
