@@ -1,6 +1,7 @@
 /**
  * The panel gestures P1 to P15 (and their variants) as rows, on window A with the left and right columns 300 px
- * wide (stored sizes): Pages above Annotations in the left column, Findings in the right, all open, 1120 x 800.
+ * wide (stored sizes): Pages above Annotations in the left column, Findings in the right, all open, 1120 x 800. P16:
+ * the window's edges, on a flush window B.
  *
  * An app's drag steps map onto the gesture grammar like this: `lift(id)` is a `press` and a `move` (a `move` with a place
  * lifts); `to(target)` is a `move` to a `place`; `toPoint` a `move` to a `point`; `hold` a `hold`; `drop` a `release`;
@@ -13,9 +14,13 @@ import type { Scene } from "../index";
 import { g } from "./gestures";
 import type { CaseRow } from "./types";
 import { form } from "./world";
-import { WINDOW_A, winScene } from "./windows";
+import { WINDOW_A, WINDOW_B, winScene } from "./windows";
 
 const win = (o: Parameters<typeof winScene>[1] = {}): Scene => winScene(WINDOW_A, { size: 300, ...o });
+
+/** A flush window (window B), 1440 x 900, hand folds riding: the window-edge rows (P16). */
+const FLUSH_W = 1440;
+const flush = (): Scene => winScene(WINDOW_B, { width: FLUSH_W, height: 900, handFold: "ride" });
 
 /** A fixed window title bar across the top, 28 px (a title that shrinks to 80 and grows). */
 function withTitle(s: Scene): Scene {
@@ -360,5 +365,45 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
     checkpoints: [{ at: 1, layout: { items: { pages: { rect: r(12, 0, 300, 394) }, annotations: { formKind: "open", edge: "left-0", rect: r(12, 406, 300, 394) } } }, note: "docked back, open" }],
     expectLayout: { items: { pages: { rect: r(12, 0, 300, 394) }, annotations: { formKind: "open", edge: "left-0", rect: r(12, 406, 300, 394) }, findings: { rect: r(808, 0, 300, 800) } }, columns: { left: [["pages", "annotations"]], right: [["findings"]] } },
     expectStored: { items: { annotations: { from: null } } },
+  },
+  {
+    id: "P16-first-px-left",
+    title: "The window's first px is the new-column line",
+    expect:
+      "In a flush window with a column open on each side, Annotations held over the float mid-window, then moved to the window's first px on the left and rested there, lands in a new outer left column: the float never holds the window's edge.",
+    group: "gestures",
+    scene: flush(),
+    gestures: [g.press("annotations", { x: 20, y: 10 }), g.at(FLUSH_W / 2, 400), g.hold(), g.at(0, 400), g.hold(), g.release()],
+    expectLayout: { items: { annotations: { edge: "left-1", rect: r(0, 0, 200, 900) }, pages: { rect: r(200, 0, 200, 900) } }, columns: { left: [["annotations"], ["pages"]], right: [["findings"]] }, floats: [] },
+  },
+  {
+    id: "P16-first-px-right",
+    title: "The window's last px is the new-column line",
+    expect: "The same on the right: Annotations rested over the float, then at the window's last px, lands in a new outer right column.",
+    group: "gestures",
+    scene: flush(),
+    gestures: [g.press("annotations", { x: 20, y: 10 }), g.at(FLUSH_W / 2, 400), g.hold(), g.at(FLUSH_W - 1, 400), g.hold(), g.release()],
+    expectLayout: { items: { annotations: { edge: "right-1", rect: r(FLUSH_W - 200, 0, 200, 900) }, findings: { rect: r(FLUSH_W - 400, 0, 200, 900) } }, columns: { left: [["pages"]], right: [["annotations"], ["findings"]] }, floats: [] },
+  },
+  {
+    id: "P16-outer-reach-is-the-column-line",
+    title: "The window's outer 10 px are the new-column line",
+    expect:
+      "With hand folds riding, the left rail can't take the drop while the left column stays open, so it owns none of the window's edge: Annotations let go 9 px in from the left lands in a new outer column, neither floating nor refused.",
+    group: "gestures",
+    scene: flush(),
+    gestures: [g.press("annotations", { x: 20, y: 10 }), g.at(9, 400), g.hold(), g.release()],
+    expectLayout: { items: { annotations: { edge: "left-1", rect: r(0, 0, 200, 900) } }, columns: { left: [["annotations"], ["pages"]], right: [["findings"]] }, floats: [] },
+  },
+  {
+    id: "P16-own-column-line-is-home",
+    title: "A new column where the item's own column is, is home",
+    expect:
+      "Findings alone in the right column, rested over the float and then over its own column: a new column holding it alone there is the same move as home, so the release changes nothing.",
+    group: "gestures",
+    scene: flush(),
+    gestures: [g.press("findings", { x: 20, y: 10 }), g.at(FLUSH_W / 2, 400), g.hold(), g.at(1300, 400), g.hold(), g.release()],
+    checkpoints: [{ at: 4, layout: { items: { findings: { edge: "right-0", rect: r(FLUSH_W - 200, 0, 200, 900) } } }, note: "over its own column: back in its place" }],
+    expectLayout: { items: { findings: { edge: "right-0", rect: r(FLUSH_W - 200, 0, 200, 900) }, annotations: { edge: "left-0" } }, columns: { left: [["pages", "annotations"]], right: [["findings"]] }, floats: [] },
   },
 ];
