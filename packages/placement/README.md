@@ -1075,8 +1075,11 @@ facing halves is home's, and is no target of its own. The slot is where the item
 
 - `gap:<edge>:<zone>:<at>` (priority 2) for every edge whose `accepts` lists the item's kind (deny by default), before
   each item of each zone and at each zone's end, so an empty center or end zone can be opened; only where the item
-  fits: not in the » menu, no `overflow`, nothing newly `too-wide`, every fixed item of the edge keeping its form and its
-  place, and no chrome under its slot. Along the edge the gaps tile it: neighboring gaps meet at the midpoint of the
+  fits: not in the » menu, no `overflow`, nothing newly `too-wide`, every fixed item of the edge keeping its form, every
+  protected one its place, and no chrome under its slot. Protected: the fixed items at a zone's anchor (from the start
+  zone's first member, or the end zone's last, up to the first movable one), every fixed item of the center zone, and
+  the fixed items of the other zones. A fixed item behind a movable one is placed by that movable's size, so a drop in
+  its zone may push it; a gap between two fixed items has no place to aim at and is not offered. Along the edge the gaps tile it: neighboring gaps meet at the midpoint of the
   item between them (see Aim order), else halfway between their lines, so an edge of a few short items (a bar, a rail,
   a column's footer) is covered from end to end. Only over an
   open item's body (a panel) the hit narrows to `Edge.hitBand` px around its line (default 24), so the middle of a
