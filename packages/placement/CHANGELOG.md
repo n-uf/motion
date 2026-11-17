@@ -15,8 +15,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   and `refuse:tools-bar:start` at the pointer. A new property category, `refused-edge-drawn`, holds it in every mode.
 
 - `./scene/cases`, **a host-declared docking width** (additive): `CaseHost.dockMinWidth` (and `AsyncCaseHost`'s) is
-  the narrowest stage width at which the host docks panels (absent: every width). The 102 rows whose expected outcome
-  depends on docked panels carry `requires: { docks: true }` (audited by a test against every row's expectations), and
+  the narrowest stage width at which the host docks panels (absent: every width). The 110 rows whose expected outcome
+  depends on docked panels (the content beside a docked column included) carry `requires: { docks: true }`, set by one
+  rule from each row's expectations when `CASES` is built (a row may state `docks`, true or false, to override), and
   the runner skips such a row when its stage is narrower than that at any point: the result is `ok` with one `skipped`
   entry that says why. `CaseRequires.docks` is the one requirement the runner reads.
 
