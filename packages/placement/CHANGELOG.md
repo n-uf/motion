@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.31
 
+- `./scene/cases`, **four rows on the window's edges** (P16, additive): in a flush window, a panel rested over the float
+  and then at the window's first or last px lands in a new outer column (the float never holds the window's edge); one
+  let go 9 px in, with hand folds riding, lands in a new outer column too; one alone in its column, rested over its own
+  column, goes home.
 - `./scene/cases`, **`resizeStep`** (additive): a `resize` gesture as a pure step (`resizeStep(scene, start, layout,
   gesture)` gives the scene and the loaded scene after it: an edge's size, an item measured again, the window's size), so
   a page's case host plays it as the reference host does. The reference host uses it.
