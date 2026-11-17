@@ -11,6 +11,20 @@ export const px = (x: number | undefined): number => Math.max(0, finite(x, 0));
 /** A left or right edge. */
 export const isSide = (e: Edge): boolean => e.side === "left" || e.side === "right";
 
+/** What give-way weighs an edge by: whether an item of it is kept, its newest use, its ring. */
+export interface GiveWayRank {
+  readonly kept: boolean;
+  readonly age: number;
+  readonly edge: Edge;
+}
+
+/**
+ * The give-way order, for columns by width and bars by height alike: unkept before kept, the one whose newest use is
+ * oldest first, the outer first. Ties stay as they are (a sort keeps them in order).
+ */
+export const giveWayOrder = (a: GiveWayRank, b: GiveWayRank): number =>
+  Number(a.kept) - Number(b.kept) || a.age - b.age || finite(a.edge.ring, 0) - finite(b.edge.ring, 0);
+
 /** The order edges are cut in: full bars (top, bottom), columns (left, right), between bars (top, bottom); each by ring. */
 export function cutOrder(edges: readonly Edge[]): Edge[] {
   const phase = (e: Edge): number => (e.side === "left" || e.side === "right" ? 1 : e.span === "between" ? 2 : 0);

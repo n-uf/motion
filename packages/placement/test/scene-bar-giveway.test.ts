@@ -1,10 +1,10 @@
 /**
  * Bars by height: a top or bottom bar with `giveWay` shrinks across, then folds to its items' next form, before the
- * content falls under `contentMin.height` (`bar-shrunk`, `bar-folded`); and a full overlay bar honours its span, lying
- * over the side columns too.
+ * content falls under `contentMin.height` (`bar-shrunk`, `bar-folded`); and an overlay bar with `span: "full"` set by
+ * name lies over the side columns too, while one with no `span` keeps the content's width.
  */
 import { describe, expect, it } from "vitest";
-import { solve, type Edge, type Scene, type SceneItem } from "../src/scene";
+import { refusals, solve, type Edge, type Scene, type SceneItem } from "../src/scene";
 
 /** A panel: down a column (open, its title bar) and along a bar (open 180 high, at least 100; its 22 px title bar). */
 const panel = (id: string, used: number): SceneItem => ({
@@ -107,6 +107,43 @@ describe("height give-way of bars", () => {
     expect(kept.items.outline!.formKind).toBe("header");
     expect(kept.edges.bottom!.cross).toBeCloseTo(138);
   });
+
+  it("breaks a tie of keeps and ages by ring, the outer bar first", () => {
+    const s = desk(550);
+    // Outline and History share an age; 550 − 240 leaves 310 for two bars of 180, so one shrinks by 50.
+    const two = (ring: number): Scene => ({
+      ...s,
+      edges: [...s.edges.map((e) => (e.id === "bottom" ? { ...e, ring: 1 - ring } : e)), { id: "top", side: "top", ring, span: "between", giveWay: true, accepts: ["panel"], items: ["outline"], cross: { min: 22, max: 300 } }],
+      items: { ...s.items, outline: panel("outline", 3) },
+    });
+    const topOuter = solve(two(0));
+    expect(topOuter.edges.top!.cross).toBeCloseTo(130);
+    expect(topOuter.edges.bottom!.cross).toBe(180);
+    const bottomOuter = solve(two(1));
+    expect(bottomOuter.edges.bottom!.cross).toBeCloseTo(130);
+    expect(bottomOuter.edges.top!.cross).toBe(180);
+  });
+});
+
+describe("an overlay bar with no span keeps the content's width", () => {
+  it("lies over the content only, exactly as before", () => {
+    const l = solve(desk(560, { mode: "overlay", giveWay: false }));
+    expect(l.edges.bottom!.rect).toEqual({ x: 190, y: 380, width: 580, height: 180 });
+    expect(l.edges.left!.rect).toEqual({ x: 0, y: 0, width: 190, height: 560 });
+    expect(l.content).toEqual({ x: 190, y: 0, width: 580, height: 560 });
+  });
+
+  it("an undrawn one (zones taking nothing) with stored items refuses over the content's width only", () => {
+    const l = solve(desk(560, { mode: "overlay", giveWay: false, zoneAccepts: {} }));
+    expect(l.edges.bottom!.rect).toEqual({ x: 190, y: 380, width: 580, height: 180 });
+    const s = desk(560, { mode: "overlay", giveWay: false, zoneAccepts: {} });
+    const refused = refusals(s, "files").filter((r) => r.edge === "bottom");
+    expect(refused.length).toBe(1);
+    for (const r of refused) for (const p of r.hits ?? [r.hit]) {
+      expect(p.x).toBeGreaterThanOrEqual(190);
+      expect(p.x + p.width).toBeLessThanOrEqual(770);
+    }
+  });
 });
 
 describe("a full overlay bar honours its span", () => {
@@ -121,5 +158,11 @@ describe("a full overlay bar honours its span", () => {
   it("between the columns, it lies over the content only", () => {
     const l = solve(desk(560, { mode: "overlay", span: "between", giveWay: false }));
     expect(l.edges.bottom!.rect).toEqual({ x: 190, y: 380, width: 580, height: 180 });
+  });
+
+  it("runs across the inset area, or with `outsideInset` across the whole window", () => {
+    const inset = (dock: Partial<Edge>): Scene => ({ ...desk(560, { mode: "overlay", span: "full", giveWay: false, ...dock }), inset: { left: 12, right: 12 } });
+    expect(solve(inset({})).edges.bottom!.rect).toEqual({ x: 12, y: 380, width: 936, height: 180 });
+    expect(solve(inset({ outsideInset: true })).edges.bottom!.rect).toEqual({ x: 0, y: 380, width: 960, height: 180 });
   });
 });

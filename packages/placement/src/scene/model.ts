@@ -104,7 +104,9 @@ export interface Edge {
   readonly ring: number;
   /**
    * Top and bottom bars only: across the whole stage (`"full"`, the default) or between the side columns
-   * (`"between"`). Left and right edges ignore it.
+   * (`"between"`). Left and right edges ignore it. An overlay bar (`mode: "overlay"`) lies over the content, between
+   * the columns, unless it sets `span: "full"` by name: then it runs across the full bars' width, over the side columns
+   * too. Left out on an overlay bar, it means the content's width, as it always has.
    */
   readonly span?: "full" | "between";
   /** The kinds a drop may bring here. Deny by default: an empty list takes nothing (an anchor). */

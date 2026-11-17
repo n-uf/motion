@@ -11,7 +11,7 @@ import type { Edge, SceneNote } from "../model";
 import type { Draft } from "./draft";
 import { solveEdge, type EdgeSolve } from "./edge";
 import type { Frame } from "./insets";
-import { finite, px } from "./order";
+import { finite, giveWayOrder, px } from "./order";
 
 /** One left or right edge as give-way weighs it. */
 export interface Col {
@@ -75,7 +75,7 @@ export function giveWay(d: Draft, cols: readonly Col[], area: Rect, gutter: numb
   const cmin = scene.contentMin ? px(scene.contentMin.width) : undefined;
   const foldOrder = cols
     .filter((c) => c.dyn && !c.hand && c.width > 0)
-    .sort((a, b) => Number(a.kept) - Number(b.kept) || a.age - b.age || finite(a.edge.ring, 0) - finite(b.edge.ring, 0) || (a.side === b.side ? 0 : a.side === "left" ? -1 : 1));
+    .sort((a, b) => giveWayOrder(a, b) || (a.side === b.side ? 0 : a.side === "left" ? -1 : 1));
   // Under `previous`, the columns that were shrunk shrink first, in the order they did, so ages alone move nothing.
   const shrunkBefore = (previous?.notes ?? []).flatMap((n) => (n.code === "column-shrunk" ? [n.edge] : []));
   const rankOf = (c: Col): number => (shrunkBefore.includes(c.edge.id) ? shrunkBefore.indexOf(c.edge.id) : Infinity);
