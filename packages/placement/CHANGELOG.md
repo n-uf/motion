@@ -5,6 +5,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.35
 
+- `./tiling`, fixed: **a split with no room for its gap keeps its panes inside its rect.** When a split's rect was
+  narrower than the gap, `layoutSplit` laid its second side a gap past the split's start, past the rect's end and even
+  outside the area (at no size, so it drew nothing, but its rect lay outside). It now lies at the rect's end. Wherever
+  the room is above the gap, every rect is exactly as before.
+
 - `./scene`, **`SceneFloat.since`** (additive): when a float was floated, as a sequence. `floatAt` and
   `moveTo(…, { kind: "float" })` give a newly floated item one more than the largest `since` among the scene's floats
   (1 when there are none); moving a float that already floats, `raise`, `use` and `resize` keep it, and an item docked
