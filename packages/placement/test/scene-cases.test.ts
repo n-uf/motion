@@ -366,4 +366,20 @@ describe("the pick rule and resolvePlace", () => {
     }
     expect(resolvePlace(list, g.gap("nowhere", 0), "annotations", area, targetAt)).toBeNull();
   });
+
+  it("aims outside the dragged item's own rect whenever a point there reaches the target, as a person does", () => {
+    const after = () => ({ scene: s, layout: solve(s) });
+    const gap: SceneTarget = { id: "gap:e:start:0", priority: 1, hit: { x: 100, y: 0, width: 200, height: 40 }, item: "x", place: { kind: "gap", edge: "e", zone: "start", at: 0 }, after };
+    const area = { stage: { x: 0, y: 0, width: 600, height: 400 } };
+    // The held float covers the gap's middle (its center would be the first aim) from x 168 on.
+    const own = { x: 168, y: 0, width: 300, height: 300 };
+    const p = resolvePlace([gap], g.gap("e", 0), "x", { ...area, own }, targetAt)!;
+    expect(p.x).toBeLessThan(168);
+    expect(p.x).toBeGreaterThanOrEqual(100);
+    // The default own rect: the list's home target.
+    const home: SceneTarget = { id: "home:x", priority: 1, hit: own, item: "x", place: { kind: "home" }, after };
+    expect(resolvePlace([gap, home], g.gap("e", 0), "x", area, targetAt)!.x).toBeLessThan(168);
+    // Where every point of the hit lies inside it, the aim is still found.
+    expect(resolvePlace([gap], g.gap("e", 0), "x", { ...area, own: { x: 0, y: 0, width: 600, height: 400 } }, targetAt)).not.toBeNull();
+  });
 });

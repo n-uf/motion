@@ -65,13 +65,19 @@ function targetAt(list: readonly SceneTarget[], place: ScenePlace, item: string)
 export interface AimArea {
   readonly stage: Rect;
   readonly content?: Rect;
+  /**
+   * The dragged item's own rect as drawn (a float's too): a point outside it is preferred, as a person aims, so a drag
+   * intent's home gate never holds the aim. Default: the hit of the list's `home` target, if any.
+   */
+  readonly own?: Rect;
 }
 
 /**
  * A pointer position that reaches the target at `place`: inside its hit and not covered by a more precise target
  * (`pick` finds it there: the host's pick rule, `@n-uf/motion/drag`'s `targetAt`; default the same rule, `pickTarget`).
  * It tries the hit's center, then a grid across the hit; a target over the whole plane (the float) is aimed at the
- * content's center, then the stage's, then a grid across the stage. Null when no point reaches it (a gap that a home or
+ * content's center, then the stage's, then a grid across the stage. Of the points that reach it, the first outside the
+ * dragged item's own rect (`AimArea.own`) wins whenever one exists. Null when no point reaches it (a gap that a home or
  * a blocked spot covers entirely).
  */
 export function resolvePlace(list: readonly SceneTarget[], place: ScenePlace, item: string, area_: AimArea, pick: PickRule = pickTarget): Point | null {
@@ -89,7 +95,9 @@ export function resolvePlace(list: readonly SceneTarget[], place: ScenePlace, it
   for (const fy of [0.5, 0.25, 0.75, 0.1, 0.9, 0.4, 0.6, 0, 1]) {
     for (const fx of [0.5, 0.25, 0.75, 0.1, 0.9, 0.4, 0.6, 0, 1]) candidates.push({ x: region.x + region.width * fx, y: region.y + region.height * fy });
   }
-  return candidates.find((p) => inside(t.hit, p) && pick(list, p) === t) ?? null;
+  const reach = candidates.filter((p) => inside(t.hit, p) && pick(list, p) === t);
+  const own = area_.own ?? list.find((x) => x.place.kind === "home" && x.id.startsWith("home:"))?.hit;
+  return (own ? reach.find((p) => !inside(own, p)) : undefined) ?? reach[0] ?? null;
 }
 
 /**
@@ -231,7 +239,7 @@ export function createSceneHost(options: SceneHostOptions = {}): SceneHost {
     if (!s) return;
     if (g.place) {
       if (!s.lifted) liftNow(s);
-      const p = resolvePlace(s.list, g.place, s.item, aim(), s.pickAt);
+      const p = resolvePlace(s.list, g.place, s.item, { ...aim(), ...(prev().items[s.item] ? { own: prev().items[s.item]!.rect } : {}) }, s.pickAt);
       if (!p) throw new Error(`no point reaches the target at ${JSON.stringify(g.place)} (targets: ${s.list.map((t) => t.id).join(", ") || "none"})`);
       s.point = p;
       s.target = s.pickAt(s.list, p);

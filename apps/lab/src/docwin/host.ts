@@ -70,7 +70,8 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
       const d = c.drag;
       if (!d) return;
       const list = d.targets;
-      const p = resolvePlace(list, g.place, d.id, { stage: scene().stage, content: c.layout.content }, withRefusals(targetAt, c.refusals(d.id)));
+      const own = c.layout.items[d.id]?.rect;
+      const p = resolvePlace(list, g.place, d.id, { stage: scene().stage, content: c.layout.content, ...(own ? { own } : {}) }, withRefusals(targetAt, c.refusals(d.id)));
       if (!p) throw new Error(`no point reaches the target at ${JSON.stringify(g.place)} (targets: ${list.map((x) => x.id).join(", ") || "none"})`);
       c.move(p);
       t += FRAME;
