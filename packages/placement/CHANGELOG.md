@@ -5,6 +5,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.33
 
+- `./scene/cases`, **`resolvePlace` aims outside the dragged item's own rect** whenever a point there reaches the
+  target, as a person aims; a drag intent's home gate then never holds the aim. `AimArea.own` (additive) is that rect
+  (a held float's too); without it, the list's `home` target's hit. The reference host passes it.
 - `./scene/cases`, **P9-to-the-other-rail shows both rails in either window.** At 600 px window B's left column (200 px
   card, flush, 32 px rail, `contentMin` 320: 552 px) still fits, so Pages stayed open. The row's width is now derived
   from the windows (the least width at which A's or B's left column no longer fits, less a step: 540 px), so both rails
