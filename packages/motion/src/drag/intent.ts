@@ -266,6 +266,13 @@ export interface DragIntentOptions<T extends DragTarget> {
   readonly home: Rect;
   /** Where the press that lifted the item was (the grip); default the first sample's point. The lift zone is about it. */
   readonly lift?: Point;
+  /**
+   * The lift zone as a rect instead of a radius, in the same px as the samples: while a sample is inside it no
+   * spring-loaded target arms by dwell, and the `liftZone` radius is not applied. A host passes the part of the grip
+   * that a drop strip covers (grip ∩ strip), so a pause back there commits nothing while the rest of the strip, right
+   * beside a wide grip, still arms. Absent: the `liftZone` radius about `lift`.
+   */
+  readonly liftRect?: Rect;
   /** Overrides of {@link DRAG_DEFAULTS}. */
   readonly tuning?: Partial<DragTuning>;
   /**
@@ -451,8 +458,9 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       // A spring-loaded target arms only after the pointer has entered it: one it has been outside of during the drag.
       for (const x of given) if (x.arm === "dwell" && !inZone(x, p)) wasOutside.add(x.id);
       // Inside the lift zone nothing arms by dwell ("changed my mind"); the rail key still forces the rail.
+      // With a `liftRect` the zone is that rect, the radius not applied.
       liftAt ??= { x: p.x, y: p.y };
-      const inLiftZone = Math.hypot(p.x - liftAt.x, p.y - liftAt.y) <= tuning.liftZone;
+      const inLiftZone = options.liftRect ? inRect(options.liftRect, p) : Math.hypot(p.x - liftAt.x, p.y - liftAt.y) <= tuning.liftZone;
       const dwelling = forced || inLiftZone ? null : targetAt(given.filter((x) => x.arm === "dwell" && x.id !== armedId && wasOutside.has(x.id) && inZone(x, p) && live(x)), p);
       let armedNow = false;
       if (!dwelling || armedId !== null) armingId = null;

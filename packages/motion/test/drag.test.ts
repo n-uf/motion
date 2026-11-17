@@ -865,3 +865,36 @@ describe("drag/ refusals in the pick", () => {
     expect(targetAt([rail, refusal, float], { x: 7, y: 400 })?.id).toBe("refuse:rail:left:start");
   });
 });
+
+describe("drag/ a lift rect", () => {
+  // A drop strip down the left edge, spring-loaded; a 400 px wide grip across it at y 100–138, so the part of the grip
+  // the strip covers is 32 × 38.
+  const strip: DragTarget = { id: "rail:left:0", priority: 1, hit: rect(0, 0, 32, 800), arm: "dwell" };
+  const float: DragTarget = { id: "float", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true };
+  const liftRect = rect(0, 100, 32, 38);
+  /** Lifted at `lift`, out to the right of the strip, then resting at `rest` well past the dwell: what shows there. */
+  const restAt = (lift: Point, rest: Point, withRect: boolean): string | null => {
+    const intent = createDragIntent<DragTarget>({ home: rect(0, 100, 400, 38), lift, ...(withRect ? { liftRect } : {}) });
+    let t = 0;
+    let shown: string | null = null;
+    for (const p of [lift, { x: 300, y: lift.y }, { x: 300, y: rest.y }, rest]) {
+      for (let k = 0; k < 8; k++) {
+        t += 50;
+        shown = intent.update(p, t, [strip, float]).shown?.id ?? null;
+      }
+    }
+    return shown;
+  };
+
+  it("back in the strip 180 px below the grip it arms after the dwell; resting inside the rect it never arms", () => {
+    expect(restAt({ x: 16, y: 120 }, { x: 16, y: 300 }, true)).toBe("rail:left:0");
+    expect(restAt({ x: 16, y: 120 }, { x: 16, y: 120 }, true)).not.toBe("rail:left:0");
+  });
+
+  it("the rect replaces the radius: 10 px below the grip, outside the rect but inside 16 px of the lift, it arms", () => {
+    expect(restAt({ x: 16, y: 135 }, { x: 16, y: 145 }, true)).toBe("rail:left:0");
+    // Without the rect, the 16 px radius about the lift point holds as before.
+    expect(restAt({ x: 16, y: 135 }, { x: 16, y: 145 }, false)).not.toBe("rail:left:0");
+    expect(restAt({ x: 16, y: 120 }, { x: 16, y: 300 }, false)).toBe("rail:left:0");
+  });
+});

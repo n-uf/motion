@@ -5,6 +5,12 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.34
 
+- `./drag`, **a lift zone as a rect** (additive). `DragIntentOptions.liftRect` gives the "changed my mind" spot as a
+  rect: while the pointer is inside it, no spring-loaded target arms by dwell, and the 16 px `liftZone` radius is not
+  applied. A kit passes the part of a wide grip that a drop strip covers, so the strip arms right beside the grip
+  (180 px further down it, or 10 px below the grip) while a pause back on the grip still commits nothing. Without it,
+  the radius works as before.
+
 - `./drag`, **refusals take part in the pick** (additive; host note). A target may be a refusal (`DragTarget.refuse:
   true`): a place that takes no drop. It counts in the pick under the pointer, but it is never held or shown, and a
   release over it lands nowhere. Where the pick is a refusal, the band and the gap grace of the target held before no
