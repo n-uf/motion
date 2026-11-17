@@ -21,9 +21,9 @@
       <tr><th scope="row">Scene</th><td>The whole window as one plain-data model: the stage, its edges, the items on them, the floats and the chrome. <code>solve(scene)</code> returns every rect, <code>targets(scene, id)</code> every drop target.</td><td><code>Scene</code>, <code>solve</code>, <code>targets</code></td></tr>
       <tr><th scope="row">edge</th><td>A stack of items along one side of the stage: a bar (runs across) or a column (runs down).</td><td><code>Scene.edges</code>, <code>Edge</code></td></tr>
       <tr><th scope="row">side</th><td>One of the four sides of the stage: top, right, bottom, left.</td><td><code>Side</code></td></tr>
-      <tr><th scope="row">bar</th><td>A horizontal edge holding toolbar groups: top, bottom, or the window's title bar.</td><td><code>axis: "row"</code></td></tr>
-      <tr><th scope="row">column</th><td>A vertical edge holding panels and toolbar groups, with its own width.</td><td><code>axis: "column"</code>, <code>Edge.column</code></td></tr>
-      <tr><th scope="row">title bar</th><td>The window's own bar: title, window controls, maybe toolbar groups.</td><td>the outermost top <code>Edge</code> (<code>ring: 0</code>)</td></tr>
+      <tr><th scope="row">bar</th><td>A horizontal edge holding toolbar groups: top, bottom, or the window's title bar.</td><td><code>Orient</code> <code>"row"</code>, an <code>Edge</code> with <code>side: "top"</code> or <code>"bottom"</code></td></tr>
+      <tr><th scope="row">column</th><td>A vertical edge holding panels and toolbar groups, with its own width.</td><td><code>Orient</code> <code>"column"</code>, <code>Edge.column</code></td></tr>
+      <tr><th scope="row">title bar</th><td>The window's own bar: title, window controls, maybe toolbar groups.</td><td>typically the outermost top <code>Edge</code> (<code>ring: 0</code>)</td></tr>
       <tr><th scope="row">chrome</th><td>Window UI that is not content (title bar, toolbars, controls). Floats and drop targets keep clear of it.</td><td><code>Scene.chrome</code></td></tr>
       <tr><th scope="row">reserved space</th><td>Room along the content's edges kept clear for something the app draws, such as a toolbar.</td><td>an edge holding a <code>SceneItem.fixed</code> item</td></tr>
       <tr><th scope="row">host</th><td>Only the app that embeds the library and feeds it input.</td><td><code>CaseHost</code>, the <code>host</code> a clock comes from</td></tr>
@@ -55,14 +55,14 @@
       <tr><th scope="row">dock</th><td>An area along a side that holds panels: a side dock, a top dock, a bottom dock.</td><td>an <code>Edge</code> that accepts panels</td></tr>
       <tr><th scope="row">float</th><td>An item that is not docked: drawn above the content at its own rect.</td><td><code>Scene.floats</code>, <code>floatAt</code></td></tr>
       <tr><th scope="row">floating panel</th><td>A panel that floats, at its natural size, with a title bar.</td><td><code>SceneFloat</code>, <code>SceneItem.floatSize</code></td></tr>
-      <tr><th scope="row">tear off / dock back</th><td>Dragging a docked panel out so it floats; dragging it back into a dock.</td><td><code>lift</code>, <code>floatAt</code>, <code>dockHome</code></td></tr>
+      <tr><th scope="row">tear off / dock back</th><td>Dragging a docked panel out so it floats; dragging it back into a dock. <code>lift</code> takes the item out of the layout, <code>floatAt</code> makes the float.</td><td><code>lift</code>, <code>floatAt</code>, <code>dockHome</code></td></tr>
       <tr><th scope="row">drop target</th><td>Any place a dragged item can land.</td><td><code>Target</code>, <code>DragTarget</code></td></tr>
       <tr><th scope="row">hit area</th><td>The region where the pointer counts as being over a target.</td><td><code>Target.hit</code></td></tr>
       <tr><th scope="row">slot</th><td>The rect the dropped item will occupy: the landing rect.</td><td><code>Target.slot</code></td></tr>
       <tr><th scope="row">insertion point</th><td>The position between two items where a drop inserts: before all, between, after all, or into an empty zone.</td><td><code>gap:&lt;edge&gt;:&lt;zone&gt;:&lt;at&gt;</code></td></tr>
       <tr><th scope="row">drop preview</th><td>Everything drawn while dragging to show the result. The preview equals the result.</td><td><code>DragPreview</code>, <code>previewPlan</code></td></tr>
       <tr><th scope="row">drop preview modes</th><td>Indicator only (nothing moves), Make room (others move aside, the item stays under the pointer), Snap to slot (room opens and the item glides into the slot).</td><td><code>"indicator"</code>, <code>"gap"</code>, <code>"snap"</code></td></tr>
-      <tr><th scope="row">refusal</th><td>A place that accepts the item's kind but cannot take it now. A release over it goes home.</td><td><code>SceneRefusal</code>, <code>reason</code></td></tr>
+      <tr><th scope="row">refusal</th><td>A place that cannot take the item: one that accepts its kind but has no room now, or a whole edge that doesn't accept the kind (<code>not-accepted</code>). A release over it goes home.</td><td><code>SceneRefusal</code>, <code>reason</code></td></tr>
       <tr><th scope="row">home</th><td>The item's own place when a drag starts. Dropping there changes nothing, and a cancelled or refused drag returns there.</td><td><code>home</code>, <code>own-place</code></td></tr>
       <tr><th scope="row">keyboard stops</th><td>The same drop targets in reading order, for the arrow keys and a "Move to" menu.</td><td><code>stops</code></td></tr>
     </tbody>
