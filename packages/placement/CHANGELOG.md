@@ -5,6 +5,19 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.34
 
+- **New entry `@n-uf/placement/tiling`**: panes that divide an area with no overlap, on the root geometry and `Target`
+  alone. Order layouts (`masterStack` with a `ratio`, `columns`, `grid`) and `orderTargets` (one target per index a
+  dragged pane could be inserted at); the split tree (`Split`, `layoutSplit`, `splitPane`, `removePane`, `swapPanes`,
+  `panesOf`, and `splitFromOrder` for dwindle, split along the longer side), where a split may carry an `axis` and a
+  `ratio`; a pane's drop regions (`paneRegion`, `paneCenter`, `PANE_SIDES`, `PANE_REGION_DEFAULTS`: the center and
+  four sides), `dropOnPane` (the center swaps, a side splits with that side's axis and ratio 0.5) and `paneTargets`;
+  and `giveWay`, which floats the newest pane while one breaks its minimum. README: Tiling.
+- `./targets`, **deprecated: the pane drop zones.** `paneZone`, `paneCentre`, `PaneZone`, `PaneCentre`,
+  `PaneZoneOptions`, `PANE_EDGES` and `PANE_ZONE_DEFAULTS` now wrap `./tiling`'s `paneRegion`, `paneCenter`,
+  `PaneRegion`, `PaneCenter`, `PaneRegionOptions`, `PANE_SIDES` and `PANE_REGION_DEFAULTS` (same results; the old
+  option names are mapped). They stay until the legacy entries go. `./dock` lays out its documents and its tiling tree
+  with `./tiling` (same rects).
+
 - `./scene`, **over an unarmed strip** (docs and a property test, no behavior change). A kit reported that at 700 px
   with a flush 200 px card window, x 0–4 showed the rail's `no-room` refusal and x 5–10 showed nothing. The library
   doesn't reproduce it: with those numbers (Annotations lifted, the left column folded into its rail), x 0–9 is the

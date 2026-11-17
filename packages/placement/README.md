@@ -11,8 +11,8 @@ Site and live demos: [motion.n-uf.com](https://motion.n-uf.com)
 
 Where things go. State in, rects and drop targets out: a workspace of docks, rails and floating panels, panels in
 columns per side that give way least recently used first, toolbar groups in toolbar areas and zones, and the drop
-targets for each. A full tiling entry (a split tree with ratios, groups and workspaces) is planned. Pure functions over plain data: no DOM, no framework, no
-motion, no dependencies.
+targets for each, and tiling: panes that divide an area between them. Pure functions over plain data: no DOM, no
+framework, no motion, no dependencies.
 
 ```sh
 npm i @n-uf/placement
@@ -58,6 +58,9 @@ without importing each other: a target list from `@n-uf/placement/targets` is ex
   result), pure changes and a stored form.
 - **`/scene/cases`**: the Scene's behavior as data: conformance rows (a scene, what a user does, the layout and DOM
   expected after) and `runCase`, which plays one on a host, so an integrating app's test suite and the lab run the same rows.
+- **`/tiling`**: panes that divide an area with no overlap: order layouts (master and stack, columns, a grid), the
+  split tree (dwindle, split along the longer side, or splits with an axis and a ratio), a pane's drop regions, and
+  their drop targets (see Tiling).
 
 Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
@@ -1400,7 +1403,44 @@ declare function pageHost(): Promise<AsyncCaseHost>;
 const results = await runCasesAsync(CASES, pageHost, { onResult: (id, r) => console.log(id, r.ok) });
 ```
 
+## Tiling
+
+`@n-uf/placement/tiling` divides an area among panes, with no overlap and no hole. It has two models; **use an order
+layout when panes only reorder, and the split tree when a drop splits a pane on a side.**
+
+- **Order layouts**: `masterStack`, `columns` and `grid` take panes in order and an area (`{ gap, ratio }`), and give a
+  rect per pane. A drop inserts the dragged pane at an index: `orderTargets(arrange, panes, dragged, area)` gives one
+  target per index, its slot the dragged pane's rect there and `layout` every pane's rect with it there.
+- **The split tree**: a `Split` is a pane or `{ a, b, axis?, ratio? }`. `layoutSplit(tree, area)` lays it out; a split
+  with no axis divides along the longer side in halves, so `splitFromOrder(panes)` is dwindle (split along the longer
+  side). `splitPane`, `removePane` and `swapPanes` change it. A drop on a pane goes by the pane's drop region:
+  `paneRegion(rect, point, previous)` is the center (34 % of each axis, at least 24 px) or one of four side trapezoids,
+  and holds the previous region for 6 px past its boundary. `dropOnPane(tree, dragged, at, region)` swaps for the
+  center and splits `at` on a side, writing that side's axis and ratio 0.5, so a side means the same on any pane.
+  `paneTargets(layout, dragged)` gives one target per pane.
+- `giveWay(panes, layout, min, age)` floats the newest pane while any pane is laid out below its minimum.
+
+Both kinds of target are the root `Target`, so a drag intent from `@n-uf/motion/drag` takes them as they are; for the
+split tree its `placeOf` is the pane's region:
+
+```ts
+import { dropOnPane, layoutSplit, paneRegion, paneTargets, splitFromOrder, type PaneRegion, type PaneTarget } from "@n-uf/placement/tiling";
+
+const area = { x: 0, y: 0, width: 800, height: 400 };
+const tree = splitFromOrder(["a", "b"]);
+const after = dropOnPane(tree, "c", "b", "top");
+console.log(layoutSplit(after, area).get("c")); // { x: 400, y: 0, width: 400, height: 200 }
+
+const targets = paneTargets(layoutSplit(tree, area));
+const placeOf = (t: PaneTarget<string>, p: { x: number; y: number }, previous: string | null): string =>
+  `${t.id}:${paneRegion(t.hit, p, (previous?.split(":")[2] as PaneRegion | undefined) ?? null)}`;
+console.log(placeOf(targets[1]!, { x: 600, y: 10 }, null)); // pane:b:top
+```
+
 ## Pane zones
+
+**Deprecated**: these are the old names of the pane drop regions in Tiling (`paneRegion`, `paneCenter` and their types
+and defaults), kept as wrappers until the legacy entries go.
 
 `paneZone(rect, point, previous, options?)` says which of a pane's five drop zones a point is in: the center rectangle
 (34 % of each axis, at least 24 px) or one of four edge trapezoids. The previous zone holds for 6 px past its

@@ -1,9 +1,13 @@
-/** The dock's arrangers tile their area exactly; natural-height columns; the minimum-size give-way. */
+/** The tiling the dock uses tiles its area exactly; the dock's natural-height columns; the minimum-size give-way. */
 import { describe, expect, it } from "vitest";
 import { overlap, type Rect } from "../index";
-import { columnHeights, dwindle, giveWay, masterStack, share } from "../src/dock/arrange";
+import { columnHeights, share } from "../src/dock/arrange";
+import { giveWay, layoutSplit, masterStack as masterStackOf, splitFromOrder } from "../src/tiling";
 
 const GAP = 6;
+const masterStack = <K>(ids: readonly K[], area: Rect, gap: number, ratio?: number): Map<K, Rect> => masterStackOf(ids, area, { gap, ...(ratio === undefined ? {} : { ratio }) });
+/** Dwindle over `n` panes, in their order. */
+const dwindle = (area: Rect, n: number, gap: number): Rect[] => [...layoutSplit(splitFromOrder(Array.from({ length: n }, (_, i) => i)), area, { gap }).values()];
 
 /** The rects lie inside the area, never overlap, and fill it but for the gaps (within a pixel per tile). */
 function tilesExactly(rects: readonly Rect[], area: Rect): string[] {

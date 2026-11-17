@@ -16,17 +16,20 @@ import { inside, nextFrame, overlap, same, wait } from "./shared/geometry";
 import { passes, type ScenarioFilter } from "./shared/hooks";
 import { cancelPress, trackPress } from "./shared/press";
 import {
+  PANE_SIDES,
   columns,
   grid,
-  layoutTree as layoutTreeIn,
-  leafIds,
+  layoutSplit,
   masterStack,
-  removeLeaf,
-  splitLeaf,
-  swapLeaves,
-  treeFromOrder,
-  type Tree,
-} from "./shared/tiling";
+  panesOf as leafIds,
+  removePane as removeLeaf,
+  splitFromOrder as treeFromOrder,
+  splitPane,
+  swapPanes as swapLeaves,
+  type Split,
+} from "@n-uf/placement/tiling";
+
+type Tree = Split<number>;
 
 type Tempo = keyof typeof SETTLE_TEMPO;
 
@@ -143,15 +146,15 @@ let layoutKind: LayoutKind = "master";
 
 /** The order layouts (master, columns, grid): a list of ids in, a rect per id out. */
 function layout(ids: readonly number[]): Map<number, Rect> {
-  if (layoutKind === "columns") return columns(ids, FULL_AREA(), GAP);
-  if (layoutKind === "grid") return grid(ids, FULL_AREA(), GAP);
-  return masterStack(ids, FULL_AREA(), GAP);
+  if (layoutKind === "columns") return columns(ids, FULL_AREA(), { gap: GAP });
+  if (layoutKind === "grid") return grid(ids, FULL_AREA(), { gap: GAP });
+  return masterStack(ids, FULL_AREA(), { gap: GAP });
 }
 
-/** Dwindle's split tree (see shared/tiling); a drop splits the window under the pointer, on the pointer's side. */
+/** Dwindle's split tree (@n-uf/placement/tiling); a drop splits the window under the pointer, on the pointer's side. */
 let tree: Tree | null = null;
 
-const layoutTree = (node: Tree | null): Map<number, Rect> => layoutTreeIn(node, FULL_AREA(), GAP);
+const layoutTree = (node: Tree | null): Map<number, Rect> => layoutSplit(node, FULL_AREA(), { gap: GAP });
 
 /** The whole layout now: the tree in dwindle, the order elsewhere. */
 function baseLayout(): Map<number, Rect> {
@@ -162,14 +165,14 @@ function baseLayout(): Map<number, Rect> {
 function drops(id: number): Drop[] {
   if (layoutKind === "dwindle") {
     if (!tree) {
-      const t: Tree = { leaf: id };
+      const t: Tree = { pane: id };
       return [{ key: "root", slot: FULL_AREA(), layout: layoutTree(t), commit: () => setTree(t) }];
     }
     return leafIds(tree).flatMap((target) =>
-      [true, false].map((first) => {
-        const t = splitLeaf(tree, target, id, first);
+      PANE_SIDES.map((side) => {
+        const t = splitPane(tree, target, id, side);
         const map = layoutTree(t);
-        return { key: `${target}:${first ? "a" : "b"}`, slot: map.get(id)!, layout: map, commit: () => setTree(t) };
+        return { key: `${target}:${side}`, slot: map.get(id)!, layout: map, commit: () => setTree(t) };
       }),
     );
   }
@@ -319,7 +322,7 @@ function doOpen(): void {
   if (lifted || order.length >= MAX_WINDOWS) return;
   const id = nextId;
   const target = focusId !== null && order.includes(focusId) ? focusId : (order.at(-1) ?? null);
-  const nextTree = layoutKind === "dwindle" ? splitLeaf(tree, target, id, false) : null;
+  const nextTree = layoutKind === "dwindle" ? splitPane(tree, target, id) : null;
   const at = (nextTree ? layoutTree(nextTree) : layout([...order, id])).get(id)!;
   const w = makeWin(at);
   w.pop.jumpTo(0);

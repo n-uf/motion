@@ -4,7 +4,8 @@
  * geometry, the tiling tree's columns, the scrolling strip, tabbed sides and floating palettes.
  */
 import { clampInto, rect, type Rect, type Size } from "../geometry";
-import { columnHeights, dwindle, giveWay, masterStack } from "./arrange";
+import { giveWay, layoutSplit, masterStack, splitFromOrder } from "../tiling";
+import { columnHeights } from "./arrange";
 import { BAR, DOC_MIN, G, LAYER, RAIL, TABS, TITLE, docKey, idOf, isDocKey, panelKey, type Catalog, type DeskState, type Note, type Options, type Placed, type Side } from "./model";
 
 export type Out = Map<string, Placed>;
@@ -38,7 +39,7 @@ export const bar = (W: number): Placed => ({ rect: rect(0, 0, W, BAR), look: "ba
 
 /** The documents in `r`, master and stack: the first takes 56 % of the width, the rest stack on the right. */
 export function tiles(out: Out, r: Rect, ids: readonly number[], min?: Size): void {
-  for (const [id, rr] of masterStack(ids, r, G, 0.56)) out.set(docKey(id), { rect: rr, look: "doc", layer: LAYER.doc, ...(min ? { min } : {}) });
+  for (const [id, rr] of masterStack(ids, r, { gap: G, ratio: 0.56 })) out.set(docKey(id), { rect: rr, look: "doc", layer: LAYER.doc, ...(min ? { min } : {}) });
 }
 
 // --- sections and rails --------------------------------------------------------------------------------------------
@@ -192,7 +193,7 @@ export function treeTiles(cat: Catalog, tree: DeskState["tree"], area: Rect): Ma
     column(tree.R, x1 - TREE_COLUMN);
     x1 -= TREE_COLUMN + G;
   }
-  dwindle(rect(x0, area.y, x1 - x0, area.height), tree.C.length, G).forEach((r, i) => res.set(tree.C[i]!, r));
+  layoutSplit(splitFromOrder(tree.C), rect(x0, area.y, x1 - x0, area.height), { gap: G }, res);
   return res;
 }
 

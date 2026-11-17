@@ -1,5 +1,5 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, dock, toolbar, targets, panels, desk, stack, scene, scene-cases) and its type definitions exist;
+// - every entry (the root, dock, toolbar, targets, panels, desk, stack, scene, scene-cases, tiling) and its type definitions exist;
 // - the JavaScript imports only its own chunks (no dependencies at all, @n-uf/motion included);
 // - no file touches a host global, and no type mentions a DOM type;
 // - Node can import every entry, and a desk lays out, a host collapses, a drop lands and a panel column gives way from
@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const ENTRIES = ["index", "dock", "toolbar", "targets", "panels", "desk", "stack", "scene", "scene-cases"];
+const ENTRIES = ["index", "dock", "toolbar", "targets", "panels", "desk", "stack", "scene", "scene-cases", "tiling"];
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|globalThis|matchMedia)\b/;
 const DOM_TYPES = /\b(Window|Document|Element|HTMLElement|Event|PointerEvent|MouseEvent|DOMRect)\b/;
 const problems = [];
@@ -106,6 +106,10 @@ if (problems.length === 0) {
     if (solved.content.x !== 240 || solved.items.a?.edge !== "left") problems.push("scene.js: the left column didn't take its panel's width");
     const sceneTargets = m.scene.targets(scene, "b");
     if (sceneTargets.length !== 2 || sceneTargets.some((t) => JSON.stringify(m.scene.solve(t.after({ x: 0, y: 0 }).scene)) !== JSON.stringify(t.after({ x: 0, y: 0 }).layout))) problems.push("scene.js: a column of one panel doesn't have two gaps whose preview is the result");
+    const t = m.tiling;
+    const split = t.dropOnPane(t.splitFromOrder(["a", "b"]), "c", "b", "top");
+    const tiles = t.layoutSplit(split, { x: 0, y: 0, width: 800, height: 400 });
+    if (tiles.get("c")?.height !== 200 || tiles.get("c")?.x !== 400 || t.paneRegion(tiles.get("a"), { x: 5, y: 200 }) !== "left") problems.push("tiling.js: a drop on a pane's top didn't split it on top");
     if (m.desk.presetTargets(m.desk.PRESETS.docks, { defs, state: m.desk.PRESETS.docks.start(defs), id: "files", stage: { width: 1200, height: 500 } }).some((t) => t.id === "float")) problems.push("desk.js: docks offers a float target");
   } catch (error) {
     problems.push(`import: ${error instanceof Error ? error.message : String(error)}`);
