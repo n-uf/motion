@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.33
+## Unreleased
 
 - `./scene`, **over an unarmed strip** (docs and a property test, no behavior change). A kit reported that at 700 px
   with a flush 200 px card window, x 0–4 showed the rail's `no-room` refusal and x 5–10 showed nothing. The library
@@ -31,6 +31,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `resolvePlace` instead of 11 px from the window's edge, so they hold with a rail drop strip (a UI kit's panel
   `railDrop`) as without. The 11 px pixel check is its own row, **P6-outer-line-at-11-px**, with its precondition:
   `requires: { railDrop: "scene" }` (new, additive), so a host that lays its own strips skips it.
+
+## 26.11.33
+
 - `./scene`, fixed: **a float stored taller than the clear stage was drawn over the bars.** `solve` sized a float to the
   floats' region (the stage less its left and right inset), so one stored at the body's height lay over the top and
   bottom bars by their height. Its size is now clamped to the room that region leaves clear of the bars and chrome

@@ -1339,7 +1339,9 @@ a gesture the row doesn't have fails the row. `createSceneHost()` is the referen
 session that lifts past 4 px, asks `targets` for every target, takes the one under the pointer by its pick rule,
 draws the preview from its `after.layout` and commits `after.scene` on release, every solve carrying the layout before
 it as `previous`. An integrating app's host does the same with its own pointer; `resolvePlace(targets, place, item, { stage, content
-}, pick)` turns a `place` into a point that reaches the target. Every row
+}, pick)` turns a `place` into a point that reaches the target. It aims outside the dragged item's own rect whenever a
+point there reaches the target, as a person aims, so a drag intent's home gate never holds the aim: `AimArea.own` is that
+rect (a held float's too), and without it the list's `home` target's hit is used; the reference host passes it. Every row
 passes on the in-memory host except its DOM checks, which it skips, and the rows with `lacks`, which fail on it until the
 library rule lands. A row with `requires: { intent: true }` checks what a drag intent adds to the pick at a point (a
 shown gap held a band's width past its hit): a host without one, the in-memory host among them, skips it. A row with
