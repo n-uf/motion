@@ -93,27 +93,9 @@ function dragTo(c: DocwinScene, id: ItemId, path: Point[], keep = false): { lift
  * apart on the window to `to` (window px), a short hold, pointerup. Frames are driven by hand.
  */
 function mouseDrag(c: DocwinScene, id: ItemId, to: Point): { lifted: boolean } {
-  const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
-  if (!el) return { lifted: false };
-  const w = c.win.getBoundingClientRect();
-  const g = el.getBoundingClientRect();
-  const from = { x: g.left + g.width / 2, y: g.top + g.height / 2 };
-  const end = { x: w.left + to.x, y: w.top + to.y };
-  const ev = (type: string, at: Point): PointerEvent => new PointerEvent(type, { clientX: at.x, clientY: at.y, button: 0, buttons: type === "pointerup" ? 0 : 1, pointerType: "mouse", isPrimary: true, bubbles: true, cancelable: true });
-  c.drive(true);
-  let now = performance.now();
-  el.dispatchEvent(ev("pointerdown", from));
-  const steps = Math.max(8, Math.ceil(Math.hypot(end.x - from.x, end.y - from.y) / 4));
-  let lifted = false;
-  for (let i = 1; i <= steps; i++) {
-    window.dispatchEvent(ev("pointermove", { x: from.x + ((end.x - from.x) * i) / steps, y: from.y + ((end.y - from.y) * i) / steps }));
-    lifted ||= c.dragging;
-    if (c.dragging) c.frame((now += 16));
-  }
-  for (let k = 0; k < 25; k++) if (c.dragging) c.frame((now += 16));
-  window.dispatchEvent(ev("pointerup", end));
-  c.drive(false);
-  return { lifted };
+  const h = mouseHold(c, id, to);
+  h.up();
+  return { lifted: h.lifted };
 }
 
 /**
@@ -891,22 +873,11 @@ export const PRESETS: readonly Preset[] = [
       "Tools dropped by mouse in the title bar's left third lands leading (right after the title's natural width, or after the toolbars there), in the middle third at the bar's true center (or, where that isn't clear of the title and the trailing toolbars, centered in the free span between them), in the right third trailing, right before the window controls. The slot is the landing, never over the title's natural rect or the controls; with Zoom in the title bar, Zoom moved out, and Review leading.",
     setup: (c) => c.setScene(defaultScene()),
     check(c) {
-      const bad: string[] = [];
-      const seen: string[] = [];
-      const worlds: [string, Scene][] = [
+      return zonesOfBar(c, "title", [
         ["Zoom in the title bar", defaultScene()],
         ["Zoom moved out", sceneWith((s) => put(s, "rail-left", ["zoom"]))],
         ["Review leading", sceneWith((s) => put(put(s, "rail-left", ["zoom"]), "title", ["review"]))],
-      ];
-      for (const [world, base] of worlds) {
-        for (const zone of ["start", "center", "end"] as const) {
-          c.setScene(base);
-          const r = barZoneDrop(c, "tools", "title", zone);
-          seen.push(`${world}, ${zone}: ${r.now}`);
-          if (!r.ok) bad.push(`${world}, ${zone}: ${r.now}`);
-        }
-      }
-      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+      ]);
     },
   },
   {
@@ -1280,11 +1251,7 @@ export const PRESETS: readonly Preset[] = [
     expected:
       "Views held by mouse over a column gap shows its wrapped words, over the window-edge rail its icons down the rail, over the top bar a row; moved off every target it takes its own form back. Each change is a short settle with the grip under the pointer (within 2 px at every frame).",
     setup: (c) => c.setScene(defaultScene()),
-    check(c) {
-      c.setScene(defaultScene());
-      const fs = formStops(c);
-      if (typeof fs === "string") return { pass: false, now: fs };
-      const { stops, off } = fs;
+    check: (c) => withStops(c, ({ stops, off }) => {
       const bad: string[] = [];
       const seen: string[] = [];
       let worst = 0;
@@ -1297,7 +1264,7 @@ export const PRESETS: readonly Preset[] = [
       }
       if (worst > 2) bad.push(`the grip drifted ${worst.toFixed(2)} px from the pointer`);
       return { pass: bad.length === 0, now: `${seen.join("; ")}; grip drift at most ${worst.toFixed(2)} px.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
-    },
+    }),
   },
   {
     id: "held-form-fast-sweep",
@@ -1305,11 +1272,7 @@ export const PRESETS: readonly Preset[] = [
     expected:
       "Views swept fast by mouse across a column gap, the rail and the top bar (a few frames over each) ends as a row over the top bar; it switches form at most once per target change, the window's items are redrawn only when the shown target changes, the grip stays within 2 px of the pointer at the start, middle and end of every morph, and no form's opacity jumps (from one frame to the next at most the frame's time, capped at 32 ms, over the 120 ms fade, plus 0.01: each fades from where it is).",
     setup: (c) => c.setScene(defaultScene()),
-    check(c) {
-      c.setScene(defaultScene());
-      const fs = formStops(c);
-      if (typeof fs === "string") return { pass: false, now: fs };
-      const { stops } = fs;
+    check: (c) => withStops(c, ({ stops }) => {
       let worst = 0;
       // 40 px a frame between stops, and just past the intent's dwell (90 ms) at each: the target shows, and the next
       // move retargets the morph mid-flight (it takes about 125 ms).
@@ -1326,7 +1289,7 @@ export const PRESETS: readonly Preset[] = [
       // A step may be its frame's fade (the frame's time, capped, over the fade's) and 0.01 for rounding; more is a pop.
       if (r.fadeOver > 0) bad.push(`a form's opacity jumped ${r.maxFade.toFixed(2)} between frames, ${r.fadeOver.toFixed(3)} past its frame's fade`);
       return { pass: bad.length === 0, now: `${r.targetChanges} target changes, ${r.switches} form switches, ${r.redraws} redraw frames; ends ${end.formKind} ${end.axis}; grip drift at most ${worst.toFixed(2)} px; opacity steps at most ${r.maxFade.toFixed(3)}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
-    },
+    }),
   },
   {
     id: "zoom-variants-sweep",
@@ -1875,6 +1838,13 @@ type FormStop = { readonly name: string; readonly p: Point; readonly formKind: s
  * Views' three form stops in the default window, each a point of its own over a target: a column gap (it lands
  * wrapped), the rail (icons down it), the top bar (a row); and a point off every target. A string when one is missing.
  */
+/** `check` with the form stops of Views in the default window, or the reason there are none. */
+function withStops(c: DocwinScene, check: (fs: { readonly stops: readonly FormStop[]; readonly off: Point }) => Verdict): Verdict {
+  c.setScene(defaultScene());
+  const fs = formStops(c);
+  return typeof fs === "string" ? { pass: false, now: fs } : check(fs);
+}
+
 function formStops(c: DocwinScene): { readonly stops: readonly FormStop[]; readonly off: Point } | string {
   const ts = c.targets("views").filter((t) => t.place.kind === "gap" || t.place.kind === "column" || t.place.kind === "rail");
   const own = c.layout.items.views?.edge;
