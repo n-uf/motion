@@ -78,6 +78,43 @@ export function resolvePlace(list: readonly SceneTarget[], place: ScenePlace, it
   return candidates.find((p) => inside(t.hit, p) && pick(list, p) === t) ?? null;
 }
 
+/**
+ * A `resize` gesture as a pure step, for any host: the scene after it, and the loaded scene (`start`, what `"dock"` puts
+ * items back to) after it too. With `edge`, the user's size across that edge; with `item`, that item's largest form along
+ * the axis it lies along in `layout` grew by `size` px (in both scenes: it was measured again); with neither, the window
+ * is now `point.x` by `point.y`. Throws when the gesture names nothing that exists.
+ */
+export function resizeStep(scene: Scene, start: Scene, layout: SceneLayout, g: Gesture): { readonly scene: Scene; readonly start: Scene } {
+  if (g.edge !== undefined) {
+    if (g.size === undefined) throw new Error("a resize of an edge needs a size");
+    if (!scene.edges.some((e) => e.id === g.edge)) throw new Error(`no edge ${g.edge}`);
+    return { scene: resize(scene, g.edge, g.size), start };
+  }
+  if (g.item !== undefined) {
+    if (g.size === undefined) throw new Error("a resize of an item needs a size");
+    const id = g.item;
+    const d = g.size;
+    if (!Object.hasOwn(scene.items, id)) throw new Error(`no item ${id}`);
+    const edge = layout.items[id]?.edge;
+    const side = edge ? layout.edges[edge]?.side : undefined;
+    const axis = side === "top" || side === "bottom" ? "row" : "column";
+    const grown = (s: Scene): Scene => {
+      const it = Object.hasOwn(s.items, id) ? s.items[id] : undefined;
+      const forms = it?.forms[axis];
+      if (!it || !forms || forms.length === 0) return s;
+      const f0 = forms[0]!;
+      const f = { ...f0, main: { ...f0.main, min: Math.max(0, f0.main.min + d), natural: Math.max(0, f0.main.natural + d) } };
+      return { ...s, items: { ...s.items, [id]: { ...it, forms: { ...it.forms, [axis]: [f, ...forms.slice(1)] } } } };
+    };
+    return { scene: grown(scene), start: grown(start) };
+  }
+  if (g.point) {
+    const stage = stageRect(g.point.x, g.point.y);
+    return { scene: { ...scene, stage }, start: { ...start, stage } };
+  }
+  throw new Error("a resize needs an edge, an item or a point (the window's size)");
+}
+
 /** What the in-memory host knows about a drag in progress. */
 interface HostDrag {
   readonly item: string;
@@ -277,37 +314,10 @@ export function createSceneHost(options: SceneHostOptions = {}): SceneHost {
     }
   }
 
-  /** `id`'s largest form along the axis it lies along grew by `d` px (measured again), in the scene and in the start scene. */
-  function measure(id: string, d: number): void {
-    const edge = prev().items[id]?.edge;
-    const side = edge ? prev().edges[edge]?.side : undefined;
-    const axis = side === "top" || side === "bottom" ? "row" : "column";
-    const grown = (s: Scene): Scene => {
-      const it = Object.hasOwn(s.items, id) ? s.items[id] : undefined;
-      const forms = it?.forms[axis];
-      if (!it || !forms || forms.length === 0) return s;
-      const f0 = forms[0]!;
-      const f = { ...f0, main: { ...f0.main, min: Math.max(0, f0.main.min + d), natural: Math.max(0, f0.main.natural + d) } };
-      return { ...s, items: { ...s.items, [id]: { ...it, forms: { ...it.forms, [axis]: [f, ...forms.slice(1)] } } } };
-    };
-    if (!Object.hasOwn(now().items, id)) throw new Error(`no item ${id}`);
-    start = grown(start!);
-    settle(grown(now()));
-  }
-
   function resizeNow(g: Gesture): void {
-    if (g.edge !== undefined) {
-      if (g.size === undefined) throw new Error("a resize of an edge needs a size");
-      if (!now().edges.some((e) => e.id === g.edge)) throw new Error(`no edge ${g.edge}`);
-      settle(resize(now(), g.edge, g.size));
-    } else if (g.item !== undefined) {
-      if (g.size === undefined) throw new Error("a resize of an item needs a size");
-      measure(g.item, g.size);
-    } else if (g.point) {
-      const stage = stageRect(g.point.x, g.point.y);
-      start = { ...start!, stage };
-      settle({ ...now(), stage });
-    } else throw new Error("a resize needs an edge, an item or a point (the window's size)");
+    const next = resizeStep(now(), start!, prev(), g);
+    start = next.start;
+    settle(next.scene);
   }
 
   function reload(): void {
