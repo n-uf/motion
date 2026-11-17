@@ -3,7 +3,8 @@
  * the two desk states. Strings and plain data, so the server renders every first frame and the island animates them.
  */
 import { createSettle, type Rect } from "@n-uf/motion";
-import { DEFAULT_OPTIONS, createDesk } from "@n-uf/placement/dock";
+import { clampInto } from "@n-uf/placement";
+import { giveWay, layoutSplit, masterStack, splitFromOrder } from "@n-uf/placement/tiling";
 
 // ---- The hero demo -------------------------------------------------------------------------------------------------
 type Slot = (W: number, H: number) => Rect;
@@ -14,39 +15,55 @@ export const RESERVE = 50;
 /** The drawing tools (a floating group at the bottom of the hero): select, text, erase, box, pen. Pen is selected. */
 export const TOOLS = [["pointer", "Select"], ["text", "Text"], ["eraser", "Erase"], ["rect", "Box"], ["pen", "Pen"]] as const;
 export const DEFAULT_TOOL = "pen";
+/** The gap between windows and around them, px, and the band a toolbar keeps at the top of the tiled layouts. */
+const G = 6;
+const BAR = 34;
+/** The least a window is drawn at in the tiling tree: one that would be smaller floats instead. */
+const WINDOW_MIN = { width: 240, height: 160 };
 /**
- * The desk's layouts are placement's: three constructions of `@n-uf/placement/dock` laid out for the three open
- * documents on a stage of the demo's size (no panels, so only the documents' rects matter), each window's slot being
- * that document's rect. */
-const DESK = createDesk({ panels: [], start: { left: [], right: [], bottom: [] }, docTitle: (id) => WINDOWS[id - 1]?.title ?? `Document ${id}` });
-const OPTIONS = { ...DEFAULT_OPTIONS, toolbarHidden: true };
-/**
- * The layouts the shuffle cycles through, by placement's construction id: with no panels, the three differ in shape
- * (a master with a stack, three tiled columns, a strip of columns that runs past the stage's edge), and each is named by
- * the package's own title for it.
+ * The layouts the shuffle cycles through, for the three open windows on a stage of the demo's size: a master with a
+ * stack (`@n-uf/placement/tiling`'s `masterStack`), a tiling tree that splits along the longer side (dwindle, with the
+ * newest window floating where one would break its minimum: `giveWay`), and a strip of columns that runs past the
+ * stage's edge (the page's own rule: each column half the stage, 360 to 520 px).
  */
-const CONSTRUCTIONS = ["navigator", "tree", "strip"] as const;
+const LAYOUT_IDS = ["navigator", "tree", "strip"] as const;
+const LAYOUT_NAMES: Record<(typeof LAYOUT_IDS)[number], string> = { navigator: "Navigator + inspector", tree: "One tiling tree", strip: "Scrolling strip" };
 interface DeskLayout {
   /** The three windows' rects, in the stage's px. */
   readonly rects: readonly Rect[];
 }
+const IDS = [0, 1, 2];
+/** Layout `id` for a stage of `W` × `H`. */
+function layoutOf(id: (typeof LAYOUT_IDS)[number], W: number, H: number): Rect[] {
+  if (id === "navigator") {
+    const tiles = masterStack(IDS, { x: G, y: G, width: W - 2 * G, height: H - 2 * G }, { gap: G, ratio: 0.56 });
+    return IDS.map((i) => tiles.get(i)!);
+  }
+  const top = BAR + G;
+  const area = { x: G, y: top, width: W - 2 * G, height: H - top - G };
+  if (id === "tree") {
+    const lay = (kept: readonly number[]) => layoutSplit(splitFromOrder(kept), area, { gap: G });
+    // The newest window that breaks the minimum floats (offset down and right from the stage's middle, clamped into it).
+    const { kept, floats } = giveWay(IDS, lay, () => WINDOW_MIN, (i) => i);
+    const tiles = lay(kept);
+    const stage = { x: 0, y: 0, width: W, height: H };
+    floats.forEach((i, k) => tiles.set(i, clampInto({ x: W / 2 - 150 + 22 * k, y: BAR + 40 + 22 * k, width: 300, height: 190 }, stage)));
+    return IDS.map((i) => tiles.get(i)!);
+  }
+  const w = Math.max(360, Math.min(520, W * 0.5));
+  return IDS.map((i) => ({ x: G + i * (w + G), y: top, width: w, height: area.height }));
+}
 let cached: { key: string; layout: DeskLayout } | null = null;
-/** Placement's layout `index` (see {@link LAYOUTS}) for a stage of `W` × `H`; the last answer is kept. */
+/** Layout `index` (see {@link LAYOUTS}) for a stage of `W` × `H`; the last answer is kept. */
 function deskLayout(index: number, W: number, H: number): DeskLayout {
   const key = `${index}:${W}:${H}`;
   if (cached?.key === key) return cached.layout;
-  const c = DESK.constructionOf(CONSTRUCTIONS[index]!);
-  // The strip starts scrolled to its first column (placement's own start scrolls to the focus, leaving the first off stage).
-  const start = c.initial([1, 2, 3]);
-  const state = c.id === "strip" ? { ...start, stripScroll: 0 } : start;
-  const { items } = c.layout(state, { width: Math.max(1, W), height: Math.max(1, H) }, OPTIONS);
-  const layout: DeskLayout = { rects: [1, 2, 3].map((id) => ({ ...items.get(`doc:${id}`)!.rect })) };
+  const layout: DeskLayout = { rects: layoutOf(LAYOUT_IDS[index]!, Math.max(1, W), Math.max(1, H)).map((r) => ({ ...r })) };
   cached = { key, layout };
   return layout;
 }
-export const LAYOUTS: { name: string; id: string; slots: Slot[] }[] = CONSTRUCTIONS.map((id, index) => ({
-  /** placement's own title for the construction, as it is. */
-  name: DESK.constructionOf(id).title,
+export const LAYOUTS: { name: string; id: string; slots: Slot[] }[] = LAYOUT_IDS.map((id, index) => ({
+  name: LAYOUT_NAMES[id],
   id,
   slots: [0, 1, 2].map((i): Slot => (W, H) => deskLayout(index, W, H).rects[i]!),
 }));
