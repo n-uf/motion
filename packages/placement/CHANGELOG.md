@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.30
 
+- `./scene`, **an edge's items in order** (additive): `SceneEdgeLayout.items`, the ids the layout draws for the edge in its
+  stack order: the zones in order (start, center, end), then the order within each zone. An item in the » menu keeps its
+  place (`menu.items` names those), a rail tab is listed, a closed item is left out; a column folded into its rail or
+  riding lists its members in zone order. Nothing like it existed (`stack.items` is the solver's, in stack-local px and
+  not meant for hosts), so a host sorted rects; it no longer needs to. `mapLayout` in `./scene/cases` maps it with the
+  host's ids.
 - `./scene`, **`stops()` is remembered per scene** (no API change): a scene is an immutable value, so the stops of an item
   of one scene object with the same options are solved once; asking again (a menu redrawn, a kit asking on every render)
   costs a lookup. A `WeakMap` keyed by the scene, then by item and options (by value, `previous` by identity). Each call

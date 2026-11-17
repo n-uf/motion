@@ -387,6 +387,14 @@ export interface SceneEdgeLayout {
   readonly cross: number;
   /** Its » entry and the items in it, or null. */
   readonly menu: { readonly rect: Rect; readonly items: readonly string[] } | null;
+  /**
+   * Its items in the edge's order: the zones in order (start, center, end), then the order within each zone, the order
+   * `solve` lays them in. Exactly the ids `SceneLayout.items` draws for this edge (`SceneItemLayout.edge`): an item in the
+   * » menu keeps its place (`menu.items` names those, so a host wanting the docked ones filters them out), a rail tab is
+   * listed, and a closed item is left out (unless it shows as a rail tab). A column folded into its rail or riding lists
+   * its members in zone order. Never sort rects to learn it.
+   */
+  readonly items: readonly string[];
   /** The ids drawn as rail tabs, in order (empty unless the column is a rail). */
   readonly tabs: readonly string[];
   /**

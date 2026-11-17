@@ -11,7 +11,7 @@ import { columnRoom, columnsOf, giveWay, giveWayNotes, type Col, type GiveWay } 
 import { emit, type Draft } from "./draft";
 import { solveEdge, type EdgeSolve } from "./edge";
 import { insetReach, type Frame } from "./insets";
-import { finite, px } from "./order";
+import { finite, px, zoneSorted } from "./order";
 import { layRail, layRiders, ridersHeight } from "./rails";
 
 /** The side phase's running state across one side: the content's left and right so far, and the gap before the next edge. */
@@ -82,7 +82,8 @@ function laySide(d: Draft, side: "left" | "right", cols: readonly Col[], g: Give
       }
     }
     if (outsideSideBar(c)) barLaid = true;
-    const base = { side: c.edge.side, ring: finite(c.edge.ring, 0), cross: 0, menu: null, tabs: [], stack: c.solved.stack, free: c.solved.free };
+    // A folded column's members are drawn as rail segments, in zone order (`layRail`).
+    const base = { side: c.edge.side, ring: finite(c.edge.ring, 0), cross: 0, menu: null, items: zoneSorted(scene, c.visible), tabs: [], stack: c.solved.stack, free: c.solved.free };
     if (g.railed(c)) {
       edges[c.edge.id] = { ...base, rect: rect(railRect!.x, area.y, 0, H), folded: g.auto.has(c) ? "auto" : "hand" };
       continue;

@@ -86,6 +86,7 @@ export function mapLayout(l: SceneLayout, f: Rename): SceneLayout {
     stack: mapFit(e.stack, f),
     free: mapFit(e.free, f),
     menu: e.menu ? { ...e.menu, items: e.menu.items.map(f) } : null,
+    items: e.items.map(f),
     tabs: e.tabs.map(f),
     ...(e.rides !== undefined ? { rides: f(e.rides) } : {}),
   });
