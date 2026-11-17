@@ -47,8 +47,11 @@ export interface SceneItem {
   /** Kept: gives way after every item that isn't. */
   readonly kept?: boolean;
   /**
-   * The first form it may take, an index into the forms of the axis it lies along (default 0). Folding by hand sets it
-   * (`fold`). A float with `from` over 0 is drawn as its bar: that form's natural length, at the float's place.
+   * Folded by hand when 1 or more (`fold` sets it to 1; default unset): it starts at its first folded form (a panel's
+   * `header`, a group's `fold`) among the forms of the axis it lies along, never one step down the ladder, and give-way
+   * steps down from there. A stored value past that form keeps its place (a scene stored with a later form). With no
+   * folded form on that axis it draws unfolded (`canFold`). A float folded by hand is drawn as its bar: that form's
+   * natural length, at the float's place.
    */
   readonly from?: number;
   /**

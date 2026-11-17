@@ -86,9 +86,10 @@ describe("stops() is remembered per scene", () => {
   });
 
   it("is a miss for another scene object (a change), another item, and other options", () => {
-    const folded = fold(scene, id, true);
-    expect(folded).not.toBe(scene);
-    expect(summary(stops(folded, id))).toEqual(summary(stops(structuredClone(folded), id)));
+    // A change (kept), so a new scene object (a hand fold may be nothing for an item with no folded form).
+    const changed = keep(scene, id, true);
+    expect(changed).not.toBe(scene);
+    expect(summary(stops(changed, id))).toEqual(summary(stops(structuredClone(changed), id)));
     const other = draggable(scene)[1]!;
     expect(summary(stops(scene, other))).toEqual(summary(stops(structuredClone(scene), other)));
     const reach = { endReach: 12 };

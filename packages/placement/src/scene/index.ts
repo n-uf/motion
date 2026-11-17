@@ -48,7 +48,7 @@ export {
 export { floatOrientOf, floatSizeOf, isOutsideSideBar, isSideBar, railModeOf, zoneTakes, zonesTaking } from "./helpers";
 export { solve } from "./solve";
 export { fitFloat, type FloatFit } from "../float-fit";
-export { close, dockHome, fold, floatAt, homeFor, keep, lift, moveTo, open, orient, raise, resize, setRailMode, setSide, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";
+export { canFold, close, dockHome, fold, floatAt, homeFor, keep, lift, moveTo, open, orient, raise, resize, setRailMode, setSide, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";
 export { fitResize, type FloatResize, type ResizeEdges, type ResizeLimit } from "./float-resize";
 export { readScene, storeScene, type SceneRead, type StoredScene, type StoredSceneEdge, type StoredSceneFloat, type StoredSceneItem } from "./store";
 export { refusalTargets, refusals, reservedRect, stops, targets, type SceneAfter, type ScenePlace, type SceneRefusal, type SceneRefusalTarget, type SceneTarget, type SceneTargetOptions } from "./targets";

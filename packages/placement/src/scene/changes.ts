@@ -15,7 +15,9 @@
  * - `floatAt(scene, id, rect?, orient?)`: floats it on top at `rect` (its size becomes `floatSize`); with no rect, at
  *   its `floatSizeOf` size anchored to the content's top-right corner: its `floatSize`, else its form's natural size
  *   along its orient (the float's, `orient`, else `floatOrientOf`), else the default size.
- * - `fold(scene, id, on)`: folded by hand starts it at its second form (`from: 1`); unfolding clears `from`.
+ * - `fold(scene, id, on)`: folded by hand (`from: 1`) draws it in its folded form on the axis it lies along (a panel's
+ *   `header`, a group's `fold`), and give-way steps down from there; unfolding clears `from`. Where it has no folded
+ *   form (`canFold` false), folding changes nothing.
  * - `use(scene, id)`: the newest age. Under `previous` it reshapes nothing.
  * - `keep(scene, id, on)`, `open(scene, id)`, `close(scene, id)`.
  * - `raise(scene, id)`: a float to the top of the stack; no use, no reshape.
@@ -25,7 +27,7 @@
  */
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
+import { axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, foldedIndex, formsOf, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
 import { RAIL_MODES, type Edge, type FloatAnchor, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
@@ -212,11 +214,28 @@ export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): S
   return { ...lifted, floats: [...lifted.floats, float] };
 }
 
+/**
+ * Whether a hand fold of `id` means anything where it lies now: it has a folded form (a panel's `header`, a group's
+ * `fold`, else a `rail` tile) among the forms of the axis it lies along (its edge's, its float's orient; anywhere when
+ * it lies nowhere), and a fixed item lies on a `foldable` edge. Where it is false, `fold(on)` changes nothing: a host
+ * leaves the grip's double-click off. An item folded by hand can always be unfolded.
+ */
+export function canFold(scene: Scene, id: string): boolean {
+  const item = itemOf(scene, id);
+  if (!item || (item.fixed && !scene.edges.some((e) => e.foldable === true && e.items.includes(id)))) return false;
+  const edge = scene.edges.find((e) => e.items.includes(id));
+  const float = scene.floats.find((f) => f.id === id);
+  const axes: readonly Orient[] = edge ? [axisOf(edge.side)] : float ? [float.orient ?? floatOrientOf(item)] : ["row", "column"];
+  return axes.some((a) => foldedIndex(formsOf(item, a)) >= 0);
+}
+
 export function fold(scene: Scene, id: string, on: boolean): Scene {
   const item = itemOf(scene, id);
   // A fixed item folds only on an edge that allows it (`Edge.foldable`).
   if (!item || (item.fixed && !scene.edges.some((e) => e.foldable === true && e.items.includes(id)))) return scene;
-  if (on) return (item.from ?? 0) >= 1 ? scene : withItem(scene, { ...item, from: 1 });
+  // Folded by hand (`from: 1`): solve draws it in its folded form on the axis it lies along (`startOf`), never one
+  // step down the ladder. With no folded form there, a hand fold is nothing.
+  if (on) return (item.from ?? 0) >= 1 || !canFold(scene, id) ? scene : withItem(scene, { ...item, from: 1 });
   if (item.from === undefined) return scene;
   const { from: _f, ...rest } = item;
   return withItem(scene, rest);

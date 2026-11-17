@@ -1278,7 +1278,12 @@ its side's outermost edge: ring 0, before that side's other edges, whose rings c
 closes up too). Its items, size and options go with it; the scene is given back unchanged for an unknown edge, the side
 it is already on, or a side across its axis. Like every change it ticks no use clock: a host that moves an edge by hand
 calls `use()` on its items afterwards, as a drop does. The stored form keeps the side, and `readScene` moves a static edge stored
-on the other side of `base`'s with `setSide`. `moveTo` and
+on the other side of `base`'s with `setSide`. `fold(scene, id, on)` is a grip's double-click: folded by hand, an item
+takes its folded form on the axis it lies along (a panel's `header`, a group's `fold`, its grip and »; else its `rail`
+tile), never the next variant (a group's `stacked` or `icons` are for give-way only), and give-way steps down from
+there; unfolded, it takes the form the room allows again. `canFold(scene, id)` says whether a hand fold means anything
+where the item lies (false: no folded form on that axis, and `fold(on)` changes nothing), so a host can leave the
+double-click off. `moveTo` and
 `floatAt` refuse fixed items and kinds the edge or `floatKinds` doesn't list. `moveTo` also takes `{ kind: "column",
 side, ring }` (`ring: Infinity` is the side's inner end: "Move to › Dock left"), `{ kind: "rail", side, ring }` (docked
 folded) and `{ kind: "float", rect?, anchor? }`. `homeFor(scene, id, start)` is the place a start scene gives the item

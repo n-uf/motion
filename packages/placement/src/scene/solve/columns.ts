@@ -6,7 +6,7 @@
  */
 import { EPS, type Rect } from "../../geometry";
 import { formCrossMin, formSetsCross, type StackForm } from "../../stack";
-import { formsOf, isSideBar } from "../helpers";
+import { formsOf, isSideBar, startOf } from "../helpers";
 import type { Edge, SceneNote } from "../model";
 import type { Draft } from "./draft";
 import { solveEdge, type EdgeSolve } from "./edge";
@@ -61,7 +61,7 @@ export function columnsOf(d: Draft, sideEdges: readonly Edge[], area: Rect, tall
       min,
       visible,
       dyn,
-      hand: dyn && edge.column === true && visible.every((id) => finite(scene.items[id]!.from, 0) >= 1),
+      hand: dyn && edge.column === true && visible.every((id) => startOf(scene.items[id]!, formsOf(scene.items[id]!, "column")) > 0),
       kept: visible.some((id) => scene.items[id]!.kept === true),
       age: Math.max(-Infinity, ...visible.map((id) => finite(scene.items[id]!.used, 0))),
     };
