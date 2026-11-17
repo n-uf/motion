@@ -1286,7 +1286,8 @@ at, what a user does (`press`, `move`, `release`, `key`, `click`, `resize`, `scr
 by its `place` instead of pixels), and what must be true after: a partial layout (per item: `rect`, `formKind`, `edge`,
 `floating`, `inMenu`, `rail`…, within a tolerance, 0.5 px by default) and, for a host with a page, DOM checks on the
 session's marks (`data-drag-session` on the root during a drag only, `[data-drag-slot][data-drag-target]` for the slot
-(the attribute holds the target's id), `[data-drag-marker]` for the insertion line, `[data-drag-held]` for the held item).
+(the attribute holds the target's id), `[data-drag-marker]` for the insertion line, `[data-drag-held]` for the held item, `[data-drag-refusal]` for a refusal
+shown at the pointer, "No room here", the attribute holding the refusal's id).
 A drawn item's element is `[data-dock-item="<id>"]` by default, and a DOM check names it with `item` (not a literal
 selector), optionally pinning its `rect` in stage px; a host that marks items another way gives `itemSelector(id)`. A row
 may also carry `checkpoints`: the layout after an earlier gesture, for what the preview shows while the
@@ -1335,6 +1336,20 @@ it as `previous`. An integrating app's host does the same with its own pointer; 
 }, pick)` turns a `place` into a point that reaches the target. Every row
 passes on the in-memory host except its DOM checks, which it skips, and the rows with `lacks`, which fail on it until the
 library rule lands. `CASE_GROUPS` lists the groups.
+
+The rows run on any host, a page's included: the reference host and a page's host play one list of steps and agree on every
+row, the rows that were disputed between them now being host-independent. Two pure helpers keep a page's host equal to the
+reference one:
+
+- **`withRefusals(pick, refusals(scene, dragged))`** is the pick rule with the scene's refusals: where nothing more precise
+  than the float is under the pointer and a refusal's hit holds it, nothing is picked, so a release there commits
+  nothing and the item goes home ("No room here"; a page marks the refusal at the pointer with `[data-drag-refusal]`).
+  The reference host aims and drops with it, and a page's host aims `resolvePlace` with it.
+- **`resizeStep(scene, start, layout, gesture)`** plays a `resize` gesture as a pure step, for any host: it gives the scene
+  after it and the loaded scene (`start`, what `"dock"` puts items back to) after it. With `edge`, the user's size across
+  that edge; with `item`, that item's largest form along its axis grown by `size` px (in both scenes: it was measured
+  again); with neither, the window is now `point.x` by `point.y`. It throws when the gesture names nothing that exists.
+  The reference host uses it.
 
 **The pick rule** (which target the pointer is over: the lowest priority number, then the smallest zone, every piece of
 `hits` counted, a rect holding its edges exactly) is `@n-uf/motion/drag`'s `targetAt`, the rule the drag intent runs.
