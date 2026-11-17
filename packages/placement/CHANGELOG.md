@@ -19,6 +19,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `PaneRegion`, `PaneCenter`, `PaneRegionOptions`, `PANE_SIDES` and `PANE_REGION_DEFAULTS` (same results; the old
   option names are mapped). They stay until the legacy entries go. `./dock` lays out its documents and its tiling tree
   with `./tiling` (the same rects, to the bit).
+- `./dock`, **no negative tile sizes**: where a tiling tree's center held more documents than its gaps leave room
+  for, a tile's width or height went below 0; it is now 0.
 - `./scene/cases`, **`resolvePlace` aims outside the dragged item's own rect** whenever a point there reaches the
   target, as a person aims; a drag intent's home gate then never holds the aim. `AimArea.own` (additive) is that rect
   (a held float's too); without it, the list's `home` target's hit. The reference host passes it.
