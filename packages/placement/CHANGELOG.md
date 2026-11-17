@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.30
+## Unreleased
 
 - `./scene`, fixed: **a float that already covered a bar grew over it when resized.** `fitResize` stopped a growing edge
   at the nearest obstacle beyond it, and skipped one the float already overlapped, so a float with no clear place at its
@@ -29,6 +29,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   rail segment of a column folded by give-way; `"auto"` is the word `folded` already uses for give-way). Absent for an item
   in its first form, a closed one, and the form an icons-only edge gives its items. A float is only ever `"hand"`. A host
   shows "Expand" for `"hand"` only. `folded` still names the item's column.
+
+## 26.11.30
+
 - `./scene`, fixed: **an occupied rail offered the same move twice.** With a side's tiles width-folded and an item dragged,
   `rail:left:0` and `rail:left:1` landed identically (a rider bar at the top), so `stops()` listed two identical "Move to"
   entries. Rail stops that land the same are now one stop, wherever their lines lie (the same-move merge slots already

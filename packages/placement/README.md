@@ -803,6 +803,17 @@ wider than the room the cut leaves. Group forms in a column take their own width
 span it. Spare room goes to the forms that grow, so a column's open panels share its height through `grows` and equal
 naturals. A column where nothing sets the width is a rail: its items that have a `rail` form take it and are listed in
 `edges[id].tabs` (with `railShowsClosed`, closed items too, marked `closed`); the host draws tabs only from the layout.
+`edges[id].items` lists the ids the layout draws for the edge in its stack order: the zones in order (start, center,
+end), then the order within each zone. An item in the » menu keeps its place (`menu.items` names those), a rail tab is
+listed, a closed item is left out, and a column folded into its rail or riding lists its members in zone order. A host
+that needs the order reads it here instead of sorting rects (`stack.items` is the solver's own, in stack-local px).
+
+**Why an item is folded.** `SceneItemLayout.foldedBy` says whether the user folded an item or it gave way, from the scene's
+own state and never from rects: `"hand"` when the item's `from` is over 0 (`fold` sets it), whatever else gave way after;
+`"auto"` when it gave way, a form below the one it started in, by length or width (a header, an icons form, a » menu
+entry, a rail segment of a column folded by give-way). It is absent for an item in its first form, a closed one, and
+the form an icons-only edge gives its items; a float is only ever `"hand"`. A host shows "Expand" for `"hand"` only, since
+unfolding an item that gave way is not the user's to do. `folded` still names the item's column.
 
 **Rail titles.** A panel may declare two rail forms: its title (`{ kind: "rail", title: true }`, its `main` the length
 of its name and count turned along the rail, measured by the host) and then its tile (a plain `rail` form). In a rail
@@ -1008,7 +1019,9 @@ shrink below the size drawn now, as `solve` lays it) and `floatMax`, the float i
 growing edge at what floats are kept clear of (a bar, a docked item, the chrome; such a stop beats the minimum). It
 then lays the rect through the one clamp `solve` lays floats with, so `solve` lays the result exactly there. A float
 that already covers something (no clear place at its size) may move to a clear place once a resize opens one; the
-preview is still the commit. It gives `{ rect, limits }`, `limits` naming what bound it:
+preview is still the commit. Such a float never grows over what it covers: a dragged edge that lies inside an obstacle
+stays where it is drawn (`"docked"`), so a resize never covers more than the float did, and a float clear of everything
+stops at the obstacle as before. It gives `{ rect, limits }`, `limits` naming what bound it:
 `"min"`, `"max"`, `"region"`, `"docked"`. It gives null for anything but a float drawn at a first form that grows (a
 panel's card): a toolbar group's size and a folded float's bar come from their forms. On commit (each move, or the
 release) `resize(scene, id, rect, moving)` stores that same rect as the float's rect and the item's `floatSize`, so the
@@ -1220,7 +1233,11 @@ overflows (or holds an item already too wide), a drop that adds no new note is a
 item that was already squeezed.
 
 `stops(scene, id)` gives the same targets, home and none left out, in reading order (the left side outer to inner, the
-top bars, the bottom bars, the right side inner to outer, floating last) for "Move to ›" and the arrow keys.
+top bars, the bottom bars, the right side inner to outer, floating last) for "Move to ›" and the arrow keys. A scene is
+an immutable value, so `stops` remembers its answer per scene object: the stops of an item of one scene object with the
+same options (`previous` by identity) are solved once, and asking again (a menu redrawn, a host asking on every render)
+costs a lookup. Each call still returns a new array over the same targets. Pass a changed scene (a new object) to get
+fresh stops; mutating a scene in place is not supported.
 
 Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (the item moved and just used) and
 `solve(scene, { previous })`. The host draws every item from `after.layout` during the preview and commits
