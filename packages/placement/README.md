@@ -1123,7 +1123,9 @@ facing halves is home's, and is no target of its own. The slot is where the item
   open column), the outermost column line runs from the window's edge. Draw `refusals()` as well as the targets, so a
   place that refuses a drop never looks like a dead band. A refusal matches what is drawn: an edge that takes the
   dragged kind in no zone is one refusal, `refuse:<edge>:start` (`n = 0`), over its drawn rect (the `SceneEdgeLayout`
-  rect, fixed items included) less what targets own, so a host's tint and "Can't go here" cover the bar as drawn; a
+  rect, fixed items included) less what targets own, so a host's tint and "Can't go here" cover the bar as drawn
+  (where a target splits it, every piece of 1 px and more is in `hits`, `hit` the largest: the pointer is in the
+  refusal in any piece); a
   refused zone of an edge that takes the kind elsewhere keeps its slot's tile, inside the edge's ends. No refusal
   reaches past the stage.
   For a kind with a rail drop policy, the rail is a spring-loaded drop strip instead (below).

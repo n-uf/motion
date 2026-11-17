@@ -7,7 +7,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 - `./scene`, **refusals match the drawn edge** (host note). An edge that takes the dragged kind in no zone (a title
   bar or toolbar for a panel) now gives one refusal, `refuse:<edge>:start` (`n = 0`), per wholly refused edge: its
-  drawn rect, fixed items included, in the stage, less what targets own. It used to give a refusal per zone, reaching
+  drawn rect, fixed items included, in the stage, less what targets own; where a target splits it, every piece of 1 px
+  and more is in the new `SceneRefusal.hits` (`hit` the largest; the pointer is in the refusal in any piece, and the
+  reference host's `withRefusals` reads them). It used to give a refusal per zone, reaching
   `endReach` (24 px) past the edge's ends and leaving its fixed items uncovered, so a host's tint and "Can't go here"
   tag didn't match the drawn bar. A refused zone of an edge that takes the kind elsewhere keeps its slot's tile, now
   inside the edge's ends. No refusal reaches past the stage any more. A host that keyed on `refuse:<edge>:<zone>` for
