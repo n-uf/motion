@@ -17,7 +17,7 @@ export const BANNED = [
   { re: /\bneighbour\w*/i, use: "neighbor (US spelling)" },
   { re: /\brecognis\w*/i, use: "recognizer (US spelling, as in the API)" },
   { re: /\blicence\b/i, use: "license (US spelling)" },
-  { re: /(?<!\bits )(?<!['’]s )\bown place\b/i, use: '"its own place" ("the item\'s own place"), or "home"' },
+  { re: /(?<!\bits )(?<!['’]s )(?<!s['’] )\bown place\b/i, use: '"its own place" ("the item\'s own place"), or "home"' },
   { re: /\b(?:un)?lock(?:ed)? layout\b/i, use: 'the layout lock is "freeze" / "frozen"' },
 ];
 

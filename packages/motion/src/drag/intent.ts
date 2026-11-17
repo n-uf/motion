@@ -419,7 +419,8 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         const was = given.find((x) => x.id === armedId);
         if (!was || forced || !inZone(asArmed(was), p) || !live(was)) armedId = null;
       }
-      const dwelling = forced || atHome ? null : targetAt(given.filter((x) => x.arm === "dwell" && x.id !== armedId && inZone(x, p) && live(x)), p);
+      // Spring-loading is not gated by `atHome`: a strip that overlaps the item's own place still arms by dwell.
+      const dwelling = forced ? null : targetAt(given.filter((x) => x.arm === "dwell" && x.id !== armedId && inZone(x, p) && live(x)), p);
       let armedNow = false;
       if (!dwelling || armedId !== null) armingId = null;
       else {
@@ -435,7 +436,10 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       }
       const arming = armingId === null ? null : (given.find((x) => x.id === armingId) ?? null);
       const targets = acting(given);
-      const raw = atHome ? null : targetAt(targets.filter((x) => inZone(x, p) && live(x)), p);
+      // Over home no target is picked, except a spring-loaded one that is armed (its zone overlaps home): home gates
+      // geometry, not an armed dwell.
+      const pickable = (x: T): boolean => !atHome || (x.arm === "dwell" && x.id === armedId);
+      const raw = targetAt(targets.filter((x) => pickable(x) && inZone(x, p) && live(x)), p);
       // A spring-loaded target that isn't armed (any more) is no target: neither held nor shown.
       const disarmed = (x: T | null): boolean => x?.arm === "dwell" && x.id !== armedId;
       cur = disarmed(cur) ? null : follow(cur, targets);
@@ -445,13 +449,13 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       const bandOf = (held: T): Margin => scaled(tuning.band, tuning.bandShare, [held, raw && !same(raw, held) ? raw : null]);
       const pastBreakthrough = (x: T): boolean => inZoneBy(x, p, negate(scaled(tuning.breakthrough, tuning.bandShare, [x])));
       let next = raw;
-      if (cur && !atHome && inZoneBy(cur, p, bandOf(cur))) {
+      if (cur && pickable(cur) && inZoneBy(cur, p, bandOf(cur))) {
         // Over a `free` target (the float everywhere) there is no edge to hold against: a more precise target takes over
         // once the pointer is in it, so a zone that ends at the window's edge is reached at its very first px.
         const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && (cur.free === true || pastBreakthrough(raw));
         next = breaks ? raw : cur;
       }
-      if (!next && cur && !atHome && t - lastInside < tuning.gapGrace) next = cur;
+      if (!next && cur && pickable(cur) && t - lastInside < tuning.gapGrace) next = cur;
       if (next && inZone(next, p)) lastInside = t;
       if (!same(next, cur)) curSince = t;
       cur = next;
@@ -499,7 +503,11 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       // A key held wins over geometry, home included.
       const forced = forcedBy(keys, point, given, () => true);
       if (forced) return given.find((x) => x.id === forced.target.id) ?? forced.target;
-      if (inRect(home, point)) return null;
+      // Over home a release does nothing, except onto an armed spring-loaded target whose zone overlaps home.
+      if (inRect(home, point)) {
+        const armed = armedId === null ? null : given.find((x) => x.id === armedId);
+        return armed && inZone(asArmed(armed), point) && placeOf(armed, point, lastPlaces.get(armed.id) ?? null) !== null ? armed : null;
+      }
       const targets = acting(given);
       // Drop = shown: a shown target is kept until it hides (flying out past its band hides it at once).
       const s = shown && !(shown.arm === "dwell" && shown.id !== armedId) ? follow(shown, given) : null;

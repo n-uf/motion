@@ -379,7 +379,11 @@ insertion point 2, a large area 3). The rules:
   Armed, it shows at once and its hit area is `armedHit` (grown: a magnet, the
   armed target's band); moving out past that band's outer edge disarms it, and
   re-entering needs a new full dwell. The frame's `arming` lets a host highlight the
-  strip while the dwell runs, and say the armed state in its live region.
+  strip while the dwell runs, and say the armed state in its live region. Home
+  doesn't gate it: a strip that overlaps the item's own place (an item alone in its
+  column, dragged to its own side's edge) arms by dwell there, shows while armed,
+  and takes a release over home; an unarmed target, and a target that isn't
+  spring-loaded, still never show over home, and a release there does nothing.
 - Keys win over geometry: with `keys` passed (`DragKeys`: `{ shift?, alt?, ctrl?,
   meta? }`, the modifiers held on a pointer event; `tuning.modifiers` says which
   key does what, default Shift and ⌘/Ctrl), the float key (Shift) shows and lands
