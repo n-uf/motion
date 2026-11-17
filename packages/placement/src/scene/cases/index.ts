@@ -7,7 +7,8 @@
  * `root` and `itemSelector`) and says what differs; DOM checks are skipped, and listed, when the host has no root. A DOM
  * check names an item by `item`, found with the host's `itemSelector(id)` (default `[data-dock-item="<id>"]`). `createSceneHost()` is the
  * in-memory reference host: every row passes on it except the DOM checks. `CASES` is every row, `CASE_GROUPS` the groups.
- * `resolvePlace` is the pure step a host needs to aim a gesture's `place` with `targets()`. The pick rule (which target
+ * `resolvePlace` is the pure step a host needs to aim a gesture's `place` with `targets()`, and `resizeStep` the pure
+ * step of a `resize` gesture (an edge's size, an item measured again, the window's size). The pick rule (which target
  * the pointer is over) is `@n-uf/motion/drag`'s `targetAt`, taken as an input: `createSceneHost({ pick: targetAt })`,
  * `resolvePlace(…, targetAt)`, a host's `pick` (`PickRule`). `pickTarget`, the default when none is given, is deprecated.
  * `runCaseAsync` and `runCasesAsync` play the same rows on an `AsyncCaseHost` (a page driven from a browser runner),
@@ -22,7 +23,7 @@ import { GESTURE_ROWS } from "./rows-gestures";
 import { WINDOW_ROWS } from "./rows-windows";
 import type { CaseGroup, CaseRow } from "./types";
 
-export { createSceneHost, END_REACH, LIFT_THRESHOLD, pickTarget, resolvePlace, type AimArea, type SceneHost, type SceneHostOptions } from "./host";
+export { createSceneHost, END_REACH, LIFT_THRESHOLD, pickTarget, resizeStep, resolvePlace, type AimArea, type SceneHost, type SceneHostOptions } from "./host";
 export { defaultItemSelector, layoutIssues, runCase, runCaseAsync, runCases, runCasesAsync } from "./run";
 export { g } from "./gestures";
 export { idRenames, mapGesture, mapLayout, mapPlace, mapScene, mapStored, type IdMap, type Rename } from "./ids";
