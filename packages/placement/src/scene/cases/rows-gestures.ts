@@ -1,5 +1,5 @@
 /**
- * The kits' panel gestures P1 to P15 (and their variants) as rows, on window A with the left and right columns 300 px
+ * The panel gestures P1 to P15 (and their variants) as rows, on window A with the left and right columns 300 px
  * wide (stored sizes): Pages above Annotations in the left column, Findings in the right, all open, 1120 x 800.
  *
  * The kits' steps map onto the gesture grammar like this: `lift(id)` is a `press` and a `move` (a `move` with a place

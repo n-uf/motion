@@ -40,8 +40,8 @@ export const CASE_GROUPS: readonly { readonly id: CaseGroup; readonly title: str
   { id: "bars", title: "Bars give way" },
   { id: "previous", title: "What previous keeps" },
   { id: "kinds", title: "Kinds, chrome and reserved room" },
-  { id: "bands", title: "Gap bands, refits and slots" },
-  { id: "gestures", title: "The kits' panel gestures" },
+  { id: "bands", title: "Gap hit areas, refits and slots" },
+  { id: "gestures", title: "Panel gestures" },
   { id: "window-a", title: "Window A: width thresholds" },
   { id: "window-b", title: "Window B: width thresholds" },
 ];
