@@ -2519,7 +2519,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
       id: "rail-dwell-arms",
       title: "A panel held still on the rail's strip arms it; the drop collapses it there",
       expected:
-        "Findings dragged by mouse onto the right rail's strip: the strip shows at the rail's width, highlights at once and, after a 200 ms dwell, arms (grows 6 px inward, the preview the folded tile in the rail, \"release to collapse it into the right rail\" said in the live region); the drop collapses Findings into the right rail, on its slot. A drop there before the dwell is over floats it instead.",
+        "Findings dragged by mouse onto the right rail's strip: the strip shows at the rail's width, highlights at once and, after a 200 ms dwell, arms (grows 6 px inward, the preview the folded tile in the rail, \"release to collapse it into the right rail\" said in the live region); the drop collapses Findings into the right rail, on its slot. A drop there before the dwell is over is a release over Findings' own place (the strip lies over its column): nothing is committed.",
       setup: fresh,
       check(c) {
         const out: string[] = [];
@@ -2527,8 +2527,8 @@ function RAIL_DOCK_PRESETS(): Preset[] {
         // Before the dwell: a quick glide in and a short rest, then the drop.
         const early = mouseGesture(c, "findings", [{ to: rightStrip(c), step: 14, hold: 48 }]);
         early.up();
-        const floated = c.lastDrop?.place === "float" && !early.seen.some((s) => s.armed);
-        ok &&= floated;
+        const homed = c.lastDrop?.committed === false && !early.seen.some((s) => s.armed) && !inRightRail(c);
+        ok &&= homed;
         out.push(`dropped before the dwell: ${dropSaid(c)}`);
         c.reset();
         const m = mouseGesture(c, "findings", [{ to: rightStrip(c), step: 6, hold: 360 }]);
@@ -2626,6 +2626,31 @@ function RAIL_DOCK_PRESETS(): Preset[] {
         }
         c.setReducedMotion(false);
         return { pass: ok, now: `${out.join("; ")}.` };
+      },
+    },
+    {
+      id: "rail-strip-over-home",
+      title: "A strip that overlaps the panel's own place arms by dwell and takes the drop",
+      expected:
+        "Findings alone in the right column, with the rail strip 96 px wide so it lies over Findings' own place: pressed on its header and dragged within its own column into the strip's part over it, held still there past the dwell, the strip highlights, arms, and the drop collapses Findings into the right rail, on the slot the preview showed. A quick pass through the same spot arms nothing and the drop is no rail drop.",
+      setup: fresh,
+      check(c) {
+        c.setFeel(panelFeel(c, { railStripWidth: 96 }));
+        const stage = c.scene.stage;
+        // Inside Findings' own column and the strip's inner part (the strip is the window's outer 96 px).
+        const inside = { x: stage.width - 50, y: stage.height / 2 };
+        const passing = mouseGesture(c, "findings", [{ to: inside, step: 40, hold: 0 }]);
+        const early = passing.seen.some((s) => s.armed);
+        passing.up();
+        const nothing = c.lastDrop?.place !== "rail" && !inRightRail(c);
+        c.reset();
+        c.setFeel(panelFeel(c, { railStripWidth: 96 }));
+        const m = mouseGesture(c, "findings", [{ to: inside, step: 6, hold: 360 }]);
+        const firstArming = m.seen.findIndex((s) => s.arming);
+        const firstArmed = m.seen.findIndex((s) => s.armed);
+        m.up();
+        const ok = !early && nothing && firstArming >= 0 && firstArmed > firstArming && inRightRail(c) && landedOnSlot(c);
+        return { pass: ok, now: `Passing by: ${early ? "armed" : "not armed"}, ${nothing ? "no rail drop" : "railed"}. Held: highlighted at frame ${firstArming}, armed at frame ${firstArmed}; drop ${dropSaid(c)}.` };
       },
     },
     {

@@ -648,6 +648,76 @@ describe("drag/ spring-loading and keys", () => {
   });
 });
 
+describe("drag/ a spring-loaded target that overlaps home", () => {
+  // The item alone in its column at the window's right side: home is its column, the strip lies over home's outer part.
+  const HOME = rect(700, 100, 100, 200);
+  const FLOAT: DragTarget = { id: "float", priority: 3, hit: rect(-1000, -1000, 4000, 4000), free: true };
+  const strip = (overlap: number, magnet = 0): DragTarget => ({
+    id: "rail:right",
+    priority: 1,
+    hit: rect(800 - overlap, 0, overlap + 60, 400),
+    arm: "dwell",
+    ...(magnet ? { armedHit: rect(800 - overlap - magnet, 0, overlap + 60 + magnet, 400) } : {}),
+  });
+  /** Press in home's middle, move into the overlap and rest; the frames and what a release there does. */
+  const play = (target: DragTarget, rest: number, tuning: Partial<DragTuning> = {}) => {
+    const intent = createDragIntent({ home: HOME, tuning });
+    const to = { x: target.hit.x + 3, y: 200 };
+    const keys = hold(through([mid(HOME), to], 0.3), rest);
+    const total = keys.at(-1)![0];
+    const frames: { t: number; shown: string | null; arming: string | null; atHome: boolean }[] = [];
+    for (let t = 0; t <= total + 0.001; t += FRAME) {
+      const f = intent.update(along(keys, t), t, [target, FLOAT]);
+      frames.push({ t, shown: f.shown?.id ?? null, arming: f.arming?.id ?? null, atHome: f.atHome });
+    }
+    return { intent, frames, to, landed: intent.release(to, [target, FLOAT])?.id ?? null };
+  };
+
+  it("property: a dwell target overlapping home arms after the dwell and lands the drop, whatever the overlap", () => {
+    let checked = 0;
+    for (const overlap of [2, 6, 12, 20, 36, 60, 99])
+      for (const dwellMs of [0, 120, 200, 320])
+        for (const magnet of [0, 8]) {
+          const label = `overlap ${overlap} dwell ${dwellMs} magnet ${magnet}`;
+          const r = play(strip(overlap, magnet), dwellMs + 600, { railArmDwellMs: dwellMs });
+          const shownAt = r.frames.find((f) => f.shown === "rail:right");
+          expect(shownAt, `${label}: shown`).toBeDefined();
+          const armingAt = r.frames.find((f) => f.arming === "rail:right")?.t ?? shownAt!.t;
+          if (dwellMs > 0) expect(shownAt!.t - armingAt, `${label}: after the dwell`).toBeGreaterThanOrEqual(dwellMs - FRAME);
+          expect(r.landed, `${label}: release`).toBe("rail:right");
+          checked++;
+        }
+    expect(checked).toBe(56);
+  });
+
+  it("a short rest arms nothing and a release over home does nothing, as before", () => {
+    const r = play(strip(30), 100, { railArmDwellMs: 400 });
+    expect(r.frames.some((f) => f.shown === "rail:right")).toBe(false);
+    expect(r.landed).toBeNull();
+  });
+
+  it("an armed magnet that reaches back over home keeps its marker while the pointer rests there", () => {
+    const target = strip(6, 40);
+    const intent = createDragIntent({ home: HOME, tuning: { railArmDwellMs: 200 } });
+    const keys = hold(through([mid(HOME), { x: 797, y: 200 }], 0.3), 500);
+    let t = 0;
+    for (; t <= keys.at(-1)![0]; t += FRAME) intent.update(along(keys, t), t, [target, FLOAT]);
+    expect(intent.state.shown?.id).toBe("rail:right");
+    // Back inside the magnet's growth over home (x 754 to 794, home's own px): still shown, and a release lands on it.
+    const back = { x: 770, y: 200 };
+    for (let k = 0; k < 40; k++, t += FRAME) intent.update(back, t, [target, FLOAT]);
+    expect(intent.state.shown?.id).toBe("rail:right");
+    expect(intent.release(back, [target, FLOAT])?.id).toBe("rail:right");
+  });
+
+  it("a target that is not spring-loaded still never shows over home", () => {
+    const plain: DragTarget = { id: "plain", priority: 1, hit: rect(780, 0, 100, 400) };
+    const r = play(plain, 800);
+    expect(r.frames.some((f) => f.shown === "plain")).toBe(false);
+    expect(r.landed).toBeNull();
+  });
+});
+
 describe("drag/ a zone at the window's edge", () => {
   it("from the float, a zone that ends at the window's edge takes the pointer at its very first px", () => {
     // A new-column line's zone from the window's left edge, 18 px wide; the float everywhere.

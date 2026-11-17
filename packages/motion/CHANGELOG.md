@@ -5,6 +5,12 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.29
 
+- `./drag`, fixed: **spring-loading is not gated by home.** A strip that overlaps the held item's own place (an item alone
+  in its column, dragged to its own side's edge) never armed by dwell, and a release there did nothing, even armed; an
+  armed magnet reaching back over home lost its marker. Now a `arm: "dwell"` target arms while the pointer is over home,
+  is picked and held while armed (the band and the grace too), and `release` over home returns it when the point is in its
+  armed zone. A target that isn't spring-loaded, and an unarmed one, behave as before (nothing shows over home, a release
+  there does nothing). The frame's `atHome` can be true while an armed target shows.
 - `./drag`, **spring-loading and keys that win over geometry** (additive; targets without `arm` and hosts that pass
   no keys behave as before):
   - `DragTarget.arm: "dwell"` marks a spring-loaded target: no target until the pointer has dwelt in its hit area for

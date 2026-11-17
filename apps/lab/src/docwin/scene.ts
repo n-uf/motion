@@ -598,18 +598,6 @@ export function createScene(o: SceneOptions) {
     }
   }
 
-  /** `r` less every rail strip of `targets` that overlaps it across its height: the larger part left. */
-  function cutStrips(r: Rect, targets: readonly SceneTarget[]): Rect {
-    let out = r;
-    for (const t of targets) {
-      const s = t.strip;
-      if (!s || s.x >= out.x + out.width || s.x + s.width <= out.x) continue;
-      const left = s.x - out.x;
-      const right = out.x + out.width - (s.x + s.width);
-      out = left >= right ? { ...out, width: Math.max(0, left) } : { ...out, x: s.x + s.width, width: Math.max(0, right) };
-    }
-    return out;
-  }
 
   /** The keys held when the next drag lifts (a press's modifier state). */
   let liftKeys: DragKeys = {};
@@ -643,9 +631,9 @@ export function createScene(o: SceneOptions) {
     Object.assign(home0.el.style, { opacity: "1", visibility: "" });
     forms.set(home0.key, home0);
     const docked = !was.floating;
-    // A side rail's drop strip owns its rect, the item's own included: home is its rect less the strips (the larger part
-    // left), so an item alone in its column reaches the rail at its window edge.
-    const home: Rect = docked ? cutStrips(was.rect, targets) : { x: start.x, y: start.y, width: 0, height: 0 };
+    // Home is the item's own rect. A side rail's drop strip may overlap it (an item alone in its column reaches the rail
+    // at its window edge): the drag intent arms a spring-loaded strip by dwell even over home.
+    const home: Rect = docked ? was.rect : { x: start.x, y: start.y, width: 0, height: 0 };
     drag = {
       id,
       kind: was.kind,
