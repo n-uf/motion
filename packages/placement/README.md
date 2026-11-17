@@ -1023,6 +1023,14 @@ its first form's natural size along that orient (**`floatSizeOf(item, orient?)`*
 panel's card) keeps `DEFAULT_FLOAT_SIZE` (280 × 360), so panels float as before. Give a float `orient: "column"` (or the
 item `floatOrient: "column"`) to keep a row-first group vertical.
 
+**Anchored floats keep clear of the floats before them.** An anchored float (Float from a menu: `moveTo(scene, id,
+{ kind: "float" })` with no rect, or any float with `anchor`) is also kept clear of every float laid before it in
+`scene.floats`, by the same nearest-clear-place search that keeps it clear of docked items: earlier floats win, and a
+second group sent to Float lies beside the first instead of on it. Where no place is clear of both, it lies where it
+would with no float before it (it may cover a float, never a docked item it could stay clear of). A float with a rect
+of its own (a drop, a resize) keeps that rect as before, over another float or not. Scenes with no anchored float, or
+whose anchored floats cover no float before them, lay out exactly as before.
+
 The **float region** is [pad, W − pad] × the full height: the stage less `Scene.inset`'s left and right (its top and
 bottom don't cut it). A float is clamped into it, and one larger than it is shrunk to fit. **`SceneItem.floatMin`**
 (`Size`) is the floor of that shrink: a float of the item is laid out at `max(floatMin, min(its size, the region))` each

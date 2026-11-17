@@ -323,7 +323,8 @@ export const DOCKING_ROWS: readonly CaseRow[] = [
     settings: { frozen: true },
     gestures: [g.click("pages", "float"), g.moveTo("pages", g.float), g.click("pages", "dock"), g.key("Alt"), g.click("pages", "float"), g.key("Alt:up")],
     checkpoints: [{ at: 2, layout: { items: { pages: { edge: "column", floating: false, rect: r(0, 40, 240, 246.43) }, annotations: { rect: r(0, 286.43, 240, 213.57) } } }, note: "frozen: nothing moved" }],
-    expectLayout: { items: { pages: { floating: true, rect: r(640, 40, 200, 190) }, annotations: { rect: r(0, 40, 240, 460) } } },
+    // The menu's Float anchors it to the content's top-right corner; the float already there wins, so it lies beside it.
+    expectLayout: { items: { pages: { floating: true, rect: r(240, 40, 200, 190) }, annotations: { rect: r(0, 40, 240, 460) } } },
   },
   {
     id: "C15",
