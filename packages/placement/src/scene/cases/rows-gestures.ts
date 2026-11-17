@@ -119,16 +119,24 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   },
   {
     id: "P6-new-outer-column-from-outside",
-    title: "A new outer column from outside the right column",
-    expect: "Let go 1 px outside the right column's outer edge (11 px from the window's edge, past the rail stop's 10), at 5%, 50% or 95% of the stage's height, Annotations makes the outermost column, on the slot's rect.",
+    title: "A new outer column, reached from the content",
+    expect: "Annotations held over the pages (the float) and then moved to the new outermost right column's line (aimed by its place, so it holds with or without a rail strip) makes the outermost column, on the slot's rect.",
     group: "gestures",
     scene: win(),
+    gestures: [g.press("annotations"), g.at(560, 400), g.hold(), g.to(g.column("right", 0)), g.hold(), g.release()],
+    checkpoints: [{ at: 4, layout: { items: { pages: { rect: r(12, 0, 220, 800) }, annotations: { edge: "right-1", rect: r(888, 0, 220, 800) }, findings: { edge: "right-0", rect: r(576, 0, 300, 800) } }, columns: { left: [["pages"]], right: [["annotations"], ["findings"]] }, notes: { has: ["column-shrunk"] } }, note: "the preview" }],
+    expectLayout: { items: { pages: { rect: r(12, 0, 220, 800) }, annotations: { edge: "right-1", rect: r(888, 0, 220, 800) }, findings: { edge: "right-0", rect: r(576, 0, 300, 800) } }, columns: { left: [["pages"]], right: [["annotations"], ["findings"]] }, notes: { has: ["column-shrunk"] } },
+  },
+  {
+    id: "P6-outer-line-at-11-px",
+    title: "With no rail strip, 11 px from the window's edge is the new-column line",
+    expect:
+      "Precondition: no rail drop strip (the scene's `railDrop` as given: none), so the rail's own stop owns the window's outer 10 px. Let go 1 px outside the right column's outer edge (11 px from the window's edge), at 5%, 50% or 95% of the stage's height, Annotations makes the outermost column.",
+    group: "gestures",
+    scene: win(),
+    requires: { railDrop: "scene" },
     gestures: [g.press("annotations"), g.at(RIGHT_EDGE + LINE_OUT, 40), g.hold(), g.at(RIGHT_EDGE + LINE_OUT, 400), g.hold(), g.at(RIGHT_EDGE + LINE_OUT, 760), g.hold(), g.release()],
-    checkpoints: [
-      { at: 2, layout: { items: { pages: { rect: r(12, 0, 220, 800) }, annotations: { edge: "right-1", rect: r(888, 0, 220, 800) }, findings: { edge: "right-0", rect: r(576, 0, 300, 800) } }, columns: { left: [["pages"]], right: [["annotations"], ["findings"]] }, notes: { has: ["column-shrunk"] } }, note: "5%" },
-      { at: 4, layout: { items: { pages: { rect: r(12, 0, 220, 800) }, annotations: { edge: "right-1", rect: r(888, 0, 220, 800) }, findings: { edge: "right-0", rect: r(576, 0, 300, 800) } }, columns: { left: [["pages"]], right: [["annotations"], ["findings"]] }, notes: { has: ["column-shrunk"] } }, note: "50%" },
-      { at: 6, layout: { items: { pages: { rect: r(12, 0, 220, 800) }, annotations: { edge: "right-1", rect: r(888, 0, 220, 800) }, findings: { edge: "right-0", rect: r(576, 0, 300, 800) } }, columns: { left: [["pages"]], right: [["annotations"], ["findings"]] }, notes: { has: ["column-shrunk"] } }, note: "95%" },
-    ],
+    checkpoints: [2, 4, 6].map((at, i) => ({ at, layout: { items: { annotations: { edge: "right-1", rect: r(888, 0, 220, 800) } }, columns: { right: [["annotations"], ["findings"]] } }, note: ["5%", "50%", "95%"][i] })),
     expectLayout: { items: { pages: { rect: r(12, 0, 220, 800) }, annotations: { edge: "right-1", rect: r(888, 0, 220, 800) }, findings: { edge: "right-0", rect: r(576, 0, 300, 800) } }, columns: { left: [["pages"]], right: [["annotations"], ["findings"]] }, notes: { has: ["column-shrunk"] } },
   },
   {
@@ -143,10 +151,10 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P6-left-outer-edge",
     title: "A new outer column on the left",
-    expect: "Findings let go 1 px outside the left column's outer edge (11 px from the window's edge, past the rail stop's 10) makes the outermost left column; the right side is then empty.",
+    expect: "Findings let go on the new outermost left column's line (aimed by its place, so it holds with or without a rail strip) makes the outermost left column; the right side is then empty.",
     group: "gestures",
     scene: win(),
-    gestures: [g.press("findings"), g.at(12 - LINE_OUT, 400), g.hold(), g.release()],
+    gestures: g.drag("findings", g.column("left", 0)),
     expectLayout: { items: { findings: { edge: "left-1", rect: r(12, 0, 220, 800) }, pages: { rect: r(244, 0, 300, 394) }, annotations: { rect: r(244, 406, 300, 394) } }, columns: { left: [["findings"], ["pages", "annotations"]], right: [] } },
   },
   {

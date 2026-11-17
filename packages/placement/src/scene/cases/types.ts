@@ -182,6 +182,12 @@ export interface CaseRequires {
    * rests there). A host that picks at the point alone, the in-memory reference host among them, skips the row.
    */
   readonly intent?: true;
+  /**
+   * The scene's own rail drop policy (`Scene.railDrop`, as the row gives it, often none): the row aims at a pixel whose
+   * meaning depends on whether a rail drop strip lies over the window's edge. A host that lays its own strips (its own
+   * `railDrop`) skips the row; rows that only mean a place aim by place and need no such precondition.
+   */
+  readonly railDrop?: "scene";
 }
 
 export interface CaseRow {

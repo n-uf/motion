@@ -5,6 +5,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.33
 
+- `./scene/cases`, **rows that mean a new outermost column aim by place.** P6-new-outer-column-from-outside (now
+  reached from the content, resting on the float first) and P6-left-outer-edge aim at `column:<side>:0` with
+  `resolvePlace` instead of 11 px from the window's edge, so they hold with a rail drop strip (a UI kit's panel
+  `railDrop`) as without. The 11 px pixel check is its own row, **P6-outer-line-at-11-px**, with its precondition:
+  `requires: { railDrop: "scene" }` (new, additive), so a host that lays its own strips skips it.
 - `./scene`, fixed: **a float stored taller than the clear stage was drawn over the bars.** `solve` sized a float to the
   floats' region (the stage less its left and right inset), so one stored at the body's height lay over the top and
   bottom bars by their height. Its size is now clamped to the room that region leaves clear of the bars and chrome

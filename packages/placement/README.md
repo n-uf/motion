@@ -1336,8 +1336,10 @@ it as `previous`. An integrating app's host does the same with its own pointer; 
 }, pick)` turns a `place` into a point that reaches the target. Every row
 passes on the in-memory host except its DOM checks, which it skips, and the rows with `lacks`, which fail on it until the
 library rule lands. A row with `requires: { intent: true }` checks what a drag intent adds to the pick at a point (a
-shown gap held a band's width past its hit): a host without one, the in-memory host among them, skips it. `CASE_GROUPS`
-lists the groups.
+shown gap held a band's width past its hit): a host without one, the in-memory host among them, skips it. A row with
+`requires: { railDrop: "scene" }` aims at a pixel whose meaning depends on the scene's own rail drop strips: a host that
+lays its own skips it. A row that only means a place aims by place (`resolvePlace`), so it holds either way.
+`CASE_GROUPS` lists the groups.
 
 The rows run on any host, a page's included: the reference host and a page's host play one list of steps and agree on every
 row, the rows that were disputed between them now being host-independent. Two pure helpers keep a page's host equal to the
