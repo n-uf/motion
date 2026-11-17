@@ -5,6 +5,7 @@
 import { createSettle, type Rect } from "@n-uf/motion";
 import { clampInto } from "@n-uf/placement";
 import { giveWay, layoutSplit, masterStack, splitFromOrder } from "@n-uf/placement/tiling";
+import { floatSpot, stripColumn } from "./sketch-rules";
 
 // ---- The hero demo -------------------------------------------------------------------------------------------------
 type Slot = (W: number, H: number) => Rect;
@@ -47,10 +48,10 @@ function layoutOf(id: (typeof LAYOUT_IDS)[number], W: number, H: number): Rect[]
     const { kept, floats } = giveWay(IDS, lay, () => WINDOW_MIN, (i) => i);
     const tiles = lay(kept);
     const stage = { x: 0, y: 0, width: W, height: H };
-    floats.forEach((i, k) => tiles.set(i, clampInto({ x: W / 2 - 150 + 22 * k, y: BAR + 40 + 22 * k, width: 300, height: 190 }, stage)));
+    floats.forEach((i, k) => tiles.set(i, clampInto(floatSpot(W, BAR, { width: 300, height: 190 }, k), stage)));
     return IDS.map((i) => tiles.get(i)!);
   }
-  const w = Math.max(360, Math.min(520, W * 0.5));
+  const w = stripColumn(W);
   return IDS.map((i) => ({ x: G + i * (w + G), y: top, width: w, height: area.height }));
 }
 let cached: { key: string; layout: DeskLayout } | null = null;
