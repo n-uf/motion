@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.30
 
 - `./scene`, fixed: **flush windows lost the new outermost column on an occupied side** when a kind's rail strip is on
   (`Scene.railDrop`): the strip owns the window's edge, which was all the line for a new outermost column had, so only

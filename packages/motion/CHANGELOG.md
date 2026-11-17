@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.30
 
 - `./drag`, fixed: **spring-loading is not gated by home.** A strip that overlaps the held item's own place (an item alone
   in its column, dragged to its own side's edge) never armed by dwell, and a release there did nothing, even armed; an
