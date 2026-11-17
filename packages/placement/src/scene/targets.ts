@@ -69,6 +69,7 @@
  * filter ii), `edges` and `virtual` (generation), `ownership` and `tiles` (filter iii and clipping).
  */
 import { PLANE, area, rect, type Rect } from "../geometry";
+import type { Target } from "../target";
 import { floatAt, use } from "./changes";
 import { axisOf, floatOrientOf, floatSizeOf, zoneOf, zoneTakes } from "./helpers";
 import type { Orient, Scene, SceneLayout, Zone } from "./model";
@@ -261,6 +262,21 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
  */
 export function refusals(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneRefusal[] {
   return generate(scene, dragged, options).refusals;
+}
+
+/** A refusal in the pick's shape: `refuse: true`, at priority 2 (it never lies under a target, so only the float is less precise). */
+export interface SceneRefusalTarget extends Target {
+  readonly refuse: true;
+  readonly refusal: SceneRefusal;
+}
+
+/**
+ * `refusalTargets(refusals)`: each refusal as a target for `@n-uf/motion/drag`'s drag intent (`refuse: true`, its
+ * pieces as `hits`). Pass them with the targets: the intent never holds or shows one, a release over one lands nowhere,
+ * and the frame's `refused` says which the pointer is over (`refused.refusal` is the `SceneRefusal`).
+ */
+export function refusalTargets(list: readonly SceneRefusal[]): SceneRefusalTarget[] {
+  return list.map((r) => ({ id: r.id, priority: 2, hit: r.hit, ...(r.hits ? { hits: r.hits } : {}), refuse: true, refusal: r }));
 }
 
 /**

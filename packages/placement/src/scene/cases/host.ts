@@ -10,7 +10,7 @@
  * needs to turn a gesture's `place` into a pointer, and the deprecated `pickTarget` (the default pick).
  */
 import { centre, contains as inside, type Point, type Rect } from "../../geometry";
-import { close, dockHome, fold, floatAt, homeFor, open, placeTargetId, raise, readScene, refusals, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneRefusal, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
+import { close, dockHome, fold, floatAt, homeFor, open, placeTargetId, raise, readScene, refusalTargets, refusals, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneRefusal, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
 import type { CaseHost, CaseSettings, Gesture, PickRule } from "./types";
 
 /** The lift threshold: the pointer moves this far (px) from the press before the item lifts. */
@@ -42,16 +42,18 @@ export function pickTarget<T extends { readonly priority: number; readonly hit: 
 }
 
 /**
- * The pick rule with the scene's refusals (`refusals(scene, dragged)`): where nothing more precise than the float is
- * under the point and a refusal's hit holds it, nothing is picked, so a release there commits nothing and the item goes
- * home ("No room here"). Every host aims and drops with it: the reference host, and a page's host for `resolvePlace`.
+ * The pick rule with the scene's refusals (`refusals(scene, dragged)`), the drag intent's way: the refusals take part in
+ * the pick as refusal targets (`refusalTargets`), and where one is what the rule picks nothing is picked, so a release
+ * there commits nothing and the item goes home ("No room here"). Every host aims and drops with it: the reference host,
+ * and a page's host for `resolvePlace`.
  */
 export function withRefusals(pick: PickRule, refused: readonly SceneRefusal[]): PickRule {
   if (refused.length === 0) return pick;
+  const inert = refusalTargets(refused);
   return (list, point) => {
-    const t = pick(list, point);
-    if (t && t.place.kind !== "float") return t;
-    return refused.some((r) => (r.hits ?? [r.hit]).some((h) => inside(h, point, 0))) ? null : t;
+    // The rule reads ids, priorities and zones only: a refusal target is one more candidate.
+    const t = pick([...list, ...(inert as unknown as SceneTarget[])], point);
+    return t && (t as { readonly refuse?: true }).refuse ? null : t;
   };
 }
 

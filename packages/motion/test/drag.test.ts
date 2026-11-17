@@ -830,3 +830,38 @@ describe("drag/ a zone at the window's edge", () => {
     expect(at({ x: 150, y: 200 }, { x: 206, y: 200 })).toBe("narrow");
   });
 });
+
+describe("drag/ refusals in the pick", () => {
+  // A kit's left rail stop (three pieces), a refusal under its band, and the float everywhere.
+  const rail: DragTarget = { id: "rail:left:0", priority: 1, hit: rect(32, 0, 22, 800), hits: [rect(0, 0, 32, 36), rect(32, 0, 22, 800), rect(10, 72, 22, 728)] };
+  const refusal: DragTarget = { id: "refuse:rail:left:start", priority: 2, hit: rect(0, 72, 10, 728), refuse: true };
+  const float: DragTarget = { id: "float", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true };
+  const slowly = (list: readonly DragTarget[], xs: readonly number[]) => {
+    const intent = createDragIntent<DragTarget>({ home: rect(20, 300, 100, 30), lift: { x: 600, y: 600 } });
+    let t = 0;
+    const frames: { x: number; shown: string | null; refused: string | null }[] = [];
+    for (const x of xs)
+      for (let k = 0; k < 4; k++) {
+        t += 60;
+        const f = intent.update({ x, y: 400 }, t, list);
+        if (k === 3) frames.push({ x, shown: f.shown?.id ?? null, refused: f.refused?.id ?? null });
+      }
+    return { intent, frames };
+  };
+
+  it("approaching from the rail, the refusal under the rail's band shows nothing and says so", () => {
+    const { frames } = slowly([rail, refusal, float], [30, 25, 20, 15, 12, 10, 9, 8, 7, 6, 4, 2, 0]);
+    expect(frames.find((f) => f.x === 20)).toEqual({ x: 20, shown: "rail:left:0", refused: null });
+    expect(frames.find((f) => f.x === 7)).toEqual({ x: 7, shown: null, refused: "refuse:rail:left:start" });
+    // Every refused frame shows nothing, or a target whose own zone holds the pointer.
+    for (const f of frames) if (f.refused) expect(f.shown, `x ${f.x}`).toBeNull();
+  });
+
+  it("without the refusal the rail's band holds as before; a release over a refusal lands nowhere", () => {
+    const { frames } = slowly([rail, float], [30, 25, 20, 15, 12, 10, 9, 8, 7]);
+    expect(frames.find((f) => f.x === 7)!.shown).toBe("rail:left:0");
+    const { intent } = slowly([rail, refusal, float], [30, 20, 7]);
+    expect(intent.release({ x: 7, y: 400 }, [rail, refusal, float])).toBeNull();
+    expect(targetAt([rail, refusal, float], { x: 7, y: 400 })?.id).toBe("refuse:rail:left:start");
+  });
+});

@@ -5,6 +5,13 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.34
 
+- `./drag`, **refusals take part in the pick** (additive; host note). A target may be a refusal (`DragTarget.refuse:
+  true`): a place that takes no drop. It counts in the pick under the pointer, but it is never held or shown, and a
+  release over it lands nowhere. Where the pick is a refusal, the band and the gap grace of the target held before no
+  longer reach over it: a kit's rail stop, held, hid the "No room here" under its band. The frame's new `refused` says
+  which refusal the pointer is over. Between real targets the band and the breakthrough are unchanged. Hosts: pass
+  your refusals to `update` and `release` with the targets, and read `frame.refused` instead of looking them up.
+
 - `./drag`, **the lift zone: back where it was lifted, a pause commits nothing.** A panel lifted by a grip under a
   rail strip (a flush drawer at the window's edge), dragged away and brought back to its grip, collapsed into the rail
   after the dwell. No spring-loaded target now arms by dwell within `DragTuning.liftZone` (new, 16 px: about a grip's

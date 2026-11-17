@@ -1130,7 +1130,9 @@ facing halves is home's, and is no target of its own. The slot is where the item
   (where a target splits it, every piece of 1 px and more is in `hits`, `hit` the largest: the pointer is in the
   refusal in any piece); a
   refused zone of an edge that takes the kind elsewhere keeps its slot's tile, inside the edge's ends. No refusal
-  reaches past the stage.
+  reaches past the stage. Hand them to the drag intent with the targets: `refusalTargets(refusals(scene, id))` gives
+  each one as a target marked `refuse: true` (its `refusal` the `SceneRefusal`), which the intent never holds or
+  shows, so a held target's band never covers a refusal; read "No room here" from the frame's `refused`.
   For a kind with a rail drop policy, the rail is a spring-loaded drop strip instead (below).
 - `none:<i>` (1) over each `scene.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
   commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail

@@ -51,5 +51,5 @@ export { fitFloat, type FloatFit } from "../float-fit";
 export { close, dockHome, fold, floatAt, homeFor, keep, lift, moveTo, open, orient, raise, resize, setRailMode, setSide, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";
 export { fitResize, type FloatResize, type ResizeEdges, type ResizeLimit } from "./float-resize";
 export { readScene, storeScene, type SceneRead, type StoredScene, type StoredSceneEdge, type StoredSceneFloat, type StoredSceneItem } from "./store";
-export { refusals, reservedRect, stops, targets, type SceneAfter, type ScenePlace, type SceneRefusal, type SceneTarget, type SceneTargetOptions } from "./targets";
+export { refusalTargets, refusals, reservedRect, stops, targets, type SceneAfter, type ScenePlace, type SceneRefusal, type SceneRefusalTarget, type SceneTarget, type SceneTargetOptions } from "./targets";
 export { parseTargetId, placeTargetId, targetId, virtualEdgeId, type TargetIdParts } from "./targets";

@@ -25,6 +25,7 @@ import {
   fold,
   open as openItem,
   raise,
+  refusalTargets,
   refusals as sceneRefusals,
   stops as sceneStops,
   railModeOf,
@@ -38,8 +39,12 @@ import {
   type Scene,
   type SceneLayout,
   type SceneRefusal,
+  type SceneRefusalTarget,
   type SceneTarget,
 } from "@n-uf/placement/scene";
+
+/** What the drag intent picks among: the Scene's targets and its refusals (`refuse: true`, never held or shown). */
+type Pick = SceneTarget | SceneRefusalTarget;
 import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, GROUPS, PANELS, RAIL, ROW_VARIANTS, TITLES, ZOOM_CONTROLS, defaultScene, edgeOf, reformPanels, titleOf, setGroupSizes, setTitleSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId, type PanelId } from "./model";
 import { DEFAULT_FEEL, keyName, tuningOf, withFeel, type DragFeel } from "./feel";
 import { readDocwin, storeDocwin, type StoredDocwin } from "./store";
@@ -126,7 +131,7 @@ interface Held {
   formOf: string | null;
   switches: number;
   last: number;
-  readonly intent: DragIntent<SceneTarget>;
+  readonly intent: DragIntent<Pick>;
   /** Its drop targets: asked again when the window changes under the drag (a resize). */
   targets: readonly SceneTarget[];
   /** Where the held frame is drawn: on the pointer, or settling into the snapped slot and back (`"snap"` preview). */
@@ -139,6 +144,8 @@ interface Held {
   readonly trace: DragTrace;
   /** Where a drop is refused (`refusals`): over one, "No room here" at the pointer and no slot; a release goes home. */
   readonly refusals: readonly SceneRefusal[];
+  /** The same refusals as the intent picks among them (`refusalTargets`): the frame's `refused` says which is under it. */
+  readonly refusalTargets: readonly SceneRefusalTarget[];
   readonly focus: Element | null;
   pointer: Point;
   shown: SceneTarget | null;
@@ -685,6 +692,7 @@ export function createScene(o: SceneOptions) {
     // Home is the item's own rect. A side rail's drop strip may overlap it (an item alone in its column reaches the rail
     // at its window edge): the drag intent arms a spring-loaded strip by dwell even over home.
     const home: Rect = docked ? was.rect : { x: start.x, y: start.y, width: 0, height: 0 };
+    const refused0 = refusalsOf(id);
     drag = {
       id,
       kind: was.kind,
@@ -702,13 +710,14 @@ export function createScene(o: SceneOptions) {
       switches: 0,
       last: now,
       // The lift zone is about the press (the grip): back there, a pause arms no strip ("changed my mind").
-      intent: createDragIntent<SceneTarget>({ home, lift: start, tuning: rowRules ? {} : tuningOf(feel, was.kind) }),
+      intent: createDragIntent<Pick>({ home, lift: start, tuning: rowRules ? {} : tuningOf(feel, was.kind) }),
       targets,
       drawn: createSettle<Rect>({ x: p.x - grab.x, y: p.y - grab.y, width: was.rect.width, height: was.rect.height }, { omega: SETTLE_TEMPO.default }),
       snappedTo: null,
       gliding: false,
       trace: (lastTrace = { log: [], snaps: [], frames: [] }),
-      refusals: refusalsOf(id),
+      refusals: refused0,
+      refusalTargets: refusalTargets(refused0),
       focus: document.activeElement,
       pointer: p,
       shown: null,
@@ -776,7 +785,9 @@ export function createScene(o: SceneOptions) {
   function frame(now: number): void {
     const d = drag;
     if (!d) return;
-    const f = d.intent.update(pickPoint(d), now, d.targets, d.keys);
+    // The refusals go in with the targets: the intent never holds or shows one, and says which is under the pointer.
+    const picked = d.intent.update(pickPoint(d), now, [...d.targets, ...d.refusalTargets], d.keys);
+    const f = { ...picked, shown: picked.shown as SceneTarget | null, arming: picked.arming as SceneTarget | null };
     const plan = previewPlan(f, dropPreview);
     // The trace: each change of the shown target, and of the slot the held item sits in (snap).
     if ((f.shown?.id ?? null) !== (d.trace.log.at(-1)?.id ?? null)) d.trace.log.push({ id: f.shown?.id ?? null, t: now });
@@ -819,9 +830,9 @@ export function createScene(o: SceneOptions) {
       }
     }
     d.shown = f.shown;
-    // A refused place under the pointer (nothing but the float target there): no slot anywhere, "No room here" at it.
-    // A key held wins over geometry: no refusal then.
-    const refused = !homing && !f.forced && (!f.shown || f.shown.place.kind === "float") ? (d.refusals.find((r) => (r.hits ?? [r.hit]).some((h) => inside(h, pickPoint(d)))) ?? null) : null;
+    // A refused place under the pointer, as the intent picks it (no held target's band covers it): no slot anywhere,
+    // "No room here" at it. A key held wins over geometry: the intent reports no refusal then.
+    const refused = !homing && f.refused ? (f.refused as SceneRefusalTarget).refusal : null;
     d.refused = refused;
     showRefusal(refused, d.pointer);
     const s = plan.showIndicator ? f.shown : null;
@@ -879,7 +890,7 @@ export function createScene(o: SceneOptions) {
     if (!cancel) frame(now);
     // A release over a refusal commits nothing: the item goes home.
     const refused = cancel ? null : d.refused;
-    const t = cancel || refused ? null : d.intent.release(pickPoint(d), d.targets, d.keys);
+    const t = cancel || refused ? null : (d.intent.release(pickPoint(d), [...d.targets, ...d.refusalTargets], d.keys) as SceneTarget | null);
     drag = null;
     // The frames, the session mark and the press's own listeners go with the drag: a reset mid-drag leaves none behind.
     session.ended();
