@@ -119,6 +119,14 @@ export const PAGES: readonly PageDef[] = [
     markup: raw(() => import("../pages/overview.html?raw")),
   },
   {
+    id: "glossary",
+    group: "overview",
+    nav: "Glossary",
+    title: "Glossary",
+    line: "The words the site, the READMEs and the lab use: each term, what it means, and the API name it maps to.",
+    markup: raw(() => import("../pages/glossary.html?raw")),
+  },
+  {
     id: "motion/settle",
     group: "motion",
     nav: "Settle and tiling",
