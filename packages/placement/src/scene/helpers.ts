@@ -14,6 +14,13 @@ export const zoneTakes = (edge: { readonly accepts: readonly Kind[]; readonly zo
 export const zonesTaking = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, kind: Kind): Zone[] => ZONES.filter((z) => zoneTakes(edge, z, kind));
 
 /**
+ * Whether `edge` takes `kind` anywhere: its `accepts` lists it and at least one of its zones takes it (`zoneTakes`). An
+ * edge whose zones take nothing for the kind (`zoneAccepts: {}`) takes it nowhere, exactly as one whose `accepts` lacks
+ * it: the one test drop targets and refusals ask. The stored form and `readScene` keep reading `accepts` itself.
+ */
+export const edgeTakes = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, kind: Kind): boolean => zonesTaking(edge, kind).length > 0;
+
+/**
  * How a gap's hit runs over `edge`'s open panels (`Edge.hitBand`): its own, else, for a dynamic column, its side's
  * template's (`ColumnTemplate.hitBand`), else {@link DEFAULT_HIT_BAND}.
  */

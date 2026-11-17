@@ -5,6 +5,14 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.35
 
+- `./scene`, fixed: **an edge whose zones take nothing for a kind is no drop place for it, and no refusal.** A side
+  rail that lists toolbars but takes them in no zone (`zoneAccepts: {}`, a rail a host doesn't draw at a narrow width,
+  keeping its stored items) still gave a toolbar drag a "not accepted" refusal band 12–24 px wide along the window's
+  edge, where nothing is drawn. Drop targets and refusals now ask one test, `accepts` listing the kind and at least one
+  zone taking it: such an edge counts exactly as one whose `accepts` lacks the kind. Empty, it gives nothing; drawn
+  with its stored items, it gives that edge's one refusal over its drawn rect, as before for any edge that doesn't
+  take the kind. The stored form and `readScene` still read `accepts`. New row R9.
+
 - `./scene`, **chrome with a scope** (additive). A `chrome` entry is now a `SceneChrome`: a rect with an optional
   `for`. The default, `"all"`, is the chrome as it was: floats keep clear of it and no drop target lies on it. With
   `for: "floats"`, only floats keep clear of it (a drop, opening one, a window resize, a resize by hand), and the

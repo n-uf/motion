@@ -402,7 +402,25 @@ export const RULE_ROWS: readonly CaseRow[] = [
     checkpoints: [{ at: 0, layout: { items: { zoom: { edge: "toolbar", formKind: "fold", form: 3 } } }, note: "folded by hand: its fold form" }],
     expectLayout: { items: { zoom: { edge: "toolbar", formKind: "row", form: 0 } } },
   },
+  {
+    id: "R9-zones-taking-nothing-refuse-nothing",
+    title: "A side rail whose zones take nothing is no drop place and no refusal",
+    expect:
+      "An empty side rail at the window's left edge that lists toolbars but whose zones take none (`zoneAccepts: {}`, a rail the host doesn't draw) is no edge for a toolbar at all: Tools held 6 px from the window's left edge, over the column's panel, shows no refusal there and floats where it is let go (it used to be refused there and went back to its toolbar).",
+    group: "kinds",
+    scene: sideRailTakingNothing(),
+    gestures: [g.press("tools"), g.at(6, 400), g.hold(), g.release()],
+    expectLayout: { items: { tools: { edge: null, floating: true } } },
+    expectDom: [{ at: 2, select: "[data-drag-refusal]", count: 0, note: "no refusal along the undrawn rail" }],
+  },
 ];
+
+/** The window with an empty side rail at its left edge that lists groups, its zones taking none (R9). */
+function sideRailTakingNothing(): Scene {
+  const s = doc();
+  const rail = { id: "side-rail", side: "left" as const, ring: 0, accepts: ["group"], zoneAccepts: {}, items: [], cross: { min: 32, max: 32, rail: 32 } };
+  return { ...s, edges: [rail, ...s.edges.map((e) => (e.side === "left" ? { ...e, ring: e.ring + 1 } : e))] };
+}
 
 /** The window with Zoom's toolbar forms row, stacked, icons, fold and menu (R8). */
 function zoomFive(): Scene {
