@@ -30,6 +30,12 @@ test("glossary words and US spelling pass", () => {
 test("the allow list covers the exported `centre` function only, not prose", () => {
   assert.equal(scan("const c = centre(r);", "packages/placement/src/geometry.ts"), null);
   assert.equal(scan("import { centre, clamp } from './geometry';"), null);
+  assert.equal(scan("  centre,", "packages/placement/index.ts"), null);
+  assert.equal(scan("export const centre = (r) => r;"), null);
+  // Copy inside an object literal or a string is not the identifier.
+  assert.notEqual(scan('const t = { label: "Drop in the centre" };'), null);
+  assert.notEqual(scan('{ centre: "the centre zone" }'), null);
+  assert.notEqual(scan("// { the centre of a rect }"), null);
   assert.notEqual(scan("A toolbar sits at the bar's true centre."), null);
 });
 

@@ -24,7 +24,7 @@ const WORD_SET_1:Words = (_g, place, zone) => {
   if (place === "float") return "Float over the page";
   const host = { title: "Title bar", top: "Top bar", bottom: "Bottom bar", left: "Left bar", right: "Right bar" }[place.host];
   const side = place.host === "left" || place.host === "right";
-  const z = side ? { start: "top", center: "middle", end: "bottom" }[place.zone] : { start: "left", center: "centre", end: "right" }[place.zone];
+  const z = side ? { start: "top", center: "middle", end: "bottom" }[place.zone] : { start: "left", center: "center", end: "right" }[place.zone];
   // Its own separator too, so no row reads like placement's "Host · zone · position".
   return `${host} › ${z} › ${position(place, zone)}`;
 };

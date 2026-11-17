@@ -27,9 +27,9 @@ export const BANNED = [
  */
 export const ALLOWED = [
   // `centre` is an exported function of @n-uf/placement (and `centreX` ... on PaneZoneOptions); a rename keeps a deprecated alias.
-  { line: /\bcentre\(|\{[^}]*\bcentre\b[^}]*\}|^\s*centre,\s*$|`centre`|export const centre\b/, why: "the exported function `centre` (API name; renamed with a deprecated alias in a later stage)" },
+  { line: /\bcentre\(|^\s*(?:import|export)\b[^"'`]*\bcentre\b|^\s*centre,\s*$|`centre`|export const centre\b/, why: "the exported function `centre` (API name; renamed with a deprecated alias in a later stage)" },
   // The option `centre` of PaneZoneOptions (with `centreX`, `centreY`, `centreMin`): API names, same stage.
-  { file: /packages\/placement\/src\/targets\/zones\.ts$/, line: /readonly centre\?|o\.centre\b/, why: "the PaneZoneOptions field `centre` (API name; renamed with a deprecated alias in a later stage)" },
+  { file: /packages\/placement\/src\/targets\/zones\.ts$/, line: /readonly centre\?|o\.centre\b|PANE_ZONE_DEFAULTS/, why: "the PaneZoneOptions field `centre` (API name; renamed with a deprecated alias in a later stage)" },
   // The lab's own helper `const centre = (r) => ...` and its zone id "centre" in desk/grip.ts: code, not copy.
   { line: /\bconst centre = /, why: "a lab-local helper named centre (code, not copy)" },
   { file: /apps\/lab\/src\/desk\/grip\.ts$/, line: /"centre"/, why: "the desk lab's internal zone id (code, not copy)" },
