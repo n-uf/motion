@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { close, fitResize, floatAt, fold, keep, lift, moveTo, open, orient, raise, readScene, resize, solve, storeScene, use, type Scene } from "../src/scene";
-import { STORED_WINDOW, windowScene } from "./scene-fixture";
+import { canFold, close, fitResize, floatAt, fold, keep, lift, moveTo, open, orient, raise, readScene, resize, solve, storeScene, use, type Scene } from "../src/scene";
+import { STORED_WINDOW, form, windowScene } from "./scene-fixture";
 
 const s = windowScene();
 const edge = (sc: Scene, id: string) => sc.edges.find((e) => e.id === id)!;
@@ -216,12 +216,22 @@ describe("fold and unfold round-trip (a grip's double-click)", () => {
     expect(solve(twice)).toEqual(solve(railed));
   });
 
-  it("a toolbar group: its folded form (its second), then its first again", () => {
-    const before = solve(s);
-    const once = toggled(s, "views");
-    expect(solve(once).items.views!.form).toBe(1);
+  it("a toolbar group: its fold form (its grip and »), not its next variant; then its first again", () => {
+    const fold5 = [form("row", 180, 200, 28), form("stacked", 120, 120, 28), form("icons", 84, 84, 28), form("fold", 24, 24, 28), form("menu", 0, 0, 0)];
+    const g: Scene = { ...s, items: { ...s.items, views: { ...s.items.views!, forms: { ...s.items.views!.forms, row: fold5 } } } };
+    const before = solve(g);
+    expect(canFold(g, "views")).toBe(true);
+    const once = toggled(g, "views");
+    expect(solve(once).items.views).toMatchObject({ formKind: "fold", form: 3, foldedBy: "hand" });
     const twice = toggled(once, "views");
     expect(solve(twice)).toEqual(before);
+  });
+
+  it("a toolbar group with no fold form: a hand fold is nothing, and canFold says so", () => {
+    // Row, icons and the menu: variants for give-way only, no folded form.
+    expect(canFold(s, "views")).toBe(false);
+    expect(fold(s, "views", true)).toBe(s);
+    expect(canFold(s, "pages")).toBe(true);
   });
 });
 

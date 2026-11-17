@@ -506,13 +506,15 @@ describe("the options the rows need", () => {
     expect(solve(tall).items.findings!.rect).toMatchObject({ y: 0, height: 260 });
   });
 
-  it("only a folded float (its header form) keeps its height: a second open form shrinks to the region", () => {
+  it("only a folded float (its header form) keeps its height: with no folded form, folded by hand is its open form, shrunk to the region", () => {
     const s = adapt(rows.scenes.floatingAtEdge!.scene, 300, 200);
     const card = s.items.findings!.forms.column![0]!;
+    // Two open forms and no header: `from: 1` is folded by hand, which means nothing here (never "the next form").
     const twoOpen: Scene = { ...s, items: { ...s.items, findings: { ...s.items.findings!, from: 1, forms: { column: [card, { ...card, main: { min: 100, natural: 300, grows: true } }] } } } };
-    const second = solve(twoOpen).items.findings!;
-    expect(second).toMatchObject({ form: 1, formKind: "open" });
-    expect(second.rect.height).toBe(200);
+    const first = solve(twoOpen).items.findings!;
+    expect(first).toMatchObject({ form: 0, formKind: "open" });
+    expect(first.foldedBy).toBeUndefined();
+    expect(first.rect.height).toBe(200);
   });
 
   it("a panel's rail form shows only in a column drawn as a rail: an open column steps open → header, then is drawn as a rail", () => {

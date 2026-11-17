@@ -4,7 +4,7 @@
  */
 import { EPS } from "../../geometry";
 import { fitStack, formCrossMin, formSetsCross, type StackFit, type StackForm, type StackInput, type StackItem } from "../../stack";
-import { axisOf, formsOf, pastWrap, railModeOf, zoneOf } from "../helpers";
+import { axisOf, formsOf, pastWrap, railModeOf, startOf, zoneOf } from "../helpers";
 import type { Edge, Scene, SceneEdgeLayout, SceneItem } from "../model";
 import { finite, px, zoneSorted } from "./order";
 
@@ -13,7 +13,8 @@ const stackItemOf =(item: SceneItem, forms: readonly StackForm[], from?: number)
   forms,
   used: finite(item.used, 0),
   ...(item.kept ? { kept: true } : {}),
-  ...(from !== undefined ? { from } : item.from !== undefined ? { from: item.from } : {}),
+  // Where its ladder starts: as asked, else its hand fold resolved on this axis (`startOf`: its folded form).
+  ...(from !== undefined ? { from } : startOf(item, forms) > 0 ? { from: startOf(item, forms) } : {}),
   ...(item.fixed ? { fixed: true } : {}),
 });
 
@@ -58,7 +59,7 @@ function compactEdge(f: EdgeFrame): EdgeSolve {
   const { scene, formsById } = f;
   const iconsAt = (id: string): number => {
     const forms = formsById(id);
-    for (let j = Math.max(0, Math.floor(finite(scene.items[id]!.from, 0))); j < forms.length; j++) if (forms[j]!.kind === "icons") return j;
+    for (let j = startOf(scene.items[id]!, forms); j < forms.length; j++) if (forms[j]!.kind === "icons") return j;
     return forms.findIndex((x) => x.kind === "icons");
   };
   const shown = f.ordered.filter((id) => !scene.items[id]!.closed && iconsAt(id) >= 0);
@@ -76,11 +77,11 @@ function railEdge(f: EdgeFrame, free: StackFit, asStackItem: (id: string) => Sta
   const { scene, edge, formsById } = f;
   const railIndex = (item: SceneItem, forms: readonly StackForm[]): number => {
     if (item.fixed) return -1;
-    for (let j = Math.max(0, Math.floor(finite(item.from, 0))); j < forms.length; j++) if (forms[j]!.kind === "rail") return j;
+    for (let j = startOf(item, forms); j < forms.length; j++) if (forms[j]!.kind === "rail") return j;
     return -1;
   };
   // Vertical means icons: an item with only `wrap` forms left has no form for a rail, and is left out (noted).
-  const wrapOnly = (id: string): boolean => railIndex(scene.items[id]!, formsById(id)) < 0 && pastWrap(formsById(id), finite(scene.items[id]!.from, 0)) === undefined;
+  const wrapOnly = (id: string): boolean => railIndex(scene.items[id]!, formsById(id)) < 0 && pastWrap(formsById(id), startOf(scene.items[id]!, formsById(id))) === undefined;
   const shown = f.ordered.filter((id) => {
     const it = scene.items[id]!;
     if (!it.closed && wrapOnly(id)) return false;
@@ -98,7 +99,7 @@ function railEdge(f: EdgeFrame, free: StackFit, asStackItem: (id: string) => Sta
       const j = railIndex(it, formsById(id));
       // Vertical means icons: in a rail a group skips its `wrap` forms (a tray toolbar keeps its tray forms, no menu).
       const forms = asStackItem(id).forms;
-      return stackItemOf(it, forms, j >= 0 ? j : pastWrap(forms, finite(it.from, 0)));
+      return stackItemOf(it, forms, j >= 0 ? j : pastWrap(forms, startOf(it, forms)));
     }),
   };
   const stack = fitStack(railInput, f.previous ? { previous: f.previous.stack } : {});
@@ -144,7 +145,7 @@ export function solveEdge(scene: Scene, edge: Edge, ids: readonly string[], leng
     if (!column || !edge.zoneAccepts?.end || zoneOf(it) !== "end") return stackItemOf(it, forms);
     const tray = (f: StackForm): boolean => f.kind === "wrap" || f.kind === "icons" || !!f.wrap;
     let first = -1;
-    for (let j = Math.max(0, Math.floor(finite(it.from, 0))); j < forms.length && first < 0; j++) if (tray(forms[j]!)) first = j;
+    for (let j = startOf(it, forms); j < forms.length && first < 0; j++) if (tray(forms[j]!)) first = j;
     let last = -1;
     forms.forEach((f, j) => {
       if (tray(f)) last = j;

@@ -5,6 +5,16 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.35
 
+- `./scene`, fixed: **a grip's double-click folds, it never steps to a variant** (host note). A toolbar group with
+  forms full, compact, minimal and a menu went to compact when folded by hand: `fold` set `from: 1`, "one step down",
+  which is a fold only for panels (their second form is their header). Folded by hand, an item now takes its folded
+  form on the axis it lies along: a panel's `header`, a group's `fold` (its grip and »), else its `rail` tile; give-way
+  still steps down from there (rail, menu), and unfolding brings back the form the room allows. `from` keeps its
+  stored meaning, "folded by hand" (1 or more), so stored scenes read as before: a panel's `from: 1` is its header as
+  it was; a group's old `from: 1` now folds it. New `canFold(scene, id)`: false where the item has no folded form on its
+  axis, and there `fold(on)` changes nothing, so a host can leave the double-click off. `foldedBy` says `"hand"` only
+  where the fold shows. Panels behave as before. New row R8 and a sweep property.
+
 - `./scene`, fixed: **a target left too thin to reach.** The new-column line beside a 28 px rail drop strip was left a
   6 px sliver (a kit saw 18 × 12): the column lines take only what the other edges leave. Now every target keeps a
   reachable hit of at least 12 px across by 24 px along, taken from the space beside it in its own zone where nothing

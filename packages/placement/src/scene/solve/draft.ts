@@ -188,7 +188,7 @@ export function emit(d: Draft, edge: Edge, r: Rect, solved: EdgeSolve, extra: Pa
     const drawnRect = toStage(p.rect, inMenu ? undefined : p.id);
     const f = formsOf(it, column ? "column" : "row")[p.form];
     const shape = inMenu ? {} : shapeOf(f, drawnRect, column ? "column" : "row", stack.cross);
-    const foldedBy = foldedByOf(it, p.form, solved.starts.get(p.id));
+    const foldedBy = foldedByOf(it, formsOf(it, column ? "column" : "row"), p.form, solved.starts.get(p.id));
     items[p.id] = {
       ...shape,
       hidden: inMenu ? [] : (f?.hides ?? []),

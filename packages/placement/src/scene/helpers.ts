@@ -127,18 +127,41 @@ export function floatSizeOf(item: SceneItem, orient: Orient = floatOrientOf(item
 }
 
 /**
- * Why `item`, drawn in form `form`, counts as folded (`SceneItemLayout.foldedBy`): `"hand"` when its own `from` is over 0
- * (folded by hand), else `"auto"` when `form` lies below `start`, the form it started in (it gave way), else undefined.
- * A closed item, or one in its first form, is never folded. Leave `start` out where nothing gives way (a float).
+ * Why `item`, drawn in form `form` of `forms` (the forms of the axis it lies along), counts as folded
+ * (`SceneItemLayout.foldedBy`): `"hand"` when it is folded by hand and that axis has a folded form (`startOf` over 0),
+ * else `"auto"` when `form` lies below `start`, the form it started in (it gave way), else undefined. A closed item, or
+ * one in its first form, is never folded. Leave `start` out where nothing gives way (a float).
  */
-export function foldedByOf(item: SceneItem, form: number, start?: number): "hand" | "auto" | undefined {
+export function foldedByOf(item: SceneItem, forms: readonly StackForm[], form: number, start?: number): "hand" | "auto" | undefined {
   if (item.closed || form < 1) return undefined;
-  if (foldedByHand(item)) return "hand";
+  if (startOf(item, forms) > 0) return "hand";
   return start !== undefined && form > start ? "auto" : undefined;
 }
 
-/** Whether `item` is folded by hand: its `from` is over 0 (`fold(scene, id, true)` sets it). */
-export const foldedByHand = (item: SceneItem): boolean => Number.isFinite(item.from) && Math.floor(item.from!) >= 1;
+/** Whether `item` is folded by hand: its `from` is 1 or more (`fold(scene, id, true)` sets it). */
+const foldedByHand = (item: SceneItem): boolean => Number.isFinite(item.from) && Math.floor(item.from!) >= 1;
+
+/**
+ * The index of the form a hand fold puts an item in, among `forms`: a panel's `header` (its title bar) or a group's
+ * `fold` (its grip and »), the first of either; for an item with neither (a thumbnail anchor), its first `rail` tile;
+ * -1 when it has none (a hand fold means nothing on this axis).
+ */
+export function foldedIndex(forms: readonly StackForm[]): number {
+  const bar = forms.findIndex((f) => f.kind === "header" || f.kind === "fold");
+  return bar >= 0 ? bar : forms.findIndex((f) => f.kind === "rail");
+}
+
+/**
+ * Where `item`'s ladder starts among `forms`, the forms of the axis it lies along. Not folded by hand: its first form.
+ * Folded by hand (`from` 1 or more): its folded form there (`foldedIndex`), or `from` itself where a stored scene put it
+ * further down; with no folded form on this axis, its first form (a hand fold means nothing there). Give-way steps down
+ * from there.
+ */
+export function startOf(item: SceneItem, forms: readonly StackForm[]): number {
+  if (!foldedByHand(item)) return 0;
+  const folded = foldedIndex(forms);
+  return folded < 0 ? 0 : Math.min(Math.max(folded, Math.floor(item.from!)), forms.length - 1);
+}
 
 /** The first form at or after `from` that isn't a `wrap` form (vertical means icons), or undefined when none is. */
 export function pastWrap(forms: readonly StackForm[], from: number): number | undefined {
@@ -161,7 +184,7 @@ export function floatShape(item: SceneItem, f: { readonly rect: Rect; readonly o
   const w = px(f.rect.width);
   const h = px(f.rect.height);
   if (forms.length === 0) return { form: 0, width: w, height: h };
-  const asked = Math.min(Math.max(0, Math.floor(Number.isFinite(item.from) ? item.from! : 0)), forms.length - 1);
+  const asked = startOf(item, forms);
   const isWrap = (x: StackForm): boolean => x.kind === "wrap" || !!x.wrap;
   const skipped = orient === "column" ? pastWrap(forms, asked) : asked;
   if (skipped === undefined) return { form: asked, width: w, height: h, none: true };

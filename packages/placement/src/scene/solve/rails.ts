@@ -4,7 +4,7 @@
  */
 import { rect, type Rect } from "../../geometry";
 import { fitStack, type StackFit, type StackForm, type StackInput } from "../../stack";
-import { foldedByHand, formsOf, railModeOf, zoneOf } from "../helpers";
+import { formsOf, railModeOf, startOf, zoneOf } from "../helpers";
 import type { Col, GiveWay } from "./columns";
 import type { Draft } from "./draft";
 import { finite, px, zoneSorted } from "./order";
@@ -14,7 +14,7 @@ function riderBars(d: Draft, c: Col): { id: string; form: number; f: StackForm |
   const { scene } = d;
   return zoneSorted(scene, c.visible).map((id) => {
     const forms = formsOf(scene.items[id]!, "column");
-    const form = forms.length === 0 ? 0 : Math.min(Math.max(0, Math.floor(finite(scene.items[id]!.from, 0))), forms.length - 1);
+    const form = forms.length === 0 ? 0 : startOf(scene.items[id]!, forms);
     return { id, form, f: forms[form], h: px(forms[form]?.main.natural) };
   });
 }
@@ -83,10 +83,10 @@ export function layRail(d: Draft, side: "left" | "right", railRect: Rect, railed
     const forms = formsById(id);
     const ri = tileOf(id);
     const p = placed.get(id);
-    const form = p ? p.form : ri >= 0 ? ri : Math.min(Math.max(0, Math.floor(finite(it.from, 0))), Math.max(0, forms.length - 1));
+    const form = p ? p.form : ri >= 0 ? ri : forms.length === 0 ? 0 : startOf(it, forms);
     const at = p ? rect(railRect.x, railRect.y + p.rect.y, railRect.width, p.rect.height) : rect(railRect.x, y, railRect.width, ri >= 0 ? px(forms[ri]!.main.natural) : railRect.width);
     const title = forms[form]?.title === true;
-    items[id] = { rect: at, hidden: forms[form]?.hides ?? [], kind: it.kind, form, formKind: "rail", edge: c.edge.id, zone: zoneOf(it), rail: side, ...(title ? { railTitle: side } : {}), folded: g.auto.has(c) ? "auto" : "hand", foldedBy: foldedByHand(it) ? "hand" : "auto" };
+    items[id] = { rect: at, hidden: forms[form]?.hides ?? [], kind: it.kind, form, formKind: "rail", edge: c.edge.id, zone: zoneOf(it), rail: side, ...(title ? { railTitle: side } : {}), folded: g.auto.has(c) ? "auto" : "hand", foldedBy: startOf(it, forms) > 0 ? "hand" : "auto" };
     segments.push({ id, edge: c.edge.id, rect: at });
     y += at.height;
   }
