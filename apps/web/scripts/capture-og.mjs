@@ -32,7 +32,8 @@ const SHOTS = [
   ["/toolbar-groups/", "#win", 400, "toolbar-groups.png"],
 ];
 
-const browser = await chromium.launch();
+// CHROMIUM_PATH: a browser binary, when the one playwright-core expects isn't installed.
+const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, colorScheme: "light" });
 const page = await ctx.newPage();
 for (const [path, sel, wait, file] of SHOTS) {

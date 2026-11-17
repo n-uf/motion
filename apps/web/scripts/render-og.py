@@ -20,9 +20,9 @@ FAINT_LINE = (104, 105, 112)   # the mark's target line: the site's --text-3 in 
 CARDS = [
     ("public/og.png", "n-uf motion & placement", "Window motion and docking", "@n-uf/motion moves windows without overshoot; @n-uf/placement works out where they dock", "home.png", (560, 420)),
     ("public/og/window-motion.png", "@n-uf/motion · Window motion", "Fast at the start, gentle at the end", "Settle against Hyprland's springs and hypr-tiling's tweens", "window-motion.png", (560, 470)),
-    ("public/og/drag-intent.png", "@n-uf/motion · Drag intent", "An indicator only once you aim", "No flicker on borders; the drop lands where it showed", "drag-intent.png", (560, 440)),
-    ("public/og/desk-layouts.png", "@n-uf/placement · Desk layouts", "Nine ways to build a desk", "Docks, a tiling tree, a strip, drawers and palettes", "desk-layouts.png", (560, 440)),
-    ("public/og/toolbar-groups.png", "@n-uf/placement · Toolbar groups", "One handle per group", "Five hosts, three zones, and a lock that hides every grip", "toolbar-groups.png", (560, 440)),
+    ("public/og/drag-intent.png", "@n-uf/motion · Drag intent", "A drop indicator only once you aim", "No flicker at boundaries; the drop lands where it showed", "drag-intent.png", (560, 440)),
+    ("public/og/desk-layouts.png", "@n-uf/placement · Desk layouts", "Nine ways to lay out a workspace", "Docks, a tiling tree, scrolling columns, drawers and floating panels", "desk-layouts.png", (560, 440)),
+    ("public/og/toolbar-groups.png", "@n-uf/placement · Toolbar groups", "One grip per group", "Five toolbar areas, three zones, and a freeze switch that hides every grip", "toolbar-groups.png", (560, 440)),
 ]
 
 ap = argparse.ArgumentParser()
