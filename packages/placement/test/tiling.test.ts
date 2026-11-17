@@ -65,7 +65,9 @@ function gapsExact(layout: ReadonlyMap<number, Rect>, node: Split<number>, rect:
   if (!s) {
     const x = axisOf(node, rect) === "x";
     const rs = panesOf(node).map((p) => layout.get(p)!);
-    const bad = rs.filter((r) => r.width < 0 || r.height < 0 || (x ? r.width : r.height) !== 0);
+    const e = 1e-9;
+    const outside = (r: Rect): boolean => r.x < rect.x - e || r.y < rect.y - e || r.x + r.width > rect.x + rect.width + e || r.y + r.height > rect.y + rect.height + e;
+    const bad = rs.filter((r) => r.width < 0 || r.height < 0 || (x ? r.width : r.height) !== 0 || outside(r));
     const touching = rs.some((r, i) => rs.some((q, j) => j > i && overlap(r, q) > 0));
     return bad.length || touching ? [`clamped split ${JSON.stringify(rect)} (gap ${gap}): ${JSON.stringify(rs)}`] : [];
   }
@@ -151,9 +153,8 @@ function covers(rects: readonly Rect[], whole: Rect, gap: number): string[] {
   const out: string[] = [];
   const e = 1e-6;
   for (const r of rects) {
-    // A pane of no size, which the gap's clamp leaves (and may leave a gap past its split's end), draws nothing.
+    // Panes of no size too (a split with no room for its gap): inside the area, never negative.
     if (r.width < 0 || r.height < 0) out.push(`negative ${JSON.stringify(r)}`);
-    if (r.width === 0 || r.height === 0) continue;
     if (r.x < whole.x - e || r.y < whole.y - e || r.x + r.width > whole.x + whole.width + e || r.y + r.height > whole.y + whole.height + e) out.push(`outside ${JSON.stringify(r)}`);
   }
   for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) if (overlap(rects[i]!, rects[j]!) > e) out.push(`overlap ${i} ${j}`);
@@ -186,6 +187,19 @@ describe("order layouts", () => {
 });
 
 describe("the split tree", () => {
+  it("a split with no room for its gap lays both sides at no size inside its rect: at its start and at its end", () => {
+    const tree: Split<string> = { a: { pane: "a" }, b: { pane: "b" }, axis: "x" };
+    const l = layoutSplit(tree, { x: 10, y: 20, width: 4, height: 50 }, { gap: 6 });
+    expect([l.get("a"), l.get("b")]).toEqual([
+      { x: 10, y: 20, width: 0, height: 50 },
+      { x: 14, y: 20, width: 0, height: 50 },
+    ]);
+    const tall = layoutSplit({ ...tree, axis: "y" }, { x: 10, y: 20, width: 50, height: 3 }, { gap: 6 });
+    expect(tall.get("b")).toEqual({ x: 10, y: 23, width: 50, height: 0 });
+    // With room, the second side starts a gap after the first, as ever.
+    expect(layoutSplit(tree, { x: 10, y: 20, width: 106, height: 50 }, { gap: 6 }).get("b")).toEqual({ x: 66, y: 20, width: 50, height: 50 });
+  });
+
   it("dwindle splits along the longer side", () => {
     const l = layoutSplit(splitFromOrder(["a", "b", "c"]), { x: 0, y: 0, width: 800, height: 500 });
     expect([l.get("a"), l.get("b"), l.get("c")]).toEqual([

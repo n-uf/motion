@@ -14,7 +14,8 @@ export type Split<K> =
 /**
  * The rect of every pane of `tree` in `area`, `gap` px between the two sides of each split. A split's `ratio` is
  * clamped to 0..1; each side gets its share of the room the gap leaves (none when the gap is wider than the rect), so
- * no size is ever negative, and at ratio 0.5 both sides are exactly equal.
+ * no size is ever negative, and at ratio 0.5 both sides are exactly equal. A split with no room lays both sides at no
+ * size inside its rect: the first at its start, the second at its end, never past it.
  */
 export function layoutSplit<K>(tree: Split<K> | null, area: Rect, options: TileOptions = {}): Map<K, Rect> {
   const out = new Map<K, Rect>();
@@ -33,12 +34,15 @@ function lay<K>(tree: Split<K> | null, area: Rect, gap: number, out: Map<K, Rect
     const room = Math.max(0, area.width - gap);
     const w = room * ratio;
     lay(tree.a, { x: area.x, y: area.y, width: w, height: area.height }, gap, out);
-    lay(tree.b, { x: area.x + w + gap, y: area.y, width: room * (1 - ratio), height: area.height }, gap, out);
+    // With no room, the second side sits at the rect's end, not a gap past its start.
+    const bx = room > 0 ? area.x + w + gap : area.x + Math.max(0, area.width);
+    lay(tree.b, { x: bx, y: area.y, width: room * (1 - ratio), height: area.height }, gap, out);
   } else {
     const room = Math.max(0, area.height - gap);
     const h = room * ratio;
     lay(tree.a, { x: area.x, y: area.y, width: area.width, height: h }, gap, out);
-    lay(tree.b, { x: area.x, y: area.y + h + gap, width: area.width, height: room * (1 - ratio) }, gap, out);
+    const by = room > 0 ? area.y + h + gap : area.y + Math.max(0, area.height);
+    lay(tree.b, { x: area.x, y: by, width: area.width, height: room * (1 - ratio) }, gap, out);
   }
 }
 
