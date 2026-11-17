@@ -10,8 +10,8 @@
  * needs to turn a gesture's `place` into a pointer, and the deprecated `pickTarget` (the default pick).
  */
 import { centre, contains as inside, type Point, type Rect } from "../../geometry";
-import { close, dockHome, fold, floatAt, homeFor, open, placeTargetId, raise, readScene, refusalTargets, refusals, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneRefusal, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
-import type { CaseHost, CaseSettings, Gesture, PickRule } from "./types";
+import { close, dockHome, fold, floatAt, homeFor, open, placeTargetId, raise, readScene, refusalTargets, refusals, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneRefusal, type SceneRefusalTarget, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
+import type { CaseHost, CaseSettings, Gesture, PickCandidate, PickRule } from "./types";
 
 /** The lift threshold: the pointer moves this far (px) from the press before the item lifts. */
 export const LIFT_THRESHOLD = 4;
@@ -50,12 +50,15 @@ export function pickTarget<T extends { readonly priority: number; readonly hit: 
 export function withRefusals(pick: PickRule, refused: readonly SceneRefusal[]): PickRule {
   if (refused.length === 0) return pick;
   const inert = refusalTargets(refused);
-  return (list, point) => {
-    // The rule reads ids, priorities and zones only: a refusal target is one more candidate.
-    const t = pick([...list, ...(inert as unknown as SceneTarget[])], point);
-    return t && (t as { readonly refuse?: true }).refuse ? null : t;
+  return <T extends PickCandidate>(list: readonly T[], point: Point): T | null => {
+    // The rule reads ids, priorities and zones only: a refusal target is one more candidate, and a pick of one is none.
+    const t = pick<T | SceneRefusalTarget>([...list, ...inert], point);
+    return t !== null && isOneOf(list, t) ? t : null;
   };
 }
+
+/** Whether `x` is one of `list` (so of its type). */
+const isOneOf = <T,>(list: readonly T[], x: unknown): x is T => (list as readonly unknown[]).includes(x);
 
 /** The target for `place` among `list`: by its id (`placeTargetId`), else by the place's kind. */
 function targetAt(list: readonly SceneTarget[], place: ScenePlace, item: string): SceneTarget | null {

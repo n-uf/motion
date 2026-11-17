@@ -138,7 +138,10 @@ export function withMinHit(c: Ctx, targets: readonly SceneTarget[], refusals: re
     const zone = zones.get(t.id);
     if (!m || !zone || t.free || t.strip || t.place.kind === "home" || t.place.kind === "none") continue;
     const ownEdge = t.place.kind === "gap" ? t.place.edge : (parseTargetId(t.id) as { edge?: string } | null)?.edge;
-    const away = [...refused, ...(kindOf(c, t) === "columnLine" ? [] : drawn.filter(([id]) => id !== ownEdge).map(([, e]) => e.rect))];
+    // A virtual edge's band lies across the edges about it by design (`EDGE_KINDS[kind].virtual`): only it may grow
+    // over another drawn edge.
+    const k = kindOf(c, t);
+    const away = [...refused, ...(k && EDGE_KINDS[k].virtual ? [] : drawn.filter(([id]) => id !== ownEdge).map(([, e]) => e.rect))];
     let l = largest(piecesOf(t));
     if (keepsMinHit(l, m)) continue;
     // The narrow side to `across`, then the long side to `along`, each where the space can be spared.

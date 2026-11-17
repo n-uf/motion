@@ -11,14 +11,17 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   else is aimed at, or from a neighbor's surplus that still keeps its own minimum (the lower-ranked one first). Home,
   a drop strip, a refusal, the chrome and the stage's edge never give way, and a gap never grows over another drawn
   edge; where nothing can spare the space, the target stays as it was (still a stop and in "Move to"). Some hits move
-  by a few px as a result: beside a 30 px column its gaps now take 12 px and the outer column line 18; the line
-  between two touching columns is 12 px, half of it from the outer column's side. No case row changed.
+  by a few px as a result: beside a 30 px column its gaps now take 12 px and the outer column line 18. The column line
+  at the seam between two touching columns is now 12 px wide and overlays the outer column's edge by 6 px (only a
+  column line may grow over another drawn edge). No case row changed.
 
 - `./scene`, **refusals for the drag intent** (additive; host note). `refusalTargets(refusals)` gives each refusal as a
   target marked `refuse: true` (the root `Target` gains the optional `refuse`; `refusal` holds the `SceneRefusal`).
   Pass them to `@n-uf/motion/drag`'s intent with the targets and read the frame's `refused`: a kit's rail stop, held
   by its band, used to hide the refusal under it. `./scene/cases`' `withRefusals`, and so the reference host, picks the
-  same way. A host that doesn't pass refusals keeps working as before.
+  same way. A host that doesn't pass refusals keeps working as before. `PickRule` is now generic over what it reads
+  (`PickCandidate`: `id`, `priority`, `hit`, `hits`), so one rule picks among targets and refusal targets alike;
+  `@n-uf/motion/drag`'s `targetAt` fits it as before.
 
 - `./scene`, fixed: **a toolbar dropped next to a movable item behind fixed ones was refused.** In a title bar whose
   end zone holds two fixed readouts and then a movable toolbar, packed from the end, every drop in the zone after the

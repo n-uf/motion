@@ -6,7 +6,7 @@
  */
 import type { Point, Rect } from "../../geometry";
 import type { StackFormKind } from "../../stack";
-import type { Scene, SceneLayout, SceneNoteCode, ScenePlace, SceneTarget, Side, StoredScene, Zone } from "../index";
+import type { Scene, SceneLayout, SceneNoteCode, ScenePlace, Side, StoredScene, Zone } from "../index";
 
 /** How a row is grouped (the lab's case browser and an integrating app's report list rows by it). */
 export type CaseGroup =
@@ -277,8 +277,19 @@ export interface CaseHost {
  * `targetAt` (the lowest priority number, then the smallest zone; a rect holds its edges exactly; `hits` all count), and
  * every host passes it: placement doesn't import motion, so the host takes the rule as an input. A `move` lands the
  * pointer over the target this rule picks, and `resolvePlace` aims with it.
+ *
+ * It reads only a candidate's `id`, `priority`, `hit` and `hits`, and gives back one of the candidates it was given, so
+ * one rule picks among targets, refusal targets (`refusalTargets`) or both.
  */
-export type PickRule = (list: readonly SceneTarget[], point: Point) => SceneTarget | null;
+export type PickRule = <T extends PickCandidate>(list: readonly T[], point: Point) => T | null;
+
+/** What the pick rule reads of a candidate. */
+export interface PickCandidate {
+  readonly id: string;
+  readonly priority: 1 | 2 | 3;
+  readonly hit: Rect;
+  readonly hits?: readonly Rect[];
+}
 
 /**
  * A `CaseHost` whose calls may be async (a page a browser runner drives with real pointer events and timers): each of
