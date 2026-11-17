@@ -101,6 +101,24 @@ describe("kit-shaped windows: the window's sides", () => {
     expect(checked).toBeGreaterThan(20);
   });
 
+  it("property: an occupied rail's stops that land the same are one stop (a rider bar at the top is not offered twice)", () => {
+    let railed = 0;
+    for (const k of [FLUSH, INSET])
+      for (let W = 420; W <= 700; W += 10)
+        for (const drag of ["pages", "notes", "findings"]) {
+          const s = kitScene(k, { W, H: 757 });
+          const l = solve(s);
+          for (const side of ["left", "right"] as const) {
+            if (!l.rails[side]?.segments.length) continue;
+            const mine = stops(s, drag).filter((t) => t.place.kind === "rail" && t.place.side === side);
+            const landings = mine.map((t) => JSON.stringify(t.after({ x: t.hit.x + 1, y: t.hit.y + 1 }).layout.items[drag]?.rect));
+            expect(new Set(landings).size, `${k === FLUSH ? "flush" : "inset"} W ${W} ${drag} ${side}: ${landings.join(" ")}`).toBe(landings.length);
+            if (mine.length) railed++;
+          }
+        }
+    expect(railed).toBeGreaterThan(10);
+  });
+
   it("with the panel strip on, an occupied side keeps the line for a new outermost column: the strip, then the line just inside it, then the column's gaps", () => {
     for (const k of [FLUSH, INSET]) {
       const s: Scene = { ...kitScene(k, { W: 1280, H: 800 }), railDrop: { panel: { railStripWidth: 24 } } };

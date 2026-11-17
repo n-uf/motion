@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.30
 
+- `./scene`, fixed: **an occupied rail offered the same move twice.** With a side's tiles width-folded and an item dragged,
+  `rail:left:0` and `rail:left:1` landed identically (a rider bar at the top), so `stops()` listed two identical "Move to"
+  entries. Rail stops that land the same are now one stop, wherever their lines lie (the same-move merge slots already
+  had, which compared lines); the stop that stays spans both.
 - `./scene`, fixed: **flush windows lost the new outermost column on an occupied side** when a kind's rail strip is on
   (`Scene.railDrop`): the strip owns the window's edge, which was all the line for a new outermost column had, so only
   the inner lines remained (an inset window kept a sliver beside its padding). That line now lies just inside the strip,
