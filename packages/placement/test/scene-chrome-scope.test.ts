@@ -54,6 +54,46 @@ describe("chrome for floats only", () => {
   });
 });
 
+describe("chrome for floats only, the kit's case: a spine over a right column with its lines, rail and drop strip", () => {
+  // The document window with column templates on both sides, a right rail and a rail drop strip for panels.
+  const kit = (): Scene => {
+    const s = windowScene();
+    const tpl = { accepts: ["panel" as const, "group" as const], cross: { min: 160, max: 480, rail: 32 } };
+    return {
+      ...s,
+      edges: s.edges.map((e) => (e.side === "left" || e.side === "right" ? { ...e, column: true } : e)),
+      columns: { left: tpl, right: tpl },
+      rails: { right: { width: 32, accepts: ["panel"] } },
+      railDrop: { panel: { railStripWidth: 28 } },
+    };
+  };
+  const s = kit();
+  const right = solve(s).edges.right!.rect;
+  // The spine: the window's right 24 px, over the right column and where its rail lies.
+  const spine: SceneChrome = { x: s.stage.x + s.stage.width - 24, y: s.stage.y, width: 24, height: s.stage.height, for: "floats" };
+  const spined = withChrome(s, spine);
+  const all = (sc: Scene, id: string): string => JSON.stringify(targets(sc, id).map((t) => [t.id, t.hit, t.hits ?? null, t.slot ?? null, t.strip ?? null]));
+
+  it("targets and refusals, ids and hits, are those of the window without it", () => {
+    expect(overlaps(spine, right)).toBe(true);
+    for (const id of movable(s)) {
+      expect(all(spined, id), id).toBe(all(s, id));
+      expect(refusals(spined, id), id).toEqual(refusals(s, id));
+    }
+    const ids = targets(spined, "notes").map((t) => t.id);
+    expect(ids.some((x) => x.startsWith("gap:right:"))).toBe(true);
+    expect(ids.some((x) => x.startsWith("column:right:"))).toBe(true);
+    expect(targets(spined, "notes").some((t) => t.id.startsWith("rail:right:") && !!t.strip)).toBe(true);
+  });
+
+  it("a float dropped at the spine lands clear of it", () => {
+    const float = targets(spined, "notes").find((t) => t.free)!;
+    const at = float.after({ x: spine.x + 12, y: 400 });
+    expect(overlaps(at.layout.items.notes!.rect, spine)).toBe(false);
+    expect(solve(at.scene).items.notes!.rect).toEqual(at.layout.items.notes!.rect);
+  });
+});
+
 describe("plain chrome", () => {
   it("behaves as before: `for: \"all\"` is the default, and its docked targets keep clear of it", () => {
     const s = windowScene();
@@ -68,23 +108,35 @@ describe("property: floats-only chrome changes nothing but the floats", () => {
   it("over the model windows: every docked target is unchanged, and no float lies on it", () => {
     const failures: string[] = [];
     let floats = 0;
+    // Every mode: plain, flush, card halves (either), and rail drop strips (either).
     for (const [flush, middle, railDrop] of [
       [false, false, false],
       [true, false, false],
       [false, true, false],
+      [true, true, false],
+      [false, false, true],
       [true, false, true],
     ] as const)
       for (let seed = 1; seed <= 40; seed++) {
         const s = modelScene(seed, flush, middle, railDrop);
-        const spine: SceneChrome = { x: s.stage.x + s.stage.width * 0.62, y: s.stage.y, width: 24, height: s.stage.height, for: "floats" };
-        const spined = withChrome(s, spine);
-        for (const id of movable(s)) if (docked(spined, id) !== docked(s, id)) failures.push(`seed ${seed} ${id}: docked targets changed`);
+        // Two spines: one over the content, one at the window's right edge over the right column and rail.
+        const spines: SceneChrome[] = [
+          { x: s.stage.x + s.stage.width * 0.62, y: s.stage.y, width: 24, height: s.stage.height, for: "floats" },
+          { x: s.stage.x + s.stage.width - 24, y: s.stage.y, width: 24, height: s.stage.height, for: "floats" },
+        ];
+        const spined = withChrome(s, ...spines);
+        for (const id of movable(s)) {
+          if (docked(spined, id) !== docked(s, id)) failures.push(`seed ${seed} ${id}: docked targets changed`);
+          if (JSON.stringify(refusals(spined, id)) !== JSON.stringify(refusals(s, id))) failures.push(`seed ${seed} ${id}: refusals changed`);
+        }
         const l = solve(spined);
         for (const f of s.floats) {
           const r = l.items[f.id]?.rect;
           if (!r) continue;
           floats++;
-          if (overlaps(r, spine)) failures.push(`seed ${seed}: float ${f.id} ${JSON.stringify(r)} lies on the spine`);
+          // A float with no clear place anywhere says so (`float-covers`), as it does over plain chrome: that one is no failure.
+          const noRoom = l.notes.some((n) => n.code === "float-covers" && "id" in n && n.id === f.id);
+          if (!noRoom && spines.some((sp) => overlaps(r, sp))) failures.push(`seed ${seed}: float ${f.id} ${JSON.stringify(r)} lies on a spine`);
         }
       }
     expect(failures.slice(0, 10)).toEqual([]);
