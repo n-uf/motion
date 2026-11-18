@@ -291,6 +291,8 @@ export interface PickCandidate {
   readonly refuse?: true;
   readonly hit: Rect;
   readonly hits?: readonly Rect[];
+  /** The window's stage, for a refusal and the float: the zone holds only points strictly inside it. */
+  readonly outer?: Rect;
 }
 
 /**

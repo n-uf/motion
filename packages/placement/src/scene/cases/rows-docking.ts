@@ -358,11 +358,11 @@ export const DOCKING_ROWS: readonly CaseRow[] = [
   {
     id: "C17",
     title: "A drop past the stage's edge",
-    expect: "A float dropped with the pointer past the stage's edge: the pointer is clamped into the stage first (the host contract; the runner clamps every `move` to a point), and the clamped point picks what is there. Nothing is docked at this stage's right edge, so it picks the float, which lands clamped into the stage; the preview shows it clamped, and the drop never cancels. A window with a docked edge there picks that edge's last gap instead.",
+    expect: "A float dropped with the pointer past the stage's edge: the pointer is clamped into the stage first (the host contract; the runner clamps every `move` to a point), and the clamped point, on the window's edge, picks only a target drawn against that edge. Outside the window is no drawn space: the float and every refusal hold only points strictly inside it. Nothing is docked at this stage's right edge, so nothing is picked: the preview leaves the held float's place empty and the drop commits nothing, the float back where it was. A window with a docked edge there picks that edge's last gap instead.",
     group: "floats",
     scene: bench(),
     gestures: [g.press("findings", { x: 40, y: 10 }), g.at(920, 240), g.hold(), g.release()],
-    checkpoints: [{ at: 2, layout: { items: { findings: { floating: true, rect: r(620, 230, 220, 190) } } }, note: "the preview, clamped into the stage" }],
-    expectLayout: { items: { findings: { floating: true, rect: r(620, 230, 220, 190) } } },
+    checkpoints: [{ at: 2, layout: { items: { findings: null } }, note: "no target past the edge: the held float out of the layout" }],
+    expectLayout: { items: { findings: { floating: true, rect: r(440, 130, 220, 190) } } },
   },
 ];

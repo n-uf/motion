@@ -255,6 +255,8 @@ function generateShown(scene: Scene, dragged: string, options: SceneTargetOption
       priority: 3,
       free: true,
       hit: PLANE,
+      // Over the whole plane, but only inside the window: its edge and past it belong to the targets drawn against it.
+      outer: stageOf(scene),
       item: dragged,
       place: { kind: "float" },
       after(point, grab) {
@@ -298,8 +300,13 @@ function generateShown(scene: Scene, dragged: string, options: SceneTargetOption
   // included. It grows to its minimum only inside that.
   const zones = new Map<string, Rect[]>();
   for (const t of [...alone.values()].flat()) if (t.kind !== "refuse" && t.id) zones.set(t.id, [...(zones.get(t.id) ?? []), t.hit]);
-  return { targets: withMinHit(c, layered.targets, layered.refusals, zones), refusals: layered.refusals, lost: lostIds, zones };
+  // A refusal holds only points strictly inside the window: its edge belongs to the targets drawn against it.
+  const outer = stageOf(scene);
+  return { targets: withMinHit(c, layered.targets, layered.refusals, zones), refusals: layered.refusals.map((r) => ({ ...r, outer })), lost: lostIds, zones };
 }
+
+/** The stage as a plain rect (a target's or a refusal's `outer`). */
+const stageOf = (scene: Scene): Rect => rect(scene.stage.x, scene.stage.y, scene.stage.width, scene.stage.height);
 
 export function targets(scene: Scene, dragged: string, options: SceneTargetOptions = {}): SceneTarget[] {
   return generate(scene, dragged, options).targets;
@@ -332,7 +339,7 @@ export interface SceneRefusalTarget extends Target {
  * and the frame's `refused` says which the pointer is over (`refused.refusal` is the `SceneRefusal`).
  */
 export function refusalTargets(list: readonly SceneRefusal[]): SceneRefusalTarget[] {
-  return list.map((r) => ({ id: r.id, priority: 2, hit: r.hit, ...(r.hits ? { hits: r.hits } : {}), refuse: true, refusal: r }));
+  return list.map((r) => ({ id: r.id, priority: 2, hit: r.hit, ...(r.hits ? { hits: r.hits } : {}), ...(r.outer ? { outer: r.outer } : {}), refuse: true, refusal: r }));
 }
 
 /**
