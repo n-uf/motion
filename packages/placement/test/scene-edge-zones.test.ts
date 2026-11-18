@@ -5,7 +5,34 @@
  */
 import { describe, expect, it } from "vitest";
 import { namesZone, readScene, refusals, solve, storeScene, targets, zoneIn, zoneTakes, type Scene } from "../src/scene";
-import { bar, byId, group } from "./scene-fixture";
+import { bar, byId, controls, group } from "./scene-fixture";
+
+describe("Edge.zones and a fixed item", () => {
+  /** A top bar with the given zones holding fixed window controls (`align: "end"`) and a group. */
+  const withControls = (zones?: readonly ("start" | "center" | "end")[]): Scene => ({
+    stage: { x: 0, y: 0, width: 1000, height: 600 },
+    edges: [{ ...bar("top", "top", 0, ["g", "controls"]), ...(zones ? { zones } : {}) }],
+    items: byId([group("g", 1), controls()]),
+    floats: [],
+    floatKinds: ["group"],
+  });
+
+  it("lies in its own zone where the edge has it, else in the edge's first zone, its stored align unchanged", () => {
+    const one = withControls(["start"]);
+    const edge = one.edges[0]!;
+    expect(zoneIn(edge, one.items.controls!)).toBe("start");
+    expect(zoneIn(withControls(["start", "end"]).edges[0]!, one.items.controls!)).toBe("end");
+    expect(zoneIn(withControls().edges[0]!, one.items.controls!)).toBe("end");
+    expect(zoneIn(withControls(["center", "end"]).edges[0]!, { ...one.items.controls!, align: undefined })).toBe("center");
+    // Laid out in the one zone it lies in: it gets its span, after the group, and keeps `align: "end"`.
+    const l = solve(one);
+    const c = l.items.controls!.rect;
+    expect(c.width).toBe(84);
+    expect(c.x).toBeGreaterThanOrEqual(l.items.g!.rect.x + l.items.g!.rect.width);
+    expect(one.items.controls!.align).toBe("end");
+    expect(storeScene(one).items.controls!.align).toBe("end");
+  });
+});
 
 const J = (v: unknown): string => JSON.stringify(v, (_k, x) => (typeof x === "function" ? undefined : x));
 const inside = (r: { x: number; y: number; width: number; height: number }, p: { x: number; y: number }): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
