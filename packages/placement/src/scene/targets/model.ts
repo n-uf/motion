@@ -124,6 +124,8 @@ export interface Generated {
 /** The context every edge's generator shares. */
 export interface Ctx {
   readonly scene: Scene;
+  /** Edges kept out of `scene` (its hidden ones): a drop's new column never repeats their ids (`moveAmong`). */
+  readonly others: readonly Edge[];
   /** The scene with the item lifted: what a place counts in (a gap's `at`, a column's or rail's `ring`). */
   readonly rest: Scene;
   /** The seen geometry: the committed layout, the item in place. Every tile lies in it. */

@@ -72,7 +72,7 @@ import { PLANE, area, rect, type Rect } from "../geometry";
 import type { Target } from "../target";
 import { floatAt, use } from "./changes";
 import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, shownScene, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
-import type { Orient, Scene, SceneLayout, Zone } from "./model";
+import type { Edge, Orient, Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
 import { edgeSpec } from "./targets/edges";
@@ -176,15 +176,18 @@ function alongOfSlots(s: EdgeSpec, tiles: readonly Tile[]): Span[] {
 
 /**
  * The targets of the scene the window shows: its hidden edges (`Edge.hidden`) left out, so they have no targets or
- * refusals and their items none either. Each target's result keeps the hidden edges as they were; where it renumbered a
- * side's rings around them (a new column beside a hidden one), its layout is solved again, so it is still the result.
+ * refusals and their items none either. A new column's id is chosen against the hidden edges too (`moveAmong`). Each
+ * target's result keeps the hidden edges as they were; a target that commits nothing (home, `none`) gives back `scene`
+ * itself. Where a result renumbered a side's rings around them (a column made or removed beside a hidden one), its
+ * layout is solved again, so it is still the result.
  */
 function generate(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
   checkEdgeIds(scene);
   const shown = shownScene(scene);
-  if (shown === scene) return generateShown(scene, dragged, options);
+  if (shown === scene) return generateShown(scene, dragged, options, []);
   if (inHiddenEdge(scene, dragged)) return { targets: [], refusals: [], lost: [] };
-  const g = generateShown(shown, dragged, options);
+  const hidden = scene.edges.filter((e) => e.hidden === true);
+  const g = generateShown(shown, dragged, options, hidden);
   const prev = { ...(options.previous ? { previous: options.previous } : {}), ...(options.fresh ? { fresh: options.fresh } : {}) };
   return {
     ...g,
@@ -192,6 +195,8 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
       ...t,
       after: (point, grab) => {
         const a = t.after(point, grab);
+        // Nothing committed: the scene as it was, the same object.
+        if (a.scene === shown) return { scene, layout: a.layout };
         const restored = withHiddenOf(scene, a.scene);
         const ringOf = new Map(a.scene.edges.map((e) => [e.id, e.ring]));
         const renumbered = restored.edges.some((e) => e.hidden !== true && ringOf.get(e.id) !== e.ring);
@@ -201,10 +206,10 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   };
 }
 
-function generateShown(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
+function generateShown(scene: Scene, dragged: string, options: SceneTargetOptions, hidden: readonly Edge[]): Generated {
   // A fixed item takes no gap: on an edge that `moves: "side"` it has its `side:` target and home.
   if (Object.hasOwn(scene.items, dragged) && scene.items[dragged]!.fixed) return anchorTargets(scene, dragged, options);
-  const ctx = context(scene, dragged, options);
+  const ctx = context(scene, dragged, options, hidden);
   if (!ctx) return { targets: [], refusals: [], lost: [] };
   const { c, item, prev } = ctx;
   const { now } = c;

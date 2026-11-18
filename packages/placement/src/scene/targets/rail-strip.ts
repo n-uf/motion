@@ -12,7 +12,7 @@
  * shows a collapsed panel there (a rail tile, a rider bar over the side's open column, a header in its column).
  */
 import { EPS, overlaps, rect, subtract, type Point, type Rect } from "../../geometry";
-import { moveTo, use, type RailPlace } from "../changes";
+import { moveAmong, use, type RailPlace } from "../changes";
 import { isHandFolded, railColumnOf, railPolicyOf, zoneTakes } from "../helpers";
 import { RAIL_STRIP_MIN } from "../model";
 import { targetId, virtualEdgeId } from "./ids";
@@ -40,7 +40,7 @@ function columnStrip(c: Ctx, side: "left" | "right", policy: Policy): Strip | nu
   // Already collapsed in this column: every drop into it is home.
   if (own?.edge === edge.id && isHandFolded(c.scene, c.dragged)) return null;
   const place: RailPlace = { kind: "rail", side, ring: edge.ring };
-  const moved = moveTo(c.scene, c.dragged, place);
+  const moved = moveAmong(c.scene, c.dragged, place, c.others);
   if (moved === c.scene) return null;
   const result = c.settle(use(moved, c.dragged));
   const el = result.layout.edges[edge.id];

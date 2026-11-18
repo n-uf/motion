@@ -81,25 +81,9 @@ export function railColumnOf(scene: Scene, side: "left" | "right", kind: Kind): 
     .reduce<Edge | undefined>((m, e) => (!m || e.ring < m.ring ? e : m), undefined);
 }
 
-/** The hidden edges a shown scene carries along (a symbol: object spreads copy it, JSON and stores never see it). */
-const HIDDEN_EDGES = Symbol("hidden edges");
-type Shown = Scene & { readonly [HIDDEN_EDGES]?: readonly Edge[] };
-
-/**
- * The scene as the window shows it: its hidden edges left out (`Edge.hidden`), carried along out of sight so a change
- * made on it still chooses new ids against them (`allEdges`). The same object when none is hidden.
- */
+/** The scene as the window shows it: its hidden edges left out (`Edge.hidden`). The same object when none is hidden. */
 export function shownScene(scene: Scene): Scene {
-  const hidden = scene.edges.filter((e) => e.hidden === true);
-  if (hidden.length === 0) return scene;
-  const shown: Shown = { ...scene, edges: scene.edges.filter((e) => e.hidden !== true), [HIDDEN_EDGES]: hidden };
-  return shown;
-}
-
-/** Every edge of `scene`, hidden ones included, also when it is a shown scene: what a new column's id is chosen against. */
-export function allEdges(scene: Scene): readonly Edge[] {
-  const hidden = (scene as Shown)[HIDDEN_EDGES];
-  return hidden ? [...scene.edges, ...hidden] : scene.edges;
+  return scene.edges.some((e) => e.hidden === true) ? { ...scene, edges: scene.edges.filter((e) => e.hidden !== true) } : scene;
 }
 
 /** Whether item `id` lies in a hidden edge. */
@@ -107,25 +91,31 @@ export const inHiddenEdge = (scene: Scene, id: string): boolean => scene.edges.s
 
 /**
  * `shown`, a scene made from `shownScene(scene)` (a change, a drop's result), with `scene`'s hidden edges put back where
- * they stood in its edge list, as they were. Where a shown edge now shares a ring with a hidden one on its side, that
- * side's rings are made distinct again, 0 up, by ring and then by place in the list (a new column inside a hidden one
- * takes the next ring), so the order of every edge on the side is kept.
+ * they stood in its edge list. On a side whose shown edges are those it had, nothing is renumbered. On a side where a
+ * column was made or removed, each hidden edge goes back by its own ring, before the first shown edge that lay further
+ * in than it did, and the side is numbered again from 0 in that order.
  */
 export function withHiddenOf(scene: Scene, shown: Scene): Scene {
   if (shown === scene || !scene.edges.some((e) => e.hidden === true)) return shown;
-  const { [HIDDEN_EDGES]: _hidden, ...plain } = shown as Shown;
-  const edges = plain.edges.filter((e) => e.hidden !== true);
+  const edges = shown.edges.filter((e) => e.hidden !== true);
   scene.edges.forEach((e, i) => {
     if (e.hidden === true) edges.splice(Math.min(i, edges.length), 0, e);
   });
+  const ringBefore = new Map(scene.edges.filter((e) => e.hidden !== true).map((e) => [e.id, e.ring]));
   for (const side of new Set(scene.edges.filter((e) => e.hidden === true).map((e) => e.side))) {
-    const mine = edges.map((e, i) => ({ e, i })).filter((x) => x.e.side === side);
-    if (new Set(mine.map((x) => x.e.ring)).size === mine.length) continue;
-    mine.sort((a, b) => a.e.ring - b.e.ring || a.i - b.i).forEach((x, ring) => {
-      if (x.e.ring !== ring) edges[x.i] = { ...x.e, ring };
+    const was = scene.edges.filter((e) => e.side === side && e.hidden !== true).map((e) => e.id).sort();
+    const now = edges.filter((e) => e.side === side && e.hidden !== true);
+    if (now.length === was.length && now.every((e) => was.includes(e.id))) continue;
+    const order = [...now].sort((a, b) => a.ring - b.ring || edges.indexOf(a) - edges.indexOf(b));
+    for (const h of scene.edges.filter((e) => e.side === side && e.hidden === true).sort((a, b) => a.ring - b.ring)) {
+      const k = order.findIndex((e) => e.hidden !== true && (ringBefore.get(e.id) ?? -Infinity) > h.ring);
+      order.splice(k < 0 ? order.length : k, 0, h);
+    }
+    order.forEach((e, ring) => {
+      if (e.ring !== ring) edges[edges.indexOf(e)] = { ...e, ring };
     });
   }
-  return { ...plain, edges };
+  return { ...shown, edges };
 }
 
 /** A kind's rail drop policy with its defaults, or null where it has none or it is turned off (width 0, `"never"`). */
