@@ -76,10 +76,10 @@ export interface SceneRefusal {
    */
   readonly reason: "no-room" | "own-place" | "not-accepted";
   /**
-   * The stage: the refusal holds only points strictly inside it (`Target.outer`), so a pointer a host clamps onto the
-   * window's edge is never in it. Set by `refusals()`; `refusalTargets` passes it on.
+   * The stage: the refusal holds only points strictly inside it (`Target.bounds`), so a pointer a host clamps exactly
+   * onto the window's edge is never in it. Set by `refusals()`; `refusalTargets` passes it on.
    */
-  readonly outer?: Rect;
+  readonly bounds?: Rect;
 }
 
 /** One tile before clipping: a slot's, home's, or a refused slot's. */

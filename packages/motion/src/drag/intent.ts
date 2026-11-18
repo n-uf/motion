@@ -138,11 +138,13 @@ const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
  * nowhere. Where the pick under the pointer is a refusal, no held target's band or gap grace keeps it: nothing shows,
  * and the frame's `refused` says which refusal it is.
  *
- * `outer`, when given, is the drawn space the zone belongs to (a window's stage): the zone, and its band, hold only
- * points strictly inside it, so it is half-open toward the outside and a point on `outer`'s boundary or past it is
- * never in it. The window's boundary belongs only to the targets drawn against it: a refusal and a target over the
- * whole plane (the float) carry `outer`, a gap or a slot doesn't. So a pointer a host clamps onto the window's edge
- * picks a gap whose hit reaches the edge, else nothing (a held target keeps its band), and never a refusal or the float.
+ * `bounds`, when given, is the drawn space the zone belongs to (a window's stage): the zone, its band and its gap grace
+ * hold only points strictly inside it, so it is half-open toward the outside and a point on `bounds`' boundary or past
+ * it is never in it. The window's boundary belongs only to the targets drawn against it: a refusal and a target over
+ * the whole plane (the float) carry `bounds`, a gap or a slot doesn't. So a pointer a host clamps onto the window's
+ * edge picks a gap whose hit reaches the edge, else nothing (a held target keeps its band), and never a refusal or the
+ * float. The rule relies on the host clamping exactly onto the stage's edge (`x + width`, `y + height`): a host that
+ * clamps to `width - 0.5` still picks inside the window, the float or a refusal there included.
  */
 export interface DragTarget {
   readonly id: string;
@@ -155,7 +157,7 @@ export interface DragTarget {
   readonly arm?: "dwell";
   readonly armedHit?: Rect;
   readonly refuse?: true;
-  readonly outer?: Rect;
+  readonly bounds?: Rect;
 }
 
 /**
@@ -169,9 +171,9 @@ export const REFUSAL_RANK = 2.5;
 /** A target's rank in the pick: its `priority`, a refusal's {@link REFUSAL_RANK}. Lower wins. */
 export const pickRank = (t: Pick<DragTarget, "priority" | "refuse">): number => (t.refuse === true ? REFUSAL_RANK : t.priority);
 
-/** Whether `point` lies strictly inside `outer` (none: everywhere). */
-const within = (outer: Rect | undefined, point: Point): boolean =>
-  !outer || (point.x > outer.x && point.x < outer.x + outer.width && point.y > outer.y && point.y < outer.y + outer.height);
+/** Whether `point` lies strictly inside `bounds` (none: everywhere). */
+const within = (bounds: Rect | undefined, point: Point): boolean =>
+  !bounds || (point.x > bounds.x && point.x < bounds.x + bounds.width && point.y > bounds.y && point.y < bounds.y + bounds.height);
 
 /** Whether `point` lies in `rect` grown by `margin` px on every side (shrunk, for a negative margin). */
 export function inRect(rect: Rect, point: Point, margin = 0): boolean {
@@ -182,8 +184,8 @@ export function inRect(rect: Rect, point: Point, margin = 0): boolean {
 const distanceTo = (rect: Rect, point: Point): number =>
   Math.hypot(Math.max(rect.x - point.x, 0, point.x - (rect.x + rect.width)), Math.max(rect.y - point.y, 0, point.y - (rect.y + rect.height)));
 
-/** Whether `point` lies in a target's zone (`hits` when it has them, else `hit`), grown by `margin` px, and inside its `outer`. */
-const inZone = (t: DragTarget, point: Point, margin = 0): boolean => within(t.outer, point) && (t.hits ? t.hits.some((r) => inRect(r, point, margin)) : inRect(t.hit, point, margin));
+/** Whether `point` lies in a target's zone (`hits` when it has them, else `hit`), grown by `margin` px, and inside its `bounds`. */
+const inZone = (t: DragTarget, point: Point, margin = 0): boolean => within(t.bounds, point) && (t.hits ? t.hits.some((r) => inRect(r, point, margin)) : inRect(t.hit, point, margin));
 
 /** A margin per axis: px grown (shrunk, when negative) left and right, and above and below. */
 interface Margin {
@@ -192,10 +194,10 @@ interface Margin {
 }
 /**
  * Whether `point` lies in a target's zone grown by `m.x` px left and right and `m.y` px above and below, and inside its
- * `outer`: a band never reaches past a zone's outer bounds (the float's band holds nothing outside the window).
+ * `bounds`: a band never reaches past a zone's bounds (the float's band holds nothing outside the window).
  */
 const inZoneBy = (t: DragTarget, point: Point, m: Margin): boolean =>
-  within(t.outer, point) && (t.hits ?? [t.hit]).some((r) => point.x >= r.x - m.x && point.x <= r.x + r.width + m.x && point.y >= r.y - m.y && point.y <= r.y + r.height + m.y);
+  within(t.bounds, point) && (t.hits ?? [t.hit]).some((r) => point.x >= r.x - m.x && point.x <= r.x + r.width + m.x && point.y >= r.y - m.y && point.y <= r.y + r.height + m.y);
 /** `px`, but along each axis at most `share` of each zone's extent (its `hit`) along it. */
 const scaled = (px: number, share: number, zones: readonly (DragTarget | null)[]): Margin => {
   let x = px;
@@ -216,7 +218,7 @@ const zoneArea = (t: DragTarget): number => (t.hits ? t.hits.reduce((s, r) => s 
 /**
  * The most precise target under `point`: the lowest rank ({@link pickRank}: the priority, a refusal's
  * {@link REFUSAL_RANK}), then the smallest zone; null when none is. A zone holds its edges (a closed rect), except
- * toward the outside of its `outer`.
+ * toward the outside of its `bounds`.
  */
 export function targetAt<T extends DragTarget>(targets: readonly T[], point: Point): T | null {
   let best: T | null = null;
@@ -539,8 +541,8 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && (cur.free === true || pastBreakthrough(raw));
         next = breaks ? raw : cur;
       }
-      // The gap grace, like the band, never reaches past a zone's outer bounds: the float gets no grace outside the window.
-      if (!refusedRaw && !next && cur && pickable(cur) && within(cur.outer, p) && t - lastInside < tuning.gapGrace) next = cur;
+      // The gap grace, like the band, never reaches past a zone's bounds: the float gets no grace outside the window.
+      if (!refusedRaw && !next && cur && pickable(cur) && within(cur.bounds, p) && t - lastInside < tuning.gapGrace) next = cur;
       if (next && inZone(next, p)) lastInside = t;
       if (!same(next, cur)) curSince = t;
       cur = next;

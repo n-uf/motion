@@ -29,13 +29,14 @@ Not published: its release run failed on a test timeout. Everything below ships 
   shares an edge with a smaller refusal keeps its end; over a refusal alone it still wins over the float, and the band
   rule is unchanged. `pickRank(t)` gives a target's rank. A pick with no refusal in it is unchanged.
 
-- `./drag`, **a zone's outer bounds** (additive). `DragTarget.outer` (a rect, the window's stage) makes a zone, its
-  band and its gap grace half-open toward the outside: they hold only points strictly inside `outer`, so a float shown
+- `./drag`, **a zone's bounds** (additive). `DragTarget.bounds` (a rect, the window's stage) makes a zone, its band
+  and its gap grace half-open toward the outside: they hold only points strictly inside `bounds`, so a float shown
   inside the window hides on the first frame the pointer reaches the edge. The window's boundary belongs only
-  to the targets drawn against it: a refusal and the whole-plane float carry `outer`, a gap or a slot doesn't. So a
+  to the targets drawn against it: a refusal and the whole-plane float carry `bounds`, a gap or a slot doesn't. So a
   pointer a host clamps onto the window's edge picks a gap whose hit reaches the edge, else nothing (a held gap keeps
-  its band), and never a refusal or the float: a release past the window over open space commits nothing. A target
-  without `outer` is unchanged.
+  its band), and never a refusal or the float: a release past the window over open space commits nothing. This relies
+  on the host clamping exactly onto the stage's edge (`x + width`, `y + height`): one that clamps to `width - 0.5`
+  still picks inside the window. A target without `bounds` is unchanged.
 
 - `./drag`, **a lift zone as a rect** (additive). `DragIntentOptions.liftRect` gives the "changed my mind" spot as a
   rect: while the pointer is inside it, no spring-loaded target arms by dwell, and the 16 px `liftZone` radius is not

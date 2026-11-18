@@ -1205,11 +1205,12 @@ facing halves is home's, and is no target of its own. The slot is where the item
   In the pick a refusal ranks at `REFUSAL_RANK` (2.5, exported with `pickRank`): after every target of priority 1 and
   2, before the float's 3. Where a refusal and a target meet or overlap (a gap's end on a refused bar's edge), the
   target wins however small the refusal is; over the refusal alone it wins over the float.
-  The window's edge belongs only to the targets drawn against it: every refusal (`SceneRefusal.outer`, passed on by
-  `refusalTargets`) and the float target carry the stage as `outer` (`Target.outer`), so they hold only points strictly
-  inside the window. A pointer a host clamps onto the window's edge (the host contract) picks a gap or slot whose hit
-  reaches the edge, else nothing: a drop past the window over open space or past a refused bar commits nothing, and a
-  held gap keeps its band.
+  The window's edge belongs only to the targets drawn against it: every refusal (`SceneRefusal.bounds`, passed on by
+  `refusalTargets`) and the float target carry the stage as `bounds` (`Target.bounds`), so they hold only points
+  strictly inside the window. A pointer a host clamps exactly onto the window's edge (the host contract: `x + width`,
+  `y + height`) picks a gap or slot whose hit reaches the edge, else nothing: a drop past the window over open space or
+  past a refused bar commits nothing, and a held gap keeps its band. A host that clamps to `width - 0.5` still picks
+  inside the window, the float or a refusal there included.
   Every target keeps a reachable hit: its largest piece is at least 12 px across by 24 px along (`minHit`, data per
   edge kind), taken from the space beside it in its own zone (a column line's band, a gap's tile) where nothing else is
   aimed at, or from a neighbor that keeps its own minimum. Home, a drop strip, a refusal, the chrome and the stage's
