@@ -176,7 +176,8 @@ function alongOfSlots(s: EdgeSpec, tiles: readonly Tile[]): Span[] {
 
 /**
  * The targets of the scene the window shows: its hidden edges (`Edge.hidden`) left out, so they have no targets or
- * refusals and their items none either. Each target's result keeps the hidden edges as they were.
+ * refusals and their items none either. Each target's result keeps the hidden edges as they were; where it renumbered a
+ * side's rings around them (a new column beside a hidden one), its layout is solved again, so it is still the result.
  */
 function generate(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
   checkEdgeIds(scene);
@@ -184,13 +185,17 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
   if (shown === scene) return generateShown(scene, dragged, options);
   if (inHiddenEdge(scene, dragged)) return { targets: [], refusals: [], lost: [] };
   const g = generateShown(shown, dragged, options);
+  const prev = { ...(options.previous ? { previous: options.previous } : {}), ...(options.fresh ? { fresh: options.fresh } : {}) };
   return {
     ...g,
     targets: g.targets.map((t) => ({
       ...t,
       after: (point, grab) => {
         const a = t.after(point, grab);
-        return { scene: withHiddenOf(scene, a.scene), layout: a.layout };
+        const restored = withHiddenOf(scene, a.scene);
+        const ringOf = new Map(a.scene.edges.map((e) => [e.id, e.ring]));
+        const renumbered = restored.edges.some((e) => e.hidden !== true && ringOf.get(e.id) !== e.ring);
+        return { scene: restored, layout: renumbered ? solve(restored, prev) : a.layout };
       },
     })),
   };

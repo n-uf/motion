@@ -27,7 +27,7 @@
  */
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axesOf, axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
+import { allEdges, axesOf, axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
 import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
@@ -98,7 +98,8 @@ export function lift(scene: Scene, id: string): Scene {
 function newColumn(scene: Scene, side: "left" | "right", kind: string, ring: number, items: readonly string[]): Edge | null {
   const t = scene.columns?.[side];
   if (!t || !t.accepts.includes(kind)) return null;
-  const taken = new Set(scene.edges.map((e) => e.id));
+  // Every edge counts, hidden ones too (`allEdges`): a new column never takes an id the stored scene already has.
+  const taken = new Set(allEdges(scene).map((e) => e.id));
   let n = 0;
   while (taken.has(`${side}-${n}`)) n++;
   return columnFromTemplate(t, `${side}-${n}`, side, ring, items);

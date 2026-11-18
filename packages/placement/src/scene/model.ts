@@ -217,8 +217,9 @@ export interface Edge {
    * and its items out of the layout (no `edges[id]`, no `items[id]`, as for an item placed nowhere), so nothing reads a
    * rect of it. Its items take no part in give-way or folds. It has no targets and no refusals for any kind, no
    * keyboard stops, and its items have none either (dragging one gives nothing); `moveTo` into it is refused as into an
-   * edge that doesn't take the kind. Its items stay in it: `storeScene` / `readScene` keep them and `hidden`. Side
-   * columns, rails and bars alike.
+   * edge that doesn't take the kind. Its items stay in it: `storeScene` / `readScene` keep them and `hidden`. A column a
+   * drop makes never takes a hidden edge's id or ring: ids are chosen against every edge, and the side's rings are made
+   * distinct around the hidden ones. Side columns, rails and bars alike.
    */
   readonly hidden?: boolean;
 }

@@ -9,8 +9,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   bar the host doesn't draw or a rail it has turned off. It takes no room, and the rest lays out as if it and its items
   weren't there: `solve` leaves both out of the layout, with no give-way or folds for them. It has no targets, refusals or
   stops, and neither do its items. A drop elsewhere keeps it as it was, and `moveTo` into it is refused. `storeScene` /
-  `readScene` keep it and its items (`hidden: true`; an entry without it keeps `base`'s). Scenes without it lay out and
-  target exactly as before.
+  `readScene` keep it and its items (`hidden: true`; an entry without it keeps `base`'s). A column a drop makes never
+  takes a hidden edge's id or ring. Scenes without it lay out and target exactly as before.
 
 - `./tiling`, fixed: **a split with no room for its gap keeps its panes inside its rect.** When a split's rect was
   narrower than the gap, `layoutSplit` laid its second side a gap past the split's start, past the rect's end and even
