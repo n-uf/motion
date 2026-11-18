@@ -912,6 +912,56 @@ describe("drag/ refusals in the pick", () => {
   });
 });
 
+describe("drag/ a release beyond a refusal", () => {
+  // A group dragged across a panel column (a refusal) and let go over open space (the float) in one quick move.
+  const column: DragTarget = { id: "refuse:column", priority: 2, hit: rect(0, 0, 240, 800), refuse: true };
+  const float: DragTarget = { id: "float", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true };
+  const list = [column, float];
+  const start = () => createDragIntent<DragTarget>({ home: rect(4, 40, 236, 34), lift: { x: 8, y: 44 } });
+
+  it("says a refusal was crossed since a target last showed, and release lands on what is under the pointer", () => {
+    const intent = start();
+    let t = 0;
+    const flags: boolean[] = [];
+    // Fast, from the grip across the column (refused), out to the open space: no target ever shows.
+    for (const x of [8, 60, 120, 180, 230]) expect(intent.update({ x, y: 260 }, (t += 16), list).refused?.id).toBe("refuse:column");
+    for (const x of [300, 520]) {
+      const f = intent.update({ x, y: 260 }, (t += 16), list);
+      expect([f.shown, f.refused]).toEqual([null, null]);
+      flags.push(f.refusedSinceShown);
+    }
+    expect(flags).toEqual([true, true]);
+    expect(intent.release({ x: 520, y: 260 }, list)?.id).toBe("float");
+  });
+
+  it("is false over the refusal itself, once a target shows, before any refusal, and after hide", () => {
+    const intent = start();
+    let t = 0;
+    // Over open space with no refusal crossed: false.
+    const away = createDragIntent<DragTarget>({ home: rect(600, 40, 100, 30), lift: { x: 650, y: 50 } });
+    expect(away.update({ x: 400, y: 400 }, 16, list).refusedSinceShown).toBe(false);
+    expect(intent.update({ x: 100, y: 260 }, (t += 16), list).refusedSinceShown).toBe(false);
+    let f = intent.update({ x: 400, y: 260 }, (t += 16), list);
+    expect(f.refusedSinceShown).toBe(true);
+    // Aiming there: the float shows, and the flag is gone.
+    for (let k = 0; k < 8; k++) f = intent.update({ x: 400, y: 260 }, (t += 60), list);
+    expect([f.shown?.id, f.refusedSinceShown]).toEqual(["float", false]);
+    // Back over the column and out, then hide: false.
+    intent.update({ x: 100, y: 260 }, (t += 16), list);
+    intent.update({ x: 400, y: 260 }, (t += 16), list);
+    intent.hide(t);
+    expect(intent.update({ x: 410, y: 260 }, (t += 16), list).refusedSinceShown).toBe(false);
+  });
+
+  it("changes nothing else: no indicator flashes after a refusal (the aim gate is kept)", () => {
+    const intent = start();
+    let t = 0;
+    const shown: (string | null)[] = [];
+    for (const x of [8, 60, 120, 180, 230, 260, 300, 340, 380]) shown.push(intent.update({ x, y: 260 }, (t += 16), list).shown?.id ?? null);
+    expect(shown.every((s) => s === null)).toBe(true);
+  });
+});
+
 describe("drag/ a lift rect", () => {
   // A drop strip down the left edge, spring-loaded; a 400 px wide grip across it at y 100–138, so the part of the grip
   // the strip covers is 32 × 38.
