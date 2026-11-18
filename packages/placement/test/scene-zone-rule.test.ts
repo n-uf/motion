@@ -1,6 +1,6 @@
 /**
  * The item's zone is its own fact, not the edge's. A move sets `align` only when the drop names a zone (a gap in a
- * zone); a rail, a new column, home or `moveTo` with no zone keep it. An item lies in its own zone where its edge takes
+ * zone of an edge that offers a choice: more than one of its zones takes the kind); a rail, a new column, home or `moveTo` with no zone keep it. An item lies in its own zone where its edge takes
  * it there, else in the first zone that does (`zoneIn`), the same rule on every edge and for items a hidden edge lends.
  */
 import { describe, expect, it } from "vitest";
@@ -57,9 +57,51 @@ describe("an item's zone is its own", () => {
     expect(a.items.g!.align).toBeUndefined();
     expect(solve(a).items.g).toMatchObject({ edge: "deck", zone: "start" });
     expect(moveTo(s, "a", { edge: "deck", zone: "end", at: 0 }).items.a!.align).toBe("end");
-    // A gap in the rail's start zone names it: g's zone becomes start.
+    // A gap in the rail, whose start zone is its only one for groups, names no choice: g keeps its own (end).
     const inRail = targets(s, "g").find((t) => t.place.kind === "gap" && t.place.edge === "rail")!;
-    expect(inRail.after(P).scene.items.g!.align).toBeUndefined();
+    expect(inRail.after(P).scene.items.g!.align).toBe("end");
+  });
+
+  /** The kits' shape: a deck bar, and a compact left rail drawn at a wide width, hidden at a narrow one lending to the deck. */
+  const kit = (railZones?: Partial<Record<"start" | "center" | "end", string[]>>): Scene => ({
+    stage: { x: 0, y: 0, width: 1400, height: 700 },
+    edges: [
+      bar("deck", "top", 0, ["a", "c", "g"], { zoneAccepts: { start: ["group"], center: ["group"], end: ["group"] } }),
+      { id: "rail", side: "left", ring: 0, accepts: ["group"], items: ["t"], cross: { min: 36, max: 36, rail: 36 }, compact: true, ...(railZones ? { zoneAccepts: railZones } : {}) },
+    ],
+    items: byId([group("a", 1), group("c", 2, { align: "center" }), group("g", 3, { align: "end" }), group("t", 4)]),
+    floats: [],
+    floatKinds: ["group"],
+  });
+  const hide = (s: Scene): Scene => ({ ...s, edges: s.edges.map((e) => (e.id === "rail" ? { ...e, hidden: true, showIn: "deck" } : e)) });
+
+  it("the kits' case: an end-zone group moved onto a one-zone rail (a rail gap, or a move naming its start) keeps its zone and, the rail hidden later, lends back to the deck's end zone", () => {
+    const s = kit({ start: ["group"] });
+    const byGap = targets(s, "g").filter((t) => t.place.kind === "gap" && t.place.edge === "rail");
+    expect(byGap.length).toBeGreaterThan(0);
+    const byMove = moveTo(s, "g", { edge: "rail", zone: "start", at: Number.MAX_SAFE_INTEGER });
+    for (const wide of [...byGap.map((t) => t.after(P).scene), byMove]) {
+      expect(wide.edges.find((e) => e.id === "rail")!.items).toContain("g");
+      expect(wide.items.g!.align).toBe("end");
+      expect(solve(wide).items.g).toMatchObject({ edge: "rail", zone: "start" });
+      const l = solve(hide(wide));
+      expect(l.items.g).toMatchObject({ edge: "deck", zone: "end" });
+      expect(l.edges.deck!.items.filter((x) => l.items[x]?.zone === "end").at(-1)).toBe("g");
+    }
+  });
+
+  it("on a rail whose start and end zones both take groups, a drop names the zone: end sets end, start sets start", () => {
+    const s = kit({ start: ["group"], end: ["group"] });
+    const gaps = targets(s, "g").filter((t) => t.place.kind === "gap" && t.place.edge === "rail");
+    const end = gaps.find((t) => t.place.kind === "gap" && t.place.zone === "end")!;
+    const start = gaps.find((t) => t.place.kind === "gap" && t.place.zone === "start")!;
+    expect(end.after(P).scene.items.g!.align).toBe("end");
+    expect(start.after(P).scene.items.g!.align).toBeUndefined();
+    expect(moveTo(s, "g", { edge: "rail", zone: "start", at: 0 }).items.g!.align).toBeUndefined();
+    expect(moveTo(s, "a", { edge: "rail", zone: "end", at: 0 }).items.a!.align).toBe("end");
+    // So does a rail with no zoneAccepts (every zone takes groups, as the kits' rails declare today).
+    const open = kit();
+    expect(moveTo(open, "g", { edge: "rail", zone: "start", at: Number.MAX_SAFE_INTEGER }).items.g!.align).toBeUndefined();
   });
 
   it("an item stored in a zone its edge doesn't take lies in the first that does; its stored zone is unchanged", () => {

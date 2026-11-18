@@ -106,6 +106,13 @@ export function zoneIn(edge: Edge, item: SceneItem): Zone {
 }
 
 /**
+ * Whether a drop on `edge` names a zone for `kind`: the edge offers a choice, more than one of its zones taking the
+ * kind. Only then does the zone a drop gives become the item's `align`; on a one-zone edge (a rail that takes the kind
+ * at its start only) the item keeps its own, and lies in that one zone there (`zoneIn`).
+ */
+export const namesZone = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, kind: Kind): boolean => zonesTaking(edge, kind).length > 1;
+
+/**
  * Whether a hidden edge's `showIn` names an edge it can lend its items to: another static edge of the scene, not
  * hidden. A dynamic column (`column: true`) never is: drops make and delete those.
  */

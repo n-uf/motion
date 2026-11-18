@@ -71,7 +71,7 @@
 import { PLANE, area, rect, type Rect } from "../geometry";
 import type { Target } from "../target";
 import { floatAt, prune, use } from "./changes";
-import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
+import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
 import type { Edge, Orient, Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
@@ -207,8 +207,11 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
         const a = t.after(point, grab);
         // Nothing committed: the scene as it was, the same object.
         if (a.scene === shown) return { scene, layout: showsIn ? solve(scene, prev) : a.layout };
-        // Only a drop that names a zone (a gap in a zone) sets the item's zone; every other move keeps its own.
-        const back = withHiddenOf(scene, a.scene, lent, dragged, t.place.kind === "gap", rezoned);
+        // Only a drop that names a zone (a gap in a zone of an edge offering a choice, `namesZone`) sets the item's zone;
+        // every other move keeps its own.
+        const on = t.place.kind === "gap" ? shown.edges.find((e) => t.place.kind === "gap" && e.id === t.place.edge) : undefined;
+        const named = !!on && namesZone(on, scene.items[dragged]!.kind);
+        const back = withHiddenOf(scene, a.scene, lent, dragged, named, rezoned);
         // A safety net for the stored scene: a dynamic column left empty (a hidden one whose last item a drop moved out)
         // goes, as in any change, its side's rings closed up. Lent items never sit in a dynamic column (`viewOf`).
         const restored = showsIn ? prune(back) : back;

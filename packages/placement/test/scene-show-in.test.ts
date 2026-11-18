@@ -163,9 +163,10 @@ describe("Edge.showIn", () => {
     expect(float.scene.items.g!.align).toBeUndefined();
     expect(float.scene.edges.find((e) => e.id === "hid")!.items).toEqual([]);
     expect(J(solve(float.scene))).toBe(J(float.layout));
-    // A gap names its zone: the drop's zone applies.
+    // A gap in the top bar's one zone for groups names no choice: g keeps its own zone and lies in the center there.
     const gap = ts.find((t) => t.place.kind === "gap" && t.place.edge === "top" && t.place.at === 0)!.after(P, G);
-    expect(gap.scene.items.g!.align).toBe("center");
+    expect(gap.scene.items.g!.align).toBeUndefined();
+    expect(solve(gap.scene).items.g).toMatchObject({ edge: "top", zone: "center" });
     expect(gap.scene.edges.find((e) => e.id === "top")!.items[0]).toBe("g");
   });
 
