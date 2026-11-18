@@ -1,10 +1,11 @@
 /**
- * `Edge.hidden`: an edge that is part of the scene's stored state but not of the window. It takes no room, has no
- * targets, refusals or stops, its items have none and draw nothing, `moveTo` into it is refused, and the store keeps
- * it and its items. Everything else is exactly as if the edge and its items were not in the scene.
+ * `Edge.hidden`: an edge kept in the scene with its items but not in the window (view state, the host's each time it
+ * builds the scene). It takes no room, has no targets, refusals or stops, its items have none and draw nothing,
+ * `moveTo` into it is refused, and the store keeps its items but never `hidden`. Everything else is as if the edge and
+ * its items were not in the scene.
  */
 import { describe, expect, it } from "vitest";
-import { dockHome, moveTo, readScene, refusals, solve, stops, storeScene, targets, type Edge, type Scene } from "../src/scene";
+import { dockHome, moveTo, readScene, refusals, solve, stops, storeScene, targets, type Edge, type Scene, type SceneLayout } from "../src/scene";
 import { FLUSH, INSET, kitScene } from "./kit-scene";
 import { modelScene } from "./model-scene";
 import { bar, byId, column, group, panel } from "./scene-fixture";
@@ -21,21 +22,39 @@ function pair(s: Scene, id: string, edit: (e: Edge) => Edge = (e) => e): { hidde
 }
 
 /**
- * What a drag of `id` shows: every target (with the layout a release makes) and refusal, and the stops. With `rings`
- * false, the release layouts' edge rings are left out: a column a drop makes beside a hidden edge on the same side takes
- * a ring past the hidden one's, so its number differs from the scene without it, though nothing lies elsewhere. With
- * `layouts` false they are left out altogether: beside a hidden dynamic column, a new column also takes another id.
+ * A release layout in terms that don't depend on a hidden edge beside it: each edge's ring as its rank among the edges
+ * of its side the layout draws, and the ids of edges the drop made (not in `before`) as "new". Beside a hidden edge, a
+ * column a drop makes or removes numbers its side around the hidden edge, and a new column's id skips the hidden one's.
  */
-const look = (s: Scene, id: string, rings = true, layouts = true): string =>
-  J([
+function relative(l: SceneLayout, before: ReadonlySet<string>): string {
+  const rank = new Map<string, number>();
+  for (const side of ["left", "right", "top", "bottom"]) {
+    Object.entries(l.edges)
+      .filter(([, e]) => e.side === side)
+      .sort(([, a], [, b]) => a.ring - b.ring)
+      .forEach(([id], i) => rank.set(id, i));
+  }
+  let out = J({ ...l, edges: Object.fromEntries(Object.entries(l.edges).map(([id, e]) => [id, { ...e, ring: rank.get(id) }])) });
+  for (const id of Object.keys(l.edges)) if (!before.has(id)) out = out.split(`"${id}"`).join('"new"');
+  return out;
+}
+
+/**
+ * What a drag of `id` shows: every target (with the layout a release makes) and refusal, and the stops. With
+ * `relativeLayouts`, the release layouts of the targets that make a column are compared by `relative`.
+ */
+const look = (s: Scene, id: string, relativeLayouts = false): string => {
+  const before = new Set(s.edges.map((e) => e.id));
+  return J([
     targets(s, id).map((t) => {
       const l = t.after({ x: 300, y: 200 }, { x: 10, y: 10 }).layout;
-      const layout = !layouts ? null : rings ? l : { ...l, edges: Object.fromEntries(Object.entries(l.edges).map(([k, e]) => [k, { ...e, ring: 0 }])) };
+      const layout = relativeLayouts && (t.place.kind === "column" || t.place.kind === "rail") ? relative(l, before) : J(l);
       return [t.id, t.priority, t.hit, t.hits, t.slot, t.marker, t.place, layout];
     }),
     refusals(s, id),
     stops(s, id).map((t) => t.id),
   ]);
+};
 
 const scenes = (): Scene[] => [
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].flatMap((seed) => [modelScene(seed), modelScene(seed, true), modelScene(seed, false, false, true)]),
@@ -64,14 +83,15 @@ describe("Edge.hidden", () => {
     expect(bars).toBeGreaterThan(20);
   });
 
-  it("side columns and compact rails, hidden, take no room either: the window lays out as without them", () => {
+  it("side columns and compact rails, hidden, take no room either: the window lays out and targets as without them", () => {
     let edges = 0;
     for (const s of scenes()) {
       for (const e of s.edges.filter((x) => (x.side === "left" || x.side === "right") && !x.items.some((id) => s.items[id]!.fixed))) {
         const { hidden, removed } = pair(s, e.id);
         expect(J(solve(hidden)), e.id).toBe(J(solve(removed)));
         const id = Object.keys(removed.items).find((k) => !removed.items[k]!.fixed && !removed.items[k]!.closed);
-        if (id) expect(look(hidden, id, false, e.column !== true), `${e.id} drag ${id}`).toBe(look(removed, id, false, e.column !== true));
+        // Every target's release layout as without the edge; those that make a column, by their relative rings and ids.
+        if (id) expect(look(hidden, id, true), `${e.id} drag ${id}`).toBe(look(removed, id, true));
         edges++;
       }
     }
@@ -95,6 +115,20 @@ describe("Edge.hidden", () => {
       expect(J(solve(a.scene))).toBe(J(a.layout));
     }
     expect(targets(s, "c").length).toBeGreaterThan(0);
+  });
+
+  it("a target that commits nothing (home, a blocked rect) gives back the scene itself, with a hidden edge in it", () => {
+    const s: Scene = { ...small(), blocked: [{ x: 400, y: 300, width: 40, height: 40 }] };
+    const ts = targets(s, "a");
+    const home = ts.filter((t) => t.place.kind === "home");
+    const none = ts.filter((t) => t.place.kind === "none");
+    expect(home.length).toBeGreaterThan(0);
+    expect(none.length).toBe(1);
+    for (const t of [...home, ...none]) {
+      const a = t.after({ x: 0, y: 0 });
+      expect(a.scene).toBe(s);
+      expect(J(a.layout)).toBe(J(solve(s)));
+    }
   });
 
   it("moveTo into a hidden edge is refused, as into one that doesn't take the kind; so is docking home into it", () => {
@@ -129,7 +163,7 @@ describe("Edge.hidden", () => {
       expect(a.scene.edges.find((e) => e.id === "left-0")).toMatchObject({ hidden: true, items: ["q"] });
       // The preview is the result.
       expect(J(solve(a.scene))).toBe(J(a.layout));
-      // Stored and read back over the starting scene: both columns, the hidden one still hidden.
+      // Stored and read back over the starting scene (the host's, which hides left-0): both columns and their items.
       const read = readScene(JSON.parse(JSON.stringify(storeScene(a.scene))), s);
       expect(read.dropped).toEqual([]);
       const shape = (sc: Scene) => J(sc.edges.map((e) => [e.id, e.side, e.ring, e.items, e.hidden === true]).sort());
@@ -142,19 +176,66 @@ describe("Edge.hidden", () => {
     expect(new Set(left.map((e) => e.ring)).size).toBe(3);
   });
 
-  it("storeScene / readScene keep hidden and its items; an entry without it keeps base's; another value is dropped", () => {
+  describe("a hidden edge listed after the shown ones, at a lower ring, keeps its place in the ring order", () => {
+    const tpl = { accepts: ["panel"], cross: { min: 160, max: 400 } };
+    const scene = (): Scene => ({
+      stage: { x: 0, y: 0, width: 1400, height: 600 },
+      edges: [
+        column("left-1", "left", 1, ["p"], { column: true }),
+        column("left-2", "left", 2, ["x"], { column: true }),
+        { id: "rail", side: "left", ring: 0, accepts: ["group"], items: ["g"], cross: { min: 30, max: 30, rail: 30 }, compact: true, hidden: true },
+      ],
+      items: byId([panel("p", 1), panel("x", 2), panel("r", 3), group("g", 4)]),
+      floats: [{ id: "r", rect: { x: 700, y: 200, width: 260, height: 200 } }],
+      floatKinds: ["panel"],
+      columns: { left: tpl, right: tpl },
+    });
+    const ringsOf = (s: Scene): Record<string, number> => Object.fromEntries(s.edges.filter((e) => e.side === "left").map((e) => [e.id, e.ring]));
+
+    it("a column removed (p dragged out, left-1 goes): the rail stays outermost, left-2 after it", () => {
+      const s = scene();
+      const a = targets(s, "p").find((t) => t.place.kind === "float")!.after({ x: 700, y: 300 });
+      expect(ringsOf(a.scene)).toEqual({ "left-2": 1, rail: 0 });
+      expect(J(solve(a.scene))).toBe(J(a.layout));
+    });
+
+    it("a column made (a drop on the line between left-1 and left-2): the rail stays outermost", () => {
+      const s = scene();
+      const t = targets(s, "r").find((x) => x.id === "column:left:1")!;
+      expect(t).toBeDefined();
+      const a = t.after({ x: 0, y: 300 });
+      const rings = ringsOf(a.scene);
+      const made = a.scene.edges.find((e) => e.items.includes("r"))!.id;
+      expect(rings.rail).toBe(0);
+      expect(rings["left-1"]).toBeLessThan(rings[made]!);
+      expect(rings[made]).toBeLessThan(rings["left-2"]!);
+      expect(new Set(Object.values(rings)).size).toBe(3 + 1);
+      expect(J(solve(a.scene))).toBe(J(a.layout));
+    });
+
+    it("a drop that makes or removes no column changes no ring", () => {
+      const s = scene();
+      for (const t of targets(s, "r").filter((x) => x.place.kind === "gap" || x.place.kind === "home" || x.place.kind === "float")) {
+        expect(ringsOf(t.after({ x: 300, y: 300 }).scene), t.id).toEqual(ringsOf(s));
+      }
+    });
+  });
+
+  it("the store keeps a hidden edge's items, never hidden itself: read back, hidden comes from base", () => {
     const s = small();
     const stored = storeScene(s);
-    expect(stored.edges.find((e) => e.id === "hid")).toEqual({ id: "hid", side: "bottom", ring: 0, items: ["b"], hidden: true });
-    expect(stored.edges.find((e) => e.id === "top")!.hidden).toBeUndefined();
-    const base: Scene = { ...s, edges: s.edges.map((e) => ({ ...e, items: [], hidden: false })) };
-    const read = readScene(JSON.parse(JSON.stringify(stored)), base);
-    expect(read.dropped).toEqual([]);
-    expect(read.scene.edges.find((e) => e.id === "hid")).toMatchObject({ hidden: true, items: ["b"] });
-    // A store from before: no hidden on the entry, base's kept.
-    const old = { ...stored, edges: stored.edges.map(({ hidden: _h, ...e }) => e) };
-    expect(readScene(old, small()).scene.edges.find((e) => e.id === "hid")!.hidden).toBe(true);
-    const bad = { ...stored, edges: stored.edges.map((e) => (e.id === "hid" ? { ...e, hidden: "yes" } : e)) };
-    expect(readScene(bad, base).dropped).toContain("edge:hid:hidden");
+    expect(stored.edges.find((e) => e.id === "hid")).toEqual({ id: "hid", side: "bottom", ring: 0, items: ["b"] });
+    // Read over a base that shows the bar: shown, with its stored items.
+    const shownBase: Scene = { ...s, edges: s.edges.map((e) => ({ ...e, items: e.id === "hid" ? [] : e.items, hidden: false })) };
+    const shown = readScene(JSON.parse(JSON.stringify(stored)), shownBase);
+    expect(shown.dropped).toEqual([]);
+    expect(shown.scene.edges.find((e) => e.id === "hid")).toMatchObject({ hidden: false, items: ["b"] });
+    // Read over a base that hides it: hidden, with them.
+    expect(readScene(JSON.parse(JSON.stringify(stored)), small()).scene.edges.find((e) => e.id === "hid")).toMatchObject({ hidden: true, items: ["b"] });
+    // A stored hidden (an older store, or another writer's) is ignored and listed.
+    const withHidden = { ...stored, edges: stored.edges.map((e) => (e.id === "hid" ? { ...e, hidden: true } : e)) };
+    const read = readScene(withHidden, shownBase);
+    expect(read.dropped).toContain("edge:hid:hidden");
+    expect(read.scene.edges.find((e) => e.id === "hid")!.hidden).toBe(false);
   });
 });

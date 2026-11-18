@@ -5,12 +5,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.36
 
-- `./scene`, **`Edge.hidden`** (additive): an edge kept in the scene's stored state but not in the window, such as a
-  bar the host doesn't draw or a rail it has turned off. It takes no room, and the rest lays out as if it and its items
-  weren't there: `solve` leaves both out of the layout, with no give-way or folds for them. It has no targets, refusals or
-  stops, and neither do its items. A drop elsewhere keeps it as it was, and `moveTo` into it is refused. `storeScene` /
-  `readScene` keep it and its items (`hidden: true`; an entry without it keeps `base`'s). A column a drop makes never
-  takes a hidden edge's id or ring. Scenes without it lay out and target exactly as before.
+- `./scene`, **`Edge.hidden`** (additive): an edge kept in the scene with its items but not in the window, such as a
+  bar the host doesn't draw or a rail it has turned off. It is view state, the host's each time it builds the scene. It
+  takes no room, and the rest lays out as if it and its items weren't there: `solve` leaves both out of the layout, with
+  no give-way or folds for them. It has no targets, refusals or stops, and neither do its items. A drop elsewhere keeps
+  it as it was, a target that commits nothing gives back the scene itself, and `moveTo` into it is refused.
+  `storeScene` keeps its items but never writes `hidden`; `readScene` takes `hidden` from `base` (a stored one is
+  ignored, `edge:<id>:hidden`). A column a drop makes never takes a hidden edge's id, and a side where a drop makes or
+  removes a column is numbered again with the hidden edge at its own place. Scenes without it lay out and target exactly
+  as before.
 
 - `./tiling`, fixed: **a split with no room for its gap keeps its panes inside its rect.** When a split's rect was
   narrower than the gap, `layoutSplit` laid its second side a gap past the split's start, past the rect's end and even
