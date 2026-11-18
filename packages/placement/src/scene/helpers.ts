@@ -143,8 +143,12 @@ export const inHiddenEdge = (scene: Scene, id: string): boolean => scene.edges.s
  * shown edges are those it had, nothing is renumbered. On a side where a column was made or removed, each hidden edge
  * goes back by its own ring, before the first shown edge that lay further in than it did, and the side is numbered again
  * from 0 in that order.
+ *
+ * A moved lent item keeps its stored zone (`align`), not the one the view gave it, unless the drop named a zone (`zoned`:
+ * a gap in an edge): docked where no zone was named, it takes its stored zone where that edge takes it there, else the
+ * one it was put in; anywhere else (a float) its stored `align` as it was.
  */
-export function withHiddenOf(scene: Scene, shown: Scene, lent: ReadonlyMap<string, string> = new Map(), moved?: string): Scene {
+export function withHiddenOf(scene: Scene, shown: Scene, lent: ReadonlyMap<string, string> = new Map(), moved?: string, zoned = false): Scene {
   if (shown === scene || !scene.edges.some((e) => e.hidden === true)) return shown;
   // The lent items that stay lent: out of the edges they were shown in, back into their hidden edges.
   const back = [...lent.keys()].filter((id) => id !== moved);
@@ -154,7 +158,17 @@ export function withHiddenOf(scene: Scene, shown: Scene, lent: ReadonlyMap<strin
     const own = moved !== undefined && lent.get(moved) === e.id ? { ...e, items: e.items.filter((id) => id !== moved) } : e;
     edges.splice(Math.min(i, edges.length), 0, own);
   });
-  const items = back.length > 0 ? { ...shown.items, ...Object.fromEntries(back.map((id) => [id, scene.items[id]!])) } : shown.items;
+  const items: Record<string, SceneItem> = back.length > 0 ? { ...shown.items, ...Object.fromEntries(back.map((id) => [id, scene.items[id]!])) } : { ...shown.items };
+  if (moved !== undefined && lent.has(moved) && !zoned) {
+    const was = scene.items[moved]!;
+    const now = items[moved]!;
+    const edge = edges.find((e) => e.hidden !== true && e.items.includes(moved));
+    const zone = !edge || zoneTakes(edge, zoneOf(was), was.kind) ? zoneOf(was) : zoneOf(now);
+    if (zone !== zoneOf(now) || (!edge && now.align !== was.align)) {
+      const { align: _a, ...plain } = now;
+      items[moved] = !edge ? (was.align === undefined ? plain : { ...plain, align: was.align }) : zone === "start" ? plain : { ...plain, align: zone };
+    }
+  }
   const ringBefore = new Map(scene.edges.filter((e) => e.hidden !== true).map((e) => [e.id, e.ring]));
   for (const side of new Set(scene.edges.filter((e) => e.hidden === true).map((e) => e.side))) {
     const was = scene.edges.filter((e) => e.side === side && e.hidden !== true).map((e) => e.id).sort();

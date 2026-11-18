@@ -832,8 +832,13 @@ edge: the home target, or one that commits nothing, gives back the scene itself;
 it out of the hidden edge, to the drop's place; a drop of another item never moves them out. Shown again
 (`hidden: false`), the hidden edge holds every item no drop moved. An item is lent only where that edge takes its kind
 (`edgeTakes`), in its own zone where the edge takes it there, else in the first zone that does; fixed items are never
-lent, and one that isn't stays as in a hidden edge (drawn nowhere, no targets). A `showIn` that names the edge itself,
-no edge or another hidden edge is ignored, and `solve` lists it in `notes` as `show-in-ignored`.
+lent, and one that isn't stays as in a hidden edge (drawn nowhere, no targets). A moved item keeps its stored zone
+(`align`), not the one it was shown in, unless the drop names a zone (a gap in an edge). A dynamic column that held
+nothing but lent items once a drop takes its own is deleted, as any empty column is, and its side's rings closed up; the
+hidden edge's `showIn` then names no edge, so its items are drawn nowhere until the host shows the edge again or names
+another one (name a static edge where that matters). `canFold`, `fold` and the hand fold read a lent item along the
+edge it is drawn in. A `showIn` that names the edge itself, no edge or another hidden edge is ignored, and `solve`
+lists it in `notes` as `show-in-ignored`.
 
 **Each edge is a stack.** Left and right edges are columns (`forms.column`), top and bottom ones bars (`forms.row`),
 each solved by `fitStack` along the length it gets, with `gap`, `pad` and `menu` passed through, its cross limits never

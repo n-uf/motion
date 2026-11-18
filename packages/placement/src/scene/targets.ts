@@ -70,8 +70,8 @@
  */
 import { PLANE, area, rect, type Rect } from "../geometry";
 import type { Target } from "../target";
-import { floatAt, use } from "./changes";
-import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
+import { floatAt, prune, use } from "./changes";
+import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, railColumnOf, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
 import type { Edge, Orient, Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
@@ -204,7 +204,13 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
         const a = t.after(point, grab);
         // Nothing committed: the scene as it was, the same object.
         if (a.scene === shown) return { scene, layout: showsIn ? solve(scene, prev) : a.layout };
-        const restored = withHiddenOf(scene, a.scene, lent, lent.has(dragged) ? dragged : undefined);
+        const moved = lent.has(dragged) ? dragged : undefined;
+        // A drop that names its zone: a gap in an edge, or a side's rail column (its start zone).
+        const zoned = t.place.kind === "gap" || (t.place.kind === "rail" && !!railColumnOf(shown, t.place.side, scene.items[dragged]!.kind));
+        const back = withHiddenOf(scene, a.scene, lent, moved, zoned);
+        // With the lent items given back, a dynamic column that held only them besides what the drop took is empty: it
+        // goes, as in any change (its side's rings closed up), and the hidden edge's `showIn` may then name no edge.
+        const restored = showsIn ? prune(back) : back;
         const ringOf = new Map(a.scene.edges.map((e) => [e.id, e.ring]));
         const renumbered = restored.edges.some((e) => e.hidden !== true && ringOf.get(e.id) !== e.ring);
         const layout = renumbered || showsIn ? solve(restored, prev) : a.layout;
