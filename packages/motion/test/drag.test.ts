@@ -948,15 +948,32 @@ describe("drag/ the window's edge belongs to the targets drawn against it", () =
     expect(intent.release({ x: 700, y: 800 }, list)).toBeNull();
   });
 
-  it("the float shown inside the window holds nothing past its edge: once the grace is over, nothing shows", () => {
+  it("the float shown inside the window holds nothing past its edge: nothing shows at once", () => {
     const intent = createDragIntent<DragTarget>({ home: rect(1088, 84, 300, 668), lift: { x: 1108, y: 94 } });
     let t = 0;
     let f = intent.update({ x: 700, y: 400 }, (t += 16), list);
     for (let k = 0; k < 20; k++) f = intent.update({ x: 700, y: 400 }, (t += 16), list);
     expect(f.shown?.id).toBe("float:findings");
-    for (let k = 0; k < 20; k++) f = intent.update({ x: 400, y: 800 }, (t += 16), list);
+    f = intent.update({ x: 400, y: 800 }, (t += 16), list);
     expect(f.shown).toBeNull();
     expect(intent.release({ x: 400, y: 800 }, list)).toBeNull();
+  });
+
+  it("creeping onto the edge, 2 px a frame, the float gets no gap grace there: it hides on the edge's first frame", () => {
+    const intent = createDragIntent<DragTarget>({ home: rect(1088, 84, 300, 668), lift: { x: 1108, y: 94 } });
+    let t = 0;
+    let f = intent.update({ x: 1390, y: 400 }, (t += 16), list);
+    for (let k = 0; k < 20; k++) f = intent.update({ x: 1390, y: 400 }, (t += 16), list);
+    expect(f.shown?.id).toBe("float:findings");
+    for (let x = 1392; x < 1400; x += 2) {
+      f = intent.update({ x, y: 400 }, (t += 16), list);
+      expect(f.shown?.id, `x ${x}`).toBe("float:findings");
+    }
+    f = intent.update({ x: 1400, y: 400 }, (t += 16), list);
+    expect(f.shown).toBeNull();
+    expect(intent.release({ x: 1400, y: 400 }, list)).toBeNull();
+    // And every frame on the edge after it.
+    for (let k = 0; k < 8; k++) expect(intent.update({ x: 1400, y: 400 }, (t += 16), list).shown).toBeNull();
   });
 });
 
