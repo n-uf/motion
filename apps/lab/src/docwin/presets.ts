@@ -380,6 +380,44 @@ export const PRESETS: readonly Preset[] = [
     },
   },
   {
+    id: "rail-one-stack",
+    title: "A one-zone rail is one stack along its length",
+    expected:
+      "The left rail has one zone (zones: start) and holds Zoom. Dragging Review (from the bottom bar's end zone) along it finds a gap at every point, top to bottom, none refused and none in a center or end zone. A drop near its foot puts Review last on the rail, the marker on the line where it lands, and Review keeps its own end zone.",
+    setup: (c) =>
+      c.setScene(
+        sceneWith((s) => {
+          const r = moveTo(s, "review", { edge: "bottom", zone: "end", at: 0 });
+          const z = moveTo(r, "zoom", { edge: "rail-left", at: 0 });
+          return { ...z, edges: z.edges.map((e) => (e.id === "rail-left" ? { ...e, zones: ["start"] } : e)) };
+        }),
+      ),
+    check(c) {
+      const s = c.scene;
+      const rail = c.layout.edges["rail-left"]?.rect;
+      if (!rail) return { pass: false, now: "The left rail isn't drawn." };
+      const ts = targets(s, "review").filter((t) => t.id.includes(":rail-left:"));
+      const others = ts.filter((t) => t.place.kind !== "gap" || t.place.zone !== "start").length;
+      const refused = c.refusals("review").filter((r) => r.edge === "rail-left").length;
+      // A point along the rail is a hole when no rail gap and no other edge's slot (the empty top bar's strip reaches
+      // over the rail's top) takes it.
+      const all = targets(s, "review").filter((t) => t.place.kind !== "float");
+      let holes = 0;
+      for (let y = rail.y + 2; y < rail.y + rail.height - 2; y += 8) if (!all.some((t) => inside(t.hit, { x: rail.x + rail.width / 2, y }))) holes++;
+      const foot = { x: rail.x + rail.width / 2, y: rail.y + rail.height - 4 };
+      const t = ts.find((x) => inside(x.hit, foot));
+      const a = t?.after(foot);
+      const last = !!a && a.scene.edges.find((e) => e.id === "rail-left")!.items.at(-1) === "review";
+      const own = a?.scene.items.review?.align === "end";
+      const landed = a?.layout.items.review?.rect;
+      const marked = !!t?.marker && !!landed && Math.abs(t.marker.y - landed.y) < 0.5;
+      return {
+        pass: ts.length > 0 && others === 0 && refused === 0 && holes === 0 && last && own && marked,
+        now: `${ts.length} gaps on the rail (${others} outside its start zone), ${refused} refusals, ${holes} points with no gap; a drop at its foot ${last ? "puts Review last" : "doesn't put Review last"}, ${own ? "its zone kept (end)" : `its zone now ${a?.scene.items.review?.align ?? "start"}`}, the marker ${marked ? "on" : "off"} the landing line.`,
+      };
+    },
+  },
+  {
     id: "zoom-back-to-title",
     title: "Zoom out of the title bar and back",
     expected:
