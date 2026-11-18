@@ -15,8 +15,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   its own `align`. So a group from a bar's end zone, dropped on such a rail while it is drawn and lent back to the bar
   through `showIn` once the rail is hidden, lies in the bar's end zone again, not its start. A rail whose zones all
   take the kind (no `zoneAccepts`) still offers the choice, and a drop on it sets the zone; a host that wants its rail
-  to keep the groups' own zones declares `zoneAccepts: { start: [kind] }` on it. Layouts, targets and refusals are as
-  before; only stored `align` after a drop into a one-zone edge changes.
+  to keep the groups' own zones declares `zoneAccepts: { start: [kind] }` on it. That declaration also changes the
+  rail's targets: its center and end gaps for that kind go, and those thirds give `not-accepted` refusals instead.
+  Layouts, targets and refusals are otherwise as before; only stored `align` after a drop into a one-zone edge changes.
 
 - `./scene`, **an item's zone is its own** (behavior change). A move sets `align` only when the drop names a zone (a
   gap in a zone, a zone's slot, `moveTo` with `zone`); a rail, a new column, home, `dockHome` (the start scene's
