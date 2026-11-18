@@ -352,6 +352,34 @@ export const PRESETS: readonly Preset[] = [
     },
   },
   {
+    id: "hidden-bar-shows-in-top",
+    title: "A hidden bar shows its groups in the top bar",
+    expected:
+      "With the bottom bar hidden and showing in the top bar, it draws nothing, and Views and Review are drawn in the top bar after its own groups, while the scene keeps them in the bottom bar. Dragging Views offers it the top bar's gaps; its home gives back the scene as it was, and a drop at the top bar's start moves it there for real, out of the bottom bar.",
+    setup: (c) => c.setScene(sceneWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, hidden: true, showIn: "top" } : e)) }))),
+    check(c) {
+      const s = c.scene;
+      const bottom = s.edges.find((e) => e.id === "bottom");
+      const top = s.edges.find((e) => e.id === "top");
+      const kept = !!bottom && bottom.items.includes("views") && bottom.items.includes("review");
+      const own = (top?.items ?? []).map((id) => c.layout.items[id]?.rect).filter((r): r is Rect => !!r);
+      const views = c.layout.items.views;
+      const review = c.layout.items.review;
+      const shown = !!views && !!review && views.edge === "top" && review.edge === "top" && !c.layout.edges.bottom;
+      const after = shown && own.every((r) => r.x + r.width <= Math.min(views.rect.x, review.rect.x) + 0.5);
+      const ts = targets(s, "views");
+      const home = ts.find((t) => t.place.kind === "home");
+      const stays = !!home && home.after({ x: 0, y: 0 }).scene === s;
+      const first = ts.find((t) => t.place.kind === "gap" && t.place.edge === "top" && t.place.at === 0);
+      const moved = first?.after(centre(first.hit)).scene;
+      const out = !!moved && !moved.edges.find((e) => e.id === "bottom")!.items.includes("views") && moved.edges.find((e) => e.id === "top")!.items[0] === "views";
+      return {
+        pass: kept && shown && after && stays && out,
+        now: `The scene ${kept ? "keeps Views and Review in the bottom bar" : "lost them from the bottom bar"}; they are ${shown ? "drawn in the top bar" : "not drawn in the top bar"}${after ? ", after its own groups" : ""}. Views' home ${stays ? "gives back the scene" : "changes the scene"}; a drop at the top bar's start ${out ? "moves it there, out of the bottom bar" : first ? "doesn't move it out" : "isn't offered"}.`,
+      };
+    },
+  },
+  {
     id: "zoom-back-to-title",
     title: "Zoom out of the title bar and back",
     expected:
