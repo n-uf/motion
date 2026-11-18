@@ -1377,7 +1377,9 @@ Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (
 
 **Changes** are pure and return the scene given when nothing applies: `moveTo(scene, id, { edge, zone?, at })`,
 `floatAt(scene, id, rect?, orient?)` (with no rect: its last `floatSize`, anchored to the content's top-right), `fold`,
-`use`, `keep`, `raise` (a float on top: no use, no reshape), `open`, `close`, `orient`, `resize` and
+`use` (idempotent: on an item whose `used` is already strictly greater than every other item's it gives back the same
+scene object, so a press on the newest item stores nothing new; any other item, or one tied with another, is bumped to
+the newest age plus one), `keep`, `raise` (a float on top: no use, no reshape), `open`, `close`, `orient`, `resize` and
 `setSide(scene, edgeId, side)`. `resize(scene, edgeId, size)` sets the user's size across an edge;
 `resize(scene, floatId, rect, moving?)` resizes a float by hand at `fitResize`'s rect (see "Resizing a float by hand";
 the scene given back where `fitResize` gives null). `setSide` moves an edge to the other side of its axis (left ⇄ right, top ⇄ bottom) as
