@@ -227,7 +227,9 @@ clamped so that its screen rect at pan 0 fits the view, so it still scrolls with
 time and the state keeps the stored rect, so a larger view brings a float back where it was. `"free"` never moves a
 float. A float folded by hand (`toggleFold`) lays out as a title bar: `kind` `"bar"`, `folded` `"hand"`, at its own x,
 y and width and `options.bar` tall, clamped as a bar. It is still a float (`floating: true`) to its targets and drags,
-pinned or not, and unfolding brings its full rect back: the stored rect never changes.
+pinned or not, and unfolding brings its full rect back: the stored rect never changes. That `floating` is a layout
+item's flag; `@n-uf/motion/drag`'s `createDragIntent({ floating })` is an option a host sets from it at lift
+(`floating: layout.items[id]?.floating === true`), so the item's own box loses to a refusal as the float does.
 
 **Folded columns** (`options.fold`, default `"rail"`): a column folded by hand goes to its side's rail. With `"ride"`,
 it rides instead while its side still has an open column: its panels become title bars (`kind` `"bar"`, `rides`: the
