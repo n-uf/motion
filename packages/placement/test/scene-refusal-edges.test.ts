@@ -16,13 +16,14 @@ const pickList = (s: Scene, item: string) => {
 const ids = (s: Scene, item: string, p: { x: number; y: number }) => [targetAt(pickList(s, item), p)?.id ?? null, pickTarget(pickList(s, item), p)?.id ?? null];
 
 describe("refusals and the window's edge", () => {
-  it("every refusal and the float carry the stage as `outer`; no gap or slot does", () => {
+  it("every refusal and the float carry the stage as `bounds`; no gap or slot does", () => {
     for (let seed = 1; seed <= 20; seed++) {
       const s = modelScene(seed, seed % 2 === 0);
       const item = Object.keys(s.items).find((k) => !s.items[k]!.fixed && !s.items[k]!.closed)!;
-      for (const r of refusals(s, item)) expect(r.outer).toEqual(s.stage);
-      for (const t of targets(s, item)) expect(t.outer === undefined ? "none" : t.place.kind, t.id).toBe(t.outer === undefined ? "none" : "float");
-      expect(targets(s, item).find((t) => t.place.kind === "float")?.outer).toEqual(s.stage);
+      for (const r of refusals(s, item)) expect(r.bounds).toEqual(s.stage);
+      for (const r of refusalTargets(refusals(s, item))) expect(r.bounds).toEqual(s.stage);
+      for (const t of targets(s, item)) expect(t.bounds === undefined ? "none" : t.place.kind, t.id).toBe(t.bounds === undefined ? "none" : "float");
+      expect(targets(s, item).find((t) => t.place.kind === "float")?.bounds).toEqual(s.stage);
     }
   });
 

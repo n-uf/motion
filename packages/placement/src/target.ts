@@ -26,12 +26,13 @@ export interface Target {
    */
   readonly refuse?: true;
   /**
-   * The drawn space the zone belongs to (the window's stage): the zone, and a drag intent's band about it, hold only
-   * points strictly inside it. The window's boundary belongs only to the targets drawn against it: the scene gives
-   * `outer` to every refusal and to the float (whole-plane), never to a gap or a slot, so a pointer clamped onto the
-   * window's edge picks a gap that reaches it, else nothing.
+   * The drawn space the zone belongs to (the window's stage): the zone, and a drag intent's band and gap grace about
+   * it, hold only points strictly inside it. The window's boundary belongs only to the targets drawn against it: the
+   * scene gives `bounds` to every refusal and to the float (whole-plane), never to a gap or a slot, so a pointer clamped
+   * onto the window's edge picks a gap that reaches it, else nothing. That relies on the host clamping exactly onto the
+   * stage's edge (`x + width`, `y + height`): a host that clamps to `width - 0.5` still picks inside the window.
    */
-  readonly outer?: Rect;
+  readonly bounds?: Rect;
 }
 
 /**

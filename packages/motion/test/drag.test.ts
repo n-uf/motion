@@ -888,9 +888,9 @@ describe("drag/ refusals in the pick", () => {
     expect(targetAt([wide, bar], { x: 820, y: 815 })?.id).toBe("refuse:bar:start:0");
   });
 
-  it("a refusal's zone is half-open toward the outside of its `outer`: a point on the window's edge is never in it", () => {
+  it("a refusal's zone is half-open toward the outside of its `bounds`: a point on the window's edge is never in it", () => {
     const stage = rect(0, 0, 1120, 800);
-    const bar: DragTarget = { id: "refuse:bar", priority: 2, hit: rect(600, 780, 520, 20), refuse: true, outer: stage };
+    const bar: DragTarget = { id: "refuse:bar", priority: 2, hit: rect(600, 780, 520, 20), refuse: true, bounds: stage };
     const gap: DragTarget = { id: "gap", priority: 2, hit: rect(808, 760, 300, 30) };
     // Inside: the refusal.
     expect(targetAt([bar, float], { x: 958, y: 790 })?.id).toBe("refuse:bar");
@@ -898,8 +898,8 @@ describe("drag/ refusals in the pick", () => {
     expect(targetAt([bar, float], { x: 958, y: 800 })?.id).toBe("float");
     expect(targetAt([bar, float], { x: 1120, y: 790 })?.id).toBe("float");
     expect(targetAt([bar, gap], { x: 958, y: 800 })).toBeNull();
-    // Without `outer` its edge holds the point, as any zone's does.
-    const { outer: _o, ...closed } = bar;
+    // Without `bounds` its edge holds the point, as any zone's does.
+    const { bounds: _b, ...closed } = bar;
     expect(targetAt([closed, float], { x: 958, y: 800 })?.id).toBe("refuse:bar");
     // A held target keeps its band there: the pick is no refusal, so nothing clears it.
     const intent = createDragIntent<DragTarget>({ home: rect(20, 300, 100, 30), lift: { x: 600, y: 600 } });
@@ -916,8 +916,8 @@ describe("drag/ the window's edge belongs to the targets drawn against it", () =
   // A window 1400 × 800 with a 36 px bottom bar that refuses panels, the right column's last gap above it, the float.
   const stage = rect(0, 0, 1400, 800);
   const gap: DragTarget = { id: "gap:right-0:start:1", priority: 2, hit: rect(1088, 418, 268, 346) };
-  const rim: DragTarget = { id: "refuse:bar:bottom:start", priority: 2, hit: rect(0, 764, 1400, 36), refuse: true, outer: stage };
-  const float: DragTarget = { id: "float:findings", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true, outer: stage };
+  const rim: DragTarget = { id: "refuse:bar:bottom:start", priority: 2, hit: rect(0, 764, 1400, 36), refuse: true, bounds: stage };
+  const float: DragTarget = { id: "float:findings", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true, bounds: stage };
   const list = [gap, rim, float];
 
   it("the gap keeps the point it shares with the bar's refusal (its last row of px)", () => {
@@ -1021,9 +1021,9 @@ describe("drag/ a release beyond a refusal", () => {
   it("a group flung from its bar across a docked column to open space in 24 frames: the release commits the float", () => {
     // The window (0,-16) 840 × 516; the bar's refused stretch and the docked column's tile; the float everywhere inside.
     const stage = rect(0, -16, 840, 516);
-    const bar: DragTarget = { id: "refuse:bar:left:start", priority: 2, hit: rect(0, 0, 40, 166.67), refuse: true, outer: stage };
-    const tile: DragTarget = { id: "refuse:left-0:start", priority: 2, hit: rect(40, 12, 300, 476), refuse: true, outer: stage };
-    const floatIn: DragTarget = { ...float, outer: stage };
+    const bar: DragTarget = { id: "refuse:bar:left:start", priority: 2, hit: rect(0, 0, 40, 166.67), refuse: true, bounds: stage };
+    const tile: DragTarget = { id: "refuse:left-0:start", priority: 2, hit: rect(40, 12, 300, 476), refuse: true, bounds: stage };
+    const floatIn: DragTarget = { ...float, bounds: stage };
     const all = [bar, tile, floatIn];
     const intent = createDragIntent<DragTarget>({ home: rect(0, 0, 28, 0), lift: { x: 4, y: 4 } });
     let t = 0;
