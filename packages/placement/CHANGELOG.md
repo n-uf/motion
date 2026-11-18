@@ -15,8 +15,6 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   item keeps its stored zone unless the drop names one. `canFold` and `fold` read a lent item where it is drawn. Scenes
   without it are unchanged.
 
-## 26.11.37
-
 - `./scene`, **the window's edge belongs only to the targets drawn against it** (pick change). Every refusal now
   carries the stage as `bounds` (`SceneRefusal.bounds`, passed on by `refusalTargets`), and so does the float target
   (`Target.bounds`): with `@n-uf/motion/drag` 26.11.38 they hold only points strictly inside the window. A pointer a
@@ -33,6 +31,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `pickTarget` and `PickCandidate.refuse` follow. A refusal that shared an edge with a larger target took that edge (a
   gap's last row of px on a refused bar, the outer new-column line where it ends on a status line); now the target
   does. New conformance row `P7-target-meets-a-refusal`. A host on an older drag intent fails it until it upgrades.
+
+## 26.11.37
 
 - `./scene`, **`Edge.hidden`** (additive): an edge kept in the scene with its items but not in the window, such as a
   bar the host doesn't draw or a rail it has turned off. It is view state, the host's each time it builds the scene. It
