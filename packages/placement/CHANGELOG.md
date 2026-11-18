@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.40
+## 26.11.41
 
 - `./scene`, **`use` is idempotent** (behavior change). `use(scene, id)` on an item whose `used` is already strictly
   greater than every other item's gives back the same scene object, so a press on the newest item stores nothing new;
@@ -19,6 +19,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `align` unchanged. `zoneTakes`, `zonesTaking`, `edgeTakes`,
   `zoneIn` and `namesZone` read it (with `zoneAccepts` too, a zone takes a kind only where both say so). Two zones
   split the length in halves. Never stored; `readScene` takes it from `base`. Scenes without it are unchanged.
+
+## 26.11.40
 
 - `./scene`, **a drop names a zone only where the edge offers a choice** (behavior change). A gap drop, a strip, or
   `moveTo` with `zone` sets the item's `align` only when more than one zone of that edge takes its kind (`namesZone`,

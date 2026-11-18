@@ -3,12 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## 26.11.40
-
-- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.40 (a drop names a zone only where the
-  edge offers a choice, in `./scene`).
-
-## 26.11.39
+## 26.11.41
 
 - `./drag`, fixed: **a floating item's own place loses to a refusal and ends at the window's edge.** Home gated every
   pick, refusals included, so a float whose box lay over a refused place, lifted and let go there, was over home (no
@@ -18,6 +13,13 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   nowhere; on or past the window's edge (the float holds only inside its `bounds`) nothing is picked. Elsewhere in its
   box home holds as before (a host moves the float where it is let go). Without the option (a docked item) home is
   unchanged: its own home target beats a refusal. Hosts that lift a float pass `floating: true`.
+
+## 26.11.40
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.40 (a drop names a zone only where the
+  edge offers a choice, in `./scene`).
+
+## 26.11.39
 
 - `./drag`, fixed: **the float key chooses the float over dock targets, not over refusals or outside the window.**
   With Shift held, the float showed and a release floated wherever the pointer was, a refused place and a pointer
