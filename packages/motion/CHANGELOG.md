@@ -5,6 +5,14 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.38
 
+- `./drag`, fixed: **the float key chooses the float over dock targets, not over refusals or outside the window.**
+  With Shift held, the float showed and a release floated wherever the pointer was, a refused place and a pointer
+  clamped onto the window's edge included. Now, where the pick under the pointer is a refusal, the float key picks
+  nothing: the frame is refused (`refused` says which, `forced` is still `"float"`), nothing shows, a release lands
+  nowhere, and `refusedSinceShown` behaves as without the key. Outside the float target's `bounds` it picks nothing
+  too. Over a dock target, a spring-loaded strip or open space inside the window it still floats. The rail key is
+  unchanged: its drop lands on the rail, not where the pointer is.
+
 - `./drag`, **`frame.refusedSinceShown`** (additive for reading; a host or test mock that builds a `DragFrame` itself
   must now set it, since the field is required). A refusal hides the shown target at once, and the next one shows
   only once the pointer aims again, so a pointer that crosses a refusal and is let go at speed beyond it has no
