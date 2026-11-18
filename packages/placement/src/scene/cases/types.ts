@@ -275,11 +275,12 @@ export interface CaseHost {
 /**
  * The pick rule: which of `list` the pointer at `point` is over, or null. There is one, `@n-uf/motion/drag`'s
  * `targetAt` (the lowest rank, `pickRank`: the priority, a refusal's `REFUSAL_RANK`; then the smallest zone; a rect
- * holds its edges exactly; `hits` all count), and every host passes it: placement doesn't import motion, so the host
- * takes the rule as an input. A `move` lands the pointer over the target this rule picks, and `resolvePlace` aims with it.
+ * holds its edges exactly, except toward the outside of `bounds`; `hits` all count), and every host passes it:
+ * placement doesn't import motion, so the host takes the rule as an input. A `move` lands the pointer over the target
+ * this rule picks, and `resolvePlace` aims with it.
  *
- * It reads only a candidate's `id`, `priority`, `refuse`, `hit` and `hits`, and gives back one of the candidates it was
- * given, so one rule picks among targets, refusal targets (`refusalTargets`) or both.
+ * It reads only a candidate's `id`, `priority`, `refuse`, `hit`, `hits` and `bounds`, and gives back one of the
+ * candidates it was given, so one rule picks among targets, refusal targets (`refusalTargets`) or both.
  */
 export type PickRule = <T extends PickCandidate>(list: readonly T[], point: Point) => T | null;
 
