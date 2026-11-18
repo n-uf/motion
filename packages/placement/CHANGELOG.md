@@ -23,7 +23,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   every edge and for lent items; its stored `align` is unchanged. Scenes whose items all lie in zones their edges take
   lay out, target and store exactly as before. An item stored in a zone its edge doesn't take (a group with no `align`
   in a column whose start zone takes only panels) now lies in the first zone that takes it, the column's tray, where it
-  lay among the panels before; `zoneExtents` and the gaps count it there.
+  lay among the panels before; `zoneExtents` and the gaps count it there. For a host this shows when it adds
+  `zoneAccepts` (a tray or deck) to a column whose stored scenes already hold groups with no `align`: on upgrade those
+  groups move from the start cluster to the tray at the column's foot, and that column's gap ids change
+  (`gap:<col>:end:0` appears). The stored scene is unchanged by reading and storing it. To know where an item lies, read
+  `SceneItemLayout.zone`, not `scene.items[id].align`, since the two can now differ; a host that wants to rewrite its
+  stored scenes can set each item's `align` to `zoneIn(edge, item)` (exported).
 
 - `./scene`, **the window's edge belongs only to the targets drawn against it** (pick change). Every refusal now
   carries the stage as `bounds` (`SceneRefusal.bounds`, passed on by `refusalTargets`), and so does the float target
