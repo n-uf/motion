@@ -10,6 +10,15 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.39
 
+- `./drag`, fixed: **a floating item's own place loses to a refusal and ends at the window's edge.** Home gated every
+  pick, refusals included, so a float whose box lay over a refused place, lifted and let go there, was over home (no
+  `refused`, a host moved it where it was let go). New `DragIntentOptions.floating`: the held item floats and `home` is
+  its box, a free placement ranked like the float target. Its home then holds only where the pick there, home ignored,
+  is no refusal and inside the window: over a refusal the frame is refused, `atHome` is false and a release lands
+  nowhere; on or past the window's edge (the float holds only inside its `bounds`) nothing is picked. Elsewhere in its
+  box home holds as before (a host moves the float where it is let go). Without the option (a docked item) home is
+  unchanged: its own home target beats a refusal. Hosts that lift a float pass `floating: true`.
+
 - `./drag`, fixed: **the float key chooses the float over dock targets, not over refusals or outside the window.**
   With Shift held, the float showed and a release floated wherever the pointer was, a refused place and a pointer
   clamped onto the window's edge included. Now, where the pick under the pointer is a refusal, the float key picks

@@ -1039,6 +1039,51 @@ describe("drag/ the float key chooses the float over dock targets, not over refu
   });
 });
 
+describe("drag/ a floating item's own place is a free placement", () => {
+  // A window 1400 × 800 with a refused bar along the bottom; a float whose box (home) lies over the bar's rim.
+  const stage = rect(0, 0, 1400, 800);
+  const rim: DragTarget = { id: "refuse:bar:bottom:start", priority: 2, hit: rect(0, 764, 1400, 36), refuse: true, bounds: stage };
+  const float: DragTarget = { id: "float:notes", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true, bounds: stage };
+  const box = rect(500, 600, 300, 200);
+  const list = [rim, float];
+  /** Lifted in the box, out of it and back in at `p`, held there. */
+  const back = (home: Rect, targets: readonly DragTarget[], p: { x: number; y: number }, floating = true) => {
+    const intent = createDragIntent<DragTarget>({ home, lift: { x: 520, y: 620 }, floating });
+    let t = 0;
+    intent.update({ x: 520, y: 620 }, t, targets);
+    for (let k = 0; k < 4; k++) intent.update({ x: 300, y: 300 }, (t += 16), targets);
+    let f = intent.update(p, (t += 16), targets);
+    for (let k = 0; k < 10; k++) f = intent.update(p, (t += 16), targets);
+    return { f: [f.atHome, f.shown?.id ?? null, f.refused?.id ?? null], landed: intent.release(p, targets)?.id ?? null };
+  };
+
+  it("over a refusal inside its box: refused, and a release lands nowhere", () => {
+    expect(back(box, list, { x: 650, y: 780 })).toEqual({ f: [false, null, "refuse:bar:bottom:start"], landed: null });
+  });
+
+  it("elsewhere in its box: home, as before (the host moves the float where it is let go)", () => {
+    expect(back(box, list, { x: 650, y: 700 })).toEqual({ f: [true, null, null], landed: null });
+  });
+
+  it("on or past the window's edge inside its box: nothing (no home, no float, no refusal)", () => {
+    const low = rect(500, 700, 300, 200);
+    for (const p of [{ x: 650, y: 800 }, { x: 650, y: 840 }]) expect(back(low, list, p), `${p.x},${p.y}`).toEqual({ f: [false, null, null], landed: null });
+  });
+
+  it("a docked item's home over a refusal is still home, on the window's edge too", () => {
+    const docked = rect(500, 740, 300, 60);
+    const homeTarget: DragTarget = { id: "home:notes", priority: 1, hit: docked };
+    for (const list2 of [[homeTarget, rim, float], [rim, float]]) {
+      expect(back(docked, list2, { x: 650, y: 780 }, false)).toEqual({ f: [true, null, null], landed: null });
+      expect(back(docked, list2, { x: 650, y: 800 }, false)).toEqual({ f: [true, null, null], landed: null });
+    }
+  });
+
+  it("without `floating`, a float's box over a refusal is home as before (the option is the host's to give)", () => {
+    expect(back(box, list, { x: 650, y: 780 }, false)).toEqual({ f: [true, null, null], landed: null });
+  });
+});
+
 describe("drag/ a release beyond a refusal", () => {
   // A group dragged across a panel column (a refusal) and let go over open space (the float) in one quick move.
   const column: DragTarget = { id: "refuse:column", priority: 2, hit: rect(0, 0, 240, 800), refuse: true };
