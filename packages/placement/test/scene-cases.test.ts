@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { targetAt } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
-import { lift, solve, targets, type SceneTarget } from "../src/scene";
+import { lift, refusalTargets, refusals, solve, targets, type SceneTarget } from "../src/scene";
 import {
   CASES,
   CASE_GROUPS,
@@ -326,7 +326,8 @@ describe("the pick rule and resolvePlace", () => {
     const lists = [list, ...[1, 2, 3, 4, 5, 6].flatMap((seed) => [false, true].map((flush) => {
       const m = modelScene(seed, flush);
       const id = Object.keys(m.items).find((k) => !m.items[k]!.fixed && !m.items[k]!.closed)!;
-      return targets(m, id);
+      // The refusals in the pick too: a refusal ranks after every target of priority 1 and 2.
+      return [...targets(m, id), ...refusalTargets(refusals(m, id))] as unknown as SceneTarget[];
     }))];
     const r = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
     lists.push([
@@ -335,6 +336,13 @@ describe("the pick rule and resolvePlace", () => {
       { id: "c", priority: 2, hit: r(0, 0, 10, 10) },
       { id: "d", priority: 1, hit: r(10, 10, -4, 4) },
       { id: "e", priority: 3, hit: r(0, 0, 1 / 3, 2 / 3) },
+    ] as unknown as SceneTarget[]);
+    // A refusal sharing an edge with a larger gap, one given priority 1, and the float under both.
+    lists.push([
+      { id: "gap", priority: 2, hit: r(808, 400, 280, 400) },
+      { id: "rim", priority: 2, hit: r(0, 800, 1120, 8), refuse: true },
+      { id: "odd", priority: 1, hit: r(800, 390, 20, 20), refuse: true },
+      { id: "float", priority: 3, hit: r(-1e9, -1e9, 2e9, 2e9), free: true },
     ] as unknown as SceneTarget[]);
     let n = 0;
     for (const ts of lists) {

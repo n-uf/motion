@@ -10,6 +10,7 @@
  * needs to turn a gesture's `place` into a pointer, and the deprecated `pickTarget` (the default pick).
  */
 import { centre, contains as inside, type Point, type Rect } from "../../geometry";
+import { pickRank } from "../../target";
 import { close, dockHome, fold, floatAt, homeFor, open, placeTargetId, raise, readScene, refusalTargets, refusals, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneRefusal, type SceneRefusalTarget, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
 import type { CaseHost, CaseSettings, Gesture, PickCandidate, PickRule } from "./types";
 
@@ -20,8 +21,9 @@ export const END_REACH = 24;
 
 
 /**
- * The most precise target under `point`: the lowest priority number, then the smallest zone; null when none is. A
- * target with `hits` is under the point in any of them, and its zone's size is theirs together.
+ * The most precise target under `point`: the lowest rank (`pickRank`: the priority, a refusal's `REFUSAL_RANK`), then
+ * the smallest zone; null when none is. A target with `hits` is under the point in any of them, and its zone's size is
+ * theirs together.
  *
  * @deprecated The pick rule is `@n-uf/motion/drag`'s `targetAt`: pass it as `createSceneHost({ pick: targetAt })` and
  * to `resolvePlace`. This is only the reference host's default when none is given (placement doesn't import motion),
@@ -29,14 +31,14 @@ export const END_REACH = 24;
  * of width × height over its pieces. A test holds it equal to `targetAt`. Removed in the release that drops the legacy
  * entries.
  */
-export function pickTarget<T extends { readonly priority: number; readonly hit: Rect; readonly hits?: readonly Rect[] }>(list: readonly T[], point: Point): T | null {
+export function pickTarget<T extends { readonly priority: number; readonly hit: Rect; readonly hits?: readonly Rect[]; readonly refuse?: true }>(list: readonly T[], point: Point): T | null {
   const holds = (r: Rect): boolean => point.x >= r.x && point.x <= r.x + r.width && point.y >= r.y && point.y <= r.y + r.height;
   const under = (t: T): boolean => (t.hits ? t.hits.some(holds) : holds(t.hit));
   const size = (t: T): number => (t.hits ? t.hits.reduce((s, r) => s + r.width * r.height, 0) : t.hit.width * t.hit.height);
   let best: T | null = null;
   for (const t of list) {
     if (!under(t)) continue;
-    if (!best || t.priority < best.priority || (t.priority === best.priority && size(t) < size(best))) best = t;
+    if (!best || pickRank(t) < pickRank(best) || (pickRank(t) === pickRank(best) && size(t) < size(best))) best = t;
   }
   return best;
 }

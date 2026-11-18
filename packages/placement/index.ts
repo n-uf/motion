@@ -24,5 +24,5 @@ export {
   type Rect,
   type Size,
 } from "./src/geometry";
-export type { Target } from "./src/target";
+export { pickRank, REFUSAL_RANK, type Target } from "./src/target";
 export { BELOW_LEFT, positionPopup, type Align, type Positioned, type PositionerRule } from "./src/positioner";
