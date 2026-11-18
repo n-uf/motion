@@ -283,8 +283,19 @@ export function startOf(item: SceneItem, forms: readonly StackForm[], edge?: Edg
   return folded < 0 ? 0 : Math.min(Math.max(folded, Math.floor(item.from!)), forms.length - 1);
 }
 
-/** The axes item `id` lies along: its edge's, its float's orient; both when it lies nowhere. */
-export function axesOf(scene: Scene, id: string): Orient[] {
+/**
+ * The scene as it places item `id`: the window's (`viewOf`) when a hidden edge lends it to another edge, so its edge is
+ * the one `solve` draws it in; else `scene` itself.
+ */
+export function placingOf(scene: Scene, id: string): Scene {
+  if (!scene.edges.some((e) => e.hidden === true && e.showIn !== undefined && e.items.includes(id))) return scene;
+  const { view, lent } = viewOf(scene);
+  return lent.has(id) ? view : scene;
+}
+
+/** The axes item `id` lies along: its edge's (the one it is drawn in, when lent), its float's orient; both when it lies nowhere. */
+export function axesOf(given: Scene, id: string): Orient[] {
+  const scene = placingOf(given, id);
   const item = scene.items[id];
   const edge = scene.edges.find((e) => e.items.includes(id));
   if (edge) return [axisOf(edge.side)];
@@ -297,8 +308,9 @@ export function axesOf(scene: Scene, id: string): Orient[] {
  * form on the axis it lies along (`startOf` over 0). A stored `from` with no folded form there is no fold. Every reader
  * of the hand fold asks this, never `from` itself.
  */
-export function isHandFolded(scene: Scene, id: string): boolean {
-  const item = Object.hasOwn(scene.items, id) ? scene.items[id] : undefined;
+export function isHandFolded(given: Scene, id: string): boolean {
+  const scene = placingOf(given, id);
+  const item = Object.hasOwn(given.items, id) ? given.items[id] : undefined;
   const edge = scene.edges.find((e) => e.items.includes(id));
   return !!item && axesOf(scene, id).some((a) => startOf(item, formsOf(item, a), edge) > 0);
 }
