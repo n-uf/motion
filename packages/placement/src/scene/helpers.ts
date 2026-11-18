@@ -81,33 +81,87 @@ export function railColumnOf(scene: Scene, side: "left" | "right", kind: Kind): 
     .reduce<Edge | undefined>((m, e) => (!m || e.ring < m.ring ? e : m), undefined);
 }
 
-/** The scene as the window shows it: its hidden edges left out (`Edge.hidden`). The same object when none is hidden. */
-export function shownScene(scene: Scene): Scene {
-  return scene.edges.some((e) => e.hidden === true) ? { ...scene, edges: scene.edges.filter((e) => e.hidden !== true) } : scene;
+/** The scene as the window shows it, and what it lent: see `viewOf`. */
+export interface SceneView {
+  /** The scene the window shows: no hidden edge; the items a hidden edge lends at the end of the edge it shows them in. */
+  readonly view: Scene;
+  /** Each lent item's hidden edge, by item id. */
+  readonly lent: ReadonlyMap<string, string>;
+  /** Hidden edges whose `showIn` is ignored: it names the edge itself, no edge, or another hidden edge. */
+  readonly ignored: readonly string[];
+}
+
+/** Whether a hidden edge's `showIn` names an edge it can lend its items to: another edge of the scene, not hidden. */
+const showInOf = (scene: Scene, e: Edge): Edge | undefined => {
+  if (e.hidden !== true || e.showIn === undefined) return undefined;
+  const to = scene.edges.find((x) => x.id === e.showIn);
+  return to && to !== e && to.hidden !== true ? to : undefined;
+};
+
+/**
+ * The scene as the window shows it (`Edge.hidden`, `Edge.showIn`): its hidden edges left out, and the items of a hidden
+ * edge that names `showIn` lent to that edge, after its own items, each that edge takes the kind of (`edgeTakes`; a
+ * fixed item never). A lent item lies in its own zone where that edge takes it there, else in the first zone that does.
+ * The same object when nothing is hidden.
+ */
+export function viewOf(scene: Scene): SceneView {
+  if (!scene.edges.some((e) => e.hidden === true)) return { view: scene, lent: new Map(), ignored: [] };
+  const lent = new Map<string, string>();
+  const ignored: string[] = [];
+  const added = new Map<string, string[]>();
+  const items: Record<string, SceneItem> = { ...scene.items };
+  for (const e of scene.edges) {
+    if (e.hidden !== true || e.showIn === undefined) continue;
+    const to = showInOf(scene, e);
+    if (!to) {
+      ignored.push(e.id);
+      continue;
+    }
+    for (const id of e.items) {
+      const item = Object.hasOwn(scene.items, id) ? scene.items[id] : undefined;
+      if (!item || item.fixed || lent.has(id) || to.items.includes(id) || !edgeTakes(to, item.kind)) continue;
+      lent.set(id, e.id);
+      added.set(to.id, [...(added.get(to.id) ?? []), id]);
+      if (!zoneTakes(to, zoneOf(item), item.kind)) {
+        const zone = zonesTaking(to, item.kind)[0]!;
+        const { align: _a, ...plain } = item;
+        items[id] = zone === "start" ? plain : { ...plain, align: zone };
+      }
+    }
+  }
+  const edges = scene.edges.filter((e) => e.hidden !== true).map((e) => (added.has(e.id) ? { ...e, items: [...e.items, ...added.get(e.id)!] } : e));
+  return { view: { ...scene, edges, ...(lent.size > 0 ? { items } : {}) }, lent, ignored };
 }
 
 /** Whether item `id` lies in a hidden edge. */
 export const inHiddenEdge = (scene: Scene, id: string): boolean => scene.edges.some((e) => e.hidden === true && e.items.includes(id));
 
 /**
- * `shown`, a scene made from `shownScene(scene)` (a change, a drop's result), with `scene`'s hidden edges put back where
- * they stood in its edge list. On a side whose shown edges are those it had, nothing is renumbered. On a side where a
- * column was made or removed, each hidden edge goes back by its own ring, before the first shown edge that lay further
- * in than it did, and the side is numbered again from 0 in that order.
+ * `shown`, a scene made from `viewOf(scene).view` (a drop's result), with `scene`'s hidden edges put back where they
+ * stood in its edge list, holding their items. The items they lent go back to them, as they were, unless `moved` is
+ * one of them: the item a drop committed somewhere, which keeps its new place and leaves its hidden edge. On a side whose
+ * shown edges are those it had, nothing is renumbered. On a side where a column was made or removed, each hidden edge
+ * goes back by its own ring, before the first shown edge that lay further in than it did, and the side is numbered again
+ * from 0 in that order.
  */
-export function withHiddenOf(scene: Scene, shown: Scene): Scene {
+export function withHiddenOf(scene: Scene, shown: Scene, lent: ReadonlyMap<string, string> = new Map(), moved?: string): Scene {
   if (shown === scene || !scene.edges.some((e) => e.hidden === true)) return shown;
-  const edges = shown.edges.filter((e) => e.hidden !== true);
+  // The lent items that stay lent: out of the edges they were shown in, back into their hidden edges.
+  const back = [...lent.keys()].filter((id) => id !== moved);
+  const edges = shown.edges.filter((e) => e.hidden !== true).map((e) => (back.some((id) => e.items.includes(id)) ? { ...e, items: e.items.filter((id) => !back.includes(id)) } : e));
   scene.edges.forEach((e, i) => {
-    if (e.hidden === true) edges.splice(Math.min(i, edges.length), 0, e);
+    if (e.hidden !== true) return;
+    const own = moved !== undefined && lent.get(moved) === e.id ? { ...e, items: e.items.filter((id) => id !== moved) } : e;
+    edges.splice(Math.min(i, edges.length), 0, own);
   });
+  const items = back.length > 0 ? { ...shown.items, ...Object.fromEntries(back.map((id) => [id, scene.items[id]!])) } : shown.items;
   const ringBefore = new Map(scene.edges.filter((e) => e.hidden !== true).map((e) => [e.id, e.ring]));
   for (const side of new Set(scene.edges.filter((e) => e.hidden === true).map((e) => e.side))) {
     const was = scene.edges.filter((e) => e.side === side && e.hidden !== true).map((e) => e.id).sort();
     const now = edges.filter((e) => e.side === side && e.hidden !== true);
     if (now.length === was.length && now.every((e) => was.includes(e.id))) continue;
     const order = [...now].sort((a, b) => a.ring - b.ring || edges.indexOf(a) - edges.indexOf(b));
-    for (const h of scene.edges.filter((e) => e.side === side && e.hidden === true).sort((a, b) => a.ring - b.ring)) {
+    for (const h of edges.filter((e) => e.side === side && e.hidden === true).sort((a, b) => a.ring - b.ring)) {
       const k = order.findIndex((e) => e.hidden !== true && (ringBefore.get(e.id) ?? -Infinity) > h.ring);
       order.splice(k < 0 ? order.length : k, 0, h);
     }
@@ -115,7 +169,7 @@ export function withHiddenOf(scene: Scene, shown: Scene): Scene {
       if (e.ring !== ring) edges[edges.indexOf(e)] = { ...e, ring };
     });
   }
-  return { ...shown, edges };
+  return { ...shown, edges, items };
 }
 
 /** A kind's rail drop policy with its defaults, or null where it has none or it is turned off (width 0, `"never"`). */

@@ -823,6 +823,18 @@ a blocked rect) gives back the scene itself. `moveTo` into it is refused, as int
 where a drop makes or removes a column on its side, the side is numbered again from 0 with the hidden edge back where its
 ring put it in the order. Side columns, rails and bars alike.
 
+**Showing a hidden edge's items elsewhere.** A hidden edge with `Edge.showIn` (the id of another edge) lends its items
+to that edge: a rail turned off on a narrow window whose panels show in the column beside it, say. Like `hidden`, it
+comes from `base` and is never stored. The lent items lay out, target and stop as if they sat at the end of that edge,
+after its own items: `solve` draws them there (the hidden edge itself stays out of the layout), and a drag of one gets
+exactly the targets, refusals, stops and release layouts it would get there. The stored scene keeps them in the hidden
+edge: the home target, or one that commits nothing, gives back the scene itself; a drop that moves one for real takes
+it out of the hidden edge, to the drop's place; a drop of another item never moves them out. Shown again
+(`hidden: false`), the hidden edge holds every item no drop moved. An item is lent only where that edge takes its kind
+(`edgeTakes`), in its own zone where the edge takes it there, else in the first zone that does; fixed items are never
+lent, and one that isn't stays as in a hidden edge (drawn nowhere, no targets). A `showIn` that names the edge itself,
+no edge or another hidden edge is ignored, and `solve` lists it in `notes` as `show-in-ignored`.
+
 **Each edge is a stack.** Left and right edges are columns (`forms.column`), top and bottom ones bars (`forms.row`),
 each solved by `fitStack` along the length it gets, with `gap`, `pad` and `menu` passed through, its cross limits never
 wider than the room the cut leaves. Group forms in a column take their own width (`ownCross`); open panels and headers

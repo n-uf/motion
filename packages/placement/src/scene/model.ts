@@ -220,9 +220,19 @@ export interface Edge {
    * its items have none either (dragging one gives nothing); `moveTo` into it is refused as into an edge that doesn't
    * take the kind. Its items stay in it, and `storeScene` / `readScene` keep them. A column a drop makes never takes a
    * hidden edge's id; where a drop makes or removes a column on its side, the side is numbered again with the hidden
-   * edge back at its own place. Side columns, rails and bars alike.
+   * edge back at its own place. Side columns, rails and bars alike. With `showIn`, its items show elsewhere instead.
    */
   readonly hidden?: boolean;
+  /**
+   * Where a hidden edge's items show while it is hidden: the id of another edge, shown. Its items are laid out, targeted
+   * and stopped as if they sat in that edge after its own items (`solve` reports them there), each that edge takes the
+   * kind of, in its own zone where that edge takes it there, else in the first that does; a fixed item, or one whose
+   * kind that edge takes nowhere, is left out as without `showIn`. They stay in the hidden edge in the scene: a drop that
+   * commits a move of one takes it out, to the drop's place; its home, and any drop of another item, leaves them where
+   * they are. View state like `hidden`: the store never writes it. Naming the edge itself, no edge, or another hidden
+   * edge is ignored (`show-in-ignored`). No effect on an edge that isn't hidden.
+   */
+  readonly showIn?: string;
 }
 
 /** What a side's new columns are made from. */
@@ -496,6 +506,8 @@ export interface SceneRailLayout {
  *   its zoom only on this note.
  * - `no-vertical-form`: an item left out of a vertical place (a rail, a vertical float) because only `wrap` forms are
  *   left to it (vertical means icons: give a word group an `icons` form).
+ * - `show-in-ignored`: a hidden edge's `showIn` names the edge itself, no edge, or another hidden edge; its items are
+ *   left out as if it named none.
  */
 export type SceneNote =
   | ({ readonly edge: string } & StackNote)
@@ -511,7 +523,8 @@ export type SceneNote =
   | { readonly code: "content-short"; readonly height: number; readonly min: number }
   | { readonly code: "content-changed"; readonly from: Rect; readonly to: Rect }
   | { readonly code: "no-vertical-form"; readonly id: string; readonly edge?: string }
-  | { readonly code: "no-icons-form"; readonly id: string; readonly edge: string };
+  | { readonly code: "no-icons-form"; readonly id: string; readonly edge: string }
+  | { readonly code: "show-in-ignored"; readonly edge: string };
 export type SceneNoteCode = SceneNote["code"];
 
 export interface SceneLayout {
