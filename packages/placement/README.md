@@ -823,8 +823,8 @@ a blocked rect) gives back the scene itself. `moveTo` into it is refused, as int
 where a drop makes or removes a column on its side, the side is numbered again from 0 with the hidden edge back where its
 ring put it in the order. Side columns, rails and bars alike.
 
-**Showing a hidden edge's items elsewhere.** A hidden edge with `Edge.showIn` (the id of another edge) lends its items
-to that edge: a rail turned off on a narrow window whose panels show in the column beside it, say. Like `hidden`, it
+**Showing a hidden edge's items elsewhere.** A hidden edge with `Edge.showIn` (the id of another, static edge) lends
+its items to that edge: a rail turned off on a narrow window whose panels show in the column beside it, say. Like `hidden`, it
 comes from `base` and is never stored. The lent items lay out, target and stop as if they sat at the end of that edge,
 after its own items: `solve` draws them there (the hidden edge itself stays out of the layout), and a drag of one gets
 exactly the targets, refusals, stops and release layouts it would get there. The stored scene keeps them in the hidden
@@ -833,12 +833,11 @@ it out of the hidden edge, to the drop's place; a drop of another item never mov
 (`hidden: false`), the hidden edge holds every item no drop moved. An item is lent only where that edge takes its kind
 (`edgeTakes`), in its own zone where the edge takes it there, else in the first zone that does; fixed items are never
 lent, and one that isn't stays as in a hidden edge (drawn nowhere, no targets). A moved item keeps its stored zone
-(`align`), not the one it was shown in, unless the drop names a zone (a gap in an edge). A dynamic column that held
-nothing but lent items once a drop takes its own is deleted, as any empty column is, and its side's rings closed up; the
-hidden edge's `showIn` then names no edge, so its items are drawn nowhere until the host shows the edge again or names
-another one (name a static edge where that matters). `canFold`, `fold` and the hand fold read a lent item along the
-edge it is drawn in. A `showIn` that names the edge itself, no edge or another hidden edge is ignored, and `solve`
-lists it in `notes` as `show-in-ignored`.
+(`align`), not the one it was shown in, unless the drop names a zone (a gap in an edge). `canFold`, `fold` and the
+hand fold read a lent item along the edge it is drawn in. A `showIn` that names the edge itself, no edge, another
+hidden edge or a dynamic column (`column: true`) is ignored, and `solve` lists it in `notes` as `show-in-ignored`:
+drops make and delete dynamic columns, so they never hold lent items, and a lent item never vanishes because another
+drop emptied the column it showed in.
 
 **Each edge is a stack.** Left and right edges are columns (`forms.column`), top and bottom ones bars (`forms.row`),
 each solved by `fitStack` along the length it gets, with `gap`, `pad` and `menu` passed through, its cross limits never

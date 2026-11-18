@@ -224,16 +224,15 @@ export interface Edge {
    */
   readonly hidden?: boolean;
   /**
-   * Where a hidden edge's items show while it is hidden: the id of another edge, shown. Its items are laid out, targeted
+   * Where a hidden edge's items show while it is hidden: the id of another static edge, shown. Its items are laid out, targeted
    * and stopped as if they sat in that edge after its own items (`solve` reports them there), each that edge takes the
    * kind of, in its own zone where that edge takes it there, else in the first that does; a fixed item, or one whose
    * kind that edge takes nowhere, is left out as without `showIn`. They stay in the hidden edge in the scene: a drop that
    * commits a move of one takes it out, to the drop's place; its home, and any drop of another item, leaves them where
-   * they are. A moved item keeps its stored zone, unless the drop names one (a gap). A dynamic column left empty once
-   * its lent items go back is deleted, as any; `showIn` then names no edge, and the items are drawn nowhere until the
-   * host shows the hidden edge or names another (name a static edge to avoid this). `canFold`, `fold` and the hand fold
-   * read a lent item along the edge it is drawn in. View state like `hidden`: the store never writes it. Naming the edge
-   * itself, no edge, or another hidden edge is ignored (`show-in-ignored`). No effect on an edge that isn't hidden.
+   * they are. A moved item keeps its stored zone, unless the drop names one (a gap). `canFold`, `fold` and the hand
+   * fold read a lent item along the edge it is drawn in. View state like `hidden`: the store never writes it. Naming the
+   * edge itself, no edge, another hidden edge or a dynamic column (`column: true`: drops make and delete those) is
+   * ignored (`show-in-ignored`). No effect on an edge that isn't hidden.
    */
   readonly showIn?: string;
 }
@@ -509,8 +508,8 @@ export interface SceneRailLayout {
  *   its zoom only on this note.
  * - `no-vertical-form`: an item left out of a vertical place (a rail, a vertical float) because only `wrap` forms are
  *   left to it (vertical means icons: give a word group an `icons` form).
- * - `show-in-ignored`: a hidden edge's `showIn` names the edge itself, no edge, or another hidden edge; its items are
- *   left out as if it named none.
+ * - `show-in-ignored`: a hidden edge's `showIn` names the edge itself, no edge, another hidden edge or a dynamic
+ *   column; its items are left out as if it named none.
  */
 export type SceneNote =
   | ({ readonly edge: string } & StackNote)

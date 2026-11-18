@@ -5,15 +5,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.38
 
-- `./scene`, **`Edge.showIn`** (additive): a hidden edge that names another edge lends it its items, which lay out,
-  target and stop as if they sat at the end of that edge, while the stored scene keeps them in the hidden edge. Home
+- `./scene`, **`Edge.showIn`** (additive): a hidden edge that names another, static edge lends it its items, which lay
+  out, target and stop as if they sat at the end of that edge, while the stored scene keeps them in the hidden edge. Home
   gives back the scene itself; a real move takes the item out of the hidden edge; shown again, the hidden edge holds
   every item no drop moved. Only items whose kind that edge takes are lent (in the first zone that takes them, where
   their own doesn't). Never stored (`readScene` lists a stored one as `edge:<id>:showIn`); a `showIn` naming the edge
-  itself, no edge or another hidden edge is ignored and noted as `show-in-ignored`: `SceneNote` gains that code, so an
-  exhaustive `switch` over `code` needs a case for it. A moved item keeps its stored zone unless the drop names one; a
-  dynamic column left empty once its lent items go back is deleted, and they are drawn nowhere until the host names
-  another edge. `canFold` and `fold` read a lent item where it is drawn. Scenes without it are unchanged.
+  itself, no edge, another hidden edge or a dynamic column (drops make and delete those) is ignored and noted as
+  `show-in-ignored`: `SceneNote` gains that code, so an exhaustive `switch` over `code` needs a case for it. A moved
+  item keeps its stored zone unless the drop names one. `canFold` and `fold` read a lent item where it is drawn. Scenes
+  without it are unchanged.
 
 ## 26.11.37
 

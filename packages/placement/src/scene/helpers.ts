@@ -87,15 +87,18 @@ export interface SceneView {
   readonly view: Scene;
   /** Each lent item's hidden edge, by item id. */
   readonly lent: ReadonlyMap<string, string>;
-  /** Hidden edges whose `showIn` is ignored: it names the edge itself, no edge, or another hidden edge. */
+  /** Hidden edges whose `showIn` is ignored: it names the edge itself, no edge, another hidden edge or a dynamic column. */
   readonly ignored: readonly string[];
 }
 
-/** Whether a hidden edge's `showIn` names an edge it can lend its items to: another edge of the scene, not hidden. */
+/**
+ * Whether a hidden edge's `showIn` names an edge it can lend its items to: another static edge of the scene, not
+ * hidden. A dynamic column (`column: true`) never is: drops make and delete those.
+ */
 const showInOf = (scene: Scene, e: Edge): Edge | undefined => {
   if (e.hidden !== true || e.showIn === undefined) return undefined;
   const to = scene.edges.find((x) => x.id === e.showIn);
-  return to && to !== e && to.hidden !== true ? to : undefined;
+  return to && to !== e && to.hidden !== true && to.column !== true ? to : undefined;
 };
 
 /**
