@@ -15,6 +15,16 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   item keeps its stored zone unless the drop names one. `canFold` and `fold` read a lent item where it is drawn. Scenes
   without it are unchanged.
 
+- `./scene`, **an item's zone is its own** (behavior change). A move sets `align` only when the drop names a zone (a
+  gap in a zone, a zone's slot, `moveTo` with `zone`); a rail, a new column, home, `dockHome` (the start scene's
+  `align`) and `moveTo` with no `zone` keep it. Before, a move to a rail stored the rail's start zone, so a group from a
+  bar's end zone, docked on a rail and later lent back to that bar through `showIn`, landed in its start cluster. An
+  item lies in its own zone where its edge takes it there, else in the first zone that does (`zoneIn`), one rule for
+  every edge and for lent items; its stored `align` is unchanged. Scenes whose items all lie in zones their edges take
+  lay out, target and store exactly as before. An item stored in a zone its edge doesn't take (a group with no `align`
+  in a column whose start zone takes only panels) now lies in the first zone that takes it, the column's tray, where it
+  lay among the panels before; `zoneExtents` and the gaps count it there.
+
 - `./scene`, **the window's edge belongs only to the targets drawn against it** (pick change). Every refusal now
   carries the stage as `bounds` (`SceneRefusal.bounds`, passed on by `refusalTargets`), and so does the float target
   (`Target.bounds`): with `@n-uf/motion/drag` 26.11.38 they hold only points strictly inside the window. A pointer a
