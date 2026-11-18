@@ -5,6 +5,13 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.40
 
+- `./scene`, **`Edge.zones`** (additive): the zones an edge has, default all three. `zones: ["start"]` makes a side
+  rail one stack along its whole length: its whole length offers the start zone's gaps by position, with no center or
+  end gaps, ids or refusals for a kind it takes; a drop on it names no zone, so the item keeps its own `align`, and an
+  item lent back to a bar through `showIn` lies in its own zone there. `zoneTakes`, `zonesTaking`, `edgeTakes`,
+  `zoneIn` and `namesZone` read it (with `zoneAccepts` too, a zone takes a kind only where both say so). Two zones
+  split the length in halves. Never stored; `readScene` takes it from `base`. Scenes without it are unchanged.
+
 - `./scene`, **a drop names a zone only where the edge offers a choice** (behavior change). A gap drop, a strip, or
   `moveTo` with `zone` sets the item's `align` only when more than one zone of that edge takes its kind (`namesZone`,
   new). On a one-zone edge, such as a rail that takes groups at its start only, the item docks in that zone and keeps

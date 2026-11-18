@@ -15,19 +15,35 @@ export const anchorName = (anchor: FloatAnchorAt): FloatAnchor => (typeof anchor
  */
 export const isSince = (x: unknown): x is number => typeof x === "number" && x >= 0 && x <= Number.MAX_SAFE_INTEGER;
 
-/** Whether `edge` takes kind `kind` in `zone`: its `accepts`, narrowed by `zoneAccepts` when given (a zone not listed takes nothing). */
-export const zoneTakes = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, zone: Zone, kind: Kind): boolean =>
-  edge.accepts.includes(kind) && (edge.zoneAccepts === undefined || !!edge.zoneAccepts[zone]?.includes(kind));
+/** What the zone tests read of an edge (or a column template): what it takes, per zone, and the zones it has. */
+type ZoneDecl = { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts; readonly zones?: readonly Zone[] };
+
+/**
+ * The zones an edge has (`Edge.zones`), in order: all three unless it lists some. Entries that aren't zones, and
+ * repeats, are ignored; a list with no zone in it counts as none given (all three).
+ */
+export const zonesOf = (edge: { readonly zones?: readonly Zone[] }): readonly Zone[] => {
+  if (edge.zones === undefined) return ZONES;
+  const has = ZONES.filter((z) => edge.zones!.includes(z));
+  return has.length > 0 ? has : ZONES;
+};
+
+/**
+ * Whether `edge` takes kind `kind` in `zone`: a zone the edge has (`zones`), its `accepts`, narrowed by `zoneAccepts`
+ * when given (a zone not listed takes nothing).
+ */
+export const zoneTakes = (edge: ZoneDecl, zone: Zone, kind: Kind): boolean =>
+  edge.accepts.includes(kind) && (edge.zones === undefined || zonesOf(edge).includes(zone)) && (edge.zoneAccepts === undefined || !!edge.zoneAccepts[zone]?.includes(kind));
 
 /** The zones of `edge` that take `kind`, in order. */
-export const zonesTaking = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, kind: Kind): Zone[] => ZONES.filter((z) => zoneTakes(edge, z, kind));
+export const zonesTaking = (edge: ZoneDecl, kind: Kind): Zone[] => ZONES.filter((z) => zoneTakes(edge, z, kind));
 
 /**
  * Whether `edge` takes `kind` anywhere: its `accepts` lists it and at least one of its zones takes it (`zoneTakes`). An
  * edge whose zones take nothing for the kind (`zoneAccepts: {}`) takes it nowhere, exactly as one whose `accepts` lacks
  * it: the one test drop targets and refusals ask. The stored form and `readScene` keep reading `accepts` itself.
  */
-export const edgeTakes = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, kind: Kind): boolean => zonesTaking(edge, kind).length > 0;
+export const edgeTakes = (edge: ZoneDecl, kind: Kind): boolean => zonesTaking(edge, kind).length > 0;
 
 /**
  * How a gap's hit runs over `edge`'s open panels (`Edge.hitBand`): its own, else, for a dynamic column, its side's
@@ -110,7 +126,7 @@ export function zoneIn(edge: Edge, item: SceneItem): Zone {
  * kind. Only then does the zone a drop gives become the item's `align`; on a one-zone edge (a rail that takes the kind
  * at its start only) the item keeps its own, and lies in that one zone there (`zoneIn`).
  */
-export const namesZone = (edge: { readonly accepts: readonly Kind[]; readonly zoneAccepts?: ZoneAccepts }, kind: Kind): boolean => zonesTaking(edge, kind).length > 1;
+export const namesZone = (edge: ZoneDecl, kind: Kind): boolean => zonesTaking(edge, kind).length > 1;
 
 /**
  * Whether a hidden edge's `showIn` names an edge it can lend its items to: another static edge of the scene, not
