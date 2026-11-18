@@ -3,18 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## 26.11.37
-
-- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.37 (`Edge.hidden` in `./scene`).
-
-## 26.11.36
-
-- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.36 (`./tiling` fixes, bars that give way by
-  height, an overlay bar's `span: "full"`, anchored floats that keep clear of other floats and more in `./scene`).
-
-## 26.11.35
-
-Not published: its release run failed on a test timeout. Everything below ships in 26.11.36.
+## 26.11.38
 
 - `./drag`, **`frame.refusedSinceShown`** (additive for reading; a host or test mock that builds a `DragFrame` itself
   must now set it, since the field is required). A refusal hides the shown target at once, and the next one shows
@@ -40,6 +29,19 @@ Not published: its release run failed on a test timeout. Everything below ships 
   its band), and never a refusal or the float: a release past the window over open space commits nothing. This relies
   on the host clamping exactly onto the stage's edge (`x + width`, `y + height`): one that clamps to `width - 0.5`
   still picks inside the window. A target without `bounds` is unchanged.
+
+## 26.11.37
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.37 (`Edge.hidden` in `./scene`).
+
+## 26.11.36
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.36 (`./tiling` fixes, bars that give way by
+  height, an overlay bar's `span: "full"`, anchored floats that keep clear of other floats and more in `./scene`).
+
+## 26.11.35
+
+Not published: its release run failed on a test timeout. Everything below ships in 26.11.36.
 
 - `./drag`, **a lift zone as a rect** (additive). `DragIntentOptions.liftRect` gives the "changed my mind" spot as a
   rect: while the pointer is inside it, no spring-loaded target arms by dwell, and the 16 px `liftZone` radius is not
