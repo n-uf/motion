@@ -27,7 +27,7 @@
  */
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axesOf, axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
+import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
 import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
@@ -248,7 +248,8 @@ export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): S
 export function canFold(scene: Scene, id: string): boolean {
   const item = itemOf(scene, id);
   if (!item || (item.fixed && !scene.edges.some((e) => e.foldable === true && e.items.includes(id)))) return false;
-  const edge = scene.edges.find((e) => e.items.includes(id));
+  // A lent item folds as it is drawn: along the edge it shows in (`placingOf`).
+  const edge = placingOf(scene, id).edges.find((e) => e.items.includes(id));
   return axesOf(scene, id).some((a) => foldedIndex(item, formsOf(item, a), edge) >= 0);
 }
 
