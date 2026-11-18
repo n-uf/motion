@@ -169,7 +169,9 @@ export interface Edge {
    * its own `align`; and an item whose `align` names a zone it doesn't have lies in its zone (`zoneIn`), its stored
    * `align` unchanged (so it is back in its own zone when lent to a bar through `showIn`). Two zones (`["start", "end"]`)
    * split the length between them as three split it in thirds, the boundary at the middle, moved past the cards seen in
-   * them. Entries that aren't zones and repeats are ignored; a list with no zone counts as all three. With
+   * them. Setting `zones`, even to all three, always splits the length evenly among its zones (each boundary then moved
+   * past the cards seen on either side); leaving it out keeps the edge kind's own spans, a column's as the solver lays
+   * its zones out. Entries that aren't zones and repeats are ignored; a list with no zone counts as all three. With
    * `zoneAccepts`, a zone takes a kind only where both say so. Like `zoneAccepts`, a declaration: never stored, from
    * `base` on `readScene`.
    */
