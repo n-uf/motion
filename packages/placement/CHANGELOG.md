@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.40
 
+- `./scene`, **`use` is idempotent** (behavior change). `use(scene, id)` on an item whose `used` is already strictly
+  greater than every other item's gives back the same scene object, so a press on the newest item stores nothing new;
+  any other item, or one tied with another, is bumped to the newest age plus one as before. A drop's result is `use`d
+  the same way, so moving the item that was already the newest keeps its `used` (layouts are unchanged: only the
+  stored age differs). `raise` already gave back the scene for the top float; `floatAt` and `moveTo` don't bump ages.
+
 - `./scene`, **`Edge.zones`** (additive): the zones an edge has, default all three. `zones: ["start"]` makes a side
   rail one stack along its whole length: its whole length offers the start zone's gaps by position, with no center or
   end gaps, ids or refusals for a kind it takes; a drop on it names no zone, so the item keeps its own `align`, and an

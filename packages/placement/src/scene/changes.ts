@@ -277,9 +277,16 @@ export function fold(scene: Scene, id: string, on: boolean): Scene {
 /** The newest age in the scene, plus one. */
 const nextAge =(scene: Scene): number => Object.values(scene.items).reduce((m, it) => Math.max(m, Number.isFinite(it.used) ? it.used : 0), 0) + 1;
 
+/**
+ * The item made the newest (`used`: the newest age plus one). Idempotent: an item already strictly newer than every
+ * other gives back the scene itself, so a press on it changes nothing (a tie with another item is not newest, and
+ * bumps). A drop's result is `use`d the same way.
+ */
 export function use(scene: Scene, id: string): Scene {
   const item = itemOf(scene, id);
   if (!item) return scene;
+  const age = (it: SceneItem): number => (Number.isFinite(it.used) ? it.used : 0);
+  if (Number.isFinite(item.used) && Object.values(scene.items).every((it) => it.id === id || age(it) < item.used)) return scene;
   return withItem(scene, { ...item, used: nextAge(scene) });
 }
 
