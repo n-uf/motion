@@ -17,6 +17,13 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.37
 
+- `./scene`, **a target always beats a refusal where they meet** (pick change). A refusal ranks at the new
+  `REFUSAL_RANK` (2.5, from the package root with `pickRank`), whatever its `priority`: after every target of priority
+  1 and 2, before priority 3. `@n-uf/motion/drag`'s `targetAt` (26.11.38) applies it; the reference host's
+  `pickTarget` and `PickCandidate.refuse` follow. A refusal that shared an edge with a larger target took that edge (a
+  gap's last row of px on a refused bar, the outer new-column line where it ends on a status line); now the target
+  does. New conformance row `P7-target-meets-a-refusal`. A host on an older drag intent fails it until it upgrades.
+
 - `./scene`, **`Edge.hidden`** (additive): an edge kept in the scene with its items but not in the window, such as a
   bar the host doesn't draw or a rail it has turned off. It is view state, the host's each time it builds the scene. It
   takes no room, and the rest lays out as if it and its items weren't there: `solve` leaves both out of the layout, with

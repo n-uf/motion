@@ -1202,6 +1202,9 @@ facing halves is home's, and is no target of its own. The slot is where the item
   reaches past the stage. Hand them to the drag intent with the targets: `refusalTargets(refusals(scene, id))` gives
   each one as a target marked `refuse: true` (its `refusal` the `SceneRefusal`), which the intent never holds or
   shows, so a held target's band never covers a refusal; read "No room here" from the frame's `refused`.
+  In the pick a refusal ranks at `REFUSAL_RANK` (2.5, exported with `pickRank`): after every target of priority 1 and
+  2, before the float's 3. Where a refusal and a target meet or overlap (a gap's end on a refused bar's edge), the
+  target wins however small the refusal is; over the refusal alone it wins over the float.
   Every target keeps a reachable hit: its largest piece is at least 12 px across by 24 px along (`minHit`, data per
   edge kind), taken from the space beside it in its own zone (a column line's band, a gap's tile) where nothing else is
   aimed at, or from a neighbor that keeps its own minimum. Home, a drop strip, a refusal, the chrome and the stage's

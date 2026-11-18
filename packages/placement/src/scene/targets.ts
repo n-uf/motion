@@ -316,7 +316,11 @@ export function refusals(scene: Scene, dragged: string, options: SceneTargetOpti
   return generate(scene, dragged, options).refusals;
 }
 
-/** A refusal in the pick's shape: `refuse: true`, at priority 2 (it never lies under a target, so only the float is less precise). */
+/**
+ * A refusal in the pick's shape: `refuse: true`, which ranks it at `REFUSAL_RANK` (after every target of priority 1 and
+ * 2, so a target wins wherever the two meet or overlap, before the float). Its `priority` is 2 for a pick rule that
+ * doesn't know refusals.
+ */
 export interface SceneRefusalTarget extends Target {
   readonly refuse: true;
   readonly refusal: SceneRefusal;

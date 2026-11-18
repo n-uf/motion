@@ -39,6 +39,15 @@ function withTitle(s: Scene): Scene {
   };
 }
 
+/** A fixed status line across the bottom, 8 px: it takes groups, so a panel dragged over it is refused there. */
+function withStatusBar(s: Scene): Scene {
+  return {
+    ...s,
+    edges: [...s.edges, { id: "statusbar", side: "bottom", ring: 0, span: "full", accepts: ["group"], items: ["status"], cross: { min: 8, max: 8, rail: 8 } }],
+    items: { ...s.items, status: { id: "status", kind: "title", used: 0, fixed: true, forms: { row: [form("row", 80, 160, 8, { grows: true })] } } },
+  };
+}
+
 const RIGHT_EDGE = 1108;
 /**
  * Past a column's outer edge, in the window's 12 px inset: the rail stop holds the outer 10 px from the window's edge,
@@ -182,6 +191,15 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
     scene: win(),
     gestures: [g.press("pages"), g.at(958, 814), g.hold(), g.release()],
     expectLayout: { items: { annotations: { rect: r(12, 0, 300, 800) }, findings: { rect: r(808, 0, 300, 394) }, pages: { edge: "right-0", rect: r(808, 406, 300, 394) } }, columns: { left: [["annotations"]], right: [["findings", "pages"]] } },
+  },
+  {
+    id: "P7-target-meets-a-refusal",
+    title: "Where a target meets a refusal, the target wins",
+    expect: "With an 8 px status line across the bottom (it takes no panels), Pages let go on the line where the right column's outer new-column line ends on the status line goes to a new outer right column: the refusal never takes a point a target holds, however small it is.",
+    group: "gestures",
+    scene: withStatusBar(win()),
+    gestures: [g.press("pages"), g.at(1098, 792), g.hold(), g.release()],
+    expectLayout: { columns: { left: [["annotations"]], right: [["pages"], ["findings"]] } },
   },
   {
     id: "P8-folded-bar-drags-like-a-card",
