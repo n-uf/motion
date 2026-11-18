@@ -25,6 +25,13 @@ export interface Target {
    * and before priority 3 (`REFUSAL_RANK`, whatever its `priority`), but nothing lands on it (`refusalTargets`).
    */
   readonly refuse?: true;
+  /**
+   * The drawn space the zone belongs to (the window's stage): the zone, and a drag intent's band about it, hold only
+   * points strictly inside it. The window's boundary belongs only to the targets drawn against it: the scene gives
+   * `outer` to every refusal and to the float (whole-plane), never to a gap or a slot, so a pointer clamped onto the
+   * window's edge picks a gap that reaches it, else nothing.
+   */
+  readonly outer?: Rect;
 }
 
 /**

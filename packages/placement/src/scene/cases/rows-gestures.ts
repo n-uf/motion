@@ -202,6 +202,19 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
     expectLayout: { columns: { left: [["annotations"]], right: [["pages"], ["findings"]] } },
   },
   {
+    id: "P7-past-a-refused-bar",
+    title: "Past the window's edge beyond a refused bar, nothing is picked",
+    expect: "With an 8 px status line across the bottom (it takes no panels), Findings held over the status line is refused there; moved on past the window's bottom edge (clamped onto it) it is over no drawn space: neither the refusal nor the float holds the window's edge, so nothing is picked and the drop commits nothing.",
+    group: "gestures",
+    scene: withStatusBar(win()),
+    gestures: [g.press("findings"), g.at(700, 796), g.hold(), g.at(700, 840), g.hold(), g.release()],
+    checkpoints: [
+      { at: 2, layout: { items: { findings: null } }, note: "over the status line: refused, the held panel out of the layout" },
+      { at: 4, layout: { items: { findings: null } }, note: "past the window's edge: nothing picked" },
+    ],
+    expectLayout: { columns: { left: [["pages", "annotations"]], right: [["findings"]] } },
+  },
+  {
     id: "P8-folded-bar-drags-like-a-card",
     title: "A folded bar drags like a card",
     expect: "Annotations folded by hand to a bar lifts and drops like a card: on the right column's top gap it lands first, still a bar, on the slot's rect.",

@@ -17,6 +17,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.37
 
+- `./scene`, **the window's edge belongs only to the targets drawn against it** (pick change). Every refusal now
+  carries the stage as `outer` (`SceneRefusal.outer`, passed on by `refusalTargets`), and so does the float target
+  (`Target.outer`): with `@n-uf/motion/drag` 26.11.38 they hold only points strictly inside the window. A pointer a host
+  clamps onto the window's edge picks a gap or slot whose hit reaches the edge (P7-end-reach still lands in the last
+  gap), else nothing: a drop past the window over open space, or past a refused bar, commits nothing, where it floated
+  before. Conformance row C17's expected answer changed (the float dropped past the stage's right edge stays where it
+  was), and new row `P7-past-a-refused-bar`; a host on an older library fails them until it upgrades. The reference
+  host's `pickTarget` and `PickCandidate.outer` follow.
+
 - `./scene`, **a target always beats a refusal where they meet** (pick change). A refusal ranks at the new
   `REFUSAL_RANK` (2.5, from the package root with `pickRank`), whatever its `priority`: after every target of priority
   1 and 2, before priority 3. `@n-uf/motion/drag`'s `targetAt` (26.11.38) applies it; the reference host's
