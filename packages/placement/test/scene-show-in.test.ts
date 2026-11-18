@@ -42,7 +42,7 @@ function pairs(s: Scene, max = 3): { h: Edge; to: Edge }[] {
     if (h.hidden === true || h.items.length === 0 || h.items.some((id) => s.items[id]!.fixed)) continue;
     const item = s.items[h.items[0]!]!;
     for (const to of s.edges) {
-      if (to === h || to.hidden === true || !zoneTakes(to, zoneOf(item), item.kind)) continue;
+      if (to === h || to.hidden === true || to.column === true || !zoneTakes(to, zoneOf(item), item.kind)) continue;
       out.push({ h, to });
       break;
     }
@@ -169,7 +169,7 @@ describe("Edge.showIn", () => {
     expect(gap.scene.edges.find((e) => e.id === "top")!.items[0]).toBe("g");
   });
 
-  it("a dynamic column emptied when its lent items go back is deleted; the hidden edge's showIn then names no edge", () => {
+  it("showIn naming a dynamic column is ignored from the start: no item vanishes when a drop empties that column", () => {
     const tpl = { accepts: ["panel", "group"], cross: { min: 160, max: 400 } };
     const s: Scene = {
       stage: { x: 0, y: 0, width: 1200, height: 600 },
@@ -183,15 +183,19 @@ describe("Edge.showIn", () => {
       floatKinds: ["panel"],
       columns: { left: tpl, right: tpl },
     };
-    expect(solve(s).items.g).toMatchObject({ edge: "left-1" });
+    // Drops make and delete dynamic columns: one never holds lent items. g is drawn nowhere, as without showIn.
+    const l = solve(s);
+    expect(l.items.g).toBeUndefined();
+    expect(l.edges["left-1"]!.items).toEqual(["p"]);
+    expect(l.notes).toContainEqual({ code: "show-in-ignored", edge: "rail" });
+    expect([targets(s, "g"), refusals(s, "g"), stops(s, "g")]).toEqual([[], [], []]);
+    const plain: Scene = { ...s, edges: s.edges.map((e) => (e.id === "rail" ? { ...e, showIn: undefined } : e)) };
+    expect(J({ ...l, notes: l.notes.filter((x) => x.code !== "show-in-ignored") })).toBe(J(solve(plain)));
+    // p dragged out empties left-1, which goes as in any change; g stays in the rail, as it was.
     const a = targets(s, "p").find((t) => t.place.kind === "float")!.after({ x: 600, y: 300 }, G);
-    // left-1 held p and, shown, g: with p gone and g given back it is empty, so it goes, and the rings close up.
     expect(a.scene.edges.find((e) => e.id === "left-1")).toBeUndefined();
     expect(a.scene.edges.find((e) => e.id === "rail")).toMatchObject({ items: ["g"], ring: 0, hidden: true });
-    // The preview is the result: g is drawn nowhere until the host shows the rail or names another edge.
     expect(J(solve(a.scene))).toBe(J(a.layout));
-    expect(a.layout.items.g).toBeUndefined();
-    expect(a.layout.notes).toContainEqual({ code: "show-in-ignored", edge: "rail" });
     // The store reads it back the same.
     expect(readScene(JSON.parse(JSON.stringify(storeScene(a.scene))), s).scene.edges.map((e) => e.id).sort()).toEqual(["rail", "top"]);
   });
