@@ -77,7 +77,10 @@ export interface SceneItem {
   readonly fixed?: boolean;
   /** Closed: it keeps its place in its edge (or its float rect) but takes no room and has no targets. */
   readonly closed?: boolean;
-  /** Its zone in its edge (default start). */
+  /**
+   * Its zone (default start): the item's own, not its edge's. It lies there where its edge takes its kind there, else in
+   * the first zone that does (`zoneIn`). Only a drop that names a zone (a gap in a zone, `moveTo` with `zone`) sets it.
+   */
   readonly align?: Zone;
   /**
    * Its give-way priority in its edge (default: the edge's `priority`, else 0). When an edge runs short, items step down

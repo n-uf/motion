@@ -76,7 +76,8 @@ function zoneSpans(scene: Scene, seen: SceneLayout, edge: Edge, reach: number, p
   const placed = new Map<Zone, Span>();
   for (const [id, it] of Object.entries(seen.items)) {
     if (it.edge !== edge.id || it.inMenu) continue;
-    const z = zoneOf(scene.items[id]);
+    // The zone it is laid out in (`zoneIn`: its own wherever the edge takes it there).
+    const z = it.zone ?? zoneOf(scene.items[id]);
     const [a, b] = at(thirds && it.fixed ? reservedRect(scene, seen, id) : it.rect);
     const was = placed.get(z);
     placed.set(z, was ? [Math.min(was[0], a), Math.max(was[1], b)] : [a, b]);
