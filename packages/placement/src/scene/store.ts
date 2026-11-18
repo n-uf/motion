@@ -19,7 +19,9 @@
  * columns left empty are deleted, the rings closed up. `Edge.hidden` is view state, not stored: the host decides it
  * each time it builds the scene (from the window's width, say). A hidden edge's items are stored like any edge's;
  * `hidden` itself is not written, and read back it comes from `base` only (a stored `hidden` is ignored and listed as
- * `edge:<id>:hidden`). No float has a pinned field: one an old store has is listed and ignored.
+ * `edge:<id>:hidden`). `Edge.showIn` is the same: never written, from `base` only, a stored one listed as
+ * `edge:<id>:showIn`; the items a hidden edge lends are stored in it, as they are. No float has a pinned field: one
+ * an old store has is listed and ignored.
  *
  * Reading is lenient: anything but an object of version 1 gives `base` back with the reason in `error`. Inside one,
  * whatever can't be used is dropped and listed in `dropped` (an unknown edge `edge:<id>`, an unknown or repeated item,
@@ -271,8 +273,9 @@ function read(data: unknown, base: Scene): SceneRead {
       continue;
     }
     if (edge.column === true && isNum(e.ring)) rings.set(edge.id, e.ring);
-    // `hidden` is the host's view state, from `base`: a stored one is ignored.
+    // `hidden` and `showIn` are the host's view state, from `base`: a stored one is ignored.
     if (e.hidden !== undefined) drop(`edge:${edge.id}:hidden`);
+    if (e.showIn !== undefined) drop(`edge:${edge.id}:showIn`);
     if (e.side !== undefined && !SIDES.includes(e.side as Side)) drop(`edge:${e.id}:side`);
     else if (!describesAnchor && edge.column !== true && typeof e.side === "string" && e.side !== edge.side && axisOf(e.side as Side) === axisOf(edge.side)) moves.set(edge.id, e.side as Side);
     const ids: string[] = [];

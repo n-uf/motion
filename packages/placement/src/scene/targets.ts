@@ -71,7 +71,7 @@
 import { PLANE, area, rect, type Rect } from "../geometry";
 import type { Target } from "../target";
 import { floatAt, use } from "./changes";
-import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, shownScene, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
+import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
 import type { Edge, Orient, Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
@@ -180,15 +180,22 @@ function alongOfSlots(s: EdgeSpec, tiles: readonly Tile[]): Span[] {
  * target's result keeps the hidden edges as they were; a target that commits nothing (home, `none`) gives back `scene`
  * itself. Where a result renumbered a side's rings around them (a column made or removed beside a hidden one), its
  * layout is solved again, so it is still the result.
+ *
+ * Items a hidden edge lends (`Edge.showIn`) are dragged as items of the edge they show in. A drop that commits a move of
+ * one takes it out of its hidden edge, to the drop's place; every other result gives the lent items back to their
+ * hidden edges (and its layout is solved again, where they lent themselves to the result's edges in another order).
  */
 function generate(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
   checkEdgeIds(scene);
-  const shown = shownScene(scene);
+  const { view: shown, lent } = viewOf(scene);
   if (shown === scene) return generateShown(scene, dragged, options, []);
-  if (inHiddenEdge(scene, dragged)) return { targets: [], refusals: [], lost: [] };
+  if (inHiddenEdge(scene, dragged) && !lent.has(dragged)) return { targets: [], refusals: [], lost: [] };
   const hidden = scene.edges.filter((e) => e.hidden === true);
   const g = generateShown(shown, dragged, options, hidden);
   const prev = { ...(options.previous ? { previous: options.previous } : {}), ...(options.fresh ? { fresh: options.fresh } : {}) };
+  // With a `showIn`, each result is solved itself: its lent items given back, the edge they showed in maybe gone with
+  // the drop, and `solve`'s notes on a `showIn` it ignores.
+  const showsIn = hidden.some((e) => e.showIn !== undefined);
   return {
     ...g,
     targets: g.targets.map((t) => ({
@@ -196,11 +203,12 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
       after: (point, grab) => {
         const a = t.after(point, grab);
         // Nothing committed: the scene as it was, the same object.
-        if (a.scene === shown) return { scene, layout: a.layout };
-        const restored = withHiddenOf(scene, a.scene);
+        if (a.scene === shown) return { scene, layout: showsIn ? solve(scene, prev) : a.layout };
+        const restored = withHiddenOf(scene, a.scene, lent, lent.has(dragged) ? dragged : undefined);
         const ringOf = new Map(a.scene.edges.map((e) => [e.id, e.ring]));
         const renumbered = restored.edges.some((e) => e.hidden !== true && ringOf.get(e.id) !== e.ring);
-        return { scene: restored, layout: renumbered ? solve(restored, prev) : a.layout };
+        const layout = renumbered || showsIn ? solve(restored, prev) : a.layout;
+        return { scene: restored, layout };
       },
     })),
   };
