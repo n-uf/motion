@@ -5,7 +5,7 @@
  * and is expected to be red until the rule lands: the page never fakes it.
  */
 import { centre, contains, overlap, type Point, type Rect } from "@n-uf/placement";
-import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, railModeOf, reservedRect, resize, targetId, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
+import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, railModeOf, reservedRect, resize, targetId, targets, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
 import type { DragFeel, KindFeel } from "./feel";
 import { KIT_PRESETS } from "./kit-presets";
@@ -330,6 +330,24 @@ export const PRESETS: readonly Preset[] = [
       return {
         pass: across && under,
         now: `The bar is ${say(bar)}; the columns ${say(left)} and ${say(right)}: ${across ? "it spans both" : "it doesn't span both"}, and they ${under ? "run under it" : "stop above it"}.`,
+      };
+    },
+  },
+  {
+    id: "hidden-bar",
+    title: "A hidden bar takes no room and offers nothing",
+    expected:
+      "With the bottom bar hidden (part of the stored state, not of the window), it draws nothing and takes no room: the columns and the content run down to the window's foot. Views and Review stay in it, undrawn. Dragging Zoom finds no slot and no refusal in it.",
+    setup: (c) => c.setScene(sceneWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, hidden: true } : e)) }))),
+    check(c) {
+      const bottom = c.scene.edges.find((e) => e.id === "bottom");
+      const kept = !!bottom && bottom.items.includes("views") && bottom.items.includes("review");
+      const drawn = !!c.layout.edges.bottom || !!c.layout.items.views || !!c.layout.items.review;
+      const foot = c.layout.content.y + c.layout.content.height;
+      const offered = targets(c.scene, "zoom").filter((t) => t.id.includes(":bottom:")).length + c.refusals("zoom").filter((r) => r.edge === "bottom").length;
+      return {
+        pass: kept && !drawn && Math.abs(foot - c.scene.stage.height) < 0.5 && offered === 0,
+        now: `The bar ${kept ? "keeps Views and Review" : "lost its items"}, ${drawn ? "is drawn" : "draws nothing"}; the content ends at ${Math.round(foot)} of ${c.scene.stage.height}; ${offered} targets or refusals lie in it.`,
       };
     },
   },
