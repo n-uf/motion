@@ -273,6 +273,14 @@ export interface DragFrame<T extends DragTarget> {
    * host says so at the pointer ("No room here"). Null otherwise, and while a key forces a target.
    */
   readonly refused: T | null;
+  /**
+   * No target shows, and the pointer has been over a refusal since a target last showed (or since the lift). A refusal
+   * hides the shown target at once, and the next one shows only once the pointer aims again, so a pointer that crosses
+   * a refusal and is let go at speed over a target beyond it has no indicator drawn. Then this is true, and a release
+   * still lands on what is under the pointer (`release`): a host that commits only what it has drawn commits that
+   * release too. False whenever a target shows, over the refusal itself (`refused`), and after `hide`.
+   */
+  readonly refusedSinceShown: boolean;
 }
 
 /** What a drag intent knows now. */
@@ -406,6 +414,8 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   let anchor: Point | null = null;
   let stillSince = 0;
   let restart = false;
+  // The pointer has been over a refusal since a target last showed (the frame's `refusedSinceShown`).
+  let crossedRefusal = false;
   // Spring-loading: the target armed (by id), and the one the pointer dwells on and since when.
   let armedId: string | null = null;
   let armingId: string | null = null;
@@ -567,7 +577,11 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       else if (t - shownSince >= tuning.roomAfter && t - placeSince >= tuning.roomAfter) roomPlace = place;
       else if (shownSince === t) roomPlace = null;
       lastPlaces = places;
-      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && atHome, arming, forced: forced?.kind ?? null, refused: forced ? null : refusedRaw };
+      // A refusal crossed since a target last showed: a release beyond it lands on what is under the pointer, drawn or not.
+      if (shown) crossedRefusal = false;
+      else if (refusedRaw && !forced) crossedRefusal = true;
+      const refused = forced ? null : refusedRaw;
+      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && atHome, arming, forced: forced?.kind ?? null, refused, refusedSinceShown: !shown && !refused && crossedRefusal };
     },
     release(point, given, keys) {
       // A key held wins over geometry, home included.
@@ -601,6 +615,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       samples = [];
       anchor = null;
       restart = true;
+      crossedRefusal = false;
     },
     moveHome(dx, dy) {
       home = { ...home, x: home.x + dx, y: home.y + dy };
