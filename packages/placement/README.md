@@ -973,7 +973,9 @@ refusals, and nothing along it refuses a kind it takes. A drop on it names no zo
 has), so the item keeps its own `align`; an item whose `align` names a zone the edge lacks lies in its zone (`zoneIn`;
 a fixed item, which the edge takes in no zone, in the edge's first zone), its stored `align` unchanged, and is back in its own zone when the edge is hidden and lends it to a bar (`showIn`).
 Two zones (`["start", "end"]`) split the length between them, the boundary at the middle moved past the cards seen on
-either side, as three split it in thirds; a drop there names its half's zone. Entries that aren't zones and repeats are
+either side, as three split it in thirds; a drop there names its half's zone. Setting `zones`, even to all three,
+always splits the length evenly among its zones (each boundary moved past the cards seen on either side); leaving it
+out keeps the edge kind's own spans, on a column the spans the solver lays out. Entries that aren't zones and repeats are
 ignored, and a list with no zone counts as all three. With `zoneAccepts` as well, a zone takes a kind only where both
 say so (`zoneAccepts: { start: [...] }` alone keeps three zones and refuses the other two thirds). Like `zoneAccepts`,
 `zones` is a declaration: `storeScene` never writes it and `readScene` takes it from `base`.
