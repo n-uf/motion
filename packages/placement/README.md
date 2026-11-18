@@ -1202,8 +1202,9 @@ facing halves is home's, and is no target of its own. The slot is where the item
   reaches past the stage. Hand them to the drag intent with the targets: `refusalTargets(refusals(scene, id))` gives
   each one as a target marked `refuse: true` (its `refusal` the `SceneRefusal`), which the intent never holds or
   shows, so a held target's band never covers a refusal; read "No room here" from the frame's `refused`.
-  In the pick a refusal ranks at `REFUSAL_RANK` (2.5, exported with `pickRank`): after every target of priority 1 and
-  2, before the float's 3. Where a refusal and a target meet or overlap (a gap's end on a refused bar's edge), the
+  In the pick a refusal ranks at `REFUSAL_RANK` (2.5, exported with `pickRank`, the drag intent's value): an ordering
+  rank, not a priority (priorities stay 1, 2 and 3; `refuse: true` is a refusal's tier), after every target of
+  priority 1 and 2, before the float's 3. Where a refusal and a target meet or overlap (a gap's end on a refused bar's edge), the
   target wins however small the refusal is; over the refusal alone it wins over the float.
   The window's edge belongs only to the targets drawn against it: every refusal (`SceneRefusal.bounds`, passed on by
   `refusalTargets`) and the float target carry the stage as `bounds` (`Target.bounds`), so they hold only points

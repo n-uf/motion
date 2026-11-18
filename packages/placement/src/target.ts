@@ -36,8 +36,10 @@ export interface Target {
 }
 
 /**
- * Where a refusal ranks in the pick, on the scale of `priority` (the drag intent's `REFUSAL_RANK`): after every target
- * of priority 1 and 2, so a real target wins wherever the two meet or overlap, and before priority 3 (the float).
+ * Where a refusal ranks in the pick (the drag intent's `REFUSAL_RANK`, the same value): an ordering rank, not a
+ * priority. Priorities stay the integers 1, 2 and 3; a refusal's tier is `refuse: true`, ordered by this rank on the
+ * same scale: after every target of priority 1 and 2, so a real target wins wherever the two meet or overlap, and
+ * before priority 3 (the float).
  */
 export const REFUSAL_RANK = 2.5;
 
