@@ -138,10 +138,11 @@ const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
  * nowhere. Where the pick under the pointer is a refusal, no held target's band or gap grace keeps it: nothing shows,
  * and the frame's `refused` says which refusal it is.
  *
- * `outer`, when given, is the drawn space the zone belongs to (a window's stage): the zone holds only points strictly
- * inside it, so it is half-open toward the outside and a point on `outer`'s boundary or past it is never in it. A
- * refusal carries it: outside the window is no drawn space, and a host that clamps a pointer past the window onto its
- * edge never lands that point in a refusal.
+ * `outer`, when given, is the drawn space the zone belongs to (a window's stage): the zone, and its band, hold only
+ * points strictly inside it, so it is half-open toward the outside and a point on `outer`'s boundary or past it is
+ * never in it. The window's boundary belongs only to the targets drawn against it: a refusal and a target over the
+ * whole plane (the float) carry `outer`, a gap or a slot doesn't. So a pointer a host clamps onto the window's edge
+ * picks a gap whose hit reaches the edge, else nothing (a held target keeps its band), and never a refusal or the float.
  */
 export interface DragTarget {
   readonly id: string;
@@ -189,9 +190,12 @@ interface Margin {
   readonly x: number;
   readonly y: number;
 }
-/** Whether `point` lies in a target's zone grown by `m.x` px left and right and `m.y` px above and below. */
+/**
+ * Whether `point` lies in a target's zone grown by `m.x` px left and right and `m.y` px above and below, and inside its
+ * `outer`: a band never reaches past a zone's outer bounds (the float's band holds nothing outside the window).
+ */
 const inZoneBy = (t: DragTarget, point: Point, m: Margin): boolean =>
-  (t.hits ?? [t.hit]).some((r) => point.x >= r.x - m.x && point.x <= r.x + r.width + m.x && point.y >= r.y - m.y && point.y <= r.y + r.height + m.y);
+  within(t.outer, point) && (t.hits ?? [t.hit]).some((r) => point.x >= r.x - m.x && point.x <= r.x + r.width + m.x && point.y >= r.y - m.y && point.y <= r.y + r.height + m.y);
 /** `px`, but along each axis at most `share` of each zone's extent (its `hit`) along it. */
 const scaled = (px: number, share: number, zones: readonly (DragTarget | null)[]): Margin => {
   let x = px;

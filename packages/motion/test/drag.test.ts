@@ -912,6 +912,54 @@ describe("drag/ refusals in the pick", () => {
   });
 });
 
+describe("drag/ the window's edge belongs to the targets drawn against it", () => {
+  // A window 1400 × 800 with a 36 px bottom bar that refuses panels, the right column's last gap above it, the float.
+  const stage = rect(0, 0, 1400, 800);
+  const gap: DragTarget = { id: "gap:right-0:start:1", priority: 2, hit: rect(1088, 418, 268, 346) };
+  const rim: DragTarget = { id: "refuse:bar:bottom:start", priority: 2, hit: rect(0, 764, 1400, 36), refuse: true, outer: stage };
+  const float: DragTarget = { id: "float:findings", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true, outer: stage };
+  const list = [gap, rim, float];
+
+  it("the gap keeps the point it shares with the bar's refusal (its last row of px)", () => {
+    expect(targetAt(list, { x: 1238, y: 763 })?.id).toBe("gap:right-0:start:1");
+    expect(targetAt(list, { x: 1238, y: 764 })?.id).toBe("gap:right-0:start:1");
+    expect(targetAt(list, { x: 1238, y: 765 })?.id).toBe("refuse:bar:bottom:start");
+  });
+
+  it("a pointer clamped onto the window's edge past a refused bar picks nothing: no refusal, no float", () => {
+    expect(targetAt(list, { x: 700, y: 798 })?.id).toBe("refuse:bar:bottom:start");
+    expect(targetAt(list, { x: 700, y: 800 })).toBeNull();
+    expect(targetAt(list, { x: 700, y: 840 })).toBeNull();
+    expect(targetAt(list, { x: 700, y: 400 })?.id).toBe("float:findings");
+    // Walked over the bar, then past the window's edge (clamped there), dwelling each time: nothing shows, a release
+    // commits nothing.
+    const intent = createDragIntent<DragTarget>({ home: rect(1088, 84, 300, 668), lift: { x: 1108, y: 94 } });
+    let t = 0;
+    let f = intent.update({ x: 1148, y: 134 }, (t += 16), list);
+    for (let y = 134, x = 1148; x > 700 || y < 798; ) {
+      x = Math.max(700, x - 12);
+      y = Math.min(798, y + 12);
+      f = intent.update({ x, y }, (t += 16), list);
+    }
+    for (let k = 0; k < 30; k++) f = intent.update({ x: 700, y: 798 }, (t += 16), list);
+    expect([f.shown, f.refused?.id]).toEqual([null, "refuse:bar:bottom:start"]);
+    for (let k = 0; k < 30; k++) f = intent.update({ x: 700, y: 800 }, (t += 16), list);
+    expect([f.shown, f.refused, f.refusedSinceShown]).toEqual([null, null, true]);
+    expect(intent.release({ x: 700, y: 800 }, list)).toBeNull();
+  });
+
+  it("the float shown inside the window holds nothing past its edge: once the grace is over, nothing shows", () => {
+    const intent = createDragIntent<DragTarget>({ home: rect(1088, 84, 300, 668), lift: { x: 1108, y: 94 } });
+    let t = 0;
+    let f = intent.update({ x: 700, y: 400 }, (t += 16), list);
+    for (let k = 0; k < 20; k++) f = intent.update({ x: 700, y: 400 }, (t += 16), list);
+    expect(f.shown?.id).toBe("float:findings");
+    for (let k = 0; k < 20; k++) f = intent.update({ x: 400, y: 800 }, (t += 16), list);
+    expect(f.shown).toBeNull();
+    expect(intent.release({ x: 400, y: 800 }, list)).toBeNull();
+  });
+});
+
 describe("drag/ a release beyond a refusal", () => {
   // A group dragged across a panel column (a refusal) and let go over open space (the float) in one quick move.
   const column: DragTarget = { id: "refuse:column", priority: 2, hit: rect(0, 0, 240, 800), refuse: true };
@@ -951,6 +999,55 @@ describe("drag/ a release beyond a refusal", () => {
     intent.update({ x: 400, y: 260 }, (t += 16), list);
     intent.hide(t);
     expect(intent.update({ x: 410, y: 260 }, (t += 16), list).refusedSinceShown).toBe(false);
+  });
+
+  it("a group flung from its bar across a docked column to open space in 24 frames: the release commits the float", () => {
+    // The window (0,-16) 840 × 516; the bar's refused stretch and the docked column's tile; the float everywhere inside.
+    const stage = rect(0, -16, 840, 516);
+    const bar: DragTarget = { id: "refuse:bar:left:start", priority: 2, hit: rect(0, 0, 40, 166.67), refuse: true, outer: stage };
+    const tile: DragTarget = { id: "refuse:left-0:start", priority: 2, hit: rect(40, 12, 300, 476), refuse: true, outer: stage };
+    const floatIn: DragTarget = { ...float, outer: stage };
+    const all = [bar, tile, floatIn];
+    const intent = createDragIntent<DragTarget>({ home: rect(0, 0, 28, 0), lift: { x: 4, y: 4 } });
+    let t = 0;
+    let f = intent.update({ x: 4, y: 4 }, t, all);
+    const seen: string[] = [];
+    for (let k = 1; k <= 24; k++) {
+      f = intent.update({ x: 4 + (516 * k) / 24, y: 4 + (256 * k) / 24 }, (t += 16), all);
+      seen.push(f.refused?.id ?? (f.shown ? `shown ${f.shown.id}` : "-"));
+    }
+    expect(seen.includes("refuse:left-0:start")).toBe(true);
+    expect(seen.some((s) => s.startsWith("shown"))).toBe(false);
+    expect([f.shown, f.refused, f.refusedSinceShown]).toEqual([null, null, true]);
+    expect(intent.release({ x: 520, y: 260 }, all)?.id).toBe("float");
+  });
+
+  it("but once the item's own place showed after the refusal, a fling to open space is not committable", () => {
+    // A side's refused strip beside its rail, the rail's own stop (the panel's place) and the float.
+    const strip: DragTarget = { id: "refuse:rail:left:start", priority: 2, hit: rect(12, 120, 34, 668), refuse: true };
+    const stop: DragTarget = { id: "rail:left:0", priority: 1, hit: rect(46, 12, 10, 776) };
+    const all = [strip, stop, float];
+    const intent = createDragIntent<DragTarget>({ home: rect(12, 84, 44, 36), lift: { x: 20, y: 100 } });
+    let t = 0;
+    let f = intent.update({ x: 20, y: 100 }, t, all);
+    for (let y = 112; y <= 320; y += 12) f = intent.update({ x: 18, y }, (t += 16), all);
+    for (let k = 0; k < 3; k++) f = intent.update({ x: 18, y: 320 }, (t += 16), all);
+    expect(f.refused?.id).toBe("refuse:rail:left:start");
+    // The refusal crossed and a jump straight to open space: committable.
+    const jumped = createDragIntent<DragTarget>({ home: rect(12, 84, 44, 36), lift: { x: 20, y: 100 } });
+    let t2 = 0;
+    jumped.update({ x: 20, y: 100 }, t2, all);
+    for (let y = 112; y <= 320; y += 12) jumped.update({ x: 18, y }, (t2 += 16), all);
+    expect(jumped.update({ x: 400, y: 400 }, (t2 += 16), all).refusedSinceShown).toBe(true);
+    // Back to its own stop, dwelling: it shows; then the jump: nothing shows, and the flag stays off.
+    for (let k = 0; k < 30; k++) f = intent.update({ x: 50, y: 320 }, (t += 16), all);
+    expect(f.shown?.id).toBe("rail:left:0");
+    f = intent.update({ x: 400, y: 400 }, (t += 16), all);
+    expect([f.shown, f.refusedSinceShown]).toEqual([null, false]);
+    // A flick that never met a refusal: off too.
+    const flick = createDragIntent<DragTarget>({ home: rect(600, 40, 100, 30), lift: { x: 650, y: 50 } });
+    flick.update({ x: 650, y: 50 }, 0, all);
+    expect(flick.update({ x: 400, y: 400 }, 16, all).refusedSinceShown).toBe(false);
   });
 
   it("changes nothing else: no indicator flashes after a refusal (the aim gate is kept)", () => {
