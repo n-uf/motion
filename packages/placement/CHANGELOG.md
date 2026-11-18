@@ -14,7 +14,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 - `./scene`, **`Edge.zones`** (additive): the zones an edge has, default all three. `zones: ["start"]` makes a side
   rail one stack along its whole length: its whole length offers the start zone's gaps by position, with no center or
   end gaps, ids or refusals for a kind it takes; a drop on it names no zone, so the item keeps its own `align`, and an
-  item lent back to a bar through `showIn` lies in its own zone there. `zoneTakes`, `zonesTaking`, `edgeTakes`,
+  item lent back to a bar through `showIn` lies in its own zone there. A fixed item whose `align` names a zone the
+  edge lacks (`align: "end"` on a `zones: ["start"]` edge) lies in the edge's first zone, with its span, its stored
+  `align` unchanged. `zoneTakes`, `zonesTaking`, `edgeTakes`,
   `zoneIn` and `namesZone` read it (with `zoneAccepts` too, a zone takes a kind only where both say so). Two zones
   split the length in halves. Never stored; `readScene` takes it from `base`. Scenes without it are unchanged.
 

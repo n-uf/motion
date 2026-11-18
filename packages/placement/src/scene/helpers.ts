@@ -111,13 +111,17 @@ export interface SceneView {
 
 /**
  * The zone `item` lies in on `edge`: its own (`align`) where the edge takes its kind there, else the first zone that
- * does. A fixed item, or one the edge takes nowhere, lies in its own. The item's zone is its own fact, not the edge's:
- * this is where it is laid out and targeted, while its stored `align` stays as it was, so it is back in its own zone
- * on an edge that takes it there.
+ * does; one the edge takes nowhere, in its own. A fixed item lies in its own where the edge has that zone (`zones`),
+ * else in the edge's first zone, as a movable item lies in a zone the edge has. The item's zone is its own fact, not the edge's: this is where it is laid out and targeted, while its stored `align`
+ * stays as it was, so it is back in its own zone on an edge that takes it there.
  */
 export function zoneIn(edge: Edge, item: SceneItem): Zone {
   const own = zoneOf(item);
-  if (item.fixed || zoneTakes(edge, own, item.kind)) return own;
+  if (item.fixed) {
+    const has = zonesOf(edge);
+    return has.includes(own) ? own : (has[0] ?? own);
+  }
+  if (zoneTakes(edge, own, item.kind)) return own;
   return zonesTaking(edge, item.kind)[0] ?? own;
 }
 
