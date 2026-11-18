@@ -33,7 +33,7 @@ export const END_REACH = 24;
  */
 export function pickTarget<T extends { readonly priority: number; readonly hit: Rect; readonly hits?: readonly Rect[]; readonly refuse?: true; readonly outer?: Rect }>(list: readonly T[], point: Point): T | null {
   const holds = (r: Rect): boolean => point.x >= r.x && point.x <= r.x + r.width && point.y >= r.y && point.y <= r.y + r.height;
-  // A zone with `outer` holds only points strictly inside it (the window's edge belongs to the targets drawn against it).
+  // A zone with `outer` holds only points strictly inside it (the stage's edge belongs to the targets drawn against it).
   const within = (o: Rect | undefined): boolean => !o || (point.x > o.x && point.x < o.x + o.width && point.y > o.y && point.y < o.y + o.height);
   const under = (t: T): boolean => within(t.outer) && (t.hits ? t.hits.some(holds) : holds(t.hit));
   const size = (t: T): number => (t.hits ? t.hits.reduce((s, r) => s + r.width * r.height, 0) : t.hit.width * t.hit.height);

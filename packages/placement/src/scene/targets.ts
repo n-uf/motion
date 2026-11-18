@@ -255,7 +255,7 @@ function generateShown(scene: Scene, dragged: string, options: SceneTargetOption
       priority: 3,
       free: true,
       hit: PLANE,
-      // Over the whole plane, but only inside the window: its edge and past it belong to the targets drawn against it.
+      // Over the whole plane, but only strictly inside the stage: its edge belongs to the targets drawn against it.
       outer: stageOf(scene),
       item: dragged,
       place: { kind: "float" },
@@ -300,7 +300,7 @@ function generateShown(scene: Scene, dragged: string, options: SceneTargetOption
   // included. It grows to its minimum only inside that.
   const zones = new Map<string, Rect[]>();
   for (const t of [...alone.values()].flat()) if (t.kind !== "refuse" && t.id) zones.set(t.id, [...(zones.get(t.id) ?? []), t.hit]);
-  // A refusal holds only points strictly inside the window: its edge belongs to the targets drawn against it.
+  // A refusal holds only points strictly inside the stage: its edge belongs to the targets drawn against it.
   const outer = stageOf(scene);
   return { targets: withMinHit(c, layered.targets, layered.refusals, zones), refusals: layered.refusals.map((r) => ({ ...r, outer })), lost: lostIds, zones };
 }
