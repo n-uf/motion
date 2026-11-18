@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.36
+## 26.11.37
 
 - `./scene`, **`Edge.hidden`** (additive): an edge kept in the scene with its items but not in the window, such as a
   bar the host doesn't draw or a rail it has turned off. It is view state, the host's each time it builds the scene. It
@@ -14,6 +14,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   ignored, `edge:<id>:hidden`). A column a drop makes never takes a hidden edge's id, and a side where a drop makes or
   removes a column is numbered again with the hidden edge at its own place. Scenes without it lay out and target exactly
   as before.
+
+## 26.11.36
 
 - `./tiling`, fixed: **a split with no room for its gap keeps its panes inside its rect.** When a split's rect was
   narrower than the gap, `layoutSplit` laid its second side a gap past the split's start, past the rect's end and even

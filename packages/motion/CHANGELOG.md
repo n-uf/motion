@@ -3,6 +3,10 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.37
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.37 (`Edge.hidden` in `./scene`).
+
 ## 26.11.36
 
 - No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.36 (`./tiling` fixes, bars that give way by
