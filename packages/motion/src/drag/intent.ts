@@ -268,9 +268,9 @@ export interface DragFrame<T extends DragTarget> {
    * nothing, so a host that wants to say "a drop here returns it" draws its own indicator for this frame (at the home
    * rect); the intent still shows no target.
    *
-   * A docked item's home holds wherever it lies. A floating item's (`DragIntentOptions.floating`) own place is a free
-   * placement, ranked like the float: its home holds only where the pick there, home ignored, is no refusal and the
-   * point is inside the window. Where it doesn't hold this is false and the pick is as anywhere else: over a refusal
+   * A docked item's home holds wherever it lies. The home of a floating item (`DragIntentOptions.floating`) is a free
+   * placement, ranked like the float: it holds only where the pick there, home ignored, is no refusal and the point is
+   * inside the window. Where it doesn't hold this is false and the pick is as anywhere else: over a refusal
    * `refused` says so, and a release lands nowhere.
    */
   readonly atHome: boolean;
