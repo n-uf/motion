@@ -3,17 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.38
+## 26.11.39
 
-- `./scene`, **`Edge.showIn`** (additive): a hidden edge that names another, static edge lends it its items, which lay
-  out, target and stop as if they sat at the end of that edge, while the stored scene keeps them in the hidden edge. Home
-  gives back the scene itself; a real move takes the item out of the hidden edge; shown again, the hidden edge holds
-  every item no drop moved. Only items whose kind that edge takes are lent (in the first zone that takes them, where
-  their own doesn't). Never stored (`readScene` lists a stored one as `edge:<id>:showIn`); a `showIn` naming the edge
-  itself, no edge, another hidden edge or a dynamic column (drops make and delete those) is ignored and noted as
-  `show-in-ignored`: `SceneNote` gains that code, so an exhaustive `switch` over `code` needs a case for it. A moved
-  item keeps its stored zone unless the drop names one. `canFold` and `fold` read a lent item where it is drawn. Scenes
-  without it are unchanged.
+- `./scene/cases`, **conformance row C17 requires the scene's own rail drop.** C17 now carries
+  `requires: { railDrop: "scene" }`, so a host that lays its own rail strips skips it, as it does the other rows whose
+  pixels depend on the scene's rail drop strips.
 
 - `./scene`, **an item's zone is its own** (behavior change). A move sets `align` only when the drop names a zone (a
   gap in a zone, a zone's slot, `moveTo` with `zone`); a rail, a new column, home, `dockHome` (the start scene's
@@ -29,6 +23,18 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   (`gap:<col>:end:0` appears). The stored scene is unchanged by reading and storing it. To know where an item lies, read
   `SceneItemLayout.zone`, not `scene.items[id].align`, since the two can now differ; a host that wants to rewrite its
   stored scenes can set each item's `align` to `zoneIn(edge, item)` (exported).
+
+## 26.11.38
+
+- `./scene`, **`Edge.showIn`** (additive): a hidden edge that names another, static edge lends it its items, which lay
+  out, target and stop as if they sat at the end of that edge, while the stored scene keeps them in the hidden edge. Home
+  gives back the scene itself; a real move takes the item out of the hidden edge; shown again, the hidden edge holds
+  every item no drop moved. Only items whose kind that edge takes are lent (in the first zone that takes them, where
+  their own doesn't). Never stored (`readScene` lists a stored one as `edge:<id>:showIn`); a `showIn` naming the edge
+  itself, no edge, another hidden edge or a dynamic column (drops make and delete those) is ignored and noted as
+  `show-in-ignored`: `SceneNote` gains that code, so an exhaustive `switch` over `code` needs a case for it. A moved
+  item keeps its stored zone unless the drop names one. `canFold` and `fold` read a lent item where it is drawn. Scenes
+  without it are unchanged.
 
 - `./scene`, **the window's edge belongs only to the targets drawn against it** (pick change). Every refusal now
   carries the stage as `bounds` (`SceneRefusal.bounds`, passed on by `refusalTargets`), and so does the float target
