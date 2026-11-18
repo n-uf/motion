@@ -811,15 +811,17 @@ bar that sets `span: "full"` by name runs across the full bars' width instead (t
 content's top or bottom; one with `span: "between"`, or with no `span`, lies over the content only. An edge
 with nothing drawn in it takes no room.
 
-**Hidden edges.** `Edge.hidden: true` keeps an edge in the scene's stored state but out of the window: a bar the host
-doesn't draw, a rail it has turned off. It takes no room, and everything else lays out exactly as if it and its items
-were not in the scene: `solve` leaves it and its items out of the layout (no `edges[id]`, no `items[id]`, as for an item
-placed nowhere), and they take no part in give-way or folds. It has no targets and no refusals for any kind and no
-keyboard stops; its items have none either, and a drop elsewhere keeps the hidden edge as it was. `moveTo` into it is
-refused, as into an edge that doesn't take the kind. `storeScene` writes `hidden: true` with its items, and `readScene`
-hides it again (an entry without `hidden` keeps `base`'s). A column a drop makes never takes a hidden edge's id or ring:
-ids are chosen against every edge, hidden ones included, and the side's rings are made distinct around them. Side
-columns, rails and bars alike.
+**Hidden edges.** `Edge.hidden: true` keeps an edge and its items in the scene but out of the window: a bar the host
+doesn't draw, a rail it has turned off. It is view state: the host decides it each time it builds the scene (from the
+window's width, say). It takes no room, and everything else lays out exactly as if it and its items were not in the
+scene: `solve` leaves it and its items out of the layout (no `edges[id]`, no `items[id]`, as for an item placed
+nowhere), and they take no part in give-way or folds. It has no targets and no refusals for any kind and no keyboard
+stops; its items have none either. A drop elsewhere keeps the hidden edge as it was, and one that commits nothing (home,
+a blocked rect) gives back the scene itself. `moveTo` into it is refused, as into an edge that doesn't take the kind.
+`storeScene` keeps its items like any edge's but never writes `hidden`; `readScene` takes `hidden` from `base` only
+(a stored one is ignored and listed as `edge:<id>:hidden`). A column a drop makes never takes a hidden edge's id, and
+where a drop makes or removes a column on its side, the side is numbered again from 0 with the hidden edge back where its
+ring put it in the order. Side columns, rails and bars alike.
 
 **Each edge is a stack.** Left and right edges are columns (`forms.column`), top and bottom ones bars (`forms.row`),
 each solved by `fitStack` along the length it gets, with `gap`, `pad` and `menu` passed through, its cross limits never

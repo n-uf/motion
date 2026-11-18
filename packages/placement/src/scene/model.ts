@@ -212,14 +212,15 @@ export interface Edge {
    */
   readonly priority?: number;
   /**
-   * Hidden: part of the scene's stored state, not of the window (a bar a host doesn't draw, a rail it has turned off). A
-   * hidden edge takes no room, and everything else lays out exactly as if it weren't in the scene; `solve` leaves it
-   * and its items out of the layout (no `edges[id]`, no `items[id]`, as for an item placed nowhere), so nothing reads a
-   * rect of it. Its items take no part in give-way or folds. It has no targets and no refusals for any kind, no
-   * keyboard stops, and its items have none either (dragging one gives nothing); `moveTo` into it is refused as into an
-   * edge that doesn't take the kind. Its items stay in it: `storeScene` / `readScene` keep them and `hidden`. A column a
-   * drop makes never takes a hidden edge's id or ring: ids are chosen against every edge, and the side's rings are made
-   * distinct around the hidden ones. Side columns, rails and bars alike.
+   * Hidden: kept in the scene with its items, but not in the window (a bar a host doesn't draw, a rail it has turned
+   * off). View state: the host decides it each time it builds the scene, and the store never writes it. A hidden edge
+   * takes no room, and everything else lays out exactly as if it weren't in the scene; `solve` leaves it and its items
+   * out of the layout (no `edges[id]`, no `items[id]`, as for an item placed nowhere), so nothing reads a rect of it.
+   * Its items take no part in give-way or folds. It has no targets and no refusals for any kind, no keyboard stops, and
+   * its items have none either (dragging one gives nothing); `moveTo` into it is refused as into an edge that doesn't
+   * take the kind. Its items stay in it, and `storeScene` / `readScene` keep them. A column a drop makes never takes a
+   * hidden edge's id; where a drop makes or removes a column on its side, the side is numbered again with the hidden
+   * edge back at its own place. Side columns, rails and bars alike.
    */
   readonly hidden?: boolean;
 }
