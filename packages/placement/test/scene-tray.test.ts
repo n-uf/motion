@@ -31,7 +31,12 @@ describe("a column's tray", () => {
     for (const t of groupGaps) expect(t.place).toMatchObject({ zone: "end" });
     for (const t of targets(s, "p").filter((x) => x.place.kind === "gap")) expect(t.place).toMatchObject({ zone: "start" });
     expect(moveTo(s, "h", { edge: "col", zone: "start", at: 0 })).toBe(s);
-    expect(moveTo(s, "h", { edge: "col", at: 0 }).items.h!.align).toBe("end");
+    // No zone named: h keeps its own (start, unset) and lies in the tray, the first zone that takes groups.
+    const moved = moveTo(s, "h", { edge: "col", at: 0 });
+    expect(moved.items.h!.align).toBeUndefined();
+    expect(solve(moved).items.h).toMatchObject({ edge: "col", zone: "end" });
+    // A zone named becomes its own.
+    expect(moveTo(s, "h", { edge: "col", zone: "end", at: 0 }).items.h!.align).toBe("end");
   });
 
   it("the panels give way first; a toolbar in the tray takes wrap or icons, never the menu", () => {

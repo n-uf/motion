@@ -89,6 +89,20 @@ export interface SceneView {
   readonly lent: ReadonlyMap<string, string>;
   /** Hidden edges whose `showIn` is ignored: it names the edge itself, no edge, another hidden edge or a dynamic column. */
   readonly ignored: readonly string[];
+  /** The items the view shows in a zone other than their own (`zoneIn`): their stored `align` is not where they lie. */
+  readonly rezoned: ReadonlySet<string>;
+}
+
+/**
+ * The zone `item` lies in on `edge`: its own (`align`) where the edge takes its kind there, else the first zone that
+ * does. A fixed item, or one the edge takes nowhere, lies in its own. The item's zone is its own fact, not the edge's:
+ * this is where it is laid out and targeted, while its stored `align` stays as it was, so it is back in its own zone
+ * on an edge that takes it there.
+ */
+export function zoneIn(edge: Edge, item: SceneItem): Zone {
+  const own = zoneOf(item);
+  if (item.fixed || zoneTakes(edge, own, item.kind)) return own;
+  return zonesTaking(edge, item.kind)[0] ?? own;
 }
 
 /**
@@ -104,36 +118,49 @@ const showInOf = (scene: Scene, e: Edge): Edge | undefined => {
 /**
  * The scene as the window shows it (`Edge.hidden`, `Edge.showIn`): its hidden edges left out, and the items of a hidden
  * edge that names `showIn` lent to that edge, after its own items, each that edge takes the kind of (`edgeTakes`; a
- * fixed item never). A lent item lies in its own zone where that edge takes it there, else in the first zone that does.
- * The same object when nothing is hidden.
+ * fixed item never). Every docked item, lent or not, lies in the zone `zoneIn` gives it: its own where its edge takes
+ * it there, else the first zone that does (the view's `align`; the stored one is unchanged). The same object when nothing
+ * is hidden and every item lies in its own zone.
  */
 export function viewOf(scene: Scene): SceneView {
-  if (!scene.edges.some((e) => e.hidden === true)) return { view: scene, lent: new Map(), ignored: [] };
   const lent = new Map<string, string>();
   const ignored: string[] = [];
   const added = new Map<string, string[]>();
-  const items: Record<string, SceneItem> = { ...scene.items };
-  for (const e of scene.edges) {
-    if (e.hidden !== true || e.showIn === undefined) continue;
-    const to = showInOf(scene, e);
-    if (!to) {
-      ignored.push(e.id);
-      continue;
-    }
-    for (const id of e.items) {
-      const item = Object.hasOwn(scene.items, id) ? scene.items[id] : undefined;
-      if (!item || item.fixed || lent.has(id) || to.items.includes(id) || !edgeTakes(to, item.kind)) continue;
-      lent.set(id, e.id);
-      added.set(to.id, [...(added.get(to.id) ?? []), id]);
-      if (!zoneTakes(to, zoneOf(item), item.kind)) {
-        const zone = zonesTaking(to, item.kind)[0]!;
-        const { align: _a, ...plain } = item;
-        items[id] = zone === "start" ? plain : { ...plain, align: zone };
+  const hidden = scene.edges.some((e) => e.hidden === true);
+  if (hidden) {
+    for (const e of scene.edges) {
+      if (e.hidden !== true || e.showIn === undefined) continue;
+      const to = showInOf(scene, e);
+      if (!to) {
+        ignored.push(e.id);
+        continue;
+      }
+      for (const id of e.items) {
+        const item = Object.hasOwn(scene.items, id) ? scene.items[id] : undefined;
+        if (!item || item.fixed || lent.has(id) || to.items.includes(id) || !edgeTakes(to, item.kind)) continue;
+        lent.set(id, e.id);
+        added.set(to.id, [...(added.get(to.id) ?? []), id]);
       }
     }
   }
-  const edges = scene.edges.filter((e) => e.hidden !== true).map((e) => (added.has(e.id) ? { ...e, items: [...e.items, ...added.get(e.id)!] } : e));
-  return { view: { ...scene, edges, ...(lent.size > 0 ? { items } : {}) }, lent, ignored };
+  const edges = hidden ? scene.edges.filter((e) => e.hidden !== true).map((e) => (added.has(e.id) ? { ...e, items: [...e.items, ...added.get(e.id)!] } : e)) : scene.edges;
+  // Each docked item in the zone it lies in.
+  const rezoned = new Set<string>();
+  let items: Record<string, SceneItem> | undefined;
+  for (const e of edges) {
+    for (const id of e.items) {
+      const item = Object.hasOwn(scene.items, id) ? scene.items[id] : undefined;
+      if (!item) continue;
+      const zone = zoneIn(e, item);
+      if (zone === zoneOf(item)) continue;
+      const { align: _a, ...plain } = item;
+      items ??= { ...scene.items };
+      items[id] = zone === "start" ? plain : { ...plain, align: zone };
+      rezoned.add(id);
+    }
+  }
+  if (!hidden && !items) return { view: scene, lent, ignored, rezoned };
+  return { view: { ...scene, edges, ...(items ? { items } : {}) }, lent, ignored, rezoned };
 }
 
 /** Whether item `id` lies in a hidden edge. */
@@ -147,12 +174,11 @@ export const inHiddenEdge = (scene: Scene, id: string): boolean => scene.edges.s
  * goes back by its own ring, before the first shown edge that lay further in than it did, and the side is numbered again
  * from 0 in that order.
  *
- * A moved lent item keeps its stored zone (`align`), not the one the view gave it, unless the drop named a zone (`zoned`:
- * a gap in an edge): docked where no zone was named, it takes its stored zone where that edge takes it there, else the
- * one it was put in; anywhere else (a float) its stored `align` as it was.
+ * Every item the view laid out in a zone other than its own (`rezoned`) keeps its stored `align`; so does `moved`, the
+ * item a drop committed, unless the drop named a zone (`zoned`: a gap in an edge), whose zone it then takes.
  */
-export function withHiddenOf(scene: Scene, shown: Scene, lent: ReadonlyMap<string, string> = new Map(), moved?: string, zoned = false): Scene {
-  if (shown === scene || !scene.edges.some((e) => e.hidden === true)) return shown;
+export function withHiddenOf(scene: Scene, shown: Scene, lent: ReadonlyMap<string, string> = new Map(), moved?: string, zoned = false, rezoned: ReadonlySet<string> = new Set()): Scene {
+  if (shown === scene) return shown;
   // The lent items that stay lent: out of the edges they were shown in, back into their hidden edges.
   const back = [...lent.keys()].filter((id) => id !== moved);
   const edges = shown.edges.filter((e) => e.hidden !== true).map((e) => (back.some((id) => e.items.includes(id)) ? { ...e, items: e.items.filter((id) => !back.includes(id)) } : e));
@@ -162,15 +188,15 @@ export function withHiddenOf(scene: Scene, shown: Scene, lent: ReadonlyMap<strin
     edges.splice(Math.min(i, edges.length), 0, own);
   });
   const items: Record<string, SceneItem> = back.length > 0 ? { ...shown.items, ...Object.fromEntries(back.map((id) => [id, scene.items[id]!])) } : { ...shown.items };
-  if (moved !== undefined && lent.has(moved) && !zoned) {
-    const was = scene.items[moved]!;
-    const now = items[moved]!;
-    const edge = edges.find((e) => e.hidden !== true && e.items.includes(moved));
-    const zone = !edge || zoneTakes(edge, zoneOf(was), was.kind) ? zoneOf(was) : zoneOf(now);
-    if (zone !== zoneOf(now) || (!edge && now.align !== was.align)) {
-      const { align: _a, ...plain } = now;
-      items[moved] = !edge ? (was.align === undefined ? plain : { ...plain, align: was.align }) : zone === "start" ? plain : { ...plain, align: zone };
-    }
+  // The item's zone is its own fact: only a drop that names a zone changes it.
+  const keep = new Set([...rezoned].filter((id) => !back.includes(id) && !(id === moved && zoned)));
+  if (moved !== undefined && !zoned) keep.add(moved);
+  for (const id of keep) {
+    const was = Object.hasOwn(scene.items, id) ? scene.items[id] : undefined;
+    const now = Object.hasOwn(items, id) ? items[id] : undefined;
+    if (!was || !now || now.align === was.align) continue;
+    const { align: _a, ...plain } = now;
+    items[id] = was.align === undefined ? plain : { ...plain, align: was.align };
   }
   const ringBefore = new Map(scene.edges.filter((e) => e.hidden !== true).map((e) => [e.id, e.ring]));
   for (const side of new Set(scene.edges.filter((e) => e.hidden === true).map((e) => e.side))) {

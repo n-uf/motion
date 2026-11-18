@@ -4,7 +4,9 @@
  * given, the same object, so `after === before` says nothing changed.
  *
  * - `moveTo(scene, id, { edge, zone?, at })`: docks the item in that edge, before the `at`-th item of the zone (counting
- *   the zone's items without it, closed ones included), or at the zone's end. The zone becomes the item's `align`.
+ *   the zone's items without it, closed ones included), or at the zone's end. A zone named becomes the item's `align`;
+ *   with none, the item keeps its own and docks in the zone it lies in there (`zoneIn`: its own where the edge takes it
+ *   there, else the first that does). A new column, a rail and `dockHome` name none either: the item's zone is its own.
  *   `{ kind: "column", side, ring }` makes a new column from `scene.columns[side]` at that ring (`Infinity`: the side's
  *   inner end, "Move to › Dock left"); `{ kind: "rail", side, ring }` does the same with the item folded by hand, so it
  *   shows in the rail (on a side with no declared rail, `Scene.rails`, its rail is its outermost column that takes the
@@ -27,7 +29,7 @@
  */
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
+import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
 import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
@@ -141,27 +143,29 @@ function insertColumn(scene0: Scene, id: string, side: "left" | "right", ring: n
   // A kind never opens a column on its own unless the column's start zone takes it (a group never opens a panel column
   // whose tray is its end zone).
   if (!zoneTakes(col, "start", kind)) return null;
-  // The item keeps its zone when the new column's zone takes it (as `moveTo` into a column that exists), else the first
-  // zone that does; `align` follows the zone chosen.
-  const item = scene.items[id]!;
-  const zone = zoneTakes(col, zoneOf(item), kind) ? zoneOf(item) : (zonesTaking(col, kind)[0] ?? "start");
-  const { align: _a, ...plain } = item;
-  const placed = withItem(scene, zone === "start" ? plain : { ...plain, align: zone });
-  const shifted = placed.edges.map((e) => (e.side === side && e.ring >= r ? { ...e, ring: e.ring + 1 } : e));
-  return { ...placed, edges: closeRings([...shifted, col], new Set([side])) };
+  // The item keeps its own zone (`align`): it lies in it where the new column takes it there, else in the first zone
+  // that does (`zoneIn`), as in any edge.
+  const shifted = scene.edges.map((e) => (e.side === side && e.ring >= r ? { ...e, ring: e.ring + 1 } : e));
+  return { ...scene, edges: closeRings([...shifted, col], new Set([side])) };
 }
 
-/** The index in `edge.items` where the `at`-th item of `zone` is (or where the zone ends). */
+/** The zone item `id` lies in on `edge` (`zoneIn`); its own when it is unknown. */
+const zoneAt = (scene: Scene, edge: Edge, id: string): Zone => {
+  const it = itemOf(scene, id);
+  return it ? zoneIn(edge, it) : "start";
+};
+
+/** The index in `edge.items` where the `at`-th item of `zone` is (or where the zone ends), by the zones items lie in. */
 function insertIndex(scene: Scene, edge: Edge, zone: Zone, at: number): number {
   const rank = { start: 0, center: 1, end: 2 } as const;
-  const inZone = edge.items.map((id, i) => ({ id, i })).filter((x) => zoneOf(itemOf(scene, x.id)) === zone);
+  const inZone = edge.items.map((id, i) => ({ id, i })).filter((x) => zoneAt(scene, edge, x.id) === zone);
   const k = Math.min(Math.max(0, Math.floor(Number.isFinite(at) ? at : inZone.length)), inZone.length);
   if (k < inZone.length) return inZone[k]!.i;
   if (inZone.length > 0) return inZone[inZone.length - 1]!.i + 1;
   // An empty zone: after the last item of an earlier zone, else before the first of a later one.
   let idx = 0;
   edge.items.forEach((id, i) => {
-    if (rank[zoneOf(itemOf(scene, id))] < rank[zone]) idx = i + 1;
+    if (rank[zoneAt(scene, edge, id)] < rank[zone]) idx = i + 1;
   });
   return idx;
 }
@@ -184,10 +188,11 @@ export function moveAmong(scene: Scene, id: string, place: Place, others: readon
     return { ...out, floats: out.floats.map((f) => (f.id === id ? { ...f, anchor } : f)) };
   }
   // A side with no declared rail: its rail is its outermost column that takes the kind (`railColumnOf`), the item docked
-  // at the end of its start zone, folded by hand.
+  // at the end of the zone it lies in there (its own where the column takes it there, else the first), folded by hand.
+  // The rail names no zone: the item keeps its own.
   const railColumn = place.kind === "rail" ? railColumnOf(scene, place.side, item.kind) : undefined;
   if (railColumn) {
-    const docked = moveAmong(scene, id, { edge: railColumn.id, zone: "start", at: Infinity }, others);
+    const docked = moveAmong(scene, id, { edge: railColumn.id, at: Infinity }, others);
     return docked === scene ? scene : withItem(docked, { ...docked.items[id]!, from: Math.max(1, item.from ?? 0) });
   }
   if (place.kind === "column" || place.kind === "rail") {
@@ -200,11 +205,12 @@ export function moveAmong(scene: Scene, id: string, place: Place, others: readon
   const edge = scene.edges.find((e) => e.id === place.edge);
   // A hidden edge takes nothing, as one that doesn't take the kind.
   if (!edge || edge.hidden === true || !edge.accepts.includes(item.kind)) return scene;
-  // The zone asked for (or the item's own, or the first that takes its kind) must take the kind (`zoneAccepts`).
-  const zone = place.zone ?? (zoneTakes(edge, zoneOf(item), item.kind) ? zoneOf(item) : zonesTaking(edge, item.kind)[0]);
-  if (!zone || !zoneTakes(edge, zone, item.kind)) return scene;
+  // The zone asked for, else the one it lies in there (`zoneIn`: its own, or the first that takes its kind), must take
+  // the kind (`zoneAccepts`). Only a zone asked for becomes its `align`: the item's zone is its own fact.
+  const zone = place.zone ?? zoneIn(edge, item);
+  if (!zoneTakes(edge, zone, item.kind)) return scene;
   const { align: _drop, ...rest } = item;
-  const moved: SceneItem = zone === "start" ? rest : { ...rest, align: zone };
+  const moved: SceneItem = place.zone === undefined ? item : zone === "start" ? rest : { ...rest, align: zone };
   const lifted = withItem(lift(scene, id), moved);
   const target = lifted.edges.find((e) => e.id === place.edge);
   // The item's own column, deleted when it was lifted out of it.
@@ -373,13 +379,15 @@ export function homeFor(scene: Scene, id: string, start: Scene): Place | null {
   for (const e of start.edges) {
     const k = e.items.indexOf(id);
     if (k < 0) continue;
-    const zone = zoneOf(itemOf(start, id) ?? itemOf(scene, id));
+    const own = itemOf(start, id) ?? itemOf(scene, id);
     // A dynamic column's id is reused once it is pruned: the edge under that id is home only while it still holds one of
     // the start column's items (the item itself, or another). Static edges match by id.
     const found = scene.edges.find((x) => x.id === e.id);
     const here = found && (e.column !== true || found.items.some((x) => e.items.includes(x))) ? found : undefined;
     if (here) {
-      const now = here.items.filter((x) => x !== id && zoneOf(itemOf(scene, x)) === zone);
+      // The zone it lies in there, by its start `align` (`zoneIn`); the others by where they lie.
+      const zone = own ? zoneIn(here, own) : "start";
+      const now = here.items.filter((x) => x !== id && zoneAt(scene, here, x) === zone);
       const next = e.items.slice(k + 1).find((x) => now.includes(x));
       return { kind: "gap", edge: e.id, zone, at: next ? now.indexOf(next) : now.length };
     }
@@ -405,10 +413,19 @@ export function dockHome(scene: Scene, id: string, start: Scene): Scene {
   const moved = moveTo(scene, id, place);
   const item = itemOf(moved, id);
   if (!item) return scene;
-  const from = itemOf(start, id)?.from;
-  if (item.from === from) return moved;
-  const { from: _f, ...plain } = item;
-  return withItem(moved, from === undefined ? plain : { ...plain, from });
+  // Home names no zone of its own: the item takes `start`'s zone (`align`) back, as its fold.
+  const was = itemOf(start, id);
+  const from = was?.from;
+  let out = item;
+  if (was && out.align !== was.align) {
+    const { align: _a, ...plain } = out;
+    out = was.align === undefined ? plain : { ...plain, align: was.align };
+  }
+  if (out.from !== from) {
+    const { from: _f, ...plain } = out;
+    out = from === undefined ? plain : { ...plain, from };
+  }
+  return out === item ? moved : withItem(moved, out);
 }
 
 /**

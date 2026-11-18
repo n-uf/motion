@@ -71,7 +71,7 @@
 import { PLANE, area, rect, type Rect } from "../geometry";
 import type { Target } from "../target";
 import { floatAt, prune, use } from "./changes";
-import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, railColumnOf, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
+import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
 import type { Edge, Orient, Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
@@ -184,10 +184,13 @@ function alongOfSlots(s: EdgeSpec, tiles: readonly Tile[]): Span[] {
  * Items a hidden edge lends (`Edge.showIn`) are dragged as items of the edge they show in. A drop that commits a move of
  * one takes it out of its hidden edge, to the drop's place; every other result gives the lent items back to their
  * hidden edges (and its layout is solved again, where they lent themselves to the result's edges in another order).
+ *
+ * The targets are made on the scene as laid out, each item in the zone it lies in (`zoneIn`). Every result gives each
+ * item its own zone back, the dragged one too unless the drop named a zone (a gap), and is solved again.
  */
 function generate(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
   checkEdgeIds(scene);
-  const { view: shown, lent } = viewOf(scene);
+  const { view: shown, lent, rezoned } = viewOf(scene);
   if (shown === scene) return generateShown(scene, dragged, options, []);
   if (inHiddenEdge(scene, dragged) && !lent.has(dragged)) return { targets: [], refusals: [], lost: [] };
   const hidden = scene.edges.filter((e) => e.hidden === true);
@@ -204,16 +207,15 @@ function generate(scene: Scene, dragged: string, options: SceneTargetOptions): G
         const a = t.after(point, grab);
         // Nothing committed: the scene as it was, the same object.
         if (a.scene === shown) return { scene, layout: showsIn ? solve(scene, prev) : a.layout };
-        const moved = lent.has(dragged) ? dragged : undefined;
-        // A drop that names its zone: a gap in an edge, or a side's rail column (its start zone).
-        const zoned = t.place.kind === "gap" || (t.place.kind === "rail" && !!railColumnOf(shown, t.place.side, scene.items[dragged]!.kind));
-        const back = withHiddenOf(scene, a.scene, lent, moved, zoned);
+        // Only a drop that names a zone (a gap in a zone) sets the item's zone; every other move keeps its own.
+        const back = withHiddenOf(scene, a.scene, lent, dragged, t.place.kind === "gap", rezoned);
         // A safety net for the stored scene: a dynamic column left empty (a hidden one whose last item a drop moved out)
         // goes, as in any change, its side's rings closed up. Lent items never sit in a dynamic column (`viewOf`).
         const restored = showsIn ? prune(back) : back;
         const ringOf = new Map(a.scene.edges.map((e) => [e.id, e.ring]));
         const renumbered = restored.edges.some((e) => e.hidden !== true && ringOf.get(e.id) !== e.ring);
-        const layout = renumbered || showsIn ? solve(restored, prev) : a.layout;
+        // Where items lie in zones not their own, the result lays them out again from their own zones.
+        const layout = renumbered || showsIn || rezoned.size > 0 ? solve(restored, prev) : a.layout;
         return { scene: restored, layout };
       },
     })),
