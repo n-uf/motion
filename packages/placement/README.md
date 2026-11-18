@@ -876,7 +876,11 @@ least and `cross.max` at most; `resize` sets it.
 edge it lies in. It lies in that zone where its edge takes its kind there (`Edge.zoneAccepts`), else in the first zone
 that does (`zoneIn`, one rule for every edge and for the items a hidden edge lends through `showIn`); its stored
 `align` stays as it was, so it is back in its own zone on an edge that takes it there. A move sets `align` only when the
-drop names a zone: a gap in a zone, a zone's slot, `moveTo` with `zone`. A move whose zone is implied keeps it: a rail,
+drop names a zone: a gap in a zone, a zone's slot, `moveTo` with `zone`, on an edge that offers a choice (`namesZone`:
+more than one of its zones takes the kind). On a one-zone edge, such as a rail that takes groups at its start only, the
+zone a drop gives is no choice: the item docks there and keeps its own, so a group from a bar's end zone moved onto
+that rail goes back to the bar's end zone when the rail is hidden and lends it back (`showIn`), or when it is moved
+there with no zone. A move whose zone is implied keeps it: a rail,
 a new column, home and `dockHome` (which takes the start scene's `align` back), `moveTo` with no `zone`. Give-way is as
 without zones (it sums the minimum sizes); when room is spare, start items pack from the start, end items from the end
 (before the » entry) and center items sit on the edge's middle, moved only as far as they must to stay between the

@@ -9,6 +9,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `requires: { railDrop: "scene" }`, so a host that lays its own rail strips skips it, as it does the other rows whose
   pixels depend on the scene's rail drop strips.
 
+- `./scene`, **a drop names a zone only where the edge offers a choice** (behavior change). A gap drop, a strip, or
+  `moveTo` with `zone` sets the item's `align` only when more than one zone of that edge takes its kind (`namesZone`,
+  new). On a one-zone edge, such as a rail that takes groups at its start only, the item docks in that zone and keeps
+  its own `align`. So a group from a bar's end zone, dropped on such a rail while it is drawn and lent back to the bar
+  through `showIn` once the rail is hidden, lies in the bar's end zone again, not its start. A rail whose zones all
+  take the kind (no `zoneAccepts`) still offers the choice, and a drop on it sets the zone; a host that wants its rail
+  to keep the groups' own zones declares `zoneAccepts: { start: [kind] }` on it. Layouts, targets and refusals are as
+  before; only stored `align` after a drop into a one-zone edge changes.
+
 - `./scene`, **an item's zone is its own** (behavior change). A move sets `align` only when the drop names a zone (a
   gap in a zone, a zone's slot, `moveTo` with `zone`); a rail, a new column, home, `dockHome` (the start scene's
   `align`) and `moveTo` with no `zone` keep it. Before, a move to a rail stored the rail's start zone, so a group from a
