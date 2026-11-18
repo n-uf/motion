@@ -774,11 +774,12 @@ export function createScene(o: SceneOptions) {
 
   /**
    * The point a drag picks with: the pointer clamped into the window (the stage), so a pointer past the window's edge
-   * means its nearest point of the window. The held copy still follows the pointer itself.
+   * means its nearest point of the window: the edge itself, which belongs only to the targets drawn against it (no
+   * refusal and no float holds it). The held copy still follows the pointer itself.
    */
   const pickPoint = (d: Held): Point => {
     const s = scene.stage;
-    return { x: clamp(d.pointer.x, s.x, s.x + s.width - 0.5), y: clamp(d.pointer.y, s.y, s.y + s.height - 0.5) };
+    return { x: clamp(d.pointer.x, s.x, s.x + s.width), y: clamp(d.pointer.y, s.y, s.y + s.height) };
   };
 
   /** One frame of the drag: the intent says what shows; the preview plan whether the room is open. */
