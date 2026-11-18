@@ -267,6 +267,11 @@ export interface DragFrame<T extends DragTarget> {
    * the indicator's gate and uses `homeInset`; this one does not). Over home no target is shown and a release does
    * nothing, so a host that wants to say "a drop here returns it" draws its own indicator for this frame (at the home
    * rect); the intent still shows no target.
+   *
+   * A docked item's home holds wherever it lies. A floating item's (`DragIntentOptions.floating`) own place is a free
+   * placement, ranked like the float: its home holds only where the pick there, home ignored, is no refusal and the
+   * point is inside the window. Where it doesn't hold this is false and the pick is as anywhere else: over a refusal
+   * `refused` says so, and a release lands nowhere.
    */
   readonly atHome: boolean;
   /**
@@ -323,6 +328,14 @@ export interface DragIntentOptions<T extends DragTarget> {
    * beside a wide grip, still arms. Absent: the `liftZone` radius about `lift`.
    */
   readonly liftRect?: Rect;
+  /**
+   * The held item floats, and `home` is its own box. A floating item's own place is a free placement: it ranks like the
+   * float target, so home holds only where the pick there, home ignored, is no refusal and the point lies inside the
+   * window (no target's `bounds` left with nothing picked). Over a refusal in its box the frame is refused and a
+   * release lands nowhere; on or past the window's edge nothing is picked; elsewhere in its box home holds as before.
+   * Absent (a docked item): home holds wherever it lies, as its own home target beats a refusal.
+   */
+  readonly floating?: boolean;
   /** Overrides of {@link DRAG_DEFAULTS}. */
   readonly tuning?: Partial<DragTuning>;
   /**
@@ -540,9 +553,15 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       }
       const arming = armingId === null ? null : (given.find((x) => x.id === armingId) ?? null);
       const targets = acting(given);
+      // A docked item's home holds wherever it lies (its own home target beats a refusal). A floating item's own place
+      // is a free placement, ranked like the float: its home holds only where the pick there, home ignored, is no
+      // refusal and not nothing outside a target's `bounds` (past the window). Elsewhere the pick is as anywhere else.
+      const underHome = atHome && options.floating ? targetAt(targets.filter((x) => inZone(x, p) && (x.refuse === true || live(x))), p) : null;
+      const pastBounds = atHome && options.floating ? targets.some((x) => x.bounds !== undefined && !within(x.bounds, p)) : false;
+      const homeHolds = atHome && (!options.floating || (underHome?.refuse !== true && !(underHome === null && pastBounds)));
       // Over home no target is picked, except a spring-loaded one that is armed (its zone overlaps home): home gates
       // geometry, not an armed dwell.
-      const pickable = (x: T): boolean => !atHome || (x.arm === "dwell" && x.id === armedId);
+      const pickable = (x: T): boolean => !homeHolds || (x.arm === "dwell" && x.id === armedId);
       // A refusal takes part in the pick (it needs no place), but it is never a target: never held, never shown.
       const raw = targetAt(targets.filter((x) => pickable(x) && inZone(x, p) && (x.refuse === true || live(x))), p);
       const refusedRaw = raw?.refuse === true ? raw : null;
@@ -611,7 +630,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       const refused = forced ? forced.refused : refusedRaw;
       if (shown) crossedRefusal = false;
       else if (refused) crossedRefusal = true;
-      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && atHome, arming, forced: forced?.kind ?? null, refused, refusedSinceShown: !shown && !refused && crossedRefusal };
+      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && homeHolds, arming, forced: forced?.kind ?? null, refused, refusedSinceShown: !shown && !refused && crossedRefusal };
     },
     release(point, given, keys) {
       // A key held wins over geometry, home included; the float key over a refusal or outside the window lands nowhere.
