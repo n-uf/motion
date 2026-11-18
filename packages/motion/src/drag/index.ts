@@ -3,6 +3,8 @@ export {
   DRAG_DEFAULTS,
   inRect,
   liftDecision,
+  pickRank,
+  REFUSAL_RANK,
   targetAt,
   type DragFrame,
   type DragIntent,

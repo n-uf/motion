@@ -16,6 +16,17 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 Not published: its release run failed on a test timeout. Everything below ships in 26.11.36.
 
+- `./drag`, **a real target always beats a refusal** (pick change). `targetAt` ranks a refusal (`refuse: true`) at the
+  new `REFUSAL_RANK`, 2.5 on the scale of `priority`, whatever its own `priority`: after every target of priority 1 and
+  2, before priority 3 (the float). Where a refusal and a real target meet or overlap, the target wins, so a gap that
+  shares an edge with a smaller refusal keeps its end; over a refusal alone it still wins over the float, and the band
+  rule is unchanged. `pickRank(t)` gives a target's rank. A pick with no refusal in it is unchanged.
+
+- `./drag`, **a zone's outer bounds** (additive). `DragTarget.outer` (a rect, the window's stage) makes a zone
+  half-open toward the outside: it holds only points strictly inside `outer`. A refusal carries it, so a pointer that a
+  host clamps onto the window's edge is never in a refusal there: it picks the target whose hit reaches the edge, or
+  nothing, and a held target keeps its band. A target without `outer` is unchanged.
+
 - `./drag`, **a lift zone as a rect** (additive). `DragIntentOptions.liftRect` gives the "changed my mind" spot as a
   rect: while the pointer is inside it, no spring-loaded target arms by dwell, and the 16 px `liftZone` radius is not
   applied. A kit passes the part of a wide grip that a drop strip covers, so the strip arms right beside the grip

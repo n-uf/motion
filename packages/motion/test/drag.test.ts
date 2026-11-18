@@ -8,7 +8,9 @@ import {
   DRAG_PREVIEW_DEFAULT,
   inRect,
   liftDecision,
+  pickRank,
   previewPlan,
+  REFUSAL_RANK,
   targetAt,
   type DragPreview,
   type DragTarget,
@@ -863,6 +865,50 @@ describe("drag/ refusals in the pick", () => {
     const { intent } = slowly([rail, refusal, float], [30, 20, 7]);
     expect(intent.release({ x: 7, y: 400 }, [rail, refusal, float])).toBeNull();
     expect(targetAt([rail, refusal, float], { x: 7, y: 400 })?.id).toBe("refuse:rail:left:start");
+  });
+
+  it("a real target beats a refusal where they meet or overlap, whatever the sizes; a refusal beats the float", () => {
+    // A column's last gap (priority 2, large) sharing its bottom edge with a bar's refusal below it (small).
+    const gap: DragTarget = { id: "gap:right:start:1", priority: 2, hit: rect(808, 780, 300, 24) };
+    const bar: DragTarget = { id: "refuse:bar:start:0", priority: 2, hit: rect(800, 804, 40, 20), refuse: true };
+    const under: DragTarget = { id: "refuse:column:start:0", priority: 1, hit: rect(808, 700, 10, 90), refuse: true };
+    expect(REFUSAL_RANK).toBeGreaterThan(2);
+    expect(REFUSAL_RANK).toBeLessThan(3);
+    expect(pickRank(bar)).toBe(REFUSAL_RANK);
+    expect(pickRank(under)).toBe(REFUSAL_RANK);
+    expect(pickRank(gap)).toBe(2);
+    // On the shared edge: the gap, though the refusal is the smaller zone.
+    expect(targetAt([gap, bar, float], { x: 820, y: 804 })?.id).toBe("gap:right:start:1");
+    // Inside both (a refusal given priority 1 still ranks as a refusal): the gap.
+    expect(targetAt([gap, under, float], { x: 810, y: 785 })?.id).toBe("gap:right:start:1");
+    // Over the refusal alone: the refusal, not the float under it.
+    expect(targetAt([gap, bar, float], { x: 820, y: 815 })?.id).toBe("refuse:bar:start:0");
+    // Two refusals: the smaller zone.
+    const wide: DragTarget = { ...bar, id: "refuse:wide", hit: rect(700, 804, 400, 20) };
+    expect(targetAt([wide, bar], { x: 820, y: 815 })?.id).toBe("refuse:bar:start:0");
+  });
+
+  it("a refusal's zone is half-open toward the outside of its `outer`: a point on the window's edge is never in it", () => {
+    const stage = rect(0, 0, 1120, 800);
+    const bar: DragTarget = { id: "refuse:bar", priority: 2, hit: rect(600, 780, 520, 20), refuse: true, outer: stage };
+    const gap: DragTarget = { id: "gap", priority: 2, hit: rect(808, 760, 300, 30) };
+    // Inside: the refusal.
+    expect(targetAt([bar, float], { x: 958, y: 790 })?.id).toBe("refuse:bar");
+    // On the stage's bottom and right edges (where a clamped pointer lands): not the refusal.
+    expect(targetAt([bar, float], { x: 958, y: 800 })?.id).toBe("float");
+    expect(targetAt([bar, float], { x: 1120, y: 790 })?.id).toBe("float");
+    expect(targetAt([bar, gap], { x: 958, y: 800 })).toBeNull();
+    // Without `outer` its edge holds the point, as any zone's does.
+    const { outer: _o, ...closed } = bar;
+    expect(targetAt([closed, float], { x: 958, y: 800 })?.id).toBe("refuse:bar");
+    // A held target keeps its band there: the pick is no refusal, so nothing clears it.
+    const intent = createDragIntent<DragTarget>({ home: rect(20, 300, 100, 30), lift: { x: 600, y: 600 } });
+    let t = 0;
+    for (let k = 0; k < 6; k++) intent.update({ x: 958, y: 775 }, (t += 60), [gap, bar]);
+    expect(intent.update({ x: 958, y: 775 }, (t += 60), [gap, bar]).shown?.id).toBe("gap");
+    const edge = intent.update({ x: 958, y: 800 }, (t += 60), [gap, bar]);
+    expect([edge.shown?.id, edge.refused]).toEqual(["gap", null]);
+    expect(intent.release({ x: 958, y: 800 }, [gap, bar])?.id).toBe("gap");
   });
 });
 

@@ -133,9 +133,15 @@ const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
  * when given (a magnet: the zone grown), and leaving that disarms it.
  *
  * `refuse: true` makes it a refusal: a place that takes no drop (a host says "No room here" there). It takes part in
- * the pick under the pointer, but it never becomes the current or the shown target, and a release over it lands
+ * the pick under the pointer at {@link REFUSAL_RANK} (below every target of priority 1 or 2, whatever its own
+ * `priority`, above priority 3), but it never becomes the current or the shown target, and a release over it lands
  * nowhere. Where the pick under the pointer is a refusal, no held target's band or gap grace keeps it: nothing shows,
  * and the frame's `refused` says which refusal it is.
+ *
+ * `outer`, when given, is the drawn space the zone belongs to (a window's stage): the zone holds only points strictly
+ * inside it, so it is half-open toward the outside and a point on `outer`'s boundary or past it is never in it. A
+ * refusal carries it: outside the window is no drawn space, and a host that clamps a pointer past the window onto its
+ * edge never lands that point in a refusal.
  */
 export interface DragTarget {
   readonly id: string;
@@ -148,7 +154,23 @@ export interface DragTarget {
   readonly arm?: "dwell";
   readonly armedHit?: Rect;
   readonly refuse?: true;
+  readonly outer?: Rect;
 }
+
+/**
+ * Where a refusal ranks in the pick ({@link targetAt}), on the scale of `priority`: after every target of priority 1
+ * and 2 (a refusal and a real target where they meet or overlap: the target wins, so a gap keeps its end), before
+ * priority 3 (the float: over drawn space that takes nothing, "No room here" wins over floating). Among refusals the
+ * smaller zone wins.
+ */
+export const REFUSAL_RANK = 2.5;
+
+/** A target's rank in the pick: its `priority`, a refusal's {@link REFUSAL_RANK}. Lower wins. */
+export const pickRank = (t: Pick<DragTarget, "priority" | "refuse">): number => (t.refuse === true ? REFUSAL_RANK : t.priority);
+
+/** Whether `point` lies strictly inside `outer` (none: everywhere). */
+const within = (outer: Rect | undefined, point: Point): boolean =>
+  !outer || (point.x > outer.x && point.x < outer.x + outer.width && point.y > outer.y && point.y < outer.y + outer.height);
 
 /** Whether `point` lies in `rect` grown by `margin` px on every side (shrunk, for a negative margin). */
 export function inRect(rect: Rect, point: Point, margin = 0): boolean {
@@ -159,8 +181,8 @@ export function inRect(rect: Rect, point: Point, margin = 0): boolean {
 const distanceTo = (rect: Rect, point: Point): number =>
   Math.hypot(Math.max(rect.x - point.x, 0, point.x - (rect.x + rect.width)), Math.max(rect.y - point.y, 0, point.y - (rect.y + rect.height)));
 
-/** Whether `point` lies in a target's zone (`hits` when it has them, else `hit`), grown by `margin` px. */
-const inZone = (t: DragTarget, point: Point, margin = 0): boolean => (t.hits ? t.hits.some((r) => inRect(r, point, margin)) : inRect(t.hit, point, margin));
+/** Whether `point` lies in a target's zone (`hits` when it has them, else `hit`), grown by `margin` px, and inside its `outer`. */
+const inZone = (t: DragTarget, point: Point, margin = 0): boolean => within(t.outer, point) && (t.hits ? t.hits.some((r) => inRect(r, point, margin)) : inRect(t.hit, point, margin));
 
 /** A margin per axis: px grown (shrunk, when negative) left and right, and above and below. */
 interface Margin {
@@ -187,12 +209,16 @@ const area = (r: Rect): number => r.width * r.height;
 /** A target's zone's area: its `hits` together, else its `hit`. */
 const zoneArea = (t: DragTarget): number => (t.hits ? t.hits.reduce((s, r) => s + area(r), 0) : area(t.hit));
 
-/** The most precise target under `point`: the lowest priority number, then the smallest zone; null when none is. */
+/**
+ * The most precise target under `point`: the lowest rank ({@link pickRank}: the priority, a refusal's
+ * {@link REFUSAL_RANK}), then the smallest zone; null when none is. A zone holds its edges (a closed rect), except
+ * toward the outside of its `outer`.
+ */
 export function targetAt<T extends DragTarget>(targets: readonly T[], point: Point): T | null {
   let best: T | null = null;
   for (const t of targets) {
     if (!inZone(t, point)) continue;
-    if (!best || t.priority < best.priority || (t.priority === best.priority && zoneArea(t) < zoneArea(best))) best = t;
+    if (!best || pickRank(t) < pickRank(best) || (pickRank(t) === pickRank(best) && zoneArea(t) < zoneArea(best))) best = t;
   }
   return best;
 }
