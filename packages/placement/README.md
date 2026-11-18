@@ -966,6 +966,18 @@ const zoom: SceneItem = {
 their `icons` form (and the » menu after it), stacked, each item's grip the divider. An item with no `icons` form is left
 out of it with a `no-icons-form` note.
 
+**Edges with fewer zones.** `Edge.zones` lists the zones an edge has (default all three). `zones: ["start"]` makes it
+one stack along its whole length, as a side rail drawn in order: the whole length offers the start zone's gaps, ordered
+by position along it, so a drop anywhere inserts at the pointer's place; there are no center or end gaps, ids or
+refusals, and nothing along it refuses a kind it takes. A drop on it names no zone (`namesZone` counts the zones it
+has), so the item keeps its own `align`; an item whose `align` names a zone the edge lacks lies in its zone (`zoneIn`),
+its stored `align` unchanged, and is back in its own zone when the edge is hidden and lends it to a bar (`showIn`).
+Two zones (`["start", "end"]`) split the length between them, the boundary at the middle moved past the cards seen on
+either side, as three split it in thirds; a drop there names its half's zone. Entries that aren't zones and repeats are
+ignored, and a list with no zone counts as all three. With `zoneAccepts` as well, a zone takes a kind only where both
+say so (`zoneAccepts: { start: [...] }` alone keeps three zones and refuses the other two thirds). Like `zoneAccepts`,
+`zones` is a declaration: `storeScene` never writes it and `readScene` takes it from `base`.
+
 **Column footers.** `Edge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
 the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`
 has its panels at the top and a footer of toolbar groups at its foot (the end zone, one group per row): a group in the footer

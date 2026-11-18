@@ -5,7 +5,7 @@
 import { EPS, area, rect, type Rect } from "../../geometry";
 import { formMain } from "../../stack";
 import { moveAmong, moveTo, use } from "../changes";
-import { axisOf, edgeTakes, formsOf, zoneOf, zoneTakes } from "../helpers";
+import { axisOf, edgeTakes, formsOf, zoneOf, zonesOf, zoneTakes } from "../helpers";
 import { DEFAULT_STRIP, ZONES, type Edge, type Scene, type SceneLayout, type Zone } from "../model";
 import { solve } from "../solve";
 import { targetId } from "./ids";
@@ -83,9 +83,23 @@ function zoneSpans(scene: Scene, seen: SceneLayout, edge: Edge, reach: number, p
     placed.set(z, was ? [Math.min(was[0], a), Math.max(was[1], b)] : [a, b]);
     declared.add(z);
   }
+  const lo = (z: Zone): number => placed.get(z)?.[0] ?? Infinity;
+  const hi = (z: Zone): number => placed.get(z)?.[1] ?? -Infinity;
+  if (edge.zones !== undefined) {
+    // An edge with only some zones (`Edge.zones`): its length split between them alone, evenly, each boundary moved past
+    // the cards seen on either side of it, as the thirds are. One zone: the whole length, ordered by position along it.
+    const has = zonesOf(edge);
+    let prev = main0 - reach;
+    return has.map((zone, i) => {
+      const last = i === has.length - 1;
+      const mark = main0 + (length * (i + 1)) / has.length;
+      const b = last ? main0 + length + reach : Math.max(prev, Math.min(Math.max(mark, ...has.slice(0, i + 1).map(hi)), ...has.slice(i + 1).map(lo)));
+      const span = { zone, a: prev, b };
+      prev = b;
+      return span;
+    });
+  }
   if (thirds) {
-    const lo = (z: Zone): number => placed.get(z)?.[0] ?? Infinity;
-    const hi = (z: Zone): number => placed.get(z)?.[1] ?? -Infinity;
     const b1 = Math.min(Math.max(main0 + length / 3, hi("start")), lo("center"), lo("end"));
     const b2 = Math.max(Math.min(main0 + (2 * length) / 3, lo("end")), hi("center"), hi("start"), b1);
     return [

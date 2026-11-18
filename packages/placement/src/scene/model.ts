@@ -162,6 +162,18 @@ export interface Edge {
    * its start zone takes (a panel gets its top third; a group none, the rail's instead).
    */
   readonly zoneAccepts?: ZoneAccepts;
+  /**
+   * The zones the edge has, in any order (default all three). `["start"]` makes it one stack along its whole length, as
+   * a side rail drawn in order: its whole length offers the start zone's gaps, ordered by position along it, with no
+   * center or end gaps and no refusal of a kind it takes; a drop on it names no zone (`namesZone`), so the item keeps
+   * its own `align`; and an item whose `align` names a zone it doesn't have lies in its zone (`zoneIn`), its stored
+   * `align` unchanged (so it is back in its own zone when lent to a bar through `showIn`). Two zones (`["start", "end"]`)
+   * split the length between them as three split it in thirds, the boundary at the middle, moved past the cards seen in
+   * them. Entries that aren't zones and repeats are ignored; a list with no zone counts as all three. With
+   * `zoneAccepts`, a zone takes a kind only where both say so. Like `zoneAccepts`, a declaration: never stored, from
+   * `base` on `readScene`.
+   */
+  readonly zones?: readonly Zone[];
   /** The drop strip's depth while the edge is empty, px (default {@link DEFAULT_STRIP}). */
   readonly strip?: number;
   /**
