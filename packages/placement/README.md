@@ -817,7 +817,9 @@ were not in the scene: `solve` leaves it and its items out of the layout (no `ed
 placed nowhere), and they take no part in give-way or folds. It has no targets and no refusals for any kind and no
 keyboard stops; its items have none either, and a drop elsewhere keeps the hidden edge as it was. `moveTo` into it is
 refused, as into an edge that doesn't take the kind. `storeScene` writes `hidden: true` with its items, and `readScene`
-hides it again (an entry without `hidden` keeps `base`'s). Side columns, rails and bars alike.
+hides it again (an entry without `hidden` keeps `base`'s). A column a drop makes never takes a hidden edge's id or ring:
+ids are chosen against every edge, hidden ones included, and the side's rings are made distinct around them. Side
+columns, rails and bars alike.
 
 **Each edge is a stack.** Left and right edges are columns (`forms.column`), top and bottom ones bars (`forms.row`),
 each solved by `fitStack` along the length it gets, with `gap`, `pad` and `menu` passed through, its cross limits never
