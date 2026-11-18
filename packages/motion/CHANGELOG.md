@@ -29,8 +29,9 @@ Not published: its release run failed on a test timeout. Everything below ships 
   shares an edge with a smaller refusal keeps its end; over a refusal alone it still wins over the float, and the band
   rule is unchanged. `pickRank(t)` gives a target's rank. A pick with no refusal in it is unchanged.
 
-- `./drag`, **a zone's outer bounds** (additive). `DragTarget.outer` (a rect, the window's stage) makes a zone, and its
-  band, half-open toward the outside: they hold only points strictly inside `outer`. The window's boundary belongs only
+- `./drag`, **a zone's outer bounds** (additive). `DragTarget.outer` (a rect, the window's stage) makes a zone, its
+  band and its gap grace half-open toward the outside: they hold only points strictly inside `outer`, so a float shown
+  inside the window hides on the first frame the pointer reaches the edge. The window's boundary belongs only
   to the targets drawn against it: a refusal and the whole-plane float carry `outer`, a gap or a slot doesn't. So a
   pointer a host clamps onto the window's edge picks a gap whose hit reaches the edge, else nothing (a held gap keeps
   its band), and never a refusal or the float: a release past the window over open space commits nothing. A target

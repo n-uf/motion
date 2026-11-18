@@ -539,7 +539,8 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && (cur.free === true || pastBreakthrough(raw));
         next = breaks ? raw : cur;
       }
-      if (!refusedRaw && !next && cur && pickable(cur) && t - lastInside < tuning.gapGrace) next = cur;
+      // The gap grace, like the band, never reaches past a zone's outer bounds: the float gets no grace outside the window.
+      if (!refusedRaw && !next && cur && pickable(cur) && within(cur.outer, p) && t - lastInside < tuning.gapGrace) next = cur;
       if (next && inZone(next, p)) lastInside = t;
       if (!same(next, cur)) curSince = t;
       cur = next;
