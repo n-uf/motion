@@ -10,7 +10,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   gives back the scene itself; a real move takes the item out of the hidden edge; shown again, the hidden edge holds
   every item no drop moved. Only items whose kind that edge takes are lent (in the first zone that takes them, where
   their own doesn't). Never stored (`readScene` lists a stored one as `edge:<id>:showIn`); a `showIn` naming the edge
-  itself, no edge or another hidden edge is ignored and noted as `show-in-ignored`. Scenes without it are unchanged.
+  itself, no edge or another hidden edge is ignored and noted as `show-in-ignored`: `SceneNote` gains that code, so an
+  exhaustive `switch` over `code` needs a case for it. A moved item keeps its stored zone unless the drop names one; a
+  dynamic column left empty once its lent items go back is deleted, and they are drawn nowhere until the host names
+  another edge. `canFold` and `fold` read a lent item where it is drawn. Scenes without it are unchanged.
 
 ## 26.11.37
 
