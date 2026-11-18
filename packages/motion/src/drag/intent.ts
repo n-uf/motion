@@ -286,6 +286,9 @@ export interface DragFrame<T extends DragTarget> {
    * a refusal and is let go at speed over a target beyond it has no indicator drawn. Then this is true, and a release
    * still lands on what is under the pointer (`release`): a host that commits only what it has drawn commits that
    * release too. False whenever a target shows, over the refusal itself (`refused`), and after `hide`.
+   *
+   * Read it from the frame of an `update` at the release point, called before `release` (as `release` asks anyway), so
+   * the last move counts. The field is required: a host or a test mock that builds a `DragFrame` itself must set it.
    */
   readonly refusedSinceShown: boolean;
 }
