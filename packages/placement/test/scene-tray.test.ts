@@ -35,8 +35,8 @@ describe("a column's tray", () => {
     const moved = moveTo(s, "h", { edge: "col", at: 0 });
     expect(moved.items.h!.align).toBeUndefined();
     expect(solve(moved).items.h).toMatchObject({ edge: "col", zone: "end" });
-    // A zone named becomes its own.
-    expect(moveTo(s, "h", { edge: "col", zone: "end", at: 0 }).items.h!.align).toBe("end");
+    // The tray is the column's one zone for groups: naming it is no choice, so h keeps its own there too.
+    expect(moveTo(s, "h", { edge: "col", zone: "end", at: 0 }).items.h!.align).toBeUndefined();
   });
 
   it("the panels give way first; a toolbar in the tray takes wrap or icons, never the menu", () => {

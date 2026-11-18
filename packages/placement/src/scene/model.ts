@@ -79,7 +79,8 @@ export interface SceneItem {
   readonly closed?: boolean;
   /**
    * Its zone (default start): the item's own, not its edge's. It lies there where its edge takes its kind there, else in
-   * the first zone that does (`zoneIn`). Only a drop that names a zone (a gap in a zone, `moveTo` with `zone`) sets it.
+   * the first zone that does (`zoneIn`). Only a drop that names a zone (a gap in a zone, `moveTo` with `zone`) on an edge
+   * offering a choice (`namesZone`: more than one of its zones takes the kind) sets it.
    */
   readonly align?: Zone;
   /**

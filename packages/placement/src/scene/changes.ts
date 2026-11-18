@@ -4,8 +4,9 @@
  * given, the same object, so `after === before` says nothing changed.
  *
  * - `moveTo(scene, id, { edge, zone?, at })`: docks the item in that edge, before the `at`-th item of the zone (counting
- *   the zone's items without it, closed ones included), or at the zone's end. A zone named becomes the item's `align`;
- *   with none, the item keeps its own and docks in the zone it lies in there (`zoneIn`: its own where the edge takes it
+ *   the zone's items without it, closed ones included), or at the zone's end. A zone named becomes the item's `align`
+ *   where the edge offers a choice (`namesZone`: more than one zone takes the kind); on a one-zone edge, or with none
+ *   named, the item keeps its own and docks in the zone it lies in there (`zoneIn`: its own where the edge takes it
  *   there, else the first that does). A new column, a rail and `dockHome` name none either: the item's zone is its own.
  *   `{ kind: "column", side, ring }` makes a new column from `scene.columns[side]` at that ring (`Infinity`: the side's
  *   inner end, "Move to › Dock left"); `{ kind: "rail", side, ring }` does the same with the item folded by hand, so it
@@ -29,7 +30,7 @@
  */
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
+import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, namesZone, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
 import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
@@ -206,11 +207,13 @@ export function moveAmong(scene: Scene, id: string, place: Place, others: readon
   // A hidden edge takes nothing, as one that doesn't take the kind.
   if (!edge || edge.hidden === true || !edge.accepts.includes(item.kind)) return scene;
   // The zone asked for, else the one it lies in there (`zoneIn`: its own, or the first that takes its kind), must take
-  // the kind (`zoneAccepts`). Only a zone asked for becomes its `align`: the item's zone is its own fact.
+  // the kind (`zoneAccepts`). The item's zone is its own fact: a zone asked for becomes its `align` only where the edge
+  // offers a choice (`namesZone`: more than one of its zones takes the kind). On a one-zone edge (a rail that takes the
+  // kind at its start only) it docks in that zone and keeps its own.
   const zone = place.zone ?? zoneIn(edge, item);
   if (!zoneTakes(edge, zone, item.kind)) return scene;
   const { align: _drop, ...rest } = item;
-  const moved: SceneItem = place.zone === undefined ? item : zone === "start" ? rest : { ...rest, align: zone };
+  const moved: SceneItem = place.zone === undefined || !namesZone(edge, item.kind) ? item : zone === "start" ? rest : { ...rest, align: zone };
   const lifted = withItem(lift(scene, id), moved);
   const target = lifted.edges.find((e) => e.id === place.edge);
   // The item's own column, deleted when it was lifted out of it.
