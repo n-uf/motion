@@ -337,7 +337,7 @@ export const PRESETS: readonly Preset[] = [
     id: "hidden-bar",
     title: "A hidden bar takes no room and offers nothing",
     expected:
-      "With the bottom bar hidden (part of the stored state, not of the window), it draws nothing and takes no room: the columns and the content run down to the window's foot. Views and Review stay in it, undrawn. Dragging Zoom finds no slot and no refusal in it.",
+      "With the bottom bar hidden (part of the scene, not of the window), it draws nothing and takes no room: the columns and the content run down to the window's foot. Views and Review stay in it, undrawn. Dragging Zoom finds no slot and no refusal in it.",
     setup: (c) => c.setScene(sceneWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, hidden: true } : e)) }))),
     check(c) {
       const bottom = c.scene.edges.find((e) => e.id === "bottom");
