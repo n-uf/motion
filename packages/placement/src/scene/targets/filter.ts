@@ -6,7 +6,7 @@ import { overlaps } from "../../geometry";
 import { formMain } from "../../stack";
 import { lift, prune } from "../changes";
 import { axisOf, chromeFor, formsOf, isHandFolded, zoneOf } from "../helpers";
-import { ZONES, type Scene, type SceneItem, type SceneLayout, type SolveOptions } from "../model";
+import { ZONES, type Edge, type Scene, type SceneItem, type SceneLayout, type SolveOptions } from "../model";
 import { layKeys, solve } from "../solve";
 import { reservedRect } from "./edges";
 import type { Ctx, SceneAfter, SceneTargetOptions } from "./model";
@@ -53,8 +53,11 @@ function soundness(scene: Scene, base: SceneLayout, dragged: string): (after: Sc
   };
 }
 
-/** A drag's context: null for an unknown, fixed or closed item (it has no targets). */
-export function context(scene: Scene, dragged: string, options: SceneTargetOptions): { c: Ctx; item: SceneItem; prev: SolveOptions } | null {
+/**
+ * A drag's context: null for an unknown, fixed or closed item (it has no targets). `others`: edges kept out of `scene`
+ * (its hidden ones) that a drop's new column must not repeat the ids of.
+ */
+export function context(scene: Scene, dragged: string, options: SceneTargetOptions, others: readonly Edge[] = []): { c: Ctx; item: SceneItem; prev: SolveOptions } | null {
   const item = Object.hasOwn(scene.items, dragged) ? scene.items[dragged] : undefined;
   if (!item || item.fixed || item.closed) return null;
   const prev = { ...(options.previous ? { previous: options.previous } : {}), ...(options.fresh ? { fresh: options.fresh } : {}) };
@@ -66,6 +69,7 @@ export function context(scene: Scene, dragged: string, options: SceneTargetOptio
   const here = placeKey(prune(scene), dragged);
   const c: Ctx = {
     scene,
+    others,
     rest,
     now,
     base,

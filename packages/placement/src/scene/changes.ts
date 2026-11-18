@@ -27,7 +27,7 @@
  */
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { allEdges, axesOf, axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
+import { axesOf, axisOf, columnFromTemplate, floatOrientOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, railColumnOf, railModeOf, zoneOf, zoneTakes, zonesTaking } from "./helpers";
 import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
@@ -94,12 +94,15 @@ export function lift(scene: Scene, id: string): Scene {
   });
 }
 
-/** A new column edge from the side's template, or null when the side has none or it doesn't take the kind. */
-function newColumn(scene: Scene, side: "left" | "right", kind: string, ring: number, items: readonly string[]): Edge | null {
+/**
+ * A new column edge from the side's template, or null when the side has none or it doesn't take the kind. Its id is
+ * chosen against the scene's edges and `others`: edges kept out of `scene` (its hidden ones, when `scene` is what the
+ * window shows), so it never repeats an id the stored scene has.
+ */
+function newColumn(scene: Scene, side: "left" | "right", kind: string, ring: number, items: readonly string[], others: readonly Edge[]): Edge | null {
   const t = scene.columns?.[side];
   if (!t || !t.accepts.includes(kind)) return null;
-  // Every edge counts, hidden ones too (`allEdges`): a new column never takes an id the stored scene already has.
-  const taken = new Set(allEdges(scene).map((e) => e.id));
+  const taken = new Set([...scene.edges, ...others].map((e) => e.id));
   let n = 0;
   while (taken.has(`${side}-${n}`)) n++;
   return columnFromTemplate(t, `${side}-${n}`, side, ring, items);
@@ -127,13 +130,13 @@ function columnFloor(edges: readonly Edge[], side: string): number {
  * first; static edges keep their place, so a new column goes no further out than just inside the static edges outer to
  * the side's dynamic columns (a bar or an anchor at the window edge stays there).
  */
-function insertColumn(scene0: Scene, id: string, side: "left" | "right", ring: number): Scene | null {
+function insertColumn(scene0: Scene, id: string, side: "left" | "right", ring: number, others: readonly Edge[]): Scene | null {
   const scene: Scene = { ...scene0, edges: closeRings(scene0.edges, new Set([side])) };
   const kind = scene.items[id]!.kind;
   const mine = scene.edges.filter((e) => e.side === side);
   const floor = columnFloor(scene.edges, side);
   const r = Math.max(floor, Math.min(Number.isNaN(ring) ? Infinity : Math.floor(ring), mine.length === 0 ? 0 : Math.max(...mine.map((e) => e.ring)) + 1));
-  const col = newColumn(scene, side, kind, r, [id]);
+  const col = newColumn(scene, side, kind, r, [id], others);
   if (!col) return null;
   // A kind never opens a column on its own unless the column's start zone takes it (a group never opens a panel column
   // whose tray is its end zone).
@@ -164,6 +167,14 @@ function insertIndex(scene: Scene, edge: Edge, zone: Zone, at: number): number {
 }
 
 export function moveTo(scene: Scene, id: string, place: Place): Scene {
+  return moveAmong(scene, id, place, []);
+}
+
+/**
+ * `moveTo`, with `others`: edges kept out of `scene` that a new column's id must not repeat. A drop's result is made on
+ * the scene the window shows (its hidden edges left out), and its hidden edges are passed here.
+ */
+export function moveAmong(scene: Scene, id: string, place: Place, others: readonly Edge[]): Scene {
   const item = itemOf(scene, id);
   if (!item || item.fixed) return scene;
   if (place.kind === "float") {
@@ -176,14 +187,14 @@ export function moveTo(scene: Scene, id: string, place: Place): Scene {
   // at the end of its start zone, folded by hand.
   const railColumn = place.kind === "rail" ? railColumnOf(scene, place.side, item.kind) : undefined;
   if (railColumn) {
-    const docked = moveTo(scene, id, { edge: railColumn.id, zone: "start", at: Infinity });
+    const docked = moveAmong(scene, id, { edge: railColumn.id, zone: "start", at: Infinity }, others);
     return docked === scene ? scene : withItem(docked, { ...docked.items[id]!, from: Math.max(1, item.from ?? 0) });
   }
   if (place.kind === "column" || place.kind === "rail") {
     if (place.kind === "rail" && !scene.rails?.[place.side]?.accepts.includes(item.kind)) return scene;
     // Its zone goes with it: `insertColumn` keeps it where the new column takes the kind there.
     const folded: SceneItem = place.kind === "rail" ? { ...item, from: Math.max(1, item.from ?? 0) } : item;
-    const made = insertColumn(withItem(lift(scene, id), folded), id, place.side, place.ring);
+    const made = insertColumn(withItem(lift(scene, id), folded), id, place.side, place.ring, others);
     return made ?? scene;
   }
   const edge = scene.edges.find((e) => e.id === place.edge);

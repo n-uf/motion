@@ -4,7 +4,7 @@
  */
 import { EPS, area, rect, type Rect } from "../../geometry";
 import { formMain } from "../../stack";
-import { moveTo, use } from "../changes";
+import { moveAmong, moveTo, use } from "../changes";
 import { axisOf, edgeTakes, formsOf, zoneOf, zoneTakes } from "../helpers";
 import { DEFAULT_STRIP, ZONES, type Edge, type Scene, type SceneLayout, type Zone } from "../model";
 import { solve } from "../solve";
@@ -31,7 +31,7 @@ export function reservedRect(scene: Scene, l: SceneLayout, id: string): Rect {
 
 /** A slot for `place` on `line`: its drop, settled; home when it puts the item back (or `home`); `lands`, its edge's rule. */
 export function slotAt(c: Ctx, zone: Zone, line: number, id: string, place: Slot["place"], lands: (r: SceneAfter) => boolean, home = false): Slot {
-  const result = c.settle(use(moveTo(c.scene, c.dragged, place), c.dragged));
+  const result = c.settle(use(moveAmong(c.scene, c.dragged, place, c.others), c.dragged));
   const isHome = home || c.isHome(result);
   return { zone, line, id, place, result, home: isHome, ok: isHome || (!!result.layout.items[c.dragged] && lands(result) && c.sound(result.layout)) };
 }
