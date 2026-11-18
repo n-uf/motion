@@ -24,8 +24,9 @@ Not published: its release run failed on a test timeout. Everything below ships 
   unchanged: no indicator flashes as a fast pointer leaves a refusal.
 
 - `./drag`, **a real target always beats a refusal** (pick change). `targetAt` ranks a refusal (`refuse: true`) at the
-  new `REFUSAL_RANK`, 2.5 on the scale of `priority`, whatever its own `priority`: after every target of priority 1 and
-  2, before priority 3 (the float). Where a refusal and a real target meet or overlap, the target wins, so a gap that
+  new `REFUSAL_RANK`, 2.5, whatever its own `priority`. It is an ordering rank, not a priority: priorities stay the
+  integers 1, 2 and 3, and `refuse: true` is a refusal's tier, ordered after every target of priority 1 and 2 and
+  before priority 3 (the float). Where a refusal and a real target meet or overlap, the target wins, so a gap that
   shares an edge with a smaller refusal keeps its end; over a refusal alone it still wins over the float, and the band
   rule is unchanged. `pickRank(t)` gives a target's rank. A pick with no refusal in it is unchanged.
 

@@ -1,5 +1,5 @@
 /** The window's edge belongs only to the targets drawn against it, and a target beats a refusal where they meet. */
-import { targetAt } from "@n-uf/motion/drag";
+import { REFUSAL_RANK as MOTION_REFUSAL_RANK, pickRank as motionPickRank, targetAt } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import { REFUSAL_RANK, pickRank } from "../index";
 import { CASES } from "../src/scene/cases";
@@ -27,8 +27,10 @@ describe("refusals and the window's edge", () => {
     }
   });
 
-  it("a refusal ranks after every target of priority 1 and 2, before the float", () => {
+  it("a refusal ranks after every target of priority 1 and 2, before the float: one rank in both packages", () => {
     expect(REFUSAL_RANK).toBe(2.5);
+    expect(REFUSAL_RANK).toBe(MOTION_REFUSAL_RANK);
+    for (const t of [{ priority: 1 as const, refuse: true as const }, { priority: 2 as const }, { priority: 3 as const }, { priority: 2 as const, refuse: true as const }]) expect(pickRank(t)).toBe(motionPickRank(t));
     expect(pickRank({ priority: 1, refuse: true })).toBe(REFUSAL_RANK);
     expect(pickRank({ priority: 2 })).toBe(2);
   });
