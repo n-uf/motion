@@ -77,8 +77,29 @@ export const chromeFor = (scene: Scene, who: "floats" | "targets"): Rect[] =>
 export function railColumnOf(scene: Scene, side: "left" | "right", kind: Kind): Edge | undefined {
   if (scene.rails?.[side]) return undefined;
   return scene.edges
-    .filter((e) => e.side === side && !e.compact && zoneTakes(e, "start", kind))
+    .filter((e) => e.side === side && !e.compact && e.hidden !== true && zoneTakes(e, "start", kind))
     .reduce<Edge | undefined>((m, e) => (!m || e.ring < m.ring ? e : m), undefined);
+}
+
+/** The scene as the window shows it: its hidden edges left out (`Edge.hidden`). The same object when none is hidden. */
+export function shownScene(scene: Scene): Scene {
+  return scene.edges.some((e) => e.hidden === true) ? { ...scene, edges: scene.edges.filter((e) => e.hidden !== true) } : scene;
+}
+
+/** Whether item `id` lies in a hidden edge. */
+export const inHiddenEdge = (scene: Scene, id: string): boolean => scene.edges.some((e) => e.hidden === true && e.items.includes(id));
+
+/**
+ * `shown`, a scene made from `shownScene(scene)` (a change, a drop's result), with `scene`'s hidden edges put back where
+ * they stood in its edge list, as they were.
+ */
+export function withHiddenOf(scene: Scene, shown: Scene): Scene {
+  if (shown === scene || !scene.edges.some((e) => e.hidden === true)) return shown;
+  const edges = shown.edges.filter((e) => e.hidden !== true);
+  scene.edges.forEach((e, i) => {
+    if (e.hidden === true) edges.splice(Math.min(i, edges.length), 0, e);
+  });
+  return { ...shown, edges };
 }
 
 /** A kind's rail drop policy with its defaults, or null where it has none or it is turned off (width 0, `"never"`). */

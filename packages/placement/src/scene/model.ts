@@ -211,6 +211,16 @@ export interface Edge {
    * its toolbars step down before an item moved in from another bar would.
    */
   readonly priority?: number;
+  /**
+   * Hidden: part of the scene's stored state, not of the window (a bar a host doesn't draw, a rail it has turned off). A
+   * hidden edge takes no room, and everything else lays out exactly as if it weren't in the scene; `solve` leaves it
+   * and its items out of the layout (no `edges[id]`, no `items[id]`, as for an item placed nowhere), so nothing reads a
+   * rect of it. Its items take no part in give-way or folds. It has no targets and no refusals for any kind, no
+   * keyboard stops, and its items have none either (dragging one gives nothing); `moveTo` into it is refused as into an
+   * edge that doesn't take the kind. Its items stay in it: `storeScene` / `readScene` keep them and `hidden`. Side
+   * columns, rails and bars alike.
+   */
+  readonly hidden?: boolean;
 }
 
 /** What a side's new columns are made from. */

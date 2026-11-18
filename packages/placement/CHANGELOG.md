@@ -5,6 +5,13 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.36
 
+- `./scene`, **`Edge.hidden`** (additive): an edge kept in the scene's stored state but not in the window, such as a
+  bar the host doesn't draw or a rail it has turned off. It takes no room, and the rest lays out as if it and its items
+  weren't there: `solve` leaves both out of the layout, with no give-way or folds for them. It has no targets, refusals or
+  stops, and neither do its items. A drop elsewhere keeps it as it was, and `moveTo` into it is refused. `storeScene` /
+  `readScene` keep it and its items (`hidden: true`; an entry without it keeps `base`'s). Scenes without it lay out and
+  target exactly as before.
+
 - `./tiling`, fixed: **a split with no room for its gap keeps its panes inside its rect.** When a split's rect was
   narrower than the gap, `layoutSplit` laid its second side a gap past the split's start, past the rect's end and even
   outside the area (at no size, so it drew nothing, but its rect lay outside). It now lies at the rect's end. Wherever

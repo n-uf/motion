@@ -811,6 +811,14 @@ bar that sets `span: "full"` by name runs across the full bars' width instead (t
 content's top or bottom; one with `span: "between"`, or with no `span`, lies over the content only. An edge
 with nothing drawn in it takes no room.
 
+**Hidden edges.** `Edge.hidden: true` keeps an edge in the scene's stored state but out of the window: a bar the host
+doesn't draw, a rail it has turned off. It takes no room, and everything else lays out exactly as if it and its items
+were not in the scene: `solve` leaves it and its items out of the layout (no `edges[id]`, no `items[id]`, as for an item
+placed nowhere), and they take no part in give-way or folds. It has no targets and no refusals for any kind and no
+keyboard stops; its items have none either, and a drop elsewhere keeps the hidden edge as it was. `moveTo` into it is
+refused, as into an edge that doesn't take the kind. `storeScene` writes `hidden: true` with its items, and `readScene`
+hides it again (an entry without `hidden` keeps `base`'s). Side columns, rails and bars alike.
+
 **Each edge is a stack.** Left and right edges are columns (`forms.column`), top and bottom ones bars (`forms.row`),
 each solved by `fitStack` along the length it gets, with `gap`, `pad` and `menu` passed through, its cross limits never
 wider than the room the cut leaves. Group forms in a column take their own width (`ownCross`); open panels and headers
