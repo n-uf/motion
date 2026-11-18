@@ -71,7 +71,7 @@
 import { PLANE, area, rect, type Rect } from "../geometry";
 import type { Target } from "../target";
 import { floatAt, use } from "./changes";
-import { axisOf, chromeFor, floatOrientOf, floatSizeOf, zoneOf, zoneTakes } from "./helpers";
+import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, shownScene, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
 import type { Orient, Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
@@ -174,8 +174,29 @@ function alongOfSlots(s: EdgeSpec, tiles: readonly Tile[]): Span[] {
   return out;
 }
 
+/**
+ * The targets of the scene the window shows: its hidden edges (`Edge.hidden`) left out, so they have no targets or
+ * refusals and their items none either. Each target's result keeps the hidden edges as they were.
+ */
 function generate(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
   checkEdgeIds(scene);
+  const shown = shownScene(scene);
+  if (shown === scene) return generateShown(scene, dragged, options);
+  if (inHiddenEdge(scene, dragged)) return { targets: [], refusals: [], lost: [] };
+  const g = generateShown(shown, dragged, options);
+  return {
+    ...g,
+    targets: g.targets.map((t) => ({
+      ...t,
+      after: (point, grab) => {
+        const a = t.after(point, grab);
+        return { scene: withHiddenOf(scene, a.scene), layout: a.layout };
+      },
+    })),
+  };
+}
+
+function generateShown(scene: Scene, dragged: string, options: SceneTargetOptions): Generated {
   // A fixed item takes no gap: on an edge that `moves: "side"` it has its `side:` target and home.
   if (Object.hasOwn(scene.items, dragged) && scene.items[dragged]!.fixed) return anchorTargets(scene, dragged, options);
   const ctx = context(scene, dragged, options);

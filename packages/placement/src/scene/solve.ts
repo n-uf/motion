@@ -43,6 +43,7 @@
  * and `notes`.
  */
 import { rect, type Rect } from "../geometry";
+import { shownScene } from "./helpers";
 import { checkEdgeIds } from "./targets/ids";
 import type { Scene, SceneLayout, SceneNote, SolveOptions } from "./model";
 import { barGiveWay } from "./solve/bar-giveway";
@@ -58,9 +59,11 @@ export { layKeys, pushes, type LayKey } from "./solve/order";
 
 export function solve(given: Scene, options: SolveOptions = {}): SceneLayout {
   checkEdgeIds(given);
-  const lay = (caps: ReadonlyMap<string, number>, gave: readonly SceneNote[] = []): SceneLayout => layOut(given, options, caps, gave);
+  // A hidden edge is not part of the window: the layout is the shown scene's, its items placed nowhere.
+  const shown = shownScene(given);
+  const lay = (caps: ReadonlyMap<string, number>, gave: readonly SceneNote[] = []): SceneLayout => layOut(shown, options, caps, gave);
   const first = lay(new Map());
-  const way = barGiveWay(given, first, lay);
+  const way = barGiveWay(shown, first, lay);
   return way ? lay(way.caps, way.notes) : first;
 }
 

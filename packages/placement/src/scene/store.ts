@@ -5,7 +5,7 @@
  * ```ts
  * interface StoredScene {
  *   v: 1;
- *   edges: { id: string; side: Side; ring: number; items: string[]; size?: number; column?: true }[];
+ *   edges: { id: string; side: Side; ring: number; items: string[]; size?: number; column?: true; hidden?: true }[];
  *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor | { at: FloatAnchor; dx?: number; dy?: number }; since?: number }[];
  *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; floatSize?: { width: number; height: number } }>;
  *   railModes?: { left?: "titles" | "icons"; right?: "titles" | "icons" };
@@ -16,8 +16,9 @@
  * side, ring and limits come from `base`, its order of items and its `size` from the store; a static edge stored on
  * the other side of its axis is moved there (`setSide`, as its side's outermost edge). Dynamic columns
  * (`column: true`) are the store's: one `base` lacks is made from `base.columns[side]`, its ring is the stored one, and
- * columns left empty are deleted, the rings closed up. No float has a pinned field: one an old store has is listed and
- * ignored.
+ * columns left empty are deleted, the rings closed up. A hidden edge (`Edge.hidden`) is stored with `hidden: true` and
+ * its items; read back, it is hidden again with them, and an entry without `hidden` keeps `base`'s (a value other than
+ * `true` is dropped as `edge:<id>:hidden`). No float has a pinned field: one an old store has is listed and ignored.
  *
  * Reading is lenient: anything but an object of version 1 gives `base` back with the reason in `error`. Inside one,
  * whatever can't be used is dropped and listed in `dropped` (an unknown edge `edge:<id>`, an unknown or repeated item,
@@ -45,6 +46,8 @@ export interface StoredSceneEdge {
   readonly size?: number;
   /** A dynamic column: read back from `base.columns[side]` even when `base` doesn't have it. */
   readonly column?: true;
+  /** Hidden (`Edge.hidden`): stored only when true; an entry without it keeps `base`'s. */
+  readonly hidden?: true;
 }
 
 export interface StoredSceneFloat {
@@ -142,7 +145,7 @@ export function storeScene(scene: Scene): StoredScene {
   const modes = railModesOf(scene.railModes);
   return {
     v: 1,
-    edges: scene.edges.map((e) => ({ id: e.id, side: e.side, ring: e.ring, items: [...e.items], ...(isNum(e.size) ? { size: e.size } : {}), ...(e.column === true ? { column: true as const } : {}) })),
+    edges: scene.edges.map((e) => ({ id: e.id, side: e.side, ring: e.ring, items: [...e.items], ...(isNum(e.size) ? { size: e.size } : {}), ...(e.column === true ? { column: true as const } : {}), ...(e.hidden === true ? { hidden: true as const } : {}) })),
     floats: scene.floats
       .filter((f) => isNum(f.rect.x) && isNum(f.rect.y) && isSize(f.rect.width) && isSize(f.rect.height))
       .map((f) => {
@@ -235,6 +238,8 @@ function read(data: unknown, base: Scene): SceneRead {
   const sizes = new Map<string, number | undefined>();
   const made: Edge[] = [];
   const rings = new Map<string, number>();
+  /** Edges the store says are hidden; one it says nothing of keeps `base`'s `hidden`. */
+  const hidden = new Set<string>();
   const moves = new Map<string, Side>();
   const anchorMoves = new Map<string, Side>();
   const anchorSizes = new Map<string, number>();
@@ -269,6 +274,8 @@ function read(data: unknown, base: Scene): SceneRead {
       continue;
     }
     if (edge.column === true && isNum(e.ring)) rings.set(edge.id, e.ring);
+    if (e.hidden === true) hidden.add(edge.id);
+    else if (e.hidden !== undefined) drop(`edge:${edge.id}:hidden`);
     if (e.side !== undefined && !SIDES.includes(e.side as Side)) drop(`edge:${e.id}:side`);
     else if (!describesAnchor && edge.column !== true && typeof e.side === "string" && e.side !== edge.side && axisOf(e.side as Side) === axisOf(edge.side)) moves.set(edge.id, e.side as Side);
     const ids: string[] = [];
@@ -335,7 +342,7 @@ function read(data: unknown, base: Scene): SceneRead {
     const items1 = withFixed(edge.items, listed, isFixed);
     const size = sizes.has(edge.id) ? sizes.get(edge.id) : edge.size;
     const { size: _s, ...plain } = edge;
-    return { ...plain, ring: rings.get(edge.id) ?? edge.ring, items: items1, ...(size !== undefined ? { size } : {}) };
+    return { ...plain, ring: rings.get(edge.id) ?? edge.ring, items: items1, ...(size !== undefined ? { size } : {}), ...(hidden.has(edge.id) ? { hidden: true } : {}) };
   });
   // Base floats the store placed nowhere keep their base place.
   for (const f of base.floats) if (!placed.has(f.id)) floats.push(f);

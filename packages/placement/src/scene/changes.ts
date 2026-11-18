@@ -186,7 +186,8 @@ export function moveTo(scene: Scene, id: string, place: Place): Scene {
     return made ?? scene;
   }
   const edge = scene.edges.find((e) => e.id === place.edge);
-  if (!edge || !edge.accepts.includes(item.kind)) return scene;
+  // A hidden edge takes nothing, as one that doesn't take the kind.
+  if (!edge || edge.hidden === true || !edge.accepts.includes(item.kind)) return scene;
   // The zone asked for (or the item's own, or the first that takes its kind) must take the kind (`zoneAccepts`).
   const zone = place.zone ?? (zoneTakes(edge, zoneOf(item), item.kind) ? zoneOf(item) : zonesTaking(edge, item.kind)[0]);
   if (!zone || !zoneTakes(edge, zone, item.kind)) return scene;
