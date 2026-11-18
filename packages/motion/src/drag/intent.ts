@@ -73,7 +73,8 @@ export interface DragKeys {
 }
 
 /**
- * Keys that win over geometry: while `floatKey` is held the drop floats (the `free` target) wherever the pointer is;
+ * Keys that win over geometry: while `floatKey` is held the drop floats (the `free` target) wherever the pointer is,
+ * except over a refusal (the frame is refused) or outside the float's `bounds` (nothing);
  * while `railKey` is held it goes to the nearest target marked `arm` (a side's rail), without reaching it. `floatKey`
  * wins when both are held. `on: false` turns both off.
  */

@@ -400,9 +400,10 @@ insertion point 2, a large area 3). The rules:
 - Keys win over geometry: with `keys` passed (`DragKeys`: `{ shift?, alt?, ctrl?,
   meta? }`, the modifiers held on a pointer event; `tuning.modifiers` says which
   key does what, default Shift and ⌘/Ctrl), the float key (Shift) shows and lands
-  on the `free` target anywhere, even over a spring-loaded one; the rail key
-  (⌘/Ctrl, `"Mod"`) on the nearest spring-loaded target, from anywhere. The frame's
-  `forced` says which won.
+  on the `free` target over a dock target, a spring-loaded one or open space
+  inside the window (over a refusal the frame is refused, and outside the
+  float's `bounds` nothing shows); the rail key (⌘/Ctrl, `"Mod"`) on the nearest
+  spring-loaded target, from anywhere. The frame's `forced` says which won.
 - The three drop preview modes only change what is drawn: all follow these rules, so a
   drop lands where the preview showed it in each.
 
