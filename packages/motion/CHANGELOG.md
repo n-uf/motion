@@ -16,12 +16,14 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 Not published: its release run failed on a test timeout. Everything below ships in 26.11.36.
 
-- `./drag`, **`frame.refusedSinceShown`** (additive). A refusal hides the shown target at once, and the next one shows
+- `./drag`, **`frame.refusedSinceShown`** (additive for reading; a host or test mock that builds a `DragFrame` itself
+  must now set it, since the field is required). A refusal hides the shown target at once, and the next one shows
   only once the pointer aims again, so a pointer that crosses a refusal and is let go at speed beyond it has no
   indicator drawn, while `release` lands on what is under it. The new frame field is true then: no target shows, and
   the pointer has been over a refusal since a target last showed. A host that commits only what it has drawn commits
-  such a release too (`frame.shown || frame.refusedSinceShown`), with no memory of its own. What shows, and when, is
-  unchanged: no indicator flashes as a fast pointer leaves a refusal.
+  such a release too (`frame.shown || frame.refusedSinceShown`), with no memory of its own: read both from the frame of
+  an `update` at the release point, called before `release`. What shows, and when, is unchanged: no indicator flashes
+  as a fast pointer leaves a refusal.
 
 - `./drag`, **a real target always beats a refusal** (pick change). `targetAt` ranks a refusal (`refuse: true`) at the
   new `REFUSAL_RANK`, 2.5, whatever its own `priority`. It is an ordering rank, not a priority: priorities stay the
