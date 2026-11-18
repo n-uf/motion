@@ -3,6 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.40
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.40 (a drop names a zone only where the
+  edge offers a choice, in `./scene`).
+
 ## 26.11.39
 
 - `./drag`, fixed: **the float key chooses the float over dock targets, not over refusals or outside the window.**

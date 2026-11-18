@@ -3,11 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.39
-
-- `./scene/cases`, **conformance row C17 requires the scene's own rail drop.** C17 now carries
-  `requires: { railDrop: "scene" }`, so a host that lays its own rail strips skips it, as it does the other rows whose
-  pixels depend on the scene's rail drop strips.
+## 26.11.40
 
 - `./scene`, **a drop names a zone only where the edge offers a choice** (behavior change). A gap drop, a strip, or
   `moveTo` with `zone` sets the item's `align` only when more than one zone of that edge takes its kind (`namesZone`,
@@ -18,6 +14,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   to keep the groups' own zones declares `zoneAccepts: { start: [kind] }` on it. That declaration also changes the
   rail's targets: its center and end gaps for that kind go, and those thirds give `not-accepted` refusals instead.
   Layouts, targets and refusals are otherwise as before; only stored `align` after a drop into a one-zone edge changes.
+
+## 26.11.39
+
+- `./scene/cases`, **conformance row C17 requires the scene's own rail drop.** C17 now carries
+  `requires: { railDrop: "scene" }`, so a host that lays its own rail strips skips it, as it does the other rows whose
+  pixels depend on the scene's rail drop strips.
 
 - `./scene`, **an item's zone is its own** (behavior change). A move sets `align` only when the drop names a zone (a
   gap in a zone, a zone's slot, `moveTo` with `zone`); a rail, a new column, home, `dockHome` (the start scene's
