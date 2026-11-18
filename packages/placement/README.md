@@ -872,9 +872,15 @@ Hits, clicks, drags and `after()` work as for the tile, at the title's length.
 `Edge.size` is the user's size across, clamped to the widest open setter's `cross.min` (and the edge's `cross.min`) at
 least and `cross.max` at most; `resize` sets it.
 
-**Zones.** An item's `align` (`start`, the default, `center` or `end`) is its zone in its edge. Give-way is as without
-zones (it sums the minimum sizes); when room is spare, start items pack from the start, end items from the end (before
-the » entry) and center items sit on the edge's middle, moved only as far as they must to stay between the other two.
+**Zones.** An item's `align` (`start`, the default, `center` or `end`) is its zone, a fact of the item, not of the
+edge it lies in. It lies in that zone where its edge takes its kind there (`Edge.zoneAccepts`), else in the first zone
+that does (`zoneIn`, one rule for every edge and for the items a hidden edge lends through `showIn`); its stored
+`align` stays as it was, so it is back in its own zone on an edge that takes it there. A move sets `align` only when the
+drop names a zone: a gap in a zone, a zone's slot, `moveTo` with `zone`. A move whose zone is implied keeps it: a rail,
+a new column, home and `dockHome` (which takes the start scene's `align` back), `moveTo` with no `zone`. Give-way is as
+without zones (it sums the minimum sizes); when room is spare, start items pack from the start, end items from the end
+(before the » entry) and center items sit on the edge's middle, moved only as far as they must to stay between the
+other two.
 
 **Bar alignment zones.** A horizontal bar picks the zone of a drop by thirds of its length: a pointer in the left third
 is over the leading zone (`start`), in the middle third over the center zone, in the right third over the trailing zone
