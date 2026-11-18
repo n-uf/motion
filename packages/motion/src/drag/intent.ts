@@ -273,11 +273,16 @@ export interface DragFrame<T extends DragTarget> {
    * null. Once it arms it is a target like any other and may show.
    */
   readonly arming: T | null;
-  /** A key held wins over geometry this frame: `"float"` (the float key) or `"rail"` (the rail key), else null. */
+  /**
+   * A key held wins over geometry this frame: `"float"` (the float key) or `"rail"` (the rail key), else null. The
+   * float key chooses the float over dock targets, not over a refusal or outside the window: there it is still
+   * `"float"` (the key is held), but nothing shows, a release lands nowhere, and over a refusal `refused` says which.
+   */
   readonly forced: "float" | "rail" | null;
   /**
    * The refusal (a target with `refuse: true`) the pointer is over, when it is the pick there: no target shows, and a
-   * host says so at the pointer ("No room here"). Null otherwise, and while a key forces a target.
+   * host says so at the pointer ("No room here"). Null otherwise, and while a key forces a target; with the float key
+   * held over a refusal it is that refusal (the key doesn't float over refused space).
    */
   readonly refused: T | null;
   /**
@@ -399,8 +404,10 @@ export interface DragIntent<T extends DragTarget> {
  *   which one it dwells on); then it is armed: its zone is `armedHit` (the
  *   magnet) and it shows at once. Leaving that zone disarms it.
  * - Keys win over geometry (`modifiers`): the float key shows the `free` target
- *   wherever the pointer is, the rail key the nearest target marked `arm`; a
- *   release with the key held lands there.
+ *   wherever the pointer is over a dock target or open space inside the float's
+ *   `bounds`, the rail key the nearest target marked `arm`; a release with the
+ *   key held lands there. Over a refusal, or outside the float's `bounds`, the
+ *   float key picks nothing: nothing shows and a release lands nowhere.
  */
 export function createDragIntent<T extends DragTarget>(options: DragIntentOptions<T>): DragIntent<T> {
   const tuning: DragTuning = { ...DRAG_DEFAULTS, ...options.tuning };
@@ -445,26 +452,35 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   };
   /** The targets as they act now: a spring-loaded one only once armed, in its armed zone. */
   const acting = (targets: readonly T[]): T[] => targets.filter((x) => x.arm !== "dwell" || x.id === armedId).map((x) => (x.id === armedId ? asArmed(x) : x));
-  /** The target a held key picks at `p`: the float key the `free` target, the rail key the nearest spring-loaded one. */
-  const forcedBy = (keys: DragKeys | undefined, p: Point, targets: readonly T[], ok: (x: T) => boolean): { kind: "float" | "rail"; target: T } | null => {
+  /**
+   * The target a held key picks at `p`: the float key the `free` target, the rail key the nearest spring-loaded one.
+   * The float key chooses the float over dock targets, not over refusals or outside the window: where the pick at `p`
+   * (`has`: a target with a place there, or a refusal) is a refusal, it picks nothing and says which refusal; outside
+   * the float's `bounds` (a pointer clamped onto the window's edge) it picks nothing. The rail key's drop lands on the
+   * rail, not where the pointer is, so neither applies to it.
+   */
+  const forcedBy = (keys: DragKeys | undefined, p: Point, targets: readonly T[], has: (x: T) => boolean): { kind: "float" | "rail"; target: T | null; refused: T | null } | null => {
     const m = tuning.modifiers;
     if (!m.on || !keys) return null;
     if (held(keys, m.floatKey)) {
-      const f = targets.find((x) => x.free && ok(x));
-      return f ? { kind: "float", target: f } : null;
+      const f = targets.find((x) => x.free);
+      if (!f) return null;
+      const under = targetAt(acting(targets).filter((x) => inZone(x, p) && has(x)), p);
+      if (under?.refuse === true) return { kind: "float", target: null, refused: under };
+      return within(f.bounds, p) ? { kind: "float", target: f, refused: null } : { kind: "float", target: null, refused: null };
     }
     if (!held(keys, m.railKey)) return null;
     let best: T | null = null;
     let bestD = Infinity;
     for (const x of targets) {
-      if (x.arm !== "dwell" || !ok(x)) continue;
+      if (x.arm !== "dwell") continue;
       const d = distanceTo(asArmed(x).hit, p);
       if (d < bestD) {
         best = x;
         bestD = d;
       }
     }
-    return best ? { kind: "rail", target: asArmed(best) } : null;
+    return best ? { kind: "rail", target: asArmed(best), refused: null } : null;
   };
 
   return {
@@ -495,7 +511,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       const live = (x: T | null): x is T => x !== null && placeAt(x) !== null;
       // Spring-loading: the armed target holds while the pointer is in its armed zone; a target the pointer dwells in
       // arms once it has held `railArmDwellMs`. A key held wins over both.
-      const forced = forcedBy(keys, p, given, () => true);
+      const forced = forcedBy(keys, p, given, (x) => x.refuse === true || live(x));
       if (armedId !== null) {
         const was = given.find((x) => x.id === armedId);
         if (!was || forced || !inZone(asArmed(was), p) || !live(was)) armedId = null;
@@ -573,6 +589,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       }
       // An armed target shows at once: the dwell was the aim. A key held wins over all of it.
       if (armedNow && cur?.id === armedId && under) show(cur);
+      // A key that picks nothing here (the float key over a refusal or outside the window) shows nothing.
       if (forced) {
         if (!same(forced.target, cur)) curSince = t;
         cur = forced.target;
@@ -589,15 +606,19 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       else if (shownSince === t) roomPlace = null;
       lastPlaces = places;
       // A refusal crossed since a target last showed: a release beyond it lands on what is under the pointer, drawn or not.
+      // With a key held, the refusal is the one the key's pick met (the float key over a refusal), else none.
+      const refused = forced ? forced.refused : refusedRaw;
       if (shown) crossedRefusal = false;
-      else if (refusedRaw && !forced) crossedRefusal = true;
-      const refused = forced ? null : refusedRaw;
+      else if (refused) crossedRefusal = true;
       return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && atHome, arming, forced: forced?.kind ?? null, refused, refusedSinceShown: !shown && !refused && crossedRefusal };
     },
     release(point, given, keys) {
-      // A key held wins over geometry, home included.
-      const forced = forcedBy(keys, point, given, () => true);
-      if (forced) return given.find((x) => x.id === forced.target.id) ?? forced.target;
+      // A key held wins over geometry, home included; the float key over a refusal or outside the window lands nowhere.
+      const forced = forcedBy(keys, point, given, (x) => x.refuse === true || placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null);
+      if (forced) {
+        const ft = forced.target;
+        return ft ? (given.find((x) => x.id === ft.id) ?? ft) : null;
+      }
       // Over home a release does nothing, except onto an armed spring-loaded target whose zone overlaps home.
       if (inRect(home, point)) {
         const armed = armedId === null ? null : given.find((x) => x.id === armedId);

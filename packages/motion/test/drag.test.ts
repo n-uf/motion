@@ -13,6 +13,7 @@ import {
   REFUSAL_RANK,
   targetAt,
   type DragPreview,
+  type DragKeys,
   type DragTarget,
   type DragTuning,
   type PreviewPlan,
@@ -974,6 +975,67 @@ describe("drag/ the window's edge belongs to the targets drawn against it", () =
     expect(intent.release({ x: 1400, y: 400 }, list)).toBeNull();
     // And every frame on the edge after it.
     for (let k = 0; k < 8; k++) expect(intent.update({ x: 1400, y: 400 }, (t += 16), list).shown).toBeNull();
+  });
+});
+
+describe("drag/ the float key chooses the float over dock targets, not over refusals or outside the window", () => {
+  // A window 1400 × 800: a docked column's gap, a refused bar along the bottom, a rail strip at the left, the float.
+  const stage = rect(0, 0, 1400, 800);
+  const gap: DragTarget = { id: "gap:right-0:start:1", priority: 2, hit: rect(1088, 418, 268, 346) };
+  const rim: DragTarget = { id: "refuse:bar:bottom:start", priority: 2, hit: rect(0, 764, 1400, 36), refuse: true, bounds: stage };
+  const strip: DragTarget = { id: "rail:left:0", priority: 1, hit: rect(0, 0, 24, 764), arm: "dwell" };
+  const float: DragTarget = { id: "float:findings", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true, bounds: stage };
+  const list = [gap, rim, strip, float];
+  const shift = { shift: true };
+  const at = (p: { x: number; y: number }, keys: DragKeys = shift) => {
+    const intent = createDragIntent<DragTarget>({ home: rect(1088, 84, 300, 300), lift: { x: 1108, y: 94 } });
+    let t = 0;
+    let f = intent.update({ x: 1108, y: 94 }, t, list, keys);
+    for (let k = 0; k < 12; k++) f = intent.update(p, (t += 16), list, keys);
+    return { f, landed: intent.release(p, list, keys)?.id ?? null };
+  };
+
+  it("over a dock target or open space the float key still floats, over a spring-loaded strip too", () => {
+    for (const p of [{ x: 1200, y: 600 }, { x: 600, y: 400 }, { x: 10, y: 400 }]) {
+      const { f, landed } = at(p);
+      expect([f.forced, f.shown?.id, f.refused, landed], `${p.x},${p.y}`).toEqual(["float", "float:findings", null, "float:findings"]);
+    }
+  });
+
+  it("over a refusal it picks nothing: the frame is refused, nothing shows, a release lands nowhere", () => {
+    const { f, landed } = at({ x: 600, y: 780 });
+    expect([f.forced, f.shown, f.refused?.id, f.refusedSinceShown, landed]).toEqual(["float", null, "refuse:bar:bottom:start", false, null]);
+    // Where the gap meets the refused bar, the gap is the pick, so the key floats.
+    expect(at({ x: 1200, y: 764 }).landed).toBe("float:findings");
+  });
+
+  it("outside the float's bounds (a pointer clamped onto the window's edge) it picks nothing", () => {
+    for (const p of [{ x: 600, y: 800 }, { x: 1400, y: 300 }, { x: 0, y: 300 }, { x: 600, y: 840 }]) {
+      const { f, landed } = at(p);
+      expect([f.forced, f.shown, f.refused, landed], `${p.x},${p.y}`).toEqual(["float", null, null, null]);
+    }
+  });
+
+  it("refusedSinceShown behaves as without the key: over the refusal false, past it true until a target shows", () => {
+    const intent = createDragIntent<DragTarget>({ home: rect(1088, 84, 300, 300), lift: { x: 1108, y: 94 } });
+    let t = 0;
+    intent.update({ x: 1108, y: 94 }, t, list, shift);
+    let f = intent.update({ x: 600, y: 400 }, (t += 16), list, shift);
+    expect(f.shown?.id).toBe("float:findings");
+    f = intent.update({ x: 600, y: 780 }, (t += 16), list, shift);
+    expect([f.shown, f.refused?.id, f.refusedSinceShown]).toEqual([null, "refuse:bar:bottom:start", false]);
+    f = intent.update({ x: 600, y: 800 }, (t += 16), list, shift);
+    expect([f.shown, f.refused, f.refusedSinceShown]).toEqual([null, null, true]);
+    f = intent.update({ x: 600, y: 400 }, (t += 16), list, shift);
+    expect([f.shown?.id, f.refusedSinceShown]).toEqual(["float:findings", false]);
+  });
+
+  it("the rail key is unchanged: its drop lands on the rail, wherever the pointer is", () => {
+    const meta = { meta: true };
+    for (const p of [{ x: 600, y: 780 }, { x: 600, y: 800 }, { x: 1200, y: 600 }]) {
+      const { f, landed } = at(p, meta);
+      expect([f.forced, f.shown?.id, f.refused, landed], `${p.x},${p.y}`).toEqual(["rail", "rail:left:0", null, "rail:left:0"]);
+    }
   });
 });
 
