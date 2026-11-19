@@ -102,4 +102,71 @@ describe("contentMin.chromeWidth", () => {
       expect(JSON.stringify(solve(s))).toBe(base);
     }
   });
+
+  it("at narrow widths, a rail or a side bar within the allowance doesn't flip columnRoom: the columns are as without it", () => {
+    // At 540 px both columns are folded and columnRoom is true; a 30 px rail or bar turned it false before the allowance.
+    for (const width of [560, 540]) {
+      const plain = solve(kit([], F, undefined, width));
+      expect(plain.columnRoom, `${width}`).toBe(true);
+      for (const s of [kit(["left"], F, undefined, width), kit([], F, sideBar(30), width)]) {
+        const l = solve(s);
+        expect(l.columnRoom, `${width}`).toBe(true);
+        expect(l.notes.some((n) => n.code === "no-column-room"), `${width}`).toBe(false);
+        expect(l.content.width, `${width}`).toBe(plain.content.width - 30);
+        for (const id of ["left-0", "right-0"]) expect(l.edges[id]?.rect.width, `${width} ${id}`).toBe(plain.edges[id]?.rect.width);
+      }
+    }
+  });
+
+  it("a hidden rail, or one lending its items through showIn, takes no width and no allowance", () => {
+    const deck: Edge = { id: "deck", side: "top", ring: 0, accepts: ["group"], items: [], cross: { min: 36, max: 36, rail: 36 } };
+    for (const lend of [false, true]) {
+      const s = kit(["left", "right"], F, deck);
+      const hidden: Scene = { ...s, edges: s.edges.map((e) => (e.id === "tools-left" ? { ...e, hidden: true, ...(lend ? { showIn: "deck" } : {}) } : e)) };
+      const w = widths(hidden);
+      expect([w.left, w.right]).toEqual([263, 263]);
+      expect(w.content).toBe(344 - 30);
+      expect(w.l.notes.some((n) => n.code === "content-narrow")).toBe(false);
+    }
+  });
+
+  it("with chrome, a column folds into its declared rail as before: the fold's rail is the panels' cost, not chrome's", () => {
+    const w = widths(kit(["left", "right"], F, undefined, 600));
+    expect(w.l.notes.some((n) => n.code === "column-folded")).toBe(true);
+    // The rails (60), a folded column's rail (30) and the open column leave the content at the floor.
+    expect(w.content).toBe(F);
+    expect(w.l.notes.some((n) => n.code === "content-narrow")).toBe(false);
+  });
+
+  it("an outsideInset side bar is chrome with no gutter after it", () => {
+    // An 8 px gutter after each column: the window is 16 px wider, so the content is 344 again.
+    const base = { ...kit([], F, undefined, 886), gutter: 8 };
+    const bar: Edge = { ...sideBar(30), ring: 0, outsideInset: true };
+    const a = solve(base);
+    const b = solve({ ...base, edges: [...base.edges, bar] });
+    expect(b.edges["left-0"]!.rect.width).toBe(a.edges["left-0"]!.rect.width);
+    expect(b.edges["right-0"]!.rect.width).toBe(a.edges["right-0"]!.rect.width);
+    expect(b.content.width).toBe(a.content.width - 30);
+    expect(b.notes.some((n) => n.code === "content-narrow" || n.code === "column-shrunk")).toBe(false);
+  });
+
+  it("solving again from its own layout changes nothing (the previous fixpoint), at every width", () => {
+    for (const width of [870, 840, 600, 560]) {
+      for (const s of [kit(["left", "right"], F, undefined, width), kit(["left"], F, sideBar(30), width)]) {
+        const l = solve(s);
+        const again = solve(s, { previous: l });
+        expect(JSON.stringify(again.edges), `${width}`).toBe(JSON.stringify(l.edges));
+        expect(again.content, `${width}`).toEqual(l.content);
+        expect(again.notes.filter((n) => n.code !== "content-changed").map((n) => n.code), `${width}`).toEqual(l.notes.map((n) => n.code));
+      }
+    }
+  });
+
+  it("a floor of zero lets chrome take all the content; a negative one counts as zero", () => {
+    const zero = widths(kit(["left", "right"], 0, sideBar(200)));
+    expect([zero.left, zero.right]).toEqual([263, 263]);
+    expect(zero.content).toBe(344 - 60 - 200);
+    expect(zero.l.notes.some((n) => n.code === "content-narrow")).toBe(false);
+    expect(JSON.stringify(solve(kit(["left", "right"], -10, sideBar(200))))).toBe(JSON.stringify(zero.l));
+  });
 });
