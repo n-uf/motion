@@ -48,7 +48,7 @@ export interface SceneTargetOptions {
   readonly fresh?: readonly string[];
 }
 
-/** Where a drop of the dragged item is refused: a host shows "no room here" at the pointer, with no slot anywhere. */
+/** Where a drop of the dragged item is refused: a host draws nothing there and may say "Can't go here" at the pointer. */
 export interface SceneRefusal {
   /**
    * `refuse:<edge>:<zone>`, with `:<n>` after it for a zone's second refused tile and on, numbered by where they lie

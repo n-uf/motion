@@ -1220,16 +1220,17 @@ facing halves is home's, and is no target of its own. The slot is where the item
   strip's below): its tile in the rail, or a rider bar over the side's open column when lifting the item lets a column
   that was folded by width reopen; the slot is that landing. With no rail showing, the stop keeps its place only while
   one of its slots lands in the rail (home's counts): where every drop there is refused (a panel would ride over an
-  open column), the outermost column line runs from the window's edge. Draw `refusals()` as well as the targets, so a
-  place that refuses a drop never looks like a dead band. A refusal matches what is drawn: an edge that takes the
+  open column), the outermost column line runs from the window's edge. A refused place is never drawn: no tint, outline
+  or zone label over it; while the pointer is over one a host may say "Can't go here" at the pointer. A refusal matches
+  what is drawn: an edge that takes the
   dragged kind in no zone is one refusal, `refuse:<edge>:start` (`n = 0`), over its drawn rect (the `SceneEdgeLayout`
-  rect, fixed items included) less what targets own, so a host's tint and "Can't go here" cover the bar as drawn
+  rect, fixed items included) less what targets own, so the message shows over the whole bar as drawn
   (where a target splits it, every piece of 1 px and more is in `hits`, `hit` the largest: the pointer is in the
   refusal in any piece); a
   refused zone of an edge that takes the kind elsewhere keeps its slot's tile, inside the edge's ends. No refusal
   reaches past the stage. Hand them to the drag intent with the targets: `refusalTargets(refusals(scene, id))` gives
   each one as a target marked `refuse: true` (its `refusal` the `SceneRefusal`), which the intent never holds or
-  shows, so a held target's band never covers a refusal; read "No room here" from the frame's `refused`.
+  shows, so a held target's band never covers a refusal; show "Can't go here" while the frame's `refused` is set.
   In the pick a refusal ranks at `REFUSAL_RANK` (2.5, exported with `pickRank`, the drag intent's value): an ordering
   rank, not a priority (priorities stay 1, 2 and 3; `refuse: true` is a refusal's tier), after every target of
   priority 1 and 2, before the float's 3. Where a refusal and a target meet or overlap (a gap's end on a refused bar's edge), the

@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.41
 
+- `./scene`, docs: **a refused place is never drawn.** The docs no longer suggest a tint or outline over `refusals()`:
+  a host draws nothing there and may say "Can't go here" at the pointer while the frame's `refused` is set. The
+  refusals and `refusalTargets` are unchanged.
+
 - `./scene`, fixed: **a rail's room opens with its target** (additive). A target on a compact rail, a rail stop or a
   side bar whose drop moves an item of another edge (an empty toolbar rail pushing the panel column beside it) now
   carries `opensRoom` (`Target.opensRoom`). With `@n-uf/motion/drag`'s `opensRoom` the indicator and the room come in
