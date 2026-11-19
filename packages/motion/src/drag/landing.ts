@@ -18,7 +18,8 @@ import type { PlaceGuides } from "./preview";
  *   `step`), or a still step (at most `still`) once `depth` px inside, the depth counted only from the lane's sides that
  *   face into the stage (on the edge it is deep). A fly-through of a thin bar or rail at any angle meets neither, so its
  *   room never opens. Inside a lane that touches the held one, past the held lane's exit margin, the held lane holds
- *   until that lane's gate passes: lane to lane never passes through the float, and never opens a crossed lane's room.
+ *   until that lane's gate passes or the pointer has slid `path` px along it at any speed (across it at most a third as
+ *   far): lane to lane never passes through the float, and never opens a crossed lane's room.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
@@ -196,6 +197,7 @@ function depthIn(r: Rect, p: Point, stage: Rect): number {
 }
 const distanceTo = (r: Rect, p: Point): number => Math.hypot(Math.max(r.x - p.x, 0, p.x - (r.x + r.width)), Math.max(r.y - p.y, 0, p.y - (r.y + r.height)));
 const alongOf = (lane: LandingLane, p: Point): number => (lane.axis === "x" ? p.x : p.y);
+const acrossOf = (lane: LandingLane, p: Point): number => (lane.axis === "x" ? p.y : p.x);
 /** Two rects meet: they overlap or touch (within 1 px), corners included. */
 const touches = (a: Rect, b: Rect): boolean => a.x <= b.x + b.width + 1 && b.x <= a.x + a.width + 1 && a.y <= b.y + b.height + 1 && b.y <= a.y + a.height + 1;
 /** `p` onto `stage` when it lies past it by at most `reach`; else null (nowhere). */
@@ -227,6 +229,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let lastStep = 0;
   /** Path inside each lane since the pointer last entered its rect. */
   const pathIn = new Map<string, number>();
+  /** The path along and across each lane at any speed since the pointer entered it (a touching lane's takeover). */
+  const slide = new Map<string, { along: number; across: number }>();
   let approached: string | null = null;
   let previous: LandingRegion = laneId ? "lane" : "open";
   let frame: LandingFrame = { region: previous, lane: laneId, spot: spotId, landing: null, room: !!spotId, guides: [], shift: false };
@@ -338,10 +342,17 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     const regions = heldRegions(spotId);
     // The path inside each lane: the part along the lane of slow steps from a point inside it to another (the step that
     // enters doesn't count, nor a fast one), so a crossing at `step` speed or faster never enters by path at any angle.
+    // From a held lane, a touching lane counts the path along it and across it at any speed: a fast slide along it
+    // (across it at most a third as far as along) is no crossing.
     const slow = step <= gates.step;
     for (const l of regions.lanes) {
-      const go = from && slow && strictlyIn(l.rect, from) ? Math.abs(alongOf(l, p) - alongOf(l, from)) : 0;
-      pathIn.set(l.id, strictlyIn(l.rect, p) ? (pathIn.get(l.id) ?? 0) + go : 0);
+      const was = from && strictlyIn(l.rect, from);
+      const go = was ? Math.abs(alongOf(l, p) - alongOf(l, from)) : 0;
+      const over = was ? Math.abs(acrossOf(l, p) - acrossOf(l, from)) : 0;
+      const inL = strictlyIn(l.rect, p);
+      pathIn.set(l.id, inL ? (pathIn.get(l.id) ?? 0) + (slow ? go : 0) : 0);
+      const s = slide.get(l.id);
+      slide.set(l.id, inL ? { along: (s?.along ?? 0) + go, across: (s?.across ?? 0) + over } : { along: 0, across: 0 });
     }
 
     let region: LandingRegion;
@@ -356,7 +367,9 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       // P1), the held lane still holds until that lane's gate passes, then that lane takes it. Never the float between
       // them, never a fly-through's room.
       const touching = held ? regions.lanes.find((l) => l.id !== held.id && strictlyIn(l.rect, p) && touches(l.rect, held.rect) && !inside(held.rect, p, margins.exit)) : undefined;
-      const next = touching && gate(touching) ? touching : undefined;
+      const sl = touching ? slide.get(touching.id) : undefined;
+      const slid = !!sl && sl.along >= gates.path && sl.across * 3 <= sl.along;
+      const next = touching && (gate(touching) || slid) ? touching : undefined;
       if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
         const s = along(held, p, step);
         spotId = s?.id ?? spotId;
@@ -421,6 +434,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       laneId = spotId = null;
       approached = null;
       pathIn.clear();
+      slide.clear();
       last = moved = null;
       lastStep = 0;
     },
