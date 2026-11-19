@@ -4,7 +4,7 @@
  */
 import { EPS, RAIL_EDGE, clamp, rect, type Rect } from "../../geometry";
 import { sideRings } from "../changes";
-import { isHandFolded, zoneOf } from "../helpers";
+import { isHandFolded, isSideColumn, zoneOf } from "../helpers";
 import type { Edge } from "../model";
 import { slotAt } from "./edges";
 import { targetId, virtualEdgeId } from "./ids";
@@ -57,6 +57,8 @@ export function collapsesAt(c: Ctx, result: SceneAfter, side: "left" | "right"):
  */
 export function columnLines(c: Ctx, side: "left" | "right", railLands: boolean): EdgeSpec[] {
   const { scene, now, dragged } = c;
+  // `sideColumns: "one"`: a side that keeps a column with the item lifted offers no new one.
+  if (scene.sideColumns === "one" && c.rest.edges.some((e) => e.side === side && e.items.length > 0 && isSideColumn(c.rest, e))) return [];
   const cols = scene.edges
     .filter((e) => e.side === side && e.column === true)
     .map((edge) => ({ edge, l: now.edges[edge.id] }))

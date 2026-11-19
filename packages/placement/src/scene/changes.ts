@@ -30,7 +30,7 @@
  */
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSince, namesZone, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
+import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSideColumn, isSince, namesZone, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
 import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
@@ -83,6 +83,26 @@ export function prune(scene: Scene): Scene {
   if (gone.length === 0) return scene;
   const sides = new Set(gone.map((e) => e.side));
   return { ...scene, edges: closeRings(scene.edges.filter((e) => !gone.includes(e)), sides) };
+}
+
+/**
+ * Each side's columns (`isSideColumn`) merged into one, for `Scene.sideColumns: "one"`: the outermost column (by ring)
+ * keeps its id and takes every other column's items after its own, in ring order; the others are deleted and the side's
+ * rings closed up. A side with one column or none is unchanged; the same scene comes back when nothing merges. A host
+ * calls it as it reads a stored layout, so what it stores is what it shows and what a drag reads.
+ */
+export function mergeSideColumns(scene: Scene): Scene {
+  let edges = [...scene.edges];
+  const sides = new Set<string>();
+  for (const side of ["left", "right"] as const) {
+    const cols = edges.filter((e) => e.side === side && isSideColumn(scene, e)).sort((a, b) => a.ring - b.ring);
+    if (cols.length < 2) continue;
+    const [keep, ...rest] = cols;
+    const merged: Edge = { ...keep!, items: [...keep!.items, ...rest.flatMap((e) => e.items)] };
+    edges = edges.filter((e) => !rest.includes(e)).map((e) => (e === keep ? merged : e));
+    sides.add(side);
+  }
+  return sides.size === 0 ? scene : { ...scene, edges: closeRings(edges, sides) };
 }
 
 /** The scene with the item out of every edge and every float (a dynamic column it leaves empty is deleted). */

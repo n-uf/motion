@@ -309,6 +309,9 @@ export function isSideBar(scene: Scene, e: Edge): boolean {
   return !e.accepts.some((k) => panelKinds.includes(k));
 }
 
+/** A left or right column: a side edge that takes something, not a compact rail and not a toolbar bar (`isSideBar`). */
+export const isSideColumn = (scene: Scene, e: Edge): boolean => (e.side === "left" || e.side === "right") && !e.compact && e.accepts.length > 0 && !isSideBar(scene, e);
+
 /**
  * The orient a float of `item` takes when it names none: its `floatOrient`, else the axis of its first form (the first
  * of `forms.row` / `forms.column` it declares with any form), else column.
