@@ -73,6 +73,11 @@ export function giveWay(d: Draft, cols: readonly Col[], area: Rect, gutter: numb
   const { scene, previous, fresh, opened } = d;
   const ride = scene.handFold === "ride";
   const cmin = scene.contentMin ? px(scene.contentMin.width) : undefined;
+  // The chrome floor (`contentMin.chromeWidth`), never above `cmin`; a value that isn't a number is no floor.
+  const chromeWidth = scene.contentMin?.chromeWidth;
+  const floor = cmin !== undefined && typeof chromeWidth === "number" && Number.isFinite(chromeWidth) ? Math.min(cmin, px(chromeWidth)) : undefined;
+  // Chrome: a side edge of toolbars that never gives way (a compact rail, a side toolbar bar), not a panel column.
+  const isChrome = (c: Col): boolean => !c.dyn && (c.edge.compact === true || isSideBar(scene, c.edge));
   const foldOrder = cols
     .filter((c) => c.dyn && !c.hand && c.width > 0)
     .sort((a, b) => giveWayOrder(a, b) || (a.side === b.side ? 0 : a.side === "left" ? -1 : 1));
@@ -92,7 +97,10 @@ export function giveWay(d: Draft, cols: readonly Col[], area: Rect, gutter: numb
     // An edge outside the inset has no gutter after it (the inset is there).
     for (const [c, w] of widths) used += w > 0 ? w + (c.edge.outsideInset === true ? 0 : gutter) : 0;
     for (const s of railSides) used += railW(s) + gutter;
-    let excess = cmin === undefined ? -Infinity : used + cmin - area.width;
+    // With a chrome floor, the toolbar edges may take the content down to it; the columns alone still leave `cmin`.
+    let chrome = 0;
+    if (floor !== undefined) for (const [c, w] of widths) if (isChrome(c) && w > 0) chrome += w + (c.edge.outsideInset === true ? 0 : gutter);
+    let excess = cmin === undefined ? -Infinity : floor === undefined ? used + cmin - area.width : Math.max(used - chrome + cmin, used + floor) - area.width;
     for (const c of shrinkOrder) {
       if (excess <= EPS) break;
       const w = widths.get(c);
