@@ -31,6 +31,12 @@ export interface Draft {
   readonly rails: Partial<Record<"left" | "right", SceneRailLayout>>;
   readonly railPlaces: Partial<Record<"left" | "right", Rect>>;
   columnRoom?: boolean;
+  /**
+   * With a chrome floor (`contentMin.chromeWidth`): how much of the content's width the toolbar edges take within their
+   * allowance (`contentMin.width` less the floor, at most). `columnRoom` and `content-narrow` don't count it against
+   * the content: a toolbar rail never flips a host to its narrow layout.
+   */
+  chromeAllowance?: number;
   /** Height give-way: the most a top or bottom bar that gives way may be across, by edge id. */
   readonly caps: ReadonlyMap<string, number>;
 }

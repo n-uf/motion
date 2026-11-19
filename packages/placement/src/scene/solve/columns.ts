@@ -78,6 +78,10 @@ export function giveWay(d: Draft, cols: readonly Col[], area: Rect, gutter: numb
   const floor = cmin !== undefined && typeof chromeWidth === "number" && Number.isFinite(chromeWidth) ? Math.min(cmin, px(chromeWidth)) : undefined;
   // Chrome: a side edge of toolbars that never gives way (a compact rail, a side toolbar bar), not a panel column.
   const isChrome = (c: Col): boolean => !c.dyn && (c.edge.compact === true || isSideBar(scene, c.edge));
+  // What chrome takes across (it never gives way, so the same in every weighing), and the part of it within the floor's
+  // allowance, which `columnRoom` and `content-narrow` leave out.
+  const chrome = floor === undefined ? 0 : cols.filter((c) => isChrome(c) && c.width > 0).reduce((s, c) => s + c.width + (c.edge.outsideInset === true ? 0 : gutter), 0);
+  if (floor !== undefined) d.chromeAllowance = Math.min(chrome, cmin! - floor);
   const foldOrder = cols
     .filter((c) => c.dyn && !c.hand && c.width > 0)
     .sort((a, b) => giveWayOrder(a, b) || (a.side === b.side ? 0 : a.side === "left" ? -1 : 1));
@@ -98,8 +102,6 @@ export function giveWay(d: Draft, cols: readonly Col[], area: Rect, gutter: numb
     for (const [c, w] of widths) used += w > 0 ? w + (c.edge.outsideInset === true ? 0 : gutter) : 0;
     for (const s of railSides) used += railW(s) + gutter;
     // With a chrome floor, the toolbar edges may take the content down to it; the columns alone still leave `cmin`.
-    let chrome = 0;
-    if (floor !== undefined) for (const [c, w] of widths) if (isChrome(c) && w > 0) chrome += w + (c.edge.outsideInset === true ? 0 : gutter);
     let excess = cmin === undefined ? -Infinity : floor === undefined ? used + cmin - area.width : Math.max(used - chrome + cmin, used + floor) - area.width;
     for (const c of shrinkOrder) {
       if (excess <= EPS) break;
@@ -183,7 +185,9 @@ export function columnRoom(d: Draft, cols: readonly Col[], area: Rect, f: Frame)
   if (cmin === undefined || colMins.length === 0) return;
   // A side toolbar bar never folds: one that lays out an item takes its width (and the gutter after it, unless it
   // lies outside the inset, which the area already leaves out) from the room a column could have.
-  const bars = cols.filter((c) => c.width > 0 && !c.dyn && isSideBar(scene, c.edge)).reduce((s, c) => s + c.width + (c.edge.outsideInset === true ? 0 : f.gutter), 0);
+  // With a chrome floor, what they take within its allowance doesn't count: a toolbar rail never takes a column's room.
+  const allBars = cols.filter((c) => c.width > 0 && !c.dyn && isSideBar(scene, c.edge)).reduce((s, c) => s + c.width + (c.edge.outsideInset === true ? 0 : f.gutter), 0);
+  const bars = d.chromeAllowance === undefined ? allBars : allBars - Math.min(allBars, d.chromeAllowance);
   // With `insetWhen: "docked"` and nothing docked now, the column that opens brings the inset with it.
   const width = area.width - bars - (scene.insetWhen === "docked" && !f.docked ? px(scene.inset?.left) + px(scene.inset?.right) : 0);
   const need = cmin + Math.min(...colMins) + f.gutter;
