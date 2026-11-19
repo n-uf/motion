@@ -7,7 +7,7 @@ import { createLandingModel, type LandingFrame, type LandingOptions } from "@n-u
 import { describe, expect, it } from "vitest";
 import type { Point } from "../src/geometry";
 import { lanes, solve, SPOT_PITCH, type Scene } from "../src/scene";
-import { bar, byId, group } from "./scene-fixture";
+import { bar, byId, column, controls, group, panel, title } from "./scene-fixture";
 
 /** A 1080×640 window: a top bar (y 0–36) with a at its start, a toolbar rail at the left (x 0–30, y 36–640): tools, zoom. */
 const scene: Scene = {
@@ -62,6 +62,60 @@ function path(points: readonly Point[], speed: number, rest = 0): [number, numbe
   if (rest > 0) out.push([t + rest, points.at(-1)!.x, points.at(-1)!.y]);
   return out;
 }
+
+/**
+ * A document window like the lab's: a title bar (a fixed title, a toolbar, fixed controls), an empty top bar, a bottom
+ * bar of two toolbars, toolbar rails at both sides (tools and zoom at the left), panel columns inside them.
+ */
+function labWindow(): Scene {
+  const COL = { accepts: ["panel"], cross: { min: 180, max: 480, rail: 30 } };
+  const rail = (id: string, side: "left" | "right", items: string[]): Scene["edges"][number] => ({ id, side, ring: 0, accepts: ["group"], items, cross: { min: 30, max: 30, rail: 30 }, compact: true, gap: 4, pad: { start: 4, end: 4 } });
+  return {
+    stage: { x: 0, y: 0, width: 1080, height: 640 },
+    edges: [
+      bar("title", "top", 0, ["title", "tz", "controls"]),
+      bar("top", "top", 1, []),
+      bar("bottom", "bottom", 0, ["views", "review"]),
+      rail("rail-left", "left", ["tools", "zoom"]),
+      rail("rail-right", "right", []),
+      column("left", "left", 1, ["pages", "notes"], { column: true, accepts: ["panel"] }),
+      column("right", "right", 1, ["findings"], { column: true, accepts: ["panel"] }),
+    ],
+    items: byId([title(), group("tz", 1), controls(), group("tools", 2), group("zoom", 3), group("views", 4), group("review", 5), panel("pages", 6), panel("notes", 7), panel("findings", 8)]),
+    floats: [],
+    floatKinds: ["panel", "group"],
+    columns: { left: COL, right: COL },
+    sideColumns: "one",
+  };
+}
+
+describe("a toolbar moved along an occupied bar or rail stays at the hand", () => {
+  it("in every sweep both ways at 0.15–3 px/ms, the landing is never more than 48 px from the pointer while its lane holds it", () => {
+    const s = labWindow();
+    const l = solve(s);
+    // Each toolbar along its own lane, end to end and back (the pointer over fixed chrome, where nothing lands, left out).
+    const fixed = Object.entries(l.items).filter(([id]) => s.items[id]!.fixed).map(([, it]) => it.rect);
+    const sweeps: [string, string, Point, Point][] = [
+      ["views", "bottom", { x: 30, y: 622 }, { x: 1050, y: 622 }],
+      ["tools", "rail-left", { x: 15, y: 70 }, { x: 15, y: 600 }],
+      ["tz", "title", { x: 240, y: 16 }, { x: 990, y: 16 }],
+    ];
+    for (const [id, lane, a, b] of sweeps) {
+      const g = l.items[id]!.rect;
+      const press = { x: g.x + Math.min(10, g.width / 2), y: g.y + Math.min(10, g.height / 2) };
+      for (const speed of [0.15, 0.3, 0.6, 1.2, 3])
+        for (const [p0, p1] of [[a, b], [b, a]] as const) {
+          let worst = 0;
+          for (const { p, f } of runOn(s, id, path([press, p0, p1], speed, 80))) {
+            if (f.lane !== lane || !f.landing || fixed.some((r) => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height)) continue;
+            const l2 = f.landing;
+            worst = Math.max(worst, Math.hypot(Math.max(l2.x - p.x, 0, p.x - (l2.x + l2.width)), Math.max(l2.y - p.y, 0, p.y - (l2.y + l2.height))));
+          }
+          expect([id, speed, p0.x, p0.y, Math.round(worst) <= 48 ? "ok" : Math.round(worst)]).toEqual([id, speed, p0.x, p0.y, "ok"]);
+        }
+    }
+  });
+});
 
 describe("the landing model over lanes(), at more speeds than the landing rows", () => {
   it("the window's edge docks at 0.6–3 px/ms, on it and up to 40 px past it", () => {
