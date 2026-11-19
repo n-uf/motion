@@ -1006,7 +1006,10 @@ first column. A column folds:
   change nothing. Still too narrow: `content-narrow`; under `contentMin.height` (overlay bars counted): `content-short`.
   With `contentMin.chromeWidth`, a lower floor for chrome, the content gives way first: compact rails and side toolbar
   bars may take it down to that floor while the columns keep their width and move aside, and only below it does a
-  column shrink, then fold. The columns alone still leave `contentMin.width`, so a toolbar rail added at a window's edge
+  column shrink, then fold. A compact rail is always chrome; a side toolbar bar is only where its side has a column
+  template or a declared rail to tell it from a panel column (`isSideBar`), so on a side with neither it gets no floor
+  benefit. A floor of 0 or less lets chrome take all the content. The columns alone still leave `contentMin.width`, so
+  a toolbar rail added at a window's edge
   narrows the content and leaves the panel column as it was. Chrome within that allowance is quiet: no `content-narrow`,
   and `columnRoom` stays true, so a toolbar rail never flips a host to its narrow layout. `content-narrow` fires when
   the columns' own need takes the content under `contentMin.width`, or once it is under the floor; its `min` is

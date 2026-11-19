@@ -398,7 +398,10 @@ export interface Scene {
    *
    * `chromeWidth` (optional, px, at most `width`): a lower floor for chrome. The side edges that hold toolbars, not
    * panels (compact rails and side toolbar bars, `isSideBar`), may take the content down to it while the columns keep
-   * their width and only move aside: a toolbar rail added at an edge narrows the content, not the column. Below it a
+   * their width. A compact rail always counts; a side toolbar bar only where its side has a column template or a declared
+   * rail to tell it from a panel column (`isSideBar`): on a side with neither it is not chrome and gets no floor benefit.
+   * A floor of 0 or less lets chrome take all the content. The columns only move aside: a toolbar rail added at an edge
+   * narrows the content, not the column. Below the floor a
    * column shrinks, then folds, as without it. The columns alone still leave `width`. Chrome within that allowance is
    * quiet: a content it narrows between the two floors carries no `content-narrow`, and `columnRoom` stays true, so a
    * toolbar rail never flips a host to its narrow layout. `content-narrow` fires when the columns' own need takes the
