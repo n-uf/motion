@@ -1639,6 +1639,31 @@ declare function pageHost(): Promise<AsyncCaseHost>;
 const results = await runCasesAsync(CASES, pageHost, { onResult: (id, r) => console.log(id, r.ok) });
 ```
 
+**Landing rows.** `LANDING_CASES` are the landing model's properties as rows, for a host that drags with one
+(`@n-uf/motion/drag`'s `createLandingModel` over `lanes()`): a scene, the item dragged, a pointer path at a speed (its
+first point the press), a rest, and what holds on every frame while the pointer moves (the lane held, lanes or regions
+never shown, how far the landing may trail the pointer, or no further than the same path played slowly plus a
+margin), on the last frame and in the layout after the release. They cover the rail repro, the window's edge (on it
+and up to 48 px past it docks, beyond is nowhere), a fast pass over a bar, lane to lane at a corner, a fast hand along
+a free stretch and across docked items. A host implements `play(row)`: its frames (`LandingCaseFrame`) and the layout
+after. `runLandingCases(rows, host)` says what differs. Placement doesn't import motion, so the reference host takes
+the model as an input, as the scene host takes the pick rule:
+
+```ts
+import { createLandingModel } from "@n-uf/motion/drag";
+import { createLandingHost, LANDING_CASES, lanesRatchet, runLandingCases } from "@n-uf/placement/scene/cases";
+
+const results = await runLandingCases(LANDING_CASES, createLandingHost({ landing: createLandingModel }));
+const skipped = results.filter((r) => r.skipped).length;
+// The host's suite records its count; it may only fall, and from 2026-12-31 (or the breaking release) it must be 0.
+expect(lanesRatchet({ skipped, baseline: 0, today: new Date().toISOString().slice(0, 10) })).toEqual([]);
+```
+
+Every landing row carries `requires: { lanes: { since: LANES_SINCE } }`, the first version with `lanes()`; a host
+that says it runs an older `version` skips it. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
+baseline the host's suite recorded, and from `LANES_DEADLINE` (2026-12-31) or at the breaking release, whichever comes
+first, every row runs.
+
 ## Tiling
 
 `@n-uf/placement/tiling` divides an area among panes, with no overlap and no hole. It has two models; **use an order

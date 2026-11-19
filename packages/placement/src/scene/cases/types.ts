@@ -195,6 +195,12 @@ export interface CaseRequires {
    * whose `dockMinWidth` is above the row's stage width.
    */
   readonly docks?: boolean;
+  /**
+   * The row is a landing row (`LANDING_CASES`): the host drags with a landing model over `lanes()`, from the library
+   * version `since` on. A host without one, or on an older version, skips it; the skipped count is a ratchet
+   * (`lanesRatchet`).
+   */
+  readonly lanes?: { readonly since: string };
 }
 
 export interface CaseRow {

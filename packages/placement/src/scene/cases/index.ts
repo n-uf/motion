@@ -33,6 +33,22 @@ export { defaultItemSelector, layoutIssues, runCase, runCaseAsync, runCases, run
 export { g } from "./gestures";
 export { idRenames, mapGesture, mapLayout, mapPlace, mapScene, mapStored, type IdMap, type Rename } from "./ids";
 export { WINDOW_A, WINDOW_B, WINDOW_BARE, winScene, type WinOptions, type WinSpec } from "./windows";
+export {
+  createLandingHost,
+  LANDING_CASES,
+  landingIssues,
+  LANES_DEADLINE,
+  LANES_SINCE,
+  lanesRatchet,
+  runLandingCases,
+  type LandingCase,
+  type LandingCaseFrame,
+  type LandingCaseHost,
+  type LandingCaseResult,
+  type LandingModelLike,
+  type LandingRegionName,
+  type LandingRule,
+} from "./landing";
 export type { AsyncCaseHost, CaseGroup, CaseHost, CaseRequires, CaseResult, CaseRow, CaseSettings, Checkpoint, DomCheck, DomRoot, EdgeExpect, Gesture, GestureType, ItemExpect, LayoutExpect, PickCandidate, PickRule, StoredExpect } from "./types";
 
 /**
