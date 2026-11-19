@@ -403,7 +403,7 @@ export const PRESETS: readonly Preset[] = [
       // over the rail's top) takes it.
       const all = targets(s, "review").filter((t) => t.place.kind !== "float");
       let holes = 0;
-      for (let y = rail.y + 2; y < rail.y + rail.height - 2; y += 8) if (!all.some((t) => inside(t.hit, { x: rail.x + rail.width / 2, y }))) holes++;
+      for (let y = rail.y + 2; y < rail.y + rail.height - 2; y += 8) if (!all.some((t) => (t.hits ?? [t.hit]).some((h) => inside(h, { x: rail.x + rail.width / 2, y })))) holes++;
       const foot = { x: rail.x + rail.width / 2, y: rail.y + rail.height - 4 };
       const t = ts.find((x) => inside(x.hit, foot));
       const a = t?.after(foot);
@@ -733,9 +733,10 @@ export const PRESETS: readonly Preset[] = [
         const rail = c.layout.edges[side]!.rect;
         const zoom = rectOf(c, "zoom")!;
         const x = rail.x + rail.width / 2;
-        // The top spot lies past the empty top bar's own band (half the hit band, 12 px), which owns the rail's top.
+        // The top spot lies past the empty top bar's strip, as deep as a drop draws the bar (32 px): the drag comes in from
+        // the right along it, so short of that the bar's strip is what it is over.
         const spots: [string, Point, "start" | "center" | "end"][] = [
-          ["top", { x, y: rail.y + 18 }, "start"],
+          ["top", { x, y: rail.y + 40 }, "start"],
           ["below Zoom", { x, y: zoom.y + zoom.height + 10 }, "start"],
           ["middle", { x, y: rail.y + rail.height / 2 }, "center"],
           ["bottom", { x, y: rail.y + rail.height - 6 }, "end"],
@@ -938,7 +939,7 @@ export const PRESETS: readonly Preset[] = [
               const p = { x, y };
               // Past a fixed item that ends the edge (the controls, before the bar's end padding) nothing can go.
               const pastEnd = solid.some((s) => (l.side === "left" || l.side === "right" ? y >= s.y + s.height : x >= s.x + s.width) && !items.some(([, q]) => (l.side === "left" || l.side === "right" ? q.rect.y >= s.y + s.height : q.rect.x >= s.x + s.width)));
-              if (pastEnd || solid.some((s) => inside(s, p)) || bodies.some((b) => inside(b, p)) || y <= panelsEnd || emptyBands.some((t) => inside(t.hit, p))) continue;
+              if (pastEnd || solid.some((s) => inside(s, p)) || bodies.some((b) => inside(b, p)) || y <= panelsEnd || emptyBands.some((t) => (t.hits ?? [t.hit]).some((h) => inside(h, p)))) continue;
               n++;
               if (!mine.some((t) => ("hits" in t && t.hits ? t.hits : [t.hit]).some((h) => inside(h, p)))) {
                 dead++;
