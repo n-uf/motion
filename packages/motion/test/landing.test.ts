@@ -352,6 +352,59 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     for (const deg of [22, 30, 45]) expect([deg, took(deg)]).toEqual([deg, false]);
   });
 
+  describe("each knob does what it says (a broken one fails here)", () => {
+    const fromDoc = { home: undefined } as const;
+    /** The frames of `keys`, then the frame `ms` after the last key with the pointer still there. */
+    const after = (o: Partial<LandingOptions>, keys: [number, number, number][], ms: number): LandingFrame => {
+      const t = keys.at(-1)![0];
+      return run(base(o), [...keys, [t + ms, keys.at(-1)![1], keys.at(-1)![2]]]).frames.at(-1)!.f;
+    };
+
+    it("margins.exit: a held lane holds to `exit` px past its edge, not further", () => {
+      const at = (x: number, exit?: number): boolean => run(base(exit ? { margins: { exit } } : {}), path([{ x: 15, y: 300 }, { x, y: 300 }], 0.1)).frames.at(-1)!.f.lane === "rail-left";
+      expect([at(41), at(44)]).toEqual([true, false]);
+      expect([at(59, 30), at(62, 30)]).toEqual([true, false]);
+    });
+
+    it("gates.depth: a still pointer enters `depth` px inside, not shallower (the window's edge side doesn't count)", () => {
+      const at = (x: number, depth?: number): string | null => after({ ...fromDoc, ...(depth ? { gates: { depth } } : {}) }, path([{ x: 200, y: 300 }, { x, y: 300 }], 0.5), 120).lane;
+      expect([at(23), at(21)]).toEqual([null, "rail-left"]);
+      expect(at(23, 5)).toBe("rail-left");
+    });
+
+    it("gates.rest and gates.pause: after a fast step a still pointer counts after `pause`, after a slow one after `rest`", () => {
+      // 288 px at 1.5 px/ms: 24 whole samples, so the last step is as fast as the rest.
+      const fast = path([{ x: 400, y: 304 }, { x: 400, y: 16 }], 1.5);
+      expect([after(fromDoc, fast, 40).lane, after(fromDoc, fast, 80).lane]).toEqual([null, "top"]);
+      expect(after({ ...fromDoc, gates: { pause: 30 } }, fast, 40).lane).toBe("top");
+      // The last 24 px at 0.3 px/ms: 2.4 px a sample, slow for `step`, too fast to be still on the way.
+      const slow = path([{ x: 400, y: 304 }, { x: 400, y: 40 }], 1.5);
+      slow.push([slow.at(-1)![0] + 80, 400, 16]);
+      expect([after(fromDoc, slow, 16).lane, after(fromDoc, slow, 32).lane]).toEqual([null, "top"]);
+    });
+
+    it("gates.step: a change that reflows waits for a step of at most `step`", () => {
+      const changed = (speed: number, gates?: Partial<LandingOptions["gates"]>): boolean =>
+        run(base({ gates: { trail: 10_000, ...gates } }), path([{ x: 15, y: 300 }, { x: 15, y: 60 }], speed)).frames.some((x) => x.f.spot === "rail-left/start/^|tools");
+      expect([changed(0.2), changed(1)]).toEqual([true, false]);
+      expect(changed(1, { step: 10 })).toBe(true);
+    });
+
+    it("gates.trail: a fast reflowing change is taken once the landing trails the pointer by more than `trail`", () => {
+      const firstChange = (trail?: number): number | null => {
+        const { frames } = run(base(trail ? { gates: { trail } } : {}), path([{ x: 15, y: 300 }, { x: 15, y: 40 }], 1));
+        return frames.find((x) => x.f.spot === "rail-left/start/^|tools")?.p.y ?? null;
+      };
+      // The landing below Tools starts at y 196 and the boundary is Tools' middle, 111: past it (6 px) the landing is 91 px
+      // away, more than 40, so it is taken there; with 150 only once the pointer is 150 px above 196; with no bound never.
+      const y = firstChange();
+      expect(y).not.toBeNull();
+      expect(y!).toBeGreaterThan(90);
+      expect(firstChange(150)!).toBeLessThanOrEqual(196 - 150);
+      expect(firstChange(10_000)).toBeNull();
+    });
+  });
+
   it("P12: Alt and Ctrl/Meta change nothing", () => {
     const keys = path([{ x: 15, y: 300 }, { x: 15, y: 60 }, { x: 400, y: 300 }], 0.3);
     const plain = run(base(), keys).frames.map((x) => [x.f.region, x.f.spot]);
