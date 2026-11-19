@@ -56,6 +56,11 @@ describe("the landing rows", () => {
     expect(landingIssues(row, frames, before, before)).toEqual([]);
     expect(landingIssues(row, frames, moved({ rect: { ...before.items.a!.rect, x: before.items.a!.rect.x + 40 } }), before).join()).toMatch(/a is at 48,/);
     expect(landingIssues(row, frames, moved({ edge: "bottom" }), before).join()).toMatch(/a ends bottom, not where it was \(top\)/);
+    // In another order among its items (tools and zoom swapped in the rail), its own rect unchanged.
+    const rail = LANDING_CASES.find((r) => r.id === "landing-back-home-rail")!;
+    const b2 = solve(rail.scene);
+    const swapped: SceneLayout = { ...b2, items: { ...b2.items, tools: { ...b2.items.tools!, rect: { ...b2.items.tools!.rect, y: b2.items.zoom!.rect.y + 1 } } } };
+    expect(landingIssues(rail, frames, swapped, b2).join()).toMatch(/rail-left holds zoom, tools, not tools, zoom as at the press/);
   });
 
   it("a host on 26.11.45 runs the rows lanes() had then and skips the grab's", async () => {

@@ -28,7 +28,7 @@ function rectIssues(what: string, want: Partial<Rect>, got: Rect, tol: number): 
 }
 
 /** The ids docked in an edge (not in its menu), in order along it. */
-function dockedIn(l: SceneLayout, edge: string): string[] {
+export function dockedIn(l: SceneLayout, edge: string): string[] {
   const e = l.edges[edge];
   const column = e?.side === "left" || e?.side === "right";
   return Object.entries(l.items)

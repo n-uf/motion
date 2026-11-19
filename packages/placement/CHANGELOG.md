@@ -14,10 +14,11 @@ the press; without it the back-home rows compare with the row's window as before
   play's `before` (else the row's scene as solved). `landing-back-home-bar` and `landing-back-home-rail` use it instead
   of pixel values of the row's window, so a host whose rail has a gap no longer fails the rail row by that gap.
   `landingIssues` takes `before` as an optional fourth argument; the reference host reports it.
-- `./scene`, **`Scene.barZones`** (docs): it moves the targets' hit areas only (`targets()`, `pickTarget`, a drag
-  intent over them). Under a landing model `lanes()` cuts a bar between its spots' landings whatever the zones' hit
-  areas, so it changes nothing there: the 26.11.45 notes listed it among the landing model's opt-ins, which a host
-  that drags with `lanes()` needn't set.
+- `./scene`, **`Scene.barZones`** (docs): what it does under a landing model, which the 26.11.45 notes didn't say. It
+  moves each zone's extent, so it changes which zone a pointer picks among `targets()` and, since a zone left with no
+  room gets no drop, which of a bar's drops exist and where its refused stretches lie. `lanes()` cuts between spots by
+  their landings, not by zones: under a landing model it changes only which spots, refused stretches and place guides
+  a bar has, never how the bar is cut between them. It is not needed for the landing model.
 
 ## 26.11.46
 

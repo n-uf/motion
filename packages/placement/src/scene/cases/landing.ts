@@ -17,7 +17,7 @@ import { rect, type Point, type Rect } from "../../geometry";
 import { lanes, type Regions } from "../lanes";
 import type { Edge, Scene, SceneItem, SceneLayout } from "../index";
 import { solve } from "../solve";
-import { layoutIssues } from "./run";
+import { dockedIn, layoutIssues } from "./run";
 import type { CaseRequires, LayoutExpect } from "./types";
 import { form } from "./world";
 
@@ -162,13 +162,6 @@ const touches = (a: Rect, b: Rect): boolean => a.x <= b.x + b.width && b.x <= a.
 /** The furthest the landing gets from the pointer while a lane holds it and the pointer moves. */
 const worstTrail = (frames: readonly LandingCaseFrame[]): number => Math.max(0, ...frames.filter((f) => f.moving && f.region === "lane" && f.landing).map((f) => gapTo(f.landing!, f.point)));
 
-/** The ids docked on `edge` in `l`, in order along it (by their rects' top left). */
-const onEdgeIds = (l: SceneLayout, edge: string): string[] =>
-  Object.entries(l.items)
-    .filter(([, it]) => it.edge === edge && !it.inMenu && !it.floating)
-    .sort(([, a], [, b]) => a.rect.x - b.rect.x || a.rect.y - b.rect.y)
-    .map(([id]) => id);
-
 /** Where `item` lies in `after` against where it lay in `before`: its edge, its order there and its rect. */
 function homeIssues(item: string, before: SceneLayout, after: SceneLayout): string[] {
   const a = before.items[item];
@@ -178,8 +171,8 @@ function homeIssues(item: string, before: SceneLayout, after: SceneLayout): stri
   const out: string[] = [];
   const where = (it: typeof a): string => (it.floating ? "floating" : it.inMenu ? `in ${it.edge ?? "no"} menu` : (it.edge ?? "nowhere"));
   if (where(a) !== where(b)) out.push(`${item} ends ${where(b)}, not where it was (${where(a)})`);
-  else if (a.edge && onEdgeIds(before, a.edge).join(",") !== onEdgeIds(after, a.edge).join(","))
-    out.push(`${a.edge} holds ${onEdgeIds(after, a.edge).join(", ")}, not ${onEdgeIds(before, a.edge).join(", ")} as at the press`);
+  else if (a.edge && dockedIn(before, a.edge).join(",") !== dockedIn(after, a.edge).join(","))
+    out.push(`${a.edge} holds ${dockedIn(after, a.edge).join(", ")}, not ${dockedIn(before, a.edge).join(", ")} as at the press`);
   const r0 = a.rect;
   const r1 = b.rect;
   if (Math.max(Math.abs(r0.x - r1.x), Math.abs(r0.y - r1.y), Math.abs(r0.width - r1.width), Math.abs(r0.height - r1.height)) > 0.5)

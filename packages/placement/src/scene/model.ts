@@ -416,9 +416,11 @@ export interface Scene {
   /**
    * `"nearest"`: a bar's zones (start, center, end) meet halfway between the landing rects either side of each boundary,
    * so the pointer picks the zone whose landing is nearest it. Absent: at thirds of the bar's length (each boundary moved
-   * past the cards seen beside it, as now). A declaration, like `foldedColumnDrop`: never stored. It moves the targets'
-   * hit areas only (`targets()`, `pickTarget`, a drag intent over them): `lanes()` cuts a bar between its spots'
-   * landings whatever the zones' hit areas, so under a landing model it changes nothing.
+   * past the cards seen beside it, as now). A declaration, like `foldedColumnDrop`: never stored. It moves each zone's
+   * extent, so it changes which zone a pointer picks among `targets()` (the hit areas a drag intent reads), and, since a
+   * zone left with no room gets no drop, which of a bar's drops exist and where its refused stretches lie. Under a
+   * landing model `lanes()` cuts between spots by their landings, not by zones: there it changes only which spots and
+   * refused stretches a bar has, never how the bar is cut between them.
    */
   readonly barZones?: "nearest";
   /**
