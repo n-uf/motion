@@ -121,6 +121,20 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     }
   });
 
+  it("P3: a wobble of up to ±6 px across any boundary flips no spot, a far one too (one margin everywhere)", () => {
+    // The boundary at Tools' middle (111) lies 85 px from the landing below Tools (196): a far boundary. From either side,
+    // slowly, wobbles of ±2 to ±6 px about it, past it by the amplitude.
+    for (const amp of [2, 4, 6])
+      for (const from of [300, 60]) {
+        const side = from > 111 ? 1 : -1;
+        const keys: [number, number, number][] = [[0, 15, from], [600, 15, 111 + side * 2]];
+        for (let k = 0; k < 30; k++) keys.push([620 + k * 40, 15, 111 + (k % 2 ? side : -side) * amp]);
+        const { frames } = run(base({ home: undefined }), [[0, 15, from], ...keys.slice(1)]);
+        const spots = frames.filter((x) => x.t >= 620).map((x) => x.f.spot);
+        expect([amp, from, spots.filter((s, i) => i > 0 && s !== spots[i - 1]).length]).toEqual([amp, from, 0]);
+      }
+  });
+
   it("P3: a wobble across a spot boundary inside the margin changes nothing; a sweep changes at most once per boundary", () => {
     const keys: [number, number, number][] = [];
     for (let k = 0; k < 40; k++) keys.push([k * 24, 15, 111 + (k % 2 ? 4 : -4)]);
