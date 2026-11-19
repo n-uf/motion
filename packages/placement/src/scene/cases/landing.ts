@@ -30,7 +30,11 @@ export type LandingRegionName = "lane" | "open" | "refused" | "nowhere";
 
 /** A landing model, as much of it as a host plays (`@n-uf/motion/drag`'s `createLandingModel` gives one). */
 export interface LandingModelLike {
-  update(point: Point, time: number, keys?: { readonly shift?: boolean }): { readonly region: LandingRegionName; readonly lane: string | null; readonly spot: string | null; readonly landing: Rect | null; readonly room: boolean };
+  update(
+    point: Point,
+    time: number,
+    keys?: { readonly shift?: boolean },
+  ): { readonly region: LandingRegionName; readonly lane: string | null; readonly spot: string | null; readonly landing: Rect | null; readonly room: boolean; readonly guides?: readonly LandingCaseGuide[] };
   release(): { readonly kind: "spot"; readonly lane: string; readonly spot: string; readonly home: boolean } | { readonly kind: "float"; readonly rect: Rect } | null;
 }
 /** What makes a landing model: `createLandingModel`, as an input. */
@@ -39,7 +43,16 @@ export type LandingRule = (options: {
   readonly regionsFor: (spot: string) => Regions;
   readonly floatLanding: (point: Point) => Rect | null;
   readonly home?: { readonly lane: string; readonly spot: string };
+  readonly placeGuides?: "off" | "near" | "all";
 }) => LandingModelLike;
+
+/** A place guide a frame shows: its lane, line or box, and where. */
+export interface LandingCaseGuide {
+  readonly id: string;
+  readonly lane: string;
+  readonly kind: "line" | "box";
+  readonly rect: Rect;
+}
 
 /** One frame a host reports: the pointer, whether it is still moving along the path, and the model's answer. */
 export interface LandingCaseFrame {
@@ -51,6 +64,8 @@ export interface LandingCaseFrame {
   readonly spot: string | null;
   readonly landing: Rect | null;
   readonly room: boolean;
+  /** The place guides shown ("near"), when the host reports them. */
+  readonly guides?: readonly LandingCaseGuide[];
 }
 
 export interface LandingCase {
@@ -81,6 +96,8 @@ export interface LandingCase {
      * `by` px: a fast hand trails no more than a slow one does, plus what it may trail.
      */
     readonly trailOverSlow?: { readonly slow: number; readonly by: number };
+    /** Places where no guide lies (nothing lands there): a guide touching one of these rects fails. */
+    readonly noGuideIn?: readonly Rect[];
   };
   /** On the last frame before the release. */
   readonly end?: { readonly region: LandingRegionName; readonly lane?: string | null; readonly spot?: string };
@@ -113,6 +130,9 @@ const versionBefore = (a: string, b: string): boolean => {
 };
 const gapTo = (r: Rect, p: Point): number => Math.hypot(Math.max(r.x - p.x, 0, p.x - (r.x + r.width)), Math.max(r.y - p.y, 0, p.y - (r.y + r.height)));
 
+/** `a` lies in `b` or on its edge (a zero-thick line on it counts). */
+const touches = (a: Rect, b: Rect): boolean => a.x <= b.x + b.width && b.x <= a.x + a.width && a.y <= b.y + b.height && b.y <= a.y + a.height;
+
 /** The furthest the landing gets from the pointer while a lane holds it and the pointer moves. */
 const worstTrail = (frames: readonly LandingCaseFrame[]): number => Math.max(0, ...frames.filter((f) => f.moving && f.region === "lane" && f.landing).map((f) => gapTo(f.landing!, f.point)));
 
@@ -127,6 +147,7 @@ export function landingIssues(row: LandingCase, frames: readonly LandingCaseFram
       if (m.lane !== undefined && (f.region !== "lane" || f.lane !== m.lane)) out.push(`${at}: ${f.region}${f.lane ? ` in ${f.lane}` : ""}, not the lane ${m.lane}`);
       if (m.notLanes && f.lane && m.notLanes.includes(f.lane)) out.push(`${at}: held ${f.lane}`);
       if (m.notRegions && m.notRegions.includes(f.region)) out.push(`${at}: ${f.region}`);
+      for (const g of m.noGuideIn ? (f.guides ?? []) : []) if (m.noGuideIn!.some((r) => touches(g.rect, r))) out.push(`${at}: the guide ${g.id} where nothing lands`);
       if (m.trail !== undefined && f.region === "lane" && f.landing && gapTo(f.landing, f.point) > m.trail + 0.5) out.push(`${at}: the landing ${Math.round(gapTo(f.landing, f.point))} px from the pointer (at most ${m.trail})`);
       if (out.length >= 4) break;
     }
@@ -207,11 +228,11 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly v
       const regions = lanes(s, row.item, { previous });
       const regionsFor = (spot: string): Regions => lanes(s, row.item, { previous, spot });
       const home = regions.lanes.flatMap((l) => l.spots.filter((x) => x.home).map((x) => ({ lane: l.id, spot: x.id })))[0];
-      const model = o.landing({ regions, regionsFor, floatLanding: (p) => regions.float?.after(p, grab).layout.items[row.item]?.rect ?? null, ...(home ? { home } : {}) });
+      const model = o.landing({ regions, regionsFor, floatLanding: (p) => regions.float?.after(p, grab).layout.items[row.item]?.rect ?? null, ...(home ? { home } : {}), placeGuides: "near" });
       const frames: LandingCaseFrame[] = [];
       const play = (p: Point, t: number, moving: boolean): void => {
         const f = model.update(p, t);
-        frames.push({ t, point: p, moving, region: f.region, lane: f.lane, spot: f.spot, landing: f.landing, room: f.room });
+        frames.push({ t, point: p, moving, region: f.region, lane: f.lane, spot: f.spot, landing: f.landing, room: f.room, ...(f.guides ? { guides: f.guides } : {}) });
       };
       let t = 0;
       let at = press;
@@ -339,6 +360,27 @@ export const LANDING_CASES: readonly LandingCase[] = [
     rest: 80,
     end: { region: "refused", lane: null },
     layout: { items: { a: { edge: "top" } } },
+    requires: LANES,
+  },
+  {
+    id: "landing-guides-where-it-lands",
+    title: "No guide beside chrome nothing lands next to",
+    expect: "Zoom held in a top bar that starts with a fixed lead and ends with fixed controls (nothing lands before the one or after the other): no guide lies in the 8 px before the lead or after the controls.",
+    scene: (() => {
+      const s = landingWindow(["lead", "a", "ctl"]);
+      const fixed = (id: string, end: boolean): SceneItem => ({ id, kind: "chrome", used: 0, fixed: true, ...(end ? { align: "end" as const } : {}), forms: { row: [form("row", 120, 120, 28)] } });
+      return { ...s, items: { ...s.items, lead: fixed("lead", false), ctl: fixed("ctl", true) } };
+    })(),
+    item: "zoom",
+    path: [
+      { x: 15, y: 160 },
+      { x: 15, y: 18 },
+      { x: 600, y: 18 },
+    ],
+    speed: 0.3,
+    rest: 80,
+    moving: { noGuideIn: [rect(0, 2, 7, 32), rect(1073, 2, 7, 32)] },
+    end: { region: "lane", lane: "top" },
     requires: LANES,
   },
   {

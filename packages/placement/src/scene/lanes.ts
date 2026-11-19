@@ -320,7 +320,9 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
         .flatMap((f) => (f.hits ?? [f.hit]).map((h) => ({ along: [clamp(lo(h, axis), start, end), clamp(lo(h, axis) + len(h, axis), start, end)] as const, reason: f.reason })))
         .filter((f) => f.along[1] - f.along[0] >= itemLen - EPS)
     : [];
-  const marks = first.edge ? edgeMarks(id, laneRect, axis, onEdge(drawn, first.edge, "", axis), refused, itemLen) : virtualMarks(id, unique, drawn.items[dragged]);
+  // The places a drop here lands: its spots' neighbors (`<before>|<after>`), so a mark lies only where one lands.
+  const places = new Set(unique.map((x) => `${x.before}|${x.next}`));
+  const marks = first.edge ? edgeMarks(id, laneRect, axis, onEdge(drawn, first.edge, "", axis), refused, itemLen, (pair) => places.has(pair) || pair.split("|").includes(dragged)) : virtualMarks(id, unique, drawn.items[dragged]);
   return { id, rect: laneRect, axis, spots, refused, marks };
 }
 
@@ -330,9 +332,11 @@ const LINE = 2;
 
 /**
  * An edge lane's marks, its items as drawn (the held one included): a line at the middle of each gap between two items
- * too short for the item, a box over each free stretch at least the item's length, less its refused stretches.
+ * too short for the item, a box over each free stretch at least the item's length, less its refused stretches. Only
+ * where a drop lands (`lands(<before>|<after>)`: a spot between those two, or beside the held item): none beside fixed
+ * chrome nothing lands next to.
  */
-function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { id: string; r: Rect }[], refused: readonly LaneRefusal[], itemLen: number): LaneMark[] {
+function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { id: string; r: Rect }[], refused: readonly LaneRefusal[], itemLen: number, lands: (pair: string) => boolean): LaneMark[] {
   const out: LaneMark[] = [];
   const start = lo(laneRect, axis);
   const end = start + len(laneRect, axis);
@@ -343,7 +347,7 @@ function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { i
     const a = clamp(ends[i]!.b, start, end);
     const b = clamp(ends[i + 1]!.a, start, end);
     const pair = `${ends[i]!.id}|${ends[i + 1]!.id}`;
-    if (ends[i + 1]!.a < start - EPS || ends[i]!.b > end + EPS) continue;
+    if (ends[i + 1]!.a < start - EPS || ends[i]!.b > end + EPS || !lands(pair)) continue;
     if (b - a < itemLen - EPS) {
       // As thick as the gap allows, up to `LINE`: zero between items with no gap (the host strokes it). Also at an end
       // of the lane next to an item, unless refused there; none where the lane holds nothing.
