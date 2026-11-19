@@ -3,6 +3,17 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+- `./scene`, **the content gives way to chrome** (additive). `contentMin.chromeWidth` is a lower content floor for
+  chrome: compact rails and side toolbar bars may narrow the content down to it while the panel columns keep their
+  width and move aside; below it a column shrinks, then folds, as before. The columns alone still leave
+  `contentMin.width`: when a column shrinks or folds for the columns' sake, the `no-column-room` signal (`columnRoom`)
+  and the `content-narrow` note keep reading it, so content narrowed by chrome between the two floors carries
+  `content-narrow`. Width only: top and bottom bars keep giving way by `contentMin.height`. A floor above
+  `contentMin.width`, or one that isn't a number, changes nothing. Scenes without it lay out and target exactly as
+  before.
+
 ## 26.11.43
 
 - `./scene`, **`Target.roomHit`** (additive): a target that opens its room and changes an edge's thickness around the
