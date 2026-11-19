@@ -11,7 +11,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 - `./drag`, **`createLandingModel`** (additive): the landing model of a docking drag as state (region, lane, spot) over
   the lanes `@n-uf/placement/scene`'s `lanes()` gives. Up to 48 px past the stage counts as on its edge; a held lane
-  holds within a 12 px exit margin, and inside a lane touching it until that lane's gate passes; entry passes a path
+  holds within a 12 px exit margin, and inside a lane touching it until that lane's gate passes or the pointer has
+  slid 40 px along it at any speed (across it at most a third as far); entry passes a path
   gate (40 px of slow path along the lane) or a still gate (depth from the sides facing in); spots change past a 6 px
   margin, on a slow step where the change reflows the window or once the landing trails the pointer by 40 px; a spot's
   own regions confirm a reflowing change (`regionsFor`, replaceable with `setRegions`); Shift floats; guides are the

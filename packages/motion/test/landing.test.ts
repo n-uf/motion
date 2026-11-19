@@ -217,10 +217,12 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     }
   });
 
-  it("a fast crossing from a held lane through a touching one opens no room in it", () => {
+  it("a fast crossing from a held lane through a touching one opens no room in it; a fast slide along it takes it", () => {
     for (const speed of [0.6, 1.5, 3]) {
-      const { frames } = run(base({ home: { lane: "top", spot: "top/start/^|$@0" } }), path([{ x: 60, y: 16 }, { x: 15, y: 60 }, { x: 15, y: 120 }, { x: 200, y: 300 }], speed));
-      expect(frames.some((x) => x.f.lane === "rail-left"), `${speed}`).toBe(false);
+      const across = run(base({ home: { lane: "top", spot: "top/start/^|$@0" } }), path([{ x: 60, y: 16 }, { x: 15, y: 50 }, { x: 200, y: 300 }], speed));
+      expect(across.frames.some((x) => x.f.lane === "rail-left"), `${speed}`).toBe(false);
+      const along = run(base({ home: { lane: "top", spot: "top/start/^|$@0" } }), path([{ x: 60, y: 16 }, { x: 15, y: 50 }, { x: 15, y: 300 }], speed));
+      expect(along.frames.at(-1)!.f.lane, `${speed}`).toBe("rail-left");
     }
   });
 
