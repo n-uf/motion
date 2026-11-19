@@ -190,13 +190,14 @@ export function INTENT_PRESETS(): IntentPreset[] {
     intentCase(
       "intent-rail-room",
       "A rail's room opens with its target, at either window edge",
-      "Tools dragged to the left and to the right window edge and held there: the frame that first shows the rail's target already draws the room, the panel column moved aside, and no frame shows the rail without it. The rail target shows once it has held the room delay.",
+      "Tools dragged to the left and to the right window edge and held there: the frame that first shows the rail's target already draws the room, the panel column moved aside, and no frame shows the rail without it. The rail target shows once it has held its own wait, shorter than the room delay at the window's edge.",
       (c) => {
         const bad: string[] = [];
         const said: string[] = [];
         for (const side of ["left", "right"] as const) {
           c.setScene(defaultScene());
           const stage = c.scene.stage;
+          const before = c.targets("tools");
           let arrived = 0;
           const r = drive(c, "tools", (g) => {
             const there = through([g, { x: side === "left" ? stage.x + 2 : stage.x + stage.width - 2, y: stage.y + stage.height / 2 }], 1.2);
@@ -212,8 +213,10 @@ export function INTENT_PRESETS(): IntentPreset[] {
           const late = onRail.filter((f) => f.room !== f.shown).length;
           if (!first) bad.push(`${side}: no rail target showed (${sequence(r.trace)})`);
           else {
-            said.push(`${side}: shown with its room ${Math.round(first.t - arrived)} ms after arriving`);
-            if (first.t - arrived < DRAG_DEFAULTS.roomAfter - 2 * FRAME) bad.push(`${side}: it showed ${Math.round(first.t - arrived)} ms after arriving, before the hold`);
+            const wait = before.find((t) => t.id === first.shown)?.roomHold ?? DRAG_DEFAULTS.roomAfter;
+            said.push(`${side}: shown with its room ${Math.round(first.t - arrived)} ms after arriving (its wait ${wait} ms)`);
+            if (wait >= DRAG_DEFAULTS.roomAfter) bad.push(`${side}: the rail at the window's edge waits the full room delay`);
+            if (first.t - arrived < wait - 2 * FRAME) bad.push(`${side}: it showed ${Math.round(first.t - arrived)} ms after arriving, before its wait`);
           }
           if (late) bad.push(`${side}: ${late} frames show the rail without its room`);
           if (!r.drop?.committed) bad.push(`${side}: the drop didn't land`);

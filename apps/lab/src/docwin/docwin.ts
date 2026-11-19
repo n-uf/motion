@@ -308,12 +308,19 @@ const api = {
         free: !!t.free,
         accepted: accepted(t, id),
         hit: t.hit,
+        hits: t.hits ?? null,
+        bounds: t.bounds ?? null,
+        arm: t.arm ?? null,
+        opensRoom: t.opensRoom === true,
+        roomHold: t.roomHold ?? null,
         hitClient: client(t.hit),
         slot: t.slot ?? null,
         slotClient: t.slot ? client(t.slot) : null,
         marker: t.marker ?? null,
       };
     }),
+  /** The places a drop of `id` is refused, as the drag intent takes them. */
+  refusals: (id: ItemId) => c.refusals(id).map((r) => ({ id: r.id, hit: r.hit, hits: r.hits ?? null, bounds: r.bounds ?? null })),
   layout: () => ({
     stored: c.stored(),
     window: client(c.scene.stage),
