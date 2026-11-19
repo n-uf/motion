@@ -9,6 +9,12 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.43
 
+- `./drag`, **place guides** (additive). `previewPlan` also takes `{ mode: "outline" | "placeholder" | "snap",
+  placeGuides? }` (`DropPreviewMode`), drawn with `"indicator"`'s, `"gap"`'s and `"item"`'s plan. Its result gains
+  `guides` (`PlaceGuides`: `"off"`, `"near"`, `"all"`): the mode's `placeGuides` (defaults `PLACE_GUIDES_DEFAULT`: snap
+  and placeholder near, outline off) while no landing shows, `"off"` whenever one does. The string forms give
+  `guides: "off"` and are otherwise unchanged.
+
 - `./drag`, **`DragFrame.landing`** (additive): what a release at the frame's point lands on, by the one check
   `release` makes (`earlyRelease` included), so a host draws the landing from the same answer a release gives. The
   field is optional in the type, so a host or a test that builds a frame itself needn't set it; `createDragIntent`

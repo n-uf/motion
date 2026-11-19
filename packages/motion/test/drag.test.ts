@@ -9,6 +9,7 @@ import {
   inRect,
   liftDecision,
   pickRank,
+  PLACE_GUIDES_DEFAULT,
   previewPlan,
   REFUSAL_RANK,
   targetAt,
@@ -1413,5 +1414,41 @@ describe("drag/ frame.landing is what a release there lands on", () => {
           }
         }
     expect(frames).toBeGreaterThan(500);
+  });
+});
+
+describe("drag/ place guides: where it can go, or where it will land, never both", () => {
+  const frames = (preview: Parameters<typeof previewPlan>[1]) => {
+    const keys = hold(through([FROM, mid(A.hit)], 0.8), 600);
+    const intent = createDragIntent({ home: HOME });
+    const out: ReturnType<typeof previewPlan>[] = [];
+    for (let t = 0; t <= keys.at(-1)![0] + 0.001; t += FRAME) out.push(previewPlan(intent.update(along(keys, t), t, DOCK), preview));
+    return out;
+  };
+
+  it("the object forms draw with their string plans: outline as indicator, placeholder as gap, snap as item", () => {
+    const strip = ({ guides: _g, ...p }: ReturnType<typeof previewPlan>) => p;
+    expect(frames({ mode: "outline" }).map(strip)).toEqual(frames("indicator").map(strip));
+    expect(frames({ mode: "placeholder" }).map(strip)).toEqual(frames("gap").map(strip));
+    expect(frames({ mode: "snap" }).map(strip)).toEqual(frames("item").map(strip));
+  });
+
+  it("defaults: snap and placeholder near, outline off; the string forms always off", () => {
+    expect(PLACE_GUIDES_DEFAULT).toEqual({ outline: "off", placeholder: "near", snap: "near" });
+    for (const s of ["indicator", "gap", "snap", "item"] as const) expect(frames(s).every((p) => p.guides === "off")).toBe(true);
+    expect(frames({ mode: "snap" })[0]!.guides).toBe("near");
+    expect(frames({ mode: "outline" })[0]!.guides).toBe("off");
+    expect(frames({ mode: "outline", placeGuides: "all" })[0]!.guides).toBe("all");
+  });
+
+  it("in every mode, no frame asks for guides while a landing shows (an indicator, room or the item in its slot)", () => {
+    for (const mode of ["outline", "placeholder", "snap"] as const)
+      for (const placeGuides of ["near", "all"] as const) {
+        const fs = frames({ mode, placeGuides });
+        for (const p of fs) if (p.showIndicator || p.makeRoom || p.snapItem) expect([mode, p.guides]).toEqual([mode, "off"]);
+        // Before the landing shows, they are asked for; once it shows, they go.
+        expect(fs.some((p) => p.guides === placeGuides)).toBe(true);
+        expect(fs.some((p) => p.guides === "off")).toBe(true);
+      }
   });
 });
