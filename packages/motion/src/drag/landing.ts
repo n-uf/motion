@@ -17,7 +17,7 @@ import type { PlaceGuides } from "./preview";
  * - **Entering a lane** needs one of two gates: `path` px of slow pointer path along it inside it (steps of at most
  *   `step`), or a still step (at most `still`) once `depth` px inside, the depth counted only from the lane's sides that
  *   face into the stage (on the edge it is deep). A fly-through of a thin bar or rail at any angle meets neither, so its
- *   room never opens. Inside a lane that touches the held one (`spot` px past the held lane's rect), the held lane holds
+ *   room never opens. Inside a lane that touches the held one, past the held lane's exit margin, the held lane holds
  *   until that lane's gate passes: lane to lane never passes through the float, and never opens a crossed lane's room.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
@@ -80,7 +80,7 @@ export interface LandingRegions {
 export interface LandingMargins {
   /** Past a held lane's rect before it lets go, px. */
   readonly exit: number;
-  /** Past a spot boundary before the spot changes, px; past a held lane into one that touches it before that one holds. */
+  /** Past a spot boundary before the spot changes, px. */
   readonly spot: number;
   /** Past the stage that still counts as on its edge, px; beyond, nowhere. */
   readonly edge: number;
@@ -99,8 +99,13 @@ export interface LandingGates {
   readonly step: number;
   /** How far the held landing may trail the pointer before a fast reflowing change is taken anyway, px. */
   readonly trail: number;
-  /** The time a pointer has to stay put before it counts as still, ms (repeated points before it aren't still). */
+  /**
+   * The time a pointer has to stay put before it counts as still, ms, where its last step was already slow (at most
+   * `step`) or it is on the stage's edge (a fling there is taken at once); repeated points before it aren't still.
+   */
   readonly rest: number;
+  /** The time a pointer that last moved fast has to stay put before it counts as still, ms: longer than sample gaps. */
+  readonly pause: number;
 }
 /** The approach for near guides: the nearest lane within `reach`, kept until another is `nearer` closer or past `keep`. */
 export interface LandingApproach {
@@ -112,7 +117,7 @@ export interface LandingApproach {
 export const LANDING_MARGINS: LandingMargins = { exit: 12, spot: 6, edge: 48 };
 /** A touch: wider margins, the finger's jitter. */
 export const LANDING_TOUCH_MARGINS: LandingMargins = { exit: 16, spot: 8, edge: 48 };
-export const LANDING_GATES: LandingGates = { path: 40, depth: 8, still: 1.5, step: 3, trail: 40, rest: 22 };
+export const LANDING_GATES: LandingGates = { path: 40, depth: 8, still: 1.5, step: 3, trail: 40, rest: 22, pause: 60 };
 export const LANDING_APPROACH: LandingApproach = { reach: 80, keep: 96, nearer: 16 };
 
 export interface LandingOptions {
@@ -313,15 +318,20 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     // Past the stage by up to `edge`: on its edge. Beyond: nowhere (kept as is).
     const p = ontoStage(heldRegions(spotId).stage, raw, margins.edge) ?? raw;
     // The step: the pointer as it moved (a fling past the edge isn't still) since the last point that differed,
-    // normalized to 125 Hz (8 ms). A repeated point (a host updating per frame) keeps the last step until the pointer has
-    // stayed put for `rest` ms; only then is it still.
+    // normalized to 125 Hz (8 ms). A repeated point (a host updating per frame, or a gap between sparse samples) keeps
+    // the last step until the pointer has stayed put for `rest` ms after a slow step or on the stage's edge, else for
+    // `pause` ms; only then is it still. A hand moving fast with samples far apart is never still between them.
     let step = 0;
     if (moved && (raw.x !== moved.raw.x || raw.y !== moved.raw.y)) {
       step = (Math.hypot(raw.x - moved.raw.x, raw.y - moved.raw.y) * 8) / Math.max(1, t - moved.t);
       moved = { raw, t };
       lastStep = step;
-    } else if (moved) step = t - moved.t >= gates.rest ? 0 : lastStep;
-    else moved = { raw, t };
+    } else if (moved) {
+      const stage = heldRegions(spotId).stage;
+      const onEdge = p.x <= stage.x || p.y <= stage.y || p.x >= stage.x + stage.width || p.y >= stage.y + stage.height;
+      const since = t - moved.t;
+      step = since >= gates.pause || (since >= gates.rest && (lastStep <= gates.step || onEdge)) ? 0 : lastStep;
+    } else moved = { raw, t };
     const from = last?.p ?? null;
     last = { p, raw, t };
     const shift = !!keys?.shift;
@@ -342,9 +352,10 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     } else {
       const held = laneIn(regions, laneId);
       const gate = (l: LandingLane): boolean => (pathIn.get(l.id) ?? 0) >= gates.path || (depthIn(l.rect, p, regions.stage) >= gates.depth && step <= gates.still);
-      // Lane to lane: inside a lane touching the held one (`spot` px past the held lane's rect), the held lane holds until
-      // that lane's gate passes, then that lane takes it. Never the float between them, never a fly-through's room.
-      const touching = held ? regions.lanes.find((l) => l.id !== held.id && strictlyIn(l.rect, p) && touches(l.rect, held.rect) && !inside(held.rect, p, margins.spot)) : undefined;
+      // Lane to lane: inside a lane touching the held one, past the held lane's exit margin (inside it the held lane holds,
+      // P1), the held lane still holds until that lane's gate passes, then that lane takes it. Never the float between
+      // them, never a fly-through's room.
+      const touching = held ? regions.lanes.find((l) => l.id !== held.id && strictlyIn(l.rect, p) && touches(l.rect, held.rect) && !inside(held.rect, p, margins.exit)) : undefined;
       const next = touching && gate(touching) ? touching : undefined;
       if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
         const s = along(held, p, step);

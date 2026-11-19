@@ -82,7 +82,7 @@ describe("the landing model over lanes()", () => {
   });
 
   it("lane to lane at 600 px/s, rail into the bar, never passes through the float", () => {
-    const frames = run("zoom", path([{ x: 15, y: 160 }, { x: 15, y: 18 }, { x: 400, y: 18 }], 0.6, 40));
+    const frames = run("zoom", path([{ x: 15, y: 160 }, { x: 15, y: 18 }, { x: 400, y: 18 }], 0.6, 80));
     expect(frames.some(({ f }) => f.region === "open")).toBe(false);
     expect(frames.at(-1)!.f.lane).toBe("top");
   });
