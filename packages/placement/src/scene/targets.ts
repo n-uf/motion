@@ -68,11 +68,11 @@
  * The phases live in `./targets/`: `kinds` (`EDGE_KINDS`), `model` (the shapes), `filter` (the drag's context and
  * filter ii), `edges` and `virtual` (generation), `ownership` and `tiles` (filter iii and clipping).
  */
-import { EPS, PLANE, area, rect, type Rect } from "../geometry";
+import { EPS, PLANE, area, overlaps, rect, type Rect } from "../geometry";
 import type { Target } from "../target";
 import { floatAt, prune, use } from "./changes";
 import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
-import type { Edge, Orient, Scene, SceneLayout, Zone } from "./model";
+import { EDGE_RAIL_ROOM_HOLD, type Edge, type Orient, type Scene, type SceneLayout, type Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
 import { edgeSpec } from "./targets/edges";
@@ -154,24 +154,29 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
       continue;
     }
     const result = t.result!;
-    // A rail that pushes what lies beside it: its indicator would lie over that until the room opens, so they open together.
-    const opensRoom = RAIL_KINDS.has(t.edgeKind) && movesOthers(now, result.layout, dragged, t.edge);
-    targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), ...(opensRoom ? { opensRoom: true as const } : {}), item: dragged, place: t.place!, after: () => result });
+    // Its slot lies over an item its drop moves: until the room opens the indicator would cover it, so they open together.
+    const edgeRail = RAIL_KINDS.has(t.edgeKind) && touchesSide(scene.stage, t.hits ?? [t.hit]);
+    const room = t.slot && slotOverMoved(now, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(edgeRail ? { roomHold: EDGE_RAIL_ROOM_HOLD } : {}) } : {};
+    targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), ...room, item: dragged, place: t.place!, after: () => result });
   }
   return { targets, refused, ownHome };
 }
 
-/** The edge kinds that run along a side as a rail: a drop there can widen them and push the columns beside them. */
+/** The edge kinds that run along a side as a rail: against the window's edge, their room waits less (`roomHold`). */
 const RAIL_KINDS: ReadonlySet<EdgeKind> = new Set<EdgeKind>(["rail", "railStop", "sideBar"]);
 
+/** Whether any of `pieces` reaches the stage's left or right edge. */
+const touchesSide = (stage: Rect, pieces: readonly Rect[]): boolean => pieces.some((r) => r.x <= stage.x + EPS || r.x + r.width >= stage.x + stage.width - EPS);
+
 /**
- * Whether a drop on edge `onto` moves a docked item of another edge: not `dragged`, nor those of the edge it leaves (they
- * close up anyway), nor those of `onto` (they make its gap).
+ * Whether `slot` lies over a docked item that a drop on edge `onto` moves: an item of another edge, not `dragged`, nor one
+ * of the edge it leaves (they close up anyway), nor one of `onto` (they make its gap). The overlap is tested first: the
+ * two layouts are at hand, and most items lie clear of the slot.
  */
-function movesOthers(now: SceneLayout, after: SceneLayout, dragged: string, onto: string): boolean {
+function slotOverMoved(now: SceneLayout, after: SceneLayout, slot: Rect, dragged: string, onto: string): boolean {
   const from = now.items[dragged]?.edge;
   return Object.entries(now.items).some(([id, was]) => {
-    if (id === dragged || was.floating || was.edge === onto || (from !== undefined && was.edge === from)) return false;
+    if (!overlaps(slot, was.rect) || id === dragged || was.floating || was.edge === onto || (from !== undefined && was.edge === from)) return false;
     const r = after.items[id]?.rect;
     return !!r && (Math.abs(r.x - was.rect.x) > EPS || Math.abs(r.y - was.rect.y) > EPS || Math.abs(r.width - was.rect.width) > EPS || Math.abs(r.height - was.rect.height) > EPS);
   });

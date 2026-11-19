@@ -1,7 +1,7 @@
 /** A rail target whose drop pushes what lies beside it opens its room as it shows (`Target.opensRoom`). */
 import { createDragIntent, type DragTarget } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
-import { solve, targets, type Scene } from "../src/scene";
+import { EDGE_RAIL_ROOM_HOLD, solve, targets, type Scene } from "../src/scene";
 import { bar, byId, column, group, panel } from "./scene-fixture";
 
 /** A toolbar on top, an empty or filled compact rail at the left, a panel column beside it. */
@@ -35,6 +35,19 @@ describe("a rail that pushes a column", () => {
   it("a rail already drawn at its width moves nothing, so its gaps show as any gap does", () => {
     const s = win(["c"]);
     for (const t of targets(s, "a").filter((x) => x.id.includes(":rail:"))) expect(t.opensRoom, t.id).toBeUndefined();
+  });
+
+  it("the rule is the slot over a moved item of another edge, on any target; only an edge rail gets the short hold", () => {
+    // Against the window's edge: the short hold.
+    for (const t of targets(win(), "a").filter((x) => x.id.includes(":rail:"))) expect(t.roomHold, t.id).toBe(EDGE_RAIL_ROOM_HOLD);
+    // A panel held, floating elsewhere: a new-column line beside the column pushes it, and has no short hold.
+    const s: Scene = { ...win(), edges: win().edges.map((e) => (e.id === "left" ? { ...e, column: true, accepts: ["panel"] } : e)), items: { ...win().items, q: panel("q", 5) }, floats: [{ id: "q", rect: { x: 600, y: 200, width: 240, height: 300 } }], floatKinds: ["group", "panel"], columns: { left: { accepts: ["panel"], cross: { min: 180, max: 400, rail: 30 } } } };
+    const lines = targets(s, "q").filter((t) => t.place.kind === "column" && t.opensRoom);
+    expect(lines.length).toBeGreaterThan(0);
+    for (const t of lines) expect(t.roomHold, t.id).toBeUndefined();
+    // An empty rail with nothing beside it to cover: no room to open with it.
+    const bare: Scene = { ...win(), edges: win().edges.filter((e) => e.id !== "left"), items: { a: win().items.a!, b: win().items.b! } };
+    for (const t of targets(bare, "a").filter((x) => x.id.includes(":rail:"))) expect(t.opensRoom, t.id).toBeUndefined();
   });
 
   it("a host driving the intent gets the target and its room in one frame", () => {

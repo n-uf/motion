@@ -34,10 +34,16 @@ export interface Target {
    */
   readonly bounds?: Rect;
   /**
-   * Its indicator would lie over what its room moves: the scene sets it on a rail target (a compact rail, a side's rail
-   * stop, a side bar) whose drop pushes another item. The drag intent then shows it and makes its room in one frame.
+   * Its indicator would lie over what its room moves: the scene sets it on a target whose slot overlaps an item of
+   * another edge that its drop moves (a rail pushing a column, a new-column line, a bar's strip over the columns). The
+   * drag intent then shows it and makes its room in one frame. Until it shows, a release still lands on it.
    */
   readonly opensRoom?: true;
+  /**
+   * With `opensRoom`, how long it holds before it shows with its room, ms, in place of the drag intent's `roomAfter`. The
+   * scene sets it to `EDGE_RAIL_ROOM_HOLD` on a rail target against the window's left or right edge.
+   */
+  readonly roomHold?: number;
 }
 
 /**
