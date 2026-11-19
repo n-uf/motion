@@ -1,7 +1,8 @@
 /** A rail target whose drop pushes what lies beside it opens its room as it shows (`Target.opensRoom`). */
-import { createDragIntent, type DragTarget } from "@n-uf/motion/drag";
+import { createDragIntent, DRAG_DEFAULTS, type DragTarget } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import { EDGE_RAIL_ROOM_HOLD, solve, targets, type Scene } from "../src/scene";
+import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { bar, byId, column, group, panel } from "./scene-fixture";
 
 /** A toolbar on top, an empty or filled compact rail at the left, a panel column beside it. */
@@ -64,5 +65,28 @@ describe("a rail that pushes a column", () => {
     }
     expect(first!.shown!.id).toContain(":rail:");
     expect(first!.room).toBe(true);
+  });
+
+  it("so does a new-column line over a column it pushes, after the full room delay", () => {
+    const s = winScene(WINDOW_A, { size: 300 });
+    const list = targets(s, "findings") as unknown as DragTarget[];
+    const line = list.find((t) => t.id.startsWith("column:left:") && t.opensRoom)!;
+    expect(line.roomHold).toBeUndefined();
+    const home = solve(s).items.findings!.rect;
+    const intent = createDragIntent<DragTarget>({ home });
+    intent.update({ x: home.x + 4, y: home.y + 4 }, 0, list);
+    const p = { x: line.hit.x + line.hit.width / 2, y: line.hit.y + line.hit.height / 2 };
+    let first = null;
+    let at = 0;
+    for (let t = 16; t < 500 && !first; t += 16) {
+      const f = intent.update(p, t, list);
+      if (f.shown) {
+        first = f;
+        at = t;
+      }
+    }
+    expect(first!.shown!.id).toBe(line.id);
+    expect(first!.room).toBe(true);
+    expect(at).toBeGreaterThanOrEqual(DRAG_DEFAULTS.roomAfter);
   });
 });
