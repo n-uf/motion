@@ -329,6 +329,13 @@ export interface DragFrame<T extends DragTarget> {
    * the last move counts. The field is required: a host or a test mock that builds a `DragFrame` itself must set it.
    */
   readonly refusedSinceShown: boolean;
+  /**
+   * What a release at this frame's point lands on, by the one check `release` makes (`earlyRelease` included), or null
+   * (nowhere, or the item goes home). A host draws the landing from it, so what it draws and what a release lands on
+   * never disagree. `createDragIntent` always sets it; it is optional only so a host or a test that builds a frame
+   * itself needn't.
+   */
+  readonly landing?: T | null;
 }
 
 /** What a drag intent knows now. */
@@ -536,6 +543,41 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
     return best ? { kind: "rail", target: asArmed(best), refused: null } : null;
   };
 
+  /** What a release at `point` lands on, as things stand now: `release`'s answer, and every frame's `landing`. */
+  const landAt = (point: Point, given: readonly T[], keys: DragKeys | undefined): T | null => {
+    // A key held wins over geometry, home included; the float key over a refusal or outside the window lands nowhere.
+    const forced = forcedBy(keys, point, given, (x) => x.refuse === true || placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null);
+    if (forced) {
+      const ft = forced.target;
+      return ft ? (given.find((x) => x.id === ft.id) ?? ft) : null;
+    }
+    // Over home a release does nothing, except onto an armed spring-loaded target whose zone overlaps home.
+    if (inRect(home, point)) {
+      const armed = armedId === null ? null : given.find((x) => x.id === armedId);
+      return armed && inZone(asArmed(armed), point) && placeOf(armed, point, lastPlaces.get(armed.id) ?? null) !== null ? armed : null;
+    }
+    const targets = acting(given);
+    // Drop = shown: a shown target is kept until it hides (flying out past its band hides it at once).
+    const s = shown && !(shown.arm === "dwell" && shown.id !== armedId) ? follow(shown, given) : null;
+    // The target under the pointer that has a place there (a null place is no drop); a refusal there lands nowhere.
+    const under = targetAt(
+      targets.filter((x) => inZone(x, point) && (x.refuse === true || placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null)),
+      point,
+    );
+    if (options.earlyRelease === "float") {
+      // What shows is what lands: a target with a slot only once its room is open; before that the item is still on
+      // the pointer, so it floats there. A target with no slot (the item's own place, a blocked one) needs no room.
+      const needsNoRoom = (x: T): boolean => x.free === true || !x.slot;
+      if (s && (needsNoRoom(s) || roomPlace !== null)) return s;
+      if (under?.refuse) return null;
+      if (under && !under.free && !under.slot) return given.find((x) => x.id === under.id) ?? under;
+      const float = given.find((x) => x.free);
+      return float && within(float.bounds, point) ? float : null;
+    }
+    if (s) return s;
+    return under && !under.refuse ? (given.find((x) => x.id === under.id) ?? under) : null;
+  };
+
   return {
     tuning,
     get state(): DragIntentState<T> {
@@ -680,40 +722,10 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       const refused = forced ? forced.refused : refusedRaw;
       if (shown) crossedRefusal = false;
       else if (refused) crossedRefusal = true;
-      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && homeHolds, arming, forced: forced?.kind ?? null, refused, refusedSinceShown: !shown && !refused && crossedRefusal };
+      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && homeHolds, arming, forced: forced?.kind ?? null, refused, refusedSinceShown: !shown && !refused && crossedRefusal, landing: landAt(p, given, keys) };
     },
     release(point, given, keys) {
-      // A key held wins over geometry, home included; the float key over a refusal or outside the window lands nowhere.
-      const forced = forcedBy(keys, point, given, (x) => x.refuse === true || placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null);
-      if (forced) {
-        const ft = forced.target;
-        return ft ? (given.find((x) => x.id === ft.id) ?? ft) : null;
-      }
-      // Over home a release does nothing, except onto an armed spring-loaded target whose zone overlaps home.
-      if (inRect(home, point)) {
-        const armed = armedId === null ? null : given.find((x) => x.id === armedId);
-        return armed && inZone(asArmed(armed), point) && placeOf(armed, point, lastPlaces.get(armed.id) ?? null) !== null ? armed : null;
-      }
-      const targets = acting(given);
-      // Drop = shown: a shown target is kept until it hides (flying out past its band hides it at once).
-      const s = shown && !(shown.arm === "dwell" && shown.id !== armedId) ? follow(shown, given) : null;
-      // The target under the pointer that has a place there (a null place is no drop); a refusal there lands nowhere.
-      const under = targetAt(
-        targets.filter((x) => inZone(x, point) && (x.refuse === true || placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null)),
-        point,
-      );
-      if (options.earlyRelease === "float") {
-        // What shows is what lands: a target with a slot only once its room is open; before that the item is still on
-        // the pointer, so it floats there. A target with no slot (the item's own place, a blocked one) needs no room.
-        const needsNoRoom = (x: T): boolean => x.free === true || !x.slot;
-        if (s && (needsNoRoom(s) || roomPlace !== null)) return s;
-        if (under?.refuse) return null;
-        if (under && !under.free && !under.slot) return given.find((x) => x.id === under.id) ?? under;
-        const float = given.find((x) => x.free);
-        return float && within(float.bounds, point) ? float : null;
-      }
-      if (s) return s;
-      return under && !under.refuse ? (given.find((x) => x.id === under.id) ?? under) : null;
+      return landAt(point, given, keys);
     },
     hide(time) {
       shown = null;

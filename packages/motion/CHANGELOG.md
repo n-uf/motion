@@ -9,6 +9,11 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.43
 
+- `./drag`, **`DragFrame.landing`** (additive): what a release at the frame's point lands on, by the one check
+  `release` makes (`earlyRelease` included), so a host draws the landing from the same answer a release gives. The
+  field is optional in the type, so a host or a test that builds a frame itself needn't set it; `createDragIntent`
+  always does.
+
 - `./drag`, **`DragTarget.roomHit`** (additive): the zone an `opensRoom` target holds once its room is open, the drawn
   room (`@n-uf/placement` gives its hit and landing rect). While the target shows with its room open it holds in
   `hit ∪ roomHit`, inside its `bounds`: a refusal or a target no more precise than it under the room doesn't take over,

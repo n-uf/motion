@@ -1392,3 +1392,26 @@ describe("drag/ a lift rect", () => {
     expect(restAt({ x: 16, y: 120 }, { x: 16, y: 300 }, false)).toBe("rail:left:0");
   });
 });
+
+describe("drag/ frame.landing is what a release there lands on", () => {
+  it("on every frame of sweeps across docks, a rail, the float and a refusal, both release modes, with and without Shift", () => {
+    const refusal: DragTarget = { id: "refuse:x", priority: 2, hit: rect(250, 0, 60, 200), refuse: true };
+    const roomy: DragTarget = { ...A, slot: rect(0, 0, 200, 100), opensRoom: true };
+    const list = [roomy, B, RAIL, AREA, refusal];
+    let frames = 0;
+    for (const earlyRelease of ["target", "float"] as const)
+      for (const shift of [false, true])
+        for (const path of [[FROM, mid(A.hit), mid(B.hit), mid(RAIL.hit), { x: 280, y: 100 }, mid(AREA.hit)], [FROM, { x: 100, y: 150 }, { x: 100, y: 40 }, { x: 260, y: 20 }]]) {
+          const intent = createDragIntent<DragTarget>({ home: HOME, earlyRelease, tuning: { modifiers: { ...DRAG_DEFAULTS.modifiers, on: true } } });
+          const keys = through(path, 0.4);
+          const keysHeld: DragKeys | undefined = shift ? { shift: true } : undefined;
+          for (let t = 0; t <= keys.at(-1)![0] + 300; t += FRAME) {
+            const p = along(keys, t);
+            const f = intent.update(p, t, list, keysHeld);
+            expect([t, f.landing?.id ?? null]).toEqual([t, intent.release(p, list, keysHeld)?.id ?? null]);
+            frames++;
+          }
+        }
+    expect(frames).toBeGreaterThan(500);
+  });
+});
