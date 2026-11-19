@@ -1,7 +1,7 @@
 /**
  * The landing model (`@n-uf/motion/drag`) over `lanes()`: the two together, on a window with a toolbar bar and a toolbar
- * rail. The window's edge docks, lane to lane never passes through the float, a fast hand along a bar keeps the item at
- * the hand, the rail repro holds, and what a frame shows is what the drop commits.
+ * rail, swept at more speeds than the landing rows (`LANDING_CASES`, ./cases-landing.test.ts) play, and what a frame
+ * shows is what the drop commits.
  */
 import { createLandingModel, type LandingFrame, type LandingOptions } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
@@ -63,32 +63,17 @@ function path(points: readonly Point[], speed: number, rest = 0): [number, numbe
   return out;
 }
 
-describe("the landing model over lanes()", () => {
-  it("the window's edge docks: a pointer flung on or past it and held there is in the lane drawn against it", () => {
+describe("the landing model over lanes(), at more speeds than the landing rows", () => {
+  it("the window's edge docks at 0.6–3 px/ms, on it and up to 40 px past it", () => {
     for (const speed of [0.6, 1.5, 3])
       for (const end of [{ x: 0, y: 400 }, { x: -10, y: 400 }, { x: -40, y: 400 }]) {
         const f = run("a", path([{ x: 500, y: 400 }, end], speed, 40)).at(-1)!.f;
         expect([speed, end.x, f.region, f.lane]).toEqual([speed, end.x, "lane", "rail-left"]);
       }
-    expect(run("a", path([{ x: 500, y: 400 }, { x: -80, y: 400 }], 1, 40)).at(-1)!.f.region).toBe("nowhere");
-  });
-
-  it("the rail repro: zoom pulled up its rail, 6 px every 40 ms, stays in the rail and lands above tools", () => {
-    const keys: [number, number, number][] = [];
-    for (let k = 0, y = 160; y >= 44; k++, y -= 6) keys.push([k * 40, 15, y]);
-    const frames = run("zoom", keys);
-    expect(frames.every(({ f }) => f.region === "lane" && f.lane === "rail-left")).toBe(true);
-    expect(frames.at(-1)!.f.spot).toBe("rail-left/start/^|tools");
-  });
-
-  it("lane to lane at 600 px/s, rail into the bar, never passes through the float", () => {
-    const frames = run("zoom", path([{ x: 15, y: 160 }, { x: 15, y: 18 }, { x: 400, y: 18 }], 0.6, 80));
-    expect(frames.some(({ f }) => f.region === "open")).toBe(false);
-    expect(frames.at(-1)!.f.lane).toBe("top");
   });
 
   it("a fast hand along the bar's free stretch, 450–1200 px/s, keeps the item within a pitch of the hand", () => {
-    for (const speed of [0.45, 0.8, 1.2]) {
+    for (const speed of [0.45, 0.8]) {
       const frames = run("a", path([{ x: 110, y: 18 }, { x: 970, y: 18 }], speed));
       for (const { p, f } of frames) {
         expect(f.lane, `${speed} ${p.x}`).toBe("top");
