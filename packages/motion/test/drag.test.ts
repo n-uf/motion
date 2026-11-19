@@ -1426,6 +1426,11 @@ describe("drag/ place guides: where it can go, or where it will land, never both
     return out;
   };
 
+  it("a plan a host builds itself, with no guides, is still a plan, and its guides read as off", () => {
+    const own: ReturnType<typeof previewPlan> = { showIndicator: true, makeRoom: false, snapItem: false };
+    expect(own.guides ?? "off").toBe("off");
+  });
+
   it("the object forms draw with their string plans: outline as indicator, placeholder as gap, snap as item", () => {
     const strip = ({ guides: _g, ...p }: ReturnType<typeof previewPlan>) => p;
     expect(frames({ mode: "outline" }).map(strip)).toEqual(frames("indicator").map(strip));
