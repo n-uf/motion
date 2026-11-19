@@ -9,12 +9,16 @@ import type { DragFrame, DragTarget } from "./intent";
  *   the item stays under the pointer.
  * - `"snap"`: the gap opens and the item itself glides into it (for a target
  *   with a slot; one without keeps the indicator).
+ * - `"item"`: the dragged item is the only preview: no indicator for any
+ *   target. It sits in a slotted target once the room is open and otherwise
+ *   stays on the pointer. Pair it with the intent's `earlyRelease: "float"`, so
+ *   a release lands what shows.
  *
  * Every mode follows the same intent: what shows, when, and what a release
  * lands on are the drag intent's, so a drop always lands where the preview
  * showed it.
  */
-export type DragPreview = "indicator" | "gap" | "snap";
+export type DragPreview = "indicator" | "gap" | "snap" | "item";
 
 /** The preview a drag uses unless the host picks another. */
 export const DRAG_PREVIEW_DEFAULT: DragPreview = "snap";
@@ -39,6 +43,7 @@ export interface PreviewPlan {
  * - `"gap"`: the indicator, and room when the intent makes it.
  * - `"snap"`: room when the intent makes it, the item snapped into a slotted
  *   target's room; the indicator only for a target without a slot.
+ * - `"item"`: as `"snap"`, with no indicator at all.
  */
 export function previewPlan<T extends DragTarget>(
   frame: Pick<DragFrame<T>, "shown" | "room">,
@@ -48,6 +53,7 @@ export function previewPlan<T extends DragTarget>(
   const shown = !!frame.shown;
   if (preview === "indicator") return { showIndicator: shown, makeRoom: false, snapItem: false };
   if (preview === "gap") return { showIndicator: shown, makeRoom: frame.room, snapItem: false };
+  if (preview === "item") return { showIndicator: false, makeRoom: frame.room, snapItem: frame.room && shown && slotted };
   // By design a slotted target draws nothing until the room opens (`roomAfter`); a release then still lands on it.
   return { showIndicator: shown && !slotted, makeRoom: frame.room, snapItem: frame.room && shown && slotted };
 }
