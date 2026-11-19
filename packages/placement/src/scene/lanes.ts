@@ -18,7 +18,7 @@
  */
 import { EPS, clamp, rect, type Rect, type Size } from "../geometry";
 import { moveTo, type DockPlace } from "./changes";
-import { axisOf, chromeFor, floatRegion } from "./helpers";
+import { axisOf, chromeFor, floatRegion, zoneIn } from "./helpers";
 import type { Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { targetsAndRefusals } from "./targets";
@@ -445,6 +445,14 @@ function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
       out.push({ lane: e.id, edge: e.id, axis, id, ...n, landing: landed.rect, layout, target, hit: landed.rect, pitched: true });
     };
     const spaced = (o: (typeof others)[number] | undefined): boolean => !!o && (scene.items[o.id]?.space ?? 0) > 0;
+    // The held item keeps space on its own edge: its own place keeps it, so the lane's open end (where that space lies)
+    // gets a dock keeping none, or the space would be no place without a spot.
+    const own = scene.items[dragged];
+    if (own && (own.space ?? 0) > 0 && seen.items[dragged]?.edge === e.id) {
+      const zone = zoneIn(e, own);
+      if (zone === "start") emit("start", 0, 0);
+      else if (zone === "end") emit("end", others.filter((o) => zoneOf(o) === "end").length, 0);
+    }
     /** A growing item's drawn length past its natural one (a title filling the bar): a dock beside it can take that. */
     const slack = (o: (typeof others)[number] | undefined): number => {
       const main = o ? scene.items[o.id]?.forms[axis === "x" ? "row" : "column"]?.[0]?.main : undefined;

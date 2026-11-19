@@ -178,7 +178,9 @@ describe("a toolbar moved along an occupied bar or rail stays at the hand", () =
       for (const speed of [0.15, 0.3, 0.6]) {
         const how = play === runOn ? "125 Hz" : "mouse";
         const z = pressOn(rail, "zoom");
+        // Up past tools, then down to the rail's far end (zoom keeps its own 100 px there).
         expect(["rail", how, speed, ok(worstAlong(rail, "zoom", "rail-left", path([z, { x: z.x, y: z.y - 10 }, { x: z.x, y: tools.y - 50 }], speed, 300), play))]).toEqual(["rail", how, speed, "ok"]);
+        expect(["rail end", how, speed, ok(worstAlong(rail, "zoom", "rail-left", path([z, { x: z.x, y: z.y + 10 }, { x: z.x, y: 632 }], speed, 300), play))]).toEqual(["rail end", how, speed, "ok"]);
         const v = pressOn(title, "views");
         expect(["title", how, speed, ok(worstAlong(title, "views", "title", path([v, { x: 420, y: 16 }, { x: 1000, y: 16 }, { x: 20, y: 16 }], speed, 300), play))]).toEqual(["title", how, speed, "ok"]);
         const t = pressOn(floating, "tools");
