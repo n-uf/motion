@@ -3,6 +3,24 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## 26.11.46
+
+A fix for hosts on the landing model. Host notes: pass the drag's grab to `lanes()` (`{ previous, grab }`, and the
+same in the `regionsFor` call with `spot`), the offset a target's `after(point, grab)` already takes. A host that
+doesn't gets exactly the stretches of 26.11.45, and fails the two new landing rows.
+
+- `./scene`, **`lanes()` takes the grab** (fix, additive option): on a bar or a toolbar rail the cut between two spots
+  lay halfway between their landings, where the pointer is only when it holds the item at its middle. Free-stretch
+  spots lie a pitch (40 px) apart, so the item's own place was picked only within about 20 px of its middle: a toolbar
+  pressed near one end, taken away and brought back to its press point landed on the spot beside its own place, one or
+  two pitches over. `LaneOptions.grab` puts each cut there halfway between the points the pointer would hold in each
+  landing, so the press point lies on the item's own place however far from its middle it was pressed. Without it,
+  the item's middle is the grab (as before). Panel columns cut by halves whatever the grab.
+- `./scene/cases`, **two landing rows** (additive): `landing-back-home-bar` and `landing-back-home-rail`, a toolbar
+  pressed near one end, taken into the document and brought back to its press point, ending on its own place. They
+  need `GRAB_SINCE` (26.11.46): a host that says it runs 26.11.45 skips them. The reference host
+  (`createLandingHost`) passes its grab to `lanes()`.
+
 ## 26.11.45
 
 The geometry for the landing model, opt-in: a scene that sets none of the new fields lays out, targets and stores
