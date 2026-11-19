@@ -112,6 +112,19 @@ describe("lanes(): guide marks", () => {
       }
   });
 
+  it("lie inside their lane's rect", () => {
+    for (const [name, s] of [...scenes(), ...[9, 10, 11, 12, 13, 14].map((seed): [string, Scene] => [`model ${seed}`, modelScene(seed, seed % 2 === 0, seed % 3 === 0, false)])])
+      for (const id of movable(s))
+        for (const l of lanes(s, id, { previous: solve(s) }).lanes) {
+          if (l.id.includes(":")) continue;
+          for (const m of l.marks) {
+            const r = m.rect;
+            const inside = r.x >= l.rect.x - 0.5 && r.y >= l.rect.y - 0.5 && r.x + r.width <= l.rect.x + l.rect.width + 0.5 && r.y + r.height <= l.rect.y + l.rect.height + 0.5;
+            expect(inside, `${name} ${id} ${m.id}`).toBe(true);
+          }
+        }
+  });
+
   it("a column with one panel gets lines at its ends, so its lane shows guides", () => {
     const s = winScene(WINDOW_A, { size: 300 });
     const right = lanes(s, "pages", { previous: solve(s) }).lanes.find((l) => l.id === "right-0")!;

@@ -337,9 +337,11 @@ function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { i
   const ends = [{ id: "^", a: start, b: start }, ...items.map((o) => ({ id: o.id, a: lo(o.r, axis), b: lo(o.r, axis) + len(o.r, axis) })), { id: "$", a: end, b: end }];
   const isRefused = (v: number): boolean => refused.some((f) => v >= f.along[0] && v <= f.along[1]);
   for (let i = 0; i + 1 < ends.length; i++) {
-    const a = ends[i]!.b;
-    const b = ends[i + 1]!.a;
+    // Kept inside the lane: an item drawn past its end (a rider, a lent edge) leaves no mark outside it.
+    const a = clamp(ends[i]!.b, start, end);
+    const b = clamp(ends[i + 1]!.a, start, end);
     const pair = `${ends[i]!.id}|${ends[i + 1]!.id}`;
+    if (ends[i + 1]!.a < start - EPS || ends[i]!.b > end + EPS) continue;
     if (b - a < itemLen - EPS) {
       // As thick as the gap allows, up to `LINE`: zero between items with no gap (the host strokes it). Also at an end
       // of the lane next to an item, unless refused there; none where the lane holds nothing.
