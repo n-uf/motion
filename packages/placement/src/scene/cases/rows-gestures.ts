@@ -317,7 +317,7 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
     id: "P13-kinds",
     title: "Targets by kind: a panel",
     expect:
-      "Lifting a panel offers panel columns, rails, new-column lines and the float target, never a toolbar's gaps: over the tools bar it is refused (\"No room here\"), and a release there puts it back.",
+      "Lifting a panel offers panel columns, rails, new-column lines and the float target, never a toolbar's gaps: over the tools bar it is refused (\"Can't go here\" at the pointer, nothing drawn on the bar), and a release there puts it back.",
     group: "gestures",
     scene: {
       ...win(),
