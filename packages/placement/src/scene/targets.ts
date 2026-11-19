@@ -111,7 +111,7 @@ function specsOf(c: Ctx, kind: string): EdgeSpec[] {
 
 /** The placed tiles as targets and refusals; a zone's refusals numbered by where they lie along the edge. */
 function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refused: SceneRefusal[]; ownHome: Rect | null } {
-  const { scene, now, dragged } = c;
+  const { scene, now, base, dragged } = c;
   const homeId = targetId({ kind: "home", item: dragged });
   const targets: SceneTarget[] = [];
   const refused: SceneRefusal[] = [];
@@ -156,7 +156,7 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
     const result = t.result!;
     // Its slot lies over an item its drop moves: until the room opens the indicator would cover it, so they open together.
     const edgeRail = RAIL_KINDS.has(t.edgeKind) && touchesSide(scene.stage, t.hits ?? [t.hit]);
-    const room = t.slot && slotOverMoved(now, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(edgeRail ? { roomHold: EDGE_RAIL_ROOM_HOLD } : {}) } : {};
+    const room = t.slot && slotOverMoved(now, base, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(edgeRail ? { roomHold: EDGE_RAIL_ROOM_HOLD } : {}) } : {};
     targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), ...room, item: dragged, place: t.place!, after: () => result });
   }
   return { targets, refused, ownHome };
@@ -169,16 +169,18 @@ const RAIL_KINDS: ReadonlySet<EdgeKind> = new Set<EdgeKind>(["rail", "railStop",
 const touchesSide = (stage: Rect, pieces: readonly Rect[]): boolean => pieces.some((r) => r.x <= stage.x + EPS || r.x + r.width >= stage.x + stage.width - EPS);
 
 /**
- * Whether `slot` lies over a docked item that a drop on edge `onto` moves: an item of another edge, not `dragged`, nor one
- * of the edge it leaves (they close up anyway), nor one of `onto` (they make its gap). The overlap is tested first: the
- * two layouts are at hand, and most items lie clear of the slot.
+ * Whether `slot` lies over a docked item that a drop on edge `onto` moves: not `dragged`, nor an item of `onto` (they make
+ * its gap). An item of the edge `dragged` leaves is measured from `lifted`, the layout with it gone: closing up over its
+ * place is no move, being pushed by the drop is. The overlap is tested first: the layouts are at hand, and most items
+ * lie clear of the slot.
  */
-function slotOverMoved(now: SceneLayout, after: SceneLayout, slot: Rect, dragged: string, onto: string): boolean {
+function slotOverMoved(now: SceneLayout, lifted: SceneLayout, after: SceneLayout, slot: Rect, dragged: string, onto: string): boolean {
   const from = now.items[dragged]?.edge;
   return Object.entries(now.items).some(([id, was]) => {
-    if (!overlaps(slot, was.rect) || id === dragged || was.floating || was.edge === onto || (from !== undefined && was.edge === from)) return false;
+    if (!overlaps(slot, was.rect) || id === dragged || was.floating || was.edge === onto) return false;
     const r = after.items[id]?.rect;
-    return !!r && (Math.abs(r.x - was.rect.x) > EPS || Math.abs(r.y - was.rect.y) > EPS || Math.abs(r.width - was.rect.width) > EPS || Math.abs(r.height - was.rect.height) > EPS);
+    const start = (from !== undefined && was.edge === from ? lifted.items[id]?.rect : undefined) ?? was.rect;
+    return !!r && (Math.abs(r.x - start.x) > EPS || Math.abs(r.y - start.y) > EPS || Math.abs(r.width - start.width) > EPS || Math.abs(r.height - start.height) > EPS);
   });
 }
 
