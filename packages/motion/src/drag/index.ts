@@ -17,6 +17,25 @@ export {
   type LiftDecision,
   type ModifierKey,
 } from "./intent";
+export {
+  createLandingModel,
+  LANDING_APPROACH,
+  LANDING_GATES,
+  LANDING_MARGINS,
+  LANDING_TOUCH_MARGINS,
+  type LandingApproach,
+  type LandingFrame,
+  type LandingGates,
+  type LandingGuide,
+  type LandingLane,
+  type LandingMargins,
+  type LandingModel,
+  type LandingOptions,
+  type LandingRegion,
+  type LandingRegions,
+  type LandingRelease,
+  type LandingSpot,
+} from "./landing";
 export { DRAG_PREVIEW_DEFAULT, PLACE_GUIDES_DEFAULT, previewPlan, type DragPreview, type DropPreviewMode, type PlaceGuides, type PreviewPlan } from "./preview";
 export { createGripPress, type GripPress, type GripRelease } from "./grip";
 export { DOUBLE_CLICK, type DoubleClick } from "../double-click";
