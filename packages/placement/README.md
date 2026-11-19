@@ -1004,6 +1004,11 @@ first column. A column folds:
   is oldest first, the outer first, the left first (`column-shrunk`, `column-folded`, `kept-folded`). Under `previous`,
   what gave way stays so while the content still fits, room that comes back unfolds in the reverse order, and ages alone
   change nothing. Still too narrow: `content-narrow`; under `contentMin.height` (overlay bars counted): `content-short`.
+  With `contentMin.chromeWidth`, a lower floor for chrome, the content gives way first: compact rails and side toolbar
+  bars may take it down to that floor while the columns keep their width and move aside, and only below it does a
+  column shrink, then fold. The columns alone still leave `contentMin.width`, so a toolbar rail added at a window's edge
+  narrows the content and leaves the panel column as it was. `columnRoom` (`no-column-room`) and `content-narrow` keep
+  reading `contentMin.width`; bars keep giving way by `contentMin.height` (the floor is width only).
 - by hand: when every member is folded by hand (`from` over 0) it goes to the rail; with `handFold: "ride"` a one-member
   column instead rides as a title bar over the side's first open column, at that column's width, taking no width
   (`rides`), while the side has an open column.
