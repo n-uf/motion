@@ -1082,6 +1082,9 @@ none lays out as before.
   bar or an anchor at the window's edge is never pushed inward. Column and rail places count rings as the side's edges
   lie (by ring, then by order, no ties), and `homeFor` gives a start column's ring that way.
 
+**Holding an item.** `heldRect(stage, size, pointer, grab)` is where a held item lies: its grip under the pointer where
+it fits, else moved just enough to lie wholly inside the stage. The float target starts from the same rect.
+
 **Floats** lie above the content in stage px, last on top. Each is moved inside the stage and clear of every docked
 item, every bar and every `chrome` rect (`fitFloat`, which `./scene` exports with `FloatFit`), with `float-clamped`, `float-moved` or `float-covers` notes. With
 `anchor` (such as `"content-top-right"`) it sits flush with that side or corner of the content and follows it until a

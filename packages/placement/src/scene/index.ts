@@ -50,7 +50,7 @@ export {
   type Zone,
   type ZoneAccepts,
 } from "./model";
-export { anchorName, floatOrientOf, floatSizeOf, isOutsideSideBar, isSideBar, railModeOf, zoneTakes, zonesTaking } from "./helpers";
+export { anchorName, floatOrientOf, floatSizeOf, heldRect, isOutsideSideBar, isSideBar, railModeOf, zoneTakes, zonesTaking } from "./helpers";
 /** Whether an edge takes a kind anywhere: its `accepts` lists it and some zone takes it (the test drop targets ask). */
 export { edgeTakes, namesZone, zoneIn } from "./helpers";
 export { solve } from "./solve";
