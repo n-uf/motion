@@ -11,11 +11,12 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 - `./drag`, **`createLandingModel`** (additive): the landing model of a docking drag as state (region, lane, spot) over
   the lanes `@n-uf/placement/scene`'s `lanes()` gives. Up to 48 px past the stage counts as on its edge; a held lane
-  holds within a 12 px exit margin; entry passes a path gate (40 px) or a still gate (depth from the sides facing in);
-  a touching lane is taken at once from a held one; spots change past a 6 px margin, on a slow step where the change
-  reflows the window; a spot's own regions confirm a reflowing change (`regionsFor`); Shift floats; guides are the
-  lanes' marks. No waits; the host sends a rest update after two still sample intervals. `createDragIntent` is
-  unchanged.
+  holds within a 12 px exit margin, and inside a lane touching it until that lane's gate passes; entry passes a path
+  gate (40 px of slow path along the lane) or a still gate (depth from the sides facing in); spots change past a 6 px
+  margin, on a slow step where the change reflows the window or once the landing trails the pointer by 40 px; a spot's
+  own regions confirm a reflowing change (`regionsFor`, replaceable with `setRegions`); Shift floats; guides are the
+  lanes' marks, keyed by id. No waits; stillness needs the pointer put for 22 ms, so a host may update per sample or per
+  frame. `createDragIntent` is unchanged.
 
 - `./drag`, **place guides** (additive). `previewPlan` also takes `{ mode: "outline" | "placeholder" | "snap",
   placeGuides? }` (`DropPreviewMode`), drawn with `"indicator"`'s, `"gap"`'s and `"item"`'s plan. Its result gains

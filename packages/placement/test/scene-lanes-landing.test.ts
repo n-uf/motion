@@ -20,13 +20,13 @@ const scene: Scene = {
 const GRAB = { x: 10, y: 10 };
 
 /** The model's options for a drag of `id` from its own place. */
-function optionsFor(id: string): LandingOptions {
-  const previous = solve(scene);
-  const regions = lanes(scene, id, { previous });
+function optionsFor(id: string, sc: Scene = scene): LandingOptions {
+  const previous = solve(sc);
+  const regions = lanes(sc, id, { previous });
   const home = regions.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0];
   return {
     regions,
-    regionsFor: (spot) => lanes(scene, id, { previous, spot }),
+    regionsFor: (spot) => lanes(sc, id, { previous, spot }),
     floatLanding: (p) => regions.float?.after(p, GRAB).layout.items[id]?.rect ?? null,
     ...(home ? { home } : {}),
     placeGuides: "near",
@@ -35,7 +35,10 @@ function optionsFor(id: string): LandingOptions {
 
 /** Drive keys [ms, x, y] (linear between) every 8 ms; every frame with its point. */
 function run(id: string, keys: readonly (readonly [number, number, number])[]): { p: Point; f: LandingFrame }[] {
-  const m = createLandingModel(optionsFor(id));
+  return runOn(scene, id, keys);
+}
+function runOn(sc: Scene, id: string, keys: readonly (readonly [number, number, number])[]): { p: Point; f: LandingFrame }[] {
+  const m = createLandingModel(optionsFor(id, sc));
   const out: { p: Point; f: LandingFrame }[] = [];
   for (let t = 0; t <= keys.at(-1)![0] + 1e-6; t += 8) {
     let i = 0;
@@ -79,12 +82,12 @@ describe("the landing model over lanes()", () => {
   });
 
   it("lane to lane at 600 px/s, rail into the bar, never passes through the float", () => {
-    const frames = run("zoom", path([{ x: 15, y: 160 }, { x: 15, y: 18 }, { x: 400, y: 18 }], 0.6));
+    const frames = run("zoom", path([{ x: 15, y: 160 }, { x: 15, y: 18 }, { x: 400, y: 18 }], 0.6, 40));
     expect(frames.some(({ f }) => f.region === "open")).toBe(false);
     expect(frames.at(-1)!.f.lane).toBe("top");
   });
 
-  it("a fast hand along the bar, 450–1200 px/s, keeps the item at the hand", () => {
+  it("a fast hand along the bar's free stretch, 450–1200 px/s, keeps the item within a pitch of the hand", () => {
     for (const speed of [0.45, 0.8, 1.2]) {
       const frames = run("a", path([{ x: 110, y: 18 }, { x: 970, y: 18 }], speed));
       for (const { p, f } of frames) {
@@ -92,6 +95,19 @@ describe("the landing model over lanes()", () => {
         const l = f.landing!;
         expect(Math.max(0, l.x - p.x, p.x - (l.x + l.width)), `${speed} ${p.x}`).toBeLessThanOrEqual(SPOT_PITCH);
       }
+    }
+  });
+
+  it("a hand across docked items at 0.3–3 px/ms, both ways, trails no further than a slow one does, plus 40 px", () => {
+    const crowded: Scene = { ...scene, edges: [bar("top", "top", 0, ["a", "b", "c"]), scene.edges[1]!], items: byId([group("a", 1), group("b", 4), group("c", 5), group("tools", 2), group("zoom", 3)]) };
+    const worst = (keys: [number, number, number][]): number => {
+      const frames = runOn(crowded, "zoom", keys);
+      return Math.max(...frames.filter(({ f }) => f.lane === "top" && f.landing).map(({ p, f }) => Math.max(0, f.landing!.x - p.x, p.x - (f.landing!.x + f.landing!.width))));
+    };
+    for (const [a, b] of [[40, 1040], [1040, 40]] as const) {
+      const pts = [{ x: a, y: 18 }, { x: b, y: 18 }];
+      const slow = worst(path(pts, 0.05));
+      for (const speed of [0.3, 0.6, 1.2, 3]) expect(worst(path(pts, speed)), `${a}→${b} @${speed}`).toBeLessThanOrEqual(slow + 40);
     }
   });
 

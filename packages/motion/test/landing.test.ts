@@ -136,7 +136,7 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
 
   it("P5: the guides are the held lane's spots, the same set on every frame the lane is held, and none with Shift", () => {
     const { frames } = run(base({ placeGuides: "near" }), path([{ x: 15, y: 300 }, { x: 15, y: 40 }], 0.1));
-    const sets = new Set(frames.filter((x) => x.f.lane === "rail-left").map((x) => x.f.guides.map((g) => `${g.lane}:${g.kind}:${g.rect.y}`).join()));
+    const sets = new Set(frames.filter((x) => x.f.lane === "rail-left").map((x) => x.f.guides.map((g) => g.id).join()));
     expect(sets.size).toBe(1);
     const { frames: shifted } = run(base({ placeGuides: "near" }), path([{ x: 15, y: 300 }, { x: 15, y: 200 }], 0.1), 0);
     expect(shifted.every((x) => x.f.guides.length === 0)).toBe(true);
@@ -207,20 +207,52 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     }
   });
 
-  it("lane to lane at the corner never passes through the float", () => {
+  it("lane to lane at the corner never passes through the float; the new lane takes it once its gate passes", () => {
     for (const speed of [0.6, 1.5]) {
-      const { frames } = run(base({ home: { lane: "top", spot: "top/start/^|$@1" } }), path([{ x: 140, y: 16 }, { x: 25, y: 25 }, { x: 15, y: 260 }], speed));
+      const keys = path([{ x: 140, y: 16 }, { x: 25, y: 25 }, { x: 15, y: 260 }], speed);
+      const t = keys.at(-1)![0];
+      const { frames } = run(base({ home: { lane: "top", spot: "top/start/^|$@1" } }), [...keys, [t + 40, 15, 260]]);
       expect(frames.some((x) => x.f.region === "open"), `${speed}`).toBe(false);
       expect(frames.at(-1)!.f.lane).toBe("rail-left");
     }
   });
 
+  it("a fast crossing from a held lane through a touching one opens no room in it", () => {
+    for (const speed of [0.6, 1.5, 3]) {
+      const { frames } = run(base({ home: { lane: "top", spot: "top/start/^|$@0" } }), path([{ x: 60, y: 16 }, { x: 15, y: 60 }, { x: 15, y: 120 }, { x: 200, y: 300 }], speed));
+      expect(frames.some((x) => x.f.lane === "rail-left"), `${speed}`).toBe(false);
+    }
+  });
+
+  it("a host updating every frame: repeated points aren't still until the pointer has stayed put", () => {
+    for (const [frameHz, sampleHz] of [[120, 60], [144, 60], [60, 125], [240, 125]] as const)
+      for (const speed of [0.6, 1.2, 2.5]) {
+        const m = createLandingModel(base({ home: undefined }));
+        const T = 330 / speed;
+        let sampleT = -1e9;
+        let sample = { x: 400, y: 300 };
+        let inBar = 0;
+        for (let t = 0; t <= T; t += 1000 / frameHz) {
+          if (t - sampleT >= 1000 / sampleHz - 1e-6) {
+            sampleT = t;
+            sample = { x: 400, y: 300 - 330 * Math.min(1, t / T) };
+          }
+          if (m.update(sample, t).lane === "top") inBar++;
+        }
+        expect([frameHz, sampleHz, speed, inBar]).toEqual([frameHz, sampleHz, speed, 0]);
+      }
+    // Brought to the bar and kept there, per-frame updates make the pointer still after `rest`.
+    const m = createLandingModel(base({ home: undefined }));
+    for (let t = 0; t <= 400; t += 1000 / 120) m.update({ x: 400, y: Math.max(16, 300 - t) }, t);
+    expect(m.frame.lane).toBe("top");
+  });
+
   it("guides: a lane's marks when it has them; over a refused place, the nearest lane's at any distance", () => {
     const r = railWindow();
-    const marks = [{ kind: "line" as const, rect: rect(0, 190, 30, 0) }, { kind: "box" as const, rect: rect(0, 367, 30, 241) }];
+    const marks = [{ id: "rail-left/line/tools|zoom", kind: "line" as const, rect: rect(0, 190, 30, 0) }, { id: "rail-left/box/zoom|$", kind: "box" as const, rect: rect(0, 367, 30, 241) }];
     const withMarks: LandingRegions = { ...r, lanes: [{ ...r.lanes[0]!, marks }, r.lanes[1]!] };
     const held = run(base({ regions: withMarks, placeGuides: "near" }), [[0, 15, 300], [40, 15, 300]]).frames.at(-1)!;
-    expect(held.f.guides.map((g) => [g.kind, g.rect])).toEqual(marks.map((m) => [m.kind, m.rect]));
+    expect(held.f.guides.map((g) => [g.id, g.kind, g.rect])).toEqual(marks.map((m) => [m.id, m.kind, m.rect]));
     const over = run(base({ placeGuides: "near", home: undefined }), [[0, 1000, 300], [40, 1000, 300]]).frames.at(-1)!;
     expect(over.f.region).toBe("refused");
     expect(over.f.guides.length).toBeGreaterThan(0);
@@ -253,6 +285,20 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     expect(m.update({ x: 15, y: 300 }, 8).spot).toBe("rail-left/start/tools|$#2");
     m.setRegions({ ...r, lanes: [r.lanes[1]!] });
     expect(m.update({ x: 15, y: 300 }, 16).lane).toBeNull();
+  });
+
+  it("setRegions with a new regionsFor: the held lane's stretches come from it, not the old one", () => {
+    const r = railWindow();
+    const old: string[] = [];
+    const m = createLandingModel(base({ regionsFor: (id) => (old.push(id), r) }));
+    m.update({ x: 15, y: 300 }, 0);
+    const renamed: LandingRegions = { ...r, lanes: [{ ...r.lanes[0]!, spots: r.lanes[0]!.spots.map((s) => ({ ...s, id: `${s.id}#2` })) }, r.lanes[1]!] };
+    const asked: string[] = [];
+    m.setRegions(renamed, (id) => (asked.push(id), renamed));
+    const before = old.length;
+    expect(m.update({ x: 15, y: 300 }, 40).spot).toBe("rail-left/start/tools|$#2");
+    expect(asked).toContain("rail-left/start/tools|$#2");
+    expect(old.length).toBe(before);
   });
 
   it("P12: Alt and Ctrl/Meta change nothing", () => {

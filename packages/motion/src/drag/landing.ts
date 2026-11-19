@@ -14,16 +14,16 @@ import type { PlaceGuides } from "./preview";
  * - **A lane holds** while the pointer is inside its rect grown by `exit`, whatever lies under it. Inside, over a spot's
  *   stretch it is at that spot; over a refused stretch of the lane, refused ("Can't go here"). (Placement's `lanes()`
  *   joins a refused stretch shorter than the item to its spots.)
- * - **Entering a lane** needs one of two gates: `path` px of pointer path inside it, or a still step (at most `still`)
- *   once `depth` px inside, the depth counted only from the lane's sides that face into the stage (on the edge it is
- *   deep). A fly-through of a thin bar or rail meets neither, so its room never opens. From a held lane into one that
- *   touches it, the pointer `spot` px past the held lane's rect, the new lane is taken at once: lane to lane never passes
- *   through the float.
+ * - **Entering a lane** needs one of two gates: `path` px of slow pointer path along it inside it (steps of at most
+ *   `step`), or a still step (at most `still`) once `depth` px inside, the depth counted only from the lane's sides that
+ *   face into the stage (on the edge it is deep). A fly-through of a thin bar or rail at any angle meets neither, so its
+ *   room never opens. Inside a lane that touches the held one (`spot` px past the held lane's rect), the held lane holds
+ *   until that lane's gate passes: lane to lane never passes through the float, and never opens a crossed lane's room.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
- *   item (the two spots' `others` keys differ), only on a step of at most `step`. A fast step then keeps the last spot; the
- *   next slow one goes straight to the spot under the pointer. A change that moves only the held item follows the hand
- *   at any speed. With `regionsFor`, a change is kept only if, in the new spot's own regions (its room open), the
- *   pointer still lies in that spot's stretch: the room shifting the boundary never bounces the spot.
+ *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
+ *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
+ *   follows the hand at any speed. With `regionsFor`, a reflowing change is kept only if, in the new spot's own regions
+ *   (its room open), the pointer still lies in that spot's stretch: the room shifting the boundary never bounces it.
  * - **Outside every lane:** a refused place, refused; open space (`"open"`: the content less what blocks it, the page),
  *   the float at its landing; outside the stage (past `edge`), nowhere; else (docked content that takes nothing and
  *   refuses nothing) refused.
@@ -31,11 +31,12 @@ import type { PlaceGuides } from "./preview";
  * - **Guides** are the lane's `marks` (lines between items, a box per free stretch, in the layout as drawn), else its
  *   spots' landings: the held lane's; else the approached lane's (the nearest within `reach`); over a refused place the
  *   nearest lane's at any distance, so the lane behind a refused column shows its guides.
- * - Steps are measured per sample normalized to 125 Hz, so the gates read the same at any input rate.
+ * - Steps are measured between points that differ, normalized to 125 Hz, so the gates read the same at any input rate.
+ *   A repeated point keeps the last step; it is still only once the pointer has stayed put for `rest` ms.
  *
- * **The host's part:** one `update` per pointer sample, and one more, a rest update with the same point, when the
- * pointer has not moved for two sample intervals (about 25–30 ms): a pointer that stops sends no samples, and the still
- * gate needs a step of zero. That is the only wait, the host's, and it is a sample interval, not a delay.
+ * **The host's part:** call `update` whenever you like: per pointer sample, per animation frame, or both. Call it at
+ * least once more after the pointer stops (every frame does), so it can become still, and again with the same point
+ * when a key changes. Give `setRegions` the `regionsFor` that answers for the new state.
  */
 
 /** A place a drop in a lane lands: its stretch of the lane and its landing rect. Ids are stable across solves. */
@@ -51,6 +52,8 @@ export interface LandingSpot {
 }
 /** A place guide's mark: a line between two items, a box over a free stretch, in the layout as drawn. */
 export interface LandingMark {
+  /** Stable while its neighbors stay; absent, the guide is keyed by its lane and place in the list. */
+  readonly id?: string;
   readonly kind: "line" | "box";
   readonly rect: Rect;
 }
@@ -89,8 +92,15 @@ export interface LandingGates {
   readonly depth: number;
   /** A still step, px per 8 ms. */
   readonly still: number;
-  /** The largest step that changes the spot along a lane, px per 8 ms. */
+  /**
+   * The largest step that changes the spot along a lane where the change reflows the window, px per 8 ms; it also
+   * bounds the steps the path gate counts (a fast crossing never enters).
+   */
   readonly step: number;
+  /** How far the held landing may trail the pointer before a fast reflowing change is taken anyway, px. */
+  readonly trail: number;
+  /** The time a pointer has to stay put before it counts as still, ms (repeated points before it aren't still). */
+  readonly rest: number;
 }
 /** The approach for near guides: the nearest lane within `reach`, kept until another is `nearer` closer or past `keep`. */
 export interface LandingApproach {
@@ -102,7 +112,7 @@ export interface LandingApproach {
 export const LANDING_MARGINS: LandingMargins = { exit: 12, spot: 6, edge: 48 };
 /** A touch: wider margins, the finger's jitter. */
 export const LANDING_TOUCH_MARGINS: LandingMargins = { exit: 16, spot: 8, edge: 48 };
-export const LANDING_GATES: LandingGates = { path: 40, depth: 8, still: 1.5, step: 3 };
+export const LANDING_GATES: LandingGates = { path: 40, depth: 8, still: 1.5, step: 3, trail: 40, rest: 22 };
 export const LANDING_APPROACH: LandingApproach = { reach: 80, keep: 96, nearer: 16 };
 
 export interface LandingOptions {
@@ -123,6 +133,8 @@ export type LandingRegion = "lane" | "open" | "refused" | "nowhere";
 
 /** A guide: a mark of a lane, where to draw it now (a spot's landing is a box). */
 export interface LandingGuide {
+  /** Stable while its neighbors stay: the mark's id, else `<lane>/<spot id>` for a spot's landing. Key a drawing by it. */
+  readonly id: string;
   readonly lane: string;
   readonly kind: "line" | "box";
   readonly rect: Rect;
@@ -150,8 +162,11 @@ export interface LandingModel {
   update(point: Point, time: number, keys?: DragKeys): LandingFrame;
   /** What a release lands, by the last frame: the same answer as its `landing`. */
   release(): LandingRelease;
-  /** The regions changed (a resize, a store change, a scroll): spots map by id; a lost one goes to its lane's nearest. */
-  setRegions(regions: LandingRegions): void;
+  /**
+   * The regions changed (a resize, a store change, a scroll): spots map by id; a lost one goes to its lane's nearest.
+   * Pass the `regionsFor` that answers for the new state; without one, the old one stays (it must then read live state).
+   */
+  setRegions(regions: LandingRegions, regionsFor?: (spot: string) => LandingRegions | null): void;
   /** The view moved under the pointer: the gates start again, the lane is let go. */
   hide(): void;
   readonly frame: LandingFrame;
@@ -190,17 +205,21 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   const approach = { ...LANDING_APPROACH, ...options.approach };
   const guidesLevel: PlaceGuides = options.placeGuides ?? "off";
   let base = options.regions;
+  let regionsFor = options.regionsFor;
   const cache = new Map<string, LandingRegions | null>();
   /** The regions with `spot` held: the host's, cached for this lift until `setRegions`. */
   const heldRegions = (spot: string | null): LandingRegions => {
-    if (!spot || !options.regionsFor) return base;
-    if (!cache.has(spot)) cache.set(spot, options.regionsFor(spot));
+    if (!spot || !regionsFor) return base;
+    if (!cache.has(spot)) cache.set(spot, regionsFor(spot));
     return cache.get(spot) ?? base;
   };
 
   let laneId: string | null = options.home?.lane ?? null;
   let spotId: string | null = options.home?.spot ?? null;
   let last: { p: Point; raw: Point; t: number } | null = null;
+  /** The last point that differed from the one before, and the step then. */
+  let moved: { raw: Point; t: number } | null = null;
+  let lastStep = 0;
   /** Path inside each lane since the pointer last entered its rect. */
   const pathIn = new Map<string, number>();
   let approached: string | null = null;
@@ -239,9 +258,12 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     // Past the boundary by the margin; where the change moves another item, on a slow enough step. Else the last spot holds.
     const past = a < now.along[0] - margins.spot || a > now.along[1] + margins.spot;
     const reflows = now.others === undefined || now.others !== cand.others;
-    if (!past || (reflows && step > gates.step)) return now;
+    if (!past) return now;
+    // A fast reflowing change waits for a slow step, unless the held landing already trails the pointer by `trail`: the
+    // item chases only as far as it must, so a fast hand across docked items never leaves it far behind.
+    if (reflows && step > gates.step && distanceTo(now.landing, p) <= gates.trail) return now;
     // The fixed point: in the candidate's own regions (its room open), the pointer still picks it.
-    if (options.regionsFor && reflows) {
+    if (regionsFor && reflows) {
       const theirs = heldRegions(cand.id);
       const lane2 = laneIn(theirs, lane.id);
       if (lane2 && pick(lane2, alongOf(lane2, p))?.id !== cand.id) return now;
@@ -252,7 +274,10 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   function guidesFor(p: Point, region: LandingRegion, shift: boolean): LandingGuide[] {
     if (guidesLevel === "off" || shift) return [];
     const regions = heldRegions(spotId);
-    const all = (l: LandingLane): LandingGuide[] => (l.marks ?? l.spots.map((s) => ({ kind: "box" as const, rect: s.landing }))).map((m) => ({ lane: l.id, kind: m.kind, rect: m.rect }));
+    const all = (l: LandingLane): LandingGuide[] =>
+      l.marks
+        ? l.marks.map((m, i) => ({ id: m.id ?? `${l.id}#${i}`, lane: l.id, kind: m.kind, rect: m.rect }))
+        : l.spots.map((s) => ({ id: `${l.id}/${s.id}`, lane: l.id, kind: "box" as const, rect: s.landing }));
     if (guidesLevel === "all") return regions.lanes.flatMap(all);
     if ((region === "lane" || region === "refused") && laneId) {
       approached = laneId;
@@ -287,15 +312,27 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   function update(raw: Point, t: number, keys?: DragKeys): LandingFrame {
     // Past the stage by up to `edge`: on its edge. Beyond: nowhere (kept as is).
     const p = ontoStage(heldRegions(spotId).stage, raw, margins.edge) ?? raw;
-    const dist = last ? Math.hypot(p.x - last.p.x, p.y - last.p.y) : 0;
-    // A step normalized to 125 Hz (8 ms between samples), of the pointer as it moved (a fling past the edge isn't still).
-    const step = last ? (Math.hypot(raw.x - last.raw.x, raw.y - last.raw.y) * 8) / Math.max(1, t - last.t) : 0;
+    // The step: the pointer as it moved (a fling past the edge isn't still) since the last point that differed,
+    // normalized to 125 Hz (8 ms). A repeated point (a host updating per frame) keeps the last step until the pointer has
+    // stayed put for `rest` ms; only then is it still.
+    let step = 0;
+    if (moved && (raw.x !== moved.raw.x || raw.y !== moved.raw.y)) {
+      step = (Math.hypot(raw.x - moved.raw.x, raw.y - moved.raw.y) * 8) / Math.max(1, t - moved.t);
+      moved = { raw, t };
+      lastStep = step;
+    } else if (moved) step = t - moved.t >= gates.rest ? 0 : lastStep;
+    else moved = { raw, t };
     const from = last?.p ?? null;
     last = { p, raw, t };
     const shift = !!keys?.shift;
     const regions = heldRegions(spotId);
-    // The path inside each lane: steps from a point inside it to another (the step that enters doesn't count).
-    for (const l of regions.lanes) pathIn.set(l.id, strictlyIn(l.rect, p) ? (pathIn.get(l.id) ?? 0) + (from && strictlyIn(l.rect, from) ? dist : 0) : 0);
+    // The path inside each lane: the part along the lane of slow steps from a point inside it to another (the step that
+    // enters doesn't count, nor a fast one), so a crossing at `step` speed or faster never enters by path at any angle.
+    const slow = step <= gates.step;
+    for (const l of regions.lanes) {
+      const go = from && slow && strictlyIn(l.rect, from) ? Math.abs(alongOf(l, p) - alongOf(l, from)) : 0;
+      pathIn.set(l.id, strictlyIn(l.rect, p) ? (pathIn.get(l.id) ?? 0) + go : 0);
+    }
 
     let region: LandingRegion;
     if (!inside(regions.stage, p)) {
@@ -304,9 +341,12 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       laneId = spotId = null;
     } else {
       const held = laneIn(regions, laneId);
-      // Lane to lane: a lane touching the held one, the pointer `spot` px past the held lane's rect, is taken at once.
-      const next = held ? regions.lanes.find((l) => l.id !== held.id && strictlyIn(l.rect, p) && touches(l.rect, held.rect) && !inside(held.rect, p, margins.spot)) : undefined;
-      if (held && !next && inside(held.rect, p, margins.exit)) {
+      const gate = (l: LandingLane): boolean => (pathIn.get(l.id) ?? 0) >= gates.path || (depthIn(l.rect, p, regions.stage) >= gates.depth && step <= gates.still);
+      // Lane to lane: inside a lane touching the held one (`spot` px past the held lane's rect), the held lane holds until
+      // that lane's gate passes, then that lane takes it. Never the float between them, never a fly-through's room.
+      const touching = held ? regions.lanes.find((l) => l.id !== held.id && strictlyIn(l.rect, p) && touches(l.rect, held.rect) && !inside(held.rect, p, margins.spot)) : undefined;
+      const next = touching && gate(touching) ? touching : undefined;
+      if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
         const s = along(held, p, step);
         spotId = s?.id ?? spotId;
         region = s ? "lane" : "refused";
@@ -320,8 +360,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
           for (const l of regions.lanes) {
             if (!strictlyIn(l.rect, p)) continue;
             const deep = depthIn(l.rect, p, regions.stage);
-            const ok = (pathIn.get(l.id) ?? 0) >= gates.path || (deep >= gates.depth && step <= gates.still);
-            if (ok && (!entered || deep > depthIn(entered.rect, p, regions.stage))) entered = l;
+            if (gate(l) && (!entered || deep > depthIn(entered.rect, p, regions.stage))) entered = l;
           }
         if (entered) {
           laneId = entered.id;
@@ -359,8 +398,9 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       if (frame.region === "open" && frame.landing) return { kind: "float", rect: frame.landing };
       return null;
     },
-    setRegions(regions: LandingRegions): void {
+    setRegions(regions: LandingRegions, nextRegionsFor?: (spot: string) => LandingRegions | null): void {
       base = regions;
+      if (nextRegionsFor) regionsFor = nextRegionsFor;
       cache.clear();
       const l = laneIn(base, laneId);
       if (laneId && !l) laneId = spotId = null;
@@ -370,7 +410,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       laneId = spotId = null;
       approached = null;
       pathIn.clear();
-      last = null;
+      last = moved = null;
+      lastStep = 0;
     },
     get frame(): LandingFrame {
       return frame;
