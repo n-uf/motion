@@ -1251,7 +1251,7 @@ facing halves is home's, and is no target of its own. The slot is where the item
   (grazing the edge opens the rail); the intent's `roomAfter` (160 ms) on any other; on a rail drop strip's target, also
   marked, none past the dwell that arms it. A release before it shows still lands on it. A host that draws only a marker
   opens the room on `frame.room && frame.shown?.opensRoom`, for every one of them. An empty rail or bar is entered over
-  the depth a drop draws it at (a rail's 30 px, a bar's 32), not a thin band; past the thin band that depth never takes
+  the depth a drop draws it at (a rail's or a bar's drawn depth), not a thin band; past the thin band that depth never takes
   the zones of a drawn edge that take the item, and an empty column keeps the thin band. A target whose drop changes an
   edge's thickness around the content (an empty rail beside a column, a new-column line, an empty bar's strip) also
   carries `roomHit`, the smallest rect holding its hit and its landing rect. While it shows with its room open, the drag

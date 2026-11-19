@@ -9,15 +9,19 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   content (an empty rail beside a column, a new-column line, an empty bar's strip) carries the smallest rect holding its
   hit and its landing rect. The drag intent then holds it there once the room is open: the drawn room is its zone, so a
   pointer that drifts inside the rail it opened keeps it. A refusal or a place no more precise under the held room
-  doesn't take over; those places are reachable once the pointer leaves the room. Rail drop strips don't carry it.
+  doesn't take over; those places are reachable once the pointer leaves the room. While a shown empty bar's room is
+  open, an equal-priority gap under it (for example a corner gap of a side bar) is reachable only after the pointer
+  leaves that room. Rail drop strips don't carry it.
 
 - `./scene`, **an empty rail or bar is entered over its drawn depth** (behavior). Its targets' hits run as deep as a
-  drop draws it (a rail's 30 px, a bar's 32) instead of a 12 px band, over columns that refuse the item too; past the
-  thin band that depth never takes the zones of a drawn edge that take the item. An empty column keeps the thin band.
+  drop draws it (the rail's or the bar's drawn depth) instead of a 12 px band, over columns that refuse the item too;
+  past the thin band that depth never takes the zones of a drawn edge that take the item. An empty column keeps the thin
+  band.
 
 - `./scene`, **`EDGE_ROOM_HOLD` is 0** (behavior, was 70 ms). A rail target or a new-column line against the window's
   left or right edge shows with its room on the frame an aiming pointer enters it, so a toolbar held at the edge no
-  longer jumps away across the column and back. Grazing the edge with a held item now opens its rail.
+  longer jumps away across the column and back. Grazing the edge with a held item now opens its rail. The accepted cost:
+  over recorded sweeps along the window's edges, about 29 rail openings instead of 20, mostly from grazing the edge.
 
 ## 26.11.42
 
