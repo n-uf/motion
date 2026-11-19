@@ -17,6 +17,6 @@ export {
   type LiftDecision,
   type ModifierKey,
 } from "./intent";
-export { DRAG_PREVIEW_DEFAULT, previewPlan, type DragPreview, type PreviewPlan } from "./preview";
+export { DRAG_PREVIEW_DEFAULT, PLACE_GUIDES_DEFAULT, previewPlan, type DragPreview, type DropPreviewMode, type PlaceGuides, type PreviewPlan } from "./preview";
 export { createGripPress, type GripPress, type GripRelease } from "./grip";
 export { DOUBLE_CLICK, type DoubleClick } from "../double-click";
