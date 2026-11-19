@@ -100,8 +100,18 @@ function zoneSpans(scene: Scene, seen: SceneLayout, edge: Edge, reach: number, p
     });
   }
   if (thirds) {
-    const b1 = Math.min(Math.max(main0 + length / 3, hi("start")), lo("center"), lo("end"));
-    const b2 = Math.max(Math.min(main0 + (2 * length) / 3, lo("end")), hi("center"), hi("start"), b1);
+    // `barZones: "nearest"`: each boundary halfway between the landing rects either side of it (a zone's landing beside
+    // the boundary: past its last card, else where its first drop lands), so the pointer is in the zone whose landing is
+    // nearest. Else at a third of the length.
+    const nearest = scene.barZones === "nearest";
+    const landing = (z: Zone, side: "before" | "after"): Span | null => (placed.has(z) ? (side === "after" ? [hi(z), hi(z)] : [lo(z), lo(z)]) : probe(z));
+    const between = (l: Zone, r: Zone, fallback: number): number => {
+      const a = landing(l, "after");
+      const b = landing(r, "before");
+      return nearest && a && b ? (a[1] + b[0]) / 2 : fallback;
+    };
+    const b1 = Math.min(Math.max(between("start", "center", main0 + length / 3), hi("start")), lo("center"), lo("end"));
+    const b2 = Math.max(Math.min(between("center", "end", main0 + (2 * length) / 3), lo("end")), hi("center"), hi("start"), b1);
     return [
       { zone: "start", a: main0 - reach, b: b1 },
       { zone: "center", a: b1, b: b2 },
