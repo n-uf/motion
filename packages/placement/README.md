@@ -999,7 +999,9 @@ what it shows and what a drag reads. A declaration, never stored.
 
 **Nearest bar zones.** With `Scene.barZones: "nearest"`, a bar's start, center and end zones meet halfway between the
 landing rects either side of each boundary, not at thirds, so the pointer picks the zone whose landing is nearest it. A
-declaration, never stored.
+declaration, never stored. It moves the targets' hit areas only (`targets()`, `pickTarget`, a drag intent over them):
+under a landing model `lanes()` cuts a bar between its spots' landings whatever the zones' hit areas, so a host that
+drags with `lanes()` needn't set it.
 
 **Space kept on a zone's open side.** `SceneItem.space` is free space an item keeps before it in a start zone or after it
 in an end zone, out of the edge's spare length (shared out when items ask for more). A dock move sets it with
