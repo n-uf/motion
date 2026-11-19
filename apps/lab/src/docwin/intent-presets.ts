@@ -225,6 +225,38 @@ export function INTENT_PRESETS(): IntentPreset[] {
       },
     ),
     intentCase(
+      "intent-rail-room-holds",
+      "With its room open, a rail's strip holds anywhere in the rail it opened",
+      "Tools aimed at the left window edge's strip (12 px) until its room opens and the rail draws 30 px wide, then drifted from x 8 to x 24 inside the drawn rail: the rail target and its room hold on every frame, the column beside it is never refused there, and the drop lands in the rail. Drifted on out of the rail, to x 60, the target and its room go.",
+      (c) => {
+        const bad: string[] = [];
+        const strip = c.targets("tools").find((t) => t.id.startsWith("strip:rail-left:") && t.roomHit && t.hit.y <= c.scene.stage.height / 2 && t.hit.y + t.hit.height >= c.scene.stage.height / 2);
+        if (!strip?.roomHit) return { pass: false, now: "No left rail strip with a room hold." };
+        const y = mid(strip.hit).y;
+        const run = (to: number) => {
+          let drift = 0;
+          const r = drive(c, "tools", (g) => {
+            const there = hold(through([g, { x: 8, y }], 1), 400);
+            drift = there.at(-1)![0];
+            return hold([...there, ...through([{ x: 8, y }, { x: to, y }], 0.05, drift).slice(1)], 200);
+          });
+          return r ? { r, drift } : null;
+        };
+        const held = run(24);
+        if (!held) return { pass: false, now: "The drag never lifted." };
+        const after = held.r.trace.rooms.filter((f) => f.t > held.drift);
+        const lost = after.filter((f) => f.shown !== strip.id || f.room !== strip.id).length;
+        if (!held.r.trace.rooms.some((f) => f.t <= held.drift && f.room === strip.id)) bad.push("its room never opened at x 8");
+        if (lost) bad.push(`${lost} of ${after.length} frames of the drift lost it`);
+        if (!held.r.drop?.committed || held.r.drop.target !== strip.id) bad.push(`the drop landed on ${held.r.drop?.target ?? "nothing"}`);
+        c.setScene(defaultScene());
+        const out = run(60);
+        const last = out?.r.trace.rooms.at(-1);
+        if (!out || last?.shown === strip.id || last?.room) bad.push(`at x 60 it still shows ${last?.shown ?? "nothing"} with room ${last?.room ?? "none"}`);
+        return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : `Held on all ${after.length} frames of the drift, room ${fmt(strip.roomHit)}; gone at x 60.` };
+      },
+    ),
+    intentCase(
       "intent-wobble",
       "A 14 px wobble on a border changes the indicator at most once",
       "Views held still on the border between two neighboring gaps, then wobbled 14 px across it every 60 ms: the indicator switches straight from one gap to the other at most once (the 150 ms switch delay), and never flashes.",
