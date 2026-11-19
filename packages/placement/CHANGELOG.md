@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.44
 
 - `./scene`, **the content gives way to chrome** (additive). `contentMin.chromeWidth` is a lower content floor for
   chrome: compact rails and side toolbar bars may narrow the content down to it while the panel columns keep their
