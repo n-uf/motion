@@ -161,12 +161,12 @@ const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
  * host that draws only a marker and doesn't use `previewPlan`'s room opens the room on
  * `frame.room && frame.shown?.opensRoom`.
  *
- * `roomHit`, with `opensRoom`, is the room the target opens as drawn once it is open (an empty rail's strip: the rail at
- * its full width), containing `hit`. While the target shows with its room open it holds wherever the pointer is in
- * `roomHit` and inside its `bounds`: what lies there is drawn as the room, so a refusal or a target of the same or a
- * lower precision under it doesn't take over, and the frame isn't `refused` there. A more precise target (a lower
- * `priority`) still takes over once the pointer is past `breakthrough` into it, and a held key still wins. Out of
- * `roomHit` the target is held as any other (its `hit` and band), so once it goes its zone is `hit` again.
+ * `roomHit`, with `opensRoom`, is where the target's room draws the item once it is open (its landing rect: an empty
+ * rail's 30 px beside its 12 px strip). While the target shows with its room open it holds in `hit ∪ roomHit`: wherever
+ * the pointer is in `roomHit` and inside its `bounds` too. What lies there is drawn as the room, so a refusal or a
+ * target of the same or a lower precision under it doesn't take over, and the frame isn't `refused` there. A more
+ * precise target (a lower `priority`) still takes over once the pointer is past `breakthrough` into it, and a held key
+ * still wins. Out of both the target is held as any other (its `hit` and band), so once it goes its zone is `hit` again.
  */
 export interface DragTarget {
   readonly id: string;
