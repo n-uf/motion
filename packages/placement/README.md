@@ -1660,8 +1660,8 @@ const skipped = results.filter((r) => r.skipped).length;
 expect(lanesRatchet({ skipped, baseline: 0, today: new Date().toISOString().slice(0, 10) })).toEqual([]);
 ```
 
-Every landing row carries `requires: { lanes: { since: LANES_SINCE } }`, the first version with `lanes()`; a host
-that says it runs an older `version` skips it. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
+Every landing row carries `requires: { lanes: { since: LANES_SINCE } }`, the first version with `lanes()` (26.11.45;
+26.11.21 to 26.11.44, `LAST_WITHOUT_LANES`, shipped without it); a host that says it runs an older `version` skips it. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
 baseline the host's suite recorded, and from `LANES_DEADLINE` (2026-12-31) or at the breaking release, whichever comes
 first, every row runs.
 

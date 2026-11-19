@@ -39,6 +39,7 @@ export {
   landingIssues,
   LANES_DEADLINE,
   LANES_SINCE,
+  LAST_WITHOUT_LANES,
   lanesRatchet,
   runLandingCases,
   type LandingCase,

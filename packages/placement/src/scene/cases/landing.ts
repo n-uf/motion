@@ -21,8 +21,14 @@ import { layoutIssues } from "./run";
 import type { CaseRequires, LayoutExpect } from "./types";
 import { form } from "./world";
 
-/** The first library version with `lanes()`: a landing row's `requires.lanes.since`. */
-export const LANES_SINCE = "26.11.21";
+/**
+ * The first library version with `lanes()`: a landing row's `requires.lanes.since`. 26.11.21 to 26.11.44 shipped
+ * without it; the release that ships it is 26.11.45 (a test holds it above 26.11.44, and at or below the package's
+ * version once that is past 26.11.44).
+ */
+export const LANES_SINCE = "26.11.45";
+/** The last published version without `lanes()`. */
+export const LAST_WITHOUT_LANES = "26.11.44";
 /** From this date every landing row runs on every host (or at the breaking release, if that comes first). */
 export const LANES_DEADLINE = "2026-12-31";
 
