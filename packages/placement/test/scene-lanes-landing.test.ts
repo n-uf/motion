@@ -6,7 +6,7 @@
 import { createLandingModel, type LandingFrame, type LandingOptions } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point } from "../src/geometry";
-import { lanes, solve, SPOT_PITCH, type Scene } from "../src/scene";
+import { lanes, solve, SPOT_PITCH, type Scene, type SceneItem } from "../src/scene";
 import { bar, byId, column, controls, group, panel, title } from "./scene-fixture";
 
 /** A 1080×640 window: a top bar (y 0–36) with a at its start, a toolbar rail at the left (x 0–30, y 36–640): tools, zoom. */
@@ -51,6 +51,27 @@ function runOn(sc: Scene, id: string, keys: readonly (readonly [number, number, 
   }
   return out;
 }
+/**
+ * As a real mouse and page: the pointer sampled every 12 ms (steps of 7 px at 600 px/s), the model updated on 60 Hz
+ * frames with the latest sample, every frame kept (the last one before each hop included).
+ */
+function runMouse(sc: Scene, id: string, keys: readonly (readonly [number, number, number])[]): { p: Point; f: LandingFrame }[] {
+  const m = createLandingModel(optionsFor(id, sc));
+  const out: { p: Point; f: LandingFrame }[] = [];
+  const at = (t: number): Point => {
+    let i = 0;
+    while (i < keys.length - 1 && keys[i + 1]![0] < t) i++;
+    const a = keys[i]!;
+    const b = keys[Math.min(i + 1, keys.length - 1)]!;
+    const u = b[0] > a[0] ? Math.min(1, (t - a[0]) / (b[0] - a[0])) : 1;
+    return { x: a[1] + (b[1] - a[1]) * u, y: a[2] + (b[2] - a[2]) * u };
+  };
+  for (let t = 0; t <= keys.at(-1)![0] + 1e-6; t += 1000 / 60) {
+    const p = at(Math.floor(t / 12) * 12);
+    out.push({ p, f: m.update(p, t) });
+  }
+  return out;
+}
 /** Keys through `points` at `speed` px/ms, then a rest of `rest` ms. */
 function path(points: readonly Point[], speed: number, rest = 0): [number, number, number][] {
   const out: [number, number, number][] = [[0, points[0]!.x, points[0]!.y]];
@@ -68,6 +89,11 @@ function path(points: readonly Point[], speed: number, rest = 0): [number, numbe
  * bar of two toolbars, toolbar rails at both sides (tools and zoom at the left), panel columns inside them.
  */
 function labWindow(): Scene {
+  // The lab's toolbar lengths along a bar: they differ, so a swap passes a longer or a shorter neighbor.
+  const sized = (id: string, used: number, w: number): SceneItem => {
+    const g0 = group(id, used);
+    return { ...g0, forms: { ...g0.forms, row: [{ ...g0.forms.row![0]!, main: { min: w, natural: w } }, ...g0.forms.row!.slice(1)] } };
+  };
   const COL = { accepts: ["panel"], cross: { min: 180, max: 480, rail: 30 } };
   const rail = (id: string, side: "left" | "right", items: string[]): Scene["edges"][number] => ({ id, side, ring: 0, accepts: ["group"], items, cross: { min: 30, max: 30, rail: 30 }, compact: true, gap: 4, pad: { start: 4, end: 4 } });
   return {
@@ -81,7 +107,7 @@ function labWindow(): Scene {
       column("left", "left", 1, ["pages", "notes"], { column: true, accepts: ["panel"] }),
       column("right", "right", 1, ["findings"], { column: true, accepts: ["panel"] }),
     ],
-    items: byId([title(), group("tz", 1), controls(), group("tools", 2), group("zoom", 3), group("views", 4), group("review", 5), panel("pages", 6), panel("notes", 7), panel("findings", 8)]),
+    items: byId([title(), sized("tz", 1, 161), controls(), sized("tools", 2, 158), sized("zoom", 3, 161), sized("views", 4, 227), sized("review", 5, 230), panel("pages", 6), panel("notes", 7), panel("findings", 8)]),
     floats: [],
     floatKinds: ["panel", "group"],
     columns: { left: COL, right: COL },
@@ -94,7 +120,7 @@ describe("a toolbar moved along an occupied bar or rail stays at the hand", () =
    * The worst distance from the pointer to the landing while `lane` holds `id`, the pointer over no fixed chrome (nothing
    * lands there): of a title that grows to fill the bar, only its natural length counts as chrome.
    */
-  const worstAlong = (s: Scene, id: string, lane: string, keys: [number, number, number][]): number => {
+  const worstAlong = (s: Scene, id: string, lane: string, keys: [number, number, number][], play: typeof runOn = runOn): number => {
     const l = solve(s);
     const fixed = Object.entries(l.items)
       .filter(([k]) => s.items[k]!.fixed)
@@ -103,7 +129,7 @@ describe("a toolbar moved along an occupied bar or rail stays at the hand", () =
         return main?.grows ? { ...it.rect, width: Math.min(it.rect.width, main.natural) } : it.rect;
       });
     let worst = 0;
-    for (const { p, f } of runOn(s, id, keys)) {
+    for (const { p, f } of play(s, id, keys)) {
       if (f.lane !== lane || !f.landing || fixed.some((r) => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height)) continue;
       const l2 = f.landing;
       worst = Math.max(worst, Math.hypot(Math.max(l2.x - p.x, 0, p.x - (l2.x + l2.width)), Math.max(l2.y - p.y, 0, p.y - (l2.y + l2.height))));
@@ -137,12 +163,18 @@ describe("a toolbar moved along an occupied bar or rail stays at the hand", () =
     const tools = solve(rail).items.tools!.rect;
     // A title bar of the title and the controls (tz out of it): views taken from the bottom bar into it and along it.
     const title: Scene = { ...base, edges: base.edges.map((e) => (e.id === "title" ? { ...e, items: ["title", "controls"] } : e.id === "bottom" ? { ...e, items: ["views", "review", "tz"] } : e)) };
-    for (const speed of [0.15, 0.3, 0.6]) {
-      const z = pressOn(rail, "zoom");
-      expect(["rail", speed, ok(worstAlong(rail, "zoom", "rail-left", path([z, { x: z.x, y: z.y - 10 }, { x: z.x, y: tools.y - 50 }], speed, 300)))]).toEqual(["rail", speed, "ok"]);
-      const v = pressOn(title, "views");
-      expect(["title", speed, ok(worstAlong(title, "views", "title", path([v, { x: 420, y: 16 }, { x: 1000, y: 16 }, { x: 20, y: 16 }], speed, 300)))]).toEqual(["title", speed, "ok"]);
-    }
+    // Tools floating, taken onto the bottom bar at its start and right along it, past views and review.
+    const floating: Scene = { ...base, edges: base.edges.map((e) => (e.id === "rail-left" ? { ...e, items: ["zoom"] } : e)), floats: [{ id: "tools", rect: { x: 600, y: 300, width: 158, height: 28 } }] };
+    for (const play of [runOn, runMouse])
+      for (const speed of [0.15, 0.3, 0.6]) {
+        const how = play === runOn ? "125 Hz" : "mouse";
+        const z = pressOn(rail, "zoom");
+        expect(["rail", how, speed, ok(worstAlong(rail, "zoom", "rail-left", path([z, { x: z.x, y: z.y - 10 }, { x: z.x, y: tools.y - 50 }], speed, 300), play))]).toEqual(["rail", how, speed, "ok"]);
+        const v = pressOn(title, "views");
+        expect(["title", how, speed, ok(worstAlong(title, "views", "title", path([v, { x: 420, y: 16 }, { x: 1000, y: 16 }, { x: 20, y: 16 }], speed, 300), play))]).toEqual(["title", how, speed, "ok"]);
+        const t = pressOn(floating, "tools");
+        expect(["bottom", how, speed, ok(worstAlong(floating, "tools", "bottom", path([t, { x: 40, y: 622 }, { x: 1040, y: 622 }], speed, 300), play))]).toEqual(["bottom", how, speed, "ok"]);
+      }
   });
 });
 
