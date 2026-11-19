@@ -419,8 +419,8 @@ export interface Scene {
    * past the cards seen beside it, as now). A declaration, like `foldedColumnDrop`: never stored. It moves each zone's
    * extent, so it changes which zone a pointer picks among `targets()` (the hit areas a drag intent reads), and, since a
    * zone left with no room gets no drop, which of a bar's drops exist and where its refused stretches lie. Under a
-   * landing model `lanes()` cuts between spots by their landings, not by zones: there it changes only which spots and
-   * refused stretches a bar has, never how the bar is cut between them.
+   * landing model `lanes()` cuts between spots by their landings, not by zones: there it changes which spots and
+   * refused stretches a bar has, never the rule that cuts between spots (the cuts follow whichever spots exist).
    */
   readonly barZones?: "nearest";
   /**

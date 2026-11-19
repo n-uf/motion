@@ -17,8 +17,9 @@ the press; without it the back-home rows compare with the row's window as before
 - `./scene`, **`Scene.barZones`** (docs): what it does under a landing model, which the 26.11.45 notes didn't say. It
   moves each zone's extent, so it changes which zone a pointer picks among `targets()` and, since a zone left with no
   room gets no drop, which of a bar's drops exist and where its refused stretches lie. `lanes()` cuts between spots by
-  their landings, not by zones: under a landing model it changes only which spots, refused stretches and place guides
-  a bar has, never how the bar is cut between them. It is not needed for the landing model.
+  their landings, not by zones: under a landing model it changes which spots, refused stretches and place guides a
+  bar has, never the rule that cuts between spots (the cuts follow whichever spots exist). It is not needed for the
+  landing model.
 
 ## 26.11.46
 
