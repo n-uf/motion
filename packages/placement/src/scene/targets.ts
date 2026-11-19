@@ -71,7 +71,7 @@
 import { EPS, PLANE, area, overlaps, rect, type Rect } from "../geometry";
 import type { Target } from "../target";
 import { floatAt, prune, use } from "./changes";
-import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
+import { axisOf, chromeFor, floatOrientOf, floatSizeOf, heldRect, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
 import { EDGE_ROOM_HOLD, type Edge, type Orient, type Scene, type SceneLayout, type Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
@@ -311,7 +311,7 @@ function generateShown(scene: Scene, dragged: string, options: SceneTargetOption
       place: { kind: "float" },
       after(point, grab) {
         const g = grab ?? { x: size.width / 2, y: size.height / 2 };
-        const raw = rect(point.x - g.x, point.y - g.y, size.width, size.height);
+        const raw = heldRect(scene.stage, size, point, g);
         const first = solve(use(floatAt(scene, dragged, raw, options.floatOrient), dragged), prev);
         const at = first.items[dragged]?.rect ?? raw;
         return c.settle(use(floatAt(scene, dragged, rect(at.x, at.y, size.width, size.height), options.floatOrient), dragged));

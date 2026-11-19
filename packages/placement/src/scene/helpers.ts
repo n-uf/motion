@@ -2,9 +2,16 @@
  * What the scene's shapes (`./model`) tell on their own: which zones of an edge take a kind, an edge's axis, an item's
  * zone and forms, whether a side edge is a toolbar bar, and how an item floats (its orient, size and form). Pure.
  */
-import type { Rect, Size } from "../geometry";
+import { clampInto, type Point, type Rect, type Size } from "../geometry";
 import type { StackForm } from "../stack";
 import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_RAIL_MAGNET, RAIL_STRIP_MIN, ZONES, type ColumnTemplate, type Edge, type FloatAnchor, type FloatAnchorAt, type Kind, type Orient, type RailMode, type RailVisibility, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
+
+/**
+ * Where an item of `size` held at `grab` (the pointer's offset from its top-left corner) lies with the pointer at
+ * `pointer`: the grip under the pointer where it fits, else moved just enough to lie wholly inside `stage`. The float
+ * target starts from the same rect, so an item held clear of everything lands where it is drawn.
+ */
+export const heldRect = (stage: Rect, size: Size, pointer: Point, grab: Point): Rect => clampInto({ x: pointer.x - grab.x, y: pointer.y - grab.y, width: size.width, height: size.height }, stage);
 
 /** The name of a float's anchor, with or without an offset: `"content-top-right"` for `{ at: "content-top-right", dy: 12 }`. */
 export const anchorName = (anchor: FloatAnchorAt): FloatAnchor => (typeof anchor === "string" ? anchor : anchor.at);

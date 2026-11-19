@@ -1,6 +1,6 @@
 /** `Scene.foldedColumnDrop: "end"`: a column drawn as a rail is one drop place, and the item keeps its state. */
 import { describe, expect, it } from "vitest";
-import { refusals, solve, targets, type Scene } from "../src/scene";
+import { heldRect, refusals, solve, targets, type Scene } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 
 /** Annotations on the left, Pages and Findings collapsed on the right (a rail of title tiles); `state` for Annotations. */
@@ -10,6 +10,27 @@ const win = (state: "open" | "collapsed", declared = true): Scene => {
   return declared ? { ...s, foldedColumnDrop: "end" } : s;
 };
 const onRail = (s: Scene) => targets(s, "annotations").filter((t) => t.place.kind === "gap" && t.place.edge === "right-0");
+
+describe("heldRect", () => {
+  const stage = { x: 0, y: 0, width: 1000, height: 600 };
+  const size = { width: 200, height: 40 };
+  const grab = { x: 20, y: 10 };
+  it("keeps the grip under the pointer where the item fits, and the item wholly inside the stage at every edge", () => {
+    expect(heldRect(stage, size, { x: 500, y: 300 }, grab)).toEqual({ x: 480, y: 290, width: 200, height: 40 });
+    expect(heldRect(stage, size, { x: 1040, y: 300 }, grab).x).toBe(800);
+    expect(heldRect(stage, size, { x: -40, y: 300 }, grab).x).toBe(0);
+    expect(heldRect(stage, size, { x: 500, y: 640 }, grab).y).toBe(560);
+    expect(heldRect(stage, size, { x: 500, y: -40 }, grab).y).toBe(0);
+  });
+  it("is the rect the float target lands, clear of everything", () => {
+    const s = win("open");
+    const float = targets(s, "annotations").find((t) => t.place.kind === "float")!;
+    const p = { x: 560, y: 400 };
+    const g = { x: 10, y: 8 };
+    const landed = float.after(p, g).layout.items.annotations!.rect;
+    expect(landed).toEqual(heldRect(s.stage, landed, p, g));
+  });
+});
 
 describe("foldedColumnDrop", () => {
   it("an open panel opens the column, at full size, after its last member", () => {

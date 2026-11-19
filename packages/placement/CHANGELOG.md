@@ -41,6 +41,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.42
 
+- `./scene`, **`heldRect(stage, size, pointer, grab)`** (additive): where a held item lies, the grip under the pointer
+  where it fits, else moved just enough to lie wholly inside the stage. The float target starts from the same rect.
+
 - `./scene`, **`Scene.foldedColumnDrop`** (additive). With `"end"`, a column drawn as a rail (all its members collapsed,
   on a side with no declared `rails` entry) is one drop place over its whole length, after its last member, and the item
   keeps its state: an open panel opens the column at full size, a collapsed one becomes the last title tile. Without
