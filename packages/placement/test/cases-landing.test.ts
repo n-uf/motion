@@ -56,4 +56,8 @@ describe("the ratchet on skipped landing rows", () => {
     expect(lanesRatchet({ skipped: 1, baseline: 3, today: "2026-12-01", breaking: true })).toHaveLength(1);
     expect(lanesRatchet({ skipped: 0, baseline: 0, today: "2027-02-01", breaking: true })).toEqual([]);
   });
+
+  it("today must be a YYYY-MM-DD date (the dates compare as strings)", () => {
+    for (const today of ["2026-12-31T00:00:00Z", "12/31/2026", "2026-1-5", ""]) expect(lanesRatchet({ skipped: 0, baseline: 0, today }), today).toHaveLength(1);
+  });
 });
