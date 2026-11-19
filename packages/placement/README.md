@@ -1003,7 +1003,11 @@ declaration, never stored.
 
 **Space kept on a zone's open side.** `SceneItem.space` is free space an item keeps before it in a start zone or after it
 in an end zone, out of the edge's spare length (shared out when items ask for more). A dock move sets it with
-`DockPlace.space` and clears it otherwise; the stored form keeps it.
+`DockPlace.space` (0: none). With none named, a dock on the open side of a neighbor that keeps space takes that space
+(it lands where the neighbor was, and the neighbor moves by the item only), and else keeps none. The stored form keeps
+it. `lanes()` offers both beside such a neighbor: the dock taking its space, and one keeping none at the stretch's
+other end. A title that grows to fill its bar counts its length past its natural one as free stretch for pitched
+spots.
 
 **Lanes for a landing model.** `lanes(scene, id, options)` gives what a landing model (`@n-uf/motion/drag`) reads for a
 drag of `id`:
