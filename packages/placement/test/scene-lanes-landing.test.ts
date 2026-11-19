@@ -118,9 +118,10 @@ function labWindow(): Scene {
 describe("a toolbar moved along an occupied bar or rail stays at the hand", () => {
   /**
    * The worst distance from the pointer to the landing while `lane` holds `id`, the pointer over no fixed chrome (nothing
-   * lands there): of a title that grows to fill the bar, only its natural length counts as chrome.
+   * lands there; of a title that grows to fill the bar, only its natural length counts as chrome): on the frames just
+   * before a hop (the next frame holds another spot) and on every other.
    */
-  const worstAlong = (s: Scene, id: string, lane: string, keys: [number, number, number][], play: typeof runOn = runOn): number => {
+  const worstAlong = (s: Scene, id: string, lane: string, keys: [number, number, number][], play: typeof runOn = runOn): { steady: number; beforeHop: number } => {
     const l = solve(s);
     const fixed = Object.entries(l.items)
       .filter(([k]) => s.items[k]!.fixed)
@@ -128,22 +129,30 @@ describe("a toolbar moved along an occupied bar or rail stays at the hand", () =
         const main = s.items[k]!.forms.row?.[0]?.main;
         return main?.grows ? { ...it.rect, width: Math.min(it.rect.width, main.natural) } : it.rect;
       });
-    let worst = 0;
-    for (const { p, f } of play(s, id, keys)) {
-      if (f.lane !== lane || !f.landing || fixed.some((r) => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height)) continue;
+    const frames = play(s, id, keys);
+    const out = { steady: 0, beforeHop: 0 };
+    frames.forEach(({ p, f }, i) => {
+      if (f.lane !== lane || !f.landing || fixed.some((r) => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height)) return;
       const l2 = f.landing;
-      worst = Math.max(worst, Math.hypot(Math.max(l2.x - p.x, 0, p.x - (l2.x + l2.width)), Math.max(l2.y - p.y, 0, p.y - (l2.y + l2.height))));
-    }
-    return worst;
+      const d = Math.hypot(Math.max(l2.x - p.x, 0, p.x - (l2.x + l2.width)), Math.max(l2.y - p.y, 0, p.y - (l2.y + l2.height)));
+      const next = frames[i + 1]?.f;
+      const hop = !!next && next.lane === lane && next.spot !== f.spot;
+      if (hop) out.beforeHop = Math.max(out.beforeHop, d);
+      else out.steady = Math.max(out.steady, d);
+    });
+    return out;
   };
   const pressOn = (s: Scene, id: string): Point => {
     const g = solve(s).items[id]!.rect;
     return { x: g.x + Math.min(10, g.width / 2), y: g.y + Math.min(10, g.height / 2) };
   };
-  const BOUND = 40;
-  const ok = (worst: number): number | "ok" => (Math.round(worst) <= BOUND ? "ok" : Math.round(worst));
+  // R12: within 48 px on every frame, but the single frame before a hop, which may reach 56 px (a long neighbor passed
+  // with one 6 px margin everywhere, so no wobble flips the spot).
+  const BOUND = 48;
+  const BEFORE_HOP = 56;
+  const ok = (w: { steady: number; beforeHop: number }): string => (Math.round(w.steady) <= BOUND && Math.round(w.beforeHop) <= BEFORE_HOP ? "ok" : `${Math.round(w.steady)} / ${Math.round(w.beforeHop)} before a hop`);
 
-  it(`in every sweep both ways at 0.15–3 px/ms, the landing is never more than ${BOUND} px from the pointer while its lane holds it`, () => {
+  it(`in every sweep both ways at 0.15–3 px/ms, the landing is within ${BOUND} px of the pointer while its lane holds it (${BEFORE_HOP} on the frame before a hop)`, () => {
     const s = labWindow();
     // Each toolbar along its own lane, end to end and back, over the title too (it grows to fill the bar).
     const sweeps: [string, string, Point, Point][] = [
@@ -156,7 +165,7 @@ describe("a toolbar moved along an occupied bar or rail stays at the hand", () =
         for (const [p0, p1] of [[a, b], [b, a]] as const) expect([id, speed, p0.x, p0.y, ok(worstAlong(s, id, lane, path([pressOn(s, id), p0, p1], speed, 80)))]).toEqual([id, speed, p0.x, p0.y, "ok"]);
   });
 
-  it(`the UI check's paths: zoom up a hand-made rail past tools (both keeping space), a toolbar along the title bar by the title and the controls, within ${BOUND} px`, () => {
+  it(`the UI check's paths, as a mouse plays them too: zoom up a hand-made rail past tools, a toolbar along the title bar, tools from its float along the bottom bar, within ${BOUND} px (${BEFORE_HOP} before a hop)`, () => {
     // Tools and zoom dropped in the rail by hand: tools keeps 80 px before it, zoom (at the rail's end) 100 px after it.
     const base = labWindow();
     const rail: Scene = { ...base, items: { ...base.items, tools: { ...base.items.tools!, space: 80 }, zoom: { ...base.items.zoom!, align: "end", space: 100 } } };
