@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.43
 
 - `./scene`, **`Target.roomHit`** (additive): a target that opens its room and changes an edge's thickness around the
   content (an empty rail beside a column, a new-column line, an empty bar's strip) carries the smallest rect holding its

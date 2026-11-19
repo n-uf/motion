@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.43
 
 - `./drag`, **`DragTarget.roomHit`** (additive): the zone an `opensRoom` target holds once its room is open, the drawn
   room (`@n-uf/placement` gives its hit and landing rect). While the target shows with its room open it holds in
