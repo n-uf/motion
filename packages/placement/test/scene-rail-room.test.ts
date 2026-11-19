@@ -1,6 +1,7 @@
 /** A rail target whose drop pushes what lies beside it opens its room as it shows (`Target.opensRoom`). */
 import { createDragIntent, DRAG_DEFAULTS, type DragTarget } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
+import type { Rect } from "../src/geometry";
 import { EDGE_ROOM_HOLD, solve, targets, type Scene } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { modelScene } from "./model-scene";
@@ -143,5 +144,67 @@ describe("a rail that pushes a column", () => {
       expect(gaps.length).toBeGreaterThan(0);
       for (const t of gaps) expect(t.opensRoom, t.id).toBeUndefined();
     });
+  });
+});
+
+describe("the room an empty edge's strip holds in once open (roomHit)", () => {
+  const within = (a: Rect, b: Rect) => a.x >= b.x - 1e-6 && a.y >= b.y - 1e-6 && a.x + a.width <= b.x + b.width + 1e-6 && a.y + a.height <= b.y + b.height + 1e-6;
+
+  it("an empty rail's targets: their stretch along the rail, the rail's width after the drop across it", () => {
+    const s = win();
+    const onRail = targets(s, "a").filter((t) => t.id.includes(":rail:"));
+    expect(onRail.length).toBeGreaterThan(0);
+    for (const t of onRail) {
+      const room = t.roomHit!;
+      const rail = t.after({ x: 10, y: 400 }).layout.edges.rail!.rect;
+      expect(within(t.hit, room), t.id).toBe(true);
+      expect([room.y, room.height], t.id).toEqual([t.hit.y, t.hit.height]);
+      expect([room.x, room.width], t.id).toEqual([rail.x, rail.width]);
+      expect(room.width, t.id).toBeGreaterThan(t.hit.width);
+    }
+  });
+
+  it("only on an empty edge's strip: never on a new-column line, a drawn edge's gap or a rail drop strip", () => {
+    let strips = 0;
+    let others = 0;
+    for (let seed = 1; seed <= 30; seed++)
+      for (const s of [modelScene(seed, false, false, seed % 2 === 0), modelScene(seed, true, seed % 3 === 0, false)]) {
+        const l = solve(s);
+        for (const id of Object.keys(s.items).filter((k) => !s.items[k]!.fixed && !s.items[k]!.closed).slice(0, 3))
+          for (const t of targets(s, id, { previous: l })) {
+            if (!t.roomHit) {
+              if (t.opensRoom) others++;
+              continue;
+            }
+            strips++;
+            expect(t.opensRoom, t.id).toBe(true);
+            expect(within(t.hit, t.roomHit), t.id).toBe(true);
+            expect(t.place.kind, t.id).toBe("gap");
+            expect(t.arm, t.id).toBeUndefined();
+            // The edge it opens isn't drawn before the drop.
+            const edge = t.place.kind === "gap" ? l.edges[t.place.edge] : undefined;
+            expect(!edge || edge.rect.width < 1e-6 || edge.rect.height < 1e-6 || edge.cross === 0, t.id).toBe(true);
+          }
+      }
+    expect(strips).toBeGreaterThan(0);
+    expect(others).toBeGreaterThan(0);
+  });
+
+  it("a host driving the intent keeps the rail target and its room across the drawn rail, and loses it past it", () => {
+    const s = win();
+    const list = targets(s, "a") as unknown as DragTarget[];
+    const home = solve(s).items.a!.rect;
+    const rail = list.find((t) => t.id.includes(":rail:") && t.hit.y <= 400 && t.hit.y + t.hit.height >= 400)!;
+    const intent = createDragIntent<DragTarget>({ home });
+    let t = 0;
+    intent.update({ x: home.x + 4, y: home.y + 4 }, t, list);
+    for (let k = 0; k < 25; k++) intent.update({ x: 4, y: 400 }, (t += 16), list);
+    for (let x = 4; x < rail.roomHit!.x + rail.roomHit!.width; x += 2) {
+      const f = intent.update({ x, y: 400 }, (t += 16), list);
+      expect([x, f.shown?.id, f.room]).toEqual([x, rail.id, true]);
+    }
+    let f = intent.update({ x: rail.roomHit!.x + rail.roomHit!.width + 30, y: 400 }, (t += 16), list);
+    f = intent.update({ x: rail.roomHit!.x + rail.roomHit!.width + 30, y: 400 }, (t += 16), list);
+    expect(f.shown?.id ?? null).not.toBe(rail.id);
   });
 });

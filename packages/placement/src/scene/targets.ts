@@ -156,10 +156,26 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
     const result = t.result!;
     // Its slot lies over an item its drop moves: until the room opens the indicator would cover it, so they open together.
     const atEdge = WINDOW_EDGE_KINDS.has(t.edgeKind) && touchesSide(scene.stage, t.hits ?? [t.hit]);
-    const room = t.slot && slotOverMoved(now, base, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(atEdge ? { roomHold: EDGE_ROOM_HOLD } : {}) } : {};
+    // An empty edge's strip holds in the edge it opens (`roomHit`) once that is open.
+    const strip = !!t.spec?.edge && !t.spec.drawn;
+    const room = t.slot && slotOverMoved(now, base, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(atEdge ? { roomHold: EDGE_ROOM_HOLD } : {}), ...(strip ? { roomHit: stripRoom(t, t.slot) } : {}) } : {};
     targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), ...room, item: dragged, place: t.place!, after: () => result });
   }
   return { targets, refused, ownHome };
+}
+
+/**
+ * An empty edge's strip tile's room as drawn once open (`Target.roomHit`): the tile's stretch along the edge, and across
+ * it both the tile and the slot (the edge at its depth after the drop).
+ */
+function stripRoom(t: Tile, slot: Rect): Rect {
+  const h = t.hit;
+  if (t.vertical) {
+    const x0 = Math.min(h.x, slot.x);
+    return rect(x0, h.y, Math.max(h.x + h.width, slot.x + slot.width) - x0, h.height);
+  }
+  const y0 = Math.min(h.y, slot.y);
+  return rect(h.x, y0, h.width, Math.max(h.y + h.height, slot.y + slot.height) - y0);
 }
 
 /** The edge kinds that run along a side (rails, new-column lines): against the window's edge, their room waits less (`roomHold`). */
