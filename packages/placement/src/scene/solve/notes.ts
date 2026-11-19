@@ -6,7 +6,8 @@ import { isSide, px } from "./order";
 export function contentNotes(d: Draft, content: Rect): void {
   const { scene, notes, previous } = d;
   if (scene.contentMin) {
-    const minW = px(scene.contentMin.width);
+    // Chrome within its allowance (`contentMin.chromeWidth`) takes the content's width without making it narrow.
+    const minW = px(scene.contentMin.width) - (d.chromeAllowance ?? 0);
     const minH = px(scene.contentMin.height);
     if (content.width < minW - EPS) notes.push({ code: "content-narrow", width: content.width, min: minW });
     // Overlay bars lie over the content: what they cover isn't the content's height.
