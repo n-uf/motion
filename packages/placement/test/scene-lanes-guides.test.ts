@@ -97,7 +97,25 @@ describe("lanes(): guide marks", () => {
     const s: Scene = { ...barWin(), edges: [bar("top", "top", 0, ["a", "b"]), bar("bottom", "bottom", 0, ["g"])], items: byId([group("a", 1), group("b", 3), group("g", 2)]) };
     const top = lanes(s, "g", { previous: solve(s) }).lanes.find((l) => l.id === "top")!;
     expect(top.marks.filter((m) => m.kind === "box").length).toBeGreaterThan(0);
-    expect(top.marks.filter((m) => m.kind === "line").length).toBe(1);
+    expect(top.marks.filter((m) => m.kind === "line").map((m) => m.id)).toContain("top/line/a|b");
+  });
+
+  it("have ids unique per lane, and lines keep theirs while the window grows", () => {
+    for (const [name, s] of scenes())
+      for (const id of movable(s)) {
+        const ids = (sc: Scene): Map<string, string[]> => new Map(lanes(sc, id).lanes.map((l) => [l.id, l.marks.map((m) => m.id)]));
+        const before = ids(s);
+        for (const [lane, list] of before) expect(new Set(list).size, `${name} ${id} ${lane}`).toBe(list.length);
+        const after = ids({ ...s, stage: { ...s.stage, width: s.stage.width + 120 } });
+        // An edge's lines (a virtual lane's line is its box while the held item is drawn over it).
+        for (const [lane, list] of before) if (!lane.includes(":")) for (const m of list.filter((x) => x.includes("/line/"))) expect(after.get(lane) ?? [], `${name} ${id} ${m}`).toContain(m);
+      }
+  });
+
+  it("a column with one panel gets lines at its ends, so its lane shows guides", () => {
+    const s = winScene(WINDOW_A, { size: 300 });
+    const right = lanes(s, "pages", { previous: solve(s) }).lanes.find((l) => l.id === "right-0")!;
+    expect(right.marks.length).toBeGreaterThan(0);
   });
 
   it("every refused stretch in a lane is at least the item's length", () => {

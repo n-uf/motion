@@ -1016,8 +1016,11 @@ drag of `id`:
   the held one: a change between two spots with the same key moves only the held item, so a model gates only changes
   between spots whose keys differ (that reflow the window).
 - `marks` per lane, the place guides in the layout as drawn (the held spot's, with `options.spot`): a `line` across the
-  lane between two items too close for the item between them, a `box` over each free stretch it fits in (a virtual
-  lane: a box at its landing). Never over an item drawn on the lane, the held one included.
+  lane between two items too close for the item between them, and at a lane's end next to an item; a `box` over each
+  free stretch it fits in (a virtual lane: a box at its landing, a line beside it where the held item is drawn over
+  it). Never over an item drawn on the lane, the held one included, nor a line in a refused stretch. Each mark has an
+  `id` (`<lane>/line/<before>|<after>`, `<lane>/box/<before>|<after>`, `^` and `$` at the ends) that stays while its
+  neighbors stay, so a host keys its drawing by it.
 - `refused` stretches per lane, each at least the item's length (a shorter one joins its spots), and refused places
   outside lanes;
 - the `content`, and what `blocked` takes out of it (drawn edges, docked items, the chrome, a drawn declared rail): the
@@ -1036,8 +1039,11 @@ A new column's lane is `column:<side>:<the column it lies outside, or $>`, not i
 an item opening or moving beside a spot can change it (61–82% kept in the sweeps), so a landing model maps a lost id to
 its lane's nearest spot. The spots come from the same generation and filter as `targets()`, so a spot's landing is
 exactly what its drop commits. `lanes()` is remembered per scene and options (`previous` by identity); a call with `spot`
-reworks only the held lane's stretches (under 0.1 ms), while the first call of a lift solves each spot once (1.5–10 ms
-at 1200–3200 px wide with full bars).
+reworks only the held lane's stretches (0.03–0.66 ms per spot change), while the first call of a lift solves each spot
+once (2–18 ms at 1200–3200 px wide with full bars; 130–190 ms in the most crowded generated scenes).
+
+A declared rail is one lane with one spot, its end: reordering the tiles inside a declared rail is not a lane's job
+(the rail keeps its own tile order).
 
 **Column footers.** `Edge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
 the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`
