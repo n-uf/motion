@@ -462,7 +462,8 @@ function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
       const before = others[i - 1];
       const after = others[i];
       const a = before ? lo(before.r, axis) + len(before.r, axis) - slack(before) + gap : edgeStart;
-      const b = after ? lo(after.r, axis) + slack(after) - gap : edgeEnd;
+      // (Not before a growing item: a dock there keeps no space, the item it precedes takes all that is spare.)
+      const b = after ? lo(after.r, axis) - gap : edgeEnd;
       // Beside a neighbor that keeps space on this side, a dock there takes that space (it lands where the neighbor
       // was); this one keeps none, at the stretch's other end, so the space between is no place without a spot.
       if (spaced(after) && zoneOf(after!) === "start" && (!before || zoneOf(before) === "start")) emit("start", others.filter((o) => zoneOf(o) === "start" && lo(o.r, axis) < lo(after!.r, axis)).length, 0);
