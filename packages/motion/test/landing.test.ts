@@ -128,7 +128,11 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
       for (const from of [300, 60]) {
         const side = from > 111 ? 1 : -1;
         const keys: [number, number, number][] = [[0, 15, from], [600, 15, 111 + side * 2]];
-        for (let k = 0; k < 30; k++) keys.push([620 + k * 40, 15, 111 + (k % 2 ? side : -side) * amp]);
+        // Each peak held for 16 ms, so the samples reach it.
+        for (let k = 0; k < 30; k++) {
+          const y = 111 + (k % 2 ? side : -side) * amp;
+          keys.push([624 + k * 48, 15, y], [640 + k * 48, 15, y]);
+        }
         const { frames } = run(base({ home: undefined }), [[0, 15, from], ...keys.slice(1)]);
         const spots = frames.filter((x) => x.t >= 620).map((x) => x.f.spot);
         expect([amp, from, spots.filter((s, i) => i > 0 && s !== spots[i - 1]).length]).toEqual([amp, from, 0]);
@@ -416,6 +420,28 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
       expect(y!).toBeGreaterThan(90);
       expect(firstChange(150)!).toBeLessThanOrEqual(196 - 150);
       expect(firstChange(10_000)).toBeNull();
+    });
+
+    it("gates.trail at its default: going down from above Tools fast, the change comes once the pointer is 40 px below that landing", () => {
+      // Held above Tools (landing 32–134), the boundary at 111 lies inside the landing: past it, only the trail lets the
+      // fast change through, once the pointer is 40 px below 134 (a trail of 0, 80 or 100 would change it at 117, 214, 234).
+      const { frames } = run(base({ home: { lane: "rail-left", spot: "rail-left/start/^|tools" } }), path([{ x: 15, y: 60 }, { x: 15, y: 400 }], 1));
+      const y = frames.find((x) => x.f.spot === "rail-left/start/tools|$")?.p.y ?? null;
+      expect(y).not.toBeNull();
+      expect(y!).toBeGreaterThan(134 + 40 - 0.5);
+      expect(y!).toBeLessThan(134 + 40 + 9);
+    });
+
+    it("gates.still: a creeping pointer enters when its steps are at most `still`, not when they are larger", () => {
+      // Across the rail (no path along it counts), 0.125 px/ms is 1 px a sample, 0.25 px/ms is 2: never resting.
+      const entered = (speed: number, still?: number): boolean => run(base({ home: undefined, ...(still ? { gates: { still } } : {}) }), path([{ x: 200, y: 300 }, { x: 5, y: 300 }], speed)).frames.some((x) => x.f.lane === "rail-left");
+      expect([entered(0.125), entered(0.25)]).toEqual([true, false]);
+      expect(entered(0.25, 3)).toBe(true);
+    });
+
+    it("the first point is not still: a drag that starts deep in a bar and moves fast away never enters it", () => {
+      const { frames } = run(base({ home: undefined }), path([{ x: 400, y: 16 }, { x: 404, y: 22 }, { x: 420, y: 300 }], 1.5));
+      expect(frames.some((x) => x.f.lane === "top")).toBe(false);
     });
   });
 
