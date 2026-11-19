@@ -1007,19 +1007,31 @@ in an end zone, out of the edge's spare length (shared out when items ask for mo
 
 **Lanes for a landing model.** `lanes(scene, id, options)` gives what a landing model (`@n-uf/motion/drag`) reads for a
 drag of `id`:
-- `lanes`: every edge that takes it (and the virtual ones: a new column's line, a rail), each with its rect, its axis and
-  its spots in order. A spot is a place a drop there lands: its `landing` rect, its `target` (the drop, its `after()`),
-  and its `along` stretch of the lane, the part that picks it. Stretches end at the middle of the items drawn between two
-  spots, else halfway between their landings, so a column takes a panel by halves; with `options.spot`, in that spot's
-  own layout (its room open).
+- `lanes`: every edge that takes it (and the virtual ones: a new column's line, a declared rail), each with its rect, its
+  axis and its spots in order. A spot is a place a drop there lands: its `landing` rect, its `target` (the drop, its
+  `after()`), and its `along` stretch of the lane, the part that picks it. Between two spots that share a neighbor (the
+  item `Y` in `X|Y` and `Y|Z`) the boundary is that item's middle as drawn, so a column takes a panel by halves; between
+  two others, halfway between their landings. With `options.spot` the held spot's lane is drawn in that spot's own layout
+  (its room open). Every cut lies inside its lane, in order.
 - `refused` stretches per lane, and refused places outside lanes;
-- the `content`, and what `blocked` takes out of it (drawn edges, docked items): the document region;
-- the stage, the item's size, and the float target.
+- the `content`, and what `blocked` takes out of it (drawn edges, docked items, the chrome, a drawn declared rail): the
+  open space;
+- the stage, the `floatRegion` (the stage less the inset at its left and right, as `heldRect` keeps a held item), the
+  item's size, and the float target.
 
-A bar's free stretches get spots at `SPOT_PITCH` (40 px; `options.pitch`), each a dock keeping `space`, so a toolbar
-lands close to the hand. Spot ids are keyed by the lane, zone and neighboring items (`<lane>/<zone>/<before>|<after>`,
-`@<n>` for a pitched spot), so they survive items opening, moving or the window resizing. The spots come from the same
-generation and filter as `targets()`, so a spot's landing is exactly what its drop commits.
+A bar's free stretches get spots at `SPOT_PITCH` (40 px; `options.pitch`), each a dock keeping `space`, so a toolbar lands
+close to the hand; an empty bar gets them over its whole length less its padding. Where a stretch is too short for the
+item, or lies next to a center item, it has none, so coverage is not universal: a point next to a center item that
+doesn't fit beside it can still be far from its landing (452 px at worst in the sweep scenes).
+
+Spot ids are keyed by the lane, zone and neighboring items: `<lane>/<zone>/<before>|<after>`, an empty edge's
+`<lane>/<zone>`, `@<n>` for a pitched spot (pitches from its neighbor), a virtual lane's `<lane>/line` or `<lane>/end`.
+A new column's lane is `column:<side>:<the column it lies outside, or $>`, not its ring. Ids survive the window resizing;
+an item opening or moving beside a spot can change it (61–82% kept in the sweeps), so a landing model maps a lost id to
+its lane's nearest spot. The spots come from the same generation and filter as `targets()`, so a spot's landing is
+exactly what its drop commits. `lanes()` is remembered per scene and options (`previous` by identity); a call with `spot`
+reworks only the held lane's stretches (under 0.1 ms), while the first call of a lift solves each spot once (1.5–10 ms
+at 1200–3200 px wide with full bars).
 
 **Column footers.** `Edge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
 the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`
