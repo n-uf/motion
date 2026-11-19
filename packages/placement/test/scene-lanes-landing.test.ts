@@ -230,7 +230,25 @@ describe("back at its press point, an item lands home wherever it was pressed", 
     for (const id of ["pages", "notes", "findings"]) {
       const r = previous.items[id]!.rect;
       const columns = (rs: ReturnType<typeof lanes>) => stretches(rs).filter((s) => s.startsWith("left:") || s.startsWith("right:"));
-      for (const g of [{ x: 4, y: 4 }, { x: r.width - 4, y: r.height - 4 }]) expect(columns(lanes(sc, id, { previous, grab: g })), id).toEqual(columns(lanes(sc, id, { previous })));
+      for (const g of [{ x: 4, y: 4 }, { x: r.width - 4, y: r.height - 4 }]) {
+        expect(columns(lanes(sc, id, { previous, grab: g })), id).toEqual(columns(lanes(sc, id, { previous })));
+        // With a spot held (its room open) too.
+        for (const l of lanes(sc, id, { previous }).lanes.filter((x) => x.id === "left" || x.id === "right"))
+          for (const s of l.spots) expect(columns(lanes(sc, id, { previous, grab: g, spot: s.id })), `${id} ${s.id}`).toEqual(columns(lanes(sc, id, { previous, spot: s.id })));
+      }
+    }
+  });
+
+  it("the grab counts along the item's own length only: where across a rail or a bar it was pressed moves no cut", () => {
+    const stretches = (rs: ReturnType<typeof lanes>) => rs.lanes.map((l) => `${l.id}:${l.spots.map((s) => `${s.id}@${s.along.map((v) => v.toFixed(3)).join(",")}`).join(";")}`);
+    for (const id of toolbars) {
+      const r = previous.items[id]!.rect;
+      const along = r.width >= r.height;
+      // Pressed at the middle of its length, at either side across it: every lane cuts as with no grab, bars and rails both.
+      for (const across of [1, (along ? r.height : r.width) - 1]) {
+        const grab = along ? { x: r.width / 2, y: across } : { x: across, y: r.height / 2 };
+        expect(stretches(lanes(sc, id, { previous, grab })), `${id} pressed ${across} px across`).toEqual(stretches(lanes(sc, id, { previous })));
+      }
     }
   });
 

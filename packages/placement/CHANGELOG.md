@@ -13,9 +13,12 @@ doesn't gets exactly the stretches of 26.11.45, and fails the two new landing ro
   lay halfway between their landings, where the pointer is only when it holds the item at its middle. Free-stretch
   spots lie a pitch (40 px) apart, so the item's own place was picked only within about 20 px of its middle: a toolbar
   pressed near one end, taken away and brought back to its press point landed on the spot beside its own place, one or
-  two pitches over. `LaneOptions.grab` puts each cut there halfway between the points the pointer would hold in each
-  landing, so the press point lies on the item's own place however far from its middle it was pressed. Without it,
-  the item's middle is the grab (as before). Panel columns cut by halves whatever the grab.
+  two pitches over. `LaneOptions.grab` puts each cut there, along the item's own length, halfway between the points
+  the pointer would hold in each landing (landings of one length), so the press point lies on the item's own place
+  however far from its middle it was pressed. Across the item, and in a lane across its length, the middle counts.
+  Without it, the item's middle is the grab (as before). Panel columns cut by halves whatever the grab. Pass the
+  press's grab, constant for the drag. Not settled here: where another lane's band overlaps the press point (an
+  empty bar's band over the end of a rail), that lane can still take the pointer first.
 - `./scene/cases`, **two landing rows** (additive): `landing-back-home-bar` and `landing-back-home-rail`, a toolbar
   pressed near one end, taken into the document and brought back to its press point, ending on its own place. They
   need `GRAB_SINCE` (26.11.46): a host that says it runs 26.11.45 skips them. The reference host
