@@ -19,14 +19,17 @@ ratchet is due on 2026-12-31 (`LANES_DEADLINE`), from when a host that runs `lan
   are not in `CASES`, so a suite that runs `CASES` is unchanged.
 
 - `./scene`, **`lanes()`** (additive): a drag's lanes (every edge that takes the item, and the virtual ones), each with
-  its spots in order (landing, target, stretch: cuts at the middle of the item two spots share, as drawn), refused
+  its spots in order (landing, target, stretch: in a panel column the cut is at the middle of the item two spots share,
+  as drawn; in a bar or toolbar rail it is halfway across the gap between their landings), refused
   stretches, refused places outside lanes, the content and what blocks it (the chrome and a drawn declared rail
   included), the stage, the float region, the item's size, the float target and the drag's refusals (one generation), for
   a landing model. Spots are stable by
   id; a bar's or a toolbar rail's free stretches, an empty bar's included, get spots at `SPOT_PITCH` (40 px). Each spot
   keys where its drop draws the `others` (two spots with one key differ only in the held item); each lane carries its
-  place guides' `marks` (lines between items and at its ends, a box per free stretch, never over an item), each with a
-  stable `id`, in the layout as drawn; a refused stretch shorter than the item joins its spots.
+  place guides' `marks` (lines between items and at its ends, a box per free stretch, never over an item, only where a
+  drop lands, and none on the held item's own edge), each with a stable `id` naming what it separates other than the held
+  item, in the layout as drawn; a refused stretch shorter than the item joins its spots. Beside an item that keeps space
+  there is also a dock that keeps none, and a growing title's length beyond its natural length counts as free stretch.
   Remembered per scene and options; `options.spot` reworks only the held lane, in that spot's layout. A float or a new
   column clears an item's `space`.
 
