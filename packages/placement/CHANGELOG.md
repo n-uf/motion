@@ -8,9 +8,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 - `./scene`, **the content gives way to chrome** (additive). `contentMin.chromeWidth` is a lower content floor for
   chrome: compact rails and side toolbar bars may narrow the content down to it while the panel columns keep their
   width and move aside; below it a column shrinks, then folds, as before. The columns alone still leave
-  `contentMin.width`: when a column shrinks or folds for the columns' sake, the `no-column-room` signal (`columnRoom`)
-  and the `content-narrow` note keep reading it, so content narrowed by chrome between the two floors carries
-  `content-narrow`. Width only: top and bottom bars keep giving way by `contentMin.height`. A floor above
+  `contentMin.width`. Chrome within that allowance is quiet: content it narrows between the two floors carries no
+  `content-narrow`, and `columnRoom` stays true (no `no-column-room`), so a toolbar rail never flips a host to its
+  narrow layout. `content-narrow` fires when the columns' own need takes the content under `contentMin.width`, or once
+  it is under the floor; its `min` is `contentMin.width` less what chrome takes within the allowance. Width only: top
+  and bottom bars keep giving way by `contentMin.height`. A floor above
   `contentMin.width`, or one that isn't a number, changes nothing. Scenes without it lay out and target exactly as
   before.
 
