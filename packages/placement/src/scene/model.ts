@@ -296,10 +296,11 @@ export const RAIL_STRIP_MIN = 24;
 /** How far an armed rail drop strip grows inward by default, px, so a hand that wobbles once armed keeps it. */
 export const DEFAULT_RAIL_MAGNET = 6;
 /**
- * How long a rail target against the window's edge holds before it shows with its room, ms (`Target.roomHold`): less than
- * the drag intent's `roomAfter`, as a pointer rarely crosses the window's edge on its way elsewhere.
+ * How long a rail target or a new-column line against the window's left or right edge holds before it shows with its
+ * room, ms (`Target.roomHold`): less than the drag intent's `roomAfter`, as a pointer rarely crosses the window's edge
+ * on its way elsewhere.
  */
-export const EDGE_RAIL_ROOM_HOLD = 70;
+export const EDGE_ROOM_HOLD = 70;
 
 /**
  * How an item of one kind drops into a side's rail (`Scene.railDrop[kind]`): the geometry of its drop strip. Each kind
