@@ -15,8 +15,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   gate (40 px of slow path along the lane) or a still gate (depth from the sides facing in); spots change past a 6 px
   margin, on a slow step where the change reflows the window or once the landing trails the pointer by 40 px; a spot's
   own regions confirm a reflowing change (`regionsFor`, replaceable with `setRegions`); Shift floats; guides are the
-  lanes' marks, keyed by id. No waits; stillness needs the pointer put for 22 ms, so a host may update per sample or per
-  frame. `createDragIntent` is unchanged.
+  lanes' marks, keyed by id. No waits; stillness needs the pointer put for 22 ms after a slow step or on the stage's
+  edge, else 60 ms, so a host may update per sample or per frame, whatever the sample rate. `createDragIntent` is
+  unchanged.
 
 - `./drag`, **place guides** (additive). `previewPlan` also takes `{ mode: "outline" | "placeholder" | "snap",
   placeGuides? }` (`DropPreviewMode`), drawn with `"indicator"`'s, `"gap"`'s and `"item"`'s plan. Its result gains

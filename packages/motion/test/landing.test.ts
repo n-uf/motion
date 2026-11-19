@@ -241,7 +241,28 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
         }
         expect([frameHz, sampleHz, speed, inBar]).toEqual([frameHz, sampleHz, speed, 0]);
       }
-    // Brought to the bar and kept there, per-frame updates make the pointer still after `rest`.
+    // Sparse and irregular samples (30 Hz, 20 Hz, gaps of 24–44 ms) under 120 Hz frames: a fast crossing is never still
+    // between samples.
+    let seed = 7;
+    const rnd = (): number => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+    for (const gap of [() => 1000 / 30, () => 1000 / 20, () => 24 + rnd() * 20])
+      for (const speed of [0.6, 1.2, 2.5])
+        for (let run = 0; run < 10; run++) {
+          const m = createLandingModel(base({ home: undefined }));
+          const T = 330 / speed;
+          let next = 0;
+          let sample = { x: 400 + run, y: 300 };
+          let inBar = 0;
+          for (let t = 0; t <= T; t += 1000 / 120) {
+            if (t >= next) {
+              next = t + gap();
+              sample = { x: 400 + run, y: 300 - 330 * Math.min(1, t / T) };
+            }
+            if (m.update(sample, t).lane === "top" && sample.y > 0) inBar++;
+          }
+          expect([speed, run, inBar]).toEqual([speed, run, 0]);
+        }
+    // Brought to the bar and kept there, per-frame updates make the pointer still after `pause`.
     const m = createLandingModel(base({ home: undefined }));
     for (let t = 0; t <= 400; t += 1000 / 120) m.update({ x: 400, y: Math.max(16, 300 - t) }, t);
     expect(m.frame.lane).toBe("top");
