@@ -4,7 +4,8 @@
  */
 import { createLandingModel } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
-import { createLandingHost, GRAB_SINCE, LANDING_CASES, LANES_DEADLINE, LANES_SINCE, LAST_WITHOUT_LANES, lanesRatchet, runLandingCases } from "../src/scene/cases";
+import { solve, type Scene, type SceneLayout } from "../src/scene";
+import { createLandingHost, GRAB_SINCE, LANDING_CASES, landingIssues, LANES_DEADLINE, LANES_SINCE, LAST_WITHOUT_LANES, lanesRatchet, runLandingCases, type LandingCaseFrame, type LandingCaseHost } from "../src/scene/cases";
 import pkg from "../package.json";
 
 /** The landing rows the reference host skips: none. A host's suite keeps its own count, which may only fall. */
@@ -30,6 +31,31 @@ describe("the landing rows", () => {
       expect(results.every((r) => r.ok && !!r.skipped), version).toBe(true);
       results.forEach((r, i) => expect(r.skipped, r.id).toContain(LANDING_CASES[i]!.requires.lanes.since));
     }
+  });
+
+  it("the back-home rows hold on a host with its own geometry (a 4 px gap in its rail): `home` compares with the host's layout at the press", async () => {
+    const rows = LANDING_CASES.filter((r) => r.home);
+    expect(rows.map((r) => r.id)).toEqual(["landing-back-home-bar", "landing-back-home-rail"]);
+    const ref = createLandingHost({ landing: createLandingModel });
+    // The host's own window: the rows' scene with a 4 px gap between the rail's items (its toolbars sit 4 px lower).
+    const gapped = (s: Scene): Scene => ({ ...s, edges: s.edges.map((e) => (e.id === "rail-left" ? { ...e, gap: 4 } : e)) });
+    const own: LandingCaseHost = { play: (row) => ref.play({ ...row, scene: gapped(row.scene) }) };
+    for (const r of await runLandingCases(rows, own)) expect(r.failures, r.id).toEqual([]);
+    // Without its layout at the press, the rail row would be measured against the row's own window and fail by the gap.
+    const rail = rows.find((r) => r.id === "landing-back-home-rail")!;
+    const played = await own.play(rail);
+    expect(played.before!.items.zoom!.rect.y - solve(rail.scene).items.zoom!.rect.y).toBe(4);
+    expect(landingIssues(rail, played.frames, played.layout).join()).toMatch(/not where it was/);
+  });
+
+  it("`home` fails an item that ends a spot over, on another edge, or among its items in another order", () => {
+    const row = LANDING_CASES.find((r) => r.id === "landing-back-home-bar")!;
+    const before = solve(row.scene);
+    const frames: LandingCaseFrame[] = [{ t: 8, point: row.path[0]!, moving: false, region: "lane", lane: "top", spot: "top/start", landing: before.items.a!.rect, room: true }];
+    const moved = (patch: Partial<SceneLayout["items"][string]>): SceneLayout => ({ ...before, items: { ...before.items, a: { ...before.items.a!, ...patch } } });
+    expect(landingIssues(row, frames, before, before)).toEqual([]);
+    expect(landingIssues(row, frames, moved({ rect: { ...before.items.a!.rect, x: before.items.a!.rect.x + 40 } }), before).join()).toMatch(/a is at 48,/);
+    expect(landingIssues(row, frames, moved({ edge: "bottom" }), before).join()).toMatch(/a ends bottom, not where it was \(top\)/);
   });
 
   it("a host on 26.11.45 runs the rows lanes() had then and skips the grab's", async () => {
