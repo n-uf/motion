@@ -5,10 +5,13 @@
  * declared rail). Its spots are the places a drop there lands, in order along it: before, between and after its items,
  * and, on a bar or a toolbar rail, spots at a fixed pitch over the free stretches between items (`SPOT_PITCH`), so a
  * toolbar lands close to the hand. Each spot keys where its drop draws the other items (a change between two spots
- * with the same key moves only the held item), and each lane carries its place guides' marks in the layout as drawn. Each spot has a stretch of the lane that picks it. Between two spots that share a neighbor (the item `Y`
- * in `X|Y` and `Y|Z`), the boundary is that item's middle as drawn (in the held spot's own layout with `options.spot`,
- * so a column takes a panel by halves of what is seen); between two others, halfway between their landings. Cuts are
- * kept inside the lane and in order. The spots come from the same generation and filter as `targets()`, so a spot's
+ * with the same key moves only the held item), and each lane carries its place guides' marks in the layout as drawn.
+ * Each spot has a stretch of the lane that picks it. In a panel column, between two spots that share a neighbor (the
+ * item `Y` in `X|Y` and `Y|Z`), the boundary is that item's middle as drawn (in the held spot's own layout with
+ * `options.spot`, so a column takes a panel by halves of what is seen). On a bar or a toolbar rail, and between any two
+ * other spots, it is halfway across the gap between their landings, each in its own layout, so the pointer is at the
+ * landing it picks and a toolbar moved along an occupied lane stays at the hand. Cuts are kept inside the lane and in
+ * order. The spots come from the same generation and filter as `targets()`, so a spot's
  * landing is exactly what its drop commits. Spot ids are keyed by the lane, zone and neighboring items, so they survive
  * the window resizing and most items opening or moving; virtual lanes are keyed by the column they lie beside, not
  * their ring. Remembered per scene and options; a call with `spot` reworks only the held lane's stretches.
@@ -171,6 +174,8 @@ interface Base {
   readonly seen: SceneLayout;
   readonly refusals: readonly SceneRefusal[];
   readonly regions: Omit<Regions, "lanes">;
+  /** The lanes cut by halves of the items drawn (panel columns). */
+  readonly halves: ReadonlySet<string>;
 }
 
 const memo = new WeakMap<Scene, Map<string, Base>>();
@@ -205,7 +210,7 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
   if (!found) return { ...base.regions, lanes: base.lanes };
   const [heldLane, list] = found;
   const held = list.find((r) => r.id === options.spot)!;
-  const lane = laneFrom(heldLane, list, held.layout, base.seen, dragged, base.refusals);
+  const lane = laneFrom(heldLane, list, held.layout, base.seen, dragged, base.refusals, base.halves.has(heldLane));
   return { ...base.regions, lanes: base.lanes.map((l) => (l.id === heldLane && lane ? lane : l)) };
 }
 
@@ -247,7 +252,9 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   if (pitch > 0) raws.push(...pitchedSpots(scene, dragged, options, seen, raws, pitch));
   const byLane = new Map<string, Raw[]>();
   for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
-  const laneList = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs)).filter((l): l is Lane => !!l);
+  // Panel columns take a panel by halves of the panels drawn; bars and toolbar rails by the gap between landings.
+  const halves = new Set(scene.edges.filter((e) => (e.side === "left" || e.side === "right") && !e.compact).map((e) => e.id));
+  const laneList = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id))).filter((l): l is Lane => !!l);
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
   const blocked = [
@@ -263,6 +270,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     lanes: laneList,
     seen,
     refusals: rs,
+    halves,
     regions: {
       refused: rs.filter((f) => !onLanes.has(f.edge)).flatMap((f) => f.hits ?? [f.hit]),
       content: seen.content,
@@ -276,7 +284,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
 }
 
 /** One lane from its spots: its rect, the spots in order with their stretches in `drawn`, its refused stretches. */
-function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: SceneLayout, dragged: string, rs: readonly SceneRefusal[]): Lane | null {
+function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: SceneLayout, dragged: string, rs: readonly SceneRefusal[], halves: boolean): Lane | null {
   if (list.length === 0) return null;
   const first = list[0]!;
   const axis = first.axis;
@@ -292,15 +300,17 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   const unique = sorted.filter((x, i) => !sorted.slice(0, i).some((y) => sameRect(y.landing, x.landing) || y.id === x.id));
   const start = lo(laneRect, axis);
   const end = start + len(laneRect, axis);
-  // A cut between two spots sharing a neighbor is that item's middle in `drawn`; else halfway between landings. Kept
-  // inside the lane and in order.
-  const drawnItems = first.edge ? new Map(onEdge(drawn, first.edge, dragged, axis).map((o) => [o.id, o.r])) : new Map<string, Rect>();
+  // The cut between two spots. In a panel column (`halves`), between two spots sharing a neighbor, that item's middle in
+  // `drawn` (the upper half above it, the lower half below); else halfway across the gap between their landings (each in
+  // its own layout), so the pointer is at the landing it picks, or as near one as the other: a toolbar moved along a bar
+  // or a rail stays at the hand however wide its neighbors. Kept inside the lane and in order.
+  const drawnItems = first.edge && halves ? new Map(onEdge(drawn, first.edge, dragged, axis).map((o) => [o.id, o.r])) : new Map<string, Rect>();
   const cuts: number[] = [];
   for (let i = 0; i + 1 < unique.length; i++) {
     const a = unique[i]!;
     const b = unique[i + 1]!;
     const shared = a.next === b.before && a.next !== "$" ? drawnItems.get(a.next) : undefined;
-    const raw = shared ? mid(shared, axis) : (mid(a.landing, axis) + mid(b.landing, axis)) / 2;
+    const raw = shared ? mid(shared, axis) : (lo(a.landing, axis) + len(a.landing, axis) + lo(b.landing, axis)) / 2;
     cuts.push(clamp(Math.max(raw, cuts[i - 1] ?? start), start, end));
   }
   const spots: LaneSpot[] = unique.map((x, i) => ({

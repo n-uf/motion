@@ -1009,10 +1009,13 @@ in an end zone, out of the edge's spare length (shared out when items ask for mo
 drag of `id`:
 - `lanes`: every edge that takes it (and the virtual ones: a new column's line, a declared rail), each with its rect, its
   axis and its spots in order. A spot is a place a drop there lands: its `landing` rect, its `target` (the drop, its
-  `after()`), and its `along` stretch of the lane, the part that picks it. Between two spots that share a neighbor (the
-  item `Y` in `X|Y` and `Y|Z`) the boundary is that item's middle as drawn, so a column takes a panel by halves; between
-  two others, halfway between their landings. With `options.spot` the held spot's lane is drawn in that spot's own layout
-  (its room open). Every cut lies inside its lane, in order. A spot's `others` keys where its drop draws every item but
+  `after()`), and its `along` stretch of the lane, the part that picks it. In a panel column, between two spots that
+  share a neighbor (the item `Y` in `X|Y` and `Y|Z`) the boundary is that item's middle as drawn, so a column takes a
+  panel by halves; with `options.spot` the held spot's lane is drawn in that spot's own layout (its room open). On a bar
+  or a toolbar rail, and between any two other spots, the boundary is halfway across the gap between their landings,
+  each in its own layout: wherever the pointer is, it is at the landing it picks or no nearer the other, so a toolbar
+  moved along an occupied bar stays at the hand (within half the difference of its and its neighbor's lengths, plus
+  the 6 px margin). Every cut lies inside its lane, in order. A spot's `others` keys where its drop draws every item but
   the held one: a change between two spots with the same key moves only the held item, so a model gates only changes
   between spots whose keys differ (that reflow the window).
 - `marks` per lane, the place guides in the layout as drawn (the held spot's, with `options.spot`): a `line` across the
