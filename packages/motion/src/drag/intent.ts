@@ -155,7 +155,8 @@ const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
  * aside). Showing it and making its room are then one decision: it shows only once it has held `roomAfter` ms, and the
  * frame that first shows it already has `room`. A sweep across it moves nothing, as for any target, and no frame draws
  * it over the column. Until it shows, a release still lands on it. An armed spring-loaded target has its room at once
- * too: its dwell was the decision.
+ * too: its dwell was the decision. `roomHold` is how long this target holds before that decision, in ms, in place of
+ * `roomAfter` (a rail against the window's edge, which a pointer rarely crosses on its way elsewhere, can wait less).
  */
 export interface DragTarget {
   readonly id: string;
@@ -170,6 +171,7 @@ export interface DragTarget {
   readonly refuse?: true;
   readonly bounds?: Rect;
   readonly opensRoom?: true;
+  readonly roomHold?: number;
 }
 
 /**
@@ -610,9 +612,10 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       };
       // Under the pointer (within its band), not just kept by the gap grace.
       const under = !!cur && inZoneBy(cur, p, bandOf(cur));
-      // A target that opens its room as it shows shows only once it has held `roomAfter`: one decision for both, so a
-      // sweep moves nothing and the indicator never lies over what the room will move. An armed one has had its dwell.
-      const ready = (x: T): boolean => x.opensRoom !== true || x.arm === "dwell" || t - curSince >= tuning.roomAfter;
+      // A target that opens its room as it shows shows only once it has held (`roomHold`, else `roomAfter`): one decision
+      // for both, so a sweep moves nothing and the indicator never lies over what the room will move. An armed one has
+      // had its dwell.
+      const ready = (x: T): boolean => x.opensRoom !== true || x.arm === "dwell" || t - curSince >= (x.roomHold ?? tuning.roomAfter);
       // A shown target with no place here is no drop: the indicator hides at once (the switch hold is for targets).
       if (shown && !live(shown)) show(null);
       if (!shown) {
