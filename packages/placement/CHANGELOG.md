@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## 26.11.41
+## 26.11.42
 
 - `./scene`, docs: **a refused place is never drawn.** The docs no longer suggest a tint or outline over `refusals()`:
   a host draws nothing there and may say "Can't go here" at the pointer while the frame's `refused` is set. The
@@ -20,6 +20,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   wait once its dwell has armed it, and it carries `opensRoom` too. A release before the target shows still lands on it.
   A host that draws only a marker opens the room on `frame.room && frame.shown?.opensRoom`, for all of them. The room's
   geometry is unchanged.
+
+## 26.11.41
 
 - `./scene`, **`use` is idempotent** (behavior change). `use(scene, id)` on an item whose `used` is already strictly
   greater than every other item's gives back the same scene object, so a press on the newest item stores nothing new;
