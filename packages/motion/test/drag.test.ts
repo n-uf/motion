@@ -1113,6 +1113,76 @@ describe("drag/ a target that opens its room", () => {
   });
 });
 
+describe("drag/ a target with its room open holds in the room it opened", () => {
+  // An empty rail's strip at the window's left edge: a 12 px hit, a 30 px rail once its room is open. Beside it a column
+  // that refuses the item, the float everywhere.
+  const strip: DragTarget = { id: "strip:rail-left:center", priority: 2, hit: rect(0, 224, 12, 192), slot: rect(0, 241, 30, 158), opensRoom: true, roomHold: 70, roomHit: rect(0, 224, 30, 192) };
+  const column: DragTarget = { id: "refuse:left:start", priority: 2, hit: rect(12, 0, 228, 640), refuse: true };
+  const float: DragTarget = { id: "float", priority: 3, hit: rect(0, 0, 1080, 640), free: true, bounds: rect(0, 0, 1080, 640) };
+  const ALL = [strip, column, float];
+  /** Lifted at the middle, aimed at the strip at x 8, held `wait` ms, then each of `then` held 4 frames: the frames there. */
+  const drift = (list: readonly DragTarget[], then: readonly Point[], wait = 400, keys?: DragKeys) => {
+    const intent = createDragIntent<DragTarget>({ home: rect(500, 300, 100, 30), lift: { x: 550, y: 315 } });
+    let t = 0;
+    intent.update({ x: 550, y: 315 }, t, list);
+    for (let k = 0; k < Math.ceil(wait / 16); k++) intent.update({ x: 8, y: 320 }, (t += 16), list);
+    const frames = then.map((p) => {
+      let f = intent.update(p, (t += 16), list, keys);
+      for (let k = 0; k < 3; k++) f = intent.update(p, (t += 16), list, keys);
+      return { p, f, landed: intent.release(p, list, keys)?.id ?? null };
+    });
+    return frames;
+  };
+  const xs = [8, 12, 16, 20, 24, 29].map((x) => ({ x, y: 320 }));
+
+  it("the kits' case: aimed at the strip, room open, a drift from x 8 to x 29 keeps the target and its room", () => {
+    for (const { p, f, landed } of drift(ALL, xs)) {
+      expect([p.x, f.shown?.id, f.room, f.refused]).toEqual([p.x, strip.id, true, null]);
+      expect(landed).toBe(strip.id);
+    }
+  });
+
+  it("without a roomHit the same drift leaves it at the hit's edge (the flicker this fixes)", () => {
+    const { roomHit: _r, ...plain } = strip;
+    const at16 = drift([plain, column, float], xs)[2]!;
+    expect([at16.f.shown, at16.f.room, at16.f.refused?.id]).toEqual([null, false, column.id]);
+  });
+
+  it("leaving the room drops it, and its zone is the hit again", () => {
+    const [out, back] = drift(ALL, [{ x: 60, y: 320 }, { x: 20, y: 320 }]);
+    expect([out!.f.shown, out!.f.room, out!.f.refused?.id]).toEqual([null, false, column.id]);
+    // Back in the room's area but past the hit: the refusal there wins again until the strip is aimed at anew.
+    expect([back!.f.shown, back!.f.refused?.id]).toEqual([null, column.id]);
+    // Along the rail, past the room's ends, it drops too.
+    const [below] = drift(ALL, [{ x: 20, y: 470 }]);
+    expect(below!.f.shown?.id ?? null).not.toBe(strip.id);
+  });
+
+  it("before its room opens it holds no more than its hit: a refusal beside it wins", () => {
+    const [f] = drift(ALL, [{ x: 20, y: 320 }], 32);
+    expect([f!.f.shown, f!.f.room, f!.f.refused?.id]).toEqual([null, false, column.id]);
+  });
+
+  it("a more precise target in the room takes over past breakthrough; one no more precise doesn't", () => {
+    const precise: DragTarget = { id: "stop:left", priority: 1, hit: rect(14, 300, 16, 40), slot: rect(0, 300, 30, 40) };
+    const same: DragTarget = { id: "gap:other", priority: 2, hit: rect(14, 300, 16, 40), slot: rect(0, 300, 30, 40) };
+    const [, a] = drift([strip, precise, column, float], [{ x: 8, y: 320 }, { x: 22, y: 320 }]);
+    expect(a!.f.shown?.id).toBe(precise.id);
+    const [, b] = drift([strip, same, column, float], [{ x: 8, y: 320 }, { x: 22, y: 320 }]);
+    expect([b!.f.shown?.id, b!.f.room]).toEqual([strip.id, true]);
+  });
+
+  it("the float key still wins in the room, and the room holds nothing past the target's bounds", () => {
+    // The key floats it over the strip; over the refusal beside it nothing, as anywhere (the room it held is gone).
+    const [f, g] = drift(ALL, [{ x: 8, y: 320 }, { x: 20, y: 320 }], 400, { shift: true });
+    expect([f!.f.shown?.id, f!.f.room, f!.landed]).toEqual([float.id, false, float.id]);
+    expect([g!.f.shown, g!.f.forced, g!.f.refused?.id, g!.landed]).toEqual([null, "float", column.id, null]);
+    const bounded: DragTarget = { ...strip, bounds: rect(0, 0, 1080, 640) };
+    const [edge] = drift([bounded, column, float], [{ x: 0, y: 320 }]);
+    expect(edge!.f.shown?.id ?? null).not.toBe(strip.id);
+  });
+});
+
 describe("drag/ a floating item's own place is a free placement", () => {
   // A window 1400 × 800 with a refused bar along the bottom; a float whose box (home) lies over the bar's rim.
   const stage = rect(0, 0, 1400, 800);

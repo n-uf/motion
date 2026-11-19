@@ -160,6 +160,13 @@ const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
  * elsewhere, can wait less). A
  * host that draws only a marker and doesn't use `previewPlan`'s room opens the room on
  * `frame.room && frame.shown?.opensRoom`.
+ *
+ * `roomHit`, with `opensRoom`, is the room the target opens as drawn once it is open (an empty rail's strip: the rail at
+ * its full width), containing `hit`. While the target shows with its room open it holds wherever the pointer is in
+ * `roomHit` and inside its `bounds`: what lies there is drawn as the room, so a refusal or a target of the same or a
+ * lower precision under it doesn't take over, and the frame isn't `refused` there. A more precise target (a lower
+ * `priority`) still takes over once the pointer is past `breakthrough` into it, and a held key still wins. Out of
+ * `roomHit` the target is held as any other (its `hit` and band), so once it goes its zone is `hit` again.
  */
 export interface DragTarget {
   readonly id: string;
@@ -175,6 +182,7 @@ export interface DragTarget {
   readonly bounds?: Rect;
   readonly opensRoom?: true;
   readonly roomHold?: number;
+  readonly roomHit?: Rect;
 }
 
 /**
@@ -431,7 +439,9 @@ export interface DragIntent<T extends DragTarget> {
  * - Room is made once the shown target has held `roomAfter` ms, never for a
  *   free target, and closes at once when it changes. A target with `opensRoom`
  *   holds that long before it shows and has its room in the same frame; an
- *   armed spring-loaded target has its room as it shows.
+ *   armed spring-loaded target has its room as it shows. With its room open,
+ *   one with a `roomHit` holds wherever the pointer is in that room, over a
+ *   refusal or a target no more precise than it under the room included.
  * - Where `placeOf` gives a target no place (null), it is no target: it is
  *   neither shown nor landed on there.
  * - Spring-loading: a target marked `arm: "dwell"` is no target until the
@@ -585,26 +595,30 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       const pickable = (x: T): boolean => !homeHolds || (x.arm === "dwell" && x.id === armedId);
       // A refusal takes part in the pick (it needs no place), but it is never a target: never held, never shown.
       const raw = targetAt(targets.filter((x) => pickable(x) && inZone(x, p) && (x.refuse === true || live(x))), p);
-      const refusedRaw = raw?.refuse === true ? raw : null;
       // A spring-loaded target that isn't armed (any more) is no target: neither held nor shown.
       const disarmed = (x: T | null): boolean => x?.arm === "dwell" && x.id !== armedId;
       cur = disarmed(cur) ? null : follow(cur, targets);
       shown = disarmed(shown) ? null : follow(shown, targets);
       if (!live(cur)) cur = null;
+      // A target shown with its room open holds in the room it opened (`roomHit`): what lies there is drawn as the room,
+      // so a refusal under it is no refusal here.
+      const roomHeld = cur && cur.opensRoom === true && cur.roomHit && roomPlace !== null && same(cur, shown) && pickable(cur) && within(cur.bounds, p) && inRect(cur.roomHit, p) ? cur : null;
+      const refusedRaw = raw?.refuse === true && !roomHeld ? raw : null;
       // The band about a held zone, and the breakthrough into a zone, scaled with the zones (see `bandShare`).
       const bandOf = (held: T): Margin => scaled(tuning.band, tuning.bandShare, [held, raw && !same(raw, held) ? raw : null]);
       const pastBreakthrough = (x: T): boolean => inZoneBy(x, p, negate(scaled(tuning.breakthrough, tuning.bandShare, [x])));
       // Over a refusal nothing is held: no band and no gap grace keep the current target there.
       let next = refusedRaw ? null : raw;
-      if (!refusedRaw && cur && pickable(cur) && inZoneBy(cur, p, bandOf(cur))) {
+      if (!refusedRaw && cur && pickable(cur) && (roomHeld !== null || inZoneBy(cur, p, bandOf(cur)))) {
         // Over a `free` target (the float everywhere) there is no edge to hold against: a more precise target takes over
-        // once the pointer is in it, so a zone that ends at the window's edge is reached at its very first px.
-        const breaks = raw !== null && !same(raw, cur) && raw.priority < cur.priority && (cur.free === true || pastBreakthrough(raw));
+        // once the pointer is in it, so a zone that ends at the window's edge is reached at its very first px. A refusal
+        // here lies under the open room: it never takes over.
+        const breaks = raw !== null && raw.refuse !== true && !same(raw, cur) && raw.priority < cur.priority && (cur.free === true || pastBreakthrough(raw));
         next = breaks ? raw : cur;
       }
       // The gap grace, like the band, never reaches past a zone's bounds: the float gets no grace outside the window.
       if (!refusedRaw && !next && cur && pickable(cur) && within(cur.bounds, p) && t - lastInside < tuning.gapGrace) next = cur;
-      if (next && inZone(next, p)) lastInside = t;
+      if (next && (inZone(next, p) || same(next, roomHeld))) lastInside = t;
       if (!same(next, cur)) curSince = t;
       cur = next;
       const aiming = !restart && (speed < tuning.aimSpeed || t - stillSince >= tuning.dwell);
@@ -613,8 +627,8 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         if (!same(s, shown)) shownSince = t;
         shown = s;
       };
-      // Under the pointer (within its band), not just kept by the gap grace.
-      const under = !!cur && inZoneBy(cur, p, bandOf(cur));
+      // Under the pointer (within its band, or in the room it holds), not just kept by the gap grace.
+      const under = !!cur && (same(cur, roomHeld) || inZoneBy(cur, p, bandOf(cur)));
       // A target that opens its room as it shows shows only once it has held (`roomHold`, else `roomAfter`): one decision
       // for both, so a sweep moves nothing and the indicator never lies over what the room will move. An armed one has
       // had its dwell.
