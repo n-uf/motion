@@ -149,24 +149,37 @@ function zoneStarts(scene: Scene, fit: StackFit, input: StackInput): { starts: M
   const used = drawn.reduce((sum, p) => sum + len(p), 0) + Math.max(0, drawn.length - 1) * gap;
   const spare = fit.length - start - end - menu - used;
   if (spare <= EPS) return { starts: out, lengths };
+  // The free space items keep on their zone's open side (`SceneItem.space`: before a start item, after an end item),
+  // out of the spare length; when they ask for more than there is, each gets its share.
+  const spaceOf = (p: { id: string }): number => {
+    const v = scene.items[p.id]?.space;
+    return Number.isFinite(v) && v! > 0 ? v! : 0;
+  };
+  const spacing = new Set([...s, ...e].map((p) => p.id));
+  const asked = [...s, ...e].reduce((sum, p) => sum + spaceOf(p), 0);
+  const share = asked > spare ? spare / asked : 1;
+  // A center item keeps no space: it is centered.
+  const room = (p: { id: string }): number => (spacing.has(p.id) ? spaceOf(p) * share : 0);
   const total = (ps: readonly { id: string }[]): number => ps.reduce((sum, p) => sum + len(p), 0) + Math.max(0, ps.length - 1) * gap;
-  const lay = (ps: readonly { id: string }[], from: number): void => {
+  const lay = (ps: readonly { id: string }[], from: number, lead: boolean): void => {
     let x = from;
     for (const p of ps) {
+      if (lead) x += room(p);
       out.set(p.id, x);
-      x += len(p) + gap;
+      x += len(p) + gap + (lead ? 0 : room(p));
     }
   };
-  lay(s, start);
-  const endStart = fit.length - end - menu - total(e);
-  lay(e, endStart);
-  const lo = start + total(s) + (s.length > 0 ? gap : 0);
+  const spaced = (ps: readonly { id: string }[]): number => total(ps) + ps.reduce((sum, p) => sum + room(p), 0);
+  lay(s, start, true);
+  const endStart = fit.length - end - menu - spaced(e);
+  lay(e, endStart, false);
+  const lo = start + spaced(s) + (s.length > 0 ? gap : 0);
   const hi = endStart - (e.length > 0 ? gap : 0);
   // Centered on the edge's middle (so a centered readout stays put while the other zones change), kept between them; in
   // a title bar, where the middle isn't clear of the title and the trailing items, centered in the free span instead.
   const mid = (fit.length - total(c)) / 2;
   const clear = mid >= lo - EPS && mid + total(c) <= hi + EPS;
-  lay(c, title && !clear ? Math.max(lo, (lo + hi - total(c)) / 2) : Math.max(lo, Math.min(mid, hi - total(c))));
+  lay(c, title && !clear ? Math.max(lo, (lo + hi - total(c)) / 2) : Math.max(lo, Math.min(mid, hi - total(c))), false);
   if (title && s[s.length - 1] === title) {
     // Nothing after the title in its zone: it grows into the room up to the next item.
     const next = [...c, ...e].map((p) => out.get(p.id)!);
