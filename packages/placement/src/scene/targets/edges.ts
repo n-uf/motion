@@ -278,9 +278,13 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
   const strip = Math.max(0, Number.isFinite(edge.strip) ? edge.strip! : DEFAULT_STRIP);
   const outer = edge.side === "left" ? r.x : edge.side === "right" ? r.x + r.width : edge.side === "top" ? r.y : r.y + r.height;
   const inward = (depth: number): Span => (edge.side === "left" || edge.side === "top" ? [outer, outer + depth] : [outer - depth, outer]);
-  const across = (after?: SceneLayout): Span => inward((el.cross > 0 ? Math.max(el.cross, after?.edges[edge.id]?.cross ?? 0) : strip) + data.inward);
-  // What it owns: its seen thickness; an edge not drawn (empty, or one that shows only once the item lifts) owns only a
-  // thin band of its place, at its boundary.
+  // An empty rail or bar: as deep as a drop draws it (a rail's 30 px, a bar's 32), entered over that. An empty column,
+  // whose drop draws a whole column, keeps the thin band.
+  const thin = edgeKind === "rail" || edgeKind === "bar" || edgeKind === "barBetween";
+  const landed = el.cross > 0 || !thin ? 0 : Math.max(0, ...slots.map((s) => s.result.layout.edges[edge.id]?.cross ?? 0));
+  const across = (after?: SceneLayout): Span => inward((el.cross > 0 ? Math.max(el.cross, after?.edges[edge.id]?.cross ?? 0) : Math.max(strip, landed)) + data.inward);
+  // What it owns: its seen thickness; an edge not drawn (empty, or one that shows only once the item lifts) owns the
+  // depth a drop draws it at, at its boundary, else a thin band of its place.
   const drawn = el.cross > 0;
   const marker = (s: Slot): Rect => {
     const slot = s.result.layout.items[dragged]!.rect;
@@ -302,7 +306,8 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
     reserved,
     cards,
     across,
-    owned: inward(drawn ? el.cross : Math.min(strip, data.place)),
+    owned: inward(drawn ? el.cross : landed > 0 ? landed : Math.min(strip, data.place)),
+    ...(!drawn && landed > Math.min(strip, data.place) ? { thinOwned: inward(Math.min(strip, data.place)) } : {}),
     ownedAlong: null,
     drawn,
     marker,

@@ -87,6 +87,7 @@ describe("scene sweeps", () => {
     // column's last gap used to keep the 0.45 px between two of them; it is no room. The column's foot is the empty
     // bar's place band (laid before the sides); the gap keeps its half band into the panel's body just above it, local
     // to its line, never moved to the column's top.
+    // The bar's depth past its thin band yields to the column, whose zone takes the group.
     const s195 = randomScene(195);
     const foot = solve(s195).edges.right0!.rect;
     const last = targets(s195, "g0").find((t) => t.id === "gap:right0:start:1")!;
@@ -217,9 +218,10 @@ describe("scene sweeps", () => {
   });
 
   it("no strip lies over a docked edge (but for its own band) or a panel's body, and no gap's hit over another edge's panel body", () => {
-    // An empty edge owns half the hit band (12 px) at the boundary where it would appear; there it may lie over an edge
-    // it pushes. Its overreach past that band never does.
-    const BAND = 12;
+    // An empty edge owns a band at the boundary where it would appear: an empty rail or bar as deep as a drop draws it,
+    // any other half the hit band (12 px). There it may lie over an edge it pushes; its overreach past that never does.
+    const HALF_BAND = 12;
+    let BAND = HALF_BAND;
     const bandOf = (r: R, side: string): R =>
       side === "left" ? { ...r, width: BAND } : side === "right" ? { ...r, x: r.x + r.width - BAND, width: BAND } : side === "top" ? { ...r, height: BAND } : { ...r, y: r.y + r.height - BAND, height: BAND };
     const meet = (a: R, b: R): R => {
@@ -238,6 +240,9 @@ describe("scene sweeps", () => {
           if (!e || (t.place.kind !== "gap" && !t.id.startsWith("strip:"))) continue;
           const strip = t.id.startsWith("strip:");
           const own = now.edges[e];
+          const ownEdge = s.edges.find((x) => x.id === e);
+          const thin = !!ownEdge && (!!ownEdge.compact || ownEdge.side === "top" || ownEdge.side === "bottom");
+          BAND = own && own.cross === 0 && thin ? Math.max(HALF_BAND, t.after({ x: 0, y: 0 }).layout.edges[e]?.cross ?? 0) : HALF_BAND;
           // Every piece of the target's zone (`hits`), not just its largest.
           for (const hit of t.hits ?? [t.hit]) {
             if (strip) for (const [oe, d] of Object.entries(now.edges)) if (oe !== e && overlaps(hit, d.rect) && !(own && inside(meet(hit, d.rect), bandOf(own.rect, own.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over edge ${oe}`);

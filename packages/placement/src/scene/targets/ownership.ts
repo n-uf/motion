@@ -21,6 +21,8 @@ interface Owner {
   readonly rect: Rect;
   readonly lay: LayKey;
   readonly place: boolean;
+  /** An empty rail's or bar's depth past its thin band (`EdgeSpec.thinOwned`): it yields to a drawn edge that takes the item. */
+  readonly deep?: true;
 }
 
 /** What clipping reads of ownership. */
@@ -106,7 +108,15 @@ function ownersOf(c: Ctx, live: readonly EdgeSpec[], drawn: ReturnType<typeof dr
     // Every edge the tiler reads, along each zone with a slot the filter keeps: what it owns, drawn or a band of its
     // place (a column line's band about its line). A zone whose every slot is refused owns nothing against the others
     // (its drawn rect still counts, below).
-    ...live.flatMap((s) => ownedRectsOf(s, alongOf(s)).map((r) => ({ spec: s, rect: r, lay: s.lay, place: !s.drawn }))).filter((o) => area(o.rect) > EPS),
+    ...live
+      .flatMap((s): Owner[] => {
+        const rects = ownedRectsOf(s, alongOf(s));
+        if (!s.thinOwned) return rects.map((r) => ({ spec: s, rect: r, lay: s.lay, place: !s.drawn }));
+        // An empty rail or bar: its thin band as any band, the depth past it as a band that yields to a drawn edge taking the item.
+        const thin = (r: Rect): Rect => (s.vertical ? rect(Math.max(r.x, s.thinOwned![0]), r.y, Math.min(r.x + r.width, s.thinOwned![1]) - Math.max(r.x, s.thinOwned![0]), r.height) : rect(r.x, Math.max(r.y, s.thinOwned![0]), r.width, Math.min(r.y + r.height, s.thinOwned![1]) - Math.max(r.y, s.thinOwned![0])));
+        return rects.flatMap((r) => [{ spec: s, rect: thin(r), lay: s.lay, place: true }, ...subtract(r, thin(r)).map((d) => ({ spec: s, rect: d, lay: s.lay, place: true, deep: true as const }))]);
+      })
+      .filter((o) => area(o.rect) > EPS),
     // Every seen rect: the edges the tiler doesn't read (folded, riding, taking nothing) among them.
     ...drawn.map((d) => ({ ...d, place: false })),
   ];
@@ -127,14 +137,27 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
     const place = !s.drawn;
     return o.place === place ? !place || o.lay.at < s.lay.at : !o.place;
   };
-  // What each edge yields: the owners that win over it; a virtual edge (a column line) also every other owner's rect
-  // outside its own band, where its tile is overreach.
+  // A drawn edge's zones that take the item (a slot the filter keeps), across its band: an empty rail's or bar's depth
+  // past its thin band never takes them.
+  const takingRects = (s: EdgeSpec): Rect[] =>
+    s.drawn
+      ? s.zones.filter((z) => s.slots.some((sl) => sl.ok && sl.zone === z.zone)).map((z) => (s.vertical ? rect(s.owned[0], z.a, s.owned[1] - s.owned[0], z.b - z.a) : rect(z.a, s.owned[0], z.b - z.a, s.owned[1] - s.owned[0])))
+      : [];
+  const thinRectOf = (s: EdgeSpec): Rect => {
+    const b = bandOf(s);
+    const [t0, t1] = s.thinOwned!;
+    return s.vertical ? rect(t0, b.y, t1 - t0, b.height) : rect(b.x, t0, b.width, t1 - t0);
+  };
+  // What each edge yields: the owners that win over it (an empty rail's or bar's depth less the zones it takes nothing
+  // from); a virtual edge (a column line) also every other owner's rect outside its own band, where its tile is
+  // overreach; an empty rail or bar also, past its thin band, the drawn edges' zones that take the item.
   const taken = new Map<EdgeSpec, readonly Rect[]>(
     live.map((s) => [
       s,
       [
-        ...owners.filter((o) => wins(o, s)).map((o) => o.rect),
+        ...owners.filter((o) => wins(o, s)).flatMap((o) => (o.deep ? takingRects(s).reduce<Rect[]>((acc, t) => acc.flatMap((r) => subtract(r, t)), [o.rect]) : [o.rect])),
         ...(EDGE_KINDS[s.kind].virtual ? owners.filter((o) => o.spec !== s && !wins(o, s)).flatMap((o) => subtract(o.rect, ownedRectOf(s))) : []),
+        ...(s.thinOwned ? live.filter((d) => d !== s).flatMap((d) => takingRects(d).flatMap((t) => subtract(t, thinRectOf(s)))) : []),
       ],
     ]),
   );
