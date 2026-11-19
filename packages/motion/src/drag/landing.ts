@@ -335,7 +335,11 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const onEdge = p.x <= stage.x || p.y <= stage.y || p.x >= stage.x + stage.width || p.y >= stage.y + stage.height;
       const since = t - moved.t;
       step = since >= gates.pause || (since >= gates.rest && (lastStep <= gates.step || onEdge)) ? 0 : lastStep;
-    } else moved = { raw, t };
+    } else {
+      // The first point: how the pointer moves is unknown, never still (a lift over a lane's band doesn't enter it).
+      moved = { raw, t };
+      step = lastStep = Infinity;
+    }
     const from = last?.p ?? null;
     last = { p, raw, t };
     const shift = !!keys?.shift;
