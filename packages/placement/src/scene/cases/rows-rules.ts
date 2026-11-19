@@ -59,7 +59,7 @@ export const RULE_ROWS: readonly CaseRow[] = [
     id: "C25",
     title: "Targets by kind: a panel in a toolbar",
     expect:
-      "An edge takes only the kinds it lists: a panel held over the toolbar is offered no gap there and no float either: the toolbar refuses it (\"No room here\"), and a release there puts it back, the toolbar as it was.",
+      "An edge takes only the kinds it lists: a panel held over the toolbar is offered no gap there and no float either: the toolbar refuses it (\"Can't go here\" at the pointer, nothing drawn on the bar), and a release there puts it back, the toolbar as it was.",
     group: "kinds",
     scene: doc(),
     // (600, 50) is a real gap for a group (the toolbar's center gap): the control row below lets a group go there.

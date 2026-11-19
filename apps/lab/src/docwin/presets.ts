@@ -923,7 +923,7 @@ export const PRESETS: readonly Preset[] = [
           const bodies = items.filter(([, p]) => p.formKind === "open").map(([, p]) => p.rect);
           // A toolbar's drag in a panel column: only the tray, below the panels.
           const panelsEnd = e.zoneAccepts && !e.zoneAccepts.start?.includes(kind) ? Math.max(-Infinity, ...items.filter(([, p]) => p.kind === "panel").map(([, p]) => p.rect.y + p.rect.height)) : -Infinity;
-          // Its gaps and strips, a gap at the item's own place (shown as home) included, and its refusals ("No room
+          // Its gaps and strips, a gap at the item's own place (shown as home) included, and its refusals ("Can't go
           // here" is a defined place, not a dead one).
           const mine = [...ts.filter((t) => isSlotOf(t.id, e.id) || t.id === targetId({ kind: "home", item: id })), ...c.refusals(id).filter((r) => r.edge === e.id)];
           // An empty edge laid before this one owns a thin band (half the hit band) at its boundary, which may lie over
@@ -1144,7 +1144,7 @@ export const PRESETS: readonly Preset[] = [
     id: "views-over-title-thirds",
     title: "Views over the title bar's thirds: the slot is where the pointer is",
     expected:
-      "The reported state (1200 px: the title, Tools and Zoom leading, Views trailing, Pages floating, Notes left, Findings right). Views held by mouse over the title bar's leading, center and trailing thirds shows a slot in that third (over its own place, home) or \"No room here\" there, never a slot far away; let go, it lands where the slot showed.",
+      "The reported state (1200 px: the title, Tools and Zoom leading, Views trailing, Pages floating, Notes left, Findings right). Views held by mouse over the title bar's leading, center and trailing thirds shows a slot in that third (over its own place, home) or \"Can't go here\" at the pointer, never a slot far away; let go, it lands where the slot showed.",
     setup: (c) => c.setScene(reportedTitle()),
     check(c) {
       const bad: string[] = [];

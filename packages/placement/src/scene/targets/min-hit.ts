@@ -122,7 +122,7 @@ function partialGrowth(c: Ctx, targets: readonly SceneTarget[], i: number, l: Re
 /**
  * Every target grown to its kind's minimum where the space beside it can be spared, within its own zone (`zones`, by
  * id: its tiles with its edge tiled on its own, its reach included). A refusal keeps its space (it is a drawn edge's
- * or a zone's "No room here"), and a target of a real edge never grows over another drawn edge: only a column line,
+ * or a zone's "Can't go here"), and a target of a real edge never grows over another drawn edge: only a column line,
  * whose band lies across the columns about it by design, may.
  */
 export function withMinHit(c: Ctx, targets: readonly SceneTarget[], refusals: readonly SceneRefusal[], zones: ReadonlyMap<string, readonly Rect[]>): SceneTarget[] {

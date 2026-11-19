@@ -180,7 +180,7 @@ export interface DragTarget {
  * Where a refusal ranks in the pick ({@link targetAt}): an ordering rank, not a priority. Priorities stay the integers
  * 1, 2 and 3; a refusal's tier is `refuse: true`, and the pick orders it by this rank on the same scale: after every
  * target of priority 1 and 2 (a refusal and a real target where they meet or overlap: the target wins, so a gap keeps
- * its end), before priority 3 (the float: over drawn space that takes nothing, "No room here" wins over floating).
+ * its end), before priority 3 (the float: over drawn space that takes nothing, the refusal wins over floating).
  * Among refusals the smaller zone wins. `@n-uf/placement` exports the same value for its reference pick.
  */
 export const REFUSAL_RANK = 2.5;

@@ -48,7 +48,7 @@ export function pickTarget<T extends { readonly priority: number; readonly hit: 
 /**
  * The pick rule with the scene's refusals (`refusals(scene, dragged)`), the drag intent's way: the refusals take part in
  * the pick as refusal targets (`refusalTargets`), and where one is what the rule picks nothing is picked, so a release
- * there commits nothing and the item goes home ("No room here"). Every host aims and drops with it: the reference host,
+ * there commits nothing and the item goes home ("Can't go here"). Every host aims and drops with it: the reference host,
  * and a page's host for `resolvePlace`.
  */
 export function withRefusals(pick: PickRule, refused: readonly SceneRefusal[]): PickRule {
