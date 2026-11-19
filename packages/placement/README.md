@@ -1023,8 +1023,8 @@ drag of `id`:
   neighbors stay, so a host keys its drawing by it.
 - `refused` stretches per lane, each at least the item's length (a shorter one joins its spots), and refused places
   outside lanes;
-- the `content`, and what `blocked` takes out of it (drawn edges, docked items, the chrome, a drawn declared rail): the
-  open space;
+- the `content`, and what `blocked` takes out of it (drawn edges, docked items, the chrome, a drawn declared rail, the
+  scene's `blocked` spots, where a release cancels): the open space;
 - the stage, the `floatRegion` (the stage less the inset at its left and right, as `heldRect` keeps a held item), the
   item's size, and the float target.
 

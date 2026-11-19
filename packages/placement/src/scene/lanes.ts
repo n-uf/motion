@@ -89,7 +89,7 @@ export interface Regions {
   readonly refused: readonly Rect[];
   /** The content: the open space is it less `blocked`. */
   readonly content: Rect;
-  /** What the open space excludes: drawn edges, docked items, the chrome, a drawn declared rail. */
+  /** What the open space excludes: drawn edges, docked items, the chrome, a drawn declared rail, `Scene.blocked`. */
   readonly blocked: readonly Rect[];
   readonly stage: Rect;
   /** Where a float of the item may lie: the stage less the inset at its left and right (`heldRect`'s region). */
@@ -255,6 +255,8 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     ...Object.entries(seen.items).filter(([id, it]) => id !== dragged && !it.floating && !it.inMenu).map(([, it]) => it.rect),
     ...chromeFor(scene, "targets"),
     ...rails,
+    // Spots where a release cancels (`Scene.blocked`): no float lands there.
+    ...(scene.blocked ?? []),
   ];
   return {
     raws: byLane,
