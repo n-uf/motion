@@ -147,8 +147,8 @@ describe("a rail that pushes a column", () => {
   });
 });
 
-describe("a target that changes a side's width holds in its landing rect once open (roomHit)", () => {
-  const sideMoves = (a: Rect, b: Rect) => Math.abs(a.x - b.x) > 1e-6 || Math.abs(a.x + a.width - (b.x + b.width)) > 1e-6;
+describe("a target that changes an edge's thickness holds in its hit and landing rect once open (roomHit)", () => {
+  const contentMoves = (a: Rect, b: Rect) => Math.abs(a.x - b.x) > 1e-6 || Math.abs(a.y - b.y) > 1e-6 || Math.abs(a.x + a.width - (b.x + b.width)) > 1e-6 || Math.abs(a.y + a.height - (b.y + b.height)) > 1e-6;
 
   const hull = (a: Rect, b: Rect): Rect => {
     const x = Math.min(a.x, b.x);
@@ -164,13 +164,15 @@ describe("a target that changes a side's width holds in its landing rect once op
       const rail = t.after({ x: 10, y: 400 }).layout.edges.rail!.rect;
       expect(t.roomHit, t.id).toEqual(hull(t.hit, t.slot!));
       expect([t.roomHit!.x, t.roomHit!.width], t.id).toEqual([rail.x, rail.width]);
-      expect(t.roomHit!.width, t.id).toBeGreaterThan(t.hit.width);
+      // Entered over its drawn width already: the room holds no more across than the hit.
+      expect(t.roomHit!.width, t.id).toBeGreaterThanOrEqual(t.hit.width);
     }
   });
 
-  it("exactly the targets that open their room and move the content's left or right edge: new-column lines too, bars' strips not", () => {
+  it("exactly the targets that open their room and move an edge of the content: rails, new-column lines and bars' strips", () => {
     const kinds = new Set<string>();
     let without = 0;
+    let bars = 0;
     for (let seed = 1; seed <= 30; seed++)
       for (const s of [modelScene(seed, false, false, seed % 2 === 0), modelScene(seed, true, seed % 3 === 0, false)]) {
         const l = solve(s);
@@ -180,16 +182,20 @@ describe("a target that changes a side's width holds in its landing rect once op
               expect(t.roomHit, t.id).toBeUndefined();
               continue;
             }
-            const moves = sideMoves(t.after({ x: 0, y: 0 }).layout.content, l.content);
+            const moves = contentMoves(t.after({ x: 0, y: 0 }).layout.content, l.content);
             expect(!!t.roomHit, t.id).toBe(moves);
             if (t.roomHit) {
               expect(t.roomHit, t.id).toEqual(hull(t.hit, t.slot!));
               kinds.add(t.place.kind);
+              const side = t.place.kind === "gap" ? s.edges.find((e) => e.id === (t.place as { edge: string }).edge)?.side : undefined;
+              if (side === "top" || side === "bottom") bars++;
             } else without++;
           }
       }
     expect(kinds.has("column")).toBe(true);
     expect(kinds.has("gap")).toBe(true);
+    expect(bars).toBeGreaterThan(0);
+    // A gap that only pushes items along its own edge changes no thickness.
     expect(without).toBeGreaterThan(0);
   });
 

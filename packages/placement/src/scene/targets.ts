@@ -156,9 +156,10 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
     const result = t.result!;
     // Its slot lies over an item its drop moves: until the room opens the indicator would cover it, so they open together.
     const atEdge = WINDOW_EDGE_KINDS.has(t.edgeKind) && touchesSide(scene.stage, t.hits ?? [t.hit]);
-    // One that changes a side's width holds in its hit and landing rect (`roomHit`) once its room is open: that is drawn there.
-    const widens = sideWidthChanges(now, result.layout);
-    const room = t.slot && slotOverMoved(now, base, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(atEdge ? { roomHold: EDGE_ROOM_HOLD } : {}), ...(widens ? { roomHit: hull(t.hit, t.slot) } : {}) } : {};
+    // One that changes an edge's thickness (a side's width, a bar's height) holds in its hit and landing rect (`roomHit`)
+    // once its room is open: that is drawn there.
+    const thickens = thicknessChanges(now, result.layout);
+    const room = t.slot && slotOverMoved(now, base, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(atEdge ? { roomHold: EDGE_ROOM_HOLD } : {}), ...(thickens ? { roomHit: hull(t.hit, t.slot) } : {}) } : {};
     targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), ...room, item: dragged, place: t.place!, after: () => result });
   }
   return { targets, refused, ownHome };
@@ -171,9 +172,15 @@ function hull(a: Rect, b: Rect): Rect {
   return rect(x, y, Math.max(a.x + a.width, b.x + b.width) - x, Math.max(a.y + a.height, b.y + b.height) - y);
 }
 
-/** Whether a drop changes the width of the window's left or right side: the content's left or right edge moves. */
-const sideWidthChanges = (now: SceneLayout, after: SceneLayout): boolean =>
-  Math.abs(after.content.x - now.content.x) > EPS || Math.abs(after.content.x + after.content.width - (now.content.x + now.content.width)) > EPS;
+/**
+ * Whether a drop changes an edge's thickness around the content (a side's width, a bar's height): any edge of the
+ * content moves.
+ */
+const thicknessChanges = (now: SceneLayout, after: SceneLayout): boolean => {
+  const a = now.content;
+  const b = after.content;
+  return Math.abs(b.x - a.x) > EPS || Math.abs(b.y - a.y) > EPS || Math.abs(b.x + b.width - (a.x + a.width)) > EPS || Math.abs(b.y + b.height - (a.y + a.height)) > EPS;
+};
 
 /** The edge kinds that run along a side (rails, new-column lines): against the window's edge, their room waits less (`roomHold`). */
 const WINDOW_EDGE_KINDS: ReadonlySet<EdgeKind> = new Set<EdgeKind>(["rail", "railStop", "sideBar", "columnLine"]);
@@ -345,7 +352,9 @@ function generateShown(scene: Scene, dragged: string, options: SceneTargetOption
   for (const t of [...alone.values()].flat()) if (t.kind !== "refuse" && t.id) zones.set(t.id, [...(zones.get(t.id) ?? []), t.hit]);
   // A refusal holds only points strictly inside the stage: its edge belongs to the targets drawn against it.
   const bounds = stageOf(scene);
-  return { targets: withMinHit(c, layered.targets, layered.refusals, zones), refusals: layered.refusals.map((r) => ({ ...r, bounds })), lost: lostIds, zones };
+  // A room's hold (`roomHit`) holds the target's hit as it ends up, its minimum included.
+  const held = withMinHit(c, layered.targets, layered.refusals, zones).map((t) => (t.roomHit && t.slot ? { ...t, roomHit: hull(t.hit, t.slot) } : t));
+  return { targets: held, refusals: layered.refusals.map((r) => ({ ...r, bounds })), lost: lostIds, zones };
 }
 
 /** The stage as a plain rect (a target's or a refusal's `bounds`). */
