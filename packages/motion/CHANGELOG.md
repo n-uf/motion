@@ -23,7 +23,7 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   the value, so a host with an exhaustive switch over it adds a case.
 
 - `./drag`, **`earlyRelease`** (additive). `DragIntentOptions.earlyRelease` says what a release does before the item has
-  settled on a target. `"target"`, the default, is today's behaviour: it lands on the shown target, else the one under
+  settled on a target. `"target"`, the default, works as a release always has: it lands on the shown target, else the one under
   the pointer, an `opensRoom` target that hasn't shown included. `"float"` makes what shows what lands: until the room
   is open the item is on the pointer, so it floats there; over a refusal or outside the float's `bounds` it lands nowhere.
 
