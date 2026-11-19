@@ -188,6 +188,8 @@ export function withRailStrips(c: Ctx, targets: readonly SceneTarget[], refusals
         hit: rect(s.rect.x, a, s.rect.width, b - a),
         armedHit: rect(grown.x, a, grown.width, b - a),
         arm: "dwell",
+        // Armed, its room opens at once: a host that draws only a marker reads that from this one flag, as for any target.
+        opensRoom: true,
         strip: s.rect,
         slot,
         item: c.dragged,

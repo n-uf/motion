@@ -3,6 +3,7 @@ import { createDragIntent, DRAG_DEFAULTS, type DragTarget } from "@n-uf/motion/d
 import { describe, expect, it } from "vitest";
 import { EDGE_RAIL_ROOM_HOLD, solve, targets, type Scene } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
+import { modelScene } from "./model-scene";
 import { bar, byId, column, group, panel } from "./scene-fixture";
 
 /** A toolbar on top, an empty or filled compact rail at the left, a panel column beside it. */
@@ -88,6 +89,21 @@ describe("a rail that pushes a column", () => {
     expect(first!.shown!.id).toBe(line.id);
     expect(first!.room).toBe(true);
     expect(at).toBeGreaterThanOrEqual(DRAG_DEFAULTS.roomAfter);
+  });
+
+  it("a rail drop strip's targets are marked too: armed, their room opens at once, and one flag says so", () => {
+    let strips = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+      const s = modelScene(seed, false, false, true);
+      for (const id of Object.keys(s.items).filter((k) => s.items[k]!.kind === "panel" && !s.items[k]!.fixed && !s.items[k]!.closed)) {
+        for (const t of targets(s, id).filter((x) => x.arm === "dwell")) {
+          expect(t.opensRoom, t.id).toBe(true);
+          expect(t.roomHold, t.id).toBeUndefined();
+          strips++;
+        }
+      }
+    }
+    expect(strips).toBeGreaterThan(0);
   });
 
   describe("the edge the dragged item leaves", () => {
