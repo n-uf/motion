@@ -3,11 +3,11 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## 26.11.44
+## 26.11.45
 
-- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.44 (`contentMin.chromeWidth` in `./scene`).
-
-## 26.11.43
+The landing model, opt-in: nothing a host already uses changes behavior. Host notes: `DragPreview` gains `"item"` (a
+host with an exhaustive `switch` over it adds a case); `PreviewPlan.guides` is optional, so a plan a host builds itself
+still compiles. With `@n-uf/placement` 26.11.45 (`lanes()`).
 
 - `./drag`, **`createLandingModel`** (additive): the landing model of a docking drag as state (region, lane, spot) over
   the lanes `@n-uf/placement/scene`'s `lanes()` gives. Up to 48 px past the stage counts as on its edge; a held lane
@@ -32,15 +32,6 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   field is optional in the type, so a host or a test that builds a frame itself needn't set it; `createDragIntent`
   always does.
 
-- `./drag`, **`DragTarget.roomHit`** (additive): the zone an `opensRoom` target holds once its room is open, the drawn
-  room (`@n-uf/placement` gives its hit and landing rect). While the target shows with its room open it holds in
-  `hit ∪ roomHit`, inside its `bounds`: a refusal or a target no more precise than it under the room doesn't take over,
-  and the frame isn't `refused`; those places are reachable once the pointer leaves the room. A more precise target past
-  the breakthrough and a held key still win; out of both it is held by its hit and band as before. A target without it
-  is unchanged.
-
-## 26.11.42
-
 - `./drag`, **`previewPlan`'s `"item"`** (additive): the dragged item is the only preview. No indicator shows for any
   target; the item sits in a slotted target once the room is open and otherwise stays on the pointer. `DragPreview` gains
   the value, so a host with an exhaustive switch over it adds a case.
@@ -49,6 +40,21 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   settled on a target. `"target"`, the default, works as a release always has: it lands on the shown target, else the one under
   the pointer, an `opensRoom` target that hasn't shown included. `"float"` makes what shows what lands: until the room
   is open the item is on the pointer, so it floats there; over a refusal or outside the float's `bounds` it lands nowhere.
+
+## 26.11.44
+
+- No change in `@n-uf/motion`. Released together with `@n-uf/placement` 26.11.44 (`contentMin.chromeWidth` in `./scene`).
+
+## 26.11.43
+
+- `./drag`, **`DragTarget.roomHit`** (additive): the zone an `opensRoom` target holds once its room is open, the drawn
+  room (`@n-uf/placement` gives its hit and landing rect). While the target shows with its room open it holds in
+  `hit ∪ roomHit`, inside its `bounds`: a refusal or a target no more precise than it under the room doesn't take over,
+  and the frame isn't `refused`; those places are reachable once the pointer leaves the room. A more precise target past
+  the breakthrough and a held key still win; out of both it is held by its hit and band as before. A target without it
+  is unchanged.
+
+## 26.11.42
 
 - `./drag`, docs: **a refused place is never drawn.** `frame.refused` is unchanged; the docs now say a host draws
   nothing over the refused place and may say "Can't go here" at the pointer while it is set.
