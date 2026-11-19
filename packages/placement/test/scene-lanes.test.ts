@@ -104,23 +104,104 @@ describe("pitched spots on a bar's free stretches", () => {
     floatKinds: ["group"],
   });
 
-  it("fill the free stretch at the pitch, land where they aim, and put the toolbar near any point of the bar", () => {
+  /** The worst distance from a point of a lane's free stretches (not over an item) to its spot's landing. */
+  const worst = (s: Scene, lane: string): number => {
+    const top = lanes(s, "g", { previous: solve(s) }).lanes.find((l) => l.id === lane)!;
+    const items = Object.entries(solve(s).items).filter(([id, it]) => id !== "g" && it.edge === lane).map(([, it]) => it.rect);
+    let w = 0;
+    for (const sp of top.spots)
+      for (let x = sp.along[0]; x <= sp.along[1]; x += 4) if (!items.some((r) => x >= r.x && x <= r.x + r.width)) w = Math.max(w, Math.max(0, sp.landing.x - x, x - (sp.landing.x + sp.landing.width)));
+    return w;
+  };
+
+  it("fill the free stretch at the pitch, land where they aim, and put the toolbar within a pitch of any free point", () => {
     const s = win();
-    const r = lanes(s, "g", { previous: solve(s) });
-    const top = r.lanes.find((l) => l.id === "top")!;
+    const top = lanes(s, "g", { previous: solve(s) }).lanes.find((l) => l.id === "top")!;
     const pitched = top.spots.filter((sp) => sp.pitched);
     expect(pitched.length).toBeGreaterThan(5);
-    // Every point of the bar is within a pitch of its spot's landing (no 290 px jumps).
-    let worst = 0;
-    for (const sp of top.spots)
-      for (let x = sp.along[0]; x <= sp.along[1]; x += 4) worst = Math.max(worst, Math.max(0, sp.landing.x - x, x - (sp.landing.x + sp.landing.width)));
-    expect(worst).toBeLessThanOrEqual(SPOT_PITCH);
+    expect(worst(s, "top")).toBeLessThanOrEqual(SPOT_PITCH);
     // A pitched spot's drop keeps it there.
     for (const sp of pitched) expect(sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).scene.items.g!.space).toBeGreaterThan(0);
+  });
+
+  it("an empty bar gets them too, over its whole length", () => {
+    const s: Scene = { ...win(), edges: [bar("top", "top", 0, []), bar("bottom", "bottom", 0, ["g"])], items: byId([group("g", 2)]) };
+    const top = lanes(s, "g", { previous: solve(s) }).lanes.find((l) => l.id === "top")!;
+    expect(top.spots.filter((sp) => sp.pitched).length).toBeGreaterThan(10);
+    expect(worst(s, "top")).toBeLessThanOrEqual(SPOT_PITCH);
+  });
+
+  it("keep their ids while the window grows", () => {
+    const s = win();
+    const ids = (sc: Scene): string[] => lanes(sc, "g").lanes.flatMap((l) => l.spots.filter((sp) => sp.pitched).map((sp) => sp.id));
+    const before = ids(s).filter((id) => id.startsWith("top/start/"));
+    const after = new Set(ids({ ...s, stage: { ...s.stage, width: 1320 } }));
+    for (const id of before) expect(after.has(id), id).toBe(true);
   });
 
   it("none with the pitch off", () => {
     const s = win();
     expect(lanes(s, "g", { pitch: 0 }).lanes.flatMap((l) => l.spots).some((sp) => sp.pitched)).toBe(false);
+  });
+});
+
+describe("lanes() with a spot held", () => {
+  it("a column's stretches end at the middle of its panels as drawn in that spot's layout (halves)", () => {
+    // Findings held over Annotations and Pages in the left column.
+    const s = winScene(WINDOW_A, { size: 300, columns: { left: [["annotations", "pages"]], right: [["findings"]] } });
+    const prev = solve(s);
+    const left = lanes(s, "findings", { previous: prev }).lanes.find((l) => l.id === "left-0")!;
+    for (const held of left.spots) {
+      const lane = lanes(s, "findings", { previous: prev, spot: held.id }).lanes.find((l) => l.id === "left-0")!;
+      const drawn = held.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout;
+      const middles = ["annotations", "pages"].map((id) => drawn.items[id]!.rect).map((r) => r.y + r.height / 2);
+      const cuts = lane.spots.slice(1).map((sp) => sp.along[0]);
+      expect(cuts.map(Math.round), held.id).toEqual(middles.map(Math.round));
+    }
+  });
+
+  it("every cut lies inside its lane and in order", () => {
+    for (const [name, s] of scenes())
+      for (const id of movable(s)) {
+        const prev = solve(s);
+        const r = lanes(s, id, { previous: prev });
+        for (const l of r.lanes)
+          for (const held of l.spots.slice(0, 3)) {
+            const lane = lanes(s, id, { previous: prev, spot: held.id }).lanes.find((x) => x.id === l.id)!;
+            const start = l.axis === "x" ? lane.rect.x : lane.rect.y;
+            const end = start + (l.axis === "x" ? lane.rect.width : lane.rect.height);
+            for (const sp of lane.spots) {
+              expect(sp.along[0] <= sp.along[1] + 1e-6, `${name} ${id} ${sp.id}`).toBe(true);
+              expect(sp.along[0] >= start - 1e-6 && sp.along[1] <= end + 1e-6, `${name} ${id} ${sp.id}`).toBe(true);
+            }
+          }
+      }
+  });
+
+  it("is remembered: the same scene and options give the same lanes, and a held spot reworks only its lane", () => {
+    const s = winScene(WINDOW_A, { size: 300 });
+    const prev = solve(s);
+    const a = lanes(s, "pages", { previous: prev });
+    expect(lanes(s, "pages", { previous: prev }).lanes).toBe(a.lanes);
+    const held = a.lanes.find((l) => l.id === "left-0")!.spots.find((sp) => !sp.home)!;
+    const b = lanes(s, "pages", { previous: prev, spot: held.id });
+    for (const l of b.lanes) if (l.id !== "left-0") expect(a.lanes).toContain(l);
+  });
+});
+
+describe("lanes(): what blocks the open space, and virtual lanes", () => {
+  it("the chrome and a drawn declared rail are blocked", () => {
+    const s: Scene = { ...winScene(WINDOW_A, { size: 300 }), chrome: [{ x: 600, y: 0, width: 80, height: 30 }] };
+    const r = lanes(s, "pages");
+    expect(r.blocked.some((b) => b.x === 600 && b.y === 0 && b.width === 80)).toBe(true);
+    const l = solve(s);
+    for (const rail of Object.values(l.rails)) if (rail && rail.rect.width > 0 && rail.rect.height > 0) expect(r.blocked).toContainEqual(rail.rect);
+  });
+
+  it("a new column's lane is keyed by the column it lies beside, not its ring", () => {
+    const s = winScene(WINDOW_A, { size: 300 });
+    const ids = lanes(s, "pages").lanes.map((l) => l.id).filter((id) => id.startsWith("column:"));
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) expect(/^column:(left|right):(\$|[^0-9].*)$/.test(id), id).toBe(true);
   });
 });

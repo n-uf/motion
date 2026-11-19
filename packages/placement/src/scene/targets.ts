@@ -365,6 +365,12 @@ export function targets(scene: Scene, dragged: string, options: SceneTargetOptio
   return generate(scene, dragged, options).targets;
 }
 
+/** The targets and refusals of one generation (`lanes()` reads both; internal to the package). */
+export function targetsAndRefusals(scene: Scene, dragged: string, options: SceneTargetOptions = {}): { targets: SceneTarget[]; refusals: SceneRefusal[] } {
+  const g = generate(scene, dragged, options);
+  return { targets: g.targets, refusals: g.refusals };
+}
+
 /**
  * `refusals(scene, dragged, options?)`: the places a drop of `dragged` is refused, so a host can say so at the pointer
  * ("Can't go here"; the place itself is never drawn) instead of showing a slot elsewhere: each slot the filter removed, over its own tile,
