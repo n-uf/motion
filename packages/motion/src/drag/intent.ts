@@ -136,7 +136,8 @@ const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
  * dwelt in its zone for `railArmDwellMs`; once armed its zone is `armedHit`
  * when given (a magnet: the zone grown), and leaving that disarms it.
  *
- * `refuse: true` makes it a refusal: a place that takes no drop (a host says "No room here" there). It takes part in
+ * `refuse: true` makes it a refusal: a place that takes no drop (a host draws nothing over it, and at most says "Can't
+ * go here" at the pointer). It takes part in
  * the pick under the pointer at {@link REFUSAL_RANK} (below every target of priority 1 or 2, whatever its own
  * `priority`, above priority 3), but it never becomes the current or the shown target, and a release over it lands
  * nowhere. Where the pick under the pointer is a refusal, no held target's band or gap grace keeps it: nothing shows,
@@ -299,8 +300,8 @@ export interface DragFrame<T extends DragTarget> {
    */
   readonly forced: "float" | "rail" | null;
   /**
-   * The refusal (a target with `refuse: true`) the pointer is over, when it is the pick there: no target shows, and a
-   * host says so at the pointer ("No room here"). Null otherwise, and while a key forces a target; with the float key
+   * The refusal (a target with `refuse: true`) the pointer is over, when it is the pick there: no target shows. A host
+   * never draws the refused place; it may say "Can't go here" at the pointer. Null otherwise, and while a key forces a target; with the float key
    * held over a refusal it is that refusal (the key doesn't float over refused space).
    */
   readonly refused: T | null;
