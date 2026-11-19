@@ -1242,11 +1242,14 @@ facing halves is home's, and is no target of its own. The slot is where the item
   past a refused bar commits nothing, and a held gap keeps its band. A host that clamps to `width - 0.5` still picks
   inside the window, the float or a refusal there included.
   A target's room opens with it where its indicator would otherwise cover what moves: a target whose slot overlaps an
-  item of another edge that its drop moves (an empty rail pushing the column beside it, a new-column line, a bar's strip
-  over the columns) carries `opensRoom`, and the drag intent shows it and reports `room` in the same frame. It waits the
-  intent's `roomAfter`, or `roomHold` where it has one: `EDGE_RAIL_ROOM_HOLD` (70 ms) on a rail target against the
-  window's left or right edge. A release before it shows still lands on it. A host that draws only a marker opens the
-  room on `frame.room && frame.shown?.opensRoom`.
+  item that its drop moves (an empty rail pushing the column beside it, a new-column line, a bar's strip over the
+  columns) carries `opensRoom`, and the drag intent shows it and reports `room` in the same frame. An item of the edge
+  the dragged item leaves counts when the drop pushes it, not when it only closes up over that place; the items of the
+  edge dropped on never do, so a gap between a column's cards is a plain gap. The wait depends on the target: `roomHold`
+  = `EDGE_ROOM_HOLD` (70 ms) on a rail target or a new-column line against the window's left or right edge; the intent's
+  `roomAfter` (160 ms) on any other; on a rail drop strip's target, also marked, none past the dwell that arms it. A
+  release before it shows still lands on it. A host that draws only a marker opens the room on
+  `frame.room && frame.shown?.opensRoom`, for every one of them.
   Every target keeps a reachable hit: its largest piece is at least 12 px across by 24 px along (`minHit`, data per
   edge kind), taken from the space beside it in its own zone (a column line's band, a gap's tile) where nothing else is
   aimed at, or from a neighbor that keeps its own minimum. Home, a drop strip, a refusal, the chrome and the stage's
