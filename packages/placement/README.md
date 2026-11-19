@@ -1012,15 +1012,21 @@ drag of `id`:
   `after()`), and its `along` stretch of the lane, the part that picks it. Between two spots that share a neighbor (the
   item `Y` in `X|Y` and `Y|Z`) the boundary is that item's middle as drawn, so a column takes a panel by halves; between
   two others, halfway between their landings. With `options.spot` the held spot's lane is drawn in that spot's own layout
-  (its room open). Every cut lies inside its lane, in order.
-- `refused` stretches per lane, and refused places outside lanes;
+  (its room open). Every cut lies inside its lane, in order. A spot's `moves` says whether its drop moves an item other
+  than the held one, against the layout with the item lifted: a change between two spots that move nothing moves only the
+  held item, so a model gates only changes to or from a spot that moves.
+- `marks` per lane, the place guides in the layout as drawn (the held spot's, with `options.spot`): a `line` across the
+  lane between two items too close for the item between them, a `box` over each free stretch it fits in (a virtual
+  lane: a box at its landing). Never over an item drawn on the lane, the held one included.
+- `refused` stretches per lane, each at least the item's length (a shorter one joins its spots), and refused places
+  outside lanes;
 - the `content`, and what `blocked` takes out of it (drawn edges, docked items, the chrome, a drawn declared rail): the
   open space;
 - the stage, the `floatRegion` (the stage less the inset at its left and right, as `heldRect` keeps a held item), the
   item's size, and the float target.
 
-A bar's free stretches get spots at `SPOT_PITCH` (40 px; `options.pitch`), each a dock keeping `space`, so a toolbar lands
-close to the hand; an empty bar gets them over its whole length less its padding. Where a stretch is too short for the
+A bar's free stretches, and a toolbar rail's (a compact edge, along its length), get spots at `SPOT_PITCH` (40 px;
+`options.pitch`), each a dock keeping `space`, so a toolbar lands close to the hand; an empty bar gets them over its whole length less its padding. Where a stretch is too short for the
 item, or lies next to a center item, it has none, so coverage is not universal: a point next to a center item that
 doesn't fit beside it can still be far from its landing (452 px at worst in the sweep scenes).
 
