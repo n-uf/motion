@@ -310,6 +310,22 @@ export const LANDING_CASES: readonly LandingCase[] = [
     requires: LANES,
   },
   {
+    id: "landing-lift-over-a-band",
+    title: "A lift over an empty bar's band doesn't enter the bar",
+    expect: "A floating toolbar lying over the empty top bar's band, lifted there and moved away into the document at 1.5 px/ms: the lift itself is no still pointer, so the top bar never holds it.",
+    scene: { ...landingWindow([]), items: { ...landingWindow([]).items, a: group("a", 9) }, floats: [{ id: "a", rect: rect(480, 6, 200, 28) }] },
+    item: "a",
+    path: [
+      { x: 500, y: 20 },
+      { x: 504, y: 22 },
+      { x: 600, y: 320 },
+    ],
+    speed: 1.5,
+    moving: { notLanes: ["top"] },
+    end: { region: "open", lane: null },
+    requires: LANES,
+  },
+  {
     id: "landing-fast-pass",
     title: "A fast pass over a bar opens no room in it",
     expect: "A toolbar moved from the document down across the empty bottom bar and 40 px past the window at 1.5 px/ms: the bottom bar never holds the pointer while it moves.",
