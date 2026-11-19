@@ -169,4 +169,30 @@ describe("contentMin.chromeWidth", () => {
     expect(zero.l.notes.some((n) => n.code === "content-narrow")).toBe(false);
     expect(JSON.stringify(solve(kit(["left", "right"], -10, sideBar(200))))).toBe(JSON.stringify(zero.l));
   });
+
+  it("columnRoom is still false in a window too small for a column beside the panels' minimum, chrome or not", () => {
+    for (const s of [kit(["left", "right"], F, undefined, 400), kit([], F, sideBar(30), 400)]) {
+      const l = solve(s);
+      expect(l.columnRoom).toBe(false);
+      expect(l.notes.some((n) => n.code === "no-column-room")).toBe(true);
+    }
+  });
+
+  it("content-narrow for the columns' own shortfall with chrome too: its min is contentMin.width less the allowance", () => {
+    // Columns that never give way leave 324 alone (20 short of 344); both rails (60, the whole allowance) take 264.
+    const w = widths(fixedColumns(kit(["left", "right"], F, undefined, 850)));
+    expect(w.content).toBe(264);
+    expect(w.l.notes.find((n) => n.code === "content-narrow")).toMatchObject({ width: 264, min: 344 - 60 });
+  });
+
+  it("bars give way by height as without a floor: the floor is width only", () => {
+    const top = (): Edge => ({ id: "top", side: "top", ring: 0, giveWay: true, accepts: ["panel"], items: ["t"], cross: { min: 22, max: 200, rail: 22 } });
+    const short = (s: Scene): Scene => ({ ...s, stage: { ...s.stage, height: 210 }, items: { ...s.items, t: panel("t", 6) } });
+    const floor = solve(short(kit(["left", "right"], F, top())));
+    const none = solve(short(kit([], undefined, top())));
+    expect(floor.edges.top!.rect.height).toBe(none.edges.top!.rect.height);
+    const barNotes = (l: typeof floor) => l.notes.filter((n) => n.code === "bar-shrunk" || n.code === "bar-folded" || n.code === "content-short");
+    expect(barNotes(floor)).toEqual(barNotes(none));
+    expect(barNotes(none).length).toBeGreaterThan(0);
+  });
 });
