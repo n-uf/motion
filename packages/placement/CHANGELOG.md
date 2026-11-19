@@ -10,12 +10,16 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   refusals and `refusalTargets` are unchanged.
 
 - `./scene`, fixed: **a target's room opens with it where its indicator would cover what moves** (additive). A target
-  whose slot overlaps an item of another edge that its drop moves (an empty toolbar rail pushing the panel column, a
-  new-column line, a bar's strip over the columns) now carries `opensRoom` (`Target.opensRoom`). With
-  `@n-uf/motion/drag`'s `opensRoom` the indicator and the room come in one frame, after `roomAfter`, so these targets
-  show later than they did, and never over what they move. A rail target against the window's left or right edge waits
-  less: `roomHold` is `EDGE_RAIL_ROOM_HOLD` (70 ms, new). A release before the target shows still lands on it. A host
-  that draws only a marker opens the room on `frame.room && frame.shown?.opensRoom`. The room's geometry is unchanged.
+  whose slot overlaps an item its drop moves (an empty toolbar rail pushing the panel column, a new-column line, a bar's
+  strip over the columns) now carries `opensRoom` (`Target.opensRoom`). That includes an item of the edge the dragged
+  item leaves when the drop pushes it; one that only closes up over the dragged item's place doesn't count, and neither
+  do the items of the edge dropped on, so a gap between a column's cards stays as it was. With `@n-uf/motion/drag`'s
+  `opensRoom` the indicator and the room come in one frame, so these targets show later than they did, and never over
+  what they move. How long they wait: a rail target or a new-column line against the window's left or right edge,
+  `roomHold` = `EDGE_ROOM_HOLD` (70 ms, new); any other, `roomAfter` (160 ms); a rail drop strip's target, no further
+  wait once its dwell has armed it, and it carries `opensRoom` too. A release before the target shows still lands on it.
+  A host that draws only a marker opens the room on `frame.room && frame.shown?.opensRoom`, for all of them. The room's
+  geometry is unchanged.
 
 - `./scene`, **`use` is idempotent** (behavior change). `use(scene, id)` on an item whose `used` is already strictly
   greater than every other item's gives back the same scene object, so a press on the newest item stores nothing new;

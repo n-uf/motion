@@ -156,7 +156,8 @@ const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
  * frame that first shows it already has `room`. A sweep across it moves nothing, as for any target, and no frame draws
  * it over the column. Until it shows, a release still lands on it. An armed spring-loaded target has its room at once
  * too: its dwell was the decision. `roomHold` is how long this target holds before that decision, in ms, in place of
- * `roomAfter` (a rail against the window's edge, which a pointer rarely crosses on its way elsewhere, can wait less). A
+ * `roomAfter` (a rail or a new-column line against the window's edge, which a pointer rarely crosses on its way
+ * elsewhere, can wait less). A
  * host that draws only a marker and doesn't use `previewPlan`'s room opens the room on
  * `frame.room && frame.shown?.opensRoom`.
  */
