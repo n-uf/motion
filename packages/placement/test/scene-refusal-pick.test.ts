@@ -1,7 +1,7 @@
 /**
  * Refusals in the pick: `refusalTargets` passed to `@n-uf/motion/drag`'s intent with the targets. Wherever the pick
- * under the pointer is a refusal, the intent shows nothing, or a target whose own zone holds the pointer: no held
- * target's band or gap grace reaches over a refusal. Swept slowly across every edge of the model windows, in every mode
+ * under the pointer is a refusal, the intent shows nothing, or a target whose own zone holds the pointer (with its room
+ * open, its `roomHit`: the refusal lies under the drawn room): no held target's band or gap grace reaches over a refusal. Swept slowly across every edge of the model windows, in every mode
  * (plain, flush, card halves, rail drop strips), and of the lab's two windows.
  */
 import { createDragIntent, targetAt, type DragTarget } from "@n-uf/motion/drag";
@@ -56,7 +56,9 @@ function sweep(s: Scene, label: string): { samples: number; refused: number; ove
           const raw = targetAt(list, p);
           if (!raw?.refuse) continue;
           refused++;
-          if (f.shown && !inZone(f.shown, p)) failures.push(`${label} drag ${id} over ${eid} at ${p.x.toFixed(1)},${p.y.toFixed(1)}: ${raw.id} under ${f.shown.id}'s band`);
+          // A target shown with its room open holds its `roomHit` too: a refusal there lies under the drawn room.
+          const inRoom = !!f.shown?.roomHit && f.room && inRect(f.shown.roomHit, p);
+          if (f.shown && !inZone(f.shown, p) && !inRoom) failures.push(`${label} drag ${id} over ${eid} at ${p.x.toFixed(1)},${p.y.toFixed(1)}: ${raw.id} under ${f.shown.id}'s band`);
           // The float (priority 3, everywhere) never shows over a refusal: the refusal wins the pick.
           if (f.shown?.free) failures.push(`${label} drag ${id} over ${eid} at ${p.x.toFixed(1)},${p.y.toFixed(1)}: the float shows over ${raw.id}`);
           if (list.some((x) => x.free)) overFloat++;
