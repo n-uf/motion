@@ -1007,8 +1007,11 @@ first column. A column folds:
   With `contentMin.chromeWidth`, a lower floor for chrome, the content gives way first: compact rails and side toolbar
   bars may take it down to that floor while the columns keep their width and move aside, and only below it does a
   column shrink, then fold. The columns alone still leave `contentMin.width`, so a toolbar rail added at a window's edge
-  narrows the content and leaves the panel column as it was. `columnRoom` (`no-column-room`) and `content-narrow` keep
-  reading `contentMin.width`; bars keep giving way by `contentMin.height` (the floor is width only).
+  narrows the content and leaves the panel column as it was. Chrome within that allowance is quiet: no `content-narrow`,
+  and `columnRoom` stays true, so a toolbar rail never flips a host to its narrow layout. `content-narrow` fires when
+  the columns' own need takes the content under `contentMin.width`, or once it is under the floor; its `min` is
+  `contentMin.width` less what chrome takes within the allowance. Bars keep giving way by `contentMin.height` (the
+  floor is width only).
 - by hand: when every member is folded by hand (`from` over 0) it goes to the rail; with `handFold: "ride"` a one-member
   column instead rides as a title bar over the side's first open column, at that column's width, taking no width
   (`rides`), while the side has an open column.
