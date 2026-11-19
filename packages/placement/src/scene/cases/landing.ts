@@ -326,6 +326,22 @@ export const LANDING_CASES: readonly LandingCase[] = [
     requires: LANES,
   },
   {
+    id: "landing-blocked",
+    title: "Over a blocked spot a release cancels",
+    expect: "A toolbar taken from its bar to the middle of a blocked spot in the document (`Scene.blocked`) and held there: no float lands there, and the release puts it back in its bar.",
+    scene: { ...landingWindow(), blocked: [rect(400, 250, 160, 120)] },
+    item: "a",
+    path: [
+      { x: 60, y: 18 },
+      { x: 480, y: 310 },
+    ],
+    speed: 0.6,
+    rest: 80,
+    end: { region: "refused", lane: null },
+    layout: { items: { a: { edge: "top" } } },
+    requires: LANES,
+  },
+  {
     id: "landing-fast-pass",
     title: "A fast pass over a bar opens no room in it",
     expect: "A toolbar moved from the document down across the empty bottom bar and 40 px past the window at 1.5 px/ms: the bottom bar never holds the pointer while it moves.",
