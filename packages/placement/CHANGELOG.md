@@ -41,6 +41,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.42
 
+- `./scene`, **`Scene.foldedColumnDrop`** (additive). With `"end"`, a column drawn as a rail (all its members collapsed,
+  on a side with no declared `rails` entry) is one drop place over its whole length, after its last member, and the item
+  keeps its state: an open panel opens the column at full size, a collapsed one becomes the last title tile. Without
+  it nothing changes.
+
 - `./scene`, docs: **a refused place is never drawn.** The docs no longer suggest a tint or outline over `refusals()`:
   a host draws nothing there and may say "Can't go here" at the pointer while the frame's `refused` is set. The
   refusals and `refusalTargets` are unchanged.
