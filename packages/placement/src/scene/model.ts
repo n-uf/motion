@@ -401,6 +401,13 @@ export interface Scene {
    */
   readonly foldedColumnDrop?: "end";
   /**
+   * `"one"`: a side has at most one column (`isSideColumn`). A drag offers a new-column line only on a side with no
+   * column holding an item once the item is lifted; where the side has one, an item goes into it (by its gaps) or
+   * nowhere on that side. A stored layout with two columns on a side is merged by `mergeSideColumns`, which a host calls
+   * as it reads one. Absent: as before. A declaration, like `foldedColumnDrop`: never stored.
+   */
+  readonly sideColumns?: "one";
+  /**
    * The least the content may be. While the content is narrower than `width`, dynamic columns shrink toward their
    * minimum, then fold whole into their side's rail: unkept before kept, the one whose newest use is oldest first, the
    * outer first, the left first. Under `height`, a `content-short` note.
