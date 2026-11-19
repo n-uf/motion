@@ -7,11 +7,17 @@
 import { EPS, type Rect } from "../../geometry";
 import { formCrossMin, formSetsCross, type StackForm } from "../../stack";
 import { formsOf, isSideBar, startOf } from "../helpers";
-import type { Edge, SceneNote } from "../model";
+import type { Edge, Scene, SceneNote } from "../model";
 import type { Draft } from "./draft";
 import { solveEdge, type EdgeSolve } from "./edge";
 import type { Frame } from "./insets";
 import { finite, giveWayOrder, px } from "./order";
+
+/**
+ * Chrome: a side toolbar edge that never gives way (`isSideBar`, a compact rail included), not a panel column. The one
+ * test the chrome floor's allowance and `columnRoom` both read.
+ */
+const isChrome = (scene: Scene, c: Col): boolean => !c.dyn && isSideBar(scene, c.edge);
 
 /** One left or right edge as give-way weighs it. */
 export interface Col {
@@ -76,11 +82,9 @@ export function giveWay(d: Draft, cols: readonly Col[], area: Rect, gutter: numb
   // The chrome floor (`contentMin.chromeWidth`), never above `cmin`; a value that isn't a number is no floor.
   const chromeWidth = scene.contentMin?.chromeWidth;
   const floor = cmin !== undefined && typeof chromeWidth === "number" && Number.isFinite(chromeWidth) ? Math.min(cmin, px(chromeWidth)) : undefined;
-  // Chrome: a side edge of toolbars that never gives way (a compact rail, a side toolbar bar), not a panel column.
-  const isChrome = (c: Col): boolean => !c.dyn && (c.edge.compact === true || isSideBar(scene, c.edge));
   // What chrome takes across (it never gives way, so the same in every weighing), and the part of it within the floor's
   // allowance, which `columnRoom` and `content-narrow` leave out.
-  const chrome = floor === undefined ? 0 : cols.filter((c) => isChrome(c) && c.width > 0).reduce((s, c) => s + c.width + (c.edge.outsideInset === true ? 0 : gutter), 0);
+  const chrome = floor === undefined ? 0 : cols.filter((c) => isChrome(scene, c) && c.width > 0).reduce((s, c) => s + c.width + (c.edge.outsideInset === true ? 0 : gutter), 0);
   if (floor !== undefined) d.chromeAllowance = Math.min(chrome, cmin! - floor);
   const foldOrder = cols
     .filter((c) => c.dyn && !c.hand && c.width > 0)
@@ -186,7 +190,7 @@ export function columnRoom(d: Draft, cols: readonly Col[], area: Rect, f: Frame)
   // A side toolbar bar never folds: one that lays out an item takes its width (and the gutter after it, unless it
   // lies outside the inset, which the area already leaves out) from the room a column could have.
   // With a chrome floor, what they take within its allowance doesn't count: a toolbar rail never takes a column's room.
-  const allBars = cols.filter((c) => c.width > 0 && !c.dyn && isSideBar(scene, c.edge)).reduce((s, c) => s + c.width + (c.edge.outsideInset === true ? 0 : f.gutter), 0);
+  const allBars = cols.filter((c) => c.width > 0 && isChrome(scene, c)).reduce((s, c) => s + c.width + (c.edge.outsideInset === true ? 0 : f.gutter), 0);
   const bars = d.chromeAllowance === undefined ? allBars : allBars - Math.min(allBars, d.chromeAllowance);
   // With `insetWhen: "docked"` and nothing docked now, the column that opens brings the inset with it.
   const width = area.width - bars - (scene.insetWhen === "docked" && !f.docked ? px(scene.inset?.left) + px(scene.inset?.right) : 0);
