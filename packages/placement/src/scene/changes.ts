@@ -223,7 +223,9 @@ export function moveAmong(scene: Scene, id: string, place: Place, others: readon
   if (place.kind === "column" || place.kind === "rail") {
     if (place.kind === "rail" && !scene.rails?.[place.side]?.accepts.includes(item.kind)) return scene;
     // Its zone goes with it: `insertColumn` keeps it where the new column takes the kind there.
-    const folded: SceneItem = place.kind === "rail" ? { ...item, from: Math.max(1, item.from ?? 0) } : item;
+    // A new column keeps no bar space (`SceneItem.space`).
+    const { space: _space, ...unspaced } = item;
+    const folded: SceneItem = place.kind === "rail" ? { ...unspaced, from: Math.max(1, item.from ?? 0) } : unspaced;
     const made = insertColumn(withItem(lift(scene, id), folded), id, place.side, place.ring, others);
     return made ?? scene;
   }
@@ -270,7 +272,9 @@ export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): S
   const float: SceneFloat = at
     ? { id, rect: { x: at.x, y: at.y, width: at.width, height: at.height }, ...(o ? { orient: o } : {}), ...seq }
     : { id, rect: { x: 0, y: 0, width: size.width, height: size.height }, anchor: "content-top-right", ...(o ? { orient: o } : {}), ...seq };
-  const next = at && at.width > 0 && at.height > 0 ? { ...item, floatSize: { width: at.width, height: at.height } } : item;
+  // A float keeps no bar space (`SceneItem.space`).
+  const { space: _space, ...unspaced } = item;
+  const next = at && at.width > 0 && at.height > 0 ? { ...unspaced, floatSize: { width: at.width, height: at.height } } : unspaced;
   const lifted = lift(withItem(scene, next), id);
   return { ...lifted, floats: [...lifted.floats, float] };
 }

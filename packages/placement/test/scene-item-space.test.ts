@@ -1,6 +1,6 @@
 /** `SceneItem.space`: free space an item keeps on its zone's open side, out of a bar's spare length. */
 import { describe, expect, it } from "vitest";
-import { moveTo, readScene, solve, storeScene, type Scene } from "../src/scene";
+import { floatAt, moveTo, readScene, solve, storeScene, type Scene } from "../src/scene";
 import { bar, byId, group } from "./scene-fixture";
 
 /** A top bar 1000 px long: a (start), b (end); g in the bottom bar. */
@@ -37,6 +37,19 @@ describe("SceneItem.space", () => {
     expect(moved.items.g!.space).toBe(64);
     const again = moveTo(moved, "g", { edge: "bottom", at: 0 });
     expect(again.items.g!.space).toBeUndefined();
+  });
+
+  it("floating clears it, by moveTo or floatAt", () => {
+    const moved = moveTo(win(), "g", { edge: "top", zone: "start", at: 1, space: 64 });
+    expect(moveTo(moved, "g", { kind: "float", rect: { x: 300, y: 300, width: 200, height: 40 } }).items.g!.space).toBeUndefined();
+    expect(floatAt(moved, "g", { x: 300, y: 300, width: 200, height: 40 }).items.g!.space).toBeUndefined();
+  });
+
+  it("a new column clears it", () => {
+    const s: Scene = { ...win(), edges: [...win().edges, { id: "left-0", side: "left", ring: 0, accepts: ["group"], items: [], cross: { min: 120, max: 300, rail: 30 }, column: true }], columns: { left: { accepts: ["group"], cross: { min: 120, max: 300, rail: 30 } } } };
+    const moved = moveTo(s, "g", { edge: "top", zone: "start", at: 1, space: 64 });
+    const col = moveTo(moved, "g", { kind: "column", side: "left", ring: 0 });
+    if (col !== moved) expect(col.items.g!.space).toBeUndefined();
   });
 
   it("the stored form keeps it", () => {
