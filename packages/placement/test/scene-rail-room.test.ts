@@ -1,7 +1,7 @@
 /** A rail target whose drop pushes what lies beside it opens its room as it shows (`Target.opensRoom`). */
 import { createDragIntent, DRAG_DEFAULTS, type DragTarget } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
-import { EDGE_RAIL_ROOM_HOLD, solve, targets, type Scene } from "../src/scene";
+import { EDGE_ROOM_HOLD, solve, targets, type Scene } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { modelScene } from "./model-scene";
 import { bar, byId, column, group, panel } from "./scene-fixture";
@@ -39,14 +39,15 @@ describe("a rail that pushes a column", () => {
     for (const t of targets(s, "a").filter((x) => x.id.includes(":rail:"))) expect(t.opensRoom, t.id).toBeUndefined();
   });
 
-  it("the rule is the slot over a moved item of another edge, on any target; only an edge rail gets the short hold", () => {
+  it("the rule is the slot over a moved item, on any target; a rail or line against the window's edge gets the short hold", () => {
     // Against the window's edge: the short hold.
-    for (const t of targets(win(), "a").filter((x) => x.id.includes(":rail:"))) expect(t.roomHold, t.id).toBe(EDGE_RAIL_ROOM_HOLD);
-    // A panel held, floating elsewhere: a new-column line beside the column pushes it, and has no short hold.
+    for (const t of targets(win(), "a").filter((x) => x.id.includes(":rail:"))) expect(t.roomHold, t.id).toBe(EDGE_ROOM_HOLD);
+    // A panel held, floating elsewhere: a new-column line at the window's edge (the empty rail takes no room) pushes the
+    // column, and waits the same short hold.
     const s: Scene = { ...win(), edges: win().edges.map((e) => (e.id === "left" ? { ...e, column: true, accepts: ["panel"] } : e)), items: { ...win().items, q: panel("q", 5) }, floats: [{ id: "q", rect: { x: 600, y: 200, width: 240, height: 300 } }], floatKinds: ["group", "panel"], columns: { left: { accepts: ["panel"], cross: { min: 180, max: 400, rail: 30 } } } };
     const lines = targets(s, "q").filter((t) => t.place.kind === "column" && t.opensRoom);
     expect(lines.length).toBeGreaterThan(0);
-    for (const t of lines) expect(t.roomHold, t.id).toBeUndefined();
+    for (const t of lines) expect(t.roomHold, t.id).toBe(EDGE_ROOM_HOLD);
     // An empty rail with nothing beside it to cover: no room to open with it.
     const bare: Scene = { ...win(), edges: win().edges.filter((e) => e.id !== "left"), items: { a: win().items.a!, b: win().items.b! } };
     for (const t of targets(bare, "a").filter((x) => x.id.includes(":rail:"))) expect(t.opensRoom, t.id).toBeUndefined();
@@ -124,6 +125,16 @@ describe("a rail that pushes a column", () => {
       expect(line.slot!.x).toBeLessThan(before.x + before.width);
       expect(line.after({ x: 10, y: 300 }).layout.items.q!.rect.x).toBeGreaterThan(before.x);
       expect(line.opensRoom).toBe(true);
+    });
+
+    it("a new-column line against the window's edge waits the short hold; one further in, the full delay", () => {
+      const s = two();
+      const lines = [...targets(s, "p"), ...targets(s, "r")].filter((t) => t.place.kind === "column" && t.opensRoom);
+      expect(lines.find((t) => t.id === "column:left:0")).toMatchObject({ roomHold: EDGE_ROOM_HOLD });
+      for (const t of lines) {
+        const atEdge = (t.hits ?? [t.hit]).some((r) => r.x <= 0 || r.x + r.width >= 1200);
+        expect(t.roomHold, t.id).toBe(atEdge ? EDGE_ROOM_HOLD : undefined);
+      }
     });
 
     it("an item that only closes up over the dragged item's place doesn't: gaps between a column's cards stay plain", () => {

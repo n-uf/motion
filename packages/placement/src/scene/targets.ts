@@ -72,7 +72,7 @@ import { EPS, PLANE, area, overlaps, rect, type Rect } from "../geometry";
 import type { Target } from "../target";
 import { floatAt, prune, use } from "./changes";
 import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
-import { EDGE_RAIL_ROOM_HOLD, type Edge, type Orient, type Scene, type SceneLayout, type Zone } from "./model";
+import { EDGE_ROOM_HOLD, type Edge, type Orient, type Scene, type SceneLayout, type Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
 import { edgeSpec } from "./targets/edges";
@@ -155,15 +155,15 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
     }
     const result = t.result!;
     // Its slot lies over an item its drop moves: until the room opens the indicator would cover it, so they open together.
-    const edgeRail = RAIL_KINDS.has(t.edgeKind) && touchesSide(scene.stage, t.hits ?? [t.hit]);
-    const room = t.slot && slotOverMoved(now, base, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(edgeRail ? { roomHold: EDGE_RAIL_ROOM_HOLD } : {}) } : {};
+    const atEdge = WINDOW_EDGE_KINDS.has(t.edgeKind) && touchesSide(scene.stage, t.hits ?? [t.hit]);
+    const room = t.slot && slotOverMoved(now, base, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(atEdge ? { roomHold: EDGE_ROOM_HOLD } : {}) } : {};
     targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), ...room, item: dragged, place: t.place!, after: () => result });
   }
   return { targets, refused, ownHome };
 }
 
-/** The edge kinds that run along a side as a rail: against the window's edge, their room waits less (`roomHold`). */
-const RAIL_KINDS: ReadonlySet<EdgeKind> = new Set<EdgeKind>(["rail", "railStop", "sideBar"]);
+/** The edge kinds that run along a side (rails, new-column lines): against the window's edge, their room waits less (`roomHold`). */
+const WINDOW_EDGE_KINDS: ReadonlySet<EdgeKind> = new Set<EdgeKind>(["rail", "railStop", "sideBar", "columnLine"]);
 
 /** Whether any of `pieces` reaches the stage's left or right edge. */
 const touchesSide = (stage: Rect, pieces: readonly Rect[]): boolean => pieces.some((r) => r.x <= stage.x + EPS || r.x + r.width >= stage.x + stage.width - EPS);
