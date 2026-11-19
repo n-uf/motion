@@ -46,10 +46,11 @@ export interface Target {
    */
   readonly roomHold?: number;
   /**
-   * With `opensRoom`, the room as drawn once it is open, containing `hit`: while the target shows with its room open, a
-   * drag intent holds it wherever the pointer is in this rect. The scene sets it on an empty edge's strip (a rail or a
-   * bar not drawn yet): the strip's stretch along the edge, the edge's full depth after the drop across it. Not on a
-   * new-column line, whose room is a whole column beside the other column's places, nor on a drawn edge's gap.
+   * With `opensRoom`, the zone it holds once its room is open: while the target shows with its room open, a drag intent
+   * holds it wherever the pointer is in this rect. The scene sets it to the smallest rect holding `hit` and the slot (the
+   * landing rect) on every target whose drop changes the width of the window's left or right side: an empty rail beside a
+   * column (its strip's stretch at the rail's drawn width), a new-column line. A bar's strip, whose room changes a bar's
+   * height, and a rail drop strip (`armedHit`) don't carry it.
    */
   readonly roomHit?: Rect;
 }

@@ -156,27 +156,24 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
     const result = t.result!;
     // Its slot lies over an item its drop moves: until the room opens the indicator would cover it, so they open together.
     const atEdge = WINDOW_EDGE_KINDS.has(t.edgeKind) && touchesSide(scene.stage, t.hits ?? [t.hit]);
-    // An empty edge's strip holds in the edge it opens (`roomHit`) once that is open.
-    const strip = !!t.spec?.edge && !t.spec.drawn;
-    const room = t.slot && slotOverMoved(now, base, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(atEdge ? { roomHold: EDGE_ROOM_HOLD } : {}), ...(strip ? { roomHit: stripRoom(t, t.slot) } : {}) } : {};
+    // One that changes a side's width holds in its hit and landing rect (`roomHit`) once its room is open: that is drawn there.
+    const widens = sideWidthChanges(now, result.layout);
+    const room = t.slot && slotOverMoved(now, base, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(atEdge ? { roomHold: EDGE_ROOM_HOLD } : {}), ...(widens ? { roomHit: hull(t.hit, t.slot) } : {}) } : {};
     targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), ...room, item: dragged, place: t.place!, after: () => result });
   }
   return { targets, refused, ownHome };
 }
 
-/**
- * An empty edge's strip tile's room as drawn once open (`Target.roomHit`): the tile's stretch along the edge, and across
- * it both the tile and the slot (the edge at its depth after the drop).
- */
-function stripRoom(t: Tile, slot: Rect): Rect {
-  const h = t.hit;
-  if (t.vertical) {
-    const x0 = Math.min(h.x, slot.x);
-    return rect(x0, h.y, Math.max(h.x + h.width, slot.x + slot.width) - x0, h.height);
-  }
-  const y0 = Math.min(h.y, slot.y);
-  return rect(h.x, y0, h.width, Math.max(h.y + h.height, slot.y + slot.height) - y0);
+/** The smallest rect holding both: a hit and its landing rect, with no gap between them where they don't overlap. */
+function hull(a: Rect, b: Rect): Rect {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return rect(x, y, Math.max(a.x + a.width, b.x + b.width) - x, Math.max(a.y + a.height, b.y + b.height) - y);
 }
+
+/** Whether a drop changes the width of the window's left or right side: the content's left or right edge moves. */
+const sideWidthChanges = (now: SceneLayout, after: SceneLayout): boolean =>
+  Math.abs(after.content.x - now.content.x) > EPS || Math.abs(after.content.x + after.content.width - (now.content.x + now.content.width)) > EPS;
 
 /** The edge kinds that run along a side (rails, new-column lines): against the window's edge, their room waits less (`roomHold`). */
 const WINDOW_EDGE_KINDS: ReadonlySet<EdgeKind> = new Set<EdgeKind>(["rail", "railStop", "sideBar", "columnLine"]);

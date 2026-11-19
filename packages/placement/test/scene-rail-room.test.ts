@@ -147,47 +147,50 @@ describe("a rail that pushes a column", () => {
   });
 });
 
-describe("the room an empty edge's strip holds in once open (roomHit)", () => {
-  const within = (a: Rect, b: Rect) => a.x >= b.x - 1e-6 && a.y >= b.y - 1e-6 && a.x + a.width <= b.x + b.width + 1e-6 && a.y + a.height <= b.y + b.height + 1e-6;
+describe("a target that changes a side's width holds in its landing rect once open (roomHit)", () => {
+  const sideMoves = (a: Rect, b: Rect) => Math.abs(a.x - b.x) > 1e-6 || Math.abs(a.x + a.width - (b.x + b.width)) > 1e-6;
 
-  it("an empty rail's targets: their stretch along the rail, the rail's width after the drop across it", () => {
+  const hull = (a: Rect, b: Rect): Rect => {
+    const x = Math.min(a.x, b.x);
+    const y = Math.min(a.y, b.y);
+    return { x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y };
+  };
+
+  it("an empty rail's targets: their hit and landing rect, so the rail at its drawn width", () => {
     const s = win();
     const onRail = targets(s, "a").filter((t) => t.id.includes(":rail:"));
     expect(onRail.length).toBeGreaterThan(0);
     for (const t of onRail) {
-      const room = t.roomHit!;
       const rail = t.after({ x: 10, y: 400 }).layout.edges.rail!.rect;
-      expect(within(t.hit, room), t.id).toBe(true);
-      expect([room.y, room.height], t.id).toEqual([t.hit.y, t.hit.height]);
-      expect([room.x, room.width], t.id).toEqual([rail.x, rail.width]);
-      expect(room.width, t.id).toBeGreaterThan(t.hit.width);
+      expect(t.roomHit, t.id).toEqual(hull(t.hit, t.slot!));
+      expect([t.roomHit!.x, t.roomHit!.width], t.id).toEqual([rail.x, rail.width]);
+      expect(t.roomHit!.width, t.id).toBeGreaterThan(t.hit.width);
     }
   });
 
-  it("only on an empty edge's strip: never on a new-column line, a drawn edge's gap or a rail drop strip", () => {
-    let strips = 0;
-    let others = 0;
+  it("exactly the targets that open their room and move the content's left or right edge: new-column lines too, bars' strips not", () => {
+    const kinds = new Set<string>();
+    let without = 0;
     for (let seed = 1; seed <= 30; seed++)
       for (const s of [modelScene(seed, false, false, seed % 2 === 0), modelScene(seed, true, seed % 3 === 0, false)]) {
         const l = solve(s);
         for (const id of Object.keys(s.items).filter((k) => !s.items[k]!.fixed && !s.items[k]!.closed).slice(0, 3))
           for (const t of targets(s, id, { previous: l })) {
-            if (!t.roomHit) {
-              if (t.opensRoom) others++;
+            if (!t.opensRoom || t.arm === "dwell") {
+              expect(t.roomHit, t.id).toBeUndefined();
               continue;
             }
-            strips++;
-            expect(t.opensRoom, t.id).toBe(true);
-            expect(within(t.hit, t.roomHit), t.id).toBe(true);
-            expect(t.place.kind, t.id).toBe("gap");
-            expect(t.arm, t.id).toBeUndefined();
-            // The edge it opens isn't drawn before the drop.
-            const edge = t.place.kind === "gap" ? l.edges[t.place.edge] : undefined;
-            expect(!edge || edge.rect.width < 1e-6 || edge.rect.height < 1e-6 || edge.cross === 0, t.id).toBe(true);
+            const moves = sideMoves(t.after({ x: 0, y: 0 }).layout.content, l.content);
+            expect(!!t.roomHit, t.id).toBe(moves);
+            if (t.roomHit) {
+              expect(t.roomHit, t.id).toEqual(hull(t.hit, t.slot!));
+              kinds.add(t.place.kind);
+            } else without++;
           }
       }
-    expect(strips).toBeGreaterThan(0);
-    expect(others).toBeGreaterThan(0);
+    expect(kinds.has("column")).toBe(true);
+    expect(kinds.has("gap")).toBe(true);
+    expect(without).toBeGreaterThan(0);
   });
 
   it("a host driving the intent keeps the rail target and its room across the drawn rail, and loses it past it", () => {
