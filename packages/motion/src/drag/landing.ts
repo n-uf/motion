@@ -265,7 +265,13 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     if (!cand) return null;
     if (!now || cand.id === now.id) return cand;
     // Past the boundary by the margin; where the change moves another item, on a slow enough step. Else the last spot holds.
-    const past = a < now.along[0] - margins.spot || a > now.along[1] + margins.spot;
+    // Where the boundary already lies far from the held landing (a long neighbor to pass), the margin shrinks, down to 2
+    // px, so the hop comes before the landing trails the pointer by more than `trail` on that account.
+    const lo0 = held.axis === "x" ? now.landing.x : now.landing.y;
+    const hi0 = lo0 + (held.axis === "x" ? now.landing.width : now.landing.height);
+    // Room for a sample's step past the margin too (one more margin's worth).
+    const marginAt = (boundary: number): number => Math.min(margins.spot, Math.max(2, gates.trail - margins.spot - Math.max(0, lo0 - boundary, boundary - hi0)));
+    const past = a < now.along[0] - marginAt(now.along[0]) || a > now.along[1] + marginAt(now.along[1]);
     const reflows = now.others === undefined || now.others !== cand.others;
     if (!past) return now;
     // A fast reflowing change waits for a slow step, unless the held landing already trails the pointer by `trail`: the
