@@ -324,6 +324,34 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     expect(old.length).toBe(before);
   });
 
+  it("a fast diagonal fling off the window's edge from the rail opens no room in the bar along that edge", () => {
+    const r = railWindow();
+    const bottom: LandingLane = { id: "bottom", rect: rect(30, 608, 810, 32), axis: "x", spots: [{ id: "bottom/start", along: [30, 840], landing: rect(38, 608, 102, 32) }], refused: [] };
+    const regions: LandingRegions = { ...r, lanes: [...r.lanes, bottom] };
+    for (const deg of [30, 45, 60])
+      for (const speed of [0.6, 1.2, 2.5, 5])
+        for (const y0 of [520, 560, 596]) {
+          const a = (deg * Math.PI) / 180;
+          const { frames } = run(base({ regions }), path([{ x: 15, y: y0 }, { x: 15 + 800 * Math.cos(a), y: y0 + 800 * Math.sin(a) }], speed));
+          expect([deg, speed, y0, frames.some((x) => x.f.lane === "bottom")]).toEqual([deg, speed, y0, false]);
+        }
+  });
+
+  it("from a held lane, a shallow move into a touching bar is a slide (it takes the bar) and a steeper one a crossing", () => {
+    // From the rail's foot into the bottom bar at angles below the bar's line: up to about 18° (across it at most a third
+    // as far as along) the bar takes it; from 22° on it doesn't. The cliff is deliberate.
+    const r = railWindow();
+    const bottom: LandingLane = { id: "bottom", rect: rect(30, 608, 810, 32), axis: "x", spots: [{ id: "bottom/start", along: [30, 840], landing: rect(38, 608, 102, 32) }], refused: [] };
+    const regions: LandingRegions = { ...r, lanes: [...r.lanes, bottom] };
+    const took = (deg: number): boolean => {
+      const a = (deg * Math.PI) / 180;
+      const { frames } = run(base({ regions }), path([{ x: 15, y: 560 }, { x: 31, y: 609 }, { x: 31 + 400 * Math.cos(a), y: 609 + 400 * Math.sin(a) }], 1.5));
+      return frames.some((x) => x.f.lane === "bottom");
+    };
+    for (const deg of [4, 10, 16]) expect([deg, took(deg)]).toEqual([deg, true]);
+    for (const deg of [22, 30, 45]) expect([deg, took(deg)]).toEqual([deg, false]);
+  });
+
   it("P12: Alt and Ctrl/Meta change nothing", () => {
     const keys = path([{ x: 15, y: 300 }, { x: 15, y: 60 }, { x: 400, y: 300 }], 0.3);
     const plain = run(base(), keys).frames.map((x) => [x.f.region, x.f.spot]);

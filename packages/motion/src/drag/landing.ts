@@ -341,6 +341,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       step = lastStep = Infinity;
     }
     const from = last?.p ?? null;
+    // The pointer as it moved: a fling off the stage's edge moves across a lane there though its clamped point doesn't.
+    const fromRaw = last?.raw ?? null;
     last = { p, raw, t };
     const shift = !!keys?.shift;
     const regions = heldRegions(spotId);
@@ -352,7 +354,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     for (const l of regions.lanes) {
       const was = from && strictlyIn(l.rect, from);
       const go = was ? Math.abs(alongOf(l, p) - alongOf(l, from)) : 0;
-      const over = was ? Math.abs(acrossOf(l, p) - acrossOf(l, from)) : 0;
+      const over = was && fromRaw ? Math.abs(acrossOf(l, raw) - acrossOf(l, fromRaw)) : 0;
       const inL = strictlyIn(l.rect, p);
       pathIn.set(l.id, inL ? (pathIn.get(l.id) ?? 0) + (slow ? go : 0) : 0);
       const s = slide.get(l.id);
