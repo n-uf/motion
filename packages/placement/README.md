@@ -1012,9 +1012,9 @@ drag of `id`:
   `after()`), and its `along` stretch of the lane, the part that picks it. Between two spots that share a neighbor (the
   item `Y` in `X|Y` and `Y|Z`) the boundary is that item's middle as drawn, so a column takes a panel by halves; between
   two others, halfway between their landings. With `options.spot` the held spot's lane is drawn in that spot's own layout
-  (its room open). Every cut lies inside its lane, in order. A spot's `moves` says whether its drop moves an item other
-  than the held one, against the layout with the item lifted: a change between two spots that move nothing moves only the
-  held item, so a model gates only changes to or from a spot that moves.
+  (its room open). Every cut lies inside its lane, in order. A spot's `others` keys where its drop draws every item but
+  the held one: a change between two spots with the same key moves only the held item, so a model gates only changes
+  between spots whose keys differ (that reflow the window).
 - `marks` per lane, the place guides in the layout as drawn (the held spot's, with `options.spot`): a `line` across the
   lane between two items too close for the item between them, a `box` over each free stretch it fits in (a virtual
   lane: a box at its landing). Never over an item drawn on the lane, the held one included.

@@ -26,30 +26,44 @@ const barWin = (): Scene => ({
   floatKinds: ["group"],
 });
 
-describe("lanes(): which spots move another item", () => {
-  it("before the bar's first item moves it; after it, at the end, or at a pitch past it doesn't", () => {
+describe("lanes(): where a spot's drop draws the other items", () => {
+  it("before the bar's first item moves it; after it, at the end, or at a pitch past it, the others stay alike", () => {
     const s = barWin();
     const top = lanes(s, "g", { previous: solve(s) }).lanes.find((l) => l.id === "top")!;
-    expect(top.spots.find((sp) => sp.id === "top/start/^|a")?.moves).toBe(true);
     const after = top.spots.filter((sp) => sp.id.startsWith("top/start/a|") || sp.id.startsWith("top/end/"));
     expect(after.length).toBeGreaterThan(3);
-    for (const sp of after) expect(sp.moves, sp.id).toBe(false);
+    expect(new Set(after.map((sp) => sp.others)).size).toBe(1);
+    expect(top.spots.find((sp) => sp.id === "top/start/^|a")!.others).not.toBe(after[0]!.others);
   });
 
-  it("a spot that moves nothing draws every other item where the layout with the item lifted does", () => {
+  it("the bar's only item moved along it: every pitched spot draws the others alike", () => {
+    const s = barWin();
+    const top = lanes(s, "a", { previous: solve(s) }).lanes.find((l) => l.id === "top")!;
+    const pitched = top.spots.filter((sp) => sp.pitched);
+    expect(pitched.length).toBeGreaterThan(5);
+    expect(new Set(pitched.map((sp) => sp.others)).size).toBe(1);
+  });
+
+  it("two spots with one key draw every other item alike", () => {
     for (const [name, s] of scenes().slice(0, 3))
       for (const id of movable(s)) {
-        const r = lanes(s, id, { previous: solve(s) });
-        const quiet = r.lanes.flatMap((l) => l.spots.filter((sp) => !sp.moves && !sp.home));
-        const layouts = quiet.map((sp) => sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout);
-        // Two quiet spots draw the others alike: a change between them moves only the held item.
-        for (let i = 1; i < layouts.length; i++)
-          for (const [k, it] of Object.entries(layouts[0]!.items)) {
-            const other = layouts[i]!.items[k];
-            if (k === id || it.floating || it.inMenu || !other || other.inMenu) continue;
-            const d = Math.max(Math.abs(it.rect.x - other.rect.x), Math.abs(it.rect.y - other.rect.y), Math.abs(it.rect.width - other.rect.width), Math.abs(it.rect.height - other.rect.height));
-            expect(d, `${name} ${id} ${quiet[i]!.id} ${k}`).toBeLessThan(0.5);
+        const spots = lanes(s, id, { previous: solve(s) }).lanes.flatMap((l) => l.spots.filter((sp) => !sp.home));
+        const first = new Map<string, (typeof spots)[number]>();
+        for (const sp of spots) {
+          const a = first.get(sp.others);
+          if (!a) {
+            first.set(sp.others, sp);
+            continue;
           }
+          const la = a.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout;
+          const lb = sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout;
+          for (const [k, it] of Object.entries(la.items)) {
+            const other = lb.items[k];
+            if (k === id || !other || it.inMenu || other.inMenu) continue;
+            const d = Math.max(Math.abs(it.rect.x - other.rect.x), Math.abs(it.rect.y - other.rect.y), Math.abs(it.rect.width - other.rect.width), Math.abs(it.rect.height - other.rect.height));
+            expect(d, `${name} ${id} ${sp.id} ${k}`).toBeLessThan(1);
+          }
+        }
       }
   });
 });
