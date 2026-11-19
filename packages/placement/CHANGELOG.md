@@ -5,6 +5,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.41
 
+- `./scene`, fixed: **a rail's room opens with its target** (additive). A target on a compact rail, a rail stop or a
+  side bar whose drop moves an item of another edge (an empty toolbar rail pushing the panel column beside it) now
+  carries `opensRoom` (`Target.opensRoom`). With `@n-uf/motion/drag`'s `opensRoom` the indicator and the room come in
+  one frame, so the rail never lies over the column. The room's geometry is unchanged.
+
 - `./scene`, **`use` is idempotent** (behavior change). `use(scene, id)` on an item whose `used` is already strictly
   greater than every other item's gives back the same scene object, so a press on the newest item stores nothing new;
   any other item, or one tied with another, is bumped to the newest age plus one as before. A drop's result is `use`d
