@@ -14,7 +14,7 @@
  *   it was before the press;
  * - the store is `storeScene` / `readScene` (./store).
  */
-import { clamp, contains, type Point, type Rect } from "@n-uf/placement";
+import { clamp, type Point, type Rect } from "@n-uf/placement";
 import { createSettle, SETTLE_TEMPO, type Settle } from "@n-uf/motion";
 import { createDragIntent, previewPlan, type DragIntent, type DragKeys, type DragPreview } from "@n-uf/motion/drag";
 import { anchoredMorph, type AnchoredMorph } from "@n-uf/motion/layout";
@@ -142,7 +142,7 @@ interface Held {
   gliding: boolean;
   /** This drag, frame by frame (the checks read it): the shown target's changes, the snaps, every frame. */
   readonly trace: DragTrace;
-  /** Where a drop is refused (`refusals`): over one, "No room here" at the pointer and no slot; a release goes home. */
+  /** Where a drop is refused (`refusals`): over one, "Can't go here" at the pointer and no slot; a release goes home. */
   readonly refusals: readonly SceneRefusal[];
   /** The same refusals as the intent picks among them (`refusalTargets`): the frame's `refused` says which is under it. */
   readonly refusalTargets: readonly SceneRefusalTarget[];
@@ -231,8 +231,7 @@ export function createScene(o: SceneOptions) {
     <div class="dw-strips" aria-hidden="true"></div>
     <div class="dw-slot" hidden><span class="dw-slot-label"></span></div>
     <div class="dw-marker" hidden></div>
-    <div class="dw-refuse" hidden></div>
-    <div class="dw-refuse-label" hidden>No room here</div>
+    <div class="dw-cant-go" hidden>Can't go here</div>
     <div class="dw-menu-list" role="menu" hidden></div>`;
   const q = <T extends HTMLElement>(sel: string): T => win.querySelector(sel) as T;
   const edgeLayer = q<HTMLDivElement>(".dw-edges");
@@ -243,8 +242,7 @@ export function createScene(o: SceneOptions) {
   const stripLayer = q<HTMLDivElement>(".dw-strips");
   const slotLabel = q<HTMLSpanElement>(".dw-slot-label");
   const marker = q<HTMLDivElement>(".dw-marker");
-  const refuseTint = q<HTMLDivElement>(".dw-refuse");
-  const refuseLabel = q<HTMLDivElement>(".dw-refuse-label");
+  const cantGo = q<HTMLDivElement>(".dw-cant-go");
   const menuList = q<HTMLDivElement>(".dw-menu-list");
 
   const say = (t: string): void => {
@@ -537,21 +535,16 @@ export function createScene(o: SceneOptions) {
     }
     drawStrips(found, null, null);
   }
-  const inside = (r: Rect, p: Point): boolean => contains(r, p, 0);
 
-  /** Over a refusal: the zone tinted, "No room here" at the pointer; elsewhere both hidden. */
-  function showRefusal(r: SceneRefusal | null, p: Point): void {
-    refuseTint.hidden = refuseLabel.hidden = !r;
-    // The host contract's mark: the refusal shown, by its id.
-    if (r) refuseTint.dataset.dragRefusal = r.id;
-    else delete refuseTint.dataset.dragRefusal;
+  /** A refused place is never drawn: while the frame is refused, only "Can't go here" at the pointer. */
+  function sayRefused(r: SceneRefusal | null, p: Point): void {
+    cantGo.hidden = !r;
+    // The host contract's mark: the refusal said at the pointer, by its id.
+    if (r) cantGo.dataset.dragRefusal = r.id;
+    else delete cantGo.dataset.dragRefusal;
     if (!r) return;
-    // A refusal in pieces (a wholly refused bar a target splits): the piece under the pointer is tinted.
-    place(refuseTint, (r.hits ?? [r.hit]).find((h) => inside(h, p)) ?? r.hit);
-    refuseTint.dataset.reason = r.reason;
-    refuseLabel.textContent = r.reason === "no-room" ? "No room here" : r.reason === "own-place" ? "Already its place" : "Can't go here";
-    refuseLabel.style.left = px(p.x + 12);
-    refuseLabel.style.top = px(p.y + 12);
+    cantGo.style.left = px(p.x + 12);
+    cantGo.style.top = px(p.y + 12);
   }
 
   // --- the drag session ----------------------------------------------------------------------------------------------
@@ -835,10 +828,10 @@ export function createScene(o: SceneOptions) {
     }
     d.shown = f.shown;
     // A refused place under the pointer, as the intent picks it (no held target's band covers it): no slot anywhere,
-    // "No room here" at it. A key held wins over geometry: the intent reports no refusal then.
+    // nothing drawn over it, "Can't go here" at the pointer. A key held wins over geometry: the intent reports no refusal then.
     const refused = !homing && f.refused ? (f.refused as SceneRefusalTarget).refusal : null;
     d.refused = refused;
-    showRefusal(refused, d.pointer);
+    sayRefused(refused, d.pointer);
     const s = plan.showIndicator ? f.shown : null;
     if (refused) {
       d.preview = null;
@@ -900,7 +893,7 @@ export function createScene(o: SceneOptions) {
     session.ended();
     d.el.remove();
     showSlot(null);
-    showRefusal(null, d.pointer);
+    sayRefused(null, d.pointer);
     restingStrips();
     const id = d.id;
     let preview = d.preview;
@@ -914,7 +907,7 @@ export function createScene(o: SceneOptions) {
     lastDrop = { id, target: t?.id ?? refused?.id ?? null, place: t?.place.kind ?? null, preview: go ? preview : t?.place.kind === "home" || d.homing ? d.preview : null, landed, committed: go, cancelled: cancel };
     if (go && preview && landed && !sameRect(preview, landed)) say(`${titleOf(id)} → ${labelOf(t!)}, but it landed off its slot.`);
     else if (go) say(`${titleOf(id)} → ${labelOf(t!)}.`);
-    else say(cancel ? "Cancelled: back where it was." : refused ? "No room here: back where it was." : t?.place.kind === "none" ? "No drop here." : d.homing || t?.place.kind === "home" ? "Back in its place." : "No target: it went home.");
+    else say(cancel ? "Cancelled: back where it was." : refused ? "Can't go here: back where it was." : t?.place.kind === "none" ? "No drop here." : d.homing || t?.place.kind === "home" ? "Back in its place." : "No target: it went home.");
     if (d.focus instanceof HTMLElement && d.focus.isConnected) d.focus.focus({ preventScroll: true });
     return lastDrop;
   }
@@ -1413,7 +1406,7 @@ export function createScene(o: SceneOptions) {
       if (!d) return null;
       return { formKind: d.current.formKind, axis: d.current.axis, target: d.formOf, switches: d.switches, settled: d.morph.settled, progress: d.morph.progress, pointer: d.pointer, frame: d.el, el: d.current.el };
     },
-    /** The refusal under the pointer during a drag ("No room here"), or none. */
+    /** The refusal under the pointer during a drag ("Can't go here"), or none. */
     get refused(): SceneRefusal | null {
       return drag?.refused ?? null;
     },

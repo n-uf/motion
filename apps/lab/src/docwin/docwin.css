@@ -212,15 +212,14 @@
 .dw-railstrip[data-armed] { background: var(--signal-soft); outline: 2px solid var(--signal); }
 @media (prefers-reduced-motion: reduce) { .dw-railstrip { transition: none; } }
 .dw[data-reduced-motion] .dw-railstrip { transition: none; }
-/* Over a refused zone: the zone tinted and "No room here" at the pointer, no slot anywhere. */
-.dw-refuse { position: absolute; z-index: 5; pointer-events: none; border-radius: 6px; background: color-mix(in srgb, var(--win-muted) 18%, transparent); outline: 1px solid color-mix(in srgb, var(--win-muted) 45%, transparent); }
-.dw-refuse-label { position: absolute; z-index: 7; pointer-events: none; padding: 2px 6px; border-radius: 4px; background: var(--bg-raised); border: 1px solid var(--win-edge); color: var(--win-muted); font-size: 11px; white-space: nowrap; }
+/* Over a refused place: nothing drawn on it, only "Can't go here" at the pointer. */
+.dw-cant-go { position: absolute; z-index: 7; pointer-events: none; padding: 2px 6px; border-radius: 4px; background: var(--bg-raised); border: 1px solid var(--win-edge); color: var(--win-muted); font-size: 11px; white-space: nowrap; }
 /* An edge's » menu, open: the items it holds, in order. */
 .dw-menu-list { position: absolute; z-index: 8; display: flex; flex-direction: column; min-width: 140px; padding: 4px; border-radius: 6px; background: var(--bg-raised); border: 1px solid var(--win-edge); box-shadow: 0 6px 18px rgb(0 0 0 / 0.18); }
 .dw-menu-list button { text-align: left; padding: 4px 8px; border: 0; border-radius: 4px; background: none; font: inherit; color: inherit; cursor: pointer; }
 .dw-menu-list button:hover { background: var(--accent-soft); }
 .dw-menu-list[hidden] { display: none; }
-.dw-slot[hidden], .dw-marker[hidden], .dw-resize[hidden], .dw-bar[hidden], .dw-colbg[hidden], .dw-refuse[hidden], .dw-refuse-label[hidden] { display: none; }
+.dw-slot[hidden], .dw-marker[hidden], .dw-resize[hidden], .dw-bar[hidden], .dw-colbg[hidden], .dw-cant-go[hidden] { display: none; }
 
 /* The drag session (host contract): while a drag is on, nothing under the root takes hover, a resize handle or a
    selection; the session listens on the window and draws the slot from its shown target only. */

@@ -1211,8 +1211,8 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "full-title-no-room",
-    title: "A full title bar: \"No room here\", no distant slot",
-    expected: "With Review, Views and Zoom in the title bar, Tools held over each third of it shows \"No room here\" at the pointer, the zone tinted, and no slot anywhere; let go there, Tools goes back home.",
+    title: "A full title bar: \"Can't go here\" at the pointer, nothing drawn on the bar",
+    expected: "With Review, Views and Zoom in the title bar, Tools held over each third of it shows \"Can't go here\" at the pointer, with no tint, outline or label over the refused place and no slot anywhere; let go there, Tools goes back home.",
     setup: (c) => c.setScene(sceneWith((s) => put(s, "title", ["review", "views", "zoom"]))),
     check(c) {
       const bad: string[] = [];
@@ -1220,19 +1220,23 @@ export const PRESETS: readonly Preset[] = [
         c.setScene(sceneWith((s) => put(s, "title", ["review", "views", "zoom"])));
         const before = rectOf(c, "tools");
         const bar = c.layout.edges.title!.rect;
-        const h = mouseHold(c, "tools", { x: bar.x + ((k + 0.5) * bar.width) / 3, y: bar.y + bar.height / 2 });
+        const at = { x: bar.x + ((k + 0.5) * bar.width) / 3, y: bar.y + bar.height / 2 };
+        const h = mouseHold(c, "tools", at);
         const refused = c.refused;
-        const tint = c.win.querySelector<HTMLElement>(".dw-refuse");
-        const label = c.win.querySelector<HTMLElement>(".dw-refuse-label");
+        const marks = [...c.win.querySelectorAll<HTMLElement>("[data-drag-refusal]")];
+        const label = c.win.querySelector<HTMLElement>(".dw-cant-go");
         const slotShown = !c.win.querySelector<HTMLElement>(".dw-slot")!.hidden;
         if (!refused || refused.reason !== "no-room") bad.push(`third ${k + 1}: ${refused ? refused.reason : "no refusal"} (shown ${c.shown?.id ?? "nothing"})`);
-        if (tint?.hidden || label?.hidden || label?.textContent !== "No room here") bad.push(`third ${k + 1}: no tint or label`);
+        // The one mark of the refusal is the message: nothing is laid over the refused place.
+        if (marks.length !== 1 || marks[0] !== label) bad.push(`third ${k + 1}: ${marks.length} refusal marks, not just the message`);
+        if (!label || label.hidden || label.textContent !== "Can't go here") bad.push(`third ${k + 1}: no "Can't go here"`);
+        else if (Math.abs(parseFloat(label.style.left) - (at.x + 12)) > 1 || Math.abs(parseFloat(label.style.top) - (at.y + 12)) > 1) bad.push(`third ${k + 1}: the message isn't at the pointer`);
         if (slotShown) bad.push(`third ${k + 1}: a slot shows`);
         h.up();
         const d = c.lastDrop;
         if (d?.committed || !sameRect(rectOf(c, "tools"), before)) bad.push(`third ${k + 1}: the release moved Tools`);
       }
-      return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "No room here over each third, no slot, Tools back home." };
+      return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "\"Can't go here\" at the pointer over each third, nothing drawn on the bar, no slot, Tools back home." };
     },
   },
   {
