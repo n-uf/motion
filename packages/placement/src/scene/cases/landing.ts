@@ -451,9 +451,9 @@ export const LANDING_CASES: readonly LandingCase[] = [
     scene: landingWindow(),
     item: "a",
     path: [
-      { x: 176, y: 18 },
+      { x: 196, y: 18 },
       { x: 500, y: 300 },
-      { x: 176, y: 18 },
+      { x: 196, y: 18 },
     ],
     speed: 0.6,
     rest: 80,

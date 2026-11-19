@@ -114,9 +114,13 @@ export interface LaneOptions extends SceneTargetOptions {
   readonly spot?: string;
   /**
    * Where the pointer holds the item, from its top left corner as it is now, px (what a target's `after(point, grab)`
-   * takes). On a bar or a toolbar rail the cut between two spots lies halfway between the points the pointer would hold
-   * in each landing, at the same share of its length, so a pointer back at its press point picks the item's own place.
-   * Default: the item's middle. Panel columns take a panel by halves of what is drawn either way.
+   * takes): the press's, constant for the drag (each grab is remembered as its own options), and the same in the call
+   * with `spot`. It counts along the item's own length only (its longer side as it is now): on a bar or a toolbar rail
+   * along that axis the cut between two spots lies halfway between the points the pointer would hold in each landing
+   * (with landings of one length; at the same share of each), so a pointer back at its press point picks the item's own
+   * place. Across the item, and in a lane across its length (a rail toolbar over a bar), it is the item's middle, as
+   * without a grab. Panel columns take a panel by halves of what is drawn either way. Where another lane's band
+   * overlaps the press point (an empty bar's band over a rail's end) that lane can still take the pointer first.
    */
   readonly grab?: { readonly x: number; readonly y: number };
 }
@@ -267,9 +271,13 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
   // Panel columns take a panel by halves of the panels drawn; bars and toolbar rails by the gap between landings.
   const halves = new Set(scene.edges.filter((e) => (e.side === "left" || e.side === "right") && !e.compact).map((e) => e.id));
-  // Where the pointer holds the item, as a share of its size now: a landing of another length is held at the same share.
+  // Where the pointer holds the item, as a share of its length now, along its own length only (its longer side): a
+  // landing of another length along that axis is held at the same share; across the item, where the share says only
+  // where across a thin rail or bar it was pressed, the middle.
   const shareOf = (g: number | undefined, size: number): number => (g === undefined || !Number.isFinite(g) || size <= EPS ? 0.5 : clamp(g / size, 0, 1));
-  const share = { x: shareOf(options.grab?.x, own?.rect.width ?? 0), y: shareOf(options.grab?.y, own?.rect.height ?? 0) };
+  const w = own?.rect.width ?? 0;
+  const h = own?.rect.height ?? 0;
+  const share = { x: w >= h ? shareOf(options.grab?.x, w) : 0.5, y: h > w ? shareOf(options.grab?.y, h) : 0.5 };
   const laneList = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share)).filter((l): l is Lane => !!l);
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));

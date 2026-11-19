@@ -1020,11 +1020,15 @@ drag of `id`:
   each in its own layout: wherever the pointer is, it is at the landing it picks or no nearer the other, so a toolbar
   moved along an occupied bar stays at the hand (within half the difference of its and its neighbor's lengths, plus
   the 6 px margin). Pass `options.grab`, where the pointer holds the item (its offset from the item's top left, as a
-  target's `after(point, grab)` takes it): on a bar or a toolbar rail that gap is then measured at the grab, halfway
-  between the points the pointer would hold in each landing, so a pointer brought back to its press point picks the
-  item's own place however far from its middle it was pressed. Without it the item's middle is the grab, and a toolbar
-  pressed near one end can come back to a free-stretch spot beside its own place. Panel columns cut by halves
-  whatever the grab. Every cut lies inside its lane, in order. A spot's `others` keys where its drop draws every item but
+  target's `after(point, grab)` takes it; the press's, constant for the drag, in both calls, with and without `spot`):
+  on a bar or a toolbar rail along the item's own length that gap is then measured at the grab, halfway between the
+  points the pointer would hold in each landing (with landings of one length), so a pointer brought back to its press
+  point picks the item's own place however far from its middle it was pressed. Across the item, and in a lane across
+  its length (a rail toolbar over a bar), the middle counts, as without a grab. Without it the item's middle is the
+  grab, and a toolbar pressed near one end can come back to a free-stretch spot beside its own place. Panel columns cut
+  by halves whatever the grab. One case it doesn't settle: where another lane's band overlaps the press point (an
+  empty bar's band over the end of a rail), that lane can take the pointer first. Every cut lies inside its lane, in
+  order. A spot's `others` keys where its drop draws every item but
   the held one: a change between two spots with the same key moves only the held item, so a model gates only changes
   between spots whose keys differ (that reflow the window).
 - `marks` per lane, the place guides in the layout as drawn (the held spot's, with `options.spot`): a `line` across the
@@ -1675,7 +1679,7 @@ const skipped = results.filter((r) => r.skipped).length;
 expect(lanesRatchet({ skipped, baseline: 0, today: new Date().toISOString().slice(0, 10) })).toEqual([]);
 ```
 
-Every landing row carries `requires: { lanes: { since: LANES_SINCE } }`, the first version with `lanes()` (26.11.45;
+Every landing row carries `requires: { lanes: { since } }`: `LANES_SINCE`, the first version with `lanes()` (26.11.45;
 26.11.21 to 26.11.44, `LAST_WITHOUT_LANES`, shipped without it), or a later one where the row needs more: the rows
 that bring an item back to its press point need `GRAB_SINCE` (26.11.46, `lanes()` taking the grab), and pass only on a
 host that passes its grab to `lanes()`. A host that says it runs an older `version` skips a row. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
