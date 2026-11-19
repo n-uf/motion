@@ -2,7 +2,7 @@
 import { createDragIntent, DRAG_DEFAULTS, type DragTarget } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Rect } from "../src/geometry";
-import { EDGE_ROOM_HOLD, solve, targets, type Scene } from "../src/scene";
+import { EDGE_ROOM_HOLD, refusals, refusalTargets, solve, targets, type Scene } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { modelScene } from "./model-scene";
 import { bar, byId, column, group, panel } from "./scene-fixture";
@@ -215,5 +215,56 @@ describe("a target that changes an edge's thickness holds in its hit and landing
     let f = intent.update({ x: rail.roomHit!.x + rail.roomHit!.width + 30, y: 400 }, (t += 16), list);
     f = intent.update({ x: rail.roomHit!.x + rail.roomHit!.width + 30, y: 400 }, (t += 16), list);
     expect(f.shown?.id ?? null).not.toBe(rail.id);
+  });
+});
+
+describe("an empty bar over columns that refuse the item", () => {
+  // An empty top bar 31 px deep across the window, a panel column on each side that takes no group, a group in the
+  // bottom bar: the bar's strip runs over the column heads.
+  const kitLike = (): Scene => ({
+    stage: { x: 0, y: 0, width: 1440, height: 800 },
+    edges: [
+      bar("top", "top", 0, [], { cross: { min: 31, max: 31, rail: 31 } }),
+      bar("bottom", "bottom", 0, ["g"], { cross: { min: 31, max: 31, rail: 31 } }),
+      column("left-0", "left", 1, ["p"], { column: true, accepts: ["panel"] }),
+      column("right-0", "right", 1, ["q"], { column: true, accepts: ["panel"] }),
+    ],
+    items: byId([panel("p", 1), panel("q", 2), group("g", 3)]),
+    floats: [],
+    floatKinds: ["group", "panel"],
+  });
+
+  it("its strip is entered over the bar's drawn depth, over the column heads too, and no refusal lies there", () => {
+    const s = kitLike();
+    const l = solve(s);
+    const ts = targets(s, "g");
+    const strips = ts.filter((t) => t.id.startsWith("strip:top:"));
+    expect(strips.length).toBe(3);
+    const depth = strips[0]!.after({ x: 0, y: 0 }).layout.edges.top!.cross;
+    expect(depth).toBe(31);
+    for (const t of strips) expect([t.id, t.hit.y, t.hit.height]).toEqual([t.id, 0, depth]);
+    const head = l.edges["left-0"]!.rect;
+    for (const r of refusals(s, "g")) for (const h of r.hits ?? [r.hit]) expect(h.y >= depth - 1e-6 || h.y + h.height <= 0 || h.x >= head.x + head.width || h.x + h.width <= head.x, r.id).toBe(true);
+  });
+
+  it("a held group wobbling about y 12 to 24 over a column head never reads refused once the strip shows", () => {
+    const s = kitLike();
+    const list = [...targets(s, "g"), ...refusalTargets(refusals(s, "g"))] as unknown as DragTarget[];
+    const home = solve(s).items.g!.rect;
+    const head = solve(s).edges["left-0"]!.rect;
+    const x = head.x + head.width / 2;
+    const intent = createDragIntent<DragTarget>({ home, lift: { x: home.x + 4, y: home.y + 4 } });
+    let t = 0;
+    intent.update({ x: home.x + 4, y: home.y + 4 }, t, list);
+    for (let y = 40; y >= 18; y--) intent.update({ x, y }, (t += 16), list);
+    for (let k = 0; k < 20; k++) intent.update({ x, y: 18 }, (t += 16), list);
+    let refused = 0;
+    let shown = 0;
+    for (let k = 0; k < 60; k++) {
+      const f = intent.update({ x, y: 12 + (k % 13) }, (t += 16), list);
+      if (f.refused) refused++;
+      if (f.shown?.id.startsWith("strip:top:")) shown++;
+    }
+    expect([refused, shown]).toEqual([0, 60]);
   });
 });
