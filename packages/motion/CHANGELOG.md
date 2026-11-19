@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## 26.11.41
+## 26.11.42
 
 - `./drag`, docs: **a refused place is never drawn.** `frame.refused` is unchanged; the docs now say a host draws
   nothing over the refused place and may say "Can't go here" at the pointer while it is set.
@@ -16,6 +16,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   draws only a marker opens the room on `frame.room && frame.shown?.opensRoom`. An armed spring-loaded target now
   has its room in the frame that shows it, about 160 ms earlier than before. `roomAfter` stays, with its default, for
   every other target.
+
+## 26.11.41
 
 - `./drag`, fixed: **a floating item's own place loses to a refusal and ends at the window's edge.** Home gated every
   pick, refusals included, so a float whose box lay over a refused place, lifted and let go there, was over home (no
