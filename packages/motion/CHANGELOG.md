@@ -18,6 +18,11 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.42
 
+- `./drag`, **`earlyRelease`** (additive). `DragIntentOptions.earlyRelease` says what a release does before the item has
+  settled on a target. `"target"`, the default, is today's behaviour: it lands on the shown target, else the one under
+  the pointer, an `opensRoom` target that hasn't shown included. `"float"` makes what shows what lands: until the room
+  is open the item is on the pointer, so it floats there; over a refusal or outside the float's `bounds` it lands nowhere.
+
 - `./drag`, docs: **a refused place is never drawn.** `frame.refused` is unchanged; the docs now say a host draws
   nothing over the refused place and may say "Can't go here" at the pointer while it is set.
 
