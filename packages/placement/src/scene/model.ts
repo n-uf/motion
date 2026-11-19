@@ -392,6 +392,13 @@ export interface Scene {
    */
   readonly railDrop?: Readonly<Partial<Record<Kind, RailDropPolicy>>>;
   /**
+   * `"end"`: a column drawn as a rail (all its members collapsed, shown as title tiles, on a side with no declared
+   * `rails` entry) is one drop place for a kind its start zone takes, over its whole length, after its last member. The
+   * item keeps its state: an open one opens the column at full size, a collapsed one becomes the last tile. Absent: a
+   * gap at each position, as for an open column. A declaration, like `zoneAccepts`: never stored.
+   */
+  readonly foldedColumnDrop?: "end";
+  /**
    * The least the content may be. While the content is narrower than `width`, dynamic columns shrink toward their
    * minimum, then fold whole into their side's rail: unkept before kept, the one whose newest use is oldest first, the
    * outer first, the left first. Under `height`, a `content-short` note.

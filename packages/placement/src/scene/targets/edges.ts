@@ -256,7 +256,10 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
   // offers.
   const ownNow = now.items[dragged];
   const ownHere = ownNow && ownNow.edge === edge.id && !ownNow.floating && area(ownNow.rect) > EPS ? ownNow.rect : null;
-  const slots = edgeSlots(c, edge, accepts);
+  // A column drawn as a rail, under `Scene.foldedColumnDrop: "end"`: its whole length is one place, after its last member.
+  const oneEnd = scene.foldedColumnDrop === "end" && column && el.tabs.length > 0 && zoneTakes(edge, "start", kind);
+  const allSlots = edgeSlots(c, edge, accepts);
+  const slots = oneEnd ? allSlots.filter((s) => s.zone === "start").sort((a, b) => a.line - b.line).slice(-1) : allSlots;
   const spanOf = (r: Rect): Span => [at(r), at(r) + len(r)];
   // The edge's reserved rects along it (its fixed items; a growing one's natural rect): no slot's tile lies there.
   // A growing one (a title) is not: its text is a stretch of the gap just after it.
@@ -267,11 +270,13 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
   const cards: Span[] = Object.entries(now.items)
     .filter(([id, p]) => id !== dragged && p.edge === edge.id && !p.fixed && !p.inMenu && !p.floating && area(p.rect) > EPS)
     .map(([, p]) => spanOf(p.rect));
-  const zones =zoneSpans(scene, now, edge, c.reach, (zone) => {
-    const s = slots.find((x) => x.zone === zone && x.place.kind === "gap" && x.place.at === 0);
-    const me = s?.result.layout.items[dragged];
-    return me && me.edge === edge.id && me.zone === zone ? spanOf(me.rect) : null;
-  });
+  const zones = oneEnd
+    ? [{ zone: "start" as const, a: at(el.rect) - c.reach, b: at(el.rect) + len(el.rect) + c.reach }]
+    : zoneSpans(scene, now, edge, c.reach, (zone) => {
+        const s = slots.find((x) => x.zone === zone && x.place.kind === "gap" && x.place.at === 0);
+        const me = s?.result.layout.items[dragged];
+        return me && me.edge === edge.id && me.zone === zone ? spanOf(me.rect) : null;
+      });
 
   // Across: the band from the edge's outer side, as deep as the edge (seen or after the drop) or an empty edge's strip.
   const r = el.rect;
