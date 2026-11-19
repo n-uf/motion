@@ -9,10 +9,13 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   a host draws nothing there and may say "Can't go here" at the pointer while the frame's `refused` is set. The
   refusals and `refusalTargets` are unchanged.
 
-- `./scene`, fixed: **a rail's room opens with its target** (additive). A target on a compact rail, a rail stop or a
-  side bar whose drop moves an item of another edge (an empty toolbar rail pushing the panel column beside it) now
-  carries `opensRoom` (`Target.opensRoom`). With `@n-uf/motion/drag`'s `opensRoom` the indicator and the room come in
-  one frame, so the rail never lies over the column. The room's geometry is unchanged.
+- `./scene`, fixed: **a target's room opens with it where its indicator would cover what moves** (additive). A target
+  whose slot overlaps an item of another edge that its drop moves (an empty toolbar rail pushing the panel column, a
+  new-column line, a bar's strip over the columns) now carries `opensRoom` (`Target.opensRoom`). With
+  `@n-uf/motion/drag`'s `opensRoom` the indicator and the room come in one frame, after `roomAfter`, so these targets
+  show later than they did, and never over what they move. A rail target against the window's left or right edge waits
+  less: `roomHold` is `EDGE_RAIL_ROOM_HOLD` (70 ms, new). A release before the target shows still lands on it. A host
+  that draws only a marker opens the room on `frame.room && frame.shown?.opensRoom`. The room's geometry is unchanged.
 
 - `./scene`, **`use` is idempotent** (behavior change). `use(scene, id)` on an item whose `used` is already strictly
   greater than every other item's gives back the same scene object, so a press on the newest item stores nothing new;
