@@ -80,7 +80,7 @@ function drive(c: DocwinScene, id: ItemId, build: (grip: Point) => Key[], at: { 
     const trace = c.trace!;
     // The trace's times from the path's start, as the keys are.
     const rel = <E extends { t: number }>(xs: readonly E[]): E[] => xs.map((e) => ({ ...e, t: e.t - T0 }));
-    return { trace: { log: rel(trace.log), snaps: rel(trace.snaps), frames: rel(trace.frames) }, drop: c.lastDrop, atRelease };
+    return { trace: { log: rel(trace.log), snaps: rel(trace.snaps), frames: rel(trace.frames), rooms: rel(trace.rooms) }, drop: c.lastDrop, atRelease };
   } finally {
     c.drive(false);
   }
@@ -187,6 +187,40 @@ function gated(tr: DragTrace): string | null {
 
 export function INTENT_PRESETS(): IntentPreset[] {
   return [
+    intentCase(
+      "intent-rail-room",
+      "A rail's room opens with its target, at either window edge",
+      "Tools dragged to the left and to the right window edge and held there: the frame that first shows the rail's target already draws the room, the panel column moved aside, and no frame shows the rail without it. The rail target shows once it has held the room delay.",
+      (c) => {
+        const bad: string[] = [];
+        const said: string[] = [];
+        for (const side of ["left", "right"] as const) {
+          c.setScene(defaultScene());
+          const stage = c.scene.stage;
+          let arrived = 0;
+          const r = drive(c, "tools", (g) => {
+            const there = through([g, { x: side === "left" ? stage.x + 2 : stage.x + stage.width - 2, y: stage.y + stage.height / 2 }], 1.2);
+            arrived = there.at(-1)![0];
+            return hold(there, 500);
+          });
+          if (!r) {
+            bad.push(`${side}: the drag never lifted`);
+            continue;
+          }
+          const onRail = r.trace.rooms.filter((f) => f.shown?.includes(`:rail-${side}:`));
+          const first = onRail[0];
+          const late = onRail.filter((f) => f.room !== f.shown).length;
+          if (!first) bad.push(`${side}: no rail target showed (${sequence(r.trace)})`);
+          else {
+            said.push(`${side}: shown with its room ${Math.round(first.t - arrived)} ms after arriving`);
+            if (first.t - arrived < DRAG_DEFAULTS.roomAfter - 2 * FRAME) bad.push(`${side}: it showed ${Math.round(first.t - arrived)} ms after arriving, before the hold`);
+          }
+          if (late) bad.push(`${side}: ${late} frames show the rail without its room`);
+          if (!r.drop?.committed) bad.push(`${side}: the drop didn't land`);
+        }
+        return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : `${said.join("; ")}; no frame without it.` };
+      },
+    ),
     intentCase(
       "intent-wobble",
       "A 14 px wobble on a border changes the indicator at most once",

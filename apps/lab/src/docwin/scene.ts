@@ -169,6 +169,8 @@ export interface DragTrace {
   readonly log: { readonly id: string | null; readonly t: number }[];
   readonly snaps: { readonly id: string | null; readonly t: number; readonly flying: boolean }[];
   readonly frames: { readonly t: number; readonly x: number; readonly y: number; readonly speed: number; readonly item: Rect }[];
+  /** Each frame's shown target and the target the others make room for (the layout drawn is its `after`). */
+  readonly rooms: { readonly t: number; readonly shown: string | null; readonly room: string | null }[];
 }
 
 export interface SceneOptions {
@@ -715,7 +717,7 @@ export function createScene(o: SceneOptions) {
       drawn: createSettle<Rect>({ x: p.x - grab.x, y: p.y - grab.y, width: was.rect.width, height: was.rect.height }, { omega: SETTLE_TEMPO.default }),
       snappedTo: null,
       gliding: false,
-      trace: (lastTrace = { log: [], snaps: [], frames: [] }),
+      trace: (lastTrace = { log: [], snaps: [], frames: [], rooms: [] }),
       refusals: refused0,
       refusalTargets: refusalTargets(refused0),
       focus: document.activeElement,
@@ -806,6 +808,7 @@ export function createScene(o: SceneOptions) {
       else if (f.arming) say(`${titleOf(d.id)} over the ${f.arming.place.kind === "rail" ? f.arming.place.side : ""} rail: hold still to collapse it there.`);
     }
     const room = plan.makeRoom && docks(f.shown) ? f.shown : null;
+    d.trace.rooms.push({ t: now, shown: f.shown?.id ?? null, room: room?.id ?? null });
     const homing = f.atHome && d.docked && f.shown === null;
     // A toolbar group held over a target takes the form the drop there gives it (row, wrap, icons down a rail or along
     // a bar); off every target, the form it was lifted in. One switch per target change, the grip under the pointer.
