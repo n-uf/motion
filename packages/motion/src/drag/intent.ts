@@ -33,7 +33,10 @@ export interface DragTuning {
   readonly gapGrace: number;
   /** Aiming, the shown target moves to another one only once that one has held this long. */
   readonly switchHold: number;
-  /** Room is made once the shown target, and the place in it, have held this long. */
+  /**
+   * Room is made once the shown target, and the place in it, have held this long, so a pointer moving across targets
+   * doesn't reflow the layout under it. A target with `opensRoom` holds this long before it shows, its room with it.
+   */
   readonly roomAfter: number;
   /** The pointer has left the item's home once it is outside the home shrunk by this much on every side. */
   readonly homeInset: number;
@@ -146,6 +149,12 @@ const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
  * edge picks a gap whose hit reaches the edge, else nothing (a held target keeps its band), and never a refusal or the
  * float. The rule relies on the host clamping exactly onto the stage's edge (`x + width`, `y + height`): a host that
  * clamps to `width - 0.5` still picks inside the window, the float or a refusal there included.
+ *
+ * `opensRoom: true` marks a target whose indicator would lie over what its room moves (a side rail that pushes a column
+ * aside). Showing it and making its room are then one decision: it shows only once it has held `roomAfter` ms, and the
+ * frame that first shows it already has `room`. A sweep across it moves nothing, as for any target, and no frame draws
+ * it over the column. Until it shows, a release still lands on it. An armed spring-loaded target has its room at once
+ * too: its dwell was the decision.
  */
 export interface DragTarget {
   readonly id: string;
@@ -159,6 +168,7 @@ export interface DragTarget {
   readonly armedHit?: Rect;
   readonly refuse?: true;
   readonly bounds?: Rect;
+  readonly opensRoom?: true;
 }
 
 /**
@@ -251,7 +261,10 @@ export function liftDecision(press: { readonly touch: boolean; readonly distance
 export interface DragFrame<T extends DragTarget> {
   /** The target the drop indicator shows, or null. */
   readonly shown: T | null;
-  /** The others make room for the shown target: it, and the place in it, have held `roomAfter` ms. */
+  /**
+   * The others make room for the shown target: it, and the place in it, have held `roomAfter` ms. For a target with
+   * `opensRoom`, or an armed spring-loaded one, from the first frame that shows it.
+   */
   readonly room: boolean;
   /**
    * The place the room is made for, or null. Within one target it stays on
@@ -410,7 +423,9 @@ export interface DragIntent<T extends DragTarget> {
  *   indicator shows for less than that), at once for a breakthrough. A target
  *   kept only by the gap grace can keep the indicator, never show it.
  * - Room is made once the shown target has held `roomAfter` ms, never for a
- *   free target, and closes at once when it changes.
+ *   free target, and closes at once when it changes. A target with `opensRoom`
+ *   holds that long before it shows and has its room in the same frame; an
+ *   armed spring-loaded target has its room as it shows.
  * - Where `placeOf` gives a target no place (null), it is no target: it is
  *   neither shown nor landed on there.
  * - Spring-loading: a target marked `arm: "dwell"` is no target until the
@@ -594,10 +609,13 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       };
       // Under the pointer (within its band), not just kept by the gap grace.
       const under = !!cur && inZoneBy(cur, p, bandOf(cur));
+      // A target that opens its room as it shows shows only once it has held `roomAfter`: one decision for both, so a
+      // sweep moves nothing and the indicator never lies over what the room will move. An armed one has had its dwell.
+      const ready = (x: T): boolean => x.opensRoom !== true || x.arm === "dwell" || t - curSince >= tuning.roomAfter;
       // A shown target with no place here is no drop: the indicator hides at once (the switch hold is for targets).
       if (shown && !live(shown)) show(null);
       if (!shown) {
-        if (cur && under && leftHome && aiming) show(cur);
+        if (cur && under && leftHome && aiming && ready(cur)) show(cur);
       } else if (same(cur, shown)) {
         // It stays while its target holds; but a pointer flying out past the band hides it at once.
         if (!aiming && !under) show(null);
@@ -605,7 +623,8 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       } else if (!cur || !aiming) {
         show(null);
       } else if ((cur.priority < shown.priority && (shown.free === true || pastBreakthrough(cur))) || (under && t - curSince >= tuning.switchHold)) {
-        show(cur);
+        // Not ready yet: the old indicator goes, and a release lands on the target under the pointer.
+        show(ready(cur) ? cur : null);
       }
       // An armed target shows at once: the dwell was the aim. A key held wins over all of it.
       if (armedNow && cur?.id === armedId && under) show(cur);
@@ -615,13 +634,15 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         cur = forced.target;
         show(forced.target);
       }
-      // The place within the shown target, and the room: after the target and the place have both held.
+      // The place within the shown target, and the room: after the target and the place have both held; with the target
+      // itself where showing it was already that decision (`opensRoom`, an armed target's dwell).
       const at = shown ? placeAt(shown) : null;
       if (at !== place) {
         place = at;
         placeSince = t;
       }
       if (!shown || shown.free) roomPlace = null;
+      else if (shown.opensRoom === true || shown.arm === "dwell") roomPlace = place;
       else if (t - shownSince >= tuning.roomAfter && t - placeSince >= tuning.roomAfter) roomPlace = place;
       else if (shownSince === t) roomPlace = null;
       lastPlaces = places;

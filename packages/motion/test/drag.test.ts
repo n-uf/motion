@@ -1039,6 +1039,70 @@ describe("drag/ the float key chooses the float over dock targets, not over refu
   });
 });
 
+describe("drag/ a target that opens its room", () => {
+  const rail: DragTarget = { id: "strip:rail-left:center", priority: 2, hit: rect(0, 0, 40, 800), opensRoom: true };
+  const gap: DragTarget = { id: "gap:left:start:1", priority: 2, hit: rect(100, 300, 200, 40) };
+  const float: DragTarget = { id: "float", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true };
+  const start = () => createDragIntent<DragTarget>({ home: rect(600, 0, 100, 30), lift: { x: 650, y: 15 } });
+  /** Frames held at `p` from `t`, 16 ms apart: when each first showed, and whether room came with it. */
+  const hold = (intent: ReturnType<typeof start>, list: readonly DragTarget[], p: { x: number; y: number }, from: number, n = 30) => {
+    const frames = Array.from({ length: n }, (_, k) => ({ t: from + 16 * (k + 1), f: intent.update(p, from + 16 * (k + 1), list) }));
+    return { frames, first: frames.find((x) => x.f.shown), roomAt: frames.find((x) => x.f.room) };
+  };
+
+  it("shows after roomAfter, and the frame that first shows it has its room", () => {
+    const intent = start();
+    intent.update({ x: 650, y: 15 }, 0, [rail, gap]);
+    const { frames, first, roomAt } = hold(intent, [rail, gap], { x: 20, y: 400 }, 0);
+    expect(first!.f.shown!.id).toBe(rail.id);
+    expect(first!.t).toBeGreaterThanOrEqual(DRAG_DEFAULTS.roomAfter);
+    expect(roomAt!.t).toBe(first!.t);
+    expect(first!.f.roomPlace).toBe(rail.id);
+    for (const x of frames) expect(x.f.room, `t ${x.t}`).toBe(!!x.f.shown);
+  });
+
+  it("an armed spring-loaded rail target has its room in the frame that first shows it", () => {
+    const armed: DragTarget = { id: "rail:left:0", priority: 1, hit: rect(0, 0, 32, 800), arm: "dwell" };
+    const intent = start();
+    intent.update({ x: 650, y: 15 }, 0, [armed, float]);
+    const { first } = hold(intent, [armed], { x: 16, y: 400 }, 0);
+    expect([first!.f.shown!.id, first!.f.room]).toEqual([armed.id, true]);
+  });
+
+  it("a sweep across it moves nothing and shows nothing", () => {
+    const intent = start();
+    intent.update({ x: 650, y: 15 }, 0, [rail, gap]);
+    let t = 0;
+    for (const y of [100, 104, 108, 112, 116, 120, 124]) {
+      const f = intent.update({ x: 20, y }, (t += 16), [rail, gap]);
+      expect([f.shown, f.room]).toEqual([null, false]);
+    }
+    const away = intent.update({ x: 400, y: 600 }, (t += 16), [rail, gap]);
+    expect([away.shown, away.room]).toEqual([null, false]);
+  });
+
+  it("before it shows, a release lands on it; a float shown before it gives way at once", () => {
+    const intent = start();
+    let t = 0;
+    intent.update({ x: 650, y: 15 }, t, [rail, float]);
+    let f = intent.update({ x: 400, y: 400 }, (t += 16), [rail, float]);
+    for (let k = 0; k < 12; k++) f = intent.update({ x: 400, y: 400 }, (t += 16), [rail, float]);
+    expect(f.shown?.id).toBe("float");
+    f = intent.update({ x: 20, y: 400 }, (t += 16), [rail, float]);
+    f = intent.update({ x: 20, y: 400 }, (t += 16), [rail, float]);
+    expect([f.shown, f.room]).toEqual([null, false]);
+    expect(intent.release({ x: 20, y: 400 }, [rail, float])?.id).toBe(rail.id);
+  });
+
+  it("a target without it is unchanged: it shows first, its room follows after roomAfter", () => {
+    const intent = start();
+    intent.update({ x: 650, y: 15 }, 0, [gap]);
+    const { first, roomAt } = hold(intent, [gap], { x: 200, y: 320 }, 0);
+    expect(first!.t).toBeLessThan(DRAG_DEFAULTS.roomAfter);
+    expect(roomAt!.t - first!.t).toBeGreaterThanOrEqual(DRAG_DEFAULTS.roomAfter);
+  });
+});
+
 describe("drag/ a floating item's own place is a free placement", () => {
   // A window 1400 × 800 with a refused bar along the bottom; a float whose box (home) lies over the bar's rim.
   const stage = rect(0, 0, 1400, 800);
