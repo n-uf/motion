@@ -1246,10 +1246,18 @@ facing halves is home's, and is no target of its own. The slot is where the item
   columns) carries `opensRoom`, and the drag intent shows it and reports `room` in the same frame. An item of the edge
   the dragged item leaves counts when the drop pushes it, not when it only closes up over that place; the items of the
   edge dropped on never do, so a gap between a column's cards is a plain gap. The wait depends on the target: `roomHold`
-  = `EDGE_ROOM_HOLD` (70 ms) on a rail target or a new-column line against the window's left or right edge; the intent's
-  `roomAfter` (160 ms) on any other; on a rail drop strip's target, also marked, none past the dwell that arms it. A
-  release before it shows still lands on it. A host that draws only a marker opens the room on
-  `frame.room && frame.shown?.opensRoom`, for every one of them.
+  = `EDGE_ROOM_HOLD` (0 ms: it shows on the frame an aiming pointer enters it) on a rail target or a new-column line
+  against the window's left or right edge, so a toolbar held at the edge never jumps away across the column and back
+  (grazing the edge opens the rail); the intent's `roomAfter` (160 ms) on any other; on a rail drop strip's target, also
+  marked, none past the dwell that arms it. A release before it shows still lands on it. A host that draws only a marker
+  opens the room on `frame.room && frame.shown?.opensRoom`, for every one of them. An empty rail or bar is entered over
+  the depth a drop draws it at (a rail's 30 px, a bar's 32), not a thin band; past the thin band that depth never takes
+  the zones of a drawn edge that take the item, and an empty column keeps the thin band. A target whose drop changes an
+  edge's thickness around the content (an empty rail beside a column, a new-column line, an empty bar's strip) also
+  carries `roomHit`, the smallest rect holding its hit and its landing rect. While it shows with its room open, the drag
+  intent holds it there: the drawn room is its zone, so a refusal or a place no more precise under it doesn't take
+  over, and those places are reachable once the pointer leaves the room. A rail drop strip (`armedHit`) doesn't carry
+  it.
   Every target keeps a reachable hit: its largest piece is at least 12 px across by 24 px along (`minHit`, data per
   edge kind), taken from the space beside it in its own zone (a column line's band, a gap's tile) where nothing else is
   aimed at, or from a neighbor that keeps its own minimum. Home, a drop strip, a refusal, the chrome and the stage's
