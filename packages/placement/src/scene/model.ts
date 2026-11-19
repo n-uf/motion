@@ -408,6 +408,12 @@ export interface Scene {
    */
   readonly sideColumns?: "one";
   /**
+   * `"nearest"`: a bar's zones (start, center, end) meet halfway between the landing rects either side of each boundary,
+   * so the pointer picks the zone whose landing is nearest it. Absent: at thirds of the bar's length (each boundary moved
+   * past the cards seen beside it, as now). A declaration, like `foldedColumnDrop`: never stored.
+   */
+  readonly barZones?: "nearest";
+  /**
    * The least the content may be. While the content is narrower than `width`, dynamic columns shrink toward their
    * minimum, then fold whole into their side's rail: unkept before kept, the one whose newest use is oldest first, the
    * outer first, the left first. Under `height`, a `content-short` note.
