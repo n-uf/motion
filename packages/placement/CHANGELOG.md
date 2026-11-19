@@ -3,6 +3,57 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## 26.11.45
+
+The geometry for the landing model, opt-in: a scene that sets none of the new fields lays out, targets and stores
+exactly as in 26.11.44. Host notes: `SceneItem.space` is stored once an item keeps space, and 26.11.44 or older drops
+it on read (listed as `item:<id>:space`), so a host that sets it doesn't roll back across versions; the landing rows'
+ratchet is due on 2026-12-31 (`LANES_DEADLINE`), from when a host that runs `lanesRatchet` must skip none. With
+`@n-uf/motion` 26.11.45 (`createLandingModel`).
+
+- `./scene/cases`, **landing rows** (additive): `LANDING_CASES`, the landing model's properties as rows (a path at a
+  speed, what holds on every frame, at the end and after the release), `runLandingCases`, the reference host
+  `createLandingHost({ landing })` (the model is an input: placement doesn't import motion), and the ratchet on skipped
+  rows, `lanesRatchet`: the count may only fall, and from `LANES_DEADLINE` (2026-12-31) or the breaking release every
+  row runs. Each row needs `requires.lanes.since` (`LANES_SINCE`, 26.11.45, the first release with `lanes()`). The rows
+  are not in `CASES`, so a suite that runs `CASES` is unchanged.
+
+- `./scene`, **`lanes()`** (additive): a drag's lanes (every edge that takes the item, and the virtual ones), each with
+  its spots in order (landing, target, stretch: cuts at the middle of the item two spots share, as drawn), refused
+  stretches, refused places outside lanes, the content and what blocks it (the chrome and a drawn declared rail
+  included), the stage, the float region, the item's size, the float target and the drag's refusals (one generation), for
+  a landing model. Spots are stable by
+  id; a bar's or a toolbar rail's free stretches, an empty bar's included, get spots at `SPOT_PITCH` (40 px). Each spot
+  keys where its drop draws the `others` (two spots with one key differ only in the held item); each lane carries its
+  place guides' `marks` (lines between items and at its ends, a box per free stretch, never over an item), each with a
+  stable `id`, in the layout as drawn; a refused stretch shorter than the item joins its spots.
+  Remembered per scene and options; `options.spot` reworks only the held lane, in that spot's layout. A float or a new
+  column clears an item's `space`.
+
+- `./scene`, **`SceneItem.space`**, **`DockPlace.space`** (additive): free space an item keeps on its zone's open side,
+  out of the edge's spare length; a dock move sets it (0: none), and with none named it takes the space its new
+  neighbor kept on that side (the space stays where it lies); the stored form keeps it. With no item keeping space,
+  nothing changes.
+
+- `./scene`, **`Scene.sideColumns`**, **`mergeSideColumns`**, **`isSideColumn`** (additive). With `sideColumns: "one"` a
+  side has at most one column: a drag offers a new-column line only on a side with no column holding an item once the
+  item is lifted. `mergeSideColumns` merges a side's columns into the outermost (items in ring order, the outermost's
+  id and size kept), for a host reading a stored layout. Absent, nothing changes.
+
+- `./scene`, **`Scene.barZones`** (additive). With `"nearest"`, a bar's zones meet halfway between the landing rects
+  either side of each boundary instead of at thirds. Absent, nothing changes.
+
+- `./scene`, **`heldRect(scene, id, size, pointer, grab)`** and **`SceneTargetOptions.floatFromHeld`** (additive): where
+  a held item lies, the grip under the pointer where it fits, else moved just enough to lie wholly inside the float
+  region (the stage less the inset at its left and right). With `floatFromHeld` the float target starts from that rect;
+  without it, float drops land as before.
+
+- `./scene`, **`Scene.foldedColumnDrop`** (additive). With `"end"`, no drop changes an item's collapsed state. For an
+  item arriving from elsewhere, collapsed titles (a column drawn as a rail, or a declared rail) are one drop place over
+  their whole length, tiles included, after the last member: an open panel opens the column at full size, a collapsed
+  one becomes the last title tile. A tile still moves within its own rail. Rail drop strips and the rail stops that fold
+  an open panel are not offered. Without it nothing changes.
+
 ## 26.11.44
 
 - `./scene`, **the content gives way to chrome** (additive). `contentMin.chromeWidth` is a lower content floor for
@@ -20,14 +71,6 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   before.
 
 ## 26.11.43
-
-- `./scene`, **`Scene.sideColumns`**, **`mergeSideColumns`**, **`isSideColumn`** (additive). With `sideColumns: "one"` a
-  side has at most one column: a drag offers a new-column line only on a side with no column holding an item once the
-  item is lifted. `mergeSideColumns` merges a side's columns into the outermost (items in ring order, the outermost's
-  id and size kept), for a host reading a stored layout. Absent, nothing changes.
-
-- `./scene`, **`Scene.barZones`** (additive). With `"nearest"`, a bar's zones meet halfway between the landing rects
-  either side of each boundary instead of at thirds. Absent, nothing changes.
 
 - `./scene`, **`Target.roomHit`** (additive): a target that opens its room and changes an edge's thickness around the
   content (an empty rail beside a column, a new-column line, an empty bar's strip) carries the smallest rect holding its
@@ -48,17 +91,6 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   over recorded sweeps along the window's edges, about 29 rail openings instead of 20, mostly from grazing the edge.
 
 ## 26.11.42
-
-- `./scene`, **`heldRect(scene, id, size, pointer, grab)`** and **`SceneTargetOptions.floatFromHeld`** (additive): where
-  a held item lies, the grip under the pointer where it fits, else moved just enough to lie wholly inside the float
-  region (the stage less the inset at its left and right). With `floatFromHeld` the float target starts from that rect;
-  without it, float drops land as before.
-
-- `./scene`, **`Scene.foldedColumnDrop`** (additive). With `"end"`, no drop changes an item's collapsed state. For an
-  item arriving from elsewhere, collapsed titles (a column drawn as a rail, or a declared rail) are one drop place over
-  their whole length, tiles included, after the last member: an open panel opens the column at full size, a collapsed
-  one becomes the last title tile. A tile still moves within its own rail. Rail drop strips and the rail stops that fold
-  an open panel are not offered. Without it nothing changes.
 
 - `./scene`, docs: **a refused place is never drawn.** The docs no longer suggest a tint or outline over `refusals()`:
   a host draws nothing there and may say "Can't go here" at the pointer while the frame's `refused` is set. The
