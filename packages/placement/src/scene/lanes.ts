@@ -101,6 +101,8 @@ export interface Regions {
   readonly item: Size;
   /** The float target (its `after(point, grab)` is the float landing), or null where the item doesn't float. */
   readonly float: SceneTarget | null;
+  /** The drag's refusals, from the same generation as the spots (what `refusals()` gives), for a host that shows them. */
+  readonly refusals: readonly SceneRefusal[];
 }
 
 export interface LaneOptions extends SceneTargetOptions {
@@ -279,6 +281,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
       floatRegion: floatRegion(scene, dragged),
       item: own ? { width: own.rect.width, height: own.rect.height } : { width: 0, height: 0 },
       float: ts.find((t) => t.free) ?? null,
+      refusals: rs,
     },
   };
 }
