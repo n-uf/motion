@@ -3,8 +3,9 @@
  *
  * A lane is one edge that takes the held item (a bar, a rail, a column) or a virtual one (a new column's line, a
  * declared rail). Its spots are the places a drop there lands, in order along it: before, between and after its items,
- * and, on a bar, spots at a fixed pitch over the free stretches between items (`SPOT_PITCH`), so a toolbar lands close
- * to the hand. Each spot has a stretch of the lane that picks it. Between two spots that share a neighbor (the item `Y`
+ * and, on a bar or a toolbar rail, spots at a fixed pitch over the free stretches between items (`SPOT_PITCH`), so a
+ * toolbar lands close to the hand. Each spot says whether its drop moves another item, and each lane carries its place
+ * guides' marks in the layout as drawn. Each spot has a stretch of the lane that picks it. Between two spots that share a neighbor (the item `Y`
  * in `X|Y` and `Y|Z`), the boundary is that item's middle as drawn (in the held spot's own layout with `options.spot`,
  * so a column takes a panel by halves of what is seen); between two others, halfway between their landings. Cuts are
  * kept inside the lane and in order. The spots come from the same generation and filter as `targets()`, so a spot's
@@ -13,7 +14,7 @@
  * their ring. Remembered per scene and options; a call with `spot` reworks only the held lane's stretches.
  */
 import { EPS, clamp, rect, type Rect, type Size } from "../geometry";
-import { moveTo, type DockPlace } from "./changes";
+import { lift, moveTo, type DockPlace } from "./changes";
 import { axisOf, chromeFor, floatRegion } from "./helpers";
 import type { Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
@@ -40,12 +41,27 @@ export interface LaneSpot {
   readonly home?: true;
   /** A spot at a pitch over a free stretch (`SceneItem.space`). */
   readonly pitched?: true;
+  /**
+   * Its drop moves an item other than the held one (against the layout with the held item lifted): a change to or from
+   * such a spot reflows the window, one between two spots that don't only moves the held item.
+   */
+  readonly moves: boolean;
 }
 
-/** A stretch of a lane that takes no drop of the item. */
+/** A stretch of a lane that takes no drop of the item, at least the item's length (a shorter one joins its spots). */
 export interface LaneRefusal {
   readonly along: readonly [number, number];
   readonly reason: SceneRefusal["reason"];
+}
+
+/**
+ * A place guide's mark, in the lane's layout as drawn: a `line` across the lane between two items that touch (no room
+ * for the item between them but its own; as thick as their gap allows, up to 2 px, so zero where they meet and the host
+ * strokes it), a `box` over a free stretch the item fits in. Never over an item drawn there, the held one included.
+ */
+export interface LaneMark {
+  readonly kind: "line" | "box";
+  readonly rect: Rect;
 }
 
 export interface Lane {
@@ -56,6 +72,8 @@ export interface Lane {
   readonly axis: "x" | "y";
   readonly spots: readonly LaneSpot[];
   readonly refused: readonly LaneRefusal[];
+  /** Its place guides' marks, in the layout as drawn (the held spot's, with `options.spot`). */
+  readonly marks: readonly LaneMark[];
 }
 
 /** Everything a landing model reads for one drag. */
@@ -126,6 +144,17 @@ interface Raw {
   readonly hit: Rect;
   readonly home?: true;
   readonly pitched?: true;
+  /** Set by `build()`: its drop moves another item (`LaneSpot.moves`). */
+  readonly moves?: boolean;
+}
+
+/** Whether `layout` draws any item other than `dragged` elsewhere than `lifted` does. */
+function movesOthers(layout: SceneLayout, lifted: SceneLayout, dragged: string): boolean {
+  return Object.entries(lifted.items).some(([id, it]) => {
+    if (id === dragged || it.floating || it.inMenu) return false;
+    const now = layout.items[id];
+    return !!now && !now.inMenu && !sameRect(now.rect, it.rect);
+  });
 }
 
 /** What one scene, item and options give, before any spot is held. */
@@ -209,8 +238,13 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   }
   // A bar's free stretches: spots at `pitch`, each a dock keeping `space` (`SceneItem.space`).
   if (pitch > 0) raws.push(...pitchedSpots(scene, dragged, options, seen, raws, pitch));
+  // Which drops move another item: against the layout with the held item lifted.
+  const lifted = solve(lift(scene, dragged), options.previous ? { previous: options.previous } : {});
   const byLane = new Map<string, Raw[]>();
-  for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
+  for (const r0 of raws) {
+    const r = { ...r0, moves: movesOthers(r0.layout, lifted, dragged) };
+    byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
+  }
   const laneList = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs)).filter((l): l is Lane => !!l);
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
@@ -272,66 +306,113 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
     target: x.target,
     ...(x.home ? { home: true as const } : {}),
     ...(x.pitched ? { pitched: true as const } : {}),
+    moves: x.moves ?? false,
   }));
+  // The item's length along the lane: its shortest landing here. A refused stretch shorter than it joins its spots.
+  const itemLen = Math.min(...unique.map((x) => len(x.landing, axis)));
   const refused: LaneRefusal[] = first.edge
-    ? rs.filter((f) => f.edge === first.edge).flatMap((f) => (f.hits ?? [f.hit]).map((h) => ({ along: [clamp(lo(h, axis), start, end), clamp(lo(h, axis) + len(h, axis), start, end)] as const, reason: f.reason })))
+    ? rs
+        .filter((f) => f.edge === first.edge)
+        .flatMap((f) => (f.hits ?? [f.hit]).map((h) => ({ along: [clamp(lo(h, axis), start, end), clamp(lo(h, axis) + len(h, axis), start, end)] as const, reason: f.reason })))
+        .filter((f) => f.along[1] - f.along[0] >= itemLen - EPS)
     : [];
-  return { id, rect: laneRect, axis, spots, refused };
+  const marks = first.edge ? edgeMarks(laneRect, axis, onEdge(drawn, first.edge, "", axis), refused, itemLen) : virtualMarks(unique, drawn.items[dragged]);
+  return { id, rect: laneRect, axis, spots, refused, marks };
 }
 
+/** A rect spanning `[a, b]` along `axis` and `r` across it. */
+const along = (r: Rect, axis: Axis, a: number, b: number): Rect => (axis === "x" ? rect(a, r.y, b - a, r.height) : rect(r.x, a, r.width, b - a));
+const LINE = 2;
+
 /**
- * Spots at `pitch` over a bar's free stretches: between the items as seen (an empty bar: its whole length less its
- * padding), a start-zone dock keeping `space` before it where the stretch follows a start item (or the bar's start), an
- * end-zone dock keeping `space` after it where it precedes an end item (or the bar's end). Kept only where the drop
- * lands where it was aimed (within 1 px) and not on another spot's landing. A stretch too short for the item, or next to
- * a center item, has none.
+ * An edge lane's marks, its items as drawn (the held one included): a line at the middle of each gap between two items
+ * too short for the item, a box over each free stretch at least the item's length, less its refused stretches.
+ */
+function edgeMarks(laneRect: Rect, axis: Axis, items: readonly { r: Rect }[], refused: readonly LaneRefusal[], itemLen: number): LaneMark[] {
+  const out: LaneMark[] = [];
+  const start = lo(laneRect, axis);
+  const end = start + len(laneRect, axis);
+  const ends = [{ a: start, b: start }, ...items.map((o) => ({ a: lo(o.r, axis), b: lo(o.r, axis) + len(o.r, axis) })), { a: end, b: end }];
+  for (let i = 0; i + 1 < ends.length; i++) {
+    const a = ends[i]!.b;
+    const b = ends[i + 1]!.a;
+    const between = i > 0 && i + 1 < ends.length - 1;
+    if (b - a < itemLen - EPS) {
+      // As thick as the gap allows, up to `LINE`: zero between items with no gap (the host strokes it).
+      const t = Math.max(0, Math.min(LINE, b - a)) / 2;
+      if (between) out.push({ kind: "line", rect: along(laneRect, axis, (a + b) / 2 - t, (a + b) / 2 + t) });
+      continue;
+    }
+    // The free stretch less its refused parts: one box per piece the item still fits in.
+    let pieces: [number, number][] = [[a, b]];
+    for (const f of refused) pieces = pieces.flatMap(([p, q]) => [[p, Math.min(q, f.along[0])] as [number, number], [Math.max(p, f.along[1]), q] as [number, number]]).filter(([p, q]) => q - p > EPS);
+    for (const [p, q] of pieces) if (q - p >= itemLen - EPS) out.push({ kind: "box", rect: along(laneRect, axis, p, q) });
+  }
+  return out;
+}
+
+/** A virtual lane's marks: a box at each landing, unless the held item is drawn over it. */
+function virtualMarks(spots: readonly Raw[], held: { rect: Rect; floating?: boolean } | undefined): LaneMark[] {
+  return spots.filter((s) => !held || held.floating || !overlaps(s.landing, held.rect)).map((s) => ({ kind: "box" as const, rect: s.landing }));
+}
+
+const overlaps = (a: Rect, b: Rect): boolean => a.x < b.x + b.width - EPS && b.x < a.x + a.width - EPS && a.y < b.y + b.height - EPS && b.y < a.y + a.height - EPS;
+
+/**
+ * Spots at `pitch` over the free stretches of a bar or a toolbar rail (a compact edge), along its axis: between the
+ * items as seen (an empty one: its whole length less its padding), a start-zone dock keeping `space` before it where the
+ * stretch follows a start item (or the edge's start), an end-zone dock keeping `space` after it where it precedes an end
+ * item (or the edge's end). Kept only where the drop lands where it was aimed (within 1 px) and not on another spot's
+ * landing. A stretch too short for the item, or next to a center item, has none.
  */
 function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], pitch: number): Raw[] {
   const out: Raw[] = [];
   if (!scene.items[dragged]) return out;
   const prev = options.previous ? { previous: options.previous } : {};
   for (const e of scene.edges) {
-    if (e.side !== "top" && e.side !== "bottom") continue;
+    const bar = e.side === "top" || e.side === "bottom";
+    if (!bar && !e.compact) continue;
+    const axis: Axis = bar ? "x" : "y";
     const mine = raws.filter((r) => r.edge === e.id);
     const drawn = seen.edges[e.id];
     if (mine.length === 0 || !drawn) continue;
-    // The held item's length here: a landing on this bar.
-    const w = mine[0]!.landing.width;
+    // The held item's length here: a landing on this edge.
+    const w = len(mine[0]!.landing, axis);
     const gap = nonNeg(e.gap);
-    const others = onEdge(seen, e.id, dragged, "x");
-    const barStart = drawn.rect.x + nonNeg(e.pad?.start);
-    const barEnd = drawn.rect.x + drawn.rect.width - nonNeg(e.pad?.end);
-    const middle = drawn.rect.x + drawn.rect.width / 2;
+    const others = onEdge(seen, e.id, dragged, axis);
+    const edgeStart = lo(drawn.rect, axis) + nonNeg(e.pad?.start);
+    const edgeEnd = lo(drawn.rect, axis) + len(drawn.rect, axis) - nonNeg(e.pad?.end);
+    const middle = mid(drawn.rect, axis);
     const zoneOf = (o: (typeof others)[number]): Zone => o.zone ?? "start";
     const taken = mine.map((r) => r.landing);
     for (let i = 0; i <= others.length; i++) {
-      const left = others[i - 1];
-      const right = others[i];
-      const a = left ? left.r.x + left.r.width + gap : barStart;
-      const b = right ? right.r.x - gap : barEnd;
+      const before = others[i - 1];
+      const after = others[i];
+      const a = before ? lo(before.r, axis) + len(before.r, axis) + gap : edgeStart;
+      const b = after ? lo(after.r, axis) - gap : edgeEnd;
       if (b - a < w + pitch) continue;
       for (let x0 = a + pitch; x0 + w <= b - pitch + EPS; x0 += pitch) {
         const toStart = x0 + w / 2 < middle;
-        // A start dock follows a start item or the bar's start; an end dock precedes an end item or the bar's end.
-        if (toStart && left && zoneOf(left) !== "start") continue;
-        if (!toStart && right && zoneOf(right) !== "end") continue;
+        // A start dock follows a start item or the edge's start; an end dock precedes an end item or the edge's end.
+        if (toStart && before && zoneOf(before) !== "start") continue;
+        if (!toStart && after && zoneOf(after) !== "end") continue;
         const zone: Zone = toStart ? "start" : "end";
-        const at = others.filter((o) => zoneOf(o) === zone && o.r.x < x0).length;
+        const at = others.filter((o) => zoneOf(o) === zone && lo(o.r, axis) < x0).length;
         const space = toStart ? x0 - a : b - (x0 + w);
         const place: DockPlace = { edge: e.id, zone, at, space };
         const next = moveTo(scene, dragged, place);
         if (next === scene) continue;
         const layout = solve(next, prev);
         const landed = layout.items[dragged];
-        if (!landed || landed.inMenu || landed.edge !== e.id || Math.abs(landed.rect.x - x0) > 1) continue;
-        if (taken.some((r) => Math.abs(r.x - landed.rect.x) < pitch / 2)) continue;
+        if (!landed || landed.inMenu || landed.edge !== e.id || Math.abs(lo(landed.rect, axis) - x0) > 1) continue;
+        if (taken.some((r) => Math.abs(lo(r, axis) - lo(landed.rect, axis)) < pitch / 2)) continue;
         taken.push(landed.rect);
         const result = { scene: next, layout };
         const target: SceneTarget = { id: `pitch:${e.id}:${zone}:${at}:${Math.round(space)}`, priority: 2, hit: landed.rect, slot: landed.rect, item: dragged, place: { kind: "gap", edge: e.id, zone, at }, after: () => result };
-        const n = neighbors(layout, e.id, dragged, "x");
+        const n = neighbors(layout, e.id, dragged, axis);
         // Keyed by its neighbors and how many pitches it keeps from the one it is spaced from: stable while they stay.
         const id = `${e.id}/${zone}/${n.before}|${n.next}@${Math.round(space / pitch)}`;
-        out.push({ lane: e.id, edge: e.id, axis: "x", id, ...n, landing: landed.rect, layout, target, hit: landed.rect, pitched: true });
+        out.push({ lane: e.id, edge: e.id, axis, id, ...n, landing: landed.rect, layout, target, hit: landed.rect, pitched: true });
       }
     }
   }
