@@ -999,9 +999,10 @@ what it shows and what a drag reads. A declaration, never stored.
 
 **Nearest bar zones.** With `Scene.barZones: "nearest"`, a bar's start, center and end zones meet halfway between the
 landing rects either side of each boundary, not at thirds, so the pointer picks the zone whose landing is nearest it. A
-declaration, never stored. It moves the targets' hit areas only (`targets()`, `pickTarget`, a drag intent over them):
-under a landing model `lanes()` cuts a bar between its spots' landings whatever the zones' hit areas, so a host that
-drags with `lanes()` needn't set it.
+declaration, never stored. It moves each zone's extent: it changes which zone a pointer picks among `targets()` (what a
+drag intent reads) and, since a zone left with no room gets no drop, which of a bar's drops exist and where its refused
+stretches lie. Under a landing model `lanes()` cuts between spots by their landings, not by zones, so there it changes
+only which spots and refused stretches (and so which place guides) a bar has, never how the bar is cut between them.
 
 **Space kept on a zone's open side.** `SceneItem.space` is free space an item keeps before it in a start zone or after it
 in an end zone, out of the edge's spare length (shared out when items ask for more). A dock move sets it with
@@ -1668,9 +1669,10 @@ margin), on the last frame and in the layout after the release. They cover the r
 and up to 48 px past it docks, beyond is nowhere), a fast pass over a bar, lane to lane at a corner, a fast hand along
 a free stretch and across docked items, and a toolbar taken away by one end and brought back to its press point,
 which lands home. A host implements `play(row)`: its frames (`LandingCaseFrame`), the layout after and, where its
-geometry differs from the row's window (its own gaps or paddings), `before`, its layout at the press: a row's `home`
-(the item ends where it lay at the press: same edge, same order, same rect) compares with it, so no pixel value of the
-row's window is asserted. `runLandingCases(rows, host)` says what differs. Placement doesn't import motion, so the reference host takes
+geometry differs from the row's window (its own gaps or paddings), `before`, its layout at the press (taken before the
+pointer moves, never after the release): a row's `home` (the item ends where it lay at the press: same edge, same order,
+same rect) compares with it, so no pixel value of the row's window is asserted. `runLandingCases(rows, host)` says what
+differs. Placement doesn't import motion, so the reference host takes
 the model as an input, as the scene host takes the pick rule:
 
 ```ts
