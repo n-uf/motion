@@ -4,8 +4,8 @@
  * A lane is one edge that takes the held item (a bar, a rail, a column) or a virtual one (a new column's line, a
  * declared rail). Its spots are the places a drop there lands, in order along it: before, between and after its items,
  * and, on a bar or a toolbar rail, spots at a fixed pitch over the free stretches between items (`SPOT_PITCH`), so a
- * toolbar lands close to the hand. Each spot says whether its drop moves another item, and each lane carries its place
- * guides' marks in the layout as drawn. Each spot has a stretch of the lane that picks it. Between two spots that share a neighbor (the item `Y`
+ * toolbar lands close to the hand. Each spot keys where its drop draws the other items (a change between two spots
+ * with the same key moves only the held item), and each lane carries its place guides' marks in the layout as drawn. Each spot has a stretch of the lane that picks it. Between two spots that share a neighbor (the item `Y`
  * in `X|Y` and `Y|Z`), the boundary is that item's middle as drawn (in the held spot's own layout with `options.spot`,
  * so a column takes a panel by halves of what is seen); between two others, halfway between their landings. Cuts are
  * kept inside the lane and in order. The spots come from the same generation and filter as `targets()`, so a spot's
@@ -14,7 +14,7 @@
  * their ring. Remembered per scene and options; a call with `spot` reworks only the held lane's stretches.
  */
 import { EPS, clamp, rect, type Rect, type Size } from "../geometry";
-import { lift, moveTo, type DockPlace } from "./changes";
+import { moveTo, type DockPlace } from "./changes";
 import { axisOf, chromeFor, floatRegion } from "./helpers";
 import type { Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
@@ -42,10 +42,10 @@ export interface LaneSpot {
   /** A spot at a pitch over a free stretch (`SceneItem.space`). */
   readonly pitched?: true;
   /**
-   * Its drop moves an item other than the held one (against the layout with the held item lifted): a change to or from
-   * such a spot reflows the window, one between two spots that don't only moves the held item.
+   * Where its drop draws every item other than the held one, as a key: a change between two spots with the same key
+   * moves only the held item; between two with different keys it reflows the window.
    */
-  readonly moves: boolean;
+  readonly others: string;
 }
 
 /** A stretch of a lane that takes no drop of the item, at least the item's length (a shorter one joins its spots). */
@@ -144,17 +144,18 @@ interface Raw {
   readonly hit: Rect;
   readonly home?: true;
   readonly pitched?: true;
-  /** Set by `build()`: its drop moves another item (`LaneSpot.moves`). */
-  readonly moves?: boolean;
 }
 
-/** Whether `layout` draws any item other than `dragged` elsewhere than `lifted` does. */
-function movesOthers(layout: SceneLayout, lifted: SceneLayout, dragged: string): boolean {
-  return Object.entries(lifted.items).some(([id, it]) => {
-    if (id === dragged || it.floating || it.inMenu) return false;
-    const now = layout.items[id];
-    return !!now && !now.inMenu && !sameRect(now.rect, it.rect);
-  });
+/** Where `layout` draws every item other than `dragged`, as a key (rects to the px; an item in a menu as `m`). */
+function othersKey(layout: SceneLayout, dragged: string): string {
+  return Object.keys(layout.items)
+    .filter((id) => id !== dragged)
+    .sort()
+    .map((id) => {
+      const it = layout.items[id]!;
+      return it.inMenu ? `${id}:m` : `${id}:${Math.round(it.rect.x)},${Math.round(it.rect.y)},${Math.round(it.rect.width)},${Math.round(it.rect.height)}`;
+    })
+    .join(";");
 }
 
 /** What one scene, item and options give, before any spot is held. */
@@ -238,13 +239,8 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   }
   // A bar's free stretches: spots at `pitch`, each a dock keeping `space` (`SceneItem.space`).
   if (pitch > 0) raws.push(...pitchedSpots(scene, dragged, options, seen, raws, pitch));
-  // Which drops move another item: against the layout with the held item lifted.
-  const lifted = solve(lift(scene, dragged), options.previous ? { previous: options.previous } : {});
   const byLane = new Map<string, Raw[]>();
-  for (const r0 of raws) {
-    const r = { ...r0, moves: movesOthers(r0.layout, lifted, dragged) };
-    byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
-  }
+  for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
   const laneList = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs)).filter((l): l is Lane => !!l);
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
@@ -306,7 +302,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
     target: x.target,
     ...(x.home ? { home: true as const } : {}),
     ...(x.pitched ? { pitched: true as const } : {}),
-    moves: x.moves ?? false,
+    others: othersKey(x.layout, dragged),
   }));
   // The item's length along the lane: its shortest landing here. A refused stretch shorter than it joins its spots.
   const itemLen = Math.min(...unique.map((x) => len(x.landing, axis)));
