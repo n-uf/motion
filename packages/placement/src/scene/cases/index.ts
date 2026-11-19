@@ -35,6 +35,7 @@ export { idRenames, mapGesture, mapLayout, mapPlace, mapScene, mapStored, type I
 export { WINDOW_A, WINDOW_B, WINDOW_BARE, winScene, type WinOptions, type WinSpec } from "./windows";
 export {
   createLandingHost,
+  GRAB_SINCE,
   LANDING_CASES,
   landingIssues,
   LANES_DEADLINE,

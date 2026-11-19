@@ -189,6 +189,79 @@ describe("a toolbar moved along an occupied bar or rail stays at the hand", () =
   });
 });
 
+describe("back at its press point, an item lands home wherever it was pressed", () => {
+  const sc = labWindow();
+  const previous = solve(sc);
+  const toolbars = ["tz", "tools", "zoom", "views", "review"];
+  /** The press point at `share` of the item's length along its lane, and its grab. */
+  const pressAt = (id: string, share: number): { press: Point; grab: Point; axis: "x" | "y" } => {
+    const r = previous.items[id]!.rect;
+    const axis = r.width >= r.height ? "x" : "y";
+    const grab = axis === "x" ? { x: r.width * share, y: r.height / 2 } : { x: r.width / 2, y: r.height * share };
+    return { press: { x: r.x + grab.x, y: r.y + grab.y }, grab, axis };
+  };
+  const homeOf = (rs: ReturnType<typeof lanes>) => rs.lanes.flatMap((l) => l.spots.filter((s) => s.home).map((s) => ({ lane: l, spot: s })))[0];
+  const SHARES = [0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1];
+
+  it("with the grab, the press point lies in home's stretch on every bar and rail, as seen and with home held", () => {
+    const misses: string[] = [];
+    for (const id of toolbars)
+      for (const share of SHARES) {
+        const { press, grab, axis } = pressAt(id, share);
+        for (const rs of [lanes(sc, id, { previous, grab }), lanes(sc, id, { previous, grab, spot: homeOf(lanes(sc, id, { previous, grab }))!.spot.id })]) {
+          const h = homeOf(rs)!;
+          const a = axis === "x" ? press.x : press.y;
+          if (a < h.spot.along[0] || a > h.spot.along[1]) misses.push(`${id} at ${share}: ${Math.round(a)} outside ${h.spot.along.map(Math.round).join("–")}`);
+        }
+      }
+    expect(misses).toEqual([]);
+  });
+
+  it("without the grab the cuts are the item's middle's: pressed at an end, the press point can miss home (why the grab is needed)", () => {
+    const { press, axis } = pressAt("tz", 1);
+    const h = homeOf(lanes(sc, "tz", { previous }))!;
+    const a = axis === "x" ? press.x : press.y;
+    expect(a < h.spot.along[0] || a > h.spot.along[1]).toBe(true);
+  });
+
+  it("a grab at the item's middle cuts as no grab does, and panel columns cut by halves whatever the grab", () => {
+    const stretches = (rs: ReturnType<typeof lanes>) => rs.lanes.map((l) => `${l.id}:${l.spots.map((s) => `${s.id}@${s.along.map((v) => v.toFixed(3)).join(",")}`).join(";")}`);
+    for (const id of toolbars) expect(stretches(lanes(sc, id, { previous, grab: pressAt(id, 0.5).grab })), id).toEqual(stretches(lanes(sc, id, { previous })));
+    for (const id of ["pages", "notes", "findings"]) {
+      const r = previous.items[id]!.rect;
+      const columns = (rs: ReturnType<typeof lanes>) => stretches(rs).filter((s) => s.startsWith("left:") || s.startsWith("right:"));
+      for (const g of [{ x: 4, y: 4 }, { x: r.width - 4, y: r.height - 4 }]) expect(columns(lanes(sc, id, { previous, grab: g })), id).toEqual(columns(lanes(sc, id, { previous })));
+    }
+  });
+
+  it("the landing model over lanes() with the grab: away into the document and back to the press point at 0.3–1.2 px/ms ends home", () => {
+    const misses: string[] = [];
+    for (const id of toolbars)
+      for (const share of SHARES)
+        for (const speed of [0.3, 0.6, 1.2]) {
+          const { press, grab } = pressAt(id, share);
+          const regions = lanes(sc, id, { previous, grab });
+          const h = homeOf(regions)!;
+          // A press point inside another lane too (the empty top bar's band reaches over the top of the left rail, where
+          // tools lies) is the corner's question, which lane takes an overlap, not the grab's: not swept here.
+          if (regions.lanes.some((l) => l.id !== h.lane.id && press.x > l.rect.x && press.x < l.rect.x + l.rect.width && press.y > l.rect.y && press.y < l.rect.y + l.rect.height)) continue;
+          const m = createLandingModel({ regions, regionsFor: (spot) => lanes(sc, id, { previous, grab, spot }), floatLanding: (p) => regions.float?.after(p, grab).layout.items[id]?.rect ?? null, home: { lane: h.lane.id, spot: h.spot.id } });
+          const keys = path([press, { x: 540, y: 320 }, press], speed, 80);
+          for (let t = 0; t <= keys.at(-1)![0] + 1e-6; t += 8) {
+            let i = 0;
+            while (i < keys.length - 1 && keys[i + 1]![0] < t) i++;
+            const a = keys[i]!;
+            const b = keys[Math.min(i + 1, keys.length - 1)]!;
+            const u = b[0] > a[0] ? Math.min(1, (t - a[0]) / (b[0] - a[0])) : 1;
+            m.update({ x: a[1] + (b[1] - a[1]) * u, y: a[2] + (b[2] - a[2]) * u }, t);
+          }
+          const out = m.release();
+          if (out?.kind !== "spot" || !out.home) misses.push(`${id} at ${share}, ${speed} px/ms: ${out?.kind === "spot" ? out.spot : (out?.kind ?? "nothing")}`);
+        }
+    expect(misses).toEqual([]);
+  });
+});
+
 describe("guides across a hop", () => {
   it("no guide goes and comes back while its lane is held: a mark keeps its id as the held item hops past it", () => {
     const s = labWindow();

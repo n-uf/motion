@@ -27,6 +27,11 @@ import { form } from "./world";
  * version once that is past 26.11.44).
  */
 export const LANES_SINCE = "26.11.45";
+/**
+ * The first library version whose `lanes()` takes the grab (`LaneOptions.grab`): the rows that bring an item back to
+ * its press point need it, and a host must pass the grab to `lanes()` for them to pass.
+ */
+export const GRAB_SINCE = "26.11.46";
 /** The last published version without `lanes()`. */
 export const LAST_WITHOUT_LANES = "26.11.44";
 /** From this date every landing row runs on every host (or at the breaking release, if that comes first). */
@@ -233,8 +238,8 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly v
       if (!own) throw new Error(`no item ${row.item}`);
       const press = row.path[0]!;
       const grab = { x: press.x - own.rect.x, y: press.y - own.rect.y };
-      const regions = lanes(s, row.item, { previous });
-      const regionsFor = (spot: string): Regions => lanes(s, row.item, { previous, spot });
+      const regions = lanes(s, row.item, { previous, grab });
+      const regionsFor = (spot: string): Regions => lanes(s, row.item, { previous, grab, spot });
       const home = regions.lanes.flatMap((l) => l.spots.filter((x) => x.home).map((x) => ({ lane: l.id, spot: x.id })))[0];
       const model = o.landing({ regions, regionsFor, floatLanding: (p) => regions.float?.after(p, grab).layout.items[row.item]?.rect ?? null, ...(home ? { home } : {}), placeGuides: "near" });
       const frames: LandingCaseFrame[] = [];
@@ -285,6 +290,7 @@ function landingWindow(top: string[] = ["a"], bottom: string[] = []): Scene {
   };
 }
 const LANES: LandingCase["requires"] = { lanes: { since: LANES_SINCE } };
+const GRAB: LandingCase["requires"] = { lanes: { since: GRAB_SINCE } };
 
 export const LANDING_CASES: readonly LandingCase[] = [
   {
@@ -437,6 +443,40 @@ export const LANDING_CASES: readonly LandingCase[] = [
     speed: 1.2,
     moving: { lane: "top", trail: 40 },
     requires: LANES,
+  },
+  {
+    id: "landing-back-home-bar",
+    title: "A toolbar taken away by its end and brought back lands home",
+    expect: "A toolbar pressed 12 px from its right end in its bar (the free stretch's spots lie that way), moved into the document and back to the press point at 0.6 px/ms, resting there 80 ms: it ends on its own place, not on a free-stretch spot beside it.",
+    scene: landingWindow(),
+    item: "a",
+    path: [
+      { x: 176, y: 18 },
+      { x: 500, y: 300 },
+      { x: 176, y: 18 },
+    ],
+    speed: 0.6,
+    rest: 80,
+    end: { region: "lane", lane: "top" },
+    layout: { items: { a: { edge: "top", rect: { x: 8 } } } },
+    requires: GRAB,
+  },
+  {
+    id: "landing-back-home-rail",
+    title: "A rail toolbar taken away by its bottom and brought back lands home",
+    expect: "Zoom pressed 6 px above its bottom in its rail (the free stretch's spots lie below it), moved into the document and back to the press point at 0.6 px/ms, resting there 80 ms: it ends where it was, below Tools.",
+    scene: landingWindow(),
+    item: "zoom",
+    path: [
+      { x: 15, y: 198 },
+      { x: 500, y: 300 },
+      { x: 15, y: 198 },
+    ],
+    speed: 0.6,
+    rest: 80,
+    end: { region: "lane", lane: "rail-left" },
+    layout: { order: { "rail-left": ["tools", "zoom"] }, items: { zoom: { rect: { y: 120 } } } },
+    requires: GRAB,
   },
   {
     id: "landing-across-items",

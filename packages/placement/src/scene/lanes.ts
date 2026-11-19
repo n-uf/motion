@@ -10,8 +10,10 @@
  * item `Y` in `X|Y` and `Y|Z`), the boundary is that item's middle as drawn (in the held spot's own layout with
  * `options.spot`, so a column takes a panel by halves of what is seen). On a bar or a toolbar rail, and between any two
  * other spots, it is halfway across the gap between their landings, each in its own layout, so the pointer is at the
- * landing it picks and a toolbar moved along an occupied lane stays at the hand. Cuts are kept inside the lane and in
- * order. The spots come from the same generation and filter as `targets()`, so a spot's
+ * landing it picks and a toolbar moved along an occupied lane stays at the hand. On a bar or a toolbar rail that gap is
+ * measured where the item is held (`options.grab`): halfway between the points the pointer would hold in each landing,
+ * so a pointer back at its press point picks the item's own place however far from its middle it was pressed. Cuts are
+ * kept inside the lane and in order. The spots come from the same generation and filter as `targets()`, so a spot's
  * landing is exactly what its drop commits. Spot ids are keyed by the lane, zone and neighboring items, so they survive
  * the window resizing and most items opening or moving; virtual lanes are keyed by the column they lie beside, not
  * their ring. Remembered per scene and options; a call with `spot` reworks only the held lane's stretches.
@@ -110,6 +112,13 @@ export interface LaneOptions extends SceneTargetOptions {
   readonly pitch?: number;
   /** The spot held now: its lane's stretches are drawn in its own layout (the room open). Default: the layout as seen. */
   readonly spot?: string;
+  /**
+   * Where the pointer holds the item, from its top left corner as it is now, px (what a target's `after(point, grab)`
+   * takes). On a bar or a toolbar rail the cut between two spots lies halfway between the points the pointer would hold
+   * in each landing, at the same share of its length, so a pointer back at its press point picks the item's own place.
+   * Default: the item's middle. Panel columns take a panel by halves of what is drawn either way.
+   */
+  readonly grab?: { readonly x: number; readonly y: number };
 }
 
 type Axis = "x" | "y";
@@ -178,6 +187,8 @@ interface Base {
   readonly regions: Omit<Regions, "lanes">;
   /** The lanes cut by halves of the items drawn (panel columns). */
   readonly halves: ReadonlySet<string>;
+  /** Where the pointer holds the item, as a share of its width and height (0.5 each without `options.grab`). */
+  readonly share: { readonly x: number; readonly y: number };
 }
 
 const memo = new WeakMap<Scene, Map<string, Base>>();
@@ -212,7 +223,7 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
   if (!found) return { ...base.regions, lanes: base.lanes };
   const [heldLane, list] = found;
   const held = list.find((r) => r.id === options.spot)!;
-  const lane = laneFrom(heldLane, list, held.layout, base.seen, dragged, base.refusals, base.halves.has(heldLane));
+  const lane = laneFrom(heldLane, list, held.layout, base.seen, dragged, base.refusals, base.halves.has(heldLane), base.share);
   return { ...base.regions, lanes: base.lanes.map((l) => (l.id === heldLane && lane ? lane : l)) };
 }
 
@@ -256,7 +267,10 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
   // Panel columns take a panel by halves of the panels drawn; bars and toolbar rails by the gap between landings.
   const halves = new Set(scene.edges.filter((e) => (e.side === "left" || e.side === "right") && !e.compact).map((e) => e.id));
-  const laneList = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id))).filter((l): l is Lane => !!l);
+  // Where the pointer holds the item, as a share of its size now: a landing of another length is held at the same share.
+  const shareOf = (g: number | undefined, size: number): number => (g === undefined || !Number.isFinite(g) || size <= EPS ? 0.5 : clamp(g / size, 0, 1));
+  const share = { x: shareOf(options.grab?.x, own?.rect.width ?? 0), y: shareOf(options.grab?.y, own?.rect.height ?? 0) };
+  const laneList = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share)).filter((l): l is Lane => !!l);
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
   const blocked = [
@@ -273,6 +287,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     seen,
     refusals: rs,
     halves,
+    share,
     regions: {
       refused: rs.filter((f) => !onLanes.has(f.edge)).flatMap((f) => f.hits ?? [f.hit]),
       content: seen.content,
@@ -287,7 +302,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
 }
 
 /** One lane from its spots: its rect, the spots in order with their stretches in `drawn`, its refused stretches. */
-function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: SceneLayout, dragged: string, rs: readonly SceneRefusal[], halves: boolean): Lane | null {
+function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: SceneLayout, dragged: string, rs: readonly SceneRefusal[], halves: boolean, share: { readonly x: number; readonly y: number }): Lane | null {
   if (list.length === 0) return null;
   const first = list[0]!;
   const axis = first.axis;
@@ -306,14 +321,18 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   // The cut between two spots. In a panel column (`halves`), between two spots sharing a neighbor, that item's middle in
   // `drawn` (the upper half above it, the lower half below); else halfway across the gap between their landings (each in
   // its own layout), so the pointer is at the landing it picks, or as near one as the other: a toolbar moved along a bar
-  // or a rail stays at the hand however wide its neighbors. Kept inside the lane and in order.
+  // or a rail stays at the hand however wide its neighbors. Off a panel column the gap is measured where the item is
+  // held: moved by the grab's share past the middle, so with landings of one length the cut lies halfway between the
+  // points the pointer holds in each, and a pointer at its press point lies on the item's own place. Kept inside the
+  // lane and in order.
   const drawnItems = first.edge && halves ? new Map(onEdge(drawn, first.edge, dragged, axis).map((o) => [o.id, o.r])) : new Map<string, Rect>();
+  const held = halves ? 0.5 : share[axis];
   const cuts: number[] = [];
   for (let i = 0; i + 1 < unique.length; i++) {
     const a = unique[i]!;
     const b = unique[i + 1]!;
     const shared = a.next === b.before && a.next !== "$" ? drawnItems.get(a.next) : undefined;
-    const raw = shared ? mid(shared, axis) : (lo(a.landing, axis) + len(a.landing, axis) + lo(b.landing, axis)) / 2;
+    const raw = shared ? mid(shared, axis) : (lo(a.landing, axis) + len(a.landing, axis) + lo(b.landing, axis)) / 2 + ((held - 0.5) * (len(a.landing, axis) + len(b.landing, axis))) / 2;
     cuts.push(clamp(Math.max(raw, cuts[i - 1] ?? start), start, end));
   }
   const spots: LaneSpot[] = unique.map((x, i) => ({
