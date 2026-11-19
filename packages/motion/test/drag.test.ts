@@ -1104,6 +1104,30 @@ describe("drag/ a target that opens its room", () => {
     expect(roomAt!.t).toBe(first!.t);
   });
 
+  it("earlyRelease decides a release before the room is open: the target by default, the float with \"float\"", () => {
+    const slotted: DragTarget = { ...rail, slot: rect(0, 0, 40, 800) };
+    const plain: DragTarget = { ...gap, slot: rect(100, 300, 200, 40) };
+    const refused: DragTarget = { id: "refuse:bar", priority: 2, hit: rect(300, 700, 200, 40), refuse: true };
+    const blocked: DragTarget = { id: "none:0", priority: 1, hit: rect(600, 300, 100, 100) };
+    const bounded: DragTarget = { ...float, bounds: rect(0, 0, 1200, 800) };
+    const all = [slotted, plain, refused, blocked, bounded];
+    const at = (earlyRelease: "target" | "float" | undefined, p: { x: number; y: number }, frames: number) => {
+      const intent = createDragIntent<DragTarget>({ home: rect(900, 0, 100, 30), lift: { x: 950, y: 15 }, ...(earlyRelease ? { earlyRelease } : {}) });
+      intent.update({ x: 950, y: 15 }, 0, all);
+      for (let k = 1; k <= frames; k++) intent.update(p, 16 * k, all);
+      return intent.release(p, all)?.id ?? null;
+    };
+    const onRail = { x: 20, y: 400 };
+    const onGap = { x: 200, y: 320 };
+    // Before the `opensRoom` target shows (2 frames), and on a gap shown with no room yet (6 frames).
+    expect([at(undefined, onRail, 2), at("target", onRail, 2), at(undefined, onGap, 6)]).toEqual([slotted.id, slotted.id, plain.id]);
+    expect([at("float", onRail, 2), at("float", onGap, 6)]).toEqual(["float", "float"]);
+    // Settled, it lands there either way.
+    expect([at("float", onRail, 20), at("float", onGap, 30)]).toEqual([slotted.id, plain.id]);
+    // A refusal lands nowhere, a place with no slot is itself, and past the float's bounds nothing floats.
+    expect([at("float", { x: 400, y: 720 }, 2), at("float", { x: 650, y: 350 }, 2), at("float", { x: 700, y: 800 }, 2)]).toEqual([null, "none:0", null]);
+  });
+
   it("a target without it is unchanged: it shows first, its room follows after roomAfter", () => {
     const intent = start();
     intent.update({ x: 650, y: 15 }, 0, [gap]);
