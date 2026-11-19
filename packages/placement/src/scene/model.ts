@@ -398,8 +398,8 @@ export interface Scene {
    *
    * `chromeWidth` (optional, px, at most `width`): a lower floor for chrome. The side edges that hold toolbars, not
    * panels (compact rails and side toolbar bars, `isSideBar`), may take the content down to it while the columns keep
-   * their width. A compact rail always counts; a side toolbar bar only where its side has a column template or a declared
-   * rail to tell it from a panel column (`isSideBar`): on a side with neither it is not chrome and gets no floor benefit.
+   * their width. A compact rail or side toolbar bar counts only where its side has a column template or a declared rail
+   * to tell it from a panel column (`isSideBar`): on a side with neither it is not chrome and gets no floor benefit.
    * A floor of 0 or less lets chrome take all the content. The columns only move aside: a toolbar rail added at an edge
    * narrows the content, not the column. Below the floor a
    * column shrinks, then folds, as without it. The columns alone still leave `width`. Chrome within that allowance is
@@ -539,6 +539,8 @@ export interface SceneRailLayout {
  * - `bar-shrunk`, `bar-folded`: give-way by `contentMin.height`, in give-way order: a top or bottom bar with `giveWay`
  *   shrank across (`from`, `to`), or its items stepped to the next form that fits (a panel's title bar);
  * - `content-narrow`, `content-short`: the content is still under `contentMin` (overlay bars count against the height).
+ *   With `contentMin.chromeWidth`, `content-narrow`'s `min` is `contentMin.width` less what chrome takes within its
+ *   allowance; a host that says "needs at least …" reads `contentMin.width`, not the note's `min`.
  * - `no-column-room`: not even one column at its minimum fits beside `contentMin.width` (`layout.columnRoom` false):
  *   `width` is the room the stage leaves, `need` the content's minimum plus that column and its gutter.
  * - `content-changed`: under `previous`, `content` is not the rect `previous.content` was (`from`, `to`). A host refits
