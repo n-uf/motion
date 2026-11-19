@@ -278,7 +278,7 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
   const strip = Math.max(0, Number.isFinite(edge.strip) ? edge.strip! : DEFAULT_STRIP);
   const outer = edge.side === "left" ? r.x : edge.side === "right" ? r.x + r.width : edge.side === "top" ? r.y : r.y + r.height;
   const inward = (depth: number): Span => (edge.side === "left" || edge.side === "top" ? [outer, outer + depth] : [outer - depth, outer]);
-  // An empty rail or bar: as deep as a drop draws it (a rail's 30 px, a bar's 32), entered over that. An empty column,
+  // An empty rail or bar: as deep as a drop draws it (a rail's or a bar's drawn depth), entered over that. An empty column,
   // whose drop draws a whole column, keeps the thin band.
   const thin = edgeKind === "rail" || edgeKind === "bar" || edgeKind === "barBetween";
   const landed = el.cross > 0 || !thin ? 0 : Math.max(0, ...slots.map((s) => s.result.layout.edges[edge.id]?.cross ?? 0));
