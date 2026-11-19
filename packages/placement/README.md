@@ -1001,6 +1001,26 @@ what it shows and what a drag reads. A declaration, never stored.
 landing rects either side of each boundary, not at thirds, so the pointer picks the zone whose landing is nearest it. A
 declaration, never stored.
 
+**Space kept on a zone's open side.** `SceneItem.space` is free space an item keeps before it in a start zone or after it
+in an end zone, out of the edge's spare length (shared out when items ask for more). A dock move sets it with
+`DockPlace.space` and clears it otherwise; the stored form keeps it.
+
+**Lanes for a landing model.** `lanes(scene, id, options)` gives what a landing model (`@n-uf/motion/drag`) reads for a
+drag of `id`:
+- `lanes`: every edge that takes it (and the virtual ones: a new column's line, a rail), each with its rect, its axis and
+  its spots in order. A spot is a place a drop there lands: its `landing` rect, its `target` (the drop, its `after()`),
+  and its `along` stretch of the lane, the part that picks it. Stretches end at the middle of the items drawn between two
+  spots, else halfway between their landings, so a column takes a panel by halves; with `options.spot`, in that spot's
+  own layout (its room open).
+- `refused` stretches per lane, and refused places outside lanes;
+- the `content`, and what `blocked` takes out of it (drawn edges, docked items): the document region;
+- the stage, the item's size, and the float target.
+
+A bar's free stretches get spots at `SPOT_PITCH` (40 px; `options.pitch`), each a dock keeping `space`, so a toolbar
+lands close to the hand. Spot ids are keyed by the lane, zone and neighboring items (`<lane>/<zone>/<before>|<after>`,
+`@<n>` for a pitched spot), so they survive items opening, moving or the window resizing. The spots come from the same
+generation and filter as `targets()`, so a spot's landing is exactly what its drop commits.
+
 **Column footers.** `Edge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
 the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`
 has its panels at the top and a footer of toolbar groups at its foot (the end zone, one group per row): a group in the footer
