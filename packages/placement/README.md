@@ -990,6 +990,17 @@ tile. A tile dragged within its own rail still moves among that rail's places, s
 offered, whatever `railDrop` says, and on a declared rail no stop folds an open panel; with no rail showing, an open
 panel has no stop there. It is a declaration too, never stored.
 
+**One column per side.** With `Scene.sideColumns: "one"`, a side has at most one column (`isSideColumn`: a left or right
+edge that takes something and is neither a compact rail nor a toolbar bar). A drag offers a new-column line only on a side
+with no column holding an item once the dragged item is lifted; where the side has a column, an item goes into it by its
+gaps. `mergeSideColumns(scene)` merges a side's columns into the outermost, its items first and the others' after in
+ring order, keeping the outermost's id and size; a host calls it as it reads a stored layout, so what it stores next is
+what it shows and what a drag reads. A declaration, never stored.
+
+**Nearest bar zones.** With `Scene.barZones: "nearest"`, a bar's start, center and end zones meet halfway between the
+landing rects either side of each boundary, not at thirds, so the pointer picks the zone whose landing is nearest it. A
+declaration, never stored.
+
 **Column footers.** `Edge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
 the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`
 has its panels at the top and a footer of toolbar groups at its foot (the end zone, one group per row): a group in the footer

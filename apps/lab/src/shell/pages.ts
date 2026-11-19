@@ -62,7 +62,7 @@ export const PAGES: readonly PageDef[] = [
     group: "motion",
     nav: "Drag intent and previews",
     title: "Drag intent and previews",
-    line: "The drop indicator shows only while you aim, never while you travel across targets; the held item follows the pointer, and the three drop preview modes land the same.",
+    line: "The drop indicator shows only while you aim, never while you travel across targets; the held item follows the pointer, and every drop preview mode (Outline, Placeholder, Snap) lands the same.",
     about:
       "<code>@n-uf/motion/drag</code>'s intent, on the Document window: the indicator shows once the pointer slows down or holds still, waits a 150 ms switch delay before it switches, and a release lands where it showed. Drag a panel by its header or a toolbar by its grip; the cases wobble on a border, flick, cross a border slowly and let go inside a slot's band. With the snap preview the held item settles into its slot once the room is made, and back onto the pointer when it flies off. Pick the drop preview (indicator only, make room, snap to slot) in the Window drawer.",
     ...docwin,
