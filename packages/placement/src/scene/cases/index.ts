@@ -43,6 +43,7 @@ export {
   runLandingCases,
   type LandingCase,
   type LandingCaseFrame,
+  type LandingCaseGuide,
   type LandingCaseHost,
   type LandingCaseResult,
   type LandingModelLike,

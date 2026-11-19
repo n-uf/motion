@@ -1018,7 +1018,8 @@ drag of `id`:
 - `marks` per lane, the place guides in the layout as drawn (the held spot's, with `options.spot`): a `line` across the
   lane between two items too close for the item between them, and at a lane's end next to an item; a `box` over each
   free stretch it fits in (a virtual lane: a box at its landing, a line beside it where the held item is drawn over
-  it). Never over an item drawn on the lane, the held one included, nor a line in a refused stretch. Each mark has an
+  it). Only where a drop lands (a spot between those two items, or beside the held one), so none beside fixed chrome
+  nothing lands next to. Never over an item drawn on the lane, the held one included, nor a line in a refused stretch. Each mark has an
   `id` (`<lane>/line/<before>|<after>`, `<lane>/box/<before>|<after>`, `^` and `$` at the ends) that stays while its
   neighbors stay, so a host keys its drawing by it.
 - `refused` stretches per lane, each at least the item's length (a shorter one joins its spots), and refused places
