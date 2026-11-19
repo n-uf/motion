@@ -227,7 +227,7 @@ export function INTENT_PRESETS(): IntentPreset[] {
     intentCase(
       "intent-rail-room-holds",
       "With its room open, a rail's strip holds anywhere in the rail it opened",
-      "Tools aimed at the left window edge's strip (12 px) until its room opens and the rail draws 30 px wide, then drifted from x 8 to x 24 inside the drawn rail: the rail target and its room hold on every frame, the column beside it is never refused there, and the drop lands in the rail. Drifted on out of the rail, to x 60, the target and its room go.",
+      "Tools aimed at the left window edge's strip (12 px) until its room opens and the rail draws 30 px wide, then drifted from x 8 to x 24 inside the drawn rail: the rail target and its room hold on every frame, the column beside it is never refused there, and the drop lands in the rail. The pointer at x 10 and x 18 in turn every 230 ms for 4 s, both on the drawn rail, never makes the column jump. Drifted on out of the rail, to x 60, the target and its room go.",
       (c) => {
         const bad: string[] = [];
         const strip = c.targets("tools").find((t) => t.id.startsWith("strip:rail-left:") && t.roomHit && t.hit.y <= c.scene.stage.height / 2 && t.hit.y + t.hit.height >= c.scene.stage.height / 2);
@@ -249,11 +249,23 @@ export function INTENT_PRESETS(): IntentPreset[] {
         if (!held.r.trace.rooms.some((f) => f.t <= held.drift && f.room === strip.id)) bad.push("its room never opened at x 8");
         if (lost) bad.push(`${lost} of ${after.length} frames of the drift lost it`);
         if (!held.r.drop?.committed || held.r.drop.target !== strip.id) bad.push(`the drop landed on ${held.r.drop?.target ?? "nothing"}`);
+        // The review's case: x 10 and x 18 in turn every 230 ms for 4 s, both on the drawn rail: the column never jumps.
+        c.setScene(defaultScene());
+        let wobbleAt = 0;
+        const wob = drive(c, "tools", (g) => {
+          const keys = hold(through([g, { x: 10, y }], 1), 400);
+          let t = (wobbleAt = keys.at(-1)![0]);
+          for (let i = 0; i < 17; i++) keys.push([(t += 230), i % 2 ? 10 : 18, y]);
+          return keys;
+        });
+        const rooms = (wob?.trace.rooms ?? []).filter((f) => f.t > wobbleAt);
+        const flips = rooms.filter((f, i) => i > 0 && f.room !== rooms[i - 1]!.room).length;
+        if (!wob || flips || rooms.some((f) => f.room !== strip.id)) bad.push(`the 10 ↔ 18 px wobble flipped the room ${flips} times`);
         c.setScene(defaultScene());
         const out = run(60);
         const last = out?.r.trace.rooms.at(-1);
         if (!out || last?.shown === strip.id || last?.room) bad.push(`at x 60 it still shows ${last?.shown ?? "nothing"} with room ${last?.room ?? "none"}`);
-        return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : `Held on all ${after.length} frames of the drift, room ${fmt(strip.roomHit)}; gone at x 60.` };
+        return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : `Held on all ${after.length} frames of the drift and through 4 s of a 10 ↔ 18 px wobble, room ${fmt(strip.roomHit)}; gone at x 60.` };
       },
     ),
     intentCase(
