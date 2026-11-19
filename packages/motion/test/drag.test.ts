@@ -1094,6 +1094,16 @@ describe("drag/ a target that opens its room", () => {
     expect(intent.release({ x: 20, y: 400 }, [rail, float])?.id).toBe(rail.id);
   });
 
+  it("roomHold is that target's own wait: it shows with its room after it, and roomAfter stays for the others", () => {
+    const edge: DragTarget = { ...rail, roomHold: 64 };
+    const intent = start();
+    intent.update({ x: 650, y: 15 }, 0, [edge, gap]);
+    const { first, roomAt } = hold(intent, [edge, gap], { x: 20, y: 400 }, 0);
+    expect(first!.t).toBeGreaterThanOrEqual(64);
+    expect(first!.t).toBeLessThan(DRAG_DEFAULTS.roomAfter);
+    expect(roomAt!.t).toBe(first!.t);
+  });
+
   it("a target without it is unchanged: it shows first, its room follows after roomAfter", () => {
     const intent = start();
     intent.update({ x: 650, y: 15 }, 0, [gap]);
