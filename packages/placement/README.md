@@ -1034,7 +1034,9 @@ drag of `id`:
 - the `content`, and what `blocked` takes out of it (drawn edges, docked items, the chrome, a drawn declared rail, the
   scene's `blocked` spots, where a release cancels): the open space;
 - the stage, the `floatRegion` (the stage less the inset at its left and right, as `heldRect` keeps a held item), the
-  item's size, and the float target.
+  item's size, and the float target;
+- the drag's `refusals`, from the same generation (what `refusals()` gives): with the spots' targets and the float, a
+  host has every target and refusal of the lift from one call.
 
 A bar's free stretches, and a toolbar rail's (a compact edge, along its length), get spots at `SPOT_PITCH` (40 px;
 `options.pitch`), each a dock keeping `space`, so a toolbar lands close to the hand; an empty bar gets them over its whole length less its padding. Where a stretch is too short for the

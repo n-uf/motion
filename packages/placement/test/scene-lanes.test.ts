@@ -5,7 +5,7 @@
  * stretches land where they aim, and the document region excludes what is docked.
  */
 import { describe, expect, it } from "vitest";
-import { lanes, solve, SPOT_PITCH, type Regions, type Scene } from "../src/scene";
+import { lanes, refusals, solve, SPOT_PITCH, targets, type Regions, type Scene } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { modelScene } from "./model-scene";
 import { bar, byId, group } from "./scene-fixture";
@@ -82,6 +82,17 @@ describe("lanes()", () => {
         }
       }
     }
+  });
+
+  it("one generation: its refusals are refusals()'s, and every spot that isn't pitched is one of targets()", () => {
+    for (const [name, s] of scenes())
+      for (const id of movable(s)) {
+        const o = { previous: solve(s) };
+        const r = lanes(s, id, o);
+        expect(r.refusals.map((x) => x.id), `${name} ${id}`).toEqual(refusals(s, id, o).map((x) => x.id));
+        const ids = new Set(targets(s, id, o).map((t) => t.id));
+        for (const sp of r.lanes.flatMap((l) => l.spots)) if (!sp.pitched) expect(ids.has(sp.target.id), `${name} ${id} ${sp.id}`).toBe(true);
+      }
   });
 
   it("the document region leaves out every drawn edge and docked item", () => {
