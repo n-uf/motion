@@ -12,7 +12,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   the pointer aimed and its room `roomAfter` (160 ms) later, so for that time it lay over the column the room moves
   aside. New `DragTarget.opensRoom`: showing the target and making its room are one decision. It shows once it has held
   `roomAfter`, or its own `DragTarget.roomHold` (ms) when it has one, and the frame that first shows it has `room`; a
-  sweep across it still moves nothing, and a release before it shows lands on it. An armed spring-loaded target now
+  sweep across it still moves nothing, and a release before it shows lands on it, though no frame showed it. A host that
+  draws only a marker opens the room on `frame.room && frame.shown?.opensRoom`. An armed spring-loaded target now
   has its room in the frame that shows it, about 160 ms earlier than before. `roomAfter` stays, with its default, for
   every other target.
 
