@@ -21,8 +21,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   unchanged.
 
 - `./drag`, **place guides** (additive). `previewPlan` also takes `{ mode: "outline" | "placeholder" | "snap",
-  placeGuides? }` (`DropPreviewMode`), drawn with `"indicator"`'s, `"gap"`'s and `"item"`'s plan. Its result gains
-  `guides` (`PlaceGuides`: `"off"`, `"near"`, `"all"`): the mode's `placeGuides` (defaults `PLACE_GUIDES_DEFAULT`: snap
+  placeGuides? }` (`DropPreviewMode`), drawn with `"indicator"`'s, `"gap"`'s and `"item"`'s plan. Its result gains an
+  optional `guides` (`PlaceGuides`: `"off"`, `"near"`, `"all"`; absent means `"off"`, so a `PreviewPlan` a host builds
+  itself still compiles): the mode's `placeGuides` (defaults `PLACE_GUIDES_DEFAULT`: snap
   and placeholder near, outline off) while no landing shows, `"off"` whenever one does. The string forms give
   `guides: "off"` and are otherwise unchanged.
 

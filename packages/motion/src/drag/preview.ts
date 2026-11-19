@@ -56,9 +56,10 @@ export interface PreviewPlan {
   /**
    * The place guides to draw this frame: the mode's `placeGuides` while no landing shows (no indicator, no room, no item
    * in its slot), `"off"` whenever one does, so the screen shows where the item can go or where it will land, never
-   * both. Always `"off"` for the string forms.
+   * both. Always `"off"` for the string forms. Optional, so a plan a host builds itself is still one: absent means
+   * `"off"`.
    */
-  readonly guides: PlaceGuides;
+  readonly guides?: PlaceGuides;
 }
 
 /**
