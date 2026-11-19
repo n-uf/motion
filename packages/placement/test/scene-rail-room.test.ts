@@ -89,4 +89,32 @@ describe("a rail that pushes a column", () => {
     expect(first!.room).toBe(true);
     expect(at).toBeGreaterThanOrEqual(DRAG_DEFAULTS.roomAfter);
   });
+
+  describe("the edge the dragged item leaves", () => {
+    /** A column of two panels at the left, one panel at the right: new columns open on both sides. */
+    const two = (): Scene => ({
+      stage: { x: 0, y: 0, width: 1200, height: 800 },
+      edges: [column("left-0", "left", 0, ["p", "q"], { column: true, accepts: ["panel"] }), column("right-0", "right", 0, ["r"], { column: true, accepts: ["panel"] })],
+      items: byId([panel("p", 1), panel("q", 2), panel("r", 3)]),
+      floats: [],
+      floatKinds: ["panel"],
+      columns: { left: { accepts: ["panel"], cross: { min: 180, max: 400, rail: 30 } }, right: { accepts: ["panel"], cross: { min: 180, max: 400, rail: 30 } } },
+    });
+
+    it("an item the drop pushes aside counts, though it lies in that edge", () => {
+      const s = two();
+      const before = solve(s).items.q!.rect;
+      const line = targets(s, "p").find((t) => t.id === "column:left:0")!;
+      expect(line.slot!.x).toBeLessThan(before.x + before.width);
+      expect(line.after({ x: 10, y: 300 }).layout.items.q!.rect.x).toBeGreaterThan(before.x);
+      expect(line.opensRoom).toBe(true);
+    });
+
+    it("an item that only closes up over the dragged item's place doesn't: gaps between a column's cards stay plain", () => {
+      const s = two();
+      const gaps = targets(s, "p").filter((t) => t.place.kind === "gap");
+      expect(gaps.length).toBeGreaterThan(0);
+      for (const t of gaps) expect(t.opensRoom, t.id).toBeUndefined();
+    });
+  });
 });
