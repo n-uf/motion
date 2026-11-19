@@ -9,8 +9,8 @@
  * stops, as every frame does) and reports each frame.
  *
  * Every row carries `requires: { lanes: { since } }`: the first library version with `lanes()`. A host whose library is
- * older skips it (`runLandingCases(…, { version })`), and a host without a landing model skips them all. The skipped
- * count is a ratchet (`lanesRatchet`): it may only fall, and from `LANES_DEADLINE` (or the breaking release, if that
+ * older skips it (its `version`, read by `runLandingCases`); a host without a landing model doesn't run them, and its
+ * suite counts them all as skipped. The skipped count is a ratchet (`lanesRatchet`): it may only fall, and from `LANES_DEADLINE` (or the breaking release, if that
  * comes first) every row must run.
  */
 import { rect, type Point, type Rect } from "../../geometry";
@@ -205,6 +205,8 @@ export async function runLandingCases(rows: readonly LandingCase[], host: Landin
  */
 export function lanesRatchet(r: { readonly skipped: number; readonly baseline: number; readonly today: string; readonly breaking?: boolean }): string[] {
   const out: string[] = [];
+  // Dates compare as strings: only in this one form.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(r.today)) return [`today is "${r.today}", not a YYYY-MM-DD date`];
   if (r.skipped > r.baseline) out.push(`${r.skipped} landing rows skipped, more than the ${r.baseline} recorded: the count may only fall`);
   const due = r.today >= LANES_DEADLINE || !!r.breaking;
   if (due && r.skipped > 0) out.push(`${r.skipped} landing rows skipped${r.breaking ? " at the breaking release" : ` on ${r.today}`}: from ${LANES_DEADLINE} or the breaking release every row runs`);

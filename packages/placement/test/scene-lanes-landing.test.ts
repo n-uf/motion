@@ -73,7 +73,7 @@ describe("the landing model over lanes(), at more speeds than the landing rows",
   });
 
   it("a fast hand along the bar's free stretch, 450–1200 px/s, keeps the item within a pitch of the hand", () => {
-    for (const speed of [0.45, 0.8]) {
+    for (const speed of [0.45, 0.8, 1.2]) {
       const frames = run("a", path([{ x: 110, y: 18 }, { x: 970, y: 18 }], speed));
       for (const { p, f } of frames) {
         expect(f.lane, `${speed} ${p.x}`).toBe("top");
