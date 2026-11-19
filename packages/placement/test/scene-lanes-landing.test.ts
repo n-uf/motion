@@ -1,0 +1,108 @@
+/**
+ * The landing model (`@n-uf/motion/drag`) over `lanes()`: the two together, on a window with a toolbar bar and a toolbar
+ * rail. The window's edge docks, lane to lane never passes through the float, a fast hand along a bar keeps the item at
+ * the hand, the rail repro holds, and what a frame shows is what the drop commits.
+ */
+import { createLandingModel, type LandingFrame, type LandingOptions } from "@n-uf/motion/drag";
+import { describe, expect, it } from "vitest";
+import type { Point } from "../src/geometry";
+import { lanes, solve, SPOT_PITCH, type Scene } from "../src/scene";
+import { bar, byId, group } from "./scene-fixture";
+
+/** A 1080×640 window: a top bar (y 0–36) with a at its start, a toolbar rail at the left (x 0–30, y 36–640): tools, zoom. */
+const scene: Scene = {
+  stage: { x: 0, y: 0, width: 1080, height: 640 },
+  edges: [bar("top", "top", 0, ["a"]), { id: "rail-left", side: "left", ring: 0, accepts: ["group"], items: ["tools", "zoom"], cross: { min: 30, max: 30, rail: 30 }, compact: true }],
+  items: byId([group("a", 1), group("tools", 2), group("zoom", 3)]),
+  floats: [],
+  floatKinds: ["group"],
+};
+const GRAB = { x: 10, y: 10 };
+
+/** The model's options for a drag of `id` from its own place. */
+function optionsFor(id: string): LandingOptions {
+  const previous = solve(scene);
+  const regions = lanes(scene, id, { previous });
+  const home = regions.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0];
+  return {
+    regions,
+    regionsFor: (spot) => lanes(scene, id, { previous, spot }),
+    floatLanding: (p) => regions.float?.after(p, GRAB).layout.items[id]?.rect ?? null,
+    ...(home ? { home } : {}),
+    placeGuides: "near",
+  };
+}
+
+/** Drive keys [ms, x, y] (linear between) every 8 ms; every frame with its point. */
+function run(id: string, keys: readonly (readonly [number, number, number])[]): { p: Point; f: LandingFrame }[] {
+  const m = createLandingModel(optionsFor(id));
+  const out: { p: Point; f: LandingFrame }[] = [];
+  for (let t = 0; t <= keys.at(-1)![0] + 1e-6; t += 8) {
+    let i = 0;
+    while (i < keys.length - 1 && keys[i + 1]![0] < t) i++;
+    const a = keys[i]!;
+    const b = keys[Math.min(i + 1, keys.length - 1)]!;
+    const u = b[0] > a[0] ? Math.min(1, (t - a[0]) / (b[0] - a[0])) : 1;
+    const p = { x: a[1] + (b[1] - a[1]) * u, y: a[2] + (b[2] - a[2]) * u };
+    out.push({ p, f: m.update(p, t) });
+  }
+  return out;
+}
+/** Keys through `points` at `speed` px/ms, then a rest of `rest` ms. */
+function path(points: readonly Point[], speed: number, rest = 0): [number, number, number][] {
+  const out: [number, number, number][] = [[0, points[0]!.x, points[0]!.y]];
+  let t = 0;
+  for (let i = 1; i < points.length; i++) {
+    t += Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y) / speed;
+    out.push([t, points[i]!.x, points[i]!.y]);
+  }
+  if (rest > 0) out.push([t + rest, points.at(-1)!.x, points.at(-1)!.y]);
+  return out;
+}
+
+describe("the landing model over lanes()", () => {
+  it("the window's edge docks: a pointer flung on or past it and held there is in the lane drawn against it", () => {
+    for (const speed of [0.6, 1.5, 3])
+      for (const end of [{ x: 0, y: 400 }, { x: -10, y: 400 }, { x: -40, y: 400 }]) {
+        const f = run("a", path([{ x: 500, y: 400 }, end], speed, 40)).at(-1)!.f;
+        expect([speed, end.x, f.region, f.lane]).toEqual([speed, end.x, "lane", "rail-left"]);
+      }
+    expect(run("a", path([{ x: 500, y: 400 }, { x: -80, y: 400 }], 1, 40)).at(-1)!.f.region).toBe("nowhere");
+  });
+
+  it("the rail repro: zoom pulled up its rail, 6 px every 40 ms, stays in the rail and lands above tools", () => {
+    const keys: [number, number, number][] = [];
+    for (let k = 0, y = 160; y >= 44; k++, y -= 6) keys.push([k * 40, 15, y]);
+    const frames = run("zoom", keys);
+    expect(frames.every(({ f }) => f.region === "lane" && f.lane === "rail-left")).toBe(true);
+    expect(frames.at(-1)!.f.spot).toBe("rail-left/start/^|tools");
+  });
+
+  it("lane to lane at 600 px/s, rail into the bar, never passes through the float", () => {
+    const frames = run("zoom", path([{ x: 15, y: 160 }, { x: 15, y: 18 }, { x: 400, y: 18 }], 0.6));
+    expect(frames.some(({ f }) => f.region === "open")).toBe(false);
+    expect(frames.at(-1)!.f.lane).toBe("top");
+  });
+
+  it("a fast hand along the bar, 450–1200 px/s, keeps the item at the hand", () => {
+    for (const speed of [0.45, 0.8, 1.2]) {
+      const frames = run("a", path([{ x: 110, y: 18 }, { x: 970, y: 18 }], speed));
+      for (const { p, f } of frames) {
+        expect(f.lane, `${speed} ${p.x}`).toBe("top");
+        const l = f.landing!;
+        expect(Math.max(0, l.x - p.x, p.x - (l.x + l.width)), `${speed} ${p.x}`).toBeLessThanOrEqual(SPOT_PITCH);
+      }
+    }
+  });
+
+  it("what a frame shows is what the drop commits", () => {
+    const byId = new Map(lanes(scene, "zoom", { previous: solve(scene) }).lanes.flatMap((l) => l.spots).map((sp) => [sp.id, sp] as const));
+    const frames = run("zoom", path([{ x: 15, y: 160 }, { x: 15, y: 18 }, { x: 900, y: 18 }, { x: 15, y: 18 }, { x: 15, y: 500 }], 0.3, 40));
+    for (const { f } of frames) {
+      if (f.region !== "lane" || !f.spot) continue;
+      const sp = byId.get(f.spot)!;
+      if (sp.home) continue;
+      expect(sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout.items.zoom?.rect, f.spot).toEqual(f.landing);
+    }
+  });
+});

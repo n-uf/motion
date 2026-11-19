@@ -29,6 +29,7 @@ export {
   type LandingGuide,
   type LandingLane,
   type LandingMargins,
+  type LandingMark,
   type LandingModel,
   type LandingOptions,
   type LandingRegion,
