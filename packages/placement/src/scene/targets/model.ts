@@ -220,6 +220,12 @@ export interface EdgeSpec {
   readonly ownedAlong: Span | null;
   /** It is drawn in the seen geometry; else what it owns is a band of its place (where it lands once filled). */
   readonly drawn: boolean;
+  /**
+   * An empty rail or bar, which owns the depth a drop draws it at (`owned`): the thin band at its boundary within that.
+   * Past the thin band it never takes the zones of a drawn edge that take the item (a drawn rail beside an empty bar,
+   * a column's first gap under it, keep their places).
+   */
+  readonly thinOwned?: Span;
   /** A slot's marker: the zero-thick line where the item's leading edge lands. */
   readonly marker: (s: Slot) => Rect;
 }

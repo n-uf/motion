@@ -585,9 +585,12 @@ describe("the target model's property check", () => {
       columns: { left: { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 } } },
     };
     const top = solve(s).edges.top!.rect;
-    const line = targets(s, "g").find((t) => t.id === "column:left:1")!;
-    // The bar owns half the hit band below its boundary; the line's tile starts under it.
-    expect(line.hit.y).toBe(top.y + 12);
+    const ts = targets(s, "g");
+    const line = ts.find((t) => t.id === "column:left:1")!;
+    // The empty bar owns the depth a drop draws it at, below its boundary; the line's tile starts under it.
+    const depth = ts.find((t) => t.id.startsWith("strip:top:"))!.after({ x: 0, y: 0 }).layout.edges.top!.cross;
+    expect(depth).toBeGreaterThan(12);
+    expect(line.hit.y).toBe(top.y + depth);
   });
 
   it("a column line between two touching columns owns its band: the seam keeps a new-column target", () => {
