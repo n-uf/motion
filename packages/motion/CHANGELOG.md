@@ -18,6 +18,10 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.42
 
+- `./drag`, **`previewPlan`'s `"item"`** (additive): the dragged item is the only preview. No indicator shows for any
+  target; the item sits in a slotted target once the room is open and otherwise stays on the pointer. `DragPreview` gains
+  the value, so a host with an exhaustive switch over it adds a case.
+
 - `./drag`, **`earlyRelease`** (additive). `DragIntentOptions.earlyRelease` says what a release does before the item has
   settled on a target. `"target"`, the default, is today's behaviour: it lands on the shown target, else the one under
   the pointer, an `opensRoom` target that hasn't shown included. `"float"` makes what shows what lands: until the room

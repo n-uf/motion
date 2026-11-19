@@ -508,6 +508,15 @@ describe("drag/ previews", () => {
     expect(frames.some((f) => f.plan.showIndicator)).toBe(false);
   });
 
+  it("item: the item is the only preview: no indicator on any target, it snaps once the room is open", () => {
+    const slotted = plans(mid(A.hit), "item");
+    expect(slotted.every((f) => !f.plan.showIndicator && f.plan.makeRoom === f.room && f.plan.snapItem === f.room)).toBe(true);
+    expect(slotted.some((f) => f.plan.snapItem)).toBe(true);
+    const free = plans({ x: 500, y: 200 }, "item");
+    expect(free.at(-1)!.shown).toBe("area");
+    expect(free.some((f) => f.plan.showIndicator || f.plan.snapItem || f.plan.makeRoom)).toBe(false);
+  });
+
   it("snap: a target with no slot keeps the indicator and never snaps", () => {
     const frames = plans({ x: 500, y: 200 }, "snap");
     expect(frames.at(-1)!.shown).toBe("area");
