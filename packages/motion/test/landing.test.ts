@@ -30,7 +30,8 @@ function railWindow(): LandingRegions {
     id: "top",
     rect: rect(30, 0, 810, 32),
     axis: "x",
-    spots: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => ({ id: `top/start/^|$@${k}`, along: [30 + k * 81, 30 + (k + 1) * 81] as const, landing: rect(38 + k * 81, 0, 75, 32) })),
+    // Pitched spots on an empty bar: a change between them moves nothing else.
+    spots: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => ({ id: `top/start/^|$@${k}`, along: [30 + k * 81, 30 + (k + 1) * 81] as const, landing: rect(38 + k * 81, 0, 75, 32), others: "rail as seen" })),
     refused: [],
   };
   return {
@@ -135,7 +136,7 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
 
   it("P5: the guides are the held lane's spots, the same set on every frame the lane is held, and none with Shift", () => {
     const { frames } = run(base({ placeGuides: "near" }), path([{ x: 15, y: 300 }, { x: 15, y: 40 }], 0.1));
-    const sets = new Set(frames.filter((x) => x.f.lane === "rail-left").map((x) => x.f.guides.map((g) => g.spot).join()));
+    const sets = new Set(frames.filter((x) => x.f.lane === "rail-left").map((x) => x.f.guides.map((g) => `${g.lane}:${g.kind}:${g.rect.y}`).join()));
     expect(sets.size).toBe(1);
     const { frames: shifted } = run(base({ placeGuides: "near" }), path([{ x: 15, y: 300 }, { x: 15, y: 200 }], 0.1), 0);
     expect(shifted.every((x) => x.f.guides.length === 0)).toBe(true);
@@ -173,20 +174,56 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     expect(slow.frames.at(-1)!.f.lane).toBe("top");
   });
 
-  it("P11: outside the stage is nowhere; a pointer on the window's edge is in the lane drawn there", () => {
-    const { frames } = run(base(), [[0, 15, 300], [96, 0, 300], [200, 0, 300], [296, -20, 300]]);
+  it("P11 under P1: on the window's edge or up to 48 px past it is in the lane drawn there; beyond is nowhere", () => {
+    const { frames } = run(base(), [[0, 15, 300], [96, 0, 300], [200, 0, 300], [296, -20, 300], [400, -40, 300], [500, -60, 300], [600, -60, 300]]);
     expect(frames.find((x) => x.p.x === 0)!.f.region).toBe("lane");
+    expect(frames.find((x) => x.p.x === -20)!.f.region).toBe("lane");
+    expect(frames.find((x) => x.p.x === -40)!.f.region).toBe("lane");
     expect(frames.at(-1)!.f.region).toBe("nowhere");
     expect(frames.at(-1)!.release).toBeNull();
   });
 
-  it("refused stretches: one shorter than the item counts as the neighboring spot's; a longer one says Can't go here", () => {
+  it("P1: a pointer flung past the window's edge and held there docks in the lane against it", () => {
+    for (const speed of [1.5, 3, 5])
+      for (const end of [{ x: -10, y: 300 }, { x: 0, y: 300 }, { x: 400, y: -10 }]) {
+        const keys = path([{ x: 400, y: 300 }, end], speed);
+        const t = keys.at(-1)![0];
+        const { frames } = run(base({ home: undefined }), [...keys, [t + 40, end.x, end.y]]);
+        expect([speed, end, frames.at(-1)!.f.region], `${speed}`).toEqual([speed, end, "lane"]);
+      }
+  });
+
+  it("a refused stretch of a lane says Can't go here, the lane held (lanes() joins shorter ones to their spots)", () => {
     const r = railWindow();
-    const short: LandingRegions = { ...r, lanes: [{ ...r.lanes[0]!, refused: [{ along: [150, 180] }] }, r.lanes[1]!] };
     const long: LandingRegions = { ...r, lanes: [{ ...r.lanes[0]!, refused: [{ along: [300, 500] }] }, r.lanes[1]!] };
-    expect(run(base({ regions: short }), [[0, 15, 280], [400, 15, 165], [600, 15, 165]]).frames.at(-1)!.f.region).toBe("lane");
     const f = run(base({ regions: long }), [[0, 15, 280], [400, 15, 400], [600, 15, 400]]).frames.at(-1)!;
     expect([f.f.region, f.f.lane, f.release]).toEqual(["refused", "rail-left", null]);
+  });
+
+  it("a fast move along the bar keeps the item at the hand: changes that move nothing else aren't gated", () => {
+    for (const speed of [0.45, 0.8, 1.2]) {
+      const { frames } = run(base({ home: { lane: "top", spot: "top/start/^|$@0" } }), path([{ x: 60, y: 16 }, { x: 820, y: 16 }], speed));
+      for (const { p, f } of frames) expect(Math.abs(f.landing!.x + f.landing!.width / 2 - p.x), `${speed} ${p.x}`).toBeLessThanOrEqual(81);
+    }
+  });
+
+  it("lane to lane at the corner never passes through the float", () => {
+    for (const speed of [0.6, 1.5]) {
+      const { frames } = run(base({ home: { lane: "top", spot: "top/start/^|$@1" } }), path([{ x: 140, y: 16 }, { x: 25, y: 25 }, { x: 15, y: 260 }], speed));
+      expect(frames.some((x) => x.f.region === "open"), `${speed}`).toBe(false);
+      expect(frames.at(-1)!.f.lane).toBe("rail-left");
+    }
+  });
+
+  it("guides: a lane's marks when it has them; over a refused place, the nearest lane's at any distance", () => {
+    const r = railWindow();
+    const marks = [{ kind: "line" as const, rect: rect(0, 190, 30, 0) }, { kind: "box" as const, rect: rect(0, 367, 30, 241) }];
+    const withMarks: LandingRegions = { ...r, lanes: [{ ...r.lanes[0]!, marks }, r.lanes[1]!] };
+    const held = run(base({ regions: withMarks, placeGuides: "near" }), [[0, 15, 300], [40, 15, 300]]).frames.at(-1)!;
+    expect(held.f.guides.map((g) => [g.kind, g.rect])).toEqual(marks.map((m) => [m.kind, m.rect]));
+    const over = run(base({ placeGuides: "near", home: undefined }), [[0, 1000, 300], [40, 1000, 300]]).frames.at(-1)!;
+    expect(over.f.region).toBe("refused");
+    expect(over.f.guides.length).toBeGreaterThan(0);
   });
 
   it("the fixed point: a spot whose room moves its boundary away from the pointer isn't taken; regionsFor is called once per spot", () => {
