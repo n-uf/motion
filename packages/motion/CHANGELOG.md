@@ -3,6 +3,15 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## Unreleased
+
+- `./drag`, **`DragTarget.roomHit`** (additive): the zone an `opensRoom` target holds once its room is open, the drawn
+  room (`@n-uf/placement` gives its hit and landing rect). While the target shows with its room open it holds in
+  `hit ∪ roomHit`, inside its `bounds`: a refusal or a target no more precise than it under the room doesn't take over,
+  and the frame isn't `refused`; those places are reachable once the pointer leaves the room. A more precise target past
+  the breakthrough and a held key still win; out of both it is held by its hit and band as before. A target without it
+  is unchanged.
+
 ## 26.11.42
 
 - `./drag`, docs: **a refused place is never drawn.** `frame.refused` is unchanged; the docs now say a host draws
