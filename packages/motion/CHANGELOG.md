@@ -3,6 +3,10 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.47
+
+No changes in `@n-uf/motion`: the version is shared with `@n-uf/placement` 26.11.47 (its landing rows' `home` check).
+
 ## 26.11.46
 
 No changes in `@n-uf/motion`: the version is shared with `@n-uf/placement` 26.11.46, whose `lanes()` now takes the

@@ -3,6 +3,22 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## 26.11.47
+
+Landing rows for hosts with their own geometry, and a docs correction. No layout, target or `lanes()` change. Host
+notes: a host whose window differs from a row's (its own gaps or paddings) returns `before` from `play`, its layout at
+the press; without it the back-home rows compare with the row's window as before.
+
+- `./scene/cases`, **`LandingCase.home`** and **`LandingPlay.before`** (additive): `home` checks that after the release
+  the item lies where it lay at the press, on the same edge, in the same order there and at the same rect, against the
+  play's `before` (else the row's scene as solved). `landing-back-home-bar` and `landing-back-home-rail` use it instead
+  of pixel values of the row's window, so a host whose rail has a gap no longer fails the rail row by that gap.
+  `landingIssues` takes `before` as an optional fourth argument; the reference host reports it.
+- `./scene`, **`Scene.barZones`** (docs): it moves the targets' hit areas only (`targets()`, `pickTarget`, a drag
+  intent over them). Under a landing model `lanes()` cuts a bar between its spots' landings whatever the zones' hit
+  areas, so it changes nothing there: the 26.11.45 notes listed it among the landing model's opt-ins, which a host
+  that drags with `lanes()` needn't set.
+
 ## 26.11.46
 
 A fix for hosts on the landing model. Host notes: pass the drag's grab to `lanes()` (`{ previous, grab }`, and the
