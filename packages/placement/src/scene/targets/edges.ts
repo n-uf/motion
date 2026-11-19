@@ -256,8 +256,9 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
   // offers.
   const ownNow = now.items[dragged];
   const ownHere = ownNow && ownNow.edge === edge.id && !ownNow.floating && area(ownNow.rect) > EPS ? ownNow.rect : null;
-  // A column drawn as a rail, under `Scene.foldedColumnDrop: "end"`: its whole length is one place, after its last member.
-  const oneEnd = scene.foldedColumnDrop === "end" && column && el.tabs.length > 0 && zoneTakes(edge, "start", kind);
+  // A column drawn as a rail, under `Scene.foldedColumnDrop: "end"`: for an item arriving from elsewhere its whole length
+  // is one place, after its last member. One of its own tiles keeps its gaps, to move among them.
+  const oneEnd = scene.foldedColumnDrop === "end" && column && el.tabs.length > 0 && ownNow?.edge !== edge.id && zoneTakes(edge, "start", kind);
   const allSlots = edgeSlots(c, edge, accepts);
   const slots = oneEnd ? allSlots.filter((s) => s.zone === "start").sort((a, b) => a.line - b.line).slice(-1) : allSlots;
   const spanOf = (r: Rect): Span => [at(r), at(r) + len(r)];

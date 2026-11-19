@@ -86,7 +86,8 @@ const sameRects = (a: readonly Rect[], b: readonly Rect[]): boolean => a.length 
  * and the strips.
  */
 export function withRailStrips(c: Ctx, targets: readonly SceneTarget[], refusals: readonly SceneRefusal[]): { targets: SceneTarget[]; refusals: SceneRefusal[]; strips: Rect[] } {
-  const policy = railPolicyOf(c.scene, c.kind);
+  // A strip means "collapse it at this side": under `foldedColumnDrop` no drop changes an item's state.
+  const policy = c.scene.foldedColumnDrop === "end" ? null : railPolicyOf(c.scene, c.kind);
   const strips = policy ? (["left", "right"] as const).map((side) => (c.scene.rails?.[side] ? declaredStrip(c, side, policy) : columnStrip(c, side, policy))).filter((s): s is Strip => s !== null) : [];
   if (!policy || strips.length === 0) return { targets: [...targets], refusals: [...refusals], strips: [] };
   const sides = new Set(strips.map((s) => s.side));

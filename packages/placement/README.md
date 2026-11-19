@@ -982,10 +982,13 @@ ignored, and a list with no zone counts as all three. With `zoneAccepts` as well
 say so (`zoneAccepts: { start: [...] }` alone keeps three zones and refuses the other two thirds). Like `zoneAccepts`,
 `zones` is a declaration: `storeScene` never writes it and `readScene` takes it from `base`.
 
-**A drop on collapsed titles.** With `Scene.foldedColumnDrop: "end"`, a column drawn as a rail (all its members collapsed,
-on a side with no declared `rails` entry) is one drop place, over its whole length, after its last member. The item keeps
-its state: an open panel opens the column around it at full size, a collapsed one becomes the last title tile. It is a
-declaration too, never stored. To keep every drop from collapsing a panel, leave the panel kind out of `railDrop` as well.
+**A drop on collapsed titles.** With `Scene.foldedColumnDrop: "end"`, no drop changes an item's collapsed state. For an
+item arriving from elsewhere, collapsed titles are one drop place over their whole length, their tiles included, after
+the last member: a column drawn as a rail or, on a side with a declared `rails` entry, the rail itself (the end of its
+last folded column). An open panel opens that column around it at full size, a collapsed one becomes the last title
+tile. A tile dragged within its own rail still moves among that rail's places, staying collapsed. No rail drop strip is
+offered, whatever `railDrop` says, and on a declared rail no stop folds an open panel; with no rail showing, an open
+panel has no stop there. It is a declaration too, never stored.
 
 **Column footers.** `Edge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
 the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`

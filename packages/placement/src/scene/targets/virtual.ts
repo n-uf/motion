@@ -4,12 +4,12 @@
  */
 import { EPS, RAIL_EDGE, clamp, rect, type Rect } from "../../geometry";
 import { sideRings } from "../changes";
-import { isHandFolded } from "../helpers";
+import { isHandFolded, zoneOf } from "../helpers";
 import type { Edge } from "../model";
 import { slotAt } from "./edges";
 import { targetId, virtualEdgeId } from "./ids";
 import { EDGE_KINDS } from "./kinds";
-import type { Ctx, EdgeSpec, SceneAfter, Span } from "./model";
+import type { Ctx, EdgeSpec, SceneAfter, Slot, Span } from "./model";
 
 /**
  * A side's rings as a place counts them, with the item lifted, for lines that lie in the seen geometry: `before(e)`,
@@ -135,6 +135,24 @@ export function columnLines(c: Ctx, side: "left" | "right", railLands: boolean):
 }
 
 /**
+ * A declared rail's one place under `foldedColumnDrop`: the end of its last folded column. The item keeps its state: a
+ * collapsed one lands as the rail's last tile, an open one opens that column, or there is no place.
+ */
+function railEnd(c: Ctx, side: "left" | "right", segments: readonly { readonly edge: string }[], y: number): Slot | null {
+  const { scene, rest, dragged } = c;
+  const edge = [...segments].reverse().map((s) => rest.edges.find((e) => e.id === s.edge)).find((e) => !!e);
+  if (!edge) return null;
+  const at = edge.items.filter((id) => zoneOf(rest.items[id]) === "start").length;
+  const place = { kind: "gap" as const, edge: edge.id, zone: "start" as const, at };
+  const collapsed = isHandFolded(scene, dragged);
+  const lands = ({ layout }: SceneAfter): boolean => {
+    const me = layout.items[dragged]!;
+    return !me.inMenu && (collapsed ? me.rail === side : me.edge === edge.id && !me.rail && !me.rides && !layout.edges[edge.id]?.folded);
+  };
+  return slotAt(c, "start", y, targetId(place), place, lands);
+}
+
+/**
  * The side's rail as an edge (virtual, along y): a slot before each folded column's segments and after the last, or,
  * with no rail shown, one slot `RAIL_EDGE` px deep where the rail lands (`railPlaces`); tiled as every edge is. The
  * stops lie where the user sees the rail; each counts its ring with the item lifted.
@@ -185,6 +203,11 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
   const shown = !!rail && rail.segments.length > 0;
   const lands = (r: SceneAfter): boolean => (shown ? collapsesAt(c, r, side) : r.layout.items[dragged]!.rail === side && r.scene !== c.scene);
   const at = zone;
+  // `foldedColumnDrop`: no stop changes the state of an item arriving here. A shown rail is one place, the end of its last
+  // folded column; with none shown, only an item already collapsed has a stop.
+  const arriving = scene.foldedColumnDrop === "end" && !ownRail;
+  const end = arriving && shown ? railEnd(c, side, rail.segments, at.y + at.height) : null;
+  if (arriving && (shown ? !end : !isHandFolded(scene, dragged))) return null;
   return {
     id: virtualEdgeId("rail", side),
     edge: null,
@@ -193,7 +216,7 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
     lay: { phase: EDGE_KINDS.railStop.phase, side, at: -1 },
     vertical: true,
     zones: [{ zone: "start", a: at.y, b: at.y + at.height }],
-    slots: stops.map((s) => slotAt(c, "start", s.y, targetId({ kind: "rail", side, ring: s.ring }), { kind: "rail", side, ring: s.ring }, lands, ownRail)),
+    slots: end ? [end] : stops.map((s) => slotAt(c, "start", s.y, targetId({ kind: "rail", side, ring: s.ring }), { kind: "rail", side, ring: s.ring }, lands, ownRail)),
     refuse: () => "no-room",
     own: null,
     holds: false,
