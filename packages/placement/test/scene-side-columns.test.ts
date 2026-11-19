@@ -38,6 +38,27 @@ describe("mergeSideColumns", () => {
     expect(solve(m).items.b!.edge).toBe("left-0");
   });
 
+  it("three columns, a rail and an anchor beside them: the columns merge into the outermost, its size kept; the rail and the anchor stay", () => {
+    const base = two(false);
+    const s: Scene = {
+      ...base,
+      edges: [
+        { id: "rail", side: "left", ring: 0, accepts: ["group"], items: [], cross: { min: 30, max: 30, rail: 30 }, compact: true },
+        { id: "anchor", side: "left", ring: 1, accepts: [], items: ["thumbs"], cross: { min: 60, max: 60, rail: 60 } },
+        column("left-0", "left", 2, ["a"], { column: true, accepts: ["panel"], size: 280 }),
+        column("left-1", "left", 3, ["b"], { column: true, accepts: ["panel"], size: 200 }),
+        column("left-2", "left", 4, ["c"], { column: true, accepts: ["panel"] }),
+      ],
+      items: byId([panel("a", 1), panel("b", 2), panel("c", 3), panel("f", 4), { id: "thumbs", kind: "thumbs", used: 0, fixed: true, forms: { column: [] } }]),
+    };
+    const m = mergeSideColumns(s);
+    expect(m.edges.map((e) => [e.id, e.ring, e.items, e.size ?? null])).toEqual([
+      ["rail", 0, [], null],
+      ["anchor", 1, ["thumbs"], null],
+      ["left-0", 2, ["a", "b", "c"], 280],
+    ]);
+  });
+
   it("returns the same scene when no side has two columns", () => {
     const s = mergeSideColumns(two());
     expect(mergeSideColumns(s)).toBe(s);
