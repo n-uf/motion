@@ -90,30 +90,101 @@ function labWindow(): Scene {
 }
 
 describe("a toolbar moved along an occupied bar or rail stays at the hand", () => {
-  it("in every sweep both ways at 0.15–3 px/ms, the landing is never more than 48 px from the pointer while its lane holds it", () => {
-    const s = labWindow();
+  /**
+   * The worst distance from the pointer to the landing while `lane` holds `id`, the pointer over no fixed chrome (nothing
+   * lands there): of a title that grows to fill the bar, only its natural length counts as chrome.
+   */
+  const worstAlong = (s: Scene, id: string, lane: string, keys: [number, number, number][]): number => {
     const l = solve(s);
-    // Each toolbar along its own lane, end to end and back (the pointer over fixed chrome, where nothing lands, left out).
-    const fixed = Object.entries(l.items).filter(([id]) => s.items[id]!.fixed).map(([, it]) => it.rect);
+    const fixed = Object.entries(l.items)
+      .filter(([k]) => s.items[k]!.fixed)
+      .map(([k, it]) => {
+        const main = s.items[k]!.forms.row?.[0]?.main;
+        return main?.grows ? { ...it.rect, width: Math.min(it.rect.width, main.natural) } : it.rect;
+      });
+    let worst = 0;
+    for (const { p, f } of runOn(s, id, keys)) {
+      if (f.lane !== lane || !f.landing || fixed.some((r) => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height)) continue;
+      const l2 = f.landing;
+      worst = Math.max(worst, Math.hypot(Math.max(l2.x - p.x, 0, p.x - (l2.x + l2.width)), Math.max(l2.y - p.y, 0, p.y - (l2.y + l2.height))));
+    }
+    return worst;
+  };
+  const pressOn = (s: Scene, id: string): Point => {
+    const g = solve(s).items[id]!.rect;
+    return { x: g.x + Math.min(10, g.width / 2), y: g.y + Math.min(10, g.height / 2) };
+  };
+  const BOUND = 40;
+  const ok = (worst: number): number | "ok" => (Math.round(worst) <= BOUND ? "ok" : Math.round(worst));
+
+  it(`in every sweep both ways at 0.15–3 px/ms, the landing is never more than ${BOUND} px from the pointer while its lane holds it`, () => {
+    const s = labWindow();
+    // Each toolbar along its own lane, end to end and back, over the title too (it grows to fill the bar).
     const sweeps: [string, string, Point, Point][] = [
       ["views", "bottom", { x: 30, y: 622 }, { x: 1050, y: 622 }],
       ["tools", "rail-left", { x: 15, y: 70 }, { x: 15, y: 600 }],
-      ["tz", "title", { x: 240, y: 16 }, { x: 990, y: 16 }],
+      ["tz", "title", { x: 20, y: 16 }, { x: 990, y: 16 }],
     ];
-    for (const [id, lane, a, b] of sweeps) {
-      const g = l.items[id]!.rect;
-      const press = { x: g.x + Math.min(10, g.width / 2), y: g.y + Math.min(10, g.height / 2) };
+    for (const [id, lane, a, b] of sweeps)
       for (const speed of [0.15, 0.3, 0.6, 1.2, 3])
-        for (const [p0, p1] of [[a, b], [b, a]] as const) {
-          let worst = 0;
-          for (const { p, f } of runOn(s, id, path([press, p0, p1], speed, 80))) {
-            if (f.lane !== lane || !f.landing || fixed.some((r) => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height)) continue;
-            const l2 = f.landing;
-            worst = Math.max(worst, Math.hypot(Math.max(l2.x - p.x, 0, p.x - (l2.x + l2.width)), Math.max(l2.y - p.y, 0, p.y - (l2.y + l2.height))));
-          }
-          expect([id, speed, p0.x, p0.y, Math.round(worst) <= 48 ? "ok" : Math.round(worst)]).toEqual([id, speed, p0.x, p0.y, "ok"]);
-        }
+        for (const [p0, p1] of [[a, b], [b, a]] as const) expect([id, speed, p0.x, p0.y, ok(worstAlong(s, id, lane, path([pressOn(s, id), p0, p1], speed, 80)))]).toEqual([id, speed, p0.x, p0.y, "ok"]);
+  });
+
+  it(`the UI check's paths: zoom up a hand-made rail past tools (both keeping space), a toolbar along the title bar by the title and the controls, within ${BOUND} px`, () => {
+    // Tools and zoom dropped in the rail by hand: tools keeps 80 px before it, zoom (at the rail's end) 100 px after it.
+    const base = labWindow();
+    const rail: Scene = { ...base, items: { ...base.items, tools: { ...base.items.tools!, space: 80 }, zoom: { ...base.items.zoom!, align: "end", space: 100 } } };
+    const tools = solve(rail).items.tools!.rect;
+    // A title bar of the title and the controls (tz out of it): views taken from the bottom bar into it and along it.
+    const title: Scene = { ...base, edges: base.edges.map((e) => (e.id === "title" ? { ...e, items: ["title", "controls"] } : e.id === "bottom" ? { ...e, items: ["views", "review", "tz"] } : e)) };
+    for (const speed of [0.15, 0.3, 0.6]) {
+      const z = pressOn(rail, "zoom");
+      expect(["rail", speed, ok(worstAlong(rail, "zoom", "rail-left", path([z, { x: z.x, y: z.y - 10 }, { x: z.x, y: tools.y - 50 }], speed, 300)))]).toEqual(["rail", speed, "ok"]);
+      const v = pressOn(title, "views");
+      expect(["title", speed, ok(worstAlong(title, "views", "title", path([v, { x: 420, y: 16 }, { x: 1000, y: 16 }, { x: 20, y: 16 }], speed, 300)))]).toEqual(["title", speed, "ok"]);
     }
+  });
+});
+
+describe("guides across a hop", () => {
+  it("no guide goes and comes back while its lane is held: a mark keeps its id as the held item hops past it", () => {
+    const s = labWindow();
+    const base = s;
+    const rail: Scene = { ...base, items: { ...base.items, tools: { ...base.items.tools!, space: 80 }, zoom: { ...base.items.zoom!, align: "end", space: 100 } } };
+    const g = (sc: Scene, id: string): Point => {
+      const r = solve(sc).items[id]!.rect;
+      return { x: r.x + 10, y: r.y + 10 };
+    };
+    const slides: [Scene, string, string, Point[]][] = [
+      [s, "views", "bottom", [{ x: 30, y: 622 }, { x: 1050, y: 622 }, { x: 30, y: 622 }]],
+      [rail, "zoom", "rail-left", [{ x: 15, y: 590 }, { x: 15, y: 60 }, { x: 15, y: 590 }]],
+    ];
+    for (const [sc, id, lane, pts] of slides)
+      for (const speed of [0.15, 0.3, 0.6]) {
+        const frames = runOn(sc, id, path([g(sc, id), ...pts], speed, 80)).filter(({ f }) => f.lane === lane);
+        const seen: Set<string>[] = frames.map(({ f }) => new Set(f.guides.filter((x) => x.lane === lane).map((x) => x.id)));
+        let blinks = 0;
+        let note = "";
+        // A host keeps guides 2 px clear of where the item is drawn: a line on the landing's own edge would come and go
+        // with the item's glide. None is there.
+        for (const { f } of frames)
+          for (const x of f.guides)
+            if (x.kind === "line" && f.landing) {
+              const l = f.landing;
+              const near = x.rect.x < l.x + l.width + 2 && l.x - 2 < x.rect.x + x.rect.width && x.rect.y < l.y + l.height + 2 && l.y - 2 < x.rect.y + x.rect.height;
+              if (near) {
+                blinks++;
+                note ||= `${x.id} on the landing's edge`;
+              }
+            }
+        for (let i = 1; i < seen.length; i++)
+          for (const gid of seen[i - 1]!)
+            if (!seen[i]!.has(gid) && seen.slice(i + 1, i + 13).some((x) => x.has(gid))) {
+              blinks++;
+              note ||= gid;
+            }
+        expect([id, speed, blinks, note]).toEqual([id, speed, 0, ""]);
+      }
   });
 });
 

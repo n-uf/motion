@@ -332,7 +332,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
     : [];
   // The places a drop here lands: its spots' neighbors (`<before>|<after>`), so a mark lies only where one lands.
   const places = new Set(unique.map((x) => `${x.before}|${x.next}`));
-  const marks = first.edge ? edgeMarks(id, laneRect, axis, onEdge(drawn, first.edge, "", axis), refused, itemLen, (pair) => places.has(pair) || pair.split("|").includes(dragged)) : virtualMarks(id, unique, drawn.items[dragged]);
+  const marks = first.edge ? edgeMarks(id, laneRect, axis, onEdge(drawn, first.edge, "", axis), refused, itemLen, (pair) => places.has(pair) || pair.split("|").includes(dragged), dragged) : virtualMarks(id, unique, drawn.items[dragged]);
   return { id, rect: laneRect, axis, spots, refused, marks };
 }
 
@@ -346,7 +346,7 @@ const LINE = 2;
  * where a drop lands (`lands(<before>|<after>)`: a spot between those two, or beside the held item): none beside fixed
  * chrome nothing lands next to.
  */
-function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { id: string; r: Rect }[], refused: readonly LaneRefusal[], itemLen: number, lands: (pair: string) => boolean): LaneMark[] {
+function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { id: string; r: Rect }[], refused: readonly LaneRefusal[], itemLen: number, lands: (pair: string) => boolean, held: string): LaneMark[] {
   const out: LaneMark[] = [];
   const start = lo(laneRect, axis);
   const end = start + len(laneRect, axis);
@@ -358,18 +358,29 @@ function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { i
     const b = clamp(ends[i + 1]!.a, start, end);
     const pair = `${ends[i]!.id}|${ends[i + 1]!.id}`;
     if (ends[i + 1]!.a < start - EPS || ends[i]!.b > end + EPS || !lands(pair)) continue;
+    // Named by what it separates other than the held item (that is the held item's own place, and it moves): a mark
+    // keeps its id while the held item hops past it.
+    const left = ends[i]!.id === held ? (ends[i - 1]?.id ?? "^") : ends[i]!.id;
+    const right = ends[i + 1]!.id === held ? (ends[i + 2]?.id ?? "$") : ends[i + 1]!.id;
+    const named = `${left}|${right}`;
     if (b - a < itemLen - EPS) {
       // As thick as the gap allows, up to `LINE`: zero between items with no gap (the host strokes it). Also at an end
-      // of the lane next to an item, unless refused there; none where the lane holds nothing.
+      // of the lane next to an item, unless refused there; none where the lane holds nothing, and none beside the held
+      // item (its own edge, not a place).
       const t = Math.max(0, Math.min(LINE, b - a)) / 2;
-      if (items.length > 0 && !isRefused((a + b) / 2)) out.push({ id: `${lane}/line/${pair}`, kind: "line", rect: along(laneRect, axis, (a + b) / 2 - t, (a + b) / 2 + t) });
+      if (items.length > 0 && named === pair && !isRefused((a + b) / 2)) out.push({ id: `${lane}/line/${pair}`, kind: "line", rect: along(laneRect, axis, (a + b) / 2 - t, (a + b) / 2 + t) });
       continue;
     }
     // The free stretch less its refused parts: one box per piece the item still fits in.
     let pieces: [number, number][] = [[a, b]];
     for (const f of refused) pieces = pieces.flatMap(([p, q]) => [[p, Math.min(q, f.along[0])] as [number, number], [Math.max(p, f.along[1]), q] as [number, number]]).filter(([p, q]) => q - p > EPS);
     let k = 0;
-    for (const [p, q] of pieces) if (q - p >= itemLen - EPS) out.push({ id: `${lane}/box/${pair}${k++ ? `#${k - 1}` : ""}`, kind: "box", rect: along(laneRect, axis, p, q) });
+    for (const [p, q] of pieces) {
+      if (q - p < itemLen - EPS) continue;
+      // The held item between two free stretches names both alike: the one after it is the second.
+      const base = `${lane}/box/${named}${k++ ? `#${k - 1}` : ""}`;
+      out.push({ id: out.some((m) => m.id === base) ? `${base}~2` : base, kind: "box", rect: along(laneRect, axis, p, q) });
+    }
   }
   return out;
 }
@@ -416,11 +427,38 @@ function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
     const middle = mid(drawn.rect, axis);
     const zoneOf = (o: (typeof others)[number]): Zone => o.zone ?? "start";
     const taken = mine.map((r) => r.landing);
+    /** One spot: a dock in `zone` before its `at`-th item keeping `space`, kept if it lands at `x0` (when given). */
+    const emit = (zone: Zone, at: number, space: number, x0?: number): void => {
+      const place: DockPlace = { edge: e.id, zone, at, space };
+      const next = moveTo(scene, dragged, place);
+      if (next === scene) return;
+      const layout = solve(next, prev);
+      const landed = layout.items[dragged];
+      if (!landed || landed.inMenu || landed.edge !== e.id || (x0 !== undefined && Math.abs(lo(landed.rect, axis) - x0) > 1)) return;
+      if (taken.some((r) => Math.abs(lo(r, axis) - lo(landed.rect, axis)) < pitch / 2)) return;
+      taken.push(landed.rect);
+      const result = { scene: next, layout };
+      const target: SceneTarget = { id: `pitch:${e.id}:${zone}:${at}:${Math.round(space)}`, priority: 2, hit: landed.rect, slot: landed.rect, item: dragged, place: { kind: "gap", edge: e.id, zone, at }, after: () => result };
+      const n = neighbors(layout, e.id, dragged, axis);
+      // Keyed by its neighbors and how many pitches it keeps from the one it is spaced from: stable while they stay.
+      const id = `${e.id}/${zone}/${n.before}|${n.next}@${Math.round(space / pitch)}`;
+      out.push({ lane: e.id, edge: e.id, axis, id, ...n, landing: landed.rect, layout, target, hit: landed.rect, pitched: true });
+    };
+    const spaced = (o: (typeof others)[number] | undefined): boolean => !!o && (scene.items[o.id]?.space ?? 0) > 0;
+    /** A growing item's drawn length past its natural one (a title filling the bar): a dock beside it can take that. */
+    const slack = (o: (typeof others)[number] | undefined): number => {
+      const main = o ? scene.items[o.id]?.forms[axis === "x" ? "row" : "column"]?.[0]?.main : undefined;
+      return o && main?.grows ? Math.max(0, len(o.r, axis) - main.natural) : 0;
+    };
     for (let i = 0; i <= others.length; i++) {
       const before = others[i - 1];
       const after = others[i];
-      const a = before ? lo(before.r, axis) + len(before.r, axis) + gap : edgeStart;
-      const b = after ? lo(after.r, axis) - gap : edgeEnd;
+      const a = before ? lo(before.r, axis) + len(before.r, axis) - slack(before) + gap : edgeStart;
+      const b = after ? lo(after.r, axis) + slack(after) - gap : edgeEnd;
+      // Beside a neighbor that keeps space on this side, a dock there takes that space (it lands where the neighbor
+      // was); this one keeps none, at the stretch's other end, so the space between is no place without a spot.
+      if (spaced(after) && zoneOf(after!) === "start" && (!before || zoneOf(before) === "start")) emit("start", others.filter((o) => zoneOf(o) === "start" && lo(o.r, axis) < lo(after!.r, axis)).length, 0);
+      if (spaced(before) && zoneOf(before!) === "end" && (!after || zoneOf(after) === "end")) emit("end", others.filter((o) => zoneOf(o) === "end" && lo(o.r, axis) <= lo(before!.r, axis)).length, 0);
       if (b - a < w + pitch) continue;
       for (let x0 = a + pitch; x0 + w <= b - pitch + EPS; x0 += pitch) {
         const toStart = x0 + w / 2 < middle;
@@ -428,22 +466,7 @@ function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
         if (toStart && before && zoneOf(before) !== "start") continue;
         if (!toStart && after && zoneOf(after) !== "end") continue;
         const zone: Zone = toStart ? "start" : "end";
-        const at = others.filter((o) => zoneOf(o) === zone && lo(o.r, axis) < x0).length;
-        const space = toStart ? x0 - a : b - (x0 + w);
-        const place: DockPlace = { edge: e.id, zone, at, space };
-        const next = moveTo(scene, dragged, place);
-        if (next === scene) continue;
-        const layout = solve(next, prev);
-        const landed = layout.items[dragged];
-        if (!landed || landed.inMenu || landed.edge !== e.id || Math.abs(lo(landed.rect, axis) - x0) > 1) continue;
-        if (taken.some((r) => Math.abs(lo(r, axis) - lo(landed.rect, axis)) < pitch / 2)) continue;
-        taken.push(landed.rect);
-        const result = { scene: next, layout };
-        const target: SceneTarget = { id: `pitch:${e.id}:${zone}:${at}:${Math.round(space)}`, priority: 2, hit: landed.rect, slot: landed.rect, item: dragged, place: { kind: "gap", edge: e.id, zone, at }, after: () => result };
-        const n = neighbors(layout, e.id, dragged, axis);
-        // Keyed by its neighbors and how many pitches it keeps from the one it is spaced from: stable while they stay.
-        const id = `${e.id}/${zone}/${n.before}|${n.next}@${Math.round(space / pitch)}`;
-        out.push({ lane: e.id, edge: e.id, axis, id, ...n, landing: landed.rect, layout, target, hit: landed.rect, pitched: true });
+        emit(zone, others.filter((o) => zoneOf(o) === zone && lo(o.r, axis) < x0).length, toStart ? x0 - a : b - (x0 + w), x0);
       }
     }
   }

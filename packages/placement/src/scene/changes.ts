@@ -35,7 +35,8 @@ import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, 
 
 /**
  * Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`, keeping `space`
- * px free on its zone's open side (`SceneItem.space`; absent or 0: none).
+ * px free on its zone's open side (`SceneItem.space`; 0: none). Absent, it takes the space its new neighbor kept on
+ * that side, if any (the space stays where it lies, the item lands where the neighbor was), and else keeps none.
  */
 export interface DockPlace {
   readonly kind?: "gap";
@@ -248,7 +249,16 @@ export function moveAmong(scene: Scene, id: string, place: Place, others: readon
   // The item's own column, deleted when it was lifted out of it.
   if (!target) return scene;
   const k = insertIndex(lifted, target, zone, place.at);
-  return { ...lifted, edges: lifted.edges.map((e) => (e === target ? { ...e, items: [...e.items.slice(0, k), id, ...e.items.slice(k)] } : e)) };
+  const placed: Scene = { ...lifted, edges: lifted.edges.map((e) => (e === target ? { ...e, items: [...e.items.slice(0, k), id, ...e.items.slice(k)] } : e)) };
+  // Docked on the open side of a neighbor that keeps space there (`SceneItem.space`), with no space named: the space
+  // stays where it lies, on the moved item's open side now. The item lands where the neighbor was, and the neighbor
+  // moves on by the item only, not by the space too. A space named (0 included) is the item's own, and moves nothing.
+  if (place.space !== undefined) return placed;
+  const nb = zone === "start" ? target.items[k] : zone === "end" ? target.items[k - 1] : undefined;
+  const nbItem = nb !== undefined ? placed.items[nb] : undefined;
+  if (!nbItem || !(nbItem.space! > 0) || zoneIn(target, nbItem) !== zone) return placed;
+  const { space: given, ...bare } = nbItem;
+  return { ...placed, items: { ...placed.items, [nb!]: bare, [id]: { ...placed.items[id]!, space: given! } } };
 }
 
 /**
