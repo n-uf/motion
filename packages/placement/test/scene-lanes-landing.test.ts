@@ -249,6 +249,11 @@ describe("back at its press point, an item lands home wherever it was pressed", 
         const grab = along ? { x: r.width / 2, y: across } : { x: across, y: r.height / 2 };
         expect(stretches(lanes(sc, id, { previous, grab })), `${id} pressed ${across} px across`).toEqual(stretches(lanes(sc, id, { previous })));
       }
+      // Pressed near an end of its length and at a side across it: the lanes across its length (a bar for a rail
+      // toolbar, a rail for a bar's) cut as with no grab.
+      const lanesAcross = (rs: ReturnType<typeof lanes>) => stretches(rs).filter((_, i) => rs.lanes[i]!.axis !== (along ? "x" : "y"));
+      const grab = along ? { x: r.width * 0.9, y: r.height - 1 } : { x: r.width - 1, y: r.height * 0.9 };
+      expect(lanesAcross(lanes(sc, id, { previous, grab })), `${id} pressed at 0.9 of its length`).toEqual(lanesAcross(lanes(sc, id, { previous })));
     }
   });
 
