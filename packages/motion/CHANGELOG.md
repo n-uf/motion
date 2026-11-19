@@ -3,6 +3,12 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.46
+
+No changes in `@n-uf/motion`: the version is shared with `@n-uf/placement` 26.11.46, whose `lanes()` now takes the
+grab. A host that drags with `createLandingModel` passes its grab to `lanes()` so a toolbar brought back to its press
+point lands on its own place.
+
 ## 26.11.45
 
 The landing model, opt-in: nothing a host already uses changes behavior. Host notes: `DragPreview` gains `"item"` (a
