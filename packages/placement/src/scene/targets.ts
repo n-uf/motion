@@ -311,7 +311,8 @@ function generateShown(scene: Scene, dragged: string, options: SceneTargetOption
       place: { kind: "float" },
       after(point, grab) {
         const g = grab ?? { x: size.width / 2, y: size.height / 2 };
-        const raw = heldRect(scene.stage, size, point, g);
+        // Where the pointer puts it, or with `floatFromHeld` where the held item is drawn, before the float is fitted.
+        const raw = options.floatFromHeld ? heldRect(scene.stage, size, point, g) : rect(point.x - g.x, point.y - g.y, size.width, size.height);
         const first = solve(use(floatAt(scene, dragged, raw, options.floatOrient), dragged), prev);
         const at = first.items[dragged]?.rect ?? raw;
         return c.settle(use(floatAt(scene, dragged, rect(at.x, at.y, size.width, size.height), options.floatOrient), dragged));

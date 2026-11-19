@@ -42,6 +42,11 @@ export interface SceneTargetOptions {
   readonly endReach?: number;
   /** The float's size for the float target. */
   readonly floatSize?: Size;
+  /**
+   * The float target starts from the held item's rect (`heldRect`), kept inside the float region, before it is fitted, so
+   * a host that draws the held item there sees what lands. Default: from the pointer's rect, wherever that lies.
+   */
+  readonly floatFromHeld?: boolean;
   /** The float's orient for the float target (default: its float's, else the item's `floatOrientOf`). */
   readonly floatOrient?: Orient;
   /** As `solve`'s: edge or item ids solved without `previous`, in every `after` too. */
