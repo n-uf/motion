@@ -57,9 +57,15 @@ export interface LaneRefusal {
 /**
  * A place guide's mark, in the lane's layout as drawn: a `line` across the lane between two items that touch (no room
  * for the item between them but its own; as thick as their gap allows, up to 2 px, so zero where they meet and the host
- * strokes it), a `box` over a free stretch the item fits in. Never over an item drawn there, the held one included.
+ * strokes it), also at a lane's end next to an item, a `box` over a free stretch the item fits in. Never over an item
+ * drawn there, the held one included, nor a line in a refused stretch.
  */
 export interface LaneMark {
+  /**
+   * Stable while the items either side stay: `<lane>/line/<before>|<after>`, `<lane>/box/<before>|<after>` (`#<n>` for a
+   * stretch's later pieces), `^` and `$` at the lane's ends; a virtual lane's `<lane>/box/<spot id>`. Key a drawing by it.
+   */
+  readonly id: string;
   readonly kind: "line" | "box";
   readonly rect: Rect;
 }
@@ -312,7 +318,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
         .flatMap((f) => (f.hits ?? [f.hit]).map((h) => ({ along: [clamp(lo(h, axis), start, end), clamp(lo(h, axis) + len(h, axis), start, end)] as const, reason: f.reason })))
         .filter((f) => f.along[1] - f.along[0] >= itemLen - EPS)
     : [];
-  const marks = first.edge ? edgeMarks(laneRect, axis, onEdge(drawn, first.edge, "", axis), refused, itemLen) : virtualMarks(unique, drawn.items[dragged]);
+  const marks = first.edge ? edgeMarks(id, laneRect, axis, onEdge(drawn, first.edge, "", axis), refused, itemLen) : virtualMarks(id, unique, drawn.items[dragged]);
   return { id, rect: laneRect, axis, spots, refused, marks };
 }
 
@@ -324,32 +330,43 @@ const LINE = 2;
  * An edge lane's marks, its items as drawn (the held one included): a line at the middle of each gap between two items
  * too short for the item, a box over each free stretch at least the item's length, less its refused stretches.
  */
-function edgeMarks(laneRect: Rect, axis: Axis, items: readonly { r: Rect }[], refused: readonly LaneRefusal[], itemLen: number): LaneMark[] {
+function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { id: string; r: Rect }[], refused: readonly LaneRefusal[], itemLen: number): LaneMark[] {
   const out: LaneMark[] = [];
   const start = lo(laneRect, axis);
   const end = start + len(laneRect, axis);
-  const ends = [{ a: start, b: start }, ...items.map((o) => ({ a: lo(o.r, axis), b: lo(o.r, axis) + len(o.r, axis) })), { a: end, b: end }];
+  const ends = [{ id: "^", a: start, b: start }, ...items.map((o) => ({ id: o.id, a: lo(o.r, axis), b: lo(o.r, axis) + len(o.r, axis) })), { id: "$", a: end, b: end }];
+  const isRefused = (v: number): boolean => refused.some((f) => v >= f.along[0] && v <= f.along[1]);
   for (let i = 0; i + 1 < ends.length; i++) {
     const a = ends[i]!.b;
     const b = ends[i + 1]!.a;
-    const between = i > 0 && i + 1 < ends.length - 1;
+    const pair = `${ends[i]!.id}|${ends[i + 1]!.id}`;
     if (b - a < itemLen - EPS) {
-      // As thick as the gap allows, up to `LINE`: zero between items with no gap (the host strokes it).
+      // As thick as the gap allows, up to `LINE`: zero between items with no gap (the host strokes it). Also at an end
+      // of the lane next to an item, unless refused there; none where the lane holds nothing.
       const t = Math.max(0, Math.min(LINE, b - a)) / 2;
-      if (between) out.push({ kind: "line", rect: along(laneRect, axis, (a + b) / 2 - t, (a + b) / 2 + t) });
+      if (items.length > 0 && !isRefused((a + b) / 2)) out.push({ id: `${lane}/line/${pair}`, kind: "line", rect: along(laneRect, axis, (a + b) / 2 - t, (a + b) / 2 + t) });
       continue;
     }
     // The free stretch less its refused parts: one box per piece the item still fits in.
     let pieces: [number, number][] = [[a, b]];
     for (const f of refused) pieces = pieces.flatMap(([p, q]) => [[p, Math.min(q, f.along[0])] as [number, number], [Math.max(p, f.along[1]), q] as [number, number]]).filter(([p, q]) => q - p > EPS);
-    for (const [p, q] of pieces) if (q - p >= itemLen - EPS) out.push({ kind: "box", rect: along(laneRect, axis, p, q) });
+    let k = 0;
+    for (const [p, q] of pieces) if (q - p >= itemLen - EPS) out.push({ id: `${lane}/box/${pair}${k++ ? `#${k - 1}` : ""}`, kind: "box", rect: along(laneRect, axis, p, q) });
   }
   return out;
 }
 
-/** A virtual lane's marks: a box at each landing, unless the held item is drawn over it. */
-function virtualMarks(spots: readonly Raw[], held: { rect: Rect; floating?: boolean } | undefined): LaneMark[] {
-  return spots.filter((s) => !held || held.floating || !overlaps(s.landing, held.rect)).map((s) => ({ kind: "box" as const, rect: s.landing }));
+/**
+ * A virtual lane's marks: a box at each landing; where the held item is drawn over it, a line instead, along the
+ * landing's side away from the item.
+ */
+function virtualMarks(lane: string, spots: readonly Raw[], held: { rect: Rect; floating?: boolean } | undefined): LaneMark[] {
+  return spots.map((s) => {
+    const l = s.landing;
+    if (!held || held.floating || !overlaps(l, held.rect)) return { id: `${lane}/box/${s.id}`, kind: "box" as const, rect: l };
+    const x = mid(held.rect, "x") < mid(l, "x") ? l.x + l.width : l.x;
+    return { id: `${lane}/line/${s.id}`, kind: "line" as const, rect: rect(x, l.y, 0, l.height) };
+  });
 }
 
 const overlaps = (a: Rect, b: Rect): boolean => a.x < b.x + b.width - EPS && b.x < a.x + a.width - EPS && a.y < b.y + b.height - EPS && b.y < a.y + a.height - EPS;
