@@ -313,6 +313,7 @@ const api = {
         arm: t.arm ?? null,
         opensRoom: t.opensRoom === true,
         roomHold: t.roomHold ?? null,
+        roomHit: t.roomHit ?? null,
         hitClient: client(t.hit),
         slot: t.slot ?? null,
         slotClient: t.slot ? client(t.slot) : null,
