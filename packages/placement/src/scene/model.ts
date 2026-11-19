@@ -395,8 +395,15 @@ export interface Scene {
    * The least the content may be. While the content is narrower than `width`, dynamic columns shrink toward their
    * minimum, then fold whole into their side's rail: unkept before kept, the one whose newest use is oldest first, the
    * outer first, the left first. Under `height`, a `content-short` note.
+   *
+   * `chromeWidth` (optional, px, at most `width`): a lower floor for chrome. The side edges that hold toolbars, not
+   * panels (compact rails and side toolbar bars, `isSideBar`), may take the content down to it while the columns keep
+   * their width and only move aside: a toolbar rail added at an edge narrows the content, not the column. Below it a
+   * column shrinks, then folds, as without it. The columns alone still leave `width`: the panels' room, the
+   * `no-column-room` signal (`columnRoom`) and the `content-narrow` note keep reading `width`, so a content narrowed by
+   * chrome between the two floors carries `content-narrow`. Width only: bars give way by `height` as before.
    */
-  readonly contentMin?: { readonly width: number; readonly height: number };
+  readonly contentMin?: { readonly width: number; readonly height: number; readonly chromeWidth?: number };
   /**
    * How a column folded by hand shows (default `"bar"`): `"bar"` sends it to its side's rail; `"ride"` draws each of its
    * members as a title bar over the first open column of its side (stacked, in zone order), at that column's width,
