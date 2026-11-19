@@ -44,10 +44,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 - `./scene`, **`heldRect(stage, size, pointer, grab)`** (additive): where a held item lies, the grip under the pointer
   where it fits, else moved just enough to lie wholly inside the stage. The float target starts from the same rect.
 
-- `./scene`, **`Scene.foldedColumnDrop`** (additive). With `"end"`, a column drawn as a rail (all its members collapsed,
-  on a side with no declared `rails` entry) is one drop place over its whole length, after its last member, and the item
-  keeps its state: an open panel opens the column at full size, a collapsed one becomes the last title tile. Without
-  it nothing changes.
+- `./scene`, **`Scene.foldedColumnDrop`** (additive). With `"end"`, no drop changes an item's collapsed state. For an
+  item arriving from elsewhere, collapsed titles (a column drawn as a rail, or a declared rail) are one drop place over
+  their whole length, tiles included, after the last member: an open panel opens the column at full size, a collapsed
+  one becomes the last title tile. A tile still moves within its own rail. Rail drop strips and the rail stops that fold
+  an open panel are not offered. Without it nothing changes.
 
 - `./scene`, docs: **a refused place is never drawn.** The docs no longer suggest a tint or outline over `refusals()`:
   a host draws nothing there and may say "Can't go here" at the pointer while the frame's `refused` is set. The

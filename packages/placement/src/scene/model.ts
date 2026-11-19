@@ -392,10 +392,12 @@ export interface Scene {
    */
   readonly railDrop?: Readonly<Partial<Record<Kind, RailDropPolicy>>>;
   /**
-   * `"end"`: a column drawn as a rail (all its members collapsed, shown as title tiles, on a side with no declared
-   * `rails` entry) is one drop place for a kind its start zone takes, over its whole length, after its last member. The
-   * item keeps its state: an open one opens the column at full size, a collapsed one becomes the last tile. Absent: a
-   * gap at each position, as for an open column. A declaration, like `zoneAccepts`: never stored.
+   * `"end"`: no drop changes an item's collapsed state. For an item arriving from elsewhere, collapsed titles are one
+   * drop place over their whole length, their tiles included, after the last member: a column drawn as a rail, or on a
+   * side with a declared `rails` entry the rail itself (the end of its last folded column). An open item opens that
+   * column at full size, a collapsed one becomes the last tile. A tile keeps its place among its own rail's tiles. No
+   * rail drop strip (`railDrop`) is offered, and on a declared rail no stop folds an open item. Absent: as before. A
+   * declaration, like `zoneAccepts`: never stored.
    */
   readonly foldedColumnDrop?: "end";
   /**
