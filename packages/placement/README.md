@@ -1085,8 +1085,10 @@ none lays out as before.
   bar or an anchor at the window's edge is never pushed inward. Column and rail places count rings as the side's edges
   lie (by ring, then by order, no ties), and `homeFor` gives a start column's ring that way.
 
-**Holding an item.** `heldRect(stage, size, pointer, grab)` is where a held item lies: its grip under the pointer where
-it fits, else moved just enough to lie wholly inside the stage. The float target starts from the same rect.
+**Holding an item.** `heldRect(scene, id, size, pointer, grab)` is where a held item lies: its grip under the pointer
+where it fits, else moved just enough to lie wholly inside the float region (the stage less the inset at its left and
+right). Pass `floatFromHeld: true` to `targets` and the float target starts from the same rect, so a host that draws the
+held item there sees what lands. Without it the float target starts from the pointer's rect, wherever that lies.
 
 **Floats** lie above the content in stage px, last on top. Each is moved inside the stage and clear of every docked
 item, every bar and every `chrome` rect (`fitFloat`, which `./scene` exports with `FloatFit`), with `float-clamped`, `float-moved` or `float-covers` notes. With

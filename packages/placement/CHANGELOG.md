@@ -41,8 +41,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.42
 
-- `./scene`, **`heldRect(stage, size, pointer, grab)`** (additive): where a held item lies, the grip under the pointer
-  where it fits, else moved just enough to lie wholly inside the stage. The float target starts from the same rect.
+- `./scene`, **`heldRect(scene, id, size, pointer, grab)`** and **`SceneTargetOptions.floatFromHeld`** (additive): where
+  a held item lies, the grip under the pointer where it fits, else moved just enough to lie wholly inside the float
+  region (the stage less the inset at its left and right). With `floatFromHeld` the float target starts from that rect;
+  without it, float drops land as before.
 
 - `./scene`, **`Scene.foldedColumnDrop`** (additive). With `"end"`, no drop changes an item's collapsed state. For an
   item arriving from elsewhere, collapsed titles (a column drawn as a rail, or a declared rail) are one drop place over

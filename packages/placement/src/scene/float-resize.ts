@@ -8,7 +8,7 @@
  * result exactly where it is asked.
  */
 import type { Rect } from "../geometry";
-import { axisOf, chromeFor, floatOrientOf, floatShape, formsOf, isDockingPanel } from "./helpers";
+import { axisOf, chromeFor, floatOrientOf, floatRegion, floatShape, formsOf } from "./helpers";
 import type { Scene, SceneLayout } from "./model";
 import { solve } from "./solve";
 import { floatFloor, placeFloat } from "./solve/floats";
@@ -40,19 +40,6 @@ const EPS = 0.5;
 /** How far `fitFloat` reads two rects as touching rather than overlapping (its own tolerance). */
 const TOUCH = 1e-3;
 const fin = (v: number | undefined, d: number): number => (Number.isFinite(v) ? v! : d);
-const nonNeg = (v: number | undefined): number => Math.max(0, fin(v, 0));
-
-/**
- * The region floats lie in, as `solve` lays them: the stage less the inset at its left and right (none with
- * `insetWhen: "docked"` while no panel is docked beside the content), the stage's full height.
- */
-function floatRegion(scene: Scene): Rect {
-  const floating = new Set(scene.floats.map((f) => f.id));
-  const docked = scene.edges.some((e) => (e.side === "left" || e.side === "right") && e.accepts.length > 0 && e.items.some((id) => !floating.has(id) && !!scene.items[id] && isDockingPanel(scene.items[id]!)));
-  const inset = scene.insetWhen === "docked" && !docked ? {} : (scene.inset ?? {});
-  const { stage } = scene;
-  return { x: stage.x + nonNeg(inset.left), y: stage.y, width: Math.max(0, stage.width - nonNeg(inset.left) - nonNeg(inset.right)), height: stage.height };
-}
 
 /** What `solve` keeps floats clear of, as laid out now: docked items (» entries included), bars and their » menus, the chrome. */
 function floatObstacles(scene: Scene, l: SceneLayout, id: string): Rect[] {

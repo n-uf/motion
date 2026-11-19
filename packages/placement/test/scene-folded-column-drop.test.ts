@@ -1,6 +1,7 @@
 /** `Scene.foldedColumnDrop: "end"`: a column drawn as a rail is one drop place, and the item keeps its state. */
 import { describe, expect, it } from "vitest";
-import { heldRect, refusals, solve, targets, type Scene } from "../src/scene";
+import type { Point, Rect } from "../src/geometry";
+import { heldRect, refusals, solve, targets, type Scene, type SceneTargetOptions } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { modelScene } from "./model-scene";
 
@@ -13,23 +14,57 @@ const win = (state: "open" | "collapsed", declared = true): Scene => {
 const onRail = (s: Scene) => targets(s, "annotations").filter((t) => t.place.kind === "gap" && t.place.edge === "right-0");
 
 describe("heldRect", () => {
-  const stage = { x: 0, y: 0, width: 1000, height: 600 };
   const size = { width: 200, height: 40 };
   const grab = { x: 20, y: 10 };
+  /** Annotations alone on the left, nothing on the right: lifted, nothing docked stands beside the content. */
+  const alone = (extra: Partial<Scene> = {}): Scene => {
+    const { rails: _rails, ...s } = winScene(WINDOW_A, { size: 300, columns: { left: [["annotations"]], right: [] } });
+    return { ...s, ...extra };
+  };
+  const landedAt = (s: Scene, p: Point, g: Point, options?: SceneTargetOptions): Rect => targets(s, "annotations", options).find((t) => t.place.kind === "float")!.after(p, g).layout.items.annotations!.rect;
+
   it("keeps the grip under the pointer where the item fits, and the item wholly inside the stage at every edge", () => {
-    expect(heldRect(stage, size, { x: 500, y: 300 }, grab)).toEqual({ x: 480, y: 290, width: 200, height: 40 });
-    expect(heldRect(stage, size, { x: 1040, y: 300 }, grab).x).toBe(800);
-    expect(heldRect(stage, size, { x: -40, y: 300 }, grab).x).toBe(0);
-    expect(heldRect(stage, size, { x: 500, y: 640 }, grab).y).toBe(560);
-    expect(heldRect(stage, size, { x: 500, y: -40 }, grab).y).toBe(0);
+    const s = alone({ inset: {} });
+    const { width, height } = s.stage;
+    expect(heldRect(s, "annotations", size, { x: 500, y: 300 }, grab)).toEqual({ x: 480, y: 290, width: 200, height: 40 });
+    expect(heldRect(s, "annotations", size, { x: width + 40, y: 300 }, grab).x).toBe(width - 200);
+    expect(heldRect(s, "annotations", size, { x: -40, y: 300 }, grab).x).toBe(0);
+    expect(heldRect(s, "annotations", size, { x: 500, y: height + 40 }, grab).y).toBe(height - 40);
+    expect(heldRect(s, "annotations", size, { x: 500, y: -40 }, grab).y).toBe(0);
   });
-  it("is the rect the float target lands, clear of everything", () => {
+
+  it("stays inside the stage less the inset at its left and right", () => {
+    const s = alone({ inset: { left: 12, right: 30 } });
+    const { width } = s.stage;
+    expect(heldRect(s, "annotations", size, { x: -40, y: 300 }, grab).x).toBe(12);
+    expect(heldRect(s, "annotations", size, { x: width + 40, y: 300 }, grab).x).toBe(width - 30 - 200);
+  });
+
+  it("with insetWhen docked, does not count the held item as docked", () => {
+    const s = alone({ inset: { left: 12, right: 12 }, insetWhen: "docked" });
+    expect(heldRect(s, "annotations", size, { x: -40, y: 300 }, grab).x).toBe(0);
+  });
+
+  it("is the rect a floatFromHeld float target lands, with and without an inset, up to both sides", () => {
+    for (const inset of [{}, { left: 12, right: 12 }, { left: 30, right: 5 }]) {
+      const s = alone({ inset });
+      const g = { x: 10, y: 8 };
+      const options = { floatFromHeld: true };
+      const { width, height } = landedAt(s, { x: 560, y: 400 }, g, options);
+      const y = s.stage.y + s.stage.height / 2;
+      for (const x of [-50, 4, 14, s.stage.width / 2, s.stage.width - 14, s.stage.width - 4, s.stage.width + 50]) {
+        const p = { x: s.stage.x + x, y };
+        expect(landedAt(s, p, g, options)).toEqual(heldRect(s, "annotations", { width, height }, p, g));
+      }
+    }
+  });
+
+  it("leaves the float target on the pointer's rect unless a host opts in", () => {
     const s = win("open");
-    const float = targets(s, "annotations").find((t) => t.place.kind === "float")!;
-    const p = { x: 560, y: 400 };
     const g = { x: 10, y: 8 };
-    const landed = float.after(p, g).layout.items.annotations!.rect;
-    expect(landed).toEqual(heldRect(s.stage, landed, p, g));
+    const p = { x: 560, y: 400 };
+    const { width, height } = landedAt(s, p, g);
+    expect(landedAt(s, p, g)).toEqual({ x: p.x - g.x, y: p.y - g.y, width, height });
   });
 });
 

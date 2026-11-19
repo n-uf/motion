@@ -6,12 +6,29 @@ import { clampInto, type Point, type Rect, type Size } from "../geometry";
 import type { StackForm } from "../stack";
 import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_RAIL_MAGNET, RAIL_STRIP_MIN, ZONES, type ColumnTemplate, type Edge, type FloatAnchor, type FloatAnchorAt, type Kind, type Orient, type RailMode, type RailVisibility, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
 
+const insetPx = (v: number | undefined): number => (Number.isFinite(v) ? Math.max(0, v!) : 0);
+
 /**
- * Where an item of `size` held at `grab` (the pointer's offset from its top-left corner) lies with the pointer at
- * `pointer`: the grip under the pointer where it fits, else moved just enough to lie wholly inside `stage`. The float
- * target starts from the same rect, so an item held clear of everything lands where it is drawn.
+ * The region floats lie in, as `solve` lays them: the stage less the inset at its left and right (none with
+ * `insetWhen: "docked"` while no panel is docked beside the content), the stage's full height. `lifted`: an item that
+ * counts as off its edge, as a held one does.
  */
-export const heldRect = (stage: Rect, size: Size, pointer: Point, grab: Point): Rect => clampInto({ x: pointer.x - grab.x, y: pointer.y - grab.y, width: size.width, height: size.height }, stage);
+export function floatRegion(scene: Scene, lifted?: string): Rect {
+  const floating = new Set(scene.floats.map((f) => f.id));
+  const docked = scene.edges.some((e) => (e.side === "left" || e.side === "right") && e.accepts.length > 0 && e.items.some((id) => id !== lifted && !floating.has(id) && !!scene.items[id] && isDockingPanel(scene.items[id]!)));
+  const inset = scene.insetWhen === "docked" && !docked ? {} : (scene.inset ?? {});
+  const { stage } = scene;
+  return { x: stage.x + insetPx(inset.left), y: stage.y, width: Math.max(0, stage.width - insetPx(inset.left) - insetPx(inset.right)), height: stage.height };
+}
+
+/**
+ * Where item `id`, of `size`, held at `grab` (the pointer's offset from its top-left corner) lies with the pointer at
+ * `pointer`: the grip under the pointer where it fits, else moved just enough to lie wholly inside the float region (the
+ * stage less the inset at its left and right). With `floatFromHeld` the float target starts from this rect, so an item
+ * held clear of everything lands where it is drawn.
+ */
+export const heldRect = (scene: Scene, id: string, size: Size, pointer: Point, grab: Point): Rect =>
+  clampInto({ x: pointer.x - grab.x, y: pointer.y - grab.y, width: size.width, height: size.height }, floatRegion(scene, id));
 
 /** The name of a float's anchor, with or without an offset: `"content-top-right"` for `{ at: "content-top-right", dy: 12 }`. */
 export const anchorName = (anchor: FloatAnchorAt): FloatAnchor => (typeof anchor === "string" ? anchor : anchor.at);
