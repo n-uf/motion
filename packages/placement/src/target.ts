@@ -45,6 +45,13 @@ export interface Target {
    * scene sets it to `EDGE_ROOM_HOLD` on a rail target or a new-column line against the window's left or right edge.
    */
   readonly roomHold?: number;
+  /**
+   * With `opensRoom`, the room as drawn once it is open, containing `hit`: while the target shows with its room open, a
+   * drag intent holds it wherever the pointer is in this rect. The scene sets it on an empty edge's strip (a rail or a
+   * bar not drawn yet): the strip's stretch along the edge, the edge's full depth after the drop across it. Not on a
+   * new-column line, whose room is a whole column beside the other column's places, nor on a drawn edge's gap.
+   */
+  readonly roomHit?: Rect;
 }
 
 /**
