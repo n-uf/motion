@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Rect } from "../src/geometry";
-import { lanes, solve, SPOT_PITCH, type Scene } from "../src/scene";
+import { lanes, solve, SPOT_PITCH, type Scene, type SceneItem } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { modelScene } from "./model-scene";
 import { bar, byId, group } from "./scene-fixture";
@@ -155,5 +155,41 @@ describe("lanes(): pitched spots on a toolbar rail", () => {
     const pitched = rail.spots.filter((sp) => sp.pitched);
     expect(pitched.length).toBeGreaterThan(3);
     for (let i = 1; i < pitched.length; i++) expect(pitched[i]!.landing.y - pitched[i - 1]!.landing.y).toBeGreaterThanOrEqual(SPOT_PITCH / 2);
+  });
+});
+
+describe("lanes(): spots beside kept space and over a growing item", () => {
+  /** A 1200 px top bar with `items`; g held from the bottom bar. */
+  const win = (items: string[], more: Record<string, Partial<SceneItem>>): Scene => ({
+    stage: { x: 0, y: 0, width: 1200, height: 700 },
+    edges: [bar("top", "top", 0, items), bar("bottom", "bottom", 0, ["g"])],
+    items: byId([...items.map((id, i) => ({ ...group(id, i + 1), ...more[id] }) as SceneItem), group("g", 9)]),
+    floats: [],
+    floatKinds: ["group"],
+  });
+
+  it("beside an end item keeping space after it, a dock keeping none lands at the bar's end", () => {
+    // e at the end keeps 160 px after it; the dock after e takes that space, and one more keeps none, at the end.
+    const s = win(["a", "e"], { e: { align: "end", space: 160 } });
+    const top = lanes(s, "g", { previous: solve(s) }).lanes.find((l) => l.id === "top")!;
+    const end = solve(s).edges.top!.rect;
+    expect(top.spots.some((sp) => Math.abs(sp.landing.x + sp.landing.width - (end.x + end.width - 8)) < 1)).toBe(true);
+  });
+
+  it("a growing item's length past its natural one gets pitched spots, as a free stretch does", () => {
+    // t (a start item after a) grows to fill the bar: docks after a can still land along t's grown part.
+    const grows: Partial<SceneItem> = { fixed: true, forms: { row: [{ kind: "row", main: { min: 80, natural: 160, grows: true }, cross: { natural: 28 } }] } };
+    const s = win(["a", "t"], { t: grows });
+    const t = solve(s).items.t!.rect;
+    const top = lanes(s, "g", { previous: solve(s) }).lanes.find((l) => l.id === "top")!;
+    const inside = top.spots.filter((sp) => sp.pitched && sp.landing.x > t.x + 1 && sp.landing.x < t.x + t.width - 160);
+    expect(inside.length).toBeGreaterThan(3);
+  });
+
+  it("before a growing item there are none: a dock there keeps no space (the growing item takes all that is spare)", () => {
+    const grows: Partial<SceneItem> = { forms: { row: [{ kind: "row", main: { min: 80, natural: 160, grows: true }, cross: { natural: 28 } }] } };
+    const s = win(["t", "a"], { t: grows });
+    const top = lanes(s, "g", { previous: solve(s) }).lanes.find((l) => l.id === "top")!;
+    expect(top.spots.filter((sp) => sp.pitched && sp.id.includes("^|t"))).toEqual([]);
   });
 });
