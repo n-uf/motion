@@ -33,12 +33,16 @@ import { fitResize, type ResizeEdges } from "./float-resize";
 import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSideColumn, isSince, namesZone, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
 import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
-/** Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`. */
+/**
+ * Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`, keeping `space`
+ * px free on its zone's open side (`SceneItem.space`; absent or 0: none).
+ */
 export interface DockPlace {
   readonly kind?: "gap";
   readonly edge: string;
   readonly zone?: Zone;
   readonly at: number;
+  readonly space?: number;
 }
 /** A new column on `side` at `ring` (the edges at that ring and inward move in one); `Infinity` is the side's inner end. */
 export interface ColumnPlace {
@@ -232,8 +236,11 @@ export function moveAmong(scene: Scene, id: string, place: Place, others: readon
   // kind at its start only) it docks in that zone and keeps its own.
   const zone = place.zone ?? zoneIn(edge, item);
   if (!zoneTakes(edge, zone, item.kind)) return scene;
-  const { align: _drop, ...rest } = item;
-  const moved: SceneItem = place.zone === undefined || !namesZone(edge, item.kind) ? item : zone === "start" ? rest : { ...rest, align: zone };
+  // A dock move keeps the space it names, or none.
+  const { space: _space, ...unspaced } = item;
+  const { align: _drop, ...rest } = unspaced;
+  const kept = Number.isFinite(place.space) && place.space! > 0 ? { space: place.space! } : {};
+  const moved: SceneItem = { ...(place.zone === undefined || !namesZone(edge, item.kind) ? unspaced : zone === "start" ? rest : { ...rest, align: zone }), ...kept };
   const lifted = withItem(lift(scene, id), moved);
   const target = lifted.edges.find((e) => e.id === place.edge);
   // The item's own column, deleted when it was lifted out of it.

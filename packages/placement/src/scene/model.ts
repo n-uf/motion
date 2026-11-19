@@ -84,6 +84,12 @@ export interface SceneItem {
    */
   readonly align?: Zone;
   /**
+   * Free space it keeps on its zone's open side, px: before it in a start zone, after it in an end zone (none in a center
+   * zone), out of the edge's spare length, so an item dropped partway along a free stretch of a bar stays there. When
+   * items ask for more than the spare length, each gets its share. A dock move sets it (`DockPlace.space`) or clears it.
+   */
+  readonly space?: number;
+  /**
    * Its give-way priority in its edge (default: the edge's `priority`, else 0). When an edge runs short, items step down
    * their forms (row, wrap in a column, icons, then the edge's » menu) lowest priority first, ties to the one used longest
    * ago; room coming back brings them up in the exact reverse order, each to its remembered form. It adds to every one

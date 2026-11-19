@@ -7,7 +7,7 @@
  *   v: 1;
  *   edges: { id: string; side: Side; ring: number; items: string[]; size?: number; column?: true }[];
  *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor | { at: FloatAnchor; dx?: number; dy?: number }; since?: number }[];
- *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; floatSize?: { width: number; height: number } }>;
+ *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; space?: number; floatSize?: { width: number; height: number } }>;
  *   railModes?: { left?: "titles" | "icons"; right?: "titles" | "icons" };
  * }
  * ```
@@ -70,6 +70,8 @@ export interface StoredSceneItem {
   readonly from?: number;
   readonly closed?: true;
   readonly align?: "center" | "end";
+  /** `SceneItem.space`, px. */
+  readonly space?: number;
   readonly floatSize?: Size;
 }
 
@@ -140,6 +142,7 @@ export function storeScene(scene: Scene): StoredScene {
       ...(isNum(it.from) && it.from >= 1 ? { from: Math.floor(it.from) } : {}),
       ...(it.closed ? { closed: true as const } : {}),
       ...(it.align === "center" || it.align === "end" ? { align: it.align } : {}),
+      ...(isNum(it.space) && it.space > 0 ? { space: it.space } : {}),
       ...(it.floatSize && isSize(it.floatSize.width) && isSize(it.floatSize.height) ? { floatSize: { width: it.floatSize.width, height: it.floatSize.height } } : {}),
     };
   }
@@ -209,9 +212,9 @@ function read(data: unknown, base: Scene): SceneRead {
         continue;
       }
       const b = base.items[id]!;
-      const { kept: _k, from: _f, closed: _c, align: _a, floatSize: _s, ...plain } = b;
+      const { kept: _k, from: _f, closed: _c, align: _a, space: _sp, floatSize: _s, ...plain } = b;
       let it: SceneItem = { ...plain, used: b.used };
-      for (const k of Object.keys(s)) if (!["used", "kept", "from", "closed", "align", "floatSize"].includes(k)) drop(`item:${id}:${k}`);
+      for (const k of Object.keys(s)) if (!["used", "kept", "from", "closed", "align", "space", "floatSize"].includes(k)) drop(`item:${id}:${k}`);
       if (isNum(s.used)) it = { ...it, used: s.used };
       else if (s.used !== undefined) drop(`item:${id}:used`);
       if (s.kept === true) it = { ...it, kept: true };
@@ -226,6 +229,8 @@ function read(data: unknown, base: Scene): SceneRead {
       if (s.align === "center" || s.align === "end") it = { ...it, align: s.align };
       else if (s.align !== undefined && s.align !== "start") drop(`item:${id}:align`);
       if (b.fixed && b.align) it = { ...it, align: b.align };
+      if (isNum(s.space) && s.space > 0 && !b.fixed) it = { ...it, space: s.space };
+      else if (s.space !== undefined) drop(`item:${id}:space`);
       const fs = s.floatSize;
       if (isObject(fs) && isSize(fs.width) && isSize(fs.height)) it = { ...it, floatSize: { width: fs.width, height: fs.height } };
       else if (fs !== undefined) drop(`item:${id}:floatSize`);
