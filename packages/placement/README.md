@@ -1240,6 +1240,9 @@ facing halves is home's, and is no target of its own. The slot is where the item
   `y + height`) picks a gap or slot whose hit reaches the edge, else nothing: a drop past the window over open space or
   past a refused bar commits nothing, and a held gap keeps its band. A host that clamps to `width - 0.5` still picks
   inside the window, the float or a refusal there included.
+  A rail's room opens with its target: a target on a compact rail, a rail stop or a side bar whose drop moves an item of
+  another edge (an empty rail pushing the column beside it) carries `opensRoom`, and the drag intent shows it and
+  reports `room` in the same frame, so its indicator never lies over the column. A host draws the room from `frame.room`.
   Every target keeps a reachable hit: its largest piece is at least 12 px across by 24 px along (`minHit`, data per
   edge kind), taken from the space beside it in its own zone (a column line's band, a gap's tile) where nothing else is
   aimed at, or from a neighbor that keeps its own minimum. Home, a drop strip, a refusal, the chrome and the stage's

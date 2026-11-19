@@ -68,7 +68,7 @@
  * The phases live in `./targets/`: `kinds` (`EDGE_KINDS`), `model` (the shapes), `filter` (the drag's context and
  * filter ii), `edges` and `virtual` (generation), `ownership` and `tiles` (filter iii and clipping).
  */
-import { PLANE, area, rect, type Rect } from "../geometry";
+import { EPS, PLANE, area, rect, type Rect } from "../geometry";
 import type { Target } from "../target";
 import { floatAt, prune, use } from "./changes";
 import { axisOf, chromeFor, floatOrientOf, floatSizeOf, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
@@ -78,7 +78,7 @@ import { anchorTargets } from "./targets/anchor";
 import { edgeSpec } from "./targets/edges";
 import { context } from "./targets/filter";
 import { checkEdgeIds, parseTargetId, targetId } from "./targets/ids";
-import { edgeKindOf } from "./targets/kinds";
+import { edgeKindOf, type EdgeKind } from "./targets/kinds";
 import type { Ctx, EdgeSpec, Generated, SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions, Span, Tile } from "./targets/model";
 import { homeRectOf, ownership } from "./targets/ownership";
 import { clipTiles, tileEdge } from "./targets/tiles";
@@ -154,9 +154,27 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: SceneTarget[]; refuse
       continue;
     }
     const result = t.result!;
-    targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), item: dragged, place: t.place!, after: () => result });
+    // A rail that pushes what lies beside it: its indicator would lie over that until the room opens, so they open together.
+    const opensRoom = RAIL_KINDS.has(t.edgeKind) && movesOthers(now, result.layout, dragged, t.edge);
+    targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), ...(opensRoom ? { opensRoom: true as const } : {}), item: dragged, place: t.place!, after: () => result });
   }
   return { targets, refused, ownHome };
+}
+
+/** The edge kinds that run along a side as a rail: a drop there can widen them and push the columns beside them. */
+const RAIL_KINDS: ReadonlySet<EdgeKind> = new Set<EdgeKind>(["rail", "railStop", "sideBar"]);
+
+/**
+ * Whether a drop on edge `onto` moves a docked item of another edge: not `dragged`, nor those of the edge it leaves (they
+ * close up anyway), nor those of `onto` (they make its gap).
+ */
+function movesOthers(now: SceneLayout, after: SceneLayout, dragged: string, onto: string): boolean {
+  const from = now.items[dragged]?.edge;
+  return Object.entries(now.items).some(([id, was]) => {
+    if (id === dragged || was.floating || was.edge === onto || (from !== undefined && was.edge === from)) return false;
+    const r = after.items[id]?.rect;
+    return !!r && (Math.abs(r.x - was.rect.x) > EPS || Math.abs(r.y - was.rect.y) > EPS || Math.abs(r.width - was.rect.width) > EPS || Math.abs(r.height - was.rect.height) > EPS);
+  });
 }
 
 /** The stretches along an edge its slot tiles cover (home's and refusals' aside), merged where they meet. */

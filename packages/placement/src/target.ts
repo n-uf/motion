@@ -33,6 +33,11 @@ export interface Target {
    * stage's edge (`x + width`, `y + height`): a host that clamps to `width - 0.5` still picks inside the window.
    */
   readonly bounds?: Rect;
+  /**
+   * Its indicator would lie over what its room moves: the scene sets it on a rail target (a compact rail, a side's rail
+   * stop, a side bar) whose drop pushes another item. The drag intent then shows it and makes its room in one frame.
+   */
+  readonly opensRoom?: true;
 }
 
 /**
