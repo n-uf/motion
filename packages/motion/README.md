@@ -404,8 +404,8 @@ insertion point 2, a large area 3). The rules:
   inside the window (over a refusal the frame is refused, and outside the
   float's `bounds` nothing shows); the rail key (⌘/Ctrl, `"Mod"`) on the nearest
   spring-loaded target, from anywhere. The frame's `forced` says which won.
-- The three drop preview modes only change what is drawn: all follow these rules, so a
-  drop lands where the preview showed it in each.
+- The four drop preview values (`"indicator"`, `"gap"`, `"snap"`, `"item"`) only change what is drawn: all follow
+  these rules, so a drop lands where the preview showed it in each.
 
 ```ts
 import { createDragIntent, type DragTarget } from "@n-uf/motion/drag";

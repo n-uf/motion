@@ -21,6 +21,14 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.43
 
+- `./scene`, **`Scene.sideColumns`**, **`mergeSideColumns`**, **`isSideColumn`** (additive). With `sideColumns: "one"` a
+  side has at most one column: a drag offers a new-column line only on a side with no column holding an item once the
+  item is lifted. `mergeSideColumns` merges a side's columns into the outermost (items in ring order, the outermost's
+  id and size kept), for a host reading a stored layout. Absent, nothing changes.
+
+- `./scene`, **`Scene.barZones`** (additive). With `"nearest"`, a bar's zones meet halfway between the landing rects
+  either side of each boundary instead of at thirds. Absent, nothing changes.
+
 - `./scene`, **`Target.roomHit`** (additive): a target that opens its room and changes an edge's thickness around the
   content (an empty rail beside a column, a new-column line, an empty bar's strip) carries the smallest rect holding its
   hit and its landing rect. The drag intent then holds it there once the room is open: the drawn room is its zone, so a
