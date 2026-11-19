@@ -1002,7 +1002,8 @@ landing rects either side of each boundary, not at thirds, so the pointer picks 
 declaration, never stored. It moves each zone's extent: it changes which zone a pointer picks among `targets()` (what a
 drag intent reads) and, since a zone left with no room gets no drop, which of a bar's drops exist and where its refused
 stretches lie. Under a landing model `lanes()` cuts between spots by their landings, not by zones, so there it changes
-only which spots and refused stretches (and so which place guides) a bar has, never how the bar is cut between them.
+which spots and refused stretches (and so which place guides) a bar has, never the rule that cuts between spots (the
+cuts follow whichever spots exist).
 
 **Space kept on a zone's open side.** `SceneItem.space` is free space an item keeps before it in a start zone or after it
 in an end zone, out of the edge's spare length (shared out when items ask for more). A dock move sets it with
