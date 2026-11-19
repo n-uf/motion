@@ -1667,8 +1667,10 @@ never shown, how far the landing may trail the pointer, or no further than the s
 margin), on the last frame and in the layout after the release. They cover the rail repro, the window's edge (on it
 and up to 48 px past it docks, beyond is nowhere), a fast pass over a bar, lane to lane at a corner, a fast hand along
 a free stretch and across docked items, and a toolbar taken away by one end and brought back to its press point,
-which lands home. A host implements `play(row)`: its frames (`LandingCaseFrame`) and the layout
-after. `runLandingCases(rows, host)` says what differs. Placement doesn't import motion, so the reference host takes
+which lands home. A host implements `play(row)`: its frames (`LandingCaseFrame`), the layout after and, where its
+geometry differs from the row's window (its own gaps or paddings), `before`, its layout at the press: a row's `home`
+(the item ends where it lay at the press: same edge, same order, same rect) compares with it, so no pixel value of the
+row's window is asserted. `runLandingCases(rows, host)` says what differs. Placement doesn't import motion, so the reference host takes
 the model as an input, as the scene host takes the pick rule:
 
 ```ts

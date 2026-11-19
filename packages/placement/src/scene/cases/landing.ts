@@ -114,14 +114,29 @@ export interface LandingCase {
   readonly end?: { readonly region: LandingRegionName; readonly lane?: string | null; readonly spot?: string };
   /** The layout after the release. */
   readonly layout?: LayoutExpect;
+  /**
+   * After the release the item lies where it lay at the press, in the host's own layout: on the same edge, among the
+   * same items in the same order, at the same rect (within 0.5 px). Checked against the play's `before` (the host's
+   * layout at the press), else the row's scene as solved: a host whose geometry differs from the row's (its own gaps)
+   * passes `before`, and no pixel value of the row's window is asserted.
+   */
+  readonly home?: true;
   readonly requires: CaseRequires & { readonly lanes: { readonly since: string } };
+}
+
+/** What a host reports for one row: its frames, the layout after the release and, optionally, the layout at the press. */
+export interface LandingPlay {
+  readonly frames: readonly LandingCaseFrame[];
+  readonly layout: SceneLayout;
+  /** The host's layout at the press (what a row's `home` compares with). Absent: the row's scene as solved. */
+  readonly before?: SceneLayout;
 }
 
 /** What a host gives the landing runner: one call plays a row's drag and reports its frames and the layout after. */
 export interface LandingCaseHost {
   /** The library version the host runs (`YY.M.R`); a row needing a later one is skipped. Absent: the latest. */
   readonly version?: string;
-  play(row: LandingCase): { readonly frames: readonly LandingCaseFrame[]; readonly layout: SceneLayout } | Promise<{ readonly frames: readonly LandingCaseFrame[]; readonly layout: SceneLayout }>;
+  play(row: LandingCase): LandingPlay | Promise<LandingPlay>;
 }
 
 export interface LandingCaseResult {
@@ -147,8 +162,36 @@ const touches = (a: Rect, b: Rect): boolean => a.x <= b.x + b.width && b.x <= a.
 /** The furthest the landing gets from the pointer while a lane holds it and the pointer moves. */
 const worstTrail = (frames: readonly LandingCaseFrame[]): number => Math.max(0, ...frames.filter((f) => f.moving && f.region === "lane" && f.landing).map((f) => gapTo(f.landing!, f.point)));
 
-/** What differs between a row and what its host played. */
-export function landingIssues(row: LandingCase, frames: readonly LandingCaseFrame[], layout: SceneLayout): string[] {
+/** The ids docked on `edge` in `l`, in order along it (by their rects' top left). */
+const onEdgeIds = (l: SceneLayout, edge: string): string[] =>
+  Object.entries(l.items)
+    .filter(([, it]) => it.edge === edge && !it.inMenu && !it.floating)
+    .sort(([, a], [, b]) => a.rect.x - b.rect.x || a.rect.y - b.rect.y)
+    .map(([id]) => id);
+
+/** Where `item` lies in `after` against where it lay in `before`: its edge, its order there and its rect. */
+function homeIssues(item: string, before: SceneLayout, after: SceneLayout): string[] {
+  const a = before.items[item];
+  const b = after.items[item];
+  if (!a) return [`${item} is not in the layout at the press`];
+  if (!b) return [`${item} is not in the layout after the release`];
+  const out: string[] = [];
+  const where = (it: typeof a): string => (it.floating ? "floating" : it.inMenu ? `in ${it.edge ?? "no"} menu` : (it.edge ?? "nowhere"));
+  if (where(a) !== where(b)) out.push(`${item} ends ${where(b)}, not where it was (${where(a)})`);
+  else if (a.edge && onEdgeIds(before, a.edge).join(",") !== onEdgeIds(after, a.edge).join(","))
+    out.push(`${a.edge} holds ${onEdgeIds(after, a.edge).join(", ")}, not ${onEdgeIds(before, a.edge).join(", ")} as at the press`);
+  const r0 = a.rect;
+  const r1 = b.rect;
+  if (Math.max(Math.abs(r0.x - r1.x), Math.abs(r0.y - r1.y), Math.abs(r0.width - r1.width), Math.abs(r0.height - r1.height)) > 0.5)
+    out.push(`${item} is at ${Math.round(r1.x)},${Math.round(r1.y)} ${Math.round(r1.width)}x${Math.round(r1.height)}, not where it was (${Math.round(r0.x)},${Math.round(r0.y)} ${Math.round(r0.width)}x${Math.round(r0.height)})`);
+  return out;
+}
+
+/**
+ * What differs between a row and what its host played. `before` is the host's layout at the press (a row's `home`
+ * compares with it); absent, the row's scene as solved.
+ */
+export function landingIssues(row: LandingCase, frames: readonly LandingCaseFrame[], layout: SceneLayout, before?: SceneLayout): string[] {
   const out: string[] = [];
   const m = row.moving;
   if (frames.length === 0) return ["no frames"];
@@ -169,6 +212,7 @@ export function landingIssues(row: LandingCase, frames: readonly LandingCaseFram
     if (row.end.spot !== undefined && last.spot !== row.end.spot) out.push(`the last frame's spot is ${last.spot ?? "none"}, not ${row.end.spot}`);
   }
   if (row.layout) out.push(...layoutIssues(row.layout, layout));
+  if (row.home) out.push(...homeIssues(row.item, before ?? solve(row.scene), layout));
   return out;
 }
 
@@ -184,8 +228,8 @@ export async function runLandingCases(rows: readonly LandingCase[], host: Landin
       continue;
     }
     try {
-      const { frames, layout } = await host.play(row);
-      const issues = landingIssues(row, frames, layout);
+      const { frames, layout, before } = await host.play(row);
+      const issues = landingIssues(row, frames, layout, before);
       const over = row.moving?.trailOverSlow;
       if (over) {
         // The same path played slowly: how far the landing gets from the pointer at worst there.
@@ -260,7 +304,7 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly v
       const spot = out?.kind === "spot" ? [...regions.lanes, ...regionsFor(out.spot).lanes].flatMap((l) => l.spots).find((x) => x.id === out.spot) : undefined;
       const target = out?.kind === "float" ? regions.float : spot && !spot.home ? spot.target : null;
       const next = target ? target.after(at, grab).scene : s;
-      return { frames, layout: solve(next, { previous }) };
+      return { frames, layout: solve(next, { previous }), before: previous };
     },
   };
 }
@@ -458,7 +502,7 @@ export const LANDING_CASES: readonly LandingCase[] = [
     speed: 0.6,
     rest: 80,
     end: { region: "lane", lane: "top" },
-    layout: { items: { a: { edge: "top", rect: { x: 8 } } } },
+    home: true,
     requires: GRAB,
   },
   {
@@ -475,7 +519,7 @@ export const LANDING_CASES: readonly LandingCase[] = [
     speed: 0.6,
     rest: 80,
     end: { region: "lane", lane: "rail-left" },
-    layout: { order: { "rail-left": ["tools", "zoom"] }, items: { zoom: { rect: { y: 120 } } } },
+    home: true,
     requires: GRAB,
   },
   {

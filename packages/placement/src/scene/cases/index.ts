@@ -48,6 +48,7 @@ export {
   type LandingCaseGuide,
   type LandingCaseHost,
   type LandingCaseResult,
+  type LandingPlay,
   type LandingModelLike,
   type LandingRegionName,
   type LandingRule,
