@@ -5,6 +5,13 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.41
 
+- `./drag`, fixed: **a rail's room opens with its target, never after it** (additive). A rail's indicator showed once
+  the pointer aimed and its room `roomAfter` (160 ms) later, so for that time it lay over the column the room moves
+  aside. New `DragTarget.opensRoom`: showing the target and making its room are one decision. It shows once it has held
+  `roomAfter`, and the frame that first shows it has `room`; a sweep across it still moves nothing, and a release before
+  it shows lands on it. An armed spring-loaded target has its room in the frame that shows it. `roomAfter` stays, with
+  its default, and every other target is unchanged.
+
 - `./drag`, fixed: **a floating item's own place loses to a refusal and ends at the window's edge.** Home gated every
   pick, refusals included, so a float whose box lay over a refused place, lifted and let go there, was over home (no
   `refused`, a host moved it where it was let go). New `DragIntentOptions.floating`: the held item floats and `home` is
