@@ -63,7 +63,7 @@ describe("touch press: a drag or a scroll", () => {
 
   it("lifts on its own on a clock after the hold", () => {
     const clock = createFakeClock();
-    const touch = createTouchPress({ clock, config: { holdMs: 300 } });
+    const touch = createTouchPress({ clock, config: { hold: 300 } });
     touch.send({ type: "press", t: clock.now(), point: { x: 5, y: 5 } });
     clock.tick(299);
     expect(touch.state.phase).toBe("pressed");

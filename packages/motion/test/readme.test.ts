@@ -59,7 +59,7 @@ describe("README examples", () => {
   it("clock/", () => {
     const log = vi.fn();
     const clock = createFakeClock();
-    const loop = createFrameLoop({ clock, budgetMs: 8 });
+    const loop = createFrameLoop({ clock, budget: 8 });
     loop.schedule("write", () => log("write"));
     loop.schedule("input", () => log("input"));
     clock.frame();

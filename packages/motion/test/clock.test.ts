@@ -41,7 +41,7 @@ describe("fake clock", () => {
   });
 
   it("runs frame callbacks requested before the frame; ones requested during it wait", () => {
-    const clock = createFakeClock({ frameMs: 10 });
+    const clock = createFakeClock({ frameInterval: 10 });
     const log: string[] = [];
     clock.requestFrame(() => {
       log.push(`first@${clock.now()}`);
@@ -198,9 +198,9 @@ describe("frame loop", () => {
     expect(log).toEqual(["target set", "step#0", "write"]);
   });
 
-  it("gives delta since the last frame, frameMs after idle, clamped to maxDeltaMs", () => {
+  it("gives delta since the last frame, frameInterval after idle, clamped to maxDelta", () => {
     const clock = createFakeClock();
-    const loop = createFrameLoop({ clock, frameMs: 16, maxDeltaMs: 50 });
+    const loop = createFrameLoop({ clock, frameInterval: 16, maxDelta: 50 });
     const deltas: number[] = [];
     const stop = loop.repeat("update", (frame) => {
       deltas.push(frame.delta);
@@ -220,7 +220,7 @@ describe("frame loop", () => {
   it("defers deferrable tasks once the budget is spent, never the others, and counts it", () => {
     const clock = createFakeClock();
     const onOverBudget = vi.fn();
-    const loop = createFrameLoop({ clock, budgetMs: 8, onOverBudget });
+    const loop = createFrameLoop({ clock, budget: 8, onOverBudget });
     const log: string[] = [];
     loop.schedule("update", () => {
       log.push("heavy");
@@ -238,15 +238,15 @@ describe("frame loop", () => {
     let stats = loop.stats();
     expect(stats.overBudget).toBe(1);
     expect(stats.deferred).toBe(1);
-    expect(stats.lastMs).toBe(10);
-    expect(stats.phaseMs.update).toBe(10);
+    expect(stats.lastFrame).toBe(10);
+    expect(stats.perPhase.update).toBe(10);
     expect(stats.queued).toBe(1);
     clock.frame();
     expect(log).toEqual(["heavy", "required", "animation", "optional"]);
     stats = loop.stats();
     expect(stats.frames).toBe(2);
-    expect(stats.maxMs).toBe(10);
-    expect(stats.meanMs).toBe(5);
+    expect(stats.longestFrame).toBe(10);
+    expect(stats.meanFrame).toBe(5);
     expect(clock.pendingFrames).toBe(0);
     loop.resetStats();
     expect(loop.stats().frames).toBe(0);
@@ -254,7 +254,7 @@ describe("frame loop", () => {
 
   it("tells a task how much budget is left", () => {
     const clock = createFakeClock();
-    const loop = createFrameLoop({ clock, budgetMs: 10 });
+    const loop = createFrameLoop({ clock, budget: 10 });
     const seen: number[] = [];
     loop.schedule("update", (frame) => {
       clock.spend(4);

@@ -85,7 +85,7 @@ describe("browser clock", () => {
 
   it("falls back to timeouts for frames without requestAnimationFrame", () => {
     const fake = fakeHost({ raf: false });
-    const clock = createBrowserClock({ host: fake.host, fallbackFrameMs: 20 });
+    const clock = createBrowserClock({ host: fake.host, fallbackFrameInterval: 20 });
     const callback = vi.fn();
     clock.requestFrame(callback);
     fake.advance(19);

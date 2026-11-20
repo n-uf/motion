@@ -59,7 +59,7 @@ export interface RecognizerOptions {
   pinch?: { scaleThreshold?: number; panThreshold?: number };
   wheel?: Partial<WheelOptions>;
   /** A mouse or pen press, or a resting finger outside any gesture, untouched this long when another pointer goes down, lost its pointerup; default 1000 ms */
-  staleMs?: number;
+  stale?: number;
 }
 
 export const RECOGNIZER_DEFAULTS = Object.freeze({
@@ -140,7 +140,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
   const pinchCfg = { ...RECOGNIZER_DEFAULTS.pinch, ...options.pinch };
   const wheelCfg: WheelOptions = { ...WHEEL_DEFAULTS, ...options.wheel };
   const timers = options.timers;
-  const staleMs = options.staleMs ?? 1000;
+  const stale = options.stale ?? 1000;
   let dragModifier: ModifierKey | null = options.dragModifier ?? null;
   const platform: Platform = options.platform ?? "other";
   // A host with no camera: canvas units are screen px.
@@ -284,15 +284,15 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
 
   /**
    * A pointerup that never came (released outside the page, a pen lifted out of range, a lost event):
-   * a press of the same pointer, or a mouse / pen press untouched for staleMs, is over. A finger that
-   * lands again under its old id, or one resting untouched for staleMs outside any press or pinch, is gone.
+   * a press of the same pointer, or a mouse / pen press untouched for `stale` ms, is over. A finger that
+   * lands again under its old id, or one resting untouched for `stale` ms outside any press or pinch, is gone.
    */
   const dropMissedUps = (e: RawPointerEvent, kind: PointerKind) => {
     const p = press;
     if (p) {
       const same = p.origin.pointerId === e.pointerId;
       const mixed = kind !== "touch" || p.origin.kind !== "touch"; // two fingers make a pinch, never a stale press
-      if (same || (mixed && e.time - p.last.time > staleMs)) cancelPress("missed-up");
+      if (same || (mixed && e.time - p.last.time > stale)) cancelPress("missed-up");
     }
     if (kind !== "touch") return;
     if (touches.has(e.pointerId)) {
@@ -301,7 +301,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
     }
     for (const [id, t] of touches) {
       const busy = press?.origin.pointerId === id || !!pinch?.ids.includes(id);
-      if (!busy && e.time - t.time > staleMs) touches.delete(id);
+      if (!busy && e.time - t.time > stale) touches.delete(id);
     }
     if (touches.size === 0) touchLocked = false;
   };

@@ -19,8 +19,8 @@ export interface FrameInfo {
   /** `clock.now()` when the frame started. */
   readonly time: number;
   /**
-   * Ms since the previous frame, clamped to `maxDeltaMs`. The first frame
-   * after the loop was idle gets `frameMs`, not the idle gap.
+   * Ms since the previous frame, clamped to `maxDelta`. The first frame
+   * after the loop was idle gets `frameInterval`, not the idle gap.
    */
   readonly delta: number;
   /** Frame counter, from 0. */
@@ -28,7 +28,7 @@ export interface FrameInfo {
   /** The phase running now. */
   readonly phase: Phase;
   /** The loop's frame budget in ms. */
-  readonly budgetMs: number;
+  readonly budget: number;
   /** Ms spent in this frame so far. */
   elapsed(): number;
   /** Ms of budget left in this frame (negative when over). */
@@ -62,13 +62,13 @@ export interface FrameStats {
   /** Tasks that threw. */
   readonly errors: number;
   /** Duration of the last frame in ms. */
-  readonly lastMs: number;
+  readonly lastFrame: number;
   /** Longest frame in ms. */
-  readonly maxMs: number;
+  readonly longestFrame: number;
   /** Mean frame duration in ms. */
-  readonly meanMs: number;
+  readonly meanFrame: number;
   /** Duration of each phase in the last frame, in ms. */
-  readonly phaseMs: Readonly<Record<Phase, number>>;
+  readonly perPhase: Readonly<Record<Phase, number>>;
   /** Repeating tasks currently registered. */
   readonly repeating: number;
   /** One-shot tasks waiting for a frame. */
@@ -80,11 +80,11 @@ export interface FrameLoopOptions {
   /** The clock: frames, time and timers all come from it. */
   readonly clock: ClockPort;
   /** Frame budget in ms. Default 10. */
-  readonly budgetMs?: number;
+  readonly budget?: number;
   /** `delta` of the first frame after the loop was idle. Default 1000/60. */
-  readonly frameMs?: number;
+  readonly frameInterval?: number;
   /** Largest `delta` handed to tasks (a long pause doesn't make motion jump). Default 64. */
-  readonly maxDeltaMs?: number;
+  readonly maxDelta?: number;
   /**
    * How many times one phase drains tasks that were queued for that same
    * phase while it ran (an effect that triggers another effect). The rest
@@ -109,7 +109,7 @@ export interface FrameLoop {
   /** The clock the loop runs on. */
   readonly clock: ClockPort;
   /** The frame budget in ms. */
-  readonly budgetMs: number;
+  readonly budget: number;
   /** Whether a frame is requested or running. */
   readonly active: boolean;
   /** The phase running now, or `null` outside a frame. */
@@ -151,9 +151,9 @@ interface Repeater {
 /** Create a frame loop on `options.clock`. */
 export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
   const clock = options.clock;
-  const budgetMs = options.budgetMs ?? 10;
-  const frameMs = options.frameMs ?? 1000 / 60;
-  const maxDeltaMs = options.maxDeltaMs ?? 64;
+  const budget = options.budget ?? 10;
+  const frameInterval = options.frameInterval ?? 1000 / 60;
+  const maxDelta = options.maxDelta ?? 64;
   const maxRounds = options.maxRounds ?? 8;
   const onError = options.onError;
   const onOverBudget = options.onOverBudget;
@@ -176,10 +176,10 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
   let overBudget = 0;
   let deferred = 0;
   let errors = 0;
-  let lastMs = 0;
-  let maxMs = 0;
-  let totalMs = 0;
-  const phaseMs = [0, 0, 0, 0];
+  let lastFrame = 0;
+  let longestFrame = 0;
+  let totalTime = 0;
+  const perPhase = [0, 0, 0, 0];
 
   const queuedCount = (): number => {
     let count = 0;
@@ -219,7 +219,7 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
       for (let i = 0; i < jobs.length; i++) {
         const job = jobs[i]!;
         if (job.cancelled) continue;
-        if (job.deferrable && clock.now() - frameStart >= budgetMs) {
+        if (job.deferrable && clock.now() - frameStart >= budget) {
           carried[phase]!.push(job);
           deferred++;
           continue;
@@ -277,7 +277,7 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
     handle = null;
     if (disposed) return;
     const time = clock.now();
-    const delta = lastTime === null ? frameMs : Math.min(Math.max(time - lastTime, 0), maxDeltaMs);
+    const delta = lastTime === null ? frameInterval : Math.min(Math.max(time - lastTime, 0), maxDelta);
     lastTime = time;
     frameStart = time;
     const info = {
@@ -285,9 +285,9 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
       delta,
       index: index++,
       phase: PHASES[0]!,
-      budgetMs,
+      budget,
       elapsed: (): number => clock.now() - frameStart,
-      remaining: (): number => budgetMs - (clock.now() - frameStart),
+      remaining: (): number => budget - (clock.now() - frameStart),
     };
     running = true;
     try {
@@ -298,7 +298,7 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
         drain(p, info);
         runRepeaters(p, info);
         drain(p, info);
-        phaseMs[p] = clock.now() - phaseStart;
+        perPhase[p] = clock.now() - phaseStart;
       }
     } finally {
       running = false;
@@ -307,10 +307,10 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
     restoreCarried();
     const took = clock.now() - frameStart;
     frameCount++;
-    lastMs = took;
-    totalMs += took;
-    if (took > maxMs) maxMs = took;
-    if (took > budgetMs) {
+    lastFrame = took;
+    totalTime += took;
+    if (took > longestFrame) longestFrame = took;
+    if (took > budget) {
       overBudget++;
       if (onOverBudget !== undefined) onOverBudget(stats());
     }
@@ -328,10 +328,10 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
     overBudget,
     deferred,
     errors,
-    lastMs,
-    maxMs,
-    meanMs: frameCount === 0 ? 0 : totalMs / frameCount,
-    phaseMs: { input: phaseMs[0]!, update: phaseMs[1]!, layout: phaseMs[2]!, write: phaseMs[3]! },
+    lastFrame,
+    longestFrame,
+    meanFrame: frameCount === 0 ? 0 : totalTime / frameCount,
+    perPhase: { input: perPhase[0]!, update: perPhase[1]!, layout: perPhase[2]!, write: perPhase[3]! },
     repeating: liveRepeaters,
     queued: queuedCount(),
   });
@@ -356,7 +356,7 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
 
   const loop: FrameLoop = {
     clock,
-    budgetMs,
+    budget,
     get active() {
       return running || handle !== null;
     },
@@ -415,10 +415,10 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
       overBudget = 0;
       deferred = 0;
       errors = 0;
-      lastMs = 0;
-      maxMs = 0;
-      totalMs = 0;
-      phaseMs.fill(0);
+      lastFrame = 0;
+      longestFrame = 0;
+      totalTime = 0;
+      perPhase.fill(0);
     },
     dispose() {
       if (disposed) return;

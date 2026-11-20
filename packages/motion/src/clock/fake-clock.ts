@@ -5,7 +5,7 @@ export interface FakeClockOptions {
   /** Starting time in ms. Default 0. */
   readonly now?: number;
   /** How far {@link FakeClock.frame} moves time by default. Default 16 (round numbers in tests). */
-  readonly frameMs?: number;
+  readonly frameInterval?: number;
 }
 
 /**
@@ -16,7 +16,7 @@ export interface FakeClockOptions {
  */
 export interface FakeClock extends ClockPort {
   /** The default frame step in ms. */
-  readonly frameMs: number;
+  readonly frameInterval: number;
   /** Frame callbacks waiting for the next frame. */
   readonly pendingFrames: number;
   /** Timers not yet fired. */
@@ -26,7 +26,7 @@ export interface FakeClock extends ClockPort {
   /** Move `now()` forward by `ms` without firing anything: work that takes time. */
   spend(ms: number): void;
   /**
-   * Move time forward by `dt` (default {@link FakeClock.frameMs}), fire due
+   * Move time forward by `dt` (default {@link FakeClock.frameInterval}), fire due
    * timers, then run the frame callbacks requested before this call. Returns
    * how many callbacks ran.
    */
@@ -49,7 +49,7 @@ interface Timer {
 /** A {@link FakeClock} for tests. */
 export function createFakeClock(options: FakeClockOptions = {}): FakeClock {
   let now = options.now ?? 0;
-  const frameMs = options.frameMs ?? 16;
+  const frameInterval = options.frameInterval ?? 16;
   let nextHandle = 1;
   let order = 0;
   let frameCallbacks = new Map<number, () => void>();
@@ -78,7 +78,7 @@ export function createFakeClock(options: FakeClockOptions = {}): FakeClock {
   };
 
   const clock: FakeClock = {
-    frameMs,
+    frameInterval,
     get pendingFrames() {
       return frameCallbacks.size;
     },
@@ -112,7 +112,7 @@ export function createFakeClock(options: FakeClockOptions = {}): FakeClock {
       checkStep(ms, "spend");
       now += ms;
     },
-    frame(dt = frameMs) {
+    frame(dt = frameInterval) {
       clock.tick(dt);
       const due = frameCallbacks;
       frameCallbacks = new Map();

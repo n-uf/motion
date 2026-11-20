@@ -8,7 +8,7 @@ import { createMachine, type Deadline, type Machine } from "./machine";
  * ```text
  * idle ──press──► pressed ──move: mostly along the scroll direction, ≥ scrollEscape──► scrolled (never lifts)
  *                    │ ──move: mostly across it, ≥ lift px────────────────────────────► lifted
- *                    │ ──tick: held still holdMs─────────────────────────────────────► lifted (where it was pressed)
+ *                    │ ──tick: held still hold─────────────────────────────────────► lifted (where it was pressed)
  *                    └ ──move: along it short of the escape, or across it below lift px: stays pressed
  * any ──release──► idle
  * ```
@@ -29,11 +29,11 @@ export interface TouchPressConfig {
   /** The page's scroll direction: `"y"` (a vertical page, the default) or `"x"`. */
   readonly scroll: "x" | "y";
   /** ms a still finger holds before the press lifts where it is. Default 220. */
-  readonly holdMs: number;
+  readonly hold: number;
 }
 
 /** Defaults of {@link TouchPressConfig}. */
-export const TOUCH_PRESS_DEFAULTS: TouchPressConfig = { lift: 6, scrollEscape: 10, scroll: "y", holdMs: 220 };
+export const TOUCH_PRESS_DEFAULTS: TouchPressConfig = { lift: 6, scrollEscape: 10, scroll: "y", hold: 220 };
 
 /** The touch press's state. `from` is where the finger went down, `at` where it lifted. */
 export type TouchPressState =
@@ -60,7 +60,7 @@ export function touchPressReducer(state: TouchPressState, event: TouchPressInput
     case "press":
       return state.phase === "idle" ? { phase: "pressed", from: { x: event.point.x, y: event.point.y }, since: event.t } : state;
     case "tick":
-      if (state.phase !== "pressed" || event.t - state.since < config.holdMs) return state;
+      if (state.phase !== "pressed" || event.t - state.since < config.hold) return state;
       return { phase: "lifted", from: state.from, at: state.from };
     case "move": {
       if (state.phase !== "pressed") return state;
@@ -82,7 +82,7 @@ export function touchPressReducer(state: TouchPressState, event: TouchPressInput
 /** When a pressed state lifts by holding, as a timer event; `null` outside `pressed`. */
 export function touchPressDeadline(state: TouchPressState, config: TouchPressConfig = TOUCH_PRESS_DEFAULTS): Deadline<TouchPressInput> | null {
   if (state.phase !== "pressed") return null;
-  return { at: state.since + config.holdMs, event: (t) => ({ type: "tick", t }) };
+  return { at: state.since + config.hold, event: (t) => ({ type: "tick", t }) };
 }
 
 /** Options of {@link createTouchPress}. */
