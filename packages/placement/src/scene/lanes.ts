@@ -989,14 +989,25 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
       const inside = mine.filter((r) => !r.slide && r.before === bId && r.next === nId && Math.abs(len(r.landing, axis) - w) <= 1 && lo(r.landing, axis) >= from - 1 && lo(r.landing, axis) <= to + 1);
       for (const r of inside) absorbed.add(r);
       const homeRaw = inside.find((r) => r.home);
-      const snapRaws = [...inside].sort((p, q) => (p.home ? -1 : q.home ? 1 : 0));
+      // Snap points are keyed by what they commit: a taken-over dock as it is (`raw`), else the plain dock at that start.
+      // Two points are one only where they lie on the same start, the taken-over dock then winning (the item's own place
+      // first), so a dock that lies near an end without lying on it keeps its own point and stays reachable.
+      const points: { at: number; raw?: Raw }[] = [];
+      const put = (at: number, raw?: Raw): void => {
+        const same = points.find((p) => Math.abs(p.at - at) < 1e-6);
+        if (!same) points.push({ at, ...(raw ? { raw } : {}) });
+        else if (raw && !same.raw) same.raw = raw;
+      };
+      put(from);
+      put(to);
+      for (const r of [...inside].sort((p, q) => (p.home ? -1 : q.home ? 1 : 0))) put(lo(r.landing, axis), r);
       // The item's own place wins near it: no other snap point within twice the snap distance of it, so every start
       // within the snap distance of home snaps home (a press, a wobble and a release is home).
       const homeAt = homeRaw ? lo(homeRaw.landing, axis) : undefined;
-      const snaps = [from, to, ...inside.map((r) => lo(r.landing, axis))]
-        .filter((v) => homeAt === undefined || v === homeAt || Math.abs(v - homeAt) > 2 * snapDistance)
-        .sort((p, q) => p - q)
-        .filter((v, k, all) => k === 0 || v - all[k - 1]! > 0.5);
+      const kept = points.filter((p) => homeAt === undefined || Math.abs(p.at - homeAt) < 1e-6 || Math.abs(p.at - homeAt) > 2 * snapDistance).sort((p, q) => p.at - q.at);
+      const snaps = kept.map((p) => p.at);
+      /** The taken-over dock that commits at `x0`, if `x0` is a snap point of one. */
+      const dockAt = (x0: number): Raw | undefined => kept.find((p) => Math.abs(p.at - x0) < 1e-6)?.raw;
       const shape = ok[0]!.hit!.result.layout.items[dragged]!.rect;
       const at = (x0: number): Rect => along(shape, axis, x0, x0 + w);
       /** The nearest snap point to `x0` within the snap distance, else `x0`. */
@@ -1012,13 +1023,13 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
         const s = snapped(c);
         return snaps.includes(s) ? s : clamp(Math.round(c / STEP) * STEP, from, to);
       };
-      const results = new Map<number, SceneAfter>();
+      const results = new Map<string, SceneAfter>();
       /** What a drop with the item's start at `x0` commits: a taken-over dock's own drop there, else the dock to `x0`. */
       const commitAt = (x0: number): SceneAfter => {
-        const k = Math.round(x0 * 1000) / 1000;
+        const r = dockAt(x0);
+        const k = `${r ? "dock " : ""}${Math.round(x0 * 1000) / 1000}`;
         const known = results.get(k);
         if (known) return known;
-        const r = snaps.includes(x0) ? snapRaws.find((s) => Math.abs(lo(s.landing, axis) - x0) <= 0.5) : undefined;
         const result = r ? r.target.after(ORIGIN, ORIGIN) : (land(x0)?.result ?? ok.reduce((p, q) => (Math.abs(q.x0 - x0) < Math.abs(p.x0 - x0) ? q : p)).hit!.result);
         results.set(k, result);
         return result;

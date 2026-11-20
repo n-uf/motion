@@ -29,11 +29,11 @@ function pair(host: Host, zone: Zone, gap: number): Scene {
 }
 
 /** Fractional neighbors: a leading toolbar keeping 3.4 px and a stage 1030.2 wide put a stretch's ends off the pixel grid. */
-function fractional(): Scene {
+function fractional(width = 1030.2, lead = 3.4): Scene {
   return {
-    stage: { x: 0, y: 0, width: 1030.2, height: 700 },
+    stage: { x: 0, y: 0, width, height: 700 },
     edges: [bar("top", "top", 0, ["a", "b", "c"]), bar("bottom", "bottom", 0, ["g"])],
-    items: byId([{ ...group("a", 1), space: 3.4 }, group("b", 2), { ...group("c", 3), space: 300, align: "end" }, group("g", 4)]),
+    items: byId([{ ...group("a", 1), space: lead }, group("b", 2), { ...group("c", 3), space: 300, align: "end" }, group("g", 4)]),
     floats: [],
     floatKinds: ["group"],
   };
@@ -43,6 +43,8 @@ const scenes = (): [string, Scene, string][] => [
   ...(["bar", "rail"] as const).flatMap((h) => (["start", "end"] as const).flatMap((z) => [90].map((gap): [string, Scene, string] => [`${h} ${z} ${gap}`, pair(h, z, gap), "c"]))),
   ...(["bar", "rail"] as const).flatMap((h) => (["start", "end"] as const).map((z): [string, Scene, string] => [`${h} ${z} held a`, pair(h, z, 90), "a"])),
   ["fractional", fractional(), "c"],
+  // A center dock a fraction of a pixel past a stretch's start: two snap points there.
+  ["fractional center dock", fractional(1032.6, 0), "c"],
 ];
 
 describe("a sliding spot: the frame is the commit", () => {
