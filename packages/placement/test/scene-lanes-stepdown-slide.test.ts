@@ -56,6 +56,19 @@ describe("a stretch is the room the drop makes (a neighbor steps down)", () => {
     }
   });
 
+  it("with the sliding spot held, the guide still has its striped end facing wide, naming it (compared with the layout as seen, not the spot's)", () => {
+    const id = "bar:bottom/start/wide|ends@slide";
+    const l = lanes(scene, "held", { previous: solve(scene), grab: { x: 5, y: 15 }, spot: id }).lanes.find((x) => x.id === "bar:bottom")!;
+    const all = l.marks.map((m) => `${m.kind} ${m.id} ${m.givesWay ?? ""}`.trim());
+    const hatches = l.marks.filter((m) => m.kind === "hatch");
+    expect(hatches.map((m) => m.givesWay), all.join("; ")).toEqual(["wide"]);
+    // Inside the box of its room, at the side facing wide (wide is drawn in its short form there: the box starts at 156).
+    const box = l.marks.find((m) => m.kind === "box" && m.rect.x <= hatches[0]!.rect.x + 1e-6 && m.rect.x + m.rect.width >= hatches[0]!.rect.x + hatches[0]!.rect.width - 1e-6);
+    expect(box, all.join("; ")).toBeDefined();
+    expect(hatches[0]!.rect.x).toBeCloseTo(box!.rect.x, 6);
+    expect(hatches[0]!.rect.width).toBeLessThanOrEqual(HATCH_END);
+  });
+
   it("a plain box where nothing moves, leaves or steps down: the same bar with room for the item beside wide as it is", () => {
     const roomy: Scene = { ...scene, stage: { ...scene.stage, width: 1100 } };
     const l = lanes(roomy, "held", { previous: solve(roomy), grab: { x: 5, y: 15 } }).lanes.find((x) => x.id === "bar:bottom")!;
