@@ -11,7 +11,13 @@ Names and facts I wrote. Each comes from the issue's planned export list, not fr
 
 - [ ] Names in prose and FAQ answers: `DockState`, `DockDrop`, `solve`, `targets`, `stops`, `storeDockState`,
       `readDockState`, `refusals`, `lanes`, `moveTo`; `@n-uf/docking/testing` (named only in the `/docs/docking/`
-      description as "the testing rows").
+      description as "the testing rows", and in the docking sheet on the home, `src/pages/index.astro:112`).
+- [ ] Docking's dependencies (does it import `@n-uf/placement`?) before any "no dependencies" or "works alone" line.
+      The home says "Motion imports neither of the others" and "Motion and placement also work alone" (FAQ) and
+      "No DOM, no framework" for docking; `index.astro` still says "No DOM, no dependencies" for placement.
+- [ ] `src/pages/index.astro:37`: the "all three at X" version line must also read `packages/docking/package.json`.
+- [ ] `PairCode.astro`: replace placement's `/scene` sample (`pair-placement.ts`) with a placement sample (tiling or
+      the positioner) and add docking's, not only add docking's.
 - [ ] `src/data/faq.ts`, `/docking-layouts/` (3 answers) and `/toolbar-groups/` (5 answers):
   - `targets(state, id)` and `stops(state, id)`: the real parameter names and order;
   - `target.after(point, grab)` still exists on `DockDrop` and returns the new dock state and its `layout`;
@@ -57,6 +63,9 @@ Names and facts I wrote. Each comes from the issue's planned export list, not fr
 
 ## 3. What the release itself must do (not in this branch)
 
+The web build's link check (`scripts/check-links.mjs`) fails on `/docs/docking/` until `docs/docking.md` exists; that
+is expected, don't silence it (it also names `/lab/` where the lab is not built).
+
 - [ ] Add `docs/docking.md` and `docs/docking-reference.md`; `packages/docking/` with `package.json` (the docking page
       builds from the first appearance of `docs/docking.md` and `packages/docking/package.json`).
 - [ ] `apps/web/package.json`: add `"@n-uf/docking": "workspace:*"` (not added here: the package is not in the
@@ -76,13 +85,9 @@ Names and facts I wrote. Each comes from the issue's planned export list, not fr
       placement"; the home worker may change it) and a new image for `/docs/docking/` if the docs pages get their own.
       Sources: `scripts/capture-og.mjs` (already points at `/docking-layouts/`; the capture lives in
       `scripts/og-src/docking-layouts.png`), `scripts/render-og.py` (card texts already updated).
-- [ ] Colour: docking has no accent of its own yet; `src/styles/shell.css` gives `[data-part="docking"]` placement's
-      violet. Pick a third accent in `design.astro` and `tokens.css` (the design worker) and update that rule.
 - [ ] Root `package.json` scripts (build, typecheck, test, check filters), `scripts/sync-placement-version.mjs`
       (docking gets motion's version too), `knip.json`, `.dependency-cruiser.cjs`, `release.yml`, the first npm publish
       of the new name (trusted publisher set up first).
-- [ ] The home worker's files must use docking: `index.astro` (about three libraries, `software("docking")`, the
-      explore groups, the link `/desk-layouts/` which is gone), `HeroScope.astro` (the "See the desk layouts" link).
 - [ ] Outside the repo: n-uf.com project entry for motion, GitHub About and the npm homepage of `@n-uf/docking`.
 
 ## 4. After deploy
