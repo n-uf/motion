@@ -38,10 +38,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   space within `NEAR_REACH` (12 px) of L; none shows over a refused place outside L. `nearGuideIssues(row, frames,
   before?, stretchPositions?)` checks it over a row's frames, and a row asks for it with `moving.nearGuides`;
   `moving.guideSwitches` bounds how often the lane whose guides show changes; `end.pending` and `end.landing` read the
-  last frame; `LandingCaseFrame.pending` is the landing model's `pending`, which the reference host now reports. Three
-  rows, `landing-near-rail-glide`, `landing-near-rail-pending-release` and `landing-near-corner-steady`, need
-  `NEAR_SINCE` (`"26.11.52"`): a Near guide shows a lane only where the pointer can enter it (`@n-uf/motion`'s
-  `approach.reach` is now 12 px, see its changelog). Host notes: a host on an older library skips the three rows
+  last frame; `LandingCaseFrame.pending` is the landing model's `pending`, which the reference host now reports. Four
+  rows, `landing-near-rail-glide`, `landing-near-rail-pending-release`, `landing-near-corner-steady` and
+  `landing-near-pending-corner-steady` (inside two lanes that overlap at a corner the pending lane, and its guides,
+  never flicker), need `NEAR_SINCE` (`"26.11.52"`): a Near guide shows a lane only where the pointer can enter it
+  (`@n-uf/motion`'s `approach.reach` is now 12 px, see its changelog). Host notes: a host on an older library skips the four rows
   (counted by the ratchet); a host that sets a larger `approach.reach` fails the rows that check `nearGuides`, as it
   shows early guides on purpose.
 - `./scene`, **an empty side rail's lane is the band its drop opens** (pinned, no behavior change). `lanes()` already

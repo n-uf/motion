@@ -5,6 +5,10 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## Unreleased
 
+- `./drag`, **the pending lane holds at a corner** (fix). Inside two lanes not entered that overlap at a corner (an
+  empty top bar's band and an empty rail's), `pending` was the deeper of the two on every frame, so a wobble of a few
+  pixels across the diagonal flipped it, and the Near guides with it (9 times on a short zigzag). The pending lane now
+  holds while the pointer stays inside it, and the other takes over only once it is deeper by `margins.spot` (6 px).
 - `./drag`, **a fling is no entry into a touching lane** (behavior change, a new gate). From a held lane, a lane that
   touches it took the pointer once it had slid `path` px along it at any speed, so a fast flick up an empty rail from
   the bar under it docked the toolbar in the rail on release. The slide now counts only at a brisk hand: a new gate
