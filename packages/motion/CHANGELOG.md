@@ -31,8 +31,10 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   overlap along it and it reaches one side of the box, it thins the box from that side by that overlap and no length:
   2 px less thickness. The deepest intrusion from each side wins, whatever the order. The order is: thinnings, then the
   full-thickness interval subtraction and the corner cuts in sorted order, then `minLength` and the ids by interior
-  cuts. A box thinned below `minThickness` is dropped. A rect that pokes in as deep as it is long, or touches neither
-  side, is a corner as before. Behavior change: a shallow, long poke now removes thickness where it removed length.
+  cuts. A box thinned below `minThickness` is dropped. Only a shallow intrusion thins, at most half the box's
+  thickness: a rect that pokes in deeper (the held item's outline flush with one side of a bar, which would leave a
+  4 px sliver), as deep as it is long, or touches neither side, is a corner as before. Behavior change: a shallow, long
+  poke now removes thickness where it removed length.
 - `./drag`, **`guideRects` ids count only interior cuts** (fix). A full-thickness clear interval that touches or
   overlaps the box's start or end trims the box and is no cut; only intervals strictly inside the box (box length on
   both sides) count. A neighbor toolbar flush with the box's start, its 2 px clearance over the first 2 px, used to
