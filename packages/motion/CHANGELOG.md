@@ -34,8 +34,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   said "the bar, its home spot, landing at home" 288 px above the bar, and nothing told the user the release goes home.
   The hold through a touching lane is for crossing a corner: more than `path` (40 px) past the held lane's exit margin
   the frame is now `region: "refused"`, its `lane` kept (its guides stay), `spot` and `landing` null and no `pending`;
-  `release()` is null (home). Host notes: a host that shows "Can't go here" for a refused frame with no `pending` shows
-  it there; nothing to change.
+  `release()` is null (home). The refusal is sticky, as the lift zone is: it lets go only within `exit + path - spot`,
+  so a hand wobbling at its edge never flips lane and refused. Host notes: a host that shows "Can't go here" for a
+  refused frame with no `pending` shows it there; nothing to change.
 - `./drag`, **a Near guide shows a lane only where the pointer can enter it** (behavior change, a default). With
   `placeGuides: "near"`, a lane's guides showed from the nearest lane within `reach` (80 px), and over a refused place
   (a column that takes nothing) from the nearest lane at any distance, so a toolbar carried toward an empty side rail
