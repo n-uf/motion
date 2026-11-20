@@ -5,6 +5,14 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## Unreleased
 
+- `./drag`, **`createLandingModel` measures a lane's depth across it, not from its ends** (fix). The `depth` gate (a
+  still pointer 8 px inside a lane enters it) counted every side of the lane's rect that is not on the stage's edge, so
+  a rail's end that meets a bar counted as a wall: a still pointer 6 px above that end was never deep enough, and the
+  drop landed nowhere. Depth now counts only from the two sides parallel to the lane's axis that face into the stage
+  (a rail's long sides); a lane's ends along its own axis never count. A fly-through of a thin bar or rail still opens
+  no room (the `path` gate and the sides across it are unchanged), and a fast pass along a rail's end does not enter it.
+  The one visible change: a still pointer near a lane's end is as deep as anywhere along it.
+
 - Docs: **the hand rule** for `createLandingModel`, in one wording with placement's. While a lane holds, the landing is
   the nearest landing in its lane to the pointer, within `max(48, g / 2 + 6)` px of it (`max(56, g / 2 + 6)` on the
   frame before a hop), `g` the gap along the lane between the facing edges of the two adjacent landings the pointer
