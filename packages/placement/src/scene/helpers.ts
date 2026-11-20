@@ -453,8 +453,11 @@ export function pastWrap(forms: readonly StackForm[], from: number): number | un
  * form (its icons) is drawn at that form's natural size, whatever its `from`. An item with only `wrap` forms left has no
  * form there (`none`: `solve` leaves it out with a `no-vertical-form` note), so a word group needs an `icons` form.
  * Otherwise a float with `from` over 0 is its bar (that form's natural length along its orient, its other size kept), and
- * one at its first form is its rect's size where that form grows, else that form's natural size along its orient
- * (`floatSizeOf`'s last step): a toolbar group's frame always fits its content, whatever rect it was floated with.
+ * one at its first form is its rect's size where that form grows, else `floatSizeOf(item, orient)`: the size kept for
+ * that orient (`floatSizes`, which `floatAt` with a rect and a hand resize write; a legacy `floatSize` in the orient it
+ * was set in), and only without one that form's natural size along its orient. So a toolbar group's float given an
+ * explicit size keeps it; one given none fits its content; and one turned to the other orient never keeps the rect it
+ * had in the old one.
  */
 export function floatShape(item: SceneItem, f: { readonly rect: Rect; readonly orient?: Orient }): { form: number; width: number; height: number; none?: true } {
   const orient = f.orient ?? floatOrientOf(item);
@@ -472,6 +475,7 @@ export function floatShape(item: SceneItem, f: { readonly rect: Rect; readonly o
   if (orient === "column" && forms.slice(0, form + 1).some(isWrap)) return { form, width: px(fm.cross.natural), height: px(fm.main.natural) };
   if (form > 0) return orient === "column" ? { form, width: w, height: px(fm.main.natural) } : { form, width: px(fm.main.natural), height: h };
   // The first form: a form that grows (a panel's card) is the rect's size, the one the user sizes; any other (a toolbar
-  // group) is the size kept for its orient, else its own natural size (`floatSizeOf`), never a rect left from the other orient.
+  // group) is the size kept for its orient (an explicit size stays), else its own natural size (`floatSizeOf`), never a
+  // rect left from the other orient.
   return { form, ...(fm.main.grows ? { width: w, height: h } : floatSizeOf(item, orient, f.orient ?? floatOrientOf(item))) };
 }

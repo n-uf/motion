@@ -78,7 +78,9 @@ const EPS = 1e-6;
  *   (box length on both sides of it); overlapping or touching ones count as one, and one that touches or overlaps the
  *   box's start or end only trims the box, it is no cut (a neighbor flush with the box's start, grown by its clearance,
  *   leaves the part before a held rect as `<id>`). The part before a cut is always `<id>`, the part after one cut
- *   always `<id>#2`, whether or not the part before survives, so a host keys each part by its id as a held item slides. A guide's own `id` must not end in `#` and digits
+ *   always `<id>#2`, whether or not the part before survives, so a host keys each part by its id as a held item slides.
+ *   The exception: while the held rect overlaps the box's start (or end) it only trims the box, so the part left is
+ *   `<id>`, and it becomes `<id>#2` once the held rect lies strictly inside the box. A guide's own `id` must not end in `#` and digits
  *   (`b#2` would collide with the second part of `b`), and an `id` that is not a string is not suffixed (a split
  *   box's parts then share it: unsupported). Parts come back in order along the axis.
  *

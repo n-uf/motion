@@ -17,7 +17,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   is the orient the float is in, else the item's first form's natural size along `orient` (a form that grows keeps
   `DEFAULT_FLOAT_SIZE`). `floatAt` with a rect and a hand `resize` write `floatSizes` for the orient the float is in;
   `orient()` gives the frame the size the new orient draws it at (`solve` draws a first form that does not grow at
-  `floatSizeOf`; one that grows, a panel's card, stays the float's rect), at the same place and with the same anchor, and
+  `floatSizeOf`, so a toolbar float given an explicit size keeps it and only one given none fits its content; one that
+  grows, a panel's card, stays the float's rect), at the same place and with the same anchor, and
   keeps a growing form's rect for the orient it leaves, so turning there and back gives the same rect and a hand size
   per orient survives. The drag's float target takes the size for the orient it lands in. `storeScene` / `readScene`
   carry `floatSizes` (an entry that isn't a size is dropped, `item:<id>:floatSizes:<orient>`); a store with only
