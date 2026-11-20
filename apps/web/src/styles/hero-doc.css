@@ -1,0 +1,90 @@
+/*
+ * The home hero's docking illustration (components/HeroDoc.astro): the lab's Document window (apps/lab/src/docwin/docwin.css),
+ * static, its classes prefixed `hd-` and scoped under `.hdw`. Plain boxes in the window tokens (--win-*): every rect comes
+ * from the solver, the CSS only dresses it. The window is drawn at its solved size in px and scaled to its slot by a
+ * transform, so a column reserves its box (an aspect ratio) and nothing shifts.
+ */
+.hdw { --hd-w: 320; --hd-h: 300; position: relative; width: 100%; aspect-ratio: var(--hd-w) / var(--hd-h); container-type: inline-size; }
+.hdw-in { position: absolute; left: 0; top: 0; width: calc(var(--hd-w) * 1px); height: calc(var(--hd-h) * 1px); transform-origin: 0 0; transform: scale(calc(100cqw / (var(--hd-w) * 1px))); }
+.hd-win {
+  position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid var(--win-edge); border-radius: var(--win-r);
+  background: var(--win-frame); color: var(--win-text); font-size: 12px; line-height: 1.25; user-select: none; box-sizing: border-box;
+}
+.hd-win > *, .hd-edges > *, .hd-items > * { position: absolute; box-sizing: border-box; }
+.hd-edges, .hd-items { inset: 0; pointer-events: none; }
+.hd-bar { background: var(--win-bar); border-bottom: 1px solid var(--win-edge); }
+.hd-bar[data-edge="bottom"] { border-bottom: 0; border-top: 1px solid var(--win-edge); }
+.hd-colbg { background: var(--win-bar); }
+.hd-colbg[data-edge="left"] { border-right: 1px solid var(--win-edge); }
+.hd-colbg[data-edge="right"] { border-left: 1px solid var(--win-edge); }
+.hd-scroll { overflow: hidden; background: var(--win-well); }
+.hd-sheets { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 20px 0 40px; }
+.hd-sheet { position: relative; flex: none; background: var(--win-paper); border: 1px solid var(--win-paper-line); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); display: grid; align-content: start; gap: 10px; padding: 32px 20px; box-sizing: border-box; }
+.hd-sheet span { position: absolute; right: 8px; bottom: 6px; color: var(--win-muted); font-size: 11px; }
+.hd-sheet i { display: block; height: 8px; background: var(--win-well); border-radius: 2px; }
+.hd-sheet i:nth-child(3) { width: 70%; }
+.hd-item { position: absolute; box-sizing: border-box; overflow: hidden; }
+
+/* Panels */
+.hd-panel { background: var(--bg-raised); border: 1px solid var(--win-edge); border-radius: 6px; display: flex; flex-direction: column; }
+.hd-head { display: flex; align-items: center; gap: 6px; height: 30px; flex: none; padding: 0 6px; border-bottom: 1px solid var(--win-edge); }
+.hd-head b { flex: 1; font-weight: 600; }
+.hd-badge { display: inline-block; min-width: 3.2ch; padding: 0 3px; border-radius: 8px; background: var(--win-well); color: var(--win-muted); font-size: 10.5px; text-align: center; font-variant-numeric: tabular-nums; }
+.hd-x, .hd-pm { color: var(--win-muted); padding: 0 4px; }
+.hd-body { flex: 1; overflow: hidden; padding: 6px; }
+/* The lab's thumbnails are at least 56 px; the miniature's column is 128 px, so two fit (44 px). */
+.hd-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; }
+.hd-thumbs i { position: relative; aspect-ratio: 0.77; background: var(--win-paper); border: 1px solid var(--win-paper-line); }
+.hd-thumbs span { position: absolute; bottom: 2px; right: 4px; font-size: 10px; color: var(--win-muted); }
+.hd-list { list-style: none; margin: 0; padding: 0; }
+.hd-list li { display: flex; justify-content: space-between; gap: 6px; padding: 4px 6px; border-radius: 4px; white-space: nowrap; }
+.hd-list span { color: var(--win-muted); }
+.hd-k-header { border-radius: 6px; }
+.hd-k-header .hd-head { border-bottom: 0; height: 100%; }
+.hd-k-rail { border: 0; background: none; }
+.hd-railbtn { position: relative; display: block; width: 28px; height: 28px; border: 1px solid var(--win-edge); border-radius: 6px; background: var(--bg-raised); font-weight: 600; line-height: 26px; text-align: center; }
+.hd-railbtn .hd-badge { position: absolute; top: 0; right: 0; min-width: 0; padding: 0 2px; font-size: 8px; line-height: 10px; }
+.hd-railtitle { height: max-content; min-height: 28px; display: flex; align-items: center; justify-content: center; padding: 7px 0; font-weight: 600; font-size: 12px; line-height: 1.25; }
+.hd-k-rail .hd-railtitle { height: 100%; }
+.hd-rt { writing-mode: vertical-rl; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; line-height: 1; }
+.hd-rt-left .hd-rt { transform: rotate(180deg); }
+.hd-railtitle .hd-badge { position: static; min-width: 0; padding: 2px 0; font-size: 10px; line-height: 14px; width: 14px; }
+
+/* Groups */
+.hd-group { display: flex; align-items: center; gap: 4px; background: var(--bg-raised); border: 1px solid var(--win-edge); border-radius: 6px; padding: 0 4px; }
+.hd-group.hd-ax-column.hd-k-icons { flex-direction: column; justify-content: flex-start; padding: 4px 2px; }
+.hd-gc { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.hd-ax-column.hd-k-icons .hd-gc { flex-direction: column; align-items: stretch; }
+.hd-dots { flex: none; width: 8px; height: 16px; background-image: radial-gradient(var(--grip) 1.2px, transparent 1.4px); background-size: 4px 4px; }
+.hd-ax-column.hd-k-icons > .hd-dots { width: 16px; height: 8px; }
+.hd-group.hd-k-wrap { display: grid; grid-template-columns: 17px max-content; align-items: start; gap: 0; padding: 0; border: 0; box-shadow: inset 0 0 0 1px var(--win-edge); }
+.hd-k-wrap > .hd-dots { margin: 6px 0 0 5px; }
+.hd-wrapbox { flex-direction: column; align-items: flex-start; gap: 0; }
+.hd-wrow { display: flex; align-items: center; gap: 4px; height: 28px; white-space: nowrap; }
+.hd-wrow .hd-cap { height: 24px; }
+.hd-w, .hd-sq, .hd-tool { border: 1px solid transparent; border-radius: 4px; padding: 2px 5px; white-space: nowrap; }
+.hd-sq, .hd-tool { width: 24px; height: 24px; padding: 0; display: inline-grid; place-items: center; }
+.hd-fit { box-sizing: border-box; flex: none; display: inline-flex; align-items: center; justify-content: center; width: calc(5ch + 5 * 0.08em + 2 * 8px); height: 24px; padding: 0 8px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--accent); font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; line-height: 1; white-space: nowrap; }
+.hd-tool i { width: 12px; height: 12px; border: 1.5px solid var(--win-muted); border-radius: 2px; }
+.hd-n { display: inline-block; font-variant-numeric: tabular-nums; color: var(--win-muted); }
+.hd-zv { display: inline-block; min-width: 4.5ch; text-align: center; font-variant-numeric: tabular-nums; }
+.hd-sep { color: var(--win-muted); }
+.hd-cap { display: inline-flex; align-items: center; border: 1px solid var(--win-edge); border-radius: 999px; overflow: hidden; }
+.hd-cap > * + * { border-left: 1px solid var(--win-edge); border-radius: 0; }
+.hd-cap [aria-pressed="true"] { background: var(--accent-soft); }
+.hd-sq-n { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; gap: 0; font-size: 10.5px; overflow: hidden; }
+.hd-sq-n small { font-size: 7.5px; line-height: 1; color: var(--win-muted); font-variant-numeric: tabular-nums; }
+
+/* Chrome: the title and the window controls. */
+.hd-chrome { display: flex; align-items: center; gap: 8px; }
+.hd-item[data-id] { padding-left: 4px; }
+.hd-chrome:has(.hd-title-t) { padding-left: 4px; }
+.hd-title-t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hd-chrome:has(.hd-ctl) { justify-content: center; gap: 8px; padding: 0; }
+.hd-chrome:has(.hd-ctl)::before { content: ""; position: absolute; inset: 6px 2px; border-radius: 10px; background: var(--win-well); box-shadow: inset 0 0 0 1px var(--win-edge); }
+.hd-ctl { position: relative; flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--win-muted); }
+.hd-menu { display: grid; place-items: center; border: 1px solid var(--win-edge); border-radius: 6px; background: var(--bg-raised); }
+.hd-more { flex: none; display: inline-flex; align-items: center; height: 24px; padding: 0; white-space: nowrap; }
+.hd-more .hd-chev { display: inline-block; width: 12px; text-align: center; line-height: 1; }
+.hd-more .hd-cnt { align-self: flex-start; margin-top: 3px; min-width: 6px; padding: 0 1px; border-radius: 5px; background: var(--win-well); color: var(--win-muted); font-size: 8px; line-height: 10px; text-align: center; font-variant-numeric: tabular-nums; }
+.hd-float { z-index: 2; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); }
