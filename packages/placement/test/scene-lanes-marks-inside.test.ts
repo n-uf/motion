@@ -32,7 +32,7 @@ interface Frame {
  * spot's own layout (`heldLayout`), where its edge may have moved: there the edge as drawn when it is drawn.
  */
 function broken(frame: Frame, edgeIds: ReadonlySet<string>): string[] {
-  const { where, lanes: ls, heldLane, heldLayout } = frame;
+  const { where, lanes: ls, heldLayout } = frame;
   const bad: string[] = [];
   const edge = ls.filter((l) => edgeIds.has(l.id));
   for (const l of edge) {
