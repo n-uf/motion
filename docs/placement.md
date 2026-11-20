@@ -193,7 +193,7 @@ Marks. Each lane carries its place guides in the layout as drawn (with `options.
 
 No mark lies over an item, the held item or a float, or in a refused stretch. No two edge lanes' marks overlap: at a corner a lane not drawn gives way to a drawn one, and between two not drawn the bar owns it. A virtual lane is drawn over what it would push. Marks have ids that stay while the items either side stay, so a host keys its drawing by them.
 
-Ids. A spot id is `<lane>/<zone>/<item before or ^>|<item after or $>`, an empty edge's `<lane>/<zone>`, a pitched spot's `…@<pitches from its neighbor>` (`@0` keeping no space; a stretch's end keeping some space `…@to:<neighbor>`), a spot over a neighbor itself `…@in:<neighbor>`, a sliding spot's `…@slide` (`…@slide:2` for a later piece of a split stretch), a virtual lane's `<lane>/line` or `<lane>/end`. A new column's lane is keyed by the column it lies beside, not its ring.
+Ids. A spot id is `<lane>/<zone>/<item before or ^>|<item after or $>`, an empty edge's `<lane>/<zone>`, a pitched spot's `…@<pitches from its neighbor>` (`@0` keeping no space; a stretch's end keeping some space `…@to:<neighbor>`), a spot over a neighbor itself `…@in:<neighbor>`, a sliding spot's `…@slide`, a virtual lane's `<lane>/line` or `<lane>/end`. A new column's lane is keyed by the column it lies beside, not its ring.
 
 `owns` marks a lane whose rect is its own: a rail drop strip at the window's side (`Scene.railDrop`), which every other target of the drag gives up, so a landing model gives it the pointer inside it over any lane it overlaps.
 

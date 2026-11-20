@@ -1,9 +1,7 @@
 /**
- * A sliding spot's range holds only starts that land as aimed. A stretch whose landing depends on the zone or the form
- * it takes (a start item before an end item, a bar tight enough to fold a toolbar) can fail a start in the middle of
- * its range; the stretch is then listed as several sliding spots, split at the failures, so that every start in any
- * listed range commits where the frame shows it. The first spot keeps the id `…@slide`, later ones are `…@slide:2`,
- * `…@slide:3`, in order along the lane.
+ * A guard on the sliding spot's rule: in random bars (a title, toolbars in every zone keeping room, a readout, controls),
+ * every start in every listed range commits where the rule puts it (a snap point within the snap distance, else a whole
+ * pixel), with the item's length unchanged. No scene tried has needed anything beyond one range per stretch.
  */
 import { describe, expect, it } from "vitest";
 import { lanes, solve, type Scene, type SceneItem } from "../src/scene";
@@ -46,12 +44,11 @@ function randomScene(r: () => number): { s: Scene; held: string } {
   return { s, held: groups[Math.floor(r() * groups.length)]! };
 }
 
-describe("a sliding spot's range holds only starts that land as aimed", () => {
+describe("a sliding spot's range", () => {
   it("in random bars, every start in every listed range commits where the rule puts it, and the ids stay unique", () => {
     const r = seeded(7);
     const bad: string[] = [];
     let checked = 0;
-    let split = 0;
     for (let k = 0; k < 160; k++) {
       const { s, held } = randomScene(r);
       const seen = solve(s);
@@ -67,7 +64,6 @@ describe("a sliding spot's range holds only starts that land as aimed", () => {
         for (const spot of lane.spots) {
           const sl = spot.slide;
           if (!sl) continue;
-          if (/@slide:\d+$/.test(spot.id)) split++;
           const w = spot.landing.width;
           for (let x0 = Math.ceil(sl.from); x0 <= sl.to; x0 += 2) {
             const point = { x: x0, y: lane.rect.y + lane.rect.height / 2 };
@@ -83,7 +79,5 @@ describe("a sliding spot's range holds only starts that land as aimed", () => {
     }
     expect(checked).toBeGreaterThan(500);
     expect(bad.slice(0, 12)).toEqual([]);
-    // A split spot's id is `…@slide:<n>` (n from 2); none of these scenes needs one, so it is only the shape that is held.
-    expect(split).toBeGreaterThanOrEqual(0);
   });
 });
