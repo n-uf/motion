@@ -32,6 +32,11 @@ export const LANES_SINCE = "26.11.45";
  * its press point need it, and a host must pass the grab to `lanes()` for them to pass.
  */
 export const GRAB_SINCE = "26.11.46";
+/**
+ * The first library version whose grab moves no hop past a long neighbor (26.11.46 and 26.11.47 cut two landings far
+ * apart at the grab too, so a toolbar held by its grip hopped a neighbor early): the grip rows need it.
+ */
+export const GRIP_SINCE = "26.11.48";
 /** The last published version without `lanes()`. */
 export const LAST_WITHOUT_LANES = "26.11.44";
 /** From this date every landing row runs on every host (or at the breaking release, if that comes first). */
@@ -514,6 +519,21 @@ export const LANDING_CASES: readonly LandingCase[] = [
     end: { region: "lane", lane: "rail-left" },
     home: true,
     requires: GRAB,
+  },
+  {
+    id: "landing-grip-past-long-neighbor",
+    title: "A toolbar held by its grip and slid past a long neighbor stays at the hand",
+    expect: "A toolbar pressed 6 px into its left end (its grip) in the bottom bar and slid right along it past a 200 px neighbor to the bar's far end at 0.15 px/ms: every frame holds the bar, and the landing lies within 56 px of the pointer (R12: 48, 56 on the frame before a hop): the grab never moves a hop past the neighbor.",
+    scene: landingWindow(["a"], ["b", "c"]),
+    item: "b",
+    path: [
+      { x: 14, y: 622 },
+      { x: 1060, y: 622 },
+    ],
+    speed: 0.15,
+    rest: 40,
+    moving: { lane: "bottom", trail: 56 },
+    requires: { lanes: { since: GRIP_SINCE } },
   },
   {
     id: "landing-across-items",

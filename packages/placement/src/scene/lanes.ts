@@ -68,8 +68,9 @@ export interface LaneRefusal {
  * neighbor that will move), the two together the landing; with no free room at a lane's end, the hatch alone. A box
  * over another edge's docked items (an empty side rail over a column's outer strip) is a hatch there too: they move
  * aside when the lane opens. Never a box or a line over an item drawn there, nor anything over the held one; nothing in
- * a refused stretch; no two lanes' marks overlap (at a corner a lane not drawn gives way to a drawn one, and between
- * two not drawn the bar owns it). As seen (no `spot`) the lifted item is drawn nowhere, so its own place is free room
+ * a refused stretch; no two edge lanes' marks overlap (at a corner a lane not drawn gives way to a drawn one, and
+ * between two not drawn the bar owns it; a virtual lane, a new column's line or a declared rail, is drawn over what it
+ * would push). As seen (no `spot`) the lifted item is drawn nowhere, so its own place is free room
  * in its lane; with `spot`, every lane's marks lie in that spot's layout (the held item there, its room open).
  */
 export interface LaneMark {
@@ -318,9 +319,6 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   const built = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share, marking)).filter((l): l is Lane => !!l);
   const laneList = built.map((l) => settle(l, seen, scene, dragged, built));
   const onLanes = new Set(laneList.map((l) => l.id));
-  // A lane takes the pointer over a refused place it lies over (an empty rail over a column's outer strip): no refusal
-  // there.
-  const laneRects = laneList.map((l) => l.rect);
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
   const blocked = [
     ...Object.values(seen.edges).filter((e) => e.cross > EPS).map((e) => e.rect),
@@ -339,10 +337,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     share,
     marking,
     regions: {
-      refused: rs
-        .filter((f) => !onLanes.has(f.edge))
-        .flatMap((f) => f.hits ?? [f.hit])
-        .flatMap((r) => laneRects.reduce<Rect[]>((ps, l) => ps.flatMap((p) => minus(p, l)), [r])),
+      refused: rs.filter((f) => !onLanes.has(f.edge)).flatMap((f) => f.hits ?? [f.hit]),
       content: seen.content,
       blocked,
       stage: scene.stage,
@@ -374,10 +369,12 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   // The cut between two spots. In a panel column (`halves`), between two spots sharing a neighbor, that item's middle in
   // `drawn` (the upper half above it, the lower half below); else halfway across the gap between their landings (each in
   // its own layout), so the pointer is at the landing it picks, or as near one as the other: a toolbar moved along a bar
-  // or a rail stays at the hand however wide its neighbors. Off a panel column the gap is measured where the item is
-  // held: moved by the grab's share past the middle, so with landings of one length the cut lies halfway between the
-  // points the pointer holds in each, and a pointer at its press point lies on the item's own place. Kept inside the
-  // lane and in order.
+  // or a rail stays at the hand however wide its neighbors (R12: a long neighbor between two landings puts a gap between
+  // them, and halfway across it the pointer is at the landing it picks). Off a panel column, where two landings overlap
+  // (spots a pitch apart over a free stretch, the pointer inside both) the cut is measured where the item is held:
+  // moved by the grab's share past the middle, so with landings of one length it lies halfway between the points the
+  // pointer holds in each, and a pointer at its press point lies on the item's own place. Kept inside the lane and in
+  // order.
   const drawnItems = first.edge && halves ? new Map(onEdge(drawn, first.edge, dragged, axis).map((o) => [o.id, o.r])) : new Map<string, Rect>();
   const held = halves ? 0.5 : share[axis];
   const cuts: number[] = [];
@@ -385,7 +382,15 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
     const a = unique[i]!;
     const b = unique[i + 1]!;
     const shared = a.next === b.before && a.next !== "$" ? drawnItems.get(a.next) : undefined;
-    const raw = shared ? mid(shared, axis) : (lo(a.landing, axis) + len(a.landing, axis) + lo(b.landing, axis)) / 2 + ((held - 0.5) * (len(a.landing, axis) + len(b.landing, axis))) / 2;
+    const aEnd = lo(a.landing, axis) + len(a.landing, axis);
+    const across = (aEnd + lo(b.landing, axis)) / 2;
+    // Overlapping landings: at the grab, kept within half a pitch of their overlap (the pointer never further than that
+    // from the landing it picks: two spots far apart that overlap a little cut near the overlap, as apart). Apart (a gap
+    // between them): halfway across the gap, the grab aside.
+    const overlap = lo(b.landing, axis) < aEnd - EPS;
+    const slack = Math.max(0, marking.pitch) / 2;
+    const atGrab = clamp(across + ((held - 0.5) * (len(a.landing, axis) + len(b.landing, axis))) / 2, lo(b.landing, axis) - slack, aEnd + slack);
+    const raw = shared ? mid(shared, axis) : overlap ? atGrab : across;
     cuts.push(clamp(Math.max(raw, cuts[i - 1] ?? start), start, end));
   }
   const spots: LaneSpot[] = unique.map((x, i) => ({
@@ -600,20 +605,6 @@ function virtualMarks(lane: string, spots: readonly Raw[], held: { rect: Rect; f
     const x = mid(held.rect, "x") < mid(l, "x") ? l.x + l.width : l.x;
     return { id: `${lane}/line/${s.id}`, kind: "line" as const, rect: rect(x, l.y, 0, l.height) };
   });
-}
-
-/** `r` less `c`: up to four rects (the parts of `r` above, below, left and right of `c`). */
-function minus(r: Rect, c: Rect): Rect[] {
-  if (!overlaps(r, c)) return [r];
-  const out: Rect[] = [];
-  const x1 = Math.min(r.x + r.width, c.x + c.width);
-  if (c.y > r.y) out.push(rect(r.x, r.y, r.width, c.y - r.y));
-  if (c.y + c.height < r.y + r.height) out.push(rect(r.x, c.y + c.height, r.width, r.y + r.height - (c.y + c.height)));
-  const y0 = Math.max(r.y, c.y);
-  const y1 = Math.min(r.y + r.height, c.y + c.height);
-  if (c.x > r.x) out.push(rect(r.x, y0, c.x - r.x, y1 - y0));
-  if (x1 < r.x + r.width) out.push(rect(x1, y0, r.x + r.width - x1, y1 - y0));
-  return out.filter((p) => p.width > EPS && p.height > EPS);
 }
 
 /**
