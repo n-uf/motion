@@ -1,6 +1,6 @@
 /** The positioner's rules in order per axis: flip, slide, resize. */
 import { describe, expect, it } from "vitest";
-import { BELOW_LEFT, positionPopup } from "../index";
+import { BELOW_LEFT, positionPopup } from "../src/popup";
 
 const bounds = { x: 0, y: 0, width: 800, height: 600 };
 const size = { width: 200, height: 40 };

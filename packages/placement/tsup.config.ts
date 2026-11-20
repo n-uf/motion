@@ -21,6 +21,7 @@ export default defineConfig({
     scene: "src/scene/index.ts",
     "scene-cases": "src/scene/cases/index.ts",
     tiling: "src/tiling/index.ts",
+    popup: "src/popup/index.ts",
   },
   splitting: true,
   format: ["esm"],

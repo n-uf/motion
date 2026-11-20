@@ -1,5 +1,5 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, dock, toolbar, targets, panels, desk, stack, scene, scene-cases, tiling) and its type definitions exist;
+// - every entry (the root, dock, toolbar, targets, panels, desk, stack, scene, scene-cases, tiling, popup) and its type definitions exist;
 // - the JavaScript imports only its own chunks (no dependencies at all, @n-uf/motion included);
 // - no file touches a host global, and no type mentions a DOM type;
 // - Node can import every entry, and a desk lays out, a host collapses, a drop lands and a panel column gives way from
@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const ENTRIES = ["index", "dock", "toolbar", "targets", "panels", "desk", "stack", "scene", "scene-cases", "tiling"];
+const ENTRIES = ["index", "dock", "toolbar", "targets", "panels", "desk", "stack", "scene", "scene-cases", "tiling", "popup"];
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|globalThis|matchMedia)\b/;
 const DOM_TYPES = /\b(Window|Document|Element|HTMLElement|Event|PointerEvent|MouseEvent|DOMRect)\b/;
 const problems = [];
@@ -57,7 +57,7 @@ if (problems.length === 0) {
   try {
     const m = {};
     for (const entry of ENTRIES) m[entry] = await import(pathToFileURL(join(dist, `${entry}.js`)).href);
-    if (typeof m.index.positionPopup !== "function") problems.push("index.js: no positionPopup");
+    if (typeof m.popup.positionPopup !== "function") problems.push("popup.js: no positionPopup");
     const desk = m.dock.createDesk({ panels: [{ id: 1, title: "Files", natural: 160 }, { id: 2, title: "History", natural: 160 }], start: { left: [1], right: [], bottom: [2] } });
     // The conformance rows run on the in-memory host from the built code, and a wrong expectation fails.
     const sc = m["scene-cases"];

@@ -67,6 +67,10 @@
     "./tiling": {
       "types": "./src/tiling/index.ts",
       "default": "./src/tiling/index.ts"
+    },
+    "./popup": {
+      "types": "./src/popup/index.ts",
+      "default": "./src/popup/index.ts"
     }
   },
   "publishConfig": {
@@ -113,6 +117,10 @@
       "./tiling": {
         "types": "./dist/tiling.d.ts",
         "default": "./dist/tiling.js"
+      },
+      "./popup": {
+        "types": "./dist/popup.d.ts",
+        "default": "./dist/popup.js"
       },
       "./package.json": "./package.json"
     }
