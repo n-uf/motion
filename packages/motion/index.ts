@@ -18,5 +18,5 @@ export * from "./src/gestures";
 export * from "./src/drag";
 export * from "./src/layout";
 export type { Animatable, Point, Rect, Vector, Widen } from "./src/shapes";
-export type { ModifierKey } from "./src/gestures/types";
+export type { ModifierKey } from "./src/keys";
 export { shapeEquals } from "./src/shapes";

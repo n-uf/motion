@@ -1,5 +1,4 @@
-import { isHeld } from "../gestures/modifiers";
-import type { ModifierKey, Modifiers } from "../gestures/types";
+import { isHeld, type ModifierKey, type Modifiers } from "../keys";
 import type { Point, Rect } from "../shapes";
 
 /**
