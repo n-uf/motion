@@ -10,6 +10,27 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   clipped to their rect as seen, so where the drop moves an edge (a column pushed aside by a rail that opens) their
   marks were cut short or lost (a column's joint lines, a rail's head line). In a held frame every lane is now clipped
   to its rect over the spot's layout (`laneRectOver`); its hit `rect` stays as seen.
+- `./scene`, **a turned float takes the new orient's size** (fix, additive). `orient()` (the grip menu's "lay out
+  horizontally / vertically") kept the float's rect, so an upright 36 × 107 toolbar turned to a row drew its 88 × 28
+  content in the old frame. A float's size is now kept per orient: **`SceneItem.floatSizes`** (`{ row?, column? }`).
+  `floatSizeOf(item, orient?, floatOrient?)` gives `floatSizes[orient]`, else the legacy `floatSize` only where `orient`
+  is the orient the float is in, else the item's first form's natural size along `orient` (a form that grows keeps
+  `DEFAULT_FLOAT_SIZE`). `floatAt` with a rect and a hand `resize` write `floatSizes` for the orient the float is in;
+  `orient()` gives the frame the size the new orient draws it at (`solve` draws a first form that does not grow at
+  `floatSizeOf`; one that grows, a panel's card, stays the float's rect), at the same place and with the same anchor, and
+  keeps a growing form's rect for the orient it leaves, so turning there and back gives the same rect and a hand size
+  per orient survives. The drag's float target takes the size for the orient it lands in. `storeScene` / `readScene`
+  carry `floatSizes` (an entry that isn't a size is dropped, `item:<id>:floatSizes:<orient>`); a store with only
+  `floatSize` reads as `floatSizes` for its float's orient. Host notes: **`SceneItem.floatSize` is deprecated**: still
+  read, no longer written (the scene's own changes drop it into `floatSizes` as they run), and removed in the next
+  breaking release; read `floatSizes` instead. A host that builds a toolbar group's float with a rect of its own and no
+  `floatSizes` now sees it drawn at its form's natural size, not at that rect: give it `floatSizes` (`floatAt` with a
+  rect does). A scene already stored with a float turned before this fix reads as it was stored (a size is a size).
+- `./scene`, **`SceneItemLayout.axis`** (additive). `solve` reports the axis every item lies along, `"row"` or
+  `"column"`: a placed item's is its edge's (a bar's items lie along a row, a column's, a rail's and a rail tab's along
+  a column, whatever form they took; a toolbar group's icons form is a `row` in a bar), a float's its orient. Hosts read
+  it and stop inferring it from `formKind === "icons"`. It is a required field of the layout, so a host that builds a
+  `SceneItemLayout` by hand adds it.
 - `./scene/cases`, **the Near guides' rule, as landing rows and a check** (additive). On every frame that shows a Near
   guide of lane L, L holds the pointer (also on its own refused stretch), or L is pending, or the pointer is in open
   space within `NEAR_REACH` (12 px) of L; none shows over a refused place outside L. `nearGuideIssues(row, frames,
