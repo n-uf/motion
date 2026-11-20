@@ -5,11 +5,11 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.52
 
-- `./drag`, **`guideRects` widens thin lines** (behaviour change). A `line` guide thinner than the new option
+- `./drag`, **`guideRects` widens thin lines** (behavior change). A `line` guide thinner than the new option
   `lineThickness` (default 2 px) is widened to it, centered on its own position, before the inset, the clear rects and
   `minThickness` apply; a line at least that thick is unchanged. Hosts that passed zero-thick lines (placement gives
   the line between two docked panels zero thickness) used to see them dropped by `minThickness`, and now see them
-  drawn at 2 px, so a host no longer widens them itself. `lineThickness: 0` keeps the old behaviour.
+  drawn at 2 px, so a host no longer widens them itself. `lineThickness: 0` keeps the old behavior.
 - `./drag`, **a hand creeping a pixel at a time is slow** (fix). With the hand's speed, a host that sends a sample only
   when the pointer moves a whole pixel, creeping at 0.016 to 0.025 px/ms (a pixel every 40 to 60 ms), made every sample
   a gap, its step unknown, so it never entered a band over a refused column while it kept creeping. A step over a gap
