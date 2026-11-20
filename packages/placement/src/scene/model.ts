@@ -75,6 +75,15 @@ export interface SceneItem {
    * with spare room when the form `grows`; window controls have `min` equal to `natural`.
    */
   readonly fixed?: boolean;
+  /**
+   * A fixed item that yields: a movable item dropped after it in its zone may push it inward along the zone. Left out,
+   * a fixed item at a zone's anchor (window controls at a bar's end) keeps its place, so no gap after it is offered; a
+   * fixed item with `pushable` at the anchor (a state or page cell at a title bar's end) lets the gap after the run be a
+   * stop, a place a toolbar homed after it can be put back in. It keeps its order among the fixed items: no gap is
+   * offered between two `pushable` items. A declaration of the scene like `Edge.zoneAccepts`: `readScene` takes it from
+   * `base`, `storeScene` never writes it.
+   */
+  readonly pushable?: boolean;
   /** Closed: it keeps its place in its edge (or its float rect) but takes no room and has no targets. */
   readonly closed?: boolean;
   /**

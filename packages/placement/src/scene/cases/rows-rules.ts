@@ -10,10 +10,31 @@
  * preview layout and no slot is drawn.
  */
 import { rect as r } from "../../geometry";
-import type { Scene, SceneItem } from "../index";
+import type { Scene, SceneItem, ScenePlace } from "../index";
 import { g } from "./gestures";
 import type { CaseRow } from "./types";
 import { doc, form, tweakEdge } from "./world";
+
+/**
+ * Zoom's "Move to ›" places in `titleEnd` with Zoom in the toolbar, in order: the title bar's end zone gives `endGaps`
+ * (its places along the bar), and the rest are the window's others.
+ */
+const zoomAwayStops = (endGaps: readonly number[]): ScenePlace[] => [
+  g.gap("left", 0),
+  g.gap("left", 1),
+  g.gap("titlebar", 1),
+  g.gap("titlebar", 0, "center"),
+  ...endGaps.map((at) => g.gap("titlebar", at, "end")),
+  g.gap("toolbar", 0),
+  g.gap("toolbar", 1),
+  g.gap("toolbar", 0, "center"),
+  g.gap("toolbar", 0, "end"),
+  g.gap("status", 0),
+  g.gap("right", 0),
+  g.gap("right", 1),
+  g.gap("right", 2),
+  g.float,
+];
 
 /** The window with only panels floating (groups don't), and its left column taking panels only. */
 const panelsOnly = (): Scene => tweakEdge({ ...doc(), floatKinds: ["panel"] }, "left", { accepts: ["panel"] });
@@ -25,10 +46,11 @@ const trayColumn = (): Scene => tweakEdge({ ...doc(), floatKinds: ["panel"] }, "
  * The window whose title bar's end zone holds two fixed readouts (State 96 px, Page 42 px) and Zoom, in `items` order,
  * with Tools in the toolbar beside Views (R7). With `["state", "page", "zoom"]` the readouts sit behind Zoom, so a drop
  * in the end zone may push them; with `["zoom", "state", "page"]` they are the zone's anchored fixed run and stay put.
+ * With `pushable`, the readouts declare that a movable item dropped after them may push them inward (`SceneItem.pushable`).
  */
-function titleEnd(end: readonly string[]): Scene {
+function titleEnd(end: readonly string[], pushable = false): Scene {
   const s = tweakEdge(tweakEdge(doc(), "titlebar", { items: ["title", ...end] }), "toolbar", { items: ["views", "tools"] });
-  const readout = (id: string, w: number): SceneItem => ({ id, kind: "readout", used: 0, fixed: true, align: "end", forms: { row: [form("row", w, w, 28)] } });
+  const readout = (id: string, w: number): SceneItem => ({ id, kind: "readout", used: 0, fixed: true, align: "end", ...(pushable ? { pushable: true } : {}), forms: { row: [form("row", w, w, 28)] } });
   return { ...s, items: { ...s.items, state: readout("state", 96), page: readout("page", 42) } };
 }
 
@@ -390,6 +412,34 @@ export const RULE_ROWS: readonly CaseRow[] = [
       items: { tools: { edge: "titlebar", zone: "end", rect: r(862, 0, 200, 32) }, zoom: { rect: r(662, 0, 200, 32) }, state: { rect: r(1062, 0, 96, 32) }, page: { rect: r(1158, 0, 42, 32) } },
       order: { titlebar: ["title", "zoom", "tools", "state", "page"] },
     },
+  },
+  {
+    id: "R7-end-zone-pushable-put-back",
+    title: "Pushable readouts: the gap after them is a stop, and Put back lands in it",
+    expect:
+      "State and Page (fixed, `pushable`) are at the title bar's end with Zoom homed after them: \"state page zoom\". With Zoom moved to the toolbar they are the end zone's anchored run, and the gap after them (end:2) is still one of Zoom's stops, because a readout that declares it may be pushed inward lets a movable item land after it. \"Move to ›\" that gap puts Zoom back: State and Page move left by Zoom's width and the order is \"state page zoom\" again. A gap between the two readouts (end:1) is no stop: they keep their order.",
+    group: "groups",
+    scene: titleEnd(["state", "page", "zoom"], true),
+    gestures: [g.moveTo("zoom", g.gap("toolbar", 2)), g.moveTo("zoom", g.gap("titlebar", 2, "end"))],
+    checkpoints: [
+      { at: 0, layout: { items: { zoom: { edge: "toolbar" }, state: { rect: r(1062, 0, 96, 32) }, page: { rect: r(1158, 0, 42, 32) } }, order: { titlebar: ["title", "state", "page"] } }, note: "Zoom away: the readouts sit at the bar's end" },
+    ],
+    expectStops: { item: "zoom", at: 0, places: zoomAwayStops([0, 2]) },
+    expectLayout: {
+      items: { state: { rect: r(862, 0, 96, 32) }, page: { rect: r(958, 0, 42, 32) }, zoom: { edge: "titlebar", zone: "end", rect: r(1000, 0, 200, 32) } },
+      order: { titlebar: ["title", "state", "page", "zoom"] },
+    },
+  },
+  {
+    id: "R7-end-zone-fixed-without-the-flag-no-gap-after",
+    title: "Readouts without `pushable` keep the end: no gap after them",
+    expect:
+      "The same title bar with State and Page not declaring `pushable`, Zoom moved to the toolbar: no place after them is a stop for Zoom (only end:0, before them), so \"state page zoom\" can't be made by a drop. A fixed item pinned to the bar's end (window controls) is protected unless it says otherwise.",
+    group: "groups",
+    scene: titleEnd(["state", "page", "zoom"]),
+    gestures: [g.moveTo("zoom", g.gap("toolbar", 2))],
+    expectStops: { item: "zoom", places: zoomAwayStops([0]) },
+    expectLayout: { items: { zoom: { edge: "toolbar" }, state: { rect: r(1062, 0, 96, 32) }, page: { rect: r(1158, 0, 42, 32) } }, order: { titlebar: ["title", "state", "page"] } },
   },
   {
     id: "R8-hand-fold-is-the-fold-form",
