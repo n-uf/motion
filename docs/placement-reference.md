@@ -566,8 +566,9 @@ for the orient the float is in; the drag's float target takes the size for the o
 `orient: "column"` (or the item `floatOrient: "column"`) to keep a row-first group vertical. **Per-orient sizes apply to
 items that declare `floatSizes`; others keep the stored rect** (`declaresFloatSizes(item)`): an item with no
 `floatSizes` is framed as before them, a float at its first form at its stored rect, and `floatSizeOf` reads its legacy
-`floatSize` in any orient. `floatAt` with a rect, a hand `resize` and `orient()` write `floatSizes`, so an item becomes
-declared once its size is set per orient.
+`floatSize` in any orient; `orient()` turns it keeping its rect, as before. `floatAt` with a rect and a hand `resize`
+write `floatSizes`, so an item becomes declared once its size is set by one of them; only then does a turn (below) take
+the new orient's size.
 
 **Turning a float.** `orient(scene, id, to)` gives the frame the size the new orient draws it at (`floatSizeOf` for
 `to`, as `solve` draws it), at the place the float already has; an anchored float keeps its anchor, so the anchor puts

@@ -27,7 +27,7 @@
  * - `raise(scene, id)`: a float to the top of the stack; no use, no reshape.
  * - `orient(scene, id, orient)`: a float's axis. Its frame takes the size the new orient draws it at (`floatSizeOf`: the
  *   size kept for that orient, else the form's natural size), its place and anchor kept; turned back, it has its first
- *   orient's size again.
+ *   orient's size again. An item that declares no `floatSizes` turns keeping its rect, as before the per-orient sizes.
  * - `resize(scene, edge, size)`: the user's size across; a size that isn't a finite number clears it.
  *   `resize(scene, id, rect, moving?)`: a float resized by hand, at `fitResize`'s rect (./float-resize).
  */
@@ -437,6 +437,8 @@ export function orient(scene: Scene, id: string, to: Orient): Scene {
   if (!f || !item) return scene;
   const from = f.orient ?? floatOrientOf(item);
   if (from === to) return scene;
+  // An item that declares no `floatSizes` turns as before the per-orient sizes: its rect kept as it is.
+  if (!declaresFloatSizes(item)) return { ...scene, floats: scene.floats.map((g, k) => (k === i ? { ...g, orient: to } : g)) };
   // The orient it leaves keeps the size it is drawn at where the user sizes it (a form that grows), so turning back
   // restores that rect; a toolbar group's size is its form's, known without being kept.
   const grows = formsOf(item, from)[0]?.main.grows === true;
