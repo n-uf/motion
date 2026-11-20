@@ -355,7 +355,9 @@ grab (along the item's own length; across it, the middle), clamped to the range 
 (`slide.step`, the grain a landing model's frame and a release's `at` round by too), and commits a dock keeping the `space` that puts it there, so a placed neighbor consumes room as for any dock and
 stays put while the room suffices. Its `landing` is the one at the stretch's point nearest the item's own place (that
 place itself on its own stretch), else at its start; a host draws a landing model's frame (`@n-uf/motion/drag`, which
-moves it with the pointer) and commits through `after(point, grab)`, as for a float. A step comes only where the order
+moves it with the pointer) and commits through `after(point, grab)`, as for a float. A spot's `target.place` is what its
+commit does, so a sliding spot's is the dock it commits, also on the item's own sliding spot: for a sliding spot read the
+release's `home` and `at` (and `LaneSpot.home`), never the place kind. A step comes only where the order
 changes (passing a neighbor): the cut beside a sliding spot reads its landing flush against the neighbor between them.
 Its guides are its stretch's one box, also while it is held. The range holds the landings that land where aimed with
 every fixed item kept (checked at its ends and every `pitch` px between; under `"free"` `pitch` only sets that sampling

@@ -72,7 +72,11 @@ export interface LaneSpot {
   readonly landing: Rect;
   /** The drop: its place and `after()` (the layout after it, the room). */
   readonly target: SceneTarget;
-  /** The item's own place (a release there changes nothing). */
+  /**
+   * The item's own place (a release there changes nothing). A spot's `target.place` is what its commit does: on a
+   * sliding spot it is the dock the drop commits, also here, so read the landing release's `home` and `at` (and this
+   * flag), never the place kind, to know a sliding spot's release is home.
+   */
   readonly home?: true;
   /** A spot at a pitch over a free stretch (`SceneItem.space`). */
   readonly pitched?: true;

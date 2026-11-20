@@ -8,7 +8,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 Stretch positions. With `@n-uf/motion`'s sliding spots. Host notes: **a contract change**: `stretchPositions` now
 defaults to `"free"`; pass `"pitched"` for the old pitched spots. Under `"free"`, commit a sliding spot through its
 target's `after(point, grab)` (a release by id alone must pass the pointer), give the landing model the press's grab,
-and read a release's `home` (not the target's place kind) to tell the item's own place from a move along its stretch.
+and read a release's `home` and `at` (not the target's place kind) to tell the item's own place from a move along its
+stretch.
 
 - `./scene`, **`LaneOptions.stretchPositions`** (`"free" | "pitched"`, default `"free"`) and
   **`LaneOptions.snapDistance`** (default 8). **Contract change:** `stretchPositions` now defaults to `"free"`; pass
@@ -29,9 +30,10 @@ and read a release's `home` (not the target's place kind) to tell the item's own
   keeps its own snap point even within half a pixel of the stretch's start, and commits as that dock. Two points merge
   only where they lie on the same start, the taken-over dock then winning. A center dock's snap moves its center
   neighbor by design.
-- `./scene`, **the item's own sliding spot says place kind `"home"`** (fix, as a pitched home spot does), where it said
-  a gap dock. A sliding spot's drop is still a dock wherever the hand holds it: a host that treats `place.kind ===
-  "home"` as "a release changes nothing" must ask the landing model's release (`home`, `at`) for a sliding spot.
+- `./scene`, **a spot's `place` is what its commit does**: a sliding spot commits wherever the hand holds it, so its
+  `target.place` is the dock it commits, also on the item's own sliding spot. For a sliding spot read the release's
+  `home` and `at` (and `LaneSpot.home`); never the place kind, which says "home" only for a spot whose drop changes
+  nothing (a pitched or plain home spot).
 - `./scene/cases`, **`createLandingHost`** takes `stretchPositions` (default: the library's), passes the press's `grab`
   to the landing model, and commits a release by the model's `home`; `LandingRule`'s options carry `grab` (additive).
   The landing rows hold under both values.
