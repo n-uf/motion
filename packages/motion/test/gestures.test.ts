@@ -8,11 +8,32 @@ import {
   DWELL_IDLE,
   dwellDeadline,
   dwellReducer,
+  isHeld,
+  platformButton,
   type DwellState,
   type InputGesture,
   type RawPointerEvent,
 } from "../src/gestures";
 import { effect } from "../src/signals";
+
+describe("one ModifierKey for the package", () => {
+  it('"mod" is ⌘ or Ctrl, either one; a key left out of the held keys is not held', () => {
+    expect(isHeld({ meta: true }, "mod")).toBe(true);
+    expect(isHeld({ ctrl: true }, "mod")).toBe(true);
+    expect(isHeld({ alt: true, shift: true }, "mod")).toBe(false);
+    expect(isHeld({ shift: true }, "shift")).toBe(true);
+    expect(isHeld({}, "shift")).toBe(false);
+    expect(isHeld(undefined, "alt")).toBe(false);
+    expect(isHeld({ alt: true }, null)).toBe(false);
+  });
+
+  it('a "mod" drag modifier keeps a macOS Ctrl+press primary, as "ctrl" does', () => {
+    const press = { kind: "mouse" as const, button: 0, modifiers: { shift: false, alt: false, meta: false, ctrl: true } };
+    expect(platformButton(press, "mac", "mod")).toBe(0);
+    expect(platformButton(press, "mac", "ctrl")).toBe(0);
+    expect(platformButton(press, "mac", "meta")).toBe(2);
+  });
+});
 
 const at = (x: number, y = 0) => ({ x, y });
 

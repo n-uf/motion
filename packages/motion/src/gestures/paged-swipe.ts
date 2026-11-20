@@ -1,5 +1,6 @@
 import type { TimerSource } from "../clock/port";
 import { createMachine, type Deadline, type Machine } from "./machine";
+import { isHeld } from "./modifiers";
 import type { ModifierKey, Modifiers } from "./types";
 
 /**
@@ -305,7 +306,7 @@ export function pagedSwipeReducer(state: PagedSwipeState, event: PagedSwipeInput
 }
 
 function wheelGates(event: Extract<PagedSwipeInput, { type: "wheel" }>, config: PagedSwipeConfig): { ctrl: boolean; modifierHeld: boolean; canScrollFurther: boolean } {
-  return { ctrl: event.modifiers.ctrl, modifierHeld: config.modifier === null || event.modifiers[config.modifier], canScrollFurther: event.canScrollFurther ?? false };
+  return { ctrl: event.modifiers.ctrl, modifierHeld: config.modifier === null || isHeld(event.modifiers, config.modifier), canScrollFurther: event.canScrollFurther ?? false };
 }
 
 /** When the next `tick` is due: a wheel run's idle end, or the end of the lockout; `null` when none is. */

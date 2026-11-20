@@ -23,21 +23,30 @@ export function resolveDragModifier(config: ModifierKey | null | undefined, plat
   return config ?? defaultDragModifier(platform);
 }
 
-export function isHeld(modifiers: Modifiers, key: ModifierKey | null): boolean {
-  return key !== null && modifiers[key];
+/**
+ * Whether `key` is held in `modifiers` (a pointer's, or the keys a drag sample carries; absent fields are not held).
+ * `"mod"`: ⌘ (meta) or Ctrl, either one. Null: never.
+ */
+export function isHeld(modifiers: Partial<Modifiers> | undefined, key: ModifierKey | null): boolean {
+  if (key === null || !modifiers) return false;
+  return key === "mod" ? !!(modifiers.meta || modifiers.ctrl) : !!modifiers[key];
 }
 
 /**
  * The button a press stands for on this platform. On macOS a Ctrl+click is the secondary click (the system's own
  * rule; the browser's contextmenu follows it), so a primary mouse press with Ctrl held is button 2 there, as a
- * right-click is. Not when Ctrl is the drag modifier (Ctrl+drag then moves). A pen, a finger and the other platforms
- * keep their button.
+ * right-click is. Not when Ctrl is the drag modifier (`"ctrl"`, or `"mod"`, which Ctrl holds: Ctrl+drag then moves).
+ * A pen, a finger and the other platforms keep their button.
  */
 export function platformButton(press: { kind: PointerKind; button: number; modifiers: Modifiers }, platform: Platform, dragModifier: ModifierKey | null): number {
-  return platform === "mac" && press.kind === "mouse" && press.button === 0 && press.modifiers.ctrl && dragModifier !== "ctrl" ? 2 : press.button;
+  const ctrlDrags = dragModifier === "ctrl" || dragModifier === "mod";
+  return platform === "mac" && press.kind === "mouse" && press.button === 0 && press.modifiers.ctrl && !ctrlDrags ? 2 : press.button;
 }
 
-/** Platform "Mod": Cmd on macOS, Ctrl elsewhere (Mod+wheel zooms, Mod+click is content's multi-select) */
+/**
+ * The platform's own Mod key: Cmd on macOS, Ctrl elsewhere (Mod+wheel zooms, Mod+click is content's multi-select).
+ * Where the platform is unknown, `isHeld(modifiers, "mod")` counts either key.
+ */
 export function modHeld(modifiers: Modifiers, platform: Platform): boolean {
   return platform === "mac" ? modifiers.meta : modifiers.ctrl;
 }

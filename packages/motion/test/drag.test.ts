@@ -637,22 +637,22 @@ describe("drag/ spring-loading and keys", () => {
     // Both held: the float key wins.
     expect(run(mid1, {}, { shift: true, meta: true }).landed).toBe("float");
     // Modifiers off: the keys do nothing.
-    expect(run(mid1, { modifiers: { on: false, floatKey: "Shift", railKey: "Mod" } }, { meta: true }).landed).toBe("float");
+    expect(run(mid1, { modifiers: { on: false, floatKey: "shift", railKey: "mod" } }, { meta: true }).landed).toBe("float");
     // Over home, the rail key still wins.
     const atHome = createDragIntent({ home: H });
     expect(atHome.release(mid(H), SPRING, { ctrl: true })?.id).toBe("rail:left");
   });
 
-  it("the default rail key is Mod: ⌘ (meta) or Ctrl either one rails, and Alt does not", () => {
+  it("the default rail key is mod: ⌘ (meta) or Ctrl either one rails, and Alt does not", () => {
     const mid1 = hold(through([mid(H), { x: 300, y: 200 }], 1), 100);
-    expect(DRAG_DEFAULTS.modifiers.railKey).toBe("Mod");
+    expect(DRAG_DEFAULTS.modifiers.railKey).toBe("mod");
     expect(run(mid1, {}, { meta: true }).landed).toBe("rail:left");
     expect(run(mid1, {}, { ctrl: true }).landed).toBe("rail:left");
     expect(run(mid1, {}, { alt: true }).landed).toBe("float");
     expect(run(mid1, {}, { alt: true }).frames.at(-1)!.forced).toBe(null);
     // A host may still choose Alt, or one specific key.
-    expect(run(mid1, { modifiers: { on: true, floatKey: "Shift", railKey: "Alt" } }, { alt: true }).landed).toBe("rail:left");
-    expect(run(mid1, { modifiers: { on: true, floatKey: "Shift", railKey: "Meta" } }, { ctrl: true }).landed).toBe("float");
+    expect(run(mid1, { modifiers: { on: true, floatKey: "shift", railKey: "alt" } }, { alt: true }).landed).toBe("rail:left");
+    expect(run(mid1, { modifiers: { on: true, floatKey: "shift", railKey: "meta" } }, { ctrl: true }).landed).toBe("float");
   });
 
   it("a target with no `arm` is unchanged by the new tuning", () => {
