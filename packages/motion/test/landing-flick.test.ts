@@ -118,7 +118,8 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
     // A repeating ±30% pattern: every other frame read faster than 2 px/ms (0.7: 17 px per 8 ms), the rest slower.
     const pattern = [1.0, 0.7, 1.3, 0.7];
     const jittered = entry((k) => pattern[k % pattern.length]!);
-    expect(smooth).toBeLessThan(100);
+    // (The hand's speed is read over 80 ms at 60 Hz before anything counts, 120 px at 1.5 px/ms, then `path`.)
+    expect(smooth).toBeLessThan(200);
     expect(jittered).toBeLessThanOrEqual(smooth + 48);
   });
 });

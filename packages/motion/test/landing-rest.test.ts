@@ -34,10 +34,11 @@ describe("landing model: a flick that rests in an empty rail's band docks in it"
       expect(rested.m.release()).toMatchObject({ kind: "spot", lane: "rail-left" });
     });
 
-  // A real hand's jitter after the flick: samples every 16 ms, `d` px apart. After a step above `gates.slide` no lane is
-  // entered by a slow-step gate until the hand has been slow for `pause` (60 ms), so the jitter docks nothing at once.
+  // A real hand's jitter after the flick: samples every 16 ms, `d` px apart. After the hand reads faster than
+  // `gates.slide` no lane is entered by a slow-step gate until it has read slow for `pause` (60 ms); the hand's speed
+  // reads a slow-down only once it has lasted its span (80 ms at 60 Hz). So the jitter docks nothing at once.
   for (const d of [0.3, 1.5, 3])
-    it(`a flick then ${d} px of jitter: no entry before 60 ms of slow motion, then the rail; let go at once it goes home`, () => {
+    it(`a flick then ${d} px of jitter: no entry before the hand reads slow for 60 ms, then the rail; let go at once it goes home`, () => {
       const make = () => {
         const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
         m.update({ x: 25, y: 614 }, 0);
@@ -51,9 +52,9 @@ describe("landing model: a flick that rests in an empty rail's band docks in it"
       expect(first.release()).toBeNull();
       const m = make();
       const lanes: (string | null)[] = [];
-      for (let k = 1; k <= 8; k++) lanes.push(m.update({ x: 14, y: 301 + (k % 2) * d }, 112 + 16 * k).lane);
-      // Slow since 112 ms: nothing before 172 ms (samples at 128 to 160), the rail by 208 ms.
+      for (let k = 1; k <= 16; k++) lanes.push(m.update({ x: 14, y: 301 + (k % 2) * d }, 112 + 16 * k).lane);
+      // Nothing for 60 ms of slow motion (samples at 128 to 160), nor until the hand reads slow; the rail by 304 ms.
       expect(lanes.slice(0, 3)).not.toContain("rail-left");
-      expect(lanes.slice(5)).toEqual(["rail-left", "rail-left", "rail-left"]);
+      expect(lanes.slice(11)).toEqual(Array(5).fill("rail-left"));
     });
 });
