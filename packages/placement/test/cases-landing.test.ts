@@ -20,6 +20,15 @@ describe("the landing rows", () => {
     expect(lanesRatchet({ skipped, baseline: BASELINE, today: today() })).toEqual([]);
   });
 
+  // The default is "free"; "pitched" is the other way a host asks. The rows hold either way, the drop committed through
+  // `after(pointer, grab)` as a sliding spot's is.
+  for (const stretchPositions of ["free", "pitched"] as const)
+    it(`every row passes with stretchPositions "${stretchPositions}" too, none skipped`, async () => {
+      const results = await runLandingCases(LANDING_CASES, createLandingHost({ landing: createLandingModel, stretchPositions }));
+      for (const r of results) expect(r.failures, `${stretchPositions} ${r.id}`).toEqual([]);
+      expect(results.filter((r) => r.skipped).length).toBe(0);
+    });
+
   it("every row needs lanes from the first version that has them (the back-home rows, the grab's), and has a unique id", () => {
     expect(new Set(LANDING_CASES.map((r) => r.id)).size).toBe(LANDING_CASES.length);
     for (const r of LANDING_CASES) expect(r.requires.lanes.since, r.id).toBe(r.id.startsWith("landing-back-home") ? GRAB_SINCE : r.id.startsWith("landing-grip") ? GRIP_SINCE : r.id.startsWith("landing-room") ? ROOM_SINCE : LANES_SINCE);

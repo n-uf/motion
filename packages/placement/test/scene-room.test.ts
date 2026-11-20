@@ -5,7 +5,8 @@
  * Spots over free stretches are measured with the held item lifted: a spot that lands in free room moves nothing else.
  */
 import { describe, expect, it } from "vitest";
-import { floatAt, lanes, lift, moveTo, solve, type Scene, type SceneItem } from "../src/scene";
+import { floatAt, lift, moveTo, solve, type Scene, type SceneItem } from "../src/scene";
+import { lanes } from "./pitched-lanes";
 import { bar, byId, form, group } from "./scene-fixture";
 
 type Host = "bar" | "rail";

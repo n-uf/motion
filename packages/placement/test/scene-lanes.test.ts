@@ -5,7 +5,8 @@
  * stretches land where they aim, and the document region excludes what is docked.
  */
 import { describe, expect, it } from "vitest";
-import { lanes, refusals, solve, SPOT_PITCH, targets, type Regions, type Scene } from "../src/scene";
+import { refusals, solve, SPOT_PITCH, targets, type Regions, type Scene } from "../src/scene";
+import { lanes } from "./pitched-lanes";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { createLandingModel } from "@n-uf/motion/drag";
 import { FLUSH, INSET, kitScene } from "./kit-scene";

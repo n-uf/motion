@@ -5,7 +5,8 @@
 import { createLandingModel } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/geometry";
-import { HATCH_EDGE, HATCH_END, lanes, solve, SPOT_PITCH, type Scene, type SceneItem } from "../src/scene";
+import { HATCH_EDGE, HATCH_END, solve, SPOT_PITCH, type Scene, type SceneItem } from "../src/scene";
+import { lanes } from "./pitched-lanes";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { modelScene } from "./model-scene";
 import { bar, byId, column, controls, group, panel, title } from "./scene-fixture";

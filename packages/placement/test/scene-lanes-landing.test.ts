@@ -6,7 +6,8 @@
 import { createLandingModel, type LandingFrame, type LandingOptions } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point } from "../src/geometry";
-import { lanes, solve, SPOT_PITCH, type Scene, type SceneItem } from "../src/scene";
+import { solve, SPOT_PITCH, type Scene, type SceneItem } from "../src/scene";
+import { lanes } from "./pitched-lanes";
 import { bar, byId, column, controls, group, panel, title } from "./scene-fixture";
 
 /** A 1080×640 window: a top bar (y 0–36) with a at its start, a toolbar rail at the left (x 0–30, y 36–640): tools, zoom. */
