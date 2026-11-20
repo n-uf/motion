@@ -56,7 +56,8 @@ import type { PlaceGuides } from "./preview";
  *   home); else, with the pointer in open space, the approached lane's (the nearest within `reach`, by default the
  *   entry margin `exit`, acquired within `reach - spot` and kept to `reach`, so it never blinks at the edge: a release
  *   floats). Over a refused place outside every lane no guide shows, however near the
- *   lane behind it lies; a host that wants the early guide sets `approach.reach`.
+ *   lane behind it lies; a host that wants the early guide sets `approach.reach` (in open space only: over a refused
+ *   place none shows at any reach).
  * - Steps are measured between points that differ, normalized to 125 Hz, so the gates read the same at any input rate.
  *   A repeated point keeps the last step; it is still only once the pointer has stayed put for `rest` ms.
  *

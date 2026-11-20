@@ -16,7 +16,6 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   no entry; the lane is entered only by its own gate, the slow `path` or a rest past `pause`. The cost: above 2 px/ms a
   hand sliding along a corner lane keeps the previous lane's end spot until it slows or rests. Host notes: a host that
   wants the old rule sets `gates: { slide: Infinity }`.
-
 - `./drag`, **a Near guide shows a lane only where the pointer can enter it** (behavior change, a default). With
   `placeGuides: "near"`, a lane's guides showed from the nearest lane within `reach` (80 px), and over a refused place
   (a column that takes nothing) from the nearest lane at any distance, so a toolbar carried toward an empty side rail
@@ -30,7 +29,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   space where a release floats. A lane is acquired only within `reach - margins.spot` (6 px) and kept to `reach`, so a
   pointer wobbling across the reach's edge never blinks the guide (with `keep` equal to `reach` there was no band).
   Host notes: a host that wants the early guide sets `approach: { reach: 80, keep: 96 }`
-  (the old values); nothing else to change.
+  (the old values); nothing else to change. That restores the early guide in open space only: over a refused place no
+  guide shows at any reach.
 - `./drag`, **`guideRects` thins a box a clear rect pokes into** (fix, rule C3). A clear rect, grown by its clearance,
   that covered only part of a box's thickness always cut the box along its length on the facing side, so a neighbor
   poking 2 px into an 868 x 29 bar cost the bar 49 px of length. Now, when its overlap across the box is smaller than its
