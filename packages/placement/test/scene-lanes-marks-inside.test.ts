@@ -28,15 +28,17 @@ interface Frame {
 
 /**
  * Every way a lane's marks break the rule in `ls`, as strings (empty: none). `edgeIds`: the lanes of real edges. A lane's
- * marks lie inside its rect in the layout they are drawn in: its rect as seen, but for the held spot's lane, drawn in the
- * spot's own layout (`heldLayout`), where its edge may have moved: there the edge as drawn when it is drawn.
+ * marks lie inside its rect in the layout they are drawn in: its rect as seen; in a held frame, every lane's in the held
+ * spot's own layout (`heldLayout`), where its edge may have moved: there the edge as drawn when it is drawn. As seen, an
+ * empty edge lane with one spot is drawn in that spot's after-entry layout (rule B, its marks predicted), so there.
  */
 function broken(frame: Frame, edgeIds: ReadonlySet<string>): string[] {
   const { where, lanes: ls, heldLayout } = frame;
   const bad: string[] = [];
   const edge = ls.filter((l) => edgeIds.has(l.id));
   for (const l of edge) {
-    const moved = heldLayout?.edges[l.id];
+    const predicted = !heldLayout && (frame.seen.edges[l.id]?.cross ?? 0) <= 1e-6 && l.spots.length === 1 ? l.spots[0]!.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout : undefined;
+    const moved = (heldLayout ?? predicted)?.edges[l.id];
     const r = moved && moved.cross > 1e-6 ? moved.rect : l.rect;
     for (const m of l.marks) if (!within(m.rect, r)) bad.push(`${where}: ${m.id} outside its lane ${l.id}`);
     // The corner clip is one rule for the hit rect and the marks: along its axis an empty lane's marks stay inside its

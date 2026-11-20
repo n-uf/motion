@@ -342,13 +342,29 @@ drag of `id`:
   - An empty lane (`options.emptyLanes`): `"real"` (default) a box at its real size, the band it would open (an empty
     side rail's over a column's outer strip, which moves aside); `"edge"` a thin striped strip (`HATCH_EDGE`) on its
     window side. Either way cut around every item docked in a bar or a toolbar rail.
+  - **A lane's guide and its mark come from one layout (rule B).** As seen (no `spot`), an edge lane empty as seen (not
+    drawn there) with one spot or one sliding spot takes its marks in the after-entry layout of that spot: the same
+    marks `lanes(…, { spot })` gives it once that spot is held, worked out the same way and clipped to its rect over
+    that layout, solved once per lift and remembered as the held spot's layout is. So a landing model's guide before
+    entry is the mark after it, the held item aside: an empty top bar's box lies over the panel columns that move down
+    when it opens, not cut at them. Its hit `rect` stays as seen; the guide may lie over a column that hasn't moved
+    yet. Under `emptyLanes: "edge"` nothing is predicted (the thin strips as seen), nor in a lane with more than one
+    spot (pitched stretches). Lanes that hold items keep their marks as seen, and with `spot` held nothing changes.
+  - **The shared corner.** Two predictions can claim one corner (an empty top bar and an empty rail), and a prediction
+    can lie over another lane's marks (a drawn rail's free end). `lanes()` stays pointer-free: in `marks` a prediction
+    gives the overlap up, to every lane not predicted, and between two predicted lanes to the bar (the earlier of two
+    alike), so no two lanes' `marks` overlap; where it gave something up, `entry` keeps the prediction whole, each
+    corner it shares its own, and `corners` names the lanes it overlaps. A landing model shows `entry` for the lane the
+    pointer picks (held, pending or approached) and cuts the lanes in its `corners` where they overlap it (`@n-uf/motion`'s
+    `createLandingModel`); with no such lane, every lane's `marks`, the bar keeping the corner.
   - Never a box or a line over an item drawn there, nothing over the held item, nothing in a refused stretch, and no
     two edge lanes' marks overlap (a lane's marks lie inside its lane rect in the layout they are drawn in: a mark shows
     where a drop goes, and a drop is possible only where the lane takes the pointer, so a bar's marks stop where its
     lane gives way to a drawn edge; a box is clipped to the rect, a line kept only if it lies inside. As seen, that is
     the lane's `rect`; in a held frame every lane is drawn in the held spot's layout, where the drop may move its edge,
     so every lane is clipped to its rect over the spot's layout (`laneRectOver`), the edge as drawn there with the same
-    band, while its hit `rect` for the landing model stays as seen. The corner clip is one rule for both: whether and where an empty lane
+    band, while its hit `rect` for the landing model stays as seen; an empty lane's predicted marks (rule B) lie inside
+    its rect over its spot's after-entry layout, the same way. The corner clip is one rule for both: whether and where an empty lane
     gives way is read from the layout as seen, so a held spot's marks on an edge its drop draws stop where its `rect`
     does, even where that drop moves the drawn edge across it): at a corner a lane not drawn (an empty bar or rail) gives way to a drawn one, and
     between two not drawn the bar owns it. A virtual lane (a new column's line, a declared rail) is drawn over what it

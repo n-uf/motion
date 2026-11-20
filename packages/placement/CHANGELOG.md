@@ -5,6 +5,20 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
+- `./scene`, **a lane's guide and its mark come from one layout** (rule B, behavior change in the marks as seen). An
+  empty lane's guide before entry came from `lanes()` as seen and its mark after entry from `lanes(…, { spot })`, two
+  layouts: an empty top bar's guide was cut at the panel columns that move down once it opens (its mark is not), and the
+  corner it shares with an empty rail flipped owner on entry. Now an edge lane empty as seen with one spot (or one
+  sliding spot) takes its marks, as seen, in that spot's after-entry layout, the same marks `lanes(…, { spot })` gives it
+  once held and clipped to its rect over that layout, solved once per lift; its hit `rect` stays as seen. Where the
+  prediction overlaps another lane's marks, `marks` gives the overlap up (to a lane not predicted; between two predicted
+  lanes, to the bar), so no two lanes' `marks` overlap; **`Lane.entry`** keeps the prediction whole, each corner its
+  own, and **`Lane.corners`** names the lanes it overlaps, so a landing model gives the corner to the lane the pointer
+  picks (`@n-uf/motion` reads them). Lanes that hold items keep their marks; a held spot's regions are unchanged;
+  `emptyLanes: "edge"` and lanes with several spots (pitched stretches) predict nothing. Host notes: a host that draws
+  `lanes()` marks itself sees an empty bar's box over the columns as seen; one that draws the landing model's guides
+  gets the corner rule with no change.
+
 - `./scene`, **`SceneItem.pushable`: the gap after a run of fixed cells is a stop** (additive). In a title bar whose end
   zone holds fixed cells (a state cell and a page cell, `align: "end"`), a toolbar homed after them ("state page zoom")
   could not be put back once it had left: the cells are the end zone's anchored fixed run, a drop after them pushes them
