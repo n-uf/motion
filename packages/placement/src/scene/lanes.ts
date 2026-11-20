@@ -23,7 +23,7 @@
 import { EPS, clamp, rect, type Point, type Rect, type Size } from "../geometry";
 import { lift, moveTo, type DockPlace } from "./changes";
 import { axisOf, chromeFor, floatRegion } from "./helpers";
-import type { Edge, Scene, SceneLayout, Zone } from "./model";
+import type { Edge, Scene, SceneItemLayout, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { targetsAndRefusals } from "./targets";
 import type { SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions } from "./targets/model";
@@ -125,6 +125,11 @@ export interface LaneMark {
   readonly id: string;
   readonly kind: "line" | "box" | "hatch";
   readonly rect: Rect;
+  /**
+   * A box's striped end (`hatch`, `HATCH_END`): the neighbor at that end that gives way when the item lands in the room
+   * (it moves away, leaves the lane, or steps down to a shorter form). Data for a host and tests; nothing to show.
+   */
+  readonly givesWay?: string;
 }
 
 export interface Lane {
@@ -233,6 +238,29 @@ function neighbors(after: SceneLayout, edge: string, dragged: string, axis: Axis
   const others = onEdge(after, edge, dragged, axis);
   const at = me ? mid(me.rect, axis) : 0;
   return { before: [...others].reverse().find((o) => mid(o.r, axis) < at)?.id ?? "^", next: others.find((o) => mid(o.r, axis) >= at)?.id ?? "$" };
+}
+
+/**
+ * How a neighbor gives way to a drop beside a room, or null where it doesn't: when the item lands, the neighbor
+ * `"leaves"` the lane (into the menu, a float), `"steps"` down to a shorter form than it has `now`, or `"moves"` away
+ * from the room (its end left of where it was, for the neighbor `before` the room; its start right of it, for the one
+ * after; by more than half a pixel). `extent` is its extent along the lane as read (a growing item at its natural
+ * length). The one rule the marks (a striped end at each neighbor that gives way) and the stretches (the room a drop
+ * makes) read.
+ */
+function givesWay(
+  now: SceneItemLayout | undefined,
+  after: SceneItemLayout | undefined,
+  lane: string,
+  side: "before" | "after",
+  extent: (r: Rect) => [number, number],
+): "leaves" | "steps" | "moves" | null {
+  if (!now) return null;
+  if (!after || after.inMenu || after.floating || after.edge !== lane) return "leaves";
+  const [p0, p1] = extent(now.rect);
+  const [q0, q1] = extent(after.rect);
+  if (after.form !== now.form && q1 - q0 < p1 - p0 - 0.5) return "steps";
+  return (side === "before" ? p1 - q1 : q0 - p0) > 0.5 ? "moves" : null;
 }
 
 /** A spot of a lane before its stretch is known. */
@@ -527,7 +555,8 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   // Where each place lands (`<before>|<after>`, not a pitched spot's): a short room is drawn as its spot lands. On bars
   // and toolbar rails only; a panel column keeps its lines.
   const landings = new Map<string, { landing: Rect; layout: SceneLayout }>();
-  if (!halves) for (const x of unique) if (!x.pitched && !x.home && !x.slide && !landings.has(`${x.before}|${x.next}`)) landings.set(`${x.before}|${x.next}`, { landing: x.landing, layout: x.layout });
+  // A sliding spot's layout is its stretch's: every landing in it leaves its neighbors in the same forms and places.
+  if (!halves) for (const x of unique) if (!x.pitched && !x.home && !landings.has(`${x.before}|${x.next}`)) landings.set(`${x.before}|${x.next}`, { landing: x.landing, layout: x.layout });
   // An item's extent along the lane as marks read it: a growing one at its natural length.
   const extent = (iid: string, r: Rect): [number, number] => {
     const n = halves ? undefined : marking.natural(iid, axis);
@@ -538,7 +567,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
         besideMin: halves || marking.pitch <= 0 ? itemLen : marking.pitch,
         gap: marking.gap(first.edge),
         landingOf: (pair) => landings.get(pair),
-        extent,
+        givesWay: (iid, side, after) => givesWay(drawn.items[iid], after.items[iid], id, side, (r) => extent(iid, r)),
       })
     : virtualMarks(id, unique, drawn.items[dragged]);
   return { id, rect: laneRect, axis, spots, refused, marks, ...(list.every((r) => r.strip) ? { owns: true as const } : {}) };
@@ -586,11 +615,16 @@ function edgeMarks(
     readonly gap: number;
     /** The spot between `<before>|<after>`: where the item lands and the layout after its drop. */
     readonly landingOf: (pair: string) => { readonly landing: Rect; readonly layout: SceneLayout } | undefined;
-    /** An item's extent along the lane as marks read it. */
-    readonly extent: (id: string, r: Rect) => [number, number];
+    /** Whether a neighbor `side` of a room gives way in `after`, the layout after a drop there (`givesWay`). */
+    readonly givesWay: (id: string, side: "before" | "after", after: SceneLayout) => unknown;
   },
 ): LaneMark[] {
   const { besideMin } = more;
+  /** The striped ends inside the box piece `[p, q]` of the room `[a, b]`, at the ends that touch a neighbor that gives way. */
+  const hatches = (pair: string, a: number, b: number, p: number, q: number, gl: string | null, gr: string | null): void => {
+    if (gl && Math.abs(p - a) < EPS) out.push({ id: `${lane}/hatch/${pair}:before`, kind: "hatch", rect: along(laneRect, axis, p, p + Math.min(HATCH_END, (q - p) / 2)), givesWay: gl });
+    if (gr && Math.abs(q - b) < EPS) out.push({ id: `${lane}/hatch/${pair}:after`, kind: "hatch", rect: along(laneRect, axis, q - Math.min(HATCH_END, (q - p) / 2), q), givesWay: gr });
+  };
   const heldAt = items.find((o) => o.id === held);
   const heldSpan: [number, number] | null = heldAt ? [lo(heldAt.r, axis), lo(heldAt.r, axis) + len(heldAt.r, axis)] : null;
   const out: LaneMark[] = [];
@@ -612,32 +646,17 @@ function edgeMarks(
     // The room before or after the held item (the rest of the free stretch it lies in): a box from `besideMin`.
     const beside = ends[i + 1]!.id === held ? "before" : ends[i]!.id === held ? "after" : null;
     const min = beside ? Math.min(itemLen, besideMin) : itemLen;
+    // The neighbors that give way when the item lands in this room (`givesWay`: it moves away, leaves the lane or steps
+    // down to a shorter form), each a striped end (`HATCH_END`) inside the room's box at its side, whether or not the
+    // room as seen is shorter than the item; where none does, the box is plain. Nothing is drawn on the neighbor. Not
+    // beside the held item (its own place), not in a refused stretch.
+    const spot = !beside && named === pair && items.length > 0 && !isRefused((a + b) / 2) ? more.landingOf(pair) : undefined;
+    const gl = spot && left !== "^" && more.givesWay(left, "before", spot.layout) ? left : null;
+    const gr = spot && right !== "$" && more.givesWay(right, "after", spot.layout) ? right : null;
     if (b - a < min - EPS) {
-      // Room that partly fits (at least a pitch, shorter than the item): a box over the free room with a fixed striped
-      // end (`HATCH_END`) inside it at each side whose neighbor gives way when the item lands there (it moves away by the
-      // missing length). Nothing is drawn on the neighbor. Not beside the held item (its own place), not under a pitch
-      // (a line, below: no free room), not in a refused stretch.
-      const spot = !beside && named === pair && items.length > 0 && !isRefused((a + b) / 2) && b - a >= besideMin - EPS ? more.landingOf(pair) : undefined;
-      if (spot) {
-        /** A neighbor's extent after the drop, or null where the drop takes it off the lane (into the menu, a float). */
-        const own = (iid: string): [number, number] | null => {
-          const it = spot.layout.items[iid];
-          return it && !it.inMenu && !it.floating && it.edge === lane ? more.extent(iid, it.rect) : null;
-        };
-        // Which neighbors the drop moves away from the room (one it takes off the lane gives way too).
-        let gl = left !== "^" && (() => {
-          const o = own(left);
-          return !o || a - o[1] > 0.5;
-        })();
-        let gr = right !== "$" && (() => {
-          const o = own(right);
-          return !o || o[0] - b > 0.5;
-        })();
-        // Neither moves (the item takes another form there): the end at the neighbor there is.
-        if (!gl && !gr) {
-          if (right !== "$") gr = true;
-          else if (left !== "^") gl = true;
-        }
+      // Room that partly fits (at least a pitch, shorter than the item): a box over the free room, its striped ends at
+      // the neighbors that give way. Under a pitch, a line (below: no free room).
+      if (spot && b - a >= besideMin - EPS) {
         // Less what a refused stretch takes, and never under the held item.
         let ps: [number, number][] = [[a, b]];
         for (const f of refused) ps = ps.flatMap(([p, q]): [number, number][] => [[p, Math.min(q, f.along[0])], [Math.max(p, f.along[1]), q]]);
@@ -645,9 +664,7 @@ function edgeMarks(
         ps = ps.filter(([p, q]) => q - p >= MIN_BOX - EPS);
         ps.forEach(([p, q], k) => {
           out.push({ id: `${lane}/box/${pair}${k ? `#${k}` : ""}`, kind: "box", rect: along(laneRect, axis, p, q) });
-          // The striped ends, inside the box at the ends that touch a neighbor that gives way.
-          if (gl && Math.abs(p - a) < EPS) out.push({ id: `${lane}/hatch/${pair}:before`, kind: "hatch", rect: along(laneRect, axis, p, p + Math.min(HATCH_END, (q - p) / 2)) });
-          if (gr && Math.abs(q - b) < EPS) out.push({ id: `${lane}/hatch/${pair}:after`, kind: "hatch", rect: along(laneRect, axis, q - Math.min(HATCH_END, (q - p) / 2), q) });
+          hatches(pair, a, b, p, q, gl, gr);
         });
         if (ps.length > 0) continue;
       }
@@ -668,6 +685,7 @@ function edgeMarks(
       // alike (the one after it is the second).
       const base = `${lane}/box/${named}${beside ? `:${beside}` : ""}${k++ ? `#${k - 1}` : ""}`;
       out.push({ id: out.some((m) => m.id === base) ? `${base}~2` : base, kind: "box", rect: along(laneRect, axis, p, q) });
+      hatches(pair, a, b, p, q, gl, gr);
     }
   }
   return out;
@@ -778,7 +796,7 @@ const overlaps = (a: Rect, b: Rect): boolean => a.x < b.x + b.width - EPS && b.x
 function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], pitch: number): Raw[] {
   const out: Raw[] = [];
   stretches(scene, dragged, options, seen, raws, (run) => {
-    const { e, axis, w, gap, middle } = run;
+    const { e, axis, gap, middle } = run;
     const taken = run.mine.map((r) => r.landing);
     /**
      * One spot: a dock in `zone` before its `at`-th item keeping `space` (`DockPlace.space`), kept if it lands at `x0`
@@ -805,7 +823,7 @@ function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
       out.push({ lane: e.id, edge: e.id, axis, id, ...n, landing: landed.rect, layout, target, hit: landed.rect, pitched: true });
       return true;
     };
-    return ({ a, b, zones, atOf, spaceAt, before, after }) => {
+    return ({ a, b, w, zones, atOf, spaceAt, before, after }) => {
       // The stretch's two ends, the item flush against each neighbor (or the edge's end), the near zone first. Each is a
       // spot of the stretch's own: on the held item's own stretch the plain dock beside a neighbor is its own place.
       const end = (x0: number, order: readonly Zone[], flush: string): void => {
@@ -828,7 +846,7 @@ function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
 interface StretchEdge {
   readonly e: Edge;
   readonly axis: Axis;
-  /** The held item's length here: a landing on this edge. */
+  /** The held item's length here: a landing on this edge (a stretch's own `w` is its length on a drop there). */
   readonly w: number;
   readonly gap: number;
   readonly middle: number;
@@ -839,13 +857,19 @@ interface StretchEdge {
   readonly prev: { readonly previous?: SceneLayout };
 }
 
-/** One free stretch: `[a, b]` along the edge between its neighbors, the zones a dock there takes, and its place. */
+/**
+ * One free stretch: `[a, b]` along the edge between its neighbors, the room a drop there makes (flush after the neighbor
+ * before it, flush before the one after it, each in the form the drop leaves it in), the zones a dock there takes, and
+ * its place.
+ */
 interface Stretch {
-  /** The neighbors either side, as the drop finds them (the held item lifted). */
+  /** The neighbors either side, as the drop finds them (the held item lifted), drawn as seen. */
   readonly before: { readonly id: string; readonly r: Rect } | undefined;
   readonly after: { readonly id: string; readonly r: Rect } | undefined;
   readonly a: number;
   readonly b: number;
+  /** The held item's length on a drop here (the form the drop leaves it in). */
+  readonly w: number;
   /** A start dock follows a start item or the edge's start; an end dock precedes an end item or the edge's end. */
   readonly zones: readonly Zone[];
   /** A dock in this stretch: before the zone's items that come after the stretch. */
@@ -857,8 +881,11 @@ interface Stretch {
 /**
  * Every free stretch of every bar and toolbar rail (a compact edge) that has spots, in order along each: between the
  * items as the drop finds them, the layout with the held item lifted. Its room goes back to its stretch (a placed
- * neighbor stays where it is drawn, `lift`), so every other item lies where the person sees it. `visit` is called once
- * per edge and gives what to do with each of its stretches.
+ * neighbor stays where it is drawn, `lift`), so every other item lies where the person sees it. A stretch is the room
+ * a drop there makes, not only the room as seen: where the edge has no room for the item beside a neighbor's form as
+ * seen, the drop steps that neighbor (or another item) down to a shorter form, and the stretch runs from flush after
+ * the neighbor before it to flush before the one after it as the drop leaves them. `visit` is called once per edge and
+ * gives what to do with each of its stretches.
  */
 function stretches(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], visit: (edge: StretchEdge) => (stretch: Stretch) => void): void {
   if (!scene.items[dragged]) return;
@@ -873,8 +900,6 @@ function stretches(scene: Scene, dragged: string, options: LaneOptions, seen: Sc
     if (mine.length === 0 || !drawn) continue;
     const gap = nonNeg(e.gap);
     const others = onEdge(base, e.id, dragged, axis);
-    const edgeStart = lo(drawn.rect, axis) + nonNeg(e.pad?.start);
-    const edgeEnd = lo(drawn.rect, axis) + len(drawn.rect, axis) - nonNeg(e.pad?.end);
     const zoneOf = (o: (typeof others)[number]): Zone => o.zone ?? "start";
     const w = len(mine[0]!.landing, axis);
     const each = visit({ e, axis, w, gap, middle: mid(drawn.rect, axis), mine, fixed: others.filter((o) => scene.items[o.id]?.fixed), prev });
@@ -883,14 +908,54 @@ function stretches(scene: Scene, dragged: string, options: LaneOptions, seen: Sc
       const main = o ? scene.items[o.id]?.forms[axis === "x" ? "row" : "column"]?.[0]?.main : undefined;
       return o && main?.grows ? Math.max(0, len(o.r, axis) - main.natural) : 0;
     };
+    /** `[a, b]` between `before` and `after` as they lie in `l`: flush after the one, flush before the other. */
+    const ends = (l: SceneLayout, before: (typeof others)[number] | undefined, after: (typeof others)[number] | undefined): { a: number; b: number } | null => {
+      const at = (o: (typeof others)[number]): Rect | null => {
+        const it = l.items[o.id];
+        return it && it.edge === e.id && !it.inMenu && !it.floating ? it.rect : null;
+      };
+      const rb = before ? at(before) : undefined;
+      const ra = after ? at(after) : undefined;
+      if (rb === null || ra === null) return null;
+      const el = l.edges[e.id]?.rect ?? drawn.rect;
+      return {
+        a: before && rb ? lo(rb, axis) + len(rb, axis) - slack({ ...before, r: rb }) + gap : lo(el, axis) + nonNeg(e.pad?.start),
+        // (Not before a growing item: a dock there keeps no space, the item it precedes takes all that is spare.)
+        b: ra ? lo(ra, axis) - gap : lo(el, axis) + len(el, axis) - nonNeg(e.pad?.end),
+      };
+    };
     for (let i = 0; i <= others.length; i++) {
       const before = others[i - 1];
       const after = others[i];
-      const a = before ? lo(before.r, axis) + len(before.r, axis) - slack(before) + gap : edgeStart;
-      // (Not before a growing item: a dock there keeps no space, the item it precedes takes all that is spare.)
-      const b = after ? lo(after.r, axis) - gap : edgeEnd;
       const zones: Zone[] = [...(!before || zoneOf(before) === "start" ? ["start" as const] : []), ...(!after || zoneOf(after) === "end" ? ["end" as const] : [])];
-      each({ before, after, a, b, zones, atOf: (zone) => others.slice(0, i).filter((o) => zoneOf(o) === zone).length, spaceAt: (zone, x0) => (zone === "start" ? x0 - a : b - (x0 + w)) });
+      const atOf = (zone: Zone): number => others.slice(0, i).filter((o) => zoneOf(o) === zone).length;
+      // The room the drop makes, not only the room as seen: a dock here keeping no space, laid out, its neighbors in the
+      // forms it leaves them in (a neighbor steps down to a shorter form where the edge has no room for the item beside
+      // its form as seen) and the item in its own. The forms don't depend on the space a dock keeps (space comes out of
+      // the spare length), so every dock in the stretch finds them so. As seen where no such dock lands here. A dock
+      // pushes the neighbors on its zone's open side that keep no room for it; that is no room made, so at an end with
+      // no zone of its own (after a start item: the stretch's end; before an end item: its start) a neighbor that gives
+      // way by moving (`givesWay`) leaves the end where it is seen.
+      const probe = ((): { a: number; b: number; w: number; layout: SceneLayout } | null => {
+        const zone = zones[0];
+        if (!zone) return null;
+        const next = moveTo(scene, dragged, { edge: e.id, zone, at: atOf(zone), space: 0 });
+        if (next === scene) return null;
+        const l = solve(next, prev);
+        const landed = l.items[dragged];
+        if (!landed || landed.inMenu || landed.edge !== e.id) return null;
+        const n = neighbors(l, e.id, dragged, axis);
+        if (n.before !== (before?.id ?? "^") || n.next !== (after?.id ?? "$")) return null;
+        const r = ends(l, before, after);
+        return r && { ...r, w: len(landed.rect, axis), layout: l };
+      })();
+      const seenEnds = ends(base, before, after)!;
+      const pushed = (o: (typeof others)[number] | undefined, side: "before" | "after"): boolean =>
+        !!o && !!probe && givesWay(base.items[o.id], probe.layout.items[o.id], e.id, side, (r) => [lo(r, axis), lo(r, axis) + len(r, axis) - slack({ ...o, r })]) === "moves";
+      const a = probe && (zones.includes("start") || !pushed(before, "before")) ? probe.a : seenEnds.a;
+      const b = probe && (zones.includes("end") || !pushed(after, "after")) ? probe.b : seenEnds.b;
+      const wi = probe?.w ?? w;
+      each({ before, after, a, b, w: wi, zones, atOf, spaceAt: (zone, x0) => (zone === "start" ? x0 - a : b - (x0 + wi)) });
     }
   }
 }
@@ -907,7 +972,7 @@ function stretches(scene: Scene, dragged: string, options: LaneOptions, seen: Sc
 function takeoverSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], pitch: number): Raw[] {
   const out: Raw[] = [];
   stretches(scene, dragged, options, seen, raws, (run) => {
-    const { e, axis, w } = run;
+    const { e, axis } = run;
     const taken = [...run.mine.map((r) => r.landing)];
     const emit = (zone: Zone, at: number, space: number, x0: number, nb: string): void => {
       const hit = landsAt(scene, dragged, run, { edge: e.id, zone, at, space }, x0);
@@ -921,7 +986,7 @@ function takeoverSpots(scene: Scene, dragged: string, options: LaneOptions, seen
       const target: SceneTarget = { id: `pitch:${e.id}:${zone}:${at}:in:${nb}`, priority: 2, hit: landed.rect, slot: landed.rect, item: dragged, place: { kind: "gap", edge: e.id, zone, at }, after: () => result };
       out.push({ lane: e.id, edge: e.id, axis, id: `${e.id}/${zone}/${n.before}|${n.next}@in:${nb}`, ...n, landing: landed.rect, layout, target, hit: landed.rect });
     };
-    return ({ zones, atOf, spaceAt, before, after }) => {
+    return ({ w, zones, atOf, spaceAt, before, after }) => {
       const zoneOf = (id: string): Zone => (scene.items[id]?.align as Zone | undefined) ?? "start";
       // The item at the start of the start-zone neighbor after the stretch.
       if (after && zones.includes("start") && zoneOf(after.id) === "start" && !scene.items[after.id]?.fixed) {
@@ -971,8 +1036,8 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
   const snapDistance = Number.isFinite(options.snapDistance) && options.snapDistance! >= 0 ? options.snapDistance! : SNAP_DISTANCE;
   const own = seen.items[dragged];
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
-  stretches(scene, dragged, options, seen, raws, (run) => ({ a, b, zones, atOf, spaceAt, before, after }) => {
-    const { e, axis, w, middle, mine } = run;
+  stretches(scene, dragged, options, seen, raws, (run) => ({ a, b, w, zones, atOf, spaceAt, before, after }) => {
+    const { e, axis, middle, mine } = run;
     if (zones.length === 0 || b - w < a - EPS) return;
     {
       /** The dock that lands the item's start at `x0`: its place, scene and layout, or null where it lands elsewhere. */
