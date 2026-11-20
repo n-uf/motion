@@ -19,15 +19,17 @@ const scene: Scene = {
 };
 const GRAB = { x: 10, y: 10 };
 
-/** The model's options for a drag of `id` from its own place. */
-function optionsFor(id: string, sc: Scene = scene): LandingOptions {
+/** The model's options for a drag of `id` from its own place, pressed at `press` (its grab passed to `lanes()`, as a host does). */
+function optionsFor(id: string, sc: Scene = scene, press?: Point): LandingOptions {
   const previous = solve(sc);
-  const regions = lanes(sc, id, { previous });
+  const r = previous.items[id]!.rect;
+  const grab = press ? { x: press.x - r.x, y: press.y - r.y } : GRAB;
+  const regions = lanes(sc, id, { previous, grab });
   const home = regions.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0];
   return {
     regions,
-    regionsFor: (spot) => lanes(sc, id, { previous, spot }),
-    floatLanding: (p) => regions.float?.after(p, GRAB).layout.items[id]?.rect ?? null,
+    regionsFor: (spot) => lanes(sc, id, { previous, grab, spot }),
+    floatLanding: (p) => regions.float?.after(p, grab).layout.items[id]?.rect ?? null,
     ...(home ? { home } : {}),
     placeGuides: "near",
   };
@@ -38,7 +40,7 @@ function run(id: string, keys: readonly (readonly [number, number, number])[]): 
   return runOn(scene, id, keys);
 }
 function runOn(sc: Scene, id: string, keys: readonly (readonly [number, number, number])[]): { p: Point; f: LandingFrame }[] {
-  const m = createLandingModel(optionsFor(id, sc));
+  const m = createLandingModel(optionsFor(id, sc, { x: keys[0]![1], y: keys[0]![2] }));
   const out: { p: Point; f: LandingFrame }[] = [];
   for (let t = 0; t <= keys.at(-1)![0] + 1e-6; t += 8) {
     let i = 0;
@@ -56,7 +58,7 @@ function runOn(sc: Scene, id: string, keys: readonly (readonly [number, number, 
  * frames with the latest sample, every frame kept (the last one before each hop included).
  */
 function runMouse(sc: Scene, id: string, keys: readonly (readonly [number, number, number])[]): { p: Point; f: LandingFrame }[] {
-  const m = createLandingModel(optionsFor(id, sc));
+  const m = createLandingModel(optionsFor(id, sc, { x: keys[0]![1], y: keys[0]![2] }));
   const out: { p: Point; f: LandingFrame }[] = [];
   const at = (t: number): Point => {
     let i = 0;
@@ -160,9 +162,16 @@ describe("a toolbar moved along an occupied bar or rail stays at the hand", () =
       ["tools", "rail-left", { x: 15, y: 70 }, { x: 15, y: 600 }],
       ["tz", "title", { x: 20, y: 16 }, { x: 990, y: 16 }],
     ];
+    // Pressed by the grip near its start (as a host's grip is), and near its far end: the grab moves no hop past a long
+    // neighbor (a gap between two landings is cut halfway across, whatever the grab).
+    const pressEnd = (sc: Scene, id: string): Point => {
+      const g = solve(sc).items[id]!.rect;
+      return { x: g.x + g.width - Math.min(10, g.width / 2), y: g.y + g.height - Math.min(10, g.height / 2) };
+    };
     for (const [id, lane, a, b] of sweeps)
-      for (const speed of [0.15, 0.3, 0.6, 1.2, 3])
-        for (const [p0, p1] of [[a, b], [b, a]] as const) expect([id, speed, p0.x, p0.y, ok(worstAlong(s, id, lane, path([pressOn(s, id), p0, p1], speed, 80)))]).toEqual([id, speed, p0.x, p0.y, "ok"]);
+      for (const press of [pressOn, pressEnd])
+        for (const speed of [0.15, 0.3, 0.6, 1.2, 3])
+          for (const [p0, p1] of [[a, b], [b, a]] as const) expect([id, press.name, speed, p0.x, p0.y, ok(worstAlong(s, id, lane, path([press(s, id), p0, p1], speed, 80)))]).toEqual([id, press.name, speed, p0.x, p0.y, "ok"]);
   });
 
   it(`the UI check's paths, as a mouse plays them too: zoom up a hand-made rail past tools, a toolbar along the title bar, tools from its float along the bottom bar, within ${BOUND} px (${BEFORE_HOP} before a hop)`, () => {

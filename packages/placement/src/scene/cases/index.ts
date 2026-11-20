@@ -36,6 +36,7 @@ export { WINDOW_A, WINDOW_B, WINDOW_BARE, winScene, type WinOptions, type WinSpe
 export {
   createLandingHost,
   GRAB_SINCE,
+  GRIP_SINCE,
   LANDING_CASES,
   landingIssues,
   LANES_DEADLINE,
