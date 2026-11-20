@@ -1,6 +1,6 @@
 {
   "name": "@n-uf/placement",
-  "version": "26.11.50",
+  "version": "26.11.51",
   "description": "Where things go: a window's bars, rails, columns, items and floats solved into a layout, with the drop targets, refusals and lanes of every drag. Pure state in, rects out. No DOM, no framework, no motion.",
   "keywords": [
     "layout",
