@@ -139,8 +139,7 @@ export function startHeroTiles(zone: HTMLElement): void {
       if (e.button !== 0 || drag) return;
       e.preventDefault();
       setDragging(true); // pauses every showcase until the drag ends and 10 s after
-      abortCycle();
-      indicate(null);
+      stopCycle();
       const item = items.get(id)!;
       const p = localOf(e), at = item.drawn;
       const held = holdItem(item, { x: p.x - at.x, y: p.y - at.y });
@@ -169,8 +168,28 @@ export function startHeroTiles(zone: HTMLElement): void {
 
   // ---- The showcase: a pane is lifted, its drop shown, then made ---------------------------------------------------------------
   let ctl = { dead: false };
-  const abortCycle = (): void => { ctl.dead = true; };
-  const wait = (ms: number, c: { dead: boolean }): Promise<void> => new Promise((res, rej) => setTimeout(() => (c.dead ? rej(c) : res()), ms / getSpeed()));
+  // A wait can be cancelled, so a stopped showcase clears at once and a stale loop can't wake up later and clear a newer
+  // loop's indicator.
+  let cancelWait: (() => void) | null = null;
+  const abortCycle = (): void => {
+    ctl.dead = true;
+    cancelWait?.();
+    cancelWait = null;
+  };
+  const wait = (ms: number, c: { dead: boolean }): Promise<void> =>
+    new Promise((res, rej) => {
+      const t = setTimeout(() => (c.dead ? rej(c) : res()), ms / getSpeed());
+      cancelWait = () => {
+        clearTimeout(t);
+        rej(c);
+      };
+    });
+  /** Stop the showcase now: the lifted pane is put down and the indicator goes. */
+  const stopCycle = (): void => {
+    abortCycle();
+    els.forEach((el) => el.classList.remove("lift"));
+    indicate(null);
+  };
   async function showcaseLoop(c: { dead: boolean }): Promise<void> {
     try {
       await wait(2200, c);
@@ -197,9 +216,8 @@ export function startHeroTiles(zone: HTMLElement): void {
         await wait(1500, c);
       }
     } catch (e) {
+      // A stopped loop is cleared by `stopCycle`, not here: by now a newer loop may own the indicator.
       if (e !== c) throw e;
-      els.forEach((el) => el.classList.remove("lift"));
-      indicate(null);
     }
   }
   registerShowcase(zone, {
@@ -208,7 +226,7 @@ export function startHeroTiles(zone: HTMLElement): void {
       void showcaseLoop(ctl);
     },
     stop() {
-      abortCycle();
+      stopCycle();
     },
   });
 
