@@ -73,9 +73,9 @@ export interface LaneSpot {
   /** The drop: its place and `after()` (the layout after it, the room). */
   readonly target: SceneTarget;
   /**
-   * The item's own place (a release there changes nothing). A spot's `target.place` is what its commit does: on a
-   * sliding spot it is the dock the drop commits, also here, so read the landing release's `home` and `at` (and this
-   * flag), never the place kind, to know a sliding spot's release is home.
+   * The item's own place (a release there changes nothing). A spot's `target.place` is the dock at the spot's listed
+   * landing (on the item's own sliding spot its own zone, index and `space`); a sliding spot commits through
+   * `target.after(point, grab)`, and the landing release's `home` and `at` say where, never the place kind.
    */
   readonly home?: true;
   /** A spot at a pitch over a free stretch (`SceneItem.space`). */
@@ -1050,7 +1050,14 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
       // its start.
       const rest = homeRaw ? lo(homeRaw.landing, axis) : ownEdge === e.id && own ? snapped(clamp(lo(own.rect, axis), from, to)) : from;
       const restResult = commitAt(rest);
-      const restPlace = homeRaw ? null : land(rest)?.place;
+      // Its place is the dock at that landing: the item's own (its zone and index) where it rests at home, a taken-over
+      // dock's own, else the plain dock there.
+      const ownZone = own?.zone as Zone | undefined;
+      const restPlace = ((): { zone?: Zone; at: number; space?: number } | undefined => {
+        if (homeRaw) return ownZone && zones.includes(ownZone) ? { zone: ownZone, at: atOf(ownZone), space: Math.max(0, spaceAt(ownZone, rest)) } : land(rest)?.place;
+        const p = dockAt(rest)?.target.place;
+        return p && p.kind === "gap" ? p : land(rest)?.place;
+      })();
       const landing = homeRaw ? homeRaw.landing : (restResult.layout.items[dragged]?.rect ?? at(rest));
       // The grab's share along the item's own length (its longer side, as it is now); across it, the middle.
       const ownLen = own ? Math.max(own.rect.width, own.rect.height) : 0;
@@ -1061,7 +1068,7 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
         hit: hull(at(from), at(to)),
         slot: landing,
         item: dragged,
-        place: { kind: "gap", edge: e.id, zone: restPlace?.zone ?? zones[0]!, at: restPlace?.at ?? atOf(zones[0]!) },
+        place: { kind: "gap", edge: e.id, zone: restPlace?.zone ?? zones[0]!, at: restPlace?.at ?? atOf(zones[0]!), ...(restPlace?.space ? { space: restPlace.space } : {}) },
         after: (point: Point, grab?: Point) => {
           const g = grab ? grab[long] : ownLen / 2;
           const share = axis === long && ownLen > EPS && Number.isFinite(g) ? clamp(g / ownLen, 0, 1) : 0.5;

@@ -30,10 +30,10 @@ stretch.
   keeps its own snap point even within half a pixel of the stretch's start, and commits as that dock. Two points merge
   only where they lie on the same start, the taken-over dock then winning. A center dock's snap moves its center
   neighbor by design.
-- `./scene`, **a spot's `place` is what its commit does**: a sliding spot commits wherever the hand holds it, so its
-  `target.place` is the dock it commits, also on the item's own sliding spot. For a sliding spot read the release's
-  `home` and `at` (and `LaneSpot.home`); never the place kind, which says "home" only for a spot whose drop changes
-  nothing (a pitched or plain home spot).
+- `./scene`, **a spot's `place` is the dock at the spot's listed landing** (fix): `place` is the dock at the spot's listed
+  landing (on the item's own sliding spot its own zone, index and `space`, where it said the stretch's first zone); a
+  sliding spot commits through `after(point, grab)`, and the release's `home` and `at` say where, never the place kind
+  (which says "home" only for a spot whose drop changes nothing: a pitched or plain home spot).
 - `./scene/cases`, **`createLandingHost`** takes `stretchPositions` (default: the library's), passes the press's `grab`
   to the landing model, and commits a release by the model's `home`; `LandingRule`'s options carry `grab` (additive).
   The landing rows hold under both values.
