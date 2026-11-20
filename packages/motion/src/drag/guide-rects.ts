@@ -4,6 +4,11 @@ import type { Rect } from "../shapes";
 export interface PlacedGuide {
   readonly kind: "line" | "box" | "hatch";
   readonly rect: Rect;
+  /**
+   * The axis of the lane the guide marks, when the guide knows it. It only decides a box that is no longer than it is
+   * thick (a square): its long side is its axis, and a square has none, so `axis` (default `"x"`) says.
+   */
+  readonly axis?: "x" | "y";
 }
 
 /** A rect guides stay clear of, with a clearance of its own, px (0: guides may lie flush against it). */
@@ -34,13 +39,13 @@ export interface GuideRectsOptions {
   /** The least thickness a thin guide keeps, px (default 2); thinner, it is not drawn. */
   readonly minThickness?: number;
   /**
-   * The least length a part of a box cut across its whole thickness keeps, px (default 8, `MIN_BOX_LENGTH`); shorter,
-   * that part is not drawn.
+   * The least length, along the box's axis, a part of a box that a clear rect cut keeps, px (default 8,
+   * `MIN_BOX_LENGTH`); shorter, that part is not drawn. Corner-cut parts included; a box nothing touches is kept as is.
    */
   readonly minLength?: number;
 }
 
-/** The least length, px, a box part left by a clear rect across its whole thickness keeps (`minLength`'s default). */
+/** The least length, px, a box part a clear rect cut keeps (`minLength`'s default). */
 export const MIN_BOX_LENGTH = 8;
 
 const EPS = 1e-6;
@@ -49,13 +54,27 @@ const EPS = 1e-6;
  * Where to draw guides: every guide inside `inside` by `inset`, and at least `clearance` px clear of every `clear` rect
  * ("clear of" means at least that far: a plain rect keeps the options' `clearance`, default 2; `{ rect, clearance }`
  * keeps its own, so pass `{ rect, clearance: 0 }` for content a thin guide may run flush against, and `kinds` to
- * constrain only some kinds of guide, default all). A box is clipped,
- * then each clear rect, grown by its clearance, is taken out of it. One across the box's whole thickness leaves the
- * part before it and the part after it along the box's length, each kept from `minLength` px (default 8,
- * `MIN_BOX_LENGTH`): inside the box (the held item's outline sliding inside its room), both; over one end, the other.
- * One over only part of the thickness (a corner) cuts it on the side that faces it, the largest part kept (no
- * L-shapes). A box cut in two comes back as two guides in order along it: the first keeps the guide's `id`, the second
- * gets `<id>#2` (further parts `#3`, ...), so a host keys each part by its id. A thin guide (a line, a striped strip or end: its
+ * constrain only some kinds of guide, default all). A box is clipped, then each clear rect, grown by its clearance, is
+ * taken out of it, by one model:
+ *
+ * - One axis per box: its long side, decided once from the box clipped to `inside`, before any clear rect is applied
+ *   (a square takes the guide's `axis`, else x). Cutting a box never turns its axis.
+ * - A clear rect across the box's whole thickness is an interval along the axis, and the box less all of them is a
+ *   1-D interval subtraction: inside the box (the held item's outline sliding inside its room) both sides stay, over
+ *   one end the other side. The result does not depend on the order of the clear rects.
+ * - A clear rect over only part of the thickness (a corner) then cuts each part on the side that faces it, the
+ *   largest part kept (no L-shapes). Corners are applied by their distance along the axis (start, then end, then
+ *   across), whatever the input order, so the result is the same for any order.
+ * - `minLength` (default 8, `MIN_BOX_LENGTH`) is applied once at the end, along the axis, to every part a clear rect
+ *   cut, corner-cut ones included. A part nothing touched is the clipped box and is kept at any length.
+ * - Ids follow the side, not the rank: a part keeps the guide's `id` when no full-thickness clear rect lies before it
+ *   along the axis, and gets `<id>#<k + 1>` when k of them do (overlapping or touching ones count as one). The part
+ *   before a cut is always `<id>`, the part after one cut always `<id>#2`, whether or not the part before survives,
+ *   so a host keys each part by its id as a held item slides. A guide's own `id` must not end in `#` and digits
+ *   (`b#2` would collide with the second part of `b`), and an `id` that is not a string is not suffixed (a split
+ *   box's parts then share it: unsupported). Parts come back in order along the axis.
+ *
+ * A thin guide (a line, a striped strip or end: its
  * shorter side is its thickness) keeps its thickness and moves inside rather than being clipped, so a line at a lane's
  * far end is as thick as at its head. Then it is thinned, from the content side, to stay that far clear of `clear`, so
  * a thin strip at the window's side lies between the inset and the content, the same on both sides. A guide with nothing left (or a thin one under `minThickness`) is left out. A clear rect whose x, y, width or height isn't finite is ignored. Pure; the guides come
@@ -87,41 +106,81 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
     // The clear rects that constrain this kind of guide.
     const clear = allClear.filter((c) => !c.kinds || c.kinds.includes(g.kind));
     if (g.kind === "box") {
-      type Part = { a: number; b: number; c: number; d: number };
-      let parts: Part[] = [{ a: Math.max(r.x, x0), b: Math.max(r.y, y0), c: Math.min(r.x + r.width, x1), d: Math.min(r.y + r.height, y1) }];
-      // Clear of what it must not cover: each clear rect, grown by the clearance, is taken out of each part of the box.
-      for (const { k, gap } of clear) {
-        const k0 = k.x - gap;
-        const k1 = k.x + k.width + gap;
-        const l0 = k.y - gap;
-        const l1 = k.y + k.height + gap;
-        parts = parts.flatMap((p): Part[] => {
-          const { a, b, c, d } = p;
-          if (k1 <= a + EPS || k0 >= c - EPS || l1 <= b + EPS || l0 >= d - EPS) return [p];
-          // Across the part's whole thickness: the parts before and after it along its length, each kept from
-          // `minLength` (a clear rect inside the box leaves both, one over an end the other).
-          const alongX = c - a >= d - b;
-          if (alongX ? l0 <= b + EPS && l1 >= d - EPS : k0 <= a + EPS && k1 >= c - EPS) {
-            const pieces = alongX ? [{ a, b, c: Math.min(c, k0), d }, { a: Math.max(a, k1), b, c, d }] : [{ a, b, c, d: Math.min(d, l0) }, { a, b: Math.max(b, l1), c, d }];
-            return pieces.filter((q) => (alongX ? q.c - q.a : q.d - q.b) >= Math.max(EPS, minLength - EPS));
-          }
-          // Over part of its thickness (a corner): cut on the side that faces it, the largest part kept (no L-shapes).
-          const cut = [
-            { a, b, c: Math.min(c, k0), d },
-            { a: Math.max(a, k1), b, c, d },
-            { a, b, c, d: Math.min(d, l0) },
-            { a, b: Math.max(b, l1), c, d },
-          ].filter((q) => q.c - q.a > EPS && q.d - q.b > EPS);
-          return cut.length === 0 ? [] : [cut.reduce((q, s) => ((s.c - s.a) * (s.d - s.b) > (q.c - q.a) * (q.d - q.b) ? s : q))];
-        });
+      type Box = { a: number; b: number; c: number; d: number };
+      // The box clipped to `inside`. Its axis is its long side, decided here once (a square: the guide's `axis`, else
+      // x), before any clear rect is applied, so cutting it never turns the axis.
+      const box: Box = { a: Math.max(r.x, x0), b: Math.max(r.y, y0), c: Math.min(r.x + r.width, x1), d: Math.min(r.y + r.height, y1) };
+      if (box.c - box.a <= EPS || box.d - box.b <= EPS) continue;
+      const w = box.c - box.a;
+      const h = box.d - box.b;
+      const alongX = w > h || (w === h && (g as { axis?: unknown }).axis !== "y");
+      // Axis coordinates: `s` along the box, `t` across it.
+      const s0 = alongX ? box.a : box.b;
+      const s1 = alongX ? box.c : box.d;
+      const t0 = alongX ? box.b : box.a;
+      const t1 = alongX ? box.d : box.c;
+      const toBox = (p0: number, p1: number, q0: number, q1: number): Box => (alongX ? { a: p0, b: q0, c: p1, d: q1 } : { a: q0, b: p0, c: q1, d: p1 });
+      // Each clear rect, grown by its clearance, that lies over the box.
+      const over = clear
+        .map(({ k, gap }) => ({
+          x0: k.x - gap,
+          x1: k.x + k.width + gap,
+          y0: k.y - gap,
+          y1: k.y + k.height + gap,
+          s0: (alongX ? k.x : k.y) - gap,
+          s1: (alongX ? k.x + k.width : k.y + k.height) + gap,
+          t0: (alongX ? k.y : k.x) - gap,
+          t1: (alongX ? k.y + k.height : k.x + k.width) + gap,
+        }))
+        .filter((k) => k.s1 > s0 + EPS && k.s0 < s1 - EPS && k.t1 > t0 + EPS && k.t0 < t1 - EPS);
+      // Across the box's whole thickness: interval subtraction along the axis (order does not matter). The cut
+      // intervals, merged, split the box into parts; a part's `k` is how many intervals lie before it.
+      const full = over
+        .filter((k) => k.t0 <= t0 + EPS && k.t1 >= t1 - EPS)
+        .map((k): [number, number] => [Math.max(k.s0, s0), Math.min(k.s1, s1)])
+        .sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+      const cuts: [number, number][] = [];
+      for (const [lo, hi] of full) {
+        const last = cuts[cuts.length - 1];
+        if (last && lo <= last[1] + EPS) last[1] = Math.max(last[1], hi);
+        else cuts.push([lo, hi]);
       }
-      // In order along the box; the first keeps the guide's id, every further part takes `<id>#<n>`.
-      const kept = parts.filter((p) => p.c - p.a > EPS && p.d - p.b > EPS).sort((p, q) => p.a - q.a || p.b - q.b);
-      kept.forEach((p, i) => {
-        const placed = place(g, { x: p.a, y: p.b, width: p.c - p.a, height: p.d - p.b });
-        const id = (g as { id?: unknown }).id;
-        out.push(i === 0 ? placed : ({ ...placed, ...(typeof id === "string" ? { id: `${id}#${i + 1}` } : {}) } as G));
+      const spans: { lo: number; hi: number; k: number }[] = [];
+      let at = s0;
+      cuts.forEach(([lo, hi], k) => {
+        if (lo - at > EPS) spans.push({ lo: at, hi: lo, k });
+        at = hi;
       });
+      if (s1 - at > EPS) spans.push({ lo: at, hi: s1, k: cuts.length });
+      // Over only part of the thickness (a corner): cut on the side that faces it, the largest part kept (no L-shapes),
+      // each corner rect in turn by its distance along the axis, so the result never depends on the input order.
+      const corners = over
+        .filter((k) => !(k.t0 <= t0 + EPS && k.t1 >= t1 - EPS))
+        .sort((p, q) => p.s0 - q.s0 || p.s1 - q.s1 || p.t0 - q.t0 || p.t1 - q.t1);
+      const longEnough = Math.max(EPS, minLength - EPS);
+      for (const span of spans) {
+        let p: Box | null = toBox(span.lo, span.hi, t0, t1);
+        for (const k of corners) {
+          const { a, b, c, d } = p;
+          if (k.x1 <= a + EPS || k.x0 >= c - EPS || k.y1 <= b + EPS || k.y0 >= d - EPS) continue;
+          const cut: Box[] = [
+            { a, b, c: Math.min(c, k.x0), d },
+            { a: Math.max(a, k.x1), b, c, d },
+            { a, b, c, d: Math.min(d, k.y0) },
+            { a, b: Math.max(b, k.y1), c, d },
+          ].filter((q) => q.c - q.a > EPS && q.d - q.b > EPS);
+          p = cut.length === 0 ? null : cut.reduce((q, s) => ((s.c - s.a) * (s.d - s.b) > (q.c - q.a) * (q.d - q.b) ? s : q));
+          if (!p) break;
+        }
+        if (!p) continue;
+        // A part a clear rect cut keeps `minLength` along the axis; a part nothing touched is the clipped box.
+        const touched = Math.abs(p.a - box.a) > EPS || Math.abs(p.b - box.b) > EPS || Math.abs(p.c - box.c) > EPS || Math.abs(p.d - box.d) > EPS;
+        if (touched && (alongX ? p.c - p.a : p.d - p.b) < longEnough) continue;
+        const placed = place(g, { x: p.a, y: p.b, width: p.c - p.a, height: p.d - p.b });
+        // The side names the part: `<id>` before any full-thickness cut, `<id>#<k + 1>` after k of them.
+        const id = (g as { id?: unknown }).id;
+        out.push(span.k === 0 || typeof id !== "string" ? placed : ({ ...placed, id: `${id}#${span.k + 1}` } as G));
+      }
       continue;
     }
     // A thin guide: thick along one axis (its shorter side), long along the other.
