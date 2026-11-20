@@ -15,8 +15,9 @@ import type { PlaceGuides } from "./preview";
  *   stretch it is at that spot; over a refused stretch of the lane, refused ("Can't go here"). (Placement's `lanes()`
  *   joins a refused stretch shorter than the item to its spots.)
  * - **Entering a lane** needs one of two gates: `path` px of slow pointer path along it inside it (steps of at most
- *   `step`), or a still step (at most `still`) once `depth` px inside, the depth counted only from the lane's sides that
- *   face into the stage (on the edge it is deep). A fly-through of a thin bar or rail at any angle meets neither, so its
+ *   `step`), or a still step (at most `still`) once `depth` px inside, the depth measured across the lane: only from its
+ *   two sides parallel to its axis that face into the stage (on the edge it is deep), never from its ends along its axis
+ *   (a rail's end that meets a bar is no wall). A fly-through of a thin bar or rail at any angle meets neither, so its
  *   room never opens. Inside a lane that touches the held one, past the held lane's exit margin, the held lane holds
  *   until that lane's gate passes or the pointer has slid `path` px along it at any speed (across it at most a third as
  *   far): lane to lane never passes through the float, and never opens a crossed lane's room. Over a refused place (a
@@ -261,18 +262,19 @@ export interface LandingModel {
 const inside = (r: Rect, p: Point, grow = 0): boolean => p.x >= r.x - grow && p.x <= r.x + r.width + grow && p.y >= r.y - grow && p.y <= r.y + r.height + grow;
 const strictlyIn = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
 /**
- * How deep `p` lies inside `r` (0 on its edge or outside), counted only from the sides of `r` that face into `stage`: a
- * side on the stage's edge is open, as deep as the pointer can go.
+ * How deep `p` lies inside `lane` (0 on its edge or outside): measured across the lane, from its two sides parallel to
+ * its axis (a rail's long sides, a bar's), and only from those that face into `stage`: a side on the stage's edge is
+ * open, as deep as the pointer can go. The lane's ends along its own axis never count, wherever they lie (a rail's end
+ * that meets a bar is no wall), so the depth is the same all along the lane.
  */
-function depthIn(r: Rect, p: Point, stage: Rect): number {
+function depthIn(lane: LandingLane, p: Point, stage: Rect): number {
+  const r = lane.rect;
   if (!strictlyIn(r, p)) return 0;
   const on = (a: number, b: number): boolean => Math.abs(a - b) < 1;
-  const sides = [
-    on(r.x, stage.x) ? Infinity : p.x - r.x,
-    on(r.x + r.width, stage.x + stage.width) ? Infinity : r.x + r.width - p.x,
-    on(r.y, stage.y) ? Infinity : p.y - r.y,
-    on(r.y + r.height, stage.y + stage.height) ? Infinity : r.y + r.height - p.y,
-  ];
+  const sides =
+    lane.axis === "x"
+      ? [on(r.y, stage.y) ? Infinity : p.y - r.y, on(r.y + r.height, stage.y + stage.height) ? Infinity : r.y + r.height - p.y]
+      : [on(r.x, stage.x) ? Infinity : p.x - r.x, on(r.x + r.width, stage.x + stage.width) ? Infinity : r.x + r.width - p.x];
   return Math.max(0, Math.min(...sides));
 }
 const distanceTo = (r: Rect, p: Point): number => Math.hypot(Math.max(r.x - p.x, 0, p.x - (r.x + r.width)), Math.max(r.y - p.y, 0, p.y - (r.y + r.height)));
@@ -494,7 +496,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       laneId = spotId = null;
     } else {
       const held = laneIn(regions, laneId);
-      const gate = (l: LandingLane): boolean => (pathIn.get(l.id) ?? 0) >= gates.path || (depthIn(l.rect, p, regions.stage) >= gates.depth && step <= gates.still);
+      const gate = (l: LandingLane): boolean => (pathIn.get(l.id) ?? 0) >= gates.path || (depthIn(l, p, regions.stage) >= gates.depth && step <= gates.still);
       // Lane to lane: inside a lane touching the held one, past the held lane's exit margin (inside it the held lane holds,
       // P1), the held lane still holds until that lane's gate passes, then that lane takes it. Never the float between
       // them, never a fly-through's room.
@@ -540,7 +542,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         // in a lane's first pixels when the pointer comes in over a refused stretch next to it.
         if (!s && !strictlyIn(held.rect, p)) {
           const others = regions.lanes.filter((l) => l.id !== held.id && strictlyIn(l.rect, p));
-          if (others.length > 0) pending = others.reduce((a, b) => (depthIn(b.rect, p, regions.stage) > depthIn(a.rect, p, regions.stage) ? b : a)).id;
+          if (others.length > 0) pending = others.reduce((a, b) => (depthIn(b, p, regions.stage) > depthIn(a, p, regions.stage) ? b : a)).id;
         }
       } else {
         laneId = spotId = null;
@@ -559,11 +561,11 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         let entered: LandingLane | null = next ?? null;
         if (!entered)
           for (const l of lanesHere) {
-            const deep = depthIn(l.rect, p, regions.stage);
-            if ((gate(l) || overRefused(l)) && (!entered || deep > depthIn(entered.rect, p, regions.stage))) entered = l;
+            const deep = depthIn(l, p, regions.stage);
+            if ((gate(l) || overRefused(l)) && (!entered || deep > depthIn(entered, p, regions.stage))) entered = l;
           }
         // Inside a lane not entered yet: no refused place to say so of, whatever lies under it.
-        if (!entered && lanesHere.length > 0) pending = lanesHere.reduce((a, b) => (depthIn(b.rect, p, regions.stage) > depthIn(a.rect, p, regions.stage) ? b : a)).id;
+        if (!entered && lanesHere.length > 0) pending = lanesHere.reduce((a, b) => (depthIn(b, p, regions.stage) > depthIn(a, p, regions.stage) ? b : a)).id;
         if (entered) {
           laneId = entered.id;
           const s = pick(entered, alongOf(entered, p));
