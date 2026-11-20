@@ -7,6 +7,8 @@ on:
   pull_request:
     # Draft PRs are not checked; marking one ready starts the run.
     types: [opened, synchronize, reopened, ready_for_review]
+    # A change to docs alone runs nothing: docs travel with a release, whose code changes run the checks.
+    paths-ignore: ["docs/**", "**/*.md"]
   workflow_dispatch:
 
 concurrency:
