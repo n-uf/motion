@@ -23,10 +23,13 @@ here" while `LandingFrame.pending` is set.
   `lanes()` marks it) takes the pointer inside it from any lane it overlaps, a held one too, once its own gate passes
   and once the pointer came into it from outside since the lift: a panel settled in the strip lands in the rail even
   where the strip lies over a flush column's edge, and a press in that edge, or a slow reorder along it, stays in the
-  column. A host that builds its own regions sets it on its strip lanes; one reading `lanes()` gets it. An owning lane
-  never takes the pointer within `LandingMargins.lift` (additive, optional, 16 px, as the drag intent's `liftZone`)
-  of where the item was lifted: a panel pressed in the strip, taken away and brought back there, lands home, and a
-  lone panel still reaches its own side's rail anywhere else in the strip.
+  column. A host that builds its own regions sets it on its strip lanes; one reading `lanes()` gets it. Within
+  `LandingMargins.lift` (additive, optional, 16 px, as the drag intent's `liftZone`) of where the item was lifted an
+  owning lane takes the pointer by no gate: a panel pressed in the strip, taken away and brought straight back there,
+  lands home. Elsewhere in the strip, once the pointer came in, the strip takes it, so a lone panel reaches its own
+  side's rail; a slow slide along the strip toward the lift point can be taken by the strip before it gets there.
+  The lift point is `LandingOptions.lift` (additive, optional: the press, for a host whose first update comes late),
+  else the first point, and stays for the whole drag, `hide()` included.
 - `./drag`, **`DropPreviewMode.emptyLanes`** (additive, `"real" | "edge"`): `previewPlan()` carries it as
   `PreviewPlan.emptyLanes`, `"real"` by default, for a host to pass to `lanes()`: an empty lane drawn at its real size,
   or as a thin striped edge.
