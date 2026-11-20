@@ -110,7 +110,8 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
       // The box clipped to `inside`. Its axis is its long side, decided here once (a square: the guide's `axis`, else
       // x), before any clear rect is applied, so cutting it never turns the axis.
       const box: Box = { a: Math.max(r.x, x0), b: Math.max(r.y, y0), c: Math.min(r.x + r.width, x1), d: Math.min(r.y + r.height, y1) };
-      if (box.c - box.a <= EPS || box.d - box.b <= EPS) continue;
+      // Written as "not more than" so a non-finite box (NaN in its rect or in `inside`) is left out, never drawn as NaN.
+      if (!(box.c - box.a > EPS) || !(box.d - box.b > EPS)) continue;
       const w = box.c - box.a;
       const h = box.d - box.b;
       const alongX = w > h || (w === h && (g as { axis?: unknown }).axis !== "y");
