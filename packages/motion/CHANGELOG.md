@@ -3,6 +3,14 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## Unreleased
+
+- Docs: **the hand rule** for `createLandingModel`, in one wording with placement's. While a lane holds, the landing is
+  the nearest landing in its lane to the pointer, within `max(48, g / 2 + 6)` px of it (`max(56, g / 2 + 6)` on the
+  frame before a hop), `g` the gap along the lane between the facing edges of the two adjacent landings the pointer
+  lies between. Before, the reference said "up to 56 px on the frame before the hop, 48 px on every other", which a
+  docked item much longer than the held one exceeds. No behavior changes.
+
 ## 26.11.51
 
 Host notes: none.
