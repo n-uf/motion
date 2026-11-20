@@ -26,10 +26,12 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
     return m;
   };
 
-  it("let go at once, it is no entry: the item stays where it was held (a fast pass docks nowhere)", () => {
+  it("let go at once, it is no entry: the frame is held but refused far above the bar, and the item goes home", () => {
     const m = flick(0);
     expect(m.frame.lane).not.toBe("rail-left");
-    expect(m.release()).toMatchObject({ kind: "spot", lane: "bottom", home: true });
+    // 288 px above its bar: held, but refused (the host's tag shows), so a release lands nothing and the item goes home.
+    expect(m.frame.region).toBe("refused");
+    expect(m.release()).toBeNull();
   });
 
   it("held there past `pause`, the rail takes it by its still gate", () => {

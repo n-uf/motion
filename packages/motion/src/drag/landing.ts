@@ -576,14 +576,18 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         spotId = s?.id ?? null;
         region = s ? "lane" : "refused";
       } else if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
-        const s = along(held, p, step);
+        // The hold through a touching lane is for crossing a corner: more than `path` past the held lane's exit margin
+        // (a fling up a rail that didn't enter it), the frame is held but refused: the lane kept (its guides stay), no
+        // spot, no landing, nothing pending, so the host shows its tag and a release goes home.
+        const far = distanceTo(held.rect, p) > margins.exit + gates.path;
+        const s = far ? null : along(held, p, step);
         spotId = s?.id ?? spotId;
         region = s ? "lane" : "refused";
         if (!s) spotId = null;
         // Past its own rect, a held lane that refuses still holds (lane to lane never passes through the float), but
         // the pointer is in another lane it hasn't entered yet: that lane is pending, so a host shows no "Can't go here"
         // in a lane's first pixels when the pointer comes in over a refused stretch next to it.
-        if (!s && !strictlyIn(held.rect, p)) {
+        if (!s && !far && !strictlyIn(held.rect, p)) {
           const others = regions.lanes.filter((l) => l.id !== held.id && strictlyIn(l.rect, p));
           if (others.length > 0) pending = pendingIn(others, p, regions.stage);
         }
