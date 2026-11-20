@@ -329,6 +329,8 @@ interface Base {
   /** Where the pointer holds the item, as a share of its width and height (0.5 each without `options.grab`). */
   readonly share: { readonly x: number; readonly y: number };
   readonly marking: Marking;
+  /** The lanes whose marks as seen are predicted (an empty lane's, in its spot's after-entry layout). */
+  readonly predicted: ReadonlySet<string>;
 }
 
 /** What a lane's marks read beyond its spots. */
@@ -419,7 +421,18 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
   });
   // Every lane's marks are clipped to its rect over the layout they are drawn in (the spot's, where its drop may move an
   // edge); its hit rect stays as seen.
-  return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes, base.raws.get(l.id) ? laneRectOver(base.raws.get(l.id)!, held.layout, base.seen, base.marking).rect : l.rect)) };
+  const drawn = rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes, base.raws.get(l.id) ? laneRectOver(base.raws.get(l.id)!, held.layout, base.seen, base.marking).rect : l.rect));
+  // An empty lane's marks don't change when another lane is entered, but for the corner: every other lane whose marks
+  // as seen are predicted keeps them (in its own after-entry layout, not the held spot's, where it is still empty and
+  // would be cut at the columns that move aside once it opens), less the held lane's marks, which own their corners.
+  const heldMarks = drawn.find((l) => l.id === heldLane)?.marks.map((m) => m.rect) ?? [];
+  return {
+    ...base.regions,
+    lanes: drawn.map((l, i) => {
+      if (l.id === heldLane || !base.predicted.has(l.id)) return l;
+      return { ...l, marks: marksLess(base.lanes[i]!.marks, l.axis, heldMarks) };
+    }),
+  };
 }
 
 /** A lane without the prediction as seen (`entry`, `corners`). */
@@ -509,6 +522,8 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   // An empty lane's guide before entry is its mark after entry: an edge lane empty as seen with one spot takes its marks
   // in that spot's own layout, as `lanes(…, { spot })` draws them once it is held. Solved here, once per lift.
   const laneList = options.emptyLanes === "edge" ? settled : predict(settled, byLane, { seen, refusals: rs, halves, share, marking }, scene, dragged, built, options.emptyLanes);
+  // (`predict` gives back a lane it predicts as a new object, every other one as it was.)
+  const predicted = new Set(laneList.filter((l, i) => l !== settled[i]).map((l) => l.id));
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
   const blocked = [
@@ -527,6 +542,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     halves,
     share,
     marking,
+    predicted,
     regions: {
       refused: rs.filter((f) => !onLanes.has(f.edge)).flatMap((f) => f.hits ?? [f.hit]),
       content: floatRegion(scene, dragged),

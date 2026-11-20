@@ -9,7 +9,7 @@
  * (`fixtures/kit-windows-lift.json`). Each empty lane is entered from each of its sides that lies inside the stage, under
  * "near" and "all", in `emptyLanes: "real"`.
  */
-import { createLandingModel, type LandingFrame } from "@n-uf/motion/drag";
+import { createLandingModel, guideRects, type LandingFrame } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/geometry";
 import { lanes, solve, type Regions } from "../src/scene";
@@ -156,6 +156,17 @@ function sweep(): Record<"near" | "all", Sweep> {
             for (const g of frames[k]!.frame.guides.filter((x) => x.lane === l.id && x.kind !== "line"))
               if (landing && Math.min(g.rect.x + g.rect.width, landing.x + landing.width) - Math.max(g.rect.x, landing.x) > 1 && Math.min(g.rect.y + g.rect.height, landing.y + landing.height) - Math.max(g.rect.y, landing.y) > 1)
                 s.bad.push(`${where} (${mode})${k === n ? " before entry" : " at entry"}: ${g.id} ${fmt(g.rect)} under the landing ${fmt(landing)}`);
+          // Under "all", every other lane empty as seen keeps its marks at entry, but where the corner goes to the lane
+          // entered: its guides before and at entry, both less the entered lane's guides, are the same.
+          if (mode === "all") {
+            const enteredRects = after.map((g) => ({ rect: g.rect, clearance: 0 }));
+            const less = (gs: readonly Guide[]): Guide[] => guideRects(gs, { inside: w.scene.stage, inset: 0, clear: enteredRects, minLength: 0, minThickness: 0 });
+            for (const o of emptyLanes(d))
+              if (o.id !== l.id) {
+                const other = sameGuides(less(frames[e - 1]!.frame.guides.filter((g) => g.lane === o.id)), less(frames[e]!.frame.guides.filter((g) => g.lane === o.id)));
+                if (other) s.bad.push(`${where} (${mode}), the other empty lane ${o.id} at entry: ${other}`);
+              }
+          }
           // Across the lane (the pointer's place along it fixed), every Near frame from the first one shows that mark:
           // nothing jumps, a rail beside refused columns included (its first Near frame is at entry, pending).
           if (!a.side.startsWith("the "))
