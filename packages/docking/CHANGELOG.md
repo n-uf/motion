@@ -40,8 +40,8 @@ Functions:
 - `storeScene` → `storeDockState`; `readScene` → `readDockState`.
 - `fold` → `foldItem`; `use` → `markUsed`; `keep` → `keepItem`; `open` → `openItem`; `close` → `closeItem`; `lift` →
   `liftItem`; `raise` → `raiseFloat`; `orient` → `orientFloat`.
-- `resize` splits in two by what it resizes: `resize(scene, edgeId, size)` → `resizeEdge(state, edgeId, size)`, and
-  `resize(scene, floatId, rect, moving?)` → `resizeFloat(state, floatId, rect, moving?)`.
+- `resize` splits in two by what it resizes: `resize(state, edgeId, size)` → `resizeEdge(state, edgeId, size)`, and
+  `resize(state, floatId, rect, moving?)` → `resizeFloat(state, floatId, rect, moving?)`.
 - `fitFloat` and `FloatFit` are no longer re-exported here: import them from `@n-uf/placement/stack`.
 
 What the model reads of a form: the form flags `body`, `folded` and `compact` from `@n-uf/placement/stack` (each
