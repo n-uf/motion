@@ -1341,7 +1341,9 @@ row needs more: the rows that bring an item back to its press point need `GRAB_S
 pass only on a host that passes its grab to `lanes()`; the rows that slide a toolbar held by its grip past or across
 neighbors, on a bar and up a rail (`landing-grip-*`), need `GRIP_SINCE` (the grab moving no hop past a long neighbor)
 and bound the landing absolutely: within `moving.trail` (48 px) of the pointer, `moving.trailBeforeHop` (56) on the
-single frame before a hop. A host that says it runs an older `version` skips a row. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
+single frame before a hop; the rows that pass a neighbor keeping room (`landing-room-*`) need `ROOM_SINCE` (a dock
+consuming the room it lands in, an item over a neighbor taking its place); the row that slides over room a neighbor
+steps down to make (`landing-step-down-room`) needs `STEP_SINCE` (a stretch is the room the drop makes). A host that says it runs an older `version` skips a row. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
 baseline the host's suite recorded, and from `LANES_DEADLINE` (a calendar date the entry exports) or at the breaking release, whichever comes
 first, every row runs.
 
