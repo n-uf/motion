@@ -4,11 +4,11 @@
 // is solved at 440 x 290 by `solve` and drawn with the lab's own markup and look (demos/hero-doc.ts, styles/hero-doc.css): a title
 // bar with the Zoom toolbar and the window controls, Pages above Notes on the left, the page in the middle with Tools floating
 // at its corner, Findings on the right, Views and Review in the bottom bar. At this size solve gives Pages and Findings their
-// open form, Notes its header, Zoom a row (its compact variant), Views its icons and Review a row. The lines under the
-// window is a parts sheet read off the same scene and layout: the items grouped by their kind (panels, toolbars), each drawn alone
-// in the form solve gave it, with the same markup, and its place and form in a caption; none is typed. The window is drawn at its
-// solved size and scaled to the cell's width by a transform, in a box reserved by an aspect ratio, so nothing shifts. The
-// lines and the closing line sit at the cell's bottom; any spare height is between them and the window.
+// open form, Notes its header, Zoom a row (its compact variant), Views its icons and Review a row. Under the window is a
+// sheet of the motion and placement parts this window uses ("Made with the other two:"), each a small specimen in the window's
+// look with its function and what it does here; the parts are only those the lab's window calls (evidence in demos/hero-doc.ts).
+// The window is drawn at its solved size and scaled to the cell's width by a transform, in a box reserved by an aspect ratio,
+// so nothing shifts. The sheet and the closing line sit at the cell's bottom; any spare height is between them and the window.
 import { docWindow } from "../demos/hero-doc";
 
 const SIZE = { width: 440, height: 290 };
@@ -18,11 +18,12 @@ const win = docWindow(SIZE);
   <figure class="hdw" style={`--hd-w:${SIZE.width};--hd-h:${SIZE.height}`} role="img" aria-label="A docked document window: a title bar with a zoom toolbar, Pages and Notes on the left, the page with a floating toolbar, Findings on the right, and a bottom bar.">
     <div class="hdw-in" aria-hidden="true"><div class="hd-win" set:html={win.html}></div></div>
   </figure>
-  <div class="dsheet" aria-hidden="true">
+  <div class="dsheet">
+    <p class="dmade">Made with the other two:</p>
     {win.sheet.map((g) => (
-      <section class="dsec" data-kind={g.kind}>
+      <section class="dsec" data-part={g.part}>
         <h3>{g.heading}</h3>
-        <div class="dsp-row">{g.items.map((it) => <figure class="dsp"><Fragment set:html={it.html} /><figcaption>{it.caption}</figcaption></figure>)}</div>
+        <div class="dsp-row">{g.items.map((it) => <figure class="dsp"><div class="dsp-x" aria-hidden="true" set:html={it.html}></div><figcaption><b>{it.fn}</b> {it.what}</figcaption></figure>)}</div>
       </section>
     ))}
   </div>

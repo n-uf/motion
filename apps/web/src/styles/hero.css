@@ -165,13 +165,26 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
    window and the sheet, so the sheet and the closing line end at the cell's bottom, like placement's rows. */
 .dsheet { display: grid; gap: var(--s3); margin: auto 0 0; padding-top: var(--s3); }
 .dsec h3 { margin: 0 0 6px; font: 700 10.5px/1.5 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--k); }
-.dsp-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; }
+.dsp-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 8px 12px; }
 .dsp { margin: 0; display: grid; gap: 3px; justify-items: start; }
 .dsp figcaption { font: 500 11px/1.3 var(--font-mono); color: var(--text-3); }
-.dsec[data-kind="panel"] .dsp { width: 108px; }
+.dsec[data-part="motion"] h3 { color: var(--motion); }
+.dsec[data-part="place"] h3 { color: var(--place); }
+.dmade { margin: 0 0 var(--s2); font: 12px/1.4 var(--font-mono); color: var(--text-3); }
+.dsp { min-width: 0; }
+.dsp figcaption b { display: block; font-weight: 700; color: var(--text-2); }
+.dsp-x { display: flex; }
 .hd-spec.hd-item { position: relative; width: max-content; height: 32px; font-size: 12px; line-height: 1.25; color: var(--win-text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
 .hd-spec.hd-panel { width: 104px; height: 72px; }
 .hd-spec.hd-panel.hd-k-header { height: 32px; }
+/* The motion specimens, in the motion color: a pressed grip, the drop's dashed slot, the grab point, the settling trail. */
+.dockzone .hd-press .hd-dots { background-image: radial-gradient(var(--motion) 1.2px, transparent 1.4px); outline: 2px solid var(--motion); outline-offset: 2px; border-radius: 3px; }
+.hd-slot { display: block; width: 104px; height: 32px; box-sizing: border-box; border: 1.5px dashed var(--motion); border-radius: 6px; background: color-mix(in srgb, var(--motion) 10%, transparent); }
+.hd-pin { position: absolute; left: 5px; top: 50%; width: 10px; height: 10px; margin-top: -5px; box-sizing: border-box; border: 2px solid var(--motion); border-radius: 50%; background: var(--bg-raised); }
+.hd-settle { position: relative; display: block; width: 116px; height: 42px; }
+.hd-settle > .hd-spec.hd-item { position: absolute; right: 0; top: 0; }
+.hd-trail { position: absolute; left: 0; bottom: 0; width: 104px; height: 32px; box-sizing: border-box; border: 1.5px dashed var(--motion); border-radius: 6px; opacity: 0.5; }
+.hd-trail::after { content: ""; position: absolute; inset: -1.5px; left: 6px; bottom: 5px; top: -6.5px; border: 1.5px dashed var(--motion); border-radius: 6px; opacity: 0.5; }
 .dockzone .pline { margin-top: 0; padding-top: var(--s3); }
 .dockzone .hd-dots { background-image: radial-gradient(var(--dock) 1.2px, transparent 1.4px); }
 
