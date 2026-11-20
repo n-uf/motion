@@ -1041,12 +1041,13 @@ drag of `id`:
   - A `box` over each free stretch the item fits in. Beside the held item, the room left of its stretch is a box from
     a pitch on a bar or a toolbar rail (`:before` or `:after` the item in its id, so it keeps it while the item glides).
     A growing item there (a title filling its bar) counts at its natural length, so its slack is free room.
-  - Room shorter than the item, at a lane's end or between items more than the edge's gap apart, is drawn as its spot
-    lands: a `box` over the free room and a `hatch` over the neighbor that gives way (its share by how far the drop
-    moves it; `:before` or `:after` the room in its id), the two together the landing; with no free room at a lane's
-    end, the hatch alone. Two items that touch keep a `line` between them; a panel column keeps its lines.
-  - A box lying over another edge's docked items (an empty side rail over a column's outer strip) is a hatch there:
-    they move aside when the lane opens.
+  - Room that partly fits (from a pitch, shorter than the item) is a `box` over the free room with a fixed striped end
+    inside it (`hatch`, `HATCH_END`) at each side whose neighbor gives way (`:before` or `:after` in its id); nothing
+    is drawn on the neighbor. Room under a pitch, or none (touching items, a lane's end flush), is a `line`; a panel
+    column keeps its lines. A hatch is a cue, never a measure of the landing.
+  - An empty lane (`options.emptyLanes`): `"real"` (default) a box at its real size, the band it would open (an empty
+    side rail's over a column's outer strip, which moves aside); `"edge"` a thin striped strip (`HATCH_EDGE`) on its
+    window side. Either way cut around every item docked in a bar or a toolbar rail.
   - Never a box or a line over an item drawn there, nothing over the held item, nothing in a refused stretch, and no
     two edge lanes' marks overlap: at a corner a lane not drawn (an empty bar or rail) gives way to a drawn one, and
     between two not drawn the bar owns it. A virtual lane (a new column's line, a declared rail) is drawn over what it
@@ -1068,7 +1069,7 @@ drag of `id`:
   host has every target and refusal of the lift from one call.
 
 A bar's free stretches, and a toolbar rail's (a compact edge, along its length), get spots at `SPOT_PITCH` (40 px;
-`options.pitch`), each a dock keeping `space`, so a toolbar lands close to the hand; an empty bar gets them over its whole length less its padding. Where a stretch is too short for the
+`options.pitch`), each a dock keeping `space`, so a toolbar lands close to the hand; an empty bar gets them over its whole length less its padding. Each free stretch also offers its two ends, flush against each neighbor (or the edge's end; beside a neighbor that keeps space the item takes that space, so the neighbor stays), and the item's own place is one landing for half a pitch around it, so away and back to the press point is home. Where a stretch is too short for the
 item, or lies next to a center item, it has none, so coverage is not universal: a point next to a center item that
 doesn't fit beside it can still be far from its landing (452 px at worst in the sweep scenes).
 

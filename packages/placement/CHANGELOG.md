@@ -34,9 +34,21 @@ Changes:
   way, nothing drawn on the neighbor; room under a pitch, or none (touching items, a lane's end flush), is a 2 px line.
   A panel column keeps its lines. No mark covers a docked item, the held item or a float; nothing in a refused stretch.
 - `./scene`, **guides follow the layout drawn** (fix): no two edge lanes' marks overlap (at a corner a lane not drawn
-  gives way to a drawn one; between two not drawn the bar owns it). An empty lane's band over another edge's items (an
-  empty side rail by a column) is a thin striped edge (`HATCH_EDGE`) on the window side, not a box over them; its lane
-  (the hit strip) stays one rail wide. A virtual lane is drawn over what it would push.
+  gives way to a drawn one; between two not drawn the bar owns it). A virtual lane is drawn over what it would push.
+- `./scene`, **`LaneOptions.emptyLanes`** (additive, `"real" | "edge"`, default `"real"`): how an empty lane is drawn.
+  `"real"`: a box at its real size, the band it would open (an empty side rail's lies over the column's outer strip,
+  which moves aside); `"edge"`: a thin striped strip (`HATCH_EDGE`) on the lane's window side (its own side where it
+  has one). Either way its lane (the hit strip) stays one rail wide, and its marks are cut around every item docked in
+  a bar or a toolbar rail: an empty lane's box never covers a toolbar.
+- `./scene`, **a free stretch's two ends** (fix): on a bar or a toolbar rail, the spots over free room stopped a pitch
+  short of each end and left the end to the plain dock beside the neighbor; on the held item's own stretch that dock
+  is its own place, so a toolbar moved toward its neighbor across free room passed over the neighbor to its other
+  side. A free stretch now offers both its ends, flush against each neighbor (or the edge's end): beside a neighbor
+  that keeps space, the item takes that space and the neighbor stays. Kept only where it lands there with the neighbor
+  beside it, and between neighbors a dock lands between.
+- `./scene`, **home within half a pitch** (fix): on a bar or a toolbar rail, the item's own place is one landing for
+  half a pitch around it; another spot landing that near (a center dock beside a place near the bar's middle) is
+  home's, so away and back to the press point lands home. Panel columns are unchanged.
 - `./scene`, **a rail drop strip's lane is the strip** (fix, `Scene.railDrop`): a side's rail lane was the hull of its
   hit and landing, the whole column where one is docked there, over the column's own lane; it is now the strip at the
   window's side (`railStripWidth`), so a plain drop in that column goes by halves (R8). It is marked `Lane.owns`

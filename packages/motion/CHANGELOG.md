@@ -23,7 +23,12 @@ here" while `LandingFrame.pending` is set.
   `lanes()` marks it) takes the pointer inside it from any lane it overlaps, a held one too, once its own gate passes
   and once the pointer came into it from outside since the lift: a panel settled in the strip lands in the rail even
   where the strip lies over a flush column's edge, and a press in that edge, or a slow reorder along it, stays in the
-  column. A host that builds its own regions sets it on its strip lanes; one reading `lanes()` gets it.
+  column. A host that builds its own regions sets it on its strip lanes; one reading `lanes()` gets it. An owning lane
+  never takes the pointer over the item's own place (`home`'s landing): a panel pressed in the strip, taken away and
+  brought back there, lands home.
+- `./drag`, **`DropPreviewMode.emptyLanes`** (additive, `"real" | "edge"`): `previewPlan()` carries it as
+  `PreviewPlan.emptyLanes`, `"real"` by default, for a host to pass to `lanes()`: an empty lane drawn at its real size,
+  or as a thin striped edge.
 
 ## 26.11.47
 
