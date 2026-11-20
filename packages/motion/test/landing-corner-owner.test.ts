@@ -28,7 +28,8 @@ function window(): LandingRegions {
     id: "rail",
     rect: rect(0, 0, 30, 600),
     axis: "y",
-    spots: [{ id: "rail/start/^|$@slide", along: [0, 600], landing: rect(0, 0, 30, 100) }],
+    // (Its one spot lands at the rail's foot, y 500–600: the Near guide leaves that landing out.)
+    spots: [{ id: "rail/start/^|$", along: [0, 600], landing: rect(0, 500, 30, 100) }],
     refused: [],
     marks: [{ id: "rail/box/^|$", kind: "box", rect: rect(0, 31, 30, 569) }],
     entry: [{ id: "rail/box/^|$", kind: "box", rect: rect(0, 0, 30, 600) }],
@@ -61,7 +62,16 @@ describe("a lane's entry marks and the corner it shares", () => {
     const near = fs.filter((f) => f.lane !== "rail" && f.guides.some((g) => g.lane === "rail"));
     expect(near.length).toBeGreaterThan(0);
     expect(near.some((f) => f.pending === "rail")).toBe(true);
-    for (const f of near) expect(of(f, "rail")).toEqual([rect(0, 0, 30, 600)]);
+    // Up to the stage top, and less the landing it would take (y 500–600).
+    for (const f of near) expect(of(f, "rail")).toEqual([rect(0, 0, 30, 500)]);
+  });
+
+  it("the Near guide leaves out the held toolbar at the landing it would take there, never its floating rect", () => {
+    // The floating toolbar (100 × 30 at the pointer) lies over the rail at y 285–315; the guide is cut only at y 500–600.
+    const fs = frames(options("near"), [{ x: 300, y: 300 }, { x: 60, y: 300 }, { x: 20, y: 300 }]);
+    const pending = fs.filter((f) => f.pending === "rail");
+    expect(pending.length).toBeGreaterThan(0);
+    for (const f of pending) expect(f.guides.filter((g) => g.lane === "rail").map((g) => [g.id, g.rect])).toEqual([["rail/box/^|$", rect(0, 0, 30, 500)]]);
   });
 
   it('under "all", with no lane near, every lane shows its marks: the bar keeps the corner', () => {
@@ -76,7 +86,7 @@ describe("a lane's entry marks and the corner it shares", () => {
     const picked = fs.filter((f) => f.pending === "rail" || f.lane === "rail");
     expect(picked.length).toBeGreaterThan(0);
     for (const f of picked) {
-      expect(of(f, "rail")).toEqual([rect(0, 0, 30, 600)]);
+      expect(of(f, "rail")).toEqual([rect(0, 0, 30, 500)]);
       expect(of(f, "top")).toEqual([rect(30, 0, 770, 31)]);
       // The bar keeps its id: a cut at its start trims it.
       expect(f.guides.filter((g) => g.lane === "top").map((g) => g.id)).toEqual(["top/box/^|$"]);
@@ -92,6 +102,6 @@ describe("a lane's entry marks and the corner it shares", () => {
     const r = window();
     const plain: LandingRegions = { ...r, lanes: r.lanes.map((l) => ({ id: l.id, rect: l.rect, axis: l.axis, spots: l.spots, refused: l.refused, marks: l.marks! })) };
     const fs = frames({ ...options("near"), regions: plain }, [{ x: 300, y: 300 }, { x: 60, y: 300 }, { x: 20, y: 300 }]);
-    for (const f of fs.filter((x) => x.lane !== "rail" && x.guides.some((g) => g.lane === "rail"))) expect(of(f, "rail")).toEqual([rect(0, 31, 30, 569)]);
+    for (const f of fs.filter((x) => x.lane !== "rail" && x.guides.some((g) => g.lane === "rail"))) expect(of(f, "rail")).toEqual([rect(0, 31, 30, 469)]);
   });
 });
