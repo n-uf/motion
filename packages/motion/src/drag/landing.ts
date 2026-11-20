@@ -24,7 +24,10 @@ import type { PlaceGuides } from "./preview";
  *   brisk hand, no step above `slide` (2 px/ms): lane to lane never passes through the float, and never opens a crossed
  *   lane's room. A fling faster than that, along the lane or across it, is no entry: the touching lane is entered only by
  *   its own gate (the slow path, or a rest past `pause`). The cost: above 2 px/ms a hand sliding along a corner lane
- *   keeps the previous lane's end spot until it slows or rests. Over a refused place (a
+ *   keeps the previous lane's end spot until it slows or rests. The hold through a touching lane is for crossing a
+ *   corner: more than `path` past the held lane's exit margin the frame is held but refused (the lane kept for its
+ *   guides; no spot, no landing, nothing pending; a release goes home), sticky until the pointer is back within
+ *   `exit + path - spot`. Over a refused place (a
  *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered on the first slow step
  *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room. A lane that owns
  *   its rect (`owns`: a rail drop strip at the window's side) takes the pointer inside it from any lane it overlaps, a

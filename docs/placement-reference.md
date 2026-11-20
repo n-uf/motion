@@ -682,7 +682,9 @@ facing halves is home's, and is no target of its own. The slot is where the item
   its zone, so the gap at the end of a run of such items (a state cell and a page cell at a title bar's end) is a place
   and a stop, where a toolbar homed after them is put back ("state page zoom"). They keep their order: no gap between two
   `pushable` items is offered; a `pushable` item followed by an unflagged fixed one (window controls) is still a wedge, so
-  no place between them. Left out, a fixed item at the anchor keeps its place as before (window controls stay at the end).
+  no place between them. In the start zone the same rule is the mirror (a movable item dropped beside it, on its
+  anchor's side, may push it inward): the gap **before** a run of `pushable` items at the edge's start (a title at a title
+  bar's start, `gap:<edge>:start:0`) is a stop, and a drop there pushes them inward. Left out, a fixed item at the anchor keeps its place as before (window controls stay at the end).
   `pushable` is a declaration like `Edge.zoneAccepts`: `readScene` takes it from `base`, `storeScene` never writes it, and
   a stored one is dropped (`item:<id>:pushable`). Along the edge the gaps tile it: neighboring gaps meet at the midpoint of the
   item between them (see Aim order), else halfway between their lines, so an edge of a few short items (a bar, a rail,

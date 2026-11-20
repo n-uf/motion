@@ -86,3 +86,16 @@ describe("pushable is a declaration, not state", () => {
     expect(ids(read.scene, "zoom").filter((i) => i.startsWith("gap:titlebar:end"))).toEqual(["gap:titlebar:end:0"]);
   });
 });
+
+describe("pushable in the start zone, the mirror: the gap before the run", () => {
+  it("a pushable fixed item at the bar's start makes the gap before it a stop, and a drop there pushes it inward", () => {
+    const s0 = bar(["state", "page"], []);
+    const s: Scene = { ...s0, items: { ...s0.items, title: { ...s0.items.title!, pushable: true } } };
+    expect(ids(s0, "zoom")).not.toContain("gap:titlebar:start:0");
+    expect(ids(s, "zoom")).toContain("gap:titlebar:start:0");
+    const after = stops(s, "zoom").find((t) => t.id === "gap:titlebar:start:0")!.after({ x: 0, y: 0 }, { x: 0, y: 0 }).scene;
+    expect(after.edges.find((e) => e.id === "titlebar")!.items.slice(0, 2)).toEqual(["zoom", "title"]);
+    const l = solve(after);
+    expect(l.items.title!.rect.x).toBeGreaterThan(solve(s).items.title!.rect.x);
+  });
+});
