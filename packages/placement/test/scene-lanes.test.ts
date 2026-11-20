@@ -7,6 +7,8 @@
 import { describe, expect, it } from "vitest";
 import { lanes, refusals, solve, SPOT_PITCH, targets, type Regions, type Scene } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
+import { createLandingModel } from "@n-uf/motion/drag";
+import { FLUSH, INSET, kitScene } from "./kit-scene";
 import { modelScene } from "./model-scene";
 import { bar, byId, group } from "./scene-fixture";
 
@@ -199,6 +201,40 @@ describe("lanes() with a spot held", () => {
     const stretches = (l: (typeof a.lanes)[number]) => ({ id: l.id, rect: l.rect, spots: l.spots.map((sp) => [sp.id, sp.along]), refused: l.refused });
     for (const l of b.lanes) if (l.id !== "left-0") expect(stretches(l)).toEqual(stretches(a.lanes.find((x) => x.id === l.id)!));
   });
+});
+
+describe("lanes(): a rail drop strip's lane is the strip at the window's side", () => {
+  for (const [name, k] of [
+    ["flush", FLUSH],
+    ["inset", INSET],
+  ] as const)
+    it(`${name}: with a column docked at the side, the side's rail lane is the strip (railStripWidth), not the column; a panel brought fast into the column and held lands by halves there`, () => {
+      const s: Scene = { ...kitScene(k, { W: 1400, H: 800 }), railDrop: { panel: { railStripWidth: 24 } } };
+      const previous = solve(s);
+      const rs = lanes(s, "findings", { previous });
+      for (const side of ["left", "right"] as const) {
+        const rail = rs.lanes.find((l) => l.id === `rail:${side}`)!;
+        const strip = rail.spots[0]!.target.strip!;
+        expect([side, rail.rect]).toEqual([side, strip]);
+        expect(rail.rect.width).toBe(24);
+      }
+      // Findings brought fast (1.5 px/ms) from its own column into the left column's middle and held there: it settles
+      // in that column (by halves), never the rail.
+      const col = previous.edges["left-0"]!.rect;
+      const own = previous.items.findings!.rect;
+      const press = { x: own.x + 20, y: own.y + 10 };
+      const home = rs.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0];
+      for (const y of [200, 300, 500]) {
+        const mm = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "findings", { previous, spot }), ...(home ? { home } : {}) });
+        const to = { x: col.x + col.width / 2, y };
+        const n = Math.ceil(Math.hypot(to.x - press.x, to.y - press.y) / 1.5 / 8);
+        let t = 0;
+        mm.update(press, t);
+        for (let i = 1; i <= n; i++) mm.update({ x: press.x + ((to.x - press.x) * i) / n, y: press.y + ((to.y - press.y) * i) / n }, (t += 8));
+        for (let i = 0; i < 30; i++) mm.update(to, (t += 8));
+        expect([y, mm.frame.lane]).toEqual([y, "left-0"]);
+      }
+    });
 });
 
 describe("lanes(): what blocks the open space, and virtual lanes", () => {
