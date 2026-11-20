@@ -1,0 +1,26 @@
+---
+// The home hero's tiling demo, placement's instrument: three panes dividing an area (@n-uf/placement/tiling), dropped on
+// each other to split or swap. The server draws the finished state (the start tree's rects, in container-query units of
+// the stage, so the panes' places are transforms from the first paint); islands/hero-tiles.ts then runs the same
+// functions live and moves the panes with the layout motion. The stage's box is reserved by its aspect ratio, so nothing
+// shifts when the island starts.
+import { AREA, PANES, START, rectsOf } from "../demos/hero-tiles";
+
+const rects = rectsOf(START);
+const cq = (r: { x: number; y: number; width: number; height: number }): string =>
+  `width:${((r.width / AREA.width) * 100).toFixed(3)}cqw;height:${((r.height / AREA.height) * 100).toFixed(3)}cqh;transform:translate(${((r.x / AREA.width) * 100).toFixed(3)}cqw,${((r.y / AREA.height) * 100).toFixed(3)}cqh)`;
+---
+<div class="hz p"><div class="zin tilezone" id="tilezone">
+  <div class="dimh" aria-hidden="true"><span>{AREA.width}</span></div>
+  <div class="tiles" id="tiles" role="group" aria-label="Three panes: drag one onto another to split or swap them" style={`--sw:${AREA.width};--sh:${AREA.height}`}>
+    {PANES.map((p) => (
+      <div class="tp" data-id={p.id} style={cq(rects.get(p.id)!)}>
+        <div class="tp-frame"></div>
+        <div class="tp-body"><div class="hb"><i><b></b><b></b><b></b><b></b></i>{p.title}</div><div class="ln"><u></u><u></u><u></u></div></div>
+      </div>
+    ))}
+    <div class="tind" id="tind" hidden><em></em></div>
+  </div>
+  <div class="say" id="tsay" aria-hidden="true">split tree · <b>3 panes</b></div>
+  <div class="cap"><b>Tiles</b> · placement divides the area</div>
+</div></div>
