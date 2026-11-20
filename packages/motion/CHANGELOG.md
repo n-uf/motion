@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.52
 
 - `./drag`, **under "all" the shared corner goes to the lane nearest the pointer within reach** (behavior change). With
   no Near lane (the pointer over a refused column, crossing toward an empty rail under an empty bar) the bar kept the
