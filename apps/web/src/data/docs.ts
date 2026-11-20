@@ -1,8 +1,11 @@
-// The docs pages: /docs/ (the index) and one page per package, /docs/motion/ and /docs/placement/, each rendered at
-// build time from the package's own README (packages/<name>/README.md) with the package's version read from its
-// package.json, so a page can't drift from what npm shows. The pages and their SEO text live here; the rendering is
-// the site's markdown pipeline (@astrojs/markdown-remark) plus the steps in docs-markdown.mjs.
-// Limits (n-uf-seo): title at most 60 characters, description 120 to 155. Facts come only from the READMEs.
+// The docs pages: /docs/ (the index) and one page per library, /docs/motion/, /docs/placement/ and /docs/docking/,
+// each rendered at build time from the library's own docs file with the package's version read from its package.json,
+// so a page can't drift from what npm shows. Motion and placement render their package README; docking renders its
+// design page (docs/docking.md: the README is only its short npm page). The docking page is built only when that file
+// exists, so the site builds before the docking release and the page appears once the release adds the file. The
+// pages and their SEO text live here; the rendering is the site's markdown pipeline (@astrojs/markdown-remark) plus
+// the steps in docs-markdown.mjs.
+// Limits (n-uf-seo): title at most 60 characters, description 120 to 155. Facts come only from the docs files.
 import { createMarkdownProcessor, markdownConfigDefaults, type MarkdownHeading } from "@astrojs/markdown-remark";
 import motionReadme from "../../../../packages/motion/README.md?raw";
 import placementReadme from "../../../../packages/placement/README.md?raw";
@@ -14,7 +17,15 @@ import rehypeExternalLinks from "./rehype-external-links.mjs";
 import { externalCheck, newTabNote } from "./links.mjs";
 import { updated } from "./dates.mjs";
 import { PARTS, type PartId } from "./parts";
-import { repoUrl, npmUrl, npmPlacementUrl, site } from "./site";
+import { repoUrl, npmUrl, npmPlacementUrl, npmDockingUrl, site } from "./site";
+
+// The docking files, if the release has added them: a glob that matches nothing is an empty object, not an error.
+const dockingDocs = import.meta.glob<string>("../../../../docs/docking.md", { query: "?raw", import: "default", eager: true });
+const dockingReference = import.meta.glob<string>("../../../../docs/docking-reference.md", { query: "?raw", import: "default", eager: true });
+const dockingPkgs = import.meta.glob<{ version: string; exports: Record<string, unknown> }>("../../../../packages/docking/package.json", { import: "default", eager: true });
+const dockingMd = Object.values(dockingDocs)[0];
+const dockingPkg = Object.values(dockingPkgs)[0];
+if (dockingMd && !dockingPkg) throw new Error("docs: docs/docking.md exists but packages/docking/package.json does not");
 
 export interface DocPage {
   part: PartId;
@@ -31,9 +42,13 @@ export interface DocPage {
   npm: string;
   /** the package's folder on GitHub */
   source: string;
-  /** the package's README, as it is in the repository */
+  /** the file the page is rendered from, as it is in the repository (the package README, or docs/docking.md) */
   readmeUrl: string;
-  /** the README's folder in the repository, for its relative links */
+  /** what that file's link says */
+  readmeLabel: string;
+  /** a fuller reference page in the repository, when the library has one (docking: docs/docking-reference.md) */
+  referenceUrl?: string;
+  /** the file's folder in the repository, for its relative links */
   dir: string;
   markdown: string;
   /** the package's entries ("." and "./layout" in package.json's exports), as import paths */
@@ -59,6 +74,7 @@ export const DOCS: DocPage[] = [
     npm: npmUrl,
     source: `${repoUrl}/tree/main/packages/motion`,
     readmeUrl: `${repoUrl}/blob/main/packages/motion/README.md`,
+    readmeLabel: "README on GitHub",
     dir: "packages/motion",
     markdown: motionReadme,
     entries: entriesOf("@n-uf/motion", motionPkg),
@@ -68,8 +84,8 @@ export const DOCS: DocPage[] = [
     part: "placement",
     slug: "placement",
     path: "/docs/placement/",
-    title: "@n-uf/placement docs: edge bands, stacks, tiling and popups",
-    description: "Reference for @n-uf/placement, the general layer: rects, edge bands, one edge's stack fit and drop places, tiling and positionPopup. Window docking is @n-uf/docking.",
+    title: "@n-uf/placement docs: popups, stacks and tiling",
+    description: "Reference for @n-uf/placement: rects, the popup positioner, the edge cut, stack fit, one edge's drop places and tiling, entry by entry, with code.",
     nav: "@n-uf/placement",
     pkg: "@n-uf/placement",
     version: placementPkg.version,
@@ -77,17 +93,41 @@ export const DOCS: DocPage[] = [
     npm: npmPlacementUrl,
     source: `${repoUrl}/tree/main/packages/placement`,
     readmeUrl: `${repoUrl}/blob/main/packages/placement/README.md`,
+    readmeLabel: "README on GitHub",
     dir: "packages/placement",
     markdown: placementReadme,
     entries: entriesOf("@n-uf/placement", placementPkg),
     live: PARTS.find((p) => p.id === "placement")!.pages,
   },
+  // @n-uf/docking: only when the release has added docs/docking.md (and the package)
+  ...(dockingMd && dockingPkg
+    ? [{
+        part: "docking" as const,
+        slug: "docking",
+        path: "/docs/docking/",
+        title: "@n-uf/docking docs: dock state, targets and floats",
+        description: "Reference for @n-uf/docking: DockState, solve, drop targets and refusals, storeDockState and readDockState, and the testing rows, entry by entry.",
+        nav: "@n-uf/docking",
+        pkg: "@n-uf/docking",
+        version: dockingPkg.version,
+        install: "npm i @n-uf/docking",
+        npm: npmDockingUrl,
+        source: `${repoUrl}/tree/main/packages/docking`,
+        readmeUrl: `${repoUrl}/blob/main/docs/docking.md`,
+        readmeLabel: "Design page on GitHub",
+        referenceUrl: Object.keys(dockingReference).length > 0 ? `${repoUrl}/blob/main/docs/docking-reference.md` : undefined,
+        dir: "docs",
+        markdown: dockingMd,
+        entries: entriesOf("@n-uf/docking", dockingPkg),
+        live: PARTS.find((p) => p.id === "docking")!.pages,
+      } satisfies DocPage]
+    : []),
 ];
 
 export const docsIndex = {
   path: "/docs/",
-  title: "Docs: n-uf motion & placement",
-  description: "Reference docs for @n-uf/motion, which moves the rects it is given, and @n-uf/placement, which works out where things go and moves nothing.",
+  title: "Docs: n-uf motion, placement and docking",
+  description: "Reference docs for @n-uf/motion, which moves rects, @n-uf/placement, which fits them, and @n-uf/docking, which works out where panels and toolbars dock.",
   nav: "Docs",
 };
 
