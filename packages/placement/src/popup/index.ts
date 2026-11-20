@@ -1,8 +1,11 @@
 /**
- * Placing a popup (a drop label, a menu, a tooltip) the way Wayland's xdg-positioner does: an anchor point on the
- * anchor rect, a gravity, an offset, then the constraint adjustments in order per axis: flip, slide, resize.
+ * @n-uf/placement/popup: placing a popup (a drop label, a menu, a tooltip) the way Wayland's xdg-positioner does: an
+ * anchor point on the anchor rect, a gravity, an offset, then the constraint adjustments in order per axis: flip,
+ * slide, resize.
+ *
+ * See docs/placement.md, Entry: popup.
  */
-import type { Point, Rect, Size } from "./geometry";
+import type { Point, Rect, Size } from "../geometry";
 
 /** -1: the start edge (left or top), 0: the center, 1: the end edge. */
 export type Align = -1 | 0 | 1;
