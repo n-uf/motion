@@ -36,7 +36,7 @@ export interface GuideRectsOptions {
   readonly clear?: readonly (Rect | ClearRect)[];
   /** How far clear of a plain `clear` rect a guide stays, px (default 2): "clear of" means at least this far. */
   readonly clearance?: number;
-  /** The least thickness a thin guide keeps, px (default 2); thinner, it is not drawn. */
+  /** The least thickness a thin guide keeps, px (default 2); thinner, it is not drawn. A box a clear rect thinned is held to it too. */
   readonly minThickness?: number;
   /**
    * The least length, along the box's axis, a part of a box that a clear rect cut keeps, px (default 8,
@@ -59,7 +59,12 @@ const EPS = 1e-6;
  *
  * - One axis per box: its long side, decided once from the box clipped to `inside`, before any clear rect is applied
  *   (a square takes the guide's `axis`, else x). Cutting a box never turns its axis.
- * - A clear rect across the box's whole thickness is an interval along the axis, and the box less all of them is a
+ * - Thinning comes first. A clear rect over only part of the thickness that reaches one side of the box thins it when
+ *   its overlap across the box is smaller than its overlap along it: the box loses that thickness from that side and no
+ *   length (a neighbor poking 2 px into a bar costs 2 px of thickness, not its whole length in the bar's length). The
+ *   deepest intrusion from each side wins, whatever the order. A box thinned below `minThickness` is dropped. A rect
+ *   that pokes in as deep as it is long, or touches neither side, is a corner (below).
+ * - A clear rect across the box's whole thickness (of the thinned box) is an interval along the axis, and the box less all of them is a
  *   1-D interval subtraction: inside the box (the held item's outline sliding inside its room) both sides stay, over
  *   one end the other side. The result does not depend on the order of the clear rects.
  * - A clear rect over only part of the thickness (a corner) then cuts each part on the side that faces it, the
@@ -136,10 +141,29 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
           t1: (alongX ? k.y + k.height : k.x + k.width) + gap,
         }))
         .filter((k) => k.s1 > s0 + EPS && k.s0 < s1 - EPS && k.t1 > t0 + EPS && k.t0 < t1 - EPS);
+      // First, thinning: a clear rect over only part of the thickness, reaching one side of the box, whose overlap across
+      // is smaller than its overlap along the box, thins the box from that side by that overlap, no length lost. The
+      // deepest intrusion from each side wins, so the order of the clear rects never matters.
+      let v0 = t0;
+      let v1 = t1;
+      for (const k of over) {
+        if (k.t0 <= t0 + EPS && k.t1 >= t1 - EPS) continue;
+        const along = Math.min(k.s1, s1) - Math.max(k.s0, s0);
+        if (k.t0 <= t0 + EPS) {
+          if (k.t1 - t0 < along - EPS) v0 = Math.max(v0, k.t1);
+        } else if (k.t1 >= t1 - EPS) {
+          if (t1 - k.t0 < along - EPS) v1 = Math.min(v1, k.t0);
+        }
+      }
+      // A box thinned below `minThickness` is dropped, as a thin guide is.
+      if ((v0 > t0 || v1 < t1) && v1 - v0 < Math.max(EPS, min)) continue;
+      // What is left to cut is judged against the thinned box: a thinning rect no longer overlaps it.
+      const rest = over.filter((k) => k.t1 > v0 + EPS && k.t0 < v1 - EPS);
+      const kept = toBox(s0, s1, v0, v1);
       // Across the box's whole thickness: interval subtraction along the axis (order does not matter). The cut
       // intervals, merged, split the box into parts; a part's `k` is how many intervals lie before it.
-      const full = over
-        .filter((k) => k.t0 <= t0 + EPS && k.t1 >= t1 - EPS)
+      const full = rest
+        .filter((k) => k.t0 <= v0 + EPS && k.t1 >= v1 - EPS)
         .map((k): [number, number] => [Math.max(k.s0, s0), Math.min(k.s1, s1)])
         .sort((p, q) => p[0] - q[0] || p[1] - q[1]);
       const cuts: [number, number][] = [];
@@ -161,12 +185,12 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
       if (s1 - at > EPS) spans.push({ lo: at, hi: s1, k });
       // Over only part of the thickness (a corner): cut on the side that faces it, the largest part kept (no L-shapes),
       // each corner rect in turn by its distance along the axis, so the result never depends on the input order.
-      const corners = over
-        .filter((k) => !(k.t0 <= t0 + EPS && k.t1 >= t1 - EPS))
+      const corners = rest
+        .filter((k) => !(k.t0 <= v0 + EPS && k.t1 >= v1 - EPS))
         .sort((p, q) => p.s0 - q.s0 || p.s1 - q.s1 || p.t0 - q.t0 || p.t1 - q.t1);
       const longEnough = Math.max(EPS, minLength - EPS);
       for (const span of spans) {
-        let p: Box | null = toBox(span.lo, span.hi, t0, t1);
+        let p: Box | null = toBox(span.lo, span.hi, v0, v1);
         for (const k of corners) {
           const { a, b, c, d } = p;
           if (k.x1 <= a + EPS || k.x0 >= c - EPS || k.y1 <= b + EPS || k.y0 >= d - EPS) continue;
@@ -180,8 +204,8 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
           if (!p) break;
         }
         if (!p) continue;
-        // A part a clear rect cut keeps `minLength` along the axis; a part nothing touched is the clipped box.
-        const touched = Math.abs(p.a - box.a) > EPS || Math.abs(p.b - box.b) > EPS || Math.abs(p.c - box.c) > EPS || Math.abs(p.d - box.d) > EPS;
+        // A part a clear rect cut keeps `minLength` along the axis; a part nothing cut is the clipped box (thinned or not).
+        const touched = Math.abs(p.a - kept.a) > EPS || Math.abs(p.b - kept.b) > EPS || Math.abs(p.c - kept.c) > EPS || Math.abs(p.d - kept.d) > EPS;
         if (touched && (alongX ? p.c - p.a : p.d - p.b) < longEnough) continue;
         const placed = place(g, { x: p.a, y: p.b, width: p.c - p.a, height: p.d - p.b });
         // The side names the part: `<id>` before any full-thickness cut, `<id>#<k + 1>` after k of them.
