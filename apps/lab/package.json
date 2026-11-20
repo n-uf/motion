@@ -2,7 +2,7 @@
   "name": "motion-lab",
   "version": "0.0.0",
   "private": true,
-  "description": "A one-page lab for @n-uf/motion's window motion rules (settle, hold and reveal) and @n-uf/placement's layouts, on a tiling stage and a desk, with frame-sampled checks.",
+  "description": "A one-page lab for @n-uf/motion's window motion rules (settle, hold and reveal), @n-uf/placement's tiling and @n-uf/docking's document window, with frame-sampled checks.",
   "license": "LicenseRef-PolyForm-Perimeter-1.0.1",
   "type": "module",
   "scripts": {
@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@n-uf/docking": "workspace:*",
     "@n-uf/motion": "workspace:*",
     "@n-uf/placement": "workspace:*"
   },

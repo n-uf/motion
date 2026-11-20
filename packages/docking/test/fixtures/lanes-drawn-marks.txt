@@ -1,0 +1,1057 @@
+kit: window 1, columns both sides: as seen
+  bar:bottom bar:bottom/line/^|panels line 3,599 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,599 2x31
+kit: window 1, columns both sides: bar:top/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|panels line 3,599 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 868x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,31 30x568
+kit: window 1, columns both sides: bar:left/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|panels line 3,599 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 30,0 838x31
+  bar:left bar:left/box/^|$ box 0,0 30x599
+  bar:right bar:right/box/^|$ box 838,31 30x568
+kit: window 1, columns both sides: bar:right/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|panels line 3,599 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 838x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,0 30x599
+kit: window 1, columns both sides, 28 px rails: as seen
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
+  bar:bottom bar:bottom/line/^|panels line 3,599 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,599 2x31
+kit: window 1, columns both sides, 28 px rails: bar:top/start/^|$@slide held
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
+  bar:bottom bar:bottom/line/^|panels line 3,599 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 868x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,31 30x568
+kit: window 1, columns both sides, 28 px rails: bar:left/start/^|$@slide held
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
+  bar:bottom bar:bottom/line/^|panels line 3,599 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 30,0 838x31
+  bar:left bar:left/box/^|$ box 0,0 30x599
+  bar:right bar:right/box/^|$ box 838,31 30x568
+kit: window 1, columns both sides, 28 px rails: bar:right/start/^|$@slide held
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
+  bar:bottom bar:bottom/line/^|panels line 3,599 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 838x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,0 30x599
+kit: window 1, toolbars on the side rails: as seen
+  bar:bottom bar:bottom/box/^|marking box 0,599 477.63x31
+  bar:bottom bar:bottom/line/marking|$ line 863,599 2x31
+  bar:left bar:left/line/^|panels line 0,0 30x0
+  bar:left bar:left/line/panels|tools line 0,122 30x2
+  bar:left bar:left/box/tools|$ box 0,230 30x369
+  bar:title bar:title/box/name|state box 241.63,-28 479.91x28
+  bar:right bar:right/box/^|$ box 838,0 30x599
+kit: window 1, toolbars on the side rails: bar:top/start/^|$@slide held
+  bar:bottom bar:bottom/box/^|marking box 0,599 477.63x31
+  bar:bottom bar:bottom/line/marking|$ line 863,599 2x31
+  bar:left bar:left/line/^|panels line 0,31 30x0
+  bar:left bar:left/line/panels|tools line 0,153 30x2
+  bar:left bar:left/box/tools|$ box 0,261 30x338
+  bar:title bar:title/box/name|state box 241.63,-28 479.91x28
+  bar:top bar:top/box/^|$ box 30,0 548.67x31
+  bar:right bar:right/box/^|$ box 838,31 30x568
+kit: window 1, cards: as seen
+  bar:bottom bar:bottom/box/^|panels box 0,597 118x31
+  bar:bottom bar:bottom/box/panels|marking box 155.95,597 321.67x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 155.95,597 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,597 2x31
+  bar:title bar:title/box/name|state box 241.63,-30 321.53x30
+  bar:title bar:title/line/state|page line 654.98,-30 2x30
+  bar:title bar:title/line/page|zoom line 704.63,-30 2x30
+  bar:title bar:title/line/zoom|$ line 863,-30 2x30
+kit: window 1, cards: bar:top/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|panels line 3,597 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,597 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,597 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,597 2x31
+  bar:title bar:title/box/name|state box 241.63,-30 321.53x30
+  bar:title bar:title/line/state|page line 654.98,-30 2x30
+  bar:title bar:title/line/page|zoom line 704.63,-30 2x30
+  bar:title bar:title/line/zoom|$ line 863,-30 2x30
+  bar:top bar:top/box/^|$ box 0,0 868x31
+  bar:left bar:left/box/^|$ box 0,31 30x566
+  bar:right bar:right/box/^|$ box 838,31 30x566
+kit: window 1, cards: bar:left/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|panels line 3,597 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,597 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,597 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,597 2x31
+  bar:title bar:title/box/name|state box 241.63,-30 321.53x30
+  bar:title bar:title/line/state|page line 654.98,-30 2x30
+  bar:title bar:title/line/page|zoom line 704.63,-30 2x30
+  bar:title bar:title/line/zoom|$ line 863,-30 2x30
+  bar:top bar:top/box/^|$ box 30,0 838x31
+  bar:left bar:left/box/^|$ box 0,0 30x597
+  bar:right bar:right/box/^|$ box 838,31 30x566
+kit: window 1, cards: bar:right/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|panels line 3,597 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,597 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,597 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,597 2x31
+  bar:title bar:title/box/name|state box 241.63,-30 321.53x30
+  bar:title bar:title/line/state|page line 654.98,-30 2x30
+  bar:title bar:title/line/page|zoom line 704.63,-30 2x30
+  bar:title bar:title/line/zoom|$ line 863,-30 2x30
+  bar:top bar:top/box/^|$ box 0,0 838x31
+  bar:left bar:left/box/^|$ box 0,31 30x566
+  bar:right bar:right/box/^|$ box 838,0 30x597
+kit: window 1, one column: as seen
+  bar:bottom bar:bottom/line/^|panels line 3,597 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,597 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,597 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,597 2x31
+  bar:title bar:title/box/name|state box 241.63,-30 479.91x30
+kit: window 1, one column: bar:top/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|panels line 3,597 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,597 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,597 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,597 2x31
+  bar:title bar:title/box/name|state box 241.63,-30 479.91x30
+  bar:top bar:top/box/^|$ box 0,0 868x31
+  bar:left bar:left/box/^|$ box 0,31 30x566
+  bar:right bar:right/box/^|$ box 838,31 30x566
+kit: window 1, one column: bar:left/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|panels line 3,597 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,597 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,597 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,597 2x31
+  bar:title bar:title/box/name|state box 241.63,-30 479.91x30
+  bar:top bar:top/box/^|$ box 30,0 838x31
+  bar:left bar:left/box/^|$ box 0,0 30x597
+  bar:right bar:right/box/^|$ box 838,31 30x566
+kit: window 1, one column: bar:right/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|panels line 3,597 2x31
+  bar:bottom bar:bottom/box/panels|marking box 370.25,597 107.38x31
+  bar:bottom bar:bottom/hatch/panels|marking:before hatch 370.25,597 8x31
+  bar:bottom bar:bottom/line/marking|$ line 863,597 2x31
+  bar:title bar:title/box/name|state box 241.63,-30 479.91x30
+  bar:top bar:top/box/^|$ box 0,0 838x31
+  bar:left bar:left/box/^|$ box 0,31 30x566
+  bar:right bar:right/box/^|$ box 838,0 30x597
+kit: window 2, columns both sides: as seen
+  bar:title bar:title/box/readout|zoom box 385.89,-69 720.59x32
+  bar:title bar:title/line/zoom|$ line 1236,-69 2x32
+  bar:top bar:top/line/^|panels line 3,550 2x41
+  bar:top bar:top/box/panels|marking box 326.52,550 324.34x41
+  bar:top bar:top/line/marking|$ line 1235,550 2x41
+kit: window 2, columns both sides: bar:left/start/^|$@slide held
+  bar:title bar:title/box/readout|zoom box 385.89,-69 720.59x32
+  bar:title bar:title/line/zoom|$ line 1236,-69 2x32
+  bar:top bar:top/line/^|panels line 3,550 2x41
+  bar:top bar:top/box/panels|marking box 326.52,550 324.34x41
+  bar:top bar:top/line/marking|$ line 1235,550 2x41
+  bar:left bar:left/box/^|$ box 0,0 28x550
+  bar:right bar:right/box/^|$ box 1212,0 28x550
+kit: window 2, columns both sides: bar:right/start/^|$@slide held
+  bar:title bar:title/box/readout|zoom box 385.89,-69 720.59x32
+  bar:title bar:title/line/zoom|$ line 1236,-69 2x32
+  bar:top bar:top/line/^|panels line 3,550 2x41
+  bar:top bar:top/box/panels|marking box 326.52,550 324.34x41
+  bar:top bar:top/line/marking|$ line 1235,550 2x41
+  bar:left bar:left/box/^|$ box 0,0 28x550
+  bar:right bar:right/box/^|$ box 1212,0 28x550
+kit: window 2, deck: as seen
+  bar:top bar:top/line/^|panels line 3,550 2x41
+  bar:top bar:top/line/panels|zoom line 329.52,550 2x41
+  bar:top bar:top/box/zoom|marking box 454.03,550 196.83x41
+  bar:top bar:top/line/marking|$ line 1235,550 2x41
+  bar:title bar:title/box/readout|$ box 385.89,-69 854.11x32
+kit: window 2, deck: bar:left/start/^|$@slide held
+  bar:top bar:top/line/^|panels line 3,550 2x41
+  bar:top bar:top/line/panels|zoom line 329.52,550 2x41
+  bar:top bar:top/box/zoom|marking box 454.03,550 196.83x41
+  bar:top bar:top/line/marking|$ line 1235,550 2x41
+  bar:title bar:title/box/readout|$ box 385.89,-69 854.11x32
+  bar:left bar:left/box/^|$ box 0,0 28x550
+  bar:right bar:right/box/^|$ box 1212,0 28x550
+kit: window 2, deck: bar:right/start/^|$@slide held
+  bar:top bar:top/line/^|panels line 3,550 2x41
+  bar:top bar:top/line/panels|zoom line 329.52,550 2x41
+  bar:top bar:top/box/zoom|marking box 454.03,550 196.83x41
+  bar:top bar:top/line/marking|$ line 1235,550 2x41
+  bar:title bar:title/box/readout|$ box 385.89,-69 854.11x32
+  bar:left bar:left/box/^|$ box 0,0 28x550
+  bar:right bar:right/box/^|$ box 1212,0 28x550
+kit: window 2, toolbars on the side rails: as seen
+  bar:top bar:top/box/^|marking box 0,550 650.86x41
+  bar:top bar:top/line/marking|$ line 1235,550 2x41
+  bar:left bar:left/line/^|panels line 0,0 28x0
+  bar:left bar:left/box/panels|$ box 0,117 28x433
+  bar:right bar:right/line/^|zoom line 1212,0 28x0
+  bar:right bar:right/box/zoom|$ box 1212,99 28x451
+  bar:title bar:title/box/readout|$ box 385.89,-69 854.11x32
+kit: library window, pitched: as seen
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x414
+  title title/box/title|controls box 228,0 770x32
+kit: library window, pitched: top/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x382
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+kit: library window, pitched: rail-right/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x414
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x576
+lab: as captured, tools: as seen
+  rail-left rail-left/box/^|zoom box 0,32 30x166
+  rail-left rail-left/box/zoom|$ box 0,300 30x308
+  rail-left rail-left/hatch/zoom|$:before hatch 0,300 30x8
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+lab: as captured, tools: top/start/^|$@slide held
+  rail-left rail-left/line/^|zoom line 0,65 30x2
+  rail-left rail-left/box/zoom|$ box 0,170 30x438
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: as captured, tools: rail-right/start/^|$@slide held
+  rail-left rail-left/line/^|zoom line 0,33 30x2
+  rail-left rail-left/box/zoom|$ box 0,138 30x470
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x576
+lab: as captured, zoom: as seen
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x414
+  title title/box/title|controls box 228,0 770x32
+lab: as captured, zoom: top/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x382
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: as captured, zoom: rail-right/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x414
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x576
+lab: as captured, views: as seen
+  bottom bottom/box/^|review box 0,608 243x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  bottom bottom/hatch/review|$:before hatch 473,608 8x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/line/tools|zoom line 0,195 30x2
+  rail-left rail-left/box/zoom|$ box 0,300 30x308
+  title title/box/title|controls box 228,0 770x32
+lab: as captured, views: top/start/^|$@slide held
+  bottom bottom/line/^|review line 3,608 2x32
+  bottom bottom/box/review|$ box 238,608 842x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/line/tools|zoom line 0,227 30x2
+  rail-left rail-left/box/zoom|$ box 0,332 30x276
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: as captured, views: rail-right/start/^|$@slide held
+  bottom bottom/line/^|review line 3,608 2x32
+  bottom bottom/box/review|$ box 238,608 842x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/line/tools|zoom line 0,195 30x2
+  rail-left rail-left/box/zoom|$ box 0,300 30x308
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x576
+lab: as captured, review: as seen
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/line/tools|zoom line 0,195 30x2
+  rail-left rail-left/box/zoom|$ box 0,300 30x308
+  title title/box/title|controls box 228,0 770x32
+lab: as captured, review: top/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/line/tools|zoom line 0,227 30x2
+  rail-left rail-left/box/zoom|$ box 0,332 30x276
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: as captured, review: rail-right/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/line/tools|zoom line 0,195 30x2
+  rail-left rail-left/box/zoom|$ box 0,300 30x308
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x576
+lab: zoom on the right rail, tools: as seen
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-right rail-right/line/^|zoom line 1050,33 30x2
+  rail-right rail-right/box/zoom|$ box 1050,138 30x470
+  title title/box/title|controls box 228,0 770x32
+  rail-left rail-left/box/^|$ box 0,32 30x576
+lab: zoom on the right rail, tools: top/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-right rail-right/line/^|zoom line 1050,65 30x2
+  rail-right rail-right/box/zoom|$ box 1050,170 30x438
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+  rail-left rail-left/box/^|$ box 0,64 30x544
+lab: zoom on the right rail, zoom: as seen
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x414
+  title title/box/title|controls box 228,0 770x32
+  rail-right rail-right/box/^|$ box 1050,32 30x576
+lab: zoom on the right rail, zoom: top/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x382
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: zoom on the right rail, views: as seen
+  bottom bottom/box/^|review box 0,608 243x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  bottom bottom/hatch/review|$:before hatch 473,608 8x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x414
+  rail-right rail-right/line/^|zoom line 1050,33 30x2
+  rail-right rail-right/box/zoom|$ box 1050,138 30x470
+  title title/box/title|controls box 228,0 770x32
+lab: zoom on the right rail, views: top/start/^|$@slide held
+  bottom bottom/line/^|review line 3,608 2x32
+  bottom bottom/box/review|$ box 238,608 842x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x382
+  rail-right rail-right/line/^|zoom line 1050,65 30x2
+  rail-right rail-right/box/zoom|$ box 1050,170 30x438
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+lab: zoom on the right rail, review: as seen
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x414
+  rail-right rail-right/line/^|zoom line 1050,33 30x2
+  rail-right rail-right/box/zoom|$ box 1050,138 30x470
+  title title/box/title|controls box 228,0 770x32
+lab: zoom on the right rail, review: top/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x382
+  rail-right rail-right/line/^|zoom line 1050,65 30x2
+  rail-right rail-right/box/zoom|$ box 1050,170 30x438
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+lab: both rails empty, tools and zoom in the top bar, tools: as seen
+  top top/box/^|zoom box 0,32 174x32
+  top top/box/zoom|$ box 335,32 745x32
+  top top/hatch/zoom|$:before hatch 335,32 8x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+lab: both rails empty, tools and zoom in the top bar, tools: rail-left/start/^|$@slide held
+  top top/line/^|zoom line 3,32 2x32
+  top top/box/zoom|$ box 169,32 911x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+  rail-left rail-left/box/^|$ box 0,64 30x544
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: both rails empty, tools and zoom in the top bar, tools: rail-right/start/^|$@slide held
+  top top/line/^|zoom line 3,32 2x32
+  top top/box/zoom|$ box 169,32 911x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+  rail-left rail-left/box/^|$ box 0,64 30x544
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: both rails empty, tools and zoom in the top bar, zoom: as seen
+  top top/line/^|tools line 3,32 2x32
+  top top/box/tools|$ box 166,32 914x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+lab: both rails empty, tools and zoom in the top bar, zoom: rail-left/start/^|$@slide held
+  top top/line/^|tools line 3,32 2x32
+  top top/box/tools|$ box 166,32 914x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+  rail-left rail-left/box/^|$ box 0,64 30x544
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: both rails empty, tools and zoom in the top bar, zoom: rail-right/start/^|$@slide held
+  top top/line/^|tools line 3,32 2x32
+  top top/box/tools|$ box 166,32 914x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+  rail-left rail-left/box/^|$ box 0,64 30x544
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: both rails empty, tools and zoom in the top bar, views: as seen
+  bottom bottom/box/^|review box 0,608 243x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  bottom bottom/hatch/review|$:before hatch 473,608 8x32
+  top top/line/^|tools line 3,32 2x32
+  top top/line/tools|zoom line 169,32 2x32
+  top top/box/zoom|$ box 335,32 745x32
+  title title/box/title|controls box 228,0 770x32
+lab: both rails empty, tools and zoom in the top bar, views: rail-left/start/^|$@slide held
+  bottom bottom/line/^|review line 3,608 2x32
+  bottom bottom/box/review|$ box 238,608 842x32
+  top top/line/^|tools line 3,32 2x32
+  top top/line/tools|zoom line 169,32 2x32
+  top top/box/zoom|$ box 335,32 745x32
+  title title/box/title|controls box 228,0 770x32
+  rail-left rail-left/box/^|$ box 0,64 30x544
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: both rails empty, tools and zoom in the top bar, views: rail-right/start/^|$@slide held
+  bottom bottom/line/^|review line 3,608 2x32
+  bottom bottom/box/review|$ box 238,608 842x32
+  top top/line/^|tools line 3,32 2x32
+  top top/line/tools|zoom line 169,32 2x32
+  top top/box/zoom|$ box 335,32 745x32
+  title title/box/title|controls box 228,0 770x32
+  rail-left rail-left/box/^|$ box 0,64 30x544
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: both rails empty, tools and zoom in the top bar, review: as seen
+  top top/line/^|tools line 3,32 2x32
+  top top/line/tools|zoom line 169,32 2x32
+  top top/box/zoom|$ box 335,32 745x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  title title/box/title|controls box 228,0 770x32
+lab: both rails empty, tools and zoom in the top bar, review: rail-left/start/^|$@slide held
+  top top/line/^|tools line 3,32 2x32
+  top top/line/tools|zoom line 169,32 2x32
+  top top/box/zoom|$ box 335,32 745x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  title title/box/title|controls box 228,0 770x32
+  rail-left rail-left/box/^|$ box 0,64 30x544
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: both rails empty, tools and zoom in the top bar, review: rail-right/start/^|$@slide held
+  top top/line/^|tools line 3,32 2x32
+  top top/line/tools|zoom line 169,32 2x32
+  top top/box/zoom|$ box 335,32 745x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  title title/box/title|controls box 228,0 770x32
+  rail-left rail-left/box/^|$ box 0,64 30x544
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: every panel on the left, tools: as seen
+  rail-left rail-left/box/^|zoom box 0,32 30x166
+  rail-left rail-left/box/zoom|$ box 0,300 30x308
+  rail-left rail-left/hatch/zoom|$:before hatch 0,300 30x8
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+lab: every panel on the left, tools: top/start/^|$@slide held
+  rail-left rail-left/line/^|zoom line 0,65 30x2
+  rail-left rail-left/box/zoom|$ box 0,170 30x438
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: every panel on the left, tools: rail-right/start/^|$@slide held
+  rail-left rail-left/line/^|zoom line 0,33 30x2
+  rail-left rail-left/box/zoom|$ box 0,138 30x470
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x576
+lab: every panel on the left, zoom: as seen
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x414
+  title title/box/title|controls box 228,0 770x32
+lab: every panel on the left, zoom: top/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x382
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: every panel on the left, zoom: rail-right/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x414
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x576
+lab: every panel on the left, views: as seen
+  bottom bottom/box/^|review box 0,608 243x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  bottom bottom/hatch/review|$:before hatch 473,608 8x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/line/tools|zoom line 0,195 30x2
+  rail-left rail-left/box/zoom|$ box 0,300 30x308
+  title title/box/title|controls box 228,0 770x32
+lab: every panel on the left, views: top/start/^|$@slide held
+  bottom bottom/line/^|review line 3,608 2x32
+  bottom bottom/box/review|$ box 238,608 842x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/line/tools|zoom line 0,227 30x2
+  rail-left rail-left/box/zoom|$ box 0,332 30x276
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: every panel on the left, views: rail-right/start/^|$@slide held
+  bottom bottom/line/^|review line 3,608 2x32
+  bottom bottom/box/review|$ box 238,608 842x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/line/tools|zoom line 0,195 30x2
+  rail-left rail-left/box/zoom|$ box 0,300 30x308
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x576
+lab: every panel on the left, review: as seen
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/line/tools|zoom line 0,195 30x2
+  rail-left rail-left/box/zoom|$ box 0,300 30x308
+  title title/box/title|controls box 228,0 770x32
+lab: every panel on the left, review: top/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/line/tools|zoom line 0,227 30x2
+  rail-left rail-left/box/zoom|$ box 0,332 30x276
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: every panel on the left, review: rail-right/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/line/tools|zoom line 0,195 30x2
+  rail-left rail-left/box/zoom|$ box 0,300 30x308
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 30,32 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x576
+lab: views and review in the top bar, tools: as seen
+  rail-left rail-left/box/^|zoom box 0,64 30x166
+  top top/line/^|views line 3,32 2x32
+  top top/line/views|review line 238,32 2x32
+  top top/box/review|$ box 473,32 607x32
+  title title/box/title|controls box 228,0 770x32
+lab: views and review in the top bar, tools: bottom/start/^|$@slide held
+  rail-left rail-left/line/^|zoom line 0,65 30x2
+  rail-left rail-left/box/zoom|$ box 0,170 30x284.5
+  top top/line/^|views line 3,32 2x32
+  top top/line/views|review line 238,32 2x32
+  top top/box/review|$ box 473,32 607x32
+  title title/box/title|controls box 228,0 770x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: views and review in the top bar, tools: rail-right/start/^|$@slide held
+  rail-left rail-left/line/^|zoom line 0,65 30x2
+  rail-left rail-left/box/zoom|$ box 0,170 30x284.5
+  top top/line/^|views line 3,32 2x32
+  top top/line/views|review line 238,32 2x32
+  top top/box/review|$ box 473,32 607x32
+  title title/box/title|controls box 228,0 770x32
+  bottom bottom/box/^|$ box 30,608 1020x32
+  rail-right rail-right/box/^|$ box 1050,64 30x576
+lab: views and review in the top bar, zoom: as seen
+  top top/line/^|views line 3,32 2x32
+  top top/line/views|review line 238,32 2x32
+  top top/box/review|$ box 473,32 607x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x242.5
+  title title/box/title|controls box 228,0 770x32
+lab: views and review in the top bar, zoom: bottom/start/^|$@slide held
+  top top/line/^|views line 3,32 2x32
+  top top/line/views|review line 238,32 2x32
+  top top/box/review|$ box 473,32 607x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x242.5
+  title title/box/title|controls box 228,0 770x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: views and review in the top bar, zoom: rail-right/start/^|$@slide held
+  top top/line/^|views line 3,32 2x32
+  top top/line/views|review line 238,32 2x32
+  top top/box/review|$ box 473,32 607x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x242.5
+  title title/box/title|controls box 228,0 770x32
+  bottom bottom/box/^|$ box 30,608 1020x32
+  rail-right rail-right/box/^|$ box 1050,64 30x576
+lab: views and review in the top bar, views: as seen
+  top top/box/^|review box 0,32 243x32
+  top top/box/review|$ box 473,32 607x32
+  top top/hatch/review|$:before hatch 473,32 8x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/line/tools|zoom line 0,227 30x2
+  rail-left rail-left/box/zoom|$ box 0,332 30x154
+  title title/box/title|controls box 228,0 770x32
+lab: views and review in the top bar, views: bottom/start/^|$@slide held
+  top top/line/^|review line 3,32 2x32
+  top top/box/review|$ box 238,32 842x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/line/tools|zoom line 0,227 30x2
+  rail-left rail-left/box/zoom|$ box 0,332 30x154
+  title title/box/title|controls box 228,0 770x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: views and review in the top bar, views: rail-right/start/^|$@slide held
+  top top/line/^|review line 3,32 2x32
+  top top/box/review|$ box 238,32 842x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/line/tools|zoom line 0,227 30x2
+  rail-left rail-left/box/zoom|$ box 0,332 30x154
+  title title/box/title|controls box 228,0 770x32
+  bottom bottom/box/^|$ box 30,608 1020x32
+  rail-right rail-right/box/^|$ box 1050,64 30x576
+lab: views and review in the top bar, review: as seen
+  top top/line/^|views line 3,32 2x32
+  top top/box/views|$ box 235,32 845x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/line/tools|zoom line 0,227 30x2
+  rail-left rail-left/box/zoom|$ box 0,332 30x154
+  title title/box/title|controls box 228,0 770x32
+lab: views and review in the top bar, review: bottom/start/^|$@slide held
+  top top/line/^|views line 3,32 2x32
+  top top/box/views|$ box 235,32 845x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/line/tools|zoom line 0,227 30x2
+  rail-left rail-left/box/zoom|$ box 0,332 30x154
+  title title/box/title|controls box 228,0 770x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: views and review in the top bar, review: rail-right/start/^|$@slide held
+  top top/line/^|views line 3,32 2x32
+  top top/box/views|$ box 235,32 845x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/line/tools|zoom line 0,227 30x2
+  rail-left rail-left/box/zoom|$ box 0,332 30x154
+  title title/box/title|controls box 228,0 770x32
+  bottom bottom/box/^|$ box 30,608 1020x32
+  rail-right rail-right/box/^|$ box 1050,64 30x576
+lab: the title bar full, tools: as seen
+  rail-left rail-left/box/^|$ box 0,32 30x414.5
+lab: the title bar full, tools: top/start/^|$@slide held
+  top top/box/^|$ box 30,32 1050x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-left rail-left/box/^|$ box 0,64 30x382.5
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: the title bar full, tools: bottom/start/^|$@slide held
+  top top/box/^|$ box 30,32 1050x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-left rail-left/box/^|$ box 0,32 30x414.5
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: the title bar full, tools: rail-right/start/^|$@slide held
+  top top/box/^|$ box 30,32 1020x32
+  bottom bottom/box/^|$ box 30,608 1020x32
+  rail-left rail-left/box/^|$ box 0,32 30x414.5
+  rail-right rail-right/box/^|$ box 1050,32 30x608
+lab: the title bar full, zoom: as seen
+  title title/line/title|review line 231,0 2x32
+  title title/line/review|views line 469,0 2x32
+  title title/box/views|controls box 701,0 297x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x266.5
+lab: the title bar full, zoom: top/start/^|$@slide held
+  title title/line/title|review line 231,0 2x32
+  title title/line/review|views line 469,0 2x32
+  title title/box/views|controls box 701,0 297x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x234.5
+  top top/box/^|$ box 30,32 1050x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: the title bar full, zoom: bottom/start/^|$@slide held
+  title title/line/title|review line 231,0 2x32
+  title title/line/review|views line 469,0 2x32
+  title title/box/views|controls box 701,0 297x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x266.5
+  top top/box/^|$ box 30,32 1050x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: the title bar full, zoom: rail-right/start/^|$@slide held
+  title title/line/title|review line 231,0 2x32
+  title title/line/review|views line 469,0 2x32
+  title title/box/views|controls box 701,0 297x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x266.5
+  top top/box/^|$ box 30,32 1020x32
+  bottom bottom/box/^|$ box 30,608 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x608
+lab: the title bar full, views: as seen
+  title title/line/title|review line 231,0 2x32
+  title title/box/review|zoom box 466,0 243x32
+  title title/box/zoom|controls box 870,0 128x32
+  title title/hatch/zoom|controls:before hatch 870,0 8x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x266.5
+lab: the title bar full, views: top/start/^|$@slide held
+  title title/line/title|review line 231,0 2x32
+  title title/line/review|zoom line 469,0 2x32
+  title title/box/zoom|controls box 635,0 363x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x234.5
+  top top/box/^|$ box 30,32 1050x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: the title bar full, views: bottom/start/^|$@slide held
+  title title/line/title|review line 231,0 2x32
+  title title/line/review|zoom line 469,0 2x32
+  title title/box/zoom|controls box 635,0 363x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x266.5
+  top top/box/^|$ box 30,32 1050x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: the title bar full, views: rail-right/start/^|$@slide held
+  title title/line/title|review line 231,0 2x32
+  title title/line/review|zoom line 469,0 2x32
+  title title/box/zoom|controls box 635,0 363x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x266.5
+  top top/box/^|$ box 30,32 1020x32
+  bottom bottom/box/^|$ box 30,608 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x608
+lab: the title bar full, review: as seen
+  title title/box/title|views box 228,0 246x32
+  title title/line/views|zoom line 704,0 2x32
+  title title/box/zoom|controls box 870,0 128x32
+  title title/hatch/zoom|controls:before hatch 870,0 8x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x259.5
+lab: the title bar full, review: top/start/^|$@slide held
+  title title/line/title|views line 231,0 2x32
+  title title/line/views|zoom line 466,0 2x32
+  title title/box/zoom|controls box 632,0 366x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x227.5
+  top top/box/^|$ box 30,32 1050x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: the title bar full, review: bottom/start/^|$@slide held
+  title title/line/title|views line 231,0 2x32
+  title title/line/views|zoom line 466,0 2x32
+  title title/box/zoom|controls box 632,0 366x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x259.5
+  top top/box/^|$ box 30,32 1050x32
+  bottom bottom/box/^|$ box 30,608 1050x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: the title bar full, review: rail-right/start/^|$@slide held
+  title title/line/title|views line 231,0 2x32
+  title title/line/views|zoom line 466,0 2x32
+  title title/box/zoom|controls box 632,0 366x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x259.5
+  top top/box/^|$ box 30,32 1020x32
+  bottom bottom/box/^|$ box 30,608 1020x32
+  rail-right rail-right/box/^|$ box 1050,32 30x608
+lab: zoom at the top bar's start, tools: as seen
+  top top/line/^|zoom line 3,32 2x32
+  top top/box/zoom|$ box 169,32 911x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+  rail-left rail-left/box/^|$ box 0,64 30x544
+lab: zoom at the top bar's start, tools: rail-right/start/^|$@slide held
+  top top/line/^|zoom line 3,32 2x32
+  top top/box/zoom|$ box 169,32 911x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  title title/box/title|controls box 228,0 770x32
+  rail-left rail-left/box/^|$ box 0,64 30x544
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: zoom at the top bar's start, zoom: as seen
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x382
+  rail-left rail-left/hatch/tools|$:before hatch 0,226 30x8
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 0,32 1080x32
+lab: zoom at the top bar's start, zoom: rail-right/start/^|$@slide held
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/line/views|review line 238,608 2x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  rail-left rail-left/line/^|tools line 0,33 30x2
+  rail-left rail-left/box/tools|$ box 0,194 30x414
+  title title/box/title|controls box 228,0 770x32
+  top top/box/^|$ box 270,32 540x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: zoom at the top bar's start, views: as seen
+  bottom bottom/box/^|review box 0,608 243x32
+  bottom bottom/box/review|$ box 473,608 607x32
+  bottom bottom/hatch/review|$:before hatch 473,608 8x32
+  top top/line/^|zoom line 3,32 2x32
+  top top/box/zoom|$ box 169,32 911x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x382
+  title title/box/title|controls box 228,0 770x32
+lab: zoom at the top bar's start, views: rail-right/start/^|$@slide held
+  bottom bottom/line/^|review line 3,608 2x32
+  bottom bottom/box/review|$ box 238,608 842x32
+  top top/line/^|zoom line 3,32 2x32
+  top top/box/zoom|$ box 169,32 911x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x382
+  title title/box/title|controls box 228,0 770x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+lab: zoom at the top bar's start, review: as seen
+  top top/line/^|zoom line 3,32 2x32
+  top top/box/zoom|$ box 169,32 911x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x382
+  title title/box/title|controls box 228,0 770x32
+lab: zoom at the top bar's start, review: rail-right/start/^|$@slide held
+  top top/line/^|zoom line 3,32 2x32
+  top top/box/zoom|$ box 169,32 911x32
+  bottom bottom/line/^|views line 3,608 2x32
+  bottom bottom/box/views|$ box 235,608 845x32
+  rail-left rail-left/line/^|tools line 0,65 30x2
+  rail-left rail-left/box/tools|$ box 0,226 30x382
+  title title/box/title|controls box 228,0 770x32
+  rail-right rail-right/box/^|$ box 1050,64 30x544
+library window, 30 px rails: as seen
+  bottom bottom/box/^|zoom box 0,604 212x36
+  bottom bottom/box/zoom|$ box 412,604 668x36
+  bottom bottom/hatch/zoom|$:before hatch 412,604 8x36
+library window, 30 px rails: rail-left/start/^|$@slide held
+  bottom bottom/line/^|zoom line 3,604 2x36
+  bottom bottom/box/zoom|$ box 208,604 872x36
+  rail-left rail-left/box/^|$ box 0,0 30x604
+  rail-right rail-right/box/^|$ box 1050,0 30x604
+library window, 30 px rails: rail-right/start/^|$@slide held
+  bottom bottom/line/^|zoom line 3,604 2x36
+  bottom bottom/box/zoom|$ box 208,604 872x36
+  rail-left rail-left/box/^|$ box 0,0 30x604
+  rail-right rail-right/box/^|$ box 1050,0 30x604
+library window, 21 px rails: as seen
+  bottom bottom/line/^|tools line 3,604 2x36
+  bottom bottom/box/tools|$ box 208,604 872x36
+library window, 21 px rails: rail-left/start/^|$@slide held
+  bottom bottom/line/^|tools line 3,604 2x36
+  bottom bottom/box/tools|$ box 208,604 872x36
+  rail-left rail-left/box/^|$ box 0,0 21x604
+  rail-right rail-right/box/^|$ box 1059,0 21x604
+library window, 21 px rails: rail-right/start/^|$@slide held
+  bottom bottom/line/^|tools line 3,604 2x36
+  bottom bottom/box/tools|$ box 208,604 872x36
+  rail-left rail-left/box/^|$ box 0,0 21x604
+  rail-right rail-right/box/^|$ box 1059,0 21x604
+real window, empty side rails: as seen
+  bar:bottom bar:bottom/box/^|status box 0,599 477.63x31
+  bar:bottom bar:bottom/line/status|$ line 863,599 2x31
+real window, empty side rails: bar:top/start/^|$@slide held
+  bar:bottom bar:bottom/box/^|status box 0,599 477.63x31
+  bar:bottom bar:bottom/line/status|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 868x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,31 30x568
+real window, empty side rails: bar:left/start/^|$@slide held
+  bar:bottom bar:bottom/box/^|status box 0,599 477.63x31
+  bar:bottom bar:bottom/line/status|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 30,0 838x31
+  bar:left bar:left/box/^|$ box 0,0 30x599
+  bar:right bar:right/box/^|$ box 838,31 30x568
+real window, empty side rails: bar:right/start/^|$@slide held
+  bar:bottom bar:bottom/box/^|status box 0,599 477.63x31
+  bar:bottom bar:bottom/line/status|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 838x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,0 30x599
+empty-corners.json, views: as seen
+  bar:bottom bar:bottom/box/^|review box 0,599 477.63x31
+  bar:bottom bar:bottom/line/review|$ line 863,599 2x31
+empty-corners.json, views: bar:top/start/^|$@slide held
+  bar:bottom bar:bottom/box/^|review box 0,599 477.63x31
+  bar:bottom bar:bottom/line/review|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 868x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,31 30x568
+empty-corners.json, views: bar:left/start/^|$@slide held
+  bar:bottom bar:bottom/box/^|review box 0,599 477.63x31
+  bar:bottom bar:bottom/line/review|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 30,0 838x31
+  bar:left bar:left/box/^|$ box 0,0 30x599
+  bar:right bar:right/box/^|$ box 838,31 30x568
+empty-corners.json, views: bar:right/start/^|$@slide held
+  bar:bottom bar:bottom/box/^|review box 0,599 477.63x31
+  bar:bottom bar:bottom/line/review|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 838x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,0 30x599
+empty-corners.json, tools: as seen
+  bar:bottom bar:bottom/line/^|views line 3,599 2x31
+  bar:bottom bar:bottom/box/views|review box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/views|review:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/review|$ line 863,599 2x31
+empty-corners.json, tools: bar:top/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|views line 3,599 2x31
+  bar:bottom bar:bottom/box/views|review box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/views|review:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/review|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 868x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,31 30x568
+empty-corners.json, tools: bar:left/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|views line 3,599 2x31
+  bar:bottom bar:bottom/box/views|review box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/views|review:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/review|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 30,0 838x31
+  bar:left bar:left/box/^|$ box 0,0 30x599
+  bar:right bar:right/box/^|$ box 838,31 30x568
+empty-corners.json, tools: bar:right/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|views line 3,599 2x31
+  bar:bottom bar:bottom/box/views|review box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/views|review:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/review|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 838x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,0 30x599
+columns-corner.json, g2: as seen
+  bar:bottom bar:bottom/box/^|z1 box 0,599 477.63x31
+  bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
+columns-corner.json, g2: bar:top/start/^|$@slide held
+  bar:bottom bar:bottom/box/^|z1 box 0,599 477.63x31
+  bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 868x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,31 30x568
+columns-corner.json, g2: bar:left/start/^|$@slide held
+  bar:bottom bar:bottom/box/^|z1 box 0,599 477.63x31
+  bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 30,0 838x31
+  bar:left bar:left/box/^|$ box 0,0 30x599
+  bar:right bar:right/box/^|$ box 838,31 30x568
+columns-corner.json, g2: bar:right/start/^|$@slide held
+  bar:bottom bar:bottom/box/^|z1 box 0,599 477.63x31
+  bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 838x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,0 30x599
+columns-corner.json, g3: as seen
+  bar:bottom bar:bottom/line/^|g2 line 3,599 2x31
+  bar:bottom bar:bottom/box/g2|z1 box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/g2|z1:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
+columns-corner.json, g3: bar:top/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|g2 line 3,599 2x31
+  bar:bottom bar:bottom/box/g2|z1 box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/g2|z1:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 868x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,31 30x568
+columns-corner.json, g3: bar:left/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|g2 line 3,599 2x31
+  bar:bottom bar:bottom/box/g2|z1 box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/g2|z1:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 30,0 838x31
+  bar:left bar:left/box/^|$ box 0,0 30x599
+  bar:right bar:right/box/^|$ box 838,31 30x568
+columns-corner.json, g3: bar:right/start/^|$@slide held
+  bar:bottom bar:bottom/line/^|g2 line 3,599 2x31
+  bar:bottom bar:bottom/box/g2|z1 box 370.25,599 107.38x31
+  bar:bottom bar:bottom/hatch/g2|z1:before hatch 370.25,599 8x31
+  bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
+  bar:top bar:top/box/^|$ box 0,0 838x31
+  bar:left bar:left/box/^|$ box 0,31 30x568
+  bar:right bar:right/box/^|$ box 838,0 30x599

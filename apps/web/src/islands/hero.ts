@@ -21,14 +21,14 @@ import type { Point, Rect } from "@n-uf/motion";
 import { createDragIntent, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
 import { createLayoutMotion, drawBox, holdItem, type Drawable, type HeldDrag } from "@n-uf/motion/layout";
 import type { RectSample } from "@n-uf/motion/testing";
-import type { SceneTarget } from "@n-uf/placement/scene";
+import type { DockDrop } from "@n-uf/docking";
 import { drive, getSpeed, getTempo, loop, newSettle, omega, onMotionChange, reduced, setSpeed, setTempo, type Tempo } from "./motion";
 import { dropMode } from "./drop-mode";
 import { registerShowcase, setDragging, userAction } from "./showcase";
 import { NEEDLE, PLOT, TEMPOS, judge, pathOf, planOf, plotX, plotY, simulateRun, type RunReport } from "../demos/hero";
 
 interface DeskDragTarget extends DragTarget {
-  readonly target: SceneTarget;
+  readonly target: DockDrop;
 }
 type Where = { readonly kind: "pad" } | { readonly kind: "stage"; readonly slot: Rect };
 

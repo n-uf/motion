@@ -1,0 +1,78 @@
+{
+  "name": "@n-uf/docking",
+  "version": "26.11.52",
+  "description": "Where panels and toolbars dock: a window's bars, rails, columns, items and floats solved into a layout, with the drop places, refusals and lanes of every drag. Pure state in, rects out. No DOM, no framework, no motion.",
+  "keywords": [
+    "docking",
+    "dock",
+    "layout",
+    "panels",
+    "palettes",
+    "toolbar",
+    "overflow",
+    "drag-and-drop",
+    "drop-targets",
+    "window-layout"
+  ],
+  "license": "LicenseRef-PolyForm-Perimeter-1.0.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/n-uf/motion.git",
+    "directory": "packages/docking"
+  },
+  "homepage": "https://motion.n-uf.com",
+  "bugs": {
+    "url": "https://github.com/n-uf/motion/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./testing": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup && node ./scripts/check-dist.mjs",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "prepack": "pnpm --filter @n-uf/placement build && pnpm run build"
+  },
+  "dependencies": {
+    "@n-uf/placement": "workspace:*"
+  },
+  "devDependencies": {
+    "@n-uf/motion": "workspace:*",
+    "@types/node": "^25.5.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.12"
+  }
+}

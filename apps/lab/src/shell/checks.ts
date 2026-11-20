@@ -4,11 +4,11 @@
  * headless runs use; a scenario is listed under the first page whose view takes it. `window.__motionLab.runAll` on
  * this page runs everything, so one headless call checks the whole lab.
  *
- * "Conformance rows" runs every row of `@n-uf/placement/scene/cases` on its in-memory host, right here (no frame): the
+ * "Conformance rows" runs every row of `@n-uf/docking/testing` on its in-memory host, right here (no frame): the
  * same rows the UI kits' suites run on their own hosts. The DOM checks have no page behind them here and are skipped.
  */
 import { targetAt } from "@n-uf/motion/drag";
-import { CASES, CASE_GROUPS, createSceneHost, runCase } from "@n-uf/placement/scene/cases";
+import { CASES, CASE_GROUPS, createReferenceHost, runCase } from "@n-uf/docking/testing";
 import { passes, type LabRun, type ScenarioFilter } from "../shared/hooks";
 import { routeHash } from "./api";
 import { GROUPS, type GroupId, type PageDef, type View } from "./page-defs";
@@ -85,13 +85,13 @@ function conformance(filter?: ScenarioFilter): CheckRow[] {
     // A row that needs a drag intent is skipped here (the in-memory host picks at the point); the Document window runs it.
     if (row.requires?.intent) continue;
     // The one pick rule: motion's, the rule the lab's drag sessions run.
-    const result = runCase(row, createSceneHost({ pick: targetAt }));
+    const result = runCase(row, createReferenceHost({ pick: targetAt }));
     out.push({
       page: ROWS_PAGE,
       scenario,
       mode: CASE_GROUPS.find((g) => g.id === row.group)?.title ?? row.group,
       failed: result.ok ? [] : [row.id],
-      // A row that needs a library rule the Scene lacks shows red with the rule named: the page never fakes it.
+      // A row that needs a library rule the DockState lacks shows red with the rule named: the page never fakes it.
       rows: [{ name: row.expect, result: { ok: result.ok, failures: !result.ok && row.lacks ? [`lacks: ${row.lacks}`, ...result.failures] : result.failures } }],
     });
   }

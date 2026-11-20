@@ -2,24 +2,24 @@
   "name": "motion-workspace",
   "version": "0.0.0",
   "private": true,
-  "description": "Workspace for @n-uf/motion (one frame loop with an injected clock, signals, springs and tweens, a gesture recogniser) and @n-uf/placement (tiling, docks, toolbars and their drop targets).",
+  "description": "Workspace for @n-uf/motion (how things move: one frame loop with an injected clock, springs and tweens, a gesture recognizer, the drag intent and the landing model), @n-uf/placement (where things fit: the edge cut, the edge fit, tiling and the popup positioner) and @n-uf/docking (where panels and toolbars dock).",
   "license": "LicenseRef-PolyForm-Perimeter-1.0.1",
   "packageManager": "pnpm@10.12.1",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm --filter @n-uf/motion build && pnpm --filter @n-uf/placement build",
-    "typecheck": "pnpm --filter @n-uf/motion typecheck && pnpm --filter @n-uf/placement typecheck",
-    "test": "pnpm --filter @n-uf/motion test && pnpm --filter @n-uf/placement test",
+    "build": "pnpm --filter @n-uf/motion build && pnpm --filter @n-uf/placement build && pnpm --filter @n-uf/docking build",
+    "typecheck": "pnpm --filter @n-uf/motion typecheck && pnpm --filter @n-uf/placement typecheck && pnpm --filter @n-uf/docking typecheck",
+    "test": "pnpm --filter @n-uf/motion test && pnpm --filter @n-uf/placement test && pnpm --filter @n-uf/docking test",
     "bench": "pnpm --filter @n-uf/motion bench",
-    "check": "pnpm --filter @n-uf/motion check && pnpm --filter @n-uf/placement check && pnpm --filter motion-lab typecheck && pnpm dirt && pnpm public-words && pnpm terminology",
+    "check": "pnpm --filter @n-uf/motion check && pnpm --filter @n-uf/placement check && pnpm --filter @n-uf/docking check && pnpm --filter motion-lab typecheck && pnpm dirt && pnpm public-words && pnpm terminology",
     "dirt": "node scripts/dirt.mjs",
     "public-words": "node scripts/public-words.mjs && node --test scripts/public-words.test.mjs",
     "terminology": "node scripts/terminology.mjs && node --test scripts/terminology.test.mjs",
     "lab": "pnpm --filter motion-lab dev",
     "release:next-version": "pnpm --filter @n-uf/motion release:next-version",
-    "version:bump": "pnpm --filter @n-uf/motion version:bump && node scripts/sync-placement-version.mjs"
+    "version:bump": "pnpm --filter @n-uf/motion version:bump && node scripts/sync-versions.mjs"
   },
   "devDependencies": {
     "dependency-cruiser": "18.7.2",

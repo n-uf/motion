@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { area, overlaps, rect, type Rect } from "../index";
 import { cutEdges, type BandSide, type EdgeBand } from "../src/stack";
-import { seeded } from "./scene-fixture";
+import { seeded } from "./stack-fixture";
 
 const SIDES: readonly BandSide[] = ["top", "right", "bottom", "left"];
 const inside = (r: Rect, s: Rect): boolean => r.x >= s.x - 1e-9 && r.y >= s.y - 1e-9 && r.x + r.width <= s.x + s.width + 1e-9 && r.y + r.height <= s.y + s.height + 1e-9;

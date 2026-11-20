@@ -1,11 +1,11 @@
 /**
- * The drag feel: per item kind, how a drop into a side's rail works. The geometry goes into the Scene as its rail drop
- * policy (`Scene.railDrop`, from `@n-uf/placement/scene`); the time and the keys go into the drag intent's tuning
+ * The drag feel: per item kind, how a drop into a side's rail works. The geometry goes into the DockState as its rail drop
+ * policy (`DockState.railDrop`, from `@n-uf/docking`); the time and the keys go into the drag intent's tuning
  * (`DragTuning`, from `@n-uf/motion/drag`). Panels start with rail docking on; toolbars start at today's values (no rail
  * strip, no dwell, no keys), and tuning one never changes the other. Stored per viewer.
  */
 import type { DragTuning, ModifierKey } from "@n-uf/motion/drag";
-import { DEFAULT_RAIL_MAGNET, RAIL_VISIBILITIES, type RailDropPolicy, type RailVisibility, type Scene } from "@n-uf/placement/scene";
+import { DEFAULT_RAIL_MAGNET, type RailDropPolicy, type RailVisibility, type DockState } from "@n-uf/docking";
 
 /** One kind's feel. `railStripWidth` null: the rail's drawn width. */
 export interface KindFeel {
@@ -35,8 +35,8 @@ export const DEFAULT_FEEL: DragFeel = { panel: PANEL_FEEL, group: GROUP_FEEL };
 /** Whether a kind's feel docks into the side's rail at all. */
 const docksInRail = (f: KindFeel): boolean => f.railVisibility !== "never" && f.railStripWidth !== 0;
 
-/** The scene with the feel's rail drop policies: one per kind that docks into the rail; none for the others. */
-export function withFeel(s: Scene, feel: DragFeel): Scene {
+/** The state with the feel's rail drop policies: one per kind that docks into the rail; none for the others. */
+export function withFeel(s: DockState, feel: DragFeel): DockState {
   const railDrop: Record<string, RailDropPolicy> = {};
   for (const kind of ["panel", "group"] as const) {
     const f = feel[kind];

@@ -1,11 +1,12 @@
 /**
- * Cases from UI kits' windows, checked on the Scene directly (this window has no declared rails): dynamic panel columns
+ * Cases from UI kits' windows, checked on the DockState directly (this window has no declared rails): dynamic panel columns
  * on both sides, a 32 px rail each side, hand folds that ride, maybe a thumbnail anchor. Each reads `targets` and
  * `refusals` at the window's sides; the document window is left as it is.
  */
 import { targetAt } from "@n-uf/motion/drag";
-import type { Edge, Scene, SceneItem } from "@n-uf/placement/scene";
-import { refusals, targets } from "@n-uf/placement/scene";
+import type { DockEdge, DockState, DockItem } from "@n-uf/docking";
+import { markUsed, moveTo, refusals, solve, stops, targets } from "@n-uf/docking";
+import { defaultState } from "./model";
 
 /** A case's verdict and the case itself, in the presets' shape (it needs no window). */
 interface Verdict {
@@ -24,11 +25,11 @@ interface Preset {
 type Shape = "inset" | "flush";
 
 /** A kit-shaped window: Pages and Notes on the left, Findings alone on the right; with `anchor`, thumbnails at the far left. */
-function kitWindow(shape: Shape, anchor: boolean, width = 1440): Scene {
+function kitWindow(shape: Shape, anchor: boolean, width = 1440): DockState {
   const inset = shape === "inset";
   const card = inset ? { min: 220, max: 640, natural: 300 } : { min: 200, max: 560, natural: 280 };
   const gap = inset ? 12 : 0;
-  const items: Record<string, SceneItem> = {};
+  const items: Record<string, DockItem> = {};
   for (const [i, id] of ["pages", "notes", "findings"].entries())
     items[id] = {
       id,
@@ -44,7 +45,7 @@ function kitWindow(shape: Shape, anchor: boolean, width = 1440): Scene {
       floatSize: { width: card.natural, height: 440 },
     };
   const template = { accepts: ["panel"], cross: { min: card.min, max: card.max, rail: 32 }, gap };
-  const edges: Edge[] = [
+  const edges: DockEdge[] = [
     { id: "left-0", side: "left", ring: anchor ? 1 : 0, column: true, items: ["pages", "notes"], ...template },
     { id: "right-0", side: "right", ring: 0, column: true, items: ["findings"], ...template },
   ];
@@ -69,7 +70,7 @@ function kitWindow(shape: Shape, anchor: boolean, width = 1440): Scene {
 }
 
 /** What each x in `xs` picks at height `y` for a drag of `drag`, as runs: `id a..b`. */
-function sweep(s: Scene, drag: string, y: number, xs: readonly number[]): { id: string; from: number; to: number }[] {
+function sweep(s: DockState, drag: string, y: number, xs: readonly number[]): { id: string; from: number; to: number }[] {
   const ts = targets(s, drag);
   const rs = refusals(s, drag);
   const runs: { id: string; from: number; to: number }[] = [];
@@ -111,7 +112,63 @@ function sweepCase(id: string, title: string, expected: string, o: { anchor: boo
 }
 
 /**
- * The window's first px is a conformance row now (P16 in `@n-uf/placement/scene/cases`, with a drop at the outer 10 px
+ * The title bar with a state cell and a page cell (fixed, at the end, `pushable` or not) and Zoom homed after them, "state
+ * page zoom"; the window's controls are left out, so the cells are the end zone's whole fixed run.
+ */
+function stateBar(pushable: boolean): DockState {
+  const s = defaultState();
+  const cell = (id: string, width: number): DockItem => ({ id, kind: "chrome", used: 0, fixed: true, align: "end", ...(pushable ? { pushable: true } : {}), forms: { row: [{ kind: "row", main: { min: width, natural: width }, cross: { natural: 28 } }] } });
+  const { controls: _controls, ...items } = s.items;
+  return {
+    ...s,
+    edges: s.edges.map((e) => (e.id === "title" ? { ...e, items: ["title", "state", "page", "zoom"] } : e)),
+    items: { ...items, state: cell("state", 72), page: cell("page", 48) },
+  };
+}
+
+/**
+ * Put back at the gap after the end-anchored cells: with Zoom moved out of the title bar, the places "Move to ›" offers
+ * Zoom in the title bar's end zone include the one after State and Page when they are `pushable` (and not between them),
+ * and moving there restores "state page zoom"; without the flag no place after them is offered.
+ */
+function pushableCase(): Preset {
+  const tail = "gap:title:end:2";
+  const between = "gap:title:end:1";
+  const out = (s: DockState): DockState => markUsed(moveTo(s, "zoom", { kind: "gap", edge: "bottom", zone: "start", at: 0 }), "zoom");
+  return {
+    id: "kit-pushable-cells-put-back",
+    title: "Put back after the title bar's state and page cells",
+    expected:
+      "In a title bar whose end zone holds a state cell and a page cell (fixed, declared `pushable`) with Zoom homed after them, Zoom moved to the bottom bar has the gap after the cells among its stops (not the gap between them), and \"Move to ›\" that gap puts the title bar back to \"state page zoom\": Zoom last, the cells pushed left by its width. Without `pushable` the cells keep the bar's end and no place after them is offered.",
+    setup: () => undefined,
+    check(): Verdict {
+      const away = out(stateBar(true));
+      const list = stops(away, "zoom");
+      const ids = list.map((t) => t.id);
+      const bad: string[] = [];
+      const tailStop = list.find((t) => t.id === tail);
+      if (!tailStop) bad.push(`${tail} is not a stop`);
+      if (ids.includes(between)) bad.push(`${between} is a stop`);
+      let said = `Zoom's title bar stops: ${ids.filter((i) => i.startsWith("gap:title:end")).join(", ")}`;
+      if (tailStop) {
+        const back = tailStop.after({ x: 0, y: 0 }, { x: 0, y: 0 }).state;
+        const order = back.edges.find((e) => e.id === "title")!.items.join(" ");
+        const l = solve(back);
+        const x = (id: string): number => Math.round(l.items[id]!.rect.x);
+        said += `; Put back: ${order} at x ${x("state")}, ${x("page")}, ${x("zoom")}`;
+        if (order !== "title state page zoom" || !(x("state") < x("page") && x("page") < x("zoom"))) bad.push(`Put back gives ${order}`);
+        if (Math.round(l.items.zoom!.rect.x + l.items.zoom!.rect.width) !== Math.round(l.edges.title!.rect.x + l.edges.title!.rect.width - 8)) bad.push("Zoom is not at the bar's end");
+      }
+      const plain = stops(out(stateBar(false)), "zoom").map((t) => t.id);
+      said += `; without the flag: ${plain.filter((i) => i.startsWith("gap:title:end")).join(", ")}`;
+      if (plain.includes(tail)) bad.push(`${tail} is a stop without the flag`);
+      return { pass: bad.length === 0, now: `${said}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  };
+}
+
+/**
+ * The window's first px is a conformance row now (P16 in `@n-uf/docking/testing`, with a drop at the outer 10 px
  * and over a column's own line), played on the reference host and on this window. Left here: the sweeps, which read
  * every px of a range.
  */

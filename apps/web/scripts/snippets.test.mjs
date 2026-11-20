@@ -15,13 +15,13 @@ const pkgExports = (name) => {
   const f = join(web, `../../packages/${name}/package.json`);
   return existsSync(f) ? JSON.parse(readFileSync(f, "utf8")).exports : {};
 };
-const exportsOf = { motion: pkgExports("motion"), placement: pkgExports("placement") };
+const exportsOf = { motion: pkgExports("motion"), placement: pkgExports("placement"), docking: pkgExports("docking") };
 const snippets = readdirSync(join(web, "src/snippets")).filter((f) => f.endsWith(".ts"));
 const excluded = new Set(tsconfig.exclude ?? []);
 
 /** The package entries a snippet imports: "motion ." for the root, "placement ./toolbar" for @n-uf/placement/toolbar. */
 const entriesOf = (file) =>
-  [...readFileSync(join(web, "src/snippets", file), "utf8").matchAll(/from "@n-uf\/(motion|placement)(\/[\w-]+)?"/g)].map((m) => `${m[1]} ${m[2] ? `.${m[2]}` : "."}`);
+  [...readFileSync(join(web, "src/snippets", file), "utf8").matchAll(/from "@n-uf\/(motion|placement|docking)(\/[\w-]+)?"/g)].map((m) => `${m[1]} ${m[2] ? `.${m[2]}` : "."}`);
 const has = (entry) => { const [pkg, e] = entry.split(" "); return e in exportsOf[pkg]; };
 
 test("there are snippets, and the typecheck includes their folder", () => {

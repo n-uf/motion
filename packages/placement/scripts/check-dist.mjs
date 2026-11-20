@@ -1,9 +1,9 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, stack, scene, scene-cases, tiling, popup) and its type definitions exist;
+// - every entry (the root, stack, tiling, popup) and its type definitions exist;
 // - the JavaScript imports only its own chunks (no dependencies at all, @n-uf/motion included);
 // - no file touches a host global, and no type mentions a DOM type;
-// - Node can import every entry, and a stack gives way, a window lays out, a drop's preview is its result and a pane
-//   splits from the built code.
+// - Node can import every entry, and a stack gives way, a gap fits, the cut follows its order and a pane splits from the
+//   built code.
 // Exits 1 with a list of problems.
 
 import { existsSync, readFileSync } from "node:fs";
@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const ENTRIES = ["index", "stack", "scene", "scene-cases", "tiling", "popup"];
+const ENTRIES = ["index", "stack", "tiling", "popup"];
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|globalThis|matchMedia)\b/;
 const DOM_TYPES = /\b(Window|Document|Element|HTMLElement|Event|PointerEvent|MouseEvent|DOMRect)\b/;
 const problems = [];
@@ -58,15 +58,6 @@ if (problems.length === 0) {
     const m = {};
     for (const entry of ENTRIES) m[entry] = await import(pathToFileURL(join(dist, `${entry}.js`)).href);
     if (typeof m.popup.positionPopup !== "function") problems.push("popup.js: no positionPopup");
-    // The conformance rows run on the in-memory host from the built code, and a wrong expectation fails.
-    const sc = m["scene-cases"];
-    if (!Array.isArray(sc.CASES) || sc.CASES.length < 80) problems.push(`scene-cases.js: ${sc.CASES?.length} rows`);
-    // Rows that name a rule the library lacks (`lacks`) are expected to fail until it lands; rows that need a drag
-    // intent (`requires.intent`) are skipped on a host without one.
-    const failed = sc.CASES.filter((row) => !row.lacks && !row.requires?.intent && !sc.runCase(row, sc.createSceneHost()).ok).map((row) => row.id);
-    if (failed.length > 0) problems.push(`scene-cases.js: rows fail on the in-memory host: ${failed.slice(0, 5).join(", ")}`);
-    const broken = { ...sc.CASES[0], expectLayout: { items: { pages: { rect: { x: 9999 } } } } };
-    if (sc.runCase(broken, sc.createSceneHost()).ok) problems.push("scene-cases.js: a wrong expectation passed");
     const form = (kind, natural, cross, extra = {}) => ({ kind, main: { min: natural, natural, ...extra }, cross: { natural: cross } });
     const item = (id, used) => ({ id, used, forms: [form("open", 200, 240, { grows: true }), form("header", 28, 240), form("rail", 30, 30), form("menu", 0, 0)] });
     const stackFit = m.stack.fitStack({ axis: "column", length: 300, cross: { min: 100, max: 400 }, items: [item("a", 1), item("b", 2)] });
@@ -75,17 +66,6 @@ if (problems.length === 0) {
     if (gaps.length !== 2 || gaps.some((g) => !g.fits)) problems.push("stack.js: a stack of one item doesn't have two gaps that fit");
     const cut = m.stack.cutEdges({ x: 0, y: 0, width: 800, height: 600 }, [{ id: "top", side: "top", size: 40 }, { id: "left", side: "left", size: 200 }]);
     if (cut.bands.left?.y !== 40 || cut.rest.x !== 200) problems.push("stack.js: the cut didn't follow the band order");
-    const scene = {
-      stage: { x: 0, y: 0, width: 800, height: 500 },
-      edges: [{ id: "left", side: "left", ring: 0, accepts: ["panel"], items: ["a"], cross: { min: 100, max: 400 } }],
-      items: { a: { id: "a", kind: "panel", used: 1, forms: { column: [item("a", 1).forms[0]] } }, b: { id: "b", kind: "panel", used: 2, forms: { column: [item("b", 2).forms[0]] } } },
-      floats: [],
-      floatKinds: [],
-    };
-    const solved = m.scene.solve(scene);
-    if (solved.content.x !== 240 || solved.items.a?.edge !== "left") problems.push("scene.js: the left column didn't take its panel's width");
-    const sceneTargets = m.scene.targets(scene, "b");
-    if (sceneTargets.length !== 2 || sceneTargets.some((t) => JSON.stringify(m.scene.solve(t.after({ x: 0, y: 0 }).scene)) !== JSON.stringify(t.after({ x: 0, y: 0 }).layout))) problems.push("scene.js: a column of one panel doesn't have two gaps whose preview is the result");
     const t = m.tiling;
     const split = t.dropOnPane(t.splitFromOrder(["a", "b"]), "c", "b", "top");
     const tiles = t.layoutSplit(split, { x: 0, y: 0, width: 800, height: 400 });

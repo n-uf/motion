@@ -25,7 +25,7 @@ const counts = {};
 
 // dependency-cruiser: violations per rule.
 const cruise = JSON.parse(
-  run("depcruise", ["-c", ".dependency-cruiser.cjs", "-T", "json", "packages/motion/src", "packages/motion/index.ts", "packages/motion/browser.ts", "packages/placement/src", "packages/placement/index.ts", "apps/lab/src", "apps/web/src"]),
+  run("depcruise", ["-c", ".dependency-cruiser.cjs", "-T", "json", "packages/motion/src", "packages/motion/index.ts", "packages/motion/browser.ts", "packages/placement/src", "packages/placement/index.ts", "packages/docking/src", "apps/lab/src", "apps/web/src"]),
 );
 for (const v of cruise.summary.violations) counts[`depcruise:${v.rule.name}`] = (counts[`depcruise:${v.rule.name}`] ?? 0) + 1;
 

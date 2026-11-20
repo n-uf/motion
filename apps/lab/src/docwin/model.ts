@@ -1,12 +1,12 @@
 /**
- * The document window as a `Scene` from `@n-uf/placement/scene`: the title bar (a fixed title and fixed window controls
+ * The document window as a `DockState` from `@n-uf/docking`: the title bar (a fixed title and fixed window controls
  * around the groups it takes), the top and bottom bars, the left and right columns, the panels and control groups, and
  * the floats. Each edge says which kinds it accepts (deny by default) and `floatKinds` which kinds may float; the
- * Scene's `solve` and `targets` enforce them. This file only declares the window: no rule is computed here.
+ * DockState's `solve` and `targets` enforce them. This file only declares the window: no rule is computed here.
  */
 import type { Rect, Size } from "@n-uf/placement";
 import type { StackForm } from "@n-uf/placement/stack";
-import type { Edge, Scene, SceneItem } from "@n-uf/placement/scene";
+import type { DockEdge, DockState, DockItem } from "@n-uf/docking";
 
 export type EdgeId = "title" | "top" | "left" | "right" | "bottom" | "rail-left" | "rail-right";
 
@@ -55,7 +55,7 @@ const MENU = f("menu", 0, 0);
  * the page measures it. Until measured, a panel has no title form and its rail shows its tile, as before.
  */
 let titleSizes: Readonly<Partial<Record<PanelId, number>>> = {};
-/** The panels' measured rail-title lengths, which every scene built (or re-formed) afterwards uses. */
+/** The panels' measured rail-title lengths, which every state built (or re-formed) afterwards uses. */
 export function setTitleSizes(m: Readonly<Partial<Record<PanelId, number>>>): void {
   titleSizes = m;
 }
@@ -67,14 +67,14 @@ const panelColumn = (id: PanelId): StackForm[] => {
 };
 
 /** `s` with every panel's forms built anew from the measured sizes (a count changed the titles' lengths). */
-export function reformPanels(s: Scene): Scene {
+export function reformPanels(s: DockState): DockState {
   const items = { ...s.items };
   for (const id of PANELS) if (items[id]) items[id] = { ...items[id]!, forms: { column: panelColumn(id) } };
   return { ...s, items };
 }
 
 /**
- * A group as the page draws it, measured from its rendered buttons (the page measures before it builds a scene; the box
+ * A group as the page draws it, measured from its rendered buttons (the page measures before it builds a state; the box
  * hugs its content, grip, padding and border included):
  * - `row`: its one-row width;
  * - `words`: each word's width in the order the `wrap` form lists them (Views' "Pages · Notes 2 · Findings 20",
@@ -112,13 +112,13 @@ export const ZOOM_CONTROLS: readonly { readonly id: string | null; readonly labe
  */
 export const ROW_VARIANTS: Readonly<Partial<Record<GroupId, readonly (readonly string[])[]>>> = { zoom: [["fit"], ["-", "+", "fit"]] };
 let measured: Readonly<Record<GroupId, GroupMeasure>> | null = null;
-/** The groups' measured widths, which every scene built afterwards uses. */
+/** The groups' measured widths, which every state built afterwards uses. */
 export function setGroupSizes(m: Readonly<Record<GroupId, GroupMeasure>>): void {
   measured = m;
 }
-/** The measured widths (the page measures them on start, before its first scene). */
+/** The measured widths (the page measures them on start, before its first state). */
 function groupSizes():Readonly<Record<GroupId, GroupMeasure>> {
-  if (!measured) throw new Error("docwin: the groups are measured on the page before a scene is built");
+  if (!measured) throw new Error("docwin: the groups are measured on the page before a state is built");
   return measured;
 }
 /** Words that wrap beside the grip (a hanging indent), never one word alone on a row that isn't the last. */
@@ -158,7 +158,7 @@ export const TITLES: Record<ItemId, string> = {
   title: "Title",
   controls: "Window controls",
 };
-/** An item's title: this window's own, or, for an item of a scene loaded from elsewhere (a conformance row), its id in words. */
+/** An item's title: this window's own, or, for an item of a state loaded from elsewhere (a conformance row), its id in words. */
 export const titleOf = (id: string): string => (TITLES as Readonly<Record<string, string>>)[id] ?? id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, " ");
 
 /** The toolbars that go into a » menu last (the highest give-way priority): Zoom and Review. */
@@ -166,8 +166,8 @@ const PRIORITY: Partial<Record<GroupId, number>> = { zoom: 10, review: 10 };
 /** The title bar's toolbars step down before other bars' (its default priority). */
 const TITLE_BAR_PRIORITY = -1;
 
-function itemOf(id: ItemId, used: number): SceneItem {
-  if (isPanel(id)) return { id, kind: "panel", forms: { column: panelColumn(id) }, floatSize: floatSize(id), used };
+function itemOf(id: ItemId, used: number): DockItem {
+  if (isPanel(id)) return { id, kind: "panel", forms: { column: panelColumn(id) }, floatSizes: { column: floatSize(id) }, used };
   // A toolbar group declares its row forms first, so it floats as a row (`floatOrientOf`).
   if (isGroup(id)) return { id, kind: "group", forms: { row: groupRow(id), column: groupColumn(id) }, floatSize: floatSize(id), used, ...(PRIORITY[id] !== undefined ? { priority: PRIORITY[id] } : {}) };
   // The title takes the bar's spare length and shrinks to its minimum; the controls are one fixed size at the end.
@@ -175,7 +175,7 @@ function itemOf(id: ItemId, used: number): SceneItem {
   return { id, kind: "chrome", forms: { row: [f("row", 3 * 22 + 8, BAR)] }, used: 0, fixed: true, align: "end" };
 }
 
-const bar = (id: EdgeId, side: "top" | "bottom", ring: number, items: ItemId[]): Edge => ({
+const bar = (id: EdgeId, side: "top" | "bottom", ring: number, items: ItemId[]): DockEdge => ({
   id,
   side,
   ring,
@@ -186,7 +186,7 @@ const bar = (id: EdgeId, side: "top" | "bottom", ring: number, items: ItemId[]):
   pad: { start: BAR_INSET, end: BAR_INSET },
 });
 /** A thin rail of vertical toolbars at the window's side (ring 0, outside the column): icons only, stacked, each grip the divider. */
-const rail = (id: EdgeId, side: "left" | "right", items: ItemId[]): Edge => ({
+const rail = (id: EdgeId, side: "left" | "right", items: ItemId[]): DockEdge => ({
   id,
   side,
   ring: 0,
@@ -197,7 +197,7 @@ const rail = (id: EdgeId, side: "left" | "right", items: ItemId[]): Edge => ({
   gap: 4,
   pad: { start: 4, end: 4 },
 });
-const column = (id: EdgeId, side: "left" | "right", items: ItemId[]): Edge => ({
+const column = (id: EdgeId, side: "left" | "right", items: ItemId[]): DockEdge => ({
   id,
   side,
   ring: 1,
@@ -214,9 +214,9 @@ const column = (id: EdgeId, side: "left" | "right", items: ItemId[]): Edge => ({
  * The default layout: Pages above Notes on the left, Findings on the right, Zoom in the title bar, Views and Review in
  * the bottom bar, Tools floating at the content's top-right corner.
  */
-export function defaultScene(size: Size = DEFAULT_SIZE): Scene {
+export function defaultState(size: Size = DEFAULT_SIZE): DockState {
   const order: ItemId[] = ["findings", "review", "views", "zoom", "tools", "notes", "pages", "title", "controls"];
-  const items = Object.fromEntries(ALL.map((id) => [id, itemOf(id, order.indexOf(id) + 1)])) as Record<ItemId, SceneItem>;
+  const items = Object.fromEntries(ALL.map((id) => [id, itemOf(id, order.indexOf(id) + 1)])) as Record<ItemId, DockItem>;
   return {
     stage: { x: 0, y: 0, width: size.width, height: size.height },
     edges: [{ ...bar("title", "top", 0, ["title", "zoom", "controls"]), priority: TITLE_BAR_PRIORITY }, bar("top", "top", 1, []), column("left", "left", ["pages", "notes"]), column("right", "right", ["findings"]), bar("bottom", "bottom", 0, ["views", "review"]), rail("rail-left", "left", []), rail("rail-right", "right", [])],
@@ -226,10 +226,10 @@ export function defaultScene(size: Size = DEFAULT_SIZE): Scene {
   };
 }
 
-// --- plain edits for the presets (each returns a new scene) -----------------------------------------------------------
+// --- plain edits for the presets (each returns a new state) -----------------------------------------------------------
 
 /** The edge's items set to `ids` (taken out of every other edge and the floats; the edge's fixed items kept around them). */
-export function put(s: Scene, edge: EdgeId, ids: ItemId[]): Scene {
+export function put(s: DockState, edge: EdgeId, ids: ItemId[]): DockState {
   const moving = new Set<string>(ids);
   return {
     ...s,
@@ -245,7 +245,7 @@ export function put(s: Scene, edge: EdgeId, ids: ItemId[]): Scene {
 }
 
 /** The item floating at `rect` (out of every edge). */
-export function floating(s: Scene, id: ItemId, rect: Rect): Scene {
+export function floating(s: DockState, id: ItemId, rect: Rect): DockState {
   return {
     ...s,
     edges: s.edges.map((e) => ({ ...e, items: e.items.filter((x) => x !== id) })),
@@ -254,12 +254,12 @@ export function floating(s: Scene, id: ItemId, rect: Rect): Scene {
 }
 
 /** Ages in order, oldest first. */
-export function ages(s: Scene, ids: ItemId[]): Scene {
+export function ages(s: DockState, ids: ItemId[]): DockState {
   const items = { ...s.items };
   ids.forEach((id, i) => (items[id] = { ...items[id]!, used: i + 1 }));
   return { ...s, items };
 }
 
-export const withStage = (s: Scene, size: Size): Scene => ({ ...s, stage: { x: 0, y: 0, width: size.width, height: size.height } });
+export const withStage = (s: DockState, size: Size): DockState => ({ ...s, stage: { x: 0, y: 0, width: size.width, height: size.height } });
 
-export const edgeOf = (s: Scene, id: EdgeId): Edge => s.edges.find((e) => e.id === id)!;
+export const edgeOf = (s: DockState, id: EdgeId): DockEdge => s.edges.find((e) => e.id === id)!;

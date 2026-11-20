@@ -1,16 +1,14 @@
 {
   "name": "@n-uf/placement",
-  "version": "26.11.53",
-  "description": "Where things go: a window's bars, rails, columns, items and floats solved into a layout, with the drop targets, refusals and lanes of every drag. Pure state in, rects out. No DOM, no framework, no motion.",
+  "version": "26.11.52",
+  "description": "Where things fit: the stage cut into edge bands, the items along one edge fitted with their forms, one edge's drop places, floats kept clear, panes tiled and popups positioned. Pure geometry in, rects out. No DOM, no framework, no motion.",
   "keywords": [
     "layout",
-    "docking",
-    "dock",
+    "geometry",
     "panels",
-    "palettes",
     "toolbar",
     "overflow",
-    "drag-and-drop",
+    "tiling",
     "drop-targets",
     "positioner",
     "popup"
@@ -36,14 +34,6 @@
       "types": "./src/stack/index.ts",
       "default": "./src/stack/index.ts"
     },
-    "./scene": {
-      "types": "./src/scene/index.ts",
-      "default": "./src/scene/index.ts"
-    },
-    "./scene/cases": {
-      "types": "./src/scene/cases/index.ts",
-      "default": "./src/scene/cases/index.ts"
-    },
     "./tiling": {
       "types": "./src/tiling/index.ts",
       "default": "./src/tiling/index.ts"
@@ -65,14 +55,6 @@
       "./stack": {
         "types": "./dist/stack.d.ts",
         "default": "./dist/stack.js"
-      },
-      "./scene": {
-        "types": "./dist/scene.d.ts",
-        "default": "./dist/scene.js"
-      },
-      "./scene/cases": {
-        "types": "./dist/scene-cases.d.ts",
-        "default": "./dist/scene-cases.js"
       },
       "./tiling": {
         "types": "./dist/tiling.d.ts",
@@ -99,7 +81,6 @@
     "prepack": "pnpm run build"
   },
   "devDependencies": {
-    "@n-uf/motion": "workspace:*",
     "@types/node": "^25.5.0",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
