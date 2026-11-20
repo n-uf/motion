@@ -263,6 +263,14 @@ function givesWay(
   return (side === "before" ? p1 - q1 : q0 - p0) > 0.5 ? "moves" : null;
 }
 
+/**
+ * The layout as seen with the held item lifted (its room given back to its stretch, `lift`): what the window showed
+ * before this drop, the one layout stretches and `givesWay` compare a drop with.
+ */
+function liftedLayout(scene: Scene, dragged: string, options: LaneOptions): SceneLayout {
+  return solve(lift(scene, dragged), options.previous ? { previous: options.previous } : {});
+}
+
 /** A spot of a lane before its stretch is known. */
 interface Raw {
   readonly lane: string;
@@ -317,6 +325,12 @@ interface Marking {
   readonly natural: (id: string, axis: Axis) => number | undefined;
   /** The edge's own gap between items, px: room no larger than it between two items is none (they touch). */
   readonly gap: (edge: string) => number;
+  /**
+   * The layout as seen with the held item lifted (what the window showed before this drop): what `givesWay` compares a
+   * drop's layout with, whichever layout the marks are drawn in (with `spot`, the held spot's, where a neighbor has
+   * already stepped down).
+   */
+  readonly lifted: SceneLayout;
 }
 
 const memo = new WeakMap<Scene, Map<string, Base>>();
@@ -422,6 +436,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
       return main?.grows ? main.natural : undefined;
     },
     gap: (edge) => nonNeg(scene.edges.find((e) => e.id === edge)?.gap),
+    lifted: liftedLayout(scene, dragged, options),
   };
   // Where the pointer holds the item, as a share of its length now, along its own length only (its longer side): a
   // landing of another length along that axis is held at the same share; across the item, where the share says only
@@ -567,7 +582,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
         besideMin: halves || marking.pitch <= 0 ? itemLen : marking.pitch,
         gap: marking.gap(first.edge),
         landingOf: (pair) => landings.get(pair),
-        givesWay: (iid, side, after) => givesWay(drawn.items[iid], after.items[iid], id, side, (r) => extent(iid, r)),
+        givesWay: (iid, side, after) => givesWay(marking.lifted.items[iid], after.items[iid], id, side, (r) => extent(iid, r)),
       })
     : virtualMarks(id, unique, drawn.items[dragged]);
   return { id, rect: laneRect, axis, spots, refused, marks, ...(list.every((r) => r.strip) ? { owns: true as const } : {}) };
@@ -890,7 +905,7 @@ interface Stretch {
 function stretches(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], visit: (edge: StretchEdge) => (stretch: Stretch) => void): void {
   if (!scene.items[dragged]) return;
   const prev = options.previous ? { previous: options.previous } : {};
-  const base = solve(lift(scene, dragged), prev);
+  const base = liftedLayout(scene, dragged, options);
   for (const e of scene.edges) {
     const bar = e.side === "top" || e.side === "bottom";
     if (!bar && !e.compact) continue;
