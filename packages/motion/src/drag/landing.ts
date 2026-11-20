@@ -498,11 +498,22 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       return less(all(l, true), at ? [at] : []);
     };
     if (guidesLevel === "near") return near ? nearGuides(near) : [];
-    // "all": every lane's. The lane the pointer picks shows its marks once entered (`entry`), and owns every corner it
-    // shares: the lanes it names in `corners` are cut where they overlap it, as `guideRects` cuts a box by a clear rect.
-    // With no such lane, each lane's `marks` (where two lanes would overlap, one of them already gave the corner up).
+    // "all": every lane's. The lane the pointer picks shows its marks once entered (`entry`). The corner two lanes share
+    // goes to the Near lane, else to the lane nearest the pointer within `reach`, for the corner only (it isn't made
+    // Near, pending or enterable): the lanes the owner names in `corners` are cut where they overlap it. With neither,
+    // each lane's `marks` (where two lanes would overlap, one already gave the corner up: the bar keeps it).
     const owns = (l: LandingLane | null | undefined): l is LandingLane => !!l && !!l.entry && !!l.corners?.length;
-    const owner: LandingLane | null = owns(near) ? near : null;
+    let owner: LandingLane | null = owns(near) ? near : null;
+    if (!owner && !near) {
+      let d = approach.reach;
+      for (const l of regions.lanes) {
+        const dl = distanceTo(l.rect, p);
+        if (owns(l) && dl <= d) {
+          owner = l;
+          d = dl;
+        }
+      }
+    }
     const ownerMarks = owner ? (owner.id === near?.id ? nearGuides(owner) : all(owner, true)) : [];
     const cutBy = owner ? owner.entry!.map((m) => m.rect) : [];
     return regions.lanes.flatMap((l) => {
