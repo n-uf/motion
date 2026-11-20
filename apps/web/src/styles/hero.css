@@ -174,6 +174,8 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
 .tp.lift .tp-frame { border-color: var(--series-b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--series-b) 22%, transparent), var(--shadow-pop); }
 .tp.held, .tp.lift { z-index: 2; }
 .tp.held { cursor: grabbing; }
+/* On a touch screen a vertical swipe over the stage scrolls the page (the stage is most of the narrow screen); the pane is dragged sideways or by a mouse. */
+@media (pointer: coarse) { .tp { touch-action: pan-y pinch-zoom; } }
 .tp.held .tp-frame { border-color: var(--series-b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--series-b) 22%, transparent), var(--shadow-pop); }
 
 /* ---- The panel: the real element, and the strobe trail ----------------------------------------------------------- */
