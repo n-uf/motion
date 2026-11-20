@@ -18,6 +18,7 @@
  *
  * See docs/placement.md, Entry: stack (the exports) and Solving (the form ladder).
  */
+export { cutEdges, type BandSide, type EdgeBand, type EdgeCut } from "./cut";
 export { fitStack } from "./layout";
 export {
   DEFAULT_MENU,
