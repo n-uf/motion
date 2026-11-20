@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HATCH_END, lanes, solve, type Scene } from "../src/scene";
+import { LANDING_CASES } from "../src/scene/cases";
 import { bar, byId, form, group } from "./scene-fixture";
 
 /**
@@ -76,6 +77,13 @@ describe("a stretch is the room the drop makes (a neighbor steps down)", () => {
     expect(l.marks.some((m) => m.givesWay)).toBe(false);
     // The stretch is the room as seen: flush after wide's row form.
     expect(l.spots.find((s) => s.id === "bar:bottom/start/wide|ends@slide")!.slide!.from).toBeCloseTo(8 + 362.3 + 8, 1);
+  });
+
+  it("the landing row's bar: the stretch before panels (no room) is its plain dock, not a sliding spot of one point", () => {
+    const row = LANDING_CASES.find((r) => r.id === "landing-step-down-room")!;
+    const l = lanes(row.scene, "tools", { previous: solve(row.scene) }).lanes.find((x) => x.id === "bottom")!;
+    expect(l.spots.map((s) => s.id)).toContain("bottom/start/^|panels");
+    expect(l.spots.filter((s) => s.slide).map((s) => s.id)).toEqual(["bottom/start/panels|status@slide"]);
   });
 
   it("pitched: the room is filled at the pitch, not only its two ends", () => {

@@ -61,4 +61,24 @@ describe("seeded bars: marks and stretches", () => {
     // After g1: a drop there moves g1 from where it is drawn (172) to the bar's start, away from that room.
     expect(bar9.marks.filter((m) => m.givesWay).map((m) => `${m.id} ${m.givesWay}`)).toEqual(["bar/hatch/g1|$:before g1"]);
   });
+
+  it("bar#1: a stretch with room for the item at one start only is no sliding spot: the plain dock stays a spot of its own", () => {
+    const ids = lanesOf(1).regions.lanes.find((l) => l.id === "bar")!.spots.map((s) => s.id);
+    expect(ids).toContain("bar/start/g3|g1");
+    expect(ids.some((id) => id.startsWith("bar/start/g3|g1@slide"))).toBe(false);
+  });
+
+  it("bar#2: the item's own place in a stretch with room for it only there keeps its id and zone, no slide", () => {
+    const home = lanesOf(2).regions.lanes.find((l) => l.id === "bar")!.spots.find((s) => s.home)!;
+    expect(home.id).toBe("bar/end/g3|g2");
+    expect(home.slide).toBeUndefined();
+  });
+
+  it("no sliding spot is a point: every slide's range is at least a pixel (seeds 1 to 200, bars and rails)", () => {
+    const points: string[] = [];
+    for (let seed = 1; seed <= 200; seed++)
+      for (const rail of [false, true])
+        for (const l of lanesOf(seed, rail).regions.lanes) for (const s of l.spots) if (s.slide && s.slide.to - s.slide.from < 1) points.push(`${rail ? "rail" : "bar"}#${seed} ${s.id} [${s.slide.from}, ${s.slide.to}]`);
+    expect(points).toEqual([]);
+  });
 });
