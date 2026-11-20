@@ -5,6 +5,12 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
+- `./scene`, **an empty edge's lane gives way to a drawn edge at a corner** (fix). `lanes()` built an empty bar's lane
+  (not drawn) as its full edge width over the band its drop would draw, so an empty top bar's lane ran over a drawn
+  side rail's top, and a pointer coming down the rail stayed in the bar's lane. The marks already followed "at a corner
+  a lane not drawn gives way to a drawn one"; the lane's rect now does too: it is clipped along its axis to stop at the
+  drawn edge's side (its spots' `along` stretches with it). Between two edges not drawn the corner is unchanged.
+
 - `./scene/cases`, **the landing rows check the hand rule** (additive: a row's `moving.hand`; a host's `LandingPlay` may
   report its `stretchPositions`). While a lane holds, the landing is the nearest landing in its lane to the pointer
   and lies within `max(48, g / 2 + 6)` px of it (`max(56, g / 2 + 6)` on the frame before a hop), `g` the gap along

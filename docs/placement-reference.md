@@ -286,7 +286,10 @@ spots.
 **Lanes for a landing model.** `lanes(scene, id, options)` gives what a landing model (`@n-uf/motion/drag`) reads for a
 drag of `id`:
 - `lanes`: every edge that takes it (and the virtual ones: a new column's line, a declared rail), each with its rect, its
-  axis and its spots in order. A spot is a place a drop there lands: its `landing` rect, its `target` (the drop, its
+  axis and its spots in order. A drawn edge's lane rect is the edge; an empty one's is the band its drop would draw.
+  At a corner an empty edge's lane gives way to a drawn edge across it, the same rule as its marks: its rect is clipped
+  along its axis to stop at that edge's side (an empty top bar beside a drawn side rail starts at the rail's inner side),
+  and its spots' `along` stretches with it; between two edges not drawn the corner is as it was. A spot is a place a drop there lands: its `landing` rect, its `target` (the drop, its
   `after()`), and its `along` stretch of the lane, the part that picks it. In a panel column, between two spots that
   share a neighbor (the item `Y` in `X|Y` and `Y|Z`) the boundary is that item's middle as drawn, so a column takes a
   panel by halves; with `options.spot` the held spot's lane is drawn in that spot's own layout (its room open). On a bar
@@ -307,8 +310,8 @@ drag of `id`:
   it whatever the grab, so the pointer is at the landing it picks. Across the item, and in a lane across
   its length (a rail toolbar over a bar), the middle counts, as without a grab. Without it the item's middle is the
   grab, and a toolbar pressed near one end can come back to a free-stretch spot beside its own place. Panel columns cut
-  by halves whatever the grab. One case it doesn't settle: where another lane's band overlaps the press point (an
-  empty bar's band over the end of a rail), that lane can take the pointer first. Every cut lies inside its lane, in
+  by halves whatever the grab. One case it doesn't settle: where another lane's band overlaps the press point
+  (an empty bar's band over the end of a rail that is not drawn), that lane can take the pointer first. Every cut lies inside its lane, in
   order. A spot's `others` keys where its drop draws every item but
   the held one: a change between two spots with the same key moves only the held item, so a model gates only changes
   between spots whose keys differ (that reflow the window).
