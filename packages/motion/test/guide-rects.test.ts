@@ -183,8 +183,9 @@ describe("guideRects", () => {
     });
 
     it("a corner cut keeps `minLength` too: the piece a corner leaves is dropped when short", () => {
-      // A clear rect across the whole thickness leaves [100, 120]; a corner rect then leaves 6 px of it.
-      const out = guideRects([box], { inside: area, clear: [rect(120, 8, 50, 35), rect(106, 8, 50, 32)], clearance: 0 });
+      // A clear rect across the whole thickness leaves [100, 120]; a corner rect (30 px deep, 10 long: it cuts the
+      // length, it does not thin) then leaves 6 px of it.
+      const out = guideRects([box], { inside: area, clear: [rect(120, 8, 50, 35), rect(106, 8, 10, 32)], clearance: 0 });
       expect(shown(out)).toEqual([["b#2", rect(170, 10, 230, 31)]]);
     });
 
@@ -199,7 +200,8 @@ describe("guideRects", () => {
     });
 
     it("corner rects cut the parts the same in any order", () => {
-      const clear = [rect(120, 8, 50, 35), rect(200, 8, 30, 20), rect(230, 22, 40, 30), rect(300, 30, 10, 20)];
+      // Corners that cut the length (each pokes in deeper than it is long, so none thins the box).
+      const clear = [rect(120, 8, 50, 35), rect(200, 8, 10, 20), rect(230, 22, 10, 30), rect(300, 30, 10, 20)];
       const want = shown(guideRects([box], { inside: area, clear, clearance: 0 }));
       expect(want.length).toBeGreaterThan(1);
       for (const order of [[3, 2, 1, 0], [1, 3, 0, 2], [2, 0, 3, 1]]) {
@@ -307,6 +309,125 @@ describe("guideRects", () => {
       // A trim alone leaves one part, `b`; a trim that merges with the held rect's cut leaves the part after it, `b`.
       expect(shown(guideRects([box], { inside: area, clear: [neighbor] }))).toEqual([["b", rect(102, 10, 298, 31)]]);
       expect(shown(guideRects([box], { inside: area, clear: [rect(60, 8, 130, 35)] }))).toEqual([["b", rect(192, 10, 208, 31)]]);
+    });
+
+    it("C3: a clear rect that pokes partly into a box thins it, removing thickness and no length", () => {
+      // The title bar's case: an 868 x 29 box at y 31, a neighbor whose grown rect is x 0..52, y 0..33 (pokes 2 px).
+      const bar = { id: "bar/box", kind: "box" as const, rect: rect(0, 31, 868, 29) };
+      const all = rect(0, 0, 900, 100);
+      const out = guideRects([bar], { inside: all, inset: 0, clear: [rect(2, 2, 48, 29)], clearance: 2 });
+      expect(shown(out)).toEqual([["bar/box", rect(0, 33, 868, 27)]]);
+      // From the other side, and across a column (the box's thickness is x).
+      expect(shown(guideRects([bar], { inside: all, inset: 0, clear: [rect(2, 55, 48, 29)], clearance: 2 }))).toEqual([["bar/box", rect(0, 31, 868, 22)]]);
+      const col = { id: "col/box", kind: "box" as const, rect: rect(31, 0, 29, 868) };
+      expect(shown(guideRects([col], { inside: rect(0, 0, 100, 900), inset: 0, clear: [rect(2, 2, 29, 48)], clearance: 2 }))).toEqual([["col/box", rect(33, 0, 27, 868)]]);
+      // The deepest intrusion from each side wins, and a box thinned below `minThickness` is dropped.
+      const both = guideRects([bar], { inside: all, inset: 0, clear: [rect(0, 25, 60, 10), rect(100, 25, 60, 12), rect(200, 50, 60, 20)], clearance: 0 });
+      expect(shown(both)).toEqual([["bar/box", rect(0, 37, 868, 13)]]);
+      expect(guideRects([bar], { inside: all, inset: 0, clear: [rect(0, 25, 60, 34)], clearance: 0, minThickness: 2 })).toEqual([]);
+      // A rect that pokes deeper than it is long cuts along the length on the facing side, as before.
+      expect(shown(guideRects([bar], { inside: all, inset: 0, clear: [rect(0, 25, 8, 20)], clearance: 0 }))).toEqual([["bar/box", rect(8, 31, 860, 29)]]);
+    });
+
+    it("C3: 1 to 4 mixed clear rects (thinning and across the whole thickness) equal thinning, then 1-D interval subtraction, in any order", () => {
+      let s = 41;
+      const rnd = (): number => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+      const minLength = 8;
+      let thinned = 0;
+      let split = 0;
+      let dropped = 0;
+      for (let i = 0; i < 20000; i++) {
+        const horizontal = rnd() < 0.5;
+        const long = 120 + rnd() * 400;
+        const thick = 20 + rnd() * 30;
+        const at = 10 + rnd() * 200;
+        const gap = [0, 2, 5][Math.floor(rnd() * 3)]!;
+        const T0 = 50;
+        const T1 = 50 + thick;
+        const rects: Rect[] = [];
+        const cuts: [number, number][] = [];
+        let u0 = T0;
+        let u1 = T1;
+        const n = 1 + Math.floor(rnd() * 4);
+        for (let j = 0; j < n; j++) {
+          const kind = Math.floor(rnd() * 3);
+          if (kind === 0) {
+            // Across the whole thickness (grown): an interval along the box.
+            const len = 1 + rnd() * long * 0.3;
+            const from = at - len + rnd() * (long + len);
+            rects.push(horizontal ? rect(from, T0 - 3, len, thick + 6) : rect(T0 - 3, from, thick + 6, len));
+            cuts.push([from - gap, from + len + gap]);
+          } else {
+            // Pokes `d` px into the box from its start (kind 1) or end side (kind 2), over a length (grown) longer than `d`,
+            // lying wholly inside the box along it.
+            const d = 1 + rnd() * thick * 0.7;
+            const len = d + 3 + rnd() * 60;
+            const from = at + gap + 1 + rnd() * Math.max(0, long - len - 2 * gap - 2);
+            const raw = kind === 1 ? T0 + d - gap : T1 - d + gap;
+            const t0 = kind === 1 ? T0 - 8 : raw;
+            const t1 = kind === 1 ? raw : T1 + 8;
+            rects.push(horizontal ? rect(from, t0, len, t1 - t0) : rect(t0, from, t1 - t0, len));
+            if (kind === 1) u0 = Math.max(u0, T0 + d);
+            else u1 = Math.min(u1, T1 - d);
+          }
+        }
+        const merged: [number, number][] = [];
+        for (const [lo, hi] of cuts.filter(([lo, hi]) => hi > at && lo < at + long).sort((p, q) => p[0] - q[0])) {
+          const last = merged[merged.length - 1];
+          if (last && lo <= last[1]) last[1] = Math.max(last[1], hi);
+          else merged.push([lo, hi]);
+        }
+        const want: { id: string; lo: number; hi: number }[] = [];
+        let cursor = at;
+        let interior = 0;
+        for (const [lo, hi] of merged) {
+          want.push({ id: interior === 0 ? "g" : `g#${interior + 1}`, lo: cursor, hi: Math.max(cursor, lo) });
+          if (lo > at && hi < at + long) interior++;
+          cursor = hi;
+        }
+        want.push({ id: interior === 0 ? "g" : `g#${interior + 1}`, lo: Math.min(cursor, at + long), hi: at + long });
+        const wantParts = u1 - u0 < 2 ? [] : want.filter((p) => (merged.length === 0 ? p.hi - p.lo > 0 : p.hi - p.lo >= minLength));
+        const g = { id: "g", kind: "box" as const, rect: horizontal ? rect(at, T0, long, thick) : rect(T0, at, thick, long) };
+        const run = (order: readonly Rect[]) => guideRects([g], { inside: rect(0, 0, 1200, 1200), inset: 0, clear: order, clearance: gap });
+        const out = run(rects);
+        const label = `case ${i}: ${JSON.stringify([g.rect, rects, gap])}`;
+        expect(out.length, label).toBe(wantParts.length);
+        out.forEach((o, j) => {
+          const lo = horizontal ? o.rect.x : o.rect.y;
+          const len = horizontal ? o.rect.width : o.rect.height;
+          const across = horizontal ? o.rect.y : o.rect.x;
+          const thickness = horizontal ? o.rect.height : o.rect.width;
+          expect(o.id, label).toBe(wantParts[j]!.id);
+          expect(lo, label).toBeCloseTo(wantParts[j]!.lo, 6);
+          expect(lo + len, label).toBeCloseTo(wantParts[j]!.hi, 6);
+          expect(across, label).toBeCloseTo(u0, 6);
+          expect(across + thickness, label).toBeCloseTo(u1, 6);
+        });
+        const shuffled = rects.map((r) => [rnd(), r] as const).sort((p, q) => p[0] - q[0]).map(([, r]) => r);
+        expect(shown(run(shuffled)), label).toEqual(shown(out));
+        expect(shown(run([...rects].reverse())), label).toEqual(shown(out));
+        if (u0 > T0 || u1 < T1) thinned++;
+        if (out.length >= 2) split++;
+        if (u1 - u0 < 2) dropped++;
+      }
+      expect(thinned).toBeGreaterThan(10000);
+      expect(split).toBeGreaterThan(2000);
+      expect(dropped).toBeGreaterThan(0);
+    });
+
+    it("C3: the result never depends on the order of 1 to 4 clear rects of any shape, corners included", () => {
+      let s = 77;
+      const rnd = (): number => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+      for (let i = 0; i < 5000; i++) {
+        const g = { id: "g", kind: "box" as const, rect: i % 2 ? rect(100, 50, 300, 30) : rect(50, 100, 30, 300) };
+        const rects: Rect[] = [];
+        for (let j = 0, n = 1 + Math.floor(rnd() * 4); j < n; j++) rects.push(rect(30 + rnd() * 400, 30 + rnd() * 400, 5 + rnd() * 120, 5 + rnd() * 120));
+        const run = (order: readonly Rect[]) => shown(guideRects([g], { inside: rect(0, 0, 600, 600), clear: order }));
+        const want = run(rects);
+        const shuffled = rects.map((r) => [rnd(), r] as const).sort((p, q) => p[0] - q[0]).map(([, r]) => r);
+        expect(run(shuffled), `case ${i}: ${JSON.stringify(rects)}`).toEqual(want);
+        expect(run([...rects].reverse()), `case ${i}`).toEqual(want);
+      }
     });
 
     it("a guide without a string id is split without a suffix, and an unchanged one comes back as it was", () => {

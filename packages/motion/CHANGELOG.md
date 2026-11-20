@@ -17,6 +17,14 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   reach is never dropped at once. Otherwise a guide would linger up to 96 px after the pointer left the lane, in open
   space where a release floats. Host notes: a host that wants the early guide sets `approach: { reach: 80, keep: 96 }`
   (the old values); nothing else to change.
+- `./drag`, **`guideRects` thins a box a clear rect pokes into** (fix, rule C3). A clear rect, grown by its clearance,
+  that covered only part of a box's thickness always cut the box along its length on the facing side, so a neighbor
+  poking 2 px into an 868 x 29 bar cost the bar 49 px of length. Now, when its overlap across the box is smaller than its
+  overlap along it and it reaches one side of the box, it thins the box from that side by that overlap and no length:
+  2 px less thickness. The deepest intrusion from each side wins, whatever the order. The order is: thinnings, then the
+  full-thickness interval subtraction and the corner cuts in sorted order, then `minLength` and the ids by interior
+  cuts. A box thinned below `minThickness` is dropped. A rect that pokes in as deep as it is long, or touches neither
+  side, is a corner as before. Behavior change: a shallow, long poke now removes thickness where it removed length.
 - `./drag`, **`guideRects` ids count only interior cuts** (fix). A full-thickness clear interval that touches or
   overlaps the box's start or end trims the box and is no cut; only intervals strictly inside the box (box length on
   both sides) count. A neighbor toolbar flush with the box's start, its 2 px clearance over the first 2 px, used to
