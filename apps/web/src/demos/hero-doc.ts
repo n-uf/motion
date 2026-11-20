@@ -185,10 +185,6 @@ export interface DocWindow {
   /** The window's inner HTML (what the lab draws into its `dw-win`). */
   readonly html: string;
   readonly size: Size;
-  /** What `solve` gave: each item's form, for the page's own words. */
-  readonly forms: Readonly<Record<string, string>>;
-  /** The middle (the page), as solved. */
-  readonly content: Rect;
 }
 
 /** The lab's Document window at `size`, solved and drawn. */
@@ -210,7 +206,6 @@ export function docWindow(size: Size): DocWindow {
     return menu ? [`<span class="hd-menu" style="left:${px(menu.rect.x)};top:${px(menu.rect.y)};width:${px(menu.rect.width)};height:${px(menu.rect.height)}">» ${menu.items.length}</span>`] : [];
   });
   const html = `<div class="hd-edges">${edges}</div>${scroll}<div class="hd-items">${docked.join("")}${menus.join("")}${floats.join("")}</div>`;
-  const forms = Object.fromEntries(Object.entries(l.items).map(([id, it]) => [id, it.inMenu ? "menu" : it.formKind]));
-  return { html, size, forms, content: l.content };
+  return { html, size };
 }
 

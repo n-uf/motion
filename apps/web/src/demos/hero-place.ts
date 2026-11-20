@@ -37,7 +37,7 @@ function popupRow(): Row {
   const asked = positionPopup(anchor, popup, bounds, { ...rule, flip: false }).rect;
   return {
     fn: "positionPopup",
-    inputs: [`anchor ${rect(anchor)}`, `popup ${size({ x: 0, y: 0, ...popup })}`, `bounds ${size(bounds)}`, "rule: below, flip on"],
+    inputs: [`anchor ${rect(anchor)}`, `popup ${size({ x: 0, y: 0, ...popup })}`, `bounds ${size(bounds)}`, "rule: below + 6, flip only"],
     outputs: [`rect ${rect(placed.rect)}`, placed.flipped.y ? "flipped up" : "below"],
     // Room under the bounds for the ghost, which crosses their bottom edge.
     box: { width: bounds.width, height: bounds.height + 36 },
