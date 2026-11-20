@@ -658,14 +658,17 @@ function settle(l: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all:
       });
       let hp: [number, number][] = [[p, q]];
       for (const [f0, f1] of free) hp = hp.flatMap(([a, b]): [number, number][] => [[a, Math.min(b, f0)], [Math.max(a, f1), b]]).filter(([a, b]) => b - a > EPS);
+      // The window side: the lane's own side where it has one (an edge's, a virtual lane's `<kind>:<side>`), else the
+      // side nearer the stage's edge.
+      const side = edgeOf(l.id)?.side ?? (/^(rail|column):/.test(l.id) ? l.id.split(":")[1] : undefined);
       const edge = (r: Rect): Rect => {
         const st = scene.stage;
         if (l.axis === "y") {
-          const outerRight = Math.abs(r.x + r.width - (st.x + st.width)) <= Math.abs(r.x - st.x);
+          const outerRight = side === "right" ? true : side === "left" ? false : Math.abs(r.x + r.width - (st.x + st.width)) <= Math.abs(r.x - st.x);
           const t = Math.min(HATCH_EDGE, r.width);
           return rect(outerRight ? r.x + r.width - t : r.x, r.y, t, r.height);
         }
-        const outerBottom = Math.abs(r.y + r.height - (st.y + st.height)) <= Math.abs(r.y - st.y);
+        const outerBottom = side === "bottom" ? true : side === "top" ? false : Math.abs(r.y + r.height - (st.y + st.height)) <= Math.abs(r.y - st.y);
         const t = Math.min(HATCH_EDGE, r.height);
         return rect(r.x, outerBottom ? r.y + r.height - t : r.y, r.width, t);
       };
