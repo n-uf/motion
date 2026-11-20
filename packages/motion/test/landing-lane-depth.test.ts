@@ -29,14 +29,13 @@ function window(): LandingRegions {
 function play(keys: readonly (readonly [number, number, number])[]): { p: Point; f: LandingFrame }[] {
   const m = createLandingModel({ regions: window(), grab: { x: 14, y: 7 } });
   const out: { p: Point; f: LandingFrame }[] = [];
-  let t = keys[0]![0];
   for (let k = 0; k < keys.length; k++) {
     const to = keys[k]!;
     const from = keys[Math.max(0, k - 1)]!;
     const n = k === 0 ? 1 : Math.max(1, Math.round((to[0] - from[0]) / 16));
     for (let i = 1; i <= n; i++) {
       const p = { x: from[1] + ((to[1] - from[1]) * i) / n, y: from[2] + ((to[2] - from[2]) * i) / n };
-      out.push({ p, f: m.update(p, (t = from[0] + ((to[0] - from[0]) * i) / n)) });
+      out.push({ p, f: m.update(p, from[0] + ((to[0] - from[0]) * i) / n) });
     }
   }
   return out;
