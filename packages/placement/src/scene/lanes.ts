@@ -489,7 +489,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
     target: x.target,
     ...(x.home ? { home: true as const } : {}),
     ...(x.pitched ? { pitched: true as const } : {}),
-    ...(x.slide ? { slide: { from: x.slide.from, to: x.slide.to, snaps: x.slide.snaps, snapDistance: x.slide.snapDistance } } : {}),
+    ...(x.slide ? { slide: { from: x.slide.from, to: x.slide.to, snaps: x.slide.snaps, snapDistance: x.slide.snapDistance, step: x.slide.step } } : {}),
     others: othersKey(x.layout, dragged),
   }));
   // The item's length along the lane: its shortest landing here. A refused stretch shorter than it joins its spots.
