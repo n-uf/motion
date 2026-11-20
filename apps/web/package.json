@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "The home site of @n-uf/motion and @n-uf/placement (motion.n-uf.com): the window motion rules, the drag-intent model, desk layouts and toolbar groups, as interactive pages built on the packages themselves.",
+  "description": "The home site of @n-uf/motion, @n-uf/placement and @n-uf/docking (motion.n-uf.com): the window motion rules, the drag-intent model, docking layouts and toolbar groups, as interactive pages built on the packages themselves.",
   "license": "LicenseRef-PolyForm-Perimeter-1.0.1",
   "engines": {
     "node": ">=22.23.4"

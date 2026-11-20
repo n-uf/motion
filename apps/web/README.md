@@ -1,9 +1,9 @@
 # motion-web
 
-The home site of the pair `@n-uf/motion` (how things move) and `@n-uf/placement` (where things go), at
-motion.n-uf.com: a static Astro site with the window motion rules and the drag-intent model (motion), desk layouts and
-toolbar groups (placement) as interactive pages built on the library itself (`workspace:*`). The pair, the nav's two
-parts and each page's "Built with" line live in `src/data/parts.ts`.
+The home site of `@n-uf/motion` (how things move), `@n-uf/placement` (where things fit) and `@n-uf/docking` (where
+panels and toolbars dock), at motion.n-uf.com: a static Astro site with the window motion rules and the drag-intent
+model (motion), docking layouts and toolbar groups (docking) as interactive pages built on the libraries themselves
+(`workspace:*`). The three libraries, the nav's parts and each page's "Built with" line live in `src/data/parts.ts`.
 
 ## Before adding UI
 
