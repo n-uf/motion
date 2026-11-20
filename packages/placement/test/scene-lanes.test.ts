@@ -269,6 +269,35 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
           expect([speed, y, m.frame.lane, m.release()?.kind]).toEqual([speed, y, "rail:left", "spot"]);
         }
     });
+
+  for (const [name, k] of [
+    ["flush", FLUSH],
+    ["inset", INSET],
+  ] as const)
+    it(`${name}: away and back is home: a panel pressed by its grip (in the strip on a flush window), taken over the page and brought back there, lands home`, () => {
+      const s: Scene = { ...kitScene(k, { W: 1400, H: 800 }), railDrop: { panel: { railStripWidth: 32 } } };
+      const previous = solve(s);
+      const own = previous.items.pages!.rect;
+      const press = { x: own.x + 10, y: own.y + 12 };
+      const grab = { x: press.x - own.x, y: press.y - own.y };
+      const rs = lanes(s, "pages", { previous, grab });
+      const home = rs.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0]!;
+      for (const speed of [0.3, 1.5]) {
+        const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "pages", { previous, grab, spot }), home });
+        const away = { x: 700, y: 400 };
+        let t = 0;
+        m.update(press, t);
+        for (const [a, b] of [
+          [press, away],
+          [away, press],
+        ] as const) {
+          const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / speed / 8);
+          for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
+        }
+        for (let i = 0; i < 30; i++) m.update(press, (t += 8));
+        expect([speed, m.release()]).toEqual([speed, { kind: "spot", lane: home.lane, spot: home.spot, home: true }]);
+      }
+    });
 });
 
 describe("lanes(): what blocks the open space, and virtual lanes", () => {
