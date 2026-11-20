@@ -138,7 +138,7 @@ Changes are pure: each takes a scene and returns a scene. One that cannot apply 
 
 - `moveTo(scene, id, place)` docks, floats or folds an item. A `Place` is a `DockPlace` (an edge, optionally a zone, and the index among that zone's items, optionally the `space` to keep), a `ColumnPlace` (a new dynamic column at a ring on a side), a `RailPlace` (a new column holding the item folded by hand, so it shows in the rail) or a `FloatPlace` (a rect, or an anchor). A zone named becomes the item's `align` only where the edge offers a choice between zones.
 - `homeFor` and `dockHome` find and restore the place a start scene gives an item ("Dock", "Put back", "Reset position").
-- `floatAt`, `raise`, `orient`, `resize` (an edge's size across, or a float's rect through `fitResize`), `lift` (the scene with an item out of every edge and float).
+- `floatAt`, `raise`, `orient`, `resize` (an edge's size across, or a float's rect through `fitResize`), `lift` (the scene with an item out of every edge and float; the room it kept, `SceneItem.space`, goes to the next placed item in its zone, which stays where it is). `moveTo` docked into a placed neighbor's room consumes it, and `floatAt` lifts first.
 - `fold` / `canFold` (fold by hand to the item's folded form), `use`, `keep`, `open`, `close`.
 - `setSide` moves an edge to the other side of its axis; `setRailMode`; `mergeSideColumns` merges a side's columns into one for `sideColumns: "one"`.
 
@@ -193,7 +193,7 @@ Marks. Each lane carries its place guides in the layout as drawn (with `options.
 
 No mark lies over an item, the held item or a float, or in a refused stretch. No two edge lanes' marks overlap: at a corner a lane not drawn gives way to a drawn one, and between two not drawn the bar owns it. A virtual lane is drawn over what it would push. Marks have ids that stay while the items either side stay, so a host keys its drawing by them.
 
-Ids. A spot id is `<lane>/<zone>/<item before or ^>|<item after or $>`, an empty edge's `<lane>/<zone>`, a pitched spot's `…@<pitches from its neighbor>` (`@0` keeping no space), a virtual lane's `<lane>/line` or `<lane>/end`. A new column's lane is keyed by the column it lies beside, not its ring.
+Ids. A spot id is `<lane>/<zone>/<item before or ^>|<item after or $>`, an empty edge's `<lane>/<zone>`, a pitched spot's `…@<pitches from its neighbor>` (`@0` keeping no space; a stretch's end keeping some space `…@to:<neighbor>`), a spot over a neighbor itself `…@in:<neighbor>`, a sliding spot's `…@slide` (`…@slide:2` for a later piece of a split stretch), a virtual lane's `<lane>/line` or `<lane>/end`. A new column's lane is keyed by the column it lies beside, not its ring.
 
 `owns` marks a lane whose rect is its own: a rail drop strip at the window's side (`Scene.railDrop`), which every other target of the drag gives up, so a landing model gives it the pointer inside it over any lane it overlaps.
 

@@ -14,13 +14,29 @@ stretch.
 - `./scene`, **`LaneOptions.stretchPositions`** (`"free" | "pitched"`, default `"free"`) and
   **`LaneOptions.snapDistance`** (default 8). **Contract change:** `stretchPositions` now defaults to `"free"`; pass
   `"pitched"` for the old pitched spots. A free stretch on a bar or a toolbar rail is a range of landings from flush
-  against one neighbor to flush against the other: `"pitched"` samples it every `pitch` px, its ends included (as
-  before); `"free"` gives one sliding spot, `LaneSpot.slide` (`LaneSlide`: `{ from, to, snaps, snapDistance, step }`),
+  against one neighbor to flush against the other: `"pitched"` samples it every `pitch` px, its ends included (its
+  ids and its ends changed in this release: see the room model below); `"free"` gives one sliding spot, `LaneSpot.slide` (`LaneSlide`: `{ from, to, snaps, snapDistance, step }`),
   id `<lane>/<zone>/<before>|<after>@slide`. Its `target.after(point, grab)` lands the item's start at the pointer less
   the grab, clamped and snapped (to the stretch's ends, the item's own place and any dock inside), else on a whole
   pixel (`step` 1), as a dock keeping the `space` that puts it there. A release within the snap distance of the
   item's own place is home. The stretch stays one guide box. `pitch` of 0 or less turns pitched spots off; under
   `"free"` it only sets the sampling step that checks a stretch's range (40 px when 0 or less).
+- `./scene`, **the room model: contract changes.** Room is the free length an item keeps on its zone's open side
+  (`SceneItem.space`) and belongs to the stretch, not to the item that sits beside it:
+  - `lift` gives the item's room to the next placed item in its zone (the first that keeps room, past the flush items
+    between), which stays where it is; before, the room went with the item.
+  - `moveTo` and `moveAmong` consume a placed neighbor's room: an item docked into room lies flush against its zone's end of
+    it (or where its own `space` puts it) and the neighbor keeps what is left. The old rule, "the item takes the space
+    its new neighbor kept", is gone, and a named `space` in a `DockPlace` now changes the neighbor.
+  - `floatAt` lifts first, so the room the item held goes to the next placed item as for `lift`.
+  - `ROOM_SINCE` (`"26.11.50"`, `./scene/cases`) and two new `LANDING_CASES` rows: the rows that pass a neighbor keeping
+    room need a library with this model; a host on an older version skips them.
+  - Takeover spots `…@in:<neighbor>` in both modes: over a neighbor itself the item takes its place and the neighbor gives
+    way by the item's length, so passing a neighbor longer than the room beside it leaves no gap between the landings
+    either side.
+  - Pitched ids at a stretch's end: the end that keeps some space is `…@to:<neighbor>` (the neighbor it lies against),
+    where it was `…@<n>` (pitches kept); the open-end "dock keeping none" spots are removed. A host that keys on a
+    pitched spot's id re-keys; a landing model maps a lost id to its lane's nearest spot as before.
 - `./scene`, **a free start is whole pixels in the frame, the release and the commit** (`LaneSlide.step`): the spot
   carries the grain, and `@n-uf/motion`'s landing model rounds its frame by it, so the rect a frame draws is the rect
   the drop commits (before, the frame used the raw start and only the commit rounded: up to half a pixel apart). Known
