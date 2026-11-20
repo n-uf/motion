@@ -549,6 +549,19 @@ describe("landing model: a lane that owns its rect (a rail drop strip) takes the
     expect(back.frames.at(-1)!.f.lane).toBe("rail:right");
   });
 
+  it("never over the item's own place: pressed in the strip over its own landing, taken away and brought back there, it is home", () => {
+    const home = { lane: "right", spot: "right/start/^|$" };
+    // Home's landing is x 840–1080, y 32–232: the press at (1064, 100) lies in the strip and in it.
+    const keys = path([{ x: 1064, y: 100 }, { x: 600, y: 300 }, { x: 1064, y: 100 }], 0.3);
+    const t = keys.at(-1)![0];
+    const back = run(base({ regions: withStrip(true), home }), [...keys, [t + 200, 1064, 100]]).frames.at(-1)!;
+    expect([back.f.lane, back.release]).toEqual(["right", { kind: "spot", lane: "right", spot: "right/start/^|$", home: true }]);
+    // Below its own place in the same strip, the strip takes it.
+    const keys2 = path([{ x: 1064, y: 100 }, { x: 600, y: 300 }, { x: 1064, y: 400 }], 0.3);
+    const t2 = keys2.at(-1)![0];
+    expect(run(base({ regions: withStrip(true), home }), [...keys2, [t2 + 200, 1064, 400]]).frames.at(-1)!.f.lane).toBe("rail:right");
+  });
+
   it("a fast pass across the strip, out of the window's side and back, opens nothing in it before its gate passes", () => {
     const { frames } = run(base({ regions: withStrip(true), home: { lane: "right", spot: "right/start/^|$" } }), path([{ x: 900, y: 300 }, { x: 1079, y: 300 }, { x: 900, y: 320 }], 3));
     expect(frames.filter(({ f }) => f.lane === "rail:right").length).toBe(0);

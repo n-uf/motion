@@ -23,7 +23,8 @@ import type { PlaceGuides } from "./preview";
  *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered on the first slow step
  *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room. A lane that owns
  *   its rect (`owns`: a rail drop strip at the window's side) takes the pointer inside it from any lane it overlaps, a
- *   held one too, once its own gate passes and only once the pointer came into it from outside since the lift.
+ *   held one too, once its own gate passes and only once the pointer came into it from outside since the lift; never over
+ *   the item's own place (`home`'s landing), so away and back to it is home.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
@@ -402,7 +403,10 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       // A lane that owns its rect (a rail drop strip) takes the pointer inside it from any lane it overlaps, a held one
       // too, once its own gate passes (so a pass across it opens nothing), and only once the pointer came into it (it has
       // been outside it since the lift): a press in a column's outer edge, or a slow reorder along it, stays in the column.
-      const owner = regions.lanes.find((l) => l.owns && l.id !== held?.id && cameIn.has(l.id) && strictlyIn(l.rect, p) && gate(l));
+      // Never over the item's own place (`home`'s landing as seen): away and back to it is home, wherever a strip lies.
+      const homeAt = options.home ? spotIn(laneIn(base, options.home.lane), options.home.spot)?.landing : undefined;
+      const overHome = !!homeAt && strictlyIn(homeAt, p);
+      const owner = overHome ? undefined : regions.lanes.find((l) => l.owns && l.id !== held?.id && cameIn.has(l.id) && strictlyIn(l.rect, p) && gate(l));
       const next = owner ?? (touching && (gate(touching) || slid) ? touching : undefined);
       if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
         const s = along(held, p, step);
