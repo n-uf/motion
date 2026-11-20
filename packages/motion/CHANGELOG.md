@@ -7,7 +7,7 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 The landing model's guides gain a kind, and a lane over a place that takes nothing is easier to reach. With
 `@n-uf/placement` 26.11.48. Host notes: `LandingMark.kind` and `LandingGuide.kind` gain `"hatch"` (a host with an
-exhaustive `switch` over them adds a case: draw it over the item under it, in the guides' colour, never the accent).
+exhaustive `switch` over them adds a case: draw it over the item under it, in the guides' color, never the accent).
 
 - `./drag`, **hatched guides** (additive kind): a guide may be a `hatch`, over the part of a neighbor that gives way
   where room is shorter than the held item (`lanes()` gives them).
