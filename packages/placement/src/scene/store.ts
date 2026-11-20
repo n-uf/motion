@@ -7,7 +7,7 @@
  *   v: 1;
  *   edges: { id: string; side: Side; ring: number; items: string[]; size?: number; column?: true }[];
  *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor | { at: FloatAnchor; dx?: number; dy?: number }; since?: number }[];
- *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; space?: number; floatSize?: { width: number; height: number } }>;
+ *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; space?: number; floatSizes?: { row?: { width: number; height: number }; column?: { width: number; height: number } } }>;
  *   railModes?: { left?: "titles" | "icons"; right?: "titles" | "icons" };
  * }
  * ```
@@ -34,10 +34,14 @@
  * lies by its anchor, so the clamp never turns it into a pixel position). An unusable anchor is dropped
  * (`float:<id>:anchor`), and so is a bad offset field (`float:<id>:anchor:dx`, `float:<id>:anchor:<field>`). A float's
  * `since` is kept as stored; one that isn't a number from 0 to `Number.MAX_SAFE_INTEGER` is dropped (`float:<id>:since`).
+ * A float's size is stored per orient (`floatSizes`); one entry that isn't a size, or an orient that isn't `row` or
+ * `column`, is dropped (`item:<id>:floatSizes:<orient>`). A store from before that, with one `floatSize` on an item,
+ * reads as `floatSizes` for the orient its float is in (the item's own orient where it floats nowhere), so the size
+ * never follows the float to the other orient.
  */
 import { rect, type Size } from "../geometry";
-import { clampFloat, closeRings, drawnFloatSize, prune, setSide } from "./changes";
-import { axisOf, columnFromTemplate, isSince } from "./helpers";
+import { clampFloat, closeRings, drawnFloatSize, prune, setSide, withFloatSizes } from "./changes";
+import { axisOf, columnFromTemplate, floatOrientOf, isSince } from "./helpers";
 import { checkEdgeIds, isReservedEdgeId } from "./targets/ids";
 import { FLOAT_ANCHORS, RAIL_MODES, SIDES, type Edge, type FloatAnchor, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
 
@@ -72,6 +76,14 @@ export interface StoredSceneItem {
   readonly align?: "center" | "end";
   /** `SceneItem.space`, px. */
   readonly space?: number;
+  /** `SceneItem.floatSizes`: its float size per orient. */
+  readonly floatSizes?: { readonly row?: Size; readonly column?: Size };
+  /**
+   * The old single float size, read as `floatSizes` for the orient its float is in; `storeScene` writes it only for an
+   * item still carrying one.
+   *
+   * @deprecated Use `floatSizes`.
+   */
   readonly floatSize?: Size;
 }
 
@@ -132,10 +144,21 @@ function railModesOf(v: unknown, drop?: (what: string) => void): Partial<Record<
   return Object.keys(out).length > 0 ? out : null;
 }
 
+/** The usable `floatSizes` of `it`, as plain data; undefined when it has none. */
+function floatSizesStored(it: SceneItem): { row?: Size; column?: Size } | undefined {
+  const out: { row?: Size; column?: Size } = {};
+  for (const o of ["row", "column"] as const) {
+    const s = it.floatSizes?.[o];
+    if (s && isSize(s.width) && isSize(s.height)) out[o] = { width: s.width, height: s.height };
+  }
+  return out.row || out.column ? out : undefined;
+}
+
 export function storeScene(scene: Scene): StoredScene {
   const items = record<StoredSceneItem>();
   for (const [id, it] of Object.entries(scene.items)) {
     if (id === "__proto__") continue;
+    const sizes = floatSizesStored(it);
     items[id] = {
       used: isNum(it.used) ? it.used : 0,
       ...(it.kept ? { kept: true as const } : {}),
@@ -144,6 +167,7 @@ export function storeScene(scene: Scene): StoredScene {
       ...(it.align === "center" || it.align === "end" ? { align: it.align } : {}),
       ...(isNum(it.space) && it.space > 0 ? { space: it.space } : {}),
       ...(it.floatSize && isSize(it.floatSize.width) && isSize(it.floatSize.height) ? { floatSize: { width: it.floatSize.width, height: it.floatSize.height } } : {}),
+      ...(sizes ? { floatSizes: sizes } : {}),
     };
   }
   const modes = railModesOf(scene.railModes);
@@ -203,6 +227,8 @@ function read(data: unknown, base: Scene): SceneRead {
 
   // The items' states.
   const items: Record<string, SceneItem> = { ...base.items };
+  // The items whose store has the old single `floatSize`.
+  const legacy = new Set<string>();
   if (data.items !== undefined && !isObject(data.items)) drop("items");
   else if (isObject(data.items)) {
     for (const id of Object.keys(data.items)) {
@@ -212,9 +238,9 @@ function read(data: unknown, base: Scene): SceneRead {
         continue;
       }
       const b = base.items[id]!;
-      const { kept: _k, from: _f, closed: _c, align: _a, space: _sp, floatSize: _s, ...plain } = b;
+      const { kept: _k, from: _f, closed: _c, align: _a, space: _sp, floatSize: _s, floatSizes: _ss, ...plain } = b;
       let it: SceneItem = { ...plain, used: b.used };
-      for (const k of Object.keys(s)) if (!["used", "kept", "from", "closed", "align", "space", "floatSize"].includes(k)) drop(`item:${id}:${k}`);
+      for (const k of Object.keys(s)) if (!["used", "kept", "from", "closed", "align", "space", "floatSize", "floatSizes"].includes(k)) drop(`item:${id}:${k}`);
       if (isNum(s.used)) it = { ...it, used: s.used };
       else if (s.used !== undefined) drop(`item:${id}:used`);
       if (s.kept === true) it = { ...it, kept: true };
@@ -232,8 +258,22 @@ function read(data: unknown, base: Scene): SceneRead {
       if (isNum(s.space) && s.space > 0 && !b.fixed) it = { ...it, space: s.space };
       else if (s.space !== undefined) drop(`item:${id}:space`);
       const fs = s.floatSize;
-      if (isObject(fs) && isSize(fs.width) && isSize(fs.height)) it = { ...it, floatSize: { width: fs.width, height: fs.height } };
-      else if (fs !== undefined) drop(`item:${id}:floatSize`);
+      // The old single size is kept as it is for now and moved into `floatSizes` once the floats are read (below): it
+      // belongs to the orient its float is in.
+      if (isObject(fs) && isSize(fs.width) && isSize(fs.height)) {
+        it = { ...it, floatSize: { width: fs.width, height: fs.height } };
+        legacy.add(id);
+      } else if (fs !== undefined) drop(`item:${id}:floatSize`);
+      const sizes = s.floatSizes;
+      if (isObject(sizes)) {
+        const own: { row?: Size; column?: Size } = {};
+        for (const k of Object.keys(sizes)) {
+          const v = sizes[k];
+          if ((k === "row" || k === "column") && isObject(v) && isSize(v.width) && isSize(v.height)) own[k] = { width: v.width, height: v.height };
+          else drop(`item:${id}:floatSizes:${k}`);
+        }
+        if (own.row || own.column) it = { ...it, floatSizes: own };
+      } else if (sizes !== undefined) drop(`item:${id}:floatSizes`);
       items[id] = it;
     }
   }
@@ -351,6 +391,8 @@ function read(data: unknown, base: Scene): SceneRead {
   });
   // Base floats the store placed nowhere keep their base place.
   for (const f of base.floats) if (!placed.has(f.id)) floats.push(f);
+  // The old single `floatSize` is the size for the orient its float is in (the item's own where it floats nowhere).
+  for (const id of legacy) items[id] = withFloatSizes(items[id]!, floats.find((f) => f.id === id)?.orient ?? floatOrientOf(items[id]!));
   // Empty columns go; the sides' rings close up.
   let scene = prune({ ...base, ...(railModes ? { railModes } : {}), items, edges: closeRings(edges, new Set(made.length > 0 || rings.size > 0 ? ["left", "right"] : [])), floats });
   for (const [id, side] of moves) scene = setSide(scene, id, side);

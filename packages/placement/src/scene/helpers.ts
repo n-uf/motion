@@ -322,19 +322,48 @@ export const floatOrientOf = (item: SceneItem): Orient => {
   return "column";
 };
 
+const sized = (s: Size | undefined): s is Size => !!s && Number.isFinite(s.width) && Number.isFinite(s.height) && s.width > 0 && s.height > 0;
+
 /**
- * A float's size when nothing gives one: the item's `floatSize`, else its first form's natural size along `orient`
- * (default `floatOrientOf`), else `DEFAULT_FLOAT_SIZE` when that form grows (a panel's card has no natural float length)
- * or the item has no form there.
+ * The natural size of `item`'s first form along `orient`, a form whose length is its own: its main natural length along
+ * `orient` and its cross. Undefined when the item has no form there, or that form grows (a panel's card has no natural
+ * float length) or has no size.
  */
-export function floatSizeOf(item: SceneItem, orient: Orient = floatOrientOf(item)): Size {
-  if (item.floatSize) return item.floatSize;
+function naturalFloatSize(item: SceneItem, orient: Orient): Size | undefined {
   const f = formsOf(item, orient)[0];
-  if (!f || f.main.grows) return DEFAULT_FLOAT_SIZE;
+  if (!f || f.main.grows) return undefined;
   const main = Number.isFinite(f.main.natural) ? Math.max(0, f.main.natural) : 0;
   const cross = Number.isFinite(f.cross.natural) ? Math.max(0, f.cross.natural) : 0;
-  if (main <= 0 || cross <= 0) return DEFAULT_FLOAT_SIZE;
+  if (main <= 0 || cross <= 0) return undefined;
   return orient === "row" ? { width: main, height: cross } : { width: cross, height: main };
+}
+
+/**
+ * `item`'s float sizes by orient: its `floatSizes`, with its legacy `floatSize` among them for `floatOrient` (the orient
+ * it was set in, default `floatOrientOf`) where that orient has none. Undefined when it has no size at all.
+ */
+export function floatSizesOf(item: SceneItem, floatOrient: Orient = floatOrientOf(item)): { row?: Size; column?: Size } | undefined {
+  const out: { row?: Size; column?: Size } = {};
+  if (sized(item.floatSize)) out[floatOrient] = item.floatSize;
+  for (const o of ["row", "column"] as const) {
+    const s = item.floatSizes?.[o];
+    if (sized(s)) out[o] = s;
+  }
+  return out.row || out.column ? out : undefined;
+}
+
+/**
+ * A float's size along `orient` (default `floatOrientOf`) when nothing else gives one, in this order: the item's
+ * `floatSizes` for that orient; its legacy `floatSize`, only where `orient` is the orient that size was set in
+ * (`floatOrient`: the float's own, default `floatOrientOf`, so a float turned to the other orient never takes the old
+ * one's size); else its first form's natural size along `orient`, or `DEFAULT_FLOAT_SIZE` when that form grows (a
+ * panel's card has no natural float length) or the item has no form there.
+ */
+export function floatSizeOf(item: SceneItem, orient: Orient = floatOrientOf(item), floatOrient: Orient = floatOrientOf(item)): Size {
+  const own = item.floatSizes?.[orient];
+  if (sized(own)) return own;
+  if (sized(item.floatSize) && orient === floatOrient) return item.floatSize;
+  return naturalFloatSize(item, orient) ?? DEFAULT_FLOAT_SIZE;
 }
 
 /**
@@ -424,7 +453,8 @@ export function pastWrap(forms: readonly StackForm[], from: number): number | un
  * form (its icons) is drawn at that form's natural size, whatever its `from`. An item with only `wrap` forms left has no
  * form there (`none`: `solve` leaves it out with a `no-vertical-form` note), so a word group needs an `icons` form.
  * Otherwise a float with `from` over 0 is its bar (that form's natural length along its orient, its other size kept), and
- * one at its first form is its rect's size.
+ * one at its first form is its rect's size where that form grows, else that form's natural size along its orient
+ * (`floatSizeOf`'s last step): a toolbar group's frame always fits its content, whatever rect it was floated with.
  */
 export function floatShape(item: SceneItem, f: { readonly rect: Rect; readonly orient?: Orient }): { form: number; width: number; height: number; none?: true } {
   const orient = f.orient ?? floatOrientOf(item);
@@ -441,5 +471,7 @@ export function floatShape(item: SceneItem, f: { readonly rect: Rect; readonly o
   const fm = forms[form]!;
   if (orient === "column" && forms.slice(0, form + 1).some(isWrap)) return { form, width: px(fm.cross.natural), height: px(fm.main.natural) };
   if (form > 0) return orient === "column" ? { form, width: w, height: px(fm.main.natural) } : { form, width: px(fm.main.natural), height: h };
-  return { form, width: w, height: h };
+  // The first form: a form that grows (a panel's card) is the rect's size, the one the user sizes; any other (a toolbar
+  // group) is the size kept for its orient, else its own natural size (`floatSizeOf`), never a rect left from the other orient.
+  return { form, ...(fm.main.grows ? { width: w, height: h } : floatSizeOf(item, orient, f.orient ?? floatOrientOf(item))) };
 }

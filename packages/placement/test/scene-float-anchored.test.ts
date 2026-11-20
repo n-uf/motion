@@ -141,8 +141,9 @@ describe("an anchored float and the other floats", () => {
 
   it("with no clear place, it lies where it would with no float before it (it never covers a docked item instead)", () => {
     // A stage the floats fill: the second has nowhere clear of both, so it takes the place it takes alone.
-    const tiny: Scene = { stage: { x: 0, y: 0, width: 300, height: 100 }, edges: [], items: { g1: group("g1", 1), g2: group("g2", 2) }, floats: [], floatKinds: ["group"] };
+    // Each is floated at the stage's size (its size as a row).
     const big = { width: 300, height: 100 };
+    const tiny: Scene = { stage: { x: 0, y: 0, width: 300, height: 100 }, edges: [], items: { g1: group("g1", 1, { floatSizes: { row: big } }), g2: group("g2", 2, { floatSizes: { row: big } }) }, floats: [], floatKinds: ["group"] };
     const a: SceneFloat = { id: "g1", rect: { x: 0, y: 0, ...big }, anchor: "content-top-left" };
     const b: SceneFloat = { id: "g2", rect: { x: 0, y: 0, ...big }, anchor: "content-top-left" };
     const alone = solve({ ...tiny, floats: [b] }).items.g2!.rect;

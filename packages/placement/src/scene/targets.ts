@@ -57,7 +57,7 @@
  * - `float:<id>`: when `floatKinds` lists the kind, the whole plane: the landing is the float with the pointer holding
  *   it at `grab` (default its middle), in the stage and clear of the docked items, the bars and the chrome. Its orient:
  *   `options.floatOrient`, else its float's, else the item's (`floatOrientOf`). Its size: `options.floatSize`, else its
- *   float's size, else `floatSizeOf`.
+ *   float's size where it lands in the orient that float is in, else `floatSizeOf` for the orient it lands in.
  *
  * `stops(scene, id)` orders the same targets (no home, no none) for "Move to ›" and the arrow keys.
  *
@@ -299,7 +299,9 @@ function generateShown(scene: Scene, dragged: string, options: SceneTargetOption
   if (scene.floatKinds.includes(item.kind)) {
     const was = scene.floats.find((f) => f.id === dragged);
     const fo: Orient = options.floatOrient ?? was?.orient ?? floatOrientOf(item);
-    const size = options.floatSize ?? (was ? { width: was.rect.width, height: was.rect.height } : floatSizeOf(item, fo));
+    // Its size: the one given, else its float's where it lands in the orient it floats in, else the size for the orient it lands in.
+    const wasOrient = was?.orient ?? floatOrientOf(item);
+    const size = options.floatSize ?? (was && wasOrient === fo ? { width: was.rect.width, height: was.rect.height } : floatSizeOf(item, fo, wasOrient));
     targets.push({
       id: targetId({ kind: "float", item: dragged }),
       priority: 3,

@@ -52,7 +52,7 @@ describe("pure changes", () => {
   it("floatAt floats on top, records the size; with no rect it anchors at its last size", () => {
     const f = floatAt(s, "pages", { x: 300, y: 300, width: 240, height: 200 });
     expect(f.floats.map((x) => x.id)).toEqual(["notes", "pages"]);
-    expect(f.items.pages!.floatSize).toEqual({ width: 240, height: 200 });
+    expect(f.items.pages!.floatSizes).toEqual({ column: { width: 240, height: 200 } });
     expect(edge(f, "left").items).toEqual([]);
     const again = floatAt(moveTo(f, "pages", { edge: "left", at: 0 }), "pages");
     // Floated again after a dock: one more than the largest `since` among the floats there (the base float has none).
@@ -103,10 +103,10 @@ describe("a float resized by hand (resize with a rect)", () => {
     "bottom-right": { bottom: true, right: true },
   } as const;
 
-  it("sets the rect and the floatSize; a corner drag clamps at the open form's minimums, or at floatMin", () => {
+  it("sets the rect and the floatSizes; a corner drag clamps at the open form's minimums, or at floatMin", () => {
     const grown = resize(s, "notes", { x: 500, y: 200, width: 400, height: 450 });
     expect(rectOf(grown, "notes")).toEqual({ x: 500, y: 200, width: 400, height: 450 });
-    expect(grown.items.notes!.floatSize).toEqual({ width: 400, height: 450 });
+    expect(grown.items.notes!.floatSizes).toEqual({ column: { width: 400, height: 450 } });
     expect(solve(grown).items.notes!.rect).toEqual({ x: 500, y: 200, width: 400, height: 450 });
     expect(rectOf(resize(s, "notes", { x: 500, y: 200, width: 40, height: 30 }), "notes")).toEqual({ x: 500, y: 200, width: 180, height: 120 });
     const floored: Scene = { ...s, items: { ...s.items, notes: { ...s.items.notes!, floatMin: { width: 220, height: 160 } } } };
@@ -175,7 +175,7 @@ describe("a float resized by hand (resize with a rect)", () => {
     const read = readScene(JSON.parse(JSON.stringify(storeScene(changed))), s);
     expect(read.dropped).toEqual([]);
     expect(rectOf(read.scene, "notes")).toEqual({ x: 420, y: 150, width: 360, height: 400 });
-    expect(read.scene.items.notes!.floatSize).toEqual({ width: 360, height: 400 });
+    expect(read.scene.items.notes!.floatSizes).toEqual({ column: { width: 360, height: 400 } });
     expect(solve(read.scene).items.notes!.rect).toEqual(solve(changed).items.notes!.rect);
   });
 
@@ -251,7 +251,9 @@ describe("the stored form", () => {
     expect(read.dropped).toEqual([]);
     expect(edge(read.scene, "toolbar").items).toEqual(["tools", "views", "zoom"]);
     expect(edge(read.scene, "left").size).toBe(320);
-    expect(read.scene.items.notes).toMatchObject({ from: 1, used: 10, floatSize: { width: 300, height: 340 } });
+    // The one `floatSize` the store has is the size for the orient its float is in.
+    expect(read.scene.items.notes).toMatchObject({ from: 1, used: 10, floatSizes: { column: { width: 300, height: 340 } } });
+    expect(read.scene.items.notes!.floatSize).toBeUndefined();
     expect(read.scene.items.marks!.kept).toBe(true);
     expect(solve(read.scene).edges.left!.cross).toBe(320);
   });
