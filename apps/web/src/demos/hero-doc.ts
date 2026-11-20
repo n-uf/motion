@@ -171,23 +171,34 @@ function inner(it: SceneItem, id: ItemId, kind: string, rows?: readonly (readonl
   }
   return `<span class="hd-dots" aria-hidden="true"></span><div class="hd-gc">${groupContent(id, kind, hidden)}</div>`;
 }
-function itemHtml(s: Scene, l: SceneLayout, id: ItemId): string {
+/**
+ * An item as the layout drew it: placed at its solved rect in the window, or (`specimen`) standing alone in the form it took,
+ * with the same markup and classes, its size left to the page's CSS.
+ */
+function itemHtml(s: Scene, l: SceneLayout, id: ItemId, specimen = false): string {
   const p = l.items[id]!;
   const it = s.items[id]!;
   const edgeSide = p.edge ? l.edges[p.edge]?.side : undefined;
   const axis = edgeSide ? (edgeSide === "left" || edgeSide === "right" ? "column" : "row") : "row";
-  const cls = `hd-item hd-${p.kind} hd-k-${p.formKind} hd-ax-${axis}${p.floating ? " hd-float" : ""}`;
+  const cls = `hd-item hd-${p.kind} hd-k-${p.formKind} hd-ax-${axis}${p.floating && !specimen ? " hd-float" : ""}${specimen ? " hd-spec" : ""}`;
   const r = p.rect;
-  return `<section class="${cls}" style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}">${inner(it, id, p.formKind, p.rows, p.hidden, p.railTitle)}</section>`;
+  const style = specimen ? "" : ` style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}"`;
+  return `<section class="${cls}"${style}>${inner(it, id, p.formKind, p.rows, p.hidden, p.railTitle)}</section>`;
 }
 
 export interface DocWindow {
   /** The window's inner HTML (what the lab draws into its `dw-win`). */
   readonly html: string;
   readonly size: Size;
-  /** One line per docked panel and toolbar, read off the solve result: its name, where it sits, its form and (panels) its size. */
-  readonly lines: readonly { readonly name: string; readonly where: string; readonly size: string }[];
+  /**
+   * The parts sheet: the scene's items grouped by their kind (panels, toolbars), each drawn alone in the form the solve gave it
+   * (the same markup as in the window), with where it sits and the form, in words.
+   */
+  readonly sheet: readonly { readonly heading: string; readonly kind: string; readonly items: readonly { readonly html: string; readonly caption: string }[] }[];
 }
+
+/** The heading of each kind of item in the scene. */
+const KIND_HEADINGS: Readonly<Record<string, string>> = { panel: "Panels", group: "Toolbars" };
 
 const EDGE_WORDS: Readonly<Record<string, string>> = { title: "title bar", top: "top bar", bottom: "bottom bar", left: "left column", right: "right column", "rail-left": "left rail", "rail-right": "right rail" };
 
@@ -210,15 +221,18 @@ export function docWindow(size: Size): DocWindow {
     return menu ? [`<span class="hd-menu" style="left:${px(menu.rect.x)};top:${px(menu.rect.y)};width:${px(menu.rect.width)};height:${px(menu.rect.height)}">» ${menu.items.length}</span>`] : [];
   });
   const html = `<div class="hd-edges">${edges}</div>${scroll}<div class="hd-items">${docked.join("")}${menus.join("")}${floats.join("")}</div>`;
-  // The model in words, from the layout alone: where each item sits (its edge, or floating, or the » menu), the form it took,
-  // and a panel's size. Nothing here is typed by hand.
-  const lines = [...PANELS, ...GROUPS].flatMap((id) => {
-    const p = l.items[id];
-    if (!p) return [];
-    const where = p.inMenu ? "» menu" : p.floating ? "float over the page" : (EDGE_WORDS[p.edge ?? ""] ?? p.edge ?? "");
-    const form = p.inMenu ? "" : ` · ${p.formKind}`;
-    return [{ name: TITLES[id], where: `${where}${p.floating ? "" : form}`, size: isPanel(id) ? `${Math.round(p.rect.width)}×${Math.round(p.rect.height)}` : p.floating ? p.formKind : "" }];
-  });
-  return { html, size, lines };
+  // The parts sheet, from the scene and its layout alone: each item grouped by its `kind`, drawn in the form it took, with where
+  // it sits (its edge, or floating). An item in the » menu has no form of its own to draw, so it is left out (none is, at this size).
+  const sheet = Object.keys(KIND_HEADINGS).map((kind) => ({
+    heading: KIND_HEADINGS[kind]!,
+    kind,
+    items: [...PANELS, ...GROUPS]
+      .filter((id) => s.items[id]?.kind === kind && l.items[id] && !l.items[id]!.inMenu)
+      .map((id) => {
+        const p = l.items[id]!;
+        return { html: itemHtml(s, l, id, true), caption: p.floating ? "floats" : `${EDGE_WORDS[p.edge ?? ""] ?? p.edge ?? ""} · ${p.formKind}` };
+      }),
+  }));
+  return { html, size, sheet };
 }
 

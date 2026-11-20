@@ -5,7 +5,8 @@
 // bar with the Zoom toolbar and the window controls, Pages above Notes on the left, the page in the middle with Tools floating
 // at its corner, Findings on the right, Views and Review in the bottom bar. At this size solve gives Pages and Findings their
 // open form, Notes its header, Zoom a row (its compact variant), Views its icons and Review a row. The lines under the
-// window are read off the same layout (name, where it sits, form, a panel's size); none is typed. The window is drawn at its
+// window is a parts sheet read off the same scene and layout: the items grouped by their kind (panels, toolbars), each drawn alone
+// in the form solve gave it, with the same markup, and its place and form in a caption; none is typed. The window is drawn at its
 // solved size and scaled to the cell's width by a transform, in a box reserved by an aspect ratio, so nothing shifts. The
 // lines and the closing line sit at the cell's bottom; any spare height is between them and the window.
 import { docWindow } from "../demos/hero-doc";
@@ -17,8 +18,13 @@ const win = docWindow(SIZE);
   <figure class="hdw" style={`--hd-w:${SIZE.width};--hd-h:${SIZE.height}`} role="img" aria-label="A docked document window: a title bar with a zoom toolbar, Pages and Notes on the left, the page with a floating toolbar, Findings on the right, and a bottom bar.">
     <div class="hdw-in" aria-hidden="true"><div class="hd-win" set:html={win.html}></div></div>
   </figure>
-  <ul class="dlines">
-    {win.lines.map((l) => <li><span>{l.name}</span><span>{l.where}</span><span>{l.size}</span></li>)}
-  </ul>
+  <div class="dsheet" aria-hidden="true">
+    {win.sheet.map((g) => (
+      <section class="dsec" data-kind={g.kind}>
+        <h3>{g.heading}</h3>
+        <div class="dsp-row">{g.items.map((it) => <figure class="dsp"><Fragment set:html={it.html} /><figcaption>{it.caption}</figcaption></figure>)}</div>
+      </section>
+    ))}
+  </div>
   <p class="pline">solve(dockState) → rects</p>
 </div></div>

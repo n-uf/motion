@@ -160,12 +160,18 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
 .pline { margin: auto 0 0; padding-top: var(--s3); font: 12px/1.4 var(--font-mono); color: var(--text-3); }
 /* Docking: the lab's Document window, static (styles/hero-doc.css). Only the accent of the handles is rose. */
 .dockzone .hdw { flex: none; margin: 0; }
-/* The dock state in words, read off the solve result: name, where it sits and its form, a panel's size. Any spare height of the
-   cell lies between the window and these lines, so they and the closing line end at the cell's bottom, like placement's rows. */
-.dlines { display: grid; grid-template-columns: max-content max-content minmax(0, 1fr); gap: 0 12px; margin: auto 0 0; padding: var(--s3) 0 0; list-style: none; font: 500 12px/1.45 var(--font-mono); color: var(--text-2); }
-.dlines li { display: contents; }
-.dlines li > span:first-child { font-weight: 700; color: var(--text); }
-.dlines li > span:last-child { color: var(--k); font-weight: 600; }
+/* The parts sheet under the window, like a small component library: the scene's items by kind, each alone in the form solve gave it
+   (the window's own markup and look), a caption under each with its place and form. Any spare height of the cell lies between the
+   window and the sheet, so the sheet and the closing line end at the cell's bottom, like placement's rows. */
+.dsheet { display: grid; gap: var(--s3); margin: auto 0 0; padding-top: var(--s3); }
+.dsec h3 { margin: 0 0 6px; font: 700 10.5px/1.5 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--k); }
+.dsp-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; }
+.dsp { margin: 0; display: grid; gap: 3px; justify-items: start; }
+.dsp figcaption { font: 500 11px/1.3 var(--font-mono); color: var(--text-3); }
+.dsec[data-kind="panel"] .dsp { width: 108px; }
+.hd-spec.hd-item { position: relative; width: max-content; height: 32px; font-size: 12px; line-height: 1.25; color: var(--win-text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
+.hd-spec.hd-panel { width: 104px; height: 72px; }
+.hd-spec.hd-panel.hd-k-header { height: 32px; }
 .dockzone .pline { margin-top: 0; padding-top: var(--s3); }
 .dockzone .hd-dots { background-image: radial-gradient(var(--dock) 1.2px, transparent 1.4px); }
 
