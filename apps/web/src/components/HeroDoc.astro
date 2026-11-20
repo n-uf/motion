@@ -7,7 +7,8 @@
 // at its solved size and scaled to the slot by a transform, in a box reserved by an aspect ratio, so nothing shifts.
 import { docWindow } from "../demos/hero-doc";
 
-const SIZE = { width: 440, height: 320 };
+// 440 × 520 is the cell's own proportion at 1280 px and up (365 × 429 px), so the window fills it from top to bottom at its scale.
+const SIZE = { width: 440, height: 520 };
 const win = docWindow(SIZE);
 ---
 <div class="hz d"><div class="zin dockzone" id="dockzone">
