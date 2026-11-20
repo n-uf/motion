@@ -78,6 +78,14 @@ is expected, don't silence it (it also names `/lab/` where the lab is not built)
       `store.ts`, `kit-presets.ts`, `intent-presets.ts`, `feel-panel.ts`, `shell/checks.ts`, the lab's own text in
       `shell/pages.ts` and `pages/overview.html`). Keep `ALIASES` for the old lab ids (`#/placement/desk`,
       `#/placement/toolbar`): this site's pages link `/lab/#/placement/toolbar` and `/lab/#/docwin`.
+- [ ] The home hero's docking demo (`src/demos/hero-dock.ts`, `src/islands/hero-dock.ts`, `src/components/HeroDock.astro`)
+      imports `solve`, `targets`, `refusals` and the `Scene` types from `@n-uf/placement/scene`, and `StackForm` from
+      `@n-uf/placement/stack`: switch them to `@n-uf/docking` (the forms are the docking model's; check where the release
+      puts `StackForm`). Re-check what it reads: `SceneItemLayout.formKind` / `inMenu`, `SceneLayout.rails.left`,
+      `Edge.zoneAccepts`, the refusal reason `not-accepted` (worded "takes panels only" in `reasonWords`) and the target ids
+      `gap:bar:end:0` and `gap:left:end:0`. Its comments name `DockState`; the code still says `Scene`. The placement popup
+      demo imports `positionPopup` and `BELOW_LEFT` from the root `@n-uf/placement`, which stays.
+- [ ] `src/islands/hero.ts` and `src/demos/hero.ts` no longer import the scene (the scope's panel is carried between two pads).
 - [ ] Docs sources that name docking: the motion README and `docs/motion.md` (`createLandingModel` takes what
       docking's `lanes()` gives); placement's README loses the docking sections.
 - [ ] Share images: render `public/og/docking-layouts.png` (the file here is the old desk-layouts image, only renamed),

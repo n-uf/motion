@@ -1,12 +1,12 @@
 /*
  * The home hero (components/HeroScope.astro): three slots split by two seams, motion's scope on the left (the accent),
- * placement's tiles in the middle (violet, --series-b) and docking's plan on the right (rose, --dock). The TypeScript
+ * placement's popup in the middle (violet, --series-b) and docking's app window on the right (rose, --dock). The TypeScript
  * sentence is first in the DOM and shows under the band. Wide: three columns of equal text width (the page's wrap, a
  * gutter between them), the band's three grounds drawn behind them. Narrow (1100 px and under): one column, the three
  * headlines first, then each library's slot (its eyebrow, words and instrument) on its own ground.
  *
- * Nothing here changes size when islands/hero.ts or islands/hero-tiles.ts starts; they move things by transform and draw
- * into layers that take no room.
+ * Nothing here changes size when an island (hero, hero-pop, hero-dock) starts: the stages are svgs whose boxes are their
+ * viewBoxes, and the panel moves by transform in a layer that takes no room.
  */
 .hero { --pad: max(var(--gutter), calc((100cqw - var(--max)) / 2)); --gap: 26px; --w: calc((100cqw - 2 * var(--pad) - 4 * var(--gap)) / 3); container-type: inline-size; display: flex; flex-direction: column; }
 .pair-intro { order: 2; margin: 0; padding: 14px var(--pad) 0; max-width: none; font: 12.5px/1.6 var(--font-mono); color: var(--text-3); }
@@ -95,12 +95,12 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
 .zin { height: 100%; min-width: 0; }
 .cap { grid-area: cap; align-self: end; font: 600 10.5px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
 .cap b { color: var(--accent); font-weight: 650; }
-.tilezone .cap b { color: var(--series-b); }
-.planzone .cap b { color: var(--dock); }
+.popzone .cap b { color: var(--series-b); }
+.dockzone .cap b { color: var(--dock); }
 
 /* ---- The scope ---------------------------------------------------------------------------------------------------- */
-/* Wide: the dial with its two controls beside it, the plot under them, the readings, then the held panel's pad. */
-.scope { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto auto; grid-template-areas: "gauge gauge" "plot plot" "stats stats" "cap pad"; gap: 10px 14px; }
+/* Wide: the dial with its two controls beside it, the plot under them, the readings, then the two pads the panel is carried between. */
+.scope { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto auto auto; grid-template-areas: "gauge gauge gauge" "plot plot plot" "stats stats stats" "pada cap padb"; gap: 10px 14px; }
 .gauge-col { grid-area: gauge; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s2) 14px; justify-items: start; align-content: start; align-items: center; }
 .gauge-col .gauge { grid-row: 1 / span 2; }
 .gauge { width: 112px; height: 77px; overflow: visible; }
@@ -125,7 +125,12 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
 .plot .live { fill: none; stroke: var(--accent); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .plot .mark { fill: var(--bg); stroke: var(--accent); stroke-width: 2; }
 .plot .t90 { fill: var(--accent); font-weight: 650; }
-.pad { grid-area: pad; align-self: end; justify-self: end; display: grid; place-items: center; width: 112px; height: 64px; border: 1.5px dashed var(--line-3); border-radius: var(--r); font: 600 10px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); }
+.pad { position: relative; align-self: end; display: grid; place-items: center; width: 96px; height: 64px; border: 1.5px dashed var(--line-3); border-radius: var(--r); font: 600 10px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); }
+.pad.a { grid-area: pada; justify-self: start; }
+.pad.b { grid-area: padb; justify-self: end; }
+.pad .mini { position: absolute; inset: 0; border: 1.5px solid var(--accent); border-radius: var(--r); background: var(--bg-raised); overflow: hidden; }
+.pad:has(.mini) > span { display: none; }
+.scope .cap { align-self: center; text-align: center; }
 .stats { grid-area: stats; display: flex; flex-wrap: wrap; gap: 2px 22px; font: 12px var(--font-mono); color: var(--text-2); }
 .stats i { font-style: normal; color: var(--text-3); margin-right: 6px; }
 .stats b { display: inline-block; min-width: 6ch; color: var(--text); font-weight: 600; }
@@ -133,50 +138,52 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
 .stats b.ok { color: var(--good); }
 .stats b.bad { color: var(--bad); }
 
-/* ---- The tiles and the plan: two instruments of one shape (dimension line, stage, readout, caption) ------------------- */
-/* --k is the zone's colour (violet for placement's tiles, rose for docking's plan), --ground the surface it sits on. */
-.tilezone, .planzone { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; grid-template-areas: "dim" "stage" "say" "cap"; gap: 6px; }
-.tilezone { --k: var(--series-b); --ground: var(--bg-sunken); }
-.planzone { --k: var(--dock); --ground: var(--bg); }
-.dimh { grid-area: dim; position: relative; height: 14px; border-left: 1px solid var(--k); border-right: 1px solid var(--k); }
-.dimh::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 1px; background: var(--k); opacity: 0.7; }
-.dimh span { position: absolute; left: 50%; top: -1px; transform: translateX(-50%); padding: 0 8px; background: var(--ground); font: 600 10px/14px var(--font-mono); color: var(--k); }
-.plan, .tiles { grid-area: stage; position: relative; width: 100%; aspect-ratio: calc(var(--sw) / var(--sh)); border: 1px solid color-mix(in srgb, var(--k) 55%, transparent); }
-.plan::before, .plan::after, .tiles::before, .tiles::after { content: ""; position: absolute; z-index: 2; pointer-events: none; width: 11px; height: 11px; border: 2px solid var(--k); }
-.plan::before, .tiles::before { left: -4px; top: -4px; border-right: 0; border-bottom: 0; }
-.plan::after, .tiles::after { right: -4px; bottom: -4px; border-left: 0; border-top: 0; }
-.reg { position: absolute; border: 1px solid color-mix(in srgb, var(--k) 38%, transparent); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--k) 9%, transparent) 0 1px, transparent 1px 7px); font: 600 9.5px var(--font-mono); letter-spacing: 0.07em; text-transform: uppercase; color: color-mix(in srgb, var(--k) 80%, var(--text-3)); }
-.reg span { position: absolute; left: 7px; top: 5px; }
-.reg.rail { background: color-mix(in srgb, var(--k) 10%, transparent); }
-.pslot { position: absolute; border: 1.5px dotted color-mix(in srgb, var(--k) 55%, transparent); border-radius: 7px; }
-.pslot > span { position: absolute; right: 7px; bottom: 4px; font: 600 10px var(--font-mono); color: var(--k); white-space: nowrap; }
-.pslot.docked { border: 1.5px solid var(--k); background: color-mix(in srgb, var(--k) 13%, transparent); }
-.pslot .mini { position: absolute; inset: 0; border: 1.5px solid var(--accent); border-radius: 8px; background: var(--bg-raised); overflow: hidden; }
-.pslot .mini ~ span, .pslot:has(.mini) > span { display: none; }
-.pind, .tind { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; border: 2px dashed var(--signal); border-radius: 7px; background: var(--signal-soft); }
-.pind[hidden], .tind[hidden] { display: none; }
-.pind.docked { border: 1.5px solid var(--k); background: color-mix(in srgb, var(--k) 13%, transparent); }
-.pind.docked em { display: none; }
-.pind em, .tind em { position: absolute; left: 8px; bottom: -11px; padding: 1px 9px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font: 620 11.5px var(--font-sans); font-style: normal; white-space: nowrap; }
-.say { grid-area: say; min-height: 16px; font: 600 10.5px/16px var(--font-mono); color: var(--text-3); text-align: right; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.say b { color: var(--signal-text); font-weight: 650; }
-/* The drop readout is the island's: no "docked · ..." sentence without it (the row keeps its room). */
-.band:not(.go) #say, .tilezone:not(.go) .say { visibility: hidden; }
-
-/* ---- The tiles: panes that divide an area ------------------------------------------------------------------------------- */
-/* The stage is a size container (its panes are placed in its own units until the island takes over), its box reserved by the aspect ratio. */
-.tiles { container-type: size; }
-.tp { position: absolute; left: 0; top: 0; will-change: transform; touch-action: none; user-select: none; -webkit-user-select: none; }
-.tilezone.go .tp { cursor: grab; }
-.tp-frame { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 1.5px solid color-mix(in srgb, var(--series-b) 60%, transparent); border-radius: 7px; background: var(--bg-raised); }
-.tp-body { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.tp .hb i b { background: var(--series-b); }
-.tp.lift .tp-frame { border-color: var(--series-b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--series-b) 22%, transparent), var(--shadow-pop); }
-.tp.held, .tp.lift { z-index: 2; }
-.tp.held { cursor: grabbing; }
-/* On a touch screen a vertical swipe over the stage scrolls the page (the stage is most of the narrow screen); the pane is dragged sideways or by a mouse. */
-@media (pointer: coarse) { .tp { touch-action: pan-y pinch-zoom; } }
-.tp.held .tp-frame { border-color: var(--series-b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--series-b) 22%, transparent), var(--shadow-pop); }
+/* ---- Placement's and docking's diagrams: static, input to computed result, drawn from real library output ---------------- */
+/* --k is the zone's color (violet for placement's popup cases, rose for docking's window). Every label is 12 px or more. */
+.popzone, .dockzone { --fs: 12px; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto 1fr; gap: 8px; align-content: start; }
+.popzone { --k: var(--series-b); }
+.dockzone { --k: var(--dock); }
+.popzone .cap, .dockzone .cap { grid-area: auto; }
+.fn { align-self: start; justify-self: start; max-width: 100%; padding: 4px 8px; border: 1px solid color-mix(in srgb, var(--k) 45%, transparent); border-radius: 3px; background: var(--bg); font: 600 12px/1.4 var(--font-mono); color: var(--text-2); white-space: normal; overflow-wrap: anywhere; }
+/* Placement: a 2 x 2 of one rule. Bounds are dashed violet, the solid card is where the popup went, red dashes where the rule first asked. */
+.pcases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
+.pcase { margin: 0; }
+.pcase svg { display: block; width: 100%; height: auto; border: 1px solid color-mix(in srgb, var(--k) 40%, transparent); background: var(--bg-sunken); }
+.pcase figcaption { margin-top: 4px; font: 600 12px/1.3 var(--font-mono); color: var(--text); }
+.pcase .n { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 4px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--k); color: var(--k); font-size: 11px; }
+.pc-bounds { fill: none; stroke: var(--k); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.pc-ghost { fill: color-mix(in srgb, var(--bad) 8%, transparent); stroke: var(--bad); stroke-width: 1.4; stroke-dasharray: 4 3; }
+.pc-anchor { fill: var(--k); }
+.pc-caret { fill: none; stroke: var(--bg); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.pc-pop rect:first-child { fill: var(--bg-raised); stroke: var(--k); stroke-width: 1.5; }
+.pc-pop .ln { fill: var(--line-3); }
+.plegend { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; margin: 0; font: 600 12px/1.4 var(--font-mono); color: var(--text-2); }
+.plegend .k { display: inline-block; width: 18px; height: 10px; margin-right: 6px; border-radius: 2px; vertical-align: -1px; }
+.plegend .solid { border: 1.5px solid var(--k); background: var(--bg-raised); }
+.plegend .ask { border: 1.5px dashed var(--bad); }
+/* Docking: the same dock state at two widths. Each frame is the window at its true proportion (the narrow one really narrower). */
+.dkframe { margin: 0; display: grid; gap: 4px; }
+.dkframe.narrow { width: calc(100% * 240 / 320); }
+.dkframe svg { display: block; width: 100%; height: auto; }
+.dknote, .dkchanged { font: 600 12px/1.4 var(--font-mono); color: var(--text-2); }
+.dkchanged { color: var(--k); }
+.dkarrow { display: flex; align-items: center; gap: 8px; font: 600 12px var(--font-mono); color: var(--text-3); }
+.dkarrow svg { width: 18px; height: 22px; fill: none; stroke: var(--k); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.dk-win { fill: var(--bg-raised); stroke: var(--line-3); stroke-width: 1; }
+.dk-strip { stroke: var(--line-2); stroke-width: 1; }
+.dk-dot { fill: var(--text-3); opacity: 0.6; }
+.dk-bar { fill: color-mix(in srgb, var(--k) 9%, var(--bg-subtle)); }
+.dk-col { fill: color-mix(in srgb, var(--k) 10%, var(--bg-subtle)); }
+.dk-doc { fill: var(--bg-sunken); }
+.dk-label { font: 600 12px var(--font-sans); fill: var(--text-3); }
+.dk-page { fill: var(--line-2); }
+.dk-chip, .dk-panel { fill: var(--bg-raised); stroke: color-mix(in srgb, var(--k) 70%, transparent); stroke-width: 1.2; }
+.dk-chip.m, .dk-drop { stroke: var(--k); stroke-width: 1.5; }
+.dk-drop { fill: var(--bg-raised); filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.18)); }
+.dk-t { font: 500 12px var(--font-sans); fill: var(--text); }
+.dk-t .b, .dk-t.b { font-weight: 650; }
+.dk-t .w { fill: var(--text-2); }
+.dk-t .m, .dk-t.m { fill: var(--k); font-weight: 700; }
 
 /* ---- The panel: the real element, and the strobe trail ----------------------------------------------------------- */
 .ov { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
@@ -235,12 +242,12 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
   .hz.d { background: radial-gradient(circle, color-mix(in srgb, var(--dock) 30%, transparent) 1.3px, transparent 1.6px) 0 0 / 24px 24px, var(--bg); }
   /* The instruments keep a reading width on a wide stack, left-aligned under their words. */
   .zin { max-width: 640px; }
-  .tilezone, .planzone { max-width: 460px; }
-  .scope { grid-template-columns: 164px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "gauge plot" "stats stats" "cap pad"; gap: 10px 16px; }
+  .popzone, .dockzone { max-width: 460px; }
+  .scope { grid-template-columns: 164px minmax(0, 1fr); grid-template-rows: auto auto auto auto; grid-template-areas: "gauge plot" "stats stats" "pada padb" "cap cap"; gap: 10px 16px; }
   .gauge-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s2); align-items: start; }
   .gauge-col .gauge { grid-row: auto; width: 140px; height: 96px; }
-  .pad { justify-self: end; align-self: end; width: 104px; height: 60px; }
-  .cap { align-self: center; }
+  .pad { width: 104px; height: 60px; }
+  .scope .cap { text-align: left; }
   .pair-intro { padding: var(--s4) var(--gutter) 0; }
 }
 @media (max-width: 420px) {
