@@ -5,26 +5,63 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.53
 
-- `./drag`, **`guideRects` shortens a thin guide that a clear rect meets only at its end** (fix). A line or a striped
-  strip met by a rect at one end of its length only (a toolbar over the last 10 px of a column's line) was thinned
-  across its thickness by that rect and so dropped whole. It is now shortened along its length, as a box is trimmed at
-  one end: it loses the overlap and the clearance, and keeps `minLength` or is left out. A rect across its middle (or
-  over all its length) thins it as before.
+**The breaking release of the SDK: structure and names only, no behavior changes.** The drag intent goes back to its
+general job, one preview type serves both drag models, the root exports everything host-free, the DOM writers move to
+`./browser`, and the package has one modifier key and one unit rule. Host notes: every item below is a rename, a move or
+a removal, with the name or the call to use instead.
+
+- **Root.** `@n-uf/motion` exports everything host-free: `./clock`, `./signals`, `./values`, `./gestures`, `./drag`
+  and `./layout`, with the shapes. Only `./browser` and `./testing` stay apart. `./values`, `./gestures`, `./drag` and
+  `./layout` re-export the shapes they use.
+- **`./clock`.** `createFrameCoalescer` (with `CoalescerOptions`, `FrameCoalescer`) moves here from `./gestures`.
+  `FrameLoopOptions.budgetMs` → `budget`, `frameMs` → `frameInterval`, `maxDeltaMs` → `maxDelta`; `FrameInfo.budgetMs`
+  → `budget`; `FrameStats.lastMs` → `lastFrame`, `maxMs` → `longestFrame`, `meanMs` → `meanFrame`, `phaseMs` →
+  `perPhase`; `FakeClockOptions.frameMs` and `FakeClock.frameMs` → `frameInterval`.
+- **`./values`.** `MotionValue.subscribe(listener)` (new): each change of the value, no signals needed.
+  `Animator.setVelocity` is required (a tween ignores it). `Settle.hold` is removed: use `jumpTo`.
+- **`./gestures`.** One `ModifierKey` for the package: `"shift" | "alt" | "ctrl" | "meta" | "mod"` (`"mod"`: ⌘ or
+  Ctrl, either one); `isHeld` takes a partial set of keys and knows `"mod"`. `RecognizerOptions.toCanvas` is optional
+  (identity). `modifierDrag` leaves `press` and `dragStart`, and `ModifierDrag` is removed: a host derives it from
+  `origin.button` and `isHeld`. `RawPointerEvent.lostBy` `"surface"` → `"view"`. `DOUBLE_CLICK` is exported here (no
+  longer from `./drag`). `RecognizerOptions.staleMs` → `stale`, `DwellConfig.dwellMs` → `dwell`,
+  `TouchPressConfig.holdMs` → `hold`, `PagedSwipeConfig.idleMs` → `idle`, `lockoutMs` → `lockout`, `thresholdPx` →
+  `threshold`.
+- **`./drag`, the intent.** `DragTuning.railArmDwellMs` → `armAfter`; `DragModifiers.railKey` → `armKey`;
+  `DragFrame.forced` `"rail"` → `"armed"`. `liftRect`, `floating`, `earlyRelease` and `DragFrame.refusedSinceShown`
+  are removed. `DragFrame.landing` is required. New `bounds` and `setBounds`: the intent clamps the pointer onto the
+  drawn space. `release(point, targets, keys?)` → `release(point, time, targets, keys?)`, taking a new point as one more
+  sample. `ModifierKey` is the gestures one (lower case), and `DragKeys` is `Partial<Modifiers>`.
+- **`./drag`, the preview.** One type, `DragPreview` = `{ mode, placeGuides? }` with `PreviewMode` `"outline" |
+  "placeholder" | "glide" | "snap"`; a mode alone stands for `{ mode }`. The old strings map `"indicator"` →
+  `"outline"`, `"gap"` → `"placeholder"`, `"snap"` → `"glide"`, `"item"` → `"snap"`. `DropPreviewMode` is removed.
+  `previewPlan` reads a landing frame too (`PreviewFrame`); `PreviewPlan.guides` is required. `EmptyLanes` and the
+  preview's `emptyLanes` leave motion (docking's option).
+- **`./drag`, the landing model.** `release()` → `release(point, time, keys?)`. `LandingGates.still` (px per 8 ms) →
+  `stillSpeed` (px/ms, 0.1875), `step` → `stepSpeed` (px/ms, 0.375), `slide` → `slideSpeed` (px/ms, 2).
+- **`./layout`.** `LayoutMotion.onIdle` and `running` are removed: `onActiveChange` is the one way to learn idle,
+  `idle()` for a test. `domDrawable`, `layOutBox`, `drawBox`, `flip`, `rectOf` and their types move to `./browser`.
+- **`./browser`.** Everything that touches a host, the DOM writers included. `BrowserClockOptions.fallbackFrameMs` →
+  `fallbackFrameInterval`.
+- **One unit rule.** Times in ms, distances in px, a pointer's speeds in px/ms, and no name carries its unit. An
+  animator's velocity stays in units per second, and a settle's tempo per second.
+- Signals stay public; nothing requires them, and they leave the package's one-line description.
+
+Unreleased on the release line since 26.11.52 (behavior; they ship there first and leave this section when they do):
+
 - `./drag`, **`guideRects` widens thin lines** (behavior change). A `line` guide thinner than the new option
   `lineThickness` (default 2 px) is widened to it, centered on its own position, before the inset, the clear rects and
-  `minThickness` apply; a line at least that thick is unchanged. Hosts that passed zero-thick lines (placement gives
+  `minThickness` apply; a line at least that thick is unchanged. Hosts that passed zero-thick lines (docking gives
   the line between two docked panels zero thickness) used to see them dropped by `minThickness`, and now see them
   drawn at 2 px, so a host no longer widens them itself. `lineThickness: 0` keeps the old behavior.
 - `./drag`, **a hand creeping a pixel at a time is slow** (fix). With the hand's speed, a host that sends a sample only
   when the pointer moves a whole pixel, creeping at 0.016 to 0.025 px/ms (a pixel every 40 to 60 ms), made every sample
   a gap, its step unknown, so it never entered a band over a refused column while it kept creeping. A step over a gap
-  that is no longer than 3 px now reads as the slow step it is; a longer one (a fling out of a rest) stays unknown. The
-  3 px is a length of its own (`HAND_SPEED.slowStep` of the internal estimate), not `gates.step`, which is a speed.
-- Docs only: **the hand's speed estimate of 26.11.52, written up with its costs in numbers.** No behavior change in this
-  entry; it describes what 26.11.52 already does. The estimate (`createHandSpeed`, `HAND_SPEED`, `HandSpeedOptions`) is
-  internal, not exported from `./drag`. A gap of `min(40, gates.pause)` ms starts the hand again. Since 26.11.52 a slide
-  into a touching lane enters about 1.3 to 2.8 times as far up the lane as before it (from the bar under an empty rail,
-  smooth samples: 0.6 px/ms 62 → 82 px at 125 Hz, 67 → 106 at 60 Hz; 1.2 px/ms 67 → 125 and 77 → 173; 1.9 px/ms
+  that is no longer than what `gates.stepSpeed` covers in 8 ms (3 px) now reads as the slow step it is; a longer one (a
+  fling out of a rest) stays unknown.
+- Docs: **the hand's speed, its costs in numbers.** The estimate (`createHandSpeed`, `HAND_SPEED`, `HandSpeedOptions`)
+  is internal, not exported from `./drag`. A gap of `min(40, gates.pause)` ms starts the hand again. A slide into a
+  touching lane now enters about 1.3 to 2.8 times as far up the lane as before 26.11.52 (from the bar under an empty
+  rail, smooth samples: 0.6 px/ms 62 → 82 px at 125 Hz, 67 → 106 at 60 Hz; 1.2 px/ms 67 → 125 and 77 → 173; 1.9 px/ms
   61 → 167 and 91 → 243). A hand jittering on the spot after a fling docks 64 → 104 ms after its last fast sample at
   125 Hz, 64 → 128 ms at 60 Hz.
 
