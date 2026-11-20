@@ -48,14 +48,14 @@ The package is one library with nine entry points. Each folder under `packages/m
 | `./signals` | `signal`, `computed`, `effect`, `batch` | `alien-signals/system` (the one runtime dependency) |
 | `./values` | springs, tweens, the settle curve, easing, `reveal`, `popIn`, and `motionValue` (an animator stepped on a frame loop: `subscribe` to it, or read it as a signal) | `./clock` (the loop type), `./signals` |
 | `./gestures` | the gesture recognizer, the double click, wheel rules, modifier keys, the machine runner, the dwell, touch-press and paged-swipe machines | `./clock` (the port types), `./signals` (a machine's state is reactive) |
-| `./drag` | drag intent, lift and grip rules, preview plans, the landing model | the shared shapes, and the modifier keys of `./gestures` |
+| `./drag` | drag intent, lift and grip rules, preview plans, the landing model | nothing but the shared shapes and modifier keys |
 | `./layout` | layout motion (many rects settling on one loop), the held drag, `anchoredMorph` | `./clock` (the loop type), `./values` (`createSettle`, `reveal`, `popIn`) |
 | `./testing` | frame-sampled checks of the motion rules | nothing but the shared shapes |
 | `./browser` | everything that touches a host: `ClockPort` on `requestAnimationFrame`, the reduced-motion query, and the DOM writers (`domDrawable`, `layOutBox`, `drawBox`, `flip`) | `./clock` (the port type), `./layout` (the drawable and item types) |
 
 ```mermaid
 flowchart LR
-  shared["shared shapes: Point, Rect, Animatable"]
+  shared["shared shapes and keys: Point, Rect, Animatable, ModifierKey, isHeld, DOUBLE_CLICK"]
   clock["./clock"]
   signals["./signals"]
   values["./values"]
@@ -75,7 +75,6 @@ flowchart LR
   layout --> values
   browser --> clock
   browser --> layout
-  drag --> gestures
   values --> shared
   gestures --> shared
   layout --> shared
@@ -87,7 +86,7 @@ flowchart LR
 
 Three facts about this graph are worth stating, because a consumer's bundle follows them.
 
-- **The edges are the imports between folders**, read from the source. `./testing` imports no other folder; `./drag` imports only the modifier keys of `./gestures` (`ModifierKey`, `isHeld`). It does not use the clock, the loop or the gesture recognizer: a host calls it with a point and a time.
+- **The edges are the imports between folders**, read from the source. `./drag` and `./testing` import no other folder (the modifier keys `./drag` reads, `ModifierKey` and `isHeld`, are shared files at the root of `src`, which `./gestures` re-exports). `./drag` does not use the clock, the loop, the signals or the gesture recognizer: a host calls it with a point and a time.
 - **The dotted edges are not imports.** `holdItem(...).preview(plan, slot)` in `./layout` accepts any `{ snapItem: boolean }`, which is what `previewPlan` in `./drag` returns; it does not import `./drag`. The drag and landing types are written to match what `@n-uf/placement` produces (its `lanes()` result and its drop targets), and are plain objects a host can also build by hand.
 - **One graph, one host edge.** All signal state lives in `./signals`; the built package keeps it in one file. Every entry except `./browser` is free of host globals.
 
