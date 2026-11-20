@@ -28,8 +28,11 @@ const EPS = 1e-6;
  * their placed `rect`.
  */
 export function guideRects<G extends PlacedGuide>(guides: readonly G[], options: GuideRectsOptions): G[] {
-  const inset = Math.max(0, options.inset ?? 2);
-  const min = Math.max(0, options.minThickness ?? 2);
+  const inset = Number.isFinite(options.inset) ? Math.max(0, options.inset!) : 2;
+  const min = Number.isFinite(options.minThickness) ? Math.max(0, options.minThickness!) : 2;
+  // A guide placed where it already was comes back as given (the same rect object), so a host can key on it.
+  const same = (a: Rect, b: Rect): boolean => Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS && Math.abs(a.width - b.width) < EPS && Math.abs(a.height - b.height) < EPS;
+  const place = (g: G, rect: Rect): G => (same(g.rect, rect) ? g : { ...g, rect });
   const x0 = options.inside.x + inset;
   const y0 = options.inside.y + inset;
   const x1 = options.inside.x + options.inside.width - inset;
@@ -43,7 +46,7 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
       const b = Math.max(r.y, y0);
       const c = Math.min(r.x + r.width, x1);
       const d = Math.min(r.y + r.height, y1);
-      if (c - a > EPS && d - b > EPS) out.push({ ...g, rect: { x: a, y: b, width: c - a, height: d - b } });
+      if (c - a > EPS && d - b > EPS) out.push(place(g, { x: a, y: b, width: c - a, height: d - b }));
       continue;
     }
     // A thin guide: thick along one axis (its shorter side), long along the other.
@@ -72,7 +75,7 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
       else lo = Math.max(lo, c1);
     }
     if (hi - lo < Math.max(EPS, min)) continue;
-    out.push({ ...g, rect: thinX ? { x: lo, y: s0, width: hi - lo, height: s1 - s0 } : { x: s0, y: lo, width: s1 - s0, height: hi - lo } });
+    out.push(place(g, thinX ? { x: lo, y: s0, width: hi - lo, height: s1 - s0 } : { x: s0, y: lo, width: s1 - s0, height: hi - lo }));
   }
   return out;
 }
