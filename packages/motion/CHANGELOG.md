@@ -17,7 +17,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   sustained slide of `path` px at or below the gate does); the lane is entered only by its own gate, the slow `path` or
   a rest past `pause`. The cost: above 2 px/ms a
   hand sliding along a corner lane keeps the previous lane's end spot until it slows or rests. Host notes: a host that
-  wants the old rule sets `gates: { slide: Infinity }`.
+  wants the old rule sets `gates: { slide: Infinity }`. `LandingGates.slide` is a new required member: a host that
+  builds a full `LandingGates` literal adds it (`slide: 16`, or spreads `LANDING_GATES`); a host that passes
+  `Partial<LandingGates>` (`options.gates`) is unaffected.
 - `./drag`, **far beyond the held lane the frame is held but refused** (behavior change). Inside a touching lane not
   entered, the held lane held however far the pointer went, so after a flick up a rail that didn't enter it the frame
   said "the bar, its home spot, landing at home" 288 px above the bar, and nothing told the user the release goes home.
