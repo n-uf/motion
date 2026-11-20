@@ -58,7 +58,7 @@ function run(o: LandingOptions, keys: readonly (readonly [number, number, number
     const u = b[0] > a[0] ? Math.min(1, (t - a[0]) / (b[0] - a[0])) : 1;
     const p = { x: a[1] + (b[1] - a[1]) * u, y: a[2] + (b[2] - a[2]) * u };
     const f = m.update(p, t, { shift: t >= shiftFrom });
-    out.push({ t, p, f, release: m.release() });
+    out.push({ t, p, f, release: m.release(p, t) });
   }
   return { frames: out, model: m };
 }
@@ -410,11 +410,11 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
       expect([after(fromDoc, slow, 16).lane, after(fromDoc, slow, 32).lane]).toEqual([null, "top"]);
     });
 
-    it("gates.step: a change that reflows waits for a step of at most `step`", () => {
+    it("gates.stepSpeed: a change that reflows waits for a step of at most `stepSpeed`", () => {
       const changed = (speed: number, gates?: Partial<LandingOptions["gates"]>): boolean =>
         run(base({ gates: { trail: 10_000, ...gates } }), path([{ x: 15, y: 300 }, { x: 15, y: 60 }], speed)).frames.some((x) => x.f.spot === "rail-left/start/^|tools");
       expect([changed(0.2), changed(1)]).toEqual([true, false]);
-      expect(changed(1, { step: 10 })).toBe(true);
+      expect(changed(1, { stepSpeed: 1.25 })).toBe(true);
     });
 
     it("gates.trail: a fast reflowing change is taken once the landing trails the pointer by more than `trail`", () => {
@@ -441,11 +441,11 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
       expect(y!).toBeLessThan(134 + 40 + 9);
     });
 
-    it("gates.still: a creeping pointer enters when its steps are at most `still`, not when they are larger", () => {
+    it("gates.stillSpeed: a creeping pointer enters when its steps are at most `stillSpeed`, not when they are faster", () => {
       // Across the rail (no path along it counts), 0.125 px/ms is 1 px a sample, 0.25 px/ms is 2: never resting.
-      const entered = (speed: number, still?: number): boolean => run(base({ home: undefined, ...(still ? { gates: { still } } : {}) }), path([{ x: 200, y: 300 }, { x: 5, y: 300 }], speed)).frames.some((x) => x.f.lane === "rail-left");
+      const entered = (speed: number, stillSpeed?: number): boolean => run(base({ home: undefined, ...(stillSpeed ? { gates: { stillSpeed } } : {}) }), path([{ x: 200, y: 300 }, { x: 5, y: 300 }], speed)).frames.some((x) => x.f.lane === "rail-left");
       expect([entered(0.125), entered(0.25)]).toEqual([true, false]);
-      expect(entered(0.25, 3)).toBe(true);
+      expect(entered(0.25, 0.375)).toBe(true);
     });
 
     it("the first point is not still: a drag that starts deep in a bar and moves fast away never enters it", () => {
@@ -717,5 +717,17 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
     // Back inside `lift - spot` of the press, it is home again; the zone's edge is a held state both ways.
     m.update({ x: 100, y: 100 }, (t += 16));
     expect(m.update({ x: 100, y: 104 }, (t += 16)).spot).toBe("col/A|B");
+  });
+});
+
+describe("landing model: release(point, time)", () => {
+  it("at the last update's point it answers from that frame; at a new point that point is one more sample first", () => {
+    const { frames, model } = run(base(), path([{ x: 15, y: 300 }, { x: 15, y: 200 }], 0.1));
+    const last = frames.at(-1)!;
+    expect(model.release(last.p, last.t)).toEqual(last.release);
+    expect(model.frame).toBe(last.f);
+    // Out past the stage's edge by more than `edge`: nowhere, the item goes home.
+    expect(model.release({ x: -200, y: 200 }, last.t + 8)).toBeNull();
+    expect(model.frame.region).toBe("nowhere");
   });
 });

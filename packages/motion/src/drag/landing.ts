@@ -14,15 +14,15 @@ import type { PlaceGuides } from "./preview";
  * - **The stage's edge** is the easiest place to dock: a pointer past the stage by up to `edge` px counts as on its
  *   edge, so it lies deep inside a lane drawn against that edge; beyond, it is nowhere.
  * - **A lane holds** while the pointer is inside its rect grown by `exit`, whatever lies under it. Inside, over a spot's
- *   stretch it is at that spot; over a refused stretch of the lane, refused ("Can't go here"). (Placement's `lanes()`
+ *   stretch it is at that spot; over a refused stretch of the lane, refused ("Can't go here"). (Docking's `lanes()`
  *   joins a refused stretch shorter than the item to its spots.)
  * - **Entering a lane** needs one of two gates: `path` px of slow pointer path along it inside it (steps of at most
- *   `step`), or a still step (at most `still`) once `depth` px inside, the depth measured across the lane: only from its
+ *   `stepSpeed`), or a still step (at most `stillSpeed`) once `depth` px inside, the depth measured across the lane: only from its
  *   two sides parallel to its axis that face into the stage (on the edge it is deep), never from its ends along its axis
  *   (a rail's end that meets a bar is no wall). A fly-through of a thin bar or rail at any angle meets neither, so its
  *   room never opens. Inside a lane that touches the held one, past the held lane's exit margin, the held lane holds
  *   until that lane's gate passes or the pointer has slid `path` px along it (across it at most a third as far) as a
- *   steady slide no faster than `slide` (2 px/ms), as the hand's speed reads it: lane to lane never passes through the
+ *   steady slide no faster than `slideSpeed` (2 px/ms), as the hand's speed reads it: lane to lane never passes through the
  *   float, and never opens a crossed lane's room. A fling, along the lane or across it, is no entry: the touching lane is
  *   entered only by its own gate (the slow path, or a rest past `pause`). The cost: above 2 px/ms a hand sliding along a
  *   corner lane keeps the previous lane's end spot until it slows or rests, and a slide counts only once the hand's
@@ -32,7 +32,7 @@ import type { PlaceGuides } from "./preview";
  *   within `exit + path - spot`. Over a refused place (a lane's band lying over a column that takes nothing: an empty
  *   side rail's) a lane is entered on the first slow step there (not on the lift), as there is nothing else to mean
  *   there; a fly-through still opens no room. A touching lane's takeover reads the same rule, so a held lane never
- *   pre-empts it. After a fling (the hand's speed above `slide`) no lane is entered by a slow-step gate (still,
+ *   pre-empts it. After a fling (the hand's speed above `slideSpeed`) no lane is entered by a slow-step gate (still,
  *   over-refused) until the hand has read slow (or rested) for `pause`: jitter right after a flick docks nothing, while
  *   on the stage's edge a fling is taken at once.
  * - **The hand's speed** (`createHandSpeed`, ./hand-speed) is the one estimate every gate that asks "fast or slow"
@@ -53,7 +53,7 @@ import type { PlaceGuides } from "./preview";
  *   The zone is a held state like a held lane: the drag starts in it, leaves it past `lift` and re-enters only within
  *   `lift - spot`, so a wobble at its edge never flips a cut near the press.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
- *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
+ *   item (the two spots' `others` keys differ), on a step of at most `stepSpeed`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
  *   follows the hand at any speed. With `regionsFor`, a reflowing change is kept only if, in the new spot's own regions
  *   (its room open), the pointer still lies in that spot's stretch: the room shifting the boundary never bounces it.
@@ -72,7 +72,7 @@ import type { PlaceGuides } from "./preview";
  *   entry margin `exit`, acquired within `max(reach - spot, reach / 2)` and kept to `reach`, so it never blinks at the
  *   edge: a release floats). Over a refused place outside every lane no guide shows, however near the lane behind it
  *   lies; a host that wants the early guide sets `approach.reach` (in open space only: over a refused place none shows
- *   at any reach). That lane (the one the Near rule picks) shows its `entry` marks where it has them (placement's
+ *   at any reach). That lane (the one the Near rule picks) shows its `entry` marks where it has them (docking's
  *   prediction of an empty lane's marks once entered), so its guide before entry is its mark after it. Its guide leaves
  *   out the held toolbar at the landing it takes there (held) or would take (the spot the pointer picks, a sliding
  *   spot's start from the grab), never at its floating rect, so a host passes no held rect in `guideRects`' `clear`; a
@@ -82,12 +82,14 @@ import type { PlaceGuides } from "./preview";
  *   corner goes to the lane with `entry` nearest the pointer within `reach`, for the corner only (it isn't made Near,
  *   pending or enterable). Beyond reach of every such lane, every lane's `marks`, where the bar keeps a shared corner.
  *   No two lanes' guides overlap on any frame.
- * - Steps are measured between points that differ, normalized to 125 Hz, so the gates read the same at any input rate.
- *   A repeated point keeps the last step; it is still only once the pointer has stayed put for `rest` ms.
+ * - Steps are speeds (px/ms) between points that differ, so the gates read the same at any input rate. A repeated
+ *   point keeps the last step; it is still only once the pointer has stayed put for `rest` ms.
+ * - **The pointer** is taken onto the stage by the model itself (past it by up to `edge`, onto its edge).
  *
  * **The host's part:** call `update` whenever you like: per pointer sample, per animation frame, or both. Call it at
  * least once more after the pointer stops (every frame does), so it can become still, and again with the same point
- * when a key changes. Give `setRegions` the `regionsFor` that answers for the new state.
+ * when a key changes. `release(point, time)` takes the release point as one more sample when it differs from the last.
+ * Give `setRegions` the `regionsFor` that answers for the new state.
  */
 
 /** A place a drop in a lane lands: its stretch of the lane and its landing rect. Ids are stable across solves. */
@@ -148,7 +150,7 @@ export interface LandingLane {
   readonly marks?: readonly LandingMark[];
   /**
    * Its marks while it is the lane the pointer picks (held, pending or approached), where they differ from `marks`: a
-   * prediction of its marks once entered that owns a corner `marks` gives up (placement's `lanes()` gives it for an empty
+   * prediction of its marks once entered that owns a corner `marks` gives up (docking's `lanes()` gives it for an empty
    * lane). Shown in place of `marks` then, and under `"all"` every lane in `corners` is cut where it overlaps it.
    */
   readonly entry?: readonly LandingMark[];
@@ -189,31 +191,31 @@ export interface LandingGates {
   readonly path: number;
   /** Depth inside a lane where a still step enters it, px. */
   readonly depth: number;
-  /** A still step, px per 8 ms. */
-  readonly still: number;
+  /** The speed of a still step, at most, px/ms. */
+  readonly stillSpeed: number;
   /**
-   * The largest step that changes the spot along a lane where the change reflows the window, px per 8 ms; it also
-   * bounds the steps the path gate counts (a fast crossing never enters).
+   * The fastest step that changes the spot along a lane where the change reflows the window, px/ms; it also bounds the
+   * steps the path gate counts (a fast crossing never enters).
    */
-  readonly step: number;
+  readonly stepSpeed: number;
   /** How far the held landing may trail the pointer before a fast reflowing change is taken anyway, px. */
   readonly trail: number;
   /**
    * The time a pointer has to stay put before it counts as still, ms, where its last step was already slow (at most
-   * `step`) or it is on the stage's edge (a fling there is taken at once); repeated points before it aren't still.
+   * `stepSpeed`) or it is on the stage's edge (a fling there is taken at once); repeated points before it aren't still.
    */
   readonly rest: number;
   /**
    * The time a pointer that last moved fast has to stay put before it counts as still, ms: longer than sample gaps. Also
-   * the settle window after a fling (a step above `slide`): no lane is entered by a slow-step gate (still, over-refused)
-   * until the hand has been slow, or resting, this long.
+   * the settle window after a fling (a step above `slideSpeed`): no lane is entered by a slow-step gate (still,
+   * over-refused) until the hand has been slow, or resting, this long.
    */
   readonly pause: number;
   /**
-   * The largest step at which a slide along a lane touching the held one takes it, px per 8 ms (default 16: 2 px/ms).
-   * Above it a fling is no entry; the lane's own gate (the slow path, or a rest past `pause`) still enters it.
+   * The fastest step at which a slide along a lane touching the held one takes it, px/ms (default 2). Above it a fling
+   * is no entry; the lane's own gate (the slow path, or a rest past `pause`) still enters it.
    */
-  readonly slide: number;
+  readonly slideSpeed: number;
 }
 /**
  * The approach for near guides, with the pointer in open space: the nearest lane within `reach`, kept until another is
@@ -236,7 +238,11 @@ export interface LandingApproach {
 export const LANDING_MARGINS: LandingMargins = { exit: 12, spot: 6, edge: 48, lift: 16 };
 /** A touch: wider margins, the finger's jitter. */
 export const LANDING_TOUCH_MARGINS: LandingMargins = { exit: 16, spot: 8, edge: 48, lift: 16 };
-export const LANDING_GATES: LandingGates = { path: 40, depth: 8, still: 1.5, step: 3, trail: 40, rest: 22, pause: 60, slide: 16 };
+/**
+ * The gates: 40 px of path, 8 px deep, a still step at most 0.1875 px/ms, a reflowing one at most 0.375 px/ms, a slide
+ * into a touching lane at most 2 px/ms.
+ */
+export const LANDING_GATES: LandingGates = { path: 40, depth: 8, stillSpeed: 0.1875, stepSpeed: 0.375, trail: 40, rest: 22, pause: 60, slideSpeed: 2 };
 export const LANDING_APPROACH: LandingApproach = { reach: LANDING_MARGINS.exit, keep: LANDING_MARGINS.exit, nearer: 16 };
 
 export interface LandingOptions {
@@ -307,8 +313,11 @@ export type LandingRelease =
 
 export interface LandingModel {
   update(point: Point, time: number, keys?: DragKeys): LandingFrame;
-  /** What a release lands, by the last frame: the same answer as its `landing`. */
-  release(): LandingRelease;
+  /**
+   * What a release at `point` and `time` lands: the same answer as the last frame's `landing`. A point that differs
+   * from the last `update`'s is that update's sample first (with `keys`, else the last keys), so a last jump counts.
+   */
+  release(point: Point, time: number, keys?: DragKeys): LandingRelease;
   /**
    * The regions changed (a resize, a store change, a scroll): spots map by id; a lost one goes to its lane's nearest.
    * Pass the `regionsFor` that answers for the new state; without one, the old one stays (it must then read live state).
@@ -375,14 +384,20 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   /** Whether the held lane's hold is refused for lying far beyond it (sticky, as the lift zone is). */
   let farHeld = false;
   /**
-   * The hand read faster than `gates.slide` (a fling), and hasn't settled since: until it has read slow (at most
-   * `gates.step`, or resting) for `pause` ms from `slowFrom`, no lane is entered by a slow-step gate (still, over-refused).
+   * The hand read faster than `gates.slideSpeed` (a fling), and hasn't settled since: until it has read slow (at most
+   * `gates.stepSpeed`, or resting) for `pause` ms from `slowFrom`, no lane is entered by a slow-step gate (still,
+   * over-refused).
    */
   let flung = false;
   let slowFrom: number | null = null;
   let lastStep = 0;
-  /** The hand's speed (`createHandSpeed`): the one estimate every gate that asks "fast or slow" reads. */
-  const hand = createHandSpeed({ gap: Math.min(HAND_SPEED.gap, gates.pause) });
+  /**
+   * The hand's speed (`createHandSpeed`): the one estimate every gate that asks "fast or slow" reads. A step over a gap
+   * reads slow up to what `stepSpeed` covers in 8 ms (3 px by default).
+   */
+  const hand = createHandSpeed({ gap: Math.min(HAND_SPEED.gap, gates.pause), slowStep: gates.stepSpeed * 8 });
+  /** The keys the last `update` had: a release at a new point samples with them unless it names its own. */
+  let lastKeys: DragKeys | undefined;
   /** Path inside each lane since the pointer last entered its rect. */
   const pathIn = new Map<string, number>();
   /** The path along and across each lane at any speed since the pointer entered it (a touching lane's takeover). */
@@ -476,7 +491,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     if (!past) return now;
     // A fast reflowing change waits for a slow step, unless the held landing already trails the pointer by `trail`: the
     // item chases only as far as it must, so a fast hand across docked items never leaves it far behind.
-    if (reflows && step > gates.step && distanceTo(now.landing, p) <= gates.trail) return now;
+    if (reflows && step > gates.stepSpeed && distanceTo(now.landing, p) <= gates.trail) return now;
     // The fixed point: in the candidate's own regions (its room open), the pointer still picks it.
     if (regionsFor && reflows) {
       const theirs = heldRegions(cand.id);
@@ -595,36 +610,37 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   }
 
   function update(raw: Point, t: number, keys?: DragKeys): LandingFrame {
+    lastKeys = keys;
     // Past the stage by up to `edge`: on its edge. Beyond: nowhere (kept as is).
     const p = ontoStage(heldRegions(spotId).stage, raw, margins.edge) ?? raw;
-    // The step: the pointer as it moved (a fling past the edge isn't still) since the last point that differed,
-    // normalized to 125 Hz (8 ms). A repeated point (a host updating per frame, or a gap between sparse samples) keeps
-    // the last step until the pointer has stayed put for `rest` ms after a slow step or on the stage's edge, else for
-    // `pause` ms; only then is it still. A hand moving fast with samples far apart is never still between them.
+    // The step: the pointer's speed as it moved (a fling past the edge isn't still) since the last point that differed,
+    // px/ms. A repeated point (a host updating per frame, or a gap between sparse samples) keeps the last step until the
+    // pointer has stayed put for `rest` ms after a slow step or on the stage's edge, else for `pause` ms; only then is it
+    // still. A hand moving fast with samples far apart is never still between them.
     let step = 0;
     if (moved && (raw.x !== moved.raw.x || raw.y !== moved.raw.y)) {
       const before = moved.t;
-      step = (Math.hypot(raw.x - moved.raw.x, raw.y - moved.raw.y) * 8) / Math.max(1, t - moved.t);
+      step = Math.hypot(raw.x - moved.raw.x, raw.y - moved.raw.y) / Math.max(1, t - moved.t);
       moved = { raw, t };
       hand.push(raw, t);
       // The step that ends a rest (a gap of 40 ms or `pause`, the smaller) says nothing about how the hand moves now:
       // unknown, never a slow step (a fling out of a rest docks nowhere on its first frame), unless it is no longer than
-      // `HAND_SPEED.slowStep` (3) px (a hand creeping a pixel at a time, which is slow).
+      // the step `stepSpeed` makes in 8 ms, px (a hand creeping a pixel at a time, which is slow).
       step = hand.step;
       lastStep = step;
-      // A fling (the hand reading faster than `slide`) unsettles it; it is slow again from the last sample before it
-      // reads slow (at most `step`). A step the hand's speed can't read yet (the first after a rest) is neither.
+      // A fling (the hand reading faster than `slideSpeed`) unsettles it; it is slow again from the last sample before it
+      // reads slow (at most `stepSpeed`). A step the hand's speed can't read yet (the first after a rest) is neither.
       const sp = hand.speed;
-      if (Number.isFinite(sp) && sp > gates.slide) {
+      if (Number.isFinite(sp) && sp > gates.slideSpeed) {
         flung = true;
         slowFrom = null;
-      } else if (!Number.isFinite(sp) || sp > gates.step) slowFrom = null;
+      } else if (!Number.isFinite(sp) || sp > gates.stepSpeed) slowFrom = null;
       else slowFrom ??= before;
     } else if (moved) {
       const stage = heldRegions(spotId).stage;
       const onEdge = p.x <= stage.x || p.y <= stage.y || p.x >= stage.x + stage.width || p.y >= stage.y + stage.height;
       const since = t - moved.t;
-      step = since >= gates.pause || (since >= gates.rest && (lastStep <= gates.step || onEdge)) ? 0 : lastStep;
+      step = since >= gates.pause || (since >= gates.rest && (lastStep <= gates.stepSpeed || onEdge)) ? 0 : lastStep;
       // Resting: the hand has been still since its last sample.
       slowFrom ??= moved.t;
     } else {
@@ -648,11 +664,11 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     const shift = !!keys?.shift;
     const regions = heldRegions(spotId);
     // The path inside each lane: the part along the lane of slow steps from a point inside it to another (the step that
-    // enters doesn't count, nor a fast one), so a crossing at `step` speed or faster never enters by path at any angle.
+    // enters doesn't count, nor a fast one), so a crossing at `stepSpeed` or faster never enters by path at any angle.
     // From a held lane, a touching lane counts the path along it and across it while the hand reads steady and no
-    // faster than `slide` (`hand`): a brisk slide along it (across it at most a third as far as along) is no crossing.
-    // (The slow path counts a step at most `step` long, as the hand's speed reads it: a jittered fling never.)
-    const slow = Number.isFinite(hand.speed) ? hand.speed <= gates.step : step <= gates.step;
+    // faster than `slideSpeed` (`hand`): a brisk slide along it (across it at most a third as far as along) is no
+    // crossing. (The slow path counts a step at most `stepSpeed`, as the hand's speed reads it: a jittered fling never.)
+    const slow = Number.isFinite(hand.speed) ? hand.speed <= gates.stepSpeed : step <= gates.stepSpeed;
     for (const l of regions.lanes) {
       const was = from && strictlyIn(l.rect, from);
       const go = was ? Math.abs(alongOf(l, p) - alongOf(l, from)) : 0;
@@ -660,10 +676,10 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const inL = strictlyIn(l.rect, p);
       pathIn.set(l.id, inL ? (pathIn.get(l.id) ?? 0) + (slow ? go : 0) : 0);
       const s = slide.get(l.id);
-      // Only a steady hand no faster than `slide` adds to the count: a fling (or a hand gathering speed out of a rest or a
-      // hesitation, or one the speed can't read yet) adds nothing and resets nothing. So a fling never counts, even where
-      // its timestamps jitter, while a steady slide whose timestamps jitter keeps its count.
-      const counts = hand.steady && hand.speed <= gates.slide;
+      // Only a steady hand no faster than `slideSpeed` adds to the count: a fling (or a hand gathering speed out of a rest
+      // or a hesitation, or one the speed can't read yet) adds nothing and resets nothing. So a fling never counts, even
+      // where its timestamps jitter, while a steady slide whose timestamps jitter keeps its count.
+      const counts = hand.steady && hand.speed <= gates.slideSpeed;
       slide.set(l.id, !inL ? { along: 0, across: 0 } : counts ? { along: (s?.along ?? 0) + go, across: (s?.across ?? 0) + over } : (s ?? { along: 0, across: 0 }));
       if (l.owns && !inL) cameIn.add(l.id);
     }
@@ -677,14 +693,14 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     } else {
       const held = laneIn(regions, laneId);
       // (The still gate, like the over-refused rule, waits for a flung hand to settle.)
-      const gate = (l: LandingLane): boolean => (pathIn.get(l.id) ?? 0) >= gates.path || (depthIn(l, p, regions.stage) >= gates.depth && step <= gates.still && settled);
+      const gate = (l: LandingLane): boolean => (pathIn.get(l.id) ?? 0) >= gates.path || (depthIn(l, p, regions.stage) >= gates.depth && step <= gates.stillSpeed && settled);
       // Lane to lane: inside a lane touching the held one, past the held lane's exit margin (inside it the held lane holds,
       // P1), the held lane still holds until that lane's gate passes, then that lane takes it. Never the float between
       // them, never a fly-through's room.
       const touching = held ? regions.lanes.find((l) => l.id !== held.id && strictlyIn(l.rect, p) && touches(l.rect, held.rect) && !inside(held.rect, p, margins.exit)) : undefined;
       const sl = touching ? slide.get(touching.id) : undefined;
-      // A fling (the hand's speed above `slide`) is no entry, along the lane as well as across it.
-      const slid = !!sl && sl.along >= gates.path && sl.across * 3 <= sl.along && hand.speed <= gates.slide;
+      // A fling (the hand's speed above `slideSpeed`) is no entry, along the lane as well as across it.
+      const slid = !!sl && sl.along >= gates.path && sl.across * 3 <= sl.along && hand.speed <= gates.slideSpeed;
       // A lane that owns its rect (a rail drop strip) takes the pointer inside it from any lane it overlaps, a held one
       // too, once its own gate passes (so a pass across it opens nothing), and only once the pointer came into it (it has
       // been outside it since the lift): a press in a column's outer edge, or a slow reorder along it, stays in the column.
@@ -712,7 +728,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const lanesHere = regions.lanes.filter((l) => strictlyIn(l.rect, p) && !(l.owns && nearLift));
       const within = (b: Rect, l: LandingLane): boolean => b.x >= l.rect.x - 1 && b.y >= l.rect.y - 1 && b.x + b.width <= l.rect.x + l.rect.width + 1 && b.y + b.height <= l.rect.y + l.rect.height + 1;
       const overRefused = (l: LandingLane): boolean =>
-        Number.isFinite(step) && step <= gates.step && settled && lanesHere.length === 1 && [...regions.blocked, ...regions.refused].some((b) => strictlyIn(b, p) && !within(b, l));
+        Number.isFinite(step) && step <= gates.stepSpeed && settled && lanesHere.length === 1 && [...regions.blocked, ...regions.refused].some((b) => strictlyIn(b, p) && !within(b, l));
       const next = homeHere ? undefined : (owner ?? (touching && (gate(touching) || slid || overRefused(touching)) ? touching : undefined));
       // (The far refusal belongs to the held lane's hold: any other branch lets it go.)
       if (!(held && !homeHere && !next && (touching || inside(held.rect, p, margins.exit)))) farHeld = false;
@@ -796,7 +812,9 @@ export function createLandingModel(options: LandingOptions): LandingModel {
 
   return {
     update,
-    release(): LandingRelease {
+    release(point: Point, time: number, keys?: DragKeys): LandingRelease {
+      // The last update's sample is the release's: a point that differs from it is one more sample first.
+      if (!last || last.raw.x !== point.x || last.raw.y !== point.y) update(point, time, keys ?? lastKeys);
       if (frame.region === "lane" && frame.lane && frame.spot) {
         const ownSpot = !!options.home && options.home.spot === frame.spot && options.home.lane === frame.lane;
         // A sliding spot: where its landing starts, read once here (so a wobble never stores a jitter), exactly as the

@@ -112,10 +112,14 @@ describe("slide or fling, swept from the bar's corner up a touching rail", () =>
           ] as const)
             for (const seed of SEEDS) {
               runs++;
-              const { entered, model } = play({ v, dt, jitter, rest, ramp, seed }, 313);
+              const { entered, model, t, at } = play({ v, dt, jitter, rest, ramp, seed }, 313);
               const where = `${v} px/ms, ${dt} ms, ±${jitter * 100}%, rest ${rest}, ramp ${ramp}, seed ${seed}`;
               if (entered >= 0) bad.push(`${where}: entered at ${Math.round(entered)} px`);
-              else if (model.release() !== null) bad.push(`${where}: a release at once lands ${JSON.stringify(model.release())}`);
+              else {
+                // A release at the last point and time: the last update's sample, nothing more.
+                const released = model.release(at, t);
+                if (released !== null) bad.push(`${where}: a release at once lands ${JSON.stringify(released)}`);
+              }
             }
         }
     expect(runs).toBe(1728);

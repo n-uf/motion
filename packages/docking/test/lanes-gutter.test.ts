@@ -54,6 +54,6 @@ describe("lanes(): the gutter between a column and the pages is open", () => {
       }
       for (let i = 0; i < 10; i++) m.update(gutter, (t += 8));
       expect([side, m.frame.region]).toEqual([side, "open"]);
-      expect(m.release()?.kind).toBe("float");
+      expect(m.release(gutter, t)?.kind).toBe("float");
     });
 });

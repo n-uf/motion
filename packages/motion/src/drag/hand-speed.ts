@@ -2,8 +2,8 @@ import type { Point } from "../shapes";
 
 /**
  * The hand's speed, the one estimate a landing model's gates read when they ask "fast or slow": the slide count into a
- * touching lane, its entry (`slid`), the settle rule after a fling and the slow-path gate. Speeds are px per 8 ms (the
- * 125 Hz step a landing model's gates are stated in).
+ * touching lane, its entry (`slid`), the settle rule after a fling and the slow-path gate. Speeds are px/ms, as a landing
+ * model's gates are.
  *
  * It is read over time, from the distinct samples since the hand last started:
  * - `step`, the newest step alone: a speed-up reads at once.
@@ -43,9 +43,9 @@ export interface HandSpeedOptions {
   /** A gap between two samples this long or longer starts the hand again, ms. */
   readonly gap: number;
   /**
-   * The longest step over a gap that still reads as the speed it is, px (`HAND_SLOW_STEP`, 3 by default; a length, not
-   * a speed, so a landing model's `gates.step` does not set it): a hand creeping a pixel or two at a time reads slow; a
-   * longer step over a gap (a fling out of a rest) is unknown.
+   * The longest step over a gap that still reads as the speed it is, px (a landing model passes what its
+   * `gates.stepSpeed` covers in 8 ms): a
+   * hand creeping a pixel or two at a time reads slow; a longer step over a gap (a fling out of a rest) is unknown.
    */
   readonly slowStep: number;
   /** How much faster than `long` the newest step may be and the hand still be steady (a slide). */
@@ -77,12 +77,12 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
         // rest), unless it is no longer than `slowStep` px: a hand creeping a pixel at a time is slow, whatever the gap.
         const d = Math.hypot(p.x - last.p.x, p.y - last.p.y);
         samples = [{ p, t }];
-        step = d <= o.slowStep ? (d * 8) / Math.max(1, t - last.t) : Infinity;
+        step = d <= o.slowStep ? d / Math.max(1, t - last.t) : Infinity;
         long = null;
         longs = [];
         return;
       }
-      step = last ? (Math.hypot(p.x - last.p.x, p.y - last.p.y) * 8) / Math.max(1, t - last.t) : Infinity;
+      step = last ? Math.hypot(p.x - last.p.x, p.y - last.p.y) / Math.max(1, t - last.t) : Infinity;
       samples.push({ p, t });
       // Keep the newest samples that span the window, and no more.
       while (samples.length > o.steps + 1 && t - samples[1]!.t >= o.span) samples.shift();
@@ -90,7 +90,7 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
       if (samples.length > o.steps && t - first.t >= o.span) {
         let path = 0;
         for (let i = 1; i < samples.length; i++) path += Math.hypot(samples[i]!.p.x - samples[i - 1]!.p.x, samples[i]!.p.y - samples[i - 1]!.p.y);
-        long = (path * 8) / (t - first.t);
+        long = path / (t - first.t);
         longs.push({ t, v: long });
         while (longs.length > 1 && t - longs[1]!.t >= o.span / 2) longs.shift();
       } else long = null;

@@ -54,7 +54,7 @@ describe("a sliding spot's snap points: keyed by what they commit", () => {
       for (let i = 0; i < 20; i++) m.update(point(center!), (t += 8));
       expect(m.frame.spot).toBe(spot.id);
       expect(m.frame.landing!.x).toBe(center);
-      const r = m.release() as { at: number };
+      const r = m.release(point(center!), t) as { at: number };
       expect(r.at).toBe(center);
       expect(spot.target.after(point(r.at), GRAB).state.items.c!.align).toBe("center");
     });

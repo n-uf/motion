@@ -280,15 +280,17 @@ describe("back at its press point, an item lands home wherever it was pressed", 
           if (regions.lanes.some((l) => l.id !== h.lane.id && press.x > l.rect.x && press.x < l.rect.x + l.rect.width && press.y > l.rect.y && press.y < l.rect.y + l.rect.height)) continue;
           const m = createLandingModel({ regions, regionsFor: (spot) => lanes(sc, id, { previous, grab, spot }), floatLanding: (p) => regions.float?.after(p, grab).layout.items[id]?.rect ?? null, home: { lane: h.lane.id, spot: h.spot.id } });
           const keys = path([press, { x: 540, y: 320 }, press], speed, 80);
+          let last = press;
+          let lastT = 0;
           for (let t = 0; t <= keys.at(-1)![0] + 1e-6; t += 8) {
             let i = 0;
             while (i < keys.length - 1 && keys[i + 1]![0] < t) i++;
             const a = keys[i]!;
             const b = keys[Math.min(i + 1, keys.length - 1)]!;
             const u = b[0] > a[0] ? Math.min(1, (t - a[0]) / (b[0] - a[0])) : 1;
-            m.update({ x: a[1] + (b[1] - a[1]) * u, y: a[2] + (b[2] - a[2]) * u }, t);
+            m.update((last = { x: a[1] + (b[1] - a[1]) * u, y: a[2] + (b[2] - a[2]) * u }), (lastT = t));
           }
-          const out = m.release();
+          const out = m.release(last, lastT);
           if (out?.kind !== "spot" || !out.home) misses.push(`${id} at ${share}, ${speed} px/ms: ${out?.kind === "spot" ? out.spot : (out?.kind ?? "nothing")}`);
         }
     expect(misses).toEqual([]);

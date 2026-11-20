@@ -60,7 +60,8 @@ export interface LandingModelLike {
     time: number,
     keys?: { readonly shift?: boolean },
   ): { readonly region: LandingRegionName; readonly lane: string | null; readonly spot: string | null; readonly landing: Rect | null; readonly room: boolean; readonly guides?: readonly LandingCaseGuide[]; readonly pending?: string };
-  release(): { readonly kind: "spot"; readonly lane: string; readonly spot: string; readonly home: boolean } | { readonly kind: "float"; readonly rect: Rect } | null;
+  /** What a release at `point` and `time` lands (the last update's point: what its frame showed). */
+  release(point: Point, time: number): { readonly kind: "spot"; readonly lane: string; readonly spot: string; readonly home: boolean } | { readonly kind: "float"; readonly rect: Rect } | null;
 }
 /** What makes a landing model: `createLandingModel`, as an input. */
 export type LandingRule = (options: {
@@ -474,7 +475,7 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly s
         for (let k = 1; k <= n; k++) play((at = { x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n }), (t += SAMPLE), true);
       }
       for (let r = SAMPLE; r <= (row.rest ?? 0); r += SAMPLE) play(at, (t += SAMPLE), false);
-      const out = model.release();
+      const out = model.release(at, t);
       const spot = out?.kind === "spot" ? [...regions.lanes, ...regionsFor(out.spot).lanes].flatMap((l) => l.spots).find((x) => x.id === out.spot) : undefined;
       // The model says whether the release is home (on a sliding spot, only at the item's own place, not along its stretch).
       const target = out?.kind === "float" ? regions.float : spot && out?.kind === "spot" && !out.home ? spot.target : null;

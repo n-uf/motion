@@ -28,14 +28,14 @@ describe("landing model: a flick that rests in an empty rail's band docks in it"
     it(`at x ${x}: let go at once it is refused and goes home; after 80 ms of rest the rail takes it`, () => {
       const { at, m } = flick(x, 0);
       expect([at.region, at.pending]).toEqual(["refused", undefined]);
-      expect(m.release()).toBeNull();
+      expect(m.release({ x, y: 301 }, 112)).toBeNull();
       const rested = flick(x, 80);
       expect(rested.m.frame.lane).toBe("rail-left");
-      expect(rested.m.release()).toMatchObject({ kind: "spot", lane: "rail-left" });
+      expect(rested.m.release({ x, y: 301 }, 192)).toMatchObject({ kind: "spot", lane: "rail-left" });
     });
 
   // A real hand's jitter after the flick: samples every 16 ms, `d` px apart. After the hand reads faster than
-  // `gates.slide` no lane is entered by a slow-step gate until it has read slow for `pause` (60 ms); the hand's speed
+  // `gates.slideSpeed` no lane is entered by a slow-step gate until it has read slow for `pause` (60 ms); the hand's speed
   // reads a slow-down only once it has lasted its span (80 ms at 60 Hz). So the jitter docks nothing at once.
   for (const d of [0.3, 1.5, 3])
     it(`a flick then ${d} px of jitter: no entry before the hand reads slow for 60 ms, then the rail; let go at once it goes home`, () => {
@@ -49,7 +49,7 @@ describe("landing model: a flick that rests in an empty rail's band docks in it"
       const first = make();
       first.update({ x: 14, y: 301 + d }, 128);
       expect(first.frame.lane).not.toBe("rail-left");
-      expect(first.release()).toBeNull();
+      expect(first.release({ x: 14, y: 301 + d }, 128)).toBeNull();
       const m = make();
       const lanes: (string | null)[] = [];
       for (let k = 1; k <= 16; k++) lanes.push(m.update({ x: 14, y: 301 + (k % 2) * d }, 112 + 16 * k).lane);

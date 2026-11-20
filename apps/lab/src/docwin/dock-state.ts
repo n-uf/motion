@@ -1425,7 +1425,7 @@ export function createDocwin(o: DocwinOptions) {
     if (!cancel) frame(now);
     // A release over a refusal commits nothing: the item goes home.
     const refused = cancel ? null : d.refused;
-    const r = d.landing && !cancel ? d.landing.model.release() : null;
+    const r = d.landing && !cancel ? d.landing.model.release(d.pointer, now, d.keys) : null;
     const t =
       cancel || refused
         ? null

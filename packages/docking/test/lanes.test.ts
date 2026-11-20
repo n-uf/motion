@@ -267,7 +267,7 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
             for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
           }
           for (let i = 0; i < 30; i++) m.update(to, (t += 8));
-          expect([speed, y, m.frame.lane, m.release()?.kind]).toEqual([speed, y, "rail:left", "spot"]);
+          expect([speed, y, m.frame.lane, m.release(to, t)?.kind]).toEqual([speed, y, "rail:left", "spot"]);
         }
     });
 
@@ -296,7 +296,7 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
           for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
         }
         for (let i = 0; i < 30; i++) m.update(press, (t += 8));
-        expect([speed, m.release()]).toEqual([speed, { kind: "spot", lane: home.lane, spot: home.spot, home: true }]);
+        expect([speed, m.release(press, t)]).toEqual([speed, { kind: "spot", lane: home.lane, spot: home.spot, home: true }]);
       }
     });
 
@@ -365,7 +365,7 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
             }
             t = slide(m, away, press, t);
             for (let i = 0; i < 30; i++) m.update(press, (t += 8));
-            expect([x, y, hidden, m.release()]).toEqual([x, y, hidden, want]);
+            expect([x, y, hidden, m.release(press, t)]).toEqual([x, y, hidden, want]);
           }
           // The first update 40 px off the press (a late host), the lift given.
           const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "findings", { previous, grab, spot }), home, lift: press });
@@ -375,7 +375,7 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
           t = slide(m, late, away, t);
           t = slide(m, away, press, t);
           for (let i = 0; i < 30; i++) m.update(press, (t += 8));
-          expect([x, y, "late", m.release()]).toEqual([x, y, "late", want]);
+          expect([x, y, "late", m.release(press, t)]).toEqual([x, y, "late", want]);
         }
     });
 });
