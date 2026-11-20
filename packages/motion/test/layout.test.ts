@@ -13,7 +13,18 @@ const OMEGA = SETTLE_TEMPO.default;
 function surface(extra: Partial<Omit<LayoutMotionOptions, "loop">> = {}) {
   const clock = createFakeClock();
   const loop = createFrameLoop({ clock });
-  const motion = createLayoutMotion({ loop, omega: OMEGA, ...extra });
+  // Whether frames run, as `onActiveChange` tells it (the one way to learn it).
+  let active = false;
+  const motion = createLayoutMotion({
+    loop,
+    omega: OMEGA,
+    ...extra,
+    onActiveChange: (on) => {
+      active = on;
+      extra.onActiveChange?.(on);
+    },
+  });
+  const running = (): boolean => active;
   const layOuts: Rect[] = [];
   const frames: { t: number; frame: DrawFrame }[] = [];
   const drawable: Drawable = {
@@ -22,10 +33,10 @@ function surface(extra: Partial<Omit<LayoutMotionOptions, "loop">> = {}) {
   };
   /** Run frames until nothing moves (at most `max`). */
   const settle = (max = 400): void => {
-    for (let i = 0; i < max && motion.running; i++) clock.frame();
+    for (let i = 0; i < max && active; i++) clock.frame();
   };
   const samples = (from = 0): TargetSample[] => frames.slice(from).map(({ t, frame }) => ({ t, rect: frame.drawn, target: frame.box }));
-  return { clock, loop, motion, drawable, layOuts, frames, settle, samples };
+  return { clock, loop, motion, drawable, layOuts, frames, settle, samples, running };
 }
 
 describe("layout motion: settle to every new target", () => {
@@ -72,7 +83,7 @@ describe("layout motion: settle to every new target", () => {
     s.settle();
     expect(checkMonotonic(s.samples(at), rect(10, 10, 100, 100)).failures).toEqual([]);
     expect(checkNoOvershoot(s.samples(at), from, rect(10, 10, 100, 100)).failures).toEqual([]);
-    expect(s.motion.running).toBe(false);
+    expect(s.running()).toBe(false);
   });
 
   it("reveals a size change: the content is laid out once at the target size, the frame clipped, never scaled", () => {
@@ -177,7 +188,7 @@ describe("held drag", () => {
     s.settle();
     const release = held.land(rect(200, 100, 160, 30));
     expect(release).toEqual(rect(200, 100, 160, 30));
-    expect(s.motion.running).toBe(false);
+    expect(s.running()).toBe(false);
   });
 });
 
@@ -226,7 +237,7 @@ describe("held drag: the three drop previews", () => {
     const at = s.frames.length;
     const release = held.land(slot);
     expect(release).toEqual(slot);
-    expect(s.motion.running).toBe(false);
+    expect(s.running()).toBe(false);
     expect(s.frames.slice(at).every(({ frame }) => frame.drawn.x === slot.x && frame.drawn.y === slot.y)).toBe(true);
   });
 
@@ -284,7 +295,7 @@ describe("held drag: a new size mid-drag", () => {
     const at = s.frames.length;
     expect(held.resize({ width: 120, height: 30 })).toBe(false);
     expect(held.returning).toBe(false);
-    expect(s.motion.running).toBe(false);
+    expect(s.running()).toBe(false);
     expect(s.frames.length).toBe(at);
     expect(item.drawn).toEqual(rect(188, 185, 120, 30));
   });
@@ -385,7 +396,8 @@ describe("FLIP for DOM groups", () => {
 
 describe("one shared frame loop", () => {
   it("runs tasks before the items step, listeners after, and stops (idle) once nothing moves", async () => {
-    const s = surface();
+    let idled = 0;
+    const s = surface({ onActiveChange: (on) => void (on || idled++) });
     const a = s.motion.add("a", s.drawable, rect(0, 0, 10, 10));
     const b = s.motion.add("b", s.drawable, rect(0, 0, 10, 10));
     const order: string[] = [];
@@ -395,8 +407,6 @@ describe("one shared frame loop", () => {
       return --left > 0;
     });
     s.motion.onFrame(() => order.push("frame"));
-    let idled = 0;
-    s.motion.onIdle(() => idled++);
     a.moveTo(rect(100, 0, 10, 10));
     b.moveTo(rect(0, 100, 10, 10));
     const done = s.motion.idle();
@@ -406,7 +416,7 @@ describe("one shared frame loop", () => {
     expect(idled).toBe(1);
     expect(a.drawn.x).toBe(100);
     expect(b.drawn.y).toBe(100);
-    expect(s.motion.running).toBe(false);
+    expect(s.running()).toBe(false);
   });
 });
 
@@ -515,7 +525,7 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
     const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
     a.moveTo(rect(300, 0, 50, 50));
     expect(a.drawn).toEqual(rect(300, 0, 50, 50));
-    expect(s.motion.running).toBe(false);
+    expect(s.running()).toBe(false);
   });
 
   it("calls the active change once when the frames start and once when they stop, and on dispose while running", () => {
