@@ -29,7 +29,8 @@ import type { PlaceGuides } from "./preview";
  *   guides; no spot, no landing, nothing pending; a release goes home), sticky until the pointer is back within
  *   `exit + path - spot`. Over a refused place (a
  *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered on the first slow step
- *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room. A lane that owns
+ *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room. A touching
+ *   lane's takeover reads the same rule, so a held lane never pre-empts it. A lane that owns
  *   its rect (`owns`: a rail drop strip at the window's side) takes the pointer inside it from any lane it overlaps, a
  *   held one too, once its own gate passes and only once the pointer came into it from outside since the lift. Within
  *   `margins.lift` of the lift point (`options.lift`, else the first point; fixed for the drag) an owning lane takes the
@@ -611,7 +612,15 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       // lane's corner included.
       const ownLane = nearLift && options.home ? laneIn(regions, options.home.lane) : undefined;
       const homeHere = ownLane && strictlyIn(ownLane.rect, p) ? ownLane : undefined;
-      const next = homeHere ? undefined : (owner ?? (touching && (gate(touching) || slid) ? touching : undefined));
+      // The lanes the pointer is inside (within the lift zone an owning lane is no lane at all), and the over-refused
+      // rule: over a place that takes nothing reaching past the lane (a column's panel under an empty rail's band), in no
+      // other lane, a lane is entered on a slow step only (a fly-through opens no room). Entering reads it, and so does a
+      // touching lane's takeover: a held lane never pre-empts it.
+      const lanesHere = regions.lanes.filter((l) => strictlyIn(l.rect, p) && !(l.owns && nearLift));
+      const within = (b: Rect, l: LandingLane): boolean => b.x >= l.rect.x - 1 && b.y >= l.rect.y - 1 && b.x + b.width <= l.rect.x + l.rect.width + 1 && b.y + b.height <= l.rect.y + l.rect.height + 1;
+      const overRefused = (l: LandingLane): boolean =>
+        Number.isFinite(step) && step <= gates.step && lanesHere.length === 1 && [...regions.blocked, ...regions.refused].some((b) => strictlyIn(b, p) && !within(b, l));
+      const next = homeHere ? undefined : (owner ?? (touching && (gate(touching) || slid || overRefused(touching)) ? touching : undefined));
       // (The far refusal belongs to the held lane's hold: any other branch lets it go.)
       if (!(held && !homeHere && !next && (touching || inside(held.rect, p, margins.exit)))) farHeld = false;
       if (homeHere) {
@@ -650,11 +659,6 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         // (Over something that takes nothing reaching past the lane, a column's panel under an empty rail's band, and in
         // no other lane; a drawn bar's own rect and its items lie within it, so its gate holds.)
         // Within the lift zone an owning lane is no lane at all: by no gate does it take the pointer there.
-        const lanesHere = regions.lanes.filter((l) => strictlyIn(l.rect, p) && !(l.owns && nearLift));
-        const within = (b: Rect, l: LandingLane): boolean => b.x >= l.rect.x - 1 && b.y >= l.rect.y - 1 && b.x + b.width <= l.rect.x + l.rect.width + 1 && b.y + b.height <= l.rect.y + l.rect.height + 1;
-        // On a slow step only (as a slow hand inside a bar enters it): a fly-through across such a place opens no room.
-        const overRefused = (l: LandingLane): boolean =>
-          Number.isFinite(step) && step <= gates.step && lanesHere.length === 1 && [...regions.blocked, ...regions.refused].some((b) => strictlyIn(b, p) && !within(b, l));
         let entered: LandingLane | null = next ?? null;
         if (!entered)
           for (const l of lanesHere) {

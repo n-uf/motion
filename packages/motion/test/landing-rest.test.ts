@@ -1,0 +1,36 @@
+import { describe, expect, it } from "vitest";
+import type { Rect } from "../src/shapes";
+import { createLandingModel, type LandingLane, type LandingRegions } from "../src/drag";
+const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
+
+/**
+ * A flick up an empty rail from the bar under it, then a rest. The rail's band lies over a column that takes nothing, so
+ * its over-refused rule enters it on the first slow step, and the held bar's takeover consults the same rule: across the
+ * rail (x 14 to 28, where the depth across it may be under the still gate's 8 px), let go at once it is refused and goes
+ * home, and after an 80 ms rest the rail takes it.
+ */
+describe("landing model: a flick that rests in an empty rail's band docks in it", () => {
+  const regions = (): LandingRegions => {
+    const bottom: LandingLane = { id: "bottom", rect: rect(0, 599, 868, 31), axis: "x", spots: [{ id: "bottom/home", along: [0, 868], landing: rect(8, 599, 362, 31) }], refused: [] };
+    const rail: LandingLane = { id: "rail-left", rect: rect(0, 0, 30, 599), axis: "y", spots: [{ id: "rail-left/start", along: [0, 599], landing: rect(0, 242, 30, 121) }], refused: [] };
+    return { lanes: [bottom, rail], refused: [], content: rect(0, 0, 868, 599), blocked: [rect(12, 12, 220, 575)], stage: rect(0, 0, 868, 630), item: { width: 362, height: 31 } };
+  };
+  // Panels' grip at x 25, flicked at 3 px/ms straight up to (x, 301); the host updates every 16 ms with the same point.
+  const flick = (x: number, restMs: number) => {
+    const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+    m.update({ x: 25, y: 614 }, 0);
+    for (let i = 1; i <= 7; i++) m.update({ x: 25 + ((x - 25) * i) / 7, y: 614 - (313 * i) / 7 }, 16 * i);
+    const at = m.frame;
+    for (let t = 128; t <= 112 + restMs; t += 16) m.update({ x, y: 301 }, t);
+    return { at, m };
+  };
+  for (const x of [14, 22, 25, 28])
+    it(`at x ${x}: let go at once it is refused and goes home; after 80 ms of rest the rail takes it`, () => {
+      const { at, m } = flick(x, 0);
+      expect([at.region, at.pending]).toEqual(["refused", undefined]);
+      expect(m.release()).toBeNull();
+      const rested = flick(x, 80);
+      expect(rested.m.frame.lane).toBe("rail-left");
+      expect(rested.m.release()).toMatchObject({ kind: "spot", lane: "rail-left" });
+    });
+});

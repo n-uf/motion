@@ -5,6 +5,10 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## Unreleased
 
+- `./drag`, **a touching lane's takeover reads the over-refused rule** (fix). Over a place that takes nothing (an empty
+  rail's band over a column) a lane is entered on the first slow step, but a touching lane's takeover from a held lane
+  read only that lane's own gates, so after a flick up the rail from the bar under it a rest at x 25 in a 30 px rail
+  (depth 5, under `depth`) never docked: the held bar pre-empted the rule. The takeover now reads it too.
 - `./drag`, **the Near lane shows its marks once entered, and owns the corner it shares** (additive). A
   `LandingLane` may carry **`entry`** (its marks while it is the lane the pointer picks, where they differ from
   `marks`: placement's prediction of an empty lane's marks once entered) and **`corners`** (the lanes those overlap).
