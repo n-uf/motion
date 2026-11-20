@@ -952,12 +952,11 @@ export const LANDING_CASES: readonly LandingCase[] = [
     path: [
       { x: 60, y: 622 },
       { x: 100, y: 60 },
-      { x: 40, y: 38 },
-      { x: 32, y: 46 },
-      { x: 40, y: 38 },
-      { x: 32, y: 46 },
-      { x: 40, y: 38 },
-      { x: 32, y: 46 },
+      // Back and forth three times: the top bar is nearer at the first point, the rail at the second.
+      ...[0, 1, 2].flatMap(() => [
+        { x: 40, y: 38 },
+        { x: 32, y: 46 },
+      ]),
       { x: 40, y: 38 },
     ],
     speed: 0.3,
