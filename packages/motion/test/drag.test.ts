@@ -1432,7 +1432,7 @@ describe("drag/ place guides: where it can go, or where it will land, never both
   });
 
   it("the object forms draw with their string plans: outline as indicator, placeholder as gap, snap as item", () => {
-    const strip = ({ guides: _g, ...p }: ReturnType<typeof previewPlan>) => p;
+    const strip = ({ guides: _g, emptyLanes: _e, ...p }: ReturnType<typeof previewPlan>) => p;
     expect(frames({ mode: "outline" }).map(strip)).toEqual(frames("indicator").map(strip));
     expect(frames({ mode: "placeholder" }).map(strip)).toEqual(frames("gap").map(strip));
     expect(frames({ mode: "snap" }).map(strip)).toEqual(frames("item").map(strip));
@@ -1444,6 +1444,12 @@ describe("drag/ place guides: where it can go, or where it will land, never both
     expect(frames({ mode: "snap" })[0]!.guides).toBe("near");
     expect(frames({ mode: "outline" })[0]!.guides).toBe("off");
     expect(frames({ mode: "outline", placeGuides: "all" })[0]!.guides).toBe("all");
+  });
+
+  it("emptyLanes: the object form's, \"real\" when it names none; absent for the string forms", () => {
+    expect(frames({ mode: "snap" }).every((p) => p.emptyLanes === "real")).toBe(true);
+    expect(frames({ mode: "placeholder", emptyLanes: "edge" }).every((p) => p.emptyLanes === "edge")).toBe(true);
+    for (const s of ["indicator", "gap", "snap", "item"] as const) expect(frames(s).every((p) => p.emptyLanes === undefined)).toBe(true);
   });
 
   it("in every mode, no frame asks for guides while a landing shows (an indicator, room or the item in its slot)", () => {
