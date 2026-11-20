@@ -5,6 +5,58 @@ before the package exists, from the SEO plan (`seo/products/motion/docking-relea
 answers on the issue. Every code import still names `@n-uf/placement/scene` and `/scene/cases`. Delete this file in
 the release PR once every box is ticked.
 
+## 0. At the release: bring every sample and demo up to the new SDK
+
+The operator's instruction (2026-11-20). Every place on this site that shows library code, or runs it, is rewritten at the
+release the way `docs/docking.md` and the placement and motion docs at the release tag show it, so it does not merely
+compile. Rules for all of them:
+
+- Write each one from the docs at the tag (their names, call shapes and wording), not by renaming today's code.
+- `src/snippets/*.ts` must compile against the released packages: `scripts/snippets.test.mjs` (its regex and package list
+  know only `motion|placement` today) is extended to `docking` and must typecheck every snippet against them.
+- Nothing stays on `@n-uf/placement/scene` or `/scene/cases`. After the release `grep -rn "placement/scene" apps/` finds nothing.
+- No old names in prose: no `Scene`, `SceneTarget`, `storeScene`, `readScene`, `./desk`, `./dock`, `./toolbar`, `./targets`,
+  `./panels`; the docs' names (`DockState`, `DockDrop`, `storeDockState`, `readDockState`, …) instead.
+
+Where, and what each uses today (all `@n-uf/placement` unless it says motion):
+
+- **Snippets** (typechecked with the site, shown from the same files by `?raw`):
+  - `src/snippets/pair-placement.ts` (feeds `components/PairCode.astro`, the home's "Pick what you need"): `solve`, `targets`,
+    `Scene`, `SceneItem` from `/scene`. Becomes a docking sample (`pair-docking.ts`) written from `docs/docking.md`; add a
+    placement sample (tiling or the positioner) too, and add `docking` to PairCode's `code` and `entries` maps.
+  - `src/snippets/pair-motion.ts` (PairCode): motion root, `/browser`, `/drag`, `/layout`.
+  - `src/snippets/settle.ts`, `layout.ts`, `drag.ts` (feed `components/CodeTabs.astro`, the home's "Use it" tabs): motion root,
+    `/browser`, `/layout`, `/drag`. Re-read against the motion docs at the tag.
+- **FAQ answers with code** (`src/data/faq.ts`): the home's, `/docking-layouts/`'s (3) and `/toolbar-groups/`'s (5) name
+  `solve`, `targets`, `stops`, `target.after(point, grab)`, `storeDockState`, `readDockState`, note codes and options in `<code>`;
+  check every one against `docs/docking-reference.md` (section 1 has the list); keep each answer at 40 to 60 words.
+- **Code blocks on pages and the docs pages:** `src/data/docs.ts` renders `packages/motion/README.md`, `packages/placement/README.md`
+  and `docs/docking.md` (all their code blocks come from there: placement's README loses the docking sections and its samples
+  become placement's own); `src/layouts/Docs.astro` ("moved to @n-uf/docking" box); `src/pages/docking-layouts.astro` (the
+  `DockState` prose and its sketch lines); `src/pages/toolbar-groups.astro` (the sentence that docking gives the groups, zones,
+  overflow and drop targets); `src/pages/window-motion.astro` and `drag-intent.astro` (motion's, re-read).
+- **The hero's three illustrations:**
+  - motion: `src/islands/hero.ts` and `src/demos/hero.ts` (`@n-uf/motion`, `/layout`, `/testing`: `createLayoutMotion`,
+    `holdItem`, `drawBox`, `createSettle`, `checkNoOvershoot` and the others);
+  - placement: `src/demos/hero-place.ts` (`positionPopup`, `BELOW_LEFT` from the root; `fitStack` from `/stack`; `masterStack` from
+    `/tiling`) and `src/components/HeroPlace.astro`;
+  - docking: `src/demos/hero-doc.ts` (`solve` and the `Scene` types from `/scene`, `StackForm` from `/stack`), its measured sizes
+    in `hero-doc-measured.ts`, `src/components/HeroDoc.astro` and `src/styles/hero-doc.css`.
+- **The docking pages' demos:** `src/demos/desk.ts` (`solve`, `Scene`, `SceneItem`, `SceneLayout`, `SceneNote`, `Edge` from `/scene`;
+  `layoutSplit`, `masterStack`, `splitFromOrder` from `/tiling`; `Rect` from the root) with `src/islands/desk-layouts.ts` (motion:
+  the settle) behind `/docking-layouts/`; `src/demos/toolbar.ts` with `src/islands/toolbar-groups.ts`, `chrome.ts` and
+  `figure-chrome.ts` behind `/toolbar-groups/` and every figure's toolbar groups (the site's own code: check it uses docking's
+  groups and drop model the way the docs show, and the grips and menus it draws).
+- **The home desk demo:** `src/demos/home.ts` (`@n-uf/motion`; `@n-uf/placement` root and `/tiling`), `src/islands/home.ts`
+  (`@n-uf/motion`, `/drag`) and `src/components/HeroDemo.astro`; also `src/demos/sketch-rules.ts` (placement root) and
+  `src/islands/not-found.ts` (motion, `/drag`, `/layout`; placement root).
+- **The lab** (`apps/lab/src`, built into the site at `/lab/` by `scripts/build-lab.mjs`): `@n-uf/placement/scene` in `main.ts`,
+  `docwin/{docwin,host,scene,model,presets,kit-presets,intent-presets,feel,feel-panel,store}.ts` and `shell/{checks,pages}.ts`
+  (11 imports); `@n-uf/placement/scene/cases` in `docwin/host.ts`, `shell/checks.ts` and elsewhere (3 imports, becomes
+  `@n-uf/docking/testing`); `@n-uf/placement` root (9), `/stack` (1) and `/tiling` (1); the lab's own text in `shell/pages.ts`
+  and `pages/overview.html`. The lab is the reference the hero's docking window copies (`docwin/model.ts`, `docwin/scene.ts`,
+  `docwin.css`): bring that copy along.
+
 ## 1. Re-check against `docs/docking.md`, `docs/docking-reference.md` and the README at the release tag
 
 Names and facts I wrote. Each comes from the issue's planned export list, not from released code.
