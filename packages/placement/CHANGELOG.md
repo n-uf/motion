@@ -9,8 +9,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   drawn column, but its marks were laid over the whole band and cut only around drawn edges, so they still ran out to
   the window's edges, over an empty side rail's marks: two lanes' marks overlapped at the corners. Every lane's marks
   are now clipped to its `rect` (a line is kept only if it lies inside), so `settle`'s corner rules, "a lane not drawn
-  gives way to a drawn one, and between two not drawn the bar owns the corner", hold as written. With `options.spot`,
-  the held spot's own lane is still drawn in that spot's layout (its edge may have moved), past its rect as seen.
+  gives way to a drawn one, and between two not drawn the bar owns the corner", hold as written. The rule is exact: a
+  lane's marks lie inside its lane rect in the layout they are drawn in. With `options.spot`, the held spot's lane is
+  drawn in that spot's layout (its edge may have moved, a rail starting higher once a bar is left empty), so its marks
+  lie inside its rect computed over that layout; its `rect` for the landing model is unchanged.
 - `./scene`, **an empty edge's lane gives way to a drawn edge at a corner** (fix). `lanes()` built an empty bar's lane
   (not drawn) as its full edge width over the band its drop would draw, so an empty top bar's lane ran over a drawn
   side rail's top, and a pointer coming down the rail stayed in the bar's lane. The marks already followed "at a corner

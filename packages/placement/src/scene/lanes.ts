@@ -331,8 +331,8 @@ interface Marking {
    * stepped down); without one, the marks' own layout is the one compared with.
    */
   readonly lifted: SceneLayout;
-  /** The drawn edges (as seen) standing across `edge`'s axis, their rects: the ones an empty `edge`'s lane gives way to. */
-  readonly crossing: (edge: string) => readonly Rect[];
+  /** The edges drawn in `over` standing across `edge`'s axis, their rects: the ones an empty `edge`'s lane gives way to. */
+  readonly crossing: (edge: string, over: SceneLayout) => readonly Rect[];
 }
 
 /**
@@ -396,7 +396,7 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
     if (!again) return l;
     return l.id === heldLane ? again : { ...l, marks: again.marks };
   });
-  return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes, l.id !== heldLane)) };
+  return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes, l.id === heldLane ? laneRectOver(base.raws.get(l.id)!, held.layout, base.marking).rect : l.rect)) };
 }
 
 function build(scene: Scene, dragged: string, options: LaneOptions): Base {
@@ -460,7 +460,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     },
     gap: (edge) => nonNeg(scene.edges.find((e) => e.id === edge)?.gap),
     lifted,
-    crossing: (edge) => scene.edges.filter((e) => e.id !== edge && (seen.edges[e.id]?.cross ?? 0) > EPS && axisOfEdge(e.id) !== axisOfEdge(edge)).map((e) => seen.edges[e.id]!.rect),
+    crossing: (edge, over) => scene.edges.filter((e) => e.id !== edge && (over.edges[e.id]?.cross ?? 0) > EPS && axisOfEdge(e.id) !== axisOfEdge(edge)).map((e) => over.edges[e.id]!.rect),
   };
   // Where the pointer holds the item, as a share of its length now, along its own length only (its longer side): a
   // landing of another length along that axis is held at the same share; across the item, where the share says only
@@ -503,6 +503,25 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
 }
 
 /**
+ * A lane's rect over the layout `over`: the edge as drawn there, else (an empty edge, a virtual lane) the band its drops
+ * are drawn at. At a corner an empty edge's lane gives way to a drawn edge across it, as its marks do (`settle`): the
+ * band is clipped along its axis to stop at that edge's side, so a pointer on the drawn edge is in that edge's lane.
+ * Between two edges not drawn the corner is as it was. `band`: the band whole, for an empty edge.
+ */
+function laneRectOver(list: readonly Raw[], over: SceneLayout, marking: Marking): { rect: Rect; band?: Rect } {
+  const first = list[0]!;
+  const axis = first.axis;
+  const edgeLayout = first.edge ? over.edges[first.edge] : undefined;
+  const band = list.map((r) => r.landing).reduce(hull);
+  if (edgeLayout && edgeLayout.cross > EPS) return { rect: edgeLayout.rect };
+  if (edgeLayout) {
+    const whole = axis === "x" ? rect(edgeLayout.rect.x, band.y, edgeLayout.rect.width, band.height) : rect(band.x, edgeLayout.rect.y, band.width, edgeLayout.rect.height);
+    return { rect: clipAtDrawn(whole, axis, marking.crossing(first.edge!, over)), band: whole };
+  }
+  return { rect: list.every((r) => r.strip) ? list.map((r) => r.hit).reduce(hull) : list.map((r) => r.hit).reduce(hull, band) };
+}
+
+/**
  * One lane from its spots: its rect, the spots in order with their stretches in `drawn`, its refused stretches.
  * `spotHeld`: `drawn` is a held spot's layout (`options.spot`).
  */
@@ -510,21 +529,8 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   if (list.length === 0) return null;
   const first = list[0]!;
   const axis = first.axis;
-  // The lane's rect: the edge as drawn, else (an empty edge, a virtual lane) the band its drops are drawn at. At a corner
-  // an empty edge's lane gives way to a drawn edge across it, as its marks do (`settle`): the band is clipped along its
-  // axis to stop at that edge's side, so a pointer on the drawn edge is in that edge's lane. Between two edges not drawn
-  // the corner is as it was.
-  const edgeLayout = first.edge ? seen.edges[first.edge] : undefined;
-  const band = list.map((r) => r.landing).reduce(hull);
-  let laneRect: Rect;
-  // The band whole, which an empty edge's marks are laid over (`settle` cuts them at the drawn edges).
-  let markBand: Rect | undefined;
-  if (edgeLayout && edgeLayout.cross > EPS) laneRect = edgeLayout.rect;
-  else if (edgeLayout) {
-    markBand = axis === "x" ? rect(edgeLayout.rect.x, band.y, edgeLayout.rect.width, band.height) : rect(band.x, edgeLayout.rect.y, band.width, edgeLayout.rect.height);
-    laneRect = clipAtDrawn(markBand, axis, marking.crossing(first.edge!));
-  } else if (list.every((r) => r.strip)) laneRect = list.map((r) => r.hit).reduce(hull);
-  else laneRect = list.map((r) => r.hit).reduce(hull, band);
+  // The lane's rect as seen, and the band an empty edge's marks are laid over (`settle` cuts them at the drawn edges).
+  const { rect: laneRect, band: markBand } = laneRectOver(list, seen, marking);
   // In order; one landing is one spot (the item's own place where it is one of them); one id is one spot.
   // A sliding spot lies in order by its first landing (at its stretch's start), and cuts by its landing at either end.
   const firstOf = (r: Raw): Rect => r.slide?.first ?? r.landing;
@@ -764,11 +770,10 @@ function virtualMarks(lane: string, spots: readonly Raw[], held: { rect: Rect; f
 }
 
 /**
- * The lane with its marks clipped to its rect, the pieces left empty dropped; a line (a joint, kept whole or not at all)
- * is kept only if it lies inside. The lane itself when nothing changes.
+ * The lane with its marks clipped to `r`, its rect in the layout they are drawn in, the pieces left empty dropped; a
+ * line (a joint, kept whole or not at all) is kept only if it lies inside. The lane itself when nothing changes.
  */
-function inLane(l: Lane): Lane {
-  const r = l.rect;
+function inLane(l: Lane, r: Rect): Lane {
   const marks = l.marks.flatMap((m): LaneMark[] => {
     const x0 = Math.max(m.rect.x, r.x);
     const y0 = Math.max(m.rect.y, r.y);
@@ -788,13 +793,15 @@ function inLane(l: Lane): Lane {
  * - A lane not drawn is drawn by `emptyLanes`: `"real"`, its boxes as they are, at the size it will take, over what
  *   moves aside (the page, a column's panels); `"edge"`, each box a thin striped strip (`HATCH_EDGE`) on its window
  *   side. Either way never over an item docked in a bar or a toolbar rail (it stays where it is): cut around it.
- * - Every mark first lies inside its lane's rect (`inLane`, `clip`): a mark shows where a drop goes, and a drop is
- *   possible only where the lane takes the pointer. So the corner rules above compare lanes by what each really covers.
- *   The one lane not clipped is the held spot's: its marks are drawn in that spot's own layout, where its edge may have
- *   moved (a rail starting higher once a bar is left empty), and follow it past the lane's rect as seen.
+ * - Every mark first lies inside its lane's rect in the layout the marks are drawn in (`inLane`, `within`): a mark shows
+ *   where a drop goes, and a drop is possible only where the lane takes the pointer. So the corner rules above compare
+ *   lanes by what each really covers. As seen, and for every lane but the held spot's, that is the lane's rect. The held
+ *   spot's lane is drawn in that spot's own layout, where its edge may have moved (a rail starting higher once a bar is
+ *   left empty): its rect there (`laneRectOver` that layout) is `within`; its hit rect, for the landing model, stays as
+ *   seen.
  */
-function settle(lane: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all: readonly Lane[], emptyLanes: "real" | "edge" = "real", clip = true): Lane {
-  const l = clip ? inLane(lane) : lane;
+function settle(lane: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all: readonly Lane[], emptyLanes: "real" | "edge" = "real", within: Rect = lane.rect): Lane {
+  const l = inLane(lane, within);
   const edgeOf = (id: string) => scene.edges.find((e) => e.id === id);
   const isDrawn = (id: string): boolean => !!edgeOf(id) && (drawn.edges[id]?.cross ?? 0) > EPS;
   const across = (side: string | undefined): Axis => (side === "top" || side === "bottom" ? "x" : "y");
