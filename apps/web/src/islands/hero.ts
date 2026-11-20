@@ -140,6 +140,7 @@ export function startHero(band: HTMLElement): void {
     arrive = null;
     f?.();
   }
+  motion.onIdle(finish);
 
   // Aim at `to` from where the panel is drawn (a retarget mid-flight carries on, no jump).
   function launch(w: Pad): void {
@@ -351,7 +352,7 @@ export function startHero(band: HTMLElement): void {
     if (drag) return;
     const to = rectOf(where);
     // A run in flight is re-aimed: record it afresh against the new target, or the scope would judge the old one.
-    if (running) {
+    if (motion.running) {
       begin(to);
       item.moveTo(to);
     } else item.jumpTo(to);
