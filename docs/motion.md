@@ -33,6 +33,7 @@ Each rule names what guards it. `pnpm check` (the repo root script) runs the typ
 | Going from lane to lane never passes through the float. | `test/landing.test.ts` ("lane to lane at the corner never passes through the float; the new lane takes it once its gate passes"). |
 | Away and back to where the item was lifted is home, wherever an owning lane lies over it. | `test/landing.test.ts` ("never within the lift zone: …"); placement's `test/scene-lanes.test.ts` (pressed inside the strip, away and back, after a `hide()` and with `lift` given: home). |
 | A wobble within the spot margin never flips a spot. | `test/landing.test.ts` ("a wobble of up to ±6 px across any boundary flips no spot, a far one too"). |
+| Over a sliding spot the landing is at the hand: it starts at the pointer less the grab (distance 0) with no steps, snaps to the stretch's ends and the item's own place within the snap distance, and a press, a ±6 px wobble and a release is home. | `test/landing-slide.test.ts`; placement's `test/scene-lanes-stretch-positions.test.ts`. |
 | Motion never imports `@n-uf/placement`, and placement never imports motion. | The `motion-not-placement` and `placement-not-motion` rules in `.dependency-cruiser.cjs`, run by `pnpm dirt` (`scripts/dirt.mjs`) against a zero ceiling. |
 | Public copy uses no private names and the glossary's words. | `scripts/public-words.mjs` and `scripts/terminology.mjs` (`pnpm public-words`, `pnpm terminology`). |
 
@@ -280,7 +281,7 @@ Rules: every preview mode follows the same intent, so a drop lands where the pre
 
 ### The landing model
 
-`createLandingModel({ regions, regionsFor?, floatLanding?, home?, lift?, margins?, gates?, approach?, placeGuides? })` returns a `LandingModel`: `update(point, time, keys?)` giving a `LandingFrame`, `release()`, `setRegions(regions, regionsFor?)`, `hide()`, and `frame`.
+`createLandingModel({ regions, regionsFor?, floatLanding?, home?, lift?, grab?, margins?, gates?, approach?, placeGuides? })` returns a `LandingModel`: `update(point, time, keys?)` giving a `LandingFrame`, `release()`, `setRegions(regions, regionsFor?)`, `hide()`, and `frame`.
 
 **Inputs, as plain data.**
 
@@ -288,9 +289,10 @@ Rules: every preview mode follows the same intent, so a drop lands where the pre
 | --- | --- |
 | `LandingRegions` | `lanes`, `refused` (rects that take nothing), `content` (where a float can land; placement's `lanes()` gives its float region), `blocked` (rects on it that block), `stage` (the window), `item` (the held item's size). |
 | `LandingLane` | `id`, `rect`, `axis` (`"x"` or `"y"`), `spots`, `refused` (stretches along the lane that take nothing), optional `marks` (the guides) and `owns`. |
-| `LandingSpot` | `id` (stable across solves), `along` (its stretch of the lane), `landing` (the rect the item lands in), optional `others` (a key for how the drop draws every other item). |
+| `LandingSpot` | `id` (stable across solves), `along` (its stretch of the lane), `landing` (the rect the item lands in), optional `others` (a key for how the drop draws every other item), optional `slide` (`LandingSlide`: a sliding spot). |
+| `LandingSlide` | A free stretch as one spot: `from` and `to` (where the landing's start may lie along the lane, flush against either neighbor), `snaps` (the starts it snaps to: its ends, the item's own place, a dock inside), optional `snapDistance` (`SNAP_DISTANCE`, 8 px). |
 | `LandingMark` | A guide mark: `kind` `"line"`, `"box"` or `"hatch"`, `rect`, optional `id`. |
-| options | `regionsFor(spot)` gives the regions with that spot held, room open; `floatLanding(point)` gives the float's rect for a point over open space, or null; `home` is `{ lane, spot }`, the item's own place at the lift, where the drag starts with the room open; `lift` is where the item was lifted (default the first point). |
+| options | `regionsFor(spot)` gives the regions with that spot held, room open; `floatLanding(point)` gives the float's rect for a point over open space, or null; `home` is `{ lane, spot }`, the item's own place at the lift, where the drag starts with the room open; `lift` is where the item was lifted (default the first point); `grab` is where the pointer holds the item, from its top left corner (the press's; default the middle of `regions.item`), which a sliding spot's landing reads. |
 
 **Outputs.**
 
@@ -298,7 +300,7 @@ Rules: every preview mode follows the same intent, so a drop lands where the pre
 | --- | --- |
 | `LandingFrame` | `region` (`LandingRegion`: `"lane"`, `"open"`, `"refused"` or `"nowhere"`), `lane`, `spot`, `landing` (where a release lands now, or null), `room` (a spot is held in a lane, no Shift), `guides`, `shift`, and `pending`. |
 | `LandingGuide` | `id` (stable while its neighbors stay; key a drawing by it), `lane`, `kind` (`"line"`, `"box"`, `"hatch"`), `rect`. A hatch is a striped cue, never a measure of the landing. |
-| `LandingRelease` | `{ kind: "spot", lane, spot, home }`, `{ kind: "float", rect }`, or null. `home` is true when the spot is the item's own place. |
+| `LandingRelease` | `{ kind: "spot", lane, spot, home, at? }`, `{ kind: "float", rect }`, or null. `home` is true when the spot is the item's own place; on a sliding spot `at` is where the landing starts along the lane (whole px), and `home` holds only at the item's own place. |
 
 **The rules.** Every change comes from where the pointer is and how it moved (a margin, a path length, a step size). The model has no waits of its own.
 
@@ -309,13 +311,14 @@ Rules: every preview mode follows the same intent, so a drop lands where the pre
 - **Lane to lane never passes through the float.** Inside a lane that touches the held one, past the held lane's exit margin, the held lane holds until that lane's gate passes, or until the pointer has slid `path` px along it at any speed with at most a third as much movement across it. Then that lane takes the pointer. A fast crossing of the touching lane opens no room.
 - **A lane that `owns` its rect** (a rail drop strip at the window's side) takes the pointer inside it from any lane it overlaps, a held one too, once its own gate passes and only if the pointer has been outside it since the lift. Within `lift` (16 px) of the lift point it takes the pointer by no gate, so a pointer brought straight back there is in the item's own lane: away and back lands home, wherever the strip lies. Elsewhere in the strip it takes the pointer, so a lone panel reaches its own side's rail; a slow slide along the strip toward the lift point can be taken before it gets there. The lift point is `options.lift` (the press, for a host whose first `update` comes late), else the first point, fixed for the drag, `hide()` included.
 - **Along a lane the spot changes** once the pointer is `spot` (6 px) past the held spot's stretch: the same margin everywhere, so a wobble within it never flips the spot. Where the change reflows the window (the two spots' `others` keys differ, or either has none) it is also taken only on a step of at most `step`, or once the held landing trails the pointer by more than `trail` (40 px); a change that moves only the held item follows the hand at any speed. With `regionsFor`, a reflowing change is kept only if, in the new spot's own regions (its room open), the pointer still lies in that spot's stretch, so room shifting the boundary never bounces it. `regionsFor` is called once per spot until `setRegions`.
+- **A sliding spot** (`slide`) lands where the hand holds the item: the frame's `landing` is the spot's landing moved along the lane so it starts at the pointer less the grab (along the item's own length; across it, and in a lane across its length, the middle), clamped to `[from, to]` and snapped to the nearest of `snaps` within `snapDistance`. Nothing reflows inside it, so there are no steps there; a step comes only where the order changes (passing a neighbor), by the rule above. `release()` reads the start once, rounded to a whole px (`at`), so a wobble never stores a jitter; a press, a wobble of ±6 px and a release is home.
 - **Outside every lane.** Over a refused place: refused. Over `content` not covered by `blocked`: open (`"open"`, where the float lands, from `floatLanding`). Inside a lane not yet entered: what it was on the way in (the float, if it came from a lane), and `pending` names that lane, so a host shows no "Can't go here" while it is set, though a release lands nowhere. Past the stage by more than `edge`: nowhere. Anything else: refused.
 - **Shift** turns a lane or open space into open space (the float) and hides the guides.
 - **Guides** follow `placeGuides` (`"off"` by default). A lane's guides are its `marks`, else a box per spot landing. `"near"`: the held lane's; else the approached lane's (the nearest within `reach` 80 px, kept until another is `nearer` (16 px) closer or the kept one is past `keep` 96 px); over a refused place, the nearest lane's at any distance. `"all"`: every lane's. None with Shift.
 - **Time.** Steps are measured between points that differ, normalized to 125 Hz (distance × 8 / max(1, ms since the last distinct point)), so the gates read the same at any input rate. A repeated point keeps the last step; it counts as still only once the pointer has stayed put for `rest` (22 ms) after a slow step or on the stage's edge, else for `pause` (60 ms), so a fast hand with samples far apart is never still between them.
 - **Margins, gates and approach, with their defaults.** `LANDING_MARGINS` `{ exit: 12, spot: 6, edge: 48, lift: 16 }`; `LANDING_TOUCH_MARGINS` `{ exit: 16, spot: 8, edge: 48, lift: 16 }` (wider, for a finger's jitter; the host picks which to pass); `LANDING_GATES` `{ path: 40, depth: 8, still: 1.5, step: 3, trail: 40, rest: 22, pause: 60 }`; `LANDING_APPROACH` `{ reach: 80, keep: 96, nearer: 16 }`. Types: `LandingMargins`, `LandingGates`, `LandingApproach`, `LandingOptions`, `LandingModel`.
 
-**Release.** `release()` answers from the last frame, so what the frame's `landing` showed is what a release lands: a held lane with a spot gives `{ kind: "spot", lane, spot, home }`; open space with a landing gives `{ kind: "float", rect }`; everything else gives null (the item goes home).
+**Release.** `release()` answers from the last frame, so what the frame's `landing` showed is what a release lands: a held lane with a spot gives `{ kind: "spot", lane, spot, home }` (with `at` on a sliding spot); open space with a landing gives `{ kind: "float", rect }`; everything else gives null (the item goes home).
 
 **The host's part.**
 

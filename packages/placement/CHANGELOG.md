@@ -3,6 +3,21 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+Stretch positions. With `@n-uf/motion`'s sliding spots. Host notes: additive; nothing changes under the default
+(`"pitched"`). Under `"free"`, commit a sliding spot through its target's `after(point, grab)` (a release by id alone
+must pass the pointer), and give the landing model the press's grab.
+
+- `./scene`, **`LaneOptions.stretchPositions`** (`"free" | "pitched"`, default `"pitched"`) and
+  **`LaneOptions.snapDistance`** (default 8), additive. A free stretch on a bar or a toolbar rail is a range of
+  landings from flush against one neighbor to flush against the other: `"pitched"` samples it every `pitch` px, its
+  ends included (as before); `"free"` gives one sliding spot, `LaneSpot.slide` (`LaneSlide`: `{ from, to, snaps,
+  snapDistance }`), id `<lane>/<zone>/<before>|<after>@slide`. Its `target.after(point, grab)` lands the item's start at
+  the pointer less the grab, clamped and snapped (to the stretch's ends, the item's own place and any dock inside),
+  else rounded to a whole px, as a dock keeping the `space` that puts it there. A release within the snap distance of
+  the item's own place is home. The stretch stays one guide box.
+
 ## 26.11.49
 
 The gutter between a column and the pages is open space. With `@n-uf/motion` 26.11.49. Host notes: none; a host
