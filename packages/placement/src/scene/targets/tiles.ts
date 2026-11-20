@@ -5,7 +5,7 @@
 import { EPS, area, rect, subtract, type Point, type Rect } from "../../geometry";
 import { zoneOf } from "../helpers";
 import { ZONES, type SceneLayout, type Zone } from "../model";
-import { distinctSlots } from "./edges";
+import { distinctSlots, roomReason } from "./edges";
 import { targetId } from "./ids";
 import { EDGE_KINDS } from "./kinds";
 import { less, type Ctx, type EdgeSpec, type Room, type SceneRefusal, type Slot, type Span, type Tile } from "./model";
@@ -174,7 +174,8 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
         // is handed to another zone's slot. Beside a lone item (the zone's only slot is home) there is room, but no
         // place other than its own: `own-place`.
         // A stretch out of every slot's reach is no part of this edge.
-        const lone = reason === "no-room" && mine.length === 0 && slots.some((s) => s.zone === z.zone && s.home);
+        // (The zone takes the kind: its refusal is for want of room, `no-room` or `too-thick`.)
+        const lone = (reason === "no-room" || reason === "too-thick") && mine.length === 0 && slots.some((s) => s.zone === z.zone && s.home);
         // (A virtual edge's zone is its slot's reach already: all of it is near.)
         const near = mine.length === 0 || data.virtual || mine.some((s) => pb > s.line - data.reach + EPS && pa < s.line + data.reach - EPS);
         // A virtual edge's stretch cut off from its line by another edge's owned band (the rail stop between a column
@@ -230,7 +231,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
         for (const [u, w] of less([[a, b]], faced)) {
           const line = Math.min(Math.max(p, u), w);
           const hit = band(u, w, s.result.layout);
-          if (!s.ok) out.push(...refused(z.zone, hit, reason === "too-thick" ? "too-thick" : "no-room"));
+          if (!s.ok) out.push(...refused(z.zone, hit, roomReason(spec, z.zone)));
           else out.push(...split(tile(z.zone, hit, { kind: "slot", id: s.id, order: data.layer, priority: data.priority, keep: keepAt(line, hit), place: s.place, result: s.result, marker: spec.marker(s), slot: s.result.layout.items[c.dragged]!.rect })));
         }
       });
@@ -375,7 +376,7 @@ export function clipTiles(tiles: readonly Tile[], own: Ownership, chrome: readon
     // with no other piece is no target. Under 1 px is no room (as in a zone's room), so the slot isn't lost: its line
     // lay where its neighbors left it no place.
     const solidPieces = pieces.filter((p) => p.width >= 1 && p.height >= 1);
-    for (const p of pieces) if (!solidPieces.includes(p)) (data.virtual ? later : refused).push({ ...t, kind: "refuse", reason: "no-room", hit: p, keep: null });
+    for (const p of pieces) if (!solidPieces.includes(p)) (data.virtual ? later : refused).push({ ...t, kind: "refuse", reason: t.spec ? roomReason(t.spec, t.zone) : "no-room", hit: p, keep: null });
     if (solidPieces.length === 0) return;
     landed.set(t, [placed.length]);
     placed.push(withPieces(t, solidPieces));

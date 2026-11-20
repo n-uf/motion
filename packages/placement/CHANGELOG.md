@@ -28,7 +28,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   case; a host that treats any other reason like `"no-room"` needs no change). A bar thinner than every form of the
   held item but the » menu's (each sets no cross size and has a `cross.min` over the bar's thickness: a 30 px toolbar
   on a 28 px bar) used to refuse every zone as `"no-room"`, which says the bar is too short. It now refuses them as
-  `"too-thick"`, so a host can say the item is thicker than the bar. `"no-room"` is kept for lack of length.
+  `"too-thick"`, so a host can say the item is thicker than the bar. `"no-room"` is kept for lack of length. One
+  thickness test for every edge: a new column's line (against its template's `cross.max`) and a rail stop (against the
+  rail's `width`) refuse as `"too-thick"` too, a slot's refused pieces say what its zone says, and the stretch beside a
+  lone item is `"own-place"` whichever the zone's refusal for want of room.
 - `./scene/cases`, **the landing rows check the hand rule** (additive: a row's `moving.hand`; a host's `LandingPlay` may
   report its `stretchPositions`). While a lane holds, the landing is the nearest landing in its lane to the pointer
   and lies within `max(48, g / 2 + 6)` px of it (`max(56, g / 2 + 6)` on the frame before a hop), `g` the gap along
