@@ -103,6 +103,7 @@ Each `*.json` dump (window px, origin at the window's top left):
   "spot": "rail-left/start/tools|$",
   "pending": null,
   "cantGo": null,
+  "spots": [{ "id": "rail-left/start/tools|$", "rect": { "x": 0, "y": 196, "width": 30, "height": 102 }, "axis": "y" }],
   "guides": [{ "id": "rail-left/box/^|tools", "kind": "box", "lane": "rail-left", "rect": { "x": 2, "y": 34, "width": 26, "height": 78 } }],
   "items": [{ "id": "tools", "edge": "rail-left", "form": "icons", "rect": { "x": 0, "y": 117, "width": 30, "height": 158 } }],
   "errors": []
@@ -111,4 +112,5 @@ Each `*.json` dump (window px, origin at the window's top left):
 
 - `mark` names a key frame: `state`, `start`, `hop` (the held item changed place), or `release`.
 - `pending` and `cantGo` say what the host shows at the pointer: the lane being entered, and the "Can't go here" tag.
+- `spots` (optional): the held lane's landing spots as the model reads them on that frame (the held spot's room open), each `{ id, rect, axis, slide? }`: `rect` is its landing, `axis` the lane's axis (`"x"` or `"y"`), and a sliding spot's `slide` is `{ from, to }`, the range of its start along `axis`. Empty when no lane is held. It lets a check assert that the landing is the nearest spot to the pointer.
 - A dump holds no screenshot data and no page markup, only the facts a reviewer compares with the picture.
