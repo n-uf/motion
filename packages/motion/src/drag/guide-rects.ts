@@ -67,10 +67,12 @@ const EPS = 1e-6;
  *   across), whatever the input order, so the result is the same for any order.
  * - `minLength` (default 8, `MIN_BOX_LENGTH`) is applied once at the end, along the axis, to every part a clear rect
  *   cut, corner-cut ones included. A part nothing touched is the clipped box and is kept at any length.
- * - Ids follow the side, not the rank: a part keeps the guide's `id` when no full-thickness clear rect lies before it
- *   along the axis, and gets `<id>#<k + 1>` when k of them do (overlapping or touching ones count as one). The part
- *   before a cut is always `<id>`, the part after one cut always `<id>#2`, whether or not the part before survives,
- *   so a host keys each part by its id as a held item slides. A guide's own `id` must not end in `#` and digits
+ * - Ids follow the side, not the rank: a part keeps the guide's `id` when no interior cut lies before it along the
+ *   axis, and gets `<id>#<k + 1>` when k of them do. A cut is a full-thickness clear interval strictly inside the box
+ *   (box length on both sides of it); overlapping or touching ones count as one, and one that touches or overlaps the
+ *   box's start or end only trims the box, it is no cut (a neighbor flush with the box's start, grown by its clearance,
+ *   leaves the part before a held rect as `<id>`). The part before a cut is always `<id>`, the part after one cut
+ *   always `<id>#2`, whether or not the part before survives, so a host keys each part by its id as a held item slides. A guide's own `id` must not end in `#` and digits
  *   (`b#2` would collide with the second part of `b`), and an `id` that is not a string is not suffixed (a split
  *   box's parts then share it: unsupported). Parts come back in order along the axis.
  *
@@ -146,13 +148,17 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
         if (last && lo <= last[1] + EPS) last[1] = Math.max(last[1], hi);
         else cuts.push([lo, hi]);
       }
+      // A part's `k` counts the interior cuts before it: a cut that touches or overlaps the box's start or end trims the
+      // box, it is no cut (so a neighbor flush with the box's start never renames the part before a held rect).
       const spans: { lo: number; hi: number; k: number }[] = [];
       let at = s0;
-      cuts.forEach(([lo, hi], k) => {
+      let k = 0;
+      for (const [lo, hi] of cuts) {
         if (lo - at > EPS) spans.push({ lo: at, hi: lo, k });
+        if (lo > s0 + EPS && hi < s1 - EPS) k++;
         at = hi;
-      });
-      if (s1 - at > EPS) spans.push({ lo: at, hi: s1, k: cuts.length });
+      }
+      if (s1 - at > EPS) spans.push({ lo: at, hi: s1, k });
       // Over only part of the thickness (a corner): cut on the side that faces it, the largest part kept (no L-shapes),
       // each corner rect in turn by its distance along the axis, so the result never depends on the input order.
       const corners = over
