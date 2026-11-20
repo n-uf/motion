@@ -3,6 +3,29 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+A stretch is the room the drop makes. Host notes: additive; a host that draws hatches may read their new `givesWay`.
+
+- `./scene`, **a neighbor that steps down to make room gives way** (fix). One rule for marks and stretches: when the
+  item lands beside a room, a neighbor gives way if it moves away from the room, leaves the lane (the menu, a float)
+  or takes a shorter form than it has now.
+  - A free stretch of a bar or a toolbar rail runs from flush after the neighbor before it to flush before the one
+    after it **in the forms the drop leaves them in**, not only as seen. Where the room as seen is shorter than the
+    item but a drop there steps a neighbor down, the stretch now has its sliding spot (and its pitched spots under
+    `"pitched"`, not only its two ends), so the landing stays at the hand across that room; before, it stayed at a
+    dock at one end while the pointer crossed the open room. A dock's push of a neighbor that keeps no room for it
+    is no room made: that end stays where it is seen. The forms don't depend on the space a dock keeps, so every start
+    in the stretch finds them alike, and every start that lands as aimed (within 1 px) is in the range.
+  - **Marks:** a box gets its striped end (`HATCH_END`) at the side of each neighbor that gives way, whether or not the
+    room as seen is shorter than the item; where none moves, leaves or steps down, the box is plain. The hatch mark
+    carries **`LaneMark.givesWay`**, the neighbor's id (data for hosts and tests; nothing to show). The old fallback for
+    short room where neither neighbor moved (a striped end at the neighbor after) is gone: there the item fits by
+    taking another form itself, and its box is plain.
+- `./scene/cases`, **`STEP_SINCE`** (`"26.11.51"`) and the landing row `landing-step-down-room`: a toolbar slid at
+  0.3 px/ms over room a neighbor steps down to make stays within 48 px of the pointer (56 on the frame before a hop).
+  A host on an older version skips it.
+
 ## 26.11.50
 
 Stretch positions. With `@n-uf/motion`'s sliding spots. Host notes: **a contract change**: `stretchPositions` now

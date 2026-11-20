@@ -786,8 +786,8 @@ function settle(l: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all:
 const overlaps = (a: Rect, b: Rect): boolean => a.x < b.x + b.width - EPS && b.x < a.x + a.width - EPS && a.y < b.y + b.height - EPS && b.y < a.y + a.height - EPS;
 
 /**
- * Spots at `pitch` over the free stretches of a bar or a toolbar rail (a compact edge), along its axis: between the
- * items as seen (an empty one: its whole length less its padding), a start-zone dock keeping `space` before it where the
+ * Spots at `pitch` over the free stretches of a bar or a toolbar rail (a compact edge), along its axis: the room a drop
+ * between two items makes (`stretches`; an empty one: its whole length less its padding), a start-zone dock keeping `space` before it where the
  * stretch follows a start item (or the edge's start), an end-zone dock keeping `space` after it where it precedes an end
  * item (or the edge's end). Kept only where the drop lands where it was aimed (within 1 px) and not on another spot's
  * landing. A stretch too short for the item has none, nor one bounded on both sides by zones the item cannot dock in
@@ -1017,15 +1017,17 @@ function landsAt(scene: Scene, dragged: string, run: StretchEdge, place: DockPla
 
 /**
  * One sliding spot per free stretch of a bar or a toolbar rail (`stretchPositions: "free"`): the same stretches as
- * `pitchedSpots` (between the items as seen with the held item lifted, a start zone after a start item or the edge's
- * start, an end zone before an end item or the edge's end), as one range of landings from flush against the neighbor
+ * `pitchedSpots` (between the items as the drop finds them with the held item lifted, in the forms the drop leaves them
+ * in, a start zone after a start item or the edge's start, an end zone before an end item or the edge's end), as one
+ * range of landings from flush against the neighbor
  * before it to flush against the one after it. A landing is a dock keeping the `space` that puts the item there: in the
  * start zone left of the edge's middle, the end zone right of it (the other where the stretch has only one). The range
  * holds the landings that land where they were aimed (within 1 px) with every fixed item kept, checked at its ends and
  * every `sample` px between. The docks that land inside it with its neighbors either side (the item's own place, a plain
  * dock, a center dock) are taken over: each is a snap point that commits that dock as it is, so a center dock's snap
  * moves its center neighbor by design (the center zone re-centers its items), where a plain dock leaves its neighbors
- * put. A stretch shorter than the item has none, nor one bounded on both sides by zones the item cannot dock in (no
+ * put. A stretch is the room the drop makes (`stretches`: a neighbor stepping down to a shorter form counts). One
+ * shorter than the item has none, nor one bounded on both sides by zones the item cannot dock in (no
  * start-zone item or edge start before it, no end-zone item or edge end after it: no zone can take it); next to a center
  * item a stretch still has one wherever a zone can take the item, and its plain docks stay spots of their own where it
  * has none.
