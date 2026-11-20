@@ -153,6 +153,7 @@
 /* the drafting grid, faint, fading down from the top (a pseudo-element: the text never fades) */
 .docs-ix-cell::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(to right, color-mix(in srgb, var(--part) 8%, transparent) 1px, transparent 1px) 0 0 / 24px 24px, linear-gradient(to bottom, color-mix(in srgb, var(--part) 8%, transparent) 1px, transparent 1px) 0 0 / 24px 24px; -webkit-mask-image: linear-gradient(to bottom, #000, transparent 55%); mask-image: linear-gradient(to bottom, #000, transparent 55%); }
 .docs-ix-cell > * { margin: 0; }
+.docs-ix-cell:last-child:nth-child(odd) { grid-column: 1 / -1; } /* three libraries in two columns: the last one takes the whole row */
 .docs-ix h2 { font-size: var(--t-xl); line-height: 1.15; overflow-wrap: anywhere; }
 .docs-ix h2 a { color: var(--text); text-decoration: none; }
 .docs-ix h2 a:hover { color: var(--part-strong); }

@@ -27,13 +27,16 @@ const order = [{ path: docsIndex.path, nav: "All docs" }, ...DOCS];
 const at = order.findIndex((d) => d.path === doc.path);
 const prev = order[at - 1] ?? order[order.length - 1]!;
 const next = order[at + 1] ?? order[0]!;
-const other = DOCS.find((d) => d.path !== doc.path)!;
+const others = DOCS.filter((d) => d.path !== doc.path);
+// placement's old docking sections moved: say so, with a link, once the docking page exists to link to
+const dockingDoc = DOCS.find((d) => d.part === "docking");
+const movedBox = doc.part === "placement" ? dockingDoc : undefined;
 ---
 <Site title={doc.title} description={doc.description} path={doc.path} headline={page.h1} eyebrow={`Docs · ${part.short}`} crumbs={crumbs} partId={doc.part} jsonLd={jsonLd}>
   <div class="docs-spec" slot="lead">
     <p><span class="k">Version</span> <code>{doc.pkg} {doc.version}</code></p>
     <p><span class="k">Install</span> <code class="docs-cmd"><span class="prompt" aria-hidden="true">$</span> {doc.install}</code></p>
-    <p><span class="k">Links</span> <ExtLink href={doc.npm}>npm</ExtLink> · <ExtLink href={doc.source}>Source folder</ExtLink> · <ExtLink href={doc.readmeUrl}>README on GitHub</ExtLink></p>
+    <p><span class="k">Links</span> <ExtLink href={doc.npm}>npm</ExtLink> · <ExtLink href={doc.source}>Source folder</ExtLink> · <ExtLink href={doc.readmeUrl}>{doc.readmeLabel}</ExtLink>{doc.referenceUrl && <> · <ExtLink href={doc.referenceUrl}>Full reference on GitHub</ExtLink></>}</p>
   </div>
 
   <div class="docs-grid">
@@ -46,22 +49,30 @@ const other = DOCS.find((d) => d.path !== doc.path)!;
     </nav>
 
     <div class="docs-main">
+      {movedBox && (
+        <aside class="docs-callout docs-callout-note" role="note">
+          <p class="docs-callout-title">The docking model moved to @n-uf/docking</p>
+          <p>Docks, rails, columns, toolbar groups, drop targets and stored dock states are now in <code>@n-uf/docking</code>. Read them in its <a href={movedBox.path}>docs</a>. This page covers general geometry: rects, popups, stacks and tiling.</p>
+        </aside>
+      )}
       <article class="docs-body" set:html={page.html} />
 
-      <section class="docs-live" aria-labelledby="docs-live-k">
-        <h2 id="docs-live-k" class="docs-live-k">See it live</h2>
-        <ul>
-          {doc.live.map((p) => (
-            <li><a href={p}><span class="path">{p}</span><b>{pageOf(p).nav}</b><span class="what">{pageOf(p).description}</span></a></li>
-          ))}
-        </ul>
-      </section>
+      {doc.live.length > 0 && (
+        <section class="docs-live" aria-labelledby="docs-live-k">
+          <h2 id="docs-live-k" class="docs-live-k">See it live</h2>
+          <ul>
+            {doc.live.map((p) => (
+              <li><a href={p}><span class="path">{p}</span><b>{pageOf(p).nav}</b><span class="what">{pageOf(p).description}</span></a></li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <nav class="pager docs-pager" aria-label="More docs">
         <a class="prev" href={prev.path}><span class="k">Previous</span><span class="t">{prev.nav}</span></a>
         <a class="next" href={next.path}><span class="k">Next</span><span class="t">{next.nav}</span></a>
       </nav>
-      <p class="docs-also">The other package: <a href={other.path}><code>{other.pkg}</code> docs</a>.</p>
+      <p class="docs-also">The other libraries: {others.map((o, i) => <>{i > 0 && " · "}<a href={o.path}><code>{o.pkg}</code> docs</a></>)}.</p>
     </div>
   </div>
 </Site>

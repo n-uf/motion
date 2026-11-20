@@ -11,15 +11,16 @@ import { orgNode, webPage, breadcrumbs, software } from "../../data/schema";
 
 const crumbs = [{ name: "Home", path: "/" }, { name: docsIndex.nav, path: docsIndex.path }];
 const jsonLd = [
-  webPage({ path: docsIndex.path, name: docsIndex.title, description: docsIndex.description, type: "CollectionPage", updated: new Date(`${updated[docsIndex.path]}T00:00:00Z`), about: ["motion", "placement"] }),
+  webPage({ path: docsIndex.path, name: docsIndex.title, description: docsIndex.description, type: "CollectionPage", updated: new Date(`${updated[docsIndex.path]}T00:00:00Z`), about: ["motion", "placement", "docking"] }),
   breadcrumbs(crumbs),
   software("motion"),
   software("placement"),
+  software("docking"),
   orgNode,
 ];
 ---
-<Site title={docsIndex.title} description={docsIndex.description} path={docsIndex.path} headline="Docs for motion and placement" eyebrow="Docs" crumbs={crumbs} jsonLd={jsonLd}>
-  <p class="lead" slot="lead">One page per package, rendered from the package's own README when this site is built, so it says what npm says for the version shown. Both are young and still changing: pin an exact version.</p>
+<Site title={docsIndex.title} description={docsIndex.description} path={docsIndex.path} headline="Docs for motion, placement and docking" eyebrow="Docs" crumbs={crumbs} jsonLd={jsonLd}>
+  <p class="lead" slot="lead">One page per library, rendered from the library's own docs when this site is built, so it says what npm says for the version shown. All three are young and still changing: pin an exact version.</p>
 
   <div class="docs-ix">
     {DOCS.map((d) => {
@@ -34,10 +35,10 @@ const jsonLd = [
           <ul class="docs-entries">{d.entries.map((e) => <li><code>{e}</code></li>)}</ul>
           <p class="actions">
             <a class="btn primary" href={d.path}>Read the {d.pkg} docs</a>
-            <ExtLink href={d.readmeUrl}>README on GitHub</ExtLink>
+            <ExtLink href={d.readmeUrl}>{d.readmeLabel}</ExtLink>
             <ExtLink href={d.npm}>npm</ExtLink>
           </p>
-          <p class="live"><span class="k">See it live</span> {d.live.map((p, i) => <>{i > 0 && " · "}<a href={p}>{pageOf(p).nav}</a></>)}</p>
+          {d.live.length > 0 && <p class="live"><span class="k">See it live</span> {d.live.map((p, i) => <>{i > 0 && " · "}<a href={p}>{pageOf(p).nav}</a></>)}</p>}
         </article>
       );
     })}
