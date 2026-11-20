@@ -1705,7 +1705,10 @@ expect(lanesRatchet({ skipped, baseline: 0, today: new Date().toISOString().slic
 Every landing row carries `requires: { lanes: { since } }`: `LANES_SINCE`, the first version with `lanes()` (26.11.45;
 26.11.21 to 26.11.44, `LAST_WITHOUT_LANES`, shipped without it), or a later one where the row needs more: the rows
 that bring an item back to its press point need `GRAB_SINCE` (26.11.46, `lanes()` taking the grab), and pass only on a
-host that passes its grab to `lanes()`. A host that says it runs an older `version` skips a row. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
+host that passes its grab to `lanes()`; the rows that slide a toolbar held by its grip past or across neighbors, on a
+bar and up a rail (`landing-grip-*`), need `GRIP_SINCE` (26.11.48, the grab moving no hop past a long neighbor) and
+bound the landing absolutely: within `moving.trail` (48 px) of the pointer, `moving.trailBeforeHop` (56) on the single
+frame before a hop (R12). A host that says it runs an older `version` skips a row. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
 baseline the host's suite recorded, and from `LANES_DEADLINE` (2026-12-31) or at the breaking release, whichever comes
 first, every row runs.
 
