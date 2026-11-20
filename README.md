@@ -5,22 +5,41 @@
 >
 > **@n-uf/motion and @n-uf/placement are young and still changing. Their APIs (the frame loop, signals, springs and tweens, the gesture recognizer, the drag and landing models, the scene and its solver) and their timing behavior are not final.**
 >
-> Version numbers are dates (YY.M.R), not semantic versions, so any release may break things, including how frames are scheduled, how springs settle and how gestures are timed. Pin an exact version and read the [CHANGELOG](./packages/motion/CHANGELOG.md) before you upgrade. If you need a stable animation library, use [Motion](https://motion.dev) or [GSAP](https://gsap.com). Both work on the DOM, so neither is a drop-in replacement.
+> Version numbers are dates (YY.M.R), not semantic versions, so any release may break things, including how frames are scheduled, how springs settle and how gestures are timed. Pin an exact version and read the CHANGELOG of each package ([motion](./packages/motion/CHANGELOG.md), [placement](./packages/placement/CHANGELOG.md)) before you upgrade. If you need a stable animation library, use [Motion](https://motion.dev) or [GSAP](https://gsap.com). Both work on the DOM, so neither is a drop-in replacement.
 
 Site and live demos: [motion.n-uf.com](https://motion.n-uf.com)
 
-Two sibling libraries under n-uf's interfaces, released together with one version:
+Libraries under n-uf's interfaces, released together with one version. Each stands alone: neither imports the other, and
+they meet only in plain data (a rect, a drop target). A third library, for the docking window model, will join them.
 
-- [`@n-uf/motion`](./packages/motion): *how things move*. One frame loop with an injected clock, fine-grained signals,
-  springs, tweens and the settle curve, a DOM-free gesture recognizer, drag intent and the landing model, and layout
-  motion. It knows nothing about the DOM, canvas or React; hosts hand it a clock and plain event objects and read plain
-  numbers back. Design: [docs/motion.md](./docs/motion.md).
-- [`@n-uf/placement`](./packages/placement): *where things go*. A scene of bars, rails, columns, items and floats,
-  solved into a layout, with the targets, refusals and lanes of every drag. Design:
-  [docs/placement.md](./docs/placement.md).
+## @n-uf/motion: how things move
 
-Neither imports the other: motion reads placement's output only as plain data. Each package README has the API
-reference.
+One frame loop with an injected clock, fine-grained signals, springs, tweens and the settle curve, a DOM-free gesture
+recognizer, the drag intent and the landing model, and layout motion. It knows nothing about the DOM, canvas or React;
+hosts hand it a clock and plain event objects and read plain numbers back.
+
+```sh
+npm i @n-uf/motion
+```
+
+- [Design page](./docs/motion.md): the concept, the parts, the rules.
+- [Reference](./docs/motion-reference.md): every entry point's API.
+- [npm](https://www.npmjs.com/package/@n-uf/motion) and the [package README](./packages/motion/README.md).
+
+## @n-uf/placement: where things go
+
+A window's edges (bars, rails and columns), items and floats, solved into a layout, with the targets, refusals and
+lanes of every drag. Pure functions over plain data.
+
+```sh
+npm i @n-uf/placement
+```
+
+- [Design page](./docs/placement.md): the concept, the parts, the rules.
+- [Reference](./docs/placement-reference.md): every entry point's rules, ids and options.
+- [npm](https://www.npmjs.com/package/@n-uf/placement) and the [package README](./packages/placement/README.md).
+
+## Working in this repository
 
 ```sh
 pnpm install
@@ -32,6 +51,7 @@ pnpm lab     # the motion lab on http://localhost:3060
 - `packages/motion`: `@n-uf/motion` and its `/clock`, `/signals`, `/values`, `/gestures`, `/drag`, `/layout`,
   `/testing` and `/browser` entries.
 - `packages/placement`: `@n-uf/placement`; hosts use its `/scene` entry.
+- [`docs/`](./docs): the design pages and the reference pages of both packages.
 - `apps/lab`: a lab (not published), with an overview, a glossary and three
   working pages: Motion, a tiling stage for the window motion rules (master,
   dwindle, columns, grid; drop indicator or snap to slot); Document window,
