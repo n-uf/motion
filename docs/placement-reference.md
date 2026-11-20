@@ -351,7 +351,7 @@ the lane, and `snaps` the starts it snaps to within `options.snapDistance` (8 px
 every other dock that lands inside the stretch beside the same neighbors (a center dock, say), each of which it takes
 over and commits as it is. No snap point lies within twice the snap distance of the item's own place, so a release
 within the snap distance of it is home; a taken-over dock (a center dock, say) that lies within twice the snap distance
-of the item's own place therefore has no snap of its own there (as `nearHome` did for pitched spots): intended, the
+of the item's own place therefore has no snap of its own there (as pitched spots do): intended, the
 item's own place wins near it. Its `target.after(point, grab)` puts the item's start at the pointer less the
 grab (along the item's own length; across it, the middle), clamped to the range and snapped, else on a whole pixel
 (`slide.step`, the grain a landing model's frame and a release's `at` round by too), and commits a dock keeping the `space` that puts it there: a dock consumes its placed neighbor's room, and the neighbor
