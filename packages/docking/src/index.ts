@@ -80,5 +80,5 @@ export {
 export { fitResize, type FloatResize, type ResizeEdges, type ResizeLimit } from "./float-resize";
 export { readDockState, storeDockState, type DockStateRead, type StoredDockState, type StoredDockStateEdge, type StoredDockStateFloat, type StoredDockStateItem } from "./store";
 export { refusalTargets, refusals, reservedRect, stops, targets, type DropResult, type DropPlace, type DockRefusal, type DockRefusalTarget, type DockDrop, type DockDropOptions } from "./targets";
-export { HATCH_EDGE, HATCH_END, lanes, SPOT_PITCH, type DockLane, type DockMark, type DockLaneOptions, type LaneRefusal, type LaneSlide, type DockSpot, type DockRegions } from "./lanes";
+export { HATCH_EDGE, HATCH_END, lanes, SPOT_PITCH, type DockLane, type DockMark, type DockLaneOptions, type EmptyLanes, type LaneRefusal, type LaneSlide, type DockSpot, type DockRegions } from "./lanes";
 export { parseTargetId, placeTargetId, targetId, virtualEdgeId, type TargetIdParts } from "./targets";

@@ -17,6 +17,7 @@ import {
   type DragKeys,
   type DragTarget,
   type DragTuning,
+  type PreviewMode,
   type PreviewPlan,
 } from "../src/drag";
 
@@ -472,7 +473,7 @@ describe("drag/ intent", () => {
 
 describe("drag/ previews", () => {
   /** The plan of every frame of a drag aimed at `goal` (held there until the room is made), under `preview`. */
-  function plans(goal: Point, preview: DragPreview): { plan: PreviewPlan; shown: string | null; room: boolean }[] {
+  function plans(goal: Point, preview: DragPreview | PreviewMode): { plan: PreviewPlan; shown: string | null; room: boolean }[] {
     const keys = hold(through([FROM, goal], 0.8), 600);
     const intent = createDragIntent({ home: HOME });
     const out: { plan: PreviewPlan; shown: string | null; room: boolean }[] = [];
@@ -483,43 +484,43 @@ describe("drag/ previews", () => {
     return out;
   }
 
-  it("snap is the default", () => {
-    expect(DRAG_PREVIEW_DEFAULT).toBe("snap");
+  it("glide is the default", () => {
+    expect(DRAG_PREVIEW_DEFAULT).toEqual({ mode: "glide" });
   });
 
-  it("indicator: the indicator shows, and nothing else moves (no room, no snap)", () => {
-    const frames = plans(mid(A.hit), "indicator");
+  it("outline: the indicator shows, and nothing else moves (no room, no snap)", () => {
+    const frames = plans(mid(A.hit), "outline");
     expect(frames.some((f) => f.room)).toBe(true);
     expect(frames.every((f) => f.plan.showIndicator === (f.shown !== null))).toBe(true);
     expect(frames.some((f) => f.plan.makeRoom || f.plan.snapItem)).toBe(false);
   });
 
-  it("gap: the room opens with the intent's, the item stays under the pointer", () => {
-    const frames = plans(mid(A.hit), "gap");
+  it("placeholder: the room opens with the intent's, the item stays under the pointer", () => {
+    const frames = plans(mid(A.hit), "placeholder");
     expect(frames.every((f) => f.plan.makeRoom === f.room)).toBe(true);
     expect(frames.some((f) => f.plan.makeRoom)).toBe(true);
     expect(frames.some((f) => f.plan.snapItem)).toBe(false);
     expect(frames.every((f) => f.plan.showIndicator === (f.shown !== null))).toBe(true);
   });
 
-  it("snap: the room opens and the item snaps into a slot, which needs no indicator", () => {
-    const frames = plans(mid(A.hit), "snap");
+  it("glide: the room opens and the item snaps into a slot, which needs no indicator", () => {
+    const frames = plans(mid(A.hit), "glide");
     expect(frames.every((f) => f.plan.makeRoom === f.room && f.plan.snapItem === f.room)).toBe(true);
     expect(frames.some((f) => f.plan.snapItem)).toBe(true);
     expect(frames.some((f) => f.plan.showIndicator)).toBe(false);
   });
 
-  it("item: the item is the only preview: no indicator on any target, it snaps once the room is open", () => {
-    const slotted = plans(mid(A.hit), "item");
+  it("snap: the item is the only preview: no indicator on any target, it snaps once the room is open", () => {
+    const slotted = plans(mid(A.hit), "snap");
     expect(slotted.every((f) => !f.plan.showIndicator && f.plan.makeRoom === f.room && f.plan.snapItem === f.room)).toBe(true);
     expect(slotted.some((f) => f.plan.snapItem)).toBe(true);
-    const free = plans({ x: 500, y: 200 }, "item");
+    const free = plans({ x: 500, y: 200 }, "snap");
     expect(free.at(-1)!.shown).toBe("area");
     expect(free.some((f) => f.plan.showIndicator || f.plan.snapItem || f.plan.makeRoom)).toBe(false);
   });
 
-  it("snap: a target with no slot keeps the indicator and never snaps", () => {
-    const frames = plans({ x: 500, y: 200 }, "snap");
+  it("glide: a target with no slot keeps the indicator and never snaps", () => {
+    const frames = plans({ x: 500, y: 200 }, "glide");
     expect(frames.at(-1)!.shown).toBe("area");
     expect(frames.some((f) => f.plan.snapItem || f.plan.makeRoom)).toBe(false);
     expect(frames.at(-1)!.plan.showIndicator).toBe(true);
@@ -1366,34 +1367,33 @@ describe("drag/ place guides: where it can go, or where it will land, never both
     return out;
   };
 
-  it("a plan a host builds itself, with no guides, is still a plan, and its guides read as off", () => {
-    const own: ReturnType<typeof previewPlan> = { showIndicator: true, makeRoom: false, snapItem: false };
-    expect(own.guides ?? "off").toBe("off");
+  it("a mode alone is that mode with its default guides", () => {
+    for (const mode of ["outline", "placeholder", "glide", "snap"] as const) expect(frames(mode)).toEqual(frames({ mode }));
   });
 
-  it("the object forms draw with their string plans: outline as indicator, placeholder as gap, snap as item", () => {
-    const strip = ({ guides: _g, emptyLanes: _e, ...p }: ReturnType<typeof previewPlan>) => p;
-    expect(frames({ mode: "outline" }).map(strip)).toEqual(frames("indicator").map(strip));
-    expect(frames({ mode: "placeholder" }).map(strip)).toEqual(frames("gap").map(strip));
-    expect(frames({ mode: "snap" }).map(strip)).toEqual(frames("item").map(strip));
-  });
-
-  it("defaults: snap and placeholder near, outline off; the string forms always off", () => {
-    expect(PLACE_GUIDES_DEFAULT).toEqual({ outline: "off", placeholder: "near", snap: "near" });
-    for (const s of ["indicator", "gap", "snap", "item"] as const) expect(frames(s).every((p) => p.guides === "off")).toBe(true);
+  it("defaults: snap and placeholder near, outline and glide off; a preview's own guides win", () => {
+    expect(PLACE_GUIDES_DEFAULT).toEqual({ outline: "off", placeholder: "near", glide: "off", snap: "near" });
     expect(frames({ mode: "snap" })[0]!.guides).toBe("near");
     expect(frames({ mode: "outline" })[0]!.guides).toBe("off");
+    expect(frames({ mode: "glide" })[0]!.guides).toBe("off");
     expect(frames({ mode: "outline", placeGuides: "all" })[0]!.guides).toBe("all");
+    expect(frames({ mode: "snap", placeGuides: "off" }).every((p) => p.guides === "off")).toBe(true);
   });
 
-  it("emptyLanes: the object form's, \"real\" when it names none; absent for the string forms", () => {
-    expect(frames({ mode: "snap" }).every((p) => p.emptyLanes === "real")).toBe(true);
-    expect(frames({ mode: "placeholder", emptyLanes: "edge" }).every((p) => p.emptyLanes === "edge")).toBe(true);
-    for (const s of ["indicator", "gap", "snap", "item"] as const) expect(frames(s).every((p) => p.emptyLanes === undefined)).toBe(true);
+  it("reads a landing frame too: a landing shows where it has one, slotted in a lane, not as the float", () => {
+    const at = { x: 0, y: 0, width: 10, height: 10 };
+    const lane = { region: "lane", landing: at, room: true } as const;
+    const open = { region: "open", landing: at, room: false } as const;
+    const nowhere = { region: "nowhere", landing: null, room: false } as const;
+    expect(previewPlan(lane, "snap")).toEqual({ showIndicator: false, makeRoom: true, snapItem: true, guides: "off" });
+    expect(previewPlan(lane, "glide")).toEqual({ showIndicator: false, makeRoom: true, snapItem: true, guides: "off" });
+    expect(previewPlan(open, "glide")).toEqual({ showIndicator: true, makeRoom: false, snapItem: false, guides: "off" });
+    expect(previewPlan(open, "outline")).toEqual({ showIndicator: true, makeRoom: false, snapItem: false, guides: "off" });
+    expect(previewPlan(nowhere, { mode: "placeholder" })).toEqual({ showIndicator: false, makeRoom: false, snapItem: false, guides: "near" });
   });
 
   it("in every mode, no frame asks for guides while a landing shows (an indicator, room or the item in its slot)", () => {
-    for (const mode of ["outline", "placeholder", "snap"] as const)
+    for (const mode of ["outline", "placeholder", "glide", "snap"] as const)
       for (const placeGuides of ["near", "all"] as const) {
         const fs = frames({ mode, placeGuides });
         for (const p of fs) if (p.showIndicator || p.makeRoom || p.snapItem) expect([mode, p.guides]).toEqual([mode, "off"]);

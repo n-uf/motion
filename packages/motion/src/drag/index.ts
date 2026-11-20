@@ -47,7 +47,7 @@ export {
   type LandingSpot,
   SNAP_DISTANCE,
 } from "./landing";
-export { DRAG_PREVIEW_DEFAULT, PLACE_GUIDES_DEFAULT, previewPlan, type DragPreview, type DropPreviewMode, type EmptyLanes, type PlaceGuides, type PreviewPlan } from "./preview";
+export { DRAG_PREVIEW_DEFAULT, PLACE_GUIDES_DEFAULT, previewPlan, type DragPreview, type PlaceGuides, type PreviewFrame, type PreviewMode, type PreviewPlan } from "./preview";
 export { createGripPress, type GripPress, type GripRelease } from "./grip";
 export { guideRects, MIN_BOX_LENGTH, type ClearRect, type GuideRectsOptions, type PlacedGuide } from "./guide-rects";
 export { DOUBLE_CLICK, type DoubleClick } from "../double-click";

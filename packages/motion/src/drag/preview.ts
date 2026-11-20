@@ -1,27 +1,21 @@
 import type { DragFrame, DragTarget } from "./intent";
+import type { LandingFrame } from "./landing";
 
 /**
- * How a drag previews its drop, from least to most motion while dragging:
+ * How a drag previews its drop, from least to most motion while dragging. One vocabulary for both drag models (the
+ * intent and the landing model):
  *
- * - `"indicator"`: nothing moves; only the indicator (an outline or an
- *   insertion marker) shows the target.
- * - `"gap"`: once the room is made, the others move aside and open the slot;
- *   the item stays under the pointer.
- * - `"snap"`: the gap opens and the item itself glides into it (for a target
- *   with a slot; one without keeps the indicator).
- * - `"item"`: the dragged item is the only preview: no indicator for any
- *   target. It sits in a slotted target once the room is open and otherwise
- *   stays on the pointer. Pair it with the intent's `earlyRelease: "float"`, so
- *   a release lands what shows.
+ * - `"outline"`: nothing moves; only the indicator (an outline or an insertion marker) shows the landing.
+ * - `"placeholder"`: once the room is made, the others move aside and open the slot; the item stays under the pointer.
+ * - `"glide"`: the slot opens and the item itself glides into it (for a landing with a slot; one without keeps the
+ *   indicator).
+ * - `"snap"`: the dragged item is the only preview: no indicator for any landing. It sits in a slotted landing once
+ *   the room is open and otherwise stays on the pointer.
  *
- * Every mode follows the same intent: what shows, when, and what a release
- * lands on are the drag intent's, so a drop always lands where the preview
- * showed it.
+ * Every mode follows the same model: what shows, when, and what a release lands on are the model's, so a drop always
+ * lands where the preview showed it.
  */
-export type DragPreview = "indicator" | "gap" | "snap" | "item";
-
-/** The preview a drag uses unless the host picks another. */
-export const DRAG_PREVIEW_DEFAULT: DragPreview = "snap";
+export type PreviewMode = "outline" | "placeholder" | "glide" | "snap";
 
 /**
  * Place guides: faint marks on the free places that take the held item, shown only while no landing shows. `"off"`:
@@ -29,81 +23,62 @@ export const DRAG_PREVIEW_DEFAULT: DragPreview = "snap";
  */
 export type PlaceGuides = "off" | "near" | "all";
 
-/**
- * How a place guide draws an empty lane (an empty bar or side rail, its room not open yet): `"real"`, a box at the size
- * the lane will take, over what moves aside (the page, a column); `"edge"`, a thin striped strip on the lane's window
- * side. The landing is the same either way. Placement's `lanes()` takes it as `emptyLanes`.
- */
-export type EmptyLanes = "real" | "edge";
+/** A drag's preview: its mode and its place guides (default per mode, {@link PLACE_GUIDES_DEFAULT}). */
+export interface DragPreview {
+  readonly mode: PreviewMode;
+  readonly placeGuides?: PlaceGuides;
+}
 
-/**
- * A drop preview as a mode and its place guides, beside the string forms: `"outline"` is `"indicator"`'s plan,
- * `"placeholder"` is `"gap"`'s, and `"snap"` is `"item"`'s (the item the only preview). `placeGuides` defaults per mode
- * ({@link PLACE_GUIDES_DEFAULT}); `emptyLanes` (how its guides draw an empty lane) defaults to `"real"`.
- */
-export type DropPreviewMode =
-  | { readonly mode: "outline"; readonly placeGuides?: PlaceGuides; readonly emptyLanes?: EmptyLanes }
-  | { readonly mode: "placeholder"; readonly placeGuides?: PlaceGuides; readonly emptyLanes?: EmptyLanes }
-  | { readonly mode: "snap"; readonly placeGuides?: PlaceGuides; readonly emptyLanes?: EmptyLanes };
+/** The preview a drag uses unless the host picks another. */
+export const DRAG_PREVIEW_DEFAULT: DragPreview = { mode: "glide" };
 
-/** Each mode's place guides when it names none: Snap and Placeholder near, Outline none. */
-export const PLACE_GUIDES_DEFAULT: Readonly<Record<DropPreviewMode["mode"], PlaceGuides>> = { outline: "off", placeholder: "near", snap: "near" };
-
-/** The string plan each mode draws with. */
-const PLAN_OF: Readonly<Record<DropPreviewMode["mode"], DragPreview>> = { outline: "indicator", placeholder: "gap", snap: "item" };
+/** Each mode's place guides when it names none: Snap and Placeholder near, Outline and Glide none. */
+export const PLACE_GUIDES_DEFAULT: Readonly<Record<PreviewMode, PlaceGuides>> = { outline: "off", placeholder: "near", glide: "off", snap: "near" };
 
 /** What to draw for one frame of a drag. */
 export interface PreviewPlan {
-  /** Draw the indicator on the shown target. */
+  /** Draw the indicator on the shown landing. */
   readonly showIndicator: boolean;
   /** Lay the others out around the room (the gap is open). */
   readonly makeRoom: boolean;
   /** Draw the item in its slot instead of under the pointer. */
   readonly snapItem: boolean;
   /**
-   * The place guides to draw this frame: the mode's `placeGuides` while no landing shows (no indicator, no room, no item
-   * in its slot), `"off"` whenever one does, so the screen shows where the item can go or where it will land, never
-   * both. Always `"off"` for the string forms. Optional, so a plan a host builds itself is still one: absent means
-   * `"off"`.
+   * The place guides to draw this frame: the preview's `placeGuides` while no landing shows (no indicator, no room, no
+   * item in its slot), `"off"` whenever one does, so the screen shows where the item can go or where it will land,
+   * never both.
    */
-  readonly guides?: PlaceGuides;
-  /** How the guides draw an empty lane (the object form's `emptyLanes`, `"real"` when it names none); absent for the string forms. */
-  readonly emptyLanes?: EmptyLanes;
+  readonly guides: PlaceGuides;
 }
+
+/** A frame `previewPlan` reads: the drag intent's (what shows) or the landing model's (where it lands). */
+export type PreviewFrame<T extends DragTarget = DragTarget> = Pick<DragFrame<T>, "shown" | "room"> | Pick<LandingFrame, "region" | "landing" | "room">;
 
 /**
- * The plan for a frame of the drag intent under `preview`. `slotted` says
- * whether the shown target's drop has a slot the item can sit in (default: a
- * target that isn't `free`); only such a target snaps, and in `"snap"` it
- * previews with the item rather than the indicator.
+ * The plan for a frame of either drag model under `preview` (a mode alone is `{ mode }`). From an intent's frame a
+ * landing shows when a target shows, slotted unless it is `free`; from a landing frame it shows wherever the frame has a
+ * landing, slotted in a lane (the float is not). `slotted` overrides that.
  *
- * - `"indicator"`: the indicator, never room, never a snap.
- * - `"gap"`: the indicator, and room when the intent makes it.
- * - `"snap"`: room when the intent makes it, the item snapped into a slotted
- *   target's room; the indicator only for a target without a slot.
- * - `"item"`: as `"snap"`, with no indicator at all.
- *
- * The object form ({@link DropPreviewMode}) draws with its mode's string plan and adds its place guides (`guides`).
+ * - `"outline"`: the indicator, never room, never a snap.
+ * - `"placeholder"`: the indicator, and room when the model makes it.
+ * - `"glide"`: room when the model makes it, the item snapped into a slotted landing's room; the indicator only for a
+ *   landing without a slot.
+ * - `"snap"`: as `"glide"`, with no indicator at all.
  */
-export function previewPlan<T extends DragTarget>(
-  frame: Pick<DragFrame<T>, "shown" | "room">,
-  preview: DragPreview | DropPreviewMode,
-  slotted: boolean = !!frame.shown && !frame.shown.free,
-): PreviewPlan {
-  if (typeof preview === "object") {
-    const plan = stringPlan(frame, PLAN_OF[preview.mode], slotted);
-    const asked = preview.placeGuides ?? PLACE_GUIDES_DEFAULT[preview.mode];
-    const landing = plan.showIndicator || plan.makeRoom || plan.snapItem;
-    return { ...plan, guides: landing ? "off" : asked, emptyLanes: preview.emptyLanes ?? "real" };
-  }
-  return stringPlan(frame, preview, slotted);
+export function previewPlan<T extends DragTarget>(frame: PreviewFrame<T>, preview: DragPreview | PreviewMode, slotted?: boolean): PreviewPlan {
+  const p: DragPreview = typeof preview === "string" ? { mode: preview } : preview;
+  const landing = "region" in frame;
+  const shown = landing ? frame.landing !== null : !!frame.shown;
+  const slots = slotted ?? (landing ? frame.region === "lane" : !!frame.shown && !frame.shown.free);
+  const plan = planOf(p.mode, shown, frame.room, slots);
+  const drawn = plan.showIndicator || plan.makeRoom || plan.snapItem;
+  return { ...plan, guides: drawn ? "off" : (p.placeGuides ?? PLACE_GUIDES_DEFAULT[p.mode]) };
 }
 
-function stringPlan<T extends DragTarget>(frame: Pick<DragFrame<T>, "shown" | "room">, preview: DragPreview, slotted: boolean): PreviewPlan {
-  const shown = !!frame.shown;
-  if (preview === "indicator") return { showIndicator: shown, makeRoom: false, snapItem: false, guides: "off" };
-  if (preview === "gap") return { showIndicator: shown, makeRoom: frame.room, snapItem: false, guides: "off" };
-  if (preview === "item") return { showIndicator: false, makeRoom: frame.room, snapItem: frame.room && shown && slotted, guides: "off" };
-  // By design a slotted target draws nothing until the room opens (`roomAfter`); a release then still lands on it.
-  return { showIndicator: shown && !slotted, makeRoom: frame.room, snapItem: frame.room && shown && slotted, guides: "off" };
+function planOf(mode: PreviewMode, shown: boolean, room: boolean, slotted: boolean): Omit<PreviewPlan, "guides"> {
+  if (mode === "outline") return { showIndicator: shown, makeRoom: false, snapItem: false };
+  if (mode === "placeholder") return { showIndicator: shown, makeRoom: room, snapItem: false };
+  if (mode === "snap") return { showIndicator: false, makeRoom: room, snapItem: room && shown && slotted };
+  // By design a slotted landing draws nothing until the room opens (`roomAfter`); a release then still lands on it.
+  return { showIndicator: shown && !slotted, makeRoom: room, snapItem: room && shown && slotted };
 }

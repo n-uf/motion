@@ -18,7 +18,7 @@ import { railModeOf, type RailMode, type DockDrop } from "@n-uf/docking";
 import { onReset, parseRoute } from "../shell/api";
 import { ALL, EDGES, type Counts, type ItemId } from "./model";
 import { PRESETS, type Preset, type Verdict } from "./presets";
-import { createDocwin, type Behavior } from "./dock-state";
+import { createDocwin, type Behavior, type ViewerPreview } from "./dock-state";
 import { createDocwinHost } from "./host";
 import { createDocwinLandingHost } from "./landing-host";
 import { CASES, LANDING_CASES, runCasesAsync, runLandingCases } from "@n-uf/docking/testing";
@@ -26,7 +26,7 @@ import { DEFAULT_FEEL, type DragFeel } from "./feel";
 import { createRecorder, type Dump } from "./prerender";
 import { codeOf } from "./code";
 import { highlight } from "./code-highlight";
-import type { DragPreview, PlaceGuides } from "@n-uf/motion/drag";
+import type { PlaceGuides } from "@n-uf/motion/drag";
 
 /** What the viewer plays: the window's own rules, on the landing model. Each case sets its own. */
 const VIEWER_BEHAVIOR: Behavior = "landing";
@@ -42,8 +42,20 @@ const freeze = $<HTMLInputElement>("dw-freeze");
 /** Each side's rails: titles (the default) or icons, as `rails[side].mode`. */
 const railInputs = { left: $<HTMLSelectElement>("dw-rail-left"), right: $<HTMLSelectElement>("dw-rail-right") };
 const countInputs: Partial<Record<keyof Counts, HTMLInputElement>> = { notes: $("dw-c-notes"), findings: $("dw-c-findings"), marked: $("dw-c-marked") };
-/** The drop preview: indicator only, make room (the default), snap to slot. */
-const previewInput = $<HTMLSelectElement>("dw-preview");
+/** The drop preview: one button per mode, always in view at the top of the page. */
+const previewModes = $<HTMLDivElement>("dw-preview");
+/**
+ * The viewer's modes: Outline, Placeholder and Snap. Snap is the library's `"item"` plan (the item is the only preview,
+ * no outline anywhere); the library's old `"snap"` plan, which outlines a float, is no viewer mode.
+ */
+const PREVIEWS: readonly ViewerPreview[] = ["indicator", "gap", "item"];
+/** One line per mode, under the buttons (Outline, Placeholder, Snap). */
+const PREVIEW_HELP: Record<ViewerPreview, string> = {
+  indicator: "A dashed outline shows where the item will land. Nothing else moves.",
+  gap: "Neighbors move aside and a dashed placeholder holds the space.",
+  item: "Neighbors move aside and the item itself snaps into the space. No outlines: the item always shows where it will land.",
+  snap: "Neighbors move aside and the item itself snaps into the space.",
+};
 
 const EMBED = parseRoute().embed;
 /**
@@ -74,18 +86,18 @@ let codeTab: CodeTab = "state";
 const c = createDocwin({ root, win, status, storageKey: KEY, onChange: readouts, onDrop: renderCode });
 
 /** The viewer's stored drop preview, or null (none stored, or storage unavailable). */
-function storedPreview(): DragPreview | null {
+function storedPreview(): ViewerPreview | null {
   try {
     const v = localStorage.getItem(PREVIEW_KEY);
     // A viewer who had picked the old Snap gets Snap now: the "item" plan.
     if (v === "snap") return "item";
-    return PREVIEWS.includes(v as DragPreview) ? (v as DragPreview) : null;
+    return PREVIEWS.includes(v as ViewerPreview) ? (v as ViewerPreview) : null;
   } catch {
     return null;
   }
 }
 /** The viewer picks a drop preview: the next drag uses it, and it is kept for the next visit. */
-function pickPreview(mode: DragPreview): void {
+function pickPreview(mode: ViewerPreview): void {
   // A mode change plays under the window's own rules, on the landing model (a case may have left others playing).
   c.setBehavior(VIEWER_BEHAVIOR);
   c.setDropPreview(mode);
@@ -104,7 +116,7 @@ function pickPreview(mode: DragPreview): void {
 /** The place guides control: each mode's own choice, kept in this browser; a mode never set follows its default. */
 const guidesModes = $<HTMLDivElement>("dw-guides");
 const GUIDE_LEVELS: readonly PlaceGuides[] = ["off", "near", "all"];
-const MODE_NAME: Readonly<Partial<Record<DragPreview, "outline" | "placeholder" | "snap">>> = { indicator: "outline", gap: "placeholder", item: "snap" };
+const MODE_NAME: Readonly<Partial<Record<ViewerPreview, "outline" | "placeholder" | "snap">>> = { indicator: "outline", gap: "placeholder", item: "snap" };
 const guidesKey = (mode: string): string => `${KEY}:guides:${mode}`;
 for (const mode of ["outline", "placeholder", "snap"] as const) {
   try {
@@ -449,7 +461,19 @@ const resize = (): void => c.setSize(Number(inputs.w.value), Number(inputs.h.val
 inputs.w.addEventListener("input", resize);
 inputs.h.addEventListener("input", resize);
 freeze.addEventListener("change", () => c.setFrozen(freeze.checked));
-previewInput.addEventListener("change", () => c.setDropPreview(previewInput.value as DragPreview));
+previewModes.addEventListener("click", (e) => {
+  const b = (e.target as Element).closest<HTMLButtonElement>("[data-mode]");
+  if (b) pickPreview(b.dataset.mode as ViewerPreview);
+});
+// Arrow keys move along the modes, as in any radio group.
+previewModes.addEventListener("keydown", (e) => {
+  const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+  if (!step) return;
+  e.preventDefault();
+  const next = PREVIEWS[(PREVIEWS.indexOf(c.dropPreview) + step + PREVIEWS.length) % PREVIEWS.length]!;
+  pickPreview(next);
+  previewModes.querySelector<HTMLButtonElement>(`[data-mode="${next}"]`)?.focus();
+});
 for (const side of ["left", "right"] as const) railInputs[side].addEventListener("change", () => c.setRailMode(side, railInputs[side].value as RailMode));
 for (const [k, el] of Object.entries(countInputs)) el?.addEventListener("input", () => c.setCount(k as keyof Counts, Math.max(0, Math.min(999, Number(el.value) || 0))));
 $("dw-reload").addEventListener("click", () => location.reload());
