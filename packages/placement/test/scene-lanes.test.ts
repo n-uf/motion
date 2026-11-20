@@ -329,6 +329,54 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
           expect([y, via, m.frame.lane]).toEqual([y, via, "rail:right"]);
         }
     });
+
+  for (const [name, k] of [
+    ["flush", FLUSH],
+    ["inset", INSET],
+  ] as const)
+    it(`${name}: pressed inside the strip, away and back to the press point is home: after a hide, and with the lift given though the first update comes late`, () => {
+      const s: Scene = { ...kitScene(k, { W: 1400, H: 800 }), railDrop: { panel: { railStripWidth: 32 } } };
+      const previous = solve(s);
+      const own = previous.items.findings!.rect;
+      const rail = lanes(s, "findings", { previous }).lanes.find((l) => l.id === "rail:right")!;
+      for (const x of [rail.rect.x + 6, rail.rect.x + 12, Math.min(own.x + own.width, rail.rect.x + rail.rect.width) - 2])
+        for (const y of [own.y + 40, own.y + 200]) {
+          const press = { x, y };
+          const grab = { x: press.x - own.x, y: press.y - own.y };
+          const rs = lanes(s, "findings", { previous, grab });
+          const home = rs.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0]!;
+          const away = { x: 700, y: 400 };
+          const slide = (m: ReturnType<typeof createLandingModel>, a: { x: number; y: number }, b: { x: number; y: number }, t: number): number => {
+            const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 0.3 / 8);
+            for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
+            return t;
+          };
+          const want = { kind: "spot", lane: home.lane, spot: home.spot, home: true };
+          // Plain, and with the view moved (`hide()`) while away.
+          for (const hidden of [false, true]) {
+            const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "findings", { previous, grab, spot }), home });
+            let t = 0;
+            m.update(press, t);
+            t = slide(m, press, away, t);
+            if (hidden) {
+              m.hide();
+              m.update(away, (t += 8));
+            }
+            t = slide(m, away, press, t);
+            for (let i = 0; i < 30; i++) m.update(press, (t += 8));
+            expect([x, y, hidden, m.release()]).toEqual([x, y, hidden, want]);
+          }
+          // The first update 40 px off the press (a late host), the lift given.
+          const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "findings", { previous, grab, spot }), home, lift: press });
+          const late = { x: press.x - 40, y: press.y };
+          let t = 0;
+          m.update(late, t);
+          t = slide(m, late, away, t);
+          t = slide(m, away, press, t);
+          for (let i = 0; i < 30; i++) m.update(press, (t += 8));
+          expect([x, y, "late", m.release()]).toEqual([x, y, "late", want]);
+        }
+    });
 });
 
 describe("lanes(): what blocks the open space, and virtual lanes", () => {
