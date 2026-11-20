@@ -12,7 +12,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   gives way to a drawn one, and between two not drawn the bar owns the corner", hold as written. The rule is exact: a
   lane's marks lie inside its lane rect in the layout they are drawn in. With `options.spot`, the held spot's lane is
   drawn in that spot's layout (its edge may have moved, a rail starting higher once a bar is left empty), so its marks
-  lie inside its rect computed over that layout; its `rect` for the landing model is unchanged.
+  lie inside its rect computed over that layout; its `rect` for the landing model is unchanged. The corner clip is one
+  rule for the two: whether and where an empty lane gives way is read from the layout as seen, so a spot held on an
+  empty bar (its drop draws the bar, full width) keeps its marks between the drawn rails, where its `rect` stops.
 - `./scene`, **an empty edge's lane gives way to a drawn edge at a corner** (fix). `lanes()` built an empty bar's lane
   (not drawn) as its full edge width over the band its drop would draw, so an empty top bar's lane ran over a drawn
   side rail's top, and a pointer coming down the rail stayed in the bar's lane. The marks already followed "at a corner

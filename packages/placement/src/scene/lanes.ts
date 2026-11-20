@@ -402,7 +402,7 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
     if (!again) return l;
     return l.id === heldLane ? again : { ...l, marks: again.marks };
   });
-  return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes, l.id === heldLane ? laneRectOver(base.raws.get(l.id)!, held.layout, base.marking).rect : l.rect)) };
+  return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes, l.id === heldLane ? laneRectOver(base.raws.get(l.id)!, held.layout, base.seen, base.marking).rect : l.rect)) };
 }
 
 function build(scene: Scene, dragged: string, options: LaneOptions): Base {
@@ -513,18 +513,22 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
  * are drawn at. At a corner an empty edge's lane gives way to a drawn edge across it, as its marks do (`settle`): the
  * band is clipped along its axis to stop at that edge's side, so a pointer on the drawn edge is in that edge's lane.
  * Between two edges not drawn the corner is as it was. `band`: the band whole, for an empty edge.
+ *
+ * Whether and where the lane gives way is read from the layout as seen (`seen`), one rule for its hit rect and its
+ * marks: a held spot's drop draws its empty edge (`over`) and may move the edges across it, but the lane the pointer is
+ * in stays as seen, so its marks stop where its hit rect does.
  */
-function laneRectOver(list: readonly Raw[], over: SceneLayout, marking: Marking): { rect: Rect; band?: Rect } {
+function laneRectOver(list: readonly Raw[], over: SceneLayout, seen: SceneLayout, marking: Marking): { rect: Rect; band?: Rect } {
   const first = list[0]!;
   const axis = first.axis;
   const edgeLayout = first.edge ? over.edges[first.edge] : undefined;
   const band = list.map((r) => r.landing).reduce(hull);
-  if (edgeLayout && edgeLayout.cross > EPS) return { rect: edgeLayout.rect };
-  if (edgeLayout) {
-    const whole = axis === "x" ? rect(edgeLayout.rect.x, band.y, edgeLayout.rect.width, band.height) : rect(band.x, edgeLayout.rect.y, band.width, edgeLayout.rect.height);
-    return { rect: clipAtDrawn(whole, axis, marking.crossing(first.edge!, over)), band: whole };
-  }
-  return { rect: list.every((r) => r.strip) ? list.map((r) => r.hit).reduce(hull) : list.map((r) => r.hit).reduce(hull, band) };
+  if (!edgeLayout) return { rect: list.every((r) => r.strip) ? list.map((r) => r.hit).reduce(hull) : list.map((r) => r.hit).reduce(hull, band) };
+  const drawnHere = edgeLayout.cross > EPS;
+  const whole = drawnHere ? edgeLayout.rect : axis === "x" ? rect(edgeLayout.rect.x, band.y, edgeLayout.rect.width, band.height) : rect(band.x, edgeLayout.rect.y, band.width, edgeLayout.rect.height);
+  const emptyAsSeen = (seen.edges[first.edge!]?.cross ?? 0) <= EPS;
+  const clipped = emptyAsSeen ? clipAtDrawn(whole, axis, marking.crossing(first.edge!, seen)) : whole;
+  return drawnHere ? { rect: clipped } : { rect: clipped, band: whole };
 }
 
 /**
@@ -536,7 +540,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   const first = list[0]!;
   const axis = first.axis;
   // The lane's rect as seen, and the band an empty edge's marks are laid over (`settle` cuts them at the drawn edges).
-  const { rect: laneRect, band: markBand } = laneRectOver(list, seen, marking);
+  const { rect: laneRect, band: markBand } = laneRectOver(list, seen, seen, marking);
   // In order; one landing is one spot (the item's own place where it is one of them); one id is one spot.
   // A sliding spot lies in order by its first landing (at its stretch's start), and cuts by its landing at either end.
   const firstOf = (r: Raw): Rect => r.slide?.first ?? r.landing;

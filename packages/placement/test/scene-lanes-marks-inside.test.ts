@@ -22,6 +22,8 @@ interface Frame {
   readonly heldLane?: string;
   /** The layout the held spot's drop draws (where its lane's marks are drawn). */
   readonly heldLayout?: ReturnType<typeof solve>;
+  /** The layout as seen. */
+  readonly seen: ReturnType<typeof solve>;
 }
 
 /**
@@ -37,6 +39,16 @@ function broken(frame: Frame, edgeIds: ReadonlySet<string>): string[] {
     const moved = l.id === heldLane ? heldLayout?.edges[l.id] : undefined;
     const r = moved && moved.cross > 1e-6 ? moved.rect : l.rect;
     for (const m of l.marks) if (!within(m.rect, r)) bad.push(`${where}: ${m.id} outside its lane ${l.id}`);
+    // The corner clip is one rule for the hit rect and the marks: along its axis an empty lane's marks stay inside its
+    // `rect` (the layout as seen decides where it gives way), with a spot held in it too, whatever edge that drop draws.
+    if ((frame.seen.edges[l.id]?.cross ?? 0) > 1e-6) continue;
+    const a0 = l.axis === "x" ? l.rect.x : l.rect.y;
+    const a1 = a0 + (l.axis === "x" ? l.rect.width : l.rect.height);
+    for (const m of l.marks) {
+      const m0 = l.axis === "x" ? m.rect.x : m.rect.y;
+      const m1 = m0 + (l.axis === "x" ? m.rect.width : m.rect.height);
+      if (m0 < a0 - 1e-6 || m1 > a1 + 1e-6) bad.push(`${where}: ${m.id} past its lane ${l.id}'s clip`);
+    }
   }
   const all = edge.flatMap((l) => l.marks.map((m) => ({ lane: l.id, m })));
   for (let i = 0; i < all.length; i++)
@@ -50,8 +62,8 @@ function frames(s: Scene, id: string, extra: { grab?: { x: number; y: number }; 
   const out: Frame[] = [];
   for (const emptyLanes of ["real", "edge"] as const) {
     const base = lanes(s, id, { previous, emptyLanes, ...extra });
-    out.push({ where: `${label} ${id} ${emptyLanes} seen`, lanes: base.lanes });
-    for (const l of base.lanes) for (const sp of l.spots) out.push({ where: `${label} ${id} ${emptyLanes} ${sp.id}`, lanes: lanes(s, id, { previous, emptyLanes, spot: sp.id, ...extra }).lanes, heldLane: l.id, heldLayout: sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout });
+    out.push({ where: `${label} ${id} ${emptyLanes} seen`, lanes: base.lanes, seen: previous });
+    for (const l of base.lanes) for (const sp of l.spots) out.push({ where: `${label} ${id} ${emptyLanes} ${sp.id}`, lanes: lanes(s, id, { previous, emptyLanes, spot: sp.id, ...extra }).lanes, heldLane: l.id, heldLayout: sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout, seen: previous });
   }
   return out;
 }
@@ -69,6 +81,30 @@ describe("lanes(): a lane's marks lie inside its lane's rect", () => {
     for (const m of top.marks) expect(within(m.rect, top.rect), m.id).toBe(true);
     for (const f of frames(s, "tools", { grab: { x: 17, y: 9 }, endReach: 24 })) bad.push(...broken(f, edgeIds));
     expect(bad.slice(0, 6)).toEqual([]);
+  });
+
+  it("a spot held on an empty top bar between two drawn rails that take the item: its marks stop at the rails' inner sides, as its lane does", () => {
+    const g = (id: string, main: number) => ({ id, kind: "group", used: 1, forms: { row: [form("row", main, main, 28), form("menu", 0, 0, 0)], column: [form("icons", main, main, 30), form("menu", 0, 0, 0)] } }) as SceneItem;
+    const s: Scene = {
+      stage: { x: 0, y: 0, width: 800, height: 600 },
+      edges: [
+        { id: "bar:top", side: "top", ring: 0, accepts: ["group"], gap: 8, pad: { start: 8, end: 8 }, cross: { min: 31, max: 31, rail: 31 }, items: [] },
+        { id: "bar:left", side: "left", ring: 0, accepts: ["group"], zones: ["start"], compact: true, gap: 4, cross: { min: 30, max: 30, rail: 30 }, items: ["a"] },
+        { id: "bar:right", side: "right", ring: 0, accepts: ["group"], zones: ["start"], compact: true, gap: 4, cross: { min: 30, max: 30, rail: 30 }, items: ["z"] },
+        { id: "bar:bottom", side: "bottom", ring: 0, accepts: ["group"], gap: 8, pad: { start: 8, end: 8 }, cross: { min: 31, max: 31, rail: 31 }, items: ["d"] },
+      ] as Edge[],
+      items: byId([g("a", 100), g("z", 100), g("d", 200)]),
+      floats: [],
+      floatKinds: ["group"],
+    };
+    const previous = solve(s);
+    const seen = lanes(s, "d", { previous }).lanes.find((l) => l.id === "bar:top")!;
+    expect([seen.rect.x, seen.rect.x + seen.rect.width]).toEqual([30, 770]);
+    for (const sp of seen.spots) {
+      const top = lanes(s, "d", { previous, spot: sp.id }).lanes.find((l) => l.id === "bar:top")!;
+      expect(top.marks.length).toBeGreaterThan(0);
+      for (const m of top.marks) expect([m.id, m.rect.x >= 30 - 1e-6 && m.rect.x + m.rect.width <= 770 + 1e-6]).toEqual([m.id, true]);
+    }
   });
 
   it("over generated windows (every edge kind, floating and docked held items), every mark lies inside its lane and no two edge lanes' marks overlap", () => {
