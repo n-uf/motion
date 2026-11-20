@@ -196,8 +196,13 @@ one of the item's forms' `rank` (`./stack`), which is the mechanism, so a host m
 controls that must stay out of the menu the highest priority, and a title bar's `Edge.priority` a lower one than the items
 moved into it from other bars, so its own toolbars step down first. Room coming back brings items up in exactly the
 reverse order, each to its remembered form, the » menu included. A host reads, and never decides: each item's layout has
-`form` (the index into the forms of its axis), `formKind` and `inMenu`, and `edges[id].menu.items` lists the ids in the
-» menu in order. Without priorities nothing changes.
+`axis` (`"row"` or `"column"`: the axis it lies along, which `form` indexes the forms of), `form`, `formKind` and
+`inMenu`, and `edges[id].menu.items` lists the ids in the » menu in order. Without priorities nothing changes.
+
+**The axis an item lies along.** `SceneItemLayout.axis` is reported for every item: a placed item's is its edge's (a
+bar's items lie along a row, a column's, a rail's and a rail tab's along a column), whatever form it took; a float's is
+its orient. A toolbar group in its icons form is a `row` in a bar and a `column` in a column, so a host reads `axis` and
+never infers it from `formKind === "icons"`.
 
 **Closed items** keep their place in their edge (or their float rect) but take no room and have no targets.
 
@@ -536,10 +541,23 @@ bar: that form's natural length along its orient, its other size kept.
 
 A float that names no `orient` takes its item's: **`SceneItem.floatOrient`** (`"row"` or `"column"`), else
 **`floatOrientOf(item)`**, the axis of the first form the item declares, so a toolbar group declared row first floats as
-a row. **`SceneTargetOptions.floatOrient`** overrides that for the drag's float target. With no `floatSize`, a float takes
-its first form's natural size along that orient (**`floatSizeOf(item, orient?)`**), not 280 × 360; a form that grows (a
-panel's card) keeps `DEFAULT_FLOAT_SIZE` (280 × 360). Give a float `orient: "column"` (or the
-item `floatOrient: "column"`) to keep a row-first group vertical.
+a row. **`SceneTargetOptions.floatOrient`** overrides that for the drag's float target. A float's size is kept **per
+orient**, **`SceneItem.floatSizes`** (`{ row?, column? }`). **`floatSizeOf(item, orient?, floatOrient?)`** gives, in
+order: `floatSizes[orient]`; the deprecated single `floatSize`, only where `orient` is the orient the float is in
+(`floatOrient`, default the item's); else the item's first form's natural size along `orient`, not 280 × 360; a form that
+grows (a panel's card) keeps `DEFAULT_FLOAT_SIZE` (280 × 360). `floatAt` with a rect and a hand `resize` write the size
+for the orient the float is in; the drag's float target takes the size for the orient it lands in. Give a float
+`orient: "column"` (or the item `floatOrient: "column"`) to keep a row-first group vertical.
+
+**Turning a float.** `orient(scene, id, to)` gives the frame the size the new orient draws it at (`floatSizeOf` for
+`to`, as `solve` draws it), at the place the float already has; an anchored float keeps its anchor, so the anchor puts
+the new frame, and the float's first-form size is what `solve` draws: a form that grows (a panel's card) is the float's
+rect, any other (a toolbar group) its `floatSizes` for the orient, else its natural size. A form that grows keeps the
+rect it leaves under its old orient, so turning back restores it, and a hand size for each orient survives any number
+of turns. Rotating a toolbar there and back gives the same rect, and an upright 36 × 107 strip turned to a row is the
+row's 88 × 28, never the old frame around the new content. `SceneItem.floatSize` is deprecated: still read, never
+written, and removed in the next breaking release; `readScene` reads a stored one as `floatSizes` for the orient its
+float is in.
 
 **Anchored floats keep clear of the other floats.** An anchored float (Float from a menu: `moveTo(scene, id,
 { kind: "float" })` with no rect, or any float with `anchor`) is also kept clear of every float with a rect of its own
@@ -584,7 +602,8 @@ stays where it is drawn (`"docked"`), so a resize never covers more than the flo
 stops at the obstacle. It gives `{ rect, limits }`, `limits` naming what bound it:
 `"min"`, `"max"`, `"region"`, `"docked"`. It gives null for anything but a float drawn at a first form that grows (a
 panel's card): a toolbar group's size and a folded float's bar come from their forms. On commit (each move, or the
-release) `resize(scene, id, rect, moving)` stores that same rect as the float's rect and the item's `floatSize`, so the
+release) `resize(scene, id, rect, moving)` stores that same rect as the float's rect and the item's `floatSizes` for the
+float's orient, so the
 preview is the commit and the size survives `storeScene`. `fitFloat` is the other half: it moves a float to a clear
 place and never resizes it.
 
@@ -860,7 +879,8 @@ Each target's `after(point, grab)` is `{ scene, layout }`: the scene to commit (
 `after.scene` on release, so the preview is the result by construction.
 
 **Changes** are pure and return the scene given when nothing applies: `moveTo(scene, id, { edge, zone?, at })`,
-`floatAt(scene, id, rect?, orient?)` (with no rect: its last `floatSize`, anchored to the content's top-right), `fold`,
+`floatAt(scene, id, rect?, orient?)` (with no rect: its `floatSizes` for the orient it floats in, else its form's natural
+size, anchored to the content's top-right), `fold`,
 `use` (idempotent: on an item whose `used` is already strictly greater than every other item's it gives back the same
 scene object, so a press on the newest item stores nothing new; any other item, or one tied with another, is bumped to
 the newest age plus one), `keep`, `raise` (a float on top: no use, no reshape), `open`, `close`, `orient`, `resize` and
@@ -891,8 +911,10 @@ item's place left empty and nothing else moved (a release there commits nothing)
 `solve(lift(scene, id), { previous })`, which would show a result no drop gives.
 
 **Stored form.** `storeScene(scene)` gives `{ v: 1, edges: [{ id, side, ring, items, size?, column? }], floats: [{ id, x, y,
-width, height, orient?, anchor?, since? }], items: { [id]: { used, kept?, from?, closed?, align?, floatSize? } } }`; no float has a
-pinned field. A float's `since` (when it was floated) is kept as stored; one that isn't a number from 0 to
+width, height, orient?, anchor?, since? }], items: { [id]: { used, kept?, from?, closed?, align?, space?, floatSizes? } } }`; no float has a
+pinned field. An item's `floatSizes` is `{ row?, column? }`, each a size; an entry that isn't one is dropped and listed
+(`item:<id>:floatSizes:<orient>`), and a store with the old single `floatSize` reads as `floatSizes` for the orient its
+float is in (the item's own orient where it floats nowhere). A float's `since` (when it was floated) is kept as stored; one that isn't a number from 0 to
 `Number.MAX_SAFE_INTEGER` is dropped and listed (`float:<id>:since`), and a new `since` never goes past that. A float's `anchor` is stored as given, a name or `{ at, dx?, dy? }`, and read back as stored: the clamp
 on read moves only its rect, which an anchored float doesn't lie by (an unusable anchor or offset field is dropped and
 listed, `float:<id>:anchor`, `float:<id>:anchor:dx`). `readScene(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
