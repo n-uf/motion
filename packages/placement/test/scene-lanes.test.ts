@@ -235,6 +235,40 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
         expect([y, mm.frame.lane]).toEqual([y, "left-0"]);
       }
     });
+
+  for (const [name, k] of [
+    ["flush", FLUSH],
+    ["inset", INSET],
+  ] as const)
+    it(`${name}: the strip owns its rect: a panel settled in it lands in the rail, even where the strip lies over the column's edge`, () => {
+      const s: Scene = { ...kitScene(k, { W: 1400, H: 800 }), railDrop: { panel: { railStripWidth: 32 } } };
+      const previous = solve(s);
+      const rs = lanes(s, "findings", { previous });
+      const rail = rs.lanes.find((l) => l.id === "rail:left")!;
+      expect(rail.owns).toBe(true);
+      const own = previous.items.findings!.rect;
+      const press = { x: own.x + 20, y: own.y + 10 };
+      const home = rs.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0];
+      for (const speed of [0.3, 1.5])
+        for (const y of [200, 400]) {
+          const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "findings", { previous, spot }), ...(home ? { home } : {}) });
+          // Into the left column's middle, then out to the strip's middle at the window's edge, and settled there.
+          const col = previous.edges["left-0"]!.rect;
+          const via = { x: col.x + col.width / 2, y };
+          const to = { x: rail.rect.x + rail.rect.width / 2, y };
+          let t = 0;
+          m.update(press, t);
+          for (const [a, b] of [
+            [press, via],
+            [via, to],
+          ] as const) {
+            const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / speed / 8);
+            for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
+          }
+          for (let i = 0; i < 30; i++) m.update(to, (t += 8));
+          expect([speed, y, m.frame.lane, m.release()?.kind]).toEqual([speed, y, "rail:left", "spot"]);
+        }
+    });
 });
 
 describe("lanes(): what blocks the open space, and virtual lanes", () => {
