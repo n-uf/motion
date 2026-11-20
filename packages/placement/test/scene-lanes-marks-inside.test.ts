@@ -30,7 +30,7 @@ interface Frame {
  * Every way a lane's marks break the rule in `ls`, as strings (empty: none). `edgeIds`: the lanes of real edges. A lane's
  * marks lie inside its rect in the layout they are drawn in: its rect as seen; in a held frame, every lane's in the held
  * spot's own layout (`heldLayout`), where its edge may have moved: there the edge as drawn when it is drawn. As seen, an
- * empty edge lane with one spot is drawn in that spot's after-entry layout (rule B, its marks predicted), so there.
+ * empty edge lane with one spot is drawn in that spot's after-entry layout (its marks predicted), so there.
  */
 function broken(frame: Frame, edgeIds: ReadonlySet<string>): string[] {
   const { where, lanes: ls, heldLayout } = frame;

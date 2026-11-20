@@ -1,5 +1,5 @@
 /**
- * Rule B predicts only an empty lane's guide. A lane that already holds items (drawn as seen) keeps the marks it had, and
+ * The prediction of an empty lane's guide (its marks in its spot's after-entry layout) touches only that lane. A lane that already holds items (drawn as seen) keeps the marks it had, and
  * with a spot held every lane's marks are those of that spot's layout, as before. Pinned against the marks `lanes()` gave
  * before the rule (`fixtures/lanes-drawn-marks.txt`), over the windows of the guide-continuity sweep.
  */

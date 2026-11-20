@@ -342,7 +342,7 @@ drag of `id`:
   - An empty lane (`options.emptyLanes`): `"real"` (default) a box at its real size, the band it would open (an empty
     side rail's over a column's outer strip, which moves aside); `"edge"` a thin striped strip (`HATCH_EDGE`) on its
     window side. Either way cut around every item docked in a bar or a toolbar rail.
-  - **A lane's guide and its mark come from one layout (rule B).** As seen (no `spot`), an edge lane empty as seen (not
+  - **A lane's guide and its mark come from one layout.** As seen (no `spot`), an edge lane empty as seen (not
     drawn there) with one spot or one sliding spot takes its marks in the after-entry layout of that spot: the same
     marks `lanes(…, { spot })` gives it once that spot is held, worked out the same way and clipped to its rect over
     that layout, solved once per lift and remembered as the held spot's layout is. So a landing model's guide before
@@ -363,7 +363,7 @@ drag of `id`:
     lane gives way to a drawn edge; a box is clipped to the rect, a line kept only if it lies inside. As seen, that is
     the lane's `rect`; in a held frame every lane is drawn in the held spot's layout, where the drop may move its edge,
     so every lane is clipped to its rect over the spot's layout (`laneRectOver`), the edge as drawn there with the same
-    band, while its hit `rect` for the landing model stays as seen; an empty lane's predicted marks (rule B) lie inside
+    band, while its hit `rect` for the landing model stays as seen; an empty lane's predicted marks (its guide from its after-entry layout) lie inside
     its rect over its spot's after-entry layout, the same way. The corner clip is one rule for both: whether and where an empty lane
     gives way is read from the layout as seen, so a held spot's marks on an edge its drop draws stop where its `rect`
     does, even where that drop moves the drawn edge across it): at a corner a lane not drawn (an empty bar or rail) gives way to a drawn one, and

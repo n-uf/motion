@@ -329,7 +329,7 @@ describe("guideRects", () => {
       expect(shown(guideRects([bar], { inside: all, inset: 0, clear: [rect(0, 25, 8, 20)], clearance: 0 }))).toEqual([["bar/box", rect(8, 31, 860, 29)]]);
     });
 
-    it("C3 thins only a shallow intrusion (at most half the box's thickness); a deep one flush with a side is a corner cut, never a sliver", () => {
+    it("thinning takes only a shallow intrusion (at most half the box's thickness); a deep one flush with a side is a corner cut, never a sliver", () => {
       // A bottom bar's 1064 x 36 box, the held item's 102 x 30 outline flush with its top (grown by 2: 32 px of the 36).
       const bottom = { id: "bottom/box", kind: "box" as const, rect: rect(8, 604, 1064, 36) };
       const all = rect(0, 0, 1080, 640);
@@ -373,7 +373,7 @@ describe("guideRects", () => {
           } else {
             // Pokes `d` px into the box from its start (kind 1) or end side (kind 2), over a length (grown) longer than `d`,
             // lying wholly inside the box along it.
-            // (Shallow: at most half the thickness, the depth C3 thins at; deeper is a corner cut.)
+            // (Shallow: at most half the thickness, the depth that thins; deeper is a corner cut.)
             const d = 1 + rnd() * (thick * 0.5 - 1);
             const len = d + 3 + rnd() * 60;
             const from = at + gap + 1 + rnd() * Math.max(0, long - len - 2 * gap - 2);
