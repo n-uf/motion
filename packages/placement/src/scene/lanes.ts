@@ -463,19 +463,29 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
 const along = (r: Rect, axis: Axis, a: number, b: number): Rect => (axis === "x" ? rect(a, r.y, b - a, r.height) : rect(r.x, a, r.width, b - a));
 const LINE = 2;
 
-/** Below this a box over free room isn't drawn (a host insets a box 2 px a side): the hatch alone shows the place. */
+/** Below this a box piece isn't drawn (a host insets a box 2 px a side). */
 const MIN_BOX = 8;
+/**
+ * The striped end inside a box whose room partly fits, px: a cue that the neighbor there gives way, never a measure
+ * (about 6 px drawn, inside a box a host insets 2 px).
+ */
+export const HATCH_END = 8;
+/**
+ * A striped column edge's thickness, px: where an empty lane's band lies over items that move aside when it opens
+ * (about 6 px drawn, 2 px clear of the window's edge).
+ */
+export const HATCH_EDGE = 8;
 
 /**
  * An edge lane's marks, its items as drawn (the held one included): a box over each free stretch at least the item's
  * length, less its refused stretches. Beside the held item the room left of its free stretch is a box from `besideMin`
  * (a pitch on a bar or a toolbar rail, where the item slides there by a spot a pitch over; the item's length in a
  * panel column), named `:before` or `:after` it so the box keeps its id while the item glides along the stretch. Room
- * shorter than the item where its spot's landing is known (`landingOf`: bars and toolbar rails) and the room is more
- * than the edge's own `gap` (or lies at a lane's end): drawn as it lands, a box over the free room (from `MIN_BOX`)
- * and a hatch over the rest of the landing, the neighbor that gives way. Else, between two items, a line at the middle
- * of the gap. Only where a drop lands (`lands(<before>|<after>)`: a spot between those two, or beside the held item):
- * none beside fixed chrome nothing lands next to.
+ * that partly fits (from a pitch, shorter than the item; bars and toolbar rails, where its spot's landing is known): a
+ * box over it with a striped end (`HATCH_END`) inside it at each side whose neighbor gives way. Room under a pitch
+ * (none free but the edge's gap, at a lane's end too): a line at the middle of the gap. Only where a drop lands
+ * (`lands(<before>|<after>)`: a spot between those two, or beside the held item): none beside fixed chrome nothing lands
+ * next to. A mark never covers an item.
  */
 function edgeMarks(
   lane: string,
@@ -518,72 +528,43 @@ function edgeMarks(
     const beside = ends[i + 1]!.id === held ? "before" : ends[i]!.id === held ? "after" : null;
     const min = beside ? Math.min(itemLen, besideMin) : itemLen;
     if (b - a < min - EPS) {
-      // Short room drawn as it lands: the spot's landing over the free room is a box, over the neighbor that gives way a
-      // hatch (the two together the landing). Not beside the held item (its own place), not between two items that
-      // touch (no room but the edge's gap: a line, below), not in a refused stretch.
-      const atEnd = ends[i]!.id === "^" || ends[i + 1]!.id === "$";
-      const spot = !beside && named === pair && items.length > 0 && !isRefused((a + b) / 2) && (atEnd || b - a > more.gap + 1) ? more.landingOf(pair) : undefined;
+      // Room that partly fits (at least a pitch, shorter than the item): a box over the free room with a fixed striped
+      // end (`HATCH_END`) inside it at each side whose neighbor gives way when the item lands there (it moves away by the
+      // missing length). Nothing is drawn on the neighbor. Not beside the held item (its own place), not under a pitch
+      // (a line, below: no free room), not in a refused stretch.
+      const spot = !beside && named === pair && items.length > 0 && !isRefused((a + b) / 2) && b - a >= besideMin - EPS ? more.landingOf(pair) : undefined;
       if (spot) {
-        // The landing's length: the free room as drawn, and the rest over the neighbors its drop moves, each its share
-        // of the rest by how far the drop moves it (as seen, exactly the landing's parts over them).
-        // A lane's padding at its end, too thin for a box, is no room: the hatch is then the whole landing. Thin room
-        // between two items stays what it is (unmarked between the hatches).
-        const room = atEnd && b - a < MIN_BOX - EPS ? 0 : b - a;
-        const missing = Math.max(0, len(spot.landing, axis) - room);
         /** A neighbor's extent after the drop, or null where the drop takes it off the lane (into the menu, a float). */
         const own = (iid: string): [number, number] | null => {
           const it = spot.layout.items[iid];
           return it && !it.inMenu && !it.floating && it.edge === lane ? more.extent(iid, it.rect) : null;
         };
-        const drawnLen = (k: number): number => ends[k]!.b - ends[k]!.a;
-        // How far the drop moves each neighbor away from the room; one it takes off the lane gives way by its whole length.
-        let sl = left === "^" ? 0 : (() => {
+        // Which neighbors the drop moves away from the room (one it takes off the lane gives way too).
+        let gl = left !== "^" && (() => {
           const o = own(left);
-          return o ? Math.max(0, a - o[1]) : drawnLen(i);
+          return !o || a - o[1] > 0.5;
         })();
-        let sr = right === "$" ? 0 : (() => {
+        let gr = right !== "$" && (() => {
           const o = own(right);
-          return o ? Math.max(0, o[0] - b) : drawnLen(i + 1);
+          return !o || o[0] - b > 0.5;
         })();
-        if (sl + sr <= EPS) {
-          // Neither moves (the item takes another form there): the rest over the neighbor there is.
-          if (right !== "$") sr = 1;
-          else if (left !== "^") sl = 1;
+        // Neither moves (the item takes another form there): the end at the neighbor there is.
+        if (!gl && !gr) {
+          if (right !== "$") gr = true;
+          else if (left !== "^") gl = true;
         }
-        // Each side up to the held item or the lane's end (never over the held item): what one side can't take, the
-        // other does.
-        const roomBefore = a - (heldSpan && heldSpan[1] <= a + EPS ? heldSpan[1] : start);
-        const roomAfter = (heldSpan && heldSpan[0] >= b - EPS ? heldSpan[0] : end) - b;
-        let before = Math.min(roomBefore, sl + sr > EPS ? (missing * sl) / (sl + sr) : 0);
-        let after = Math.min(roomAfter, missing - before);
-        before = Math.min(roomBefore, missing - after);
-        after = Math.min(roomAfter, missing - before);
-        const l0 = clamp(a - before, start, end);
-        const l1 = clamp(b + after, start, end);
-        // Less what a refused stretch takes (nothing is drawn in one), and never over the held item.
-        const keep = (span: [number, number]): [number, number][] => {
-          let ps: [number, number][] = [span];
-          for (const f of refused) ps = ps.flatMap(([p, q]): [number, number][] => [[p, Math.min(q, f.along[0])], [Math.max(p, f.along[1]), q]]);
-          if (heldSpan) ps = ps.flatMap(([p, q]): [number, number][] => [[p, Math.min(q, heldSpan[0])], [Math.max(p, heldSpan[1]), q]]);
-          return ps.filter(([p, q]) => q - p > EPS);
-        };
-        let drawn = 0;
-        if (room >= MIN_BOX - EPS)
-          for (const [p, q] of keep([a, b]))
-            if (q - p >= MIN_BOX - EPS) {
-              out.push({ id: `${lane}/box/${pair}${drawn ? `#${drawn}` : ""}`, kind: "box", rect: along(laneRect, axis, p, q) });
-              drawn++;
-            }
-        // The rest of the landing either side of the free room, named by its side so it keeps its id.
-        for (const [side, span] of [
-          ["before", [l0, a]],
-          ["after", [b, l1]],
-        ] as const)
-          keep([span[0], span[1]]).forEach(([p, q], k) => {
-            out.push({ id: `${lane}/hatch/${pair}:${side}${k ? `#${k}` : ""}`, kind: "hatch", rect: along(laneRect, axis, p, q) });
-            drawn++;
-          });
-        if (drawn > 0) continue;
+        // Less what a refused stretch takes, and never under the held item.
+        let ps: [number, number][] = [[a, b]];
+        for (const f of refused) ps = ps.flatMap(([p, q]): [number, number][] => [[p, Math.min(q, f.along[0])], [Math.max(p, f.along[1]), q]]);
+        if (heldSpan) ps = ps.flatMap(([p, q]): [number, number][] => [[p, Math.min(q, heldSpan[0])], [Math.max(p, heldSpan[1]), q]]);
+        ps = ps.filter(([p, q]) => q - p >= MIN_BOX - EPS);
+        ps.forEach(([p, q], k) => {
+          out.push({ id: `${lane}/box/${pair}${k ? `#${k}` : ""}`, kind: "box", rect: along(laneRect, axis, p, q) });
+          // The striped ends, inside the box at the ends that touch a neighbor that gives way.
+          if (gl && Math.abs(p - a) < EPS) out.push({ id: `${lane}/hatch/${pair}:before`, kind: "hatch", rect: along(laneRect, axis, p, p + Math.min(HATCH_END, (q - p) / 2)) });
+          if (gr && Math.abs(q - b) < EPS) out.push({ id: `${lane}/hatch/${pair}:after`, kind: "hatch", rect: along(laneRect, axis, q - Math.min(HATCH_END, (q - p) / 2), q) });
+        });
+        if (ps.length > 0) continue;
       }
       // As thick as the gap allows, up to `LINE`: zero between items with no gap (the host strokes it). Also at an end
       // of the lane next to an item where nothing above draws it, unless refused there; none where the lane holds
@@ -667,7 +648,9 @@ function settle(l: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all:
       const piece = along(m.rect, l.axis, p, q);
       const id = i ? `${m.id}~c${i}` : m.id;
       if (m.kind !== "box") return void marks.push({ ...m, id, rect: piece });
-      // Over another edge's docked items: a hatch; the rest stays a box (from `MIN_BOX`).
+      // Over another edge's docked items (an empty side rail's band over a column): no box over them, only a thin striped
+      // edge (`HATCH_EDGE`) along the band's side at the window's edge, the side those items move away from; the rest
+      // stays a box (from `MIN_BOX`).
       const over = occupied.filter((o) => crosses(piece, o));
       const free = cut(piece, over);
       free.forEach(([f0, f1], k) => {
@@ -675,7 +658,18 @@ function settle(l: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all:
       });
       let hp: [number, number][] = [[p, q]];
       for (const [f0, f1] of free) hp = hp.flatMap(([a, b]): [number, number][] => [[a, Math.min(b, f0)], [Math.max(a, f1), b]]).filter(([a, b]) => b - a > EPS);
-      hp.forEach(([h0, h1], k) => marks.push({ id: `${id.replace("/box/", "/hatch/")}${k ? `#o${k}` : ""}`, kind: "hatch", rect: along(piece, l.axis, h0, h1) }));
+      const edge = (r: Rect): Rect => {
+        const st = scene.stage;
+        if (l.axis === "y") {
+          const outerRight = Math.abs(r.x + r.width - (st.x + st.width)) <= Math.abs(r.x - st.x);
+          const t = Math.min(HATCH_EDGE, r.width);
+          return rect(outerRight ? r.x + r.width - t : r.x, r.y, t, r.height);
+        }
+        const outerBottom = Math.abs(r.y + r.height - (st.y + st.height)) <= Math.abs(r.y - st.y);
+        const t = Math.min(HATCH_EDGE, r.height);
+        return rect(r.x, outerBottom ? r.y + r.height - t : r.y, r.width, t);
+      };
+      hp.forEach(([h0, h1], k) => marks.push({ id: `${id.replace("/box/", "/hatch/")}${k ? `#o${k}` : ""}`, kind: "hatch", rect: edge(along(piece, l.axis, h0, h1)) }));
     });
   }
   return { ...l, marks };
