@@ -52,10 +52,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   carry `floatSizes` (an entry that isn't a size is dropped, `item:<id>:floatSizes:<orient>`). **Per-orient sizes
   apply to items that declare `floatSizes`; others keep the stored rect** (`declaresFloatSizes`): an item with no
   `floatSizes` is framed exactly as before, a float at its first form at its stored rect, its legacy `floatSize` read
-  in any orient and kept as it is by `readScene` and by `floatAt` with no rect. On an item that declares
-  `floatSizes`, a legacy `floatSize` (stored, a base item's, or in memory at `floatAt`) is the size for the orient its
-  float is in. `floatAt` with a rect, a hand `resize` and `orient()` write `floatSizes`, so an item becomes declared
-  once its size is set per orient. Host notes: **`SceneItem.floatSize` is deprecated**: still read, written into
+  in any orient and kept as it is by `readScene` and by `floatAt` with no rect, and `orient()` turns it keeping its
+  rect, as before. On an item that declares `floatSizes`, a legacy `floatSize` (stored, a base item's, or in memory at
+  `floatAt`) is the size for the orient its float is in, and `orient()` gives the frame the new orient's size.
+  `floatAt` with a rect and a hand `resize` write `floatSizes`, so an item becomes declared once its size is set by
+  one of them. Host notes: **`SceneItem.floatSize` is deprecated**: still read, written into
   `floatSizes` by the scene's own changes as they run, and removed in the next breaking release; read `floatSizes`
   instead. A host that declares no `floatSizes` sees no change: its floats keep their stored rects. A host that
   declares `floatSizes` for one orient and floats the item in the other sees that orient's natural size, not the
