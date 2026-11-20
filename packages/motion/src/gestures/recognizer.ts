@@ -20,11 +20,10 @@
 import type { ClockPort } from "../clock/port";
 import { DOUBLE_CLICK } from "../double-click";
 import type { Point } from "../shapes";
-import { isHeld, platformButton, toModifiers } from "./modifiers";
+import { platformButton, toModifiers } from "./modifiers";
 import type {
   CancelReason,
   InputGesture,
-  ModifierDrag,
   ModifierKey,
   Platform,
   PointerKind,
@@ -40,11 +39,15 @@ import { classifyWheel, WHEEL_DEFAULTS, wheelDeltaPx, type WheelOptions } from "
 export type RecognizerTimers = Pick<ClockPort, "setTimer" | "clearTimer">;
 
 export interface RecognizerOptions {
-  /** Screen px (relative to the view) to canvas units, through the current camera */
-  toCanvas: (screen: Point) => Point;
+  /** Screen px (relative to the view) to canvas units, through the current camera; default: the same point (no camera) */
+  toCanvas?: (screen: Point) => Point;
   /** For the long press: a clock; without timers no long press fires */
   timers?: RecognizerTimers;
-  /** The drag modifier, resolved (see resolveDragModifier); null = off */
+  /**
+   * The host's drag modifier, resolved (see resolveDragModifier); null = off. The recognizer reads it only for the
+   * platform's secondary click: on macOS a Ctrl+press stays the primary button when Ctrl is the drag modifier
+   * (platformButton). What a drag with it held does is the host's.
+   */
   dragModifier?: ModifierKey | null;
   /** "mac": a mouse Ctrl+press is the secondary button, as the system has it (platformButton); default "other" */
   platform?: Platform;
@@ -86,9 +89,6 @@ interface Press {
   last: GesturePointer;
   dragging: boolean;
   longPressed: boolean;
-  /** What a modifier-drag would do; decided at the press, confirmed (modifier still held) at dragStart */
-  candidate: ModifierDrag | null;
-  modifierDrag: ModifierDrag | null;
   timer: number | undefined;
 }
 
@@ -143,6 +143,8 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
   const staleMs = options.staleMs ?? 1000;
   let dragModifier: ModifierKey | null = options.dragModifier ?? null;
   const platform: Platform = options.platform ?? "other";
+  // A host with no camera: canvas units are screen px.
+  const toCanvas = options.toCanvas ?? ((p: Point): Point => ({ x: p.x, y: p.y }));
 
   let press: Press | null = null;
   let pinch: Pinch | null = null;
@@ -158,7 +160,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
     const screen = finitePoint(e.screen);
     return {
       screen,
-      canvas: options.toCanvas(screen),
+      canvas: toCanvas(screen),
       kind: kindOf(e.pointerType),
       buttons: e.buttons,
       modifiers: toModifiers(e.modifiers),
@@ -229,7 +231,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
     phase,
     source,
     kind,
-    center: { screen: center, canvas: options.toCanvas(center) },
+    center: { screen: center, canvas: toCanvas(center) },
     scale,
     pan,
     modifiers,
@@ -330,20 +332,11 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
       if (touches.size > 2) return;
     }
     if (press || pinch) return; // one press at a time
-    const candidate: ModifierDrag | null = isHeld(pointer.modifiers, dragModifier)
-      ? pointer.button === 0
-        ? "move"
-        : pointer.button === 2
-          ? "resize"
-          : null
-      : null;
     const p: Press = {
       origin: pointer,
       last: pointer,
       dragging: false,
       longPressed: false,
-      candidate,
-      modifierDrag: null,
       timer: undefined,
     };
     press = p;
@@ -355,7 +348,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
         emit({ type: "longPress", pointer: p.last, origin: p.origin });
       }, longPressMs);
     }
-    emit({ type: "press", pointer, modifierDrag: candidate });
+    emit({ type: "press", pointer });
   };
 
   const onMove = (e: RawPointerEvent) => {
@@ -386,9 +379,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
         if (dist(pointer.screen, p.origin.screen) <= thresholds[p.origin.kind]) return;
         p.dragging = true;
         clearTimer(p);
-        // The modifier must still be held when the drag starts: a released Cmd makes it a plain drag.
-        p.modifierDrag = p.candidate && isHeld(pointer.modifiers, dragModifier) ? p.candidate : null;
-        emit({ type: "dragStart", pointer, origin: p.origin, modifierDrag: p.modifierDrag });
+        emit({ type: "dragStart", pointer, origin: p.origin });
         return;
       }
       emit({ type: "move", pointer, origin: p.origin });
@@ -432,7 +423,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
   const onWheel = (e: RawWheelEvent) => {
     const modifiers = toModifiers(e.modifiers);
     const screen = finitePoint(e.screen);
-    const at = { screen, canvas: options.toCanvas(screen) };
+    const at = { screen, canvas: toCanvas(screen) };
     const intent = classifyWheel(wheelDeltaPx(e.deltaX, e.deltaY, e.deltaMode, wheelCfg), modifiers, wheelCfg);
     if (intent.kind === "zoom") {
       if (intent.factor !== 1) emit({ type: "zoom", factor: intent.factor, at, modifiers, time: e.time });
