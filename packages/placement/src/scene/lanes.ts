@@ -382,7 +382,11 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   else laneRect = list.map((r) => r.hit).reduce(hull, band);
   // In order; one landing is one spot (the item's own place where it is one of them); one id is one spot.
   const sorted = [...list].sort((a, b) => mid(a.landing, axis) - mid(b.landing, axis) || (a.home ? -1 : b.home ? 1 : 0));
-  const unique = sorted.filter((x, i) => !sorted.slice(0, i).some((y) => sameRect(y.landing, x.landing) || y.id === x.id));
+  // On a bar or a toolbar rail the item's own place is one landing for half a pitch around it: another spot landing
+  // that near (a center dock beside a place near the middle) is home's, so away and back to the press point is home.
+  const homeAt = halves ? undefined : list.find((r) => r.home)?.landing;
+  const nearHome = (r: Raw): boolean => !!homeAt && !r.home && Math.abs(lo(r.landing, axis) - lo(homeAt, axis)) < Math.max(0, marking.pitch) / 2;
+  const unique = sorted.filter((x, i) => !nearHome(x) && !sorted.slice(0, i).some((y) => sameRect(y.landing, x.landing) || y.id === x.id));
   const start = lo(laneRect, axis);
   const end = start + len(laneRect, axis);
   // The cut between two spots. In a panel column (`halves`), between two spots sharing a neighbor, that item's middle in
