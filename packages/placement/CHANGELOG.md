@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.50
 
 Stretch positions. With `@n-uf/motion`'s sliding spots. Host notes: **a contract change**: `stretchPositions` now
 defaults to `"free"`; pass `"pitched"` for the old pitched spots. Under `"free"`, commit a sliding spot through its
