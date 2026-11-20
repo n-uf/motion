@@ -18,7 +18,7 @@ const scene: Scene = {
     group("ends", 100, { align: "end", forms: { row: [row("row", 382.4)], column: [form("icons", 84, 84, 28)] } }),
     group("held", 2, { forms: { row: [row("row", 130), row("icons", 60), form("menu", 0, 0, 0)], column: [form("icons", 107, 107, 36), form("menu", 0, 0, 0)] } }),
   ]),
-  floats: [{ id: "held", rect: { x: 529, y: 53, width: 36, height: 107 } }],
+  floats: [{ id: "held", rect: { x: 529, y: 53, width: 36, height: 107 }, orient: "column" }],
   floatKinds: ["group"],
 };
 

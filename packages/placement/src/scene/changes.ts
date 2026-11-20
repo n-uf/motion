@@ -15,22 +15,25 @@
  *   hand, a rail tile once nothing there sets the width); `{ kind: "float", rect?, anchor? }` floats it. A dynamic column an item leaves empty is deleted
  *   and its side's rings are closed up.
  * - `homeFor(scene, id, start)`: the place a start scene gives the item, for `moveTo`.
- * - `floatAt(scene, id, rect?, orient?)`: floats it on top at `rect` (its size becomes `floatSize`); with no rect, at
- *   its `floatSizeOf` size anchored to the content's top-right corner: its `floatSize`, else its form's natural size
- *   along its orient (the float's, `orient`, else `floatOrientOf`), else the default size.
+ * - `floatAt(scene, id, rect?, orient?)`: floats it on top at `rect` (its size becomes its `floatSizes` for the orient
+ *   it floats in); with no rect, at its `floatSizeOf` size anchored to the content's top-right corner: its `floatSizes`
+ *   for that orient, else its form's natural size along it (the float's, `orient`, else `floatOrientOf`), else the
+ *   default size.
  * - `fold(scene, id, on)`: folded by hand (`from: 1`) draws it in its folded form on the axis it lies along (a panel's
  *   `header`, a group's `fold`), and give-way steps down from there; unfolding clears `from`. Where it has no folded
  *   form (`canFold` false), folding changes nothing.
  * - `use(scene, id)`: the newest age. Under `previous` it reshapes nothing.
  * - `keep(scene, id, on)`, `open(scene, id)`, `close(scene, id)`.
  * - `raise(scene, id)`: a float to the top of the stack; no use, no reshape.
- * - `orient(scene, id, orient)`: a float's axis.
+ * - `orient(scene, id, orient)`: a float's axis. Its frame takes the size the new orient draws it at (`floatSizeOf`: the
+ *   size kept for that orient, else the form's natural size), its place and anchor kept; turned back, it has its first
+ *   orient's size again.
  * - `resize(scene, edge, size)`: the user's size across; a size that isn't a finite number clears it.
  *   `resize(scene, id, rect, moving?)`: a float resized by hand, at `fitResize`'s rect (./float-resize).
  */
-import { clampInto, type Rect } from "../geometry";
+import { clampInto, type Rect, type Size } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSideColumn, isSince, namesZone, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
+import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, floatSizesOf, foldedIndex, formsOf, isHandFolded, isSideColumn, isSince, namesZone, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
 import { solve } from "./solve";
 import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
@@ -328,7 +331,8 @@ export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): S
   if (!item || item.fixed || !scene.floatKinds.includes(item.kind)) return scene;
   const was = scene.floats.find((f) => f.id === id);
   const o: Orient | undefined = orient ?? was?.orient;
-  const size = floatSizeOf(item, o ?? floatOrientOf(item));
+  const fo = o ?? floatOrientOf(item);
+  const size = floatSizeOf(item, fo, was?.orient ?? floatOrientOf(item));
   // A float moved keeps its `since`; one newly floated comes after every float there.
   const since = was ? was.since : nextSince(scene);
   const seq = since !== undefined ? { since } : {};
@@ -338,9 +342,19 @@ export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): S
   // A float keeps no bar space (`SceneItem.space`). Lifted first, as it lies, so the room it held (its own space
   // included) goes back to its stretch.
   const { space: _space, ...unspaced } = item;
-  const next = at && at.width > 0 && at.height > 0 ? { ...unspaced, floatSize: { width: at.width, height: at.height } } : unspaced;
+  const next = at && at.width > 0 && at.height > 0 ? withFloatSizes(unspaced, was?.orient ?? floatOrientOf(item), { orient: fo, size: { width: at.width, height: at.height } }) : unspaced;
   const lifted = withItem(lift(scene, id), next);
   return { ...lifted, floats: [...lifted.floats, float] };
+}
+
+/**
+ * `item` with its legacy `floatSize` moved into `floatSizes` (for `floatOrient`, the orient it was set in), and `set`'s
+ * size kept for its orient when given. Nothing writes `floatSize` any more.
+ */
+export function withFloatSizes(item: SceneItem, floatOrient: Orient, set?: { readonly orient: Orient; readonly size: Size }): SceneItem {
+  const { floatSize: _legacy, floatSizes: _sizes, ...rest } = item;
+  const sizes = { ...floatSizesOf(item, floatOrient), ...(set ? { [set.orient]: set.size } : {}) };
+  return sizes.row || sizes.column ? { ...rest, floatSizes: sizes } : rest;
 }
 
 /**
@@ -415,15 +429,25 @@ export function raise(scene: Scene, id: string): Scene {
 export function orient(scene: Scene, id: string, to: Orient): Scene {
   const i = scene.floats.findIndex((f) => f.id === id);
   const item = scene.items[id];
-  if (i < 0 || !item || (scene.floats[i]!.orient ?? floatOrientOf(item)) === to) return scene;
-  return { ...scene, floats: scene.floats.map((f, k) => (k === i ? { ...f, orient: to } : f)) };
+  const f = scene.floats[i];
+  if (!f || !item) return scene;
+  const from = f.orient ?? floatOrientOf(item);
+  if (from === to) return scene;
+  // The orient it leaves keeps the size it is drawn at where the user sizes it (a form that grows), so turning back
+  // restores that rect; a toolbar group's size is its form's, known without being kept.
+  const grows = formsOf(item, from)[0]?.main.grows === true;
+  const kept = withFloatSizes(item, from, grows && f.rect.width > 0 && f.rect.height > 0 ? { orient: from, size: { width: f.rect.width, height: f.rect.height } } : undefined);
+  // The frame takes the size the new orient draws at, where its anchor (if any) already puts it: its place is kept.
+  const size = drawnFloatSize(kept, { rect: { ...f.rect, ...floatSizeOf(kept, to, from) }, orient: to });
+  const turned: SceneFloat = { ...f, rect: { x: f.rect.x, y: f.rect.y, width: size.width, height: size.height }, orient: to };
+  return withItem({ ...scene, floats: scene.floats.map((g, k) => (k === i ? turned : g)) }, kept);
 }
 
 /**
  * The user's size across an edge (`size` a number; one that isn't finite clears it). Or, with a rect, a float resized
  * by hand: the rect `fitResize(scene, floatId, rect, moving)` gives (default `moving`: right and bottom), so a host's
  * preview from `fitResize` is what this commits. The float keeps its stacking order and orient, loses its anchor, and
- * the size becomes the item's `floatSize` (stored with the scene). The scene given back where `fitResize` refuses (a
+ * the size becomes the item's `floatSizes` for that orient (stored with the scene). The scene given back where `fitResize` refuses (a
  * toolbar group, a folded float, anything not floating).
  */
 export function resize(scene: Scene, edgeId: string, size: number): Scene;
@@ -436,7 +460,8 @@ export function resize(scene: Scene, id: string, size: number | Rect, moving: Re
   if (!fit || i < 0 || !item) return scene;
   const { anchor: _a, ...plain } = scene.floats[i]!;
   const float: SceneFloat = { ...plain, rect: fit.rect };
-  return withItem({ ...scene, floats: scene.floats.map((g, k) => (k === i ? float : g)) }, { ...item, floatSize: { width: fit.rect.width, height: fit.rect.height } });
+  const fo = float.orient ?? floatOrientOf(item);
+  return withItem({ ...scene, floats: scene.floats.map((g, k) => (k === i ? float : g)) }, withFloatSizes(item, fo, { orient: fo, size: { width: fit.rect.width, height: fit.rect.height } }));
 }
 
 function resizeEdge(scene: Scene, edgeId: string, size: number): Scene {

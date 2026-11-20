@@ -98,8 +98,17 @@ export interface SceneItem {
    */
   readonly priority?: number;
   /**
-   * Its size as a float: `floatAt` with no rect uses it, and a float drop sets it. Without it, a float takes its first
-   * form's natural size along its orient (`floatSizeOf`), or `DEFAULT_FLOAT_SIZE` when that form grows (a panel's card).
+   * Its size as a float, per orient: `floatAt` with no rect uses the one for the orient it floats in, and a float drop or
+   * a hand resize sets it for the orient the float is in, so a float turned to the other orient (`orient`) takes that
+   * orient's size and, turned back, its own again. Without one for an orient, a float takes its first form's natural size
+   * along that orient (`floatSizeOf`), or `DEFAULT_FLOAT_SIZE` when that form grows (a panel's card).
+   */
+  readonly floatSizes?: { readonly row?: Size; readonly column?: Size };
+  /**
+   * Its one size as a float, from before sizes were kept per orient. Read for the orient the float is in (a stored scene
+   * with it reads as `floatSizes` for its float's orient); nothing writes it any more.
+   *
+   * @deprecated Use `floatSizes`. Removed in the next breaking release.
    */
   readonly floatSize?: Size;
   /**
