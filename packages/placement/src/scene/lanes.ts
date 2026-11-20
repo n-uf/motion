@@ -164,7 +164,10 @@ export interface Regions {
 }
 
 export interface LaneOptions extends SceneTargetOptions {
-  /** The pitch of a bar's free-stretch spots, px (default `SPOT_PITCH`; 0 or less: none). */
+  /**
+   * The pitch of a bar's free-stretch spots, px (default `SPOT_PITCH`). 0 or less turns pitched spots off. Under `"free"` it only sets the sampling step that checks a
+   * stretch's range (every `pitch` px; `SPOT_PITCH` when 0 or less), never a spot of its own.
+   */
   readonly pitch?: number;
   /**
    * How a free stretch on a bar or a toolbar rail offers its range of landings, from flush against the neighbor before
@@ -764,7 +767,8 @@ const overlaps = (a: Rect, b: Rect): boolean => a.x < b.x + b.width - EPS && b.x
  * items as seen (an empty one: its whole length less its padding), a start-zone dock keeping `space` before it where the
  * stretch follows a start item (or the edge's start), an end-zone dock keeping `space` after it where it precedes an end
  * item (or the edge's end). Kept only where the drop lands where it was aimed (within 1 px) and not on another spot's
- * landing. A stretch too short for the item, or next to a center item, has none.
+ * landing. A stretch too short for the item has none, nor one bounded on both sides by zones the item cannot dock in
+ * (no start-zone item or edge start before it, no end-zone item or edge end after it: no zone can take it).
  */
 function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], pitch: number): Raw[] {
   const out: Raw[] = [];
@@ -949,8 +953,12 @@ function landsAt(scene: Scene, dragged: string, run: StretchEdge, place: DockPla
  * start zone left of the edge's middle, the end zone right of it (the other where the stretch has only one). The range
  * holds the landings that land where they were aimed (within 1 px) with every fixed item kept, checked at its ends and
  * every `sample` px between. The docks that land inside it with its neighbors either side (the item's own place, a plain
- * dock, a center dock) are taken over: each is a snap point that commits that dock as it is. A stretch shorter than the
- * item, or next to a center item, has none (its plain docks stay spots of their own).
+ * dock, a center dock) are taken over: each is a snap point that commits that dock as it is, so a center dock's snap
+ * moves its center neighbor by design (the center zone re-centers its items), where a plain dock leaves its neighbors
+ * put. A stretch shorter than the item has none, nor one bounded on both sides by zones the item cannot dock in (no
+ * start-zone item or edge start before it, no end-zone item or edge end after it: no zone can take it); next to a center
+ * item a stretch still has one wherever a zone can take the item, and its plain docks stay spots of their own where it
+ * has none.
  */
 function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], sample: number): { spots: Raw[]; absorbed: Set<Raw> } {
   const spots: Raw[] = [];

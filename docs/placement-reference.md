@@ -339,8 +339,8 @@ drag of `id`:
   host has every target and refusal of the lift from one call.
 
 A bar's free stretches, and a toolbar rail's (a compact edge, along its length), get spots at `SPOT_PITCH` (40 px;
-`options.pitch`), each a dock keeping `space`, so a toolbar lands close to the hand; an empty bar gets them over its whole length less its padding. The item's own place is one landing for half a pitch around it, so away and back to the press point is home. Where a stretch is too short for the
-item, or lies next to a center item, it has none, so coverage is not universal: a point next to a center item that
+`options.pitch`), each a dock keeping `space`, so a toolbar lands close to the hand; an empty bar gets them over its whole length less its padding. `pitch` of 0 or less turns pitched spots off. The item's own place is one landing for half a pitch around it, so away and back to the press point is home. Where a stretch is too short for the
+item, or is bounded on both sides by zones the held item cannot dock in (no start-zone item or edge start before it, no end-zone item or edge end after it), it has none, so coverage is not universal: a point next to a center item that
 doesn't fit beside it can still be far from its landing (452 px at worst in the sweep scenes).
 
 **Stretch positions.** That is `options.stretchPositions: "pitched"`, the default. A free stretch is one range of
@@ -351,15 +351,23 @@ the lane, and `snaps` the starts it snaps to within `options.snapDistance` (8 px
 every other dock that lands inside the stretch beside the same neighbors (a center dock, say), each of which it takes
 over and commits as it is. No snap point lies within twice the snap distance of the item's own place, so a release
 within the snap distance of it is home. Its `target.after(point, grab)` puts the item's start at the pointer less the
-grab (along the item's own length; across it, the middle), clamped to the range and snapped, else rounded to a whole
-px, and commits a dock keeping the `space` that puts it there, so a placed neighbor consumes room as for any dock and
+grab (along the item's own length; across it, the middle), clamped to the range and snapped, else on a whole pixel
+(`slide.step`, the grain a landing model's frame and a release's `at` round by too), and commits a dock keeping the `space` that puts it there, so a placed neighbor consumes room as for any dock and
 stays put while the room suffices. Its `landing` is the one at the stretch's point nearest the item's own place (that
 place itself on its own stretch), else at its start; a host draws a landing model's frame (`@n-uf/motion/drag`, which
 moves it with the pointer) and commits through `after(point, grab)`, as for a float. A step comes only where the order
 changes (passing a neighbor): the cut beside a sliding spot reads its landing flush against the neighbor between them.
 Its guides are its stretch's one box, also while it is held. The range holds the landings that land where aimed with
-every fixed item kept (checked at its ends and every `pitch` px between); a stretch shorter than the item, or next to
-a center item, has none, and its plain docks stay spots of their own.
+every fixed item kept (checked at its ends and every `pitch` px between; under `"free"` `pitch` only sets that sampling
+step, `SPOT_PITCH` (40 px) when it is 0 or less, and never makes a spot). A stretch shorter than the item has no sliding
+spot, nor has one bounded on both sides by zones the held item cannot dock in (no start-zone item or edge start before
+it, no end-zone item or edge end after it); its plain docks stay spots of their own. Next to a center item a stretch
+still has one wherever a zone can take the item. A center dock's snap commits that dock as it is, so it moves its center
+neighbor by design (the center zone re-centers its items), where a plain dock leaves its neighbors put.
+
+Known caveat: on an over-subscribed edge (more items than the edge holds at their natural length) the solver gives
+fractional positions, so a frame and its commit can differ by about a pixel there. The whole-pixel rule holds for the
+start the spot asks for, not for what the solver then makes of an edge with no room to spare.
 
 Spot ids are keyed by the lane, zone and neighboring items: `<lane>/<zone>/<before>|<after>`, an empty edge's
 `<lane>/<zone>`, `@<n>` for a pitched spot (pitches from its neighbor), a virtual lane's `<lane>/line` or `<lane>/end`.
