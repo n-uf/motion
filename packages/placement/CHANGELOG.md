@@ -50,11 +50,6 @@ stretch.
   landing (on the item's own sliding spot its own zone, index and `space`, where it said the stretch's first zone); a
   sliding spot commits through `after(point, grab)`, and the release's `home` and `at` say where, never the place kind
   (which says "home" only for a spot whose drop changes nothing: a pitched or plain home spot).
-- `./scene`, **a sliding spot's range holds only starts that land as aimed** (fix): the range is checked every 8 px (a
-  pitch at most; it was every pitch) and a start that fails splits the stretch into separate sliding spots, each edge
-  found to the pixel, so every start in a listed range commits where the frame shows it. The first piece keeps the id
-  `<lane>/<zone>/<before>|<after>@slide`, later pieces are `…@slide:2`, `…@slide:3` in order along the lane. A taken-over
-  dock inside a gap between pieces stays a plain spot of its own.
 - `./scene/cases`, **`createLandingHost`** takes `stretchPositions` (default: the library's), passes the press's `grab`
   to the landing model, and commits a release by the model's `home`; `LandingRule`'s options carry `grab` (additive).
   The landing rows hold under both values.
