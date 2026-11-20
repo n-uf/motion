@@ -132,7 +132,7 @@ function localSiteLinks(scope: ParentNode): void {
 }
 
 async function boot(): Promise<void> {
-  document.title = page.id === "overview" ? "Motion and placement lab" : `${page.title} · Motion and placement lab`;
+  document.title = page.id === "overview" ? "n-uf motion lab" : `${page.title} · n-uf motion lab`;
   document.body.dataset.page = page.id;
   if (route.embed) document.body.classList.add("lab-embed");
   // The page's own markup is fetched first and the whole frame drawn once, so the pager and the sidebar's foot never sit
