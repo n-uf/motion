@@ -1,6 +1,6 @@
 /**
  * Desk layouts: nine ways to lay out a toolbar, five tool panels and the open documents, and the drawing of a layout
- * as an SVG string. Four (docks, docksFull, dockTear, navigator) are scenes this page builds and @n-uf/placement/scene
+ * as an SVG string. Four (docks, docksFull, dockTear, navigator) are dock states this page builds and @n-uf/docking
  * lays out with `solve`, mapped to the drawing here; the other five are sketches this site draws with its own rules.
  * Pure, so the server renders the default desk and the island renders every later state with the same code.
  */
@@ -57,7 +57,7 @@ function dwindle(r: Area, names: Leaf[]): Box[] {
   return [...layoutSplit(splitFromOrder(names), rectOf(r), { gap: G })].map(([n, t]) => box(t.x, t.y, t.width, t.height, n.kind, n.label));
 }
 
-// ---- The scene cards: this page builds a Scene, @n-uf/placement/scene's `solve` lays it out, the drawing maps it ------
+// ---- The scene cards: this page builds a DockState, @n-uf/docking's `solve` lays it out, the drawing maps it ---------
 
 /** The four cards laid out by the scene. */
 type SceneCard = "docks" | "docksFull" | "dockTear" | "navigator";
@@ -387,7 +387,7 @@ function palettes(area: Area, W: number, m: number, notes: string[]): Box[] {
 }
 
 const SKETCH = "<b>A demo layout this page draws by its own rules, not by the library.</b> ";
-/** The nine, in the page's order. `scene` marks the four that @n-uf/placement/scene lays out; the others are demo layouts. */
+/** The nine, in the page's order. `scene` marks the four that @n-uf/docking lays out; the others are demo layouts. */
 export const CARDS: { key: string; title: string; note: string; idea: string; scene?: SceneCard; pick?: boolean }[] = [
   { key: "docks", scene: "docks", title: "A · Edge docks", note: "Scene: a column on each side, a bottom dock between them.", idea: "Laid out live by <code>solve</code> from a scene with two side columns and a bottom dock. Each side has one column of stacked sections; each section is as tall as it wants, and the last one takes the rest. When height runs out, the least recently used section collapses to its header. When width runs out, the columns narrow, then the least recently used collapses to its rail. <b>The bottom dock (outlined) sits between the columns</b> and shortens the documents; on a short stage it shrinks, then collapses to a header bar." },
   { key: "docksFull", scene: "docksFull", title: "A2 · Full-width bottom dock", note: "Scene: as A, with the dock under everything.", idea: "Laid out live by <code>solve</code>, from A's scene with the dock's <code>span</code> set to <code>\"full\"</code>. The same as A except for one thing: <b>the bottom dock (outlined) runs the full width</b>, and the columns and their rails stand on it. History gets the whole workspace's width, which suits a log or a timeline; the columns are shorter." },

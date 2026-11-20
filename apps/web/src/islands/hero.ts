@@ -4,7 +4,7 @@
  * - **The panel** is a real element carried by `@n-uf/motion/layout` (`createLayoutMotion` + `drawBox` on the site's
  *   frame loop): a move settles, a size change is revealed rather than stretched, and a drag holds it under the pointer
  *   (`holdItem`). Whether it shows a target, and which, is `@n-uf/motion/drag`'s `createDragIntent` and `previewPlan`.
- * - **The plan** is `@n-uf/placement/scene`: `solve` lays the window out, `targets` offers the drop targets, and each
+ * - **The plan** is `@n-uf/docking`: `solve` lays the window out, `targets` offers the drop targets, and each
  *   target's `after` says where the panel lands. The plan is drawn from those rects at once.
  * - **The scope** reads the run off the real frames: each drawn rect of the panel is recorded and judged by
  *   `@n-uf/motion/testing` (`checkNoOvershoot`, `checkMonotonic`, `checkTempo`); the curve, the time to 90 % and the
