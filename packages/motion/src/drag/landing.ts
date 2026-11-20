@@ -30,7 +30,9 @@ import type { PlaceGuides } from "./preview";
  *   `exit + path - spot`. Over a refused place (a
  *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered on the first slow step
  *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room. A touching
- *   lane's takeover reads the same rule, so a held lane never pre-empts it. A lane that owns
+ *   lane's takeover reads the same rule, so a held lane never pre-empts it. After a fling (a step above `slide`) no lane
+ *   is entered by a slow-step gate (still, over-refused) until the hand has been slow (or resting) for `pause`: jitter
+ *   right after a flick docks nothing, while on the stage's edge a fling is taken at once. A lane that owns
  *   its rect (`owns`: a rail drop strip at the window's side) takes the pointer inside it from any lane it overlaps, a
  *   held one too, once its own gate passes and only once the pointer came into it from outside since the lift. Within
  *   `margins.lift` of the lift point (`options.lift`, else the first point; fixed for the drag) an owning lane takes the
@@ -355,6 +357,12 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let inLiftZone = true;
   /** Whether the held lane's hold is refused for lying far beyond it (sticky, as the lift zone is). */
   let farHeld = false;
+  /**
+   * A step above `gates.slide` came, and the hand hasn't settled since: until it has been slow (every step at most
+   * `gates.step`, or resting) for `pause` ms from `slowFrom`, no lane is entered by a slow-step gate (still, over-refused).
+   */
+  let flung = false;
+  let slowFrom: number | null = null;
   let lastStep = 0;
   /** Path inside each lane since the pointer last entered its rect. */
   const pathIn = new Map<string, number>();
@@ -537,14 +545,23 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     // `pause` ms; only then is it still. A hand moving fast with samples far apart is never still between them.
     let step = 0;
     if (moved && (raw.x !== moved.raw.x || raw.y !== moved.raw.y)) {
+      const before = moved.t;
       step = (Math.hypot(raw.x - moved.raw.x, raw.y - moved.raw.y) * 8) / Math.max(1, t - moved.t);
       moved = { raw, t };
       lastStep = step;
+      // A fling unsettles the hand; it is slow again from the last sample before a slow step (every step at most `step`).
+      if (step > gates.slide) {
+        flung = true;
+        slowFrom = null;
+      } else if (step > gates.step) slowFrom = null;
+      else slowFrom ??= before;
     } else if (moved) {
       const stage = heldRegions(spotId).stage;
       const onEdge = p.x <= stage.x || p.y <= stage.y || p.x >= stage.x + stage.width || p.y >= stage.y + stage.height;
       const since = t - moved.t;
       step = since >= gates.pause || (since >= gates.rest && (lastStep <= gates.step || onEdge)) ? 0 : lastStep;
+      // Resting: the hand has been still since its last sample.
+      slowFrom ??= moved.t;
     } else {
       // The first point: how the pointer moves is unknown, never still (a lift over a lane's band doesn't enter it).
       moved = { raw, t };
@@ -552,6 +569,11 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       liftAt ??= p;
       step = lastStep = Infinity;
     }
+    // Settled again once slow for `pause` since the fling: only then do the slow-step gates (still, over-refused) count.
+    // On the stage's edge a fling is taken at once, as the still gate's `rest` says: the edge is where a fling docks.
+    if (flung && slowFrom !== null && t - slowFrom >= gates.pause) flung = false;
+    const edgeStage = heldRegions(spotId).stage;
+    const settled = !flung || p.x <= edgeStage.x || p.y <= edgeStage.y || p.x >= edgeStage.x + edgeStage.width || p.y >= edgeStage.y + edgeStage.height;
     const from = last?.p ?? null;
     // The pointer as it moved: a fling off the stage's edge moves across a lane there though its clamped point doesn't.
     const fromRaw = last?.raw ?? null;
@@ -584,7 +606,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       laneId = spotId = null;
     } else {
       const held = laneIn(regions, laneId);
-      const gate = (l: LandingLane): boolean => (pathIn.get(l.id) ?? 0) >= gates.path || (depthIn(l, p, regions.stage) >= gates.depth && step <= gates.still);
+      // (The still gate, like the over-refused rule, waits for a flung hand to settle.)
+      const gate = (l: LandingLane): boolean => (pathIn.get(l.id) ?? 0) >= gates.path || (depthIn(l, p, regions.stage) >= gates.depth && step <= gates.still && settled);
       // Lane to lane: inside a lane touching the held one, past the held lane's exit margin (inside it the held lane holds,
       // P1), the held lane still holds until that lane's gate passes, then that lane takes it. Never the float between
       // them, never a fly-through's room.
@@ -619,7 +642,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const lanesHere = regions.lanes.filter((l) => strictlyIn(l.rect, p) && !(l.owns && nearLift));
       const within = (b: Rect, l: LandingLane): boolean => b.x >= l.rect.x - 1 && b.y >= l.rect.y - 1 && b.x + b.width <= l.rect.x + l.rect.width + 1 && b.y + b.height <= l.rect.y + l.rect.height + 1;
       const overRefused = (l: LandingLane): boolean =>
-        Number.isFinite(step) && step <= gates.step && lanesHere.length === 1 && [...regions.blocked, ...regions.refused].some((b) => strictlyIn(b, p) && !within(b, l));
+        Number.isFinite(step) && step <= gates.step && settled && lanesHere.length === 1 && [...regions.blocked, ...regions.refused].some((b) => strictlyIn(b, p) && !within(b, l));
       const next = homeHere ? undefined : (owner ?? (touching && (gate(touching) || slid || overRefused(touching)) ? touching : undefined));
       // (The far refusal belongs to the held lane's hold: any other branch lets it go.)
       if (!(held && !homeHere && !next && (touching || inside(held.rect, p, margins.exit)))) farHeld = false;
@@ -733,6 +756,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       approached = null;
       lastPending = null;
       farHeld = false;
+      flung = false;
+      slowFrom = null;
       pathIn.clear();
       slide.clear();
       cameIn.clear();
