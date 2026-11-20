@@ -31,6 +31,11 @@ as for a float. A host that commits a spot by its id alone must pass the pointer
   speed; within `lift` of the press no nudge to a neighboring spot is reachable. The zone is a held state with
   hysteresis: the drag starts in it, leaves it past `margins.lift` and re-enters only within `margins.lift -
   margins.spot`, so a wobble at its edge never flips a cut near the press.
+- `./drag`, **`guideRects` keeps every guide `clearance` px clear of `clear`** (fix, `GuideRectsOptions.clearance`,
+  additive, default 2): a box never read `clear` and could touch the content (0 px); it is now cut on the side that faces
+  each clear rect (the rect grown by `clearance` taken out, the largest remaining part kept, none: dropped). A thin guide
+  keeps being thinned from the content side, now with the same 2 px gap (a strip beside content is 2 px thinner than
+  before, and may fall under `minThickness` and be left out). Pass `clearance: 0` for the old thin-guide result.
 
 ## 26.11.49
 
