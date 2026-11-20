@@ -421,15 +421,18 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const nearLift = !!liftAt && Math.hypot(p.x - liftAt.x, p.y - liftAt.y) <= (margins.lift ?? 16);
       const owner = nearLift ? undefined : regions.lanes.find((l) => l.owns && l.id !== held?.id && cameIn.has(l.id) && strictlyIn(l.rect, p) && gate(l));
       const next = owner ?? (touching && (gate(touching) || slid) ? touching : undefined);
-      // The exit margin, and a touching lane's gate, hold a spot, never a refusal: past the held lane's own rect, a held
-      // lane that would only refuse lets go, so the lane the pointer is in is entered by its gate or is pending (no
-      // "Can't go here" in a lane's first pixels when the pointer comes in over a refused stretch next to it).
-      const near = !!held && !next && (!!touching || inside(held.rect, p, margins.exit));
-      const s = near ? along(held!, p, step) : null;
-      if (near && (s || strictlyIn(held!.rect, p))) {
+      if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
+        const s = along(held, p, step);
         spotId = s?.id ?? spotId;
         region = s ? "lane" : "refused";
         if (!s) spotId = null;
+        // Past its own rect, a held lane that refuses still holds (lane to lane never passes through the float), but
+        // the pointer is in another lane it hasn't entered yet: that lane is pending, so a host shows no "Can't go here"
+        // in a lane's first pixels when the pointer comes in over a refused stretch next to it.
+        if (!s && !strictlyIn(held.rect, p)) {
+          const others = regions.lanes.filter((l) => l.id !== held.id && strictlyIn(l.rect, p));
+          if (others.length > 0) pending = others.reduce((a, b) => (depthIn(b.rect, p, regions.stage) > depthIn(a.rect, p, regions.stage) ? b : a)).id;
+        }
       } else {
         laneId = spotId = null;
         // Entering: a touching lane at once, else the path gate or the still gate; at a tie, the lane the pointer is

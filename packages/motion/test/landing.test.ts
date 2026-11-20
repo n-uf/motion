@@ -494,7 +494,7 @@ describe("landing model: a lane lying over a place that takes nothing is entered
     expect(frames.filter(({ p }) => p.x > 600 && p.x < 1049).every(({ f }) => f.pending === undefined)).toBe(true);
   });
 
-  it("the held lane's exit margin holds a spot, never a refusal: from a refused stretch of a column into a docked rail beside it, no frame says \"Can't go here\"", () => {
+  it("from a refused stretch of a column into a docked rail beside it: no frame says \"Can't go here\" in the rail (`pending`), and none passes through the float", () => {
     // A column (x 760–1040) taking the item only low down (y 400–608), a docked toolbar rail touching it (x 1040–1080).
     const r = railWindow();
     const col: LandingLane = { id: "col", rect: rect(760, 32, 280, 576), axis: "y", spots: [{ id: "col/start/^|$", along: [400, 608], landing: rect(760, 400, 280, 102) }], refused: [{ along: [32, 400] }] };
@@ -510,7 +510,29 @@ describe("landing model: a lane lying over a place that takes nothing is entered
       const inRail = frames.filter(({ p }) => p.x > 1040.5);
       expect(inRail.length).toBeGreaterThan(0);
       expect([speed, inRail.filter(({ f }) => f.region === "refused" && !f.pending).map(({ p }) => Math.round(p.x))]).toEqual([speed, []]);
+      // Lane to lane never passes through the float: once in the column, no frame is open until the release.
+      const first = frames.findIndex(({ f }) => f.lane === "col");
+      if (first >= 0) expect([speed, frames.slice(first).filter(({ f }) => f.region === "open").length]).toEqual([speed, 0]);
     }
+    // Diagonally from a column spot into the rail at a height inside the column's refused stretch: never the float.
+    for (const [y1, speed] of [
+      [340, 1],
+      [300, 0.3],
+      [380, 0.6],
+    ] as const) {
+      const { frames } = run(base({ regions, home: undefined }), [...path([{ x: 600, y: 500 }, { x: 900, y: 500 }], 0.15), ...path([{ x: 900, y: 500 }, { x: 1060, y: y1 }], speed).slice(1).map(([t, x, y]): [number, number, number] => [t + 2000, x, y])]);
+      const first = frames.findIndex(({ f }) => f.lane === "col");
+      expect([y1, first >= 0]).toEqual([y1, true]);
+      expect([y1, frames.slice(first).filter(({ f }) => f.region === "open").length, frames.at(-1)!.release?.kind ?? null]).toEqual([y1, 0, frames.at(-1)!.release?.kind === "spot" ? "spot" : null]);
+    }
+    // A wobble across the column's outer side in its refused stretch stays refused: no flicker to the float.
+    const wobble = run(base({ regions, home: undefined }), [
+      ...path([{ x: 600, y: 500 }, { x: 900, y: 500 }, { x: 900, y: 200 }, { x: 764, y: 200 }], 0.15),
+      ...[0, 1, 2, 3, 4, 5].map((k): [number, number, number] => [8000 + k * 40, k % 2 ? 756 : 764, 200]),
+    ]);
+    const inCol = wobble.frames.findIndex(({ f }) => f.lane === "col" && f.region === "refused");
+    expect(inCol).toBeGreaterThanOrEqual(0);
+    expect(wobble.frames.slice(inCol).filter(({ f }) => f.region === "open").length).toBe(0);
   });
 
   it("not on the lift: a drag that starts in the band and moves fast away never enters it", () => {
