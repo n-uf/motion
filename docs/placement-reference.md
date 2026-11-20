@@ -380,10 +380,16 @@ Its guides are its stretch's one box, also while it is held. The range holds the
 every fixed item kept (checked at its ends and every `pitch` px between; under `"free"` `pitch` only sets that sampling
 step, `SPOT_PITCH` (40 px) when it is 0 or less, and never makes a spot). A stretch (the room the drop makes, above:
 over room as seen shorter than the item that a neighbor steps down to make, the range runs from flush after its short
-form) shorter than the item has no sliding
-spot, nor has one with room for the item at a single start (a range under a pixel, `slide.step`: a point, no range),
-nor one bounded on both sides by zones the held item cannot dock in (no start-zone item or edge start before
-it, no end-zone item or edge end after it); its plain docks stay spots of their own. Next to a center item a stretch
+form) with room for the item at a single start (a range under a pixel, `slide.step`), or shorter than the item, has no
+sliding spot: that start (flush after the neighbor before it, as a pitched stretch's end gives it) is a plain dock
+where it lands, never a point slide and never nothing. It is a spot of its own with the plain dock's id
+(`<lane>/<zone>/<before>|<after>`, no `slide`; `…@<pitches kept>` where a dock between the same neighbors already has
+that id), `home` where it is the item's own place, unless a spot already lands within 1 px of it (the item's own place,
+say), which stays; its box and striped ends come from its landing. So every landing a room offers has a spot, and
+every landing a pitched lane offers lies within 1 px of a free lane's spot or inside a slide's range. Nor has one a
+stretch bounded on both sides by zones the held item cannot dock in (no start-zone item or edge start before
+it, no end-zone item or edge end after it); its plain docks stay spots of their own. The item's own place wins its
+landing: a dock landing a fraction of a pixel from it never takes its place. Next to a center item a stretch
 still has one wherever a zone can take the item. A center dock's snap commits that dock as it is, so it moves its center
 neighbor by design (the center zone re-centers its items), where a plain dock leaves its neighbors put.
 
