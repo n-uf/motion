@@ -6,7 +6,7 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 ## Unreleased
 
 Sliding spots: a free stretch exposed as one spot, where the item lands at the hand. With `@n-uf/placement`'s
-`stretchPositions: "free"`. Host notes: additive; pass the press's `grab` to `createLandingModel`, draw `frame.landing`
+`stretchPositions: "free"` (placement's default from this release). Host notes: additive; pass the press's `grab` to `createLandingModel`, draw `frame.landing`
 (it moves with the pointer over a sliding spot) and commit a sliding spot through its target's `after(point, grab)`,
 as for a float. A host that commits a spot by its id alone must pass the pointer for a sliding one.
 
@@ -17,15 +17,15 @@ as for a float. A host that commits a spot by its id alone must pass the pointer
 - `./drag`, **`LandingOptions.grab`** (additive): where the pointer holds the item, from its top left corner; default
   the middle of `regions.item`.
 - `./drag`, **`LandingRelease.at`** (additive): on a sliding spot, the landing's start along the lane, exactly as the
-  frame shows it (a snap point, else on the spot's `step`), read once at the release; `home` holds only at the item's
-  own place.
+  frame shows it (a snap point, else on the spot's `step`), read once at the release; `home` holds only at the
+  item's own place.
 - `./drag`, **`LandingSlide.step`** (additive, default 1): the grain of a start that snaps to nothing, px, clamped to
   `[from, to]` (0: wherever the pointer puts it). The frame, a release's `at` and the spot's own commit round by the
   same step, so the rect a frame draws is the rect the drop commits; placement's spots carry `step: 1` (whole pixels).
   A host that builds its own sliding spots and wants the old unrounded frame gives `step: 0`.
 - `./drag`, **the lift zone is the item's own lane's** (fix): within `margins.lift` of the lift point the landing model
-  now takes `home.lane` as the lane whenever the pointer lies in it, whatever lane the pointer came through, and finds
-  the spot along it as usual. Before, only owning lanes (a rail drop strip) were kept out of the zone: a plain lane's
+  now takes `home.lane` as the lane whenever the pointer lies in it, whatever lane the pointer came through, and
+  `home.spot` as the spot (a sliding one still lets the landing follow the hand and snap). Before, only owning lanes (a rail drop strip) were kept out of the zone: a plain lane's
   band lying over the home lane's corner (an empty bar over the top of a rail) kept the pointer on a slow return and
   the release landed in that lane instead of home. Away and back to the lift point is home on every layout, at any
   speed.

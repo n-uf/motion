@@ -5,18 +5,36 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
-Stretch positions. With `@n-uf/motion`'s sliding spots. Host notes: additive; nothing changes under the default
-(`"pitched"`). Under `"free"`, commit a sliding spot through its target's `after(point, grab)` (a release by id alone
-must pass the pointer), and give the landing model the press's grab.
+Stretch positions. With `@n-uf/motion`'s sliding spots. Host notes: **a contract change**: `stretchPositions` now
+defaults to `"free"`; pass `"pitched"` for the old pitched spots. Under `"free"`, commit a sliding spot through its
+target's `after(point, grab)` (a release by id alone must pass the pointer), give the landing model the press's grab,
+and read a release's `home` (not the target's place kind) to tell the item's own place from a move along its stretch.
 
-- `./scene`, **`LaneOptions.stretchPositions`** (`"free" | "pitched"`, default `"pitched"`) and
-  **`LaneOptions.snapDistance`** (default 8), additive. A free stretch on a bar or a toolbar rail is a range of
-  landings from flush against one neighbor to flush against the other: `"pitched"` samples it every `pitch` px, its
-  ends included (as before); `"free"` gives one sliding spot, `LaneSpot.slide` (`LaneSlide`: `{ from, to, snaps,
-  snapDistance }`), id `<lane>/<zone>/<before>|<after>@slide`. Its `target.after(point, grab)` lands the item's start at
-  the pointer less the grab, clamped and snapped (to the stretch's ends, the item's own place and any dock inside),
-  else rounded to a whole px, as a dock keeping the `space` that puts it there. A release within the snap distance of
-  the item's own place is home. The stretch stays one guide box.
+- `./scene`, **`LaneOptions.stretchPositions`** (`"free" | "pitched"`, default `"free"`) and
+  **`LaneOptions.snapDistance`** (default 8). **Contract change:** `stretchPositions` now defaults to `"free"`; pass
+  `"pitched"` for the old pitched spots. A free stretch on a bar or a toolbar rail is a range of landings from flush
+  against one neighbor to flush against the other: `"pitched"` samples it every `pitch` px, its ends included (as
+  before); `"free"` gives one sliding spot, `LaneSpot.slide` (`LaneSlide`: `{ from, to, snaps, snapDistance, step }`),
+  id `<lane>/<zone>/<before>|<after>@slide`. Its `target.after(point, grab)` lands the item's start at the pointer less
+  the grab, clamped and snapped (to the stretch's ends, the item's own place and any dock inside), else on a whole
+  pixel (`step` 1), as a dock keeping the `space` that puts it there. A release within the snap distance of the
+  item's own place is home. The stretch stays one guide box. `pitch` of 0 or less turns pitched spots off; under
+  `"free"` it only sets the sampling step that checks a stretch's range (40 px when 0 or less).
+- `./scene`, **a free start is whole pixels in the frame, the release and the commit** (`LaneSlide.step`): the spot
+  carries the grain, and `@n-uf/motion`'s landing model rounds its frame by it, so the rect a frame draws is the rect
+  the drop commits (before, the frame used the raw start and only the commit rounded: up to half a pixel apart). Known
+  caveat: on an over-subscribed edge the solver gives fractional positions, so frame and commit can differ by about a
+  pixel there.
+- `./scene`, **a snap point is keyed by what it commits** (fix): a dock that lands inside a stretch (a center dock, say)
+  keeps its own snap point even within half a pixel of the stretch's start, and commits as that dock. Two points merge
+  only where they lie on the same start, the taken-over dock then winning. A center dock's snap moves its center
+  neighbor by design.
+- `./scene`, **the item's own sliding spot says place kind `"home"`** (fix, as a pitched home spot does), where it said
+  a gap dock. A sliding spot's drop is still a dock wherever the hand holds it: a host that treats `place.kind ===
+  "home"` as "a release changes nothing" must ask the landing model's release (`home`, `at`) for a sliding spot.
+- `./scene/cases`, **`createLandingHost`** takes `stretchPositions` (default: the library's), passes the press's `grab`
+  to the landing model, and commits a release by the model's `home`; `LandingRule`'s options carry `grab` (additive).
+  The landing rows hold under both values.
 
 ## 26.11.49
 
