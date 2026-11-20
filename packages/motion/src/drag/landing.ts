@@ -338,6 +338,18 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   /** The owning lanes the pointer has been outside since the lift: only those may take it (it came into them). */
   const cameIn = new Set<string>();
   let approached: string | null = null;
+  /** The lane pending on the last frame: it stays pending while the pointer stays inside it (`pendingIn`). */
+  let lastPending: string | null = null;
+  /**
+   * The pending lane among `here` (the lanes the pointer is strictly inside): the one pending on the last frame while it
+   * is among them, until another is deeper by `margins.spot`; else the deepest. So at a corner where two lanes overlap
+   * a wobble never flips the pending lane, nor its guides.
+   */
+  const pendingIn = (here: readonly LandingLane[], p: Point, stage: Rect): string => {
+    const deepest = here.reduce((a, b) => (depthIn(b, p, stage) > depthIn(a, p, stage) ? b : a));
+    const kept = here.find((l) => l.id === lastPending);
+    return kept && depthIn(deepest, p, stage) <= depthIn(kept, p, stage) + margins.spot ? kept.id : deepest.id;
+  };
   let previous: LandingRegion = laneId ? "lane" : "open";
   let frame: LandingFrame = { region: previous, lane: laneId, spot: spotId, landing: null, room: !!spotId, guides: [], shift: false };
   /** The spot the last frame lands on (in its own regions) and its lane's axis, or null. */
@@ -569,7 +581,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         // in a lane's first pixels when the pointer comes in over a refused stretch next to it.
         if (!s && !strictlyIn(held.rect, p)) {
           const others = regions.lanes.filter((l) => l.id !== held.id && strictlyIn(l.rect, p));
-          if (others.length > 0) pending = others.reduce((a, b) => (depthIn(b, p, regions.stage) > depthIn(a, p, regions.stage) ? b : a)).id;
+          if (others.length > 0) pending = pendingIn(others, p, regions.stage);
         }
       } else {
         laneId = spotId = null;
@@ -592,7 +604,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
             if ((gate(l) || overRefused(l)) && (!entered || deep > depthIn(entered, p, regions.stage))) entered = l;
           }
         // Inside a lane not entered yet: no refused place to say so of, whatever lies under it.
-        if (!entered && lanesHere.length > 0) pending = lanesHere.reduce((a, b) => (depthIn(b, p, regions.stage) > depthIn(a, p, regions.stage) ? b : a)).id;
+        if (!entered && lanesHere.length > 0) pending = pendingIn(lanesHere, p, regions.stage);
         if (entered) {
           laneId = entered.id;
           const s = pick(entered, alongOf(entered, p));
@@ -606,6 +618,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       }
     }
     previous = region;
+    lastPending = pending;
     const shown: LandingRegion = shift && (region === "lane" || region === "open") ? "open" : region;
     const r2 = heldRegions(spotId);
     const heldLane = laneIn(r2, laneId);
@@ -656,6 +669,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     hide(): void {
       laneId = spotId = null;
       approached = null;
+      lastPending = null;
       pathIn.clear();
       slide.clear();
       cameIn.clear();

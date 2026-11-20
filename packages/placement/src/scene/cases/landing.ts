@@ -596,6 +596,19 @@ function railBesideColumn(bottom: string[] = ["a"]): Scene {
     floatKinds: ["group"],
   };
 }
+/**
+ * A 1080×640 window: an empty top bar (not drawn; 36 px once a toolbar lands in it), an empty toolbar rail at the left
+ * (not drawn; 30 px), whose bands overlap at the top-left corner, and a bottom bar (y 604–640) with `bottom` in it.
+ */
+function emptyCorner(bottom: string[] = ["b"]): Scene {
+  return {
+    stage: rect(0, 0, 1080, 640),
+    edges: [bar("top", "top", 0, []), bar("bottom", "bottom", 0, bottom), { id: "rail-left", side: "left", ring: 0, accepts: ["group"], items: [], cross: { min: 30, max: 30, rail: 30 }, compact: true, zones: ["start"] }],
+    items: Object.fromEntries(bottom.map((id, i) => [id, group(id, i + 1)])),
+    floats: [],
+    floatKinds: ["group"],
+  };
+}
 const NEAR: LandingCase["requires"] = { lanes: { since: NEAR_SINCE } };
 const LANES: LandingCase["requires"] = { lanes: { since: LANES_SINCE } };
 const GRAB: LandingCase["requires"] = { lanes: { since: GRAB_SINCE } };
@@ -964,6 +977,26 @@ export const LANDING_CASES: readonly LandingCase[] = [
     moving: { nearGuides: true, guideSwitches: 1 },
     end: { region: "open" },
     layout: { items: { b: { floating: true } } },
+    requires: NEAR,
+  },
+  {
+    id: "landing-near-pending-corner-steady",
+    title: "Inside two lanes that overlap at a corner, the pending lane doesn't flicker",
+    expect:
+      "A toolbar lifted from the bottom bar and carried at 0.6 px/ms into the corner where the empty top bar's band and the empty left rail's overlap, then moved back and forth inside both, between (26, 21), deeper in the bar, and (20, 27), a pixel deeper in the rail: neither lane is entered (the hand never slows), the bar is pending from the first point inside both and stays pending (the other lane takes over only once it is deeper by the spot margin, 6 px), so the guides go from the bottom bar's to the top bar's once.",
+    scene: emptyCorner(),
+    item: "b",
+    path: [
+      { x: 60, y: 622 },
+      { x: 100, y: 100 },
+      { x: 26, y: 21 },
+      ...[0, 1, 2, 3].flatMap(() => [
+        { x: 20, y: 27 },
+        { x: 26, y: 21 },
+      ]),
+    ],
+    speed: 0.6,
+    moving: { nearGuides: true, guideSwitches: 1, notLanes: ["top", "rail-left"] },
     requires: NEAR,
   },
 ];
