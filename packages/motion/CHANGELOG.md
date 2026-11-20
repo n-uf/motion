@@ -5,6 +5,15 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## Unreleased
 
+- `./drag`, **the Near lane shows its marks once entered, and owns the corner it shares** (additive). A
+  `LandingLane` may carry **`entry`** (its marks while it is the lane the pointer picks, where they differ from
+  `marks`: placement's prediction of an empty lane's marks once entered) and **`corners`** (the lanes those overlap).
+  The lane the Near rule picks (held, pending or approached) shows `entry` in place of `marks`, under `"near"` and
+  `"all"`, so an empty lane's guide before entry is its mark after it. Under `"all"` the lanes in its `corners` are cut
+  where they overlap it, by `guideRects`' interval subtraction, so the corner goes to that lane; with no such lane every
+  lane shows its `marks` (where the bar keeps a shared corner), and no two lanes' guides overlap on any frame. Host
+  notes: lanes without `entry` show as before; nothing to change.
+
 - `./drag`, **the pending lane holds at a corner** (fix). Inside two lanes not entered that overlap at a corner (an
   empty top bar's band and an empty rail's), `pending` was the deeper of the two on every frame, so a wobble of a few
   pixels across the diagonal flipped it, and the Near guides with it (9 times on a short zigzag). The pending lane now

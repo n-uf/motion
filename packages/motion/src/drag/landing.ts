@@ -1,4 +1,5 @@
 import type { Point, Rect } from "../shapes";
+import { guideRects } from "./guide-rects";
 import type { DragKeys } from "./intent";
 import type { PlaceGuides } from "./preview";
 
@@ -54,10 +55,14 @@ import type { PlaceGuides } from "./preview";
  *   spots' landings. `"near"` shows a lane only where the pointer can enter it: the held lane's (also over its own
  *   refused stretch); else the pending lane's (the pointer inside it, its gate not passed: a release floats or goes
  *   home); else, with the pointer in open space, the approached lane's (the nearest within `reach`, by default the
- *   entry margin `exit`, acquired within `reach - spot` and kept to `reach`, so it never blinks at the edge: a release
- *   floats). Over a refused place outside every lane no guide shows, however near the
- *   lane behind it lies; a host that wants the early guide sets `approach.reach` (in open space only: over a refused
- *   place none shows at any reach).
+ *   entry margin `exit`, acquired within `max(reach - spot, reach / 2)` and kept to `reach`, so it never blinks at the
+ *   edge: a release floats). Over a refused place outside every lane no guide shows, however near the lane behind it
+ *   lies; a host that wants the early guide sets `approach.reach` (in open space only: over a refused place none shows
+ *   at any reach). That lane (the one the Near rule picks) shows its `entry` marks where it has them (placement's
+ *   prediction of an empty lane's marks once entered), so its guide before entry is its mark after it. `"all"` shows every lane's; the lane the Near rule picks shows its
+ *   `entry` and owns every corner it shares: each lane it names in `corners` is cut where it overlaps it, by the interval
+ *   subtraction of `guideRects`. With no such lane, every lane's `marks`, where the bar keeps a shared corner. No two
+ *   lanes' guides overlap on any frame.
  * - Steps are measured between points that differ, normalized to 125 Hz, so the gates read the same at any input rate.
  *   A repeated point keeps the last step; it is still only once the pointer has stayed put for `rest` ms.
  *
@@ -122,6 +127,14 @@ export interface LandingLane {
   readonly refused: readonly { readonly along: readonly [number, number] }[];
   /** Its guides' marks; absent, its spots' landings are the guides. */
   readonly marks?: readonly LandingMark[];
+  /**
+   * Its marks while it is the lane the pointer picks (held, pending or approached), where they differ from `marks`: a
+   * prediction of its marks once entered that owns a corner `marks` gives up (placement's `lanes()` gives it for an empty
+   * lane). Shown in place of `marks` then, and under `"all"` every lane in `corners` is cut where it overlaps it.
+   */
+  readonly entry?: readonly LandingMark[];
+  /** The lanes whose marks `entry` overlaps: cut where they overlap it while this lane is the one the pointer picks. */
+  readonly corners?: readonly string[];
   /**
    * Its rect is its own (a rail drop strip at the window's side): inside it, once its gate passes, it takes the pointer
    * from any lane it overlaps, a held one too. Absent: where lanes overlap, the deeper one wins.
@@ -443,27 +456,48 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   function guidesFor(p: Point, region: LandingRegion, shift: boolean, pending: string | null): LandingGuide[] {
     if (guidesLevel === "off" || shift) return [];
     const regions = heldRegions(spotId);
-    const all = (l: LandingLane): LandingGuide[] =>
-      l.marks
-        ? l.marks.map((m, i) => ({ id: m.id ?? `${l.id}#${i}`, lane: l.id, kind: m.kind, rect: m.rect }))
+    const all = (l: LandingLane, near = false): LandingGuide[] => {
+      const marks = near && l.entry ? l.entry : l.marks;
+      return marks
+        ? marks.map((m, i) => ({ id: m.id ?? `${l.id}#${i}`, lane: l.id, kind: m.kind, rect: m.rect }))
         : l.spots.map((s) => ({ id: `${l.id}/${s.id}`, lane: l.id, kind: "box" as const, rect: s.landing }));
-    if (guidesLevel === "all") return regions.lanes.flatMap(all);
+    };
+    const near = nearLane(p, region, pending, regions);
+    if (guidesLevel === "near") return near ? all(near, true) : [];
+    // "all": every lane's. The lane the pointer picks shows its marks once entered (`entry`), and owns every corner it
+    // shares: the lanes it names in `corners` are cut where they overlap it, as `guideRects` cuts a box by a clear rect.
+    // With no such lane, each lane's `marks` (where two lanes would overlap, one of them already gave the corner up).
+    const owner = near?.entry && near.corners?.length ? near : null;
+    if (!owner) return regions.lanes.flatMap((l) => all(l));
+    const clear = owner.entry!.map((m) => ({ rect: m.rect, clearance: 0 }));
+    const over = (r: Rect): boolean => clear.some(({ rect: c }) => Math.min(r.x + r.width, c.x + c.width) - Math.max(r.x, c.x) > 1e-6 && Math.min(r.y + r.height, c.y + c.height) - Math.max(r.y, c.y) > 1e-6);
+    return regions.lanes.flatMap((l) => {
+      if (l.id === owner.id) return all(l, true);
+      const gs = all(l);
+      if (!owner.corners!.includes(l.id)) return gs;
+      return gs.flatMap((g) => (over(g.rect) ? guideRects([g], { inside: g.rect, inset: 0, clear, minLength: 0, minThickness: 0 }) : [g]));
+    });
+  }
+
+  /**
+   * The lane whose guides the Near rule shows, or null: the held lane (also over its own refused stretch), else the
+   * pending one, else, with the pointer in open space, the approached one (kept with hysteresis).
+   */
+  function nearLane(p: Point, region: LandingRegion, pending: string | null, regions: LandingRegions): LandingLane | null {
     // The held lane's, also over its own refused stretch.
     if ((region === "lane" || region === "refused") && laneId) {
       approached = laneId;
-      const l = laneIn(regions, laneId);
-      return l ? all(l) : [];
+      return laneIn(regions, laneId) ?? null;
     }
     // The pending lane's: the pointer is inside it, its gate not passed (the place under it, a refused one too, is its).
     if (pending) {
       approached = pending;
-      const l = laneIn(regions, pending);
-      return l ? all(l) : [];
+      return laneIn(regions, pending) ?? null;
     }
     // Only in open space the approach counts: over a refused place outside every lane, or nowhere, no lane's guides show.
     if (region !== "open") {
       approached = null;
-      return [];
+      return null;
     }
     let best: LandingLane | null = null;
     let bestD = Infinity;
@@ -485,8 +519,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       if (d > Math.max(approach.keep, approach.reach)) approached = null;
       else if (best && best.id !== kept.id && bestD + approach.nearer < d) approached = bestD <= acquire ? best.id : null;
     } else approached = best && bestD <= acquire ? best.id : null;
-    const l = laneIn(regions, approached);
-    return l ? all(l) : [];
+    return laneIn(regions, approached) ?? null;
   }
 
   function update(raw: Point, t: number, keys?: DragKeys): LandingFrame {
