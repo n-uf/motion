@@ -61,7 +61,7 @@ export function scan(line, lower = LOWER, exact = EXACT) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..");
   const BINARY = /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|otf|pdf)$/i;
-  const files = execFileSync("git", ["ls-files", "packages", "apps"], { cwd: root, encoding: "utf8" })
+  const files = execFileSync("git", ["ls-files", "packages", "apps", "docs", "README.md"], { cwd: root, encoding: "utf8" })
     .split("\n")
     .filter((f) => f && !BINARY.test(f) && !/(^|\/)(dist|node_modules)\//.test(f));
   const hits = [];
