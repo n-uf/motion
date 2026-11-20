@@ -191,18 +191,12 @@ export interface DocWindow {
   readonly html: string;
   readonly size: Size;
   /**
-   * The parts sheet: the parts of `@n-uf/motion` and `@n-uf/placement` this window uses, each a small specimen in the window's
-   * own look with a caption (the function, and what it does in this window).
+   * The parts sheet: the parts of `@n-uf/motion` this window uses, each a small specimen in the window's own look with a
+   * caption (the function, and what it does in this window).
    */
-  readonly sheet: readonly SheetGroup[];
+  readonly sheet: readonly SheetItem[];
 }
 
-interface SheetGroup {
-  readonly heading: string;
-  /** The package's part, for its color. */
-  readonly part: "motion" | "place";
-  readonly items: readonly SheetItem[];
-}
 interface SheetItem {
   readonly html: string;
   readonly fn: string;
@@ -210,41 +204,24 @@ interface SheetItem {
 }
 
 /**
- * The motion and placement parts the lab's docked window (apps/lab/src/docwin) really runs; a part is on the sheet only if
- * it has a call site there:
+ * The `@n-uf/motion` parts the lab's docked window (apps/lab/src/docwin) really runs; a part is on the sheet only if it has a
+ * call site there:
  *
  * - `createGripPress` (`@n-uf/motion/drag`): shared/session.ts:80, the press on a grip (a drag past the lift, else a click).
  * - `previewPlan` (`@n-uf/motion/drag`): docwin/scene.ts:787, the drop preview (the dashed slot, the room it makes).
  * - `anchoredMorph` (`@n-uf/motion/layout`): docwin/scene.ts:698, the held item keeps its grab point as its form changes.
  * - `createSettle` (`@n-uf/motion`): docwin/scene.ts:710, the drawn rect settling onto the pointer.
- * - `fitStack` (`@n-uf/placement/stack`): inside `solve`, one call per edge (packages/placement/src/scene/solve/edge.ts:68, 157),
- *   and the lab calls `solve` at docwin/scene.ts:208, 436, 1378: a toolbar steps down its forms (words, icons) as room shrinks.
- * - `fold` (`@n-uf/placement/scene`): docwin/scene.ts:459 and host.ts:126, a panel folded to its header.
  *
- * Not on the sheet: `positionPopup` (the lab's » menu is its own list, docwin/scene.ts:235, 246), `masterStack`, `layoutSplit`.
+ * Motion only, by the operator's choice: placement's parts (`fitStack` inside `solve`, `fold` from `@n-uf/placement/scene`) are
+ * docking's own code or unconfirmed for the release, so they are not shown (see DOCKING-RELEASE-TODO.md).
  */
-function parts(s: Scene, l: SceneLayout): readonly SheetGroup[] {
+function parts(): readonly SheetItem[] {
   const ghost = `<i class="hd-trail" aria-hidden="true"></i>`;
   return [
-    {
-      heading: "Motion",
-      part: "motion",
-      items: [
-        { html: `<section class="hd-item hd-panel hd-k-header hd-spec hd-press">${head("notes")}</section>`, fn: "createGripPress", what: "press the grip: a drag, else a click" },
-        { html: `<span class="hd-slot"></span>`, fn: "previewPlan", what: "the dashed slot where a drop lands" },
-        { html: `<section class="hd-item hd-panel hd-k-header hd-spec hd-grab">${head("notes")}<b class="hd-pin"></b></section>`, fn: "anchoredMorph", what: "the held panel keeps its grab point" },
-        { html: `<span class="hd-settle">${ghost}<section class="hd-item hd-panel hd-k-header hd-spec">${head("notes")}</section></span>`, fn: "createSettle", what: "the panel settles onto the pointer" },
-      ],
-    },
-    {
-      heading: "Placement",
-      part: "place",
-      items: [
-        { html: itemHtml(s, l, "zoom", true), fn: "fitStack", what: "Zoom keeps one row, hides the rest" },
-        { html: itemHtml(s, l, "views", true), fn: "fitStack", what: "Views steps down to icons" },
-        { html: itemHtml(s, l, "notes", true), fn: "fold", what: "Notes folds to its header" },
-      ],
-    },
+    { html: `<section class="hd-item hd-panel hd-k-header hd-spec hd-press">${head("notes")}</section>`, fn: "createGripPress", what: "press the grip: a drag, else a click" },
+    { html: `<span class="hd-slot"></span>`, fn: "previewPlan", what: "the dashed slot where a drop lands" },
+    { html: `<section class="hd-item hd-panel hd-k-header hd-spec hd-grab">${head("notes")}<b class="hd-pin"></b></section>`, fn: "anchoredMorph", what: "the held panel keeps its grab point" },
+    { html: `<span class="hd-settle">${ghost}<section class="hd-item hd-panel hd-k-header hd-spec">${head("notes")}</section></span>`, fn: "createSettle", what: "the panel settles onto the pointer" },
   ];
 }
 
@@ -267,6 +244,6 @@ export function docWindow(size: Size): DocWindow {
     return menu ? [`<span class="hd-menu" style="left:${px(menu.rect.x)};top:${px(menu.rect.y)};width:${px(menu.rect.width)};height:${px(menu.rect.height)}">» ${menu.items.length}</span>`] : [];
   });
   const html = `<div class="hd-edges">${edges}</div>${scroll}<div class="hd-items">${docked.join("")}${menus.join("")}${floats.join("")}</div>`;
-  return { html, size, sheet: parts(s, l) };
+  return { html, size, sheet: parts() };
 }
 
