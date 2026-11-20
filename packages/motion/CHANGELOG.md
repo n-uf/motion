@@ -16,6 +16,13 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   no entry; the lane is entered only by its own gate, the slow `path` or a rest past `pause`. The cost: above 2 px/ms a
   hand sliding along a corner lane keeps the previous lane's end spot until it slows or rests. Host notes: a host that
   wants the old rule sets `gates: { slide: Infinity }`.
+- `./drag`, **far beyond the held lane the frame is held but refused** (behavior change). Inside a touching lane not
+  entered, the held lane held however far the pointer went, so after a flick up a rail that didn't enter it the frame
+  said "the bar, its home spot, landing at home" 288 px above the bar, and nothing told the user the release goes home.
+  The hold through a touching lane is for crossing a corner: more than `path` (40 px) past the held lane's exit margin
+  the frame is now `region: "refused"`, its `lane` kept (its guides stay), `spot` and `landing` null and no `pending`;
+  `release()` is null (home). Host notes: a host that shows "Can't go here" for a refused frame with no `pending` shows
+  it there; nothing to change.
 - `./drag`, **a Near guide shows a lane only where the pointer can enter it** (behavior change, a default). With
   `placeGuides: "near"`, a lane's guides showed from the nearest lane within `reach` (80 px), and over a refused place
   (a column that takes nothing) from the nearest lane at any distance, so a toolbar carried toward an empty side rail
