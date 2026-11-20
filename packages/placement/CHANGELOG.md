@@ -10,7 +10,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   side rail's top, and a pointer coming down the rail stayed in the bar's lane. The marks already followed "at a corner
   a lane not drawn gives way to a drawn one"; the lane's rect now does too: it is clipped along its axis to stop at the
   drawn edge's side (its spots' `along` stretches with it). Between two edges not drawn the corner is unchanged.
-
+- `./scene`, **`SceneRefusal["reason"]` gains `"too-thick"`** (a contract change for an exhaustive `switch`: add the
+  case; a host that treats any other reason like `"no-room"` needs no change). A bar thinner than every form of the
+  held item but the » menu's (each sets no cross size and has a `cross.min` over the bar's thickness: a 30 px toolbar
+  on a 28 px bar) used to refuse every zone as `"no-room"`, which says the bar is too short. It now refuses them as
+  `"too-thick"`, so a host can say the item is thicker than the bar. `"no-room"` is kept for lack of length.
 - `./scene/cases`, **the landing rows check the hand rule** (additive: a row's `moving.hand`; a host's `LandingPlay` may
   report its `stretchPositions`). While a lane holds, the landing is the nearest landing in its lane to the pointer
   and lies within `max(48, g / 2 + 6)` px of it (`max(56, g / 2 + 6)` on the frame before a hop), `g` the gap along
