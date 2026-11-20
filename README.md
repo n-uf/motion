@@ -3,17 +3,24 @@
 > [!CAUTION]
 > ## Not yet stable
 >
-> **@n-uf/motion is young and still changing. Its API (the frame loop, signals, springs and tweens, and the gesture recogniser) and its timing behaviour are not final.**
+> **@n-uf/motion and @n-uf/placement are young and still changing. Their APIs (the frame loop, signals, springs and tweens, the gesture recognizer, the drag and landing models, the scene and its solver) and their timing behavior are not final.**
 >
 > Version numbers are dates (YY.M.R), not semantic versions, so any release may break things, including how frames are scheduled, how springs settle and how gestures are timed. Pin an exact version and read the [CHANGELOG](./packages/motion/CHANGELOG.md) before you upgrade. If you need a stable animation library, use [Motion](https://motion.dev) or [GSAP](https://gsap.com). Both work on the DOM, so neither is a drop-in replacement.
 
 Site and live demos: [motion.n-uf.com](https://motion.n-uf.com)
 
-[`@n-uf/motion`](./packages/motion) is the motion layer under n-uf's
-interfaces: one frame loop with an injected clock, fine-grained signals,
-springs and tweens, and a DOM-free gesture recogniser. It knows nothing about
-the DOM, canvas or React; hosts hand it a clock and plain event objects and
-read plain numbers back. The package README has the API.
+Two sibling libraries under n-uf's interfaces, released together with one version:
+
+- [`@n-uf/motion`](./packages/motion): *how things move*. One frame loop with an injected clock, fine-grained signals,
+  springs, tweens and the settle curve, a DOM-free gesture recognizer, drag intent and the landing model, and layout
+  motion. It knows nothing about the DOM, canvas or React; hosts hand it a clock and plain event objects and read plain
+  numbers back. Design: [docs/motion.md](./docs/motion.md).
+- [`@n-uf/placement`](./packages/placement): *where things go*. A scene of bars, rails, columns, items and floats,
+  solved into a layout, with the targets, refusals and lanes of every drag. Design:
+  [docs/placement.md](./docs/placement.md).
+
+Neither imports the other: motion reads placement's output only as plain data. Each package README has the API
+reference.
 
 ```sh
 pnpm install
@@ -22,8 +29,9 @@ pnpm bench   # signals benchmark (see packages/motion/bench/RESULTS.md)
 pnpm lab     # the motion lab on http://localhost:3060
 ```
 
-- `packages/motion`: the library (`@n-uf/motion` and its `/clock`, `/signals`,
-  `/values`, `/gestures`, `/testing` and `/browser` entries).
+- `packages/motion`: `@n-uf/motion` and its `/clock`, `/signals`, `/values`, `/gestures`, `/drag`, `/layout`,
+  `/testing` and `/browser` entries.
+- `packages/placement`: `@n-uf/placement`; hosts use its `/scene` entry.
 - `apps/lab`: a lab (not published), with an overview, a glossary and three
   working pages: Motion, a tiling stage for the window motion rules (master,
   dwindle, columns, grid; drop indicator or snap to slot); Document window,
