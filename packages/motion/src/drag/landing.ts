@@ -6,7 +6,7 @@ import type { PlaceGuides } from "./preview";
 
 /**
  * The landing model: where a docking drag's item lands, as state rather than a per-frame guess. A host gives it the
- * drag's regions (from `@n-uf/placement/scene`'s `lanes()`: plain data, the shapes below) and each pointer sample; it
+ * drag's regions (from `@n-uf/docking`'s `lanes()`: plain data, the shapes below) and each pointer sample; it
  * says the region the pointer is in, the lane and spot held, where the item lands, whether the room is open, and the
  * place guides. Every change comes from where the pointer is and how it moved (margins, a path length, a step size):
  * the model has no waits of its own.

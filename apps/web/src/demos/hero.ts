@@ -4,7 +4,7 @@
  * - **The scope** (motion's half): the settle curves at each tempo, a bouncy spring for contrast, and one real run of a
  *   panel's glide, recorded frame by frame and checked with `@n-uf/motion/testing`.
  * - **The plan** (placement's half): a window with a panel lifted out, its rects and its drop targets, from
- *   `@n-uf/placement/scene` (`solve` and `targets`).
+ *   `@n-uf/docking` (`solve` and `targets`).
  *
  * Every number here comes out of the packages. The server runs them at build time for the first (finished) state, and
  * the island runs them again in the browser, live; the two states agree by construction.

@@ -1,6 +1,6 @@
 /**
  * Desk layouts (island): the server drew the default desk, the case rail and the comparison table; this lays out the
- * picked card live (a scene through @n-uf/placement/scene's `solve`, a sketch by the page's own rules) and lets
+ * picked card live (a dock state through @n-uf/docking's `solve`, a sketch by the page's own rules) and lets
  * the drawing glide: every box, and the desk's own size, settles from where it is drawn to its new rect.
  */
 import type { Rect } from "@n-uf/motion";
