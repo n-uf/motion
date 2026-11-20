@@ -42,6 +42,11 @@ export const GRIP_SINCE = "26.11.48";
  * neighbor giving way): the rows passing a neighbor that keeps room need it.
  */
 export const ROOM_SINCE = "26.11.50";
+/**
+ * The first library version whose stretch is the room a drop makes (a neighbor that steps down to a shorter form to
+ * make room counts): the rows sliding over such a stretch need it.
+ */
+export const STEP_SINCE = "26.11.51";
 /** The last published version without `lanes()`. */
 export const LAST_WITHOUT_LANES = "26.11.44";
 /** From this date every landing row runs on every host (or at the breaking release, if that comes first). */
@@ -610,6 +615,40 @@ export const LANDING_CASES: readonly LandingCase[] = [
       requires: { lanes: { since: ROOM_SINCE } },
     }),
   ),
+  {
+    id: "landing-step-down-room",
+    title: "A toolbar slid over room that a neighbor steps down to make stays at the hand",
+    expect:
+      "An 870 px bottom bar: Panels (362 px, 60 in its short form) at its start, Status (382 px) at its end, 91 px free between them, shorter than Tools (130 px). Tools brought from the document onto the bar and slid right along it at 0.3 px/ms: a drop between them steps Panels down, and the room that makes (266 px past Tools' length) is one sliding stretch, so whenever the bar holds it the landing lies within 48 px of the pointer, 56 on the frame before a hop.",
+    scene: (() => {
+      const row = (kind: "row" | "icons", w: number) => form(kind, w, w, 31);
+      const g = (id: string, used: number, forms: SceneItem["forms"], more: Partial<SceneItem> = {}): SceneItem => ({ id, kind: "group", used, forms, ...more });
+      const icons = form("icons", 84, 84, 28);
+      const menu = form("menu", 0, 0, 0);
+      return {
+        stage: rect(0, 0, 870, 660),
+        edges: [{ id: "bottom", side: "bottom", ring: 0, accepts: ["group"], items: ["panels", "status"], cross: { min: 31, max: 31, rail: 31 }, gap: 8, pad: { start: 8, end: 8 }, menu: { main: 24 } }],
+        items: {
+          panels: g("panels", 1, { row: [row("row", 362.3), row("icons", 60), menu], column: [icons, menu] }),
+          status: g("status", 100, { row: [row("row", 382.4)], column: [icons] }, { align: "end" }),
+          tools: g("tools", 2, { row: [row("row", 130), row("icons", 60), menu], column: [form("icons", 107, 107, 36), menu] }),
+        },
+        floats: [{ id: "tools", rect: rect(529, 53, 36, 107) }],
+        floatKinds: ["group"],
+      };
+    })(),
+    item: "tools",
+    path: [
+      { x: 547, y: 106 },
+      { x: 100, y: 645 },
+      { x: 465, y: 645 },
+    ],
+    speed: 0.3,
+    rest: 40,
+    moving: { trail: 48, trailBeforeHop: 56 },
+    end: { region: "lane", lane: "bottom" },
+    requires: { lanes: { since: STEP_SINCE } },
+  },
   {
     id: "landing-across-items",
     title: "A fast hand across docked items trails no further than it must",
