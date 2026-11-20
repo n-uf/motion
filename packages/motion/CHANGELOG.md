@@ -27,7 +27,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   outside every lane no guide shows. `LandingApproach` and its hysteresis stay (a lane is kept until another is `nearer`
   closer), with one default more: `keep` is 12 (was 96), and is read as at least `reach`, so a lane acquired within
   reach is never dropped at once. Otherwise a guide would linger up to 96 px after the pointer left the lane, in open
-  space where a release floats. Host notes: a host that wants the early guide sets `approach: { reach: 80, keep: 96 }`
+  space where a release floats. A lane is acquired only within `reach - margins.spot` (6 px) and kept to `reach`, so a
+  pointer wobbling across the reach's edge never blinks the guide (with `keep` equal to `reach` there was no band).
+  Host notes: a host that wants the early guide sets `approach: { reach: 80, keep: 96 }`
   (the old values); nothing else to change.
 - `./drag`, **`guideRects` thins a box a clear rect pokes into** (fix, rule C3). A clear rect, grown by its clearance,
   that covered only part of a box's thickness always cut the box along its length on the facing side, so a neighbor

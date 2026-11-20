@@ -54,7 +54,8 @@ import type { PlaceGuides } from "./preview";
  *   spots' landings. `"near"` shows a lane only where the pointer can enter it: the held lane's (also over its own
  *   refused stretch); else the pending lane's (the pointer inside it, its gate not passed: a release floats or goes
  *   home); else, with the pointer in open space, the approached lane's (the nearest within `reach`, by default the
- *   entry margin `exit`: a release floats). Over a refused place outside every lane no guide shows, however near the
+ *   entry margin `exit`, acquired within `reach - spot` and kept to `reach`, so it never blinks at the edge: a release
+ *   floats). Over a refused place outside every lane no guide shows, however near the
  *   lane behind it lies; a host that wants the early guide sets `approach.reach`.
  * - Steps are measured between points that differ, normalized to 125 Hz, so the gates read the same at any input rate.
  *   A repeated point keeps the last step; it is still only once the pointer has stayed put for `rest` ms.
@@ -469,13 +470,15 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       }
     }
     // The approached lane: the nearest within reach, kept until another is clearly nearer or it is past `keep` (at least
-    // `reach`: a lane acquired within reach is never dropped at once).
+    // `reach`: a lane acquired within reach is never dropped at once). Acquired only within `reach - margins.spot`, so a
+    // pointer wobbling at the reach's edge never blinks the guide: there is a band between acquiring and letting go.
+    const acquire = Math.max(0, approach.reach - margins.spot);
     const kept = laneIn(regions, approached);
     if (kept) {
       const d = distanceTo(kept.rect, p);
       if (d > Math.max(approach.keep, approach.reach)) approached = null;
-      else if (best && best.id !== kept.id && bestD + approach.nearer < d) approached = bestD <= approach.reach ? best.id : null;
-    } else approached = best && bestD <= approach.reach ? best.id : null;
+      else if (best && best.id !== kept.id && bestD + approach.nearer < d) approached = bestD <= acquire ? best.id : null;
+    } else approached = best && bestD <= acquire ? best.id : null;
     const l = laneIn(regions, approached);
     return l ? all(l) : [];
   }
