@@ -65,9 +65,9 @@ const tileThumb = [...layoutSplit(START, { x: 14, y: 14, width: 252, height: 122
       <li><b>What you see is what you get:</b> the preview and the drop come from the same data.</li>
       <li><b>Every layout change animates:</b> any rects, one settle.</li>
       <li><b>The real element moves:</b> no copies, it lands from where you let go.</li>
-      <li><b>None imports another:</b> plain data between them, any framework or none.</li>
+      <li><b>Motion imports neither of the others:</b> plain data between them, any framework or none.</li>
     </ul>
-    <p class="caveat">The demo windows' slots are rects from docking's layouts; they glide on motion's settle, and the swap runs motion's own drag intent (<code>createDragIntent</code>), as the hero does with <code>holdItem</code>, a direct drag. The examples below are compiled against the libraries. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink>, <ExtLink href={npmDockingUrl}>@n-uf/docking</ExtLink></p>
+    <p class="caveat">The demo windows' slots are rects from placement's tiling; they glide on motion's settle, and the swap runs motion's own drag intent (<code>createDragIntent</code>), as the hero does with <code>holdItem</code>, a direct drag. The examples below are compiled against the libraries. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink>, <ExtLink href={npmDockingUrl}>@n-uf/docking</ExtLink></p>
     </div>
   </section>
 
@@ -112,17 +112,17 @@ const tileThumb = [...layoutSplit(START, { x: 14, y: 14, width: 252, height: 122
           <div><dt>Drop targets</dt><dd><code>targets</code> returns every drop target of one item in the shape motion's drag takes, each carrying the layout a release there makes; <code>stops</code> orders them for the arrow keys. Pure changes and a stored form.</dd></div>
           <div><dt><code>./testing</code></dt><dd>The conformance rows: checks that a layout and its drops keep the docking rules.</dd></div>
         </dl>
-        <p class="not"><b>It doesn't</b> draw panels or tabs, and it moves nothing: dock state in, rects and drop targets out. No DOM, no dependencies.</p>
+        <p class="not"><b>It doesn't</b> draw panels or tabs, and it moves nothing: dock state in, rects and drop targets out. No DOM, no framework.</p>
         <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/docking</code> <ExtLink href={dockingPart.readme}>README on GitHub</ExtLink> <a href="/docs/docking/">Docs</a></p>
       </article>
     </div>
-    <p class="does-together"><b>Alone or together.</b> They compose without importing each other: docking's drop targets are what motion's drag takes, a rect from any of them is what motion's layout glides to, and popups and tiles come from placement.</p>
+    <p class="does-together"><b>Alone or together.</b> Motion imports neither of the others: docking's drop targets are what motion's drag takes, a rect from any of them is what motion's layout glides to, and popups and tiles come from placement.</p>
   </section>
 
-  <!-- Use one, or together: four cards, then one example per package (each compiled against it). -->
+  <!-- Use one, or combine them: four cards, then one example per package (each compiled against it). -->
   <section class="wrap section sx use-pair hx" aria-labelledby="use-pair-title">
     <div class="section-head">
-      <span class="eyebrow">Use one, or together</span>
+      <span class="eyebrow">Use one, or combine them</span>
       <h2 id="use-pair-title">Pick what you need</h2>
     </div>
     <div class="use-cards">
