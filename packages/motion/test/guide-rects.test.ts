@@ -33,6 +33,17 @@ describe("guideRects", () => {
     expect(l!.rect.width).toBe(r!.rect.width);
   });
 
+  it("a guide already inside comes back as given (the same object), and a non-finite inset is the default", () => {
+    const gs: PlacedGuide[] = [
+      { kind: "box", rect: rect(10.123456789, 20, 83.39249760564417, 36) },
+      { kind: "line", rect: rect(500.1, 3, 2, 33.7) },
+      { kind: "hatch", rect: rect(3, 40, 8, 500) },
+    ];
+    const out = guideRects(gs, { inside, inset: 2 });
+    expect(out.every((g, i) => g === gs[i])).toBe(true);
+    expect(guideRects([{ kind: "box", rect: rect(0, 0, 50, 50) }], { inside, inset: Number.NaN })[0]!.rect).toEqual(rect(3, 3, 47, 47));
+  });
+
   it("a thin guide with less room than its least thickness is left out", () => {
     const g = guideRects([{ kind: "hatch", rect: rect(0, 40, 8, 500) }], { inside, inset: 2, clear: [rect(4, 40, 200, 500)] });
     expect(g).toEqual([]);
