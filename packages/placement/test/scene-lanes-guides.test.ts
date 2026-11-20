@@ -314,7 +314,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     expect(held.marks.filter((m) => m.kind === "box").every((m) => /:(before|after)/.test(m.id))).toBe(true);
   });
 
-  it("the cues (A1–A4, B1–B2): room that fits a box; room that partly fits a box with a fixed striped end inside it at the side that gives way; under a pitch, or none, a line; never a mark on an item", () => {
+  it("the cues: room that fits a box; room that partly fits a box with a fixed striped end inside it at the side that gives way; under a pitch, or none, a line; never a mark on an item", () => {
     const at = (r: Rect, a: "x" | "y"): [number, number] => (a === "x" ? [r.x, r.x + r.width] : [r.y, r.y + r.height]);
     /** In `l` as drawn: no box, line or hatch over an item drawn (but the held one's own lane edge), and each hatch a fixed end inside a box of its place. */
     const cues = (where: string, l: ReturnType<typeof lanes>["lanes"][number], drawn: ReturnType<typeof solve>, held: string | null): void => {
@@ -326,7 +326,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
         expect(box, `${where} ${h.id} inside its box`).toBeDefined();
       }
     };
-    // B2: no free room at a rail's head (its toolbars start at its padding): a line at the end, no stripes.
+    // No free room at a rail's head (its toolbars start at its padding): a line at the end, no stripes.
     const s = docWindow();
     const previous = solve(s);
     const rail = lanes(s, "views", { previous }).lanes.find((x) => x.id === "rail-left")!;
@@ -334,8 +334,8 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     // B1: touching neighbors keep their line.
     expect(rail.marks.find((m) => markPair(m.id) === "tools|zoom")?.kind).toBe("line");
     cues("rail", rail, previous, "views");
-    // A bar with a start toolbar and an end toolbar, swept narrower: the room between them fits (A1, a box alone), then
-    // partly fits (A2/A3, a box with a striped end), then is under a pitch (A4, a line); held at every spot too.
+    // A bar with a start toolbar and an end toolbar, swept narrower: the room between them fits (a box alone), then
+    // partly fits (a box with a striped end), then is under a pitch (a line); held at every spot too.
     const kinds = new Set<string>();
     for (let w = 520; w <= 900; w += 10) {
       const b: Scene = {
@@ -383,7 +383,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     expect(bad.slice(0, 6)).toEqual([]);
   });
 
-  it("D3: an empty side rail by a column is a lane one rail wide at the window's edge, drawn as a thin striped edge on the column's window side (no box, no band over the content)", () => {
+  it("an empty side rail by a column is a lane one rail wide at the window's edge, drawn as a thin striped edge on the column's window side (no box, no band over the content)", () => {
     const s = docWindow();
     const previous = solve(s);
     const rs = lanes(s, "views", { previous });
