@@ -485,6 +485,15 @@ describe("landing model: a lane lying over a place that takes nothing is entered
     expect(frames.at(-1)!.release).toMatchObject({ kind: "spot", lane: "rail-right" });
   });
 
+  it("a fast pass into the band enters nothing, and every frame in it names the band `pending` (a host shows no \"Can't go here\" there)", () => {
+    const { frames } = run(base({ regions: withRightRail() }), path([{ x: 15, y: 300 }, { x: 600, y: 300 }, { x: 1078, y: 300 }], 0.6));
+    const inBand = frames.filter(({ p }) => p.x > 1050.5);
+    expect(inBand.length).toBeGreaterThan(0);
+    expect(inBand.filter(({ f }) => f.lane === "rail-right" || f.pending !== "rail-right").map(({ p, f }) => `${Math.round(p.x)} ${f.region} ${f.lane ?? ""} ${f.pending ?? ""}`)).toEqual([]);
+    // Outside every lane, nothing pending.
+    expect(frames.filter(({ p }) => p.x > 600 && p.x < 1049).every(({ f }) => f.pending === undefined)).toBe(true);
+  });
+
   it("not on the lift: a drag that starts in the band and moves fast away never enters it", () => {
     const { frames } = run(base({ regions: withRightRail(), home: undefined }), path([{ x: 1060, y: 300 }, { x: 600, y: 300 }], 3));
     expect(frames.some(({ f }) => f.lane === "rail-right")).toBe(false);

@@ -172,6 +172,12 @@ export interface LandingFrame {
   readonly guides: readonly LandingGuide[];
   /** Shift held: the region is open space wherever it was a lane or open space. */
   readonly shift: boolean;
+  /**
+   * The lane the pointer is inside but hasn't entered (its gate not passed yet: a fast pass, or the moment before a slow
+   * step), else absent. A host shows no "Can't go here" while it is set, though a release now lands nowhere: the place
+   * under the pointer is a lane's, not a refused one.
+   */
+  readonly pending?: string;
 }
 
 /** What a release lands: a spot (`home` when it is the item's own place), the float at `rect`, or nothing. */
@@ -379,6 +385,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     }
 
     let region: LandingRegion;
+    let pending: string | null = null;
     if (!inside(regions.stage, p)) {
       // Outside the stage: nowhere, and the lane is let go.
       region = "nowhere";
@@ -421,6 +428,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
             const deep = depthIn(l.rect, p, regions.stage);
             if ((gate(l) || overRefused(l)) && (!entered || deep > depthIn(entered.rect, p, regions.stage))) entered = l;
           }
+        // Inside a lane not entered yet: no refused place to say so of, whatever lies under it.
+        if (!entered && lanesHere.length > 0) pending = lanesHere.reduce((a, b) => (depthIn(b.rect, p, regions.stage) > depthIn(a.rect, p, regions.stage) ? b : a)).id;
         if (entered) {
           laneId = entered.id;
           const s = pick(entered, alongOf(entered, p));
@@ -446,6 +455,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       room: shown === "lane" && !!spot,
       guides: guidesFor(p, shown, shift),
       shift,
+      ...(pending && shown !== "lane" ? { pending } : {}),
     };
     return frame;
   }
