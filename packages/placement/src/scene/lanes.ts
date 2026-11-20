@@ -360,6 +360,8 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     for (let i = raws.length - 1; i >= 0; i--) if (absorbed.has(raws[i]!)) raws.splice(i, 1);
     raws.push(...spots);
   } else if (pitch > 0) raws.push(...pitchedSpots(scene, dragged, options, seen, raws, pitch));
+  // Over a neighbor itself, the item takes its place and the neighbor gives way, in either mode (`takeoverSpots`).
+  raws.push(...takeoverSpots(scene, dragged, options, seen, raws, pitch > 0 ? pitch : SPOT_PITCH));
   const byLane = new Map<string, Raw[]>();
   for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
   // Panel columns take a panel by halves of the panels drawn; bars and toolbar rails by the gap between landings.
@@ -818,8 +820,9 @@ interface StretchEdge {
 
 /** One free stretch: `[a, b]` along the edge between its neighbors, the zones a dock there takes, and its place. */
 interface Stretch {
-  readonly before: { readonly id: string } | undefined;
-  readonly after: { readonly id: string } | undefined;
+  /** The neighbors either side, as the drop finds them (the held item lifted). */
+  readonly before: { readonly id: string; readonly r: Rect } | undefined;
+  readonly after: { readonly id: string; readonly r: Rect } | undefined;
   readonly a: number;
   readonly b: number;
   /** A start dock follows a start item or the edge's start; an end dock precedes an end item or the edge's end. */
@@ -869,6 +872,49 @@ function stretches(scene: Scene, dragged: string, options: LaneOptions, seen: Sc
       each({ before, after, a, b, zones, atOf: (zone) => others.slice(0, i).filter((o) => zoneOf(o) === zone).length, spaceAt: (zone, x0) => (zone === "start" ? x0 - a : b - (x0 + w)) });
     }
   }
+}
+
+/**
+ * Where the pointer stops decides: over a stretch's free room a dock consumes the room (its ends and pitched or sliding
+ * spots, the neighbors staying put), and over a neighbor itself the item takes that neighbor's place and the neighbor
+ * gives way by the item's length. These are the takeover spots, one per neighbor of a stretch on its zone's side: the
+ * item at the start of the start-zone item after the stretch, or at the end of the end-zone item before it, keeping the
+ * space that puts it there (the neighbor keeps no room, `moveTo`). So passing a neighbor longer than the room beside
+ * it, the landings either side are never further apart than the item, and the item stays at the hand. Kept where it
+ * lands there with every fixed item kept and not on another spot's landing.
+ */
+function takeoverSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], pitch: number): Raw[] {
+  const out: Raw[] = [];
+  stretches(scene, dragged, options, seen, raws, (run) => {
+    const { e, axis, w } = run;
+    const taken = [...run.mine.map((r) => r.landing)];
+    const emit = (zone: Zone, at: number, space: number, x0: number, nb: string): void => {
+      const hit = landsAt(scene, dragged, run, { edge: e.id, zone, at, space }, x0);
+      if (!hit) return;
+      const { next, layout } = hit;
+      const landed = layout.items[dragged]!;
+      if (taken.some((r) => Math.abs(lo(r, axis) - lo(landed.rect, axis)) < pitch / 2)) return;
+      taken.push(landed.rect);
+      const n = neighbors(layout, e.id, dragged, axis);
+      const result = { scene: next, layout };
+      const target: SceneTarget = { id: `pitch:${e.id}:${zone}:${at}:in:${nb}`, priority: 2, hit: landed.rect, slot: landed.rect, item: dragged, place: { kind: "gap", edge: e.id, zone, at }, after: () => result };
+      out.push({ lane: e.id, edge: e.id, axis, id: `${e.id}/${zone}/${n.before}|${n.next}@in:${nb}`, ...n, landing: landed.rect, layout, target, hit: landed.rect });
+    };
+    return ({ zones, atOf, spaceAt, before, after }) => {
+      const zoneOf = (id: string): Zone => (scene.items[id]?.align as Zone | undefined) ?? "start";
+      // The item at the start of the start-zone neighbor after the stretch.
+      if (after && zones.includes("start") && zoneOf(after.id) === "start" && !scene.items[after.id]?.fixed) {
+        const x0 = lo(after.r, axis);
+        emit("start", atOf("start"), Math.max(0, spaceAt("start", x0)), x0, after.id);
+      }
+      // The item at the end of the end-zone neighbor before it.
+      if (before && zones.includes("end") && zoneOf(before.id) === "end" && !scene.items[before.id]?.fixed) {
+        const x0 = lo(before.r, axis) + len(before.r, axis) - w;
+        emit("end", atOf("end"), Math.max(0, spaceAt("end", x0)), x0, before.id);
+      }
+    };
+  });
+  return out;
 }
 
 /** The dock `place` on `run`'s edge, if it lands the item's start at `x0` (within 1 px) with every fixed item kept. */

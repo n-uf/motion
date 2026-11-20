@@ -37,6 +37,11 @@ export const GRAB_SINCE = "26.11.46";
  * apart at the grab too, so a toolbar held by its grip hopped a neighbor early): the grip rows need it.
  */
 export const GRIP_SINCE = "26.11.48";
+/**
+ * The first library version where a dock consumes the room it lands in and an item over a neighbor takes its place (the
+ * neighbor giving way): the rows passing a neighbor that keeps room need it.
+ */
+export const ROOM_SINCE = "26.11.50";
 /** The last published version without `lanes()`. */
 export const LAST_WITHOUT_LANES = "26.11.44";
 /** From this date every landing row runs on every host (or at the breaking release, if that comes first). */
@@ -578,6 +583,28 @@ export const LANDING_CASES: readonly LandingCase[] = [
     moving: { lane: "rail-left", trail: 48, trailBeforeHop: 56 },
     requires: { lanes: { since: GRIP_SINCE } },
   },
+  ...([0.15, 0.6] as const).map(
+    (speed): LandingCase => ({
+      id: `landing-room-up-past-placed-${speed === 0.15 ? "slow" : "fast"}`,
+      title: `A rail toolbar held by its grip and pulled up past a long neighbor that keeps room stays at the hand (${speed} px/ms)`,
+      expect: `Tools (158 px) keeps 100 px of room above it at the rail's head, and Zoom keeps 80 px below Tools. Zoom pressed by its grip and pulled straight up past Tools to the rail's head at ${speed} px/ms: every frame holds the rail, and the landing lies within 48 px of the pointer, 56 on the frame before a hop. Over the free room a drop consumes it; over Tools, Zoom takes Tools' place and Tools gives way, so the landings either side of Tools are never a whole Tools apart.`,
+      scene: (() => {
+        const s = landingWindow();
+        const tools = group("tools", 1);
+        const zoom = group("zoom", 2);
+        return { ...s, items: { ...s.items, tools: { ...tools, space: 100, forms: { ...tools.forms, column: [form("icons", 158, 158, 28), form("menu", 0, 0, 0)] } }, zoom: { ...zoom, space: 80 } } };
+      })(),
+      item: "zoom",
+      path: [
+        { x: 15, y: 380 },
+        { x: 15, y: 40 },
+      ],
+      speed,
+      rest: 40,
+      moving: { lane: "rail-left", trail: 48, trailBeforeHop: 56 },
+      requires: { lanes: { since: ROOM_SINCE } },
+    }),
+  ),
   {
     id: "landing-across-items",
     title: "A fast hand across docked items trails no further than it must",

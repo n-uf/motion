@@ -5,7 +5,7 @@
 import { createLandingModel } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import { solve, type Scene, type SceneLayout } from "../src/scene";
-import { createLandingHost, GRAB_SINCE, GRIP_SINCE, LANDING_CASES, landingIssues, LANES_DEADLINE, LANES_SINCE, LAST_WITHOUT_LANES, lanesRatchet, runLandingCases, type LandingCaseFrame, type LandingCaseHost } from "../src/scene/cases";
+import { createLandingHost, GRAB_SINCE, GRIP_SINCE, LANDING_CASES, ROOM_SINCE, landingIssues, LANES_DEADLINE, LANES_SINCE, LAST_WITHOUT_LANES, lanesRatchet, runLandingCases, type LandingCaseFrame, type LandingCaseHost } from "../src/scene/cases";
 import pkg from "../package.json";
 
 /** The landing rows the reference host skips: none. A host's suite keeps its own count, which may only fall. */
@@ -22,7 +22,7 @@ describe("the landing rows", () => {
 
   it("every row needs lanes from the first version that has them (the back-home rows, the grab's), and has a unique id", () => {
     expect(new Set(LANDING_CASES.map((r) => r.id)).size).toBe(LANDING_CASES.length);
-    for (const r of LANDING_CASES) expect(r.requires.lanes.since, r.id).toBe(r.id.startsWith("landing-back-home") ? GRAB_SINCE : r.id.startsWith("landing-grip") ? GRIP_SINCE : LANES_SINCE);
+    for (const r of LANDING_CASES) expect(r.requires.lanes.since, r.id).toBe(r.id.startsWith("landing-back-home") ? GRAB_SINCE : r.id.startsWith("landing-grip") ? GRIP_SINCE : r.id.startsWith("landing-room") ? ROOM_SINCE : LANES_SINCE);
   });
 
   it("a host on an older library skips them, and says why", async () => {
@@ -83,6 +83,9 @@ describe("the landing rows", () => {
     // The grip's rows: after the grab's, and no later than this package's release once it is past the grab's.
     expect(n(GRIP_SINCE)).toBeGreaterThan(n(GRAB_SINCE));
     if (n(pkg.version) > n(GRAB_SINCE) + 1) expect(n(GRIP_SINCE)).toBeLessThanOrEqual(n(pkg.version));
+    // The room's rows: after the grip's, and no later than this package's release once it is past the grip's.
+    expect(n(ROOM_SINCE)).toBeGreaterThan(n(GRIP_SINCE));
+    if (n(pkg.version) > n(GRIP_SINCE) + 1) expect(n(ROOM_SINCE)).toBeLessThanOrEqual(n(pkg.version));
   });
 });
 
