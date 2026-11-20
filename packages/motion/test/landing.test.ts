@@ -611,3 +611,67 @@ describe("landing model: a lane that owns its rect (a rail drop strip) takes the
     expect(frames.filter(({ f }) => f.lane === "rail:right").length).toBe(0);
   });
 });
+
+describe("landing model: the lift zone belongs to the item's own lane, whatever lane the pointer came through", () => {
+  /**
+   * A toolbar at the top of a left rail (x 1–31 from y 29) and an empty top bar whose lane (y 29–60, the full width)
+   * overlaps the rail's top corner. The toolbar is pressed at (15, 35), inside both lanes.
+   */
+  function corner(sliding = false): LandingRegions {
+    const own = rect(1, 29, 30, 102);
+    const rail: LandingLane = {
+      id: "rail",
+      rect: rect(1, 29, 30, 579),
+      axis: "y",
+      spots: [{ id: "rail/start/^|$", along: [29, 608], landing: own, ...(sliding ? { slide: { from: 29, to: 506, snaps: [29, 506] } } : {}) }],
+      refused: [],
+    };
+    const bar: LandingLane = { id: "top", rect: rect(0, 29, 1080, 31), axis: "x", spots: [{ id: "top/start/^|$", along: [0, 1080], landing: rect(38, 33, 75, 24) }], refused: [] };
+    return { lanes: [rail, bar], refused: [], content: rect(31, 60, 1049, 548), blocked: [rect(1, 29, 30, 579), rect(0, 29, 1080, 31)], stage: STAGE, item: { width: 30, height: 102 } };
+  }
+  const PRESS: Point = { x: 15, y: 35 };
+  const HOME = { lane: "rail", spot: "rail/start/^|$" };
+  const homeRelease = { kind: "spot", lane: "rail", spot: "rail/start/^|$", home: true };
+  const opts = (regions: LandingRegions): LandingOptions => ({ regions, floatLanding: FLOAT, home: HOME, lift: PRESS });
+
+  for (const [speed, label] of [
+    [0.15, "150 px/s"],
+    [0.6, "600 px/s"],
+  ] as const)
+    it(`an empty bar's band over the rail's corner: away into the document and back to the press point at ${label} is home`, () => {
+      const there = path([PRESS, { x: 400, y: 300 }, PRESS], speed);
+      const t = there.at(-1)![0];
+      const { frames } = run(opts(corner()), [...there, [t + 300, PRESS.x, PRESS.y]]);
+      const last = frames.at(-1)!;
+      expect([last.f.lane, last.f.spot, last.release]).toEqual(["rail", "rail/start/^|$", homeRelease]);
+    });
+
+  it("the same with free positions: the landing is the item's own place exactly, and a slide inside the home lane still follows the hand", () => {
+    const there = path([PRESS, { x: 400, y: 300 }, PRESS], 0.15);
+    const t = there.at(-1)![0];
+    const home = run(opts(corner(true)), [...there, [t + 300, PRESS.x, PRESS.y]]).frames.at(-1)!;
+    expect(home.release).toEqual({ ...homeRelease, at: 29 });
+    expect(home.f.landing!.y).toBe(29);
+    // Slid down the rail 120 px (out of the lift zone, in the rail only), the landing follows it.
+    const slid = run(opts(corner(true)), [...path([PRESS, { x: 15, y: 160 }], 0.15), [1200, 15, 160]]).frames.at(-1)!;
+    expect(slid.f.lane).toBe("rail");
+    expect(slid.release).toMatchObject({ kind: "spot", lane: "rail", home: false });
+  });
+
+  it("a return through a plain lane to the lift point is home: in along the bar's band at 150 px/s, then onto the press point", () => {
+    const there = path([PRESS, { x: 400, y: 300 }, { x: 300, y: 45 }, { x: 60, y: 45 }, PRESS], 0.15);
+    const t = there.at(-1)![0];
+    const { frames } = run(opts(corner()), [...there, [t + 300, PRESS.x, PRESS.y]]);
+    // The band took the pointer on the way (the bar was held), and the lift zone gave it back.
+    expect(frames.some(({ f }) => f.lane === "top")).toBe(true);
+    const last = frames.at(-1)!;
+    expect([last.f.lane, last.release]).toEqual(["rail", homeRelease]);
+  });
+
+  it("outside the lift zone nothing changes: held in the bar's band, a pointer past the zone still lands in the bar", () => {
+    const there = path([PRESS, { x: 400, y: 300 }, { x: 300, y: 45 }, { x: 80, y: 45 }], 0.15);
+    const t = there.at(-1)![0];
+    const last = run(opts(corner()), [...there, [t + 300, 80, 45]]).frames.at(-1)!;
+    expect(last.f.lane).toBe("top");
+  });
+});
