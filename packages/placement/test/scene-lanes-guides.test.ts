@@ -5,7 +5,7 @@
 import { createLandingModel } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/geometry";
-import { lanes, solve, SPOT_PITCH, type Scene, type SceneItem } from "../src/scene";
+import { HATCH_EDGE, HATCH_END, lanes, solve, SPOT_PITCH, type Scene, type SceneItem } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { modelScene } from "./model-scene";
 import { bar, byId, column, controls, group, panel, title } from "./scene-fixture";
@@ -314,46 +314,28 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     expect(held.marks.filter((m) => m.kind === "box").every((m) => /:(before|after)/.test(m.id))).toBe(true);
   });
 
-  it("hatched room: short room is drawn as its spot lands, a box over the free room and a hatch over the neighbor that gives way", () => {
+  it("the cues (A1–A4, B1–B2): room that fits a box; room that partly fits a box with a fixed striped end inside it at the side that gives way; under a pitch, or none, a line; never a mark on an item", () => {
     const at = (r: Rect, a: "x" | "y"): [number, number] => (a === "x" ? [r.x, r.x + r.width] : [r.y, r.y + r.height]);
-    /** Every pair with a hatch in `l`: box + hatch = its spot's landing, each hatch over an item drawn, none over `held`. */
-    const drawnAsLanded = (where: string, l: ReturnType<typeof lanes>["lanes"][number], drawn: ReturnType<typeof solve>, held: string | null): void => {
+    /** In `l` as drawn: no box, line or hatch over an item drawn (but the held one's own lane edge), and each hatch a fixed end inside a box of its place. */
+    const cues = (where: string, l: ReturnType<typeof lanes>["lanes"][number], drawn: ReturnType<typeof solve>, held: string | null): void => {
       const items = Object.entries(drawn.items).filter(([iid, it]) => it.edge === l.id && !it.inMenu && !it.floating && it.rect.width > 0 && iid !== held);
-      for (const p of new Set(l.marks.filter((m) => m.kind === "hatch").map((m) => markPair(m.id)))) {
-        const parts = l.marks.filter((m) => markPair(m.id) === p && (m.kind === "hatch" || m.kind === "box"));
-        const spot = l.spots.find((sp) => pairOf(sp.id) === p && !sp.id.includes("@"))!;
-        const total = parts.reduce((sum, m) => sum + len(m.rect, l.axis), 0);
-        // The whole landing, unless a hatch already reaches the held item (never drawn over it).
-        const g = held && drawn.items[held]?.edge === l.id ? at(drawn.items[held]!.rect, l.axis) : null;
-        const capped = !!g && parts.some((m) => m.kind === "hatch" && (Math.abs(at(m.rect, l.axis)[1] - g[0]) < 0.5 || Math.abs(at(m.rect, l.axis)[0] - g[1]) < 0.5));
-        expect(total, `${where} ${l.id} ${p}: box + hatch vs landing`).toBeLessThanOrEqual(len(spot.landing, l.axis) + 0.5);
-        if (!capped) expect(Math.abs(total - len(spot.landing, l.axis)), `${where} ${l.id} ${p}: box + hatch ${total} vs landing`).toBeLessThan(0.5);
-        // Named by side of the room: every `:before` hatch lies before every `:after` one (an id never changes sides).
-        const sideOf = (m: (typeof parts)[number]): string => (m.id.includes(":before") ? "before" : "after");
-        const befores = parts.filter((m) => m.kind === "hatch" && sideOf(m) === "before").map((m) => at(m.rect, l.axis)[1]);
-        const afters = parts.filter((m) => m.kind === "hatch" && sideOf(m) === "after").map((m) => at(m.rect, l.axis)[0]);
-        if (befores.length && afters.length) expect(Math.max(...befores), `${where} ${p}: hatch sides`).toBeLessThanOrEqual(Math.min(...afters) + 0.5);
-        for (const h of parts.filter((m) => m.kind === "hatch")) {
-          const [h0, h1] = at(h.rect, l.axis);
-          expect(items.some(([, it]) => Math.min(h1, at(it.rect, l.axis)[1]) - Math.max(h0, at(it.rect, l.axis)[0]) > 0.5), `${where} ${h.id} over an item`).toBe(true);
-          if (held && drawn.items[held]?.edge === l.id) {
-            const [g0, g1] = at(drawn.items[held]!.rect, l.axis);
-            expect(Math.min(h1, g1) - Math.max(h0, g0), `${where} ${h.id} over the held item`).toBeLessThanOrEqual(0.5);
-          }
-        }
+      for (const m of l.marks) for (const [iid, it] of items) expect(overlaps(m.rect, it.rect), `${where} ${m.id} over ${iid}`).toBe(false);
+      for (const h of l.marks.filter((m) => m.kind === "hatch")) {
+        expect(len(h.rect, l.axis), `${where} ${h.id} is a fixed end`).toBeLessThanOrEqual(HATCH_END + 1e-6);
+        const box = l.marks.find((m) => m.kind === "box" && markPair(m.id) === markPair(h.id) && at(m.rect, l.axis)[0] <= at(h.rect, l.axis)[0] + 1e-6 && at(m.rect, l.axis)[1] >= at(h.rect, l.axis)[1] - 1e-6);
+        expect(box, `${where} ${h.id} inside its box`).toBeDefined();
       }
     };
-    // No free room at a rail's head (its toolbars start at its padding): the hatch alone, the held toolbar's whole landing.
+    // B2: no free room at a rail's head (its toolbars start at its padding): a line at the end, no stripes.
     const s = docWindow();
     const previous = solve(s);
     const rail = lanes(s, "views", { previous }).lanes.find((x) => x.id === "rail-left")!;
-    const head = rail.marks.filter((m) => markPair(m.id) === "^|tools");
-    expect(head.map((m) => m.kind), head.map((m) => m.id).join()).toEqual(["hatch"]);
-    drawnAsLanded("rail head", rail, previous, "views");
-    // Touching neighbors (no room but the edge's gap) keep their line.
+    expect(rail.marks.filter((m) => markPair(m.id) === "^|tools").map((m) => m.kind)).toEqual(["line"]);
+    // B1: touching neighbors keep their line.
     expect(rail.marks.find((m) => markPair(m.id) === "tools|zoom")?.kind).toBe("line");
-    // A bar with a start toolbar and an end toolbar, swept narrower: the room between them fits the held toolbar (a box
-    // alone), then falls short (a box and a hatch); at every width and every held spot, box + hatch = landing.
+    cues("rail", rail, previous, "views");
+    // A bar with a start toolbar and an end toolbar, swept narrower: the room between them fits (A1, a box alone), then
+    // partly fits (A2/A3, a box with a striped end), then is under a pitch (A4, a line); held at every spot too.
     const kinds = new Set<string>();
     for (let w = 520; w <= 900; w += 10) {
       const b: Scene = {
@@ -364,11 +346,15 @@ describe("lanes(): a guide at every spot but the held one's", () => {
       };
       const prev = solve(b);
       const top = lanes(b, "g", { previous: prev }).lanes.find((x) => x.id === "top")!;
-      drawnAsLanded(`width ${w}`, top, prev, "g");
-      kinds.add(top.marks.filter((m) => markPair(m.id) === "a|z").map((m) => m.kind).sort().join("+"));
+      cues(`width ${w}`, top, prev, "g");
+      const here = top.marks.filter((m) => markPair(m.id) === "a|z");
+      const room = at(prev.items.z!.rect, "x")[0] - at(prev.items.a!.rect, "x")[1];
+      kinds.add(here.map((m) => m.kind).sort().join("+"));
+      // Under a pitch: a line, never a sliver box.
+      if (room < SPOT_PITCH - 0.5) expect(here.map((m) => m.kind), `width ${w}`).toEqual(here.length ? ["line"] : []);
       for (const sp of top.spots) {
         const held = lanes(b, "g", { previous: prev, spot: sp.id }).lanes.find((x) => x.id === "top")!;
-        drawnAsLanded(`width ${w} held at ${sp.id}`, held, sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout, "g");
+        cues(`width ${w} held at ${sp.id}`, held, sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout, "g");
       }
     }
     expect([...kinds]).toEqual(expect.arrayContaining(["box", "box+hatch"]));
@@ -397,18 +383,23 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     expect(bad.slice(0, 6)).toEqual([]);
   });
 
-  it("an empty side rail is a lane one rail wide at the window's edge: its guide a hatch over the column's outer strip (it moves aside), and no refused place under it", () => {
+  it("D3: an empty side rail by a column is a lane one rail wide at the window's edge, drawn as a thin striped edge on the column's window side (no box, no band over the content)", () => {
     const s = docWindow();
     const previous = solve(s);
     const rs = lanes(s, "views", { previous });
     const rail = rs.lanes.find((x) => x.id === "rail-right")!;
     const column = previous.edges.right!.rect;
+    // The hit strip stays one rail wide.
     expect(rail.rect.x + rail.rect.width).toBeCloseTo(s.stage.x + s.stage.width, 3);
     expect(rail.rect.width).toBeCloseTo(30, 3);
     const hatches = rail.marks.filter((m) => m.kind === "hatch");
     expect(hatches.length, rail.marks.map((m) => `${m.kind} ${m.id}`).join()).toBeGreaterThan(0);
-    // Over the column's outer strip, and nothing over the column drawn as a box.
+    // No box over the column; each hatch at most `HATCH_EDGE` thick, along the window's edge.
     for (const m of rail.marks) if (m.kind === "box") expect(overlaps(m.rect, column), m.id).toBe(false);
+    for (const h of hatches) {
+      expect(h.rect.width, h.id).toBeLessThanOrEqual(HATCH_EDGE + 1e-6);
+      expect(h.rect.x + h.rect.width).toBeCloseTo(s.stage.x + s.stage.width, 3);
+    }
     expect(hatches.some((m) => overlaps(m.rect, column))).toBe(true);
   });
 
