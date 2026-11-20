@@ -39,6 +39,13 @@ export interface GuideRectsOptions {
   /** The least thickness a thin guide keeps, px (default 2); thinner, it is not drawn. A box a clear rect thinned is held to it too. */
   readonly minThickness?: number;
   /**
+   * The thickness a `line` guide is drawn at, px (default 2). A line thinner than this (placement gives the line
+   * between two docked panels zero thickness) is widened to it, centered on its own position, before the inset, the
+   * clear rects and `minThickness` apply; a line at least this thick is unchanged. Only lines are widened. `0` turns
+   * the widening off: a line keeps the thickness it has, and a zero-thick one is dropped by `minThickness`.
+   */
+  readonly lineThickness?: number;
+  /**
    * The least length, along the box's axis, a part of a box that a clear rect cut keeps, px (default 8,
    * `MIN_BOX_LENGTH`); shorter, that part is not drawn. Corner-cut parts included; a box nothing touches is kept as is.
    */
@@ -84,7 +91,9 @@ const EPS = 1e-6;
  *   (`b#2` would collide with the second part of `b`), and an `id` that is not a string is not suffixed (a split
  *   box's parts then share it: unsupported). Parts come back in order along the axis.
  *
- * A thin guide (a line, a striped strip or end: its
+ * A line thinner than `lineThickness` (default 2 px; a zero-thick line is a place between two things, a joint) is first
+ * widened to it, centered on its own position, so the inset, the clear rects and `minThickness` below see a line of that
+ * thickness; `lineThickness: 0` leaves lines as given. A thin guide (a line, a striped strip or end: its
  * shorter side is its thickness) keeps its thickness and moves inside rather than being clipped, so a line at a lane's
  * far end is as thick as at its head. Then it is thinned, from the content side, to stay that far clear of `clear`, so
  * a thin strip at the window's side lies between the inset and the content, the same on both sides. A guide with nothing left (or a thin one under `minThickness`) is left out. A clear rect whose x, y, width or height isn't finite is ignored. Pure; the guides come
@@ -93,6 +102,7 @@ const EPS = 1e-6;
 export function guideRects<G extends PlacedGuide>(guides: readonly G[], options: GuideRectsOptions): G[] {
   const inset = Number.isFinite(options.inset) ? Math.max(0, options.inset!) : 2;
   const min = Number.isFinite(options.minThickness) ? Math.max(0, options.minThickness!) : 2;
+  const lineThickness = Number.isFinite(options.lineThickness) ? Math.max(0, options.lineThickness!) : 2;
   const minLength = Number.isFinite(options.minLength) ? Math.max(0, options.minLength!) : MIN_BOX_LENGTH;
   // A guide placed where it already was comes back as given (the same rect object), so a host can key on it.
   const same = (a: Rect, b: Rect): boolean => Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS && Math.abs(a.width - b.width) < EPS && Math.abs(a.height - b.height) < EPS;
@@ -222,9 +232,13 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
     }
     // A thin guide: thick along one axis (its shorter side), long along the other.
     const thinX = r.width <= r.height;
+    // A line thinner than `lineThickness` is widened to it, centered on its own position, before anything else is
+    // applied (a non-finite thickness is left as is: it is dropped below).
+    const own = thinX ? r.width : r.height;
+    const widen = g.kind === "line" && own < lineThickness;
     // Along its thickness: moved inside whole; along its length: clipped.
-    const t = thinX ? r.width : r.height;
-    let lo = thinX ? r.x : r.y;
+    const t = widen ? lineThickness : own;
+    let lo = (thinX ? r.x : r.y) - (widen ? (lineThickness - own) / 2 : 0);
     const lim0 = thinX ? x0 : y0;
     const lim1 = thinX ? x1 : y1;
     if (lo + t > lim1) lo = lim1 - t;

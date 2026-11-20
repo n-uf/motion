@@ -67,6 +67,56 @@ describe("guideRects", () => {
     expect(guideRects([{ kind: "box", rect: rect(0, 0, 50, 50) }], { inside, inset: Number.NaN })[0]!.rect).toEqual(rect(3, 3, 47, 47));
   });
 
+  describe("lineThickness: a line thinner than it is widened, centered on its own position", () => {
+    it("a zero-thick vertical and horizontal line come back 2 px thick, centered where they were", () => {
+      const [v, h] = guideRects(
+        [
+          { kind: "line", rect: rect(100, 20, 0, 40) },
+          { kind: "line", rect: rect(200, 300, 90, 0) },
+        ],
+        { inside, inset: 2 },
+      );
+      expect(v!.rect).toEqual(rect(99, 20, 2, 40));
+      expect(h!.rect).toEqual(rect(200, 299, 90, 2));
+    });
+
+    it("a line already at least 2 px thick is unchanged, the same object where nothing moved", () => {
+      const three: PlacedGuide = { kind: "line", rect: rect(100, 20, 3, 40) };
+      const two: PlacedGuide = { kind: "line", rect: rect(300, 20, 2, 40) };
+      const [a, b] = guideRects([three, two], { inside, inset: 2 });
+      expect(a).toBe(three);
+      expect(b).toBe(two);
+    });
+
+    it("a line thinner than 2 px is widened to 2 px, a `lineThickness` of its own to that, and a thicker line is never narrowed", () => {
+      expect(guideRects([{ kind: "line", rect: rect(100, 20, 1, 40) }], { inside, inset: 2 })[0]!.rect).toEqual(rect(99.5, 20, 2, 40));
+      expect(guideRects([{ kind: "line", rect: rect(100, 20, 0, 40) }], { inside, inset: 2, lineThickness: 6 })[0]!.rect).toEqual(rect(97, 20, 6, 40));
+      expect(guideRects([{ kind: "line", rect: rect(100, 20, 3, 40) }], { inside, inset: 2, lineThickness: 6 })[0]!.rect).toEqual(rect(98.5, 20, 6, 40));
+      expect(guideRects([{ kind: "line", rect: rect(100, 20, 5, 40) }], { inside, inset: 2, lineThickness: 3 })[0]!.rect).toEqual(rect(100, 20, 5, 40));
+    });
+
+    it("`lineThickness: 0` keeps today's behaviour: a zero-thick line is dropped by `minThickness`, a thin one kept as it is", () => {
+      expect(guideRects([{ kind: "line", rect: rect(100, 20, 0, 40) }], { inside, inset: 2, lineThickness: 0 })).toEqual([]);
+      expect(guideRects([{ kind: "line", rect: rect(200, 300, 90, 0) }], { inside, inset: 2, lineThickness: 0 })).toEqual([]);
+      const thin: PlacedGuide = { kind: "line", rect: rect(100, 20, 1, 40) };
+      expect(guideRects([thin], { inside, inset: 2, lineThickness: 0, minThickness: 0 })[0]).toBe(thin);
+    });
+
+    it("the widening comes before the inset, the clear rects and `minThickness`", () => {
+      // At the window's edge: widened to 2 px centered (x -1 to 1), then moved inside by the inset (x 3 to 5).
+      expect(guideRects([{ kind: "line", rect: rect(0, 20, 0, 40) }], { inside, inset: 2 })[0]!.rect).toEqual(rect(3, 20, 2, 40));
+      // Beside content, the widened line is cut from the content side like any thin guide: 4 of its 6 px stay here,
+      // and with 2 px of room left only 1 px would stay, under `minThickness`, so it is dropped.
+      const line = (): PlacedGuide => ({ kind: "line", rect: rect(100, 20, 0, 40) });
+      expect(guideRects([line()], { inside, inset: 2, lineThickness: 6, clear: [rect(101, 0, 50, 100)], clearance: 0 })[0]!.rect).toEqual(rect(97, 20, 4, 40));
+      expect(guideRects([line()], { inside, inset: 2, clear: [rect(100, 0, 50, 100)], clearance: 0 })).toEqual([]);
+      // A `minThickness` above the widened thickness still drops it.
+      expect(guideRects([line()], { inside, inset: 2, minThickness: 3 })).toEqual([]);
+      // Only a line is widened: a zero-thick striped strip is still dropped.
+      expect(guideRects([{ kind: "hatch", rect: rect(100, 20, 0, 40) }], { inside, inset: 2 })).toEqual([]);
+    });
+  });
+
   it("a thin guide with less room than its least thickness is left out", () => {
     const g = guideRects([{ kind: "hatch", rect: rect(0, 40, 8, 500) }], { inside, inset: 2, clear: [rect(4, 40, 200, 500)] });
     expect(g).toEqual([]);
@@ -86,8 +136,8 @@ describe("guideRects", () => {
         expect(g.rect.y).toBeGreaterThanOrEqual(3 - 1e-9);
         expect(g.rect.x + g.rect.width).toBeLessThanOrEqual(1077 + 1e-9);
         expect(g.rect.y + g.rect.height).toBeLessThanOrEqual(637 + 1e-9);
-        // Its thickness: the input's shorter side, measured on the same axis.
-        if (kind !== "box") expect(across ? g.rect.width : g.rect.height).toBeCloseTo(thin, 9);
+        // Its thickness: the input's shorter side, measured on the same axis (a line under 2 px is widened to 2).
+        if (kind !== "box") expect(across ? g.rect.width : g.rect.height).toBeCloseTo(kind === "line" ? Math.max(thin, 2) : thin, 9);
       }
     }
   });
