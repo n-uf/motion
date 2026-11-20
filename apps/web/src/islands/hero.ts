@@ -1,6 +1,6 @@
 /**
  * Home hero (island): the scope of components/HeroScope.astro (motion's slot), run live on the package itself. The other
- * two slots have their own islands (islands/hero-pop.ts, islands/hero-dock.ts).
+ * two slots are static (components/HeroPlace.astro, components/HeroDoc.astro).
  *
  * - **The panel** is a real element carried by `@n-uf/motion/layout` (`createLayoutMotion` + `drawBox` on the site's
  *   frame loop) between two pads: a move settles, a size change is revealed rather than stretched, and a drag holds it
