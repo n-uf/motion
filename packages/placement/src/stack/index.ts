@@ -23,8 +23,11 @@ export { fitStack } from "./layout";
 export {
   DEFAULT_MENU,
   DEFAULT_RAIL,
+  formBody,
+  formCompact,
   formCrossMin,
   formFitsCross,
+  formFolded,
   formMain,
   formSetsCross,
   withItem,

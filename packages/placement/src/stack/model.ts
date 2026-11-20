@@ -3,8 +3,12 @@
  * row (horizontal, a bar). An item is a panel or a control group; it declares its forms, largest first, and the
  * solver (`fitStack`) picks one per item. Plain data in and out: no words, no time, no DOM.
  *
- * The form kinds are structural labels the app draws by; the solver reads only `menu` (a form with no room of its own)
- * and, for the cross size, `open`. Panel and group kinds may be mixed on one item.
+ * A form's kind is the host's label, the name it draws by. What a solver reads is said by fields: `setsCross` (it sets
+ * the stack's cross size), `body` (it shows its body: what `open` stands for), `folded` (it shows only its bar: what
+ * `header` and `fold` stand for), `compact` (icons only: what `icons` stands for), `title`, `wrap` and `hides`. Each of
+ * the three flags defaults from the kind, so forms that leave them out read as before. Two kinds stay structural: a
+ * `menu` form has no room of its own (the » entry stands for it), and under `ownCross` the group kinds (`row`,
+ * `stacked`, `wrap`, `icons`, `fold`) are drawn at their own size across. Panel and group kinds may be mixed on one item.
  */
 import type { Rect } from "../geometry";
 
@@ -57,6 +61,19 @@ export interface StackForm {
    * panel's `open`, false for everything else (a group never sets a column's width).
    */
   readonly setsCross?: boolean;
+  /**
+   * It shows its body: an open panel. Default: true for the kind `open`. It sets the cross size unless `setsCross` says
+   * otherwise, and a window model reads it as the item being open.
+   */
+  readonly body?: boolean;
+  /**
+   * It shows only its bar: a panel folded to its header, a group folded to its grip and ». Default: true for the kinds
+   * `header` and `fold`. A window model reads it as folded: a hand fold takes the first such form, and a float in it
+   * keeps its bar's height.
+   */
+  readonly folded?: boolean;
+  /** Icons only. Default: true for the kind `icons`. A window model's compact (icons-only) edge takes it. */
+  readonly compact?: boolean;
   /**
    * Give-way order (default 0). When the stack is too long, the step taken is the one into the lowest-ranked next
    * form across all items (the form the item would take, not the one it leaves); ties go unkept before kept, then the
@@ -319,8 +336,15 @@ export function spacingOf(input: StackInput): { readonly gap: number; readonly s
   return { gap: px(input.gap), start: px(input.pad?.start), end: px(input.pad?.end) };
 }
 
-/** Whether a form sets the stack's cross size: its own say, else true for a panel's `open`. */
-export const formSetsCross = (f: StackForm): boolean => f.setsCross ?? f.kind === "open";
+/** Whether a form shows its body (`body`, default: the kind `open`). */
+export const formBody = (f: StackForm): boolean => f.body ?? f.kind === "open";
+/** Whether a form shows only its bar (`folded`, default: the kinds `header` and `fold`). */
+export const formFolded = (f: StackForm): boolean => f.folded ?? (f.kind === "header" || f.kind === "fold");
+/** Whether a form is icons only (`compact`, default: the kind `icons`). */
+export const formCompact = (f: StackForm): boolean => f.compact ?? f.kind === "icons";
+
+/** Whether a form sets the stack's cross size: its own say, else whether it shows its body. */
+export const formSetsCross = (f: StackForm): boolean => f.setsCross ?? formBody(f);
 
 /** `input` with `item` inserted at index `at` (clamped to the items' range). */
 export function withItem(input: StackInput, item: StackItem, at: number): StackInput {

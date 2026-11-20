@@ -3,7 +3,7 @@
  * zone and forms, whether a side edge is a toolbar bar, and how an item floats (its orient, size and form). Pure.
  */
 import { clampInto, type Point, type Rect, type Size } from "../geometry";
-import type { StackForm } from "../stack";
+import { formFolded, type StackForm } from "../stack";
 import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_RAIL_MAGNET, RAIL_STRIP_MIN, ZONES, type ColumnTemplate, type Edge, type FloatAnchor, type FloatAnchorAt, type Kind, type Orient, type RailMode, type RailVisibility, type Scene, type SceneItem, type Side, type Zone, type ZoneAccepts } from "./model";
 
 const insetPx = (v: number | undefined): number => (Number.isFinite(v) ? Math.max(0, v!) : 0);
@@ -398,12 +398,12 @@ const foldedByHand = (item: SceneItem): boolean => Number.isFinite(item.from) &&
 const foldsToRail = (item: SceneItem, edge: Edge | undefined): boolean => !!item.fixed && edge?.foldable === true;
 
 /**
- * The index of the form a hand fold puts `item` in, among `forms`: a panel's `header` (its title bar) or a group's
- * `fold` (its grip and »), the first of either; where it `foldsToRail` on `edge` and has neither, its first `rail` tile.
+ * The index of the form a hand fold puts `item` in, among `forms`: the first that shows only its bar (`formFolded`: a
+ * panel's `header`, its title bar, or a group's `fold`, its grip and »); where it `foldsToRail` on `edge` and has neither, its first `rail` tile.
  * -1 when there is none: a hand fold means nothing on this axis.
  */
 export function foldedIndex(item: SceneItem, forms: readonly StackForm[], edge?: Edge): number {
-  const bar = forms.findIndex((f) => f.kind === "header" || f.kind === "fold");
+  const bar = forms.findIndex(formFolded);
   return bar >= 0 || !foldsToRail(item, edge) ? bar : forms.findIndex((f) => f.kind === "rail");
 }
 
