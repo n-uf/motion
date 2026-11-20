@@ -71,21 +71,22 @@ is expected, don't silence it (it also names `/lab/` where the lab is not built)
 - [ ] `apps/web/package.json`: add `"@n-uf/docking": "workspace:*"` (not added here: the package is not in the
       workspace and `pnpm install` would fail).
 - [ ] Switch every import: `@n-uf/placement/scene` to `@n-uf/docking`, `@n-uf/placement/scene/cases` to
-      `@n-uf/docking/testing`, in `src/demos/desk.ts`, `src/demos/hero.ts`, `src/islands/hero.ts`,
+      `@n-uf/docking/testing`, in `src/demos/desk.ts`, `src/demos/hero-window.ts`,
       `src/snippets/pair-placement.ts` (becomes a docking sample, `pair-docking.ts`; `PairCode.astro` skips a library
       with no sample today, so add `docking` to its `code` and `entries` maps; `scripts/snippets.test.mjs` only
       knows `motion|placement` in its regex and package list), and in `apps/lab` (`docwin/host.ts`, `presets.ts`,
       `store.ts`, `kit-presets.ts`, `intent-presets.ts`, `feel-panel.ts`, `shell/checks.ts`, the lab's own text in
       `shell/pages.ts` and `pages/overview.html`). Keep `ALIASES` for the old lab ids (`#/placement/desk`,
       `#/placement/toolbar`): this site's pages link `/lab/#/placement/toolbar` and `/lab/#/docwin`.
-- [ ] The home hero's docking demo (`src/demos/hero-dock.ts`, `src/islands/hero-dock.ts`, `src/components/HeroDock.astro`)
-      imports `solve`, `targets`, `refusals` and the `Scene` types from `@n-uf/placement/scene`, and `StackForm` from
-      `@n-uf/placement/stack`: switch them to `@n-uf/docking` (the forms are the docking model's; check where the release
-      puts `StackForm`). Re-check what it reads: `SceneItemLayout.formKind` / `inMenu`, `SceneLayout.rails.left`,
-      `Edge.zoneAccepts`, the refusal reason `not-accepted` (worded "takes panels only" in `reasonWords`) and the target ids
-      `gap:bar:end:0` and `gap:left:end:0`. Its comments name `DockState`; the code still says `Scene`. The placement popup
-      demo imports `positionPopup` and `BELOW_LEFT` from the root `@n-uf/placement`, which stays.
-- [ ] `src/islands/hero.ts` and `src/demos/hero.ts` no longer import the scene (the scope's panel is carried between two pads).
+- [ ] The home hero's shared window (`src/demos/hero-window.ts`, `src/components/HeroWindow.astro`,
+      `src/islands/hero-window.ts`): docking's part imports `solve` and the `Scene` types from `@n-uf/placement/scene` and
+      `StackForm` from `@n-uf/placement/stack`: switch them to `@n-uf/docking` (check where the release puts `StackForm`).
+      Placement's part imports `positionPopup` and `BELOW_LEFT` from the root `@n-uf/placement`, which stays. Re-check what
+      the window reads off `solve`: `SceneItemLayout.formKind` and `inMenu`, `SceneEdgeLayout.menu`, and that the numbers still
+      give the story (Files open, Outline folded to its header, View in the » menu at 720 px; the callout sentence is built
+      from the layout, so it says whatever `solve` gives). The window's comments name `DockState`; the code says `Scene`.
+- [ ] The three hero slots are text only: the earlier scope, popup and window diagrams are gone from the home. The live
+      tiling demo went too; the Place group of the home keeps a static tiling thumbnail only.
 - [ ] Docs sources that name docking: the motion README and `docs/motion.md` (`createLandingModel` takes what
       docking's `lanes()` gives); placement's README loses the docking sections.
 - [ ] Share images: render `public/og/docking-layouts.png` (the file here is the old desk-layouts image, only renamed),
