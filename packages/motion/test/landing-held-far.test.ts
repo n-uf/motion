@@ -27,4 +27,18 @@ describe("landing model: far beyond the held lane, the frame is held but refused
     expect(f.lane).toBe("bottom");
     expect(f.spot).toBeNull();
   });
+
+  it("the refusal is sticky: a wobble of ±1.5 px at its edge (52 px past the bar) never flips lane and refused", () => {
+    const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+    m.update({ x: 25, y: 614 }, 0);
+    // Flung two frames up the rail, to 51 px above the bar (y 548), then wobbling 1.5 px either way.
+    m.update({ x: 25, y: 581 }, 16);
+    m.update({ x: 25, y: 548 }, 32);
+    const regionsSeen: string[] = [];
+    for (let k = 1; k <= 24; k++) regionsSeen.push(m.update({ x: 25, y: k % 2 ? 546.5 : 549.5 }, 32 + 8 * k).region);
+    const flips = regionsSeen.filter((r, i) => i > 0 && r !== regionsSeen[i - 1]).length;
+    expect(flips, regionsSeen.join(" ")).toBeLessThanOrEqual(1);
+    // Back well inside (within 46 px of the bar: the spot margin less), the lane holds again.
+    expect(m.update({ x: 25, y: 560 }, 300).region).toBe("lane");
+  });
 });

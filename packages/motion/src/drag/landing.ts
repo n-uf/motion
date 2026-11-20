@@ -349,6 +349,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let liftAt: Point | null = options.lift ?? null;
   /** Whether the pointer is held in the lift zone (`nearLift`). */
   let inLiftZone = true;
+  /** Whether the held lane's hold is refused for lying far beyond it (sticky, as the lift zone is). */
+  let farHeld = false;
   let lastStep = 0;
   /** Path inside each lane since the pointer last entered its rect. */
   const pathIn = new Map<string, number>();
@@ -606,6 +608,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const ownLane = nearLift && options.home ? laneIn(regions, options.home.lane) : undefined;
       const homeHere = ownLane && strictlyIn(ownLane.rect, p) ? ownLane : undefined;
       const next = homeHere ? undefined : (owner ?? (touching && (gate(touching) || slid) ? touching : undefined));
+      // (The far refusal belongs to the held lane's hold: any other branch lets it go.)
+      if (!(held && !homeHere && !next && (touching || inside(held.rect, p, margins.exit)))) farHeld = false;
       if (homeHere) {
         // Its spot is the item's own (a hand within the lift zone is at home: the home spot owns it, so a pointer coming
         // in a few px short of the lift point, or held at its edge by a grab at the item's far end, is not on a
@@ -617,8 +621,11 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       } else if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
         // The hold through a touching lane is for crossing a corner: more than `path` past the held lane's exit margin
         // (a fling up a rail that didn't enter it), the frame is held but refused: the lane kept (its guides stay), no
-        // spot, no landing, nothing pending, so the host shows its tag and a release goes home.
-        const far = distanceTo(held.rect, p) > margins.exit + gates.path;
+        // spot, no landing, nothing pending, so the host shows its tag and a release goes home. Sticky, like the lift
+        // zone: set past `exit + path`, cleared only within `exit + path - spot`, so a wobble at its edge never flips it.
+        const d = distanceTo(held.rect, p);
+        farHeld = farHeld ? d > margins.exit + gates.path - margins.spot : d > margins.exit + gates.path;
+        const far = farHeld;
         const s = far ? null : along(held, p, step);
         spotId = s?.id ?? spotId;
         region = s ? "lane" : "refused";
@@ -717,6 +724,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       laneId = spotId = null;
       approached = null;
       lastPending = null;
+      farHeld = false;
       pathIn.clear();
       slide.clear();
       cameIn.clear();
