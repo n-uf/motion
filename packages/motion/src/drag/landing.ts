@@ -197,7 +197,11 @@ export interface LandingGates {
    * `step`) or it is on the stage's edge (a fling there is taken at once); repeated points before it aren't still.
    */
   readonly rest: number;
-  /** The time a pointer that last moved fast has to stay put before it counts as still, ms: longer than sample gaps. */
+  /**
+   * The time a pointer that last moved fast has to stay put before it counts as still, ms: longer than sample gaps. Also
+   * the settle window after a fling (a step above `slide`): no lane is entered by a slow-step gate (still, over-refused)
+   * until the hand has been slow, or resting, this long.
+   */
   readonly pause: number;
   /**
    * The largest step at which a slide along a lane touching the held one takes it, px per 8 ms (default 16: 2 px/ms).
