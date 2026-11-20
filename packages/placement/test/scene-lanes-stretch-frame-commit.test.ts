@@ -65,6 +65,8 @@ describe("a sliding spot: the frame is the commit", () => {
           for (const spot of lane.spots as readonly LaneSpot[]) {
             const slide = spot.slide;
             if (!slide) continue;
+            // The listed slide carries the grain the landing model rounds by.
+            expect(slide.step, spot.id).toBe(1);
             const m = createLandingModel({ regions, home: { lane: lane.id, spot: spot.id }, grab });
             const across = ax === "x" ? lane.rect.y + lane.rect.height / 2 : lane.rect.x + lane.rect.width / 2;
             const at = (a: number) => (ax === "x" ? { x: a, y: across } : { x: across, y: a });
