@@ -47,7 +47,7 @@ export const PARTS: Part[] = [
     short: "Dock",
     pkg: "@n-uf/docking",
     idea: "Pure state in, rects and drop targets out: a dock state of bars, rails, columns, items and floats, solved into rects, with every place a drag may drop, what refuses it, and the stops for the keyboard.",
-    does: "For the same apps: it works out where windows, panels and toolbar groups dock, as the space changes and while something is dragged. You give it a dock state and a size; it gives back rects, notes on what gave way, and drop targets. It draws nothing.",
+    does: "For the same apps: it works out where panels and toolbar groups dock, as the space changes and while something is dragged. You give it a dock state and a size; it gives back rects, notes on what gave way, and drop targets. It draws nothing.",
     readme: `${repoUrl}/blob/main/packages/docking/README.md`,
     pages: ["/docking-layouts/", "/toolbar-groups/"],
   },
