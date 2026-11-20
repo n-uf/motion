@@ -1,11 +1,11 @@
 ---
-// The desk's legend: the four steps of a drag, each by its library (docking and motion), lit live while you drag the desk above it
+// The desk's legend: the four steps of a drag, each by its library (placement and motion), lit live while you drag the desk above it
 // (islands/home.ts sets data-step on the list), and the slow-motion control the desk and the panes share
 // (islands/telemetry.ts). It sits directly under the one desk window.
 const steps = [
-  ["1", "Where it can go", "docking: the drop targets", "d"],
+  ["1", "Where it can go", "placement: the drop targets", "p"],
   ["2", "What you mean", "motion: the drag intent (aiming, hysteresis, which target)", "m"],
-  ["3", "The new layout", "docking: the rects of the arrangement the drop makes", "d"],
+  ["3", "The new layout", "placement: the rects of the arrangement the drop makes", "p"],
   ["4", "It moves there", "motion: the settle", "m"],
 ] as const;
 ---
