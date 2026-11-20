@@ -23,8 +23,10 @@ import type { PlaceGuides } from "./preview";
  *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered on the first slow step
  *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room. A lane that owns
  *   its rect (`owns`: a rail drop strip at the window's side) takes the pointer inside it from any lane it overlaps, a
- *   held one too, once its own gate passes and only once the pointer came into it from outside since the lift; never within
- *   `lift` of the lift point, so away and back to where the item was lifted is home.
+ *   held one too, once its own gate passes and only once the pointer came into it from outside since the lift. Within
+ *   `margins.lift` of the lift point (`options.lift`, else the first point; fixed for the drag) an owning lane takes the
+ *   pointer by no gate, so a pointer brought back there is in the item's own lane, not the strip. Elsewhere in the strip
+ *   a slow slide along it can take the pointer before it is back at the lift point.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
@@ -147,6 +149,8 @@ export interface LandingOptions {
   readonly floatLanding?: (point: Point) => Rect | null;
   /** The item's own place at the lift: its lane and spot (the drag starts there, the room open). */
   readonly home?: { readonly lane: string; readonly spot: string };
+  /** Where the item was lifted (the press), in the regions' space; default the first point `update` gets. */
+  readonly lift?: Point;
   readonly margins?: Partial<LandingMargins>;
   readonly gates?: Partial<LandingGates>;
   readonly approach?: Partial<LandingApproach>;
@@ -251,8 +255,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let last: { p: Point; raw: Point; t: number } | null = null;
   /** The last point that differed from the one before, and the step then. */
   let moved: { raw: Point; t: number } | null = null;
-  /** Where the item was lifted (the first point): back there, no owning lane takes the pointer. */
-  let liftAt: Point | null = null;
+  /** Where the item was lifted (`lift`, else the first point), fixed for the drag: back there, no owning lane takes it. */
+  let liftAt: Point | null = options.lift ?? null;
   let lastStep = 0;
   /** Path inside each lane since the pointer last entered its rect. */
   const pathIn = new Map<string, number>();
@@ -368,7 +372,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     } else {
       // The first point: how the pointer moves is unknown, never still (a lift over a lane's band doesn't enter it).
       moved = { raw, t };
-      liftAt = p;
+      // (After `hide()` too, the lift point stays where the drag began.)
+      liftAt ??= p;
       step = lastStep = Infinity;
     }
     const from = last?.p ?? null;
@@ -429,7 +434,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         // through to.
         // (Over something that takes nothing reaching past the lane, a column's panel under an empty rail's band, and in
         // no other lane; a drawn bar's own rect and its items lie within it, so its gate holds.)
-        const lanesHere = regions.lanes.filter((l) => strictlyIn(l.rect, p));
+        // Within the lift zone an owning lane is no lane at all: by no gate does it take the pointer there.
+        const lanesHere = regions.lanes.filter((l) => strictlyIn(l.rect, p) && !(l.owns && nearLift));
         const within = (b: Rect, l: LandingLane): boolean => b.x >= l.rect.x - 1 && b.y >= l.rect.y - 1 && b.x + b.width <= l.rect.x + l.rect.width + 1 && b.y + b.height <= l.rect.y + l.rect.height + 1;
         // On a slow step only (as a slow hand inside a bar enters it): a fly-through across such a place opens no room.
         const overRefused = (l: LandingLane): boolean =>
