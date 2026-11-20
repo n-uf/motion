@@ -5,7 +5,7 @@
  * Pure, so the server renders the default desk and the island renders every later state with the same code.
  */
 import type { Rect } from "@n-uf/placement";
-import { solve, type Edge, type Scene, type SceneItem, type SceneLayout, type SceneNote } from "@n-uf/placement/scene";
+import { solve, type DockEdge, type DockItem, type DockLayout, type DockNote, type DockState } from "@n-uf/docking";
 import { layoutSplit, masterStack, splitFromOrder } from "@n-uf/placement/tiling";
 import { floatSpot, stripColumn } from "./sketch-rules";
 
@@ -78,7 +78,7 @@ const RIGHT_START = ["Notes", "History", "Inspector"];
  * A panel: down a column (open at its section height, its title bar, its tile on a rail) and along the bottom dock
  * (open, or its title bar). `last` takes the column's spare height. `used` orders give-way: the oldest gives way first.
  */
-function panel(id: string, used: number, last: boolean): SceneItem {
+function panel(id: string, used: number, last: boolean): DockItem {
   return {
     id,
     kind: "panel",
@@ -100,14 +100,14 @@ function panel(id: string, used: number, last: boolean): SceneItem {
 }
 
 /** The toolbar's room: a fixed item that holds a bar's height and takes no drops. */
-const TOOLBAR_ROOM: SceneItem = { id: "toolbar", kind: "toolbar", used: 0, fixed: true, forms: { row: [{ kind: "row", main: { min: 0, natural: 0 }, cross: { natural: ROOM }, setsCross: true }] } };
+const TOOLBAR_ROOM: DockItem = { id: "toolbar", kind: "toolbar", used: 0, fixed: true, forms: { row: [{ kind: "row", main: { min: 0, natural: 0 }, cross: { natural: ROOM }, setsCross: true }] } };
 
 /**
  * The card's scene at W × H: a column on each side (it narrows, then folds to its rail), the bottom dock (reserved or
  * over the documents, between the columns or full width) with History in it, the toolbar's room as a bar between the
  * columns, and for dockTear Inspector torn off, floating next to the left column.
  */
-function deskScene(card: SceneCard, W: number, H: number, o: Opt): Scene {
+function deskScene(card: SceneCard, W: number, H: number, o: Opt): DockState {
   const dock = card !== "navigator" && o.band !== "off" ? { mode: o.band as "reserved" | "overlay", span: o.span as "between" | "full" } : null;
   const toolbar = o.toolbar === "bottom" ? "bottom" : "top";
   const reserved = o.toolbarSpace !== "overlay";
@@ -115,24 +115,24 @@ function deskScene(card: SceneCard, W: number, H: number, o: Opt): Scene {
   const left = card === "navigator" ? LEFT.slice(0, 1) : LEFT;
   const right = RIGHT_START.filter((id) => !(dock && id === "History") && !(tear && id === "Inspector"));
   const order = [...LEFT, ...RIGHT_START];
-  const items: Record<string, SceneItem> = {};
+  const items: Record<string, DockItem> = {};
   const column = (ids: readonly string[]): void => ids.forEach((id, i) => (items[id] = panel(id, order.indexOf(id) + 1, i === ids.length - 1)));
   column(left);
   column(right);
   if (dock) items.History = panel("History", order.indexOf("History") + 1, true);
   if (tear) items.Inspector = panel("Inspector", order.indexOf("Inspector") + 1, true);
   if (reserved) items.toolbar = TOOLBAR_ROOM;
-  const side = (s: "left" | "right", ids: readonly string[]): Edge => ({
+  const side = (s: "left" | "right", ids: readonly string[]): DockEdge => ({
     id: s, side: s, ring: 0, giveWay: true, accepts: ["panel"], items: ids, cross: { min: COLUMN.min, max: COLUMN.max, rail: RAIL }, gap: 0,
     // The navigator's left column shows one panel under a row of tabs: the tabs sit in its top padding.
     ...(card === "navigator" && s === "left" ? { pad: { start: TABS } } : {}),
   });
-  const edges: Edge[] = [
+  const edges: DockEdge[] = [
     side("left", left),
     side("right", right),
     // The dock gives way by height: it shrinks, then folds to its title bar, to keep the documents their least height.
-    ...(dock ? [{ id: "bottom", side: "bottom", ring: 0, span: dock.span, mode: dock.mode, giveWay: true, accepts: ["panel"], items: ["History"], cross: { min: TITLE, max: DOCK.max } } satisfies Edge] : []),
-    ...(reserved ? [{ id: "toolbar", side: toolbar, ring: toolbar === "bottom" && dock ? 1 : 0, span: "between", accepts: [], items: ["toolbar"], cross: { min: ROOM, max: ROOM } } satisfies Edge] : []),
+    ...(dock ? [{ id: "bottom", side: "bottom", ring: 0, span: dock.span, mode: dock.mode, giveWay: true, accepts: ["panel"], items: ["History"], cross: { min: TITLE, max: DOCK.max } } satisfies DockEdge] : []),
+    ...(reserved ? [{ id: "toolbar", side: toolbar, ring: toolbar === "bottom" && dock ? 1 : 0, span: "between", accepts: [], items: ["toolbar"], cross: { min: ROOM, max: ROOM } } satisfies DockEdge] : []),
   ];
   // Torn off next to the left column, clear of a toolbar at the top.
   const torn = { x: COLUMN.natural + 24, y: 24 + (toolbar === "top" ? ROOM : 0), width: 200, height: 150 };
@@ -152,13 +152,13 @@ function deskScene(card: SceneCard, W: number, H: number, o: Opt): Scene {
 export interface Note { text: string; code?: string }
 
 /** The panels on a side's rail: its folded column's, and on the navigator's left the tabs the page keeps. */
-function railIds(card: SceneCard, l: SceneLayout, side: "left" | "right"): string[] {
+function railIds(card: SceneCard, l: DockLayout, side: "left" | "right"): string[] {
   const ids = (l.rails[side]?.segments ?? []).filter((s) => s.edge === side).map((s) => s.id);
   return card === "navigator" && side === "left" && ids.length ? [...LEFT] : ids;
 }
 
 /** Each layout note in this page's words; the code is the library's. Notes the page has no words for are left out. */
-function noteText(card: SceneCard, n: SceneNote, l: SceneLayout): string | null {
+function noteText(card: SceneCard, n: DockNote, l: DockLayout): string | null {
   const px = (v: number): string => `${Math.round(v)} px`;
   const where = (edge: string): string => `the ${edge} column`;
   switch (n.code) {

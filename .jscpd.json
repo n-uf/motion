@@ -1,5 +1,5 @@
 {
-  "pattern": "{packages/motion/src,packages/placement/src,apps/lab/src}/**/*.ts",
+  "pattern": "{packages/motion/src,packages/placement/src,packages/docking/src,apps/lab/src}/**/*.ts",
   "ignore": ["**/__tests__/**", "**/node_modules/**"],
   "format": ["typescript"],
   "minTokens": 50,

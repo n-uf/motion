@@ -2,14 +2,14 @@
  * The drag intent's timing, on the document window's own session (`@n-uf/motion/drag`'s intent and `previewPlan`, the
  * held item drawn by `@n-uf/motion`'s settle): when the drop indicator shows, how long it holds, what a release lands
  * on, and under the snap preview how the item settles into its slot and back onto the pointer. Each case drives a
- * pointer path frame by frame on the session's clock and reads the drag's trace (`DocwinScene.trace`).
+ * pointer path frame by frame on the session's clock and reads the drag's trace (`Docwin.trace`).
  */
 import { SETTLE_TEMPO } from "@n-uf/motion";
 import { DRAG_DEFAULTS, inRect, targetAt, type DragPreview } from "@n-uf/motion/drag";
 import type { Point, Rect } from "@n-uf/placement";
-import type { SceneTarget } from "@n-uf/placement/scene";
-import { defaultScene, type ItemId } from "./model";
-import type { DocwinScene, DragTrace, LastDrop } from "./scene";
+import type { DockDrop } from "@n-uf/docking";
+import { defaultState, type ItemId } from "./model";
+import type { Docwin, DragTrace, LastDrop } from "./dock-state";
 
 interface Verdict {
   readonly pass: boolean;
@@ -20,8 +20,8 @@ interface IntentPreset {
   readonly title: string;
   readonly expected: string;
   readonly group: "intent";
-  setup(c: DocwinScene): void;
-  check(c: DocwinScene): Verdict;
+  setup(c: Docwin): void;
+  check(c: Docwin): Verdict;
 }
 
 const FRAME = 1000 / 60;
@@ -53,7 +53,7 @@ const hold = (keys: Key[], ms: number): Key[] => [...keys, [keys.at(-1)![0] + ms
  * Drive `id` along the path `build` makes from its grip, a frame every 1/60 s of the session's clock, `at` run once the
  * clock passes its time, then let go. The drag's trace, the drop, and the path's last time.
  */
-function drive(c: DocwinScene, id: ItemId, build: (grip: Point) => Key[], at: { t: () => number; run: () => void }[] = []): { trace: DragTrace; drop: LastDrop | null; atRelease: Rect | null } | null {
+export function drive(c: Docwin, id: ItemId, build: (grip: Point) => Key[], at: { t: () => number; run: () => void }[] = [], each?: (t: number) => void): { trace: DragTrace; drop: LastDrop | null; atRelease: Rect | null } | null {
   const g = c.gripOf(id);
   if (!g) return null;
   const keys = build(g);
@@ -99,7 +99,7 @@ function flash(tr: DragTrace): string | null {
 }
 
 /** The dragged item's docking targets with a slot, away from its own place (where home would win). */
-function docking(c: DocwinScene, id: ItemId): SceneTarget[] {
+export function docking(c: Docwin, id: ItemId): DockDrop[] {
   const all = c.targets(id);
   const homes = all.filter((t) => t.place.kind === "home").flatMap((t) => t.hits ?? [t.hit]);
   const near = (r: Rect): boolean => homes.some((h) => r.x < h.x + h.width + 24 && h.x - 24 < r.x + r.width && r.y < h.y + h.height + 24 && h.y - 24 < r.y + r.height);
@@ -107,7 +107,7 @@ function docking(c: DocwinScene, id: ItemId): SceneTarget[] {
 }
 
 /** Two docking targets whose hits share a border (side by side or one above the other), and the border's middle. */
-function adjacent(ts: readonly SceneTarget[]): { a: SceneTarget; b: SceneTarget; border: Point; across: "x" | "y" } | null {
+function adjacent(ts: readonly DockDrop[]): { a: DockDrop; b: DockDrop; border: Point; across: "x" | "y" } | null {
   for (const a of ts)
     for (const b of ts) {
       if (a === b) continue;
@@ -120,7 +120,7 @@ function adjacent(ts: readonly SceneTarget[]): { a: SceneTarget; b: SceneTarget;
 }
 
 /** A point of the content that no docking target of `id` covers (only the float may). */
-function emptySpace(c: DocwinScene, id: ItemId): Point {
+export function emptySpace(c: Docwin, id: ItemId): Point {
   const ct = c.layout.content;
   const docked = docking(c, id);
   for (const fy of [0.33, 0.5, 0.66])
@@ -135,14 +135,14 @@ function emptySpace(c: DocwinScene, id: ItemId): Point {
 const GROUP: ItemId = "views";
 const PANEL: ItemId = "notes";
 
-function intentCase(id: string, title: string, expected: string, check: (c: DocwinScene) => Verdict, preview: DragPreview = "gap"): IntentPreset {
+function intentCase(id: string, title: string, expected: string, check: (c: Docwin) => Verdict, preview: DragPreview = "gap"): IntentPreset {
   return {
     id,
     title,
     expected,
     group: "intent",
     setup: (c) => {
-      c.setScene(defaultScene());
+      c.setState(defaultState());
       c.setDropPreview(preview);
     },
     check: (c) => {
@@ -157,7 +157,7 @@ function intentCase(id: string, title: string, expected: string, check: (c: Docw
 }
 
 /** Aim at a slot for 600 ms, then fly `speed` px/ms toward `to`: the indicator goes within a frame of the pointer being both fast and out of the slot's band. */
-function flickCheck(c: DocwinScene, item: ItemId, a: SceneTarget, to: Point, speed: number): Verdict {
+function flickCheck(c: Docwin, item: ItemId, a: DockDrop, to: Point, speed: number): Verdict {
   const start = mid(a.hit);
   let flick = 0;
   const r = drive(c, item, (g) => {
@@ -195,8 +195,8 @@ export function INTENT_PRESETS(): IntentPreset[] {
         const bad: string[] = [];
         const said: string[] = [];
         for (const side of ["left", "right"] as const) {
-          c.setScene(defaultScene());
-          const stage = c.scene.stage;
+          c.setState(defaultState());
+          const stage = c.state.stage;
           const before = c.targets("tools");
           let arrived = 0;
           const r = drive(c, "tools", (g) => {
@@ -230,7 +230,7 @@ export function INTENT_PRESETS(): IntentPreset[] {
       "Tools aimed at the left window edge's strip (12 px) until its room opens and the rail draws 30 px wide, then drifted from x 8 to x 24 inside the drawn rail: the rail target and its room hold on every frame, the column beside it is never refused there, and the drop lands in the rail. The pointer at x 10 and x 18 in turn every 230 ms for 4 s, both on the drawn rail, never makes the column jump. Drifted on out of the rail, to x 60, the target and its room go.",
       (c) => {
         const bad: string[] = [];
-        const strip = c.targets("tools").find((t) => t.id.startsWith("strip:rail-left:") && t.roomHit && t.hit.y <= c.scene.stage.height / 2 && t.hit.y + t.hit.height >= c.scene.stage.height / 2);
+        const strip = c.targets("tools").find((t) => t.id.startsWith("strip:rail-left:") && t.roomHit && t.hit.y <= c.state.stage.height / 2 && t.hit.y + t.hit.height >= c.state.stage.height / 2);
         if (!strip?.roomHit) return { pass: false, now: "No left rail strip with a room hold." };
         const y = mid(strip.hit).y;
         const run = (to: number) => {
@@ -250,7 +250,7 @@ export function INTENT_PRESETS(): IntentPreset[] {
         if (lost) bad.push(`${lost} of ${after.length} frames of the drift lost it`);
         if (!held.r.drop?.committed || held.r.drop.target !== strip.id) bad.push(`the drop landed on ${held.r.drop?.target ?? "nothing"}`);
         // The review's case: x 10 and x 18 in turn every 230 ms for 4 s, both on the drawn rail: the column never jumps.
-        c.setScene(defaultScene());
+        c.setState(defaultState());
         let wobbleAt = 0;
         const wob = drive(c, "tools", (g) => {
           const keys = hold(through([g, { x: 10, y }], 1), 400);
@@ -261,7 +261,7 @@ export function INTENT_PRESETS(): IntentPreset[] {
         const rooms = (wob?.trace.rooms ?? []).filter((f) => f.t > wobbleAt);
         const flips = rooms.filter((f, i) => i > 0 && f.room !== rooms[i - 1]!.room).length;
         if (!wob || flips || rooms.some((f) => f.room !== strip.id)) bad.push(`the 10 ↔ 18 px wobble flipped the room ${flips} times`);
-        c.setScene(defaultScene());
+        c.setState(defaultState());
         const out = run(60);
         const last = out?.r.trace.rooms.at(-1);
         if (!out || last?.shown === strip.id || last?.room) bad.push(`at x 60 it still shows ${last?.shown ?? "nothing"} with room ${last?.room ?? "none"}`);
@@ -383,7 +383,7 @@ export function INTENT_PRESETS(): IntentPreset[] {
       (c) => {
         const a = docking(c, PANEL)[0];
         if (!a) return { pass: false, now: "No column gap for Notes." };
-        const size = c.scene.stage;
+        const size = c.state.stage;
         let resizeAt = 0;
         const r = drive(
           c,
@@ -396,7 +396,7 @@ export function INTENT_PRESETS(): IntentPreset[] {
           [{ t: () => resizeAt, run: () => c.setSize(size.width - 80, size.height - 40) }],
         );
         if (!r) return { pass: false, now: "The drag never lifted." };
-        const ok = r.drop?.target === a.id && sameRect(r.atRelease, r.drop.landed) && c.scene.stage.width === size.width - 80;
+        const ok = r.drop?.target === a.id && sameRect(r.atRelease, r.drop.landed) && c.state.stage.width === size.width - 80;
         return { pass: ok, now: `Landed on ${r.drop?.target ?? "nothing"}; let go at ${r.atRelease ? fmt(r.atRelease) : "nowhere"}, its slot after the resize ${r.drop?.landed ? fmt(r.drop.landed) : "none"}.` };
       },
       "snap",

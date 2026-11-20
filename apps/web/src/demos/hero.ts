@@ -12,7 +12,7 @@
 import { createFakeClock, createFrameLoop, createSettle, createSpring, SETTLE_TEMPO, type Rect } from "@n-uf/motion";
 import { createLayoutMotion } from "@n-uf/motion/layout";
 import { checkMonotonic, checkNoOvershoot, checkTempo, type CheckResult, type RectSample } from "@n-uf/motion/testing";
-import { solve, targets, type Scene, type SceneItem, type SceneTarget } from "@n-uf/placement/scene";
+import { solve, targets, type DockDrop, type DockItem, type DockState } from "@n-uf/docking";
 
 export type Tempo = keyof typeof SETTLE_TEMPO;
 export const TEMPOS = Object.keys(SETTLE_TEMPO) as Tempo[];
@@ -112,7 +112,7 @@ export function simulateRun(from: Rect, to: Rect, omega: number): { samples: Rec
 }
 
 // ---- The plan ------------------------------------------------------------------------------------------------------
-/** The window the plan draws, in its own px: a `Scene` of this size, laid out by placement's `solve`. */
+/** The window the plan draws, in its own px: a `DockState` of this size, laid out by placement's `solve`. */
 const STAGE = { width: 1060, height: 480 };
 /** The lifted panel. */
 const HELD = "outline";
@@ -127,7 +127,7 @@ interface PlanSlot {
   readonly id: string;
   /** What the plan calls it. */
   readonly name: string;
-  readonly target: SceneTarget;
+  readonly target: DockDrop;
   readonly drop: PlanDrop;
   /** The pointer's place for this drop, stage px. */
   readonly at: { x: number; y: number };
@@ -143,17 +143,17 @@ export interface Plan {
   readonly regions: readonly PlanRegion[];
   readonly slots: readonly PlanSlot[];
   /** Every target placement offers for the lifted panel, for the drag intent. */
-  readonly targets: readonly SceneTarget[];
+  readonly targets: readonly DockDrop[];
   readonly grab: { x: number; y: number };
   /** The drop at a pointer position on a target: where the panel lands. */
-  drop(target: SceneTarget, p: { x: number; y: number }): PlanDrop;
+  drop(target: DockDrop, p: { x: number; y: number }): PlanDrop;
 }
 
 /**
  * A panel down a column (open, its title bar, its rail tile) and along the bottom dock (open, about two fifths of the
  * documents' height, or its title bar). `grows` takes the column's spare height.
  */
-const panel = (id: string, used: number, natural: number, grows: boolean): SceneItem => ({
+const panel = (id: string, used: number, natural: number, grows: boolean): DockItem => ({
   id,
   kind: "panel",
   used,
@@ -164,14 +164,14 @@ const panel = (id: string, used: number, natural: number, grows: boolean): Scene
 });
 
 /** The toolbar's room over the documents: a fixed item holding the bar's height, which takes no drops. */
-const TOOLBAR: SceneItem = { id: "toolbar", kind: "toolbar", used: 0, fixed: true, forms: { row: [{ kind: "row", main: { min: 0, natural: 0 }, cross: { natural: 40 }, setsCross: true }] } };
+const TOOLBAR: DockItem = { id: "toolbar", kind: "toolbar", used: 0, fixed: true, forms: { row: [{ kind: "row", main: { min: 0, natural: 0 }, cross: { natural: 40 }, setsCross: true }] } };
 
 /**
  * The window: Files in a left column, room for a toolbar over the documents, an empty dock along the bottom between
  * the sides, a rail at each side (in the inset at the window's edges), and Outline lifted out of it, floating over the
  * documents.
  */
-function planScene(size: { width: number; height: number }): Scene {
+function planScene(size: { width: number; height: number }): DockState {
   const column = { accepts: ["panel"], cross: { min: 160, max: 480, rail: 34 } };
   return {
     stage: { x: 0, y: 0, ...size },
@@ -191,7 +191,7 @@ function planScene(size: { width: number; height: number }): Scene {
 }
 
 /** What a target's place is called. */
-function labelOf(t: SceneTarget): string {
+function labelOf(t: DockDrop): string {
   const p = t.place;
   if (p.kind === "float") return "Float here";
   if (p.kind === "gap") return `${p.edge === "left" ? "Left column" : "Bottom dock"} · slot ${p.at + 1}`;
@@ -214,13 +214,13 @@ export function planOf(size = STAGE): Plan {
     { key: "documents", label: "Documents", rect: layout.content },
   ];
   const grab = { x: 100, y: 60 };
-  const drop = (target: SceneTarget, p: { x: number; y: number }): PlanDrop => ({ slot: target.after(p, grab).layout.items[HELD]!.rect, label: labelOf(target) });
-  const pick = (id: string, name: string, at: (t: SceneTarget) => { x: number; y: number }): PlanSlot => {
+  const drop = (target: DockDrop, p: { x: number; y: number }): PlanDrop => ({ slot: target.after(p, grab).layout.items[HELD]!.rect, label: labelOf(target) });
+  const pick = (id: string, name: string, at: (t: DockDrop) => { x: number; y: number }): PlanSlot => {
     const target = all.find((t) => t.id === id)!;
     const p = at(target);
     return { id, name, target, drop: drop(target, p), at: p };
   };
-  const mid = (t: SceneTarget): { x: number; y: number } => ({ x: t.hit.x + t.hit.width / 2, y: t.hit.y + t.hit.height / 2 });
+  const mid = (t: DockDrop): { x: number; y: number } => ({ x: t.hit.x + t.hit.width / 2, y: t.hit.y + t.hit.height / 2 });
   const slots = [
     pick("gap:left:start:0", "Dock left", mid),
     // The float target is the whole plane: let go over the documents, right of their middle and a little above it.

@@ -6,7 +6,7 @@
     Every page here runs the real packages from this repository's sources, so a change in a package shows at once.
     Each page is a live demo you can drag around, and a set of scripted cases that drive it with real pointer and key
     events, frame by frame, and check the rules from what the page drew. There are two subjects: how things move
-    (<code>@n-uf/motion</code>) and where things go in a window (<code>@n-uf/placement/scene</code>).
+    (<code>@n-uf/motion</code>) and where things dock in a window (<code>@n-uf/docking</code>).
   </p>
 </section>
 
@@ -22,10 +22,10 @@
   <a class="lab-card" href="#/docwin">
     <p class="eyebrow"><span>Document window</span></p>
     <h3>Where things go</h3>
-    <p>One window as one Scene: a title bar, top and bottom bars, side columns, pages that scroll under them and floats
+    <p>One window as one dock state: a title bar, top and bottom bars, side columns, pages that scroll under them and floats
       above. Panels and toolbars take the largest form that fits and give way least recently used first; you drag them
       to any gap, float them, freeze them and reload them. Each case sets the window up, says what should happen and
-      checks it, and every conformance row of <code>@n-uf/placement/scene/cases</code> plays on the same window.</p>
+      checks it, and every conformance row of <code>@n-uf/docking/testing</code> plays on the same window.</p>
     <p class="lab-card-links"><span>Docking cases</span> · <span>Drag intent</span> · <span>Conformance rows</span></p>
   </a>
   <a class="lab-card" href="?checks#/checks">

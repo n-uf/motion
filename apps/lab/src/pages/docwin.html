@@ -27,6 +27,17 @@
 
   <div class="dw-stage">
     <div class="dw" id="dw-root"><div class="dw-win" id="dw-win"></div></div>
+    <!-- The Code view: the window as the code a host writes (./code), read-only, in place of the window while Code is picked. -->
+    <section class="dw-code" id="dw-code" aria-label="The window as code" hidden>
+      <div class="dw-code-bar">
+        <div class="dw-modes" id="dw-code-tabs" role="tablist" aria-label="Code">
+          <button type="button" role="tab" id="dw-tab-state" data-code="state" aria-selected="true" aria-controls="dw-code-pane">State</button>
+          <button type="button" role="tab" id="dw-tab-move" data-code="move" aria-selected="false" aria-controls="dw-code-pane">Last move</button>
+        </div>
+        <button type="button" class="lab-btn" id="dw-code-copy" title="Copy this code">Copy</button>
+      </div>
+      <div class="dw-code-pane" id="dw-code-pane" role="tabpanel" tabindex="0"><pre class="dw-code-pre" id="dw-code-pre"></pre></div>
+    </section>
     <div class="dw-side">
       <button type="button" class="lab-btn" id="dw-reset-win" title="The default layout (window.__docwin.reset())">↺ Reset</button>
     </div>

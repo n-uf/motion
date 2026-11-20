@@ -1,26 +1,35 @@
 /**
  * The Document window page: a document viewer's window (title bar, top and bottom bars, two side columns, scrolling
- * pages, floats) as one `@n-uf/placement/scene` Scene, driven by `@n-uf/motion/drag` (./scene), a bar of presets that
- * are the Scene's acceptance cases (./presets), a Window drawer, and a headless API at `window.__docwin` for a drag
+ * pages, floats) as one `@n-uf/docking` DockState, driven by `@n-uf/motion/drag` (./state), a bar of presets that
+ * are the DockState's acceptance cases (./presets), a Window drawer, and a headless API at `window.__docwin` for a drag
  * matrix driven by real mouse events:
  *
  * - `items()`: every item's id, kind, region, form, rect (window px) and client rect, and its grip's client point;
- * - `targets(id)`: the Scene's targets a drag of `id` has now (with `accepted`: whether the scene's kinds allow it),
+ * - `targets(id)`: the DockState's targets a drag of `id` has now (with `accepted`: whether the state's kinds allow it),
  *   with window and client rects;
- * - `layout()`: the stored form and the Scene's layout (edges, content, floats, notes);
- * - `reset()`, `preset(name)` (sets it up and checks it), `presets()`, `checkAll()`.
+ * - `layout()`: the stored form and the DockState's layout (edges, content, floats, notes);
+ * - `reset()`, `preset(name)` (sets it up and checks it), `presets()`, `checkAll()`;
+ * - `frame(id, n)` and `dump()`: the pre-render's hook and the window's state as a dump (./prerender);
+ * - `code()` and `view()`: the window as the code a host writes (./code; `{ state, move }`), and the Window | Code switch
+ *   (`#/docwin?view=code` opens on the code).
  */
 import type { Rect } from "@n-uf/placement";
-import { railModeOf, type RailMode, type SceneTarget } from "@n-uf/placement/scene";
+import { railModeOf, type RailMode, type DockDrop } from "@n-uf/docking";
 import { onReset, parseRoute } from "../shell/api";
 import { ALL, EDGES, type Counts, type ItemId } from "./model";
 import { PRESETS, type Preset, type Verdict } from "./presets";
-import { createScene } from "./scene";
+import { createDocwin, type Behavior } from "./dock-state";
 import { createDocwinHost } from "./host";
-import { CASES, runCasesAsync } from "@n-uf/placement/scene/cases";
+import { createDocwinLandingHost } from "./landing-host";
+import { CASES, LANDING_CASES, runCasesAsync, runLandingCases } from "@n-uf/docking/testing";
 import { DEFAULT_FEEL, type DragFeel } from "./feel";
-import { feelPanel } from "./feel-panel";
-import type { DragPreview } from "@n-uf/motion/drag";
+import { createRecorder, type Dump } from "./prerender";
+import { codeOf } from "./code";
+import { highlight } from "./code-highlight";
+import type { DragPreview, PlaceGuides } from "@n-uf/motion/drag";
+
+/** What the viewer plays: the window's own rules, on the landing model. Each case sets its own. */
+const VIEWER_BEHAVIOR: Behavior = "landing";
 import { passes, type LabRun, type ScenarioFilter } from "../shared/hooks";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -45,18 +54,208 @@ const GROUP = parseRoute().id === "motion/intent" ? "intent" : null;
 const KEY = EMBED ? "motion-lab:docwin:checks" : "motion-lab:docwin";
 const PAGE_KEY = `${KEY}:page`;
 
-const c = createScene({ root, win, status, storageKey: KEY, onChange: readouts });
-// The drag feel: the drawer's controls, stored per viewer; the next drag reads it.
-const feel = feelPanel($("dw-feel-body"), `${KEY}:feel`, (f) => c.setFeel(f));
+/** The Window | Code switch (the shell's header takes it), and the Code view's pane, tabs and copy button. */
+const viewSwitch = $<HTMLDivElement>("dw-view");
+const stage = $<HTMLDivElement>("dw-stage");
+const codeView = $<HTMLElement>("dw-code");
+const codeTabs = $<HTMLDivElement>("dw-code-tabs");
+const codePre = $<HTMLPreElement>("dw-code-pre");
+const copyBtn = $<HTMLButtonElement>("dw-code-copy");
+type View = "window" | "code";
+type CodeTab = "state" | "move";
+const VIEWS: readonly View[] = ["window", "code"];
+const CODE_TABS: readonly CodeTab[] = ["state", "move"];
+/** The viewer's Window | Code choice and the Code view's tab, kept in this browser only. */
+const VIEW_KEY = `${KEY}:view`;
+const CODE_TAB_KEY = `${KEY}:codeTab`;
+let view: View = "window";
+let codeTab: CodeTab = "state";
+
+const c = createDocwin({ root, win, status, storageKey: KEY, onChange: readouts, onDrop: renderCode });
+
+/** The viewer's stored drop preview, or null (none stored, or storage unavailable). */
+function storedPreview(): DragPreview | null {
+  try {
+    const v = localStorage.getItem(PREVIEW_KEY);
+    // A viewer who had picked the old Snap gets Snap now: the "item" plan.
+    if (v === "snap") return "item";
+    return PREVIEWS.includes(v as DragPreview) ? (v as DragPreview) : null;
+  } catch {
+    return null;
+  }
+}
+/** The viewer picks a drop preview: the next drag uses it, and it is kept for the next visit. */
+function pickPreview(mode: DragPreview): void {
+  // A mode change plays under the window's own rules, on the landing model (a case may have left others playing).
+  c.setBehavior(VIEWER_BEHAVIOR);
+  c.setDropPreview(mode);
+  try {
+    localStorage.setItem(PREVIEW_KEY, mode);
+  } catch {
+    // No storage (a private window, blocked site data): the choice lasts this visit.
+  }
+  showPreview();
+}
+{
+  const kept = storedPreview();
+  if (kept) c.setDropPreview(kept);
+}
+
+/** The place guides control: each mode's own choice, kept in this browser; a mode never set follows its default. */
+const guidesModes = $<HTMLDivElement>("dw-guides");
+const GUIDE_LEVELS: readonly PlaceGuides[] = ["off", "near", "all"];
+const MODE_NAME: Readonly<Partial<Record<DragPreview, "outline" | "placeholder" | "snap">>> = { indicator: "outline", gap: "placeholder", item: "snap" };
+const guidesKey = (mode: string): string => `${KEY}:guides:${mode}`;
+for (const mode of ["outline", "placeholder", "snap"] as const) {
+  try {
+    const v = localStorage.getItem(guidesKey(mode));
+    if (GUIDE_LEVELS.includes(v as PlaceGuides)) c.setPlaceGuides(mode, v as PlaceGuides);
+  } catch {
+    // No storage: each mode follows its default.
+  }
+}
+/** The viewer picks the current mode's place guides: kept for that mode. */
+function pickGuides(g: PlaceGuides): void {
+  const mode = MODE_NAME[c.dropPreview];
+  if (!mode) return;
+  c.setPlaceGuides(mode, g);
+  try {
+    localStorage.setItem(guidesKey(mode), g);
+  } catch {
+    // No storage: the choice lasts this visit.
+  }
+  showPreview();
+}
+guidesModes.addEventListener("click", (e) => {
+  const b = (e.target as Element).closest<HTMLButtonElement>("[data-guides]");
+  if (b) pickGuides(b.dataset.guides as PlaceGuides);
+});
+
+/** The empty lanes control: how the guides draw an empty bar or rail, kept in this browser (every mode alike). */
+const emptyModes = $<HTMLDivElement>("dw-empty");
+const emptyKey = `${KEY}:emptyLanes`;
+try {
+  const v = localStorage.getItem(emptyKey);
+  if (v === "real" || v === "edge") c.setEmptyLanes(v);
+} catch {
+  // No storage: the default (real size).
+}
+emptyModes.addEventListener("click", (e) => {
+  const b = (e.target as Element).closest<HTMLButtonElement>("[data-empty]");
+  const v = b?.dataset.empty;
+  if (v !== "real" && v !== "edge") return;
+  c.setEmptyLanes(v);
+  try {
+    localStorage.setItem(emptyKey, v);
+  } catch {
+    // No storage: the choice lasts this visit.
+  }
+  showPreview();
+});
+
+/** The pitch control: the step of the free-stretch spots, px, kept in this browser. */
+const pitchInput = $<HTMLInputElement>("dw-pitch");
+const pitchKey = `${KEY}:pitch`;
+try {
+  const v = Number(localStorage.getItem(pitchKey));
+  if (v > 0) c.setPitch(v);
+} catch {
+  // No storage: the default pitch.
+}
+pitchInput.value = String(c.pitch);
+pitchInput.addEventListener("change", () => {
+  c.setPitch(Number(pitchInput.value));
+  pitchInput.value = String(c.pitch);
+  try {
+    localStorage.setItem(pitchKey, String(c.pitch));
+  } catch {
+    // No storage: the choice lasts this visit.
+  }
+  renderCode();
+});
+
+/** The stretch positions control: Free (where the hand holds it, snapped) or Pitched, kept in this browser. */
+const positionModes = $<HTMLDivElement>("dw-positions");
+const positionsKey = `${KEY}:stretchPositions`;
+try {
+  const v = localStorage.getItem(positionsKey);
+  if (v === "free" || v === "pitched") c.setStretchPositions(v);
+} catch {
+  // No storage: the lab's default (free).
+}
+positionModes.addEventListener("click", (e) => {
+  const b = (e.target as Element).closest<HTMLButtonElement>("[data-positions]");
+  const v = b?.dataset.positions;
+  if (v !== "free" && v !== "pitched") return;
+  c.setStretchPositions(v);
+  try {
+    localStorage.setItem(positionsKey, v);
+  } catch {
+    // No storage: the choice lasts this visit.
+  }
+  showPreview();
+});
+
+/** The snap distance control (under Free): how near a room's end or its own place a toolbar snaps there, px. */
+const snapInput = $<HTMLInputElement>("dw-snap");
+const snapKey = `${KEY}:snapDistance`;
+try {
+  const raw = localStorage.getItem(snapKey);
+  if (raw !== null && Number.isFinite(Number(raw))) c.setSnapDistance(Number(raw));
+} catch {
+  // No storage: the default snap distance.
+}
+snapInput.value = String(c.snapDistance);
+snapInput.addEventListener("change", () => {
+  c.setSnapDistance(Number(snapInput.value));
+  snapInput.value = String(c.snapDistance);
+  try {
+    localStorage.setItem(snapKey, String(c.snapDistance));
+  } catch {
+    // No storage: the choice lasts this visit.
+  }
+  renderCode();
+});
+
+/** The preview control as the window stands, and the guides the current mode draws. */
+function showPreview(): void {
+  for (const b of previewModes.querySelectorAll<HTMLButtonElement>("[data-mode]")) {
+    const on = b.dataset.mode === c.dropPreview;
+    b.setAttribute("aria-checked", String(on));
+    b.tabIndex = on ? 0 : -1;
+  }
+  const guides = c.placeGuides;
+  for (const b of guidesModes.querySelectorAll<HTMLButtonElement>("[data-guides]")) {
+    const on = b.dataset.guides === guides;
+    b.setAttribute("aria-checked", String(on));
+    b.tabIndex = on ? 0 : -1;
+  }
+  for (const b of emptyModes.querySelectorAll<HTMLButtonElement>("[data-empty]")) {
+    const on = b.dataset.empty === c.emptyLanes;
+    b.setAttribute("aria-checked", String(on));
+    b.tabIndex = on ? 0 : -1;
+  }
+  for (const b of positionModes.querySelectorAll<HTMLButtonElement>("[data-positions]")) {
+    const on = b.dataset.positions === c.stretchPositions;
+    b.setAttribute("aria-checked", String(on));
+    b.tabIndex = on ? 0 : -1;
+  }
+  // The pitch counts only under Pitched, the snap distance only under Free.
+  $("dw-pitch-label").hidden = c.stretchPositions !== "pitched";
+  $("dw-snap-label").hidden = c.stretchPositions !== "free";
+  $("dw-mode-help").textContent = PREVIEW_HELP[c.dropPreview];
+  // Every setting the code writes out (the stretch positions, the pitch, the snap distance) changes through here.
+  renderCode();
+}
 
 function readouts(): void {
-  const s = c.scene.stage;
+  const s = c.state.stage;
   inputs.w.value = String(s.width);
   inputs.h.value = String(s.height);
   $("dw-w-out").textContent = `${s.width}`;
   $("dw-h-out").textContent = `${s.height}`;
   freeze.checked = c.frozen;
-  for (const side of ["left", "right"] as const) railInputs[side].value = railModeOf(c.scene, side);
+  for (const side of ["left", "right"] as const) railInputs[side].value = railModeOf(c.state, side);
   for (const [k, el] of Object.entries(countInputs)) if (el && document.activeElement !== el) el.value = String(c.counts[k as keyof Counts]);
   previewInput.value = c.dropPreview;
   storedOut.textContent = JSON.stringify(c.stored(), null, 1);
@@ -170,8 +369,8 @@ const resultOf = (p: Preset, v: Verdict): CaseResult => {
 };
 
 /**
- * The conformance rows (`@n-uf/placement/scene/cases`), each loaded into this window and played on its own drag session
- * (./host): `row:<id>` results. Afterwards the window goes back to its own scene and rules.
+ * The conformance rows (`@n-uf/docking/testing`), each loaded into this window and played on its own drag session
+ * (./host): `row:<id>` results. Afterwards the window goes back to its own state and rules.
  */
 async function checkRows(filter?: (id: string) => boolean): Promise<CaseResult[]> {
   const host = createDocwinHost(c);
@@ -187,6 +386,32 @@ async function checkRows(filter?: (id: string) => boolean): Promise<CaseResult[]
     c.drive(false);
     c.setFrozen(false);
     c.altOn(false);
+    c.setDropPreview(viewerPreview);
+    c.setBehavior(VIEWER_BEHAVIOR);
+    c.reset();
+  }
+  return out;
+}
+
+/**
+ * The landing rows (`LANDING_CASES`), each played on this window under the landing model (./landing-host):
+ * `row:<id>` results; every row runs.
+ */
+async function checkLandingRows(filter?: (id: string) => boolean): Promise<CaseResult[]> {
+  const rows = LANDING_CASES.filter((r) => !filter || filter(r.id));
+  const viewerPreview = c.dropPreview;
+  // The rows are the library's: they play under its own stretch positions (pitched); the viewer's come back afterwards.
+  const viewerPositions = c.stretchPositions;
+  c.setStretchPositions("pitched");
+  const out: CaseResult[] = [];
+  try {
+    const results = await runLandingCases(rows, createDocwinLandingHost(c));
+    for (const r of results) out.push({ id: `row:${r.id}`, title: rows.find((x) => x.id === r.id)!.title, now: r.ok ? (r.skipped ?? "ok") : r.failures.join(" · "), lacks: null, pass: r.ok });
+  } finally {
+    c.drive(false);
+    c.setDropPreview(viewerPreview);
+    c.setStretchPositions(viewerPositions);
+    c.setBehavior(VIEWER_BEHAVIOR);
     c.reset();
   }
   return out;
@@ -248,6 +473,130 @@ onReset(reset);
   if (about && page) page.after(about);
 }
 
+// --- the Code view -------------------------------------------------------------------------------------------------
+
+/** The generated code for the window as it stands: the state (with the drag rules and options) and the last move. */
+const code = (): { state: string; move: string } => codeOf(c);
+
+/** Draw the pane from the code now (only while Code is shown: the generators run on demand, never per commit). */
+function renderCode(): void {
+  if (view !== "code") return;
+  const out = code()[codeTab];
+  // No move yet is a plain line, not code.
+  const empty = codeTab === "move" && c.lastDrop === null;
+  codePre.toggleAttribute("data-empty", empty);
+  if (empty) codePre.textContent = out;
+  else codePre.innerHTML = highlight(out);
+  for (const b of codeTabs.querySelectorAll<HTMLButtonElement>("[data-code]")) {
+    const on = b.dataset.code === codeTab;
+    b.setAttribute("aria-selected", String(on));
+    b.tabIndex = on ? 0 : -1;
+  }
+}
+
+/** The hash with its `view` flag set to `next`, when it has one (so a reload keeps what was picked). */
+function keepViewInHash(next: View): void {
+  try {
+    if (parseRoute().view) history.replaceState(null, "", location.href.replace(/([?&]view=)(window|code)/, `$1${next}`));
+  } catch {
+    // No history access: the hash stays as it was.
+  }
+}
+
+/** Show the window or its code: the switch, the stage, the pane. `remember` keeps the choice in this browser. */
+function setView(next: View, remember = true): void {
+  view = next;
+  stage.dataset.view = next;
+  codeView.hidden = next !== "code";
+  for (const b of viewSwitch.querySelectorAll<HTMLButtonElement>("[data-view]")) {
+    const on = b.dataset.view === next;
+    b.setAttribute("aria-checked", String(on));
+    b.tabIndex = on ? 0 : -1;
+  }
+  renderCode();
+  placeReset();
+  if (!remember) return;
+  keepViewInHash(next);
+  try {
+    localStorage.setItem(VIEW_KEY, next);
+  } catch {
+    // No storage: the choice lasts this visit.
+  }
+}
+
+function setCodeTab(next: CodeTab): void {
+  codeTab = next;
+  renderCode();
+  try {
+    localStorage.setItem(CODE_TAB_KEY, next);
+  } catch {
+    // No storage: the choice lasts this visit.
+  }
+}
+
+// The switch sits in the shell's header beside Reset (without a header, as in a frame, it stays at the page's top).
+document.querySelector(".lab-actions")?.prepend(viewSwitch);
+viewSwitch.addEventListener("click", (e) => {
+  const b = (e.target as Element).closest<HTMLButtonElement>("[data-view]");
+  if (b) setView(b.dataset.view as View);
+});
+// Arrow keys move along a radio group's modes, and along the tabs.
+const arrows = (e: KeyboardEvent): number => (e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0);
+viewSwitch.addEventListener("keydown", (e) => {
+  const step = arrows(e);
+  if (!step) return;
+  e.preventDefault();
+  const next = VIEWS[(VIEWS.indexOf(view) + step + VIEWS.length) % VIEWS.length]!;
+  setView(next);
+  viewSwitch.querySelector<HTMLButtonElement>(`[data-view="${next}"]`)?.focus();
+});
+codeTabs.addEventListener("click", (e) => {
+  const b = (e.target as Element).closest<HTMLButtonElement>("[data-code]");
+  if (b) setCodeTab(b.dataset.code as CodeTab);
+});
+codeTabs.addEventListener("keydown", (e) => {
+  const step = arrows(e);
+  if (!step) return;
+  e.preventDefault();
+  const next = CODE_TABS[(CODE_TABS.indexOf(codeTab) + step + CODE_TABS.length) % CODE_TABS.length]!;
+  setCodeTab(next);
+  codeTabs.querySelector<HTMLButtonElement>(`[data-code="${next}"]`)?.focus();
+});
+/** Copy the shown code as plain text (the line "No move yet" is not code: nothing to copy). */
+copyBtn.addEventListener("click", async () => {
+  if (codeTab === "move" && c.lastDrop === null) return;
+  const text = code()[codeTab];
+  let done = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    done = true;
+  } catch {
+    // No clipboard access (an insecure page, a blocked permission): select the code so Ctrl/⌘+C takes it.
+    getSelection()?.selectAllChildren(codePre);
+  }
+  copyBtn.textContent = done ? "Copied" : "Press ⌘/Ctrl+C";
+  setTimeout(() => (copyBtn.textContent = "Copy"), 1500);
+});
+// A hash that asks for a view (`#/docwin?view=code`) wins over the one kept in this browser.
+window.addEventListener("hashchange", () => {
+  const v = parseRoute().view;
+  if (v && v !== view) setView(v, false);
+});
+{
+  let kept: View | null = null;
+  let tab: CodeTab | null = null;
+  try {
+    const v = localStorage.getItem(VIEW_KEY);
+    kept = VIEWS.includes(v as View) ? (v as View) : null;
+    const t = localStorage.getItem(CODE_TAB_KEY);
+    tab = CODE_TABS.includes(t as CodeTab) ? (t as CodeTab) : null;
+  } catch {
+    // No storage: the Window view, the State tab.
+  }
+  if (tab) codeTab = tab;
+  setView(parseRoute().view ?? kept ?? "window", false);
+}
+
 // --- the headless API ----------------------------------------------------------------------------------------------
 
 const client = (r: Rect): Rect => {
@@ -264,15 +613,15 @@ function gripPoint(id: ItemId): { x: number; y: number } | null {
 }
 
 /**
- * Whether the scene's kinds allow the target, read from the scene's data (an edge's `accepts`, `floatKinds`, a side's
- * column template); home and none allow any item. The Scene gives no target its kinds deny, so this is a cross-check.
+ * Whether the state's kinds allow the target, read from the state's data (an edge's `accepts`, `floatKinds`, a side's
+ * column template); home and none allow any item. The DockState gives no target its kinds deny, so this is a cross-check.
  */
-function accepted(t: SceneTarget, id: ItemId): boolean {
-  const kind = c.scene.items[id]?.kind ?? "";
+function accepted(t: DockDrop, id: ItemId): boolean {
+  const kind = c.state.items[id]?.kind ?? "";
   const p = t.place;
-  if (p.kind === "gap") return !!c.scene.edges.find((e) => e.id === p.edge)?.accepts.includes(kind);
-  if (p.kind === "float") return c.scene.floatKinds.includes(kind);
-  if (p.kind === "column" || p.kind === "rail") return !!c.scene.columns?.[p.side]?.accepts.includes(kind);
+  if (p.kind === "gap") return !!c.state.edges.find((e) => e.id === p.edge)?.accepts.includes(kind);
+  if (p.kind === "float") return c.state.floatKinds.includes(kind);
+  if (p.kind === "column" || p.kind === "rail") return !!c.state.columns?.[p.side]?.accepts.includes(kind);
   return true;
 }
 
@@ -280,7 +629,7 @@ const api = {
   items: () =>
     ALL.map((id) => {
       const p = c.layout.items[id];
-      const it = c.scene.items[id]!;
+      const it = c.state.items[id]!;
       return {
         id,
         kind: it.kind,
@@ -324,7 +673,7 @@ const api = {
   refusals: (id: ItemId) => c.refusals(id).map((r) => ({ id: r.id, hit: r.hit, hits: r.hits ?? null, bounds: r.bounds ?? null })),
   layout: () => ({
     stored: c.stored(),
-    window: client(c.scene.stage),
+    window: client(c.state.stage),
     content: c.layout.content,
     edges: Object.fromEntries(
       EDGES.map((e) => {
@@ -346,7 +695,47 @@ const api = {
   checkAll,
   /** The conformance rows only, played on this window (ids containing `filter`, if given). */
   checkRows: (filter?: string) => checkRows(filter ? (id) => id.includes(filter) : undefined),
+  /** The landing rows only, played on this window under the landing model. */
+  checkLandingRows: (filter?: string) => checkLandingRows(filter ? (id) => id.includes(filter) : undefined),
+  /**
+   * The pre-render's hook: preset `id` set up and its gesture played to key frame `n`, the page showing that frame
+   * (a copy of the window as it was drawn then, on a backdrop; nothing animates), and its dump. Frame 0 is the state
+   * after setup; then each drag's start, every hop (the held item changes place) and its release. Null past the last.
+   * Frame 0 plays the preset afresh; the later frames are that recording, so every call for the same preset reads one
+   * play (the first `MAX_FRAMES` key frames of a case that drags more often).
+   */
+  frame: (id: string, n: number): Dump | null => {
+    const p = findPreset(id);
+    if (!p) return null;
+    if (n <= 0 || recorded !== p.id) {
+      rec.show(null);
+      recorded = null;
+      rec.start();
+      try {
+        runPreset(p, () => rec.state());
+      } finally {
+        rec.stop();
+      }
+      recorded = p.id;
+    }
+    const dump = rec.at(Math.max(0, n));
+    rec.show(dump ? Math.max(0, n) : null);
+    return dump;
+  },
+  /** The window as it stands now, as a dump of the state (no drag). */
+  dump: (): Dump => rec.now(),
   lastDrop: () => c.lastDrop,
+  /**
+   * The window as the code a host writes (./code), generated now from the state and the last drop: `state` (the stored
+   * literal, `readDockState`, `solve`, the drag rules and options) and `move` (the calls the last drag made, or the line
+   * "No move yet").
+   */
+  code,
+  /** The Window | Code switch: read it, or set it for this visit. */
+  view: (next?: View) => {
+    if (next === "window" || next === "code") setView(next, false);
+    return view;
+  },
   /** The last drag's trace: the shown target's changes, the snaps and every frame (pointer, speed, the held item's rect). */
   trace: () => c.trace,
   dragging: () => c.dragging,

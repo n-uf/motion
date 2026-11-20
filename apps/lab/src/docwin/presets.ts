@@ -1,16 +1,18 @@
 /**
  * The document window's presets: each sets the window up for one real docking case, says what should happen, and
- * checks it on the live scene ("Now"). They are the Scene's acceptance cases: every check reads what `solve` and
- * `targets` give and what the page draws from them. A preset whose rule the Scene doesn't have yet names it in `lacks`
+ * checks it on the live state ("Now"). They are the DockState's acceptance cases: every check reads what `solve` and
+ * `targets` give and what the page draws from them. A preset whose rule the DockState doesn't have yet names it in `lacks`
  * and is expected to be red until the rule lands: the page never fakes it.
  */
 import { center, contains, overlap, type Point, type Rect } from "@n-uf/placement";
-import { ZONES, floatOrientOf, floatSizeOf, lift, moveTo, orient, parseTargetId, railModeOf, reservedRect, resize, targetId, targets, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
-import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
+import { ZONES, floatOrientOf, floatSizeOf, liftItem, moveTo, orientFloat, parseTargetId, railModeOf, reservedRect, resizeEdge, targetId, targets, type Place, type DockState, type DockDrop } from "@n-uf/docking";
+import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultState, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
 import type { DragFeel, KindFeel } from "./feel";
 import { KIT_PRESETS } from "./kit-presets";
 import { INTENT_PRESETS } from "./intent-presets";
-import { FADE_DT_CAP, FADE_MS, type DocwinScene } from "./scene";
+import { LANDING_PRESETS } from "./landing-presets";
+import { ONE_PREVIEW_PRESETS } from "./one-preview-presets";
+import { FADE_DT_CAP, FADE_MS, type Behavior, type Docwin } from "./dock-state";
 import { readDocwin, storeDocwin } from "./store";
 
 export interface Verdict {
@@ -22,23 +24,28 @@ export interface Preset {
   readonly id: string;
   readonly title: string;
   readonly expected: string;
-  /** The Scene rule this case needs and doesn't have yet (so it shows red), or none. */
+  /** The DockState rule this case needs and doesn't have yet (so it shows red), or none. */
   readonly lacks?: string;
   /** Not built yet: while it fails it shows violet "not built", and `checkAll()` reports `pending`, not `pass: false`. */
   readonly pending?: boolean;
   /** The group it is listed under: the docking cases (default), or the drag intent's timing (`"intent"`). */
   readonly group?: "intent";
-  /** Set the window up (the scene, size, freeze). */
-  setup(c: DocwinScene): void;
-  /** Check it on the live scene; the page sets the preset up again afterwards. */
-  check(c: DocwinScene): Verdict;
+  /**
+   * Where things land while it runs (`Behavior`): the published libraries' rules, or the window's own. `PRESETS` sets
+   * it on every case, by group.
+   */
+  readonly behavior?: Behavior;
+  /** Set the window up (the state, size, freeze). */
+  setup(c: Docwin): void;
+  /** Check it on the live state; the page sets the preset up again afterwards. */
+  check(c: Docwin): Verdict;
 }
 
 // --- helpers ---------------------------------------------------------------------------------------------------------
 
 /** `p` in `r`, its edges included, exactly. */
 const inside = (r: Rect, p: Point): boolean => contains(r, p, 0);
-/** The edge a gap, strip or refusal id names (read with the Scene's `parseTargetId`), or undefined. */
+/** The edge a gap, strip or refusal id names (read with the DockState's `parseTargetId`), or undefined. */
 const idEdge = (id: string): string | undefined => {
   const p = parseTargetId(id);
   return p && "edge" in p ? p.edge : undefined;
@@ -54,16 +61,16 @@ const r0 = (n: number): number => Math.round(n);
 const say = (r: Rect): string => `${r0(r.x)},${r0(r.y)} ${r0(r.width)}×${r0(r.height)}`;
 
 /** The default window, changed by `edit`, at `size`. */
-const sceneWith = (edit: (s: Scene) => Scene, size = DEFAULT_SIZE): Scene => edit(defaultScene(size));
+const stateWith = (edit: (s: DockState) => DockState, size = DEFAULT_SIZE): DockState => edit(defaultState(size));
 
 /** The window px of the grip's center. */
-const gripOf = (c: DocwinScene, id: ItemId): Point | null => c.gripOf(id);
+const gripOf = (c: Docwin, id: ItemId): Point | null => c.gripOf(id);
 
 /**
  * A drag driven by hand on the page's own session (the same intent, targets and commit a mouse uses): press the grip,
  * glide to `to` at an aiming pace, hold still, then release (or not, with `keep`).
  */
-function dragTo(c: DocwinScene, id: ItemId, path: Point[], keep = false): { lifted: boolean; t: number } {
+function dragTo(c: Docwin, id: ItemId, path: Point[], keep = false): { lifted: boolean; t: number } {
   const g = gripOf(c, id);
   if (!g) return { lifted: false, t: 0 };
   c.drive(true);
@@ -92,7 +99,7 @@ function dragTo(c: DocwinScene, id: ItemId, path: Point[], keep = false): { lift
  * A drag like a mouse, through the page's own pointer listeners: pointerdown on the item's grip, pointermoves about 4 px
  * apart on the window to `to` (window px), a short hold, pointerup. Frames are driven by hand.
  */
-function mouseDrag(c: DocwinScene, id: ItemId, to: Point): { lifted: boolean } {
+function mouseDrag(c: Docwin, id: ItemId, to: Point): { lifted: boolean } {
   const h = mouseHold(c, id, to);
   h.up();
   return { lifted: h.lifted };
@@ -102,7 +109,7 @@ function mouseDrag(c: DocwinScene, id: ItemId, to: Point): { lifted: boolean } {
  * A mouse press on the item's grip held over window point `to` (pointermoves about 4 px apart, then a hold), still
  * down: `move(p)` glides on to another point and holds, `up()` lets go there.
  */
-function mouseHold(c: DocwinScene, id: ItemId, to: Point): { lifted: boolean; move: (p: Point) => void; up: () => void } {
+function mouseHold(c: Docwin, id: ItemId, to: Point): { lifted: boolean; move: (p: Point) => void; up: () => void } {
   const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
   const none = { lifted: false, move: () => undefined, up: () => undefined };
   if (!el) return none;
@@ -136,19 +143,19 @@ function mouseHold(c: DocwinScene, id: ItemId, to: Point): { lifted: boolean; mo
   };
 }
 
-const endDrag = (c: DocwinScene): void => {
+const endDrag = (c: Docwin): void => {
   c.release(performance.now(), true);
   c.drive(false);
 };
 
 /** A floating panel's resize handle as drawn, or null (none drawn). */
-const handleOf = (c: DocwinScene, id: ItemId, h: string): HTMLElement | null => c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-fh="${h}"]`);
+const handleOf = (c: Docwin, id: ItemId, h: string): HTMLElement | null => c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-fh="${h}"]`);
 
 /**
  * A mouse drag on a float's resize handle, through the page's own listeners: pointerdown on the handle's center,
  * pointermoves on the window about 4 px apart by (dx, dy), pointerup. `during` runs once halfway, the button still down.
  */
-function mouseResize(c: DocwinScene, id: ItemId, h: string, dx: number, dy: number, during?: () => void): boolean {
+function mouseResize(c: Docwin, id: ItemId, h: string, dx: number, dy: number, during?: () => void): boolean {
   const el = handleOf(c, id, h);
   if (!el) return false;
   const g = el.getBoundingClientRect();
@@ -168,7 +175,7 @@ function mouseResize(c: DocwinScene, id: ItemId, h: string, dx: number, dy: numb
  * A mouse double-click on the item's grip, through the page's own listeners: two pointerdown/pointerup pairs at the
  * grip's center (the grip found again for the second, as the first click may redraw it). Whether a drag ever started.
  */
-function mouseDouble(c: DocwinScene, id: ItemId): { pressed: boolean; dragged: boolean } {
+function mouseDouble(c: Docwin, id: ItemId): { pressed: boolean; dragged: boolean } {
   let dragged = false;
   for (let k = 0; k < 2; k++) {
     const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
@@ -185,27 +192,27 @@ function mouseDouble(c: DocwinScene, id: ItemId): { pressed: boolean; dragged: b
   return { pressed: true, dragged };
 }
 /** Every item's rect outside edge `edge`, as one string. */
-const outsideOf = (c: DocwinScene, edge: string): string =>
+const outsideOf = (c: Docwin, edge: string): string =>
   Object.entries(c.layout.items)
     .filter(([, p]) => p.edge !== edge)
     .map(([x, p]) => `${x}:${say(p.rect)}`)
     .sort()
     .join(" ");
-const allOf = (c: DocwinScene): string => outsideOf(c, "\u0000");
+const allOf = (c: Docwin): string => outsideOf(c, "\u0000");
 
 /** A double-click on the grip of `id` (in `edge`) folds it, another unfolds it; nothing drags, nothing outside its edge moves. */
-function doubleFold(c: DocwinScene, id: ItemId, edge: EdgeId, folded: (p: { form: number; formKind: string }) => boolean): string[] {
+function doubleFold(c: Docwin, id: ItemId, edge: EdgeId, folded: (p: { form: number; formKind: string }) => boolean): string[] {
   const bad: string[] = [];
   const start = allOf(c);
   const outside = outsideOf(c, edge);
   const drop = c.lastDrop;
   const a = mouseDouble(c, id);
   const p1 = c.layout.items[id]!;
-  if (!a.pressed || a.dragged || !folded(p1) || c.scene.items[id]!.from !== 1) bad.push(`first double-click: ${a.dragged ? "a drag started, " : ""}${p1.formKind} (form ${p1.form})`);
+  if (!a.pressed || a.dragged || !folded(p1) || c.state.items[id]!.from !== 1) bad.push(`first double-click: ${a.dragged ? "a drag started, " : ""}${p1.formKind} (form ${p1.form})`);
   if (outsideOf(c, edge) !== outside) bad.push("something outside its edge moved");
   const b = mouseDouble(c, id);
   const p2 = c.layout.items[id]!;
-  if (!b.pressed || b.dragged || folded(p2) || c.scene.items[id]!.from !== undefined) bad.push(`second double-click: ${b.dragged ? "a drag started, " : ""}${p2.formKind} (form ${p2.form})`);
+  if (!b.pressed || b.dragged || folded(p2) || c.state.items[id]!.from !== undefined) bad.push(`second double-click: ${b.dragged ? "a drag started, " : ""}${p2.formKind} (form ${p2.form})`);
   if (allOf(c) !== start) bad.push("the window isn't back as it was");
   if (c.lastDrop !== drop) bad.push("a drop happened");
   return bad;
@@ -213,15 +220,15 @@ function doubleFold(c: DocwinScene, id: ItemId, edge: EdgeId, folded: (p: { form
 
 /** Findings floating over the pages: the float the resize presets work on. */
 const RESIZE_AT: Rect = { x: 440, y: 160, width: 280, height: 320 };
-const resizeScene = (): Scene => sceneWith((s) => floating(s, "findings", RESIZE_AT));
+const resizeState = (): DockState => stateWith((s) => floating(s, "findings", RESIZE_AT));
 /** The least a floating panel resizes to: its `floatMin`, else its open form's minimums (across, along). */
-function panelMin(c: DocwinScene, id: ItemId): { width: number; height: number } {
-  const it = c.scene.items[id]!;
+function panelMin(c: Docwin, id: ItemId): { width: number; height: number } {
+  const it = c.state.items[id]!;
   const open = it.forms.column?.[0];
   return it.floatMin ?? { width: open?.cross.min ?? 0, height: open?.main.min ?? 0 };
 }
 /** Every item's rect but `id`'s, as one string (nothing else moved). */
-const othersOf = (c: DocwinScene, id: ItemId): string =>
+const othersOf = (c: Docwin, id: ItemId): string =>
   Object.entries(c.layout.items)
     .filter(([x]) => x !== id)
     .map(([x, p]) => `${x}:${say(p.rect)}`)
@@ -229,9 +236,9 @@ const othersOf = (c: DocwinScene, id: ItemId): string =>
     .join(" ");
 
 /** The targets that dock the item into an edge (gaps and strips). */
-const gaps = (c: DocwinScene, id: ItemId): (SceneTarget & { place: { kind: "gap"; edge: string; zone: string; at: number } })[] =>
-  c.targets(id).filter((t): t is SceneTarget & { place: { kind: "gap"; edge: string; zone: string; at: number } } => t.place.kind === "gap");
-const rectOf = (c: DocwinScene, id: ItemId): Rect | null => c.layout.items[id]?.rect ?? null;
+const gaps = (c: Docwin, id: ItemId): (DockDrop & { place: { kind: "gap"; edge: string; zone: string; at: number } })[] =>
+  c.targets(id).filter((t): t is DockDrop & { place: { kind: "gap"; edge: string; zone: string; at: number } } => t.place.kind === "gap");
+const rectOf = (c: Docwin, id: ItemId): Rect | null => c.layout.items[id]?.rect ?? null;
 /** A marker (a zero-thick line) lies inside `r`, not only on its border; an area overlap is always 0 for a line. */
 const crosses = (m: Rect, r: Rect): boolean => {
   const along = (a: number, al: number, b: number, bl: number): boolean => (al === 0 ? a > b && a < b + bl : a < b + bl && a + al > b);
@@ -242,7 +249,7 @@ type Wrapped = { readonly rows?: readonly (readonly number[])[]; readonly grip?:
 const wrapOf = (p: object | undefined): Wrapped => (p ?? {}) as Wrapped;
 const WORDS = 3; // Views: Pages · Notes 2 · Findings 20
 /** A point in `t`'s hit that no other docking target's hit covers, or null when another's hit covers all of it. */
-function aim(c: DocwinScene, id: ItemId, t: SceneTarget): Point | null {
+function aim(c: Docwin, id: ItemId, t: DockDrop): Point | null {
   const others = c.targets(id).filter((o) => o.id !== t.id && !o.free && o.place.kind !== "home");
   for (let fy = 0.5; fy < 1; fy += 0.1)
     for (const y of [fy, 1 - fy])
@@ -267,8 +274,8 @@ const permutations = <T,>(xs: readonly T[]): T[][] => (xs.length <= 1 ? [[...xs]
  * The default window with `order` on `edge` (Review left alone in the bottom bar, or in the top bar when the bottom bar
  * is swept); in the tray, at the column's foot.
  */
-function sweepScene(edge: EdgeId, order: readonly ItemId[]): Scene {
-  return sceneWith((s) => {
+function sweepState(edge: EdgeId, order: readonly ItemId[]): DockState {
+  return stateWith((s) => {
     const out = put(put(s, edge === "bottom" ? "top" : "bottom", ["review"]), edge, edge === "left" ? ["pages", "notes", ...order] : [...order]);
     if (edge !== "left") return out;
     const items = { ...out.items };
@@ -285,20 +292,20 @@ export const PRESETS: readonly Preset[] = [
     title: "No slot over the title or controls",
     expected:
       "Dragging Views to the title bar offers slots only between the title and the window controls: none before the title or after the controls. No gap's hit, slot or marker lies over the controls. The title grows, so a hit may lie over its text (the pointer there picks the gap just after it), but no slot or marker lies over its reserved room, its natural text placed by its zone.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const ts = gaps(c, "views").filter((g) => g.place.edge === "title");
       const ctl = rectOf(c, "controls")!;
-      const title = reservedRect(c.scene, c.layout, "title");
+      const title = reservedRect(c.state, c.layout, "title");
       const why = (g: (typeof ts)[number]): string | null => {
         const after = g.after({ x: 0, y: 0 });
-        const ids = edgeOf(after.scene, "title").items;
+        const ids = edgeOf(after.state, "title").items;
         const at = ids.indexOf("views");
         if (at <= ids.indexOf("title")) return "before the title";
         if (at > ids.indexOf("controls")) return "after the controls";
         if (overlap(g.hit, ctl) > 0) return `its hit ${say(g.hit)} covers the controls ${say(ctl)}`;
         const ctlA = after.layout.items.controls?.rect;
-        const titleA = after.layout.items.title ? reservedRect(after.scene, after.layout, "title") : null;
+        const titleA = after.layout.items.title ? reservedRect(after.state, after.layout, "title") : null;
         if (g.slot && ctlA && overlap(g.slot, ctlA) > 0) return `its slot ${say(g.slot)} covers the controls ${say(ctlA)}`;
         if (g.slot && titleA && overlap(g.slot, titleA) > 0) return `its slot ${say(g.slot)} covers the title's reserved ${say(titleA)}`;
         if (g.marker && ctlA && crosses(g.marker, ctlA)) return `its marker ${say(g.marker)} crosses the controls ${say(ctlA)}`;
@@ -319,7 +326,7 @@ export const PRESETS: readonly Preset[] = [
     title: "A full overlay bar lies over the columns",
     expected:
       "With the bottom bar laid over the content (mode overlay) and span full set by name, it runs across the window's full width at the content's bottom, over both side columns; the columns keep their height, down to the window's foot.",
-    setup: (c) => c.setScene(sceneWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, mode: "overlay" as const, span: "full" as const } : e)) }))),
+    setup: (c) => c.setState(stateWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, mode: "overlay" as const, span: "full" as const } : e)) }))),
     check(c) {
       const bar = c.layout.edges.bottom?.rect;
       const left = c.layout.edges.left?.rect;
@@ -337,17 +344,17 @@ export const PRESETS: readonly Preset[] = [
     id: "hidden-bar",
     title: "A hidden bar takes no room and offers nothing",
     expected:
-      "With the bottom bar hidden (part of the scene, not of the window), it draws nothing and takes no room: the columns and the content run down to the window's foot. Views and Review stay in it, undrawn. Dragging Zoom finds no slot and no refusal in it.",
-    setup: (c) => c.setScene(sceneWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, hidden: true } : e)) }))),
+      "With the bottom bar hidden (part of the state, not of the window), it draws nothing and takes no room: the columns and the content run down to the window's foot. Views and Review stay in it, undrawn. Dragging Zoom finds no slot and no refusal in it.",
+    setup: (c) => c.setState(stateWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, hidden: true } : e)) }))),
     check(c) {
-      const bottom = c.scene.edges.find((e) => e.id === "bottom");
+      const bottom = c.state.edges.find((e) => e.id === "bottom");
       const kept = !!bottom && bottom.items.includes("views") && bottom.items.includes("review");
       const drawn = !!c.layout.edges.bottom || !!c.layout.items.views || !!c.layout.items.review;
       const foot = c.layout.content.y + c.layout.content.height;
-      const offered = targets(c.scene, "zoom").filter((t) => t.id.includes(":bottom:")).length + c.refusals("zoom").filter((r) => r.edge === "bottom").length;
+      const offered = targets(c.state, "zoom").filter((t) => t.id.includes(":bottom:")).length + c.refusals("zoom").filter((r) => r.edge === "bottom").length;
       return {
-        pass: kept && !drawn && Math.abs(foot - c.scene.stage.height) < 0.5 && offered === 0,
-        now: `The bar ${kept ? "keeps Views and Review" : "lost its items"}, ${drawn ? "is drawn" : "draws nothing"}; the content ends at ${Math.round(foot)} of ${c.scene.stage.height}; ${offered} targets or refusals lie in it.`,
+        pass: kept && !drawn && Math.abs(foot - c.state.stage.height) < 0.5 && offered === 0,
+        now: `The bar ${kept ? "keeps Views and Review" : "lost its items"}, ${drawn ? "is drawn" : "draws nothing"}; the content ends at ${Math.round(foot)} of ${c.state.stage.height}; ${offered} targets or refusals lie in it.`,
       };
     },
   },
@@ -355,10 +362,10 @@ export const PRESETS: readonly Preset[] = [
     id: "hidden-bar-shows-in-top",
     title: "A hidden bar shows its groups in the top bar",
     expected:
-      "With the bottom bar hidden and showing in the top bar, it draws nothing, and Views and Review are drawn in the top bar after its own groups, while the scene keeps them in the bottom bar. Dragging Views offers it the top bar's gaps; its home gives back the scene as it was, and a drop at the top bar's start moves it there for real, out of the bottom bar.",
-    setup: (c) => c.setScene(sceneWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, hidden: true, showIn: "top" } : e)) }))),
+      "With the bottom bar hidden and showing in the top bar, it draws nothing, and Views and Review are drawn in the top bar after its own groups, while the state keeps them in the bottom bar. Dragging Views offers it the top bar's gaps; its home gives back the state as it was, and a drop at the top bar's start moves it there for real, out of the bottom bar.",
+    setup: (c) => c.setState(stateWith((s) => ({ ...s, edges: s.edges.map((e) => (e.id === "bottom" ? { ...e, hidden: true, showIn: "top" } : e)) }))),
     check(c) {
-      const s = c.scene;
+      const s = c.state;
       const bottom = s.edges.find((e) => e.id === "bottom");
       const top = s.edges.find((e) => e.id === "top");
       const kept = !!bottom && bottom.items.includes("views") && bottom.items.includes("review");
@@ -369,13 +376,13 @@ export const PRESETS: readonly Preset[] = [
       const after = shown && own.every((r) => r.x + r.width <= Math.min(views.rect.x, review.rect.x) + 0.5);
       const ts = targets(s, "views");
       const home = ts.find((t) => t.place.kind === "home");
-      const stays = !!home && home.after({ x: 0, y: 0 }).scene === s;
+      const stays = !!home && home.after({ x: 0, y: 0 }).state === s;
       const first = ts.find((t) => t.place.kind === "gap" && t.place.edge === "top" && t.place.at === 0);
-      const moved = first?.after(center(first.hit)).scene;
+      const moved = first?.after(center(first.hit)).state;
       const out = !!moved && !moved.edges.find((e) => e.id === "bottom")!.items.includes("views") && moved.edges.find((e) => e.id === "top")!.items[0] === "views";
       return {
         pass: kept && shown && after && stays && out,
-        now: `The scene ${kept ? "keeps Views and Review in the bottom bar" : "lost them from the bottom bar"}; they are ${shown ? "drawn in the top bar" : "not drawn in the top bar"}${after ? ", after its own groups" : ""}. Views' home ${stays ? "gives back the scene" : "changes the scene"}; a drop at the top bar's start ${out ? "moves it there, out of the bottom bar" : first ? "doesn't move it out" : "isn't offered"}.`,
+        now: `The state ${kept ? "keeps Views and Review in the bottom bar" : "lost them from the bottom bar"}; they are ${shown ? "drawn in the top bar" : "not drawn in the top bar"}${after ? ", after its own groups" : ""}. Views' home ${stays ? "gives back the state" : "changes the state"}; a drop at the top bar's start ${out ? "moves it there, out of the bottom bar" : first ? "doesn't move it out" : "isn't offered"}.`,
       };
     },
   },
@@ -385,15 +392,15 @@ export const PRESETS: readonly Preset[] = [
     expected:
       "The left rail has one zone (zones: start) and holds Zoom. Dragging Review (from the bottom bar's end zone) along it finds a gap at every point, top to bottom, none refused and none in a center or end zone. A drop near its foot puts Review last on the rail, the marker on the line where it lands, and Review keeps its own end zone.",
     setup: (c) =>
-      c.setScene(
-        sceneWith((s) => {
+      c.setState(
+        stateWith((s) => {
           const r = moveTo(s, "review", { edge: "bottom", zone: "end", at: 0 });
           const z = moveTo(r, "zoom", { edge: "rail-left", at: 0 });
           return { ...z, edges: z.edges.map((e) => (e.id === "rail-left" ? { ...e, zones: ["start"] } : e)) };
         }),
       ),
     check(c) {
-      const s = c.scene;
+      const s = c.state;
       const rail = c.layout.edges["rail-left"]?.rect;
       if (!rail) return { pass: false, now: "The left rail isn't drawn." };
       const ts = targets(s, "review").filter((t) => t.id.includes(":rail-left:"));
@@ -407,13 +414,13 @@ export const PRESETS: readonly Preset[] = [
       const foot = { x: rail.x + rail.width / 2, y: rail.y + rail.height - 4 };
       const t = ts.find((x) => inside(x.hit, foot));
       const a = t?.after(foot);
-      const last = !!a && a.scene.edges.find((e) => e.id === "rail-left")!.items.at(-1) === "review";
-      const own = a?.scene.items.review?.align === "end";
+      const last = !!a && a.state.edges.find((e) => e.id === "rail-left")!.items.at(-1) === "review";
+      const own = a?.state.items.review?.align === "end";
       const landed = a?.layout.items.review?.rect;
       const marked = !!t?.marker && !!landed && Math.abs(t.marker.y - landed.y) < 0.5;
       return {
         pass: ts.length > 0 && others === 0 && refused === 0 && holes === 0 && last && own && marked,
-        now: `${ts.length} gaps on the rail (${others} outside its start zone), ${refused} refusals, ${holes} points with no gap; a drop at its foot ${last ? "puts Review last" : "doesn't put Review last"}, ${own ? "its zone kept (end)" : `its zone now ${a?.scene.items.review?.align ?? "start"}`}, the marker ${marked ? "on" : "off"} the landing line.`,
+        now: `${ts.length} gaps on the rail (${others} outside its start zone), ${refused} refusals, ${holes} points with no gap; a drop at its foot ${last ? "puts Review last" : "doesn't put Review last"}, ${own ? "its zone kept (end)" : `its zone now ${a?.state.items.review?.align ?? "start"}`}, the marker ${marked ? "on" : "off"} the landing line.`,
       };
     },
   },
@@ -423,13 +430,13 @@ export const PRESETS: readonly Preset[] = [
     expected:
       "Zoom, moved into the top bar, can go back: the title bar offers it a gap in its spare room, clear of the title's natural text and the window controls, with the slot drawn there and never over the title. The drop puts Zoom back in the title bar; the title keeps its text at natural size or less and the controls stay as they were.",
     lacks: "a growing fixed item reserves only its natural rect; the spare room accepts groups",
-    setup: (c) => c.setScene(moveTo(defaultScene(), "zoom", { edge: "top", at: 0 })),
+    setup: (c) => c.setState(moveTo(defaultState(), "zoom", { edge: "top", at: 0 })),
     check(c) {
       const title = rectOf(c, "title");
       const ctl = rectOf(c, "controls");
       const bar = c.layout.edges.title?.rect;
       if (!title || !ctl || !bar) return { pass: false, now: "The title bar has no title, controls or rect." };
-      const tf = c.scene.items.title!.forms.row![0]!.main;
+      const tf = c.state.items.title!.forms.row![0]!.main;
       const text: Rect = { ...title, width: Math.min(title.width, tf.natural) };
       const ts = gaps(c, "zoom").filter((g) => g.place.edge === "title" && c.edge("title").accepts.includes("group"));
       const clear = ts.filter((g) => overlap(g.hit, text) === 0 && overlap(g.hit, ctl) === 0);
@@ -456,7 +463,7 @@ export const PRESETS: readonly Preset[] = [
     id: "nothing-lights-up",
     title: "Nothing lights up during a drag",
     expected: "While Notes is held, only its targets react: the resize edge, headers and buttons take no hover, cursor or highlight, and nothing gets selected.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const r = dragTo(c, "notes", [{ x: 260, y: 300 }], true);
       if (!r.lifted) return { pass: false, now: "The drag never lifted." };
@@ -475,7 +482,7 @@ export const PRESETS: readonly Preset[] = [
     id: "click-moves-nothing",
     title: "A click or badge change moves nothing",
     expected: "A press on a header, or a count changing (Notes 2 → 3, Findings 20 → 121), moves no item by more than 0.5 px.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const snap = (): Map<string, DOMRect> => new Map([...c.win.querySelectorAll<HTMLElement>(".dw-items [data-id]")].map((e) => [e.dataset.id!, e.getBoundingClientRect()]));
       const a = snap();
@@ -506,7 +513,7 @@ export const PRESETS: readonly Preset[] = [
     title: "Freeze with Alt",
     expected: "Frozen: the grips are hidden and nothing lifts. Holding Alt shows the grips and every drag works; letting Alt go freezes again.",
     setup: (c) => {
-      c.setScene(defaultScene());
+      c.setState(defaultState());
       c.setFrozen(true);
     },
     check(c) {
@@ -529,9 +536,9 @@ export const PRESETS: readonly Preset[] = [
     expected:
       "Views (Pages · Notes 2 · Findings 20, with a grip), dropped into a column narrower than its one row, stays horizontal as a wrap form: the grip is a cell at the start of row one, the words wrap in their own box beside it (a hanging indent, no grip row of its own, never one word alone on a row that isn't the last: a column too narrow for two words per row shows icons), its rect is rows × the row height tall and no wider than the column. Dropped onto a vertical place (an empty column's strip, a column drawn as a rail), it shows icons only, one per item, stacked (the host draws their grip on top). The slot a target shows is the rect after the real drop.",
     // The left column at its least width (the panels' 180 px), narrower than Views' measured one row.
-    setup: (c) => c.setScene(resize(defaultScene(), "left", COL_MIN)),
+    setup: (c) => c.setState(resizeEdge(defaultState(), "left", COL_MIN)),
     check(c) {
-      const forms = c.scene.items.views!.forms.column!;
+      const forms = c.state.items.views!.forms.column!;
       const wrapSpec = forms.find((f) => f.kind === "wrap")?.wrap;
       const rowH = wrapSpec?.row ?? NaN;
       const lead = wrapSpec?.lead ?? 0;
@@ -573,7 +580,7 @@ export const PRESETS: readonly Preset[] = [
       });
       // 3. The preview is the landing: a drag onto the first target with a point of its own (a hit covered whole by
       // another's, such as a column's first gap under an empty bar's strip, can't be reached by a drop).
-      const land = (ts: SceneTarget[]): string => {
+      const land = (ts: DockDrop[]): string => {
         const at = ts.map((t) => [t, aim(c, "views", t)] as const).find(([, p]) => p !== null);
         if (!at) {
           bad.push(`no point of its own in ${ts.map((t) => t.id).join(", ")}`);
@@ -593,12 +600,12 @@ export const PRESETS: readonly Preset[] = [
       const vertical: string[] = [];
       const landVertical: string[] = [];
       // A group never opens a column on its own: at the empty right side it gets the window-edge rail's strip.
-      const places: [string, Scene, EdgeId][] = [
-        ["the empty right side (the rail's strip)", sceneWith((s) => put(s, "left", ["pages", "notes", "findings"])), "rail-right"],
-        ["the right column as a rail (Review only)", sceneWith((s) => put(put(s, "left", ["pages", "notes"]), "right", ["review"])), "right"],
+      const places: [string, DockState, EdgeId][] = [
+        ["the empty right side (the rail's strip)", stateWith((s) => put(s, "left", ["pages", "notes", "findings"])), "rail-right"],
+        ["the right column as a rail (Review only)", stateWith((s) => put(put(s, "left", ["pages", "notes"]), "right", ["review"])), "right"],
       ];
       for (const [name, s, edgeId] of places) {
-        c.setScene(s);
+        c.setState(s);
         const ts = gaps(c, "views").filter((g) => g.place.edge === edgeId);
         if (!ts.length) {
           bad.push(`${name}: no target`);
@@ -633,7 +640,7 @@ export const PRESETS: readonly Preset[] = [
     title: "An empty bar's strip keeps the columns' first gaps",
     expected:
       "With the top bar empty, a group's drag shows the top bar's three zone strips (leading, center, trailing) along the top of the content, and they never swallow a gap: no strip's hit overlaps a gap's hit, and every gap (the columns' trays, the bars' gaps) has a point of its own a drop can reach.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const ts = c.targets("views");
       const strips = ZONES.map((zone) => ts.find((t) => t.id === targetId({ kind: "strip", edge: "top", zone })));
@@ -651,7 +658,7 @@ export const PRESETS: readonly Preset[] = [
     title: "An empty side: a group gets the rail, a panel the column",
     expected:
       "With every panel in the left column, the right side is empty. A group's drag there gets only the window-edge rail's strips, one per third (it becomes a 30 px icon rail, never a column with one toolbar); a panel's drag gets only the column's top third (its start zone). One edge per drag kind, never two side by side.",
-    setup: (c) => c.setScene(sceneWith((s) => put(s, "left", ["pages", "notes", "findings"]))),
+    setup: (c) => c.setState(stateWith((s) => put(s, "left", ["pages", "notes", "findings"]))),
     check(c) {
       const strips = (id: ItemId): string[] => c.targets(id).filter((t) => parseTargetId(t.id)?.kind === "strip" && !!idEdge(t.id)?.includes("right")).map((t) => t.id);
       const group = strips("views");
@@ -665,7 +672,7 @@ export const PRESETS: readonly Preset[] = [
     title: "A group into a column's tray",
     expected:
       "Dragging Views into the left column's tray (its foot, below the panels) shows the slot there; the drop lands exactly on it, in the column's end zone, as words that wrap or icons, and the panels above give way upward. The preview is the landing.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const t = gaps(c, "views").find((g) => g.place.edge === "left" && g.place.zone === "end");
       if (!t) return { pass: false, now: "No tray gap in the left column." };
@@ -687,7 +694,7 @@ export const PRESETS: readonly Preset[] = [
     title: "A slow, short drag from the bottom bar into the tray",
     expected:
       "Pressing Views' grip in the bottom bar and pulling it slowly (about 4 px per move, 16 ms apart) a short way up and to the right into the left column's tray just above lifts it after 5 px, shows the tray's slot, and the release lands exactly there. Driven through the page's own pointer listeners, like a mouse.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const t = gaps(c, "views").find((g) => g.place.edge === "left" && g.place.zone === "end");
       const el = c.win.querySelector<HTMLElement>('.dw-items [data-id="views"] [data-grip]');
@@ -723,13 +730,13 @@ export const PRESETS: readonly Preset[] = [
     title: "A second toolbar onto a rail: top, between, middle, bottom",
     expected:
       "With Zoom on a window-edge rail, Tools dropped by mouse anywhere on that rail lands there: at its top above Zoom (start), just below Zoom (start), in the middle (center) and at the bottom (end), each with the slot equal to the landing. No dead stretch along the rail. The same on the right rail.",
-    setup: (c) => c.setScene(sceneWith((s) => put(s, "rail-left", ["zoom"]))),
+    setup: (c) => c.setState(stateWith((s) => put(s, "rail-left", ["zoom"]))),
     check(c) {
       const bad: string[] = [];
       const seen: string[] = [];
       for (const side of ["rail-left", "rail-right"] as const) {
-        const base = sceneWith((s) => put(s, side, ["zoom"]));
-        c.setScene(base);
+        const base = stateWith((s) => put(s, side, ["zoom"]));
+        c.setState(base);
         const rail = c.layout.edges[side]!.rect;
         const zoom = rectOf(c, "zoom")!;
         const x = rail.x + rail.width / 2;
@@ -742,7 +749,7 @@ export const PRESETS: readonly Preset[] = [
           ["bottom", { x, y: rail.y + rail.height - 6 }, "end"],
         ];
         for (const [name, p, zone] of spots) {
-          c.setScene(base);
+          c.setState(base);
           const r = mouseDrag(c, "tools", p);
           const d = c.lastDrop;
           const l = c.layout.items.tools;
@@ -759,13 +766,13 @@ export const PRESETS: readonly Preset[] = [
     title: "An empty rail's thirds, then a second toolbar into each third",
     expected:
       "Review dropped by mouse in the top, middle and bottom third of the empty left rail lands at its start, center and end, the slot equal to the landing; the same on the empty right rail. Then, with Review in each of those places, Tools dropped by mouse in each third of that rail lands in that third's zone, the slot equal to the landing.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const bad: string[] = [];
       const seen: string[] = [];
       const zones = ["start", "center", "end"] as const;
       for (const side of ["rail-left", "rail-right"] as const) {
-        c.setScene(defaultScene());
+        c.setState(defaultState());
         const rail = c.layout.edges[side]!.rect;
         // Inside the rail's strip while it is empty, inside the rail once it shows.
         const x = side === "rail-left" ? rail.x + 6 : rail.x + rail.width - 6;
@@ -780,11 +787,11 @@ export const PRESETS: readonly Preset[] = [
           return ok;
         };
         for (let k = 0; k < 3; k++) {
-          c.setScene(defaultScene());
+          c.setState(defaultState());
           if (!drop("review", k, `${side}, Review in third ${k + 1}`)) continue;
-          const withReview = c.scene;
+          const withReview = c.state;
           for (let k2 = 0; k2 < 3; k2++) {
-            c.setScene(withReview);
+            c.setState(withReview);
             drop("tools", k2, `${side}, Review ${zones[k]}, Tools in third ${k2 + 1}`);
           }
         }
@@ -797,7 +804,7 @@ export const PRESETS: readonly Preset[] = [
     title: "Aim at a toolbar's half: before or after it, on every edge, in every order",
     expected:
       "On the rail, the top bar, the bottom bar, the title bar and the left column's tray, with Tools, Views and Zoom in each of their 6 orders: each, dragged by mouse with its grip in the leading half of another (entering from outside the window, and gliding straight from its place), lands right before it, and in its trailing half right after it (the item taken out first). Where that order is the one seen, it is home (\"Back to its place\") and nothing moves. A drop's slot is where it lands, at its landed size.",
-    setup: (c) => c.setScene(sweepScene("rail-left", SWEEP_GROUPS)),
+    setup: (c) => c.setState(sweepState("rail-left", SWEEP_GROUPS)),
     check(c) {
       const t0 = performance.now();
       const bad: string[] = [];
@@ -814,8 +821,8 @@ export const PRESETS: readonly Preset[] = [
             return p?.edge === edge && !p.inMenu && p.rect.width >= 1 && p.rect.height >= 1;
           }).sort((a, b) => along(c.layout.items[a]!.rect) - along(c.layout.items[b]!.rect));
         for (const order of permutations(SWEEP_GROUPS)) {
-          const base = sweepScene(edge, order);
-          c.setScene(base);
+          const base = sweepState(edge, order);
+          c.setState(base);
           if (shown().join() !== order.join()) {
             bad.push(`${kind} ${order.join(" ")}: set up as ${shown().join(" ")}`);
             continue;
@@ -824,7 +831,7 @@ export const PRESETS: readonly Preset[] = [
             const others = order.filter((x) => x !== id);
             others.forEach((nb, k) => {
               for (const half of [0, 1]) {
-                c.setScene(base);
+                c.setState(base);
                 const own = rectOf(c, id)!;
                 const r = rectOf(c, nb)!;
                 const f = half ? 0.75 : 0.25;
@@ -836,9 +843,9 @@ export const PRESETS: readonly Preset[] = [
                 // the edge's outer side: the tiles alone. And a direct glide from home: the intent's band about a held
                 // zone scales with the zones (a fifth of a 28 px row's extent, not 10 px), so the aim still wins.
                 for (const way of ["outside", "direct"] as const) {
-                  c.setScene(base);
-                  const side = edgeOf(c.scene, edge).side;
-                  const via = side === "left" ? { x: -24, y: to.y } : side === "top" ? { x: to.x, y: -24 } : { x: to.x, y: c.scene.stage.height + 24 };
+                  c.setState(base);
+                  const side = edgeOf(c.state, edge).side;
+                  const via = side === "left" ? { x: -24, y: to.y } : side === "top" ? { x: to.x, y: -24 } : { x: to.x, y: c.state.stage.height + 24 };
                   const m = mouseHold(c, id, way === "outside" ? via : to);
                   if (way === "outside") m.move(to);
                   m.up();
@@ -856,8 +863,8 @@ export const PRESETS: readonly Preset[] = [
         }
         counts.push(`${kind} ${ok.outside}/${n} from outside, ${ok.direct}/${n} direct`);
       }
-      c.setScene(sweepScene("rail-left", SWEEP_GROUPS));
-      return { pass: bad.length === 0, now: `${counts.join(", ")} in ${r0((performance.now() - t0) / 1000)} s.${bad.length ? ` Broken: ${bad.slice(0, 12).join("; ")}${bad.length > 12 ? `; and ${bad.length - 12} more` : ""}.` : ""}` };
+      c.setState(sweepState("rail-left", SWEEP_GROUPS));
+      return { pass: bad.length === 0, now: `${counts.join(", ")}.${bad.length ? ` Broken: ${bad.slice(0, 12).join("; ")}${bad.length > 12 ? `; and ${bad.length - 12} more` : ""}.` : ""}` };
     },
   },
   {
@@ -865,18 +872,18 @@ export const PRESETS: readonly Preset[] = [
     title: "A toolbar into the title bar: over the title, the middle, by the controls",
     expected:
       "Tools dropped by mouse with its grip over the title's text, over the empty middle of the title bar, and just left of the window controls lands in the title bar each time, the slot equal to the landing, never over the title's text or the controls; with Zoom in the title bar and with Zoom moved out to the rail.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const bad: string[] = [];
       const seen: string[] = [];
-      const worlds: [string, Scene][] = [
-        ["Zoom in the title bar", defaultScene()],
-        ["Zoom on the rail", sceneWith((s) => put(s, "rail-left", ["zoom"]))],
+      const worlds: [string, DockState][] = [
+        ["Zoom in the title bar", defaultState()],
+        ["Zoom on the rail", stateWith((s) => put(s, "rail-left", ["zoom"]))],
       ];
       for (const [world, base] of worlds) {
-        c.setScene(base);
+        c.setState(base);
         const bar = c.layout.edges.title!.rect;
-        const title = reservedRect(c.scene, c.layout, "title");
+        const title = reservedRect(c.state, c.layout, "title");
         const ctl = rectOf(c, "controls")!;
         const y = bar.y + bar.height / 2;
         const spots: [string, Point][] = [
@@ -885,11 +892,11 @@ export const PRESETS: readonly Preset[] = [
           ["left of the controls", { x: ctl.x - 6, y }],
         ];
         for (const [name, p] of spots) {
-          c.setScene(base);
+          c.setState(base);
           const r = mouseDrag(c, "tools", p);
           const d = c.lastDrop;
           const l = c.layout.items.tools;
-          const titleA = reservedRect(c.scene, c.layout, "title");
+          const titleA = reservedRect(c.state, c.layout, "title");
           const ctlA = rectOf(c, "controls")!;
           const ok = r.lifted && !!d && d.committed && l?.edge === "title" && sameRect(d.preview, d.landed) && !!d.landed && overlap(d.landed, titleA) === 0 && overlap(d.landed, ctlA) === 0;
           seen.push(`${world}, ${name}: ${d?.target ?? "nothing"}`);
@@ -904,17 +911,17 @@ export const PRESETS: readonly Preset[] = [
     title: "Every point of an edge that takes the item is a gap",
     expected:
       "For a panel and a toolbar, every point inside every edge that accepts it, swept at 8 px, hits a gap; except over a non-growing fixed item (the window controls) and over a panel's body (where a gap is a band), and, for a toolbar in a panel column, over the panels' own zone above the tray.",
-    setup: (c) => c.setScene(sceneWith((s) => put(s, "rail-left", ["zoom"]))),
+    setup: (c) => c.setState(stateWith((s) => put(s, "rail-left", ["zoom"]))),
     check(c) {
       const bad: string[] = [];
       let n = 0;
       for (const id of ["notes", "tools"] as const) {
-        const kind = c.scene.items[id]!.kind;
+        const kind = c.state.items[id]!.kind;
         const ts = c.targets(id);
         // The window as the user sees it while the item is held (the item in place): that is what the pointer moves over.
         const held = c.layout;
-        const kept = lift(c.scene, id).edges;
-        for (const e of c.scene.edges) {
+        const kept = liftItem(c.state, id).edges;
+        for (const e of c.state.edges) {
           // An edge the lift deletes (the item's own column) offers no place: it is home's.
           if (!e.accepts.includes(kind) || !kept.some((k) => k.id === e.id)) continue;
           const l = held.edges[e.id];
@@ -956,7 +963,7 @@ export const PRESETS: readonly Preset[] = [
     id: "group-into-rail",
     title: "A group into the window-edge rail",
     expected: "Dragging Views onto the left window edge's rail strip shows its slot; the drop lands exactly on it, as icons in the 30 px rail outside the left column. The preview is the landing.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const t = c.targets("views").find((x) => x.id === targetId({ kind: "strip", edge: "rail-left", zone: "start" }));
       if (!t) return { pass: false, now: "No strip for the left rail." };
@@ -975,12 +982,12 @@ export const PRESETS: readonly Preset[] = [
     title: "The title bar's zones: leading, center, trailing",
     expected:
       "Tools dropped by mouse in the title bar's left third lands leading (right after the title's natural width, or after the toolbars there), in the middle third at the bar's true center (or, where that isn't clear of the title and the trailing toolbars, centered in the free span between them), in the right third trailing, right before the window controls. The slot is the landing, never over the title's natural rect or the controls; with Zoom in the title bar, Zoom moved out, and Review leading.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       return zonesOfBar(c, "title", [
-        ["Zoom in the title bar", defaultScene()],
-        ["Zoom moved out", sceneWith((s) => put(s, "rail-left", ["zoom"]))],
-        ["Review leading", sceneWith((s) => put(put(s, "rail-left", ["zoom"]), "title", ["review"]))],
+        ["Zoom in the title bar", defaultState()],
+        ["Zoom moved out", stateWith((s) => put(s, "rail-left", ["zoom"]))],
+        ["Review leading", stateWith((s) => put(put(s, "rail-left", ["zoom"]), "title", ["review"]))],
       ]);
     },
   },
@@ -989,13 +996,13 @@ export const PRESETS: readonly Preset[] = [
     title: "Zoom right after the title, with Review in the title bar's center or right",
     expected:
       "With Zoom moved out and Review in the title bar's center (or its right), Zoom dropped by mouse just right of the title's text gets a slot right after the title's natural width and lands there; the slot is the landing.",
-    setup: (c) => c.setScene(sceneWith((s) => aligned(put(put(s, "rail-left", ["zoom"]), "title", ["review"]), "review", "center"))),
+    setup: (c) => c.setState(stateWith((s) => aligned(put(put(s, "rail-left", ["zoom"]), "title", ["review"]), "review", "center"))),
     check(c) {
       const bad: string[] = [];
       const seen: string[] = [];
       for (const align of ["center", "end"] as const) {
-        c.setScene(sceneWith((s) => aligned(put(put(s, "rail-left", ["zoom"]), "title", ["review"]), "review", align)));
-        const title = reservedRect(c.scene, c.layout, "title");
+        c.setState(stateWith((s) => aligned(put(put(s, "rail-left", ["zoom"]), "title", ["review"]), "review", align)));
+        const title = reservedRect(c.state, c.layout, "title");
         const bar = c.layout.edges.title!.rect;
         const r = mouseDrag(c, "zoom", { x: title.x + title.width + 12, y: bar.y + bar.height / 2 });
         const d = c.lastDrop;
@@ -1013,11 +1020,11 @@ export const PRESETS: readonly Preset[] = [
     title: "The top bar's zones, empty and with Zoom at its start",
     expected:
       "Tools dropped by mouse in the top bar's left, middle and right thirds lands leading, centered and trailing; with the bar empty (its strip is three zone targets) and with Zoom at its start (a toolbar can go to its right, not only to its left). The slot is the landing; with Zoom in the title bar and moved out.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       return zonesOfBar(c, "top", [
-        ["empty, Zoom in the title bar", defaultScene()],
-        ["Zoom at its start", sceneWith((s) => put(s, "top", ["zoom"]))],
+        ["empty, Zoom in the title bar", defaultState()],
+        ["Zoom at its start", stateWith((s) => put(s, "top", ["zoom"]))],
       ]);
     },
   },
@@ -1026,11 +1033,11 @@ export const PRESETS: readonly Preset[] = [
     title: "The bottom bar's zones, empty and with Zoom at its start",
     expected:
       "With Views and Review moved to the top bar, Tools dropped by mouse in the bottom bar's left, middle and right thirds lands leading, centered and trailing; with the bar empty and with Zoom at its start. The slot is the landing.",
-    setup: (c) => c.setScene(sceneWith((s) => put(s, "top", ["views", "review"]))),
+    setup: (c) => c.setState(stateWith((s) => put(s, "top", ["views", "review"]))),
     check(c) {
       return zonesOfBar(c, "bottom", [
-        ["empty, Zoom in the title bar", sceneWith((s) => put(s, "top", ["views", "review"]))],
-        ["Zoom at its start", sceneWith((s) => put(put(s, "top", ["views", "review"]), "bottom", ["zoom"]))],
+        ["empty, Zoom in the title bar", stateWith((s) => put(s, "top", ["views", "review"]))],
+        ["Zoom at its start", stateWith((s) => put(put(s, "top", ["views", "review"]), "bottom", ["zoom"]))],
       ]);
     },
   },
@@ -1039,19 +1046,19 @@ export const PRESETS: readonly Preset[] = [
     title: "A title bar too full takes no toolbar",
     expected:
       "With Review, Views and Zoom in the title bar, Tools has no room without pushing the title under its natural width: no zone of the title bar offers a target or a slot, a drop over any third lands elsewhere (or goes home), and nothing overlaps the title or the controls.",
-    setup: (c) => c.setScene(sceneWith((s) => put(s, "title", ["review", "views", "zoom"]))),
+    setup: (c) => c.setState(stateWith((s) => put(s, "title", ["review", "views", "zoom"]))),
     check(c) {
-      const base = sceneWith((s) => put(s, "title", ["review", "views", "zoom"]));
-      c.setScene(base);
+      const base = stateWith((s) => put(s, "title", ["review", "views", "zoom"]));
+      c.setState(base);
       const bad: string[] = [];
       const titleGaps = c.targets("tools").filter((t) => (t.place as { edge?: string }).edge === "title");
       if (titleGaps.length) bad.push(`targets in the title bar: ${titleGaps.map((t) => t.id).join(", ")}`);
       const bar = c.layout.edges.title!.rect;
       for (const k of [0, 1, 2]) {
-        c.setScene(base);
+        c.setState(base);
         mouseDrag(c, "tools", { x: bar.x + ((k + 0.5) * bar.width) / 3, y: bar.y + bar.height / 2 });
         const l = c.layout.items.tools;
-        const title = reservedRect(c.scene, c.layout, "title");
+        const title = reservedRect(c.state, c.layout, "title");
         const ctl = rectOf(c, "controls")!;
         if (l?.edge === "title") bad.push(`third ${k + 1}: landed in the title bar`);
         if (l && !l.floating && l.edge === "title" && (overlap(l.rect, title) > 0 || overlap(l.rect, ctl) > 0)) bad.push(`third ${k + 1}: over the title or the controls`);
@@ -1065,13 +1072,13 @@ export const PRESETS: readonly Preset[] = [
     title: "Nothing is clipped, in any form, on any edge",
     expected:
       "Every movable item, in every form it can take (row, wrap, icons, fold; open, header, rail), on every kind of edge it can go to (a bar, a column, the tray, the rail, a float), draws its buttons and labels inside its own rect: their bounding box stays inside the item's box, and the box doesn't scroll (scrollWidth and scrollHeight within its size).",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const bad: string[] = [];
       let n = 0;
       // A float at the item's own float size (what a float drop gives it).
       const float = (id: ItemId): Place => {
-        const size = defaultScene().items[id]!.floatSize!;
+        const size = floatSizeOf(defaultState().items[id]!);
         return { kind: "float", rect: { x: 300, y: 120, width: size.width, height: size.height } };
       };
       const groupPlaces = (id: ItemId): [string, Place][] => [
@@ -1087,14 +1094,14 @@ export const PRESETS: readonly Preset[] = [
       for (const id of MOVABLE) {
         const group = isGroup(id);
         for (const [where, place] of group ? groupPlaces(id) : panelPlaces(id)) {
-          const placed = moveTo(defaultScene(), id, place);
+          const placed = moveTo(defaultState(), id, place);
           // A float uses its item's float orient (a toolbar group floats as a row), an edge its own axis.
           const axis = where === "bar" || (where === "float" && floatOrientOf(placed.items[id]!) === "row") ? "row" : "column";
           const forms = placed.items[id]!.forms[axis] ?? [];
           for (let k = 0; k < forms.length; k++) {
             const kind = forms[k]!.kind;
             if (kind === "menu") continue;
-            c.setScene({ ...placed, items: { ...placed.items, [id]: { ...placed.items[id]!, from: k } } });
+            c.setState({ ...placed, items: { ...placed.items, [id]: { ...placed.items[id]!, from: k } } });
             const p = c.layout.items[id];
             // The form it took (a vertical place skips a group's wrap forms); each form drawn is checked once.
             if (!p || p.inMenu) continue;
@@ -1105,7 +1112,7 @@ export const PRESETS: readonly Preset[] = [
         }
       }
       // The panels' rail form: every panel of the left column folded by hand, in the left column's rail form.
-      c.setScene(sceneWith((s) => ({ ...s, items: { ...s.items, pages: { ...s.items.pages!, from: 2 }, notes: { ...s.items.notes!, from: 2 } } })));
+      c.setState(stateWith((s) => ({ ...s, items: { ...s.items, pages: { ...s.items.pages!, from: 2 }, notes: { ...s.items.notes!, from: 2 } } })));
       for (const id of ["pages", "notes"] as const) {
         const p = c.layout.items[id];
         if (!p || p.inMenu) continue;
@@ -1120,9 +1127,9 @@ export const PRESETS: readonly Preset[] = [
     id: "rail-of-two",
     title: "A rail of two toolbars, neither clipped",
     expected: "With Zoom in the left rail, Tools dropped by mouse on the rail below it stacks under Zoom: both show every icon inside their own box, and the preview is the landing.",
-    setup: (c) => c.setScene(sceneWith((s) => put(s, "rail-left", ["zoom"]))),
+    setup: (c) => c.setState(stateWith((s) => put(s, "rail-left", ["zoom"]))),
     check(c) {
-      c.setScene(sceneWith((s) => put(s, "rail-left", ["zoom"])));
+      c.setState(stateWith((s) => put(s, "rail-left", ["zoom"])));
       const z = rectOf(c, "zoom")!;
       const r = mouseDrag(c, "tools", { x: z.x + z.width / 2, y: z.y + z.height + 30 });
       const d = c.lastDrop;
@@ -1146,12 +1153,12 @@ export const PRESETS: readonly Preset[] = [
     title: "Views over the title bar's thirds: the slot is where the pointer is",
     expected:
       "The reported state (1200 px: the title, Tools and Zoom leading, Views trailing, Pages floating, Notes left, Findings right). Views held by mouse over the title bar's leading, center and trailing thirds shows a slot in that third (over its own place, home) or \"Can't go here\" at the pointer, never a slot far away; let go, it lands where the slot showed.",
-    setup: (c) => c.setScene(reportedTitle()),
+    setup: (c) => c.setState(reportedTitle()),
     check(c) {
       const bad: string[] = [];
       const seen: string[] = [];
       for (const k of [0, 1, 2]) {
-        c.setScene(reportedTitle());
+        c.setState(reportedTitle());
         const bar = c.layout.edges.title!.rect;
         const x0 = bar.x + (k * bar.width) / 3;
         const x1 = bar.x + ((k + 1) * bar.width) / 3;
@@ -1164,7 +1171,7 @@ export const PRESETS: readonly Preset[] = [
         const p = { x: (x0 + x1) / 2, y: bar.y + bar.height / 2 };
         const overOwn = !!own && inside(own, p);
         const homing = !c.shown && ((!slotEl.hidden && slotEl.title === "Back to its place") || overOwn);
-        const s = c.shown ?? (homing ? ({ id: "home", place: { kind: "home" } } as SceneTarget) : null);
+        const s = c.shown ?? (homing ? ({ id: "home", place: { kind: "home" } } as DockDrop) : null);
         const slot = s?.place.kind === "home" ? rectOf(c, "views") : (s?.slot ?? null);
         h.up();
         const d = c.lastDrop;
@@ -1183,9 +1190,9 @@ export const PRESETS: readonly Preset[] = [
     id: "home-only-over-its-place",
     title: "Home shows only over the item's own place and the gaps beside it",
     expected: "In the reported state, Views held by mouse and moved along the title bar shows \"Back to its place\" only over its own place and the gaps beside it (a drop there is the same move), never past another toolbar of the bar; everywhere else along the bar the slot is beside the pointer.",
-    setup: (c) => c.setScene(reportedTitle()),
+    setup: (c) => c.setState(reportedTitle()),
     check(c) {
-      c.setScene(reportedTitle());
+      c.setState(reportedTitle());
       const bar = c.layout.edges.title!.rect;
       const own = rectOf(c, "views")!;
       const y = bar.y + bar.height / 2;
@@ -1214,11 +1221,11 @@ export const PRESETS: readonly Preset[] = [
     id: "full-title-no-room",
     title: "A full title bar: \"Can't go here\" at the pointer, nothing drawn on the bar",
     expected: "With Review, Views and Zoom in the title bar, Tools held over each third of it shows \"Can't go here\" at the pointer, with no tint, outline or label over the refused place and no slot anywhere; let go there, Tools goes back home.",
-    setup: (c) => c.setScene(sceneWith((s) => put(s, "title", ["review", "views", "zoom"]))),
+    setup: (c) => c.setState(stateWith((s) => put(s, "title", ["review", "views", "zoom"]))),
     check(c) {
       const bad: string[] = [];
       for (const k of [0, 1, 2]) {
-        c.setScene(sceneWith((s) => put(s, "title", ["review", "views", "zoom"])));
+        c.setState(stateWith((s) => put(s, "title", ["review", "views", "zoom"])));
         const before = rectOf(c, "tools");
         const bar = c.layout.edges.title!.rect;
         const at = { x: bar.x + ((k + 0.5) * bar.width) / 3, y: bar.y + bar.height / 2 };
@@ -1244,16 +1251,16 @@ export const PRESETS: readonly Preset[] = [
     id: "even-separators",
     title: "Even spacing around every separator",
     expected: "In every word group with a \"·\" between its words (Views: Pages · Notes 2 · Findings 20), in its row form in a bar and its wrap form in a tray, the room from the words' ink to the \"·\" is the same on both sides, within 1 px.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const bad: string[] = [];
       let n = 0;
-      const places: [string, Scene][] = [
-        ["the bottom bar (row)", defaultScene()],
-        ["the left column's tray (wrap)", resize(moveTo(defaultScene(), "views", { kind: "gap", edge: "left", zone: "end", at: 0 }), "left", COL_MIN)],
+      const places: [string, DockState][] = [
+        ["the bottom bar (row)", defaultState()],
+        ["the left column's tray (wrap)", resizeEdge(moveTo(defaultState(), "views", { kind: "gap", edge: "left", zone: "end", at: 0 }), "left", COL_MIN)],
       ];
       for (const [where, s] of places) {
-        c.setScene(s);
+        c.setState(s);
         const el = c.win.querySelector<HTMLElement>('.dw-items [data-id="views"]');
         if (!el) {
           bad.push(`Views not drawn in ${where}`);
@@ -1277,9 +1284,9 @@ export const PRESETS: readonly Preset[] = [
     title: "Toolbars that don't fit: shrink and grow back",
     expected:
       "The window shrinks from 1440 to 600 px wide in 40 px steps, then from 900 to 500 px tall, and grows back. At every step: nothing is clipped, no docked items overlap, every item is in place or in its edge's » menu (which lists exactly what it holds), no item changes edges, and toolbars step down lowest priority first (Zoom and Review last), the oldest used first; growing back they only step up, and the window ends as it began.",
-    setup: (c) => c.setScene(sceneWith((s) => put(s, "top", ["tools", "views"]), { width: 1440, height: 900 })),
+    setup: (c) => c.setState(stateWith((s) => put(s, "top", ["tools", "views"]), { width: 1440, height: 900 })),
     check(c) {
-      c.setScene(sceneWith((s) => put(s, "top", ["tools", "views"]), { width: 1440, height: 900 }));
+      c.setState(stateWith((s) => put(s, "top", ["tools", "views"]), { width: 1440, height: 900 }));
       const bad: string[] = [];
       const start = fitState(c);
       const sizes: [number, number][] = [];
@@ -1309,9 +1316,9 @@ export const PRESETS: readonly Preset[] = [
     id: "crowded-title-bar",
     title: "A crowded title bar gives way before the top bar",
     expected: "With the title, Tools, Zoom and Views in the title bar and Review in the top bar, a narrowing window steps the title bar's toolbars down to icons and then into its » menu before the top bar's do.",
-    setup: (c) => c.setScene(sceneWith((s) => put(put(s, "title", ["tools", "zoom", "views"]), "top", ["review"]), { width: 1440, height: 640 })),
+    setup: (c) => c.setState(stateWith((s) => put(put(s, "title", ["tools", "zoom", "views"]), "top", ["review"]), { width: 1440, height: 640 })),
     check(c) {
-      c.setScene(sceneWith((s) => put(put(s, "title", ["tools", "zoom", "views"]), "top", ["review"]), { width: 1440, height: 640 }));
+      c.setState(stateWith((s) => put(put(s, "title", ["tools", "zoom", "views"]), "top", ["review"]), { width: 1440, height: 640 }));
       const start = fitState(c);
       let titleAt = 0;
       let topAt = 0;
@@ -1330,9 +1337,9 @@ export const PRESETS: readonly Preset[] = [
     id: "menu-lists-held",
     title: "The » menu lists exactly what it holds",
     expected: "In a narrow window the title bar's » menu shows the count of the toolbars it holds; opened, it lists exactly them, in order; picking one acts as its control would (a stub here) and leaves the window as it was.",
-    setup: (c) => c.setScene(sceneWith((s) => put(s, "title", ["tools", "zoom", "views"]), { width: MENU_WIDTH, height: 640 })),
+    setup: (c) => c.setState(stateWith((s) => put(s, "title", ["tools", "zoom", "views"]), { width: MENU_WIDTH, height: 640 })),
     check(c) {
-      c.setScene(sceneWith((s) => put(s, "title", ["tools", "zoom", "views"]), { width: MENU_WIDTH, height: 640 }));
+      c.setState(stateWith((s) => put(s, "title", ["tools", "zoom", "views"]), { width: MENU_WIDTH, height: 640 }));
       const m = c.layout.edges.title?.menu;
       if (!m || !m.items.length) return { pass: false, now: `The title bar has no » menu at ${MENU_WIDTH} px.` };
       const held = (Object.keys(c.layout.items) as ItemId[]).filter((id) => c.layout.items[id]!.edge === "title" && c.layout.items[id]!.inMenu);
@@ -1358,7 +1365,7 @@ export const PRESETS: readonly Preset[] = [
     title: "The held toolbar takes the target's form",
     expected:
       "Views held by mouse over a column gap shows its wrapped words, over the window-edge rail its icons down the rail, over the top bar a row; moved off every target it takes its own form back. Each change is a short settle with the grip under the pointer (within 2 px at every frame).",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check: (c) => withStops(c, ({ stops, off }) => {
       const bad: string[] = [];
       const seen: string[] = [];
@@ -1379,7 +1386,7 @@ export const PRESETS: readonly Preset[] = [
     title: "A fast sweep: the right form at the end, no thrash",
     expected:
       "Views swept fast by mouse across a column gap, the rail and the top bar (a few frames over each) ends as a row over the top bar; it switches form at most once per target change, the window's items are redrawn only when the shown target changes, the grip stays within 2 px of the pointer at the start, middle and end of every morph, and no form's opacity jumps (from one frame to the next at most the frame's time, capped at 32 ms, over the 120 ms fade, plus 0.01: each fades from where it is).",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check: (c) => withStops(c, ({ stops }) => {
       let worst = 0;
       // 40 px a frame between stops, and just past the intent's dwell (90 ms) at each: the target shows, and the next
@@ -1404,9 +1411,9 @@ export const PRESETS: readonly Preset[] = [
     title: "Zoom's compact variants: full, compact, minimal, and back",
     expected:
       'Zoom alone in the title bar while the window narrows from 900 to 260 px in 2 px steps and widens back: it steps full "− 86% + FIT" → compact "− 86% +" with "»1" → minimal "86%" with "»3", in that order, each step drawn whole (nothing clipped); its overflow cell\'s badge reads the number its form hides and its name says "N more Zoom controls", and opened, its popover lists exactly the hidden controls; widening, the steps come back in the exact reverse. The readout gives the width band compact shows in.',
-    setup: (c) => c.setScene(sceneWith((s) => s, { width: 900, height: 640 })),
+    setup: (c) => c.setState(stateWith((s) => s, { width: 900, height: 640 })),
     check(c) {
-      c.setScene(sceneWith((s) => s, { width: 900, height: 640 }));
+      c.setState(stateWith((s) => s, { width: 900, height: 640 }));
       const bad: string[] = [];
       const widths: number[] = [];
       for (let w = 900; w >= 260; w -= 2) widths.push(w);
@@ -1510,7 +1517,7 @@ export const PRESETS: readonly Preset[] = [
     title: "A floating panel resized by its corner",
     expected:
       "Findings floating: its bottom-right corner dragged by mouse 120 px right and 80 down grows it by exactly that, its top-left corner put; while the button is down the window is in the resize session (no hover elsewhere) and nothing else moves; Findings' list fills the new size. Dragged back far past it, it stops at the panel's least size (floatMin, else its open form's minimums).",
-    setup: (c) => c.setScene(resizeScene()),
+    setup: (c) => c.setState(resizeState()),
     check(c) {
       const bad: string[] = [];
       const r0 = rectOf(c, "findings")!;
@@ -1545,7 +1552,7 @@ export const PRESETS: readonly Preset[] = [
     id: "float-resize-left-edge",
     title: "A floating panel resized by its left edge keeps its right edge",
     expected: "Findings' left edge dragged by mouse 100 px left widens it by 100 with its right edge put; dragged 600 px right it stops at its least width, the right edge still put.",
-    setup: (c) => c.setScene(resizeScene()),
+    setup: (c) => c.setState(resizeState()),
     check(c) {
       const bad: string[] = [];
       const r0 = rectOf(c, "findings")!;
@@ -1565,14 +1572,14 @@ export const PRESETS: readonly Preset[] = [
     title: "A floating panel resized past the window's edge stops at it",
     expected:
       "With the right column empty: Findings' right edge dragged by mouse past the window's right side ends at it (less the inset). Its top edge dragged past the window's top ends under the title bar, and its left edge dragged past the window's left side ends at the left column (floats are kept clear of bars and docked panels); each time the edges not dragged stay put, and the float is drawn where the drag left it.",
-    setup: (c) => c.setScene(resizeScene()),
+    setup: (c) => c.setState(resizeState()),
     check(c) {
       const bad: string[] = [];
-      const st = c.scene.stage;
-      const hi = st.x + st.width - (c.scene.inset?.right ?? 0);
+      const st = c.state.stage;
+      const hi = st.x + st.width - (c.state.inset?.right ?? 0);
       const barsEnd = Math.max(st.y, ...Object.values(c.layout.edges).filter((e) => e.side === "top" && e.cross > 0).map((e) => e.rect.y + e.rect.height));
-      const leftEnd = Math.max(st.x + (c.scene.inset?.left ?? 0), ...Object.values(c.layout.items).filter((p) => !p.floating && p.edge === "left").map((p) => p.rect.x + p.rect.width));
-      const drawnAsStored = (): boolean => sameRect(c.scene.floats.find((f) => f.id === "findings")!.rect, rectOf(c, "findings"));
+      const leftEnd = Math.max(st.x + (c.state.inset?.left ?? 0), ...Object.values(c.layout.items).filter((p) => !p.floating && p.edge === "left").map((p) => p.rect.x + p.rect.width));
+      const drawnAsStored = (): boolean => sameRect(c.state.floats.find((f) => f.id === "findings")!.rect, rectOf(c, "findings"));
       const r0 = rectOf(c, "findings")!;
       mouseResize(c, "findings", "right", st.width, 0);
       const r1 = rectOf(c, "findings")!;
@@ -1590,17 +1597,63 @@ export const PRESETS: readonly Preset[] = [
     id: "float-resize-reload",
     title: "A floating panel's size survives a reload",
     expected: "Findings resized by mouse (its top-left corner 60 px out each way), then the stored form read back: it comes back at that rect and size.",
-    setup: (c) => c.setScene(resizeScene()),
+    setup: (c) => c.setState(resizeState()),
     check(c) {
       mouseResize(c, "findings", "top-left", -60, -60);
       const r1 = rectOf(c, "findings")!;
       const r = readDocwin(JSON.parse(JSON.stringify(c.stored())));
-      c.setScene(r.scene);
+      c.setState(r.state);
       const r2 = rectOf(c, "findings")!;
       const grown = sameRect(r1, { x: RESIZE_AT.x - 60, y: RESIZE_AT.y - 60, width: RESIZE_AT.width + 60, height: RESIZE_AT.height + 60 });
-      const size = c.scene.items.findings!.floatSize;
+      const size = c.state.items.findings!.floatSizes?.column;
       const ok = grown && sameRect(r1, r2) && size?.width === r1.width && size.height === r1.height && r.dropped.length === 0;
-      return { pass: ok, now: `Resized to ${say(r1)}; after the reload ${say(r2)}, floatSize ${size ? `${size.width}×${size.height}` : "none"}${r.dropped.length ? `; dropped ${r.dropped.join(", ")}` : ""}.` };
+      return { pass: ok, now: `Resized to ${say(r1)}; after the reload ${say(r2)}, floatSizes.column ${size ? `${size.width}×${size.height}` : "none"}${r.dropped.length ? `; dropped ${r.dropped.join(", ")}` : ""}.` };
+    },
+  },
+  {
+    id: "float-orient-frame",
+    title: "A placed toolbar float turned to the other orient is framed at its content's size",
+    expected:
+      "Tools floating at a place of its own as a row, then laid out vertically (the grip menu's \"lay out vertically\") and back as a row: every time its frame, both the rect the layout gives and the box the page draws, is the size of the form it is drawn in (that form's length along its axis by its cross), never the other orient's rect around it; turned back it has the first frame's size again, and the layout says which axis it lies along.",
+    // Upright it is its icons strip (a column form of its own size), so the two orients have frames of different sizes.
+    setup: (c) =>
+      c.setState(
+        stateWith((s) => {
+          const tools = s.items.tools!;
+          const upright = { ...tools, forms: { ...tools.forms, column: (tools.forms.column ?? []).filter((f) => f.kind === "icons" || f.kind === "menu") } };
+          return floating({ ...s, items: { ...s.items, tools: upright } }, "tools", { x: 440, y: 160, ...floatSizeOf(upright, "row") });
+        }),
+      ),
+    check(c) {
+      const bad: string[] = [];
+      const seen: string[] = [];
+      // The frame as drawn now, checked against the size of the form `solve` drew it in.
+      const frame = (label: string, axis: "row" | "column"): Rect | null => {
+        const p = c.layout.items.tools;
+        if (!p?.floating) {
+          bad.push(`${label}: Tools isn't floating`);
+          return null;
+        }
+        const f = c.state.items.tools!.forms[p.axis]?.[p.form];
+        if (p.axis !== axis) bad.push(`${label}: the layout says it lies along a ${p.axis}`);
+        if (!f) {
+          bad.push(`${label}: no form ${p.form} along a ${p.axis}`);
+          return p.rect;
+        }
+        const want = p.axis === "row" ? { width: f.main.natural, height: f.cross.natural } : { width: f.cross.natural, height: f.main.natural };
+        if (Math.abs(p.rect.width - want.width) > 0.5 || Math.abs(p.rect.height - want.height) > 0.5) bad.push(`${label}: the frame is ${say(p.rect)}, its ${p.formKind} form is ${r0(want.width)}×${r0(want.height)}`);
+        const el = c.win.querySelector<HTMLElement>('.dw-items [data-id="tools"]');
+        if (el && (Math.abs(el.offsetWidth - p.rect.width) > 1 || Math.abs(el.offsetHeight - p.rect.height) > 1)) bad.push(`${label}: the page draws ${el.offsetWidth}×${el.offsetHeight} for a ${r0(p.rect.width)}×${r0(p.rect.height)} frame`);
+        seen.push(`${label} ${say(p.rect)} (${p.formKind})`);
+        return p.rect;
+      };
+      const first = frame("as a row", "row");
+      c.setState(orientFloat(c.state, "tools", "column"));
+      frame("laid out vertically", "column");
+      c.setState(orientFloat(c.state, "tools", "row"));
+      const back = frame("back as a row", "row");
+      if (first && back && !sameRect(first, back)) bad.push(`back as a row it is ${say(back)}, not ${say(first)}`);
+      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
     },
   },
   {
@@ -1609,7 +1662,7 @@ export const PRESETS: readonly Preset[] = [
     expected:
       "Frozen, the floating Findings shows no resize handles and a mouse drag on its corner changes nothing; holding Alt shows them and the drag resizes it. A floating toolbar (Tools) and a docked panel never have handles.",
     setup: (c) => {
-      c.setScene(resizeScene());
+      c.setState(resizeState());
       c.setFrozen(true);
     },
     check(c) {
@@ -1639,7 +1692,7 @@ export const PRESETS: readonly Preset[] = [
     title: "A double-click on a panel's grip folds it, another unfolds it",
     expected:
       "Notes beside Pages in the left column: a mouse double-click on its header folds it to its header; another opens it again, the window as it was. No drag starts, no drop happens, and nothing outside the column moves.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const bad = doubleFold(c, "notes", "left", (p) => p.formKind === "header");
       return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "Folded to its header, then open again; no drag, nothing else moved." };
@@ -1650,7 +1703,7 @@ export const PRESETS: readonly Preset[] = [
     title: "A double-click on a toolbar's grip folds it, another unfolds it",
     expected:
       "Views in the bottom bar: a mouse double-click on its grip folds it (its second form); another brings its first form back, the window as it was. No drag starts, no drop happens, and nothing outside the bar moves.",
-    setup: (c) => c.setScene(defaultScene()),
+    setup: (c) => c.setState(defaultState()),
     check(c) {
       const bad = doubleFold(c, "views", "bottom", (p) => p.form >= 1);
       return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "Folded to its second form, then its first again; no drag, nothing else moved." };
@@ -1661,7 +1714,7 @@ export const PRESETS: readonly Preset[] = [
     title: "Frozen: a grip's double-click does nothing; with Alt it folds",
     expected: "Frozen, a mouse double-click on Notes' header and on Views' grip changes nothing. Holding Alt, each folds and unfolds as it does unfrozen.",
     setup: (c) => {
-      c.setScene(defaultScene());
+      c.setState(defaultState());
       c.setFrozen(true);
     },
     check(c) {
@@ -1670,7 +1723,7 @@ export const PRESETS: readonly Preset[] = [
       const before = allOf(c);
       for (const id of ["notes", "views"] as const) {
         const r = mouseDouble(c, id);
-        if (!r.pressed || r.dragged || c.scene.items[id]!.from !== undefined) bad.push(`frozen: ${id} ${r.dragged ? "dragged" : `from ${c.scene.items[id]!.from}`}`);
+        if (!r.pressed || r.dragged || c.state.items[id]!.from !== undefined) bad.push(`frozen: ${id} ${r.dragged ? "dragged" : `from ${c.state.items[id]!.from}`}`);
       }
       if (allOf(c) !== before) bad.push("frozen: something moved");
       c.altOn(true);
@@ -1691,9 +1744,9 @@ export const PRESETS: readonly Preset[] = [
     check(c) {
       const bad: string[] = [];
       const seen: string[] = [];
-      for (const [side, x] of [["rail-left", -20], ["rail-right", c.scene.stage.width + 20]] as const) {
+      for (const [side, x] of [["rail-left", -20], ["rail-right", c.state.stage.width + 20]] as const) {
         c.reset();
-        mouseDrag(c, "tools", { x, y: c.scene.stage.height / 2 });
+        mouseDrag(c, "tools", { x, y: c.state.stage.height / 2 });
         const d = c.lastDrop;
         const l = c.layout.items.tools;
         seen.push(`${side}: ${d?.target ?? "nothing"}`);
@@ -1710,20 +1763,20 @@ export const PRESETS: readonly Preset[] = [
 // --- rail titles -------------------------------------------------------------------------------------------------------
 
 /** The default window with `ids` folded by hand (each at its header, so a column of them is drawn as a rail). */
-const foldedScene = (ids: readonly ItemId[], edit: (s: Scene) => Scene = (s) => s, size = DEFAULT_SIZE): Scene =>
-  sceneWith((s0) => {
+const foldedState = (ids: readonly ItemId[], edit: (s: DockState) => DockState = (s) => s, size = DEFAULT_SIZE): DockState =>
+  stateWith((s0) => {
     const s = edit(s0);
     return { ...s, items: { ...s.items, ...Object.fromEntries(ids.map((id) => [id, { ...s.items[id]!, from: 1 }])) } };
   }, size);
 /** Pages and Notes folded in the left rail, Findings folded in the right one. */
-const bothRails = (size = DEFAULT_SIZE): Scene => foldedScene(["pages", "notes", "findings"], (s) => s, size);
+const bothRails = (size = DEFAULT_SIZE): DockState => foldedState(["pages", "notes", "findings"], (s) => s, size);
 /** The item's form index, or 99 in a » menu. */
-const stepOf = (c: DocwinScene, id: ItemId): number => (c.layout.items[id]?.inMenu ? 99 : (c.layout.items[id]?.form ?? -1));
+const stepOf = (c: Docwin, id: ItemId): number => (c.layout.items[id]?.inMenu ? 99 : (c.layout.items[id]?.form ?? -1));
 /** Whether the item is drawn in its rail title form (the layout's `railTitle`, and the page's turned title). */
-const isTitle = (c: DocwinScene, id: ItemId): boolean => !!c.layout.items[id]?.railTitle && !!c.win.querySelector(`.dw-items [data-id="${id}"] .dw-railtitle`);
+const isTitle = (c: Docwin, id: ItemId): boolean => !!c.layout.items[id]?.railTitle && !!c.win.querySelector(`.dw-items [data-id="${id}"] .dw-railtitle`);
 
 /** A mouse click on the item's grip (its rail title or tile): pointerdown and pointerup at its center, through the page's listeners. */
-function mouseClick(c: DocwinScene, id: ItemId): boolean {
+function mouseClick(c: Docwin, id: ItemId): boolean {
   const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
   if (!el) return false;
   const g = el.getBoundingClientRect();
@@ -1742,13 +1795,13 @@ function RAIL_TITLE_PRESETS(): Preset[] {
       title: "Folded panels show their titles in the rails",
       expected:
         "Pages and Notes folded in the left column, Findings in the right: each column is a rail, and each panel shows its title with its count, turned along the rail, as long as the page measured it. The rails' default is titles.",
-      setup: (c) => c.setScene(bothRails()),
+      setup: (c) => c.setState(bothRails()),
       check(c) {
-        c.setScene(bothRails());
+        c.setState(bothRails());
         const bad: string[] = [];
         for (const id of ["pages", "notes", "findings"] as const) {
           const p = c.layout.items[id];
-          const f = p ? c.scene.items[id]!.forms.column?.[p.form] : undefined;
+          const f = p ? c.state.items[id]!.forms.column?.[p.form] : undefined;
           if (!p || !isTitle(c, id) || !f?.title) bad.push(`${id} is ${p?.formKind ?? "nowhere"} (form ${p?.form}), not its title`);
           else if (Math.abs(p.rect.height - f.main.natural) > 0.5) bad.push(`${id} is ${r0(p.rect.height)} long, measured ${f.main.natural}`);
           const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] .dw-railtitle`);
@@ -1763,9 +1816,9 @@ function RAIL_TITLE_PRESETS(): Preset[] {
       title: "A short rail steps titles down to icons, and back in exact reverse",
       expected:
         "All three panels folded in the left rail. Shrinking the window's height, the titles become icons one at a time, the one used longest ago first (Findings, Notes, then Pages); growing it back brings them back in exactly the reverse order, the same forms at every height.",
-      setup: (c) => c.setScene(foldedScene(["pages", "notes", "findings"], (s) => ages(put(s, "left", ["pages", "notes", "findings"]), ["findings", "notes", "pages"]))),
+      setup: (c) => c.setState(foldedState(["pages", "notes", "findings"], (s) => ages(put(s, "left", ["pages", "notes", "findings"]), ["findings", "notes", "pages"]))),
       check(c) {
-        c.setScene(foldedScene(["pages", "notes", "findings"], (s) => ages(put(s, "left", ["pages", "notes", "findings"]), ["findings", "notes", "pages"])));
+        c.setState(foldedState(["pages", "notes", "findings"], (s) => ages(put(s, "left", ["pages", "notes", "findings"]), ["findings", "notes", "pages"])));
         const ids = ["findings", "notes", "pages"] as const;
         const heights: number[] = [];
         for (let h = 640; h >= 120; h -= 6) heights.push(h);
@@ -1795,9 +1848,9 @@ function RAIL_TITLE_PRESETS(): Preset[] {
       id: "rail-titles-read",
       title: "Both rails' titles read toward the pages",
       expected: "The left rail's titles read bottom to top (turned −90°), the right rail's top to bottom (+90°), the count at the end of each title.",
-      setup: (c) => c.setScene(bothRails()),
+      setup: (c) => c.setState(bothRails()),
       check(c) {
-        c.setScene(bothRails());
+        c.setState(bothRails());
         const bad: string[] = [];
         const seen: string[] = [];
         for (const [id, side] of [["pages", "left"], ["notes", "left"], ["findings", "right"]] as const) {
@@ -1826,9 +1879,9 @@ function RAIL_TITLE_PRESETS(): Preset[] {
       id: "rail-title-click",
       title: "A click on a rail title opens its panel",
       expected: "Pages and Notes folded in the left rail: a mouse click on Notes' title opens Notes (the column opens with it, Pages at its header).",
-      setup: (c) => c.setScene(bothRails()),
+      setup: (c) => c.setState(bothRails()),
       check(c) {
-        c.setScene(bothRails());
+        c.setState(bothRails());
         const before = isTitle(c, "notes");
         const clicked = mouseClick(c, "notes");
         const after = c.layout.items.notes?.formKind ?? "none";
@@ -1839,9 +1892,9 @@ function RAIL_TITLE_PRESETS(): Preset[] {
       id: "rail-title-drag",
       title: "A rail title drags like the tile",
       expected: "Pages and Notes folded in the left rail, Findings open on the right: Notes dragged by its title onto the right column's first gap lifts, shows the slot and lands on it (preview = landing).",
-      setup: (c) => c.setScene(foldedScene(["pages", "notes"])),
+      setup: (c) => c.setState(foldedState(["pages", "notes"])),
       check(c) {
-        c.setScene(foldedScene(["pages", "notes"]));
+        c.setState(foldedState(["pages", "notes"]));
         if (!isTitle(c, "notes")) return { pass: false, now: "Notes isn't its title in the left rail." };
         const t = c.targets("notes").find((x) => x.place.kind === "gap" && x.place.edge === "right");
         if (!t) return { pass: false, now: "No gap for Notes in the right column." };
@@ -1855,9 +1908,9 @@ function RAIL_TITLE_PRESETS(): Preset[] {
       id: "rail-title-double",
       title: "A double-click on a rail title unfolds it, another folds it back",
       expected: "Pages and Notes folded in the left rail: a mouse double-click on Notes' title opens Notes (no drag); a double-click on its header folds it back, and the rail shows Notes' title again.",
-      setup: (c) => c.setScene(bothRails()),
+      setup: (c) => c.setState(bothRails()),
       check(c) {
-        c.setScene(bothRails());
+        c.setState(bothRails());
         const bad: string[] = [];
         const a = mouseDouble(c, "notes");
         if (!a.pressed || a.dragged || c.layout.items.notes?.formKind !== "open") bad.push(`first double-click: ${a.dragged ? "a drag started, " : ""}Notes is ${c.layout.items.notes?.formKind ?? "none"}`);
@@ -1872,9 +1925,9 @@ function RAIL_TITLE_PRESETS(): Preset[] {
       title: "Rails: titles or icons, from the rail's menu and the Window drawer, kept on reload",
       expected:
         "Both rails show titles. The left rail's menu (a right-click on a rail title) → Show icons: the left rail shows tiles, the right keeps titles. The Window drawer's Rails: right → icons: the right rail shows tiles. The stored layout keeps both, and a reload reads them back; the menu's Show titles brings the left titles back.",
-      setup: (c) => c.setScene(bothRails()),
+      setup: (c) => c.setState(bothRails()),
       check(c) {
-        c.setScene(bothRails());
+        c.setState(bothRails());
         // The click a browser sends after an earlier check's last pointerup (synthetic pointers send none): a gesture's
         // drop or double swallows the next click, as it would that one.
         document.body.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
@@ -1886,21 +1939,21 @@ function RAIL_TITLE_PRESETS(): Preset[] {
         const icons = c.win.querySelector<HTMLElement>('[data-rail-mode="left:icons"]');
         if (!icons || icons.closest<HTMLElement>(".dw-menu-list")?.hidden) bad.push("the rail's menu didn't open");
         icons?.click();
-        if (railModeOf(c.scene, "left") !== "icons" || isTitle(c, "notes") || isTitle(c, "pages")) bad.push("Show icons left the left rail's titles");
+        if (railModeOf(c.state, "left") !== "icons" || isTitle(c, "notes") || isTitle(c, "pages")) bad.push("Show icons left the left rail's titles");
         if (!isTitle(c, "findings")) bad.push("the right rail lost its title");
         const sel = document.getElementById("dw-rail-right") as HTMLSelectElement | null;
         if (sel) {
           sel.value = "icons";
           sel.dispatchEvent(new Event("change", { bubbles: true }));
-          if (railModeOf(c.scene, "right") !== "icons" || isTitle(c, "findings")) bad.push("the drawer's Rails: right → icons didn't switch it");
+          if (railModeOf(c.state, "right") !== "icons" || isTitle(c, "findings")) bad.push("the drawer's Rails: right → icons didn't switch it");
         } else if (!c.win.closest("[data-embed]")) bad.push("no Rails control in the Window drawer");
         else c.setRailMode("right", "icons");
         // A reload: the page reads its stored layout back.
         const stored = c.stored();
-        if (stored.scene.railModes?.left !== "icons" || stored.scene.railModes?.right !== "icons") bad.push(`the store has ${JSON.stringify(stored.scene.railModes ?? {})}`);
+        if (stored.state.railModes?.left !== "icons" || stored.state.railModes?.right !== "icons") bad.push(`the store has ${JSON.stringify(stored.state.railModes ?? {})}`);
         c.load();
-        if (railModeOf(c.scene, "left") !== "icons" || railModeOf(c.scene, "right") !== "icons" || isTitle(c, "findings")) bad.push("a reload lost the modes");
-        const back = readDocwin(JSON.parse(JSON.stringify(storeDocwin(c.scene)))).scene;
+        if (railModeOf(c.state, "left") !== "icons" || railModeOf(c.state, "right") !== "icons" || isTitle(c, "findings")) bad.push("a reload lost the modes");
+        const back = readDocwin(JSON.parse(JSON.stringify(storeDocwin(c.state)))).state;
         if (railModeOf(back, "left") !== "icons") bad.push("readDocwin lost the mode");
         // And back to titles from the menu.
         const n = c.win.querySelector<HTMLElement>('.dw-items [data-id="notes"] [data-open]');
@@ -1911,7 +1964,7 @@ function RAIL_TITLE_PRESETS(): Preset[] {
         c.win.querySelector<HTMLElement>('[data-rail-mode="left:titles"]')?.click();
         if (!isTitle(c, "notes")) bad.push("Show titles didn't bring the left titles back");
         c.setRailMode("right", "titles");
-        if (sel) sel.value = railModeOf(c.scene, "right");
+        if (sel) sel.value = railModeOf(c.state, "right");
         return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "Menu and drawer switch each side; the stored layout and a reload keep it; Show titles brings them back." };
       },
     },
@@ -1922,21 +1975,21 @@ function RAIL_TITLE_PRESETS(): Preset[] {
 const MINIMAL_WIDTH = 350;
 /** The least band of window widths compact Zoom must show in, px. */
 const COMPACT_BAND_MIN = 15;
-const menuList = (c: DocwinScene): HTMLElement => c.win.querySelector<HTMLElement>(".dw-menu-list")!;
-const moreCell = (c: DocwinScene): HTMLElement | null => c.win.querySelector<HTMLElement>('.dw-items [data-id="zoom"] .dw-more');
+const menuList = (c: Docwin): HTMLElement => c.win.querySelector<HTMLElement>(".dw-menu-list")!;
+const moreCell = (c: Docwin): HTMLElement | null => c.win.querySelector<HTMLElement>('.dw-items [data-id="zoom"] .dw-more');
 /** The default window at `MINIMAL_WIDTH`: Zoom minimal in the title bar; returns its "+N" cell. */
-function minimalZoom(c: DocwinScene): HTMLElement | null {
-  c.setScene(sceneWith((s) => s, { width: MINIMAL_WIDTH, height: 640 }));
+function minimalZoom(c: Docwin): HTMLElement | null {
+  c.setState(stateWith((s) => s, { width: MINIMAL_WIDTH, height: 640 }));
   return moreCell(c);
 }
 /** Opens a "+N" cell's popover with a pointer click; returns the controls it lists. */
-function openMore(c: DocwinScene, more: HTMLElement): string[] {
+function openMore(c: Docwin, more: HTMLElement): string[] {
   // A drag earlier in the same run may still swallow the click that follows its pointer-up: spend it on the window.
   c.win.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   more.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
   return [...menuList(c).querySelectorAll<HTMLElement>("[data-hidden-control]")].map((b) => b.dataset.hiddenControl!);
 }
-const closeByOutsideClick = (c: DocwinScene): void => void c.win.querySelector(".dw-scroll")?.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+const closeByOutsideClick = (c: Docwin): void => void c.win.querySelector(".dw-scroll")?.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
 
 /** The held copy at a stop: its form, whether it is at rest, the target its form follows and the target shown. */
 type HeldAt = { readonly formKind: string; readonly axis: string; readonly settled: boolean; readonly target: string | null; readonly shown: string | null };
@@ -1947,13 +2000,13 @@ type FormStop = { readonly name: string; readonly p: Point; readonly formKind: s
  * wrapped), the rail (icons down it), the top bar (a row); and a point off every target. A string when one is missing.
  */
 /** `check` with the form stops of Views in the default window, or the reason there are none. */
-function withStops(c: DocwinScene, check: (fs: { readonly stops: readonly FormStop[]; readonly off: Point }) => Verdict): Verdict {
-  c.setScene(defaultScene());
+function withStops(c: Docwin, check: (fs: { readonly stops: readonly FormStop[]; readonly off: Point }) => Verdict): Verdict {
+  c.setState(defaultState());
   const fs = formStops(c);
   return typeof fs === "string" ? { pass: false, now: fs } : check(fs);
 }
 
-function formStops(c: DocwinScene): { readonly stops: readonly FormStop[]; readonly off: Point } | string {
+function formStops(c: Docwin): { readonly stops: readonly FormStop[]; readonly off: Point } | string {
   const ts = c.targets("views").filter((t) => t.place.kind === "gap" || t.place.kind === "column" || t.place.kind === "rail");
   const own = c.layout.items.views?.edge;
   const find = (name: string, ok: (formKind: string, side: string) => boolean): FormStop | string => {
@@ -1988,10 +2041,10 @@ function formStops(c: DocwinScene): { readonly stops: readonly FormStop[]; reado
  * what its frame's time allows (`fadeOver`: above 0 is a pop).
  */
 function heldSweep(
-  c: DocwinScene,
+  c: Docwin,
   id: ItemId,
   stops: readonly { to: Point; step: number; hold: number }[],
-  onFrame: (h: NonNullable<DocwinScene["held"]>, drift: number) => void,
+  onFrame: (h: NonNullable<Docwin["held"]>, drift: number) => void,
 ): { lifted: boolean; atStops: HeldAt[]; home: { formKind: string; axis: string }; switches: number; targetChanges: number; redraws: number; maxFade: number; fadeOver: number } {
   const none = { lifted: false, atStops: [], home: { formKind: "", axis: "" }, switches: 0, targetChanges: 0, redraws: 0, maxFade: 0, fadeOver: 0 };
   const grip = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
@@ -2018,7 +2071,7 @@ function heldSweep(
   let fadeOver = Number.NEGATIVE_INFINITY;
   const FRAME = 16;
   const allowed = Math.min(FRAME, FADE_DT_CAP) / FADE_MS + 0.01;
-  const gripOff = (h: NonNullable<DocwinScene["held"]>, el: HTMLElement): Point | null => {
+  const gripOff = (h: NonNullable<Docwin["held"]>, el: HTMLElement): Point | null => {
     const n = el.matches("[data-grip]") ? el : el.querySelector<HTMLElement>("[data-grip]");
     if (!n) return null;
     const r = n.getBoundingClientRect();
@@ -2085,7 +2138,7 @@ interface FitState {
   readonly step: Record<string, number>;
   readonly edge: Record<string, string | null>;
 }
-function fitState(c: DocwinScene): FitState {
+function fitState(c: Docwin): FitState {
   const step: Record<string, number> = {};
   const edge: Record<string, string | null> = {};
   for (const [id, it] of Object.entries(c.layout.items)) {
@@ -2095,10 +2148,10 @@ function fitState(c: DocwinScene): FitState {
   return { step, edge };
 }
 /** What a fit-sweep step breaks: clipping, overlap, unreachable items, a menu that isn't its items, edge jumps, the order. */
-function fitIssues(c: DocwinScene, start: FitState, now: FitState, last: FitState, shrinking: boolean): string[] {
+function fitIssues(c: Docwin, start: FitState, now: FitState, last: FitState, shrinking: boolean): string[] {
   const out: string[] = [];
   const l = c.layout;
-  const ids = MOVABLE.filter((id) => !c.scene.items[id]!.closed);
+  const ids = MOVABLE.filter((id) => !c.state.items[id]!.closed);
   for (const id of ids) {
     const it = l.items[id];
     if (!it) {
@@ -2126,11 +2179,11 @@ function fitIssues(c: DocwinScene, start: FitState, now: FitState, last: FitStat
     // Lowest priority first, the oldest first: a toolbar is down only while every toolbar of its edge with a lower
     // priority (or the same, used longer ago) has stepped down too, shrinking and, in the strict reverse, growing back.
     const bars = ids.filter((id) => isGroup(id) && l.items[id]?.edge === eid);
-    const prio = (id: string): number => c.scene.items[id]!.priority ?? c.scene.edges.find((x) => x.id === eid)?.priority ?? 0;
+    const prio = (id: string): number => c.state.items[id]!.priority ?? c.state.edges.find((x) => x.id === eid)?.priority ?? 0;
     for (const id of bars) {
       if (now.step[id] === start.step[id]) continue;
       for (const other of bars) {
-        const before = prio(other) < prio(id) || (prio(other) === prio(id) && c.scene.items[other]!.used < c.scene.items[id]!.used);
+        const before = prio(other) < prio(id) || (prio(other) === prio(id) && c.state.items[other]!.used < c.state.items[id]!.used);
         if (before && now.step[other] !== 99 && now.step[other] === start.step[other]) out.push(`${id} stepped down before ${other}`);
       }
     }
@@ -2166,15 +2219,15 @@ function inkInset(el: Element): { left: number; right: number } {
 }
 
 /** The reported state: a 1200 px window, the title, Tools and Zoom leading and Views trailing in the title bar, Pages floating, Notes left, Findings right. */
-function reportedTitle(): Scene {
-  return sceneWith((s) => aligned(floating(put(s, "title", ["tools", "zoom", "views"]), "pages", { x: 420, y: 160, width: 260, height: 360 }), "views", "end"), { width: 1200, height: 640 });
+function reportedTitle(): DockState {
+  return stateWith((s) => aligned(floating(put(s, "title", ["tools", "zoom", "views"]), "pages", { x: 420, y: 160, width: 260, height: 360 }), "views", "end"), { width: 1200, height: 640 });
 }
 
 /**
  * Whether item `id`'s drawn content leaves its box: the union of its buttons' and labels' rects (outside a panel's
  * scrolling body) against the box, and the box's scroll size against its size. Null when nothing is clipped.
  */
-function clipped(c: DocwinScene, id: ItemId): string | null {
+function clipped(c: Docwin, id: ItemId): string | null {
   const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"]`);
   if (!el) return "not drawn";
   const box = el.getBoundingClientRect();
@@ -2192,8 +2245,8 @@ function clipped(c: DocwinScene, id: ItemId): string | null {
   return null;
 }
 
-/** The scene with `id` aligned to `align` (its zone). */
-function aligned(s: Scene, id: ItemId, align: "start" | "center" | "end"): Scene {
+/** The state with `id` aligned to `align` (its zone). */
+function aligned(s: DockState, id: ItemId, align: "start" | "center" | "end"): DockState {
   return { ...s, items: { ...s.items, [id]: { ...s.items[id]!, align } } };
 }
 
@@ -2203,7 +2256,7 @@ function aligned(s: Scene, id: ItemId, align: "start" | "center" | "end"): Scene
  * after the items before it, trailing right before the controls (or the bar's end), center at the bar's center or the
  * free span's.
  */
-function barZoneDrop(c: DocwinScene, id: ItemId, edge: EdgeId, zone: "start" | "center" | "end"): { ok: boolean; now: string } {
+function barZoneDrop(c: Docwin, id: ItemId, edge: EdgeId, zone: "start" | "center" | "end"): { ok: boolean; now: string } {
   const bar = c.layout.edges[edge]!.rect;
   const k = zone === "start" ? 0 : zone === "center" ? 1 : 2;
   // An empty bar: its zone strip (thirds of its strip along the content); else the bar's third.
@@ -2215,11 +2268,11 @@ function barZoneDrop(c: DocwinScene, id: ItemId, edge: EdgeId, zone: "start" | "
   if (!r.lifted || !d || !d.committed || !d.landed || l?.edge !== edge) return { ok: false, now: `dropped on ${d?.target ?? "nothing"}, landed in ${l?.edge ?? "none"}` };
   const got = d.landed;
   const fixed = Object.keys(c.layout.items).filter((x) => c.layout.items[x]!.fixed && c.layout.items[x]!.edge === edge);
-  const clear = fixed.every((f) => overlap(got, reservedRect(c.scene, c.layout, f)) === 0);
+  const clear = fixed.every((f) => overlap(got, reservedRect(c.state, c.layout, f)) === 0);
   const gap = c.edge(edge).gap ?? 0;
   const pad = c.edge(edge).pad ?? { start: 0, end: 0 };
   const others = Object.entries(c.layout.items).filter(([x, it]) => x !== id && it.edge === edge && !it.inMenu);
-  const rectFor = (x: string, it: { fixed?: boolean; rect: Rect }): Rect => (it.fixed ? reservedRect(c.scene, c.layout, x) : it.rect);
+  const rectFor = (x: string, it: { fixed?: boolean; rect: Rect }): Rect => (it.fixed ? reservedRect(c.state, c.layout, x) : it.rect);
   let placed = l.zone === zone && sameRect(d.preview, got);
   if (zone === "end") {
     const after = others.filter(([, it]) => it.rect.x >= got.x + got.width - 0.5).map(([x, it]) => rectFor(x, it).x);
@@ -2240,12 +2293,12 @@ function barZoneDrop(c: DocwinScene, id: ItemId, edge: EdgeId, zone: "start" | "
 }
 
 /** Each world: Tools into the bar's three zones by mouse. */
-function zonesOfBar(c: DocwinScene, edge: EdgeId, worlds: [string, Scene][]): Verdict {
+function zonesOfBar(c: Docwin, edge: EdgeId, worlds: [string, DockState][]): Verdict {
   const bad: string[] = [];
   const seen: string[] = [];
   for (const [world, base] of worlds) {
     for (const zone of ["start", "center", "end"] as const) {
-      c.setScene(base);
+      c.setState(base);
       const r = barZoneDrop(c, "tools", edge, zone);
       seen.push(`${world}, ${zone}: ${r.now}`);
       if (!r.ok) bad.push(`${world}, ${zone}: ${r.now}`);
@@ -2285,7 +2338,7 @@ interface Seen {
  * A mouse gesture on the item's grip through the page's own pointer listeners, the modifier `keys` held on every event:
  * the legs in turn, frames driven by hand. Still down at the end: `up()` lets go where it is.
  */
-function mouseGesture(c: DocwinScene, id: ItemId, legs: readonly Leg[], keys: Mods = {}, onDown?: (grip: HTMLElement) => void): { lifted: boolean; seen: Seen[]; up: () => void } {
+function mouseGesture(c: Docwin, id: ItemId, legs: readonly Leg[], keys: Mods = {}, onDown?: (grip: HTMLElement) => void): { lifted: boolean; seen: Seen[]; up: () => void } {
   let cur: Mods = keys;
   const el = c.win.querySelector<HTMLElement>(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`);
   if (!el) return { lifted: false, seen: [], up: () => undefined };
@@ -2330,25 +2383,25 @@ function mouseGesture(c: DocwinScene, id: ItemId, legs: readonly Leg[], keys: Mo
 }
 
 /** The point at the middle of the right window edge's strip, and the content's middle. */
-const rightStrip = (c: DocwinScene): Point => ({ x: c.scene.stage.width - 10, y: c.scene.stage.height / 2 });
-const midContent = (c: DocwinScene): Point => center(c.layout.content);
+const rightStrip = (c: Docwin): Point => ({ x: c.state.stage.width - 10, y: c.state.stage.height / 2 });
+const midContent = (c: Docwin): Point => center(c.layout.content);
 /** Whether Findings now lies collapsed in the right rail, the column closed down to the rail's width. */
-const inRightRail = (c: DocwinScene): boolean => {
+const inRightRail = (c: Docwin): boolean => {
   const p = c.layout.items.findings;
   return !!p?.tab && p.edge === "right" && (c.layout.edges.right?.cross ?? 0) <= 30.5;
 };
 /** The last drop said in one line. */
-const dropSaid = (c: DocwinScene): string => {
+const dropSaid = (c: Docwin): string => {
   const d = c.lastDrop;
   return d ? `${d.target ?? "nothing"}${d.committed ? "" : " (nothing committed)"}, slot ${d.preview ? say(d.preview) : "none"}, landed ${d.landed ? say(d.landed) : "none"}` : "no drop";
 };
 /** A drop that committed with its slot the landing (preview = landing). */
-const landedOnSlot = (c: DocwinScene): boolean => !!c.lastDrop?.committed && sameRect(c.lastDrop.preview, c.lastDrop.landed);
+const landedOnSlot = (c: Docwin): boolean => !!c.lastDrop?.committed && sameRect(c.lastDrop.preview, c.lastDrop.landed);
 /** The default feel with the panels' changed by `edit`. */
-const panelFeel = (c: DocwinScene, edit: Partial<KindFeel>): DragFeel => ({ ...c.feel, panel: { ...c.feel.panel, ...edit } });
+const panelFeel = (c: Docwin, edit: Partial<KindFeel>): DragFeel => ({ ...c.feel, panel: { ...c.feel.panel, ...edit } });
 
 function RAIL_DOCK_PRESETS(): Preset[] {
-  const fresh = (c: DocwinScene): void => c.reset();
+  const fresh = (c: Docwin): void => c.reset();
   return [
     {
       id: "rail-dwell-pass-by",
@@ -2359,7 +2412,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
       check(c) {
         const m = mouseGesture(c, "findings", [
           { to: midContent(c), step: 6, hold: 120 },
-          { to: { x: c.scene.stage.width - 6, y: c.scene.stage.height / 2 }, step: 12, hold: 0 },
+          { to: { x: c.state.stage.width - 6, y: c.state.stage.height / 2 }, step: 12, hold: 0 },
           { to: midContent(c), step: 12, hold: 200 },
         ]);
         m.up();
@@ -2421,7 +2474,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
         let ok = true;
         for (const [name, keys] of [["⌘", { metaKey: true }], ["Ctrl", { ctrlKey: true }], ["Alt", { altKey: true }]] as const) {
           c.reset();
-          const m = mouseGesture(c, "findings", [{ to: { x: c.scene.stage.width - 300, y: c.scene.stage.height / 2 }, step: 6, hold: 120 }], keys);
+          const m = mouseGesture(c, "findings", [{ to: { x: c.state.stage.width - 300, y: c.state.stage.height / 2 }, step: 6, hold: 120 }], keys);
           m.up();
           const pass = name === "Alt" ? c.lastDrop?.place !== "rail" && !inRightRail(c) : c.lastDrop?.place === "rail" && inRightRail(c) && landedOnSlot(c);
           ok &&= pass;
@@ -2489,7 +2542,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
       setup: fresh,
       check(c) {
         c.setFeel(panelFeel(c, { railStripWidth: 96 }));
-        const stage = c.scene.stage;
+        const stage = c.state.stage;
         // Inside Findings' own column and the strip's inner part (the strip is the window's outer 96 px).
         const inside = { x: stage.width - 50, y: stage.height / 2 };
         const passing = mouseGesture(c, "findings", [{ to: inside, step: 40, hold: 0 }]);
@@ -2519,7 +2572,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
         if (!grip) return { pass: false, now: "Findings has no grip." };
         const before = JSON.stringify(c.stored());
         const legs: Leg[] = [
-          { to: { x: c.scene.stage.width / 2, y: c.scene.stage.height / 2 }, step: 8, hold: 60 },
+          { to: { x: c.state.stage.width / 2, y: c.state.stage.height / 2 }, step: 8, hold: 60 },
           // Back at a hand's pace (a slow crawl across a 280 px strip would arm it on the way, by dwell).
           { to: grip, step: 40, hold: 360 },
         ];
@@ -2546,7 +2599,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
         let ok = true;
         for (const way of ["dwell", "⌘/Ctrl"] as const) {
           c.reset();
-          const m = mouseGesture(c, "findings", [{ to: way === "dwell" ? rightStrip(c) : { x: c.scene.stage.width - 120, y: c.scene.stage.height / 2 }, step: 6, hold: way === "dwell" ? 360 : 120 }], way === "⌘/Ctrl" ? { metaKey: true } : {});
+          const m = mouseGesture(c, "findings", [{ to: way === "dwell" ? rightStrip(c) : { x: c.state.stage.width - 120, y: c.state.stage.height / 2 }, step: 6, hold: way === "dwell" ? 360 : 120 }], way === "⌘/Ctrl" ? { metaKey: true } : {});
           m.up();
           const pass = inRightRail(c) && landedOnSlot(c);
           ok &&= pass;
@@ -2562,7 +2615,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
         "Frozen, Findings is pressed with Alt held and dragged into the pages: it lifts (Alt unfreezes) and the drop is not the rail. With only ⌘ (no Alt) in the frozen window nothing lifts. Alt keeps exactly one meaning, the temporary unfreeze.",
       setup: fresh,
       check(c) {
-        const mid = { x: c.scene.stage.width - 300, y: c.scene.stage.height / 2 };
+        const mid = { x: c.state.stage.width - 300, y: c.state.stage.height / 2 };
         c.setFrozen(true);
         c.altOn(true);
         const withAlt = mouseGesture(c, "findings", [{ to: mid, step: 6, hold: 120 }], { altKey: true });
@@ -2592,7 +2645,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
           c.reset();
           c.setFrozen(true);
           c.altOn(true);
-          const mid = { x: c.scene.stage.width - 300, y: c.scene.stage.height / 2 };
+          const mid = { x: c.state.stage.width - 300, y: c.state.stage.height / 2 };
           const m = mouseGesture(c, "findings", [
             { to: mid, step: 6, hold: 60, keys: { altKey: true } },
             { to: { x: mid.x + 10, y: mid.y }, step: 6, hold: 120, keys: { altKey: true, ...mod } },
@@ -2629,7 +2682,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
           return e;
         };
         let still = true;
-        const mid = { x: c.scene.stage.width - 300, y: c.scene.stage.height / 2 };
+        const mid = { x: c.state.stage.width - 300, y: c.state.stage.height / 2 };
         const m = mouseGesture(
           c,
           "findings",
@@ -2692,7 +2745,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
       check(c) {
         const bad: string[] = [];
         const seen: string[] = [];
-        const W = c.scene.stage.width;
+        const W = c.state.stage.width;
         for (const [side, id, over] of [
           ["left", "findings", "pages"],
           ["right", "notes", "findings"],

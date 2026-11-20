@@ -5,10 +5,10 @@
  *
  * To add a page: add an entry here. A page module needs nothing from the shell; it may call `onReset` (./api) to
  * give the header's Reset button its own reset. A docking case is no page: it is a Document window case, or a
- * conformance row of `@n-uf/placement/scene/cases`.
+ * conformance row of `@n-uf/docking/testing`.
  *
  * The groups: Overview, Motion (two pages: settle and tiling, and the drag intent on the Document window), the
- * Document window (the one Scene host) and Checks.
+ * Document window (the one Reference host) and Checks.
  */
 
 import type { PageDef } from "./page-defs";
@@ -20,7 +20,7 @@ const tiling = {
   load: () => import("../main"),
   module: "tiling",
 };
-/** The Document window: the lab's one Scene host. The drag intent's page opens it on the drag intent's cases. */
+/** The Document window: the lab's one Reference host. The drag intent's page opens it on the drag intent's cases. */
 const docwin = {
   markup: raw(() => import("../pages/docwin.html?raw")),
   load: () => Promise.all([import("../docwin/docwin.css"), import("../docwin/docwin")]),
@@ -36,7 +36,7 @@ export const PAGES: readonly PageDef[] = [
     id: "overview",
     group: "overview",
     title: "Motion and placement lab",
-    line: "Every demo and check for @n-uf/motion and @n-uf/placement, on the real packages.",
+    line: "Every demo and check for @n-uf/motion, @n-uf/placement and @n-uf/docking, on the real packages.",
     markup: raw(() => import("../pages/overview.html?raw")),
   },
   {
@@ -73,9 +73,9 @@ export const PAGES: readonly PageDef[] = [
     group: "docwin",
     nav: "Document window",
     title: "Document window",
-    line: "A document viewer's window: bars, side columns, scrolling pages and floats, as one Scene (the window as one data model). Each preset sets up a docking case and checks its rules.",
+    line: "A document viewer's window: bars, side columns, scrolling pages and floats, as one DockState (the window as one data model). Each preset sets up a docking case and checks its rules.",
     about:
-      "The whole window is one <code>@n-uf/placement/scene</code> Scene: the title bar with its fixed title and controls, the top and bottom bars, the left and right columns, each edge with the kinds it accepts, the floats and the kinds that may float. Every rect drawn comes from <code>solve</code>; a drag runs <code>@n-uf/motion/drag</code>'s intent over <code>targets(scene, dragged)</code>, draws the dashed slot and marker from the shown target only, and the drop commits that target's <code>after(...).scene</code>. While a drag is on, the root carries <code>data-drag-session</code> and one CSS rule turns hover, resize handles and selection off. Drag a panel by its header, a group by its grip. The Window drawer sets the size, freeze, counts, reload and reset. Headless: <code>window.__docwin</code>.",
+      "The whole window is one <code>@n-uf/docking</code> DockState: the title bar with its fixed title and controls, the top and bottom bars, the left and right columns, each edge with the kinds it accepts, the floats and the kinds that may float. Every rect drawn comes from <code>solve</code>; a drag runs <code>@n-uf/motion/drag</code>'s intent over <code>targets(state, dragged)</code>, shows the dragged item as the only preview (it sits in a place that takes it, with the room open, and otherwise stays on the pointer, inside the window), and the drop commits what shows: that target's <code>after(...).state</code>. While a drag is on, the root carries <code>data-drag-session</code> and one CSS rule turns hover, resize handles and selection off. Drag a panel by its header, a group by its grip. The Window drawer sets the size, freeze, counts, reload and reset. The Window | Code switch in the header shows the same window as the code a host writes with the public API: the State tab (the stored state as a literal, <code>readDockState</code>, <code>solve</code>, the drag options) and the Last move tab (the <code>lanes</code> call and the commit of the last drag), both generated from what the window draws; <code>?view=code</code> in the address opens on it. Headless: <code>window.__docwin</code> (<code>code()</code> gives both texts).",
     ...docwin,
   },
   {

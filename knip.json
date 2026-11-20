@@ -6,7 +6,8 @@
       "entry": ["index.ts", "browser.ts", "src/*/index.ts", "test/**/*.ts", "bench/**/*.{ts,mjs}", "scripts/*.mjs"],
       "ignoreDependencies": ["@preact/signals-core"]
     },
-    "packages/placement": { "entry": ["index.ts", "src/*/index.ts", "src/scene/cases/index.ts", "test/**/*.ts", "scripts/*.mjs"] },
+    "packages/placement": { "entry": ["index.ts", "src/*/index.ts", "test/**/*.ts", "scripts/*.mjs"] },
+    "packages/docking": { "entry": ["test/**/*.ts", "scripts/*.mjs"] },
     "apps/lab": { "entry": ["src/shell/shell.ts"], "project": ["src/**/*.ts"] },
     "apps/web": { "entry": ["src/pages/**/*.{astro,ts}", "src/islands/*.ts", "scripts/*.mjs"], "ignoreBinaries": ["vite"] }
   }

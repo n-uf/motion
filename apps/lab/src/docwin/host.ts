@@ -1,22 +1,22 @@
 /**
- * The document window as a case host (`AsyncCaseHost` of `@n-uf/placement/scene/cases`): every conformance row loads its
- * own scene into the live window, plays its gestures on the page's own drag session (the same press, intent, targets,
+ * The document window as a case host (`AsyncCaseHost` of `@n-uf/docking/testing`): every conformance row loads its
+ * own state into the live window, plays its gestures on the page's own drag session (the same press, intent, targets,
  * preview and commit a mouse uses, frames driven by a clock the host steps), and reads back what the page draws.
  *
  * - `press` / `move` / `hold` / `release`: the session's `begin`, `move`, `frame` and `release`; a `move` to a `place` aims
- *   with `resolvePlace` under `@n-uf/motion/drag`'s `targetAt`, the one pick rule, with the scene's refusals
+ *   with `resolvePlace` under `@n-uf/motion/drag`'s `targetAt`, the one pick rule, with the state's refusals
  *   (`withRefusals`); the page itself refuses a drop there and marks the refusal (`data-drag-refusal`).
- * - `click`: the window's controls (open, close, a use), or the Scene's change that the menu row commits.
- * - `key`: Escape cancels, Alt holds the unfreeze key, Reload stores the scene and reads it back.
+ * - `click`: the window's controls (open, close, a use), or the DockState's change that the menu row commits.
+ * - `key`: Escape cancels, Alt holds the unfreeze key, Reload stores the state and reads it back.
  * - the root: the session mark on the page's root, slots, markers and items in window px.
  */
 import { targetAt } from "@n-uf/motion/drag";
 import { center } from "@n-uf/placement";
-import { close, dockHome, floatAt, fold, homeFor, open, storeScene, use, type Scene, type SceneLayout } from "@n-uf/placement/scene";
+import { closeItem, dockHome, floatAt, foldItem, homeFor, markUsed, openItem, storeDockState, type DockState, type DockLayout } from "@n-uf/docking";
 import { readDocwin } from "./store";
-import { END_REACH, LIFT_THRESHOLD, resizeStep, resolvePlace, withRefusals, type AsyncCaseHost, type CaseSettings, type DomRoot, type Gesture } from "@n-uf/placement/scene/cases";
+import { END_REACH, LIFT_THRESHOLD, resizeStep, resolvePlace, withRefusals, type AsyncCaseHost, type CaseSettings, type DomRoot, type Gesture } from "@n-uf/docking/testing";
 import type { ItemId } from "./model";
-import type { DocwinScene } from "./scene";
+import type { Docwin } from "./dock-state";
 
 /** A frame every 16 ms of the host's clock. */
 const FRAME = 16;
@@ -25,13 +25,13 @@ const SETTLE_MS = 400;
 
 const nextPaint = (): Promise<void> => new Promise((r) => requestAnimationFrame(() => r()));
 
-export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
-  let start: Scene | null = null;
+export function createDocwinHost(c: Docwin): AsyncCaseHost {
+  let start: DockState | null = null;
   let t = 1_000_000;
   /** A press not yet lifted: the item, where it was pressed (window px), the grab. */
   let pressed: { readonly id: ItemId; readonly down: { x: number; y: number }; pointer: { x: number; y: number } } | null = null;
 
-  const scene = (): Scene => c.scene;
+  const state = (): DockState => c.state;
 
   function lift(): boolean {
     const p = pressed!;
@@ -50,7 +50,7 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
     pressed = null;
     const id = g.item as ItemId | undefined;
     if (!id) throw new Error("a press needs an item");
-    const it = Object.hasOwn(scene().items, id) ? scene().items[id] : undefined;
+    const it = Object.hasOwn(state().items, id) ? state().items[id] : undefined;
     if (!it) throw new Error(`no item ${id}`);
     const l = c.layout.items[id];
     // No grip: fixed and closed items never lift, nor one in the » menu.
@@ -71,7 +71,7 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
       if (!d) return;
       const list = d.targets;
       const own = c.layout.items[d.id]?.rect;
-      const p = resolvePlace(list, g.place, d.id, { stage: scene().stage, content: c.layout.content, ...(own ? { own } : {}) }, withRefusals(targetAt, c.refusals(d.id)));
+      const p = resolvePlace(list, g.place, d.id, { stage: state().stage, content: c.layout.content, ...(own ? { own } : {}) }, withRefusals(targetAt, c.refusals(d.id)));
       if (!p) throw new Error(`no point reaches the target at ${JSON.stringify(g.place)} (targets: ${list.map((x) => x.id).join(", ") || "none"})`);
       c.move(p);
       t += FRAME;
@@ -100,7 +100,7 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
   function click(g: Gesture): void {
     const id = g.item as ItemId | undefined;
     if (!id) throw new Error("a click needs an item");
-    const s = scene();
+    const s = state();
     const it = Object.hasOwn(s.items, id) ? s.items[id] : undefined;
     if (!it) throw new Error(`no item ${id}`);
     const moves = g.place !== undefined || g.key === "float" || g.key === "dock";
@@ -108,7 +108,7 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
     if (g.place) {
       const stop = c.stops(id).find((x) => JSON.stringify(x.place) === JSON.stringify(g.place)) ?? c.stops(id).find((x) => x.place.kind === g.place!.kind && g.place!.kind === "float");
       if (!stop) throw new Error(`${JSON.stringify(g.place)} is not one of ${id}'s stops`);
-      c.commit(stop.place.kind === "float" ? use(floatAt(s, id), id) : stop.after(center(s.stage)).scene);
+      c.commit(stop.place.kind === "float" ? markUsed(floatAt(s, id), id) : stop.after(center(s.stage)).state);
       return;
     }
     switch (g.key) {
@@ -119,28 +119,28 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
       case "use":
         return c.press(id);
       case "open":
-        return c.commit(use(open(s, id), id));
+        return c.commit(markUsed(openItem(s, id), id));
       case "close":
-        return c.commit(close(s, id));
+        return c.commit(closeItem(s, id));
       case "fold":
-        return c.commit(use(fold(s, id, true), id));
+        return c.commit(markUsed(foldItem(s, id,true), id));
       case "unfold":
-        return c.commit(use(fold(s, id, false), id));
+        return c.commit(markUsed(foldItem(s, id,false), id));
       case "float":
-        return c.commit(use(floatAt(s, id), id));
+        return c.commit(markUsed(floatAt(s, id), id));
       case "dock":
-        if (!homeFor(s, id, start!)) throw new Error(`the loaded scene puts ${id} nowhere`);
-        return c.commit(use(dockHome(s, id, start!), id));
+        if (!homeFor(s, id, start!)) throw new Error(`the loaded state puts ${id} nowhere`);
+        return c.commit(markUsed(dockHome(s, id, start!), id));
       default:
         throw new Error(`no control ${g.key}`);
     }
   }
 
-  /** An edge's size, an item measured again (a count gained digits) or the window's size: the Scene's step, committed. */
+  /** An edge's size, an item measured again (a count gained digits) or the window's size: the DockState's step, committed. */
   function resizeNow(g: Gesture): void {
-    const next = resizeStep(scene(), start!, c.layout, g);
+    const next = resizeStep(state(), start!, c.layout, g);
     start = next.start;
-    c.commit(next.scene);
+    c.commit(next.state);
   }
 
   function key(k: string | undefined): void {
@@ -151,9 +151,9 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
     else if (k === "Alt:up") c.altOn(false);
     else if (k === "Reload") {
       pressed = null;
-      // The window's own stored form (the Scene's, plus the window's size), read back over the loaded scene.
+      // The window's own stored form (the DockState's, plus the window's size), read back over the loaded state.
       const data: unknown = JSON.parse(JSON.stringify(c.stored()));
-      c.setScene(readDocwin(data, start!).scene);
+      c.setState(readDocwin(data, start!).state);
     } else throw new Error(`no key ${k}`);
   }
 
@@ -168,7 +168,7 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
   };
 
   return {
-    async load(s: Scene, settings: CaseSettings = {}) {
+    async load(s: DockState, settings: CaseSettings = {}) {
       if (c.dragging) c.release(t, true);
       pressed = null;
       c.drive(true);
@@ -180,7 +180,7 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
       const stage = settings.stage ? { x: 0, y: 0, width: settings.stage.w, height: settings.stage.h } : s.stage;
       start = { ...s, stage };
       c.win.querySelector<HTMLElement>(".dw-scroll")!.scrollTop = 0;
-      c.setScene(start);
+      c.setState(start);
       c.pause();
       await nextPaint();
     },
@@ -215,10 +215,10 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
       }
       await nextPaint();
     },
-    layout: (): SceneLayout => c.preview(),
+    layout: (): DockLayout => c.preview(),
     root: () => root,
     itemSelector: (id) => `.dw-items [data-id="${id}"]`,
-    stored: () => storeScene(scene()),
+    stored: () => storeDockState(state()),
     stops: (item) => c.stops(item as ItemId).map((x) => x.place),
     pick: targetAt,
   };

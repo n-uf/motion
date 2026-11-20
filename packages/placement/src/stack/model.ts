@@ -93,16 +93,16 @@ export interface StackForm {
    */
   readonly wrap?: WrapSpec;
   /**
-   * A grip at the form's start along the stack, this long (an icons strip's horizontal grip on top). The scene reports
-   * its rect; a `wrap` form's grip is its lead cell instead.
+   * A grip at the form's start along the stack, this long (an icons strip's horizontal grip on top). A window model (`@n-uf/docking`)
+   * reports its rect; a `wrap` form's grip is its lead cell instead.
    */
   readonly grip?: number;
   /**
    * The control ids this form leaves out, against the item's first form: a compact variant of a toolbar (a row form
    * between the full row and its wrap, smaller, its "+N" cell counted in its size) hides some controls a "+N" control
    * reaches. Any form may set it (a wrap, icons or menu form too). The ladder reads it nowhere: a variant is a form like
-   * any other, taken in order, giving way and coming back by the usual rules. `./scene` reports the chosen form's ids as
-   * `hidden`.
+   * any other, taken in order, giving way and coming back by the usual rules. `@n-uf/docking` reports the chosen form's ids
+   * as `hidden`.
    */
   readonly hides?: readonly string[];
   /**
@@ -110,8 +110,8 @@ export interface StackForm {
    * its tile. Put it just before the item's tile `rail` form: in a rail the two are steps on the ladder, the title giving
    * way to the tile by the usual rules and coming back in exact reverse. Its `main` is the title's length along the rail,
    * measured by the host. A stack offers it only with `StackInput.titles`; otherwise it is passed over like a form that
-   * isn't there (never started in, stepped into or grown back to). `./scene` offers it in a rail whose side shows titles
-   * (`Scene.railModes`, default `"titles"`) and reports the side it reads from (`SceneItemLayout.railTitle`).
+   * isn't there (never started in, stepped into or grown back to). `@n-uf/docking` offers it in a rail whose side shows
+   * titles (`DockState.railModes`, default `"titles"`) and reports the side it reads from (`DockItemLayout.railTitle`).
    */
   readonly title?: boolean;
 }
@@ -120,8 +120,8 @@ const nonNeg = (x: number | undefined): number => (typeof x === "number" && Numb
 
 /**
  * The least a form can be drawn across the stack: its `cross.min` (default its `natural`), or for a `wrap` form the
- * narrowest cross size at which its rows fit (no single word on a row but the last). The scene's size clamp and column
- * shrink read it too.
+ * narrowest cross size at which its rows fit (no single word on a row but the last). A window model's size clamp and
+ * column shrink read it too.
  */
 export function formCrossMin(f: StackForm): number {
   if (f.wrap) return wrapCross(f.wrap).min;

@@ -1,10 +1,11 @@
 name: Release
 
-# Two packages on one shared version: @n-uf/motion (packages/motion, tagged
-# v<version>) and @n-uf/placement (packages/placement, tagged
-# placement-v<version>). Calendar versions (YY.M.R, the same scheme as
-# @n-uf/hypr-tiling and @n-uf/debugsy); `verify` fails when the two differ.
-# A PR bumps both package.json files and adds CHANGELOG entries; merging it to
+# Three packages on one shared version: @n-uf/motion (packages/motion, tagged
+# v<version>), @n-uf/placement (packages/placement, tagged
+# placement-v<version>) and @n-uf/docking (packages/docking, tagged
+# docking-v<version>). Calendar versions (YY.M.R, the same scheme as
+# @n-uf/hypr-tiling and @n-uf/debugsy); `verify` fails when they differ.
+# A PR bumps the three package.json files and adds CHANGELOG entries; merging it to
 # main publishes that version to npmjs (public, with provenance) and to
 # GitHub Packages, tags it and notifies a downstream repo when
 # RELEASE_NOTIFY_REPO is set. Each package and each registry is checked on
@@ -65,12 +66,13 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      - name: One version for both packages
+      - name: One version for the three packages
         run: |
           motion=$(jq -r .version packages/motion/package.json)
           placement=$(jq -r .version packages/placement/package.json)
-          if [ "$motion" != "$placement" ]; then
-            echo "::error::@n-uf/motion is $motion but @n-uf/placement is $placement: both packages share one version, so a release bumps both."
+          docking=$(jq -r .version packages/docking/package.json)
+          if [ "$motion" != "$placement" ] || [ "$motion" != "$docking" ]; then
+            echo "::error::@n-uf/motion is $motion, @n-uf/placement is $placement and @n-uf/docking is $docking: the packages share one version, so a release bumps all three."
             exit 1
           fi
 
@@ -97,6 +99,10 @@ jobs:
           - name: "@n-uf/placement"
             dir: packages/placement
             tag-prefix: placement-v
+          # After placement: it depends on it, at the same version.
+          - name: "@n-uf/docking"
+            dir: packages/docking
+            tag-prefix: docking-v
     permissions:
       contents: write
       packages: write

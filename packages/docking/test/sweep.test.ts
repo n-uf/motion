@@ -1,0 +1,312 @@
+/** Property sweeps over random states: several edges, rings, spans and modes, fixed items, zones, floats and kinds. */
+import { targetAt } from "@n-uf/motion/drag";
+import { describe, expect, it } from "vitest";
+import { markUsed, solve, targets, type DockEdge, type DockState, type DockItem, type DockLayout } from "../src";
+import { bar, byId, column, controls, group, panel, readout, seeded, title } from "./fixture";
+
+type R = { x: number; y: number; width: number; height: number };
+const overlaps = (a: R, b: R) => Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 1e-3 && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 1e-3;
+const inside = (a: R, b: R) => a.x >= b.x - 1e-6 && a.y >= b.y - 1e-6 && a.x + a.width <= b.x + b.width + 1e-6 && a.y + a.height <= b.y + b.height + 1e-6;
+
+function randomState(seed: number): DockState {
+  const rnd = seeded(seed);
+  const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;
+  const items: DockItem[] = [];
+  const edges: DockEdge[] = [];
+  let n = 0;
+  const g = (): string => {
+    const id = `g${n++}`;
+    items.push(group(id, Math.floor(rnd() * 50), { ...(rnd() < 0.3 ? { align: pick(["center", "end"] as const) } : {}), ...(rnd() < 0.15 ? { kept: true } : {}), ...(rnd() < 0.1 ? { closed: true } : {}) }));
+    return id;
+  };
+  const p = (): string => {
+    const id = `p${n++}`;
+    items.push(panel(id, Math.floor(rnd() * 50), { ...(rnd() < 0.25 ? { from: 1 } : {}), ...(rnd() < 0.1 ? { closed: true } : {}), ...(rnd() < 0.15 ? { kept: true } : {}) }, 200 + Math.floor(rnd() * 120)));
+    return id;
+  };
+  if (rnd() < 0.6) {
+    items.push(title(), controls());
+    edges.push({ id: "titlebar", side: "top", ring: 0, accepts: [], items: ["title", "controls"], cross: { min: 32, max: 32, rail: 32 } });
+  }
+  const tops = Math.floor(rnd() * 3);
+  for (let i = 0; i < tops; i++) edges.push(bar(`top${i}`, "top", i + 1, Array.from({ length: Math.floor(rnd() * 4) }, g), { span: rnd() < 0.3 ? "between" : "full", mode: rnd() < 0.2 ? "overlay" : "reserved" }));
+  if (rnd() < 0.7) {
+    const ids = Array.from({ length: Math.floor(rnd() * 3) }, g);
+    if (rnd() < 0.5) {
+      items.push(readout());
+      ids.push("readout");
+    }
+    edges.push(bar("bottom", "bottom", 0, ids, { span: rnd() < 0.5 ? "between" : "full" }));
+  }
+  for (const side of ["left", "right"] as const) {
+    const cols = Math.floor(rnd() * 3);
+    for (let i = 0; i < cols; i++) {
+      const accepts = rnd() < 0.3 ? ["panel"] : ["panel", "group"];
+      const ids = Array.from({ length: Math.floor(rnd() * 3) }, () => (rnd() < 0.75 || accepts.length === 1 ? p() : g()));
+      edges.push(column(`${side}${i}`, side, i, ids, { accepts, ...(rnd() < 0.2 ? { size: 150 + rnd() * 400 } : {}), ...(rnd() < 0.2 ? { railShowsClosed: true } : {}), ...(rnd() < 0.15 ? { mode: "overlay" as const } : {}) }));
+    }
+  }
+  // Kinds may only sit where they're accepted.
+  for (const e of edges) e.items.forEach((id) => expect([...e.accepts, "title", "controls", "readout"]).toContain(items.find((i) => i.id === id)!.kind));
+  const W = 500 + Math.floor(rnd() * 1100);
+  const H = 360 + Math.floor(rnd() * 600);
+  const floats = Array.from({ length: Math.floor(rnd() * 3) }, () => {
+    const id = rnd() < 0.5 ? p() : g();
+    return { id, rect: { x: rnd() * W - 50, y: rnd() * H - 50, width: 120 + rnd() * 200, height: 60 + rnd() * 200 }, ...(rnd() < 0.2 ? { anchor: "content-top-right" as const } : {}) };
+  });
+  const keepClear = rnd() < 0.4 ? [{ x: rnd() * W, y: rnd() * H, width: 40 + rnd() * 100, height: 20 + rnd() * 40 }] : [];
+  const base: DockState = { stage: { x: 0, y: 0, width: W, height: H }, edges, items: byId(items), floats, floatKinds: ["panel", "group"], keepClear };
+  if (rnd() < 0.5) return base;
+  // Dynamic columns: templates, rails, give-way by contentMin, hand folds that ride or rail.
+  const template = { accepts: ["panel", "group"], cross: { min: 160, max: 480, rail: 30 } };
+  return {
+    ...base,
+    edges: edges.map((e) => (e.side === "left" || e.side === "right" ? { ...e, column: true, accepts: template.accepts } : e)),
+    columns: { left: template, right: template },
+    rails: { left: { width: 30, accepts: ["panel"] }, right: { width: 30, accepts: ["panel"] } },
+    contentMin: { width: 200 + Math.floor(rnd() * 200), height: 200 },
+    handFold: rnd() < 0.5 ? "ride" : "bar",
+    gutter: rnd() < 0.5 ? 0 : 8,
+    ...(rnd() < 0.3 ? { inset: { left: 6, right: 6, top: 4, bottom: 4 } } : {}),
+  };
+}
+
+const SEEDS = Array.from({ length: 400 }, (_, i) => i + 1);
+
+/** What a host draws: every item's rect and how, the edges' rects and folds, the rails and the content. No notes, no fits. */
+const drawn = (l: DockLayout) => ({
+  items: Object.fromEntries(Object.entries(l.items).map(([id, it]) => [id, [it.rect, it.form, it.formKind, it.edge, it.rail, it.rides, it.folded, it.inMenu]])),
+  edges: Object.fromEntries(Object.entries(l.edges).map(([id, e]) => [id, [e.rect, e.folded, e.rides]])),
+  rails: l.rails,
+  content: l.content,
+});
+
+describe("state sweeps", () => {
+  it("no target is a sub-pixel place: every piece of its zone is at least 1 px each way", () => {
+    // Seed 195, the group dragged out of its bar: an empty bottom bar's zones are split where its thirds fall, and the
+    // column's last gap used to keep the 0.45 px between two of them; it is no room. The column's foot is the empty
+    // bar's place band (laid before the sides); the gap keeps its half band into the panel's body just above it, local
+    // to its line, never moved to the column's top.
+    // The bar's depth past its thin band yields to the column, whose zone takes the group.
+    const s195 = randomState(195);
+    const foot = solve(s195).edges.right0!.rect;
+    const last = targets(s195, "g0").find((t) => t.id === "gap:right0:start:1")!;
+    expect(last.hits).toBeUndefined();
+    expect([last.hit.y, last.hit.y + last.hit.height]).toEqual([foot.y + foot.height - 24, foot.y + foot.height - 12]);
+    expect(targets(s195, "g0").find((t) => t.id === "gap:right0:start:0")!.hit.height).toBeGreaterThanOrEqual(1);
+    for (const seed of SEEDS) {
+      const s = randomState(seed);
+      for (const id of Object.keys(s.items)) {
+        if (s.items[id]!.fixed || s.items[id]!.closed) continue;
+        for (const t of targets(s, id)) for (const p of t.hits ?? [t.hit]) if (p.width < 1 || p.height < 1) throw new Error(`seed ${seed} drag ${id}: ${t.id} ${JSON.stringify(p)}`);
+      }
+    }
+  });
+
+  it("no docked items overlap (so none covers a fixed item), each lies in its edge and each edge in the stage", () => {
+    for (const seed of SEEDS) {
+      const s = randomState(seed);
+      const l = solve(s);
+      const overflowing = new Set(l.notes.flatMap((n) => ("edge" in n && (n.code === "overflow" || n.code === "too-wide") ? [n.edge] : [])));
+      const docked = Object.entries(l.items).filter(([, it]) => it.edge && !it.inMenu && !overflowing.has(it.edge) && it.rect.width > 1e-6 && it.rect.height > 1e-6);
+      // An overlay bar with `span: "full"` lies over the side columns by design: only its items may cover theirs.
+      const over = new Set(s.edges.filter((e) => e.mode === "overlay" && (e.side === "top" || e.side === "bottom") && e.span === "full").map((e) => e.id));
+      const side = new Set(s.edges.filter((e) => e.side === "left" || e.side === "right").map((e) => e.id));
+      const lies = (x: string, y: string): boolean => over.has(x) && side.has(y);
+      for (let i = 0; i < docked.length; i++) {
+        for (let j = i + 1; j < docked.length; j++) {
+          const [a, ia] = docked[i]!;
+          const [b, ib] = docked[j]!;
+          if (lies(ia.edge!, ib.edge!) || lies(ib.edge!, ia.edge!)) continue;
+          if (overlaps(ia.rect, ib.rect)) throw new Error(`seed ${seed}: ${a} and ${b} overlap: ${JSON.stringify([ia.rect, ib.rect])}`);
+        }
+      }
+      // Every docked item is inside its edge, and every edge inside the stage.
+      for (const [id, it] of docked) {
+        // A rail segment lies in its side's rail; a riding bar on its host column; the rest in their own edge.
+        if (it.rides) {
+          const host = l.edges[it.rides]!.rect;
+          if (it.rect.x !== host.x || it.rect.width !== host.width || it.rect.y + it.rect.height > host.y + 1e-6) throw new Error(`seed ${seed}: ${id} doesn't ride on top of ${it.rides}`);
+          continue;
+        }
+        const box = it.rail ? l.rails[it.rail]!.rect : l.edges[it.edge!]!.rect;
+        if (!inside(it.rect, box)) throw new Error(`seed ${seed}: ${id} outside its edge`);
+      }
+      for (const [side, r] of Object.entries(l.rails)) if (!inside(r!.rect, s.stage)) throw new Error(`seed ${seed}: the ${side} rail outside the stage`);
+      for (const [id, e] of Object.entries(l.edges)) if (!inside(e.rect, s.stage)) throw new Error(`seed ${seed}: edge ${id} outside the stage`);
+    }
+  });
+
+  it("floats lie inside the stage, and clear of bars, docked items, fixed items and chrome when room exists", () => {
+    for (const seed of SEEDS) {
+      const s = randomState(seed);
+      const l = solve(s);
+      const avoid = [...Object.values(l.items).filter((it) => it.edge).map((it) => it.rect), ...Object.values(l.edges).filter((e) => e.side === "top" || e.side === "bottom").map((e) => e.rect), ...(s.keepClear ?? [])];
+      for (const id of l.floats) {
+        const f = l.items[id]!.rect;
+        if (f.width <= s.stage.width && f.height <= s.stage.height && !inside(f, s.stage)) throw new Error(`seed ${seed}: float ${id} outside the stage`);
+        if (l.notes.some((n) => n.code === "float-covers" && n.id === id)) continue;
+        for (const a of avoid) if (overlaps(f, a)) throw new Error(`seed ${seed}: float ${id} covers ${JSON.stringify(a)}`);
+      }
+    }
+  });
+
+  it("a use under previous changes no rect (C23)", () => {
+    for (const seed of SEEDS) {
+      const s = randomState(seed);
+      const before = solve(s);
+      const ids = Object.keys(s.items);
+      const id = ids[seed % ids.length]!;
+      const after = solve(markUsed(s, id), { previous: before });
+      for (const k of Object.keys(before.items)) if (JSON.stringify(after.items[k]?.rect) !== JSON.stringify(before.items[k]!.rect)) throw new Error(`seed ${seed}: using ${id} moved ${k}`);
+    }
+  });
+
+  it("no press, of any item, after a chain of presses, ever changes a rect or unfolds a column (C23)", () => {
+    for (const seed of SEEDS) {
+      let s = randomState(seed);
+      let previous = solve(s);
+      const ids = Object.keys(s.items);
+      for (let step = 0; step < Math.min(ids.length, 6); step++) {
+        const id = ids[(seed * 7 + step * 3) % ids.length]!;
+        s = markUsed(s, id);
+        const next = solve(s, { previous });
+        for (const k of Object.keys(previous.items)) if (JSON.stringify(next.items[k]?.rect) !== JSON.stringify(previous.items[k]!.rect)) throw new Error(`seed ${seed} step ${step}: using ${id} moved ${k}`);
+        previous = next;
+      }
+    }
+  });
+
+  it("every target: the item lands in an edge that accepts it, the hit covers no fixed item or chrome, and after = solve(after.state)", () => {
+    for (const seed of SEEDS.slice(0, 120)) {
+      const s = randomState(seed);
+      const previous = solve(s);
+      // No hit covers what a fixed item reserves: its rect, or for a title that grows (start zone), its natural length.
+      const fixed = Object.entries(previous.items)
+        .filter(([, it]) => it.fixed)
+        .map(([fid, it]) => {
+          const f = s.items[fid]!.forms.row?.[it.form];
+          return f?.main.grows ? { ...it.rect, width: Math.min(it.rect.width, f.main.natural) } : it.rect;
+        });
+      for (const id of Object.keys(s.items)) {
+        for (const t of targets(s, id, { previous, endReach: 8 })) {
+          const a = t.after({ x: s.stage.width / 2, y: s.stage.height / 2 });
+          if (JSON.stringify(solve(a.state, { previous })) !== JSON.stringify(a.layout)) throw new Error(`seed ${seed}: ${t.id} preview != result`);
+          // Stable: solving the committed state again from its own layout changes nothing.
+          if (JSON.stringify(drawn(solve(a.state, { previous: a.layout }))) !== JSON.stringify(drawn(a.layout))) throw new Error(`seed ${seed}: ${t.id} not stable on re-solve`);
+          if (t.place.kind === "gap" || t.place.kind === "column" || t.place.kind === "rail") {
+            // The whole state's fixed items keep their form and are never squeezed under their min; no chrome under the slot.
+            for (const [fid, f] of Object.entries(previous.items)) {
+              if (!f.fixed) continue;
+              const g = a.layout.items[fid];
+              const side = s.edges.find((e) => e.id === g?.edge)?.side;
+              const form = s.items[fid]!.forms[side === "left" || side === "right" ? "column" : "row"]?.[f.form];
+              const len = side === "left" || side === "right" ? g?.rect.height : g?.rect.width;
+              if (!g || g.form !== f.form || len! < form!.main.min - 0.5) throw new Error(`seed ${seed}: ${t.id} squeezes ${fid}`);
+            }
+            for (const c of s.keepClear ?? []) if (overlaps(a.layout.items[id]!.rect, c)) throw new Error(`seed ${seed}: ${t.id} lands on chrome`);
+          }
+          if (t.place.kind !== "gap") continue;
+          const me = a.layout.items[id]!;
+          const edge = s.edges.find((e) => e.id === me.edge)!;
+          expect(edge.accepts).toContain(s.items[id]!.kind);
+          expect(me.inMenu).toBeUndefined();
+          for (const f of [...fixed, ...(s.keepClear ?? [])]) if (overlaps(t.hit, f)) throw new Error(`seed ${seed}: ${t.id} covers ${JSON.stringify(f)}`);
+        }
+      }
+    }
+  });
+
+  it("no strip lies over a docked edge (but for its own band) or a panel's body, and no gap's hit over another edge's panel body", () => {
+    // An empty edge owns a band at the boundary where it would appear: an empty rail or bar as deep as a drop draws it,
+    // any other half the hit band (12 px). There it may lie over an edge it pushes; its overreach past that never does.
+    const HALF_BAND = 12;
+    let BAND = HALF_BAND;
+    const bandOf = (r: R, side: string): R =>
+      side === "left" ? { ...r, width: BAND } : side === "right" ? { ...r, x: r.x + r.width - BAND, width: BAND } : side === "top" ? { ...r, height: BAND } : { ...r, y: r.y + r.height - BAND, height: BAND };
+    const meet = (a: R, b: R): R => {
+      const x = Math.max(a.x, b.x);
+      const y = Math.max(a.y, b.y);
+      return { x, y, width: Math.min(a.x + a.width, b.x + b.width) - x, height: Math.min(a.y + a.height, b.y + b.height) - y };
+    };
+    for (const seed of SEEDS.slice(0, 200)) {
+      const s = randomState(seed);
+      const now = solve(s);
+      for (const id of Object.keys(s.items)) {
+        if (s.items[id]!.fixed || s.items[id]!.closed) continue;
+        // One layout: the seen one, the item in place. Every tile lies in it.
+        for (const t of targets(s, id, { previous: now, endReach: 8 })) {
+          const e = (t.place as { edge?: string }).edge;
+          if (!e || (t.place.kind !== "gap" && !t.id.startsWith("strip:"))) continue;
+          const strip = t.id.startsWith("strip:");
+          const own = now.edges[e];
+          const ownEdge = s.edges.find((x) => x.id === e);
+          const thin = !!ownEdge && (!!ownEdge.compact || ownEdge.side === "top" || ownEdge.side === "bottom");
+          BAND = own && own.cross === 0 && thin ? Math.max(HALF_BAND, t.after({ x: 0, y: 0 }).layout.edges[e]?.cross ?? 0) : HALF_BAND;
+          // Every piece of the target's zone (`hits`), not just its largest.
+          for (const hit of t.hits ?? [t.hit]) {
+            if (strip) for (const [oe, d] of Object.entries(now.edges)) if (oe !== e && overlaps(hit, d.rect) && !(own && inside(meet(hit, d.rect), bandOf(own.rect, own.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over edge ${oe}`);
+            for (const [oid, it] of Object.entries(now.items)) {
+              if (oid === id || it.formKind !== "open" || !it.edge || it.edge === e) continue;
+              // An empty edge's own band may lie over it; nothing else of a hit may.
+              const empty = !!own && (own.rect.width <= 1e-6 || own.rect.height <= 1e-6);
+              if (overlaps(hit, it.rect) && !(empty && inside(meet(hit, it.rect), bandOf(own!.rect, own!.side)))) throw new Error(`seed ${seed} drag ${id}: ${t.id} over ${oid}'s body`);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("home covers every docked item's whole own rect: no point across it picks a target that moves the item", () => {
+    let points = 0;
+    for (const seed of SEEDS) {
+      const s = randomState(seed);
+      const l = solve(s);
+      for (const [id, it] of Object.entries(l.items)) {
+        const si = s.items[id]!;
+        if (si.fixed || si.closed || it.floating || it.inMenu || !it.edge || it.rect.width < 2 || it.rect.height < 2) continue;
+        const ts = targets(s, id, { previous: l });
+        if (ts.length === 0) continue;
+        // A 5 × 5 grid across the rect, half a px in from its sides.
+        for (let i = 0; i < 5; i++)
+          for (let j = 0; j < 5; j++) {
+            const p = { x: it.rect.x + 0.5 + ((it.rect.width - 1) * i) / 4, y: it.rect.y + 0.5 + ((it.rect.height - 1) * j) / 4 };
+            points++;
+            const t = targetAt(ts, p);
+            if (t && t.place.kind !== "home" && t.place.kind !== "none") throw new Error(`seed ${seed} drag ${id}: ${JSON.stringify(p)} on its own rect picks ${t.id}`);
+          }
+      }
+    }
+    expect(points).toBeGreaterThan(10000);
+  });
+
+  it("every empty edge's strip is by zone (no single start-only strip): each lands in its zone of that edge, preview = landing", () => {
+    let strips = 0;
+    const zonesSeen = new Set<string>();
+    for (const seed of SEEDS) {
+      const s = randomState(seed);
+      const l = solve(s);
+      for (const id of Object.keys(s.items)) {
+        const it = s.items[id]!;
+        if (it.fixed || it.closed) continue;
+        for (const t of targets(s, id, { previous: l })) {
+          if (!t.id.startsWith("strip:")) continue;
+          const [, edge, zone, more] = t.id.split(":");
+          if (!zone || more !== undefined || !["start", "center", "end"].includes(zone)) throw new Error(`seed ${seed} drag ${id}: ${t.id} names no zone`);
+          if (t.place.kind === "home") continue;
+          const me = t.after({ x: 0, y: 0 }).layout.items[id];
+          if (!me || me.edge !== edge || me.zone !== zone) throw new Error(`seed ${seed} drag ${id}: ${t.id} lands in ${me?.edge}:${me?.zone}`);
+          if (t.slot && (Math.abs(t.slot.x - me.rect.x) > 1e-6 || Math.abs(t.slot.y - me.rect.y) > 1e-6 || Math.abs(t.slot.width - me.rect.width) > 1e-6 || Math.abs(t.slot.height - me.rect.height) > 1e-6))
+            throw new Error(`seed ${seed} drag ${id}: ${t.id}'s slot isn't its landing`);
+          strips++;
+          zonesSeen.add(`${s.edges.find((e) => e.id === edge)!.side}:${zone}`);
+        }
+      }
+    }
+    expect(strips).toBeGreaterThan(100);
+    // Bars' middle and trailing thirds are among them; these states' side edges are panel columns, one zone each
+    // (items fill them), so their strips are start strips.
+    for (const z of ["top:center", "top:end", "bottom:center", "bottom:end", "left:start", "right:start"]) expect(zonesSeen.has(z), z).toBe(true);
+  });
+});

@@ -28,13 +28,13 @@ export interface Target {
   /**
    * The drawn space the zone belongs to (the window's stage): the zone, and a drag intent's band and gap grace about
    * it, hold only points strictly inside it. The window's boundary belongs only to the targets drawn against it: the
-   * scene gives `bounds` to every refusal and to the float (whole-plane), never to a gap or a slot, so a pointer clamped
+   * docking model gives `bounds` to every refusal and to the float (whole-plane), never to a gap or a slot, so a pointer clamped
    * onto the window's edge picks a gap that reaches it, else nothing. That relies on the host clamping exactly onto the
    * stage's edge (`x + width`, `y + height`): a host that clamps to `width - 0.5` still picks inside the window.
    */
   readonly bounds?: Rect;
   /**
-   * Its room opens as it shows: the scene sets it on a target whose slot overlaps an item its drop moves (a rail pushing
+   * Its room opens as it shows: the docking model sets it on a target whose slot overlaps an item its drop moves (a rail pushing
    * a column, a new-column line, a bar's strip over the columns), and on a rail drop strip's targets, whose room opens
    * once armed. The drag intent then shows it and makes its room in one frame. Until it shows, a release still lands on
    * it.
@@ -42,12 +42,12 @@ export interface Target {
   readonly opensRoom?: true;
   /**
    * With `opensRoom`, how long it holds before it shows with its room, ms, in place of the drag intent's `roomAfter`. The
-   * scene sets it to `EDGE_ROOM_HOLD` on a rail target or a new-column line against the window's left or right edge.
+   * docking model sets it to `EDGE_ROOM_HOLD` on a rail target or a new-column line against the window's left or right edge.
    */
   readonly roomHold?: number;
   /**
    * With `opensRoom`, the zone it holds once its room is open: while the target shows with its room open, a drag intent
-   * holds it wherever the pointer is in this rect. The scene sets it to the smallest rect holding `hit` and the slot (the
+   * holds it wherever the pointer is in this rect. The docking model sets it to the smallest rect holding `hit` and the slot (the
    * landing rect) on every target whose drop changes an edge's thickness (a side's width or a bar's height): strips,
    * new-column lines, rails and gaps. A rail drop strip (`armedHit`) doesn't carry it.
    */
