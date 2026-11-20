@@ -31,6 +31,13 @@ module.exports = {
       to: { path: "^packages/$1/src/[^/]+/", pathNot: ["^packages/$1/src/$2/", "/index[.]ts$"] },
     },
     {
+      // The general layer never imports the docking model: `./stack` stands on the root alone.
+      name: "stack-not-model",
+      severity: "error",
+      from: { path: "^packages/placement/src/stack/" },
+      to: { path: "(^packages/placement/src/(scene|dock|toolbar|targets|panels|desk)/|^packages/docking|@n-uf/docking)" },
+    },
+    {
       // Tiling stands on the root (geometry, `Target`) alone: the legacy entries may import it, never the reverse.
       name: "tiling-root-only",
       severity: "error",
