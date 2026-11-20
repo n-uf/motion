@@ -43,7 +43,8 @@ const EPS = 1e-6;
  * keeps its own, so pass `{ rect, clearance: 0 }` for content a thin guide may run flush against, and `kinds` to
  * constrain only some kinds of guide, default all). A box is clipped,
  * then cut on the side that faces each clear rect (the clear rect grown by its clearance is taken out of it, and the
- * largest remaining part, left, right, above or below, is kept). A thin guide (a line, a striped strip or end: its
+ * largest remaining part, left, right, above or below, is kept; so a clear rect that moves across a box, such as the
+ * held item's outline, can flip the side the box keeps as one part grows past the other). A thin guide (a line, a striped strip or end: its
  * shorter side is its thickness) keeps its thickness and moves inside rather than being clipped, so a line at a lane's
  * far end is as thick as at its head. Then it is thinned, from the content side, to stay that far clear of `clear`, so
  * a thin strip at the window's side lies between the inset and the content, the same on both sides. A guide with nothing left (or a thin one under `minThickness`) is left out. A clear rect whose x, y, width or height isn't finite is ignored. Pure; the guides come
