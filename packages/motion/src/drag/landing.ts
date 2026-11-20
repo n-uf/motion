@@ -185,7 +185,11 @@ export interface LandingGates {
  * within `reach` of the lane, so by default only where the pointer can enter it.
  */
 export interface LandingApproach {
-  /** How near a lane's rect the pointer is in open space for the lane's guides to show, px (default 12: the entry margin). */
+  /**
+   * How near a lane's rect the pointer is in open space for the lane's guides to show, px (default 12: the entry
+   * margin). A lane is acquired within `max(reach - margins.spot, reach / 2)` and kept until `reach` (or `keep`), so
+   * at the edge the guide never blinks.
+   */
   readonly reach: number;
   /** How far a kept lane stays the approached one, px (default 12). Below `reach` it is `reach`. */
   readonly keep: number;
@@ -471,9 +475,10 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       }
     }
     // The approached lane: the nearest within reach, kept until another is clearly nearer or it is past `keep` (at least
-    // `reach`: a lane acquired within reach is never dropped at once). Acquired only within `reach - margins.spot`, so a
-    // pointer wobbling at the reach's edge never blinks the guide: there is a band between acquiring and letting go.
-    const acquire = Math.max(0, approach.reach - margins.spot);
+    // `reach`: a lane acquired within reach is never dropped at once). Acquired only within `max(reach - margins.spot,
+    // reach / 2)`, so a pointer wobbling at the reach's edge never blinks the guide (a band between acquiring and letting
+    // go), and a small reach or wide touch margins still leave half the reach to acquire in.
+    const acquire = Math.max(0, approach.reach - margins.spot, approach.reach / 2);
     const kept = laneIn(regions, approached);
     if (kept) {
       const d = distanceTo(kept.rect, p);
