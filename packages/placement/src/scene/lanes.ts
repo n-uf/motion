@@ -140,6 +140,12 @@ export interface LaneOptions extends SceneTargetOptions {
    * overlaps the press point (an empty bar's band over a rail's end) that lane can still take the pointer first.
    */
   readonly grab?: { readonly x: number; readonly y: number };
+  /**
+   * How an empty lane's marks draw it (an empty bar or side rail, or a virtual lane, its room not open): `"real"` (the
+   * default), boxes at the size it will take, lying over what moves aside (the page, a column); `"edge"`, each a thin
+   * striped strip (`HATCH_EDGE`) on its window side. Where it lands is the same either way.
+   */
+  readonly emptyLanes?: "real" | "edge";
 }
 
 type Axis = "x" | "y";
@@ -266,7 +272,7 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
     if (!again) return l;
     return l.id === heldLane ? again : { ...l, marks: again.marks };
   });
-  return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt)) };
+  return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes)) };
 }
 
 function build(scene: Scene, dragged: string, options: LaneOptions): Base {
@@ -329,7 +335,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   const h = own?.rect.height ?? 0;
   const share = { x: w >= h ? shareOf(options.grab?.x, w) : 0.5, y: h > w ? shareOf(options.grab?.y, h) : 0.5 };
   const built = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share, marking)).filter((l): l is Lane => !!l);
-  const laneList = built.map((l) => settle(l, seen, scene, dragged, built));
+  const laneList = built.map((l) => settle(l, seen, scene, dragged, built, options.emptyLanes));
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
   const blocked = [
@@ -605,10 +611,10 @@ function virtualMarks(lane: string, spots: readonly Raw[], held: { rect: Rect; f
  * A lane's marks against the others in `drawn`, so no two lanes' guides overlap and each follows the layout:
  * - At a corner, a lane not drawn (an empty bar or rail, a virtual lane: only the band its drops would draw at) gives
  *   way to a drawn edge across it; between two not drawn, a bar owns the corner (as it does once drawn).
- * - A box lying over another edge's docked items (an empty side rail over a column's outer strip) is a hatch there:
- *   those items give way when the lane opens.
+ * - A lane not drawn is drawn by `emptyLanes`: `"real"`, its boxes as they are, at the size it will take, over what
+ *   moves aside (the page, a column); `"edge"`, each box a thin striped strip (`HATCH_EDGE`) on its window side.
  */
-function settle(l: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all: readonly Lane[]): Lane {
+function settle(l: Lane, drawn: SceneLayout, scene: Scene, _dragged: string, all: readonly Lane[], emptyLanes: "real" | "edge" = "real"): Lane {
   const edgeOf = (id: string) => scene.edges.find((e) => e.id === id);
   const isDrawn = (id: string): boolean => !!edgeOf(id) && (drawn.edges[id]?.cross ?? 0) > EPS;
   const across = (side: string | undefined): Axis => (side === "top" || side === "bottom" ? "x" : "y");
@@ -620,10 +626,8 @@ function settle(l: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all:
     }
     if (l.axis === "y") for (const o of all) if (o.id !== l.id && o.axis === "x" && !isDrawn(o.id)) cuts.push(o.rect);
   }
-  const occupied = Object.entries(drawn.items)
-    .filter(([id, it]) => id !== dragged && it.edge !== undefined && it.edge !== l.id && !it.floating && !it.inMenu && it.rect.width > EPS && it.rect.height > EPS)
-    .map(([, it]) => it.rect);
-  if (cuts.length === 0 && !l.marks.some((m) => m.kind === "box" && occupied.some((o) => overlaps(m.rect, o)))) return l;
+  const empty = !isDrawn(l.id);
+  if (cuts.length === 0 && !(empty && emptyLanes === "edge")) return l;
   const span = (r: Rect): [number, number] => [lo(r, l.axis), lo(r, l.axis) + len(r, l.axis)];
   const crosses = (r: Rect, c: Rect): boolean => (l.axis === "x" ? c.y < r.y + r.height - EPS && r.y < c.y + c.height - EPS : c.x < r.x + r.width - EPS && r.x < c.x + c.width - EPS);
   /** `r`'s pieces along the lane less `cs` (those that cross it). */
@@ -647,32 +651,24 @@ function settle(l: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all:
     kept.forEach(([p, q], i) => {
       const piece = along(m.rect, l.axis, p, q);
       const id = i ? `${m.id}~c${i}` : m.id;
-      if (m.kind !== "box") return void marks.push({ ...m, id, rect: piece });
-      // Over another edge's docked items (an empty side rail's band over a column): no box over them, only a thin striped
-      // edge (`HATCH_EDGE`) along the band's side at the window's edge, the side those items move away from; the rest
-      // stays a box (from `MIN_BOX`).
-      const over = occupied.filter((o) => crosses(piece, o));
-      const free = cut(piece, over);
-      free.forEach(([f0, f1], k) => {
-        if (f1 - f0 >= MIN_BOX - EPS || over.length === 0) marks.push({ id: k ? `${id}#f${k}` : id, kind: "box", rect: along(piece, l.axis, f0, f1) });
-      });
-      let hp: [number, number][] = [[p, q]];
-      for (const [f0, f1] of free) hp = hp.flatMap(([a, b]): [number, number][] => [[a, Math.min(b, f0)], [Math.max(a, f1), b]]).filter(([a, b]) => b - a > EPS);
-      // The window side: the lane's own side where it has one (an edge's, a virtual lane's `<kind>:<side>`), else the
-      // side nearer the stage's edge.
+      // A lane drawn, or an empty one drawn at its real size: the box as it is (an empty lane's lies over what moves
+      // aside: the page, a column).
+      if (m.kind !== "box" || !empty || emptyLanes === "real") return void marks.push({ ...m, id, rect: piece });
+      // `"edge"`: a thin striped strip (`HATCH_EDGE`) on the lane's window side, its own side where it has one (an edge's,
+      // a virtual lane's `<kind>:<side>`), else the side nearer the stage's edge.
       const side = edgeOf(l.id)?.side ?? (/^(rail|column):/.test(l.id) ? l.id.split(":")[1] : undefined);
-      const edge = (r: Rect): Rect => {
-        const st = scene.stage;
-        if (l.axis === "y") {
-          const outerRight = side === "right" ? true : side === "left" ? false : Math.abs(r.x + r.width - (st.x + st.width)) <= Math.abs(r.x - st.x);
-          const t = Math.min(HATCH_EDGE, r.width);
-          return rect(outerRight ? r.x + r.width - t : r.x, r.y, t, r.height);
-        }
-        const outerBottom = side === "bottom" ? true : side === "top" ? false : Math.abs(r.y + r.height - (st.y + st.height)) <= Math.abs(r.y - st.y);
-        const t = Math.min(HATCH_EDGE, r.height);
-        return rect(r.x, outerBottom ? r.y + r.height - t : r.y, r.width, t);
-      };
-      hp.forEach(([h0, h1], k) => marks.push({ id: `${id.replace("/box/", "/hatch/")}${k ? `#o${k}` : ""}`, kind: "hatch", rect: edge(along(piece, l.axis, h0, h1)) }));
+      const st = scene.stage;
+      let r: Rect;
+      if (l.axis === "y") {
+        const outerRight = side === "right" ? true : side === "left" ? false : Math.abs(piece.x + piece.width - (st.x + st.width)) <= Math.abs(piece.x - st.x);
+        const t = Math.min(HATCH_EDGE, piece.width);
+        r = rect(outerRight ? piece.x + piece.width - t : piece.x, piece.y, t, piece.height);
+      } else {
+        const outerBottom = side === "bottom" ? true : side === "top" ? false : Math.abs(piece.y + piece.height - (st.y + st.height)) <= Math.abs(piece.y - st.y);
+        const t = Math.min(HATCH_EDGE, piece.height);
+        r = rect(piece.x, outerBottom ? piece.y + piece.height - t : piece.y, piece.width, t);
+      }
+      marks.push({ id: id.replace("/box/", "/hatch/"), kind: "hatch", rect: r });
     });
   }
   return { ...l, marks };
