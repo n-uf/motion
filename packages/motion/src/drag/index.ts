@@ -23,8 +23,8 @@ export {
   type DragTarget,
   type DragTuning,
   type LiftDecision,
-  type ModifierKey,
 } from "./intent";
+export type { ModifierKey } from "../gestures/types";
 export {
   createLandingModel,
   LANDING_APPROACH,

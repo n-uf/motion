@@ -19,7 +19,11 @@ export interface Modifiers {
   ctrl: boolean;
 }
 
-export type ModifierKey = keyof Modifiers;
+/**
+ * A modifier key, the package's one name for it (the recognizer's drag modifier, a drag's float and arm keys): a field
+ * of {@link Modifiers}, or `"mod"`: ⌘ (meta) or Ctrl, either one held counts, so no platform is needed.
+ */
+export type ModifierKey = keyof Modifiers | "mod";
 
 /** "mac": the drag modifier defaults to Cmd; "other": Alt (the OS keeps the Win/Super key) */
 export type Platform = "mac" | "other";

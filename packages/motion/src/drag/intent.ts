@@ -1,3 +1,5 @@
+import { isHeld } from "../gestures/modifiers";
+import type { ModifierKey, Modifiers } from "../gestures/types";
 import type { Point, Rect } from "../shapes";
 
 /**
@@ -62,18 +64,10 @@ export interface DragTuning {
 }
 
 /**
- * A modifier key, by its `KeyboardEvent.key` name, or `"Mod"`: ⌘ (Meta) on macOS and Ctrl elsewhere. `"Mod"` counts
- * either key as held, so no platform detection is needed.
+ * The modifier keys held on a sample (a pointer event's `shiftKey`, `altKey`, `ctrlKey`, `metaKey`): the recognizer's
+ * {@link Modifiers}, any field left out not held.
  */
-export type ModifierKey = "Shift" | "Alt" | "Control" | "Meta" | "Mod";
-
-/** The modifier keys held on a sample (a pointer event's `shiftKey`, `altKey`, `ctrlKey`, `metaKey`). */
-export interface DragKeys {
-  readonly shift?: boolean;
-  readonly alt?: boolean;
-  readonly ctrl?: boolean;
-  readonly meta?: boolean;
-}
+export type DragKeys = Partial<Modifiers>;
 
 /**
  * Keys that win over geometry: while `floatKey` is held the drop floats (the `free` target) wherever the pointer is,
@@ -95,8 +89,8 @@ export interface DragModifiers {
  * an indicator may show); room after 160 ms. A spring-loaded target arms after
  * 200 ms of dwell (long enough that a pass at travelling speed never arms it,
  * short enough to feel like the platforms' spring-loading); Shift floats, ⌘/Ctrl
- * (`"Mod"`) goes to the nearest rail. Alt is left free: an app with a frozen
- * layout uses it to unfreeze temporarily, and a key should have one meaning.
+ * (`"mod"`) goes to the nearest rail. Alt is left free: a host keeps it for a
+ * meaning of its own, and a key should have one meaning.
  */
 export const DRAG_DEFAULTS: DragTuning = {
   lift: 5,
@@ -115,13 +109,8 @@ export const DRAG_DEFAULTS: DragTuning = {
   homeInset: 6,
   railArmDwellMs: 200,
   liftZone: 16,
-  modifiers: { on: true, floatKey: "Shift", railKey: "Mod" },
+  modifiers: { on: true, floatKey: "shift", railKey: "mod" },
 };
-
-const KEY_FIELD: Record<Exclude<ModifierKey, "Mod">, keyof DragKeys> = { Shift: "shift", Alt: "alt", Control: "ctrl", Meta: "meta" };
-/** Whether `key` is held in `keys` (`"Mod"`: ⌘ or Ctrl). */
-const held = (keys: DragKeys | undefined, key: ModifierKey): boolean =>
-  !!keys && (key === "Mod" ? !!(keys.meta || keys.ctrl) : !!keys[KEY_FIELD[key]]);
 
 /**
  * A drop target: plain data. `hit` is the zone the pointer can be in;
@@ -522,14 +511,14 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   const forcedBy = (keys: DragKeys | undefined, p: Point, targets: readonly T[], has: (x: T) => boolean): { kind: "float" | "rail"; target: T | null; refused: T | null } | null => {
     const m = tuning.modifiers;
     if (!m.on || !keys) return null;
-    if (held(keys, m.floatKey)) {
+    if (isHeld(keys, m.floatKey)) {
       const f = targets.find((x) => x.free);
       if (!f) return null;
       const under = targetAt(acting(targets).filter((x) => inZone(x, p) && has(x)), p);
       if (under?.refuse === true) return { kind: "float", target: null, refused: under };
       return within(f.bounds, p) ? { kind: "float", target: f, refused: null } : { kind: "float", target: null, refused: null };
     }
-    if (!held(keys, m.railKey)) return null;
+    if (!isHeld(keys, m.railKey)) return null;
     let best: T | null = null;
     let bestD = Infinity;
     for (const x of targets) {

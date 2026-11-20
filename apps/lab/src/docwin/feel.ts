@@ -19,17 +19,17 @@ export interface KindFeel {
 export type FeelKind = "panel" | "group";
 export type DragFeel = Readonly<Record<FeelKind, KindFeel>>;
 
-export const MODIFIER_KEYS: readonly ModifierKey[] = ["Shift", "Mod", "Alt", "Control", "Meta"];
-/** A key's name as the page says it: "Mod" is ⌘ on macOS and Ctrl elsewhere, either one counts. */
-export const keyName = (k: ModifierKey): string => (k === "Mod" ? "⌘/Ctrl" : k);
+/** A key's name as the page says it: "mod" is ⌘ on macOS and Ctrl elsewhere, either one counts. */
+const KEY_NAMES: Readonly<Record<ModifierKey, string>> = { shift: "Shift", alt: "Alt", ctrl: "Control", meta: "Meta", mod: "⌘/Ctrl" };
+export const keyName = (k: ModifierKey): string => KEY_NAMES[k];
 
 /**
  * Panels: a strip as wide as the rail, shown while dragging, a 6 px magnet, a 200 ms dwell, Shift floats, ⌘/Ctrl rails
- * (not Alt: Alt unfreezes a frozen layout, and a key has one meaning). A stored feel that says "Alt" stays valid.
+ * (not Alt: Alt unfreezes a frozen layout, and a key has one meaning). A feel that says "alt" stays valid.
  */
-const PANEL_FEEL: KindFeel = { railStripWidth: null, railVisibility: "whileDragging", magnet: DEFAULT_RAIL_MAGNET, floatNearEdge: true, railArmDwellMs: 200, modifiers: { on: true, floatKey: "Shift", railKey: "Mod" } };
+const PANEL_FEEL: KindFeel = { railStripWidth: null, railVisibility: "whileDragging", magnet: DEFAULT_RAIL_MAGNET, floatNearEdge: true, railArmDwellMs: 200, modifiers: { on: true, floatKey: "shift", railKey: "mod" } };
 /** Toolbars: today's values: no rail strip (their icon rails keep their own targets), no dwell, no keys. */
-const GROUP_FEEL: KindFeel = { railStripWidth: 0, railVisibility: "never", magnet: 0, floatNearEdge: true, railArmDwellMs: 0, modifiers: { on: false, floatKey: "Shift", railKey: "Mod" } };
+const GROUP_FEEL: KindFeel = { railStripWidth: 0, railVisibility: "never", magnet: 0, floatNearEdge: true, railArmDwellMs: 0, modifiers: { on: false, floatKey: "shift", railKey: "mod" } };
 export const DEFAULT_FEEL: DragFeel = { panel: PANEL_FEEL, group: GROUP_FEEL };
 
 /** Whether a kind's feel docks into the side's rail at all. */
