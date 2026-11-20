@@ -12,7 +12,7 @@ export type Tree = Split<PaneId>;
 
 /** The area the panes divide, in its own px (drawn scaled to fit), and the gap between panes. */
 export const AREA: Rect = { x: 0, y: 0, width: 400, height: 250 };
-export const GAP = 6;
+const GAP = 6;
 
 export const PANES: readonly { readonly id: PaneId; readonly title: string }[] = [
   { id: "editor", title: "Editor" },
