@@ -4,7 +4,8 @@
  * A lane is one edge that takes the held item (a bar, a rail, a column) or a virtual one (a new column's line, a
  * declared rail). Its spots are the places a drop there lands, in order along it: before, between and after its items,
  * and, on a bar or a toolbar rail, spots at a fixed pitch over the free stretches between items (`SPOT_PITCH`), so a
- * toolbar lands close to the hand. Each spot keys where its drop draws the other items (a change between two spots
+ * toolbar lands close to the hand; with `stretchPositions: "free"`, one sliding spot per free stretch instead, which
+ * lands exactly where the hand holds it (`LaneSpot.slide`). Each spot keys where its drop draws the other items (a change between two spots
  * with the same key moves only the held item), and each lane carries its place guides' marks in the layout as drawn.
  * Each spot has a stretch of the lane that picks it. In a panel column, between two spots that share a neighbor (the
  * item `Y` in `X|Y` and `Y|Z`), the boundary is that item's middle as drawn (in the held spot's own layout with
@@ -19,22 +20,38 @@
  * the window resizing and most items opening or moving; virtual lanes are keyed by the column they lie beside, not
  * their ring. Remembered per scene and options; a call with `spot` reworks only the held lane's stretches.
  */
-import { EPS, clamp, rect, type Rect, type Size } from "../geometry";
+import { EPS, clamp, rect, type Point, type Rect, type Size } from "../geometry";
 import { lift, moveTo, type DockPlace } from "./changes";
 import { axisOf, chromeFor, floatRegion } from "./helpers";
 import type { Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { targetsAndRefusals } from "./targets";
-import type { SceneRefusal, SceneTarget, SceneTargetOptions } from "./targets/model";
+import type { SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions } from "./targets/model";
 
 /** The pitch of the spots over a bar's free stretches, px: a quarter of a typical toolbar's length (158 px in the lab). */
 export const SPOT_PITCH = 40;
+/** How near a sliding spot's snap point a landing snaps to it, px (`LaneOptions.snapDistance`). */
+const SNAP_DISTANCE = 8;
+
+/**
+ * A sliding spot's range (`LaneOptions.stretchPositions: "free"`): where the landing's start may lie along the lane,
+ * from flush against the neighbor before the stretch to flush against the one after it, and the starts it snaps to.
+ */
+export interface LaneSlide {
+  readonly from: number;
+  readonly to: number;
+  /** Its two ends, the item's own place where it lies here, and every other dock that lands inside, in order. */
+  readonly snaps: readonly number[];
+  /** How near a snap point the landing's start snaps to it, px (`LaneOptions.snapDistance`). */
+  readonly snapDistance: number;
+}
 
 /** One place a drop in a lane lands. */
 export interface LaneSpot {
   /**
    * Stable across solves: `<lane>/<zone>/<item before or ^>|<item after or $>`; an empty edge's `<lane>/<zone>`; a
-   * pitched spot `…@<pitches from its neighbor>`; a virtual lane's `<lane>/line` or `<lane>/end`.
+   * pitched spot `…@<pitches from its neighbor>`; a sliding spot `<lane>/<zone>/<before>|<after>@slide`, named by the
+   * stretch; a virtual lane's `<lane>/line` or `<lane>/end`.
    */
   readonly id: string;
   /** Its stretch of the lane, along the lane's axis, inside the lane's range. */
@@ -47,6 +64,13 @@ export interface LaneSpot {
   readonly home?: true;
   /** A spot at a pitch over a free stretch (`SceneItem.space`). */
   readonly pitched?: true;
+  /**
+   * A free stretch as one sliding spot (`stretchPositions: "free"`): its drop lands where the pointer holds it, the
+   * landing's start at the pointer less the grab, clamped to `[from, to]` and snapped within `snapDistance`, and
+   * `target.after(point, grab)` commits that (a dock keeping the `space` that puts it there). Its `landing` is the one at
+   * the stretch's point nearest the item's own place (that place where it lies here), else at its start.
+   */
+  readonly slide?: LaneSlide;
   /**
    * Where its drop draws every item other than the held one, as a key: a change between two spots with the same key
    * moves only the held item; between two with different keys it reflows the window.
@@ -130,6 +154,16 @@ export interface Regions {
 export interface LaneOptions extends SceneTargetOptions {
   /** The pitch of a bar's free-stretch spots, px (default `SPOT_PITCH`; 0 or less: none). */
   readonly pitch?: number;
+  /**
+   * How a free stretch on a bar or a toolbar rail offers its range of landings, from flush against the neighbor before
+   * it to flush against the one after it: `"pitched"` (the default), a spot every `pitch` px, its ends included;
+   * `"free"`, one sliding spot (`LaneSpot.slide`) that lands where the pointer holds the item, snapped to its ends and
+   * the item's own place within `snapDistance`. Either way a step comes only where the order changes (passing a
+   * neighbor), cut as between any two spots.
+   */
+  readonly stretchPositions?: "free" | "pitched";
+  /** Under `"free"`, how near a snap point a landing snaps to it, px (default 8). */
+  readonly snapDistance?: number;
   /** The spot held now: its lane's stretches are drawn in its own layout (the room open). Default: the layout as seen. */
   readonly spot?: string;
   /**
@@ -195,6 +229,8 @@ interface Raw {
   readonly hit: Rect;
   readonly home?: true;
   readonly pitched?: true;
+  /** A sliding spot's range, with its landings at either end (what the cuts beside it read). */
+  readonly slide?: LaneSlide & { readonly first: Rect; readonly last: Rect };
   /** A rail drop strip's spot (`Scene.railDrop`): its lane is the strip at the window's side, nothing more. */
   readonly strip?: true;
 }
@@ -272,7 +308,8 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
   const rebuilt = base.lanes.map((l) => {
     const raws = base.raws.get(l.id);
     if (!raws) return l;
-    const again = laneFrom(l.id, raws, held.layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, l.id === heldLane);
+    // (A sliding spot's item is drawn wherever the hand is: its stretch stays one box, the item drawn nowhere on it.)
+    const again = laneFrom(l.id, raws, held.layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, l.id === heldLane && !held.slide);
     if (!again) return l;
     return l.id === heldLane ? again : { ...l, marks: again.marks };
   });
@@ -316,8 +353,13 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
       raws.push({ lane, edge: null, axis: "y", id: `${lane}/${p.kind === "rail" ? "end" : "line"}`, before: "^", next: "$", landing, layout, target: t, hit: strip ?? t.hit, ...(strip ? { strip: true as const } : {}) });
     }
   }
-  // A bar's free stretches: spots at `pitch`, each a dock keeping `space` (`SceneItem.space`).
-  if (pitch > 0) raws.push(...pitchedSpots(scene, dragged, options, seen, raws, pitch));
+  // A bar's free stretches: one sliding spot each, which takes over the docks landing inside it; else spots at `pitch`,
+  // each a dock keeping `space` (`SceneItem.space`).
+  if (options.stretchPositions === "free") {
+    const { spots, absorbed } = slidingSpots(scene, dragged, options, seen, raws, pitch > 0 ? pitch : SPOT_PITCH);
+    for (let i = raws.length - 1; i >= 0; i--) if (absorbed.has(raws[i]!)) raws.splice(i, 1);
+    raws.push(...spots);
+  } else if (pitch > 0) raws.push(...pitchedSpots(scene, dragged, options, seen, raws, pitch));
   const byLane = new Map<string, Raw[]>();
   for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
   // Panel columns take a panel by halves of the panels drawn; bars and toolbar rails by the gap between landings.
@@ -385,12 +427,15 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   else if (list.every((r) => r.strip)) laneRect = list.map((r) => r.hit).reduce(hull);
   else laneRect = list.map((r) => r.hit).reduce(hull, band);
   // In order; one landing is one spot (the item's own place where it is one of them); one id is one spot.
-  const sorted = [...list].sort((a, b) => mid(a.landing, axis) - mid(b.landing, axis) || (a.home ? -1 : b.home ? 1 : 0));
+  // A sliding spot lies in order by its first landing (at its stretch's start), and cuts by its landing at either end.
+  const firstOf = (r: Raw): Rect => r.slide?.first ?? r.landing;
+  const lastOf = (r: Raw): Rect => r.slide?.last ?? r.landing;
+  const sorted = [...list].sort((a, b) => mid(firstOf(a), axis) - mid(firstOf(b), axis) || (a.home ? -1 : b.home ? 1 : 0));
   // On a bar or a toolbar rail the item's own place is one landing for half a pitch around it: another spot landing
   // that near (a center dock beside a place near the middle) is home's, so away and back to the press point is home.
   const homeAt = halves ? undefined : list.find((r) => r.home)?.landing;
-  const nearHome = (r: Raw): boolean => !!homeAt && !r.home && Math.abs(lo(r.landing, axis) - lo(homeAt, axis)) < Math.max(0, marking.pitch) / 2;
-  const unique = sorted.filter((x, i) => !nearHome(x) && !sorted.slice(0, i).some((y) => sameRect(y.landing, x.landing) || y.id === x.id));
+  const nearHome = (r: Raw): boolean => !!homeAt && !r.home && !r.slide && Math.abs(lo(r.landing, axis) - lo(homeAt, axis)) < Math.max(0, marking.pitch) / 2;
+  const unique = sorted.filter((x, i) => !nearHome(x) && !sorted.slice(0, i).some((y) => (!x.slide && !y.slide && sameRect(y.landing, x.landing)) || y.id === x.id));
   const start = lo(laneRect, axis);
   const end = start + len(laneRect, axis);
   // The cut between two spots. In a panel column (`halves`), between two spots sharing a neighbor, that item's middle in
@@ -409,14 +454,17 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
     const a = unique[i]!;
     const b = unique[i + 1]!;
     const shared = a.next === b.before && a.next !== "$" ? drawnItems.get(a.next) : undefined;
-    const aEnd = lo(a.landing, axis) + len(a.landing, axis);
-    const across = (aEnd + lo(b.landing, axis)) / 2;
+    // (A sliding spot's facing end: its landing flush against the neighbor between them.)
+    const aLanding = lastOf(a);
+    const bLanding = firstOf(b);
+    const aEnd = lo(aLanding, axis) + len(aLanding, axis);
+    const across = (aEnd + lo(bLanding, axis)) / 2;
     // Overlapping landings: at the grab, kept within half a pitch of their overlap (the pointer never further than that
     // from the landing it picks: two spots far apart that overlap a little cut near the overlap, as apart). Apart (a gap
     // between them): halfway across the gap, the grab aside.
-    const overlap = lo(b.landing, axis) < aEnd - EPS;
+    const overlap = lo(bLanding, axis) < aEnd - EPS;
     const slack = Math.max(0, marking.pitch) / 2;
-    const atGrab = clamp(across + ((held - 0.5) * (len(a.landing, axis) + len(b.landing, axis))) / 2, lo(b.landing, axis) - slack, aEnd + slack);
+    const atGrab = clamp(across + ((held - 0.5) * (len(aLanding, axis) + len(bLanding, axis))) / 2, lo(bLanding, axis) - slack, aEnd + slack);
     const raw = shared ? mid(shared, axis) : overlap ? atGrab : across;
     cuts.push(clamp(Math.max(raw, cuts[i - 1] ?? start), start, end));
   }
@@ -427,6 +475,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
     target: x.target,
     ...(x.home ? { home: true as const } : {}),
     ...(x.pitched ? { pitched: true as const } : {}),
+    ...(x.slide ? { slide: { from: x.slide.from, to: x.slide.to, snaps: x.slide.snaps, snapDistance: x.slide.snapDistance } } : {}),
     others: othersKey(x.layout, dragged),
   }));
   // The item's length along the lane: its shortest landing here. A refused stretch shorter than it joins its spots.
@@ -456,7 +505,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   // Where each place lands (`<before>|<after>`, not a pitched spot's): a short room is drawn as its spot lands. On bars
   // and toolbar rails only; a panel column keeps its lines.
   const landings = new Map<string, { landing: Rect; layout: SceneLayout }>();
-  if (!halves) for (const x of unique) if (!x.pitched && !x.home && !landings.has(`${x.before}|${x.next}`)) landings.set(`${x.before}|${x.next}`, { landing: x.landing, layout: x.layout });
+  if (!halves) for (const x of unique) if (!x.pitched && !x.home && !x.slide && !landings.has(`${x.before}|${x.next}`)) landings.set(`${x.before}|${x.next}`, { landing: x.landing, layout: x.layout });
   // An item's extent along the lane as marks read it: a growing one at its natural length.
   const extent = (iid: string, r: Rect): [number, number] => {
     const n = halves ? undefined : marking.natural(iid, axis);
@@ -789,4 +838,158 @@ function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
     }
   }
   return out;
+}
+
+/**
+ * One sliding spot per free stretch of a bar or a toolbar rail (`stretchPositions: "free"`): the same stretches as
+ * `pitchedSpots` (between the items as seen with the held item lifted, a start zone after a start item or the edge's
+ * start, an end zone before an end item or the edge's end), as one range of landings from flush against the neighbor
+ * before it to flush against the one after it. A landing is a dock keeping the `space` that puts the item there: in the
+ * start zone left of the edge's middle, the end zone right of it (the other where the stretch has only one). The range
+ * holds the landings that land where they were aimed (within 1 px) with every fixed item kept, checked at its ends and
+ * every `sample` px between. The docks that land inside it with its neighbors either side (the item's own place, a plain
+ * dock, a center dock) are taken over: each is a snap point that commits that dock as it is. A stretch shorter than the
+ * item, or next to a center item, has none (its plain docks stay spots of their own).
+ */
+function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], sample: number): { spots: Raw[]; absorbed: Set<Raw> } {
+  const spots: Raw[] = [];
+  const absorbed = new Set<Raw>();
+  if (!scene.items[dragged]) return { spots, absorbed };
+  const prev = options.previous ? { previous: options.previous } : {};
+  const snapDistance = Number.isFinite(options.snapDistance) && options.snapDistance! >= 0 ? options.snapDistance! : SNAP_DISTANCE;
+  const own = seen.items[dragged];
+  const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
+  // The stretches as the drop finds them: the layout with the held item lifted (as `pitchedSpots`).
+  const base = solve(lift(scene, dragged), prev);
+  for (const e of scene.edges) {
+    const bar = e.side === "top" || e.side === "bottom";
+    if (!bar && !e.compact) continue;
+    const axis: Axis = bar ? "x" : "y";
+    const mine = raws.filter((r) => r.edge === e.id);
+    const drawn = base.edges[e.id] ?? seen.edges[e.id];
+    if (mine.length === 0 || !drawn) continue;
+    const w = len(mine[0]!.landing, axis);
+    const gap = nonNeg(e.gap);
+    const others = onEdge(base, e.id, dragged, axis);
+    const edgeStart = lo(drawn.rect, axis) + nonNeg(e.pad?.start);
+    const edgeEnd = lo(drawn.rect, axis) + len(drawn.rect, axis) - nonNeg(e.pad?.end);
+    const middle = mid(drawn.rect, axis);
+    const zoneOf = (o: (typeof others)[number]): Zone => o.zone ?? "start";
+    const fixed = others.filter((o) => scene.items[o.id]?.fixed);
+    const slack = (o: (typeof others)[number] | undefined): number => {
+      const main = o ? scene.items[o.id]?.forms[axis === "x" ? "row" : "column"]?.[0]?.main : undefined;
+      return o && main?.grows ? Math.max(0, len(o.r, axis) - main.natural) : 0;
+    };
+    for (let i = 0; i <= others.length; i++) {
+      const before = others[i - 1];
+      const after = others[i];
+      const a = before ? lo(before.r, axis) + len(before.r, axis) - slack(before) + gap : edgeStart;
+      const b = after ? lo(after.r, axis) - gap : edgeEnd;
+      const zones: Zone[] = [...(!before || zoneOf(before) === "start" ? ["start" as const] : []), ...(!after || zoneOf(after) === "end" ? ["end" as const] : [])];
+      if (zones.length === 0 || b - w < a - EPS) continue;
+      const atOf = (zone: Zone): number => others.slice(0, i).filter((o) => zoneOf(o) === zone).length;
+      const spaceAt = (zone: Zone, x0: number): number => (zone === "start" ? x0 - a : b - (x0 + w));
+      /** The dock that lands the item's start at `x0`: its scene and layout, or null where it lands elsewhere. */
+      const land = (x0: number): { place: DockPlace; result: SceneAfter } | null => {
+        const near: Zone = x0 + w / 2 < middle ? "start" : "end";
+        for (const zone of [near, near === "start" ? ("end" as const) : ("start" as const)]) {
+          if (!zones.includes(zone)) continue;
+          const space = spaceAt(zone, x0);
+          if (space < -EPS) continue;
+          const place: DockPlace = { edge: e.id, zone, at: atOf(zone), space: Math.max(0, space) };
+          const next = moveTo(scene, dragged, place);
+          if (next === scene) continue;
+          const layout = solve(next, prev);
+          const landed = layout.items[dragged];
+          if (!landed || landed.inMenu || landed.edge !== e.id || Math.abs(lo(landed.rect, axis) - x0) > 1) continue;
+          if (fixed.some((f) => { const r = layout.items[f.id]?.rect; return !r || Math.abs(lo(r, axis) - lo(f.r, axis)) > 1; })) continue;
+          return { place, result: { scene: next, layout } };
+        }
+        return null;
+      };
+      // The range: the landings that land where aimed, at its ends and every `sample` px between.
+      const tries = [a];
+      for (let x0 = a + sample; x0 < b - w - EPS; x0 += sample) tries.push(x0);
+      if (b - w > a + EPS) tries.push(b - w);
+      const ok = tries.map((x0) => ({ x0, hit: land(x0) })).filter((t) => t.hit);
+      if (ok.length === 0) continue;
+      const from = ok[0]!.x0;
+      const to = ok.at(-1)!.x0;
+      const bId = before?.id ?? "^";
+      const nId = after?.id ?? "$";
+      // The docks landing inside it, its neighbors either side: snap points that commit as they are.
+      const inside = mine.filter((r) => !r.slide && r.before === bId && r.next === nId && Math.abs(len(r.landing, axis) - w) <= 1 && lo(r.landing, axis) >= from - 1 && lo(r.landing, axis) <= to + 1);
+      for (const r of inside) absorbed.add(r);
+      const homeRaw = inside.find((r) => r.home);
+      const snapRaws = [...inside].sort((p, q) => (p.home ? -1 : q.home ? 1 : 0));
+      // The item's own place wins near it: no other snap point within twice the snap distance of it, so every start
+      // within the snap distance of home snaps home (a press, a wobble and a release is home).
+      const homeAt = homeRaw ? lo(homeRaw.landing, axis) : undefined;
+      const snaps = [from, to, ...inside.map((r) => lo(r.landing, axis))]
+        .filter((v) => homeAt === undefined || v === homeAt || Math.abs(v - homeAt) > 2 * snapDistance)
+        .sort((p, q) => p - q)
+        .filter((v, k, all) => k === 0 || v - all[k - 1]! > 0.5);
+      const shape = ok[0]!.hit!.result.layout.items[dragged]!.rect;
+      const at = (x0: number): Rect => along(shape, axis, x0, x0 + w);
+      /** The nearest snap point to `x0` within the snap distance, else `x0`. */
+      const snapped = (x0: number): number => {
+        let best = x0;
+        let d = Infinity;
+        for (const q of snaps) if (Math.abs(q - x0) <= snapDistance && Math.abs(q - x0) < d) [best, d] = [q, Math.abs(q - x0)];
+        return best;
+      };
+      const results = new Map<number, SceneAfter>();
+      /** What a drop with the item's start at `x0` commits: a taken-over dock's own drop there, else the dock to `x0`. */
+      const commitAt = (x0: number): SceneAfter => {
+        const k = Math.round(x0 * 1000) / 1000;
+        const known = results.get(k);
+        if (known) return known;
+        const r = snapRaws.find((s) => Math.abs(lo(s.landing, axis) - x0) <= 0.5);
+        const result = r ? r.target.after(ORIGIN, ORIGIN) : (land(x0)?.result ?? ok.reduce((p, q) => (Math.abs(q.x0 - x0) < Math.abs(p.x0 - x0) ? q : p)).hit!.result);
+        results.set(k, result);
+        return result;
+      };
+      // The landing as listed: at the item's own place where it lies here, else the stretch's point nearest it, else
+      // its start.
+      const rest = homeRaw ? lo(homeRaw.landing, axis) : ownEdge === e.id && own ? snapped(clamp(lo(own.rect, axis), from, to)) : from;
+      const restResult = commitAt(rest);
+      const restPlace = homeRaw ? null : land(rest)?.place;
+      const landing = homeRaw ? homeRaw.landing : (restResult.layout.items[dragged]?.rect ?? at(rest));
+      // The grab's share along the item's own length (its longer side, as it is now); across it, the middle.
+      const ownLen = own ? Math.max(own.rect.width, own.rect.height) : 0;
+      const long: Axis = own && own.rect.width >= own.rect.height ? "x" : "y";
+      const target: SceneTarget = {
+        id: `slide:${e.id}:${bId}|${nId}`,
+        priority: 2,
+        hit: hull(at(from), at(to)),
+        slot: landing,
+        item: dragged,
+        place: { kind: "gap", edge: e.id, zone: restPlace?.zone ?? zones[0]!, at: restPlace?.at ?? atOf(zones[0]!) },
+        after: (point: Point, grab?: Point) => {
+          const g = grab ? grab[long] : ownLen / 2;
+          const share = axis === long && ownLen > EPS && Number.isFinite(g) ? clamp(g / ownLen, 0, 1) : 0.5;
+          const free = clamp((axis === "x" ? point.x : point.y) - share * w, from, to);
+          // Snapped, the snap point itself; else a whole px.
+          const s = snapped(free);
+          return commitAt(snaps.includes(s) ? s : clamp(Math.round(free), from, to));
+        },
+      };
+      const zone = zones[0]!;
+      spots.push({
+        lane: e.id,
+        edge: e.id,
+        axis,
+        id: `${e.id}/${zone}/${bId}|${nId}@slide`,
+        before: bId,
+        next: nId,
+        landing,
+        layout: restResult.layout,
+        target,
+        hit: target.hit,
+        ...(homeRaw ? { home: true as const } : {}),
+        slide: { from, to, snaps, snapDistance, first: at(from), last: at(to) },
+      });
+    }
+  }
+  return { spots, absorbed };
 }
