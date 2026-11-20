@@ -5,6 +5,19 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## Unreleased
 
+- `./drag`, **`guideRects` cuts a box by one model** (fix; additive optional `axis` on `PlacedGuide`). The first
+  version of the split above re-derived a box's orientation for every part, so after one cut a part narrower than the
+  box is thick turned the next clear rect into a corner cut: it kept one piece with no `minLength`, lost one of the
+  parts and gave a result that depended on the order of the clear rects; ids were numbered by rank among the survivors,
+  so they churned as the held item slid. Now: one axis per box (its long side, decided once from the box clipped to
+  `inside`; a square takes the guide's `axis`, else x). Every clear rect across the box's whole thickness is subtracted
+  as an interval along the axis, so the result equals a 1-D interval subtraction in any order. Corner rects then cut
+  each part on the facing side, in order of their distance along the axis. `minLength` applies once, at the end, to
+  every cut part, corner-cut ones included (a part nothing touched is kept as it is). Ids follow the side: `<id>`
+  before any full-thickness cut, `<id>#<k + 1>` after k of them, so the part before a cut is always `<id>` and the part
+  after one cut always `<id>#2`, whether or not the part before survives. A guide's own `id` must not end in `#` and
+  digits, and an `id` that is not a string is not suffixed (unsupported for a split box). Behavior change: a split
+  box's far part keeps `<id>#2` where it was `<id>` when the part before it fell under `minLength`.
 - `./drag`, **`guideRects` keeps both parts of a box a clear rect splits** (fix; additive option `minLength`, export
   `MIN_BOX_LENGTH`). A box over the room on both sides of a sliding held item, with the item's outline passed as a
   `clear` rect, was cut "on the side facing the rect" and kept only its larger part, so the far side's mark (about
