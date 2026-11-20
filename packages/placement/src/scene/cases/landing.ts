@@ -619,7 +619,7 @@ export const LANDING_CASES: readonly LandingCase[] = [
     id: "landing-step-down-room",
     title: "A toolbar slid over room that a neighbor steps down to make stays at the hand",
     expect:
-      "An 870 px bottom bar: Panels (362 px, 60 in its short form) at its start, Status (382 px) at its end, 91 px free between them, shorter than Tools (130 px). Tools brought from the document onto the bar and slid right along it at 0.3 px/ms: a drop between them steps Panels down, and the room that makes (266 px past Tools' length) is one sliding stretch, so whenever the bar holds it the landing lies within 48 px of the pointer, 56 on the frame before a hop.",
+      "An 870 px bottom bar: Panels (362 px, 60 in its short form) at its start, Status (382 px) at its end, 109 px between them: 93 px of room for an item less the 8 px gap each side, shorter than Tools (130 px). Tools brought from the document onto the bar and slid right along it at 0.3 px/ms: a drop between them steps Panels down, and the room that makes (266 px past Tools' length) is one sliding stretch, so whenever the bar holds it the landing lies within 48 px of the pointer, 56 on the frame before a hop.",
     scene: (() => {
       const row = (kind: "row" | "icons", w: number) => form(kind, w, w, 31);
       const g = (id: string, used: number, forms: SceneItem["forms"], more: Partial<SceneItem> = {}): SceneItem => ({ id, kind: "group", used, forms, ...more });
