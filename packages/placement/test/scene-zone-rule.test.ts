@@ -9,7 +9,7 @@ import { bar, byId, column, group, panel } from "./scene-fixture";
 
 const P = { x: 300, y: 200 };
 
-/** A deck bar with a start and an end cluster, and a left column that takes groups in its start zone only. */
+/** A deck bar with items in its start and end zones, and a left column that takes groups in its start zone only. */
 const desk = (): Scene => ({
   stage: { x: 0, y: 0, width: 1200, height: 600 },
   edges: [
@@ -30,7 +30,7 @@ describe("an item's zone is its own", () => {
     expect(railed.edges.find((e) => e.id === "rail")!.items).toContain("g");
     expect(railed.items.g!.align).toBe("end");
     expect(solve(railed).items.g).toMatchObject({ edge: "rail", zone: "start" });
-    // At a narrow width the rail is hidden and shows in the deck: g is back in the deck's end cluster, after a.
+    // At a narrow width the rail is hidden and shows in the deck: g is back in the deck's end zone, after a.
     const narrow: Scene = { ...railed, edges: railed.edges.map((e) => (e.id === "rail" ? { ...e, hidden: true, showIn: "deck" } : e)) };
     const l = solve(narrow);
     expect(l.items.g).toMatchObject({ edge: "deck", zone: "end" });
