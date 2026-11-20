@@ -1,3 +1,10 @@
+/**
+ * `@n-uf/motion/values`: animators (spring, tween, settle), easing, `reveal`
+ * and `popIn`, and `motionValue`, which steps an animator on a frame loop and
+ * reads as a signal.
+ *
+ * See docs/motion.md, "Values".
+ */
 export type { Animator } from "./animator";
 export {
   cubicBezier,

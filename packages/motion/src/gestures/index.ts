@@ -1,3 +1,10 @@
+/**
+ * `@n-uf/motion/gestures`: the gesture recognizer (plain events in, one
+ * gesture stream out), wheel rules, modifier keys, the frame coalescer, the
+ * machine runner, and the dwell, touch-press and paged-swipe machines.
+ *
+ * See docs/motion.md, "Gestures".
+ */
 export * from "./types";
 export { defaultDragModifier, isHeld, modHeld, platformButton, resolveDragModifier, toModifiers } from "./modifiers";
 export {

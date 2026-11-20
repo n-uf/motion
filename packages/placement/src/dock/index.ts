@@ -7,6 +7,8 @@
  * The public surface: `createDesk` and its types, the options, the stacking layers, the item keys, and the state
  * changes. `G` is the gap every construction keeps between items; `stripGeometry` gives the scrolling strip's extent
  * and scroll, for a consumer that scrolls it by hand (it sets `stripScroll`).
+ *
+ * A legacy entry. See docs/placement.md, Entry: dock.
  */
 export {
   DEFAULT_OPTIONS,

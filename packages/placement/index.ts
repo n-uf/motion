@@ -5,6 +5,8 @@
  * positioner. The rest is in its own entries: `@n-uf/placement/scene` (a whole window, laid edge by edge with
  * `/stack`), `/scene/cases`, `/tiling` (panes dividing an area), and the legacy `/dock`, `/toolbar`, `/targets`,
  * `/panels` and `/desk`.
+ *
+ * See docs/placement.md, Entry: root (the whole design is on that page).
  */
 export {
   COLUMN_REACH,

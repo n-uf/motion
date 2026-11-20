@@ -1,3 +1,11 @@
+/**
+ * `@n-uf/motion/drag`: the drag intent model (when a drop indicator shows,
+ * which target, when the others make room, what a release lands on), the lift
+ * and grip rules, preview plans, and the landing model (lanes and spots). Pure:
+ * the host feeds points and times, and draws what comes back.
+ *
+ * See docs/motion.md, "The drag and landing model".
+ */
 export {
   createDragIntent,
   DRAG_DEFAULTS,

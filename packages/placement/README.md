@@ -9,6 +9,8 @@
 
 Site and live demos: [motion.n-uf.com](https://motion.n-uf.com)
 
+Design page (the concept, the parts and the SDK entry by entry): [`../../docs/placement.md`](../../docs/placement.md).
+
 Where things go. State in, rects and drop targets out: a workspace of docks, rails and floating panels, panels in
 columns per side that give way least recently used first, toolbar groups in toolbar areas and zones, and the drop
 targets for each, and tiling: panes that divide an area between them. Pure functions over plain data: no DOM, no
@@ -22,8 +24,7 @@ Its sibling [`@n-uf/motion`](https://www.npmjs.com/package/@n-uf/motion) owns ho
 without importing each other: a target list from `@n-uf/placement/targets` is exactly what
 `@n-uf/motion/drag`'s drag intent takes, and a rect from any layout here is what `@n-uf/motion/layout` glides to.
 
-The older entries `./dock`, `./desk`, `./panels`, `./toolbar` and `./targets` still ship: superseded by `./scene` and
-`./tiling`, removed in the next breaking release.
+`./dock`, `./desk`, `./panels`, `./toolbar` and `./targets` are the legacy entries; `./scene` and `./tiling` replace them.
 
 - **`@n-uf/placement`**: the shapes (`Rect`, `Size`, `Point`), the geometry every entry shares, and a popup positioner,
   as Wayland's xdg-positioner: an anchor point, gravity and offset, then flip, slide and resize, each only when the
@@ -253,8 +254,7 @@ height; the column's last open section takes the rest, never under its min, and 
 left equally, never under a bar's height (`options.bar`). The others' natural heights give way toward their mins
 first. When the open sections' mins and the bars still don't fit, open sections fold to bars by the give-way policy
 (kept last, never the last open one, and never one whose min is no more than a bar, since folding it gains nothing),
-each with a `section-folded` note; that never writes `folded`, so a taller stage unfolds them. Columns without
-`height` defs lay out as before.
+each with a `section-folded` note; that never writes `folded`, so a taller stage unfolds them.
 
 **Changes** are pure: `open`, `close`, `focus`, `toggleFold`, `keep`, `dock(state, id, side, index, { into?, at?, width? })` (`at` with `into`: before that member, else at the bottom),
 `float`, `pin(state, id, on, view?, shown?)` (pass the layout's rect as `shown` so a clamped float pins where it
@@ -327,8 +327,7 @@ const l = layoutPanels(defs, state, { width: 1200, height: 700 }, { reserve: { t
 console.log(l.reserved.top, l.pages); // { x: 220, y: 0, width: 980, height: 40 } { x: 220, y: 40, width: 980, height: 660 }
 ```
 
-Without band options, no `bands` in the state and no reserve, every layout, target and note is what it was before
-bands.
+Without band options, no `bands` in the state and no reserve, a layout, its targets and its notes carry no band.
 
 **Drop targets**: `panelTargets({ defs, state, id, stage, options?, allows? })` gives `column:<side>:<i>` (a new
 column as wide as the panel's own width), `into:<side>:<i>` (stack into a column), `rail:<side>` (dock folded) and
@@ -363,7 +362,7 @@ for the app to draw; `panelDrop(...).slot` is the whole rect. Its `place` is `{ 
 left out for the bottom), and a drop calls `dock(…, { into: true, at })`. `at` counts closed members, which keep their
 place in the column's list; only members shown get slots. A tabbed column keeps its one `into` target.
 `homePlace(state, id, { stackSlots: true })` says a stacked panel's position as `at`, so `keyboardStops` puts home
-among the column's slots. Without `stackSlots` the targets are exactly as before.
+among the column's slots.
 
 `storePanels(state)` gives `{ v: 1, sides, floats, folded, kept, closed, clock }`; `readPanels(data, defs?)` reads
 parsed data back and never throws. Anything but an object of version 1 is `{ ok: false, error }`; inside one, unknown
@@ -425,8 +424,7 @@ console.log(targets.some((t) => t.id === "float")); // false
 
 `presetLayout(preset, defs, state, stage, options?)` is `layoutPanels` with the preset's options under the caller's;
 `presetTargets(preset, input)` and `presetDrop(preset, input, target, point, grab)` are `panelTargets` and `panelDrop`
-the same way, offering only the places the preset allows (`presetInput` gives that input). `./dock` stays as it is for
-now.
+the same way, offering only the places the preset allows (`presetInput` gives that input).
 
 ## Edge stacks
 
@@ -502,11 +500,11 @@ places them; it is not tied to `./panels` columns, and nothing in it is a word.
   `batch`) comes out together, and the first step that can't be undone stops all growth, so a leading group never opens
   while a trailing one that gave way after it stays folded. At every length the way back holds what the way down held,
   whatever presses changed the ages since, the menu included: under a priority (see Scenes), a higher-priority toolbar is
-  back at its form before a lower one leaves the menu. A `previous` without `steps` (built by hand, or by an older
-  version) grows the old way: a fresh fit that is a pure gain over the kept forms, else the item that gave way most
+  back at its form before a lower one leaves the menu. A `previous` without `steps` (built by hand) grows by this
+  rule: a fresh fit that is a pure gain over the kept forms, else the item that gave way most
   recently (highest rank, then `kept`, then the newest used, then the earlier in the stack) first, one at a time, menu
   items out only while that keeps the order. A scene's `storeScene` doesn't store the steps, so the first growth after a
-  reload uses the old order; the steps are carried again from then on. One px of room, or a badge losing a digit after a
+  reload uses that order; the steps are carried again from then on. One px of room, or a badge losing a digit after a
   press, moves
   nothing. Results under `previous` depend on history: a shrink then a grow can end at another arrangement than a fresh
   solve, and more room never undoes a growth along successive solves. Growing back is meant for stacks of up to about
@@ -553,8 +551,8 @@ more way and the stack is still too long; forms that don't end in a `menu` form 
 > **Deprecated:** `stackTargets`, `createStack`, `storeStack`, `readStack` and the floats below (`fitFloat`,
 > `stackFloatTarget`, `storeFloats`, `readFloats`) belong to the window, which `@n-uf/placement/scene` owns:
 > `targets(scene, id)` replaces `stackTargets` and `stackFloatTarget` (its `float:<id>` target), `storeScene` /
-> `readScene` replace the stack's and the floats' stored forms, and `fitFloat` is exported by `./scene`. They stay
-> until the next breaking release. `fitStack` and the forms are the edge solver and stay.
+> `readScene` replace the stack's and the floats' stored forms, and `fitFloat` is exported by `./scene`. `fitStack` and
+> the forms are the edge solver.
 
 `stackTargets(input, dragged)` takes the stack (an item of it with the dragged id is lifted out first, so a reorder
 within a stack works) and gives a target for every gap, before each item and after the last, in the shape
@@ -632,7 +630,7 @@ fit and the targets it always gave. Item kinds are the host's; placement only ca
   `fold`) is drawn at its own `cross.natural` (a `wrap` form: as wide as its rows need), clamped to the stack's cross size and from its start edge (the left of a
   column, the top of a bar), not across the whole stack. Panel kinds (`open`, `header`, `rail`) and the » entry still
   span it, so every open panel and header fills the column, as wide as the widest open panel. The kind decides, not
-  `setsCross`, which still decides the stack's cross size as before. `cross`, the forms, the notes and the lengths are
+  `setsCross`, which decides the stack's cross size. `cross`, the forms, the notes and the lengths are
   as without it. A target's `slot` is that rect, while its `hit` and `marker` still span the stack.
 - **Recommended column forms for a group.** In a side column give a group `stacked` (one word per line, `setsCross:
   true`, so a column of groups is as wide as its widest), then `icons` (28 across, sets nothing: with every group in
@@ -719,7 +717,7 @@ pure.
   isn't an object, has no string id, isn't one the consumer has (with `known`) or has a position that isn't a finite
   number or a size that isn't over 0 is dropped and listed in `dropped` as `float:<id>`; of a repeated id the last
   readable entry stays and the earlier ones are listed the same way; a field this version doesn't know is listed as
-  `"<field>"` (a float's own as `float:<id>:<field>`). A `pinned` key, which an older store may have, is read and
+  `"<field>"` (a float's own as `float:<id>:<field>`). A `pinned` key in a stored float is read and
   ignored: the float loads as a plain float, at the rect it was stored with, and `pinned:<id>` is listed.
 
 ```ts
@@ -894,7 +892,7 @@ other two.
 is over the leading zone (`start`), in the middle third over the center zone, in the right third over the trailing zone
 (`end`), and within the zone the nearest of its gaps wins, each zone's gaps splitting only that zone's third. A zone whose
 toolbars run past its third spreads its gap lines inside the third, so its last gap keeps a slice of it. An empty bar's
-strip is three targets, `strip:<bar>:start`, `strip:<bar>:center` and `strip:<bar>:end` (it was one `strip:<bar>`), one
+strip is three targets, `strip:<bar>:start`, `strip:<bar>:center` and `strip:<bar>:end`, one
 per third. Every empty edge does the same along its own axis: a side edge or a compact rail by thirds of its height
 (`strip:<edge>:start|center|end`, top, middle, bottom). On an occupied edge the items' halves win over the thirds where
 they disagree: a pointer over an item's half aims before or after that item, in its zone (see Aim order under
@@ -902,14 +900,14 @@ Targets); the thirds decide only between and beyond the items, and on empty zone
 
 A **title bar**, a bar with a fixed item that grows (the window title), is a constrained host: a toolbar dropped there
 must land in its first form, nothing else in the bar may change form for it, and the title keeps its natural width (it may
-no longer shrink to its `min` to make room). A zone where that can't hold has no target and no slot, so a bar too full
+never shrink to its `min` to make room). A zone where that can't hold has no target and no slot, so a bar too full
 takes no drop in that zone. The zones are then laid with the title at its natural width, not at the width it grew to:
 
 - a leading toolbar sits right after the title's natural rect;
 - the trailing toolbars sit right before the end items (the window controls);
 - a center toolbar sits at the bar's true center when that is clear of both, else it is centered in the free span between
   the leading and the trailing ones;
-- the title takes the spare room only when nothing follows it in its zone, so a toolbar after the title is no longer
+- the title takes the spare room only when nothing follows it in its zone, so a toolbar after the title is not
   separated from it by a stretch of title.
 
 **Fixed items** (a title, window controls, a page readout) never change form, are never reordered, never dragged, and
@@ -1126,7 +1124,7 @@ A member folded by hand in a column with others is a bar in place (its header fo
 through `grows`. Anchors (a thumbnails column, a fixed drawer) are ring-0 edges with `accepts: []` and fixed items.
 
 **Side parity options.** For a host with panel columns, anchors and a narrow fallback. All are opt-in; a scene that sets
-none lays out as before.
+none has none of these effects.
 
 - **`Edge.outsideInset`**: an anchor edge (a left or right edge that takes nothing, such as a thumbnail strip) lies
   outside `Scene.inset` and the gutter: at the window's side, with the inset after it toward the content, and inside its
@@ -1174,7 +1172,7 @@ none lays out as before.
   and nothing the side's columns or rail take (`Scene.columns[side].accepts`, `Scene.rails[side].accepts`), an anchor takes nothing; `isSideBar(scene, edge)`
   says whether an edge is a side toolbar bar (only on a side that has a column template or a rail), and
   `isOutsideSideBar(scene, edge)` whether it is one with `outsideInset`. On a side with no side
-  bar the rail stays inside the inset, as before. With no rail shown, the `rail:` strip lies past the side's bars too.
+  bar the rail stays inside the inset. With no rail shown, the `rail:` strip lies past the side's bars too.
 - **Static edges keep their place.** A new column (a `column:` or `rail:` target, `moveTo` with a column or rail place,
   `dockHome`) goes no further out than just inside the static edges that lie outer to the side's dynamic columns, so a
   bar or an anchor at the window's edge is never pushed inward. Column and rail places count rings as the side's edges
@@ -1195,7 +1193,7 @@ A float that names no `orient` takes its item's: **`SceneItem.floatOrient`** (`"
 **`floatOrientOf(item)`**, the axis of the first form the item declares, so a toolbar group declared row first floats as
 a row. **`SceneTargetOptions.floatOrient`** overrides that for the drag's float target. With no `floatSize`, a float takes
 its first form's natural size along that orient (**`floatSizeOf(item, orient?)`**), not 280 × 360; a form that grows (a
-panel's card) keeps `DEFAULT_FLOAT_SIZE` (280 × 360), so panels float as before. Give a float `orient: "column"` (or the
+panel's card) keeps `DEFAULT_FLOAT_SIZE` (280 × 360). Give a float `orient: "column"` (or the
 item `floatOrient: "column"`) to keep a row-first group vertical.
 
 **Anchored floats keep clear of the other floats.** An anchored float (Float from a menu: `moveTo(scene, id,
@@ -1203,12 +1201,11 @@ item `floatOrient: "column"`) to keep a row-first group vertical.
 and of the anchored floats floated before it, by the same nearest-clear-place search that keeps it clear of docked
 items, so a second group sent to Float lies beside the first instead of on it. Which float wins never depends on the
 stacking order, so `raise` reshapes nothing: a float with its own rect always wins, and among anchored floats the one
-floated first does, by `since` (`SceneFloat.since`, a missing one counting as 0, so floats from older stored scenes
+floated first does, by `since` (`SceneFloat.since`, a missing one counting as 0, so floats with no `since`
 win; ties by id). A float already at a corner stays there when another is sent to Float beside it. Where no
 place is clear of them all, it lies where it would with no other float (it may cover a float, never a docked item it
-could stay clear of). A float with a rect of its own (a drop, a resize) keeps that rect as before, over another float
-or not. Scenes with no anchored float, or whose anchored floats cover no float that wins over them, lay out exactly as
-before.
+could stay clear of). A float with a rect of its own (a drop, a resize) keeps that rect, over another float
+or not.
 
 **An anchor with an offset.** `anchor` also takes `{ at, dx?, dy? }`: flush with `at`'s side or corner of the content,
 then `dx` px to the right and `dy` px down (negative: left, up; default 0), still following the content as the window
@@ -1239,7 +1236,7 @@ then lays the rect through the one clamp `solve` lays floats with, so `solve` la
 that already covers something (no clear place at its size) may move to a clear place once a resize opens one; the
 preview is still the commit. Such a float never grows over what it covers: a dragged edge that lies inside an obstacle
 stays where it is drawn (`"docked"`), so a resize never covers more than the float did, and a float clear of everything
-stops at the obstacle as before. It gives `{ rect, limits }`, `limits` naming what bound it:
+stops at the obstacle. It gives `{ rect, limits }`, `limits` naming what bound it:
 `"min"`, `"max"`, `"region"`, `"docked"`. It gives null for anything but a float drawn at a first form that grows (a
 panel's card): a toolbar group's size and a folded float's bar come from their forms. On commit (each move, or the
 release) `resize(scene, id, rect, moving)` stores that same rect as the float's rect and the item's `floatSize`, so the
@@ -1477,7 +1474,7 @@ new outermost column on an occupied side (flush, the strip owns the window's edg
 no strip (it beats the inner column it would push, card halves included), giving way only to home, a blocked rect and
 the other column lines, and the inner columns' gaps and refusals on its side stop short of it; it is one of `stops`,
 so a host's "Move to ›" reaches it. Before the
-strip arms, a drop there is the float's. A kind with no policy keeps its targets exactly as before; tuning one kind
+strip arms, a drop there is the float's. A kind with no policy gets the plain rail targets (immediate, no strip); tuning one kind
 never changes another. The policy's fields, each default with its reason:
 
 | Field | Default | Why |
@@ -1550,7 +1547,7 @@ pinned field. A float's `since` (when it was floated) is kept as stored; one tha
 on read moves only its rect, which an anchored float doesn't lie by (an unusable anchor or offset field is dropped and
 listed, `float:<id>:anchor`, `float:<id>:anchor:dx`). `readScene(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
 the store, never throws, and lists what it drops: unknown edges and items, kinds an edge doesn't accept, fixed items
-stored in another edge than `base`'s, bad fields, an old `pinned`. A stored edge's order is kept exactly, fixed items
+stored in another edge than `base`'s, bad fields, a `pinned` field. A stored edge's order is kept exactly, fixed items
 where the store put them, so a drop after a fixed item round-trips; a fixed item the store lacks goes back to its base
 place (trailing ones last). An item the store places nowhere goes where `base` has it, and floats are clamped into the stage by what `solve` draws (a folded float by
 its bar), never cut, so a reload lands where it was drawn. Dynamic columns are the store's: one
@@ -1629,7 +1626,7 @@ lays its own skips it. A row that only means a place aims by place (`resolvePlac
 `CASE_GROUPS` lists the groups.
 
 The rows run on any host, a page's included: the reference host and a page's host play one list of steps and agree on every
-row, the rows that were disputed between them now being host-independent. Two pure helpers keep a page's host equal to the
+row. Two pure helpers keep a page's host equal to the
 reference one:
 
 - **`withRefusals(pick, refusals(scene, dragged))`** is the pick rule with the scene's refusals: where nothing more precise
@@ -1703,13 +1700,12 @@ const skipped = results.filter((r) => r.skipped).length;
 expect(lanesRatchet({ skipped, baseline: 0, today: new Date().toISOString().slice(0, 10) })).toEqual([]);
 ```
 
-Every landing row carries `requires: { lanes: { since } }`: `LANES_SINCE`, the first version with `lanes()` (26.11.45;
-26.11.21 to 26.11.44, `LAST_WITHOUT_LANES`, shipped without it), or a later one where the row needs more: the rows
-that bring an item back to its press point need `GRAB_SINCE` (26.11.46, `lanes()` taking the grab), and pass only on a
-host that passes its grab to `lanes()`; the rows that slide a toolbar held by its grip past or across neighbors, on a
-bar and up a rail (`landing-grip-*`), need `GRIP_SINCE` (26.11.48, the grab moving no hop past a long neighbor) and
-bound the landing absolutely: within `moving.trail` (48 px) of the pointer, `moving.trailBeforeHop` (56) on the single
-frame before a hop (R12). A host that says it runs an older `version` skips a row. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
+Every landing row carries `requires: { lanes: { since } }`: `LANES_SINCE`, the first version with `lanes()` (`LAST_WITHOUT_LANES` is the last without it), or a later one where the
+row needs more: the rows that bring an item back to its press point need `GRAB_SINCE` (`lanes()` taking the grab), and
+pass only on a host that passes its grab to `lanes()`; the rows that slide a toolbar held by its grip past or across
+neighbors, on a bar and up a rail (`landing-grip-*`), need `GRIP_SINCE` (the grab moving no hop past a long neighbor)
+and bound the landing absolutely: within `moving.trail` (48 px) of the pointer, `moving.trailBeforeHop` (56) on the
+single frame before a hop. A host that says it runs an older `version` skips a row. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
 baseline the host's suite recorded, and from `LANES_DEADLINE` (2026-12-31) or at the breaking release, whichever comes
 first, every row runs.
 
@@ -1750,32 +1746,9 @@ const placeOf = (t: PaneTarget<string>, p: { x: number; y: number }, previous: s
 console.log(placeOf(targets[1]!, { x: 600, y: 10 }, null)); // pane:b:top
 ```
 
-## Pane drop regions (old names)
-
-**Deprecated**: `@n-uf/placement/targets` still exports the pane drop regions under their old names (`paneZone`,
-`paneCentre`, `PaneZone`, `PaneCentre`, `PaneZoneOptions`, `PANE_EDGES`, `PANE_ZONE_DEFAULTS`), as wrappers of
-`./tiling`'s `paneRegion`, `paneCenter` and their types and defaults, until the legacy entries go. Use `./tiling`.
-
-`paneZone(rect, point, previous, options?)` says which of a pane's five drop regions a point is in: the center
-rectangle (34 % of each axis, at least 24 px) or one of four side trapezoids. The previous region holds for 6 px past
-its boundary. It fits `@n-uf/motion/drag`'s `placeOf(target, point, previous)`: one target per pane, the region as the
-place, and a null place for a region that takes no drop.
-
-```ts
-import { paneZone, type PaneZone } from "@n-uf/placement/targets";
-
-const pane = { x: 0, y: 0, width: 200, height: 200 };
-console.log(paneZone(pane, { x: 100, y: 100 }), paneZone(pane, { x: 190, y: 100 })); // center right
-console.log(paneZone(pane, { x: 137, y: 100 }, "center")); // center: 3 px past the line, it holds
-
-// As a placeOf: the pane's id and region, none where this pane can't take a drop beside it.
-const canSplit = false;
-const placeOf = (t: { id: string; hit: typeof pane }, p: { x: number; y: number }, previous: string | null): string | null => {
-  const region = paneZone(t.hit, p, (previous?.split(":")[1] as PaneZone | undefined) ?? null);
-  return region === "center" || canSplit ? `${t.id}:${region}` : null;
-};
-console.log(placeOf({ id: "a", hit: pane }, { x: 100, y: 100 }, null), placeOf({ id: "a", hit: pane }, { x: 10, y: 100 }, null)); // a:center null
-```
+`@n-uf/placement/targets` also exports the pane drop regions as deprecated wrappers of `./tiling`'s `paneRegion`,
+`paneCenter` and their types and defaults: `paneZone`, `paneCentre`, `PaneZone`, `PaneCentre`, `PaneZoneOptions`,
+`PANE_EDGES` and `PANE_ZONE_DEFAULTS`. Use `./tiling`.
 
 ## License
 

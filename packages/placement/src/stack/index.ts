@@ -11,10 +11,12 @@
  *
  * `./stack` is the edge solver the Scene lays each edge with: `fitStack`, its input and fit (`StackInput`, `StackItem`,
  * `StackFit`) and the form vocabulary (`StackForm`, `CrossLimits` and the form helpers). Its window-level parts are
- * **deprecated**, each replaced by `@n-uf/placement/scene`, and stay until the next breaking release:
+ * **deprecated**, each replaced by `@n-uf/placement/scene`:
  * `stackTargets` / `StackTarget` → `targets(scene, id)`; `createStack` / `storeStack` / `readStack` → `storeScene` /
  * `readScene`; `stackFloatTarget` → the `float:<id>` target of `targets()`; `storeFloats` / `readFloats` → the stored
  * scene's floats; `fitFloat` / `FloatFit` → the same names from `./scene`.
+ *
+ * See docs/placement.md, Entry: stack (the exports) and Solving (the form ladder).
  */
 export { fitStack } from "./layout";
 export {

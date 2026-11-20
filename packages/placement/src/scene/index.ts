@@ -11,6 +11,9 @@
  *
  * Constants: `DEFAULT_HIT_BAND` (a column's gap band, px), `DEFAULT_STRIP` (an empty edge's drop strip, px),
  * `DEFAULT_FLOAT_SIZE`; `SIDES` and `ZONES` list the sides and zones in order.
+ *
+ * See docs/placement.md: Entry: scene (the exports), The scene model, Solving, Changes, Targets and refusals, Lanes
+ * and Storage (the parts).
  */
 export {
   DEFAULT_FLOAT_SIZE,

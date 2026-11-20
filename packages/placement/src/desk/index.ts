@@ -12,6 +12,8 @@
  *
  * The bottom band starts with the hint's `bottom` panels, else the last def whose `sides` names "bottom" (a def
  * without `sides` may be dropped there, but doesn't start there).
+ *
+ * A legacy entry. See docs/placement.md, Entry: desk.
  */
 import {
   createPanels,
