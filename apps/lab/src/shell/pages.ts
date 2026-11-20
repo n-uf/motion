@@ -35,8 +35,8 @@ export const PAGES: readonly PageDef[] = [
   {
     id: "overview",
     group: "overview",
-    title: "Motion and placement lab",
-    line: "Every demo and check for @n-uf/motion, @n-uf/placement and @n-uf/docking, on the real packages.",
+    title: "n-uf motion lab",
+    line: "Every demo and check for @n-uf/motion and @n-uf/placement, on the real packages.",
     markup: raw(() => import("../pages/overview.html?raw")),
   },
   {
