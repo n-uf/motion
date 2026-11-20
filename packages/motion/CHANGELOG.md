@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.50
 
 Sliding spots: a free stretch exposed as one spot, where the item lands at the hand. With `@n-uf/placement`'s
 `stretchPositions: "free"` (placement's default from this release). Host notes: additive; pass the press's `grab` to `createLandingModel`, draw `frame.landing`
