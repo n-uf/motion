@@ -39,6 +39,7 @@ export {
   createLandingHost,
   GRAB_SINCE,
   GRIP_SINCE,
+  ROOM_SINCE,
   LANDING_CASES,
   landingIssues,
   LANES_DEADLINE,
