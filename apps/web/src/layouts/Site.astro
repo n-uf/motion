@@ -8,7 +8,7 @@ import ExtLink from "../components/ExtLink.astro";
 import Mark from "../components/Mark.astro";
 import { demoPages, pageOf } from "../data/pages";
 import { PARTS, type PartId } from "../data/parts";
-import { repoUrl, npmUrl, npmPlacementUrl } from "../data/site";
+import { repoUrl, npmUrl, npmPlacementUrl, npmDockingUrl } from "../data/site";
 
 interface Props {
   title: string;
@@ -34,6 +34,8 @@ const prev = index > 0 ? demoPages[index - 1] : undefined;
 const next = index >= 0 && index < demoPages.length - 1 ? demoPages[index + 1] : undefined;
 const part = PARTS.find((p) => p.pages.includes(path)) ?? PARTS.find((p) => p.id === partId);
 const inDocs = path === "/docs/" || path.startsWith("/docs/");
+// a library with no interactive page of its own (placement, for now) has no group in the nav or the footer: its docs are under Docs
+const withPages = PARTS.filter((pt) => pt.pages.length > 0);
 const themes = [
   ["system", "System theme", '<rect x="2" y="3" width="12" height="8.5" rx="1.5"/><path d="M6 14h4M8 11.5V14"/>'],
   ["light", "Light theme", '<circle cx="8" cy="8" r="2.75"/><path d="M8 1.75v1.5M8 12.75v1.5M1.75 8h1.5M12.75 8h1.5M3.6 3.6l1.05 1.05M11.35 11.35l1.05 1.05M3.6 12.4l1.05-1.05M11.35 4.65l1.05-1.05"/>'],
@@ -46,7 +48,7 @@ const themes = [
     <div class="topbar-in">
       <a class="brand" href="/" aria-current={path === "/" ? "page" : undefined}><Mark /><span class="wordmark"><span class="brand-ns">n-uf </span>motion <span class="brand-amp">&amp;</span> placement</span></a>
       <nav class="nav" aria-label="Site">
-        {PARTS.map((pt) => (
+        {withPages.map((pt) => (
           <span class="nav-part" data-part={pt.id} title={`${pt.title}: ${pt.pkg}`}>
             <span class="nav-k" aria-hidden="true">{pt.short}</span>
             {pt.pages.map((pp) => <a href={pp} aria-current={pp === path ? "page" : undefined}>{pageOf(pp).nav}</a>)}
@@ -104,10 +106,10 @@ const themes = [
     <div class="footer-in">
       <div class="footer-brand">
         <a class="brand" href="/"><Mark /><span class="wordmark"><span class="brand-ns">n-uf </span>motion <span class="brand-amp">&amp;</span> placement</span></a>
-        <p>@n-uf/motion moves windows, panels and toolbars; @n-uf/placement works out where they go and moves nothing. No DOM, no framework. Made by <ExtLink href="https://n-uf.com">n-uf</ExtLink>.</p>
+        <p>@n-uf/motion moves windows, panels and toolbars; @n-uf/placement works out where things fit; @n-uf/docking works out where panels and toolbars dock. Only motion moves anything. No DOM, no framework. Made by <ExtLink href="https://n-uf.com">n-uf</ExtLink>.</p>
       </div>
       <nav class="footer-nav" aria-label="Pages and project">
-        {PARTS.map((pt) => (
+        {withPages.map((pt) => (
           <div class="foot-col" data-part={pt.id}>
             <span class="foot-k">{pt.short}</span>
             {pt.pages.map((pp) => <a href={pp}>{pageOf(pp).nav}</a>)}
@@ -122,6 +124,7 @@ const themes = [
           <ExtLink href={repoUrl}>Source on GitHub</ExtLink>
           <ExtLink href={npmUrl}>@n-uf/motion on npm</ExtLink>
           <ExtLink href={npmPlacementUrl}>@n-uf/placement on npm</ExtLink>
+          <ExtLink href={npmDockingUrl}>@n-uf/docking on npm</ExtLink>
           <span class="foot-licence">PolyForm Perimeter 1.0.1</span>
         </div>
       </nav>

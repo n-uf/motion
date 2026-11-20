@@ -1,8 +1,9 @@
 // Structured data (JSON-LD) builders for the fixed pages, the use-case pages, the blog and their index pages.
-// The Organization node is the same one every n-uf site uses (id https://n-uf.com/#org). The pair is two
-// SoftwareSourceCode nodes on the home page, one per package (#motion, #placement); each page is `about` the one(s)
-// it shows (data/parts.ts), the home page about both.
-import { site, name, repoUrl } from "./site";
+// The Organization node is the same one every n-uf site uses (id https://n-uf.com/#org). The three libraries are
+// SoftwareSourceCode nodes on the home page, one per package (#motion, #placement, #docking); each page is `about` the
+// one(s) it shows (data/parts.ts), the home page about all three.
+import { site, name, repoUrl, npmUrl, npmPlacementUrl, npmDockingUrl } from "./site";
+import { pageOf } from "./pages";
 import type { PartId } from "./parts";
 
 const ctx = "https://schema.org";
@@ -31,7 +32,8 @@ export const webSite = {
   "@type": "WebSite",
   "@id": `${site}/#website`,
   name,
-  alternateName: ["n-uf motion", "@n-uf/motion", "@n-uf/placement"],
+  alternateName: ["n-uf motion", "n-uf motion, placement & docking", "@n-uf/motion", "@n-uf/placement", "@n-uf/docking"],
+  description: pageOf("/").description,
   url: abs("/"),
   publisher: orgRef,
 };
@@ -43,13 +45,20 @@ const SOFTWARE: Record<PartId, { name: string; description: string }> = {
   },
   placement: {
     name: "@n-uf/placement",
-    description: "Where things go: a TypeScript library that works out where windows, panels and toolbar groups go. Workspaces of docks, rails and floating panels, panel columns and top and bottom docks, toolbar areas and zones, tiled panes, and the drop targets for each, as plain state in and rects out.",
+    description: "Where things fit: a TypeScript library that works out where things fit, over plain rects: a popup placed beside its anchor, a stack that gives way as room runs out, the cut of an edge, the drop places along one edge, and tiled panes. Plain data in and rects out; it moves nothing and draws nothing.",
+  },
+  docking: {
+    name: "@n-uf/docking",
+    description: "Where panels and toolbars dock: a TypeScript library that holds a window's dock state (bars, rails, columns, items and floats), solves it into rects, and gives the drop targets and refusals of every drag, as plain state in and rects out. No DOM, no framework.",
   },
 };
 
+/** Where each package is published (the node's sameAs). */
+const NPM: Record<PartId, string> = { motion: npmUrl, placement: npmPlacementUrl, docking: npmDockingUrl };
+
 /**
- * One package of the pair: @n-uf/motion (#motion) or @n-uf/placement (#placement). The home page carries both; each inner
- * page carries the one it is `about`, so every reference resolves on the page itself.
+ * One of the three packages: @n-uf/motion (#motion), @n-uf/placement (#placement) or @n-uf/docking (#docking). The home
+ * page carries all three; each inner page carries the one it is `about`, so every reference resolves on the page itself.
  */
 export function software(part: PartId) {
   return {
@@ -60,6 +69,7 @@ export function software(part: PartId) {
     description: SOFTWARE[part].description,
     url: abs("/"),
     codeRepository: repoUrl,
+    sameAs: [NPM[part]],
     programmingLanguage: "TypeScript",
     license: "https://polyformproject.org/licenses/perimeter/1.0.1",
     author: orgRef,

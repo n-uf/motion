@@ -51,6 +51,8 @@
    carries its own colour (--part): cyan for motion, violet for placement. */
 [data-part="motion"] { --part: var(--motion); --part-strong: var(--accent-strong); }
 [data-part="placement"] { --part: var(--place); --part-strong: var(--place); }
+/* docking has no accent of its own yet (the design page's third accent is the release's call): it keeps placement's violet */
+[data-part="docking"] { --part: var(--place); --part-strong: var(--place); }
 .nav-part { display: inline-flex; align-items: center; gap: 2px; }
 .nav-part + .nav-part { margin-left: 8px; padding-left: 10px; border-left: 1px solid var(--line); }
 .nav-k { padding: 0 4px 0 2px; font: 600 var(--t-cap) var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); white-space: nowrap; }
