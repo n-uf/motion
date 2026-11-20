@@ -493,7 +493,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     }
     expect(inBand).toBeGreaterThan(0);
     expect(wrong.slice(0, 4)).toEqual([]);
-    expect(m.release()).toMatchObject({ kind: "spot", lane: "rail-right" });
+    expect(m.release(pts.at(-1)!, t)).toMatchObject({ kind: "spot", lane: "rail-right" });
   });
 
   it("with a held spot whose room moves the edge (a bar left empty lets the rail start higher), the marks lie on the edge as drawn there", () => {

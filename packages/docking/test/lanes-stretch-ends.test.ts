@@ -78,7 +78,7 @@ describe("a free stretch's ends", () => {
                 for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
               }
               for (let i = 0; i < 30; i++) m.update(path.at(-1)!, (t += 8));
-              return m.release();
+              return m.release(path.at(-1)!, t);
             };
             expect(drive([press, to])).toEqual({ kind: "spot", lane: edge, spot: flush!.id, home: false });
             // Away and back to the press point is home.
@@ -114,6 +114,6 @@ describe("a free stretch's ends", () => {
           for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
         }
         for (let i = 0; i < 30; i++) m.update(press, (t += 8));
-        expect(m.release()).toEqual({ kind: "spot", lane: edge, spot: home.id, home: true });
+        expect(m.release(press, t)).toEqual({ kind: "spot", lane: edge, spot: home.id, home: true });
       });
 });

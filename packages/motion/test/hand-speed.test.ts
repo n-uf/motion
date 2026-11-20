@@ -1,7 +1,7 @@
 /**
  * The hand's speed (`createHandSpeed`), the one estimate a landing model's fast-or-slow gates read: a speed-up reads at
  * once, a slow-down only once it has lasted the span; a jittered timestamp never turns a fling slow; a rest starts the
- * hand again; a hand gathering speed is not steady. Speeds are px per 8 ms.
+ * hand again; a hand gathering speed is not steady. Speeds are px/ms.
  */
 import { describe, expect, it } from "vitest";
 import { createHandSpeed, HAND_SPEED } from "../src/drag/hand-speed";
@@ -24,26 +24,26 @@ describe("the hand's speed", () => {
     h.push({ x: 0, y: 0 }, 0);
     feed(h, 1.5, 8, 4);
     expect(h.long).toBeNull();
-    expect(h.speed).toBeCloseTo(12, 6);
+    expect(h.speed).toBeCloseTo(1.5, 6);
     feed(h, 1.5, 8, 4, 32, 48);
-    expect(h.long).toBeCloseTo(12, 6);
+    expect(h.long).toBeCloseTo(1.5, 6);
   });
 
   it("reads a speed-up at once (the newest step) and a slow-down only once it has lasted the span", () => {
     const h = createHandSpeed();
     h.push({ x: 0, y: 0 }, 0);
     let at = feed(h, 1, 8, 10);
-    expect(h.speed).toBeCloseTo(8, 6);
+    expect(h.speed).toBeCloseTo(1, 6);
     at = feed(h, 3, 8, 1, at.t, at.y);
-    expect(h.speed).toBeCloseTo(24, 6);
+    expect(h.speed).toBeCloseTo(3, 6);
     // Back to 1 px/ms: the span still holds the fast step for 48 ms.
     at = feed(h, 1, 8, 3, at.t, at.y);
-    expect(h.speed).toBeGreaterThan(8.5);
+    expect(h.speed).toBeGreaterThan(1.0625);
     feed(h, 1, 8, 6, at.t, at.y);
-    expect(h.speed).toBeCloseTo(8, 6);
+    expect(h.speed).toBeCloseTo(1, 6);
   });
 
-  it("a fling at 2.4 px/ms whose timestamps are off by up to 40% of a frame reads above 2 px/ms (16 per 8 ms), though its steps don't", () => {
+  it("a fling at 2.4 px/ms whose timestamps are off by up to 40% of a frame reads above 2 px/ms, though its steps don't", () => {
     for (const dt of [8, 16]) {
       const h = createHandSpeed();
       h.push({ x: 0, y: 0 }, 0);
@@ -51,8 +51,8 @@ describe("the hand's speed", () => {
       let slowStep = false;
       for (let k = 1; k <= err.length; k++) {
         h.push({ x: 0, y: 2.4 * dt * k }, dt * (k + err[k - 1]! * (dt === 8 ? 0.8 : 0.7)));
-        if (h.step <= 16) slowStep = true;
-        if (h.long !== null) expect(h.speed, `${dt} ms, sample ${k}`).toBeGreaterThan(16);
+        if (h.step <= 2) slowStep = true;
+        if (h.long !== null) expect(h.speed, `${dt} ms, sample ${k}`).toBeGreaterThan(2);
       }
       expect(slowStep).toBe(true);
     }

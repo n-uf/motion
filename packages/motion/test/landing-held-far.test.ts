@@ -23,7 +23,7 @@ describe("landing model: far beyond the held lane, the frame is held but refused
     expect(f.region).toBe("refused"); // the host's "Can't go here" tag shows for refused with no `pending`
     expect(f.pending).toBeUndefined();
     expect(f.landing).toBeNull();
-    expect(m.release()).toBeNull(); // goes home
+    expect(m.release({ x: 14, y: 301 }, 112)).toBeNull(); // goes home
     expect(f.lane).toBe("bottom");
     expect(f.spot).toBeNull();
   });

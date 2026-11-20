@@ -16,7 +16,7 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
     return { lanes: [bottom, rail], refused: [], content: rect(0, 0, 868, 599), blocked: [rect(12, 12, 220, 575)], stage: rect(0, 0, 868, 630), item: { width: 362, height: 31 } };
   };
   const flick = (restMs: number) => {
-    // (The fast slide rule is capped at `gates.slide`, 2 px/ms: this flick is 24 px per 8 ms.)
+    // (The fast slide rule is capped at `gates.slideSpeed`, 2 px/ms: this flick is 3 px/ms.)
     const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
     m.update({ x: 25, y: 614 }, 0);
     // 3 px/ms, a frame every 16 ms: 48 px a frame, from (25, 614) to (14, 301) in 7 frames.
@@ -31,17 +31,17 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
     expect(m.frame.lane).not.toBe("rail-left");
     // 288 px above its bar: held, but refused (the host's tag shows), so a release lands nothing and the item goes home.
     expect(m.frame.region).toBe("refused");
-    expect(m.release()).toBeNull();
+    expect(m.release({ x: 14, y: 301 }, 112)).toBeNull();
   });
 
   it("held there past `pause`, the rail takes it by its still gate", () => {
     const m = flick(80);
     expect(m.frame.lane).toBe("rail-left");
-    expect(m.release()).toMatchObject({ kind: "spot", lane: "rail-left", spot: "rail-left/start", home: false });
+    expect(m.release({ x: 14, y: 301 }, 192)).toMatchObject({ kind: "spot", lane: "rail-left", spot: "rail-left/start", home: false });
   });
 
   /** The flick, then `n` frames 8 ms apart at 1.5 px/ms on up the rail (12 px each). */
-  const tail = (n: number, gates?: { slide: number }) => {
+  const tail = (n: number, gates?: { slideSpeed: number }) => {
     const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 }, ...(gates ? { gates } : {}) });
     m.update({ x: 25, y: 614 }, 0);
     for (let i = 1; i <= 7; i++) m.update({ x: 25 - (11 * i) / 7, y: 614 - (313 * i) / 7 }, 16 * i);
@@ -53,7 +53,7 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
     for (const n of [1, 2]) {
       const m = tail(n);
       expect(m.frame.lane, `${n} slow frames`).not.toBe("rail-left");
-      expect(m.release(), `${n} slow frames`).toBeNull();
+      expect(m.release({ x: 14, y: 301 - 12 * n }, 112 + 8 * n), `${n} slow frames`).toBeNull();
     }
   });
 
@@ -63,7 +63,7 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
     expect(tail(4).frame.lane).not.toBe("rail-left");
     const m = tail(8);
     expect(m.frame.lane).toBe("rail-left");
-    expect(m.release()).toMatchObject({ kind: "spot", lane: "rail-left" });
+    expect(m.release({ x: 14, y: 301 - 12 * 8 }, 112 + 8 * 8)).toMatchObject({ kind: "spot", lane: "rail-left" });
   });
 
   it("a fling at 2.4 or 2.8 px/ms whose timestamps jitter (±35%, ±50%) stays out of the rail until it rests, and a release at once goes home", () => {
@@ -79,24 +79,26 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
             // The hand moves at `v` px/ms in real time; each sample's timestamp is off by up to `j` of a frame.
             const n = Math.ceil(313 / (v * dt));
             let entered = false;
+            let last = 0;
             for (let k = 1; k <= n; k++) {
               const t = dt * (k + j * (2 * rnd() - 1));
               const u = Math.min(1, k / n);
               if (m.update({ x: 25 - 11 * u, y: 614 - 313 * u }, t).lane === "rail-left") entered = true;
+              last = t;
             }
             const where = `${v} px/ms, ±${j * 100}%, ${dt} ms frames, seed ${seed}`;
             expect(entered, where).toBe(false);
-            expect(m.release(), where).toBeNull();
+            expect(m.release({ x: 14, y: 301 }, last), where).toBeNull();
           }
   });
 
-  it("a slide at exactly 2 px/ms (16 px per 8 ms, the gate) takes the rail; with `gates: { slide: Infinity }` the fling does too", () => {
+  it("a slide at exactly 2 px/ms (the gate) takes the rail; with `gates: { slideSpeed: Infinity }` the fling does too", () => {
     const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
     m.update({ x: 25, y: 614 }, 0);
     // 16 px a frame straight up the rail's x 25, from y 614 to y 310.
     for (let k = 1; k <= 19; k++) m.update({ x: 25, y: 614 - 16 * k }, 8 * k);
     expect(m.frame.lane).toBe("rail-left");
-    const open = tail(0, { slide: Infinity });
+    const open = tail(0, { slideSpeed: Infinity });
     expect(open.frame.lane).toBe("rail-left");
   });
 
@@ -115,7 +117,7 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
       return Infinity;
     };
     const smooth = entry(() => 1);
-    // A repeating ±30% pattern: every other frame read faster than 2 px/ms (0.7: 17 px per 8 ms), the rest slower.
+    // A repeating ±30% pattern: every other frame read faster than 2 px/ms (0.7: about 2.1 px/ms), the rest slower.
     const pattern = [1.0, 0.7, 1.3, 0.7];
     const jittered = entry((k) => pattern[k % pattern.length]!);
     // (The hand's speed is read over 80 ms at 60 Hz before anything counts, 120 px at 1.5 px/ms, then `path`.)

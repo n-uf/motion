@@ -84,7 +84,7 @@ describe("a sliding spot: the frame is the commit", () => {
               expect(Number.isInteger(start) || slide.snaps.some((q) => Math.abs(q - start) < 1e-9), `${label}: ${start}`).toBe(true);
               expect(start, label).toBeGreaterThanOrEqual(Math.min(slide.from, slide.to) - 1e-9);
               expect(start, label).toBeLessThanOrEqual(Math.max(slide.from, slide.to) + 1e-9);
-              const r = m.release();
+              const r = m.release(p, t);
               expect(r, label).toMatchObject({ kind: "spot", lane: lane.id, spot: spot.id });
               expect((r as { at: number }).at, label).toBe(start);
               compared++;

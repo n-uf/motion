@@ -56,7 +56,7 @@ function drive(o: LandingOptions, points: readonly Point[], speed = 0.2, rest = 
     }
   }
   for (let s = 0; s < rest; s += 8) frames.push({ p: points.at(-1)!, f: m.update(points.at(-1)!, (t += 8)) });
-  return { frames, release: m.release() };
+  return { frames, release: m.release(points.at(-1)!, t) };
 }
 const at = (x: number): Point => ({ x, y: PRESS.y });
 

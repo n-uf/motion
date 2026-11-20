@@ -178,8 +178,9 @@ describe("stretch positions: free", () => {
               let t = 0;
               m.update(press, t);
               for (let k = 0; k < 8; k++) for (const d of [6, -6]) m.update(ax === "x" ? { x: press.x + d, y: press.y } : { x: press.x, y: press.y + d }, (t += 16));
-              for (let k = 0; k < 10; k++) m.update(ax === "x" ? { x: press.x + 5, y: press.y } : { x: press.x, y: press.y + 5 }, (t += 8));
-              expect(m.release()).toEqual({ kind: "spot", lane: edge, spot: home.id, home: true, at: lo(own, ax) });
+              const rest = ax === "x" ? { x: press.x + 5, y: press.y } : { x: press.x, y: press.y + 5 };
+              for (let k = 0; k < 10; k++) m.update(rest, (t += 8));
+              expect(m.release(rest, t)).toEqual({ kind: "spot", lane: edge, spot: home.id, home: true, at: lo(own, ax) });
               // Away along the stretch and released: that is no longer home, and its drop lands where the frame showed.
               const room = home.slide!;
               const aim = Math.round((room.from + room.to) / 2) === Math.round(lo(own, ax)) ? room.from + 20 : (room.from + room.to) / 2;
@@ -188,7 +189,7 @@ describe("stretch positions: free", () => {
               const n = Math.ceil(Math.abs(lo(to, ax) - lo(press, ax)) / 1.6);
               for (let i = 1; i <= n; i++) m.update({ x: press.x + ((to.x - press.x) * i) / n, y: press.y + ((to.y - press.y) * i) / n }, (t += 8));
               for (let k = 0; k < 10; k++) m.update(to, (t += 8));
-              const r = m.release();
+              const r = m.release(to, t);
               expect(r).toMatchObject({ kind: "spot", lane: edge, spot: home.id, home: false });
               const landed = home.target.after(to, grab).layout.items[held]!.rect;
               expect(Math.abs(lo(landed, ax) - (r as { at: number }).at)).toBeLessThanOrEqual(0.5);
