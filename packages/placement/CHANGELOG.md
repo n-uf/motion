@@ -31,7 +31,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   their place, and row R7-end-zone-anchored-fixed-stay holds. `pushable` is a declaration of the scene like
   `Edge.zoneAccepts`: `readScene` takes it from `base`, `storeScene` never writes it, and a stored one is dropped
   (`item:<id>:pushable`). Host note: mark the cells that may yield; the stop's id is `gap:<edge>:end:<n>` with `n` the
-  count of the zone's other members. New rows R7-end-zone-pushable-put-back and
+  count of the zone's other members. In the start zone the rule is the mirror ("a movable item dropped beside it, on its
+  anchor's side, may push it inward"): a `pushable` item at the edge's start makes the gap before it a stop
+  (`gap:<edge>:start:0`), so flag a title only if a toolbar may go before it. New rows R7-end-zone-pushable-put-back and
   R7-end-zone-fixed-without-the-flag-no-gap-after, a test file, and the lab's kit case `kit-pushable-cells-put-back`.
 - `./scene`, **in a held frame every lane's marks follow its edge** (fix). With `options.spot`, every lane takes its
   marks in the held spot's layout, but only the held lane was clipped to its rect over that layout; the others were
