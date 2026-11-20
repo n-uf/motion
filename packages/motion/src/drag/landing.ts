@@ -32,6 +32,10 @@ import type { PlaceGuides } from "./preview";
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
  *   follows the hand at any speed. With `regionsFor`, a reflowing change is kept only if, in the new spot's own regions
  *   (its room open), the pointer still lies in that spot's stretch: the room shifting the boundary never bounces it.
+ * - **A sliding spot** (`slide`: a free stretch as one spot) lands where the hand is: its landing moved along the lane to
+ *   the pointer less the grab (`grab`), clamped to its range, and snapped to its ends, the item's own place or a dock
+ *   inside within `snapDistance`. Nothing reflows inside it, so there are no steps there; a step comes only where the
+ *   order changes (passing a neighbor), as between any two spots. A release reads where it starts (`at`) once.
  * - **Outside every lane:** a refused place, refused; open space (`"open"`: the content less what blocks it, the page),
  *   the float at its landing; outside the stage (past `edge`), nowhere; else (docked content that takes nothing and
  *   refuses nothing) refused.
@@ -57,7 +61,26 @@ export interface LandingSpot {
    * item. Absent: every change to or from it counts as moving others.
    */
   readonly others?: string;
+  /**
+   * A sliding spot (a free stretch exposed as one spot): over it the landing follows the pointer, `landing` moved along
+   * the lane to the pointer less the grab, clamped to `[from, to]` and snapped to a point of `snaps` within
+   * `snapDistance`. Absent: the landing is `landing`.
+   */
+  readonly slide?: LandingSlide;
 }
+/** A sliding spot's range: where its landing's start may lie along the lane, and the points it snaps to. */
+export interface LandingSlide {
+  /** The landing's start at the stretch's start (flush against the neighbor before it), px along the lane. */
+  readonly from: number;
+  /** The landing's start at the stretch's end (flush against the neighbor after it), px along the lane. */
+  readonly to: number;
+  /** The starts it snaps to: its two ends, the item's own place where it lies here, any discrete dock inside. */
+  readonly snaps: readonly number[];
+  /** How near a snap point the landing's start snaps to it, px (default `SNAP_DISTANCE`). */
+  readonly snapDistance?: number;
+}
+/** How near a sliding spot's snap point its landing snaps to it, px. */
+export const SNAP_DISTANCE = 8;
 /**
  * A place guide's mark, in the layout as drawn: a line between two items that touch, a box over free room the item
  * lands in, a hatch over the part of a neighbor that gives way where the room is shorter than the item.
@@ -151,6 +174,13 @@ export interface LandingOptions {
   readonly home?: { readonly lane: string; readonly spot: string };
   /** Where the item was lifted (the press), in the regions' space; default the first point `update` gets. */
   readonly lift?: Point;
+  /**
+   * Where the pointer holds the item, from its top left corner as it is now, px (the press's, as `lanes()` takes it).
+   * Over a sliding spot the landing's start is the pointer less this, along the item's own length (its longer side; a
+   * landing of another length at the same share of it); across it, and in a lane across its length, the middle.
+   * Default: the middle of `regions.item`.
+   */
+  readonly grab?: Point;
   readonly margins?: Partial<LandingMargins>;
   readonly gates?: Partial<LandingGates>;
   readonly approach?: Partial<LandingApproach>;
@@ -190,8 +220,15 @@ export interface LandingFrame {
   readonly pending?: string;
 }
 
-/** What a release lands: a spot (`home` when it is the item's own place), the float at `rect`, or nothing. */
-export type LandingRelease = { readonly kind: "spot"; readonly lane: string; readonly spot: string; readonly home: boolean } | { readonly kind: "float"; readonly rect: Rect } | null;
+/**
+ * What a release lands: a spot (`home` when it is the item's own place), the float at `rect`, or nothing. On a sliding
+ * spot, `at` is where the landing starts along the lane, whole px (read once, at the release), and `home` holds only
+ * where that is the item's own place.
+ */
+export type LandingRelease =
+  | { readonly kind: "spot"; readonly lane: string; readonly spot: string; readonly home: boolean; readonly at?: number }
+  | { readonly kind: "float"; readonly rect: Rect }
+  | null;
 
 export interface LandingModel {
   update(point: Point, time: number, keys?: DragKeys): LandingFrame;
@@ -267,6 +304,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let approached: string | null = null;
   let previous: LandingRegion = laneId ? "lane" : "open";
   let frame: LandingFrame = { region: previous, lane: laneId, spot: spotId, landing: null, room: !!spotId, guides: [], shift: false };
+  /** The spot the last frame lands on (in its own regions) and its lane's axis, or null. */
+  let landedOn: { readonly spot: LandingSpot; readonly axis: "x" | "y" } | null = null;
 
   const laneIn = (regions: LandingRegions, id: string | null): LandingLane | undefined => (id ? regions.lanes.find((l) => l.id === id) : undefined);
   const spotIn = (lane: LandingLane | undefined, id: string | null): LandingSpot | undefined => (lane && id ? lane.spots.find((s) => s.id === id) : undefined);
@@ -286,6 +325,36 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       }
     }
     return best;
+  }
+
+  /**
+   * Where `spot` lands for a pointer at `p` in `lane`: its landing, or on a sliding spot that landing moved along the lane
+   * to the pointer less the grab, clamped to its range and snapped to the nearest snap point within its snap distance.
+   */
+  function landingAt(lane: LandingLane, spot: LandingSpot, p: Point, item: { readonly width: number; readonly height: number }): Rect {
+    const s = spot.slide;
+    if (!s) return spot.landing;
+    const ax = lane.axis;
+    // The grab's share along the item's own length (its longer side); across it, or a lane across its length, the middle.
+    const long: "x" | "y" = item.width >= item.height ? "x" : "y";
+    const size = long === "x" ? item.width : item.height;
+    const g = options.grab ? (long === "x" ? options.grab.x : options.grab.y) : size / 2;
+    const share = ax === long && size > 0 && Number.isFinite(g) ? Math.min(1, Math.max(0, g / size)) : 0.5;
+    const length = ax === "x" ? spot.landing.width : spot.landing.height;
+    const lo = Math.min(s.from, s.to);
+    const hi = Math.max(s.from, s.to);
+    const free = Math.min(hi, Math.max(lo, alongOf(lane, p) - share * length));
+    const reach = s.snapDistance ?? SNAP_DISTANCE;
+    let at = free;
+    let best = Infinity;
+    for (const q of s.snaps) {
+      const d = Math.abs(q - free);
+      if (d <= reach && d < best) {
+        best = d;
+        at = q;
+      }
+    }
+    return ax === "x" ? { ...spot.landing, x: at } : { ...spot.landing, y: at };
   }
 
   /** Along a held lane: the spot after hysteresis, the step gate and the fixed-point check. */
@@ -470,8 +539,11 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     previous = region;
     const shown: LandingRegion = shift && (region === "lane" || region === "open") ? "open" : region;
     const r2 = heldRegions(spotId);
-    const spot = spotIn(laneIn(r2, laneId), spotId);
-    const landing = shown === "lane" ? (spot?.landing ?? null) : shown === "open" ? (options.floatLanding?.(p) ?? null) : null;
+    const heldLane = laneIn(r2, laneId);
+    const spot = spotIn(heldLane, spotId);
+    landedOn = shown === "lane" && spot && heldLane ? { spot, axis: heldLane.axis } : null;
+    // A sliding spot's landing follows the pointer; any other spot's is its own.
+    const landing = shown === "lane" ? (spot && heldLane ? landingAt(heldLane, spot, p, r2.item) : null) : shown === "open" ? (options.floatLanding?.(p) ?? null) : null;
     frame = {
       region: shown,
       lane: laneId,
@@ -488,7 +560,18 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   return {
     update,
     release(): LandingRelease {
-      if (frame.region === "lane" && frame.lane && frame.spot) return { kind: "spot", lane: frame.lane, spot: frame.spot, home: !!options.home && options.home.spot === frame.spot && options.home.lane === frame.lane };
+      if (frame.region === "lane" && frame.lane && frame.spot) {
+        const ownSpot = !!options.home && options.home.spot === frame.spot && options.home.lane === frame.lane;
+        // A sliding spot: where its landing starts, whole px, read once here (so a wobble never stores a jitter). It is
+        // home only at the item's own place: the home spot's own landing.
+        const on = landedOn;
+        if (on?.spot.slide && frame.landing) {
+          const start = (r: Rect): number => Math.round(on.axis === "x" ? r.x : r.y);
+          const at = start(frame.landing);
+          return { kind: "spot", lane: frame.lane, spot: frame.spot, home: ownSpot && at === start(on.spot.landing), at };
+        }
+        return { kind: "spot", lane: frame.lane, spot: frame.spot, home: ownSpot };
+      }
       if (frame.region === "open" && frame.landing) return { kind: "float", rect: frame.landing };
       return null;
     },
