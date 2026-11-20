@@ -9,9 +9,8 @@
  * rules failed where (the headless try uses it).
  */
 import { createFrameLoop, createSettle, popIn, reveal, SETTLE_TEMPO, type FrameInfo, type Rect, type Settle } from "@n-uf/motion";
-import { createBrowserClock } from "@n-uf/motion/browser";
+import { createBrowserClock, drawBox, layOutBox } from "@n-uf/motion/browser";
 import { createDragIntent, type DragIntent } from "@n-uf/motion/drag";
-import { drawBox, layOutBox } from "@n-uf/motion/layout";
 import type { HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
 import type { Point } from "@n-uf/placement";
 import {

@@ -1,7 +1,7 @@
 import { createFrameLoop } from "@n-uf/motion";
-import { createBrowserClock } from "@n-uf/motion/browser";
+import { createBrowserClock, domDrawable } from "@n-uf/motion/browser";
 import { createDragIntent, type DragTarget } from "@n-uf/motion/drag";
-import { createLayoutMotion, domDrawable, holdItem } from "@n-uf/motion/layout";
+import { createLayoutMotion, holdItem } from "@n-uf/motion/layout";
 
 const loop = createFrameLoop({ clock: createBrowserClock() });
 const motion = createLayoutMotion({ loop });

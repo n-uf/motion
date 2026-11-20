@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createFakeClock, createFrameLoop } from "../src/clock";
 import { previewPlan, type DragPreview, type DragTarget } from "../src/drag";
-import { createLayoutMotion, domDrawable, drawBox, flip, holdItem, type Drawable, type DrawEntry, type DrawFrame, type LayoutMotionOptions, type StyleLike } from "../src/layout";
+import { domDrawable, drawBox, flip, type StyleLike } from "../browser";
+import { createLayoutMotion, holdItem, type Drawable, type DrawEntry, type DrawFrame, type LayoutMotionOptions } from "../src/layout";
 import type { Rect } from "../src/shapes";
 import { checkMonotonic, checkNoJumps, checkNoOvershoot, type TargetSample } from "../src/testing";
 import { SETTLE_TEMPO } from "../src/values";
