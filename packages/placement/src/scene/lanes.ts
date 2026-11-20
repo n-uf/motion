@@ -193,6 +193,15 @@ interface Base {
   readonly halves: ReadonlySet<string>;
   /** Where the pointer holds the item, as a share of its width and height (0.5 each without `options.grab`). */
   readonly share: { readonly x: number; readonly y: number };
+  readonly marking: Marking;
+}
+
+/** What a lane's marks read beyond its spots. */
+interface Marking {
+  /** The pitch of a bar's or a toolbar rail's free-stretch spots (0: none). */
+  readonly pitch: number;
+  /** A growing item's natural length along `axis` (its drawn length past it is free stretch), else undefined. */
+  readonly natural: (id: string, axis: Axis) => number | undefined;
 }
 
 const memo = new WeakMap<Scene, Map<string, Base>>();
@@ -227,7 +236,7 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
   if (!found) return { ...base.regions, lanes: base.lanes };
   const [heldLane, list] = found;
   const held = list.find((r) => r.id === options.spot)!;
-  const lane = laneFrom(heldLane, list, held.layout, base.seen, dragged, base.refusals, base.halves.has(heldLane), base.share);
+  const lane = laneFrom(heldLane, list, held.layout, base.seen, dragged, base.refusals, base.halves.has(heldLane), base.share, base.marking, true);
   return { ...base.regions, lanes: base.lanes.map((l) => (l.id === heldLane && lane ? lane : l)) };
 }
 
@@ -271,6 +280,14 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
   // Panel columns take a panel by halves of the panels drawn; bars and toolbar rails by the gap between landings.
   const halves = new Set(scene.edges.filter((e) => (e.side === "left" || e.side === "right") && !e.compact).map((e) => e.id));
+  // A growing item's drawn length past its natural one is free stretch for the marks, as it is for pitched spots.
+  const marking: Marking = {
+    pitch,
+    natural: (id, axis) => {
+      const main = scene.items[id]?.forms[axis === "x" ? "row" : "column"]?.[0]?.main;
+      return main?.grows ? main.natural : undefined;
+    },
+  };
   // Where the pointer holds the item, as a share of its length now, along its own length only (its longer side): a
   // landing of another length along that axis is held at the same share; across the item, where the share says only
   // where across a thin rail or bar it was pressed, the middle.
@@ -278,7 +295,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   const w = own?.rect.width ?? 0;
   const h = own?.rect.height ?? 0;
   const share = { x: w >= h ? shareOf(options.grab?.x, w) : 0.5, y: h > w ? shareOf(options.grab?.y, h) : 0.5 };
-  const laneList = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share)).filter((l): l is Lane => !!l);
+  const laneList = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share, marking)).filter((l): l is Lane => !!l);
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
   const blocked = [
@@ -296,6 +313,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     refusals: rs,
     halves,
     share,
+    marking,
     regions: {
       refused: rs.filter((f) => !onLanes.has(f.edge)).flatMap((f) => f.hits ?? [f.hit]),
       content: seen.content,
@@ -310,7 +328,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
 }
 
 /** One lane from its spots: its rect, the spots in order with their stretches in `drawn`, its refused stretches. */
-function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: SceneLayout, dragged: string, rs: readonly SceneRefusal[], halves: boolean, share: { readonly x: number; readonly y: number }): Lane | null {
+function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: SceneLayout, dragged: string, rs: readonly SceneRefusal[], halves: boolean, share: { readonly x: number; readonly y: number }, marking: Marking, heldHere = false): Lane | null {
   if (list.length === 0) return null;
   const first = list[0]!;
   const axis = first.axis;
@@ -362,7 +380,21 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
     : [];
   // The places a drop here lands: its spots' neighbors (`<before>|<after>`), so a mark lies only where one lands.
   const places = new Set(unique.map((x) => `${x.before}|${x.next}`));
-  const marks = first.edge ? edgeMarks(id, laneRect, axis, onEdge(drawn, first.edge, "", axis), refused, itemLen, (pair) => places.has(pair) || pair.split("|").includes(dragged), dragged) : virtualMarks(id, unique, drawn.items[dragged]);
+  // Marks lie in the layout as drawn, so on the edge as drawn there: a held spot's room can move the whole edge (a bar
+  // it leaves empty lets a rail start higher), and its items with it.
+  const drawnEdge = first.edge ? drawn.edges[first.edge] : undefined;
+  const markRect = drawnEdge && drawnEdge.cross > EPS ? drawnEdge.rect : laneRect;
+  // The items as drawn, a growing one (a title filling the bar) at its natural length: what it draws past that is free
+  // stretch, as pitched spots take it (the head of a title bar).
+  // (Bars and toolbar rails only: a panel filling its column is drawn there.) Off the held lane the lifted item is
+  // drawn nowhere on it (it is at the pointer or in another lane): its own place is free stretch like any other.
+  const marked = first.edge
+    ? onEdge(drawn, first.edge, heldHere ? "" : dragged, axis).map((o) => {
+        const n = o.id === dragged || halves ? undefined : marking.natural(o.id, axis);
+        return n !== undefined && n < len(o.r, axis) ? { ...o, r: along(o.r, axis, lo(o.r, axis), lo(o.r, axis) + n) } : o;
+      })
+    : [];
+  const marks = first.edge ? edgeMarks(id, markRect, axis, marked, refused, itemLen, halves || marking.pitch <= 0 ? itemLen : marking.pitch, (pair) => places.has(pair) || pair.split("|").includes(dragged), dragged) : virtualMarks(id, unique, drawn.items[dragged]);
   return { id, rect: laneRect, axis, spots, refused, marks };
 }
 
@@ -372,11 +404,13 @@ const LINE = 2;
 
 /**
  * An edge lane's marks, its items as drawn (the held one included): a line at the middle of each gap between two items
- * too short for the item, a box over each free stretch at least the item's length, less its refused stretches. Only
- * where a drop lands (`lands(<before>|<after>)`: a spot between those two, or beside the held item): none beside fixed
- * chrome nothing lands next to.
+ * too short for the item, a box over each free stretch at least the item's length, less its refused stretches. Beside
+ * the held item the room left of its free stretch is a box from `besideMin` (a pitch on a bar or a toolbar rail, where
+ * the item slides there by a spot a pitch over; the item's length in a panel column), named `:before` or `:after` it so
+ * the box keeps its id while the item glides along the stretch. Only where a drop lands (`lands(<before>|<after>)`: a
+ * spot between those two, or beside the held item): none beside fixed chrome nothing lands next to.
  */
-function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { id: string; r: Rect }[], refused: readonly LaneRefusal[], itemLen: number, lands: (pair: string) => boolean, held: string): LaneMark[] {
+function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { id: string; r: Rect }[], refused: readonly LaneRefusal[], itemLen: number, besideMin: number, lands: (pair: string) => boolean, held: string): LaneMark[] {
   const out: LaneMark[] = [];
   const start = lo(laneRect, axis);
   const end = start + len(laneRect, axis);
@@ -393,7 +427,10 @@ function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { i
     const left = ends[i]!.id === held ? (ends[i - 1]?.id ?? "^") : ends[i]!.id;
     const right = ends[i + 1]!.id === held ? (ends[i + 2]?.id ?? "$") : ends[i + 1]!.id;
     const named = `${left}|${right}`;
-    if (b - a < itemLen - EPS) {
+    // The room before or after the held item (the rest of the free stretch it lies in): a box from `besideMin`.
+    const beside = ends[i + 1]!.id === held ? "before" : ends[i]!.id === held ? "after" : null;
+    const min = beside ? Math.min(itemLen, besideMin) : itemLen;
+    if (b - a < min - EPS) {
       // As thick as the gap allows, up to `LINE`: zero between items with no gap (the host strokes it). Also at an end
       // of the lane next to an item, unless refused there; none where the lane holds nothing, and none beside the held
       // item (its own edge, not a place).
@@ -406,9 +443,10 @@ function edgeMarks(lane: string, laneRect: Rect, axis: Axis, items: readonly { i
     for (const f of refused) pieces = pieces.flatMap(([p, q]) => [[p, Math.min(q, f.along[0])] as [number, number], [Math.max(p, f.along[1]), q] as [number, number]]).filter(([p, q]) => q - p > EPS);
     let k = 0;
     for (const [p, q] of pieces) {
-      if (q - p < itemLen - EPS) continue;
-      // The held item between two free stretches names both alike: the one after it is the second.
-      const base = `${lane}/box/${named}${k++ ? `#${k - 1}` : ""}`;
+      if (q - p < min - EPS) continue;
+      // Beside the held item, named by its side of it; else the held item between two free stretches would name both
+      // alike (the one after it is the second).
+      const base = `${lane}/box/${named}${beside ? `:${beside}` : ""}${k++ ? `#${k - 1}` : ""}`;
       out.push({ id: out.some((m) => m.id === base) ? `${base}~2` : base, kind: "box", rect: along(laneRect, axis, p, q) });
     }
   }
