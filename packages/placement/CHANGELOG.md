@@ -5,13 +5,16 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## 26.11.48
 
-Place guides for every spot, drawn as they land, and a fix to the grab's cut (R12). With `@n-uf/motion` 26.11.48.
+A place guide at every spot that says only "you can drop here", and a fix to the grab's cut (R12). With
+`@n-uf/motion` 26.11.48.
 
 Host notes:
-- `LaneMark.kind` and `LandingCaseGuide.kind` gain `"hatch"`: a host with an exhaustive `switch` adds a case. A hatch
-  lies over an item (the neighbor that gives way); draw it there in the guides' color, never the accent.
-- Mark ids gain suffixes: `:before` / `:after` (a room box beside the held item, a hatch's side of its room), `#<n>`
-  for pieces. Key drawings by id as before; don't parse them.
+- `LaneMark.kind` and `LandingCaseGuide.kind` gain `"hatch"`: a host with an exhaustive `switch` adds a case. A hatch is
+  a cue, never a measure: a striped end inside a box (`HATCH_END`), or a thin striped edge (`HATCH_EDGE`) along a band's
+  window side. Draw it in the guides' color, never the accent; inset boxes and ends 2 px, keep a thin edge's thickness,
+  and keep every guide 2 px inside the window.
+- Mark ids gain suffixes: `:before` / `:after` (a room box beside the held item, a striped end's side of its box),
+  `#<n>` for pieces. Key drawings by id as before; don't parse them.
 - As seen (no `spot`) the lifted item is drawn nowhere, so its own place is free room in its lane. Draw the held lane's
   guides from `lanes()` with `spot` (a landing model's `regionsFor`), where every lane's marks lie in that spot's layout.
 - Pass the press's grab to `lanes()` (both calls, as since 26.11.46): the new `landing-grip-*` rows need it.
@@ -26,14 +29,14 @@ Changes:
   (was: only from the item's length, so blank); a growing item on a bar or a toolbar rail (a title filling its bar)
   counts at its natural length, so its slack is marked; the lifted item's own place is free room in its lane as seen;
   with a held spot whose room moves a whole edge, marks lie on the edge as drawn.
-- `./scene`, **hatched room** (additive kind): room shorter than the item, at a lane's end or between items more than
-  the edge's gap apart, is drawn as its spot lands: a box over the free room and a `hatch` over the neighbor(s) the drop
-  moves, the two together the landing; with no free room at a lane's end, the hatch alone. Two items that touch keep
-  their line; a panel column keeps its lines. Nothing in a refused stretch, nothing over the held item.
+- `./scene`, **the cues** (additive kind `hatch`): room that fits is a box; room that partly fits (from a pitch,
+  shorter than the item) is a box with a fixed striped end inside it (`HATCH_END`) at each side whose neighbor gives
+  way, nothing drawn on the neighbor; room under a pitch, or none (touching items, a lane's end flush), is a 2 px line.
+  A panel column keeps its lines. No mark covers a docked item, the held item or a float; nothing in a refused stretch.
 - `./scene`, **guides follow the layout drawn** (fix): no two edge lanes' marks overlap (at a corner a lane not drawn
-  gives way to a drawn one; between two not drawn the bar owns it); a box over another edge's docked items is a hatch
-  there (an empty side rail's band over a column's outer strip: the column moves aside). A virtual lane is drawn over
-  what it would push.
+  gives way to a drawn one; between two not drawn the bar owns it). An empty lane's band over another edge's items (an
+  empty side rail by a column) is a thin striped edge (`HATCH_EDGE`) on the window side, not a box over them; its lane
+  (the hit strip) stays one rail wide. A virtual lane is drawn over what it would push.
 - `./scene`, **a rail drop strip's lane is the strip** (fix, `Scene.railDrop`): a side's rail lane was the hull of its
   hit and landing, the whole column where one is docked there, over the column's own lane; it is now the strip at the
   window's side (`railStripWidth`), so a plain drop in that column goes by halves (R8). It is marked `Lane.owns`
