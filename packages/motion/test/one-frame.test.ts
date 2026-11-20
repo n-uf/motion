@@ -13,7 +13,7 @@ import { springValue } from "../src/values";
 describe("one frame", () => {
   it("runs input, gesture, layout, motion and write in one frame, and the loop idles after", () => {
     const clock = createFakeClock();
-    const loop = createFrameLoop({ clock, frameMs: 16 });
+    const loop = createFrameLoop({ clock, frameInterval: 16 });
 
     // State: where the dragged window sits, and the drag in flight.
     const windowAt = signal<Point>({ x: 100, y: 100 });

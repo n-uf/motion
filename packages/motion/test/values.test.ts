@@ -284,7 +284,7 @@ describe("easing", () => {
 describe("motion value on a frame loop", () => {
   const setup = (reduced?: { on: boolean }) => {
     const clock = createFakeClock();
-    const loop = createFrameLoop({ clock, frameMs: FRAME });
+    const loop = createFrameLoop({ clock, frameInterval: FRAME });
     const value = springValue(loop, 0, reduced === undefined ? {} : { reducedMotion: () => reduced.on });
     return { clock, loop, value };
   };
@@ -440,7 +440,7 @@ describe("motion value on a frame loop", () => {
 
   it("works with tweens and rects too", () => {
     const clock = createFakeClock();
-    const loop = createFrameLoop({ clock, frameMs: FRAME });
+    const loop = createFrameLoop({ clock, frameInterval: FRAME });
     const rect = tweenValue(loop, { x: 0, y: 0, width: 10, height: 10 }, { duration: 64, easing: linear });
     rect.set({ x: 64, y: 0, width: 10, height: 74 });
     clock.frame();

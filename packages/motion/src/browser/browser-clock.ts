@@ -19,18 +19,18 @@ export interface BrowserClockOptions {
   /** The global to use. Default `globalThis`. */
   readonly host?: BrowserHost;
   /** Frame interval when the host has no requestAnimationFrame. Default 1000/60. */
-  readonly fallbackFrameMs?: number;
+  readonly fallbackFrameInterval?: number;
 }
 
 /**
  * A {@link ClockPort} on requestAnimationFrame, performance.now and
  * setTimeout. Without requestAnimationFrame (a worker, a server) frames come
- * from setTimeout at `fallbackFrameMs`; without performance, time comes from
+ * from setTimeout at `fallbackFrameInterval`; without performance, time comes from
  * Date.now.
  */
 export function createBrowserClock(options: BrowserClockOptions = {}): ClockPort {
   const host = options.host ?? (globalThis as unknown as BrowserHost);
-  const fallbackFrameMs = options.fallbackFrameMs ?? 1000 / 60;
+  const fallbackFrameInterval = options.fallbackFrameInterval ?? 1000 / 60;
   const performance = host.performance;
   const now = performance !== undefined ? () => performance.now() : () => Date.now();
 
@@ -71,7 +71,7 @@ export function createBrowserClock(options: BrowserClockOptions = {}): ClockPort
   }
   return {
     now,
-    requestFrame: (callback) => setTimer(callback, fallbackFrameMs),
+    requestFrame: (callback) => setTimer(callback, fallbackFrameInterval),
     cancelFrame: clearTimer,
     setTimer,
     clearTimer,

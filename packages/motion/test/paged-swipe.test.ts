@@ -44,7 +44,7 @@ describe("paged swipe", () => {
     const after = run([wheel(30, 0, 300), wheel(30, 0, 510)], undefined, lockout);
     expect(after).toMatchObject({ phase: "idle", claimed: true });
     expect(run([wheel(30, 0, 600)], undefined, after).phase).toBe("idle");
-    // Once the wheel has rested idleMs, a new run arms.
+    // Once the wheel has rested `idle` ms, a new run arms.
     expect(run([wheel(30, 0, 700)], undefined, after).phase).toBe("tracking");
   });
 

@@ -8,11 +8,11 @@ import type { ModifierKey, Modifiers } from "./types";
  * pages following it, and commits or snaps back when it ends.
  *
  * ```text
- * idle ──wheel / touch-move (arming rules pass)──► armed ──travel ≥ thresholdPx──► tracking
+ * idle ──wheel / touch-move (arming rules pass)──► armed ──travel ≥ threshold──► tracking
  *   ▲                                               │                                │
  *   │                                   rule breach / idle / end                 gesture end
  *   │                                               ▼                                ▼
- *   └──────── lockoutMs elapsed ◄── lockout ◄── settled (commit) ◄───────────── settling
+ *   └──────── lockout elapsed ◄── lockout ◄── settled (commit) ◄───────────── settling
  *   └──────────────────────────────────────── settled (cancel) ◄───────────────────┤
  *   └──────────────────────────────────────── cancel (transition stopped) ◄────────┘
  * ```
@@ -20,14 +20,14 @@ import type { ModifierKey, Modifiers } from "./types";
  * - **Arming:** nothing else owns the pointer (`blocked`), the movement runs mostly along the swipe (more than twice
  *   the cross movement), no Ctrl (a pinch), the configured modifier is held, nothing under the pointer can still
  *   scroll that way (`canScrollFurther`), and there is a page on that side (or `wrap`). A wheel run that breaks a
- *   rule belongs to scrolling until the wheel has been idle `idleMs`.
+ *   rule belongs to scrolling until the wheel has been idle `idle`.
  * - **Tracking:** `progress` is the travel over the page size, −1 to 1, held at 0 towards a side with no page.
- * - **Ending:** a touch ends when the finger lifts, a wheel run after `idleMs` without samples. It commits when
+ * - **Ending:** a touch ends when the finger lifts, a wheel run after `idle` without samples. It commits when
  *   `|progress| ≥ commitFraction`, or the peak speed towards the target reached `commitVelocity` (the peak starts
  *   over when the travel crosses zero, so a fast fling out and a pull back does not commit the way back).
  * - **Settling** lasts as long as the host's page transition; the host sends `settled` when it is done (or `cancel`,
  *   which goes straight back to idle, when it stops the transition). After a commit, `lockout` swallows the
- *   trackpad's momentum for `lockoutMs`, and the run stays claimed after it.
+ *   trackpad's momentum for `lockout`, and the run stays claimed after it.
  *
  * Pure and timer-free: {@link pagedSwipeDeadline} says when the next `tick` is due ({@link createPagedSwipe} arms it).
  * Signs: a wheel delta > 0 along the swipe heads to `next`; a finger moving towards smaller x (or y) heads to `next`.
@@ -39,15 +39,15 @@ export type SwipeSide = "prev" | "next";
 /** Tunables of the paged swipe. */
 export interface PagedSwipeConfig {
   /** px of travel before an armed swipe tracks. Default 24. */
-  readonly thresholdPx: number;
+  readonly threshold: number;
   /** The share of the page size that commits at the end. Default 0.35. */
   readonly commitFraction: number;
   /** px/ms: a peak speed towards the target that commits at the end. Default 0.6. */
   readonly commitVelocity: number;
   /** ms without a wheel sample that ends a wheel run. Default 120. */
-  readonly idleMs: number;
+  readonly idle: number;
   /** ms after a commit during which wheel samples are swallowed (momentum). Default 350. */
-  readonly lockoutMs: number;
+  readonly lockout: number;
   /** Past the last page comes the first, and back. Default false. */
   readonly wrap: boolean;
   /** The page size in px when no sample or context gives one. Default 800. */
@@ -60,11 +60,11 @@ export interface PagedSwipeConfig {
 
 /** Defaults of {@link PagedSwipeConfig}. */
 export const PAGED_SWIPE_DEFAULTS: PagedSwipeConfig = {
-  thresholdPx: 24,
+  threshold: 24,
   commitFraction: 0.35,
   commitVelocity: 0.6,
-  idleMs: 120,
-  lockoutMs: 350,
+  idle: 120,
+  lockout: 350,
   wrap: false,
   size: 800,
   modifier: null,
@@ -98,7 +98,7 @@ export type PagedSwipeState =
       readonly phase: "idle";
       /** The last wheel sample of the current run (null: none, or the run went idle). */
       readonly lastWheel: number | null;
-      /** This wheel run broke the arming rules (or committed): it cannot arm until the wheel is idle `idleMs`. */
+      /** This wheel run broke the arming rules (or committed): it cannot arm until the wheel is idle `idle`. */
       readonly claimed: boolean;
     })
   | (Base & {
@@ -219,14 +219,14 @@ export function pagedSwipeReducer(state: PagedSwipeState, event: PagedSwipeInput
     case "idle": {
       if (event.type === "wheel") {
         if (state.context.blocked) return state;
-        const fresh = state.lastWheel === null || event.t - state.lastWheel >= config.idleMs;
+        const fresh = state.lastWheel === null || event.t - state.lastWheel >= config.idle;
         if (!fresh && state.claimed) return { ...state, lastWheel: event.t };
         const main = y ? event.dy : event.dx;
         const cross = y ? event.dx : event.dy;
         const side = arming(state.context, main, cross, config, wheelGates(event, config));
         const c = withSize(state.context, event.size);
         if (side === null) return idle(c, event.t, true);
-        if (Math.abs(main) >= config.thresholdPx) return track(c, "wheel", { x: 0, y: 0 }, main, event.t, 0, sizeOf(c, event.size, config), config);
+        if (Math.abs(main) >= config.threshold) return track(c, "wheel", { x: 0, y: 0 }, main, event.t, 0, sizeOf(c, event.size, config), config);
         return { phase: "armed", context: c, input: "wheel", origin: { x: 0, y: 0 }, travel: main, cross, last: event.t, progress: 0, target: null };
       }
       if (event.type === "touch-start") {
@@ -247,7 +247,7 @@ export function pagedSwipeReducer(state: PagedSwipeState, event: PagedSwipeInput
         const crossTravel = state.cross + cross;
         // The run as a whole must stay along the swipe.
         if (Math.abs(crossTravel) > Math.abs(travel) / 2) return idle(c, event.t, true);
-        if (Math.abs(travel) < config.thresholdPx) return { ...state, context: c, travel, cross: crossTravel, last: event.t };
+        if (Math.abs(travel) < config.threshold) return { ...state, context: c, travel, cross: crossTravel, last: event.t };
         return track(c, "wheel", state.origin, travel, event.t, towards(main, event.t - state.last, sideOf(travel)), sizeOf(c, event.size, config), config);
       }
       if (event.type === "touch-move") {
@@ -255,14 +255,14 @@ export function pagedSwipeReducer(state: PagedSwipeState, event: PagedSwipeInput
         const main = y ? state.origin.y - event.y : state.origin.x - event.x;
         const cross = y ? event.x - state.origin.x : event.y - state.origin.y;
         // Finger jitter.
-        if (Math.hypot(main, cross) < config.thresholdPx) return { ...state, last: event.t };
+        if (Math.hypot(main, cross) < config.threshold) return { ...state, last: event.t };
         const side = arming(state.context, main, cross, config, { ctrl: false, modifierHeld: true, canScrollFurther: event.canScrollFurther ?? false });
         // Across the swipe, or nowhere to go: the page owns this touch until it ends.
         if (side === null) return idle(state.context);
         const c = withSize(state.context, event.size);
         return track(c, "touch", state.origin, main, event.t, towards(main, event.t - state.last, side), sizeOf(c, event.size, config), config);
       }
-      if (event.type === "tick") return state.input === "wheel" && event.t - state.last >= config.idleMs ? idle(state.context) : state;
+      if (event.type === "tick") return state.input === "wheel" && event.t - state.last >= config.idle ? idle(state.context) : state;
       if (event.type === "touch-end") return state.input === "touch" ? idle(state.context) : state;
       if (event.type === "touch-start") return { ...state, context: withSize(state.context, event.size), input: "touch", origin: { x: event.x, y: event.y }, travel: 0, cross: 0, last: event.t };
       return state;
@@ -278,13 +278,13 @@ export function pagedSwipeReducer(state: PagedSwipeState, event: PagedSwipeInput
         const c = withSize(state.context, event.size);
         return track(c, state.input, state.origin, travel, event.t, peak, sizeOf(c, event.size, config), config);
       }
-      if (event.type === "tick") return state.input === "wheel" && event.t - state.last >= config.idleMs ? end(state, event.t, config) : state;
+      if (event.type === "tick") return state.input === "wheel" && event.t - state.last >= config.idle ? end(state, event.t, config) : state;
       if (event.type === "touch-end") return state.input === "touch" ? end(state, event.t, config) : state;
       return state;
     }
     case "settling": {
       if (event.type === "settled") {
-        if (state.outcome === "commit") return { phase: "lockout", context: state.context, until: state.ended + config.lockoutMs, lastWheel: state.lastWheel, progress: 0, target: null };
+        if (state.outcome === "commit") return { phase: "lockout", context: state.context, until: state.ended + config.lockout, lastWheel: state.lastWheel, progress: 0, target: null };
         return idle(state.context, state.lastWheel, false);
       }
       if (event.type === "wheel") return { ...state, lastWheel: event.t };
@@ -294,7 +294,7 @@ export function pagedSwipeReducer(state: PagedSwipeState, event: PagedSwipeInput
       if (event.type === "wheel") return event.t >= state.until ? idle(state.context, event.t, true) : { ...state, lastWheel: event.t };
       if (event.type === "tick") {
         if (event.t < state.until) return state;
-        return event.t - state.lastWheel < config.idleMs ? idle(state.context, state.lastWheel, true) : idle(state.context);
+        return event.t - state.lastWheel < config.idle ? idle(state.context, state.lastWheel, true) : idle(state.context);
       }
       // A finger is not momentum: it may start a swipe at once.
       if (event.type === "touch-start") return pagedSwipeReducer(idle(state.context), event, config);
@@ -312,7 +312,7 @@ function wheelGates(event: Extract<PagedSwipeInput, { type: "wheel" }>, config: 
 /** When the next `tick` is due: a wheel run's idle end, or the end of the lockout; `null` when none is. */
 export function pagedSwipeDeadline(state: PagedSwipeState, config: PagedSwipeConfig = PAGED_SWIPE_DEFAULTS): Deadline<PagedSwipeInput> | null {
   const tick = (t: number): PagedSwipeInput => ({ type: "tick", t });
-  if ((state.phase === "armed" || state.phase === "tracking") && state.input === "wheel") return { at: state.last + config.idleMs, event: tick };
+  if ((state.phase === "armed" || state.phase === "tracking") && state.input === "wheel") return { at: state.last + config.idle, event: tick };
   if (state.phase === "lockout") return { at: state.until, event: tick };
   return null;
 }

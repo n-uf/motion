@@ -6,7 +6,7 @@ import { createMachine, type Deadline, type Machine } from "./machine";
  * it fires, once.
  *
  * ```text
- * idle ──hover(key)──► dwelling ──tick (t − since ≥ dwellMs)──► fired
+ * idle ──hover(key)──► dwelling ──tick (t − since ≥ dwell)──► fired
  *   ▲        │ hover(other key) restarts `since`           │
  *   │        │ hover(null) ─► idle                         │
  *   └────────┴─────────────── reset ◄─────────────────────┘
@@ -22,11 +22,11 @@ import { createMachine, type Deadline, type Machine } from "./machine";
 /** Tunables of the dwell machine. */
 export interface DwellConfig {
   /** How long in ms the pointer must stay over the same key. Default 500. */
-  readonly dwellMs: number;
+  readonly dwell: number;
 }
 
 /** Defaults of {@link DwellConfig}. */
-export const DWELL_DEFAULTS: DwellConfig = { dwellMs: 500 };
+export const DWELL_DEFAULTS: DwellConfig = { dwell: 500 };
 
 /** The dwell machine's state. `K` is the target key, `P` the payload carried into `fired`. */
 export type DwellState<K = string, P = unknown> =
@@ -64,7 +64,7 @@ export function dwellReducer<K, P>(
       if (state.phase === "dwelling" && Object.is(state.key, event.key)) return state;
       return { phase: "dwelling", key: event.key, since: event.t, payload: event.payload };
     case "tick":
-      if (state.phase !== "dwelling" || event.t - state.since < config.dwellMs) return state;
+      if (state.phase !== "dwelling" || event.t - state.since < config.dwell) return state;
       return { phase: "fired", key: state.key, since: state.since, firedAt: event.t, payload: state.payload };
     default:
       return state;
@@ -77,7 +77,7 @@ export function dwellDeadline<K, P>(
   config: DwellConfig = DWELL_DEFAULTS,
 ): Deadline<DwellInput<K, P>> | null {
   if (state.phase !== "dwelling") return null;
-  return { at: state.since + config.dwellMs, event: (t) => ({ type: "tick", t }) };
+  return { at: state.since + config.dwell, event: (t) => ({ type: "tick", t }) };
 }
 
 /** Options of {@link createDwellMachine}. */
