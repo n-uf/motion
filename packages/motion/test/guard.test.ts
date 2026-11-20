@@ -47,4 +47,12 @@ describe("core stays host-free", () => {
   it("index.ts doesn't export the browser adapter", () => {
     expect(code(readFileSync(join(root, "index.ts"), "utf8"))).not.toMatch(/from\s+["'][^"']*browser/);
   });
+
+  it("the root exports everything host-free: every value of clock, signals, values, gestures, drag and layout", async () => {
+    const rootEntry: Record<string, unknown> = await import("../index");
+    for (const entry of ["clock", "signals", "values", "gestures", "drag", "layout"]) {
+      const mod: Record<string, unknown> = await import(`../src/${entry}/index.ts`);
+      for (const [name, value] of Object.entries(mod)) expect(rootEntry[name], `${entry}: ${name}`).toBe(value);
+    }
+  });
 });

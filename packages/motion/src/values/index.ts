@@ -1,11 +1,13 @@
 /**
  * `@n-uf/motion/values`: animators (spring, tween, settle), easing, `reveal`
- * and `popIn`, and `motionValue`, which steps an animator on a frame loop and
- * reads as a signal.
+ * and `popIn`, and `motionValue`, which steps an animator on a frame loop (a
+ * consumer follows it with `subscribe`; it also reads as a signal), with the
+ * shapes they animate.
  *
  * See docs/motion.md, "Values".
  */
 export type { Animator } from "./animator";
+export type { Animatable, Point, Rect, Vector, Widen } from "../shapes";
 export {
   cubicBezier,
   ease,

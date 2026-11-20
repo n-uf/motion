@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFakeClock, createFrameLoop } from "../src/clock";
+import { createFakeClock, createFrameCoalescer, createFrameLoop } from "../src/clock";
 import {
   createDwellMachine,
-  createFrameCoalescer,
   createMachine,
   createRecognizer,
   DWELL_IDLE,

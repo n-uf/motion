@@ -12,3 +12,4 @@ export { holdItem } from "./held";
 export type { HeldDrag } from "./held";
 export { anchoredMorph, MORPH_TEMPO } from "./anchored";
 export type { AnchoredMorph, BoxSize } from "./anchored";
+export type { Point, Rect } from "../shapes";

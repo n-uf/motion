@@ -1,7 +1,7 @@
 {
   "name": "@n-uf/motion",
-  "version": "26.11.53",
-  "description": "How things move: one frame loop with an injected clock, fine-grained signals, springs, tweens and the settle curve, a DOM-free gesture recognizer, the drag intent and the landing model, and layout motion. No DOM, no framework.",
+  "version": "26.11.52",
+  "description": "How things move: one frame loop with an injected clock, springs, tweens and the settle curve, a DOM-free gesture recognizer, the drag intent and the landing model, and layout motion. No DOM, no framework.",
   "keywords": [
     "animation",
     "motion",

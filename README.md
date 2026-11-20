@@ -15,8 +15,8 @@ built on placement and meets motion the same way.
 
 ## @n-uf/motion: how things move
 
-One frame loop with an injected clock, fine-grained signals, springs, tweens and the settle curve, a DOM-free gesture
-recognizer, the drag intent and the landing model, and layout motion. It knows nothing about the DOM, canvas or React;
+One frame loop with an injected clock, springs, tweens and the settle curve, a DOM-free gesture recognizer, the drag
+intent and the landing model, and layout motion. It knows nothing about the DOM, canvas or React;
 hosts hand it a clock and plain event objects and read plain numbers back.
 
 ```sh
