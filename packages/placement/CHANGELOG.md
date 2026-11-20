@@ -9,7 +9,7 @@ Place guides for every spot, drawn as they land, and a fix to the grab's cut (R1
 
 Host notes:
 - `LaneMark.kind` and `LandingCaseGuide.kind` gain `"hatch"`: a host with an exhaustive `switch` adds a case. A hatch
-  lies over an item (the neighbor that gives way); draw it there in the guides' colour, never the accent.
+  lies over an item (the neighbor that gives way); draw it there in the guides' color, never the accent.
 - Mark ids gain suffixes: `:before` / `:after` (a room box beside the held item, a hatch's side of its room), `#<n>`
   for pieces. Key drawings by id as before; don't parse them.
 - As seen (no `spot`) the lifted item is drawn nowhere, so its own place is free room in its lane. Draw the held lane's
