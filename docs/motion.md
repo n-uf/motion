@@ -286,7 +286,7 @@ Rules: every preview mode follows the same intent, so a drop lands where the pre
 
 | Type | Holds |
 | --- | --- |
-| `LandingRegions` | `lanes`, `refused` (rects that take nothing), `content` (the area documents are drawn in), `blocked` (rects on it that block), `stage` (the window), `item` (the held item's size). |
+| `LandingRegions` | `lanes`, `refused` (rects that take nothing), `content` (where a float can land; placement's `lanes()` gives its float region), `blocked` (rects on it that block), `stage` (the window), `item` (the held item's size). |
 | `LandingLane` | `id`, `rect`, `axis` (`"x"` or `"y"`), `spots`, `refused` (stretches along the lane that take nothing), optional `marks` (the guides) and `owns`. |
 | `LandingSpot` | `id` (stable across solves), `along` (its stretch of the lane), `landing` (the rect the item lands in), optional `others` (a key for how the drop draws every other item). |
 | `LandingMark` | A guide mark: `kind` `"line"`, `"box"` or `"hatch"`, `rect`, optional `id`. |
@@ -303,7 +303,7 @@ Rules: every preview mode follows the same intent, so a drop lands where the pre
 **The rules.** Every change comes from where the pointer is and how it moved (a margin, a path length, a step size). The model has no waits of its own.
 
 - **The stage's edge is the easiest place to dock.** A pointer up to `edge` (48 px) past the stage counts as on its edge, deep inside the lane drawn there; beyond that it is nowhere.
-- **A held lane holds** while the pointer is within `exit` (12 px) of its rect, whatever lies under it. Inside it, over a spot's stretch the pointer is at that spot; over a refused stretch it is refused ("Can't go here"). Placement's `lanes()` joins a stretch shorter than the item to its neighbor spots.
+- **A held lane holds** while the pointer is within `exit` (12 px) of its rect, whatever lies under it. Inside it, over a spot's stretch the pointer is at that spot; over a refused stretch it is refused ("Can't go here"). Past its rect, where it refuses and the pointer is inside another lane not entered yet, the frame also names that lane `pending`, so a host shows no "Can't go here" in a lane's first pixels. Placement's `lanes()` joins a stretch shorter than the item to its neighbor spots.
 - **Entering a lane takes one of two gates.** Either `path` (40 px) of slow pointer path along the lane inside it, counting only steps of at most `step` (3 px per 8 ms, 0.375 px/ms; the step that enters does not count), or a still step (at most `still`, 1.5 px per 8 ms) once `depth` (8 px) inside it, the depth counted only from the lane's sides that face into the stage (on the stage's edge the depth is unlimited). A fly-through of a thin bar or rail meets neither, so it opens no room. The first point of a drag (the lift) is never still.
 - **Over a place that takes nothing** (a lane's band lying over a column or a blocked area, in no other lane) a lane is entered on the first slow step there, never on the lift: nothing else can be meant there. A fly-through still opens no room.
 - **Lane to lane never passes through the float.** Inside a lane that touches the held one, past the held lane's exit margin, the held lane holds until that lane's gate passes, or until the pointer has slid `path` px along it at any speed with at most a third as much movement across it. Then that lane takes the pointer. A fast crossing of the touching lane opens no room.
