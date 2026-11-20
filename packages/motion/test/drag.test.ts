@@ -4,7 +4,6 @@ import {
   createDragIntent,
   createGripPress,
   DRAG_DEFAULTS,
-  DOUBLE_CLICK,
   DRAG_PREVIEW_DEFAULT,
   inRect,
   liftDecision,
@@ -20,6 +19,7 @@ import {
   type PreviewMode,
   type PreviewPlan,
 } from "../src/drag";
+import { DOUBLE_CLICK } from "../src/gestures";
 
 const FRAME = 1000 / 60;
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });

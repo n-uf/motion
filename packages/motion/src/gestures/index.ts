@@ -1,11 +1,14 @@
 /**
  * `@n-uf/motion/gestures`: the gesture recognizer (plain events in, one
- * gesture stream out), wheel rules, modifier keys, the frame coalescer, the
- * machine runner, and the dwell, touch-press and paged-swipe machines.
+ * gesture stream out), the double click, wheel rules, modifier keys (the
+ * package's one `ModifierKey`), the machine runner, and the dwell,
+ * touch-press and paged-swipe machines.
  *
  * See docs/motion.md, "Gestures".
  */
 export * from "./types";
+export { DOUBLE_CLICK, type DoubleClick } from "../double-click";
+export type { Point } from "../shapes";
 export { defaultDragModifier, isHeld, modHeld, platformButton, resolveDragModifier, toModifiers } from "./modifiers";
 export {
   classifyWheel,
@@ -24,8 +27,6 @@ export {
   type RecognizerOptions,
   type RecognizerTimers,
 } from "./recognizer";
-export { createFrameCoalescer } from "./coalescer";
-export type { CoalescerOptions, FrameCoalescer } from "./coalescer";
 export { createMachine } from "./machine";
 export type { Deadline, Machine, MachineOptions } from "./machine";
 export { createDwellMachine, DWELL_DEFAULTS, DWELL_IDLE, dwellDeadline, dwellReducer } from "./dwell";

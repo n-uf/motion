@@ -4,8 +4,8 @@
  * layout targets → motion values spring toward them → one write per frame.
  */
 import { describe, expect, it } from "vitest";
-import { createFakeClock, createFrameLoop } from "../src/clock";
-import { createFrameCoalescer, createRecognizer, type RawPointerEvent } from "../src/gestures";
+import { createFakeClock, createFrameCoalescer, createFrameLoop } from "../src/clock";
+import { createRecognizer, type RawPointerEvent } from "../src/gestures";
 import type { Point } from "../src/shapes";
 import { batch, computed, effect, signal } from "../src/signals";
 import { springValue } from "../src/values";

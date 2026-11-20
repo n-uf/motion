@@ -1,4 +1,4 @@
-import type { FrameSource } from "../clock/port";
+import type { FrameSource } from "./port";
 
 /** Options of {@link createFrameCoalescer}. */
 export interface CoalescerOptions<T> {
