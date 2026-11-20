@@ -159,13 +159,14 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
 .pnum { display: grid; gap: 0; margin: 0; font: 600 12px/1.4 var(--font-mono); color: var(--k); }
 .pline { margin: auto 0 0; padding-top: var(--s3); font: 12px/1.4 var(--font-mono); color: var(--text-3); }
 /* Docking: the lab's Document window, static (styles/hero-doc.css). Only the accent of the handles is rose. */
-.dockzone .hdw { margin: 0; }
-/* Wide: the window fills the cell from its top edge down to its line (the cell's height is the row's), scaled to fit and never
-   stretched. Stacked, the cell has no height of its own, so the window keeps its aspect ratio. */
-@media (min-width: 1101px) {
-  .dockzone .hdw { flex: 1 1 0; min-height: 0; aspect-ratio: auto; container-type: size; }
-  .dockzone .hdw-in { transform: scale(min(tan(atan2(100cqw, calc(var(--hd-w) * 1px))), tan(atan2(100cqh, calc(var(--hd-h) * 1px))))); }
-}
+.dockzone .hdw { flex: none; margin: 0; }
+/* The dock state in words, read off the solve result: name, where it sits and its form, a panel's size. Any spare height of the
+   cell lies between the window and these lines, so they and the closing line end at the cell's bottom, like placement's rows. */
+.dlines { display: grid; grid-template-columns: max-content max-content minmax(0, 1fr); gap: 0 12px; margin: auto 0 0; padding: var(--s3) 0 0; list-style: none; font: 500 12px/1.45 var(--font-mono); color: var(--text-2); }
+.dlines li { display: contents; }
+.dlines li > span:first-child { font-weight: 700; color: var(--text); }
+.dlines li > span:last-child { color: var(--k); font-weight: 600; }
+.dockzone .pline { margin-top: 0; padding-top: var(--s3); }
 .dockzone .hd-dots { background-image: radial-gradient(var(--dock) 1.2px, transparent 1.4px); }
 
 /* ---- The panel: the real element, and the strobe trail ----------------------------------------------------------- */
