@@ -40,6 +40,7 @@ export {
   GRAB_SINCE,
   GRIP_SINCE,
   ROOM_SINCE,
+  STEP_SINCE,
   LANDING_CASES,
   landingIssues,
   LANES_DEADLINE,
