@@ -349,7 +349,9 @@ drag of `id`:
     entry is the mark after it, the held item aside: an empty top bar's box lies over the panel columns that move down
     when it opens, not cut at them. Its hit `rect` stays as seen; the guide may lie over a column that hasn't moved
     yet. Under `emptyLanes: "edge"` nothing is predicted (the thin strips as seen), nor in a lane with more than one
-    spot (pitched stretches). Lanes that hold items keep their marks as seen, and with `spot` held nothing changes.
+    spot (pitched stretches). Lanes that hold items keep their marks as seen. With `spot` held, an empty lane's marks
+    don't change but for the corner: every other lane whose marks as seen are predicted keeps them, less the held lane's
+    marks (which own their corners), so entering a rail doesn't cut the empty top bar at the columns again.
   - **The shared corner.** Two predictions can claim one corner (an empty top bar and an empty rail), and a prediction
     can lie over another lane's marks (a drawn rail's free end). `lanes()` stays pointer-free: in `marks` a prediction
     gives the overlap up, to every lane not predicted, and between two predicted lanes to the bar (the earlier of two

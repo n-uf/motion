@@ -14,7 +14,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   prediction overlaps another lane's marks, `marks` gives the overlap up (to a lane not predicted; between two predicted
   lanes, to the bar), so no two lanes' `marks` overlap; **`Lane.entry`** keeps the prediction whole, each corner its
   own, and **`Lane.corners`** names the lanes it overlaps, so a landing model gives the corner to the lane the pointer
-  picks (`@n-uf/motion` reads them). Lanes that hold items keep their marks; a held spot's regions are unchanged;
+  picks (`@n-uf/motion` reads them). An empty lane's marks don't change when another lane is entered, but for the
+  corner: with `spot` held, every other lane whose marks as seen are predicted keeps them (not cut at the columns that
+  move aside once it opens), less the held lane's marks, which own their corners. Lanes that hold items keep their
+  marks, and the held lane's are its spot's;
   `emptyLanes: "edge"` and lanes with several spots (pitched stretches) predict nothing. Host notes: a host that draws
   `lanes()` marks itself sees an empty bar's box over the columns as seen; one that draws the landing model's guides
   gets the corner rule with no change.

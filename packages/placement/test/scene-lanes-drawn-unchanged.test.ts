@@ -1,7 +1,8 @@
 /**
- * The prediction of an empty lane's guide (its marks in its spot's after-entry layout) touches only that lane. A lane that already holds items (drawn as seen) keeps the marks it had, and
- * with a spot held every lane's marks are those of that spot's layout, as before. Pinned against the marks `lanes()` gave
- * before the rule (`fixtures/lanes-drawn-marks.txt`), over the windows of the guide-continuity sweep.
+ * The prediction of an empty lane's guide (its marks in its spot's after-entry layout) touches only the empty lanes. A
+ * lane that already holds items (drawn as seen) keeps the marks it had, and with a spot held every lane but the empty
+ * ones takes its marks in that spot's layout, as before; an empty lane keeps its prediction there, less the held lane's
+ * marks. Pinned (`fixtures/lanes-drawn-marks.txt`) over the windows of the guide-continuity sweep.
  */
 import { describe, expect, it } from "vitest";
 import type { Rect } from "../src/geometry";
