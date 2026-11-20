@@ -96,6 +96,11 @@ export interface Lane {
   readonly refused: readonly LaneRefusal[];
   /** Its place guides' marks, in the layout as drawn (the held spot's, with `options.spot`). */
   readonly marks: readonly LaneMark[];
+  /**
+   * Its rect is its own: a rail drop strip at the window's side (`Scene.railDrop`), which every other target of the drag
+   * gives up. A landing model gives it the pointer inside it over any lane it overlaps (a flush column's edge).
+   */
+  readonly owns?: true;
 }
 
 /** Everything a landing model reads for one drag. */
@@ -451,7 +456,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
         extent,
       })
     : virtualMarks(id, unique, drawn.items[dragged]);
-  return { id, rect: laneRect, axis, spots, refused, marks };
+  return { id, rect: laneRect, axis, spots, refused, marks, ...(list.every((r) => r.strip) ? { owns: true as const } : {}) };
 }
 
 /** A rect spanning `[a, b]` along `axis` and `r` across it. */

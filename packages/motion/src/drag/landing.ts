@@ -21,7 +21,9 @@ import type { PlaceGuides } from "./preview";
  *   until that lane's gate passes or the pointer has slid `path` px along it at any speed (across it at most a third as
  *   far): lane to lane never passes through the float, and never opens a crossed lane's room. Over a refused place (a
  *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered on the first slow step
- *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room.
+ *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room. A lane that owns
+ *   its rect (`owns`: a rail drop strip at the window's side) takes the pointer inside it from any lane it overlaps, a
+ *   held one too, once its own gate passes.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
@@ -71,6 +73,11 @@ export interface LandingLane {
   readonly refused: readonly { readonly along: readonly [number, number] }[];
   /** Its guides' marks; absent, its spots' landings are the guides. */
   readonly marks?: readonly LandingMark[];
+  /**
+   * Its rect is its own (a rail drop strip at the window's side): inside it, once its gate passes, it takes the pointer
+   * from any lane it overlaps, a held one too. Absent: where lanes overlap, the deeper one wins.
+   */
+  readonly owns?: boolean;
 }
 /** A drag's regions (`lanes()` gives them). */
 export interface LandingRegions {
@@ -382,7 +389,10 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const touching = held ? regions.lanes.find((l) => l.id !== held.id && strictlyIn(l.rect, p) && touches(l.rect, held.rect) && !inside(held.rect, p, margins.exit)) : undefined;
       const sl = touching ? slide.get(touching.id) : undefined;
       const slid = !!sl && sl.along >= gates.path && sl.across * 3 <= sl.along;
-      const next = touching && (gate(touching) || slid) ? touching : undefined;
+      // A lane that owns its rect (a rail drop strip) takes the pointer inside it from any lane it overlaps, a held one
+      // too, once its own gate passes (so a pass across it opens nothing).
+      const owner = regions.lanes.find((l) => l.owns && l.id !== held?.id && strictlyIn(l.rect, p) && gate(l));
+      const next = owner ?? (touching && (gate(touching) || slid) ? touching : undefined);
       if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
         const s = along(held, p, step);
         spotId = s?.id ?? spotId;

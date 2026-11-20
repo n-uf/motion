@@ -509,3 +509,25 @@ describe("landing model: a lane lying over a place that takes nothing is entered
     expect(slow.frames.at(-1)!.f.lane).toBe("top");
   });
 });
+
+describe("landing model: a lane that owns its rect (a rail drop strip) takes the pointer inside it", () => {
+  /** railWindow with a column lane at the right (x 840–1080) and a 32 px strip lane over its outer edge (x 1048–1080). */
+  const withStrip = (owns: boolean): LandingRegions => {
+    const r = railWindow();
+    const column: LandingLane = { id: "right", rect: rect(840, 32, 240, 576), axis: "y", spots: [{ id: "right/start/^|$", along: [32, 608], landing: rect(840, 32, 240, 200) }], refused: [] };
+    const strip: LandingLane = { id: "rail:right", rect: rect(1048, 32, 32, 576), axis: "y", spots: [{ id: "rail:right/end", along: [32, 608], landing: rect(1048, 32, 32, 40) }], refused: [], ...(owns ? { owns: true } : {}) };
+    return { ...r, lanes: [r.lanes[0]!, r.lanes[1]!, column, strip], refused: [] };
+  };
+
+  it("held in the column it overlaps, a pointer settled in the strip goes to the strip; without `owns` the column keeps it", () => {
+    const keys = path([{ x: 900, y: 300 }, { x: 1064, y: 300 }], 0.3);
+    const t = keys.at(-1)![0];
+    const settled = (owns: boolean): string | null => run(base({ regions: withStrip(owns), home: { lane: "right", spot: "right/start/^|$" } }), [...keys, [t + 120, 1064, 300]]).frames.at(-1)!.f.lane;
+    expect([settled(true), settled(false)]).toEqual(["rail:right", "right"]);
+  });
+
+  it("a fast pass across the strip, out of the window's side and back, opens nothing in it before its gate passes", () => {
+    const { frames } = run(base({ regions: withStrip(true), home: { lane: "right", spot: "right/start/^|$" } }), path([{ x: 900, y: 300 }, { x: 1079, y: 300 }, { x: 900, y: 320 }], 3));
+    expect(frames.filter(({ f }) => f.lane === "rail:right").length).toBe(0);
+  });
+});
