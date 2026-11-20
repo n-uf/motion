@@ -19,8 +19,11 @@ import type { PlaceGuides } from "./preview";
  *   two sides parallel to its axis that face into the stage (on the edge it is deep), never from its ends along its axis
  *   (a rail's end that meets a bar is no wall). A fly-through of a thin bar or rail at any angle meets neither, so its
  *   room never opens. Inside a lane that touches the held one, past the held lane's exit margin, the held lane holds
- *   until that lane's gate passes or the pointer has slid `path` px along it at any speed (across it at most a third as
- *   far): lane to lane never passes through the float, and never opens a crossed lane's room. Over a refused place (a
+ *   until that lane's gate passes or the pointer has slid `path` px along it (across it at most a third as far) at a
+ *   brisk hand, no step above `slide` (2 px/ms): lane to lane never passes through the float, and never opens a crossed
+ *   lane's room. A fling faster than that, along the lane or across it, is no entry: the touching lane is entered only by
+ *   its own gate (the slow path, or a rest past `pause`). The cost: above 2 px/ms a hand sliding along a corner lane
+ *   keeps the previous lane's end spot until it slows or rests. Over a refused place (a
  *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered on the first slow step
  *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room. A lane that owns
  *   its rect (`owns`: a rail drop strip at the window's side) takes the pointer inside it from any lane it overlaps, a
@@ -168,6 +171,11 @@ export interface LandingGates {
   readonly rest: number;
   /** The time a pointer that last moved fast has to stay put before it counts as still, ms: longer than sample gaps. */
   readonly pause: number;
+  /**
+   * The largest step at which a slide along a lane touching the held one takes it, px per 8 ms (default 16: 2 px/ms).
+   * Above it a fling is no entry; the lane's own gate (the slow path, or a rest past `pause`) still enters it.
+   */
+  readonly slide: number;
 }
 /**
  * The approach for near guides, with the pointer in open space: the nearest lane within `reach`, kept until another is
@@ -186,7 +194,7 @@ export interface LandingApproach {
 export const LANDING_MARGINS: LandingMargins = { exit: 12, spot: 6, edge: 48, lift: 16 };
 /** A touch: wider margins, the finger's jitter. */
 export const LANDING_TOUCH_MARGINS: LandingMargins = { exit: 16, spot: 8, edge: 48, lift: 16 };
-export const LANDING_GATES: LandingGates = { path: 40, depth: 8, still: 1.5, step: 3, trail: 40, rest: 22, pause: 60 };
+export const LANDING_GATES: LandingGates = { path: 40, depth: 8, still: 1.5, step: 3, trail: 40, rest: 22, pause: 60, slide: 16 };
 export const LANDING_APPROACH: LandingApproach = { reach: LANDING_MARGINS.exit, keep: LANDING_MARGINS.exit, nearer: 16 };
 
 export interface LandingOptions {
@@ -492,8 +500,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     const regions = heldRegions(spotId);
     // The path inside each lane: the part along the lane of slow steps from a point inside it to another (the step that
     // enters doesn't count, nor a fast one), so a crossing at `step` speed or faster never enters by path at any angle.
-    // From a held lane, a touching lane counts the path along it and across it at any speed: a fast slide along it
-    // (across it at most a third as far as along) is no crossing.
+    // From a held lane, a touching lane counts the path along it and across it at any speed: a brisk slide along it
+    // (across it at most a third as far as along, no step above `slide`) is no crossing.
     const slow = step <= gates.step;
     for (const l of regions.lanes) {
       const was = from && strictlyIn(l.rect, from);
@@ -520,7 +528,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       // them, never a fly-through's room.
       const touching = held ? regions.lanes.find((l) => l.id !== held.id && strictlyIn(l.rect, p) && touches(l.rect, held.rect) && !inside(held.rect, p, margins.exit)) : undefined;
       const sl = touching ? slide.get(touching.id) : undefined;
-      const slid = !!sl && sl.along >= gates.path && sl.across * 3 <= sl.along;
+      // A fling (a step above `slide`) is no entry, along the lane as well as across it.
+      const slid = !!sl && sl.along >= gates.path && sl.across * 3 <= sl.along && step <= gates.slide;
       // A lane that owns its rect (a rail drop strip) takes the pointer inside it from any lane it overlaps, a held one
       // too, once its own gate passes (so a pass across it opens nothing), and only once the pointer came into it (it has
       // been outside it since the lift): a press in a column's outer edge, or a slow reorder along it, stays in the column.

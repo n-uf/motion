@@ -235,12 +235,21 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     }
   });
 
-  it("a fast crossing from a held lane through a touching one opens no room in it; a fast slide along it takes it", () => {
+  it("a fast crossing from a held lane through a touching one opens no room in it; a brisk slide along it takes it", () => {
     for (const speed of [0.6, 1.5, 3]) {
       const across = run(base({ home: { lane: "top", spot: "top/start/^|$@0" } }), path([{ x: 60, y: 16 }, { x: 15, y: 50 }, { x: 200, y: 300 }], speed));
       expect(across.frames.some((x) => x.f.lane === "rail-left"), `${speed}`).toBe(false);
-      const along = run(base({ home: { lane: "top", spot: "top/start/^|$@0" } }), path([{ x: 60, y: 16 }, { x: 15, y: 50 }, { x: 15, y: 300 }], speed));
-      expect(along.frames.at(-1)!.f.lane, `${speed}`).toBe("rail-left");
+      const keys = path([{ x: 60, y: 16 }, { x: 15, y: 50 }, { x: 15, y: 300 }], speed);
+      const along = run(base({ home: { lane: "top", spot: "top/start/^|$@0" } }), keys);
+      // Rule 195b2088 ("a touching lane takes a fast slide along it") is capped at `gates.slide`, 2 px/ms: a fling at
+      // 3 px/ms is no entry, and the rail takes it only once the hand rests there past `pause` (60 ms; 80 here, as the
+      // frames fall every 8 ms after the path's end).
+      if (speed <= 2) expect(along.frames.at(-1)!.f.lane, `${speed}`).toBe("rail-left");
+      else {
+        expect(along.frames.some((x) => x.f.lane === "rail-left"), `${speed}`).toBe(false);
+        const held = run(base({ home: { lane: "top", spot: "top/start/^|$@0" } }), [...keys, [keys.at(-1)![0] + 80, 15, 300]]);
+        expect(held.frames.at(-1)!.f.lane, `${speed} held 80 ms`).toBe("rail-left");
+      }
     }
   });
 
