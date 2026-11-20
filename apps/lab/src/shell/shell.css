@@ -46,7 +46,7 @@ a { color: var(--accent-strong); text-underline-offset: 3px; }
 .brand-curve { stroke: var(--text); stroke-width: 2.6; }
 .brand-dot { fill: var(--accent); stroke: none; }
 .wordmark { white-space: nowrap; }
-.brand-ns, .brand-amp { font-weight: 500; color: var(--text-2); letter-spacing: -0.01em; }
+.brand-ns { font-weight: 500; color: var(--text-2); letter-spacing: -0.01em; }
 /* The sidebar is narrower than the site's top bar: "n-uf" goes, as it does there at phone width. */
 .lab-brand .brand-ns { display: none; }
 .lab-badge { margin-left: auto; padding: 0 7px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-size: 10.5px; font-weight: 650; line-height: 17px; letter-spacing: 0.04em; text-transform: uppercase; }
