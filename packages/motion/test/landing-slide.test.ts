@@ -69,12 +69,25 @@ describe("landing model: sliding spots", () => {
       const want = Math.min(296, Math.max(8, p.x - GRAB.x));
       const snapped = [8, 150, 296].some((q) => Math.abs(q - want) <= SNAP_DISTANCE);
       if (snapped) continue;
-      expect(f.landing!.x).toBeCloseTo(want, 9);
-      // The pointer holds the landing where the item was grabbed.
-      expect(f.landing!.x + GRAB.x - p.x).toBeCloseTo(0, 9);
+      // On whole pixels (the spot's grain), so within half a pixel of the pointer's own place.
+      expect(f.landing!.x).toBe(Math.round(want));
+      expect(Math.abs(f.landing!.x + GRAB.x - p.x)).toBeLessThanOrEqual(0.5);
       free++;
     }
     expect(free).toBeGreaterThan(50);
+  });
+
+  it("a start that snaps to nothing lies on the spot's grain: whole px by default, `step` of its own, 0 for none", () => {
+    const withStep = (step: number | undefined): LandingOptions => {
+      const r = regions();
+      const spots = r.lanes[0]!.spots.map((s) => ({ ...s, slide: { ...s.slide!, ...(step === undefined ? {} : { step }) } }));
+      return opts({ regions: { ...r, lanes: [{ ...r.lanes[0]!, spots }] } });
+    };
+    const land = (o: LandingOptions, x: number): number => drive(o, [PRESS, at(x + GRAB.x)]).frames.at(-1)!.f.landing!.x;
+    expect(land(withStep(undefined), 200.4)).toBe(200);
+    expect(land(withStep(undefined), 200.6)).toBe(201);
+    expect(land(withStep(5), 202.6)).toBe(205);
+    expect(land(withStep(0), 200.4)).toBeCloseTo(200.4, 9);
   });
 
   it("snaps within the snap distance to either end and to the item's own place, and clamps past the ends", () => {
