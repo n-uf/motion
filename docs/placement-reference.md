@@ -311,9 +311,13 @@ drag of `id`:
   - A `box` over each free stretch the item fits in. Beside the held item, the room left of its stretch is a box from
     a pitch on a bar or a toolbar rail (`:before` or `:after` the item in its id, so it keeps it while the item glides).
     A growing item there (a title filling its bar) counts at its natural length, so its slack is free room.
-  - Room that partly fits (from a pitch, shorter than the item) is a `box` over the free room with a fixed striped end
-    inside it (`hatch`, `HATCH_END`) at each side whose neighbor gives way (`:before` or `:after` in its id); nothing
-    is drawn on the neighbor. Room under a pitch, or none (touching items, a lane's end flush), is a `line`; a panel
+  - A neighbor gives way when the item lands in the room beside it: it moves away from the room, leaves the lane (the
+    menu, a float), or steps down to a shorter form than it has now. The same rule makes a stretch (below). On a bar
+    or a toolbar rail a room's `box` has a fixed striped end inside it (`hatch`, `HATCH_END`) at each side whose
+    neighbor gives way (`:before` or `:after` in its id, the neighbor's id in its `givesWay`), whether or not the room
+    as seen is shorter than the item; where no neighbor gives way the box is plain (an item that fits by taking
+    another form itself, say). Room that partly fits (from a pitch, shorter than the item) is such a box; nothing is
+    drawn on the neighbor. Room under a pitch, or none (touching items, a lane's end flush), is a `line`; a panel
     column keeps its lines. A hatch is a cue, never a measure of the landing.
   - An empty lane (`options.emptyLanes`): `"real"` (default) a box at its real size, the band it would open (an empty
     side rail's over a column's outer strip, which moves aside); `"edge"` a thin striped strip (`HATCH_EDGE`) on its
@@ -339,7 +343,14 @@ drag of `id`:
   host has every target and refusal of the lift from one call.
 
 A bar's free stretches, and a toolbar rail's (a compact edge, along its length), get spots at `SPOT_PITCH` (40 px;
-`options.pitch`), each a dock keeping `space`, so a toolbar lands close to the hand; an empty bar gets them over its whole length less its padding. `pitch` of 0 or less turns pitched spots off. The item's own place is one landing for half a pitch around it, so away and back to the press point is home. Where a stretch is too short for the
+`options.pitch`), each a dock keeping `space`, so a toolbar lands close to the hand; an empty bar gets them over its whole length less its padding. `pitch` of 0 or less turns pitched spots off. The item's own place is one landing for half a pitch around it, so away and back to the press point is home.
+
+A stretch is the room the drop makes, not only the room as seen: it runs from flush after the neighbor before it to
+flush before the one after it in the forms a drop there leaves them in. Where the edge has no room for the item beside
+a neighbor's form as seen, the drop steps that neighbor (or another item) down to a shorter form, and that room
+counts; the forms don't depend on the space a dock keeps (space comes out of the spare length), so every start in the
+stretch finds them alike. A dock's push of a neighbor that keeps no room for it is no room made: an end with no zone of
+its own (after a start item, before an end item) stays where it is seen when its neighbor would move away. Where a stretch is too short for the
 item, or is bounded on both sides by zones the held item cannot dock in (no start-zone item or edge start before it, no end-zone item or edge end after it), it has none, so coverage is not universal: a point next to a center item that
 doesn't fit beside it can still be far from its landing (452 px at worst in the sweep scenes).
 
@@ -364,7 +375,9 @@ A step comes only where the order
 changes (passing a neighbor): the cut beside a sliding spot reads its landing flush against the neighbor between them.
 Its guides are its stretch's one box, also while it is held. The range holds the landings that land where aimed with
 every fixed item kept (checked at its ends and every `pitch` px between; under `"free"` `pitch` only sets that sampling
-step, `SPOT_PITCH` (40 px) when it is 0 or less, and never makes a spot). A stretch shorter than the item has no sliding
+step, `SPOT_PITCH` (40 px) when it is 0 or less, and never makes a spot). A stretch (the room the drop makes, above:
+over room as seen shorter than the item that a neighbor steps down to make, the range runs from flush after its short
+form) shorter than the item has no sliding
 spot, nor has one bounded on both sides by zones the held item cannot dock in (no start-zone item or edge start before
 it, no end-zone item or edge end after it); its plain docks stay spots of their own. Next to a center item a stretch
 still has one wherever a zone can take the item. A center dock's snap commits that dock as it is, so it moves its center
