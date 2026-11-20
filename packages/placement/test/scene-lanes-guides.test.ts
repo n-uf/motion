@@ -7,7 +7,7 @@ import type { Rect } from "../src/geometry";
 import { lanes, solve, SPOT_PITCH, type Scene, type SceneItem } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { modelScene } from "./model-scene";
-import { bar, byId, group } from "./scene-fixture";
+import { bar, byId, column, controls, group, panel, title } from "./scene-fixture";
 
 const scenes = (): [string, Scene][] => [
   ["window A", winScene(WINDOW_A, { size: 300 })],
@@ -75,12 +75,28 @@ describe("lanes(): guide marks", () => {
         const prev = solve(s);
         const seen = lanes(s, id, { previous: prev });
         const check = (ls: typeof seen.lanes, drawn: ReturnType<typeof solve>, spot: string): void => {
+          // As seen, the lifted item is drawn nowhere in a lane (its own place is free); with a spot held, at that spot.
+          const lifted = spot === "seen";
           for (const l of ls) {
-            const items = Object.values(drawn.items).filter((it) => it.edge === l.id && !it.inMenu && !it.floating && it.rect.width > 0 && it.rect.height > 0);
+            // A growing item at its natural length: what it draws past that is free stretch (marked like one).
+            const edge = s.edges.find((x) => x.id === l.id);
+            const barLike = !!edge && (edge.side === "top" || edge.side === "bottom" || !!edge.compact);
+            const natural = (iid: string, r: Rect): Rect => {
+              const main = barLike ? s.items[iid]?.forms[l.axis === "x" ? "row" : "column"]?.[0]?.main : undefined;
+              if (!main?.grows || main.natural >= len(r, l.axis)) return r;
+              return l.axis === "x" ? { ...r, width: main.natural } : { ...r, height: main.natural };
+            };
+            const items = Object.entries(drawn.items)
+              .filter(([iid, it]) => it.edge === l.id && !it.inMenu && !it.floating && it.rect.width > 0 && it.rect.height > 0 && !(lifted && iid === id))
+              .map(([iid, it]) => ({ rect: iid === id ? it.rect : natural(iid, it.rect) }));
             const itemLen = Math.min(...l.spots.map((sp) => len(sp.landing, l.axis)));
             for (const m of l.marks) {
               for (const it of items) expect(overlaps(m.rect, it.rect), `${name} ${id} ${spot} ${l.id} ${m.kind}`).toBe(false);
-              if (m.kind === "box") expect(len(m.rect, l.axis) + 1e-6, `${name} ${id} ${l.id}`).toBeGreaterThanOrEqual(itemLen);
+              // A box fits the item; beside the held item (`:before`, `:after`), on a bar or a toolbar rail, a pitch does.
+              const beside = /:(before|after)(#\d+)?(~2)?$/.test(m.id);
+              const e = s.edges.find((x) => x.id === l.id);
+              const compact = !!e && (e.side === "top" || e.side === "bottom" || !!e.compact);
+              if (m.kind === "box") expect(len(m.rect, l.axis) + 1e-6, `${name} ${id} ${l.id} ${m.id}`).toBeGreaterThanOrEqual(beside && compact ? Math.min(itemLen, SPOT_PITCH) : itemLen);
             }
           }
         };
@@ -138,6 +154,172 @@ describe("lanes(): guide marks", () => {
           const itemLen = Math.min(...l.spots.map((sp) => len(sp.landing, l.axis)));
           for (const f of l.refused) expect(f.along[1] - f.along[0] + 1e-6, `${name} ${id} ${l.id}`).toBeGreaterThanOrEqual(itemLen);
         }
+  });
+});
+
+/**
+ * A document window: a title bar (a fixed title, two toolbars, fixed controls), a top bar (empty, or holding views),
+ * a bottom bar of toolbars, toolbar rails at both sides (tools and zoom at the left) with a 4 px gap, panel columns.
+ */
+function docWindow(top: string[] = []): Scene {
+  const sized = (id: string, used: number, w: number): SceneItem => {
+    const g0 = group(id, used);
+    return { ...g0, forms: { ...g0.forms, row: [{ ...g0.forms.row![0]!, main: { min: w, natural: w } }, ...g0.forms.row!.slice(1)] } };
+  };
+  const COL = { accepts: ["panel"], cross: { min: 180, max: 480, rail: 30 } };
+  const rail = (id: string, side: "left" | "right", items: string[]): Scene["edges"][number] => ({ id, side, ring: 0, accepts: ["group"], items, cross: { min: 30, max: 30, rail: 30 }, compact: true, gap: 4, pad: { start: 4, end: 4 } });
+  return {
+    stage: { x: 0, y: 0, width: 1080, height: 640 },
+    edges: [
+      bar("title", "top", 0, ["title", "tz", "rd", "controls"]),
+      bar("top", "top", 1, top),
+      bar("bottom", "bottom", 0, ["views", "review"].filter((x) => !top.includes(x))),
+      rail("rail-left", "left", ["tools", "zoom"]),
+      rail("rail-right", "right", []),
+      column("left", "left", 1, ["pages", "notes"], { column: true, accepts: ["panel"] }),
+      column("right", "right", 1, ["findings"], { column: true, accepts: ["panel"] }),
+    ],
+    items: byId([title(), sized("tz", 1, 161), sized("rd", 9, 200), controls(), sized("tools", 2, 158), sized("zoom", 3, 161), sized("views", 4, 227), sized("review", 5, 230), panel("pages", 6), panel("notes", 7), panel("findings", 8)]),
+    floats: [],
+    floatKinds: ["panel", "group"],
+    columns: { left: COL, right: COL },
+    sideColumns: "one",
+  };
+}
+const TOOLBARS = ["tz", "rd", "tools", "zoom", "views", "review"];
+/** A spot's place in its lane: the items either side (`<before>|<after>`), its pitch and zone left out. */
+const pairOf = (spotId: string): string => spotId.split("/")[2]?.split("@")[0] ?? "";
+/** The items a mark lies between (`<before>|<after>`), its side of the held item and piece left out. */
+const markPair = (markId: string): string => markId.split("/")[2]!.split(":")[0]!.split("#")[0]!.split("~")[0]!;
+const sameLanding = (a: Rect, b: Rect): boolean => Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5;
+
+describe("lanes(): a guide at every spot but the held one's", () => {
+  it("with each spot of each bar and rail held, every other spot's place has a mark: the head, the tail, the gaps between items and the room beside the held item", () => {
+    const misses: string[] = [];
+    for (const [name, s] of [
+      ["empty top bar", docWindow()],
+      ["views in the top bar", docWindow(["views"])],
+    ] as const) {
+      const previous = solve(s);
+      for (const id of TOOLBARS)
+        for (const l of lanes(s, id, { previous }).lanes.filter((x) => !x.id.includes(":")))
+          for (const sp of l.spots) {
+            const held = lanes(s, id, { previous, spot: sp.id }).lanes.find((x) => x.id === l.id)!;
+            const mid = (r: Rect): number => (l.axis === "x" ? r.x + r.width / 2 : r.y + r.height / 2);
+            for (const o of held.spots) {
+              const p = pairOf(o.id);
+              if (!p || o.id === sp.id || sameLanding(o.landing, sp.landing)) continue;
+              // The held item splits the stretch it lies in: a spot before it needs a mark before it, one after it after.
+              const side = mid(o.landing) < mid(sp.landing) ? "before" : "after";
+              const ok = held.marks.some((m) => markPair(m.id) === p && (!/:(before|after)/.test(m.id) || m.id.includes(`:${side}`)));
+              if (!ok) misses.push(`${name}: ${id} held at ${sp.id}, nothing marks ${l.id} ${p} ${side} it (${o.id})`);
+            }
+          }
+    }
+    expect(misses).toEqual([]);
+  });
+
+  it("on a bar and a toolbar rail, the room beside the held item is a box from a pitch wide, named by its side of the item", () => {
+    const s = docWindow();
+    const previous = solve(s);
+    // Zoom held on the title bar's pitched spots between tz and rd, and tools in its own rail below zoom.
+    for (const [id, laneId] of [
+      ["zoom", "title"],
+      ["tools", "rail-left"],
+      ["views", "bottom"],
+    ] as const) {
+      const l0 = lanes(s, id, { previous }).lanes.find((x) => x.id === laneId)!;
+      let besides = 0;
+      for (const sp of l0.spots) {
+        const held = lanes(s, id, { previous, spot: sp.id }).lanes.find((x) => x.id === laneId)!;
+        const room = held.marks.filter((m) => /:(before|after)/.test(m.id));
+        besides += room.length;
+        for (const m of room) {
+          expect(m.kind, m.id).toBe("box");
+          expect(len(m.rect, held.axis) + 1e-6, m.id).toBeGreaterThanOrEqual(SPOT_PITCH);
+          // It touches the held item's landing (the room up to it) and lies on its named side.
+          const at = (r: Rect, a: "x" | "y"): [number, number] => (a === "x" ? [r.x, r.x + r.width] : [r.y, r.y + r.height]);
+          const [m0, m1] = at(m.rect, held.axis);
+          const [h0, h1] = at(sp.landing, held.axis);
+          if (m.id.includes(":before")) expect(Math.abs(m1 - h0), m.id).toBeLessThan(0.5);
+          else expect(Math.abs(m0 - h1), m.id).toBeLessThan(0.5);
+        }
+      }
+      expect(besides, `${id} in ${laneId}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("gliding the held item along a free stretch, its room boxes keep their ids: each comes once and goes once", () => {
+    const s = docWindow();
+    const previous = solve(s);
+    for (const [id, laneId] of [
+      ["zoom", "title"],
+      ["tz", "bottom"],
+      ["tools", "rail-right"],
+    ] as const) {
+      const l0 = lanes(s, id, { previous }).lanes.find((x) => x.id === laneId)!;
+      // Along the lane in order: every spot held in turn, the ids of the boxes beside it on each.
+      const seq = l0.spots.map((sp) => new Set(lanes(s, id, { previous, spot: sp.id }).lanes.find((x) => x.id === laneId)!.marks.filter((m) => /:(before|after)/.test(m.id)).map((m) => m.id)));
+      const all = new Set(seq.flatMap((x) => [...x]));
+      for (const mid of all) {
+        // Present on one run of consecutive spots: never goes and comes back while the item glides one way.
+        const on = seq.map((x) => x.has(mid));
+        const runs = on.filter((v, i) => v && !on[i - 1]).length;
+        expect(runs, `${id} in ${laneId}: ${mid}`).toBe(1);
+      }
+    }
+  });
+
+  it("the head of a title bar, past its growing title's natural length, is marked: a box before the held toolbar, beside the title's text", () => {
+    // A title bar of the title and the controls only (its toolbars in the top bar): zoom held a few pitches past the
+    // title, the room between the title's text and zoom is a box.
+    const base = docWindow(["tz", "rd"]);
+    const s: Scene = { ...base, edges: base.edges.map((e) => (e.id === "title" ? { ...e, items: ["title", "controls"] } : e)) };
+    const previous = solve(s);
+    const l0 = lanes(s, "zoom", { previous }).lanes.find((x) => x.id === "title")!;
+    const natural = s.items.title!.forms.row![0]!.main.natural;
+    const t0 = previous.items.title!.rect;
+    const sp = l0.spots.find((x) => x.landing.x >= t0.x + natural + 2 * SPOT_PITCH && x.landing.x <= t0.x + natural + 4 * SPOT_PITCH)!;
+    expect(sp, l0.spots.map((x) => `${x.id}@${Math.round(x.landing.x)}`).join(" ")).toBeDefined();
+    const held = lanes(s, "zoom", { previous, spot: sp.id }).lanes.find((x) => x.id === "title")!;
+    const t = sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout.items.title!.rect;
+    const head = held.marks.find((m) => m.kind === "box" && m.id.endsWith(":before"))!;
+    expect(head, held.marks.map((m) => m.id).join()).toBeDefined();
+    // From the end of the title's text (its natural length, however far it grows) to the held toolbar.
+    expect(head.rect.x).toBeCloseTo(t.x + Math.min(natural, t.width), 3);
+    expect(head.rect.x + head.rect.width).toBeCloseTo(sp.landing.x, 3);
+  });
+
+  it("lifted from its bar and held elsewhere (a float), the item's own place is free room: its bar's stretch is one box, unsplit", () => {
+    // Zoom docked alone in the title bar, between the title and the controls, then lifted: as seen (its lane not held),
+    // the title bar's stretch from the title's text to the controls is one box.
+    const base = docWindow(["tz", "rd"]);
+    const s: Scene = { ...base, edges: base.edges.map((e) => (e.id === "title" ? { ...e, items: ["title", "zoom", "controls"] } : e.id === "rail-left" ? { ...e, items: ["tools"] } : e)) };
+    const previous = solve(s);
+    const title = lanes(s, "zoom", { previous }).lanes.find((x) => x.id === "title")!;
+    const boxes = title.marks.filter((m) => m.kind === "box");
+    expect(boxes.map((m) => m.id)).toEqual(["title/box/title|controls"]);
+    const t = previous.items.title!.rect;
+    const natural = s.items.title!.forms.row![0]!.main.natural;
+    expect(boxes[0]!.rect.x).toBeCloseTo(t.x + Math.min(natural, t.width), 3);
+    expect(boxes[0]!.rect.x + boxes[0]!.rect.width).toBeCloseTo(previous.items.controls!.rect.x, 3);
+    // With its own place held (the room open there), it is drawn there again and splits the stretch.
+    const home = title.spots.find((x) => x.home)!;
+    const held = lanes(s, "zoom", { previous, spot: home.id }).lanes.find((x) => x.id === "title")!;
+    expect(held.marks.filter((m) => m.kind === "box").every((m) => /:(before|after)/.test(m.id))).toBe(true);
+  });
+
+  it("with a held spot whose room moves the edge (a bar left empty lets the rail start higher), the marks lie on the edge as drawn there", () => {
+    const s = docWindow(["views"]);
+    const previous = solve(s);
+    const sp = lanes(s, "views", { previous }).lanes.find((x) => x.id === "rail-left")!.spots.find((x) => x.id === "rail-left/start/zoom|$")!;
+    const drawn = sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout;
+    const held = lanes(s, "views", { previous, spot: sp.id }).lanes.find((x) => x.id === "rail-left")!;
+    // The rail starts 36 px higher with the top bar empty: its head mark lies above the rail as first seen.
+    expect(drawn.edges["rail-left"]!.rect.y).toBeLessThan(previous.edges["rail-left"]!.rect.y);
+    expect(held.marks.map((m) => m.id)).toContain("rail-left/line/^|tools");
+    const r = drawn.edges["rail-left"]!.rect;
+    for (const m of held.marks) expect(m.rect.y >= r.y - 0.5 && m.rect.y + m.rect.height <= r.y + r.height + 0.5, m.id).toBe(true);
   });
 });
 
