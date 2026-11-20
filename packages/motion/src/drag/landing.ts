@@ -28,8 +28,9 @@ import type { PlaceGuides } from "./preview";
  *   pointer by no gate, so a pointer brought back there is in the item's own lane, not the strip. Elsewhere in the strip
  *   a slow slide along it can take the pointer before it is back at the lift point. More generally, within
  *   `margins.lift` of the lift point the lane is the item's own (`home.lane`) whenever the pointer lies in it, whatever
- *   lane the pointer came through (a plain lane's band over the home lane's corner included), and its spot is found
- *   along it as usual: away and back to where the item was lifted is home on every layout.
+ *   lane the pointer came through (a plain lane's band over the home lane's corner included), and its spot is the
+ *   item's own (`home.spot`; a sliding one still lets the landing follow the hand and snap): away and back to where the
+ *   item was lifted is home on every layout.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
@@ -504,15 +505,18 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const nearLift = !!liftAt && Math.hypot(p.x - liftAt.x, p.y - liftAt.y) <= (margins.lift ?? 16);
       const owner = nearLift ? undefined : regions.lanes.find((l) => l.owns && l.id !== held?.id && cameIn.has(l.id) && strictlyIn(l.rect, p) && gate(l));
       // The lift zone is the item's own lane's: within `lift` of where it was lifted, in whatever lane the pointer came
-      // through, the lane choice is the home lane (when the pointer lies in it, as the lift point did), and its spot is
-      // found along it as usual. So away and back to the lift point is home on every layout, a plain lane's band lying
-      // over the home lane's corner included.
+      // through, the lane choice is the home lane (when the pointer lies in it, as the lift point did), and its spot the
+      // item's own. So away and back to the lift point is home on every layout, a plain lane's band lying over the home
+      // lane's corner included.
       const ownLane = nearLift && options.home ? laneIn(regions, options.home.lane) : undefined;
       const homeHere = ownLane && strictlyIn(ownLane.rect, p) ? ownLane : undefined;
       const next = homeHere ? undefined : (owner ?? (touching && (gate(touching) || slid) ? touching : undefined));
       if (homeHere) {
+        // Its spot is the item's own (a hand within the lift zone is at home: the home spot owns it, so a pointer coming
+        // in a few px short of the lift point, or held at its edge by a grab at the item's far end, is not on a
+        // neighbor's stretch); a lane that lost the id picks along it as entering does.
+        const s = spotIn(homeHere, options.home!.spot) ?? pick(homeHere, alongOf(homeHere, p));
         laneId = homeHere.id;
-        const s = along(homeHere, p, step);
         spotId = s?.id ?? null;
         region = s ? "lane" : "refused";
       } else if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
