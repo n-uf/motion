@@ -39,4 +39,4 @@ The landing rows check exactly this: a row's `moving.hand` takes the spots from 
 
 ## Date
 
-2026-11-20, with the next release after 26.11.50 (the version is filled in when the release ships).
+2026-11-20, in release 26.11.52.
