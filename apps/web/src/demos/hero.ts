@@ -1,10 +1,12 @@
 /**
- * The home hero's two instruments, as plain data the server renders and the island animates (islands/hero.ts):
+ * The home hero's two panel instruments, as plain data the server renders and the island animates (islands/hero.ts):
  *
- * - **The scope** (motion's half): the settle curves at each tempo, a bouncy spring for contrast, and one real run of a
+ * - **The scope** (motion's slot): the settle curves at each tempo, a bouncy spring for contrast, and one real run of a
  *   panel's glide, recorded frame by frame and checked with `@n-uf/motion/testing`.
- * - **The plan** (placement's half): a window with a panel lifted out, its rects and its drop targets, from
- *   `@n-uf/docking` (`solve` and `targets`).
+ * - **The plan** (docking's slot): a window with a panel lifted out, its rects and its drop targets, from
+ *   `@n-uf/placement/scene` (`solve` and `targets`; the model @n-uf/docking takes over at the coming release).
+ *
+ * Placement's own slot is the tiling demo (demos/hero-tiles.ts).
  *
  * Every number here comes out of the packages. The server runs them at build time for the first (finished) state, and
  * the island runs them again in the browser, live; the two states agree by construction.
@@ -112,8 +114,8 @@ export function simulateRun(from: Rect, to: Rect, omega: number): { samples: Rec
 }
 
 // ---- The plan ------------------------------------------------------------------------------------------------------
-/** The window the plan draws, in its own px: a `DockState` of this size, laid out by placement's `solve`. */
-const STAGE = { width: 1060, height: 480 };
+/** The window the plan draws, in its own px: a `Scene` of this size, laid out by placement's `solve`. */
+const STAGE = { width: 720, height: 520 };
 /** The lifted panel. */
 const HELD = "outline";
 
@@ -183,7 +185,7 @@ function planState(size: { width: number; height: number }): DockState {
       { id: "bottom", side: "bottom", ring: 0, span: "between", accepts: ["panel"], items: [], cross: { min: 120, max: 200 } },
     ],
     items: { files: panel("files", 1, 150, true), [HELD]: panel(HELD, 2, 120, false), toolbar: TOOLBAR },
-    floats: [{ id: HELD, rect: { x: 714, y: 161, width: 200, height: 120 } }],
+    floats: [{ id: HELD, rect: { x: Math.round(size.width * 0.6), y: Math.round(size.height * 0.31), width: 200, height: 120 } }],
     floatKinds: ["panel"],
     columns: { left: column, right: column },
     rails: { left: { width: 34, accepts: ["panel"] }, right: { width: 34, accepts: ["panel"] } },
