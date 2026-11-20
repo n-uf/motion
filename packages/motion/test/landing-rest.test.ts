@@ -33,4 +33,27 @@ describe("landing model: a flick that rests in an empty rail's band docks in it"
       expect(rested.m.frame.lane).toBe("rail-left");
       expect(rested.m.release()).toMatchObject({ kind: "spot", lane: "rail-left" });
     });
+
+  // A real hand's jitter after the flick: samples every 16 ms, `d` px apart. After a step above `gates.slide` no lane is
+  // entered by a slow-step gate until the hand has been slow for `pause` (60 ms), so the jitter docks nothing at once.
+  for (const d of [0.3, 1.5, 3])
+    it(`a flick then ${d} px of jitter: no entry before 60 ms of slow motion, then the rail; let go at once it goes home`, () => {
+      const make = () => {
+        const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+        m.update({ x: 25, y: 614 }, 0);
+        // 3 px/ms up to (14, 301), the last fast sample at 112 ms.
+        for (let i = 1; i <= 7; i++) m.update({ x: 25 - (11 * i) / 7, y: 614 - (313 * i) / 7 }, 16 * i);
+        return m;
+      };
+      const first = make();
+      first.update({ x: 14, y: 301 + d }, 128);
+      expect(first.frame.lane).not.toBe("rail-left");
+      expect(first.release()).toBeNull();
+      const m = make();
+      const lanes: (string | null)[] = [];
+      for (let k = 1; k <= 8; k++) lanes.push(m.update({ x: 14, y: 301 + (k % 2) * d }, 112 + 16 * k).lane);
+      // Slow since 112 ms: nothing before 172 ms (samples at 128 to 160), the rail by 208 ms.
+      expect(lanes.slice(0, 3)).not.toContain("rail-left");
+      expect(lanes.slice(5)).toEqual(["rail-left", "rail-left", "rail-left"]);
+    });
 });

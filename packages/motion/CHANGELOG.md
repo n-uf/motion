@@ -5,6 +5,12 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## Unreleased
 
+- `./drag`, **a flick settles before a slow step counts** (fix). After a fast step any distinct sample, even 0.3 px of
+  jitter, was a slow step at once, so a real hand's jitter after a flick docked it on the next frame, and an immediate
+  release did not go home. Now after a step above `gates.slide` no lane is entered by a slow-step gate (the still gate,
+  the over-refused rule, a touching lane's takeover by it) until the hand has been slow (every step at most
+  `gates.step`, or resting) for `pause` (60 ms). Resting still docks after about 60 ms, as before; on the stage's edge a
+  fling is still taken at once; the slow path and a slow slide, which have no fast step, are unaffected.
 - `./drag`, **a touching lane's takeover reads the over-refused rule** (fix). Over a place that takes nothing (an empty
   rail's band over a column) a lane is entered on the first slow step, but a touching lane's takeover from a held lane
   read only that lane's own gates, so after a flick up the rail from the bar under it a rest at x 25 in a 30 px rail
