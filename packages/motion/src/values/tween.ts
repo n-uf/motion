@@ -104,6 +104,11 @@ class TweenAnimator implements Tween<Animatable> {
     }
   }
 
+  /** A tween's run is its duration and easing: a velocity set by hand changes nothing. */
+  setVelocity(velocity: Animatable): void {
+    this.check(velocity, "the velocity");
+  }
+
   jumpTo(value: Animatable): void {
     this.check(value, "the value");
     writeComponents(value, this.x);

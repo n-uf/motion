@@ -337,6 +337,26 @@ describe("motion value on a frame loop", () => {
     expect(settled).toHaveBeenCalledWith(50);
   });
 
+  it("subscribe tells each change of the value, with no signals: every moving frame, a jump, never a same value", () => {
+    const { clock, value } = setup();
+    const seen: number[] = [];
+    const stop = value.subscribe((v) => seen.push(v));
+    expect(seen).toEqual([]);
+    value.set(50);
+    clock.runUntilIdle();
+    expect(seen.length).toBeGreaterThan(2);
+    expect(seen[seen.length - 1]).toBe(50);
+    for (let i = 1; i < seen.length; i++) expect(seen[i]).not.toBe(seen[i - 1]);
+    const n = seen.length;
+    value.jump(50);
+    expect(seen.length).toBe(n);
+    value.jump(7);
+    expect(seen[seen.length - 1]).toBe(7);
+    stop();
+    value.jump(9);
+    expect(seen[seen.length - 1]).toBe(7);
+  });
+
   it("snap and jump finish at once and report the rest", () => {
     const { clock, value } = setup();
     const settled = vi.fn();

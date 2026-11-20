@@ -933,7 +933,7 @@ export function createDocwin(o: DocwinOptions) {
       d.drawn.setTarget(slot ?? onPointer);
       d.drawn.step(dt);
       if (!slot && d.drawn.settled) d.gliding = false;
-    } else d.drawn.hold(onPointer);
+    } else d.drawn.jumpTo(onPointer);
     const item = d.drawn.value;
     place(d.el, item);
     d.trace.frames.push({ t: now, x: d.pointer.x, y: d.pointer.y, speed, item });

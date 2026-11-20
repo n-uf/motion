@@ -42,7 +42,7 @@ export interface MotionValue<T, A extends Animator<unknown> = Animator<T>> exten
   readonly velocity: T;
   /** Whether it is moving (reactive). */
   readonly moving: boolean;
-  /** The spring, settle or tween underneath. Change it through this value (`jump`, not the animator's `hold`), so the signal and the loop follow. */
+  /** The spring, settle or tween underneath. Change it through this value (`jump`, not the animator's `jumpTo`), so the signal and the loop follow. */
   readonly animator: A;
   /** Head for `target`; a spring keeps its velocity, a settle launches from where it is drawn, a tween restarts. */
   set(target: T, options?: SetOptions<T>): void;
@@ -62,6 +62,12 @@ export interface MotionValue<T, A extends Animator<unknown> = Animator<T>> exten
    * leaves it at rest. Returns an unsubscribe function.
    */
   onSettle(listener: (value: T) => void): () => void;
+  /**
+   * Call `listener` after each change of the value (once per frame while it moves, and when `set`, `snap` or `jump`
+   * moves it), with the new value; not at once, and not for a write that leaves it the same. The plain way to follow a
+   * value: no signals needed. Returns an unsubscribe function.
+   */
+  subscribe(listener: (value: T) => void): () => void;
   /** Stop stepping, drop listeners and follows. */
   dispose(): void;
 }
@@ -74,6 +80,7 @@ class Motion<T> implements MotionValue<T> {
   readonly current: Signal<T>;
   readonly movingSignal: Signal<boolean>;
   readonly listeners = new Set<(value: T) => void>();
+  readonly changes = new Set<(value: T) => void>();
   readonly follows = new Set<() => void>();
   stop: (() => void) | null = null;
   disposed = false;
@@ -111,11 +118,24 @@ class Motion<T> implements MotionValue<T> {
     return this.movingSignal.value;
   }
 
+  /** Tell the change listeners when the value is no longer `before`. */
+  changed(before: T): void {
+    const now = this.current.peek();
+    if (now !== before) for (const listener of Array.from(this.changes)) listener(now);
+  }
+
+  /** Publish the animator's value, and tell the change listeners. */
+  publish(): void {
+    const before = this.current.peek();
+    this.current.value = this.animator.value;
+    this.changed(before);
+  }
+
   readonly tick = (frame: FrameInfo): boolean => {
     if (this.reduced()) this.animator.snap();
     else this.animator.step(frame.delta);
     if (!this.animator.settled) {
-      this.current.value = this.animator.value;
+      this.publish();
       return true;
     }
     this.stop = null;
@@ -137,10 +157,12 @@ class Motion<T> implements MotionValue<T> {
 
   /** Publish the resting value and tell the listeners. */
   rest(): void {
+    const before = this.current.peek();
     batch(() => {
       this.current.value = this.animator.value;
       this.movingSignal.value = false;
     });
+    this.changed(before);
     const value = this.animator.value;
     for (const listener of Array.from(this.listeners)) listener(value);
   }
@@ -149,7 +171,7 @@ class Motion<T> implements MotionValue<T> {
     if (this.disposed) return;
     untracked(() => {
       this.animator.setTarget(target);
-      if (options?.velocity !== undefined) this.animator.setVelocity?.(options.velocity);
+      if (options?.velocity !== undefined) this.animator.setVelocity(options.velocity);
       if (this.reduced()) this.animator.snap();
       if (this.animator.settled) {
         this.halt();
@@ -202,12 +224,21 @@ class Motion<T> implements MotionValue<T> {
     };
   }
 
+  subscribe(listener: (value: T) => void): () => void {
+    if (this.disposed) return () => {};
+    this.changes.add(listener);
+    return () => {
+      this.changes.delete(listener);
+    };
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
     this.halt();
     for (const stop of Array.from(this.follows)) stop();
     this.listeners.clear();
+    this.changes.clear();
     this.movingSignal.value = false;
   }
 }

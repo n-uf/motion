@@ -226,7 +226,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     drag = { w, dx: p.x - d.x, dy: p.y - d.y, intent: createDragIntent<WinTarget>({ home: slotRect(w.slot) }), shown: null, room: null, snapped: false, returning: false, last: p, scripted, aim: "fly" };
     trail = [];
     w.hold = true;
-    w.settle.hold({ ...d });
+    w.settle.jumpTo({ ...d });
     w.el.classList.add("held");
     if (!scripted) setDragging(true);
     // Step 1: the drop targets are worked out at the lift (placement's part).
@@ -289,7 +289,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
       } else {
         if (!d.w.hold) place(d.w, homeRect());
         d.w.hold = true;
-        d.w.settle.hold(r);
+        d.w.settle.jumpTo(r);
         paint(d.w);
       }
     }
