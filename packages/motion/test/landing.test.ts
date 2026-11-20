@@ -468,3 +468,30 @@ function strictlyContent(p: Point): boolean {
   const inR = (q: Rect): boolean => p.x >= q.x && p.x <= q.x + q.width && p.y >= q.y && p.y <= q.y + q.height;
   return inR(r.content) && !r.blocked.some((b) => p.x > b.x && p.x < b.x + b.width && p.y > b.y && p.y < b.y + b.height);
 }
+
+describe("landing model: a lane lying over a place that takes nothing is entered at once", () => {
+  /** railWindow, with an empty right rail: its band (x 1050–1080) over the right column, which takes nothing. */
+  const withRightRail = (): LandingRegions => {
+    const r = railWindow();
+    const band: LandingLane = { id: "rail-right", rect: rect(1050, 32, 30, 576), axis: "y", spots: [{ id: "rail-right/start", along: [32, 608], landing: rect(1050, 32, 30, 102) }], refused: [] };
+    return { ...r, lanes: [...r.lanes, band] };
+  };
+
+  it("crossing the column into the band, the first frame in it holds the rail: no \"Can't go here\" there, and a release docks in it", () => {
+    const { frames } = run(base({ regions: withRightRail() }), path([{ x: 15, y: 300 }, { x: 600, y: 300 }, { x: 1060, y: 300 }], 0.6));
+    const inBand = frames.filter(({ p }) => p.x > 1050.5);
+    expect(inBand.length).toBeGreaterThan(0);
+    expect(inBand.filter(({ f }) => f.region !== "lane" || f.lane !== "rail-right").map(({ p, f }) => `${Math.round(p.x)} ${f.region}`)).toEqual([]);
+    expect(frames.at(-1)!.release).toMatchObject({ kind: "spot", lane: "rail-right" });
+  });
+
+  it("not on the lift: a drag that starts in the band and moves fast away never enters it", () => {
+    const { frames } = run(base({ regions: withRightRail(), home: undefined }), path([{ x: 1060, y: 300 }, { x: 600, y: 300 }], 3));
+    expect(frames.some(({ f }) => f.lane === "rail-right")).toBe(false);
+  });
+
+  it("a drawn lane's own rect and items lie within it: a fast pass over the top bar still opens no room (its gate holds)", () => {
+    const { frames } = run(base({ regions: withRightRail() }), path([{ x: 400, y: 200 }, { x: 420, y: -40 }], 3));
+    expect(frames.some(({ f }) => f.lane === "top")).toBe(false);
+  });
+});
