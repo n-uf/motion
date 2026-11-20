@@ -64,7 +64,7 @@ export interface LandingSpot {
   /**
    * A sliding spot (a free stretch exposed as one spot): over it the landing follows the pointer, `landing` moved along
    * the lane to the pointer less the grab, clamped to `[from, to]` and snapped to a point of `snaps` within
-   * `snapDistance`. Absent: the landing is `landing`.
+   * `snapDistance`, else on whole pixels (`step`). Absent: the landing is `landing`.
    */
   readonly slide?: LandingSlide;
 }
@@ -78,7 +78,15 @@ export interface LandingSlide {
   readonly snaps: readonly number[];
   /** How near a snap point the landing's start snaps to it, px (default `SNAP_DISTANCE`). */
   readonly snapDistance?: number;
+  /**
+   * The grain of a start that snaps to nothing, px: a multiple of `step`, clamped to `[from, to]` (default 1, whole
+   * pixels; 0: wherever the pointer puts it). Give the step the spot's commit uses, so the frame, the release's `at`
+   * and the commit agree.
+   */
+  readonly step?: number;
 }
+/** The grain of a sliding spot's free start, px, when it names none: whole pixels. */
+const SLIDE_STEP = 1;
 /** How near a sliding spot's snap point its landing snaps to it, px. */
 export const SNAP_DISTANCE = 8;
 /**
@@ -222,8 +230,8 @@ export interface LandingFrame {
 
 /**
  * What a release lands: a spot (`home` when it is the item's own place), the float at `rect`, or nothing. On a sliding
- * spot, `at` is where the landing starts along the lane, whole px (read once, at the release), and `home` holds only
- * where that is the item's own place.
+ * spot, `at` is where the landing starts along the lane, as the frame shows it (read once, at the release: a snap
+ * point, else on the spot's `step`), and `home` holds only where that is the item's own place.
  */
 export type LandingRelease =
   | { readonly kind: "spot"; readonly lane: string; readonly spot: string; readonly home: boolean; readonly at?: number }
@@ -354,6 +362,9 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         at = q;
       }
     }
+    // Snapped to nothing: the spot's grain (`LandingSlide.step`), the same rounding its commit applies.
+    const step = s.step ?? SLIDE_STEP;
+    if (best === Infinity && step > 0) at = Math.min(hi, Math.max(lo, Math.round(free / step) * step));
     return ax === "x" ? { ...spot.landing, x: at } : { ...spot.landing, y: at };
   }
 
@@ -562,13 +573,14 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     release(): LandingRelease {
       if (frame.region === "lane" && frame.lane && frame.spot) {
         const ownSpot = !!options.home && options.home.spot === frame.spot && options.home.lane === frame.lane;
-        // A sliding spot: where its landing starts, whole px, read once here (so a wobble never stores a jitter). It is
-        // home only at the item's own place: the home spot's own landing.
+        // A sliding spot: where its landing starts, read once here (so a wobble never stores a jitter), exactly as the
+        // frame shows it (a snap point, else on the spot's grain). It is home only at the item's own place: the home
+        // spot's own landing.
         const on = landedOn;
         if (on?.spot.slide && frame.landing) {
-          const start = (r: Rect): number => Math.round(on.axis === "x" ? r.x : r.y);
+          const start = (r: Rect): number => (on.axis === "x" ? r.x : r.y);
           const at = start(frame.landing);
-          return { kind: "spot", lane: frame.lane, spot: frame.spot, home: ownSpot && at === start(on.spot.landing), at };
+          return { kind: "spot", lane: frame.lane, spot: frame.spot, home: ownSpot && Math.abs(at - start(on.spot.landing)) < 1e-6, at };
         }
         return { kind: "spot", lane: frame.lane, spot: frame.spot, home: ownSpot };
       }

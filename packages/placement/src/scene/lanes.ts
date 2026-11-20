@@ -32,6 +32,8 @@ import type { SceneAfter, SceneRefusal, SceneTarget, SceneTargetOptions } from "
 export const SPOT_PITCH = 40;
 /** How near a sliding spot's snap point a landing snaps to it, px (`LaneOptions.snapDistance`). */
 const SNAP_DISTANCE = 8;
+/** The grain of a sliding spot's free start, px: whole pixels (`LaneSlide.step`). */
+const STEP = 1;
 
 /**
  * A sliding spot's range (`LaneOptions.stretchPositions: "free"`): where the landing's start may lie along the lane,
@@ -40,10 +42,20 @@ const SNAP_DISTANCE = 8;
 export interface LaneSlide {
   readonly from: number;
   readonly to: number;
-  /** Its two ends, the item's own place where it lies here, and every other dock that lands inside, in order. */
+  /**
+   * Its two ends, the item's own place where it lies here, and every other dock that lands inside, in order. Each is a
+   * start that commits what lies there (a taken-over dock as it is), so none is dropped for lying near another.
+   */
   readonly snaps: readonly number[];
   /** How near a snap point the landing's start snaps to it, px (`LaneOptions.snapDistance`). */
   readonly snapDistance: number;
+  /**
+   * The grain of a start that snaps to nothing, px: a multiple of `step` (whole px, 1) within `[from, to]`. The one rule
+   * `target.after`, a landing model's frame and its release all read, so the frame shows what the drop commits:
+   * with `c = clamp(raw, from, to)`, the start is the nearest snap point within `snapDistance` of `c`, else
+   * `clamp(round(c / step) * step, from, to)`.
+   */
+  readonly step: number;
 }
 
 /** One place a drop in a lane lands. */
@@ -994,6 +1006,12 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
         for (const q of snaps) if (Math.abs(q - x0) <= snapDistance && Math.abs(q - x0) < d) [best, d] = [q, Math.abs(q - x0)];
         return best;
       };
+      /** The start a pointer holding the item at `raw` lands at: `LaneSlide.step`'s rule, read by the landing model too. */
+      const startAt = (raw: number): number => {
+        const c = clamp(raw, from, to);
+        const s = snapped(c);
+        return snaps.includes(s) ? s : clamp(Math.round(c / STEP) * STEP, from, to);
+      };
       const results = new Map<number, SceneAfter>();
       /** What a drop with the item's start at `x0` commits: a taken-over dock's own drop there, else the dock to `x0`. */
       const commitAt = (x0: number): SceneAfter => {
@@ -1024,10 +1042,7 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
         after: (point: Point, grab?: Point) => {
           const g = grab ? grab[long] : ownLen / 2;
           const share = axis === long && ownLen > EPS && Number.isFinite(g) ? clamp(g / ownLen, 0, 1) : 0.5;
-          const free = clamp((axis === "x" ? point.x : point.y) - share * w, from, to);
-          // Snapped, the snap point itself; else a whole px.
-          const s = snapped(free);
-          return commitAt(snaps.includes(s) ? s : clamp(Math.round(free), from, to));
+          return commitAt(startAt((axis === "x" ? point.x : point.y) - share * w));
         },
       };
       const zone = zones[0]!;
@@ -1043,7 +1058,7 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
         target,
         hit: target.hit,
         ...(homeRaw ? { home: true as const } : {}),
-        slide: { from, to, snaps, snapDistance, first: at(from), last: at(to) },
+        slide: { from, to, snaps, snapDistance, step: STEP, first: at(from), last: at(to) },
       });
     }
   });
