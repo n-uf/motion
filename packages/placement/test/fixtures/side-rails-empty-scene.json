@@ -1,0 +1,782 @@
+{
+ "stage": {
+  "x": 0,
+  "y": -28,
+  "width": 868,
+  "height": 658
+ },
+ "edges": [
+  {
+   "id": "bar:title",
+   "side": "top",
+   "ring": 0,
+   "accepts": [
+    "group",
+    "zone"
+   ],
+   "menu": {
+    "main": 24
+   },
+   "items": [
+    "window",
+    "name",
+    "state",
+    "page",
+    "zoom"
+   ],
+   "cross": {
+    "min": 28,
+    "max": 28,
+    "rail": 28
+   },
+   "gap": 8,
+   "pad": {
+    "start": 8,
+    "end": 8
+   },
+   "outsideInset": true
+  },
+  {
+   "id": "bar:top",
+   "side": "top",
+   "ring": 2,
+   "accepts": [
+    "group",
+    "zone"
+   ],
+   "menu": {
+    "main": 24
+   },
+   "items": [],
+   "cross": {
+    "min": 31,
+    "max": 31,
+    "rail": 31
+   },
+   "gap": 8,
+   "pad": {
+    "start": 8,
+    "end": 8
+   },
+   "outsideInset": true
+  },
+  {
+   "id": "bar:bottom",
+   "side": "bottom",
+   "ring": 0,
+   "accepts": [
+    "group",
+    "zone"
+   ],
+   "menu": {
+    "main": 24
+   },
+   "items": [
+    "panels",
+    "status"
+   ],
+   "cross": {
+    "min": 31,
+    "max": 31,
+    "rail": 31
+   },
+   "gap": 8,
+   "pad": {
+    "start": 8,
+    "end": 8
+   },
+   "outsideInset": true
+  },
+  {
+   "id": "bar:left",
+   "side": "left",
+   "ring": 0,
+   "accepts": [
+    "group"
+   ],
+   "compact": true,
+   "zones": [
+    "start"
+   ],
+   "items": [],
+   "cross": {
+    "min": 30,
+    "max": 30,
+    "rail": 30
+   },
+   "gap": 4,
+   "outsideInset": true
+  },
+  {
+   "id": "bar:right",
+   "side": "right",
+   "ring": 0,
+   "accepts": [
+    "group"
+   ],
+   "compact": true,
+   "zones": [
+    "start"
+   ],
+   "items": [],
+   "cross": {
+    "min": 30,
+    "max": 30,
+    "rail": 30
+   },
+   "gap": 4,
+   "outsideInset": true
+  },
+  {
+   "id": "left-0",
+   "side": "left",
+   "ring": 1,
+   "column": true,
+   "items": [
+    "pages",
+    "annotations"
+   ],
+   "accepts": [
+    "panel"
+   ],
+   "cross": {
+    "min": 220,
+    "max": 640,
+    "rail": 32
+   },
+   "gap": 12,
+   "hitBand": "middle"
+  },
+  {
+   "id": "right-0",
+   "side": "right",
+   "ring": 1,
+   "column": true,
+   "items": [
+    "findings"
+   ],
+   "accepts": [
+    "panel"
+   ],
+   "cross": {
+    "min": 220,
+    "max": 640,
+    "rail": 32
+   },
+   "gap": 12,
+   "hitBand": "middle"
+  }
+ ],
+ "items": {
+  "pages": {
+   "id": "pages",
+   "kind": "panel",
+   "used": 1,
+   "forms": {
+    "column": [
+     {
+      "kind": "open",
+      "main": {
+       "min": 160,
+       "natural": 440,
+       "grows": true
+      },
+      "cross": {
+       "natural": 300,
+       "min": 220
+      }
+     },
+     {
+      "kind": "header",
+      "main": {
+       "min": 30,
+       "natural": 30
+      },
+      "cross": {
+       "natural": 300,
+       "min": 32
+      }
+     },
+     {
+      "kind": "rail",
+      "title": true,
+      "main": {
+       "min": 98,
+       "natural": 98
+      },
+      "cross": {
+       "natural": 32
+      }
+     },
+     {
+      "kind": "rail",
+      "main": {
+       "min": 59,
+       "natural": 59
+      },
+      "cross": {
+       "natural": 32
+      }
+     }
+    ]
+   },
+   "floatMin": {
+    "width": 220,
+    "height": 160
+   },
+   "floatMax": {
+    "width": 640,
+    "height": 1400
+   },
+   "floatSize": {
+    "width": 300,
+    "height": 440
+   }
+  },
+  "annotations": {
+   "id": "annotations",
+   "kind": "panel",
+   "used": 2,
+   "forms": {
+    "column": [
+     {
+      "kind": "open",
+      "main": {
+       "min": 160,
+       "natural": 440,
+       "grows": true
+      },
+      "cross": {
+       "natural": 300,
+       "min": 220
+      }
+     },
+     {
+      "kind": "header",
+      "main": {
+       "min": 30,
+       "natural": 30
+      },
+      "cross": {
+       "natural": 300,
+       "min": 32
+      }
+     },
+     {
+      "kind": "rail",
+      "title": true,
+      "main": {
+       "min": 166,
+       "natural": 166
+      },
+      "cross": {
+       "natural": 32
+      }
+     },
+     {
+      "kind": "rail",
+      "main": {
+       "min": 59,
+       "natural": 59
+      },
+      "cross": {
+       "natural": 32
+      }
+     }
+    ]
+   },
+   "floatMin": {
+    "width": 220,
+    "height": 160
+   },
+   "floatMax": {
+    "width": 640,
+    "height": 1400
+   },
+   "floatSize": {
+    "width": 300,
+    "height": 440
+   }
+  },
+  "findings": {
+   "id": "findings",
+   "kind": "panel",
+   "used": 3,
+   "forms": {
+    "column": [
+     {
+      "kind": "open",
+      "main": {
+       "min": 160,
+       "natural": 440,
+       "grows": true
+      },
+      "cross": {
+       "natural": 300,
+       "min": 220
+      }
+     },
+     {
+      "kind": "header",
+      "main": {
+       "min": 30,
+       "natural": 30
+      },
+      "cross": {
+       "natural": 300,
+       "min": 32
+      }
+     },
+     {
+      "kind": "rail",
+      "title": true,
+      "main": {
+       "min": 144,
+       "natural": 144
+      },
+      "cross": {
+       "natural": 32
+      }
+     },
+     {
+      "kind": "rail",
+      "main": {
+       "min": 59,
+       "natural": 59
+      },
+      "cross": {
+       "natural": 32
+      }
+     }
+    ]
+   },
+   "floatMin": {
+    "width": 220,
+    "height": 160
+   },
+   "floatMax": {
+    "width": 640,
+    "height": 1400
+   },
+   "floatSize": {
+    "width": 300,
+    "height": 440
+   }
+  },
+  "window": {
+   "id": "window",
+   "kind": "fixed",
+   "used": 0,
+   "fixed": true,
+   "forms": {
+    "row": [
+     {
+      "kind": "row",
+      "main": {
+       "min": 41,
+       "natural": 41
+      },
+      "cross": {
+       "natural": 26
+      }
+     }
+    ]
+   }
+  },
+  "name": {
+   "id": "name",
+   "kind": "fixed",
+   "used": 0,
+   "fixed": true,
+   "forms": {
+    "row": [
+     {
+      "kind": "row",
+      "main": {
+       "min": 60,
+       "natural": 184.625,
+       "grows": true
+      },
+      "cross": {
+       "natural": 26
+      }
+     }
+    ]
+   }
+  },
+  "state": {
+   "id": "state",
+   "kind": "fixed",
+   "used": 0,
+   "fixed": true,
+   "forms": {
+    "row": [
+     {
+      "kind": "row",
+      "main": {
+       "min": 88.828125,
+       "natural": 88.828125
+      },
+      "cross": {
+       "natural": 26
+      }
+     }
+    ]
+   },
+   "align": "end"
+  },
+  "page": {
+   "id": "page",
+   "kind": "fixed",
+   "used": 0,
+   "fixed": true,
+   "forms": {
+    "row": [
+     {
+      "kind": "row",
+      "main": {
+       "min": 41.640625,
+       "natural": 41.640625
+      },
+      "cross": {
+       "natural": 26
+      }
+     }
+    ]
+   },
+   "align": "end"
+  },
+  "zoom": {
+   "id": "zoom",
+   "kind": "group",
+   "forms": {
+    "row": [
+     {
+      "kind": "row",
+      "main": {
+       "min": 150.375,
+       "natural": 150.375
+      },
+      "cross": {
+       "natural": 28
+      }
+     },
+     {
+      "kind": "row",
+      "main": {
+       "min": 117.125,
+       "natural": 117.125
+      },
+      "cross": {
+       "natural": 28
+      },
+      "hides": [
+       "fit"
+      ]
+     },
+     {
+      "kind": "row",
+      "main": {
+       "min": 70,
+       "natural": 70
+      },
+      "cross": {
+       "natural": 28
+      },
+      "hides": [
+       "-",
+       "+",
+       "fit"
+      ]
+     },
+     {
+      "kind": "fold",
+      "main": {
+       "min": 37.953125,
+       "natural": 37.953125
+      },
+      "cross": {
+       "natural": 28
+      }
+     },
+     {
+      "kind": "menu",
+      "main": {
+       "min": 0,
+       "natural": 0
+      },
+      "cross": {
+       "natural": 0
+      }
+     }
+    ],
+    "column": [
+     {
+      "kind": "icons",
+      "main": {
+       "min": 101,
+       "natural": 101
+      },
+      "cross": {
+       "natural": 30
+      },
+      "grip": 10
+     },
+     {
+      "kind": "menu",
+      "main": {
+       "min": 0,
+       "natural": 0
+      },
+      "cross": {
+       "natural": 0
+      }
+     }
+    ]
+   },
+   "used": 1,
+   "priority": 100,
+   "align": "end",
+   "floatSize": {
+    "width": 155.375,
+    "height": 34
+   }
+  },
+  "panels": {
+   "id": "panels",
+   "kind": "group",
+   "forms": {
+    "row": [
+     {
+      "kind": "row",
+      "main": {
+       "min": 362.25,
+       "natural": 362.25
+      },
+      "cross": {
+       "natural": 28
+      }
+     },
+     {
+      "kind": "fold",
+      "main": {
+       "min": 37.953125,
+       "natural": 37.953125
+      },
+      "cross": {
+       "natural": 28
+      }
+     },
+     {
+      "kind": "menu",
+      "main": {
+       "min": 0,
+       "natural": 0
+      },
+      "cross": {
+       "natural": 0
+      }
+     }
+    ],
+    "column": [
+     {
+      "kind": "icons",
+      "main": {
+       "min": 121,
+       "natural": 121
+      },
+      "cross": {
+       "natural": 26.78125
+      },
+      "grip": 10
+     },
+     {
+      "kind": "menu",
+      "main": {
+       "min": 0,
+       "natural": 0
+      },
+      "cross": {
+       "natural": 0
+      }
+     }
+    ]
+   },
+   "used": 2,
+   "priority": 10,
+   "floatSize": {
+    "width": 367.25,
+    "height": 34
+   }
+  },
+  "status": {
+   "id": "status",
+   "kind": "zone",
+   "forms": {
+    "row": [
+     {
+      "kind": "row",
+      "main": {
+       "min": 382.375,
+       "natural": 382.375
+      },
+      "cross": {
+       "natural": 30
+      }
+     }
+    ]
+   },
+   "used": 1,
+   "priority": 100,
+   "kept": true,
+   "align": "end",
+   "floatSize": {
+    "width": 383.375,
+    "height": 34
+   }
+  },
+  "tools": {
+   "id": "tools",
+   "kind": "group",
+   "forms": {
+    "row": [
+     {
+      "kind": "row",
+      "main": {
+       "min": 102,
+       "natural": 102
+      },
+      "cross": {
+       "natural": 30
+      }
+     },
+     {
+      "kind": "fold",
+      "main": {
+       "min": 37.953125,
+       "natural": 37.953125
+      },
+      "cross": {
+       "natural": 30
+      }
+     },
+     {
+      "kind": "menu",
+      "main": {
+       "min": 0,
+       "natural": 0
+      },
+      "cross": {
+       "natural": 0
+      }
+     }
+    ],
+    "column": [
+     {
+      "kind": "icons",
+      "main": {
+       "min": 105,
+       "natural": 105
+      },
+      "cross": {
+       "natural": 30
+      },
+      "grip": 10
+     },
+     {
+      "kind": "menu",
+      "main": {
+       "min": 0,
+       "natural": 0
+      },
+      "cross": {
+       "natural": 0
+      }
+     }
+    ]
+   },
+   "used": 4,
+   "priority": 10,
+   "floatSize": {
+    "width": 107,
+    "height": 36
+   }
+  }
+ },
+ "floats": [
+  {
+   "id": "tools",
+   "rect": {
+    "x": 0,
+    "y": 12,
+    "width": 36,
+    "height": 107
+   },
+   "orient": "column",
+   "anchor": {
+    "at": "content-top-right",
+    "dy": 12
+   }
+  }
+ ],
+ "floatKinds": [
+  "panel",
+  "group",
+  "zone"
+ ],
+ "columns": {
+  "left": {
+   "accepts": [
+    "panel"
+   ],
+   "cross": {
+    "min": 220,
+    "max": 640,
+    "rail": 32
+   },
+   "gap": 12,
+   "hitBand": "middle"
+  },
+  "right": {
+   "accepts": [
+    "panel"
+   ],
+   "cross": {
+    "min": 220,
+    "max": 640,
+    "rail": 32
+   },
+   "gap": 12,
+   "hitBand": "middle"
+  }
+ },
+ "rails": {
+  "left": {
+   "width": 32,
+   "accepts": [
+    "panel"
+   ]
+  },
+  "right": {
+   "width": 32,
+   "accepts": [
+    "panel"
+   ]
+  }
+ },
+ "contentMin": {
+  "width": 320,
+  "height": 240,
+  "chromeWidth": 260
+ },
+ "sideColumns": "one",
+ "foldedColumnDrop": "end",
+ "inset": {
+  "top": 12,
+  "right": 12,
+  "bottom": 12,
+  "left": 12
+ },
+ "insetWhen": "docked",
+ "gutter": 12
+}
