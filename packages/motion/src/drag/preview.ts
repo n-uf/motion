@@ -30,14 +30,21 @@ export const DRAG_PREVIEW_DEFAULT: DragPreview = "snap";
 export type PlaceGuides = "off" | "near" | "all";
 
 /**
+ * How a place guide draws an empty lane (an empty bar or side rail, its room not open yet): `"real"`, a box at the size
+ * the lane will take, over what moves aside (the page, a column); `"edge"`, a thin striped strip on the lane's window
+ * side. The landing is the same either way. Placement's `lanes()` takes it as `emptyLanes`.
+ */
+export type EmptyLanes = "real" | "edge";
+
+/**
  * A drop preview as a mode and its place guides, beside the string forms: `"outline"` is `"indicator"`'s plan,
  * `"placeholder"` is `"gap"`'s, and `"snap"` is `"item"`'s (the item the only preview). `placeGuides` defaults per mode
- * ({@link PLACE_GUIDES_DEFAULT}).
+ * ({@link PLACE_GUIDES_DEFAULT}); `emptyLanes` (how its guides draw an empty lane) defaults to `"real"`.
  */
 export type DropPreviewMode =
-  | { readonly mode: "outline"; readonly placeGuides?: PlaceGuides }
-  | { readonly mode: "placeholder"; readonly placeGuides?: PlaceGuides }
-  | { readonly mode: "snap"; readonly placeGuides?: PlaceGuides };
+  | { readonly mode: "outline"; readonly placeGuides?: PlaceGuides; readonly emptyLanes?: EmptyLanes }
+  | { readonly mode: "placeholder"; readonly placeGuides?: PlaceGuides; readonly emptyLanes?: EmptyLanes }
+  | { readonly mode: "snap"; readonly placeGuides?: PlaceGuides; readonly emptyLanes?: EmptyLanes };
 
 /** Each mode's place guides when it names none: Snap and Placeholder near, Outline none. */
 export const PLACE_GUIDES_DEFAULT: Readonly<Record<DropPreviewMode["mode"], PlaceGuides>> = { outline: "off", placeholder: "near", snap: "near" };
@@ -60,6 +67,8 @@ export interface PreviewPlan {
    * `"off"`.
    */
   readonly guides?: PlaceGuides;
+  /** How the guides draw an empty lane (the object form's `emptyLanes`, `"real"` when it names none); absent for the string forms. */
+  readonly emptyLanes?: EmptyLanes;
 }
 
 /**
@@ -85,7 +94,7 @@ export function previewPlan<T extends DragTarget>(
     const plan = stringPlan(frame, PLAN_OF[preview.mode], slotted);
     const asked = preview.placeGuides ?? PLACE_GUIDES_DEFAULT[preview.mode];
     const landing = plan.showIndicator || plan.makeRoom || plan.snapItem;
-    return { ...plan, guides: landing ? "off" : asked };
+    return { ...plan, guides: landing ? "off" : asked, emptyLanes: preview.emptyLanes ?? "real" };
   }
   return stringPlan(frame, preview, slotted);
 }
