@@ -9,11 +9,15 @@
  * one laid first wins. Home's tile is owned before all. A virtual edge owns nothing and yields to every owner.
  */
 import { EPS, area, overlaps, rect, subtract, type Rect } from "../../geometry";
+import { formBody, type StackForm } from "../../stack";
 import { axisOf, formsOf, hitBandOf } from "../helpers";
 import { DEFAULT_HIT_BAND, type Edge } from "../model";
 import { pushes, type LayKey } from "../solve";
 import { EDGE_KINDS } from "./kinds";
 import { less, type Ctx, type EdgeSpec, type Room, type Span } from "./model";
+
+/** Whether a drawn form shows its body (an open panel's). */
+const isBody = (f: StackForm | undefined): boolean => !!f && formBody(f);
 
 interface Owner {
   /** The edge it is, as the tiler reads it; null for an edge the tiler doesn't read (folded, riding, taking nothing). */
@@ -172,7 +176,7 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
     if (!e || half === null) return [];
     const column = axisOf(e.side) === "column";
     return Object.entries(now.items)
-      .filter(([iid, p]) => p.edge === e.id && p.formKind === "open" && iid !== dragged)
+      .filter(([iid, p]) => p.edge === e.id && iid !== dragged && isBody(formsOf(scene.items[iid]!, axisOf(e.side))[p.form]))
       .map(([, p]): Span => (column ? [p.rect.y + half, p.rect.y + p.rect.height - half] : [p.rect.x + half, p.rect.x + p.rect.width - half]))
       .filter(([a, b]) => b - a > EPS);
   };

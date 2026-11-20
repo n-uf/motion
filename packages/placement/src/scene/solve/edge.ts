@@ -3,7 +3,7 @@
  * user's size. A compact edge is icons only.
  */
 import { EPS } from "../../geometry";
-import { fitStack, formCrossMin, formSetsCross, type StackFit, type StackForm, type StackInput, type StackItem } from "../../stack";
+import { fitStack, formCompact, formCrossMin, formSetsCross, type StackFit, type StackForm, type StackInput, type StackItem } from "../../stack";
 import { axisOf, formsOf, pastWrap, railModeOf, startOf, zoneOf } from "../helpers";
 import type { Edge, Scene, SceneEdgeLayout, SceneItem } from "../model";
 import { finite, px, zoneSorted } from "./order";
@@ -59,8 +59,8 @@ function compactEdge(f: EdgeFrame): EdgeSolve {
   const { scene, edge, formsById } = f;
   const iconsAt = (id: string): number => {
     const forms = formsById(id);
-    for (let j = startOf(scene.items[id]!, forms, edge); j < forms.length; j++) if (forms[j]!.kind === "icons") return j;
-    return forms.findIndex((x) => x.kind === "icons");
+    for (let j = startOf(scene.items[id]!, forms, edge); j < forms.length; j++) if (formCompact(forms[j]!)) return j;
+    return forms.findIndex(formCompact);
   };
   const shown = f.ordered.filter((id) => !scene.items[id]!.closed && iconsAt(id) >= 0);
   const leftOutIcons = f.ordered.filter((id) => !scene.items[id]!.closed && iconsAt(id) < 0);
@@ -143,7 +143,7 @@ export function solveEdge(scene: Scene, edge: Edge, ids: readonly string[], leng
     const it = scene.items[id]!;
     const forms = formsById(id);
     if (!column || !edge.zoneAccepts?.end || zoneOf(it) !== "end") return stackItemOf(it, forms, edge);
-    const tray = (f: StackForm): boolean => f.kind === "wrap" || f.kind === "icons" || !!f.wrap;
+    const tray = (f: StackForm): boolean => f.kind === "wrap" || formCompact(f) || !!f.wrap;
     let first = -1;
     for (let j = startOf(it, forms, edge); j < forms.length && first < 0; j++) if (tray(forms[j]!)) first = j;
     let last = -1;

@@ -7,7 +7,7 @@
  */
 import { fitFloat, type FloatFit } from "../../float-fit";
 import { EPS, rect, type Rect, type Size } from "../../geometry";
-import type { StackForm } from "../../stack";
+import { formFolded, type StackForm } from "../../stack";
 import { anchorName, axisOf, chromeFor, floatOrientOf, floatShape, foldedByOf, formsOf, isSince } from "../helpers";
 import type { FloatAnchor, FloatAnchorAt, Orient, SceneFloat, SceneItem } from "../model";
 import { shapeOf, type Draft } from "./draft";
@@ -112,7 +112,7 @@ export function placeFloat(item: SceneItem, f: Pick<SceneFloat, "rect" | "orient
   const w = Math.max(floor.width, Math.min(shape.width, clear.width, cap.width));
   // A float folded by hand is its bar (a panel's `header`, a group's `fold`): it keeps the bar's own height. Any other
   // form (its first, or a later one a stored scene names) fits the region.
-  const folded = form?.kind === "header" || form?.kind === "fold";
+  const folded = !!form && formFolded(form);
   const h = folded ? shape.height : Math.max(floor.height, Math.min(shape.height, clear.height, cap.height));
   const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);
   const fit0 = f.anchor ? fitBeside(want, region, avoid, earlier) : fitFloat(want, region, avoid);
