@@ -105,7 +105,7 @@ if (problems.length === 0) {
     const slot = { id: "slot", priority: 2, hit: { x: 0, y: 0, width: 200, height: 100 } };
     const intent = modules.drag.createDragIntent({ home: { x: 300, y: 300, width: 100, height: 50 } });
     for (let t = 0; t <= 300; t += 16) intent.update({ x: 100, y: 50 }, t, [slot]);
-    if (intent.state.shown?.id !== "slot" || intent.release({ x: 100, y: 50 }, [slot])?.id !== "slot") problems.push("drag.js: a drag held over a slot didn't show and land on it");
+    if (intent.state.shown?.id !== "slot" || intent.release({ x: 100, y: 50 }, 300, [slot])?.id !== "slot") problems.push("drag.js: a drag held over a slot didn't show and land on it");
     const clock = modules.clock.createFakeClock();
     const loop = modules.clock.createFrameLoop({ clock });
     const value = modules.values.springValue(loop, 0);

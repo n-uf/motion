@@ -13,8 +13,8 @@ export interface KindFeel {
   readonly railVisibility: RailVisibility;
   readonly magnet: number;
   readonly floatNearEdge: boolean;
-  readonly railArmDwellMs: number;
-  readonly modifiers: { readonly on: boolean; readonly floatKey: ModifierKey; readonly railKey: ModifierKey };
+  readonly armAfter: number;
+  readonly modifiers: { readonly on: boolean; readonly floatKey: ModifierKey; readonly armKey: ModifierKey };
 }
 export type FeelKind = "panel" | "group";
 export type DragFeel = Readonly<Record<FeelKind, KindFeel>>;
@@ -27,9 +27,9 @@ export const keyName = (k: ModifierKey): string => KEY_NAMES[k];
  * Panels: a strip as wide as the rail, shown while dragging, a 6 px magnet, a 200 ms dwell, Shift floats, ⌘/Ctrl rails
  * (not Alt: Alt unfreezes a frozen layout, and a key has one meaning). A feel that says "alt" stays valid.
  */
-const PANEL_FEEL: KindFeel = { railStripWidth: null, railVisibility: "whileDragging", magnet: DEFAULT_RAIL_MAGNET, floatNearEdge: true, railArmDwellMs: 200, modifiers: { on: true, floatKey: "shift", railKey: "mod" } };
+const PANEL_FEEL: KindFeel = { railStripWidth: null, railVisibility: "whileDragging", magnet: DEFAULT_RAIL_MAGNET, floatNearEdge: true, armAfter: 200, modifiers: { on: true, floatKey: "shift", armKey: "mod" } };
 /** Toolbars: today's values: no rail strip (their icon rails keep their own targets), no dwell, no keys. */
-const GROUP_FEEL: KindFeel = { railStripWidth: 0, railVisibility: "never", magnet: 0, floatNearEdge: true, railArmDwellMs: 0, modifiers: { on: false, floatKey: "shift", railKey: "mod" } };
+const GROUP_FEEL: KindFeel = { railStripWidth: 0, railVisibility: "never", magnet: 0, floatNearEdge: true, armAfter: 0, modifiers: { on: false, floatKey: "shift", armKey: "mod" } };
 export const DEFAULT_FEEL: DragFeel = { panel: PANEL_FEEL, group: GROUP_FEEL };
 
 /** Whether a kind's feel docks into the side's rail at all. */
@@ -50,7 +50,7 @@ export function withFeel(s: DockState, feel: DragFeel): DockState {
 /** The drag intent's tuning for a kind. */
 export const tuningOf = (feel: DragFeel, kind: string): Partial<DragTuning> => {
   const f = kind === "panel" ? feel.panel : feel.group;
-  return { railArmDwellMs: f.railArmDwellMs, modifiers: f.modifiers };
+  return { armAfter: f.armAfter, modifiers: f.modifiers };
 };
 
 const num = (x: unknown, lo: number, hi: number, fallback: number): number => (typeof x === "number" && Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : fallback);

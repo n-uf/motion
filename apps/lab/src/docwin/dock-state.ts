@@ -493,9 +493,18 @@ export function createDocwin(o: DocwinOptions) {
     // During a drag (the window resized under it) the held item stays drawn by the drag, and its targets are asked again.
     draw(state, layout, drag?.id, !previous || layout.notes.some((n) => n.code === "content-changed"));
     if (drag) {
-      drag.targets = targetsOf(drag.id);
-      // The room is drawn again from the new targets on the next frame.
+      // The room is drawn again from the new targets on the next frame; the intent clamps onto the window as it is now.
       drag.room = null;
+      drag.intent.setBounds(state.stage);
+      // Under the landing model its regions again (spots map by id, the new state answers for a held spot), and the
+      // targets from them: one generation; under the published rules, the targets again.
+      if (drag.landing) {
+        const next = regionsOf(drag.id, drag.grab);
+        drag.landing.regions = next.regions;
+        drag.landing.regionsFor = next.regionsFor;
+        drag.landing.model.setRegions(next.regions, next.regionsFor);
+        drag.targets = targetsFrom(next.regions);
+      } else drag.targets = targetsOf(drag.id);
     }
     restingStrips();
     store();
@@ -1008,8 +1017,9 @@ export function createDocwin(o: DocwinOptions) {
       formOf: null,
       switches: 0,
       last: now,
-      // The lift zone is about the press (the grip): back there, a pause arms no strip ("changed my mind").
-      intent: createDragIntent<Pick>({ home, lift: start, tuning: rowRules ? {} : tuningOf(feel, was.kind) }),
+      // The lift zone is about the press (the grip): back there, a pause arms no strip ("changed my mind"). The intent
+      // clamps the pointer onto the window (the stage) itself.
+      intent: createDragIntent<Pick>({ home, lift: start, bounds: state.stage, tuning: tuningFor(was.kind) }),
       targets,
       drawn: createSettle<Rect>({ x: p.x - grab.x, y: p.y - grab.y, width: was.rect.width, height: was.rect.height }, { omega: SETTLE_TEMPO.default }),
       snappedTo: null,
@@ -1085,9 +1095,9 @@ export function createDocwin(o: DocwinOptions) {
   };
 
   /**
-   * The point a drag picks with: the pointer clamped into the window (the stage), so a pointer past the window's edge
-   * means its nearest point of the window: the edge itself, which belongs only to the targets drawn against it (no
-   * refusal and no float holds it). The held copy still follows the pointer itself.
+   * The point a refusal is looked up at: the pointer clamped into the window (the stage), as the drag intent clamps it
+   * itself (its `bounds`), so a pointer past the window's edge means the edge itself, which belongs only to the targets
+   * drawn against it (no refusal and no float holds it). The held copy still follows the pointer itself.
    */
   const pickPoint = (d: Held): Point => {
     const s = state.stage;
@@ -1124,8 +1134,77 @@ export function createDocwin(o: DocwinOptions) {
   function frame(now: number): void {
     const d = drag;
     if (!d) return;
-    // The refusals go in with the targets: the intent never holds or shows one, and says which is under the pointer.
-    const picked = d.intent.update(pickPoint(d), now, [...d.targets, ...d.refusalTargets], d.keys);
+    const k = d.landing ? landingLook(d, d.landing, now) : intentLook(d, now);
+    const onlyItem = dropPreview === "item";
+    // The trace: each change of the shown target, of the slot the held item sits in (snap), and every frame's room.
+    if ((k.shown?.id ?? null) !== (d.trace.log.at(-1)?.id ?? null)) d.trace.log.push({ id: k.shown?.id ?? null, t: now });
+    if ((k.snapTo?.id ?? null) !== d.snappedTo) {
+      d.snappedTo = k.snapTo?.id ?? null;
+      d.trace.snaps.push({ id: d.snappedTo, t: now, flying: !k.snapTo && !k.aiming });
+    }
+    d.trace.rooms.push({ t: now, shown: k.shown?.id ?? null, room: k.room?.id ?? null });
+    followForm(d, k.over, onlyItem);
+    drawHeld(d, now, k.sits, d.intent.state.speed, onlyItem ? k.free : null);
+    d.el.toggleAttribute("data-placed", k.placed);
+    drawRoom(d, k.room, k.homing);
+    d.shown = k.shown;
+    d.refused = k.refused;
+    sayCantGo(k.refused?.id ?? k.cantGo, d.pointer);
+    // What says where it lands: the item itself (Snap), else the outline; nothing over a refusal.
+    const s = k.outline?.target ?? null;
+    if (onlyItem) {
+      d.preview = k.sits ?? k.free;
+      showSlot(null);
+    } else if (k.refused) {
+      d.preview = null;
+      showSlot(null);
+    } else if (k.homing || s?.place.kind === "home") {
+      d.preview = layout.items[d.id]?.rect ?? null;
+      showSlot(d.preview, "Back to its place");
+    } else if (!s || s.place.kind === "none" || !k.outline!.rect) {
+      d.preview = null;
+      showSlot(null);
+    } else if (s.place.kind === "float") {
+      d.preview = k.outline!.rect;
+      showSlot(d.preview, "Float", undefined, s.id);
+    } else {
+      d.preview = k.outline!.rect;
+      showSlot(d.preview, labelOf(s), s.marker, s.id);
+    }
+    const guides = k.guides();
+    drawGuides(guides);
+    if (probe) probe((d.probed = probeOf(d, k, guides, now)));
+  }
+
+  /** This frame's facts for the pre-render: the held item as drawn, where a release lands, the place and the marks. */
+  function probeOf(d: Held, k: Look, guides: ReturnType<Look["guides"]>, now: number): ProbeFrame {
+    const lf = d.landing?.model.frame ?? null;
+    const p = k.shown?.place;
+    const region = lf ? lf.region : k.refused ? "refused" : p?.kind === "float" ? "open" : p?.kind === "home" ? "home" : docks(k.shown) ? "lane" : "nowhere";
+    const lane = lf ? lf.lane : p?.kind === "gap" ? p.edge : p?.kind === "column" || p?.kind === "rail" ? `${p.kind}:${p.side}` : null;
+    const spot = lf ? lf.spot : (k.shown?.id ?? null);
+    const rect = d.drawn.value;
+    return {
+      kind: "frame",
+      now,
+      pointer: { x: d.pointer.x, y: d.pointer.y },
+      held: { id: d.id, rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, placed: k.placed ? spot : null },
+      landing: (lf ? lf.landing : d.preview) ?? null,
+      region,
+      lane,
+      spot,
+      pending: lf?.pending ?? null,
+      cantGo: k.refused?.id ?? k.cantGo ?? null,
+      guides: guides.map((g) => ({ id: g.id, kind: g.kind, lane: g.lane ?? "", rect: g.r })),
+    };
+  }
+
+  /**
+   * The published rules' look: the drag intent says what shows (its refusals picked among the targets), the preview
+   * plan whether the room is open; the side rails' strips drawn, their armed state said. No place guides.
+   */
+  function intentLook(d: Held, now: number): Look {
+    const picked = d.intent.update(d.pointer, now, [...d.targets, ...d.refusalTargets], d.keys);
     const f = { ...picked, shown: picked.shown as DockDrop | null, arming: picked.arming as DockDrop | null };
     const plan = previewPlan(f, previewOf());
     const onlyItem = dropPreview === "item";
@@ -1134,7 +1213,7 @@ export function createDocwin(o: DocwinOptions) {
     drawStrips(d.targets, f.arming?.id ?? null, armed);
     if ((armed?.id ?? null) !== d.armedSaid) {
       d.armedSaid = armed?.id ?? null;
-      if (armed && armed.place.kind === "rail") say(`${titleOf(d.id)}: release to collapse it into the ${armed.place.side} rail${f.forced === "rail" ? ` (${keyName(feel.panel.modifiers.railKey)} held)` : ""}.`);
+      if (armed && armed.place.kind === "rail") say(`${titleOf(d.id)}: release to collapse it into the ${armed.place.side} rail${f.forced === "armed" ? ` (${keyName(feel.panel.modifiers.armKey)} held)` : ""}.`);
       else if (f.arming) say(`${titleOf(d.id)} over the ${f.arming.place.kind === "rail" ? f.arming.place.side : ""} rail: hold still to collapse it there.`);
     }
     const room = plan.makeRoom && docks(f.shown) ? f.shown : null;
@@ -1238,7 +1317,7 @@ export function createDocwin(o: DocwinOptions) {
    * pointer's speed and aim (the trace, and "Can't go here" waiting while a hand passes over docked content).
    */
   function landingLook(d: Held, L: NonNullable<Held["landing"]>, now: number): Look {
-    const motion = d.intent.update(pickPoint(d), now, [...d.targets, ...d.refusalTargets], d.keys);
+    const motion = d.intent.update(d.pointer, now, [...d.targets, ...d.refusalTargets], d.keys);
     const mf = L.model.update(d.pointer, now, d.keys);
     const spot = mf.region === "lane" && mf.spot ? spotOf(L, mf.spot) : null;
     const target = landingTarget(L, mf.region, mf.spot);
@@ -1334,7 +1413,7 @@ export function createDocwin(o: DocwinOptions) {
             : r?.kind === "float"
               ? d.landing.regions.float
               : null
-          : (d.intent.release(pickPoint(d), [...d.targets, ...d.refusalTargets], d.keys) as DockDrop | null);
+          : (d.intent.release(d.pointer, now, [...d.targets, ...d.refusalTargets], d.keys) as DockDrop | null);
     drag = null;
     // The frames, the session mark and the press's own listeners go with the drag: a reset mid-drag leaves none behind.
     session.ended();

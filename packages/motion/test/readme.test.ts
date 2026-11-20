@@ -22,7 +22,7 @@ describe("README examples", () => {
     const intent = createDragIntent({ home: { x: 300, y: 300, width: 100, height: 50 } });
     for (let t = 0; t <= 300; t += 16) intent.update({ x: 100, y: 50 }, t, [slot]);
     log(intent.state.shown?.id);
-    log(intent.release({ x: 100, y: 50 }, [slot])?.id);
+    log(intent.release({ x: 100, y: 50 }, 300, [slot])?.id);
     expect(log.mock.calls).toEqual([["slot"], ["slot"]]);
   });
 
@@ -33,7 +33,7 @@ describe("README examples", () => {
       placeOf: (_t, p, previous) => (p.x >= (previous === "right" ? 94 : 100) ? "right" : null),
     });
     for (let t = 0; t <= 300; t += 16) zones.update({ x: 50, y: 50 }, t, [pane]);
-    expect([zones.state.shown, zones.release({ x: 50, y: 50 }, [pane])]).toEqual([null, null]);
+    expect([zones.state.shown, zones.release({ x: 50, y: 50 }, 300, [pane])]).toEqual([null, null]);
     // Its right half shows, and holds 3 px back past the line.
     for (let t = 316; t <= 600; t += 16) zones.update({ x: 150, y: 50 }, t, [pane]);
     expect(zones.state.shown?.id).toBe("pane");
@@ -49,7 +49,7 @@ describe("README examples", () => {
     const onPage = createDragIntent({ home: { x: 600, y: 600, width: 100, height: 50 } });
     const screen = { x: 350, y: 225 };
     for (let t = 0; t <= 300; t += 16) onPage.update(toPage(screen), t, [slot]);
-    expect([onPage.state.shown?.id, onPage.release(toPage(screen), [slot])?.id]).toEqual(["slot", "slot"]);
+    expect([onPage.state.shown?.id, onPage.release(toPage(screen), 300, [slot])?.id]).toEqual(["slot", "slot"]);
     // Fed the screen point as it is, the same pointer is nowhere near the slot.
     const raw = createDragIntent({ home: { x: 600, y: 600, width: 100, height: 50 } });
     for (let t = 0; t <= 300; t += 16) raw.update(screen, t, [slot]);

@@ -301,7 +301,7 @@ export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): voi
     if (!d) return;
     drag = null;
     ind.classList.remove("on");
-    const target = cancel ? null : d.intent.release(d.last, targetsOf(d))?.win ?? null;
+    const target = cancel ? null : d.intent.release(d.last, performance.now(), targetsOf(d))?.win ?? null;
     if (target) [target.slot, d.w.slot] = [d.w.slot, target.slot];
     if (target && !d.scripted) markTouched();
     d.w.hold = false;
