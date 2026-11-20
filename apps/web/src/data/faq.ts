@@ -1,7 +1,7 @@
 // Questions and answers, shown on a page and in its FAQPage structured data (answers word for word as shown).
 // A page that shows questions has its list in FAQS below, keyed by its path. An answer is one paragraph (it may hold
 // <code>), opening with the direct answer, 40 to 60 words (scripts/faq.test.mjs checks the count). Facts come only
-// from the packages' READMEs. Tiling is named only as the shipped entry, `./tiling`, never as a topic of its own.
+// from the packages' READMEs and docs. Tiling is named only as the shipped entry, `./tiling`, never as a topic of its own.
 import { faqPage } from "./schema";
 
 export interface QA { id?: string; q: string; a: string }
@@ -16,7 +16,7 @@ export const FAQS: Record<string, QA[]> = {
   "/": [
     {
       q: "Can I use @n-uf/motion without React?",
-      a: "Yes. Neither package needs React or any framework. <code>@n-uf/motion</code> has no DOM, no framework and no globals in its core: the host hands in a clock. <code>@n-uf/placement</code> is pure functions over plain data with no DOM and no dependencies, so you can call both from plain TypeScript or from any framework's code.",
+      a: "Yes. None of the three libraries needs React or any framework. <code>@n-uf/motion</code> has no DOM, no framework and no globals in its core: the host hands in a clock. <code>@n-uf/placement</code> and <code>@n-uf/docking</code> are pure functions over plain data with no DOM and no framework, so you can call all three from plain TypeScript or from any framework's code.",
     },
     {
       q: "How do I handle long press, pinch, double click and wheel gestures in JavaScript?",
@@ -27,12 +27,16 @@ export const FAQS: Record<string, QA[]> = {
       a: "Use <code>positionPopup</code> from <code>@n-uf/placement/popup</code>. Give it the anchor rect, popup size, bounds and a rule (anchor point, gravity, offset, and whether it may flip, slide or resize), and it flips, slides or resizes the popup to fit, as far as the rule allows, like Wayland's xdg-positioner. It works on plain data and moves nothing, so your app does the drawing.",
     },
     {
-      q: "What license is @n-uf/motion under, and is it stable?",
-      a: "It is under PolyForm Perimeter 1.0.1, and it is not yet stable. Versions are dates (YY.M.R), not semantic versions, so any release may break things, including how springs settle and how gestures are timed. Pin an exact version and read the CHANGELOG before you upgrade. <code>@n-uf/placement</code> has the same license and its own not-yet-stable notice.",
+      q: "What license are the n-uf libraries under, and are they stable?",
+      a: "<code>@n-uf/motion</code>, <code>@n-uf/placement</code> and <code>@n-uf/docking</code> are all under PolyForm Perimeter 1.0.1, and none is stable yet. Versions are dates (YY.M.R), not semantic versions, so any release may break things, including how springs settle and how gestures are timed. Pin an exact version and read the CHANGELOG before you upgrade.",
     },
     {
-      q: "How do @n-uf/motion and @n-uf/placement work together?",
-      a: "Placement computes where things go and motion moves them, and neither imports the other. A target list from <code>targets</code> in <code>@n-uf/docking</code>, built on placement, is exactly what the drag intent in <code>@n-uf/motion/drag</code> takes, and a rect from any of their layouts is what <code>@n-uf/motion/layout</code> glides to. Each package also works alone.",
+      q: "How do the three libraries work together?",
+      a: "Motion moves things, placement works out where they fit, and docking works out where they dock. Motion imports neither of the others. A target list from <code>targets</code> in <code>@n-uf/docking</code> is exactly what the drag intent in <code>@n-uf/motion/drag</code> takes, and a rect from placement or docking is what <code>@n-uf/motion/layout</code> glides to. Each library also works alone.",
+    },
+    {
+      q: "Does @n-uf/docking draw panels and tabs?",
+      a: "No. <code>@n-uf/docking</code> draws nothing and touches no DOM. It holds the dock state (bars, rails, columns, items and floats) and works out rects and drop targets from it, as plain data. Your app draws the panels and tabs and reads the pointer, and <code>@n-uf/motion</code> can glide the rects.",
     },
   ],
   "/window-motion/": [
@@ -71,17 +75,17 @@ export const FAQS: Record<string, QA[]> = {
       a: "On the shown target whenever one shows: the drop is what was shown. With no indicator showing, a release lands on the target under the pointer, and otherwise on nothing. <code>release(point, time, targets)</code> returns that target, or null for home, and a release over home does nothing.",
     },
   ],
-  "/desk-layouts/": [
+  "/docking-layouts/": [
     {
       q: "How do I drag a panel from one dock to another?",
-      a: "Take drop targets from <code>targets(state, id)</code> in <code>@n-uf/docking</code>, which lists only the places the dock state's edges accept, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. Each target carries what a release there makes: <code>target.after(point, grab)</code> returns the new state and its layout, so the preview is the result. Your app draws the rects; <code>@n-uf/motion/layout</code> can glide the panels there.",
+      a: "Take drop targets from <code>targets(state, id)</code> in <code>@n-uf/docking</code>, which lists only the places the dock state's edges accept, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. Each <code>DockDrop</code> carries what a release there makes: <code>target.after(point, grab)</code> returns the new dock state and its layout, so the preview is the result. Your app draws the rects.",
     },
     {
-      q: "Which desk layouts can I build?",
-      a: "Any you can describe as a <code>DockState</code> from <code>@n-uf/docking</code>: edges along the window's sides (columns, docks, toolbars), the panels in them, and floats. This page lays out four: side docks with a bottom dock, the same with a full-width dock, the same with floating panels, and a navigator. Panes that share an area come from <code>./tiling</code>.",
+      q: "Which docking layouts can I build?",
+      a: "Any you can describe as a <code>DockState</code> from <code>@n-uf/docking</code>: edges along the window's sides (columns, docks, toolbars), the panels in them, and floats. This page lays out four: side docks with a bottom dock, the same with a full-width dock, the same with floating panels, and a navigator. Panes that share an area come from <code>./tiling</code> in <code>@n-uf/placement</code>.",
     },
     {
-      q: "What gives way when a desk runs out of room?",
+      q: "What gives way when a docked window runs out of room?",
       a: "The least recently used section collapses to its header when a column runs short of height. Short of width (<code>contentMin</code>), columns narrow, then the least recently used collapses to its rail. A dock with <code>giveWay</code> shrinks, then collapses to a header bar. <code>solve</code> returns coded notes such as <code>column-folded</code>; your app supplies the wording.",
     },
   ],
@@ -100,7 +104,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do I save and restore a toolbar layout?",
-      a: "Use <code>storeDockState</code> and <code>readDockState</code> from <code>@n-uf/docking</code>. <code>storeDockState</code> returns versioned plain data that you stringify. Pass the parsed data to <code>readDockState</code> with your starting state: it never throws, an unknown version gives that state back with the reason in <code>error</code>, and what it can't use is listed in <code>dropped</code>. Groups added since the save go where the starting state has them.",
+      a: "Use <code>storeDockState</code> and <code>readDockState</code> from <code>@n-uf/docking</code>. <code>storeDockState</code> returns versioned plain data that you stringify. Pass the parsed data to <code>readDockState</code> with your starting dock state: it never throws, an unknown version gives that state back with the reason in <code>error</code>, and what it can't use is listed in <code>dropped</code>. Groups added later go where the starting state has them.",
     },
     {
       q: "How do I step through drop targets with the keyboard?",
