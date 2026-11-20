@@ -1035,15 +1035,28 @@ drag of `id`:
   order. A spot's `others` keys where its drop draws every item but
   the held one: a change between two spots with the same key moves only the held item, so a model gates only changes
   between spots whose keys differ (that reflow the window).
-- `marks` per lane, the place guides in the layout as drawn (the held spot's, with `options.spot`): a `line` across the
-  lane between two items too close for the item between them, and at a lane's end next to an item; a `box` over each
-  free stretch it fits in (a virtual lane: a box at its landing, a line beside it where the held item is drawn over
-  it). Only where a drop lands (a spot between those two items, or beside the held one), so none beside fixed chrome
-  nothing lands next to. Never over an item drawn on the lane, the held one included, nor a line in a refused stretch. Each mark has an
-  `id` (`<lane>/line/<before>|<after>`, `<lane>/box/<before>|<after>`, `^` and `$` at the ends) that stays while its
-  neighbors stay, so a host keys its drawing by it.
+- `marks` per lane, the place guides in the layout as drawn: a mark at every place a drop lands but the held one's.
+  - A `box` over each free stretch the item fits in. Beside the held item, the room left of its stretch is a box from
+    a pitch on a bar or a toolbar rail (`:before` or `:after` the item in its id, so it keeps it while the item glides).
+    A growing item there (a title filling its bar) counts at its natural length, so its slack is free room.
+  - Room shorter than the item, at a lane's end or between items more than the edge's gap apart, is drawn as its spot
+    lands: a `box` over the free room and a `hatch` over the neighbor that gives way (its share by how far the drop
+    moves it; `:before` or `:after` the room in its id), the two together the landing; with no free room at a lane's
+    end, the hatch alone. Two items that touch keep a `line` between them; a panel column keeps its lines.
+  - A box lying over another edge's docked items (an empty side rail over a column's outer strip) is a hatch there:
+    they move aside when the lane opens.
+  - Never a box or a line over an item drawn there, nothing over the held item, nothing in a refused stretch, and no
+    two lanes' marks overlap: at a corner a lane not drawn (an empty bar or rail, a virtual lane) gives way to a drawn
+    one, and between two not drawn the bar owns it.
+  - As seen (no `spot`), the lifted item is drawn nowhere, so its own place is free room in its lane. With
+    `options.spot`, every lane's marks lie in that spot's layout (the held item there, its room open, an edge moved by
+    it): a host draws the held lane's guides from the `lanes()` call with `spot` (a landing model's `regionsFor`).
+  - A virtual lane: a box at its landing, a line beside it where the held item is drawn over it. Only where a drop
+    lands, so none beside fixed chrome nothing lands next to. Each mark has an `id` (`<lane>/line/<before>|<after>`,
+    `<lane>/box/<before>|<after>`, `<lane>/hatch/<before>|<after>`, `^` and `$` at the ends, with the suffixes above)
+    that stays while its neighbors stay, so a host keys its drawing by it.
 - `refused` stretches per lane, each at least the item's length (a shorter one joins its spots), and refused places
-  outside lanes;
+  outside lanes, less where a lane lies (the lane takes the pointer there);
 - the `content`, and what `blocked` takes out of it (drawn edges, docked items, the chrome, a drawn declared rail, the
   scene's `blocked` spots, where a release cancels): the open space;
 - the stage, the `floatRegion` (the stage less the inset at its left and right, as `heldRect` keeps a held item), the

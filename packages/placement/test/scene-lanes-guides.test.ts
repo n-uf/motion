@@ -214,7 +214,8 @@ describe("lanes(): a guide at every spot but the held one's", () => {
               if (!p || o.id === sp.id || sameLanding(o.landing, sp.landing)) continue;
               // The held item splits the stretch it lies in: a spot before it needs a mark before it, one after it after.
               const side = mid(o.landing) < mid(sp.landing) ? "before" : "after";
-              const ok = held.marks.some((m) => markPair(m.id) === p && (!/:(before|after)/.test(m.id) || m.id.includes(`:${side}`)));
+              // A room box beside the held item names its side of the item; any other mark of that place counts.
+              const ok = held.marks.some((m) => markPair(m.id) === p && (m.kind !== "box" || !/:(before|after)/.test(m.id) || m.id.includes(`:${side}`)));
               if (!ok) misses.push(`${name}: ${id} held at ${sp.id}, nothing marks ${l.id} ${p} ${side} it (${o.id})`);
             }
           }
@@ -235,7 +236,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
       let besides = 0;
       for (const sp of l0.spots) {
         const held = lanes(s, id, { previous, spot: sp.id }).lanes.find((x) => x.id === laneId)!;
-        const room = held.marks.filter((m) => /:(before|after)/.test(m.id));
+        const room = held.marks.filter((m) => m.kind === "box" && /:(before|after)/.test(m.id));
         besides += room.length;
         for (const m of room) {
           expect(m.kind, m.id).toBe("box");
@@ -262,7 +263,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     ] as const) {
       const l0 = lanes(s, id, { previous }).lanes.find((x) => x.id === laneId)!;
       // Along the lane in order: every spot held in turn, the ids of the boxes beside it on each.
-      const seq = l0.spots.map((sp) => new Set(lanes(s, id, { previous, spot: sp.id }).lanes.find((x) => x.id === laneId)!.marks.filter((m) => /:(before|after)/.test(m.id)).map((m) => m.id)));
+      const seq = l0.spots.map((sp) => new Set(lanes(s, id, { previous, spot: sp.id }).lanes.find((x) => x.id === laneId)!.marks.filter((m) => m.kind === "box" && /:(before|after)/.test(m.id)).map((m) => m.id)));
       const all = new Set(seq.flatMap((x) => [...x]));
       for (const mid of all) {
         // Present on one run of consecutive spots: never goes and comes back while the item glides one way.
@@ -326,6 +327,11 @@ describe("lanes(): a guide at every spot but the held one's", () => {
         const capped = !!g && parts.some((m) => m.kind === "hatch" && (Math.abs(at(m.rect, l.axis)[1] - g[0]) < 0.5 || Math.abs(at(m.rect, l.axis)[0] - g[1]) < 0.5));
         expect(total, `${where} ${l.id} ${p}: box + hatch vs landing`).toBeLessThanOrEqual(len(spot.landing, l.axis) + 0.5);
         if (!capped) expect(Math.abs(total - len(spot.landing, l.axis)), `${where} ${l.id} ${p}: box + hatch ${total} vs landing`).toBeLessThan(0.5);
+        // Named by side of the room: every `:before` hatch lies before every `:after` one (an id never changes sides).
+        const sideOf = (m: (typeof parts)[number]): string => (m.id.includes(":before") ? "before" : "after");
+        const befores = parts.filter((m) => m.kind === "hatch" && sideOf(m) === "before").map((m) => at(m.rect, l.axis)[1]);
+        const afters = parts.filter((m) => m.kind === "hatch" && sideOf(m) === "after").map((m) => at(m.rect, l.axis)[0]);
+        if (befores.length && afters.length) expect(Math.max(...befores), `${where} ${p}: hatch sides`).toBeLessThanOrEqual(Math.min(...afters) + 0.5);
         for (const h of parts.filter((m) => m.kind === "hatch")) {
           const [h0, h1] = at(h.rect, l.axis);
           expect(items.some(([, it]) => Math.min(h1, at(it.rect, l.axis)[1]) - Math.max(h0, at(it.rect, l.axis)[0]) > 0.5), `${where} ${h.id} over an item`).toBe(true);
@@ -365,6 +371,46 @@ describe("lanes(): a guide at every spot but the held one's", () => {
       }
     }
     expect([...kinds]).toEqual(expect.arrayContaining(["box", "box+hatch"]));
+  });
+
+  it("no two lanes' guides overlap: at all four corners, with both top bars, the bars empty or holding toolbars, as seen and with every spot held", () => {
+    const windows: [string, Scene][] = [
+      ["empty top bar", docWindow()],
+      ["views in the top bar", docWindow(["views"])],
+      ["views and review in the top bar", docWindow(["views", "review"])],
+    ];
+    const bad: string[] = [];
+    for (const [name, s] of windows) {
+      const previous = solve(s);
+      for (const id of TOOLBARS) {
+        const sets: [string, ReturnType<typeof lanes>["lanes"]][] = [["seen", lanes(s, id, { previous }).lanes]];
+        for (const l of lanes(s, id, { previous }).lanes) for (const sp of l.spots) sets.push([sp.id, lanes(s, id, { previous, spot: sp.id }).lanes]);
+        for (const [at, ls] of sets) {
+          const all = ls.flatMap((l) => l.marks.map((m) => ({ lane: l.id, m })));
+          for (let i = 0; i < all.length; i++)
+            for (let j = i + 1; j < all.length; j++)
+              if (all[i]!.lane !== all[j]!.lane && overlaps(all[i]!.m.rect, all[j]!.m.rect)) bad.push(`${name}, ${id} at ${at}: ${all[i]!.m.id} over ${all[j]!.m.id}`);
+        }
+      }
+    }
+    expect(bad.slice(0, 6)).toEqual([]);
+  });
+
+  it("an empty side rail is a lane one rail wide at the window's edge: its guide a hatch over the column's outer strip (it moves aside), and no refused place under it", () => {
+    const s = docWindow();
+    const previous = solve(s);
+    const rs = lanes(s, "views", { previous });
+    const rail = rs.lanes.find((x) => x.id === "rail-right")!;
+    const column = previous.edges.right!.rect;
+    expect(rail.rect.x + rail.rect.width).toBeCloseTo(s.stage.x + s.stage.width, 3);
+    expect(rail.rect.width).toBeCloseTo(30, 3);
+    const hatches = rail.marks.filter((m) => m.kind === "hatch");
+    expect(hatches.length, rail.marks.map((m) => `${m.kind} ${m.id}`).join()).toBeGreaterThan(0);
+    // Over the column's outer strip, and nothing over the column drawn as a box.
+    for (const m of rail.marks) if (m.kind === "box") expect(overlaps(m.rect, column), m.id).toBe(false);
+    expect(hatches.some((m) => overlaps(m.rect, column))).toBe(true);
+    // No refused place where a lane lies.
+    for (const r of rs.refused) for (const l of rs.lanes) expect(overlaps(r, l.rect), `refused over ${l.id}`).toBe(false);
   });
 
   it("with a held spot whose room moves the edge (a bar left empty lets the rail start higher), the marks lie on the edge as drawn there", () => {

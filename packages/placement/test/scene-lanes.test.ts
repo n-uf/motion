@@ -189,14 +189,15 @@ describe("lanes() with a spot held", () => {
       }
   });
 
-  it("is remembered: the same scene and options give the same lanes, and a held spot reworks only its lane", () => {
+  it("is remembered: the same scene and options give the same lanes, and a held spot reworks only its lane's stretches (the others' marks follow its layout)", () => {
     const s = winScene(WINDOW_A, { size: 300 });
     const prev = solve(s);
     const a = lanes(s, "pages", { previous: prev });
     expect(lanes(s, "pages", { previous: prev }).lanes).toBe(a.lanes);
     const held = a.lanes.find((l) => l.id === "left-0")!.spots.find((sp) => !sp.home)!;
     const b = lanes(s, "pages", { previous: prev, spot: held.id });
-    for (const l of b.lanes) if (l.id !== "left-0") expect(a.lanes).toContain(l);
+    const stretches = (l: (typeof a.lanes)[number]) => ({ id: l.id, rect: l.rect, spots: l.spots.map((sp) => [sp.id, sp.along]), refused: l.refused });
+    for (const l of b.lanes) if (l.id !== "left-0") expect(stretches(l)).toEqual(stretches(a.lanes.find((x) => x.id === l.id)!));
   });
 });
 
