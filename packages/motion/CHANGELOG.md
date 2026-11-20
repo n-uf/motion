@@ -7,10 +7,14 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 The landing model's guides gain a kind, and a lane over a place that takes nothing is easier to reach. With
 `@n-uf/placement` 26.11.48. Host notes: `LandingMark.kind` and `LandingGuide.kind` gain `"hatch"` (a host with an
-exhaustive `switch` over them adds a case: draw it over the item under it, in the guides' color, never the accent).
+exhaustive `switch` over them adds a case: a striped cue in the guides' color, never the accent); show no "Can't go
+here" while `LandingFrame.pending` is set.
 
-- `./drag`, **hatched guides** (additive kind): a guide may be a `hatch`, over the part of a neighbor that gives way
-  where room is shorter than the held item (`lanes()` gives them).
+- `./drag`, **hatched guides** (additive kind): a guide may be a `hatch`, a cue only: a striped end inside a box whose
+  room partly fits, or a thin striped edge where an empty side rail would open (`lanes()` gives them).
+- `./drag`, **`LandingFrame.pending`** (additive): the lane the pointer is inside but hasn't entered yet (a fast pass,
+  or the moment before a slow step). A host shows no "Can't go here" while it is set, though a release still lands
+  nowhere: an empty side rail's strip never says "Can't go here".
 - `./drag`, **entering a lane over a place that takes nothing** (fix): where the pointer lies over something that takes
   nothing reaching past a lane (an empty side rail's band over a column) and in no other lane, the lane is entered on
   the first slow step (not on the lift), instead of showing "Can't go here" until its gate passed. A fly-through still
