@@ -31,6 +31,8 @@ import type { PlaceGuides } from "./preview";
  *   lane the pointer came through (a plain lane's band over the home lane's corner included), and its spot is the
  *   item's own (`home.spot`; a sliding one still lets the landing follow the hand and snap): away and back to where the
  *   item was lifted is home on every layout, so no nudge to a neighboring spot is reachable within `lift` of the press.
+ *   The zone is a held state like a held lane: the drag starts in it, leaves it past `lift` and re-enters only within
+ *   `lift - spot`, so a wobble at its edge never flips a cut near the press.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
@@ -306,6 +308,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let moved: { raw: Point; t: number } | null = null;
   /** Where the item was lifted (`lift`, else the first point), fixed for the drag: back there, no owning lane takes it. */
   let liftAt: Point | null = options.lift ?? null;
+  /** Whether the pointer is held in the lift zone (`nearLift`). */
+  let inLiftZone = true;
   let lastStep = 0;
   /** Path inside each lane since the pointer last entered its rect. */
   const pathIn = new Map<string, number>();
@@ -502,7 +506,14 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       // been outside it since the lift): a press in a column's outer edge, or a slow reorder along it, stays in the column.
       // Never within `lift` of where the item was lifted: away and back there is home, wherever a strip lies, while the
       // rest of the strip (all of it over a lone panel's own place) still takes it.
-      const nearLift = !!liftAt && Math.hypot(p.x - liftAt.x, p.y - liftAt.y) <= (margins.lift ?? 16);
+      // The zone is a held state, like a held lane: the drag starts in it, leaves it past `lift` of the lift point and
+      // re-enters it only within `lift - spot`, so a wobble at its edge never flips a cut that lies near the press.
+      const liftR = margins.lift ?? 16;
+      if (liftAt) {
+        const far = Math.hypot(p.x - liftAt.x, p.y - liftAt.y);
+        inLiftZone = far <= (inLiftZone ? liftR : Math.max(0, liftR - margins.spot));
+      }
+      const nearLift = !!liftAt && inLiftZone;
       const owner = nearLift ? undefined : regions.lanes.find((l) => l.owns && l.id !== held?.id && cameIn.has(l.id) && strictlyIn(l.rect, p) && gate(l));
       // The lift zone is the item's own lane's: within `lift` of where it was lifted, in whatever lane the pointer came
       // through, the lane choice is the home lane (when the pointer lies in it, as the lift point did), and its spot the

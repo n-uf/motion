@@ -674,4 +674,39 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
     const last = run(opts(corner()), [...there, [t + 300, 80, 45]]).frames.at(-1)!;
     expect(last.f.lane).toBe("top");
   });
+
+  it("the zone is a held state: wobbling at its edge with a cut about 10 px from the press keeps one spot", () => {
+    // A column of three spots, the cut between `^|A` and `A|B` at y 100; the item pressed at y 105 (home `A|B`), the pointer
+    // flicked up to 88.5 (past the zone's 16 px) and wobbled 89.4 <-> 88.6 across the zone's edge.
+    const col: LandingRegions = {
+      lanes: [
+        {
+          id: "col",
+          rect: rect(0, 0, 200, 600),
+          axis: "y",
+          refused: [],
+          spots: [
+            { id: "col/^|A", along: [0, 100], landing: rect(0, 0, 200, 100), others: "k1" },
+            { id: "col/A|B", along: [100, 300], landing: rect(0, 100, 200, 100), others: "k2" },
+            { id: "col/B|$", along: [300, 600], landing: rect(0, 300, 200, 100), others: "k3" },
+          ],
+        },
+      ],
+      refused: [],
+      content: rect(200, 0, 800, 600),
+      blocked: [],
+      stage: rect(0, 0, 1000, 600),
+      item: { width: 200, height: 100 },
+    };
+    const m = createLandingModel({ regions: col, home: { lane: "col", spot: "col/A|B" }, lift: { x: 100, y: 105 } });
+    let t = 0;
+    m.update({ x: 100, y: 105 }, t);
+    for (let y = 105; y >= 88.5; y -= 0.5) m.update({ x: 100, y }, (t += 16));
+    const seq: (string | null)[] = [];
+    for (let i = 0; i < 8; i++) seq.push(m.update({ x: 100, y: i % 2 ? 88.6 : 89.4 }, (t += 16)).spot);
+    expect([...new Set(seq)]).toEqual(["col/^|A"]);
+    // Back inside `lift - spot` of the press, it is home again; the zone's edge is a held state both ways.
+    m.update({ x: 100, y: 100 }, (t += 16));
+    expect(m.update({ x: 100, y: 104 }, (t += 16)).spot).toBe("col/A|B");
+  });
 });
