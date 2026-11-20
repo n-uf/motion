@@ -237,11 +237,14 @@ describe("guideRects", () => {
         }
         const want: { id: string; lo: number; hi: number }[] = [];
         let cursor = at;
-        merged.forEach(([lo, hi], j) => {
-          want.push({ id: j === 0 ? "g" : `g#${j + 1}`, lo: cursor, hi: Math.max(cursor, lo) });
+        // A part's id counts the interior cuts before it: a cut that reaches the box's start or end trims it, it is no cut.
+        let interior = 0;
+        merged.forEach(([lo, hi]) => {
+          want.push({ id: interior === 0 ? "g" : `g#${interior + 1}`, lo: cursor, hi: Math.max(cursor, lo) });
+          if (lo > at && hi < at + long) interior++;
           cursor = hi;
         });
-        want.push({ id: merged.length === 0 ? "g" : `g#${merged.length + 1}`, lo: Math.min(cursor, at + long), hi: at + long });
+        want.push({ id: interior === 0 ? "g" : `g#${interior + 1}`, lo: Math.min(cursor, at + long), hi: at + long });
         const wantParts = want.filter((p) => (merged.length === 0 ? p.hi - p.lo > 0 : p.hi - p.lo >= minLength));
         const g = { id: "g", kind: "box" as const, rect: horizontal ? rect(at, 50, long, thick) : rect(50, at, thick, long) };
         const run = (order: readonly Rect[]) => guideRects([g], { inside: rect(0, 0, 1200, 1200), inset: 0, clear: order, clearance: gap });
@@ -266,7 +269,7 @@ describe("guideRects", () => {
       expect(multi).toBeGreaterThan(5000);
     });
 
-    it("ids follow the side as a held item slides across the box: the far part is always #2, the near part the id itself", () => {
+    it("ids follow the side as a held item slides across the box: the far part is #2 once the held rect is inside the box, the near part the id itself", () => {
       // A 94 px held rect (2 px clearance) crosses a 300 px box in 1 px steps, from first touching it to leaving it.
       let steps = 0;
       let both = 0;
@@ -274,13 +277,36 @@ describe("guideRects", () => {
         const out = guideRects([box], { inside: area, clear: [rect(h, 8, 94, 35)] });
         for (const g of out) {
           // The held item's own end, grown by the 2 px clearance, is the border between the sides.
-          expect(g.id, `h ${h}`).toBe(g.rect.x >= h + 94 ? "b#2" : "b");
+          // The far part is `b#2` once an interior cut lies before it (the held rect's start inside the box); while the
+          // held rect overlaps the box's start it only trims it, and the one part left is `b`.
+          expect(g.id, `h ${h}`).toBe(g.rect.x >= h + 94 && h - 2 > 100 ? "b#2" : "b");
         }
         if (out.length === 2) both++;
         steps++;
       }
       expect(steps).toBe(397);
       expect(both).toBeGreaterThan(100);
+    });
+
+    it("a full-thickness clear rect that overlaps the box's start or end trims it, it is no cut: the before-part of a held rect is the id itself", () => {
+      // A neighbor flush with the box's start (its 2 px clearance over the first 2 px, across the whole thickness) and a
+      // 94 px held rect inside the box: before the held rect `b`, after it `b#2`, as with no neighbor.
+      const neighbor = rect(60, 8, 40, 35);
+      const held = rect(180, 8, 94, 35);
+      const out = guideRects([box], { inside: area, clear: [neighbor, held] });
+      expect(shown(out)).toEqual([
+        ["b", rect(102, 10, 76, 31)],
+        ["b#2", rect(276, 10, 124, 31)],
+      ]);
+      // The same at the end: a neighbor flush with the box's end trims it, and the part before the held rect is still `b`.
+      const atEnd = guideRects([box], { inside: area, clear: [rect(400, 8, 40, 35), held] });
+      expect(shown(atEnd)).toEqual([
+        ["b", rect(100, 10, 78, 31)],
+        ["b#2", rect(276, 10, 122, 31)],
+      ]);
+      // A trim alone leaves one part, `b`; a trim that merges with the held rect's cut leaves the part after it, `b`.
+      expect(shown(guideRects([box], { inside: area, clear: [neighbor] }))).toEqual([["b", rect(102, 10, 298, 31)]]);
+      expect(shown(guideRects([box], { inside: area, clear: [rect(60, 8, 130, 35)] }))).toEqual([["b", rect(192, 10, 208, 31)]]);
     });
 
     it("a guide without a string id is split without a suffix, and an unchanged one comes back as it was", () => {

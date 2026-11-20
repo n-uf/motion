@@ -17,6 +17,12 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   reach is never dropped at once. Otherwise a guide would linger up to 96 px after the pointer left the lane, in open
   space where a release floats. Host notes: a host that wants the early guide sets `approach: { reach: 80, keep: 96 }`
   (the old values); nothing else to change.
+- `./drag`, **`guideRects` ids count only interior cuts** (fix). A full-thickness clear interval that touches or
+  overlaps the box's start or end trims the box and is no cut; only intervals strictly inside the box (box length on
+  both sides) count. A neighbor toolbar flush with the box's start, its 2 px clearance over the first 2 px, used to
+  count as a cut and renamed the real before-part of a held rect `<id>#2` (and the after-part `<id>#3`); now they are
+  `<id>` and `<id>#2`. One consequence: while a held rect overlaps the box's start, the single part left after it is
+  `<id>`, not `<id>#2`.
 - `./drag`, **`guideRects` cuts a box by one model** (fix; additive optional `axis` on `PlacedGuide`). The first
   version of the split above re-derived a box's orientation for every part, so after one cut a part narrower than the
   box is thick turned the next clear rect into a corner cut: it kept one piece with no `minLength`, lost one of the
