@@ -1,21 +1,57 @@
 # @n-uf/placement
 
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
-`@n-uf/motion`: both packages carry the same version, and a release bumps both.
+`@n-uf/motion` and `@n-uf/docking`: the packages carry the same version, and a release bumps them all.
 
 ## 26.11.53
 
-- `./scene`, **under `sideColumns: "one"`, a side with a declared column edge, empty or not, is that side's column**
-  (fix). Such a column, empty already or emptied by the lift of a lone panel, left its side with no column holding an
-  item, so a new-column line `column:<side>:$` was offered for the same place as that column, and a host drew two
-  identical boxes under "all". The side now offers no new column: the declared column is the place. A side with no
-  declared column, and a dynamic (`column: true`) column, which an empty side loses, are unchanged.
-- `./scene`, **an emptied side column that the scene declares as an edge shows its guide while a panel is held
-  elsewhere** (fix). Its box at real size was lost because the held panel fills the whole column, so its after-entry
-  marks are empty; the lane now keeps its box as seen, and held in it nothing is drawn over the panel.
-- `./scene`, **an empty lane's marks don't change when another lane is entered**, but for the corner (fix). With `spot`
-  held, every other lane whose marks as seen are predicted keeps them, less the held lane's marks, which own their
-  corners; before, an empty bar was cut at the columns that move aside once the held lane opens.
+Breaking. Placement is the general layer: one edge, one area, one popup. The window's docking model leaves for its own
+package, `@n-uf/docking`, and the replaced entries and deprecated parts go. Behavior is unchanged: every layout, target
+and lane is the same for the same input.
+
+Host notes: a host that imports `@n-uf/placement/scene` or `/scene/cases` moves to `@n-uf/docking` and
+`@n-uf/docking/testing` with the renames in docking's CHANGELOG; one that imported a replaced entry moves to
+`@n-uf/docking` or `./tiling`; one that imported `positionPopup` from the root imports it from `./popup`.
+
+Added:
+- `./stack`, **`cutEdges(stage, bands)`**: the stage cut into bands along its sides in list order (`EdgeBand`,
+  `EdgeCut`, `BandSide`); the order decides the corners, a `reserve` band shortens the leftover and an `over` band lies
+  over it.
+- `./stack`, **form flags** `StackForm.body`, `.folded` and `.compact`, with `formBody`, `formFolded` and
+  `formCompact`: what an open panel, a folded form and an icons form stand for, each defaulting from the kind (`open`;
+  `header` and `fold`; `icons`). `formSetsCross` defaults to `formBody`. Nothing changes for a form that sets none.
+- `./stack`, **`stackGaps(input, item, { previous?, allows? })`**: one edge's drop places, fit only: each gap with the
+  stack after the drop, its fit and the item's slot, or a refusal with its reason (`StackGap`, `StackGapOptions`,
+  `StackGapRefusal`).
+- **`@n-uf/placement/popup`**: the popup positioner's own entry.
+
+Moved (one-line migration each):
+- `@n-uf/placement/scene` → `@n-uf/docking`; `@n-uf/placement/scene/cases` → `@n-uf/docking/testing`. Install
+  `@n-uf/docking` and change the import; the names it renames are listed in docking's CHANGELOG.
+- `positionPopup`, `PositionerRule`, `Positioned`, `Align`, `BELOW_LEFT`: root → `@n-uf/placement/popup`. Change the
+  import path.
+- `fitFloat`, `FloatFit`: `./scene` → `./stack` (their one home). Import from `@n-uf/placement/stack`.
+- `COLUMN_REACH`, `RAIL_EDGE`: out of the root into the docking model, unexported. Use your own constant if you drew
+  with them.
+
+Renamed:
+- `centre` → `center` (root). Rename the call.
+
+Removed (one-line migration each):
+- `./dock`, `./toolbar`, `./targets`, `./panels`, `./desk`, every export of each: use `@n-uf/docking` for docks,
+  toolbars and panels, `./tiling` for panes (`paneZone` → `paneRegion`, `paneCentre` → `paneCenter`, `PaneZone` →
+  `PaneRegion`, `PaneCentre` → `PaneCenter`, `PaneZoneOptions` → `PaneRegionOptions`, `PANE_EDGES` → `PANE_SIDES`,
+  `PANE_ZONE_DEFAULTS` → `PANE_REGION_DEFAULTS`), and the root for `Target`.
+- `./stack`: `stackTargets`, `StackTarget`, `StackPlace`, `StackTargetOptions` → `stackGaps` (fit only; hit zones are the
+  host's), or `@n-uf/docking`'s `targets` for a window.
+- `./stack`: `createStack`, `storeStack`, `readStack`, `StackState`, `StoredStack`, `StackRead` → `@n-uf/docking`'s
+  `storeDockState` / `readDockState`.
+- `./stack`: `stackFloatTarget`, `StackFloatTargetInput`, `FloatTarget`, `FloatDrop`, `storeFloats`, `readFloats`,
+  `StoredFloats`, `FloatsRead`, `StackFloat` → `@n-uf/docking`'s float target (`float:<id>`) and stored form;
+  `fitFloat` stays.
+- The `@n-uf/motion` development dependency: placement's tests no longer use it.
+
+Unreleased in `./scene` when it left: two lane fixes ship with `@n-uf/docking` (see its CHANGELOG).
 
 ## 26.11.52
 

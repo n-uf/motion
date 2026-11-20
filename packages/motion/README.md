@@ -79,7 +79,7 @@ console.log(intent.release({ x: 100, y: 50 }, [slot])?.id); // "slot"
 - [CHANGELOG](https://github.com/n-uf/motion/blob/main/packages/motion/CHANGELOG.md)
 - Site and live demos: [motion.n-uf.com](https://motion.n-uf.com)
 
-Its sibling [`@n-uf/placement`](https://www.npmjs.com/package/@n-uf/placement) owns where things go.
+Its siblings: [`@n-uf/placement`](https://www.npmjs.com/package/@n-uf/placement) owns where things fit, and [`@n-uf/docking`](https://www.npmjs.com/package/@n-uf/docking) where panels and toolbars dock.
 
 ## License
 

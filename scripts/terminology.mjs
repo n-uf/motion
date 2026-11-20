@@ -8,7 +8,10 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-/** The banned words: `re` matches a line, `use` says what to write instead. US spelling matches the API (`center`). */
+/**
+ * The banned words: `re` matches a line, `use` says what to write instead, `file` (optional) limits the rule to those
+ * paths. US spelling matches the API (`center`).
+ */
 export const BANNED = [
   { re: /drag handle/i, use: "grip" },
   { re: /\bcentr(?:e|es|ed|ing)\b/i, use: "center, centered (US spelling, as in the API)" },
@@ -19,6 +22,13 @@ export const BANNED = [
   { re: /\blicence\b/i, use: "license (US spelling)" },
   { re: /(?<!\bits )(?<!['’]s )(?<!s['’] )\bown place\b/i, use: '"its own place" ("the item\'s own place"), or "home"' },
   { re: /\b(?:un)?lock(?:ed)? layout\b/i, use: 'the layout lock is "freeze" / "frozen"' },
+  // The docking model's word is "dock state" (`DockState`). An old API name in backticks, as a migration note quotes
+  // it, is not copy. The site's pages follow when the site moves to the new entries.
+  {
+    re: /(?<![\w`/.-])scenes?(?![\w`])/i,
+    use: '"dock state" (`DockState`)',
+    file: /^(packages\/(docking|placement)\/|apps\/lab\/|docs\/(docking|placement)|README\.md$)/,
+  },
 ];
 
 /**
@@ -30,11 +40,14 @@ export const ALLOWED = [
   { line: /P5-neighbour-half-facing-it/, why: "a case id (public data, API); not renamed" },
   // A CSS class name in the footer, not copy.
   { line: /class="foot-licence"/, why: "a CSS class name" },
+  // A changelog's migration note names the removed API name it renames, in backticks.
+  { line: /`centre` → `center`/, file: /(^|\/)CHANGELOG\.md$/, why: "a migration note quotes the old API name" },
 ];
 
 /** The first banned word in `line` that no allowed rule covers (for `file`, when given): `{ word, use }`, else null. */
 export function scan(line, file = "", banned = BANNED, allowed = ALLOWED) {
   for (const b of banned) {
+    if (b.file && !b.file.test(file)) continue;
     const m = b.re.exec(line);
     if (!m) continue;
     if (allowed.some((a) => (!a.file || a.file.test(file)) && a.line.test(line))) continue;

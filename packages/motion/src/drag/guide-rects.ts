@@ -39,7 +39,7 @@ export interface GuideRectsOptions {
   /** The least thickness a thin guide keeps, px (default 2); thinner, it is not drawn. A box a clear rect thinned is held to it too. */
   readonly minThickness?: number;
   /**
-   * The thickness a `line` guide is drawn at, px (default 2). A line thinner than this (placement gives the line
+   * The thickness a `line` guide is drawn at, px (default 2). A line thinner than this (docking gives the line
    * between two docked panels zero thickness) is widened to it, centered on its own position, before the inset, the
    * clear rects and `minThickness` apply; a line at least this thick is unchanged. Only lines are widened. `0` turns
    * the widening off: a line keeps the thickness it has, and a zero-thick one is dropped by `minThickness`.
