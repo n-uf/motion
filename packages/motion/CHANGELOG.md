@@ -3,6 +3,23 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.49
+
+Guides placed inside the window, and no "Can't go here" while the pointer enters a lane. With `@n-uf/placement`
+26.11.49. Host notes: draw guides through `guideRects` (or keep your own placing); nothing else changes for a host.
+
+- `./drag`, **`guideRects(guides, { inside, inset?, clear?, minThickness? })`** (additive): where to draw guides
+  inside a window. Every guide lies inside `inside` by `inset` (2 px). A box is clipped. A thin guide (a line, a
+  striped strip or end: its shorter side is its thickness) keeps its thickness and moves inside rather than being
+  clipped, so a line at a lane's far end is as thick as at its head. It is then thinned from the content side to stay
+  clear of `clear` (the content), so a thin strip lies between the inset and the content, the same on both sides. A
+  thin guide under `minThickness` (2 px) is left out. `GuideRectsOptions` and `PlacedGuide` are its types.
+- `./drag`, **a held lane's exit margin holds a spot, never a refusal** (fix): past its own rect, within the exit
+  margin or while a touching lane's gate has not passed, a held lane keeps the pointer only where it gives a spot. One
+  that would refuse lets go, so the lane the pointer is in is entered by its gate or is `pending`: a pointer coming
+  from a refused stretch of a column into a docked rail beside it shows no "Can't go here" in the rail's first pixels.
+  Inside its own rect a refused stretch stays refused.
+
 ## 26.11.48
 
 The landing model's guides gain a kind, and a lane over a place that takes nothing is easier to reach. With

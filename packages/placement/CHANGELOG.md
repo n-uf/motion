@@ -3,6 +3,19 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## 26.11.49
+
+The gutter between a column and the pages is open space. With `@n-uf/motion` 26.11.49. Host notes: none; a host
+that grew `Regions.content` itself to open the gutter no longer needs to.
+
+- `./scene`, **`Regions.content` is the float region** (fix): `lanes()` gave a landing model `content` as the pages
+  rect, so the gutter between a column and the pages was neither open nor blocked and counted as refused: with one
+  column per side a flick released there landed nowhere. `content` is now where a float can land (`floatRegion`, the
+  stage less its float insets), and `blocked` keeps every drawn edge, docked item, chrome and drawn rail out of it, so
+  the gutter is open and a release there floats, while anything docked stays refused.
+- The README is a short page of the current state; the full reference is
+  [docs/placement-reference.md](https://github.com/n-uf/motion/blob/main/docs/placement-reference.md).
+
 ## 26.11.48
 
 A place guide at every spot that says only "you can drop here", and a fix to the grab's cut (R12). With
