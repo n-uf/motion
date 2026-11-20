@@ -342,7 +342,9 @@ export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): S
   // A float keeps no bar space (`SceneItem.space`). Lifted first, as it lies, so the room it held (its own space
   // included) goes back to its stretch.
   const { space: _space, ...unspaced } = item;
-  const next = at && at.width > 0 && at.height > 0 ? withFloatSizes(unspaced, was?.orient ?? floatOrientOf(item), { orient: fo, size: { width: at.width, height: at.height } }) : unspaced;
+  // A legacy `floatSize` always moves into `floatSizes`, for the orient it was set in (the float's as it was), so a
+  // float made in the other orient never takes it for its own.
+  const next = withFloatSizes(unspaced, was?.orient ?? floatOrientOf(item), at && at.width > 0 && at.height > 0 ? { orient: fo, size: { width: at.width, height: at.height } } : undefined);
   const lifted = withItem(lift(scene, id), next);
   return { ...lifted, floats: [...lifted.floats, float] };
 }

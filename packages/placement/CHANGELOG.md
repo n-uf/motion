@@ -21,7 +21,9 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   keeps a growing form's rect for the orient it leaves, so turning there and back gives the same rect and a hand size
   per orient survives. The drag's float target takes the size for the orient it lands in. `storeScene` / `readScene`
   carry `floatSizes` (an entry that isn't a size is dropped, `item:<id>:floatSizes:<orient>`); a store with only
-  `floatSize` reads as `floatSizes` for its float's orient. Host notes: **`SceneItem.floatSize` is deprecated**: still
+  `floatSize` reads as `floatSizes` for its float's orient, and so does a base item's that the store says nothing of.
+  `floatAt` always moves a legacy `floatSize` into `floatSizes` for the orient it was set in (the float's as it was),
+  so a float made in the other orient and turned back still finds it. Host notes: **`SceneItem.floatSize` is deprecated**: still
   read, no longer written (the scene's own changes drop it into `floatSizes` as they run), and removed in the next
   breaking release; read `floatSizes` instead. A host that builds a toolbar group's float with a rect of its own and no
   `floatSizes` now sees it drawn at its form's natural size, not at that rect: give it `floatSizes` (`floatAt` with a
