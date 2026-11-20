@@ -3,6 +3,45 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## 26.11.48
+
+Place guides for every spot, drawn as they land, and a fix to the grab's cut (R12). With `@n-uf/motion` 26.11.48.
+
+Host notes:
+- `LaneMark.kind` and `LandingCaseGuide.kind` gain `"hatch"`: a host with an exhaustive `switch` adds a case. A hatch
+  lies over an item (the neighbor that gives way); draw it there in the guides' colour, never the accent.
+- Mark ids gain suffixes: `:before` / `:after` (a room box beside the held item, a hatch's side of its room), `#<n>`
+  for pieces. Key drawings by id as before; don't parse them.
+- As seen (no `spot`) the lifted item is drawn nowhere, so its own place is free room in its lane. Draw the held lane's
+  guides from `lanes()` with `spot` (a landing model's `regionsFor`), where every lane's marks lie in that spot's layout.
+- Pass the press's grab to `lanes()` (both calls, as since 26.11.46): the new `landing-grip-*` rows need it.
+
+Changes:
+- `./scene`, **the grab moves no hop past a long neighbor** (fix, R12): 26.11.46 and 26.11.47 cut every pair of spots
+  on a bar or a toolbar rail at the grab, so a toolbar held by its grip hopped a long neighbor early on a bar and late
+  on a rail (the landing up to about 90 px from the pointer). Landings with a gap between them are cut halfway across
+  it, whatever the grab; only overlapping landings (spots a pitch apart) are cut at the grab, kept within half a pitch
+  of their overlap, so a pointer back at its press point still lands home.
+- `./scene`, **a mark at every spot but the held one's** (fix): the room beside the held item is a box from a pitch
+  (was: only from the item's length, so blank); a growing item on a bar or a toolbar rail (a title filling its bar)
+  counts at its natural length, so its slack is marked; the lifted item's own place is free room in its lane as seen;
+  with a held spot whose room moves a whole edge, marks lie on the edge as drawn.
+- `./scene`, **hatched room** (additive kind): room shorter than the item, at a lane's end or between items more than
+  the edge's gap apart, is drawn as its spot lands: a box over the free room and a `hatch` over the neighbor(s) the drop
+  moves, the two together the landing; with no free room at a lane's end, the hatch alone. Two items that touch keep
+  their line; a panel column keeps its lines. Nothing in a refused stretch, nothing over the held item.
+- `./scene`, **guides follow the layout drawn** (fix): no two edge lanes' marks overlap (at a corner a lane not drawn
+  gives way to a drawn one; between two not drawn the bar owns it); a box over another edge's docked items is a hatch
+  there (an empty side rail's band over a column's outer strip: the column moves aside). A virtual lane is drawn over
+  what it would push.
+- `./scene`, **a rail drop strip's lane is the strip** (fix, `Scene.railDrop`): a side's rail lane was the hull of its
+  hit and landing, the whole column where one is docked there, over the column's own lane; it is now the strip at the
+  window's side (`railStripWidth`), so a plain drop in that column goes by halves (R8).
+- `./scene/cases`, **absolute R12 rows** (additive): `landing-grip-past-long-neighbor`, `landing-grip-across-items` and
+  `landing-grip-up-the-rail` slide a toolbar held by its grip past or across neighbors at 0.15 px/ms, within 48 px of
+  the pointer (56 on the frame before a hop, `LandingCase.moving.trailBeforeHop`, additive). They need `GRIP_SINCE`
+  (26.11.48): a host on an older version skips them; on 26.11.46 or 26.11.47 they fail.
+
 ## 26.11.47
 
 Landing rows for hosts with their own geometry, and a docs correction. No layout, target or `lanes()` change. Host

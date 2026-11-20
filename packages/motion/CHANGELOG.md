@@ -3,6 +3,19 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## 26.11.48
+
+The landing model's guides gain a kind, and a lane over a place that takes nothing is easier to reach. With
+`@n-uf/placement` 26.11.48. Host notes: `LandingMark.kind` and `LandingGuide.kind` gain `"hatch"` (a host with an
+exhaustive `switch` over them adds a case: draw it over the item under it, in the guides' colour, never the accent).
+
+- `./drag`, **hatched guides** (additive kind): a guide may be a `hatch`, over the part of a neighbor that gives way
+  where room is shorter than the held item (`lanes()` gives them).
+- `./drag`, **entering a lane over a place that takes nothing** (fix): where the pointer lies over something that takes
+  nothing reaching past a lane (an empty side rail's band over a column) and in no other lane, the lane is entered on
+  the first slow step (not on the lift), instead of showing "Can't go here" until its gate passed. A fly-through still
+  opens no room there (P10); bars and rails over open space keep their gate.
+
 ## 26.11.47
 
 No changes in `@n-uf/motion`: the version is shared with `@n-uf/placement` 26.11.47 (its landing rows' `home` check).
