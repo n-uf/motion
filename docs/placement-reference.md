@@ -334,7 +334,10 @@ drag of `id`:
     side rail's over a column's outer strip, which moves aside); `"edge"` a thin striped strip (`HATCH_EDGE`) on its
     window side. Either way cut around every item docked in a bar or a toolbar rail.
   - Never a box or a line over an item drawn there, nothing over the held item, nothing in a refused stretch, and no
-    two edge lanes' marks overlap: at a corner a lane not drawn (an empty bar or rail) gives way to a drawn one, and
+    two edge lanes' marks overlap (every mark lies inside its lane's `rect`: a mark shows where a drop goes, and a drop
+    is possible only where the lane takes the pointer, so a bar's marks stop where its lane gives way to a drawn
+    edge; a box is clipped to the rect, a line kept only if it lies inside. With `options.spot`, the held spot's own
+    lane is drawn in that spot's layout and follows its edge where it moved, past the rect as seen): at a corner a lane not drawn (an empty bar or rail) gives way to a drawn one, and
     between two not drawn the bar owns it. A virtual lane (a new column's line, a declared rail) is drawn over what it
     would push, and may overlap another lane's marks there.
   - As seen (no `spot`), the lifted item is drawn nowhere, so its own place is free room in its lane. With

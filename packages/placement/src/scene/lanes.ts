@@ -396,7 +396,7 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
     if (!again) return l;
     return l.id === heldLane ? again : { ...l, marks: again.marks };
   });
-  return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes)) };
+  return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes, l.id !== heldLane)) };
 }
 
 function build(scene: Scene, dragged: string, options: LaneOptions): Base {
@@ -764,14 +764,37 @@ function virtualMarks(lane: string, spots: readonly Raw[], held: { rect: Rect; f
 }
 
 /**
+ * The lane with its marks clipped to its rect, the pieces left empty dropped; a line (a joint, kept whole or not at all)
+ * is kept only if it lies inside. The lane itself when nothing changes.
+ */
+function inLane(l: Lane): Lane {
+  const r = l.rect;
+  const marks = l.marks.flatMap((m): LaneMark[] => {
+    const x0 = Math.max(m.rect.x, r.x);
+    const y0 = Math.max(m.rect.y, r.y);
+    const x1 = Math.min(m.rect.x + m.rect.width, r.x + r.width);
+    const y1 = Math.min(m.rect.y + m.rect.height, r.y + r.height);
+    if (m.kind === "line") return x1 - x0 >= m.rect.width - EPS && y1 - y0 >= m.rect.height - EPS ? [m] : [];
+    if (x1 - x0 <= EPS || y1 - y0 <= EPS) return [];
+    return x1 - x0 >= m.rect.width - EPS && y1 - y0 >= m.rect.height - EPS ? [m] : [{ ...m, rect: rect(x0, y0, x1 - x0, y1 - y0) }];
+  });
+  return marks.length === l.marks.length && marks.every((m, i) => m === l.marks[i]) ? l : { ...l, marks };
+}
+
+/**
  * A lane's marks against the others in `drawn`, so no two lanes' guides overlap and each follows the layout:
  * - At a corner, a lane not drawn (an empty bar or rail, a virtual lane: only the band its drops would draw at) gives
  *   way to a drawn edge across it; between two not drawn, a bar owns the corner (as it does once drawn).
  * - A lane not drawn is drawn by `emptyLanes`: `"real"`, its boxes as they are, at the size it will take, over what
  *   moves aside (the page, a column's panels); `"edge"`, each box a thin striped strip (`HATCH_EDGE`) on its window
  *   side. Either way never over an item docked in a bar or a toolbar rail (it stays where it is): cut around it.
+ * - Every mark first lies inside its lane's rect (`inLane`, `clip`): a mark shows where a drop goes, and a drop is
+ *   possible only where the lane takes the pointer. So the corner rules above compare lanes by what each really covers.
+ *   The one lane not clipped is the held spot's: its marks are drawn in that spot's own layout, where its edge may have
+ *   moved (a rail starting higher once a bar is left empty), and follow it past the lane's rect as seen.
  */
-function settle(l: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all: readonly Lane[], emptyLanes: "real" | "edge" = "real"): Lane {
+function settle(lane: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all: readonly Lane[], emptyLanes: "real" | "edge" = "real", clip = true): Lane {
+  const l = clip ? inLane(lane) : lane;
   const edgeOf = (id: string) => scene.edges.find((e) => e.id === id);
   const isDrawn = (id: string): boolean => !!edgeOf(id) && (drawn.edges[id]?.cross ?? 0) > EPS;
   const across = (side: string | undefined): Axis => (side === "top" || side === "bottom" ? "x" : "y");
