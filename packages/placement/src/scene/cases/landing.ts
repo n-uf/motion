@@ -108,6 +108,11 @@ export interface LandingCase {
     /** Whenever a lane is held, the landing lies within this many px of the pointer. */
     readonly trail?: number;
     /**
+     * On the single frame before a hop (the next frame holds another spot of the same lane), this bound instead of
+     * `trail` (R12: 48 px, 56 on that frame). Absent: `trail` on every frame.
+     */
+    readonly trailBeforeHop?: number;
+    /**
      * The landing lies no further from the pointer, at worst, than when the same path is played at `slow` px/ms, plus
      * `by` px: a fast hand trails no more than a slow one does, plus what it may trail.
      */
@@ -194,13 +199,17 @@ export function landingIssues(row: LandingCase, frames: readonly LandingCaseFram
   const m = row.moving;
   if (frames.length === 0) return ["no frames"];
   if (m)
-    for (const f of frames.filter((x) => x.moving)) {
+    for (const [i, f] of frames.entries()) {
+      if (!f.moving) continue;
       const at = `at ${Math.round(f.point.x)},${Math.round(f.point.y)}`;
+      const next = frames[i + 1];
+      const beforeHop = !!next && next.region === "lane" && f.region === "lane" && next.lane === f.lane && next.spot !== f.spot;
+      const bound = beforeHop && m.trailBeforeHop !== undefined ? m.trailBeforeHop : m.trail;
       if (m.lane !== undefined && (f.region !== "lane" || f.lane !== m.lane)) out.push(`${at}: ${f.region}${f.lane ? ` in ${f.lane}` : ""}, not the lane ${m.lane}`);
       if (m.notLanes && f.lane && m.notLanes.includes(f.lane)) out.push(`${at}: held ${f.lane}`);
       if (m.notRegions && m.notRegions.includes(f.region)) out.push(`${at}: ${f.region}`);
       for (const g of m.noGuideIn ? (f.guides ?? []) : []) if (m.noGuideIn!.some((r) => touches(g.rect, r))) out.push(`${at}: the guide ${g.id} where nothing lands`);
-      if (m.trail !== undefined && f.region === "lane" && f.landing && gapTo(f.landing, f.point) > m.trail + 0.5) out.push(`${at}: the landing ${Math.round(gapTo(f.landing, f.point))} px from the pointer (at most ${m.trail})`);
+      if (bound !== undefined && f.region === "lane" && f.landing && gapTo(f.landing, f.point) > bound + 0.5) out.push(`${at}: the landing ${Math.round(gapTo(f.landing, f.point))} px from the pointer (at most ${bound}${beforeHop ? ", the frame before a hop" : ""})`);
       if (out.length >= 4) break;
     }
   const last = frames.at(-1)!;
@@ -523,7 +532,7 @@ export const LANDING_CASES: readonly LandingCase[] = [
   {
     id: "landing-grip-past-long-neighbor",
     title: "A toolbar held by its grip and slid past a long neighbor stays at the hand",
-    expect: "A toolbar pressed 6 px into its left end (its grip) in the bottom bar and slid right along it past a 200 px neighbor to the bar's far end at 0.15 px/ms: every frame holds the bar, and the landing lies within 56 px of the pointer (R12: 48, 56 on the frame before a hop): the grab never moves a hop past the neighbor.",
+    expect: "A toolbar pressed 6 px into its left end (its grip) in the bottom bar and slid right along it past a 200 px neighbor to the bar's far end at 0.15 px/ms: every frame holds the bar, and the landing lies within 48 px of the pointer, 56 on the frame before a hop (R12): the grab never moves a hop past the neighbor.",
     scene: landingWindow(["a"], ["b", "c"]),
     item: "b",
     path: [
@@ -532,7 +541,41 @@ export const LANDING_CASES: readonly LandingCase[] = [
     ],
     speed: 0.15,
     rest: 40,
-    moving: { lane: "bottom", trail: 56 },
+    moving: { lane: "bottom", trail: 48, trailBeforeHop: 56 },
+    requires: { lanes: { since: GRIP_SINCE } },
+  },
+  {
+    id: "landing-grip-across-items",
+    title: "A toolbar held by its grip and slid slowly across two neighbors stays at the hand",
+    expect: "In a top bar of three 200 px toolbars, the first pressed 6 px into its left end (its grip) and slid right across the other two to the bar's end at 0.15 px/ms: every frame holds the bar, and the landing lies within 48 px of the pointer, 56 on the frame before a hop (R12).",
+    scene: landingWindow(["a", "b", "c"]),
+    item: "a",
+    path: [
+      { x: 14, y: 18 },
+      { x: 1060, y: 18 },
+    ],
+    speed: 0.15,
+    rest: 40,
+    moving: { lane: "top", trail: 48, trailBeforeHop: 56 },
+    requires: { lanes: { since: GRIP_SINCE } },
+  },
+  {
+    id: "landing-grip-up-the-rail",
+    title: "A rail toolbar held by its grip and pulled slowly up past its neighbor stays at the hand",
+    expect: "Zoom pressed 6 px below its top (its grip) in its rail and pulled straight up past Tools (158 px long there) to the rail's head at 0.15 px/ms: every frame holds the rail, and the landing lies within 48 px of the pointer, 56 on the frame before a hop (R12).",
+    scene: (() => {
+      const s = landingWindow();
+      const tools = group("tools", 1);
+      return { ...s, items: { ...s.items, tools: { ...tools, forms: { ...tools.forms, column: [form("icons", 158, 158, 28), form("menu", 0, 0, 0)] } } } };
+    })(),
+    item: "zoom",
+    path: [
+      { x: 15, y: 200 },
+      { x: 15, y: 40 },
+    ],
+    speed: 0.15,
+    rest: 40,
+    moving: { lane: "rail-left", trail: 48, trailBeforeHop: 56 },
     requires: { lanes: { since: GRIP_SINCE } },
   },
   {
