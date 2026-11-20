@@ -20,8 +20,8 @@
  * their ring. Remembered per scene and options; a call with `spot` reworks only the held lane's stretches.
  */
 import { EPS, clamp, rect, type Rect, type Size } from "../geometry";
-import { moveTo, type DockPlace } from "./changes";
-import { axisOf, chromeFor, floatRegion, zoneIn } from "./helpers";
+import { lift, moveTo, type DockPlace } from "./changes";
+import { axisOf, chromeFor, floatRegion } from "./helpers";
 import type { Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { targetsAndRefusals } from "./targets";
@@ -108,11 +108,7 @@ export interface Regions {
   readonly lanes: readonly Lane[];
   /** Refused places outside every lane ("Can't go here"). */
   readonly refused: readonly Rect[];
-  /**
-   * Where a float can land (`floatRegion`: the stage less the float insets), as a landing model's `content`: the open
-   * space is it less `blocked`. So the gutter between a column and the pages is open (a release there floats), while
-   * every drawn edge, docked item, chrome and drawn rail stays out of it.
-   */
+  /** The content: the open space is it less `blocked`. */
   readonly content: Rect;
   /** What the open space excludes: drawn edges, docked items, the chrome, a drawn declared rail, `Scene.blocked`. */
   readonly blocked: readonly Rect[];
@@ -360,7 +356,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     marking,
     regions: {
       refused: rs.filter((f) => !onLanes.has(f.edge)).flatMap((f) => f.hits ?? [f.hit]),
-      content: floatRegion(scene, dragged),
+      content: seen.content,
       blocked,
       stage: scene.stage,
       floatRegion: floatRegion(scene, dragged),
@@ -707,48 +703,55 @@ function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
   const out: Raw[] = [];
   if (!scene.items[dragged]) return out;
   const prev = options.previous ? { previous: options.previous } : {};
+  // The stretches as the drop finds them: the layout with the held item lifted. Its room goes back to its stretch (a
+  // placed neighbor stays where it is drawn, `lift`), so every other item lies where the person sees it.
+  const base = solve(lift(scene, dragged), prev);
   for (const e of scene.edges) {
     const bar = e.side === "top" || e.side === "bottom";
     if (!bar && !e.compact) continue;
     const axis: Axis = bar ? "x" : "y";
     const mine = raws.filter((r) => r.edge === e.id);
-    const drawn = seen.edges[e.id];
+    const drawn = base.edges[e.id] ?? seen.edges[e.id];
     if (mine.length === 0 || !drawn) continue;
     // The held item's length here: a landing on this edge.
     const w = len(mine[0]!.landing, axis);
     const gap = nonNeg(e.gap);
-    const others = onEdge(seen, e.id, dragged, axis);
+    const others = onEdge(base, e.id, dragged, axis);
     const edgeStart = lo(drawn.rect, axis) + nonNeg(e.pad?.start);
     const edgeEnd = lo(drawn.rect, axis) + len(drawn.rect, axis) - nonNeg(e.pad?.end);
     const middle = mid(drawn.rect, axis);
     const zoneOf = (o: (typeof others)[number]): Zone => o.zone ?? "start";
     const taken = mine.map((r) => r.landing);
-    /** One spot: a dock in `zone` before its `at`-th item keeping `space`, kept if it lands at `x0` (when given). */
-    const emit = (zone: Zone, at: number, space: number, x0?: number): void => {
+    // Fixed items (a title, window controls) keep their place: a spot that would move one is no spot.
+    const fixed = others.filter((o) => scene.items[o.id]?.fixed);
+    /**
+     * One spot: a dock in `zone` before its `at`-th item keeping `space` (`DockPlace.space`), kept if it lands at `x0`
+     * (within 1 px), every fixed item stays put, and it is not on another spot's landing. `flush` names the neighbor a
+     * stretch's end lies against. Whether it was kept.
+     */
+    const emit = (zone: Zone, at: number, space: number, x0: number, flush?: string): boolean => {
       const place: DockPlace = { edge: e.id, zone, at, space };
       const next = moveTo(scene, dragged, place);
-      if (next === scene) return;
+      if (next === scene) return false;
       const layout = solve(next, prev);
       const landed = layout.items[dragged];
-      if (!landed || landed.inMenu || landed.edge !== e.id || (x0 !== undefined && Math.abs(lo(landed.rect, axis) - x0) > 1)) return;
-      if (taken.some((r) => Math.abs(lo(r, axis) - lo(landed.rect, axis)) < pitch / 2)) return;
+      if (!landed || landed.inMenu || landed.edge !== e.id || Math.abs(lo(landed.rect, axis) - x0) > 1) return false;
+      // A stretch's end lies against its neighbor as dropped.
+      const nb = flush !== undefined ? layout.items[flush] : undefined;
+      if (nb && Math.abs(lo(nb.rect, axis) + len(nb.rect, axis) + gap - lo(landed.rect, axis)) > 1 && Math.abs(lo(landed.rect, axis) + len(landed.rect, axis) + gap - lo(nb.rect, axis)) > 1) return false;
+      if (fixed.some((f) => { const r = layout.items[f.id]?.rect; return !r || Math.abs(lo(r, axis) - lo(f.r, axis)) > 1; })) return false;
+      const n = neighbors(layout, e.id, dragged, axis);
+      if (taken.some((r) => Math.abs(lo(r, axis) - lo(landed.rect, axis)) < pitch / 2)) return true;
       taken.push(landed.rect);
       const result = { scene: next, layout };
+      const kept = Math.round(next.items[dragged]?.space ?? 0);
       const target: SceneTarget = { id: `pitch:${e.id}:${zone}:${at}:${Math.round(space)}`, priority: 2, hit: landed.rect, slot: landed.rect, item: dragged, place: { kind: "gap", edge: e.id, zone, at }, after: () => result };
-      const n = neighbors(layout, e.id, dragged, axis);
-      // Keyed by its neighbors and how many pitches it keeps from the one it is spaced from: stable while they stay.
-      const id = `${e.id}/${zone}/${n.before}|${n.next}@${Math.round(space / pitch)}`;
+      // Keyed by its neighbors and how many pitches it keeps from the one it is spaced from (a stretch's end keeping
+      // some: the neighbor it lies against): stable while they stay.
+      const id = `${e.id}/${zone}/${n.before}|${n.next}@${flush !== undefined && kept > 0 ? `to:${flush}` : Math.round(kept / pitch)}`;
       out.push({ lane: e.id, edge: e.id, axis, id, ...n, landing: landed.rect, layout, target, hit: landed.rect, pitched: true });
+      return true;
     };
-    const spaced = (o: (typeof others)[number] | undefined): boolean => !!o && (scene.items[o.id]?.space ?? 0) > 0;
-    // The held item keeps space on its own edge: its own place keeps it, so the lane's open end (where that space lies)
-    // gets a dock keeping none, or the space would be no place without a spot.
-    const own = scene.items[dragged];
-    if (own && (own.space ?? 0) > 0 && seen.items[dragged]?.edge === e.id) {
-      const zone = zoneIn(e, own);
-      if (zone === "start") emit("start", 0, 0);
-      else if (zone === "end") emit("end", others.filter((o) => zoneOf(o) === "end").length, 0);
-    }
     /** A growing item's drawn length past its natural one (a title filling the bar): a dock beside it can take that. */
     const slack = (o: (typeof others)[number] | undefined): number => {
       const main = o ? scene.items[o.id]?.forms[axis === "x" ? "row" : "column"]?.[0]?.main : undefined;
@@ -760,18 +763,24 @@ function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
       const a = before ? lo(before.r, axis) + len(before.r, axis) - slack(before) + gap : edgeStart;
       // (Not before a growing item: a dock there keeps no space, the item it precedes takes all that is spare.)
       const b = after ? lo(after.r, axis) - gap : edgeEnd;
-      // Beside a neighbor that keeps space on this side, a dock there takes that space (it lands where the neighbor
-      // was); this one keeps none, at the stretch's other end, so the space between is no place without a spot.
-      if (spaced(after) && zoneOf(after!) === "start" && (!before || zoneOf(before) === "start")) emit("start", others.filter((o) => zoneOf(o) === "start" && lo(o.r, axis) < lo(after!.r, axis)).length, 0);
-      if (spaced(before) && zoneOf(before!) === "end" && (!after || zoneOf(after) === "end")) emit("end", others.filter((o) => zoneOf(o) === "end" && lo(o.r, axis) <= lo(before!.r, axis)).length, 0);
+      // A start dock follows a start item or the edge's start; an end dock precedes an end item or the edge's end.
+      const zones: Zone[] = [...(!before || zoneOf(before) === "start" ? ["start" as const] : []), ...(!after || zoneOf(after) === "end" ? ["end" as const] : [])];
+      // A dock in this stretch: before the zone's items that come after the stretch.
+      const atOf = (zone: Zone): number => others.slice(0, i).filter((o) => zoneOf(o) === zone).length;
+      // The space that puts the item at `x0`: from the stretch's start in a start zone, to its end in an end zone.
+      const spaceAt = (zone: Zone, x0: number): number => (zone === "start" ? x0 - a : b - (x0 + w));
+      // The stretch's two ends, the item flush against each neighbor (or the edge's end), the near zone first. Each is a
+      // spot of the stretch's own: on the held item's own stretch the plain dock beside a neighbor is its own place.
+      const end = (x0: number, order: Zone[], flush: string): void => {
+        for (const zone of order) if (spaceAt(zone, x0) >= -EPS && emit(zone, atOf(zone), Math.max(0, spaceAt(zone, x0)), x0, flush)) return;
+      };
+      end(a, zones, before?.id ?? "^");
+      if (b - w > a + EPS) end(b - w, [...zones].reverse(), after?.id ?? "$");
       if (b - a < w + pitch) continue;
       for (let x0 = a + pitch; x0 + w <= b - pitch + EPS; x0 += pitch) {
-        const toStart = x0 + w / 2 < middle;
-        // A start dock follows a start item or the edge's start; an end dock precedes an end item or the edge's end.
-        if (toStart && before && zoneOf(before) !== "start") continue;
-        if (!toStart && after && zoneOf(after) !== "end") continue;
-        const zone: Zone = toStart ? "start" : "end";
-        emit(zone, others.filter((o) => zoneOf(o) === zone && lo(o.r, axis) < x0).length, toStart ? x0 - a : b - (x0 + w), x0);
+        const zone: Zone = x0 + w / 2 < middle ? "start" : "end";
+        if (!zones.includes(zone)) continue;
+        emit(zone, atOf(zone), spaceAt(zone, x0), x0);
       }
     }
   }
