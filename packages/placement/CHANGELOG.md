@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.52
 
 - `./scene`, **a lane's guide and its mark come from one layout** (behavior change in the marks as seen). An
   empty lane's guide before entry came from `lanes()` as seen and its mark after entry from `lanes(…, { spot })`, two
