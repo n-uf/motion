@@ -52,6 +52,7 @@ export {
   type StackNote,
   type StackNoteCode,
 } from "./model";
+export { stackGaps, type StackGap, type StackGapOptions, type StackGapRefusal } from "./gaps";
 export { stackTargets, type StackPlace, type StackTarget, type StackTargetOptions } from "./targets";
 export { createStack, readStack, storeStack, type StackRead, type StackState, type StoredStack } from "./store";
 export { fitFloat, readFloats, stackFloatTarget, storeFloats, type FloatDrop, type FloatFit, type FloatsRead, type FloatTarget, type StackFloat, type StackFloatTargetInput, type StoredFloats } from "./floats";
