@@ -44,7 +44,8 @@ export interface LaneSlide {
   readonly to: number;
   /**
    * Its two ends, the item's own place where it lies here, and every other dock that lands inside, in order. Each is a
-   * start that commits what lies there (a taken-over dock as it is), so none is dropped for lying near another.
+   * start that commits what lies there (a taken-over dock as it is), so none is dropped for lying near another, except
+   * within twice the snap distance of the item's own place, where home wins.
    */
   readonly snaps: readonly number[];
   /** How near a snap point the landing's start snaps to it, px (`LaneOptions.snapDistance`). */
