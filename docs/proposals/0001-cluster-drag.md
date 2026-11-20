@@ -29,7 +29,7 @@ A user who builds a tidy set of toolbars side by side may want to move the whole
 
 | # | Situation | Result |
 |---|---|---|
-| K1 | Press any member's grip, move along the lane | The whole cluster moves, within 48 px of the pointer (56 on the frame before a hop) |
+| K1 | Press any member's grip, move along the lane | The whole cluster moves, at the hand: within `max(48, g / 2 + 6)` px of the pointer (`max(56, g / 2 + 6)` on the frame before a hop; `g` is the gap between the two landings the pointer lies between) |
 | K2 | A held cluster passes another toolbar group in the lane | One order step: the passed group jumps over the whole cluster (cluster length plus gap). The cluster never splits during a drag |
 | K3 | Move along, then nudge back a little, short of the start | The cluster settles where it is drawn. Within the lift zone of the press point it lands home |
 | K4 | A held group (or cluster) stops at a cluster's edge | The guide is a box (with a striped end if room partly fits). The drop consumes the room, and the whole cluster shifts by `max(0, length + gap − room)` |
