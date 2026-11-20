@@ -1,0 +1,25 @@
+---
+// The home hero's placement illustration: "numbers in, rects out". Three rows, each one real placement call
+// (positionPopup, fitStack, masterStack): its inputs as plain numbers on the left, the rects it returns drawn to scale in
+// thin violet outlines on the right. Static, computed at build time (demos/hero-place.ts); no window, no panel, no drag.
+// Text is HTML at 12 px; each drawing is an svg whose box is its viewBox, so nothing shifts. On a phone the inputs sit
+// above the drawing.
+import { ROWS } from "../demos/hero-place";
+---
+<div class="hz p"><div class="zin placezone" id="placezone">
+  <ul class="prows">
+    {ROWS.map((r) => (
+      <li class="prow">
+        <div class="pin"><b class="pfn">{r.fn}</b>{r.inputs.map((t) => <span>{t}</span>)}</div>
+        <svg class="parrow" viewBox="0 0 22 12" aria-hidden="true"><path d="M1 6h18M14 1.5L19.5 6 14 10.5" /></svg>
+        <div class="pout">
+          <svg viewBox={`-2 -2 ${r.box.width + 4} ${r.box.height + 4}`} role="img" aria-label={`${r.fn} returns: ${r.outputs.join(", ")}`}>
+            {r.shapes.map((s) => <rect class={`ps ${s.kind}`} x={s.rect.x} y={s.rect.y} width={s.rect.width} height={s.rect.height} rx={s.kind === "area" ? 0 : 3} />)}
+          </svg>
+          <p class="pnum">{r.outputs.map((t) => <span>{t}</span>)}</p>
+        </div>
+      </li>
+    ))}
+  </ul>
+  <p class="pline">placement: plain numbers in, rects out</p>
+</div></div>
