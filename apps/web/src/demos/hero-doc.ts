@@ -185,7 +185,11 @@ export interface DocWindow {
   /** The window's inner HTML (what the lab draws into its `dw-win`). */
   readonly html: string;
   readonly size: Size;
+  /** One line per docked panel and toolbar, read off the solve result: its name, where it sits, its form and (panels) its size. */
+  readonly lines: readonly { readonly name: string; readonly where: string; readonly size: string }[];
 }
+
+const EDGE_WORDS: Readonly<Record<string, string>> = { title: "title bar", top: "top bar", bottom: "bottom bar", left: "left column", right: "right column", "rail-left": "left rail", "rail-right": "right rail" };
 
 /** The lab's Document window at `size`, solved and drawn. */
 export function docWindow(size: Size): DocWindow {
@@ -206,6 +210,15 @@ export function docWindow(size: Size): DocWindow {
     return menu ? [`<span class="hd-menu" style="left:${px(menu.rect.x)};top:${px(menu.rect.y)};width:${px(menu.rect.width)};height:${px(menu.rect.height)}">» ${menu.items.length}</span>`] : [];
   });
   const html = `<div class="hd-edges">${edges}</div>${scroll}<div class="hd-items">${docked.join("")}${menus.join("")}${floats.join("")}</div>`;
-  return { html, size };
+  // The model in words, from the layout alone: where each item sits (its edge, or floating, or the » menu), the form it took,
+  // and a panel's size. Nothing here is typed by hand.
+  const lines = [...PANELS, ...GROUPS].flatMap((id) => {
+    const p = l.items[id];
+    if (!p) return [];
+    const where = p.inMenu ? "» menu" : p.floating ? "float over the page" : (EDGE_WORDS[p.edge ?? ""] ?? p.edge ?? "");
+    const form = p.inMenu ? "" : ` · ${p.formKind}`;
+    return [{ name: TITLES[id], where: `${where}${p.floating ? "" : form}`, size: isPanel(id) ? `${Math.round(p.rect.width)}×${Math.round(p.rect.height)}` : p.floating ? p.formKind : "" }];
+  });
+  return { html, size, lines };
 }
 
