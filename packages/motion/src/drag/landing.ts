@@ -30,7 +30,7 @@ import type { PlaceGuides } from "./preview";
  *   `margins.lift` of the lift point the lane is the item's own (`home.lane`) whenever the pointer lies in it, whatever
  *   lane the pointer came through (a plain lane's band over the home lane's corner included), and its spot is the
  *   item's own (`home.spot`; a sliding one still lets the landing follow the hand and snap): away and back to where the
- *   item was lifted is home on every layout.
+ *   item was lifted is home on every layout, so no nudge to a neighboring spot is reachable within `lift` of the press.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
