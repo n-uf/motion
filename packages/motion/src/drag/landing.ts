@@ -23,8 +23,8 @@ import type { PlaceGuides } from "./preview";
  *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered on the first slow step
  *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room. A lane that owns
  *   its rect (`owns`: a rail drop strip at the window's side) takes the pointer inside it from any lane it overlaps, a
- *   held one too, once its own gate passes and only once the pointer came into it from outside since the lift; never over
- *   the item's own place (`home`'s landing), so away and back to it is home.
+ *   held one too, once its own gate passes and only once the pointer came into it from outside since the lift; never within
+ *   `lift` of the lift point, so away and back to where the item was lifted is home.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
@@ -98,6 +98,11 @@ export interface LandingMargins {
   readonly spot: number;
   /** Past the stage that still counts as on its edge, px; beyond, nowhere. */
   readonly edge: number;
+  /**
+   * Around the lift point, px (16, as the drag intent's `liftZone`): an owning lane never takes the pointer there, so
+   * away and back to where the item was lifted is home.
+   */
+  readonly lift?: number;
 }
 export interface LandingGates {
   /** Pointer path inside a lane that enters it, px. */
@@ -128,9 +133,9 @@ export interface LandingApproach {
   readonly nearer: number;
 }
 
-export const LANDING_MARGINS: LandingMargins = { exit: 12, spot: 6, edge: 48 };
+export const LANDING_MARGINS: LandingMargins = { exit: 12, spot: 6, edge: 48, lift: 16 };
 /** A touch: wider margins, the finger's jitter. */
-export const LANDING_TOUCH_MARGINS: LandingMargins = { exit: 16, spot: 8, edge: 48 };
+export const LANDING_TOUCH_MARGINS: LandingMargins = { exit: 16, spot: 8, edge: 48, lift: 16 };
 export const LANDING_GATES: LandingGates = { path: 40, depth: 8, still: 1.5, step: 3, trail: 40, rest: 22, pause: 60 };
 export const LANDING_APPROACH: LandingApproach = { reach: 80, keep: 96, nearer: 16 };
 
@@ -246,6 +251,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let last: { p: Point; raw: Point; t: number } | null = null;
   /** The last point that differed from the one before, and the step then. */
   let moved: { raw: Point; t: number } | null = null;
+  /** Where the item was lifted (the first point): back there, no owning lane takes the pointer. */
+  let liftAt: Point | null = null;
   let lastStep = 0;
   /** Path inside each lane since the pointer last entered its rect. */
   const pathIn = new Map<string, number>();
@@ -361,6 +368,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     } else {
       // The first point: how the pointer moves is unknown, never still (a lift over a lane's band doesn't enter it).
       moved = { raw, t };
+      liftAt = p;
       step = lastStep = Infinity;
     }
     const from = last?.p ?? null;
@@ -403,10 +411,10 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       // A lane that owns its rect (a rail drop strip) takes the pointer inside it from any lane it overlaps, a held one
       // too, once its own gate passes (so a pass across it opens nothing), and only once the pointer came into it (it has
       // been outside it since the lift): a press in a column's outer edge, or a slow reorder along it, stays in the column.
-      // Never over the item's own place (`home`'s landing as seen): away and back to it is home, wherever a strip lies.
-      const homeAt = options.home ? spotIn(laneIn(base, options.home.lane), options.home.spot)?.landing : undefined;
-      const overHome = !!homeAt && strictlyIn(homeAt, p);
-      const owner = overHome ? undefined : regions.lanes.find((l) => l.owns && l.id !== held?.id && cameIn.has(l.id) && strictlyIn(l.rect, p) && gate(l));
+      // Never within `lift` of where the item was lifted: away and back there is home, wherever a strip lies, while the
+      // rest of the strip (all of it over a lone panel's own place) still takes it.
+      const nearLift = !!liftAt && Math.hypot(p.x - liftAt.x, p.y - liftAt.y) <= (margins.lift ?? 16);
+      const owner = nearLift ? undefined : regions.lanes.find((l) => l.owns && l.id !== held?.id && cameIn.has(l.id) && strictlyIn(l.rect, p) && gate(l));
       const next = owner ?? (touching && (gate(touching) || slid) ? touching : undefined);
       if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
         const s = along(held, p, step);

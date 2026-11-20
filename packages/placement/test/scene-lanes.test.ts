@@ -298,6 +298,37 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
         expect([speed, m.release()]).toEqual([speed, { kind: "spot", lane: home.lane, spot: home.spot, home: true }]);
       }
     });
+
+  for (const [name, k] of [
+    ["flush", FLUSH],
+    ["inset", INSET],
+  ] as const)
+    it(`${name}: a lone panel reaches its own side's rail: pressed by its grip, taken to the strip (over the page or straight) and held there, it lands in the rail`, () => {
+      const s: Scene = { ...kitScene(k, { W: 1400, H: 800 }), railDrop: { panel: { railStripWidth: 32 } } };
+      const previous = solve(s);
+      const own = previous.items.findings!.rect;
+      const press = { x: own.x + 10, y: own.y + 12 };
+      const grab = { x: press.x - own.x, y: press.y - own.y };
+      const rs = lanes(s, "findings", { previous, grab });
+      const home = rs.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0]!;
+      const rail = rs.lanes.find((l) => l.id === "rail:right")!;
+      for (const y of [20, 100, 200, 400, 700])
+        for (const via of [true, false]) {
+          const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "findings", { previous, grab, spot }), home });
+          const to = { x: rail.rect.x + rail.rect.width / 2, y };
+          const legs = via ? [press, { x: 700, y: 400 }, to] : [press, to];
+          let t = 0;
+          m.update(press, t);
+          for (let j = 1; j < legs.length; j++) {
+            const a = legs[j - 1]!;
+            const b = legs[j]!;
+            const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 0.3 / 8);
+            for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
+          }
+          for (let i = 0; i < 30; i++) m.update(to, (t += 8));
+          expect([y, via, m.frame.lane]).toEqual([y, via, "rail:right"]);
+        }
+    });
 });
 
 describe("lanes(): what blocks the open space, and virtual lanes", () => {
