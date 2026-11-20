@@ -25,9 +25,9 @@ and within `max(56, g / 2 + 6)` px on the single frame before a hop (the next fr
 
 `g` is the gap along the lane between the facing edges of the two adjacent landings the pointer lies between. For a sliding spot its landing is taken at the end of its range that faces the next spot. Over a landing, or over free room inside a sliding range, `g` is 0: the bound is the floor, and over a sliding range the landing is at the hand (distance 0 up to the grab offset).
 
-"Nearest" is measured along the lane, a sliding spot at the point of its range the hand holds. Landings that overlap one another (spots a pitch apart) are one place, cut at the grab; and a hop that reflows the window may wait for a slow `step` or for the landing to trail past `trail` (40 px), so a frame of a hand faster than `step` (0.375 px/ms) is not compared with the nearest.
+"Nearest" is measured along the lane, a sliding spot at the point of its range the hand holds. Landings that overlap or touch one another (no more than half a pixel apart) are one place: overlapping ones (spots a pitch apart) are cut at the grab, touching ones where they meet, so in either the pointer may lie up to the grab inside the other; and a hop that reflows the window may wait for a slow `step` or for the landing to trail past `trail` (40 px), so a frame of a hand faster than `step` (0.375 px/ms) is not compared with the nearest.
 
-The landing rows check exactly this: a row's `moving.hand` takes the spots from `lanes()` over its scene in the held spot's layout, and `handBound(g)` gives the bound.
+The landing rows check exactly this: a row's `moving.hand` takes the spots from `lanes()` over its scene in the held spot's layout, and `handBound(g)` gives the bound. A frame in a lane `lanes()` doesn't give is held to the floor, `handBound(0)`, and its issue names the lane.
 
 ## Consequences
 

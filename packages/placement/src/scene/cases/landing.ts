@@ -156,7 +156,9 @@ export interface LandingCase {
      * the one it will hop to), and lies within `handBound` of the pointer: `max(48, g / 2 + 6)` px, the 48 being 56
      * on the frame before a hop, where `g` is the gap along the lane between the facing edges of the two adjacent
      * landings the pointer lies between. The spots are those `lanes()` gives for the row's scene in the held spot's
-     * layout (a sliding spot's landings span its range).
+     * layout (a sliding spot's landings span its range). Landings that overlap or touch the held one (no more than
+     * half a pixel apart) are its place, not compared with it. In a lane `lanes()` doesn't give, the floor holds
+     * (`handBound(0)`), and the issue names the lane.
      */
     readonly hand?: true;
     /**
@@ -329,8 +331,10 @@ export function landingIssues(row: LandingCase, frames: readonly LandingCaseFram
           const d = gapTo(l, f.point);
           if (d > limit + 0.5) out.push(`${at}: the landing ${Math.round(d)} px from the pointer (at most ${Number(limit.toFixed(1))}${beforeHop ? ", the frame before a hop" : ""}${gap > 0 ? `, between landings ${Math.round(gap)} px apart` : ""})`);
           // The nearest landing of the lane: every other spot's, a sliding one where the hand holds it. A landing that
-          // overlaps or touches the held one is the same place (spots a pitch apart: the grab cuts them), and a hand
-          // faster than the model's `step` may leave a hop that reflows the window for later: neither is compared.
+          // overlaps or touches the held one (no more than half a pixel apart) is the same place: overlapping ones
+          // (spots a pitch apart) are cut at the grab, touching ones where they meet, so in either the pointer may lie
+          // up to the grab inside the other. A hand faster than the model's `step` may leave a hop that reflows the
+          // window for later. Neither the same place nor such a frame is compared.
           const prev = frames[i - 1];
           const quick = !!prev && Math.hypot(f.point.x - prev.point.x, f.point.y - prev.point.y) / Math.max(f.t - prev.t, 1e-6) > HAND_FAST;
           if (!quick) {
@@ -347,6 +351,11 @@ export function landingIssues(row: LandingCase, frames: readonly LandingCaseFram
             }
             if (worst) out.push(`${at}: the landing ${Math.round(here)} px from the pointer along ${f.lane}, not the nearest landing (${worst.id}, ${Math.round(worst.there)} px)`);
           }
+        } else {
+          // A lane `lanes()` doesn't give for the row (another host's ids): no gap is known, so the floor holds.
+          const limit = handBound(0, beforeHop);
+          const d = gapTo(f.landing, f.point);
+          if (d > limit + 0.5) out.push(`${at}: the landing ${Math.round(d)} px from the pointer (at most ${limit}${beforeHop ? ", the frame before a hop" : ""}; the lane ${f.lane} is not one lanes() gives)`);
         }
       }
       if (out.length >= 4) break;

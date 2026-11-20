@@ -1372,9 +1372,12 @@ and check the hand rule (`moving.hand`: the landing is the nearest in its lane a
 `max(48, g / 2 + 6)` px of the pointer, `max(56, g / 2 + 6)` on the single frame before a hop, where `g` is the gap
 between the facing edges of the two adjacent landings the pointer lies between; `HAND_TRAIL`, `HAND_TRAIL_BEFORE_HOP`,
 `HAND_MARGIN`). The checker reads the spots from `lanes()` over the row's scene, in the held spot's layout and, for
-`play`'s `stretchPositions`, as the host asked; landings that overlap the held one (spots a pitch apart) count as its
-place, and a frame of a hand faster than `HAND_FAST` (0.375 px/ms, the landing model's `step`) isn't compared with the
-nearest, since a hop that reflows the window may wait for it. The rows that pass a neighbor keeping room (`landing-room-*`) need `ROOM_SINCE` (a dock
+`play`'s `stretchPositions`, as the host asked; landings that overlap or touch the held one (no more than half a
+pixel apart) count as its place and are not compared with it (overlapping ones, spots a pitch apart, are cut at the
+grab, touching ones where they meet, so in either the pointer may lie up to the grab inside the other), and a frame
+of a hand faster than `HAND_FAST` (0.375 px/ms, the landing model's `step`) isn't compared with the nearest, since a hop
+that reflows the window may wait for it. A frame in a lane `lanes()` doesn't give for the row (another host's ids) is
+held to the floor, `handBound(0)`, and its issue names that lane. The rows that pass a neighbor keeping room (`landing-room-*`) need `ROOM_SINCE` (a dock
 consuming the room it lands in, an item over a neighbor taking its place); the row that slides over room a neighbor
 steps down to make (`landing-step-down-room`) needs `STEP_SINCE` (a stretch is the room the drop makes). A host that says it runs an older `version` skips a row. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
 baseline the host's suite recorded, and from `LANES_DEADLINE` (a calendar date the entry exports) or at the breaking release, whichever comes
