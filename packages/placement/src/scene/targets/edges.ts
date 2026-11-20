@@ -3,7 +3,7 @@
  * makes, settled), its reserved stretches and its band across, as the tiler reads them (`EdgeSpec`).
  */
 import { EPS, area, rect, type Rect } from "../../geometry";
-import { formMain } from "../../stack";
+import { formCrossMin, formMain, formSetsCross, type StackForm } from "../../stack";
 import { moveAmong, moveTo, use } from "../changes";
 import { axisOf, edgeTakes, formsOf, zoneOf, zonesOf, zoneTakes } from "../helpers";
 import { DEFAULT_STRIP, ZONES, type Edge, type Scene, type SceneLayout, type Zone } from "../model";
@@ -241,6 +241,15 @@ function edgeSlots(c: Ctx, edge: Edge, accepts: boolean): Slot[] {
 }
 
 /**
+ * Whether the item is thicker than an edge `cross` px across: every form but the » menu's sets no cross size (an `open`
+ * panel does, and is clamped) and asks at least `cross.min` across, over `cross`. Then no length makes room for it.
+ */
+function thickerThan(forms: readonly StackForm[], cross: number): boolean {
+  const shown = forms.filter((f) => f.kind !== "menu");
+  return shown.length > 0 && shown.every((f) => !formSetsCross(f) && formCrossMin(f) > cross + EPS);
+}
+
+/**
  * A real edge as the tiler reads it, in the seen geometry, or null where it offers nothing (home's own rect is added
  * on its own). An edge the lift deletes (the item's own column, or a dynamic column left empty) has no place a drop
  * counts in: the item's own collapses into home.
@@ -308,6 +317,8 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
     return column ? rect(e.rect.x, slot.y, e.cross, 0) : rect(slot.x, e.rect.y, 0, e.cross);
   };
   const takes = (zone: Zone): boolean => accepts && zoneTakes(edge, zone, kind);
+  // No form of the item fits across the edge: a refusal there is for thickness, not for lack of length.
+  const tooThick = thickerThan(formsOf(scene.items[dragged]!, axisOf(edge.side)), el.stack.cross);
   return {
     id: edge.id,
     edge,
@@ -316,7 +327,7 @@ export function edgeSpec(c: Ctx, edge: Edge): EdgeSpec | null {
     vertical: column,
     zones,
     slots,
-    refuse: (zone) => (takes(zone) ? "no-room" : accepts || area(el.rect) > EPS ? "not-accepted" : null),
+    refuse: (zone) => (takes(zone) ? (tooThick ? "too-thick" : "no-room") : accepts || area(el.rect) > EPS ? "not-accepted" : null),
     own: ownHere,
     holds: !!ownNow && ownNow.edge === edge.id && !ownNow.floating,
     reserved,

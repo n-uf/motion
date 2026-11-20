@@ -230,7 +230,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
         for (const [u, w] of less([[a, b]], faced)) {
           const line = Math.min(Math.max(p, u), w);
           const hit = band(u, w, s.result.layout);
-          if (!s.ok) out.push(...refused(z.zone, hit, "no-room"));
+          if (!s.ok) out.push(...refused(z.zone, hit, reason === "too-thick" ? "too-thick" : "no-room"));
           else out.push(...split(tile(z.zone, hit, { kind: "slot", id: s.id, order: data.layer, priority: data.priority, keep: keepAt(line, hit), place: s.place, result: s.result, marker: spec.marker(s), slot: s.result.layout.items[c.dragged]!.rect })));
         }
       });

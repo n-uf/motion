@@ -12,7 +12,6 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   (a rail's long sides); a lane's ends along its own axis never count. A fly-through of a thin bar or rail still opens
   no room (the `path` gate and the sides across it are unchanged), and a fast pass along a rail's end does not enter it.
   The one visible change: a still pointer near a lane's end is as deep as anywhere along it.
-
 - Docs: **the hand rule** for `createLandingModel`, in one wording with placement's. While a lane holds, the landing is
   the nearest landing in its lane to the pointer, within `max(48, g / 2 + 6)` px of it (`max(56, g / 2 + 6)` on the
   frame before a hop), `g` the gap along the lane between the facing edges of the two adjacent landings the pointer
