@@ -292,8 +292,13 @@ drag of `id`:
   panel by halves; with `options.spot` the held spot's lane is drawn in that spot's own layout (its room open). On a bar
   or a toolbar rail, and between any two other spots, the boundary is halfway across the gap between their landings,
   each in its own layout: wherever the pointer is, it is at the landing it picks or no nearer the other, so a toolbar
-  moved along an occupied bar stays at the hand (within half the difference of its and its neighbor's lengths, plus
-  the 6 px margin). Pass `options.grab`, where the pointer holds the item (its offset from the item's top left, as a
+  moved along an occupied bar stays at the hand (the hand rule: while a lane holds, the landing is the nearest landing
+  in its lane to the pointer, within `max(48, g / 2 + 6)` px of it, and `max(56, g / 2 + 6)` on the single frame before a
+  hop; `g` is the gap along the lane between the facing edges of the two adjacent landings the pointer lies between,
+  a sliding spot's landing taken at the end of its range that faces the next spot, and 0 over a landing or over free
+  room inside a sliding range. A spot changes 6 px past the cut, hence the 6. Over a docked item much longer than the
+  held one no landing lies inside it: the nearest are flush before and after it, and `g` is about its length less the
+  held item's, plus a gutter). Pass `options.grab`, where the pointer holds the item (its offset from the item's top left, as a
   target's `after(point, grab)` takes it; the press's, constant for the drag, in both calls, with and without `spot`):
   on a bar or a toolbar rail along the item's own length, two landings that overlap (spots a pitch apart) are then cut
   at the grab, halfway between the points the pointer would hold in each (with landings of one length, kept within half
@@ -1346,8 +1351,13 @@ Every landing row carries `requires: { lanes: { since } }`: `LANES_SINCE`, the f
 row needs more: the rows that bring an item back to its press point need `GRAB_SINCE` (`lanes()` taking the grab), and
 pass only on a host that passes its grab to `lanes()`; the rows that slide a toolbar held by its grip past or across
 neighbors, on a bar and up a rail (`landing-grip-*`), need `GRIP_SINCE` (the grab moving no hop past a long neighbor)
-and bound the landing absolutely: within `moving.trail` (48 px) of the pointer, `moving.trailBeforeHop` (56) on the
-single frame before a hop; the rows that pass a neighbor keeping room (`landing-room-*`) need `ROOM_SINCE` (a dock
+and check the hand rule (`moving.hand`: the landing is the nearest in its lane and within `handBound(g)` =
+`max(48, g / 2 + 6)` px of the pointer, `max(56, g / 2 + 6)` on the single frame before a hop, where `g` is the gap
+between the facing edges of the two adjacent landings the pointer lies between; `HAND_TRAIL`, `HAND_TRAIL_BEFORE_HOP`,
+`HAND_MARGIN`). The checker reads the spots from `lanes()` over the row's scene, in the held spot's layout and, for
+`play`'s `stretchPositions`, as the host asked; landings that overlap the held one (spots a pitch apart) count as its
+place, and a frame of a hand faster than `HAND_FAST` (0.375 px/ms, the landing model's `step`) isn't compared with the
+nearest, since a hop that reflows the window may wait for it. The rows that pass a neighbor keeping room (`landing-room-*`) need `ROOM_SINCE` (a dock
 consuming the room it lands in, an item over a neighbor taking its place); the row that slides over room a neighbor
 steps down to make (`landing-step-down-room`) needs `STEP_SINCE` (a stretch is the room the drop makes). A host that says it runs an older `version` skips a row. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
 baseline the host's suite recorded, and from `LANES_DEADLINE` (a calendar date the entry exports) or at the breaking release, whichever comes

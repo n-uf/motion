@@ -16,3 +16,4 @@ Records are added as the shipped rules are written up: the one-preview drag mode
 
 | # | Decision | Date |
 |---|---|---|
+| 0001 | [The hand rule](0001-the-hand-rule.md): the landing is the nearest in its lane, within `max(48, g / 2 + 6)` px of the pointer | 2026-11-20 |
