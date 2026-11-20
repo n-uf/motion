@@ -28,8 +28,8 @@ const stop = loop.repeat("input", (frame) => {
 });
 addEventListener("pointerup", () => {
   stop();
-  intent.update(pointer, performance.now(), [dock]);
-  const to = intent.release(pointer, [dock]);
+  // A release at a new point is that point's sample first.
+  const to = intent.release(pointer, performance.now(), [dock]);
   if (to?.slot) held.land(to.slot);
   else held.cancel(home);
 });

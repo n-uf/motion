@@ -19,5 +19,5 @@ const stop = loop.repeat("input", (frame) => {
 });
 addEventListener("pointerup", () => {
   stop();
-  console.log("lands on", intent.release(pointer, targets)?.id ?? "home");
+  console.log("lands on", intent.release(pointer, performance.now(), targets)?.id ?? "home");
 });

@@ -214,7 +214,7 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
   function release(s: Session, now: number, cancel = false): void {
     step(s, now);
     const p = s.held.pointer ?? s.ptr;
-    const slot = s.intent && !cancel ? s.intent.release(p, s.targets)?.slot : undefined;
+    const slot = s.intent && !cancel ? s.intent.release(p, now, s.targets)?.slot : undefined;
     // Let go into the slot it was shown in, or with no drop: either way it settles from where it was let go.
     if (slot) s.held.land(slot);
     else s.held.cancel(s.w.home);

@@ -69,7 +69,7 @@ const slot: DragTarget = { id: "slot", priority: 2, hit: { x: 0, y: 0, width: 20
 const intent = createDragIntent({ home: { x: 300, y: 300, width: 100, height: 50 } });
 for (let t = 0; t <= 300; t += 16) intent.update({ x: 100, y: 50 }, t, [slot]); // held still over the slot
 console.log(intent.state.shown?.id); // "slot"
-console.log(intent.release({ x: 100, y: 50 }, [slot])?.id); // "slot"
+console.log(intent.release({ x: 100, y: 50 }, 300, [slot])?.id); // "slot"
 ```
 
 ## Documentation

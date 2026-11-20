@@ -331,8 +331,9 @@ export function startHero(band: HTMLElement): void {
     const p = e ? localOf(e) : d.pointer;
     let target: DeskDragTarget | null = null;
     if (!cancelled) {
-      d.intent.update(p, performance.now(), targets);
-      target = d.intent.release(p, targets);
+      const now = performance.now();
+      d.intent.update(p, now, targets);
+      target = d.intent.release(p, now, targets);
     }
     indicate(null);
     if (target) {

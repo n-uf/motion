@@ -47,16 +47,16 @@ export interface DragTuning {
    * (ms); before that it is no target, so a fast pass, or a drop before it, lands on what lies beneath. 0 arms it at once.
    * Armed, its zone is its `armedHit` (the magnet: its band); moving out past that band's outer edge disarms it, and
    * re-entering needs a new full dwell. It arms only after the pointer has ENTERED its zone during the drag: the point
-   * the drag starts at counts as not entered, so a drag that starts inside the zone (a panel's grip under the strip at
-   * the window's edge) must leave it and come back before it can arm; entering from over home counts.
+   * the drag starts at counts as not entered, so a drag that starts inside the zone (a grip under a strip at the
+   * window's edge) must leave it and come back before it can arm; entering from over home counts.
    */
-  readonly railArmDwellMs: number;
+  readonly armAfter: number;
   /**
    * The lift zone, a radius in px about the point the drag was lifted at ({@link DragIntentOptions.lift}, else the first
    * sample): no spring-loaded target arms by dwell inside it. Coming back to where you lifted and pausing is the
-   * "changed my mind" gesture, so it commits nothing even where a strip lies over the grip (a flush drawer's grip at the
-   * window's edge). 16 px is about a grip's size. Elsewhere, home under a strip included, arming works as before, and
-   * the rail key forces the rail anywhere, the lift zone too.
+   * "changed my mind" gesture, so it commits nothing even where a strip lies over the grip (a grip at the window's
+   * edge). 16 px is about a grip's size. Elsewhere, home under a strip included, arming works as before, and the arm key
+   * forces the nearest spring-loaded target anywhere, the lift zone too.
    */
   readonly liftZone: number;
   /** The keys that win over geometry while held (see {@link DragModifiers}). */
@@ -72,13 +72,13 @@ export type DragKeys = Partial<Modifiers>;
 /**
  * Keys that win over geometry: while `floatKey` is held the drop floats (the `free` target) wherever the pointer is,
  * except over a refusal (the frame is refused) or outside the float's `bounds` (nothing);
- * while `railKey` is held it goes to the nearest target marked `arm` (a side's rail), without reaching it. `floatKey`
- * wins when both are held. `on: false` turns both off.
+ * while `armKey` is held it goes to the nearest spring-loaded target (marked `arm`), armed, without reaching it.
+ * `floatKey` wins when both are held. `on: false` turns both off.
  */
 export interface DragModifiers {
   readonly on: boolean;
   readonly floatKey: ModifierKey;
-  readonly railKey: ModifierKey;
+  readonly armKey: ModifierKey;
 }
 
 /**
@@ -89,8 +89,8 @@ export interface DragModifiers {
  * an indicator may show); room after 160 ms. A spring-loaded target arms after
  * 200 ms of dwell (long enough that a pass at travelling speed never arms it,
  * short enough to feel like the platforms' spring-loading); Shift floats, ⌘/Ctrl
- * (`"mod"`) goes to the nearest rail. Alt is left free: a host keeps it for a
- * meaning of its own, and a key should have one meaning.
+ * (`"mod"`) goes to the nearest spring-loaded target. Alt is left free: a host
+ * keeps it for a meaning of its own, and a key should have one meaning.
  */
 export const DRAG_DEFAULTS: DragTuning = {
   lift: 5,
@@ -107,9 +107,9 @@ export const DRAG_DEFAULTS: DragTuning = {
   switchHold: 150,
   roomAfter: 160,
   homeInset: 6,
-  railArmDwellMs: 200,
+  armAfter: 200,
   liftZone: 16,
-  modifiers: { on: true, floatKey: "shift", railKey: "mod" },
+  modifiers: { on: true, floatKey: "shift", armKey: "mod" },
 };
 
 /**
@@ -122,7 +122,7 @@ export const DRAG_DEFAULTS: DragTuning = {
  * largest of them): the pointer is in the zone when it is in any of them.
  *
  * `arm: "dwell"` makes it spring-loaded: it is no target until the pointer has
- * dwelt in its zone for `railArmDwellMs`; once armed its zone is `armedHit`
+ * dwelt in its zone for `armAfter`; once armed its zone is `armedHit`
  * when given (a magnet: the zone grown), and leaving that disarms it.
  *
  * `refuse: true` makes it a refusal: a place that takes no drop (a host draws nothing over it, and at most says "Can't
@@ -135,23 +135,22 @@ export const DRAG_DEFAULTS: DragTuning = {
  * `bounds`, when given, is the drawn space the zone belongs to (a window's stage): the zone, its band and its gap grace
  * hold only points strictly inside it, so it is half-open toward the outside and a point on `bounds`' boundary or past
  * it is never in it. The window's boundary belongs only to the targets drawn against it: a refusal and a target over
- * the whole plane (the float) carry `bounds`, a gap or a slot doesn't. So a pointer a host clamps onto the window's
- * edge picks a gap whose hit reaches the edge, else nothing (a held target keeps its band), and never a refusal or the
- * float. The rule relies on the host clamping exactly onto the stage's edge (`x + width`, `y + height`): a host that
- * clamps to `width - 0.5` still picks inside the window, the float or a refusal there included.
+ * the whole plane (the float) carry `bounds`, a gap or a slot doesn't. So a pointer clamped onto the window's edge
+ * picks a gap whose hit reaches the edge, else nothing (a held target keeps its band), and never a refusal or the
+ * float. Give the intent the window's stage as {@link DragIntentOptions.bounds} and it clamps every sample exactly
+ * onto that edge (`x + width`, `y + height`) itself.
  *
- * `opensRoom: true` marks a target whose indicator would lie over what its room moves (a side rail that pushes a column
- * aside). Showing it and making its room are then one decision: it shows only once it has held `roomAfter` ms, and the
- * frame that first shows it already has `room`. A sweep across it moves nothing, as for any target, and no frame draws
- * it over the column. Until it shows, a release still lands on it. An armed spring-loaded target has its room at once
- * too: its dwell was the decision. `roomHold` is how long this target holds before that decision, in ms, in place of
- * `roomAfter` (a rail or a new-column line against the window's edge, which a pointer rarely crosses on its way
- * elsewhere, can wait less). A
- * host that draws only a marker and doesn't use `previewPlan`'s room opens the room on
- * `frame.room && frame.shown?.opensRoom`.
+ * `opensRoom: true` marks a target whose indicator would lie over what its room moves (a drop at an edge that pushes
+ * its neighbor aside). Showing it and making its room are then one decision: it shows only once it has held
+ * `roomAfter` ms, and the frame that first shows it already has `room`. A sweep across it moves nothing, as for any
+ * target, and no frame draws it over what moves. Until it shows, a release still lands on it. An armed spring-loaded
+ * target has its room at once too: its dwell was the decision. `roomHold` is how long this target holds before that
+ * decision, in ms, in place of `roomAfter` (a target against the window's edge, which a pointer rarely crosses on its
+ * way elsewhere, can wait less). A host that draws only a marker and doesn't use `previewPlan`'s room opens the room
+ * on `frame.room && frame.shown?.opensRoom`.
  *
  * `roomHit`, with `opensRoom`, is where the target's room draws the item once it is open (its landing rect: an empty
- * rail or bar is entered over its drawn depth). While the target shows with its room open it holds in `hit ∪ roomHit`: wherever
+ * edge is entered over its drawn depth). While the target shows with its room open it holds in `hit ∪ roomHit`: wherever
  * the pointer is in `roomHit` and inside its `bounds` too. What lies there is drawn as the room, so a refusal or a
  * target of the same or a lower precision under it doesn't take over, and the frame isn't `refused` there. A more
  * precise target (a lower `priority`) still takes over once the pointer is past `breakthrough` into it, and a held key
@@ -282,12 +281,7 @@ export interface DragFrame<T extends DragTarget> {
    * pointer only moves about inside `home`, even near its edge (where `state.leftHome` is already true: that flag is for
    * the indicator's gate and uses `homeInset`; this one does not). Over home no target is shown and a release does
    * nothing, so a host that wants to say "a drop here returns it" draws its own indicator for this frame (at the home
-   * rect); the intent still shows no target.
-   *
-   * A docked item's home holds wherever it lies. The home of a floating item (`DragIntentOptions.floating`) is a free
-   * placement, ranked like the float: it holds only where the pick there, home ignored, is no refusal and the point is
-   * inside the window. Where it doesn't hold this is false and the pick is as anywhere else: over a refusal
-   * `refused` says so, and a release lands nowhere.
+   * rect); the intent still shows no target. Home holds wherever it lies.
    */
   readonly atHome: boolean;
   /**
@@ -296,11 +290,12 @@ export interface DragFrame<T extends DragTarget> {
    */
   readonly arming: T | null;
   /**
-   * A key held wins over geometry this frame: `"float"` (the float key) or `"rail"` (the rail key), else null. The
-   * float key chooses the float over dock targets, not over a refusal or outside the window: there it is still
-   * `"float"` (the key is held), but nothing shows, a release lands nowhere, and over a refusal `refused` says which.
+   * A key held wins over geometry this frame: `"float"` (the float key) or `"armed"` (the arm key: the nearest
+   * spring-loaded target, armed), else null. The float key chooses the float over the other targets, not over a refusal
+   * or outside the window: there it is still `"float"` (the key is held), but nothing shows, a release lands nowhere,
+   * and over a refusal `refused` says which.
    */
-  readonly forced: "float" | "rail" | null;
+  readonly forced: "float" | "armed" | null;
   /**
    * The refusal (a target with `refuse: true`) the pointer is over, when it is the pick there: no target shows. A host
    * never draws the refused place; it may say "Can't go here" at the pointer. Null otherwise, and while a key forces a target; with the float key
@@ -308,23 +303,10 @@ export interface DragFrame<T extends DragTarget> {
    */
   readonly refused: T | null;
   /**
-   * No target shows, and the pointer has been over a refusal since a target last showed (or since the lift). A refusal
-   * hides the shown target at once, and the next one shows only once the pointer aims again, so a pointer that crosses
-   * a refusal and is let go at speed over a target beyond it has no indicator drawn. Then this is true, and a release
-   * still lands on what is under the pointer (`release`): a host that commits only what it has drawn commits that
-   * release too. False whenever a target shows, over the refusal itself (`refused`), and after `hide`.
-   *
-   * Read it from the frame of an `update` at the release point, called before `release` (as `release` asks anyway), so
-   * the last move counts. The field is required: a host or a test mock that builds a `DragFrame` itself must set it.
+   * What a release at this frame's point lands on, by the one check `release` makes, or null (nowhere, or the item
+   * goes home). A host draws the landing from it, so what it draws and what a release lands on never disagree.
    */
-  readonly refusedSinceShown: boolean;
-  /**
-   * What a release at this frame's point lands on, by the one check `release` makes (`earlyRelease` included), or null
-   * (nowhere, or the item goes home). A host draws the landing from it, so what it draws and what a release lands on
-   * never disagree. `createDragIntent` always sets it; it is optional only so a host or a test that builds a frame
-   * itself needn't.
-   */
-  readonly landing?: T | null;
+  readonly landing: T | null;
 }
 
 /** What a drag intent knows now. */
@@ -345,28 +327,12 @@ export interface DragIntentOptions<T extends DragTarget> {
   /** Where the press that lifted the item was (the grip); default the first sample's point. The lift zone is about it. */
   readonly lift?: Point;
   /**
-   * The lift zone as a rect instead of a radius, in the same px as the samples: while a sample is inside it no
-   * spring-loaded target arms by dwell, and the `liftZone` radius is not applied. A host passes the part of the grip
-   * that a drop strip covers (grip ∩ strip), so a pause back there commits nothing while the rest of the strip, right
-   * beside a wide grip, still arms. Absent: the `liftZone` radius about `lift`.
+   * The drawn space the drag happens in (a window's stage), in the same px as the samples: every point `update` and
+   * `release` take is clamped onto it, exactly onto its edge (`x + width`, `y + height`), so a pointer past the window
+   * picks what is drawn against its edge (see {@link DragTarget}'s `bounds`). Absent: points are taken as given. A view
+   * that resizes during the drag passes the new one to {@link DragIntent.setBounds}.
    */
-  readonly liftRect?: Rect;
-  /**
-   * The held item floats, and `home` is its own box. A floating item's own place is a free placement: it ranks like the
-   * float target, so home holds only where the pick there, home ignored, is no refusal and the point lies inside the
-   * window (no target's `bounds` left with nothing picked). Over a refusal in its box the frame is refused and a
-   * release lands nowhere; on or past the window's edge nothing is picked; elsewhere in its box home holds as before.
-   * Absent (a docked item): home holds wherever it lies, as its own home target beats a refusal.
-   */
-  readonly floating?: boolean;
-  /**
-   * What a release does before the item has settled on a target (no room open for it yet). `"target"` (the default): it
-   * lands on the shown target, else the target under the pointer, drawn or not, an `opensRoom` target that hasn't shown
-   * included. `"float"`: what shows is what lands, for a host whose dragged item is the only preview (`previewPlan`'s
-   * `"item"`): the item is still on the pointer, so it floats there (the `free` target; over a refusal or outside the
-   * float's `bounds`, nowhere). `release` is its one reader.
-   */
-  readonly earlyRelease?: "target" | "float";
+  readonly bounds?: Rect;
   /** Overrides of {@link DRAG_DEFAULTS}. */
   readonly tuning?: Partial<DragTuning>;
   /**
@@ -402,13 +368,14 @@ export interface DragIntent<T extends DragTarget> {
    */
   update(point: Point, time: number, targets: readonly T[], keys?: DragKeys): DragFrame<T>;
   /**
-   * What a release at `point` lands on: the shown target whenever one shows
-   * (a drop lands where the indicator was), else the target under the
-   * pointer, else null (the item goes home). A release over home is null: it
-   * does nothing. Feed the release point to `update` first, so a last jump
-   * of the pointer counts. With a modifier key held (`keys`), the target the key picks, even over home.
+   * What a release at `point` and `time` lands on: the shown target whenever one shows (a drop lands where the
+   * indicator was), else the target under the pointer, else null (the item goes home). A release over home is null: it
+   * does nothing. With a modifier key held (`keys`), the target the key picks, even over home. A point that differs
+   * from the last `update`'s is that update's sample first, so a last jump of the pointer counts.
    */
-  release(point: Point, targets: readonly T[], keys?: DragKeys): T | null;
+  release(point: Point, time: number, targets: readonly T[], keys?: DragKeys): T | null;
+  /** The drawn space changed during the drag (the view resized): later points are clamped onto `bounds`, or none. */
+  setBounds(bounds: Rect | undefined): void;
   /**
    * Hide the indicator (the view is scrolling under the pointer, say). The
    * aim starts afresh: the next sample never counts as aiming, and a dwell
@@ -449,14 +416,15 @@ export interface DragIntent<T extends DragTarget> {
  * - Where `placeOf` gives a target no place (null), it is no target: it is
  *   neither shown nor landed on there.
  * - Spring-loading: a target marked `arm: "dwell"` is no target until the
- *   pointer has stayed in its zone `railArmDwellMs` (the frame's `arming` says
+ *   pointer has stayed in its zone `armAfter` (the frame's `arming` says
  *   which one it dwells on); then it is armed: its zone is `armedHit` (the
  *   magnet) and it shows at once. Leaving that zone disarms it.
  * - Keys win over geometry (`modifiers`): the float key shows the `free` target
- *   wherever the pointer is over a dock target or open space inside the float's
- *   `bounds`, the rail key the nearest target marked `arm`; a release with the
+ *   wherever the pointer is over another target or open space inside the float's
+ *   `bounds`, the arm key the nearest target marked `arm`; a release with the
  *   key held lands there. Over a refusal, or outside the float's `bounds`, the
  *   float key picks nothing: nothing shows and a release lands nowhere.
+ * - With `bounds`, every point is clamped onto it first (exactly onto its edge).
  */
 export function createDragIntent<T extends DragTarget>(options: DragIntentOptions<T>): DragIntent<T> {
   const tuning: DragTuning = { ...DRAG_DEFAULTS, ...options.tuning };
@@ -480,8 +448,11 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   let anchor: Point | null = null;
   let stillSince = 0;
   let restart = false;
-  // The pointer has been over a refusal since a target last showed (the frame's `refusedSinceShown`).
-  let crossedRefusal = false;
+  // The drawn space every point is clamped onto (`bounds`), and the last point `update` took (after the clamp).
+  let bounds: Rect | undefined = options.bounds ? { ...options.bounds } : undefined;
+  let lastPoint: Point | null = null;
+  const clampInto = (p: Point): Point =>
+    bounds ? { x: Math.min(Math.max(p.x, bounds.x), bounds.x + bounds.width), y: Math.min(Math.max(p.y, bounds.y), bounds.y + bounds.height) } : p;
   // Spring-loading: the target armed (by id), and the one the pointer dwells on and since when.
   let armedId: string | null = null;
   let armingId: string | null = null;
@@ -502,13 +473,13 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   /** The targets as they act now: a spring-loaded one only once armed, in its armed zone. */
   const acting = (targets: readonly T[]): T[] => targets.filter((x) => x.arm !== "dwell" || x.id === armedId).map((x) => (x.id === armedId ? asArmed(x) : x));
   /**
-   * The target a held key picks at `p`: the float key the `free` target, the rail key the nearest spring-loaded one.
-   * The float key chooses the float over dock targets, not over refusals or outside the window: where the pick at `p`
-   * (`has`: a target with a place there, or a refusal) is a refusal, it picks nothing and says which refusal; outside
-   * the float's `bounds` (a pointer clamped onto the window's edge) it picks nothing. The rail key's drop lands on the
-   * rail, not where the pointer is, so neither applies to it.
+   * The target a held key picks at `p`: the float key the `free` target, the arm key the nearest spring-loaded one.
+   * The float key chooses the float over the other targets, not over refusals or outside the window: where the pick at
+   * `p` (`has`: a target with a place there, or a refusal) is a refusal, it picks nothing and says which refusal;
+   * outside the float's `bounds` (a pointer clamped onto the window's edge) it picks nothing. The arm key's drop lands
+   * on the spring-loaded target, not where the pointer is, so neither applies to it.
    */
-  const forcedBy = (keys: DragKeys | undefined, p: Point, targets: readonly T[], has: (x: T) => boolean): { kind: "float" | "rail"; target: T | null; refused: T | null } | null => {
+  const forcedBy = (keys: DragKeys | undefined, p: Point, targets: readonly T[], has: (x: T) => boolean): { kind: "float" | "armed"; target: T | null; refused: T | null } | null => {
     const m = tuning.modifiers;
     if (!m.on || !keys) return null;
     if (isHeld(keys, m.floatKey)) {
@@ -518,7 +489,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       if (under?.refuse === true) return { kind: "float", target: null, refused: under };
       return within(f.bounds, p) ? { kind: "float", target: f, refused: null } : { kind: "float", target: null, refused: null };
     }
-    if (!isHeld(keys, m.railKey)) return null;
+    if (!isHeld(keys, m.armKey)) return null;
     let best: T | null = null;
     let bestD = Infinity;
     for (const x of targets) {
@@ -529,7 +500,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         bestD = d;
       }
     }
-    return best ? { kind: "rail", target: asArmed(best), refused: null } : null;
+    return best ? { kind: "armed", target: asArmed(best), refused: null } : null;
   };
 
   /** What a release at `point` lands on, as things stand now: `release`'s answer, and every frame's `landing`. */
@@ -553,27 +524,13 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       targets.filter((x) => inZone(x, point) && (x.refuse === true || placeOf(x, point, lastPlaces.get(x.id) ?? null) !== null)),
       point,
     );
-    if (options.earlyRelease === "float") {
-      // What shows is what lands: a target with a slot only once its room is open; before that the item is still on
-      // the pointer, so it floats there. A target with no slot (the item's own place, a blocked one) needs no room.
-      const needsNoRoom = (x: T): boolean => x.free === true || !x.slot;
-      if (s && (needsNoRoom(s) || roomPlace !== null)) return s;
-      if (under?.refuse) return null;
-      if (under && !under.free && !under.slot) return given.find((x) => x.id === under.id) ?? under;
-      const float = given.find((x) => x.free);
-      return float && within(float.bounds, point) ? float : null;
-    }
     if (s) return s;
     return under && !under.refuse ? (given.find((x) => x.id === under.id) ?? under) : null;
   };
 
-  return {
-    tuning,
-    get state(): DragIntentState<T> {
-      return { speed, current: cur, shown, leftHome };
-    },
-    update(point, time, given, keys) {
-      const p = point;
+  function update(point: Point, time: number, given: readonly T[], keys?: DragKeys): DragFrame<T> {
+      const p = clampInto(point);
+      lastPoint = p;
       const t = time;
       samples.push({ x: p.x, y: p.y, t });
       while (samples.length > 2 && t - samples[0]!.t > tuning.speedWindow) samples.shift();
@@ -594,7 +551,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       };
       const live = (x: T | null): x is T => x !== null && placeAt(x) !== null;
       // Spring-loading: the armed target holds while the pointer is in its armed zone; a target the pointer dwells in
-      // arms once it has held `railArmDwellMs`. A key held wins over both.
+      // arms once it has held `armAfter`. A key held wins over both.
       const forced = forcedBy(keys, p, given, (x) => x.refuse === true || live(x));
       if (armedId !== null) {
         const was = given.find((x) => x.id === armedId);
@@ -603,10 +560,9 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       // Spring-loading is not gated by `atHome`: a strip that overlaps the item's own place still arms by dwell.
       // A spring-loaded target arms only after the pointer has entered it: one it has been outside of during the drag.
       for (const x of given) if (x.arm === "dwell" && !inZone(x, p)) wasOutside.add(x.id);
-      // Inside the lift zone nothing arms by dwell ("changed my mind"); the rail key still forces the rail.
-      // With a `liftRect` the zone is that rect, the radius not applied.
+      // Inside the lift zone nothing arms by dwell ("changed my mind"); the arm key still forces the nearest one.
       liftAt ??= { x: p.x, y: p.y };
-      const inLiftZone = options.liftRect ? inRect(options.liftRect, p) : Math.hypot(p.x - liftAt.x, p.y - liftAt.y) <= tuning.liftZone;
+      const inLiftZone = Math.hypot(p.x - liftAt.x, p.y - liftAt.y) <= tuning.liftZone;
       const dwelling = forced || inLiftZone ? null : targetAt(given.filter((x) => x.arm === "dwell" && x.id !== armedId && wasOutside.has(x.id) && inZone(x, p) && live(x)), p);
       let armedNow = false;
       if (!dwelling || armedId !== null) armingId = null;
@@ -615,7 +571,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
           armingId = dwelling.id;
           armingSince = t;
         }
-        if (t - armingSince >= tuning.railArmDwellMs) {
+        if (t - armingSince >= tuning.armAfter) {
           armedId = dwelling.id;
           armingId = null;
           armedNow = true;
@@ -623,12 +579,8 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       }
       const arming = armingId === null ? null : (given.find((x) => x.id === armingId) ?? null);
       const targets = acting(given);
-      // A docked item's home holds wherever it lies (its own home target beats a refusal). A floating item's own place
-      // is a free placement, ranked like the float: its home holds only where the pick there, home ignored, is no
-      // refusal and not nothing outside a target's `bounds` (past the window). Elsewhere the pick is as anywhere else.
-      const underHome = atHome && options.floating ? targetAt(targets.filter((x) => inZone(x, p) && (x.refuse === true || live(x))), p) : null;
-      const pastBounds = atHome && options.floating ? targets.some((x) => x.bounds !== undefined && !within(x.bounds, p)) : false;
-      const homeHolds = atHome && (!options.floating || (underHome?.refuse !== true && !(underHome === null && pastBounds)));
+      // Home holds wherever it lies (the item's own place beats a refusal).
+      const homeHolds = atHome;
       // Over home no target is picked, except a spring-loaded one that is armed (its zone overlaps home): home gates
       // geometry, not an armed dwell.
       const pickable = (x: T): boolean => !homeHolds || (x.arm === "dwell" && x.id === armedId);
@@ -706,15 +658,25 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       else if (t - shownSince >= tuning.roomAfter && t - placeSince >= tuning.roomAfter) roomPlace = place;
       else if (shownSince === t) roomPlace = null;
       lastPlaces = places;
-      // A refusal crossed since a target last showed: a release beyond it lands on what is under the pointer, drawn or not.
       // With a key held, the refusal is the one the key's pick met (the float key over a refusal), else none.
       const refused = forced ? forced.refused : refusedRaw;
-      if (shown) crossedRefusal = false;
-      else if (refused) crossedRefusal = true;
-      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && homeHolds, arming, forced: forced?.kind ?? null, refused, refusedSinceShown: !shown && !refused && crossedRefusal, landing: landAt(p, given, keys) };
+      return { shown, room: roomPlace !== null, roomPlace, aiming, atHome: !forced && wentOut && homeHolds, arming, forced: forced?.kind ?? null, refused, landing: landAt(p, given, keys) };
+  }
+
+  return {
+    tuning,
+    get state(): DragIntentState<T> {
+      return { speed, current: cur, shown, leftHome };
     },
-    release(point, given, keys) {
-      return landAt(point, given, keys);
+    update,
+    release(point, time, given, keys) {
+      // The last update's sample is the release's: a point that differs from it is one more sample first.
+      const p = clampInto(point);
+      if (!lastPoint || lastPoint.x !== p.x || lastPoint.y !== p.y) update(p, time, given, keys);
+      return landAt(p, given, keys);
+    },
+    setBounds(next) {
+      bounds = next ? { ...next } : undefined;
     },
     hide(time) {
       shown = null;
@@ -728,7 +690,6 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       samples = [];
       anchor = null;
       restart = true;
-      crossedRefusal = false;
     },
     moveHome(dx, dy) {
       home = { ...home, x: home.x + dx, y: home.y + dy };

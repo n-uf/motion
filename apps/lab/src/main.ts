@@ -519,7 +519,7 @@ function endDrag(cancel = false): void {
   // The release point is fed to the intent first, so a last jump of the pointer counts (and its places are current).
   const targets = targetsFor(w.id);
   if (!cancel && intent) intent.update(pointer, aimTime, targets);
-  const target = !cancel && intent ? intent.release(pointer, targets) : null;
+  const target = !cancel && intent ? intent.release(pointer, aimTime, targets) : null;
   const landing = cancel ? null : dropMode === "snap" && snapped ? snapped : target ? dropOf(target, w.id) : null;
   const backHome = home && landing === null ? home : null;
   intent = null;

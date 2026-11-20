@@ -75,7 +75,7 @@ function drive(keys: readonly Key[], targets: readonly DragTarget[], home: Rect,
     frames.push({ t, p, aiming: f.aiming, shown: id });
   }
   const end = along(keys, total);
-  return { log, frames, landed: intent.release(end, targets)?.id ?? null, end };
+  return { log, frames, landed: intent.release(end, total, targets)?.id ?? null, end };
 }
 
 const shows = (log: readonly Entry[]) => log.filter((e) => e.id !== null);
@@ -335,7 +335,7 @@ describe("drag/ intent", () => {
     let f = intent.update({ x: 50, y: 50 }, t, [pane, area]);
     for (let i = 0; i < 20; i++) f = intent.update({ x: 50, y: 50 }, (t += FRAME), [pane, area]);
     expect([f.shown, f.room]).toEqual([null, false]);
-    expect(intent.release({ x: 50, y: 50 }, [pane, area])).toBeNull();
+    expect(intent.release({ x: 50, y: 50 }, t, [pane, area])).toBeNull();
     // Its right half has a place: it shows, and room is made.
     for (let i = 0; i < 20; i++) f = intent.update({ x: 150, y: 50 }, (t += FRAME), [pane, area]);
     expect([f.shown?.id, f.room]).toEqual(["pane", true]);
@@ -347,7 +347,7 @@ describe("drag/ intent", () => {
     let g = over.update({ x: 150, y: 50 }, 0, [pane, area]);
     for (let i = 1; i <= 20; i++) g = over.update({ x: 150, y: 50 }, i * FRAME, [pane, area]);
     expect(g.shown?.id).toBe("area");
-    expect(over.release({ x: 150, y: 50 }, [pane, area])?.id).toBe("area");
+    expect(over.release({ x: 150, y: 50 }, 20 * FRAME, [pane, area])?.id).toBe("area");
     // Shown, then an aiming step into the part where it has no place, the area beneath: the pane is dropped on that
     // very frame (no switch hold for a target that takes no drop there), and a release lands on the area.
     const step = createDragIntent({ home: HOME, placeOf: (x: DragTarget, p: Point) => (x.id === "pane" && p.x >= 100 ? null : x.id) });
@@ -357,7 +357,7 @@ describe("drag/ intent", () => {
     s = step.update({ x: 101, y: 50 }, 21 * FRAME, [pane, area]);
     expect(s.aiming).toBe(true);
     expect(s.shown?.id).not.toBe("pane");
-    expect(step.release({ x: 101, y: 50 }, [pane, area])?.id).toBe("area");
+    expect(step.release({ x: 101, y: 50 }, 21 * FRAME, [pane, area])?.id).toBe("area");
   });
 
   it("hide() forgets the places: the next sample asks placeOf with no previous place", () => {
@@ -411,8 +411,8 @@ describe("drag/ intent", () => {
     intent.moveHome(-400, 0);
     // A release is fed the release point first (a jump there is flying: the shown target hides).
     intent.update(FROM, (t += FRAME), moved);
-    expect(intent.release(FROM, moved)?.id).toBe("area");
-    expect(intent.release({ x: FROM.x - 400, y: FROM.y }, moved)).toBeNull();
+    expect(intent.release(FROM, t, moved)?.id).toBe("area");
+    expect(intent.release({ x: FROM.x - 400, y: FROM.y }, (t += FRAME), moved)).toBeNull();
   });
 
   it("atHome: never true before the pointer has left home, true when it is back over it, never with a target shown", () => {
@@ -432,7 +432,7 @@ describe("drag/ intent", () => {
     // Back over home: atHome, no target shown, and a release there lands nowhere.
     const back = at(FROM);
     expect([back.atHome, back.shown]).toEqual([true, null]);
-    expect(intent.release(FROM, DOCK)).toBeNull();
+    expect(intent.release(FROM, t, DOCK)).toBeNull();
     // On the home's edge: inside it counts (home itself, not shrunk).
     expect(at({ x: HOME.x + 1, y: HOME.y + 1 }).atHome).toBe(true);
     // Out again: false.
@@ -588,7 +588,7 @@ describe("drag/ spring-loading and keys", () => {
       const f = intent.update(along(keys, t), t, SPRING, held);
       frames.push({ t, shown: f.shown?.id ?? null, arming: f.arming?.id ?? null, forced: f.forced });
     }
-    return { frames, landed: intent.release(along(keys, total), SPRING, held)?.id ?? null };
+    return { frames, landed: intent.release(along(keys, total), total, SPRING, held)?.id ?? null };
   };
 
   it("a pass through the strip at travelling speed never arms it: the drop stays a float", () => {
@@ -606,8 +606,8 @@ describe("drag/ spring-loading and keys", () => {
     const armed = run(hold(into, 260));
     const at = armed.frames.find((f) => f.shown === "rail:left")!.t;
     const entered = armed.frames.find((f) => f.arming === "rail:left")!.t;
-    expect(at - entered).toBeGreaterThanOrEqual(DRAG_DEFAULTS.railArmDwellMs - FRAME);
-    expect(at - entered).toBeLessThan(DRAG_DEFAULTS.railArmDwellMs + 2 * FRAME);
+    expect(at - entered).toBeGreaterThanOrEqual(DRAG_DEFAULTS.armAfter - FRAME);
+    expect(at - entered).toBeLessThan(DRAG_DEFAULTS.armAfter + 2 * FRAME);
     expect(armed.landed).toBe("rail:left");
   });
 
@@ -622,7 +622,7 @@ describe("drag/ spring-loading and keys", () => {
   });
 
   it("a dwell of 0 arms at once", () => {
-    const r = run(hold(through([mid(H), { x: 15, y: 200 }], 1), 60), { railArmDwellMs: 0 });
+    const r = run(hold(through([mid(H), { x: 15, y: 200 }], 1), 60), { armAfter: 0 });
     expect(r.landed).toBe("rail:left");
   });
 
@@ -633,30 +633,30 @@ describe("drag/ spring-loading and keys", () => {
     const mid1 = hold(through([mid(H), { x: 300, y: 200 }], 1), 100);
     const mod = run(mid1, {}, { meta: true });
     expect(mod.landed).toBe("rail:left");
-    expect(mod.frames.at(-1)).toMatchObject({ shown: "rail:left", forced: "rail" });
+    expect(mod.frames.at(-1)).toMatchObject({ shown: "rail:left", forced: "armed" });
     // Both held: the float key wins.
     expect(run(mid1, {}, { shift: true, meta: true }).landed).toBe("float");
     // Modifiers off: the keys do nothing.
-    expect(run(mid1, { modifiers: { on: false, floatKey: "shift", railKey: "mod" } }, { meta: true }).landed).toBe("float");
-    // Over home, the rail key still wins.
+    expect(run(mid1, { modifiers: { on: false, floatKey: "shift", armKey: "mod" } }, { meta: true }).landed).toBe("float");
+    // Over home, the arm key still wins.
     const atHome = createDragIntent({ home: H });
-    expect(atHome.release(mid(H), SPRING, { ctrl: true })?.id).toBe("rail:left");
+    expect(atHome.release(mid(H), 0, SPRING, { ctrl: true })?.id).toBe("rail:left");
   });
 
-  it("the default rail key is mod: ⌘ (meta) or Ctrl either one rails, and Alt does not", () => {
+  it("the default arm key is mod: ⌘ (meta) or Ctrl either one rails, and Alt does not", () => {
     const mid1 = hold(through([mid(H), { x: 300, y: 200 }], 1), 100);
-    expect(DRAG_DEFAULTS.modifiers.railKey).toBe("mod");
+    expect(DRAG_DEFAULTS.modifiers.armKey).toBe("mod");
     expect(run(mid1, {}, { meta: true }).landed).toBe("rail:left");
     expect(run(mid1, {}, { ctrl: true }).landed).toBe("rail:left");
     expect(run(mid1, {}, { alt: true }).landed).toBe("float");
     expect(run(mid1, {}, { alt: true }).frames.at(-1)!.forced).toBe(null);
     // A host may still choose Alt, or one specific key.
-    expect(run(mid1, { modifiers: { on: true, floatKey: "shift", railKey: "alt" } }, { alt: true }).landed).toBe("rail:left");
-    expect(run(mid1, { modifiers: { on: true, floatKey: "shift", railKey: "meta" } }, { ctrl: true }).landed).toBe("float");
+    expect(run(mid1, { modifiers: { on: true, floatKey: "shift", armKey: "alt" } }, { alt: true }).landed).toBe("rail:left");
+    expect(run(mid1, { modifiers: { on: true, floatKey: "shift", armKey: "meta" } }, { ctrl: true }).landed).toBe("float");
   });
 
   it("a target with no `arm` is unchanged by the new tuning", () => {
-    const r = drive(hold(through([FROM, { x: -20, y: 50 }], 0.3), 300), DOCK, HOME, { railArmDwellMs: 5000 });
+    const r = drive(hold(through([FROM, { x: -20, y: 50 }], 0.3), 300), DOCK, HOME, { armAfter: 5000 });
     expect(r.landed).toBe("rail");
   });
 });
@@ -683,7 +683,7 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
       const f = intent.update(along(keys, t), t, [target, FLOAT]);
       frames.push({ t, shown: f.shown?.id ?? null, arming: f.arming?.id ?? null, atHome: f.atHome });
     }
-    return { intent, frames, to, landed: intent.release(to, [target, FLOAT])?.id ?? null };
+    return { intent, frames, to, landed: intent.release(to, total, [target, FLOAT])?.id ?? null };
   };
 
   it("property: a dwell target overlapping home arms after the dwell and lands the drop, whatever the overlap", () => {
@@ -694,7 +694,7 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
       for (const dwellMs of [0, 120, 200, 320])
         for (const magnet of [0, 8]) {
           const label = `overlap ${overlap} dwell ${dwellMs} magnet ${magnet}`;
-          const r = play(strip(overlap, magnet), dwellMs + 600, { railArmDwellMs: dwellMs }, start);
+          const r = play(strip(overlap, magnet), dwellMs + 600, { armAfter: dwellMs }, start);
           const shownAt = r.frames.find((f) => f.shown === "rail:right");
           // Resting within the lift zone of where it was lifted (a 90 px overlap leaves 10 px of home outside it) arms
           // nothing: that is the "changed my mind" spot.
@@ -722,7 +722,7 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
     let shown = false;
     for (let t = 0; t <= 400; t += FRAME) shown ||= intent.update(at, t, [left, FLOAT]).shown !== null;
     expect(shown).toBe(false);
-    expect(intent.release(at, [left, FLOAT])).toBeNull();
+    expect(intent.release(at, 400, [left, FLOAT])).toBeNull();
   });
 
   it("entering from over home counts (a lone panel reaching its own side's rail); so does leaving the strip and coming back", () => {
@@ -733,13 +733,13 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
     const keysA = hold(through([{ x: 120, y: 200 }, { x: 10, y: 200 }], 0.3), 500);
     for (let t = 0; t <= keysA.at(-1)![0]; t += FRAME) a.update(along(keysA, t), t, [left, FLOAT]);
     expect(a.state.shown?.id).toBe("rail:left");
-    expect(a.release({ x: 10, y: 200 }, [left, FLOAT])?.id).toBe("rail:left");
+    expect(a.release({ x: 10, y: 200 }, keysA.at(-1)![0], [left, FLOAT])?.id).toBe("rail:left");
     // Lifted inside the strip, out of it, and back into it away from the lift point to dwell.
     const b = createDragIntent({ home });
     const keysB = hold(through([{ x: 10, y: 200 }, { x: 120, y: 200 }, { x: 10, y: 320 }], 0.3), 500);
     for (let t = 0; t <= keysB.at(-1)![0]; t += FRAME) b.update(along(keysB, t), t, [left, FLOAT]);
     expect(b.state.shown?.id).toBe("rail:left");
-    expect(b.release({ x: 10, y: 320 }, [left, FLOAT])?.id).toBe("rail:left");
+    expect(b.release({ x: 10, y: 320 }, keysB.at(-1)![0], [left, FLOAT])?.id).toBe("rail:left");
   });
 
   describe("the lift zone: back where it was lifted is \"changed my mind\"", () => {
@@ -752,7 +752,7 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
       const intent = createDragIntent({ home, ...(lift ? { lift } : {}) });
       const path = hold(through([grip, { x: 400, y: 300 }, back], 0.5), 400);
       for (let t = 0; t <= path.at(-1)![0]; t += FRAME) intent.update(along(path, t), t, [left, FLOAT], keys);
-      return { shown: intent.state.shown?.id ?? null, landed: intent.release(back, [left, FLOAT], keys)?.id ?? null };
+      return { shown: intent.state.shown?.id ?? null, landed: intent.release(back, path.at(-1)![0], [left, FLOAT], keys)?.id ?? null };
     };
 
     it("property: away and back to the lift point, a pause commits nothing, wherever in the lift zone it rests", () => {
@@ -774,7 +774,7 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
       const path = hold(through([{ x: 150, y: 250 }, { x: 10, y: 250 }], 0.3), 500);
       for (let t = 0; t <= path.at(-1)![0]; t += FRAME) intent.update(along(path, t), t, [left, FLOAT]);
       expect(intent.state.shown?.id).toBe("rail:left");
-      expect(intent.release({ x: 10, y: 250 }, [left, FLOAT])?.id).toBe("rail:left");
+      expect(intent.release({ x: 10, y: 250 }, path.at(-1)![0], [left, FLOAT])?.id).toBe("rail:left");
       // Past the lift zone's 16 px, in the strip over home, it arms as before.
       const near = createDragIntent({ home, lift: { x: 30, y: 250 } });
       const p2 = hold(through([{ x: 30, y: 250 }, { x: 200, y: 250 }, { x: 10, y: 275 }], 0.3), 500);
@@ -784,14 +784,14 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
   });
 
   it("a short rest arms nothing and a release over home does nothing, as before", () => {
-    const r = play(strip(30), 100, { railArmDwellMs: 400 });
+    const r = play(strip(30), 100, { armAfter: 400 });
     expect(r.frames.some((f) => f.shown === "rail:right")).toBe(false);
     expect(r.landed).toBeNull();
   });
 
   it("an armed magnet that reaches back over home keeps its marker while the pointer rests there", () => {
     const target = strip(6, 40);
-    const intent = createDragIntent({ home: HOME, tuning: { railArmDwellMs: 200 } });
+    const intent = createDragIntent({ home: HOME, tuning: { armAfter: 200 } });
     const keys = hold(through([mid(HOME), { x: 797, y: 200 }], 0.3), 500);
     let t = 0;
     for (; t <= keys.at(-1)![0]; t += FRAME) intent.update(along(keys, t), t, [target, FLOAT]);
@@ -800,7 +800,7 @@ describe("drag/ a spring-loaded target that overlaps home", () => {
     const back = { x: 770, y: 200 };
     for (let k = 0; k < 40; k++, t += FRAME) intent.update(back, t, [target, FLOAT]);
     expect(intent.state.shown?.id).toBe("rail:right");
-    expect(intent.release(back, [target, FLOAT])?.id).toBe("rail:right");
+    expect(intent.release(back, t, [target, FLOAT])?.id).toBe("rail:right");
   });
 
   it("a target that is not spring-loaded still never shows over home", () => {
@@ -874,7 +874,7 @@ describe("drag/ refusals in the pick", () => {
     const { frames } = slowly([rail, float], [30, 25, 20, 15, 12, 10, 9, 8, 7]);
     expect(frames.find((f) => f.x === 7)!.shown).toBe("rail:left:0");
     const { intent } = slowly([rail, refusal, float], [30, 20, 7]);
-    expect(intent.release({ x: 7, y: 400 }, [rail, refusal, float])).toBeNull();
+    expect(intent.release({ x: 7, y: 400 }, 720, [rail, refusal, float])).toBeNull();
     expect(targetAt([rail, refusal, float], { x: 7, y: 400 })?.id).toBe("refuse:rail:left:start");
   });
 
@@ -919,7 +919,7 @@ describe("drag/ refusals in the pick", () => {
     expect(intent.update({ x: 958, y: 775 }, (t += 60), [gap, bar]).shown?.id).toBe("gap");
     const edge = intent.update({ x: 958, y: 800 }, (t += 60), [gap, bar]);
     expect([edge.shown?.id, edge.refused]).toEqual(["gap", null]);
-    expect(intent.release({ x: 958, y: 800 }, [gap, bar])?.id).toBe("gap");
+    expect(intent.release({ x: 958, y: 800 }, t, [gap, bar])?.id).toBe("gap");
   });
 });
 
@@ -955,8 +955,8 @@ describe("drag/ the window's edge belongs to the targets drawn against it", () =
     for (let k = 0; k < 30; k++) f = intent.update({ x: 700, y: 798 }, (t += 16), list);
     expect([f.shown, f.refused?.id]).toEqual([null, "refuse:bar:bottom:start"]);
     for (let k = 0; k < 30; k++) f = intent.update({ x: 700, y: 800 }, (t += 16), list);
-    expect([f.shown, f.refused, f.refusedSinceShown]).toEqual([null, null, true]);
-    expect(intent.release({ x: 700, y: 800 }, list)).toBeNull();
+    expect([f.shown, f.refused]).toEqual([null, null]);
+    expect(intent.release({ x: 700, y: 800 }, t, list)).toBeNull();
   });
 
   it("the float shown inside the window holds nothing past its edge: nothing shows at once", () => {
@@ -967,7 +967,7 @@ describe("drag/ the window's edge belongs to the targets drawn against it", () =
     expect(f.shown?.id).toBe("float:findings");
     f = intent.update({ x: 400, y: 800 }, (t += 16), list);
     expect(f.shown).toBeNull();
-    expect(intent.release({ x: 400, y: 800 }, list)).toBeNull();
+    expect(intent.release({ x: 400, y: 800 }, t, list)).toBeNull();
   });
 
   it("creeping onto the edge, 2 px a frame, the float gets no gap grace there: it hides on the edge's first frame", () => {
@@ -982,7 +982,7 @@ describe("drag/ the window's edge belongs to the targets drawn against it", () =
     }
     f = intent.update({ x: 1400, y: 400 }, (t += 16), list);
     expect(f.shown).toBeNull();
-    expect(intent.release({ x: 1400, y: 400 }, list)).toBeNull();
+    expect(intent.release({ x: 1400, y: 400 }, t, list)).toBeNull();
     // And every frame on the edge after it.
     for (let k = 0; k < 8; k++) expect(intent.update({ x: 1400, y: 400 }, (t += 16), list).shown).toBeNull();
   });
@@ -1002,7 +1002,7 @@ describe("drag/ the float key chooses the float over dock targets, not over refu
     let t = 0;
     let f = intent.update({ x: 1108, y: 94 }, t, list, keys);
     for (let k = 0; k < 12; k++) f = intent.update(p, (t += 16), list, keys);
-    return { f, landed: intent.release(p, list, keys)?.id ?? null };
+    return { f, landed: intent.release(p, t, list, keys)?.id ?? null };
   };
 
   it("over a dock target or open space the float key still floats, over a spring-loaded strip too", () => {
@@ -1014,7 +1014,7 @@ describe("drag/ the float key chooses the float over dock targets, not over refu
 
   it("over a refusal it picks nothing: the frame is refused, nothing shows, a release lands nowhere", () => {
     const { f, landed } = at({ x: 600, y: 780 });
-    expect([f.forced, f.shown, f.refused?.id, f.refusedSinceShown, landed]).toEqual(["float", null, "refuse:bar:bottom:start", false, null]);
+    expect([f.forced, f.shown, f.refused?.id, landed]).toEqual(["float", null, "refuse:bar:bottom:start", null]);
     // Where the gap meets the refused bar, the gap is the pick, so the key floats.
     expect(at({ x: 1200, y: 764 }).landed).toBe("float:findings");
   });
@@ -1026,25 +1026,11 @@ describe("drag/ the float key chooses the float over dock targets, not over refu
     }
   });
 
-  it("refusedSinceShown behaves as without the key: over the refusal false, past it true until a target shows", () => {
-    const intent = createDragIntent<DragTarget>({ home: rect(1088, 84, 300, 300), lift: { x: 1108, y: 94 } });
-    let t = 0;
-    intent.update({ x: 1108, y: 94 }, t, list, shift);
-    let f = intent.update({ x: 600, y: 400 }, (t += 16), list, shift);
-    expect(f.shown?.id).toBe("float:findings");
-    f = intent.update({ x: 600, y: 780 }, (t += 16), list, shift);
-    expect([f.shown, f.refused?.id, f.refusedSinceShown]).toEqual([null, "refuse:bar:bottom:start", false]);
-    f = intent.update({ x: 600, y: 800 }, (t += 16), list, shift);
-    expect([f.shown, f.refused, f.refusedSinceShown]).toEqual([null, null, true]);
-    f = intent.update({ x: 600, y: 400 }, (t += 16), list, shift);
-    expect([f.shown?.id, f.refusedSinceShown]).toEqual(["float:findings", false]);
-  });
-
-  it("the rail key is unchanged: its drop lands on the rail, wherever the pointer is", () => {
+  it("the arm key is unchanged: its drop lands on the spring-loaded target, wherever the pointer is", () => {
     const meta = { meta: true };
     for (const p of [{ x: 600, y: 780 }, { x: 600, y: 800 }, { x: 1200, y: 600 }]) {
       const { f, landed } = at(p, meta);
-      expect([f.forced, f.shown?.id, f.refused, landed], `${p.x},${p.y}`).toEqual(["rail", "rail:left:0", null, "rail:left:0"]);
+      expect([f.forced, f.shown?.id, f.refused, landed], `${p.x},${p.y}`).toEqual(["armed", "rail:left:0", null, "rail:left:0"]);
     }
   });
 });
@@ -1101,7 +1087,7 @@ describe("drag/ a target that opens its room", () => {
     f = intent.update({ x: 20, y: 400 }, (t += 16), [rail, float]);
     f = intent.update({ x: 20, y: 400 }, (t += 16), [rail, float]);
     expect([f.shown, f.room]).toEqual([null, false]);
-    expect(intent.release({ x: 20, y: 400 }, [rail, float])?.id).toBe(rail.id);
+    expect(intent.release({ x: 20, y: 400 }, t, [rail, float])?.id).toBe(rail.id);
   });
 
   it("roomHold is that target's own wait: it shows with its room after it, and roomAfter stays for the others", () => {
@@ -1114,28 +1100,25 @@ describe("drag/ a target that opens its room", () => {
     expect(roomAt!.t).toBe(first!.t);
   });
 
-  it("earlyRelease decides a release before the room is open: the target by default, the float with \"float\"", () => {
+  it("a release before the room is open lands on the target under the pointer, shown or not", () => {
     const slotted: DragTarget = { ...rail, slot: rect(0, 0, 40, 800) };
     const plain: DragTarget = { ...gap, slot: rect(100, 300, 200, 40) };
     const refused: DragTarget = { id: "refuse:bar", priority: 2, hit: rect(300, 700, 200, 40), refuse: true };
     const blocked: DragTarget = { id: "none:0", priority: 1, hit: rect(600, 300, 100, 100) };
     const bounded: DragTarget = { ...float, bounds: rect(0, 0, 1200, 800) };
     const all = [slotted, plain, refused, blocked, bounded];
-    const at = (earlyRelease: "target" | "float" | undefined, p: { x: number; y: number }, frames: number) => {
-      const intent = createDragIntent<DragTarget>({ home: rect(900, 0, 100, 30), lift: { x: 950, y: 15 }, ...(earlyRelease ? { earlyRelease } : {}) });
+    const at = (p: { x: number; y: number }, frames: number) => {
+      const intent = createDragIntent<DragTarget>({ home: rect(900, 0, 100, 30), lift: { x: 950, y: 15 } });
       intent.update({ x: 950, y: 15 }, 0, all);
       for (let k = 1; k <= frames; k++) intent.update(p, 16 * k, all);
-      return intent.release(p, all)?.id ?? null;
+      return intent.release(p, 16 * frames, all)?.id ?? null;
     };
     const onRail = { x: 20, y: 400 };
     const onGap = { x: 200, y: 320 };
     // Before the `opensRoom` target shows (2 frames), and on a gap shown with no room yet (6 frames).
-    expect([at(undefined, onRail, 2), at("target", onRail, 2), at(undefined, onGap, 6)]).toEqual([slotted.id, slotted.id, plain.id]);
-    expect([at("float", onRail, 2), at("float", onGap, 6)]).toEqual(["float", "float"]);
-    // Settled, it lands there either way.
-    expect([at("float", onRail, 20), at("float", onGap, 30)]).toEqual([slotted.id, plain.id]);
-    // A refusal lands nowhere, a place with no slot is itself, and past the float's bounds nothing floats.
-    expect([at("float", { x: 400, y: 720 }, 2), at("float", { x: 650, y: 350 }, 2), at("float", { x: 700, y: 800 }, 2)]).toEqual([null, "none:0", null]);
+    expect([at(onRail, 2), at(onGap, 6)]).toEqual([slotted.id, plain.id]);
+    // Settled, it lands there too; a refusal lands nowhere, and a place with no slot is itself.
+    expect([at(onRail, 20), at(onGap, 30), at({ x: 400, y: 720 }, 2), at({ x: 650, y: 350 }, 2)]).toEqual([slotted.id, plain.id, null, "none:0"]);
   });
 
   it("a target without it is unchanged: it shows first, its room follows after roomAfter", () => {
@@ -1163,7 +1146,7 @@ describe("drag/ a target with its room open holds in the room it opened", () => 
     const frames = then.map((p) => {
       let f = intent.update(p, (t += 16), list, keys);
       for (let k = 0; k < 3; k++) f = intent.update(p, (t += 16), list, keys);
-      return { p, f, landed: intent.release(p, list, keys)?.id ?? null };
+      return { p, f, landed: intent.release(p, t, list, keys)?.id ?? null };
     });
     return frames;
   };
@@ -1217,48 +1200,29 @@ describe("drag/ a target with its room open holds in the room it opened", () => 
   });
 });
 
-describe("drag/ a floating item's own place is a free placement", () => {
-  // A window 1400 × 800 with a refused bar along the bottom; a float whose box (home) lies over the bar's rim.
+describe("drag/ home over a refusal", () => {
+  // A window 1400 × 800 with a refused bar along the bottom; an item whose home lies over the bar's rim.
   const stage = rect(0, 0, 1400, 800);
   const rim: DragTarget = { id: "refuse:bar:bottom:start", priority: 2, hit: rect(0, 764, 1400, 36), refuse: true, bounds: stage };
   const float: DragTarget = { id: "float:notes", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true, bounds: stage };
-  const box = rect(500, 600, 300, 200);
-  const list = [rim, float];
-  /** Lifted in the box, out of it and back in at `p`, held there. */
-  const back = (home: Rect, targets: readonly DragTarget[], p: { x: number; y: number }, floating = true) => {
-    const intent = createDragIntent<DragTarget>({ home, lift: { x: 520, y: 620 }, floating });
+  /** Lifted in its home, out of it and back in at `p`, held there. */
+  const back = (home: Rect, targets: readonly DragTarget[], p: { x: number; y: number }) => {
+    const intent = createDragIntent<DragTarget>({ home, lift: { x: 520, y: 620 } });
     let t = 0;
     intent.update({ x: 520, y: 620 }, t, targets);
     for (let k = 0; k < 4; k++) intent.update({ x: 300, y: 300 }, (t += 16), targets);
     let f = intent.update(p, (t += 16), targets);
     for (let k = 0; k < 10; k++) f = intent.update(p, (t += 16), targets);
-    return { f: [f.atHome, f.shown?.id ?? null, f.refused?.id ?? null], landed: intent.release(p, targets)?.id ?? null };
+    return { f: [f.atHome, f.shown?.id ?? null, f.refused?.id ?? null], landed: intent.release(p, t, targets)?.id ?? null };
   };
 
-  it("over a refusal inside its box: refused, and a release lands nowhere", () => {
-    expect(back(box, list, { x: 650, y: 780 })).toEqual({ f: [false, null, "refuse:bar:bottom:start"], landed: null });
-  });
-
-  it("elsewhere in its box: home, as before (the host moves the float where it is let go)", () => {
-    expect(back(box, list, { x: 650, y: 700 })).toEqual({ f: [true, null, null], landed: null });
-  });
-
-  it("on or past the window's edge inside its box: nothing (no home, no float, no refusal)", () => {
-    const low = rect(500, 700, 300, 200);
-    for (const p of [{ x: 650, y: 800 }, { x: 650, y: 840 }]) expect(back(low, list, p), `${p.x},${p.y}`).toEqual({ f: [false, null, null], landed: null });
-  });
-
-  it("a docked item's home over a refusal is still home, on the window's edge too", () => {
+  it("home over a refusal is still home, on the window's edge too", () => {
     const docked = rect(500, 740, 300, 60);
     const homeTarget: DragTarget = { id: "home:notes", priority: 1, hit: docked };
     for (const list2 of [[homeTarget, rim, float], [rim, float]]) {
-      expect(back(docked, list2, { x: 650, y: 780 }, false)).toEqual({ f: [true, null, null], landed: null });
-      expect(back(docked, list2, { x: 650, y: 800 }, false)).toEqual({ f: [true, null, null], landed: null });
+      expect(back(docked, list2, { x: 650, y: 780 })).toEqual({ f: [true, null, null], landed: null });
+      expect(back(docked, list2, { x: 650, y: 800 })).toEqual({ f: [true, null, null], landed: null });
     }
-  });
-
-  it("without `floating`, a float's box over a refusal is home as before (the option is the host's to give)", () => {
-    expect(back(box, list, { x: 650, y: 780 }, false)).toEqual({ f: [true, null, null], landed: null });
   });
 });
 
@@ -1269,38 +1233,16 @@ describe("drag/ a release beyond a refusal", () => {
   const list = [column, float];
   const start = () => createDragIntent<DragTarget>({ home: rect(4, 40, 236, 34), lift: { x: 8, y: 44 } });
 
-  it("says a refusal was crossed since a target last showed, and release lands on what is under the pointer", () => {
+  it("a release beyond a crossed refusal lands on what is under the pointer, no target shown", () => {
     const intent = start();
     let t = 0;
-    const flags: boolean[] = [];
     // Fast, from the grip across the column (refused), out to the open space: no target ever shows.
     for (const x of [8, 60, 120, 180, 230]) expect(intent.update({ x, y: 260 }, (t += 16), list).refused?.id).toBe("refuse:column");
     for (const x of [300, 520]) {
       const f = intent.update({ x, y: 260 }, (t += 16), list);
       expect([f.shown, f.refused]).toEqual([null, null]);
-      flags.push(f.refusedSinceShown);
     }
-    expect(flags).toEqual([true, true]);
-    expect(intent.release({ x: 520, y: 260 }, list)?.id).toBe("float");
-  });
-
-  it("is false over the refusal itself, once a target shows, before any refusal, and after hide", () => {
-    const intent = start();
-    let t = 0;
-    // Over open space with no refusal crossed: false.
-    const away = createDragIntent<DragTarget>({ home: rect(600, 40, 100, 30), lift: { x: 650, y: 50 } });
-    expect(away.update({ x: 400, y: 400 }, 16, list).refusedSinceShown).toBe(false);
-    expect(intent.update({ x: 100, y: 260 }, (t += 16), list).refusedSinceShown).toBe(false);
-    let f = intent.update({ x: 400, y: 260 }, (t += 16), list);
-    expect(f.refusedSinceShown).toBe(true);
-    // Aiming there: the float shows, and the flag is gone.
-    for (let k = 0; k < 8; k++) f = intent.update({ x: 400, y: 260 }, (t += 60), list);
-    expect([f.shown?.id, f.refusedSinceShown]).toEqual(["float", false]);
-    // Back over the column and out, then hide: false.
-    intent.update({ x: 100, y: 260 }, (t += 16), list);
-    intent.update({ x: 400, y: 260 }, (t += 16), list);
-    intent.hide(t);
-    expect(intent.update({ x: 410, y: 260 }, (t += 16), list).refusedSinceShown).toBe(false);
+    expect(intent.release({ x: 520, y: 260 }, t, list)?.id).toBe("float");
   });
 
   it("a group flung from its bar across a docked column to open space in 24 frames: the release commits the float", () => {
@@ -1320,36 +1262,8 @@ describe("drag/ a release beyond a refusal", () => {
     }
     expect(seen.includes("refuse:left-0:start")).toBe(true);
     expect(seen.some((s) => s.startsWith("shown"))).toBe(false);
-    expect([f.shown, f.refused, f.refusedSinceShown]).toEqual([null, null, true]);
-    expect(intent.release({ x: 520, y: 260 }, all)?.id).toBe("float");
-  });
-
-  it("but once the item's own place showed after the refusal, a fling to open space is not committable", () => {
-    // A side's refused strip beside its rail, the rail's own stop (the panel's place) and the float.
-    const strip: DragTarget = { id: "refuse:rail:left:start", priority: 2, hit: rect(12, 120, 34, 668), refuse: true };
-    const stop: DragTarget = { id: "rail:left:0", priority: 1, hit: rect(46, 12, 10, 776) };
-    const all = [strip, stop, float];
-    const intent = createDragIntent<DragTarget>({ home: rect(12, 84, 44, 36), lift: { x: 20, y: 100 } });
-    let t = 0;
-    let f = intent.update({ x: 20, y: 100 }, t, all);
-    for (let y = 112; y <= 320; y += 12) f = intent.update({ x: 18, y }, (t += 16), all);
-    for (let k = 0; k < 3; k++) f = intent.update({ x: 18, y: 320 }, (t += 16), all);
-    expect(f.refused?.id).toBe("refuse:rail:left:start");
-    // The refusal crossed and a jump straight to open space: committable.
-    const jumped = createDragIntent<DragTarget>({ home: rect(12, 84, 44, 36), lift: { x: 20, y: 100 } });
-    let t2 = 0;
-    jumped.update({ x: 20, y: 100 }, t2, all);
-    for (let y = 112; y <= 320; y += 12) jumped.update({ x: 18, y }, (t2 += 16), all);
-    expect(jumped.update({ x: 400, y: 400 }, (t2 += 16), all).refusedSinceShown).toBe(true);
-    // Back to its own stop, dwelling: it shows; then the jump: nothing shows, and the flag stays off.
-    for (let k = 0; k < 30; k++) f = intent.update({ x: 50, y: 320 }, (t += 16), all);
-    expect(f.shown?.id).toBe("rail:left:0");
-    f = intent.update({ x: 400, y: 400 }, (t += 16), all);
-    expect([f.shown, f.refusedSinceShown]).toEqual([null, false]);
-    // A flick that never met a refusal: off too.
-    const flick = createDragIntent<DragTarget>({ home: rect(600, 40, 100, 30), lift: { x: 650, y: 50 } });
-    flick.update({ x: 650, y: 50 }, 0, all);
-    expect(flick.update({ x: 400, y: 400 }, 16, all).refusedSinceShown).toBe(false);
+    expect([f.shown, f.refused]).toEqual([null, null]);
+    expect(intent.release({ x: 520, y: 260 }, t, all)?.id).toBe("float");
   });
 
   it("changes nothing else: no indicator flashes after a refusal (the aim gate is kept)", () => {
@@ -1361,15 +1275,13 @@ describe("drag/ a release beyond a refusal", () => {
   });
 });
 
-describe("drag/ a lift rect", () => {
-  // A drop strip down the left edge, spring-loaded; a 400 px wide grip across it at y 100–138, so the part of the grip
-  // the strip covers is 32 × 38.
+describe("drag/ the lift zone's radius", () => {
+  // A drop strip down the left edge, spring-loaded; a 400 px wide grip across it at y 100–138.
   const strip: DragTarget = { id: "rail:left:0", priority: 1, hit: rect(0, 0, 32, 800), arm: "dwell" };
   const float: DragTarget = { id: "float", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true };
-  const liftRect = rect(0, 100, 32, 38);
   /** Lifted at `lift`, out to the right of the strip, then resting at `rest` well past the dwell: what shows there. */
-  const restAt = (lift: Point, rest: Point, withRect: boolean): string | null => {
-    const intent = createDragIntent<DragTarget>({ home: rect(0, 100, 400, 38), lift, ...(withRect ? { liftRect } : {}) });
+  const restAt = (lift: Point, rest: Point): string | null => {
+    const intent = createDragIntent<DragTarget>({ home: rect(0, 100, 400, 38), lift });
     let t = 0;
     let shown: string | null = null;
     for (const p of [lift, { x: 300, y: lift.y }, { x: 300, y: rest.y }, rest]) {
@@ -1381,39 +1293,67 @@ describe("drag/ a lift rect", () => {
     return shown;
   };
 
-  it("back in the strip 180 px below the grip it arms after the dwell; resting inside the rect it never arms", () => {
-    expect(restAt({ x: 16, y: 120 }, { x: 16, y: 300 }, true)).toBe("rail:left:0");
-    expect(restAt({ x: 16, y: 120 }, { x: 16, y: 120 }, true)).not.toBe("rail:left:0");
+  it("within 16 px of the lift nothing arms; 180 px below the grip it arms after the dwell", () => {
+    expect(restAt({ x: 16, y: 135 }, { x: 16, y: 145 })).not.toBe("rail:left:0");
+    expect(restAt({ x: 16, y: 120 }, { x: 16, y: 300 })).toBe("rail:left:0");
+  });
+});
+
+describe("drag/ bounds: the intent clamps the pointer onto the drawn space", () => {
+  const stage = rect(0, 0, 1400, 800);
+  const gap: DragTarget = { id: "gap", priority: 2, hit: rect(1088, 418, 312, 382) };
+  const float: DragTarget = { id: "float", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true, bounds: stage };
+  const list = [gap, float];
+  /** Held at `p` for 20 frames; the frames' shown and landing, and the release. */
+  const held = (p: Point, withBounds: boolean, clampFirst = false) => {
+    const intent = createDragIntent<DragTarget>({ home: rect(100, 100, 100, 50), ...(withBounds ? { bounds: stage } : {}) });
+    const q = clampFirst ? { x: Math.min(Math.max(p.x, 0), 1400), y: Math.min(Math.max(p.y, 0), 800) } : p;
+    let t = 0;
+    let f = intent.update({ x: 150, y: 125 }, t, list);
+    for (let k = 0; k < 20; k++) f = intent.update(q, (t += 16), list);
+    return [f.shown?.id ?? null, f.landing?.id ?? null, intent.release(q, t, list)?.id ?? null];
+  };
+
+  it("a pointer past the window picks as one the host clamped exactly onto the edge", () => {
+    for (const p of [{ x: 1500, y: 600 }, { x: 1300, y: 900 }, { x: 700, y: 900 }, { x: -50, y: 400 }])
+      expect(held(p, true), `${p.x},${p.y}`).toEqual(held(p, false, true));
   });
 
-  it("the rect replaces the radius: 10 px below the grip, outside the rect but inside 16 px of the lift, it arms", () => {
-    expect(restAt({ x: 16, y: 135 }, { x: 16, y: 145 }, true)).toBe("rail:left:0");
-    // Without the rect, the 16 px radius about the lift point holds as before.
-    expect(restAt({ x: 16, y: 135 }, { x: 16, y: 145 }, false)).not.toBe("rail:left:0");
-    expect(restAt({ x: 16, y: 120 }, { x: 16, y: 300 }, false)).toBe("rail:left:0");
+  it("setBounds moves the edge it clamps onto, and a release at a new point is one more sample", () => {
+    const intent = createDragIntent<DragTarget>({ home: rect(100, 100, 100, 50), bounds: rect(0, 0, 1000, 800) });
+    let t = 0;
+    intent.update({ x: 150, y: 125 }, t, list);
+    // Clamped onto x 1000, short of the gap: the float.
+    for (let k = 0; k < 20; k++) intent.update({ x: 1200, y: 600 }, (t += 16), list);
+    expect(intent.state.shown?.id).toBe("float");
+    intent.setBounds(stage);
+    for (let k = 0; k < 20; k++) intent.update({ x: 1200, y: 600 }, (t += 16), list);
+    expect(intent.state.shown?.id).toBe("gap");
+    // Released at a new point with no update there: it counts as a sample, so the jump hides the indicator first.
+    expect(intent.release({ x: 600, y: 300 }, (t += 16), list)?.id).toBe("float");
+    expect(intent.state.shown).toBeNull();
   });
 });
 
 describe("drag/ frame.landing is what a release there lands on", () => {
-  it("on every frame of sweeps across docks, a rail, the float and a refusal, both release modes, with and without Shift", () => {
+  it("on every frame of sweeps across docks, a rail, the float and a refusal, with and without Shift", () => {
     const refusal: DragTarget = { id: "refuse:x", priority: 2, hit: rect(250, 0, 60, 200), refuse: true };
     const roomy: DragTarget = { ...A, slot: rect(0, 0, 200, 100), opensRoom: true };
     const list = [roomy, B, RAIL, AREA, refusal];
     let frames = 0;
-    for (const earlyRelease of ["target", "float"] as const)
-      for (const shift of [false, true])
-        for (const path of [[FROM, mid(A.hit), mid(B.hit), mid(RAIL.hit), { x: 280, y: 100 }, mid(AREA.hit)], [FROM, { x: 100, y: 150 }, { x: 100, y: 40 }, { x: 260, y: 20 }]]) {
-          const intent = createDragIntent<DragTarget>({ home: HOME, earlyRelease, tuning: { modifiers: { ...DRAG_DEFAULTS.modifiers, on: true } } });
-          const keys = through(path, 0.4);
-          const keysHeld: DragKeys | undefined = shift ? { shift: true } : undefined;
-          for (let t = 0; t <= keys.at(-1)![0] + 300; t += FRAME) {
-            const p = along(keys, t);
-            const f = intent.update(p, t, list, keysHeld);
-            expect([t, f.landing?.id ?? null]).toEqual([t, intent.release(p, list, keysHeld)?.id ?? null]);
-            frames++;
-          }
+    for (const shift of [false, true])
+      for (const path of [[FROM, mid(A.hit), mid(B.hit), mid(RAIL.hit), { x: 280, y: 100 }, mid(AREA.hit)], [FROM, { x: 100, y: 150 }, { x: 100, y: 40 }, { x: 260, y: 20 }]]) {
+        const intent = createDragIntent<DragTarget>({ home: HOME, tuning: { modifiers: { ...DRAG_DEFAULTS.modifiers, on: true } } });
+        const keys = through(path, 0.4);
+        const keysHeld: DragKeys | undefined = shift ? { shift: true } : undefined;
+        for (let t = 0; t <= keys.at(-1)![0] + 300; t += FRAME) {
+          const p = along(keys, t);
+          const f = intent.update(p, t, list, keysHeld);
+          expect([t, f.landing?.id ?? null]).toEqual([t, intent.release(p, t, list, keysHeld)?.id ?? null]);
+          frames++;
         }
-    expect(frames).toBeGreaterThan(500);
+      }
+    expect(frames).toBeGreaterThan(250);
   });
 });
 

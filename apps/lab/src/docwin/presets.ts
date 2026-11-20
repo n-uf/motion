@@ -2779,7 +2779,7 @@ function RAIL_DOCK_PRESETS(): Preset[] {
       setup: fresh,
       check(c) {
         const sweep = PRESETS.find((p) => p.id === "aim-order-sweep")!;
-        c.setFeel(panelFeel(c, { railStripWidth: 48, railVisibility: "always", magnet: 20, floatNearEdge: false, railArmDwellMs: 0, modifiers: { on: false, floatKey: "shift", railKey: "alt" } }));
+        c.setFeel(panelFeel(c, { railStripWidth: 48, railVisibility: "always", magnet: 20, floatNearEdge: false, armAfter: 0, modifiers: { on: false, floatKey: "shift", armKey: "alt" } }));
         sweep.setup(c);
         const v = sweep.check(c);
         return { pass: v.pass, now: v.now };
