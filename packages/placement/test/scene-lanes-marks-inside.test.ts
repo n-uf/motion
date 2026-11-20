@@ -36,7 +36,7 @@ function broken(frame: Frame, edgeIds: ReadonlySet<string>): string[] {
   const bad: string[] = [];
   const edge = ls.filter((l) => edgeIds.has(l.id));
   for (const l of edge) {
-    const moved = l.id === heldLane ? heldLayout?.edges[l.id] : undefined;
+    const moved = heldLayout?.edges[l.id];
     const r = moved && moved.cross > 1e-6 ? moved.rect : l.rect;
     for (const m of l.marks) if (!within(m.rect, r)) bad.push(`${where}: ${m.id} outside its lane ${l.id}`);
     // The corner clip is one rule for the hit rect and the marks: along its axis an empty lane's marks stay inside its
@@ -138,5 +138,16 @@ describe("lanes(): a lane's marks lie inside its lane's rect", () => {
         for (const f of frames(s, held, {}, `bar ${seed}${rail ? " rail" : ""}`)) bad.push(...broken(f, new Set([edge.id])));
       }
     expect(bad.slice(0, 6)).toEqual([]);
+  });
+
+  it("with a spot held, another lane's marks follow its edge where that drop moved it, none lost", () => {
+    const s = modelScene(2, true);
+    const previous = solve(s);
+    const sp = lanes(s, "g0", { previous }).lanes.find((l) => l.id === "left-bar")!.spots[0]!;
+    const after = sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout;
+    expect(after.edges["left-col"]!.rect.x).toBeGreaterThan(previous.edges["left-col"]!.rect.x);
+    const col = lanes(s, "g0", { previous, spot: sp.id }).lanes.find((l) => l.id === "left-col")!;
+    expect(col.marks.map((m) => m.id).sort()).toEqual(["left-col/line/^|left-p", "left-col/line/left-p|$"]);
+    for (const m of col.marks) expect(within(m.rect, after.edges["left-col"]!.rect)).toBe(true);
   });
 });

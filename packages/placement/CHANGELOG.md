@@ -5,6 +5,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
+- `./scene`, **in a held frame every lane's marks follow its edge** (fix). With `options.spot`, every lane takes its
+  marks in the held spot's layout, but only the held lane was clipped to its rect over that layout; the others were
+  clipped to their rect as seen, so where the drop moves an edge (a column pushed aside by a rail that opens) their
+  marks were cut short or lost (a column's joint lines, a rail's head line). In a held frame every lane is now clipped
+  to its rect over the spot's layout (`laneRectOver`); its hit `rect` stays as seen.
 - `./scene/cases`, **the Near guides' rule, as landing rows and a check** (additive). On every frame that shows a Near
   guide of lane L, L holds the pointer (also on its own refused stretch), or L is pending, or the pointer is in open
   space within `NEAR_REACH` (12 px) of L; none shows over a refused place outside L. `nearGuideIssues(row, frames,

@@ -402,7 +402,9 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
     if (!again) return l;
     return l.id === heldLane ? again : { ...l, marks: again.marks };
   });
-  return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes, l.id === heldLane ? laneRectOver(base.raws.get(l.id)!, held.layout, base.seen, base.marking).rect : l.rect)) };
+  // Every lane's marks are clipped to its rect over the layout they are drawn in (the spot's, where its drop may move an
+  // edge); its hit rect stays as seen.
+  return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes, base.raws.get(l.id) ? laneRectOver(base.raws.get(l.id)!, held.layout, base.seen, base.marking).rect : l.rect)) };
 }
 
 function build(scene: Scene, dragged: string, options: LaneOptions): Base {
@@ -818,10 +820,10 @@ function inLane(l: Lane, r: Rect): Lane {
  *   side. Either way never over an item docked in a bar or a toolbar rail (it stays where it is): cut around it.
  * - Every mark first lies inside its lane's rect in the layout the marks are drawn in (`inLane`, `within`): a mark shows
  *   where a drop goes, and a drop is possible only where the lane takes the pointer. So the corner rules above compare
- *   lanes by what each really covers. As seen, and for every lane but the held spot's, that is the lane's rect. The held
- *   spot's lane is drawn in that spot's own layout, where its edge may have moved (a rail starting higher once a bar is
- *   left empty): its rect there (`laneRectOver` that layout) is `within`; its hit rect, for the landing model, stays as
- *   seen.
+ *   lanes by what each really covers. As seen, that is the lane's rect. In a held frame every lane is drawn in the held
+ *   spot's own layout, where the drop may move its edge (a rail starting higher once a bar is left empty, a column
+ *   pushed aside by a rail that opens): every lane is clipped to its rect over the spot's layout (`laneRectOver` that
+ *   layout, `within`); its hit `rect`, for the landing model, stays as seen.
  */
 function settle(lane: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all: readonly Lane[], emptyLanes: "real" | "edge" = "real", within: Rect = lane.rect): Lane {
   const l = inLane(lane, within);
