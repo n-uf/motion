@@ -16,7 +16,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   entry wherever it landed: an empty top bar's guide went from `421..867` to `3..347` and `453..867`. The landing model
   now cuts the Near lane's guide at the landing the held toolbar takes there (held: the frame's `landing`) or would take
   (pending or approached: the spot the pointer picks along the lane, a sliding spot's start from the grab), by
-  `guideRects`' interval subtraction; a lane with no marks (its spots' landings are its guides) is not cut. Host notes:
+  `guideRects`' interval subtraction; a lane with no marks (its spots' landings are its guides) is not cut, and a part
+  the cut leaves no longer than `MIN_BOX_LENGTH` (8 px: the padding before a landing at its clamp) is not drawn, as a
+  host's own cut would drop it. Host notes:
   **do not pass the held toolbar's drawn rect in `guideRects`' `clear`**: the guides already leave the held landing
   out.
 

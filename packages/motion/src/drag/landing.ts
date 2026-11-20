@@ -1,5 +1,5 @@
 import type { Point, Rect } from "../shapes";
-import { guideRects } from "./guide-rects";
+import { guideRects, MIN_BOX_LENGTH } from "./guide-rects";
 import type { DragKeys } from "./intent";
 import type { PlaceGuides } from "./preview";
 
@@ -495,7 +495,13 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     const nearGuides = (l: LandingLane): LandingGuide[] => {
       // (A lane with no marks shows its spots' landings: those are the guide, nothing to cut.)
       const at = l.marks || l.entry ? wouldLand(l) : null;
-      return less(all(l, true), at ? [at] : []);
+      if (!at) return all(l, true);
+      // A box part the cut leaves no longer along the lane than `MIN_BOX_LENGTH` (the padding before a landing at its
+      // clamp) is no room: not drawn (a host's `guideRects`, insetting it, would read it as a box across the lane and
+      // keep it).
+      const longEnough = (g: LandingGuide): boolean => g.kind !== "box" || (l.axis === "x" ? g.rect.width : g.rect.height) > MIN_BOX_LENGTH;
+      const whole = all(l, true);
+      return less(whole, [at]).filter((g) => longEnough(g) || whole.some((w) => w.id === g.id && w.rect === g.rect));
     };
     if (guidesLevel === "near") return near ? nearGuides(near) : [];
     // "all": every lane's. The lane the pointer picks shows its marks once entered (`entry`). The corner two lanes share
