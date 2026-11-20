@@ -3,6 +3,17 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+- `./scene/cases`, **the landing rows check the hand rule** (additive: a row's `moving.hand`; a host's `LandingPlay` may
+  report its `stretchPositions`). While a lane holds, the landing is the nearest landing in its lane to the pointer
+  and lies within `max(48, g / 2 + 6)` px of it (`max(56, g / 2 + 6)` on the frame before a hop), `g` the gap along
+  the lane between the facing edges of the two adjacent landings the pointer lies between. The rows `landing-grip-*`,
+  `landing-room-*` and `landing-step-down-room` use it instead of the fixed 48/56 px, so a lane with landings far
+  apart (a docked item much longer than the held one) holds its bound there: `g` is about its length less the held
+  item's, plus a gutter. New exports: `handBound(g, beforeHop?)`, `HAND_TRAIL`, `HAND_TRAIL_BEFORE_HOP`, `HAND_MARGIN`,
+  `HAND_FAST`. Every row that passed still passes. Decision record `docs/decisions/0001-the-hand-rule.md`.
+
 ## 26.11.51
 
 A stretch is the room the drop makes. Host notes: additive; a host that draws hatches may read their new `givesWay`.
