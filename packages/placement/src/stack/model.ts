@@ -248,10 +248,9 @@ export interface StackItem {
    * A fixed item is a reserved room, such as the title and the window controls of a title bar. It never gives way:
    * it keeps its first allowed form (`forms[from]`) whatever the length or the cross size, so it is never in the » menu
    * unless that is the form it starts in, and it doesn't take part in `previous`'s growing back. It counts toward the
-   * length like any item (the others give way around it, and a stack too short for it overflows). It is never dragged:
-   * `stackTargets` gives no target for it. And no drop slot is inside it: the gaps before and after it stay, but its
-   * own area is in no gap's `hit`. Whether it may sit among others (or first, or last) is the host's; placement lays out
-   * the items it is given.
+   * length like any item (the others give way around it, and a stack too short for it overflows). It is never dropped:
+   * `stackGaps` refuses every gap for it, and a drop beside it never squeezes it. Whether it may sit among others (or
+   * first, or last) is the host's; placement lays out the items it is given.
    */
   readonly fixed?: boolean;
 }
@@ -287,8 +286,8 @@ export interface StackInput {
    */
   readonly strictCross?: boolean;
   /**
-   * Which items this stack takes (default: every item). `stackTargets` gives no target for a dragged item it doesn't
-   * accept: an empty list, so a toolbar-only stack takes no panel and a panel-only one no group. What an item's kind is
+   * Which items this stack takes (default: every item). `stackGaps` refuses every gap for an item it doesn't accept, so
+   * a toolbar-only stack takes no panel and a panel-only one no group. What an item's kind is
    * stays the host's: placement only calls this, on the dragged item, and `fitStack` never does (items already in the
    * stack are laid out as given).
    */
@@ -301,8 +300,7 @@ export interface StackInput {
    * entry still span it: every open panel and header fills the column. The kind decides, not `setsCross`, which still
    * decides the stack's cross size as before: a group's form that sets it (words in a column: `stacked` with
    * `setsCross: true`) widens the column to the widest such group but is drawn at its own width. The stack's cross
-   * size, the forms, the notes and the lengths are as without it; only the rects of group forms are narrower, and
-   * `stackTargets`' hits and markers still span the stack.
+   * size, the forms, the notes and the lengths are as without it; only the rects of group forms are narrower.
    */
   readonly ownCross?: boolean;
   /**
@@ -420,7 +418,7 @@ export interface StackStep {
   readonly batch?: number;
 }
 
-/** What `fitStack` and `stackTargets` take besides the input. */
+/** What `fitStack` takes besides the input. */
 export interface FitOptions {
   /**
    * The fit the stack had before. While the forms it chose still fit, they are kept: a change of `used` ages alone (a press

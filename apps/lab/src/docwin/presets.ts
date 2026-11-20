@@ -4,8 +4,8 @@
  * `targets` give and what the page draws from them. A preset whose rule the Scene doesn't have yet names it in `lacks`
  * and is expected to be red until the rule lands: the page never fakes it.
  */
-import { centre, contains, overlap, type Point, type Rect } from "@n-uf/placement";
-import { ZONES, floatOrientOf, lift, moveTo, parseTargetId, railModeOf, reservedRect, resize, targetId, targets, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
+import { center, contains, overlap, type Point, type Rect } from "@n-uf/placement";
+import { ZONES, floatOrientOf, floatSizeOf, lift, moveTo, orient, parseTargetId, railModeOf, reservedRect, resize, targetId, targets, type Place, type Scene, type SceneTarget } from "@n-uf/placement/scene";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultScene, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
 import type { DragFeel, KindFeel } from "./feel";
 import { KIT_PRESETS } from "./kit-presets";
@@ -371,7 +371,7 @@ export const PRESETS: readonly Preset[] = [
       const home = ts.find((t) => t.place.kind === "home");
       const stays = !!home && home.after({ x: 0, y: 0 }).scene === s;
       const first = ts.find((t) => t.place.kind === "gap" && t.place.edge === "top" && t.place.at === 0);
-      const moved = first?.after(centre(first.hit)).scene;
+      const moved = first?.after(center(first.hit)).scene;
       const out = !!moved && !moved.edges.find((e) => e.id === "bottom")!.items.includes("views") && moved.edges.find((e) => e.id === "top")!.items[0] === "views";
       return {
         pass: kept && shown && after && stays && out,
@@ -438,7 +438,7 @@ export const PRESETS: readonly Preset[] = [
         const why = ts.length === 0 ? "no gap at all" : `${ts.length} gaps (${ts.map((g) => g.id).join(", ")}), ${clear.length} clear of the title text (${say(text)}) and controls (${say(ctl)}), none with its slot in the spare room`;
         return { pass: false, now: `The title bar offers Zoom ${why}; the title is drawn at ${say(title)}.` };
       }
-      dragTo(c, "zoom", [centre(t.hit)]);
+      dragTo(c, "zoom", [center(t.hit)]);
       const d = c.lastDrop;
       const inTitle = c.edge("title").items.includes("zoom");
       const t2 = rectOf(c, "title");
@@ -1845,7 +1845,7 @@ function RAIL_TITLE_PRESETS(): Preset[] {
         if (!isTitle(c, "notes")) return { pass: false, now: "Notes isn't its title in the left rail." };
         const t = c.targets("notes").find((x) => x.place.kind === "gap" && x.place.edge === "right");
         if (!t) return { pass: false, now: "No gap for Notes in the right column." };
-        const r = mouseDrag(c, "notes", centre(t.hit));
+        const r = mouseDrag(c, "notes", center(t.hit));
         const d = c.lastDrop;
         const ok = r.lifted && !!d && d.committed && d.target === t.id && sameRect(d.preview, d.landed) && c.layout.items.notes?.edge === "right";
         return { pass: ok, now: `Notes ${r.lifted ? "lifted" : "never lifted"}; dropped on ${d?.target ?? "nothing"}, slot ${d?.preview ? say(d.preview) : "none"}, landed ${d?.landed ? say(d.landed) : "nowhere"} in ${c.layout.items.notes?.edge ?? "no edge"}.` };
@@ -2208,7 +2208,7 @@ function barZoneDrop(c: DocwinScene, id: ItemId, edge: EdgeId, zone: "start" | "
   const k = zone === "start" ? 0 : zone === "center" ? 1 : 2;
   // An empty bar: its zone strip (thirds of its strip along the content); else the bar's third.
   const strip = c.targets(id).find((t) => t.id === targetId({ kind: "strip", edge, zone }));
-  const p = strip ? centre(strip.hit) : { x: bar.x + ((k + 0.5) * bar.width) / 3, y: bar.y + bar.height / 2 };
+  const p = strip ? center(strip.hit) : { x: bar.x + ((k + 0.5) * bar.width) / 3, y: bar.y + bar.height / 2 };
   const r = mouseDrag(c, id, p);
   const d = c.lastDrop;
   const l = c.layout.items[id];
@@ -2331,7 +2331,7 @@ function mouseGesture(c: DocwinScene, id: ItemId, legs: readonly Leg[], keys: Mo
 
 /** The point at the middle of the right window edge's strip, and the content's middle. */
 const rightStrip = (c: DocwinScene): Point => ({ x: c.scene.stage.width - 10, y: c.scene.stage.height / 2 });
-const midContent = (c: DocwinScene): Point => centre(c.layout.content);
+const midContent = (c: DocwinScene): Point => center(c.layout.content);
 /** Whether Findings now lies collapsed in the right rail, the column closed down to the rail's width. */
 const inRightRail = (c: DocwinScene): boolean => {
   const p = c.layout.items.findings;

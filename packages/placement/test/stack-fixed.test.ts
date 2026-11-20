@@ -1,12 +1,11 @@
 /**
- * C29, a bar's reserved room: `StackItem.fixed`. A fixed item never gives way (it keeps its first allowed form), is
- * never dragged, has no drop slot inside it (the gaps beside it stay, its own area is in no gap's hit), counts toward
- * the length, and takes no part in `previous`'s growing back. The sample is a title bar: the window title and the window
+ * C29, a bar's reserved room: `StackItem.fixed`. A fixed item never gives way (it keeps its first allowed form), counts
+ * toward the length, and takes no part in `previous`'s growing back. The sample is a title bar: the window title and the window
  * controls are fixed, the toolbar groups between them are not.
  */
 import { describe, expect, it } from "vitest";
-import { fitStack, stackTargets, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
-import { barGroup, group, mix, panel, seeded, stack } from "./stack-fixture";
+import { fitStack, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
+import { barGroup, mix, panel, seeded, stack } from "./stack-fixture";
 
 const EPS = 1e-6;
 const form = (kind: StackForm["kind"], min: number, cross = 26): StackForm => ({ kind, main: { min, natural: min }, cross: { natural: cross } });
@@ -17,7 +16,6 @@ const controls = (used = 0): StackItem => ({ id: "controls", used, fixed: true, 
 const bar = (items: readonly StackItem[], length: number): StackInput => stack(items, length, "row");
 
 const range = (axis: StackInput["axis"], r: { x: number; y: number; width: number; height: number }): [number, number] => (axis === "column" ? [r.y, r.y + r.height] : [r.x, r.x + r.width]);
-const overlap = (a: [number, number], b: [number, number]): number => Math.min(a[1], b[1]) - Math.max(a[0], b[0]);
 
 describe("C29: a fixed item never gives way", () => {
   it("the others give way around it, and it keeps its first form however short the bar is", () => {
@@ -86,67 +84,6 @@ describe("C29: a fixed item never gives way", () => {
   });
 });
 
-describe("C29: never dragged, no slot inside it", () => {
-  it("a fixed dragged item has no targets, in the stack or out of it", () => {
-    const input = bar([title(), barGroup("a", 1), controls()], 700);
-    expect(stackTargets(input, title())).toEqual([]);
-    expect(stackTargets(input, controls())).toEqual([]);
-    expect(stackTargets(input, { ...barGroup("x", 1), fixed: true })).toEqual([]);
-    expect(stackTargets(input, barGroup("x", 1)).length).toBeGreaterThan(0);
-  });
-
-  it("the gaps before and after a fixed item stay; its own area is in no hit", () => {
-    const input = bar([title(), barGroup("a", 1), barGroup("b", 2), controls()], 900);
-    const base = fitStack(input);
-    const targets = stackTargets(input, barGroup("x", 9), { endReach: 10 });
-    expect(targets.map((t) => t.id)).toEqual(["gap:0", "gap:1", "gap:2", "gap:3", "gap:4"]);
-    const [t0, t1, , t3, t4] = targets;
-    const titleRect = range("row", base.items[0]!.rect);
-    const controlsRect = range("row", base.items[3]!.rect);
-    // Gap 0 (before the title) stops where the title starts; gap 1 (after it) starts where it ends.
-    expect(t0!.hit.x).toBe(-10);
-    expect(t0!.hit.x + t0!.hit.width).toBe(titleRect[0]);
-    expect(t1!.hit.x).toBe(titleRect[1]);
-    // Gap 3 (before the controls) stops where they start, gap 4 begins where they end and reaches past the bar.
-    expect(t3!.hit.x + t3!.hit.width).toBe(controlsRect[0]);
-    expect(t4!.hit.x).toBe(controlsRect[1]);
-    expect(t4!.hit.x + t4!.hit.width).toBe(900 + 10);
-    for (const t of targets) for (const r of [titleRect, controlsRect]) expect(overlap([t.hit.x, t.hit.x + t.hit.width], r)).toBeLessThanOrEqual(EPS);
-    // The unfixed middle is split at the item's middle as ever.
-    const a = range("row", base.items[1]!.rect);
-    expect(t1!.hit.x + t1!.hit.width).toBe((a[0] + a[1]) / 2);
-  });
-
-  it("the same bar without fixed items is split at every middle, as before", () => {
-    const items = [barGroup("a", 1), barGroup("b", 2)];
-    const base = fitStack(bar(items, 700));
-    const targets = stackTargets(bar(items, 700), barGroup("x", 9));
-    const a = range("row", base.items[0]!.rect);
-    expect(targets[0]!.hit.x + targets[0]!.hit.width).toBe((a[0] + a[1]) / 2);
-  });
-
-  it("works in a column, with previous, and with a fixed item in the menu or overflowing", () => {
-    const col = stack([{ ...group("g", 1), fixed: true }, group("h", 2)], 400);
-    const prev = fitStack(col);
-    const base = fitStack(col, { previous: prev });
-    const targets = stackTargets(col, group("x", 9), { previous: prev });
-    const g = range("column", base.items[0]!.rect);
-    expect(targets[0]!.hit.y + targets[0]!.hit.height).toBe(g[0]);
-    expect(targets[1]!.hit.y).toBe(g[1]);
-    // Overflowing (the fixed items are 232 long in a bar of 100): the hits are out of the fixed items, which run past the bar.
-    const over = bar([title(), controls()], 100);
-    const overFit = fitStack(over);
-    for (const t of stackTargets(over, barGroup("x", 9), { endReach: 10 })) {
-      expect(t.hit.width).toBeGreaterThanOrEqual(0);
-      for (const p of overFit.items) expect(overlap([t.hit.x, t.hit.x + t.hit.width], range("row", p.rect))).toBeLessThanOrEqual(EPS);
-    }
-    // A fixed item that starts in the menu has no rect: the gaps beside it are a point.
-    const inMenu: StackItem = { id: "m", used: 0, fixed: true, forms: [form("menu", 0)] };
-    const fit = stackTargets(bar([inMenu, barGroup("a", 1)], 500), barGroup("x", 9));
-    expect(fit.map((t) => t.id)).toEqual(["gap:0", "gap:1", "gap:2"]);
-  });
-});
-
 describe("C29: previous growth", () => {
   it("a fixed item takes no part in growing back: the same form through a shrink and a grow, the others grow as without it", () => {
     const items = [title(), barGroup("a", 1), barGroup("b", 2), controls()];
@@ -209,38 +146,5 @@ describe("C29: sweeps", () => {
       }
     }
     expect(runs).toBeGreaterThan(8000);
-  });
-
-  it("no gap hit overlaps a fixed item's rect, the gaps before and after it stay, and the invariants of the targets hold", () => {
-    const rand = seeded(290);
-    for (let trial = 0; trial < 300; trial++) {
-      const { input: base } = randomStack(rand);
-      const input = { ...base, length: 60 + Math.floor(rand() * 700), ...(rand() < 0.3 ? { gap: 6, pad: { start: 4, end: 4 } } : {}) };
-      const reach = rand() < 0.5 ? 0 : 12;
-      const dragged = rand() < 0.5 ? (input.axis === "row" ? barGroup("d", 0) : group("d", 0)) : panel("d", 0);
-      const base0 = fitStack(input);
-      const targets = stackTargets(input, dragged, { endReach: reach });
-      // One target per gap of the stack, the fixed items included.
-      expect(targets.map((t) => t.place.at)).toEqual(Array.from({ length: input.items.length + 1 }, (_, k) => k));
-      for (const t of targets) {
-        const hit = range(input.axis, t.hit);
-        expect(hit[1]).toBeGreaterThanOrEqual(hit[0] - EPS);
-        input.items.forEach((it, i) => {
-          const p = base0.items[i]!;
-          if (!it.fixed || p.kind === "menu") return;
-          expect(overlap(hit, range(input.axis, p.rect)), `${t.id} over ${it.id}`).toBeLessThanOrEqual(EPS);
-        });
-        // The preview is the fit the drop makes.
-        expect(t.slot).toEqual(fitStack(t.input).items.find((p) => p.id === "d")!.rect);
-        // The fixed items are in the preview in their first form too.
-        for (const p of t.fit.items) {
-          const it = t.input.items.find((x) => x.id === p.id)!;
-          if (it.fixed) expect(p.form).toBe(Math.min(Math.max(0, it.from ?? 0), it.forms.length - 1));
-        }
-      }
-      // Dragging a fixed item gives nothing.
-      const f = input.items.find((it) => it.fixed);
-      if (f) expect(stackTargets(input, f)).toEqual([]);
-    }
   });
 });

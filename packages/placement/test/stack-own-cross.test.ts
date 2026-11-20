@@ -5,7 +5,7 @@
  * hits and markers span it too.
  */
 import { describe, expect, it } from "vitest";
-import { fitStack, stackTargets, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
+import { fitStack, stackGaps, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
 import { barGroup, group, limits, mix, panel, seeded, stack } from "./stack-fixture";
 
 const GROUP_KINDS = new Set<string>(["row", "stacked", "icons", "fold"]);
@@ -96,19 +96,15 @@ describe("C28: ownCross", () => {
     expect(fit.items.map((p) => [p.id, p.rect.x, p.rect.width])).toEqual([["pages", 0, 240], ["views", 0, 84], ["tools", 0, 110]]);
     // Without the option each stretches across the column, as ever.
     expect(fitStack({ ...input, ownCross: false }).items.map((p) => p.rect.width)).toEqual([240, 240, 240]);
-    // A group dropped in: its preview is its own width, the hit and the marker span the column.
-    for (const t of stackTargets(input, column("marks", 9, 96))) {
-      expect(t.slot!.width).toBe(96);
-      expect(t.hit.width).toBe(240);
-      expect(t.marker.width).toBe(240);
-    }
+    // A group dropped in: its slot is its own width.
+    for (const t of stackGaps(input, column("marks", 9, 96))) if (t.fits) expect(t.slot.width).toBe(96);
   });
 
   it("dropping a words group into an empty side column makes it as wide as its stacked words, not as a row", () => {
     const input: StackInput = { axis: "column", length: 600, cross: { min: 40, max: 360 }, ownCross: true, items: [] };
-    const [t] = stackTargets(input, column("marks", 9, 96));
-    expect(t!.fit.cross).toBe(96);
-    expect(t!.slot!.width).toBe(96);
+    const [t] = stackGaps(input, column("marks", 9, 96));
+    expect(t!.fits && t!.fit.cross).toBe(96);
+    expect(t!.fits && t!.slot.width).toBe(96);
   });
 
   it("an own size over the stack's is clamped to it; an own size under zero or not a number is 0 or the stack's", () => {
@@ -135,24 +131,18 @@ describe("C28: ownCross", () => {
     expect(fit.menu!.rect).toEqual({ x: fit.menu!.rect.x, y: 0, width: 28, height: fit.cross });
   });
 
-  it("targets: the preview is the item's own size; hits and the marker span the stack", () => {
+  it("gaps: the slot is the item's own size, the rect the drop makes", () => {
     const input: StackInput = { ...stack([panel("pages", 1), panel("findings", 2)], 600), ownCross: true };
-    const targets = stackTargets(input, group("tools", 9));
-    expect(targets).toHaveLength(3);
-    for (const t of targets) {
-      expect(t.slot!.width).toBe(180);
-      expect(t.slot!.x).toBe(0);
-      expect(t.hit.width).toBe(240);
-      expect(t.marker.width).toBe(t.fit.cross);
-      // The preview is the rect the drop makes.
+    const gaps = stackGaps(input, group("tools", 9));
+    expect(gaps).toHaveLength(3);
+    for (const t of gaps) {
+      if (!t.fits) throw new Error(`gap ${t.at}: ${t.reason}`);
+      expect(t.slot.width).toBe(180);
+      expect(t.slot.x).toBe(0);
       expect(t.slot).toEqual(fitStack(t.input).items.find((p) => p.id === "tools")!.rect);
     }
     const bar: StackInput = { ...stack([barGroup("a", 1)], 600, "row"), ownCross: true };
-    for (const t of stackTargets(bar, barGroup("b", 9))) {
-      expect(t.slot!.height).toBe(26);
-      expect(t.hit.height).toBe(Math.max(30, t.fit.cross));
-      expect(t.marker.height).toBe(t.fit.cross);
-    }
+    for (const t of stackGaps(bar, barGroup("b", 9))) if (t.fits) expect(t.slot.height).toBe(26);
   });
 
   it("works with previous, gap and pad", () => {
@@ -200,12 +190,8 @@ describe("C28: sweep", () => {
         if (!GROUP_KINDS.has(p.kind)) expect(size).toBe(own.cross);
         else expect(size).toBe(Math.min(own.cross, Math.max(0, f.cross.natural)));
       });
-      // Targets: previews in the same bounds, hits and markers over the stack.
-      for (const t of stackTargets({ ...input, ownCross: true }, rand() < 0.5 ? group("d", 0) : panel("d", 0))) {
-        rectsInside(t.fit, axis);
-        expect(across(axis, t.marker).size).toBe(t.fit.cross);
-        expect(across(axis, t.hit).size).toBeGreaterThanOrEqual(own.cross - 1e-9);
-      }
+      // Gaps: the fits after a drop stay in the same bounds.
+      for (const t of stackGaps({ ...input, ownCross: true }, rand() < 0.5 ? group("d", 0) : panel("d", 0))) if (t.fits) rectsInside(t.fit, axis);
     }
   });
 });

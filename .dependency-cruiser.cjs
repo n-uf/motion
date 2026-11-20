@@ -35,22 +35,14 @@ module.exports = {
       name: "stack-not-model",
       severity: "error",
       from: { path: "^packages/placement/src/stack/" },
-      to: { path: "(^packages/placement/src/(scene|dock|toolbar|targets|panels|desk)/|^packages/docking|@n-uf/docking)" },
+      to: { path: "(^packages/placement/src/scene/|^packages/docking|@n-uf/docking)" },
     },
     {
-      // Tiling stands on the root (geometry, `Target`) alone: the legacy entries may import it, never the reverse.
+      // Tiling stands on the root (geometry, `Target`) alone.
       name: "tiling-root-only",
       severity: "error",
       from: { path: "^packages/placement/src/tiling/" },
       to: { path: "^packages/placement/src/[^/]+/", pathNot: "^packages/placement/src/tiling/" },
-    },
-    {
-      // The apps build on `./scene` and `./tiling`, never on the legacy entries. Placement's own code may still reach them
-      // until those folders are deleted, when `from` widens to everything.
-      name: "no-legacy-folders",
-      severity: "error",
-      from: { path: "^apps" },
-      to: { path: "^packages/placement/src/(dock|desk|panels|toolbar|targets)/" },
     },
   ],
   options: {

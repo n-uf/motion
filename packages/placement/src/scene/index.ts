@@ -5,9 +5,9 @@
  * item, each with the scene and layout a release there makes, so the preview is the result. The changes are pure, and
  * `storeScene` / `readScene` keep a scene across reloads. No time, no DOM, nothing module-global.
  *
- * The Scene owns the whole window: its floats (`solve` fits them with `fitFloat`, also exported here), the float
- * target (`float:<id>`), every docked target and the stored form. `./stack` is only the edge solver it lays each edge
- * with; its own targets, store and floats are deprecated in favour of these.
+ * The Scene owns the whole window: its floats (`solve` fits them with `./stack`'s `fitFloat`), the float target
+ * (`float:<id>`), every docked target and the stored form. `./stack` is the general layer it is built on: the edge
+ * cut, the edge solver it lays each edge with, and the float fit.
  *
  * Constants: `DEFAULT_HIT_BAND` (a column's gap band, px), `DEFAULT_STRIP` (an empty edge's drop strip, px),
  * `DEFAULT_FLOAT_SIZE`; `SIDES` and `ZONES` list the sides and zones in order.
@@ -57,7 +57,6 @@ export { anchorName, declaresFloatSizes, floatOrientOf, floatSizeOf, heldRect, i
 /** Whether an edge takes a kind anywhere: its `accepts` lists it and some zone takes it (the test drop targets ask). */
 export { edgeTakes, namesZone, zoneIn } from "./helpers";
 export { solve } from "./solve";
-export { fitFloat, type FloatFit } from "../float-fit";
 export { canFold, close, dockHome, fold, floatAt, homeFor, keep, lift, mergeSideColumns, moveTo, open, orient, raise, resize, setRailMode, setSide, use, type ColumnPlace, type DockPlace, type FloatPlace, type Place, type RailPlace } from "./changes";
 export { fitResize, type FloatResize, type ResizeEdges, type ResizeLimit } from "./float-resize";
 export { readScene, storeScene, type SceneRead, type StoredScene, type StoredSceneEdge, type StoredSceneFloat, type StoredSceneItem } from "./store";

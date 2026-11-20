@@ -26,20 +26,10 @@ export const BANNED = [
  * word is not copy: an identifier of the public API that a later stage renames, or a quotation.
  */
 export const ALLOWED = [
-  // `centre` is an exported function of @n-uf/placement (and `centreX` ... on PaneZoneOptions); a rename keeps a deprecated alias.
-  { line: /\bcentre\(|^\s*(?:import|export)\b[^"'`]*\bcentre\b|^\s*centre,\s*$|`centre`|export const centre\b/, why: "the exported function `centre` (API name; renamed with a deprecated alias in a later stage)" },
-  // The option `centre` of PaneZoneOptions (with `centreX`, `centreY`, `centreMin`): API names, same stage.
-  { file: /packages\/placement\/src\/targets\/zones\.ts$/, line: /readonly centre\?|o\.centre\b|PANE_ZONE_DEFAULTS/, why: "the PaneZoneOptions field `centre` (API name; renamed with a deprecated alias in a later stage)" },
-  // The lab's own helper `const centre = (r) => ...` and its zone id "centre" in desk/grip.ts: code, not copy.
-  { line: /\bconst centre = /, why: "a lab-local helper named centre (code, not copy)" },
-  { file: /apps\/lab\/src\/desk\/grip\.ts$/, line: /"centre"/, why: "the desk lab's internal zone id (code, not copy)" },
   // Case ids are public data (`CaseRow.id`); renaming one breaks the integrators' suites.
   { line: /P5-neighbour-half-facing-it/, why: "a case id (public data, API); not renamed" },
   // A CSS class name in the footer, not copy.
   { line: /class="foot-licence"/, why: "a CSS class name" },
-  // The default label of zoneLabel for a horizontal toolbar area is the string "centre" (data the app may show).
-  { file: /packages\/placement\/src\/toolbar\/index\.ts$/, line: /center: "centre"/, why: "zoneLabel's default label is data (API); renamed in a later stage" },
-  { file: /packages\/placement\/src\/targets\/desk\.ts$/, line: /C: "Centre"/, why: "a default drop label is data (API); renamed in a later stage" },
 ];
 
 /** The first banned word in `line` that no allowed rule covers (for `file`, when given): `{ word, use }`, else null. */

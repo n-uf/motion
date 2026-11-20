@@ -1490,7 +1490,7 @@ console.log(placeOf(targets[1]!, { x: 600, y: 10 }, null)); // pane:b:top
 
 The shapes (`Rect`, `Size`, `Point`), the geometry every entry shares, and a popup positioner, as Wayland's xdg-positioner: an anchor point, gravity and offset, then flip, slide and resize, each only when the rule allows it (`positionPopup`, with `PositionerRule`, `Positioned`, `Align` and `BELOW_LEFT`).
 
-The geometry is `rect`, `overlap`, `clampInto`, `centre`, `EPS`, `PLANE`, `area`, `overlaps`, `contains`, `clamp` and `subtract` (a rect less another, as disjoint rects), with the hit sizes `COLUMN_REACH` (22 px, each way of a column line) and `RAIL_EDGE` (10 px).
+The geometry is `rect`, `overlap`, `clampInto`, `center`, `EPS`, `PLANE`, `area`, `overlaps`, `contains`, `clamp` and `subtract` (a rect less another, as disjoint rects).
 
 The `Target` type (a drop target's shape, as `@n-uf/motion/drag` takes it) is exported here too, with its optional `hits` (every piece of a zone that isn't one rect; `hit` is the largest), and `pickRank` with `REFUSAL_RANK`. `./targets` and `./panels` also export `Target` and the hit sizes.
 

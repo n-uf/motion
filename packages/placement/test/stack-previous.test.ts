@@ -4,7 +4,7 @@
  * came back is used.
  */
 import { describe, expect, it } from "vitest";
-import { fitStack, stackTargets, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
+import { fitStack, stackGaps, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
 import { group, mix, panel, seeded, shuffle, stack } from "./stack-fixture";
 
 const kinds = (fit: StackFit) => fit.items.map((i) => i.kind);
@@ -95,7 +95,8 @@ describe("C23: previous", () => {
       const input: StackInput = stack(list, 120 + Math.floor(rand() * 500), rand() < 0.5 ? "column" : "row");
       const previous = fitStack(input);
       const dragged = rand() < 0.5 ? panel("dragged", 0) : group("dragged", 0);
-      for (const t of stackTargets(input, dragged, { previous })) {
+      for (const t of stackGaps(input, dragged, { previous })) {
+        if (!t.fits) continue;
         // The drop is the app's solve of the stack with the item at that place, with the same previous.
         const drop = fitStack(t.input, { previous });
         expect(drop).toEqual(t.fit);
@@ -107,8 +108,9 @@ describe("C23: previous", () => {
   it("with previous, a drop that leaves room doesn't reshape the other items", () => {
     const input = stack([panel("pages", 1), panel("notes", 2), panel("findings", 3)], 250);
     const previous = fitStack(input);
-    const targets = stackTargets({ ...input, length: 600 }, group("tools", 9), { previous });
-    for (const t of targets) for (const p of previous.items) expect(t.fit.items.find((i) => i.id === p.id)!.form).toBeLessThanOrEqual(p.form);
+    const gaps = stackGaps({ ...input, length: 600 }, group("tools", 9), { previous });
+    expect(gaps.every((t) => t.fits)).toBe(true);
+    for (const t of gaps) if (t.fits) for (const p of previous.items) expect(t.fit.items.find((i) => i.id === p.id)!.form).toBeLessThanOrEqual(p.form);
   });
 });
 

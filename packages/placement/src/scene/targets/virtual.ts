@@ -2,13 +2,13 @@
  * Generation, the virtual edges of a side: its column lines (a new column on each, along x) and its rail (docking
  * folded into it, along y), tiled as every edge is.
  */
-import { EPS, RAIL_EDGE, clamp, rect, type Rect } from "../../geometry";
+import { EPS, clamp, rect, type Rect } from "../../geometry";
 import { sideRings } from "../changes";
 import { formsOf, isHandFolded, isSideColumn, zoneOf } from "../helpers";
 import type { Edge } from "../model";
 import { slotAt, thickerThan } from "./edges";
 import { targetId, virtualEdgeId } from "./ids";
-import { EDGE_KINDS } from "./kinds";
+import { EDGE_KINDS, RAIL_EDGE } from "./kinds";
 import type { Ctx, EdgeSpec, SceneAfter, Slot, Span } from "./model";
 
 /**

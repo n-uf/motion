@@ -9,7 +9,7 @@
  * Also exported: `resolvePlace` (a point that reaches the target at a place, under a pick rule), the pure step a host
  * needs to turn a gesture's `place` into a pointer, and the deprecated `pickTarget` (the default pick).
  */
-import { centre, contains as inside, type Point, type Rect } from "../../geometry";
+import { center, contains as inside, type Point, type Rect } from "../../geometry";
 import { pickRank } from "../../target";
 import { close, dockHome, fold, floatAt, homeFor, open, placeTargetId, raise, readScene, refusalTargets, refusals, resize, solve, stops, storeScene, targets, use, type Scene, type SceneLayout, type SceneRefusal, type SceneRefusalTarget, type SceneTarget, type ScenePlace, type StoredScene } from "../index";
 import type { CaseHost, CaseSettings, Gesture, PickCandidate, PickRule } from "./types";
@@ -95,10 +95,10 @@ export function resolvePlace(list: readonly SceneTarget[], place: ScenePlace, it
   const big = t.hit.width > 1e6 || t.hit.height > 1e6;
   const candidates: Point[] = [];
   if (big) {
-    if (area_.content) candidates.push(centre(area_.content));
-    candidates.push(centre(area_.stage));
+    if (area_.content) candidates.push(center(area_.content));
+    candidates.push(center(area_.stage));
   } else {
-    candidates.push(centre(t.hit));
+    candidates.push(center(t.hit));
   }
   const region = big ? area_.stage : t.hit;
   for (const fy of [0.5, 0.25, 0.75, 0.1, 0.9, 0.4, 0.6, 0, 1]) {
@@ -313,7 +313,7 @@ export function createSceneHost(options: SceneHostOptions = {}): SceneHost {
       const after = stop.place.kind === "float" ? ((): { scene: Scene; layout: SceneLayout } => {
         const s2 = use(floatAt(s, id), id);
         return { scene: s2, layout: solve(s2, { previous: prev() }) };
-      })() : stop.after(centre(s.stage));
+      })() : stop.after(center(s.stage));
       scene = after.scene;
       committed = after.layout;
       return;

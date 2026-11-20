@@ -1,7 +1,7 @@
 /** A fixed anchor (page thumbnails: a fixed item alone in a static edge that takes nothing): store, side, fold. */
 import { describe, expect, it } from "vitest";
 import { targetAt } from "@n-uf/motion/drag";
-import { centre } from "../src/geometry";
+import { center } from "../src/geometry";
 import { canFold, fold, parseTargetId, readScene, refusals, resize, setSide, solve, storeScene, targetId, targets, use, type Scene } from "../src/scene";
 import { byId, column, form, panel } from "./scene-fixture";
 
@@ -39,7 +39,7 @@ describe("an anchor dragged to the other side", () => {
     expect(side.slot).toEqual(after.layout.items.thumbs!.rect);
     expect(after.layout.edges["anchor:thumbs"]!.side).toBe("right");
     // Its own place is home; nothing else of the window is a target.
-    expect(targetAt(ts, centre(solve(s).items.thumbs!.rect))?.place.kind).toBe("home");
+    expect(targetAt(ts, center(solve(s).items.thumbs!.rect))?.place.kind).toBe("home");
     expect(targetAt(ts, { x: 600, y: 400 })).toBeNull();
     expect(refusals(s, "thumbs")).toEqual([]);
     expect(parseTargetId("side:right")).toEqual({ kind: "side", side: "right" });

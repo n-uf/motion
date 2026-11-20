@@ -27,16 +27,12 @@ test("glossary words and US spelling pass", () => {
   assert.equal(scan("least recently used first"), null);
 });
 
-test("the allow list covers the exported `centre` function only, not prose", () => {
-  assert.equal(scan("const c = centre(r);", "packages/placement/src/geometry.ts"), null);
-  assert.equal(scan("import { centre, clamp } from './geometry';"), null);
-  assert.equal(scan("  centre,", "packages/placement/index.ts"), null);
-  assert.equal(scan("export const centre = (r) => r;"), null);
-  // Copy inside an object literal or a string is not the identifier.
+test("`center` is spelled one way: the API's `centre` is gone, so no allow rule covers it", () => {
+  assert.notEqual(scan("const c = centre(r);", "packages/placement/src/geometry.ts"), null);
+  assert.notEqual(scan("import { centre, clamp } from './geometry';"), null);
   assert.notEqual(scan('const t = { label: "Drop in the centre" };'), null);
-  assert.notEqual(scan('{ centre: "the centre zone" }'), null);
-  assert.notEqual(scan("// { the centre of a rect }"), null);
-  assert.notEqual(scan("A toolbar sits at the bar's true centre."), null);
+  assert.equal(scan("const c = center(r);"), null);
+  assert.equal(scan('<span class="foot-licence">'), null);
 });
 
 test("only a changelog's Unreleased section is read", () => {
@@ -50,8 +46,8 @@ test("copy files: READMEs and source, not tests, styles or other READMEs", () =>
   assert.equal(isCopy("packages/motion/README.md"), true);
   assert.equal(isCopy("apps/web/src/pages/index.astro"), true);
   assert.equal(isCopy("apps/lab/src/pages/overview.html"), true);
-  assert.equal(isCopy("packages/placement/src/toolbar/index.ts"), true);
-  assert.equal(isCopy("packages/placement/test/toolbar.test.ts"), false);
+  assert.equal(isCopy("packages/placement/src/stack/index.ts"), true);
+  assert.equal(isCopy("packages/placement/test/stack.test.ts"), false);
   assert.equal(isCopy("packages/motion/src/gestures/__tests__/recognizer.test.ts"), false);
   assert.equal(isCopy("apps/web/src/styles/chrome.css"), false);
   assert.equal(isCopy("apps/web/src/content/blog/x.md"), true);
