@@ -15,7 +15,7 @@ Each rule names the test that pins it. `pnpm check` in the repo root runs them a
 | **Giving way is reversible in exact order.** Room coming back brings items up the form ladder in the reverse of the order they gave way; at every length the way back holds what the way down held. | `test/scene-fit-ladder.test.ts`, `test/stack-previous.test.ts` |
 | **The stored scene round-trips.** `readScene(storeScene(scene), base)` lists nothing dropped, stores to the same data, and solves to the same layout. | `test/scene-changes.test.ts` (the stored form) |
 | **Lanes are sound.** Each lane's stretches tile it in order from end to end; a spot's landing is exactly what its drop commits; spot ids are unique; spot ids survive the window growing. | `test/scene-lanes.test.ts`, `test/scene-lanes-landing.test.ts` (what a frame shows is what the drop commits) |
-| **A free stretch offers its two ends, flush against each neighbor, and away and back to the press point is home.** | `test/scene-lanes-stretch-ends.test.ts`, `test/scene-lanes-landing.test.ts` |
+| **Away and back to the press point is home.** On a bar or a toolbar rail the item's own place is one landing for half a pitch around it. | `test/scene-lanes-home.test.ts`, `test/scene-lanes-landing.test.ts` |
 | **Marks never cover an item.** No line, box or hatch lies over an item drawn on its lane or over the held item; a hatch is a cue inside its box, never a mark on a neighbor; an empty lane's marks are cut around every docked toolbar. | `test/scene-lanes-guides.test.ts` |
 | **The landing rows pass on the reference host**, none skipped, and so do the scene's conformance rows. | `test/cases-landing.test.ts`, `test/scene-cases.test.ts` |
 | **Placement is pure and imports nothing from motion.** No DOM, no timer, no global clock, no framework, no dependency. | `test/guard.test.ts`; `pnpm check` (the `placement-not-motion` dependency rule, `scripts/check-dist.mjs` on the built package) |
@@ -178,7 +178,7 @@ Targets are generated with `previous` so every `after` is solved as the drop wil
 
 How stretches are cut. In a panel column, between two spots that share a neighbor, the boundary is that neighbor's middle as drawn, so a column takes a panel by halves. On a bar or a toolbar rail, and between any two other spots, it is halfway across the gap between their landings, each in its own layout, so the pointer is at the landing it picks. Where two landings overlap (spots a pitch apart), the cut is made at the grab: `options.grab`, where the pointer holds the item (the press's, constant for the drag), makes a pointer back at its press point pick the item's own place however far from its middle it was pressed. Cuts are kept inside the lane and in order.
 
-Spots on free stretches. A bar's free stretches, and a toolbar rail's, get spots at a fixed pitch (`SPOT_PITCH`, `options.pitch`, 0 turns them off), each a dock keeping `space`. Each free stretch also offers its two ends, flush against each neighbor, and the item's own place is one landing for half a pitch around it.
+Spots on free stretches. A bar's free stretches, and a toolbar rail's, get spots at a fixed pitch (`SPOT_PITCH`, `options.pitch`, 0 turns them off), each a dock keeping `space`. The item's own place is one landing for half a pitch around it: no other spot lands that near.
 
 Marks. Each lane carries its place guides in the layout as drawn (with `options.spot`, in that spot's own layout, its room open), one at every place a drop lands but the held one's. They say only "you can drop here":
 
@@ -190,7 +190,7 @@ Marks. Each lane carries its place guides in the layout as drawn (with `options.
 
 No mark lies over an item, the held item or a float, or in a refused stretch. No two edge lanes' marks overlap: at a corner a lane not drawn gives way to a drawn one, and between two not drawn the bar owns it. A virtual lane is drawn over what it would push. Marks have ids that stay while the items either side stay, so a host keys its drawing by them.
 
-Ids. A spot id is `<lane>/<zone>/<item before or ^>|<item after or $>`, an empty edge's `<lane>/<zone>`, a pitched spot's `…@<pitches from its neighbor>` (`@0` keeping no space; a free stretch's end that keeps some, `…@to:<the neighbor it lies against>`), a virtual lane's `<lane>/line` or `<lane>/end`. A new column's lane is keyed by the column it lies beside, not its ring.
+Ids. A spot id is `<lane>/<zone>/<item before or ^>|<item after or $>`, an empty edge's `<lane>/<zone>`, a pitched spot's `…@<pitches from its neighbor>` (`@0` keeping no space), a virtual lane's `<lane>/line` or `<lane>/end`. A new column's lane is keyed by the column it lies beside, not its ring.
 
 `owns` marks a lane whose rect is its own: a rail drop strip at the window's side (`Scene.railDrop`), which every other target of the drag gives up, so a landing model gives it the pointer inside it over any lane it overlaps.
 
