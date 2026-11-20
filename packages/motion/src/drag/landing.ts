@@ -526,7 +526,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const inL = strictlyIn(l.rect, p);
       pathIn.set(l.id, inL ? (pathIn.get(l.id) ?? 0) + (slow ? go : 0) : 0);
       const s = slide.get(l.id);
-      slide.set(l.id, inL ? { along: (s?.along ?? 0) + go, across: (s?.across ?? 0) + over } : { along: 0, across: 0 });
+      // A step above `slide` (a fling) restarts the count, so a fling that slows for a frame or two never docks.
+      slide.set(l.id, inL && step <= gates.slide ? { along: (s?.along ?? 0) + go, across: (s?.across ?? 0) + over } : { along: 0, across: 0 });
       if (l.owns && !inL) cameIn.add(l.id);
     }
 
