@@ -5,7 +5,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
-- `./scene`, **a lane's guide and its mark come from one layout** (rule B, behavior change in the marks as seen). An
+- `./scene`, **a lane's guide and its mark come from one layout** (behavior change in the marks as seen). An
   empty lane's guide before entry came from `lanes()` as seen and its mark after entry from `lanes(…, { spot })`, two
   layouts: an empty top bar's guide was cut at the panel columns that move down once it opens (its mark is not), and the
   corner it shares with an empty rail flipped owner on entry. Now an edge lane empty as seen with one spot (or one

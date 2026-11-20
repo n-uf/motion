@@ -944,7 +944,7 @@ function marksLess(marks: readonly LaneMark[], axis: Axis, cs: readonly Rect[]):
 }
 
 /**
- * Rule B, an empty lane's guide is predicted: each edge lane empty as seen (not drawn there) with one spot, or one
+ * An empty lane's guide is predicted: each edge lane empty as seen (not drawn there) with one spot, or one
  * sliding spot, takes its marks in the layout after that spot's drop (where the lane is drawn), worked out as the held
  * lane of `lanes(…, { spot })` is (`heldLaneIn`, then `settle` in that layout), so its guide before entry is its mark
  * after it. Every other lane keeps its marks as seen. Where a prediction overlaps another lane's marks, the prediction

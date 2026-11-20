@@ -27,7 +27,7 @@ export function windows(): Window[] {
   const out: Window[] = [];
   const kit = fixture("kit-windows-lift.json") as { windows: { name: string; dragged: string; scene: Scene; options: LaneOptions & { previous?: unknown } }[] };
   for (const w of kit.windows) {
-    // The lab's capture runs pitched stretches; P6 is stated for the default, free stretches (one sliding spot per empty lane).
+    // The lab's capture runs pitched stretches; guide continuity is stated for the default, free stretches (one sliding spot per empty lane).
     const { previous: _p, stretchPositions: _s, pitch: _pitch, snapDistance: _d, ...rest } = w.options as LaneOptions & { pitch?: number };
     out.push({ name: `kit: ${w.name}`, scene: w.scene, dragged: w.dragged, options: { ...rest, emptyLanes: "real" } });
   }

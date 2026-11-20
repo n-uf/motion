@@ -1,6 +1,6 @@
 /**
  * A lane's guide and its mark come from one layout. For a lane empty as seen, the guide a landing model shows before the
- * pointer enters it (Near: the approached or pending lane) is the mark it shows once entered, the held item aside (P6):
+ * pointer enters it (Near: the approached or pending lane) is the mark it shows once entered, the held item aside (guide continuity):
  * `lanes()` without `spot` gives an empty lane's marks in the after-entry layout of its one spot. Under Guides "all" the
  * corner two such lanes share goes to the lane the Near rule picks, and no two lanes' guides overlap on any frame.
  *
@@ -172,7 +172,7 @@ function sweep(): Record<"near" | "all", Sweep> {
   return out;
 }
 
-describe("P6: an empty lane's guide before entry is its mark after entry, the held item aside", () => {
+describe("guide continuity: an empty lane's guide before entry is its mark after entry, the held item aside", () => {
   const result = sweep();
   for (const mode of ["near", "all"] as const)
     it(`under "${mode}": every lane empty as seen, entered from each side, shows the same marks on the last Near frame and the first entered frame`, () => {
