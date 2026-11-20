@@ -57,11 +57,11 @@ export type LandingRule = (options: {
   readonly placeGuides?: "off" | "near" | "all";
 }) => LandingModelLike;
 
-/** A place guide a frame shows: its lane, line or box, and where. */
+/** A place guide a frame shows: its lane, line, box or hatch, and where. */
 export interface LandingCaseGuide {
   readonly id: string;
   readonly lane: string;
-  readonly kind: "line" | "box";
+  readonly kind: "line" | "box" | "hatch";
   readonly rect: Rect;
 }
 

@@ -51,11 +51,14 @@ export interface LandingSpot {
    */
   readonly others?: string;
 }
-/** A place guide's mark: a line between two items, a box over a free stretch, in the layout as drawn. */
+/**
+ * A place guide's mark, in the layout as drawn: a line between two items that touch, a box over free room the item
+ * lands in, a hatch over the part of a neighbor that gives way where the room is shorter than the item.
+ */
 export interface LandingMark {
   /** Stable while its neighbors stay; absent, the guide is keyed by its lane and place in the list. */
   readonly id?: string;
-  readonly kind: "line" | "box";
+  readonly kind: "line" | "box" | "hatch";
   readonly rect: Rect;
 }
 export interface LandingLane {
@@ -142,7 +145,8 @@ export interface LandingGuide {
   /** Stable while its neighbors stay: the mark's id, else `<lane>/<spot id>` for a spot's landing. Key a drawing by it. */
   readonly id: string;
   readonly lane: string;
-  readonly kind: "line" | "box";
+  /** A line, a box, or a hatch over a neighbor that gives way (draw it over that item, in the guides' colour). */
+  readonly kind: "line" | "box" | "hatch";
   readonly rect: Rect;
 }
 
