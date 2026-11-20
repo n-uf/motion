@@ -7,7 +7,7 @@
 // text is not live yet. /docs/docking/ has no earlier date: it stays "TODO" and breaks the build ("Invalid time
 // value") if the docking docs file is added and this is forgotten. Do not invent a date. Not bumped, because only a
 // link changed: /window-motion/, /drag-intent/. See apps/web/DOCKING-RELEASE-TODO.md.
-export const RELEASE_DAY = "TODO";
+const RELEASE_DAY = "TODO";
 
 export const updated = {
   "/": "2026-11-12", // TODO-RELEASE: home FAQ and description changed for three libraries
