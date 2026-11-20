@@ -342,8 +342,10 @@ drag of `id`:
     where a drop goes, and a drop is possible only where the lane takes the pointer, so a bar's marks stop where its
     lane gives way to a drawn edge; a box is clipped to the rect, a line kept only if it lies inside. As seen, and for
     every lane but the held spot's, that is the lane's `rect`; the held spot's lane is drawn in that spot's layout, so
-    its marks lie inside its rect computed over that layout, the edge as drawn there with the same band and corner
-    clips, while its `rect` for the landing model stays as seen): at a corner a lane not drawn (an empty bar or rail) gives way to a drawn one, and
+    its marks lie inside its rect computed over that layout, the edge as drawn there with the same band, while its
+    `rect` for the landing model stays as seen. The corner clip is one rule for both: whether and where an empty lane
+    gives way is read from the layout as seen, so a held spot's marks on an edge its drop draws stop where its `rect`
+    does, even where that drop moves the drawn edge across it): at a corner a lane not drawn (an empty bar or rail) gives way to a drawn one, and
     between two not drawn the bar owns it. A virtual lane (a new column's line, a declared rail) is drawn over what it
     would push, and may overlap another lane's marks there.
   - As seen (no `spot`), the lifted item is drawn nowhere, so its own place is free room in its lane. With
