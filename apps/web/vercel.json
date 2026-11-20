@@ -1,4 +1,9 @@
 {
+  "redirects": [
+    { "source": "/desk-layouts", "destination": "/docking-layouts/", "statusCode": 301 },
+    { "source": "/desk-layouts/", "destination": "/docking-layouts/", "statusCode": 301 },
+    { "source": "/og/desk-layouts.png", "destination": "/og/docking-layouts.png", "statusCode": 301 }
+  ],
   "headers": [
     {
       "source": "/lab(/.*)?",

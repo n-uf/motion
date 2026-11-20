@@ -117,7 +117,7 @@ function render(): void {
   const v = views[active]!;
   const { boxes, notes } = layout(v.c.key, W, H, n, v.opts);
   latest = boxes;
-  svg.setAttribute("aria-label", v.c.title + " desk layout");
+  svg.setAttribute("aria-label", v.c.title + " docking layout");
   const targets = new Map<string, Rect>([[SIZE, { x: 0, y: 0, width: W, height: H }]]);
   keyed(boxes).forEach((b, k) => targets.set(k, { x: b.x, y: b.y, width: b.w, height: b.h }));
   field.set(targets, !first);
