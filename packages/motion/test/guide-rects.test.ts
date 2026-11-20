@@ -100,6 +100,49 @@ describe("guideRects", () => {
     expect(guideRects([{ kind: "box", rect: rect(0, 10, 100, 30) }], { inside: area, clear, clearance: 5 })[0]!.rect).toEqual(rect(2, 10, 93, 30));
   });
 
+  it("a clear rect across a box's whole thickness, inside it, leaves both parts: the far one keeps a suffixed id", () => {
+    // The kits' case: a 300 px box over the room on both sides of a 94 px held toolbar sliding inside it.
+    const area = rect(0, 0, 1000, 200);
+    const box = { id: "bar/box/a|b", kind: "box" as const, rect: rect(100, 10, 300, 31) };
+    const out = guideRects([box], { inside: area, clear: [rect(180, 8, 94, 35)] });
+    expect(out.map((g) => [g.id, g.rect])).toEqual([
+      ["bar/box/a|b", rect(100, 10, 78, 31)],
+      ["bar/box/a|b#2", rect(276, 10, 124, 31)],
+    ]);
+    // A part under `minLength` (8 px by default) is dropped; `minLength` is an option.
+    expect(guideRects([box], { inside: area, clear: [rect(104, 8, 94, 35)] }).map((g) => g.rect)).toEqual([rect(200, 10, 200, 31)]);
+    expect(guideRects([box], { inside: area, clear: [rect(104, 8, 94, 35)], minLength: 1 }).map((g) => g.rect)).toEqual([rect(100, 10, 2, 31), rect(200, 10, 200, 31)]);
+    // Across a column's box (taller than wide) the same, above and below.
+    const col = { kind: "box" as const, rect: rect(10, 100, 31, 300) };
+    expect(guideRects([col], { inside: rect(0, 0, 200, 1000), clear: [rect(8, 180, 35, 94)] }).map((g) => g.rect)).toEqual([rect(10, 100, 31, 78), rect(10, 276, 31, 124)]);
+  });
+
+  it("no clear rect inside a box, across its whole thickness, loses the far part when that part is at least `minLength`", () => {
+    let s = 5;
+    const rnd = (): number => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+    let split = 0;
+    for (let i = 0; i < 3000; i++) {
+      const horizontal = rnd() < 0.5;
+      const long = 60 + rnd() * 400;
+      const thick = 20 + rnd() * 30;
+      const at = 10 + rnd() * 200;
+      const box = horizontal ? rect(at, 50, long, thick) : rect(50, at, thick, long);
+      const len = 10 + rnd() * long * 0.8;
+      const from = at + rnd() * (long - len);
+      const gap = [0, 2, 5][Math.floor(rnd() * 3)]!;
+      const k = horizontal ? rect(from, 48 - rnd() * 4, len, thick + 6) : rect(48 - rnd() * 4, from, thick + 6, len);
+      const before = from - gap - at;
+      const after = at + long - (from + len + gap);
+      const out = guideRects([{ kind: "box", rect: box }], { inside: rect(0, 0, 1200, 1200), inset: 0, clear: [k], clearance: gap });
+      const lengths = out.map((g) => (horizontal ? g.rect.width : g.rect.height));
+      const want = [before, after].filter((x) => x >= 8);
+      expect(lengths.length, `box ${JSON.stringify(box)} clear ${JSON.stringify(k)}`).toBe(want.length);
+      lengths.forEach((l, j) => expect(l).toBeCloseTo(want[j]!, 6));
+      if (want.length === 2) split++;
+    }
+    expect(split).toBeGreaterThan(500);
+  });
+
   it("no guide, box or thin, comes within `clearance` of a clear rect; a guide clear of them all comes back as the same object", () => {
     let s = 11;
     const rnd = (): number => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;

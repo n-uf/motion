@@ -5,6 +5,15 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## Unreleased
 
+- `./drag`, **`guideRects` keeps both parts of a box a clear rect splits** (fix; additive option `minLength`, export
+  `MIN_BOX_LENGTH`). A box over the room on both sides of a sliding held item, with the item's outline passed as a
+  `clear` rect, was cut "on the side facing the rect" and kept only its larger part, so the far side's mark (about
+  107 to 183 px in a toolbar bar or rail) disappeared, and the kept side flipped as the item moved. A clear rect across
+  a box's whole thickness now leaves the part before it and the part after it, each kept when at least `minLength` px
+  long (default 8); one over an end leaves the other part as before; one over part of the thickness (a corner) keeps
+  the cut on the facing side, no L-shapes. A split box comes back as two guides: the first keeps the guide's `id`, the
+  second gets `<id>#2`, so a host keys each part by its id. A part under `minLength` left by such a cut is no
+  longer drawn.
 - `./drag`, **`createLandingModel` measures a lane's depth across it, not from its ends** (fix). The `depth` gate (a
   still pointer 8 px inside a lane enters it) counted every side of the lane's rect that is not on the stage's edge, so
   a rail's end that meets a bar counted as a wall: a still pointer 6 px above that end was never deep enough, and the
