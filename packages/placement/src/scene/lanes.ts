@@ -108,7 +108,11 @@ export interface Regions {
   readonly lanes: readonly Lane[];
   /** Refused places outside every lane ("Can't go here"). */
   readonly refused: readonly Rect[];
-  /** The content: the open space is it less `blocked`. */
+  /**
+   * Where a float can land (`floatRegion`: the stage less the float insets), as a landing model's `content`: the open
+   * space is it less `blocked`. So the gutter between a column and the pages is open (a release there floats), while
+   * every drawn edge, docked item, chrome and drawn rail stays out of it.
+   */
   readonly content: Rect;
   /** What the open space excludes: drawn edges, docked items, the chrome, a drawn declared rail, `Scene.blocked`. */
   readonly blocked: readonly Rect[];
@@ -356,7 +360,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     marking,
     regions: {
       refused: rs.filter((f) => !onLanes.has(f.edge)).flatMap((f) => f.hits ?? [f.hit]),
-      content: seen.content,
+      content: floatRegion(scene, dragged),
       blocked,
       stage: scene.stage,
       floatRegion: floatRegion(scene, dragged),
