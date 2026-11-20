@@ -13,12 +13,13 @@ Guides placed inside the window, and no "Can't go here" while the pointer enters
   striped strip or end: its shorter side is its thickness) keeps its thickness and moves inside rather than being
   clipped, so a line at a lane's far end is as thick as at its head. It is then thinned from the content side to stay
   clear of `clear` (the content), so a thin strip lies between the inset and the content, the same on both sides. A
-  thin guide under `minThickness` (2 px) is left out. `GuideRectsOptions` and `PlacedGuide` are its types.
-- `./drag`, **a held lane's exit margin holds a spot, never a refusal** (fix): past its own rect, within the exit
-  margin or while a touching lane's gate has not passed, a held lane keeps the pointer only where it gives a spot. One
-  that would refuse lets go, so the lane the pointer is in is entered by its gate or is `pending`: a pointer coming
-  from a refused stretch of a column into a docked rail beside it shows no "Can't go here" in the rail's first pixels.
-  Inside its own rect a refused stretch stays refused.
+  thin guide under `minThickness` (2 px) is left out. A guide already in place comes back as given (the same object).
+  `GuideRectsOptions` and `PlacedGuide` are its types.
+- `./drag`, **`pending` past a held lane's rect** (fix): a pointer coming from a refused stretch of a column into a
+  docked rail beside it showed "Can't go here" in the rail's first pixels (the column still holds there, within its
+  exit margin, and refuses). The held lane still holds, so lane to lane never passes through the float, and where the
+  pointer is inside another lane it hasn't entered yet the frame names that lane `pending`: a host shows no "Can't go
+  here" while it is set.
 
 ## 26.11.48
 
