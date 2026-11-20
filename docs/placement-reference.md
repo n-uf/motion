@@ -298,7 +298,7 @@ drag of `id`:
   item (a panel column, for a toolbar) leaves the corner to the empty lane, and between two edges not drawn the corner
   is as it was. The clip loses no landing: the spots' cuts are made over the band whole and then clipped, so the spot
   whose stretch the clip falls in starts at the clip, a spot whose stretch lies whole on the drawn edge is left out
-  (the pointer there is in that edge's lane), and no spot has a zero-length `along`. A spot is a place a drop there lands: its `landing` rect, its `target` (the drop, its
+  (the pointer there is in that edge's lane), and the corner clip makes no zero-length `along` stretch. A spot is a place a drop there lands: its `landing` rect, its `target` (the drop, its
   `after()`), and its `along` stretch of the lane, the part that picks it. In a panel column, between two spots that
   share a neighbor (the item `Y` in `X|Y` and `Y|Z`) the boundary is that item's middle as drawn, so a column takes a
   panel by halves; with `options.spot` the held spot's lane is drawn in that spot's own layout (its room open). On a bar
