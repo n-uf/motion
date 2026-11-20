@@ -7,7 +7,7 @@ the release PR once every box is ticked.
 
 ## 0. At the release: bring every sample and demo up to the new SDK
 
-The operator's instruction (2026-11-20). Every place on this site that shows library code, or runs it, is rewritten at the
+Decided 2026-11-20. Every place on this site that shows library code, or runs it, is rewritten at the
 release the way `docs/docking.md` and the placement and motion docs at the release tag show it, so it does not merely
 compile. Rules for all of them:
 
