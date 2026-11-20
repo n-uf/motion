@@ -331,6 +331,27 @@ interface Marking {
    * stepped down); without one, the marks' own layout is the one compared with.
    */
   readonly lifted: SceneLayout;
+  /** The drawn edges (as seen) standing across `edge`'s axis, their rects: the ones an empty `edge`'s lane gives way to. */
+  readonly crossing: (edge: string) => readonly Rect[];
+}
+
+/**
+ * An empty edge's band less the drawn edges across it: along `axis` it stops at each one's side (the ones before its
+ * middle cut its start, the others its end). Only a drawn edge that reaches into the band across it cuts.
+ */
+function clipAtDrawn(band: Rect, axis: Axis, cuts: readonly Rect[]): Rect {
+  let a = lo(band, axis);
+  let b = a + len(band, axis);
+  const centre = (a + b) / 2;
+  const x = axis === "x" ? "y" : "x";
+  for (const c of cuts) {
+    if (!(lo(c, x) < lo(band, x) + len(band, x) - EPS && lo(band, x) < lo(c, x) + len(c, x) - EPS)) continue;
+    const c0 = lo(c, axis);
+    const c1 = c0 + len(c, axis);
+    if ((c0 + c1) / 2 <= centre) a = Math.max(a, c1);
+    else b = Math.min(b, c0);
+  }
+  return b - a > EPS ? along(band, axis, a, b) : band;
 }
 
 const memo = new WeakMap<Scene, Map<string, Base>>();
@@ -439,6 +460,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     },
     gap: (edge) => nonNeg(scene.edges.find((e) => e.id === edge)?.gap),
     lifted,
+    crossing: (edge) => scene.edges.filter((e) => e.id !== edge && (seen.edges[e.id]?.cross ?? 0) > EPS && axisOfEdge(e.id) !== axisOfEdge(edge)).map((e) => seen.edges[e.id]!.rect),
   };
   // Where the pointer holds the item, as a share of its length now, along its own length only (its longer side): a
   // landing of another length along that axis is held at the same share; across the item, where the share says only
@@ -488,13 +510,20 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   if (list.length === 0) return null;
   const first = list[0]!;
   const axis = first.axis;
-  // The lane's rect: the edge as drawn, else (an empty edge, a virtual lane) the band its drops are drawn at.
+  // The lane's rect: the edge as drawn, else (an empty edge, a virtual lane) the band its drops are drawn at. At a corner
+  // an empty edge's lane gives way to a drawn edge across it, as its marks do (`settle`): the band is clipped along its
+  // axis to stop at that edge's side, so a pointer on the drawn edge is in that edge's lane. Between two edges not drawn
+  // the corner is as it was.
   const edgeLayout = first.edge ? seen.edges[first.edge] : undefined;
   const band = list.map((r) => r.landing).reduce(hull);
   let laneRect: Rect;
+  // The band whole, which an empty edge's marks are laid over (`settle` cuts them at the drawn edges).
+  let markBand: Rect | undefined;
   if (edgeLayout && edgeLayout.cross > EPS) laneRect = edgeLayout.rect;
-  else if (edgeLayout) laneRect = axis === "x" ? rect(edgeLayout.rect.x, band.y, edgeLayout.rect.width, band.height) : rect(band.x, edgeLayout.rect.y, band.width, edgeLayout.rect.height);
-  else if (list.every((r) => r.strip)) laneRect = list.map((r) => r.hit).reduce(hull);
+  else if (edgeLayout) {
+    markBand = axis === "x" ? rect(edgeLayout.rect.x, band.y, edgeLayout.rect.width, band.height) : rect(band.x, edgeLayout.rect.y, band.width, edgeLayout.rect.height);
+    laneRect = clipAtDrawn(markBand, axis, marking.crossing(first.edge!));
+  } else if (list.every((r) => r.strip)) laneRect = list.map((r) => r.hit).reduce(hull);
   else laneRect = list.map((r) => r.hit).reduce(hull, band);
   // In order; one landing is one spot (the item's own place where it is one of them); one id is one spot.
   // A sliding spot lies in order by its first landing (at its stretch's start), and cuts by its landing at either end.
@@ -569,7 +598,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   // Marks lie in the layout as drawn, so on the edge as drawn there: a held spot's room can move the whole edge (a bar
   // it leaves empty lets a rail start higher), and its items with it.
   const drawnEdge = first.edge ? drawn.edges[first.edge] : undefined;
-  const markRect = drawnEdge && drawnEdge.cross > EPS ? drawnEdge.rect : laneRect;
+  const markRect = drawnEdge && drawnEdge.cross > EPS ? drawnEdge.rect : (markBand ?? laneRect);
   // The items as drawn, a growing one (a title filling the bar) at its natural length: what it draws past that is free
   // stretch, as pitched spots take it (the head of a title bar).
   // (Bars and toolbar rails only: a panel filling its column is drawn there.) Off the held lane the lifted item is
