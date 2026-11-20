@@ -288,7 +288,7 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     expect(m.frame.lane).toBe("top");
   });
 
-  it("guides: a lane's marks when it has them; over a refused place, the nearest lane's at any distance", () => {
+  it("guides: a lane's marks when it has them; over a refused place outside every lane, none", () => {
     const r = railWindow();
     const marks = [{ id: "rail-left/line/tools|zoom", kind: "line" as const, rect: rect(0, 190, 30, 0) }, { id: "rail-left/box/zoom|$", kind: "box" as const, rect: rect(0, 367, 30, 241) }];
     const withMarks: LandingRegions = { ...r, lanes: [{ ...r.lanes[0]!, marks }, r.lanes[1]!] };
@@ -296,7 +296,7 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     expect(held.f.guides.map((g) => [g.id, g.kind, g.rect])).toEqual(marks.map((m) => [m.id, m.kind, m.rect]));
     const over = run(base({ placeGuides: "near", home: undefined }), [[0, 1000, 300], [40, 1000, 300]]).frames.at(-1)!;
     expect(over.f.region).toBe("refused");
-    expect(over.f.guides.length).toBeGreaterThan(0);
+    expect(over.f.guides).toEqual([]);
   });
 
   it("the fixed point: a spot whose room moves its boundary away from the pointer isn't taken; regionsFor is called once per spot", () => {

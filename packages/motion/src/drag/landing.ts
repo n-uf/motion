@@ -48,8 +48,11 @@ import type { PlaceGuides } from "./preview";
  *   refuses nothing) refused.
  * - **Shift** turns a lane or open space into open space (the float), and hides the guides.
  * - **Guides** are the lane's `marks` (lines between items, a box per free stretch, in the layout as drawn), else its
- *   spots' landings: the held lane's; else the approached lane's (the nearest within `reach`); over a refused place the
- *   nearest lane's at any distance, so the lane behind a refused column shows its guides.
+ *   spots' landings. `"near"` shows a lane only where the pointer can enter it: the held lane's (also over its own
+ *   refused stretch); else the pending lane's (the pointer inside it, its gate not passed: a release floats or goes
+ *   home); else, with the pointer in open space, the approached lane's (the nearest within `reach`, by default the
+ *   entry margin `exit`: a release floats). Over a refused place outside every lane no guide shows, however near the
+ *   lane behind it lies; a host that wants the early guide sets `approach.reach`.
  * - Steps are measured between points that differ, normalized to 125 Hz, so the gates read the same at any input rate.
  *   A repeated point keeps the last step; it is still only once the pointer has stayed put for `rest` ms.
  *
@@ -166,10 +169,17 @@ export interface LandingGates {
   /** The time a pointer that last moved fast has to stay put before it counts as still, ms: longer than sample gaps. */
   readonly pause: number;
 }
-/** The approach for near guides: the nearest lane within `reach`, kept until another is `nearer` closer or past `keep`. */
+/**
+ * The approach for near guides, with the pointer in open space: the nearest lane within `reach`, kept until another is
+ * `nearer` closer or past `keep` (read as at least `reach`: a kept lane is never shown past it). The guide shows only
+ * within `reach` of the lane, so by default only where the pointer can enter it.
+ */
 export interface LandingApproach {
+  /** How near a lane's rect the pointer is in open space for the lane's guides to show, px (default 12: the entry margin). */
   readonly reach: number;
+  /** How far a kept lane stays the approached one, px (default 12). Below `reach` it is `reach`. */
   readonly keep: number;
+  /** How much nearer another lane has to be to take over from the kept one, px (default 16). */
   readonly nearer: number;
 }
 
@@ -177,7 +187,7 @@ export const LANDING_MARGINS: LandingMargins = { exit: 12, spot: 6, edge: 48, li
 /** A touch: wider margins, the finger's jitter. */
 export const LANDING_TOUCH_MARGINS: LandingMargins = { exit: 16, spot: 8, edge: 48, lift: 16 };
 export const LANDING_GATES: LandingGates = { path: 40, depth: 8, still: 1.5, step: 3, trail: 40, rest: 22, pause: 60 };
-export const LANDING_APPROACH: LandingApproach = { reach: 80, keep: 96, nearer: 16 };
+export const LANDING_APPROACH: LandingApproach = { reach: LANDING_MARGINS.exit, keep: LANDING_MARGINS.exit, nearer: 16 };
 
 export interface LandingOptions {
   readonly regions: LandingRegions;
@@ -404,7 +414,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     return cand;
   }
 
-  function guidesFor(p: Point, region: LandingRegion, shift: boolean): LandingGuide[] {
+  function guidesFor(p: Point, region: LandingRegion, shift: boolean, pending: string | null): LandingGuide[] {
     if (guidesLevel === "off" || shift) return [];
     const regions = heldRegions(spotId);
     const all = (l: LandingLane): LandingGuide[] =>
@@ -412,10 +422,22 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         ? l.marks.map((m, i) => ({ id: m.id ?? `${l.id}#${i}`, lane: l.id, kind: m.kind, rect: m.rect }))
         : l.spots.map((s) => ({ id: `${l.id}/${s.id}`, lane: l.id, kind: "box" as const, rect: s.landing }));
     if (guidesLevel === "all") return regions.lanes.flatMap(all);
+    // The held lane's, also over its own refused stretch.
     if ((region === "lane" || region === "refused") && laneId) {
       approached = laneId;
       const l = laneIn(regions, laneId);
       return l ? all(l) : [];
+    }
+    // The pending lane's: the pointer is inside it, its gate not passed (the place under it, a refused one too, is its).
+    if (pending) {
+      approached = pending;
+      const l = laneIn(regions, pending);
+      return l ? all(l) : [];
+    }
+    // Only in open space the approach counts: over a refused place outside every lane, or nowhere, no lane's guides show.
+    if (region !== "open") {
+      approached = null;
+      return [];
     }
     let best: LandingLane | null = null;
     let bestD = Infinity;
@@ -426,16 +448,12 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         bestD = d;
       }
     }
-    // Over a refused place: the nearest lane at any distance (the lane behind a refused column).
-    if (region === "refused") {
-      approached = best?.id ?? null;
-      return best ? all(best) : [];
-    }
-    // The approached lane: the nearest within reach, kept until another is clearly nearer or it is past `keep`.
+    // The approached lane: the nearest within reach, kept until another is clearly nearer or it is past `keep` (at least
+    // `reach`: a lane acquired within reach is never dropped at once).
     const kept = laneIn(regions, approached);
     if (kept) {
       const d = distanceTo(kept.rect, p);
-      if (d > approach.keep) approached = null;
+      if (d > Math.max(approach.keep, approach.reach)) approached = null;
       else if (best && best.id !== kept.id && bestD + approach.nearer < d) approached = bestD <= approach.reach ? best.id : null;
     } else approached = best && bestD <= approach.reach ? best.id : null;
     const l = laneIn(regions, approached);
@@ -592,7 +610,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       spot: shown === "lane" ? spotId : null,
       landing,
       room: shown === "lane" && !!spot,
-      guides: guidesFor(p, shown, shift),
+      guides: guidesFor(p, shown, shift, pending && shown !== "lane" ? pending : null),
       shift,
       ...(pending && shown !== "lane" ? { pending } : {}),
     };

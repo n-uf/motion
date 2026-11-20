@@ -5,6 +5,18 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## Unreleased
 
+- `./drag`, **a Near guide shows a lane only where the pointer can enter it** (behavior change, a default). With
+  `placeGuides: "near"`, a lane's guides showed from the nearest lane within `reach` (80 px), and over a refused place
+  (a column that takes nothing) from the nearest lane at any distance, so a toolbar carried toward an empty side rail
+  beside a panel column showed the rail's box 200 to 300 px away, a place it could not enter yet. That second rule is
+  deleted. Now a Near guide shows for the held lane (also over its own refused stretch); else the pending lane (the
+  pointer inside it, its gate not passed); else, with the pointer in open space, the approached lane, the nearest within
+  `approach.reach`, which now defaults to the entry margin (`LANDING_MARGINS.exit`, 12 px, was 80). Over a refused place
+  outside every lane no guide shows. `LandingApproach` and its hysteresis stay (a lane is kept until another is `nearer`
+  closer), with one default more: `keep` is 12 (was 96), and is read as at least `reach`, so a lane acquired within
+  reach is never dropped at once. Otherwise a guide would linger up to 96 px after the pointer left the lane, in open
+  space where a release floats. Host notes: a host that wants the early guide sets `approach: { reach: 80, keep: 96 }`
+  (the old values); nothing else to change.
 - `./drag`, **`guideRects` cuts a box by one model** (fix; additive optional `axis` on `PlacedGuide`). The first
   version of the split above re-derived a box's orientation for every part, so after one cut a part narrower than the
   box is thick turned the next clear rect into a corner cut: it kept one piece with no `minLength`, lost one of the
