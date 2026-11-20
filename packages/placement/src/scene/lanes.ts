@@ -21,7 +21,7 @@
  */
 import { EPS, clamp, rect, type Rect, type Size } from "../geometry";
 import { moveTo, type DockPlace } from "./changes";
-import { axisOf, chromeFor, floatRegion } from "./helpers";
+import { axisOf, chromeFor, floatRegion, zoneIn } from "./helpers";
 import type { Scene, SceneLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { targetsAndRefusals } from "./targets";
@@ -719,36 +719,32 @@ function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
     const middle = mid(drawn.rect, axis);
     const zoneOf = (o: (typeof others)[number]): Zone => o.zone ?? "start";
     const taken = mine.map((r) => r.landing);
-    const pairs = new Set(mine.map((r) => `${r.before}|${r.next}`));
-    /**
-     * One spot: a dock in `zone` before its `at`-th item keeping `space` (absent: the space its new neighbor kept on
-     * that side, `DockPlace.space`), kept if it lands at `x0` (within 1 px) and not on another spot's landing. `flush`
-     * names the neighbor a stretch's end lies against. Whether it was kept.
-     */
-    const emit = (zone: Zone, at: number, space: number | undefined, x0: number, flush?: string): boolean => {
-      const place: DockPlace = { edge: e.id, zone, at, ...(space === undefined ? {} : { space }) };
+    /** One spot: a dock in `zone` before its `at`-th item keeping `space`, kept if it lands at `x0` (when given). */
+    const emit = (zone: Zone, at: number, space: number, x0?: number): void => {
+      const place: DockPlace = { edge: e.id, zone, at, space };
       const next = moveTo(scene, dragged, place);
-      if (next === scene) return false;
+      if (next === scene) return;
       const layout = solve(next, prev);
       const landed = layout.items[dragged];
-      if (!landed || landed.inMenu || landed.edge !== e.id || Math.abs(lo(landed.rect, axis) - x0) > 1) return false;
-      // A stretch's end lies against its neighbor as dropped too (the lift can move that neighbor).
-      const nb = flush !== undefined ? layout.items[flush] : undefined;
-      if (nb && Math.abs(lo(nb.rect, axis) + len(nb.rect, axis) + gap - lo(landed.rect, axis)) > 1 && Math.abs(lo(landed.rect, axis) + len(landed.rect, axis) + gap - lo(nb.rect, axis)) > 1) return false;
-      const n = neighbors(layout, e.id, dragged, axis);
-      // Only between neighbors a dock lands between (home's included): nothing lands before a fixed lead, say.
-      if (!pairs.has(`${n.before}|${n.next}`)) return false;
-      if (taken.some((r) => Math.abs(lo(r, axis) - lo(landed.rect, axis)) < pitch / 2)) return true;
+      if (!landed || landed.inMenu || landed.edge !== e.id || (x0 !== undefined && Math.abs(lo(landed.rect, axis) - x0) > 1)) return;
+      if (taken.some((r) => Math.abs(lo(r, axis) - lo(landed.rect, axis)) < pitch / 2)) return;
       taken.push(landed.rect);
       const result = { scene: next, layout };
-      const kept = Math.round(next.items[dragged]?.space ?? 0);
-      const target: SceneTarget = { id: `pitch:${e.id}:${zone}:${at}:${space === undefined ? "~" : Math.round(space)}`, priority: 2, hit: landed.rect, slot: landed.rect, item: dragged, place: { kind: "gap", edge: e.id, zone, at }, after: () => result };
-      // Keyed by its neighbors and how many pitches it keeps from the one it is spaced from (a stretch's end keeping
-      // some: the neighbor it lies against): stable while they stay.
-      const id = `${e.id}/${zone}/${n.before}|${n.next}@${flush !== undefined && kept > 0 ? `to:${flush}` : Math.round(kept / pitch)}`;
+      const target: SceneTarget = { id: `pitch:${e.id}:${zone}:${at}:${Math.round(space)}`, priority: 2, hit: landed.rect, slot: landed.rect, item: dragged, place: { kind: "gap", edge: e.id, zone, at }, after: () => result };
+      const n = neighbors(layout, e.id, dragged, axis);
+      // Keyed by its neighbors and how many pitches it keeps from the one it is spaced from: stable while they stay.
+      const id = `${e.id}/${zone}/${n.before}|${n.next}@${Math.round(space / pitch)}`;
       out.push({ lane: e.id, edge: e.id, axis, id, ...n, landing: landed.rect, layout, target, hit: landed.rect, pitched: true });
-      return true;
     };
+    const spaced = (o: (typeof others)[number] | undefined): boolean => !!o && (scene.items[o.id]?.space ?? 0) > 0;
+    // The held item keeps space on its own edge: its own place keeps it, so the lane's open end (where that space lies)
+    // gets a dock keeping none, or the space would be no place without a spot.
+    const own = scene.items[dragged];
+    if (own && (own.space ?? 0) > 0 && seen.items[dragged]?.edge === e.id) {
+      const zone = zoneIn(e, own);
+      if (zone === "start") emit("start", 0, 0);
+      else if (zone === "end") emit("end", others.filter((o) => zoneOf(o) === "end").length, 0);
+    }
     /** A growing item's drawn length past its natural one (a title filling the bar): a dock beside it can take that. */
     const slack = (o: (typeof others)[number] | undefined): number => {
       const main = o ? scene.items[o.id]?.forms[axis === "x" ? "row" : "column"]?.[0]?.main : undefined;
@@ -760,25 +756,18 @@ function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
       const a = before ? lo(before.r, axis) + len(before.r, axis) - slack(before) + gap : edgeStart;
       // (Not before a growing item: a dock there keeps no space, the item it precedes takes all that is spare.)
       const b = after ? lo(after.r, axis) - gap : edgeEnd;
-      // A start dock follows a start item or the edge's start; an end dock precedes an end item or the edge's end.
-      const zones: Zone[] = [...(!before || zoneOf(before) === "start" ? ["start" as const] : []), ...(!after || zoneOf(after) === "end" ? ["end" as const] : [])];
-      const atIn = (zone: Zone, x0: number): number => others.filter((o) => zoneOf(o) === zone && lo(o.r, axis) < x0).length;
-      // The stretch's two ends: the item flush against each neighbor (or the edge's end), the near zone first, with the
-      // space its new neighbor kept or the space that puts it there. Each is a spot of the stretch's own, not left to
-      // the dock beside that neighbor: on the held item's own stretch that dock is its own place (home), so the far end
-      // would have no spot and a move along the stretch would pass over it to the neighbor's other side.
-      const end = (x0: number, order: Zone[], flush: string): void => {
-        for (const zone of order)
-          for (const space of [undefined, zone === "start" ? x0 - a : b - (x0 + w)])
-            if (space === undefined || space >= -EPS) if (emit(zone, atIn(zone, x0), space === undefined ? undefined : Math.max(0, space), x0, flush)) return;
-      };
-      end(a, zones, before?.id ?? "^");
-      end(b - w, [...zones].reverse(), after?.id ?? "$");
+      // Beside a neighbor that keeps space on this side, a dock there takes that space (it lands where the neighbor
+      // was); this one keeps none, at the stretch's other end, so the space between is no place without a spot.
+      if (spaced(after) && zoneOf(after!) === "start" && (!before || zoneOf(before) === "start")) emit("start", others.filter((o) => zoneOf(o) === "start" && lo(o.r, axis) < lo(after!.r, axis)).length, 0);
+      if (spaced(before) && zoneOf(before!) === "end" && (!after || zoneOf(after) === "end")) emit("end", others.filter((o) => zoneOf(o) === "end" && lo(o.r, axis) <= lo(before!.r, axis)).length, 0);
       if (b - a < w + pitch) continue;
       for (let x0 = a + pitch; x0 + w <= b - pitch + EPS; x0 += pitch) {
-        const zone: Zone = x0 + w / 2 < middle ? "start" : "end";
-        if (!zones.includes(zone)) continue;
-        emit(zone, atIn(zone, x0), zone === "start" ? x0 - a : b - (x0 + w), x0);
+        const toStart = x0 + w / 2 < middle;
+        // A start dock follows a start item or the edge's start; an end dock precedes an end item or the edge's end.
+        if (toStart && before && zoneOf(before) !== "start") continue;
+        if (!toStart && after && zoneOf(after) !== "end") continue;
+        const zone: Zone = toStart ? "start" : "end";
+        emit(zone, others.filter((o) => zoneOf(o) === zone && lo(o.r, axis) < x0).length, toStart ? x0 - a : b - (x0 + w), x0);
       }
     }
   }
