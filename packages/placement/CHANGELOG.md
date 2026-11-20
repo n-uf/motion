@@ -5,6 +5,21 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
+- `./scene/cases`, **the Near guides' rule, as landing rows and a check** (additive). On every frame that shows a Near
+  guide of lane L, L holds the pointer (also on its own refused stretch), or L is pending, or the pointer is in open
+  space within `NEAR_REACH` (12 px) of L; none shows over a refused place outside L. `nearGuideIssues(row, frames,
+  before?, stretchPositions?)` checks it over a row's frames, and a row asks for it with `moving.nearGuides`;
+  `moving.guideSwitches` bounds how often the lane whose guides show changes; `end.pending` and `end.landing` read the
+  last frame; `LandingCaseFrame.pending` is the landing model's `pending`, which the reference host now reports. Three
+  rows, `landing-near-rail-glide`, `landing-near-rail-pending-release` and `landing-near-corner-steady`, need
+  `NEAR_SINCE` (`"26.11.52"`): a Near guide shows a lane only where the pointer can enter it (`@n-uf/motion`'s
+  `approach.reach` is now 12 px, see its changelog). Host notes: a host on an older library skips the three rows
+  (counted by the ratchet); a host that sets a larger `approach.reach` fails the rows that check `nearGuides`, as it
+  shows early guides on purpose.
+- `./scene`, **an empty side rail's lane is the band its drop opens** (pinned, no behavior change). `lanes()` already
+  gave an empty edge (not drawn) the rect its edge takes once the held item has landed there, one rail wide (21 and
+  30 px), under `emptyLanes: "real"` and `"edge"` alike (`"edge"` changes only the marks, a thin striped strip); a test
+  now pins it over a real window and a library window.
 - `./scene`, **a lane's marks lie inside its lane's rect** (fix). An empty top bar's lane stops where it gives way to a
   drawn column, but its marks were laid over the whole band and cut only around drawn edges, so they still ran out to
   the window's edges, over an empty side rail's marks: two lanes' marks overlapped at the corners. Every lane's marks

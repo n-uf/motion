@@ -157,6 +157,7 @@ describe("the hand rule: the landing is the nearest in its lane", () => {
       "landing-room-up-past-placed-slow",
       "landing-room-up-past-placed-fast",
       "landing-step-down-room",
+      "landing-near-rail-glide",
     ]);
     for (const r of LANDING_CASES) expect(r.moving?.trailBeforeHop, r.id).toBeUndefined();
   });

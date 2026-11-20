@@ -48,6 +48,11 @@ export const ROOM_SINCE = "26.11.50";
  */
 export const STEP_SINCE = "26.11.51";
 /**
+ * The first library version whose landing model shows a Near guide only where the pointer can enter the lane
+ * (`approach.reach` 12 px, no guide over a refused place outside the lane): the rows that check `nearGuides` need it.
+ */
+export const NEAR_SINCE = "26.11.52";
+/**
  * The hand rule's floor, px: while a lane holds, the landing lies at least this near the pointer, however close the
  * adjacent landings are (`handBound`).
  */
@@ -70,6 +75,13 @@ export function handBound(gap: number, beforeHop = false): number {
   return Math.max(beforeHop ? HAND_TRAIL_BEFORE_HOP : HAND_TRAIL, gap / 2 + HAND_MARGIN);
 }
 
+/**
+ * How near a lane's rect the pointer is in open space for a Near guide of that lane to show, px: the landing model's
+ * default `approach.reach`, the entry margin (`LANDING_MARGINS.exit`). A host that sets a larger `approach.reach` does not
+ * play the rows that check `nearGuides`.
+ */
+export const NEAR_REACH = 12;
+
 /** A hand faster than this, px/ms, may leave a hop that reflows the window for later (the landing model's `step`, 3 px per 8 ms). */
 export const HAND_FAST = 0.375;
 
@@ -86,7 +98,7 @@ export interface LandingModelLike {
     point: Point,
     time: number,
     keys?: { readonly shift?: boolean },
-  ): { readonly region: LandingRegionName; readonly lane: string | null; readonly spot: string | null; readonly landing: Rect | null; readonly room: boolean; readonly guides?: readonly LandingCaseGuide[] };
+  ): { readonly region: LandingRegionName; readonly lane: string | null; readonly spot: string | null; readonly landing: Rect | null; readonly room: boolean; readonly guides?: readonly LandingCaseGuide[]; readonly pending?: string };
   release(): { readonly kind: "spot"; readonly lane: string; readonly spot: string; readonly home: boolean } | { readonly kind: "float"; readonly rect: Rect } | null;
 }
 /** What makes a landing model: `createLandingModel`, as an input. */
@@ -120,6 +132,8 @@ export interface LandingCaseFrame {
   readonly room: boolean;
   /** The place guides shown ("near"), when the host reports them. */
   readonly guides?: readonly LandingCaseGuide[];
+  /** The lane the pointer is inside but hasn't entered yet (the landing model's `pending`), when the host reports it. */
+  readonly pending?: string;
 }
 
 export interface LandingCase {
@@ -168,9 +182,22 @@ export interface LandingCase {
     readonly trailOverSlow?: { readonly slow: number; readonly by: number };
     /** Places where no guide lies (nothing lands there): a guide touching one of these rects fails. */
     readonly noGuideIn?: readonly Rect[];
+    /**
+     * The Near guides' rule (`nearGuideIssues`): on every frame that shows a guide of lane L, one of these holds. (a) L
+     * holds the pointer: a release lands in L, or, on L's own refused stretch, the frame's region is refused with L as
+     * its lane. (b) L is pending (the frame's `pending`): a release floats or goes home. (c) The pointer is in open
+     * space within `NEAR_REACH` of L's rect: a release floats. So no Near guide ever shows over a refused place outside
+     * L. A host that doesn't report guides isn't checked.
+     */
+    readonly nearGuides?: true;
+    /**
+     * The lane whose guides show changes between two lanes at most this many times along the path (frames that show no
+     * guide are skipped): at a corner between two lanes the guides never flicker from one to the other.
+     */
+    readonly guideSwitches?: number;
   };
   /** On the last frame before the release. */
-  readonly end?: { readonly region: LandingRegionName; readonly lane?: string | null; readonly spot?: string };
+  readonly end?: { readonly region: LandingRegionName; readonly lane?: string | null; readonly spot?: string; /** The lane pending on the last frame (`null`: none). */ readonly pending?: string | null; /** Where the last frame's landing lies (any of x, y, width, height, within half a pixel). */ readonly landing?: Partial<Rect> };
   /** The layout after the release. */
   readonly layout?: LayoutExpect;
   /**
@@ -301,6 +328,54 @@ function homeIssues(item: string, before: SceneLayout, after: SceneLayout): stri
 }
 
 /**
+ * The Near guides' rule over `frames` (`LandingCase.moving.nearGuides`): on every frame that shows a guide of lane L,
+ * (a) L holds the pointer (the frame's lane is L, in its lane or on its own refused stretch), or (b) L is pending, or
+ * (c) the pointer is in open space within `NEAR_REACH` of L's rect (as `lanes()` gives it for the row's scene). Anything
+ * else is a guide for a place the pointer cannot enter: over a refused place outside L, or in open space further off.
+ * The frames of a host that doesn't report guides show none, so nothing is checked. Exported so a sweep of paths can
+ * check them all with it.
+ */
+export function nearGuideIssues(row: LandingCase, frames: readonly LandingCaseFrame[], before?: SceneLayout, stretchPositions?: LaneOptions["stretchPositions"]): string[] {
+  const out: string[] = [];
+  let seen: Regions | undefined;
+  /** A lane's rect as seen (the model reads it so over open space, where no spot is held). */
+  const rectOf = (lane: string): Rect | undefined => {
+    if (!seen) {
+      const previous = before ?? solve(row.scene);
+      const own = previous.items[row.item];
+      const press = row.path[0]!;
+      seen = lanes(row.scene, row.item, { previous, ...(own ? { grab: { x: press.x - own.rect.x, y: press.y - own.rect.y } } : {}), ...(stretchPositions ? { stretchPositions } : {}) });
+    }
+    return seen.lanes.find((l) => l.id === lane)?.rect;
+  };
+  for (const f of frames) {
+    if (!f.guides || f.guides.length === 0) continue;
+    for (const lane of new Set(f.guides.map((g) => g.lane))) {
+      const holds = f.lane === lane && (f.region === "lane" || f.region === "refused");
+      const r = f.region === "open" && !holds && f.pending !== lane ? rectOf(lane) : undefined;
+      if (holds || f.pending === lane || (r && gapTo(r, f.point) <= NEAR_REACH + 0.5)) continue;
+      out.push(`at ${Math.round(f.point.x)},${Math.round(f.point.y)}: a Near guide of ${lane} over ${f.region}${f.lane ? ` in ${f.lane}` : ""}, where the pointer neither holds ${lane}, nor is pending in it, nor is in open space within ${NEAR_REACH} px of it`);
+      break;
+    }
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+/** How many times the lane whose guides show changes between two lanes along `frames`, the frames showing none skipped. */
+function guideSwitches(frames: readonly LandingCaseFrame[]): number {
+  let n = 0;
+  let was: string | undefined;
+  for (const f of frames) {
+    if (!f.moving || !f.guides || f.guides.length === 0) continue;
+    const now = [...new Set(f.guides.map((g) => g.lane))].sort().join("+");
+    if (was !== undefined && now !== was) n++;
+    was = now;
+  }
+  return n;
+}
+
+/**
  * What differs between a row and what its host played. `before` is the host's layout at the press (a row's `home`
  * compares with it); absent, the row's scene as solved.
  */
@@ -360,9 +435,19 @@ export function landingIssues(row: LandingCase, frames: readonly LandingCaseFram
       }
       if (out.length >= 4) break;
     }
+  if (m?.nearGuides) out.push(...nearGuideIssues(row, frames, before, stretchPositions));
+  if (m?.guideSwitches !== undefined) {
+    const n = guideSwitches(frames);
+    if (n > m.guideSwitches) out.push(`the guides switch lane ${n} times along the path (at most ${m.guideSwitches})`);
+  }
   const last = frames.at(-1)!;
   if (row.end) {
     if (last.region !== row.end.region) out.push(`the last frame is ${last.region}, not ${row.end.region}`);
+    if (row.end.pending !== undefined && (last.pending ?? null) !== row.end.pending) out.push(`the last frame has ${last.pending ?? "no lane"} pending, not ${row.end.pending ?? "no lane"}`);
+    if (row.end.landing) {
+      if (!last.landing) out.push("the last frame lands nowhere");
+      else for (const k of ["x", "y", "width", "height"] as const) if (row.end.landing[k] !== undefined && Math.abs(last.landing[k] - row.end.landing[k]!) > 0.5) out.push(`the last frame's landing ${k} is ${Math.round(last.landing[k])}, not ${row.end.landing[k]}`);
+    }
     if (row.end.lane !== undefined && last.lane !== row.end.lane) out.push(`the last frame holds ${last.lane ?? "no lane"}, not ${row.end.lane ?? "no lane"}`);
     if (row.end.spot !== undefined && last.spot !== row.end.spot) out.push(`the last frame's spot is ${last.spot ?? "none"}, not ${row.end.spot}`);
   }
@@ -447,7 +532,7 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly v
       const frames: LandingCaseFrame[] = [];
       const play = (p: Point, t: number, moving: boolean): void => {
         const f = model.update(p, t);
-        frames.push({ t, point: p, moving, region: f.region, lane: f.lane, spot: f.spot, landing: f.landing, room: f.room, ...(f.guides ? { guides: f.guides } : {}) });
+        frames.push({ t, point: p, moving, region: f.region, lane: f.lane, spot: f.spot, landing: f.landing, room: f.room, ...(f.guides ? { guides: f.guides } : {}), ...(f.pending ? { pending: f.pending } : {}) });
       };
       let t = 0;
       let at = press;
@@ -492,6 +577,26 @@ function landingWindow(top: string[] = ["a"], bottom: string[] = []): Scene {
     floatKinds: ["group"],
   };
 }
+/**
+ * A 1080×640 window: a bottom bar (y 604–640) with `bottom` in it, a panel column at the left (Pages, 260 px wide) that
+ * takes toolbars nowhere, and an empty toolbar rail at the left (not drawn; 30 px once a toolbar lands in it) whose drop
+ * strip lies over the column's outer 30 px. The rest of the window (x past 260) is open space.
+ */
+function railBesideColumn(bottom: string[] = ["a"]): Scene {
+  const pages: SceneItem = { id: "pages", kind: "panel", used: 9, forms: { column: [form("open", 120, 240, 240, { grows: true, crossMin: 180 }), form("header", 28, 28, 240, { crossMin: 60 }), form("rail", 28, 28, 30), form("menu", 0, 0, 0)], row: [form("header", 120, 160, 28), form("menu", 0, 0, 0)] } };
+  return {
+    stage: rect(0, 0, 1080, 640),
+    edges: [
+      bar("bottom", "bottom", 0, bottom),
+      { id: "rail-left", side: "left", ring: 0, accepts: ["group"], items: [], cross: { min: 30, max: 30, rail: 30 }, compact: true, zones: ["start"] },
+      { id: "left-0", side: "left", ring: 1, column: true, accepts: ["panel"], items: ["pages"], cross: { min: 200, max: 480, rail: 32 }, gap: 12, hitBand: "middle" },
+    ],
+    items: { ...Object.fromEntries(bottom.map((id, i) => [id, group(id, i + 1)])), pages },
+    floats: [],
+    floatKinds: ["group"],
+  };
+}
+const NEAR: LandingCase["requires"] = { lanes: { since: NEAR_SINCE } };
 const LANES: LandingCase["requires"] = { lanes: { since: LANES_SINCE } };
 const GRAB: LandingCase["requires"] = { lanes: { since: GRAB_SINCE } };
 
@@ -801,5 +906,65 @@ export const LANDING_CASES: readonly LandingCase[] = [
     speed: 1.2,
     moving: { notRegions: ["open"], trailOverSlow: { slow: 0.05, by: 40 } },
     requires: LANES,
+  },
+  {
+    id: "landing-near-rail-glide",
+    title: "A toolbar glided to an empty rail beside a panel column shows no guide until it can enter the rail",
+    expect:
+      "A toolbar lifted from the bottom bar and glided at 0.3 px/ms up and left over a panel column (it takes no toolbar) to the empty left rail's strip, resting there 40 ms: the rail's guide shows only once the pointer is in the strip, never over the column on the way (the Near guides' rule: a lane's guide shows where the pointer holds it, is pending in it, or is in open space within 12 px of it), the rail holds the pointer from its first slow step in the strip (the place under it is the column's, which takes nothing, and there is nothing else to mean there), and the toolbar takes the rail's icons form, in the rail's 30 px, as it lands.",
+    scene: railBesideColumn(),
+    item: "a",
+    path: [
+      { x: 60, y: 622 },
+      { x: 15, y: 320 },
+    ],
+    speed: 0.3,
+    rest: 40,
+    moving: { nearGuides: true, hand: true },
+    end: { region: "lane", lane: "rail-left", landing: { x: 0, width: 30 } },
+    layout: { items: { a: { edge: "rail-left", formKind: "icons" } }, order: { "rail-left": ["a"] } },
+    requires: NEAR,
+  },
+  {
+    id: "landing-near-rail-pending-release",
+    title: "A release while the rail is pending floats nothing and goes home",
+    expect:
+      "The same toolbar glided at 0.6 px/ms (a fast hand: faster than the gate's 0.375 px/ms) into the rail's strip and released on arrival: the rail is pending (the pointer is inside it, its gate not passed), its guide shows (the Near guides' rule), the last frame lands nowhere (the place under it is the column's), and the release puts the toolbar back in the bottom bar.",
+    scene: railBesideColumn(),
+    item: "a",
+    path: [
+      { x: 60, y: 622 },
+      { x: 15, y: 320 },
+    ],
+    speed: 0.6,
+    moving: { nearGuides: true },
+    end: { region: "refused", lane: null, pending: "rail-left" },
+    layout: { items: { a: { edge: "bottom" } } },
+    requires: NEAR,
+  },
+  {
+    id: "landing-near-corner-steady",
+    title: "At a corner between two lanes the Near guides don't flicker",
+    expect:
+      "A toolbar lifted from the bottom bar, taken into the open space at the corner where the top bar meets the left rail (x 30, y 36) and moved back and forth across it at 0.3 px/ms, 8 px each way, between points where one lane is nearer then the other (both within 12 px): the guides go from the bottom bar's to one lane's once, and stay that lane's, never switching to the other and back (the kept lane gives way only to one 16 px nearer); the release there is in open space, a float.",
+    scene: landingWindow(["a"], ["b"]),
+    item: "b",
+    path: [
+      { x: 60, y: 622 },
+      { x: 100, y: 60 },
+      { x: 40, y: 38 },
+      { x: 32, y: 46 },
+      { x: 40, y: 38 },
+      { x: 32, y: 46 },
+      { x: 40, y: 38 },
+      { x: 32, y: 46 },
+      { x: 40, y: 38 },
+    ],
+    speed: 0.3,
+    rest: 40,
+    moving: { nearGuides: true, guideSwitches: 1 },
+    end: { region: "open" },
+    layout: { items: { b: { floating: true } } },
+    requires: NEAR,
   },
 ];
