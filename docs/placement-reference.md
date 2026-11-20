@@ -312,9 +312,10 @@ drag of `id`:
     a pitch on a bar or a toolbar rail (`:before` or `:after` the item in its id, so it keeps it while the item glides).
     A growing item there (a title filling its bar) counts at its natural length, so its slack is free room.
   - A neighbor gives way when the item lands in the room beside it: it moves away from the room, leaves the lane (the
-    menu, a float), or steps down to a shorter form than it has now; "now" is the layout as seen with the held item
-    lifted, whichever layout the marks are drawn in (with `spot`, a neighbor drawn already stepped down keeps its
-    striped end). The same rule makes a stretch (below). On a bar
+    menu, a float), or steps down to a shorter form than it has now. "Now" is the layout the marks are drawn in (as
+    seen) when no spot is held; with `spot` held, the layout as seen with the held item lifted, since in the spot's
+    own layout a neighbor is already drawn stepped down (it keeps its striped end). The same rule makes a stretch
+    (below), against the layout as seen with the held item lifted. On a bar
     or a toolbar rail a room's `box` has a fixed striped end inside it (`hatch`, `HATCH_END`) at each side whose
     neighbor gives way (`:before` or `:after` in its id, the neighbor's id in its `givesWay`), whether or not the room
     as seen is shorter than the item; where no neighbor gives way the box is plain (an item that fits by taking

@@ -327,8 +327,8 @@ interface Marking {
   readonly gap: (edge: string) => number;
   /**
    * The layout as seen with the held item lifted (what the window showed before this drop): what `givesWay` compares a
-   * drop's layout with, whichever layout the marks are drawn in (with `spot`, the held spot's, where a neighbor has
-   * already stepped down).
+   * drop's layout with while a spot is held (the marks are drawn in the spot's layout, where a neighbor has already
+   * stepped down); without one, the marks' own layout is the one compared with.
    */
   readonly lifted: SceneLayout;
 }
@@ -371,7 +371,7 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
     const raws = base.raws.get(l.id);
     if (!raws) return l;
     // (A sliding spot's item is drawn wherever the hand is: its stretch stays one box, the item drawn nowhere on it.)
-    const again = laneFrom(l.id, raws, held.layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, l.id === heldLane && !held.slide);
+    const again = laneFrom(l.id, raws, held.layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, l.id === heldLane && !held.slide, true);
     if (!again) return l;
     return l.id === heldLane ? again : { ...l, marks: again.marks };
   });
@@ -478,8 +478,11 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   };
 }
 
-/** One lane from its spots: its rect, the spots in order with their stretches in `drawn`, its refused stretches. */
-function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: SceneLayout, dragged: string, rs: readonly SceneRefusal[], halves: boolean, share: { readonly x: number; readonly y: number }, marking: Marking, heldHere = false): Lane | null {
+/**
+ * One lane from its spots: its rect, the spots in order with their stretches in `drawn`, its refused stretches.
+ * `spotHeld`: `drawn` is a held spot's layout (`options.spot`).
+ */
+function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: SceneLayout, dragged: string, rs: readonly SceneRefusal[], halves: boolean, share: { readonly x: number; readonly y: number }, marking: Marking, heldHere = false, spotHeld = false): Lane | null {
   if (list.length === 0) return null;
   const first = list[0]!;
   const axis = first.axis;
@@ -582,7 +585,9 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
         besideMin: halves || marking.pitch <= 0 ? itemLen : marking.pitch,
         gap: marking.gap(first.edge),
         landingOf: (pair) => landings.get(pair),
-        givesWay: (iid, side, after) => givesWay(marking.lifted.items[iid], after.items[iid], id, side, (r) => extent(iid, r)),
+        // Judged against the layout the marks are drawn in; with a spot held, against the layout as seen with the held
+        // item lifted (in the spot's own a neighbor has already stepped down or moved).
+        givesWay: (iid, side, after) => givesWay((spotHeld ? marking.lifted : drawn).items[iid], after.items[iid], id, side, (r) => extent(iid, r)),
       })
     : virtualMarks(id, unique, drawn.items[dragged]);
   return { id, rect: laneRect, axis, spots, refused, marks, ...(list.every((r) => r.strip) ? { owns: true as const } : {}) };

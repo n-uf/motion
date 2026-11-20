@@ -1,0 +1,64 @@
+/**
+ * Seeded bars and toolbar rails (2 to 5 toolbars, some stepping down, some keeping room, some at the end; the held one
+ * docked or floating) for the stretch as the room the drop makes and its marks: the cases a review found, and a sweep.
+ */
+import { describe, expect, it } from "vitest";
+import { lanes, solve, type Edge, type Scene, type SceneItem } from "../src/scene";
+import { bar, byId, form, seeded } from "./scene-fixture";
+
+function gen(seed: number, rail = false): { scene: Scene; held: string } {
+  const r = seeded(seed);
+  const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(r() * xs.length)]!;
+  const n = 2 + Math.floor(r() * 4);
+  const width = 480 + Math.floor(r() * 900);
+  const ids = Array.from({ length: n }, (_, i) => `g${i}`);
+  const items: SceneItem[] = ids.map((id, i) => {
+    const nat = 60 + Math.floor(r() * 300);
+    const mid = Math.max(40, Math.floor(nat * (0.3 + r() * 0.5)));
+    const ic = 30 + Math.floor(r() * 60);
+    const forms = [form("row", Math.min(nat, 120), nat, 31)];
+    if (r() < 0.8) forms.push(form("icons", mid, mid, 31));
+    if (r() < 0.6) forms.push(form("icons", ic, ic, 31));
+    forms.push(form("menu", 0, 0, 0));
+    return {
+      id,
+      kind: "group",
+      used: i + 1,
+      forms: { row: forms, column: [form("icons", 84, 84, 28), form("menu", 0, 0, 0)] },
+      ...(r() < 0.4 ? { align: "end" as const } : {}),
+      ...(r() < 0.3 ? { space: Math.floor(r() * 80) } : {}),
+    };
+  });
+  const held = ids[Math.floor(r() * n)]!;
+  const docked = r() < 0.6;
+  const edgeItems = ids.filter((id) => id !== held || docked);
+  const edge: Edge = rail
+    ? { id: "rail", side: "left", ring: 0, accepts: ["group"], items: edgeItems, cross: { min: 30, max: 30, rail: 30 }, compact: true, gap: 4, pad: { start: 4, end: 4 } }
+    : bar("bar", "bottom", 0, edgeItems, { cross: { min: 31, max: 31, rail: 31 }, gap: pick([0, 4, 8, 12]), pad: { start: 8, end: 8 }, menu: { main: 24 } });
+  return {
+    scene: { stage: { x: 0, y: 0, width: rail ? 700 : width, height: rail ? width : 660 }, edges: [edge], items: byId(items), floats: docked ? [] : [{ id: held, rect: { x: 300, y: 53, width: 36, height: 107 } }], floatKinds: ["group"] },
+    held,
+  };
+}
+
+const lanesOf = (seed: number, rail = false, more: { spot?: string; stretchPositions?: "free" | "pitched" } = {}) => {
+  const { scene, held } = gen(seed, rail);
+  const previous = solve(scene);
+  const own = previous.items[held]!.rect;
+  return { scene, held, previous, regions: lanes(scene, held, { previous, grab: { x: own.width / 2, y: own.height / 2 }, ...more }) };
+};
+
+describe("seeded bars: marks and stretches", () => {
+  it("bar#9, the held toolbar docked, no spot held: gives way is judged in the layout the marks are drawn in (as seen)", () => {
+    const { regions, previous } = lanesOf(9);
+    // g0 (held) is docked at 58 keeping room before it; g1 is drawn after it at 172.
+    expect(previous.items.g0!.edge).toBe("bar");
+    expect(previous.items.g1!.rect.x).toBe(172);
+    const bar9 = regions.lanes.find((l) => l.id === "bar")!;
+    // Before g1: a drop there leaves g1 where it is drawn, so the box is plain (lifting g0 closes g1 up toward the
+    // room, which is no giving way).
+    expect(bar9.marks.filter((m) => m.id.includes("/^|g1")).map((m) => m.kind)).toEqual(["box"]);
+    // After g1: a drop there moves g1 from where it is drawn (172) to the bar's start, away from that room.
+    expect(bar9.marks.filter((m) => m.givesWay).map((m) => `${m.id} ${m.givesWay}`)).toEqual(["bar/hatch/g1|$:before g1"]);
+  });
+});
