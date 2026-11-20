@@ -526,6 +526,20 @@ describe("landing model: a lane that owns its rect (a rail drop strip) takes the
     expect([settled(true), settled(false)]).toEqual(["rail:right", "right"]);
   });
 
+  it("only once the pointer came into it: pressed in the column's outer edge and resting, or reordering slowly along it, the column keeps it", () => {
+    const home = { lane: "right", spot: "right/start/^|$" };
+    // Pressed inside the strip (the column's outer 32 px) and held still: home.
+    const rest = run(base({ regions: withStrip(true), home }), [[0, 1064, 300], [8, 1064, 300], [200, 1064, 300]]);
+    expect(rest.frames.some(({ f }) => f.lane === "rail:right")).toBe(false);
+    expect(rest.frames.at(-1)!.release).toMatchObject({ kind: "spot", lane: "right" });
+    // A slow slide down along the column's edge band, inside the strip from the press: the column holds throughout.
+    const slide = run(base({ regions: withStrip(true), home }), [...path([{ x: 1064, y: 100 }, { x: 1064, y: 500 }], 0.2), [2200, 1064, 500]]);
+    expect(slide.frames.some(({ f }) => f.lane === "rail:right")).toBe(false);
+    // Out of the strip and back in, then settled: now it came in, and the strip takes it.
+    const back = run(base({ regions: withStrip(true), home }), [...path([{ x: 1064, y: 300 }, { x: 960, y: 300 }, { x: 1064, y: 300 }], 0.3), [1000, 1064, 300]]);
+    expect(back.frames.at(-1)!.f.lane).toBe("rail:right");
+  });
+
   it("a fast pass across the strip, out of the window's side and back, opens nothing in it before its gate passes", () => {
     const { frames } = run(base({ regions: withStrip(true), home: { lane: "right", spot: "right/start/^|$" } }), path([{ x: 900, y: 300 }, { x: 1079, y: 300 }, { x: 900, y: 320 }], 3));
     expect(frames.filter(({ f }) => f.lane === "rail:right").length).toBe(0);

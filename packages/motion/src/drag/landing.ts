@@ -23,7 +23,7 @@ import type { PlaceGuides } from "./preview";
  *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered on the first slow step
  *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room. A lane that owns
  *   its rect (`owns`: a rail drop strip at the window's side) takes the pointer inside it from any lane it overlaps, a
- *   held one too, once its own gate passes.
+ *   held one too, once its own gate passes and only once the pointer came into it from outside since the lift.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
@@ -244,6 +244,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   const pathIn = new Map<string, number>();
   /** The path along and across each lane at any speed since the pointer entered it (a touching lane's takeover). */
   const slide = new Map<string, { along: number; across: number }>();
+  /** The owning lanes the pointer has been outside since the lift: only those may take it (it came into them). */
+  const cameIn = new Set<string>();
   let approached: string | null = null;
   let previous: LandingRegion = laneId ? "lane" : "open";
   let frame: LandingFrame = { region: previous, lane: laneId, spot: spotId, landing: null, room: !!spotId, guides: [], shift: false };
@@ -373,6 +375,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       pathIn.set(l.id, inL ? (pathIn.get(l.id) ?? 0) + (slow ? go : 0) : 0);
       const s = slide.get(l.id);
       slide.set(l.id, inL ? { along: (s?.along ?? 0) + go, across: (s?.across ?? 0) + over } : { along: 0, across: 0 });
+      if (l.owns && !inL) cameIn.add(l.id);
     }
 
     let region: LandingRegion;
@@ -390,8 +393,9 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const sl = touching ? slide.get(touching.id) : undefined;
       const slid = !!sl && sl.along >= gates.path && sl.across * 3 <= sl.along;
       // A lane that owns its rect (a rail drop strip) takes the pointer inside it from any lane it overlaps, a held one
-      // too, once its own gate passes (so a pass across it opens nothing).
-      const owner = regions.lanes.find((l) => l.owns && l.id !== held?.id && strictlyIn(l.rect, p) && gate(l));
+      // too, once its own gate passes (so a pass across it opens nothing), and only once the pointer came into it (it has
+      // been outside it since the lift): a press in a column's outer edge, or a slow reorder along it, stays in the column.
+      const owner = regions.lanes.find((l) => l.owns && l.id !== held?.id && cameIn.has(l.id) && strictlyIn(l.rect, p) && gate(l));
       const next = owner ?? (touching && (gate(touching) || slid) ? touching : undefined);
       if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
         const s = along(held, p, step);
@@ -466,6 +470,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       approached = null;
       pathIn.clear();
       slide.clear();
+      cameIn.clear();
       last = moved = null;
       lastStep = 0;
     },
