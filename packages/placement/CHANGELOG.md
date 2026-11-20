@@ -21,14 +21,17 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   grows, a panel's card, stays the float's rect), at the same place and with the same anchor, and
   keeps a growing form's rect for the orient it leaves, so turning there and back gives the same rect and a hand size
   per orient survives. The drag's float target takes the size for the orient it lands in. `storeScene` / `readScene`
-  carry `floatSizes` (an entry that isn't a size is dropped, `item:<id>:floatSizes:<orient>`); a store with only
-  `floatSize` reads as `floatSizes` for its float's orient, and so does a base item's that the store says nothing of.
-  `floatAt` always moves a legacy `floatSize` into `floatSizes` for the orient it was set in (the float's as it was),
-  so a float made in the other orient and turned back still finds it. Host notes: **`SceneItem.floatSize` is deprecated**: still
-  read, no longer written (the scene's own changes drop it into `floatSizes` as they run), and removed in the next
-  breaking release; read `floatSizes` instead. A host that builds a toolbar group's float with a rect of its own and no
-  `floatSizes` now sees it drawn at its form's natural size, not at that rect: give it `floatSizes` (`floatAt` with a
-  rect does). A scene already stored with a float turned before this fix reads as it was stored (a size is a size).
+  carry `floatSizes` (an entry that isn't a size is dropped, `item:<id>:floatSizes:<orient>`). **Per-orient sizes
+  apply to items that declare `floatSizes`; others keep the stored rect** (`declaresFloatSizes`): an item with no
+  `floatSizes` is framed exactly as before, a float at its first form at its stored rect, its legacy `floatSize` read
+  in any orient and kept as it is by `readScene` and by `floatAt` with no rect. On an item that declares
+  `floatSizes`, a legacy `floatSize` (stored, a base item's, or in memory at `floatAt`) is the size for the orient its
+  float is in. `floatAt` with a rect, a hand `resize` and `orient()` write `floatSizes`, so an item becomes declared
+  once its size is set per orient. Host notes: **`SceneItem.floatSize` is deprecated**: still read, written into
+  `floatSizes` by the scene's own changes as they run, and removed in the next breaking release; read `floatSizes`
+  instead. A host that declares no `floatSizes` sees no change: its floats keep their stored rects. A host that
+  declares `floatSizes` for one orient and floats the item in the other sees that orient's natural size, not the
+  stored rect: declare both. A scene already stored with a float turned before this fix reads as it was stored.
 - `./scene`, **`SceneItemLayout.axis`** (additive). `solve` reports the axis every item lies along, `"row"` or
   `"column"`: a placed item's is its edge's (a bar's items lie along a row, a column's, a rail's and a rail tab's along
   a column, whatever form they took; a toolbar group's icons form is a `row` in a bar), a float's its orient. Hosts read

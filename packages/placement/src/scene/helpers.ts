@@ -325,6 +325,12 @@ export const floatOrientOf = (item: SceneItem): Orient => {
 const sized = (s: Size | undefined): s is Size => !!s && Number.isFinite(s.width) && Number.isFinite(s.height) && s.width > 0 && s.height > 0;
 
 /**
+ * Whether `item` declares `floatSizes` (the per-orient float sizes). Only such an item is sized per orient; one that
+ * declares none is framed as before them: a float at its first form keeps its stored rect.
+ */
+export const declaresFloatSizes = (item: SceneItem): boolean => item.floatSizes !== undefined && item.floatSizes !== null;
+
+/**
  * The natural size of `item`'s first form along `orient`, a form whose length is its own: its main natural length along
  * `orient` and its cross. Undefined when the item has no form there, or that form grows (a panel's card has no natural
  * float length) or has no size.
@@ -358,8 +364,12 @@ export function floatSizesOf(item: SceneItem, floatOrient: Orient = floatOrientO
  * (`floatOrient`: the float's own, default `floatOrientOf`, so a float turned to the other orient never takes the old
  * one's size); else its first form's natural size along `orient`, or `DEFAULT_FLOAT_SIZE` when that form grows (a
  * panel's card has no natural float length) or the item has no form there.
+ *
+ * Per-orient sizes apply only to an item that declares `floatSizes`. One that declares none keeps the rule from before
+ * them: its legacy `floatSize` in any orient, else its first form's natural size along `orient`, else the default.
  */
 export function floatSizeOf(item: SceneItem, orient: Orient = floatOrientOf(item), floatOrient: Orient = floatOrientOf(item)): Size {
+  if (!declaresFloatSizes(item)) return sized(item.floatSize) ? item.floatSize : (naturalFloatSize(item, orient) ?? DEFAULT_FLOAT_SIZE);
   const own = item.floatSizes?.[orient];
   if (sized(own)) return own;
   if (sized(item.floatSize) && orient === floatOrient) return item.floatSize;
@@ -457,7 +467,8 @@ export function pastWrap(forms: readonly StackForm[], from: number): number | un
  * that orient (`floatSizes`, which `floatAt` with a rect and a hand resize write; a legacy `floatSize` in the orient it
  * was set in), and only without one that form's natural size along its orient. So a toolbar group's float given an
  * explicit size keeps it; one given none fits its content; and one turned to the other orient never keeps the rect it
- * had in the old one.
+ * had in the old one. Per-orient sizes apply only to an item that declares `floatSizes` (`declaresFloatSizes`); one
+ * that declares none keeps its stored rect at its first form, as before them.
  */
 export function floatShape(item: SceneItem, f: { readonly rect: Rect; readonly orient?: Orient }): { form: number; width: number; height: number; none?: true } {
   const orient = f.orient ?? floatOrientOf(item);
@@ -476,6 +487,6 @@ export function floatShape(item: SceneItem, f: { readonly rect: Rect; readonly o
   if (form > 0) return orient === "column" ? { form, width: w, height: px(fm.main.natural) } : { form, width: px(fm.main.natural), height: h };
   // The first form: a form that grows (a panel's card) is the rect's size, the one the user sizes; any other (a toolbar
   // group) is the size kept for its orient (an explicit size stays), else its own natural size (`floatSizeOf`), never a
-  // rect left from the other orient.
-  return { form, ...(fm.main.grows ? { width: w, height: h } : floatSizeOf(item, orient, f.orient ?? floatOrientOf(item))) };
+  // rect left from the other orient. An item that declares no `floatSizes` keeps its stored rect, as before them.
+  return { form, ...(fm.main.grows || !declaresFloatSizes(item) ? { width: w, height: h } : floatSizeOf(item, orient, f.orient ?? floatOrientOf(item))) };
 }

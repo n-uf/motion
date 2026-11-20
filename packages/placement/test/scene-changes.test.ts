@@ -251,9 +251,9 @@ describe("the stored form", () => {
     expect(read.dropped).toEqual([]);
     expect(edge(read.scene, "toolbar").items).toEqual(["tools", "views", "zoom"]);
     expect(edge(read.scene, "left").size).toBe(320);
-    // The one `floatSize` the store has is the size for the orient its float is in.
-    expect(read.scene.items.notes).toMatchObject({ from: 1, used: 10, floatSizes: { column: { width: 300, height: 340 } } });
-    expect(read.scene.items.notes!.floatSize).toBeUndefined();
+    // The one `floatSize` the store has stays as it is: the item declares no `floatSizes`, so it is read as before them.
+    expect(read.scene.items.notes).toMatchObject({ from: 1, used: 10, floatSize: { width: 300, height: 340 } });
+    expect(read.scene.items.notes!.floatSizes).toBeUndefined();
     expect(read.scene.items.marks!.kept).toBe(true);
     expect(solve(read.scene).edges.left!.cross).toBe(320);
   });

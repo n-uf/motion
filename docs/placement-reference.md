@@ -547,7 +547,11 @@ order: `floatSizes[orient]`; the deprecated single `floatSize`, only where `orie
 (`floatOrient`, default the item's); else the item's first form's natural size along `orient`, not 280 × 360; a form that
 grows (a panel's card) keeps `DEFAULT_FLOAT_SIZE` (280 × 360). `floatAt` with a rect and a hand `resize` write the size
 for the orient the float is in; the drag's float target takes the size for the orient it lands in. Give a float
-`orient: "column"` (or the item `floatOrient: "column"`) to keep a row-first group vertical.
+`orient: "column"` (or the item `floatOrient: "column"`) to keep a row-first group vertical. **Per-orient sizes apply to
+items that declare `floatSizes`; others keep the stored rect** (`declaresFloatSizes(item)`): an item with no
+`floatSizes` is framed as before them, a float at its first form at its stored rect, and `floatSizeOf` reads its legacy
+`floatSize` in any orient. `floatAt` with a rect, a hand `resize` and `orient()` write `floatSizes`, so an item becomes
+declared once its size is set per orient.
 
 **Turning a float.** `orient(scene, id, to)` gives the frame the size the new orient draws it at (`floatSizeOf` for
 `to`, as `solve` draws it), at the place the float already has; an anchored float keeps its anchor, so the anchor puts
@@ -557,7 +561,7 @@ rect it leaves under its old orient, so turning back restores it, and a hand siz
 of turns. Rotating a toolbar there and back gives the same rect, and an upright 36 × 107 strip turned to a row is the
 row's 88 × 28, never the old frame around the new content. `SceneItem.floatSize` is deprecated: still read, never
 written, and removed in the next breaking release; `readScene` reads a stored one as `floatSizes` for the orient its
-float is in.
+float is in on an item that declares `floatSizes`, and keeps it as it is on one that declares none.
 
 **Anchored floats keep clear of the other floats.** An anchored float (Float from a menu: `moveTo(scene, id,
 { kind: "float" })` with no rect, or any float with `anchor`) is also kept clear of every float with a rect of its own

@@ -33,7 +33,7 @@
  */
 import { clampInto, type Rect, type Size } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, floatSizesOf, foldedIndex, formsOf, isHandFolded, isSideColumn, isSince, namesZone, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
+import { axesOf, axisOf, columnFromTemplate, declaresFloatSizes, floatOrientOf, placingOf, floatShape, floatSizeOf, floatSizesOf, foldedIndex, formsOf, isHandFolded, isSideColumn, isSince, namesZone, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
 import { solve } from "./solve";
 import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
@@ -342,9 +342,11 @@ export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): S
   // A float keeps no bar space (`SceneItem.space`). Lifted first, as it lies, so the room it held (its own space
   // included) goes back to its stretch.
   const { space: _space, ...unspaced } = item;
-  // A legacy `floatSize` always moves into `floatSizes`, for the orient it was set in (the float's as it was), so a
-  // float made in the other orient never takes it for its own.
-  const next = withFloatSizes(unspaced, was?.orient ?? floatOrientOf(item), at && at.width > 0 && at.height > 0 ? { orient: fo, size: { width: at.width, height: at.height } } : undefined);
+  // A rect sets the size for the orient it floats in (`floatSizes`), a legacy `floatSize` moving in for the orient it
+  // was set in (the float's as it was). With no rect, an item that declares `floatSizes` takes its legacy size in the
+  // same way; one that declares none keeps it as it is, framed as before the per-orient sizes.
+  const set = at && at.width > 0 && at.height > 0 ? { orient: fo, size: { width: at.width, height: at.height } } : undefined;
+  const next = set || declaresFloatSizes(item) ? withFloatSizes(unspaced, was?.orient ?? floatOrientOf(item), set) : unspaced;
   const lifted = withItem(lift(scene, id), next);
   return { ...lifted, floats: [...lifted.floats, float] };
 }
