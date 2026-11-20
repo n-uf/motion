@@ -218,7 +218,7 @@ function parts(): readonly SheetItem[] {
   const ghost = `<i class="hd-trail" aria-hidden="true"></i>`;
   return [
     { html: `<section class="hd-item hd-panel hd-k-header hd-spec hd-press">${head("notes")}</section>`, fn: "createGripPress", what: "press the grip: a drag, else a click" },
-    { html: `<span class="hd-slot"></span>`, fn: "previewPlan", what: "the dashed slot where a drop lands" },
+    { html: `<span class="hd-slot"></span>`, fn: "previewPlan", what: "when the dashed slot shows, and the room it makes" },
     { html: `<section class="hd-item hd-panel hd-k-header hd-spec hd-grab">${head("notes")}<b class="hd-pin"></b></section>`, fn: "anchoredMorph", what: "the held panel keeps its grab point" },
     { html: `<span class="hd-settle">${ghost}<section class="hd-item hd-panel hd-k-header hd-spec">${head("notes")}</section></span>`, fn: "createSettle", what: "the panel settles onto the pointer" },
   ];
