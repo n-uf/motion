@@ -1060,7 +1060,8 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
   stretches(scene, dragged, options, seen, raws, (run) => ({ a, b, w, zones, atOf, spaceAt, before, after }) => {
     const { e, axis, middle, mine } = run;
-    if (zones.length === 0 || b - w < a - EPS) return;
+    // (A stretch with room for the item at one start only is no range: its plain dock stays a spot of its own.)
+    if (zones.length === 0 || b - w <= a + EPS) return;
     {
       /** The dock that lands the item's start at `x0`: its place, scene and layout, or null where it lands elsewhere. */
       const land = (x0: number): { place: DockPlace; result: SceneAfter } | null => {
@@ -1083,6 +1084,8 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
       if (ok.length === 0) return;
       const from = ok[0]!.x0;
       const to = ok.at(-1)!.x0;
+      // Under a pixel (the grain a free start lands on, `STEP`) it is a point, no range: its docks stay spots of their own.
+      if (to - from < STEP) return;
       const bId = before?.id ?? "^";
       const nId = after?.id ?? "$";
       // The docks landing inside it, its neighbors either side: snap points that commit as they are.

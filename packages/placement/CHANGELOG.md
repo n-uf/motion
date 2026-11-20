@@ -20,6 +20,10 @@ A stretch is the room the drop makes. Host notes: additive; a host that draws ha
     dock at one end while the pointer crossed the open room. A dock's push of a neighbor that keeps no room for it
     is no room made: that end stays where it is seen. The forms don't depend on the space a dock keeps, so every start
     in the stretch finds them alike, and every start that lands as aimed (within 1 px) is in the range.
+  - **No sliding spot is a point.** A stretch with room for the item at a single start (its range under a pixel) has
+    no sliding spot: the plain dock there stays a spot of its own, with its own id and no `slide`, and the item's own
+    place there keeps its id and zone. (Before this, such a stretch could show as a `…@slide` spot with `from` equal to
+    `to`, taking over the plain dock's id.)
   - **Marks:** a box gets its striped end (`HATCH_END`) at the side of each neighbor that gives way, whether or not the
     room as seen is shorter than the item; where none moves, leaves or steps down, the box is plain. The hatch mark
     carries **`LaneMark.givesWay`**, the neighbor's id (data for hosts and tests; nothing to show). The old fallback for

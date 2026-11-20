@@ -381,7 +381,8 @@ every fixed item kept (checked at its ends and every `pitch` px between; under `
 step, `SPOT_PITCH` (40 px) when it is 0 or less, and never makes a spot). A stretch (the room the drop makes, above:
 over room as seen shorter than the item that a neighbor steps down to make, the range runs from flush after its short
 form) shorter than the item has no sliding
-spot, nor has one bounded on both sides by zones the held item cannot dock in (no start-zone item or edge start before
+spot, nor has one with room for the item at a single start (a range under a pixel, `slide.step`: a point, no range),
+nor one bounded on both sides by zones the held item cannot dock in (no start-zone item or edge start before
 it, no end-zone item or edge end after it); its plain docks stay spots of their own. Next to a center item a stretch
 still has one wherever a zone can take the item. A center dock's snap commits that dock as it is, so it moves its center
 neighbor by design (the center zone re-centers its items), where a plain dock leaves its neighbors put.
