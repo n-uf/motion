@@ -3,7 +3,6 @@
  * touches the DOM; the host copies the fields it needs out of PointerEvent /
  * WheelEvent / Safari's GestureEvent.
  *
- * Extracted from an app's input layer: the recognizer that app used.
  * Hit testing and routing (what is under a point, who gets a gesture) stay
  * with the host.
  */
@@ -34,7 +33,7 @@ export const NO_MODIFIERS: Readonly<Modifiers> = Object.freeze({ shift: false, a
  */
 export interface GesturePointer {
   screen: Point; // CSS px relative to the host's view
-  canvas: Point; // the host's world units, through its camera at the time of the event (RecognizerOptions.toCanvas)
+  canvas: Point; // the host's world units, through its camera at the time of the event (RecognizerOptions.toCanvas; else `screen`)
   kind: PointerKind;
   buttons: number; // PointerEvent.buttons bit mask
   modifiers: Modifiers;
@@ -64,9 +63,9 @@ export interface RawPointerEvent {
   pressure?: number;
   /**
    * lostpointercapture only: whose capture was lost. "content" (an element inside the view's content, e.g.
-   * right after the host took the pointer for a modifier-drag) leaves the gesture alone; default "surface".
+   * right after the host took the pointer for a modifier-drag) leaves the gesture alone; default "view".
    */
-  lostBy?: "surface" | "content";
+  lostBy?: "view" | "content";
 }
 
 export interface RawWheelEvent {
@@ -95,9 +94,6 @@ export type RawInputEvent = RawPointerEvent | RawWheelEvent | RawSafariGestureEv
 // The gesture stream
 // ----------------------------------------------------------------------------
 
-/** What a modifier-drag would do if the pointer travels with the drag modifier held */
-export type ModifierDrag = "move" | "resize";
-
 export type CancelReason =
   | "pointercancel" // the browser or OS took the pointer (scroll, system gesture, palm rejection)
   | "lostcapture" // pointer capture lost before the pointer went up
@@ -115,9 +111,12 @@ interface PointerGestureBase {
 
 export type InputGesture =
   /** A pointer went down (one per gesture; a second touch becomes a pinch instead) */
-  | { type: "press"; pointer: GesturePointer; modifierDrag: ModifierDrag | null }
-  /** The pointer travelled past the click threshold; modifierDrag is set when the drag modifier was held then */
-  | (PointerGestureBase & { type: "dragStart"; modifierDrag: ModifierDrag | null })
+  | { type: "press"; pointer: GesturePointer }
+  /**
+   * The pointer travelled past the click threshold. What a drag means (a modifier-drag that moves or resizes, say) is
+   * the host's: it reads `origin.button` and the keys held (`isHeld(pointer.modifiers, key)`).
+   */
+  | (PointerGestureBase & { type: "dragStart" })
   /** A move after dragStart (moves inside the threshold are not reported) */
   | (PointerGestureBase & { type: "move" })
   /** Held still past the long-press delay (touch and pen by default); at most once per press */

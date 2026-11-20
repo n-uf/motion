@@ -116,6 +116,14 @@ describe("recognizer on motion's clock", () => {
     expect(clock.pendingTimers).toBe(0);
   });
 
+  it("needs no toCanvas: with none, a pointer's canvas point is its screen point", () => {
+    const out: InputGesture[] = [];
+    createRecognizer({}, (g) => out.push(g)).feed(pointer("pointerdown", 7, 0));
+    const press = out[0];
+    expect(press?.type).toBe("press");
+    if (press?.type === "press") expect(press.pointer.canvas).toEqual(press.pointer.screen);
+  });
+
   it("gets its moves through a coalescer in the input phase; a flush before the up keeps the last move", () => {
     const clock = createFakeClock();
     const loop = createFrameLoop({ clock });

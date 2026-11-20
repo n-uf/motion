@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DOUBLE_CLICK } from "../../double-click";
+import { isHeld } from "../modifiers";
 import { RECOGNIZER_DEFAULTS } from "../recognizer";
-import type { InputGesture } from "../types";
+import type { GesturePointer, InputGesture, ModifierKey } from "../types";
 import { camera, setup } from "./helpers";
 
 type Of<T extends InputGesture["type"]> = Extract<InputGesture, { type: T }>;
@@ -9,6 +10,16 @@ const last = <T extends InputGesture["type"]>(out: InputGesture[], type: T): Of<
   const g = [...out].reverse().find((x) => x.type === type);
   if (!g) throw new Error(`no ${type} in ${out.map((x) => x.type).join(",")}`);
   return g as Of<T>;
+};
+
+/**
+ * What a modifier-drag means, as a host derives it from the stream: with `key` held at the press (and still at the
+ * drag's start), the press's button moves (primary) or resizes (secondary); else none.
+ */
+const modifierDrag = (g: { pointer: GesturePointer; origin?: GesturePointer }, key: ModifierKey): "move" | "resize" | null => {
+  const press = g.origin ?? g.pointer;
+  if (!isHeld(press.modifiers, key) || !isHeld(g.pointer.modifiers, key)) return null;
+  return press.button === 0 ? "move" : press.button === 2 ? "resize" : null;
 };
 
 describe("recognizer: mouse", () => {
@@ -43,7 +54,7 @@ describe("recognizer: mouse", () => {
     t.feed(t.ev("pointermove", 1, 9, 0));
     t.feed(t.ev("pointerup", 1, 9, 0));
     expect(t.types()).toEqual(["press", "dragStart", "move", "move", "release"]);
-    expect(last(t.out, "dragStart")).toMatchObject({ modifierDrag: null });
+    expect(last(t.out, "dragStart")).not.toHaveProperty("modifierDrag");
     expect(last(t.out, "release")).toMatchObject({ click: false, clickCount: 0, dragged: true });
   });
 
@@ -139,24 +150,24 @@ describe("recognizer: mouse", () => {
   });
 });
 
-describe("recognizer: the drag modifier", () => {
-  it("left press with it held is a move candidate, confirmed at dragStart", () => {
+describe("recognizer: the drag modifier (its meaning derived by the host from the stream)", () => {
+  it("left press with it held is a move, still held at dragStart", () => {
     const t = setup({ dragModifier: "meta" });
     t.feed(t.ev("pointerdown", 1, 0, 0, { modifiers: { meta: true } }));
-    expect(last(t.out, "press").modifierDrag).toBe("move");
+    expect(modifierDrag(last(t.out, "press"), "meta")).toBe("move");
     t.feed(t.ev("pointermove", 1, 10, 0, { modifiers: { meta: true } }));
-    expect(last(t.out, "dragStart").modifierDrag).toBe("move");
+    expect(modifierDrag(last(t.out, "dragStart"), "meta")).toBe("move");
   });
 
   it("right press with it held is a resize; the middle button never is", () => {
     const t = setup({ dragModifier: "alt" });
     t.feed(t.ev("pointerdown", 1, 0, 0, { button: 2, buttons: 2, modifiers: { alt: true } }));
-    expect(last(t.out, "press").modifierDrag).toBe("resize");
+    expect(modifierDrag(last(t.out, "press"), "alt")).toBe("resize");
     t.feed(t.ev("pointermove", 1, 10, 0, { buttons: 2, modifiers: { alt: true } }));
-    expect(last(t.out, "dragStart").modifierDrag).toBe("resize");
+    expect(modifierDrag(last(t.out, "dragStart"), "alt")).toBe("resize");
     t.feed(t.ev("pointerup", 1, 10, 0, { button: 2 }));
     t.feed(t.ev("pointerdown", 1, 0, 0, { button: 1, buttons: 4, modifiers: { alt: true } }));
-    expect(last(t.out, "press").modifierDrag).toBeNull();
+    expect(modifierDrag(last(t.out, "press"), "alt")).toBeNull();
   });
 
   it("modifier+click without travel stays a click for the content (Cmd/Ctrl+click multi-select)", () => {
@@ -173,29 +184,28 @@ describe("recognizer: the drag modifier", () => {
     const t = setup({ dragModifier: "meta" });
     t.feed(t.ev("pointerdown", 1, 0, 0, { modifiers: { meta: true } }));
     t.feed(t.ev("pointermove", 1, 10, 0));
-    expect(last(t.out, "dragStart").modifierDrag).toBeNull();
+    expect(modifierDrag(last(t.out, "dragStart"), "meta")).toBeNull();
   });
 
-  it("another modifier, or the drag modifier off (null), gives no candidate", () => {
-    const off = setup({ dragModifier: null });
-    off.feed(off.ev("pointerdown", 1, 0, 0, { modifiers: { meta: true, alt: true } }));
-    expect(last(off.out, "press").modifierDrag).toBeNull();
-    const ctrl = setup({ dragModifier: "ctrl" });
-    ctrl.feed(ctrl.ev("pointerdown", 1, 0, 0, { modifiers: { meta: true } }));
-    expect(last(ctrl.out, "press").modifierDrag).toBeNull();
-    ctrl.feed(ctrl.ev("pointerup", 1, 0, 0));
-    ctrl.feed(ctrl.ev("pointerdown", 1, 0, 0, { modifiers: { ctrl: true } }));
-    expect(last(ctrl.out, "press").modifierDrag).toBe("move");
+  it("the stream carries no meaning of its own: press and dragStart report the pointer only", () => {
+    const t = setup({ dragModifier: "ctrl" });
+    t.feed(t.ev("pointerdown", 1, 0, 0, { modifiers: { ctrl: true } }));
+    t.feed(t.ev("pointermove", 1, 10, 0, { modifiers: { ctrl: true } }));
+    expect(Object.keys(last(t.out, "press")).sort()).toEqual(["pointer", "type"]);
+    expect(Object.keys(last(t.out, "dragStart")).sort()).toEqual(["origin", "pointer", "type"]);
+    expect(modifierDrag(last(t.out, "dragStart"), "ctrl")).toBe("move");
+    expect(modifierDrag(last(t.out, "dragStart"), "meta")).toBeNull();
   });
 
-  it("setDragModifier applies from the next press", () => {
-    const t = setup({ dragModifier: "meta" });
-    t.rec.setDragModifier("alt");
-    t.feed(t.ev("pointerdown", 1, 0, 0, { modifiers: { meta: true } }));
-    expect(last(t.out, "press").modifierDrag).toBeNull();
+  it("setDragModifier applies from the next press (on mac, Ctrl as the drag modifier keeps a Ctrl+press primary)", () => {
+    const t = setup({ platform: "mac", dragModifier: "meta" });
+    t.rec.setDragModifier("ctrl");
+    t.feed(t.ev("pointerdown", 1, 0, 0, { modifiers: { ctrl: true } }));
+    expect(last(t.out, "press").pointer.button).toBe(0);
     t.feed(t.ev("pointerup", 1, 0, 0));
-    t.feed(t.ev("pointerdown", 1, 0, 0, { modifiers: { alt: true } }));
-    expect(last(t.out, "press").modifierDrag).toBe("move");
+    t.rec.setDragModifier("meta");
+    t.feed(t.ev("pointerdown", 1, 0, 0, { modifiers: { ctrl: true } }));
+    expect(last(t.out, "press").pointer.button).toBe(2);
   });
 });
 
@@ -212,14 +222,14 @@ describe("recognizer: macOS Ctrl+click is a secondary click", () => {
   it("on mac Cmd+Ctrl+drag resizes, as Cmd+right-drag does", () => {
     const t = setup({ platform: "mac", dragModifier: "meta" });
     t.feed(t.ev("pointerdown", 1, 0, 0, { modifiers: { ctrl: true, meta: true } }));
-    expect(last(t.out, "press").modifierDrag).toBe("resize");
+    expect(modifierDrag(last(t.out, "press"), "meta")).toBe("resize");
   });
 
   it("not when Ctrl is the drag modifier: Ctrl+drag moves the window", () => {
     const t = setup({ platform: "mac", dragModifier: "ctrl" });
     t.feed(t.ev("pointerdown", 1, 0, 0, { modifiers: { ctrl: true } }));
     expect(last(t.out, "press").pointer.button).toBe(0);
-    expect(last(t.out, "press").modifierDrag).toBe("move");
+    expect(modifierDrag(last(t.out, "press"), "ctrl")).toBe("move");
   });
 
   it("not elsewhere, nor for a pen or a finger, nor for another button", () => {
@@ -279,7 +289,7 @@ describe("recognizer: pen", () => {
     t.feed(t.ev("pointermove", 7, 1, 1, { kind: "pen", buttons: 0 }));
     t.feed(t.ev("pointerdown", 7, 0, 0, { kind: "pen", button: 2, buttons: 2, modifiers: { alt: true } }));
     expect(t.types()).toEqual(["hover", "press"]);
-    expect(last(t.out, "press").modifierDrag).toBe("resize");
+    expect(modifierDrag(last(t.out, "press"), "alt")).toBe("resize");
   });
 
   it("a cancelled pen press clears its long-press timer", () => {
