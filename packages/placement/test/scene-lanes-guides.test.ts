@@ -383,24 +383,53 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     expect(bad.slice(0, 6)).toEqual([]);
   });
 
-  it("an empty side rail by a column is a lane one rail wide at the window's edge, drawn as a thin striped edge on the column's window side (no box, no band over the content)", () => {
+  it("an empty side rail by a column is a lane one rail wide at the window's edge: drawn at its real size (a box over the column's outer strip, by default) or as a thin striped edge on the window side (`emptyLanes: \"edge\"`)", () => {
     const s = docWindow();
     const previous = solve(s);
-    const rs = lanes(s, "views", { previous });
-    const rail = rs.lanes.find((x) => x.id === "rail-right")!;
     const column = previous.edges.right!.rect;
-    // The hit strip stays one rail wide.
-    expect(rail.rect.x + rail.rect.width).toBeCloseTo(s.stage.x + s.stage.width, 3);
-    expect(rail.rect.width).toBeCloseTo(30, 3);
-    const hatches = rail.marks.filter((m) => m.kind === "hatch");
-    expect(hatches.length, rail.marks.map((m) => `${m.kind} ${m.id}`).join()).toBeGreaterThan(0);
-    // No box over the column; each hatch at most `HATCH_EDGE` thick, along the window's edge.
-    for (const m of rail.marks) if (m.kind === "box") expect(overlaps(m.rect, column), m.id).toBe(false);
-    for (const h of hatches) {
-      expect(h.rect.width, h.id).toBeLessThanOrEqual(HATCH_EDGE + 1e-6);
-      expect(h.rect.x + h.rect.width).toBeCloseTo(s.stage.x + s.stage.width, 3);
+    for (const emptyLanes of [undefined, "real", "edge"] as const) {
+      const rs = lanes(s, "views", { previous, ...(emptyLanes ? { emptyLanes } : {}) });
+      const rail = rs.lanes.find((x) => x.id === "rail-right")!;
+      // The hit strip is one rail wide either way.
+      expect(rail.rect.x + rail.rect.width).toBeCloseTo(s.stage.x + s.stage.width, 3);
+      expect(rail.rect.width).toBeCloseTo(30, 3);
+      if (emptyLanes === "edge") {
+        // No box at all; thin strips along the window's edge.
+        expect(rail.marks.some((m) => m.kind === "box"), rail.marks.map((m) => m.id).join()).toBe(false);
+        const hatches = rail.marks.filter((m) => m.kind === "hatch");
+        expect(hatches.length).toBeGreaterThan(0);
+        for (const h of hatches) {
+          expect(h.rect.width, h.id).toBeLessThanOrEqual(HATCH_EDGE + 1e-6);
+          expect(h.rect.x + h.rect.width).toBeCloseTo(s.stage.x + s.stage.width, 3);
+        }
+        expect(hatches.some((m) => overlaps(m.rect, column))).toBe(true);
+      } else {
+        // Its real size: boxes one rail wide (the hit strip), over the column's outer strip; no stripes.
+        expect(rail.marks.some((m) => m.kind === "hatch")).toBe(false);
+        const boxes = rail.marks.filter((m) => m.kind === "box");
+        expect(boxes.length).toBeGreaterThan(0);
+        for (const b of boxes) expect(b.rect.width, b.id).toBeCloseTo(30, 3);
+        expect(boxes.some((m) => overlaps(m.rect, column))).toBe(true);
+      }
     }
-    expect(hatches.some((m) => overlaps(m.rect, column))).toBe(true);
+  });
+
+  it("an empty top bar: a box along its band at its real size, or a thin striped strip on its window side with `emptyLanes: \"edge\"`", () => {
+    const s = docWindow();
+    const previous = solve(s);
+    for (const emptyLanes of ["real", "edge"] as const) {
+      const top = lanes(s, "views", { previous, emptyLanes }).lanes.find((x) => x.id === "top")!;
+      const marks = top.marks;
+      expect(marks.length).toBeGreaterThan(0);
+      if (emptyLanes === "real") for (const m of marks) expect([m.kind, m.rect.height]).toEqual(["box", top.rect.height]);
+      else
+        for (const m of marks) {
+          expect(m.kind).toBe("hatch");
+          expect(m.rect.height).toBeLessThanOrEqual(HATCH_EDGE + 1e-6);
+          // The window side of a top bar: its top.
+          expect(m.rect.y).toBeCloseTo(top.rect.y, 3);
+        }
+    }
   });
 
   it("over a column that takes nothing, an empty side rail is entered at once: no \"Can't go here\" in its band, and a release there docks in it", () => {
