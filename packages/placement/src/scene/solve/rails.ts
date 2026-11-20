@@ -33,7 +33,7 @@ export function layRiders(d: Draft, host: Col, riders: readonly Col[], top: numb
     for (const b of bars) {
       const at = rect(hr.x, y, hr.width, b.h);
       const it = scene.items[b.id]!;
-      items[b.id] = { rect: at, hidden: b.f?.hides ?? [], kind: it.kind, form: b.form, formKind: b.f?.kind ?? "header", edge: c.edge.id, zone: zoneOf(it), rides: host.edge.id, folded: "hand", foldedBy: "hand" };
+      items[b.id] = { rect: at, hidden: b.f?.hides ?? [], kind: it.kind, axis: "column", form: b.form, formKind: b.f?.kind ?? "header", edge: c.edge.id, zone: zoneOf(it), rides: host.edge.id, folded: "hand", foldedBy: "hand" };
       y += b.h;
     }
     edges[c.edge.id] = { side: c.edge.side, ring: finite(c.edge.ring, 0), rect: rect(hr.x, y0, hr.width, y - y0), cross: 0, menu: null, items: bars.map((b) => b.id), tabs: [], stack: c.solved.stack, free: c.solved.free, rides: host.edge.id, folded: "hand" };
@@ -86,7 +86,7 @@ export function layRail(d: Draft, side: "left" | "right", railRect: Rect, railed
     const form = p ? p.form : ri >= 0 ? ri : forms.length === 0 ? 0 : startOf(it, forms);
     const at = p ? rect(railRect.x, railRect.y + p.rect.y, railRect.width, p.rect.height) : rect(railRect.x, y, railRect.width, ri >= 0 ? px(forms[ri]!.main.natural) : railRect.width);
     const title = forms[form]?.title === true;
-    items[id] = { rect: at, hidden: forms[form]?.hides ?? [], kind: it.kind, form, formKind: "rail", edge: c.edge.id, zone: zoneOf(it), rail: side, ...(title ? { railTitle: side } : {}), folded: g.auto.has(c) ? "auto" : "hand", foldedBy: startOf(it, forms) > 0 ? "hand" : "auto" };
+    items[id] = { rect: at, hidden: forms[form]?.hides ?? [], kind: it.kind, axis: "column", form, formKind: "rail", edge: c.edge.id, zone: zoneOf(it), rail: side, ...(title ? { railTitle: side } : {}), folded: g.auto.has(c) ? "auto" : "hand", foldedBy: startOf(it, forms) > 0 ? "hand" : "auto" };
     segments.push({ id, edge: c.edge.id, rect: at });
     y += at.height;
   }

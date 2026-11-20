@@ -169,7 +169,7 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
     if (fit.covers.length > 0) notes.push({ code: "float-covers", id: f.id });
     // A float never gives way: it is folded by hand or not at all.
     const foldedBy = foldedByOf(it, formsOf(it, fo), from);
-    items[f.id] = { ...shapeOf(form, fit.rect, fo, fit.rect.width), hidden: form?.hides ?? [], rect: fit.rect, kind: it.kind, form: from, formKind: form?.kind ?? "open", floating: true, ...(foldedBy ? { foldedBy } : {}) };
+    items[f.id] = { ...shapeOf(form, fit.rect, fo, fit.rect.width), hidden: form?.hides ?? [], rect: fit.rect, kind: it.kind, axis: fo, form: from, formKind: form?.kind ?? "open", floating: true, ...(foldedBy ? { foldedBy } : {}) };
     floats.push(f.id);
   }
   return floats;

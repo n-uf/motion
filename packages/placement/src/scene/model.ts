@@ -477,6 +477,12 @@ export interface SceneItemLayout {
   /** Stage px. An item in the » menu has the menu entry's rect. */
   readonly rect: Rect;
   readonly kind: Kind;
+  /**
+   * The axis it lies along, for every item: a placed item's edge's (a bar's items lie along a row, a column's and a
+   * rail's along a column, whatever form they took: a bar's icons form is a row), a float's orient. `form` indexes the
+   * forms of this axis. Hosts read it here, never from `formKind`.
+   */
+  readonly axis: Orient;
   /** The form it took: an index into the forms of its axis. */
   readonly form: number;
   readonly formKind: StackFormKind;
