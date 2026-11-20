@@ -540,7 +540,9 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         }
       }
     }
-    const ownerMarks = owner ? (owner.id === near?.id ? nearGuides(owner) : all(owner, true)) : [];
+    // The owner shows its mark once entered less the landing it would take there, whether it is Near or only the corner's
+    // owner by reach: the lane the pointer approaches shows what entry draws, with no jump at entry.
+    const ownerMarks = owner ? nearGuides(owner) : [];
     const cutBy = owner ? owner.entry!.map((m) => m.rect) : [];
     return regions.lanes.flatMap((l) => {
       if (owner && l.id === owner.id) return ownerMarks;
