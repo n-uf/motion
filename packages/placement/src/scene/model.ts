@@ -80,7 +80,10 @@ export interface SceneItem {
    * a fixed item at a zone's anchor (window controls at a bar's end) keeps its place, so no gap after it is offered; a
    * fixed item with `pushable` at the anchor (a state or page cell at a title bar's end) lets the gap after the run be a
    * stop, a place a toolbar homed after it can be put back in. It keeps its order among the fixed items: no gap is
-   * offered between two `pushable` items. A declaration of the scene like `Edge.zoneAccepts`: `readScene` takes it from
+   * offered between two `pushable` items. The rule is "a movable item dropped beside me, on my anchor's side, may push
+   * me inward", so in the start zone it is the mirror: the gap before a run of `pushable` items at the edge's start (a
+   * title at a title bar's start) is a stop, and a drop there pushes them inward. A declaration of the scene like
+   * `Edge.zoneAccepts`: `readScene` takes it from
    * `base`, `storeScene` never writes it.
    */
   readonly pushable?: boolean;
