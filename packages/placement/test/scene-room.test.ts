@@ -5,7 +5,7 @@
  * Spots over free stretches are measured with the held item lifted: a spot that lands in free room moves nothing else.
  */
 import { describe, expect, it } from "vitest";
-import { lanes, lift, moveTo, solve, type Scene, type SceneItem } from "../src/scene";
+import { floatAt, lanes, lift, moveTo, solve, type Scene, type SceneItem } from "../src/scene";
 import { bar, byId, form, group } from "./scene-fixture";
 
 type Host = "bar" | "rail";
@@ -161,5 +161,63 @@ describe("room belongs to the stretch", () => {
     expect(ends.some((x) => Math.abs(x - endEdge) <= 1)).toBe(true);
     const eEnd = seen.items.e!.rect.x + seen.items.e!.rect.width;
     expect(top.spots.some((sp) => Math.abs(sp.landing.x - (eEnd + 4)) <= 1)).toBe(true);
+  });
+
+  /** A top bar of 80 px groups, as listed, each `[id, zone, space]`; `g` 50 px in the bottom bar. */
+  const topBar = (items: readonly (readonly [string, "start" | "end", number, boolean?])[]): Scene => ({
+    stage: { x: 0, y: 0, width: 1000, height: 600 },
+    edges: [bar("top", "top", 0, items.map(([id]) => id)), bar("bottom", "bottom", 0, ["g"])],
+    items: byId([...items.map(([id, zone, space, closed], i) => sized(id, i + 1, 80, { ...(zone === "end" ? { align: "end" as const } : {}), ...(space > 0 ? { space } : {}), ...(closed ? { closed: true } : {}) })), sized("g", 9, 50)]),
+    floats: [],
+    floatKinds: ["group"],
+  });
+
+  it("floating an item gives its whole room back, its own space included, as docking it elsewhere does (start and end zones)", () => {
+    for (const [items, leaving, stays] of [
+      [[["a", "start", 60], ["b", "start", 50]], "a", "b"],
+      [[["p", "end", 50], ["q", "end", 60]], "q", "p"],
+    ] as const) {
+      const s = topBar(items);
+      const seen = solve(s);
+      const floated = solve(floatAt(s, leaving, { x: 400, y: 300, width: 80, height: 36 }));
+      const docked = solve(moveTo(s, leaving, { edge: "bottom", at: 1 }));
+      expect([leaving, floated.items[stays]!.rect.x]).toEqual([leaving, seen.items[stays]!.rect.x]);
+      expect([leaving, docked.items[stays]!.rect.x]).toEqual([leaving, seen.items[stays]!.rect.x]);
+    }
+  });
+
+  it("an end-zone dock into a placed item's room moves it only by what the room lacks", () => {
+    // End zone: a keeps 150 of room after it, then c at the end; g docks between them.
+    for (const [w, room] of [
+      [50, 150],
+      [200, 150],
+    ] as const) {
+      const s: Scene = { ...topBar([["a", "end", room], ["c", "end", 0]]), items: { ...topBar([["a", "end", room], ["c", "end", 0]]).items, g: sized("g", 9, w) } };
+      const before = solve(s);
+      const after = solve(moveTo(s, "g", { edge: "top", zone: "end", at: 1 }));
+      expect([w, before.items.a!.rect.x - after.items.a!.rect.x]).toEqual([w, Math.max(0, w + 4 - room)]);
+      expect([w, after.items.c!.rect.x]).toEqual([w, before.items.c!.rect.x]);
+    }
+  });
+
+  it("a dock with its own space beside a placed item takes that much more of the room", () => {
+    const s = topBar([["a", "start", 0], ["c", "start", 150]]);
+    const before = solve(s);
+    const after = solve(moveTo(s, "g", { edge: "top", zone: "start", at: 1, space: 30 }));
+    // 30 + 50 + 4 = 84 of the 150: c stays.
+    expect(after.items.c!.rect.x).toBe(before.items.c!.rect.x);
+    expect(after.items.g!.rect.x).toBe(before.items.a!.rect.x + 80 + 4 + 30);
+  });
+
+  it("an edge listed out of zone order, or with a closed item between, still finds the placed item that takes the room back", () => {
+    for (const items of [
+      [["a", "start", 0], ["e", "end", 0], ["c", "start", 150]],
+      [["a", "start", 0], ["z", "start", 0, true], ["c", "start", 150]],
+    ] as const) {
+      const s = topBar(items);
+      const seen = solve(s);
+      const after = solve(lift(s, "a"));
+      expect([items[1]![0], after.items.c!.rect.x]).toEqual([items[1]![0], seen.items.c!.rect.x]);
+    }
   });
 });
