@@ -35,7 +35,7 @@ export const clampInto = (r: Rect, area: Rect): Rect => ({
 });
 
 /** The center of a rect. */
-export const centre = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+export const center = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
 
 /** The tolerance the geometry compares with, px. */
 export const EPS = 1e-6;
@@ -70,10 +70,3 @@ export function subtract(r: Rect, cut: Rect): Rect[] {
     rect(x0, Math.max(r.y, cut.y + cut.height), x1 - x0, bottom - Math.max(r.y, cut.y + cut.height)),
   ].filter((p) => area(p) > EPS);
 }
-
-/**
- * Hit sizes the targets share: how far a column line's hit reaches on each side of the line, and how deep a side takes
- * a rail drop while it shows no rail, px.
- */
-export const COLUMN_REACH = 22;
-export const RAIL_EDGE = 10;

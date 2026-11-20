@@ -1,9 +1,9 @@
 // Checks the built package (dist/) after `tsup`:
-// - every entry (the root, dock, toolbar, targets, panels, desk, stack, scene, scene-cases, tiling, popup) and its type definitions exist;
+// - every entry (the root, stack, scene, scene-cases, tiling, popup) and its type definitions exist;
 // - the JavaScript imports only its own chunks (no dependencies at all, @n-uf/motion included);
 // - no file touches a host global, and no type mentions a DOM type;
-// - Node can import every entry, and a desk lays out, a host collapses, a drop lands and a panel column gives way from
-//   the built code.
+// - Node can import every entry, and a stack gives way, a window lays out, a drop's preview is its result and a pane
+//   splits from the built code.
 // Exits 1 with a list of problems.
 
 import { existsSync, readFileSync } from "node:fs";
@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const dist = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
-const ENTRIES = ["index", "dock", "toolbar", "targets", "panels", "desk", "stack", "scene", "scene-cases", "tiling", "popup"];
+const ENTRIES = ["index", "stack", "scene", "scene-cases", "tiling", "popup"];
 const HOST = /\b(requestAnimationFrame|cancelAnimationFrame|performance|setTimeout|clearTimeout|window|globalThis|matchMedia)\b/;
 const DOM_TYPES = /\b(Window|Document|Element|HTMLElement|Event|PointerEvent|MouseEvent|DOMRect)\b/;
 const problems = [];
@@ -58,7 +58,6 @@ if (problems.length === 0) {
     const m = {};
     for (const entry of ENTRIES) m[entry] = await import(pathToFileURL(join(dist, `${entry}.js`)).href);
     if (typeof m.popup.positionPopup !== "function") problems.push("popup.js: no positionPopup");
-    const desk = m.dock.createDesk({ panels: [{ id: 1, title: "Files", natural: 160 }, { id: 2, title: "History", natural: 160 }], start: { left: [1], right: [], bottom: [2] } });
     // The conformance rows run on the in-memory host from the built code, and a wrong expectation fails.
     const sc = m["scene-cases"];
     if (!Array.isArray(sc.CASES) || sc.CASES.length < 80) problems.push(`scene-cases.js: ${sc.CASES?.length} rows`);
@@ -68,33 +67,14 @@ if (problems.length === 0) {
     if (failed.length > 0) problems.push(`scene-cases.js: rows fail on the in-memory host: ${failed.slice(0, 5).join(", ")}`);
     const broken = { ...sc.CASES[0], expectLayout: { items: { pages: { rect: { x: 9999 } } } } };
     if (sc.runCase(broken, sc.createSceneHost()).ok) problems.push("scene-cases.js: a wrong expectation passed");
-    if (desk.constructions.length !== 9) problems.push(`dock.js: ${desk.constructions.length} constructions, expected 9`);
-    const c = desk.constructionOf("dockTear");
-    const l = c.layout(c.initial([1]), { width: 960, height: 420 }, m.dock.DEFAULT_OPTIONS);
-    if (l.items.get("panel:2")?.look !== "header") problems.push("dock.js: the bottom dock didn't fold on a short stage");
-    const a = m.toolbar.arrangement({ top: { start: ["a", "b"] } });
-    const host = m.toolbar.layoutHost(a.top, "top", { length: 100, thickness: 34, lead: 0, tail: 0 }, (_g, _v, col) => ({ along: col ? 30 : 80, across: 28 }));
-    if (host.overflow[0] !== "b") problems.push("toolbar.js: the trailing group didn't collapse first");
-    const input = { c, s0: m.dock.liftOut(c.initial([1]), "panel:1"), key: "panel:1", size: { width: 1200, height: 700 }, opt: m.dock.DEFAULT_OPTIONS };
-    const float = m.targets.deskTargets(input).find((t) => t.id === "float");
-    const drop = float && m.targets.deskDrop(input, float, { x: 600, y: 300 }, { x: 20, y: 10 });
-    if (!drop || drop.slot.x !== 580 || drop.slot.y !== 290) problems.push("targets.js: a float drop didn't land where it was let go");
-    const w = (natural) => ({ min: 160, max: 400, natural });
-    const defs = [{ id: "files", width: w(240) }, { id: "outline", width: w(240) }];
-    const panels = m.panels.createPanels(defs, { left: [["files"]], right: [["outline"]] });
-    const laid = m.panels.layoutPanels(defs, panels, { width: 600, height: 500 });
-    if (laid.items.get("files")?.kind !== "segment" || laid.notes.at(-1)?.code !== "column-folded") problems.push("panels.js: the oldest column didn't fold on a narrow stage");
-    const stops = m.targets.keyboardStops(m.panels.panelTargets({ defs, state: panels, id: "outline", stage: { width: 1200, height: 500 } }));
-    if (stops[0]?.place.kind !== "rail") problems.push("panels.js: the keyboard stops don't start at the left rail");
-    const nav = m.desk.PRESETS.navigator;
-    const navLaid = m.desk.presetLayout(nav, defs, nav.start(defs), { width: 1200, height: 500 });
-    if (!navLaid.columns[0]?.strip || navLaid.items.get("files")?.tab === undefined) problems.push("desk.js: the navigator's left column has no strip of tabs");
     const form = (kind, natural, cross, extra = {}) => ({ kind, main: { min: natural, natural, ...extra }, cross: { natural: cross } });
     const item = (id, used) => ({ id, used, forms: [form("open", 200, 240, { grows: true }), form("header", 28, 240), form("rail", 30, 30), form("menu", 0, 0)] });
     const stackFit = m.stack.fitStack({ axis: "column", length: 300, cross: { min: 100, max: 400 }, items: [item("a", 1), item("b", 2)] });
     if (stackFit.items[0]?.kind !== "header" || stackFit.items[1]?.kind !== "open") problems.push("stack.js: the panel used longest ago didn't fold first");
-    const stackTarget = m.stack.stackTargets({ axis: "column", length: 300, cross: { min: 100, max: 400 }, items: [item("a", 1)] }, item("b", 2));
-    if (stackTarget.length !== 2 || stackTarget[1]?.id !== "gap:1") problems.push("stack.js: a stack of one item doesn't have two gaps");
+    const gaps = m.stack.stackGaps({ axis: "column", length: 600, cross: { min: 100, max: 400 }, items: [item("a", 1)] }, item("b", 2));
+    if (gaps.length !== 2 || gaps.some((g) => !g.fits)) problems.push("stack.js: a stack of one item doesn't have two gaps that fit");
+    const cut = m.stack.cutEdges({ x: 0, y: 0, width: 800, height: 600 }, [{ id: "top", side: "top", size: 40 }, { id: "left", side: "left", size: 200 }]);
+    if (cut.bands.left?.y !== 40 || cut.rest.x !== 200) problems.push("stack.js: the cut didn't follow the band order");
     const scene = {
       stage: { x: 0, y: 0, width: 800, height: 500 },
       edges: [{ id: "left", side: "left", ring: 0, accepts: ["panel"], items: ["a"], cross: { min: 100, max: 400 } }],
@@ -110,7 +90,6 @@ if (problems.length === 0) {
     const split = t.dropOnPane(t.splitFromOrder(["a", "b"]), "c", "b", "top");
     const tiles = t.layoutSplit(split, { x: 0, y: 0, width: 800, height: 400 });
     if (tiles.get("c")?.height !== 200 || tiles.get("c")?.x !== 400 || t.paneRegion(tiles.get("a"), { x: 5, y: 200 }) !== "left") problems.push("tiling.js: a drop on a pane's top didn't split it on top");
-    if (m.desk.presetTargets(m.desk.PRESETS.docks, { defs, state: m.desk.PRESETS.docks.start(defs), id: "files", stage: { width: 1200, height: 500 } }).some((t) => t.id === "float")) problems.push("desk.js: docks offers a float target");
   } catch (error) {
     problems.push(`import: ${error instanceof Error ? error.message : String(error)}`);
   }

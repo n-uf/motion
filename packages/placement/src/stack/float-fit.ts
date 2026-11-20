@@ -10,10 +10,9 @@
  * about 17 ms; a safety net stops the clear search after 3 million rect tests and says so in `searchCapped`; a stage
  * with no clear place looks at the 2,048 nearest places for the least covered.
  *
- * The Scene's floats are fitted with it (`solve`), and `./scene` exports it. It lives at the root, beside the geometry,
- * so the deprecated `./stack` floats reach it without a door into `./scene`.
+ * A window model fits its floats with it.
  */
-import { clampInto, overlap, overlaps, rect, type Rect } from "./geometry";
+import { clampInto, overlap, overlaps, rect, type Rect } from "../geometry";
 
 export interface FloatFit {
   /** The float's rect: inside the stage and clear of the docked content where a clear place exists. */

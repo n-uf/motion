@@ -5,9 +5,8 @@
  * it (smaller `since`, then smaller id) too, where room exists (`fitBeside`); the stacking order plays no part. A float
  * with `from` over 0 is its bar: its form's natural length along its `orient`, its other size kept.
  */
-import { fitFloat, type FloatFit } from "../../float-fit";
 import { EPS, rect, type Rect, type Size } from "../../geometry";
-import { formFolded, type StackForm } from "../../stack";
+import { fitFloat, formFolded, type FloatFit, type StackForm } from "../../stack";
 import { anchorName, axisOf, chromeFor, floatOrientOf, floatShape, foldedByOf, formsOf, isSince } from "../helpers";
 import type { FloatAnchor, FloatAnchorAt, Orient, SceneFloat, SceneItem } from "../model";
 import { shapeOf, type Draft } from "./draft";

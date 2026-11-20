@@ -1,6 +1,6 @@
 /** A `wrap` form: words in rows that wrap beside the grip's lead (a hanging indent), never one word on a non-last row. */
 import { describe, expect, it } from "vitest";
-import { fitStack, formCrossMin, formFitsCross, stackTargets, wrapCross, wrapLines, wrapRows, type StackForm, type StackInput, type StackItem, type WrapSpec } from "../src/stack";
+import { fitStack, formCrossMin, formFitsCross, stackGaps, wrapCross, wrapLines, wrapRows, type StackForm, type StackInput, type StackItem, type WrapSpec } from "../src/stack";
 
 const words: WrapSpec = { widths: [60, 50, 40], row: 28, gap: 4, lead: 16 };
 const wrapForm = (spec: WrapSpec = words): StackForm => ({ kind: "wrap", main: { min: 0, natural: 0 }, cross: { natural: 0 }, wrap: spec });
@@ -96,9 +96,12 @@ describe("a wrap form in a column", () => {
 
   it("preview = result: a gap's slot is the wrapped rect the drop makes", () => {
     const input = column([panel("p", 1, 150), group("h", 3)], 600);
-    for (const t of stackTargets(input, group("g", 2))) {
+    const gaps = stackGaps(input, group("g", 2));
+    expect(gaps.length).toBeGreaterThan(0);
+    for (const t of gaps) {
+      if (!t.fits) throw new Error(`gap ${t.at}: ${t.reason}`);
       expect(t.slot).toEqual(fitStack(t.input).items.find((x) => x.id === "g")!.rect);
-      expect(t.slot!.height).toBe(56);
+      expect(t.slot.height).toBe(56);
     }
   });
 });

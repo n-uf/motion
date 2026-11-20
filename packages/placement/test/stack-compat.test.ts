@@ -13,12 +13,11 @@
  * `legacy/` holds the 26.11.13 solver, copied verbatim (git show 5eaa31b).
  */
 import { describe, expect, it } from "vitest";
-import { fitStack, stackTargets, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
+import { fitStack, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
 import { fitStack as legacyFit } from "./legacy/layout-26.11.13";
 import { fitStack as legacy15Fit } from "./legacy/layout-26.11.15";
 import type { StackFit as LegacyFit, StackInput as LegacyInput } from "./legacy/model-26.11.13";
 import type { StackInput as Legacy15Input } from "./legacy/model-26.11.15";
-import { stackTargets as legacy15Targets } from "./legacy/targets-26.11.15";
 import { barGroup, group, limits, panel, seeded } from "./stack-fixture";
 
 const EPS = 1e-6;
@@ -238,34 +237,13 @@ describe("26.11.15 compatibility", () => {
     expect(diverged).toBeLessThan(1000);
   });
 
-  it("stackTargets equals the 26.11.15 targets, with endReach and previous (a previous without a give-way history)", () => {
-    const rand = seeded(2611);
-    // The old targets have no history to undo; a previous without one keeps the old growing back, for the comparison.
-    const noSteps = (f: StackFit): StackFit => {
-      const { steps: _s, ...rest } = f;
-      return rest;
-    };
-    for (let trial = 0; trial < 1500; trial++) {
-      const input = richInput(rand);
-      const dragged = (richInput(rand).items[0] ?? input.items[0])!;
-      const options = { ...(rand() < 0.5 ? { endReach: Math.floor(rand() * 20) } : {}), ...(rand() < 0.4 ? { previous: noSteps(fitStack(input)) } : {}) };
-      expect(canon(stackTargets(input, dragged, options)), JSON.stringify(input)).toBe(canon(legacy15Targets(asLegacy(input), dragged as never, options as never)));
-    }
-  });
-
-  it("the new options at their defaults change nothing: false, undefined, accepts and allows that allow all", () => {
+  it("the new options at their defaults change nothing: false, undefined and accepts that allow all", () => {
     const rand = seeded(1115);
     for (let trial = 0; trial < 500; trial++) {
       const input = richInput(rand);
       const off: StackInput = { ...input, ownCross: false, accepts: () => true };
       const items = input.items.map((it) => ({ ...it, fixed: false }));
       expect(canon(fitStack({ ...off, items }))).toBe(canon(fitStack(input)));
-      const dragged = input.items[0];
-      if (dragged) {
-        const same = stackTargets({ ...off, items }, { ...dragged, fixed: false }, { allows: () => true });
-        const was = legacy15Targets(asLegacy(input), dragged as never, {});
-        expect(canon(same.map((t) => [t.id, t.place, t.hit, t.slot, t.marker, t.fit]))).toBe(canon(was.map((t) => [t.id, t.place, t.hit, t.slot, t.marker, t.fit])));
-      }
     }
   });
 });

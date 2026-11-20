@@ -11,7 +11,7 @@
  * - the root: the session mark on the page's root, slots, markers and items in window px.
  */
 import { targetAt } from "@n-uf/motion/drag";
-import { centre } from "@n-uf/placement";
+import { center } from "@n-uf/placement";
 import { close, dockHome, floatAt, fold, homeFor, open, storeScene, use, type Scene, type SceneLayout } from "@n-uf/placement/scene";
 import { readDocwin } from "./store";
 import { END_REACH, LIFT_THRESHOLD, resizeStep, resolvePlace, withRefusals, type AsyncCaseHost, type CaseSettings, type DomRoot, type Gesture } from "@n-uf/placement/scene/cases";
@@ -108,7 +108,7 @@ export function createDocwinHost(c: DocwinScene): AsyncCaseHost {
     if (g.place) {
       const stop = c.stops(id).find((x) => JSON.stringify(x.place) === JSON.stringify(g.place)) ?? c.stops(id).find((x) => x.place.kind === g.place!.kind && g.place!.kind === "float");
       if (!stop) throw new Error(`${JSON.stringify(g.place)} is not one of ${id}'s stops`);
-      c.commit(stop.place.kind === "float" ? use(floatAt(s, id), id) : stop.after(centre(s.stage)).scene);
+      c.commit(stop.place.kind === "float" ? use(floatAt(s, id), id) : stop.after(center(s.stage)).scene);
       return;
     }
     switch (g.key) {

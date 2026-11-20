@@ -4,7 +4,7 @@
  * (a form too thick for the limits steps down), and a sweep over all of them together.
  */
 import { describe, expect, it } from "vitest";
-import { fitStack, stackTargets, withItem, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
+import { fitStack, stackGaps, withItem, type StackFit, type StackForm, type StackInput, type StackItem } from "../src/stack";
 import { seeded } from "./stack-fixture";
 
 const form = (kind: StackForm["kind"], min: number, extra: { natural?: number; rank?: number; cross?: number; crossMin?: number; setsCross?: boolean } = {}): StackForm => ({
@@ -161,7 +161,7 @@ describe("T5: gap, pad and the targets", () => {
   const trio = (): StackItem[] => ["a", "b", "c"].map((id, i) => item(id, i, [form("row", 100), form("fold", 30)]));
   const dragged = item("d", 9, [form("row", 100), form("fold", 30)]);
 
-  it("a bar of three 100 px groups, pad.start 20 and gap 30: the rects and the gap zones", () => {
+  it("a bar of three 100 px groups, pad.start 20 and gap 30: the rects, and a drop's slot in each gap", () => {
     const input = bar(trio(), 380, { gap: 30, pad: { start: 20 } });
     const fit = fitStack(input);
     expect(fit.items.map((i) => [i.rect.x, i.rect.width, i.rect.y, i.rect.height])).toEqual([
@@ -169,26 +169,13 @@ describe("T5: gap, pad and the targets", () => {
       [150, 100, 0, 40],
       [280, 100, 0, 40],
     ]);
-    const targets = stackTargets(input, dragged);
-    expect(targets.map((t) => [t.hit.x, t.hit.x + t.hit.width])).toEqual([
-      [0, 70],
-      [70, 200],
-      [200, 330],
-      [330, 380],
-    ]);
-    // The marker is a line at the dragged item's leading edge, over the whole bar.
-    for (const t of targets) expect(t.marker).toMatchObject({ y: 0, width: 0, height: 40 });
+    const gaps = stackGaps({ ...input, length: 520 }, dragged);
+    expect(gaps.map((g) => (g.fits ? g.slot.x : g.reason))).toEqual([20, 150, 280, 410]);
   });
 
   it("gap 50", () => {
     const input = bar(trio(), 420, { gap: 50, pad: { start: 20 } });
     expect(fitStack(input).items.map((i) => i.rect.x)).toEqual([20, 170, 320]);
-    expect(stackTargets(input, dragged).map((t) => [t.hit.x, t.hit.x + t.hit.width])).toEqual([
-      [0, 70],
-      [70, 220],
-      [220, 370],
-      [370, 420],
-    ]);
   });
 
   it("gap and pad count toward the length: a stack that is long enough without them folds with them", () => {
@@ -205,31 +192,6 @@ describe("T5: gap, pad and the targets", () => {
     expect(fit.items[2]!.rect).toMatchObject({ x: 0, width: 100 });
     expect(fit.menu!.rect).toMatchObject({ x: 132, width: 28 });
     expect(fit.menu!.rect.x + fit.menu!.rect.width).toBe(170 - 10);
-  });
-
-  it("endReach: the first and last gaps reach past the stack's ends; the others and the marker don't move", () => {
-    const input = bar(trio(), 380, { gap: 30, pad: { start: 20 } });
-    const plain = stackTargets(input, dragged);
-    const reach = stackTargets(input, dragged, { endReach: 24 });
-    expect(reach.map((t) => [t.hit.x, t.hit.x + t.hit.width])).toEqual([
-      [-24, 70],
-      [70, 200],
-      [200, 330],
-      [330, 404],
-    ]);
-    expect(reach.map((t) => t.marker)).toEqual(plain.map((t) => t.marker));
-    expect(reach.map((t) => t.slot)).toEqual(plain.map((t) => t.slot));
-    // A column reaches along y. An empty stack's one gap reaches both ways. A non-number is no reach.
-    const column = stackTargets({ axis: "column", length: 100, cross: { min: 30, max: 60 }, items: [] }, dragged, { endReach: 10 });
-    expect(column[0]!.hit).toMatchObject({ y: -10, height: 120 });
-    expect(stackTargets(input, dragged, { endReach: NaN })[0]!.hit.x).toBe(0);
-    expect(stackTargets(input, dragged, { endReach: -5 })[0]!.hit.x).toBe(0);
-  });
-
-  it("the hits still tile the stack, end to end, with gaps, padding and reach", () => {
-    const input = bar(trio(), 380, { gap: 30, pad: { start: 20, end: 8 } });
-    const t = stackTargets(input, dragged, { endReach: 12 });
-    for (let k = 1; k < t.length; k++) expect(t[k]!.hit.x).toBeCloseTo(t[k - 1]!.hit.x + t[k - 1]!.hit.width);
   });
 
   it("bad numbers are no space", () => {
@@ -292,10 +254,10 @@ describe("T6: with strictCross, a form too thick for the limits steps down", () 
 
   it("an open panel dropped into the bar lands as a header, and the bar keeps its height", () => {
     const input: StackInput = { axis: "row", length: 400, cross: { min: 30, max: 40 }, items: [item("g", 1, [form("row", 100), form("fold", 30)])], ...strict };
-    for (const t of stackTargets(input, panel())) {
+    for (const t of stackGaps(input, panel())) {
+      if (!t.fits) throw new Error(`gap ${t.at}: ${t.reason}`);
       expect(t.fit.items.find((i) => i.id === "p")!.kind).toBe("header");
       expect(t.fit.cross).toBeLessThanOrEqual(40);
-      expect(t.marker.height).toBeLessThanOrEqual(40);
     }
   });
 });
@@ -407,23 +369,23 @@ describe("sweep: rank, gap, pad and fold together", () => {
     }
   });
 
-  it("the preview equals the drop, and the hits tile the stack", () => {
+  it("a gap's slot is the drop", () => {
     const rand = seeded(14);
     for (let trial = 0; trial < 60; trial++) {
       const base = sweepInput(rand, rand() < 0.5);
       const dragged = randomGroup(rand, 99, rand() < 0.5);
       for (let length = 40; length <= 600; length += 41) {
         const input = { ...base, length };
-        const targets = stackTargets(input, dragged, { endReach: 10 });
-        for (const t of targets) {
-          // The drop is the solve of the stack with the item at that place: the same rect as the preview.
+        const gaps = stackGaps(input, dragged);
+        expect(gaps.map((g) => g.at)).toEqual(Array.from({ length: input.items.length + 1 }, (_, k) => k));
+        for (const t of gaps) {
+          if (!t.fits) continue;
+          // The drop is the solve of the stack with the item at that place: the same rect as the slot.
           const dropped = t.input.items.find((i) => i.id === dragged.id)!;
-          expect(t.input.items.indexOf(dropped)).toBe(t.place.at);
-          expect(t.slot).toEqual(fitStack(withItem({ ...input, items: input.items.filter((i) => i.id !== dragged.id) }, dropped, t.place.at)).items.find((i) => i.id === dragged.id)!.rect);
+          expect(t.input.items.indexOf(dropped)).toBe(t.at);
+          expect(t.slot).toEqual(fitStack(withItem({ ...input, items: input.items.filter((i) => i.id !== dragged.id) }, dropped, t.at)).items.find((i) => i.id === dragged.id)!.rect);
           expect(t.slot).toEqual(fitStack(t.input).items.find((i) => i.id === dragged.id)!.rect);
         }
-        for (let k = 1; k < targets.length; k++) expect(targets[k]!.hit.x).toBeCloseTo(targets[k - 1]!.hit.x + targets[k - 1]!.hit.width);
-        expect(targets[0]!.hit.x).toBe(-10);
       }
     }
   });

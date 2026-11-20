@@ -1,22 +1,18 @@
 /**
- * @n-uf/placement/stack: the items along one edge of a stage, a column or a row. Each item (a panel or a control
- * group) declares its forms, largest first; `fitStack` picks one per item and places them, giving way by age when the
- * length runs out (an open panel folds to a header, then a rail icon, then the » menu; a group's row of words to
- * stacked words, icons, the menu) and handing spare length to the panels that grow. A stack with nothing open in it
- * is a rail, and a form that is too wide for the stack steps down (never into the menu: that is the length's call).
- * `stackTargets` gives a drop target for every gap, each with the exact solve a drop makes; the store keeps order,
- * kept and closed items, the use order and chosen forms. Floats (`fitFloat`, `stackFloatTarget`, `storeFloats`) are items
- * above the pages in the stage's own px: clamped into the stage, clear of the docked content, never pinned. Pure:
- * items and a length in; forms, rects and coded notes out. Not tied to `./panels` columns.
+ * @n-uf/placement/stack: the general layer under a window model. Four pure functions, no window model in them:
  *
- * `./stack` is the edge solver the Scene lays each edge with: `fitStack`, its input and fit (`StackInput`, `StackItem`,
- * `StackFit`) and the form vocabulary (`StackForm`, `CrossLimits` and the form helpers). Its window-level parts are
- * **deprecated**, each replaced by `@n-uf/placement/scene`:
- * `stackTargets` / `StackTarget` → `targets(scene, id)`; `createStack` / `storeStack` / `readStack` → `storeScene` /
- * `readScene`; `stackFloatTarget` → the `float:<id>` target of `targets()`; `storeFloats` / `readFloats` → the stored
- * scene's floats; `fitFloat` / `FloatFit` → the same names from `./scene`.
+ * - `cutEdges(stage, bands)`: the stage cut into bands along its sides, in list order (the order decides the corners);
+ *   each band's rect and the leftover.
+ * - `fitStack(input)`: the items along one edge, a column or a row. Each item declares its forms, largest first;
+ *   `fitStack` picks one per item and places them, giving way by age when the length runs out (an open panel folds to a
+ *   header, then a rail icon, then the » menu; a group's row of words to stacked words, icons, the menu) and handing
+ *   spare length to the forms that grow. A form's kind is the host's label; what the solver reads is said by fields
+ *   (`setsCross`, `body`, `folded`, `compact`, `title`, `wrap`).
+ * - `stackGaps(input, item)`: one edge's drop places for an item, fit only: each gap with the layout after the drop,
+ *   or a refusal with its reason.
+ * - `fitFloat(rect, stage, avoid)`: a float moved inside the stage and clear of the docked content.
  *
- * See docs/placement.md, Entry: stack (the exports) and Solving (the form ladder).
+ * It never imports a window model. See docs/placement.md, Entry: stack.
  */
 export { cutEdges, type BandSide, type EdgeBand, type EdgeCut } from "./cut";
 export { fitStack } from "./layout";
@@ -53,6 +49,4 @@ export {
   type StackNoteCode,
 } from "./model";
 export { stackGaps, type StackGap, type StackGapOptions, type StackGapRefusal } from "./gaps";
-export { stackTargets, type StackPlace, type StackTarget, type StackTargetOptions } from "./targets";
-export { createStack, readStack, storeStack, type StackRead, type StackState, type StoredStack } from "./store";
-export { fitFloat, readFloats, stackFloatTarget, storeFloats, type FloatDrop, type FloatFit, type FloatsRead, type FloatTarget, type StackFloat, type StackFloatTargetInput, type StoredFloats } from "./floats";
+export { fitFloat, type FloatFit } from "./float-fit";
