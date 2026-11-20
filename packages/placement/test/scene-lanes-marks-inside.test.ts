@@ -20,17 +20,24 @@ interface Frame {
   readonly where: string;
   readonly lanes: ReturnType<typeof lanes>["lanes"];
   readonly heldLane?: string;
+  /** The layout the held spot's drop draws (where its lane's marks are drawn). */
+  readonly heldLayout?: ReturnType<typeof solve>;
 }
 
 /**
- * Every way a lane's marks break the rule in `ls`, as strings (empty: none). `edgeIds`: the lanes of real edges. The lane
- * of a held spot is drawn in that spot's own layout, where its edge may have moved: it keeps to the rule only as seen.
+ * Every way a lane's marks break the rule in `ls`, as strings (empty: none). `edgeIds`: the lanes of real edges. A lane's
+ * marks lie inside its rect in the layout they are drawn in: its rect as seen, but for the held spot's lane, drawn in the
+ * spot's own layout (`heldLayout`), where its edge may have moved: there the edge as drawn when it is drawn.
  */
 function broken(frame: Frame, edgeIds: ReadonlySet<string>): string[] {
-  const { where, lanes: ls, heldLane } = frame;
+  const { where, lanes: ls, heldLane, heldLayout } = frame;
   const bad: string[] = [];
   const edge = ls.filter((l) => edgeIds.has(l.id));
-  for (const l of edge) if (l.id !== heldLane) for (const m of l.marks) if (!within(m.rect, l.rect)) bad.push(`${where}: ${m.id} outside its lane ${l.id}`);
+  for (const l of edge) {
+    const moved = l.id === heldLane ? heldLayout?.edges[l.id] : undefined;
+    const r = moved && moved.cross > 1e-6 ? moved.rect : l.rect;
+    for (const m of l.marks) if (!within(m.rect, r)) bad.push(`${where}: ${m.id} outside its lane ${l.id}`);
+  }
   const all = edge.flatMap((l) => l.marks.map((m) => ({ lane: l.id, m })));
   for (let i = 0; i < all.length; i++)
     for (let j = i + 1; j < all.length; j++) if (all[i]!.lane !== all[j]!.lane && overlaps(all[i]!.m.rect, all[j]!.m.rect)) bad.push(`${where}: ${all[i]!.m.id} over ${all[j]!.m.id}`);
@@ -44,7 +51,7 @@ function frames(s: Scene, id: string, extra: { grab?: { x: number; y: number }; 
   for (const emptyLanes of ["real", "edge"] as const) {
     const base = lanes(s, id, { previous, emptyLanes, ...extra });
     out.push({ where: `${label} ${id} ${emptyLanes} seen`, lanes: base.lanes });
-    for (const l of base.lanes) for (const sp of l.spots) out.push({ where: `${label} ${id} ${emptyLanes} ${sp.id}`, lanes: lanes(s, id, { previous, emptyLanes, spot: sp.id, ...extra }).lanes, heldLane: l.id });
+    for (const l of base.lanes) for (const sp of l.spots) out.push({ where: `${label} ${id} ${emptyLanes} ${sp.id}`, lanes: lanes(s, id, { previous, emptyLanes, spot: sp.id, ...extra }).lanes, heldLane: l.id, heldLayout: sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout });
   }
   return out;
 }
