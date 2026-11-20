@@ -7,7 +7,7 @@
  *   where it was let go. Under reduced motion there is no entrance and no demo, and a let-go word is at its place
  *   at once. A drag the pointer loses (a cancel, a lost capture, the window losing focus) sends the word home.
  * - **@n-uf/motion/drag**: a right-hand panel is dragged by the drag intent (`liftDecision`, `createDragIntent`,
- *   `previewPlan`, the "gap" preview): the indicator shows once you aim at its slot, and the panel lands in it when
+ *   `previewPlan`, the "placeholder" preview): the indicator shows once you aim at its slot, and the panel lands in it when
  *   you let go.
  * - **@n-uf/placement**: `clampInto` keeps a dragged word inside the viewport, so it can't be lost off the page.
  *
@@ -65,10 +65,10 @@ interface Session {
 
 /**
  * The drop preview of a panel: the indicator on its slot once you aim at it, the panel staying under the pointer
- * until you let go (then it lands in the slot). The "snap" preview would glide it into the slot while you still hold
- * it, with no indicator, so the page's point (aim, then see where it docks) is the "gap" preview's.
+ * until you let go (then it lands in the slot). The "glide" preview would glide it into the slot while you still hold
+ * it, with no indicator, so the page's point (aim, then see where it docks) is the "placeholder" preview's.
  */
-const PREVIEW = "gap";
+const PREVIEW = "placeholder";
 /** How far around a panel's slot the pointer is aiming at it (the drag intent's zone for the slot), px. */
 const RING = 44;
 const grow = (r: Rect, m: number): Rect => ({ x: r.x - m, y: r.y - m, width: r.width + 2 * m, height: r.height + 2 * m });

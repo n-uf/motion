@@ -222,8 +222,15 @@ export interface DockLaneOptions extends DockDropOptions {
    * default), boxes at the size it will take, lying over what moves aside (the page, a column); `"edge"`, each a thin
    * striped strip (`HATCH_EDGE`) on its window side. Where it lands is the same either way.
    */
-  readonly emptyLanes?: "real" | "edge";
+  readonly emptyLanes?: EmptyLanes;
 }
+
+/**
+ * How a place guide draws an empty lane (an empty bar or side rail, its room not open yet): `"real"`, a box at the size
+ * the lane will take, over what moves aside; `"edge"`, a thin striped strip on the lane's window side. The landing is
+ * the same either way ({@link DockLaneOptions.emptyLanes}).
+ */
+export type EmptyLanes = "real" | "edge";
 
 type Axis = "x" | "y";
 const mid = (r: Rect, axis: Axis): number => (axis === "x" ? r.x + r.width / 2 : r.y + r.height / 2);

@@ -18,13 +18,16 @@
  * off screen. A drag ends on release, Escape, a cancelled pointer, a lost capture or the window losing focus.
  */
 import type { Point, Rect } from "@n-uf/motion";
-import { createDragIntent, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
+import { createDragIntent, previewPlan, type DragIntent, type DragTarget, type PreviewMode } from "@n-uf/motion/drag";
 import { drawBox } from "@n-uf/motion/browser";
 import { createLayoutMotion, holdItem, type Drawable, type HeldDrag } from "@n-uf/motion/layout";
 import type { RectSample } from "@n-uf/motion/testing";
 import type { DockDrop } from "@n-uf/docking";
 import { drive, getSpeed, getTempo, loop, newSettle, omega, onMotionChange, reduced, setSpeed, setTempo, type Tempo } from "./motion";
-import { dropMode } from "./drop-mode";
+import { dropMode, type DropMode } from "./drop-mode";
+
+/** The site's three drop previews as the library's modes. */
+const MODE: Readonly<Record<DropMode, PreviewMode>> = { indicator: "outline", gap: "placeholder", snap: "glide" };
 import { registerShowcase, setDragging, userAction } from "./showcase";
 import { NEEDLE, PLOT, TEMPOS, judge, pathOf, planOf, plotX, plotY, simulateRun, type RunReport } from "../demos/hero";
 
@@ -311,7 +314,7 @@ export function startHero(band: HTMLElement): void {
     const f = d.intent.update(d.pointer, performance.now(), targets);
     const shown = f.shown;
     const drop = shown ? dropOf(shown, d.pointer) : null;
-    const pp = previewPlan(f, dropMode());
+    const pp = previewPlan(f, MODE[dropMode()]);
     const slot = pp.snapItem && drop ? toOv(drop.slot) : null;
     // A glide into a slot is a run like any other: record it from the frame it starts.
     if (slot && !(d.held.snapped && same(d.held.snapped, slot))) begin(slot);

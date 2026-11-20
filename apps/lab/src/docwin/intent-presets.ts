@@ -5,11 +5,11 @@
  * pointer path frame by frame on the session's clock and reads the drag's trace (`Docwin.trace`).
  */
 import { SETTLE_TEMPO } from "@n-uf/motion";
-import { DRAG_DEFAULTS, inRect, targetAt, type DragPreview } from "@n-uf/motion/drag";
+import { DRAG_DEFAULTS, inRect, targetAt } from "@n-uf/motion/drag";
 import type { Point, Rect } from "@n-uf/placement";
 import type { DockDrop } from "@n-uf/docking";
 import { defaultState, type ItemId } from "./model";
-import type { Docwin, DragTrace, LastDrop } from "./dock-state";
+import type { Docwin, DragTrace, LastDrop, ViewerPreview } from "./dock-state";
 
 interface Verdict {
   readonly pass: boolean;
@@ -135,7 +135,7 @@ export function emptySpace(c: Docwin, id: ItemId): Point {
 const GROUP: ItemId = "views";
 const PANEL: ItemId = "notes";
 
-function intentCase(id: string, title: string, expected: string, check: (c: Docwin) => Verdict, preview: DragPreview = "gap"): IntentPreset {
+function intentCase(id: string, title: string, expected: string, check: (c: Docwin) => Verdict, preview: ViewerPreview = "gap"): IntentPreset {
   return {
     id,
     title,

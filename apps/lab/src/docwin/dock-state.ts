@@ -17,11 +17,28 @@
  */
 import { clamp, type Point, type Rect } from "@n-uf/placement";
 import { createSettle, SETTLE_TEMPO, type Settle } from "@n-uf/motion";
-import { createDragIntent, previewPlan, type DragIntent, type DragKeys, type DragPreview } from "@n-uf/motion/drag";
+import {
+  createDragIntent,
+  createLandingModel,
+  DRAG_DEFAULTS,
+  guideRects,
+  PLACE_GUIDES_DEFAULT,
+  previewPlan,
+  SNAP_DISTANCE,
+  type DragIntent,
+  type DragKeys,
+  type DragPreview,
+  type DragTuning,
+  type LandingFrame,
+  type LandingModel,
+  type PlaceGuides,
+  type PreviewMode,
+} from "@n-uf/motion/drag";
 import { anchoredMorph, type AnchoredMorph } from "@n-uf/motion/layout";
 import {
   closeItem,
   fitResize,
+  type EmptyLanes,
   foldItem,
   heldRect,
   lanes,
@@ -201,8 +218,14 @@ const place = (el: HTMLElement, r: Rect): void => {
   Object.assign(el.style, { left: px(r.x), top: px(r.y), width: px(r.width), height: px(r.height) });
 };
 const sameRect = (a: Rect, b: Rect): boolean => Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5;
-/** The viewer's modes as `previewPlan`'s object form: Outline, Placeholder, Snap (the `"item"` plan). */
-const MODE_OF: Readonly<Partial<Record<DragPreview, DropPreviewMode["mode"]>>> = { indicator: "outline", gap: "placeholder", item: "snap" };
+/**
+ * The window's drop previews, by the names its viewer and cases use: the dashed slot only (`"indicator"`), the slot and
+ * the room made for it (`"gap"`), the room with the item settling into its slot (`"snap"`), or the dragged item as the
+ * only preview (`"item"`).
+ */
+export type ViewerPreview = "indicator" | "gap" | "snap" | "item";
+/** Each viewer preview as `previewPlan`'s mode: Outline, Placeholder, Glide, Snap. */
+const MODE_OF: Readonly<Record<ViewerPreview, PreviewMode>> = { indicator: "outline", gap: "placeholder", snap: "glide", item: "snap" };
 /** The "Can't go here" mark for a pick that lands nothing and is no refusal (past the window, a blocked place). */
 const NOTHING_LANDS = "nothing-lands";
 /**
@@ -257,13 +280,13 @@ export function createDocwin(o: DocwinOptions) {
    * The drop preview (`@n-uf/motion/drag`'s `previewPlan`): the dashed slot only (`"indicator"`), the slot and the room
    * made for it (`"gap"`, the default), or the room with the item settling into its slot (`"snap"`).
    */
-  let dropPreview: DragPreview = "item";
+  let dropPreview: ViewerPreview = "item";
   /** Where things land (`Behavior`): the window's own rules for the viewer; a case may ask for the published ones. */
   let behavior: Behavior = "landing";
   /** The window's own rules, on the landing model. */
   const approved = (): boolean => behavior === "landing";
   /** The viewer's place guides per mode (`PlaceGuides`); a mode left out follows its default (`PLACE_GUIDES_DEFAULT`). */
-  let guidesByMode: Partial<Record<DropPreviewMode["mode"], PlaceGuides>> = {};
+  let guidesByMode: Partial<Record<PreviewMode, PlaceGuides>> = {};
   /** How the guides draw an empty lane (`EmptyLanes`): at its real size (the default) or as a thin edge. */
   let emptyLanes: EmptyLanes = "real";
   /** The pitch of the spots over a bar's or a toolbar rail's free stretches, px (`DockLaneOptions.pitch`). */
@@ -275,12 +298,15 @@ export function createDocwin(o: DocwinOptions) {
   let stretchPositions: "free" | "pitched" = "free";
   /** Under `"free"`, how near a stretch's end or the item's own place a landing snaps there, px. */
   let snapDistance = SNAP_DISTANCE;
-  /** The preview `previewPlan` reads: under the window's own rules a mode and its guides; under the published, the string. */
-  const previewOf = (): DragPreview | DropPreviewMode => {
-    const mode = approved() ? MODE_OF[dropPreview] : undefined;
-    if (!mode) return dropPreview;
+  /**
+   * The preview `previewPlan` reads: under the window's own rules a mode and the viewer's guides for it; under the
+   * published rules, and for the libraries' glide, no guides.
+   */
+  const previewOf = (): DragPreview => {
+    const mode = MODE_OF[dropPreview];
+    if (!approved() || dropPreview === "snap") return { mode, placeGuides: "off" };
     const g = guidesByMode[mode];
-    return g ? { mode, placeGuides: g, emptyLanes } : { mode, emptyLanes };
+    return g ? { mode, placeGuides: g } : { mode };
   };
   /** The press, the frames and the session mark: the lab's one wiring (../shared/session). */
   const session = createDragSession({ root, point: (e) => winPoint(e), frame: (now) => frame(now) });
@@ -586,7 +612,7 @@ export function createDocwin(o: DocwinOptions) {
   /** The guides the mode asks for (`PLACE_GUIDES_DEFAULT` where the viewer left it), as the landing model reads them. */
   const guideLevel = (): PlaceGuides => {
     const p = previewOf();
-    return typeof p === "object" ? (p.placeGuides ?? PLACE_GUIDES_DEFAULT[p.mode]) : "off";
+    return p.placeGuides ?? PLACE_GUIDES_DEFAULT[p.mode];
   };
   /**
    * The landing model's regions of a drag of `id` (`lanes()` over the window's own rules, the layout as drawn) and its
@@ -2048,21 +2074,21 @@ export function createDocwin(o: DocwinOptions) {
     pointOf,
     /** The center of `id`'s grip, in window px, or null (no grip drawn). */
     gripOf: (id: ItemId): Point | null => pointOf(win.querySelector(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`)),
-    /** The drop preview the next drag uses: indicator, gap (the default) or snap. */
-    get dropPreview(): DragPreview {
+    /** The drop preview the next drag uses: how the landing is shown (item, the default; indicator; gap; snap). */
+    get dropPreview(): ViewerPreview {
       return dropPreview;
     },
-    setDropPreview(mode: DragPreview): void {
+    setDropPreview(mode: ViewerPreview): void {
       dropPreview = mode;
     },
     /** The place guides a mode draws (`null`: its default), and the ones the current mode draws now. */
-    setPlaceGuides(mode: DropPreviewMode["mode"], g: PlaceGuides | null): void {
+    setPlaceGuides(mode: PreviewMode, g: PlaceGuides | null): void {
       const { [mode]: _was, ...rest } = guidesByMode;
       guidesByMode = g ? { ...rest, [mode]: g } : rest;
     },
     get placeGuides(): PlaceGuides {
       const p = previewOf();
-      return typeof p === "object" ? (p.placeGuides ?? PLACE_GUIDES_DEFAULT[p.mode]) : "off";
+      return p.placeGuides ?? PLACE_GUIDES_DEFAULT[p.mode];
     },
     /** How the guides draw an empty lane: at its real size or as a thin striped edge (every mode alike). */
     get emptyLanes(): EmptyLanes {
