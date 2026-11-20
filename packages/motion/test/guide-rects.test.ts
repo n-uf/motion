@@ -102,19 +102,45 @@ describe("guideRects", () => {
       const w = kind === "box" ? 20 + rnd() * 200 : across ? thin : long;
       const h = kind === "box" ? 20 + rnd() * 200 : across ? long : thin;
       const guide: PlacedGuide = { kind, rect: rect(3 + rnd() * 800, 3 + rnd() * 480, w, h) };
-      const clear = Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => rect(rnd() * 1000, rnd() * 600, 20 + rnd() * 200, 20 + rnd() * 200));
-      const clearance = [0, 1, 2, 5][Math.floor(rnd() * 4)]!;
-      for (const g of guideRects([guide], { inside, inset: 2, clear, clearance, minThickness: 0 })) {
+      // Each clear rect plain (the options' clearance) or with a clearance of its own (0, 1, 2 or 5).
+      const optionClearance = [0, 1, 2, 5][Math.floor(rnd() * 4)]!;
+      const specs = Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => {
+        const r = rect(rnd() * 1000, rnd() * 600, 20 + rnd() * 200, 20 + rnd() * 200);
+        const own = [undefined, 0, 1, 2, 5][Math.floor(rnd() * 5)];
+        return { r, own, want: own ?? optionClearance };
+      });
+      const clear = specs.map((c) => (c.own === undefined ? c.r : { rect: c.r, clearance: c.own }));
+      for (const g of guideRects([guide], { inside, inset: 2, clear, clearance: optionClearance, minThickness: 0 })) {
         kept++;
         if (g === guide) same++;
-        for (const c of clear) {
+        for (const { r: c, want } of specs) {
           const gapX = Math.max(c.x - (g.rect.x + g.rect.width), g.rect.x - (c.x + c.width));
           const gapY = Math.max(c.y - (g.rect.y + g.rect.height), g.rect.y - (c.y + c.height));
-          expect(Math.max(gapX, gapY), `${kind} ${JSON.stringify(g.rect)} vs ${JSON.stringify(c)} at clearance ${clearance}`).toBeGreaterThanOrEqual(clearance - 1e-6);
+          expect(Math.max(gapX, gapY), `${kind} ${JSON.stringify(g.rect)} vs ${JSON.stringify(c)} at clearance ${want}`).toBeGreaterThanOrEqual(want - 1e-6);
         }
       }
     }
     expect(kept).toBeGreaterThan(500);
     expect(same).toBeGreaterThan(50);
+  });
+
+  it("clearance is per clear rect: a plain rect keeps the default gap, `{ rect, clearance: 0 }` lets a guide run flush", () => {
+    const area = rect(0, 0, 400, 100);
+    const flush = { rect: rect(100, 10, 60, 30), clearance: 0 };
+    // A box beside content it may touch ends at it; beside a plain rect it ends 2 px short.
+    expect(guideRects([{ kind: "box", rect: rect(0, 10, 100, 30) }], { inside: area, clear: [flush] })[0]!.rect).toEqual(rect(2, 10, 98, 30));
+    expect(guideRects([{ kind: "box", rect: rect(0, 10, 100, 30) }], { inside: area, clear: [flush.rect] })[0]!.rect).toEqual(rect(2, 10, 96, 30));
+    // Both kinds in one call: the thin edge runs flush against the content (5 px), but keeps its 2 px from the held
+    // item's outline further along (here the outline sits over the strip's lower half, so the strip is thinned beside it).
+    const content = { rect: rect(8, 40, 230, 500), clearance: 0 };
+    const held = rect(0, 300, 20, 100);
+    const [edge, line] = guideRects([{ kind: "hatch", rect: rect(0, 40, 8, 250) }, { kind: "hatch", rect: rect(0, 310, 8, 200) }], { inside, inset: 2, clear: [content, held] });
+    expect(edge!.rect).toEqual(rect(3, 40, 5, 250));
+    // Over the held item's outline the strip has no room: it stays dropped, as a plain rect (2 px) says.
+    expect(line).toBeUndefined();
+    // The options' clearance is the plain rect's; a rect's own clearance wins over it.
+    expect(guideRects([{ kind: "box", rect: rect(0, 10, 100, 30) }], { inside: area, clear: [flush], clearance: 5 })[0]!.rect).toEqual(rect(2, 10, 98, 30));
+    expect(guideRects([{ kind: "box", rect: rect(0, 10, 100, 30) }], { inside: area, clear: [flush.rect], clearance: 5 })[0]!.rect).toEqual(rect(2, 10, 93, 30));
+    expect(guideRects([{ kind: "box", rect: rect(0, 10, 100, 30) }], { inside: area, clear: [{ rect: flush.rect, clearance: 5 }], clearance: 0 })[0]!.rect).toEqual(rect(2, 10, 93, 30));
   });
 });
