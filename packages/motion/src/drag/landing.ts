@@ -113,6 +113,13 @@ export interface LandingSlide {
 }
 /** The grain of a sliding spot's free start, px, when it names none: whole pixels. */
 const SLIDE_STEP = 1;
+/**
+ * How far back the slide count reads the hand's speed: at least `SLIDE_WINDOW` ms and `SLIDE_SAMPLES` steps of its
+ * samples, so a frame whose timestamp jitters never reads a fling as slow (or a slide as a fling). Over six steps a
+ * fling at 2.4 px/ms whose timestamps are off by up to half a frame still reads above `slide` (2 px/ms).
+ */
+const SLIDE_WINDOW = 24;
+const SLIDE_SAMPLES = 6;
 /** How near a sliding spot's snap point its landing snaps to it, px. */
 export const SNAP_DISTANCE = 8;
 /**
@@ -364,6 +371,9 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let flung = false;
   let slowFrom: number | null = null;
   let lastStep = 0;
+  /** The distinct samples of the last `SLIDE_WINDOW` ms or more, and the speed over them, px per 8 ms (the slide count's). */
+  const recent: { raw: Point; t: number }[] = [];
+  let windowStep = Infinity;
   /** Path inside each lane since the pointer last entered its rect. */
   const pathIn = new Map<string, number>();
   /** The path along and across each lane at any speed since the pointer entered it (a touching lane's takeover). */
@@ -585,6 +595,16 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       step = (Math.hypot(raw.x - moved.raw.x, raw.y - moved.raw.y) * 8) / Math.max(1, t - moved.t);
       moved = { raw, t };
       lastStep = step;
+      // The speed the slide count reads: over the last `SLIDE_WINDOW` ms or more of distinct samples, so a fling whose
+      // timestamps jitter never reads slow on a frame. Before that much history, over all there is since the lift.
+      recent.push({ raw, t });
+      while (recent.length > SLIDE_SAMPLES + 1 && t - recent[1]!.t >= SLIDE_WINDOW) recent.shift();
+      const oldest = recent[0]!;
+      if (recent.length > 1 && t > oldest.t) {
+        let pathLen = 0;
+        for (let i = 1; i < recent.length; i++) pathLen += Math.hypot(recent[i]!.raw.x - recent[i - 1]!.raw.x, recent[i]!.raw.y - recent[i - 1]!.raw.y);
+        windowStep = (pathLen * 8) / (t - oldest.t);
+      } else windowStep = step;
       // A fling unsettles the hand; it is slow again from the last sample before a slow step (every step at most `step`).
       if (step > gates.slide) {
         flung = true;
@@ -601,9 +621,11 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     } else {
       // The first point: how the pointer moves is unknown, never still (a lift over a lane's band doesn't enter it).
       moved = { raw, t };
+      recent.length = 0;
+      recent.push({ raw, t });
       // (After `hide()` too, the lift point stays where the drag began.)
       liftAt ??= p;
-      step = lastStep = Infinity;
+      step = lastStep = windowStep = Infinity;
     }
     // Settled again once slow for `pause` since the fling: only then do the slow-step gates (still, over-refused) count.
     // On the stage's edge a fling is taken at once, as the still gate's `rest` says: the edge is where a fling docks.
@@ -628,9 +650,10 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const inL = strictlyIn(l.rect, p);
       pathIn.set(l.id, inL ? (pathIn.get(l.id) ?? 0) + (slow ? go : 0) : 0);
       const s = slide.get(l.id);
-      // A step above `slide` (a fling) adds nothing to the count, and resets nothing: a fling's own path never counts, so
-      // one that slows for a frame or two never docks, while a steady slide whose timestamps jitter keeps its count.
-      slide.set(l.id, !inL ? { along: 0, across: 0 } : step <= gates.slide ? { along: (s?.along ?? 0) + go, across: (s?.across ?? 0) + over } : (s ?? { along: 0, across: 0 }));
+      // A hand that reads fast over the window (a fling) adds nothing to the count, and resets nothing: a fling's own path
+      // never counts, even where its timestamps jitter, so one that slows for a frame or two never docks, while a steady
+      // slide whose timestamps jitter keeps its count.
+      slide.set(l.id, !inL ? { along: 0, across: 0 } : windowStep <= gates.slide ? { along: (s?.along ?? 0) + go, across: (s?.across ?? 0) + over } : (s ?? { along: 0, across: 0 }));
       if (l.owns && !inL) cameIn.add(l.id);
     }
 
@@ -649,8 +672,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       // them, never a fly-through's room.
       const touching = held ? regions.lanes.find((l) => l.id !== held.id && strictlyIn(l.rect, p) && touches(l.rect, held.rect) && !inside(held.rect, p, margins.exit)) : undefined;
       const sl = touching ? slide.get(touching.id) : undefined;
-      // A fling (a step above `slide`) is no entry, along the lane as well as across it.
-      const slid = !!sl && sl.along >= gates.path && sl.across * 3 <= sl.along && step <= gates.slide;
+      // A fling (above `slide`, read over the window) is no entry, along the lane as well as across it.
+      const slid = !!sl && sl.along >= gates.path && sl.across * 3 <= sl.along && windowStep <= gates.slide;
       // A lane that owns its rect (a rail drop strip) takes the pointer inside it from any lane it overlaps, a held one
       // too, once its own gate passes (so a pass across it opens nothing), and only once the pointer came into it (it has
       // been outside it since the lift): a press in a column's outer edge, or a slow reorder along it, stays in the column.
