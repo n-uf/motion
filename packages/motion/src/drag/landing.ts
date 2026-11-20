@@ -467,7 +467,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     return cand;
   }
 
-  function guidesFor(p: Point, region: LandingRegion, shift: boolean, pending: string | null): LandingGuide[] {
+  function guidesFor(p: Point, region: LandingRegion, shift: boolean, pending: string | null, landing: Rect | null): LandingGuide[] {
     if (guidesLevel === "off" || shift) return [];
     const regions = heldRegions(spotId);
     const all = (l: LandingLane, near = false): LandingGuide[] => {
@@ -476,20 +476,39 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         ? marks.map((m, i) => ({ id: m.id ?? `${l.id}#${i}`, lane: l.id, kind: m.kind, rect: m.rect }))
         : l.spots.map((s) => ({ id: `${l.id}/${s.id}`, lane: l.id, kind: "box" as const, rect: s.landing }));
     };
+    const area = (a: Rect, c: Rect): boolean => Math.min(a.x + a.width, c.x + c.width) - Math.max(a.x, c.x) > 1e-6 && Math.min(a.y + a.height, c.y + c.height) - Math.max(a.y, c.y) > 1e-6;
+    /** `gs` less the rects `cs`, by `guideRects`' interval subtraction; a guide they don't overlap stays as it is. */
+    const less = (gs: readonly LandingGuide[], cs: readonly Rect[]): LandingGuide[] => {
+      if (cs.length === 0) return [...gs];
+      const clear = cs.map((rect) => ({ rect, clearance: 0 }));
+      return gs.flatMap((g) => (cs.some((c) => area(g.rect, c)) ? guideRects([g], { inside: g.rect, inset: 0, clear, minLength: 0, minThickness: 0 }) : [g]));
+    };
     const near = nearLane(p, region, pending, regions);
-    if (guidesLevel === "near") return near ? all(near, true) : [];
+    // The Near lane's guide less the held toolbar at the landing it takes there (held: the frame's landing) or would
+    // take (pending or approached: the spot the pointer picks along it, a sliding spot's start from the grab), never
+    // its floating rect: so the guide before entry is the mark after it, and a host passes no held rect.
+    const wouldLand = (l: LandingLane): Rect | null => {
+      if (l.id === laneId) return region === "lane" ? landing : null;
+      const s = pick(l, alongOf(l, p));
+      return s ? landingAt(l, s, p, regions.item) : null;
+    };
+    const nearGuides = (l: LandingLane): LandingGuide[] => {
+      // (A lane with no marks shows its spots' landings: those are the guide, nothing to cut.)
+      const at = l.marks || l.entry ? wouldLand(l) : null;
+      return less(all(l, true), at ? [at] : []);
+    };
+    if (guidesLevel === "near") return near ? nearGuides(near) : [];
     // "all": every lane's. The lane the pointer picks shows its marks once entered (`entry`), and owns every corner it
     // shares: the lanes it names in `corners` are cut where they overlap it, as `guideRects` cuts a box by a clear rect.
     // With no such lane, each lane's `marks` (where two lanes would overlap, one of them already gave the corner up).
-    const owner = near?.entry && near.corners?.length ? near : null;
-    if (!owner) return regions.lanes.flatMap((l) => all(l));
-    const clear = owner.entry!.map((m) => ({ rect: m.rect, clearance: 0 }));
-    const over = (r: Rect): boolean => clear.some(({ rect: c }) => Math.min(r.x + r.width, c.x + c.width) - Math.max(r.x, c.x) > 1e-6 && Math.min(r.y + r.height, c.y + c.height) - Math.max(r.y, c.y) > 1e-6);
+    const owns = (l: LandingLane | null | undefined): l is LandingLane => !!l && !!l.entry && !!l.corners?.length;
+    const owner: LandingLane | null = owns(near) ? near : null;
+    const ownerMarks = owner ? (owner.id === near?.id ? nearGuides(owner) : all(owner, true)) : [];
+    const cutBy = owner ? owner.entry!.map((m) => m.rect) : [];
     return regions.lanes.flatMap((l) => {
-      if (l.id === owner.id) return all(l, true);
-      const gs = all(l);
-      if (!owner.corners!.includes(l.id)) return gs;
-      return gs.flatMap((g) => (over(g.rect) ? guideRects([g], { inside: g.rect, inset: 0, clear, minLength: 0, minThickness: 0 }) : [g]));
+      if (owner && l.id === owner.id) return ownerMarks;
+      if (near && l.id === near.id) return nearGuides(l);
+      return owner?.corners!.includes(l.id) ? less(all(l), cutBy) : all(l);
     });
   }
 
@@ -717,7 +736,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       spot: shown === "lane" ? spotId : null,
       landing,
       room: shown === "lane" && !!spot,
-      guides: guidesFor(p, shown, shift, pending && shown !== "lane" ? pending : null),
+      guides: guidesFor(p, shown, shift, pending && shown !== "lane" ? pending : null, landing),
       shift,
       ...(pending && shown !== "lane" ? { pending } : {}),
     };

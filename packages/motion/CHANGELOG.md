@@ -5,6 +5,15 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## Unreleased
 
+- `./drag`, **the Near guide leaves out the held toolbar at its landing** (behavior change). A host cut the held
+  toolbar's floating rect out of the guides, so before entry the guide was cut wherever the toolbar floated and at
+  entry wherever it landed: an empty top bar's guide went from `421..867` to `3..347` and `453..867`. The landing model
+  now cuts the Near lane's guide at the landing the held toolbar takes there (held: the frame's `landing`) or would take
+  (pending or approached: the spot the pointer picks along the lane, a sliding spot's start from the grab), by
+  `guideRects`' interval subtraction; a lane with no marks (its spots' landings are its guides) is not cut. Host notes:
+  **do not pass the held toolbar's drawn rect in `guideRects`' `clear`**: the guides already leave the held landing
+  out.
+
 - `./drag`, **a flick settles before a slow step counts** (fix). After a fast step any distinct sample, even 0.3 px of
   jitter, was a slow step at once, so a real hand's jitter after a flick docked it on the next frame, and an immediate
   release did not go home. Now after a step above `gates.slide` no lane is entered by a slow-step gate (the still gate,

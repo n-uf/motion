@@ -9,7 +9,7 @@
  * (`fixtures/kit-windows-lift.json`). Each empty lane is entered from each of its sides that lies inside the stage, under
  * "near" and "all", in `emptyLanes: "real"`.
  */
-import { createLandingModel, guideRects, type LandingFrame } from "@n-uf/motion/drag";
+import { createLandingModel, type LandingFrame } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/geometry";
 import { lanes, solve, type Regions } from "../src/scene";
@@ -77,8 +77,6 @@ function emptyLanes(d: Drag): Regions["lanes"] {
 
 type Guide = LandingFrame["guides"][number];
 const fmt = (r: Rect): string => `${r.x.toFixed(1)},${r.y.toFixed(1)} ${r.width.toFixed(1)}x${r.height.toFixed(1)}`;
-/** A lane's guides less the held item's rect (as a host draws them: no guide under the held item). */
-const less = (gs: readonly Guide[], held: Rect, stage: Rect): Guide[] => guideRects(gs, { inside: stage, inset: 0, clear: [{ rect: held, clearance: 0 }], minLength: 0, minThickness: 0 });
 const sameGuides = (a: readonly Guide[], b: readonly Guide[]): string | null => {
   const key = (g: Guide): string => `${g.id} ${g.kind}`;
   const ka = a.map(key).sort().join(" ; ");
@@ -110,7 +108,8 @@ function sweep(): Record<"near" | "all", Sweep> {
       for (const a of approaches(l, w.scene.stage)) {
         const legs: [Point, number][] = [
           [a.from, 0.6],
-          [a.to, 0.15],
+          // (0.1 px/ms: under a pixel a frame, so a landing that follows the hand moves less than the 1 px tolerance.)
+          [a.to, 0.1],
         ];
         const near = play(d, "near", legs);
         const all = play(d, "all", legs);
@@ -145,12 +144,28 @@ function sweep(): Record<"near" | "all", Sweep> {
             continue;
           }
           s.compared++;
-          const p = frames[e]!.point;
-          const held = { x: p.x - d.grab.x, y: p.y - d.grab.y, width: d.size.width, height: d.size.height };
-          const before = less(frames[n]!.frame.guides.filter((g) => g.lane === l.id), held, w.scene.stage);
-          const after = less(frames[e]!.frame.guides.filter((g) => g.lane === l.id), held, w.scene.stage);
-          const why = sameGuides(before, after);
+          // The guides as the model gives them: the held toolbar is already cut out at the landing it takes (or would
+          // take) there, so a host passes no held rect, and the floating toolbar over the lane changes nothing.
+          const after = frames[e]!.frame.guides.filter((g) => g.lane === l.id);
+          const why = sameGuides(frames[n]!.frame.guides.filter((g) => g.lane === l.id), after);
           if (why) s.bad.push(`${where} (${mode}): ${why}`);
+          // Neither frame draws a guide under the landing the held toolbar takes there (the would-be landing before
+          // entry is the landing at entry, a frame away).
+          const landing = frames[e]!.frame.landing;
+          for (const k of [n, e])
+            for (const g of frames[k]!.frame.guides.filter((x) => x.lane === l.id && x.kind !== "line"))
+              if (landing && Math.min(g.rect.x + g.rect.width, landing.x + landing.width) - Math.max(g.rect.x, landing.x) > 1 && Math.min(g.rect.y + g.rect.height, landing.y + landing.height) - Math.max(g.rect.y, landing.y) > 1)
+                s.bad.push(`${where} (${mode})${k === n ? " before entry" : " at entry"}: ${g.id} ${fmt(g.rect)} under the landing ${fmt(landing)}`);
+          // Across the lane (the pointer's place along it fixed), every Near frame from the first one shows that mark:
+          // nothing jumps, a rail beside refused columns included (its first Near frame is at entry, pending).
+          if (!a.side.startsWith("the "))
+            for (let i = n - 1; i > startAt && near[i]!.frame.lane !== l.id && near[i]!.frame.guides.some((g) => g.lane === l.id); i--) {
+              const earlier = sameGuides(frames[i]!.frame.guides.filter((g) => g.lane === l.id), after);
+              if (earlier) {
+                s.bad.push(`${where} (${mode}) at ${Math.round(frames[i]!.point.x)},${Math.round(frames[i]!.point.y)}: ${earlier}`);
+                break;
+              }
+            }
         }
       }
   }
