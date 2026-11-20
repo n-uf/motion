@@ -34,9 +34,11 @@
   --accent-line: #a3d0df;
   --accent-ink: #ffffff;
 
-  /* The pair's two parts: cyan is motion, violet is placement (and only placement). --part is the current page's. */
+  /* The three parts: cyan is motion, violet is placement, rose is docking (each only its own). --part is the current page's. */
   --motion: var(--accent);
   --place: var(--series-b);
+  --dock: #a8286a; /* 6.1:1 on --bg, 5.5:1 on --bg-sunken */
+  --dock-ink: #ffffff; /* the ink on a --dock fill */
   --part: var(--motion);
   --part-strong: var(--accent-strong); /* the part as text on a tint (AA) */
 
@@ -171,6 +173,8 @@
     --series-a2: #f0c88e;
     --series-b: #9a93ea;
     --series-b2: #d39be0;
+    --dock: #f07fb4; /* 7.5:1 on --bg, 7.8:1 on --bg-sunken */
+    --dock-ink: #2a0a1b;
     --series-c2: #9edff0;
     --series-e: #6f7d8f;
     --series-ink: #c2c4ca;
@@ -232,6 +236,8 @@
   --series-a2: #f0c88e;
   --series-b: #9a93ea;
   --series-b2: #d39be0;
+  --dock: #f07fb4;
+  --dock-ink: #2a0a1b;
   --series-c2: #9edff0;
   --series-e: #6f7d8f;
   --series-ink: #c2c4ca;

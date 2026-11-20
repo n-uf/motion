@@ -30,6 +30,7 @@ const groups: [string, string, string[]][] = [
   ["Text", "Three steps: primary, secondary, tertiary.", pick(/^text/)],
   ["Hairlines", "Solid 1 px lines, three strengths.", pick(/^line/)],
   ["Accent", "One blue teal, for interaction and focus only, on the site and in the demo windows.", pick(/^accent/)],
+  ["Parts", "Cyan is motion (the accent), violet is placement, rose is docking. Each means its own library and nothing else.", ["motion", "place", "dock", "dock-ink"]],
   ["Signal", "Orange, for drop targets and indicators only.", pick(/^signal/)],
   ["Results and series", "Good and bad results; chart series (the proposal takes the accent).", [...pick(/^(good|bad)$/), ...pick(/^series/)]],
   ["Grips", "The grip's dots, at rest and hot.", pick(/^grip/)],
@@ -40,6 +41,27 @@ const resolve = (map: Map<string, string>, v: string): string => {
   const m = v.match(/^var\(--([\w-]+)\)$/);
   return m ? resolve(map, map.get(m[1]!) ?? light.get(m[1]!) ?? v) : v;
 };
+/** WCAG contrast of two #rrggbb colours. */
+function ratio(a: string, b: string): number {
+  const lum = (h: string): number => {
+    const [r, g, bl] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)) as [number, number, number];
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [x, y] = [lum(a), lum(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+// Each part's colour as text on the page, the sunken ground and a card, in light and dark, read from the tokens.
+const partColors = [["Motion", "accent-strong"], ["Placement", "place"], ["Docking", "dock"]] as const;
+const grounds = ["bg", "bg-sunken", "bg-raised"] as const;
+const contrastRows = partColors.map(([name, token]) => ({
+  name,
+  token,
+  cells: (["light", "dark"] as const).flatMap((mode) => {
+    const map = mode === "light" ? light : dark;
+    const fg = resolve(map, map.get(token) ?? light.get(token)!);
+    return grounds.map((g) => ({ mode, g, v: ratio(fg, resolve(map, map.get(g) ?? light.get(g)!)) }));
+  }),
+}));
 const type = [
   ["t-2xl", "Page title (h1)", "h1"], ["t-xl", "Section title (h2)", "h2"], ["t-lg", "Card title", "lg"], ["t-md", "Lead, small headings", "md"],
   ["t-base", "Body", "base"], ["t-sm", "Interface, captions", "sm"], ["t-xs", "Notes", "xs"], ["t-2xs", "Eyebrow", "eyebrow"],
@@ -73,10 +95,16 @@ const shadows = pick(/^shadow/);
     ))}
   </section>
 
-  <section class="section" data-part="placement">
-    <div class="section-head"><span class="eyebrow">Parts</span><h2 class="section-title">Cyan is motion, violet is placement</h2><p>The pair has two colors with a meaning. A page of a part sets <code>data-part</code> on its <code>main</code>; <code>--part</code> (and <code>--part-strong</code> for text on a tint) then carries that part's color to everything that takes it: the eyebrow and its rule, the nav underline, the pressed case, the figure caption's tick, the callout and the pager hover. This section is set to placement, so it shows violet.</p></div>
+  <section class="section" data-part="docking">
+    <div class="section-head"><span class="eyebrow">Parts</span><h2 class="section-title">Cyan is motion, violet is placement, rose is docking</h2><p>The three libraries have three colors with a meaning. A page of a part sets <code>data-part</code> on its <code>main</code>; <code>--part</code> (and <code>--part-strong</code> for text on a tint) then carries that part's color to everything that takes it: the eyebrow and its rule, the nav underline, the pressed case, the figure caption's tick, the callout and the pager hover. This section is set to docking, so it shows rose.</p></div>
     <div class="rules two ds-rules">
-      <div class="rule"><h3><code>--motion</code> · <code>--place</code></h3><p>Cyan (<code>--accent</code>) for @n-uf/motion, violet (<code>--series-b</code>) for @n-uf/placement. Violet means placement and nothing else: other engines in a chart take the slates <code>--series-d</code> and <code>--series-e</code>.</p></div>
+      <div class="rule"><h3><code>--motion</code> · <code>--place</code> · <code>--dock</code></h3><p>Cyan (<code>--accent</code>) for @n-uf/motion, violet (<code>--series-b</code>) for @n-uf/placement, rose (<code>--dock</code>, with <code>--dock-ink</code> on a rose fill) for @n-uf/docking. Violet means placement and rose means docking, nothing else: other engines in a chart take the slates <code>--series-d</code> and <code>--series-e</code>. Rose is far from the orange signal (drop targets) and the red of a failed check.</p></div>
+      <div class="rule"><h3>Contrast of each part as text</h3><p>WCAG ratios, computed from the tokens when the site builds (AA is 4.5:1 for text). Light then dark, on the page (<code>--bg</code>), the sunken ground and a raised card.</p>
+        <table class="ds-contrast">
+          <thead><tr><th></th>{contrastRows.map((r) => <th scope="col">{r.name}</th>)}</tr></thead>
+          <tbody>{contrastRows[0]!.cells.map((c, i) => <tr><th scope="row">{c.mode} · {c.g === "bg" ? "page" : c.g === "bg-sunken" ? "sunken" : "card"}</th>{contrastRows.map((r) => <td class={r.cells[i]!.v >= 4.5 ? "ok" : "bad"}>{r.cells[i]!.v.toFixed(1)}</td>)}</tr>)}</tbody>
+        </table>
+      </div>
       <div class="rule"><h3>Figure caption</h3><p>A mono caption, with a <code>--part</code> tick, above each figure's first note (<code>.fig-plan</code>): <em>SCOPE · MOTION CARRIES THE PANEL</em> on a Move page, <em>PLAN · PLACEMENT RETURNS RECTS</em> on a Place page. CSS content only.</p></div>
       <div class="rule"><h3>Leader-line notes</h3><p>Small mono chips with a dashed elbow to what the package is doing now (<code>styles/notes.css</code>). Decoration: aria-hidden, driven by classes the islands already set, anchored with CSS where a part moves, and a plain key under the figure on a phone. Placement's notes never say it draws or moves anything.</p></div>
       <div class="rule"><h3>Text contrast</h3><p>Every text token meets WCAG AA (4.5:1) on <code>--bg</code>: <code>--text-3</code> is 5.06 in light and 5.53 in dark; <code>--signal-text</code> is the orange for text, <code>--signal-ink</code> the ink on an orange fill.</p></div>

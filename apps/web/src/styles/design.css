@@ -23,6 +23,11 @@
 .ds-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s5); padding: var(--s5); border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); }
 .ds-stage { display: grid; place-items: center; height: 100%; padding: var(--s4); text-align: center; color: var(--text-3); font-size: var(--t-sm); background: repeating-linear-gradient(135deg, transparent 0 10px, color-mix(in srgb, var(--line) 60%, transparent) 10px 11px); }
 .ds-rules { margin-top: var(--s5); }
+.ds-contrast { width: 100%; margin-top: var(--s3); border-collapse: collapse; font: 12px var(--font-mono); }
+.ds-contrast th, .ds-contrast td { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: left; font-weight: 500; }
+.ds-contrast thead th { color: var(--text-3); font-weight: 600; }
+.ds-contrast td.ok { color: var(--good); }
+.ds-contrast td.bad { color: var(--bad); }
 .ds-grips { display: flex; flex-wrap: wrap; gap: var(--s6); align-items: center; padding: var(--s5); border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-raised); }
 .ds-grips > div { display: inline-flex; align-items: center; gap: var(--s3); font-size: var(--t-sm); }
 .ds-grips .g { cursor: default; }
