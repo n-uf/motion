@@ -37,7 +37,8 @@ import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, 
 /**
  * Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`, keeping `space`
  * px free on its zone's open side (`SceneItem.space`; absent or 0: none). Docked into the room a placed neighbor keeps,
- * it consumes that room: the neighbor keeps what is left and moves only by what the room lacks.
+ * it consumes that room: the neighbor keeps what is left and moves only by what the room lacks. (While the edge has
+ * spare length to give every room; a squeezed edge shares its spare out, and its items may shift by a few px.)
  */
 export interface DockPlace {
   readonly kind?: "gap";
@@ -113,8 +114,9 @@ export function mergeSideColumns(scene: Scene): Scene {
 
 /**
  * The scene with the item out of every edge and every float (a dynamic column it leaves empty is deleted). The room it
- * held goes back to its stretch: a placed neighbor whose room it lay in (`SceneItem.space`) takes it back, so it stays
- * where it was drawn; a flush neighbor closes up toward its zone's own end, as before.
+ * held goes back to its stretch: the first placed item past it, away from its zone's own end (`SceneItem.space`), takes
+ * it back, so it stays where it was drawn; the flush items between close up toward the zone's own end. (While the edge
+ * has spare length to give every room; a squeezed edge, or items stepping up to wider forms, may shift it by a few px.)
  */
 export function lift(scene: Scene, id: string): Scene {
   const inEdge = scene.edges.some((e) => e.items.includes(id));
@@ -146,9 +148,11 @@ function roomOwner(scene: Scene, edge: Edge, k: number): string | undefined {
   const zone = zoneAt(scene, edge, id);
   if (zone === "center") return undefined;
   const step = zone === "start" ? 1 : -1;
+  // The edge's list may hold zones in any order (the solver sorts by zone): another zone's items, and closed items
+  // (they take no room), are passed over.
   for (let j = k + step; j >= 0 && j < edge.items.length; j += step) {
     const nb = edge.items[j]!;
-    if (zoneAt(scene, edge, nb) !== zone) return undefined;
+    if (zoneAt(scene, edge, nb) !== zone || scene.items[nb]?.closed) continue;
     if ((scene.items[nb]?.space ?? 0) > 0) return nb;
   }
   return undefined;
@@ -298,9 +302,10 @@ export function moveAmong(scene: Scene, id: string, place: Place, others: readon
   const k = insertIndex(lifted, target, zone, place.at);
   const into = { ...target, items: [...target.items.slice(0, k), id, ...target.items.slice(k)] };
   const placed: Scene = { ...lifted, edges: lifted.edges.map((e) => (e === target ? into : e)) };
-  // Docked into the room a placed neighbor keeps (`SceneItem.space`): the dock consumes that room. The item lands at the
-  // room's start, or where its own `space` puts it, and the neighbor keeps what is left, so it moves only by what the
-  // room lacks. A flush neighbor is pushed along by the item.
+  // Docked into the room a placed neighbor keeps (`SceneItem.space`): the dock consumes that room. The item lies flush
+  // against its zone's own end of the room (its start in a start zone, its end in an end zone), or where its own `space`
+  // puts it, and the neighbor keeps what is left, so it moves only by what the room lacks. A flush neighbor is pushed
+  // along by the item.
   const owner = roomOwner(placed, into, k);
   if (!owner) return placed;
   const length = lengthOn(placed, into, id);
@@ -330,10 +335,11 @@ export function floatAt(scene: Scene, id: string, at?: Rect, orient?: Orient): S
   const float: SceneFloat = at
     ? { id, rect: { x: at.x, y: at.y, width: at.width, height: at.height }, ...(o ? { orient: o } : {}), ...seq }
     : { id, rect: { x: 0, y: 0, width: size.width, height: size.height }, anchor: "content-top-right", ...(o ? { orient: o } : {}), ...seq };
-  // A float keeps no bar space (`SceneItem.space`).
+  // A float keeps no bar space (`SceneItem.space`). Lifted first, as it lies, so the room it held (its own space
+  // included) goes back to its stretch.
   const { space: _space, ...unspaced } = item;
   const next = at && at.width > 0 && at.height > 0 ? { ...unspaced, floatSize: { width: at.width, height: at.height } } : unspaced;
-  const lifted = lift(withItem(scene, next), id);
+  const lifted = withItem(lift(scene, id), next);
   return { ...lifted, floats: [...lifted.floats, float] };
 }
 
