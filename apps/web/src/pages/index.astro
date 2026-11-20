@@ -12,6 +12,7 @@ import { faqJsonLd } from "../data/faq";
 import { CURVE, curveSVG, deskThumbSVG } from "../demos/home";
 import "../styles/home.css";
 import "../styles/hero.css";
+import "../styles/hero-doc.css";
 import "../styles/telemetry.css";
 import CodeTabs from "../components/CodeTabs.astro";
 import PairCode from "../components/PairCode.astro";
@@ -41,9 +42,10 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
 ---
 <Site title={page.title} description={page.description} path="/" jsonLd={jsonLd} ogImage="/og.png">
   <!--
-    The hero (components/HeroScope.astro): three text-only slots, motion, placement and docking, left to right, then one
-    shared app window where the three libraries each do their part (components/HeroWindow.astro). The page's one h1 is the
-    three headlines, and the TypeScript sentence is its first paragraph in the DOM, under the slots on screen.
+    The hero (components/HeroScope.astro): three slots, motion, placement and docking, left to right, each with its
+    illustration under it (motion's scope moves; placement's numbers-in-rects-out and docking's window are static). The
+    page's one h1 is the three headlines, and the TypeScript sentence is its first paragraph in the DOM, under the slots
+    on screen.
   -->
   <HeroScope />
 
@@ -216,11 +218,11 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
   // The interactive pages' preview follows the hovered or focused entry.
   const xp = document.getElementById("xp")!;
   whenVisible(xp, () => void import("../islands/explore").then((m) => m.startExplore(xp)));
-  // The hero window is on screen from the first paint, and the server already drew its finished state: its island (motion's
-  // glide of the dropped panel, the only thing on the hero that moves) starts once the page has loaded and the browser is
-  // idle, so it never competes with the first paint.
-  const hwin = document.getElementById("hwin")!;
-  const start = (): void => void import("../islands/hero-window").then((m) => m.startHeroWindow(hwin));
+  // The hero is on screen from the first paint, and the server already drew its finished state: its island (motion's scope,
+  // the only part of the hero that moves; placement's and docking's illustrations are static) starts once the page has
+  // loaded and the browser is idle, so it never competes with the first paint.
+  const band = document.getElementById("band")!;
+  const start = (): void => void import("../islands/hero").then((m) => m.startHero(band));
   const idle = (): void => void ("requestIdleCallback" in window ? requestIdleCallback(start, { timeout: 1500 }) : setTimeout(start, 300));
   if (document.readyState === "complete") idle();
   else addEventListener("load", idle, { once: true });

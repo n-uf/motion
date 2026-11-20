@@ -1,12 +1,13 @@
 /*
  * The home hero (components/HeroScope.astro): three slots split by two seams, motion's scope on the left (the accent),
- * placement's popup in the middle (violet, --series-b) and docking's app window on the right (rose, --dock). The TypeScript
+ * placement's "numbers in, rects out" in the middle (violet, --series-b) and docking's docked window on the right (rose, --dock).
+ * Each slot is its eyebrow, headline, words, install line and an illustration, in that order at every width. The TypeScript
  * sentence is first in the DOM and shows under the band. Wide: three columns of equal text width (the page's wrap, a
  * gutter between them), the band's three grounds drawn behind them. Narrow (1100 px and under): one column, the three
  * headlines first, then each library's slot (its eyebrow, words and instrument) on its own ground.
  *
- * Nothing here changes size when an island (hero, hero-pop, hero-dock) starts: the stages are svgs whose boxes are their
- * viewBoxes, and the panel moves by transform in a layer that takes no room.
+ * Nothing here changes size when the island starts: the other two illustrations are static, and the panel moves by transform
+ * in a layer that takes no room.
  */
 .hero { --pad: max(var(--gutter), calc((100cqw - var(--max)) / 2)); --gap: 26px; --w: calc((100cqw - 2 * var(--pad) - 4 * var(--gap)) / 3); container-type: inline-size; display: flex; flex-direction: column; }
 .pair-intro { order: 2; margin: 0; padding: 14px var(--pad) 0; max-width: none; font: 12.5px/1.6 var(--font-mono); color: var(--text-3); }
@@ -47,7 +48,7 @@
 .eb.m { grid-column: 1; padding-left: var(--pad); }
 .eb.p { grid-column: 2; padding-left: var(--gap); color: var(--series-b); }
 .eb.d { grid-column: 3; padding-left: var(--gap); color: var(--dock); }
-h1.pair { grid-row: 2; grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; margin: 0; max-width: none; font-size: clamp(26px, 2.55cqw, 38px); line-height: 1.08; letter-spacing: -0.04em; font-weight: 700; position: relative; }
+h1.pair { pointer-events: none; grid-row: 2; grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; margin: 0; max-width: none; font-size: clamp(26px, 2.55cqw, 38px); line-height: 1.08; letter-spacing: -0.04em; font-weight: 700; position: relative; }
 /* The room under the headlines holds the docking one's overall dimension line. */
 h1.pair > span { display: block; padding-top: var(--s4); padding-bottom: 30px; position: relative; }
 h1.pair > span.m { grid-column: 1; padding-right: var(--gap); padding-left: var(--pad); }
@@ -95,8 +96,6 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
 .zin { height: 100%; min-width: 0; }
 .cap { grid-area: cap; align-self: end; font: 600 10.5px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
 .cap b { color: var(--accent); font-weight: 650; }
-.popzone .cap b { color: var(--series-b); }
-.dockzone .cap b { color: var(--dock); }
 
 /* ---- The scope ---------------------------------------------------------------------------------------------------- */
 /* Wide: the dial with its two controls beside it, the plot under them, the readings, then the two pads the panel is carried between. */
@@ -140,50 +139,28 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
 
 /* ---- Placement's and docking's diagrams: static, input to computed result, drawn from real library output ---------------- */
 /* --k is the zone's color (violet for placement's popup cases, rose for docking's window). Every label is 12 px or more. */
-.popzone, .dockzone { --fs: 12px; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto 1fr; gap: 8px; align-content: start; }
-.popzone { --k: var(--series-b); }
+.placezone, .dockzone { display: block; }
+.placezone { --k: var(--series-b); }
 .dockzone { --k: var(--dock); }
-.popzone .cap, .dockzone .cap { grid-area: auto; }
-.fn { align-self: start; justify-self: start; max-width: 100%; padding: 4px 8px; border: 1px solid color-mix(in srgb, var(--k) 45%, transparent); border-radius: 3px; background: var(--bg); font: 600 12px/1.4 var(--font-mono); color: var(--text-2); white-space: normal; overflow-wrap: anywhere; }
-/* Placement: a 2 x 2 of one rule. Bounds are dashed violet, the solid card is where the popup went, red dashes where the rule first asked. */
-.pcases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
-.pcase { margin: 0; }
-.pcase svg { display: block; width: 100%; height: auto; border: 1px solid color-mix(in srgb, var(--k) 40%, transparent); background: var(--bg-sunken); }
-.pcase figcaption { margin-top: 4px; font: 600 12px/1.3 var(--font-mono); color: var(--text); }
-.pcase .n { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 4px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--k); color: var(--k); font-size: 11px; }
-.pc-bounds { fill: none; stroke: var(--k); stroke-width: 1.2; stroke-dasharray: 4 3; }
-.pc-ghost { fill: color-mix(in srgb, var(--bad) 8%, transparent); stroke: var(--bad); stroke-width: 1.4; stroke-dasharray: 4 3; }
-.pc-anchor { fill: var(--k); }
-.pc-caret { fill: none; stroke: var(--bg); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.pc-pop rect:first-child { fill: var(--bg-raised); stroke: var(--k); stroke-width: 1.5; }
-.pc-pop .ln { fill: var(--line-3); }
-.plegend { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; margin: 0; font: 600 12px/1.4 var(--font-mono); color: var(--text-2); }
-.plegend .k { display: inline-block; width: 18px; height: 10px; margin-right: 6px; border-radius: 2px; vertical-align: -1px; }
-.plegend .solid { border: 1.5px solid var(--k); background: var(--bg-raised); }
-.plegend .ask { border: 1.5px dashed var(--bad); }
-/* Docking: the same dock state at two widths. Each frame is the window at its true proportion (the narrow one really narrower). */
-.dkframe { margin: 0; display: grid; gap: 4px; }
-.dkframe.narrow { width: calc(100% * 240 / 320); }
-.dkframe svg { display: block; width: 100%; height: auto; }
-.dknote, .dkchanged { font: 600 12px/1.4 var(--font-mono); color: var(--text-2); }
-.dkchanged { color: var(--k); }
-.dkarrow { display: flex; align-items: center; gap: 8px; font: 600 12px var(--font-mono); color: var(--text-3); }
-.dkarrow svg { width: 18px; height: 22px; fill: none; stroke: var(--k); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.dk-win { fill: var(--bg-raised); stroke: var(--line-3); stroke-width: 1; }
-.dk-strip { stroke: var(--line-2); stroke-width: 1; }
-.dk-dot { fill: var(--text-3); opacity: 0.6; }
-.dk-bar { fill: color-mix(in srgb, var(--k) 9%, var(--bg-subtle)); }
-.dk-col { fill: color-mix(in srgb, var(--k) 10%, var(--bg-subtle)); }
-.dk-doc { fill: var(--bg-sunken); }
-.dk-label { font: 600 12px var(--font-sans); fill: var(--text-3); }
-.dk-page { fill: var(--line-2); }
-.dk-chip, .dk-panel { fill: var(--bg-raised); stroke: color-mix(in srgb, var(--k) 70%, transparent); stroke-width: 1.2; }
-.dk-chip.m, .dk-drop { stroke: var(--k); stroke-width: 1.5; }
-.dk-drop { fill: var(--bg-raised); filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.18)); }
-.dk-t { font: 500 12px var(--font-sans); fill: var(--text); }
-.dk-t .b, .dk-t.b { font-weight: 650; }
-.dk-t .w { fill: var(--text-2); }
-.dk-t .m, .dk-t.m { fill: var(--k); font-weight: 700; }
+/* Placement: "numbers in, rects out", three rows. Thin violet outlines: the dashed one is the area it works in (or, on the
+   first row, where the rule first asked), the solid ones are the rects the call returned. */
+.prows { display: grid; gap: var(--s4); margin: 0; padding: 0; list-style: none; }
+.prow { display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr); gap: 8px; align-items: center; }
+.pin { display: grid; gap: 1px; font: 500 12px/1.45 var(--font-mono); color: var(--text-2); min-width: 0; overflow-wrap: anywhere; }
+.pin .pfn { font-weight: 700; color: var(--text); }
+.parrow { width: 22px; height: 12px; fill: none; stroke: var(--k); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.pout { display: grid; gap: 6px; min-width: 0; }
+.pout svg { display: block; width: 100%; height: auto; max-height: 112px; overflow: visible; }
+.ps { fill: none; stroke: var(--k); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.ps.area { stroke-dasharray: 3 3; opacity: 0.55; }
+.ps.ghost { stroke-dasharray: 3 3; opacity: 0.7; }
+.ps.anchor { fill: color-mix(in srgb, var(--k) 22%, transparent); }
+.pnum { display: grid; gap: 0; margin: 0; font: 600 12px/1.4 var(--font-mono); color: var(--k); }
+.pline { margin: var(--s4) 0 0; font: 12px/1.4 var(--font-mono); color: var(--text-3); }
+.dockzone .pline { margin-top: var(--s3); }
+/* Docking: the lab's Document window, static (styles/hero-doc.css). Only the accent of the handles is rose. */
+.dockzone .hdw { margin: 0; }
+.dockzone .hd-dots { background-image: radial-gradient(var(--dock) 1.2px, transparent 1.4px); }
 
 /* ---- The panel: the real element, and the strobe trail ----------------------------------------------------------- */
 .ov { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
@@ -213,20 +190,15 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
   .hero { --pad: var(--gutter); }
   .band { grid-template-columns: minmax(0, 1fr); padding-bottom: 0; }
   .bg, .seam { display: none; }
-  h1.pair { grid-row: 1; grid-column: 1; grid-template-columns: minmax(0, 1fr); font-size: clamp(26px, 6.2vw, 42px); padding-top: var(--s6); }
-  h1.pair > span { padding-bottom: 0; }
-  h1.pair > span.m { grid-column: 1; padding: 0 var(--gutter); }
-  h1.pair > span.p, h1.pair > span.d { grid-column: 1; padding: var(--s2) var(--gutter) 0; }
-  .eb { padding-top: var(--s5); }
-  .eb.m { grid-row: 2; grid-column: 1; padding-left: var(--gutter); }
-  .col.m { grid-row: 3; grid-column: 1; padding: var(--s2) var(--gutter) var(--s4); }
-  .hz.m { grid-row: 4; }
-  .eb.p { grid-row: 5; grid-column: 1; padding-left: var(--gutter); }
-  .col.p { grid-row: 6; grid-column: 1; padding: var(--s2) var(--gutter) var(--s4); }
-  .hz.p { grid-row: 7; }
-  .eb.d { grid-row: 8; grid-column: 1; padding-left: var(--gutter); }
-  .col.d { grid-row: 9; grid-column: 1; padding: var(--s2) var(--gutter) var(--s4); }
-  .hz.d { grid-row: 10; }
+  /* Slot by slot (eyebrow, headline, words, illustration). The h1 is a subgrid of the band's rows, so each headline sits in its
+     own slot and the page still has one h1 (and Chrome keeps it in the accessibility tree). It takes no clicks. */
+  h1.pair { grid-row: 1 / span 12; grid-column: 1; grid-template-columns: minmax(0, 1fr); grid-template-rows: subgrid; font-size: clamp(26px, 6.2vw, 42px); pointer-events: none; }
+  h1.pair > span.m, h1.pair > span.p, h1.pair > span.d { grid-column: 1; padding: var(--s2) var(--gutter) 0; }
+  .eb.m, .eb.p, .eb.d { grid-column: 1; padding: var(--s6) 0 0 var(--gutter); pointer-events: none; }
+  .col.m, .col.p, .col.d { grid-column: 1; padding: var(--s2) var(--gutter) var(--s4); }
+  .eb.m { grid-row: 1; } h1.pair > span.m { grid-row: 2; } .col.m { grid-row: 3; } .hz.m { grid-row: 4; }
+  .eb.p { grid-row: 5; } h1.pair > span.p { grid-row: 6; } .col.p { grid-row: 7; } .hz.p { grid-row: 8; }
+  .eb.d { grid-row: 9; } h1.pair > span.d { grid-row: 10; } .col.d { grid-row: 11; } .hz.d { grid-row: 12; }
   .col .lead { max-width: 60ch; font-size: 16px; }
   .hz.m, .hz.p, .hz.d { grid-column: 1; padding: var(--s4) var(--gutter); border-top: 1px solid var(--line-3); }
   .hz.m { background:
@@ -242,7 +214,7 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
   .hz.d { background: radial-gradient(circle, color-mix(in srgb, var(--dock) 30%, transparent) 1.3px, transparent 1.6px) 0 0 / 24px 24px, var(--bg); }
   /* The instruments keep a reading width on a wide stack, left-aligned under their words. */
   .zin { max-width: 640px; }
-  .popzone, .dockzone { max-width: 460px; }
+  .placezone, .dockzone { max-width: 460px; }
   .scope { grid-template-columns: 164px minmax(0, 1fr); grid-template-rows: auto auto auto auto; grid-template-areas: "gauge plot" "stats stats" "pada padb" "cap cap"; gap: 10px 16px; }
   .gauge-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s2); align-items: start; }
   .gauge-col .gauge { grid-row: auto; width: 140px; height: 96px; }
