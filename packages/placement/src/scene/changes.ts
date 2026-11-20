@@ -31,12 +31,13 @@
 import { clampInto, type Rect } from "../geometry";
 import { fitResize, type ResizeEdges } from "./float-resize";
 import { axesOf, axisOf, columnFromTemplate, floatOrientOf, placingOf, floatShape, floatSizeOf, foldedIndex, formsOf, isHandFolded, isSideColumn, isSince, namesZone, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
+import { solve } from "./solve";
 import { RAIL_MODES, type Edge, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side, type Zone } from "./model";
 
 /**
  * Where a docked item goes: before the `at`-th item of `zone` (default the item's own zone) in `edge`, keeping `space`
- * px free on its zone's open side (`SceneItem.space`; 0: none). Absent, it takes the space its new neighbor kept on
- * that side, if any (the space stays where it lies, the item lands where the neighbor was), and else keeps none.
+ * px free on its zone's open side (`SceneItem.space`; absent or 0: none). Docked into the room a placed neighbor keeps,
+ * it consumes that room: the neighbor keeps what is left and moves only by what the room lacks.
  */
 export interface DockPlace {
   readonly kind?: "gap";
@@ -110,16 +111,62 @@ export function mergeSideColumns(scene: Scene): Scene {
   return sides.size === 0 ? scene : { ...scene, edges: closeRings(edges, sides) };
 }
 
-/** The scene with the item out of every edge and every float (a dynamic column it leaves empty is deleted). */
+/**
+ * The scene with the item out of every edge and every float (a dynamic column it leaves empty is deleted). The room it
+ * held goes back to its stretch: a placed neighbor whose room it lay in (`SceneItem.space`) takes it back, so it stays
+ * where it was drawn; a flush neighbor closes up toward its zone's own end, as before.
+ */
 export function lift(scene: Scene, id: string): Scene {
   const inEdge = scene.edges.some((e) => e.items.includes(id));
   const inFloat = scene.floats.some((f) => f.id === id);
   if (!inEdge && !inFloat) return scene;
+  let s = scene;
+  const from = scene.edges.find((e) => e.items.includes(id));
+  const owner = from ? roomOwner(scene, from, from.items.indexOf(id)) : undefined;
+  if (from && owner) {
+    const length = lengthOn(scene, from, id);
+    if (length > 0) s = withSpace(s, owner, (scene.items[owner]!.space ?? 0) + (scene.items[id]?.space ?? 0) + length + nonNegative(from.gap));
+  }
   return prune({
-    ...scene,
-    edges: inEdge ? scene.edges.map((e) => (e.items.includes(id) ? { ...e, items: e.items.filter((x) => x !== id) } : e)) : scene.edges,
-    floats: inFloat ? scene.floats.filter((f) => f.id !== id) : scene.floats,
+    ...s,
+    edges: inEdge ? s.edges.map((e) => (e.items.includes(id) ? { ...e, items: e.items.filter((x) => x !== id) } : e)) : s.edges,
+    floats: inFloat ? s.floats.filter((f) => f.id !== id) : s.floats,
   });
+}
+
+/**
+ * The placed item that absorbs a change at `edge.items[k]`: away from the zone's own end (after the item in a start
+ * zone, before it in an end zone), past the flush items that follow it, the first that keeps room (`SceneItem.space`:
+ * before an item in a start zone, after it in an end zone). The flush items between move with the change; the room
+ * owner's room takes it, so it stays where it is. None in a center zone or where no placed item follows in the zone.
+ */
+function roomOwner(scene: Scene, edge: Edge, k: number): string | undefined {
+  const id = edge.items[k];
+  if (id === undefined) return undefined;
+  const zone = zoneAt(scene, edge, id);
+  if (zone === "center") return undefined;
+  const step = zone === "start" ? 1 : -1;
+  for (let j = k + step; j >= 0 && j < edge.items.length; j += step) {
+    const nb = edge.items[j]!;
+    if (zoneAt(scene, edge, nb) !== zone) return undefined;
+    if ((scene.items[nb]?.space ?? 0) > 0) return nb;
+  }
+  return undefined;
+}
+
+/** The item's length along `edge` as `scene` lays it out (0 where it isn't drawn on that edge). */
+function lengthOn(scene: Scene, edge: Edge, id: string): number {
+  const it = solve(scene).items[id];
+  if (!it || it.inMenu || it.edge !== edge.id) return 0;
+  return axisOf(edge.side) === "column" ? it.rect.height : it.rect.width;
+}
+
+const nonNegative = (n: number | undefined): number => (Number.isFinite(n) && n! > 0 ? n! : 0);
+
+/** The scene with the item keeping `space` (none at 0 or less). */
+function withSpace(scene: Scene, id: string, space: number): Scene {
+  const { space: _old, ...bare } = scene.items[id]!;
+  return { ...scene, items: { ...scene.items, [id]: space > 1e-6 ? { ...bare, space } : bare } };
 }
 
 /**
@@ -249,16 +296,17 @@ export function moveAmong(scene: Scene, id: string, place: Place, others: readon
   // The item's own column, deleted when it was lifted out of it.
   if (!target) return scene;
   const k = insertIndex(lifted, target, zone, place.at);
-  const placed: Scene = { ...lifted, edges: lifted.edges.map((e) => (e === target ? { ...e, items: [...e.items.slice(0, k), id, ...e.items.slice(k)] } : e)) };
-  // Docked on the open side of a neighbor that keeps space there (`SceneItem.space`), with no space named: the space
-  // stays where it lies, on the moved item's open side now. The item lands where the neighbor was, and the neighbor
-  // moves on by the item only, not by the space too. A space named (0 included) is the item's own, and moves nothing.
-  if (place.space !== undefined) return placed;
-  const nb = zone === "start" ? target.items[k] : zone === "end" ? target.items[k - 1] : undefined;
-  const nbItem = nb !== undefined ? placed.items[nb] : undefined;
-  if (!nbItem || !(nbItem.space! > 0) || zoneIn(target, nbItem) !== zone) return placed;
-  const { space: given, ...bare } = nbItem;
-  return { ...placed, items: { ...placed.items, [nb!]: bare, [id]: { ...placed.items[id]!, space: given! } } };
+  const into = { ...target, items: [...target.items.slice(0, k), id, ...target.items.slice(k)] };
+  const placed: Scene = { ...lifted, edges: lifted.edges.map((e) => (e === target ? into : e)) };
+  // Docked into the room a placed neighbor keeps (`SceneItem.space`): the dock consumes that room. The item lands at the
+  // room's start, or where its own `space` puts it, and the neighbor keeps what is left, so it moves only by what the
+  // room lacks. A flush neighbor is pushed along by the item.
+  const owner = roomOwner(placed, into, k);
+  if (!owner) return placed;
+  const length = lengthOn(placed, into, id);
+  if (length <= 0) return placed;
+  const room = placed.items[owner]!.space ?? 0;
+  return withSpace(placed, owner, room - (placed.items[id]!.space ?? 0) - length - nonNegative(into.gap));
 }
 
 /**
