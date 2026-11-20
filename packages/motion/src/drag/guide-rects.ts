@@ -62,8 +62,9 @@ const EPS = 1e-6;
  * - Thinning comes first. A clear rect over only part of the thickness that reaches one side of the box thins it when
  *   its overlap across the box is smaller than its overlap along it: the box loses that thickness from that side and no
  *   length (a neighbor poking 2 px into a bar costs 2 px of thickness, not its whole length in the bar's length). The
- *   deepest intrusion from each side wins, whatever the order. A box thinned below `minThickness` is dropped. A rect
- *   that pokes in as deep as it is long, or touches neither side, is a corner (below).
+ *   deepest intrusion from each side wins, whatever the order. Only a shallow intrusion thins, at most half the box's
+ *   thickness. A box thinned below `minThickness` is dropped. A rect that pokes in deeper than half the thickness (the
+ *   held outline flush with one side), as deep as it is long, or touches neither side, is a corner (below).
  * - A clear rect across the box's whole thickness (of the thinned box) is an interval along the axis, and the box less all of them is a
  *   1-D interval subtraction: inside the box (the held item's outline sliding inside its room) both sides stay, over
  *   one end the other side. The result does not depend on the order of the clear rects.
@@ -143,16 +144,19 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
         .filter((k) => k.s1 > s0 + EPS && k.s0 < s1 - EPS && k.t1 > t0 + EPS && k.t0 < t1 - EPS);
       // First, thinning: a clear rect over only part of the thickness, reaching one side of the box, whose overlap across
       // is smaller than its overlap along the box, thins the box from that side by that overlap, no length lost. The
-      // deepest intrusion from each side wins, so the order of the clear rects never matters.
+      // deepest intrusion from each side wins, so the order of the clear rects never matters. Only a shallow one thins, at
+      // most half the box's thickness: a deeper one (the held outline flush with one side) is a corner, so the box never
+      // shrinks to a sliver beside it.
       let v0 = t0;
       let v1 = t1;
+      const half = (t1 - t0) / 2 + EPS;
       for (const k of over) {
         if (k.t0 <= t0 + EPS && k.t1 >= t1 - EPS) continue;
         const along = Math.min(k.s1, s1) - Math.max(k.s0, s0);
         if (k.t0 <= t0 + EPS) {
-          if (k.t1 - t0 < along - EPS) v0 = Math.max(v0, k.t1);
+          if (k.t1 - t0 < along - EPS && k.t1 - t0 <= half) v0 = Math.max(v0, k.t1);
         } else if (k.t1 >= t1 - EPS) {
-          if (t1 - k.t0 < along - EPS) v1 = Math.min(v1, k.t0);
+          if (t1 - k.t0 < along - EPS && t1 - k.t0 <= half) v1 = Math.min(v1, k.t0);
         }
       }
       // A box thinned below `minThickness` is dropped, as a thin guide is.

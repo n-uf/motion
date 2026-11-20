@@ -324,9 +324,22 @@ describe("guideRects", () => {
       // The deepest intrusion from each side wins, and a box thinned below `minThickness` is dropped.
       const both = guideRects([bar], { inside: all, inset: 0, clear: [rect(0, 25, 60, 10), rect(100, 25, 60, 12), rect(200, 50, 60, 20)], clearance: 0 });
       expect(shown(both)).toEqual([["bar/box", rect(0, 37, 868, 13)]]);
-      expect(guideRects([bar], { inside: all, inset: 0, clear: [rect(0, 25, 60, 34)], clearance: 0, minThickness: 2 })).toEqual([]);
+      expect(guideRects([bar], { inside: all, inset: 0, clear: [rect(0, 25, 60, 20), rect(100, 46, 60, 20)], clearance: 0, minThickness: 2 })).toEqual([]);
       // A rect that pokes deeper than it is long cuts along the length on the facing side, as before.
       expect(shown(guideRects([bar], { inside: all, inset: 0, clear: [rect(0, 25, 8, 20)], clearance: 0 }))).toEqual([["bar/box", rect(8, 31, 860, 29)]]);
+    });
+
+    it("C3 thins only a shallow intrusion (at most half the box's thickness); a deep one flush with a side is a corner cut, never a sliver", () => {
+      // A bottom bar's 1064 x 36 box, the held item's 102 x 30 outline flush with its top (grown by 2: 32 px of the 36).
+      const bottom = { id: "bottom/box", kind: "box" as const, rect: rect(8, 604, 1064, 36) };
+      const all = rect(0, 0, 1080, 640);
+      const held = rect(400, 604, 102, 30);
+      // Cut on the side that faces it, the larger part kept: right of the outline, at the box's full thickness.
+      expect(shown(guideRects([bottom], { inside: all, inset: 0, clear: [held] }))).toEqual([["bottom/box", rect(504, 604, 568, 36)]]);
+      // 33 px tall: the same corner cut, not dropped.
+      expect(shown(guideRects([bottom], { inside: all, inset: 0, clear: [rect(400, 604, 102, 33)] }))).toEqual([["bottom/box", rect(504, 604, 568, 36)]]);
+      // At most half the thickness (16 + 2 = 18 of 36) still thins.
+      expect(shown(guideRects([bottom], { inside: all, inset: 0, clear: [rect(400, 604, 102, 16)] }))).toEqual([["bottom/box", rect(8, 622, 1064, 18)]]);
     });
 
     it("C3: 1 to 4 mixed clear rects (thinning and across the whole thickness) equal thinning, then 1-D interval subtraction, in any order", () => {
@@ -360,7 +373,8 @@ describe("guideRects", () => {
           } else {
             // Pokes `d` px into the box from its start (kind 1) or end side (kind 2), over a length (grown) longer than `d`,
             // lying wholly inside the box along it.
-            const d = 1 + rnd() * thick * 0.7;
+            // (Shallow: at most half the thickness, the depth C3 thins at; deeper is a corner cut.)
+            const d = 1 + rnd() * (thick * 0.5 - 1);
             const len = d + 3 + rnd() * 60;
             const from = at + gap + 1 + rnd() * Math.max(0, long - len - 2 * gap - 2);
             const raw = kind === 1 ? T0 + d - gap : T1 - d + gap;
