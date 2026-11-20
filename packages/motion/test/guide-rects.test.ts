@@ -29,6 +29,16 @@ describe("guideRects", () => {
     }
   });
 
+  it("a box with a non-finite x, y, width or height, or a non-finite inside, is left out", () => {
+    const wide = rect(0, 0, 1000, 200);
+    for (const bad of [rect(NaN, 10, 300, 31), rect(100, NaN, 300, 31), rect(100, 10, NaN, 31), rect(100, 10, 300, NaN), rect(Infinity, 10, 300, 31)]) {
+      expect(guideRects([{ kind: "box", rect: bad }], { inside: wide }), JSON.stringify(bad)).toEqual([]);
+    }
+    for (const badInside of [rect(NaN, 0, 1000, 200), rect(0, NaN, 1000, 200), rect(0, 0, NaN, 200)]) {
+      expect(guideRects([{ kind: "box", rect: rect(100, 10, 300, 31) }], { inside: badInside }), JSON.stringify(badInside)).toEqual([]);
+    }
+  });
+
   it("a box is clipped to the inside by the inset", () => {
     const [b] = guideRects([{ kind: "box", rect: rect(-10, 0, 100, 36) }], { inside, inset: 2 });
     expect(b!.rect).toEqual(rect(3, 3, 87, 33));
