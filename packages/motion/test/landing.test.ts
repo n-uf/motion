@@ -544,12 +544,15 @@ describe("landing model: a lane that owns its rect (a rail drop strip) takes the
     // A slow slide down along the column's edge band, inside the strip from the press: the column holds throughout.
     const slide = run(base({ regions: withStrip(true), home }), [...path([{ x: 1064, y: 100 }, { x: 1064, y: 500 }], 0.2), [2200, 1064, 500]]);
     expect(slide.frames.some(({ f }) => f.lane === "rail:right")).toBe(false);
-    // Out of the strip and back in, then settled: now it came in, and the strip takes it.
-    const back = run(base({ regions: withStrip(true), home }), [...path([{ x: 1064, y: 300 }, { x: 960, y: 300 }, { x: 1064, y: 300 }], 0.3), [1000, 1064, 300]]);
+    // Out of the strip and back in (past the lift zone), then settled: now it came in, and the strip takes it.
+    const back = run(base({ regions: withStrip(true), home }), [...path([{ x: 1064, y: 300 }, { x: 960, y: 300 }, { x: 1064, y: 340 }], 0.3), [1000, 1064, 340]]);
     expect(back.frames.at(-1)!.f.lane).toBe("rail:right");
+    // Back at the press point itself: home's lane keeps it (the lift zone).
+    const press = run(base({ regions: withStrip(true), home }), [...path([{ x: 1064, y: 300 }, { x: 960, y: 300 }, { x: 1064, y: 300 }], 0.3), [1000, 1064, 300]]);
+    expect(press.frames.at(-1)!.f.lane).toBe("right");
   });
 
-  it("never over the item's own place: pressed in the strip over its own landing, taken away and brought back there, it is home", () => {
+  it("never within the lift zone: pressed in the strip over its own landing, taken away and brought back there, it is home", () => {
     const home = { lane: "right", spot: "right/start/^|$" };
     // Home's landing is x 840–1080, y 32–232: the press at (1064, 100) lies in the strip and in it.
     const keys = path([{ x: 1064, y: 100 }, { x: 600, y: 300 }, { x: 1064, y: 100 }], 0.3);
