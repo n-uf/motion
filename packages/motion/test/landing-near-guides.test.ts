@@ -77,8 +77,9 @@ describe("landing model: Near guides show a lane only where the pointer can ente
     }
   });
 
-  it("in open space a lane's guides show only within reach of its rect: 8 px above the bottom bar, not 40", () => {
-    const near = last(options(), down(596));
+  it("in open space a lane's guides show only within reach of its rect: 4 px above the bottom bar, not 40", () => {
+    // (Acquired within `reach - margins.spot`, 6 px, and kept to `reach`, 12 px: see the blink test below.)
+    const near = last(options(), down(600));
     expect([near.f.region, lanesOf(near.f)]).toEqual(["open", ["bottom"]]);
     const far = last(options(), down(564));
     expect([far.f.region, lanesOf(far.f)]).toEqual(["open", []]);
@@ -107,10 +108,24 @@ describe("landing model: Near guides show a lane only where the pointer can ente
     expect([f.region, f.lane, lanesOf(f)]).toEqual(["refused", "rail", ["rail"]]);
   });
 
-  it("a guide goes once the pointer is past the reach: approached at 8 px and taken back up into the page, none lingers", () => {
+  it("at the reach's edge the guide never blinks: acquired within `reach - spot` (6 px), kept to `reach` (12 px)", () => {
+    const m = createLandingModel(options());
+    const shown: boolean[] = [];
+    let t = 0;
+    // Down to 4 px above the bottom bar (acquired), then a jitter across 12 px from it, 11 and 13 px, ten times.
+    for (let y = 300; y <= 600; y += 2) m.update({ x: 600, y }, (t += 8));
+    expect(lanesOf(m.frame)).toEqual(["bottom"]);
+    for (let k = 0; k < 20; k++) shown.push(m.update({ x: 600, y: k % 2 ? 591 : 593 }, (t += 8)).guides.length > 0);
+    // At 13 px it lets go once (only within reach), and at 11 px it is not acquired again.
+    const flips = shown.filter((s, i) => i > 0 && s !== shown[i - 1]).length;
+    expect(flips).toBeLessThanOrEqual(1);
+    expect(shown.at(-1)).toBe(false);
+  });
+
+  it("a guide goes once the pointer is past the reach: approached at 4 px and taken back up into the page, none lingers", () => {
     const m = createLandingModel(options());
     const seen: string[][] = [];
-    const keys: [number, number, number][] = [[0, 600, 300], [300, 600, 596], [500, 600, 596], [900, 600, 520]];
+    const keys: [number, number, number][] = [[0, 600, 300], [300, 600, 600], [500, 600, 600], [900, 600, 520]];
     for (let t = 0; t <= 900; t += 8) {
       let i = 0;
       while (i < keys.length - 1 && keys[i + 1]![0] < t) i++;
