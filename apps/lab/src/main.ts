@@ -464,7 +464,7 @@ function moveDrag(px: number, py: number): void {
   if (!lifted) return;
   pointer = { x: px, y: py };
   expected = { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
-  if (dropMode === "indicator") lifted.rect.hold(expected);
+  if (dropMode === "indicator") lifted.rect.jumpTo(expected);
 }
 
 /**

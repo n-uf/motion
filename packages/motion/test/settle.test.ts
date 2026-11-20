@@ -175,11 +175,11 @@ describe("settle", () => {
     }
   });
 
-  it("hold puts the value exactly there at rest; the next target launches from it", () => {
+  it("jumpTo puts the value exactly there at rest (a held value); the next target launches from it", () => {
     const s = createSettle(rect(0, 0, 100, 100));
     s.setTarget(rect(500, 0, 100, 100));
     s.step(FRAME);
-    s.hold(rect(123, 45, 100, 100));
+    s.jumpTo(rect(123, 45, 100, 100));
     expect(s.value).toEqual(rect(123, 45, 100, 100));
     expect(s.settled).toBe(true);
     expect(s.step(FRAME)).toBe(false);

@@ -14,8 +14,8 @@ export interface Animator<T> {
   readonly settled: boolean;
   /** Head for `target` from where the value is now. */
   setTarget(target: T): void;
-  /** Set the velocity (units per second), e.g. a gesture's release velocity. Tweens ignore it. */
-  setVelocity?(velocity: T): void;
+  /** Set the velocity (units per second), e.g. a gesture's release velocity. A tween ignores it. */
+  setVelocity(velocity: T): void;
   /** Put the value at `value`, make it the target, and stop. */
   jumpTo(value: T): void;
   /** Put the value on the target and stop. */

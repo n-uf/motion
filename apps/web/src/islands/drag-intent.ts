@@ -78,7 +78,7 @@ const drawChip = (r: Rect): void => void Object.assign(chip.style, { left: r.x +
 const placeChip = (x: number, y: number): void => {
   landing?.();
   landing = null;
-  chipSettle.hold(chipRect(x, y));
+  chipSettle.jumpTo(chipRect(x, y));
   drawChip(chipSettle.value);
 };
 /** The chip glides to `r` with settle, from wherever it is drawn. */

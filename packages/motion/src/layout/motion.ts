@@ -326,7 +326,7 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
         aim(to);
       },
       hold(r) {
-        rect.hold(copy(r));
+        rect.jumpTo(copy(r));
         draw();
       },
       show(on, o = {}) {

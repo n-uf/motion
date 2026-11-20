@@ -71,6 +71,8 @@ export abstract class ComponentAnimator implements Animator<Animatable> {
 
   abstract setTarget(target: Animatable): void;
 
+  abstract setVelocity(velocity: Animatable): void;
+
   jumpTo(value: Animatable): void {
     this.check(value, "the value");
     writeComponents(value, this.x);

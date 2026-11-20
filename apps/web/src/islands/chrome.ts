@@ -667,7 +667,7 @@ export function createChrome(o: ChromeOptions): Chrome {
     }
     d.glide?.();
     d.glide = null;
-    d.pos.hold(at);
+    d.pos.jumpTo(at);
     drawGhost(d);
   }
   /**

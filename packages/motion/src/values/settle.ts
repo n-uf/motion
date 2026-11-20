@@ -46,14 +46,12 @@ export interface SettleConfig {
  * size, whatever the retargets. A new target starts from the drawn value,
  * never from the old start.
  *
- * Holding (a pointer owns the value): call `hold(value)` on each move. The
+ * Holding (a pointer owns the value): call `jumpTo(value)` on each move. The
  * value sits exactly there, at rest; the next `setTarget` launches from it.
  */
 export interface Settle<T> extends Animator<T> {
   /** The tempo in 1/s. */
   readonly omega: number;
-  /** Put the value at `value`, at rest, with it as the target: a held value follows its owner 1:1. Same as `jumpTo`. */
-  hold(value: T): void;
   /** Set the velocity (units per second); a component moving toward the target is clamped as in the launch rule. */
   setVelocity(velocity: T): void;
   /** Change the tempo or rest distance mid-flight; the value and velocity carry on, re-clamped. */
@@ -109,10 +107,6 @@ class SettleAnimator extends ComponentAnimator implements Settle<Animatable> {
     writeComponents(velocity, this.v);
     for (let i = 0; i < this.x.length; i++) this.rule(i, false);
     this.updateSettled();
-  }
-
-  hold(value: Animatable): void {
-    this.jumpTo(value);
   }
 
   configure(config: SettleConfig): void {
