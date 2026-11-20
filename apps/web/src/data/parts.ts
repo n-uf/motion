@@ -36,7 +36,7 @@ export const PARTS: Part[] = [
     short: "Place",
     pkg: "@n-uf/placement",
     idea: "Pure functions over rects: a popup placed beside its anchor, a stack that gives way as room runs out, the cut of an edge, the drop places along one edge, and tiled panes.",
-    does: "For the same apps: it works out where things fit as the space changes. You give it rects and a rule; it gives back the rects that fit, and moves nothing.",
+    does: "The layout math for any interface, in small functions you call where you need them, one job each, with no model of an app. You give a function rects and a rule; it gives back rects. It moves nothing and draws nothing.",
     readme: `${repoUrl}/blob/main/packages/placement/README.md`,
     // docs only for now (/docs/placement/); a tiling demo may come later
     pages: [],
@@ -47,7 +47,7 @@ export const PARTS: Part[] = [
     short: "Dock",
     pkg: "@n-uf/docking",
     idea: "Pure state in, rects and drop targets out: a dock state of bars, rails, columns, items and floats, solved into rects, with every place a drag may drop, what refuses it, and the stops for the keyboard.",
-    does: "For the same apps: it works out where panels and toolbar groups dock, as the space changes and while something is dragged. You give it a dock state and a size; it gives back rects, notes on what gave way, and drop targets. It draws nothing.",
+    does: "A ready model of an app window. You declare the places (bars, side columns, rails, floats) and what each takes; it keeps who sits where, folds panels and toolbar groups in a set order as room runs out, answers every drag window-wide, refusals included, and stores the layout. It moves nothing and draws nothing: you draw it.",
     readme: `${repoUrl}/blob/main/packages/docking/README.md`,
     pages: ["/docking-layouts/", "/toolbar-groups/"],
   },

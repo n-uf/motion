@@ -1,0 +1,92 @@
+---
+// The home hero's docking diagram: one dock state of an app window, solved at two widths. Static: input to computed result,
+// drawn from real `solve` output (a scene of @n-uf/placement/scene, which becomes @n-uf/docking at the coming release). The
+// wide frame has every item open; the narrow one is the same state with less room, solved after the wide one, so each step
+// is the library's: a panel to its rail, a toolbar group into the » menu. Each frame is the window at its true proportion
+// (the narrow one really narrower), a thin title strip over the stage. The text is in the svg at 12 px and up.
+import { NARROW, STRIP, TITLES, WIDE, WORDS, changes, isGroup, narrowLayout, wideLayout } from "../demos/hero-dock";
+import type { SceneLayout } from "@n-uf/placement/scene";
+
+const wide = wideLayout();
+const narrow = narrowLayout(wide);
+const frames = [
+  { key: "wide", size: WIDE, l: wide, note: `${WIDE.width} px wide: every item open` },
+  { key: "narrow", size: NARROW, l: narrow, note: `${NARROW.width} px wide` },
+] as const;
+const changed = changes(wide, narrow);
+const words = (id: string): string => (isGroup(id) ? WORDS[id] : "");
+const cx = (r: { x: number; width: number }): number => r.x + r.width / 2;
+const cy = (r: { y: number; height: number }): number => r.y + r.height / 2;
+/** A column's drawn rect, or its side's rail when the column folded into it. */
+const side = (l: SceneLayout, s: "left" | "right") => ({ rail: l.rails[s], col: l.edges[s]! });
+---
+<div class="hz d"><div class="zin dockzone" id="dockzone">
+  {frames.map((f, n) => {
+    const { l, size } = f;
+    const bar = l.edges.bar!;
+    const menu = bar.menu;
+    const sides = (["left", "right"] as const).map((s) => ({ s, ...side(l, s) }));
+    return (
+      <>
+        {n === 1 && <div class="dkarrow" aria-hidden="true"><svg viewBox="0 0 24 28"><path d="M12 2v20M5 15l7 8 7-8" /></svg><span>same dock state, less room</span></div>}
+        <figure class={`dkframe ${f.key}`} style={`--fw:${size.width}`}>
+          <figcaption class="dknote">{f.note}</figcaption>
+          <svg viewBox={`0 0 ${size.width} ${size.height + STRIP}`} role="img" aria-label={`The app window ${size.width} px wide, solved: ${Object.keys(l.items).map((id) => `${TITLES[id as keyof typeof TITLES]} ${l.items[id]!.inMenu ? "in the » menu" : l.items[id]!.formKind}`).join(", ")}`}>
+            <rect class="dk-win" x="0.5" y="0.5" width={size.width - 1} height={size.height + STRIP - 1} rx="8" />
+            <line class="dk-strip" x1="0" x2={size.width} y1={STRIP} y2={STRIP} />
+            {[11, 23, 35].map((x) => <circle class="dk-dot" cx={x} cy={STRIP / 2} r="3.5" />)}
+            <g transform={`translate(0 ${STRIP})`}>
+              <rect class="dk-bar" x="0" y="0" width={size.width} height={bar.rect.height} />
+              {sides.map(({ s, rail, col }) => (rail ? <rect class="dk-col" x={rail.rect.x} y={rail.rect.y} width={rail.rect.width} height={rail.rect.height} /> : <rect class="dk-col" x={col.rect.x} y={col.rect.y} width={col.rect.width} height={col.rect.height} />))}
+              <rect class="dk-doc" x={l.content.x} y={l.content.y} width={l.content.width} height={l.content.height} />
+              <text class="dk-label" x={l.content.x + 10} y={l.content.y + 20}>Document</text>
+              <rect class="dk-page" x={l.content.x + 10} y={l.content.y + 30} width={Math.max(0, l.content.width - 20)} height="5" rx="2.5" />
+              <rect class="dk-page" x={l.content.x + 10} y={l.content.y + 42} width={Math.max(0, (l.content.width - 20) * 0.7)} height="5" rx="2.5" />
+              {(["file", "edit", "view"] as const).map((id) => {
+                const it = l.items[id]!;
+                if (it.inMenu) return null;
+                return (
+                  <g>
+                    <rect class="dk-chip" x={it.rect.x + 0.5} y={it.rect.y + 2.5} width={it.rect.width - 1} height={it.rect.height - 5} rx="5" />
+                    <text class="dk-t" x={it.rect.x + 8} y={cy(it.rect) + 4}>
+                      <tspan class="b">{TITLES[id]}</tspan>
+                      {it.formKind === "row" ? <tspan class="w" dx="8">{words(id)}</tspan> : <tspan class="m" dx="5">»</tspan>}
+                    </text>
+                  </g>
+                );
+              })}
+              {(["files", "outline", "inspector"] as const).map((id) => {
+                const it = l.items[id]!;
+                if (it.rail) return null;
+                const open = it.formKind === "open";
+                return (
+                  <g>
+                    <rect class="dk-panel" x={it.rect.x + 3} y={it.rect.y + 2} width={Math.max(0, it.rect.width - 6)} height={Math.max(0, it.rect.height - 4)} rx="5" />
+                    <text class="dk-t b" x={it.rect.x + 11} y={it.rect.y + 17}>{TITLES[id]}</text>
+                    {open && it.rect.height > 50 && <rect class="dk-page" x={it.rect.x + 11} y={it.rect.y + 28} width={Math.max(0, it.rect.width - 28)} height="5" rx="2.5" />}
+                    {open && it.rect.height > 64 && <rect class="dk-page" x={it.rect.x + 11} y={it.rect.y + 40} width={Math.max(0, (it.rect.width - 28) * 0.65)} height="5" rx="2.5" />}
+                  </g>
+                );
+              })}
+              {sides.map(({ s, rail }) => rail?.segments.map((seg) => (
+                <g>
+                  <rect class="dk-panel" x={seg.rect.x + 2} y={seg.rect.y + 1} width={Math.max(0, seg.rect.width - 4)} height={Math.max(0, seg.rect.height - 2)} rx="4" />
+                  <text class="dk-t b" transform={`translate(${cx(seg.rect)} ${cy(seg.rect)}) rotate(${s === "left" ? -90 : 90})`} text-anchor="middle" dominant-baseline="central">{TITLES[seg.id as keyof typeof TITLES]}</text>
+                </g>
+              )))}
+              {menu && menu.items.length > 0 && (
+                <g>
+                  <rect class="dk-chip m" x={menu.rect.x + 0.5} y={menu.rect.y + 2.5} width={menu.rect.width - 1} height={menu.rect.height - 5} rx="5" />
+                  <text class="dk-t m" x={cx(menu.rect)} y={cy(menu.rect) + 4.5} text-anchor="middle">»</text>
+                </g>
+              )}
+            </g>
+          </svg>
+          {n === 1 && <figcaption class="dkchanged">{changed.join(" · ")}</figcaption>}
+        </figure>
+      </>
+    );
+  })}
+  <code class="fn">solve(dockState) → rects</code>
+  <div class="cap"><b>Window</b> · docking keeps who sits where</div>
+</div></div>

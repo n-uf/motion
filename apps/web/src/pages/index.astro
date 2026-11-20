@@ -18,8 +18,7 @@ import PairCode from "../components/PairCode.astro";
 import { partOf } from "../data/parts";
 import motionPkg from "../../../../packages/motion/package.json";
 import placementPkg from "../../../../packages/placement/package.json";
-import { layoutSplit } from "@n-uf/placement/tiling";
-import { START } from "../demos/hero-tiles";
+import { layoutSplit, type Split } from "@n-uf/placement/tiling";
 const [motionPart, placementPart, dockingPart] = [partOf("motion"), partOf("placement"), partOf("docking")];
 
 const page = pageOf("/");
@@ -35,12 +34,14 @@ const jsonLd = [
 // The packages' versions, read from their package.json at build time (never written by hand). @n-uf/docking has no
 // package here until its release; the issue's rule is one version for all of them, so the line says "all three".
 const versions = motionPkg.version === placementPkg.version ? `all three at ${motionPkg.version}` : `@n-uf/motion ${motionPkg.version}, @n-uf/placement ${placementPkg.version}`;
-// Placement's docs card previews the hero's tiling demo: the start tree laid out by the library in the preview's 280 × 150.
-const tileThumb = [...layoutSplit(START, { x: 14, y: 14, width: 252, height: 122 }, { gap: 6 }).values()];
+// Placement's docs card previews its tiling: a split tree (one pane left, two stacked right) laid out by the library in the
+// preview's 280 × 150.
+const tree: Split<string> = { a: { pane: "a" }, b: { a: { pane: "b" }, b: { pane: "c" }, axis: "y", ratio: 0.5 }, axis: "x", ratio: 0.55 };
+const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 }, { gap: 6 }).values()];
 ---
 <Site title={page.title} description={page.description} path="/" jsonLd={jsonLd} ogImage="/og.png">
   <!--
-    The three heroes, motion's scope, placement's tiles and docking's plan, left to right (components/HeroScope.astro):
+    The three heroes, motion's scope, placement's popup and docking's window, left to right (components/HeroScope.astro):
     the page's one h1 is their three headlines, and the TypeScript sentence is its first paragraph in the DOM, under the
     band on screen.
   -->
@@ -101,7 +102,7 @@ const tileThumb = [...layoutSplit(START, { x: 14, y: 14, width: 252, height: 122
           <div><dt><code>./tiling</code></dt><dd>Panes that divide an area with no overlap: master and stack, columns, a grid, and a split tree (dwindle, or splits with an axis and a ratio); a pane's drop regions and their drop targets.</dd></div>
           <div><dt><code>./stack</code></dt><dd>One edge: the stage cut into bands, the items along a column or a bar, each with forms from largest to smallest, giving way by age, and one edge's drop places.</dd></div>
         </dl>
-        <p class="not"><b>It doesn't</b> move or draw anything, and it knows no docks or toolbars: rects and a rule in, the rects that fit out. No DOM, no dependencies.</p>
+        <p class="not"><b>It doesn't</b> model an app (no window, docks or toolbars), and it moves and draws nothing: each function takes rects and a rule and returns rects. No DOM, no dependencies.</p>
         <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code> <ExtLink href={placementPart.readme}>README on GitHub</ExtLink> <a href="/docs/placement/">Docs</a></p>
       </article>
       <article class="does-col d" aria-labelledby="does-docking">
@@ -112,7 +113,7 @@ const tileThumb = [...layoutSplit(START, { x: 14, y: 14, width: 252, height: 122
           <div><dt>Drop targets</dt><dd><code>targets</code> returns every drop target of one item in the shape motion's drag takes, each carrying the layout a release there makes; <code>stops</code> orders them for the arrow keys. Pure changes and a stored form.</dd></div>
           <div><dt><code>./testing</code></dt><dd>The conformance rows: checks that a layout and its drops keep the docking rules.</dd></div>
         </dl>
-        <p class="not"><b>It doesn't</b> draw panels or tabs, and it moves nothing: dock state in, rects and drop targets out. No DOM, no framework.</p>
+        <p class="not"><b>It doesn't</b> draw panels or tabs, and it moves nothing: dock state in, rects and drop targets out; you draw the window. No DOM, no framework.</p>
         <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/docking</code> <ExtLink href={dockingPart.readme}>README on GitHub</ExtLink> <a href="/docs/docking/">Docs</a></p>
       </article>
     </div>
@@ -130,10 +131,10 @@ const tileThumb = [...layoutSplit(START, { x: 14, y: 14, width: 252, height: 122
         <h3>Motion alone</h3><p>Animate your own layout: give each element its rect and it glides there.</p>
       </div>
       <div class="use-card p">
-        <h3>Placement alone</h3><p>Fit a popup beside its anchor, a stack into its room or panes into an area, and draw the rects your way.</p>
+        <h3>Placement alone</h3><p>Call the one function you need, for any interface: a popup beside its anchor, a row into its room, an area into panes. Draw the rects your way.</p>
       </div>
       <div class="use-card d">
-        <h3>Docking alone</h3><p>Compute dock layouts and drop targets for panels and toolbars, and draw them your way.</p>
+        <h3>Docking alone</h3><p>A ready model of an app window: its places, its give-way order, every drag answered, the layout saved. You draw it your way.</p>
       </div>
       <div class="use-card both">
         <h3>Docking with motion</h3><p>A full desk where the drop is what was shown, and every change glides.</p>
@@ -165,7 +166,7 @@ const tileThumb = [...layoutSplit(START, { x: 14, y: 14, width: 252, height: 122
     </div>
     </div>
     <div class="xg p">
-    <p class="explore-k p">Place · <code>{placementPart.pkg}</code> <span class="explore-not">moves and draws nothing, docks nothing</span></p>
+    <p class="explore-k p">Place · <code>{placementPart.pkg}</code> <span class="explore-not">separate functions, one job each; no model of an app, nothing drawn</span></p>
     <div class="plates">
       <article class="xe">
         <div class="thumb"><div class="fig"><svg id="thumb-tiles" viewBox="0 0 280 150" width="280" height="150" aria-hidden="true">{tileThumb.map((r) => <rect class="t-tile" rx="4" x={r.x} y={r.y} width={r.width} height={r.height} />)}</svg></div></div>
@@ -174,7 +175,7 @@ const tileThumb = [...layoutSplit(START, { x: 14, y: 14, width: 252, height: 122
     </div>
     </div>
     <div class="xg d">
-    <p class="explore-k d">Dock · <code>{dockingPart.pkg}</code> <span class="explore-not">draws and moves nothing</span></p>
+    <p class="explore-k d">Dock · <code>{dockingPart.pkg}</code> <span class="explore-not">a model of an app window; nothing drawn, nothing moved</span></p>
     <div class="plates">
       <article class="xe">
         <div class="thumb"><div class="fig"><svg id="thumb-desk" viewBox="0 0 280 150" width="280" height="150" aria-hidden="true" set:html={deskThumbSVG()} /></div></div>
@@ -210,18 +211,14 @@ const tileThumb = [...layoutSplit(START, { x: 14, y: 14, width: 252, height: 122
   // control there.
   const strip = document.getElementById("tstrip")!;
   whenVisible(strip, () => void import("../islands/telemetry").then((m) => m.startTelemetry(strip)));
-  // The tiling demo (placement's slot) starts with the hero, once the page is idle.
-  const tiles = document.getElementById("tilezone")!;
-  const startTiles = (): void => void import("../islands/hero-tiles").then((m) => m.startHeroTiles(tiles));
-  if (document.readyState === "complete") startTiles();
-  else addEventListener("load", startTiles, { once: true });
   // The hero's Copy buttons.
   void import("../islands/copy").then((m) => m.startCopy());
   // The interactive pages' preview follows the hovered or focused entry.
   const xp = document.getElementById("xp")!;
   whenVisible(xp, () => void import("../islands/explore").then((m) => m.startExplore(xp)));
-  // The hero is on screen from the first paint, and the server already drew its finished state: its island starts once the
-  // page has loaded and the browser is idle, so it never competes with the first paint.
+  // The hero is on screen from the first paint, and the server already drew its finished state: its island (the scope, the
+  // only part of the hero that moves; placement's and docking's diagrams are static) starts once the page has loaded and
+  // the browser is idle, so it never competes with the first paint.
   const band = document.getElementById("band")!;
   const start = (): void => void import("../islands/hero").then((m) => m.startHero(band));
   const idle = (): void => void ("requestIdleCallback" in window ? requestIdleCallback(start, { timeout: 1500 }) : setTimeout(start, 300));

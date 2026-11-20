@@ -4,26 +4,23 @@
 //
 // - Motion's slot is a scope: a tempo dial, the settle curves with the last run drawn over them, a slow-motion control
 //   and the readings (ω, time to 90 %, overshoot, the checks).
-// - Placement's slot is a tiling demo (components/HeroTiles.astro): panes that divide an area, split and swap on a drop.
-// - Docking's slot is a plan: the headline with its dimensions and a window laid out by the scene (the model that
-//   @n-uf/docking takes over from @n-uf/placement at the coming release), whose drop targets appear the moment they are
-//   asked for.
-// - A panel crosses the seams: docking says where, motion carries it there.
+// - Placement's slot is one function at work (components/HeroPop.astro): a popup placed beside an anchor that drifts
+//   around the stage, kept in view by `positionPopup`. Placement is separate functions, one job each, for any interface.
+// - Docking's slot is an app window (components/HeroDock.astro), the thing only a model of a whole window does: it
+//   shrinks, its panels and toolbar groups step down their forms in a set order and come back in reverse, and a drag is
+//   answered window-wide, refusals included. The scene is today's @n-uf/placement/scene; @n-uf/docking takes it over.
+// - A panel carried between two pads shows motion's settle; the scope reads each run off the real frames.
 //
-// Everything the server renders is the finished state (the panel docked, the curve drawn, the readings of one real run
+// Everything the server renders is the finished state (the panel at rest, the curve drawn, the readings of one real run
 // of the packages on a fake clock at build time), so with no script, or with reduced motion, it is a complete still.
-// islands/hero.ts then runs the same packages live. The TypeScript sentence is the first paragraph in the DOM and sits
-// under the instruments on screen. Nothing here changes size when the island starts: it moves things by transform only.
+// islands/hero.ts, hero-pop.ts and hero-dock.ts then run the same packages live. The TypeScript sentence is the first
+// paragraph in the DOM and sits under the instruments on screen. Nothing here changes size when an island starts.
 import { SETTLE_TEMPO } from "@n-uf/motion";
-import { NEEDLE, PLOT, TEMPOS, pathOf, planOf, plotX, plotY, settleCurve, simulateRun, springCurve } from "../demos/hero";
-import HeroTiles from "./HeroTiles.astro";
+import { NEEDLE, PLOT, TEMPOS, pathOf, plotX, plotY, settleCurve, simulateRun, springCurve } from "../demos/hero";
+import HeroDock from "./HeroDock.astro";
+import HeroPop from "./HeroPop.astro";
 
 const arrow = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg>';
-const plan = planOf();
-const { stage, slots } = plan;
-const pct = (v: number, of: number): string => `${((v / of) * 100).toFixed(3)}%`;
-const box = (r: { x: number; y: number; width: number; height: number }): string => `left:${pct(r.x, stage.width)};top:${pct(r.y, stage.height)};width:${pct(r.width, stage.width)};height:${pct(r.height, stage.height)}`;
-const FLOAT = slots[1]!;
 
 // One real run (build time): a panel's glide at the default tempo, recorded frame by frame and judged by the checks.
 const OMEGA = SETTLE_TEMPO.default;
@@ -49,7 +46,7 @@ const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].
     <span class="eyebrow eb m">@n-uf/motion · how things move</span>
     <span class="eyebrow eb p">@n-uf/placement · where things fit</span>
     <span class="eyebrow eb d">@n-uf/docking · where panels and toolbars dock</span>
-    <h1 class="pair"><span class="m" id="hm"><span class="hw">Motion</span> <span class="hw">that</span> <span class="hw">settles,</span> <span class="hw">and</span> <span class="hw">never</span> <span class="hw">overshoots.</span></span> <span class="p" id="hp">Placement that fits things into the room there is.</span> <span class="d" id="hd">Docking that knows where a panel lands.</span></h1>
+    <h1 class="pair"><span class="m" id="hm"><span class="hw">Motion:</span> <span class="hw">movement</span> <span class="hw">that</span> <span class="hw">settles</span> <span class="hw">and</span> <span class="hw">never</span> <span class="hw">overshoots.</span></span> <span class="p" id="hp">Placement: the layout math for any interface.</span> <span class="d" id="hd">Docking: a ready model of an app window.</span></h1>
     <div class="col m">
       <p class="lead">Give it rects and the real elements glide there; a drag stays under the pointer.</p>
       <div class="install">
@@ -58,14 +55,14 @@ const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].
       </div>
     </div>
     <div class="col p">
-      <p class="lead">Give it rects and a rule; it returns the rects that fit: a popup beside its anchor, a stack that gives way, tiled panes. It moves nothing.</p>
+      <p class="lead">Small functions you call where you need them: a popup that stays on screen beside its anchor, a row that shrinks in a set order, an area split into panes.</p>
       <div class="install">
         <div class="cmdbar p"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code><button type="button" class="copy" data-copy="npm i @n-uf/placement" aria-label="Copy the install command for @n-uf/placement">Copy</button></div>
         <div class="go-links"><a class="btn primary p" href="/docs/placement/">Read the placement docs<Fragment set:html={arrow} /></a></div>
       </div>
     </div>
     <div class="col d">
-      <p class="lead">Give it a dock state of bars, columns, items and floats; it returns every rect, the places a drag may drop and what gave way. It draws nothing.</p>
+      <p class="lead">Declare the places (bars, side columns, rails, floats) and what each takes. Docking keeps who sits where, folds panels in a set order as room runs out, answers every drag and saves the layout. You draw it.</p>
       <div class="install">
         <div class="cmdbar d"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/docking</code><button type="button" class="copy" data-copy="npm i @n-uf/docking" aria-label="Copy the install command for @n-uf/docking">Copy</button></div>
         <div class="go-links"><a class="btn primary d" href="/docking-layouts/">See the docking layouts<Fragment set:html={arrow} /></a></div>
@@ -102,7 +99,8 @@ const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].
         <text class="t90" id="t90" x={(plotX(run.t90 ?? 0) + 8).toFixed(1)} y={(plotY(0.9) + 16).toFixed(1)}>{t90} ms</text>
         <g class="xl">{grid.map((ms) => <text x={plotX(ms).toFixed(1)} y="162" text-anchor={ms === 0 ? "start" : "middle"}>{ms === PLOT.tMax ? `${ms} ms` : ms}</text>)}</g>
       </svg>
-      <div class="pad" id="pad"><span>held here</span></div>
+      <div class="pad a" id="pad"><span>held here</span></div>
+      <div class="pad b" id="pad2"><span>lands here</span><div class="mini"><div class="hb"><i><b></b><b></b><b></b><b></b></i>Outline</div><div class="ln"><u></u><u></u><u></u></div></div></div>
       <div class="stats" id="stats">
         <span><i>ω</i><b id="sw">{OMEGA} /s</b></span>
         <span><i>90 % in, measured</i><b id="s90">{t90} ms</b></span>
@@ -112,22 +110,13 @@ const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].
       <div class="cap"><b>Scope</b> · motion carries the panel</div>
     </div></div>
 
-    <!-- The tiles: placement's instrument (components/HeroTiles.astro). -->
-    <HeroTiles />
+    <!-- The popup: placement's instrument (components/HeroPop.astro). -->
+    <HeroPop />
 
-    <!-- The plan: docking's instrument. A stage of this many px, laid out by the scene; drawn to fit. -->
-    <div class="hz d"><div class="zin planzone">
-      <div class="dimh" aria-hidden="true"><span>{stage.width}</span></div>
-      <div class="plan" id="plan" aria-hidden="true" style={`--sw:${stage.width};--sh:${stage.height}`}>
-        {plan.regions.map((r) => <div class={`reg ${r.key.startsWith("rail") ? "rail" : "area"}`} style={box(r.rect)}>{r.label && <span>{r.label}</span>}</div>)}
-        {slots.map((s) => <div class={`pslot${s.id === FLOAT.id ? " docked" : ""}`} data-id={s.id} data-name={s.name} style={box(s.drop.slot)}><span>{Math.round(s.drop.slot.width)} × {Math.round(s.drop.slot.height)}</span>{s.id === FLOAT.id && <div class="mini"><div class="hb"><i><b></b><b></b><b></b><b></b></i>Outline</div><div class="ln"><u></u><u></u><u></u></div></div>}</div>)}
-        <div class="pind" id="pind" hidden><em></em></div>
-      </div>
-      <div class="say" id="say" aria-hidden="true">docked · <b>{FLOAT.name}</b></div>
-      <div class="cap"><b>Plan</b> · docking returns rects</div>
-    </div></div>
+    <!-- The window: docking's instrument (components/HeroDock.astro). -->
+    <HeroDock />
 
-    <!-- The panel's layer: the real element carried across the seam (islands/hero.ts), and the strobe trail behind it. -->
+    <!-- The panel's layer: the real element carried between the scope's two pads (islands/hero.ts), and the strobe trail behind it. -->
     <div class="ov" id="ov" aria-hidden="true">
       <div class="tok" id="tok"><div class="tok-frame"></div><div class="tok-body"><div class="hb"><i><b></b><b></b><b></b><b></b></i>Outline</div><div class="ln"><u></u><u></u><u></u></div></div></div>
     </div>

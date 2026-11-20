@@ -1,14 +1,10 @@
 /**
- * Home hero (island): the scope and the plan of components/HeroScope.astro, run live on the packages themselves (the
- * tiling demo between them is islands/hero-tiles.ts). The panel starts in the scope (motion's slot, on the left) and
- * crosses placement's slot to the plan (docking's, on the right).
+ * Home hero (island): the scope of components/HeroScope.astro (motion's slot), run live on the package itself. The other
+ * two slots have their own islands (islands/hero-pop.ts, islands/hero-dock.ts).
  *
  * - **The panel** is a real element carried by `@n-uf/motion/layout` (`createLayoutMotion` + `drawBox` on the site's
- *   frame loop): a move settles, a size change is revealed rather than stretched, and a drag holds it under the pointer
- *   (`holdItem`). Whether it shows a target, and which, is `@n-uf/motion/drag`'s `createDragIntent` and `previewPlan`.
- * - **The plan** is the scene (`@n-uf/placement/scene` today, `@n-uf/docking` after the coming release): `solve` lays the
- *   window out, `targets` offers the drop targets, and each target's `after` says where the panel lands. The plan is
- *   drawn from those rects at once.
+ *   frame loop) between two pads: a move settles, a size change is revealed rather than stretched, and a drag holds it
+ *   under the pointer (`holdItem`) until it lands on the pad nearest where it was let go.
  * - **The scope** reads the run off the real frames: each drawn rect of the panel is recorded and judged by
  *   `@n-uf/motion/testing` (`checkNoOvershoot`, `checkMonotonic`, `checkTempo`); the curve, the time to 90 % and the
  *   overshoot are what those frames did. The tempo is `SETTLE_TEMPO`, the speed the site's slow-motion clock.
@@ -16,74 +12,41 @@
  * Only decoration is not the library: the dimension lines around the docking headline (the headline's own measured line
  * boxes), the strobe dots (one per 1/60 s of the real run, placed at the drawn rect) and the grid grounds.
  *
- * The showcase (a panel crossing the seam into a target, again and again) is registered with the page's showcase
+ * The showcase (the panel carried from one pad to the other, again and again) is registered with the page's showcase
  * controller: a visitor's action pauses it, reduced motion has no auto-play (the finished still stays), and it stops
  * off screen. A drag ends on release, Escape, a cancelled pointer, a lost capture or the window losing focus.
  */
 import type { Point, Rect } from "@n-uf/motion";
-import { createDragIntent, previewPlan, type DragIntent, type DragTarget, type PreviewMode } from "@n-uf/motion/drag";
-import { drawBox } from "@n-uf/motion/browser";
-import { createLayoutMotion, holdItem, type Drawable, type HeldDrag } from "@n-uf/motion/layout";
+import { createLayoutMotion, drawBox, holdItem, type Drawable, type HeldDrag } from "@n-uf/motion/layout";
 import type { RectSample } from "@n-uf/motion/testing";
-import type { DockDrop } from "@n-uf/docking";
 import { drive, getSpeed, getTempo, loop, newSettle, omega, onMotionChange, reduced, setSpeed, setTempo, type Tempo } from "./motion";
-import { dropMode, type DropMode } from "./drop-mode";
-
-/** The site's three drop previews as the library's modes. */
-const MODE: Readonly<Record<DropMode, PreviewMode>> = { indicator: "outline", gap: "placeholder", snap: "glide" };
 import { registerShowcase, setDragging, userAction } from "./showcase";
-import { NEEDLE, PLOT, TEMPOS, judge, pathOf, planOf, plotX, plotY, simulateRun, type RunReport } from "../demos/hero";
+import { NEEDLE, PLOT, TEMPOS, judge, pathOf, plotX, plotY, simulateRun, type RunReport } from "../demos/hero";
 
-interface DeskDragTarget extends DragTarget {
-  readonly target: DockDrop;
-}
-type Where = { readonly kind: "pad" } | { readonly kind: "stage"; readonly slot: Rect };
+/** The two pads the panel rests on: where it is held, and where it lands. */
+type Pad = "a" | "b";
 
 const SPEED_FRAME_MS = 1000 / 60;
 
 export function startHero(band: HTMLElement): void {
   const $ = <T extends Element>(sel: string): T => band.querySelector(sel) as T;
   const ov = $<HTMLElement>("#ov"), tokEl = $<HTMLElement>("#tok"), frameEl = $<HTMLElement>(".tok-frame"), bodyEl = $<HTMLElement>(".tok-body");
-  const planEl = $<HTMLElement>("#plan"), padEl = $<HTMLElement>("#pad"), pind = $<HTMLElement>("#pind"), sayEl = $<HTMLElement>("#say");
+  const padEls: Record<Pad, HTMLElement> = { a: $<HTMLElement>("#pad"), b: $<HTMLElement>("#pad2") };
   const liveEl = $<SVGPathElement>("#live"), markEl = $<SVGCircleElement>("#mark"), t90El = $<SVGTextElement>("#t90");
-  const plan = planOf();
-  const slotEls = [...band.querySelectorAll<HTMLElement>(".pslot")];
-  const STAGE = plan.stage;
 
-  // ---- Geometry: the plan's stage px to the overlay's px (the overlay is the band) ----------------------------------------
-  let O: Point = { x: 0, y: 0 }, S = 1;
-  let padRect: Rect = { x: 0, y: 0, width: 112, height: 64 };
-  let targets: DeskDragTarget[] = [];
+  // ---- Geometry: the pads' rects in the overlay's px (the overlay is the band) --------------------------------------------
+  let pads: Record<Pad, Rect> = { a: { x: 0, y: 0, width: 96, height: 64 }, b: { x: 0, y: 0, width: 96, height: 64 } };
   const rel = (el: Element): Rect => {
     const b = ov.getBoundingClientRect(), r = el.getBoundingClientRect();
     return { x: r.left - b.left, y: r.top - b.top, width: r.width, height: r.height };
   };
-  const toOv = (r: Rect): Rect => ({ x: O.x + r.x * S, y: O.y + r.y * S, width: r.width * S, height: r.height * S });
-  const fromOv = (p: Point): Point => ({ x: (p.x - O.x) / S, y: (p.y - O.y) / S });
-  function measure(): void {
-    const p = rel(planEl);
-    O = { x: p.x + planEl.clientLeft, y: p.y + planEl.clientTop };
-    S = planEl.clientWidth / STAGE.width;
-    padRect = rel(padEl);
-    targets = plan.targets.map((t) => ({ id: t.id, priority: t.priority, hit: toOv(t.hit), ...(t.hits ? { hits: t.hits.map(toOv) } : {}), free: t.free, target: t }));
-  }
+  const measure = (): void => void (pads = { a: rel(padEls.a), b: rel(padEls.b) });
   measure();
 
   // ---- The panel: a real element on the layout motion --------------------------------------------------------------------
-  const startAt: Where = { kind: "stage", slot: plan.slots[1]!.drop.slot };
-  const rectOf = (w: Where): Rect => (w.kind === "pad" ? padRect : toOv(w.slot));
-  let where: Where = startAt;
-  // Whether the layout motion's frames run; once they stop, the run is judged (`finish`).
-  let running = false;
-  const motion = createLayoutMotion({
-    loop,
-    omega: omega(),
-    reducedMotion: reduced,
-    onActiveChange: (on) => {
-      running = on;
-      if (!on) finish();
-    },
-  });
+  const rectOf = (p: Pad): Rect => pads[p];
+  let where: Pad = "b";
+  const motion = createLayoutMotion({ loop, omega: omega(), reducedMotion: reduced });
   // The library's own `drawBox` draws every frame; the box's place is a transform too (the node sits at 0, 0), so no frame
   // writes a left or a top and the page never records a layout shift for the panel.
   let bx = 0, by = 0;
@@ -102,39 +65,6 @@ export function startHero(band: HTMLElement): void {
   };
   const item = motion.add("panel", drawable, rectOf(where));
   band.classList.add("go");
-
-  // ---- What the plan says, drawn at once -----------------------------------------------------------------------------------
-  // The indicator sits at the plan's origin and moves by transform (a left or top change would count as a layout shift).
-  let indAt: Rect | null = null;
-  const placeInd = (r: Rect): void => {
-    indAt = r;
-    pind.style.width = `${r.width * S}px`;
-    pind.style.height = `${r.height * S}px`;
-    pind.style.transform = `translate(${r.x * S}px, ${r.y * S}px)`;
-  };
-  const size = (r: Rect): string => `${Math.round(r.width)} × ${Math.round(r.height)}`;
-  const same = (a: Rect, b: Rect): boolean => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height)) < 0.01;
-  const say = (html: string): void => void (sayEl.innerHTML = html);
-  /** The indicator: where docking says the panel would land, with its label. `docked`: where it landed. */
-  function indicate(drop: { slot: Rect; label: string } | null, docked = false): void {
-    if (!drop) { pind.hidden = true; return; }
-    placeInd(drop.slot);
-    pind.classList.toggle("docked", docked);
-    pind.firstElementChild!.textContent = docked ? "" : drop.label;
-    pind.hidden = false;
-  }
-  slotEls.forEach((s) => s.classList.remove("docked")); // the indicator takes over from the server's docked slot
-  const armed = (i: number): void => {
-    const d = plan.slots[i]!.drop;
-    indicate(d);
-    say(`docking → <b>${d.label}</b> · rect ${size(d.slot)}`);
-  };
-  const docked = (i: number): void => {
-    const d = plan.slots[i]!.drop;
-    indicate(d, true);
-    say(`docked · <b>${d.label}</b>`);
-  };
-  const clearPlan = (text = ""): void => { indicate(null); say(text); };
 
   // ---- The scope: a run read off the real frames ---------------------------------------------------------------------------
   interface Rec { samples: RectSample[]; from: Rect; to: Rect; t: number; omega: number; d: string; acc: number }
@@ -212,7 +142,7 @@ export function startHero(band: HTMLElement): void {
   }
 
   // Aim at `to` from where the panel is drawn (a retarget mid-flight carries on, no jump).
-  function launch(w: Where): void {
+  function launch(w: Pad): void {
     where = w;
     const to = rectOf(w);
     begin(to);
@@ -305,60 +235,32 @@ export function startHero(band: HTMLElement): void {
     }
   }
 
-  // ---- Drag: the panel under the pointer, the intent reading the aim ----------------------------------------------------------
-  interface Drag { id: number; held: HeldDrag; intent: DragIntent<DeskDragTarget>; pointer: Point; stop: () => void }
+  // ---- Drag: the panel under the pointer; let go, and it settles on the nearer pad -------------------------------------------------
+  interface Drag { id: number; held: HeldDrag; pointer: Point }
   let drag: Drag | null = null;
   const localOf = (e: { clientX: number; clientY: number }): Point => {
     const b = ov.getBoundingClientRect();
     return { x: e.clientX - b.left, y: e.clientY - b.top };
   };
-  const dropOf = (t: DeskDragTarget, p: Point) => plan.drop(t.target, fromOv(p));
-  function dragFrame(d: Drag): void {
-    const f = d.intent.update(d.pointer, performance.now(), targets);
-    const shown = f.shown;
-    const drop = shown ? dropOf(shown, d.pointer) : null;
-    const pp = previewPlan(f, MODE[dropMode()]);
-    const slot = pp.snapItem && drop ? toOv(drop.slot) : null;
-    // A glide into a slot is a run like any other: record it from the frame it starts.
-    if (slot && !(d.held.snapped && same(d.held.snapped, slot))) begin(slot);
-    if (d.held.preview(pp, slot) === "left") rec = null;
-    indicate(pp.showIndicator && drop ? drop : null);
-    if (drop && pp.showIndicator) say(`docking → <b>${drop.label}</b> · rect ${size(drop.slot)}`);
-    else if (drop) say(`docking → <b>${drop.label}</b> · motion carries the panel in`);
-    else say(f.aiming || !targets.some((t) => t.hit.x <= d.pointer.x) ? "" : "moving fast · <b>no target shown</b>");
-  }
+  /** The pad whose middle is nearer the held panel's middle. */
+  const nearer = (d: Drag): Pad => {
+    const h = d.held.held ?? item.drawn;
+    const mid = { x: h.x + h.width / 2, y: h.y + h.height / 2 };
+    const dist = (p: Pad): number => Math.hypot(pads[p].x + pads[p].width / 2 - mid.x, pads[p].y + pads[p].height / 2 - mid.y);
+    return dist("a") <= dist("b") ? "a" : "b";
+  };
   function endDrag(cancelled: boolean, e?: PointerEvent): void {
     const d = drag;
     if (!d) return;
     drag = null;
-    d.stop();
     tokEl.classList.remove("held");
     try { if (e) frameEl.releasePointerCapture(e.pointerId); } catch { /* already released */ }
-    const p = e ? localOf(e) : d.pointer;
-    let target: DeskDragTarget | null = null;
-    if (!cancelled) {
-      const now = performance.now();
-      d.intent.update(p, now, targets);
-      target = d.intent.release(p, now, targets);
-    }
-    indicate(null);
-    if (target) {
-      const drop = dropOf(target, p);
-      const slot = toOv(drop.slot);
-      where = { kind: "stage", slot: drop.slot };
-      // Already gliding into this slot (the snap preview): that run is the one on the scope.
-      if (!(d.held.snapped && same(d.held.snapped, slot))) begin(slot);
-      d.held.land(slot);
-      arrive = () => { indicate(drop, true); say(`docked · <b>${drop.label}</b>`); };
-      say(`docking → <b>${drop.label}</b> · motion lands it`);
-    } else {
-      where = { kind: "pad" };
-      begin(padRect);
-      d.held.cancel(padRect);
-      say(cancelled ? "cancelled: it goes home" : "no target: it goes home");
-      arrive = () => say("");
-    }
-    if (!running) finish();
+    // Cancelled: back where it was lifted from. Released: on the pad it is nearer to.
+    const pad = cancelled ? where : nearer(d);
+    where = pad;
+    begin(rectOf(pad));
+    d.held.land(rectOf(pad));
+    if (!motion.running) finish();
     setDragging(false);
   }
   frameEl.addEventListener("pointerdown", (e) => {
@@ -368,17 +270,13 @@ export function startHero(band: HTMLElement): void {
     abortCycle();
     fadeDots();
     arrive = null;
-    clearPlan();
     rec = null;
     const p = localOf(e), at = item.drawn;
     const held = holdItem(item, { x: p.x - at.x, y: p.y - at.y });
-    const intent = createDragIntent<DeskDragTarget>({ home: padRect });
     held.move(p);
     tokEl.classList.add("held");
     frameEl.setPointerCapture(e.pointerId);
-    const d: Drag = { id: e.pointerId, held, intent, pointer: p, stop: () => {} };
-    d.stop = loop.repeat("input", () => { if (drag !== d) return false; dragFrame(d); return true; });
-    drag = d;
+    drag = { id: e.pointerId, held, pointer: p };
   });
   frameEl.addEventListener("pointermove", (e) => {
     if (!drag || e.pointerId !== drag.id) return;
@@ -391,49 +289,27 @@ export function startHero(band: HTMLElement): void {
   window.addEventListener("blur", () => endDrag(true));
   window.addEventListener("keydown", (e) => { if (e.key === "Escape") endDrag(true); });
 
-  // ---- The showcase: docking arms a target at once, motion carries the panel there -----------------------------------------
+  // ---- The showcase: motion carries the panel from one pad to the other --------------------------------------------------------
   let ctl = { dead: false };
   const abortCycle = (): void => { ctl.dead = true; };
   const wait = (ms: number, c: { dead: boolean }): Promise<void> => new Promise((res, rej) => setTimeout(() => (c.dead ? rej(c) : res()), ms / getSpeed()));
   const until = (fn: () => boolean, c: { dead: boolean }): Promise<void> => new Promise((res, rej) => { const f = (): void => (c.dead ? rej(c) : fn() ? res() : void requestAnimationFrame(f)); f(); });
-  const SEQUENCES = [[1], [0, 1], [2], [1, 2], [0]];
-  const isDocked = (): boolean => !pind.hidden && pind.classList.contains("docked");
-  async function home(c: { dead: boolean }): Promise<void> {
-    if (where.kind === "pad" && !isDocked()) return;
-    tokEl.classList.add("out");
-    await wait(260, c);
-    clearPlan();
-    where = { kind: "pad" };
-    item.jumpTo(padRect);
-    resetPlot();
-    await wait(60, c);
-    tokEl.classList.remove("out");
-  }
+  /** Each cycle's stops: now and then a new rect arrives mid-flight, and the settle turns at once from where it is drawn. */
+  const SEQUENCES: Pad[][] = [["a"], ["b"], ["a", "b", "a"], ["b"]];
   async function cycle(n: number, c: { dead: boolean }): Promise<void> {
     const seq = SEQUENCES[n % SEQUENCES.length]!;
-    armed(seq[0]!);
-    await wait(900, c);
-    launch({ kind: "stage", slot: plan.slots[seq[0]!]!.drop.slot });
-    if (seq.length > 1) {
-      // A new rect mid-flight: docking answers again, and the settle turns at once from where it is drawn.
-      await until(() => !!rec && rec.t > 45, c);
-      armed(seq[1]!);
-      launch({ kind: "stage", slot: plan.slots[seq[1]!]!.drop.slot });
-      say(`docking → <b>${plan.slots[seq[1]!]!.drop.label}</b> · a new rect, mid-flight`);
+    for (const [i, pad] of seq.entries()) {
+      launch(pad);
+      if (i < seq.length - 1) await until(() => !!rec && rec.t > 45, c);
     }
     await motion.idle();
     await wait(160, c);
     fadeDots();
-    docked(seq[seq.length - 1]!);
-    await wait(2300, c);
-    await home(c);
-    await wait(1000, c);
+    await wait(1900, c);
   }
   async function showcaseLoop(c: { dead: boolean }): Promise<void> {
     try {
       await wait(1800, c);
-      await home(c);
-      await wait(800, c);
       for (let n = 0; ; n++) await cycle(n, c);
     } catch (e) {
       if (e !== c) throw e;
@@ -444,17 +320,16 @@ export function startHero(band: HTMLElement): void {
   function still(): void {
     abortCycle();
     fadeDots();
-    where = startAt;
+    where = "b";
     item.jumpTo(rectOf(where));
     tokEl.classList.remove("out");
     const run = simulateRun({ x: 0, y: 0, width: 120, height: 64 }, rectOf(where), omega());
     dots.forEach((d) => d.remove());
     dots = [];
-    const from = padRect, to = rectOf(where);
+    const from = pads.a, to = rectOf(where);
     // The trail: one dot per frame of the real run, placed by its progress along the way.
     run.report.curve.slice(1, 30).forEach((q) => addDot({ x: from.x + (to.x - from.x) * q.p, y: from.y + (to.y - from.y) * q.p, width: from.width + (to.width - from.width) * q.p, height: 0 }));
     dots.forEach((d) => { d.style.transition = "none"; d.style.opacity = ".55"; });
-    docked(1);
   }
 
   registerShowcase(band, {
@@ -473,7 +348,6 @@ export function startHero(band: HTMLElement): void {
   new ResizeObserver(() => {
     measure();
     blueprint();
-    if (indAt) placeInd(indAt);
     if (drag) return;
     const to = rectOf(where);
     // A run in flight is re-aimed: record it afresh against the new target, or the scope would judge the old one.
@@ -489,11 +363,10 @@ export function startHero(band: HTMLElement): void {
   syncControls();
   blueprint();
   if (reduced()) still();
-  else docked(1);
 
   (window as unknown as Record<string, unknown>).__hero = {
     report: () => last,
-    state: () => ({ drag: !!drag, where, rec: !!rec, running, drawn: { ...item.drawn }, targets: targets.map((t) => t.id) }),
+    state: () => ({ drag: !!drag, where, rec: !!rec, running: motion.running, drawn: { ...item.drawn } }),
     tempos: TEMPOS,
   };
 }
