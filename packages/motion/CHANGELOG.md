@@ -15,16 +15,22 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   six-sample window, and per gate), and the six-sample window read a fling that started from a rest or a hesitation as
   slow: its first steps counted as a slide, and a fling out of a 40 ms hesitation, or out of a rest, docked in the rail.
   Now every gate that asks fast or slow (the slide count into a touching lane and its entry, the settle rule after a
-  fling, the slow path) reads one estimate, `createHandSpeed` (`src/drag/hand-speed.ts`, `HAND_SPEED`): the newest step
+  fling, the slow path) reads one estimate, the hand's speed (internal: `createHandSpeed`, `HAND_SPEED` and
+  `HandSpeedOptions` in `src/drag/hand-speed.ts` are not exported from `./drag`): the newest step
   reads a speed-up at once; the speed over at least 48 ms and 5 steps reads a slow-down only once it has lasted; the
-  speed is the larger. A gap of 40 ms or more starts the hand again (its step unknown, never slow), so a rest is never
+  speed is the larger. A gap of `min(40, gates.pause)` ms or more starts the hand again (its step unknown, never slow,
+  unless no longer than `gates.step` px), so a rest is never
   averaged into the next fling; a slide counts only while the hand reads steady, not gathering speed. A property sweep
   (`test/landing-hand-speed-sweep.test.ts`: 125 and 60 Hz, timestamps off by 0 to 50% of a frame, rests up to 1000 ms,
   ramps up to 60 ms) proves it: every slide at 0.6 to 1.9 px/ms enters, every fling at 2.4 px/ms or faster never enters
   before it settles (an immediate release goes home), and 80 ms of rest after it docks; the 60 Hz case with timestamps
   half a frame off, excluded before, is closed. Host notes: a slide into a touching lane counts only once the hand's
-  speed is known and steady, a span and a half (72 ms at 125 Hz, 120 ms at 60 Hz); a host sampling slower than 25 Hz
-  slides into a touching lane only by that lane's own gates.
+  speed is known and steady, a span and a half (72 ms at 125 Hz, 120 ms at 60 Hz), so it enters about 1.3 to 2.8 times
+  as far up the lane as before (from the bar under an empty rail, smooth samples: 0.6 px/ms 62 → 82 px at 125 Hz and
+  67 → 106 at 60 Hz; 1.2 px/ms 67 → 125 and 77 → 173; 1.9 px/ms 61 → 167 and 91 → 243). After a fling the settle rule
+  waits for the hand to read slow, so a hand jittering on the spot after it docks later: 64 → 104 ms after the last fast
+  sample at 125 Hz, 64 → 128 ms at 60 Hz (about 304 against 208 ms counted from the press, at 60 Hz). A host sampling
+  slower than 25 Hz slides into a touching lane only by that lane's own gates.
 
 - `./drag`, **under "all" the shared corner goes to the lane nearest the pointer within reach** (behavior change). With
   no Near lane (the pointer over a refused column, crossing toward an empty rail under an empty bar) the bar kept the
