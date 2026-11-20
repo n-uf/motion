@@ -6,8 +6,9 @@ import { defineConfig } from "tsup";
  * - `index` is the whole core; `clock`, `signals`, `values` and `gestures`
  *   are its four folders on their own. No DOM, no globals in any of them.
  * - `layout` moves a surface's items by those rules on one frame loop; it
- *   writes DOM styles through structural shapes, so it is core too.
- * - `browser` is the adapter onto requestAnimationFrame, performance.now,
+ *   draws through a `Drawable` the host gives, so it is core too.
+ * - `browser` holds the DOM writers (an item drawn onto an element's style,
+ *   FLIP) and is the adapter onto requestAnimationFrame, performance.now,
  *   setTimeout and matchMedia; it imports only types from the core.
  * - One build with code splitting: code two entries share lives in one
  *   chunk, so importing `@n-uf/motion/signals` and `@n-uf/motion/values`

@@ -1,6 +1,6 @@
 import { createFrameLoop } from "@n-uf/motion";
-import { createBrowserClock } from "@n-uf/motion/browser";
-import { createLayoutMotion, domDrawable } from "@n-uf/motion/layout";
+import { createBrowserClock, domDrawable } from "@n-uf/motion/browser";
+import { createLayoutMotion } from "@n-uf/motion/layout";
 
 const loop = createFrameLoop({ clock: createBrowserClock() });
 const motion = createLayoutMotion({ loop }); // frames run only while something moves

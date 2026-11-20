@@ -1,5 +1,5 @@
 import type { Rect } from "../shapes";
-import type { LayoutItem } from "./motion";
+import type { LayoutItem } from "../layout/motion";
 
 /** A rect as a DOM rect reports it (`getBoundingClientRect()`): left, top, width, height. */
 export interface RectLike {

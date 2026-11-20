@@ -19,7 +19,8 @@
  */
 import type { Point, Rect } from "@n-uf/motion";
 import { createDragIntent, previewPlan, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
-import { createLayoutMotion, drawBox, holdItem, type Drawable, type HeldDrag } from "@n-uf/motion/layout";
+import { drawBox } from "@n-uf/motion/browser";
+import { createLayoutMotion, holdItem, type Drawable, type HeldDrag } from "@n-uf/motion/layout";
 import type { RectSample } from "@n-uf/motion/testing";
 import type { DockDrop } from "@n-uf/docking";
 import { drive, getSpeed, getTempo, loop, newSettle, omega, onMotionChange, reduced, setSpeed, setTempo, type Tempo } from "./motion";

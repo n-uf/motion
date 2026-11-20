@@ -116,12 +116,14 @@ if (problems.length === 0) {
     rect.set({ x: 300, y: 0, width: 50, height: 100 });
     clock.runUntilIdle();
     if (rect.value.x !== 300 || rect.value.width !== 50 || loop.active) problems.push(`values.js: a settle didn't settle (x ${rect.value.x})`);
-    const motion = modules.layout.createLayoutMotion({ loop });
+    const active = [];
+    const motion = modules.layout.createLayoutMotion({ loop, onActiveChange: (on) => active.push(on) });
     const drawn = [];
     const item = motion.add("a", { layOut: () => {}, draw: (f) => drawn.push(f.drawn.x) }, { x: 0, y: 0, width: 100, height: 100 });
     item.moveTo({ x: 200, y: 0, width: 100, height: 100 });
     clock.runUntilIdle();
-    if (item.drawn.x !== 200 || drawn[0] !== 0 || motion.running || loop.active) problems.push(`layout.js: an item didn't settle (x ${item.drawn.x})`);
+    if (item.drawn.x !== 200 || drawn[0] !== 0 || active.join() !== "true,false" || loop.active) problems.push(`layout.js: an item didn't settle (x ${item.drawn.x})`);
+    if (typeof modules.browser.domDrawable !== "function" || typeof modules.browser.flip !== "function") problems.push("browser.js: no domDrawable or flip");
     // A box changing size about an anchor: it rests on the target, its anchor on the point at every step.
     const morph = modules.layout.anchoredMorph({ width: 200, height: 28 }, { x: 10, y: 14 });
     morph.to({ width: 96, height: 84 }, { x: 48, y: 6 });
