@@ -127,4 +127,24 @@ describe("slide or fling, swept from the bar's corner up a touching rail", () =>
           }
     expect(bad).toEqual([]);
   });
+
+  it("(d) a hand creeping on whole pixels (one every 40 to 60 ms, each sample a gap) enters as soon as it is over the refused column", () => {
+    const bad: string[] = [];
+    for (const v of [0.016, 0.02, 0.025])
+      for (const dt of [8, 16]) {
+        const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: START, grab: { x: 17, y: 15 } });
+        m.update(START, 0);
+        let entered = -1;
+        let y = START.y;
+        for (let t = dt; t <= 4000 && entered < 0; t += dt) {
+          const next = Math.round(START.y - v * t);
+          // The host sends a sample only when the pointer moves a pixel.
+          if (next === y) continue;
+          y = next;
+          if (m.update({ x: START.x, y }, t).lane === "rail-left") entered = START.y - y;
+        }
+        if (entered < 0 || entered > 40) bad.push(`${v} px/ms, ${dt} ms: ${entered < 0 ? "never entered" : `entered at ${entered} px`}`);
+      }
+    expect(bad).toEqual([]);
+  });
 });

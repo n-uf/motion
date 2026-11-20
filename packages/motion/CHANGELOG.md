@@ -5,6 +5,12 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.52
 
+- `./drag`, **a hand creeping a pixel at a time is slow** (fix). With the hand's speed, a host that sends a sample only
+  when the pointer moves a whole pixel, creeping at 0.016 to 0.025 px/ms (a pixel every 40 to 60 ms), made every sample
+  a gap, its step unknown, so it never entered a band over a refused column while it kept creeping. A step over a gap
+  that is no longer than `gates.step` px now reads as the slow step it is; a longer one (a fling out of a rest) stays
+  unknown.
+
 - `./drag`, **one estimate of the hand's speed** (fix, design). Fast or slow was decided four ways (a frame's step, a
   six-sample window, and per gate), and the six-sample window read a fling that started from a rest or a hesitation as
   slow: its first steps counted as a slide, and a fling out of a 40 ms hesitation, or out of a rest, docked in the rail.
