@@ -36,7 +36,9 @@ Changes:
   what it would push.
 - `./scene`, **a rail drop strip's lane is the strip** (fix, `Scene.railDrop`): a side's rail lane was the hull of its
   hit and landing, the whole column where one is docked there, over the column's own lane; it is now the strip at the
-  window's side (`railStripWidth`), so a plain drop in that column goes by halves (R8).
+  window's side (`railStripWidth`), so a plain drop in that column goes by halves (R8). It is marked `Lane.owns`
+  (additive): the strip owns its rect, and a landing model gives it the pointer inside it over a column it overlaps
+  (a flush window's), once the pointer came into it, so a panel settled in the strip lands in the rail.
 - `./scene/cases`, **absolute R12 rows** (additive): `landing-grip-past-long-neighbor`, `landing-grip-across-items` and
   `landing-grip-up-the-rail` slide a toolbar held by its grip past or across neighbors at 0.15 px/ms, within 48 px of
   the pointer (56 on the frame before a hop, `LandingCase.moving.trailBeforeHop`, additive). They need `GRIP_SINCE`
