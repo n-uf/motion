@@ -233,6 +233,7 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
   .hz.d { background: radial-gradient(circle, color-mix(in srgb, var(--dock) 30%, transparent) 1.3px, transparent 1.6px) 0 0 / 24px 24px, var(--bg); }
   /* The instruments keep a reading width on a wide stack, left-aligned under their words. */
   .zin { max-width: 640px; }
+  .tilezone, .planzone { max-width: 460px; }
   .scope { grid-template-columns: 164px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "gauge plot" "stats stats" "cap pad"; gap: 10px 16px; }
   .gauge-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s2); align-items: start; }
   .gauge-col .gauge { grid-row: auto; width: 140px; height: 96px; }
