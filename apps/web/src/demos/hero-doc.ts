@@ -212,7 +212,7 @@ interface SheetItem {
  * - `anchoredMorph` (`@n-uf/motion/layout`): docwin/scene.ts:698, the held item keeps its grab point as its form changes.
  * - `createSettle` (`@n-uf/motion`): docwin/scene.ts:710, the drawn rect settling onto the pointer.
  *
- * Motion only, by the operator's choice: placement's parts (`fitStack` inside `solve`, `fold` from `@n-uf/placement/scene`) are
+ * Motion only: placement's parts (`fitStack` inside `solve`, `fold` from `@n-uf/placement/scene`) are
  * docking's own code or unconfirmed for the release, so they are not shown (see DOCKING-RELEASE-TODO.md).
  */
 function parts(): readonly SheetItem[] {
