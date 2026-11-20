@@ -9,9 +9,10 @@ A stretch is the room the drop makes. Host notes: additive; a host that draws ha
 
 - `./scene`, **a neighbor that steps down to make room gives way** (fix). One rule for marks and stretches: when the
   item lands beside a room, a neighbor gives way if it moves away from the room, leaves the lane (the menu, a float)
-  or takes a shorter form than it has now. "Now" is always the layout as seen with the held item lifted (what the
-  window showed before this drop), whichever layout the marks are drawn in: with `spot` held, where the neighbor is
-  drawn already stepped down, its striped end and `givesWay` stay.
+  or takes a shorter form than it has now. For the marks, "now" is the layout they are drawn in (as seen) when no
+  spot is held; with `spot` held it is the layout as seen with the held item lifted (what the window showed before
+  this drop), since in the spot's own layout the neighbor is already drawn stepped down: its striped end and
+  `givesWay` stay. Stretches compare with the layout as seen with the held item lifted.
   - A free stretch of a bar or a toolbar rail runs from flush after the neighbor before it to flush before the one
     after it **in the forms the drop leaves them in**, not only as seen. Where the room as seen is shorter than the
     item but a drop there steps a neighbor down, the stretch now has its sliding spot (and its pitched spots under
