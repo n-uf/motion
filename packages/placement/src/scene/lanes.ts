@@ -415,15 +415,17 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
       raws.push({ lane, edge: null, axis: "y", id: `${lane}/${p.kind === "rail" ? "end" : "line"}`, before: "^", next: "$", landing, layout, target: t, hit: strip ?? t.hit, ...(strip ? { strip: true as const } : {}) });
     }
   }
+  // The layout as seen with the held item lifted: solved once per lift, read by every stretch and by the marks.
+  const lifted = liftedLayout(scene, dragged, options);
   // A bar's free stretches: one sliding spot each, which takes over the docks landing inside it; else spots at `pitch`,
   // each a dock keeping `space` (`SceneItem.space`).
   if (options.stretchPositions !== "pitched") {
-    const { spots, absorbed } = slidingSpots(scene, dragged, options, seen, raws, pitch > 0 ? pitch : SPOT_PITCH);
+    const { spots, absorbed } = slidingSpots(scene, dragged, options, seen, lifted, raws, pitch > 0 ? pitch : SPOT_PITCH);
     for (let i = raws.length - 1; i >= 0; i--) if (absorbed.has(raws[i]!)) raws.splice(i, 1);
     raws.push(...spots);
-  } else if (pitch > 0) raws.push(...pitchedSpots(scene, dragged, options, seen, raws, pitch));
+  } else if (pitch > 0) raws.push(...pitchedSpots(scene, dragged, options, seen, lifted, raws, pitch));
   // Over a neighbor itself, the item takes its place and the neighbor gives way, in either mode (`takeoverSpots`).
-  raws.push(...takeoverSpots(scene, dragged, options, seen, raws, pitch > 0 ? pitch : SPOT_PITCH));
+  raws.push(...takeoverSpots(scene, dragged, options, seen, lifted, raws, pitch > 0 ? pitch : SPOT_PITCH));
   const byLane = new Map<string, Raw[]>();
   for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
   // Panel columns take a panel by halves of the panels drawn; bars and toolbar rails by the gap between landings.
@@ -436,7 +438,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
       return main?.grows ? main.natural : undefined;
     },
     gap: (edge) => nonNeg(scene.edges.find((e) => e.id === edge)?.gap),
-    lifted: liftedLayout(scene, dragged, options),
+    lifted,
   };
   // Where the pointer holds the item, as a share of its length now, along its own length only (its longer side): a
   // landing of another length along that axis is held at the same share; across the item, where the share says only
@@ -813,9 +815,9 @@ const overlaps = (a: Rect, b: Rect): boolean => a.x < b.x + b.width - EPS && b.x
  * landing. A stretch too short for the item has none, nor one bounded on both sides by zones the item cannot dock in
  * (no start-zone item or edge start before it, no end-zone item or edge end after it: no zone can take it).
  */
-function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], pitch: number): Raw[] {
+function pitchedSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, lifted: SceneLayout, raws: readonly Raw[], pitch: number): Raw[] {
   const out: Raw[] = [];
-  stretches(scene, dragged, options, seen, raws, (run) => {
+  stretches(scene, dragged, options, seen, lifted, raws, (run) => {
     const { e, axis, gap, middle } = run;
     const taken = run.mine.map((r) => r.landing);
     /**
@@ -904,13 +906,13 @@ interface Stretch {
  * neighbor stays where it is drawn, `lift`), so every other item lies where the person sees it. A stretch is the room
  * a drop there makes, not only the room as seen: where the edge has no room for the item beside a neighbor's form as
  * seen, the drop steps that neighbor (or another item) down to a shorter form, and the stretch runs from flush after
- * the neighbor before it to flush before the one after it as the drop leaves them. `visit` is called once per edge and
- * gives what to do with each of its stretches.
+ * the neighbor before it to flush before the one after it as the drop leaves them. `lifted` is `liftedLayout`'s, solved
+ * once per lift. `visit` is called once per edge and gives what to do with each of its stretches.
  */
-function stretches(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], visit: (edge: StretchEdge) => (stretch: Stretch) => void): void {
+function stretches(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, lifted: SceneLayout, raws: readonly Raw[], visit: (edge: StretchEdge) => (stretch: Stretch) => void): void {
   if (!scene.items[dragged]) return;
   const prev = options.previous ? { previous: options.previous } : {};
-  const base = liftedLayout(scene, dragged, options);
+  const base = lifted;
   for (const e of scene.edges) {
     const bar = e.side === "top" || e.side === "bottom";
     if (!bar && !e.compact) continue;
@@ -989,9 +991,9 @@ function stretches(scene: Scene, dragged: string, options: LaneOptions, seen: Sc
  * it, the landings either side are never further apart than the item, and the item stays at the hand. Kept where it
  * lands there with every fixed item kept and not on another spot's landing.
  */
-function takeoverSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], pitch: number): Raw[] {
+function takeoverSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, lifted: SceneLayout, raws: readonly Raw[], pitch: number): Raw[] {
   const out: Raw[] = [];
-  stretches(scene, dragged, options, seen, raws, (run) => {
+  stretches(scene, dragged, options, seen, lifted, raws, (run) => {
     const { e, axis } = run;
     const taken = [...run.mine.map((r) => r.landing)];
     const emit = (zone: Zone, at: number, space: number, x0: number, nb: string): void => {
@@ -1052,13 +1054,13 @@ function landsAt(scene: Scene, dragged: string, run: StretchEdge, place: DockPla
  * item a stretch still has one wherever a zone can take the item, and its plain docks stay spots of their own where it
  * has none.
  */
-function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, raws: readonly Raw[], sample: number): { spots: Raw[]; absorbed: Set<Raw> } {
+function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen: SceneLayout, lifted: SceneLayout, raws: readonly Raw[], sample: number): { spots: Raw[]; absorbed: Set<Raw> } {
   const spots: Raw[] = [];
   const absorbed = new Set<Raw>();
   const snapDistance = Number.isFinite(options.snapDistance) && options.snapDistance! >= 0 ? options.snapDistance! : SNAP_DISTANCE;
   const own = seen.items[dragged];
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
-  stretches(scene, dragged, options, seen, raws, (run) => ({ a, b, w, zones, atOf, spaceAt, before, after }) => {
+  stretches(scene, dragged, options, seen, lifted, raws, (run) => ({ a, b, w, zones, atOf, spaceAt, before, after }) => {
     const { e, axis, middle, mine } = run;
     // (A stretch with room for the item at one start only is no range: its plain dock stays a spot of its own.)
     if (zones.length === 0 || b - w <= a + EPS) return;
