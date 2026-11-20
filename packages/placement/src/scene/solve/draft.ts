@@ -218,6 +218,7 @@ export function emit(d: Draft, edge: Edge, r: Rect, solved: EdgeSolve, extra: Pa
       hidden: inMenu ? [] : (f?.hides ?? []),
       rect: drawnRect,
       kind: it.kind,
+      axis: column ? "column" : "row",
       form: p.form,
       formKind: p.kind,
       edge: edge.id,
