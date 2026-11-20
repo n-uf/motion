@@ -10,7 +10,7 @@
  *
  * The showcase (a pane dropped on another, over and over) is registered with the page's showcase controller, like the
  * hero's: a visitor's action pauses it, reduced motion has no auto-play, and it stops off screen. The indicator is the
- * drop's own colour (the signal orange) and shows the rect the dragged pane would take.
+ * drop's own color (the signal orange) and shows the rect the dragged pane would take.
  */
 import type { Point, Rect } from "@n-uf/motion";
 import { createDragIntent, type DragIntent } from "@n-uf/motion/drag";
