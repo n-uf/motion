@@ -74,14 +74,15 @@ export function linesOf(file, text) {
 export function isCopy(file) {
   if (/(^|\/)(dist|node_modules|test|tests|__tests__|legacy)\//.test(file)) return false;
   if (/\.(test|spec)\.[mc]?[jt]s$/.test(file)) return false;
-  if (/(^|\/)(README|CHANGELOG)\.md$/.test(file)) return /^(packages\/[^/]+|apps\/web)\//.test(file);
+  if (/^docs\/.+\.md$/.test(file)) return true;
+  if (/(^|\/)(README|CHANGELOG)\.md$/.test(file)) return /^(packages\/[^/]+|apps\/web)\//.test(file) || file === "README.md";
   return /^(apps\/[^/]+\/src|packages\/[^/]+\/src)\/.+\.(astro|html|md|mdx|ts|tsx|mjs|js)$/.test(file) || /^packages\/[^/]+\/index\.ts$/.test(file);
 }
 
 // Run as the check (imported, it only lends its functions to its test).
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-  const files = execFileSync("git", ["ls-files", "packages", "apps"], { cwd: root, encoding: "utf8" })
+  const files = execFileSync("git", ["ls-files", "packages", "apps", "docs", "README.md"], { cwd: root, encoding: "utf8" })
     .split("\n")
     .filter((f) => f && isCopy(f));
   const hits = [];
