@@ -3,7 +3,7 @@
  * the settle curves at each tempo, a bouncy spring for contrast, and one real run of a panel's glide, recorded frame by
  * frame and checked with `@n-uf/motion/testing`.
  *
- * Placement's slot is the popup (demos/hero-pop.ts), docking's the app window (demos/hero-dock.ts).
+ * Placement's slot is demos/hero-place.ts and docking's demos/hero-doc.ts, both static.
  *
  * Every number here comes out of the packages. The server runs them at build time for the first (finished) state, and
  * the island runs them again in the browser, live; the two states agree by construction.

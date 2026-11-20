@@ -3,8 +3,8 @@
  * placement's "numbers in, rects out" in the middle (violet, --series-b) and docking's docked window on the right (rose, --dock).
  * Each slot is its eyebrow, headline, words, install line and an illustration, in that order at every width. The TypeScript
  * sentence is first in the DOM and shows under the band. Wide: three columns of equal text width (the page's wrap, a
- * gutter between them), the band's three grounds drawn behind them. Narrow (1100 px and under): one column, the three
- * headlines first, then each library's slot (its eyebrow, words and instrument) on its own ground.
+ * gutter between them), the band's three grounds drawn behind them. Narrow (1100 px and under): one column, slot by
+ * slot (eyebrow, headline, words, illustration); the h1 is a subgrid of the band's rows.
  *
  * Nothing here changes size when the island starts: the other two illustrations are static, and the panel moves by transform
  * in a layer that takes no room.
@@ -164,7 +164,7 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
    stretched. Stacked, the cell has no height of its own, so the window keeps its aspect ratio. */
 @media (min-width: 1101px) {
   .dockzone .hdw { flex: 1 1 0; min-height: 0; aspect-ratio: auto; container-type: size; }
-  .dockzone .hdw-in { transform: scale(min(calc(100cqw / (var(--hd-w) * 1px)), calc(100cqh / (var(--hd-h) * 1px)))); }
+  .dockzone .hdw-in { transform: scale(min(tan(atan2(100cqw, calc(var(--hd-w) * 1px))), tan(atan2(100cqh, calc(var(--hd-h) * 1px))))); }
 }
 .dockzone .hd-dots { background-image: radial-gradient(var(--dock) 1.2px, transparent 1.4px); }
 
@@ -233,6 +233,13 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
   .gauge-col .seg button { padding: 0 7px; }
   /* A narrow slot clips the panel's title: a tighter bar keeps "Outline" off the edge. */
   .hb { gap: 5px; padding: 0 6px; font-size: 10.5px; }
+}
+/* Without subgrid, stacked, the h1 is one row holding its three headlines one under another (the page still has its one h1). */
+@supports not (grid-template-rows: subgrid) {
+  @media (max-width: 1100px) {
+    h1.pair { grid-row: 2; grid-template-rows: none; }
+    h1.pair > span.m, h1.pair > span.p, h1.pair > span.d { grid-row: auto; }
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .tok, .dot { transition: none; }
