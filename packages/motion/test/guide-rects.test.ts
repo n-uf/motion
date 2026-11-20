@@ -17,6 +17,17 @@ describe("guideRects", () => {
     expect(h!.rect).toEqual(rect(8, 3, 2, 33));
   });
 
+  it("a clear rect with a non-finite x, y, width or height is ignored: boxes stay, thin guides keep finite fields", () => {
+    const box: PlacedGuide = { kind: "box", rect: rect(100, 3, 200, 33) };
+    const line: PlacedGuide = { kind: "line", rect: rect(400, 3, 2, 33) };
+    const plain = guideRects([box, line], { inside, inset: 2 });
+    for (const bad of [rect(NaN, 0, 10, 10), rect(0, Infinity, 10, 10), rect(0, 0, NaN, 10), rect(0, 0, 10, -Infinity)]) {
+      const got = guideRects([box, line], { inside, inset: 2, clear: [bad, { rect: bad, clearance: 0 }] });
+      expect(got.map((g) => g.rect), JSON.stringify(bad)).toEqual(plain.map((g) => g.rect));
+      for (const g of got) for (const v of Object.values(g.rect)) expect(Number.isFinite(v)).toBe(true);
+    }
+  });
+
   it("a box is clipped to the inside by the inset", () => {
     const [b] = guideRects([{ kind: "box", rect: rect(-10, 0, 100, 36) }], { inside, inset: 2 });
     expect(b!.rect).toEqual(rect(3, 3, 87, 33));

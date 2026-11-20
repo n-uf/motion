@@ -3,6 +3,13 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## Unreleased
+
+Host notes: none.
+
+- `./drag`, **`guideRects` ignores a clear rect that isn't finite** (fix): a clear rect whose x, y, width or height is
+  NaN or infinite is skipped. Before, one such rect silently dropped every box and gave thin guides NaN fields.
+
 ## 26.11.50
 
 Sliding spots: a free stretch exposed as one spot, where the item lands at the hand. With `@n-uf/placement`'s

@@ -46,7 +46,7 @@ const EPS = 1e-6;
  * largest remaining part, left, right, above or below, is kept). A thin guide (a line, a striped strip or end: its
  * shorter side is its thickness) keeps its thickness and moves inside rather than being clipped, so a line at a lane's
  * far end is as thick as at its head. Then it is thinned, from the content side, to stay that far clear of `clear`, so
- * a thin strip at the window's side lies between the inset and the content, the same on both sides. A guide with nothing left (or a thin one under `minThickness`) is left out. Pure; the guides come
+ * a thin strip at the window's side lies between the inset and the content, the same on both sides. A guide with nothing left (or a thin one under `minThickness`) is left out. A clear rect whose x, y, width or height isn't finite is ignored. Pure; the guides come
  * back as given with their placed `rect`, the same object where nothing moved.
  */
 export function guideRects<G extends PlacedGuide>(guides: readonly G[], options: GuideRectsOptions): G[] {
@@ -60,10 +60,14 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
   const x1 = options.inside.x + options.inside.width - inset;
   const y1 = options.inside.y + options.inside.height - inset;
   const gap = Number.isFinite(options.clearance) ? Math.max(0, options.clearance!) : 2;
-  // Each clear rect with the gap it keeps: its own, or the options' for a plain one.
-  const allClear = (options.clear ?? []).map((c): { k: Rect; gap: number; kinds?: readonly PlacedGuide["kind"][] } =>
-    "rect" in c ? { k: c.rect, gap: Number.isFinite(c.clearance) ? Math.max(0, c.clearance) : gap, ...(c.kinds ? { kinds: c.kinds } : {}) } : { k: c, gap },
-  );
+  // Each clear rect with the gap it keeps: its own, or the options' for a plain one. One whose x, y, width or height
+  // isn't finite is ignored (it would take every box out and give thin guides non-finite fields).
+  const finite = (r: Rect): boolean => Number.isFinite(r.x) && Number.isFinite(r.y) && Number.isFinite(r.width) && Number.isFinite(r.height);
+  const allClear = (options.clear ?? [])
+    .map((c): { k: Rect; gap: number; kinds?: readonly PlacedGuide["kind"][] } =>
+      "rect" in c ? { k: c.rect, gap: Number.isFinite(c.clearance) ? Math.max(0, c.clearance) : gap, ...(c.kinds ? { kinds: c.kinds } : {}) } : { k: c, gap },
+    )
+    .filter((c) => finite(c.k));
   const out: G[] = [];
   for (const g of guides) {
     const r = g.rect;
