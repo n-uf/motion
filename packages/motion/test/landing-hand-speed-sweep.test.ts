@@ -68,24 +68,31 @@ const JITTERS = [0, 0.2, 0.35, 0.5];
 const SEEDS = Array.from({ length: 12 }, (_, i) => i + 1);
 
 describe("slide or fling, swept from the bar's corner up a touching rail", () => {
-  it("(a) every slide at 0.6 to 1.9 px/ms enters the rail, within the speed window plus `path` and a frame or two", () => {
+  it("(a) every slide at 0.6 to 1.9 px/ms, from the lift, a rest or a ramp, enters the rail within a span and a half plus `path`", () => {
     const bad: string[] = [];
     let runs = 0;
+    // (Up the rail to near its top, y 14.)
+    const TRAVEL = 600;
     for (const v of [0.6, 0.9, 1.2, 1.5, 1.9])
       for (const dt of [8, 16])
         for (const jitter of JITTERS)
-          for (const seed of SEEDS) {
-            runs++;
-            const hand = { v, dt, jitter, rest: 0, ramp: 0, seed };
-            const { entered } = play(hand, 400);
-            // The bound: the hand's speed read over its span (48 ms and 5 steps: 48 ms at 125 Hz, 80 ms at 60 Hz) and
-            // steady for half a span more, then `path` (40 px), plus a few frames that read fast or gathering where the
-            // timestamps jitter.
-            const span = Math.max(HAND_SPEED.span, HAND_SPEED.steps * dt);
-            const bound = v * (1.5 * span + 6 * dt) + LANDING_GATES.path + 16;
-            if (entered < 0 || entered > bound) bad.push(`${v} px/ms, ${dt} ms, ±${jitter * 100}%, seed ${seed}: ${entered < 0 ? "never entered" : `entered at ${Math.round(entered)} px, over ${Math.round(bound)}`}`);
-          }
-    expect(runs).toBe(480);
+          for (const [rest, ramp] of [
+            [0, 0],
+            [300, 0],
+            [40, 60],
+          ] as const)
+            for (const seed of SEEDS) {
+              runs++;
+              const { entered } = play({ v, dt, jitter, rest, ramp, seed }, TRAVEL);
+              // The bound: the hand's speed read over its span (48 ms and 5 steps: 48 ms at 125 Hz, 80 ms at 60 Hz) and
+              // steady for half a span more, then `path` (40 px), plus a few frames that read fast or gathering where the
+              // timestamps jitter, plus what a ramp covers. Capped below the travel, so no cell is vacuous.
+              const span = Math.max(HAND_SPEED.span, HAND_SPEED.steps * dt);
+              const bound = v * (1.5 * span + 7 * dt + ramp / 2) + LANDING_GATES.path + 16;
+              if (bound >= TRAVEL) bad.push(`${v} px/ms, ${dt} ms: the bound ${Math.round(bound)} px is past the travel`);
+              if (entered < 0 || entered > bound) bad.push(`${v} px/ms, ${dt} ms, ±${jitter * 100}%, rest ${rest}, ramp ${ramp}, seed ${seed}: ${entered < 0 ? "never entered" : `entered at ${Math.round(entered)} px, over ${Math.round(bound)}`}`);
+            }
+    expect(runs).toBe(1440);
     expect(bad).toEqual([]);
   });
 
