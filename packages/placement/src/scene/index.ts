@@ -62,5 +62,5 @@ export { canFold, close, dockHome, fold, floatAt, homeFor, keep, lift, mergeSide
 export { fitResize, type FloatResize, type ResizeEdges, type ResizeLimit } from "./float-resize";
 export { readScene, storeScene, type SceneRead, type StoredScene, type StoredSceneEdge, type StoredSceneFloat, type StoredSceneItem } from "./store";
 export { refusalTargets, refusals, reservedRect, stops, targets, type SceneAfter, type ScenePlace, type SceneRefusal, type SceneRefusalTarget, type SceneTarget, type SceneTargetOptions } from "./targets";
-export { HATCH_EDGE, HATCH_END, lanes, SPOT_PITCH, type Lane, type LaneMark, type LaneOptions, type LaneRefusal, type LaneSpot, type Regions } from "./lanes";
+export { HATCH_EDGE, HATCH_END, lanes, SPOT_PITCH, type Lane, type LaneMark, type LaneOptions, type LaneRefusal, type LaneSlide, type LaneSpot, type Regions } from "./lanes";
 export { parseTargetId, placeTargetId, targetId, virtualEdgeId, type TargetIdParts } from "./targets";
