@@ -51,7 +51,9 @@ pnpm lab     # the motion lab on http://localhost:3060
 - `packages/motion`: `@n-uf/motion` and its `/clock`, `/signals`, `/values`, `/gestures`, `/drag`, `/layout`,
   `/testing` and `/browser` entries.
 - `packages/placement`: `@n-uf/placement`; hosts use its `/scene` entry.
-- [`docs/`](./docs): the design pages and the reference pages of both packages.
+- [`docs/`](./docs): the design pages and the reference pages of both packages, [proposals](./docs/proposals)
+  (features before they are built, the parked ones as the backlog) and [decisions](./docs/decisions) (one record per
+  settled rule).
 - `apps/lab`: a lab (not published), with an overview, a glossary and three
   working pages: Motion, a tiling stage for the window motion rules (master,
   dwindle, columns, grid; drop indicator or snap to slot); Document window,
