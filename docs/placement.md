@@ -189,7 +189,7 @@ Marks. Each lane carries its place guides in the layout as drawn (with `options.
 
 - Room the item fits in is a `box`. Beside the held item, room from a pitch is a box too (`:before` or `:after` in its id).
 - A room's `box` on a bar or a toolbar rail has a fixed striped end inside it (`hatch`, `HATCH_END`, the neighbor's id in its `givesWay`) at each side whose neighbor gives way when the item lands there: it moves away, leaves the lane (the menu, a float) or steps down to a shorter form than it has now. That holds whether or not the room as seen is shorter than the item; where no neighbor gives way the box is plain. Room that partly fits (from a pitch, shorter than the item) is such a box. Nothing is drawn on the neighbor.
-- Room under a pitch, or none (two items that touch, a lane's end flush), is a `line`. A panel column keeps its lines.
+- Room under a pitch, or none (two items that touch, a lane's end flush), is a `line`. A panel column keeps its lines: a joint between two panels, and its head and tail, are zero-thick lines (a host draws them through `guideRects`, whose `lineThickness` makes them 2 px), its room a `box`, and it has no striped ends: panels give way by halves, never by stepping down. The docs of `@n-uf/motion` (the landing model's guides) have the panel-drag rules.
 - An empty lane (`options.emptyLanes`) is a `box` at its real size, the band it would open (`"real"`, the default), or a thin striped strip on its window side (`hatch`, `HATCH_EDGE`, `"edge"`). Either way it is cut around every item docked in a bar or a toolbar rail.
 - A growing item (a title filling its bar) counts at its natural length, so its slack is free room. As seen (no `spot`) the lifted item is drawn nowhere, so its own place is free room.
 
