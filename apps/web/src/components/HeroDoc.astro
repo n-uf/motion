@@ -5,7 +5,7 @@
 // bar with the Zoom toolbar and the window controls, Pages above Notes on the left, the page in the middle with Tools floating
 // at its corner, Findings on the right, Views and Review in the bottom bar. At this size solve gives Pages and Findings their
 // open form, Notes its header, Zoom a row (its compact variant), Views its icons and Review a row. Under the window is a
-// sheet of the motion parts this window uses ("Made with motion:"), each a small specimen in the window's
+// sheet of the motion parts this window uses ("Moved by @n-uf/motion:"), each a small specimen in the window's
 // look with its function and what it does here; the parts are only those the lab's window calls (evidence in demos/hero-doc.ts).
 // The window is drawn at its solved size and scaled to the cell's width by a transform, in a box reserved by an aspect ratio,
 // so nothing shifts. The sheet and the closing line sit at the cell's bottom; any spare height is between them and the window.
@@ -19,7 +19,7 @@ const win = docWindow(SIZE);
     <div class="hdw-in" aria-hidden="true"><div class="hd-win" set:html={win.html}></div></div>
   </figure>
   <div class="dsheet">
-    <p class="dmade">Made with motion:</p>
+    <p class="dmade">Moved by @n-uf/motion:</p>
     <div class="dsp-row">{win.sheet.map((it) => <figure class="dsp"><div class="dsp-x" aria-hidden="true" set:html={it.html}></div><figcaption><b>{it.fn}</b> {it.what}</figcaption></figure>)}</div>
   </div>
   <p class="pline">solve(dockState) → rects</p>

@@ -138,7 +138,7 @@ is expected, don't silence it (it also names `/lab/` where the lab is not built)
       model (`docwin/model.ts`) or markup (`docwin/scene.ts`) or CSS changes, bring the copy along, and measure the group
       sizes again (`hero-doc-measured.ts`, from the copy's own buttons at 12 px). What it reads off `solve`:
       `SceneItemLayout.formKind`, `rect`, `rows`, `hidden`, `railTitle`, `inMenu`, `SceneEdgeLayout.menu`, `content`.
-      Hero docking sheet ("Made with motion:", `parts()` in `hero-doc.ts`): re-check the four motion imports in the lab's
+      Hero docking sheet ("Moved by @n-uf/motion:", `parts()` in `hero-doc.ts`): re-check the four motion imports in the lab's
       docwin at the release; if docking then calls placement's functions (e.g. `fitStack`), a Placement group can come back.
 - [ ] The home hero's placement illustration (`src/demos/hero-place.ts`, `src/components/HeroPlace.astro`): three real calls
       (`positionPopup`, `fitStack`, `masterStack`) from `@n-uf/placement` (root, `/stack`, `/tiling`). These entries stay in
