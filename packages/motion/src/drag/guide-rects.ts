@@ -6,14 +6,24 @@ export interface PlacedGuide {
   readonly rect: Rect;
 }
 
+/** A rect guides stay clear of, with a clearance of its own, px (0: guides may lie flush against it). */
+export interface ClearRect {
+  readonly rect: Rect;
+  readonly clearance: number;
+}
+
 export interface GuideRectsOptions {
   /** The area guides are drawn in: the window's inside (inside its border), px. */
   readonly inside: Rect;
   /** How far inside `inside` every guide stays, px (default 2). */
   readonly inset?: number;
-  /** Rects every guide stays clear of (the content: a column's panels under an empty lane's thin edge). */
-  readonly clear?: readonly Rect[];
-  /** How far clear of every `clear` rect a guide stays, px (default 2): "clear of" means at least this far. */
+  /**
+   * Rects every guide stays clear of. A plain `Rect` keeps `clearance` px (the default gap): something guides must keep
+   * apart from, such as the held item's outline. `{ rect, clearance }` keeps its own: `{ rect, clearance: 0 }` is a
+   * boundary a thin guide may run flush against (the content: a column's panels under an empty lane's thin edge).
+   */
+  readonly clear?: readonly (Rect | ClearRect)[];
+  /** How far clear of a plain `clear` rect a guide stays, px (default 2): "clear of" means at least this far. */
   readonly clearance?: number;
   /** The least thickness a thin guide keeps, px (default 2); thinner, it is not drawn. */
   readonly minThickness?: number;
@@ -22,13 +32,14 @@ export interface GuideRectsOptions {
 const EPS = 1e-6;
 
 /**
- * Where to draw guides: every guide inside `inside` by `inset`, and at least `clearance` px (default 2) clear of every
- * `clear` rect. A box is clipped, then cut on the side that faces each clear rect (the clear rect grown by `clearance`
- * is taken out of it, and the largest remaining part, left, right, above or below, is kept). A thin guide (a line, a
- * striped strip or end: its shorter side is its thickness) keeps its thickness and moves inside rather than being
- * clipped, so a line at a lane's far end is as thick as at its head. Then it is thinned, from the content side, to
- * stay `clearance` clear of `clear`, so a thin strip at the window's side lies between the inset and the content, the
- * same on both sides. A guide with nothing left (or a thin one under `minThickness`) is left out. Pure; the guides come
+ * Where to draw guides: every guide inside `inside` by `inset`, and at least `clearance` px clear of every `clear` rect
+ * ("clear of" means at least that far: a plain rect keeps the options' `clearance`, default 2; `{ rect, clearance }`
+ * keeps its own, so pass `{ rect, clearance: 0 }` for content a thin guide may run flush against). A box is clipped,
+ * then cut on the side that faces each clear rect (the clear rect grown by its clearance is taken out of it, and the
+ * largest remaining part, left, right, above or below, is kept). A thin guide (a line, a striped strip or end: its
+ * shorter side is its thickness) keeps its thickness and moves inside rather than being clipped, so a line at a lane's
+ * far end is as thick as at its head. Then it is thinned, from the content side, to stay that far clear of `clear`, so
+ * a thin strip at the window's side lies between the inset and the content, the same on both sides. A guide with nothing left (or a thin one under `minThickness`) is left out. Pure; the guides come
  * back as given with their placed `rect`, the same object where nothing moved.
  */
 export function guideRects<G extends PlacedGuide>(guides: readonly G[], options: GuideRectsOptions): G[] {
@@ -42,7 +53,10 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
   const x1 = options.inside.x + options.inside.width - inset;
   const y1 = options.inside.y + options.inside.height - inset;
   const gap = Number.isFinite(options.clearance) ? Math.max(0, options.clearance!) : 2;
-  const clear = options.clear ?? [];
+  // Each clear rect with the gap it keeps: its own, or the options' for a plain one.
+  const clear = (options.clear ?? []).map((c): { k: Rect; gap: number } =>
+    "rect" in c ? { k: c.rect, gap: Number.isFinite(c.clearance) ? Math.max(0, c.clearance) : gap } : { k: c, gap },
+  );
   const out: G[] = [];
   for (const g of guides) {
     const r = g.rect;
@@ -53,7 +67,7 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
       let d = Math.min(r.y + r.height, y1);
       // Clear of what it must not cover: each clear rect, grown by the clearance, is taken out of the box, and the
       // largest part left of it (left, right, above or below) is kept.
-      for (const k of clear) {
+      for (const { k, gap } of clear) {
         const k0 = k.x - gap;
         const k1 = k.x + k.width + gap;
         const l0 = k.y - gap;
@@ -90,7 +104,7 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
     const s1 = Math.min(thinX ? r.y + r.height : r.x + r.width, thinX ? y1 : x1);
     if (s1 - s0 <= EPS) continue;
     // Clear of what it must not cover: cut from the side the clear rect (grown by the clearance) lies on.
-    for (const c of clear) {
+    for (const { k: c, gap } of clear) {
       const cs0 = (thinX ? c.y : c.x) - gap;
       const cs1 = (thinX ? c.y + c.height : c.x + c.width) + gap;
       if (cs1 <= s0 + EPS || cs0 >= s1 - EPS) continue;
