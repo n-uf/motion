@@ -24,8 +24,9 @@ here" while `LandingFrame.pending` is set.
   and once the pointer came into it from outside since the lift: a panel settled in the strip lands in the rail even
   where the strip lies over a flush column's edge, and a press in that edge, or a slow reorder along it, stays in the
   column. A host that builds its own regions sets it on its strip lanes; one reading `lanes()` gets it. An owning lane
-  never takes the pointer over the item's own place (`home`'s landing): a panel pressed in the strip, taken away and
-  brought back there, lands home.
+  never takes the pointer within `LandingMargins.lift` (additive, optional, 16 px, as the drag intent's `liftZone`)
+  of where the item was lifted: a panel pressed in the strip, taken away and brought back there, lands home, and a
+  lone panel still reaches its own side's rail anywhere else in the strip.
 - `./drag`, **`DropPreviewMode.emptyLanes`** (additive, `"real" | "edge"`): `previewPlan()` carries it as
   `PreviewPlan.emptyLanes`, `"real"` by default, for a host to pass to `lanes()`: an empty lane drawn at its real size,
   or as a thin striped edge.

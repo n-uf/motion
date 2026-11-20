@@ -1069,7 +1069,7 @@ drag of `id`:
   host has every target and refusal of the lift from one call.
 
 A bar's free stretches, and a toolbar rail's (a compact edge, along its length), get spots at `SPOT_PITCH` (40 px;
-`options.pitch`), each a dock keeping `space`, so a toolbar lands close to the hand; an empty bar gets them over its whole length less its padding. Each free stretch also offers its two ends, flush against each neighbor (or the edge's end; beside a neighbor that keeps space the item takes that space, so the neighbor stays), and the item's own place is one landing for half a pitch around it, so away and back to the press point is home. Where a stretch is too short for the
+`options.pitch`), each a dock keeping `space`, so a toolbar lands close to the hand; an empty bar gets them over its whole length less its padding. The item's own place is one landing for half a pitch around it, so away and back to the press point is home. Where a stretch is too short for the
 item, or lies next to a center item, it has none, so coverage is not universal: a point next to a center item that
 doesn't fit beside it can still be far from its landing (452 px at worst in the sweep scenes).
 
