@@ -684,7 +684,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const touching = held ? regions.lanes.find((l) => l.id !== held.id && strictlyIn(l.rect, p) && touches(l.rect, held.rect) && !inside(held.rect, p, margins.exit)) : undefined;
       const sl = touching ? slide.get(touching.id) : undefined;
       // A fling (the hand's speed above `slide`) is no entry, along the lane as well as across it.
-      const slid = !!sl && sl.along >= gates.path && sl.across * 3 <= sl.along && hand.speed <= gates.slide;      // A lane that owns its rect (a rail drop strip) takes the pointer inside it from any lane it overlaps, a held one
+      const slid = !!sl && sl.along >= gates.path && sl.across * 3 <= sl.along && hand.speed <= gates.slide;
+      // A lane that owns its rect (a rail drop strip) takes the pointer inside it from any lane it overlaps, a held one
       // too, once its own gate passes (so a pass across it opens nothing), and only once the pointer came into it (it has
       // been outside it since the lift): a press in a column's outer edge, or a slow reorder along it, stays in the column.
       // Never within `lift` of where the item was lifted: away and back there is home, wherever a strip lies, while the
