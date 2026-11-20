@@ -135,8 +135,9 @@
 }
 .footer-brand { display: grid; gap: var(--s3); align-content: start; }
 .footer-brand p { color: var(--text-2); max-width: 40ch; }
-.footer-brand p a, .footer-brand p .nw { white-space: nowrap; } /* "n-uf ↗" never breaks at the hyphen */
+.footer-brand p a, .footer .nw { white-space: nowrap; } /* "n-uf ↗" never breaks at the hyphen */
 .footer-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s5) var(--s6); align-content: start; }
+@media (max-width: 1100px) { .footer-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .foot-col { display: grid; align-content: start; }
 .foot-k { margin-bottom: var(--s1); font: 600 var(--t-cap) var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
 [data-part] > .foot-k { color: var(--part); }
@@ -146,7 +147,7 @@
 .footer-brand .brand { color: var(--text); }
 @media (max-width: 760px) {
   .footer-in { grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
-  /* Move and Place side by side, Project under them; every link a full 44 px tap. */
+  /* Two columns (Move, Place, then Dock), Project across the bottom; every link a full 44 px tap. */
   .footer-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s4) var(--s5); }
   .foot-project { grid-column: 1 / -1; }
   .foot-col a { padding: 11px 0; }
