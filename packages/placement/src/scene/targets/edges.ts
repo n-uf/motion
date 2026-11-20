@@ -156,7 +156,9 @@ export function zoneExtents(scene: Scene, dragged: string, edgeId: string, optio
  * fixed item in the slot's zone's anchored fixed run (the fixed members contiguous from the zone's anchor with no
  * movable member between: the start zone's from its first member, the end zone's from its last), any fixed item of the
  * center zone, and any fixed item of another zone. A fixed item behind a movable one in the slot's own zone is placed
- * by that movable's size, so a drop there may push it.
+ * by that movable's size, so a drop there may push it. A fixed item that declares `pushable` is not protected in the
+ * anchored run: a drop after it may push it inward, so the gap at the end of a run of them is a slot (the place a toolbar
+ * homed after them is put back in); no gap between two of them is (they keep their order).
  */
 function edgeSlots(c: Ctx, edge: Edge, accepts: boolean): Slot[] {
   const { scene, rest, now, base, dragged, kind } = c;
@@ -219,10 +221,14 @@ function edgeSlots(c: Ctx, edge: Edge, accepts: boolean): Slot[] {
     const fromAnchor = (zone === "start" ? members : zone === "end" ? [...members].reverse() : []).filter((id) => fixedHere(id) || shown(id));
     const firstMovable = fromAnchor.findIndex((id) => !fixedHere(id));
     const anchored = new Set(firstMovable < 0 ? fromAnchor : fromAnchor.slice(0, firstMovable));
-    const isProtected = (id: string): boolean => fixedHere(id) && (zone === "center" || zoneOf(rest.items[id]) !== zone || anchored.has(id));
+    // A fixed item that declares `pushable` yields in the anchored run: a drop after it may push it inward.
+    const pushable = (id: string): boolean => fixedHere(id) && scene.items[id]?.pushable === true;
+    const isProtected = (id: string): boolean => fixedHere(id) && (zone === "center" || zoneOf(rest.items[id]) !== zone || (anchored.has(id) && !pushable(id)));
     for (let k = 0; k <= members.length; k++) {
       const next = members.slice(k).find(shown);
       const before = members.slice(0, k).reverse().find(shown);
+      // Pushable items keep their order among the fixed items: no gap between two of them.
+      if (before && next && pushable(before) && pushable(next)) continue;
       const line = next ? at(occupied(next)) : before ? at(occupied(before)) + len(occupied(before)) : anchorLine[zone];
       const s = { ...slotAt(c, zone, line, slotId(zone, k), { kind: "gap", edge: edge.id, zone, at: k }, lands), order: before0 + members.slice(0, k).filter(aimed).length };
       // A place that would move a protected fixed item (before a title, after the window controls) is no slot: it keeps
