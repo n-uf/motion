@@ -20,8 +20,8 @@ import type { PlaceGuides } from "./preview";
  *   room never opens. Inside a lane that touches the held one, past the held lane's exit margin, the held lane holds
  *   until that lane's gate passes or the pointer has slid `path` px along it at any speed (across it at most a third as
  *   far): lane to lane never passes through the float, and never opens a crossed lane's room. Over a refused place (a
- *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered at once (not on the
- *   lift), as there is nothing else to mean there.
+ *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered on the first slow step
+ *   there (not on the lift), as there is nothing else to mean there; a fly-through still opens no room.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
@@ -398,8 +398,9 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         // no other lane; a drawn bar's own rect and its items lie within it, so its gate holds.)
         const lanesHere = regions.lanes.filter((l) => strictlyIn(l.rect, p));
         const within = (b: Rect, l: LandingLane): boolean => b.x >= l.rect.x - 1 && b.y >= l.rect.y - 1 && b.x + b.width <= l.rect.x + l.rect.width + 1 && b.y + b.height <= l.rect.y + l.rect.height + 1;
+        // On a slow step only (as a slow hand inside a bar enters it): a fly-through across such a place opens no room.
         const overRefused = (l: LandingLane): boolean =>
-          Number.isFinite(step) && lanesHere.length === 1 && [...regions.blocked, ...regions.refused].some((b) => strictlyIn(b, p) && !within(b, l));
+          Number.isFinite(step) && step <= gates.step && lanesHere.length === 1 && [...regions.blocked, ...regions.refused].some((b) => strictlyIn(b, p) && !within(b, l));
         let entered: LandingLane | null = next ?? null;
         if (!entered)
           for (const l of lanesHere) {

@@ -1025,9 +1025,11 @@ drag of `id`:
   moved along an occupied bar stays at the hand (within half the difference of its and its neighbor's lengths, plus
   the 6 px margin). Pass `options.grab`, where the pointer holds the item (its offset from the item's top left, as a
   target's `after(point, grab)` takes it; the press's, constant for the drag, in both calls, with and without `spot`):
-  on a bar or a toolbar rail along the item's own length that gap is then measured at the grab, halfway between the
-  points the pointer would hold in each landing (with landings of one length), so a pointer brought back to its press
-  point picks the item's own place however far from its middle it was pressed. Across the item, and in a lane across
+  on a bar or a toolbar rail along the item's own length, two landings that overlap (spots a pitch apart) are then cut
+  at the grab, halfway between the points the pointer would hold in each (with landings of one length, kept within half
+  a pitch of their overlap), so a pointer brought back to its press point picks the item's own place however far from
+  its middle it was pressed; landings with a gap between them (either side of a long neighbor) are cut halfway across
+  it whatever the grab, so the pointer is at the landing it picks. Across the item, and in a lane across
   its length (a rail toolbar over a bar), the middle counts, as without a grab. Without it the item's middle is the
   grab, and a toolbar pressed near one end can come back to a free-stretch spot beside its own place. Panel columns cut
   by halves whatever the grab. One case it doesn't settle: where another lane's band overlaps the press point (an

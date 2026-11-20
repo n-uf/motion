@@ -10,9 +10,10 @@
  * item `Y` in `X|Y` and `Y|Z`), the boundary is that item's middle as drawn (in the held spot's own layout with
  * `options.spot`, so a column takes a panel by halves of what is seen). On a bar or a toolbar rail, and between any two
  * other spots, it is halfway across the gap between their landings, each in its own layout, so the pointer is at the
- * landing it picks and a toolbar moved along an occupied lane stays at the hand. On a bar or a toolbar rail that gap is
- * measured where the item is held (`options.grab`): halfway between the points the pointer would hold in each landing,
- * so a pointer back at its press point picks the item's own place however far from its middle it was pressed. Cuts are
+ * landing it picks and a toolbar moved along an occupied lane stays at the hand. On a bar or a toolbar rail, two landings
+ * that overlap (spots a pitch apart, the pointer inside both) are cut where the item is held (`options.grab`): halfway
+ * between the points the pointer would hold in each, so a pointer back at its press point picks the item's own place
+ * however far from its middle it was pressed; landings apart are cut halfway across their gap whatever the grab. Cuts are
  * kept inside the lane and in order. The spots come from the same generation and filter as `targets()`, so a spot's
  * landing is exactly what its drop commits. Spot ids are keyed by the lane, zone and neighboring items, so they survive
  * the window resizing and most items opening or moving; virtual lanes are keyed by the column they lie beside, not
@@ -126,10 +127,11 @@ export interface LaneOptions extends SceneTargetOptions {
    * Where the pointer holds the item, from its top left corner as it is now, px (what a target's `after(point, grab)`
    * takes): the press's, constant for the drag (each grab is remembered as its own options), and the same in the call
    * with `spot`. It counts along the item's own length only (its longer side as it is now): on a bar or a toolbar rail
-   * along that axis the cut between two spots lies halfway between the points the pointer would hold in each landing
-   * (with landings of one length; at the same share of each), so a pointer back at its press point picks the item's own
-   * place. Across the item, and in a lane across its length (a rail toolbar over a bar), it is the item's middle, as
-   * without a grab. Panel columns take a panel by halves of what is drawn either way. Where another lane's band
+   * along that axis the cut between two overlapping landings lies halfway between the points the pointer would hold in
+   * each (with landings of one length; at the same share of each), kept within half a pitch of their overlap, so a
+   * pointer back at its press point picks the item's own place; landings with a gap between them (either side of a long
+   * neighbor) are cut halfway across it whatever the grab, so the pointer is at the landing it picks (R12). Across the
+   * item, and in a lane across its length (a rail toolbar over a bar), it is the item's middle, as without a grab. Panel columns take a panel by halves of what is drawn either way. Where another lane's band
    * overlaps the press point (an empty bar's band over a rail's end) that lane can still take the pointer first.
    */
   readonly grab?: { readonly x: number; readonly y: number };
@@ -178,6 +180,8 @@ interface Raw {
   readonly hit: Rect;
   readonly home?: true;
   readonly pitched?: true;
+  /** A rail drop strip's spot (`Scene.railDrop`): its lane is the strip at the window's side, nothing more. */
+  readonly strip?: true;
 }
 
 /** Where `layout` draws every item other than `dragged`, as a key (rects to the px; an item in a menu as `m`). */
@@ -291,7 +295,10 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
       const landing = layout.items[dragged]?.rect;
       if (!landing) continue;
       const lane = p.kind === "column" ? `column:${p.side}:${columnKey(p.side, p.ring)}` : `rail:${p.side}`;
-      raws.push({ lane, edge: null, axis: "y", id: `${lane}/${p.kind === "rail" ? "end" : "line"}`, before: "^", next: "$", landing, layout, target: t, hit: t.hit });
+      // A rail drop strip's lane is the strip at the window's side (`railStripWidth`), even where a column lies there:
+      // never its hit band or its landing (the column drawn as a rail), so a plain drop in that column goes by halves.
+      const strip = p.kind === "rail" && t.strip ? t.strip : undefined;
+      raws.push({ lane, edge: null, axis: "y", id: `${lane}/${p.kind === "rail" ? "end" : "line"}`, before: "^", next: "$", landing, layout, target: t, hit: strip ?? t.hit, ...(strip ? { strip: true as const } : {}) });
     }
   }
   // A bar's free stretches: spots at `pitch`, each a dock keeping `space` (`SceneItem.space`).
@@ -360,6 +367,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   let laneRect: Rect;
   if (edgeLayout && edgeLayout.cross > EPS) laneRect = edgeLayout.rect;
   else if (edgeLayout) laneRect = axis === "x" ? rect(edgeLayout.rect.x, band.y, edgeLayout.rect.width, band.height) : rect(band.x, edgeLayout.rect.y, band.width, edgeLayout.rect.height);
+  else if (list.every((r) => r.strip)) laneRect = list.map((r) => r.hit).reduce(hull);
   else laneRect = list.map((r) => r.hit).reduce(hull, band);
   // In order; one landing is one spot (the item's own place where it is one of them); one id is one spot.
   const sorted = [...list].sort((a, b) => mid(a.landing, axis) - mid(b.landing, axis) || (a.home ? -1 : b.home ? 1 : 0));
