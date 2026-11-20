@@ -28,7 +28,9 @@ as for a float. A host that commits a spot by its id alone must pass the pointer
   `home.spot` as the spot (a sliding one still lets the landing follow the hand and snap). Before, only owning lanes (a rail drop strip) were kept out of the zone: a plain lane's
   band lying over the home lane's corner (an empty bar over the top of a rail) kept the pointer on a slow return and
   the release landed in that lane instead of home. Away and back to the lift point is home on every layout, at any
-  speed.
+  speed; within `lift` of the press no nudge to a neighboring spot is reachable. The zone is a held state with
+  hysteresis: the drag starts in it, leaves it past `margins.lift` and re-enters only within `margins.lift -
+  margins.spot`, so a wobble at its edge never flips a cut near the press.
 
 ## 26.11.49
 
