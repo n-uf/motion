@@ -24,7 +24,8 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   no Near lane (the pointer over a refused column, crossing toward an empty rail under an empty bar) the bar kept the
   corner until entry, when the rail's box jumped 29 px up into it. Now the corner goes to the lane with `entry` nearest
   the pointer within `approach.reach`, for the corner only: that lane isn't made Near, pending or enterable, and nothing
-  more shows (under `"near"` still no guide over a refused place). Beyond reach of every such lane, the bar keeps it.
+  more shows (under `"near"` still no guide over a refused place). It shows its mark at entry less the landing it would
+  take there, as the Near lane does, so nothing jumps at entry. Beyond reach of every such lane, the bar keeps it.
 
 - `./drag`, **the Near guide leaves out the held toolbar at its landing** (behavior change). A host cut the held
   toolbar's floating rect out of the guides, so before entry the guide was cut wherever the toolbar floated and at

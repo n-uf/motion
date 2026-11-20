@@ -208,6 +208,10 @@ describe("the corner under \"all\" goes to the lane nearest the pointer within r
     const close = fs.slice(0, e).filter((f) => f.point.x - (rail.rect.x + rail.rect.width) <= 12 && f.point.x - (rail.rect.x + rail.rect.width) > 0);
     expect(close.length).toBeGreaterThan(5);
     for (const f of close) expect([Math.round(f.point.x), top(f.frame.guides)]).toEqual([Math.round(f.point.x), atEntry]);
+    // And its whole guide is the mark at entry: cut at the landing it would take there, as the Near lane's is.
+    const railAt = (i: number): Guide[] => fs[i]!.frame.guides.filter((g) => g.lane === "bar:left");
+    expect(railAt(e).length).toBe(2);
+    expect(sameGuides(railAt(e - 1), railAt(e))).toBeNull();
     // Beyond reach of both, the bar keeps it.
     const far = fs.find((f) => f.point.x - (rail.rect.x + rail.rect.width) > 40 && f.frame.lane !== "bar:left")!;
     expect(top(far.frame.guides)).toBeGreaterThan(atEntry);
