@@ -612,9 +612,10 @@ function virtualMarks(lane: string, spots: readonly Raw[], held: { rect: Rect; f
  * - At a corner, a lane not drawn (an empty bar or rail, a virtual lane: only the band its drops would draw at) gives
  *   way to a drawn edge across it; between two not drawn, a bar owns the corner (as it does once drawn).
  * - A lane not drawn is drawn by `emptyLanes`: `"real"`, its boxes as they are, at the size it will take, over what
- *   moves aside (the page, a column); `"edge"`, each box a thin striped strip (`HATCH_EDGE`) on its window side.
+ *   moves aside (the page, a column's panels); `"edge"`, each box a thin striped strip (`HATCH_EDGE`) on its window
+ *   side. Either way never over an item docked in a bar or a toolbar rail (it stays where it is): cut around it.
  */
-function settle(l: Lane, drawn: SceneLayout, scene: Scene, _dragged: string, all: readonly Lane[], emptyLanes: "real" | "edge" = "real"): Lane {
+function settle(l: Lane, drawn: SceneLayout, scene: Scene, dragged: string, all: readonly Lane[], emptyLanes: "real" | "edge" = "real"): Lane {
   const edgeOf = (id: string) => scene.edges.find((e) => e.id === id);
   const isDrawn = (id: string): boolean => !!edgeOf(id) && (drawn.edges[id]?.cross ?? 0) > EPS;
   const across = (side: string | undefined): Axis => (side === "top" || side === "bottom" ? "x" : "y");
@@ -627,7 +628,18 @@ function settle(l: Lane, drawn: SceneLayout, scene: Scene, _dragged: string, all
     if (l.axis === "y") for (const o of all) if (o.id !== l.id && o.axis === "x" && !isDrawn(o.id)) cuts.push(o.rect);
   }
   const empty = !isDrawn(l.id);
-  if (cuts.length === 0 && !(empty && emptyLanes === "edge")) return l;
+  // What an empty lane's marks never cover: items docked in a bar or a toolbar rail (they don't move aside when it opens,
+  // unlike the page or a column's panels).
+  const barOrRail = (edge: string | undefined): boolean => {
+    const e = edge ? edgeOf(edge) : undefined;
+    return !!e && (e.side === "top" || e.side === "bottom" || !!e.compact);
+  };
+  const stays = empty
+    ? Object.entries(drawn.items)
+        .filter(([id, it]) => id !== dragged && it.edge !== l.id && barOrRail(it.edge) && !it.floating && !it.inMenu && it.rect.width > EPS && it.rect.height > EPS)
+        .map(([, it]) => it.rect)
+    : [];
+  if (cuts.length === 0 && !(empty && (emptyLanes === "edge" || l.marks.some((m) => m.kind === "box" && stays.some((s) => overlaps(m.rect, s)))))) return l;
   const span = (r: Rect): [number, number] => [lo(r, l.axis), lo(r, l.axis) + len(r, l.axis)];
   const crosses = (r: Rect, c: Rect): boolean => (l.axis === "x" ? c.y < r.y + r.height - EPS && r.y < c.y + c.height - EPS : c.x < r.x + r.width - EPS && r.x < c.x + c.width - EPS);
   /** `r`'s pieces along the lane less `cs` (those that cross it). */
@@ -642,7 +654,7 @@ function settle(l: Lane, drawn: SceneLayout, scene: Scene, _dragged: string, all
   };
   const marks: LaneMark[] = [];
   for (const m of l.marks) {
-    const kept = cut(m.rect, cuts);
+    const kept = cut(m.rect, m.kind === "box" ? [...cuts, ...stays] : cuts);
     if (m.kind === "line") {
       // A line is kept whole or not at all (it marks a joint).
       if (kept.length === 1 && Math.abs(kept[0]![1] - kept[0]![0] - len(m.rect, l.axis)) < EPS) marks.push(m);

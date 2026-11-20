@@ -414,6 +414,34 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     }
   });
 
+  it("in both empty-lane drawings, no mark of any lane covers an item docked in a bar or a toolbar rail (only the page and a column's panels move aside)", () => {
+    const sceneSet: [string, Scene][] = [...scenes(), ...[7, 8, 9, 10].map((seed): [string, Scene] => [`model ${seed}`, modelScene(seed, seed % 2 === 0, seed % 3 === 0, false)]), ["doc window", docWindow()], ["doc window, views on top", docWindow(["views"])]];
+    const bad: string[] = [];
+    for (const [name, s] of sceneSet) {
+      const previous = solve(s);
+      const toolbarEdge = (edge: string | undefined): boolean => {
+        const e = s.edges.find((x) => x.id === edge);
+        return !!e && (e.side === "top" || e.side === "bottom" || !!e.compact);
+      };
+      for (const id of movable(s))
+        for (const emptyLanes of ["real", "edge"] as const) {
+          const base = lanes(s, id, { previous, emptyLanes });
+          const sets: [string, typeof base.lanes, ReturnType<typeof solve>][] = [["seen", base.lanes, previous]];
+          for (const l of base.lanes.slice(0, 4)) {
+            const sp = l.spots[Math.floor(l.spots.length / 2)];
+            if (sp) sets.push([sp.id, lanes(s, id, { previous, emptyLanes, spot: sp.id }).lanes, sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout]);
+          }
+          for (const [at, ls, drawn] of sets) {
+            const stays = Object.entries(drawn.items).filter(([iid, it]) => iid !== id && toolbarEdge(it.edge) && !it.floating && !it.inMenu && it.rect.width > 0 && it.rect.height > 0);
+            for (const l of ls)
+              for (const m of l.marks)
+                for (const [iid, it] of stays) if (it.edge !== l.id && overlaps(m.rect, it.rect)) bad.push(`${name}, ${id} (${emptyLanes}) at ${at}: ${m.id} over ${iid}`);
+          }
+        }
+    }
+    expect(bad.slice(0, 6)).toEqual([]);
+  });
+
   it("an empty top bar: a box along its band at its real size, or a thin striped strip on its window side with `emptyLanes: \"edge\"`", () => {
     const s = docWindow();
     const previous = solve(s);
