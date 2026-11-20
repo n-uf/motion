@@ -1381,7 +1381,14 @@ of a hand faster than `HAND_FAST` (0.375 px/ms, the landing model's `step`) isn'
 that reflows the window may wait for it. A frame in a lane `lanes()` doesn't give for the row (another host's ids) is
 held to the floor, `handBound(0)`, and its issue names that lane. The rows that pass a neighbor keeping room (`landing-room-*`) need `ROOM_SINCE` (a dock
 consuming the room it lands in, an item over a neighbor taking its place); the row that slides over room a neighbor
-steps down to make (`landing-step-down-room`) needs `STEP_SINCE` (a stretch is the room the drop makes). A host that says it runs an older `version` skips a row. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
+steps down to make (`landing-step-down-room`) needs `STEP_SINCE` (a stretch is the room the drop makes). The rows
+that check the Near guides (`landing-near-*`, `moving.nearGuides`: a toolbar glided from a bar to an empty side rail
+beside a panel column, a release while the rail is pending, a corner between two lanes with no flicker) need
+`NEAR_SINCE` (a Near guide shows a lane only where the pointer can enter it, `approach.reach` 12). The rule
+(`nearGuideIssues`): on every frame that shows a guide of lane L, (a) L holds the pointer (also on its own refused
+stretch), (b) L is pending (the frame's `pending`, which a host reports), or (c) the pointer is in open space within
+`NEAR_REACH` (12 px) of L's rect; so none shows over a refused place outside L. `moving.guideSwitches` bounds how often
+the lane whose guides show changes; `end.pending` and `end.landing` read the last frame. A host that says it runs an older `version` skips a row. The skipped count is a ratchet (`lanesRatchet`): it may not exceed the
 baseline the host's suite recorded, and from `LANES_DEADLINE` (a calendar date the entry exports) or at the breaking release, whichever comes
 first, every row runs.
 
