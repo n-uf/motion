@@ -140,6 +140,8 @@ is expected, don't silence it (it also names `/lab/` where the lab is not built)
       `SceneItemLayout.formKind`, `rect`, `rows`, `hidden`, `railTitle`, `inMenu`, `SceneEdgeLayout.menu`, `content`.
       Hero docking sheet ("Moved by @n-uf/motion:", `parts()` in `hero-doc.ts`): re-check the four motion imports in the lab's
       docwin at the release; if docking then calls placement's functions (e.g. `fitStack`), a Placement group can come back.
+      Hero docking line says "Placement turned into a window kit" (decided 2026-11-20): confirm at the release that
+      `@n-uf/docking` depends on `@n-uf/placement`; if not, reword (`components/HeroScope.astro`, the docking slot's `lead`).
 - [ ] The home hero's placement illustration (`src/demos/hero-place.ts`, `src/components/HeroPlace.astro`): three real calls
       (`positionPopup`, `fitStack`, `masterStack`) from `@n-uf/placement` (root, `/stack`, `/tiling`). These entries stay in
       placement after the release, so nothing changes unless a name does.
