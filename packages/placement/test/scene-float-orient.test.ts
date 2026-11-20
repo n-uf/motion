@@ -103,12 +103,14 @@ describe("a float's size by orient", () => {
     const sized = toolbar("tb", { floatSizes: { column: { width: 40, height: 120 } } });
     expect(floatSizeOf(sized, "column")).toEqual({ width: 40, height: 120 });
     expect(floatSizeOf(sized, "row")).toEqual(flat);
-    // The old single size belongs to the orient the float is in.
+    // On an item that declares `floatSizes`, the old single size belongs to the orient the float is in.
+    const both = toolbar("tb", { floatSize: { width: 50, height: 130 }, floatSizes: {} });
+    expect(floatSizeOf(both, "column", "column")).toEqual({ width: 50, height: 130 });
+    expect(floatSizeOf(both, "row", "column")).toEqual(flat);
+    expect(floatSizeOf(both, "row", "row")).toEqual({ width: 50, height: 130 });
+    // An item that declares none reads it as before them: in any orient.
     const legacy = toolbar("tb", { floatSize: { width: 50, height: 130 } });
-    expect(floatSizeOf(legacy, "column", "column")).toEqual({ width: 50, height: 130 });
-    expect(floatSizeOf(legacy, "row", "column")).toEqual(flat);
-    expect(floatSizeOf(legacy, "row", "row")).toEqual({ width: 50, height: 130 });
-    // Asked with no orient: the item's own, as before.
+    expect(floatSizeOf(legacy, "row", "column")).toEqual({ width: 50, height: 130 });
     expect(floatSizeOf(legacy)).toEqual({ width: 50, height: 130 });
   });
 
@@ -157,19 +159,22 @@ describe("a scene stored with the old single floatSize", () => {
     items: { tb: { used: 12, floatSize: { ...at } } },
   });
 
-  it("reads as the size for its float's orient", () => {
+  it("reads as before the per-orient sizes (the item declares none): its floatSize kept, framed at its stored rect", () => {
     const read = readScene(stored("column", upright), base());
     expect(read.dropped).toEqual([]);
-    expect(read.scene.items.tb!.floatSizes).toEqual({ column: upright });
+    expect(read.scene.items.tb!.floatSizes).toBeUndefined();
+    expect(read.scene.items.tb!.floatSize).toEqual(upright);
     expect(sizeOf(read.scene, "tb")).toEqual(upright);
     expect(sizeOf(orient(read.scene, "tb", "row"), "tb")).toEqual(flat);
   });
 
-  it("heals in solve: the old size never follows its float to the other orient", () => {
-    // Read for the orient its float is in, then a turn takes the other orient's size, and turned back it has its own.
+  it("a turn moves it into floatSizes for the orient its float was in; the old size never follows its float to the other orient", () => {
+    // Read as stored, then a turn files it for the orient the float leaves and takes the other orient's size, and
+    // turned back it has its own.
     const read = readScene(stored("row", flat), base());
-    expect(read.scene.items.tb!.floatSizes).toEqual({ row: flat });
+    expect(read.scene.items.tb!.floatSize).toEqual(flat);
     const up = orient(read.scene, "tb", "column");
+    expect(up.items.tb!.floatSizes).toEqual({ row: flat });
     expect(sizeOf(up, "tb")).toEqual(upright);
     expect(sizeOf(orient(up, "tb", "row"), "tb")).toEqual(flat);
     // A scene that still carries the one `floatSize` (a host's own) is read for the orient its float is in only.
@@ -182,14 +187,17 @@ describe("a scene stored with the old single floatSize", () => {
     expect(sizeOf(orient(turned, "tb", "row"), "tb")).toEqual(flat);
   });
 
-  it("an item not floating reads it as the size for its item's own orient", () => {
+  it("an item not floating reads it as it is (it declares no floatSizes); one that declares them takes it for its own orient", () => {
     const read = readScene({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 310, height: 380 } } } }, base());
-    expect(read.scene.items.card!.floatSizes).toEqual({ column: { width: 310, height: 380 } });
+    expect(read.scene.items.card!.floatSizes).toBeUndefined();
+    expect(read.scene.items.card!.floatSize).toEqual({ width: 310, height: 380 });
     expect(read.dropped).toEqual([]);
+    const declared = readScene({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 310, height: 380 }, floatSizes: { row: { width: 500, height: 150 } } } } }, base());
+    expect(declared.scene.items.card!.floatSizes).toEqual({ column: { width: 310, height: 380 }, row: { width: 500, height: 150 } });
   });
 });
 
-describe("a legacy floatSize in memory goes to the orient it was set in", () => {
+describe("a legacy floatSize in memory is not lost", () => {
   /** The base scene with the card's old single size, set in its own orient (column, its first axis). */
   const legacy = (): Scene => {
     const s = base();
@@ -197,18 +205,46 @@ describe("a legacy floatSize in memory goes to the orient it was set in", () => 
   };
   const size = { width: 333, height: 444 };
 
-  it("floatAt with no rect in the other orient moves it into floatSizes for the orient it was set in; turning back finds it", () => {
+  it("floatAt with no rect in the other orient frames it at that size, as before; a turn keeps it for the orient it was drawn in", () => {
     const row = floatAt(legacy(), "card", undefined, "row");
-    expect(row.items.card!.floatSize).toBeUndefined();
-    expect(row.items.card!.floatSizes).toEqual({ column: size });
+    expect(row.items.card!.floatSize).toEqual(size);
+    expect(row.items.card!.floatSizes).toBeUndefined();
+    expect(sizeOf(row, "card")).toEqual(size);
+    // Turned, the size it was drawn at is kept for the row it leaves, and turned back it has it again.
     const col = orient(row, "card", "column");
-    expect(col.items.card!.floatSizes?.column).toEqual(size);
-    expect(sizeOf(col, "card")).toEqual(size);
+    expect(col.items.card!.floatSizes?.row).toEqual(size);
+    expect(sizeOf(orient(col, "card", "row"), "card")).toEqual(size);
   });
 
-  it("readScene moves a base item's legacy floatSize into floatSizes too, with no store entry for it", () => {
+  it("readScene leaves a base item's legacy floatSize as it is (the item declares no floatSizes)", () => {
     const read = readScene({ v: 1, edges: [], floats: [], items: {} }, legacy());
-    expect(read.scene.items.card!.floatSize).toBeUndefined();
-    expect(read.scene.items.card!.floatSizes).toEqual({ column: size });
+    expect(read.scene.items.card!.floatSize).toEqual(size);
+    expect(read.scene.items.card!.floatSizes).toBeUndefined();
+  });
+});
+
+describe("an item that declares no floatSizes is framed as before the per-orient sizes", () => {
+  /** A toolbar with only the old single size, a row's, floating upright at a stored rect of its own. */
+  const upright40 = { width: 40, height: 120 };
+  const undeclared = (): Scene => ({ ...base(), items: { ...base().items, tb: toolbar("tb", { floatSize: flat }) }, floats: [{ id: "tb", rect: { x: 300, y: 300, ...upright40 }, orient: "column" }] });
+
+  it("floated upright with only a row floatSize: its frame is its stored rect, the first form", () => {
+    expect(solve(undeclared()).items.tb).toMatchObject({ floating: true, rect: { x: 300, y: 300, ...upright40 } });
+    expect(floatSizeOf(undeclared().items.tb!, "column")).toEqual(flat);
+  });
+
+  it("a stored scene with no floatSizes reads and renders as before: the stored rect, its floatSize kept", () => {
+    const stored = { v: 1, edges: [], floats: [{ id: "tb", x: 300, y: 300, ...upright40, orient: "column" }], items: { tb: { used: 12, floatSize: flat } } };
+    const read = readScene(stored, { ...base(), items: { ...base().items, tb: toolbar("tb") } });
+    expect(read.dropped).toEqual([]);
+    expect(read.scene.items.tb!.floatSizes).toBeUndefined();
+    expect(read.scene.items.tb!.floatSize).toEqual(flat);
+    expect(sizeOf(read.scene, "tb")).toEqual(upright40);
+  });
+
+  it("an item that declares floatSizes keeps the per-orient frame: upright, its form's natural size, whatever the rect", () => {
+    const s = undeclared();
+    const declared: Scene = { ...s, items: { ...s.items, tb: toolbar("tb", { floatSizes: { row: flat } }) } };
+    expect(sizeOf(declared, "tb")).toEqual(upright);
   });
 });

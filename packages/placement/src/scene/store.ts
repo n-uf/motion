@@ -41,7 +41,7 @@
  */
 import { rect, type Size } from "../geometry";
 import { clampFloat, closeRings, drawnFloatSize, prune, setSide, withFloatSizes } from "./changes";
-import { axisOf, columnFromTemplate, floatOrientOf, isSince } from "./helpers";
+import { axisOf, columnFromTemplate, declaresFloatSizes, floatOrientOf, isSince } from "./helpers";
 import { checkEdgeIds, isReservedEdgeId } from "./targets/ids";
 import { FLOAT_ANCHORS, RAIL_MODES, SIDES, type Edge, type FloatAnchor, type FloatAnchorAt, type Orient, type RailMode, type Scene, type SceneFloat, type SceneItem, type Side } from "./model";
 
@@ -391,9 +391,10 @@ function read(data: unknown, base: Scene): SceneRead {
   });
   // Base floats the store placed nowhere keep their base place.
   for (const f of base.floats) if (!placed.has(f.id)) floats.push(f);
-  // The old single `floatSize` is the size for the orient its float is in (the item's own where it floats nowhere): a
-  // stored one, and a base item's the store says nothing of.
-  for (const id of Object.keys(items)) if (legacy.has(id) || items[id]!.floatSize !== undefined) items[id] = withFloatSizes(items[id]!, floats.find((f) => f.id === id)?.orient ?? floatOrientOf(items[id]!));
+  // The old single `floatSize`, on an item that declares `floatSizes`, is the size for the orient its float is in (the
+  // item's own where it floats nowhere): a stored one, and a base item's the store says nothing of. An item that
+  // declares none keeps it as it is, framed as before the per-orient sizes.
+  for (const id of Object.keys(items)) if ((legacy.has(id) || items[id]!.floatSize !== undefined) && declaresFloatSizes(items[id]!)) items[id] = withFloatSizes(items[id]!, floats.find((f) => f.id === id)?.orient ?? floatOrientOf(items[id]!));
   // Empty columns go; the sides' rings close up.
   let scene = prune({ ...base, ...(railModes ? { railModes } : {}), items, edges: closeRings(edges, new Set(made.length > 0 || rings.size > 0 ? ["left", "right"] : [])), floats });
   for (const [id, side] of moves) scene = setSide(scene, id, side);
