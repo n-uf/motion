@@ -32,7 +32,7 @@ export const webSite = {
   "@type": "WebSite",
   "@id": `${site}/#website`,
   name,
-  alternateName: ["n-uf motion", "n-uf motion, placement & docking", "@n-uf/motion", "@n-uf/placement", "@n-uf/docking"],
+  alternateName: ["n-uf motion, placement & docking", "n-uf motion & placement", "@n-uf/motion", "@n-uf/placement", "@n-uf/docking"],
   description: pageOf("/").description,
   url: abs("/"),
   publisher: orgRef,

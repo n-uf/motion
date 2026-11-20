@@ -142,6 +142,14 @@ is expected, don't silence it (it also names `/lab/` where the lab is not built)
       docwin at the release; if docking then calls placement's functions (e.g. `fitStack`), a Placement group can come back.
       Hero docking line says "Placement turned into a window kit" (decided 2026-11-20): confirm at the release that
       `@n-uf/docking` depends on `@n-uf/placement`; if not, reword (`components/HeroScope.astro`, the docking slot's `lead`).
+      The footer description says "@n-uf/docking: a window kit built on placement" (decided 2026-11-20): a second place to
+      reword if it does not (`layouts/Site.astro`, `.footer-brand p`).
+      The site is renamed "n-uf motion" (was "n-uf motion & placement"; decided 2026-11-20), old name in the WebSite
+      `alternateName`. Still to do outside this app: the `n-uf.com` projects.ts entry name → `n-uf motion`, and the package
+      READMEs' mentions of the site's name. The share image `public/og.png` was re-rendered with the new label only
+      (`scripts/render-og.py`, home card): its headline ("Window motion and docking"), sub line and `scripts/og-src/home.png`
+      capture (the old hero demo) are the old home's; redo them with the home's final wording and look, together with the
+      other four cards if their wording moves.
 - [ ] The home hero's placement illustration (`src/demos/hero-place.ts`, `src/components/HeroPlace.astro`): three real calls
       (`positionPopup`, `fitStack`, `masterStack`) from `@n-uf/placement` (root, `/stack`, `/tiling`). These entries stay in
       placement after the release, so nothing changes unless a name does.

@@ -1,9 +1,9 @@
 // Shared site constants. The library's version is never written here: a page that shows it reads it from
 // packages/motion/package.json.
 export const site = "https://motion.n-uf.com";
-/** The brand in titles, og:site_name and the WebSite node (a bare "motion" collides with motion.dev). It stays the pair's
- *  name after @n-uf/docking joins (hub decision 2026-11-20): docking goes into the description and alternateName. */
-export const name = "n-uf motion & placement";
+/** The brand in titles, og:site_name and the WebSite node (a bare "motion" collides with motion.dev). Renamed from
+ *  "n-uf motion & placement" when @n-uf/docking joined (decided 2026-11-20); the old name and the three-library form are in alternateName. */
+export const name = "n-uf motion";
 
 export const repoUrl = "https://github.com/n-uf/motion";
 export const npmUrl = "https://www.npmjs.com/package/@n-uf/motion";
