@@ -15,6 +15,11 @@ exhaustive `switch` over them adds a case: draw it over the item under it, in th
   nothing reaching past a lane (an empty side rail's band over a column) and in no other lane, the lane is entered on
   the first slow step (not on the lift), instead of showing "Can't go here" until its gate passed. A fly-through still
   opens no room there (P10); bars and rails over open space keep their gate.
+- `./drag`, **`LandingLane.owns`** (additive): a lane that owns its rect (a rail drop strip at the window's side, as
+  `lanes()` marks it) takes the pointer inside it from any lane it overlaps, a held one too, once its own gate passes
+  and once the pointer came into it from outside since the lift: a panel settled in the strip lands in the rail even
+  where the strip lies over a flush column's edge, and a press in that edge, or a slow reorder along it, stays in the
+  column. A host that builds its own regions sets it on its strip lanes; one reading `lanes()` gets it.
 
 ## 26.11.47
 
