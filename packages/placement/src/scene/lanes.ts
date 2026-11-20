@@ -34,6 +34,8 @@ export const SPOT_PITCH = 40;
 const SNAP_DISTANCE = 8;
 /** The grain of a sliding spot's free start, px: whole pixels (`LaneSlide.step`). */
 const STEP = 1;
+/** How far apart the starts are that check a sliding spot's range at most, px (a failure between them splits it). */
+const RANGE_STEP = 8;
 
 /**
  * A sliding spot's range (`LaneOptions.stretchPositions: "free"`): where the landing's start may lie along the lane,
@@ -63,7 +65,8 @@ export interface LaneSpot {
   /**
    * Stable across solves: `<lane>/<zone>/<item before or ^>|<item after or $>`; an empty edge's `<lane>/<zone>`; a
    * pitched spot `…@<pitches from its neighbor>`; a sliding spot `<lane>/<zone>/<before>|<after>@slide`, named by the
-   * stretch; a virtual lane's `<lane>/line` or `<lane>/end`.
+   * stretch (a stretch split where a start fails to land as aimed lists its later pieces `@slide:2`, `@slide:3`, in
+   * order along the lane); a virtual lane's `<lane>/line` or `<lane>/end`.
    */
   readonly id: string;
   /** Its stretch of the lane, along the lane's axis, inside the lane's range. */
@@ -955,8 +958,9 @@ function landsAt(scene: Scene, dragged: string, run: StretchEdge, place: DockPla
  * start, an end zone before an end item or the edge's end), as one range of landings from flush against the neighbor
  * before it to flush against the one after it. A landing is a dock keeping the `space` that puts the item there: in the
  * start zone left of the edge's middle, the end zone right of it (the other where the stretch has only one). The range
- * holds the landings that land where they were aimed (within 1 px) with every fixed item kept, checked at its ends and
- * every `sample` px between. The docks that land inside it with its neighbors either side (the item's own place, a plain
+ * holds only landings that land where they were aimed (within 1 px) with every fixed item kept, checked at its ends and
+ * every `RANGE_STEP` px (a pitch at most) between: a start that fails splits the range there (each edge found to the
+ * pixel) into separate sliding spots, the first `…@slide`, later ones `…@slide:2`, `…@slide:3`. The docks that land inside it with its neighbors either side (the item's own place, a plain
  * dock, a center dock) are taken over: each is a snap point that commits that dock as it is, so a center dock's snap
  * moves its center neighbor by design (the center zone re-centers its items), where a plain dock leaves its neighbors
  * put. A stretch shorter than the item has none, nor one bounded on both sides by zones the item cannot dock in (no
@@ -987,16 +991,50 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
         }
         return null;
       };
-      // The range: the landings that land where aimed, at its ends and every `sample` px between.
+      // The range: the landings that land where aimed, checked at its ends and every `step` px between (a pitch at most,
+      // and `RANGE_STEP`, so a failure narrower than a pitch is not skipped). A start that fails splits the range there,
+      // each edge bisected to a pixel: every start in a listed range lands as aimed, so each is its own sliding spot.
+      const step = Math.min(sample, RANGE_STEP);
       const tries = [a];
-      for (let x0 = a + sample; x0 < b - w - EPS; x0 += sample) tries.push(x0);
+      for (let x0 = a + step; x0 < b - w - EPS; x0 += step) tries.push(x0);
       if (b - w > a + EPS) tries.push(b - w);
-      const ok = tries.map((x0) => ({ x0, hit: land(x0) })).filter((t) => t.hit);
-      if (ok.length === 0) return;
-      const from = ok[0]!.x0;
-      const to = ok.at(-1)!.x0;
+      type Hit = NonNullable<ReturnType<typeof land>>;
+      const checks = tries.map((x0) => ({ x0, hit: land(x0) }));      /** The start nearest `bad` that still lands as aimed, found from `good` (bisection to a pixel). */
+      const edge = (good: number, bad: number): { x0: number; hit: Hit } => {
+        let g = good;
+        let f = bad;
+        while (Math.abs(g - f) > 1) {
+          const m = (g + f) / 2;
+          if (land(m)) g = m;
+          else f = m;
+        }
+        return { x0: g, hit: land(g)! };
+      };
+      const ranges: { from: number; to: number; ok: { x0: number; hit: Hit }[] }[] = [];
+      for (let i = 0; i < checks.length; i++) {
+        const c = checks[i]!;
+        if (!c.hit) continue;
+        const last = ranges.at(-1);
+        if (last && checks[i - 1]?.hit) {
+          last.ok.push({ x0: c.x0, hit: c.hit });
+          continue;
+        }
+        const start = i > 0 ? edge(c.x0, checks[i - 1]!.x0) : { x0: c.x0, hit: c.hit };
+        ranges.push({ from: start.x0, to: c.x0, ok: start.x0 === c.x0 ? [start] : [start, { x0: c.x0, hit: c.hit }] });
+      }
+      for (const rg of ranges) {
+        const lastTry = rg.ok.at(-1)!;
+        const next = checks.find((c) => c.x0 > lastTry.x0);
+        if (next && !next.hit) {
+          const end = edge(lastTry.x0, next.x0);
+          if (end.x0 > lastTry.x0) rg.ok.push(end);
+        }
+        rg.to = rg.ok.at(-1)!.x0;
+      }
       const bId = before?.id ?? "^";
       const nId = after?.id ?? "$";
+      for (const [nth, rg] of ranges.entries()) slideSpot(rg.from, rg.to, rg.ok, nth);
+      function slideSpot(from: number, to: number, ok: { x0: number; hit: NonNullable<ReturnType<typeof land>> }[], nth: number): void {
       // The docks landing inside it, its neighbors either side: snap points that commit as they are.
       const inside = mine.filter((r) => !r.slide && r.before === bId && r.next === nId && Math.abs(len(r.landing, axis) - w) <= 1 && lo(r.landing, axis) >= from - 1 && lo(r.landing, axis) <= to + 1);
       for (const r of inside) absorbed.add(r);
@@ -1063,7 +1101,7 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
       const ownLen = own ? Math.max(own.rect.width, own.rect.height) : 0;
       const long: Axis = own && own.rect.width >= own.rect.height ? "x" : "y";
       const target: SceneTarget = {
-        id: `slide:${e.id}:${bId}|${nId}`,
+        id: `slide:${e.id}:${bId}|${nId}${nth > 0 ? `:${nth + 1}` : ""}`,
         priority: 2,
         hit: hull(at(from), at(to)),
         slot: landing,
@@ -1080,7 +1118,7 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
         lane: e.id,
         edge: e.id,
         axis,
-        id: `${e.id}/${zone}/${bId}|${nId}@slide`,
+        id: `${e.id}/${zone}/${bId}|${nId}@slide${nth > 0 ? `:${nth + 1}` : ""}`,
         before: bId,
         next: nId,
         landing,
@@ -1090,6 +1128,7 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
         ...(homeRaw ? { home: true as const } : {}),
         slide: { from, to, snaps, snapDistance, step: STEP, first: at(from), last: at(to) },
       });
+      }
     }
   });
   return { spots, absorbed };

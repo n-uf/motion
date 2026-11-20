@@ -346,13 +346,16 @@ doesn't fit beside it can still be far from its landing (452 px at worst in the 
 **Stretch positions.** That is `options.stretchPositions: "free"`, the default (it was `"pitched"` before; pass
 `"pitched"` for the old spots). A free stretch is one range of landings, from flush against the neighbor before it to
 flush against the one after it; `"pitched"` samples it every `pitch` px, its ends included. `"free"` exposes it as one
-sliding spot (`LaneSpot.slide: { from, to, snaps, snapDistance, step }`, id `<lane>/<zone>/<before>|<after>@slide`): `from` and `to` are where the landing's start may lie along
+sliding spot (`LaneSpot.slide: { from, to, snaps, snapDistance, step }`, id `<lane>/<zone>/<before>|<after>@slide`, the later pieces of a stretch split where a start fails
+to land as aimed `…@slide:2`, `…@slide:3`): `from` and `to` are where the landing's start may lie along
 the lane, and `snaps` the starts it snaps to within `options.snapDistance` (8 px): its ends, the item's own place, and
 every other dock that lands inside the stretch beside the same neighbors (a center dock, say), each of which it takes
 over and commits as it is. No snap point lies within twice the snap distance of the item's own place, so a release
-within the snap distance of it is home. Its `target.after(point, grab)` puts the item's start at the pointer less the
+within the snap distance of it is home; a taken-over dock (a center dock, say) that lies within twice the snap distance
+of the item's own place therefore has no snap of its own there (as `nearHome` did for pitched spots): intended, the
+item's own place wins near it. Its `target.after(point, grab)` puts the item's start at the pointer less the
 grab (along the item's own length; across it, the middle), clamped to the range and snapped, else on a whole pixel
-(`slide.step`, the grain a landing model's frame and a release's `at` round by too), and commits a dock keeping the `space` that puts it there, so a placed neighbor consumes room as for any dock and
+(`slide.step`, the grain a landing model's frame and a release's `at` round by too), and commits a dock keeping the `space` that puts it there: a dock consumes its placed neighbor's room, and the neighbor
 stays put while the room suffices. Its `landing` is the one at the stretch's point nearest the item's own place (that
 place itself on its own stretch), else at its start; a host draws a landing model's frame (`@n-uf/motion/drag`, which
 moves it with the pointer) and commits through `after(point, grab)`, as for a float. A spot's `target.place` is the dock
@@ -360,9 +363,11 @@ at the spot's listed landing (on the item's own sliding spot its own zone, index
 through `after(point, grab)`, and the release's `home` and `at` (and `LaneSpot.home`) say where, never the place kind.
 A step comes only where the order
 changes (passing a neighbor): the cut beside a sliding spot reads its landing flush against the neighbor between them.
-Its guides are its stretch's one box, also while it is held. The range holds the landings that land where aimed with
-every fixed item kept (checked at its ends and every `pitch` px between; under `"free"` `pitch` only sets that sampling
-step, `SPOT_PITCH` (40 px) when it is 0 or less, and never makes a spot). A stretch shorter than the item has no sliding
+Its guides are its stretch's one box, also while it is held. A range holds only landings that land where aimed with
+every fixed item kept, checked at its ends and every 8 px (`pitch` at most) between, each failure's edge found to the
+pixel: a start that fails splits the stretch into separate sliding spots, so every start in a listed range commits
+where the frame shows it (under `"free"` `pitch` only bounds that sampling step, `SPOT_PITCH` (40 px) when it is 0 or
+less, and never makes a spot). A stretch shorter than the item has no sliding
 spot, nor has one bounded on both sides by zones the held item cannot dock in (no start-zone item or edge start before
 it, no end-zone item or edge end after it); its plain docks stay spots of their own. Next to a center item a stretch
 still has one wherever a zone can take the item. A center dock's snap commits that dock as it is, so it moves its center
