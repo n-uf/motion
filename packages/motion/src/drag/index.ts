@@ -43,7 +43,9 @@ export {
   type LandingRegion,
   type LandingRegions,
   type LandingRelease,
+  type LandingSlide,
   type LandingSpot,
+  SNAP_DISTANCE,
 } from "./landing";
 export { DRAG_PREVIEW_DEFAULT, PLACE_GUIDES_DEFAULT, previewPlan, type DragPreview, type DropPreviewMode, type EmptyLanes, type PlaceGuides, type PreviewPlan } from "./preview";
 export { createGripPress, type GripPress, type GripRelease } from "./grip";
