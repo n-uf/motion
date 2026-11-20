@@ -66,7 +66,17 @@ export function startHero(band: HTMLElement): void {
   const startAt: Where = { kind: "stage", slot: plan.slots[1]!.drop.slot };
   const rectOf = (w: Where): Rect => (w.kind === "pad" ? padRect : toOv(w.slot));
   let where: Where = startAt;
-  const motion = createLayoutMotion({ loop, omega: omega(), reducedMotion: reduced });
+  // Whether the layout motion's frames run; once they stop, the run is judged (`finish`).
+  let running = false;
+  const motion = createLayoutMotion({
+    loop,
+    omega: omega(),
+    reducedMotion: reduced,
+    onActiveChange: (on) => {
+      running = on;
+      if (!on) finish();
+    },
+  });
   // The library's own `drawBox` draws every frame; the box's place is a transform too (the node sits at 0, 0), so no frame
   // writes a left or a top and the page never records a layout shift for the panel.
   let bx = 0, by = 0;
@@ -193,7 +203,6 @@ export function startHero(band: HTMLElement): void {
     arrive = null;
     f?.();
   }
-  motion.onIdle(finish);
 
   // Aim at `to` from where the panel is drawn (a retarget mid-flight carries on, no jump).
   function launch(w: Where): void {
@@ -341,7 +350,7 @@ export function startHero(band: HTMLElement): void {
       say(cancelled ? "cancelled: it goes home" : "no target: it goes home");
       arrive = () => say("");
     }
-    if (!motion.running) finish();
+    if (!running) finish();
     setDragging(false);
   }
   frameEl.addEventListener("pointerdown", (e) => {
@@ -460,7 +469,7 @@ export function startHero(band: HTMLElement): void {
     if (drag) return;
     const to = rectOf(where);
     // A run in flight is re-aimed: record it afresh against the new target, or the scope would judge the old one.
-    if (motion.running) {
+    if (running) {
       begin(to);
       item.moveTo(to);
     } else item.jumpTo(to);
@@ -476,7 +485,7 @@ export function startHero(band: HTMLElement): void {
 
   (window as unknown as Record<string, unknown>).__hero = {
     report: () => last,
-    state: () => ({ drag: !!drag, where, rec: !!rec, running: motion.running, drawn: { ...item.drawn }, targets: targets.map((t) => t.id) }),
+    state: () => ({ drag: !!drag, where, rec: !!rec, running, drawn: { ...item.drawn }, targets: targets.map((t) => t.id) }),
     tempos: TEMPOS,
   };
 }

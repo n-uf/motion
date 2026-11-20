@@ -105,7 +105,17 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
   const sr0 = stageRect();
   const homes = els.map((el) => homeOf(el, sr0));
 
-  const motion = createLayoutMotion({ loop, omega: omega(), reducedMotion: reduced });
+  // Whether the words' frames run; once they stop, a layout that went stale meanwhile is measured again.
+  let running = false;
+  const motion = createLayoutMotion({
+    loop,
+    omega: omega(),
+    reducedMotion: reduced,
+    onActiveChange: (on) => {
+      running = on;
+      if (!on && stale) measure();
+    },
+  });
   onMotionChange(() => motion.configure({ omega: omega() }));
 
   const words = els.map((el, i) => new Word(el, el.dataset.g === "p" ? "p" : "m", homes[i]!, motion, `w${i}`, reduced()));
@@ -119,7 +129,7 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
   let stale = false;
   let session: Session | null = null;
   const measure = (): void => {
-    if (session || motion.running) {
+    if (session || running) {
       stale = true;
       return;
     }
@@ -132,7 +142,6 @@ function start(stage: HTMLElement, layer: HTMLElement): void {
     });
   };
   new ResizeObserver(measure).observe(stage);
-  motion.onIdle(() => stale && measure());
 
   // ---- a drag: the same code for the pointer and for the demo ----
   const homing = new Set<Word>();

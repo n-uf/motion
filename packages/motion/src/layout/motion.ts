@@ -110,7 +110,11 @@ export interface LayoutMotionOptions {
    * drawn on the next frame, or now by {@link LayoutMotion.flush}. Without it, each item is drawn as it changes.
    */
   readonly onDraw?: (batch: readonly DrawEntry[]) => void;
-  /** Called when frames start running (true) and when they stop (false), once per change. */
+  /**
+   * Called when frames start running (true) and when they stop (false: nothing moves any more), once per change, and
+   * with false on `dispose` while they run. The one way to learn that the layout is idle; a test awaits
+   * {@link LayoutMotion.idle} instead.
+   */
   readonly onActiveChange?: (active: boolean) => void;
 }
 
@@ -142,15 +146,14 @@ export interface LayoutMotion {
   task(task: LayoutTask): () => void;
   /** Call `listener` on every frame, after the items have stepped and been drawn; returns how to stop it. */
   onFrame(listener: (frame: FrameInfo) => void): () => void;
-  /** Call `listener` each time the frames stop (nothing moves); returns how to stop it. */
-  onIdle(listener: () => void): () => void;
   /** Make sure at least one more frame runs (a task has something to do). */
   wake(): void;
-  /** Frames are running. */
-  readonly running: boolean;
   /** Set the tempo for every item (and the ones added later). */
   configure(config: { readonly omega?: number }): void;
-  /** Resolves once nothing moves (at once if nothing does). */
+  /**
+   * Resolves once nothing moves (at once if nothing does): for a test. A host learns it from
+   * {@link LayoutMotionOptions.onActiveChange}.
+   */
   idle(): Promise<void>;
   /** Stop the frames and forget every item. */
   dispose(): void;
@@ -171,7 +174,6 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
   const steps = new Map<string, (dt: number) => boolean>();
   const tasks = new Set<LayoutTask>();
   const frames = new Set<(frame: FrameInfo) => void>();
-  const idles = new Set<() => void>();
   const tempos = new Set<() => void>();
   /** What removing an item undoes besides its entry (its tempo hook). */
   const removers = new Map<string, () => void>();
@@ -226,7 +228,6 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
     const resolve = waiters;
     waiters = [];
     for (const r of resolve) r();
-    for (const listener of [...idles]) listener();
     return false;
   }
 
@@ -387,14 +388,7 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
       frames.add(listener);
       return () => frames.delete(listener);
     },
-    onIdle(listener) {
-      idles.add(listener);
-      return () => idles.delete(listener);
-    },
     wake,
-    get running() {
-      return stop !== null;
-    },
     configure(config) {
       if (config.omega !== undefined) omega = config.omega;
       for (const t of tempos) t();
@@ -410,7 +404,6 @@ export function createLayoutMotion(options: LayoutMotionOptions): LayoutMotion {
       dirty.clear();
       tasks.clear();
       frames.clear();
-      idles.clear();
       tempos.clear();
       removers.clear();
       const resolve = waiters;
