@@ -39,4 +39,37 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
     expect(m.frame.lane).toBe("rail-left");
     expect(m.release()).toMatchObject({ kind: "spot", lane: "rail-left", spot: "rail-left/start", home: false });
   });
+
+  /** The flick, then `n` frames 8 ms apart at 1.5 px/ms on up the rail (12 px each). */
+  const tail = (n: number, gates?: { slide: number }) => {
+    const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 }, ...(gates ? { gates } : {}) });
+    m.update({ x: 25, y: 614 }, 0);
+    for (let i = 1; i <= 7; i++) m.update({ x: 25 - (11 * i) / 7, y: 614 - (313 * i) / 7 }, 16 * i);
+    for (let k = 1; k <= n; k++) m.update({ x: 14, y: 301 - 12 * k }, 112 + 8 * k);
+    return m;
+  };
+
+  it("a fling restarts the slide count: a short slow tail after it (1 or 2 frames) is no entry", () => {
+    for (const n of [1, 2]) {
+      const m = tail(n);
+      expect(m.frame.lane, `${n} slow frames`).not.toBe("rail-left");
+      expect(m.release(), `${n} slow frames`).toBeNull();
+    }
+  });
+
+  it("a sustained slow slide after the fling, 40 px of it, enters the rail", () => {
+    const m = tail(4);
+    expect(m.frame.lane).toBe("rail-left");
+    expect(m.release()).toMatchObject({ kind: "spot", lane: "rail-left" });
+  });
+
+  it("a slide at exactly 2 px/ms (16 px per 8 ms, the gate) takes the rail; with `gates: { slide: Infinity }` the fling does too", () => {
+    const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+    m.update({ x: 25, y: 614 }, 0);
+    // 16 px a frame straight up the rail's x 25, from y 614 to y 310.
+    for (let k = 1; k <= 19; k++) m.update({ x: 25, y: 614 - 16 * k }, 8 * k);
+    expect(m.frame.lane).toBe("rail-left");
+    const open = tail(0, { slide: Infinity });
+    expect(open.frame.lane).toBe("rail-left");
+  });
 });

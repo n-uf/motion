@@ -13,7 +13,9 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   touches it took the pointer once it had slid `path` px along it at any speed, so a fast flick up an empty rail from
   the bar under it docked the toolbar in the rail on release. The slide now counts only at a brisk hand: a new gate
   **`LandingGates.slide`**, default 16 px per 8 ms (2 px/ms). Above it a fling, along the lane as well as across it, is
-  no entry; the lane is entered only by its own gate, the slow `path` or a rest past `pause`. The cost: above 2 px/ms a
+  no entry, and it restarts the slide count, so a fling that slows for a frame or two still docks nowhere (only a
+  sustained slide of `path` px at or below the gate does); the lane is entered only by its own gate, the slow `path` or
+  a rest past `pause`. The cost: above 2 px/ms a
   hand sliding along a corner lane keeps the previous lane's end spot until it slows or rests. Host notes: a host that
   wants the old rule sets `gates: { slide: Infinity }`.
 - `./drag`, **far beyond the held lane the frame is held but refused** (behavior change). Inside a touching lane not
