@@ -28,7 +28,7 @@ const SHOTS = [
   ["/", "#demo", 600, "home.png"],
   ["/window-motion/", "#stage .chart", 2600, "window-motion.png"],
   ["/drag-intent/", "#stage", 400, "drag-intent.png"],
-  ["/desk-layouts/", "#desk", 400, "desk-layouts.png"],
+  ["/docking-layouts/", "#desk", 400, "docking-layouts.png"],
   ["/toolbar-groups/", "#win", 400, "toolbar-groups.png"],
 ];
 

@@ -15,7 +15,7 @@ export interface PageInfo {
 export const pages: PageInfo[] = [
   { path: "/", updated: updated["/"], nav: "Home",
     title: "Window motion and docking | n-uf motion & placement",
-    description: "Two TypeScript packages for windows, panels and toolbars: @n-uf/motion moves them without overshoot, @n-uf/placement works out where they dock." },
+    description: "Three TypeScript libraries for windows, panels and toolbars: @n-uf/motion moves them, @n-uf/placement fits them, @n-uf/docking docks them." },
   // Inner pages: what the page is, plus " | n-uf motion & placement" only when the whole fits in 60 characters.
   { path: "/window-motion/", updated: updated["/window-motion/"], nav: "Window motion",
     title: "Window motion rules: settle, direct drag, reveal",
@@ -23,12 +23,12 @@ export const pages: PageInfo[] = [
   { path: "/drag-intent/", updated: updated["/drag-intent/"], nav: "Drag intent",
     title: "Drag intent: a drop indicator only once you aim",
     description: "How a dragged panel finds its target: the indicator shows only once you aim, stays put at boundaries without flicker, and the drop lands where it showed." },
-  { path: "/desk-layouts/", updated: updated["/desk-layouts/"], nav: "Desk layouts",
-    title: "Desk layouts: nine ways to dock panels",
-    description: "Nine ways to lay out a workspace of tool panels and documents, from side docks to floating panels, and what gives way first as room runs out." },
+  { path: "/docking-layouts/", updated: updated["/docking-layouts/"], nav: "Docking layouts",
+    title: "Docking layouts: four docked windows and five page sketches",
+    description: "Nine ways to lay out a JavaScript docking workspace: four docked windows solved live by @n-uf/docking and five page sketches, and what gives way first." },
   { path: "/toolbar-groups/", updated: updated["/toolbar-groups/"], nav: "Toolbar groups",
     title: "Toolbar groups: one grip per group",
-    description: "Toolbar groups that dock into five toolbar areas of three zones or float, each led by one grip that is also its separator, collapsing by keep priority." },
+    description: "Toolbar groups from @n-uf/docking: they dock into five toolbar areas or float, each led by one grip that is also its separator, collapsing by priority." },
 ];
 export const pageOf = (path: string): PageInfo => {
   const p = pages.find((x) => x.path === path);

@@ -12,13 +12,13 @@ import { faqJsonLd } from "../data/faq";
 import "../styles/desk-layouts.css";
 import "../styles/notes.css";
 
-const path = "/desk-layouts/";
+const path = "/docking-layouts/";
 const page = pageOf(path);
 const jsonLd = [
-  webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), about: ["placement"] }),
+  webPage({ path, name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), about: ["docking"] }),
   breadcrumbs([{ name: "Home", path: "/" }, { name: page.nav, path }]),
   faqJsonLd(path),
-  software("placement"),
+  software("docking"),
   orgNode,
 ];
 const active = CARDS.findIndex((c) => c.pick);
@@ -29,13 +29,13 @@ const pct = (v: number, min: number, max: number) => `--fill:${((v - min) / (max
 const presets: [string, string][] = [["1440,820", "Large"], ["960,560", "Laptop"], ["760,420", "Short"], ["520,700", "Narrow"]];
 const plain = (html: string) => html.replace(/<[^>]+>/g, "");
 ---
-<Site title={page.title} description={page.description} path={path} headline="Nine ways to lay out a workspace, and what gives way first." jsonLd={jsonLd} ogImage="/og/desk-layouts.png">
-  <p class="lead" slot="lead">This page lays out one workspace nine ways: a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and a few open documents. Four layouts (labelled A, A2, C and F3) are dock states, laid out live by <code>solve</code> from <code>@n-uf/docking</code>. The other five are demo layouts this page draws by its own rules, for comparison. Drag the sliders to see what gives way when width or height runs out; every box settles to its new place from wherever it is drawn.</p>
+<Site title={page.title} description={page.description} path={path} headline="Nine ways to lay out a workspace, and what gives way first." jsonLd={jsonLd} ogImage="/og/docking-layouts.png">
+  <p class="lead" slot="lead">This page lays out one workspace nine ways: a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and a few open documents. Four layouts (labelled A, A2, C and F3) are docked windows, laid out live by <code>solve</code> from <code>@n-uf/docking</code>. The other five are page sketches this page draws by its own rules, for comparison. Drag the sliders to see what gives way when width or height runs out; every box settles to its new place from wherever it is drawn.</p>
 
-  <Chrome id="figure" class="deskfig" label="Desk layouts: four docked layouts and five demo layouts, laid out live at a size you choose"
+  <Chrome id="figure" class="deskfig" label="Docking layouts: four docked windows and five page sketches, laid out live at a size you choose"
     groups={[{ id: "title", name: "Title" }, { id: "presets", name: "Size presets" }, { id: "size", name: "Size" }, { id: "options", name: "Options" }, { id: "speed", name: "Speed" }]}
     model={arrangement({ title: { start: ["title"], end: ["presets"] }, top: { start: ["size"] }, bottom: { start: ["options"], end: ["speed"] } })}>
-    <span class="ident" slot="title"><span class="name">Desk layouts</span><span class="page" id="desk-name">{first.title}</span></span>
+    <span class="ident" slot="title"><span class="name">Docking layouts</span><span class="page" id="desk-name">{first.title}</span></span>
     <Fragment slot="presets"><span class="lab">Size</span><span id="presets" class="tb-row">{presets.map(([p, l]) => <button type="button" class="tb text" data-p={p} aria-pressed={String(p === `${DEFAULT.W},${DEFAULT.H}`)}>{l}</button>)}</span></Fragment>
     <Fragment slot="size">
       <label class="field">Width <input id="w" type="range" min="480" max="1440" step="10" value={DEFAULT.W} style={pct(DEFAULT.W, 480, 1440)} /><output id="wo">{DEFAULT.W}</output></label>
@@ -45,9 +45,9 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
     <span class="tb-row" id="segs" slot="options">{HAS_PILL.has(first.key) && <><span class="lab">Toolbar</span>{TOOLBAR_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.toolbar && m[1] === opts.toolbarSpace)}>{m[2]}</button>)}</>}{HAS_BAND.has(first.key) && <><span class="lab">Bottom dock</span>{BAND_MODES.map((m) => <button type="button" class="tb text" aria-pressed={String(m[0] === opts.band)}>{m[1]}</button>)}{opts.band !== "off" && <button type="button" class="tb text" aria-pressed={String(opts.span === "full")}>{FULL_WIDTH}</button>}</>}</span>
     <Fragment slot="speed"><Playback part="speed" /></Fragment>
     <div class="figure-body">
-      <CaseRail id="cases" label="Desk layouts" items={CARDS.map((c) => ({ name: c.title, note: c.note, tag: c.pick ? "our pick" : c.dock ? "docking" : "demo" }))} active={active} />
+      <CaseRail id="cases" label="Docking layouts" items={CARDS.map((c) => ({ name: c.title, note: c.note, tag: c.pick ? "our pick" : c.dock ? "docked" : "sketch" }))} active={active} />
       <div class="stage-wrap stage-host"><div id="stage" style={`--w:${DEFAULT.W};--h:${DEFAULT.H};--tw:${DEFAULT.W};--th:${DEFAULT.H}`}>
-        <svg id="desk" role="img" aria-label={`${first.title} desk layout`} viewBox={`0 0 ${DEFAULT.W} ${DEFAULT.H}`} width={DEFAULT.W} height={DEFAULT.H} style={`--w:${DEFAULT.W};--h:${DEFAULT.H}`} set:html={deskSVG(DEFAULT.W, DEFAULT.H, boxes)} />
+        <svg id="desk" role="img" aria-label={`${first.title} docking layout`} viewBox={`0 0 ${DEFAULT.W} ${DEFAULT.H}`} width={DEFAULT.W} height={DEFAULT.H} style={`--w:${DEFAULT.W};--h:${DEFAULT.H}`} set:html={deskSVG(DEFAULT.W, DEFAULT.H, boxes)} />
         <div class="dim w" aria-hidden="true"><b></b></div><div class="dim h" aria-hidden="true"><b></b></div>
       </div></div>
     </div>
@@ -63,11 +63,11 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
 
   <section class="section">
     <div class="section-head">
-      <span class="eyebrow">The desk layouts</span>
+      <span class="eyebrow">The nine layouts</span>
       <h2 class="section-title">Docks, a tiling tree, scrolling columns, drawers and floating panels</h2>
     </div>
     <div class="rules two">
-      {CARDS.map((c) => <div class="rule"><h3>{c.title}<span class="tag">{c.pick ? "our pick" : c.dock ? "docking" : "demo"}</span></h3><p>{plain(c.idea)}</p></div>)}
+      {CARDS.map((c) => <div class="rule"><h3>{c.title}<span class="tag">{c.pick ? "our pick" : c.dock ? "docked" : "sketch"}</span></h3><p>{plain(c.idea)}</p></div>)}
     </div>
   </section>
 
@@ -78,7 +78,7 @@ const plain = (html: string) => html.replace(/<[^>]+>/g, "");
     </div>
     <div class="table-scroll compare-scroll">
       <table class="table compare" id="compare">
-        <thead><tr><th scope="col">Desk layout</th>{ASPECTS.map((a) => <th scope="col">{a}</th>)}</tr></thead>
+        <thead><tr><th scope="col">Layout</th>{ASPECTS.map((a) => <th scope="col">{a}</th>)}</tr></thead>
         <tbody>{CARDS.map((c, i) => <tr data-key={c.key} aria-current={String(i === active)}><th scope="row">{c.title}</th>{TABLE[c.key]!.map((t) => <td>{t}</td>)}</tr>)}</tbody>
       </table>
     </div>

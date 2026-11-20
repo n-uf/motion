@@ -66,10 +66,11 @@
 .fig-plan + .figure-note::before { display: block; margin-bottom: 6px; padding-left: 8px; border-left: 2px solid var(--part); font: 600 var(--t-cap)/1.5 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; white-space: pre-line; color: var(--text-3); }
 [data-part="motion"] .fig-plan + .figure-note::before { content: "SCOPE · MOTION CARRIES THE PANEL"; content: "SCOPE · MOTION CARRIES THE PANEL" / ""; }
 [data-part="placement"] .fig-plan + .figure-note::before { content: "PLAN · PLACEMENT RETURNS RECTS"; content: "PLAN · PLACEMENT RETURNS RECTS" / ""; }
+[data-part="docking"] .fig-plan + .figure-note::before { content: "PLAN · DOCKING RETURNS RECTS"; content: "PLAN · DOCKING RETURNS RECTS" / ""; }
 @media (max-width: 1230px) { [data-part] .fig-plan:has(.dragfig) + .figure-note::before { content: "SCOPE · MOTION CARRIES THE PANEL\A SCROLL THE STAGE SIDEWAYS"; content: "SCOPE · MOTION CARRIES THE PANEL\A SCROLL THE STAGE SIDEWAYS" / ""; } }
 @media (max-width: 1070px) {
-  [data-part] .fig-plan:has(.deskfig) + .figure-note::before { content: "PLAN · PLACEMENT RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS"; content: "PLAN · PLACEMENT RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS" / ""; }
-  [data-part] .fig-plan:has(.tbfig) + .figure-note::before { content: "PLAN · PLACEMENT RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS"; content: "PLAN · PLACEMENT RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS" / ""; }
+  [data-part] .fig-plan:has(.deskfig) + .figure-note::before { content: "PLAN · DOCKING RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS"; content: "PLAN · DOCKING RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS" / ""; }
+  [data-part] .fig-plan:has(.tbfig) + .figure-note::before { content: "PLAN · DOCKING RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS"; content: "PLAN · DOCKING RETURNS RECTS\A SCROLL THE STAGE SIDEWAYS" / ""; }
 }
 
 /* Narrow: the cases become a scrolling strip above the stage. */
