@@ -147,7 +147,7 @@ export interface LandingGuide {
   /** Stable while its neighbors stay: the mark's id, else `<lane>/<spot id>` for a spot's landing. Key a drawing by it. */
   readonly id: string;
   readonly lane: string;
-  /** A line, a box, or a hatch over a neighbor that gives way (draw it over that item, in the guides' colour). */
+  /** A line, a box, or a hatch over a neighbor that gives way (draw it over that item, in the guides' color). */
   readonly kind: "line" | "box" | "hatch";
   readonly rect: Rect;
 }
