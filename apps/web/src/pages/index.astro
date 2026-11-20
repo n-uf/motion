@@ -41,9 +41,9 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
 ---
 <Site title={page.title} description={page.description} path="/" jsonLd={jsonLd} ogImage="/og.png">
   <!--
-    The three heroes, motion's scope, placement's popup and docking's window, left to right (components/HeroScope.astro):
-    the page's one h1 is their three headlines, and the TypeScript sentence is its first paragraph in the DOM, under the
-    band on screen.
+    The hero (components/HeroScope.astro): three text-only slots, motion, placement and docking, left to right, then one
+    shared app window where the three libraries each do their part (components/HeroWindow.astro). The page's one h1 is the
+    three headlines, and the TypeScript sentence is its first paragraph in the DOM, under the slots on screen.
   -->
   <HeroScope />
 
@@ -68,7 +68,7 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
       <li><b>The real element moves:</b> no copies, it lands from where you let go.</li>
       <li><b>Motion imports neither of the others:</b> plain data between them, any framework or none.</li>
     </ul>
-    <p class="caveat">The demo windows' slots are rects from placement's tiling; they glide on motion's settle, and the swap runs motion's own drag intent (<code>createDragIntent</code>), as the hero does with <code>holdItem</code>, a direct drag. The examples below are compiled against the libraries. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink>, <ExtLink href={npmDockingUrl}>@n-uf/docking</ExtLink></p>
+    <p class="caveat">The demo windows' slots are rects from placement's tiling; they glide on motion's settle, and the swap runs motion's own drag intent (<code>createDragIntent</code>). The examples below are compiled against the libraries. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink>, <ExtLink href={npmDockingUrl}>@n-uf/docking</ExtLink></p>
     </div>
   </section>
 
@@ -170,7 +170,7 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
     <div class="plates">
       <article class="xe">
         <div class="thumb"><div class="fig"><svg id="thumb-tiles" viewBox="0 0 280 150" width="280" height="150" aria-hidden="true">{tileThumb.map((r) => <rect class="t-tile" rx="4" x={r.x} y={r.y} width={r.width} height={r.height} />)}</svg></div></div>
-        <div class="card-body"><span class="eyebrow"><span class="n">03</span> Docs only</span><h3><a href="/docs/placement/">Popups, stacks and tiling</a></h3><p>No interactive page of its own yet: the reference for the popup positioner, stack fit and tiling, entry by entry, with code. The hero's tiling demo is built from it.</p></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">03</span> Docs only</span><h3><a href="/docs/placement/">Popups, stacks and tiling</a></h3><p>No interactive page of its own yet: the reference for the popup positioner, stack fit and tiling, entry by entry, with code. The preview is its tiling.</p></div>
       </article>
     </div>
     </div>
@@ -216,11 +216,11 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
   // The interactive pages' preview follows the hovered or focused entry.
   const xp = document.getElementById("xp")!;
   whenVisible(xp, () => void import("../islands/explore").then((m) => m.startExplore(xp)));
-  // The hero is on screen from the first paint, and the server already drew its finished state: its island (the scope, the
-  // only part of the hero that moves; placement's and docking's diagrams are static) starts once the page has loaded and
-  // the browser is idle, so it never competes with the first paint.
-  const band = document.getElementById("band")!;
-  const start = (): void => void import("../islands/hero").then((m) => m.startHero(band));
+  // The hero window is on screen from the first paint, and the server already drew its finished state: its island (motion's
+  // glide of the dropped panel, the only thing on the hero that moves) starts once the page has loaded and the browser is
+  // idle, so it never competes with the first paint.
+  const hwin = document.getElementById("hwin")!;
+  const start = (): void => void import("../islands/hero-window").then((m) => m.startHeroWindow(hwin));
   const idle = (): void => void ("requestIdleCallback" in window ? requestIdleCallback(start, { timeout: 1500 }) : setTimeout(start, 300));
   if (document.readyState === "complete") idle();
   else addEventListener("load", idle, { once: true });

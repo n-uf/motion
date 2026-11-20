@@ -1,38 +1,11 @@
 ---
-// The home hero: three slots side by side, motion, placement and docking, left to right, split by two seams. No title
-// above them: the page's one h1 is the three headlines (its three spans, a real space between them).
-//
-// - Motion's slot is a scope: a tempo dial, the settle curves with the last run drawn over them, a slow-motion control
-//   and the readings (ω, time to 90 %, overshoot, the checks).
-// - Placement's slot is one function at work (components/HeroPop.astro): a popup placed beside an anchor that drifts
-//   around the stage, kept in view by `positionPopup`. Placement is separate functions, one job each, for any interface.
-// - Docking's slot is an app window (components/HeroDock.astro), the thing only a model of a whole window does: it
-//   shrinks, its panels and toolbar groups step down their forms in a set order and come back in reverse, and a drag is
-//   answered window-wide, refusals included. The scene is today's @n-uf/placement/scene; @n-uf/docking takes it over.
-// - A panel carried between two pads shows motion's settle; the scope reads each run off the real frames.
-//
-// Everything the server renders is the finished state (the panel at rest, the curve drawn, the readings of one real run
-// of the packages on a fake clock at build time), so with no script, or with reduced motion, it is a complete still.
-// islands/hero.ts, hero-pop.ts and hero-dock.ts then run the same packages live. The TypeScript sentence is the first
-// paragraph in the DOM and sits under the instruments on screen. Nothing here changes size when an island starts.
-import { SETTLE_TEMPO } from "@n-uf/motion";
-import { NEEDLE, PLOT, TEMPOS, pathOf, plotX, plotY, settleCurve, simulateRun, springCurve } from "../demos/hero";
-import HeroDock from "./HeroDock.astro";
-import HeroPop from "./HeroPop.astro";
+// The home hero: three text-only slots side by side, motion, placement and docking, left to right, split by two seams,
+// then one shared app window under them (components/HeroWindow.astro) where all three libraries do their part. No title
+// above the slots: the page's one h1 is the three headlines (its three spans, a real space between them). The TypeScript
+// sentence is the first paragraph in the DOM and sits under the slots on screen.
+import HeroWindow from "./HeroWindow.astro";
 
 const arrow = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg>';
-
-// One real run (build time): a panel's glide at the default tempo, recorded frame by frame and judged by the checks.
-const OMEGA = SETTLE_TEMPO.default;
-const run = simulateRun({ x: 0, y: 0, width: 120, height: 64 }, { x: 300, y: 120, width: 120, height: 72 }, OMEGA).report;
-const t90 = Math.round(run.t90 ?? 0);
-const gauge = TEMPOS.map((t) => {
-  const a = (NEEDLE[t] * Math.PI) / 180;
-  return { x1: 70 + 50 * Math.sin(a), y1: 70 - 50 * Math.cos(a), x2: 70 + 60 * Math.sin(a), y2: 70 - 60 * Math.cos(a) };
-});
-const grid = [0, 100, 200, 300, 400];
-const names: Record<string, string> = { calm: "calm", default: "default", quick: "quick" };
-const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].filter((c) => c.ok).length;
 ---
 <section class="hero" aria-label="The three libraries">
   <p class="pair-intro">Three small TypeScript libraries for desktop-style web apps: one moves windows, panels and toolbars, one fits things into the room there is, and one docks panels and toolbars.</p>
@@ -42,11 +15,10 @@ const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].
     <div class="bg d" aria-hidden="true"></div>
     <div class="seam s1" aria-hidden="true"></div>
     <div class="seam s2" aria-hidden="true"></div>
-    <div class="bpl" id="bpl" aria-hidden="true"></div>
     <span class="eyebrow eb m">@n-uf/motion · how things move</span>
     <span class="eyebrow eb p">@n-uf/placement · where things fit</span>
     <span class="eyebrow eb d">@n-uf/docking · where panels and toolbars dock</span>
-    <h1 class="pair"><span class="m" id="hm"><span class="hw">Motion:</span> <span class="hw">movement</span> <span class="hw">that</span> <span class="hw">settles</span> <span class="hw">and</span> <span class="hw">never</span> <span class="hw">overshoots.</span></span> <span class="p" id="hp">Placement: the layout math for any interface.</span> <span class="d" id="hd">Docking: a ready model of an app window.</span></h1>
+    <h1 class="pair"><span class="m" id="hm">Motion: movement that settles and never overshoots.</span> <span class="p" id="hp">Placement: the layout math for any interface.</span> <span class="d" id="hd">Docking: a ready model of an app window.</span></h1>
     <div class="col m">
       <p class="lead">Give it rects and the real elements glide there; a drag stays under the pointer.</p>
       <div class="install">
@@ -69,58 +41,8 @@ const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].
         <div class="go-links"><a class="btn quiet" href="/toolbar-groups/">Toolbar groups</a><a class="btn quiet" href="/docs/docking/">Docs</a></div>
       </div>
     </div>
-
-    <!-- The scope: motion's instrument. -->
-    <div class="hz m"><div class="zin scope" id="scope">
-      <div class="gauge-col">
-        <svg class="gauge" viewBox="0 0 140 96" aria-hidden="true">
-          <path class="trk" d="M14 70 A56 56 0 0 1 126 70" />
-          {gauge.map((d) => <line class="det" x1={d.x1.toFixed(1)} y1={d.y1.toFixed(1)} x2={d.x2.toFixed(1)} y2={d.y2.toFixed(1)} />)}
-          <g id="needle" transform="rotate(0 70 70)"><line class="needle" x1="70" y1="70" x2="70" y2="24" /></g>
-          <circle class="hub" cx="70" cy="70" r="5" />
-          <text class="big" id="gw" x="70" y="94" text-anchor="middle">{OMEGA}</text>
-          <text x="96" y="94">1/s</text>
-        </svg>
-        <div class="seg" id="tempo" role="group" aria-label="Settle tempo">{TEMPOS.map((t) => <button type="button" data-tempo={t} aria-pressed={String(t === "default")} title={`${names[t]}: ω ${SETTLE_TEMPO[t]}`}>{names[t]}</button>)}</div>
-        <div class="seg" id="ts" role="group" aria-label="Slow motion">{[["0.25", "¼×"], ["0.5", "½×"], ["1", "1×"]].map(([v, l]) => <button type="button" data-speed={v} aria-pressed={String(v === "1")} title={v === "1" ? "Real time" : `Slow motion, ${l} of real time`}>{l}</button>)}</div>
-      </div>
-      <svg class="plot" viewBox={`0 0 ${PLOT.vbW} ${PLOT.vbH}`} aria-hidden="true">
-        <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="var(--bad)" stroke-width="1" opacity=".25" /></pattern></defs>
-        <rect x={PLOT.x0} y="0" width={PLOT.w} height={(PLOT.y0 - PLOT.h).toFixed(1)} fill="url(#hatch)" />
-        <g>{grid.map((ms) => <line class="grid" x1={plotX(ms).toFixed(1)} y1="0" x2={plotX(ms).toFixed(1)} y2={PLOT.y0} />)}</g>
-        <line class="ax" x1={PLOT.x0} y1={PLOT.y0} x2={PLOT.x0 + PLOT.w} y2={PLOT.y0} /><line class="ax" x1={PLOT.x0} y1="0" x2={PLOT.x0} y2={PLOT.y0} />
-        <line class="tgt" x1={PLOT.x0} y1={plotY(1).toFixed(1)} x2={PLOT.x0 + PLOT.w} y2={plotY(1).toFixed(1)} />
-        <text x={PLOT.x0 + 4} y={(plotY(1) - 4).toFixed(1)}>target</text>
-        <text class="never" x={PLOT.x0 + PLOT.w} y="12" text-anchor="end">past it: never</text>
-        <g id="ghosts">{TEMPOS.map((t) => <path class={`ghost${t === "default" ? " on" : ""}`} data-tempo={t} d={pathOf(settleCurve(SETTLE_TEMPO[t]))} />)}</g>
-        <path class="spring" d={pathOf(springCurve())} /><text class="spring-l" x="96" y="10">a bouncy spring</text>
-        <path class="live" id="live" d={pathOf(run.curve.filter((q) => q.ms <= PLOT.tMax + 8))} />
-        <circle class="mark" id="mark" r="4.5" cx={plotX(run.t90 ?? 0).toFixed(1)} cy={plotY(0.9).toFixed(1)} />
-        <text class="t90" id="t90" x={(plotX(run.t90 ?? 0) + 8).toFixed(1)} y={(plotY(0.9) + 16).toFixed(1)}>{t90} ms</text>
-        <g class="xl">{grid.map((ms) => <text x={plotX(ms).toFixed(1)} y="162" text-anchor={ms === 0 ? "start" : "middle"}>{ms === PLOT.tMax ? `${ms} ms` : ms}</text>)}</g>
-      </svg>
-      <div class="pad a" id="pad"><span>held here</span></div>
-      <div class="pad b" id="pad2"><span>lands here</span><div class="mini"><div class="hb"><i><b></b><b></b><b></b><b></b></i>Outline</div><div class="ln"><u></u><u></u><u></u></div></div></div>
-      <div class="stats" id="stats">
-        <span><i>ω</i><b id="sw">{OMEGA} /s</b></span>
-        <span><i>90 % in, measured</i><b id="s90">{t90} ms</b></span>
-        <span><i>overshoot</i><b class={run.checks.noOvershoot.ok ? "ok" : "bad"} id="sov">{run.overshoot.toFixed(1)} px</b></span>
-        <span><i>checks</i><b class={run.ok ? "ok" : "bad"} id="schk">{passes} of 3 pass</b></span>
-      </div>
-      <div class="cap"><b>Scope</b> · motion carries the panel</div>
-    </div></div>
-
-    <!-- The popup: placement's instrument (components/HeroPop.astro). -->
-    <HeroPop />
-
-    <!-- The window: docking's instrument (components/HeroDock.astro). -->
-    <HeroDock />
-
-    <!-- The panel's layer: the real element carried between the scope's two pads (islands/hero.ts), and the strobe trail behind it. -->
-    <div class="ov" id="ov" aria-hidden="true">
-      <div class="tok" id="tok"><div class="tok-frame"></div><div class="tok-body"><div class="hb"><i><b></b><b></b><b></b><b></b></i>Outline</div><div class="ln"><u></u><u></u><u></u></div></div></div>
-    </div>
   </div>
+  <HeroWindow />
   <!-- The Copy buttons' announcement ("Copied"), read out politely (islands/copy.ts). -->
   <p class="sr-only" id="copy-status" role="status" aria-live="polite"></p>
 </section>
