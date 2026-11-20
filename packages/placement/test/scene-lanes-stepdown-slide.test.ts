@@ -5,8 +5,9 @@ import { bar, byId, form, group } from "./scene-fixture";
 
 /**
  * A 870 px bar: `wide` (362.3 as a row, steps down to a 140 icons form) at its start, `ends` (382.4, end zone) at its
- * end, `held` floating (130 as a row). The free room between `wide` and `ends` as seen is 91 px, shorter than `held`,
- * but a drop there makes room: `wide` steps down.
+ * end, `held` floating (130 as a row). As seen, `wide` ends at 370.3 and `ends` starts at 479.6: 109.3 px between
+ * them, 93.3 px of room for an item less the 8 px gap each side, shorter than `held`; but a drop there makes room:
+ * `wide` steps down.
  */
 const row = (kind: "row" | "icons", w: number) => form(kind, w, w, 31);
 const scene: Scene = {
