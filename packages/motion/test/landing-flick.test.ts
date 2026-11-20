@@ -57,10 +57,37 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
     }
   });
 
-  it("a sustained slow slide after the fling, 40 px of it, enters the rail", () => {
-    const m = tail(4);
+  it("a sustained slow slide after the fling enters the rail: the 40 px count starts once the hand reads slow over its window", () => {
+    // The speed for the slide count is read over the last 48 ms or more of samples, so the frames just after the fling
+    // still read fast and add nothing: four slow frames (48 px) are not yet 40 px counted, eight (96 px) are.
+    expect(tail(4).frame.lane).not.toBe("rail-left");
+    const m = tail(8);
     expect(m.frame.lane).toBe("rail-left");
     expect(m.release()).toMatchObject({ kind: "spot", lane: "rail-left" });
+  });
+
+  it("a fling at 2.4 or 2.8 px/ms whose timestamps jitter (±35%, ±50%) stays out of the rail until it rests, and a release at once goes home", () => {
+    // 125 Hz samples off by up to a third or half a frame; 60 Hz ones off by up to a third (half of a 16 ms frame, 8 ms,
+    // is a dropped sample's worth: a fling at 2.4 px/ms read over a few such samples can read slow).
+    const cases: [number, number, number][] = [2.4, 2.8].flatMap((v) => [[v, 0.35, 8], [v, 0.5, 8], [v, 0.35, 16]] as [number, number, number][]);
+    for (const [v, j, dt] of cases)
+          for (let seed = 1; seed <= 10; seed++) {
+            let s = seed * 7919;
+            const rnd = (): number => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+            const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+            m.update({ x: 25, y: 614 }, 0);
+            // The hand moves at `v` px/ms in real time; each sample's timestamp is off by up to `j` of a frame.
+            const n = Math.ceil(313 / (v * dt));
+            let entered = false;
+            for (let k = 1; k <= n; k++) {
+              const t = dt * (k + j * (2 * rnd() - 1));
+              const u = Math.min(1, k / n);
+              if (m.update({ x: 25 - 11 * u, y: 614 - 313 * u }, t).lane === "rail-left") entered = true;
+            }
+            const where = `${v} px/ms, ±${j * 100}%, ${dt} ms frames, seed ${seed}`;
+            expect(entered, where).toBe(false);
+            expect(m.release(), where).toBeNull();
+          }
   });
 
   it("a slide at exactly 2 px/ms (16 px per 8 ms, the gate) takes the rail; with `gates: { slide: Infinity }` the fling does too", () => {
