@@ -3,9 +3,9 @@
  *
  * A lane is one edge that takes the held item (a bar, a rail, a column) or a virtual one (a new column's line, a
  * declared rail). Its spots are the places a drop there lands, in order along it: before, between and after its items,
- * and, on a bar or a toolbar rail, spots at a fixed pitch over the free stretches between items (`SPOT_PITCH`), so a
- * toolbar lands close to the hand; with `stretchPositions: "free"`, one sliding spot per free stretch instead, which
- * lands exactly where the hand holds it (`LaneSpot.slide`). Each spot keys where its drop draws the other items (a change between two spots
+ * and, on a bar or a toolbar rail, one sliding spot per free stretch between items, which lands exactly where the hand
+ * holds it (`LaneSpot.slide`; `stretchPositions: "free"`, the default); with `stretchPositions: "pitched"`, spots at a
+ * fixed pitch over those stretches instead (`SPOT_PITCH`), so a toolbar lands close to the hand. Each spot keys where its drop draws the other items (a change between two spots
  * with the same key moves only the held item), and each lane carries its place guides' marks in the layout as drawn.
  * Each spot has a stretch of the lane that picks it. In a panel column, between two spots that share a neighbor (the
  * item `Y` in `X|Y` and `Y|Z`), the boundary is that item's middle as drawn (in the held spot's own layout with
@@ -171,9 +171,9 @@ export interface LaneOptions extends SceneTargetOptions {
   readonly pitch?: number;
   /**
    * How a free stretch on a bar or a toolbar rail offers its range of landings, from flush against the neighbor before
-   * it to flush against the one after it: `"pitched"` (the default), a spot every `pitch` px, its ends included;
-   * `"free"`, one sliding spot (`LaneSpot.slide`) that lands where the pointer holds the item, snapped to its ends and
-   * the item's own place within `snapDistance`. Either way a step comes only where the order changes (passing a
+   * it to flush against the one after it: `"free"` (the default), one sliding spot (`LaneSpot.slide`) that lands where
+   * the pointer holds the item, snapped to its ends and the item's own place within `snapDistance`; `"pitched"`, a
+   * spot every `pitch` px, its ends included. Either way a step comes only where the order changes (passing a
    * neighbor), cut as between any two spots.
    */
   readonly stretchPositions?: "free" | "pitched";
@@ -370,7 +370,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   }
   // A bar's free stretches: one sliding spot each, which takes over the docks landing inside it; else spots at `pitch`,
   // each a dock keeping `space` (`SceneItem.space`).
-  if (options.stretchPositions === "free") {
+  if (options.stretchPositions !== "pitched") {
     const { spots, absorbed } = slidingSpots(scene, dragged, options, seen, raws, pitch > 0 ? pitch : SPOT_PITCH);
     for (let i = raws.length - 1; i >= 0; i--) if (absorbed.has(raws[i]!)) raws.splice(i, 1);
     raws.push(...spots);

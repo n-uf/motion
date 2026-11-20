@@ -1,5 +1,6 @@
 /**
- * Stretch positions (`LaneOptions.stretchPositions`). `"pitched"` is the default and gives exactly what no option gives.
+ * Stretch positions (`LaneOptions.stretchPositions`). `"free"` is the default and gives exactly what no option gives;
+ * `"pitched"` gives spots at a pitch and no sliding spot.
  * `"free"` gives each free stretch of a bar or a toolbar rail one sliding spot: its range runs from flush against the
  * neighbor before it to flush against the one after it, its `after(point, grab)` lands the item's start at the pointer
  * less the grab, clamped and snapped, with the neighbor unmoved, and a release at the press point is home. Over bars and
@@ -47,19 +48,33 @@ const movable = (s: Scene): string[] => Object.keys(s.items).filter((k) => !s.it
 /** What a host reads of a lane: spots without their targets (functions), and the marks. */
 const plain = (ls: readonly Lane[]) => ls.map((l) => ({ ...l, spots: l.spots.map(({ target, ...sp }) => ({ ...sp, target: target.id })) }));
 
-describe("stretch positions: pitched", () => {
-  it('"pitched" gives exactly the spots, stretches and marks the default gives, held spots included', () => {
+describe("stretch positions: the default and pitched", () => {
+  it('"free" gives exactly the spots, stretches and marks the default gives, held spots included', () => {
     for (const [name, s] of scenes())
       for (const id of movable(s)) {
         const own = solve(s).items[id]?.rect;
         const o: LaneOptions = { previous: solve(s), ...(own ? { grab: { x: own.width / 3, y: own.height / 3 } } : {}) };
         const def = lanes(s, id, o);
-        const pitched = lanes(s, id, { ...o, stretchPositions: "pitched" });
-        expect(plain(pitched.lanes), `${name} ${id}`).toEqual(plain(def.lanes));
+        const free = lanes(s, id, { ...o, stretchPositions: "free" });
+        expect(plain(free.lanes), `${name} ${id}`).toEqual(plain(def.lanes));
         for (const l of def.lanes.slice(0, 3))
-          for (const sp of l.spots.filter((x) => x.pitched).slice(0, 2)) expect(plain(lanes(s, id, { ...o, stretchPositions: "pitched", spot: sp.id }).lanes), `${name} ${id} ${sp.id}`).toEqual(plain(lanes(s, id, { ...o, spot: sp.id }).lanes));
-        expect(def.lanes.some((l) => l.spots.some((sp) => sp.slide)), `${name} ${id}`).toBe(false);
+          for (const sp of l.spots.filter((x) => x.slide).slice(0, 2)) expect(plain(lanes(s, id, { ...o, stretchPositions: "free", spot: sp.id }).lanes), `${name} ${id} ${sp.id}`).toEqual(plain(lanes(s, id, { ...o, spot: sp.id }).lanes));
+        expect(def.lanes.some((l) => l.spots.some((sp) => sp.pitched)), `${name} ${id}`).toBe(false);
       }
+  });
+
+  it('"pitched" gives spots at a pitch and no sliding spot, on the same lanes and stretches as the default', () => {
+    let pitchedSpots = 0;
+    for (const [name, s] of scenes())
+      for (const id of movable(s)) {
+        const own = solve(s).items[id]?.rect;
+        const o: LaneOptions = { previous: solve(s), ...(own ? { grab: { x: own.width / 3, y: own.height / 3 } } : {}) };
+        const pitched = lanes(s, id, { ...o, stretchPositions: "pitched" });
+        expect(pitched.lanes.some((l) => l.spots.some((sp) => sp.slide)), `${name} ${id}`).toBe(false);
+        expect(pitched.lanes.map((l) => l.id).sort(), `${name} ${id}`).toEqual(lanes(s, id, o).lanes.map((l) => l.id).sort());
+        pitchedSpots += pitched.lanes.flatMap((l) => l.spots).filter((sp) => sp.pitched).length;
+      }
+    expect(pitchedSpots).toBeGreaterThan(0);
   });
 });
 

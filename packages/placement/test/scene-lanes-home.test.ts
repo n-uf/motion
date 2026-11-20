@@ -4,7 +4,8 @@
  * lands home.
  */
 import { describe, expect, it } from "vitest";
-import { lanes, solve, SPOT_PITCH, type Edge, type Scene } from "../src/scene";
+import { solve, SPOT_PITCH, type Edge, type Scene } from "../src/scene";
+import { lanes } from "./pitched-lanes";
 import { createLandingModel } from "@n-uf/motion/drag";
 import { bar, byId, group } from "./scene-fixture";
 

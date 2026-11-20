@@ -343,10 +343,10 @@ A bar's free stretches, and a toolbar rail's (a compact edge, along its length),
 item, or is bounded on both sides by zones the held item cannot dock in (no start-zone item or edge start before it, no end-zone item or edge end after it), it has none, so coverage is not universal: a point next to a center item that
 doesn't fit beside it can still be far from its landing (452 px at worst in the sweep scenes).
 
-**Stretch positions.** That is `options.stretchPositions: "pitched"`, the default. A free stretch is one range of
-landings, from flush against the neighbor before it to flush against the one after it; `"pitched"` samples it every
-`pitch` px, its ends included. `"free"` exposes it as one sliding spot (`LaneSpot.slide: { from, to, snaps,
-snapDistance }`, id `<lane>/<zone>/<before>|<after>@slide`): `from` and `to` are where the landing's start may lie along
+**Stretch positions.** That is `options.stretchPositions: "free"`, the default (it was `"pitched"` before; pass
+`"pitched"` for the old spots). A free stretch is one range of landings, from flush against the neighbor before it to
+flush against the one after it; `"pitched"` samples it every `pitch` px, its ends included. `"free"` exposes it as one
+sliding spot (`LaneSpot.slide: { from, to, snaps, snapDistance, step }`, id `<lane>/<zone>/<before>|<after>@slide`): `from` and `to` are where the landing's start may lie along
 the lane, and `snaps` the starts it snaps to within `options.snapDistance` (8 px): its ends, the item's own place, and
 every other dock that lands inside the stretch beside the same neighbors (a center dock, say), each of which it takes
 over and commits as it is. No snap point lies within twice the snap distance of the item's own place, so a release

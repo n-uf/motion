@@ -14,7 +14,7 @@
  * comes first) every row must run.
  */
 import { rect, type Point, type Rect } from "../../geometry";
-import { lanes, type Regions } from "../lanes";
+import { lanes, type LaneOptions, type Regions } from "../lanes";
 import type { Edge, Scene, SceneItem, SceneLayout } from "../index";
 import { solve } from "../solve";
 import { dockedIn, layoutIssues } from "./run";
@@ -64,6 +64,8 @@ export type LandingRule = (options: {
   readonly regionsFor: (spot: string) => Regions;
   readonly floatLanding: (point: Point) => Rect | null;
   readonly home?: { readonly lane: string; readonly spot: string };
+  /** Where the press holds the item (a landing model's `grab`): a sliding spot's landing follows the pointer less it. */
+  readonly grab?: { readonly x: number; readonly y: number };
   readonly placeGuides?: "off" | "near" | "all";
 }) => LandingModelLike;
 
@@ -284,7 +286,7 @@ const SAMPLE = 8;
  * (`createLandingModel`), a frame every 8 ms along the path (and on through the rest, the same point again), and a
  * release that commits the spot's or the float's `after(...).scene`.
  */
-export function createLandingHost(o: { readonly landing: LandingRule; readonly version?: string }): LandingCaseHost {
+export function createLandingHost(o: { readonly landing: LandingRule; readonly version?: string; readonly stretchPositions?: LaneOptions["stretchPositions"] }): LandingCaseHost {
   return {
     ...(o.version ? { version: o.version } : {}),
     play(row) {
@@ -294,10 +296,12 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly v
       if (!own) throw new Error(`no item ${row.item}`);
       const press = row.path[0]!;
       const grab = { x: press.x - own.rect.x, y: press.y - own.rect.y };
-      const regions = lanes(s, row.item, { previous, grab });
-      const regionsFor = (spot: string): Regions => lanes(s, row.item, { previous, grab, spot });
+      // `stretchPositions` left out, the library's default.
+      const laneOptions: LaneOptions = { previous, grab, ...(o.stretchPositions ? { stretchPositions: o.stretchPositions } : {}) };
+      const regions = lanes(s, row.item, laneOptions);
+      const regionsFor = (spot: string): Regions => lanes(s, row.item, { ...laneOptions, spot });
       const home = regions.lanes.flatMap((l) => l.spots.filter((x) => x.home).map((x) => ({ lane: l.id, spot: x.id })))[0];
-      const model = o.landing({ regions, regionsFor, floatLanding: (p) => regions.float?.after(p, grab).layout.items[row.item]?.rect ?? null, ...(home ? { home } : {}), placeGuides: "near" });
+      const model = o.landing({ regions, regionsFor, grab, floatLanding: (p) => regions.float?.after(p, grab).layout.items[row.item]?.rect ?? null, ...(home ? { home } : {}), placeGuides: "near" });
       const frames: LandingCaseFrame[] = [];
       const play = (p: Point, t: number, moving: boolean): void => {
         const f = model.update(p, t);
@@ -314,7 +318,8 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly v
       for (let r = SAMPLE; r <= (row.rest ?? 0); r += SAMPLE) play(at, (t += SAMPLE), false);
       const out = model.release();
       const spot = out?.kind === "spot" ? [...regions.lanes, ...regionsFor(out.spot).lanes].flatMap((l) => l.spots).find((x) => x.id === out.spot) : undefined;
-      const target = out?.kind === "float" ? regions.float : spot && !spot.home ? spot.target : null;
+      // The model says whether the release is home (on a sliding spot, only at the item's own place, not along its stretch).
+      const target = out?.kind === "float" ? regions.float : spot && out?.kind === "spot" && !out.home ? spot.target : null;
       const next = target ? target.after(at, grab).scene : s;
       return { frames, layout: solve(next, { previous }), before: previous };
     },
