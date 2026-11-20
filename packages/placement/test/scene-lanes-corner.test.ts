@@ -3,9 +3,12 @@
  * drawn rail stands across its end, the lane stops at the rail's side (as its marks already do), so a pointer coming down
  * the rail is in the rail's lane, not the bar's.
  */
+import { readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createLandingModel } from "@n-uf/motion/drag";
-import { lanes, solve, type Scene } from "../src/scene";
+import { lanes, solve, type Edge, type Scene, type SceneItem } from "../src/scene";
 
 const form = (kind: string, main: number, cross: number) => ({ kind, main: { min: main, natural: main }, cross: { natural: cross } });
 const group = (id: string, main: number) => ({
@@ -77,5 +80,197 @@ describe("lanes(): at a corner an empty bar's lane gives way to a drawn rail", (
     go({ x: rail.x + rail.width / 2, y: rail.y + 20 });
     for (let i = 0; i < 40; i++) m.update(p, (t += 16));
     expect([m.frame.region, m.frame.lane]).toEqual(["lane", "bar:left"]);
+  });
+});
+
+// The clip only hands the corner over: an empty edge's lane gives way to a drawn edge that takes the held item there,
+// and loses nothing else. Its spots are cut over the band whole and then clipped, so no spot is left with no stretch and
+// every landing a pointer reached outside such a drawn edge before the clip it reaches still.
+
+type P = { x: number; y: number };
+type Box = { x: number; y: number; width: number; height: number };
+const here = dirname(fileURLToPath(import.meta.url));
+const EPS = 1e-6;
+const inside = (p: P, r: Box): boolean => p.x > r.x + EPS && p.x < r.x + r.width - EPS && p.y > r.y + EPS && p.y < r.y + r.height - EPS;
+const seededRandom = (s: number) => () => ((s = (s * 1103515245 + 12345) % 2147483648), s / 2147483648);
+const fform = (kind: string, min: number, natural: number, cross: number) => ({ kind, main: { min, natural }, cross: { natural: cross } });
+
+/** A seeded window: top and bottom bars, two side rails, sometimes an inner top bar and a floating item; any edge may be empty. */
+function cornerScene(seed: number): Scene {
+  const r = seededRandom(seed * 9973 + 17);
+  const pick = (a: number, b: number) => Math.round(a + r() * (b - a));
+  const W = pick(560, 1300);
+  const H = pick(420, 900);
+  let n = 0;
+  const items: SceneItem[] = [];
+  const mk = (): string => {
+    const id = `g${n++}`;
+    const L = pick(50, 280);
+    const row = [fform("row", L, L, pick(24, 34))];
+    if (r() < 0.6) row.push(fform("icons", Math.max(30, Math.round(L * 0.4)), Math.max(30, Math.round(L * 0.4)), 28));
+    row.push(fform("menu", 0, 0, 0));
+    const C = pick(40, 200);
+    items.push({ id, kind: "group", used: n, forms: { row, column: [fform("icons", C, C, pick(26, 30)), fform("menu", 0, 0, 0)] }, ...(r() < 0.3 ? { align: "end" as const } : {}) } as SceneItem);
+    return id;
+  };
+  const fill = (p: number, max: number) => (r() < p ? Array.from({ length: pick(1, max) }, mk) : []);
+  const barCross = pick(28, 40);
+  const edges: Edge[] = [
+    { id: "bar:top", side: "top", ring: 0, accepts: ["group"], items: fill(0.5, 3), cross: { min: barCross, max: barCross, rail: barCross }, gap: pick(0, 8), pad: { start: 8, end: 8 } } as Edge,
+    { id: "bar:bottom", side: "bottom", ring: 0, accepts: ["group"], items: fill(0.5, 3), cross: { min: barCross, max: barCross, rail: barCross }, gap: pick(0, 8), pad: { start: 8, end: 8 } } as Edge,
+    { id: "bar:left", side: "left", ring: 0, accepts: ["group"], compact: true, items: fill(0.5, 2), cross: { min: 30, max: 30, rail: 30 }, gap: 4, pad: { start: 4, end: 4 } } as Edge,
+    { id: "bar:right", side: "right", ring: 0, accepts: ["group"], compact: true, items: fill(0.5, 2), cross: { min: 30, max: 30, rail: 30 }, gap: 4, pad: { start: 4, end: 4 } } as Edge,
+  ];
+  if (r() < 0.35) edges.push({ id: "bar:inner", side: "top", ring: 1, accepts: ["group"], items: fill(0.5, 2), cross: { min: 32, max: 32, rail: 32 }, gap: 4, pad: { start: 8, end: 8 } } as Edge);
+  const floats: { id: string; rect: Box }[] = [];
+  if (r() < 0.4 || n === 0) floats.push({ id: mk(), rect: { x: Math.round(W / 2), y: Math.round(H / 2), width: 36, height: 107 } });
+  return { stage: { x: 0, y: 0, width: W, height: H }, edges, items: Object.fromEntries(items.map((i) => [i.id, i])), floats, floatKinds: ["group"] } as unknown as Scene;
+}
+
+/** A window with an empty top bar over two drawn panel columns, a title bar and a bottom bar of toolbars, empty side rails. */
+const columnsScene = (): Scene => JSON.parse(readFileSync(join(here, "fixtures", "columns-corner-scene.json"), "utf8")) as Scene;
+
+interface Case {
+  readonly key: string;
+  readonly scene: Scene;
+  readonly held: string;
+  readonly mode: "free" | "pitched";
+  readonly share: number;
+}
+
+/** The seeds whose windows put an empty edge against a drawn one in every way the clip met, and a few plain ones. */
+const SEEDS = [1, 2, 3, 15, 20, 22, 25, 28, 47, 62, 67];
+
+function cases(): Case[] {
+  const out: Case[] = [];
+  const add = (key: string, scene: Scene, helds: readonly string[]) => {
+    for (const held of helds) for (const mode of ["free", "pitched"] as const) for (const share of [0.02, 0.5]) out.push({ key: `${key}|${held}|${mode}|${share}`, scene, held, mode, share });
+  };
+  for (const seed of SEEDS) {
+    const scene = cornerScene(seed);
+    add(`s${seed}`, scene, Object.keys(scene.items).slice(0, 2));
+  }
+  add("columns", columnsScene(), ["g1", "g2", "p1"]);
+  return out;
+}
+
+/** The drag of a case: its regions, the model's options and the grab. */
+function drag(c: Case) {
+  const seen = solve(c.scene);
+  const own = seen.items[c.held]!.rect;
+  const grab = own.width >= own.height ? { x: own.width * c.share, y: own.height / 2 } : { x: own.width / 2, y: own.height * c.share };
+  const opts = { previous: seen, grab, stretchPositions: c.mode };
+  const regions = lanes(c.scene, c.held, opts);
+  const cache = new Map<string, ReturnType<typeof lanes>>();
+  const regionsFor = (spot: string) => {
+    let x = cache.get(spot);
+    if (!x) cache.set(spot, (x = lanes(c.scene, c.held, { ...opts, spot })));
+    return x;
+  };
+  const home = regions.lanes.flatMap((l) => l.spots.filter((s) => s.home).map((s) => ({ lane: l.id, spot: s.id })))[0];
+  const model = () => createLandingModel({ regions, regionsFor, grab, ...(home ? { home } : {}) } as never);
+  return { seen, regions, model };
+}
+
+/**
+ * Per lane, the spots a slow sweep along its middle reaches: from the window's middle to one end, to the other, and back,
+ * turning at the side of a drawn edge that takes the item (the lane's own aside), so it never comes from inside one.
+ */
+function sweep(c: Case): Record<string, string[]> {
+  const { seen, regions, model } = drag(c);
+  const taking = regions.lanes.flatMap((l) => {
+    const e = seen.edges[l.id];
+    return e && e.cross > EPS ? [{ id: l.id, rect: e.rect }] : [];
+  });
+  const st = c.scene.stage;
+  const out: Record<string, string[]> = {};
+  for (const lane of regions.lanes) {
+    const ax = lane.axis;
+    const across = ax === "x" ? lane.rect.y + lane.rect.height / 2 : lane.rect.x + lane.rect.width / 2;
+    const at = (a: number): P => (ax === "x" ? { x: a, y: across } : { x: across, y: a });
+    const middle = (ax === "x" ? st.x + st.width / 2 : st.y + st.height / 2);
+    let smin = ax === "x" ? st.x : st.y;
+    let smax = smin + (ax === "x" ? st.width : st.height);
+    for (const d of taking) {
+      if (d.id === lane.id) continue;
+      const a0 = ax === "x" ? d.rect.x : d.rect.y;
+      const a1 = a0 + (ax === "x" ? d.rect.width : d.rect.height);
+      if (!inside(at((a0 + a1) / 2), d.rect)) continue;
+      if (a1 <= middle) smin = Math.max(smin, a1);
+      else if (a0 >= middle) smax = Math.min(smax, a0);
+    }
+    const m = model();
+    const reached = new Set<string>();
+    let t = 0;
+    const step = (p: P) => {
+      const f = m.update(p, (t += 16));
+      if (f.region === "lane" && f.lane === lane.id && f.spot) reached.add(f.spot);
+    };
+    let cur = (smin + smax) / 2;
+    for (let k = 0; k < 10; k++) step(at(cur));
+    for (const to of [smin + 0.5, smax - 0.5, (smin + smax) / 2]) {
+      const n = Math.ceil(Math.abs(to - cur) / 2);
+      const from = cur;
+      for (let k = 1; k <= n; k++) step(at(from + ((to - from) * k) / n));
+      cur = to;
+      for (let k = 0; k < 6; k++) step(at(cur));
+    }
+    out[lane.id] = [...reached].sort();
+  }
+  return out;
+}
+
+const SWEEP_FIXTURE = join(here, "fixtures", "corner-sweep-before-clip.json");
+
+describe("lanes(): the corner clip loses no landing", () => {
+  it("no spot of any lane has a zero-length stretch", () => {
+    const bad: string[] = [];
+    for (const c of cases()) for (const l of drag(c).regions.lanes) for (const s of l.spots) if (s.along[1] - s.along[0] <= EPS) bad.push(`${c.key} ${s.id}`);
+    expect(bad.slice(0, 6)).toEqual([]);
+  });
+
+  it("the spots a slow sweep reaches are the ones it reached before the clip, apart from points on a drawn edge that takes the item", () => {
+    const now = Object.fromEntries(cases().map((c) => [c.key, sweep(c)]));
+    // Recorded on the release before the clip (26.11.51) with RECORD_CORNER_SWEEP=1.
+    if (process.env.RECORD_CORNER_SWEEP) return void writeFileSync(SWEEP_FIXTURE, `${JSON.stringify(now, null, 1)}\n`);
+    const before = JSON.parse(readFileSync(SWEEP_FIXTURE, "utf8")) as Record<string, Record<string, string[]>>;
+    const diff: string[] = [];
+    for (const [key, ls] of Object.entries(before))
+      for (const [lane, spots] of Object.entries(ls)) {
+        const got = new Set(now[key]?.[lane] ?? []);
+        for (const s of spots) if (!got.has(s)) diff.push(`${key} ${lane}: lost ${s}`);
+        for (const s of got) if (!spots.includes(s)) diff.push(`${key} ${lane}: added ${s}`);
+      }
+    expect(diff.slice(0, 8)).toEqual([]);
+  }, 300_000);
+
+  it("a corner beside a drawn panel column, which refuses a toolbar, stays the empty top bar's lane", () => {
+    const s = columnsScene();
+    const c: Case = { key: "columns", scene: s, held: "g1", mode: "free", share: 0.5 };
+    const { seen, regions, model } = drag(c);
+    const top = regions.lanes.find((l) => l.id === "bar:top")!;
+    expect(seen.edges["bar:top"]!.cross).toBe(0);
+    expect(regions.lanes.some((l) => l.id === "col-left" || l.id === "col-right")).toBe(false);
+    const got: string[] = [];
+    for (const id of ["col-left", "col-right"]) {
+      const col = seen.edges[id]!.rect;
+      for (const dy of [6, 20]) {
+        const p = { x: col.x + col.width / 2, y: col.y + dy };
+        if (!inside(p, { ...top.rect, x: col.x, width: col.width })) continue;
+        expect(inside(p, top.rect), `${id}+${dy} in the top bar's lane`).toBe(true);
+        const m = model();
+        const st = s.stage;
+        const from = { x: st.x + st.width / 2, y: st.y + st.height / 2 };
+        let t = 0;
+        m.update(from, t);
+        const n = Math.ceil(Math.hypot(p.x - from.x, p.y - from.y) / 1.2);
+        for (let k = 1; k <= n; k++) m.update({ x: from.x + ((p.x - from.x) * k) / n, y: from.y + ((p.y - from.y) * k) / n }, (t += 8));
+        let f = m.update(p, (t += 8));
+        for (let k = 0; k < 20; k++) f = m.update(p, (t += 8));
+        got.push(`${id}+${dy} ${f.region} ${f.lane ?? ""}`);
+      }
+    }
+    expect(got.length).toBeGreaterThan(0);
+    expect(got).toEqual(got.map((g) => `${g.split(" ")[0]} lane bar:top`));
   });
 });

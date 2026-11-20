@@ -17,7 +17,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   (not drawn) as its full edge width over the band its drop would draw, so an empty top bar's lane ran over a drawn
   side rail's top, and a pointer coming down the rail stayed in the bar's lane. The marks already followed "at a corner
   a lane not drawn gives way to a drawn one"; the lane's rect now does too: it is clipped along its axis to stop at the
-  drawn edge's side (its spots' `along` stretches with it). Between two edges not drawn the corner is unchanged.
+  drawn edge's side. Only a drawn edge that takes the held item (has a lane for it) and stands across the band's middle
+  line cuts: beside a drawn panel column that refuses a toolbar the corner stays the bar's lane. The clip loses no
+  landing: the spots' cuts are made over the band whole and then clipped, so the spot the clip falls in starts at the
+  clip, a spot whose whole stretch lies on the drawn edge is left out (the pointer there is in that edge's lane), and no
+  spot has a zero-length `along`. Between two edges not drawn the corner is unchanged.
 - `./scene`, **`SceneRefusal["reason"]` gains `"too-thick"`** (a contract change for an exhaustive `switch`: add the
   case; a host that treats any other reason like `"no-room"` needs no change). A bar thinner than every form of the
   held item but the » menu's (each sets no cross size and has a `cross.min` over the bar's thickness: a 30 px toolbar

@@ -1,0 +1,4163 @@
+{
+ "s1|g0|free|0.02": {
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s1|g0|free|0.5": {
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s1|g0|pitched|0.02": {
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8"
+  ],
+  "bar:left": [
+   "bar:left/center",
+   "bar:left/end",
+   "bar:left/end/^|$@2",
+   "bar:left/end/^|$@3",
+   "bar:left/end/^|$@4",
+   "bar:left/start",
+   "bar:left/start/^|$@1",
+   "bar:left/start/^|$@2",
+   "bar:left/start/^|$@3",
+   "bar:left/start/^|$@4"
+  ]
+ },
+ "s1|g0|pitched|0.5": {
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8"
+  ],
+  "bar:left": [
+   "bar:left/center",
+   "bar:left/end",
+   "bar:left/end/^|$@2",
+   "bar:left/end/^|$@3",
+   "bar:left/end/^|$@4",
+   "bar:left/start",
+   "bar:left/start/^|$@1",
+   "bar:left/start/^|$@2",
+   "bar:left/start/^|$@3",
+   "bar:left/start/^|$@4"
+  ]
+ },
+ "s2|g0|free|0.02": {
+  "bar:inner": [
+   "bar:inner/end/g3|$",
+   "bar:inner/start/^|g3@slide"
+  ],
+  "bar:left": [
+   "bar:left/end/g2|$",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s2|g0|free|0.5": {
+  "bar:inner": [
+   "bar:inner/end/g3|$",
+   "bar:inner/start/^|g3@slide"
+  ],
+  "bar:left": [
+   "bar:left/end/g2|$",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s2|g0|pitched|0.02": {
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8"
+  ],
+  "bar:inner": [
+   "bar:inner/center/^|g3",
+   "bar:inner/end/^|g3",
+   "bar:inner/end/^|g3@1",
+   "bar:inner/end/^|g3@2",
+   "bar:inner/end/^|g3@3",
+   "bar:inner/end/g3|$",
+   "bar:inner/start/^|g3",
+   "bar:inner/start/^|g3@1",
+   "bar:inner/start/^|g3@2",
+   "bar:inner/start/^|g3@3",
+   "bar:inner/start/^|g3@4",
+   "bar:inner/start/^|g3@5",
+   "bar:inner/start/^|g3@6",
+   "bar:inner/start/^|g3@7",
+   "bar:inner/start/^|g3@8"
+  ],
+  "bar:left": [
+   "bar:left/end/g2|$",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@1",
+   "bar:right/end/^|$@2",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2"
+  ]
+ },
+ "s2|g0|pitched|0.5": {
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8"
+  ],
+  "bar:inner": [
+   "bar:inner/center/^|g3",
+   "bar:inner/end/^|g3",
+   "bar:inner/end/^|g3@1",
+   "bar:inner/end/^|g3@2",
+   "bar:inner/end/^|g3@3",
+   "bar:inner/end/g3|$",
+   "bar:inner/start/^|g3",
+   "bar:inner/start/^|g3@1",
+   "bar:inner/start/^|g3@2",
+   "bar:inner/start/^|g3@3",
+   "bar:inner/start/^|g3@4",
+   "bar:inner/start/^|g3@5",
+   "bar:inner/start/^|g3@6",
+   "bar:inner/start/^|g3@7",
+   "bar:inner/start/^|g3@8"
+  ],
+  "bar:left": [
+   "bar:left/end/g2|$",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@1",
+   "bar:right/end/^|$@2",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2"
+  ]
+ },
+ "s2|g1|free|0.02": {
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:top": [
+   "bar:top/end/g0|$",
+   "bar:top/start/^|g0@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/end/g3|$",
+   "bar:inner/start/^|g3@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s2|g1|free|0.5": {
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:top": [
+   "bar:top/end/g0|$",
+   "bar:top/start/^|g0@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/end/g3|$",
+   "bar:inner/start/^|g3@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s2|g1|pitched|0.02": {
+  "bar:left": [
+   "bar:left/end/g2|$",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:top": [
+   "bar:top/center/^|g0",
+   "bar:top/end/^|g0",
+   "bar:top/end/^|g0@1",
+   "bar:top/end/^|g0@2",
+   "bar:top/end/^|g0@3",
+   "bar:top/end/^|g0@4",
+   "bar:top/end/g0|$",
+   "bar:top/start/^|g0",
+   "bar:top/start/^|g0@1",
+   "bar:top/start/^|g0@2",
+   "bar:top/start/^|g0@3",
+   "bar:top/start/^|g0@4",
+   "bar:top/start/^|g0@5",
+   "bar:top/start/^|g0@6"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6"
+  ],
+  "bar:inner": [
+   "bar:inner/center/^|g3",
+   "bar:inner/end/^|g3",
+   "bar:inner/end/^|g3@2",
+   "bar:inner/end/g3|$",
+   "bar:inner/start/^|g3",
+   "bar:inner/start/^|g3@1",
+   "bar:inner/start/^|g3@2",
+   "bar:inner/start/^|g3@3",
+   "bar:inner/start/^|g3@4",
+   "bar:inner/start/^|g3@5",
+   "bar:inner/start/^|g3@6"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2"
+  ]
+ },
+ "s2|g1|pitched|0.5": {
+  "bar:left": [
+   "bar:left/end/g2|$",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:top": [
+   "bar:top/center/^|g0",
+   "bar:top/end/^|g0",
+   "bar:top/end/^|g0@1",
+   "bar:top/end/^|g0@2",
+   "bar:top/end/^|g0@3",
+   "bar:top/end/^|g0@4",
+   "bar:top/end/g0|$",
+   "bar:top/start/^|g0",
+   "bar:top/start/^|g0@1",
+   "bar:top/start/^|g0@2",
+   "bar:top/start/^|g0@3",
+   "bar:top/start/^|g0@4",
+   "bar:top/start/^|g0@5",
+   "bar:top/start/^|g0@6"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6"
+  ],
+  "bar:inner": [
+   "bar:inner/center/^|g3",
+   "bar:inner/end/^|g3",
+   "bar:inner/end/^|g3@2",
+   "bar:inner/end/g3|$",
+   "bar:inner/start/^|g3",
+   "bar:inner/start/^|g3@1",
+   "bar:inner/start/^|g3@2",
+   "bar:inner/start/^|g3@3",
+   "bar:inner/start/^|g3@4",
+   "bar:inner/start/^|g3@5",
+   "bar:inner/start/^|g3@6"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2"
+  ]
+ },
+ "s3|g0|free|0.02": {
+  "bar:bottom": [
+   "bar:bottom/end/g1|$",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|g1@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/end/g4|$",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|g4@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ]
+ },
+ "s3|g0|free|0.5": {
+  "bar:bottom": [
+   "bar:bottom/end/g1|$",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|g1@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/end/g4|$",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|g4@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ]
+ },
+ "s3|g0|pitched|0.02": {
+  "bar:bottom": [
+   "bar:bottom/center/g2|g1",
+   "bar:bottom/end/g1|$",
+   "bar:bottom/end/g2|g1",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|g1",
+   "bar:bottom/start/g2|g1@1"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3"
+  ],
+  "bar:left": [
+   "bar:left/center/g3|$",
+   "bar:left/end/g3|$",
+   "bar:left/end/g3|$@1",
+   "bar:left/end/g3|$@2",
+   "bar:left/end/g3|$@3",
+   "bar:left/end/g3|$@4",
+   "bar:left/end/g3|$@5",
+   "bar:left/end/g3|$@6",
+   "bar:left/end/g3|$@7",
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$",
+   "bar:left/start/g3|$@1",
+   "bar:left/start/g3|$@2",
+   "bar:left/start/g3|$@3",
+   "bar:left/start/g3|$@4"
+  ],
+  "bar:right": [
+   "bar:right/center/g5|g4",
+   "bar:right/end/g4|$",
+   "bar:right/end/g5|g4",
+   "bar:right/end/g5|g4@1",
+   "bar:right/end/g5|g4@2",
+   "bar:right/end/g5|g4@3",
+   "bar:right/end/g5|g4@4",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|g4",
+   "bar:right/start/g5|g4@1",
+   "bar:right/start/g5|g4@2",
+   "bar:right/start/g5|g4@3",
+   "bar:right/start/g5|g4@4"
+  ]
+ },
+ "s3|g0|pitched|0.5": {
+  "bar:bottom": [
+   "bar:bottom/end/g1|$",
+   "bar:bottom/end/g2|g1",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|g1",
+   "bar:bottom/start/g2|g1@1"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3"
+  ],
+  "bar:left": [
+   "bar:left/center/g3|$",
+   "bar:left/end/g3|$",
+   "bar:left/end/g3|$@1",
+   "bar:left/end/g3|$@2",
+   "bar:left/end/g3|$@3",
+   "bar:left/end/g3|$@4",
+   "bar:left/end/g3|$@5",
+   "bar:left/end/g3|$@6",
+   "bar:left/end/g3|$@7",
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$",
+   "bar:left/start/g3|$@1",
+   "bar:left/start/g3|$@2",
+   "bar:left/start/g3|$@3",
+   "bar:left/start/g3|$@4"
+  ],
+  "bar:right": [
+   "bar:right/center/g5|g4",
+   "bar:right/end/g4|$",
+   "bar:right/end/g5|g4",
+   "bar:right/end/g5|g4@1",
+   "bar:right/end/g5|g4@2",
+   "bar:right/end/g5|g4@3",
+   "bar:right/end/g5|g4@4",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|g4",
+   "bar:right/start/g5|g4@1",
+   "bar:right/start/g5|g4@2",
+   "bar:right/start/g5|g4@3",
+   "bar:right/start/g5|g4@4"
+  ]
+ },
+ "s3|g1|free|0.02": {
+  "bar:bottom": [
+   "bar:bottom/end/g0|$",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|g0@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/end/g4|$",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|g4@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ]
+ },
+ "s3|g1|free|0.5": {
+  "bar:bottom": [
+   "bar:bottom/end/g0|$",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|g0@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/end/g4|$",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|g4@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ]
+ },
+ "s3|g1|pitched|0.02": {
+  "bar:bottom": [
+   "bar:bottom/center/g2|g0",
+   "bar:bottom/end/g0|$",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|g0",
+   "bar:bottom/start/g2|g0@1"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4"
+  ],
+  "bar:left": [
+   "bar:left/center/g3|$",
+   "bar:left/end/g3|$",
+   "bar:left/end/g3|$@1",
+   "bar:left/end/g3|$@2",
+   "bar:left/end/g3|$@3",
+   "bar:left/end/g3|$@4",
+   "bar:left/end/g3|$@5",
+   "bar:left/end/g3|$@6",
+   "bar:left/end/g3|$@7",
+   "bar:left/end/g3|$@8",
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$",
+   "bar:left/start/g3|$@1",
+   "bar:left/start/g3|$@2",
+   "bar:left/start/g3|$@3",
+   "bar:left/start/g3|$@4"
+  ],
+  "bar:right": [
+   "bar:right/center/g5|g4",
+   "bar:right/end/g4|$",
+   "bar:right/end/g5|g4",
+   "bar:right/end/g5|g4@1",
+   "bar:right/end/g5|g4@2",
+   "bar:right/end/g5|g4@3",
+   "bar:right/end/g5|g4@4",
+   "bar:right/end/g5|g4@5",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|g4",
+   "bar:right/start/g5|g4@1",
+   "bar:right/start/g5|g4@2",
+   "bar:right/start/g5|g4@3",
+   "bar:right/start/g5|g4@4"
+  ]
+ },
+ "s3|g1|pitched|0.5": {
+  "bar:bottom": [
+   "bar:bottom/center/g2|g0",
+   "bar:bottom/end/g0|$",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|g0",
+   "bar:bottom/start/g2|g0@1"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4"
+  ],
+  "bar:left": [
+   "bar:left/center/g3|$",
+   "bar:left/end/g3|$",
+   "bar:left/end/g3|$@1",
+   "bar:left/end/g3|$@2",
+   "bar:left/end/g3|$@3",
+   "bar:left/end/g3|$@4",
+   "bar:left/end/g3|$@5",
+   "bar:left/end/g3|$@6",
+   "bar:left/end/g3|$@7",
+   "bar:left/end/g3|$@8",
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$",
+   "bar:left/start/g3|$@1",
+   "bar:left/start/g3|$@2",
+   "bar:left/start/g3|$@3",
+   "bar:left/start/g3|$@4"
+  ],
+  "bar:right": [
+   "bar:right/center/g5|g4",
+   "bar:right/end/g4|$",
+   "bar:right/end/g5|g4",
+   "bar:right/end/g5|g4@1",
+   "bar:right/end/g5|g4@2",
+   "bar:right/end/g5|g4@3",
+   "bar:right/end/g5|g4@4",
+   "bar:right/end/g5|g4@5",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|g4",
+   "bar:right/start/g5|g4@1",
+   "bar:right/start/g5|g4@2",
+   "bar:right/start/g5|g4@3",
+   "bar:right/start/g5|g4@4"
+  ]
+ },
+ "s15|g0|free|0.02": {
+  "bar:bottom": [
+   "bar:bottom/start/^|g1",
+   "bar:bottom/start/g1|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s15|g0|free|0.5": {
+  "bar:bottom": [
+   "bar:bottom/start/^|g1",
+   "bar:bottom/start/g1|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s15|g0|pitched|0.02": {
+  "bar:bottom": [
+   "bar:bottom/center/g1|$",
+   "bar:bottom/end/g1|$",
+   "bar:bottom/end/g1|$@1",
+   "bar:bottom/end/g1|$@2",
+   "bar:bottom/end/g1|$@3",
+   "bar:bottom/end/g1|$@4",
+   "bar:bottom/end/g1|$@5",
+   "bar:bottom/end/g1|$@6",
+   "bar:bottom/end/g1|$@7",
+   "bar:bottom/start/^|g1",
+   "bar:bottom/start/g1|$",
+   "bar:bottom/start/g1|$@1"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/end/^|$@8",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@1",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/end/g2|$@4",
+   "bar:left/end/g2|$@5",
+   "bar:left/end/g2|$@6",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$",
+   "bar:left/start/g2|$@1",
+   "bar:left/start/g2|$@2",
+   "bar:left/start/g2|$@3",
+   "bar:left/start/g2|$@4",
+   "bar:left/start/g2|$@5"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/end/^|$@6",
+   "bar:right/end/^|$@7",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@6"
+  ]
+ },
+ "s15|g0|pitched|0.5": {
+  "bar:bottom": [
+   "bar:bottom/center/g1|$",
+   "bar:bottom/end/g1|$",
+   "bar:bottom/end/g1|$@1",
+   "bar:bottom/end/g1|$@2",
+   "bar:bottom/end/g1|$@3",
+   "bar:bottom/end/g1|$@4",
+   "bar:bottom/end/g1|$@5",
+   "bar:bottom/end/g1|$@6",
+   "bar:bottom/end/g1|$@7",
+   "bar:bottom/start/^|g1",
+   "bar:bottom/start/g1|$",
+   "bar:bottom/start/g1|$@1"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/end/^|$@8",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@1",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/end/g2|$@4",
+   "bar:left/end/g2|$@5",
+   "bar:left/end/g2|$@6",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$",
+   "bar:left/start/g2|$@1",
+   "bar:left/start/g2|$@2",
+   "bar:left/start/g2|$@3",
+   "bar:left/start/g2|$@4",
+   "bar:left/start/g2|$@5"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/end/^|$@6",
+   "bar:right/end/^|$@7",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@6"
+  ]
+ },
+ "s15|g1|free|0.02": {
+  "bar:bottom": [
+   "bar:bottom/start/^|g0",
+   "bar:bottom/start/g0|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s15|g1|free|0.5": {
+  "bar:bottom": [
+   "bar:bottom/start/^|g0",
+   "bar:bottom/start/g0|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s15|g1|pitched|0.02": {
+  "bar:bottom": [
+   "bar:bottom/center/g0|$",
+   "bar:bottom/end/g0|$",
+   "bar:bottom/end/g0|$@1",
+   "bar:bottom/end/g0|$@2",
+   "bar:bottom/end/g0|$@3",
+   "bar:bottom/end/g0|$@4",
+   "bar:bottom/end/g0|$@5",
+   "bar:bottom/start/^|g0",
+   "bar:bottom/start/g0|$",
+   "bar:bottom/start/g0|$@1",
+   "bar:bottom/start/g0|$@2",
+   "bar:bottom/start/g0|$@3"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@1",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/end/g2|$@4",
+   "bar:left/end/g2|$@5",
+   "bar:left/end/g2|$@6",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$",
+   "bar:left/start/g2|$@1",
+   "bar:left/start/g2|$@2",
+   "bar:left/start/g2|$@3",
+   "bar:left/start/g2|$@4",
+   "bar:left/start/g2|$@5"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/end/^|$@6",
+   "bar:right/end/^|$@7",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@6"
+  ]
+ },
+ "s15|g1|pitched|0.5": {
+  "bar:bottom": [
+   "bar:bottom/center/g0|$",
+   "bar:bottom/end/g0|$",
+   "bar:bottom/end/g0|$@1",
+   "bar:bottom/end/g0|$@2",
+   "bar:bottom/end/g0|$@3",
+   "bar:bottom/end/g0|$@4",
+   "bar:bottom/end/g0|$@5",
+   "bar:bottom/start/^|g0",
+   "bar:bottom/start/g0|$",
+   "bar:bottom/start/g0|$@1",
+   "bar:bottom/start/g0|$@2",
+   "bar:bottom/start/g0|$@3"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@1",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/end/g2|$@4",
+   "bar:left/end/g2|$@5",
+   "bar:left/end/g2|$@6",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$",
+   "bar:left/start/g2|$@1",
+   "bar:left/start/g2|$@2",
+   "bar:left/start/g2|$@3",
+   "bar:left/start/g2|$@4",
+   "bar:left/start/g2|$@5"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/end/^|$@6",
+   "bar:right/end/^|$@7",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@6"
+  ]
+ },
+ "s20|g0|free|0.02": {
+  "bar:top": [
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|g2",
+   "bar:top/start/g2|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/end/g3|$",
+   "bar:left/start/^|g4",
+   "bar:left/start/g4|g3@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|$@slide"
+  ]
+ },
+ "s20|g0|free|0.5": {
+  "bar:top": [
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|g2",
+   "bar:top/start/g2|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/end/g3|$",
+   "bar:left/start/^|g4",
+   "bar:left/start/g4|g3@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|$@slide"
+  ]
+ },
+ "s20|g0|pitched|0.02": {
+  "bar:top": [
+   "bar:top/center/g2|$",
+   "bar:top/end/g2|$",
+   "bar:top/end/g2|$@2",
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|g2"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3"
+  ],
+  "bar:inner": [
+   "bar:inner/center",
+   "bar:inner/end",
+   "bar:inner/end/^|$@2",
+   "bar:inner/end/^|$@3",
+   "bar:inner/end/^|$@4",
+   "bar:inner/start/^|$@1",
+   "bar:inner/start/^|$@2",
+   "bar:inner/start/^|$@3"
+  ],
+  "bar:left": [
+   "bar:left/center/g4|g3",
+   "bar:left/end/g3|$",
+   "bar:left/end/g4|g3",
+   "bar:left/end/g4|g3@2",
+   "bar:left/end/g4|g3@3",
+   "bar:left/end/g4|g3@4",
+   "bar:left/end/g4|g3@5",
+   "bar:left/end/g4|g3@6",
+   "bar:left/start/^|g4",
+   "bar:left/start/g4|g3",
+   "bar:left/start/g4|g3@1",
+   "bar:left/start/g4|g3@2",
+   "bar:left/start/g4|g3@3"
+  ],
+  "bar:right": [
+   "bar:right/center/g5|$",
+   "bar:right/end/g5|$",
+   "bar:right/end/g5|$@1",
+   "bar:right/end/g5|$@2",
+   "bar:right/end/g5|$@3",
+   "bar:right/end/g5|$@4",
+   "bar:right/end/g5|$@5",
+   "bar:right/end/g5|$@6",
+   "bar:right/end/g5|$@7",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|$",
+   "bar:right/start/g5|$@1",
+   "bar:right/start/g5|$@2",
+   "bar:right/start/g5|$@3",
+   "bar:right/start/g5|$@4",
+   "bar:right/start/g5|$@5"
+  ]
+ },
+ "s20|g0|pitched|0.5": {
+  "bar:top": [
+   "bar:top/center/g2|$",
+   "bar:top/end/g2|$",
+   "bar:top/end/g2|$@2",
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|g2"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3"
+  ],
+  "bar:inner": [
+   "bar:inner/center",
+   "bar:inner/end",
+   "bar:inner/end/^|$@2",
+   "bar:inner/end/^|$@3",
+   "bar:inner/end/^|$@4",
+   "bar:inner/start",
+   "bar:inner/start/^|$@1",
+   "bar:inner/start/^|$@2",
+   "bar:inner/start/^|$@3"
+  ],
+  "bar:left": [
+   "bar:left/center/g4|g3",
+   "bar:left/end/g3|$",
+   "bar:left/end/g4|g3",
+   "bar:left/end/g4|g3@2",
+   "bar:left/end/g4|g3@3",
+   "bar:left/end/g4|g3@4",
+   "bar:left/end/g4|g3@5",
+   "bar:left/end/g4|g3@6",
+   "bar:left/start/^|g4",
+   "bar:left/start/g4|g3",
+   "bar:left/start/g4|g3@1",
+   "bar:left/start/g4|g3@2",
+   "bar:left/start/g4|g3@3"
+  ],
+  "bar:right": [
+   "bar:right/center/g5|$",
+   "bar:right/end/g5|$",
+   "bar:right/end/g5|$@1",
+   "bar:right/end/g5|$@2",
+   "bar:right/end/g5|$@3",
+   "bar:right/end/g5|$@4",
+   "bar:right/end/g5|$@5",
+   "bar:right/end/g5|$@6",
+   "bar:right/end/g5|$@7",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|$",
+   "bar:right/start/g5|$@1",
+   "bar:right/start/g5|$@2",
+   "bar:right/start/g5|$@3",
+   "bar:right/start/g5|$@4",
+   "bar:right/start/g5|$@5"
+  ]
+ },
+ "s20|g1|free|0.02": {
+  "bar:top": [
+   "bar:top/end/g0|$",
+   "bar:top/start/^|g2",
+   "bar:top/start/g2|g0@slide"
+  ],
+  "bar:left": [
+   "bar:left/end/g3|$",
+   "bar:left/start/^|g4",
+   "bar:left/start/g4|g3@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|$@slide"
+  ]
+ },
+ "s20|g1|free|0.5": {
+  "bar:top": [
+   "bar:top/end/g0|$",
+   "bar:top/start/^|g2",
+   "bar:top/start/g2|g0@slide"
+  ],
+  "bar:left": [
+   "bar:left/end/g3|$",
+   "bar:left/start/^|g4",
+   "bar:left/start/g4|g3@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|$@slide"
+  ]
+ },
+ "s20|g1|pitched|0.02": {
+  "bar:top": [
+   "bar:top/center/g2|g0",
+   "bar:top/end/g0|$",
+   "bar:top/end/g2|g0",
+   "bar:top/start/^|g2",
+   "bar:top/start/g2|g0",
+   "bar:top/start/g2|g0@1"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6"
+  ],
+  "bar:inner": [
+   "bar:inner/center",
+   "bar:inner/end",
+   "bar:inner/end/^|$@2",
+   "bar:inner/end/^|$@3",
+   "bar:inner/end/^|$@4",
+   "bar:inner/end/^|$@5",
+   "bar:inner/end/^|$@6",
+   "bar:inner/end/^|$@7",
+   "bar:inner/start/^|$@1",
+   "bar:inner/start/^|$@2",
+   "bar:inner/start/^|$@3",
+   "bar:inner/start/^|$@4",
+   "bar:inner/start/^|$@5",
+   "bar:inner/start/^|$@6"
+  ],
+  "bar:left": [
+   "bar:left/center/g4|g3",
+   "bar:left/end/g3|$",
+   "bar:left/end/g4|g3",
+   "bar:left/end/g4|g3@2",
+   "bar:left/end/g4|g3@3",
+   "bar:left/end/g4|g3@4",
+   "bar:left/end/g4|g3@5",
+   "bar:left/end/g4|g3@6",
+   "bar:left/start/^|g4",
+   "bar:left/start/g4|g3",
+   "bar:left/start/g4|g3@1",
+   "bar:left/start/g4|g3@2",
+   "bar:left/start/g4|g3@3"
+  ],
+  "bar:right": [
+   "bar:right/center/g5|$",
+   "bar:right/end/g5|$",
+   "bar:right/end/g5|$@1",
+   "bar:right/end/g5|$@2",
+   "bar:right/end/g5|$@3",
+   "bar:right/end/g5|$@4",
+   "bar:right/end/g5|$@5",
+   "bar:right/end/g5|$@6",
+   "bar:right/end/g5|$@7",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|$",
+   "bar:right/start/g5|$@1",
+   "bar:right/start/g5|$@2",
+   "bar:right/start/g5|$@3",
+   "bar:right/start/g5|$@4",
+   "bar:right/start/g5|$@5"
+  ]
+ },
+ "s20|g1|pitched|0.5": {
+  "bar:top": [
+   "bar:top/center/g2|g0",
+   "bar:top/end/g0|$",
+   "bar:top/end/g2|g0",
+   "bar:top/start/^|g2",
+   "bar:top/start/g2|g0",
+   "bar:top/start/g2|g0@1"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6"
+  ],
+  "bar:inner": [
+   "bar:inner/center",
+   "bar:inner/end",
+   "bar:inner/end/^|$@2",
+   "bar:inner/end/^|$@3",
+   "bar:inner/end/^|$@4",
+   "bar:inner/end/^|$@5",
+   "bar:inner/end/^|$@6",
+   "bar:inner/end/^|$@7",
+   "bar:inner/start",
+   "bar:inner/start/^|$@1",
+   "bar:inner/start/^|$@2",
+   "bar:inner/start/^|$@3",
+   "bar:inner/start/^|$@4",
+   "bar:inner/start/^|$@5",
+   "bar:inner/start/^|$@6"
+  ],
+  "bar:left": [
+   "bar:left/center/g4|g3",
+   "bar:left/end/g3|$",
+   "bar:left/end/g4|g3",
+   "bar:left/end/g4|g3@2",
+   "bar:left/end/g4|g3@3",
+   "bar:left/end/g4|g3@4",
+   "bar:left/end/g4|g3@5",
+   "bar:left/end/g4|g3@6",
+   "bar:left/start/^|g4",
+   "bar:left/start/g4|g3",
+   "bar:left/start/g4|g3@1",
+   "bar:left/start/g4|g3@2",
+   "bar:left/start/g4|g3@3"
+  ],
+  "bar:right": [
+   "bar:right/center/g5|$",
+   "bar:right/end/g5|$",
+   "bar:right/end/g5|$@1",
+   "bar:right/end/g5|$@2",
+   "bar:right/end/g5|$@3",
+   "bar:right/end/g5|$@4",
+   "bar:right/end/g5|$@5",
+   "bar:right/end/g5|$@6",
+   "bar:right/end/g5|$@7",
+   "bar:right/start/^|g5",
+   "bar:right/start/g5|$",
+   "bar:right/start/g5|$@1",
+   "bar:right/start/g5|$@2",
+   "bar:right/start/g5|$@3",
+   "bar:right/start/g5|$@4",
+   "bar:right/start/g5|$@5"
+  ]
+ },
+ "s22|g0|free|0.02": {
+  "bar:inner": [
+   "bar:inner/start/^|g2",
+   "bar:inner/start/g2|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/end/g1|$",
+   "bar:left/start/^|g1@slide"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s22|g0|free|0.5": {
+  "bar:inner": [
+   "bar:inner/start/^|g2",
+   "bar:inner/start/g2|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/end/g1|$",
+   "bar:left/start/^|g1@slide"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s22|g0|pitched|0.02": {
+  "bar:left": [
+   "bar:left/center/^|g1",
+   "bar:left/end/^|g1",
+   "bar:left/end/^|g1@1",
+   "bar:left/end/^|g1@2",
+   "bar:left/end/g1|$",
+   "bar:left/start/^|g1",
+   "bar:left/start/^|g1@1",
+   "bar:left/start/^|g1@2",
+   "bar:left/start/^|g1@3",
+   "bar:left/start/^|g1@4"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [
+   "bar:inner/center/g2|$",
+   "bar:inner/end/g2|$",
+   "bar:inner/end/g2|$@1",
+   "bar:inner/end/g2|$@2",
+   "bar:inner/end/g2|$@3",
+   "bar:inner/end/g2|$@4",
+   "bar:inner/end/g2|$@5",
+   "bar:inner/end/g2|$@6",
+   "bar:inner/end/g2|$@7",
+   "bar:inner/end/g2|$@8",
+   "bar:inner/end/g2|$@9",
+   "bar:inner/start/^|g2",
+   "bar:inner/start/g2|$",
+   "bar:inner/start/g2|$@1",
+   "bar:inner/start/g2|$@2",
+   "bar:inner/start/g2|$@3",
+   "bar:inner/start/g2|$@4",
+   "bar:inner/start/g2|$@5",
+   "bar:inner/start/g2|$@6",
+   "bar:inner/start/g2|$@7",
+   "bar:inner/start/g2|$@8"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4"
+  ]
+ },
+ "s22|g0|pitched|0.5": {
+  "bar:left": [
+   "bar:left/center/^|g1",
+   "bar:left/end/^|g1",
+   "bar:left/end/^|g1@1",
+   "bar:left/end/^|g1@2",
+   "bar:left/end/g1|$",
+   "bar:left/start/^|g1",
+   "bar:left/start/^|g1@1",
+   "bar:left/start/^|g1@2",
+   "bar:left/start/^|g1@3",
+   "bar:left/start/^|g1@4"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [
+   "bar:inner/center/g2|$",
+   "bar:inner/end/g2|$",
+   "bar:inner/end/g2|$@1",
+   "bar:inner/end/g2|$@2",
+   "bar:inner/end/g2|$@3",
+   "bar:inner/end/g2|$@4",
+   "bar:inner/end/g2|$@5",
+   "bar:inner/end/g2|$@6",
+   "bar:inner/end/g2|$@7",
+   "bar:inner/end/g2|$@8",
+   "bar:inner/end/g2|$@9",
+   "bar:inner/start/^|g2",
+   "bar:inner/start/g2|$",
+   "bar:inner/start/g2|$@1",
+   "bar:inner/start/g2|$@2",
+   "bar:inner/start/g2|$@3",
+   "bar:inner/start/g2|$@4",
+   "bar:inner/start/g2|$@5",
+   "bar:inner/start/g2|$@6",
+   "bar:inner/start/g2|$@7",
+   "bar:inner/start/g2|$@8"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4"
+  ]
+ },
+ "s22|g1|free|0.02": {
+  "bar:inner": [
+   "bar:inner/start/^|g2",
+   "bar:inner/start/g2|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g0",
+   "bar:left/start/g0|$@slide"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s22|g1|free|0.5": {
+  "bar:inner": [
+   "bar:inner/start/^|g2",
+   "bar:inner/start/g2|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g0",
+   "bar:left/start/g0|$@slide"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s22|g1|pitched|0.02": {
+  "bar:left": [
+   "bar:left/center/g0|$",
+   "bar:left/end/g0|$",
+   "bar:left/end/g0|$@1",
+   "bar:left/end/g0|$@2",
+   "bar:left/end/g0|$@3",
+   "bar:left/end/g0|$@4",
+   "bar:left/end/g0|$@5",
+   "bar:left/start/^|g0",
+   "bar:left/start/g0|$",
+   "bar:left/start/g0|$@1"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@10",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [
+   "bar:inner/center/g2|$",
+   "bar:inner/end/g2|$",
+   "bar:inner/end/g2|$@10",
+   "bar:inner/end/g2|$@2",
+   "bar:inner/end/g2|$@3",
+   "bar:inner/end/g2|$@4",
+   "bar:inner/end/g2|$@5",
+   "bar:inner/end/g2|$@6",
+   "bar:inner/end/g2|$@7",
+   "bar:inner/end/g2|$@8",
+   "bar:inner/end/g2|$@9",
+   "bar:inner/start/^|g2",
+   "bar:inner/start/g2|$",
+   "bar:inner/start/g2|$@1",
+   "bar:inner/start/g2|$@2",
+   "bar:inner/start/g2|$@3",
+   "bar:inner/start/g2|$@4",
+   "bar:inner/start/g2|$@5",
+   "bar:inner/start/g2|$@6",
+   "bar:inner/start/g2|$@7",
+   "bar:inner/start/g2|$@8"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/end/^|$@6",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5"
+  ]
+ },
+ "s22|g1|pitched|0.5": {
+  "bar:left": [
+   "bar:left/center/g0|$",
+   "bar:left/end/g0|$",
+   "bar:left/end/g0|$@1",
+   "bar:left/end/g0|$@2",
+   "bar:left/end/g0|$@3",
+   "bar:left/end/g0|$@4",
+   "bar:left/end/g0|$@5",
+   "bar:left/start/^|g0",
+   "bar:left/start/g0|$",
+   "bar:left/start/g0|$@1"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@10",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [
+   "bar:inner/center/g2|$",
+   "bar:inner/end/g2|$",
+   "bar:inner/end/g2|$@10",
+   "bar:inner/end/g2|$@2",
+   "bar:inner/end/g2|$@3",
+   "bar:inner/end/g2|$@4",
+   "bar:inner/end/g2|$@5",
+   "bar:inner/end/g2|$@6",
+   "bar:inner/end/g2|$@7",
+   "bar:inner/end/g2|$@8",
+   "bar:inner/end/g2|$@9",
+   "bar:inner/start/^|g2",
+   "bar:inner/start/g2|$",
+   "bar:inner/start/g2|$@1",
+   "bar:inner/start/g2|$@2",
+   "bar:inner/start/g2|$@3",
+   "bar:inner/start/g2|$@4",
+   "bar:inner/start/g2|$@5",
+   "bar:inner/start/g2|$@6",
+   "bar:inner/start/g2|$@7",
+   "bar:inner/start/g2|$@8"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/end/^|$@6",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5"
+  ]
+ },
+ "s25|g0|free|0.02": {
+  "bar:left": [
+   "bar:left/start/^|g1",
+   "bar:left/start/g1|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|g3",
+   "bar:inner/start/g3|g4",
+   "bar:inner/start/g4|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g2",
+   "bar:right/start/g2|$@slide"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ]
+ },
+ "s25|g0|free|0.5": {
+  "bar:left": [
+   "bar:left/start/^|g1",
+   "bar:left/start/g1|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|g3",
+   "bar:inner/start/g3|g4",
+   "bar:inner/start/g4|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g2",
+   "bar:right/start/g2|$@slide"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ]
+ },
+ "s25|g0|pitched|0.02": {
+  "bar:left": [
+   "bar:left/center/g1|$",
+   "bar:left/end/g1|$",
+   "bar:left/end/g1|$@2",
+   "bar:left/end/g1|$@3",
+   "bar:left/end/g1|$@4",
+   "bar:left/end/g1|$@5",
+   "bar:left/end/g1|$@6",
+   "bar:left/end/g1|$@7",
+   "bar:left/start/^|g1",
+   "bar:left/start/g1|$",
+   "bar:left/start/g1|$@1",
+   "bar:left/start/g1|$@2",
+   "bar:left/start/g1|$@3",
+   "bar:left/start/g1|$@4"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@10",
+   "bar:top/end/^|$@11",
+   "bar:top/end/^|$@12",
+   "bar:top/end/^|$@13",
+   "bar:top/end/^|$@14",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/end/^|$@8",
+   "bar:top/end/^|$@9",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@10",
+   "bar:top/start/^|$@11",
+   "bar:top/start/^|$@12",
+   "bar:top/start/^|$@13",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8",
+   "bar:top/start/^|$@9"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@10",
+   "bar:bottom/end/^|$@11",
+   "bar:bottom/end/^|$@12",
+   "bar:bottom/end/^|$@13",
+   "bar:bottom/end/^|$@14",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@11",
+   "bar:bottom/start/^|$@12",
+   "bar:bottom/start/^|$@13",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [],
+  "bar:right": [
+   "bar:right/center/g2|$",
+   "bar:right/end/g2|$",
+   "bar:right/end/g2|$@1",
+   "bar:right/end/g2|$@2",
+   "bar:right/end/g2|$@3",
+   "bar:right/end/g2|$@4",
+   "bar:right/end/g2|$@5",
+   "bar:right/end/g2|$@6",
+   "bar:right/end/g2|$@7",
+   "bar:right/start/^|g2",
+   "bar:right/start/g2|$",
+   "bar:right/start/g2|$@1",
+   "bar:right/start/g2|$@2",
+   "bar:right/start/g2|$@3"
+  ]
+ },
+ "s25|g0|pitched|0.5": {
+  "bar:left": [
+   "bar:left/center/g1|$",
+   "bar:left/end/g1|$",
+   "bar:left/end/g1|$@2",
+   "bar:left/end/g1|$@3",
+   "bar:left/end/g1|$@4",
+   "bar:left/end/g1|$@5",
+   "bar:left/end/g1|$@6",
+   "bar:left/end/g1|$@7",
+   "bar:left/start/^|g1",
+   "bar:left/start/g1|$",
+   "bar:left/start/g1|$@1",
+   "bar:left/start/g1|$@2",
+   "bar:left/start/g1|$@3",
+   "bar:left/start/g1|$@4"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@10",
+   "bar:top/end/^|$@11",
+   "bar:top/end/^|$@12",
+   "bar:top/end/^|$@13",
+   "bar:top/end/^|$@14",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/end/^|$@8",
+   "bar:top/end/^|$@9",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@10",
+   "bar:top/start/^|$@11",
+   "bar:top/start/^|$@12",
+   "bar:top/start/^|$@13",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8",
+   "bar:top/start/^|$@9"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@10",
+   "bar:bottom/end/^|$@11",
+   "bar:bottom/end/^|$@12",
+   "bar:bottom/end/^|$@13",
+   "bar:bottom/end/^|$@14",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@11",
+   "bar:bottom/start/^|$@12",
+   "bar:bottom/start/^|$@13",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [],
+  "bar:right": [
+   "bar:right/center/g2|$",
+   "bar:right/end/g2|$",
+   "bar:right/end/g2|$@1",
+   "bar:right/end/g2|$@2",
+   "bar:right/end/g2|$@3",
+   "bar:right/end/g2|$@4",
+   "bar:right/end/g2|$@5",
+   "bar:right/end/g2|$@6",
+   "bar:right/end/g2|$@7",
+   "bar:right/start/^|g2",
+   "bar:right/start/g2|$",
+   "bar:right/start/g2|$@1",
+   "bar:right/start/g2|$@2",
+   "bar:right/start/g2|$@3"
+  ]
+ },
+ "s25|g1|free|0.02": {
+  "bar:inner": [
+   "bar:inner/start/^|g3",
+   "bar:inner/start/g3|g4",
+   "bar:inner/start/g4|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g0",
+   "bar:left/start/g0|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g2",
+   "bar:right/start/g2|$@slide"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ]
+ },
+ "s25|g1|free|0.5": {
+  "bar:inner": [
+   "bar:inner/start/^|g3",
+   "bar:inner/start/g3|g4",
+   "bar:inner/start/g4|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g0",
+   "bar:left/start/g0|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g2",
+   "bar:right/start/g2|$@slide"
+  ],
+  "bar:top": [],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ]
+ },
+ "s25|g1|pitched|0.02": {
+  "bar:left": [
+   "bar:left/center/g0|$",
+   "bar:left/end/g0|$",
+   "bar:left/end/g0|$@2",
+   "bar:left/end/g0|$@3",
+   "bar:left/end/g0|$@4",
+   "bar:left/end/g0|$@5",
+   "bar:left/end/g0|$@6",
+   "bar:left/end/g0|$@7",
+   "bar:left/end/g0|$@8",
+   "bar:left/start/^|g0",
+   "bar:left/start/g0|$",
+   "bar:left/start/g0|$@1",
+   "bar:left/start/g0|$@2",
+   "bar:left/start/g0|$@3"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@10",
+   "bar:top/end/^|$@11",
+   "bar:top/end/^|$@12",
+   "bar:top/end/^|$@13",
+   "bar:top/end/^|$@14",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/end/^|$@8",
+   "bar:top/end/^|$@9",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@10",
+   "bar:top/start/^|$@11",
+   "bar:top/start/^|$@12",
+   "bar:top/start/^|$@13",
+   "bar:top/start/^|$@14",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8",
+   "bar:top/start/^|$@9"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@10",
+   "bar:bottom/end/^|$@11",
+   "bar:bottom/end/^|$@12",
+   "bar:bottom/end/^|$@13",
+   "bar:bottom/end/^|$@14",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@11",
+   "bar:bottom/start/^|$@12",
+   "bar:bottom/start/^|$@13",
+   "bar:bottom/start/^|$@14",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [],
+  "bar:right": [
+   "bar:right/center/g2|$",
+   "bar:right/end/g2|$",
+   "bar:right/end/g2|$@2",
+   "bar:right/end/g2|$@3",
+   "bar:right/end/g2|$@4",
+   "bar:right/end/g2|$@5",
+   "bar:right/end/g2|$@6",
+   "bar:right/end/g2|$@7",
+   "bar:right/end/g2|$@8",
+   "bar:right/start/^|g2",
+   "bar:right/start/g2|$",
+   "bar:right/start/g2|$@1",
+   "bar:right/start/g2|$@2",
+   "bar:right/start/g2|$@3"
+  ]
+ },
+ "s25|g1|pitched|0.5": {
+  "bar:left": [
+   "bar:left/center/g0|$",
+   "bar:left/end/g0|$",
+   "bar:left/end/g0|$@2",
+   "bar:left/end/g0|$@3",
+   "bar:left/end/g0|$@4",
+   "bar:left/end/g0|$@5",
+   "bar:left/end/g0|$@6",
+   "bar:left/end/g0|$@7",
+   "bar:left/end/g0|$@8",
+   "bar:left/start/^|g0",
+   "bar:left/start/g0|$",
+   "bar:left/start/g0|$@1",
+   "bar:left/start/g0|$@2",
+   "bar:left/start/g0|$@3"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@10",
+   "bar:top/end/^|$@11",
+   "bar:top/end/^|$@12",
+   "bar:top/end/^|$@13",
+   "bar:top/end/^|$@14",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/end/^|$@8",
+   "bar:top/end/^|$@9",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@10",
+   "bar:top/start/^|$@11",
+   "bar:top/start/^|$@12",
+   "bar:top/start/^|$@13",
+   "bar:top/start/^|$@14",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8",
+   "bar:top/start/^|$@9"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@10",
+   "bar:bottom/end/^|$@11",
+   "bar:bottom/end/^|$@12",
+   "bar:bottom/end/^|$@13",
+   "bar:bottom/end/^|$@14",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@11",
+   "bar:bottom/start/^|$@12",
+   "bar:bottom/start/^|$@13",
+   "bar:bottom/start/^|$@14",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [],
+  "bar:right": [
+   "bar:right/center/g2|$",
+   "bar:right/end/g2|$",
+   "bar:right/end/g2|$@2",
+   "bar:right/end/g2|$@3",
+   "bar:right/end/g2|$@4",
+   "bar:right/end/g2|$@5",
+   "bar:right/end/g2|$@6",
+   "bar:right/end/g2|$@7",
+   "bar:right/end/g2|$@8",
+   "bar:right/start/^|g2",
+   "bar:right/start/g2|$",
+   "bar:right/start/g2|$@1",
+   "bar:right/start/g2|$@2",
+   "bar:right/start/g2|$@3"
+  ]
+ },
+ "s28|g0|free|0.02": {
+  "bar:top": [
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ]
+ },
+ "s28|g0|free|0.5": {
+  "bar:top": [
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ]
+ },
+ "s28|g0|pitched|0.02": {
+  "bar:top": [
+   "bar:top/center/g1|$",
+   "bar:top/end/g1|$",
+   "bar:top/end/g1|$@1",
+   "bar:top/end/g1|$@2",
+   "bar:top/end/g1|$@3",
+   "bar:top/end/g1|$@4",
+   "bar:top/end/g1|$@5",
+   "bar:top/end/g1|$@6",
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|$",
+   "bar:top/start/g1|$@1"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/end/g2|$@4",
+   "bar:left/end/g2|$@5",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$",
+   "bar:left/start/g2|$@1",
+   "bar:left/start/g2|$@2"
+  ],
+  "bar:right": [
+   "bar:right/center/g3|$",
+   "bar:right/end/g3|$",
+   "bar:right/end/g3|$@2",
+   "bar:right/end/g3|$@3",
+   "bar:right/end/g3|$@4",
+   "bar:right/end/g3|$@5",
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$"
+  ]
+ },
+ "s28|g0|pitched|0.5": {
+  "bar:top": [
+   "bar:top/center/g1|$",
+   "bar:top/end/g1|$",
+   "bar:top/end/g1|$@1",
+   "bar:top/end/g1|$@2",
+   "bar:top/end/g1|$@3",
+   "bar:top/end/g1|$@4",
+   "bar:top/end/g1|$@5",
+   "bar:top/end/g1|$@6",
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|$",
+   "bar:top/start/g1|$@1"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/end/g2|$@4",
+   "bar:left/end/g2|$@5",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$",
+   "bar:left/start/g2|$@1",
+   "bar:left/start/g2|$@2"
+  ],
+  "bar:right": [
+   "bar:right/center/g3|$",
+   "bar:right/end/g3|$",
+   "bar:right/end/g3|$@2",
+   "bar:right/end/g3|$@3",
+   "bar:right/end/g3|$@4",
+   "bar:right/end/g3|$@5",
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$"
+  ]
+ },
+ "s28|g1|free|0.02": {
+  "bar:top": [
+   "bar:top/end/g0|$",
+   "bar:top/start/^|g0@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|$@slide"
+  ]
+ },
+ "s28|g1|free|0.5": {
+  "bar:top": [
+   "bar:top/end/g0|$",
+   "bar:top/start/^|g0@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|$@slide"
+  ]
+ },
+ "s28|g1|pitched|0.02": {
+  "bar:top": [
+   "bar:top/center/^|g0",
+   "bar:top/end/^|g0",
+   "bar:top/end/^|g0@1",
+   "bar:top/end/^|g0@2",
+   "bar:top/end/g0|$",
+   "bar:top/start/^|g0",
+   "bar:top/start/^|g0@1",
+   "bar:top/start/^|g0@2",
+   "bar:top/start/^|g0@3",
+   "bar:top/start/^|g0@4",
+   "bar:top/start/^|g0@5"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5"
+  ],
+  "bar:inner": [
+   "bar:inner/center",
+   "bar:inner/end",
+   "bar:inner/end/^|$@1",
+   "bar:inner/end/^|$@2",
+   "bar:inner/end/^|$@3",
+   "bar:inner/end/^|$@4",
+   "bar:inner/end/^|$@5",
+   "bar:inner/end/^|$@6",
+   "bar:inner/end/^|$@7",
+   "bar:inner/start/^|$@1",
+   "bar:inner/start/^|$@2",
+   "bar:inner/start/^|$@3",
+   "bar:inner/start/^|$@4",
+   "bar:inner/start/^|$@5",
+   "bar:inner/start/^|$@6",
+   "bar:inner/start/^|$@7"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/end/g2|$@4",
+   "bar:left/end/g2|$@5",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$",
+   "bar:left/start/g2|$@1",
+   "bar:left/start/g2|$@2",
+   "bar:left/start/g2|$@3"
+  ],
+  "bar:right": [
+   "bar:right/center/g3|$",
+   "bar:right/end/g3|$",
+   "bar:right/end/g3|$@2",
+   "bar:right/end/g3|$@3",
+   "bar:right/end/g3|$@4",
+   "bar:right/end/g3|$@5",
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$",
+   "bar:right/start/g3|$@1"
+  ]
+ },
+ "s28|g1|pitched|0.5": {
+  "bar:top": [
+   "bar:top/center/^|g0",
+   "bar:top/end/^|g0",
+   "bar:top/end/^|g0@1",
+   "bar:top/end/^|g0@2",
+   "bar:top/end/g0|$",
+   "bar:top/start/^|g0",
+   "bar:top/start/^|g0@1",
+   "bar:top/start/^|g0@2",
+   "bar:top/start/^|g0@3",
+   "bar:top/start/^|g0@4",
+   "bar:top/start/^|g0@5"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5"
+  ],
+  "bar:inner": [
+   "bar:inner/center",
+   "bar:inner/end",
+   "bar:inner/end/^|$@1",
+   "bar:inner/end/^|$@2",
+   "bar:inner/end/^|$@3",
+   "bar:inner/end/^|$@4",
+   "bar:inner/end/^|$@5",
+   "bar:inner/end/^|$@6",
+   "bar:inner/end/^|$@7",
+   "bar:inner/start",
+   "bar:inner/start/^|$@1",
+   "bar:inner/start/^|$@2",
+   "bar:inner/start/^|$@3",
+   "bar:inner/start/^|$@4",
+   "bar:inner/start/^|$@5",
+   "bar:inner/start/^|$@6",
+   "bar:inner/start/^|$@7"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/end/g2|$@4",
+   "bar:left/end/g2|$@5",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$",
+   "bar:left/start/g2|$@1",
+   "bar:left/start/g2|$@2",
+   "bar:left/start/g2|$@3"
+  ],
+  "bar:right": [
+   "bar:right/center/g3|$",
+   "bar:right/end/g3|$",
+   "bar:right/end/g3|$@2",
+   "bar:right/end/g3|$@3",
+   "bar:right/end/g3|$@4",
+   "bar:right/end/g3|$@5",
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$",
+   "bar:right/start/g3|$@1"
+  ]
+ },
+ "s47|g0|free|0.02": {
+  "bar:top": [
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|g2",
+   "bar:top/start/g2|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|g4",
+   "bar:inner/start/g4|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s47|g0|free|0.5": {
+  "bar:top": [
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|g2",
+   "bar:top/start/g2|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|g4",
+   "bar:inner/start/g4|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s47|g0|pitched|0.02": {
+  "bar:top": [
+   "bar:top/center/g2|$",
+   "bar:top/end/g2|$",
+   "bar:top/end/g2|$@10",
+   "bar:top/end/g2|$@11",
+   "bar:top/end/g2|$@12",
+   "bar:top/end/g2|$@13",
+   "bar:top/end/g2|$@2",
+   "bar:top/end/g2|$@3",
+   "bar:top/end/g2|$@4",
+   "bar:top/end/g2|$@5",
+   "bar:top/end/g2|$@6",
+   "bar:top/end/g2|$@7",
+   "bar:top/end/g2|$@8",
+   "bar:top/end/g2|$@9",
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|g2",
+   "bar:top/start/g2|$",
+   "bar:top/start/g2|$@1"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@10",
+   "bar:bottom/end/^|$@11",
+   "bar:bottom/end/^|$@12",
+   "bar:bottom/end/^|$@13",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@11",
+   "bar:bottom/start/^|$@12",
+   "bar:bottom/start/^|$@13",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [
+   "bar:inner/center/g4|$",
+   "bar:inner/end/g4|$",
+   "bar:inner/end/g4|$@1",
+   "bar:inner/end/g4|$@10",
+   "bar:inner/end/g4|$@11",
+   "bar:inner/end/g4|$@12",
+   "bar:inner/end/g4|$@13",
+   "bar:inner/end/g4|$@2",
+   "bar:inner/end/g4|$@3",
+   "bar:inner/end/g4|$@4",
+   "bar:inner/end/g4|$@5",
+   "bar:inner/end/g4|$@6",
+   "bar:inner/end/g4|$@7",
+   "bar:inner/end/g4|$@8",
+   "bar:inner/end/g4|$@9",
+   "bar:inner/start/^|g4",
+   "bar:inner/start/g4|$",
+   "bar:inner/start/g4|$@1",
+   "bar:inner/start/g4|$@2",
+   "bar:inner/start/g4|$@3",
+   "bar:inner/start/g4|$@4",
+   "bar:inner/start/g4|$@5",
+   "bar:inner/start/g4|$@6",
+   "bar:inner/start/g4|$@7",
+   "bar:inner/start/g4|$@8"
+  ],
+  "bar:left": [
+   "bar:left/center/g3|$",
+   "bar:left/end/g3|$",
+   "bar:left/end/g3|$@2",
+   "bar:left/end/g3|$@3",
+   "bar:left/end/g3|$@4",
+   "bar:left/end/g3|$@5",
+   "bar:left/end/g3|$@6",
+   "bar:left/end/g3|$@7",
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$",
+   "bar:left/start/g3|$@1",
+   "bar:left/start/g3|$@2",
+   "bar:left/start/g3|$@3",
+   "bar:left/start/g3|$@4"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/end/^|$@6",
+   "bar:right/end/^|$@7",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@6",
+   "bar:right/start/^|$@7"
+  ]
+ },
+ "s47|g0|pitched|0.5": {
+  "bar:top": [
+   "bar:top/center/g2|$",
+   "bar:top/end/g2|$",
+   "bar:top/end/g2|$@10",
+   "bar:top/end/g2|$@11",
+   "bar:top/end/g2|$@12",
+   "bar:top/end/g2|$@13",
+   "bar:top/end/g2|$@2",
+   "bar:top/end/g2|$@3",
+   "bar:top/end/g2|$@4",
+   "bar:top/end/g2|$@5",
+   "bar:top/end/g2|$@6",
+   "bar:top/end/g2|$@7",
+   "bar:top/end/g2|$@8",
+   "bar:top/end/g2|$@9",
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|g2",
+   "bar:top/start/g2|$",
+   "bar:top/start/g2|$@1"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@10",
+   "bar:bottom/end/^|$@11",
+   "bar:bottom/end/^|$@12",
+   "bar:bottom/end/^|$@13",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@11",
+   "bar:bottom/start/^|$@12",
+   "bar:bottom/start/^|$@13",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [
+   "bar:inner/center/g4|$",
+   "bar:inner/end/g4|$",
+   "bar:inner/end/g4|$@1",
+   "bar:inner/end/g4|$@10",
+   "bar:inner/end/g4|$@11",
+   "bar:inner/end/g4|$@12",
+   "bar:inner/end/g4|$@13",
+   "bar:inner/end/g4|$@2",
+   "bar:inner/end/g4|$@3",
+   "bar:inner/end/g4|$@4",
+   "bar:inner/end/g4|$@5",
+   "bar:inner/end/g4|$@6",
+   "bar:inner/end/g4|$@7",
+   "bar:inner/end/g4|$@8",
+   "bar:inner/end/g4|$@9",
+   "bar:inner/start/^|g4",
+   "bar:inner/start/g4|$",
+   "bar:inner/start/g4|$@1",
+   "bar:inner/start/g4|$@2",
+   "bar:inner/start/g4|$@3",
+   "bar:inner/start/g4|$@4",
+   "bar:inner/start/g4|$@5",
+   "bar:inner/start/g4|$@6",
+   "bar:inner/start/g4|$@7",
+   "bar:inner/start/g4|$@8"
+  ],
+  "bar:left": [
+   "bar:left/center/g3|$",
+   "bar:left/end/g3|$",
+   "bar:left/end/g3|$@2",
+   "bar:left/end/g3|$@3",
+   "bar:left/end/g3|$@4",
+   "bar:left/end/g3|$@5",
+   "bar:left/end/g3|$@6",
+   "bar:left/end/g3|$@7",
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$",
+   "bar:left/start/g3|$@1",
+   "bar:left/start/g3|$@2",
+   "bar:left/start/g3|$@3",
+   "bar:left/start/g3|$@4"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/end/^|$@6",
+   "bar:right/end/^|$@7",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@6",
+   "bar:right/start/^|$@7"
+  ]
+ },
+ "s47|g1|free|0.02": {
+  "bar:top": [
+   "bar:top/start/^|g0",
+   "bar:top/start/g0|g2",
+   "bar:top/start/g2|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|g4",
+   "bar:inner/start/g4|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s47|g1|free|0.5": {
+  "bar:top": [
+   "bar:top/start/^|g0",
+   "bar:top/start/g0|g2",
+   "bar:top/start/g2|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|g4",
+   "bar:inner/start/g4|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "s47|g1|pitched|0.02": {
+  "bar:top": [
+   "bar:top/center/g2|$",
+   "bar:top/end/g2|$",
+   "bar:top/end/g2|$@10",
+   "bar:top/end/g2|$@11",
+   "bar:top/end/g2|$@2",
+   "bar:top/end/g2|$@3",
+   "bar:top/end/g2|$@4",
+   "bar:top/end/g2|$@5",
+   "bar:top/end/g2|$@6",
+   "bar:top/end/g2|$@7",
+   "bar:top/end/g2|$@8",
+   "bar:top/end/g2|$@9",
+   "bar:top/start/^|g0",
+   "bar:top/start/g0|g2",
+   "bar:top/start/g2|$",
+   "bar:top/start/g2|$@1",
+   "bar:top/start/g2|$@2",
+   "bar:top/start/g2|$@3"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@10",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@11",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [
+   "bar:inner/center/g4|$",
+   "bar:inner/end/g4|$",
+   "bar:inner/end/g4|$@10",
+   "bar:inner/end/g4|$@11",
+   "bar:inner/end/g4|$@2",
+   "bar:inner/end/g4|$@3",
+   "bar:inner/end/g4|$@4",
+   "bar:inner/end/g4|$@5",
+   "bar:inner/end/g4|$@6",
+   "bar:inner/end/g4|$@7",
+   "bar:inner/end/g4|$@8",
+   "bar:inner/end/g4|$@9",
+   "bar:inner/start/^|g4",
+   "bar:inner/start/g4|$",
+   "bar:inner/start/g4|$@1",
+   "bar:inner/start/g4|$@2",
+   "bar:inner/start/g4|$@3",
+   "bar:inner/start/g4|$@4",
+   "bar:inner/start/g4|$@5"
+  ],
+  "bar:left": [
+   "bar:left/center/g3|$",
+   "bar:left/end/g3|$",
+   "bar:left/end/g3|$@1",
+   "bar:left/end/g3|$@2",
+   "bar:left/end/g3|$@3",
+   "bar:left/end/g3|$@4",
+   "bar:left/end/g3|$@5",
+   "bar:left/end/g3|$@6",
+   "bar:left/end/g3|$@7",
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$",
+   "bar:left/start/g3|$@1",
+   "bar:left/start/g3|$@2",
+   "bar:left/start/g3|$@3",
+   "bar:left/start/g3|$@4",
+   "bar:left/start/g3|$@5"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/end/^|$@6",
+   "bar:right/end/^|$@7",
+   "bar:right/end/^|$@8",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@6",
+   "bar:right/start/^|$@7",
+   "bar:right/start/^|$@8"
+  ]
+ },
+ "s47|g1|pitched|0.5": {
+  "bar:top": [
+   "bar:top/center/g2|$",
+   "bar:top/end/g2|$",
+   "bar:top/end/g2|$@10",
+   "bar:top/end/g2|$@11",
+   "bar:top/end/g2|$@2",
+   "bar:top/end/g2|$@3",
+   "bar:top/end/g2|$@4",
+   "bar:top/end/g2|$@5",
+   "bar:top/end/g2|$@6",
+   "bar:top/end/g2|$@7",
+   "bar:top/end/g2|$@8",
+   "bar:top/end/g2|$@9",
+   "bar:top/start/^|g0",
+   "bar:top/start/g0|g2",
+   "bar:top/start/g2|$",
+   "bar:top/start/g2|$@1",
+   "bar:top/start/g2|$@2",
+   "bar:top/start/g2|$@3"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@10",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/end/^|$@8",
+   "bar:bottom/end/^|$@9",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@10",
+   "bar:bottom/start/^|$@11",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8",
+   "bar:bottom/start/^|$@9"
+  ],
+  "bar:inner": [
+   "bar:inner/center/g4|$",
+   "bar:inner/end/g4|$",
+   "bar:inner/end/g4|$@10",
+   "bar:inner/end/g4|$@11",
+   "bar:inner/end/g4|$@2",
+   "bar:inner/end/g4|$@3",
+   "bar:inner/end/g4|$@4",
+   "bar:inner/end/g4|$@5",
+   "bar:inner/end/g4|$@6",
+   "bar:inner/end/g4|$@7",
+   "bar:inner/end/g4|$@8",
+   "bar:inner/end/g4|$@9",
+   "bar:inner/start/^|g4",
+   "bar:inner/start/g4|$",
+   "bar:inner/start/g4|$@1",
+   "bar:inner/start/g4|$@2",
+   "bar:inner/start/g4|$@3",
+   "bar:inner/start/g4|$@4",
+   "bar:inner/start/g4|$@5"
+  ],
+  "bar:left": [
+   "bar:left/center/g3|$",
+   "bar:left/end/g3|$",
+   "bar:left/end/g3|$@1",
+   "bar:left/end/g3|$@2",
+   "bar:left/end/g3|$@3",
+   "bar:left/end/g3|$@4",
+   "bar:left/end/g3|$@5",
+   "bar:left/end/g3|$@6",
+   "bar:left/end/g3|$@7",
+   "bar:left/start/^|g3",
+   "bar:left/start/g3|$",
+   "bar:left/start/g3|$@1",
+   "bar:left/start/g3|$@2",
+   "bar:left/start/g3|$@3",
+   "bar:left/start/g3|$@4",
+   "bar:left/start/g3|$@5"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/end/^|$@4",
+   "bar:right/end/^|$@5",
+   "bar:right/end/^|$@6",
+   "bar:right/end/^|$@7",
+   "bar:right/end/^|$@8",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@6",
+   "bar:right/start/^|$@7",
+   "bar:right/start/^|$@8"
+  ]
+ },
+ "s62|g0|free|0.02": {
+  "bar:bottom": [
+   "bar:bottom/end/g1|$",
+   "bar:bottom/start/^|g1@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ]
+ },
+ "s62|g0|free|0.5": {
+  "bar:bottom": [
+   "bar:bottom/end/g1|$",
+   "bar:bottom/start/^|g1@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ]
+ },
+ "s62|g0|pitched|0.02": {
+  "bar:bottom": [
+   "bar:bottom/center/^|g1",
+   "bar:bottom/end/^|g1",
+   "bar:bottom/end/^|g1@1",
+   "bar:bottom/end/^|g1@2",
+   "bar:bottom/end/g1|$",
+   "bar:bottom/start/^|g1",
+   "bar:bottom/start/^|g1@1",
+   "bar:bottom/start/^|g1@2",
+   "bar:bottom/start/^|g1@3",
+   "bar:bottom/start/^|g1@4",
+   "bar:bottom/start/^|g1@5",
+   "bar:bottom/start/^|g1@6",
+   "bar:bottom/start/^|g1@7"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$",
+   "bar:left/start/g2|$@1",
+   "bar:left/start/g2|$@2"
+  ],
+  "bar:right": [
+   "bar:right/center/g3|$",
+   "bar:right/end/g3|$",
+   "bar:right/end/g3|$@2",
+   "bar:right/end/g3|$@3",
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$"
+  ]
+ },
+ "s62|g0|pitched|0.5": {
+  "bar:bottom": [
+   "bar:bottom/center/^|g1",
+   "bar:bottom/end/^|g1",
+   "bar:bottom/end/^|g1@1",
+   "bar:bottom/end/^|g1@2",
+   "bar:bottom/end/g1|$",
+   "bar:bottom/start/^|g1",
+   "bar:bottom/start/^|g1@1",
+   "bar:bottom/start/^|g1@2",
+   "bar:bottom/start/^|g1@3",
+   "bar:bottom/start/^|g1@4",
+   "bar:bottom/start/^|g1@5",
+   "bar:bottom/start/^|g1@6",
+   "bar:bottom/start/^|g1@7"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$",
+   "bar:left/start/g2|$@1",
+   "bar:left/start/g2|$@2"
+  ],
+  "bar:right": [
+   "bar:right/center/g3|$",
+   "bar:right/end/g3|$",
+   "bar:right/end/g3|$@2",
+   "bar:right/end/g3|$@3",
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$"
+  ]
+ },
+ "s62|g1|free|0.02": {
+  "bar:bottom": [
+   "bar:bottom/end/g0|$",
+   "bar:bottom/start/^|g0@slide"
+  ],
+  "bar:inner": [],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ]
+ },
+ "s62|g1|free|0.5": {
+  "bar:bottom": [
+   "bar:bottom/end/g0|$",
+   "bar:bottom/start/^|g0@slide"
+  ],
+  "bar:inner": [],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ]
+ },
+ "s62|g1|pitched|0.02": {
+  "bar:bottom": [
+   "bar:bottom/center/^|g0",
+   "bar:bottom/end/^|g0",
+   "bar:bottom/end/^|g0@1",
+   "bar:bottom/end/^|g0@2",
+   "bar:bottom/end/g0|$",
+   "bar:bottom/start/^|g0",
+   "bar:bottom/start/^|g0@1",
+   "bar:bottom/start/^|g0@2",
+   "bar:bottom/start/^|g0@3",
+   "bar:bottom/start/^|g0@4",
+   "bar:bottom/start/^|g0@5",
+   "bar:bottom/start/^|g0@6",
+   "bar:bottom/start/^|g0@7"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7"
+  ],
+  "bar:inner": [],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@1",
+   "bar:left/end/g2|$@2",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:right": [
+   "bar:right/end/g3|$",
+   "bar:right/end/g3|$@2",
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$"
+  ]
+ },
+ "s62|g1|pitched|0.5": {
+  "bar:bottom": [
+   "bar:bottom/center/^|g0",
+   "bar:bottom/end/^|g0",
+   "bar:bottom/end/^|g0@1",
+   "bar:bottom/end/^|g0@2",
+   "bar:bottom/end/g0|$",
+   "bar:bottom/start/^|g0",
+   "bar:bottom/start/^|g0@1",
+   "bar:bottom/start/^|g0@2",
+   "bar:bottom/start/^|g0@3",
+   "bar:bottom/start/^|g0@4",
+   "bar:bottom/start/^|g0@5",
+   "bar:bottom/start/^|g0@6",
+   "bar:bottom/start/^|g0@7"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7"
+  ],
+  "bar:inner": [],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@1",
+   "bar:left/end/g2|$@2",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:right": [
+   "bar:right/end/g3|$",
+   "bar:right/end/g3|$@2",
+   "bar:right/start/^|g3",
+   "bar:right/start/g3|$"
+  ]
+ },
+ "s67|g0|free|0.02": {
+  "bar:top": [
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|$@slide"
+  ]
+ },
+ "s67|g0|free|0.5": {
+  "bar:top": [
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|$@slide"
+  ]
+ },
+ "s67|g0|pitched|0.02": {
+  "bar:top": [
+   "bar:top/center/g1|$",
+   "bar:top/end/g1|$",
+   "bar:top/end/g1|$@1",
+   "bar:top/end/g1|$@2",
+   "bar:top/end/g1|$@3",
+   "bar:top/end/g1|$@4",
+   "bar:top/end/g1|$@5",
+   "bar:top/end/g1|$@6",
+   "bar:top/end/g1|$@7",
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|$",
+   "bar:top/start/g1|$@1",
+   "bar:top/start/g1|$@2",
+   "bar:top/start/g1|$@3",
+   "bar:top/start/g1|$@4",
+   "bar:top/start/g1|$@5"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8"
+  ],
+  "bar:inner": [
+   "bar:inner/center",
+   "bar:inner/end",
+   "bar:inner/end/^|$@1",
+   "bar:inner/end/^|$@2",
+   "bar:inner/end/^|$@3",
+   "bar:inner/end/^|$@4",
+   "bar:inner/end/^|$@5",
+   "bar:inner/end/^|$@6",
+   "bar:inner/end/^|$@7",
+   "bar:inner/start/^|$@1",
+   "bar:inner/start/^|$@2",
+   "bar:inner/start/^|$@3",
+   "bar:inner/start/^|$@4",
+   "bar:inner/start/^|$@5",
+   "bar:inner/start/^|$@6",
+   "bar:inner/start/^|$@7",
+   "bar:inner/start/^|$@8"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3"
+  ]
+ },
+ "s67|g0|pitched|0.5": {
+  "bar:top": [
+   "bar:top/center/g1|$",
+   "bar:top/end/g1|$",
+   "bar:top/end/g1|$@1",
+   "bar:top/end/g1|$@2",
+   "bar:top/end/g1|$@3",
+   "bar:top/end/g1|$@4",
+   "bar:top/end/g1|$@5",
+   "bar:top/end/g1|$@6",
+   "bar:top/end/g1|$@7",
+   "bar:top/start/^|g1",
+   "bar:top/start/g1|$",
+   "bar:top/start/g1|$@1",
+   "bar:top/start/g1|$@2",
+   "bar:top/start/g1|$@3",
+   "bar:top/start/g1|$@4",
+   "bar:top/start/g1|$@5"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@1",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7",
+   "bar:bottom/start/^|$@8"
+  ],
+  "bar:inner": [
+   "bar:inner/center",
+   "bar:inner/end",
+   "bar:inner/end/^|$@1",
+   "bar:inner/end/^|$@2",
+   "bar:inner/end/^|$@3",
+   "bar:inner/end/^|$@4",
+   "bar:inner/end/^|$@5",
+   "bar:inner/end/^|$@6",
+   "bar:inner/end/^|$@7",
+   "bar:inner/start",
+   "bar:inner/start/^|$@1",
+   "bar:inner/start/^|$@2",
+   "bar:inner/start/^|$@3",
+   "bar:inner/start/^|$@4",
+   "bar:inner/start/^|$@5",
+   "bar:inner/start/^|$@6",
+   "bar:inner/start/^|$@7",
+   "bar:inner/start/^|$@8"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@2",
+   "bar:right/end/^|$@3",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3"
+  ]
+ },
+ "s67|g1|free|0.02": {
+  "bar:top": [
+   "bar:top/start/^|g0",
+   "bar:top/start/g0|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|$@slide"
+  ]
+ },
+ "s67|g1|free|0.5": {
+  "bar:top": [
+   "bar:top/start/^|g0",
+   "bar:top/start/g0|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$@slide"
+  ],
+  "bar:bottom": [
+   "bar:bottom/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ],
+  "bar:inner": [
+   "bar:inner/start/^|$@slide"
+  ]
+ },
+ "s67|g1|pitched|0.02": {
+  "bar:top": [
+   "bar:top/center/g0|$",
+   "bar:top/end/g0|$",
+   "bar:top/end/g0|$@1",
+   "bar:top/end/g0|$@2",
+   "bar:top/end/g0|$@3",
+   "bar:top/end/g0|$@4",
+   "bar:top/end/g0|$@5",
+   "bar:top/end/g0|$@6",
+   "bar:top/end/g0|$@7",
+   "bar:top/start/^|g0",
+   "bar:top/start/g0|$",
+   "bar:top/start/g0|$@1",
+   "bar:top/start/g0|$@2",
+   "bar:top/start/g0|$@3",
+   "bar:top/start/g0|$@4",
+   "bar:top/start/g0|$@5"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7"
+  ],
+  "bar:inner": [
+   "bar:inner/center",
+   "bar:inner/end",
+   "bar:inner/end/^|$@2",
+   "bar:inner/end/^|$@3",
+   "bar:inner/end/^|$@4",
+   "bar:inner/end/^|$@5",
+   "bar:inner/end/^|$@6",
+   "bar:inner/end/^|$@7",
+   "bar:inner/start/^|$@1",
+   "bar:inner/start/^|$@2",
+   "bar:inner/start/^|$@3",
+   "bar:inner/start/^|$@4",
+   "bar:inner/start/^|$@5",
+   "bar:inner/start/^|$@6",
+   "bar:inner/start/^|$@7"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@1",
+   "bar:right/end/^|$@2",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3"
+  ]
+ },
+ "s67|g1|pitched|0.5": {
+  "bar:top": [
+   "bar:top/center/g0|$",
+   "bar:top/end/g0|$",
+   "bar:top/end/g0|$@1",
+   "bar:top/end/g0|$@2",
+   "bar:top/end/g0|$@3",
+   "bar:top/end/g0|$@4",
+   "bar:top/end/g0|$@5",
+   "bar:top/end/g0|$@6",
+   "bar:top/end/g0|$@7",
+   "bar:top/start/^|g0",
+   "bar:top/start/g0|$",
+   "bar:top/start/g0|$@1",
+   "bar:top/start/g0|$@2",
+   "bar:top/start/g0|$@3",
+   "bar:top/start/g0|$@4",
+   "bar:top/start/g0|$@5"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center",
+   "bar:bottom/end",
+   "bar:bottom/end/^|$@2",
+   "bar:bottom/end/^|$@3",
+   "bar:bottom/end/^|$@4",
+   "bar:bottom/end/^|$@5",
+   "bar:bottom/end/^|$@6",
+   "bar:bottom/end/^|$@7",
+   "bar:bottom/start",
+   "bar:bottom/start/^|$@1",
+   "bar:bottom/start/^|$@2",
+   "bar:bottom/start/^|$@3",
+   "bar:bottom/start/^|$@4",
+   "bar:bottom/start/^|$@5",
+   "bar:bottom/start/^|$@6",
+   "bar:bottom/start/^|$@7"
+  ],
+  "bar:inner": [
+   "bar:inner/center",
+   "bar:inner/end",
+   "bar:inner/end/^|$@2",
+   "bar:inner/end/^|$@3",
+   "bar:inner/end/^|$@4",
+   "bar:inner/end/^|$@5",
+   "bar:inner/end/^|$@6",
+   "bar:inner/end/^|$@7",
+   "bar:inner/start",
+   "bar:inner/start/^|$@1",
+   "bar:inner/start/^|$@2",
+   "bar:inner/start/^|$@3",
+   "bar:inner/start/^|$@4",
+   "bar:inner/start/^|$@5",
+   "bar:inner/start/^|$@6",
+   "bar:inner/start/^|$@7"
+  ],
+  "bar:left": [
+   "bar:left/center/g2|$",
+   "bar:left/end/g2|$",
+   "bar:left/end/g2|$@2",
+   "bar:left/end/g2|$@3",
+   "bar:left/start/^|g2",
+   "bar:left/start/g2|$"
+  ],
+  "bar:right": [
+   "bar:right/center",
+   "bar:right/end",
+   "bar:right/end/^|$@1",
+   "bar:right/end/^|$@2",
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3"
+  ]
+ },
+ "columns|g1|free|0.02": {
+  "bar:bottom": [
+   "bar:bottom/end/z1|$",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|z1@slide"
+  ],
+  "bar:title": [
+   "bar:title/end/w4|$",
+   "bar:title/start/w2|w3@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "columns|g1|free|0.5": {
+  "bar:bottom": [
+   "bar:bottom/end/z1|$",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|z1@slide"
+  ],
+  "bar:title": [
+   "bar:title/end/w4|$",
+   "bar:title/start/w2|w3@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "columns|g1|pitched|0.02": {
+  "bar:title": [
+   "bar:title/center/w2|w3",
+   "bar:title/end/w2|w3",
+   "bar:title/end/w2|w3@2",
+   "bar:title/end/w2|w3@3",
+   "bar:title/end/w2|w3@4",
+   "bar:title/end/w4|$",
+   "bar:title/start/w2|w3",
+   "bar:title/start/w2|w3@1",
+   "bar:title/start/w2|w3@2"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/end/^|$@8",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center/g2|z1",
+   "bar:bottom/end/z1|$",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|z1",
+   "bar:bottom/start/g2|z1@1",
+   "bar:bottom/start/g2|z1@2",
+   "bar:bottom/start/g2|z1@3",
+   "bar:bottom/start/g2|z1@4",
+   "bar:bottom/start/g2|z1@5"
+  ],
+  "bar:left": [
+   "bar:left/start",
+   "bar:left/start/^|$@1",
+   "bar:left/start/^|$@2",
+   "bar:left/start/^|$@3",
+   "bar:left/start/^|$@4",
+   "bar:left/start/^|$@5",
+   "bar:left/start/^|$@6",
+   "bar:left/start/^|$@to:$"
+  ],
+  "bar:right": [
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@6",
+   "bar:right/start/^|$@to:$"
+  ]
+ },
+ "columns|g1|pitched|0.5": {
+  "bar:title": [
+   "bar:title/center/w2|w3",
+   "bar:title/end/w2|w3",
+   "bar:title/end/w2|w3@2",
+   "bar:title/end/w2|w3@3",
+   "bar:title/end/w2|w3@4",
+   "bar:title/end/w4|$",
+   "bar:title/start/w2|w3",
+   "bar:title/start/w2|w3@1",
+   "bar:title/start/w2|w3@2"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/end/^|$@6",
+   "bar:top/end/^|$@7",
+   "bar:top/end/^|$@8",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5",
+   "bar:top/start/^|$@6",
+   "bar:top/start/^|$@7",
+   "bar:top/start/^|$@8"
+  ],
+  "bar:bottom": [
+   "bar:bottom/center/g2|z1",
+   "bar:bottom/end/z1|$",
+   "bar:bottom/start/^|g2",
+   "bar:bottom/start/g2|z1",
+   "bar:bottom/start/g2|z1@1",
+   "bar:bottom/start/g2|z1@2",
+   "bar:bottom/start/g2|z1@3",
+   "bar:bottom/start/g2|z1@4",
+   "bar:bottom/start/g2|z1@5"
+  ],
+  "bar:left": [
+   "bar:left/start",
+   "bar:left/start/^|$@1",
+   "bar:left/start/^|$@2",
+   "bar:left/start/^|$@3",
+   "bar:left/start/^|$@4",
+   "bar:left/start/^|$@5",
+   "bar:left/start/^|$@6",
+   "bar:left/start/^|$@to:$"
+  ],
+  "bar:right": [
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@6",
+   "bar:right/start/^|$@to:$"
+  ]
+ },
+ "columns|g2|free|0.02": {
+  "bar:bottom": [
+   "bar:bottom/end/z1|$",
+   "bar:bottom/start/^|z1@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "columns|g2|free|0.5": {
+  "bar:bottom": [
+   "bar:bottom/end/z1|$",
+   "bar:bottom/start/^|z1@slide"
+  ],
+  "bar:top": [
+   "bar:top/start/^|$@slide"
+  ],
+  "bar:left": [
+   "bar:left/start/^|$@slide"
+  ],
+  "bar:right": [
+   "bar:right/start/^|$@slide"
+  ]
+ },
+ "columns|g2|pitched|0.02": {
+  "bar:bottom": [
+   "bar:bottom/center/^|z1",
+   "bar:bottom/end/z1|$",
+   "bar:bottom/start/^|z1",
+   "bar:bottom/start/^|z1@1"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5"
+  ],
+  "bar:left": [
+   "bar:left/start",
+   "bar:left/start/^|$@1",
+   "bar:left/start/^|$@2",
+   "bar:left/start/^|$@3",
+   "bar:left/start/^|$@4",
+   "bar:left/start/^|$@5",
+   "bar:left/start/^|$@to:$"
+  ],
+  "bar:right": [
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@to:$"
+  ]
+ },
+ "columns|g2|pitched|0.5": {
+  "bar:bottom": [
+   "bar:bottom/center/^|z1",
+   "bar:bottom/end/z1|$",
+   "bar:bottom/start/^|z1",
+   "bar:bottom/start/^|z1@1"
+  ],
+  "bar:top": [
+   "bar:top/center",
+   "bar:top/end",
+   "bar:top/end/^|$@1",
+   "bar:top/end/^|$@2",
+   "bar:top/end/^|$@3",
+   "bar:top/end/^|$@4",
+   "bar:top/end/^|$@5",
+   "bar:top/start",
+   "bar:top/start/^|$@1",
+   "bar:top/start/^|$@2",
+   "bar:top/start/^|$@3",
+   "bar:top/start/^|$@4",
+   "bar:top/start/^|$@5"
+  ],
+  "bar:left": [
+   "bar:left/start",
+   "bar:left/start/^|$@1",
+   "bar:left/start/^|$@2",
+   "bar:left/start/^|$@3",
+   "bar:left/start/^|$@4",
+   "bar:left/start/^|$@5",
+   "bar:left/start/^|$@to:$"
+  ],
+  "bar:right": [
+   "bar:right/start",
+   "bar:right/start/^|$@1",
+   "bar:right/start/^|$@2",
+   "bar:right/start/^|$@3",
+   "bar:right/start/^|$@4",
+   "bar:right/start/^|$@5",
+   "bar:right/start/^|$@to:$"
+  ]
+ },
+ "columns|p1|free|0.02": {
+  "col-left": [
+   "col-left/start/^|p2",
+   "col-left/start/p2|$"
+  ],
+  "col-right": [
+   "col-right/start/^|p3",
+   "col-right/start/p3|$"
+  ]
+ },
+ "columns|p1|free|0.5": {
+  "col-left": [
+   "col-left/start/^|p2",
+   "col-left/start/p2|$"
+  ],
+  "col-right": [
+   "col-right/start/^|p3",
+   "col-right/start/p3|$"
+  ]
+ },
+ "columns|p1|pitched|0.02": {
+  "col-left": [
+   "col-left/start/^|p2",
+   "col-left/start/p2|$"
+  ],
+  "col-right": [
+   "col-right/start/^|p3",
+   "col-right/start/p3|$"
+  ]
+ },
+ "columns|p1|pitched|0.5": {
+  "col-left": [
+   "col-left/start/^|p2",
+   "col-left/start/p2|$"
+  ],
+  "col-right": [
+   "col-right/start/^|p3",
+   "col-right/start/p3|$"
+  ]
+ }
+}
