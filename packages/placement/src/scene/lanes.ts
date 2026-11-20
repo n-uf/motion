@@ -342,13 +342,13 @@ interface Marking {
 function clipAtDrawn(band: Rect, axis: Axis, cuts: readonly Rect[]): Rect {
   let a = lo(band, axis);
   let b = a + len(band, axis);
-  const centre = (a + b) / 2;
+  const center = (a + b) / 2;
   const x = axis === "x" ? "y" : "x";
   for (const c of cuts) {
     if (!(lo(c, x) < lo(band, x) + len(band, x) - EPS && lo(band, x) < lo(c, x) + len(c, x) - EPS)) continue;
     const c0 = lo(c, axis);
     const c1 = c0 + len(c, axis);
-    if ((c0 + c1) / 2 <= centre) a = Math.max(a, c1);
+    if ((c0 + c1) / 2 <= center) a = Math.max(a, c1);
     else b = Math.min(b, c0);
   }
   return b - a > EPS ? along(band, axis, a, b) : band;
