@@ -494,6 +494,25 @@ describe("landing model: a lane lying over a place that takes nothing is entered
     expect(frames.filter(({ p }) => p.x > 600 && p.x < 1049).every(({ f }) => f.pending === undefined)).toBe(true);
   });
 
+  it("the held lane's exit margin holds a spot, never a refusal: from a refused stretch of a column into a docked rail beside it, no frame says \"Can't go here\"", () => {
+    // A column (x 760–1040) taking the item only low down (y 400–608), a docked toolbar rail touching it (x 1040–1080).
+    const r = railWindow();
+    const col: LandingLane = { id: "col", rect: rect(760, 32, 280, 576), axis: "y", spots: [{ id: "col/start/^|$", along: [400, 608], landing: rect(760, 400, 280, 102) }], refused: [{ along: [32, 400] }] };
+    const rail: LandingLane = { id: "rail-right", rect: rect(1040, 32, 40, 576), axis: "y", spots: [{ id: "rail-right/start/^|a", along: [32, 120], landing: rect(1040, 32, 40, 102) }, { id: "rail-right/start/a|$", along: [120, 608], landing: rect(1040, 140, 40, 102) }], refused: [] };
+    const regions: LandingRegions = { ...r, lanes: [r.lanes[0]!, r.lanes[1]!, col, rail], refused: [], content: rect(30, 32, 730, 576), blocked: [...r.blocked.slice(0, 2), col.rect, rail.rect] };
+    for (const speed of [0.15, 0.3, 0.6]) {
+      // Into the column low down (it takes the item there), up into its refused stretch, then across into the rail.
+      const { frames } = run(base({ regions, home: undefined }), path([{ x: 600, y: 500 }, { x: 900, y: 500 }, { x: 900, y: 200 }, { x: 1070, y: 200 }], speed));
+      // Inside the column's own refused stretch it is refused (a real refused place), once the column was entered (a
+      // slow hand; at 0.6 px/ms its gate never passes).
+      if (speed <= 0.3) expect([speed, frames.some(({ p, f }) => f.lane === "col" && p.x < 1039 && p.x > 761 && p.y < 390 && f.region === "refused")]).toEqual([speed, true]);
+      // In the rail: never a refused frame without `pending`.
+      const inRail = frames.filter(({ p }) => p.x > 1040.5);
+      expect(inRail.length).toBeGreaterThan(0);
+      expect([speed, inRail.filter(({ f }) => f.region === "refused" && !f.pending).map(({ p }) => Math.round(p.x))]).toEqual([speed, []]);
+    }
+  });
+
   it("not on the lift: a drag that starts in the band and moves fast away never enters it", () => {
     const { frames } = run(base({ regions: withRightRail(), home: undefined }), path([{ x: 1060, y: 300 }, { x: 600, y: 300 }], 3));
     expect(frames.some(({ f }) => f.lane === "rail-right")).toBe(false);

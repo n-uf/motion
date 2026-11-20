@@ -421,8 +421,12 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const nearLift = !!liftAt && Math.hypot(p.x - liftAt.x, p.y - liftAt.y) <= (margins.lift ?? 16);
       const owner = nearLift ? undefined : regions.lanes.find((l) => l.owns && l.id !== held?.id && cameIn.has(l.id) && strictlyIn(l.rect, p) && gate(l));
       const next = owner ?? (touching && (gate(touching) || slid) ? touching : undefined);
-      if (held && !next && (touching || inside(held.rect, p, margins.exit))) {
-        const s = along(held, p, step);
+      // The exit margin, and a touching lane's gate, hold a spot, never a refusal: past the held lane's own rect, a held
+      // lane that would only refuse lets go, so the lane the pointer is in is entered by its gate or is pending (no
+      // "Can't go here" in a lane's first pixels when the pointer comes in over a refused stretch next to it).
+      const near = !!held && !next && (!!touching || inside(held.rect, p, margins.exit));
+      const s = near ? along(held!, p, step) : null;
+      if (near && (s || strictlyIn(held!.rect, p))) {
         spotId = s?.id ?? spotId;
         region = s ? "lane" : "refused";
         if (!s) spotId = null;
