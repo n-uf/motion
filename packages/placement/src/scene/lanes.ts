@@ -140,8 +140,22 @@ export interface Lane {
   readonly axis: "x" | "y";
   readonly spots: readonly LaneSpot[];
   readonly refused: readonly LaneRefusal[];
-  /** Its place guides' marks, in the layout as drawn (the held spot's, with `options.spot`). */
+  /**
+   * Its place guides' marks, in the layout as drawn (the held spot's, with `options.spot`). An edge lane empty as seen
+   * with one spot (or one sliding spot) is the exception (`emptyLanes: "real"`, no `spot`): its marks are predicted, in
+   * the after-entry layout of that spot, the same marks `lanes(…, { spot })` gives it once held. Where that prediction
+   * overlaps another lane's marks (a corner two empty lanes share, a drawn rail's end) it gives the overlap up here: to
+   * every lane not predicted, and between two predicted lanes the bar owns the corner. `entry` keeps it whole.
+   */
   readonly marks: readonly LaneMark[];
+  /**
+   * The predicted marks whole, each corner they share owned (`marks` less nothing), where `marks` gave some of them up:
+   * what a landing model shows for this lane while it is the lane the pointer picks (held, pending or approached), the
+   * other lanes' marks cut where they overlap it. Absent where `marks` is the whole prediction, or nothing is predicted.
+   */
+  readonly entry?: readonly LaneMark[];
+  /** The lanes whose marks `entry` overlaps (the ones it gave the overlap up to in `marks`), with `entry`. */
+  readonly corners?: readonly string[];
   /**
    * Its rect is its own: a rail drop strip at the window's side (`Scene.railDrop`), which every other target of the drag
    * gives up. A landing model gives it the pointer inside it over any lane it overlaps (a flush column's edge).
@@ -394,17 +408,30 @@ export function lanes(scene: Scene, dragged: string, options: LaneOptions = {}):
   const held = list.find((r) => r.id === options.spot)!;
   // The held lane in its spot's own layout; every other lane keeps its stretches but takes its marks in that layout too
   // (the room open there can move a whole edge), and no two lanes' marks overlap in it.
+  // (A prediction as seen, `entry` and `corners`, has no place here: every lane is drawn in the held spot's layout.)
   const rebuilt = base.lanes.map((l) => {
     const raws = base.raws.get(l.id);
-    if (!raws) return l;
+    if (!raws) return asDrawn(l);
     // (A sliding spot's item is drawn wherever the hand is: its stretch stays one box, the item drawn nowhere on it.)
-    const again = laneFrom(l.id, raws, held.layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, l.id === heldLane && !held.slide, true);
-    if (!again) return l;
-    return l.id === heldLane ? again : { ...l, marks: again.marks };
+    const again = l.id === heldLane ? heldLaneIn(l.id, raws, held, base, dragged) : laneFrom(l.id, raws, held.layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, false, true);
+    if (!again) return asDrawn(l);
+    return l.id === heldLane ? again : { ...asDrawn(l), marks: again.marks };
   });
   // Every lane's marks are clipped to its rect over the layout they are drawn in (the spot's, where its drop may move an
   // edge); its hit rect stays as seen.
   return { ...base.regions, lanes: rebuilt.map((l) => settle(l, held.layout, scene, dragged, rebuilt, options.emptyLanes, base.raws.get(l.id) ? laneRectOver(base.raws.get(l.id)!, held.layout, base.seen, base.marking).rect : l.rect)) };
+}
+
+/** A lane without the prediction as seen (`entry`, `corners`). */
+function asDrawn(l: Lane): Lane {
+  if (!l.entry && !l.corners) return l;
+  const { entry: _entry, corners: _corners, ...rest } = l;
+  return rest;
+}
+
+/** The held spot's lane in that spot's own layout, before `settle`: the one rule its mark and its prediction read. */
+function heldLaneIn(id: string, raws: readonly Raw[], held: Raw, base: Pick<Base, "seen" | "refusals" | "halves" | "share" | "marking">, dragged: string): Lane | null {
+  return laneFrom(id, raws, held.layout, base.seen, dragged, base.refusals, base.halves.has(id), base.share, base.marking, !held.slide, true);
 }
 
 function build(scene: Scene, dragged: string, options: LaneOptions): Base {
@@ -478,7 +505,10 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
   const h = own?.rect.height ?? 0;
   const share = { x: w >= h ? shareOf(options.grab?.x, w) : 0.5, y: h > w ? shareOf(options.grab?.y, h) : 0.5 };
   const built = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share, marking)).filter((l): l is Lane => !!l);
-  const laneList = built.map((l) => settle(l, seen, scene, dragged, built, options.emptyLanes));
+  const settled = built.map((l) => settle(l, seen, scene, dragged, built, options.emptyLanes));
+  // An empty lane's guide before entry is its mark after entry: an edge lane empty as seen with one spot takes its marks
+  // in that spot's own layout, as `lanes(…, { spot })` draws them once it is held. Solved here, once per lift.
+  const laneList = options.emptyLanes === "edge" ? settled : predict(settled, byLane, { seen, refusals: rs, halves, share, marking }, scene, dragged, built, options.emptyLanes);
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
   const blocked = [
@@ -851,18 +881,7 @@ function settle(lane: Lane, drawn: SceneLayout, scene: Scene, dragged: string, a
         .map(([, it]) => it.rect)
     : [];
   if (cuts.length === 0 && !(empty && (emptyLanes === "edge" || l.marks.some((m) => m.kind === "box" && stays.some((s) => overlaps(m.rect, s)))))) return l;
-  const span = (r: Rect): [number, number] => [lo(r, l.axis), lo(r, l.axis) + len(r, l.axis)];
-  const crosses = (r: Rect, c: Rect): boolean => (l.axis === "x" ? c.y < r.y + r.height - EPS && r.y < c.y + c.height - EPS : c.x < r.x + r.width - EPS && r.x < c.x + c.width - EPS);
-  /** `r`'s pieces along the lane less `cs` (those that cross it). */
-  const cut = (r: Rect, cs: readonly Rect[]): [number, number][] => {
-    let ps: [number, number][] = [span(r)];
-    for (const c of cs) {
-      if (!crosses(r, c)) continue;
-      const [c0, c1] = span(c);
-      ps = ps.flatMap(([p, q]): [number, number][] => [[p, Math.min(q, c0)], [Math.max(p, c1), q]]).filter(([p, q]) => q - p > EPS);
-    }
-    return ps;
-  };
+  const cut = (r: Rect, cs: readonly Rect[]): [number, number][] => piecesLess(r, l.axis, cs);
   const marks: LaneMark[] = [];
   for (const m of l.marks) {
     const kept = cut(m.rect, m.kind === "box" ? [...cuts, ...stays] : cuts);
@@ -895,6 +914,81 @@ function settle(lane: Lane, drawn: SceneLayout, scene: Scene, dragged: string, a
     });
   }
   return { ...l, marks };
+}
+
+/** `r`'s pieces along `axis` less `cs`: each one that crosses it (overlaps it across `axis`) takes its span along `axis`. */
+function piecesLess(r: Rect, axis: Axis, cs: readonly Rect[]): [number, number][] {
+  const span = (x: Rect): [number, number] => [lo(x, axis), lo(x, axis) + len(x, axis)];
+  const crosses = (c: Rect): boolean => (axis === "x" ? c.y < r.y + r.height - EPS && r.y < c.y + c.height - EPS : c.x < r.x + r.width - EPS && r.x < c.x + c.width - EPS);
+  let ps: [number, number][] = [span(r)];
+  for (const c of cs) {
+    if (!crosses(c)) continue;
+    const [c0, c1] = span(c);
+    ps = ps.flatMap(([p, q]): [number, number][] => [[p, Math.min(q, c0)], [Math.max(p, c1), q]]).filter(([p, q]) => q - p > EPS);
+  }
+  return ps;
+}
+
+/**
+ * Marks less the rects `cs` they overlap, along `axis`, as `settle` cuts them: a box or a hatch into its pieces (the
+ * first keeps its id, the others `~c<n>`), a line kept whole or not at all. Marks `cs` doesn't overlap stay as they are.
+ */
+function marksLess(marks: readonly LaneMark[], axis: Axis, cs: readonly Rect[]): LaneMark[] {
+  return marks.flatMap((m): LaneMark[] => {
+    const over = cs.filter((c) => overlaps(m.rect, c));
+    if (over.length === 0) return [m];
+    const kept = piecesLess(m.rect, axis, over);
+    if (m.kind === "line") return kept.length === 1 && Math.abs(kept[0]![1] - kept[0]![0] - len(m.rect, axis)) < EPS ? [m] : [];
+    return kept.map(([p, q], i) => ({ ...m, id: i ? `${m.id}~c${i}` : m.id, rect: along(m.rect, axis, p, q) }));
+  });
+}
+
+/**
+ * Rule B, an empty lane's guide is predicted: each edge lane empty as seen (not drawn there) with one spot, or one
+ * sliding spot, takes its marks in the layout after that spot's drop (where the lane is drawn), worked out as the held
+ * lane of `lanes(…, { spot })` is (`heldLaneIn`, then `settle` in that layout), so its guide before entry is its mark
+ * after it. Every other lane keeps its marks as seen. Where a prediction overlaps another lane's marks, the prediction
+ * gives the overlap up in `marks`: to a lane not predicted (a drawn rail's end, a virtual lane), and between two
+ * predicted lanes to the bar (the earlier of two alike). `entry` keeps it whole and `corners` names those lanes, so a
+ * landing model gives the corner to the lane the pointer picks.
+ */
+function predict(
+  settled: readonly Lane[],
+  byLane: ReadonlyMap<string, readonly Raw[]>,
+  base: Pick<Base, "seen" | "refusals" | "halves" | "share" | "marking">,
+  scene: Scene,
+  dragged: string,
+  built: readonly Lane[],
+  emptyLanes: "real" | "edge" | undefined,
+): Lane[] {
+  const whole = new Map<string, readonly LaneMark[]>();
+  for (const l of settled) {
+    const raws = byLane.get(l.id);
+    if (!raws || l.spots.length !== 1 || !scene.edges.some((e) => e.id === l.id) || (base.seen.edges[l.id]?.cross ?? 0) > EPS) continue;
+    const held = raws.find((r) => r.id === l.spots[0]!.id);
+    // Only where its drop draws the lane: the layout `lanes(…, { spot })` draws its marks in.
+    if (!held || (held.layout.edges[l.id]?.cross ?? 0) <= EPS) continue;
+    const again = heldLaneIn(l.id, raws, held, base, dragged);
+    if (again) whole.set(l.id, settle(again, held.layout, scene, dragged, built, emptyLanes, laneRectOver(raws, held.layout, base.seen, base.marking).rect).marks);
+  }
+  if (whole.size === 0) return [...settled];
+  // The bars' predictions first (they own a corner they share with a predicted rail), then the others, in order.
+  const order = [...settled].filter((l) => whole.has(l.id)).sort((a, b) => (a.axis === b.axis ? 0 : a.axis === "x" ? -1 : 1));
+  const final = new Map<string, readonly LaneMark[]>(settled.filter((l) => !whole.has(l.id)).map((l) => [l.id, l.marks]));
+  const meets = new Map<string, string[]>();
+  for (const l of order) {
+    const mine = whole.get(l.id)!;
+    const others = [...final].filter(([id, ms]) => id !== l.id && ms.some((m) => mine.some((x) => overlaps(x.rect, m.rect))));
+    meets.set(l.id, others.map(([id]) => id));
+    final.set(l.id, marksLess(mine, l.axis, others.flatMap(([, ms]) => ms.map((m) => m.rect))));
+  }
+  return settled.map((l) => {
+    const marks = final.get(l.id)!;
+    const mine = whole.get(l.id);
+    if (!mine) return l;
+    const corners = meets.get(l.id)!;
+    return corners.length > 0 ? { ...l, marks, entry: mine, corners } : { ...l, marks };
+  });
 }
 
 const overlaps = (a: Rect, b: Rect): boolean => a.x < b.x + b.width - EPS && b.x < a.x + a.width - EPS && a.y < b.y + b.height - EPS && b.y < a.y + a.height - EPS;
