@@ -124,6 +124,29 @@ describe("guideRects", () => {
     expect(same).toBeGreaterThan(50);
   });
 
+  it("a clear rect's `kinds` name the guide kinds it constrains (default all): a box may lie over what a thin guide keeps clear of", () => {
+    const area = rect(0, 0, 400, 100);
+    const content = rect(100, 10, 60, 30);
+    const guides: PlacedGuide[] = [
+      { kind: "box", rect: rect(0, 10, 150, 30) },
+      { kind: "hatch", rect: rect(94, 10, 8, 30) },
+      { kind: "line", rect: rect(94, 50, 8, 30) },
+    ];
+    // Constraining the thin kinds only: the box lies over the content, the thin guide is cut back flush against it.
+    const thinOnly = guideRects(guides, { inside: area, clear: [{ rect: content, clearance: 0, kinds: ["line", "hatch"] }] });
+    expect(thinOnly[0]!.rect).toEqual(rect(2, 10, 148, 30));
+    expect(thinOnly[1]!.rect).toEqual(rect(94, 10, 6, 30));
+    // The line at y 50 is clear of the content already: as given.
+    expect(thinOnly[2]).toBe(guides[2]);
+    // All kinds by default, and `kinds: ["box"]` leaves the thin guides alone.
+    const all = guideRects(guides, { inside: area, clear: [{ rect: content, clearance: 0 }] });
+    expect(all[0]!.rect).toEqual(rect(2, 10, 98, 30));
+    expect(all[1]!.rect).toEqual(rect(94, 10, 6, 30));
+    const boxOnly = guideRects(guides, { inside: area, clear: [{ rect: content, clearance: 0, kinds: ["box"] }] });
+    expect(boxOnly[0]!.rect).toEqual(rect(2, 10, 98, 30));
+    expect(boxOnly[1]).toBe(guides[1]);
+  });
+
   it("clearance is per clear rect: a plain rect keeps the default gap, `{ rect, clearance: 0 }` lets a guide run flush", () => {
     const area = rect(0, 0, 400, 100);
     const flush = { rect: rect(100, 10, 60, 30), clearance: 0 };
