@@ -4,9 +4,9 @@
  */
 import { EPS, RAIL_EDGE, clamp, rect, type Rect } from "../../geometry";
 import { sideRings } from "../changes";
-import { isHandFolded, isSideColumn, zoneOf } from "../helpers";
+import { formsOf, isHandFolded, isSideColumn, zoneOf } from "../helpers";
 import type { Edge } from "../model";
-import { slotAt } from "./edges";
+import { slotAt, thickerThan } from "./edges";
 import { targetId, virtualEdgeId } from "./ids";
 import { EDGE_KINDS } from "./kinds";
 import type { Ctx, EdgeSpec, SceneAfter, Slot, Span } from "./model";
@@ -109,6 +109,10 @@ export function columnLines(c: Ctx, side: "left" | "right", railLands: boolean):
     const span2 = (a: number, b: number): Span => [Math.min(a, b), Math.max(a, b)];
     return { line, zone: span2(railFirst ? band0 : windowEdge, line + dir * reach), owned: span2(band0, band0 + dir * edgePlace) };
   };
+  // No form of the item fits across a column the side can make (as thick as its template's `cross.max` at most): a
+  // refusal on a line is for thickness, as on a real edge.
+  const most = scene.columns?.[side]?.cross.max;
+  const tooThick = most !== undefined && thickerThan(formsOf(scene.items[dragged]!, "column"), most);
   // One spec per line: a new column's place, owning a band of `place` px about its line (ranked where that column would
   // be laid), its slot's tile reaching `reach` each way past it as overreach.
   return lines.map((l, i) => {
@@ -121,7 +125,7 @@ export function columnLines(c: Ctx, side: "left" | "right", railLands: boolean):
       vertical: false,
       zones: [{ zone: "start" as const, a: Math.max(p.zone[0], stage.x), b: Math.min(p.zone[1], stage.x + stage.width) }],
       slots: [slotAt(c, "start", p.line, targetId({ kind: "column", side, ring: l.ring }), { kind: "column", side, ring: l.ring }, lands)],
-      refuse: () => "no-room" as const,
+      refuse: () => (tooThick ? ("too-thick" as const) : ("no-room" as const)),
       own: null,
       holds: false,
       reserved: [],
@@ -210,6 +214,9 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
   const arriving = scene.foldedColumnDrop === "end" && !ownRail;
   const end = arriving && shown ? railEnd(c, side, rail.segments, at.y + at.height) : null;
   if (arriving && (shown ? !end : !isHandFolded(scene, dragged))) return null;
+  // No form of the item fits across the rail (its `width`): a refusal on a stop is for thickness, as on a real edge.
+  const width = scene.rails?.[side]?.width;
+  const tooThick = width !== undefined && thickerThan(formsOf(scene.items[dragged]!, "column"), width);
   return {
     id: virtualEdgeId("rail", side),
     edge: null,
@@ -219,7 +226,7 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
     vertical: true,
     zones: [{ zone: "start", a: at.y, b: at.y + at.height }],
     slots: end ? [end] : stops.map((s) => slotAt(c, "start", s.y, targetId({ kind: "rail", side, ring: s.ring }), { kind: "rail", side, ring: s.ring }, lands, ownRail)),
-    refuse: () => "no-room",
+    refuse: () => (tooThick ? "too-thick" : "no-room"),
     own: null,
     holds: false,
     reserved: [],

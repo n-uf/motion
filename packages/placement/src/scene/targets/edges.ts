@@ -243,11 +243,19 @@ function edgeSlots(c: Ctx, edge: Edge, accepts: boolean): Slot[] {
 /**
  * Whether the item is thicker than an edge `cross` px across: every form but the » menu's sets no cross size (an `open`
  * panel does, and is clamped) and asks at least `cross.min` across, over `cross`. Then no length makes room for it.
+ * The one thickness test of every edge, real or virtual (a new column's line, a rail stop).
  */
-function thickerThan(forms: readonly StackForm[], cross: number): boolean {
+export function thickerThan(forms: readonly StackForm[], cross: number): boolean {
   const shown = forms.filter((f) => f.kind !== "menu");
   return shown.length > 0 && shown.every((f) => !formSetsCross(f) && formCrossMin(f) > cross + EPS);
 }
+
+/**
+ * Why `zone` of `spec`, which takes the kind, refuses a drop there that doesn't fit: `too-thick` where no form of the
+ * item fits across the edge (the spec's own refusal says so), else `no-room` (too short). Every refusal for want of
+ * room reads it, so a slot that doesn't fit and a sliver cut off a slot say what the zone says.
+ */
+export const roomReason = (spec: EdgeSpec, zone: Zone): "too-thick" | "no-room" => (spec.refuse(zone) === "too-thick" ? "too-thick" : "no-room");
 
 /**
  * A real edge as the tiler reads it, in the seen geometry, or null where it offers nothing (home's own rect is added

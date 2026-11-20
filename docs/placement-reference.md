@@ -787,8 +787,10 @@ the kind (as a whole, zone `start`). `reason` is `"no-room"` when the zone takes
 the edge (a title bar at the title's natural width say: lack of length), **`"too-thick"`** when it takes the kind but no
 form of the item fits across the edge (every form but the » menu's sets no cross size and asks, at its least, more
 across than the bar is thick: a 30 px toolbar on a 28 px bar; no length would make room, so the host can say the item
-is thicker than the bar), `"not-accepted"` when the zone or the edge doesn't take the kind, and **`"own-place"`** for the
-stretch beside an item alone in its zone: there is room, but the zone's only place is the item's own. An exhaustive
+is thicker than the bar; one test for every edge: a new column's line against its template's `cross.max`, a rail stop
+against the rail's `width`, and a slot's refused pieces say what its zone says), `"not-accepted"` when the zone or the
+edge doesn't take the kind, and **`"own-place"`** for the stretch beside an item alone in its zone (whichever the
+zone's refusal for want of room): there is room, but the zone's only place is the item's own. An exhaustive
 `switch` over `SceneRefusal["reason"]` needs the `too-thick` and `own-place` cases. Ids are `refuse:<edge>:<zone>` and,
 when a zone has more than one refusal, `refuse:<edge>:<zone>:<n>`, numbered by where they lie along the edge (then
 across it), so an id holds from one frame to the next; no id is given twice by one call. A refused slot is refused over

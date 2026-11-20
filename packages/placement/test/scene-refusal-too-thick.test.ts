@@ -40,6 +40,20 @@ describe("refusals(): a bar thinner than the item refuses it as too-thick", () =
     expect([...new Set(rs.map((r) => r.reason))]).toEqual(["no-room"]);
   });
 
+  it("a new column's line refuses an item thicker than a column can be as too-thick, as a real column does", () => {
+    const base = windowScene();
+    const icons = { kind: "icons", main: { min: 84, natural: 84 }, cross: { natural: 400, min: 400 } };
+    const zoom = { ...base.items.zoom!, forms: { row: base.items.zoom!.forms.row!, column: [icons, form("menu", 0, 0)] } } as SceneItem;
+    const sides = { accepts: ["panel", "group"], cross: { min: 220, max: 300, rail: 32 } };
+    const s = { ...base, items: { ...base.items, zoom }, columns: { left: sides, right: sides } } as Scene;
+    const rs = refusals(s, "zoom", { previous: solve(s) });
+    const lines = rs.filter((r) => r.edge.startsWith("column:"));
+    expect(lines.length).toBeGreaterThan(0);
+    expect([...new Set(lines.map((r) => r.reason))]).toEqual(["too-thick"]);
+    // The drawn columns say the same.
+    expect([...new Set(rs.filter((r) => r.edge === "left" || r.edge === "right").map((r) => r.reason))]).toEqual(["too-thick"]);
+  });
+
   it("an item a bar can hold is not refused as too-thick", () => {
     const s = windowScene();
     for (const r of refusals(s, "views", { previous: solve(s) })) expect(r.reason).not.toBe("too-thick");
