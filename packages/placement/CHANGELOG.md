@@ -20,10 +20,16 @@ A stretch is the room the drop makes. Host notes: additive; a host that draws ha
     dock at one end while the pointer crossed the open room. A dock's push of a neighbor that keeps no room for it
     is no room made: that end stays where it is seen. The forms don't depend on the space a dock keeps, so every start
     in the stretch finds them alike, and every start that lands as aimed (within 1 px) is in the range.
-  - **No sliding spot is a point.** A stretch with room for the item at a single start (its range under a pixel) has
-    no sliding spot: the plain dock there stays a spot of its own, with its own id and no `slide`, and the item's own
-    place there keeps its id and zone. (Before this, such a stretch could show as a `…@slide` spot with `from` equal to
-    `to`, taking over the plain dock's id.)
+  - **No sliding spot is a point; every landing a room offers has a spot.** A stretch with room for the item at a
+    single start (its range under a pixel), or shorter than the item, has no sliding spot: that start (flush after the
+    neighbor before it) is a plain dock, as a pitched stretch's end gives it, with the plain dock's id and no `slide`
+    (`…@<pitches kept>` where a dock between the same neighbors already has that id), `home` where it is the item's own
+    place. A spot already landing within 1 px of it (the item's own place, say) stays instead. So under `"free"` every
+    landing `"pitched"` offers is reached, by a spot within 1 px or a slide's range, and its box and striped ends come
+    from its landing. (Before this, such a stretch could show as a `…@slide` spot with `from` equal to `to`; or, where
+    no plain dock landed there, as nothing: no spot, box or hatch.)
+  - **The item's own place wins its landing** (fix, both modes): a dock landing a fraction of a pixel before it (on an
+    over-subscribed edge) no longer takes its place, so its home spot is listed.
   - **Marks:** a box gets its striped end (`HATCH_END`) at the side of each neighbor that gives way, whether or not the
     room as seen is shorter than the item; where none moves, leaves or steps down, the box is plain. The hatch mark
     carries **`LaneMark.givesWay`**, the neighbor's id (data for hosts and tests; nothing to show). The old fallback for

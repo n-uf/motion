@@ -505,7 +505,15 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   // that near (a center dock beside a place near the middle) is home's, so away and back to the press point is home.
   const homeAt = halves ? undefined : list.find((r) => r.home)?.landing;
   const nearHome = (r: Raw): boolean => !!homeAt && !r.home && !r.slide && Math.abs(lo(r.landing, axis) - lo(homeAt, axis)) < Math.max(0, marking.pitch) / 2;
-  const unique = sorted.filter((x, i) => !nearHome(x) && !sorted.slice(0, i).some((y) => (!x.slide && !y.slide && sameRect(y.landing, x.landing)) || y.id === x.id));
+  // Each against the spots kept so far (not one dropped as home's), the item's own place winning its landing: a dock
+  // landing a fraction of a pixel before it (sorted first) never takes its place.
+  const unique: Raw[] = [];
+  for (const x of sorted) {
+    if (nearHome(x)) continue;
+    const k = unique.findIndex((y) => (!x.slide && !y.slide && sameRect(y.landing, x.landing)) || y.id === x.id);
+    if (k < 0) unique.push(x);
+    else if (x.home && !unique[k]!.home && !unique.some((y) => y.id === x.id && y !== unique[k])) unique[k] = x;
+  }
   const start = lo(laneRect, axis);
   const end = start + len(laneRect, axis);
   // The cut between two spots. In a panel column (`halves`), between two spots sharing a neighbor, that item's middle in
@@ -1062,8 +1070,9 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
   stretches(scene, dragged, options, seen, lifted, raws, (run) => ({ a, b, w, zones, atOf, spaceAt, before, after }) => {
     const { e, axis, middle, mine } = run;
-    // (A stretch with room for the item at one start only is no range: its plain dock stays a spot of its own.)
-    if (zones.length === 0 || b - w <= a + EPS) return;
+    // (A stretch shorter than the item still offers its start, flush after the neighbor before it, where a dock there
+    // lands: a point, below, as a pitched stretch's end gives it.)
+    if (zones.length === 0) return;
     {
       /** The dock that lands the item's start at `x0`: its place, scene and layout, or null where it lands elsewhere. */
       const land = (x0: number): { place: DockPlace; result: SceneAfter } | null => {
@@ -1086,10 +1095,37 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
       if (ok.length === 0) return;
       const from = ok[0]!.x0;
       const to = ok.at(-1)!.x0;
-      // Under a pixel (the grain a free start lands on, `STEP`) it is a point, no range: its docks stay spots of their own.
-      if (to - from < STEP) return;
       const bId = before?.id ?? "^";
       const nId = after?.id ?? "$";
+      // Room for the item at a single start (no room past it, or a range under a pixel, the grain a free start lands on:
+      // `STEP`) is a point, no range: a plain dock there, as a pitched stretch's end gives, unless one lands there already
+      // (the item's own place, say), which stays a spot of its own. Every landing a room offers has a spot.
+      if (to - from < STEP) {
+        if (mine.some((r) => !r.slide && Math.abs(lo(r.landing, axis) - from) <= 1)) return;
+        // Its zone as a pitched stretch's end takes it: the start zone first (flush after the neighbor before it).
+        const firstZone = ((): { place: DockPlace; result: SceneAfter } | null => {
+          for (const zone of zones) {
+            const space = spaceAt(zone, from);
+            if (space < -EPS) continue;
+            const place: DockPlace = { edge: e.id, zone, at: atOf(zone), space: Math.max(0, space) };
+            const hit = landsAt(scene, dragged, run, place, from);
+            if (hit) return { place, result: { scene: hit.next, layout: hit.layout } };
+          }
+          return null;
+        })();
+        const { place, result } = firstZone ?? ok[0]!.hit!;
+        const landed = result.layout.items[dragged]!.rect;
+        const n = neighbors(result.layout, e.id, dragged, axis);
+        const zone = place.zone as Zone;
+        const isHome = ownEdge === e.id && !!own && Math.abs(lo(own.rect, axis) - lo(landed, axis)) <= 1 && Math.abs(len(own.rect, axis) - len(landed, axis)) <= 1;
+        const target: SceneTarget = { id: `pitch:${e.id}:${zone}:${place.at}:${Math.round(place.space ?? 0)}`, priority: 2, hit: landed, slot: landed, item: dragged, place: { kind: "gap", edge: e.id, zone, at: place.at }, after: () => result };
+        // Its id: the plain dock's, or where a dock between the same neighbors has that one (landing elsewhere, the item
+        // in another form), a pitched spot's (`@<pitches kept>`).
+        const plain = `${e.id}/${zone}/${n.before}|${n.next}`;
+        const id = mine.some((r) => r.id === plain) ? `${plain}@${Math.round((place.space ?? 0) / sample)}` : plain;
+        spots.push({ lane: e.id, edge: e.id, axis, id, ...n, landing: landed, layout: result.layout, target, hit: landed, ...(isHome ? { home: true as const } : {}) });
+        return;
+      }
       // The docks landing inside it, its neighbors either side: snap points that commit as they are.
       const inside = mine.filter((r) => !r.slide && r.before === bId && r.next === nId && Math.abs(len(r.landing, axis) - w) <= 1 && lo(r.landing, axis) >= from - 1 && lo(r.landing, axis) <= to + 1);
       for (const r of inside) absorbed.add(r);
