@@ -1049,7 +1049,8 @@ function slidingSpots(scene: Scene, dragged: string, options: LaneOptions, seen:
         hit: hull(at(from), at(to)),
         slot: landing,
         item: dragged,
-        place: { kind: "gap", edge: e.id, zone: restPlace?.zone ?? zones[0]!, at: restPlace?.at ?? atOf(zones[0]!) },
+        // Where it rests: the item's own place is home, as a pitched home spot's target says; else the dock there.
+        place: homeRaw ? { kind: "home" } : { kind: "gap", edge: e.id, zone: restPlace?.zone ?? zones[0]!, at: restPlace?.at ?? atOf(zones[0]!) },
         after: (point: Point, grab?: Point) => {
           const g = grab ? grab[long] : ownLen / 2;
           const share = axis === long && ownLen > EPS && Number.isFinite(g) ? clamp(g / ownLen, 0, 1) : 0.5;

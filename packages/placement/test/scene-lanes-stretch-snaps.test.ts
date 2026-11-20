@@ -59,6 +59,27 @@ describe("a sliding spot's snap points: keyed by what they commit", () => {
       expect(spot.target.after(point(r.at), GRAB).scene.items.c!.align).toBe("center");
     });
 
+  for (const held of ["a", "b", "c"])
+    it(`the home sliding spot is home: ${held}'s own place says place kind "home", as a pitched home spot does`, () => {
+      const s = scene(900);
+      const previous = solve(s);
+      const grab = { x: 30, y: 14 };
+      const homes = (mode: "free" | "pitched") =>
+        lanes(s, held, { previous, grab, stretchPositions: mode })
+          .lanes.flatMap((l) => l.spots)
+          .filter((sp) => sp.home);
+      const pitched = homes("pitched");
+      const free = homes("free");
+      expect(pitched.length).toBeGreaterThan(0);
+      expect(free.map((sp) => sp.target.place.kind)).toEqual(pitched.map((sp) => sp.target.place.kind));
+      expect(free.every((sp) => sp.target.place.kind === "home")).toBe(true);
+      // (c's own stretch is a free one; a's and b's are too short to slide, and read the same.)
+      if (held === "c") expect(free.some((sp) => sp.slide)).toBe(true);
+      // A sliding spot that is not home is a dock.
+      const rest = lanes(s, held, { previous, grab, stretchPositions: "free" }).lanes.flatMap((l) => l.spots).filter((sp) => sp.slide && !sp.home);
+      for (const sp of rest) expect(sp.target.place.kind, sp.id).toBe("gap");
+    });
+
   it("a center dock landing exactly on the stretch's start is that point: the center dock wins over the plain dock", () => {
     const { spot } = slideOf(scene(1032));
     expect(spot.slide!.snaps.filter((q) => Math.abs(q - 416) < 1e-9)).toHaveLength(1);
