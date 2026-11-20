@@ -172,17 +172,16 @@ function inner(it: SceneItem, id: ItemId, kind: string, rows?: readonly (readonl
   return `<span class="hd-dots" aria-hidden="true"></span><div class="hd-gc">${groupContent(id, kind, hidden)}</div>`;
 }
 /**
- * An item as the layout drew it: placed at its solved rect in the window, or (`specimen`) standing alone in the form it took,
- * with the same markup and classes, its size left to the page's CSS.
+ * An item as the layout drew it: placed at its solved rect in the window.
  */
-function itemHtml(s: Scene, l: SceneLayout, id: ItemId, specimen = false): string {
+function itemHtml(s: Scene, l: SceneLayout, id: ItemId): string {
   const p = l.items[id]!;
   const it = s.items[id]!;
   const edgeSide = p.edge ? l.edges[p.edge]?.side : undefined;
   const axis = edgeSide ? (edgeSide === "left" || edgeSide === "right" ? "column" : "row") : "row";
-  const cls = `hd-item hd-${p.kind} hd-k-${p.formKind} hd-ax-${axis}${p.floating && !specimen ? " hd-float" : ""}${specimen ? " hd-spec" : ""}`;
+  const cls = `hd-item hd-${p.kind} hd-k-${p.formKind} hd-ax-${axis}${p.floating ? " hd-float" : ""}`;
   const r = p.rect;
-  const style = specimen ? "" : ` style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}"`;
+  const style = ` style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}"`;
   return `<section class="${cls}"${style}>${inner(it, id, p.formKind, p.rows, p.hidden, p.railTitle)}</section>`;
 }
 
