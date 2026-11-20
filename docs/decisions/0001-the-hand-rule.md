@@ -27,15 +27,15 @@ and within `max(56, g / 2 + 6)` px on the single frame before a hop (the next fr
 
 "Nearest" is measured along the lane, a sliding spot at the point of its range the hand holds. Landings that overlap or touch one another (no more than half a pixel apart) are one place: overlapping ones (spots a pitch apart) are cut at the grab, touching ones where they meet, so in either the pointer may lie up to the grab inside the other; and a hop that reflows the window may wait for a slow `step` or for the landing to trail past `trail` (40 px), so a frame of a hand faster than `step` (0.375 px/ms) is not compared with the nearest.
 
-The landing rows check exactly this: a row's `moving.hand` takes the spots from `lanes()` over its scene in the held spot's layout, and `handBound(g)` gives the bound. A frame in a lane `lanes()` doesn't give is held to the floor, `handBound(0)`, and its issue names the lane.
+The landing rows check exactly this: a row's `moving.hand` takes the spots from `lanes()` over its dock state in the held spot's layout, and `handBound(g)` gives the bound. A frame in a lane `lanes()` doesn't give is held to the floor, `handBound(0)`, and its issue names the lane.
 
 ## Consequences
 
 - The rows that bounded the landing by a fixed 48 px (56 px before a hop) use the hand rule instead, and the libraries' reference and guide state it in one wording. The floor is the old number, so every row that passed still passes; only a lane with landings far apart (a long docked neighbor) gets a larger bound.
-- A host that checks the landing can check the same rule on its own frames: `handBound` and the landing rows are exported from `@n-uf/placement/scene/cases`.
+- A host that checks the landing can check the same rule on its own frames: `handBound` and the landing rows are exported from `@n-uf/docking/testing`.
 - A landing model that held a landing further than half the gap plus 6 px from the pointer, or one that held a landing past the nearest, would fail the rows.
 - The cost: over a long docked item the landing trails the pointer by up to half the gap. The drag stays in its lane, and the landing hops once, 6 px past the cut.
-- Guarded by `test/cases-landing-hand.test.ts` (a long neighbor where the fixed 48/56 bound fails and the hand rule passes, in both stretch modes; a landing past the bound; a landing that is not the nearest; the kit trace where the neighbor-length form falls 2.85 px short) and by the landing rows in `test/cases-landing.test.ts`.
+- Guarded by docking's `test/landing-cases-hand.test.ts` (a long neighbor where the fixed 48/56 bound fails and the hand rule passes, in both stretch modes; a landing past the bound; a landing that is not the nearest; the kit trace where the neighbor-length form falls 2.85 px short) and by the landing rows in `test/landing-cases.test.ts`.
 
 ## Date
 

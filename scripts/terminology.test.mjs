@@ -33,6 +33,19 @@ test("`center` is spelled one way: the API's `centre` is gone, so no allow rule 
   assert.notEqual(scan('const t = { label: "Drop in the centre" };'), null);
   assert.equal(scan("const c = center(r);"), null);
   assert.equal(scan('<span class="foot-licence">'), null);
+  // A changelog's migration note may quote the old name; nowhere else may.
+  assert.equal(scan("- `centre` → `center` (root).", "packages/placement/CHANGELOG.md"), null);
+  assert.notEqual(scan("- `centre` → `center` (root).", "packages/placement/README.md"), null);
+});
+
+test('"scene" left the docking model: "dock state" in its copy, an old name in backticks allowed', () => {
+  assert.match(scan("The scene keeps its items.", "packages/docking/src/model.ts")?.use ?? "", /dock state/);
+  assert.match(scan("Scenes are plain data.", "docs/docking.md")?.use ?? "", /dock state/);
+  assert.equal(scan("- `Scene` → `DockState`.", "packages/docking/CHANGELOG.md"), null);
+  assert.equal(scan("`@n-uf/placement/scene` ends.", "packages/placement/README.md"), null);
+  assert.equal(scan("A dock state keeps its items.", "packages/docking/src/model.ts"), null);
+  // Outside the libraries' own copy (the site moves later), the word is not checked.
+  assert.equal(scan("The scene keeps its items.", "apps/web/src/pages/index.astro"), null);
 });
 
 test("only a changelog's Unreleased section is read", () => {
