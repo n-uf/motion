@@ -660,7 +660,14 @@ facing halves is home's, and is no target of its own. The slot is where the item
   protected one its place, and no chrome under its slot. Protected: the fixed items at a zone's anchor (from the start
   zone's first member, or the end zone's last, up to the first movable one), every fixed item of the center zone, and
   the fixed items of the other zones. A fixed item behind a movable one is placed by that movable's size, so a drop in
-  its zone may push it; a gap between two fixed items has no place to aim at and is not offered. Along the edge the gaps tile it: neighboring gaps meet at the midpoint of the
+  its zone may push it; a gap between two fixed items has no place to aim at and is not offered. A fixed item with
+  **`SceneItem.pushable: true`** is not protected at the anchor: a movable item dropped after it may push it inward along
+  its zone, so the gap at the end of a run of such items (a state cell and a page cell at a title bar's end) is a place
+  and a stop, where a toolbar homed after them is put back ("state page zoom"). They keep their order: no gap between two
+  `pushable` items is offered; a `pushable` item followed by an unflagged fixed one (window controls) is still a wedge, so
+  no place between them. Left out, a fixed item at the anchor keeps its place as before (window controls stay at the end).
+  `pushable` is a declaration like `Edge.zoneAccepts`: `readScene` takes it from `base`, `storeScene` never writes it, and
+  a stored one is dropped (`item:<id>:pushable`). Along the edge the gaps tile it: neighboring gaps meet at the midpoint of the
   item between them (see Aim order), else halfway between their lines, so an edge of a few short items (a bar, a rail,
   a column's footer) is covered from end to end. Only over an
   open item's body (a panel) the hit narrows to `Edge.hitBand` px around its line (default 24), so the middle of a

@@ -5,6 +5,20 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
+- `./scene`, **`SceneItem.pushable`: the gap after a run of fixed cells is a stop** (additive). In a title bar whose end
+  zone holds fixed cells (a state cell and a page cell, `align: "end"`), a toolbar homed after them ("state page zoom")
+  could not be put back once it had left: the cells are the end zone's anchored fixed run, a drop after them pushes them
+  inward, and every such place was refused, so `stops()` and `targets()` offered nothing after them. `solve` itself
+  accepts the place (`moveTo` at the index after them lands the toolbar there and moves the cells left by its width).
+  A fixed item can now declare **`pushable: true`**: the anchored-run protection skips it, so the gap at the end of a run
+  of such items is a stop and a target, and a drop there pushes them inward. They keep their order: no gap between two
+  `pushable` items is offered, and a `pushable` item followed by an unflagged fixed one (window controls) is still a
+  wedge with no place between them. Left out, nothing changes: window controls and every fixed item at an anchor keep
+  their place, and row R7-end-zone-anchored-fixed-stay holds. `pushable` is a declaration of the scene like
+  `Edge.zoneAccepts`: `readScene` takes it from `base`, `storeScene` never writes it, and a stored one is dropped
+  (`item:<id>:pushable`). Host note: mark the cells that may yield; the stop's id is `gap:<edge>:end:<n>` with `n` the
+  count of the zone's other members. New rows R7-end-zone-pushable-put-back and
+  R7-end-zone-fixed-without-the-flag-no-gap-after, a test file, and the lab's kit case `kit-pushable-cells-put-back`.
 - `./scene`, **in a held frame every lane's marks follow its edge** (fix). With `options.spot`, every lane takes its
   marks in the held spot's layout, but only the held lane was clipped to its rect over that layout; the others were
   clipped to their rect as seen, so where the drop moves an edge (a column pushed aside by a rail that opens) their
