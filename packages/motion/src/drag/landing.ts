@@ -19,7 +19,9 @@ import type { PlaceGuides } from "./preview";
  *   face into the stage (on the edge it is deep). A fly-through of a thin bar or rail at any angle meets neither, so its
  *   room never opens. Inside a lane that touches the held one, past the held lane's exit margin, the held lane holds
  *   until that lane's gate passes or the pointer has slid `path` px along it at any speed (across it at most a third as
- *   far): lane to lane never passes through the float, and never opens a crossed lane's room.
+ *   far): lane to lane never passes through the float, and never opens a crossed lane's room. Over a refused place (a
+ *   lane's band lying over a column that takes nothing: an empty side rail's) a lane is entered at once (not on the
+ *   lift), as there is nothing else to mean there.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `step`, or once the held landing trails the
  *   pointer by more than `trail`: the item chases only as far as it must. A change that moves only the held item
@@ -389,13 +391,20 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       } else {
         laneId = spotId = null;
         // Entering: a touching lane at once, else the path gate or the still gate; at a tie, the lane the pointer is
-        // deeper in.
+        // deeper in. Over a refused place (a lane's band over a column that takes nothing, an empty side rail's) a lane is
+        // entered at once, never on the lift: there is nothing else the pointer can mean there, and nothing to fly
+        // through to.
+        // (Over something that takes nothing reaching past the lane, a column's panel under an empty rail's band, and in
+        // no other lane; a drawn bar's own rect and its items lie within it, so its gate holds.)
+        const lanesHere = regions.lanes.filter((l) => strictlyIn(l.rect, p));
+        const within = (b: Rect, l: LandingLane): boolean => b.x >= l.rect.x - 1 && b.y >= l.rect.y - 1 && b.x + b.width <= l.rect.x + l.rect.width + 1 && b.y + b.height <= l.rect.y + l.rect.height + 1;
+        const overRefused = (l: LandingLane): boolean =>
+          Number.isFinite(step) && lanesHere.length === 1 && [...regions.blocked, ...regions.refused].some((b) => strictlyIn(b, p) && !within(b, l));
         let entered: LandingLane | null = next ?? null;
         if (!entered)
-          for (const l of regions.lanes) {
-            if (!strictlyIn(l.rect, p)) continue;
+          for (const l of lanesHere) {
             const deep = depthIn(l.rect, p, regions.stage);
-            if (gate(l) && (!entered || deep > depthIn(entered.rect, p, regions.stage))) entered = l;
+            if ((gate(l) || overRefused(l)) && (!entered || deep > depthIn(entered.rect, p, regions.stage))) entered = l;
           }
         if (entered) {
           laneId = entered.id;

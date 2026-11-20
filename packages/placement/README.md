@@ -1046,8 +1046,9 @@ drag of `id`:
   - A box lying over another edge's docked items (an empty side rail over a column's outer strip) is a hatch there:
     they move aside when the lane opens.
   - Never a box or a line over an item drawn there, nothing over the held item, nothing in a refused stretch, and no
-    two lanes' marks overlap: at a corner a lane not drawn (an empty bar or rail, a virtual lane) gives way to a drawn
-    one, and between two not drawn the bar owns it.
+    two edge lanes' marks overlap: at a corner a lane not drawn (an empty bar or rail) gives way to a drawn one, and
+    between two not drawn the bar owns it. A virtual lane (a new column's line, a declared rail) is drawn over what it
+    would push, and may overlap another lane's marks there.
   - As seen (no `spot`), the lifted item is drawn nowhere, so its own place is free room in its lane. With
     `options.spot`, every lane's marks lie in that spot's layout (the held item there, its room open, an edge moved by
     it): a host draws the held lane's guides from the `lanes()` call with `spot` (a landing model's `regionsFor`).

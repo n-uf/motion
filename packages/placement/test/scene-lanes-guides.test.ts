@@ -2,8 +2,9 @@
  * `lanes()` for a landing model's guides and gates: which spots move another item, the guide marks in the layout as
  * drawn (never over an item), refused stretches at least the item's length, and pitched spots on a toolbar rail.
  */
+import { createLandingModel } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
-import type { Rect } from "../src/geometry";
+import type { Point, Rect } from "../src/geometry";
 import { lanes, solve, SPOT_PITCH, type Scene, type SceneItem } from "../src/scene";
 import { WINDOW_A, winScene } from "../src/scene/cases/windows";
 import { modelScene } from "./model-scene";
@@ -409,8 +410,41 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     // Over the column's outer strip, and nothing over the column drawn as a box.
     for (const m of rail.marks) if (m.kind === "box") expect(overlaps(m.rect, column), m.id).toBe(false);
     expect(hatches.some((m) => overlaps(m.rect, column))).toBe(true);
-    // No refused place where a lane lies.
-    for (const r of rs.refused) for (const l of rs.lanes) expect(overlaps(r, l.rect), `refused over ${l.id}`).toBe(false);
+  });
+
+  it("over a column that takes nothing, an empty side rail is entered at once: no \"Can't go here\" in its band, and a release there docks in it", () => {
+    const s = docWindow();
+    const previous = solve(s);
+    const r = previous.items.views!.rect;
+    const grab = { x: 10, y: 10 };
+    const regions = lanes(s, "views", { previous, grab });
+    const home = regions.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0]!;
+    const m = createLandingModel({ regions, regionsFor: (spot) => lanes(s, "views", { previous, grab, spot }), floatLanding: (p) => regions.float?.after(p, grab).layout.items.views?.rect ?? null, home });
+    const rail = regions.lanes.find((x) => x.id === "rail-right")!;
+    // From the press, up into the page, then right across the right column into the rail's band, slowly.
+    const pts: Point[] = [];
+    const go = (a: Point, b: Point): void => {
+      const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 0.3 / 8);
+      for (let k = 1; k <= n; k++) pts.push({ x: a.x + ((b.x - a.x) * k) / n, y: a.y + ((b.y - a.y) * k) / n });
+    };
+    const press = { x: r.x + grab.x, y: r.y + grab.y };
+    const page = { x: 540, y: 300 };
+    go(press, page);
+    go(page, { x: rail.rect.x + rail.rect.width / 2, y: 300 });
+    let t = 0;
+    let inBand = 0;
+    const wrong: string[] = [];
+    m.update(press, t);
+    for (const p of pts) {
+      const f = m.update(p, (t += 8));
+      if (p.x > rail.rect.x + 0.5) {
+        inBand++;
+        if (f.region !== "lane" || f.lane !== "rail-right") wrong.push(`${Math.round(p.x)}: ${f.region} ${f.lane ?? ""}`);
+      }
+    }
+    expect(inBand).toBeGreaterThan(0);
+    expect(wrong.slice(0, 4)).toEqual([]);
+    expect(m.release()).toMatchObject({ kind: "spot", lane: "rail-right" });
   });
 
   it("with a held spot whose room moves the edge (a bar left empty lets the rail start higher), the marks lie on the edge as drawn there", () => {
