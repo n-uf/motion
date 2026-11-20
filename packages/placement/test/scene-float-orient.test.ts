@@ -188,3 +188,27 @@ describe("a scene stored with the old single floatSize", () => {
     expect(read.dropped).toEqual([]);
   });
 });
+
+describe("a legacy floatSize in memory goes to the orient it was set in", () => {
+  /** The base scene with the card's old single size, set in its own orient (column, its first axis). */
+  const legacy = (): Scene => {
+    const s = base();
+    return { ...s, items: { ...s.items, card: { ...s.items.card!, floatSize: { width: 333, height: 444 } } } };
+  };
+  const size = { width: 333, height: 444 };
+
+  it("floatAt with no rect in the other orient moves it into floatSizes for the orient it was set in; turning back finds it", () => {
+    const row = floatAt(legacy(), "card", undefined, "row");
+    expect(row.items.card!.floatSize).toBeUndefined();
+    expect(row.items.card!.floatSizes).toEqual({ column: size });
+    const col = orient(row, "card", "column");
+    expect(col.items.card!.floatSizes?.column).toEqual(size);
+    expect(sizeOf(col, "card")).toEqual(size);
+  });
+
+  it("readScene moves a base item's legacy floatSize into floatSizes too, with no store entry for it", () => {
+    const read = readScene({ v: 1, edges: [], floats: [], items: {} }, legacy());
+    expect(read.scene.items.card!.floatSize).toBeUndefined();
+    expect(read.scene.items.card!.floatSizes).toEqual({ column: size });
+  });
+});
