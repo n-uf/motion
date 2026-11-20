@@ -9,6 +9,8 @@
  *
  * Both give root `Target`s, for `@n-uf/motion/drag`. `giveWay` floats the newest pane while one breaks its minimum.
  * Pure: no DOM, no time.
+ *
+ * See docs/placement.md, Entry: tiling.
  */
 export { columns, grid, masterStack, type OrderLayout, type TileOptions } from "./order";
 export { dropOnPane, layoutSplit, panesOf, removePane, splitFromOrder, splitPane, swapPanes, type Split } from "./split";

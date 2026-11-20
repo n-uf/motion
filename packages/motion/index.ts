@@ -8,6 +8,8 @@
  * intent model: when a drop indicator shows, what a release lands on) and
  * `@n-uf/motion/layout` (layout motion and the held drag) are only there,
  * not in the root.
+ *
+ * See docs/motion.md, "The root entry" (and "Parts and how they fit").
  */
 export * from "./src/clock";
 export * from "./src/signals";

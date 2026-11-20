@@ -6,6 +6,8 @@
  * width); room kept clear at the pages' edges for a toolbar the app draws; drop targets in the shape
  * @n-uf/motion/drag takes; and a stored form. Pure: state, a stage and options in; geometry, structure and coded
  * notes out.
+ *
+ * A legacy entry. See docs/placement.md, Entry: panels.
  */
 export {
   BAND_SIZE,

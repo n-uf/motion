@@ -10,6 +10,8 @@
  *   collapsed by hand stays collapsed.
  * - A group drop lands in a zone before all, after all, or between two groups. An empty zone is a target of its
  *   own. A group's home is its own place: a drop there changes nothing.
+ *
+ * A legacy entry. See docs/placement.md, Entry: toolbar.
  */
 import type { Rect } from "../geometry";
 

@@ -1,6 +1,8 @@
 /**
  * @n-uf/placement/targets: drop-target lists for the desk and toolbar groups, in the shape
  * @n-uf/motion/drag takes (`{ id, priority, hit, slot?, label?, free? }`), so a drag intent can pick among them.
+ *
+ * A legacy entry. See docs/placement.md, Entry: targets.
  */
 export type { Target } from "../target";
 export { SNAP, deskDrop, deskTargets, type DeskDrop, type DeskTarget, type DeskTargetInput, type Made } from "./desk";

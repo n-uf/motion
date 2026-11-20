@@ -19,6 +19,8 @@
  * awaiting each host call.
  *
  * Pure data and logic: no DOM, no time, no globals.
+ *
+ * See docs/placement.md, Entry: scene/cases (the exports) and The landing rows.
  */
 import { DOCKING_ROWS } from "./rows-docking";
 import { BAR_ROWS } from "./rows-bars";
