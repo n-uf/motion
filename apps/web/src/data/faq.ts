@@ -32,7 +32,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do the three libraries work together?",
-      a: "Motion moves things, placement works out where they fit, and docking works out where they dock. Motion imports neither of the others. A target list from <code>targets</code> in <code>@n-uf/docking</code> is exactly what the drag intent in <code>@n-uf/motion/drag</code> takes, and a rect from placement or docking is what <code>@n-uf/motion/layout</code> glides to. Each library also works alone.",
+      a: "Motion moves things, placement works out where they fit, and docking works out where they dock. Motion imports neither of the others. A target list from <code>targets</code> in <code>@n-uf/docking</code> is exactly what the drag intent in <code>@n-uf/motion/drag</code> takes, and a rect from placement or docking is what <code>@n-uf/motion/layout</code> glides to. Motion and placement also work alone.",
     },
     {
       q: "Does @n-uf/docking draw panels and tabs?",
