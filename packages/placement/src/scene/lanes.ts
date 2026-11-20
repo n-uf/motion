@@ -331,21 +331,27 @@ interface Marking {
    * stepped down); without one, the marks' own layout is the one compared with.
    */
   readonly lifted: SceneLayout;
-  /** The edges drawn in `over` standing across `edge`'s axis, their rects: the ones an empty `edge`'s lane gives way to. */
+  /**
+   * The edges drawn in `over` standing across `edge`'s axis that take the held item (it has a lane there), their rects:
+   * the ones an empty `edge`'s lane gives way to. A drawn edge that refuses the item leaves the corner to `edge`.
+   */
   readonly crossing: (edge: string, over: SceneLayout) => readonly Rect[];
 }
 
 /**
  * An empty edge's band less the drawn edges across it: along `axis` it stops at each one's side (the ones before its
- * middle cut its start, the others its end). Only a drawn edge that reaches into the band across it cuts.
+ * middle cut its start, the others its end). Only a drawn edge that stands across the band's middle line cuts: one that
+ * reaches a few pixels into the band (a rail starting below a drawn inner bar the empty band lies over) takes none of
+ * the band's length, so its corner stays the band's.
  */
 function clipAtDrawn(band: Rect, axis: Axis, cuts: readonly Rect[]): Rect {
   let a = lo(band, axis);
   let b = a + len(band, axis);
   const center = (a + b) / 2;
   const x = axis === "x" ? "y" : "x";
+  const line = lo(band, x) + len(band, x) / 2;
   for (const c of cuts) {
-    if (!(lo(c, x) < lo(band, x) + len(band, x) - EPS && lo(band, x) < lo(c, x) + len(c, x) - EPS)) continue;
+    if (!(lo(c, x) < line - EPS && line < lo(c, x) + len(c, x) - EPS)) continue;
     const c0 = lo(c, axis);
     const c1 = c0 + len(c, axis);
     if ((c0 + c1) / 2 <= center) a = Math.max(a, c1);
@@ -460,7 +466,7 @@ function build(scene: Scene, dragged: string, options: LaneOptions): Base {
     },
     gap: (edge) => nonNeg(scene.edges.find((e) => e.id === edge)?.gap),
     lifted,
-    crossing: (edge, over) => scene.edges.filter((e) => e.id !== edge && (over.edges[e.id]?.cross ?? 0) > EPS && axisOfEdge(e.id) !== axisOfEdge(edge)).map((e) => over.edges[e.id]!.rect),
+    crossing: (edge, over) => scene.edges.filter((e) => e.id !== edge && byLane.has(e.id) && (over.edges[e.id]?.cross ?? 0) > EPS && axisOfEdge(e.id) !== axisOfEdge(edge)).map((e) => over.edges[e.id]!.rect),
   };
   // Where the pointer holds the item, as a share of its length now, along its own length only (its longer side): a
   // landing of another length along that axis is held at the same share; across the item, where the share says only
@@ -551,6 +557,13 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
   }
   const start = lo(laneRect, axis);
   const end = start + len(laneRect, axis);
+  // The cuts are made over the lane's band whole (an empty edge's before its clip at a drawn edge), then the stretches are
+  // clipped to the lane: the clip hands the drawn edge only the stretch that lies on it. A spot whose stretch lies there
+  // whole is that edge's (the pointer there is in its lane); the spot whose stretch the clip falls in starts at the clip,
+  // so the clip leaves no spot with no stretch, and none a pointer off the drawn edge reached goes.
+  const whole = markBand ?? laneRect;
+  const bandStart = lo(whole, axis);
+  const bandEnd = bandStart + len(whole, axis);
   // The cut between two spots. In a panel column (`halves`), between two spots sharing a neighbor, that item's middle in
   // `drawn` (the upper half above it, the lower half below); else halfway across the gap between their landings (each in
   // its own layout), so the pointer is at the landing it picks, or as near one as the other: a toolbar moved along a bar
@@ -579,11 +592,17 @@ function laneFrom(id: string, list: readonly Raw[], drawn: SceneLayout, seen: Sc
     const slack = Math.max(0, marking.pitch) / 2;
     const atGrab = clamp(across + ((held - 0.5) * (len(aLanding, axis) + len(bLanding, axis))) / 2, lo(bLanding, axis) - slack, aEnd + slack);
     const raw = shared ? mid(shared, axis) : overlap ? atGrab : across;
-    cuts.push(clamp(Math.max(raw, cuts[i - 1] ?? start), start, end));
+    cuts.push(clamp(Math.max(raw, cuts[i - 1] ?? bandStart), bandStart, bandEnd));
   }
-  const spots: LaneSpot[] = unique.map((x, i) => ({
+  const spots: LaneSpot[] = unique.flatMap((x, i) => {
+    const a = i === 0 ? bandStart : cuts[i - 1]!;
+    const b = i === unique.length - 1 ? bandEnd : cuts[i]!;
+    const along = [clamp(a, start, end), clamp(b, start, end)] as const;
+    // Left out only where the clip took its whole stretch (never the item's own place).
+    return along[1] - along[0] > EPS || b - a <= EPS || x.home ? [{ x, along }] : [];
+  }).map(({ x, along }) => ({
     id: x.id,
-    along: [i === 0 ? start : cuts[i - 1]!, i === unique.length - 1 ? end : cuts[i]!] as const,
+    along,
     landing: x.landing,
     target: x.target,
     ...(x.home ? { home: true as const } : {}),

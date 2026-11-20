@@ -287,9 +287,13 @@ spots.
 drag of `id`:
 - `lanes`: every edge that takes it (and the virtual ones: a new column's line, a declared rail), each with its rect, its
   axis and its spots in order. A drawn edge's lane rect is the edge; an empty one's is the band its drop would draw.
-  At a corner an empty edge's lane gives way to a drawn edge across it, the same rule as its marks: its rect is clipped
-  along its axis to stop at that edge's side (an empty top bar beside a drawn side rail starts at the rail's inner side),
-  and its spots' `along` stretches with it; between two edges not drawn the corner is as it was. A spot is a place a drop there lands: its `landing` rect, its `target` (the drop, its
+  At a corner an empty edge's lane gives way to a drawn edge across it that takes the held item (has a lane for it):
+  its rect is clipped along its axis to stop at that edge's side (an empty top bar beside a drawn side rail starts at
+  the rail's inner side). Only a drawn edge standing across the band's middle line cuts. A drawn edge that refuses the
+  item (a panel column, for a toolbar) leaves the corner to the empty lane, and between two edges not drawn the corner
+  is as it was. The clip loses no landing: the spots' cuts are made over the band whole and then clipped, so the spot
+  whose stretch the clip falls in starts at the clip, a spot whose stretch lies whole on the drawn edge is left out
+  (the pointer there is in that edge's lane), and no spot has a zero-length `along`. A spot is a place a drop there lands: its `landing` rect, its `target` (the drop, its
   `after()`), and its `along` stretch of the lane, the part that picks it. In a panel column, between two spots that
   share a neighbor (the item `Y` in `X|Y` and `Y|Z`) the boundary is that item's middle as drawn, so a column takes a
   panel by halves; with `options.spot` the held spot's lane is drawn in that spot's own layout (its room open). On a bar
