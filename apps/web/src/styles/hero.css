@@ -1,20 +1,24 @@
 /*
- * The home hero (components/HeroScope.astro): two instruments split by a seam, motion's scope on the left (the accent)
- * and placement's plan on the right (violet, --series-b). The TypeScript sentence is first in the DOM and shows under
- * the band. Wide: two columns, the band's two halves drawn behind them. Narrow (860 px and under): one column, the
- * headlines first, then each package's words, then the scope above the plan, each on its own ground.
+ * The home hero (components/HeroScope.astro): three slots split by two seams, motion's scope on the left (the accent),
+ * placement's tiles in the middle (violet, --series-b) and docking's plan on the right (rose, --dock). The TypeScript
+ * sentence is first in the DOM and shows under the band. Wide: three columns of equal text width (the page's wrap, a
+ * gutter between them), the band's three grounds drawn behind them. Narrow (1100 px and under): one column, the three
+ * headlines first, then each library's slot (its eyebrow, words and instrument) on its own ground.
  *
- * Nothing here changes size when islands/hero.ts starts; the island moves things by transform and draws into layers that
- * take no room.
+ * Nothing here changes size when islands/hero.ts or islands/hero-tiles.ts starts; they move things by transform and draw
+ * into layers that take no room.
  */
-.hero { --pad: max(var(--gutter), calc((100cqw - var(--max)) / 2)); container-type: inline-size; display: flex; flex-direction: column; }
+.hero { --pad: max(var(--gutter), calc((100cqw - var(--max)) / 2)); --gap: 26px; --w: calc((100cqw - 2 * var(--pad) - 4 * var(--gap)) / 3); container-type: inline-size; display: flex; flex-direction: column; }
 .pair-intro { order: 2; margin: 0; padding: 14px var(--pad) 0; max-width: none; font: 12.5px/1.6 var(--font-mono); color: var(--text-3); }
-.band { order: 1; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding-bottom: var(--s5); border-bottom: 1px solid var(--line); overflow: hidden; }
+.band { order: 1; position: relative; display: grid; grid-template-columns: calc(var(--pad) + var(--w) + var(--gap)) calc(var(--w) + 2 * var(--gap)) calc(var(--w) + var(--gap) + var(--pad)); padding-bottom: var(--s5); border-bottom: 1px solid var(--line); overflow: hidden; }
 
-/* The two grounds: motion's a plain grid with a glow, placement's a finer blueprint grid. */
-.bg { position: absolute; top: 0; bottom: 0; width: 50%; pointer-events: none; }
+/* The three grounds: motion's a plain grid with a glow, placement's a finer blueprint grid, docking's a field of dots. */
+.bg { position: absolute; top: 0; bottom: 0; pointer-events: none; }
+.bg.p { left: calc(var(--pad) + var(--w) + var(--gap)); width: calc(var(--w) + 2 * var(--gap)); }
+.bg.d { right: 0; width: calc(var(--w) + var(--gap) + var(--pad)); }
 .bg.m {
   left: 0;
+  width: calc(var(--pad) + var(--w) + var(--gap));
   background:
     linear-gradient(to right, color-mix(in srgb, var(--accent) 16%, transparent) 1px, transparent 1px) 0 0 / 120px 120px,
     linear-gradient(to bottom, color-mix(in srgb, var(--accent) 16%, transparent) 1px, transparent 1px) 0 0 / 120px 120px,
@@ -23,36 +27,47 @@
     radial-gradient(120% 90% at 85% 100%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 60%), var(--bg);
 }
 .bg.p {
-  right: 0;
   background:
     linear-gradient(to right, color-mix(in srgb, var(--series-b) 22%, transparent) 1px, transparent 1px) 0 0 / 96px 96px,
     linear-gradient(to bottom, color-mix(in srgb, var(--series-b) 22%, transparent) 1px, transparent 1px) 0 0 / 96px 96px,
     linear-gradient(to right, color-mix(in srgb, var(--series-b) 9%, transparent) 1px, transparent 1px) 0 0 / 16px 16px,
     linear-gradient(to bottom, color-mix(in srgb, var(--series-b) 9%, transparent) 1px, transparent 1px) 0 0 / 16px 16px, var(--bg-sunken);
 }
-.seam { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line-3); pointer-events: none; }
+.bg.d {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--dock) 34%, transparent) 1.3px, transparent 1.6px) 0 0 / 24px 24px,
+    radial-gradient(120% 90% at 15% 100%, color-mix(in srgb, var(--dock) 7%, transparent), transparent 60%), var(--bg);
+}
+.seam { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-3); pointer-events: none; }
+.seam.s1 { left: calc(var(--pad) + var(--w) + var(--gap)); }
+.seam.s2 { left: calc(var(--pad) + 2 * var(--w) + 3 * var(--gap)); }
 .bpl { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 
 .eb { grid-row: 1; align-self: start; position: relative; padding-top: 34px; }
 .eb.m { grid-column: 1; padding-left: var(--pad); }
-.eb.p { grid-column: 2; padding-left: 44px; color: var(--series-b); }
-h1.pair { grid-row: 2; grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; margin: 0; max-width: none; font-size: clamp(34px, 4.1cqw, 58px); line-height: 1.06; letter-spacing: -0.04em; font-weight: 700; position: relative; }
-/* The room under the headlines holds the right one's overall dimension line. */
+.eb.p { grid-column: 2; padding-left: var(--gap); color: var(--series-b); }
+.eb.d { grid-column: 3; padding-left: var(--gap); color: var(--dock); }
+h1.pair { grid-row: 2; grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; margin: 0; max-width: none; font-size: clamp(26px, 2.55cqw, 38px); line-height: 1.08; letter-spacing: -0.04em; font-weight: 700; position: relative; }
+/* The room under the headlines holds the docking one's overall dimension line. */
 h1.pair > span { display: block; padding-top: var(--s4); padding-bottom: 30px; position: relative; }
-h1.pair > span.m { grid-column: 1; padding-right: 36px; padding-left: var(--pad); }
-h1.pair > span.p { grid-column: 2; padding-left: 44px; padding-right: var(--pad); }
+h1.pair > span.m { grid-column: 1; padding-right: var(--gap); padding-left: var(--pad); }
+h1.pair > span.p { grid-column: 2; padding-left: var(--gap); padding-right: var(--gap); }
+h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(--pad); }
 .hw { display: inline-block; will-change: transform; }
 
 .col { grid-row: 3; position: relative; z-index: 2; display: flex; flex-direction: column; gap: var(--s3); padding-top: var(--s3); }
-.col.m { grid-column: 1; padding-left: var(--pad); padding-right: 36px; }
-.col.p { grid-column: 2; padding-left: 44px; padding-right: var(--pad); }
-.col .lead { margin: 0; max-width: 46ch; font-size: 16px; }
-.col .install { margin-top: 0; gap: 10px; align-items: stretch; }
+.col.m { grid-column: 1; padding-left: var(--pad); padding-right: var(--gap); }
+.col.p { grid-column: 2; padding-left: var(--gap); padding-right: var(--gap); }
+.col.d { grid-column: 3; padding-left: var(--gap); padding-right: var(--pad); }
+.col .lead { margin: 0; max-width: 46ch; font-size: 15px; }
+.col .install { display: grid; gap: 10px; margin-top: 0; justify-items: start; }
+.go-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 /* The install line: an opaque bar on the page surface with a 1 px border in its package's colour, the command and a Copy
    button (islands/copy.ts), the same height as the "See the …" button beside it. The Copy button's width is fixed, so
    "Copied" never moves anything. */
 .cmdbar { --c: var(--accent); display: inline-flex; align-items: center; min-width: 0; max-width: 100%; height: 40px; border: 1px solid var(--c); border-radius: var(--r); background: var(--bg); }
 .cmdbar.p { --c: var(--series-b); }
+.cmdbar.d { --c: var(--dock); }
 .cmdbar .cmd { min-width: 0; height: 100%; padding: 0 12px 0 14px; border: 0; border-radius: 0; background: none; box-shadow: none; }
 .cmdbar .copy { flex: none; min-width: 64px; height: 28px; margin-right: 5px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 3px; background: transparent; color: var(--text-2); font: 600 11px var(--font-mono); cursor: pointer; transition: color var(--fast) var(--ease), border-color var(--fast) var(--ease), background-color var(--fast) var(--ease); }
 .cmdbar .copy:hover { color: var(--text); border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, transparent); }
@@ -61,28 +76,34 @@ h1.pair > span.p { grid-column: 2; padding-left: 44px; padding-right: var(--pad)
 /* Solid ground under the text block (the eyebrow, the headline, the line under it, the install row): the half's own
    surface, fading back into the grid just under it, so the figures keep the grid and its measures. Narrow, the grid is
    not behind the text at all. */
-@media (min-width: 861px) {
-  .eb.m, h1.pair > span.m, .col.m { background: var(--bg); }
+@media (min-width: 1101px) {
+  .eb.m, h1.pair > span.m, .col.m, .eb.d, h1.pair > span.d, .col.d { background: var(--bg); }
   .eb.p, h1.pair > span.p, .col.p { background: var(--bg-sunken); }
-  .hz.m { background: linear-gradient(var(--bg), transparent var(--s5)); }
+  .hz.m, .hz.d { background: linear-gradient(var(--bg), transparent var(--s5)); }
   .hz.p { background: linear-gradient(var(--bg-sunken), transparent var(--s5)); }
   .seam { z-index: 3; }
 }
 .btn.primary.p { background: var(--series-b); border-color: var(--series-b); color: var(--bg); box-shadow: none; }
 .btn.primary.p:hover { background: color-mix(in srgb, var(--series-b) 82%, var(--text)); border-color: transparent; }
+.btn.primary.d { background: var(--dock); border-color: var(--dock); color: var(--dock-ink); box-shadow: none; }
+.btn.primary.d:hover { background: color-mix(in srgb, var(--dock) 82%, var(--text)); border-color: transparent; }
 
 .hz { grid-row: 4; position: relative; z-index: 2; padding-top: var(--s5); }
-.hz.m { grid-column: 1; padding-left: var(--pad); padding-right: 36px; }
-.hz.p { grid-column: 2; padding-left: 44px; padding-right: var(--pad); }
+.hz.m { grid-column: 1; padding-left: var(--pad); padding-right: var(--gap); }
+.hz.p { grid-column: 2; padding-left: var(--gap); padding-right: var(--gap); }
+.hz.d { grid-column: 3; padding-left: var(--gap); padding-right: var(--pad); }
 .zin { height: 100%; min-width: 0; }
 .cap { grid-area: cap; align-self: end; font: 600 10.5px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
 .cap b { color: var(--accent); font-weight: 650; }
-.planzone .cap b { color: var(--series-b); }
+.tilezone .cap b { color: var(--series-b); }
+.planzone .cap b { color: var(--dock); }
 
 /* ---- The scope ---------------------------------------------------------------------------------------------------- */
-.scope { display: grid; grid-template-columns: max-content minmax(0, 1fr) 112px; grid-template-rows: auto 1fr auto auto; grid-template-areas: "gauge plot pad" ". . ." "stats stats stats" "cap cap cap"; gap: 10px 16px; }
-.gauge-col { grid-area: gauge; display: grid; gap: var(--s2); justify-items: start; align-content: start; }
-.gauge { width: 140px; height: 96px; overflow: visible; }
+/* Wide: the dial with its two controls beside it, the plot under them, the readings, then the held panel's pad. */
+.scope { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto auto; grid-template-areas: "gauge gauge" "plot plot" "stats stats" "cap pad"; gap: 10px 14px; }
+.gauge-col { grid-area: gauge; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s2) 14px; justify-items: start; align-content: start; align-items: center; }
+.gauge-col .gauge { grid-row: 1 / span 2; }
+.gauge { width: 112px; height: 77px; overflow: visible; }
 .gauge .trk { fill: none; stroke: var(--line-3); stroke-width: 2; stroke-linecap: round; }
 .gauge .det { stroke: var(--text-3); stroke-width: 1.5; }
 .gauge .needle { stroke: var(--accent); stroke-width: 2.4; stroke-linecap: round; }
@@ -112,32 +133,48 @@ h1.pair > span.p { grid-column: 2; padding-left: 44px; padding-right: var(--pad)
 .stats b.ok { color: var(--good); }
 .stats b.bad { color: var(--bad); }
 
-/* ---- The plan ----------------------------------------------------------------------------------------------------- */
-.planzone { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; grid-template-areas: "dim" "plan" "say" "cap"; gap: 6px; }
-.dimh { grid-area: dim; position: relative; height: 14px; border-left: 1px solid var(--series-b); border-right: 1px solid var(--series-b); }
-.dimh::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 1px; background: var(--series-b); opacity: 0.7; }
-.dimh span { position: absolute; left: 50%; top: -1px; transform: translateX(-50%); padding: 0 8px; background: var(--bg-sunken); font: 600 10px/14px var(--font-mono); color: var(--series-b); }
-.plan { grid-area: plan; position: relative; width: 100%; aspect-ratio: calc(var(--sw) / var(--sh)); border: 1px solid color-mix(in srgb, var(--series-b) 55%, transparent); }
-.plan::before, .plan::after { content: ""; position: absolute; width: 11px; height: 11px; border: 2px solid var(--series-b); }
-.plan::before { left: -4px; top: -4px; border-right: 0; border-bottom: 0; }
-.plan::after { right: -4px; bottom: -4px; border-left: 0; border-top: 0; }
-.reg { position: absolute; border: 1px solid color-mix(in srgb, var(--series-b) 38%, transparent); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--series-b) 9%, transparent) 0 1px, transparent 1px 7px); font: 600 9.5px var(--font-mono); letter-spacing: 0.07em; text-transform: uppercase; color: color-mix(in srgb, var(--series-b) 80%, var(--text-3)); }
+/* ---- The tiles and the plan: two instruments of one shape (dimension line, stage, readout, caption) ------------------- */
+/* --k is the zone's colour (violet for placement's tiles, rose for docking's plan), --ground the surface it sits on. */
+.tilezone, .planzone { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; grid-template-areas: "dim" "stage" "say" "cap"; gap: 6px; }
+.tilezone { --k: var(--series-b); --ground: var(--bg-sunken); }
+.planzone { --k: var(--dock); --ground: var(--bg); }
+.dimh { grid-area: dim; position: relative; height: 14px; border-left: 1px solid var(--k); border-right: 1px solid var(--k); }
+.dimh::before { content: ""; position: absolute; left: 0; right: 0; top: 6px; height: 1px; background: var(--k); opacity: 0.7; }
+.dimh span { position: absolute; left: 50%; top: -1px; transform: translateX(-50%); padding: 0 8px; background: var(--ground); font: 600 10px/14px var(--font-mono); color: var(--k); }
+.plan, .tiles { grid-area: stage; position: relative; width: 100%; aspect-ratio: calc(var(--sw) / var(--sh)); border: 1px solid color-mix(in srgb, var(--k) 55%, transparent); }
+.plan::before, .plan::after, .tiles::before, .tiles::after { content: ""; position: absolute; z-index: 2; pointer-events: none; width: 11px; height: 11px; border: 2px solid var(--k); }
+.plan::before, .tiles::before { left: -4px; top: -4px; border-right: 0; border-bottom: 0; }
+.plan::after, .tiles::after { right: -4px; bottom: -4px; border-left: 0; border-top: 0; }
+.reg { position: absolute; border: 1px solid color-mix(in srgb, var(--k) 38%, transparent); background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--k) 9%, transparent) 0 1px, transparent 1px 7px); font: 600 9.5px var(--font-mono); letter-spacing: 0.07em; text-transform: uppercase; color: color-mix(in srgb, var(--k) 80%, var(--text-3)); }
 .reg span { position: absolute; left: 7px; top: 5px; }
-.reg.rail { background: color-mix(in srgb, var(--series-b) 10%, transparent); }
-.pslot { position: absolute; border: 1.5px dotted color-mix(in srgb, var(--series-b) 55%, transparent); border-radius: 7px; }
-.pslot > span { position: absolute; right: 7px; bottom: 4px; font: 600 10px var(--font-mono); color: var(--series-b); white-space: nowrap; }
-.pslot.docked { border: 1.5px solid var(--series-b); background: color-mix(in srgb, var(--series-b) 13%, transparent); }
+.reg.rail { background: color-mix(in srgb, var(--k) 10%, transparent); }
+.pslot { position: absolute; border: 1.5px dotted color-mix(in srgb, var(--k) 55%, transparent); border-radius: 7px; }
+.pslot > span { position: absolute; right: 7px; bottom: 4px; font: 600 10px var(--font-mono); color: var(--k); white-space: nowrap; }
+.pslot.docked { border: 1.5px solid var(--k); background: color-mix(in srgb, var(--k) 13%, transparent); }
 .pslot .mini { position: absolute; inset: 0; border: 1.5px solid var(--accent); border-radius: 8px; background: var(--bg-raised); overflow: hidden; }
 .pslot .mini ~ span, .pslot:has(.mini) > span { display: none; }
-.pind { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; border: 2px dashed var(--signal); border-radius: 7px; background: var(--signal-soft); }
-.pind[hidden] { display: none; }
-.pind.docked { border: 1.5px solid var(--series-b); background: color-mix(in srgb, var(--series-b) 13%, transparent); }
+.pind, .tind { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; border: 2px dashed var(--signal); border-radius: 7px; background: var(--signal-soft); }
+.pind[hidden], .tind[hidden] { display: none; }
+.pind.docked { border: 1.5px solid var(--k); background: color-mix(in srgb, var(--k) 13%, transparent); }
 .pind.docked em { display: none; }
-.pind em { position: absolute; left: 8px; bottom: -11px; padding: 1px 9px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font: 620 11.5px var(--font-sans); font-style: normal; white-space: nowrap; }
+.pind em, .tind em { position: absolute; left: 8px; bottom: -11px; padding: 1px 9px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font: 620 11.5px var(--font-sans); font-style: normal; white-space: nowrap; }
 .say { grid-area: say; min-height: 16px; font: 600 10.5px/16px var(--font-mono); color: var(--text-3); text-align: right; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .say b { color: var(--signal-text); font-weight: 650; }
 /* The drop readout is the island's: no "docked · ..." sentence without it (the row keeps its room). */
-.band:not(.go) .say { visibility: hidden; }
+.band:not(.go) #say, .tilezone:not(.go) .say { visibility: hidden; }
+
+/* ---- The tiles: panes that divide an area ------------------------------------------------------------------------------- */
+/* The stage is a size container (its panes are placed in its own units until the island takes over), its box reserved by the aspect ratio. */
+.tiles { container-type: size; }
+.tp { position: absolute; left: 0; top: 0; will-change: transform; touch-action: none; user-select: none; -webkit-user-select: none; }
+.tilezone.go .tp { cursor: grab; }
+.tp-frame { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 1.5px solid color-mix(in srgb, var(--series-b) 60%, transparent); border-radius: 7px; background: var(--bg-raised); }
+.tp-body { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.tp .hb i b { background: var(--series-b); }
+.tp.lift .tp-frame { border-color: var(--series-b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--series-b) 22%, transparent), var(--shadow-pop); }
+.tp.held, .tp.lift { z-index: 2; }
+.tp.held { cursor: grabbing; }
+.tp.held .tp-frame { border-color: var(--series-b); box-shadow: 0 0 0 3px color-mix(in srgb, var(--series-b) 22%, transparent), var(--shadow-pop); }
 
 /* ---- The panel: the real element, and the strobe trail ----------------------------------------------------------- */
 .ov { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
@@ -157,40 +194,48 @@ h1.pair > span.p { grid-column: 2; padding-left: 44px; padding-right: var(--pad)
 .dot { position: absolute; left: 0; top: 0; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: var(--accent); opacity: 0.9; transition: opacity 1.4s linear 1.2s; }
 .dot.f { opacity: 0; }
 
-/* The blueprint's dimension lines around the right headline (drawn by the island from its line boxes). */
+/* The blueprint's dimension lines around the docking headline (drawn by the island from its line boxes). */
 .bp { position: absolute; font-style: normal; pointer-events: none; }
-.bp.dim { font: 600 10px/14px var(--font-mono); color: var(--series-b); }
-.bp.cut { background: var(--bg-sunken); text-align: center; }
+.bp.dim { font: 600 10px/14px var(--font-mono); color: var(--dock); }
+.bp.cut { background: var(--bg); text-align: center; }
 
+/* Stacked: one column, the headlines first, then slot by slot (eyebrow, words, instrument) on each slot's own ground. */
 @media (max-width: 1100px) {
-  .scope { grid-template-columns: max-content minmax(0, 1fr) 96px; }
-  .gauge { width: 112px; height: 77px; }
-  .pad { width: 96px; height: 58px; }
-}
-@media (max-width: 860px) {
   .hero { --pad: var(--gutter); }
   .band { grid-template-columns: minmax(0, 1fr); padding-bottom: 0; }
   .bg, .seam { display: none; }
-  h1.pair { grid-row: 1; grid-column: 1; grid-template-columns: minmax(0, 1fr); font-size: clamp(30px, 8vw, 44px); padding-top: var(--s6); }
+  h1.pair { grid-row: 1; grid-column: 1; grid-template-columns: minmax(0, 1fr); font-size: clamp(26px, 6.2vw, 42px); padding-top: var(--s6); }
+  h1.pair > span { padding-bottom: 0; }
   h1.pair > span.m { grid-column: 1; padding: 0 var(--gutter); }
-  h1.pair > span.p { grid-column: 1; padding: var(--s2) var(--gutter) 0; }
+  h1.pair > span.p, h1.pair > span.d { grid-column: 1; padding: var(--s2) var(--gutter) 0; }
   .eb { padding-top: var(--s5); }
   .eb.m { grid-row: 2; grid-column: 1; padding-left: var(--gutter); }
-  .col.m { grid-row: 3; grid-column: 1; padding: var(--s2) var(--gutter) 0; }
-  .eb.p { grid-row: 4; grid-column: 1; padding-left: var(--gutter); }
-  .col.p { grid-row: 5; grid-column: 1; padding: var(--s2) var(--gutter) var(--s5); }
-  .hz { padding-top: var(--s4); padding-bottom: var(--s4); }
-  .hz.m { grid-row: 6; grid-column: 1; padding-left: var(--gutter); padding-right: var(--gutter); border-top: 1px solid var(--line-3); background:
+  .col.m { grid-row: 3; grid-column: 1; padding: var(--s2) var(--gutter) var(--s4); }
+  .hz.m { grid-row: 4; }
+  .eb.p { grid-row: 5; grid-column: 1; padding-left: var(--gutter); }
+  .col.p { grid-row: 6; grid-column: 1; padding: var(--s2) var(--gutter) var(--s4); }
+  .hz.p { grid-row: 7; }
+  .eb.d { grid-row: 8; grid-column: 1; padding-left: var(--gutter); }
+  .col.d { grid-row: 9; grid-column: 1; padding: var(--s2) var(--gutter) var(--s4); }
+  .hz.d { grid-row: 10; }
+  .col .lead { max-width: 60ch; font-size: 16px; }
+  .hz.m, .hz.p, .hz.d { grid-column: 1; padding: var(--s4) var(--gutter); border-top: 1px solid var(--line-3); }
+  .hz.m { background:
     linear-gradient(to right, color-mix(in srgb, var(--accent) 14%, transparent) 1px, transparent 1px) 0 0 / 96px 96px,
     linear-gradient(to bottom, color-mix(in srgb, var(--accent) 14%, transparent) 1px, transparent 1px) 0 0 / 96px 96px,
     linear-gradient(to right, color-mix(in srgb, var(--accent) 6%, transparent) 1px, transparent 1px) 0 0 / 24px 24px,
     linear-gradient(to bottom, color-mix(in srgb, var(--accent) 6%, transparent) 1px, transparent 1px) 0 0 / 24px 24px, var(--bg); }
-  .hz.p { grid-row: 7; grid-column: 1; padding-left: var(--gutter); padding-right: var(--gutter); border-top: 1px solid var(--line-3); background:
+  .hz.p { background:
     linear-gradient(to right, color-mix(in srgb, var(--series-b) 20%, transparent) 1px, transparent 1px) 0 0 / 96px 96px,
     linear-gradient(to bottom, color-mix(in srgb, var(--series-b) 20%, transparent) 1px, transparent 1px) 0 0 / 96px 96px,
     linear-gradient(to right, color-mix(in srgb, var(--series-b) 8%, transparent) 1px, transparent 1px) 0 0 / 16px 16px,
     linear-gradient(to bottom, color-mix(in srgb, var(--series-b) 8%, transparent) 1px, transparent 1px) 0 0 / 16px 16px, var(--bg-sunken); }
-  .scope { grid-template-columns: 164px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "gauge plot" "stats stats" "cap pad"; }
+  .hz.d { background: radial-gradient(circle, color-mix(in srgb, var(--dock) 30%, transparent) 1.3px, transparent 1.6px) 0 0 / 24px 24px, var(--bg); }
+  /* The instruments keep a reading width on a wide stack, left-aligned under their words. */
+  .zin { max-width: 640px; }
+  .scope { grid-template-columns: 164px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "gauge plot" "stats stats" "cap pad"; gap: 10px 16px; }
+  .gauge-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s2); align-items: start; }
+  .gauge-col .gauge { grid-row: auto; width: 140px; height: 96px; }
   .pad { justify-self: end; align-self: end; width: 104px; height: 60px; }
   .cap { align-self: center; }
   .pair-intro { padding: var(--s4) var(--gutter) 0; }

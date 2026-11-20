@@ -1,16 +1,19 @@
 /**
- * Home hero (island): the two instruments of components/HeroScope.astro, run live on the packages themselves.
+ * Home hero (island): the scope and the plan of components/HeroScope.astro, run live on the packages themselves (the
+ * tiling demo between them is islands/hero-tiles.ts). The panel starts in the scope (motion's slot, on the left) and
+ * crosses placement's slot to the plan (docking's, on the right).
  *
  * - **The panel** is a real element carried by `@n-uf/motion/layout` (`createLayoutMotion` + `drawBox` on the site's
  *   frame loop): a move settles, a size change is revealed rather than stretched, and a drag holds it under the pointer
  *   (`holdItem`). Whether it shows a target, and which, is `@n-uf/motion/drag`'s `createDragIntent` and `previewPlan`.
- * - **The plan** is `@n-uf/docking`: `solve` lays the window out, `targets` offers the drop targets, and each
- *   target's `after` says where the panel lands. The plan is drawn from those rects at once.
+ * - **The plan** is the scene (`@n-uf/placement/scene` today, `@n-uf/docking` after the coming release): `solve` lays the
+ *   window out, `targets` offers the drop targets, and each target's `after` says where the panel lands. The plan is
+ *   drawn from those rects at once.
  * - **The scope** reads the run off the real frames: each drawn rect of the panel is recorded and judged by
  *   `@n-uf/motion/testing` (`checkNoOvershoot`, `checkMonotonic`, `checkTempo`); the curve, the time to 90 % and the
  *   overshoot are what those frames did. The tempo is `SETTLE_TEMPO`, the speed the site's slow-motion clock.
  *
- * Only decoration is not the library: the dimension lines around the right headline (the headline's own measured line
+ * Only decoration is not the library: the dimension lines around the docking headline (the headline's own measured line
  * boxes), the strobe dots (one per 1/60 s of the real run, placed at the drawn rect) and the grid grounds.
  *
  * The showcase (a panel crossing the seam into a target, again and again) is registered with the page's showcase
@@ -112,7 +115,7 @@ export function startHero(band: HTMLElement): void {
   const size = (r: Rect): string => `${Math.round(r.width)} × ${Math.round(r.height)}`;
   const same = (a: Rect, b: Rect): boolean => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height)) < 0.01;
   const say = (html: string): void => void (sayEl.innerHTML = html);
-  /** The indicator: where placement says the panel would land, with its label. `docked`: where it landed. */
+  /** The indicator: where docking says the panel would land, with its label. `docked`: where it landed. */
   function indicate(drop: { slot: Rect; label: string } | null, docked = false): void {
     if (!drop) { pind.hidden = true; return; }
     placeInd(drop.slot);
@@ -124,7 +127,7 @@ export function startHero(band: HTMLElement): void {
   const armed = (i: number): void => {
     const d = plan.slots[i]!.drop;
     indicate(d);
-    say(`placement → <b>${d.label}</b> · rect ${size(d.slot)}`);
+    say(`docking → <b>${d.label}</b> · rect ${size(d.slot)}`);
   };
   const docked = (i: number): void => {
     const d = plan.slots[i]!.drop;
@@ -267,12 +270,12 @@ export function startHero(band: HTMLElement): void {
     showReport(run.report);
   }
 
-  // ---- The blueprint around the right headline: its own line boxes, dimensioned --------------------------------------------
-  const bpl = $<HTMLElement>("#bpl"), hp = $<HTMLElement>("#hp");
+  // ---- The blueprint around the docking headline: its own line boxes, dimensioned --------------------------------------------
+  const bpl = $<HTMLElement>("#bpl"), hp = $<HTMLElement>("#hd");
   function blueprint(): void {
     bpl.textContent = "";
-    // Stacked (860 px and under) the headlines sit over each other's text: no dimension lines there.
-    if (band.clientWidth <= 860) return;
+    // Stacked (1100 px and under) the headlines sit over each other's text: no dimension lines there.
+    if (band.clientWidth <= 1100) return;
     const range = document.createRange();
     range.selectNodeContents(hp);
     const hb = band.getBoundingClientRect();
@@ -285,7 +288,7 @@ export function startHero(band: HTMLElement): void {
       e.textContent = text;
       bpl.append(e);
     };
-    const c = "color-mix(in srgb, var(--series-b) 70%, transparent)";
+    const c = "color-mix(in srgb, var(--dock) 70%, transparent)";
     const x0 = Math.min(...lines.map((l) => l.x)), x1 = Math.max(...lines.map((l) => l.x + l.w));
     const y0 = Math.min(...lines.map((l) => l.y)), y1 = Math.max(...lines.map((l) => l.y + l.h));
     lines.forEach((l) => {
@@ -320,8 +323,8 @@ export function startHero(band: HTMLElement): void {
     if (slot && !(d.held.snapped && same(d.held.snapped, slot))) begin(slot);
     if (d.held.preview(pp, slot) === "left") rec = null;
     indicate(pp.showIndicator && drop ? drop : null);
-    if (drop && pp.showIndicator) say(`placement → <b>${drop.label}</b> · rect ${size(drop.slot)}`);
-    else if (drop) say(`placement → <b>${drop.label}</b> · motion carries the panel in`);
+    if (drop && pp.showIndicator) say(`docking → <b>${drop.label}</b> · rect ${size(drop.slot)}`);
+    else if (drop) say(`docking → <b>${drop.label}</b> · motion carries the panel in`);
     else say(f.aiming || !targets.some((t) => t.hit.x <= d.pointer.x) ? "" : "moving fast · <b>no target shown</b>");
   }
   function endDrag(cancelled: boolean, e?: PointerEvent): void {
@@ -347,7 +350,7 @@ export function startHero(band: HTMLElement): void {
       if (!(d.held.snapped && same(d.held.snapped, slot))) begin(slot);
       d.held.land(slot);
       arrive = () => { indicate(drop, true); say(`docked · <b>${drop.label}</b>`); };
-      say(`placement → <b>${drop.label}</b> · motion lands it`);
+      say(`docking → <b>${drop.label}</b> · motion lands it`);
     } else {
       where = { kind: "pad" };
       begin(padRect);
@@ -388,7 +391,7 @@ export function startHero(band: HTMLElement): void {
   window.addEventListener("blur", () => endDrag(true));
   window.addEventListener("keydown", (e) => { if (e.key === "Escape") endDrag(true); });
 
-  // ---- The showcase: placement arms a target at once, motion carries the panel there -----------------------------------------
+  // ---- The showcase: docking arms a target at once, motion carries the panel there -----------------------------------------
   let ctl = { dead: false };
   const abortCycle = (): void => { ctl.dead = true; };
   const wait = (ms: number, c: { dead: boolean }): Promise<void> => new Promise((res, rej) => setTimeout(() => (c.dead ? rej(c) : res()), ms / getSpeed()));
@@ -412,11 +415,11 @@ export function startHero(band: HTMLElement): void {
     await wait(900, c);
     launch({ kind: "stage", slot: plan.slots[seq[0]!]!.drop.slot });
     if (seq.length > 1) {
-      // A new rect mid-flight: placement answers again, and the settle turns at once from where it is drawn.
+      // A new rect mid-flight: docking answers again, and the settle turns at once from where it is drawn.
       await until(() => !!rec && rec.t > 45, c);
       armed(seq[1]!);
       launch({ kind: "stage", slot: plan.slots[seq[1]!]!.drop.slot });
-      say(`placement → <b>${plan.slots[seq[1]!]!.drop.label}</b> · a new rect, mid-flight`);
+      say(`docking → <b>${plan.slots[seq[1]!]!.drop.label}</b> · a new rect, mid-flight`);
     }
     await motion.idle();
     await wait(160, c);
