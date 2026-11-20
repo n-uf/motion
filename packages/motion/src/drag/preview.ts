@@ -1,5 +1,5 @@
+import type { Rect } from "../shapes";
 import type { DragFrame, DragTarget } from "./intent";
-import type { LandingFrame } from "./landing";
 
 /**
  * How a drag previews its drop, from least to most motion while dragging. One vocabulary for both drag models (the
@@ -51,8 +51,13 @@ export interface PreviewPlan {
   readonly guides: PlaceGuides;
 }
 
-/** A frame `previewPlan` reads: the drag intent's (what shows) or the landing model's (where it lands). */
-export type PreviewFrame<T extends DragTarget = DragTarget> = Pick<DragFrame<T>, "shown" | "room"> | Pick<LandingFrame, "region" | "landing" | "room">;
+/**
+ * A frame `previewPlan` reads: the drag intent's (what shows) or the landing model's (where it lands: a
+ * `LandingFrame`'s `region`, `landing` and `room`).
+ */
+export type PreviewFrame<T extends DragTarget = DragTarget> =
+  | Pick<DragFrame<T>, "shown" | "room">
+  | { readonly region: "lane" | "open" | "refused" | "nowhere"; readonly landing: Rect | null; readonly room: boolean };
 
 /**
  * The plan for a frame of either drag model under `preview` (a mode alone is `{ mode }`). From an intent's frame a

@@ -23,14 +23,7 @@ export function resolveDragModifier(config: ModifierKey | null | undefined, plat
   return config ?? defaultDragModifier(platform);
 }
 
-/**
- * Whether `key` is held in `modifiers` (a pointer's, or the keys a drag sample carries; absent fields are not held).
- * `"mod"`: ⌘ (meta) or Ctrl, either one. Null: never.
- */
-export function isHeld(modifiers: Partial<Modifiers> | undefined, key: ModifierKey | null): boolean {
-  if (key === null || !modifiers) return false;
-  return key === "mod" ? !!(modifiers.meta || modifiers.ctrl) : !!modifiers[key];
-}
+export { isHeld } from "../keys";
 
 /**
  * The button a press stands for on this platform. On macOS a Ctrl+click is the secondary click (the system's own

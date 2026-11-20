@@ -1,5 +1,5 @@
 import type { Rect } from "../shapes";
-import type { Drawable, DrawFrame } from "../layout/motion";
+import type { Drawable, DrawFrame } from "../layout";
 
 /**
  * The style properties the layout motion writes, as strings (a DOM node's `style` has them all). Structural: the

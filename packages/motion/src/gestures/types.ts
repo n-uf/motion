@@ -7,23 +7,12 @@
  * with the host.
  */
 
+import type { Modifiers } from "../keys";
 import type { Point } from "../shapes";
 
+export type { ModifierKey, Modifiers } from "../keys";
+
 export type PointerKind = "mouse" | "pen" | "touch";
-
-/** Pointer modifiers, ctrl included (the drag modifier may be "ctrl") */
-export interface Modifiers {
-  shift: boolean;
-  alt: boolean;
-  meta: boolean;
-  ctrl: boolean;
-}
-
-/**
- * A modifier key, the package's one name for it (the recognizer's drag modifier, a drag's float and arm keys): a field
- * of {@link Modifiers}, or `"mod"`: ⌘ (meta) or Ctrl, either one held counts, so no platform is needed.
- */
-export type ModifierKey = keyof Modifiers | "mod";
 
 /** "mac": the drag modifier defaults to Cmd; "other": Alt (the OS keeps the Win/Super key) */
 export type Platform = "mac" | "other";
