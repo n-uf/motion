@@ -5,7 +5,7 @@
  * transform, so a column reserves its box (an aspect ratio) and nothing shifts.
  */
 .hdw { --hd-w: 320; --hd-h: 300; position: relative; width: 100%; aspect-ratio: var(--hd-w) / var(--hd-h); container-type: inline-size; }
-.hdw-in { position: absolute; left: 0; top: 0; width: calc(var(--hd-w) * 1px); height: calc(var(--hd-h) * 1px); transform-origin: 0 0; transform: scale(calc(100cqw / (var(--hd-w) * 1px))); }
+.hdw-in { position: absolute; left: 0; top: 0; width: calc(var(--hd-w) * 1px); height: calc(var(--hd-h) * 1px); transform-origin: 0 0; transform: scale(tan(atan2(100cqw, calc(var(--hd-w) * 1px)))); }
 .hd-win {
   position: relative; width: 100%; height: 100%; overflow: hidden; border: 1px solid var(--win-edge); border-radius: var(--win-r);
   background: var(--win-frame); color: var(--win-text); font-size: 12px; line-height: 1.25; user-select: none; box-sizing: border-box;
