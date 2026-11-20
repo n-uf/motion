@@ -469,7 +469,7 @@ function strictlyContent(p: Point): boolean {
   return inR(r.content) && !r.blocked.some((b) => p.x > b.x && p.x < b.x + b.width && p.y > b.y && p.y < b.y + b.height);
 }
 
-describe("landing model: a lane lying over a place that takes nothing is entered at once", () => {
+describe("landing model: a lane lying over a place that takes nothing is entered on the first slow step there", () => {
   /** railWindow, with an empty right rail: its band (x 1050–1080) over the right column, which takes nothing. */
   const withRightRail = (): LandingRegions => {
     const r = railWindow();
@@ -477,8 +477,8 @@ describe("landing model: a lane lying over a place that takes nothing is entered
     return { ...r, lanes: [...r.lanes, band] };
   };
 
-  it("crossing the column into the band, the first frame in it holds the rail: no \"Can't go here\" there, and a release docks in it", () => {
-    const { frames } = run(base({ regions: withRightRail() }), path([{ x: 15, y: 300 }, { x: 600, y: 300 }, { x: 1060, y: 300 }], 0.6));
+  it("crossing the column slowly into the band, the first frame in it holds the rail: no \"Can't go here\" there, and a release docks in it", () => {
+    const { frames } = run(base({ regions: withRightRail() }), path([{ x: 15, y: 300 }, { x: 600, y: 300 }, { x: 1060, y: 300 }], 0.3));
     const inBand = frames.filter(({ p }) => p.x > 1050.5);
     expect(inBand.length).toBeGreaterThan(0);
     expect(inBand.filter(({ f }) => f.region !== "lane" || f.lane !== "rail-right").map(({ p, f }) => `${Math.round(p.x)} ${f.region}`)).toEqual([]);
@@ -493,5 +493,19 @@ describe("landing model: a lane lying over a place that takes nothing is entered
   it("a drawn lane's own rect and items lie within it: a fast pass over the top bar still opens no room (its gate holds)", () => {
     const { frames } = run(base({ regions: withRightRail() }), path([{ x: 400, y: 200 }, { x: 420, y: -40 }], 3));
     expect(frames.some(({ f }) => f.lane === "top")).toBe(false);
+  });
+
+  it("P10 still holds over it: a fly-through at 1.5–5 px/ms of an empty bar's band over a column's corner opens no room", () => {
+    // An empty top bar whose band (y 0–60) reaches over the right column's top (x 840–1080), which takes nothing.
+    const r = railWindow();
+    const band: LandingLane = { id: "top", rect: rect(30, 0, 1050, 60), axis: "x", spots: [{ id: "top/start", along: [30, 1080], landing: rect(38, 0, 102, 60) }], refused: [] };
+    const regions: LandingRegions = { ...r, lanes: [r.lanes[0]!, band] };
+    for (const speed of [1.5, 3, 5]) {
+      const { frames } = run(base({ regions, home: undefined }), path([{ x: 900, y: 300 }, { x: 900, y: -10 }], speed));
+      expect([speed, frames.filter(({ f, p }) => f.lane === "top" && p.y >= 0).length]).toEqual([speed, 0]);
+    }
+    // A slow hand into the same corner takes it at once.
+    const slow = run(base({ regions, home: undefined }), path([{ x: 900, y: 300 }, { x: 900, y: 50 }], 0.3));
+    expect(slow.frames.at(-1)!.f.lane).toBe("top");
   });
 });
