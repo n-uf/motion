@@ -1,6 +1,6 @@
 /*
  * Home (the heroes are in hero.css): the loop (the one desk window and its four steps), what each package does, use one
- * or both, and the interactive pages. Motion is the accent, placement violet (--series-b), as in X-ray, on every part of the page.
+ * or together, and the interactive pages. Motion is the accent, placement violet (--series-b), as in X-ray, docking rose (--dock), on every part of the page.
  * The drafting grid, the measures and the dimension labels belong to the hero alone. Under it the page is laid out on one
  * 12-column grid (the wrap's width, a 24 px gutter) that every section snaps to: a hairline across the full width, then
  * the section's label (eyebrow, h2, intro) in columns 1-4 and its content in columns 5-12, or, for objects that need the
@@ -54,9 +54,10 @@
    so the two sheets' footers line up. */
 .does-together { grid-column: 5 / -1; grid-row: 2; align-self: end; margin: 0; color: var(--text-2); }
 .does-together b { color: var(--text); }
-.does-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s5); margin-top: var(--s5); }
+.does-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s5); margin-top: var(--s5); }
 .does-col { --c: var(--accent-strong); display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--line-2); border-top: 2px solid var(--c); border-radius: 2px; background: var(--bg-raised); }
 .does-col.p { --c: var(--series-b); }
+.does-col.d { --c: var(--dock); }
 .does-col h3 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px var(--s3); min-height: 40px; padding: 8px var(--s5); border-bottom: 1px solid var(--line-2); background: var(--bg-subtle); font-size: var(--t-base); }
 .does-col h3 span { font: 600 var(--t-xs) / 1.4 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--c); }
 .does-col h3 code { color: var(--c); border-radius: 2px; }
@@ -71,11 +72,15 @@
 .does-col .links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); padding: var(--s3) var(--s5); border-top: 1px solid var(--line-2); font-size: var(--t-sm); }
 .does-col .cmd { height: 32px; border-radius: 2px; box-shadow: none; }
 .does-col .cmd + a { margin-left: auto; }
-@media (max-width: 1000px) { .does-grid { grid-template-columns: minmax(0, 1fr); } }
-@media (min-width: 1001px) and (max-width: 1100px), (max-width: 560px) {
+/* Three sheets side by side only where each is wide enough (their entries stack, name over text); below, one sheet per row. */
+@media (max-width: 1100px) { .does-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (min-width: 1101px), (max-width: 560px) {
   .entries > div { grid-template-columns: minmax(0, 1fr); gap: 2px 0; }
   .does-col h3, .does-col > p:not(.not):not(.links), .entries > div, .does-col .not, .does-col .links { padding-left: var(--s4); padding-right: var(--s4); }
 }
+.does-col .links { column-gap: var(--s3); }
+.does-col .cmd + a { margin-left: 0; }
+@media (min-width: 1101px) { .does-col .cmd + a { margin-left: auto; } }
 /* Narrow: the lead stays under the label, before the sheets. */
 @media (max-width: 860px) {
   .sx.does { display: flex; flex-direction: column; }
@@ -86,18 +91,20 @@
 
 /* Use one, or both: the label with three cells beside it (5-12, hairlines between), then the two examples as 6 + 6
    columns, lined up with the package sheets above. */
-.use-cards { grid-column: 5 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; }
-.use-card { --c: var(--text); padding: 0 var(--s4) 0 var(--s5); border-left: 1px solid var(--line-2); }
-.use-card:first-child { padding-left: 0; border-left: 0; }
-.use-card:last-child { padding-right: 0; }
+.use-cards { grid-column: 5 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.use-card { --c: var(--text); padding: var(--s3) var(--s4) var(--s3) var(--s5); border-left: 1px solid var(--line-2); border-top: 1px solid var(--line-2); }
+.use-card:nth-child(odd) { padding-left: 0; border-left: 0; }
+.use-card:nth-child(-n + 2) { border-top: 0; padding-top: 0; }
+.use-card:nth-child(even) { padding-right: 0; }
 .use-card.m { --c: var(--accent-strong); }
 .use-card.p { --c: var(--series-b); }
+.use-card.d { --c: var(--dock); }
 .use-card h3 { margin-bottom: var(--s1); font-size: var(--t-md); color: var(--c); }
 .use-card p { margin: 0; font-size: var(--t-sm); color: var(--text-2); }
 .use-pair .pair-grid { grid-column: 1 / -1; margin-top: var(--s6); }
 @media (max-width: 640px) {
   .use-cards { grid-template-columns: minmax(0, 1fr); margin-bottom: var(--s5); }
-  .use-card, .use-card:first-child, .use-card:last-child { padding: var(--s3) 0; border-left: 0; border-top: 1px solid var(--line-2); }
+  .use-card, .use-card:nth-child(odd), .use-card:nth-child(even), .use-card:nth-child(-n + 2) { padding: var(--s3) 0; border-left: 0; border-top: 1px solid var(--line-2); }
   .use-card:first-child { border-top: 0; padding-top: 0; }
 }
 @media (min-width: 641px) and (max-width: 860px) { .use-cards { margin-bottom: var(--s5); } }
@@ -123,10 +130,13 @@
 .xg, .xg .plates, .xe { display: contents; }
 .xg { --c: var(--accent-strong); }
 .xg.p { --c: var(--series-b); }
+.xg.d { --c: var(--dock); }
 .xg.both { --c: var(--text-2); }
 .explore-k { grid-column: 5 / -1; align-self: end; margin: 0; padding-bottom: var(--s2); border-bottom: 1px solid var(--line-3); font: 650 var(--t-2xs) / 1.4 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--c); }
-.xg.p .explore-k, .xg.both .explore-k { margin-top: var(--s5); }
+.xg.p .explore-k, .xg.d .explore-k, .xg.both .explore-k { margin-top: var(--s5); }
 .explore-k code { text-transform: none; letter-spacing: 0; }
+/* What the library does not do, after its name (each group's intro). */
+.explore-k .explore-not { margin-left: var(--s2); color: var(--text-3); font-weight: 500; letter-spacing: 0.02em; text-transform: none; }
 .xg .eyebrow { color: var(--c); }
 .plates > .xe:not(:first-child) .card-body { border-top: 1px solid var(--line); }
 .card-body { position: relative; grid-column: 5 / -1; display: grid; gap: var(--s1); align-content: start; padding: var(--s3) 0; }
@@ -148,7 +158,7 @@
 @media (max-width: 999px) { .thumb { display: none; } }
 @media (max-width: 860px) {
   .xp, .xg, .xg .plates, .xe { display: block; }
-  .xg.p .explore-k, .xg.both .explore-k { margin-top: var(--s4); }
+  .xg.p .explore-k, .xg.d .explore-k, .xg.both .explore-k { margin-top: var(--s4); }
   .card-body h3 { font-size: var(--t-md); }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -214,6 +224,8 @@
 .t-chip { position: absolute; left: 0; top: 0; width: 62px; height: 30px; border-radius: 5px; background: var(--bg-inverse); box-shadow: var(--shadow-1); }
 .t-chip.lifted { box-shadow: var(--shadow-pop); }
 
+#thumb-tiles { border-radius: var(--r-sm); background: var(--bg-sunken); box-shadow: 0 0 0 1px var(--line-2); }
+.t-tile { fill: var(--bg-raised); stroke: var(--series-b); stroke-width: 1.25; }
 #thumb-desk { border-radius: var(--r-sm); background: var(--d-floor); box-shadow: 0 0 0 1px var(--line-2); }
 .t-rail { fill: var(--d-rail); }
 .t-panel { fill: var(--d-panel); stroke: var(--d-panel-line); }

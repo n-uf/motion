@@ -5,7 +5,7 @@ import HeroDemo from "../components/HeroDemo.astro";
 import HeroScope from "../components/HeroScope.astro";
 import LoopStrip from "../components/LoopStrip.astro";
 import { pageOf } from "../data/pages";
-import { npmPlacementUrl, npmUrl, repoUrl } from "../data/site";
+import { npmDockingUrl, npmPlacementUrl, npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
 import Faq from "../components/Faq.astro";
 import { faqJsonLd } from "../data/faq";
@@ -18,24 +18,31 @@ import PairCode from "../components/PairCode.astro";
 import { partOf } from "../data/parts";
 import motionPkg from "../../../../packages/motion/package.json";
 import placementPkg from "../../../../packages/placement/package.json";
-const [motionPart, placementPart] = [partOf("motion"), partOf("placement")];
+import { layoutSplit } from "@n-uf/placement/tiling";
+import { START } from "../demos/hero-tiles";
+const [motionPart, placementPart, dockingPart] = [partOf("motion"), partOf("placement"), partOf("docking")];
 
 const page = pageOf("/");
 const jsonLd = [
   webSite,
-  webPage({ path: "/", name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), isPartOf: true, about: ["motion", "placement"] }),
+  webPage({ path: "/", name: page.title, description: page.description, updated: new Date(`${page.updated}T00:00:00Z`), isPartOf: true, about: ["motion", "placement", "docking"] }),
   software("motion"),
   software("placement"),
+  software("docking"),
   faqJsonLd("/"),
   orgNode,
 ];
-// The packages' versions, read from their package.json at build time (never written by hand).
-const versions = motionPkg.version === placementPkg.version ? `both at ${motionPkg.version}` : `@n-uf/motion ${motionPkg.version}, @n-uf/placement ${placementPkg.version}`;
+// The packages' versions, read from their package.json at build time (never written by hand). @n-uf/docking has no
+// package here until its release; the issue's rule is one version for all of them, so the line says "all three".
+const versions = motionPkg.version === placementPkg.version ? `all three at ${motionPkg.version}` : `@n-uf/motion ${motionPkg.version}, @n-uf/placement ${placementPkg.version}`;
+// Placement's docs card previews the hero's tiling demo: the start tree laid out by the library in the preview's 280 × 150.
+const tileThumb = [...layoutSplit(START, { x: 14, y: 14, width: 252, height: 122 }, { gap: 6 }).values()];
 ---
 <Site title={page.title} description={page.description} path="/" jsonLd={jsonLd} ogImage="/og.png">
   <!--
-    The two heroes, motion's scope left and placement's plan right (components/HeroScope.astro): the page's one h1 is
-    their two headlines, and the TypeScript sentence is its first paragraph in the DOM, under the band on screen.
+    The three heroes, motion's scope, placement's tiles and docking's plan, left to right (components/HeroScope.astro):
+    the page's one h1 is their three headlines, and the TypeScript sentence is its first paragraph in the DOM, under the
+    band on screen.
   -->
   <HeroScope />
 
@@ -52,25 +59,25 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
     <div class="section-head">
       <span class="eyebrow">The loop</span>
       <h2 id="loop-title">Why they come together</h2>
-      <p>One desktop-style UI, two questions, plain data in between. Placement answers where; motion answers how it gets there and, while you drag, what you mean.</p>
+      <p>One desktop-style UI, three questions, plain data in between. Docking answers where a window docks and placement where things fit; motion answers how it gets there and, while you drag, what you mean.</p>
     </div>
     <ul class="loop-claims">
       <li><b>What you see is what you get:</b> the preview and the drop come from the same data.</li>
       <li><b>Every layout change animates:</b> any rects, one settle.</li>
       <li><b>The real element moves:</b> no copies, it lands from where you let go.</li>
-      <li><b>Neither imports the other:</b> plain data between them, any framework or none.</li>
+      <li><b>None imports another:</b> plain data between them, any framework or none.</li>
     </ul>
-    <p class="caveat">The demo windows' slots are rects from placement's dock layouts; they glide on motion's settle, and the swap runs motion's own drag intent (<code>createDragIntent</code>), as the hero does with <code>holdItem</code>, a direct drag. The examples below are compiled against both packages. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink></p>
+    <p class="caveat">The demo windows' slots are rects from docking's layouts; they glide on motion's settle, and the swap runs motion's own drag intent (<code>createDragIntent</code>), as the hero does with <code>holdItem</code>, a direct drag. The examples below are compiled against the libraries. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink>, <ExtLink href={npmDockingUrl}>@n-uf/docking</ExtLink></p>
     </div>
   </section>
 
-  <!-- What each package does: the heroes' two columns again, entry by entry (checked against each package.json). -->
+  <!-- What each package does: the heroes' three slots again, entry by entry (checked against each package.json). -->
   <section class="wrap section sx does hx" aria-labelledby="does-title">
     <div class="section-head">
       <span class="eyebrow">The packages</span>
       <h2 id="does-title">What each package does</h2>
     </div>
-    <div class="does-grid">
+    <div class="does-grid three">
       <article class="does-col m" aria-labelledby="does-motion">
         <h3 id="does-motion"><code>@n-uf/motion</code> <span>how things move</span></h3>
         <p>{motionPart.does}</p>
@@ -86,26 +93,36 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
         <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/motion</code> <ExtLink href={motionPart.readme}>README on GitHub</ExtLink> <a href="/docs/motion/">Docs</a></p>
       </article>
       <article class="does-col p" aria-labelledby="does-placement">
-        <h3 id="does-placement"><code>@n-uf/placement</code> <span>where things go</span></h3>
+        <h3 id="does-placement"><code>@n-uf/placement</code> <span>where things fit</span></h3>
         <p>{placementPart.does}</p>
         <dl class="entries">
           <div><dt><code>@n-uf/placement</code></dt><dd>Rects and points (<code>rect</code>, <code>overlap</code>, <code>clampInto</code>).</dd></div>
           <div><dt><code>./popup</code></dt><dd>A popup positioner that flips, slides or resizes to fit, as far as its rule allows.</dd></div>
-          <div><dt><code>@n-uf/docking</code></dt><dd>Built on placement, one model of a whole window: edges along its sides (toolbars, side columns of panels, docks), each with start, center and end zones, fixed items such as a title, and floats kept clear of every bar. <code>solve</code> returns every rect, with notes that say what gave way; columns narrow, then fold to their rails, least recently used first. <code>targets</code> returns every drop target of one item in the shape motion's drag takes, each carrying the layout a release there makes; <code>stops</code> orders them for the arrow keys. Pure changes and a stored form.</dd></div>
           <div><dt><code>./tiling</code></dt><dd>Panes that divide an area with no overlap: master and stack, columns, a grid, and a split tree (dwindle, or splits with an axis and a ratio); a pane's drop regions and their drop targets.</dd></div>
-          <div><dt><code>./stack</code></dt><dd>One edge: the stage cut into bands, the items along a column or a bar, each with forms from largest to smallest, giving way by age, and one edge's drop places. <code>@n-uf/docking</code> lays each edge with it.</dd></div>
+          <div><dt><code>./stack</code></dt><dd>One edge: the stage cut into bands, the items along a column or a bar, each with forms from largest to smallest, giving way by age, and one edge's drop places.</dd></div>
         </dl>
-        <p class="not"><b>It doesn't</b> move or draw anything: plain state in, rects and targets out. No DOM, no dependencies.</p>
+        <p class="not"><b>It doesn't</b> move or draw anything, and it knows no docks or toolbars: rects and a rule in, the rects that fit out. No DOM, no dependencies.</p>
         <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/placement</code> <ExtLink href={placementPart.readme}>README on GitHub</ExtLink> <a href="/docs/placement/">Docs</a></p>
       </article>
+      <article class="does-col d" aria-labelledby="does-docking">
+        <h3 id="does-docking"><code>@n-uf/docking</code> <span>where panels and toolbars dock</span></h3>
+        <p>{dockingPart.does}</p>
+        <dl class="entries">
+          <div><dt><code>@n-uf/docking</code></dt><dd>One model of a whole window: edges along its sides (toolbars, side columns of panels, docks), each with start, center and end zones, fixed items such as a title, and floats kept clear of every bar. <code>solve</code> returns every rect, with notes that say what gave way; columns narrow, then fold to their rails, least recently used first.</dd></div>
+          <div><dt>Drop targets</dt><dd><code>targets</code> returns every drop target of one item in the shape motion's drag takes, each carrying the layout a release there makes; <code>stops</code> orders them for the arrow keys. Pure changes and a stored form.</dd></div>
+          <div><dt><code>./testing</code></dt><dd>The conformance rows: checks that a layout and its drops keep the docking rules.</dd></div>
+        </dl>
+        <p class="not"><b>It doesn't</b> draw panels or tabs, and it moves nothing: dock state in, rects and drop targets out. No DOM, no dependencies.</p>
+        <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/docking</code> <ExtLink href={dockingPart.readme}>README on GitHub</ExtLink> <a href="/docs/docking/">Docs</a></p>
+      </article>
     </div>
-    <p class="does-together"><b>Alone or together.</b> They compose without importing each other: placement's targets are what motion's drag takes, and its rects are what motion's layout glides to.</p>
+    <p class="does-together"><b>Alone or together.</b> They compose without importing each other: docking's drop targets are what motion's drag takes, a rect from any of them is what motion's layout glides to, and popups and tiles come from placement.</p>
   </section>
 
-  <!-- Use one, or both: three cards, then one example per package (each compiled against it). -->
+  <!-- Use one, or together: four cards, then one example per package (each compiled against it). -->
   <section class="wrap section sx use-pair hx" aria-labelledby="use-pair-title">
     <div class="section-head">
-      <span class="eyebrow">Use one, or both</span>
+      <span class="eyebrow">Use one, or together</span>
       <h2 id="use-pair-title">Pick what you need</h2>
     </div>
     <div class="use-cards">
@@ -113,10 +130,13 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
         <h3>Motion alone</h3><p>Animate your own layout: give each element its rect and it glides there.</p>
       </div>
       <div class="use-card p">
-        <h3>Placement alone</h3><p>Compute layouts and drop targets, and draw them your way.</p>
+        <h3>Placement alone</h3><p>Fit a popup beside its anchor, a stack into its room or panes into an area, and draw the rects your way.</p>
+      </div>
+      <div class="use-card d">
+        <h3>Docking alone</h3><p>Compute dock layouts and drop targets for panels and toolbars, and draw them your way.</p>
       </div>
       <div class="use-card both">
-        <h3>Both</h3><p>A full desk where the drop is what was shown, and every change glides.</p>
+        <h3>Docking with motion</h3><p>A full desk where the drop is what was shown, and every change glides.</p>
       </div>
     </div>
     <PairCode />
@@ -124,7 +144,7 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
 
   <CodeTabs />
 
-  <!-- Explore: the four demo pages, grouped by package. -->
+  <!-- Explore: the demo pages, grouped by library (placement's group is its docs, for now). -->
   <section class="wrap section sx explore hx" aria-labelledby="explore-title">
     <div class="section-head">
       <span class="eyebrow">Explore</span>
@@ -145,24 +165,33 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
     </div>
     </div>
     <div class="xg p">
-    <p class="explore-k p">Place · <code>{placementPart.pkg}</code></p>
+    <p class="explore-k p">Place · <code>{placementPart.pkg}</code> <span class="explore-not">moves and draws nothing, docks nothing</span></p>
+    <div class="plates">
+      <article class="xe">
+        <div class="thumb"><div class="fig"><svg id="thumb-tiles" viewBox="0 0 280 150" width="280" height="150" aria-hidden="true">{tileThumb.map((r) => <rect class="t-tile" rx="4" x={r.x} y={r.y} width={r.width} height={r.height} />)}</svg></div></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">03</span> Docs only</span><h3><a href="/docs/placement/">Popups, stacks and tiling</a></h3><p>No interactive page of its own yet: the reference for the popup positioner, stack fit and tiling, entry by entry, with code. The hero's tiling demo is built from it.</p></div>
+      </article>
+    </div>
+    </div>
+    <div class="xg d">
+    <p class="explore-k d">Dock · <code>{dockingPart.pkg}</code> <span class="explore-not">draws and moves nothing</span></p>
     <div class="plates">
       <article class="xe">
         <div class="thumb"><div class="fig"><svg id="thumb-desk" viewBox="0 0 280 150" width="280" height="150" aria-hidden="true" set:html={deskThumbSVG()} /></div></div>
-        <div class="card-body"><span class="eyebrow"><span class="n">03</span> Desk layouts</span><h3><a href="/desk-layouts/">Nine ways to lay out a workspace</a></h3><p>Four docked desks, laid out live by <code>@n-uf/docking</code> as width and height run out, next to five demo layouts: a tiling tree, scrolling columns, drawers and floating panels.</p></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">04</span> Docking layouts</span><h3><a href="/docking-layouts/">Four docked windows and five page sketches</a></h3><p>Four docked layouts, laid out live by <code>solve</code> as width and height run out, next to five page sketches: a tiling tree, scrolling columns, drawers and floating panels.</p></div>
       </article>
       <article class="xe">
         <div class="thumb"><div class="fig"><div class="t-win" aria-hidden="true"><div class="t-bar"><span class="t-group"><i class="t-g"></i><b style="width:46px"></b></span><span class="t-group"><i class="t-g"></i><b></b><b></b><b></b></span><span class="t-group"><i class="t-g"></i><b></b><b class="on"></b></span><span class="t-group"><i class="t-g"></i><b style="width:30px"></b></span></div><div class="t-doc"><span></span></div></div></div></div>
-        <div class="card-body"><span class="eyebrow"><span class="n">04</span> Toolbar groups</span><h3><a href="/toolbar-groups/">One grip per group</a></h3><p>Five toolbar areas, three zones, floating and collapsing groups, all from one grip each.</p></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">05</span> Toolbar groups</span><h3><a href="/toolbar-groups/">One grip per group</a></h3><p>Five toolbar areas, three zones, floating and collapsing groups, all from one grip each.</p></div>
       </article>
     </div>
     </div>
     <div class="xg both">
-    <p class="explore-k">Try it all · both packages</p>
+    <p class="explore-k">Try it all · all three libraries</p>
     <div class="plates">
       <article class="xe">
         <div class="thumb"><div class="fig"><svg viewBox="0 0 280 150" width="280" height="150" aria-hidden="true"><g class="lab-tiles"><rect x="14" y="14" width="76" height="58" rx="5"/><rect x="100" y="14" width="76" height="26" rx="5"/><rect x="186" y="14" width="80" height="58" rx="5"/><rect x="100" y="50" width="76" height="22" rx="5"/><rect x="14" y="82" width="120" height="54" rx="5"/><rect x="144" y="82" width="122" height="54" rx="5"/></g></svg></div></div>
-        <div class="card-body"><span class="eyebrow"><span class="n">05</span> Lab</span><h3><a href="/lab/">The lab</a></h3><p>15 interactive demos for both packages, from the settle to panel columns and nine integration cases, and a checks page that runs every scenario.</p></div>
+        <div class="card-body"><span class="eyebrow"><span class="n">06</span> Lab</span><h3><a href="/lab/">The lab</a></h3><p>15 interactive demos for the libraries, from the settle to panel columns and nine integration cases, and a checks page that runs every scenario.</p></div>
       </article>
     </div>
     </div>
@@ -181,6 +210,11 @@ const versions = motionPkg.version === placementPkg.version ? `both at ${motionP
   // control there.
   const strip = document.getElementById("tstrip")!;
   whenVisible(strip, () => void import("../islands/telemetry").then((m) => m.startTelemetry(strip)));
+  // The tiling demo (placement's slot) starts with the hero, once the page is idle.
+  const tiles = document.getElementById("tilezone")!;
+  const startTiles = (): void => void import("../islands/hero-tiles").then((m) => m.startHeroTiles(tiles));
+  if (document.readyState === "complete") startTiles();
+  else addEventListener("load", startTiles, { once: true });
   // The hero's Copy buttons.
   void import("../islands/copy").then((m) => m.startCopy());
   // The interactive pages' preview follows the hovered or focused entry.
