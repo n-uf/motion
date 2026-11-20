@@ -36,9 +36,7 @@ const ln = (r: { width: number; height: number }, ax: "x" | "y"): number => (ax 
 describe("a free stretch's ends", () => {
   for (const host of ["bar", "rail"] as const)
     for (const zone of ["start", "end"] as const)
-      // (Up to 130 px: further apart, the held item's own place lies within half a pitch of the bar's middle, where
-      // a center dock lands beside it, and that pair is a question of its own.)
-      for (const gap of [SPOT_PITCH, 55, 90, 130])
+      for (const gap of [SPOT_PITCH, 55, 90, 130, 200])
         for (const [held, other] of [
           ["a", "c"],
           ["c", "a"],
@@ -85,4 +83,36 @@ describe("a free stretch's ends", () => {
             // Away and back to the press point is home.
             expect(drive([press, to, press])).toEqual({ kind: "spot", lane: edge, spot: home.spot, home: true });
           });
+
+  // Home within half a pitch: a toolbar whose own place lies near the bar's middle, where a center dock lands beside
+  // it. No other spot lands within half a pitch of home, and away and back to the press point lands home.
+  for (const host of ["bar", "rail"] as const)
+    for (let space = 150; space <= 330; space += 12)
+      it(`${host}: a toolbar ${space} px from its neighbor, near the middle, away and back is home`, () => {
+        const s = scene(host, "start", space);
+        const seen = solve(s);
+        const ax = host === "bar" ? "x" : "y";
+        const edge = host === "bar" ? "top" : "rail";
+        const own = seen.items.c!.rect;
+        if (seen.items.c!.edge !== edge) return;
+        const grab = { x: own.width / 2, y: own.height / 2 };
+        const rs = lanes(s, "c", { previous: seen, grab });
+        const lane = rs.lanes.find((l) => l.id === edge)!;
+        const home = lane.spots.find((sp) => sp.home)!;
+        for (const sp of lane.spots) if (!sp.home) expect(Math.abs(lo(sp.landing, ax) - lo(home.landing, ax)), sp.id).toBeGreaterThanOrEqual(SPOT_PITCH / 2);
+        const press = { x: own.x + grab.x, y: own.y + grab.y };
+        const away = ax === "x" ? { x: press.x - 220, y: press.y } : { x: press.x, y: press.y - 220 };
+        const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "c", { previous: seen, grab, spot }), home: { lane: edge, spot: home.id } });
+        let t = 0;
+        m.update(press, t);
+        for (const [a, b] of [
+          [press, away],
+          [away, press],
+        ] as const) {
+          const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 0.3 / 8);
+          for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
+        }
+        for (let i = 0; i < 30; i++) m.update(press, (t += 8));
+        expect(m.release()).toEqual({ kind: "spot", lane: edge, spot: home.id, home: true });
+      });
 });
