@@ -187,6 +187,38 @@ describe("P6: an empty lane's guide before entry is its mark after entry, the he
   });
 });
 
+describe("the corner under \"all\" goes to the lane nearest the pointer within reach, for ownership only", () => {
+  // A kit window: an empty top bar and an empty left rail whose band lies over the left panel column (refused for a
+  // toolbar). The pointer crosses the column toward the rail at y 250.
+  const w = windows().find((x) => x.name === "kit: window 1, columns both sides")!;
+  const d = dragOf(w)!;
+  const rail = d.regions.lanes.find((l) => l.id === "bar:left")!;
+  const top = (gs: readonly Guide[]): number => Math.min(...gs.filter((g) => g.lane === "bar:left" && g.kind !== "line").map((g) => g.rect.y));
+  const legs: [Point, number][] = [
+    [{ x: rail.rect.x + rail.rect.width + 120, y: 250 }, 0.6],
+    [{ x: rail.rect.x + rail.rect.width / 2, y: 250 }, 0.1],
+  ];
+
+  it("within reach of the rail, over the column, the rail's predicted box owns the corner: no jump at entry", () => {
+    expect(rail.entry && rail.corners).toBeTruthy();
+    const fs = play(d, "all", legs);
+    const e = fs.findIndex((f) => f.frame.lane === "bar:left" && f.frame.region === "lane");
+    expect(e).toBeGreaterThan(0);
+    const atEntry = top(fs[e]!.frame.guides);
+    const close = fs.slice(0, e).filter((f) => f.point.x - (rail.rect.x + rail.rect.width) <= 12 && f.point.x - (rail.rect.x + rail.rect.width) > 0);
+    expect(close.length).toBeGreaterThan(5);
+    for (const f of close) expect([Math.round(f.point.x), top(f.frame.guides)]).toEqual([Math.round(f.point.x), atEntry]);
+    // Beyond reach of both, the bar keeps it.
+    const far = fs.find((f) => f.point.x - (rail.rect.x + rail.rect.width) > 40 && f.frame.lane !== "bar:left")!;
+    expect(top(far.frame.guides)).toBeGreaterThan(atEntry);
+  });
+
+  it('under "near", nothing shows over the column: the rail is not made Near by the corner rule', () => {
+    const fs = play(d, "near", legs);
+    for (const f of fs) if (f.frame.region === "refused" && !f.frame.pending && !f.frame.lane) expect(f.frame.guides, `${Math.round(f.point.x)}`).toEqual([]);
+  });
+});
+
 describe("lanes(): an empty lane's marks in its spot's after-entry layout", () => {
   // The lab's window with every panel on the left: the top bar and the right rail empty, the right rail beside nothing.
   const w = windows().find((x) => x.name === "lab: every panel on the left, tools")!;
