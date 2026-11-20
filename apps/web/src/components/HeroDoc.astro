@@ -1,0 +1,18 @@
+---
+// The home hero's docking illustration: the lab's Document window (apps/lab/src/docwin), static. The lab's default dock state
+// (a scene of @n-uf/placement/scene, which becomes @n-uf/docking at the coming release) is solved at this size by `solve`,
+// and drawn with the lab's own markup and look (demos/hero-doc.ts, styles/hero-doc.css): a title bar with the Zoom toolbar and the
+// window controls, Pages above Notes on the left, the page in the middle with Tools floating at its corner, Findings on the
+// right, Views and Review in the bottom bar. At this size solve gives Notes its header and Views its icons form. Drawn
+// at its solved size and scaled to the slot by a transform, in a box reserved by an aspect ratio, so nothing shifts.
+import { docWindow } from "../demos/hero-doc";
+
+const SIZE = { width: 440, height: 320 };
+const win = docWindow(SIZE);
+---
+<div class="hz d"><div class="zin dockzone" id="dockzone">
+  <figure class="hdw" style={`--hd-w:${SIZE.width};--hd-h:${SIZE.height}`} role="img" aria-label="A docked document window: a title bar with a zoom toolbar, Pages and Notes on the left, the page with a floating toolbar, Findings on the right, and a bottom bar.">
+    <div class="hdw-in" aria-hidden="true"><div class="hd-win" set:html={win.html}></div></div>
+  </figure>
+  <p class="pline">solve(dockState) → rects</p>
+</div></div>
