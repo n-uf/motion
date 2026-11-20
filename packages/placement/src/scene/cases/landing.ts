@@ -14,7 +14,7 @@
  * comes first) every row must run.
  */
 import { rect, type Point, type Rect } from "../../geometry";
-import { lanes, type LaneOptions, type Regions } from "../lanes";
+import { lanes, type Lane, type LaneOptions, type Regions } from "../lanes";
 import type { Edge, Scene, SceneItem, SceneLayout } from "../index";
 import { solve } from "../solve";
 import { dockedIn, layoutIssues } from "./run";
@@ -47,6 +47,32 @@ export const ROOM_SINCE = "26.11.50";
  * make room counts): the rows sliding over such a stretch need it.
  */
 export const STEP_SINCE = "26.11.51";
+/**
+ * The hand rule's floor, px: while a lane holds, the landing lies at least this near the pointer, however close the
+ * adjacent landings are (`handBound`).
+ */
+export const HAND_TRAIL = 48;
+/** The floor on the single frame before a hop (the next frame holds another spot of the same lane), px. */
+export const HAND_TRAIL_BEFORE_HOP = 56;
+/** The margin a landing model keeps past a boundary between two spots before it hops, px: the spot margin. */
+export const HAND_MARGIN = 6;
+
+/**
+ * The hand rule's bound, px: `max(floor, g / 2 + 6)`, the floor 48 (`HAND_TRAIL`), 56 on the frame before a hop
+ * (`HAND_TRAIL_BEFORE_HOP`). `g` is the gap along the lane between the facing edges of the two adjacent landings the
+ * pointer lies between (a sliding spot's landing taken at the end of its range that faces the next spot); 0 where the
+ * pointer lies over a landing. Placement cuts between two adjacent spots halfway between their landings, and a spot
+ * changes 6 px (`HAND_MARGIN`) past the cut, so the landing is never further from the pointer than half the gap plus the
+ * margin. Over a docked item much longer than the held one no landing lies inside it: `g` is about the item's length
+ * less the held one's, plus a gutter.
+ */
+export function handBound(gap: number, beforeHop = false): number {
+  return Math.max(beforeHop ? HAND_TRAIL_BEFORE_HOP : HAND_TRAIL, gap / 2 + HAND_MARGIN);
+}
+
+/** A hand faster than this, px/ms, may leave a hop that reflows the window for later (the landing model's `step`, 3 px per 8 ms). */
+export const HAND_FAST = 0.375;
+
 /** The last published version without `lanes()`. */
 export const LAST_WITHOUT_LANES = "26.11.44";
 /** From this date every landing row runs on every host (or at the breaking release, if that comes first). */
@@ -121,9 +147,18 @@ export interface LandingCase {
     readonly trail?: number;
     /**
      * On the single frame before a hop (the next frame holds another spot of the same lane), this bound instead of
-     * `trail` (R12: 48 px, 56 on that frame). Absent: `trail` on every frame.
+     * `trail`. Absent: `trail` on every frame.
      */
     readonly trailBeforeHop?: number;
+    /**
+     * The hand rule: whenever a lane holds, the landing is the nearest landing in its lane to the pointer (up to twice
+     * the 6 px margin the model keeps past a boundary before it hops: the held landing may be that much farther than
+     * the one it will hop to), and lies within `handBound` of the pointer: `max(48, g / 2 + 6)` px, the 48 being 56
+     * on the frame before a hop, where `g` is the gap along the lane between the facing edges of the two adjacent
+     * landings the pointer lies between. The spots are those `lanes()` gives for the row's scene in the held spot's
+     * layout (a sliding spot's landings span its range).
+     */
+    readonly hand?: true;
     /**
      * The landing lies no further from the pointer, at worst, than when the same path is played at `slow` px/ms, plus
      * `by` px: a fast hand trails no more than a slow one does, plus what it may trail.
@@ -152,6 +187,8 @@ export interface LandingPlay {
   readonly layout: SceneLayout;
   /** The host's layout at the press (what a row's `home` compares with). Absent: the row's scene as solved. */
   readonly before?: SceneLayout;
+  /** The `stretchPositions` the host asked `lanes()` for (what a row's `hand` reads the spots with). Absent: the library's default. */
+  readonly stretchPositions?: LaneOptions["stretchPositions"];
 }
 
 /** What a host gives the landing runner: one call plays a row's drag and reports its frames and the layout after. */
@@ -181,6 +218,65 @@ const gapTo = (r: Rect, p: Point): number => Math.hypot(Math.max(r.x - p.x, 0, p
 /** `a` lies in `b` or on its edge (a zero-thick line on it counts). */
 const touches = (a: Rect, b: Rect): boolean => a.x <= b.x + b.width && b.x <= a.x + a.width && a.y <= b.y + b.height && b.y <= a.y + a.height;
 
+const lo = (r: Rect, axis: "x" | "y"): number => (axis === "x" ? r.x : r.y);
+const len = (r: Rect, axis: "x" | "y"): number => (axis === "x" ? r.width : r.height);
+/** How far `p` is from the stretch `[a, b]`, 0 inside it. */
+const outside = (a: number, b: number, p: number): number => Math.max(a - p, 0, p - b);
+
+/**
+ * What the hand rule reads for a row: the lane's spots in the layout of the spot a frame holds, and the docked items
+ * (the held one lifted) a pointer may be over. Both computed once per row and per spot.
+ */
+function handRule(row: LandingCase, before: SceneLayout | undefined, stretchPositions: LaneOptions["stretchPositions"]) {
+  const previous = before ?? solve(row.scene);
+  const own = previous.items[row.item];
+  const press = row.path[0]!;
+  const options: LaneOptions = { previous, ...(own ? { grab: { x: press.x - own.rect.x, y: press.y - own.rect.y } } : {}), ...(stretchPositions ? { stretchPositions } : {}) };
+  const bySpot = new Map<string, Regions>();
+  /** The lanes with `spot` held (its room open), or as seen (`""`). */
+  const regionsOf = (spot: string): Regions => {
+    let r = bySpot.get(spot);
+    if (!r) bySpot.set(spot, (r = lanes(row.scene, row.item, spot ? { ...options, spot } : options)));
+    return r;
+  };
+  return {
+    /**
+     * The grab's share along the lane, as the landing model takes it: of the item's longer side along the lane when it
+     * lies along it, else the middle (a sliding landing starts at the pointer less the share of its own length).
+     */
+    share(axis: "x" | "y"): number {
+      if (!own) return 0.5;
+      const long: "x" | "y" = own.rect.width >= own.rect.height ? "x" : "y";
+      const size = len(own.rect, long);
+      const g = long === "x" ? press.x - own.rect.x : press.y - own.rect.y;
+      return axis === long && size > 0 && Number.isFinite(g) ? Math.min(1, Math.max(0, g / size)) : 0.5;
+    },
+    /** The lane `lane` as drawn with `spot` held; as seen when the lane has no such spot (another host's ids). */
+    laneOf(lane: string, spot: string): Lane | undefined {
+      const held = regionsOf(spot).lanes.find((l) => l.id === lane);
+      return held?.spots.some((s) => s.id === spot) ? held : regionsOf("").lanes.find((l) => l.id === lane);
+    },
+    /**
+     * `g`, px: the gap along the lane between the facing edges of the two adjacent landings the pointer `p` lies between
+     * (a sliding spot's landings span its range); 0 where the pointer lies over a landing, or outside all of them.
+     */
+    gapAt(lane: Lane, p: number): number {
+      const spans = lane.spots
+        .map((s): [number, number] => {
+          const w = len(s.landing, lane.axis);
+          return s.slide ? [Math.min(s.slide.from, s.slide.to), Math.max(s.slide.from, s.slide.to) + w] : [lo(s.landing, lane.axis), lo(s.landing, lane.axis) + w];
+        })
+        .sort((x: [number, number], y: [number, number]) => x[0] - y[0]);
+      let end = -Infinity;
+      for (const [a, b] of spans) {
+        if (Number.isFinite(end) && end < p && p < a) return a - end;
+        end = Math.max(end, b);
+      }
+      return 0;
+    },
+  };
+}
+
 /** The furthest the landing gets from the pointer while a lane holds it and the pointer moves. */
 const worstTrail = (frames: readonly LandingCaseFrame[]): number => Math.max(0, ...frames.filter((f) => f.moving && f.region === "lane" && f.landing).map((f) => gapTo(f.landing!, f.point)));
 
@@ -206,10 +302,11 @@ function homeIssues(item: string, before: SceneLayout, after: SceneLayout): stri
  * What differs between a row and what its host played. `before` is the host's layout at the press (a row's `home`
  * compares with it); absent, the row's scene as solved.
  */
-export function landingIssues(row: LandingCase, frames: readonly LandingCaseFrame[], layout: SceneLayout, before?: SceneLayout): string[] {
+export function landingIssues(row: LandingCase, frames: readonly LandingCaseFrame[], layout: SceneLayout, before?: SceneLayout, stretchPositions?: LaneOptions["stretchPositions"]): string[] {
   const out: string[] = [];
   const m = row.moving;
   if (frames.length === 0) return ["no frames"];
+  const hand = m?.hand ? handRule(row, before, stretchPositions) : undefined;
   if (m)
     for (const [i, f] of frames.entries()) {
       if (!f.moving) continue;
@@ -222,6 +319,36 @@ export function landingIssues(row: LandingCase, frames: readonly LandingCaseFram
       if (m.notRegions && m.notRegions.includes(f.region)) out.push(`${at}: ${f.region}`);
       for (const g of m.noGuideIn ? (f.guides ?? []) : []) if (m.noGuideIn!.some((r) => touches(g.rect, r))) out.push(`${at}: the guide ${g.id} where nothing lands`);
       if (bound !== undefined && f.region === "lane" && f.landing && gapTo(f.landing, f.point) > bound + 0.5) out.push(`${at}: the landing ${Math.round(gapTo(f.landing, f.point))} px from the pointer (at most ${bound}${beforeHop ? ", the frame before a hop" : ""})`);
+      if (hand && f.region === "lane" && f.lane && f.spot && f.landing) {
+        const lane = hand.laneOf(f.lane, f.spot);
+        if (lane) {
+          const p = lane.axis === "x" ? f.point.x : f.point.y;
+          const l = f.landing;
+          const gap = hand.gapAt(lane, p);
+          const limit = handBound(gap, beforeHop);
+          const d = gapTo(l, f.point);
+          if (d > limit + 0.5) out.push(`${at}: the landing ${Math.round(d)} px from the pointer (at most ${Number(limit.toFixed(1))}${beforeHop ? ", the frame before a hop" : ""}${gap > 0 ? `, between landings ${Math.round(gap)} px apart` : ""})`);
+          // The nearest landing of the lane: every other spot's, a sliding one where the hand holds it. A landing that
+          // overlaps or touches the held one is the same place (spots a pitch apart: the grab cuts them), and a hand
+          // faster than the model's `step` may leave a hop that reflows the window for later: neither is compared.
+          const prev = frames[i - 1];
+          const quick = !!prev && Math.hypot(f.point.x - prev.point.x, f.point.y - prev.point.y) / Math.max(f.t - prev.t, 1e-6) > HAND_FAST;
+          if (!quick) {
+            const a = lo(l, lane.axis);
+            const w0 = len(l, lane.axis);
+            const here = outside(a, a + w0, p);
+            let worst: { by: number; id: string; there: number } | undefined;
+            for (const s of lane.spots) {
+              const w = len(s.landing, lane.axis);
+              const start = s.slide ? Math.min(Math.max(p - hand.share(lane.axis) * w, Math.min(s.slide.from, s.slide.to)), Math.max(s.slide.from, s.slide.to)) : lo(s.landing, lane.axis);
+              if (Math.min(a + w0, start + w) - Math.max(a, start) > -0.5) continue;
+              const there = outside(start, start + w, p);
+              if (here - there > 2 * HAND_MARGIN + 0.5 && (!worst || here - there > worst.by)) worst = { by: here - there, id: s.id, there };
+            }
+            if (worst) out.push(`${at}: the landing ${Math.round(here)} px from the pointer along ${f.lane}, not the nearest landing (${worst.id}, ${Math.round(worst.there)} px)`);
+          }
+        }
+      }
       if (out.length >= 4) break;
     }
   const last = frames.at(-1)!;
@@ -247,8 +374,9 @@ export async function runLandingCases(rows: readonly LandingCase[], host: Landin
       continue;
     }
     try {
-      const { frames, layout, before } = await host.play(row);
-      const issues = landingIssues(row, frames, layout, before);
+      const played = await host.play(row);
+      const { frames, layout, before } = played;
+      const issues = landingIssues(row, frames, layout, before, played.stretchPositions);
       const over = row.moving?.trailOverSlow;
       if (over) {
         // The same path played slowly: how far the landing gets from the pointer at worst there.
@@ -326,7 +454,7 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly v
       // The model says whether the release is home (on a sliding spot, only at the item's own place, not along its stretch).
       const target = out?.kind === "float" ? regions.float : spot && out?.kind === "spot" && !out.home ? spot.target : null;
       const next = target ? target.after(at, grab).scene : s;
-      return { frames, layout: solve(next, { previous }), before: previous };
+      return { frames, layout: solve(next, { previous }), before: previous, ...(o.stretchPositions ? { stretchPositions: o.stretchPositions } : {}) };
     },
   };
 }
@@ -547,7 +675,7 @@ export const LANDING_CASES: readonly LandingCase[] = [
   {
     id: "landing-grip-past-long-neighbor",
     title: "A toolbar held by its grip and slid past a long neighbor stays at the hand",
-    expect: "A toolbar pressed 6 px into its left end (its grip) in the bottom bar and slid right along it past a 200 px neighbor to the bar's far end at 0.15 px/ms: every frame holds the bar, and the landing lies within 48 px of the pointer, 56 on the frame before a hop (R12): the grab never moves a hop past the neighbor.",
+    expect: "A toolbar pressed 6 px into its left end (its grip) in the bottom bar and slid right along it past a 200 px neighbor to the bar's far end at 0.15 px/ms: every frame holds the bar, and the landing stays at the hand (the hand rule: the nearest landing in the bar, within 48 px of the pointer, 56 on the frame before a hop, the landings either side of the neighbor close): the grab never moves a hop past the neighbor.",
     scene: landingWindow(["a"], ["b", "c"]),
     item: "b",
     path: [
@@ -556,13 +684,13 @@ export const LANDING_CASES: readonly LandingCase[] = [
     ],
     speed: 0.15,
     rest: 40,
-    moving: { lane: "bottom", trail: 48, trailBeforeHop: 56 },
+    moving: { lane: "bottom", hand: true },
     requires: { lanes: { since: GRIP_SINCE } },
   },
   {
     id: "landing-grip-across-items",
     title: "A toolbar held by its grip and slid slowly across two neighbors stays at the hand",
-    expect: "In a top bar of three 200 px toolbars, the first pressed 6 px into its left end (its grip) and slid right across the other two to the bar's end at 0.15 px/ms: every frame holds the bar, and the landing lies within 48 px of the pointer, 56 on the frame before a hop (R12).",
+    expect: "In a top bar of three 200 px toolbars, the first pressed 6 px into its left end (its grip) and slid right across the other two to the bar's end at 0.15 px/ms: every frame holds the bar, and the landing stays at the hand (the hand rule: the nearest landing in the bar, within 48 px of the pointer, 56 on the frame before a hop, the landings either side of a neighbor close).",
     scene: landingWindow(["a", "b", "c"]),
     item: "a",
     path: [
@@ -571,13 +699,13 @@ export const LANDING_CASES: readonly LandingCase[] = [
     ],
     speed: 0.15,
     rest: 40,
-    moving: { lane: "top", trail: 48, trailBeforeHop: 56 },
+    moving: { lane: "top", hand: true },
     requires: { lanes: { since: GRIP_SINCE } },
   },
   {
     id: "landing-grip-up-the-rail",
     title: "A rail toolbar held by its grip and pulled slowly up past its neighbor stays at the hand",
-    expect: "Zoom pressed 6 px below its top (its grip) in its rail and pulled straight up past Tools (158 px long there) to the rail's head at 0.15 px/ms: every frame holds the rail, and the landing lies within 48 px of the pointer, 56 on the frame before a hop (R12).",
+    expect: "Zoom pressed 6 px below its top (its grip) in its rail and pulled straight up past Tools (158 px long there) to the rail's head at 0.15 px/ms: every frame holds the rail, and the landing stays at the hand (the hand rule: the nearest landing in the rail, within max(48, g / 2 + 6) px of the pointer, g the gap between the two landings the pointer lies between, the 48 being 56 on the frame before a hop).",
     scene: (() => {
       const s = landingWindow();
       const tools = group("tools", 1);
@@ -590,14 +718,14 @@ export const LANDING_CASES: readonly LandingCase[] = [
     ],
     speed: 0.15,
     rest: 40,
-    moving: { lane: "rail-left", trail: 48, trailBeforeHop: 56 },
+    moving: { lane: "rail-left", hand: true },
     requires: { lanes: { since: GRIP_SINCE } },
   },
   ...([0.15, 0.6] as const).map(
     (speed): LandingCase => ({
       id: `landing-room-up-past-placed-${speed === 0.15 ? "slow" : "fast"}`,
       title: `A rail toolbar held by its grip and pulled up past a long neighbor that keeps room stays at the hand (${speed} px/ms)`,
-      expect: `Tools (158 px) keeps 100 px of room above it at the rail's head, and Zoom keeps 80 px below Tools. Zoom pressed by its grip and pulled straight up past Tools to the rail's head at ${speed} px/ms: every frame holds the rail, and the landing lies within 48 px of the pointer, 56 on the frame before a hop. Over the free room a drop consumes it; over Tools, Zoom takes Tools' place and Tools gives way, so the landings either side of Tools are never a whole Tools apart.`,
+      expect: `Tools (158 px) keeps 100 px of room above it at the rail's head, and Zoom keeps 80 px below Tools. Zoom pressed by its grip and pulled straight up past Tools to the rail's head at ${speed} px/ms: every frame holds the rail, and the landing stays at the hand (the hand rule: the nearest landing in the rail, within max(48, g / 2 + 6) px of the pointer, g the gap between the two landings the pointer lies between, the 48 being 56 on the frame before a hop). Over the free room a drop consumes it; over Tools, Zoom takes Tools' place and Tools gives way, so the landings either side of Tools are never a whole Tools apart.`,
       scene: (() => {
         const s = landingWindow();
         const tools = group("tools", 1);
@@ -611,7 +739,7 @@ export const LANDING_CASES: readonly LandingCase[] = [
       ],
       speed,
       rest: 40,
-      moving: { lane: "rail-left", trail: 48, trailBeforeHop: 56 },
+      moving: { lane: "rail-left", hand: true },
       requires: { lanes: { since: ROOM_SINCE } },
     }),
   ),
@@ -619,7 +747,7 @@ export const LANDING_CASES: readonly LandingCase[] = [
     id: "landing-step-down-room",
     title: "A toolbar slid over room that a neighbor steps down to make stays at the hand",
     expect:
-      "An 870 px bottom bar: Panels (362 px, 60 in its short form) at its start, Status (382 px) at its end, 109 px between them: 93 px of room for an item less the 8 px gap each side, shorter than Tools (130 px). Tools brought from the document onto the bar and slid right along it at 0.3 px/ms: a drop between them steps Panels down, and the room that makes (266 px past Tools' length) is one sliding stretch, so whenever the bar holds it the landing lies within 48 px of the pointer, 56 on the frame before a hop.",
+      "An 870 px bottom bar: Panels (362 px, 60 in its short form) at its start, Status (382 px) at its end, 109 px between them: 93 px of room for an item less the 8 px gap each side, shorter than Tools (130 px). Tools brought from the document onto the bar and slid right along it at 0.3 px/ms: a drop between them steps Panels down, and the room that makes (266 px past Tools' length) is one sliding stretch, so whenever the bar holds it the landing stays at the hand (the hand rule: the nearest landing in the bar, within max(48, g / 2 + 6) px of the pointer, g the gap between the two landings the pointer lies between, the 48 being 56 on the frame before a hop).",
     scene: (() => {
       const row = (kind: "row" | "icons", w: number) => form(kind, w, w, 31);
       const g = (id: string, used: number, forms: SceneItem["forms"], more: Partial<SceneItem> = {}): SceneItem => ({ id, kind: "group", used, forms, ...more });
@@ -645,7 +773,7 @@ export const LANDING_CASES: readonly LandingCase[] = [
     ],
     speed: 0.3,
     rest: 40,
-    moving: { trail: 48, trailBeforeHop: 56 },
+    moving: { hand: true },
     end: { region: "lane", lane: "bottom" },
     requires: { lanes: { since: STEP_SINCE } },
   },
