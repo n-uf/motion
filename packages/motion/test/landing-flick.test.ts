@@ -72,4 +72,26 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
     const open = tail(0, { slide: Infinity });
     expect(open.frame.lane).toBe("rail-left");
   });
+
+  it("a steady 1.5 px/ms slide with ±30% timestamp jitter enters the rail about where a smooth one does: a frame read as fast adds nothing and resets nothing", () => {
+    /** How far up the rail the hand has slid when the rail takes it, px; frames at 16 ms times `jitter(k)`. */
+    const entry = (jitter: (k: number) => number): number => {
+      const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+      m.update({ x: 25, y: 614 }, 0);
+      let t = 0;
+      for (let k = 1; k <= 40; k++) {
+        t += 16 * jitter(k);
+        // The hand moves at 1.5 px/ms in real time; the samples carry jittered timestamps.
+        const y = 614 - 1.5 * 16 * k;
+        if (m.update({ x: 25, y }, t).lane === "rail-left") return 614 - y;
+      }
+      return Infinity;
+    };
+    const smooth = entry(() => 1);
+    // A repeating ±30% pattern: every other frame read faster than 2 px/ms (0.7: 17 px per 8 ms), the rest slower.
+    const pattern = [1.0, 0.7, 1.3, 0.7];
+    const jittered = entry((k) => pattern[k % pattern.length]!);
+    expect(smooth).toBeLessThan(100);
+    expect(jittered).toBeLessThanOrEqual(smooth + 48);
+  });
 });
