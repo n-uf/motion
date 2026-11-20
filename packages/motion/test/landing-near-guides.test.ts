@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
-import { createLandingModel, LANDING_APPROACH, LANDING_MARGINS, type LandingFrame, type LandingLane, type LandingOptions, type LandingRegions } from "../src/drag";
+import { createLandingModel, LANDING_APPROACH, LANDING_MARGINS, LANDING_TOUCH_MARGINS, type LandingFrame, type LandingLane, type LandingOptions, type LandingRegions } from "../src/drag";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 
@@ -120,6 +120,15 @@ describe("landing model: Near guides show a lane only where the pointer can ente
     const flips = shown.filter((s, i) => i > 0 && s !== shown[i - 1]).length;
     expect(flips).toBeLessThanOrEqual(1);
     expect(shown.at(-1)).toBe(false);
+  });
+
+  it("the band never collapses: a lane is acquired within max(reach - spot, reach / 2), so a small reach or wide touch margins still show it", () => {
+    // `reach` 6: acquired within 3 px (6 - 6 would be 0, never shown).
+    expect(lanesOf(last(options({ approach: { reach: 6, keep: 6 } }), down(602)).f)).toEqual(["bottom"]);
+    expect(lanesOf(last(options({ approach: { reach: 6, keep: 6 } }), down(600)).f)).toEqual([]);
+    // Touch margins (`spot` 8) with the default reach 12: acquired within 6 px (12 - 8 would be 4).
+    expect(lanesOf(last(options({ margins: LANDING_TOUCH_MARGINS }), down(599)).f)).toEqual(["bottom"]);
+    expect(lanesOf(last(options({ margins: LANDING_TOUCH_MARGINS }), down(597)).f)).toEqual([]);
   });
 
   it("a guide goes once the pointer is past the reach: approached at 4 px and taken back up into the page, none lingers", () => {
