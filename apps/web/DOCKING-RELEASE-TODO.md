@@ -71,22 +71,25 @@ is expected, don't silence it (it also names `/lab/` where the lab is not built)
 - [ ] `apps/web/package.json`: add `"@n-uf/docking": "workspace:*"` (not added here: the package is not in the
       workspace and `pnpm install` would fail).
 - [ ] Switch every import: `@n-uf/placement/scene` to `@n-uf/docking`, `@n-uf/placement/scene/cases` to
-      `@n-uf/docking/testing`, in `src/demos/desk.ts`, `src/demos/hero-window.ts`,
+      `@n-uf/docking/testing`, in `src/demos/desk.ts`, `src/demos/hero-doc.ts`,
       `src/snippets/pair-placement.ts` (becomes a docking sample, `pair-docking.ts`; `PairCode.astro` skips a library
       with no sample today, so add `docking` to its `code` and `entries` maps; `scripts/snippets.test.mjs` only
       knows `motion|placement` in its regex and package list), and in `apps/lab` (`docwin/host.ts`, `presets.ts`,
       `store.ts`, `kit-presets.ts`, `intent-presets.ts`, `feel-panel.ts`, `shell/checks.ts`, the lab's own text in
       `shell/pages.ts` and `pages/overview.html`). Keep `ALIASES` for the old lab ids (`#/placement/desk`,
       `#/placement/toolbar`): this site's pages link `/lab/#/placement/toolbar` and `/lab/#/docwin`.
-- [ ] The home hero's shared window (`src/demos/hero-window.ts`, `src/components/HeroWindow.astro`,
-      `src/islands/hero-window.ts`): docking's part imports `solve` and the `Scene` types from `@n-uf/placement/scene` and
-      `StackForm` from `@n-uf/placement/stack`: switch them to `@n-uf/docking` (check where the release puts `StackForm`).
-      Placement's part imports `positionPopup` and `BELOW_LEFT` from the root `@n-uf/placement`, which stays. Re-check what
-      the window reads off `solve`: `SceneItemLayout.formKind` and `inMenu`, `SceneEdgeLayout.menu`, and that the numbers still
-      give the story (Files open, Outline folded to its header, View in the » menu at 720 px; the callout sentence is built
-      from the layout, so it says whatever `solve` gives). The window's comments name `DockState`; the code says `Scene`.
-- [ ] The three hero slots are text only: the earlier scope, popup and window diagrams are gone from the home. The live
-      tiling demo went too; the Place group of the home keeps a static tiling thumbnail only.
+- [ ] The home hero's docking illustration (`src/demos/hero-doc.ts`, `src/demos/hero-doc-measured.ts`,
+      `src/components/HeroDoc.astro`, `src/styles/hero-doc.css`) is the lab's Document window (apps/lab/src/docwin) drawn
+      static: it imports `solve` and the `Scene` types from `@n-uf/placement/scene` and `StackForm` from
+      `@n-uf/placement/stack`: switch them to `@n-uf/docking` (check where the release puts `StackForm`). It is a trimmed
+      copy of the lab's `defaultScene` and markup (class prefix `hd-`), with the columns narrowed to 128 px; if the lab's
+      model (`docwin/model.ts`) or markup (`docwin/scene.ts`) or CSS changes, bring the copy along, and measure the group
+      sizes again (`hero-doc-measured.ts`, from the copy's own buttons at 12 px). What it reads off `solve`:
+      `SceneItemLayout.formKind`, `rect`, `rows`, `hidden`, `railTitle`, `inMenu`, `SceneEdgeLayout.menu`, `content`.
+- [ ] The home hero's placement illustration (`src/demos/hero-place.ts`, `src/components/HeroPlace.astro`): three real calls
+      (`positionPopup`, `fitStack`, `masterStack`) from `@n-uf/placement` (root, `/stack`, `/tiling`). These entries stay in
+      placement after the release, so nothing changes unless a name does.
+- [ ] The live tiling demo is gone from the hero; the Place group of the home keeps a static tiling thumbnail only.
 - [ ] Docs sources that name docking: the motion README and `docs/motion.md` (`createLandingModel` takes what
       docking's `lanes()` gives); placement's README loses the docking sections.
 - [ ] Share images: render `public/og/docking-layouts.png` (the file here is the old desk-layouts image, only renamed),

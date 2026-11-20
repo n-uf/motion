@@ -4,21 +4,21 @@
 //
 // - Motion's slot is a scope: a tempo dial, the settle curves with the last run drawn over them, a slow-motion control
 //   and the readings (ω, time to 90 %, overshoot, the checks).
-// - Placement's slot is one function at work (components/HeroPop.astro): a popup placed beside an anchor that drifts
-//   around the stage, kept in view by `positionPopup`. Placement is separate functions, one job each, for any interface.
-// - Docking's slot is an app window (components/HeroDock.astro), the thing only a model of a whole window does: it
-//   shrinks, its panels and toolbar groups step down their forms in a set order and come back in reverse, and a drag is
-//   answered window-wide, refusals included. The scene is today's @n-uf/placement/scene; @n-uf/docking takes it over.
-// - A panel carried between two pads shows motion's settle; the scope reads each run off the real frames.
+// - Placement's slot is "numbers in, rects out" (components/HeroPlace.astro): three real calls, static, drawn to scale.
+// - Docking's slot is the lab's Document window (components/HeroDoc.astro): a docked app window laid out by `solve`, static.
+//   The scene is today's @n-uf/placement/scene; @n-uf/docking takes it over.
+// - Motion's slot is the only one that moves: a panel carried between two pads shows the settle, and the scope reads each
+//   run off the real frames. A headline is in its own slot (the h1 is a subgrid of the band), so it sits with its eyebrow,
+//   its words and its illustration at every width.
 //
 // Everything the server renders is the finished state (the panel at rest, the curve drawn, the readings of one real run
 // of the packages on a fake clock at build time), so with no script, or with reduced motion, it is a complete still.
-// islands/hero.ts, hero-pop.ts and hero-dock.ts then run the same packages live. The TypeScript sentence is the first
-// paragraph in the DOM and sits under the instruments on screen. Nothing here changes size when an island starts.
+// islands/hero.ts then runs the same packages live. The TypeScript sentence is the first paragraph in the DOM and sits
+// under the slots on screen. Nothing here changes size when the island starts.
 import { SETTLE_TEMPO } from "@n-uf/motion";
 import { NEEDLE, PLOT, TEMPOS, pathOf, plotX, plotY, settleCurve, simulateRun, springCurve } from "../demos/hero";
-import HeroDock from "./HeroDock.astro";
-import HeroPop from "./HeroPop.astro";
+import HeroDoc from "./HeroDoc.astro";
+import HeroPlace from "./HeroPlace.astro";
 
 const arrow = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9M9 4.5L12.5 8 9 11.5"/></svg>';
 
@@ -110,11 +110,11 @@ const passes = [run.checks.noOvershoot, run.checks.monotonic, run.checks.tempo].
       <div class="cap"><b>Scope</b> · motion carries the panel</div>
     </div></div>
 
-    <!-- The popup: placement's instrument (components/HeroPop.astro). -->
-    <HeroPop />
+    <!-- Placement's illustration: numbers in, rects out (components/HeroPlace.astro). -->
+    <HeroPlace />
 
-    <!-- The window: docking's instrument (components/HeroDock.astro). -->
-    <HeroDock />
+    <!-- Docking's illustration: the lab's Document window (components/HeroDoc.astro). -->
+    <HeroDoc />
 
     <!-- The panel's layer: the real element carried between the scope's two pads (islands/hero.ts), and the strobe trail behind it. -->
     <div class="ov" id="ov" aria-hidden="true">
