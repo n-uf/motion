@@ -36,8 +36,9 @@ as for a float. A host that commits a spot by its id alone must pass the pointer
   each clear rect (the rect grown by `clearance` taken out, the largest remaining part kept, none: dropped). A thin guide
   keeps being thinned from the content side, now with the same 2 px gap (a strip beside content is 2 px thinner than
   before, and may fall under `minThickness` and be left out). Clearance is per clear rect: `clear` takes `Rect |
-  ClearRect` (`{ rect, clearance }`, additive type). A plain rect keeps the default gap; pass `{ rect, clearance: 0 }` for
-  content a thin guide may run flush against, which is the old thin-guide result.
+  ClearRect` (`{ rect, clearance, kinds? }`, additive type). A plain rect keeps the default gap for every kind; pass
+  `{ rect, clearance: 0 }` for content a thin guide may run flush against, which is the old thin-guide result, and `kinds:
+  ["line", "hatch"]` where a box may still lie over it (an empty lane's real-size box moves the content aside).
 
 ## 26.11.49
 

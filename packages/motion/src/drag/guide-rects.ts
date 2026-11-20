@@ -10,6 +10,11 @@ export interface PlacedGuide {
 export interface ClearRect {
   readonly rect: Rect;
   readonly clearance: number;
+  /**
+   * The guide kinds this rect constrains (default: all). Content a thin guide keeps clear of, but an empty lane's
+   * real-size box lies over (it moves the content aside), is `kinds: ["line", "hatch"]`.
+   */
+  readonly kinds?: readonly PlacedGuide["kind"][];
 }
 
 export interface GuideRectsOptions {
@@ -18,9 +23,10 @@ export interface GuideRectsOptions {
   /** How far inside `inside` every guide stays, px (default 2). */
   readonly inset?: number;
   /**
-   * Rects every guide stays clear of. A plain `Rect` keeps `clearance` px (the default gap): something guides must keep
-   * apart from, such as the held item's outline. `{ rect, clearance }` keeps its own: `{ rect, clearance: 0 }` is a
-   * boundary a thin guide may run flush against (the content: a column's panels under an empty lane's thin edge).
+   * Rects guides stay clear of. A plain `Rect` keeps `clearance` px (the default gap) for every kind: something guides
+   * must keep apart from, such as the held item's outline. `{ rect, clearance, kinds? }` keeps its own, for the kinds
+   * it names: `{ rect, clearance: 0, kinds: ["line", "hatch"] }` is a boundary a thin guide may run flush against (the
+   * content: a column's panels under an empty lane's thin edge) while a box may still lie over it.
    */
   readonly clear?: readonly (Rect | ClearRect)[];
   /** How far clear of a plain `clear` rect a guide stays, px (default 2): "clear of" means at least this far. */
@@ -34,7 +40,8 @@ const EPS = 1e-6;
 /**
  * Where to draw guides: every guide inside `inside` by `inset`, and at least `clearance` px clear of every `clear` rect
  * ("clear of" means at least that far: a plain rect keeps the options' `clearance`, default 2; `{ rect, clearance }`
- * keeps its own, so pass `{ rect, clearance: 0 }` for content a thin guide may run flush against). A box is clipped,
+ * keeps its own, so pass `{ rect, clearance: 0 }` for content a thin guide may run flush against, and `kinds` to
+ * constrain only some kinds of guide, default all). A box is clipped,
  * then cut on the side that faces each clear rect (the clear rect grown by its clearance is taken out of it, and the
  * largest remaining part, left, right, above or below, is kept). A thin guide (a line, a striped strip or end: its
  * shorter side is its thickness) keeps its thickness and moves inside rather than being clipped, so a line at a lane's
@@ -54,12 +61,14 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
   const y1 = options.inside.y + options.inside.height - inset;
   const gap = Number.isFinite(options.clearance) ? Math.max(0, options.clearance!) : 2;
   // Each clear rect with the gap it keeps: its own, or the options' for a plain one.
-  const clear = (options.clear ?? []).map((c): { k: Rect; gap: number } =>
-    "rect" in c ? { k: c.rect, gap: Number.isFinite(c.clearance) ? Math.max(0, c.clearance) : gap } : { k: c, gap },
+  const allClear = (options.clear ?? []).map((c): { k: Rect; gap: number; kinds?: readonly PlacedGuide["kind"][] } =>
+    "rect" in c ? { k: c.rect, gap: Number.isFinite(c.clearance) ? Math.max(0, c.clearance) : gap, ...(c.kinds ? { kinds: c.kinds } : {}) } : { k: c, gap },
   );
   const out: G[] = [];
   for (const g of guides) {
     const r = g.rect;
+    // The clear rects that constrain this kind of guide.
+    const clear = allClear.filter((c) => !c.kinds || c.kinds.includes(g.kind));
     if (g.kind === "box") {
       let a = Math.max(r.x, x0);
       let b = Math.max(r.y, y0);
