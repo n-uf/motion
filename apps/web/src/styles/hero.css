@@ -173,7 +173,7 @@ h1.pair > span.d { grid-column: 3; padding-left: var(--gap); padding-right: var(
 .dsp-x { display: flex; }
 .hd-spec.hd-item { position: relative; width: max-content; height: 32px; font-size: 12px; line-height: 1.25; color: var(--win-text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
 .hd-spec.hd-panel { width: 104px; }
-/* The motion specimens, in the motion color: a pressed grip, the drop's dashed slot, the grab point, the settling trail. */
+/* The motion specimens: a pressed grip, the grab point and the settling trail in the motion color; the drop's dashed slot in the window's drop colors. */
 .dockzone .hd-press .hd-dots { background-image: radial-gradient(var(--motion) 1.2px, transparent 1.4px); outline: 2px solid var(--motion); outline-offset: 2px; border-radius: 3px; }
 .hd-slot { display: block; width: 104px; height: 32px; box-sizing: border-box; border: 1.5px dashed var(--signal); border-radius: 6px; background: var(--signal-soft); }
 .hd-pin { position: absolute; left: 5px; top: 50%; width: 10px; height: 10px; margin-top: -5px; box-sizing: border-box; border: 2px solid var(--motion); border-radius: 50%; background: var(--bg-raised); }
