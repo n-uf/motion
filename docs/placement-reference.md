@@ -343,6 +343,24 @@ A bar's free stretches, and a toolbar rail's (a compact edge, along its length),
 item, or lies next to a center item, it has none, so coverage is not universal: a point next to a center item that
 doesn't fit beside it can still be far from its landing (452 px at worst in the sweep scenes).
 
+**Stretch positions.** That is `options.stretchPositions: "pitched"`, the default. A free stretch is one range of
+landings, from flush against the neighbor before it to flush against the one after it; `"pitched"` samples it every
+`pitch` px, its ends included. `"free"` exposes it as one sliding spot (`LaneSpot.slide: { from, to, snaps,
+snapDistance }`, id `<lane>/<zone>/<before>|<after>@slide`): `from` and `to` are where the landing's start may lie along
+the lane, and `snaps` the starts it snaps to within `options.snapDistance` (8 px): its ends, the item's own place, and
+every other dock that lands inside the stretch beside the same neighbors (a center dock, say), each of which it takes
+over and commits as it is. No snap point lies within twice the snap distance of the item's own place, so a release
+within the snap distance of it is home. Its `target.after(point, grab)` puts the item's start at the pointer less the
+grab (along the item's own length; across it, the middle), clamped to the range and snapped, else rounded to a whole
+px, and commits a dock keeping the `space` that puts it there, so a placed neighbor consumes room as for any dock and
+stays put while the room suffices. Its `landing` is the one at the stretch's point nearest the item's own place (that
+place itself on its own stretch), else at its start; a host draws a landing model's frame (`@n-uf/motion/drag`, which
+moves it with the pointer) and commits through `after(point, grab)`, as for a float. A step comes only where the order
+changes (passing a neighbor): the cut beside a sliding spot reads its landing flush against the neighbor between them.
+Its guides are its stretch's one box, also while it is held. The range holds the landings that land where aimed with
+every fixed item kept (checked at its ends and every `pitch` px between); a stretch shorter than the item, or next to
+a center item, has none, and its plain docks stay spots of their own.
+
 Spot ids are keyed by the lane, zone and neighboring items: `<lane>/<zone>/<before>|<after>`, an empty edge's
 `<lane>/<zone>`, `@<n>` for a pitched spot (pitches from its neighbor), a virtual lane's `<lane>/line` or `<lane>/end`.
 A new column's lane is `column:<side>:<the column it lies outside, or $>`, not its ring. Ids survive the window resizing;

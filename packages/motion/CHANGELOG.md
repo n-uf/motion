@@ -3,6 +3,22 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+## Unreleased
+
+Sliding spots: a free stretch exposed as one spot, where the item lands at the hand. With `@n-uf/placement`'s
+`stretchPositions: "free"`. Host notes: additive; pass the press's `grab` to `createLandingModel`, draw `frame.landing`
+(it moves with the pointer over a sliding spot) and commit a sliding spot through its target's `after(point, grab)`,
+as for a float. A host that commits a spot by its id alone must pass the pointer for a sliding one.
+
+- `./drag`, **`LandingSpot.slide`** (`LandingSlide`: `{ from, to, snaps, snapDistance? }`, additive): over a sliding
+  spot the frame's `landing` is the spot's landing moved along the lane to the pointer less the grab, clamped to
+  `[from, to]` and snapped to the nearest snap point within `snapDistance` (`SNAP_DISTANCE`, 8 px). No steps inside it;
+  passing a neighbor is still one step.
+- `./drag`, **`LandingOptions.grab`** (additive): where the pointer holds the item, from its top left corner; default
+  the middle of `regions.item`.
+- `./drag`, **`LandingRelease.at`** (additive): on a sliding spot, the landing's start along the lane in whole px, read
+  once at the release; `home` holds only at the item's own place.
+
 ## 26.11.49
 
 Guides placed inside the window, and no "Can't go here" while the pointer enters a lane. With `@n-uf/placement`
