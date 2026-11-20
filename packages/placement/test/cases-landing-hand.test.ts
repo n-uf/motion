@@ -119,6 +119,30 @@ describe("the hand rule: the landing is the nearest in its lane", () => {
     expect(issues.join("\n")).not.toMatch(/at most/);
   });
 
+  it("the nearest clause takes landings that overlap or touch as one place, as the reference says: touching is not compared, a pixel apart is", async () => {
+    const bar: Edge = { id: "bottom", side: "bottom", ring: 0, accepts: ["group"], items: ["b", "c"], cross: { min: 36, max: 36, rail: 36 }, gap: 0, pad: { start: 8, end: 8 } };
+    const scene: Scene = { stage: rect(0, 0, 1080, 640), edges: [bar], items: { b: group("b", 1), c: group("c", 2) }, floats: [], floatKinds: ["group"] };
+    const row: LandingCase = { ...slideOver(200, HAND), scene, id: "hand-touching" };
+    const played = await createLandingHost({ landing: createLandingModel }).play({ ...row, path: [{ x: 14, y: 622 }, { x: 900, y: 622 }] });
+    const i = played.frames.findIndex((f) => f.moving && f.region === "lane" && f.point.x > 600);
+    // Over the free room the landing holds the pointer: moved its own length right, it touches the landing at the hand;
+    // a pixel further, it lies apart from it.
+    const moved = (by: number) => played.frames.map((g, k): LandingCaseFrame => (k === i ? { ...g, landing: { ...g.landing!, x: g.landing!.x + g.landing!.width + by } } : g));
+    expect(landingIssues(row, moved(0), played.layout, played.before).join("\n")).not.toMatch(/not the nearest landing/);
+    expect(landingIssues(row, moved(1), played.layout, played.before).join("\n")).toMatch(/not the nearest landing/);
+  });
+
+  it("a frame in a lane lanes() doesn't know is still held to the floor, and the issue names the lane", async () => {
+    const row = slideOver(400, { hand: true });
+    const played = await createLandingHost({ landing: createLandingModel }).play(row);
+    expect(landingIssues(row, played.frames, played.layout, played.before)).toEqual([]);
+    const i = played.frames.findIndex((f) => f.moving && f.region === "lane" && f.point.x > 290 && f.point.x < 300);
+    const far = played.frames.map((f, k): LandingCaseFrame => (k === i ? { ...f, lane: "elsewhere", landing: { ...f.landing!, x: f.point.x + 100 } } : f));
+    const issues = landingIssues(row, far, played.layout, played.before).join("\n");
+    expect(issues).toMatch(/at most 48\b/);
+    expect(issues).toMatch(/elsewhere/);
+  });
+
   it("an item in a lane with one landing on each side of the pointer may hold the nearer, and the hop's 6 px margin allows the other", async () => {
     // Every row of the suite holds on the reference host: the margin the model keeps past a boundary is within the clause.
     for (const stretchPositions of modes) for (const r of await runLandingCases(LANDING_CASES, createLandingHost({ landing: createLandingModel, stretchPositions }))) expect(r.failures, `${stretchPositions} ${r.id}`).toEqual([]);

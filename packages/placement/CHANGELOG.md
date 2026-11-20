@@ -36,7 +36,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `landing-room-*` and `landing-step-down-room` use it instead of the fixed 48/56 px, so a lane with landings far
   apart (a docked item much longer than the held one) holds its bound there: `g` is about its length less the held
   item's, plus a gutter. New exports: `handBound(g, beforeHop?)`, `HAND_TRAIL`, `HAND_TRAIL_BEFORE_HOP`, `HAND_MARGIN`,
-  `HAND_FAST`. Every row that passed still passes. Decision record `docs/decisions/0001-the-hand-rule.md`.
+  `HAND_FAST`. Every row that passed still passes. Decision record `docs/decisions/0001-the-hand-rule.md`. For the
+  nearest clause, landings that overlap or touch the held one (no more than half a pixel apart) count as its place,
+  as the checker does and the record and reference now say. A frame in a lane `lanes()` doesn't give for the row is
+  held to the floor (`handBound(0)`), its issue naming the lane, instead of going unchecked.
 
 ## 26.11.51
 
