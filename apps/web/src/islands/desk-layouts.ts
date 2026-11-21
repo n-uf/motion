@@ -5,7 +5,7 @@
  */
 import type { Rect } from "@n-uf/motion";
 import { $, caseRail, fillRanges } from "./rail";
-import { RectField } from "./motion";
+import { rectField } from "./motion";
 import { figureChrome } from "./figure-chrome";
 import { xrayOf, type XR } from "./xray";
 import { BAND_MODES, CARDS, DEFAULT, FULL_WIDTH, HAS_BAND, HAS_PILL, TOOLBAR_MODES, defaultOpts, deskSVG, keyed, layout, statusHTML, type Box, type Opt } from "../demos/desk";
@@ -65,8 +65,8 @@ function renderSegs(): void {
 const svg = $("desk") as unknown as SVGSVGElement;
 const SIZE = "\u0000size";
 let latest: Box[] = [];
-// X-ray: placement's rects (each box the construction placed, by its key) and motion's glide (each box drawn against
-// its target while it settles).
+// X-ray: the layout's rects (each box the construction placed, by its key: docking's `solve` for a dock state, the
+// page's own rules for a sketch) and motion's glide (each box drawn against its target while it settles).
 const xray = xrayOf($("figure"));
 const toView = (r: { x: number; y: number; w: number; h: number }): XR => {
   const b = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal, kx = b.width / (vb.width || 1), ky = b.height / (vb.height || 1);
@@ -88,7 +88,7 @@ function xrayDesk(rects?: Map<string, Rect>): void {
   moving = now;
 }
 xray.onChange((on) => { if (on) xrayDesk(); });
-const field = new RectField<string>((rects) => {
+const field = rectField((rects) => {
   const s = rects.get(SIZE);
   if (!s) return;
   const drawn: Box[] = [];
