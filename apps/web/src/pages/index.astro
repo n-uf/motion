@@ -83,11 +83,12 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
         <h3 id="does-motion"><code>@n-uf/motion</code> <span>how things move</span></h3>
         <p>{motionPart.does}</p>
         <dl class="entries">
-          <div><dt><code>@n-uf/motion</code></dt><dd>The frame loop on an injected clock, signals, springs and tweens with the settle, and the gesture recognizer; each also on its own as <code>./clock</code>, <code>./signals</code>, <code>./values</code>, <code>./gestures</code>.</dd></div>
-          <div><dt><code>./layout</code></dt><dd>Give items rects: the real elements settle there, size changes revealed, never stretched; a direct drag (<code>holdItem</code>), FLIP for DOM groups, reduced motion and batched drawing.</dd></div>
-          <div><dt><code>./drag</code></dt><dd>The drag intent: aiming, target priority, hysteresis, a switch delay, room made after a delay, a drop that lands where it was shown, and the three drop preview modes.</dd></div>
-          <div><dt><code>./gestures</code></dt><dd>Gestures alone: the recognizer, wheel classification, a frame coalescer, and dwell, touch-press and paged-swipe machines.</dd></div>
-          <div><dt><code>./browser</code></dt><dd>The <code>requestAnimationFrame</code> clock and the reduced-motion query.</dd></div>
+          <div><dt><code>@n-uf/motion</code></dt><dd>Everything host-free in one import: the frame loop on an injected clock, signals, springs and tweens with the settle, the gesture recognizer, the drag intent and landing model, and layout motion; each also on its own as <code>./clock</code>, <code>./signals</code>, <code>./values</code>, <code>./gestures</code>, <code>./drag</code>, <code>./layout</code>.</dd></div>
+          <div><dt><code>./layout</code></dt><dd>Give items rects: the real elements settle there, size changes revealed, never stretched; a direct drag (<code>holdItem</code>), reduced motion and batched drawing.</dd></div>
+          <div><dt><code>./drag</code></dt><dd>The drag intent: aiming, target priority, hysteresis, a switch delay, room made after a delay, a drop that lands where it was shown. The landing model (<code>createLandingModel</code>) for docking's lanes. Four drop preview modes (outline, placeholder, glide, snap) through <code>previewPlan</code>.</dd></div>
+          <div><dt><code>./gestures</code></dt><dd>Gestures alone: the recognizer, wheel classification, and dwell, touch-press and paged-swipe machines.</dd></div>
+          <div><dt><code>./clock</code></dt><dd>The frame loop, a fake clock for tests, and a frame coalescer (<code>createFrameCoalescer</code>: many pointer samples, one delivery a frame).</dd></div>
+          <div><dt><code>./browser</code></dt><dd>The <code>requestAnimationFrame</code> clock and the reduced-motion query, and the DOM writers: a layout item drawn onto an element (<code>domDrawable</code>, <code>layOutBox</code>, <code>drawBox</code>) and FLIP for DOM groups (<code>flip</code>, <code>rectOf</code>).</dd></div>
           <div><dt><code>./testing</code></dt><dd>Frame-sampled checks of the motion rules: no overshoot, no jumps, the item stays under the pointer, monotonic, tempo, and content scale.</dd></div>
         </dl>
         <p class="not"><b>It doesn't</b> decide where anything goes, and it draws nothing of its own. The core touches no DOM; no framework.</p>
@@ -110,14 +111,14 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
         <p>{dockingPart.does}</p>
         <dl class="entries">
           <div><dt><code>@n-uf/docking</code></dt><dd>One model of a whole window: edges along its sides (toolbars, side columns of panels, docks), each with start, center and end zones, fixed items such as a title, and floats kept clear of every bar. <code>solve</code> returns every rect, with notes that say what gave way; columns narrow, then fold to their rails, least recently used first.</dd></div>
-          <div><dt>Drop targets</dt><dd><code>targets</code> returns every drop target of one item in the shape motion's drag takes, each carrying the layout a release there makes; <code>stops</code> orders them for the arrow keys. Pure changes and a stored form.</dd></div>
+          <div><dt>Drop targets</dt><dd><code>targets</code> returns every drop target of one item in the shape motion's drag takes, each carrying the layout a release there makes; <code>lanes</code> arranges the same places for motion's landing model; <code>stops</code> orders them for the arrow keys. Pure changes and a stored form.</dd></div>
           <div><dt><code>./testing</code></dt><dd>The conformance rows: checks that a layout and its drops keep the docking rules.</dd></div>
         </dl>
         <p class="not"><b>It doesn't</b> draw panels or tabs, and it moves nothing: dock state in, rects and drop targets out; you draw the window. No DOM, no framework.</p>
         <p class="links"><code class="cmd"><span class="prompt" aria-hidden="true">$</span> npm i @n-uf/docking</code> <ExtLink href={dockingPart.readme}>README on GitHub</ExtLink> <a href="/docs/docking/">Docs</a></p>
       </article>
     </div>
-    <p class="does-together"><b>Alone or together.</b> Motion imports neither of the others: docking's drop targets are what motion's drag takes, a rect from any of them is what motion's layout glides to, and popups and tiles come from placement.</p>
+    <p class="does-together"><b>Alone or together.</b> Motion imports neither of the others: docking's drop targets and lanes are what motion's drag takes, a rect from any of them is what motion's layout glides to, and popups and tiles come from placement.</p>
   </section>
 
   <!-- Use one, or combine them: four cards, then one example per package (each compiled against it). -->
