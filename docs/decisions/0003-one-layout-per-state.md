@@ -2,8 +2,7 @@
 
 While its room is open, a held frame draws exactly the layout its release commits: every item, the landing and every
 guide come from one function, `dockDrag(...).after(state)`, and the landing model picks states instead of doing
-geometry. (A float frame, whose room is not open, and the Outline mode draw the window at rest; see the float exception
-below.)
+geometry. (The other frames: see the float exception below.)
 
 ## Context
 
@@ -57,12 +56,8 @@ frame and the commit alike. Taken: the second.
   float, the held item's landing) as a layout clear: the marks already leave them out. It may keep a cosmetic
   clearance around its own held chrome, the held copy's outline as drawn (the lab keeps guides 2 px clear of it in the
   held lane), through `guideRects`' `clear`; that only trims a guide by a few pixels and never decides where one lies.
-- **The float exception, part of the contract.** The draw rule is stated once, in docs/docking.md, "What a held frame
-  draws": a held frame draws `after(held).layout` while its room is open; a float frame whose room is not open, and the
-  Outline mode, draw the window at rest (`after(null)`) until release. `after(float)` is what the drop commits, so
-  docked items close the gap at release (the one-preview rule: the dragged item is the only thing that moves). The float's landing still equals
-  the commit. It is the DOM sweep's one exception (`one-layout-items-landing` checks only the landing on float
-  frames). Decided (2026-11-21): the gap closes when the item is let go, not during the drag.
+- **The float exception, part of the contract.** What a held frame draws is the draw rule of docs/docking.md, "What a
+  held frame draws". Decided (2026-11-21): for a float the gap closes when the item is let go, not during the drag.
 - **No two boxes overlap; a line may cross another lane's box.** A panel joint drawn across a new column's room is a
   marker over a place, not two places claiming one room, and the box keeps the item's length (cutting it there would
   lose a real place).

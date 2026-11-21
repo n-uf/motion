@@ -444,10 +444,7 @@ there, or null), `marks` (every lane's, `DockLaneMark` = a `DockMark` with its `
 spot, `spots` (its lane's stretches cut in that layout). A fixed spot's `after` is solved once at the lift and
 remembered by id; a sliding spot's per start (`LaneSlide`'s rule: the same computation as `target.after(point, grab)`);
 a float's for the last pointer. Rest is the window as seen with `lanes()`' marks. **Which layout a held frame draws** is
-the draw rule of docs/docking.md ("What a held frame draws"): `after(held).layout` while the frame's room is open; a float
-frame whose room is not open, and the Outline mode, draw the window at rest (`after(null).layout`), and the gap closes on
-release. Today the host picks between the two (`DockGuideFrame` carries no room, and `guides(frame)` reads
-`after(frame.state)` as the screen). `landingOf(held)` is
+the draw rule of docs/docking.md ("What a held frame draws"). `landingOf(held)` is
 `after(held).landing`; `spotsOf(spot)` is a spot's lane's stretches in its own layout. `guides(frame)` takes a landing
 frame (`DockGuideFrame`: its `state` and its `guides`, `{ lane, state }` each) and gives its guides (`DockGuide`): each
 lane's marks in the layout of the state it names; a lane drawn on screen less the landing the pointer would take in

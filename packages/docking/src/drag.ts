@@ -1,7 +1,8 @@
 /**
  * One layout for a drag's held frame and its commit: `dockDrag(state, dragged, options)` gives the drag's hit-testing
- * data (`regions`, as seen) and `after(held)`, THE layout of a state of the drag. A held frame draws every item, the
- * landing and every guide from `after(held)`, and a release commits exactly `after(held).state`.
+ * data (`regions`, as seen) and `after(held)`, THE layout of a state of the drag. While its room is open, a held frame
+ * draws every item, the landing and every guide from `after(held)` (docs/docking.md, "What a held frame draws"), and a
+ * release commits exactly `after(held).state`.
  *
  * - **A state** (`DockHeld`) is where a release now lands: a lane's spot with the pointer (`point`; a sliding spot lands
  *   where the hand holds it, the one sliding rule `LaneSlide` states), or the float at the pointer. No state (`null`) is
@@ -47,7 +48,7 @@ export interface DockLaneMark extends DockMark {
   readonly lane: string;
 }
 
-/** THE layout of a state of a drag: what a release commits, and what its held frame draws. */
+/** THE layout of a state of a drag: what a release commits, and what its held frame draws while its room is open. */
 export interface DockAfter extends DropResult {
   /** The held item's rect in `layout`, or null at rest (and where a float can't land). */
   readonly landing: Rect | null;

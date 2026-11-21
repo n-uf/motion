@@ -18,4 +18,4 @@ The landing model's distance bound is 0001. Three shipped rules have no record y
 |---|---|---|
 | 0001 | [The hand rule](0001-the-hand-rule.md): the landing is the nearest in its lane, within `max(48, g / 2 + 6)` px of the pointer | 2026-11-20 |
 | 0002 | [A held frame's marks follow the edge as drawn](0002-held-marks-follow-the-drawn-edge.md): marks clip in the layout they are drawn in, the hit rect as seen | 2026-11-20 |
-| 0003 | [One layout per state of a drag](0003-one-layout-per-state.md): a held frame draws `after(state)`, which its release commits; the landing model takes states | 2026-11-20 |
+| 0003 | [One layout per state of a drag](0003-one-layout-per-state.md): a held frame draws `after(state)`, which its release commits, while its room is open; the landing model takes states | 2026-11-20 |
