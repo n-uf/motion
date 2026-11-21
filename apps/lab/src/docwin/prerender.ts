@@ -22,7 +22,7 @@ export interface Dump extends Pick<ProbeFrame, "landing" | "lane" | "spot" | "pe
   readonly pointer: { readonly x: number; readonly y: number } | null;
   readonly held: { readonly id: string; readonly rect: Rect; readonly placed: string | null } | null;
   readonly region: string | null;
-  /** `hidden` and `tiers` are the item's layout's (`SceneItemLayout`), left out when empty. */
+  /** `hidden` and `tiers` are the item's layout's (`DockItemLayout`), left out when empty. */
   readonly items: readonly { readonly id: string; readonly edge: string | null; readonly form: string | null; readonly rect: Rect; readonly hidden?: readonly string[]; readonly tiers?: Readonly<Record<string, number>> }[];
   readonly errors: readonly string[];
   /** A key frame a check marked (`mark`): what it is, such as the window's width. */
