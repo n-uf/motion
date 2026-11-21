@@ -10,6 +10,14 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `resizeBetween`, `resetBetween` and `resetLengths` trade length between the nearest open growing items (a collapsed
   item between two open ones gives one divider, on its far edge; `StackDivider`, `StackLengths`). Additive: a stack that
   declares no length is laid out exactly as before.
+- `./stack`, **a divider drag writes the pair's lengths only, in ask units**: `resizeBetween` writes a `length` for the
+  two items of the dragged pair and for no other item, so a bystander moved to another stack is laid out as an item nobody
+  resized. `length` is in ask units, not drawn px; with room to spare a drawn size is the ask times the shared scale, so
+  the pair's ask is its drawn size over that scale (short of room, `least + (drawn - least) / share`), which leaves the
+  scale and every other drawn size as they were. A collapsed item no longer gets a length from a drag of its neighbors:
+  reopened, it keeps its proportion all the same. One case still writes the whole stack at the drawn sizes: with room, an
+  end dragged under the scale times its least (it would ask for less than its least), so it still reaches its least.
+  `resetBetween` is as it was.
 
 ## 26.11.54
 

@@ -198,23 +198,28 @@ resetLengths(input: StackInput): StackInput;
   their least and their length, so a divider still trades room in a tight column. A form that doesn't grow (a header, a
   rail icon, a group, a folded item) ignores the length: it is kept for when the item grows again. A stack whose items
   declare none is laid out exactly as before, and what gives way, in which order, never reads a length. `length` is
-  plain data: store it, read it back, and an older state without it lays out as it always did.
+  plain data: store it, read it back, and an older state without it lays out as it always did. `length` is in ask
+  units, not drawn px; with room to spare a drawn size is the ask times the shared scale.
 - **A re-measured natural moves nothing** of a sized item, and closing an item shares its room among the others in
   proportion; reopened with its length at the same stack length, it comes back as it was. A longer or shorter stack scales the
   lengths together (they are relative), so shrinking and growing back gives the same layout. An item that moves to
   another stack keeps its length; it is per axis, so a bar never reads a column length.
 - **`resizeBetween(input, before, after, delta)`** moves `delta` px from `after` to `before` (a negative `delta` the other
   way) and returns the new state. `before` and `after` must be neighboring growing items, both ends, in that order;
-  a header, a rail icon, a group or a folded item between them doesn't matter. Every resize writes the length every growing
-  item (the ones that share spare length: any drawn form with `main.grows`, a fixed one and a `wrap` one included) is drawn
-  at, so nothing else shifts; the pair then moves. With spare length it also writes, for each collapsed item that has no
-  length and a form that grows, `scale` times that form's natural (`scale` = how much longer than it asks a growing form is
-  drawn), so the item keeps its proportion when it reopens. Neither goes under its least: `delta` is clamped to
+  a header, a rail icon, a group or a folded item between them doesn't matter. A resize writes the lengths of the two
+  items of the pair, and no other item gets one: a bystander keeps whatever it had, none when nobody sized it, so it goes
+  to another stack as the item it is. The lengths are asks, not drawn sizes: with room to spare the pair's ask is its drawn
+  size over `scale` (`scale` = how much longer than it asks a growing form is drawn); short of length it is
+  `least + (drawn - least) / share`, `share` being the share of the way from least to ask the stack was drawn at. The
+  pair's drawn sizes add up to what they did and so do its asks, so the weight the length is shared by and the scale are
+  unchanged, and nothing else shifts; the pair lays out exactly as drawn, whatever the items that don't grow do. With spare
+  length one case is written for the whole stack instead: an end drawn under `scale` times its least would ask for less
+  than its least, which reads as its least and is drawn longer, so the stack is written at the drawn sizes (every growing
+  item, and for each collapsed item that has no length and a form that grows `scale` times that form's natural, so it keeps
+  its proportion when it reopens). Neither goes under its least: `delta` is clamped to
   the divider's `range`, so nothing collapses and nothing is pushed. It returns the same object when nothing changes
   (not neighbors, an unknown id, a `delta` that isn't a number, or one clamped to 0). A drag computes each frame from the state
-  at the press and the pointer's distance from it. `options.previous` is the fit the stack had, as for `fitStack`. Short of
-  length the lengths written are the drawn sizes scaled back by the share the stack was drawn at, so that they lay out
-  exactly as drawn, whatever the items that don't grow do; with room for all, they are the drawn sizes.
+  at the press and the pointer's distance from it. `options.previous` is the fit the stack had, as for `fitStack`.
 - **`dividers(input, fit)`** gives one divider per pair of neighboring growing items that are both ends. A collapsed item
   (a header, a rail icon, a group, an item in the » menu) has no divider of its own; where collapsed items sit between two
   open ones there is one divider between the open ones, its `rect` on the far edge of the last collapsed one (the lower edge
@@ -226,7 +231,8 @@ resetLengths(input: StackInput): StackInput;
 - **`resetBetween(input, before, after)`** gives the two items the split they would be drawn at if both asked for their
   natural, their combined drawn length kept and nothing else moving: in proportion to their naturals (`main.natural`) with
   room for both, and `least + (natural - least) * s` with one shared `s` when short. The double-click action. The same
-  object when the two are at that split already, which a pair nobody resized always is, in every regime.
+  object when the two are at that split already, which a pair nobody resized always is, in every regime. Unlike a drag it
+  writes the length every growing item is drawn at.
 - **`resetLengths(input)`** deletes every length of the stack's axis, back to the split a stack with none has. An item's
   length for the other axis stays; the same object when no item had a length for this axis.
 
