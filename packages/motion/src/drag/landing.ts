@@ -504,8 +504,26 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   function guidesFor(p: Point, region: LandingRegion, shift: boolean, pending: string | null, landing: Rect | null): LandingGuide[] {
     if (guidesLevel === "off" || shift) return [];
     const regions = heldRegions(spotId);
+    /**
+     * A lane's guides: its `marks`, or while it is the lane the pointer picks (`near`) its `entry`, as they are drawn:
+     * inside its rect, as placement clips a lane's marks (a box to the piece inside, a line kept whole or not at all).
+     * What a lane can show of its prediction is decided here, once; the corner it owns (`owner` below) is the part of
+     * it that this covers, never more.
+     */
     const all = (l: LandingLane, near = false): LandingGuide[] => {
-      const marks = near && l.entry ? l.entry : l.marks;
+      if (near && l.entry) {
+        const box = l.rect;
+        return l.entry.flatMap((m, i): LandingGuide[] => {
+          const left = Math.max(m.rect.x, box.x);
+          const top = Math.max(m.rect.y, box.y);
+          const width = Math.min(m.rect.x + m.rect.width, box.x + box.width) - left;
+          const height = Math.min(m.rect.y + m.rect.height, box.y + box.height) - top;
+          const kept = width > m.rect.width - 1e-6 && height > m.rect.height - 1e-6;
+          if (!kept && (m.kind === "line" || width <= 1e-6 || height <= 1e-6)) return [];
+          return [{ id: m.id ?? `${l.id}#${i}`, lane: l.id, kind: m.kind, rect: kept ? m.rect : { x: left, y: top, width, height } }];
+        });
+      }
+      const marks = l.marks;
       return marks
         ? marks.map((m, i) => ({ id: m.id ?? `${l.id}#${i}`, lane: l.id, kind: m.kind, rect: m.rect }))
         : l.spots.map((s) => ({ id: `${l.id}/${s.id}`, lane: l.id, kind: "box" as const, rect: s.landing }));
@@ -555,14 +573,25 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         }
       }
     }
+    // Where the corner goes is decided here, once: a lane the owner names hands it over only if the owner's mark, as it is
+    // drawn (`all(owner, true)`: its entry inside its rect), covers the lane's marks across their whole thickness where
+    // they meet it. Else the lane keeps it and the owner's mark gives the overlap up (a lane that stops short of the
+    // bar's band, or reaches only part of it, takes nothing it can't draw).
+    const drawnEntry = owner ? all(owner, true).map((g) => g.rect) : [];
+    const takes = (l: LandingLane): boolean => {
+      const across = (r: Rect): readonly [number, number] => (l.axis === "x" ? [r.y, r.y + r.height] : [r.x, r.x + r.width]);
+      return all(l).every((g) => drawnEntry.every((c) => !area(g.rect, c) || (across(c)[0] <= across(g.rect)[0] + 1e-6 && across(c)[1] >= across(g.rect)[1] - 1e-6)));
+    };
+    const named = owner ? owner.corners!.map((id) => regions.lanes.find((x) => x.id === id)).filter((x): x is LandingLane => !!x) : [];
+    const handed = new Set(named.filter(takes).map((x) => x.id));
+    const kept = named.filter((x) => !handed.has(x.id)).flatMap((x) => all(x).map((g) => g.rect));
     // The owner shows its mark once entered less the landing it would take there, whether it is Near or only the corner's
     // owner by reach: the lane the pointer approaches shows what entry draws, with no jump at entry.
-    const ownerMarks = owner ? nearGuides(owner) : [];
-    const cutBy = owner ? owner.entry!.map((m) => m.rect) : [];
+    const ownerMarks = owner ? less(nearGuides(owner), kept) : [];
     return regions.lanes.flatMap((l) => {
       if (owner && l.id === owner.id) return ownerMarks;
       if (near && l.id === near.id) return nearGuides(l);
-      return owner?.corners!.includes(l.id) ? less(all(l), cutBy) : all(l);
+      return handed.has(l.id) ? less(all(l), drawnEntry) : all(l);
     });
   }
 

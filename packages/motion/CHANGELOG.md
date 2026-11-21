@@ -48,6 +48,17 @@ a removal, with the name or the call to use instead.
 
 Unreleased on the release line since 26.11.52 (behavior; they ship there first and leave this section when they do):
 
+- `./drag`, **a shared corner moves to a lane only when that lane's mark covers it; otherwise the bar keeps it** (fix).
+  Under guides `"all"`, a rail that owns a corner (near it, or nearest within reach) cut the bar's guide where its
+  whole `entry` overlapped it, even where the rail's lane stops short of the bar's band, or reaches only part of it,
+  so its mark, drawn inside its own `rect`, left the corner with no guide at all. A lane's `entry` is now taken as it
+  is drawn (inside its `rect`), and the bar hands the corner over only where that mark covers the bar's guide across
+  its whole thickness; else the bar keeps it and the rail's mark gives the overlap up.
+- `./drag`, **`guideRects` shortens a thin guide that a clear rect meets only at its end** (fix). A line or a striped
+  strip met by a rect at one end of its length only (a toolbar over the last 10 px of a column's line) was thinned
+  across its thickness by that rect and so dropped whole. It is now shortened along its length, as a box is trimmed at
+  one end: it loses the overlap and the clearance, and keeps `minLength` or is left out. A rect across its middle (or
+  over all its length) thins it as before.
 - `./drag`, **`guideRects` widens thin lines** (behavior change). A `line` guide thinner than the new option
   `lineThickness` (default 2 px) is widened to it, centered on its own position, before the inset, the clear rects and
   `minThickness` apply; a line at least that thick is unchanged. Hosts that passed zero-thick lines (docking gives
