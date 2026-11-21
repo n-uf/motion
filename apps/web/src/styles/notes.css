@@ -3,7 +3,7 @@
  * right now. Decoration only: every list is aria-hidden, the prose under the figure stays the one readable copy, and
  * nothing here moves layout (absolute, inside the fixed-size stage). They are driven by classes the islands already
  * toggle (`:has()`), and follow the moving parts with CSS anchor positioning, so there is no measuring loop and no
- * script. Colour is the page's part (--part: cyan for motion, violet for placement), orange only for a drop.
+ * script. Colour is the page's part (--part: cyan for motion, violet for placement, rose for docking), orange only for a drop.
  * Below 640 px, and where anchors are not supported, the in-stage notes are hidden and `.notes-key` under the figure
  * gives the same words as a plain key. The words stay true to the packages: placement computes where things go and
  * moves nothing; motion moves the rects it is given; the drag intent reads aiming.
