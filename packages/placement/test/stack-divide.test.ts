@@ -294,7 +294,7 @@ describe("properties", () => {
     ],
   });
   const sizedOrNot = (rand: () => number, items: readonly StackItem[], axis: "column" | "row"): StackItem[] =>
-    items.map((it) => (rand() < 0.5 ? { ...it, lengths: { [axis]: 60 +Math.floor(rand() * 400) } } : it));
+    items.map((it) => (rand() < 0.5 ? { ...it, lengths: { [axis]: 60 + Math.floor(rand() * 400) } } : it));
   const growing = (input: StackInput, fit: StackFit): string[] =>
     fit.items.filter((p) => input.items.find((it) => it.id === p.id)!.forms[p.form]!.main.grows === true && p.kind !== "menu").map((p) => p.id);
 
