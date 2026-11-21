@@ -16,6 +16,7 @@
  */
 export { cutEdges, type BandSide, type EdgeBand, type EdgeCut } from "./cut";
 export { fitStack } from "./layout";
+export { controlLadder, type ControlLadder, type ControlLadderSpec, type LadderControl } from "./ladder";
 export {
   DEFAULT_MENU,
   DEFAULT_RAIL,
